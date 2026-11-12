@@ -17,33 +17,33 @@
 // desugaring builds a right-nested cons chain, so a lowering that let the
 // slots evaluate in nesting order rather than source order prints them
 // backwards.
-import {
+import
     std::calendar.Date
     std::io
     std::literals.{Fragment, Literal}
     tally.Tally
     wrap.{Slot, Slots, Wrap}
-}
+end
 
 pub type Local
 
-impl Literal for Local {
-    fn from_fragments(fragments: List<Fragment<String>>) -> String {
-        Iter.reduce(fragments, "<", fn acc, frag -> {
-            case frag {
+impl Literal for Local
+    fn from_fragments(fragments: List<Fragment<String>>) -> String
+        Iter.reduce(fragments, "<", fn acc, frag ->
+            case frag
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "[" + v + "]"
-            }
-        }) + ">"
-    }
-}
+            end
+        end) + ">"
+    end
+end
 
-fn shout(s: String) -> String {
+fn shout(s: String) -> String
     io.print("slot/" + s)
     s
-}
+end
 
-fn main() {
+fn main()
     name = "ada"
 
     // NEGATIVE CONTROL: this file's own handler, three spellings.
@@ -58,10 +58,10 @@ fn main() {
     )
 
     // NEGATIVE CONTROL: a stdlib handler, reached through the anchor.
-    case Date"2026-01-01" {
+    case Date"2026-01-01"
         Ok(d) -> io.print(Date.to_string(d))
         Err(_) -> io.print("unparsed")
-    }
+    end
 
     // THE ROUTE: a sibling handler at `Fragment<Int>`, where a swapped payload
     // cannot pass for the right one, because the two payload types differ.
@@ -78,4 +78,4 @@ fn main() {
 
     // SOURCE ORDER, printed from inside the slots.
     io.print(Local"${shout("a")}${shout("b")}${shout("c")}")
-}
+end

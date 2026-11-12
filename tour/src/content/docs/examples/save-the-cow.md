@@ -14,107 +14,107 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# A word-guessing game in the style of hangman.
 
 /// Where a game stands.
-pub enum State {
+pub enum State
     Ongoing
     Win
     Lose
-}
+end
 
 /// A guess the game no longer takes.
-pub enum Error {
+pub enum Error
     AlreadyWon
     AlreadyLost
-}
+end
 
-impl Display for Error {
-    fn to_string(error: Error) -> String {
-        case error {
+impl Display for Error
+    fn to_string(error: Error) -> String
+        case error
             .AlreadyWon -> "cannot guess after the game is won"
             .AlreadyLost -> "cannot guess after the game is lost"
-        }
-    }
-}
+        end
+    end
+end
 
 /// How many failures a game allows before the one that loses it.
 once allowed_failures = 9
 
 /// A word-guessing game. It is a value: each guess answers the game after
 /// it.
-pub opaque struct Game {
+pub opaque struct Game
     word: List<Codepoint>
     revealed: Set<Codepoint>
     remaining_failures: Int
     state: State
-}
+end
 
-impl Game {
+impl Game
     /// A new game whose secret is `word`, with no letters revealed.
-    pub fn new(word: String) -> Game {
-        .{
+    pub fn new(word: String) -> Game
+        {
             word: String.to_codepoints(word),
-            revealed: %[],
+            revealed: [],
             remaining_failures: allowed_failures,
             state: .Ongoing,
         }
-    }
+    end
 
     /// The game after guessing `letter`. A letter of the word not yet
     /// revealed reveals every place it stands; any other guess is a failure,
     /// and a failure with none remaining loses.
-    pub fn guess(game: Game, letter: Codepoint) -> Result<Game, Error> {
-        case game.state {
+    pub fn guess(game: Game, letter: Codepoint) -> Result<Game, Error>
+        case game.state
             .Win -> Err(.AlreadyWon)
             .Lose -> Err(.AlreadyLost)
             .Ongoing when is_hidden(game, letter) -> Ok(reveal(game, letter))
-            .Ongoing when game.remaining_failures == 0 -> Ok(.{..game, state: .Lose})
-            .Ongoing -> Ok(.{..game, remaining_failures: game.remaining_failures - 1})
-        }
-    }
+            .Ongoing when game.remaining_failures == 0 -> Ok({..game, state: .Lose})
+            .Ongoing -> Ok({..game, remaining_failures: game.remaining_failures - 1})
+        end
+    end
 
     /// Where the game stands.
-    pub fn state(game: Game) -> State {
+    pub fn state(game: Game) -> State
         game.state
-    }
+    end
 
     /// The word with each letter not yet revealed written as `_`.
-    pub fn masked_word(game: Game) -> String {
+    pub fn masked_word(game: Game) -> String
         game.word
-        |> Iter.map(fn letter -> {
-            if letter in game.revealed { letter } else { '_' }
-        })
+        |> Iter.map(fn letter ->
+            if letter in game.revealed then letter else '_'
+        end)
         |> Iter.to_list()
         |> String.from_codepoints()
-    }
+    end
 
     /// How many more failures the game allows before the one that loses it.
-    pub fn remaining_failures(game: Game) -> Int {
+    pub fn remaining_failures(game: Game) -> Int
         game.remaining_failures
-    }
-}
+    end
+end
 
 /// Whether `letter` is in the word and not yet revealed.
-fn is_hidden(game: Game, letter: Codepoint) -> Bool {
+fn is_hidden(game: Game, letter: Codepoint) -> Bool
     letter in game.word and not letter in game.revealed
-}
+end
 
 /// `game` with `letter` revealed, won when that reveals the whole word.
-fn reveal(game: Game, letter: Codepoint) -> Game {
+fn reveal(game: Game, letter: Codepoint) -> Game
     revealed = Set.insert(game.revealed, letter)
     won = Iter.all_match(game.word, &(&1 in revealed))
 
-    .{..game, revealed, state: if won { .Win } else { .Ongoing }}
-}
+    {..game, revealed:, state: if won then .Win else .Ongoing}
+end
 
 // FILE: save_the_cow_test.nomi
 import save_the_cow.{Error, Game, State}
 
 /// A new game of `word` after each of `guesses` in turn, or the first
 /// guess it refuses.
-fn play(word: String, guesses: List<Codepoint>) -> Result<Game, Error> {
+fn play(word: String, guesses: List<Codepoint>) -> Result<Game, Error>
     Iter.try_reduce(guesses, Game.new(word), Game.guess)
-}
+end
 
-test "guess" {
+test "guess"
     [
         (
             "Initially 9 failures are allowed and no letters are guessed",
@@ -149,15 +149,15 @@ test "guess" {
             0,
         ),
     ]
-    |> subtests (description, guesses, state, masked_word, remaining_failures), description {
+    |> subtests (description, guesses, state, masked_word, remaining_failures), description
         assert Ok(game) = play("loot", guesses)
         assert Game.state(game) == state
         assert Game.masked_word(game) == masked_word
         assert Game.remaining_failures(game) == remaining_failures
-    }
-}
+    end
+end
 
-test "guessing after the game is over" {
+test "guessing after the game is over"
     [
         (
             "Guessing after a lose is error",
@@ -170,11 +170,11 @@ test "guessing after the game is over" {
             "cannot guess after the game is won",
         ),
     ]
-    |> subtests (description, guesses, message), description {
+    |> subtests (description, guesses, message), description
         assert Err(error) = play("loot", guesses)
         assert "${error}" == message
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok guess (8 cases)

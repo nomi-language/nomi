@@ -62,11 +62,11 @@ fn tick() -> Int go ffi.Tick
 
 opaque type RawConn go db.Conn
 
-impl RawConn {
+impl RawConn
   fn open(path: String) -> Result<RawConn, String> go db.Open
 
   fn close(conn: RawConn) -> Unit go db.Close
-}
+end
 `,
 		},
 	},
@@ -111,15 +111,15 @@ fn parse(s: String) -> String go urltools.Parse
 			"main.nomi": "import boxes\n",
 			"boxes.nomi": `gopkg "example.com/app/ffi" as ffi
 
-pub struct Box<T> {
+pub struct Box<T>
   value: T
-}
+end
 
-impl Box<T> {
+impl Box<T>
   pub fn peek(b: Box<T>) -> Int go ffi.Peek
 
   pub fn origin() -> Int go ffi.Origin
-}
+end
 `,
 		},
 	},
@@ -129,25 +129,25 @@ impl Box<T> {
 			"main.nomi": "import scoring\n",
 			"scoring.nomi": `gopkg "example.com/app/ffi" as ffi
 
-pub struct Score {
+pub struct Score
   points: Int
-}
+end
 
-pub struct Bonus {
+pub struct Bonus
   points: Int
-}
+end
 
-impl Add<Score, Score> for Score {
+impl Add<Score, Score> for Score
   fn add(a: Score, b: Score) -> Score go ffi.AddScores
-}
+end
 
-impl Add<Bonus, Score> for Score {
+impl Add<Bonus, Score> for Score
   fn add(a: Score, b: Bonus) -> Score go ffi.AddBonus
-}
+end
 
-impl Display for Score {
+impl Display for Score
   fn to_string(s: Score) -> String go ffi.ScoreString
-}
+end
 `,
 		},
 	},

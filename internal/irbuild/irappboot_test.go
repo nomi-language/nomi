@@ -12,185 +12,202 @@ func TestIRAppBoot_ProgramsBootThroughTheVM(t *testing.T) {
 		name, src, want string
 		retained        []string
 	}{
-		{"app-fields.md:L13", `import {
+		{"app-fields.md:L13", `import
   std::io
-}
+end
 
-struct App {
+struct App
   port: Int
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{port: 8080, context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
   io.print("listening on :${App.port}")
-}
+end
 `, "listening on :8080\n", []string{"boot", "main"}},
-		{"app-fields.md:L80", `import {
+		{"app-fields.md:L80", `import
   std::io
-}
+end
 
-interface Logger {
+interface Logger
   fn log(logger: self, msg: String) -> Unit
-}
+end
 
 type Stdout
-impl Logger for Stdout {
-  fn log(_logger: Stdout, msg: String) -> Unit {
+impl Logger for Stdout
+  fn log(_logger: Stdout, msg: String) -> Unit
     io.print("[log] ${msg}")
-  }
-}
+  end
+end
 
-struct PrefixedLogger { tag: String }
-impl Logger for PrefixedLogger {
-  fn log(logger: PrefixedLogger, msg: String) -> Unit {
+struct PrefixedLogger
+    tag: String
+end
+impl Logger for PrefixedLogger
+  fn log(logger: PrefixedLogger, msg: String) -> Unit
     io.print("[${logger.tag}] ${msg}")
-  }
-}
+  end
+end
 
-struct App {
+struct App
   logger: Logger
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{logger: Stdout, context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
   greet("World")
   audit_greet("Alice")
   greet("Bob")
-}
+end
 
-fn audit_greet(name: String) {
+fn audit_greet(name: String)
   with App.logger = PrefixedLogger{tag: "audit"}
   greet(name)
-}
+end
 
-fn greet(name: String) {
+fn greet(name: String)
   Logger.log(App.logger, "hello, ${name}")
-}
+end
 `, "[log] hello, World\n[audit] hello, Alice\n[log] hello, Bob\n",
 			[]string{"boot", "main", "audit_greet", "greet", "Stdout.log", "PrefixedLogger.log"}},
 		{"field reads in a helper", `import std::io
 
-struct App {
+struct App
   name: String
   port: Int
   context: Context
-}
+end
 
-fn base() -> Int { 8000 }
+fn base() -> Int
+    8000
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{name: "api", port: base() + 80, context: Context.root()})
-}
+end
 
-fn address() -> String { "${App.name}:${App.port}" }
+fn address() -> String
+    "${App.name}:${App.port}"
+end
 
-fn main() {
+fn main()
   io.print(address())
   io.print(App.port + 1)
-}
+end
 `, "api:8080\n8081\n", []string{"boot", "address", "main"}},
 		{"a struct-typed field", `import std::io
 
-struct Config {
+struct Config
   host: String
   port: Int
-}
+end
 
-struct App {
+struct App
   config: Config
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{config: Config{host: "localhost", port: 5432}, context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
   c = App.config
   io.print("${c.host}:${c.port}")
-}
+end
 `, "localhost:5432\n", []string{"boot", "main"}},
 		{"a scoped write restored after the function returns", `import std::io
 
-struct App {
+struct App
   level: Int
   label: String
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{level: 1, label: "base", context: Context.root()})
-}
+end
 
-fn show() -> String { "${App.label}@${App.level}" }
+fn show() -> String
+    "${App.label}@${App.level}"
+end
 
-fn louder() -> String {
+fn louder() -> String
   with App.level = App.level + 10
   with App.label = String.lowercase("LOUD")
   io.print(App.level)
   io.print(show())
   deeper()
-}
+end
 
-fn deeper() -> String {
+fn deeper() -> String
   with App.level = App.level * 2
   show()
-}
+end
 
-fn main() {
+fn main()
   io.print(show())
   io.print(louder())
   io.print(show())
-}
+end
 `, "base@1\n11\nloud@11\nloud@22\nbase@1\n", []string{"boot", "show", "louder", "deeper", "main"}},
 		{"an erased field bound, then dispatched", `import std::io
 
-interface Shape {
+interface Shape
   fn area(shape: self) -> Int
-}
+end
 
-struct Square { side: Int }
-impl Shape for Square {
-  fn area(square: Square) -> Int { square.side * square.side }
-}
+struct Square
+    side: Int
+end
+impl Shape for Square
+  fn area(square: Square) -> Int
+      square.side * square.side
+  end
+end
 
-struct Rect { w: Int; h: Int }
-impl Shape for Rect {
-  fn area(rect: Rect) -> Int { rect.w * rect.h }
-}
+struct Rect
+    w: Int
+    h: Int
+end
+impl Shape for Rect
+  fn area(rect: Rect) -> Int
+      rect.w * rect.h
+  end
+end
 
-struct App {
+struct App
   shape: Shape
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{shape: Square{side: 3}, context: Context.root()})
-}
+end
 
-fn report(label: String) -> Unit {
+fn report(label: String) -> Unit
   s = App.shape
   io.print("${label}: ${Shape.area(s)}")
-}
+end
 
-fn wide() -> Unit {
+fn wide() -> Unit
   with App.shape = Rect{w: 2, h: 5}
   report("rect")
-}
+end
 
-fn main() {
+fn main()
   report("square")
   wide()
   report("square again")
-}
+end
 `, "square: 9\nrect: 10\nsquare again: 9\n", []string{"boot", "report", "wide", "main"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -205,41 +222,41 @@ fn main() {
 func TestIRAppBoot_DeferAndBranchRun(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-struct Ports {
+struct Ports
   port: Int
   execution: Context
-}
+end
 
-fn boot() -> Result<Ports, String> {
+fn boot() -> Result<Ports, String>
   Ok(Ports{port: 8080, execution: Context.root()})
-}
+end
 
-fn note(s: String) -> Unit {
+fn note(s: String) -> Unit
   io.print(s + " " + Int.to_string(Ports.port))
-}
+end
 
-fn deferred() -> Unit {
+fn deferred() -> Unit
   defer note("done")
   with Ports.port = 9090
   io.print(Ports.port)
-}
+end
 
-fn branching(on: Bool) -> Unit {
+fn branching(on: Bool) -> Unit
   with Ports.port = 7070
-  if on {
+  if on then
     io.print(Ports.port)
-  } else {
+  else
     io.print("off")
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(Ports.port)
   deferred()
   branching(True)
   branching(False)
   io.print(Ports.port)
-}
+end
 `, "8080\n9090\ndone 8080\n7070\noff\n8080\n", "boot", "deferred", "branching", "main")
 }
 
@@ -248,13 +265,13 @@ fn main() {
 func TestIRAppBoot_AnonymousBootRuns(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-fn boot() -> Result<.{port: Int, execution: Context}, String> {
-  Ok(.{port: 8080, execution: Context.root()})
-}
+fn boot() -> Result<{port: Int, execution: Context}, String>
+  Ok({port: 8080, execution: Context.root()})
+end
 
-fn main() {
+fn main()
   io.print("ran")
-}
+end
 `, "ran\n", "boot", "main")
 }
 
@@ -264,29 +281,35 @@ fn main() {
 func TestIRAppBoot_AFinalErasedReceiverRuns(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-interface Named {
+interface Named
   fn name(named: self) -> String
-}
+end
 
-struct Plain { label: String }
-impl Named for Plain {
-  fn name(plain: Plain) -> String { plain.label }
-}
+struct Plain
+    label: String
+end
+impl Named for Plain
+  fn name(plain: Plain) -> String
+      plain.label
+  end
+end
 
-struct App {
+struct App
   named: Named
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{named: Plain{label: "p"}, context: Context.root()})
-}
+end
 
-fn show() -> String { Named.name(App.named) }
+fn show() -> String
+    Named.name(App.named)
+end
 
-fn main() {
+fn main()
   io.print(show())
-}
+end
 `, "p\n", "boot", "show", "main")
 }
 
@@ -298,48 +321,50 @@ fn main() {
 func TestIRAppBoot_WithStatementShapesRun(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-struct App {
+struct App
   label: String
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{label: "base", context: Context.root()})
-}
+end
 
-fn label() -> String { App.label }
+fn label() -> String
+    App.label
+end
 
-fn early(on: Bool) -> String {
+fn early(on: Bool) -> String
   with App.label = "early"
-  if on {
+  if on then
     return label()
-  }
+  end
   "late ${label()}"
-}
+end
 
-fn branch(on: Bool) -> String {
-  if on {
+fn branch(on: Bool) -> String
+  if on then
     with App.label = "branch"
     io.print(label())
-  }
+  end
   label()
-}
+end
 
-fn mapped() -> List<String> {
+fn mapped() -> List<String>
   [1, 2]
-    |> Iter.map(fn i -> {
+    |> Iter.map(fn i ->
       with App.label = "lambda ${i}"
       label()
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
-fn maker() -> () -> String {
+fn maker() -> () -> String
   with App.label = "made"
   fn -> label()
-}
+end
 
-fn main() {
+fn main()
   io.print(early(True))
   io.print(early(False))
   io.print(branch(True))
@@ -349,7 +374,7 @@ fn main() {
   with App.label = "main"
   io.print(f())
   io.print(label())
-}
+end
 `, "early\nlate early\nbranch\nbase\n[lambda 1, lambda 2]\nbase\nmain\nmain\n",
 		"boot", "label", "early", "branch", "mapped", "maker", "main")
 }
@@ -360,44 +385,46 @@ fn main() {
 func TestIRAppBoot_WithInALoopEndsWithTheIteration(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-struct App {
+struct App
   label: String
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{label: "base", context: Context.root()})
-}
+end
 
-fn label() -> String { App.label }
+fn label() -> String
+    App.label
+end
 
-fn counted() -> Int {
-  Iter.loop(0, fn n -> {
+fn counted() -> Int
+  Iter.loop(0, fn n ->
     io.print("start ${label()}")
     with App.label = "iter ${n}"
     io.print(label())
-    if n == 2 {
+    if n == 2 then
       break n
-    }
+    end
     n + 1
-  })
-}
+  end)
+end
 
-fn single() -> String {
-  Iter.loop(fn -> {
+fn single() -> String
+  Iter.loop(fn ->
     with App.label = "single"
     io.print(label())
     break
-  })
+  end)
   label()
-}
+end
 
-fn main() {
+fn main()
   io.print(counted())
   io.print(label())
   io.print(single())
   io.print(label())
-}
+end
 `, "start base\niter 0\nstart base\niter 1\nstart base\niter 2\n2\nbase\nsingle\nbase\nbase\n",
 		"boot", "label", "counted", "single", "main")
 }
@@ -408,40 +435,42 @@ fn main() {
 func TestIRAppBoot_WithInALoopBindingElseFallback(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-struct App {
+struct App
   label: String
   context: Context
-}
+end
 
-fn boot(_startup: Startup) -> Result<App, String> {
+fn boot(_startup: Startup) -> Result<App, String>
   Ok(App{label: "base", context: Context.root()})
-}
+end
 
-fn label() -> String { App.label }
+fn label() -> String
+    App.label
+end
 
-fn pick(n: Int) -> Maybe<String> {
-  if n == 1 { None } else { Some("v${n}") }
-}
+fn pick(n: Int) -> Maybe<String>
+  if n == 1 then None else Some("v${n}")
+end
 
-fn walk() -> Int {
-  Iter.loop(0, fn n -> {
-    Some(v) = pick(n) else {
+fn walk() -> Int
+  Iter.loop(0, fn n ->
+    Some(v) = pick(n) else
       with App.label = "fallback ${n}"
       io.print(label())
       label()
-    }
+    end
     io.print("${v} ${label()}")
-    if n == 2 {
+    if n == 2 then
       break n
-    }
+    end
     n + 1
-  })
-}
+  end)
+end
 
-fn main() {
+fn main()
   io.print(walk())
   io.print(label())
-}
+end
 `, "v0 base\nfallback 1\nfallback 1 base\nv2 base\n2\nbase\n", "boot", "label", "walk", "main")
 }
 
@@ -454,67 +483,69 @@ fn main() {
 func TestIRAppBoot_BlockStatementReturnsEarly(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-struct App {
+struct App
   label: String
   context: Context
-}
+end
 
-fn boot(_startup: Startup) -> Result<App, String> {
+fn boot(_startup: Startup) -> Result<App, String>
   Ok(App{label: "base", context: Context.root()})
-}
+end
 
-fn label() -> String { App.label }
+fn label() -> String
+    App.label
+end
 
-fn close(name: String) -> Unit {
+fn close(name: String) -> Unit
   io.print("close ${name} ${label()}")
-}
+end
 
-fn first(on: Bool) -> String {
-  {
+fn first(on: Bool) -> String
+  begin
     defer close("first")
     with App.label = "inner"
     io.print("in block ${label()}")
-    if on {
+    if on then
       return "early ${label()}"
-    }
+    end
     io.print("block end")
-  }
+  end
   "late ${label()}"
-}
+end
 
-fn quiet(on: Bool) -> Unit {
-  {
-    if on {
+fn quiet(on: Bool) -> Unit
+  begin
+    if on then
       io.print("quiet early")
       return
-    }
+    end
     with App.label = "quiet"
-  }
+  end
   io.print("quiet late ${label()}")
-}
+end
 
-fn mapped() -> List<String> {
+fn mapped() -> List<String>
   [1, 2]
-    |> Iter.map(fn i -> {
-      {
+    |> Iter.map(fn i ->
+      begin
         with App.label = "lambda"
-        if i == 1 {
+        if i == 1 then
           return "one ${label()}"
-        }
-      }
+        end
+      end
       "other ${label()}"
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
   io.print(first(True))
   io.print(first(False))
   quiet(True)
   quiet(False)
   io.print(mapped())
   io.print(label())
-}
+end
 `, "in block inner\nclose first base\nearly inner\nin block inner\nblock end\nclose first base\nlate base\n"+
 		"quiet early\nquiet late base\n[one lambda, other base]\nbase\n",
 		"boot", "label", "close", "first", "quiet", "mapped", "main")
@@ -525,31 +556,33 @@ fn main() {
 func TestIRAppBoot_WithInALambdasBlockStatement(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-struct App {
+struct App
   label: String
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{label: "base", context: Context.root()})
-}
+end
 
-fn label() -> String { App.label }
+fn label() -> String
+    App.label
+end
 
-fn both() -> List<String> {
+fn both() -> List<String>
   ["a"]
-    |> Iter.map(fn tag -> {
-      {
+    |> Iter.map(fn tag ->
+      begin
         with App.label = "inner ${tag}"
         io.print(label())
-      }
+      end
       label()
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
   io.print(both())
-}
+end
 `, "inner a\n[base]\n", "boot", "label", "both", "main")
 }

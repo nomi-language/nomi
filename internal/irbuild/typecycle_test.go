@@ -15,63 +15,63 @@ import (
 // The declarations of the two-file cycle, without their imports, so the same
 // text can be staged as two files and as one.
 const (
-	typeCycleParentDecls = `pub struct Parent {
+	typeCycleParentDecls = `pub struct Parent
     name: String
     kids: List<Child>
     first: Maybe<Child>
-}
+end
 
 derive Equatable for Parent
 derive ToJson for Parent
 
-pub enum Shape {
+pub enum Shape
     Empty
     One Child
     Pair {
         left: Child
         right: Child
     }
-}
+end
 
 derive Equatable for Shape
 derive ToJson for Shape
 
-pub struct Holder<T> {
+pub struct Holder<T>
     value: T
     owner: Maybe<Child>
-}
+end
 
 derive Equatable for Holder<T> where T: Equatable
 derive ToJson for Holder<T> where T: ToJson
 
-pub struct Head {
+pub struct Head
     lead: Child
     label: String
-}
+end
 
 derive Equatable for Head
 derive ToJson for Head
 `
-	typeCycleChildDecls = `pub struct Child {
+	typeCycleChildDecls = `pub struct Child
     n: Int
     parent: Maybe<Parent>
     shape: Shape
     held: List<Holder<Int>>
     head: Maybe<Head>
-}
+end
 
 derive Equatable for Child
 derive ToJson for Child
 `
-	typeCycleMain = `fn describe(s: Shape) -> String {
-    case s {
+	typeCycleMain = `fn describe(s: Shape) -> String
+    case s
         Shape.Empty -> "empty"
         Shape.One(c) -> "one ${c.n}"
-        Shape.Pair{left, right} -> "pair ${left.n} ${right.n}"
-    }
-}
+        Shape.Pair{left:, right:} -> "pair ${left.n} ${right.n}"
+    end
+end
 
-fn main() {
+fn main()
     leaf = Child{n: 1, parent: None, shape: Shape.Empty, held: [], head: None}
     two = Child{n: 2, parent: None, shape: Shape.One(leaf), held: [Holder{value: 7, owner: None}], head: Some(Head{lead: leaf, label: "h"})}
     p = Parent{name: "p", kids: [leaf, two], first: Some(leaf)}
@@ -85,7 +85,7 @@ fn main() {
     io.print(c == two)
     io.print(Maybe.map(two.head, fn h -> h.lead.n) |> Maybe.with_default(0))
     io.print("${ToJson.to_json(leaf)}")
-}
+end
 `
 	typeCycleWant = `pair 1 2
 one 1
@@ -123,12 +123,12 @@ func TestTypeCycle_TwoFilesRunAsOne(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	typeCycleRun(t, map[string]string{
-		"main.nomi":   "import {\n    std::io\n    std::json.ToJson\n    child.Child\n    parent.{Head, Holder, Parent, Shape}\n}\n\n" + typeCycleMain,
-		"parent.nomi": "import {\n    std::json.ToJson\n    child.Child\n}\n\n" + typeCycleParentDecls,
-		"child.nomi":  "import {\n    std::json.ToJson\n    parent.{Head, Holder, Parent, Shape}\n}\n\n" + typeCycleChildDecls,
+		"main.nomi":   "import\n    std::io\n    std::json.ToJson\n    child.Child\n    parent.{Head, Holder, Parent, Shape}\nend\n\n" + typeCycleMain,
+		"parent.nomi": "import\n    std::json.ToJson\n    child.Child\nend\n\n" + typeCycleParentDecls,
+		"child.nomi":  "import\n    std::json.ToJson\n    parent.{Head, Holder, Parent, Shape}\nend\n\n" + typeCycleChildDecls,
 	}, typeCycleWant)
 	typeCycleRun(t, map[string]string{
-		"main.nomi": "import {\n    std::io\n    std::json.ToJson\n}\n\n" + typeCycleParentDecls + "\n" + typeCycleChildDecls + "\n" + typeCycleMain,
+		"main.nomi": "import\n    std::io\n    std::json.ToJson\nend\n\n" + typeCycleParentDecls + "\n" + typeCycleChildDecls + "\n" + typeCycleMain,
 	}, typeCycleWant)
 }
 
@@ -140,21 +140,21 @@ func TestTypeCycle_ThreeFiles(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	typeCycleRun(t, map[string]string{
-		"main.nomi": `import {
+		"main.nomi": `import
     std::io
     a.A
     b.B
     c.{C, Step}
-}
+end
 
-fn walk(s: Step) -> Int {
-    case s {
+fn walk(s: Step) -> Int
+    case s
         Step.Stop -> 0
         Step.Next(a) -> 1 + (Maybe.map(a.b, fn b -> Iter.count(b.cs)) |> Maybe.with_default(0))
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     inner = A{name: "inner", b: None}
     c = C{a: inner, step: Step.Next(inner)}
     outer = A{name: "outer", b: Some(B{cs: [c, c]})}
@@ -163,12 +163,12 @@ fn main() {
     io.print(walk(c.step))
     io.print(outer == outer)
     io.print(inner == outer)
-}
+end
 `,
-		"a.nomi": "import b.B\n\npub struct A {\n    name: String\n    b: Maybe<B>\n}\n\nderive Equatable for A\n",
-		"b.nomi": "import c.C\n\npub struct B {\n    cs: List<C>\n}\n\nderive Equatable for B\n",
-		"c.nomi": "import a.A\n\npub struct C {\n    a: A\n    step: Step\n}\n\nderive Equatable for C\n\n" +
-			"pub enum Step {\n    Stop\n    Next A\n}\n\nderive Equatable for Step\n",
+		"a.nomi": "import b.B\n\npub struct A\n    name: String\n    b: Maybe<B>\nend\n\nderive Equatable for A\n",
+		"b.nomi": "import c.C\n\npub struct B\n    cs: List<C>\nend\n\nderive Equatable for B\n",
+		"c.nomi": "import a.A\n\npub struct C\n    a: A\n    step: Step\nend\n\nderive Equatable for C\n\n" +
+			"pub enum Step\n    Stop\n    Next A\nend\n\nderive Equatable for Step\n",
 	}, `A{name: "outer", b: Some(B{cs: [C{a: A{name: "inner", b: None}, step: Next(A{name: "inner", b: None})}, C{a: A{name: "inner", b: None}, step: Next(A{name: "inner", b: None})}]})}
 3
 1
@@ -184,12 +184,12 @@ func TestTypeCycle_InterfaceField(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	typeCycleRun(t, map[string]string{
-		"main.nomi": "import {\n    std::io\n    a.A\n    b.{B, Scorer}\n}\n\n" +
-			"fn main() {\n    b = B{owner: None, bonus: 10}\n    x = A{n: 5, s: b, b: Some(b)}\n    io.print(Scorer.score(x.s, x))\n}\n",
-		"a.nomi": "import b.{B, Scorer}\n\npub struct A {\n    n: Int\n    s: Scorer\n    b: Maybe<B>\n}\n",
-		"b.nomi": "import a.A\n\npub interface Scorer {\n    fn score(value: self, a: A) -> Int\n}\n\n" +
-			"pub struct B {\n    owner: Maybe<A>\n    bonus: Int\n}\n\n" +
-			"impl Scorer for B {\n    fn score(value: B, a: A) -> Int {\n        value.bonus + a.n\n    }\n}\n",
+		"main.nomi": "import\n    std::io\n    a.A\n    b.{B, Scorer}\nend\n\n" +
+			"fn main()\n    b = B{owner: None, bonus: 10}\n    x = A{n: 5, s: b, b: Some(b)}\n    io.print(Scorer.score(x.s, x))\nend\n",
+		"a.nomi": "import b.{B, Scorer}\n\npub struct A\n    n: Int\n    s: Scorer\n    b: Maybe<B>\nend\n",
+		"b.nomi": "import a.A\n\npub interface Scorer\n    fn score(value: self, a: A) -> Int\nend\n\n" +
+			"pub struct B\n    owner: Maybe<A>\n    bonus: Int\nend\n\n" +
+			"impl Scorer for B\n    fn score(value: B, a: A) -> Int\n        value.bonus + a.n\n    end\nend\n",
 	}, "15\n")
 }
 
@@ -205,11 +205,11 @@ func TestTypeCycle_ARefusalReachesTheWholeCycle(t *testing.T) {
 		fmt.Fprintf(&variants, "    V%d\n", i)
 	}
 	entry := stagedProgram(t, "main.nomi", map[string]string{
-		"main.nomi": "import {\n    std::io\n    a.{A, Fine}\n}\n\n" +
-			"fn main() {\n    io.print(Fine{n: 2}.n)\n    x = A{n: 1, bs: []}\n    io.print(x.n)\n}\n",
-		"a.nomi": "import b.B\n\npub struct A {\n    n: Int\n    bs: List<B>\n}\n\npub struct Fine {\n    n: Int\n}\n",
-		"b.nomi": "import a.A\n\npub enum Big {\n" + variants.String() + "}\n\n" +
-			"pub struct B {\n    big: Maybe<Big>\n    owner: Maybe<A>\n}\n",
+		"main.nomi": "import\n    std::io\n    a.{A, Fine}\nend\n\n" +
+			"fn main()\n    io.print(Fine{n: 2}.n)\n    x = A{n: 1, bs: []}\n    io.print(x.n)\nend\n",
+		"a.nomi": "import b.B\n\npub struct A\n    n: Int\n    bs: List<B>\nend\n\npub struct Fine\n    n: Int\nend\n",
+		"b.nomi": "import a.A\n\npub enum Big\n" + variants.String() + "end\n\n" +
+			"pub struct B\n    big: Maybe<Big>\n    owner: Maybe<A>\nend\n",
 	})
 	if _, err := Analyze(entry); err != nil {
 		t.Fatalf("the front end rejects this, so nothing below is tested: %v", err)

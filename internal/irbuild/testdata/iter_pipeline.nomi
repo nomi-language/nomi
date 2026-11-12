@@ -2,16 +2,16 @@ import std::io
 
 // The lowered `Iter` surface, observed. Every line prints, so the recorded
 // output pins answers and not merely silence.
-fn note(n: Int) -> Int {
+fn note(n: Int) -> Int
     io.print("evaluating ${n}")
     n
-}
+end
 
-fn shout(n: Int) -> Unit {
+fn shout(n: Int) -> Unit
     io.print("side ${n}")
-}
+end
 
-fn main() {
+fn main()
     // The representative depth-1 pipeline: a concrete source, one lazy adapter,
     // one materializing terminal.
     io.print("${[1, 2, 3] |> Iter.map(&(&1 * 10)) |> Iter.to_list()}")
@@ -89,4 +89,4 @@ fn main() {
     // two `evaluating` lines from the list literal — which is eager — and then
     // exactly two mapped notes, never three.
     io.print("${[note(4), note(5)] |> Iter.map(&note(&1)) |> Iter.take(1) |> Iter.to_list()}")
-}
+end

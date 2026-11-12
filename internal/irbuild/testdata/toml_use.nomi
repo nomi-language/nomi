@@ -9,17 +9,17 @@
 // `Toml("x = 1")` must lower to a wrap of the String and `Toml(raw) = t` to an
 // unwrap, from a module that declares neither the type nor any
 // function over it.
-import {
+import
     std::io
     std::toml.Toml
-}
+end
 
-fn unwrap(t: Toml) -> String {
+fn unwrap(t: Toml) -> String
     Toml(raw) = t
     "raw:" + raw
-}
+end
 
-fn main() {
+fn main()
     // Constructed here, in a module that is not std/toml.
     a = Toml("x = 1")
     io.print(Toml.text(a))
@@ -40,4 +40,4 @@ fn main() {
     n = 7
     name = "a \"b\""
     io.print(Toml.text(Toml"${n} = ${name}"))
-}
+end

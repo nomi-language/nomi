@@ -67,28 +67,28 @@ func formatErrs(errs []analysis.TypeError) string {
 // the build is clean and every (T, Iface) pair materializes. This is the
 // shape std/bool.nomi ships with.
 func TestDeriveScope_PreludelessAllProtocols(t *testing.T) {
-	src := `import {
+	src := `import
   std::comparable.Comparable
   std::display.Display
   std::equatable.Equatable
   std::hashable.Hashable
-}
+end
 
-pub struct Point {
+pub struct Point
   x: Int
   y: Int
-}
+end
 derive Comparable for Point
 derive Debug for Point
 derive Display for Point
 derive Equatable for Point
 derive Hashable for Point
 
-pub enum Color {
+pub enum Color
   Red
   Green
   Blue
-}
+end
 derive Comparable for Color
 derive Debug for Color
 derive Display for Color
@@ -112,15 +112,15 @@ derive Hashable for Color
 // import makes its `@derive` arg error with the exact import to add — at the
 // arg's real source position — while the other args stay quiet.
 func TestDeriveScope_PreludelessMissingImportErrors(t *testing.T) {
-	src := `import {
+	src := `import
   std::display.Display
   std::equatable.Equatable
   std::hashable.Hashable
-}
+end
 
-pub struct Point {
+pub struct Point
   x: Int
-}
+end
 derive Comparable for Point
 derive Display for Point
 derive Equatable for Point
@@ -150,13 +150,15 @@ derive Hashable for Point
 // `impl Display for T` in a prelude-less file still requires `Display` in
 // scope, exactly like before.
 func TestDeriveScope_PreludelessHandWrittenImplStillRequiresImport(t *testing.T) {
-	src := `pub struct P {
+	src := `pub struct P
   x: Int
-}
+end
 
-impl Display for P {
-  fn to_string(_value: P) -> String { "p" }
-}
+impl Display for P
+  fn to_string(_value: P) -> String
+      "p"
+  end
+end
 `
 	_, errs := checkPreludeless(t, src)
 	for _, e := range errs {

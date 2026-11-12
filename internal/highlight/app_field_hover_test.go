@@ -11,27 +11,27 @@ import (
 )
 
 // Tour and editor hover resolve application-field reads to their declared field types.
-const appFieldHoverSrc = `import {
+const appFieldHoverSrc = `import
   std::io
-}
+end
 
-struct Cfg {
+struct Cfg
   context: Context
 
   tag: String
-}
+end
 
-fn boot() -> Result<Cfg, String> {
+fn boot() -> Result<Cfg, String>
   Ok(Cfg{context: Context.root(), tag: "hi"})
-}
+end
 
-fn main() {
+fn main()
   show("label")
-}
+end
 
-fn show(label: String) {
+fn show(label: String)
   io.print("${label}: ${Cfg.tag}")
-}
+end
 `
 
 // appFieldCol returns the 1-based (line, col) of the idx'th (1-based)
@@ -111,7 +111,7 @@ func TestAnalyze_AppFieldReadHovers(t *testing.T) {
 	ownerPos := appFieldCol(t, appFieldHoverSrc, "Cfg.tag", 1)
 	cfgPos := appFieldCol(t, appFieldHoverSrc, "Result<Cfg", 1)
 	cfgPos.Col += len("Result<")
-	wantCfg := "```nomi\nstruct Cfg {\n    context: Context\n    tag: String\n}\n```"
+	wantCfg := "```nomi\nstruct Cfg\n    context: Context\n    tag: String\nend\n```"
 	if typeName := hoverdoc.At(fa, nil, appFieldHoverSrc, cfgPos); typeName != wantCfg {
 		t.Fatalf("CONTROL: hover on the type name `Cfg` = %q, want %q", typeName, wantCfg)
 	}
@@ -146,30 +146,30 @@ func TestAnalyze_AppFieldReadHovers(t *testing.T) {
 // type, so it hovers as that type's field whichever boot runs it.
 const twoBootHoverSrc = `import std::io
 
-struct App {
+struct App
   logger: String
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{logger: "app", context: Context.root()})
-}
+end
 
-fn label() -> String {
+fn label() -> String
   App.logger
-}
+end
 
-fn main() {
+fn main()
   io.print(label())
-}
+end
 
-group "labels" {
+group "labels"
   boot boot()
 
-  test "reads the logger" {
+  test "reads the logger"
     assert label() == "app"
-  }
-}
+  end
+end
 `
 
 func TestAnalyze_AppFieldReadUnderTwoBootsHovers(t *testing.T) {

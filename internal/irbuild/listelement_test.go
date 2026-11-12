@@ -31,14 +31,14 @@ func TestListElement_GenuineMismatchStillRefuses(t *testing.T) {
 	// therefore "the mis-selection window is unreachable from source", and it is
 	// asserted HERE so an analyzer that later admitted the program produces a
 	// red test instead of a silent guess.
-	const src = `import {
+	const src = `import
   std::io
-}
+end
 
-fn main() {
+fn main()
   bad = [None, [1]]
   io.print("${Iter.count(bad)}")
-}
+end
 `
 	if msg := i6FrontEndError(t, src); !strings.Contains(msg, "list element type mismatch") {
 		t.Fatalf("the front end rejected `[None, [1]]` for %q; the expected reason is its own "+
@@ -57,15 +57,15 @@ func TestDotVariant_AliasThroughTheDotIsAFrontEndError(t *testing.T) {
 	// does not exist. If this ever starts ANALYZING, preludeBareNamed will
 	// decline on the local spelling and the site will refuse by name — which is
 	// safe, but somebody should know, hence a red test rather than a comment.
-	const src = `import {
+	const src = `import
   std::io
   std::maybe.Maybe.{None as Nothing}
-}
+end
 
-fn main() {
+fn main()
   m: Maybe<Int> = .Nothing
   io.print("${m == m}")
-}
+end
 `
 	if msg := i6FrontEndError(t, src); !strings.Contains(msg, "no variant 'Nothing' on enum Maybe") {
 		t.Fatalf("the front end rejected the aliased dot for %q, not for the missing "+

@@ -17,13 +17,13 @@ import (
 // String".
 func TestUniversalDebug_FunctionTypedPositionalPayloadChecks(t *testing.T) {
 	for _, payload := range []string{"((Int) -> Int)", "(Int) -> Int", "((Int, Int) -> Bool)", "(() -> Int)"} {
-		errs := checkUniversalDebugProject(t, "enum Handler {\n  Num "+payload+"\n  Other\n}\n\nfn main() {\n  _ = Handler.Other\n}\n")
+		errs := checkUniversalDebugProject(t, "enum Handler\n  Num "+payload+"\n  Other\nend\n\nfn main()\n  _ = Handler.Other\nend\n")
 		expectNoErrs(t, errs)
 	}
 }
 
 func TestUniversalDebug_PayloadBindingHasItsOwnPosition(t *testing.T) {
-	nodes, err := parser.Parse(lexer.Lex("enum Handler {\n  Num Int\n  Other\n}\n"))
+	nodes, err := parser.Parse(lexer.Lex("enum Handler\n  Num Int\n  Other\nend\n"))
 	if err != nil {
 		t.Fatal(err)
 	}

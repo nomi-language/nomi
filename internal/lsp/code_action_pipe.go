@@ -136,8 +136,7 @@ func (r *refactorRequest) standsFree(n ast.Node) bool {
 		return p.Func != n
 	case *ast.Binary:
 		return p.Op == "|>" && p.Left == n
-	case *ast.NamedArg, *ast.Binding, *ast.ExprStmt, *ast.Return, *ast.ListLit, *ast.VectorLit,
-		*ast.SetLit, *ast.TupleLit, *ast.MapLit, *ast.StructLit, *ast.StringInterp, *ast.GroupedExpr, *ast.Block:
+	case *ast.NamedArg, *ast.Binding, *ast.ExprStmt, *ast.Return, *ast.ListLit, *ast.TupleLit, *ast.MapLit, *ast.StructLit, *ast.StringInterp, *ast.GroupedExpr, *ast.Block:
 		return true
 	}
 	return false
@@ -211,11 +210,11 @@ func needsExpected(n ast.Node) bool {
 	case *ast.StructLit:
 		return v.TypeName == nil || isDotVariantType(v.TypeName)
 	case *ast.ListLit:
-		return len(v.Items) == 0 || isDotVariantType(v.TypeName)
+		// An unnamed bracket literal is the List, Vector or Set its
+		// position expects.
+		return v.TypeName == nil || isDotVariantType(v.TypeName)
 	case *ast.MapLit:
 		return len(v.Entries) == 0 || isDotVariantType(v.TypeName)
-	case *ast.SetLit:
-		return len(v.Items) == 0
 	}
 	return false
 }

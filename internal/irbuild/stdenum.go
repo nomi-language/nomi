@@ -1413,6 +1413,16 @@ func (g *gen) loadStdEnums() {
 	}
 	g.stdEnumsLoaded = true
 	g.stdEnumByDecl, g.stdEnumByName = stdEnumAnchors(g.fa)
+	if g.programStd {
+		// A std module lowered with the program (`derive Comparable for
+		// Coin` in std/presence, which never names `Ordering`): its derived
+		// code names the enums the compiler knows, as a shared module's does
+		// (stdEnumSynthAnchors). The file binds none of these names, so
+		// nothing it writes can name one, and every mention is synthesized.
+		for name, i := range stdEnumSynthAnchors(g.fa) {
+			g.stdEnumByName[name] = i
+		}
+	}
 }
 
 // stdEnumDeclared reports the spec index for an enum declaration this module
@@ -1473,7 +1483,7 @@ func (g *gen) stdEnumOwns(owner string, d *typeDef) bool {
 	if j, anchored := g.stdEnumByName[owner]; anchored {
 		return i == j
 	}
-	// `random.Error.OsEntropy{reason}`: the enum named through its module's
+	// `random.Error.OsEntropy{reason:}`: the enum named through its module's
 	// qualifier, which binds no bare name here.
 	return strings.Contains(owner, ".") && g.qualifiedStdDef(owner) == d
 }

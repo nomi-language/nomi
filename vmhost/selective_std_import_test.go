@@ -22,22 +22,22 @@ import std::io.{read_line as next_line, print as say}
 import std::json.{shape_error_root, Json}
 import std::testing.{check, check as verify}
 
-fn main() {
+fn main()
     lines = capture("one\ntwo", fn -> [read_line(), next_line(), read_line()])
     inspect(lines.value)
-    printed = run_with("", fn -> {
+    printed = run_with("", fn ->
         print("p")
         write("w")
         inspect([1])
         say("s")
-    })
+    end)
     write(printed.output)
     inspect(write_text("PATH", "saved"))
     inspect(read_text("PATH"))
     inspect(shape_error_root("Int", Json.Null))
     print(Result.is_ok(check(1 == 1)))
     print(Result.is_ok(verify(1 == 2)))
-}
+end
 `, "PATH", filepath.ToSlash(path))
 	got, err := runCaptureProgram(t, src, "")
 	if err != nil {
@@ -66,15 +66,15 @@ import std::io.{print, write, inspect, capture}
 import std::io.{read_line as next_line, print as say}
 import std::json.{shape_error_root, Json}
 
-fn main() {
+fn main()
     Iter.each([1, 2], print)
     Iter.each([3], inspect)
     Iter.each(["a", "b"], write)
     Iter.each(["!"], say)
-    read = io.capture("x\ny", fn -> {
+    read = io.capture("x\ny", fn ->
         f = next_line
         [f(), f()]
-    })
+    end)
     inspect(read.value)
     missing = Iter.map(["/nonexistent/q"], read_text) |> Iter.to_list()
     inspect(missing)
@@ -84,7 +84,7 @@ fn main() {
     inspect(root("Int", Json.Null).expected)
     run: (String, () -> Int) -> io.Captured<Int> = capture
     inspect(run("", fn -> 4).value)
-}
+end
 `, "")
 	if err != nil {
 		t.Fatalf("run: %v", err)

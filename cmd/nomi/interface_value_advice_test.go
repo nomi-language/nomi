@@ -8,27 +8,27 @@ import (
 
 const adviceProgram = `import std::io
 
-interface Named {
+interface Named
     fn name(value: self) -> String
-}
+end
 
-struct Box {
+struct Box
     n: Int
-}
+end
 
-impl Named for Box {
-    fn name(value: Box) -> String {
+impl Named for Box
+    fn name(value: Box) -> String
         "box ${value.n}"
-    }
-}
+    end
+end
 
-fn label<T>(value: T) -> String where T: Named {
+fn label<T>(value: T) -> String where T: Named
     "a ${T.name(value)}"
-}
+end
 
-fn main() {
+fn main()
     io.print(label(Box{n: 1}))
-}
+end
 `
 
 // `nomi check` reports a type parameter that can be an interface value as
@@ -69,37 +69,37 @@ func TestInterfaceValueAdvice_KeptProgramWritesIt(t *testing.T) {
 	entry := filepath.Join(dir, "main.nomi")
 	named := filepath.Join(dir, "named.nomi")
 	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"advice\"\nentry_points = [\"main\"]\n")
-	mustWrite(t, entry, `import {
+	mustWrite(t, entry, `import
     named.{Box, label}
     std::io
-}
+end
 
-fn shout<T>(value: T) -> String where T: Display {
+fn shout<T>(value: T) -> String where T: Display
     "${value}!"
-}
+end
 
-fn main() {
+fn main()
     io.print(label(Box{n: 1}))
     io.print(shout(2))
-}
+end
 `)
-	namedSrc := `pub interface Named {
+	namedSrc := `pub interface Named
     fn name(value: self) -> String
-}
+end
 
-pub struct Box {
+pub struct Box
     n: Int
-}
+end
 
-impl Named for Box {
-    fn name(value: Box) -> String {
+impl Named for Box
+    fn name(value: Box) -> String
         "box ${value.n}"
-    }
-}
+    end
+end
 
-pub fn label<T>(value: T) -> String where T: Named {
+pub fn label<T>(value: T) -> String where T: Named
     "a ${T.name(value)}"
-}
+end
 `
 	mustWrite(t, named, namedSrc)
 

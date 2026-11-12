@@ -14,10 +14,10 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# The birthday problem: how likely it is that two people in a group share
 //# a birthday, estimated by drawing random groups and counting.
 
-import {
+import
     std::calendar.{Date, Days}
     std::random.Generator
-}
+end
 
 /// 1 January of each year a random birthdate falls in: the years from 1900
 /// to 2023 without a 29 February, so every day of the year is as likely.
@@ -29,67 +29,67 @@ once new_years_days =
 
 /// Whether two of `birthdates` fall on the same day of the year, whatever
 /// the years.
-pub fn has_shared_birthday(birthdates: List<Date>) -> Bool {
-    repeats(birthdates, %[])
-}
+pub fn has_shared_birthday(birthdates: List<Date>) -> Bool
+    repeats(birthdates, [])
+end
 
 /// `group_size` birthdates, each a uniformly random day of a random year
 /// that is not a leap year.
-pub fn random_birthdates(group_size: Int) -> Generator<List<Date>> {
+pub fn random_birthdates(group_size: Int) -> Generator<List<Date>>
     Generator.list(birthdate(), group_size)
-}
+end
 
 /// The percentage of `trials` random groups of `group_size` people in
 /// which two share a birthday.
 pub fn estimated_probability_of_shared_birthday(
     group_size: Int,
     trials: Int = 10000,
-) -> Generator<Float> {
+) -> Generator<Float>
     random_birthdates(group_size)
     |> Generator.map(has_shared_birthday)
     |> Generator.list(trials)
-    |> Generator.map(fn shared -> {
+    |> Generator.map(fn shared ->
         hits = Iter.count_by(shared, fn yes -> yes)
         100.0 * Int.to_float(hits) / Int.to_float(trials)
-    })
-}
+    end)
+end
 
 /// Whether a date in `birthdates` falls on a day of the year in `seen`, or
 /// on the day of an earlier date in `birthdates`. It stops at the first
 /// repeat.
-fn repeats(birthdates: List<Date>, seen: Set<(Int, Int)>) -> Bool {
-    case birthdates {
-        [] -> False
+fn repeats(birthdates: List<Date>, seen: Set<(Int, Int)>) -> Bool
+    case birthdates
+        [] ->
+            False
 
-        [date, ..rest] -> {
+        [date, ..rest] ->
             day = (Date.month(date), Date.day(date))
 
             day in seen or repeats(rest, Set.insert(seen, day))
-        }
-    }
-}
+    end
+end
 
 /// A uniformly random day of a random common year. Each year has 365 days,
 /// so one draw below 365 times the number of years picks both.
-fn birthdate() -> Generator<Date> {
+fn birthdate() -> Generator<Date>
     Generator.int(0, Vector.length(new_years_days) * 365 - 1)
     |> Generator.map(fn n -> Vector.get(new_years_days, n / 365)! + Days(n % 365))
-}
+end
 
 // FILE: baffling_birthdays_test.nomi
-import {
+import
     std::calendar.Date
     std::random.{Generator, Seed}
     baffling_birthdays
-}
+end
 
 /// The value `generator` draws from a fixed seed.
-fn draw<T>(generator: Generator<T>) -> T {
+fn draw<T>(generator: Generator<T>) -> T
     (value, _seed) = Generator.step(generator, Seed.from_int(2024))
     value
-}
+end
 
-test "shared birthday" {
+test "shared birthday"
     [
         ("one birthdate", [Date`2000-01-01`], False),
         (
@@ -139,47 +139,47 @@ test "shared birthday" {
             True,
         ),
     ]
-    |> subtests (description, birthdates, expected), description {
+    |> subtests (description, birthdates, expected), description
         assert baffling_birthdays.has_shared_birthday(birthdates) == expected
-    }
-}
+    end
+end
 
-group "random birthdates" {
+group "random birthdates"
     setup draw(baffling_birthdays.random_birthdates(100))
 
-    test "generate requested number of birthdates" {
+    test "generate requested number of birthdates"
         assert 1..=20
-            |> Iter.all_match(fn size -> {
+            |> Iter.all_match(fn size ->
                 Iter.count(draw(baffling_birthdays.random_birthdates(size))) == size
-            })
-    }
+            end)
+    end
 
-    test "years are not leap years", birthdates {
+    test "years are not leap years", birthdates
         refute birthdates |> Iter.any_match(fn date -> date |> Date.year() |> Date.is_leap_year())
-    }
+    end
 
-    test "months are random", birthdates {
+    test "months are random", birthdates
         assert birthdates |> Iter.map(Date.month) |> Iter.to_set() |> Set.size() > 1
-    }
+    end
 
-    test "days are random", birthdates {
+    test "days are random", birthdates
         assert birthdates |> Iter.map(Date.day) |> Iter.to_set() |> Set.size() > 1
-    }
-}
+    end
+end
 
-test "estimated probability of at least one shared birthday" {
+test "estimated probability of at least one shared birthday"
     [
         ("for one person", 1, 0.0),
         ("among ten people", 10, 11.694818),
         ("among twenty-three people", 23, 50.729723),
         ("among seventy people", 70, 99.915958),
     ]
-    |> subtests (description, group_size, expected), description {
+    |> subtests (description, group_size, expected), description
         estimate = draw(baffling_birthdays.estimated_probability_of_shared_birthday(group_size))
 
         assert Float.equal_within(estimate, expected, 1.0)
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok shared birthday (9 cases)

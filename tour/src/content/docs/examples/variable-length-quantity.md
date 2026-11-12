@@ -15,54 +15,54 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# per byte, with the high bit set on every byte but the number's last.
 
 /// The bytes of `integers`, each written as its variable-length quantity.
-pub fn encode(integers: List<Int>) -> List<Byte> {
+pub fn encode(integers: List<Int>) -> List<Byte>
     integers
     |> Iter.flat_map(encode_one)
     |> Iter.to_list()
-}
+end
 
 /// The base-128 digits of `n`, most significant first, with the high bit set
 /// on all but the last.
-fn encode_one(n: Int) -> List<Byte> {
+fn encode_one(n: Int) -> List<Byte>
     digits = Int.to_digits(n, 128)
     last = Iter.count(digits) - 1
 
     digits
     |> Iter.with_index()
-    |> Iter.map(fn (i, digit) -> {
+    |> Iter.map(fn (i, digit) ->
         byte = Int.to_byte(digit)!
-        if i == last { byte } else { byte ||| 0x80 }
-    })
+        if i == last then byte else byte ||| 0x80
+    end)
     |> Iter.to_list()
-}
+end
 
 /// The numbers `bytes` encode, or an error when the last number's final byte
 /// is missing.
-pub fn decode(bytes: List<Byte>) -> Result<List<Int>, String> {
+pub fn decode(bytes: List<Byte>) -> Result<List<Int>, String>
     (pending, values) =
         bytes
-        |> Iter.map_reduce(None, fn pending: Maybe<Int>, byte -> {
+        |> Iter.map_reduce(None, fn pending: Maybe<Int>, byte ->
             value = Maybe.with_default(pending, 0) <<< 7 ||| Byte.to_int(byte &&& 0x7F)
 
-            if byte &&& 0x80 == 0 {
+            if byte &&& 0x80 == 0 then
                 (None, Some(value))
-            } else {
+            else
                 (Some(value), None)
-            }
-        })
+            end
+        end)
 
-    if pending is Some(_) { return Err("incomplete sequence") }
+    if pending is Some(_) then return Err("incomplete sequence")
 
     values
     |> Maybe.values()
     |> Iter.to_list()
     |> Ok()
-}
+end
 
 // FILE: variable_length_quantity_test.nomi
 import variable_length_quantity
 
-test "encode a series of integers, producing a series of bytes" {
+test "encode a series of integers, producing a series of bytes"
     cases: List<(String, List<Int>, List<Byte>)> = [
         ("zero", [0x0], [0x0]),
         ("arbitrary single byte", [0x40], [0x40]),
@@ -96,12 +96,12 @@ test "encode a series of integers, producing a series of bytes" {
         ),
     ]
 
-    subtests cases, (description, integers, expected), description {
+    subtests cases, (description, integers, expected), description
         assert variable_length_quantity.encode(integers) == expected
-    }
-}
+    end
+end
 
-test "decode a series of bytes, producing a series of integers" {
+test "decode a series of bytes, producing a series of integers"
     cases: List<(String, List<Byte>, Result<List<Int>, String>)> = [
         ("one byte", [0x7F], Ok([0x7F])),
         ("two bytes", [0xC0, 0x0], Ok([0x2000])),
@@ -124,10 +124,10 @@ test "decode a series of bytes, producing a series of integers" {
         ),
     ]
 
-    subtests cases, (description, bytes, expected), description {
+    subtests cases, (description, bytes, expected), description
         assert variable_length_quantity.decode(bytes) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok encode a series of integers, producing a series of bytes (23 cases)

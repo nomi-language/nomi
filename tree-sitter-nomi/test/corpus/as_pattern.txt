@@ -2,27 +2,29 @@
 An as pattern names the whole value in every pattern position
 ================================================================================
 
-fn describe(r: Result<Tx, String>) -> Int {
-    case r {
-        Ok(Tx{kind: .Deposit} as t) -> t.end
+fn describe(r: Result<Tx, String>) -> Int
+    case r
+        Ok(Tx{kind: .Deposit} as t) -> t.stop
         Ok(_) as whole -> 0
         Err(_) -> 1
-    }
-}
+    end
+end
 
-fn pair_sum((a, b) as pair: (Int, Int)) -> Int {
+fn pair_sum((a, b) as pair: (Int, Int)) -> Int
     (x, y) as both = pair
-    Some(n) as m = find() else { return 0 }
-    Ok(v) = load() else {
+    Some(n) as m = find() else
+        return 0
+    end
+    Ok(v) = load() else
         Err(.NotFound) as e -> return 0
         Err(_) -> return 1
-    }
-    if [first, ..rest] as all = xs { first } else { 0 }
-}
+    end
+    if [first, ..rest] as all = xs then first else 0
+end
 
-test "pattern assert" {
+test "pattern assert"
     assert Some(n) as m = find()
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -39,7 +41,7 @@ test "pattern assert" {
     return_type: (type_identifier)
     (body
       (case_expression
-        (identifier)
+        value: (identifier)
         (case_branch
           (enum_pattern
             (type_identifier)
@@ -118,17 +120,15 @@ test "pattern assert" {
             (return_statement
               (integer)))))
       (if_expression
-        (if_match_condition
+        condition: (if_match_condition
           pattern: (as_pattern
             pattern: (list_pattern
               (identifier)
               (identifier))
             name: (identifier))
           value: (identifier))
-        (body
-          (identifier))
-        (body
-          (integer)))))
+        consequence: (identifier)
+        alternative: (integer))))
   (test_declaration
     name: (string
       (string_content))
@@ -146,12 +146,12 @@ test "pattern assert" {
 An as pattern in a piped case arm
 ================================================================================
 
-fn main() {
-    label = Some(3) |> case {
+fn main()
+    label = Some(3) |> case
         Some(n) as m -> n
         None -> 0
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -182,45 +182,55 @@ fn main() {
 An as pattern on the left side of a binding and nested in a pattern spelled as an expression
 ================================================================================
 
-fn bindings(q: P, pair: ((Int, Int), Int), xs: List<Int>, m: Map<String, Int>) -> Int {
-    .{x: _c, y} as p = q
-    .{y, x: _c} as p = q
-    .{x: (a, b) as inner, y} as p = q
+fn bindings(q: P, pair: ((Int, Int), Int), xs: List<Int>, m: Map<String, Int>) -> Int
+    {x: _c, y:} as p = q
+    {y:, x: _c} as p = q
+    {x: (a, b) as inner, y:} as p = q
     ((a, b) as inner, c) as t = pair
-    [x, ..rest] as all = xs else { return 0 }
-    Some((a, b) as inner) as n = opt else { return 0 }
-    %{"a" => (a, b) as v} as all = m else { return 0 }
+    [x, ..rest] as all = xs else
+        return 0
+    end
+    Some((a, b) as inner) as n = opt else
+        return 0
+    end
+    {"a" => (a, b) as v} as all = m else
+        return 0
+    end
     0
-}
+end
 
-fn nested_destructures(q: P, pair: ((Int, Int), Int)) -> Int {
+fn nested_destructures(q: P, pair: ((Int, Int), Int)) -> Int
     ((a, b), c) = pair
     ((a, b) as inner, c) = pair
-    .{x: (a, b), y} = q
-    .{x: Some(a), y} = q else { return 0 }
-    %{"a" => (a, b)} = m else { return 0 }
+    {x: (a, b), y:} = q
+    {x: Some(a), y:} = q else
+        return 0
+    end
+    {"a" => (a, b)} = m else
+        return 0
+    end
     0
-}
+end
 
-fn arms(q: P, v: Option<(Int, Int)>) -> Int {
-    case q {
-        .{x: (a, b) as xs, y} as p -> y
-    }
+fn arms(q: P, v: Option<(Int, Int)>) -> Int
+    case q
+        {x: (a, b) as xs, y:} as p -> y
+    end
 
-    v |> case {
+    v |> case
             Some((a, b) as p) -> a
             _ -> 0
-        }
-}
+        end
+end
 
-fn lambdas(xs: List<P>) -> Iter<Int> {
-    xs |> Iter.map(fn .{x: (a, b) as t, y} -> y)
-}
+fn lambdas(xs: List<P>) -> Iter<Int>
+    xs |> Iter.map(fn {x: (a, b) as t, y:} -> y)
+end
 
-test "pattern assert" {
-    assert .{x: _c, y} as p = q
+test "pattern assert"
+    assert {x: _c, y:} as p = q
     assert Some((a, b) as p) = v
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -257,13 +267,15 @@ test "pattern assert" {
             (anon_struct_field
               (identifier)
               (identifier))
-            (identifier))
+            (anon_struct_field
+              (identifier)))
           name: (identifier))
         value: (identifier))
       (as_binding
         pattern: (as_pattern
           pattern: (anon_struct
-            (identifier)
+            (anon_struct_field
+              (identifier))
             (anon_struct_field
               (identifier)
               (identifier)))
@@ -279,7 +291,8 @@ test "pattern assert" {
                   (identifier)
                   (identifier))
                 name: (identifier)))
-            (identifier))
+            (anon_struct_field
+              (identifier)))
           name: (identifier))
         value: (identifier))
       (as_binding
@@ -364,19 +377,23 @@ test "pattern assert" {
         binding: (identifier)
         value: (identifier))
       (destructuring_binding
-        field: (identifier)
-        pattern: (tuple_expression
+        (anon_struct_field
           (identifier)
+          (tuple_expression
+            (identifier)
+            (identifier)))
+        (anon_struct_field
           (identifier))
-        binding: (identifier)
         value: (identifier))
       (else_binding
         binding: (destructuring_binding
-          field: (identifier)
-          pattern: (call_expression
-            function: (type_identifier)
+          (anon_struct_field
+            (identifier)
+            (call_expression
+              function: (type_identifier)
+              (identifier)))
+          (anon_struct_field
             (identifier))
-          binding: (identifier)
           value: (identifier))
         else: (body
           (return_statement
@@ -409,7 +426,7 @@ test "pattern assert" {
     return_type: (type_identifier)
     (body
       (case_expression
-        (identifier)
+        value: (identifier)
         (case_branch
           (as_pattern
             pattern: (struct_pattern
@@ -480,7 +497,8 @@ test "pattern assert" {
             (anon_struct_field
               (identifier)
               (identifier))
-            (identifier))
+            (anon_struct_field
+              (identifier)))
           name: (identifier))
         value: (identifier))
       (pattern_assertion_binding

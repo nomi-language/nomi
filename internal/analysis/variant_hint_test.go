@@ -17,71 +17,71 @@ func TestBareVariantHintNamesEveryOwnerInDeclarationOrder(t *testing.T) {
 		{
 			name: "nullary",
 			src: `
-enum A {
+enum A
   Origin
   Other
-}
+end
 
-enum B {
+enum B
   Origin
   Elsewhere
-}
+end
 
-fn main() -> A {
+fn main() -> A
   Origin
-}
+end
 `,
 			want: "variant 'Origin' must be qualified through its enum; 'Origin' is a variant of both 'A' and 'B', so use 'A.Origin' or 'B.Origin'",
 		},
 		{
 			name: "three owners",
 			src: `
-enum C {
+enum C
   Origin
-}
+end
 
-enum A {
+enum A
   Origin
-}
+end
 
-enum B {
+enum B
   Origin
-}
+end
 
-fn main() -> A {
+fn main() -> A
   Origin
-}
+end
 `,
 			want: "'Origin' is a variant of 'C', 'A' and 'B', so use 'C.Origin', 'A.Origin' or 'B.Origin'",
 		},
 		{
 			name: "struct variant",
 			src: `
-enum A {
+enum A
   At {x: Int}
-}
+end
 
-enum B {
+enum B
   At {x: Int}
-}
+end
 
-fn main() -> A {
+fn main() -> A
   At{x: 1}
-}
+end
 `,
 			want: "'At' is a variant of both 'A' and 'B', so use 'A.At{...}' or 'B.At{...}'",
 		},
 		{
 			name: "one owner",
 			src: `
-enum A {
+enum A
   Origin
   Other
-}
+end
 
-fn main() -> A {
+fn main() -> A
   Origin
-}
+end
 `,
 			want: "variant 'Origin' must be qualified through its enum; use 'A.Origin'",
 		},

@@ -1,13 +1,13 @@
-pub struct Member {
+pub struct Member
     name: String
-}
+end
 
-pub fn member(name: String) -> Member {
-    Member{name}
-}
+pub fn member(name: String) -> Member
+    Member{name:}
+end
 
-impl Debug for Member {
-    fn inspect(member: Member) -> String {
+impl Debug for Member
+    fn inspect(member: Member) -> String
         "member:" + member.name
-    }
-}
+    end
+end

@@ -6,11 +6,11 @@ import std::io
 // §7 *Closures*). A later rebinding of the name, in the same scope or a nested one, is a
 // new binding (spec §6 *Bindings*) that the closure never sees.
 // The closure outlives the scope that built it.
-fn adder(n: Int) -> (Int) -> Int {
+fn adder(n: Int) -> (Int) -> Int
     fn x: Int -> x + n
-}
+end
 
-fn main() {
+fn main()
     add5 = adder(5)
     add100 = adder(100)
     io.print("add5(1) = ${add5(1)}")
@@ -30,15 +30,15 @@ fn main() {
     y = 10
     outer = fn k: Int -> y + k
 
-    if True {
+    if True then
         y = 900
         io.print("inner y = ${y}")
-    } else {
+    else
         io.print("unreachable")
-    }
+    end
 
     io.print("outer(1) = ${outer(1)}")
 
     // Capture of a parameter, which is never rebound.
     io.print("adder(3)(4) = ${adder(3)(4)}")
-}
+end

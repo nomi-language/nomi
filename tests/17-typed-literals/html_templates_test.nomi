@@ -1,31 +1,31 @@
-import {
+import
     std::html.{Css, Html, SafeUrl, ToHtml}
     std::url.Url
-}
+end
 
-fn render(page: Html) -> String {
+fn render(page: Html) -> String
     Html.to_string(page)
-}
+end
 
-struct Campaign {
+struct Campaign
     title: String
     raised: Int
-}
+end
 
-impl ToHtml for Campaign {
-    fn to_html(campaign: Campaign) -> Html {
+impl ToHtml for Campaign
+    fn to_html(campaign: Campaign) -> Html
         Html"<b>${campaign.title}</b> (${campaign.raised})"
-    }
-}
+    end
+end
 
-test "element text escapes a String and keeps an Html" {
+test "element text escapes a String and keeps an Html"
     name = "<script>alert('x')</script>"
     assert render(Html"<p>${name}</p>") == "<p>&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;</p>"
     assert render(Html"<p>${Html"<em>ok</em>"}</p>") == "<p><em>ok</em></p>"
     assert render(Html"<p>${3} ${1.5}</p>") == "<p>3 1.5</p>"
-}
+end
 
-test "a List, a Maybe and a program's own type render in element text" {
+test "a List, a Maybe and a program's own type render in element text"
     items = [Html"<li>a</li>", Html"<li>b</li>"]
     assert render(Html"<ul>${items}</ul>") == "<ul><li>a</li><li>b</li></ul>"
     nothing: Maybe<Html> = None
@@ -34,16 +34,16 @@ test "a List, a Maybe and a program's own type render in element text" {
 
     assert render(Html"<div>${Campaign{title: "Run & ride", raised: 40}}</div>")
         == "<div><b>Run &amp; ride</b> (40)</div>"
-}
+end
 
-test "a quoted attribute escapes both quotes, in either quote" {
+test "a quoted attribute escapes both quotes, in either quote"
     kind = "a\"b'c"
     assert render(Html"<i data-kind='${kind}'></i>") == "<i data-kind='a&#34;b&#39;c'></i>"
 
     assert render(Html"""<i data-kind="${kind}"></i>""") == "<i data-kind=\"a&#34;b&#39;c\"></i>"
-}
+end
 
-test "the start of a URL takes a Url or a SafeUrl, and refuses a javascript scheme" {
+test "the start of a URL takes a Url or a SafeUrl, and refuses a javascript scheme"
     safe = Url.parse("https://example.com/a?b=c") |> Result.with_default(Url`https://x`)
     bad = Url.parse("javascript:alert(1)") |> Result.with_default(Url`https://x`)
     assert render(Html"<a href='${safe}'>x</a>") == "<a href='https://example.com/a?b=c'>x</a>"
@@ -51,9 +51,9 @@ test "the start of a URL takes a Url or a SafeUrl, and refuses a javascript sche
 
     assert render(Html"<a href='${SafeUrl("javascript:void(0)")}'>x</a>")
         == "<a href='javascript:void(0)'>x</a>"
-}
+end
 
-test "a slot later in a URL is escaped for its part" {
+test "a slot later in a URL is escaped for its part"
     id = "a b/c:d"
     assert render(Html"<a href='/posts/${id}'>x</a>") == "<a href='/posts/a%20b%2Fc%3Ad'>x</a>"
 
@@ -61,16 +61,16 @@ test "a slot later in a URL is escaped for its part" {
         == "<a href='/search?q=tea+%26+cake'>x</a>"
 
     assert render(Html"<a href='/p#${"x y"}'>x</a>") == "<a href='/p#x%20y'>x</a>"
-}
+end
 
-test "a style value takes a number or a Css" {
+test "a style value takes a number or a Css"
     assert render(Html"<div style='width: ${40}%'></div>") == "<div style='width: 40%'></div>"
 
     assert render(Html"<div style='${Css("color: red")}'></div>")
         == "<div style='color: red'></div>"
-}
+end
 
-test "an optional attribute is written or left out by its value" {
+test "an optional attribute is written or left out by its value"
     yes = True
     no = False
     title: Maybe<String> = Some("it's")
@@ -86,13 +86,13 @@ test "an optional attribute is written or left out by its value" {
 
     assert render(Html"<input disabled=${None}>") == "<input>"
     assert render(Html"<input title=${Some("t")}>") == "<input title=\"t\">"
-}
+end
 
-test "title and textarea text is escaped" {
+test "title and textarea text is escaped"
     assert render(Html"<title>${"a < b"}</title>") == "<title>a &lt; b</title>"
-}
+end
 
-test "a multi-line template keeps its text, with its indentation stripped" {
+test "a multi-line template keeps its text, with its indentation stripped"
     page = Html"""
         <!DOCTYPE html>
         <html lang="en">
@@ -102,65 +102,65 @@ test "a multi-line template keeps its text, with its indentation stripped" {
 
     assert render(page)
         == "<!DOCTYPE html>\n<html lang=\"en\">\n  <body><p>1</p><p>2</p></body>\n</html>"
-}
+end
 
-test "a raw literal is a template with no slots" {
+test "a raw literal is a template with no slots"
     assert render(Html`<p class="x">${not a slot}</p>`) == "<p class=\"x\">\${not a slot}</p>"
-}
+end
 
-test "Html values are equal by their text" {
+test "Html values are equal by their text"
     assert Html"<b>x</b>" == Html.trusted("<b>x</b>")
     assert Html"<b>${"<"}</b>" != Html.trusted("<b><</b>")
-}
+end
 
-struct Handle {
+struct Handle
     name: String
-}
+end
 
-impl Display for Handle {
-    fn to_string(handle: Handle) -> String {
+impl Display for Handle
+    fn to_string(handle: Handle) -> String
         "<@${handle.name}>"
-    }
-}
+    end
+end
 
-struct Badge {
+struct Badge
     count: Int
-}
+end
 
-impl Display for Badge {
-    fn to_string(badge: Badge) -> String {
+impl Display for Badge
+    fn to_string(badge: Badge) -> String
         "${badge.count}"
-    }
-}
+    end
+end
 
-impl ToHtml for Badge {
-    fn to_html(badge: Badge) -> Html {
+impl ToHtml for Badge
+    fn to_html(badge: Badge) -> Html
         Html"<span class='badge'>${badge.count}</span>"
-    }
-}
+    end
+end
 
-fn shown(value: Display) -> Html {
+fn shown(value: Display) -> Html
     Html"<td>${value}</td>"
-}
+end
 
-test "element text writes any other Display value as escaped text" {
+test "element text writes any other Display value as escaped text"
     assert render(Html"<td>${Handle{name: "bo&co"}}</td>") == "<td>&lt;@bo&amp;co&gt;</td>"
     assert render(Html"<td>${3 > 2}</td>") == "<td>True</td>"
     assert render(shown(Handle{name: "x"})) == "<td>&lt;@x&gt;</td>"
 
     // A type that renders itself is written by its ToHtml.
     assert render(Html"<td>${Badge{count: 2}}</td>") == "<td><span class='badge'>2</span></td>"
-}
+end
 
-fn badge(on: Bool) -> Html {
-    Html"<span class='badge ${if on { "on" }}'>x</span>"
-}
+fn badge(on: Bool) -> Html
+    Html"<span class='badge ${if on then "on"}'>x</span>"
+end
 
-test "a Maybe in a quoted attribute writes its value, or nothing for None" {
+test "a Maybe in a quoted attribute writes its value, or nothing for None"
     assert render(badge(True)) == "<span class='badge on'>x</span>"
     assert render(badge(False)) == "<span class='badge '>x</span>"
 
-    tips = %{"save" => "Save \"draft\" <now>"}
+    tips = {"save" => "Save \"draft\" <now>"}
 
     assert render(Html"<b title='${Map.get(tips, "save")}'></b>")
         == "<b title='Save &#34;draft&#34; &lt;now&gt;'></b>"
@@ -170,7 +170,7 @@ test "a Maybe in a quoted attribute writes its value, or nothing for None" {
     on = True
     off = False
 
-    assert render(Html"<i class='${if on { "a" }} b ${if off { "c" }}${if on { " d" }}'></i>")
+    assert render(Html"<i class='${if on then "a"} b ${if off then "c"}${if on then " d"}'></i>")
         == "<i class='a b  d'></i>"
 
     count: Maybe<Int> = Some(3)
@@ -180,26 +180,26 @@ test "a Maybe in a quoted attribute writes its value, or nothing for None" {
         == "<i data-n='3' data-m=''>3</i>"
 
     // An unquoted value still writes the attribute or leaves it out.
-    assert render(Html"<i class=${if on { "a" }}></i><i class=${if off { "a" }}></i>")
+    assert render(Html"<i class=${if on then "a"}></i><i class=${if off then "a"}></i>")
         == "<i class=\"a\"></i><i></i>"
-}
+end
 
-test "a Maybe in a URL, a style value or a title writes its value, or nothing" {
+test "a Maybe in a URL, a style value or a title writes its value, or nothing"
     on = True
     off = False
     id: Maybe<String> = Some("a/b")
 
-    assert render(Html"<a href='/p/${id}?q=${if off { 1 }}#${if on { "x y" }}'>x</a>")
+    assert render(Html"<a href='/p/${id}?q=${if off then 1}#${if on then "x y"}'>x</a>")
         == "<a href='/p/a%2Fb?q=#x%20y'>x</a>"
 
     home = Url.parse("https://example.com") |> Result.to_maybe()
     bad = Url.parse("javascript:alert(1)") |> Result.to_maybe()
     assert render(Html"<a href='${home}'>x</a>") == "<a href='https://example.com'>x</a>"
     assert render(Html"<a href='${bad}'>x</a>") == "<a href='about:invalid#unsafe-url'>x</a>"
-    assert render(Html"<a href='${if off { SafeUrl("/") }}'>x</a>") == "<a href=''>x</a>"
+    assert render(Html"<a href='${if off then SafeUrl("/")}'>x</a>") == "<a href=''>x</a>"
 
-    assert render(Html"<i style='width: ${if on { 3 }}%; ${if off { Css("color: red") }}'></i>")
+    assert render(Html"<i style='width: ${if on then 3}%; ${if off then Css("color: red")}'></i>")
         == "<i style='width: 3%; '></i>"
 
-    assert render(Html"<title>${if on { "a < b" }}</title>") == "<title>a &lt; b</title>"
-}
+    assert render(Html"<title>${if on then "a < b"}</title>") == "<title>a &lt; b</title>"
+end

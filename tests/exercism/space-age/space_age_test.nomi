@@ -1,6 +1,6 @@
 import space_age.{self, Planet}
 
-test "age" {
+test "age"
     [
         ("age on Earth", Planet.Earth, 1000000000, 31.69),
         ("age on Mercury", .Mercury, 2134835688, 280.88),
@@ -11,16 +11,16 @@ test "age" {
         ("age on Uranus", .Uranus, 1210123456, 0.46),
         ("age on Neptune", .Neptune, 1821023456, 0.35),
     ]
-    |> subtests (description, planet, seconds, expected), description {
+    |> subtests (description, planet, seconds, expected), description
         assert space_age.age(planet, seconds) |> Float.round(2) == expected
-    }
-}
+    end
+end
 
 // Not canonical: the canonical data names planets only as inputs to `age`.
-test "planet names" {
+test "planet names"
     assert Planet.parse("Neptune") == Some(.Neptune)
-}
+end
 
-test "invalid planet causes error" {
+test "invalid planet causes error"
     assert Planet.parse("Sun") == None
-}
+end

@@ -10,48 +10,52 @@ import "testing"
 func TestTargetTyped_EveryPositionBuildsTheNominalStruct(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Address {
+struct Address
   street: String
   city: String
   zip: String = "00000"
-}
+end
 
-struct Person {
+struct Person
   name: String
   address: Address
-}
+end
 
-once office: Address = .{street: "2 Once", city: "Leeds"}
+once office: Address = {street: "2 Once", city: "Leeds"}
 
-fn home() -> Address { .{street: "3 Ret", city: "York"} }
+fn home() -> Address
+    {street: "3 Ret", city: "York"}
+end
 
-fn city(a: Address) -> String { a.city }
+fn city(a: Address) -> String
+    a.city
+end
 
-fn pick(n: Int) -> Address {
-  case n {
-    0 -> .{street: "a", city: "Zero"}
-    _ -> .{street: "b", city: "Many"}
-  }
-}
+fn pick(n: Int) -> Address
+  case n
+    0 -> {street: "a", city: "Zero"}
+    _ -> {street: "b", city: "Many"}
+  end
+end
 
-fn main() {
-  a: Address = .{street: "1 Main", city: "Bath"}
+fn main()
+  a: Address = {street: "1 Main", city: "Bath"}
   io.inspect(a)
-  io.inspect(Person{name: "Ada", address: .{street: "1 Main", city: "Bath"}})
-  p: Person = .{name: "Bo", address: a}
+  io.inspect(Person{name: "Ada", address: {street: "1 Main", city: "Bath"}})
+  p: Person = {name: "Bo", address: a}
   io.inspect(p)
-  people: List<Person> = [.{name: "Cy", address: .{street: "4 List", city: "Hull"}}]
+  people: List<Person> = [{name: "Cy", address: {street: "4 List", city: "Hull"}}]
   io.inspect(people)
   io.inspect(home())
   io.inspect(office)
-  io.print(city(.{street: "5 Arg", city: "Ely"}))
+  io.print(city({street: "5 Arg", city: "Ely"}))
   io.inspect(pick(0))
   io.inspect(pick(1))
-  by_name: Map<String, Address> = %{"x" => .{street: "6 Map", city: "Wells"}}
+  by_name: Map<String, Address> = {"x" => {street: "6 Map", city: "Wells"}}
   io.inspect(by_name)
-  some: Maybe<Address> = Some(.{street: "7 Some", city: "Ripon"})
+  some: Maybe<Address> = Some({street: "7 Some", city: "Ripon"})
   io.inspect(some)
-}
+end
 `, `Address{street: "1 Main", city: "Bath", zip: "00000"}
 Person{name: "Ada", address: Address{street: "1 Main", city: "Bath", zip: "00000"}}
 Person{name: "Bo", address: Address{street: "1 Main", city: "Bath", zip: "00000"}}
@@ -61,7 +65,7 @@ Address{street: "2 Once", city: "Leeds", zip: "00000"}
 Ely
 Address{street: "a", city: "Zero", zip: "00000"}
 Address{street: "b", city: "Many", zip: "00000"}
-%{"x" => Address{street: "6 Map", city: "Wells", zip: "00000"}}
+{"x" => Address{street: "6 Map", city: "Wells", zip: "00000"}}
 Some(Address{street: "7 Some", city: "Ripon", zip: "00000"})
 `)
 }
@@ -69,46 +73,48 @@ Some(Address{street: "7 Some", city: "Ripon", zip: "00000"})
 func TestTargetTyped_EqualToTheNamedLiteral(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Point {
+struct Point
   x: Int
   y: Int
-}
+end
 
 derive Display for Point
 
-fn main() {
-  a: Point = .{x: 1, y: 2}
+fn main()
+  a: Point = {x: 1, y: 2}
   b = Point{x: 1, y: 2}
   io.print(a == b)
   io.print(a)
   io.print(b)
-  points: Set<Point> = %[.{x: 1, y: 2}, Point{x: 1, y: 2}]
+  points: Set<Point> = Set[{x: 1, y: 2}, Point{x: 1, y: 2}]
   io.print(Set.size(points))
-}
+end
 `, "True\nPoint{x: 1, y: 2}\nPoint{x: 1, y: 2}\n1\n")
 }
 
 func TestTargetTyped_GenericStruct(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Box<T> {
+struct Box<T>
   item: T
-}
+end
 
-struct Pair {
+struct Pair
   a: Int
   b: Int
-}
+end
 
-fn unbox<T>(b: Box<T>) -> T { b.item }
+fn unbox<T>(b: Box<T>) -> T
+    b.item
+end
 
-fn main() {
-  n: Box<Int> = .{item: 3}
+fn main()
+  n: Box<Int> = {item: 3}
   io.inspect(n)
-  io.print(unbox(.{item: "s"}))
-  p: Box<Pair> = .{item: .{a: 1, b: 2}}
+  io.print(unbox({item: "s"}))
+  p: Box<Pair> = {item: {a: 1, b: 2}}
   io.inspect(p)
-}
+end
 `, "Box{item: 3}\ns\nBox{item: Pair{a: 1, b: 2}}\n")
 }
 
@@ -118,36 +124,36 @@ fn main() {
 func TestTargetTyped_GenericStructThroughAPayload(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct P<T> {
+struct P<T>
   a: List<T>
   b: List<T>
-}
+end
 
-fn pop<T>(xs: List<T>) -> Maybe<(T, P<T>)> {
-  case xs {
+fn pop<T>(xs: List<T>) -> Maybe<(T, P<T>)>
+  case xs
     [] -> None
-    [x, ..rest] -> Some((x, .{a: rest, b: []}))
-  }
-}
+    [x, ..rest] -> Some((x, {a: rest, b: []}))
+  end
+end
 
-fn first<T>(xs: List<T>) -> Result<(T, P<Maybe<T>>), String> {
-  case xs {
+fn first<T>(xs: List<T>) -> Result<(T, P<Maybe<T>>), String>
+  case xs
     [] -> Err("empty")
-    [x, ..] -> Ok((x, .{a: [Some(x)], b: [None]}))
-  }
-}
+    [x, ..] -> Ok((x, {a: [Some(x)], b: [None]}))
+  end
+end
 
-fn main() {
+fn main()
   io.inspect(pop([1, 2, 3]))
   io.inspect(pop(["s"]))
   none: List<Int> = []
   io.inspect(pop(none))
   io.inspect(first(["a", "b"]))
-  case pop([4, 5]) {
+  case pop([4, 5])
     Some((x, p)) -> io.print(x + Iter.count(p.a) + Iter.count(p.b))
     None -> io.print(0)
-  }
-}
+  end
+end
 `, `Some((1, P{a: [2, 3], b: []}))
 Some(("s", P{a: [], b: []}))
 None
@@ -161,23 +167,23 @@ Ok(("a", P{a: [Some("a")], b: [None]}))
 func TestTargetTyped_SpreadUpdateStillUpdates(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Address {
+struct Address
   street: String
   city: String
-}
+end
 
-struct Person {
+struct Person
   name: String
   address: Address
-}
+end
 
-fn main() {
-  ada: Person = .{name: "Ada", address: .{street: "1 Main", city: "Bath"}}
-  moved = .{..ada, address: .{.., city: "NYC"}}
+fn main()
+  ada: Person = {name: "Ada", address: {street: "1 Main", city: "Bath"}}
+  moved = {..ada, address: {.., city: "NYC"}}
   io.inspect(moved)
-  rebuilt = Person{name: "Bo", address: .{street: "2 Main", city: "York"}}
+  rebuilt = Person{name: "Bo", address: {street: "2 Main", city: "York"}}
   io.inspect(rebuilt)
-}
+end
 `, `Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
 Person{name: "Bo", address: Address{street: "2 Main", city: "York"}}
 `)

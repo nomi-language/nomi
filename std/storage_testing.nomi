@@ -3,13 +3,13 @@
 //# server:
 //#
 //# ```nomi
-//# test "an upload stores the avatar" {
+//# test "an upload stores the avatar"
 //#     store = Memory.new()
 //#     with App.store = store
 //#     url = save_avatar(7, png)?
 //#     assert Memory.keys(store) == ["avatars/7.png"]
 //#     assert "${url}" == "https://storage.test/avatars/7.png"
-//# }
+//# end
 //# ```
 //#
 //# `Failing` is a store whose every call fails with an error the test
@@ -17,7 +17,7 @@
 //# `conformance` is the suite every backend passes: a backend's own tests
 //# run it against stores it opens.
 
-import {
+import
     bool.Bool.{self, False, True}
     bytes.Bytes
     channels.{Channel, Receiver, Sender}
@@ -34,7 +34,7 @@ import {
     strings.String
     unit.Unit
     url.Url
-}
+end
 
 /// A `Store` kept in memory, shared by every copy of the value. Its `url`
 /// is `public_base` joined with the key; the default base is on
@@ -44,22 +44,22 @@ import {
 //! assert Memory.keys(store) == ["a.txt"]
 //! assert "${Store.url(store, "a.txt")!}" == "https://storage.test/a.txt"
 //
-pub opaque struct Memory {
+pub opaque struct Memory
     state: Channel<State>
     public_base: Url
-}
+end
 
-struct State {
+struct State
     objects: Map<String, Object>
-}
+end
 
-impl Memory {
+impl Memory
     /// An empty store whose URLs start with `public_base`.
-    pub fn new(public_base: Url = Url`https://storage.test/`) -> Memory {
+    pub fn new(public_base: Url = Url`https://storage.test/`) -> Memory
         state: Channel<State> = Channel.buffered(1)
-        _ = Sender.send(state.sender, State{objects: %{}})
-        Memory{state, public_base}
-    }
+        _ = Sender.send(state.sender, State{objects: {}})
+        Memory{state:, public_base:}
+    end
 
     /// Every key held, sorted.
     //! store = Memory.new()
@@ -67,79 +67,79 @@ impl Memory {
     //! _ = Store.put(store, "a", String.to_bytes(""), "text/plain")
     //! assert Memory.keys(store) == ["a", "b"]
     //
-    pub fn keys(memory: Memory) -> List<String> {
+    pub fn keys(memory: Memory) -> List<String>
         Map.keys(peek(memory).objects) |> Iter.sort() |> Iter.to_list()
-    }
-}
+    end
+end
 
-impl Store for Memory {
-    fn put(memory: Memory, key: String, data: Bytes, content_type: String) -> Result<Unit, Error> {
+impl Store for Memory
+    fn put(memory: Memory, key: String, data: Bytes, content_type: String) -> Result<Unit, Error>
         storage.check_key(key)?
         storage.check_content_type(content_type)?
-        info = Info{size: Bytes.length(data), content_type, modified: Instant.now()}
+        info = Info{size: Bytes.length(data), content_type:, modified: Instant.now()}
         state = take(memory)
-        put(memory, State{objects: Map.put(state.objects, key, Object{data, info})})
+        put(memory, State{objects: Map.put(state.objects, key, Object{data:, info:})})
         Ok(Unit)
-    }
+    end
 
-    fn get(memory: Memory, key: String) -> Result<Object, Error> {
+    fn get(memory: Memory, key: String) -> Result<Object, Error>
         storage.check_key(key)?
-        Map.get(peek(memory).objects, key) |> Maybe.to_result(Error.NotFound{key})
-    }
+        Map.get(peek(memory).objects, key) |> Maybe.to_result(Error.NotFound{key:})
+    end
 
-    fn info(memory: Memory, key: String) -> Result<Maybe<Info>, Error> {
+    fn info(memory: Memory, key: String) -> Result<Maybe<Info>, Error>
         storage.check_key(key)?
 
         Ok(
             Map.get(peek(memory).objects, key)
             |> Maybe.map(fn object -> object.info)
         )
-    }
+    end
 
-    fn delete(memory: Memory, key: String) -> Result<Unit, Error> {
+    fn delete(memory: Memory, key: String) -> Result<Unit, Error>
         storage.check_key(key)?
         state = take(memory)
         put(memory, State{objects: Map.remove(state.objects, key)})
         Ok(Unit)
-    }
+    end
 
-    fn url(memory: Memory, key: String) -> Result<Url, Error> {
+    fn url(memory: Memory, key: String) -> Result<Url, Error>
         storage.check_key(key)?
         Ok(storage.join_key(memory.public_base, key))
-    }
+    end
 
-    fn list(memory: Memory, options: ListOptions) -> Result<Listing, Error> {
+    fn list(memory: Memory, options: ListOptions) -> Result<Listing, Error>
         storage.check_prefix(options.prefix)?
 
         entries =
             peek(memory).objects
             |> Iter.map(fn (key, object) -> Entry{
-                key,
+                key:,
                 size: object.info.size,
                 modified: object.info.modified,
             })
 
         Ok(storage.page(entries, options))
-    }
-}
+    end
+end
 
 // The store's state, taken out of its channel until `put` puts it back.
-fn take(memory: Memory) -> State {
-    case Receiver.receive(memory.state.receiver) {
+fn take(memory: Memory) -> State
+    case Receiver.receive(memory.state.receiver)
         Some(state) -> state
-        None -> State{objects: %{}}
-    }
-}
+        None -> State{objects: {}}
+    end
+end
 
-fn put(memory: Memory, state: State) {
+fn put(memory: Memory, state: State)
     _ = Sender.send(memory.state.sender, state)
-}
+end
 
-fn peek(memory: Memory) -> State {
+fn peek(memory: Memory) -> State
     state = take(memory)
     put(memory, state)
     state
-}
+end
 
 /// A `Store` whose every call fails with `error`, whatever the key, for
 /// testing what a caller does when storage is down. `exists` fails with it
@@ -149,61 +149,56 @@ fn peek(memory: Memory) -> State {
 //! assert Store.exists(store, "a") == Err(Error.Unavailable{message: "down"})
 //! assert Store.put(Failing{}, "a", String.to_bytes(""), "text/plain") is Err(.Unavailable{})
 //
-pub struct Failing {
+pub struct Failing
     error: Error = Error.Unavailable{message: "the test's store is failing"}
-}
+end
 
-impl Store for Failing {
-    fn put(
-        failing: Failing,
-        key: String,
-        data: Bytes,
-        content_type: String,
-    ) -> Result<Unit, Error> {
+impl Store for Failing
+    fn put(failing: Failing, key: String, data: Bytes, content_type: String) -> Result<Unit, Error>
         _ = (key, data, content_type)
         Err(failing.error)
-    }
+    end
 
-    fn get(failing: Failing, key: String) -> Result<Object, Error> {
+    fn get(failing: Failing, key: String) -> Result<Object, Error>
         _ = key
         Err(failing.error)
-    }
+    end
 
-    fn info(failing: Failing, key: String) -> Result<Maybe<Info>, Error> {
+    fn info(failing: Failing, key: String) -> Result<Maybe<Info>, Error>
         _ = key
         Err(failing.error)
-    }
+    end
 
-    fn delete(failing: Failing, key: String) -> Result<Unit, Error> {
+    fn delete(failing: Failing, key: String) -> Result<Unit, Error>
         _ = key
         Err(failing.error)
-    }
+    end
 
-    fn url(failing: Failing, key: String) -> Result<Url, Error> {
+    fn url(failing: Failing, key: String) -> Result<Url, Error>
         _ = key
         Err(failing.error)
-    }
+    end
 
-    fn list(failing: Failing, options: ListOptions) -> Result<Listing, Error> {
+    fn list(failing: Failing, options: ListOptions) -> Result<Listing, Error>
         _ = options
         Err(failing.error)
-    }
-}
+    end
+end
 
 /// A conformance rule a backend broke, and how. Its `Display` is `rule:
 /// message`.
-pub struct Broken {
+pub struct Broken
     rule: String
     message: String
-}
+end
 
 derive Equatable for Broken
 
-impl Display for Broken {
-    fn to_string(broken: Broken) -> String {
+impl Display for Broken
+    fn to_string(broken: Broken) -> String
         "${broken.rule}: ${broken.message}"
-    }
-}
+    end
+end
 
 /// Runs every conformance rule against stores from `open`, and returns the
 /// rules broken: none for a backend that conforms. Each rule opens a fresh
@@ -222,34 +217,34 @@ impl Display for Broken {
 /// S3 allows it and `storage.local` cannot.
 //! assert conformance(fn -> Ok(Memory.new())) == []
 //
-pub fn conformance(open: () -> Result<Store, Error>) -> List<Broken> {
+pub fn conformance(open: () -> Result<Store, Error>) -> List<Broken>
     checks()
-    |> Iter.flat_map(fn (rule, check) -> {
-        outcome = case open() {
+    |> Iter.flat_map(fn (rule, check) ->
+        outcome = case open()
             Ok(store) -> check(store)
             Err(e) -> Err("cannot open a store: ${e}")
-        }
+        end
 
-        case outcome {
+        case outcome
             Ok(_) -> []
-            Err(message) -> [Broken{rule, message}]
-        }
-    })
+            Err(message) -> [Broken{rule:, message:}]
+        end
+    end)
     |> Iter.to_list()
-}
+end
 
 /// The names of the conformance rules, in the order `conformance` runs
 /// them.
 //! assert Iter.contains(rules(), "an object of 5 MiB round-trips")
 //
-pub fn rules() -> List<String> {
+pub fn rules() -> List<String>
     checks() |> Iter.map(fn (rule, _) -> rule) |> Iter.to_list()
-}
+end
 
 /// The keys every function of a backend must refuse with `InvalidKey`.
 //! assert Iter.all_match(invalid_keys(), fn key -> Result.is_err(storage.check_key(key)))
 //
-pub fn invalid_keys() -> List<String> {
+pub fn invalid_keys() -> List<String>
     [
         "",
         "/a",
@@ -266,7 +261,7 @@ pub fn invalid_keys() -> List<String> {
         "a\u{85}b",
         String.repeat("k", 1025),
     ]
-}
+end
 
 /// Valid keys a backend must store and address as written: each
 /// punctuation character S3 allows, spaces, `%` escapes that are not
@@ -274,49 +269,39 @@ pub fn invalid_keys() -> List<String> {
 /// deletes and links each under `conformance/`.
 //! assert Iter.all_match(odd_keys(), fn key -> storage.check_key("conformance/${key}") == Ok(Unit))
 //
-pub fn odd_keys() -> List<String> {
+pub fn odd_keys() -> List<String>
     [
         "Noah_-_3010(1)_20260609-210857.jpg",
         "a b/c  d.txt",
         "!'*()-_.~.txt",
         "&$@=;:+,.txt",
-        "?#[]{}^`|<>\".txt",
+        "?Vector[]{}^`|<>\".txt",
         "50%25 off%.txt",
         "café/日本語/émoji 🙂.txt",
         "é.txt",
         "trailing. /dot.",
         "con/nul.txt/COM1",
     ]
-}
+end
 
-fn expect(holds: Bool, message: String) -> Result<Unit, String> {
-    if holds { Ok(Unit) } else { Err(message) }
-}
+fn expect(holds: Bool, message: String) -> Result<Unit, String>
+    if holds then Ok(Unit) else Err(message)
+end
 
-fn bytes(text: String) -> Bytes {
+fn bytes(text: String) -> Bytes
     String.to_bytes(text)
-}
+end
 
-fn put_object(
-    store: Store,
-    key: String,
-    data: Bytes,
-    content_type: String,
-) -> Result<Unit, String> {
+fn put_object(store: Store, key: String, data: Bytes, content_type: String) -> Result<Unit, String>
     Store.put(store, key, data, content_type) |> Result.map_err(fn e -> "put ${key}: ${e}")
-}
+end
 
-fn get_object(store: Store, key: String) -> Result<Object, String> {
+fn get_object(store: Store, key: String) -> Result<Object, String>
     Store.get(store, key) |> Result.map_err(fn e -> "get ${key}: ${e}")
-}
+end
 
 // Put `data` and read it back whole and through `info`.
-fn round_trips(
-    store: Store,
-    key: String,
-    data: Bytes,
-    content_type: String,
-) -> Result<Unit, String> {
+fn round_trips(store: Store, key: String, data: Bytes, content_type: String) -> Result<Unit, String>
     put_object(store, key, data, content_type)?
     object = get_object(store, key)?
 
@@ -334,18 +319,20 @@ fn round_trips(
 
     expect(object.info.size == Bytes.length(data), "get answered the size ${object.info.size}")?
 
-    case Store.info(store, key) {
-        Ok(Some(info)) -> {
+    case Store.info(store, key)
+        Ok(Some(info)) ->
             expect(info.size == Bytes.length(data), "info answered the size ${info.size}")?
             expect(info.content_type == content_type, "info answered the type ${info.content_type}")
-        }
 
-        Ok(None) -> Err("info answered None for a key just put")
-        Err(e) -> Err("info ${key}: ${e}")
-    }
-}
+        Ok(None) ->
+            Err("info answered None for a key just put")
 
-fn all_bytes() -> Bytes {
+        Err(e) ->
+            Err("info ${key}: ${e}")
+    end
+end
+
+fn all_bytes() -> Bytes
     digits = "0123456789abcdef"
 
     text =
@@ -353,68 +340,71 @@ fn all_bytes() -> Bytes {
         |> String.join("")
 
     hex.decode(text)!
-}
+end
 
-fn refuses(key: String, function: String, answer: Result<Unit, Error>) -> Result<Unit, String> {
-    case answer {
+fn refuses(key: String, function: String, answer: Result<Unit, Error>) -> Result<Unit, String>
+    case answer
         Err(.InvalidKey{}) -> Ok(Unit)
         Err(e) -> Err("${function} of the key \"${key}\" answered ${e}, not InvalidKey")
         Ok(_) -> Err("${function} of the key \"${key}\" answered Ok, not InvalidKey")
-    }
-}
+    end
+end
 
-fn list_keys(listing: Listing) -> List<String> {
+fn list_keys(listing: Listing) -> List<String>
     listing.objects |> Iter.map(fn e -> e.key) |> Iter.to_list()
-}
+end
 
-fn list_page(store: Store, options: ListOptions) -> Result<Listing, String> {
+fn list_page(store: Store, options: ListOptions) -> Result<Listing, String>
     Store.list(store, options) |> Result.map_err(fn e -> "list ${options.prefix}: ${e}")
-}
+end
 
 // The keys and prefixes on each page from `options` on, up to `left`
 // pages.
-fn paged(store: Store, options: ListOptions, left: Int) -> Result<List<List<String>>, String> {
-    if left == 0 { return Err("list returned more pages than it has keys") }
+fn paged(store: Store, options: ListOptions, left: Int) -> Result<List<List<String>>, String>
+    if left == 0 then return Err("list returned more pages than it has keys")
     listed = list_page(store, options)?
     here = list_keys(listed) + listed.prefixes
 
-    case listed.next {
-        Some(token) -> {
-            rest = paged(store, .{..options, continuation: Some(token)}, left - 1)?
+    case listed.next
+        Some(token) ->
+            rest = paged(store, {..options, continuation: Some(token)}, left - 1)?
             Ok([here, ..rest])
-        }
 
-        None -> Ok([here])
-    }
-}
+        None ->
+            Ok([here])
+    end
+end
 
-fn checks() -> List<(String, (Store) -> Result<Unit, String>)> {
+fn checks() -> List<(String, (Store) -> Result<Unit, String>)>
     [
         (
             "a put is read back with its bytes, type and size",
-            fn store -> {
+            fn store ->
                 round_trips(store, "conformance/a.txt", bytes("hello"), "text/plain; charset=utf-8")
-            },
+            end,
         ),
         (
             "a second put replaces the first",
-            fn store -> {
+            fn store ->
                 put_object(store, "conformance/a.txt", bytes("first"), "text/plain")?
                 round_trips(store, "conformance/a.txt", bytes("second, longer"), "application/json")
-            },
+            end,
         ),
         (
             "a missing key is NotFound to get, None to info, False to exists and Ok to delete",
-            fn store -> {
+            fn store ->
                 key = "conformance/missing.txt"
 
-                case Store.get(store, key) {
+                case Store.get(store, key)
                     Err(.NotFound{key: named}) ->
                         expect(named == key, "get's NotFound named ${named}")?
 
-                    Err(e) -> return Err("get answered ${e}, not NotFound")
-                    Ok(_) -> return Err("get of a missing key answered an object")
-                }
+                    Err(e) ->
+                        return Err("get answered ${e}, not NotFound")
+
+                    Ok(_) ->
+                        return Err("get of a missing key answered an object")
+                end
 
                 expect(
                     Store.info(store, key) == Ok(None),
@@ -430,11 +420,11 @@ fn checks() -> List<(String, (Store) -> Result<Unit, String>)> {
                     Store.delete(store, key) == Ok(Unit),
                     "delete of a missing key did not answer Ok",
                 )
-            },
+            end,
         ),
         (
             "a deleted object is gone",
-            fn store -> {
+            fn store ->
                 key = "conformance/gone.txt"
                 put_object(store, key, bytes("x"), "text/plain")?
 
@@ -454,17 +444,17 @@ fn checks() -> List<(String, (Store) -> Result<Unit, String>)> {
                     Store.info(store, key) == Ok(None),
                     "info after delete did not answer Ok(None)",
                 )
-            },
+            end,
         ),
         (
             "every function refuses an invalid key and stores nothing",
-            fn store -> {
+            fn store ->
                 probe = bytes("probe")
                 put_object(store, "b", probe, "text/plain")?
 
                 _ =
                     invalid_keys()
-                    |> Iter.map(fn key -> {
+                    |> Iter.map(fn key ->
                         refuses(key, "put", Store.put(store, key, bytes("x"), "text/plain"))?
 
                         refuses(
@@ -496,7 +486,7 @@ fn checks() -> List<(String, (Store) -> Result<Unit, String>)> {
                             Store.url(store, key)
                             |> Result.map(fn _ -> Unit),
                         )
-                    })
+                    end)
                     |> Result.collect()?
 
                 kept = get_object(store, "b")?
@@ -507,74 +497,77 @@ fn checks() -> List<(String, (Store) -> Result<Unit, String>)> {
                 )?
 
                 ["a", "a/b", "hidden"]
-                |> Iter.map(fn key -> {
-                    case Store.info(store, key) {
+                |> Iter.map(fn key ->
+                    case Store.info(store, key)
                         Ok(None) -> Ok(Unit)
                         Ok(Some(_)) -> Err("a refused put of an invalid key stored ${key}")
                         Err(e) -> Err("info ${key}: ${e}")
-                    }
-                })
+                    end
+                end)
                 |> Result.collect()
                 |> Result.map(fn _ -> Unit)
-            },
+            end,
         ),
         (
             "put refuses an invalid content type",
-            fn store -> {
+            fn store ->
                 key = "conformance/typed.txt"
 
                 _ =
                     ["", "text/plain\r\nX-Injected: 1", String.repeat("t", 256)]
-                    |> Iter.map(fn content_type -> {
-                        case Store.put(store, key, bytes("x"), content_type) {
+                    |> Iter.map(fn content_type ->
+                        case Store.put(store, key, bytes("x"), content_type)
                             Err(.InvalidContentType{}) -> Ok(Unit)
                             Err(e) -> Err("put with the type \"${content_type}\" answered ${e}")
                             Ok(_) -> Err("put with the type \"${content_type}\" answered Ok")
-                        }
-                    })
+                        end
+                    end)
                     |> Result.collect()?
 
                 expect(Store.info(store, key) == Ok(None), "a refused put stored an object")
-            },
+            end,
         ),
         (
             "an empty object round-trips",
-            fn store -> {
+            fn store ->
                 round_trips(store, "conformance/empty", bytes(""), "application/octet-stream")
-            },
+            end,
         ),
         (
             "every byte value round-trips",
-            fn store -> {
+            fn store ->
                 round_trips(store, "conformance/bytes.bin", all_bytes(), "application/octet-stream")
-            },
+            end,
         ),
         (
             "an object of 5 MiB round-trips",
-            fn store -> {
+            fn store ->
                 data = bytes(String.repeat("0123456789abcdef", 5 * 1024 * 64))
                 round_trips(store, "conformance/large.bin", data, "application/octet-stream")
-            },
+            end,
         ),
         (
             "keys with punctuation, spaces and other scripts round-trip",
-            fn store -> {
+            fn store ->
                 _ =
                     odd_keys()
-                    |> Iter.map(fn name -> {
+                    |> Iter.map(fn name ->
                         key = "conformance/${name}"
                         round_trips(store, key, bytes(name), "text/plain")?
 
-                        case Store.url(store, key) {
+                        case Store.url(store, key)
                             Ok(u) ->
                                 expect(
                                     String.ends_with(u.path, "/${key}"),
                                     "url of ${key} answered the path ${u.path}",
                                 )?
 
-                            Err(.NoPublicUrl) -> Unit
-                            Err(e) -> return Err("url ${key}: ${e}")
-                        }
+                            Err(.NoPublicUrl) ->
+                                Unit
+
+                            Err(e) ->
+                                return Err("url ${key}: ${e}")
+                        end
 
                         Store.delete(store, key) |> Result.map_err(fn e -> "delete ${key}: ${e}")?
 
@@ -582,23 +575,23 @@ fn checks() -> List<(String, (Store) -> Result<Unit, String>)> {
                             Store.info(store, key) == Ok(None),
                             "a deleted ${key} is still there",
                         )
-                    })
+                    end)
                     |> Result.collect()?
 
                 Ok(Unit)
-            },
+            end,
         ),
         (
             "list returns the keys under a prefix in order, folds a delimiter's prefixes and pages",
-            fn store -> {
+            fn store ->
                 base = "conformance/list/"
                 names = ["e f.txt", "b/d.txt", "a.txt", "b/c.txt"]
 
                 _ =
                     names
-                    |> Iter.map(fn name -> {
+                    |> Iter.map(fn name ->
                         put_object(store, "${base}${name}", bytes(name), "text/plain")
-                    })
+                    end)
                     |> Result.collect()?
 
                 put_object(store, "conformance/listed.txt", bytes("outside"), "text/plain")?
@@ -643,24 +636,24 @@ fn checks() -> List<(String, (Store) -> Result<Unit, String>)> {
                     "list_all returned ${list_keys(everything)}",
                 )?
 
-                case Store.list(store, ListOptions{prefix: "a\\b"}) {
+                case Store.list(store, ListOptions{prefix: "a\\b"})
                     Err(.InvalidKey{}) -> Ok(Unit)
                     Err(e) -> Err("list of the prefix a\\b returned ${e}, not InvalidKey")
                     Ok(_) -> Err("list of the prefix a\\b returned a listing, not InvalidKey")
-                }
-            },
+                end
+            end,
         ),
         (
             "url answers a URL whose path ends with the key, or NoPublicUrl",
-            fn store -> {
+            fn store ->
                 key = "conformance/linked.txt"
 
-                case Store.url(store, key) {
+                case Store.url(store, key)
                     Ok(u) -> expect(String.ends_with(u.path, "/${key}"), "url answered ${u}")
                     Err(.NoPublicUrl) -> Ok(Unit)
                     Err(e) -> Err("url answered ${e}")
-                }
-            },
+                end
+            end,
         ),
     ]
-}
+end

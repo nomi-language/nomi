@@ -6,14 +6,14 @@
 // that number.
 import std::io
 
-fn is_even(n: Int) -> Bool {
-    if n == 0 { True } else { is_odd(n - 1) }
-}
+fn is_even(n: Int) -> Bool
+    if n == 0 then True else is_odd(n - 1)
+end
 
-fn is_odd(n: Int) -> Bool {
-    if n == 0 { False } else { is_even(n - 1) }
-}
+fn is_odd(n: Int) -> Bool
+    if n == 0 then False else is_even(n - 1)
+end
 
-fn main() {
+fn main()
     io.print("${is_even(100000000)}")
-}
+end

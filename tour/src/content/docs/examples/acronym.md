@@ -17,18 +17,18 @@ import std::regex.Regex
 
 /// The acronym of `phrase`: the first letter of each word, upper-cased.
 /// Hyphens and other punctuation separate words; an apostrophe does not.
-pub fn abbreviate(phrase: String) -> String {
+pub fn abbreviate(phrase: String) -> String
     phrase
     |> String.find_all(Regex`[A-Za-z][A-Za-z']*`)
     |> Iter.map(&String.take(&1, 1))
     |> String.join()
     |> String.uppercase()
-}
+end
 
 // FILE: acronym_test.nomi
 import acronym.abbreviate
 
-test "abbreviates phrases" {
+test "abbreviates phrases"
     [
         ("basic", "Portable Network Graphics", "PNG"),
         ("lowercase words", "Ruby on Rails", "ROR"),
@@ -44,10 +44,10 @@ test "abbreviates phrases" {
         ("apostrophes", "Halley's Comet", "HC"),
         ("underscore emphasis", "The Road _Not_ Taken", "TRNT"),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert abbreviate(phrase) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok abbreviates phrases (9 cases)

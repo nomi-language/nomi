@@ -9,14 +9,14 @@ import (
 // Currency, skeleton and fixed-pattern literals are values of their type,
 // checked when the program loads.
 func TestMoneyAndDateLiterals_AreTheirValues(t *testing.T) {
-	const src = "import {\n" +
+	const src = "import\n" +
 		"    std::calendar.{Date, DateFields, DatePattern}\n" +
 		"    std::currency.Currency\n" +
 		"    std::io\n" +
 		"    std::money.Money\n" +
-		"}\n\n" +
+		"end\n\n" +
 		"once bitcoin = Currency`BTC:8`\n\n" +
-		"fn main() {\n" +
+		"fn main()\n" +
 		"    io.print(Debug.inspect(Currency`EUR`))\n" +
 		"    io.print(Currency.minor_digits(bitcoin))\n" +
 		"    io.print(Date.format_fields(Date`2026-10-20`, Locale`pl`, DateFields`yMMMMd`))\n" +
@@ -27,7 +27,7 @@ func TestMoneyAndDateLiterals_AreTheirValues(t *testing.T) {
 		"    io.print(Money`1200 PTS:0`)\n" +
 		"    amount = \"12\"\n" +
 		"    io.print(Display.to_string(Money\"${amount} USD\"))\n" +
-		"}\n"
+		"end\n"
 	p, err := LoadSource("main", src)
 	if err != nil {
 		t.Fatalf("the front end rejects valid literals: %v", err)
@@ -91,7 +91,7 @@ func TestMoneyAndDateLiterals_InvalidOnesAreCompileErrors(t *testing.T) {
 		{"std::calendar.DateTimePattern", "DateTimePattern`yyyy-MM-dd'T'HH:mm z`",
 			"typed literal DateTimePattern`yyyy-MM-dd'T'HH:mm z` is invalid: invalid format: `z` writes a time zone, which a fixed pattern does not hold"},
 	} {
-		src := "import " + c.imports + "\n\nfn main() {\n    _ = " + c.literal + "\n}\n"
+		src := "import " + c.imports + "\n\nfn main()\n    _ = " + c.literal + "\nend\n"
 		ds := literalDiagnostics(t, src)
 		if len(ds) != 1 {
 			t.Fatalf("%s: %d diagnostics, want 1: %v", c.literal, len(ds), ds)

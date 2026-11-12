@@ -1,6 +1,6 @@
 import series.{self, Error}
 
-test "slices" {
+test "slices"
     [
         ("slices of one from one", "1", 1, ["1"]),
         ("slices of one from two", "12", 1, ["1", "2"]),
@@ -14,12 +14,12 @@ test "slices" {
             ["91849", "18493", "84939", "49390", "93904", "39042", "90424", "04243"],
         ),
     ]
-    |> subtests (description, digits, length, expected), description {
+    |> subtests (description, digits, length, expected), description
         assert series.slices(digits, length) == Ok(expected)
-    }
-}
+    end
+end
 
-test "errors" {
+test "errors"
     [
         ("slice length is too large", "12345", 6, Error.LengthTooLarge),
         ("slice length is way too large", "12345", 42, .LengthTooLarge),
@@ -27,7 +27,7 @@ test "errors" {
         ("slice length cannot be negative", "123", -1, .NegativeLength),
         ("empty series is invalid", "", 1, .EmptySeries),
     ]
-    |> subtests (description, digits, length, expected), description {
+    |> subtests (description, digits, length, expected), description
         assert series.slices(digits, length) == Err(expected)
-    }
-}
+    end
+end

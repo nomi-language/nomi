@@ -16,106 +16,109 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// A buffer of at most `capacity` items, read oldest first. It is a value:
 /// each operation returns the buffer after it.
-pub opaque struct Buffer<T> {
+pub opaque struct Buffer<T>
     capacity: Int
     items: List<T>
-}
+end
 
 /// Why an operation cannot be done.
-pub enum Error {
+pub enum Error
     Full
     Empty
-}
+end
 
-impl Buffer<T> {
+impl Buffer<T>
     /// An empty buffer that holds at most `capacity` items.
-    pub fn new(capacity: Int) -> Buffer<T> {
-        .{capacity, items: []}
-    }
+    pub fn new(capacity: Int) -> Buffer<T>
+        {capacity:, items: []}
+    end
 
     /// `buffer` with `item` after its newest, or `Full` when it holds
     /// `capacity` items already.
-    pub fn write(buffer: Buffer<T>, item: T) -> Result<Buffer<T>, Error> {
-        if Buffer.is_full(buffer) {
+    pub fn write(buffer: Buffer<T>, item: T) -> Result<Buffer<T>, Error>
+        if Buffer.is_full(buffer) then
             Err(.Full)
-        } else {
-            Ok(.{..buffer, items: [..buffer.items, item]})
-        }
-    }
+        else
+            Ok({..buffer, items: [..buffer.items, item]})
+        end
+    end
 
     /// `buffer` with `item` after its newest, dropping the oldest item first
     /// when it is full.
-    pub fn overwrite(buffer: Buffer<T>, item: T) -> Buffer<T> {
-        kept = if Buffer.is_full(buffer) {
+    pub fn overwrite(buffer: Buffer<T>, item: T) -> Buffer<T>
+        kept = if Buffer.is_full(buffer) then
             Iter.drop(buffer.items, 1) |> Iter.to_list()
-        } else {
+        else
             buffer.items
-        }
+        end
 
-        .{..buffer, items: [..kept, item]}
-    }
+        {..buffer, items: [..kept, item]}
+    end
 
     /// The oldest item and the buffer without it, or `Empty`.
-    pub fn read(buffer: Buffer<T>) -> Result<(T, Buffer<T>), Error> {
-        case buffer.items {
-            [oldest, ..rest] -> Ok((oldest, .{..buffer, items: rest}))
+    pub fn read(buffer: Buffer<T>) -> Result<(T, Buffer<T>), Error>
+        case buffer.items
+            [oldest, ..rest] -> Ok((oldest, {..buffer, items: rest}))
             [] -> Err(.Empty)
-        }
-    }
+        end
+    end
 
     /// `buffer` with no items, at the same capacity.
-    pub fn clear(buffer: Buffer<T>) -> Buffer<T> {
-        .{..buffer, items: []}
-    }
+    pub fn clear(buffer: Buffer<T>) -> Buffer<T>
+        {..buffer, items: []}
+    end
 
-    fn is_full(buffer: Buffer<T>) -> Bool {
+    fn is_full(buffer: Buffer<T>) -> Bool
         Iter.count(buffer.items) == buffer.capacity
-    }
-}
+    end
+end
 
 // FILE: circular_buffer_test.nomi
 import circular_buffer.Buffer
 
 /// One canonical operation and what it should do: a write that succeeds or
 /// fails, a read of a given item or one that fails, a clear, an overwrite.
-enum Step {
+enum Step
     Write Int
     WriteFails Int
     Read Int
     ReadFails
     Clear
     Overwrite Int
-}
+end
 
 /// Runs each step's operation on a buffer of `capacity`, in turn, and
 /// returns the steps as they happened. A run that does what every step says
 /// returns the steps it was given.
-fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
+fn replay(capacity: Int, steps: List<Step>) -> List<Step>
     (_buffer, happened) =
         steps
-        |> Iter.map_reduce(Buffer.new(capacity), fn buffer, step -> {
-            case step {
+        |> Iter.map_reduce(Buffer.new(capacity), fn buffer, step ->
+            case step
                 .Write(item) or .WriteFails(item) ->
-                    case Buffer.write(buffer, item) {
+                    case Buffer.write(buffer, item)
                         Ok(written) -> (written, Step.Write(item))
                         Err(_) -> (buffer, .WriteFails(item))
-                    }
+                    end
 
                 .Read(_) or .ReadFails ->
-                    case Buffer.read(buffer) {
+                    case Buffer.read(buffer)
                         Ok((item, rest)) -> (rest, .Read(item))
                         Err(_) -> (buffer, .ReadFails)
-                    }
+                    end
 
-                .Clear -> (Buffer.clear(buffer), .Clear)
-                .Overwrite(item) -> (Buffer.overwrite(buffer, item), .Overwrite(item))
-            }
-        })
+                .Clear ->
+                    (Buffer.clear(buffer), .Clear)
+
+                .Overwrite(item) ->
+                    (Buffer.overwrite(buffer, item), .Overwrite(item))
+            end
+        end)
 
     happened
-}
+end
 
-test "circular buffer" {
+test "circular buffer"
     [
         ("reading empty buffer should fail", 1, [Step.ReadFails]),
         ("can read an item just written", 1, [.Write(1), .Read(1)]),
@@ -179,10 +182,10 @@ test "circular buffer" {
             ],
         ),
     ]
-    |> subtests (description, capacity, steps), description {
+    |> subtests (description, capacity, steps), description
         assert replay(capacity, steps) == steps
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok circular buffer (14 cases)

@@ -1,14 +1,14 @@
 import std::io
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn add(a: Int, b: Int) -> Int {
+fn add(a: Int, b: Int) -> Int
     a + b
-}
+end
 
-fn main() {
+fn main()
     x = add(double(1), double(2))
 
     ys =
@@ -21,4 +21,4 @@ fn main() {
     zs = empty |> Iter.map(fn n -> double(n)) |> Iter.to_list()
 
     io.print("${x} ${ys} ${zs}")
-}
+end

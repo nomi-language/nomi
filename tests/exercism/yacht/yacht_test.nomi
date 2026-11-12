@@ -1,6 +1,6 @@
 import yacht.{self, Category}
 
-test "yacht" {
+test "yacht"
     [
         ("Yacht", [5, 5, 5, 5, 5], Category.Yacht, 50),
         ("Not Yacht", [1, 3, 3, 2, 5], .Yacht, 0),
@@ -37,7 +37,7 @@ test "yacht" {
         ("Choice", [3, 3, 5, 6, 6], .Choice, 23),
         ("Yacht as choice", [2, 2, 2, 2, 2], .Choice, 10),
     ]
-    |> subtests (description, dice, category, expected), description {
+    |> subtests (description, dice, category, expected), description
         assert yacht.score(dice, category) == expected
-    }
-}
+    end
+end

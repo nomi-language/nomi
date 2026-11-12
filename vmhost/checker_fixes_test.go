@@ -19,22 +19,21 @@ var checkerFixPrograms = []struct {
 		name: "type parameter only inside an opaque type",
 		src: `import std::io
 
-fn heads<T>(a: Vector<T>, b: Vector<T>) -> Int {
-    case (Vector.next_item(a), Vector.next_item(b)) {
-        (Some((x, _)), Some((y, _))) -> {
+fn heads<T>(a: Vector<T>, b: Vector<T>) -> Int
+    case (Vector.next_item(a), Vector.next_item(b))
+        (Some((x, _)), Some((y, _))) ->
             keep = fn v: T -> v
             _ = keep(x)
             _ = keep(y)
             2
-        }
         _ -> 0
-    }
-}
+    end
+end
 
-fn main() {
-    io.inspect(heads(#[1], #[2]))
-    io.inspect(Comparable.compare(#[1, 2], #[1, 3]))
-}
+fn main()
+    io.inspect(heads(Vector[1], Vector[2]))
+    io.inspect(Comparable.compare(Vector[1, 2], Vector[1, 3]))
+end
 `,
 		want: "2\nLess\n",
 	},
@@ -45,38 +44,38 @@ fn main() {
 		name: "annotation into a generic struct literal's field lambda",
 		src: `import std::io
 
-struct Box<T> {
+struct Box<T>
     v: T
-}
+end
 
-struct Pair<A, B> {
+struct Pair<A, B>
     a: A
     b: B
-}
+end
 
-enum Slot<T> {
+enum Slot<T>
     Full(T)
     Empty
-}
+end
 
-fn main() {
+fn main()
     f: Box<(Int) -> Int> = Box{v: fn x -> x + 1}
     io.inspect(f.v(2))
-    c: Box<(Int) -> Int> = Box(.{v: fn x -> x * 10})
+    c: Box<(Int) -> Int> = Box({v: fn x -> x * 10})
     io.inspect(c.v(2))
     h: Pair<Int, (Int) -> String> = Pair{a: 1, b: fn n -> "n=${n}"}
     io.print(h.b(h.a))
     g: Maybe<(Int) -> Int> = Some(fn x -> x * 3)
-    case g {
+    case g
         Some(k) -> io.inspect(k(2))
         None -> io.print("none")
-    }
+    end
     s: Slot<(Int) -> Int> = Slot.Full(fn x -> x - 1)
-    case s {
+    case s
         Slot.Full(k) -> io.inspect(k(2))
         Slot.Empty -> io.print("empty")
-    }
-}
+    end
+end
 `,
 		want: "3\n20\nn=1\n6\n1\n",
 	},
@@ -87,30 +86,30 @@ fn main() {
 		name: "unannotated once declaring a nested fn",
 		src: `import std::io
 
-once g = {
-    fn h(x: Int) -> Int {
+once g = begin
+    fn h(x: Int) -> Int
         x + 1
-    }
+    end
     h(4)
-}
+end
 
-struct Box {
+struct Box
     v: Int
-}
+end
 
-impl Box {
-    once start = {
-        fn double(x: Int) -> Int {
+impl Box
+    once start = begin
+        fn double(x: Int) -> Int
             x * 2
-        }
+        end
         double(21)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.inspect(g)
     io.inspect(Box.start)
-}
+end
 `,
 		want: "5\n42\n",
 	},
@@ -123,16 +122,16 @@ fn main() {
 		name: "interpolated result with an open error type",
 		src: `import std::io
 
-fn main() {
-    c = concurrent {
+fn main()
+    c = concurrent
         v = Ok(3)?
         Ok(v)
-    }
+    end
     io.print("${c}")
     d = Ok(4)
     io.print("d=${d}")
     io.print(Display.to_string(d))
-}
+end
 `,
 		want: "Ok(3)\nd=Ok(4)\nOk(4)\n",
 	},

@@ -1,36 +1,36 @@
 // std::http's middleware: each rule of CORS in its own test, a stack of
 // middleware written as a pipe, compression, basic auth and method
 // override.
-import {
+import
     std::duration.Duration
     std::embed.Files
     std::http.{self, Body, Client, Cors, Headers, Method, Origin, Request, Response, Status}
     std::http_testing
     std::io.{Reader, Writer}
-}
+end
 
-fn answer(Request) -> Response {
+fn answer(Request) -> Response
     Response{status: Status.accepted, body: Body.Text("handled")}
-}
+end
 
-fn from(method: Method, origin: String) -> Request {
-    .{..http_testing.request(method, "/api"), headers: Headers[("Origin", origin)]}
-}
+fn from(method: Method, origin: String) -> Request
+    {..http_testing.request(method, "/api"), headers: Headers[("Origin", origin)]}
+end
 
-fn preflight(origin: String) -> Request {
+fn preflight(origin: String) -> Request
     asking = from(Method.Options, origin)
 
-    .{
+    {
         ..asking,
         headers: asking.headers
         |> Headers.set("Access-Control-Request-Method", "PUT")
         |> Headers.set("Access-Control-Request-Headers", "content-type"),
     }
-}
+end
 
 once app_origin = Origin`https://app.example.com`
 
-test "a preflight from an allowed origin is answered without the handler" {
+test "a preflight from an allowed origin is answered without the handler"
     app =
         answer
         |> http.cors(Cors{
@@ -50,24 +50,24 @@ test "a preflight from an allowed origin is answered without the handler" {
 
     assert Headers.get(r.headers, "Vary")
         == Some("Origin, Access-Control-Request-Method, Access-Control-Request-Headers")
-}
+end
 
-test "a preflight from another origin gets no CORS headers and no handler" {
+test "a preflight from another origin gets no CORS headers and no handler"
     app = answer |> http.cors(Cors{origins: [app_origin]})
     r = app(preflight("https://evil.example"))
     assert r.status == Status.no_content
     assert Headers.get(r.headers, "Access-Control-Allow-Origin") == None
     assert Headers.get(r.headers, "Access-Control-Allow-Methods") == None
     assert String.contains(Headers.get(r.headers, "Vary")!, "Access-Control-Request-Method")
-}
+end
 
-test "an OPTIONS request that is no preflight reaches the handler" {
+test "an OPTIONS request that is no preflight reaches the handler"
     app = answer |> http.cors(Cors{origins: [app_origin]})
     r = app(from(Method.Options, "https://app.example.com"))
     assert r.status == Status.accepted
-}
+end
 
-test "an allowed origin is reflected, never a wildcard" {
+test "an allowed origin is reflected, never a wildcard"
     app = answer |> http.cors(Cors{origins: [app_origin], exposed_headers: ["X-Total"]})
     r = app(from(Method.Get, "https://app.example.com"))
     assert r.status == Status.accepted
@@ -75,35 +75,35 @@ test "an allowed origin is reflected, never a wildcard" {
     assert Headers.get(r.headers, "Access-Control-Expose-Headers") == Some("X-Total")
     assert Headers.get(r.headers, "Access-Control-Allow-Credentials") == None
     assert Headers.get(r.headers, "Vary") == Some("Origin")
-}
+end
 
-test "a disallowed origin gets no CORS headers, and the handler still runs" {
+test "a disallowed origin gets no CORS headers, and the handler still runs"
     app = answer |> http.cors(Cors{origins: [app_origin]})
     r = app(from(Method.Post, "https://evil.example"))
     assert Response.text(r) == Ok("handled")
     assert Headers.get(r.headers, "Access-Control-Allow-Origin") == None
     assert Headers.get(r.headers, "Access-Control-Expose-Headers") == None
     assert Headers.get(r.headers, "Vary") == Some("Origin")
-}
+end
 
-test "a request with no Origin gets only Vary" {
+test "a request with no Origin gets only Vary"
     app = answer |> http.cors(Cors{origins: [app_origin]})
     r = app(http_testing.request(Method.Get, "/api"))
     assert r.status == Status.accepted
     assert Headers.get(r.headers, "Access-Control-Allow-Origin") == None
     assert Headers.get(r.headers, "Vary") == Some("Origin")
-}
+end
 
-test "credentials go with a reflected origin" {
+test "credentials go with a reflected origin"
     app = answer |> http.cors(Cors{origins: [app_origin], credentials: True})
     r = app(from(Method.Get, "https://app.example.com"))
     assert Headers.get(r.headers, "Access-Control-Allow-Origin") == Some("https://app.example.com")
     assert Headers.get(r.headers, "Access-Control-Allow-Credentials") == Some("true")
     p = app(preflight("https://app.example.com"))
     assert Headers.get(p.headers, "Access-Control-Allow-Credentials") == Some("true")
-}
+end
 
-test "any origin is a wildcard, and never with credentials" {
+test "any origin is a wildcard, and never with credentials"
     app = answer |> http.cors(Cors{any_origin: True, credentials: True})
     r = app(from(Method.Get, "https://anyone.example"))
     assert Headers.get(r.headers, "Access-Control-Allow-Origin") == Some("*")
@@ -112,9 +112,9 @@ test "any origin is a wildcard, and never with credentials" {
     p = app(preflight("https://anyone.example"))
     assert Headers.get(p.headers, "Access-Control-Allow-Origin") == Some("*")
     assert Headers.get(p.headers, "Access-Control-Allow-Credentials") == None
-}
+end
 
-test "an origin matches exactly" {
+test "an origin matches exactly"
     app = answer |> http.cors(Cors{origins: [app_origin]})
 
     near = [
@@ -124,19 +124,19 @@ test "an origin matches exactly" {
         "https://app.example.com.evil.example",
     ]
 
-    assert Iter.all_match(near, fn o -> {
+    assert Iter.all_match(near, fn o ->
         Headers.get(app(from(Method.Get, o)).headers, "Access-Control-Allow-Origin") == None
-    })
-}
+    end)
+end
 
-test "the handler's own Vary is kept" {
+test "the handler's own Vary is kept"
     varying = fn _: Request -> Response{headers: Headers[("Vary", "Accept-Encoding")]}
     app = varying |> http.cors(Cors{origins: [app_origin]})
     r = app(from(Method.Get, "https://app.example.com"))
     assert Headers.values(r.headers, "Vary") == ["Accept-Encoding", "Origin"]
-}
+end
 
-test "a stack reads as a pipe, the last stage outermost" {
+test "a stack reads as a pipe, the last stage outermost"
     app =
         answer
         |> http.cors(Cors{origins: [app_origin]})
@@ -149,15 +149,15 @@ test "a stack reads as a pipe, the last stage outermost" {
     assert Headers.has(r.headers, "Access-Control-Allow-Origin")
     assert Headers.get(r.headers, "X-Frame-Options") == Some("DENY")
     assert Headers.has(r.headers, "X-Request-Id")
-}
+end
 
-fn gzip_request(method: Method, target: String) -> Request {
-    .{..http_testing.request(method, target), headers: Headers[("Accept-Encoding", "gzip")]}
-}
+fn gzip_request(method: Method, target: String) -> Request
+    {..http_testing.request(method, target), headers: Headers[("Accept-Encoding", "gzip")]}
+end
 
 once page = String.repeat("<li>an item</li>", 200)
 
-test "compress gzips a streamed body as it is read" {
+test "compress gzips a streamed body as it is read"
     app =
         (fn _: Request -> Response{
             headers: Headers[("Content-Type", "text/html"), ("Content-Length", "3200")],
@@ -171,17 +171,17 @@ test "compress gzips a streamed body as it is read" {
     assert Headers.get(r.headers, "Content-Length") == None
     assert r.content_length == None
     assert http_testing.decompressed(r) == Ok(String.to_bytes(page))
-}
+end
 
-test "compress gzips a produced body, and each flush sends what was written" {
+test "compress gzips a produced body, and each flush sends what was written"
     app =
         (fn _: Request -> Response{
             headers: Headers[("Content-Type", "text/event-stream")],
-            body: Body.Produce(fn w -> {
+            body: Body.Produce(fn w ->
                 _ = Writer.write_text(w, "data: one\n\n")
                 _ = Writer.flush(w)
                 Writer.write_text(w, "data: two\n\n")
-            }),
+            end),
         })
         |> http.compress()
 
@@ -189,12 +189,12 @@ test "compress gzips a produced body, and each flush sends what was written" {
     assert Headers.get(r.headers, "Content-Encoding") == Some("gzip")
     assert Iter.count(http_testing.chunks(r)) == 2
     assert http_testing.decompressed(r) == Ok(String.to_bytes("data: one\n\ndata: two\n\n"))
-}
+end
 
-test "compress makes a strong ETag weak, and a weak one stays" {
-    tagged = fn tag: String -> {
+test "compress makes a strong ETag weak, and a weak one stays"
+    tagged = fn tag: String ->
         fn _: Request -> Response{headers: Headers[("ETag", tag)], body: Body.Text(page)}
-    }
+    end
 
     strong = tagged("\"v1\"") |> http.compress()
     assert Headers.get(strong(gzip_request(Method.Get, "/")).headers, "ETag") == Some("W/\"v1\"")
@@ -203,27 +203,27 @@ test "compress makes a strong ETag weak, and a weak one stays" {
 
     assert Headers.get(strong(http_testing.request(Method.Get, "/")).headers, "ETag")
         == Some("\"v1\"")
-}
+end
 
-test "compress leaves a body with no content, a HEAD and a 304 alone, with Vary" {
+test "compress leaves a body with no content, a HEAD and a 304 alone, with Vary"
     statuses = [Status.no_content, Status.not_modified]
 
-    assert Iter.all_match(statuses, fn status -> {
-        app = (fn _: Request -> Response{status}) |> http.compress()
+    assert Iter.all_match(statuses, fn status ->
+        app = (fn _: Request -> Response{status:}) |> http.compress()
         r = app(gzip_request(Method.Get, "/"))
 
         Headers.get(r.headers, "Content-Encoding") == None
             and Headers.get(r.headers, "Vary") == Some("Accept-Encoding")
-    })
+    end)
 
     app = (fn _: Request -> Response{body: Body.Text(page)}) |> http.compress()
     head = app(gzip_request(Method.Head, "/"))
     assert Headers.get(head.headers, "Content-Encoding") == None
     assert Headers.get(head.headers, "Vary") == Some("Accept-Encoding")
-}
+end
 
-test "compress leaves compressed types alone and compresses SVG" {
-    typed = fn content_type: String -> {
+test "compress leaves compressed types alone and compresses SVG"
+    typed = fn content_type: String ->
         app =
             (fn _: Request -> Response{
                 headers: Headers[("Content-Type", content_type)],
@@ -232,7 +232,7 @@ test "compress leaves compressed types alone and compresses SVG" {
             |> http.compress()
 
         Headers.get(app(gzip_request(Method.Get, "/")).headers, "Content-Encoding")
-    }
+    end
 
     assert typed("image/png") == None
     assert typed("video/mp4") == None
@@ -240,30 +240,30 @@ test "compress leaves compressed types alone and compresses SVG" {
     assert typed("font/woff2") == None
     assert typed("image/svg+xml") == Some("gzip")
     assert typed("application/json; charset=utf-8") == Some("gzip")
-}
+end
 
-test "compress sniffs a body of bytes with no Content-Type first" {
+test "compress sniffs a body of bytes with no Content-Type first"
     app = (fn _: Request -> Response{body: Body.Bytes(String.to_bytes(page))}) |> http.compress()
     r = app(gzip_request(Method.Get, "/"))
     assert Headers.get(r.headers, "Content-Type") == Some("text/plain; charset=utf-8")
     assert Headers.get(r.headers, "Content-Encoding") == Some("gzip")
-}
+end
 
-test "compress keeps a Vary the handler set and adds to it" {
-    varying = fn vary: String -> {
+test "compress keeps a Vary the handler set and adds to it"
+    varying = fn vary: String ->
         app =
             (fn _: Request -> Response{headers: Headers[("Vary", vary)], body: Body.Text(page)})
             |> http.compress()
 
         Headers.values(app(gzip_request(Method.Get, "/")).headers, "Vary")
-    }
+    end
 
     assert varying("Origin") == ["Origin", "Accept-Encoding"]
     assert varying("origin, accept-encoding") == ["origin, accept-encoding"]
     assert varying("*") == ["*"]
-}
+end
 
-test "compress passes a precompressed file through" {
+test "compress passes a precompressed file through"
     files = Files.from_bytes([
         ("app.js", String.to_bytes(page)),
         ("app.js.gz", String.to_bytes("zipped")),
@@ -274,42 +274,42 @@ test "compress passes a precompressed file through" {
     assert Headers.get(r.headers, "Content-Encoding") == Some("gzip")
     assert Headers.values(r.headers, "Vary") == ["Accept-Encoding"]
     assert Response.text(r) == Ok("zipped")
-}
+end
 
-test "a compressed response reaches a client whole" {
+test "a compressed response reaches a client whole"
     app =
-        (fn r: Request -> {
-            if r.url.path == "/produced" {
+        (fn r: Request ->
+            if r.url.path == "/produced" then
                 Response{
                     headers: Headers[("Content-Type", "text/html")],
-                    body: Body.Produce(fn w -> {
+                    body: Body.Produce(fn w ->
                         _ = Writer.write_text(w, page)
                         _ = Writer.flush(w)
                         Writer.write_text(w, page)
-                    }),
+                    end),
                 }
-            } else {
+            else
                 Response{body: Body.Text(page)}
-            }
-        })
+            end
+        end)
         |> http.compress()
 
-    got = http_testing.with_server(app, fn server -> {
-        fetched = fn path: String -> {
-            response = Client.get(server.client, .{..server.url, path})!
+    got = http_testing.with_server(app, fn server ->
+        fetched = fn path: String ->
+            response = Client.get(server.client, {..server.url, path:})!
             (response.uncompressed, Response.text(response))
-        }
+        end
 
         (fetched("/"), fetched("/produced"))
-    })
+    end)
 
     assert got == ((True, Ok(page)), (True, Ok(page + page)))
-}
+end
 
-test "basic_auth quotes its realm and refuses another scheme" {
+test "basic_auth quotes its realm and refuses another scheme"
     app = answer |> http.basic_auth("the \"back\" office", fn _, _ -> True)
 
-    bearer = .{
+    bearer = {
         ..http_testing.request(Method.Get, "/"),
         headers: Headers[("Authorization", "Bearer x")],
     }
@@ -322,25 +322,25 @@ test "basic_auth quotes its realm and refuses another scheme" {
 
     signed = Request.with_basic_auth(http_testing.request(Method.Get, "/"), "a", "b")
     assert app(signed).status == Status.accepted
-}
+end
 
-test "method_override leaves a streamed body for the handler to read" {
+test "method_override leaves a streamed body for the handler to read"
     echo = fn r: Request -> Response{
         body: Body.Text("${Method.text(r.method)} ${Request.form_value(r, "title")}"),
     }
 
     app = echo |> http.method_override()
 
-    streamed = .{
+    streamed = {
         ..http_testing.request(Method.Post, "/posts/1"),
         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
         body: Body.Stream(Reader.from_text("_method=put&title=Hi")),
     }
 
     assert Response.text(app(streamed)) == Ok("PUT Some(Hi)")
-}
+end
 
-test "method_override reads only a POST, and only within the body limit" {
+test "method_override reads only a POST, and only within the body limit"
     app =
         (fn r: Request -> Response{body: Body.Text(Method.text(r.method))})
         |> http.method_override()
@@ -349,7 +349,7 @@ test "method_override reads only a POST, and only within the body limit" {
     put = http_testing.form_request(Method.Put, "/", [("_method", "DELETE")])
     assert Response.text(app(put)) == Ok("PUT")
 
-    header = .{
+    header = {
         ..http_testing.request(Method.Post, "/"),
         headers: Headers[("X-HTTP-Method-Override", "DELETE")],
     }
@@ -358,4 +358,4 @@ test "method_override reads only a POST, and only within the body limit" {
     limited = app |> http.limit_body(10)
     big = http_testing.form_request(Method.Post, "/", [("_method", "DELETE"), ("pad", page)])
     assert limited(big).status == Status.request_entity_too_large
-}
+end

@@ -11,56 +11,56 @@ import (
 // blocks and `Instant.now`. Each fixture runs on the VM through
 // irTestGroupVM against its golden record.
 
-const irGroupGapsChannelSource = `import {
+const irGroupGapsChannelSource = `import
   std::channels.{Channel, Receiver, Sender}
   std::duration.Duration
-}
+end
 
-pub struct App {
+pub struct App
   context: Context
   done: Channel<Int>
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), done: Channel.buffered<Int>(4)})
-}
+end
 
-fn main() {}
+fn main() end
 
-group "channel equality" {
+group "channel equality"
   boot boot()
 
-  test "a received value equals Some" {
+  test "a received value equals Some"
     _ = Sender.send(App.done.sender, 1)
     assert Receiver.receive(App.done.receiver) == Some(1)
-  }
+  end
 
-  test "a failing receive shows the call's row and both operands" {
+  test "a failing receive shows the call's row and both operands"
     _ = Sender.send(App.done.sender, 2)
     assert Receiver.receive(App.done.receiver) == Some(1)
-  }
+  end
 
-  test "a piped receive records no call row" {
+  test "a piped receive records no call row"
     _ = Sender.send(App.done.sender, 3)
     assert App.done.receiver |> Receiver.receive() == Some(1)
-  }
+  end
 
-  test "a piped qualified call records no call row" {
+  test "a piped qualified call records no call row"
     s = "abc"
     assert s |> String.length() == 4
-  }
+  end
 
-  test "std equality shows its operands" {
+  test "std equality shows its operands"
     d = Duration.seconds(2)
     assert d == Duration.seconds(1)
-  }
+  end
 
-  test "a closed channel answers None" {
+  test "a closed channel answers None"
     Sender.close(App.done.sender)
     none: Maybe<Int> = None
     assert Receiver.receive(App.done.receiver) == none
-  }
-}
+  end
+end
 `
 
 // deadline_floor_test.nomi's grouped case, plus failing variants whose reports
@@ -74,87 +74,88 @@ func TestIRGroupGaps_ChannelAndMaybeEqualityInASubject(t *testing.T) {
 	}
 }
 
-const irGroupGapsTaskSource = `import {
+const irGroupGapsTaskSource = `import
   std::channels.{Channel, Receiver, Sender}
   std::duration.Duration
   std::supervisors.Supervisor
   std::tasks.{Outcome, Task}
   std::testing.Clock
   std::timer
-}
+end
 
-pub struct App {
+pub struct App
   context: Context
   work: Supervisor
   alerts: Channel<String>
-}
+end
 
-fn report(message: String) -> Unit {
-  case Sender.send(App.alerts.sender, message) {
+fn report(message: String) -> Unit
+  case Sender.send(App.alerts.sender, message)
     Ok(_) -> Unit
     Err(_) -> Unit
-  }
-}
+  end
+end
 
-fn slow() -> Unit {
+fn slow() -> Unit
   timer.sleep(Duration.seconds(30))
   report("SHOULD NOT ARRIVE")
-}
+end
 
-fn drain() -> List<String> {
+fn drain() -> List<String>
   Sender.close(App.alerts.sender)
   Iter.loop([], fn seen ->
-    case Receiver.receive(App.alerts.receiver) {
+    case Receiver.receive(App.alerts.receiver)
       Some(message) -> [message, ..seen]
       None -> break seen
-    }
+    end
+  end
   )
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
   Ok(App{
     context: Context.root(),
     work: Supervisor.new(max_running: 2),
     alerts: Channel.buffered<String>(8),
   })
-}
+end
 
-fn main() {}
+fn main() end
 
-group "tasks" {
+group "tasks"
   clock Clock.Virtual
 
   boot boot()
 
-  test "a cancelled task reports Cancelled" {
+  test "a cancelled task reports Cancelled"
     doomed = Supervisor.spawn(App.work, fn -> slow())
     Task.cancel(doomed)
     cancelled: Outcome<Unit> = .Cancelled
     assert Task.outcome(doomed) == cancelled
-  }
+  end
 
-  test "a failing outcome comparison shows its rows" {
+  test "a failing outcome comparison shows its rows"
     done = Supervisor.spawn(App.work, fn -> report("quick"))
     _ = Supervisor.flush(App.work)
     cancelled: Outcome<Unit> = .Cancelled
     assert Task.outcome(done) == cancelled
-  }
+  end
 
-  test "any and all over a drained list" {
+  test "any and all over a drained list"
     _ = Supervisor.spawn(App.work, fn -> report("audited 7"))
     _ = Supervisor.flush(App.work)
     seen = drain()
     assert Iter.any_match(seen, fn m -> m == "audited 7")
     assert Iter.all_match(seen, fn m -> String.contains(m, "audited"))
     refute Iter.any_match(seen, fn m -> m == "missing")
-  }
+  end
 
-  test "a failing any shows its operand" {
+  test "a failing any shows its operand"
     _ = Supervisor.spawn(App.work, fn -> report("x"))
     _ = Supervisor.flush(App.work)
     assert drain() |> Iter.all_match(fn m -> m == "y")
-  }
-}
+  end
+end
 `
 
 // supervisors_test.nomi's shapes: an annotated binding, Outcome equality over
@@ -176,48 +177,48 @@ func TestIRGroupGaps_OutcomeAnyAllAndAnEmptySeededLoop(t *testing.T) {
 	}
 }
 
-const irGroupGapsClockSource = `import {
+const irGroupGapsClockSource = `import
   std::instant.Instant
   std::duration.Duration
   std::tasks.Task
   std::testing.Clock
   std::timer
-}
+end
 
-fn long_sleep() -> Unit {
+fn long_sleep() -> Unit
   timer.sleep(Duration.seconds(5))
-}
+end
 
-fn short_fail() -> Result<Int, String> {
+fn short_fail() -> Result<Int, String>
   Err("boom")
-}
+end
 
-group "virtual clock" {
+group "virtual clock"
   clock Clock.Virtual
 
-  test "a short-circuit cancels its siblings" {
+  test "a short-circuit cancels its siblings"
     before = Instant.now()
 
-    outcome = concurrent {
+    outcome = concurrent
       short = Task.spawn(fn -> short_fail())
       long = Task.spawn(fn -> long_sleep())
       _l = long
       Ok(Task.await(short)?)
-    }
+    end
 
     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
     failed: Result<Int, String> = Err("boom")
 
     assert outcome == failed
     assert elapsed == 0
-  }
+  end
 
-  test "time passes in the bubble" {
+  test "time passes in the bubble"
     before = Instant.now()
     timer.sleep(Duration.seconds(7))
     assert Instant.to_seconds(Instant.now()) - Instant.to_seconds(before) == 7
-  }
-}
+  end
+end
 `
 
 // concurrent_runtime_test.nomi's virtual-clock group, less its pattern
@@ -232,29 +233,30 @@ func TestIRGroupGaps_InstantNowAndConcurrentBlocks(t *testing.T) {
 
 const irGroupGapsLoopProgram = `import std::io
 
-fn collect(n: Int) -> List<Int> {
+fn collect(n: Int) -> List<Int>
   Iter.loop([], fn seen ->
-    case Iter.count(seen) >= n {
+    case Iter.count(seen) >= n
       True -> break seen
       False -> [Iter.count(seen), ..seen]
-    }
+    end
+  end
   )
-}
+end
 
-fn has_big(xs: List<Int>) -> Bool {
+fn has_big(xs: List<Int>) -> Bool
   Iter.any_match(xs, fn n -> n > 2)
-}
+end
 
-fn all_small(xs: List<Int>) -> Bool {
+fn all_small(xs: List<Int>) -> Bool
   Iter.all_match(xs, fn n -> n < 3)
-}
+end
 
-fn main() {
+fn main()
   io.inspect(collect(3))
   io.print(has_big(collect(3)))
   io.print(all_small([1, 2]))
   io.print(all_small([1, 5]))
-}
+end
 `
 
 // An empty seed takes the checker's parameter type in a named function, and

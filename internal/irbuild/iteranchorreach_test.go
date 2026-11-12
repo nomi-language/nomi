@@ -120,13 +120,13 @@ func TestIRIterAnchorReachesEveryStdModule(t *testing.T) {
 	// Writing `import std::iter.Iter` is a front-end error (the prelude already
 	// binds `Iter`), so the control calls `Iter`, which is also the door a real
 	// call site goes through.
-	const userSource = `fn total(xs: Iter<Int>) -> Int {
+	const userSource = `fn total(xs: Iter<Int>) -> Int
   Iter.count(xs)
-}
+end
 
-fn main() {
+fn main()
   Unit
-}
+end
 `
 	prog, err := AnalyzeSource("iter_user", userSource)
 	if err != nil {

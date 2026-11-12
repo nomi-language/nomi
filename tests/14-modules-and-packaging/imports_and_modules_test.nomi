@@ -1,67 +1,67 @@
-import {
+import
     std::maybe.Maybe.{None as Nothing, Some as Just}
     std::strings.String.{length as len, starts_with as has}
-}
+end
 
 once default_greeting: String = "Hello"
 
-struct Account {
+struct Account
     owner: String
     balance: Int
-}
+end
 
-struct Person {
+struct Person
     name: String
-}
+end
 
-impl Greeter for Person {
-    fn greet(p: Person) -> String {
+impl Greeter for Person
+    fn greet(p: Person) -> String
         default_greeting + ", " + p.name
-    }
-}
+    end
+end
 
-interface Greeter {
+interface Greeter
     fn greet(value: self) -> String
-}
+end
 
-fn build_person(name: String) -> Person {
-    Person{name}
-}
+fn build_person(name: String) -> Person
+    Person{name:}
+end
 
-struct GeometryPoint {
+struct GeometryPoint
     x: Int
     y: Int
-}
+end
 
-enum Axis {
+enum Axis
     X
     Y
-}
+end
 
-fn origin() -> GeometryPoint {
+fn origin() -> GeometryPoint
     GeometryPoint{x: 0, y: 0}
-}
+end
 
-fn vertical_axis() -> Axis {
+fn vertical_axis() -> Axis
     Axis.Y
-}
+end
 
-fn axis_name(axis: Axis) -> String {
-    case axis {
+fn axis_name(axis: Axis) -> String
+    case axis
         Axis.X -> "x"
         Axis.Y -> "y"
-    }
-}
+    end
+end
 
 once default_point: GeometryPoint = origin()
 
-fn canonical_header_name(name: String) -> String {
+fn canonical_header_name(name: String) -> String
     name
-}
+end
 
 once default_header_name: String = canonical_header_name("content-type")
 
-test "import aliases rename modules functions and variant constructors" {
+test "import aliases rename modules functions and variant constructors"
     acct = Account{owner: "Ada", balance: 100}
 
     assert Iter.count([acct.balance, 200, 300]) == 3
@@ -69,16 +69,16 @@ test "import aliases rename modules functions and variant constructors" {
     assert Nothing == None
     assert len("nomi") == 4
     assert has("nomi", "no")
-}
+end
 
-test "inline visibility keeps private helpers usable within the file" {
+test "inline visibility keeps private helpers usable within the file"
     alice = build_person("Alice")
 
     assert Greeter.greet(alice) == "Hello, Alice"
     assert default_greeting == "Hello"
-}
+end
 
-test "file-scope declarations can contain types functions and once values" {
+test "file-scope declarations can contain types functions and once values"
     point = origin()
     default: GeometryPoint = default_point
 
@@ -87,4 +87,4 @@ test "file-scope declarations can contain types functions and once values" {
     assert default.y == 0
     assert canonical_header_name("accept") == "accept"
     assert default_header_name == "content-type"
-}
+end

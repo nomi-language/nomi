@@ -15,15 +15,15 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The sum of the letter values in `word`, in either case. Anything that is
 /// not a Latin letter scores nothing.
-pub fn score(word: String) -> Int {
+pub fn score(word: String) -> Int
     word
     |> String.fold_case()
     |> Iter.map(letter_value)
     |> Iter.sum()
-}
+end
 
-fn letter_value(letter: String) -> Int {
-    case letter {
+fn letter_value(letter: String) -> Int
+    case letter
         "a" or "e" or "i" or "o" or "u" or "l" or "n" or "r" or "s" or "t" -> 1
         "d" or "g" -> 2
         "b" or "c" or "m" or "p" -> 3
@@ -32,13 +32,13 @@ fn letter_value(letter: String) -> Int {
         "j" or "x" -> 8
         "q" or "z" -> 10
         _ -> 0
-    }
-}
+    end
+end
 
 // FILE: scrabble_score_test.nomi
 import scrabble_score
 
-test "score" {
+test "score"
     [
         ("lowercase letter", "a", 1),
         ("uppercase letter", "A", 1),
@@ -52,10 +52,10 @@ test "score" {
         ("empty input", "", 0),
         ("entire alphabet available", "abcdefghijklmnopqrstuvwxyz", 87),
     ]
-    |> subtests (description, word, expected), description {
+    |> subtests (description, word, expected), description
         assert scrabble_score.score(word) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok score (11 cases)

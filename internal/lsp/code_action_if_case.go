@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -12,17 +13,18 @@ import (
 )
 
 // The if/case toggles rewrite the `if` chain or `case` whose header holds
-// the range: from its keyword (an `else if` rung's from the `}` before its
-// `else`) to the `{` that opens its body.
+// the range: from its keyword (an `else if` rung's from its `else`) to the
+// end of its `then`, or of the `case` header's line.
 //
-//   - "Convert to case": `if a { x } else if b { y } else { z }` becomes
-//     `case { a -> x  b -> y  _ -> z }`, and `if Pat = v { a } else { b }`
-//     becomes `case v { Pat -> a  _ -> b }`.
+//   - "Convert to case": `if a then x else if b then y else z` becomes a
+//     subject-less `case` with the arms `a -> x`, `b -> y` and `_ -> z`, and
+//     `if Pat = v then a else b` becomes `case v` with `Pat -> a` and
+//     `_ -> b`.
 //   - "Convert to case on 'n'": a chain whose every condition is
 //     `n == literal` over one plain name or field read of type Int, String
-//     or Codepoint becomes `case n { literal -> ...  _ -> ... }`.
+//     or Codepoint becomes `case n` with `literal -> ...` arms and `_`.
 //   - "Convert to if/else": the reverse of each, for a subject-less `case`
-//     ending in `_`, a two-arm `case v { Pat -> a  _ -> b }`, and a `case`
+//     ending in `_`, a two-arm `case v` (`Pat -> a`, `_ -> b`), and a `case`
 //     over a plain name or field read whose arms are literals and a last
 //     `_`. A `_` arm whose body is an `if` continues the chain as
 //     `else if`.
@@ -84,9 +86,15 @@ func (r *refactorRequest) ifCaseAtHeader() ast.Node {
 			}
 			start = posToOffset(r.offs, v.Line, v.Col)
 			if p, ok := r.parent[v].(*ast.If); ok && p.Else == v && p.Then != nil && p.Then.EndLine > 0 {
-				start = posToOffset(r.offs, p.Then.EndLine, p.Then.EndCol) + 1
+				// The parent's branch ends at this rung's `else`.
+				start = posToOffset(r.offs, p.Then.EndLine, p.Then.EndCol)
 			}
-			end = posToOffset(r.offs, v.Then.Line, v.Then.Col) + 1
+			// A block branch starts just past its `then`; an inline one
+			// at the `then`.
+			end = posToOffset(r.offs, v.Then.Line, v.Then.Col)
+			if v.Inline {
+				end += len("then")
+			}
 		case *ast.Case:
 			if r.isPipeStage(v) {
 				continue
@@ -103,7 +111,8 @@ func (r *refactorRequest) ifCaseAtHeader() ast.Node {
 	return found
 }
 
-// caseBodyOpen is the offset just past the `{` that opens c's arms, or -1.
+// caseBodyOpen is the offset of the end of c's header line, where its arms
+// begin below, or -1.
 func (r *refactorRequest) caseBodyOpen(c *ast.Case) int {
 	from := posToOffset(r.offs, c.Line, c.Col) + len("case")
 	if c.Value != nil {
@@ -113,14 +122,8 @@ func (r *refactorRequest) caseBodyOpen(c *ast.Case) int {
 		}
 		from = e
 	}
-	for k := r.tokenAt(from); k < len(r.tokens); k++ {
-		switch r.tokens[k].Type {
-		case token.NEWLINE:
-			continue
-		case token.LBRACE:
-			return r.offOf(r.tokens[k]) + 1
-		}
-		return -1
+	if nl := strings.IndexByte(r.content[from:], '\n'); nl >= 0 {
+		return from + nl
 	}
 	return -1
 }
@@ -402,44 +405,21 @@ func (r *refactorRequest) caseToIf(c *ast.Case) ast.Node {
 			if _, wild := b.Pattern.(*ast.WildcardPattern); wild {
 				return nil
 			}
-			rest = &ast.If{Cond: inHead(b.Pattern), Then: branchBlock(b), Else: rest, Line: b.Line, Col: b.Col}
+			rest = &ast.If{Cond: b.Pattern, Then: branchBlock(b), Else: rest, Line: b.Line, Col: b.Col}
 		}
 		return withPos(rest, c)
 	case r.literalArms(c):
 		for i := n - 2; i >= 0; i-- {
 			b := &c.Branches[i]
-			cond := inHead(&ast.Binary{Left: c.Value, Op: "==", Right: b.Pattern, Line: b.Line, Col: b.Col})
+			cond := &ast.Binary{Left: c.Value, Op: "==", Right: b.Pattern, Line: b.Line, Col: b.Col}
 			rest = &ast.If{Cond: cond, Then: branchBlock(b), Else: rest, Line: b.Line, Col: b.Col}
 		}
 		return withPos(rest, c)
 	case n == 2 && refutableHead(c.Branches[0].Pattern):
 		b := &c.Branches[0]
-		return &ast.If{CondPattern: b.Pattern, Cond: inHead(c.Value), Then: branchBlock(b), Else: rest, Line: c.Line, Col: c.Col}
+		return &ast.If{CondPattern: b.Pattern, Cond: c.Value, Then: branchBlock(b), Else: rest, Line: c.Line, Col: c.Col}
 	}
 	return nil
-}
-
-// inHead is the expression n as it stands at the top of an `if` or `case`
-// head, where `Name {` opens the body: a named struct literal at the top of
-// n goes in parentheses (`p == (P{x: 1})`), and the rest of n is n's own.
-func inHead(n ast.Node) ast.Node {
-	switch v := n.(type) {
-	case *ast.StructLit:
-		if v.TypeName != nil {
-			return &ast.GroupedExpr{Expr: v, Line: v.Line, Col: v.Col}
-		}
-	case *ast.Binary:
-		if v.Op != "|>" {
-			cp := *v
-			cp.Left, cp.Right = inHead(v.Left), inHead(v.Right)
-			return &cp
-		}
-	case *ast.Unary:
-		cp := *v
-		cp.Right = inHead(v.Right)
-		return &cp
-	}
-	return n
 }
 
 func withPos(n ast.Node, c *ast.Case) ast.Node {

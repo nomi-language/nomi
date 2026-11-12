@@ -10,15 +10,15 @@ func TestIRRangeAsKeyAndOverBool_Run(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn main() {
+fn main()
     io.inspect(Iter.to_set([1..2, 3..4, 1..2]))
     io.inspect(Iter.to_map([(1..2, "a"), (3..=4, "b")]) |> Map.get(3..=4))
     io.inspect(Range.contains(False..True, True))
     io.inspect(Range.contains(False..=True, True))
     io.inspect(False..=True)
-}
+end
 `
-	const want = "%[1..2, 3..4]\n" +
+	const want = "Set[1..2, 3..4]\n" +
 		"Some(\"b\")\n" +
 		"False\n" +
 		"True\n" +
@@ -35,14 +35,14 @@ func TestIRRangeMembers_Run(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn main() {
+fn main()
     io.print(Range.to_string(1..4))
     io.print(Range.inspect(1..=4))
     io.print(Range.to_string(1.5..2.5))
     io.inspect(Range.known_count(1..4))
     io.inspect(Range.known_count(Range.from(1)))
     io.inspect(Range.each_while(1..=4, fn n -> n < 3))
-}
+end
 `
 	const want = "1..4\n" +
 		"1..=4\n" +

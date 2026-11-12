@@ -3,35 +3,35 @@
 // cleanup the boot registered runs when the case ends.
 import std::io
 
-struct App {
+struct App
     name: String
-}
+end
 
-fn boot(startup: Startup = Startup{}) -> Result<App, String> {
+fn boot(startup: Startup = Startup{}) -> Result<App, String>
     defer io.print("first cleanup")
     defer io.print("second cleanup")
 
-    case List.head(startup.args) {
-        Some(name) -> Ok(App{name})
+    case List.head(startup.args)
+        Some(name) -> Ok(App{name:})
         None -> Err("no name was passed")
-    }
-}
+    end
+end
 
-fn main() {}
+fn main() end
 
-group "a boot that fails" {
+group "a boot that fails"
     boot boot()
 
-    test "never runs its body" {
+    test "never runs its body"
         io.print("the body ran")
         assert App.name == ""
-    }
-}
+    end
+end
 
-group "a boot that works" {
+group "a boot that works"
     boot boot(Startup{args: ["ann"]})
 
-    test "reads the app" {
+    test "reads the app"
         assert App.name == "ann"
-    }
-}
+    end
+end

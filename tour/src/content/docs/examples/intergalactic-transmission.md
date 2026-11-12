@@ -18,23 +18,23 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// count of ones even.
 //! assert transmit([0x05]) == [0x05, 0x81]
 //
-pub fn transmit(message: List<Int>) -> List<Int> {
+pub fn transmit(message: List<Int>) -> List<Int>
     message
     |> Iter.flat_map(bits)
     |> Iter.chunks(7)
-    |> Iter.map(fn chunk -> {
+    |> Iter.map(fn chunk ->
         data = from_bits(chunk) <<< (7 - Iter.count(chunk))
         data <<< 1 + Iter.sum(chunk) % 2
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
 /// The message `transmission` carries: the seven data bits of each byte,
 /// eight at a time, with the bits left over at the end dropped. A byte whose
 /// count of ones is odd was damaged on the way, and is `Err("wrong parity")`.
 //! assert receive([0x05, 0x81]) == Ok([0x05])
 //
-pub fn receive(transmission: List<Int>) -> Result<List<Int>, String> {
+pub fn receive(transmission: List<Int>) -> Result<List<Int>, String>
     data =
         transmission
         |> Iter.map(data_bits)
@@ -47,34 +47,34 @@ pub fn receive(transmission: List<Int>) -> Result<List<Int>, String> {
     |> Iter.map(from_bits)
     |> Iter.to_list()
     |> Ok()
-}
+end
 
 /// The first seven bits of `byte`, or an error when its parity is odd.
-fn data_bits(byte: Int) -> Result<List<Int>, String> {
+fn data_bits(byte: Int) -> Result<List<Int>, String>
     all = Iter.to_list(bits(byte))
 
-    if Iter.sum(all) % 2 == 0 {
+    if Iter.sum(all) % 2 == 0 then
         all |> Iter.take(7) |> Iter.to_list() |> Ok()
-    } else {
+    else
         Err("wrong parity")
-    }
-}
+    end
+end
 
 /// The eight bits of `byte`, most significant first.
-fn bits(byte: Int) -> Iter<Int> {
+fn bits(byte: Int) -> Iter<Int>
     Iter.map(0..8, fn i -> byte >>> (7 - i) &&& 1)
-}
+end
 
 /// The number whose bits, most significant first, are `bits`. Every bit is
 /// a 0 or a 1, so each is a digit of base 2.
-fn from_bits(bits: List<Int>) -> Int {
+fn from_bits(bits: List<Int>) -> Int
     Int.from_digits(bits, 2)!
-}
+end
 
 // FILE: intergalactic_transmission_test.nomi
 import intergalactic_transmission.{receive, transmit}
 
-test "calculate transmit sequences" {
+test "calculate transmit sequences"
     [
         ("empty message", [], []),
         ("0x00 is transmitted as 0x0000", [0x00], [0x00, 0x00]),
@@ -114,12 +114,12 @@ test "calculate transmit sequences" {
             ],
         ),
     ]
-    |> subtests (description, message, expected), description {
+    |> subtests (description, message, expected), description
         assert transmit(message) == expected
-    }
-}
+    end
+end
 
-test "decode received messages" {
+test "decode received messages"
     [
         ("empty message", [], Ok([])),
         ("zero message", [0x00, 0x00], Ok([0x00])),
@@ -170,10 +170,10 @@ test "decode received messages" {
             Err("wrong parity"),
         ),
     ]
-    |> subtests (description, transmission, expected), description {
+    |> subtests (description, transmission, expected), description
         assert receive(transmission) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok calculate transmit sequences (11 cases)

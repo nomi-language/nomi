@@ -100,6 +100,9 @@ type TryOpInfo struct {
 	// Bang is set for a postfix `!`, which traps on the Err or None
 	// instead of unwinding.
 	Bang bool
+	// Convert is the `From` impl a `?` applies to the error it propagates,
+	// nil when the error types agree (try_from.go).
+	Convert *TryConversion
 }
 
 // AssertionInfo holds the per-site data a SymbolAssertion needs to render
@@ -210,8 +213,13 @@ type Symbol struct {
 	// AppFieldOf is the application type an application-field read
 	// (`MyApp.logger`) reads from. Set only on the per-site copy the checker
 	// records at the field name.
-	AppFieldOf      Type
-	CallType        Type     // instantiated function type at a generic call site
+	AppFieldOf Type
+	CallType   Type // instantiated function type at a generic call site
+	// CallTypeArgs is the substitution the checker solved a generic call's
+	// callee at, by the callee's type-parameter name, when it solved one
+	// (attachCallTypeArgs). Read it through CallTypeArgs, which adds what
+	// the signature shows.
+	CallTypeArgs    map[string]Type
 	CallReceiver    string   // left-hand type owner for a type-qualified call site, e.g. `String` in `String.to_string`.
 	ModuleScope     *Scope   // for SymbolModule: the qualified member scope used to resolve `alias.Member`
 	Span            int      // hover-range length in source columns; 0 means use len(Name) for backward compatibility

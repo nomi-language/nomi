@@ -20,90 +20,90 @@ import (
 // used across files, an application field read in another file, a
 // duplicate impl, and a test reading an application field with no boot.
 var memberOrderProject = map[string]string{
-	"main.nomi": `import {
+	"main.nomi": `import
     std::io
     shapes.{Shape, Circle}
     report
     settings.Settings
-}
+end
 
-pub fn greeting() -> String {
+pub fn greeting() -> String
     "hello"
-}
+end
 
-pub fn boot() -> Result<Settings, String> {
+pub fn boot() -> Result<Settings, String>
     Ok(Settings{context: Context.root(), tag: "root"})
-}
+end
 
-fn main() {
+fn main()
     io.print(report.describe(Circle{radius: shapes.unit}))
     io.print(report.title())
-}
+end
 `,
-	"shapes.nomi": `import {
+	"shapes.nomi": `import
     report
     settings.Settings
-}
+end
 
-pub interface Shape {
+pub interface Shape
     fn area(value: self) -> Int
-}
+end
 
-pub struct Circle {
+pub struct Circle
     radius: Int
-}
+end
 
-impl Shape for Circle {
-    fn area(value: Circle) -> Int {
+impl Shape for Circle
+    fn area(value: Circle) -> Int
         value.radius + Iter.count(Settings.tag)
-    }
-}
+    end
+end
 
 pub once unit = report.base * 2
 `,
-	"report.nomi": `import {
+	"report.nomi": `import
     main
     shapes.{Shape, Circle}
     settings.Settings
-}
+end
 
 pub once base = Iter.count(main.greeting())
 
-pub struct Labelled {
+pub struct Labelled
     circle: Circle
-}
+end
 
 derive Display for Labelled
 
-impl Shape for Circle {
-    fn area(value: Circle) -> Int {
+impl Shape for Circle
+    fn area(value: Circle) -> Int
         value.radius
-    }
-}
+    end
+end
 
-pub fn describe(shape: Shape) -> String {
+pub fn describe(shape: Shape) -> String
     "area ${Shape.area(shape)}"
-}
+end
 
-pub fn title() -> String {
+pub fn title() -> String
     Settings.tag
-}
+end
 
-test "area" {
+test "area"
     assert Shape.area(Circle{radius: 1}) > 0
-}
+end
 `,
 	"settings.nomi": `import main
 
-pub struct Settings {
+pub struct Settings
     context: Context
 
     tag: String
-}
+end
 
-pub fn default_tag() -> String {
+pub fn default_tag() -> String
     main.greeting()
-}
+end
 `,
 }
 
@@ -113,47 +113,47 @@ pub fn default_tag() -> String {
 // for its own type.
 var memberLibrary = map[string]string{
 	"nomi.toml": entryToml,
-	"main.nomi": `import {
+	"main.nomi": `import
     std::io
     lib
-}
+end
 
-struct Local {
+struct Local
     n: Int
-}
+end
 
-impl Display for Local {
-    fn to_string(value: Local) -> String {
+impl Display for Local
+    fn to_string(value: Local) -> String
         "local ${value.n}"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(lib.evens([1, 2]))
     io.print(Display.to_string(Local{n: 1}))
-}
+end
 `,
 	"lib.nomi": `import dep
 
-pub fn evens(xs: List<Int>) -> List<Int> {
+pub fn evens(xs: List<Int>) -> List<Int>
     dep.halves(xs)
-}
+end
 
-export fn count(xs: List<Int>) -> Int {
+export fn count(xs: List<Int>) -> Int
     Iter.count(dep.halves(xs))
-}
+end
 
-test "evens" {
+test "evens"
     assert evens([2]) == [2]
-}
+end
 `,
-	"dep.nomi": `fn planted_decline(n: Int) -> Int {
+	"dep.nomi": `fn planted_decline(n: Int) -> Int
   n
-}
+end
 
-pub fn halves(xs: List<Int>) -> List<Int> {
+pub fn halves(xs: List<Int>) -> List<Int>
   Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
-}
+end
 `,
 }
 
@@ -162,36 +162,36 @@ pub fn halves(xs: List<Int>) -> List<Int> {
 // program alone lacks an impl the entry's program has.
 var memberForeignImpl = map[string]string{
 	"nomi.toml": entryToml,
-	"main.nomi": `import {
+	"main.nomi": `import
     std::io
     shapes.{Circle, Shape}
-}
+end
 
-impl Shape for Circle {
-    fn area(value: Circle) -> Int {
+impl Shape for Circle
+    fn area(value: Circle) -> Int
         value.radius * 3
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.inspect(shapes.total([Circle{radius: 1}]))
-}
+end
 `,
-	"shapes.nomi": `pub interface Shape {
+	"shapes.nomi": `pub interface Shape
     fn area(value: self) -> Int
-}
+end
 
-pub struct Circle {
+pub struct Circle
     radius: Int
-}
+end
 
-pub fn total(circles: List<Circle>) -> Int {
+pub fn total(circles: List<Circle>) -> Int
     Iter.map(circles, fn c -> Shape.area(c)) |> Iter.sum()
-}
+end
 
-test "total" {
+test "total"
     assert total([Circle{radius: 1}]) == 3
-}
+end
 `,
 }
 
@@ -294,11 +294,11 @@ func withoutDuplicateImpl(files map[string]string) map[string]string {
 	for k, v := range files {
 		out[k] = v
 	}
-	out["report.nomi"] = strings.Replace(out["report.nomi"], `impl Shape for Circle {
-    fn area(value: Circle) -> Int {
+	out["report.nomi"] = strings.Replace(out["report.nomi"], `impl Shape for Circle
+    fn area(value: Circle) -> Int
         value.radius
-    }
-}
+    end
+end
 
 `, "", 1)
 	return out

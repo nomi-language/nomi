@@ -17,65 +17,65 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 import std::regex.Regex
 
 /// One line of Markdown, by what it becomes.
-enum Block {
+enum Block
     Heading {level: Int, text: String}
     Item String
     Paragraph String
-}
+end
 
 /// The HTML for `markdown`. Each line is a heading, a list item or a
 /// paragraph, and a run of list items is one list.
-pub fn parse(markdown: String) -> String {
+pub fn parse(markdown: String) -> String
     markdown
     |> String.lines()
     |> Iter.map(block)
     |> Iter.chunk_by(&(&1 is .Item(_)))
     |> Iter.map(render_run)
     |> String.join()
-}
+end
 
 /// What `line` is: a heading of one to six `#`s and a space, an item after
 /// `* `, or else a paragraph.
-fn block(line: String) -> Block {
-    if Some(text) = String.strip_prefix(line, "* ") { return .Item(text) }
+fn block(line: String) -> Block
+    if Some(text) = String.strip_prefix(line, "* ") then return .Item(text)
 
-    case String.captures(line, Regex`^(#{1,6}) (.*)$`) {
-        Some((marks, text)) -> .Heading{level: String.length(marks), text}
+    case String.captures(line, Regex`^(#{1,6}) (.*)$`)
+        Some((marks, text)) -> .Heading{level: String.length(marks), text:}
         _ -> .Paragraph(line)
-    }
-}
+    end
+end
 
 /// A run of blocks of one kind: list items go into one list, and anything
 /// else stands on its own.
-fn render_run(run: List<Block>) -> String {
+fn render_run(run: List<Block>) -> String
     html = run |> Iter.map(render) |> String.join()
 
-    case run {
+    case run
         [.Item(_), ..] -> "<ul>${html}</ul>"
         _ -> html
-    }
-}
+    end
+end
 
-fn render(block: Block) -> String {
-    case block {
-        .Heading{level, text} -> "<h${level}>${emphasize(text)}</h${level}>"
+fn render(block: Block) -> String
+    case block
+        .Heading{level:, text:} -> "<h${level}>${emphasize(text)}</h${level}>"
         .Item(text) -> "<li>${emphasize(text)}</li>"
         .Paragraph(text) -> "<p>${emphasize(text)}</p>"
-    }
-}
+    end
+end
 
 /// `text` with `__bold__` and `_italic_` spans marked up. Bold goes first,
 /// so its double underscores are not read as two italic marks.
-fn emphasize(text: String) -> String {
+fn emphasize(text: String) -> String
     text
     |> String.replace(Regex`__(.+?)__`, "<strong>$1</strong>")
     |> String.replace(Regex`_(.+?)_`, "<em>$1</em>")
-}
+end
 
 // FILE: markdown_test.nomi
 import markdown
 
-test "markdown" {
+test "markdown"
     [
         (
             "parses normal text as a paragraph",
@@ -131,10 +131,10 @@ test "markdown" {
             "<h1>Start a list</h1><ul><li>Item 1</li><li>Item 2</li></ul><p>End a list</p>",
         ),
     ]
-    |> subtests (description, text, expected), description {
+    |> subtests (description, text, expected), description
         assert markdown.parse(text) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok markdown (17 cases)

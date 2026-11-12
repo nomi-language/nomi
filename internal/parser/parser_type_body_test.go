@@ -54,10 +54,10 @@ func parseError(t *testing.T, src string) error {
 // --- struct bodies -----------------------------------------------------
 
 func TestParseStructBody_FieldKeywordItems(t *testing.T) {
-	src := `struct Dog {
+	src := `struct Dog
   name: String
   breed: String = "lab"
-}`
+end`
 	sd := parseSingleStructDef(t, src)
 	if len(sd.Fields) != 2 {
 		t.Fatalf("expected 2 fields, got %d", len(sd.Fields))
@@ -77,13 +77,13 @@ func TestParseStructBody_FieldKeywordItems(t *testing.T) {
 }
 
 func TestParseTypeBody_TestItemsRejected(t *testing.T) {
-	src := `struct Label {
+	src := `struct Label
   text: String
 
-  test "renders" {
+  test "renders"
     assert Label.render(Label{text: "ready"}) == "[ready]"
-  }
-}`
+  end
+end`
 	if err := parseError(t, src); !strings.Contains(err.Error(), "tests are declarations outside type bodies") {
 		t.Fatalf("expected type-body test rejection, got %q", err.Error())
 	}
@@ -92,18 +92,18 @@ func TestParseTypeBody_TestItemsRejected(t *testing.T) {
 // Struct bodies contain only fields; interface implementations stay as
 // separate top-level blocks.
 func TestParseStructBody_WithSiblingImplBlocks(t *testing.T) {
-	src := `struct Dog {
+	src := `struct Dog
   name: String
-}
+end
 
 
-impl HasName for Dog
+impl HasName for Dog end
 
-impl Speech for Dog {
-  fn speak(_d: self) -> String {
+impl Speech for Dog
+  fn speak(_d: self) -> String
     "woof"
-  }
-}
+  end
+end
 
 `
 	nodes := parse(t, src)
@@ -136,7 +136,7 @@ impl Speech for Dog {
 }
 
 func TestParseStructBody_EnumVariantShapeRejected(t *testing.T) {
-	err := parseError(t, "struct Dog {\n  variant Pending\n}\n")
+	err := parseError(t, "struct Dog\n  variant Pending\nend\n")
 	if !strings.Contains(err.Error(), "expected ':' after field name") {
 		t.Errorf("expected variant-in-struct rejection, got %q", err.Error())
 	}
@@ -147,7 +147,7 @@ func TestParseStructBody_EnumVariantShapeRejected(t *testing.T) {
 func TestParseStructBody_CommaSeparatedFieldsRejected(t *testing.T) {
 	for _, src := range []string{
 		"struct Point {x: Int, y: Int}\n",
-		"struct Point {\n  x: Int,\n  y: Int,\n}\n",
+		"struct Point\n  x: Int,\n  y: Int,\nend\n",
 	} {
 		if err := parseError(t, src); !strings.Contains(err.Error(), "expected") {
 			t.Errorf("Parse(%q): expected a parse error mentioning the expected item, got %q", src, err.Error())
@@ -160,10 +160,10 @@ func TestParseStructBody_CommaSeparatedFieldsRejected(t *testing.T) {
 // or a trailing comment is still allowed.
 func TestParseTypeBody_TwoItemsOnOneLineRejected(t *testing.T) {
 	for _, tc := range []struct{ src, msg string }{
-		{"struct Point {\n    x: Int    y: Int\n}\n", "struct fields are newline- or semicolon-separated"},
-		{"struct Point {\n    x: Int    x: Int\n}\n", "struct fields are newline- or semicolon-separated"},
-		{"struct Point {\n    x: Int = 1 y: Int\n}\n", "struct fields are newline- or semicolon-separated"},
-		{"interface Named {\n    fn name(value: self) -> String    fn other(value: self) -> String\n}\n", "interface functions are newline- or semicolon-separated"},
+		{"struct Point\n    x: Int    y: Int\nend\n", "struct fields are newline- or semicolon-separated"},
+		{"struct Point\n    x: Int    x: Int\nend\n", "struct fields are newline- or semicolon-separated"},
+		{"struct Point\n    x: Int = 1 y: Int\nend\n", "struct fields are newline- or semicolon-separated"},
+		{"interface Named\n    fn name(value: self) -> String    fn other(value: self) -> String\nend\n", "interface functions are newline- or semicolon-separated"},
 	} {
 		err := parseError(t, tc.src)
 		if !strings.Contains(err.Error(), tc.msg) || !strings.Contains(err.Error(), "line 2,") {
@@ -171,30 +171,30 @@ func TestParseTypeBody_TwoItemsOnOneLineRejected(t *testing.T) {
 		}
 	}
 	for _, src := range []string{
-		"struct Point {\n    x: Int; y: Int\n}\n",
-		"struct Point {\n    x: Int // across\n    y: Int\n}\n",
-		"interface Named {\n    fn name(value: self) -> String; fn other(value: self) -> String\n}\n",
+		"struct Point\n    x: Int\n    y: Int\nend\n",
+		"struct Point\n    x: Int // across\n    y: Int\nend\n",
+		"interface Named\n    fn name(value: self) -> String\n    fn other(value: self) -> String\nend\n",
 	} {
 		parse(t, src)
 	}
 }
 
 func TestParseStructBody_FieldItemNamedField(t *testing.T) {
-	sd := parseSingleStructDef(t, "struct Box {\n  field: Int\n}\n")
+	sd := parseSingleStructDef(t, "struct Box\n  field: Int\nend\n")
 	if len(sd.Fields) != 1 || sd.Fields[0].Name != "field" {
 		t.Fatalf("expected field named 'field', got %#v", sd.Fields)
 	}
 }
 
 func TestParseStructBody_DocCommentsOnItems(t *testing.T) {
-	src := `struct Dog {
+	src := `struct Dog
   /// The dog's name.
   name: String
-}
+end
 
 
 /// Speech behavior.
-impl Speech for Dog
+impl Speech for Dog end
 `
 	nodes := parse(t, src)
 	if len(nodes) != 2 {
@@ -220,14 +220,14 @@ impl Speech for Dog
 }
 
 func TestParseStructBody_InlineImplementsEntry(t *testing.T) {
-	err := parseError(t, "struct Dog {\n  impl Speech\n}\n")
-	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type { ... }` blocks outside the type body") {
+	err := parseError(t, "struct Dog\n  impl Speech\nend\n")
+	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type` blocks outside the type body") {
 		t.Fatalf("expected type-body impl rejection, got %q", err.Error())
 	}
 }
 
 func TestParseStructBody_InlineImplementsDeriveEntry(t *testing.T) {
-	err := parseError(t, "struct Dog {\n  derive Equatable\n}\n")
+	err := parseError(t, "struct Dog\n  derive Equatable\nend\n")
 	if !strings.Contains(err.Error(), "outside the type body") {
 		t.Fatalf("expected type-body derive rejection, got %q", err.Error())
 	}
@@ -236,12 +236,12 @@ func TestParseStructBody_InlineImplementsDeriveEntry(t *testing.T) {
 // Unsupported conformance spellings are parse errors pointing at the current
 // `impl Iface` / `derive Iface for Type` syntax.
 func TestParseStructBody_UnsupportedConformanceSpellingsRejected(t *testing.T) {
-	err := parseError(t, "struct Dog {\n  derive impl Equatable\n}\n")
+	err := parseError(t, "struct Dog\n  derive impl Equatable\nend\n")
 	if !strings.Contains(err.Error(), "a derived interface conformance is `derive Iface for Type`") ||
 		!strings.Contains(err.Error(), "`derive impl` is not a conformance keyword") {
 		t.Errorf("expected `derive impl` conformance rejection pointing at `derive Iface`, got %q", err.Error())
 	}
-	err = parseError(t, "struct Dog {\n  derives Equatable\n}\n")
+	err = parseError(t, "struct Dog\n  derives Equatable\nend\n")
 	if !strings.Contains(err.Error(), "a derived interface conformance is `derive Iface for Type`") ||
 		!strings.Contains(err.Error(), "`derives` is not a conformance keyword") {
 		t.Errorf("expected bare `derives` rejection pointing at `derive Iface`, got %q", err.Error())
@@ -250,19 +250,19 @@ func TestParseStructBody_UnsupportedConformanceSpellingsRejected(t *testing.T) {
 
 // Sibling `derive` declarations parse to *ast.ImplConformance nodes.
 func TestParseStructBody_ConformanceAndDeriveItems(t *testing.T) {
-	src := `struct Dog {
+	src := `struct Dog
   name: String
-}
+end
 derive Equatable for Dog
 derive Hashable for Dog
 
-impl Named for Dog
+impl Named for Dog end
 
-impl Speech for Dog {
-  fn speak(_d: self) -> String {
+impl Speech for Dog
+  fn speak(_d: self) -> String
     "woof"
-  }
-}
+  end
+end
 `
 	nodes := parse(t, src)
 	sd, ok := nodes[0].(*ast.StructDef)
@@ -291,17 +291,17 @@ impl Speech for Dog {
 }
 
 func TestParseStructBody_MultipleDerivedConformances(t *testing.T) {
-	src := `struct Dog {
+	src := `struct Dog
   name: String
-}
+end
 derive Equatable for Dog
 derive Hashable for Dog
 
-impl Speech for Dog {
-  fn speak(_d: self) -> String {
+impl Speech for Dog
+  fn speak(_d: self) -> String
     "woof"
-  }
-}
+  end
+end
 
 `
 	nodes := parse(t, src)
@@ -329,20 +329,22 @@ impl Speech for Dog {
 }
 
 func TestParseConformanceBlock_Rejected(t *testing.T) {
-	err := parseError(t, "struct Dog {\n  impl { }\n}\n")
-	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type { ... }` blocks outside the type body") {
+	err := parseError(t, "struct Dog\n  impl { }\nend\n")
+	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type` blocks outside the type body") {
 		t.Errorf("expected grouped-block rejection, got %q", err.Error())
 	}
 }
 
 func TestParseTypeBody_ImplBlockPubFnRejected(t *testing.T) {
 	cases := []string{
-		`impl Speech for Dog {
-  pub fn speak(d: self) -> String { "woof" }
-}`,
-		`impl Speech for Dog {
+		`impl Speech for Dog
+  pub fn speak(d: self) -> String
+      "woof"
+  end
+end`,
+		`impl Speech for Dog
   pub host fn speak(d: self) -> String
-}`,
+end`,
 	}
 	for _, src := range cases {
 		err := parseError(t, src)
@@ -353,8 +355,8 @@ func TestParseTypeBody_ImplBlockPubFnRejected(t *testing.T) {
 }
 
 func TestParseTypeBody_NestedImplBlock(t *testing.T) {
-	err := parseError(t, "struct Dog {\n  impl Speech {\n    fn speak(d: self) -> String { \"woof\" }\n  }\n}\n")
-	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type { ... }` blocks outside the type body") {
+	err := parseError(t, "struct Dog\n  impl Speech\n    fn speak(d: self) -> String { \"woof\" }\n  end\nend\n")
+	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type` blocks outside the type body") {
 		t.Fatalf("expected nested impl rejection, got %q", err.Error())
 	}
 }
@@ -362,7 +364,7 @@ func TestParseTypeBody_NestedImplBlock(t *testing.T) {
 // A type-body `derive Iface { ... }` entry is rejected — derives are sibling
 // declarations.
 func TestParseConformanceLine_DeriveBodyRejected(t *testing.T) {
-	err := parseError(t, "struct Dog {\n  derive Equatable {\n    fn eq(a: Dog, b: Dog) -> Bool { True }\n  }\n}\n")
+	err := parseError(t, "struct Dog\n  derive Equatable\n    fn eq(a: Dog, b: Dog) -> Bool { True }\n  end\nend\n")
 	if !strings.Contains(err.Error(), "outside the type body") {
 		t.Errorf("expected derive-body rejection, got %q", err.Error())
 	}
@@ -371,12 +373,12 @@ func TestParseConformanceLine_DeriveBodyRejected(t *testing.T) {
 // `impl` inside a type body is rejected before any `for`-clause or
 // type-argument parsing.
 func TestParseConformanceLine_ImplementsForAndTypeArgRejected(t *testing.T) {
-	err := parseError(t, "struct Dog {\n  impl Speech for Dog\n}\n")
-	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type { ... }` blocks outside the type body") {
+	err := parseError(t, "struct Dog\n  impl Speech for Dog\nend\n")
+	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type` blocks outside the type body") {
 		t.Errorf("expected impl `for` rejection, got %q", err.Error())
 	}
-	err = parseError(t, "struct Box {\n  impl iter<T>\n}\n")
-	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type { ... }` blocks outside the type body") {
+	err = parseError(t, "struct Box\n  impl iter<T>\nend\n")
+	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type` blocks outside the type body") {
 		t.Errorf("expected impl type-arg rejection, got %q", err.Error())
 	}
 }
@@ -384,18 +386,18 @@ func TestParseConformanceLine_ImplementsForAndTypeArgRejected(t *testing.T) {
 // --- enum bodies --------------------------------------------------------
 
 func TestParseEnumBody_VariantKeywordItems(t *testing.T) {
-	src := `enum Status {
+	src := `enum Status
   Active
   Pending Int
   Card {rank: Int}
   embeds Click
-}
+end
 
-impl Display for Status {
-  fn to_string(_s: self) -> String {
+impl Display for Status
+  fn to_string(_s: self) -> String
     "status"
-  }
-}
+  end
+end
 
 `
 	nodes := parse(t, src)
@@ -439,19 +441,19 @@ impl Display for Status {
 }
 
 func TestParseEnumBody_FieldItemRejected(t *testing.T) {
-	err := parseError(t, "enum Status {\n  Active\n  field x: Int\n}\n")
+	err := parseError(t, "enum Status\n  Active\n  field x: Int\nend\n")
 	if !strings.Contains(err.Error(), "expected variant name or 'embeds'") {
 		t.Errorf("expected field-in-enum rejection, got %q", err.Error())
 	}
 }
 
 func TestParseEnumBody_DocCommentOnVariant(t *testing.T) {
-	src := `enum Status {
+	src := `enum Status
   /// Still waiting.
   Pending
 
   Active
-}`
+end`
 	ed := parseSingleEnumDef(t, src)
 	if len(ed.Variants) != 2 {
 		t.Fatalf("expected 2 variants, got %d", len(ed.Variants))
@@ -465,7 +467,7 @@ func TestParseEnumBody_DocCommentOnVariant(t *testing.T) {
 func TestParseEnumBody_PipeFormRejected(t *testing.T) {
 	for _, src := range []string{
 		"enum Color { Red | Green | Blue }\n",
-		"enum Color {\n  Red\n  | Green\n  | Blue\n}\n",
+		"enum Color\n  Red\n  | Green\n  | Blue\nend\n",
 	} {
 		if err := parseError(t, src); !strings.Contains(err.Error(), "expected") {
 			t.Errorf("Parse(%q): expected alternation-form parse error, got %q", src, err.Error())
@@ -474,11 +476,11 @@ func TestParseEnumBody_PipeFormRejected(t *testing.T) {
 }
 
 func TestParseStructBody_OnceItemRejected(t *testing.T) {
-	err := parseError(t, `struct Cache {
+	err := parseError(t, `struct Cache
   seed: Int
 
   pub once Default: Int = 1
-}
+end
 `)
 	if !strings.Contains(err.Error(), "once bindings are declarations outside type bodies") {
 		t.Fatalf("expected once rejection, got %q", err.Error())
@@ -486,11 +488,11 @@ func TestParseStructBody_OnceItemRejected(t *testing.T) {
 }
 
 func TestParseEnumBody_FnItemRejected(t *testing.T) {
-	src := `enum Status {
+	src := `enum Status
   Active
 
   pub fn label(s: self) -> String { "x" }
-}
+end
 `
 	err := parseError(t, src)
 	if !strings.Contains(err.Error(), "functions are declarations outside type bodies") {
@@ -501,16 +503,16 @@ func TestParseEnumBody_FnItemRejected(t *testing.T) {
 // --- conformance-line rejections -----------------------------------------
 
 func TestParseConformanceLine_ForClauseRejected(t *testing.T) {
-	err := parseError(t, "struct Dog {\n  impl Speech for Dog\n}\n")
-	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type { ... }` blocks outside the type body") {
+	err := parseError(t, "struct Dog\n  impl Speech for Dog\nend\n")
+	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type` blocks outside the type body") {
 		t.Errorf("expected type-body impl rejection, got %q", err.Error())
 	}
 }
 
 func TestParseImplBlock_GenericBounds(t *testing.T) {
-	nodes := parse(t, `struct Box<T> {}
+	nodes := parse(t, `struct Box<T> end
 
-impl iter for Box<T> where T: Display
+impl iter for Box<T> where T: Display end
 
 `)
 	if len(nodes) != 2 {
@@ -532,24 +534,6 @@ impl iter for Box<T> where T: Display
 }
 
 // --- host type bodies ---------------------------------------------------
-
-func TestParseExternType_WithBodyRejected(t *testing.T) {
-	src := `pub host type List<T> {
-  fn first(xs: self) -> T {
-    panic("x")
-  }
-}
-
-impl iter for List<T> {
-  host fn next(list: self) -> Maybe<(T, self)>
-}
-
-`
-	err := parseError(t, src)
-	if !strings.Contains(err.Error(), "host type declarations do not take bodies") {
-		t.Fatalf("expected host type body rejection, got %q", err.Error())
-	}
-}
 
 func TestParseExternType_BodilessUnchanged(t *testing.T) {
 	nodes := parse(t, "pub host type Handle\n")
@@ -574,11 +558,11 @@ func TestParseExternType_FieldItemRejected(t *testing.T) {
 func TestParseTypeDef_OpaqueDistinctWithBody(t *testing.T) {
 	src := `pub opaque type NonZeroInt Int
 
-impl Display for NonZeroInt {
-  fn to_string(_n: self) -> String {
+impl Display for NonZeroInt
+  fn to_string(_n: self) -> String
     "n"
-  }
-}
+  end
+end
 
 `
 	nodes := parse(t, src)
@@ -604,11 +588,11 @@ impl Display for NonZeroInt {
 func TestParseTypeDef_ZeroSizedWithLiteralImpl(t *testing.T) {
 	src := `type Sql
 
-impl Literal for Sql {
-  fn from_fragments(_fragments: List<Fragment<String>>) -> String {
+impl Literal for Sql
+  fn from_fragments(_fragments: List<Fragment<String>>) -> String
     "q"
-  }
-}
+  end
+end
 
 `
 	nodes := parse(t, src)
@@ -649,12 +633,11 @@ func TestParseTypeDef_StrayBodyItemRejected(t *testing.T) {
 }
 
 // The anon-struct-RHS carve-out keeps its diagnostic: `type X {x: Int}` is
-// still rejected because `type` declarations do not carry bodies; use
-// `struct` for records.
+// a type over an anonymous struct, which is written as a `struct`.
 func TestParseTypeDef_BareFieldBodyStillRejected(t *testing.T) {
 	err := parseError(t, "type MyStruct {x: Int}\n")
-	if !strings.Contains(err.Error(), "distinct `type` declarations do not take bodies") {
-		t.Errorf("expected brace-body rejection, got %q", err.Error())
+	if !strings.Contains(err.Error(), "a type over an anonymous struct is a struct") {
+		t.Errorf("expected the anonymous-struct rejection, got %q", err.Error())
 	}
 }
 
@@ -663,16 +646,18 @@ func TestParseTypeDef_BareFieldBodyStillRejected(t *testing.T) {
 // InterfaceMethod.Doc slot. Before the slot existed the parser consumed these
 // docs without attaching them — `nomi fmt -w` then deleted them.
 func TestParseInterfaceDef_DocCommentsOnMembers(t *testing.T) {
-	src := `interface Speech {
+	src := `interface Speech
   /// The required noise.
   fn speak(s: self) -> String
 
   /// Overridable politeness.
-  open fn greet(_s: self) -> String { "hi" }
+  open fn greet(_s: self) -> String
+      "hi"
+  end
 
   /// Host-backed shout.
   host fn shout(s: self) -> String
-}`
+end`
 	nodes := parse(t, src)
 	id, ok := nodes[0].(*ast.InterfaceDef)
 	if !ok {
@@ -696,8 +681,8 @@ func TestParseInterfaceDef_DocCommentsOnMembers(t *testing.T) {
 // decorator-name stage with a targeted message pointing at `derive Iface`.
 func TestParseSourceDeriveDecoratorRejected(t *testing.T) {
 	for _, src := range []string{
-		"@derive Equatable\nstruct Point {\n  x: Int\n}\n",
-		"@derive Debug\nenum Color {\n  Red\n}\n",
+		"@derive Equatable\nstruct Point\n  x: Int\nend\n",
+		"@derive Debug\nenum Color\n  Red\nend\n",
 		"@derive Hashable\ntype Id Int\n",
 		"@derive Equatable, Hashable\npub host type Tok\n",
 	} {
@@ -714,9 +699,11 @@ func TestParseSourceDeriveDecoratorRejected(t *testing.T) {
 // tests depend on that form. The design's reclassification of plain
 // fn-with-body as an inherent item lands with the corpus migration.
 func TestParseInterfaceDef_PlainFnWithBodyStaysFinalDefault(t *testing.T) {
-	src := `interface Greeter {
-  fn greet(_g: self) -> String { "hi" }
-}`
+	src := `interface Greeter
+  fn greet(_g: self) -> String
+      "hi"
+  end
+end`
 	nodes := parse(t, src)
 	id, ok := nodes[0].(*ast.InterfaceDef)
 	if !ok {
@@ -730,11 +717,11 @@ func TestParseInterfaceDef_PlainFnWithBodyStaysFinalDefault(t *testing.T) {
 // --- `field` / `variant` stay ordinary identifiers in expressions ------------
 
 func TestFieldAndVariantAsOrdinaryIdentifiers(t *testing.T) {
-	src := `fn f(field: Int, variant: Int) -> Int {
+	src := `fn f(field: Int, variant: Int) -> Int
   field = field + 1
   variant = variant * 2
   field + variant
-}`
+end`
 	nodes := parse(t, src)
 	fd, ok := nodes[0].(*ast.FuncDef)
 	if !ok {
@@ -750,9 +737,9 @@ func TestFieldAndVariantAsOrdinaryIdentifiers(t *testing.T) {
 // names the struct-shaped form, not with the generic separator error.
 func TestParseEnumBody_VariantDefaultsAreRejectedByName(t *testing.T) {
 	for _, tc := range []struct{ src, want string }{
-		{"enum Shape {\n  Circle Float = 3.14\n}\n",
+		{"enum Shape\n  Circle Float = 3.14\nend\n",
 			"line 2, col 16: a positional variant payload can't have a default; name the field to give it one: `Circle {<name>: Float = <value>}`"},
-		{"enum Direction {\n  North = 1\n  South\n}\n",
+		{"enum Direction\n  North = 1\n  South\nend\n",
 			"line 2, col 9: enum variant `North` carries no value, so it can't be assigned one"},
 	} {
 		err := parseError(t, tc.src)
@@ -760,7 +747,7 @@ func TestParseEnumBody_VariantDefaultsAreRejectedByName(t *testing.T) {
 			t.Errorf("%q: got %v, want %q", tc.src, err, tc.want)
 		}
 	}
-	shape := parseSingleEnumDef(t, "enum Shape {\n  Rectangle {width: Float = 2.1, height: Float}\n}\n")
+	shape := parseSingleEnumDef(t, "enum Shape\n  Rectangle {width: Float = 2.1, height: Float}\nend\n")
 	if len(shape.Variants) != 1 || len(shape.Variants[0].Fields) != 2 || shape.Variants[0].Fields[0].Default == nil {
 		t.Fatal("a struct-shaped variant's field default is no longer parsed")
 	}
@@ -770,7 +757,7 @@ func TestParseEnumBody_VariantDefaultsAreRejectedByName(t *testing.T) {
 // with a trailing space and a deeper-indented `Square Int` below it are two
 // variants, not `Circle` with a payload.
 func TestParseEnumBody_NewlineEndsAVariantAtAnyIndent(t *testing.T) {
-	src := "enum Shape {\n    Circle \n       Square Int\n    Dot\n}"
+	src := "enum Shape\n    Circle \n       Square Int\n    Dot\nend"
 	ed := parseSingleEnumDef(t, src)
 	var got []string
 	for _, v := range ed.Variants {

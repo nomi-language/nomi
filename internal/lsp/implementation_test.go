@@ -11,22 +11,22 @@ import (
 // interface with two methods plus three method impls (two for `speak`, one
 // for `name`), so the response should be three Locations.
 func TestImplementation_InterfaceName(t *testing.T) {
-	input := "interface Speech {\n" +
+	input := "interface Speech\n" +
 		"  fn speak(value: self) -> String\n" +
 		"  fn name(value: self) -> String\n" +
-		"}\n" +
+		"end\n" +
 		"\n" +
-		"struct Dog { sound: String }\n" +
-		"struct Cat { sound: String }\n" +
+		"struct Dog\n    sound: String\nend\n" +
+		"struct Cat\n    sound: String\nend\n" +
 		"\n" +
-		"impl Speech for Dog {\n" +
-		"  fn speak(value: self) -> String { value.sound }\n" +
-		"  fn name(_value: self) -> String { \"Rex\" }\n" +
-		"}\n" +
+		"impl Speech for Dog\n" +
+		"  fn speak(value: self) -> String\n      value.sound\n  end\n" +
+		"  fn name(_value: self) -> String\n      \"Rex\"\n  end\n" +
+		"end\n" +
 		"\n" +
-		"impl Speech for Cat {\n" +
-		"  fn speak(value: self) -> String { value.sound }\n" +
-		"}\n"
+		"impl Speech for Cat\n" +
+		"  fn speak(value: self) -> String\n      value.sound\n  end\n" +
+		"end\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()
@@ -57,22 +57,22 @@ func TestImplementation_InterfaceName(t *testing.T) {
 // every impl in the interface. The fixture has two `speak` impls and one
 // `name` impl; the response should be two Locations (the speaks).
 func TestImplementation_InterfaceMethod(t *testing.T) {
-	input := "interface Speech {\n" +
+	input := "interface Speech\n" +
 		"  fn speak(value: self) -> String\n" +
 		"  fn name(value: self) -> String\n" +
-		"}\n" +
+		"end\n" +
 		"\n" +
-		"struct Dog { sound: String }\n" +
-		"struct Cat { sound: String }\n" +
+		"struct Dog\n    sound: String\nend\n" +
+		"struct Cat\n    sound: String\nend\n" +
 		"\n" +
-		"impl Speech for Dog {\n" +
-		"  fn speak(value: self) -> String { value.sound }\n" +
-		"  fn name(_value: self) -> String { \"Rex\" }\n" +
-		"}\n" +
+		"impl Speech for Dog\n" +
+		"  fn speak(value: self) -> String\n      value.sound\n  end\n" +
+		"  fn name(_value: self) -> String\n      \"Rex\"\n  end\n" +
+		"end\n" +
 		"\n" +
-		"impl Speech for Cat {\n" +
-		"  fn speak(value: self) -> String { value.sound }\n" +
-		"}\n"
+		"impl Speech for Cat\n" +
+		"  fn speak(value: self) -> String\n      value.sound\n  end\n" +
+		"end\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()
@@ -106,9 +106,9 @@ func TestImplementation_InterfaceMethod(t *testing.T) {
 // it remaps the target to the real `derive Hashable for Point` declaration
 // entry so the editor actually jumps there.
 func TestImplementation_DerivedConformanceRemapsToConformanceEntry(t *testing.T) {
-	input := "struct Point {\n" + // 0
+	input := "struct Point\n" + // 0
 		"  x: Int\n" + // 1
-		"}\n" + // 2
+		"end\n" + // 2
 		"\n" + // 3
 		"derive Hashable for Point\n" // 4  Hashable at char 7
 	uri := "file:///test.nomi"
@@ -139,9 +139,9 @@ func TestImplementation_DerivedConformanceRemapsToConformanceEntry(t *testing.T)
 // Same, but with multiple derived conformances; the target must be the
 // specific `derive Hashable for Point` line.
 func TestImplementation_DerivedConformanceAmongMultipleDerivesRemapsToEntry(t *testing.T) {
-	input := "struct Point {\n" + // 0
+	input := "struct Point\n" + // 0
 		"  x: Int\n" + // 1
-		"}\n" + // 2
+		"end\n" + // 2
 		"\n" + // 3
 		"derive Equatable for Point\n" + // 4
 		"derive Hashable for Point\n" // 5  Hashable at char 7
@@ -172,7 +172,7 @@ func TestImplementation_DerivedConformanceAmongMultipleDerivesRemapsToEntry(t *t
 // Clicking on a position with no resolvable symbol (e.g. whitespace, a
 // comment, or a binding) returns no implementations rather than erroring.
 func TestImplementation_UnrelatedSymbolReturnsNil(t *testing.T) {
-	input := "fn main() { x = 5 }\n"
+	input := "fn main()\n    x = 5\nend\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()

@@ -1,99 +1,99 @@
-// The collection literals start with their shape's symbol, `#[...]`,
-// `%[...]` and `%{...}`, and `.{...}` is a struct with no type name.
+// The collection literals start with their shape's symbol, `Vector[...]`,
+// `Set[...]` and `{...}`, and `{...}` is a struct with no type name.
 type Kvs Map<String, Int>
 
 type Ids List<Int>
 
-enum Json {
+enum Json
     Obj Map<String, Json>
     Arr List<Json>
     Num Int
-}
+end
 
-struct Settings {
+struct Settings
     depth: Int = 2
     label: String = "plain"
-}
+end
 
-fn depth_of(s: Settings) -> Int {
+fn depth_of(s: Settings) -> Int
     s.depth
-}
+end
 
-test "each collection literal builds its named type" {
-    v = #[1, 2]
-    s = %[38, 89]
-    m = %{"hello" => 7}
+test "each collection literal builds its named type"
+    v = Vector[1, 2]
+    s = Set[38, 89]
+    m = {"hello" => 7}
 
     assert Vector.length(v) == 2
     assert Set.size(s) == 2
     assert Map.get(m, "hello") == Some(7)
-}
+end
 
-test "an empty literal takes its element type from the expected type" {
-    v: Vector<Int> = #[]
-    s: Set<String> = %[]
-    m: Map<String, Int> = %{}
+test "an empty literal takes its element type from the expected type"
+    v: Vector<Int> = []
+    s: Set<String> = []
+    m: Map<String, Int> = {}
 
     assert Vector.length(v) == 0
     assert Set.size(s) == 0
     assert Map.size(m) == 0
-}
+end
 
-test "each collection renders as it is written" {
-    assert Debug.inspect(#[1, 2]) == "#[1, 2]"
-    assert Debug.inspect(%["a"]) == "%[\"a\"]"
-    assert Debug.inspect(%{"a" => 1}) == "%{\"a\" => 1}"
-    assert Debug.inspect(.{x: 1, y: "b"}) == ".{x: 1, y: \"b\"}"
-    assert "${#[1]} ${%[2]} ${%{3 => 4}}" == "#[1] %[2] %{3 => 4}"
-}
+test "each collection renders as it is written"
+    assert Debug.inspect(Vector[1, 2]) == "Vector[1, 2]"
+    assert Debug.inspect(Set["a"]) == "Set[\"a\"]"
+    assert Debug.inspect({"a" => 1}) == "{\"a\" => 1}"
+    assert Debug.inspect({x: 1, y: "b"}) == "{x: 1, y: \"b\"}"
+    assert "${Vector[1]} ${Set[2]} ${{3 => 4}}" == "Vector[1] Set[2] {3 => 4}"
+end
 
-test "a punned field alone is a struct" {
+test "a punned field alone is a struct"
     name = "Ada"
-    p = .{name}
+    p = {name:}
 
     assert p.name == "Ada"
-}
+end
 
-test "a brace after a map-shaped name attaches a map, and an empty one is the empty map" {
-    k = %Kvs{"a" => 4}
-    empty = %Kvs{}
-    obj: Json = %.Obj{}
-    named = %Json.Obj{"n" => Json.Num(1)}
+test "a brace after a map-shaped name attaches a map, and an empty one is the empty map"
+    k = Kvs{"a" => 4}
+    empty = Kvs{}
+    obj: Json = .Obj{}
+    named = Json.Obj{"n" => Json.Num(1)}
 
-    assert Debug.inspect(k) == "Kvs(%{\"a\" => 4})"
-    assert Debug.inspect(empty) == "Kvs(%{})"
-    assert Debug.inspect(obj) == "Obj(%{})"
-    assert Debug.inspect(named) == "Obj(%{\"n\" => Num(1)})"
+    assert Debug.inspect(k) == "Kvs({\"a\" => 4})"
+    assert Debug.inspect(empty) == "Kvs({})"
+    assert Debug.inspect(obj) == "Obj({})"
+    assert Debug.inspect(named) == "Obj({\"n\" => Num(1)})"
     assert Debug.inspect(Ids[1, 2]) == "Ids([1, 2])"
-}
+end
 
-test "an empty brace builds the struct its position expects from the defaults" {
-    assert depth_of(.{}) == 2
-    assert Settings{} == .{depth: 2, label: "plain"}
-}
+test "a struct with every field defaulted is built with no fields"
+    assert depth_of(Settings{}) == 2
+    assert Settings{} == {depth: 2, label: "plain"}
+end
 
-test "the spreads take the new heads" {
-    v = #[2]
-    s = %[1]
-    m = %{"a" => 1}
+test "the spreads take the new heads"
+    v = Vector[2]
+    s = Set[1]
+    m = {"a" => 1}
 
-    assert #[..v, 3] == #[2, 3]
-    assert #[1, ..v] == #[1, 2]
-    assert %[..s, 2] == %[1, 2]
-    assert %{..m, "b" => 2} == %{"a" => 1, "b" => 2}
-    assert .{...{x: 1, y: 2}, y: 3} == .{x: 1, y: 3}
-}
+    assert [..v, 3] == [2, 3]
+    assert [1, ..v] == [1, 2]
+    assert [..s, 2] == [1, 2]
+    assert {..m, "b" => 2} == {"a" => 1, "b" => 2}
+    assert {..{x: 1, y: 2}, y: 3} == {x: 1, y: 3}
+end
 
-test "map and struct patterns" {
-    m = %{"k" => 5}
-    %{"k" => v} = m else { return }
-    .{x, y} = .{x: 1, y: 2}
+test "map and struct patterns"
+    m = {"k" => 5}
+    {"k" => v} = m else return
+    {x:, y:} = {x: 1, y: 2}
 
     assert v == 5
     assert x + y == 3
 
-    assert case %Kvs{"a" => 4} {
-        %Kvs{"a" => n} -> n
+    assert case Kvs{"a" => 4}
+        Kvs{"a" => n} -> n
         _ -> 0
-    } == 4
-}
+    end == 4
+end

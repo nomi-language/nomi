@@ -15,42 +15,42 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The proverb's lines for `pieces`: one line for each piece and the piece
 /// after it, then a closing line for the first piece. No pieces, no lines.
-pub fn recite(pieces: List<String>) -> List<String> {
-    [first, ..] = pieces else { return [] }
+pub fn recite(pieces: List<String>) -> List<String>
+    [first, ..] = pieces else return []
 
     Iter.zip(pieces, Iter.drop(pieces, 1))
     |> Iter.map(fn (wanted, lost) -> "For want of a ${wanted} the ${lost} was lost.")
     |> Iter.concat(["And all for the want of a ${first}."])
     |> Iter.to_list()
-}
+end
 
 // FILE: proverb_test.nomi
 import proverb
 
-test "zero pieces" {
+test "zero pieces"
     assert proverb.recite([]) == []
-}
+end
 
-test "one piece" {
+test "one piece"
     assert proverb.recite(["nail"]) == ["And all for the want of a nail."]
-}
+end
 
-test "two pieces" {
+test "two pieces"
     assert proverb.recite(["nail", "shoe"]) == [
         "For want of a nail the shoe was lost.",
         "And all for the want of a nail.",
     ]
-}
+end
 
-test "three pieces" {
+test "three pieces"
     assert proverb.recite(["nail", "shoe", "horse"]) == [
         "For want of a nail the shoe was lost.",
         "For want of a shoe the horse was lost.",
         "And all for the want of a nail.",
     ]
-}
+end
 
-test "full proverb" {
+test "full proverb"
     assert proverb.recite(["nail", "shoe", "horse", "rider", "message", "battle", "kingdom"]) == [
         "For want of a nail the shoe was lost.",
         "For want of a shoe the horse was lost.",
@@ -60,16 +60,16 @@ test "full proverb" {
         "For want of a battle the kingdom was lost.",
         "And all for the want of a nail.",
     ]
-}
+end
 
-test "four pieces modernized" {
+test "four pieces modernized"
     assert proverb.recite(["pin", "gun", "soldier", "battle"]) == [
         "For want of a pin the gun was lost.",
         "For want of a gun the soldier was lost.",
         "For want of a soldier the battle was lost.",
         "And all for the want of a pin.",
     ]
-}
+end
 ```
 <!-- expect
 ok zero pieces

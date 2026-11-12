@@ -181,26 +181,29 @@ func (g *gen) probePattern(p ast.Node) {
 		}
 
 	case *ast.ListPattern:
-		// Lowered in both spellings (collections.go's listArm — anonymous,
-		// and type-prefixed for a variant or a list-distinct, through
-		// attach.go), so no refusal of its own, for the reason the TuplePattern
-		// arm above gives.
-		g.probeListPattern(pat)
+		switch pat.Kind {
+		case ast.SeqVector:
+			// Lowered (irvectorpattern.go), so no refusal of its own, for the
+			// reason the TuplePattern arm above gives.
+			for _, sub := range pat.Heads {
+				g.probePattern(sub)
+			}
+			for _, sub := range pat.Tails {
+				g.probePattern(sub)
+			}
 
-	case *ast.VectorPattern:
-		// Lowered (irvectorpattern.go), so no refusal of its own, for the
-		// reason the TuplePattern arm above gives.
-		for _, sub := range pat.Heads {
-			g.probePattern(sub)
+		case ast.SeqSet:
+			// Lowered (irvectorpattern.go); its elements are expressions and
+			// its rest a name, so there is nothing below it to probe.
+
+		default:
+			// Lowered in both spellings (collections.go's listArm — anonymous,
+			// and type-prefixed for a variant or a list-distinct, through
+			// attach.go), so no refusal of its own, for the reason the TuplePattern
+			// arm above gives.
+			g.probeListPattern(pat)
+
 		}
-		for _, sub := range pat.Tails {
-			g.probePattern(sub)
-		}
-
-	case *ast.SetPattern:
-		// Lowered (irvectorpattern.go); its elements are expressions and
-		// its rest a name, so there is nothing below it to probe.
-
 	case *ast.MapPattern:
 		// Lowered in both spellings (maps.go's mapArm — anonymous, and
 		// type-prefixed for a variant or a map-distinct), so no refusal of its

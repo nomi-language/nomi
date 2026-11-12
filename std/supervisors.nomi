@@ -7,13 +7,13 @@
 //# in a program's life and how they shut down are language rules
 //# ([Concurrency](/spec/concurrency/)).
 
-import {
+import
     duration.Duration
     iter.Iter
     lists.List
     tasks.Task
     unit.Unit
-}
+end
 
 /// Which endings put a task back to work.
 ///
@@ -29,7 +29,7 @@ import {
 /// Being *cancelled* is never a restart trigger under any disposition.
 /// Shutdown cancels, and a policy that fought its own shutdown would
 /// never let the program exit.
-pub enum Restart {
+pub enum Restart
     /// Never restarted. The default, because a supervisor holds whatever you
     /// spawn into it and most of that is work meant to finish.
     ///
@@ -53,14 +53,14 @@ pub enum Restart {
     /// a restart. Without it a worker with a bug that exits early simply
     /// vanishes, while `boot` still lists it.
     Permanent
-}
+end
 
 /// When to try again, and how many times before giving up.
 ///
 /// Separate from `Restart` because *whether* to restart and *how
 /// patiently* are different questions; answering them together would make
 /// every caller write a schedule even when the default suits them.
-pub enum Backoff {
+pub enum Backoff
     /// Exponential with jitter, bounded two ways: give up after
     /// `max_restarts` attempts, or after `max_elapsed` spent trying,
     /// whichever comes first.
@@ -91,7 +91,7 @@ pub enum Backoff {
         max_restarts: Int = 10,
         max_elapsed: Duration = Duration.minutes(15),
     }
-}
+end
 
 /// What happens at the moment the runtime decides a task will not run
 /// again — under `Restart.Temporary` its first failure, and under
@@ -105,7 +105,7 @@ pub enum Backoff {
 /// Note that handing off means *exiting*. Nothing here restarts the
 /// program — the runtime has no self-restart, so `Exit` ends the process
 /// and whatever runs it decides whether anything comes back.
-pub enum GiveUp {
+pub enum GiveUp
     /// The default: report the failure and carry on. The rest of the
     /// supervisor's work keeps running.
     Report
@@ -125,7 +125,7 @@ pub enum GiveUp {
     /// an embedded runtime — where nothing will restart it and `Report`
     /// plus your own monitoring is all that is on offer.
     Exit
-}
+end
 
 /// How long `Supervisor.flush` is willing to block.
 ///
@@ -133,7 +133,7 @@ pub enum GiveUp {
 /// unbounded wait is a different thing from a long one, and giving
 /// `Duration` a sentinel would leak into every arithmetic and comparison
 /// that touches it.
-pub enum Wait {
+pub enum Wait
     /// Block until the supervisor's work finishes, however long that takes.
     Forever
 
@@ -141,14 +141,14 @@ pub enum Wait {
     /// comes first. Returns as soon as the work is done — the bound is a
     /// ceiling, not a duration to spend.
     UpTo Duration
-}
+end
 
 /// How a `Supervisor.flush` ended.
 ///
 /// Distinct from an ambient `Context` deadline, which *aborts* the work
 /// that exceeded it. A bound given here returns a value instead, so the
 /// caller decides what a slow flush means.
-pub enum FlushOutcome {
+pub enum FlushOutcome
     /// Every task outstanding when you asked has finished.
     Flushed
 
@@ -156,7 +156,7 @@ pub enum FlushOutcome {
     /// cancelled — the work carries on, and shutdown's drain is still what
     /// eventually bounds it.
     TimedOut
-}
+end
 
 /// An owner for work that has to outlive the call that started it.
 ///
@@ -183,19 +183,19 @@ pub enum FlushOutcome {
 /// shutdown policy the app needs, not one per feature:
 ///
 /// ```nomi
-/// struct Config {
+/// struct Config
 ///     context: Context
 ///     audit: Supervisor
 ///     notify: Supervisor
-/// }
+/// end
 ///
-/// fn boot() -> Result<Config, String> {
+/// fn boot() -> Result<Config, String>
 ///     Ok(Config{
 ///         context: Context.root(),
 ///         audit: Supervisor.new(shutdown_timeout: Duration.seconds(30), max_running: 4),
 ///         notify: Supervisor.new(shutdown_timeout: Duration.milliseconds(200), max_running: 50),
 ///     })
-/// }
+/// end
 /// ```
 ///
 /// Background work is in-process, not durable: a hard crash between
@@ -203,7 +203,7 @@ pub enum FlushOutcome {
 /// message, not for a receipt.
 pub host type Supervisor
 
-impl Supervisor {
+impl Supervisor
     /// Create a named supervisor with its own shutdown budget.
     ///
     /// `shutdown_timeout:` is how long shutdown lets this supervisor's work
@@ -250,9 +250,9 @@ impl Supervisor {
         restart: Restart = .Temporary,
         backoff: Backoff = .Exponential{},
         on_give_up: GiveUp = .Report,
-    ) -> Supervisor {
+    ) -> Supervisor
         Supervisor.new_exact(max_running, shutdown_timeout, restart, backoff, on_give_up)
-    }
+    end
 
     // The five-argument extern, with no defaults of its own.
     //
@@ -335,22 +335,22 @@ impl Supervisor {
     /// `FlushOutcome.TimedOut` rather than unwinding:
     ///
     /// ```nomi
-    /// case Supervisor.flush(Config.notify, Wait.UpTo(Duration.seconds(5))) {
+    /// case Supervisor.flush(Config.notify, Wait.UpTo(Duration.seconds(5)))
     ///     FlushOutcome.Flushed -> report_sent()
     ///     FlushOutcome.TimedOut -> carry_on()
-    /// }
+    /// end
     /// ```
     ///
     /// That is deliberately unlike an ambient `Context` deadline, which
     /// aborts the work that exceeds it. Use the deadline to put a ceiling
     /// on a whole region; use this to ask one question and get an answer
     /// back either way.
-    pub fn flush(supervisor: Supervisor, bound = Wait.Forever) -> FlushOutcome {
+    pub fn flush(supervisor: Supervisor, bound = Wait.Forever) -> FlushOutcome
         Supervisor.flush_bounded(supervisor, bound)
-    }
+    end
 
     // The two-argument extern, with no default of its own. See `new_exact`
     // above: one owner for `bound: Wait = Wait.Forever`, and the only shape the
     // IR builder lowers.
     host fn flush_bounded(supervisor: Supervisor, bound: Wait) -> FlushOutcome
-}
+end

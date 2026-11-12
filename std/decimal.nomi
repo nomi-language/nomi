@@ -1,4 +1,4 @@
-import {
+import
     add.Add
     bool.Bool.{self, False, True}
     comparable.{Comparable, Ordering}
@@ -23,7 +23,7 @@ import {
     subtract.Subtract
     summable.Summable
     unit.Unit
-}
+end
 
 //# Operations on the arbitrary-precision, exact base-10 `Decimal` type:
 //# conversions to/from `Int`/`Float`/`String`, explicit-rounding division and
@@ -51,7 +51,7 @@ import {
 /// "1.50") but equality is scale-insensitive (`1.50d == 1.5d`).
 pub host type Decimal
 
-impl Decimal {
+impl Decimal
     /// Converts a Decimal to an Int by truncating toward zero. Exact at any
     /// size, since an Int holds a whole number of any size. Use
     /// `Decimal.round` first if a different rounding rule is needed.
@@ -149,37 +149,37 @@ impl Decimal {
     /// Returns |d| (scale preserved).
     //! assert Decimal.abs(-1.50d) == 1.50d
     //
-    pub fn abs(d: Decimal) -> Decimal {
-        if d < 0d { 0d - d } else { d }
-    }
+    pub fn abs(d: Decimal) -> Decimal
+        if d < 0d then 0d - d else d
+    end
 
     /// Returns -d (scale preserved). Negating zero stays zero.
     //! assert Decimal.negate(1.50d) == -1.50d
     //
-    pub fn negate(d: Decimal) -> Decimal {
+    pub fn negate(d: Decimal) -> Decimal
         0d - d
-    }
+    end
 
     /// Returns the sign of `d` as -1, 0, or +1 (by mathematical value).
     //! assert Decimal.sign(-1.50d) == -1
     //! assert Decimal.sign(0.00d) == 0
     //! assert Decimal.sign(1.50d) == 1
     //
-    pub fn sign(d: Decimal) -> Int {
-        case {
+    pub fn sign(d: Decimal) -> Int
+        case
             d < 0d -> -1
             d > 0d -> 1
             _ -> 0
-        }
-    }
+        end
+    end
 
     /// True if `d` is exactly zero (at any scale: `0d`, `0.00d` are both zero).
     //! assert Decimal.is_zero(0.00d)
     //! refute Decimal.is_zero(1.50d)
     //
-    pub fn is_zero(d: Decimal) -> Bool {
+    pub fn is_zero(d: Decimal) -> Bool
         d == 0d
-    }
+    end
 
     /// `d` split into `n` parts that sum to it exactly and differ by at most
     /// one unit of the `scale`th digit after the point: a bill shared by `n`
@@ -198,12 +198,12 @@ impl Decimal {
     //! assert Decimal.split(10d, 4, 0) == [3d, 3d, 2d, 2d]
     //! assert Decimal.split(0.125d, 2, 2) == [0.063d, 0.062d]
     //
-    pub fn split(d: Decimal, n: Int, scale: Int) -> List<Decimal> {
-        if n <= 0 { decimal_refused("Decimal.split", "n must be positive, got ${n}") }
+    pub fn split(d: Decimal, n: Int, scale: Int) -> List<Decimal>
+        if n <= 0 then decimal_refused("Decimal.split", "n must be positive, got ${n}")
 
-        if scale < 0 {
+        if scale < 0 then
             decimal_refused("Decimal.split", "scale must not be negative, got ${scale}")
-        }
+        end
 
         allocated(
             d,
@@ -212,7 +212,7 @@ impl Decimal {
             |> Iter.to_list(),
             scale,
         )
-    }
+    end
 
     /// `d` split into parts proportional to `ratios`, one part per ratio,
     /// that sum to it exactly: a payment shared 70 to 30, or a discount
@@ -234,24 +234,24 @@ impl Decimal {
     //! assert Decimal.allocate(-1d, [1, 2], 2) == [-0.34d, -0.66d]
     //! assert Decimal.allocate(1.5d, [1, 1], 0) == [0.8d, 0.7d]
     //
-    pub fn allocate(d: Decimal, ratios: List<Int>, scale: Int) -> List<Decimal> {
-        if Iter.is_empty(ratios) { decimal_refused("Decimal.allocate", "there are no ratios") }
+    pub fn allocate(d: Decimal, ratios: List<Int>, scale: Int) -> List<Decimal>
+        if Iter.is_empty(ratios) then decimal_refused("Decimal.allocate", "there are no ratios")
 
-        case Iter.find(ratios, fn r -> r < 0) {
+        case Iter.find(ratios, fn r -> r < 0)
             Some(r) -> decimal_refused("Decimal.allocate", "the ratio ${r} is negative")
             None -> Unit
-        }
+        end
 
-        if Iter.all_match(ratios, fn r -> r == 0) {
+        if Iter.all_match(ratios, fn r -> r == 0) then
             decimal_refused("Decimal.allocate", "the ratios are all zero")
-        }
+        end
 
-        if scale < 0 {
+        if scale < 0 then
             decimal_refused("Decimal.allocate", "scale must not be negative, got ${scale}")
-        }
+        end
 
         allocated(d, ratios, scale)
-    }
+    end
 
     /// `d` as a reader of `locale` writes it, with as many digits after the
     /// decimal point as its scale has, at least `min_fraction` and at most
@@ -277,10 +277,10 @@ impl Decimal {
         max_fraction: Int = Int.max(Decimal.scale(d), min_fraction),
         grouping: Bool = True,
         mode: RoundingMode = RoundingMode.HalfEven,
-    ) -> String {
+    ) -> String
         shown = Decimal.fraction_digits(d, min_fraction, max_fraction, mode)
         decimal_format(locale, Display.to_string(shown), min_fraction, max_fraction, grouping)
-    }
+    end
 
     /// `d` as a percentage in `locale`: `d` times 100, exactly, with the
     /// locale's percent sign where the locale's pattern puts it (`%26` in
@@ -301,7 +301,7 @@ impl Decimal {
         min_fraction: Int = 0,
         max_fraction: Int = Int.max(Decimal.scale(d) - 2, min_fraction),
         mode: RoundingMode = RoundingMode.HalfEven,
-    ) -> String {
+    ) -> String
         percent = Decimal.round(
             d * 100d,
             Int.max(Decimal.scale(d) - 2, 0),
@@ -310,7 +310,7 @@ impl Decimal {
 
         shown = Decimal.fraction_digits(percent, min_fraction, max_fraction, mode)
         decimal_format_percent(locale, Display.to_string(shown), min_fraction, max_fraction)
-    }
+    end
 
     // `d` at its own scale held between min_fraction and max_fraction,
     // rounded by mode. Not `Int.clamp`: the bounds are checked after this,
@@ -321,9 +321,9 @@ impl Decimal {
         min_fraction: Int,
         max_fraction: Int,
         mode: RoundingMode,
-    ) -> Decimal {
+    ) -> Decimal
         Decimal.round(d, Int.min(Int.max(Decimal.scale(d), min_fraction), max_fraction), mode)
-    }
+    end
 
     /// Read text a reader of `locale` wrote as a `Decimal`, strictly unless
     /// `lenient: True`, as `Int.parse_in` reads an `Int`. The digits typed
@@ -339,9 +339,9 @@ impl Decimal {
         text: String,
         locale: Locale,
         lenient: Bool = False,
-    ) -> Result<Decimal, NumberParseError> {
+    ) -> Result<Decimal, NumberParseError>
         Decimal.lift(decimal_parse_in(text, locale, lenient))
-    }
+    end
 
     /// Read a percentage a reader of `locale` wrote, as a fraction, divided
     /// by 100 exactly: `12,5 %` is `0.125d`. The percent sign is required,
@@ -358,50 +358,50 @@ impl Decimal {
         text: String,
         locale: Locale,
         lenient: Bool = False,
-    ) -> Result<Decimal, NumberParseError> {
+    ) -> Result<Decimal, NumberParseError>
         Decimal.lift(decimal_parse_percent_in(text, locale, lenient))
-    }
+    end
 
     // The Decimal of the number text the Go half read.
-    fn lift(read: Result<String, NumberParseError>) -> Result<Decimal, NumberParseError> {
-        case read {
-            Err(e) -> Err(e)
+    fn lift(read: Result<String, NumberParseError>) -> Result<Decimal, NumberParseError>
+        case read
+            Err(e) ->
+                Err(e)
 
-            Ok(text) -> {
-                case String.to_decimal(text) {
+            Ok(text) ->
+                case String.to_decimal(text)
                     Some(d) -> Ok(d)
                     None -> Err(NumberParseError.OutOfRange)
-                }
-            }
-        }
-    }
-}
+                end
+        end
+    end
+end
 
 // `d` in parts proportional to `ratios`, which are not empty, not negative
 // and not all zero, summing to it exactly: each part's share of the units of
 // the larger of `scale` and `d`'s own scale rounded toward zero, and the
 // units left over one each to the nonzero ratios in order. The sign is set
 // apart, so a negative amount splits as its magnitude does.
-fn allocated(d: Decimal, ratios: List<Int>, scale: Int) -> List<Decimal> {
+fn allocated(d: Decimal, ratios: List<Int>, scale: Int) -> List<Decimal>
     digits = Int.max(scale, Decimal.scale(d))
     unit = Decimal.pow(10d, digits)
     units = Decimal.to_int(d * unit)
-    sign = if units < 0 { -1 } else { 1 }
+    sign = if units < 0 then -1 else 1
     magnitude = Int.abs(units)
     total = Iter.sum(ratios)
     left = magnitude - Iter.sum_by(ratios, fn r -> magnitude * r / total)
 
     // How many nonzero ratios come up to and including each one.
-    ranks = Iter.scan(ratios, 0, fn seen, r -> if r > 0 { seen + 1 } else { seen })
+    ranks = Iter.scan(ratios, 0, fn seen, r -> if r > 0 then seen + 1 else seen)
 
     Iter.zip(ratios, ranks)
-    |> Iter.map(fn (r, rank) -> {
-        extra = if r > 0 and rank <= left { 1 } else { 0 }
+    |> Iter.map(fn (r, rank) ->
+        extra = if r > 0 and rank <= left then 1 else 0
         part = sign * (magnitude * r / total + extra)
         Decimal.divide(Int.to_decimal(part), unit, digits, RoundingMode.Unnecessary)
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
 // Traps with `operation`, a colon and `reason`: an argument the caller chose
 // and could have checked, such as `Decimal.split` into no parts.
@@ -434,7 +434,7 @@ host fn decimal_parse_percent_in(
     lenient: Bool,
 ) -> Result<String, NumberParseError>
 
-impl Display for Decimal {
+impl Display for Decimal
     /// Returns the canonical scale-preserving string form of `d`, matching the
     /// runtime stringifier used by `io.print` and string interpolation. Trailing
     /// zeros are kept (`1.50d` → `"1.50"`).
@@ -442,32 +442,32 @@ impl Display for Decimal {
     //! assert Decimal.to_string(100d) == "100"
     //
     host fn to_string(d: Decimal) -> String
-}
+end
 
-impl Add<Decimal, Decimal> for Decimal {
+impl Add<Decimal, Decimal> for Decimal
     host fn add(lhs: Decimal, rhs: Decimal) -> Decimal
-}
+end
 
-impl Summable for Decimal {
+impl Summable for Decimal
     /// The sum of no Decimals: `0d`, at scale 0. A sum takes the larger
     /// scale of its operands, so `x + 0d` keeps `x`'s scale.
     //! assert Decimal.empty_sum() == 0d
     //! assert Decimal.to_string(1.50d + Decimal.empty_sum()) == "1.50"
     //
-    fn empty_sum() -> Decimal {
+    fn empty_sum() -> Decimal
         0d
-    }
-}
+    end
+end
 
-impl Subtract<Decimal, Decimal> for Decimal {
+impl Subtract<Decimal, Decimal> for Decimal
     host fn subtract(lhs: Decimal, rhs: Decimal) -> Decimal
-}
+end
 
-impl Multiply<Decimal, Decimal> for Decimal {
+impl Multiply<Decimal, Decimal> for Decimal
     host fn multiply(lhs: Decimal, rhs: Decimal) -> Decimal
-}
+end
 
-impl Divide<Decimal, Decimal> for Decimal {
+impl Divide<Decimal, Decimal> for Decimal
     /// `lhs / rhs`: the quotient rounded half-even to 34 significant digits,
     /// with no trailing zeros after the point. A quotient that ends within
     /// 34 digits is exact. A zero `rhs` traps, as Int's `/` does.
@@ -478,9 +478,9 @@ impl Divide<Decimal, Decimal> for Decimal {
     //! assert Decimal.to_string(-2d / 3d) == "-0.6666666666666666666666666666666667"
     //
     host fn divide(lhs: Decimal, rhs: Decimal) -> Decimal
-}
+end
 
-impl Remainder<Decimal, Decimal> for Decimal {
+impl Remainder<Decimal, Decimal> for Decimal
     /// `lhs % rhs`: `lhs - rhs * q`, where `q` is the quotient truncated
     /// toward zero. Exact, never rounds, and takes the sign of `lhs`; the
     /// scale is the larger of the operands'. A zero `rhs` traps, as Int's
@@ -491,59 +491,59 @@ impl Remainder<Decimal, Decimal> for Decimal {
     //! assert Decimal.to_string(10d % 2.50d) == "0.00"
     //
     host fn remainder(lhs: Decimal, rhs: Decimal) -> Decimal
-}
+end
 
-impl Productable for Decimal {
+impl Productable for Decimal
     /// The product of no Decimals: `1d`, at scale 0. A product's scale is
     /// the sum of its operands', so `x * 1d` keeps `x`'s scale.
     //! assert Decimal.empty_product() == 1d
     //! assert Decimal.to_string(1.50d * Decimal.empty_product()) == "1.50"
     //
-    fn empty_product() -> Decimal {
+    fn empty_product() -> Decimal
         1d
-    }
-}
+    end
+end
 
-impl Debug for Decimal {
+impl Debug for Decimal
     // Round-trippable, scale-faithful form: the canonical string plus the `d`
     // suffix, so the REPL distinguishes a Decimal from a Float and the output can
     // be pasted back as a literal.
-    fn inspect(d: Decimal) -> String {
+    fn inspect(d: Decimal) -> String
         to_string(d) + "d"
-    }
-}
+    end
+end
 
-impl Equatable for Decimal {
+impl Equatable for Decimal
     // Scale-insensitive Decimal equality — agrees with `hash`, so
     // `1.50d == 1.5d` AND both hash equally. The host implementation is shared
     // with the runtime's map-key equality (`value.DecimalEqual` in Go), so the
     // operator path, `Equatable.equal`, and map keys all converge on one
     // function.
     host fn equal(a: Decimal, b: Decimal) -> Bool
-}
+end
 
-impl Hashable for Decimal {
+impl Hashable for Decimal
     // The normalized value is hashed, so `==`-equal decimals hash
     // equally regardless of scale (`1.50d` and `1.5d` agree). Keeps Map/Set keys
     // coherent.
     host fn hash(d: Decimal) -> Int
-}
+end
 
-impl Comparable for Decimal {
+impl Comparable for Decimal
     // Compares by mathematical value, scale-insensitively:
     // `Decimal.compare(1.50d, 1.5d) == Equal`.
     host fn compare(a: Decimal, b: Decimal) -> Ordering
-}
+end
 
-impl Steppable for Decimal {
+impl Steppable for Decimal
     /// Returns `value + by`. Decimal stepping is exact because Decimal is
     /// arbitrary-precision base-10.
     //! assert Decimal.step_by(1.0d, 0.1d) == Some(1.1d)
     //
-    fn step_by(value: Decimal, by: Decimal) -> Maybe<Decimal> {
+    fn step_by(value: Decimal, by: Decimal) -> Maybe<Decimal>
         Some(value + by)
-    }
-}
+    end
+end
 
 /// Rounding policy for decimal division and quantization. There is no default:
 /// every rounding operation names its mode explicitly.
@@ -556,7 +556,7 @@ impl Steppable for Decimal {
 /// - `HalfDown` — nearest; ties toward zero
 /// - `HalfEven` — nearest; ties to even (banker's rounding)
 /// - `Unnecessary` — assert exactness; runtime error if rounding is needed
-pub enum RoundingMode {
+pub enum RoundingMode
     Up
     Down
     Ceiling
@@ -565,6 +565,6 @@ pub enum RoundingMode {
     HalfDown
     HalfEven
     Unnecessary
-}
+end
 
 derive Display for RoundingMode

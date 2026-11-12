@@ -52,7 +52,7 @@ func (c *checker) checkSubtests(n *ast.Subtests) Type {
 	case c.subtestsRow != nil:
 		c.report(TypeError{Line: n.Line, Col: n.Col,
 			Message: "`subtests` cannot be written inside another `subtests` body: each row of the outer statement is one case",
-			Hints:   []string{"combine the two row lists into one, as in `subtests pairs, (a, b) { ... }`, or write the inner rows as a test of their own"}})
+			Hints:   []string{"combine the two row lists into one, as in `subtests pairs, (a, b)`, or write the inner rows as a test of their own"}})
 	case c.setupBoundary != "" && c.tryBoundary == c.setupBoundary:
 		c.report(TypeError{Line: n.Line, Col: n.Col,
 			Message: "`subtests` cannot be used in a `setup`: a setup builds the value each test binds",
@@ -150,28 +150,32 @@ func (c *checker) subtestsRowType(rowsTy Type) (Type, bool) {
 	if elem, ok := iterElemType(rowsTy); ok {
 		return elem, true
 	}
-	// The std collections answer directly, as their `Iter` impls do.
+	// The std collections answer directly, as their `Iter` impls do, and
+	// one whose element is open is an Iter whose element is not
+	// determined, whether or not the file sees `Iter` (a std module sees
+	// only what it imports).
+	elem, collection := Type(nil), true
 	switch t := resolveTypeVar(rowsTy).(type) {
 	case *ListType:
-		if !containsTypeVar(t.Elem) {
-			return t.Elem, true
-		}
+		elem = t.Elem
 	case *MapType:
-		if !containsTypeVar(t.Key) && !containsTypeVar(t.Val) {
-			return &TupleType{Elems: []Type{t.Key, t.Val}}, true
+		elem = &TupleType{Elems: []Type{t.Key, t.Val}}
+	default:
+		if elem, collection = vectorElemType(rowsTy); !collection {
+			elem, collection = setElemType(rowsTy)
 		}
 	}
-	if elem, ok := vectorElemType(rowsTy); ok && !containsTypeVar(elem) {
-		return elem, true
-	}
-	if elem, ok := setElemType(rowsTy); ok && !containsTypeVar(elem) {
+	if collection {
+		if containsTypeVar(elem) {
+			return nil, true
+		}
 		return elem, true
 	}
 	iface, ok := c.reg.Lookup("Iter").(*InterfaceType)
 	if !ok || !isStdIterType(iface) || len(iface.TypeParamDefs) != 1 {
 		return nil, false
 	}
-	elem := c.freshTypeVar()
+	elem = c.freshTypeVar()
 	want := &InterfaceType{
 		Origin:        iface.Origin,
 		Name:          iface.Name,
@@ -205,7 +209,7 @@ func (c *checker) rejectRowExit(kw string, line, col int) bool {
 		hint = "end the row with its last statement, or put what follows in an `if` or `case` arm"
 	case "break", "continue":
 		msg = fmt.Sprintf("`%s` cannot be used in a `subtests` body: every row runs, in order", kw)
-		hint = "choose the rows before the statement, as in `subtests rows |> Iter.filter(keep), row { ... }`"
+		hint = "choose the rows before the statement, as in `subtests rows |> Iter.filter(keep), row`"
 	case "?":
 		msg = "`?` cannot be used in a `subtests` body: a row is not a function, so there is nothing to return the Err or None to"
 		hint = "assert the shape instead: `assert Ok(value) = expr` binds value or fails the row"

@@ -5,13 +5,13 @@ import std::literals.{Fragment, Literal}
 /// verbatim, Dynamic slots are stringified via `Display`.
 pub type Joiner
 
-impl Literal for Joiner {
-    fn from_fragments(fragments: List<Fragment<Display>>) -> String {
-        Iter.reduce(fragments, "", fn acc, frag -> {
-            case frag {
+impl Literal for Joiner
+    fn from_fragments(fragments: List<Fragment<Display>>) -> String
+        Iter.reduce(fragments, "", fn acc, frag ->
+            case frag
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + Display.to_string(v)
-            }
-        })
-    }
-}
+            end
+        end)
+    end
+end

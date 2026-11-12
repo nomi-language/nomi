@@ -13,55 +13,55 @@
 // so smart constructors and `Maybe`-returning accessors are the ONLY way in.
 // That is what makes a type-qualified call to an inherent impl function the
 // whole interface of the type rather than a convenience.
-pub opaque enum Status {
+pub opaque enum Status
     Active
     Inactive String
     Suspended {until: Int, reason: String}
-}
+end
 
-impl Status {
-    pub fn active() -> Status {
+impl Status
+    pub fn active() -> Status
         Status.Active
-    }
+    end
 
-    pub fn inactive(reason: String) -> Status {
+    pub fn inactive(reason: String) -> Status
         Status.Inactive(reason)
-    }
+    end
 
-    pub fn suspend(until: Int, reason: String) -> Status {
-        Status.Suspended{until, reason}
-    }
+    pub fn suspend(until: Int, reason: String) -> Status
+        Status.Suspended{until:, reason:}
+    end
 
-    pub fn is_active(s: Status) -> Bool {
-        case s {
+    pub fn is_active(s: Status) -> Bool
+        case s
             .Active -> True
             _ -> False
-        }
-    }
+        end
+    end
 
-    pub fn reason(s: Status) -> Maybe<String> {
-        case s {
+    pub fn reason(s: Status) -> Maybe<String>
+        case s
             .Inactive(r) -> Some(r)
-            .Suspended{reason} -> Some(reason)
+            .Suspended{reason:} -> Some(reason)
             _ -> None
-        }
-    }
+        end
+    end
 
-    fn bare() -> Int {
+    fn bare() -> Int
         0
-    }
-}
+    end
+end
 
-pub struct Tag {
+pub struct Tag
     label: String
-}
+end
 
-pub fn tag(label: String) -> Tag {
-    Tag{label}
-}
+pub fn tag(label: String) -> Tag
+    Tag{label:}
+end
 
-impl Debug for Tag {
-    fn inspect(t: Tag) -> String {
+impl Debug for Tag
+    fn inspect(t: Tag) -> String
         "tag:" + t.label
-    }
-}
+    end
+end

@@ -14,38 +14,38 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Parses and evaluates simple math word problems.
 
 /// Why a question has no answer.
-pub enum Error {
+pub enum Error
     UnknownOperation
     SyntaxError
     DivisionByZero
-}
+end
 
 /// Answers a word problem such as `What is 3 plus 2 multiplied by 3?`,
 /// working left to right with no operator precedence.
-pub fn answer(question: String) -> Result<Int, Error> {
+pub fn answer(question: String) -> Result<Int, Error>
     Some(problem) =
         question
         |> String.strip_prefix("What is")
         |> Maybe.flat_map(&String.strip_suffix(&1, "?"))
-    else {
+    else
         return Err(.UnknownOperation)
-    }
+    end
 
-    [first, ..rest] = String.words(problem) else { return Err(.SyntaxError) }
-    Some(total) = String.to_int(first) else { return Err(.SyntaxError) }
+    [first, ..rest] = String.words(problem) else return Err(.SyntaxError)
+    Some(total) = String.to_int(first) else return Err(.SyntaxError)
     evaluate(total, rest)
-}
+end
 
-enum Operation {
+enum Operation
     Plus
     Minus
     Times
     DividedBy
-}
+end
 
 /// Applies each operation in `words` to the running total in turn.
-fn evaluate(total: Int, words: List<String>) -> Result<Int, Error> {
-    case words {
+fn evaluate(total: Int, words: List<String>) -> Result<Int, Error>
+    case words
         [] -> Ok(total)
         ["plus", ..rest] -> operand(total, .Plus, rest)
         ["minus", ..rest] -> operand(total, .Minus, rest)
@@ -53,35 +53,35 @@ fn evaluate(total: Int, words: List<String>) -> Result<Int, Error> {
         ["divided", "by", ..rest] -> operand(total, .DividedBy, rest)
         [word, ..] when String.to_int(word) is Some(_) -> Err(.SyntaxError)
         _ -> Err(.UnknownOperation)
-    }
-}
+    end
+end
 
 /// Reads the number after an operation, applies it and carries on.
-fn operand(total: Int, operation: Operation, words: List<String>) -> Result<Int, Error> {
-    [word, ..rest] = words else { return Err(.SyntaxError) }
-    Some(n) = String.to_int(word) else { return Err(.SyntaxError) }
+fn operand(total: Int, operation: Operation, words: List<String>) -> Result<Int, Error>
+    [word, ..rest] = words else return Err(.SyntaxError)
+    Some(n) = String.to_int(word) else return Err(.SyntaxError)
     total = apply(operation, total, n)?
     evaluate(total, rest)
-}
+end
 
-fn apply(operation: Operation, a: Int, b: Int) -> Result<Int, Error> {
-    case operation {
+fn apply(operation: Operation, a: Int, b: Int) -> Result<Int, Error>
+    case operation
         .Plus -> Ok(a + b)
         .Minus -> Ok(a - b)
         .Times -> Ok(a * b)
         .DividedBy -> divide(a, b)
-    }
-}
+    end
+end
 
-fn divide(a: Int, b: Int) -> Result<Int, Error> {
-    Some(divisor) = Int.to_non_zero(b) else { return Err(.DivisionByZero) }
+fn divide(a: Int, b: Int) -> Result<Int, Error>
+    Some(divisor) = Int.to_non_zero(b) else return Err(.DivisionByZero)
     Ok(Int.divide(a, divisor))
-}
+end
 
 // FILE: wordy_test.nomi
 import wordy.{self, Error}
 
-test "answers word problems" {
+test "answers word problems"
     [
         ("just a number", "What is 5?", Ok(5)),
         ("just a zero", "What is 0?", Ok(0)),
@@ -115,15 +115,15 @@ test "answers word problems" {
         ("reject postfix notation", "What is 1 2 plus?", Err(.SyntaxError)),
         ("reject prefix notation", "What is plus 1 2?", Err(.SyntaxError)),
     ]
-    |> subtests (description, question, expected), description {
+    |> subtests (description, question, expected), description
         assert wordy.answer(question) == expected
-    }
-}
+    end
+end
 
 // Not a canonical case: the exercise leaves division by zero open.
-test "division by zero" {
+test "division by zero"
     assert wordy.answer("What is 1 divided by 0?") == Err(.DivisionByZero)
-}
+end
 ```
 <!-- expect
 ok answers word problems (27 cases)

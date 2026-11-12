@@ -9,22 +9,24 @@ import "testing"
 // The same holds for a block that is a pipe's source.
 func TestFormat_PipeStageCaseKeepsItsEndCommentInside(t *testing.T) {
 	for name, src := range map[string]string{
-		"a case stage": "fn main() {\n" +
-			"    x = (y |> case {\n" +
+		"a case stage": "fn main()\n" +
+			"    x = (y |> case\n" +
 			"        Some(n) -> n\n" +
 			"        // the rest\n" +
-			"    }) == 99\n" +
-			"}\n",
-		"a block source": "fn main() {\n" +
-			"    x = if c { 1 } else {\n" +
-			"        {\n" +
+			"    end) == 99\n" +
+			"end\n",
+		"a block source": "fn main()\n" +
+			"    x = if c then\n" +
+			"        1\n" +
+			"    else\n" +
+			"        begin\n" +
 			"            y = 2\n" +
 			"            y\n" +
 			"            // the rest\n" +
-			"        }\n" +
+			"        end\n" +
 			"        |> f()\n" +
-			"    }\n" +
-			"}\n",
+			"    end\n" +
+			"end\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			got, err := Format(src)

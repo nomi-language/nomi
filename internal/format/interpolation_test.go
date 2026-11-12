@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// A literal `${` is written `\${`; `$`, `$$`, `#`, `##` and `#{` are
+// A literal `${` is written `\${`; `$`, `$$`, `#`, `##` and `{` are
 // ordinary text and stay as written.
 func TestFormatEscapesOnlyTheInterpolationOpener(t *testing.T) {
 	source := `value = "$ \${old} $$ # ## #{new}"` + "\n"

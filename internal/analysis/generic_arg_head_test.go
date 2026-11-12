@@ -12,21 +12,21 @@ import (
 // argument check let these through and the program could not run.
 func TestGenericArgHead_ADifferentConstructorIsAMismatch(t *testing.T) {
 	errs := checkWithStdlib(`
-fn first_or<T>(xs: List<T>, d: T) -> T {
+fn first_or<T>(xs: List<T>, d: T) -> T
   Maybe.with_default(List.head(xs), d)
-}
+end
 
-fn main() {
-  u = {}
+fn main()
+  u = begin end
   _ = Set.size(u)
-  _ = List.head({})
+  _ = List.head(begin end)
   _ = Map.size(1.5)
   _ = first_or(3, 1)
   _ = Maybe.is_some(4)
-  _ = Set.size(%[1])
+  _ = Set.size(Set[1])
   _ = first_or([1], 2)
   _ = List.head(1..3 |> Iter.to_list())
-}
+end
 `)
 	var got []string
 	for _, e := range errs {
@@ -55,23 +55,23 @@ import std::tasks.Task
 
 type UserId Int
 
-fn first<T>(xs: Vector<T>) -> Maybe<T> {
+fn first<T>(xs: Vector<T>) -> Maybe<T>
   Vector.get(xs, 0)
-}
+end
 
-fn main() {
+fn main()
   _ = Vector.get("", 0)
   _ = Vector.get(1, 0)!
   _ = Task.await(1)
   _ = Vector.length([1])
-  _ = List.head(#[1])
+  _ = List.head(Vector[1])
   _ = first(UserId(1))
   _ = "" |> Vector.length()
-  _ = Vector.get(#[1], 0)
-  _ = Vector.length(#[])
-  _ = Vector.concat(#[1], #[])
-  _ = first(#["a"])
-}
+  _ = Vector.get(Vector[1], 0)
+  _ = Vector.length(Vector[])
+  _ = Vector.concat(Vector[1], Vector[])
+  _ = first(Vector["a"])
+end
 `)
 	var got []string
 	for _, e := range errs {
@@ -81,7 +81,6 @@ fn main() {
 		"11:18 argument 1: expected Vector<T>, got String",
 		"12:18 argument 1: expected Vector<T>, got Int",
 		"13:18 argument 1: expected Task<T>, got Int",
-		"14:21 argument 1: expected Vector<T>, got List<Int>",
 		"15:17 argument 1: expected List<T>, got Vector<Int>",
 		"16:13 argument 1: expected Vector<T>, got UserId",
 		"17:13 `Vector.length` takes a Vector<T> as its first argument, but the pipe passes a String",

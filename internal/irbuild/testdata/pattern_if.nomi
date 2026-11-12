@@ -1,24 +1,24 @@
-import {
+import
     std::io
     std::iter.Iter.loop
-}
+end
 
 /// `if pattern = expr` — the refutable match outside a `case`.
 ///
 /// Each function below defeats one specific wrong lowering, because the corpus
 /// exercise (01-foundations/if_else/if_else_test.nomi) is two `Some(name)` arms
 /// and cannot tell most of them apart.
-enum Shape {
+enum Shape
     Dot
     Circle {radius: Int}
     Rect {w: Int, h: Int}
-}
+end
 
 /// The two-armed form. Nothing subtle; it is the control the rest are read
 /// against.
-fn label(m: Maybe<String>) -> String {
-    if Some(name) = m { name } else { "unknown" }
-}
+fn label(m: Maybe<String>) -> String
+    if Some(name) = m then name else "unknown"
+end
 
 /// NO else arm. The then-arm runs on a hit and NOT on a miss, and control
 /// continues past the `if` either way — the "after" line is what says so. The
@@ -26,91 +26,91 @@ fn label(m: Maybe<String>) -> String {
 /// else whose then-arm is Unit is Unit (one whose then-arm has a value is a
 /// Maybe, elseless_if.nomi), so the assertion is that the MISS produces Unit
 /// too.
-fn side_effect(m: Maybe<Int>) -> Bool {
-    result = if Some(n) = m { io.print("hit ${n}") }
+fn side_effect(m: Maybe<Int>) -> Bool
+    result = if Some(n) = m then io.print("hit ${n}")
 
     io.print("after")
     result == Unit
-}
+end
 
 /// A pattern that opens THREE nested blocks: variant tag, then a struct field
 /// pattern, then a literal test at the bottom that MISSES on the second call.
 /// An `else` attached to the outermost block instead of a labeled break would
 /// run the then-arm's tail after a deep miss.
-fn deep(s: Maybe<Shape>) -> String {
-    if Some(Shape.Circle{radius: 5}) = s {
+fn deep(s: Maybe<Shape>) -> String
+    if Some(Shape.Circle{radius: 5}) = s then
         "unit circle"
-    } else {
+    else
         "something else"
-    }
-}
+    end
+end
 
 /// The subject is evaluated ONCE and unconditionally, even when the pattern
 /// misses. The print is the assertion: exactly one line per call, and it appears
 /// for the miss too.
-fn noisy(n: Int) -> Maybe<Int> {
+fn noisy(n: Int) -> Maybe<Int>
     io.print("subject ${n}")
-    if n > 0 { return Some(n) }
+    if n > 0 then return Some(n)
 
     None
-}
+end
 
-fn once_only(n: Int) -> String {
-    if Some(v) = noisy(n) {
+fn once_only(n: Int) -> String
+    if Some(v) = noisy(n) then
         "got ${v}"
-    } else {
+    else
         "nothing"
-    }
-}
+    end
+end
 
 /// A pattern-if whose else arm is another pattern-if, then a Bool `else if`,
 /// then a plain else. Four arms, one destination, and the bindings of each arm
 /// must not be visible in the next.
-fn chain(a: Maybe<Int>, b: Maybe<String>, n: Int) -> String {
-    if Some(x) = a {
+fn chain(a: Maybe<Int>, b: Maybe<String>, n: Int) -> String
+    if Some(x) = a then
         "a=${x}"
-    } else if Some(y) = b {
+    else if Some(y) = b then
         "b=${y}"
-    } else if n > 10 {
+    else if n > 10 then
         "big"
-    } else {
+    else
         "none"
-    }
-}
+    end
+end
 
 /// A Nomi `break` inside a pattern-if inside a loop. The lowered pattern-if
 /// has its own control flow, so a `break` that targeted it would be swallowed
 /// and the loop would spin forever. This pins that the `break` leaves the
 /// loop.
-fn first_hit(start: Int) -> Int {
-    loop(start, fn state -> {
-        if Some(v) = halve(state) { break v }
+fn first_hit(start: Int) -> Int
+    loop(start, fn state ->
+        if Some(v) = halve(state) then break v
 
         state - 1
-    })
-}
+    end)
+end
 
-fn halve(n: Int) -> Maybe<Int> {
-    if n == 4 { return Some(n / 2) }
+fn halve(n: Int) -> Maybe<Int>
+    if n == 4 then return Some(n / 2)
 
     None
-}
+end
 
 /// A pattern-if inside a LAMBDA, with a `return` in the then-arm. Nomi's
 /// `return` is lambda-scoped, so this must leave the
 /// LAMBDA and not the enclosing function — the caller's own answer is appended
 /// after it, which is what proves it.
-fn in_lambda(m: Maybe<Int>) -> String {
-    f = fn v: Maybe<Int> -> {
-        if Some(n) = v { return "lambda:${n}" }
+fn in_lambda(m: Maybe<Int>) -> String
+    f = fn v: Maybe<Int> ->
+        if Some(n) = v then return "lambda:${n}"
 
         "lambda:none"
-    }
+    end
 
     "${f(m)}/done"
-}
+end
 
-fn main() {
+fn main()
     io.print(label(Some("Ada")))
     io.print(label(None))
 
@@ -134,4 +134,4 @@ fn main() {
 
     io.print(in_lambda(Some(8)))
     io.print(in_lambda(None))
-}
+end

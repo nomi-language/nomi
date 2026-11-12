@@ -1,6 +1,6 @@
 import pascals_triangle
 
-test "rows" {
+test "rows"
     [
         ("zero rows", 0, []),
         ("single row", 1, [[1]]),
@@ -30,7 +30,7 @@ test "rows" {
             ],
         ),
     ]
-    |> subtests (description, count, expected), description {
+    |> subtests (description, count, expected), description
         assert pascals_triangle.rows(count) == expected
-    }
-}
+    end
+end

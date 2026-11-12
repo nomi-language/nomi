@@ -17,7 +17,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 import std::random.Generator
 
 /// A character's six abilities and its hitpoints.
-pub struct Character {
+pub struct Character
     strength: Int
     dexterity: Int
     constitution: Int
@@ -25,64 +25,64 @@ pub struct Character {
     wisdom: Int
     charisma: Int
     hitpoints: Int
-}
+end
 
 /// The modifier an ability `score` gives: half its distance from 10,
 /// rounded down.
-pub fn modifier(score: Int) -> Int {
+pub fn modifier(score: Int) -> Int
     Int.floor_div(score - 10, 2)
-}
+end
 
 /// One ability score: four dice rolled, the lowest dropped, the rest added.
-pub fn ability() -> Generator<Int> {
+pub fn ability() -> Generator<Int>
     Generator.int(1, 6)
     |> Generator.list(4)
     |> Generator.map(fn rolls -> rolls |> Iter.sort() |> Iter.drop(1) |> Iter.sum())
-}
+end
 
 /// A character with six abilities drawn in order, strength first.
-pub fn character() -> Generator<Character> {
+pub fn character() -> Generator<Character>
     ability()
     |> Generator.list(6)
-    |> Generator.map(fn scores -> {
-        [strength, dexterity, constitution, intelligence, wisdom, charisma] = scores else {
+    |> Generator.map(fn scores ->
+        [strength, dexterity, constitution, intelligence, wisdom, charisma] = scores else
             unreachable "Generator.list(6) draws six scores"
-        }
+        end
 
-        .{
-            strength,
-            dexterity,
-            constitution,
-            intelligence,
-            wisdom,
-            charisma,
+        {
+            strength:,
+            dexterity:,
+            constitution:,
+            intelligence:,
+            wisdom:,
+            charisma:,
             hitpoints: 10 + modifier(constitution),
         }
-    })
-}
+    end)
+end
 
 // FILE: dnd_character_test.nomi
-import {
+import
     std::random.{Generator, Seed}
     dnd_character
     dnd_character.Character
-}
+end
 
 /// The values `generator` draws from the seeds 1 to 200.
-fn draws<T>(generator: Generator<T>) -> List<T> {
+fn draws<T>(generator: Generator<T>) -> List<T>
     1..=200
-    |> Iter.map(fn n -> {
+    |> Iter.map(fn n ->
         (value, _seed) = Generator.step(generator, Seed.from_int(n))
         value
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
-fn is_in_range(score: Int) -> Bool {
+fn is_in_range(score: Int) -> Bool
     score in 3..=18
-}
+end
 
-fn is_valid(character: Character) -> Bool {
+fn is_valid(character: Character) -> Bool
     abilities = [
         character.strength,
         character.dexterity,
@@ -94,9 +94,9 @@ fn is_valid(character: Character) -> Bool {
 
     Iter.all_match(abilities, is_in_range)
         and character.hitpoints == 10 + dnd_character.modifier(character.constitution)
-}
+end
 
-test "ability modifier" {
+test "ability modifier"
     [
         ("ability modifier for score 3 is -4", 3, -4),
         ("ability modifier for score 4 is -3", 4, -3),
@@ -115,30 +115,30 @@ test "ability modifier" {
         ("ability modifier for score 17 is +3", 17, 3),
         ("ability modifier for score 18 is +4", 18, 4),
     ]
-    |> subtests (description, score, expected), description {
+    |> subtests (description, score, expected), description
         assert dnd_character.modifier(score) == expected
-    }
-}
+    end
+end
 
-test "random ability is within range" {
+test "random ability is within range"
     assert dnd_character.ability()
         |> draws()
         |> Iter.all_match(is_in_range)
-}
+end
 
-test "random character is valid" {
+test "random character is valid"
     assert dnd_character.character()
         |> draws()
         |> Iter.all_match(is_valid)
-}
+end
 
-test "each ability is only calculated once" {
+test "each ability is only calculated once"
     seed = Seed.from_int(7)
     (first, _) = Generator.step(dnd_character.character(), seed)
     (again, _) = Generator.step(dnd_character.character(), seed)
 
     assert first == again
-}
+end
 ```
 <!-- expect
 ok ability modifier (16 cases)

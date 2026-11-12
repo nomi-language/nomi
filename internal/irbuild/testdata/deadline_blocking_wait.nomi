@@ -41,79 +41,79 @@
 //
 // The unbounded control is what makes the bounded rows non-vacuous: without it
 // a build that reported `Cancelled` for every task would pass.
-import {
+import
     std::duration.Duration
     std::io
     std::tasks.{Outcome, Task}
     std::timer
-}
+end
 
 // The context is read and replaced as an application field, which needs a
 // boot to name the application type.
-struct Run {
+struct Run
     context: Context
-}
+end
 
-fn boot() -> Result<Run, String> {
+fn boot() -> Result<Run, String>
     Ok(Run{context: Context.root()})
-}
+end
 
 // An hour, so a wait that is not bounded cannot finish inside any timeout.
-fn slow() -> Int {
+fn slow() -> Int
     timer.sleep(Duration.hours(1))
     1
-}
+end
 
-fn quick() -> Int {
+fn quick() -> Int
     timer.sleep(Duration.milliseconds(1))
     2
-}
+end
 
 // The deadline covers `slow` and nothing else. `Task.outcome` sits outside it.
-fn slow_bounded() -> Int {
+fn slow_bounded() -> Int
     with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(20))
     slow()
-}
+end
 
 // A deadline the work fits inside, so the bounded case is not "always
 // cancelled". Same construct, opposite answer.
-fn quick_bounded() -> Int {
+fn quick_bounded() -> Int
     with Run.context = Context.with_timeout(Run.context, Duration.seconds(30))
     quick()
-}
+end
 
-fn describe(label: String, outcome: Outcome<Int>) -> Unit {
-    case outcome {
+fn describe(label: String, outcome: Outcome<Int>) -> Unit
+    case outcome
         .Completed(v) -> io.print(label + ": completed " + Display.to_string(v))
         .Cancelled -> io.print(label + ": cancelled")
         .Failed(_) -> io.print(label + ": failed")
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     // BOUNDED AND EXCEEDED: the sleep must end early and the task unwind.
-    bounded = concurrent {
+    bounded = concurrent
         t = Task.spawn(fn -> slow_bounded())
         Task.outcome(t)
-    }
+    end
 
     describe("bounded", bounded)
 
     // BOUNDED AND MET: the same construct with room to finish. The control that
     // stops the row above from passing for a build that cancels everything.
-    met = concurrent {
+    met = concurrent
         t = Task.spawn(fn -> quick_bounded())
         Task.outcome(t)
-    }
+    end
 
     describe("met", met)
 
     // NO REBIND AT ALL: a deadline-free scope must still complete, so the frame
     // the rebind installs is shown to be scoped rather than sticky.
-    plain = concurrent {
+    plain = concurrent
         t = Task.spawn(fn -> quick())
         Task.outcome(t)
-    }
+    end
 
     describe("plain", plain)
 
@@ -121,10 +121,10 @@ fn main() {
     // own waits must not have inherited the child's deadline. This is what the
     // frame restore buys, and a build that installed the deadline without
     // restoring it would print `cancelled` here.
-    after = concurrent {
+    after = concurrent
         t = Task.spawn(fn -> quick())
         Task.outcome(t)
-    }
+    end
 
     describe("after", after)
-}
+end

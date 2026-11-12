@@ -25,16 +25,16 @@ func runVM(t *testing.T, src string) (string, error) {
 func TestRun_ACyclicOnceIsTheProgramsFault(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-fn read_seed() -> Int {
+fn read_seed() -> Int
   seed
-}
+end
 
 once seed: Int = read_seed() + 1
 
-fn main() {
+fn main()
   io.print("start")
   io.print("seed ${seed}")
-}
+end
 `)
 	if b, blocked := vmhost.IsBlocked(err); blocked {
 		t.Fatalf("a cyclic once reported as the VM's limit: %q", b.Reasons)
@@ -47,15 +47,15 @@ fn main() {
 // A field read on an enum value whose variant lacks the field is the
 // program's fault, with rt's text and the read's line.
 func TestRun_AnEnumFieldReadTrapIsTheProgramsFault(t *testing.T) {
-	_, err := runVM(t, `enum Shape {
+	_, err := runVM(t, `enum Shape
   Rect {height: Int}
   Round {radius: Float}
-}
+end
 
-fn main() {
+fn main()
   s = Shape.Rect{height: 2}
   _ = s.radius
-}
+end
 `)
 	if b, blocked := vmhost.IsBlocked(err); blocked {
 		t.Fatalf("an enum field trap reported as the VM's limit: %q", b.Reasons)
@@ -71,17 +71,17 @@ fn main() {
 func TestRun_ElselessPatternIfRuns(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-fn side_effect(m: Maybe<Int>) -> Bool {
-  result = if Some(n) = m {
+fn side_effect(m: Maybe<Int>) -> Bool
+  result = if Some(n) = m then
     io.print("hit ${n}")
-  }
+  end
 
   result == Unit
-}
+end
 
-fn main() {
+fn main()
   io.print("${side_effect(Some(1))} ${side_effect(None)}")
-}
+end
 `)
 	want := "hit 1\nTrue True\n"
 	if err != nil || out != want {
@@ -92,14 +92,29 @@ fn main() {
 // A boot answering a struct whose interface-typed field holds a concrete
 // value is retained: the field enters by erasure.
 func TestRun_ABootRecordWithAnErasedFieldRuns(t *testing.T) {
-	out, err := runVM(t, `import {std::io}
-interface Logger {fn log(logger:self,msg:String) ->Unit}
-struct Console {}
-impl Logger for Console {fn log(logger:Console,msg:String) ->Unit{ _ = logger;io.print("console ${msg}")}}
-struct App {life:Context
-logger:Logger}
-fn boot() ->Result<App, String>{Ok(App{life:Context.root(),logger:Console{}})}
-fn main(){Logger.log(App.logger,"hi")}
+	out, err := runVM(t, `import
+    std::io
+end
+interface Logger
+    fn log(logger:self,msg:String) ->Unit
+end
+struct Console end
+impl Logger for Console
+    fn log(logger:Console,msg:String) ->Unit
+        _ = logger
+        io.print("console ${msg}")
+    end
+end
+struct App
+    life:Context
+logger:Logger
+end
+fn boot() ->Result<App, String>
+    Ok(App{life:Context.root(),logger:Console{}})
+end
+fn main()
+    Logger.log(App.logger,"hi")
+end
 `)
 	if err != nil || out != "console hi\n" {
 		t.Fatalf("output %q, error %v", out, err)
@@ -111,20 +126,20 @@ fn main(){Logger.log(App.logger,"hi")}
 func TestRun_AFaultInAKeyHashIsTheProgramsFault(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-struct Bad {
+struct Bad
   n: Int
-}
+end
 
-impl Hashable for Bad {
-  fn hash(b: Bad) -> Int {
+impl Hashable for Bad
+  fn hash(b: Bad) -> Int
     b.n / (b.n - b.n)
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print("start")
-  io.print(Set.size(%[Bad{n: 1}, Bad{n: 4}]))
-}
+  io.print(Set.size(Set[Bad{n: 1}, Bad{n: 4}]))
+end
 `)
 	if b, blocked := vmhost.IsBlocked(err); blocked {
 		t.Fatalf("a key fault reported as the VM's limit: %q", b.Reasons)

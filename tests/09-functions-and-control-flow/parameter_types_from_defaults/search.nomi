@@ -1,27 +1,27 @@
 // Functions whose parameter types come from their defaults, called from
 // another file.
-pub enum Mode {
+pub enum Mode
     Replace
     Append
-}
+end
 
-pub fn search(query: String, limit = 10, offset = 0) -> String {
+pub fn search(query: String, limit = 10, offset = 0) -> String
     "${query} ${limit} ${offset}"
-}
+end
 
-pub fn write(path: String, mode = Mode.Replace) -> String {
-    case mode {
+pub fn write(path: String, mode = Mode.Replace) -> String
+    case mode
         .Replace -> "replace ${path}"
         .Append -> "append ${path}"
-    }
-}
+    end
+end
 
-pub struct Page {
+pub struct Page
     size: Int
-}
+end
 
-impl Page {
-    pub fn window(page: Page, offset = page.size * 2, label = "page") -> String {
+impl Page
+    pub fn window(page: Page, offset = page.size * 2, label = "page") -> String
         "${label} ${offset}"
-    }
-}
+    end
+end

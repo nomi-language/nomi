@@ -26,22 +26,22 @@
 //! v = parse(1)?
 //! assert v == 1
 //
-fn passing(n: Int) -> Int {
+fn passing(n: Int) -> Int
     n
-}
+end
 
 //! bad = parse(-1)?
 //! assert bad == 0
 //
-fn propagating(n: Int) -> Int {
+fn propagating(n: Int) -> Int
     n
-}
+end
 
-fn parse(n: Int) -> Result<Int, String> {
-    if n < 0 { Err("negative") } else { Ok(n) }
-}
+fn parse(n: Int) -> Result<Int, String>
+    if n < 0 then Err("negative") else Ok(n)
+end
 
-test "an ordinary test declaration is the other test boundary spelling" {
+test "an ordinary test declaration is the other test boundary spelling"
     ok = parse(2)?
     assert ok == 2
-}
+end

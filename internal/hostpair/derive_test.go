@@ -27,7 +27,7 @@ func TestDeriveSourceReportsAParseFailure(t *testing.T) {
 		},
 		{
 			name: "declarations with no bindings are not an error",
-			src:  "pub fn double(n: Int) -> Int {\n  n * 2\n}\n",
+			src:  "pub fn double(n: Int) -> Int\n  n * 2\nend\n",
 		},
 		{
 			name:    "unparseable source is an error",
@@ -36,7 +36,7 @@ func TestDeriveSourceReportsAParseFailure(t *testing.T) {
 		},
 		{
 			name:        "a rejected declaration is an error even though recovery still sees the binding",
-			src:         "gopkg \"e/f\" as ffi\n\npub opaque type Box<T>\n\nimpl Box<T> {\n  fn peek(b: Box<T>) -> Int go ffi.Peek\n}\n",
+			src:         "gopkg \"e/f\" as ffi\n\npub opaque type Box<T>\n\nimpl Box<T>\n  fn peek(b: Box<T>) -> Int go ffi.Peek\nend\n",
 			wantErr:     true,
 			wantPairing: 1,
 		},
@@ -81,9 +81,9 @@ opaque type Handle go ffi.Handle
 
 fn first() -> Int go ffi.First
 
-impl Handle {
+impl Handle
   fn middle(h: Handle) -> Int go ffi.Middle
-}
+end
 
 fn last() -> Int go ffi.Last
 `

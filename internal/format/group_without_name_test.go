@@ -9,7 +9,7 @@ import (
 // the file as it is. It used to read `group` as an identifier and the
 // braces as a separate block, and wrote `group`, a blank line, then `{`.
 func TestFormat_LeavesAGroupWithoutANameAlone(t *testing.T) {
-	src := "group {\n    test \"a\" {\n        assert 1 == 1\n    }\n}\n"
+	src := "group\n    test \"a\"\n        assert 1 == 1\n    end\nend\n"
 	out, err := Format(src)
 	if err == nil {
 		t.Fatalf("Format accepted a group without a name; output:\n%s", out)

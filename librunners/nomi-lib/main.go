@@ -123,7 +123,7 @@ var (
 	_ = (*goside4.Session)(nil)
 //line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:111
 	_ = (*goside4.Listener)(nil)
-//line github.com/nomi-language/nomi/lib/sql/postgres/describe.nomi:81
+//line github.com/nomi-language/nomi/lib/sql/postgres/describe.nomi:82
 	_ = goside4.Describe
 //line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:101
 	_ = goside4.Begin
@@ -181,9 +181,9 @@ var (
 	_ = goside5.Rollback
 //line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:94
 	_ = goside5.Run
-//line github.com/nomi-language/nomi/lib/sql/sqlkit/sqlkit_test.nomi:1035
+//line github.com/nomi-language/nomi/lib/sql/sqlkit/sqlkit_test.nomi:1037
 	_ = testside.RemoveAll
-//line github.com/nomi-language/nomi/lib/sql/sqlkit/sqlkit_test.nomi:1033
+//line github.com/nomi-language/nomi/lib/sql/sqlkit/sqlkit_test.nomi:1035
 	_ = testside.TempDir
 //line github.com/nomi-language/nomi/lib/sql/sqlkit/tools/generate.nomi:37
 	_ = toolside.Config

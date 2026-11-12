@@ -16,48 +16,48 @@ func TestIRFuncWiderThanExpected_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Box {
+struct Box
     n: Int
-}
+end
 
-impl Box {
-    fn over<T>(xs: List<List<T>>, f: (List<T>) -> Int) -> List<Int> {
+impl Box
+    fn over<T>(xs: List<List<T>>, f: (List<T>) -> Int) -> List<Int>
         Iter.map(xs, f) |> Iter.to_list()
-    }
-}
+    end
+end
 
-fn cnt<T>(xs: Iter<T>) -> Int {
+fn cnt<T>(xs: Iter<T>) -> Int
     Iter.count(xs)
-}
+end
 
-fn cnt_int(xs: Iter<Int>) -> Int {
+fn cnt_int(xs: Iter<Int>) -> Int
     Iter.count(xs)
-}
+end
 
-fn cnt_list<T>(xs: List<T>) -> Int {
+fn cnt_list<T>(xs: List<T>) -> Int
     Iter.count(xs)
-}
+end
 
-fn show(x: Display) -> String {
+fn show(x: Display) -> String
     "<" + Display.to_string(x) + ">"
-}
+end
 
-fn apply<T>(xs: List<T>, f: (List<T>) -> Int) -> Int {
+fn apply<T>(xs: List<T>, f: (List<T>) -> Int) -> Int
     f(xs)
-}
+end
 
-fn call_all(xs: Iter<(Int) -> Int>) -> List<Int> {
+fn call_all(xs: Iter<(Int) -> Int>) -> List<Int>
     Iter.map(xs, fn f -> f(2)) |> Iter.to_list()
-}
+end
 
-fn pair(n: Int) -> List<Int> {
+fn pair(n: Int) -> List<Int>
     [n, n * 2]
-}
+end
 
-fn main() {
-    io.print(Map.map_values(%{"a" => 1, "b" => 22}, Int.to_string))
-    io.print(Map.map_values(%{"a" => "x", "b" => "yz"}, String.length))
-    m = %{"a" => [1, 2], "b" => [3]}
+fn main()
+    io.print(Map.map_values({"a" => 1, "b" => 22}, Int.to_string))
+    io.print(Map.map_values({"a" => "x", "b" => "yz"}, String.length))
+    m = {"a" => [1, 2], "b" => [3]}
     io.print(Map.map_values(m, cnt_list))
     io.print(Map.map_values(m, cnt))
     io.print(Map.map_values(m, cnt_int))
@@ -76,7 +76,7 @@ fn main() {
     io.print(Map.map_values(m, c))
     fs = [cnt_int]
     Iter.each(fs, fn f -> io.print(Map.map_values(m, f)))
-    held = .{count: cnt_int}
+    held = {count: cnt_int}
     io.print(Map.map_values(m, held.count))
     f: (List<Int>) -> Int = cnt_int
     io.print(f([1]))
@@ -87,15 +87,15 @@ fn main() {
     adders = [fn n: Int -> n + 1, fn n: Int -> n * 10]
     io.print(call_all(adders))
     io.print(apply(adders, Iter.count))
-}
+end
 `
-	const want = "%{a => 1, b => 22}\n" +
-		"%{a => 1, b => 2}\n" +
-		"%{a => 2, b => 1}\n" +
-		"%{a => 2, b => 1}\n" +
-		"%{a => 2, b => 1}\n" +
-		"%{a => 2, b => 1}\n" +
-		"%{a => Some(1), b => Some(3)}\n" +
+	const want = "{a => 1, b => 22}\n" +
+		"{a => 1, b => 2}\n" +
+		"{a => 2, b => 1}\n" +
+		"{a => 2, b => 1}\n" +
+		"{a => 2, b => 1}\n" +
+		"{a => 2, b => 1}\n" +
+		"{a => Some(1), b => Some(3)}\n" +
 		"[2, 1]\n" +
 		"[2, 1]\n" +
 		"[3, 1]\n" +
@@ -105,9 +105,9 @@ fn main() {
 		"2\n" +
 		"[1, 2]\n" +
 		"[1, 2]\n" +
-		"%{a => 2, b => 1}\n" +
-		"%{a => 2, b => 1}\n" +
-		"%{a => 2, b => 1}\n" +
+		"{a => 2, b => 1}\n" +
+		"{a => 2, b => 1}\n" +
+		"{a => 2, b => 1}\n" +
 		"1\n" +
 		"2\n" +
 		"[3, 6]\n" +
@@ -129,90 +129,90 @@ func TestIRFuncWiderThanExpected_EveryPosition(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Holder {
+struct Holder
     f: (List<Int>) -> Int
-}
+end
 
-struct Box<T> {
+struct Box<T>
     v: T
-}
+end
 
-struct Circle {
+struct Circle
     r: Int
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Dot
-}
+end
 
-fn cnt(xs: Iter<Int>) -> Int {
+fn cnt(xs: Iter<Int>) -> Int
     Iter.count(xs)
-}
+end
 
-fn shown(x: Display) -> String {
+fn shown(x: Display) -> String
     "<" + Display.to_string(x) + ">"
-}
+end
 
-fn area(s: Shape) -> Int {
-    case s {
-        .Circle{r} -> r * r
+fn area(s: Shape) -> Int
+    case s
+        .Circle{r:} -> r * r
         .Dot -> 0
-    }
-}
+    end
+end
 
-fn pair(n: Int) -> List<Int> {
+fn pair(n: Int) -> List<Int>
     [n, n * 2]
-}
+end
 
-fn use(f: (List<Int>) -> Int) -> Int {
+fn use(f: (List<Int>) -> Int) -> Int
     f([1, 2, 3])
-}
+end
 
-fn use_named(xs: List<Int>, f: (List<Int>) -> Int) -> Int {
+fn use_named(xs: List<Int>, f: (List<Int>) -> Int) -> Int
     f(xs)
-}
+end
 
-fn use_show(f: (Int) -> String) -> String {
+fn use_show(f: (Int) -> String) -> String
     f(7)
-}
+end
 
-fn use_circle(f: (Circle) -> Int) -> Int {
+fn use_circle(f: (Circle) -> Int) -> Int
     f(Circle{r: 3})
-}
+end
 
-fn use_iter(f: (Int) -> Iter<Int>) -> List<Int> {
+fn use_iter(f: (Int) -> Iter<Int>) -> List<Int>
     f(4) |> Iter.to_list()
-}
+end
 
-fn higher(g: ((Iter<Int>) -> Int) -> Int) -> Int {
+fn higher(g: ((Iter<Int>) -> Int) -> Int) -> Int
     g(cnt)
-}
+end
 
-fn give_list(f: (List<Int>) -> Int) -> Int {
+fn give_list(f: (List<Int>) -> Int) -> Int
     f([5, 6])
-}
+end
 
-fn apply<T>(x: T, f: (T) -> String) -> String {
+fn apply<T>(x: T, f: (T) -> String) -> String
     f(x)
-}
+end
 
-fn pick<T>(c: Bool, a: T, b: T) -> T {
-    if c { a } else { b }
-}
+fn pick<T>(c: Bool, a: T, b: T) -> T
+    if c then a else b
+end
 
-fn returns_fn() -> (List<Int>) -> Int {
+fn returns_fn() -> (List<Int>) -> Int
     cnt
-}
+end
 
-fn returns_early(b: Bool) -> (List<Int>) -> Int {
-    if b {
+fn returns_early(b: Bool) -> (List<Int>) -> Int
+    if b then
         return cnt
-    }
+    end
     fn xs -> Iter.count(xs) + 100
-}
+end
 
-fn main() {
+fn main()
     io.print(use(cnt))
     io.print(use_named(f: cnt, xs: [1]))
     io.print(use_show(shown))
@@ -236,7 +236,7 @@ fn main() {
     io.print(c(1.5))
     d: (Circle) -> Int = area
     io.print(d(Circle{r: 4}))
-}
+end
 `
 	const want = "3\n" +
 		"1\n" +
@@ -263,18 +263,18 @@ fn main() {
 // argument as a direct call's does, the inner lists included.
 func TestIRFuncWiderThanExpected_IterOfIters(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn shown(xss: Iter<Iter<Display>>) -> String {
+fn shown(xss: Iter<Iter<Display>>) -> String
   xss |> Iter.map(fn xs -> xs |> Iter.map(Display.to_string) |> String.join(",")) |> String.join(";")
-}
-fn apply(f: (List<List<Int>>) -> String, xss: List<List<Int>>) -> String {
+end
+fn apply(f: (List<List<Int>>) -> String, xss: List<List<Int>>) -> String
   f(xss)
-}
-fn main() {
+end
+fn main()
   found: Result<List<List<String>>, String> = Ok([["a", "b"], ["c"]])
   io.inspect(Result.map(found, Iter.flatten))
   g: (List<Vector<Int>>) -> List<Int> = Iter.flatten
-  io.inspect(g([#[1, 2], #[3]]))
+  io.inspect(g([Vector[1, 2], Vector[3]]))
   io.inspect(Iter.map([[[1, 2], [3, 4]]], Iter.transpose) |> Iter.to_list())
   io.print(apply(shown, [[1, 2], [3]]))
-}`, "Ok([\"a\", \"b\", \"c\"])\n[1, 2, 3]\n[[[1, 3], [2, 4]]]\n1,2;3\n")
+end`, "Ok([\"a\", \"b\", \"c\"])\n[1, 2, 3]\n[[[1, 3], [2, 4]]]\n1,2;3\n")
 }

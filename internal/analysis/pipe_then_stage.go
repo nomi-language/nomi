@@ -74,7 +74,7 @@ func (c *checker) pipeLambdaBoundaryError(n *ast.Ident) (TypeError, bool) {
 		p := c.pipeLambdaParams[i]
 		if p.name == n.Name {
 			msg := fmt.Sprintf("'%s' is the parameter of the `%s` stage on line %d, whose body ends at the next `|>`", n.Name, p.keyword, p.line)
-			return errAt(n, msg).WithHint(fmt.Sprintf("write `%s fn %s -> { ... }` to keep the pipe inside it", p.keyword, n.Name)), true
+			return errAt(n, msg).WithHint(fmt.Sprintf("write the body below `%s fn %s ->`, closed by `end`, to keep the pipe inside it", p.keyword, n.Name)), true
 		}
 	}
 	return TypeError{}, false

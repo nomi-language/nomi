@@ -9,7 +9,7 @@ import (
 )
 
 func TestParseDeferOnError(t *testing.T) {
-	src := "fn main() {\n  defer on error sqlite.close(db)\n  defer on(x)\n  defer sqlite.close(db)\n}"
+	src := "fn main()\n  defer on error sqlite.close(db)\n  defer on(x)\n  defer sqlite.close(db)\nend"
 	nodes := parse(t, src)
 	fn := nodes[0].(*ast.FuncDef)
 	if len(fn.Body.Stmts) != 3 {
@@ -32,7 +32,7 @@ func TestParseDeferOnError(t *testing.T) {
 }
 
 func TestParseDeferOnErrorNeedsACall(t *testing.T) {
-	_, err := Parse(lexer.Lex("fn main() {\n  defer on error\n}\n"))
+	_, err := Parse(lexer.Lex("fn main()\n  defer on error\nend\n"))
 	if err == nil || !strings.Contains(err.Error(), "expected call after `defer on error`") {
 		t.Fatalf("got %v, want the missing call reported", err)
 	}

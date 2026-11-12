@@ -4,7 +4,7 @@ package irbuild
 // the field or key the literal is written at.
 //
 //	.{..user, address: .{.., city: "NYC"}}
-//	%{..team, "address" => %{.., "city" => "Atlanta"}}
+//	{..team, "address" => {.., "city" => "Atlanta"}}
 //	.{..account, transactions: [t, ..]}
 //
 // The update that owns the position reads the old value there and records it
@@ -115,7 +115,7 @@ func (bl *irScalarBuilder) emptyOf(at ast.Node, k kind) (ir.Temp, kind, bool, bo
 	return v, k, false, true
 }
 
-// updateBuild lowers the struct update `.{.., f: v}` at a position that holds
+// updateBuild lowers the struct update `{.., f: v}` at a position that holds
 // no value: the struct of kind k built from the fields written and, for a
 // declared struct, the defaults of the others. A field written as an update
 // literal holds no value either, and is built the same way.
@@ -221,25 +221,25 @@ func patchHasHole(lit *ast.StructLit) bool {
 	return false
 }
 
-// setUpdate builds `%[..base, x]`, a set literal with one spread written
+// setUpdate builds `[..base, x]`, a set literal with one spread written
 // first: the base, then the elements as a set literal, then
 // `Set.union(base, literal)`, so the base's elements keep their places and
 // new ones follow, as Map.merge orders a map's keys.
-func (bl *irScalarBuilder) setUpdate(t *ast.SetLit) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) setUpdate(t *ast.ListLit) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	spread := t.Spreads[0].Head
 	base, bk, _, ok := bl.lower(spread)
 	if !ok {
 		return no()
 	}
-	// A base that is another Iter (`%[..maybe, x]`) is made a Set.
+	// A base that is another Iter (`[..maybe, x]`) is made a Set.
 	p, ok := bl.collectSpread(spreadPart{at: spread, v: base, k: bk}, setSpreadJoin)
 	if !ok {
 		return no()
 	}
 	base, bk = p.v, p.k
 	if len(t.Items) == 0 && bk != kindEmptySet {
-		// `%[..maybe]`: the Iter made a Set is the literal.
+		// `[..maybe]`: the Iter made a Set is the literal.
 		return base, bk, false, true
 	}
 	items := *t
@@ -269,7 +269,7 @@ func (bl *irScalarBuilder) setUpdate(t *ast.SetLit) (ir.Temp, kind, bool, bool) 
 }
 
 // structUpdateHoles lowers `Struct.update(base, patch)` whose patch updates a
-// field in place (`.{address: .{.., city: "NYC"}}`) when the patch is evaluated
+// field in place (`{address: {.., city: "NYC"}}`) when the patch is evaluated
 // before the base (it is named first) or recorded for an assertion's
 // `values:` row. An update literal reads its field from the base, so it is
 // lowered after the base; every other field keeps its place in the order the
@@ -335,11 +335,11 @@ func (bl *irScalarBuilder) structUpdateHoles(t *ast.Call, ops structUpdateArgs, 
 }
 
 // vectorUpdate builds a vector literal with one spread at either end:
-// `#[..v, x]` as `Vector.concat(v, #[x])` and `#[x, ..v]` as
-// `Vector.concat(#[x], v)`, where v is the spread, or the vector a bare `..`
+// `[..v, x]` as `Vector.concat(v, [x])` and `[x, ..v]` as
+// `Vector.concat([x], v)`, where v is the spread, or the vector a bare `..`
 // stands for. The spread is lowered before the elements, as a list spread's
-// tail is. An empty spread (`#[..#[], x]`) takes the elements' kind.
-func (bl *irScalarBuilder) vectorUpdate(t *ast.VectorLit) (ir.Temp, kind, bool, bool) {
+// tail is. An empty spread (`[..[], x]`) takes the elements' kind.
+func (bl *irScalarBuilder) vectorUpdate(t *ast.ListLit) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	spread := t.Spreads[0].Head
 	spreadLast := t.Spreads[0].At > 0
@@ -347,14 +347,14 @@ func (bl *irScalarBuilder) vectorUpdate(t *ast.VectorLit) (ir.Temp, kind, bool, 
 	if !ok {
 		return no()
 	}
-	// A spread that is another Iter (`#[x, ..maybe]`) is made a Vector.
+	// A spread that is another Iter (`[x, ..maybe]`) is made a Vector.
 	p, ok := bl.collectSpread(spreadPart{at: spread, v: base, k: bk}, vectorSpreadJoin)
 	if !ok {
 		return no()
 	}
 	base, bk = p.v, p.k
 	if len(t.Items) == 0 && bk != kindEmptyVector {
-		// `#[..maybe]`: the Iter made a Vector is the literal.
+		// `[..maybe]`: the Iter made a Vector is the literal.
 		return base, bk, false, true
 	}
 	// kindInvalid: sentinel — an open base gives the elements no kind.

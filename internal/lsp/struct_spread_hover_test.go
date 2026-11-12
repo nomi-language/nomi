@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// Hover inside a struct-update spread literal, `.{..base, field: value}`.
+// Hover inside a struct-update spread literal, `{..base, field: value}`.
 //
 // Two positions, and they reach the analyzer by different routes. The HEAD is
 // an ordinary expression, so it hovers because analysis/builder.go walks
@@ -16,24 +16,24 @@ import (
 // for free precisely because it reuses the validator rather than carrying its
 // own field walk.
 func TestHover_StructSpread(t *testing.T) {
-	const prog = `struct Point {
+	const prog = `struct Point
   x: Int
   y: Int
-}
+end
 
-fn shift() -> Point {
+fn shift() -> Point
   origin = Point{x: 1, y: 2}
   MARK
-}
+end
 `
 	cases := []struct {
 		name string
 		line string
 		want string
 	}{
-		{"spread head", "  .{..▮origin, x: 9, y: 8}", "origin: Point"},
-		{"first field label", "  .{..origin, ▮x: 9, y: 8}", "x: Int"},
-		{"second field label", "  .{..origin, x: 9, ▮y: 8}", "y: Int"},
+		{"spread head", "  {..▮origin, x: 9, y: 8}", "origin: Point"},
+		{"first field label", "  {..origin, ▮x: 9, y: 8}", "x: Int"},
+		{"second field label", "  {..origin, x: 9, ▮y: 8}", "y: Int"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -60,11 +60,11 @@ fn shift() -> Point {
 // An ANONYMOUS head. The field labels come from the head's own inferred shape,
 // so this also pins that the anonymous case reaches the same validator.
 func TestHover_StructSpreadAnonymousHead(t *testing.T) {
-	const prog = `fn shift() -> Int {
-  base = .{x: 1, y: 2}
-  moved = .{..base, ▮x: 9}
+	const prog = `fn shift() -> Int
+  base = {x: 1, y: 2}
+  moved = {..base, ▮x: 9}
   moved.x
-}
+end
 `
 	input, pos := hoverMarkerPosition(t, prog)
 	uri := "file:///struct_spread_anon_hover.nomi"

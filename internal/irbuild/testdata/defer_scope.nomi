@@ -9,32 +9,32 @@
 //     the call runs — `cleanup first`, not the shadowed value.
 import std::io
 
-fn note(s: String) -> Unit {
+fn note(s: String) -> Unit
     io.print("cleanup ${s}")
-}
+end
 
-fn inner() -> Unit {
+fn inner() -> Unit
     io.print("block-enter")
 
-    {
+    begin
         defer note("inner-a")
         defer note("inner-b")
         io.print("block-body")
         Unit
-    }
+    end
 
     io.print("block-left")
-}
+end
 
-fn captured() -> Unit {
+fn captured() -> Unit
     x = "first"
     defer note(x)
     y = "${x}-shadowed"
     io.print("captured-body ${y}")
-}
+end
 
-fn main() {
+fn main()
     inner()
     captured()
     io.print("done")
-}
+end

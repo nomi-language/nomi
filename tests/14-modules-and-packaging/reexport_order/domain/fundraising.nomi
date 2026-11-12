@@ -1,10 +1,10 @@
 // Names a re-exported enum in a struct field and a signature.
 import domain::zkinds.ReactionType
 
-pub struct Form {
+pub struct Form
     kind: Maybe<ReactionType>
-}
+end
 
-pub fn kind_of(form: Form) -> Maybe<ReactionType> {
+pub fn kind_of(form: Form) -> Maybe<ReactionType>
     form.kind
-}
+end

@@ -98,7 +98,7 @@ import std::io
 import std::json.Json
 import std::url.{Query, Url}
 
-fn main() -> Result<Unit, http.Error> {
+fn main() -> Result<Unit, http.Error>
     base = Url.parse("BASE")!
     r = http.fetch(Request{url: Url.join_path(base, ["hello"]) |> Url.with_query(Query[("name", "ann")]), headers: Headers[("User-Agent", "nomi-test")]})?
     io.print(Status.line(r.status))
@@ -113,7 +113,7 @@ fn main() -> Result<Unit, http.Error> {
     m = http.get(Url.join_path(base, ["missing"]))?
     io.print("${m.status} ${Status.is_client_error(m.status)}")
     Ok(Unit)
-}
+end
 `, "BASE", s.URL))
 	want := "200 OK\nhello ann\nnomi-test\na,b\nHTTP/1.1\nPOST application/json \"hi\"\nPOST application/x-www-form-urlencoded a=1+2\n404 Not Found True\n"
 	if got != want {
@@ -138,24 +138,24 @@ import std::http.{Client, ClientOptions, Error, Redirects, Request, Response, St
 import std::io
 import std::url.Url
 
-fn kind(e: Error) -> String {
-    case e {
-        .TooManyRedirects{count} -> "too many ${count}"
+fn kind(e: Error) -> String
+    case e
+        .TooManyRedirects{count:} -> "too many ${count}"
         .Timeout{during: _} -> "timeout ${Error.is_timeout(e)}"
-        .BodyTooLarge{limit} -> "too large ${limit}"
+        .BodyTooLarge{limit:} -> "too large ${limit}"
         .Connect{address: _, reason: _} -> "connect"
         other -> "other ${other}"
-    }
-}
+    end
+end
 
-fn failure(r: Result<Response, Error>) -> String {
-    case r {
+fn failure(r: Result<Response, Error>) -> String
+    case r
         Ok(response) -> "no error: ${response.status}"
         Err(e) -> kind(e)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     base = Url.parse("BASE")!
     moved = http.get(Url.join_path(base, ["moved"]))!
     io.print("${moved.status} ${Response.text(moved)!} ${moved.url |> Maybe.map(fn u -> u.path)}")
@@ -172,7 +172,7 @@ fn main() {
     defer StreamedResponse.close(streamed)
     io.print("streamed ${io.Reader.read_all(streamed.body) |> Result.map(Bytes.length)}")
     Client.close_idle(never)
-}
+end
 `, "BASE", s.URL), "CLOSED", closed))
 	want := "200 OK hello moved Some(/hello)\n302 Found Some(/hello)\ntoo many 4\ntimeout True\ntoo large 10\nconnect\nstreamed Ok(100)\n"
 	if got != want {
@@ -191,12 +191,12 @@ import std::http.{Body, Client, ClientOptions, Redirect, Redirects, Request, Res
 import std::io
 import std::url.Url
 
-fn log_and_follow(next: Request, via: List<Request>) -> Redirect {
+fn log_and_follow(next: Request, via: List<Request>) -> Redirect
     io.print("to ${next.method} ${next.url.path} after ${Iter.count(via)}")
     Redirect.Follow
-}
+end
 
-fn main() -> Result<Unit, http.Error> {
+fn main() -> Result<Unit, http.Error>
     base = Url.parse("BASE")!
     following = Client.new(ClientOptions{redirects: Redirects.Decide(log_and_follow)})
     r = Client.get(following, Url.join_path(base, ["moved"]))?
@@ -208,15 +208,15 @@ fn main() -> Result<Unit, http.Error> {
     stopping = Client.new(ClientOptions{redirects: Redirects.Decide(fn _, _ -> Redirect.Stop)})
     stopped = Client.get(stopping, Url.join_path(base, ["moved"]))?
     io.print("${Status.code(stopped.status)}")
-    refusing = Client.new(ClientOptions{redirects: Redirects.Decide(fn _, via -> if Iter.count(via) < 3 { Redirect.Follow } else { Redirect.Refuse("too deep") })})
-    refused = case Client.get(refusing, Url.join_path(base, ["loop"])) {
+    refusing = Client.new(ClientOptions{redirects: Redirects.Decide(fn _, via -> if Iter.count(via) < 3 then Redirect.Follow else Redirect.Refuse("too deep"))})
+    refused = case Client.get(refusing, Url.join_path(base, ["loop"]))
         Ok(_) -> "followed"
         Err(e) -> "${e}"
-    }
+    end
 
     io.print(refused)
     Ok(Unit)
-}
+end
 `, "BASE", s.URL))
 	want := "to GET /hello after 1\nhello moved\nto GET /echo after 1\nGET  \nto POST /echo after 1\nPOST text/plain; charset=utf-8 x\n302\nthe redirect to " + s.URL + "/loop was refused: too deep\n"
 	if got != want {
@@ -233,7 +233,7 @@ import std::http.{Body, FormPart, Response}
 import std::io
 import std::url.Url
 
-fn main() -> Result<Unit, http.Error> {
+fn main() -> Result<Unit, http.Error>
     parts = [
         FormPart.Field{name: "name", value: "ann"},
         FormPart.File{field: "doc", filename: "a.txt", content_type: "text/plain", content: String.to_bytes("hello")},
@@ -242,7 +242,7 @@ fn main() -> Result<Unit, http.Error> {
     r = http.post(Url.join_path(Url.parse("BASE")!, ["multipart"]), Body.Multipart(parts))?
     io.print(Response.text(r)?)
     Ok(Unit)
-}
+end
 `, "BASE", s.URL))
 	if want := "ann a.txt text/plain hello\n"; got != want {
 		t.Fatalf("got %q, want %q", got, want)

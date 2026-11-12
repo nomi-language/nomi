@@ -15,46 +15,43 @@ var nestedForms = []struct {
 	name string
 	src  func(depth int) string
 }{
-	{"unclosed braces", func(d int) string { return "fn main() {\n  x = " + strings.Repeat("{", d) + "\n  todo\n" }},
-	{"braces", func(d int) string {
-		return "fn main() {\n  _x = " + strings.Repeat("{", d) + "1" + strings.Repeat("}", d) + "\n}\n"
-	}},
+	{"unclosed blocks", func(d int) string { return "fn main()\n  x = " + strings.Repeat("begin\n", d) + "\n  todo\n" }},
 	{"blocks over lines", func(d int) string {
-		return "fn main() {\n  _x = " + strings.Repeat("{\n", d) + "1\n" + strings.Repeat("}\n", d) + "}\n"
+		return "fn main()\n  _x = " + strings.Repeat("begin\n", d) + "1\n" + strings.Repeat("end\n", d) + "end\n"
 	}},
 	{"parentheses", func(d int) string {
-		return "fn main() {\n  _x = " + strings.Repeat("(", d) + "1" + strings.Repeat(")", d) + "\n}\n"
+		return "fn main()\n  _x = " + strings.Repeat("(", d) + "1" + strings.Repeat(")", d) + "\nend\n"
 	}},
-	{"unclosed parentheses", func(d int) string { return "fn main() {\n  _x = " + strings.Repeat("(", d) + "\n  todo\n" }},
+	{"unclosed parentheses", func(d int) string { return "fn main()\n  _x = " + strings.Repeat("(", d) + "\n  todo\n" }},
 	{"lists", func(d int) string {
-		return "fn main() {\n  _x = " + strings.Repeat("[", d) + "1" + strings.Repeat("]", d) + "\n}\n"
+		return "fn main()\n  _x = " + strings.Repeat("[", d) + "1" + strings.Repeat("]", d) + "\nend\n"
 	}},
-	{"unclosed lists", func(d int) string { return "fn main() {\n  _x = " + strings.Repeat("[", d) + "\n  todo\n" }},
-	{"lambdas", func(d int) string { return "fn main() {\n  _x = " + strings.Repeat("fn -> ", d) + "1\n}\n" }},
+	{"unclosed lists", func(d int) string { return "fn main()\n  _x = " + strings.Repeat("[", d) + "\n  todo\n" }},
+	{"lambdas", func(d int) string { return "fn main()\n  _x = " + strings.Repeat("fn -> ", d) + "1\nend\n" }},
 	{"ifs", func(d int) string {
-		return "fn main() {\n  _x = " + strings.Repeat("if True { ", d) + "1" + strings.Repeat(" } else { 2 }", d) + "\n}\n"
+		return "fn main()\n  _x = " + strings.Repeat("if True then ", d) + "1" + strings.Repeat(" else 2", d) + "\nend\n"
 	}},
-	{"negations", func(d int) string { return "fn main() {\n  _x = " + strings.Repeat("-", d) + "1\n}\n" }},
+	{"negations", func(d int) string { return "fn main()\n  _x = " + strings.Repeat("-", d) + "1\nend\n" }},
 	{"interpolations", func(d int) string {
-		return "fn main() {\n  _x = " + strings.Repeat(`"${`, d) + "1" + strings.Repeat(`}"`, d) + "\n}\n"
+		return "fn main()\n  _x = " + strings.Repeat(`"${`, d) + "1" + strings.Repeat(`}"`, d) + "\nend\n"
 	}},
 	{"anonymous structs", func(d int) string {
-		return "fn main() {\n  _x = " + strings.Repeat(".{a: ", d) + "1" + strings.Repeat("}", d) + "\n}\n"
+		return "fn main()\n  _x = " + strings.Repeat("{a: ", d) + "1" + strings.Repeat("}", d) + "\nend\n"
 	}},
 	{"maps", func(d int) string {
-		return "fn main() {\n  _x = " + strings.Repeat("%{1 => ", d) + "1" + strings.Repeat("}", d) + "\n}\n"
+		return "fn main()\n  _x = " + strings.Repeat("{1 => ", d) + "1" + strings.Repeat("}", d) + "\nend\n"
 	}},
 	{"map keys", func(d int) string {
-		return "fn main() {\n  _x = " + strings.Repeat("%{", d) + "1" + strings.Repeat(" => 1}", d) + "\n}\n"
+		return "fn main()\n  _x = " + strings.Repeat("{", d) + "1" + strings.Repeat(" => 1}", d) + "\nend\n"
 	}},
 	{"map patterns", func(d int) string {
-		return "fn main() {\n  " + strings.Repeat("%{1 => ", d) + "x" + strings.Repeat("}", d) + " = todo\n}\n"
+		return "fn main()\n  " + strings.Repeat("{1 => ", d) + "x" + strings.Repeat("}", d) + " = todo\nend\n"
 	}},
 	{"tuple patterns", func(d int) string {
-		return "fn main() {\n  " + strings.Repeat("(", d) + "a, b" + strings.Repeat(", c)", d) + " = todo\n}\n"
+		return "fn main()\n  " + strings.Repeat("(", d) + "a, b" + strings.Repeat(", c)", d) + " = todo\nend\n"
 	}},
 	{"types", func(d int) string {
-		return "fn f(_x: " + strings.Repeat("List<", d) + "Int" + strings.Repeat(">", d) + ") {\n}\n"
+		return "fn f(_x: " + strings.Repeat("List<", d) + "Int" + strings.Repeat(">", d) + ") end\n"
 	}},
 }
 

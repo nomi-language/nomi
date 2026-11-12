@@ -27,23 +27,24 @@ func TestLambdaSingleExprEndPos(t *testing.T) {
 	}
 }
 
+// A body below the `->` ends one past its `end`, and so does the lambda.
 func TestLambdaBlockBodyEndPos(t *testing.T) {
-	src := "fn x -> { x }"
+	src := "fn x ->\n    x + 1\nend"
 	expr := parseExpr(t, src)
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
 	}
-	if lam.EndLine != 1 {
-		t.Errorf("EndLine: expected 1, got %d", lam.EndLine)
+	if lam.EndLine != 3 || lam.EndCol != 4 {
+		t.Errorf("lambda end %d:%d, want 3:4", lam.EndLine, lam.EndCol)
 	}
-	if lam.EndCol != len(src)+1 {
-		t.Errorf("EndCol: expected %d, got %d", len(src)+1, lam.EndCol)
+	if lam.Body.EndLine != 3 || lam.Body.EndCol != 1 {
+		t.Errorf("body end %d:%d, want 3:1, the `end`", lam.Body.EndLine, lam.Body.EndCol)
 	}
 }
 
 func TestCaseBranchEndPos(t *testing.T) {
-	src := "case x {\n  1 -> 10\n}"
+	src := "case x\n  1 -> 10\nend"
 	expr := parseExpr(t, src)
 	c, ok := expr.(*ast.Case)
 	if !ok {
@@ -63,9 +64,9 @@ func TestCaseBranchEndPos(t *testing.T) {
 }
 
 func TestImplBlockEndPos(t *testing.T) {
-	// End is the closing-brace column itself (exclusive), mirroring ast.Block's
-	// EndCol convention. The final `}` is the last char.
-	src := "impl Speech for Bar { fn speak(_b: self) -> String { \"x\" } }"
+	// End is the `end` token's position, mirroring ast.Block's EndCol
+	// convention.
+	src := "impl Speech for Bar\n    fn speak(_b: self) -> String\n        \"x\"\n    end\nend"
 	nodes := parse(t, src)
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
@@ -74,16 +75,13 @@ func TestImplBlockEndPos(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.ImplBlock, got %T", nodes[0])
 	}
-	if blk.EndLine != 1 {
-		t.Errorf("EndLine: expected 1, got %d", blk.EndLine)
-	}
-	if blk.EndCol != len(src) {
-		t.Errorf("EndCol: expected %d (col of closing brace), got %d", len(src), blk.EndCol)
+	if blk.EndLine != 5 || blk.EndCol != 1 {
+		t.Errorf("end %d:%d, want 5:1, the `end`", blk.EndLine, blk.EndCol)
 	}
 }
 
 func TestInterfaceDefEndPos(t *testing.T) {
-	src := "interface Foo { fn bar() -> Int }"
+	src := "interface Foo\n    fn bar() -> Int\nend"
 	nodes := parse(t, src)
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
@@ -92,10 +90,7 @@ func TestInterfaceDefEndPos(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.InterfaceDef, got %T", nodes[0])
 	}
-	if iface.EndLine != 1 {
-		t.Errorf("EndLine: expected 1, got %d", iface.EndLine)
-	}
-	if iface.EndCol != len(src) {
-		t.Errorf("EndCol: expected %d (col of closing brace), got %d", len(src), iface.EndCol)
+	if iface.EndLine != 3 || iface.EndCol != 1 {
+		t.Errorf("end %d:%d, want 3:1, the `end`", iface.EndLine, iface.EndCol)
 	}
 }

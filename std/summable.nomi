@@ -1,8 +1,8 @@
-import {
+import
     int.Int
     iter.Iter
     strings.String
-}
+end
 
 /// A type whose values can be summed: `empty_sum()` is the sum of no values,
 /// so adding it changes nothing: `T.add(x, T.empty_sum()) == x`.
@@ -20,6 +20,6 @@ import {
 //! assert String.empty_sum() == ""
 //! assert Iter.sum([1, 2, 3]) == 6
 //
-pub interface Summable {
+pub interface Summable
     fn empty_sum() -> self
-}
+end

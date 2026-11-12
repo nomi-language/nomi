@@ -10,15 +10,17 @@ import (
 // `fn` item does, so DetectMissingImpls treats the interface as satisfied
 // and dispatch is recorded.
 func TestImplBlock_InterfaceExtern_RegistersConformance(t *testing.T) {
-	src := `pub interface Formatted {
+	src := `pub interface Formatted
     fn format(value: self) -> String
-}
+end
 
-pub struct User { name: String }
+pub struct User
+    name: String
+end
 
-impl Formatted for User {
+impl Formatted for User
     host fn format(user: User) -> String
-}`
+end`
 
 	fa, errs := buildTypesFromSource(src)
 	if len(errs) > 0 {
@@ -34,9 +36,9 @@ impl Formatted for User {
 
 // A top-level `host fn` registers as an ordinary module function.
 func TestImplBlock_TopLevelExternFunctionRegisters(t *testing.T) {
-	src := `pub struct Widget {
+	src := `pub struct Widget
   n: Int
-}
+end
 
 pub host fn make(n: Int) -> Widget
 `

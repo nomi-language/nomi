@@ -1,19 +1,19 @@
 // A boot whose error is std/process's `Exit` stops the program before `main`
 // and exits with the code, after the cleanup it deferred.
-import {
+import
     std::io
     std::process.Exit
-}
+end
 
-struct App {
+struct App
     port: Int
-}
+end
 
-fn boot() -> Result<App, Exit> {
+fn boot() -> Result<App, Exit>
     defer io.print("released the port")
     Err(Exit{code: 4, message: "no port configured"})
-}
+end
 
-fn main() {
+fn main()
     io.print("main runs on ${App.port}")
-}
+end

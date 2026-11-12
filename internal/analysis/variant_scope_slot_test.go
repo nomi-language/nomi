@@ -19,45 +19,45 @@ import (
 // qualified call; the variant qualified, dot-leading, and in patterns.
 const variantSlotSrcInterface = `import std::json.{Json, ToJson}
 
-enum Op {
+enum Op
     ToJson
     Other
-}
+end
 
-struct P {
+struct P
     n: Int
-}
+end
 
-impl ToJson for P {
-    fn to_json(p: P) -> Json {
+impl ToJson for P
+    fn to_json(p: P) -> Json
         Json.Int(p.n)
-    }
-}
+    end
+end
 
-fn encode<T>(v: T) -> Json where T: ToJson {
+fn encode<T>(v: T) -> Json where T: ToJson
     ToJson.to_json(v)
-}
+end
 
-fn name(op: Op) -> String {
-    case op {
+fn name(op: Op) -> String
+    case op
         .ToJson -> "to_json"
         Op.Other -> "other"
-    }
-}
+    end
+end
 
-fn qualified(op: Op) -> Bool {
-    case op {
+fn qualified(op: Op) -> Bool
+    case op
         Op.ToJson -> True
         _ -> False
-    }
-}
+    end
+end
 
-pub fn demo() -> String {
+pub fn demo() -> String
     a: Op = .ToJson
     b = Op.ToJson
     j = encode(P{n: 1})
     name(a) + name(b) + Json.encode(j)
-}
+end
 `
 
 func TestVariantSlot_ImportedInterfaceOutranksASameNamedVariant(t *testing.T) {
@@ -85,35 +85,35 @@ func TestVariantSlot_ImportedInterfaceOutranksASameNamedVariant(t *testing.T) {
 // beside `import strings.String`, is covered over the stdlib below.)
 const variantSlotSrcType = `import std::calendar.Date
 
-pub enum Value {
+pub enum Value
     Date Date
     Count Int
-}
+end
 
-pub interface Shout {
+pub interface Shout
     fn shout(v: self) -> String
-}
+end
 
-impl Shout for Date {
-    fn shout(v: Date) -> String {
+impl Shout for Date
+    fn shout(v: Date) -> String
         Display.to_string(v)
-    }
-}
+    end
+end
 
-fn span(a: Date, b: Date) -> Int {
+fn span(a: Date, b: Date) -> Int
     Date.days_between(a, b)
-}
+end
 
-fn describe(v: Value) -> String {
-    case v {
+fn describe(v: Value) -> String
+    case v
         .Date(d) -> Shout.shout(d) + Int.to_string(span(d, d))
         Value.Count(n) -> Int.to_string(n)
-    }
-}
+    end
+end
 
-pub fn demo() -> String {
+pub fn demo() -> String
     describe(.Count(2))
-}
+end
 `
 
 func TestVariantSlot_ImportedTypeOutranksASameNamedVariant(t *testing.T) {
@@ -146,9 +146,9 @@ func TestVariantSlot_ImportedTypeOutranksASameNamedVariant(t *testing.T) {
 // TestVariantSlot_LocalTypeOutranksASameNamedVariantInEitherOrder: the same
 // rule between two declarations of one file, independent of source order.
 func TestVariantSlot_LocalTypeOutranksASameNamedVariantInEitherOrder(t *testing.T) {
-	structDecl := "pub struct Circle {\n    r: Float\n}\n"
-	enumDecl := "pub enum Shape {\n    Circle Float\n    Dot\n}\n"
-	use := "\npub fn area(c: Circle) -> Float {\n    c.r\n}\n\npub fn make() -> Shape {\n    Shape.Circle(1.0)\n}\n"
+	structDecl := "pub struct Circle\n    r: Float\nend\n"
+	enumDecl := "pub enum Shape\n    Circle Float\n    Dot\nend\n"
+	use := "\npub fn area(c: Circle) -> Float\n    c.r\nend\n\npub fn make() -> Shape\n    Shape.Circle(1.0)\nend\n"
 	for _, c := range []struct{ name, src string }{
 		{"struct first", structDecl + "\n" + enumDecl + use},
 		{"enum first", enumDecl + "\n" + structDecl + use},
@@ -170,7 +170,7 @@ func TestVariantSlot_LocalTypeOutranksASameNamedVariantInEitherOrder(t *testing.
 // a variant yield, and nothing else. Two non-variant declarations of one name
 // are still a redeclaration.
 func TestVariantSlot_TwoDeclarationsStillCollide(t *testing.T) {
-	src := "pub struct Circle {\n    r: Float\n}\n\npub enum Circle {\n    A\n}\n"
+	src := "pub struct Circle\n    r: Float\nend\n\npub enum Circle\n    A\nend\n"
 	for _, e := range reservedNamesCheckAll(t, src) {
 		if strings.Contains(e.Message, "'Circle' is already defined in this scope") {
 			return

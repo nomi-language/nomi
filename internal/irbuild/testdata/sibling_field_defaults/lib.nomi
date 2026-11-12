@@ -5,22 +5,22 @@ import std::io
 
 once greeting = "lib"
 
-enum Rarity {
+enum Rarity
     Common
     Rare
-}
+end
 
-pub enum Item {
+pub enum Item
     Key
     Coin
-}
+end
 
-fn base() -> Int {
+fn base() -> Int
     io.print("base")
     41
-}
+end
 
-pub struct Loot {
+pub struct Loot
     name: String
     drops: Maybe<Int> = None
     held: Maybe<Item> = Some(Item.Key)
@@ -29,19 +29,19 @@ pub struct Loot {
     hello: String = greeting
     weight: Int = base() + 1
     rare: Bool = rarity() == Rarity.Rare
-}
+end
 
-fn rarity() -> Rarity {
+fn rarity() -> Rarity
     Rarity.Common
-}
+end
 
-pub struct Box<T> {
+pub struct Box<T>
     value: T
     extra: List<T> = []
     label: Maybe<String> = None
-}
+end
 
-pub enum Shape {
+pub enum Shape
     Tagged {name: String, tags: List<String> = [], at: Maybe<Int> = None}
     Plain
-}
+end

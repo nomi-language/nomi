@@ -41,13 +41,13 @@ This program makes a table in a new in-memory database, adds two rows and
 reads them back:
 
 ```nomi-run
-import {
+import
     std::io
     std::sql.{self, Conn, Error, Row, Sql}
     sqlite
-}
+end
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     db = sqlite.memory()?
     defer sql.close_quietly(db)
 
@@ -59,14 +59,14 @@ fn main() -> Result<Unit, Error> {
     lines = rows |> Iter.map(note_line) |> Result.collect()?
     Iter.each(lines, io.print)
     Ok(Unit)
-}
+end
 
 // One note as a line of text.
-fn note_line(row: Row) -> Result<String, Error> {
+fn note_line(row: Row) -> Result<String, Error>
     id = Row.get<Int>(row, "id")?
     body = Row.get<String>(row, "body")?
     Ok("${id}: ${body}")
-}
+end
 ```
 <!-- expect
 1: buy milk
@@ -104,14 +104,14 @@ none:
 ```nomi-run
 import std::sql.Sql
 
-fn main() {
+fn main()
     email = "x' OR '1'='1"
     statement = Sql"SELECT id, name FROM users WHERE email = ${email}"
 
     dbg "${statement}"
     dbg statement.params
     Unit
-}
+end
 ```
 <!-- expect
 dbg line 7: "${statement}" = "SELECT id, name FROM users WHERE email = ?1"
@@ -138,36 +138,36 @@ piece is still a `Sql"..."` literal, so a value only ever goes in a
 import std::sql.{Sql, Statement}
 
 /// How a list of orders can be sorted.
-enum Sort {
+enum Sort
     Newest
     Largest
-}
+end
 
 /// Orders, filtered by only what the caller asked for.
-fn orders_query(statuses: List<String>, min_total: Maybe<Decimal>, sort: Sort) -> Statement {
-    by_status = if Iter.is_empty(statuses) {
+fn orders_query(statuses: List<String>, min_total: Maybe<Decimal>, sort: Sort) -> Statement
+    by_status = if Iter.is_empty(statuses) then
         None
-    } else {
+    else
         Some(Sql"status IN " + Statement.values(statuses))
-    }
+    end
 
     by_total = min_total |> Maybe.map(fn t -> Sql"total >= ${t}")
 
-    order = case sort {
+    order = case sort
         .Newest -> Sql" ORDER BY placed_at DESC"
         .Largest -> Sql" ORDER BY total DESC"
-    }
+    end
 
     filters = Maybe.values([by_status, by_total])
     Sql"SELECT id FROM orders" + Statement.where_all(filters) + order
-}
+end
 
-fn main() {
+fn main()
     dbg "${orders_query([], None, .Newest)}"
     dbg "${orders_query(["paid", "shipped"], Some(20d), .Largest)}"
     dbg orders_query(["paid", "shipped"], Some(20d), .Largest).params
     Unit
-}
+end
 ```
 <!-- expect
 dbg line 29: "${orders_query([], None, .Newest)}" = "SELECT id FROM orders ORDER BY placed_at DESC"
@@ -189,25 +189,25 @@ credits Bob before it debits Ada, so that a failed debit has a change to
 undo:
 
 ```nomi-run
-import {
+import
     std::io
     std::sql.{self, Conn, Error, Row, Sql}
     sqlite
-}
+end
 
 /// Move `amount` from one account to another: both changes or neither.
-fn transfer(db: Conn, from: String, to: String, amount: Int) -> Result<Unit, Error> {
+fn transfer(db: Conn, from: String, to: String, amount: Int) -> Result<Unit, Error>
     credit = Sql"UPDATE accounts SET balance = balance + ${amount} WHERE name = ${to}"
     debit = Sql"UPDATE accounts SET balance = balance - ${amount} WHERE name = ${from}"
 
-    sql.transaction(db, fn tx -> {
+    sql.transaction(db, fn tx ->
         _ = Conn.exec(tx, credit)?
         _ = Conn.exec(tx, debit)?
         Ok(Unit)
-    })
-}
+    end)
+end
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     db = sqlite.memory()?
     defer sql.close_quietly(db)
 
@@ -230,14 +230,14 @@ fn main() -> Result<Unit, Error> {
     lines = rows |> Iter.map(balance_line) |> Result.collect()?
     Iter.each(lines, io.print)
     Ok(Unit)
-}
+end
 
 // One account and its balance as a line of text.
-fn balance_line(row: Row) -> Result<String, Error> {
+fn balance_line(row: Row) -> Result<String, Error>
     name = Row.get<String>(row, "name")?
     balance = Row.get<Int>(row, "balance")?
     Ok("${name}: ${balance}")
-}
+end
 ```
 <!-- expect
 dbg line 35: transfer(db, "ada", "bob", 30) = Ok(Unit)
@@ -394,12 +394,12 @@ migrations as data:
 
 ```nomi
 /// A row of the table `users`.
-pub struct User {
+pub struct User
     id: Int
     email: String
     name: Maybe<String>
     created_at: Instant
-}
+end
 ```
 
 Each column's SQL type picks its field's Nomi type, and a nullable column
@@ -429,16 +429,16 @@ show the change.
 // The shop on a fresh in-memory database: build the schema from the
 // migrations, add a user, place an order, mark it paid, read the user back
 // and count each user's orders with the checked queries.
-import {
+import
     std::io
     std::sql.{self, Error}
     queries
     schema
     sqlite
     sqlkit
-}
+end
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     db = sqlite.memory()?
     defer sql.close_quietly(db)
 
@@ -449,12 +449,11 @@ fn main() -> Result<Unit, Error> {
     changed = queries.set_status(db, order_id, .Paid)?
     io.print("order ${order_id} is paid (${changed.rows} row changed)")
 
-    Some(user) = queries.user_by_email(db, "ada@example.com")? else {
-        None -> {
+    Some(user) = queries.user_by_email(db, "ada@example.com")? else
+        None ->
             io.print("no user with that email")
             return Ok(Unit)
-        }
-    }
+    end
 
     name = user.name |> Maybe.with_default("no name")
     io.print("user ${user.id}: ${user.email} (${name})")
@@ -462,43 +461,47 @@ fn main() -> Result<Unit, Error> {
     _ = queries.insert_user(db, "grace@example.com", None)?
     counts = queries.order_counts(db)?
 
-    Iter.each(counts, fn c -> {
+    Iter.each(counts, fn c ->
         last = c.last_order |> Maybe.map(&"${&1}") |> Maybe.with_default("none")
         io.print("${c.email}: orders ${c.orders}, last order ${last}")
-    })
+    end)
 
     Ok(Unit)
-}
+end
 
 // FILE: shop_test.nomi
-import {
+import
     std::sql.{self, ConstraintKind}
     queries
     schema.{self, User}
     sqlite
     sqlkit
-}
+end
 
-group "the shop" {
+group "the shop"
     // Each test gets a fresh in-memory database with the shop's schema.
-    setup {
+    setup begin
         db = sqlite.memory()?
         defer sql.close_quietly(db)
         sqlkit.migrate(db, schema.migrations)?
         db
-    }
+    end
 
-    test "a user reads back as its row", db {
+    test "a user reads back as its row", db
         id = queries.insert_user(db, "ada@example.com", Some("Ada"))?
 
-        assert Some(User{id: read_id, email, name}) = queries.user_by_email(db, "ada@example.com")?
+        assert Some(User{id: read_id, email:, name:}) = queries.user_by_email(
+            db,
+            "ada@example.com",
+        )?
+
         assert read_id == id
         assert email == "ada@example.com"
         assert name == Some("Ada")
         assert queries.user_by_email(db, "nobody@example.com")? == None
-    }
+    end
 
-    test "a second user with the same email breaks the unique constraint", db {
+    test "a second user with the same email breaks the unique constraint", db
         _ = queries.insert_user(db, "ada@example.com", None)?
 
         assert queries.insert_user(db, "ada@example.com", None) == Err(
@@ -509,8 +512,8 @@ group "the shop" {
                 column: Some("email"),
             }
         )
-    }
-}
+    end
+end
 
 // FILE: db/queries/queries.sql
 -- The shop's queries. `nomi tool sqlkit generate` writes queries.nomi from
@@ -567,15 +570,15 @@ CREATE TABLE orders (
 // Generated by `nomi tool sqlkit generate` from db/queries/queries.sql and
 // db/migrations. Do not edit: change the SQL and generate again.
 // inputs sha256: b8317294a6e99b343b9c4dfc1ed42b6234c91ba556750a15dde55d2484c7b6e2
-import {
+import
     std::sql
     schema.{OrderStatus, User}
     sqlkit
     sqlkit::runtime
-}
+end
 
 /// The user with this email, if any.
-pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {
+pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error>
     statement = runtime.statement(
         [`SELECT id, email, name, created_at FROM users WHERE email = `, ``],
         [runtime.bind(email)],
@@ -587,49 +590,45 @@ pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.E
             name: runtime.text_null("user_by_email", row, 2)?,
             created_at: runtime.timestamptz("user_by_email", row, 3)?,
         }))
-}
+end
 
 /// Add a user, returning its id.
-pub fn insert_user(conn: sql.Conn, email: String, name: Maybe<String>) -> Result<Int, sql.Error> {
+pub fn insert_user(conn: sql.Conn, email: String, name: Maybe<String>) -> Result<Int, sql.Error>
     statement = runtime.statement(
         [`INSERT INTO users (email, name) VALUES (`, `, `, `) RETURNING id`],
         [runtime.bind(email), runtime.bind(name)],
     )
 
     runtime.one(conn, "insert_user", statement, fn row -> runtime.int("insert_user", row, 0))
-}
+end
 
 /// Place an order for a user.
-pub fn insert_order(conn: sql.Conn, user_id: Int, total: Decimal) -> Result<Int, sql.Error> {
+pub fn insert_order(conn: sql.Conn, user_id: Int, total: Decimal) -> Result<Int, sql.Error>
     statement = runtime.statement(
         [`INSERT INTO orders (user_id, total) VALUES (`, `, `, `) RETURNING id`],
         [runtime.bind(user_id), runtime.bind(total)],
     )
 
     runtime.one(conn, "insert_order", statement, fn row -> runtime.int("insert_order", row, 0))
-}
+end
 
 /// Change an order's status: the number of orders changed.
-pub fn set_status(
-    conn: sql.Conn,
-    id: Int,
-    status: OrderStatus,
-) -> Result<sqlkit.Changed, sql.Error> {
+pub fn set_status(conn: sql.Conn, id: Int, status: OrderStatus) -> Result<sqlkit.Changed, sql.Error>
     statement = runtime.statement(
         [`UPDATE orders SET status = `, ` WHERE id = `, ``],
         [runtime.bind(status), runtime.bind(id)],
     )
 
     runtime.exec(conn, statement)
-}
+end
 
 /// Every user with the number of orders they placed, including those who
 /// placed none.
-pub fn order_counts(conn: sql.Conn) -> Result<List<.{
+pub fn order_counts(conn: sql.Conn) -> Result<List<{
     email: String,
     last_order: Maybe<Int>,
     orders: Int,
-}>, sql.Error> {
+}>, sql.Error>
     statement = runtime.statement(
         [
             `SELECT u.email, max(o.id) AS "last_order", count(o.id) AS "orders" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email`,
@@ -637,81 +636,81 @@ pub fn order_counts(conn: sql.Conn) -> Result<List<.{
         [],
     )
 
-    runtime.list(conn, "order_counts", statement, fn row -> Ok(.{
+    runtime.list(conn, "order_counts", statement, fn row -> Ok({
             email: runtime.text<String>("order_counts", row, 0)?,
             last_order: runtime.value_null<Int>("order_counts", row, 1)?,
             orders: runtime.value<Int>("order_counts", row, 2)?,
         }))
-}
+end
 
 // FILE: schema.nomi
 // Generated by `nomi tool sqlkit generate` from db/migrations. Do not edit:
 // change the SQL and generate again.
 // inputs sha256: b8317294a6e99b343b9c4dfc1ed42b6234c91ba556750a15dde55d2484c7b6e2
-import {
+import
     std::instant.Instant
     std::sql
     sqlkit
     sqlkit::runtime
-}
+end
 
 /// A row of the table `orders`.
-pub struct Order {
+pub struct Order
     id: Int
     user_id: Int
     status: OrderStatus
     total: Decimal
     placed_at: Instant
-}
+end
 
 /// A row of the table `users`.
-pub struct User {
+pub struct User
     id: Int
     email: String
     name: Maybe<String>
     created_at: Instant
-}
+end
 
 /// The values `CHECK (status IN (...))` allows in `orders.status`.
-pub enum OrderStatus {
+pub enum OrderStatus
     Pending
     Paid
     Shipped
     Cancelled
-}
+end
 
 derive Equatable for OrderStatus
 
-impl Display for OrderStatus {
-    fn to_string(value: OrderStatus) -> String {
-        case value {
+impl Display for OrderStatus
+    fn to_string(value: OrderStatus) -> String
+        case value
             .Pending -> "pending"
             .Paid -> "paid"
             .Shipped -> "shipped"
             .Cancelled -> "cancelled"
-        }
-    }
-}
+        end
+    end
+end
 
-impl sql.ToSql for OrderStatus {
-    fn to_sql(value: OrderStatus) -> sql.Value {
+impl sql.ToSql for OrderStatus
+    fn to_sql(value: OrderStatus) -> sql.Value
         sql.Value.Text(Display.to_string(value))
-    }
-}
+    end
+end
 
-impl sql.FromSql for OrderStatus {
-    fn from_sql(value: sql.Value) -> Result<OrderStatus, String> {
-        case runtime.text_of(value) {
+impl sql.FromSql for OrderStatus
+    fn from_sql(value: sql.Value) -> Result<OrderStatus, String>
+        case runtime.text_of(value)
             Some("pending") -> Ok(OrderStatus.Pending)
             Some("paid") -> Ok(OrderStatus.Paid)
             Some("shipped") -> Ok(OrderStatus.Shipped)
             Some("cancelled") -> Ok(OrderStatus.Cancelled)
             _ -> Err("OrderStatus")
-        }
-    }
-}
+        end
+    end
+end
 
-impl sqlkit.SqlText for OrderStatus
+impl sqlkit.SqlText for OrderStatus end
 
 /// The migrations of the database `main`, in the order they apply.
 pub once migrations: List<sqlkit.Migration> = [
@@ -748,10 +747,10 @@ import sqlkit::inputs
 // Fails when a migration or a query changed after the last
 // `nomi tool sqlkit generate`: run it again. The paths are under the
 // module root, where `nomi test` resolves a test's relative paths.
-test "generated sql is current" {
+test "generated sql is current"
     assert inputs.current("db/migrations", "db/queries")
         == Ok("b8317294a6e99b343b9c4dfc1ed42b6234c91ba556750a15dde55d2484c7b6e2")
-}
+end
 
 // FILE: nomi.toml
 [module]
@@ -794,12 +793,12 @@ A program that [boots](/app-fields/) opens the connection in `boot`,
 migrates, and keeps it in an app field, so code reads it as `App.db`:
 
 ```nomi
-fn boot(Startup) -> Result<App, Error> {
+fn boot(Startup) -> Result<App, Error>
     db = sqlite.open("shop.db")?
     defer sql.close_quietly(db)
     sqlkit.migrate(db, schema.migrations)?
-    Ok(App{db})
-}
+    Ok(App{db:})
+end
 ```
 
 A plain `defer` is right here. A call deferred in `boot` runs after `main`

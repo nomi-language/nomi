@@ -9,26 +9,26 @@ import (
 // Maybe<String>`) is implemented at that instance only: another instance is
 // refused, and a bare `None`, whose element type nothing else names, is the
 // instance that implements it.
-const optAtOneInstance = `interface Opt {
+const optAtOneInstance = `interface Opt
     fn attribute(value: self) -> Maybe<String>
-}
+end
 
-impl Opt for Maybe<String> {
-    fn attribute(value: Maybe<String>) -> Maybe<String> {
+impl Opt for Maybe<String>
+    fn attribute(value: Maybe<String>) -> Maybe<String>
         value
-    }
-}
+    end
+end
 
-fn show(value: Opt) -> String {
-    case Opt.attribute(value) {
+fn show(value: Opt) -> String
+    case Opt.attribute(value)
         None -> "none"
         Some(text) -> text
-    }
-}
+    end
+end
 `
 
 func TestImplAtOneInstance_AnotherInstanceIsRefused(t *testing.T) {
-	_, errs := checkSourceWithStdlib(optAtOneInstance + "\nfn main() {\n    _ = show(Some(1))\n}\n")
+	_, errs := checkSourceWithStdlib(optAtOneInstance + "\nfn main()\n    _ = show(Some(1))\nend\n")
 	if len(errs) == 0 {
 		t.Fatal("the checker admits a Maybe<Int> where only Maybe<String> implements Opt")
 	}
@@ -38,7 +38,7 @@ func TestImplAtOneInstance_AnotherInstanceIsRefused(t *testing.T) {
 }
 
 func TestImplAtOneInstance_BareNoneIsThatInstance(t *testing.T) {
-	fa, errs := checkSourceWithStdlib(optAtOneInstance + "\nfn main() {\n    _ = show(None)\n}\n")
+	fa, errs := checkSourceWithStdlib(optAtOneInstance + "\nfn main()\n    _ = show(None)\nend\n")
 	if len(errs) > 0 {
 		t.Fatalf("the checker rejects a bare None where Maybe<String> implements Opt: %v", errs)
 	}

@@ -45,9 +45,9 @@ gopkg "localbindingtest" as ffi
 
 fn echo_upper(s: String) -> String go ffi.EchoUpper
 
-fn main() {
+fn main()
   io.print(echo_upper("hello"))
-}
+end
 `)
 
 	lib := loadStd()
@@ -112,18 +112,18 @@ func TestDocumentManager_TypeLevelCycleAcrossFiles(t *testing.T) {
 		return full
 	}
 
-	mustWrite("main.nomi", "import {\n  a: A\n  b: B\n}\n\nfn main() { Unit }\n")
+	mustWrite("main.nomi", "import\n  a: A\n  b: B\nend\n\nfn main()\n    Unit\nend\n")
 	aPath := mustWrite("a.nomi", `import b: B
 
-pub struct A {
+pub struct A
   partner: Maybe<B>
-}
+end
 `)
 	mustWrite("b.nomi", `import a: A
 
-pub struct B {
+pub struct B
   partner: Maybe<A>
-}
+end
 `)
 
 	lib := loadStd()
@@ -162,24 +162,24 @@ func TestDocumentManager_FunctionSignatureCycleAcrossFiles(t *testing.T) {
 		return full
 	}
 
-	mustWrite("main.nomi", "import a\n\nfn main() { io.inspect(a.bounce(0)) }\n")
+	mustWrite("main.nomi", "import a\n\nfn main()\n    io.inspect(a.bounce(0))\nend\n")
 	aPath := mustWrite("a.nomi", `import b
 
-pub fn bounce(n: Int) -> Int {
-  case n {
+pub fn bounce(n: Int) -> Int
+  case n
     0 -> 0
     _ -> b.pong(n - 1)
-  }
-}
+  end
+end
 `)
 	mustWrite("b.nomi", `import a
 
-pub fn pong(n: Int) -> Int {
-  case n {
+pub fn pong(n: Int) -> Int
+  case n
     0 -> 0
     _ -> a.bounce(n - 1)
-  }
-}
+  end
+end
 `)
 
 	lib := loadStd()
@@ -217,26 +217,28 @@ func TestDocumentManager_CycleWithCrossFileImpl(t *testing.T) {
 		return full
 	}
 
-	mustWrite("main.nomi", "import { a: A }\n\nfn main() { Unit }\n")
+	mustWrite("main.nomi", "import\n    a: A\nend\n\nfn main()\n    Unit\nend\n")
 	aPath := mustWrite("a.nomi", `import b: T
 
-pub interface I {
+pub interface I
   fn label(value: self) -> String
-}
+end
 
-pub struct A {
+pub struct A
   partner: T
-}
+end
 `)
 	mustWrite("b.nomi", `import a: I
 
-pub struct T {
+pub struct T
   name: String
-}
+end
 
-impl I for T {
-  fn label(value: T) -> String { value.name }
-}
+impl I for T
+  fn label(value: T) -> String
+      value.name
+  end
+end
 `)
 
 	lib := loadStd()
@@ -271,51 +273,53 @@ func TestDocumentManager_AppFieldAccessResolvesAcrossFiles(t *testing.T) {
 		return full
 	}
 
-	mustWrite("main.nomi", `import {
+	mustWrite("main.nomi", `import
   env.{self, AppEnv}
   greeter
-}
+end
 
-fn boot() -> Result<AppEnv, String> {
+fn boot() -> Result<AppEnv, String>
   Ok(env.load(Context.root()))
-}
+end
 
-fn main() {
+fn main()
   greeter.greet("World")
-}
+end
 `)
-	mustWrite("env.nomi", `import {
+	mustWrite("env.nomi", `import
   log: Logger, ProdLogger
-}
+end
 
-pub struct AppEnv {
+pub struct AppEnv
   context: Context
   logger: Logger
-}
+end
 
-pub fn load(context: Context) -> AppEnv {
-  AppEnv{context, logger: ProdLogger}
-}
+pub fn load(context: Context) -> AppEnv
+  AppEnv{context:, logger: ProdLogger}
+end
 
 `)
-	greeterPath := mustWrite("greeter.nomi", `import {
+	greeterPath := mustWrite("greeter.nomi", `import
   env.AppEnv
   log: Logger
-}
+end
 
-pub fn greet(name: String) {
+pub fn greet(name: String)
   Logger.log(AppEnv.logger, "INFO", "hi ${name}")
-}
+end
 `)
-	mustWrite("log.nomi", `pub interface Logger {
+	mustWrite("log.nomi", `pub interface Logger
   fn log(value: self, level: String, message: String) -> Unit
-}
+end
 
 pub type ProdLogger
 
-impl Logger for ProdLogger {
-  fn log(_logger: ProdLogger, _level: String, _message: String) -> Unit { Unit }
-}
+impl Logger for ProdLogger
+  fn log(_logger: ProdLogger, _level: String, _message: String) -> Unit
+      Unit
+  end
+end
 `)
 
 	lib := loadStd()

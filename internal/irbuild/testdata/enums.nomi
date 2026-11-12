@@ -1,8 +1,8 @@
 import std::io
 
-struct Circle {
+struct Circle
     radius: Float
-}
+end
 
 /// All four variant kinds. `Nothing` is bare, `Line` positional, `Box`
 /// struct-shaped, and `embeds Circle` embedded — the payload is the Circle
@@ -12,59 +12,59 @@ struct Circle {
 /// slots because they are live together, while `Line`'s `Float` and
 /// `Circle`'s payload each need their own because their value types differ. Tags
 /// run 1..4 and 0 is reserved invalid.
-enum Shape {
+enum Shape
     Nothing
     Line Float
     Box {w: Int, h: Int}
     embeds Circle
-}
+end
 
 /// Two Int-carrying variants, which SHARE one slot: only one variant is live
 /// at a time. Contrast `Mixed` below.
-enum Reading {
+enum Reading
     Absent
     Celsius Int
     Fahrenheit Int
-}
+end
 
 /// An `Int` variant and a `Float` variant. Identical layout, different value
 /// type, so they must NOT share a slot.
-enum Mixed {
+enum Mixed
     Whole Int
     Fraction Float
-}
+end
 
 /// Struct-shaped variant fields take defaults exactly as struct fields do.
-enum Request {
+enum Request
     Get {path: String, retries: Int = 2}
-}
+end
 
 /// Tag-only: no variant carries anything, so the whole type is the tag — one
 /// byte, the enum decision's cheapest case and the commonest shape the corpus
 /// contains.
-enum Toggle {
+enum Toggle
     Off
     On
-}
+end
 
-fn noisy(n: Int) -> Int {
+fn noisy(n: Int) -> Int
     io.print("eval ${n}")
     n
-}
+end
 
-fn noisyf(x: Float) -> Float {
+fn noisyf(x: Float) -> Float
     io.print("evalf ${x}")
     x
-}
+end
 
 /// An enum value passes through a signature by value. Nothing in this slice can
 /// read the payload back — that is `case`, which is not lowered — so what the
 /// fixture pins is construction, evaluation order, and agreement.
-fn pass(_s: Shape) -> Int {
+fn pass(_s: Shape) -> Int
     7
-}
+end
 
-fn main() {
+fn main()
     bare = Shape.Nothing
     io.print("bare = ${pass(bare)}")
 
@@ -91,4 +91,4 @@ fn main() {
     _on = Toggle.On
 
     io.print("done")
-}
+end

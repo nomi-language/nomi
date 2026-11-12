@@ -12,13 +12,13 @@
 // now. Stdlib doesn't dictate the shape; this file does.
 //
 // Boot installs the project's EffectsApp value.
-pub interface Clock {
+pub interface Clock
     fn now(value: self) -> Int
-}
+end
 
-pub interface Console {
+pub interface Console
     fn writeln(value: self, msg: String) -> Unit
-}
+end
 
 // Logger has one required function (log) plus convenience helpers built
 // on top. `info` is marked `open` — TaggedLogger overrides it to lift
@@ -29,14 +29,14 @@ pub interface Console {
 //
 // This contrast shows the default-function rule in practice: defaults are final
 // unless the interface marks them `open`.
-pub interface Logger {
+pub interface Logger
     fn log(value: self, level: String, message: String) -> Unit
 
-    open fn info(value: self, message: String) -> Unit {
+    open fn info(value: self, message: String) -> Unit
         Logger.log(value, "INFO", message)
-    }
+    end
 
-    fn warn(value: self, message: String) -> Unit {
+    fn warn(value: self, message: String) -> Unit
         Logger.log(value, "WARN", message)
-    }
-}
+    end
+end

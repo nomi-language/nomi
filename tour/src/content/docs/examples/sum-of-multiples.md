@@ -15,18 +15,18 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The sum of every number below `limit` that is a multiple of at least one
 /// of `factors`. Each multiple counts once, and a factor of 0 has none.
-pub fn sum(factors: List<Int>, limit: Int) -> Int {
+pub fn sum(factors: List<Int>, limit: Int) -> Int
     factors
     |> Iter.filter(fn factor -> factor > 0)
     |> Iter.flat_map(fn factor -> Range.step_by(factor..limit, factor))
     |> Iter.to_set()
     |> Iter.sum()
-}
+end
 
 // FILE: sum_of_multiples_test.nomi
 import sum_of_multiples
 
-test "sums the multiples" {
+test "sums the multiples"
     [
         ("no multiples within limit", [3, 5], 1, 0),
         ("one factor has multiples within limit", [3, 5], 4, 3),
@@ -50,10 +50,10 @@ test "sums the multiples" {
             39614537,
         ),
     ]
-    |> subtests (description, factors, limit, expected), description {
+    |> subtests (description, factors, limit, expected), description
         assert sum_of_multiples.sum(factors, limit) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok sums the multiples (16 cases)

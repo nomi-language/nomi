@@ -10,12 +10,14 @@ import (
 
 func TestIRMonoInstance_DistinctDeclarations(t *testing.T) {
 	const src = `import std::io
-fn instance_pair_sum<T>(pair: (T, T)) -> T where T: Add<T, T> { pair.first + pair.second }
-fn main() {
+fn instance_pair_sum<T>(pair: (T, T)) -> T where T: Add<T, T>
+    pair.first + pair.second
+end
+fn main()
   io.print(instance_pair_sum((1, 2)))
   io.print(instance_pair_sum(("a", "b")))
   io.print(instance_pair_sum((3, 4)))
-}`
+end`
 	p, err := AnalyzeSource("main.nomi", src)
 	if err != nil {
 		t.Fatal(err)

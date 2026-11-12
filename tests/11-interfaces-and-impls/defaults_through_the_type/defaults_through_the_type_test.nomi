@@ -2,19 +2,19 @@
 // impl writes is: this file imports the types and not Shape.
 import shapes.{Meters, Span, Square, Tile}
 
-test "a struct reaches its inherited defaults" {
+test "a struct reaches its inherited defaults"
     sq = Square{side: 3}
     assert Square.area(sq) == 9
     assert Square.describe(sq) == "area 9"
     assert Square.doubled(sq) == 18
-}
+end
 
-test "a distinct type reaches a default and its own override" {
+test "a distinct type reaches a default and its own override"
     assert Meters.describe(Meters(4)) == "area 16"
     assert Meters.doubled(Meters(4)) == 0
-}
+end
 
-test "a named tuple and an enum reach their inherited defaults" {
+test "a named tuple and an enum reach their inherited defaults"
     assert Span.describe(Span(2, 5)) == "area 10"
     assert Tile.doubled(Tile.Big) == 8
-}
+end

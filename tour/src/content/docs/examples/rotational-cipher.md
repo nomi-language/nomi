@@ -15,7 +15,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// `text` with every Latin letter moved `key` places along the alphabet,
 /// wrapping from `z` to `a` and keeping its case. Everything else is kept.
-pub fn rotate(text: String, key: Int) -> String {
+pub fn rotate(text: String, key: Int) -> String
     cipher = Map.merge(shifted('a'..='z', key), shifted('A'..='Z', key))
 
     text
@@ -23,18 +23,18 @@ pub fn rotate(text: String, key: Int) -> String {
     |> Iter.map(fn letter -> Map.get(cipher, letter) |> Maybe.with_default(letter))
     |> Iter.to_list()
     |> String.from_codepoints()
-}
+end
 
 /// Maps each letter of `alphabet` to the letter `key` places after it.
-fn shifted(alphabet: Range<Codepoint>, key: Int) -> Map<Codepoint, Codepoint> {
+fn shifted(alphabet: Range<Codepoint>, key: Int) -> Map<Codepoint, Codepoint>
     rotated = alphabet |> Iter.cycle() |> Iter.drop(Int.modulo(key, 26))
     Iter.zip(alphabet, rotated) |> Iter.to_map()
-}
+end
 
 // FILE: rotational_cipher_test.nomi
 import rotational_cipher
 
-test "rotate" {
+test "rotate"
     [
         ("rotate a by 0, same output as input", "a", 0, "a"),
         ("rotate a by 1", "a", 1, "b"),
@@ -52,10 +52,10 @@ test "rotate" {
             "Gur dhvpx oebja sbk whzcf bire gur ynml qbt.",
         ),
     ]
-    |> subtests (description, text, key, expected), description {
+    |> subtests (description, text, key, expected), description
         assert rotational_cipher.rotate(text, key) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok rotate (10 cases)

@@ -46,31 +46,31 @@ func TestCompletion_AutoImportStdlib(t *testing.T) {
 	}{
 		{
 			"type into a file with no imports",
-			"fn f() -> Int {\n    w: Wee" + cursorMark + " = Weeks(1)\n    1\n}\n",
+			"fn f() -> Int\n    w: Wee" + cursorMark + " = Weeks(1)\n    1\nend\n",
 			"Weeks",
 			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 0, 0, 0, 0, "import std::calendar.Weeks\n\n") },
 		},
 		{
 			"type merged into the same file's import",
-			"import std::calendar.Months\n\nfn f(m: Months) -> Int {\n    w: Wee" + cursorMark + "\n    1\n}\n",
+			"import std::calendar.Months\n\nfn f(m: Months) -> Int\n    w: Wee" + cursorMark + "\n    1\nend\n",
 			"Weeks",
 			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 0, 7, 0, 27, "std::calendar.{Months, Weeks}") },
 		},
 		{
 			"file object after the last import",
-			"import std::io\n\nfn f() -> Int {\n    jso" + cursorMark + "\n}\n",
+			"import std::io\n\nfn f() -> Int\n    jso" + cursorMark + "\nend\n",
 			"json",
 			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 1, 0, 1, 0, "import std::json\n") },
 		},
 		{
 			"file object into an import block",
-			"import {\n    std::io\n    std::strings\n}\n\nfn f() -> Int {\n    jso" + cursorMark + "\n}\n",
+			"import\n    std::io\n    std::strings\nend\n\nfn f() -> Int\n    jso" + cursorMark + "\nend\n",
 			"json",
 			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 3, 0, 3, 0, "    std::json\n") },
 		},
 		{
 			"function through its file object",
-			"fn f() {\n    read_li" + cursorMark + "\n}\n",
+			"fn f()\n    read_li" + cursorMark + "\nend\n",
 			"io.read_line",
 			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 0, 0, 0, 0, "import std::io\n\n") },
 		},
@@ -93,7 +93,7 @@ func TestCompletion_AutoImportStdlib(t *testing.T) {
 }
 
 func TestCompletion_AutoImportFunctionInsertsQualifiedCall(t *testing.T) {
-	items := completeWith(t, true, "fn f() {\n    read_li"+cursorMark+"\n}\n")
+	items := completeWith(t, true, "fn f()\n    read_li"+cursorMark+"\nend\n")
 	it := mustItem(t, items, "io.read_line")
 	if te := textEditOf(t, it); te.NewText != "io.read_line()$0" {
 		t.Fatalf("insert = %q, want io.read_line()$0", te.NewText)
@@ -103,7 +103,7 @@ func TestCompletion_AutoImportFunctionInsertsQualifiedCall(t *testing.T) {
 	}
 
 	// Already imported: the same item, no edit.
-	items = completeWith(t, true, "import std::io\n\nfn f() {\n    read_li"+cursorMark+"\n}\n")
+	items = completeWith(t, true, "import std::io\n\nfn f()\n    read_li"+cursorMark+"\nend\n")
 	it = mustItem(t, items, "io.read_line")
 	if len(it.AdditionalTextEdits) != 0 {
 		t.Fatalf("an imported file's function carries an import edit: %+v", it.AdditionalTextEdits)
@@ -111,7 +111,7 @@ func TestCompletion_AutoImportFunctionInsertsQualifiedCall(t *testing.T) {
 }
 
 func TestCompletion_AutoImportNeverReimportsThePrelude(t *testing.T) {
-	items := complete(t, "fn f() -> Int {\n    x: Mayb"+cursorMark+"\n    1\n}\n")
+	items := complete(t, "fn f() -> Int\n    x: Mayb"+cursorMark+"\n    1\nend\n")
 	maybe := itemsWithLabel(items, "Maybe")
 	if len(maybe) != 1 {
 		t.Fatalf("Maybe offered %d times, want once", len(maybe))
@@ -127,7 +127,7 @@ func TestCompletion_AutoImportNeverReimportsThePrelude(t *testing.T) {
 }
 
 func TestCompletion_AutoImportNothingWithoutAPrefix(t *testing.T) {
-	list := completeIn(t, NewServer(), "file:///noprefix.nomi", "fn f() -> Int {\n    x = "+cursorMark+"\n    1\n}\n")
+	list := completeIn(t, NewServer(), "file:///noprefix.nomi", "fn f() -> Int\n    x = "+cursorMark+"\n    1\nend\n")
 	for _, it := range list.Items {
 		if len(it.AdditionalTextEdits) > 0 {
 			t.Fatalf("an empty prefix offers import candidate %q", it.Label)
@@ -140,20 +140,20 @@ func TestCompletion_AutoImportNothingWithoutAPrefix(t *testing.T) {
 
 func TestCompletion_AutoImportProjectFiles(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"server.nomi": "pub struct Config {\n    port: Int\n}\n\npub fn start_server(c: Config) -> Int {\n    c.port\n}\n\nfn hidden_helper() -> Int {\n    1\n}\n",
-		"main.nomi":   "fn main() {\n}\n",
+		"server.nomi": "pub struct Config\n    port: Int\nend\n\npub fn start_server(c: Config) -> Int\n    c.port\nend\n\nfn hidden_helper() -> Int\n    1\nend\n",
+		"main.nomi":   "fn main() end\n",
 	})
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
 	s.docs.IndexWorkspace(context.Background())
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
-	items := completeIn(t, s, uri, "fn main() {\n    start_s"+cursorMark+"\n}\n").Items
+	items := completeIn(t, s, uri, "fn main()\n    start_s"+cursorMark+"\nend\n").Items
 	it := mustItem(t, items, "server.start_server")
 	wantEdit(t, onlyEdit(t, it), 0, 0, 0, 0, "import server\n\n")
 	labelsExclude(t, items, "server.hidden_helper")
 
-	items = completeIn(t, s, uri, "fn main() {\n    c: Conf"+cursorMark+"\n}\n").Items
+	items = completeIn(t, s, uri, "fn main()\n    c: Conf"+cursorMark+"\nend\n").Items
 	it = mustItem(t, items, "Config")
 	wantEdit(t, onlyEdit(t, it), 0, 0, 0, 0, "import server.Config\n\n")
 }

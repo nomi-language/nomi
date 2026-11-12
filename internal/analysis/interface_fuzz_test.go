@@ -361,8 +361,10 @@ func TestUndefinedTypeOwnerReadsNoOtherFile(t *testing.T) {
 	p := mustCorpusProject("12-derives-and-standard-interfaces/cross_file_debug")
 	src := p.texts[p.entry]
 	texts := map[string]string{p.entry: src}
-	steps := fuzzSteps("shapes", src, int64(hashText(src)))
-	texts["shapes"], _ = steps[1].change(src, src)
+	// shapes becomes the entry without its import: it names Box, which
+	// nothing there declares or imports.
+	_, rest, _ := strings.Cut(src, "\n")
+	texts["shapes"] = rest
 	want, got := interfaceDumps(p, texts)
 	if want != got {
 		t.Fatalf("checked against interfaces differs from a full check:\n%s", dumpDiff(want, got))
@@ -381,31 +383,31 @@ func TestUndefinedTypeOwnerReadsNoOtherFile(t *testing.T) {
 // FuzzCheckFromInterfacesMatchesFull found it.
 func TestTheEntryProvidesNoTypeMethod(t *testing.T) {
 	p := incrementalProject{name: "entry type method", entry: "main", texts: map[string]string{
-		"main": `import {
+		"main": `import
     std::io
     shout.{Shout}
     use
-}
+end
 
-impl Shout for String {
-    fn shout(s: String) -> String {
+impl Shout for String
+    fn shout(s: String) -> String
         s + "!"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.inspect(use.loud("y"))
-}
+end
 `,
-		"shout": `pub interface Shout {
+		"shout": `pub interface Shout
     fn shout(x: self) -> String
-}
+end
 `,
 		"use": `import shout.{Shout}
 
-pub fn loud(_heard: Shout) -> String {
+pub fn loud(_heard: Shout) -> String
     String.shout("x")
-}
+end
 `,
 	}}
 	full := fullCheck(p, p.texts)
@@ -431,11 +433,11 @@ pub fn loud(_heard: Shout) -> String {
 // `[Box{v: 1}]` as `List<Named>` was a type mismatch there.
 func TestAGenericReceiversImplIsSeenWithoutItsFile(t *testing.T) {
 	p := incrementalProject{name: "generic receiver impl", entry: "main", texts: map[string]string{
-		"box":   "pub struct Box<T> {\n    v: T\n}\n",
-		"named": "pub interface Named {\n    fn name(x: self) -> String\n}\n",
-		"impls": "import {\n    box.{Box}\n    named.{Named}\n}\n\nimpl Named for Box<T> {\n    fn name(_b: Box<T>) -> String {\n        \"box\"\n    }\n}\n",
-		"use":   "import {\n    box.{Box}\n    named.{Named}\n}\n\npub fn boxes() -> List<Named> {\n    [Box{v: 1}]\n}\n",
-		"main":  "import {\n    std::io\n    named.{Named}\n    use\n    impls\n}\n\nfn main() {\n    io.inspect(use.boxes() |> Iter.map(fn x -> Named.name(x)) |> Iter.to_list())\n}\n",
+		"box":   "pub struct Box<T>\n    v: T\nend\n",
+		"named": "pub interface Named\n    fn name(x: self) -> String\nend\n",
+		"impls": "import\n    box.{Box}\n    named.{Named}\nend\n\nimpl Named for Box<T>\n    fn name(_b: Box<T>) -> String\n        \"box\"\n    end\nend\n",
+		"use":   "import\n    box.{Box}\n    named.{Named}\nend\n\npub fn boxes() -> List<Named>\n    [Box{v: 1}]\nend\n",
+		"main":  "import\n    std::io\n    named.{Named}\n    use\n    impls\nend\n\nfn main()\n    io.inspect(use.boxes() |> Iter.map(fn x -> Named.name(x)) |> Iter.to_list())\nend\n",
 	}}
 	want, got := interfaceDumps(p, p.texts)
 	if want != got {
@@ -462,8 +464,8 @@ func TestAGenericReceiversImplIsSeenWithoutItsFile(t *testing.T) {
 // 11-interfaces-and-impls/boxed_existentials.
 func TestAnImplLeftInABodyLeavesTheInterfaceMethodUntyped(t *testing.T) {
 	p := incrementalProject{name: "impl left in a body", entry: "main", texts: map[string]string{
-		"has":  "pub interface Has<T> {\n    fn count_of(value: self, x: T) -> Int\n}\n\nfn broken(xs: List<Int>) -> Int {\n    xs |> Iter.map(&T.showe T: Show {\n}\n\nimpl Has<Int> for List<Int> {\n    fn count_of(xs: List<Int>, x: Int) -> Int {\n        xs |> Iter.filter(&(&1 == x)) |> Iter.count()\n    }\n}\n",
-		"main": "import {\n    std::io\n    has.{Has}\n}\n\nfn main() {\n    h: Has<Int> = [1, 2, 2]\n    io.inspect(Has.count_of(h, 2))\n}\n",
+		"has":  "pub interface Has<T>\n    fn count_of(value: self, x: T) -> Int\nend\n\nfn broken(xs: List<Int>) -> Int\n    xs |> Iter.map(&T.showe T: Show\nend\n\nimpl Has<Int> for List<Int>\n    fn count_of(xs: List<Int>, x: Int) -> Int\n        xs |> Iter.filter(&(&1 == x)) |> Iter.count()\n    end\nend\n",
+		"main": "import\n    std::io\n    has.{Has}\nend\n\nfn main()\n    h: Has<Int> = [1, 2, 2]\n    io.inspect(Has.count_of(h, 2))\nend\n",
 	}}
 	want, got := interfaceDumps(p, p.texts)
 	if want != got {

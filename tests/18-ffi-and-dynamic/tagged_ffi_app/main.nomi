@@ -1,8 +1,8 @@
-import {
+import
     std::io
     ffi
-}
+end
 
-fn main() {
+fn main()
     io.print(ffi.echo_upper("fixture"))
-}
+end

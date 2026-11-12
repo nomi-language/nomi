@@ -7,7 +7,7 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-const paramDefaultsSrc = "fn search(query: String, limit = 10, mode = \"fast\") -> String {\n    \"${query}${limit}${mode}\"\n}\n\nfn main() {\n    _ = search(\"a\")\n}\n"
+const paramDefaultsSrc = "fn search(query: String, limit = 10, mode = \"fast\") -> String\n    \"${query}${limit}${mode}\"\nend\n\nfn main()\n    _ = search(\"a\")\nend\n"
 
 // A parameter whose type comes from its default shows the type in hover,
 // in signature help and as an inlay hint after its name.

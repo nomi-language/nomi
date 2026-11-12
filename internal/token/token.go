@@ -44,7 +44,7 @@ const (
 	DOTDOT     // .. (half-open range)
 	DOTDOTEQ   // ..= (inclusive range)
 	AT         // @ (decorator marker)
-	HASH       // # (collection literal sigil)
+	HASH       // # (no meaning of its own: `#!` starts a script's first line; any other `#` is an error)
 	CARET      // ^ (reserved; not an expression prefix)
 	BIT_AND    // &&& (bitwise and)
 	BIT_OR     // ||| (bitwise or)
@@ -104,6 +104,8 @@ const (
 	SELF        // self — keyword for the implementing type in interface signatures and for import self-markers
 	THEN        // then — pipe stage that applies a lambda to the piped value
 	TAP         // tap — pipe stage that runs a Unit lambda on the piped value and passes it on
+	END         // end — closes a body opened by a header line
+	BEGIN       // begin — opens a block expression, closed by `end`
 	DOC_COMMENT // /// doc comment text
 	COMMENT     // // line comment
 	TEST_PROMPT // //! attached test line prompt
@@ -263,6 +265,8 @@ var tokenNames = [...]string{
 	SELF:                             "SELF",
 	THEN:                             "THEN",
 	TAP:                              "TAP",
+	END:                              "END",
+	BEGIN:                            "BEGIN",
 	DOC_COMMENT:                      "DOC_COMMENT",
 	COMMENT:                          "COMMENT",
 	TEST_PROMPT:                      "TEST_PROMPT",

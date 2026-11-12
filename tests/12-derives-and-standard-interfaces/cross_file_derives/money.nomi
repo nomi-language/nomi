@@ -3,9 +3,9 @@
 // impls are written by hand.
 import std::json.{FromJson, Json, ToJson}
 
-pub struct Money {
+pub struct Money
     cents: Int
-}
+end
 
 derive Equatable for Money
 derive Hashable for Money
@@ -14,10 +14,10 @@ derive Display for Money
 derive ToJson for Money
 derive FromJson for Money
 
-pub enum Coin {
+pub enum Coin
     Penny
     Dime
-}
+end
 
 derive Equatable for Coin
 derive Hashable for Coin
@@ -36,51 +36,51 @@ derive Display for Cents
 derive ToJson for Cents
 derive FromJson for Cents
 
-pub struct Tally {
+pub struct Tally
     n: Int
-}
+end
 
-impl Equatable for Tally {
-    fn equal(a: Tally, b: Tally) -> Bool {
+impl Equatable for Tally
+    fn equal(a: Tally, b: Tally) -> Bool
         a.n == b.n
-    }
-}
+    end
+end
 
-impl Hashable for Tally {
-    fn hash(t: Tally) -> Int {
+impl Hashable for Tally
+    fn hash(t: Tally) -> Int
         t.n
-    }
-}
+    end
+end
 
-impl Comparable for Tally {
-    fn compare(a: Tally, b: Tally) -> Ordering {
+impl Comparable for Tally
+    fn compare(a: Tally, b: Tally) -> Ordering
         Int.compare(a.n, b.n)
-    }
-}
+    end
+end
 
-impl Debug for Tally {
-    fn inspect(t: Tally) -> String {
+impl Debug for Tally
+    fn inspect(t: Tally) -> String
         "Tally#${t.n}"
-    }
-}
+    end
+end
 
-impl Display for Tally {
-    fn to_string(t: Tally) -> String {
+impl Display for Tally
+    fn to_string(t: Tally) -> String
         "tally ${t.n}"
-    }
-}
+    end
+end
 
-impl ToJson for Tally {
-    fn to_json(t: Tally) -> Json {
+impl ToJson for Tally
+    fn to_json(t: Tally) -> Json
         Json.Int(t.n)
-    }
-}
+    end
+end
 
-impl FromJson for Tally {
-    fn from_json(json: Json) -> Result<Tally, Json.ShapeError> {
-        case json {
-            Json.Int(n) -> Ok(Tally{n})
+impl FromJson for Tally
+    fn from_json(json: Json) -> Result<Tally, Json.ShapeError>
+        case json
+            Json.Int(n) -> Ok(Tally{n:})
             _ -> Err(Json.ShapeError{path: [], expected: "int", got: "other"})
-        }
-    }
-}
+        end
+    end
+end

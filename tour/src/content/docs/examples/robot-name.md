@@ -21,134 +21,135 @@ once letters = Iter.to_vector('A'..='Z')
 once name_count = 26 * 26 * 1000
 
 /// A robot and the name it answers to.
-pub opaque struct Robot {
+pub opaque struct Robot
     name: String
-}
+end
 
-impl Robot {
+impl Robot
     /// The robot's name: two uppercase letters and three digits, as `RX837`.
-    pub fn name(robot: Robot) -> String {
+    pub fn name(robot: Robot) -> String
         robot.name
-    }
-}
+    end
+end
 
 /// Why the factory cannot name another robot.
-pub enum Error {
+pub enum Error
     NamesExhausted
-}
+end
 
 /// A factory that names robots at random and never gives two the same
 /// name. It is a value: each robot it builds or resets answers the factory
 /// after it, holding every name given so far and the seed to draw from next.
-pub opaque struct Factory {
+pub opaque struct Factory
     seed: Seed
     given: Set<String>
-}
+end
 
-impl Factory {
+impl Factory
     /// A factory that draws names from `seed`.
-    pub fn new(seed: Seed) -> Factory {
-        .{seed, given: %[]}
-    }
+    pub fn new(seed: Seed) -> Factory
+        {seed:, given: []}
+    end
 
     /// A new robot with a name no robot of this factory has had, or
     /// `NamesExhausted` when every name has been given.
-    pub fn build(factory: Factory) -> Result<(Robot, Factory), Error> {
-        if Set.size(factory.given) == name_count { return Err(.NamesExhausted) }
+    pub fn build(factory: Factory) -> Result<(Robot, Factory), Error>
+        if Set.size(factory.given) == name_count then return Err(.NamesExhausted)
 
         (name, seed) = Generator.step(names(), factory.seed)
 
-        if name in factory.given {
-            Factory.build(.{..factory, seed})
-        } else {
-            Ok((Robot{name}, Factory{seed, given: Set.insert(factory.given, name)}))
-        }
-    }
+        if name in factory.given then
+            Factory.build({..factory, seed:})
+        else
+            Ok((Robot{name:}, Factory{seed:, given: Set.insert(factory.given, name)}))
+        end
+    end
 
     /// `robot` reset to its factory settings: wiped, and named again with a
     /// name no robot of this factory has had. The old name is not given
     /// again.
-    pub fn reset(factory: Factory, _robot: Robot) -> Result<(Robot, Factory), Error> {
+    pub fn reset(factory: Factory, _robot: Robot) -> Result<(Robot, Factory), Error>
         Factory.build(factory)
-    }
-}
+    end
+end
 
 /// Every name, each equally likely: a number below `name_count` read as two
 /// letters and three digits.
-fn names() -> Generator<String> {
+fn names() -> Generator<String>
     Generator.int(0, name_count - 1)
-    |> Generator.map(fn n -> {
+    |> Generator.map(fn n ->
         first = Vector.get(letters, n / 26_000)!
         second = Vector.get(letters, n / 1000 % 26)!
         digits = Int.to_string(n % 1000) |> String.pad_start(3, "0")
         String.from_codepoints([first, second]) + digits
-    })
-}
+    end)
+end
 
 // FILE: robot_name_test.nomi
-import {
+import
     std::random.Seed
     robot_name.{Factory, Robot}
-}
+end
 
 /// Whether `name` is two uppercase letters and three digits.
-fn is_well_formed(name: String) -> Bool {
-    case String.to_codepoints(name) {
+fn is_well_formed(name: String) -> Bool
+    case String.to_codepoints(name)
         [a, b, c, d, e] ->
             Iter.all_match([a, b], &(&1 in 'A'..='Z'))
                 and Iter.all_match([c, d, e], Codepoint.is_digit)
 
-        _ -> False
-    }
-}
+        _ ->
+            False
+    end
+end
 
 /// The names of `count` robots from `factory`, in the order it built them.
-fn names(factory: Factory, count: Int) -> List<String> {
+fn names(factory: Factory, count: Int) -> List<String>
     (_factory, names) =
         1..=count
-        |> Iter.map_reduce(factory, fn factory, _n -> {
+        |> Iter.map_reduce(factory, fn factory, _n ->
             (robot, next) = Factory.build(factory)!
             (next, Robot.name(robot))
-        })
+        end)
 
     names
-}
+end
 
-group "robot name" {
+group "robot name"
     setup Seed.from_int(42) |> Factory.new()
 
-    test "has a name", factory {
+    test "has a name", factory
         assert Ok((robot, _factory)) = Factory.build(factory)
         assert is_well_formed(Robot.name(robot))
-    }
+    end
 
-    test "name is the same each time", factory {
+    test "name is the same each time", factory
         assert Ok((robot, _factory)) = Factory.build(factory)
         assert Robot.name(robot) == Robot.name(robot)
-    }
+    end
 
-    test "different robots have different names", factory {
+    test "different robots have different names", factory
         assert Ok((first, factory)) = Factory.build(factory)
         assert Ok((second, _factory)) = Factory.build(factory)
         assert Robot.name(first) != Robot.name(second)
-    }
+    end
 
-    test "reset changes the name to a new well-formed one", factory {
+    test "reset changes the name to a new well-formed one", factory
         assert Ok((robot, factory)) = Factory.build(factory)
         assert Ok((reset, _factory)) = Factory.reset(factory, robot)
         assert Robot.name(reset) != Robot.name(robot)
         assert is_well_formed(Robot.name(reset))
-    }
+    end
 
-    test "a thousand robots all have different names", factory {
+    test "a thousand robots all have different names", factory
         assert names(factory, 1000) |> Iter.to_set() |> Set.size() == 1000
-    }
+    end
 
-    test "the same seed names the same robots", factory {
+    test "the same seed names the same robots", factory
         again = Seed.from_int(42) |> Factory.new()
         assert names(factory, 5) == names(again, 5)
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok robot name / has a name

@@ -12,13 +12,13 @@ import std::literals.{Fragment, Literal}
 /// characters of the static text around them.
 pub type Tally
 
-impl Literal for Tally {
-    fn from_fragments(fragments: List<Fragment<Int>>) -> Int {
-        Iter.reduce(fragments, 0, fn acc, frag -> {
-            case frag {
+impl Literal for Tally
+    fn from_fragments(fragments: List<Fragment<Int>>) -> Int
+        Iter.reduce(fragments, 0, fn acc, frag ->
+            case frag
                 .Static(s) -> acc + String.length(s)
                 .Dynamic(n) -> acc + n
-            }
-        })
-    }
-}
+            end
+        end)
+    end
+end

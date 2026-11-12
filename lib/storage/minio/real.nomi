@@ -8,26 +8,26 @@
 //
 // It writes objects under `conformance/` and `presigned/` in the bucket,
 // and skips the public-object check, which would need a bucket policy.
-import {
+import
     std::io
     std::url.Url
     minio
     s3.{Config, Credentials}
-}
+end
 
-pub struct App {
+pub struct App
     config: Config
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
-    variable = fn name: String -> {
+fn boot(startup: Startup) -> Result<App, String>
+    variable = fn name: String ->
         Map.get(startup.env, name) |> Maybe.to_result("${name} is not set")
-    }
+    end
 
     endpoint = Url.parse(variable("NOMI_S3_TEST_ENDPOINT")?) |> Result.map_err(fn e -> "${e}")?
 
     config = Config{
-        endpoint,
+        endpoint:,
         bucket: variable("NOMI_S3_TEST_BUCKET")?,
         credentials: Credentials{
             access_key: variable("NOMI_S3_TEST_ACCESS_KEY")?,
@@ -36,17 +36,17 @@ fn boot(startup: Startup) -> Result<App, String> {
         region: Map.get(startup.env, "NOMI_S3_TEST_REGION") |> Maybe.with_default("us-east-1"),
     }
 
-    Ok(App{config})
-}
+    Ok(App{config:})
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     failed = minio.checks(App.config, public: False)
     Iter.each(failed, fn failure -> io.print(failure))
 
-    if failed == [] {
+    if failed == [] then
         io.print("ok")
         Ok(Unit)
-    } else {
+    else
         Err("${Iter.count(failed)} checks failed")
-    }
-}
+    end
+end

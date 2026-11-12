@@ -11,11 +11,11 @@ func TestIRWithDefaultAtIterPayload_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn main() {
+fn main()
     f: (List<Bool>) -> Int = fn xs -> Iter.count(xs)
     io.inspect(f(Iter.filter(Result.with_default(Err("no"), [False, True]), fn x -> x) |> Iter.to_list()))
     io.inspect(Iter.filter(Maybe.with_default(None, [True]), fn x -> x) |> Iter.to_list())
-}
+end
 `
 	const want = "1\n" +
 		"[True]\n"

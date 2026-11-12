@@ -45,22 +45,22 @@ func TestVM_PartialInABlockCheckedTwice(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn pick<T>(c: Bool, a: T, b: T) -> T {
-    if c { a } else { b }
-}
+fn pick<T>(c: Bool, a: T, b: T) -> T
+    if c then a else b
+end
 
-fn main() {
-    n = Iter.count({
+fn main()
+    n = Iter.count(begin
         q = &pick(True, &1, [Ok(1)])
         q([Ok<Int, String>(2), Ok(3)])
-    })
+    end)
     io.inspect(n)
-    m = Iter.count({
+    m = Iter.count(begin
         q = &pick(False, &1, [Ok(1)])
         q([Ok<Int, String>(2), Ok(3)])
-    })
+    end)
     io.inspect(m)
-}
+end
 `
 	irRunSource(t, src, "2\n1\n")
 }

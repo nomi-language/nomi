@@ -13,48 +13,48 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: pig_latin.nomi
 //# Translates English words to Pig Latin.
 
-once vowels = %["a", "e", "i", "o", "u", "y"]
+once vowels = Set["a", "e", "i", "o", "u", "y"]
 
 /// `phrase` in Pig Latin, word by word: a word's leading consonants move to
 /// its end, and every word ends in `ay`.
-pub fn translate(phrase: String) -> String {
+pub fn translate(phrase: String) -> String
     phrase
     |> String.words()
     |> Iter.map(translate_word)
     |> String.join(" ")
-}
+end
 
-fn translate_word(word: String) -> String {
+fn translate_word(word: String) -> String
     onset = word |> Iter.to_list() |> onset_length()
     String.drop(word, onset) + String.take(word, onset) + "ay"
-}
+end
 
 /// How many letters at the start of a word move to its end: the consonants
 /// before its first vowel, with a `u` after a `q` counted with the `q`. A
 /// `y` is a consonant only as the first letter, and a word that starts with
 /// `xr` or `yt` keeps its start, as one that starts with a vowel does.
-fn onset_length(letters: List<String>) -> Int {
-    case letters {
+fn onset_length(letters: List<String>) -> Int
+    case letters
         ["x", "r", ..] or ["y", "t", ..] -> 0
         ["y", ..rest] -> 1 + consonants(rest)
         _ -> consonants(letters)
-    }
-}
+    end
+end
 
 /// How many consonants `letters` starts with, where `y` is a vowel and `qu`
 /// is two consonants.
-fn consonants(letters: List<String>) -> Int {
-    case letters {
+fn consonants(letters: List<String>) -> Int
+    case letters
         ["q", "u", ..] -> 2
         [letter, ..rest] when not letter in vowels -> 1 + consonants(rest)
         _ -> 0
-    }
-}
+    end
+end
 
 // FILE: pig_latin_test.nomi
 import pig_latin
 
-test "ay is added to words that start with vowels" {
+test "ay is added to words that start with vowels"
     [
         ("word beginning with a", "apple", "appleay"),
         ("word beginning with e", "ear", "earay"),
@@ -63,12 +63,12 @@ test "ay is added to words that start with vowels" {
         ("word beginning with u", "under", "underay"),
         ("word beginning with a vowel and followed by a qu", "equal", "equalay"),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert pig_latin.translate(phrase) == expected
-    }
-}
+    end
+end
 
-test "first letter and ay are moved to the end of words that start with consonants" {
+test "first letter and ay are moved to the end of words that start with consonants"
     [
         ("word beginning with p", "pig", "igpay"),
         ("word beginning with k", "koala", "oalakay"),
@@ -76,12 +76,12 @@ test "first letter and ay are moved to the end of words that start with consonan
         ("word beginning with q without a following u", "qat", "atqay"),
         ("word beginning with consonant and vowel containing qu", "liquid", "iquidlay"),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert pig_latin.translate(phrase) == expected
-    }
-}
+    end
+end
 
-test "some letter clusters are treated like a single consonant" {
+test "some letter clusters are treated like a single consonant"
     [
         ("word beginning with ch", "chair", "airchay"),
         ("word beginning with qu", "queen", "eenquay"),
@@ -90,35 +90,35 @@ test "some letter clusters are treated like a single consonant" {
         ("word beginning with thr", "thrush", "ushthray"),
         ("word beginning with sch", "school", "oolschay"),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert pig_latin.translate(phrase) == expected
-    }
-}
+    end
+end
 
-test "some letter clusters are treated like a single vowel" {
+test "some letter clusters are treated like a single vowel"
     [
         ("word beginning with yt", "yttria", "yttriaay"),
         ("word beginning with xr", "xray", "xrayay"),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert pig_latin.translate(phrase) == expected
-    }
-}
+    end
+end
 
-test "position of y in a word determines if it is a consonant or a vowel" {
+test "position of y in a word determines if it is a consonant or a vowel"
     [
         ("y is treated like a consonant at the beginning of a word", "yellow", "ellowyay"),
         ("y is treated like a vowel at the end of a consonant cluster", "rhythm", "ythmrhay"),
         ("y as second letter in two letter word", "my", "ymay"),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert pig_latin.translate(phrase) == expected
-    }
-}
+    end
+end
 
-test "phrases are translated" {
+test "phrases are translated"
     assert pig_latin.translate("quick fast run") == "ickquay astfay unray"
-}
+end
 ```
 <!-- expect
 ok ay is added to words that start with vowels (6 cases)

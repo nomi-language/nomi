@@ -37,7 +37,7 @@ const polishOrder = "[book]\nsource = '''.input {$count :integer} .match $count 
 func nounProject() map[string]string {
 	return map[string]string{
 		"nomi.toml":             "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
-		"main.nomi":             "import {\n    std::io\n    order\n}\n\nfn main() {\n    io.print(Phrase.format(order.has_shipped(order.book), Locale`pl`))\n}\n",
+		"main.nomi":             "import\n    std::io\n    order\nend\n\nfn main()\n    io.print(Phrase.format(order.has_shipped(order.book), Locale`pl`))\nend\n",
 		"order.nomi":            orderNouns,
 		"locales/pl/order.toml": polishOrder,
 	}

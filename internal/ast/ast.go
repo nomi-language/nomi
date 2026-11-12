@@ -289,7 +289,7 @@ func (*SelfType) typeExpr()            {}
 func (n *SelfType) TypeString() string { return "self" }
 
 // AnonStructType is an anonymous struct type expression like
-// `.{name: String, age: Int}`. It can appear in any type-expression slot
+// `{name: String, age: Int}`. It can appear in any type-expression slot
 // (function parameter type, struct field type, tuple element type, generic
 // type argument, …) but not as the bare RHS of a top-level `type Foo`
 // declaration — that form is reserved for the `struct` keyword. The
@@ -319,7 +319,7 @@ func (*AnonStructType) NodeType() string { return "AnonStructType" }
 func (n *AnonStructType) LineNum() int   { return n.Line }
 func (*AnonStructType) typeExpr()        {}
 func (n *AnonStructType) TypeString() string {
-	s := ".{"
+	s := "{"
 	for i, f := range n.Fields {
 		if i > 0 {
 			s += ", "
@@ -333,7 +333,7 @@ func (n *AnonStructType) TypeString() string {
 // in TypeName positions of literal-attach forms and patterns. Examples:
 //
 //	StructLit{TypeName: &DotVariantType{Name: "Rect"}}  // .Rect{w: 4.0}
-//	MapLit{TypeName: &DotVariantType{Name: "Obj"}}      // %.Obj{"k" => v}
+//	MapLit{TypeName: &DotVariantType{Name: "Obj"}}      // .Obj{"k" => v}
 //	ListLit{TypeName: &DotVariantType{Name: "Arr"}}     // .Arr[1, 2, 3]
 //	StructPattern{TypeName: &DotVariantType{Name: ...}} // case x { .Rect{...} -> ... }
 //
@@ -569,23 +569,55 @@ func (n *TaggedString) SetTemplate(expansion Node) { n.template, n.expansion = t
 // expands into, nil when its template has errors.
 func (n *TaggedString) Template() (Node, bool) { return n.expansion, n.template }
 
-// ListLit represents a list literal: [item, item, ...].
+// SeqKind is the collection a bracket literal or pattern builds or takes
+// apart: a List, a Vector or a Set.
+type SeqKind uint8
+
+const (
+	SeqList SeqKind = iota
+	SeqVector
+	SeqSet
+)
+
+func (k SeqKind) String() string {
+	switch k {
+	case SeqVector:
+		return "vector"
+	case SeqSet:
+		return "set"
+	}
+	return "list"
+}
+
+// ListLit is a bracket literal: `[item, item, ...]`, with spreads anywhere
+// among its items (`[x, ..xs]`, `[..a, y, ..b]`), or naming the type it
+// builds, `Ids[1, 2]`, `Path[1, 2]`, `.Items[1]`, `Vector[1, 2]`. The
+// tokens never say which collection it is: the checker decides Kind from
+// the name's declaration, else from the type its position expects (a
+// List where nothing fixes it), and records it here, with ShapeHead when
+// the name is the std collection itself (`Vector[...]`, `Set[...]`).
 //
-// TypeName is non-nil for type-prefixed list literals like
-// `Arr[1, 2, 3]` — the literal-attach construction form for
-// list-payload variants (`Arr ([1, 2, 3])`) and list-distinct
-// types (`Items([1, 2, 3])`). nil for anonymous list literals.
+// Line and Col are the literal's first token: the `[`, or its name.
 type ListLit struct {
 	TriviaCarrier
 	SpanCarrier
-	TypeName TypeExpr // nil for anonymous list literals
+	TypeName TypeExpr // nil for an unnamed literal
 	Items    []Node
+	// Spreads are the literal's `..` spreads, in the order written. A
+	// named literal takes none: its spread head carries the type.
+	Spreads []Spread
 	// EndTrivia holds trailing comments / blank lines between the last
 	// item and the closing `]`. Mirrors StructLit.EndTrivia — captured
 	// so `nomi fmt -w` doesn't silently drop `// comment` tokens sitting
 	// before the closing bracket. Distinct from TriviaCarrier.Trailing
 	// (reserved for same-line trailing comments on the literal itself).
 	EndTrivia []Trivia
+	// Kind is analyzer-filled: the collection the literal builds.
+	Kind SeqKind
+	// ShapeHead is analyzer-filled: TypeName names the std collection
+	// itself (`Vector[1, 2]`), so the literal builds that collection and
+	// no type over it.
+	ShapeHead bool
 	// EmbedsEnum is analyzer-filled: the enum the list's elements have when
 	// some of them are values of a type that enum `embeds` (`[c, Shape.Dot]`
 	// with `c: Circle` is a List<Shape>). Those elements are widened into
@@ -598,36 +630,12 @@ type ListLit struct {
 func (*ListLit) NodeType() string { return "ListLit" }
 func (n *ListLit) LineNum() int   { return n.Line }
 
-// VectorLit represents a vector literal: #[item, item, ...], or one with
-// spreads, `#[..v, item]`, `#[item, ..v, ..w]`, whose `..` is bare at a field
-// or key of an update (`#[.., item]` / `#[item, ..]`).
-//
-// TypeName is non-nil for a vector literal that names a type built on a
-// vector: a distinct type over one, `#Path[1, 2]`, or a variant whose payload
-// is one, `#.Items[1, 2]`. Line and Col are the `#` either way.
-type VectorLit struct {
-	TriviaCarrier
-	SpanCarrier
-	TypeName TypeExpr // nil for `#[...]`
-	Items    []Node
-	// Spreads are the literal's `..` spreads, in the order written.
-	Spreads []Spread
-	// EndTrivia holds trailing comments / blank lines between the last
-	// item and the closing `]`. Mirrors ListLit.EndTrivia.
-	EndTrivia []Trivia
-	Line      int
-	Col       int
-}
-
-func (*VectorLit) NodeType() string { return "VectorLit" }
-func (n *VectorLit) LineNum() int   { return n.Line }
-
 // Operands is the literal's elements and its spreads' heads in the order
 // written.
-func (n *VectorLit) Operands() []Node { return Operands(n.Items, n.Spreads) }
+func (n *ListLit) Operands() []Node { return Operands(n.Items, n.Spreads) }
 
 // Spread is one `..` of a list, vector, set or map literal: `..xs` in
-// `[x, ..xs]`, `..m` in `%{"a" => 1, ..m}`. Head is the collection spread
+// `[x, ..xs]`, `..m` in `{"a" => 1, ..m}`. Head is the collection spread
 // there, a *CurrentValue for a bare `..` (the value already at the field or
 // key of an update the literal is written at). At is the number of the
 // literal's elements, or a map's entries, written before it. A literal may
@@ -674,64 +682,21 @@ func IsSpreadHead(n Node, spreads []Spread) bool {
 	return false
 }
 
-// SetLit represents a set literal: %[item, item, ...], or one with spreads,
-// `%[..base, item, ...]`, `%[..a, ..b]`.
-//
-// TypeName is non-nil for a set literal that names a type built on a set,
-// `%Tags["a", "b"]`. Line and Col are the `%` either way.
-type SetLit struct {
-	TriviaCarrier
-	SpanCarrier
-	TypeName TypeExpr // nil for `%[...]`
-	Items    []Node
-	// Spreads are the literal's `..` spreads, in the order written: the
-	// literal is the union of the spread sets and its elements.
-	Spreads []Spread
-	// EndTrivia holds trailing comments / blank lines between the last
-	// item and the closing `}`. Mirrors ListLit.EndTrivia.
-	EndTrivia []Trivia
-	Line      int
-	Col       int
-}
-
-func (*SetLit) NodeType() string { return "SetLit" }
-func (n *SetLit) LineNum() int   { return n.Line }
-
-// Operands is the literal's elements and its spreads' heads in the order
-// written.
-func (n *SetLit) Operands() []Node { return Operands(n.Items, n.Spreads) }
-
-// ListSpreadLit is a list literal with at least one spread: `[x, ..xs]`,
-// `[..xs, y]`, `[..xs, ..ys]`. Items are its elements, and Spreads its
-// spreads in the order written.
-type ListSpreadLit struct {
-	TriviaCarrier
-	SpanCarrier
-	Items   []Node
-	Spreads []Spread
-	Line    int
-	Col     int
-}
-
-func (*ListSpreadLit) NodeType() string { return "ListSpreadLit" }
-func (n *ListSpreadLit) LineNum() int   { return n.Line }
-
-// Operands is the literal's elements and its spreads' heads in the order
-// written.
-func (n *ListSpreadLit) Operands() []Node { return Operands(n.Items, n.Spreads) }
-
 // MapEntry represents a key-value pair in a map literal.
 type MapEntry struct {
 	Key   Node
 	Value Node
 }
 
-// MapLit represents a map literal: %{key => value, ...}, or one with spreads,
-// `%{..base, key => value, ...}`, `%{"a" => 1, ..m, ..n}`.
+// MapLit represents a map literal: {key => value, ...}, `{}`, or one with
+// spreads, `{..base, key => value, ...}`, `{"a" => 1, ..m, ..n}`. A brace
+// literal whose first entry is `key =>` is a map, one whose first is
+// `name:` a struct (StructLit), and `{}` the empty map.
 //
 // TypeName is non-nil for a map literal that names a type built on a map: a
-// distinct type over one, `%Kvs{"a" => 1}`, or a variant whose payload is
-// one, `%.Obj{"k" => v}`. nil for `%{"a" => 1}`. Line and Col are the `%`.
+// distinct type over one, `Kvs{"a" => 1}`, or a variant whose payload is
+// one, `.Obj{"k" => v}`. nil for `{"a" => 1}`. Line and Col are the
+// literal's first token.
 type MapLit struct {
 	TriviaCarrier
 	SpanCarrier
@@ -742,6 +707,9 @@ type MapLit struct {
 	// apply left to right, a later key replacing an earlier one's value, as
 	// Map's `+` does. Only ever set on the anonymous form.
 	Spreads []Spread
+	// ShapeHead is analyzer-filled: TypeName names std's `Map` itself
+	// (`Map{"a" => 1}`), so the literal is the unnamed one.
+	ShapeHead bool
 	// EndTrivia holds trailing comments / blank lines between the last
 	// entry and the closing `}`. Mirrors StructLit.EndTrivia — captured
 	// so `nomi fmt -w` accepts and round-trips trailing in-body comments
@@ -755,7 +723,7 @@ func (*MapLit) NodeType() string { return "MapLit" }
 func (n *MapLit) LineNum() int   { return n.Line }
 
 // TupleLit is a tuple literal, `(a, b)`. A distinct type over a tuple is
-// built by a call, `Pair(1, "x")`. Line and Col are the `#`.
+// built by a call, `Pair(1, "x")`. Line and Col are the `(`.
 type TupleLit struct {
 	TriviaCarrier
 	SpanCarrier
@@ -888,8 +856,11 @@ type If struct {
 	// parser makes `f()` a stage of its own before this condition-less `if`,
 	// and the formatter writes the two back as the one stage they were.
 	StagePrefix bool
-	Line        int
-	Col         int
+	// Inline is set on the one-line form, `if c then a else b`: each
+	// branch is one expression on the `if`'s line, and no `end` closes it.
+	Inline bool
+	Line   int
+	Col    int
 }
 
 func (*If) NodeType() string { return "If" }
@@ -1239,7 +1210,7 @@ func (n *Call) LineNum() int   { return n.Line }
 // the no-payload (`.Red`) and call-form (`.Circle(1.0)`) cases.
 //
 // Bare `.X` is a *DotVariant directly; `.X(args)` is a Call whose Func is a
-// *DotVariant. The literal-attach forms (`.X{...}`, `.X[...]`, `%.X{"k" => v}`)
+// *DotVariant. The literal-attach forms (`.X{...}`, `.X[...]`, `.X{"k" => v}`)
 // produce StructLit / ListLit / MapLit with `TypeName: &DotVariantType{...}`
 // rather than wrapping them in a DotVariant — those literal nodes already
 // carry the payload directly, and they own their own TypeName slot.
@@ -1461,6 +1432,9 @@ type StructLit struct {
 	SpanCarrier
 	TypeName TypeExpr
 	Fields   []StructFieldVal
+	// EmptyMap is analyzer-filled: the literal is `Name{}` and Name is a
+	// type over a map, so it builds that type's empty map.
+	EmptyMap bool
 	// Positional holds the elements of a named literal written without a
 	// field name, `Student{&1.first, &1.second}`, each with an empty Name,
 	// its Source and the position of its first token. Nomi does not build a struct by
@@ -1468,7 +1442,7 @@ type StructLit struct {
 	// named form; the parser keeps them so it can.
 	Positional []StructFieldVal
 	// Spread holds the head expression of a struct-update literal,
-	// `.{..base, field: value}` — the `base`. Nil for every other struct
+	// `{..base, field: value}` — the `base`. Nil for every other struct
 	// literal. It is only ever set on the anonymous form (TypeName == nil):
 	// the head carries the result type, so `Cfg{..base}` has no meaning and
 	// the parser does not produce it. Fields then hold only the overrides,
@@ -1482,7 +1456,7 @@ type StructLit struct {
 	// EndTrivia holds trailing comments / blank lines between the last
 	// field and the closing `}`. Covers both nominal struct literals
 	// (`Foo{a: 1, // comment\n}`) and the anonymous literal form
-	// (`.{a: 1, // comment\n}`) since they share this AST node.
+	// (`{a: 1, // comment\n}`) since they share this AST node.
 	EndTrivia []Trivia
 	Line      int
 	Col       int
@@ -1775,24 +1749,23 @@ func (n *PatternBinding) ElseNodes() []Node {
 	return out
 }
 
-// BindingElse is the `else { ... }` of a PatternBinding. Exactly one of
-// Block and Arms is set: Block for a plain block, Arms when the braces hold
-// case arms matched against the value the pattern did not match.
+// BindingElse is the `else` of a PatternBinding. Exactly one of Block and
+// Arms is set: Block for a value on the `else`'s line or a body below it,
+// Arms when the lines below hold case arms matched against the value the
+// pattern did not match.
 //
-// Line/Col locate the `else` keyword. LBraceLine/LBraceCol and
-// EndLine/EndCol locate the arms form's braces; trivia after the last arm
-// is the BindingElse's own trailing trivia, as it is a Case's.
+// Line/Col locate the `else` keyword and EndLine/EndCol the arms form's
+// `end`; trivia after the last arm is the BindingElse's own trailing
+// trivia, as it is a Case's.
 type BindingElse struct {
 	TriviaCarrier
 	SpanCarrier
-	Block      *Block
-	Arms       []CaseBranch
-	Line       int
-	Col        int
-	LBraceLine int
-	LBraceCol  int
-	EndLine    int
-	EndCol     int
+	Block   *Block
+	Arms    []CaseBranch
+	Line    int
+	Col     int
+	EndLine int
+	EndCol  int
 }
 
 func (*BindingElse) NodeType() string { return "BindingElse" }
@@ -1882,7 +1855,7 @@ type InterfaceMethod struct {
 	ParamsEndTrivia []Trivia // the comments in a parameter list with no parameter, `f( // why` then `)`
 	ReturnTypeExpr  TypeExpr // structured return type annotation, nil if absent
 	Body            Node     // nil for abstract methods, *Block for default implementations
-	Open            bool     // `open fn name(...) { ... }` / `open host fn ...` — default may be overridden
+	Open            bool     // `open fn name(...)` with a body / `open host fn ...` — default may be overridden
 	// Extern marks a host-backed default: `host fn name(...) -> T` (no Nomi
 	// body — the host provides the implementation, shared by every
 	// implementor). A contract method like a Nomi default, but supplied by
@@ -2834,9 +2807,9 @@ func (*Tap) NodeType() string { return "Tap" }
 func (n *Tap) LineNum() int   { return n.Line }
 
 // CurrentValue is a bare `..` written as the spread of an update literal:
-// `.{.., city: "NYC"}`, `%{.., "k" => v}`, `%[.., x]` or `[t, ..]`. It stands
+// `{.., city: "NYC"}`, `{.., "k" => v}`, `[.., x]` or `[t, ..]`. It stands
 // for the value already at the field or key the literal is written at, so
-// `.{..user, address: .{.., city: "NYC"}}` changes only `address.city`. It is
+// `{..user, address: {.., city: "NYC"}}` changes only `address.city`. It is
 // only ever the Spread of a StructLit or the head of a Spread of a list,
 // vector, set or map literal; the checker decides whether that position has
 // a current value.
@@ -2852,7 +2825,7 @@ func (n *CurrentValue) LineNum() int   { return n.Line }
 
 // UpdateHole returns the bare `..` of n when n is a literal that updates the
 // value at its position: an anonymous struct literal whose spread is a bare
-// `..`, or a list, vector, set or anonymous map literal with a bare `..`
+// `..`, or a bracket or anonymous map literal with a bare `..`
 // among its spreads. Nil otherwise.
 func UpdateHole(n Node) *CurrentValue {
 	var spreads []Spread
@@ -2866,11 +2839,7 @@ func UpdateHole(n Node) *CurrentValue {
 		if v.TypeName == nil {
 			spreads = v.Spreads
 		}
-	case *SetLit:
-		spreads = v.Spreads
-	case *VectorLit:
-		spreads = v.Spreads
-	case *ListSpreadLit:
+	case *ListLit:
 		spreads = v.Spreads
 	}
 	for _, s := range spreads {
@@ -3094,7 +3063,7 @@ func (*AsPattern) NodeType() string { return "AsPattern" }
 func (n *AsPattern) LineNum() int   { return n.Line }
 
 // OrPattern matches when any of its alternatives matches:
-// `.Circle{r} or .Square{r}`. Every alternative binds the same names at the
+// `.Circle{r:} or .Square{r:}`. Every alternative binds the same names at the
 // same types, and the names bind from whichever alternative matched. `or`
 // binds looser than every pattern construct but `as`, so `A or B as x` names
 // the whole value; parentheses group (`(A as a) or (B as a)`). The parser
@@ -3187,22 +3156,28 @@ type TuplePattern struct {
 func (*TuplePattern) NodeType() string { return "TuplePattern" }
 func (n *TuplePattern) LineNum() int   { return n.Line }
 
-// ListPattern matches a list in a case branch: [], [a], [a, b], [head, ..tail], [a, b, ..rest],
-// [first, .., last], [first, ..mid, last].
+// ListPattern is a bracket pattern: [], [a], [a, b], [head, ..tail],
+// [a, b, ..rest], [first, .., last], [first, ..mid, last]. It takes apart
+// the collection its subject is (Kind, analyzer-filled): a List or a
+// Vector by position, from either end, or a Set by membership.
 //
 // Heads are the element patterns before the `..` and Tails those after it.
-// Without a spread the list has exactly len(Heads) elements; with one, at
-// least len(Heads)+len(Tails), and TailSpread matches the List of the
-// elements between them. When Tails is not empty, TailSpread is an
-// *IdentPattern or a *WildcardPattern.
+// Without a spread the collection has exactly len(Heads) elements; with
+// one, at least len(Heads)+len(Tails), and TailSpread matches the
+// collection of the elements between them. When Tails is not empty, or the
+// subject is a Vector or a Set, TailSpread is an *IdentPattern or a
+// *WildcardPattern.
 //
-// TypeName is non-nil for type-prefixed list patterns like
-// `Arr[1, 2, 3]` — the literal-attach destructure form for
-// list-payload variants. nil for anonymous list patterns.
+// Over a Set, each head is a constant the set must contain, and the `..`
+// comes last: `["admin", ..rest]`.
+//
+// TypeName is non-nil for a pattern that names a type built on the
+// collection: a distinct type over one (`Path[a, ..]`) or a variant whose
+// payload is one (`.Items[x]`).
 type ListPattern struct {
 	TriviaCarrier
 	SpanCarrier
-	TypeName   TypeExpr // nil for anonymous list patterns
+	TypeName   TypeExpr // nil for an unnamed pattern
 	Heads      []Node   // fixed element patterns before ..
 	TailSpread Node     // pattern after .., nil if no spread (exact-length match)
 	Tails      []Node   // element patterns after the `..`; empty without one
@@ -3210,6 +3185,12 @@ type ListPattern struct {
 	// (`[first, ..]`), which ignores the rest: TailSpread is
 	// then the wildcard at the `..`, and the formatter writes the `..` alone.
 	BareRest bool
+	// SpreadLine / SpreadCol are the position of the `..` token, 0 without
+	// one.
+	SpreadLine int
+	SpreadCol  int
+	// Kind is analyzer-filled: the collection the subject is.
+	Kind SeqKind
 	// EndTrivia holds trailing comments / blank lines between the last
 	// head pattern and the closing `]`. Mirrors ListLit.EndTrivia.
 	EndTrivia []Trivia
@@ -3220,67 +3201,14 @@ type ListPattern struct {
 func (*ListPattern) NodeType() string { return "ListPattern" }
 func (n *ListPattern) LineNum() int   { return n.Line }
 
-// VectorPattern matches a vector: `#[]`, `#[a, b]` (exactly two elements),
-// `#[first, ..rest]`, `#[.., last]`, `#[a, ..rest, z]`, `#[a, b, ..]`.
-//
-// Heads are the element patterns before the `..`, Tails those after it.
-// Spread is set when a `..` is written; Rest is the name or `_` after it, or
-// nil for a bare `..`. Without a spread the vector has exactly len(Heads)
-// elements; with one, at least len(Heads)+len(Tails), and Rest binds the
-// elements between them.
-//
-// TypeName is non-nil for a vector pattern that names a type built on a
-// vector: a distinct type over one, `#Path[a, ..]`, or a vector-payload
-// variant, `#.Items[x]`.
-type VectorPattern struct {
-	TriviaCarrier
-	SpanCarrier
-	TypeName TypeExpr // nil for `#[...]`
-	Heads    []Node
-	Spread   bool
-	Rest     Node // *IdentPattern or *WildcardPattern after `..`; nil for a bare `..`
-	Tails    []Node
-	// SpreadLine / SpreadCol are the position of the `..` token.
-	SpreadLine int
-	SpreadCol  int
-	// EndTrivia holds trailing comments / blank lines before the closing `]`.
-	EndTrivia []Trivia
-	Line      int
-	Col       int
+// Rest is the name or `_` after the pattern's `..`, nil for a bare `..`
+// or none.
+func (n *ListPattern) Rest() Node {
+	if n.BareRest {
+		return nil
+	}
+	return n.TailSpread
 }
-
-func (*VectorPattern) NodeType() string { return "VectorPattern" }
-func (n *VectorPattern) LineNum() int   { return n.Line }
-
-// SetPattern matches a set by membership: `%["admin", ..rest]` matches a set
-// that contains "admin" and binds the other elements to rest, `%["admin", ..]`
-// only tests membership, and `%[1, 2]` matches exactly that set.
-//
-// Elems are expressions, evaluated as a map pattern's keys are: they see the
-// names in scope before the pattern, never one the pattern binds. Spread is
-// set when a `..` is written, last; Rest is the name or `_` after it, or nil
-// for a bare `..`.
-//
-// TypeName is non-nil for a set pattern that names a distinct type over a
-// set, `%Tags["a", ..]`.
-type SetPattern struct {
-	TriviaCarrier
-	SpanCarrier
-	TypeName TypeExpr // nil for `%[...]`
-	Elems    []Node
-	Spread   bool
-	Rest     Node // *IdentPattern or *WildcardPattern after `..`; nil for a bare `..`
-	// SpreadLine / SpreadCol are the position of the `..` token.
-	SpreadLine int
-	SpreadCol  int
-	// EndTrivia holds trailing comments / blank lines before the closing `]`.
-	EndTrivia []Trivia
-	Line      int
-	Col       int
-}
-
-func (*SetPattern) NodeType() string { return "SetPattern" }
-func (n *SetPattern) LineNum() int   { return n.Line }
 
 // MapPatternEntry is one key => pattern pair in a map pattern.
 type MapPatternEntry struct {
@@ -3288,11 +3216,12 @@ type MapPatternEntry struct {
 	Pattern Node // value pattern: IdentPattern, WildcardPattern, literal, nested
 }
 
-// MapPattern matches a map in a case branch: %{"key" => val, 0 => x}
-// Matching is partial — extra keys in the map are ignored.
+// MapPattern matches a map in a case branch: {"key" => val, 0 => x}, or
+// `{}`, which matches every map. Matching is partial — extra keys in the
+// map are ignored.
 //
 // TypeName is non-nil for a map pattern that names a type built on a map,
-// `%Kvs{"a" => v}` or `%.Obj{"k" => v}`. nil for `%{...}`.
+// `Kvs{"a" => v}` or `.Obj{"k" => v}`. nil for `{...}`.
 type MapPattern struct {
 	TriviaCarrier
 	SpanCarrier

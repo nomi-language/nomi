@@ -1,123 +1,123 @@
 type Score Int
 
-fn score_value(score: Score) -> Int {
+fn score_value(score: Score) -> Int
     Score(n) = score
     n
-}
+end
 
 type Day Int
 
-fn day_value(day: Day) -> Int {
+fn day_value(day: Day) -> Int
     Day(n) = day
     n
-}
+end
 
 type Day.Hours Int
 
-fn hours_value(hours: Day.Hours) -> Int {
+fn hours_value(hours: Day.Hours) -> Int
     Day.Hours(n) = hours
     n
-}
+end
 
 type Days Int
 
-fn days_value(days: Days) -> Int {
+fn days_value(days: Days) -> Int
     Days(n) = days
     n
-}
+end
 
 type Weeks Int
 
-fn weeks_value(weeks: Weeks) -> Int {
+fn weeks_value(weeks: Weeks) -> Int
     Weeks(n) = weeks
     n
-}
+end
 
-impl Add<Score, Score> for Score {
-    fn add(lhs: Score, rhs: Score) -> Score {
+impl Add<Score, Score> for Score
+    fn add(lhs: Score, rhs: Score) -> Score
         Score(score_value(lhs) + score_value(rhs))
-    }
-}
+    end
+end
 
-impl Subtract<Score, Score> for Score {
-    fn subtract(lhs: Score, rhs: Score) -> Score {
+impl Subtract<Score, Score> for Score
+    fn subtract(lhs: Score, rhs: Score) -> Score
         Score(score_value(lhs) - score_value(rhs))
-    }
-}
+    end
+end
 
-impl Multiply<Score, Score> for Score {
-    fn multiply(lhs: Score, rhs: Score) -> Score {
+impl Multiply<Score, Score> for Score
+    fn multiply(lhs: Score, rhs: Score) -> Score
         Score(score_value(lhs) * score_value(rhs))
-    }
-}
+    end
+end
 
-impl Divide<Score, Score> for Score {
-    fn divide(lhs: Score, rhs: Score) -> Score {
+impl Divide<Score, Score> for Score
+    fn divide(lhs: Score, rhs: Score) -> Score
         Score(score_value(lhs) / score_value(rhs))
-    }
-}
+    end
+end
 
-impl Add<Days, Day> for Day {
-    fn add(lhs: Day, rhs: Days) -> Day {
+impl Add<Days, Day> for Day
+    fn add(lhs: Day, rhs: Days) -> Day
         Day(day_value(lhs) + days_value(rhs))
-    }
-}
+    end
+end
 
-impl Subtract<Days, Day> for Day {
-    fn subtract(lhs: Day, rhs: Days) -> Day {
+impl Subtract<Days, Day> for Day
+    fn subtract(lhs: Day, rhs: Days) -> Day
         Day(day_value(lhs) - days_value(rhs))
-    }
-}
+    end
+end
 
-impl Add<Weeks, Day> for Day {
-    fn add(lhs: Day, rhs: Weeks) -> Day {
+impl Add<Weeks, Day> for Day
+    fn add(lhs: Day, rhs: Weeks) -> Day
         Day(day_value(lhs) + weeks_value(rhs) * 7)
-    }
-}
+    end
+end
 
-impl Subtract<Weeks, Day> for Day {
-    fn subtract(lhs: Day, rhs: Weeks) -> Day {
+impl Subtract<Weeks, Day> for Day
+    fn subtract(lhs: Day, rhs: Weeks) -> Day
         Day(day_value(lhs) - weeks_value(rhs) * 7)
-    }
-}
+    end
+end
 
-impl Add<Day.Hours, Day> for Day {
-    fn add(lhs: Day, rhs: Day.Hours) -> Day {
+impl Add<Day.Hours, Day> for Day
+    fn add(lhs: Day, rhs: Day.Hours) -> Day
         Day(day_value(lhs) + hours_value(rhs) / 24)
-    }
-}
+    end
+end
 
-fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out> {
+fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out>
     lhs + rhs
-}
+end
 
-fn minus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Subtract<R, Out> {
+fn minus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Subtract<R, Out>
     lhs - rhs
-}
+end
 
-fn times<L, R, Out>(lhs: L, rhs: R) -> Out where L: Multiply<R, Out> {
+fn times<L, R, Out>(lhs: L, rhs: R) -> Out where L: Multiply<R, Out>
     lhs * rhs
-}
+end
 
-fn divided_by<L, R, Out>(lhs: L, rhs: R) -> Out where L: Divide<R, Out> {
+fn divided_by<L, R, Out>(lhs: L, rhs: R) -> Out where L: Divide<R, Out>
     lhs / rhs
-}
+end
 
-test "Add powers plus for custom types" {
+test "Add powers plus for custom types"
     total = Score(2) + Score(3)
 
     assert score_value(total) == 5
-}
+end
 
-test "operator interfaces power custom arithmetic" {
+test "operator interfaces power custom arithmetic"
     score = Score(20)
 
     assert score_value(score - Score(3)) == 17
     assert score_value(score * Score(2)) == 40
     assert score_value(score / Score(4)) == 5
-}
+end
 
-test "primitive operator interface functions dispatch directly" {
+test "primitive operator interface functions dispatch directly"
     divisor = Int.to_non_zero(5)?
 
     assert Subtract.subtract(9, 4) == 5
@@ -128,15 +128,15 @@ test "primitive operator interface functions dispatch directly" {
     assert Subtract.subtract(9.5, 4.0) == 5.5
     assert Multiply.multiply(1.5d, 2.0d) == 3.00d
     assert Subtract.subtract(10.00d, 4d) == 6.00d
-}
+end
 
-test "Add can choose a different rhs type" {
+test "Add can choose a different rhs type"
     day = Day(10) + Days(4)
 
     assert day_value(day) == 14
-}
+end
 
-test "Add impl identity includes rhs type" {
+test "Add impl identity includes rhs type"
     by_days = Day(10) + Days(4)
     by_weeks = Day(10) + Weeks(2)
     by_hours = Day(10) + Day.Hours(48)
@@ -162,9 +162,9 @@ test "Add impl identity includes rhs type" {
     assert day_value(explicit_minus_weeks) == -4
     assert day_value(type_qualified_days) == 14
     assert day_value(type_qualified_weeks) == 24
-}
+end
 
-test "generic operators use their interface output type" {
+test "generic operators use their interface output type"
     score: Score = plus(Score(8), Score(5))
     day: Day = plus(Day(20), Days(2))
     later: Day = plus(Day(20), Weeks(1))
@@ -178,4 +178,4 @@ test "generic operators use their interface output type" {
     assert day_value(lower) == 18
     assert score_value(scaled) == 12
     assert score_value(halved) == 10
-}
+end

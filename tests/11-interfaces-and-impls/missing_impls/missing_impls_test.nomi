@@ -1,115 +1,115 @@
-import {
+import
     std::compiler
     test_helpers
-}
+end
 
-test "direct interface calls report missing implementations" {
+test "direct interface calls report missing implementations"
     diagnostics = compiler.check(
         """
-          interface Greeter {
+          interface Greeter
             fn hello(value: self) -> String
-          }
+          end
 
-          struct Visitor {
+          struct Visitor
             name: String
-          }
+          end
 
-          fn main() {
+          fn main()
             _ = Greeter.hello(Visitor{name: "Ada"})
-          }
+          end
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "no impl of `Greeter` for `Visitor`")
-}
+end
 
-test "derive reports missing field implementations" {
+test "derive reports missing field implementations"
     diagnostics = compiler.check(
         """
-          struct C {
+          struct C
             n: Int
-          }
+          end
 
-          struct B {
+          struct B
             c: C
 
-          }
+          end
           derive Display for B
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "no impl of `Display` for `C`")
-}
+end
 
-test "nested derive chains report the innermost missing field implementation" {
+test "nested derive chains report the innermost missing field implementation"
     diagnostics = compiler.check(
         """
-          struct C {
+          struct C
             n: Int
-          }
+          end
 
-          struct B {
+          struct B
             c: C
 
-          }
+          end
           derive Display for B
 
-          struct A {
+          struct A
             b: B
 
-          }
+          end
           derive Display for A
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "no impl of `Display` for `C`")
-}
+end
 
-test "generic bound recursion reports missing element implementations" {
+test "generic bound recursion reports missing element implementations"
     diagnostics = compiler.check(
         """
-          struct Foo {
+          struct Foo
             n: Int
-          }
+          end
 
-          fn show<T>(value: T) -> String where T: Display {
+          fn show<T>(value: T) -> String where T: Display
             Display.to_string(value)
-          }
+          end
 
-          fn main() {
+          fn main()
             _ = show([Foo{n: 1}, Foo{n: 2}])
-          }
+          end
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "no impl of `Display` for `Foo`")
-}
+end
 
-test "generic wrapper derive attributes missing impls to the instantiation field" {
+test "generic wrapper derive attributes missing impls to the instantiation field"
     diagnostics = compiler.check(
         """
-          struct C {
+          struct C
             n: Int
-          }
+          end
 
-          struct Wrapper<T> {
+          struct Wrapper<T>
             value: T
 
-          }
+          end
           derive Display for Wrapper
 
-          struct Holder {
+          struct Holder
             w: Wrapper<C>
 
-          }
+          end
           derive Display for Holder
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "no impl of `Display` for `C`")
-}
+end

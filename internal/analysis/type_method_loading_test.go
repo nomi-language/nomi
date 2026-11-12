@@ -12,11 +12,13 @@ import (
 // per-file one) must record the provider module path into
 // fa.TypeMethodModules.
 func TestTypeMethodModule_RecordedAtCrossModuleCall(t *testing.T) {
-	src := `pub struct Foo { x: Int }
+	src := `pub struct Foo
+    x: Int
+end
 
-fn use_foo(f: Foo) -> Int {
+fn use_foo(f: Foo) -> Int
     Foo.bar(f)
-}`
+end`
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
 	fa := BuildFile(nodes)
 	BuildTypes(fa, nodes)

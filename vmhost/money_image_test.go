@@ -17,25 +17,25 @@ func moneyProgram(body string) string {
 	if strings.Contains(body, "CurrencyDisplay") {
 		money = "{CurrencyDisplay, Money}"
 	}
-	return "import {\n    std::currency.Currency\n    std::io\n    std::money." + money + "\n}\n\n" + body
+	return "import\n    std::currency.Currency\n    std::io\n    std::money." + money + "\nend\n\n" + body
 }
 
 // moneyLiteralProgram formats literal, a Money literal, in pl and de.
 func moneyLiteralProgram(literal string) string {
-	return "import {\n    std::io\n    std::money.Money\n}\n\n" +
-		"fn main() {\n    price = " + literal + "\n" +
-		"    io.print(Money.format(price, Locale`pl`))\n    io.print(Money.format(price, Locale`de`))\n}\n"
+	return "import\n    std::io\n    std::money.Money\nend\n\n" +
+		"fn main()\n    price = " + literal + "\n" +
+		"    io.print(Money.format(price, Locale`pl`))\n    io.print(Money.format(price, Locale`de`))\nend\n"
 }
 
 // passedDisplayProgram formats a euro price in pl and de with
 // Money.format, the display handed in by main through a function of the
 // program's own, so the display is a constant only where main builds it.
 func passedDisplayProgram(display string) string {
-	return moneyProgram("fn show(price: Money, locale: Locale, display: CurrencyDisplay) {\n" +
-		"    io.print(Money.format(price, locale, display: display))\n}\n\n" +
-		"fn main() {\n    price = Money{amount: 12.5d, currency: Currency`EUR`}\n" +
+	return moneyProgram("fn show(price: Money, locale: Locale, display: CurrencyDisplay)\n" +
+		"    io.print(Money.format(price, locale, display: display))\nend\n\n" +
+		"fn main()\n    price = Money{amount: 12.5d, currency: Currency`EUR`}\n" +
 		"    show(price, Locale`pl`, CurrencyDisplay." + display + ")\n" +
-		"    show(price, Locale`de`, CurrencyDisplay." + display + ")\n}\n")
+		"    show(price, Locale`de`, CurrencyDisplay." + display + ")\nend\n")
 }
 
 // currencyRecords counts the image data's records of each currency kind.
@@ -70,7 +70,7 @@ func runsAsInProcess(t *testing.T, name string, p *Program, image []byte, want s
 // A program carries currency names only when it can write one, and the
 // symbols of only the currencies its literals name when it makes no other.
 func TestLocaleImage_CarriesTheCurrencyDataItCanFormat(t *testing.T) {
-	const two = "fn main() {\n    price = Money{amount: 12.5d, currency: Currency`EUR`}\n    io.print(Money.format(price, Locale`pl`%s))\n    io.print(Money.format(price, Locale`de`%s))\n}\n"
+	const two = "fn main()\n    price = Money{amount: 12.5d, currency: Currency`EUR`}\n    io.print(Money.format(price, Locale`pl`%s))\n    io.print(Money.format(price, Locale`de`%s))\nend\n"
 	main := func(display string) string {
 		return moneyProgram(strings.ReplaceAll(two, "%s", display))
 	}
@@ -88,22 +88,22 @@ func TestLocaleImage_CarriesTheCurrencyDataItCanFormat(t *testing.T) {
 		{"name", main(", display: .Name"), "12,50 euro\n12,50 Euro\n", true, 1},
 		// A display the program picks while it runs may be the name.
 		{"chosen display", moneyProgram(
-			"fn shown(long: Bool) -> CurrencyDisplay {\n    if long { .Name } else { .Symbol }\n}\n\n" +
-				"fn main() {\n    price = Money{amount: 12.5d, currency: Currency`EUR`}\n" +
+			"fn shown(long: Bool) -> CurrencyDisplay\n    if long then .Name else .Symbol\nend\n\n" +
+				"fn main()\n    price = Money{amount: 12.5d, currency: Currency`EUR`}\n" +
 				"    io.print(Money.format(price, Locale`pl`, display: shown(False)))\n" +
-				"    io.print(Money.format(price, Locale`de`, display: shown(False)))\n}\n"),
+				"    io.print(Money.format(price, Locale`de`, display: shown(False)))\nend\n"),
 			"12,50 €\n12,50 €\n", true, 1},
 		// A currency read while the program runs may be any of them.
 		{"parsed currency", moneyProgram(
-			"fn main() {\n    case Currency.parse(\"EUR\") {\n" +
-				"        Ok(c) -> {\n            io.print(Money.format(Money{amount: 12.5d, currency: c}, Locale`pl`))\n" +
-				"            io.print(Money.format(Money{amount: 12.5d, currency: c}, Locale`de`))\n        }\n" +
-				"        Err(_) -> io.print(\"no\")\n    }\n}\n"),
+			"fn main()\n    case Currency.parse(\"EUR\")\n" +
+				"        Ok(c) ->\n            io.print(Money.format(Money{amount: 12.5d, currency: c}, Locale`pl`))\n" +
+				"            io.print(Money.format(Money{amount: 12.5d, currency: c}, Locale`de`))\n\n" +
+				"        Err(_) -> io.print(\"no\")\n    end\nend\n"),
 			"12,50 €\n12,50 €\n", false, 0},
 		// A custom currency has no CLDR symbol: the literal names none.
 		{"custom", moneyProgram(
-			"fn main() {\n    points = Money{amount: 12d, currency: Currency`PTS:0`}\n" +
-				"    io.print(Money.format(points, Locale`pl`))\n    io.print(Money.format(points, Locale`de`))\n}\n"),
+			"fn main()\n    points = Money{amount: 12d, currency: Currency`PTS:0`}\n" +
+				"    io.print(Money.format(points, Locale`pl`))\n    io.print(Money.format(points, Locale`de`))\nend\n"),
 			"12 PTS\n12 PTS\n", false, -1},
 		// A Money literal names its currency as a Currency literal does.
 		{"money literal", moneyLiteralProgram("Money`12.5 EUR`"), "12,50\u00a0€\n12,50\u00a0€\n", false, 1},
@@ -142,11 +142,11 @@ func TestLocaleImage_CarriesTheCurrencyDataItCanFormat(t *testing.T) {
 // The bytes a program that formats one euro price in two locales carries:
 // its symbol alone, against every currency's symbols and names.
 func TestLocaleImage_OneCurrencyCarriesAFewBytes(t *testing.T) {
-	literal := moneyProgram("fn main() {\n    price = Money{amount: 12.5d, currency: Currency`EUR`}\n" +
-		"    io.print(Money.format(price, Locale`pl`))\n    io.print(Money.format(price, Locale`de`))\n}\n")
-	any := moneyProgram("fn main() {\n    case Currency.parse(\"EUR\") {\n" +
+	literal := moneyProgram("fn main()\n    price = Money{amount: 12.5d, currency: Currency`EUR`}\n" +
+		"    io.print(Money.format(price, Locale`pl`))\n    io.print(Money.format(price, Locale`de`))\nend\n")
+	any := moneyProgram("fn main()\n    case Currency.parse(\"EUR\")\n" +
 		"        Ok(c) -> io.print(Money.format(Money{amount: 12.5d, currency: c}, Locale`pl`, display: .Name))\n" +
-		"        Err(_) -> io.print(\"no\")\n    }\n}\n")
+		"        Err(_) -> io.print(\"no\")\n    end\nend\n")
 	small, _ := imageLocales(t, loadWithLocales(t, literal, "pl", "de"))
 	large, _ := imageLocales(t, loadWithLocales(t, any, "pl", "de"))
 	if len(small) > 3000 {
@@ -168,9 +168,9 @@ func TestLocaleImage_PhraseCurrencyNames(t *testing.T) {
 		{"code", " currencyDisplay=code", "Razem: 12,50 EUR\n", false},
 		{"name", " currencyDisplay=name", "Razem: 12,50 euro\n", true},
 	} {
-		src := "import {\n    std::currency.Currency\n    std::io\n    std::money.Money\n}\n\n" +
+		src := "import\n    std::currency.Currency\n    std::io\n    std::money.Money\nend\n\n" +
 			"phrase total(amount: Money) `Razem: {$amount :currency" + c.option + "}`\n\n" +
-			"fn main() {\n    io.print(total(Money{amount: 12.5d, currency: Currency`EUR`}) |> Phrase.format(Locale`pl`))\n}\n"
+			"fn main()\n    io.print(total(Money{amount: 12.5d, currency: Currency`EUR`}) |> Phrase.format(Locale`pl`))\nend\n"
 		m, err := analysis.ParseManifestData([]byte("[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18n]\nsource_locale = \"pl\"\nlocales = [\"pl\"]\n"), "<virtual nomi.toml>")
 		if err != nil {
 			t.Fatal(err)

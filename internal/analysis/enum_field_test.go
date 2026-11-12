@@ -9,15 +9,15 @@ import (
 
 func TestEnumStructVariantFieldAccess(t *testing.T) {
 	src := `
-enum Error {
+enum Error
     HttpError{status: Int, message: String}
     Timeout
-}
+end
 
-fn demo() -> Int {
+fn demo() -> Int
     err = Error.HttpError{status: 404, message: "not found"}
     err.status
-}
+end
 `
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
@@ -41,19 +41,19 @@ fn demo() -> Int {
 
 func TestEmbeddedEnumVariantFieldAccess(t *testing.T) {
 	src := `
-struct Circle2 {
+struct Circle2
     radius: Float
-}
+end
 
-enum Drawable {
+enum Drawable
     embeds Circle2
     Line
-}
+end
 
-fn demo() -> Float {
+fn demo() -> Float
     c = Drawable.Circle2{radius: 5.0}
     c.radius
-}
+end
 `
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)

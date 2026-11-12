@@ -1129,7 +1129,7 @@ func (g *gen) settleLowerable(order []*typeDef) {
 // cannot be confused with an `Enum.Variant` reading.
 //
 // An *ast.AnonStructType names a RECORD — structural like the tuple form, and
-// canonicalized by field name so `.{x: Int, y: Int}` and `.{y: Int, x: Int}` are
+// canonicalized by field name so `{x: Int, y: Int}` and `{y: Int, x: Int}` are
 // one kind. See anonstruct.go.
 //
 // A SelfType or any other GenericType is by construction outside the subset;
@@ -1558,12 +1558,12 @@ func (g *gen) replayTypeRefusals(d *typeDef, at ast.Node) {
 
 // untypedLiteral reports whether k is one of the five literals whose type the
 // CHECKER solves from context rather than the value carrying it: `[]`, a bare
-// `None`, `%{}`, `%[]` and `#[]`.
+// `None`, `{}`, `[]` and `[]`.
 //
 // The five are one concept and are listed together everywhere they appear
 // (native.go's tag comments, stdprelude.go's signature rule, generic.go's type
 // argument rule), so they are asked about through one predicate rather than
-// repeated switches that can drift apart. `%{}` has no corpus site at
+// repeated switches that can drift apart. `{}` has no corpus site at
 // the equality position, which is exactly the hole a partial list would
 // leave.
 func untypedLiteral(k kind) bool {

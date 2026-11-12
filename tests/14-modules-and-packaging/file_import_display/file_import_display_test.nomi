@@ -1,9 +1,9 @@
-import {
+import
     std::compiler.{self, RunFile}
     shapes
-}
+end
 
-test "io.print renders a type another file declares, imported as a file" {
+test "io.print renders a type another file declares, imported as a file"
     result = compiler.run_file(RunFile{entry_point: "main"})
 
     assert result == Ok(
@@ -18,10 +18,10 @@ test "io.print renders a type another file declares, imported as a file" {
 
         """
     )
-}
+end
 
-test "interpolation and Display reach the declaring file's impl" {
+test "interpolation and Display reach the declaring file's impl"
     assert "${shapes.price()}" == "$12.50"
     assert Display.to_string(shapes.origin()) == "Point{x: 0, y: 0}"
     assert "${[shapes.red(), shapes.red()]}" == "[Red, Red]"
-}
+end

@@ -26,24 +26,24 @@ func literalDeclineProgram(t *testing.T, literal string) string {
 	}
 	write("helper.nomi", `import std::regex.Regex
 
-pub fn planted_decline() -> Int {
+pub fn planted_decline() -> Int
     1
-}
+end
 
-pub fn digits() -> List<String> {
+pub fn digits() -> List<String>
     String.find_all("a1", `+literal+`)
-}
+end
 `)
-	return write("main.nomi", `import {
+	return write("main.nomi", `import
     helper
     helper.planted_decline
     std::io
-}
+end
 
-fn main() {
+fn main()
     io.print(helper.digits())
     io.inspect(planted_decline())
-}
+end
 `)
 }
 

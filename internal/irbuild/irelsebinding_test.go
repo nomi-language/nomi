@@ -56,29 +56,33 @@ func TestBindingElse_EveryFunctionIsRetained(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	src := `fn shown(email: Maybe<String>) -> String {
-    Some(e) = email else { "none" }
+	src := `fn shown(email: Maybe<String>) -> String
+    Some(e) = email else
+        "none"
+    end
     e
-}
+end
 
-fn first_or(xs: List<Int>) -> Int {
-    [first, .._rest] = xs else { return -1 }
+fn first_or(xs: List<Int>) -> Int
+    [first, .._rest] = xs else
+        return -1
+    end
     first
-}
+end
 
-fn port(r: Result<Int, String>) -> Result<Int, String> {
-    Ok(p) = r else {
+fn port(r: Result<Int, String>) -> Result<Int, String>
+    Ok(p) = r else
         Err("") -> 8080
         Err(e) -> return Err(e)
-    }
+    end
     Ok(p)
-}
+end
 
-fn main() {
+fn main()
     _ = shown(None)
     _ = first_or([])
     _ = port(Ok(1))
-}
+end
 `
 	names, _ := irRetainedNames(t, src)
 	for _, name := range []string{"shown", "first_or", "port"} {
@@ -96,59 +100,64 @@ fn main() {
 func TestBindingElse_BareReturnLeavesALambda(t *testing.T) {
 	src := `import std::io
 
-fn block(xs: List<Maybe<Int>>) {
-    Iter.each(xs, fn m -> {
-        Some(v) = m else { return }
+fn block(xs: List<Maybe<Int>>)
+    Iter.each(xs, fn m ->
+        Some(v) = m else
+            return
+        end
         io.inspect(v)
-    })
-}
+    end)
+end
 
-fn statements(xs: List<Maybe<Int>>) {
-    Iter.each(xs, fn m -> {
-        Some(v) = m else {
+fn statements(xs: List<Maybe<Int>>)
+    Iter.each(xs, fn m ->
+        Some(v) = m else
             io.print("none")
             return
-        }
+        end
         io.inspect(v)
-    })
-}
+    end)
+end
 
-fn arms(xs: List<Result<Int, String>>) {
-    Iter.each(xs, fn r -> {
-        Ok(v) = r else {
-            Err(e) -> {
+fn arms(xs: List<Result<Int, String>>)
+    Iter.each(xs, fn r ->
+        Ok(v) = r else
+            Err(e) ->
                 io.print(e)
                 return
-            }
-        }
+        end
         io.inspect(v)
-    })
-}
+    end)
+end
 
-fn named() {
-    show = fn m: Maybe<String> -> {
-        Some(s) = m else { return }
+fn named()
+    show = fn m: Maybe<String> ->
+        Some(s) = m else
+            return
+        end
         io.print(s)
-    }
+    end
     show(None)
-}
+end
 
-fn nested(rows: List<List<Maybe<Int>>>) {
-    Iter.each(rows, fn row -> {
-        Iter.each(row, fn m -> {
-            Some(v) = m else { return }
+fn nested(rows: List<List<Maybe<Int>>>)
+    Iter.each(rows, fn row ->
+        Iter.each(row, fn m ->
+            Some(v) = m else
+                return
+            end
             io.inspect(v)
-        })
-    })
-}
+        end)
+    end)
+end
 
-fn main() {
+fn main()
     block([Some(1), None])
     statements([None])
     arms([Err("e")])
     named()
     nested([[Some(2)]])
-}
+end
 `
 	if declines := irDeclinesOf(t, src); len(declines) != 0 {
 		t.Fatalf("declined: %v", declines)
@@ -169,71 +178,71 @@ func TestBindingElse_ATrapEndsALeavingElse(t *testing.T) {
 	}
 	verifyLambdaProgram(t, `import std::io
 
-fn pair(xs: List<Int>) -> Int {
-    [a, b, ..] = xs else {
+fn pair(xs: List<Int>) -> Int
+    [a, b, ..] = xs else
         io.print("short list")
         unreachable "callers pass two or more"
-    }
+    end
 
     a * b
-}
+end
 
-fn vec(xs: Vector<Int>) -> Int {
-    #[a, b, ..] = xs else {
+fn vec(xs: Vector<Int>) -> Int
+    [a, b, ..] = xs else
         todo
-    }
+    end
 
     a + b
-}
+end
 
-fn arms(r: Result<(Int, Int), String>) -> Int {
-    Ok((a, b)) = r else {
+fn arms(r: Result<(Int, Int), String>) -> Int
+    Ok((a, b)) = r else
         Err("skip") -> return 0
         Err(_) -> unreachable "only skip fails"
-    }
+    end
 
     a - b
-}
+end
 
-fn looped(rows: List<List<Int>>) -> Int {
+fn looped(rows: List<List<Int>>) -> Int
     (_, sum) = Iter.loop(
         (rows, 0),
-        fn (left, total) -> {
-            [row, ..rest] = left else {
+        fn (left, total) ->
+            [row, ..rest] = left else
                 break (left, total)
-            }
+            end
 
-            [a, b] = row else {
+            [a, b] = row else
                 unreachable "rows have two cells"
-            }
+            end
 
             return (rest, total + a + b)
-        },
+        end,
     )
 
     sum
-}
+end
 
-fn sums(rows: List<List<Int>>) -> List<Int> {
+fn sums(rows: List<List<Int>>) -> List<Int>
     rows
-    |> Iter.map(fn row -> {
-        [a, b] = row else {
+    |> Iter.map(fn row ->
+        [a, b] = row else
             unreachable "rows have two cells"
-        }
+        end
 
         a + b
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
     io.inspect(pair([3, 4, 5]))
-    io.inspect(vec(#[1, 2]))
+    io.inspect(vec(Vector[1, 2]))
     io.inspect(arms(Ok((9, 2))))
     io.inspect(arms(Err("skip")))
     io.inspect(looped([[1, 2], [3, 4]]))
     io.inspect(sums([[1, 2], [3, 4]]))
-}
+end
 `, "12\n3\n7\n0\n10\n[3, 7]\n")
 }
 
@@ -245,18 +254,18 @@ func TestBindingElse_ATrapInALeavingElseTraps(t *testing.T) {
 	}
 	verifyIterFault(t, `import std::io
 
-fn pair(xs: List<Int>) -> Int {
-    [a, b, ..] = xs else {
+fn pair(xs: List<Int>) -> Int
+    [a, b, ..] = xs else
         io.print("short list")
         unreachable "callers pass two or more"
-    }
+    end
 
     a * b
-}
+end
 
-fn main() {
+fn main()
     io.inspect(pair([1]))
-}
+end
 `, "line 6: unreachable: callers pass two or more", "short list\n")
 }
 
@@ -265,21 +274,21 @@ func TestBindingElse_ATrapEndsALeavingElseInATest(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	out := irTestBodyVM(t, `test "binds two names" {
-    [a, b, ..] = [1, 2, 3] else {
+	out := irTestBodyVM(t, `test "binds two names"
+    [a, b, ..] = [1, 2, 3] else
         unreachable "the list has three"
-    }
+    end
 
     assert a + b == 3
-}
+end
 
-test "traps" {
-    #[a, b] = #[1] else {
+test "traps"
+    [a, b] = Vector[1] else
         todo
-    }
+    end
 
     assert a == b
-}
+end
 `, 2)
 	for _, want := range []string{"control_test.nomi :: binds two names\n", "FAIL ", "control_test.nomi :: traps\n", "todo reached at"} {
 		if !strings.Contains(out, want) {

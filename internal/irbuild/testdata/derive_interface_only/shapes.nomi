@@ -4,10 +4,10 @@
 // this file naming them.
 import std::json.{FromJson, ToJson}
 
-pub struct Point {
+pub struct Point
     x: Int
     y: Int
-}
+end
 
 derive Equatable for Point
 derive Hashable for Point
@@ -16,19 +16,19 @@ derive Display for Point
 derive ToJson for Point
 derive FromJson for Point
 
-pub enum Shape {
+pub enum Shape
     Dot
     Circle Int
     Pair (Int, Int)
     Box {w: Int, h: Int}
-}
+end
 
 derive ToJson for Shape
 
-pub struct Tagged {
+pub struct Tagged
     name: String
     count: Int = 3
-}
+end
 
 derive ToJson for Tagged
 derive FromJson for Tagged

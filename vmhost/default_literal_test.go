@@ -24,29 +24,29 @@ func TestSiblingDefault_ATypedLiteralTheCallerCannotName(t *testing.T) {
 		"nomi.toml": "[module]\nname = \"demo\"\nentry_points = [\"main\"]\n",
 		"links.nomi": `import std::url.Url
 
-pub struct Box {
+pub struct Box
     base: Url
-}
+end
 
-impl Box {
-    pub fn new(base: Url = Url` + "`https://a.test/`" + `) -> Box {
-        Box{base}
-    }
-}
+impl Box
+    pub fn new(base: Url = Url` + "`https://a.test/`" + `) -> Box
+        Box{base:}
+    end
+end
 
-pub fn link(name: String, base: Url = Url` + "`https://b.test/`" + `) -> String {
+pub fn link(name: String, base: Url = Url` + "`https://b.test/`" + `) -> String
     "${Url.join_path(base, [name])}"
-}
+end
 `,
-		"main.nomi": `import {
+		"main.nomi": `import
     std::io
     links.{self, Box}
-}
+end
 
-fn main() {
+fn main()
     io.print("${Box.new().base}")
     io.print(links.link("x"))
-}
+end
 `,
 	}
 	for name, src := range files {

@@ -8,22 +8,22 @@
 // alphabetical order, so declaration order and sorted order differ.
 import std::io
 
-fn main() {
+fn main()
     type Token String
     type Coord (Int, Int)
     type Items List<Int>
 
-    struct Pt {
+    struct Pt
         y: Int
         x: Int
         tok: Token
-    }
+    end
 
-    enum Shape {
+    enum Shape
         Dot
         Circle Float
         Rect {w: Int, h: Int}
-    }
+    end
 
     io.print(Debug.inspect(Token("x")))
     io.print(Debug.inspect(Coord(1, 2)))
@@ -37,14 +37,14 @@ fn main() {
     io.inspect(Token("i"))
     _ = dbg Token("d")
     io.print(second())
-}
+end
 
 // A second `Pt` in another body, with another field set: each renders
 // through its own declaration's impl.
-fn second() -> String {
-    struct Pt {
+fn second() -> String
+    struct Pt
         name: String
-    }
+    end
 
     Debug.inspect(Pt{name: "second"})
-}
+end

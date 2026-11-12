@@ -28,28 +28,28 @@
 //# ```nomi
 //# import std::literals.{Fragment, Literal}
 //#
-//# pub struct Box {
+//# pub struct Box
 //#     contents: String
-//# }
+//# end
 //#
-//# impl Literal for Box {
-//#     fn from_fragments(fragments: List<Fragment<String>>) -> Box {
-//#         body = Iter.reduce(fragments, "", fn acc, frag -> {
-//#             case frag {
+//# impl Literal for Box
+//#     fn from_fragments(fragments: List<Fragment<String>>) -> Box
+//#         body = Iter.reduce(fragments, "", fn acc, frag ->
+//#             case frag
 //#                 .Static(s) -> acc + s
 //#                 .Dynamic(v) -> acc + v
-//#             }
-//#         })
+//#             end
+//#         end)
 //#
 //#         Box{contents: body}
-//#     }
-//# }
+//#     end
+//# end
 //# ```
 //#
 //# Then `Box"hello ${name}"` is a `Box`. The full rules, including which
 //# module may write these impls, are in spec §18 *Typed literals*.
 
-import {
+import
     display.Display
     equatable.Equatable
     int.Int
@@ -57,7 +57,7 @@ import {
     results.Result
     strings.String
     unit.Unit
-}
+end
 
 /// One piece of a typed literal's text: a `Static` run of source text
 /// between slots, or a `Dynamic` value from a `${...}` slot. The list a
@@ -66,10 +66,10 @@ import {
 /// `[Static("a "), Dynamic(x), Static("")]`. A backtick literal is one
 /// `Static`. Programs rarely build a `Fragment` themselves; the literal's
 /// syntax builds the list, and a handler matches on it.
-pub enum Fragment<T> {
+pub enum Fragment<T>
     Static String
     Dynamic T
-}
+end
 
 /// The handler behind a typed literal. `T"..."` is a call of
 /// `T.from_fragments(fragments)`. `I` is what each `${...}` slot's value
@@ -85,15 +85,15 @@ pub enum Fragment<T> {
 /// runs.
 ///
 /// ```nomi
-/// impl Literal for Date {
-///     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Date, Error> {
+/// impl Literal for Date
+///     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Date, Error>
 ///         ...
-///     }
-/// }
+///     end
+/// end
 /// ```
-pub interface Literal<I, R> {
+pub interface Literal<I, R>
     fn from_fragments(fragments: List<Fragment<I>>) -> R
-}
+end
 
 /// The handler behind a checked literal: a typed literal that is a `T` in
 /// every quote style, slots included, never a `Result`.
@@ -105,8 +105,8 @@ pub interface Literal<I, R> {
 ///   (output, files, the clock, tasks, an application field).
 /// - `check_type` is what the compiler runs, in `check`'s place: the same
 ///   statics, and a description of the literal's type: each of its type
-///   arguments as Nomi spells it, in order. A `Route<.{id: Uuid}>` literal
-///   gets `[".{id: Uuid}"]`, a `Url` one `[]`. The description is text,
+///   arguments as Nomi spells it, in order. A `Route<{id: Uuid}>` literal
+///   gets `["{id: Uuid}"]`, a `Url` one `[]`. The description is text,
 ///   not the types themselves, which no value holds. Its default is `check(statics)`, so a type
 ///   whose text need not agree with its type arguments writes only
 ///   `check`.
@@ -119,28 +119,25 @@ pub interface Literal<I, R> {
 /// A type implements `Literal` or `CheckedLiteral`, never both.
 ///
 /// ```nomi
-/// impl CheckedLiteral<Display, Url> for Url {
-///     fn check(statics: List<String>) -> Result<Unit, LiteralError> {
+/// impl CheckedLiteral<Display, Url> for Url
+///     fn check(statics: List<String>) -> Result<Unit, LiteralError>
 ///         ...
-///     }
+///     end
 ///
-///     fn build(fragments: List<Fragment<Display>>) -> Url {
+///     fn build(fragments: List<Fragment<Display>>) -> Url
 ///         ...
-///     }
-/// }
+///     end
+/// end
 /// ```
-pub interface CheckedLiteral<I, T> {
+pub interface CheckedLiteral<I, T>
     fn check(statics: List<String>) -> Result<Unit, LiteralError>
 
-    open fn check_type(
-        statics: List<String>,
-        arguments: List<String>,
-    ) -> Result<Unit, LiteralError> {
+    open fn check_type(statics: List<String>, arguments: List<String>) -> Result<Unit, LiteralError>
         _ = arguments
         check(statics)
-    }
+    end
     fn build(fragments: List<Fragment<I>>) -> T
-}
+end
 
 /// Why `CheckedLiteral.check` refused a literal's text, and where.
 /// `fragment` is the index of the static the problem is in, and `offset`
@@ -151,17 +148,17 @@ pub interface CheckedLiteral<I, T> {
 //! e = LiteralError{fragment: 1, offset: 4, message: "a slot cannot go here"}
 //! assert "${e}" == "a slot cannot go here"
 //
-pub struct LiteralError {
+pub struct LiteralError
     fragment: Int
     offset: Int
     message: String
-}
+end
 
 derive Equatable for LiteralError
 
-impl Display for LiteralError {
-    fn to_string(error: LiteralError) -> String {
+impl Display for LiteralError
+    fn to_string(error: LiteralError) -> String
         error.message
-    }
-}
+    end
+end
 

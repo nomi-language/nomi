@@ -23,78 +23,78 @@ func TestAwaitCancelledTask_PropagatesTheCancellation(t *testing.T) {
 		name, src, stdout string
 		fails             bool
 	}{
-		{"await on the main line", `import {
+		{"await on the main line", `import
   std::duration.Duration
   std::io
   std::tasks.Task
   std::timer
-}
+end
 
-fn main() {
-  concurrent {
-    t = Task.spawn(fn -> {
+fn main()
+  concurrent
+    t = Task.spawn(fn ->
       timer.sleep(Duration.seconds(5))
       1
-    })
+    end)
     Task.cancel(t)
     v = Task.await(t)
     io.print("awaited ${v}")
-  }
+  end
   io.print("after")
-}
+end
 `, "", true},
-		{"await_all under a live deadline", `import {
+		{"await_all under a live deadline", `import
   std::duration.Duration
   std::io
   std::tasks.Task
   std::timer
-}
+end
 
-fn main() {
+fn main()
   with Run.context = Context.with_timeout(Run.context, Duration.seconds(30))
-  xs = concurrent {
-    a = Task.spawn(fn -> {
+  xs = concurrent
+    a = Task.spawn(fn ->
       timer.sleep(Duration.seconds(5))
       1
-    })
+    end)
     Task.cancel(a)
     Task.await_all([a])
-  }
+  end
   io.print("after ${xs}")
-}
-struct Run {
+end
+struct Run
   context: Context
-}
+end
 
-fn boot() -> Result<Run, String> {
+fn boot() -> Result<Run, String>
   Ok(Run{context: Context.root()})
-}
+end
 `, "", true},
-		{"await inside a task", `import {
+		{"await inside a task", `import
   std::duration.Duration
   std::tasks.Task
   std::timer
-}
+end
 
-fn inner() -> Int {
-  concurrent {
-    t = Task.spawn(fn -> {
+fn inner() -> Int
+  concurrent
+    t = Task.spawn(fn ->
       timer.sleep(Duration.seconds(5))
       1
-    })
+    end)
     Task.cancel(t)
     Task.await(t)
-  }
-}
+  end
+end
 
-fn main() {
-  outcome = concurrent {
+fn main()
+  outcome = concurrent
     o = Task.spawn(fn -> inner())
     Task.outcome(o)
-  }
+  end
   dbg outcome
   Unit
-}
+end
 `, "dbg line 23: outcome = Cancelled\n", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

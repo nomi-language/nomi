@@ -17,102 +17,102 @@ func TestRun_SetupValuesTestsBind(t *testing.T) {
 	const name = "main_test.nomi"
 	p, err := vmhost.LoadSource(name, `import std::io
 
-fn flag() -> Bool {
+fn flag() -> Bool
   False
-}
+end
 
-group "asserted" {
-  setup {
+group "asserted"
+  setup begin
     io.print("setup a")
     assert 1 == 1
-  }
+  end
 
-  test "binds", v {
+  test "binds", v
     assert v
-  }
+  end
 
-  test "binds nothing" {
+  test "binds nothing"
     assert True
-  }
+  end
 
-  test "discards", _ {
+  test "discards", _
     assert True
-  }
-}
+  end
+end
 
-group "printed" {
+group "printed"
   setup io.print("setup b")
 
-  test "binds", u {
+  test "binds", u
     x = io.print("x")
     assert u == x
-  }
-}
+  end
+end
 
-group "statement" {
-  setup {
+group "statement"
+  setup begin
     io.print("setup c")
-  }
+  end
 
-  test "binds", w {
+  test "binds", w
     assert w == Unit
-  }
-}
+  end
+end
 
-group "maybe subject" {
-  setup {
+group "maybe subject"
+  setup begin
     assert Some(2)
-  }
+  end
 
-  test "binds the subject", m {
+  test "binds the subject", m
     assert m == Some(2)
-  }
-}
+  end
+end
 
-group "failing tail" {
-  setup {
+group "failing tail"
+  setup begin
     assert flag()
-  }
+  end
 
-  test "never runs its body", v {
+  test "never runs its body", v
     io.print("unreachable")
     assert v
-  }
-}
+  end
+end
 
-group "returning" {
-  setup {
-    if flag() {
+group "returning"
+  setup begin
+    if flag() then
       return False
-    }
+    end
     refute flag()
-  }
+  end
 
-  test "binds the refuted value", v {
+  test "binds the refuted value", v
     refute v
-  }
-}
+  end
+end
 
-group "returning unit" {
-  setup {
-    if flag() {
+group "returning unit"
+  setup begin
+    if flag() then
       return
-    }
+    end
     io.print("setup d")
-  }
+  end
 
-  test "binds unit", u {
+  test "binds unit", u
     assert u == Unit
-  }
-}
+  end
+end
 
-group "empty" {
-  setup {}
+group "empty"
+  setup begin end
 
-  test "binds unit", u {
+  test "binds unit", u
     assert u == Unit
-  }
-}
+  end
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the tests: %v", err)

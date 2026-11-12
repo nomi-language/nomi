@@ -59,21 +59,21 @@ func withoutUnreadParams(errs []analysis.TypeError) []analysis.TypeError {
 }
 
 func TestReservedName_OrderingRedeclaredHasNoFollowOnMismatch(t *testing.T) {
-	src := `enum Ordering {
+	src := `enum Ordering
   Less
   Equal
   Greater
-}
+end
 
-struct T {
+struct T
   a: Int
-}
+end
 
-impl Comparable for T {
-  fn compare(_a: T, _b: T) -> Ordering {
+impl Comparable for T
+  fn compare(_a: T, _b: T) -> Ordering
     Ordering.Equal
-  }
-}
+  end
+end
 `
 	errs := reservedNamesCheckAll(t, src)
 	reserved, rest := reservedDiagnosticFor(t, errs, "Ordering")
@@ -88,15 +88,15 @@ impl Comparable for T {
 // The declared return type and the `Ordering.Equal` in the body resolve to
 // the same declaration, and it is the one the scope slot holds: std's.
 func TestReservedName_TypeAndExpressionPositionsResolveToOneDeclaration(t *testing.T) {
-	src := `enum Ordering {
+	src := `enum Ordering
   Less
   Equal
   Greater
-}
+end
 
-fn f() -> Ordering {
+fn f() -> Ordering
   Ordering.Equal
-}
+end
 `
 	fa, _ := reservedNamesFA(t, src)
 	slot := fa.ModuleScope.Lookup("Ordering")
@@ -136,11 +136,11 @@ fn f() -> Ordering {
 // type. Pass 2 of BuildTypes once looked the type up by NAME, which for a
 // declaration that lost its slot is std's own type.
 func TestReservedName_RedeclarationDoesNotReshapeStdType(t *testing.T) {
-	src := `enum Maybe<T> {
+	src := `enum Maybe<T>
   Some T
   None
   Extra
-}
+end
 `
 	fa, _ := reservedNamesFA(t, src)
 	slot := fa.ModuleScope.Lookup("Maybe")
@@ -168,43 +168,43 @@ func TestReservedName_PreludeTypesResolveOneWay(t *testing.T) {
 		name string
 		src  string
 	}{
-		{"Maybe", `enum Maybe<T> {
+		{"Maybe", `enum Maybe<T>
   Some T
   None
-}
+end
 
-fn some() -> Maybe<Int> {
+fn some() -> Maybe<Int>
   Maybe.Some(1)
-}
+end
 
-fn none() -> Maybe<Int> {
+fn none() -> Maybe<Int>
   Maybe.None
-}
+end
 `},
-		{"Result", `enum Result<T, E> {
+		{"Result", `enum Result<T, E>
   Ok T
   Err E
-}
+end
 
-fn ok() -> Result<Int, String> {
+fn ok() -> Result<Int, String>
   Result.Ok(1)
-}
+end
 `},
-		{"List", `struct List {
+		{"List", `struct List
   x: Int
-}
+end
 
-fn f(xs: List<Int>) -> List<Int> {
+fn f(xs: List<Int>) -> List<Int>
   xs
-}
+end
 `},
-		{"Ordering", `struct Ordering {
+		{"Ordering", `struct Ordering
   x: Int
-}
+end
 
-fn f() -> Ordering {
+fn f() -> Ordering
   Ordering.Less
-}
+end
 `},
 	}
 	for _, tc := range cases {
@@ -221,7 +221,7 @@ fn f() -> Ordering {
 // either: typed against the type the name does mean, it reported an arity
 // error at `struct List` about a declaration the user never wrote.
 func TestReservedName_DeclarationSiteHasOnlyTheReservation(t *testing.T) {
-	errs := reservedNamesCheckAll(t, "struct List {\n  x: Int\n}\n")
+	errs := reservedNamesCheckAll(t, "struct List\n  x: Int\nend\n")
 	_, rest := reservedDiagnosticFor(t, errs, "List")
 	if len(rest) != 0 {
 		t.Errorf("a declaration of a prelude name reported more than the reservation: %v", rest)
@@ -232,30 +232,30 @@ func TestReservedName_DeclarationSiteHasOnlyTheReservation(t *testing.T) {
 // another file also declares, and reach the other one through its file API
 // object. The two names are two declarations, each named one way.
 func TestReservedName_OrdinaryShadowingOfAnImportedFileStillWorks(t *testing.T) {
-	shapes := `pub enum Level {
+	shapes := `pub enum Level
   Low
   High
-}
+end
 
-pub fn low() -> Level {
+pub fn low() -> Level
   Level.Low
-}
+end
 `
 	src := `import shapes
 
-enum Level {
+enum Level
   Low
   Mid
   High
-}
+end
 
-fn mine() -> Level {
+fn mine() -> Level
   Level.Mid
-}
+end
 
-fn theirs() -> shapes.Level {
+fn theirs() -> shapes.Level
   shapes.low()
-}
+end
 `
 	fa, errs := checkProjectWithFiles(t, src, map[string]string{"shapes.nomi": shapes})
 	if len(errs) != 0 {
@@ -274,17 +274,17 @@ fn theirs() -> shapes.Level {
 // A selective import of a name the file also declares is still rejected, and
 // with the redeclaration message rather than anything about resolution.
 func TestReservedName_SelectiveImportCollisionStillRejected(t *testing.T) {
-	shapes := "pub enum Level {\n  Low\n  High\n}\n"
+	shapes := "pub enum Level\n  Low\n  High\nend\n"
 	src := `import shapes.{Level}
 
-enum Level {
+enum Level
   Low
   Mid
-}
+end
 
-fn mine() -> Level {
+fn mine() -> Level
   Level.Mid
-}
+end
 `
 	_, errs := checkProjectWithFiles(t, src, map[string]string{"shapes.nomi": shapes})
 	var found bool

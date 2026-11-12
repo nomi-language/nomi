@@ -11,33 +11,33 @@ func TestIRVectorOfIters_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Circle {
+struct Circle
     r: Int
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Dot
-}
+end
 
-fn total(it: Iter<Shape>) -> Int {
+fn total(it: Iter<Shape>) -> Int
     it
-        |> Iter.map(fn s -> case s {
-            Shape.Circle{r} -> r
+        |> Iter.map(fn s -> case s
+            Shape.Circle{r:} -> r
             Shape.Dot -> 100
-        })
+        end)
         |> Iter.reduce(0, fn acc, n -> acc + n)
-}
+end
 
-fn main() {
+fn main()
     c = Circle{r: 2}
-    v: Vector<Iter<Shape>> = #[[c], [Shape.Dot, c]]
+    v: Vector<Iter<Shape>> = Vector[[c], [Shape.Dot, c]]
     io.print(Vector.length(v))
     io.inspect(v |> Iter.map(fn s -> total(s)) |> Iter.to_list())
-    w: Vector<Iter<Int>> = #[[1, 2], [3]]
+    w: Vector<Iter<Int>> = Vector[[1, 2], [3]]
     io.print(Iter.count(w))
     io.inspect(w |> Iter.map(fn s -> Iter.to_list(s)) |> Iter.to_list())
-}
+end
 `
 	irRunSource(t, src, "2\n[2, 102]\n2\n[[1, 2], [3]]\n")
 }

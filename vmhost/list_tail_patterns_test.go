@@ -10,54 +10,54 @@ import "testing"
 func TestListPatternWithTails_Runs(t *testing.T) {
 	got := runOutput(t, `import std::io
 
-fn shape(xs: List<Int>) -> String {
-    case xs {
+fn shape(xs: List<Int>) -> String
+    case xs
         [] -> "empty"
         [only] -> "one ${only}"
         [first, ..mid, last] -> "first ${first}, mid ${mid}, last ${last}"
-    }
-}
+    end
+end
 
-fn ends(xs: List<Int>) -> String {
-    case xs {
+fn ends(xs: List<Int>) -> String
+    case xs
         [1, .., 9] -> "one to nine"
         [.., 9] -> "ends in nine"
         [a, b, .., y, z] -> "${a} ${b} .. ${y} ${z}"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn last_two(xs: List<Int>) -> String {
-    [.., a, b] = xs else {
+fn last_two(xs: List<Int>) -> String
+    [.., a, b] = xs else
         return "short"
-    }
+    end
     "${a} ${b}"
-}
+end
 
-fn body(lines: List<String>) -> String {
-    ["graph {", ..inner, "}"] = lines else {
+fn body(lines: List<String>) -> String
+    ["graph {", ..inner, "}"] = lines else
         return "not a graph"
-    }
+    end
     String.join(inner, "|")
-}
+end
 
-fn pairs(xs: List<(String, Int)>) -> String {
-    case xs {
+fn pairs(xs: List<(String, Int)>) -> String
+    case xs
         [(k, _), .., (_, v)] -> "${k} ${v}"
         _ -> "none"
-    }
-}
+    end
+end
 
-fn main() {
-    Iter.each([[], [1], [1, 2], [1, 2, 3, 4, 5]], fn xs -> {
+fn main()
+    Iter.each([[], [1], [1, 2], [1, 2, 3, 4, 5]], fn xs ->
         io.print(shape(xs))
-    })
-    Iter.each([[], [9], [1, 9], [1, 5, 9], [2, 9], [1, 2, 3, 4], [1, 2, 3]], fn xs -> {
+    end)
+    Iter.each([[], [9], [1, 9], [1, 5, 9], [2, 9], [1, 2, 3, 4], [1, 2, 3]], fn xs ->
         io.print(ends(xs))
-    })
-    Iter.each([[], [1], [1, 2], [1, 2, 3, 4]], fn xs -> {
+    end)
+    Iter.each([[], [1], [1, 2], [1, 2, 3, 4]], fn xs ->
         io.print(last_two(xs))
-    })
+    end)
     io.print(body(["graph {", "a -- b", "b -- c", "}"]))
     io.print(body(["graph {", "}"]))
     io.print(body(["graph {"]))
@@ -65,7 +65,7 @@ fn main() {
     io.print(pairs([("a", 1), ("b", 2), ("c", 3)]))
     io.print(pairs([("a", 1)]))
     io.print(pairs([]))
-}
+end
 `)
 	want := "empty\none 1\nfirst 1, mid [], last 2\nfirst 1, mid [2, 3, 4], last 5\n" +
 		"other\nends in nine\none to nine\none to nine\nends in nine\n1 2 .. 3 4\nother\n" +

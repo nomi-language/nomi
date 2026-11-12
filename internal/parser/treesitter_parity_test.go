@@ -286,81 +286,88 @@ func parityInputs(t *testing.T) []parityInput {
 // lineBreakInputs end a statement at a line break before a line that could
 // continue it if the break were whitespace. The lexer ends a statement at a
 // line break after a token that can end one, unless the next line starts with
-// `|>`, `)` or `]`, and the parser steps over the break only before `else`
-// and, in a declaration's signature, before `{` and `where`.
+// `|>`, `)`, `]`, `where` or a binary operator, and a line that starts with
+// `else` or `end` closes the body above it.
 var lineBreakInputs = []parityInput{
-	{"minus", "fn main() {\n    x = a\n    -1\n}\n"},
-	{"or pattern broken after its or", "fn main() {\n    case n {\n        1 or\n            2 -> 0\n        _ -> 1\n    }\n}\n"},
-	{"paren after a name", "fn main() {\n    x = f\n    (2)\n}\n"},
-	{"paren after a call", "fn main() {\n    x = f(1)\n    (2)\n}\n"},
-	{"tuple after a destructure", "fn main() {\n    (a, b) = f()\n    (a, b)\n}\n"},
-	{"tuple destructure after an unwrap", "fn main() {\n    x = f()!\n    (a, b) = x\n}\n"},
-	{"lambda tuple parameter and annotations", "fn main() {\n    f = fn (a, b) -> a\n    g = fn p: (Int, Int) -> p.first\n    h = fn p: (Int, Int) -> { p.second }\n    k = fn q: (Int) -> Int -> q(1)\n    m = fn r: ((Int, Int)) -> Int, x -> r((x, x))\n}\n"},
-	{"bracket after a type name", "fn main() {\n    x = Foo\n    [1, 2]\n}\n"},
-	{"bracket after a variant", "fn main() {\n    x = .None\n    [1]\n}\n"},
-	{"bracket after a name", "fn main() {\n    x = xs\n    [1, 2]\n}\n"},
-	{"dot field", "fn main() {\n    x = a\n    .b\n}\n"},
-	{"dot variant", "fn main() {\n    x = a\n    .Some\n}\n"},
-	{"not", "fn main() {\n    x = a\n    not c\n}\n"},
-	{"string after a type name", "fn main() {\n    x = Foo\n    \"s\"\n}\n"},
-	{"brace after a type name", "fn main() {\n    x = Foo\n    .{a: 1}\n}\n"},
-	{"named struct after a name", "fn main() {\n    x = a\n    Point{x: 1}\n}\n"},
-	{"vector after a name", "fn main() {\n    x = xs\n    #[1, 2]\n}\n"},
-	{"map after a name", "fn main() {\n    x = a\n    %{1 => 2}\n}\n"},
-	{"set after a name", "fn main() {\n    x = a\n    %[1]\n}\n"},
-	{"block after a name", "fn main() {\n    x = a\n    {\n        b\n    }\n}\n"},
-	{"block after a type name", "fn main() {\n    x = Foo\n    {\n        b\n    }\n}\n"},
-	{"number", "fn main() {\n    x = a\n    1\n}\n"},
-	{"name", "fn main() {\n    x = a\n    b\n}\n"},
-	{"minus after a float", "fn main() {\n    x = 1.5\n    -1\n}\n"},
-	{"minus after a string", "fn main() {\n    x = \"a\"\n    -1\n}\n"},
-	{"minus after an if", "fn main() {\n    x = if c { a } else { b }\n    -1\n}\n"},
-	{"paren after an if", "fn main() {\n    x = if c { a } else { b }\n    (1)\n}\n"},
-	{"minus after a pipe", "fn main() {\n    x = a |> f\n    -1\n}\n"},
-	{"minus after a typed binding", "fn main() {\n    x: Int = a\n    -1\n}\n"},
-	{"minus after a trailing comment", "fn main() {\n    x = a // c\n    -1\n}\n"},
-	{"minus after a comment line", "fn main() {\n    x = a\n    // c\n    -1\n}\n"},
-	{"minus in a lambda block", "fn main() {\n    f = fn x -> {\n        x\n        -1\n    }\n}\n"},
-	{"minus after a lambda", "fn main() {\n    f = fn x -> x\n    -1\n}\n"},
-	{"minus in a case arm block", "fn main() {\n    case n {\n        1 -> {\n            a\n            -1\n        }\n        _ -> 0\n    }\n}\n"},
-	{"tuple pattern arm", "fn main() {\n    case n {\n        1 -> f\n        (x, y) -> b\n    }\n}\n"},
-	{"negative guard arm", "fn main() {\n    case {\n        a -> b\n        -1 == c -> d\n    }\n}\n"},
-	{"list pattern else arm", "fn main() {\n    Ok(v) = r else {\n        Err(e) -> Foo\n        [a] -> g\n    }\n}\n"},
-	{"minus in a test", "test \"t\" {\n    x = a\n    -1\n    assert x\n}\n"},
-	{"minus in a setup", "group \"g\" {\n    setup {\n        x = a\n        -1\n    }\n\n    test \"t\", v {\n        assert v\n    }\n}\n"},
-	{"minus in a concurrent block", "fn main() {\n    concurrent {\n        x = a\n        -1\n    }\n}\n"},
+	{"minus", "fn main()\n    x = a\n    -1\nend\n"},
+	{"or pattern broken after its or", "fn main()\n    case n\n        1 or\n            2 -> 0\n        _ -> 1\n    end\nend\n"},
+	{"paren after a name", "fn main()\n    x = f\n    (2)\nend\n"},
+	{"paren after a call", "fn main()\n    x = f(1)\n    (2)\nend\n"},
+	{"tuple after a destructure", "fn main()\n    (a, b) = f()\n    (a, b)\nend\n"},
+	{"tuple destructure after an unwrap", "fn main()\n    x = f()!\n    (a, b) = x\nend\n"},
+	{"lambda tuple parameter and annotations", "fn main()\n    f = fn (a, b) -> a\n    g = fn p: (Int, Int) -> p.first\n    h = fn p: (Int, Int) -> p.second\n    k = fn q: (Int) -> Int -> q(1)\n    m = fn r: ((Int, Int)) -> Int, x -> r((x, x))\nend\n"},
+	{"bracket after a type name", "fn main()\n    x = Foo\n    [1, 2]\nend\n"},
+	{"bracket after a variant", "fn main()\n    x = .None\n    [1]\nend\n"},
+	{"bracket after a name", "fn main()\n    x = xs\n    [1, 2]\nend\n"},
+	{"dot field", "fn main()\n    x = a\n    .b\nend\n"},
+	{"dot variant", "fn main()\n    x = a\n    .Some\nend\n"},
+	{"not", "fn main()\n    x = a\n    not c\nend\n"},
+	{"string after a type name", "fn main()\n    x = Foo\n    \"s\"\nend\n"},
+	{"brace after a type name", "fn main()\n    x = Foo\n    {a: 1}\nend\n"},
+	{"named struct after a name", "fn main()\n    x = a\n    Point{x: 1}\nend\n"},
+	{"vector after a name", "fn main()\n    x = xs\n    Vector[1, 2]\nend\n"},
+	{"map after a name", "fn main()\n    x = a\n    {1 => 2}\nend\n"},
+	{"set after a name", "fn main()\n    x = a\n    Set[1]\nend\n"},
+	{"block after a name", "fn main()\n    x = a\n    begin\n        b\n    end\nend\n"},
+	{"block after a type name", "fn main()\n    x = Foo\n    begin\n        b\n    end\nend\n"},
+	{"number", "fn main()\n    x = a\n    1\nend\n"},
+	{"name", "fn main()\n    x = a\n    b\nend\n"},
+	{"minus after a float", "fn main()\n    x = 1.5\n    -1\nend\n"},
+	{"minus after a string", "fn main()\n    x = \"a\"\n    -1\nend\n"},
+	{"minus after an if", "fn main()\n    x = if c then a else b\n    -1\nend\n"},
+	{"paren after an if", "fn main()\n    x = if c then a else b\n    (1)\nend\n"},
+	{"minus after a pipe", "fn main()\n    x = a |> f\n    -1\nend\n"},
+	{"minus after a typed binding", "fn main()\n    x: Int = a\n    -1\nend\n"},
+	{"minus after a trailing comment", "fn main()\n    x = a // c\n    -1\nend\n"},
+	{"minus after a comment line", "fn main()\n    x = a\n    // c\n    -1\nend\n"},
+	{"minus in a lambda block", "fn main()\n    f = fn x ->\n        x\n        -1\n    end\nend\n"},
+	{"minus after a lambda", "fn main()\n    f = fn x -> x\n    -1\nend\n"},
+	{"minus in a case arm block", "fn main()\n    case n\n        1 ->\n            a\n            -1\n        _ -> 0\n    end\nend\n"},
+	{"tuple pattern arm", "fn main()\n    case n\n        1 -> f\n        (x, y) -> b\n    end\nend\n"},
+	{"negative guard arm", "fn main()\n    case\n        a -> b\n        -1 == c -> d\n    end\nend\n"},
+	{"list pattern else arm", "fn main()\n    Ok(v) = r else\n        Err(e) -> Foo\n        [a] -> g\n    end\nend\n"},
+	{"minus in a test", "test \"t\"\n    x = a\n    -1\n    assert x\nend\n"},
+	{"minus in a setup", "group \"g\"\n    setup begin\n        x = a\n        -1\n    end\n\n    test \"t\", v\n        assert v\n    end\nend\n"},
+	{"minus in a concurrent block", "fn main()\n    concurrent\n        x = a\n        -1\n    end\nend\n"},
 	{"minus after a once", "once x = a\n-1\n"},
 	{"minus at the top level", "x = a\n-1\n"},
-	{"minus on a prompt line", "//! x = a\n//! -1\n//! assert x\nfn f() {\n}\n"},
-	{"minus after assert", "fn main() {\n    assert a\n    -1\n}\n"},
-	{"minus after with", "fn main() {\n    with App.x = a\n    -1\n}\n"},
-	{"paren after defer", "fn main() {\n    defer f()\n    (1)\n}\n"},
-	{"paren after return", "fn main() {\n    return a\n    (1)\n}\n"},
-	{"minus after break", "fn main() {\n    break a\n    -1\n}\n"},
-	{"minus after dbg", "fn main() {\n    x = dbg a\n    -1\n}\n"},
-	{"minus after continue", "fn main() {\n    continue\n    -1\n}\n"},
-	{"variant pattern binding", "fn main() {\n    Day(n) = d\n    n\n}\n"},
-	{"semicolons", "fn main() {\n    x = 1; y = 2;\n    x + y\n}\n"},
+	{"minus on a prompt line", "//! x = a\n//! -1\n//! assert x\nfn f() end\n"},
+	{"minus after assert", "fn main()\n    assert a\n    -1\nend\n"},
+	{"minus after with", "fn main()\n    with App.x = a\n    -1\nend\n"},
+	{"paren after defer", "fn main()\n    defer f()\n    (1)\nend\n"},
+	{"paren after return", "fn main()\n    return a\n    (1)\nend\n"},
+	{"minus after break", "fn main()\n    break a\n    -1\nend\n"},
+	{"minus after dbg", "fn main()\n    x = dbg a\n    -1\nend\n"},
+	{"minus after continue", "fn main()\n    continue\n    -1\nend\n"},
+	{"variant pattern binding", "fn main()\n    Day(n) = d\n    n\nend\n"},
+	{"semicolons", "fn main()\n    x = 1; y = 2;\n    x + y\nend\n"},
 	{"semicolons at the top level", "x = 1; y = 2\n"},
 	// The line continues.
-	{"pipe", "fn main() {\n    x = a\n    |> f\n}\n"},
-	{"pipe after a comment line", "fn main() {\n    x = a\n    // c\n    |> f\n}\n"},
-	{"else on the next line", "fn main() {\n    x = if c {\n        a\n    }\n    else {\n        b\n    }\n}\n"},
-	{"binding else on the next line", "fn main() {\n    Some(v) = m\n    else { return 0 }\n    v\n}\n"},
-	{"body on the next line", "fn f() -> Int\n{\n    1\n}\n"},
-	{"where on the next line", "fn f<T>(x: T) -> T\nwhere T: Display {\n    x\n}\n"},
-	{"impl body on the next line", "impl Foo {\n    fn f() -> Int\n    {\n        1\n    }\n}\n"},
+	{"pipe", "fn main()\n    x = a\n    |> f\nend\n"},
+	{"pipe after a comment line", "fn main()\n    x = a\n    // c\n    |> f\nend\n"},
+	{"else starting its line", "fn main()\n    x = if c then\n        a\n    else\n        b\n    end\nend\n"},
+	{"binding else on the next line", "fn main()\n    Some(v) = m\n    else\n        return 0\n    end\n    v\nend\n"},
+	{"body on the next line", "fn f() -> Int\n    1\nend\n"},
+	{"empty bodies on the header's line", "fn f() end\nstruct E end\nimpl M for E end\n"},
+	{"inline if branches that jump", "fn main()\n    if c then break else continue\n    if c then return 1\n    -1\nend\n"},
+	{"block if chain sharing one end", "fn main()\n    if a then\n        1\n    else if b then\n        2\n    else\n        3\n    end\n    -1\nend\n"},
+	{"arm bodies below their arrows", "fn main()\n    case n\n        1 ->\n            a\n            b\n\n        x when x > 2 ->\n            c\n        _ -> d\n    end\nend\n"},
+	{"a lambda body below its arrow and an empty one", "fn main()\n    f = fn x ->\n        x\n    end\n    g = fn -> end\n    -1\nend\n"},
+	{"a concurrent block in a group's test", "group \"g\"\n    test \"t\"\n        concurrent\n            x = a\n        end\n        assert x\n    end\nend\n"},
+	{"an import block", "import\n    std::io\n    std::iter.Iter\nend\n"},
+	{"where on the next line", "fn f<T>(x: T) -> T\nwhere T: Display\n    x\nend\n"},
+	{"impl body on the next line", "impl Foo\n    fn f() -> Int\n        1\n    end\nend\n"},
 }
 
 // typeBodyInputs separate the items of a struct, enum or interface body by a
 // line break, a semicolon, or a line break after a trailing comment.
 var typeBodyInputs = []parityInput{
-	{"struct fields on lines", "struct P {\n    x: Int\n    y: Int = 1\n}\n"},
-	{"struct fields after a comment", "struct P {\n    x: Int // c\n    y: Int\n}\n"},
-	{"struct fields and semicolons", "struct P {\n    ; x: Int; y: Int;; z: Int;\n}\n"},
-	{"struct field after a semicolon line", "struct P {\n    x: Int\n    ;y: Int\n}\n"},
-	{"enum variants and semicolons", "enum E {\n    A; B Int; C {x: Int}\n    D\n}\n"},
-	{"interface functions and semicolons", "interface I {\n    fn f(v: self) -> Int; fn g(v: self) -> Int { 1 };\n    fn h(v: self) -> Int\n}\n"},
+	{"struct fields on lines", "struct P\n    x: Int\n    y: Int = 1\nend\n"},
+	{"struct fields after a comment", "struct P\n    x: Int // c\n    y: Int\nend\n"},
+	{"struct fields and semicolons", "struct P\n    ; x: Int; y: Int;; z: Int;\nend\n"},
+	{"struct field after a semicolon line", "struct P\n    x: Int\n    ;y: Int\nend\n"},
+	{"enum variants and semicolons", "enum E\n    A; B Int; C {x: Int}\n    D\nend\n"},
+	{"interface functions and semicolons", "interface I\n    fn f(v: self) -> Int; fn g(v: self) -> Int\n    fn h(v: self) -> Int\n        1\n    end\nend\n"},
 }
 
 // rejectedInputs are malformed sources the parser rejects, each of which
@@ -368,83 +375,92 @@ var typeBodyInputs = []parityInput{
 // the error `nomi check` reports. A type body holds one item per line.
 var rejectedInputs = []parityInput{
 	// A `|> subtests` stage ends a pipeline that stands as a statement.
-	{"a subtests stage in a binding", "test \"t\" {\n    x = [1] |> subtests n {\n        assert n == 1\n    }\n}\n"},
-	{"a subtests stage in an argument", "test \"t\" {\n    f([1] |> subtests n {\n        assert n == 1\n    })\n}\n"},
-	{"a stage after a subtests stage", "test \"t\" {\n    [1]\n    |> subtests n {\n        assert n == 1\n    }\n    |> dbg\n}\n"},
+	{"a subtests stage in a binding", "test \"t\"\n    x = [1] |> subtests n\n        assert n == 1\n    end\nend\n"},
+	{"a subtests stage in an argument", "test \"t\"\n    f([1] |> subtests n\n        assert n == 1\n    end)\nend\n"},
+	{"a stage after a subtests stage", "test \"t\"\n    [1]\n    |> subtests n\n        assert n == 1\n    end\n    |> dbg\nend\n"},
 	// A keyword declaration's name is never a type name.
 	{"a misspelled type keyword before a type name", "pub strct Point {\n    x: Int\n}\n"},
 	{"a keyword before a type name", "pub one_of Size `small`\n"},
 	{"a phrase named by a type name", "phrase Hi `Hi`\n"},
-	{"two struct fields on one line", "struct P {\n    x: Int    y: Int\n}\n"},
-	{"a struct field after a default on its line", "struct P {\n    x: Int = 1 y: Int\n}\n"},
-	{"two enum variants on one line", "enum E {\n    A Int B\n}\n"},
-	{"an enum variant after a struct payload on its line", "enum E {\n    A {x: Int} B\n}\n"},
-	{"two interface functions on one line", "interface I {\n    fn f(v: self) -> Int    fn g(v: self) -> Int\n}\n"},
-	{"an interface function after a default on its line", "interface I {\n    fn f(v: self) -> Int { 1 } fn g(v: self) -> Int\n}\n"},
-	// Every literal of a built-in shape starts with its shape's symbol, and a
-	// name followed by `{` is never a literal. The other spellings are errors
-	// in both parsers.
+	{"two struct fields on one line", "struct P\n    x: Int    y: Int\nend\n"},
+	{"a struct field after a default on its line", "struct P\n    x: Int = 1 y: Int\nend\n"},
+	{"two enum variants on one line", "enum E\n    A Int B\nend\n"},
+	{"an enum variant after a struct payload on its line", "enum E\n    A {x: Int} B\nend\n"},
+	{"two interface functions on one line", "interface I\n    fn f(v: self) -> Int    fn g(v: self) -> Int\nend\n"},
+	{"an interface function after a default on its line", "interface I\n    fn f(v: self) -> Int end fn g(v: self) -> Int\nend\n"},
+	// A collection literal or pattern has no symbol: the `#` and `%` that
+	// wrote vectors, sets and maps are errors in both parsers.
+	{"a vector written with `#`", "fn main()\n    _v = #[1, 2]\nend\n"},
+	{"a set written with `%`", "fn main()\n    _s = %[1, 2]\nend\n"},
+	{"a map written with `%`", "fn main()\n    _m = %{\"a\" => 1}\nend\n"},
+	{"a named literal written with `#`", "fn main()\n    _p = #Path[1]\nend\n"},
+	{"a named map written with `%`", "fn main()\n    _k = %Kvs{\"a\" => 1}\nend\n"},
+	{"a vector pattern written with `#`", "fn main()\n    x = case v\n        #[a, ..] -> a\n        _ -> 0\n    end\nend\n"},
+	{"a set pattern written with `%`", "fn main()\n    x = case s\n        %[\"a\", ..] -> 1\n        _ -> 0\n    end\nend\n"},
+	{"a struct field after a map entry", "fn main()\n    _m = {\"a\" => 1, b: 2}\nend\n"},
 	// A capture's body is a call, a parenthesized expression or a literal.
-	{"a capture of a name", "fn main() {\n    _f = &x\n}\n"},
-	{"a set written .{...}", "fn main() {\n    _s = .{1, 2}\n}\n"},
-	{"a map attach written Name%{...}", "fn main() {\n    _k = Kvs%{\"a\" => 1}\n}\n"},
-	{"a struct with no type name written {...}", "fn main() {\n    _p = {x: 1}\n}\n"},
-	{"an anonymous struct type written {...}", "fn f(p: {x: Int}) -> Int {\n    p.x\n}\n"},
-	{"a map written Map{...}", "fn main() {\n    _m = Map{\"a\" => 1}\n}\n"},
-	{"a map attach written Kvs{...}", "fn main() {\n    _k = Kvs{\"a\" => 1}\n}\n"},
-	{"a map pattern written Map{...}", "fn main() {\n    x = case m {\n        Map{\"k\" => v} -> v\n        _ -> 0\n    }\n}\n"},
-	{"a percent with a space before its bracket", "fn main() {\n    _s = % [1, 2]\n}\n"},
-	{"a hash with no shape after its name", "fn main() {\n    _p = #Point\n}\n"},
+	{"a capture of a name", "fn main()\n    _f = &x\nend\n"},
+	{"a set written {...}", "fn main()\n    _s = {1, 2}\nend\n"},
+
+	{"a struct with no type name written .{...}", "fn main()\n    _p = .{x: 1}\nend\n"},
+	{"an anonymous struct type written .{...}", "fn f(p: .{x: Int}) -> Int\n    p.x\nend\n"},
+	// A field is punned as `name:`; its name alone is no field.
+	{"a struct literal field written as its name alone", "fn main()\n    x = 1\n    _p = P{x}\nend\n"},
+	{"a struct pattern field written as its name alone", "fn main()\n    x = case p\n        P{x} -> x\n        _ -> 0\n    end\nend\n"},
+	{"an anonymous struct type with no field", "fn f(p: {}) -> Int\n    1\nend\n"},
+
+	{"a percent with a space before its bracket", "fn main()\n    _s = % [1, 2]\nend\n"},
+	{"a hash with no shape after its name", "fn main()\n    _p = #Point\nend\n"},
 	// A struct pattern's or literal's fields are separated by commas.
-	{"a renamed struct pattern field with no comma before the next", "fn main() {\n    x = case r {\n        .{err: a b} -> 0\n        _ -> 1\n    }\n}\n"},
-	{"punned struct pattern fields with no comma", "fn main() {\n    x = case p {\n        Point{x y} -> 0\n        _ -> 1\n    }\n}\n"},
-	{"struct pattern fields on two lines with no comma", "fn main() {\n    x = case p {\n        Point{\n            x\n            y\n        } -> 0\n        _ -> 1\n    }\n}\n"},
-	{"struct destructure fields with no comma", "fn main() {\n    .{a b} = p\n}\n"},
-	{"struct literal fields with no comma", "fn main() {\n    _p = Point{x: 1 y: 2}\n}\n"},
-	{"anonymous struct literal fields with no comma", "fn main() {\n    _p = .{x: 1 y: 2}\n}\n"},
-	{"punned struct literal fields with no comma", "fn main() {\n    _p = Point{x y}\n}\n"},
+	{"a renamed struct pattern field with no comma before the next", "fn main()\n    x = case r\n        {err: a b} -> 0\n        _ -> 1\n    end\nend\n"},
+	{"punned struct pattern fields with no comma", "fn main()\n    x = case p\n        Point{x y} -> 0\n        _ -> 1\n    end\nend\n"},
+	{"struct pattern fields on two lines with no comma", "fn main()\n    x = case p\n        Point{\n            x\n            y\n        } -> 0\n        _ -> 1\n    end\nend\n"},
+	{"struct destructure fields with no comma", "fn main()\n    {a b} = p\nend\n"},
+	{"struct literal fields with no comma", "fn main()\n    _p = Point{x: 1 y: 2}\nend\n"},
+	{"anonymous struct literal fields with no comma", "fn main()\n    _p = {x: 1 y: 2}\nend\n"},
+	{"punned struct literal fields with no comma", "fn main()\n    _p = Point{x y}\nend\n"},
 	// So are an update's spread and fields, and a map's entries.
-	{"a struct update with no comma after its spread", "fn main() {\n    _q = .{..p x: 10}\n}\n"},
-	{"struct update fields with no comma", "fn main() {\n    _q = .{..p, x: 10 y: 20}\n}\n"},
-	{"a stacked struct update with no commas", "fn main() {\n    _q = .{\n        ..p\n        x: 7\n        y: 8\n    }\n}\n"},
-	{"a bare struct update with no comma after its spread", "fn main() {\n    _q = .{..p, home: .{.. city: \"NYC\"}}\n}\n"},
-	{"bare struct update fields with no comma", "fn main() {\n    _q = .{..p, home: .{.., city: \"NYC\" zip: \"1\"}}\n}\n"},
-	{"a Struct.update patch's fields with no comma", "fn main() {\n    _q = Struct.update(u, .{home: .{.., city: \"NYC\" zip: \"1\"}})\n}\n"},
-	{"a map update with no comma after its spread", "fn main() {\n    _q = %{..m \"b\" => 2}\n}\n"},
-	{"map update entries with no comma", "fn main() {\n    _q = %{..m, \"a\" => 1 \"b\" => 2}\n}\n"},
-	{"a stacked map update with no commas", "fn main() {\n    _q = %{\n        ..m\n        \"a\" => 1\n    }\n}\n"},
-	{"map literal entries with no comma", "fn main() {\n    _q = %{\"a\" => 1 \"b\" => 2}\n}\n"},
-	{"map pattern entries with no comma", "fn main() {\n    x = case m {\n        %{\"a\" => a \"b\" => b} -> 0\n        _ -> 1\n    }\n}\n"},
+	{"a struct update with no comma after its spread", "fn main()\n    _q = {..p x: 10}\nend\n"},
+	{"struct update fields with no comma", "fn main()\n    _q = {..p, x: 10 y: 20}\nend\n"},
+	{"a stacked struct update with no commas", "fn main()\n    _q = {\n        ..p\n        x: 7\n        y: 8\n    }\nend\n"},
+	{"a bare struct update with no comma after its spread", "fn main()\n    _q = {..p, home: {.. city: \"NYC\"}}\nend\n"},
+	{"bare struct update fields with no comma", "fn main()\n    _q = {..p, home: {.., city: \"NYC\" zip: \"1\"}}\nend\n"},
+	{"a Struct.update patch's fields with no comma", "fn main()\n    _q = Struct.update(u, {home: {.., city: \"NYC\" zip: \"1\"}})\nend\n"},
+	{"a map update with no comma after its spread", "fn main()\n    _q = {..m \"b\" => 2}\nend\n"},
+	{"map update entries with no comma", "fn main()\n    _q = {..m, \"a\" => 1 \"b\" => 2}\nend\n"},
+	{"a stacked map update with no commas", "fn main()\n    _q = {\n        ..m\n        \"a\" => 1\n    }\nend\n"},
+	{"map literal entries with no comma", "fn main()\n    _q = {\"a\" => 1 \"b\" => 2}\nend\n"},
+	{"map pattern entries with no comma", "fn main()\n    x = case m\n        {\"a\" => a \"b\" => b} -> 0\n        _ -> 1\n    end\nend\n"},
 	// No list leaves an empty slot between two commas.
-	{"a doubled comma in a struct literal", "fn main() {\n    _p = Point{x: 1,, y: 2}\n}\n"},
-	{"a doubled comma in an anonymous struct literal", "fn main() {\n    _p = .{x: 1,, y: 2}\n}\n"},
-	{"a doubled comma after an update's spread", "fn main() {\n    _q = .{..p,, x: 1}\n}\n"},
-	{"a doubled comma between update fields", "fn main() {\n    _q = .{..p, x: 1,, y: 2}\n}\n"},
-	{"a doubled comma after a bare spread", "fn main() {\n    _q = .{..p, home: .{..,, city: \"NYC\"}}\n}\n"},
-	{"a doubled trailing comma in a struct literal", "fn main() {\n    _p = .{x: 1,,}\n}\n"},
-	{"a doubled comma across lines in a struct literal", "fn main() {\n    _p = .{\n        x: 1,\n        ,\n        y: 2,\n    }\n}\n"},
-	{"a doubled comma in a map literal", "fn main() {\n    _m = %{\"a\" => 1,, \"b\" => 2}\n}\n"},
-	{"a doubled comma after a map update's spread", "fn main() {\n    _m = %{..m,, \"b\" => 2}\n}\n"},
-	{"a doubled comma in a set", "fn main() {\n    _s = %[1,, 2]\n}\n"},
-	{"a doubled comma in a list", "fn main() {\n    _l = [1,, 2]\n}\n"},
-	{"a doubled trailing comma in a list", "fn main() {\n    _l = [1,,]\n}\n"},
-	{"a doubled comma in a vector", "fn main() {\n    _v = #[1,, 2]\n}\n"},
-	{"a doubled comma in a tuple", "fn main() {\n    _t = (1,, 2)\n}\n"},
-	{"a doubled comma in call arguments", "fn main() {\n    _x = f(1,, 2)\n}\n"},
-	{"a doubled comma in named call arguments", "fn main() {\n    _x = f(a: 1,, b: 2)\n}\n"},
-	{"a doubled comma in parameters", "fn f(a: Int,, b: Int) -> Int {\n    a + b\n}\n"},
-	{"a doubled comma in lambda parameters", "fn main() {\n    _f = fn a,, b -> a\n}\n"},
-	{"a doubled comma in a struct pattern", "fn main() {\n    x = case p {\n        Point{x,, y} -> 0\n        _ -> 1\n    }\n}\n"},
-	{"a doubled comma in a struct destructure", "fn main() {\n    .{a,, b} = p\n}\n"},
-	{"a doubled comma in a tuple pattern", "fn main() {\n    x = case p {\n        (a,, b) -> 0\n        _ -> 1\n    }\n}\n"},
-	{"a doubled comma in a list pattern", "fn main() {\n    x = case p {\n        [a,, b] -> 0\n        _ -> 1\n    }\n}\n"},
-	{"a doubled comma in a map pattern", "fn main() {\n    x = case m {\n        %{\"a\" => a,, \"b\" => b} -> 0\n        _ -> 1\n    }\n}\n"},
-	{"a doubled comma in a variant pattern", "fn main() {\n    x = case p {\n        Some(a,, b) -> 0\n        _ -> 1\n    }\n}\n"},
-	{"a doubled comma in type arguments", "fn main() {\n    _m: Map<String,, Int> = %{}\n}\n"},
+	{"a doubled comma in a struct literal", "fn main()\n    _p = Point{x: 1,, y: 2}\nend\n"},
+	{"a doubled comma in an anonymous struct literal", "fn main()\n    _p = {x: 1,, y: 2}\nend\n"},
+	{"a doubled comma after an update's spread", "fn main()\n    _q = {..p,, x: 1}\nend\n"},
+	{"a doubled comma between update fields", "fn main()\n    _q = {..p, x: 1,, y: 2}\nend\n"},
+	{"a doubled comma after a bare spread", "fn main()\n    _q = {..p, home: {..,, city: \"NYC\"}}\nend\n"},
+	{"a doubled trailing comma in a struct literal", "fn main()\n    _p = {x: 1,,}\nend\n"},
+	{"a doubled comma across lines in a struct literal", "fn main()\n    _p = {\n        x: 1,\n        ,\n        y: 2,\n    }\nend\n"},
+	{"a doubled comma in a map literal", "fn main()\n    _m = {\"a\" => 1,, \"b\" => 2}\nend\n"},
+	{"a doubled comma after a map update's spread", "fn main()\n    _m = {..m,, \"b\" => 2}\nend\n"},
+	{"a doubled comma in a set", "fn main()\n    _s = Set[1,, 2]\nend\n"},
+	{"a doubled comma in a list", "fn main()\n    _l = [1,, 2]\nend\n"},
+	{"a doubled trailing comma in a list", "fn main()\n    _l = [1,,]\nend\n"},
+	{"a doubled comma in a vector", "fn main()\n    _v = Vector[1,, 2]\nend\n"},
+	{"a doubled comma in a tuple", "fn main()\n    _t = (1,, 2)\nend\n"},
+	{"a doubled comma in call arguments", "fn main()\n    _x = f(1,, 2)\nend\n"},
+	{"a doubled comma in named call arguments", "fn main()\n    _x = f(a: 1,, b: 2)\nend\n"},
+	{"a doubled comma in parameters", "fn f(a: Int,, b: Int) -> Int\n    a + b\nend\n"},
+	{"a doubled comma in lambda parameters", "fn main()\n    _f = fn a,, b -> a\nend\n"},
+	{"a doubled comma in a struct pattern", "fn main()\n    x = case p\n        Point{x,, y} -> 0\n        _ -> 1\n    end\nend\n"},
+	{"a doubled comma in a struct destructure", "fn main()\n    {a,, b} = p\nend\n"},
+	{"a doubled comma in a tuple pattern", "fn main()\n    x = case p\n        (a,, b) -> 0\n        _ -> 1\n    end\nend\n"},
+	{"a doubled comma in a list pattern", "fn main()\n    x = case p\n        [a,, b] -> 0\n        _ -> 1\n    end\nend\n"},
+	{"a doubled comma in a map pattern", "fn main()\n    x = case m\n        {\"a\" => a,, \"b\" => b} -> 0\n        _ -> 1\n    end\nend\n"},
+	{"a doubled comma in a variant pattern", "fn main()\n    x = case p\n        Some(a,, b) -> 0\n        _ -> 1\n    end\nend\n"},
+	{"a doubled comma in type arguments", "fn main()\n    _m: Map<String,, Int> = {}\nend\n"},
 	{"a doubled comma in type parameters", "fn f<A,, B>(a: A, _b: B) -> A {\n    a\n}\n"},
-	{"a doubled comma in a tuple type", "fn f(p: (Int,, Int)) -> Int {\n    0\n}\n"},
-	{"a doubled comma in a function type", "fn f(g: (Int,, Int) -> Int) -> Int {\n    0\n}\n"},
-	{"a doubled comma in a variant payload", "enum E {\n    A(Int,, Int)\n}\n"},
+	{"a doubled comma in a tuple type", "fn f(p: (Int,, Int)) -> Int\n    0\nend\n"},
+	{"a doubled comma in a function type", "fn f(g: (Int,, Int) -> Int) -> Int\n    0\nend\n"},
+	{"a doubled comma in a variant payload", "enum E\n    A(Int,, Int)\nend\n"},
 	{"a doubled comma in an import list", "import std::json.{Json,, ToJson}\n"},
 }
 
@@ -452,84 +468,87 @@ var rejectedInputs = []parityInput{
 // binding (with `as`, with `else`, nested), a case, guard or else arm, a
 // lambda or function parameter, an `if` condition and a pattern assertion.
 var patternInputs = []parityInput{
-	{"headless struct as", "fn main() {\n    .{x: _c, y} as p = q\n    0\n}\n"},
-	{"headless struct punned first as", "fn main() {\n    .{y, x: _c} as p = q\n    0\n}\n"},
-	{"headless struct as with else", "fn main() {\n    .{x: _c, y} as p = q else { return 0 }\n    0\n}\n"},
-	{"headless struct with a nested as", "fn main() {\n    .{x: (a, b) as inner, y} as p = q\n    0\n}\n"},
-	{"punned headless struct as", "fn main() {\n    .{x, y} as p = q\n    0\n}\n"},
-	{"labeled headless struct as", "fn main() {\n    .{x: a, y: b} as p = q\n    0\n}\n"},
-	{"headed struct with a nested as", "fn main() {\n    P{x: (a, b) as inner, y} as p = q\n    0\n}\n"},
-	{"tuple as", "fn main() {\n    (a, b) as t = pair\n    0\n}\n"},
-	{"tuple with a nested as", "fn main() {\n    ((a, b) as inner, c) as t = pair\n    0\n}\n"},
-	{"list as", "fn main() {\n    [x, ..rest] as all = xs\n    0\n}\n"},
-	{"list as with else", "fn main() {\n    [x, ..rest] as all = xs else { return 0 }\n    0\n}\n"},
-	{"list with a nested as", "fn main() {\n    [(a, b) as first, ..rest] as all = xs else { return 0 }\n    0\n}\n"},
-	{"variant as", "fn main() {\n    Some(n) as m = opt else { return 0 }\n    0\n}\n"},
-	{"variant with a nested as", "fn main() {\n    Some((a, b) as inner) as m = opt else { return 0 }\n    0\n}\n"},
-	{"variant with a nested as and no outer as", "fn main() {\n    Some((a, b) as inner) = opt else { return 0 }\n    0\n}\n"},
-	{"map as", "fn main() {\n    %{\"a\" => v} as all = m else { return 0 }\n    0\n}\n"},
-	{"map with a nested as", "fn main() {\n    %{\"a\" => (a, b) as v} as all = m else { return 0 }\n    0\n}\n"},
-	{"nested tuple destructure", "fn main() {\n    ((a, b), c) = pair\n    0\n}\n"},
-	{"tuple destructure with a nested as", "fn main() {\n    ((a, b) as inner, c) = pair\n    0\n}\n"},
-	{"struct destructure with a nested tuple", "fn main() {\n    .{x: (a, b), y} = q\n    0\n}\n"},
-	{"struct destructure with a variant and else", "fn main() {\n    .{x: Some(a), y} = q else { return 0 }\n    0\n}\n"},
-	{"map destructure with a nested tuple", "fn main() {\n    %{\"a\" => (a, b)} = m else { return 0 }\n    0\n}\n"},
-	{"case arm headless struct as", "fn main() {\n    case q {\n        .{x: _c, y} as p -> y\n        .{x: (a, b) as xs, y} as p -> y\n    }\n}\n"},
-	{"case arm tuple and list as", "fn main() {\n    case q {\n        ([x, ..rest] as all, n) as t -> x\n        _ -> 0\n    }\n}\n"},
-	{"guard arm nested as", "fn main() {\n    v |> case {\n            Some((a, b) as p) -> a\n            _ -> 0\n        }\n}\n"},
-	{"else arm headless struct as", "fn main() {\n    Ok(v) = r else {\n        Err(.{x: _c, y} as p) -> return y\n    }\n}\n"},
-	{"if condition headless struct as", "fn main() {\n    if .{x: _c, y} as p = q { y } else { 0 }\n}\n"},
-	{"lambda headless struct as", "fn main() {\n    xs |> Iter.map(fn .{x: _c, y} as p -> y)\n}\n"},
-	{"lambda nested as", "fn main() {\n    xs |> Iter.map(fn ((a, b) as t, c) -> a)\n    xs |> Iter.map(fn .{x: (a, b) as t, y} -> y)\n}\n"},
-	{"parameter headless struct as", "fn f(.{x: _c, y} as p: P) -> Int {\n    y\n}\n"},
-	{"pattern assertion headless struct as", "test \"t\" {\n    assert .{x: _c, y} as p = q\n    assert Some((a, b) as p) = v\n}\n"},
-	{"self parameter pattern", "interface S {\n    fn f(self(n) as t, by: Int) -> self where self: Distinct<Int> {\n        t\n    }\n}\n"},
-	{"self binding and case", "interface S {\n    fn f(t: self) -> self where self: Distinct<Int> {\n        self(m) = t\n        case t {\n            self(0) -> self(m)\n            self((a, b)) -> t\n            _ -> m |> self()\n        }\n    }\n}\n"},
-	{"if condition map pattern", "fn main() {\n    if %{\"host\" => h} = m {\n        h\n    } else {\n        0\n    }\n}\n"},
-	{"if condition map pattern binding host", "fn main() {\n    if %{\"host\" => host} = m {\n        host\n    }\n    0\n}\n"},
-	{"if condition punned struct pattern", "fn main() {\n    if P{x, y} = p {\n        x\n    } else {\n        0\n    }\n}\n"},
-	{"if condition headless struct pattern with a literal", "fn main() {\n    if .{x: 0, y} = p { y } else { 0 }\n}\n"},
-	{"if condition list pattern", "fn main() {\n    if [first, ..rest] = xs { first } else { 0 }\n}\n"},
-	{"if condition or pattern of maps", "fn main() {\n    if %{\"a\" => v} or %{\"b\" => v} = m { v } else { 0 }\n}\n"},
-	{"if condition or pattern of lists", "fn main() {\n    if [a] or [a, _] = xs { a } else { 0 }\n}\n"},
-	{"map binding with else", "fn main() {\n    %{\"k\" => v} = m else {\n        return 0\n    }\n    v\n}\n"},
-	{"map binding with else arms", "fn main() {\n    %{\"k\" => v} = m else {\n        %{\"j\" => w} -> return w\n        _ -> return 0\n    }\n    v\n}\n"},
-	{"headless struct binding with a literal and else", "fn main() {\n    .{x: 1, y} = p else {\n        return 0\n    }\n    y\n}\n"},
-	{"headless struct binding with a variant and else", "fn main() {\n    .{done: True, n} = p else { return 0 }\n    n\n}\n"},
-	{"list binding with else", "fn main() {\n    [a, ..rest] = xs else { return 0 }\n    a\n}\n"},
-	{"or pattern of maps binding with else", "fn main() {\n    %{\"a\" => v} or %{\"b\" => v} = m else { return 0 }\n    v\n}\n"},
-	{"host as a name", "struct S {\n    host: String\n}\n\nhost fn now() -> Int\n\nfn f(host: String) -> S {\n    host = String.trim(host)\n    host\n    S{host}\n}\n"},
-	{"named struct binding", "fn main() {\n    Point{x, y} = p\n    x\n}\n"},
-	{"named tuple binding", "fn main() {\n    Pair(a, b) = p\n    a\n}\n"},
-	{"named tuple binding with else", "fn main() {\n    Pair(0, b) = p else { return 0 }\n    b\n}\n"},
-	{"vector binding with else", "fn main() {\n    #[first, ..rest] = v else { return 0 }\n    first\n}\n"},
-	{"vector binding from the end with else", "fn main() {\n    #[.., last] = v else { return 0 }\n    last\n}\n"},
-	{"set binding with else", "fn main() {\n    %[\"admin\", ..rest] = s else { return 0 }\n    rest\n}\n"},
-	{"named map binding with else", "fn main() {\n    %Kvs{\"k\" => v} = m else { return 0 }\n    v\n}\n"},
-	{"case arm vector patterns", "fn main() {\n    x = case v {\n        #[] -> 0\n        #[a, b] -> a\n        #[first, ..rest] -> first\n        #[.., last] -> last\n        #[a, ..mid, z] -> a\n        #[a, b, ..] -> a\n        #[..] -> 0\n        #Path[a, ..] -> a\n        #.Items[x] -> x\n    }\n}\n"},
-	{"case arm vector or and as", "fn main() {\n    x = case v {\n        #[a] or #[a, _] -> a\n        #[(a, b), ..] as whole -> a\n        _ -> 0\n    }\n}\n"},
-	{"case arm set patterns", "fn main() {\n    x = case s {\n        %[\"admin\", ..rest] -> 1\n        %[\"guest\", ..] -> 2\n        %[1, 2] -> 3\n        %Tags[\"a\", ..] -> 4\n        _ -> 0\n    }\n}\n"},
-	{"case arm named patterns", "fn main() {\n    x = case s {\n        .Circle{radius} -> radius\n        Shape.Square{side} -> side\n        geo.Point{x} -> x\n        %Kvs{\"k\" => v} -> v\n        %.Obj{\"k\" => v} -> v\n        Pair(a, b) -> a\n        _ -> 0\n    }\n}\n"},
-	{"case on a struct literal", "fn main() {\n    x = case (Point{x: 1}) {\n        Point{x} -> x\n    }\n}\n"},
-	{"else arm named patterns", "fn main() {\n    Ok(v) = r else {\n        Err(.Invalid{reason}) -> return 0\n        Err(e) -> return 1\n    }\n    v\n}\n"},
-	{"else arm vector and set patterns", "fn main() {\n    Ok(v) = r else {\n        #[a, ..] -> return a\n        %[1, ..] -> return 1\n        _ -> return 0\n    }\n    v\n}\n"},
-	{"if condition vector pattern", "fn main() {\n    if #[a, ..] = v { a } else { 0 }\n}\n"},
-	{"if condition set pattern", "fn main() {\n    if %[1, ..] = s { 1 } else { 0 }\n}\n"},
-	{"if condition named struct pattern", "fn main() {\n    if Point{x, y} = p { x } else { 0 }\n}\n"},
-	{"if condition struct literal", "fn main() {\n    x = if p == (Point{x: 1}) { 1 } else { 2 }\n}\n"},
-	{"if condition vector literal", "fn main() {\n    x = if #[.., z] == v { z } else { 0 }\n}\n"},
-	{"parameter patterns of each shape", "fn f(Point{x, y}, #[a, ..], %{\"k\" => v}, Pair(m, n)) -> Int {\n    x\n}\n"},
-	{"lambda vector and map patterns", "fn main() {\n    f = fn #[x, ..] -> x\n    g = fn %{\"k\" => v} -> v\n}\n"},
-	{"pattern assertion named patterns", "test \"t\" {\n    assert Point{x, y} = Point{x: 3, y: 4}\n    assert #[a, ..] = #[1, 2]\n}\n"},
-	{"self as a value", "interface S {\n    fn f(_t: self, ns: List<Int>) -> Int where self: Distinct<Int> {\n        make = self\n        ns |> Iter.map(self) |> Iter.count()\n    }\n}\n"},
+	{"headless struct as", "fn main()\n    {x: _c, y:} as p = q\n    0\nend\n"},
+	{"headless struct punned first as", "fn main()\n    {y:, x: _c} as p = q\n    0\nend\n"},
+	{"headless struct as with else", "fn main()\n    {x: _c, y:} as p = q else\n        return 0\n    end\n    0\nend\n"},
+	{"headless struct with a nested as", "fn main()\n    {x: (a, b) as inner, y:} as p = q\n    0\nend\n"},
+	{"punned headless struct as", "fn main()\n    {x:, y:} as p = q\n    0\nend\n"},
+	{"labeled headless struct as", "fn main()\n    {x: a, y: b} as p = q\n    0\nend\n"},
+	{"headed struct with a nested as", "fn main()\n    P{x: (a, b) as inner, y:} as p = q\n    0\nend\n"},
+	{"tuple as", "fn main()\n    (a, b) as t = pair\n    0\nend\n"},
+	{"tuple with a nested as", "fn main()\n    ((a, b) as inner, c) as t = pair\n    0\nend\n"},
+	{"list as", "fn main()\n    [x, ..rest] as all = xs\n    0\nend\n"},
+	{"list as with else", "fn main()\n    [x, ..rest] as all = xs else return 0\n    0\nend\n"},
+	{"list with a nested as", "fn main()\n    [(a, b) as first, ..rest] as all = xs else\n        return 0\n    end\n    0\nend\n"},
+	{"variant as", "fn main()\n    Some(n) as m = opt else return 0\n    0\nend\n"},
+	{"variant with a nested as", "fn main()\n    Some((a, b) as inner) as m = opt else\n        return 0\n    end\n    0\nend\n"},
+	{"variant with a nested as and no outer as", "fn main()\n    Some((a, b) as inner) = opt else\n        return 0\n    end\n    0\nend\n"},
+	{"map as", "fn main()\n    {\"a\" => v} as all = m else\n        return 0\n    end\n    0\nend\n"},
+	{"map with a nested as", "fn main()\n    {\"a\" => (a, b) as v} as all = m else\n        return 0\n    end\n    0\nend\n"},
+	{"nested tuple destructure", "fn main()\n    ((a, b), c) = pair\n    0\nend\n"},
+	{"tuple destructure with a nested as", "fn main()\n    ((a, b) as inner, c) = pair\n    0\nend\n"},
+	{"struct destructure with a nested tuple", "fn main()\n    {x: (a, b), y:} = q\n    0\nend\n"},
+	{"struct destructure with a variant and else", "fn main()\n    {x: Some(a), y:} = q else\n        return 0\n    end\n    0\nend\n"},
+	{"map destructure with a nested tuple", "fn main()\n    {\"a\" => (a, b)} = m else\n        return 0\n    end\n    0\nend\n"},
+	{"case arm headless struct as", "fn main()\n    case q\n        {x: _c, y:} as p -> y\n        {x: (a, b) as xs, y:} as p -> y\n    end\nend\n"},
+	{"case arm tuple and list as", "fn main()\n    case q\n        ([x, ..rest] as all, n) as t -> x\n        _ -> 0\n    end\nend\n"},
+	{"guard arm nested as", "fn main()\n    v |> case\n            Some((a, b) as p) -> a\n            _ -> 0\n        end\nend\n"},
+	{"else arm headless struct as", "fn main()\n    Ok(v) = r else\n        Err({x: _c, y:} as p) -> return y\n    end\nend\n"},
+	{"if condition headless struct as", "fn main()\n    if {x: _c, y:} as p = q then y else 0\nend\n"},
+	{"lambda headless struct as", "fn main()\n    xs |> Iter.map(fn {x: _c, y:} as p -> y)\nend\n"},
+	{"lambda nested as", "fn main()\n    xs |> Iter.map(fn ((a, b) as t, c) -> a)\n    xs |> Iter.map(fn {x: (a, b) as t, y:} -> y)\nend\n"},
+	{"parameter headless struct as", "fn f({x: _c, y:} as p: P) -> Int\n    y\nend\n"},
+	{"pattern assertion headless struct as", "test \"t\"\n    assert {x: _c, y:} as p = q\n    assert Some((a, b) as p) = v\nend\n"},
+	{"self parameter pattern", "interface S\n    fn f(self(n) as t, by: Int) -> self where self: Distinct<Int>\n        t\n    end\nend\n"},
+	{"self binding and case", "interface S\n    fn f(t: self) -> self where self: Distinct<Int>\n        self(m) = t\n        case t\n            self(0) -> self(m)\n            self((a, b)) -> t\n            _ -> m |> self()\n        end\n    end\nend\n"},
+	{"if condition map pattern", "fn main()\n    if {\"host\" => h} = m then\n        h\n    else\n        0\n    end\nend\n"},
+	{"if condition map pattern binding host", "fn main()\n    if {\"host\" => host} = m then\n        host\n    end\n    0\nend\n"},
+	{"if condition punned struct pattern", "fn main()\n    if P{x:, y:} = p then\n        x\n    else\n        0\n    end\nend\n"},
+	{"if condition headless struct pattern with a literal", "fn main()\n    if {x: 0, y:} = p then y else 0\nend\n"},
+	{"if condition list pattern", "fn main()\n    if [first, ..rest] = xs then first else 0\nend\n"},
+	{"if condition or pattern of maps", "fn main()\n    if {\"a\" => v} or {\"b\" => v} = m then v else 0\nend\n"},
+	{"if condition or pattern of lists", "fn main()\n    if [a] or [a, _] = xs then a else 0\nend\n"},
+	{"map binding with else", "fn main()\n    {\"k\" => v} = m else\n        return 0\n    end\n    v\nend\n"},
+	{"map binding with else arms", "fn main()\n    {\"k\" => v} = m else\n        {\"j\" => w} -> return w\n        _ -> return 0\n    end\n    v\nend\n"},
+	{"headless struct binding with a literal and else", "fn main()\n    {x: 1, y:} = p else\n        return 0\n    end\n    y\nend\n"},
+	{"headless struct binding with a variant and else", "fn main()\n    {done: True, n:} = p else\n        return 0\n    end\n    n\nend\n"},
+	{"list binding with else", "fn main()\n    [a, ..rest] = xs else\n        return 0\n    end\n    a\nend\n"},
+	{"or pattern of maps binding with else", "fn main()\n    {\"a\" => v} or {\"b\" => v} = m else\n        return 0\n    end\n    v\nend\n"},
+	{"host as a name", "struct S\n    host: String\nend\n\nhost fn now() -> Int\n\nfn f(host: String) -> S\n    host = String.trim(host)\n    host\n    S{host:}\nend\n"},
+	{"named struct binding", "fn main()\n    Point{x:, y:} = p\n    x\nend\n"},
+	{"named tuple binding", "fn main()\n    Pair(a, b) = p\n    a\nend\n"},
+	{"named tuple binding with else", "fn main()\n    Pair(0, b) = p else\n        return 0\n    end\n    b\nend\n"},
+	{"vector binding with else", "fn main()\n    [first, ..rest] = v else\n        return 0\n    end\n    first\nend\n"},
+	{"vector binding from the end with else", "fn main()\n    [.., last] = v else\n        return 0\n    end\n    last\nend\n"},
+	{"set binding with else", "fn main()\n    [\"admin\", ..rest] = s else\n        return 0\n    end\n    rest\nend\n"},
+	{"named map binding with else", "fn main()\n    Kvs{\"k\" => v} = m else\n        return 0\n    end\n    v\nend\n"},
+	{"case arm vector patterns", "fn main()\n    x = case v\n        [] -> 0\n        [a, b] -> a\n        [first, ..rest] -> first\n        [.., last] -> last\n        [a, ..mid, z] -> a\n        [a, b, ..] -> a\n        [..] -> 0\n        Path[a, ..] -> a\n        .Items[x] -> x\n    end\nend\n"},
+	{"case arm vector or and as", "fn main()\n    x = case v\n        [a] or [a, _] -> a\n        [(a, b), ..] as whole -> a\n        _ -> 0\n    end\nend\n"},
+	{"case arm set patterns", "fn main()\n    x = case s\n        [\"admin\", ..rest] -> 1\n        [\"guest\", ..] -> 2\n        [1, 2] -> 3\n        Tags[\"a\", ..] -> 4\n        _ -> 0\n    end\nend\n"},
+	{"case arm named patterns", "fn main()\n    x = case s\n        .Circle{radius:} -> radius\n        Shape.Square{side:} -> side\n        geo.Point{x:} -> x\n        Kvs{\"k\" => v} -> v\n        .Obj{\"k\" => v} -> v\n        Pair(a, b) -> a\n        _ -> 0\n    end\nend\n"},
+	{"case on a struct literal", "fn main()\n    x = case (Point{x: 1})\n        Point{x:} -> x\n    end\nend\n"},
+	{"else arm named patterns", "fn main()\n    Ok(v) = r else\n        Err(.Invalid{reason:}) -> return 0\n        Err(e) -> return 1\n    end\n    v\nend\n"},
+	{"else arm vector and set patterns", "fn main()\n    Ok(v) = r else\n        [a, ..] -> return a\n        [1, ..] -> return 1\n        _ -> return 0\n    end\n    v\nend\n"},
+	{"if condition vector pattern", "fn main()\n    if [a, ..] = v then a else 0\nend\n"},
+	{"if condition set pattern", "fn main()\n    if [1, ..] = s then 1 else 0\nend\n"},
+	{"if condition named struct pattern", "fn main()\n    if Point{x:, y:} = p then x else 0\nend\n"},
+	{"if condition struct literal", "fn main()\n    x = if p == (Point{x: 1}) then 1 else 2\nend\n"},
+	{"if condition vector literal", "fn main()\n    x = if Vector[.., z] == v then z else 0\nend\n"},
+	{"if condition bracket literal with a bare spread", "fn main()\n    x = if [.., z] == v then z else 0\nend\n"},
+	{"empty map literal and pattern", "fn main()\n    m = {}\n    k = Kvs{}\n    x = case m\n        {} -> 0\n    end\nend\n"},
+	{"named std collections", "fn main()\n    _v = Vector[1, ..v]\n    _s = Set[]\n    _m = Map{\"a\" => 1}\n    _l = List[1]\nend\n"},
+	{"parameter patterns of each shape", "fn f(Point{x:, y:}, [a, ..], {\"k\" => v}, Pair(m, n)) -> Int\n    x\nend\n"},
+	{"lambda vector and map patterns", "fn main()\n    f = fn [x, ..] -> x\n    g = fn {\"k\" => v} -> v\nend\n"},
+	{"pattern assertion named patterns", "test \"t\"\n    assert Point{x:, y:} = Point{x: 3, y: 4}\n    assert [a, ..] = Vector[1, 2]\nend\n"},
+	{"self as a value", "interface S\n    fn f(_t: self, ns: List<Int>) -> Int where self: Distinct<Int>\n        make = self\n        ns |> Iter.map(self) |> Iter.count()\n    end\nend\n"},
 	// A variant named through the file that declares its type.
-	{"case arm file-qualified variants", "fn main() {\n    x = case r {\n        Err(sql.Error.Closed) -> 1\n        Err(sql.Error.Constraint(k)) -> 2\n        Err(shapes.Bag.Items[a, ..rest]) -> 3\n        Err(sql.Error.Closed or sql.Error.Finished) -> 4\n        Err(sql.Error.Closed as e) -> 5\n        sql.Error.Closed -> 6\n        sql.Error.Constraint(k) when k > 0 -> 7\n        sql.Error.A or sql.Error.B -> 8\n        sql.Error.C(n) as e -> 9\n        shapes.Bag.Items[a] -> 10\n        geo.Deep.Enum.V -> 11\n        [sql.Error.A, ..rest] -> 12\n        %{\"k\" => sql.Error.A} -> 13\n        (sql.Error.A) -> 14\n        _ -> 0\n    }\n}\n"},
-	{"if condition file-qualified variants", "fn main() {\n    if Err(sql.Error.Closed) = r {\n        1\n    }\n    if sql.Error.Constraint(n) = r { n } else { 0 }\n}\n"},
-	{"else arm file-qualified variants", "fn main() {\n    Ok(v) = r else {\n        sql.Error.Closed -> return 1\n        sql.Error.A or sql.Error.B -> return 2\n        Err(sql.Error.C(_)) as e -> return 3\n        shapes.Bag.Items[a] -> return a\n        _ -> return 0\n    }\n    v\n}\n"},
-	{"binding and assertion file-qualified variants", "test \"t\" {\n    Err(sql.Error.Constraint(k)) = r else { return }\n    shapes.Wrap.W(m) = w\n    assert Err(sql.Error.Closed) = r\n}\n"},
-	{"struct pattern field file-qualified variants", "fn main() {\n    x = case s {\n        .{err: sql.Error.Closed} -> 1\n        Slot{shape: shapes.Shape.Square(n), bag} -> n\n        _ -> 0\n    }\n    if .{err: sql.Error.Closed} = s { 1 } else { 0 }\n}\n"},
-	{"if condition type-qualified variants", "fn main() {\n    if Shape.Circle(r) = s {\n        return r\n    }\n    if Probe.Reading.Steady(r) = s {\n        return r\n    }\n    if Shape.Circle(r) as c = s {\n        return r\n    }\n    if Shape.Circle(r) or Shape.Square(r) = s {\n        return r\n    }\n    if Shape.Circle((a, _b)) = s { a } else { 0 }\n}\n"},
-	{"parameter and lambda file-qualified variants", "fn f(shapes.Wrap.W(n)) -> Int {\n    g = fn shapes.Wrap.W(m) -> m\n    n\n}\n"},
+	{"case arm file-qualified variants", "fn main()\n    x = case r\n        Err(sql.Error.Closed) -> 1\n        Err(sql.Error.Constraint(k)) -> 2\n        Err(shapes.Bag.Items[a, ..rest]) -> 3\n        Err(sql.Error.Closed or sql.Error.Finished) -> 4\n        Err(sql.Error.Closed as e) -> 5\n        sql.Error.Closed -> 6\n        sql.Error.Constraint(k) when k > 0 -> 7\n        sql.Error.A or sql.Error.B -> 8\n        sql.Error.C(n) as e -> 9\n        shapes.Bag.Items[a] -> 10\n        geo.Deep.Enum.V -> 11\n        [sql.Error.A, ..rest] -> 12\n        {\"k\" => sql.Error.A} -> 13\n        (sql.Error.A) -> 14\n        _ -> 0\n    end\nend\n"},
+	{"if condition file-qualified variants", "fn main()\n    if Err(sql.Error.Closed) = r then\n        1\n    end\n    if sql.Error.Constraint(n) = r then n else 0\nend\n"},
+	{"else arm file-qualified variants", "fn main()\n    Ok(v) = r else\n        sql.Error.Closed -> return 1\n        sql.Error.A or sql.Error.B -> return 2\n        Err(sql.Error.C(_)) as e -> return 3\n        shapes.Bag.Items[a] -> return a\n        _ -> return 0\n    end\n    v\nend\n"},
+	{"binding and assertion file-qualified variants", "test \"t\"\n    Err(sql.Error.Constraint(k)) = r else\n        return\n    end\n    shapes.Wrap.W(m) = w\n    assert Err(sql.Error.Closed) = r\nend\n"},
+	{"struct pattern field file-qualified variants", "fn main()\n    x = case s\n        {err: sql.Error.Closed} -> 1\n        Slot{shape: shapes.Shape.Square(n), bag:} -> n\n        _ -> 0\n    end\n    if {err: sql.Error.Closed} = s then 1 else 0\nend\n"},
+	{"if condition type-qualified variants", "fn main()\n    if Shape.Circle(r) = s then\n        return r\n    end\n    if Probe.Reading.Steady(r) = s then\n        return r\n    end\n    if Shape.Circle(r) as c = s then\n        return r\n    end\n    if Shape.Circle(r) or Shape.Square(r) = s then\n        return r\n    end\n    if Shape.Circle((a, _b)) = s then a else 0\nend\n"},
+	{"parameter and lambda file-qualified variants", "fn f(shapes.Wrap.W(n)) -> Int\n    g = fn shapes.Wrap.W(m) -> m\n    n\nend\n"},
 }
 
 // treeSitterCLI returns a function that runs scripts/tree-sitter.sh with its
@@ -606,18 +625,19 @@ func firstLines(s string, n int) string {
 }
 
 // A statement list is a place where the parser ends a statement at a line
-// break: the top level, a block, the arms of a `case` and the arms of a
-// binding's `else`. It is keyed by the 1-based line and byte column of its
-// opening token (`{`, or `case`); the top level is {0, 0}.
-type listPos struct{ line, col int }
+// break: the top level, a body, an `if`'s branch, an arm's body below its
+// `->`, the arms of a `case` and the arms of a binding's `else`. It is keyed
+// by the 1-based line its first statement or arm starts on, which no other
+// list's first item shares; the top level is line 0. An empty list is not
+// compared.
+type listPos struct{ line int }
 
 // compareStatementCounts compares the number of statements in each of the
 // parser's statement lists with tree-sitter's reading of the same list. A
 // line break the grammar reads as whitespace where the parser ends a
 // statement (`x = a` then a line `-1`) joins two statements into one with no
 // ERROR, which only a count catches. It returns the first difference and the
-// number of lists compared. A list only one side has (a brace the parser
-// reads as a map literal and tree-sitter as a block) is not compared.
+// number of lists compared. A list only one side has is not compared.
 func compareStatementCounts(code, tree string) (string, int) {
 	goLists := parserStatementLists(code)
 	tsLists := treeSitterStatementLists(code, tree)
@@ -636,18 +656,21 @@ func compareStatementCounts(code, tree string) (string, int) {
 	if len(diffs) == 0 {
 		return "", n
 	}
-	sort.Slice(diffs, func(i, j int) bool {
-		if diffs[i].line != diffs[j].line {
-			return diffs[i].line < diffs[j].line
-		}
-		return diffs[i].col < diffs[j].col
-	})
+	sort.Slice(diffs, func(i, j int) bool { return diffs[i].line < diffs[j].line })
 	d := diffs[0]
-	where := fmt.Sprintf("the list at %d:%d", d.line, d.col)
+	where := fmt.Sprintf("the list whose first item starts on line %d", d.line)
 	if d == (listPos{}) {
 		where = "the top level"
 	}
 	return fmt.Sprintf("%s holds %d statements for the parser and %d for tree-sitter", where, goLists[d], tsLists[d]), n
+}
+
+// startLine is the line a statement or an arm starts on.
+func startLine(n ast.Node) int {
+	if s, ok := n.(ast.HasSpan); ok && s.GetSpan().StartLine > 0 {
+		return s.GetSpan().StartLine
+	}
+	return n.LineNum()
 }
 
 // parserStatementLists counts the statements of each statement list
@@ -662,18 +685,22 @@ func parserStatementLists(code string) map[listPos]int {
 		ast.Inspect(n, func(n ast.Node) bool {
 			switch v := n.(type) {
 			case *ast.Block:
-				if v.EndLine != 0 { // a synthesized block has no braces
-					lists[listPos{v.Line, v.Col}] = len(v.Stmts)
+				// An inline branch's or a one-line lambda's block has no
+				// end, and holds no list.
+				if v.EndLine != 0 && len(v.Stmts) > 0 {
+					lists[listPos{startLine(v.Stmts[0])}] = len(v.Stmts)
 				}
 			case *ast.Case:
-				lists[listPos{v.Line, v.Col}] = len(v.Branches)
+				if len(v.Branches) > 0 {
+					lists[listPos{v.Branches[0].Line}] = len(v.Branches)
+				}
 			case *ast.BindingElse:
-				if v.Arms != nil {
-					lists[listPos{v.LBraceLine, v.LBraceCol}] = len(v.Arms)
+				if len(v.Arms) > 0 {
+					lists[listPos{v.Arms[0].Line}] = len(v.Arms)
 				}
 			case *ast.AttachedTest:
-				if v.Body != nil {
-					lists[listPos{v.Line, v.Col}] = len(v.Body.Stmts)
+				if v.Body != nil && len(v.Body.Stmts) > 0 {
+					lists[listPos{startLine(v.Body.Stmts[0])}] = len(v.Body.Stmts)
 				}
 			}
 			return true
@@ -687,9 +714,10 @@ func parserStatementLists(code string) map[listPos]int {
 var sexpNodeRe = regexp.MustCompile(`^( *)(?:[a-z_]+: )?\(([A-Za-z_]+) \[(\d+), (\d+)\]`)
 
 // treeSitterStatementLists counts the statements of each statement list in
-// tree-sitter's tree for code: the items of the top level, a body and a
-// concurrent block, and the arms of a case and of a binding's else. Comments
-// and `//!` line prompts are extras, not statements.
+// tree-sitter's tree for code: the items of the top level, a body, an `if`
+// branch's block and an arm's block, and the arms of a case and of a
+// binding's else. Comments and `//!` line prompts are extras, not
+// statements.
 func treeSitterStatementLists(code, tree string) map[listPos]int {
 	type node struct {
 		kind     string
@@ -716,64 +744,47 @@ func treeSitterStatementLists(code, tree string) map[listPos]int {
 		stack = append(stack[:depth], len(nodes))
 		nodes = append(nodes, node{kind: m[2], row: row, col: col, parent: parent})
 	}
-	lineStarts := []int{0}
-	for i := 0; i < len(code); i++ {
-		if code[i] == '\n' {
-			lineStarts = append(lineStarts, i+1)
+	isList := func(kind string) bool {
+		switch kind {
+		case "source_file", "body", "block", "arm_block", "case_expression", "else_arms", "attached_test_prompt":
+			return true
 		}
+		return false
 	}
-	// braceAfter is the position of the first `{` at or after row:col, the
-	// opening brace of a concurrent block, which has no body node.
-	braceAfter := func(row, col int) listPos {
-		if row >= len(lineStarts) {
-			return listPos{-1, -1}
-		}
-		off := lineStarts[row] + col
-		i := strings.IndexByte(code[off:], '{')
-		if i < 0 {
-			return listPos{-1, -1}
-		}
-		off += i
-		r := sort.Search(len(lineStarts), func(k int) bool { return lineStarts[k] > off }) - 1
-		return listPos{r + 1, off - lineStarts[r] + 1}
-	}
-	lists := map[listPos]int{}
-	keyOf := map[int]listPos{}
-	for i, n := range nodes {
-		switch n.kind {
-		case "source_file":
-			keyOf[i] = listPos{}
-		case "body", "case_expression", "else_arms", "attached_test_prompt":
-			keyOf[i] = listPos{n.row + 1, n.col + 1}
-		case "concurrent_block":
-			keyOf[i] = braceAfter(n.row, n.col)
-		default:
-			continue
-		}
-		lists[keyOf[i]] = 0
-	}
+	counts := map[int]int{}
+	first := map[int]int{} // the row of a list's first item
 	for _, n := range nodes {
-		key, ok := keyOf[n.parent]
-		if n.parent < 0 || !ok {
+		if n.parent < 0 || !isList(nodes[n.parent].kind) {
 			continue
 		}
 		switch nodes[n.parent].kind {
 		case "case_expression":
-			if n.kind == "case_branch" || n.kind == "guard_branch" {
-				lists[key]++
+			if n.kind != "case_branch" && n.kind != "guard_branch" {
+				continue
 			}
 		case "else_arms":
-			if n.kind == "else_arm" {
-				lists[key]++
+			if n.kind != "else_arm" {
+				continue
 			}
 		default:
 			switch n.kind {
 			case "line_comment", "doc_comment", "attached_comment_test_line_prompt",
 				"attached_comment_test_prompt_marker", "shebang":
-			default:
-				lists[key]++
+				continue
 			}
 		}
+		if counts[n.parent] == 0 {
+			first[n.parent] = n.row
+		}
+		counts[n.parent]++
+	}
+	lists := map[listPos]int{}
+	for i, c := range counts {
+		key := listPos{first[i] + 1}
+		if nodes[i].kind == "source_file" {
+			key = listPos{}
+		}
+		lists[key] = c
 	}
 	return lists
 }

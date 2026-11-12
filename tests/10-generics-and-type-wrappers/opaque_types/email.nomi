@@ -13,13 +13,13 @@
 pub opaque type Email String
 
 /// Validates `s` and returns Some(Email) if it contains "@", or None.
-pub fn from_string(s: String) -> Maybe<Email> {
-    if "@" in s { Some(Email(s)) } else { None }
-}
+pub fn from_string(s: String) -> Maybe<Email>
+    if "@" in s then Some(Email(s)) else None
+end
 
 /// Reads the underlying string. Inside the owning file, destructuring
 /// `Email(s)` reads it; outside callers must go through this `pub`
 /// accessor.
-pub fn to_string(Email(s)) -> String {
+pub fn to_string(Email(s)) -> String
     s
-}
+end

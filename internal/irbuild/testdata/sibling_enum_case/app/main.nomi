@@ -7,32 +7,32 @@
 // variant, a positional payload bound and tested against a literal, a tuple
 // payload, a struct payload destructured, a struct-shaped variant with field
 // sub-patterns, and a guard over a payload binding.
-import {
+import
     std::io
     by_import
     by_module
     dotted
     ticket
     tracker::severity.{self, Severity}
-}
+end
 
-fn rank(n: Int) -> String {
-    case severity.of(n) {
+fn rank(n: Int) -> String
+    case severity.of(n)
         Severity.Low -> "low"
         severity.Severity.High(x) when x > 5 -> "very high ${x}"
         .High(x) -> "high ${x}"
-        .Custom{label} -> "custom ${label}"
-    }
-}
+        .Custom{label:} -> "custom ${label}"
+    end
+end
 
-fn main() {
+fn main()
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    |> Iter.each(fn n -> {
+    |> Iter.each(fn n ->
         long = by_import.describe(n)
         short = by_module.short(ticket.make(n))
         io.print("${long} | ${short} | ${dotted.flags(n)}")
-    })
+    end)
 
     [0, 1, 2, 3]
     |> Iter.each(fn n -> io.print(rank(n)))
-}
+end

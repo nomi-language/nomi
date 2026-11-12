@@ -14,7 +14,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# The counting song "Ten Green Bottles".
 
 /// The words for zero to ten bottles, as the song sings them.
-once numbers = #[
+once numbers = Vector[
     "no",
     "one",
     "two",
@@ -30,17 +30,17 @@ once numbers = #[
 
 /// The lines of `take_down` verses, starting from `start_bottles` bottles,
 /// with an empty line between two verses.
-pub fn recite(start_bottles: Int, take_down: Int) -> List<String> {
+pub fn recite(start_bottles: Int, take_down: Int) -> List<String>
     start_bottles
     |> Iter.iterate(&(&1 - 1))
     |> Iter.take(take_down)
     |> Iter.map(verse)
     |> Iter.intersperse([""])
     |> Iter.flatten()
-}
+end
 
 /// The verse sung while `bottles` bottles hang on the wall.
-fn verse(bottles: Int) -> List<String> {
+fn verse(bottles: Int) -> List<String>
     count = green_bottles(bottles) |> String.capitalize()
     hanging = "${count} hanging on the wall,"
 
@@ -50,23 +50,23 @@ fn verse(bottles: Int) -> List<String> {
         "And if one green bottle should accidentally fall,",
         "There'll be ${green_bottles(bottles - 1)} hanging on the wall.",
     ]
-}
+end
 
 /// `bottles` counted in words: "one green bottle", "two green bottles".
-fn green_bottles(bottles: Int) -> String {
+fn green_bottles(bottles: Int) -> String
     number = Vector.get(numbers, bottles)!
 
-    if bottles == 1 {
+    if bottles == 1 then
         "${number} green bottle"
-    } else {
+    else
         "${number} green bottles"
-    }
-}
+    end
+end
 
 // FILE: bottle_song_test.nomi
 import bottle_song
 
-test "single verse" {
+test "single verse"
     [
         (
             "first generic verse",
@@ -113,12 +113,12 @@ test "single verse" {
             ],
         ),
     ]
-    |> subtests (description, start_bottles, take_down, expected), description {
+    |> subtests (description, start_bottles, take_down, expected), description
         assert bottle_song.recite(start_bottles, take_down) == expected
-    }
-}
+    end
+end
 
-test "multiple verses" {
+test "multiple verses"
     [
         (
             "first two verses",
@@ -214,10 +214,10 @@ test "multiple verses" {
             ],
         ),
     ]
-    |> subtests (description, start_bottles, take_down, expected), description {
+    |> subtests (description, start_bottles, take_down, expected), description
         assert bottle_song.recite(start_bottles, take_down) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok single verse (4 cases)

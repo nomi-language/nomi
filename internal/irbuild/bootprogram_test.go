@@ -33,19 +33,19 @@ import (
 func TestBootProgram_TheFrontEndPinsBootToTheEntryWithMain(t *testing.T) {
 	const decls = `
 
-pub struct Cfg {
+pub struct Cfg
   context: Context
 
   name: String = "dev"
-}
+end
 
-fn boot() -> Result<Cfg, String> {
+fn boot() -> Result<Cfg, String>
   Ok(Cfg{context: Context.root(), })
-}
+end
 `
 	// THE POSITIVE CONTROL, first: boot plus main in the entry analyzes clean.
 	// If this fails, the two negatives below measure nothing.
-	if _, err := AnalyzeSource("bcbootmain", decls+"\nfn main() {\n  _ = Cfg.name\n}\n"); err != nil {
+	if _, err := AnalyzeSource("bcbootmain", decls+"\nfn main()\n  _ = Cfg.name\nend\n"); err != nil {
 		t.Fatalf("`fn boot` beside `fn main` in the entry file does not analyze, so the negatives "+
 			"below establish nothing about the checker rule: %v", err)
 	}
@@ -74,7 +74,7 @@ fn boot() -> Result<Cfg, String> {
 		}
 	}
 	write("cfg.nomi", decls)
-	write("main.nomi", "import cfg.Cfg\n\nfn main() {\n  _ = Cfg{context: Context.root()}\n}\n")
+	write("main.nomi", "import cfg.Cfg\n\nfn main()\n  _ = Cfg{context: Context.root()}\nend\n")
 	_, err = Analyze(filepath.Join(dir, "main.nomi"))
 	if err == nil {
 		t.Error("a `fn boot` declared in an imported file with no `fn main` analyzes clean. " +

@@ -8,40 +8,40 @@
 // either rule.
 import std::io
 
-struct Point {
+struct Point
     x: Int
     y: Float
-}
+end
 
-struct Money {
+struct Money
     cents: Int
     note: String
-}
+end
 
 // Hand-written and deliberately NOT structural: `note` is ignored. A struct is
 // the one shape the operator dispatches for, so this MUST be honoured.
-impl Equatable for Money {
-    fn equal(a: Money, b: Money) -> Bool {
+impl Equatable for Money
+    fn equal(a: Money, b: Money) -> Bool
         a.cents == b.cents
-    }
-}
+    end
+end
 
-struct Wallet {
+struct Wallet
     owner: String
     balance: Money
-}
+end
 
-enum Shape {
+enum Shape
     Circle Float
     Square Int
     Dot
-}
+end
 
 type Id Int
 
 type Expired
 
-fn main() -> Unit {
+fn main() -> Unit
     zero = 0.0
     nan = zero / zero
 
@@ -81,4 +81,4 @@ fn main() -> Unit {
     io.print("id same:       ${Bool.to_string(Id(7) == Id(7))}")
     io.print("id diff:       ${Bool.to_string(Id(7) == Id(8))}")
     io.print("marker:        ${Bool.to_string(Expired == Expired)}")
-}
+end

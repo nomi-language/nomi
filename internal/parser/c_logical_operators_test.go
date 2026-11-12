@@ -13,11 +13,11 @@ func TestCFamilyLogicalOperatorsNameTheKeyword(t *testing.T) {
 		src, want string
 		col       int
 	}{
-		{"fn f(a: Bool, b: Bool) -> Bool {\n    a && b\n}\n", "write `a and b`", 7},
-		{"fn f(a: Bool, b: Bool) -> Bool {\n    a || b\n}\n", "write `a or b`", 7},
-		{"fn f(a: Bool, b: Bool) -> Bool {\n    ok = a || b\n    ok\n}\n", "write `a or b`", 12},
-		{"fn f(a: Bool, b: Bool) -> Int {\n    if a || b { 1 } else { 2 }\n}\n", "write `a or b`", 10},
-		{"fn f(a: Bool, b: Bool) -> Bool {\n    a || { b }\n}\n", "write `a or b`", 7},
+		{"fn f(a: Bool, b: Bool) -> Bool\n    a && b\nend\n", "write `a and b`", 7},
+		{"fn f(a: Bool, b: Bool) -> Bool\n    a || b\nend\n", "write `a or b`", 7},
+		{"fn f(a: Bool, b: Bool) -> Bool\n    ok = a || b\n    ok\nend\n", "write `a or b`", 12},
+		{"fn f(a: Bool, b: Bool) -> Int\n    if a || b { 1 } else { 2 }\nend\n", "write `a or b`", 10},
+		{"fn f(a: Bool, b: Bool) -> Bool\n    a || { b }\nend\n", "write `a or b`", 7},
 	} {
 		err := parseError(t, c.src)
 		if !strings.Contains(err.Error(), c.want) {
@@ -37,9 +37,9 @@ func TestZeroParameterLambdasStillParse(t *testing.T) {
 		"g = fn x = 1 -> fn -> x\n",
 		"h = fn -> fn -> 1\n",
 		"apply(fn -> 1)\n",
-		"fn f() -> () -> Int {\n    x = 1\n    fn -> x\n}\n",
-		"fn f() -> () -> Int {\n    x = 1; fn -> x\n}\n",
-		"fn f(a: Bool, b: Bool) -> Bool {\n    a\n        fn -> b\n}\n",
+		"fn f() -> () -> Int\n    x = 1\n    fn -> x\nend\n",
+		"fn f() -> () -> Int\n    x = 1\n    fn -> x\nend\n",
+		"fn f(a: Bool, b: Bool) -> Bool\n    a\n        fn -> b\nend\n",
 	} {
 		parse(t, src)
 	}

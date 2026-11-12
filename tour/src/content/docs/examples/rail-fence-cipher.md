@@ -15,16 +15,16 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# rails, then read off one rail after another.
 
 /// `message` read off the rails, top rail first.
-pub fn encode(message: String, rails: Int) -> String {
+pub fn encode(message: String, rails: Int) -> String
     message
     |> Iter.zip(zigzag(rails))
     |> Iter.sort_by(.second)
     |> Iter.map(.first)
     |> String.join()
-}
+end
 
 /// The message whose encoding on `rails` rails is `ciphertext`.
-pub fn decode(ciphertext: String, rails: Int) -> String {
+pub fn decode(ciphertext: String, rails: Int) -> String
     positions =
         0..String.length(ciphertext)
         |> Iter.zip(zigzag(rails))
@@ -36,33 +36,33 @@ pub fn decode(ciphertext: String, rails: Int) -> String {
     |> Iter.sort_by(.first)
     |> Iter.map(.second)
     |> String.join()
-}
+end
 
 /// The rail each position of the message is written on, without end: down
 /// from the top rail to the bottom, then back up.
-fn zigzag(rails: Int) -> Iter<Int> {
+fn zigzag(rails: Int) -> Iter<Int>
     up = Iter.reverse(1..rails - 1)
 
     0..rails
     |> Iter.concat(up)
     |> Iter.cycle()
-}
+end
 
 // FILE: rail_fence_cipher_test.nomi
 import rail_fence_cipher
 
-test "encode" {
+test "encode"
     [
         ("encode with two rails", "XOXOXOXOXOXOXOXOXO", 2, "XXXXXXXXXOOOOOOOOO"),
         ("encode with three rails", "WEAREDISCOVEREDFLEEATONCE", 3, "WECRLTEERDSOEEFEAOCAIVDEN"),
         ("encode with ending in the middle", "EXERCISES", 4, "ESXIEECSR"),
     ]
-    |> subtests (description, message, rails, expected), description {
+    |> subtests (description, message, rails, expected), description
         assert rail_fence_cipher.encode(message, rails) == expected
-    }
-}
+    end
+end
 
-test "decode" {
+test "decode"
     [
         ("decode with three rails", "TEITELHDVLSNHDTISEIIEA", 3, "THEDEVILISINTHEDETAILS"),
         ("decode with five rails", "EIEXMSMESAORIWSCE", 5, "EXERCISMISAWESOME"),
@@ -73,16 +73,16 @@ test "decode" {
             "112358132134558914423337761098715972584418167651094617711286",
         ),
     ]
-    |> subtests (description, ciphertext, rails, expected), description {
+    |> subtests (description, ciphertext, rails, expected), description
         assert rail_fence_cipher.decode(ciphertext, rails) == expected
-    }
-}
+    end
+end
 
 // Not a canonical case: one rail leaves the message as it is.
-test "one rail" {
+test "one rail"
     assert rail_fence_cipher.encode("WEARE", 1) == "WEARE"
     assert rail_fence_cipher.decode("WEARE", 1) == "WEARE"
-}
+end
 ```
 <!-- expect
 ok encode (3 cases)

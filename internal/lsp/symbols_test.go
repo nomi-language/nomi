@@ -9,13 +9,13 @@ import (
 )
 
 func TestNodesToDocumentSymbols_TypeAliases(t *testing.T) {
-	input := `interface Showable {
+	input := `interface Showable
   fn show(value: self) -> String
-}
+end
 
-interface Tagged {
+interface Tagged
   fn tag(value: self) -> String
-}
+end
 
 typealias ShowAndTag Showable and Tagged
 
@@ -44,17 +44,19 @@ typealias Names List<String>
 }
 
 func TestNodesToDocumentSymbols(t *testing.T) {
-	input := `fn add(x: Int, y: Int) -> Int { x + y }
+	input := `fn add(x: Int, y: Int) -> Int
+    x + y
+end
 
-struct User {
+struct User
     name: String
     age: Int
-}
+end
 
-enum Shape {
+enum Shape
     Circle Float
     Point
-}`
+end`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := buildFile(nodes)
@@ -83,7 +85,9 @@ enum Shape {
 }
 
 func TestNodesToDocumentSymbols_Interface(t *testing.T) {
-	input := `interface Display { fn to_string(value: self) -> String }`
+	input := `interface Display
+    fn to_string(value: self) -> String
+end`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := buildFile(nodes)

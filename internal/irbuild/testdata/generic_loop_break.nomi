@@ -1,7 +1,7 @@
-import {
+import
     std::io
     std::iter.Iter.loop
-}
+end
 
 /// 13-iterators-and-pipes/loop_control_test.nomi's residual, in isolation.
 ///
@@ -11,21 +11,25 @@ import {
 /// that the box survives a control-flow boundary, which a plain `fn first<T>(x:
 /// T) -> T { x }` does not exercise. The state, seeded with `x` and never read,
 /// gives the loop the type T its `break` answers.
-fn first<T>(x: T) -> T {
-    loop(x, fn _seed -> { break x })
-}
+fn first<T>(x: T) -> T
+    loop(x, fn _seed ->
+        break x
+    end)
+end
 
 /// The same shape with the type parameter threaded as the loop's own STATE, so
 /// the state type, the break type and the result type are one type three times
 /// over. std's `loop` is `fn loop<S>(f: (S) -> S) -> S`, and iterLoop depends on
 /// exactly that: the loop's answer and its state are one local.
-fn echo_state<T>(x: T) -> T {
-    loop(x, fn state -> { break state })
-}
+fn echo_state<T>(x: T) -> T
+    loop(x, fn state ->
+        break state
+    end)
+end
 
-fn main() {
+fn main()
     io.print("${first(7)}")
     io.print("${first("value")}")
     io.print("${first((1, 2))}")
     io.print("${echo_state(42)}")
-}
+end

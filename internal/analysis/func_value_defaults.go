@@ -52,6 +52,7 @@ func (c *checker) defaultFilledFuncValue(node ast.Node, ty, expected Type) Type 
 	short.Params = ft.Params[:len(want.Params):len(want.Params)]
 	short.DefaultCount = 0
 	c.attachCallType(node, &short)
+	c.recordDefaultedRef(node, len(want.Params))
 	return &short
 }
 

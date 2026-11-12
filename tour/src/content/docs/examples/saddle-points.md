@@ -15,93 +15,93 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# row and shortest in their column.
 
 /// A tree's place in the grid, counting rows and columns from 1.
-pub struct Position {
+pub struct Position
     row: Int
     column: Int
-}
+end
 
 /// The trees that are the tallest in their row and the shortest in their
 /// column, row by row and left to right.
-pub fn saddle_points(matrix: Vector<Vector<Int>>) -> List<Position> {
+pub fn saddle_points(matrix: Vector<Vector<Int>>) -> List<Position>
     minima = column_minima(matrix)
 
     matrix
     |> Iter.with_index()
-    |> Iter.flat_map(fn (row, heights) -> {
+    |> Iter.flat_map(fn (row, heights) ->
         tallest = Iter.max(heights)
 
         heights
         |> Iter.with_index()
-        |> Iter.filter(fn (column, height) -> {
+        |> Iter.filter(fn (column, height) ->
             Some(height) == tallest and Vector.get(minima, column)! == height
-        })
+        end)
         |> Iter.map(fn (column, _height) -> Position{row: row + 1, column: column + 1})
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
 /// The shortest height in each column. No column is empty, so every
 /// `Iter.min` is `Some`.
-fn column_minima(matrix: Vector<Vector<Int>>) -> Vector<Int> {
+fn column_minima(matrix: Vector<Vector<Int>>) -> Vector<Int>
     matrix
     |> Iter.transpose()
     |> Iter.map(Iter.min)
     |> Maybe.values()
     |> Iter.to_vector()
-}
+end
 
 // FILE: saddle_points_test.nomi
 import saddle_points.{Position, saddle_points}
 
-test "saddle_points" {
+test "saddle_points"
     cases: List<(String, Vector<Vector<Int>>, List<Position>)> = [
         (
             "Can identify single saddle point",
-            #[#[9, 8, 7], #[5, 3, 2], #[6, 6, 7]],
-            [.{row: 2, column: 1}],
+            [[9, 8, 7], [5, 3, 2], [6, 6, 7]],
+            [{row: 2, column: 1}],
         ),
-        ("Can identify that empty matrix has no saddle points", #[#[]], []),
+        ("Can identify that empty matrix has no saddle points", [[]], []),
         (
             "Can identify lack of saddle points when there are none",
-            #[#[1, 2, 3], #[3, 1, 2], #[2, 3, 1]],
+            [[1, 2, 3], [3, 1, 2], [2, 3, 1]],
             [],
         ),
         (
             "Can identify multiple saddle points in a column",
-            #[#[4, 5, 4], #[3, 5, 5], #[1, 5, 4]],
-            [.{row: 1, column: 2}, .{row: 2, column: 2}, .{row: 3, column: 2}],
+            [[4, 5, 4], [3, 5, 5], [1, 5, 4]],
+            [{row: 1, column: 2}, {row: 2, column: 2}, {row: 3, column: 2}],
         ),
         (
             "Can identify multiple saddle points in a row",
-            #[#[6, 7, 8], #[5, 5, 5], #[7, 5, 6]],
-            [.{row: 2, column: 1}, .{row: 2, column: 2}, .{row: 2, column: 3}],
+            [[6, 7, 8], [5, 5, 5], [7, 5, 6]],
+            [{row: 2, column: 1}, {row: 2, column: 2}, {row: 2, column: 3}],
         ),
         (
             "Can identify saddle point in bottom right corner",
-            #[#[8, 7, 9], #[6, 7, 6], #[3, 2, 5]],
-            [.{row: 3, column: 3}],
+            [[8, 7, 9], [6, 7, 6], [3, 2, 5]],
+            [{row: 3, column: 3}],
         ),
         (
             "Can identify saddle points in a non square matrix",
-            #[#[3, 1, 3], #[3, 2, 4]],
-            [.{row: 1, column: 1}, .{row: 1, column: 3}],
+            [[3, 1, 3], [3, 2, 4]],
+            [{row: 1, column: 1}, {row: 1, column: 3}],
         ),
         (
             "Can identify that saddle points in a single column matrix are those with the minimum value",
-            #[#[2], #[1], #[4], #[1]],
-            [.{row: 2, column: 1}, .{row: 4, column: 1}],
+            [[2], [1], [4], [1]],
+            [{row: 2, column: 1}, {row: 4, column: 1}],
         ),
         (
             "Can identify that saddle points in a single row matrix are those with the maximum value",
-            #[#[2, 5, 3, 5]],
-            [.{row: 1, column: 2}, .{row: 1, column: 4}],
+            [[2, 5, 3, 5]],
+            [{row: 1, column: 2}, {row: 1, column: 4}],
         ),
     ]
 
-    subtests cases, (description, matrix, expected), description {
+    subtests cases, (description, matrix, expected), description
         assert saddle_points(matrix) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok saddle_points (9 cases)
@@ -112,8 +112,8 @@ test result: ok. 9 passed, 0 failed
 
 - The matrix is `Vector<Vector<Int>>`, as the canonical data's grid of rows reads. A row is in hand while iterating, so its maximum is `Iter.max(heights)` with no indexing.
 - The columns come from `Iter.transpose(matrix)`, and their minima are computed once into a `Vector<Int>` and looked up by column index, rather than scanning the column again for every cell. `Iter.map(Iter.min)` passes the function itself; `Maybe.values()` drops the `None` an empty column would give, and no column is empty.
-- A point is a `pub struct Position { row, column }`, counted from 1 as the canonical data does (style §17: a struct once it travels). Tests write `.{row: 2, column: 1}`, which the comparison types as `Position`.
+- A point is a `pub struct Position { row, column }`, counted from 1 as the canonical data does (style §17: a struct once it travels). Tests write `{row: 2, column: 1}`, which the comparison types as `Position`.
 - Points come out row by row and left to right. The canonical "non square matrix" case lists (1, 3) before (1, 1); its comment allows reordering, so the test expects (1, 1) first.
 - `Some(height) == tallest` compares against `Iter.max`'s `Maybe` directly instead of unwrapping it; an empty row has no cells to compare.
 - The one indexed read uses `Vector.get(...)!`, which traps on an index outside the vector. The input is a matrix, so every row is as wide as the first and `minima` has a value for every column. A ragged matrix (rows of different widths) is outside the problem: `Iter.transpose` gives a short row nothing past its end, so a later row's column could have no minimum and the read would stop the program rather than answer.
-- The cases are one `subtests` table of `(description, matrix, expected)` rows. Its annotation names `List<Position>` so the `.{row, column}` literals in the rows are typed; each row breaks into its three parts and each grid stays on one line.
+- The cases are one `subtests` table of `(description, matrix, expected)` rows. Its annotation names `List<Position>` so the `{row:, column:}` literals in the rows are typed; each row breaks into its three parts and each grid stays on one line.

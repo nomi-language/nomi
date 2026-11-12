@@ -3,20 +3,20 @@ package format
 import "testing"
 
 func TestFormat_FieldAccessorRoundTrips(t *testing.T) {
-	roundTrip(t, `fn f(users: List<User>) -> List<String> {
+	roundTrip(t, `fn f(users: List<User>) -> List<String>
     users |> Iter.map(.name) |> Iter.to_list()
-}
+end
 
-fn g(users: List<User>) -> List<String> {
+fn g(users: List<User>) -> List<String>
     Iter.map(users, .address.city) |> Iter.to_list()
-}
+end
 
-fn h(pairs: List<(Int, String)>) -> List<String> {
+fn h(pairs: List<(Int, String)>) -> List<String>
     pairs |> Iter.map(.second) |> Iter.to_list()
-}
+end
 
-fn name_of() -> (User) -> String {
+fn name_of() -> (User) -> String
     .name
-}
+end
 `)
 }

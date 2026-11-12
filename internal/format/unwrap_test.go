@@ -4,7 +4,7 @@ import "testing"
 
 // A postfix `!` stays against the expression it unwraps, in every position.
 func TestUnwrap_KeepsTheBang(t *testing.T) {
-	roundTrip(t, `fn main() {
+	roundTrip(t, `fn main()
     a = half(4)!
     b = Map.get(m, "k")!
     c = Row.get<Int>(row, "n")!
@@ -13,7 +13,7 @@ func TestUnwrap_KeepsTheBang(t *testing.T) {
     f = Iter.map(xs, &half(&1)!)
     g = not found! and x! == y
     h = (a |> b())!
-}
+end
 `)
-	migrates(t, "fn main() {\n    a = Map.get( m,\"k\" )!\n}\n", "fn main() {\n    a = Map.get(m, \"k\")!\n}\n")
+	migrates(t, "fn main()\n    a = Map.get( m,\"k\" )!\nend\n", "fn main()\n    a = Map.get(m, \"k\")!\nend\n")
 }

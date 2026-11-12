@@ -2,28 +2,28 @@
 Group with clock, boot and setup
 ================================================================================
 
-group "math" {
+group "math"
   clock Clock.Virtual
   boot server.boot(startup())
 
-  setup {
+  setup begin
     with App.mailer = FakeMailer{}
     base = 2
     base
-  }
+  end
 
-  test "adds", base {
+  test "adds", base
     assert base + 2 == 4
     refute base == 5
     Testing.check(base == 2)
     dbg base
     base |> dbg
-  }
+  end
 
-  test "ignores the setup value" {
+  test "ignores the setup value"
     assert True
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -44,17 +44,18 @@ group "math" {
           (call_expression
             (identifier))))
       (setup_block
-        (body
-          (with_statement
-            (field_access
-              (type_identifier)
-              (identifier))
-            (struct_construction
-              (type_identifier)))
-          (binding
-            (identifier)
-            (integer))
-          (identifier)))
+        (begin_block
+          (body
+            (with_statement
+              (field_access
+                (type_identifier)
+                (identifier))
+              (struct_construction
+                (type_identifier)))
+            (binding
+              (identifier)
+              (integer))
+            (identifier))))
       (test_declaration
         (string
           (string_content))
@@ -93,18 +94,18 @@ group "math" {
 Setup expression bound by a tuple pattern and a name
 ================================================================================
 
-group "env" {
-  boot boot(Startup{env: %{}, args: []})
+group "env"
+  boot boot(Startup{env: {}, args: []})
   setup (Env{mode: "test"}, 2)
 
-  test "tuple", (env, n) {
+  test "tuple", (env, n)
     assert n == 2
-  }
+  end
 
-  test "name", pair {
+  test "name", pair
     assert pair == pair
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -155,13 +156,13 @@ group "env" {
 Setup anonymous struct value bound by a struct pattern
 ================================================================================
 
-group "user labels" {
-  setup .{name: "Ada", role: "admin"}
+group "user labels"
+  setup {name: "Ada", role: "admin"}
 
-  test "uses setup", .{name, role} {
+  test "uses setup", {name:, role:}
     assert name == "Ada"
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -199,13 +200,13 @@ group "user labels" {
 A boot outside a group stays an ordinary name
 ================================================================================
 
-pub fn boot(startup: Startup) -> App {
+pub fn boot(startup: Startup) -> App
   App{context: Context.root()}
-}
+end
 
-fn restart() -> App {
+fn restart() -> App
   boot(startup())
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -240,9 +241,9 @@ fn restart() -> App {
 Assertion with type-qualified call
 ================================================================================
 
-test "type-qualified assertion" {
+test "type-qualified assertion"
   assert Label.render(x) == y
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -264,9 +265,9 @@ test "type-qualified assertion" {
 Pattern assertion binding
 ================================================================================
 
-test "shape" {
+test "shape"
   assert [left, right] = [1]
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -286,9 +287,9 @@ test "shape" {
 Qualified enum pattern assertion binding
 ================================================================================
 
-test "shape" {
+test "shape"
   assert Err(Error.InvalidFormat(_)) = error
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -339,7 +340,9 @@ Attached test body on function
 
 //! value = answer()
 //! assert value == 42
-fn answer() -> Int { 42 }
+fn answer() -> Int
+    42
+end
 
 --------------------------------------------------------------------------------
 
@@ -370,10 +373,12 @@ Attached test with an is pattern holding a dot variant
 //! assert check("") is Err(.Invalid{})
 //! assert check("a") is Err(.Invalid{reason: "x"})
 //!
-//! {
+//! begin
 //!     assert true
-//! }
-fn check(s: String) -> Int { 0 }
+//! end
+fn check(s: String) -> Int
+    0
+end
 
 --------------------------------------------------------------------------------
 
@@ -409,11 +414,12 @@ fn check(s: String) -> Int { 0 }
                   (string_content)))))))
       (attached_comment_test_line_prompt)
       (attached_comment_test_line_prompt)
-      body: (body
+      body: (begin_block
         (attached_comment_test_line_prompt)
-        (assertion
-          value: (boolean))
-        (attached_comment_test_line_prompt)))
+        (body
+          (assertion
+            value: (boolean))
+          (attached_comment_test_line_prompt))))
     (function_definition
       name: (identifier)
       (parameters
@@ -434,7 +440,9 @@ Attached test with prompted triple string
 //!   }
 //! """
 //! assert String.is_not_empty(source)
-fn fixture() -> String { "" }
+fn fixture() -> String
+    ""
+end
 
 --------------------------------------------------------------------------------
 
@@ -470,13 +478,13 @@ fn fixture() -> String { "" }
 Top-level test declaration after a type
 ================================================================================
 
-struct Label {
+struct Label
   text: String
-}
+end
 
-test "renders" {
+test "renders"
   assert True
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -499,21 +507,21 @@ test "renders" {
 Boot with no parameter or a defaulted Startup, called with no argument
 ================================================================================
 
-fn boot() -> App {
+fn boot() -> App
   App{}
-}
+end
 
-fn boot(startup: Startup = Startup{}) -> App {
+fn boot(startup: Startup = Startup{}) -> App
   App{}
-}
+end
 
-group "defaulted" {
+group "defaulted"
   boot server.boot()
 
-  test "runs" {
+  test "runs"
     assert True
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -557,17 +565,17 @@ group "defaulted" {
 Group lines in any order, between and after tests
 ================================================================================
 
-group "any order" {
-  test "first" {
+group "any order"
+  test "first"
     assert True
-  }
+  end
   setup 2
-  test "second", n {
+  test "second", n
     assert n == 2
-  }
+  end
   boot server.boot()
   clock Clock.Virtual
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -607,14 +615,14 @@ group "any order" {
 Group setup before boot and clock
 ================================================================================
 
-group "setup before boot" {
+group "setup before boot"
   setup fixture()
   boot server.boot()
   clock Clock.Virtual
-  test "t", n {
+  test "t", n
     assert n == 2
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -649,10 +657,10 @@ group "setup before boot" {
 Group as an ordinary name
 ================================================================================
 
-fn group(group: Int) -> Int {
+fn group(group: Int) -> Int
   tests = group
   group(tests)
-}
+end
 
 group(3)
 
@@ -681,11 +689,11 @@ group(3)
 Group without a name
 ================================================================================
 
-group {
-  test "a" {
+group
+  test "a"
     assert 1 == 1
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 

@@ -117,18 +117,6 @@ func mark(n ast.Node, tail, deferred bool) {
 	case *ast.Block:
 		markBlock(x, tail, deferred)
 	case *ast.ListLit:
-		for _, item := range x.Items {
-			mark(item, false, deferred)
-		}
-	case *ast.VectorLit:
-		for _, item := range x.Operands() {
-			mark(item, false, deferred)
-		}
-	case *ast.SetLit:
-		for _, item := range x.Operands() {
-			mark(item, false, deferred)
-		}
-	case *ast.ListSpreadLit:
 		for _, item := range x.Operands() {
 			mark(item, false, deferred)
 		}

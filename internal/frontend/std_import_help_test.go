@@ -26,7 +26,7 @@ func TestAStdNameWithoutItsImportNamesTheImport(t *testing.T) {
 			"a phrase printed as Display",
 			"import std::io\n\n" + noun +
 				"phrase shoe_count(item: Noun, count: Int) `{$count} {$item :nomi:noun count=$count}`\n\n" +
-				"fn main() {\n    io.print(shoe_count(shoe, 3))\n}\n",
+				"fn main()\n    io.print(shoe_count(shoe, 3))\nend\n",
 			[]string{
 				"main.nomi:8:5: Phrase does not implement Display (required by `where T: Display`)\n  help: a `Phrase` is formatted for a reader: `Phrase.format(m, locale)`",
 			},
@@ -34,14 +34,14 @@ func TestAStdNameWithoutItsImportNamesTheImport(t *testing.T) {
 		{
 			"Message in a file with a phrase",
 			"import std::io\n\n" +
-				"fn show(m: Message) -> String {\n    Phrase.format(m, Locale`en`)\n}\n\nfn main() {\n    io.print(\"\")\n}\n",
+				"fn show(m: Message) -> String\n    Phrase.format(m, Locale`en`)\nend\n\nfn main()\n    io.print(\"\")\nend\n",
 			[]string{
 				"main.nomi:3:12: unknown type \"Message\"\n  help: import `std::mail.Message` or `std::websocket.Message`",
 			},
 		},
 		{
 			"a std type, a std module and a name std does not export",
-			"fn main() {\n    m = Method.Post\n    io.print(m)\n    g = Gizmo.Make\n    _ = g\n}\n",
+			"fn main()\n    m = Method.Post\n    io.print(m)\n    g = Gizmo.Make\n    _ = g\nend\n",
 			[]string{
 				"main.nomi:2:9: undefined type or variant 'Method'\n  help: import `std::http.Method`",
 				"main.nomi:3:5: undefined variable 'io'\n  help: import `std::io`",

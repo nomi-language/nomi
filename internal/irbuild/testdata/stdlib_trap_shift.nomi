@@ -4,7 +4,7 @@
 // it, where `String.repeat`'s reads `strings.String.repeat: …`.
 import std::io
 
-fn main() {
+fn main()
     io.print("before")
     io.print("${Int.shift_left(1, 0 - 1)}")
-}
+end

@@ -418,29 +418,29 @@ func TestQualifiedGenericTypeResolves(t *testing.T) {
 	_, errs := checkSource(`
 pub type Holder
 
-pub enum Holder.Flag {
+pub enum Holder.Flag
   On
   Off
-}
+end
 
-pub enum Holder.Box<T> {
+pub enum Holder.Box<T>
   Full T
   Empty
-}
+end
 
-fn flag(f: Holder.Flag) -> Int {
-  case f {
+fn flag(f: Holder.Flag) -> Int
+  case f
     .On -> 1
     .Off -> 0
-  }
-}
+  end
+end
 
-fn boxed(x: Holder.Box<Int>) -> Int {
-  case x {
+fn boxed(x: Holder.Box<Int>) -> Int
+  case x
     .Full(n) -> n
     .Empty -> 0
-  }
-}
+  end
+end
 `)
 	for _, err := range errs {
 		if strings.Contains(err.Message, "unknown type") {

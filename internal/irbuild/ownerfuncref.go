@@ -84,7 +84,7 @@ func (bl *irScalarBuilder) callFuncValue(ref ast.Node, name string) (ir.Temp, ki
 	if !ok {
 		return no()
 	}
-	return bl.callFuncValueOf(ref, name, params, result)
+	return bl.callFuncValueOf(ref, name, params, result, g.srcFA().DefaultedRefs[ref])
 }
 
 // defaultFilledRef reports whether the checker typed ref, a function named as
@@ -133,12 +133,15 @@ func (bl *irScalarBuilder) selfCtorFuncRef(t *ast.SelfExpr) (ir.Temp, kind, bool
 	}
 	g.funcValueRefs[t] = true
 	defer delete(g.funcValueRefs, t)
-	return bl.callFuncValueOf(t, d.nomi, []kind{d.inner}, named(d))
+	return bl.callFuncValueOf(t, d.nomi, []kind{d.inner}, named(d), nil)
 }
 
 // callFuncValueOf builds the function value of ref at the given kinds: a
-// function whose body calls ref with its parameters.
-func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []kind, result kind) (ir.Temp, kind, bool, bool) {
+// function whose body calls ref with its parameters. rec, when the call
+// leaves parameters out, is the checker's record of what fills them: a
+// default-filled function value's (analysis DefaultedRefs), or the call
+// through a local copy of the function this value stands in for.
+func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []kind, result kind, rec *analysis.DefaultedCall) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	g := bl.g
 	line, col := calleeRefPos(ref)
@@ -148,7 +151,7 @@ func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []k
 	sh.frame = newIRFuncFrame(f)
 	sh.entry = f.NewBlock(at, "entry")
 	child := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{},
-		boundK: map[string]kind{}, placed: map[ast.Node]irPlacedArg{}}
+		boundK: map[string]kind{}, placed: map[ast.Node]irPlacedArg{}, unwritten: true}
 	args := make([]ast.Node, len(params))
 	for i, k := range params {
 		// Each operand is a stand-in the call lowers to the parameter's
@@ -159,6 +162,13 @@ func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []k
 		args[i] = stand
 	}
 	call := &ast.Call{Func: ref, Args: args, Line: line, Col: col}
+	if rec != nil {
+		if g.synthDefaults == nil {
+			g.synthDefaults = map[*ast.Call]*analysis.DefaultedCall{}
+		}
+		g.synthDefaults[call] = rec
+		defer delete(g.synthDefaults, call)
+	}
 	dst, k, _, ok := child.lower(call)
 	if !ok || k != result || len(child.captures) != 0 {
 		return no()
@@ -183,17 +193,10 @@ func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []k
 // checkedValueKinds is the function type the checker gave a reference used as
 // a value, in this gen's kinds: the instantiated signature when the reference
 // is generic, its declared type otherwise. ok is false when the type is not a
-// function type, leaves anything unsolved, or names a kind outside the value
-// domain.
+// function type or names a kind outside the value domain. A type argument
+// inference left open (`pick(False, _, Some(Ok(6.5)))`'s error type) is the
+// type the checker closed it as.
 func (g *gen) checkedValueKinds(ref ast.Node) ([]kind, kind, bool) {
-	return g.checkedFuncKinds(ref, false)
-}
-
-// checkedFuncKinds is checkedValueKinds, with each hole the checker left open
-// filled as a call's operand fills it (irFillHolesByPosition) when fill is
-// set: `pick(False, _, Some(Ok(6.5)))` leaves the Result's error type open,
-// and nothing the partial runs reads a value of it.
-func (g *gen) checkedFuncKinds(ref ast.Node, fill bool) ([]kind, kind, bool) {
 	if g.fa == nil {
 		return nil, kindInvalid, false
 	}
@@ -211,10 +214,7 @@ func (g *gen) checkedFuncKinds(ref ast.Node, fill bool) ([]kind, kind, bool) {
 			ft, _ = decl.Type.(*analysis.FuncType)
 		}
 	}
-	if ft != nil && fill && irUnsolvedType(ft) {
-		ft, _ = irFillHolesByPosition(ft, false).(*analysis.FuncType)
-	}
-	if ft == nil || irUnsolvedType(ft) {
+	if ft == nil {
 		return nil, kindInvalid, false
 	}
 	params := make([]kind, len(ft.Params))
@@ -255,54 +255,19 @@ func (g *gen) distinctCtorRef(ref ast.Node) bool {
 	return sym.Kind == analysis.SymbolType && isDistinct
 }
 
-// copiedFuncRef answers the declared function a local name copies, directly
-// or through other copies (`g = parse`, `g2 = g`, `g = Parser.parse`): the
-// name node the first binding of the chain holds, and its spelling. A copy
-// keeps the function's defaults (analysis.calleeCopiesADeclaration), so a
-// call through it that leaves some out calls the function's shorter value,
-// which callFuncValueOf builds as a call by name. nil for any other callee.
-func (g *gen) copiedFuncRef(callee ast.Node) (ast.Node, string) {
-	if g.fa == nil {
-		return nil, ""
+// funcRefName spells ref, a declared function named as a value (`parse`,
+// `Parser.parse`), as the function value callFuncValueOf builds is named.
+func funcRefName(ref ast.Node) string {
+	switch v := ref.(type) {
+	case *ast.Ident:
+		return v.Name
+	case *ast.FieldAccess:
+		if name, ok := ownerSpelling(v); ok {
+			return name
+		}
+		if v.Field != nil {
+			return v.Field.Name
+		}
 	}
-	fa := g.srcFA()
-	for depth := 0; depth < 8; depth++ {
-		id, ok := callee.(*ast.Ident)
-		if !ok {
-			return nil, ""
-		}
-		sym := fa.References[analysis.Pos{Line: id.Line, Col: id.Col}]
-		if sym == nil || sym.Kind != analysis.SymbolBinding {
-			return nil, ""
-		}
-		b, ok := sym.Node.(*ast.Binding)
-		if !ok || b.Value == nil {
-			return nil, ""
-		}
-		value := b.Value
-		line, col := calleeRefPos(value)
-		ref := fa.References[analysis.Pos{Line: line, Col: col}]
-		for ref != nil && ref.Resolved != nil {
-			ref = ref.Resolved
-		}
-		if ref != nil {
-			switch ref.Node.(type) {
-			case *ast.FuncDef, *ast.ExternFunc, *ast.InterfaceMethod:
-				switch v := value.(type) {
-				case *ast.Ident:
-					return v, v.Name
-				case *ast.FieldAccess:
-					if name, ok := ownerSpelling(v); ok {
-						return v, name
-					}
-					if v.Field != nil {
-						return v, v.Field.Name
-					}
-				}
-				return nil, ""
-			}
-		}
-		callee = value
-	}
-	return nil, ""
+	return ""
 }

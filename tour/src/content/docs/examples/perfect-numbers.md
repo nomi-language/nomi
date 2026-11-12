@@ -14,32 +14,32 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Nicomachus' classification of positive integers by their aliquot sum.
 
 /// Where a number stands against the sum of its divisors other than itself.
-pub enum Classification {
+pub enum Classification
     Perfect
     Abundant
     Deficient
-}
+end
 
 /// Why a number has no classification.
-pub enum Error {
+pub enum Error
     NotPositive
-}
+end
 
 /// Classifies `number` by its aliquot sum: perfect when the two are equal,
 /// abundant when the sum is greater, deficient when it is less.
-pub fn classify(number: Int) -> Result<Classification, Error> {
-    if number < 1 { return Err(.NotPositive) }
+pub fn classify(number: Int) -> Result<Classification, Error>
+    if number < 1 then return Err(.NotPositive)
 
-    case Int.compare(aliquot_sum(number), number) {
+    case Int.compare(aliquot_sum(number), number)
         .Equal -> Ok(.Perfect)
         .Greater -> Ok(.Abundant)
         .Less -> Ok(.Deficient)
-    }
-}
+    end
+end
 
 /// The sum of `number`'s divisors other than itself. Divisors come in pairs
 /// `d` and `number / d`, so the search stops at the square root.
-fn aliquot_sum(number: Int) -> Int {
+fn aliquot_sum(number: Int) -> Int
     divisors =
         1..=Int.sqrt(number)
         |> Iter.filter(fn d -> number % d == 0)
@@ -47,41 +47,41 @@ fn aliquot_sum(number: Int) -> Int {
         |> Iter.sum()
 
     divisors - number
-}
+end
 
 /// `d` plus the divisor it pairs with, counted once when the two are equal.
-fn divisor_pair(number: Int, d: Int) -> Int {
+fn divisor_pair(number: Int, d: Int) -> Int
     other = number / d
-    if other == d { d } else { d + other }
-}
+    if other == d then d else d + other
+end
 
 // FILE: perfect_numbers_test.nomi
 import perfect_numbers
 
-test "Perfect numbers" {
+test "Perfect numbers"
     [
         ("Smallest perfect number is classified correctly", 6),
         ("Medium perfect number is classified correctly", 28),
         ("Large perfect number is classified correctly", 33550336),
     ]
-    |> subtests (description, number), description {
+    |> subtests (description, number), description
         assert perfect_numbers.classify(number) == Ok(.Perfect)
-    }
-}
+    end
+end
 
-test "Abundant numbers" {
+test "Abundant numbers"
     [
         ("Smallest abundant number is classified correctly", 12),
         ("Medium abundant number is classified correctly", 30),
         ("Large abundant number is classified correctly", 33550335),
         ("Perfect square abundant number is classified correctly", 196),
     ]
-    |> subtests (description, number), description {
+    |> subtests (description, number), description
         assert perfect_numbers.classify(number) == Ok(.Abundant)
-    }
-}
+    end
+end
 
-test "Deficient numbers" {
+test "Deficient numbers"
     [
         ("Smallest prime deficient number is classified correctly", 2),
         ("Smallest non-prime deficient number is classified correctly", 4),
@@ -89,20 +89,20 @@ test "Deficient numbers" {
         ("Large deficient number is classified correctly", 33550337),
         ("Edge case (no factors other than itself) is classified correctly", 1),
     ]
-    |> subtests (description, number), description {
+    |> subtests (description, number), description
         assert perfect_numbers.classify(number) == Ok(.Deficient)
-    }
-}
+    end
+end
 
-test "Invalid inputs" {
+test "Invalid inputs"
     [
         ("Zero is rejected (as it is not a positive integer)", 0),
         ("Negative integer is rejected (as it is not a positive integer)", -1),
     ]
-    |> subtests (description, number), description {
+    |> subtests (description, number), description
         assert perfect_numbers.classify(number) == Err(.NotPositive)
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok Perfect numbers (3 cases)

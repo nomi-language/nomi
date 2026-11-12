@@ -286,7 +286,7 @@ func writeQualifiedType(sb *strings.Builder, t Type, qualify func(name, origin s
 		writeQualifiedType(sb, v.Val, qualify, entry)
 		sb.WriteString(">")
 	case *AnonStructType:
-		sb.WriteString(".{")
+		sb.WriteString("{")
 		for i, f := range v.Fields {
 			if i > 0 {
 				sb.WriteString(", ")

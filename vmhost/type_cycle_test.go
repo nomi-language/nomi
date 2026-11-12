@@ -13,11 +13,11 @@ import (
 // the path `nomi check` and `nomi run` take. `type e e` overflowed the Go
 // stack in the checker, which no recover catches.
 func TestTypeCycleIsACheckError(t *testing.T) {
-	rejects(t, "type e e\n\nfn main() {\n}\n",
+	rejects(t, "type e e\n\nfn main() end\n",
 		"main.nomi:1:6: type 'e' is defined in terms of itself")
-	rejects(t, "type A B\n\ntype B List<A>\n\nfn main() {\n}\n",
+	rejects(t, "type A B\n\ntype B List<A>\n\nfn main() end\n",
 		"main.nomi:3:6: type 'B' is defined in terms of itself (B → A → B)")
-	rejects(t, "typealias X Y\n\ntypealias Y Maybe<X>\n\nfn main() {\n}\n",
+	rejects(t, "typealias X Y\n\ntypealias Y Maybe<X>\n\nfn main() end\n",
 		"main.nomi:1:11: typealias 'X' refers to itself (X → Y → X)",
 		"main.nomi:3:11: typealias 'Y' refers to itself (Y → X → Y)")
 }
@@ -31,7 +31,7 @@ func TestTypeCycleAcrossFilesIsACheckError(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("main.nomi", "import b\n\npub type A b.B\n\nfn main() {\n}\n")
+	write("main.nomi", "import b\n\npub type A b.B\n\nfn main() end\n")
 	write("b.nomi", "import main\n\npub type B List<main.A>\n")
 	err := vmhost.Check(filepath.Join(dir, "main.nomi"))
 	if err == nil || !strings.Contains(err.Error(), "is defined in terms of itself") {
@@ -51,11 +51,11 @@ typealias Later Earlier
 
 typealias Earlier Int
 
-fn main() {
+fn main()
     A(n) = A(3)
     m: Later = n + 1
     io.print(Int.to_string(m))
-}
+end
 `)
 	if got != "4\n" {
 		t.Fatalf("output %q", got)

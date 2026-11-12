@@ -10,39 +10,39 @@ import (
 
 const evaluateSource = `import std::io
 
-fn answer() -> Int {
+fn answer() -> Int
     Iter.reduce(1..=4, 0, fn acc, n -> acc + n)
-}
+end
 
-fn spin(n: Int) -> Int {
-    if n < 0 {
+fn spin(n: Int) -> Int
+    if n < 0 then
         n
-    } else {
+    else
         spin(n + 1)
-    }
-}
+    end
+end
 
-fn forever() -> Int {
+fn forever() -> Int
     spin(0)
-}
+end
 
-fn endless() -> Int {
+fn endless() -> Int
     Iter.repeat(1)
-    |> Iter.filter(fn x -> {
-        if x < 0 { break }
+    |> Iter.filter(fn x ->
+        if x < 0 then break
         True
-    })
+    end)
     |> Iter.count()
-}
+end
 
-fn loud() -> Int {
+fn loud() -> Int
     io.print("evaluated")
     1
-}
+end
 
-fn main() {
+fn main()
     io.print("${answer()} ${forever()} ${endless()} ${loud()}")
-}
+end
 `
 
 func evaluateProgram(t *testing.T) *Program {

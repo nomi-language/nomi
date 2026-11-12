@@ -18,7 +18,7 @@ import (
 // bin/, so that main.nomi must not become the script's project root.
 var scriptFFIFiles = map[string]string{
 	"go.mod":    "module scriptbinding\n\ngo 1.27.0\n",
-	"main.nomi": "fn main() {}\n",
+	"main.nomi": "fn main() end\n",
 	"binding.go": `package scriptbinding
 
 import "strings"
@@ -39,12 +39,12 @@ func BoxLabel(box *Box) string {
 	return box.Label
 }
 `,
-	"bin/helper.nomi": "pub fn answer() -> Int {\n  42\n}\n",
+	"bin/helper.nomi": "pub fn answer() -> Int\n  42\nend\n",
 	"bin/hi": `#!/usr/bin/env nomi
-import {
+import
   std::io
   helper
-}
+end
 
 gopkg "scriptbinding" as ffi
 
@@ -56,11 +56,11 @@ fn make_box(label: String) -> RawBox go ffi.MakeBox
 
 fn box_label(box: RawBox) -> String go ffi.BoxLabel
 
-fn main() {
+fn main()
   io.print(echo_upper("hello"))
   io.print(box_label(make_box("boxed")))
   io.print(helper.answer())
-}
+end
 `,
 }
 

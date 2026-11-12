@@ -2,14 +2,14 @@
 List patterns with elements after the spread
 ================================================================================
 
-fn f(xs: List<Int>) -> Int {
-  case xs {
+fn f(xs: List<Int>) -> Int
+  case xs
     [first, ..mid, last] -> first
     [1, .., 9] -> 9
     [.., z] -> z
     _ -> 0
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 

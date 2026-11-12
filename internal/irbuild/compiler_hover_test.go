@@ -61,8 +61,8 @@ func TestHoverResultProjectsThroughTheHoverSpec(t *testing.T) {
 // indistinguishable from a correct answer in any output comparison.
 func TestHoverMarkerIsStrictlyOne(t *testing.T) {
 	for _, tc := range []struct{ name, src, wantErr string }{
-		{"none", "fn main() {\n}\n", "found none"},
-		{"two", "fn maˇin() {\nˇ}\n", "found multiple"},
+		{"none", "fn main() end\n", "found none"},
+		{"two", "fn maˇin()\nˇend\n", "found multiple"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, _, err := stdcompiler.StripSingleHoverMarker(tc.src)
@@ -79,7 +79,7 @@ func TestHoverMarkerIsStrictlyOne(t *testing.T) {
 	// rune before the marker on the same line is the case that separates a byte
 	// column from a rune column, and getting it wrong resolves to a neighbouring
 	// token rather than to an error.
-	clean, pos, err := stdcompiler.StripSingleHoverMarker("fn main() {\n  x = \"é\" + bˇar\n}\n")
+	clean, pos, err := stdcompiler.StripSingleHoverMarker("fn main()\n  x = \"é\" + bˇar\nend\n")
 	if err != nil {
 		t.Fatal(err)
 	}

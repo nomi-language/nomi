@@ -1,15 +1,15 @@
 /// A `Point` that coexists with the entry file's same-named type.
-pub struct Point {
+pub struct Point
     x: Int
     y: Int
-}
+end
 
-impl Display for Point {
-    fn to_string(p: Point) -> String {
+impl Display for Point
+    fn to_string(p: Point) -> String
         "shapes(${Int.to_string(p.x)}, ${Int.to_string(p.y)})"
-    }
-}
+    end
+end
 
-pub fn origin() -> Point {
+pub fn origin() -> Point
     Point{x: 0, y: 0}
-}
+end

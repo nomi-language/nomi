@@ -19,42 +19,42 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 once mirror = Iter.zip('a'..='z', Iter.reverse('a'..='z')) |> Iter.to_map()
 
 /// The ciphertext of `phrase`, in lowercase groups of five.
-pub fn encode(phrase: String) -> String {
+pub fn encode(phrase: String) -> String
     phrase
     |> translate()
     |> Iter.chunks(5)
     |> Iter.map(String.join)
     |> String.join(" ")
-}
+end
 
 /// The plaintext of `phrase`, with no spaces.
-pub fn decode(phrase: String) -> String {
+pub fn decode(phrase: String) -> String
     phrase |> translate() |> String.join()
-}
+end
 
 /// Each letter and digit of `text` in cipher order. The cipher is its own
 /// inverse, so this both encodes and decodes.
-fn translate(text: String) -> List<String> {
+fn translate(text: String) -> List<String>
     text
     |> String.lowercase()
     |> String.to_codepoints()
     |> Iter.flat_map(swap)
     |> Iter.map(Codepoint.to_string)
     |> Iter.to_list()
-}
+end
 
-fn swap(cp: Codepoint) -> Maybe<Codepoint> {
-    if Codepoint.is_digit(cp) {
+fn swap(cp: Codepoint) -> Maybe<Codepoint>
+    if Codepoint.is_digit(cp) then
         Some(cp)
-    } else {
+    else
         Map.get(mirror, cp)
-    }
-}
+    end
+end
 
 // FILE: atbash_cipher_test.nomi
 import atbash_cipher
 
-test "encode" {
+test "encode"
     [
         ("encode yes", "yes", "bvh"),
         ("encode no", "no", "ml"),
@@ -69,12 +69,12 @@ test "encode" {
             "gsvjf rxpyi ldmul cqfnk hlevi gsvoz abwlt",
         ),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert atbash_cipher.encode(phrase) == expected
-    }
-}
+    end
+end
 
-test "decode" {
+test "decode"
     [
         ("decode exercism", "vcvix rhn", "exercism"),
         (
@@ -95,10 +95,10 @@ test "decode" {
             "anobstacleisoftenasteppingstone",
         ),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert atbash_cipher.decode(phrase) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok encode (8 cases)

@@ -23,125 +23,124 @@ import (
 func TestIRLeavingBlock_Returns(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct P {
+struct P
     a: Int
     b: Int
-}
+end
 
-fn calls(x: Int) -> Int {
+fn calls(x: Int) -> Int
     x
-}
+end
 
-fn bind(n: Int) -> Int {
-    x = {
+fn bind(n: Int) -> Int
+    x = begin
         io.print("bind")
-        case n {
+        case n
             0 -> return 1
             _ -> return 2
-        }
-    }
+        end
+    end
     io.inspect(x)
     x
-}
+end
 
-fn bare_return(n: Int) -> Int {
-    x = {
+fn bare_return(n: Int) -> Int
+    x = begin
         io.print("bare return")
         return n + 1
-    }
+    end
     io.inspect(x)
     x
-}
+end
 
-fn operand(n: Int) -> Int {
-    1 + {
+fn operand(n: Int) -> Int
+    1 + begin
         io.print("operand")
-        if n > 0 { return 3 } else { return 4 }
-    }
-}
+        if n > 0 then return 3 else return 4
+    end
+end
 
-fn argument(n: Int) -> Int {
-    calls({
+fn argument(n: Int) -> Int
+    calls(begin
         io.print("argument")
-        if n > 0 { return 5 } else { return 6 }
-    })
-}
+        if n > 0 then return 5 else return 6
+    end)
+end
 
-fn field(n: Int) -> Int {
-    p = P{a: 1, b: {
+fn field(n: Int) -> Int
+    p = P{a: 1, b: begin
         io.print("field")
-        case n {
+        case n
             0 -> return 7
             _ -> return 8
-        }
-    }}
+        end
+    end}
     p.a
-}
+end
 
-fn item(n: Int) -> Int {
-    xs = [calls(1), {
+fn item(n: Int) -> Int
+    xs = [calls(1), begin
         io.print("item")
-        case n {
+        case n
             0 -> return 9
             _ -> return 10
-        }
-    }]
+        end
+    end]
     io.inspect(xs)
     0
-}
+end
 
-fn nested(n: Int) -> Int {
-    x = {
+fn nested(n: Int) -> Int
+    x = begin
         io.print("outer")
-        y = {
+        y = begin
             io.print("inner")
-            case n {
+            case n
                 0 -> return 11
                 _ -> return 12
-            }
-        }
+            end
+        end
         io.inspect(y)
         y
-    }
+    end
     x
-}
+end
 
-fn tail_block(n: Int) -> Int {
-    {
+fn tail_block(n: Int) -> Int
+    begin
         io.print("tail block")
-        case n {
+        case n
             0 -> return 13
             _ -> return 14
-        }
-    }
-}
+        end
+    end
+end
 
-fn arms(n: Int) -> Int {
-    y = case n {
-        0 -> {
+fn arms(n: Int) -> Int
+    y = case n
+        0 ->
             io.print("arm")
-            z = {
+            z = begin
                 io.print("arm block")
-                if n == 0 { return 15 } else { return 16 }
-            }
+                if n == 0 then return 15 else return 16
+            end
             z
-        }
         _ -> n
-    }
-    if y > 100 {
-        {
+    end
+    if y > 100 then
+        begin
             io.print("if branch")
-            w = {
+            w = begin
                 return y + 1
-            }
+            end
             w
-        }
-    } else {
+        end
+    else
         y
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.inspect(bind(0))
     io.inspect(bind(1))
     io.inspect(bare_return(5))
@@ -154,7 +153,7 @@ fn main() {
     io.inspect(arms(0))
     io.inspect(arms(200))
     io.inspect(arms(3))
-}
+end
 `, "bind\n1\nbind\n2\nbare return\n6\noperand\n3\nargument\n6\nfield\n7\nitem\n10\n"+
 		"outer\ninner\n11\ntail block\n14\narm\narm block\n15\nif branch\n201\n3\n")
 }
@@ -165,28 +164,28 @@ fn main() {
 func TestIRLeavingBlock_Defer(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn deferred(n: Int) -> Int {
+fn deferred(n: Int) -> Int
     defer io.print("outer defer")
-    x = {
+    x = begin
         defer io.print("inner defer 1")
         defer io.print("inner defer 2")
         io.print("deferred")
-        {
+        begin
             defer io.print("innermost defer")
-            case n {
+            case n
                 0 -> return 1
                 _ -> return 2
-            }
-        }
-    }
+            end
+        end
+    end
     io.print("never")
     x
-}
+end
 
-fn main() {
+fn main()
     io.inspect(deferred(0))
     io.inspect(deferred(1))
-}
+end
 `, "deferred\ninnermost defer\ninner defer 2\ninner defer 1\nouter defer\n1\n"+
 		"deferred\ninnermost defer\ninner defer 2\ninner defer 1\nouter defer\n2\n")
 }
@@ -198,65 +197,69 @@ fn main() {
 func TestIRLeavingBlock_LambdasAndLoops(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn lambda(n: Int) -> Int {
-    f = fn m: Int -> {
-        x = {
+fn lambda(n: Int) -> Int
+    f = fn m: Int ->
+        x = begin
             io.print("lambda")
-            case m {
+            case m
                 0 -> return 10
                 _ -> return 20
-            }
-        }
+            end
+        end
         io.inspect(x)
         m
-    }
+    end
     f(n)
-}
+end
 
-fn mapped(xs: List<Int>) -> List<Int> {
-    Iter.map(xs, fn x -> {
-        y = {
+fn mapped(xs: List<Int>) -> List<Int>
+    Iter.map(xs, fn x ->
+        y = begin
             io.print("map ${x}")
-            case x {
+            case x
                 1 -> continue
                 3 -> break 30
                 _ -> return x * 10
-            }
-        }
+            end
+        end
         y
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
-fn filtered(xs: List<Int>) -> List<Int> {
-    Iter.filter(xs, fn x -> {
-        {
+fn filtered(xs: List<Int>) -> List<Int>
+    Iter.filter(xs, fn x ->
+        begin
             io.print("filter ${x}")
-            if x == 2 { continue } else { if x > 3 { break True } else { return True } }
-        }
-    })
+            if x == 2 then
+                continue
+            else
+                if x > 3 then break True else return True
+            end
+        end
+    end)
     |> Iter.to_list()
-}
+end
 
-fn looped() -> Int {
-    Iter.loop(0, fn i -> {
-        x = {
+fn looped() -> Int
+    Iter.loop(0, fn i ->
+        x = begin
             io.print("iteration ${i}")
-            case i {
+            case i
                 2 -> break i * 100
                 _ -> return i + 1
-            }
-        }
+            end
+        end
         x
-    })
-}
+    end)
+end
 
-fn main() {
+fn main()
     io.inspect(lambda(1))
     io.inspect(mapped([0, 1, 2, 3, 4]))
     io.inspect(filtered([1, 2, 3, 4, 5]))
     io.inspect(looped())
-}
+end
 `, "lambda\n20\nmap 0\nmap 1\nmap 2\nmap 3\n[0, 20, 30]\n"+
 		"filter 1\nfilter 2\nfilter 3\nfilter 4\n[1, 3, 4]\n"+
 		"iteration 0\niteration 1\niteration 2\n200\n")
@@ -270,56 +273,55 @@ func TestIRLeavingBlock_TestBodies(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "leaving_block_test.nomi")
 	src := `import std::io
 
-test "a bound block that returns" {
+test "a bound block that returns"
     n = 1
-    x = {
+    x = begin
         defer io.print("bound defer")
         io.print("bound block")
-        case n {
+        case n
             0 -> return
             _ -> return
-        }
-    }
+        end
+    end
     io.inspect(x)
     assert False
-}
+end
 
-test "a block statement whose binding returns" {
+test "a block statement whose binding returns"
     assert 1 == 1
-    {
+    begin
         defer io.print("block defer")
         io.print("block")
-        y = if 1 > 0 {
+        y = if 1 > 0 then
             io.print("then")
             return
-        } else {
+        else
             return
-        }
+        end
         io.inspect(y)
-    }
+    end
     io.print("never")
-}
+end
 
-test "a call argument block that returns" {
-    io.inspect({
+test "a call argument block that returns"
+    io.inspect(begin
         io.print("argument")
         return
-    })
+    end)
     assert False
-}
+end
 
-test "a bound case that returns" {
+test "a bound case that returns"
     n = 0
-    x = case n {
-        0 -> {
+    x = case n
+        0 ->
             io.print("arm")
             return
-        }
         _ -> return
-    }
+    end
     io.inspect(x)
     assert False
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)

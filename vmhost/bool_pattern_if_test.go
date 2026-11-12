@@ -14,26 +14,26 @@ import (
 func TestRun_BoolVariantPatternIfRuns(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-fn f(y: Bool) -> String {
-  if False = y { "f" } else { "t" }
-}
+fn f(y: Bool) -> String
+  if False = y then "f" else "t"
+end
 
-fn g(y: Bool) -> Int {
-  if True = y {
+fn g(y: Bool) -> Int
+  if True = y then
     io.print("yes")
-  }
+  end
   1
-}
+end
 
-fn h(y: Bool) -> String {
-  if .True = y { "T" } else { "F" }
-}
+fn h(y: Bool) -> String
+  if .True = y then "T" else "F"
+end
 
-fn k(y: Bool) -> String {
-  if Bool.False = y { "F" } else { "T" }
-}
+fn k(y: Bool) -> String
+  if Bool.False = y then "F" else "T"
+end
 
-fn main() {
+fn main()
   io.print(f(False))
   io.print(f(True))
   _ = g(True)
@@ -42,7 +42,7 @@ fn main() {
   io.print(h(False))
   io.print(k(True))
   io.print(k(False))
-}
+end
 `)
 	want := "f\nt\nyes\nT\nF\nT\nF\n"
 	if err != nil || out != want {
@@ -55,25 +55,25 @@ func TestRun_BoolVariantPatternIfInATestBodyRuns(t *testing.T) {
 	const name = "main_test.nomi"
 	p, err := vmhost.LoadSource(name, `import std::io
 
-test "bool pattern if" {
+test "bool pattern if"
   y = False
-  if True = y {
+  if True = y then
     io.print("no")
-  }
-  s = if False = y { "f" } else { "t" }
+  end
+  s = if False = y then "f" else "t"
   assert s == "f"
-  if Bool.True = True {
+  if Bool.True = True then
     io.print("yes")
-  } else {
+  else
     io.print("no")
-  }
-  if False as b = y {
+  end
+  if False as b = y then
     io.print("as ${b}")
-  }
-  if False(m) = y {
+  end
+  if False(m) = y then
     io.print("bound ${Display.to_string(m)}")
-  }
-}
+  end
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the test: %v", err)

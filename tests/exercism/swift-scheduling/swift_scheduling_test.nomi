@@ -1,9 +1,9 @@
-import {
+import
     std::calendar.NaiveDateTime
     swift_scheduling
-}
+end
 
-test "delivery date" {
+test "delivery date"
     [
         (
             "NOW translates to two hours later",
@@ -108,15 +108,15 @@ test "delivery date" {
             NaiveDateTime`2019-06-28T08:00:00`,
         ),
     ]
-    |> subtests (description, meeting_start, text, expected), description {
+    |> subtests (description, meeting_start, text, expected), description
         assert swift_scheduling.delivery_date(meeting_start, text) == Ok(expected)
-    }
-}
+    end
+end
 
-test "descriptions that name no delivery date" {
+test "descriptions that name no delivery date"
     meeting_start = NaiveDateTime`2012-02-13T09:00:00`
 
-    subtests ["LATER", "0M", "13M", "Q5", "Q", "M"], text {
+    subtests ["LATER", "0M", "13M", "Q5", "Q", "M"], text
         assert swift_scheduling.delivery_date(meeting_start, text) == Err(.UnknownDescription(text))
-    }
-}
+    end
+end

@@ -169,7 +169,7 @@ func (g *gen) typeRefusal(te ast.TypeExpr) (construct, detail string, ok bool) {
 	case *ast.AnonStructType:
 		// A RECORD lowers (anonstruct.go), so it fails only through a FIELD —
 		// the same shape the FuncType arm above has, and reported the same
-		// way: `.{items: Map<Bad, Int>}` names the Bad, because the record is
+		// way: `{items: Map<Bad, Int>}` names the Bad, because the record is
 		// fine and the field is the work.
 		names := make([]string, len(t.Fields))
 		for i, f := range t.Fields {

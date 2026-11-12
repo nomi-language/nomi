@@ -1,63 +1,63 @@
 import std::compiler
 
-fn unfinished(flag: Bool, n: Int) -> Int {
-    if flag { todo "handle the flag" } else { n * 2 }
-}
+fn unfinished(flag: Bool, n: Int) -> Int
+    if flag then todo "handle the flag" else n * 2
+end
 
-test "a todo on a path the run does not take never traps" {
+test "a todo on a path the run does not take never traps"
     assert unfinished(False, 4) == 8
-}
+end
 
-test "a todo checks wherever a value is expected" {
+test "a todo checks wherever a value is expected"
     diagnostics =
         """
-        struct Point {
+        struct Point
           x: Int
           y: Int
-        }
+        end
 
-        fn parse(text: String) -> Point {
+        fn parse(text: String) -> Point
           todo "parse the point"
-        }
+        end
 
-        fn make(n: Int) -> Point {
+        fn make(n: Int) -> Point
           Point{x: n, y: todo}
-        }
+        end
 
-        fn main() {
+        fn main()
           _ = 1
-        }
+        end
         """
         |> compiler.check()
 
     assert diagnostics == []
-}
+end
 
-test "reaching a todo stops the program with its place and reason" {
+test "reaching a todo stops the program with its place and reason"
     result =
         """
-        fn main() {
+        fn main()
           todo "finish main"
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert "todo reached at " in message
     assert String.ends_with(message, ":2: finish main")
-}
+end
 
-test "an unannotated binding of a todo asks for a type" {
+test "an unannotated binding of a todo asks for a type"
     diagnostics =
         """
-        fn main() {
+        fn main()
           x = todo
           _ = x
-        }
+        end
         """
         |> compiler.check()
 
-    assert Iter.any_match(diagnostics, fn d -> {
+    assert Iter.any_match(diagnostics, fn d ->
         "cannot infer a type for 'x' from `todo`" in d.message
-    })
-}
+    end)
+end

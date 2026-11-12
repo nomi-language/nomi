@@ -22,7 +22,7 @@ func TestDottedDistinct_BothSpellingsRejectArityAlike(t *testing.T) {
 		{"namespaced", "Day.Hours(1, 2)", "Day.Hours wraps Int, so Day.Hours(...) takes one argument, an Int; got 2"},
 	}
 	for _, tc := range cases {
-		_, err := AnalyzeSource("main", decls+"test \"t\" {\n  _ = "+tc.call+"\n  assert 1 == 1\n}\n")
+		_, err := AnalyzeSource("main", decls+"test \"t\"\n  _ = "+tc.call+"\n  assert 1 == 1\nend\n")
 		if err == nil {
 			t.Fatalf("%s: the front end now ADMITS %s, so irbuild's `call arity` backstop is live and untested", tc.name, tc.call)
 		}

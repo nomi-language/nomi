@@ -16,39 +16,39 @@
 // binding.
 import std::io
 
-interface Zero {
+interface Zero
     fn zero() -> self
-}
+end
 
-struct Meters {
+struct Meters
     n: Int
-}
+end
 
-struct Feet {
+struct Feet
     n: Int
-}
+end
 
-impl Zero for Meters {
-    fn zero() -> Meters {
+impl Zero for Meters
+    fn zero() -> Meters
         Meters{n: 0}
-    }
-}
+    end
+end
 
-impl Zero for Feet {
-    fn zero() -> Feet {
+impl Zero for Feet
+    fn zero() -> Feet
         Feet{n: 100}
-    }
-}
+    end
+end
 
-fn origin<T>() -> T where T: Zero {
+fn origin<T>() -> T where T: Zero
     T.zero()
-}
+end
 
-fn scaled<U>() -> U where U: Zero {
+fn scaled<U>() -> U where U: Zero
     origin<U>()
-}
+end
 
-fn main() {
+fn main()
     m = origin<Meters>()
     f = origin<Feet>()
     io.print("meters ${m.n}")
@@ -57,4 +57,4 @@ fn main() {
     f2 = scaled<Feet>()
     io.print("scaled meters ${m2.n}")
     io.print("scaled feet ${f2.n}")
-}
+end

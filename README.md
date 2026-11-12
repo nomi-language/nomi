@@ -10,15 +10,17 @@ in your browser.
 
 - **Statically typed**, with local inference: named functions spell out their
   parameters and return types; bindings and lambdas infer.
+- **Bodies end in `end`**: a function, an `if`, a `case` or a type is a
+  header line, its body below and `end`. Braces hold data only.
 - **Fully immutable**: bindings, structs and collections are persistent;
   "modifying" returns a new value.
 - **Functional-first**: first-class functions, algebraic data types,
   exhaustive `case` destructuring, and tail calls in constant stack space.
-- **Explicit interfaces**: `impl Interface for Type { ... }`, `derive` for
+- **Explicit interfaces**: `impl Interface for Type` blocks, `derive` for
   generated implementations, and qualified calls (`Display.to_string(x)`,
   `String.length(s)`) instead of value methods.
 - **Pipe-oriented**: `x |> f()` keeps data flow reading top to bottom.
-- **Structured concurrency**: `concurrent { ... }` blocks, tasks, channels,
+- **Structured concurrency**: `concurrent` blocks, tasks, channels,
   supervisors and context-style cancellation.
 - **Built-in tests**: `test` / `group` blocks and `//!` attached examples are
   ordinary Nomi code, run by `nomi test`.
@@ -66,11 +68,10 @@ this as `~/hello-nomi/hello.nomi`:
 ```nomi
 import std::io
 
-fn main() {
+fn main()
     io.print("Hello, Nomi!")
-}
+end
 ```
-
 ```sh
 cd ~/hello-nomi
 nomi run hello.nomi        # prints Hello, Nomi!

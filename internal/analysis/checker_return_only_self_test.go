@@ -14,10 +14,10 @@ import (
 func TestReturnOnlySelf_SolvedFromTheExpectedType(t *testing.T) {
 	src := `import std::json.{FromJson, Json}
 
-fn count(parsed: Json) -> Result<Int, Json.ShapeError> {
+fn count(parsed: Json) -> Result<Int, Json.ShapeError>
   ids: List<Int> = FromJson.from_json(parsed)?
   Ok(Iter.count(ids))
-}`
+end`
 	expectClean(t, checkWithStdlib(src))
 }
 
@@ -36,7 +36,7 @@ func TestReturnOnlySelf_SeededFromTheExpectedTypeIsRecorded(t *testing.T) {
 	}
 	for name, body := range bodies {
 		t.Run(name, func(t *testing.T) {
-			src := "import std::json.{FromJson, Json}\n\nfn read(json: Json) -> Result<Maybe<Int>, Json.ShapeError> {\n" + body + "\n}\n"
+			src := "import std::json.{FromJson, Json}\n\nfn read(json: Json) -> Result<Maybe<Int>, Json.ShapeError>\n" + body + "\nend\n"
 			fa, errs := checkSourceWithStdlib(src)
 			expectClean(t, errs)
 			pos, found := analysis.Pos{}, false

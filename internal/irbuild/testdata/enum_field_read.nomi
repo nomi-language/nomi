@@ -29,59 +29,59 @@
 // access.
 import std::io
 
-struct Circle {
+struct Circle
     radius: Float
-}
+end
 
-struct Square {
+struct Square
     radius: Float
-}
+end
 
-enum Shape {
+enum Shape
     Wrap Circle
     Rect {radius: Float, height: Int}
     embeds Square
     Point
-}
+end
 
-test "a struct-shaped variant's field reads through the tag" {
+test "a struct-shaped variant's field reads through the tag"
     s = Shape.Rect{radius: 1.5, height: 3}
 
     assert s.radius == 1.5
     assert s.height == 3
-}
+end
 
-test "an embeds variant's field reads through the embedded struct" {
+test "an embeds variant's field reads through the embedded struct"
     s = Shape.Square{radius: 9.0}
 
     assert s.radius == 9.0
-}
+end
 
-test "a positional struct payload's field reads through the tag" {
+test "a positional struct payload's field reads through the tag"
     s = Shape.Wrap(Circle{radius: 4.0})
 
     assert s.radius == 4.0
-}
+end
 
-test "the tag decides which provider answers, not the declaration order" {
+test "the tag decides which provider answers, not the declaration order"
     wrapped = Shape.Wrap(Circle{radius: 4.0})
     squared = Shape.Square{radius: 9.0}
 
     assert wrapped.radius + squared.radius == 13.0
-}
+end
 
 // A call as the subject. The read needs the tag AND a slot, so a lowering that
 // SPELLS the subject twice calls this twice — which is observable here and is
 // invisible to every other test in this file, because a local is pure and every
 // other subject above is one. Without this test, a lowering that drops the
 // single-evaluation binding passes every other test in the package.
-fn announce() -> Shape {
+fn announce() -> Shape
     io.print("picked")
     Shape.Rect{radius: 1.5, height: 3}
-}
+end
 
-test "the subject is evaluated once, however impure it is" {
+test "the subject is evaluated once, however impure it is"
     r = announce().radius
 
     assert r == 1.5
-}
+end

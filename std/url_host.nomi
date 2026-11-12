@@ -3,12 +3,12 @@
 //# builds its `Url` and `Query` from these and gives them their
 //# documentation.
 
-import {
+import
     bool.Bool
     lists.List
     results.Result
     strings.String
-}
+end
 
 pub host fn escape_query(text: String) -> String
 pub host fn unescape_query(text: String) -> Result<String, String>

@@ -11,20 +11,19 @@ this way.
 ## The pipe operator
 
 ```nomi-run
-fn double(x: Int) -> Int {
+fn double(x: Int) -> Int
     x * 2
-}
+end
 
-fn add(x: Int, y: Int) -> Int {
+fn add(x: Int, y: Int) -> Int
     x + y
-}
+end
 
-fn main() {
+fn main()
     5 |> double() |> dbg
 
     5 |> add(3) |> dbg
-}
-
+end
 ```
 <!-- expect
 dbg line 10: 5 |> double() = 10
@@ -45,7 +44,8 @@ When the call takes more arguments, you write the rest in the parentheses.
 - A variant stage names its enum: `5 |> Shape.Dot()`. A bare `.Dot()` has
   no enum to look in.
 - `|> if` and `|> case` may prefix the call that computes their operand:
-  `input |> case parse_id() { ... }` is `input |> parse_id() |> case { ... }`.
+  `input |> case parse_id()` is `input |> parse_id() |> case`, each above the
+  same arms.
 
 Spec: [Pipes](/spec/expressions/#pipes),
 [Keyword stages](/spec/expressions/#keyword-stages).
@@ -55,13 +55,12 @@ Spec: [Pipes](/spec/expressions/#pipes),
 A longer pipeline puts one stage on each line:
 
 ```nomi-run
-fn main() {
+fn main()
     [1, 2, 3]
     |> Iter.map(fn n -> n * n)
     |> Iter.to_list()
     |> dbg
-}
-
+end
 ```
 <!-- expect
 dbg line 5:
@@ -77,7 +76,7 @@ A pipeline reads best when it starts with the data and ends where the result
 is used. Here is the same calculation written both ways:
 
 ```nomi-run
-fn main() {
+fn main()
     // inside-out
     dbg Iter.count(Iter.filter([1, 2, 3, 4, 5], &(&1 > 2)))
 
@@ -86,8 +85,7 @@ fn main() {
     |> Iter.filter(&(&1 > 2))
     |> Iter.count()
     |> dbg
-}
-
+end
 ```
 <!-- expect
 dbg line 3: Iter.count(Iter.filter([1, 2, 3, 4, 5], &(&1 > 2))) = 3
@@ -108,15 +106,14 @@ argument, write a `then` stage with a
 [capture](/functions-and-lambdas/#captures), whose `&1` is the piped value:
 
 ```nomi-run
-fn divide(x: Int, y: Int) -> Int {
+fn divide(x: Int, y: Int) -> Int
     x / y
-}
+end
 
-fn main() {
+fn main()
     10 |> then &divide(100, &1) |> dbg
     100 |> then &divide(y: 4, x: &1) |> dbg
-}
-
+end
 ```
 <!-- expect
 dbg line 6: 10 |> then &divide(100, &1) = 10
@@ -132,12 +129,12 @@ a call stage, as in `10 |> divide(100, &1)`, is an error that suggests the
 ## The `then` stage
 
 ```nomi-run
-fn main() {
+fn main()
     "  ada  "
     |> String.trim()
     |> then fn name -> "Hello, ${name}!"
     |> dbg
-}
+end
 ```
 <!-- expect
 dbg line 5:
@@ -159,17 +156,20 @@ of the pipeline.
   piped value is computed once: `3 |> then &add(&1, b: &1)` is 6.
 - A second parameter is an error: the stage passes one value.
 - A lambda's parameter is out of scope after its body ends. Using it in a
-  later stage is an error whose help says to put the body in braces.
+  later stage is an error whose help says to write the body below the `->`,
+  closed by `end`.
 
 ```nomi
-fn main() {
+fn main()
     total =
         [3, 4]
-        |> then fn xs -> { xs |> Iter.map(&(&1 * 2)) |> Iter.sum() }
+        |> then fn xs ->
+            xs |> Iter.map(&(&1 * 2)) |> Iter.sum()
+        end
         |> then &(&1 + 1)
 
     dbg total // 15
-}
+end
 ```
 
 Spec: [The `then` stage](/spec/expressions/#the-then-stage).
@@ -181,7 +181,7 @@ Spec: [The `then` stage](/spec/expressions/#the-then-stage).
 ```nomi-run
 import std::io
 
-fn main() {
+fn main()
     shout =
         "go north now"
         |> String.words()
@@ -190,7 +190,7 @@ fn main() {
         |> String.join(" ")
 
     io.print(shout)
-}
+end
 ```
 <!-- expect
 got 3 words
@@ -232,19 +232,18 @@ A `?` unwraps a `Some` or an `Ok` and passes the value inside on. On `None`
 or `Err`, it returns that from the function straight away:
 
 ```nomi-run
-fn parse(text: String) -> Maybe<Int> {
+fn parse(text: String) -> Maybe<Int>
     text
     |> String.trim()
     |> String.to_int()?
     |> then &(&1 * 2)
     |> Some()
-}
+end
 
-fn main() {
+fn main()
     dbg parse("  21  ")
     dbg parse("abc")
-}
-
+end
 ```
 <!-- expect
 dbg line 10: parse("  21  ") = Some(42)
@@ -258,12 +257,11 @@ or `Err` from the function.
 An assertion can check the result of a whole pipeline:
 
 ```nomi-run
-test "pipeline result is true" {
+test "pipeline result is true"
     assert "  Ada Lovelace  "
         |> String.trim()
         |> String.contains("Ada")
-}
-
+end
 ```
 <!-- expect
 ok pipeline result is true
@@ -275,38 +273,38 @@ first argument of `String.contains`, the call that computes the `if`
 condition. The `case` matches its arms against the piped value:
 
 ```nomi-run
-fn main() {
+fn main()
     "Ada"
-    |> if String.contains("A") {
+    |> if String.contains("A") then
         "initialed"
-    } else {
+    else
         "plain"
-    }
+    end
     |> dbg
 
     Some("Ada")
-    |> case {
+    |> case
         Some(name) -> "named ${name}"
         None -> "missing"
-    }
+    end
     |> dbg
-}
+end
 ```
 <!-- expect
 dbg line 8:
   "Ada"
-  |> if String.contains("A") {
+  |> if String.contains("A") then
       "initialed"
-  } else {
+  else
       "plain"
-  }
+  end
   = "initialed"
 dbg line 15:
   Some("Ada")
-  |> case {
+  |> case
       Some(name) -> "named ${name}"
       None -> "missing"
-  }
+  end
   = "named Ada"
 -->
 

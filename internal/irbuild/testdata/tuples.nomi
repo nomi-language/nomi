@@ -4,7 +4,7 @@ import std::io
 // destructuring, and the equality cases where a field-by-field machine `==`
 // would answer WRONG: a tuple holding a list (an address comparison of
 // cells) and a tuple holding a NaN (IEEE `==` is not reflexive).
-fn main() {
+fn main()
     pair = ("hello", 42)
     io.print("${pair.first} / ${pair.second}")
     io.print("${pair}")
@@ -53,25 +53,25 @@ fn main() {
 
     io.print("${[(1, "a"), (2, "b")]}")
     io.print("${first_of([(7, "seven")])}")
-}
+end
 
-fn divide(a: Int, b: Int) -> (Int, Int) {
+fn divide(a: Int, b: Int) -> (Int, Int)
     (a / b, a % b)
-}
+end
 
-fn classify(point: (Int, Int)) -> String {
-    case point {
+fn classify(point: (Int, Int)) -> String
+    case point
         (0, 0) -> "origin"
         (0, _) -> "y-axis"
         (_, 0) -> "x-axis"
         _ -> "other"
-    }
-}
+    end
+end
 
 // A tuple pattern nested inside a list pattern, so the two recursions meet.
-fn first_of(pairs: List<(Int, String)>) -> String {
-    case pairs {
+fn first_of(pairs: List<(Int, String)>) -> String
+    case pairs
         [(n, name), ..rest] -> "${name}=${n} then ${rest}"
         [] -> "none"
-    }
-}
+    end
+end

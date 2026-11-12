@@ -148,6 +148,39 @@ func candidateSig(iface *InterfaceType, m *MethodSig, args []Type, self Type) *F
 	return &FuncType{Params: params, Return: Substitute(ret, subs), DefaultCount: m.DefaultCount, WhereBounds: m.WhereBounds}
 }
 
+// solveImplParams is sig, a chosen impl's method signature, with the
+// impl's own type parameters that its receiver does not fix solved from
+// the arguments: `impl<C> Contains<Regex<C>> for String` called with a
+// `Regex<Date>` is `(String, Regex<Date>) -> Bool`, not the impl's own C.
+// The caller's own parameters are answers and stay. A parameter no
+// argument fixes stays as it is.
+func (c *checker) solveImplParams(sig *FuncType, argTys []Type) *FuncType {
+	if !c.containsForeignTypeParam(sig) {
+		return sig
+	}
+	subs := map[*TypeParam_]Type{}
+	for i, at := range argTys {
+		if at == nil || i >= len(sig.Params) {
+			continue
+		}
+		saved := saveTypeVars(sig.Params[i], at)
+		_ = c.unifyInto(sig.Params[i], at, subs)
+		saved.restore()
+	}
+	for tp, t := range subs {
+		if c.fnTypeParams[tp.Name_] == tp || c.containsForeignTypeParam(t) {
+			delete(subs, tp)
+		}
+	}
+	if len(subs) == 0 {
+		return sig
+	}
+	if solved, ok := Substitute(sig, subs).(*FuncType); ok {
+		return solved
+	}
+	return sig
+}
+
 // fitsInto reports whether a value of type have may flow into want, without
 // solving any inference variable either side holds.
 func (c *checker) fitsInto(want, have Type) bool {
@@ -641,7 +674,7 @@ func (c *checker) selectCallImpl(n *ast.Call, expected Type, piped ast.Node, pip
 		recv:   recv,
 		chosen: choice.chosen,
 		ft:     candidateSig(iface, m, choice.chosen.args, self),
-		impl:   candidateSig(iface, m, choice.chosen.args, recv),
+		impl:   c.solveImplParams(candidateSig(iface, m, choice.chosen.args, recv), argTys),
 		// Read below as the receiver an interface-qualified call's result
 		// names.
 		returnSelf: recvAt < 0 && qualifier == "",

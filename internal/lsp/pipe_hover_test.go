@@ -10,25 +10,25 @@ import (
 // The declarations every pipe-hover case reads.
 const pipeHoverDecls = `import std::io
 
-struct Point {
+struct Point
   x: Int
   y: Int
-}
+end
 
-enum Shape {
+enum Shape
   Dot(Int)
   Circle { r: Int }
-}
+end
 
 type UserId String
 
-fn divide(a: Int, b: Int) -> Int {
+fn divide(a: Int, b: Int) -> Int
   a / b
-}
+end
 
-fn is_ready(n: Int) -> Bool {
+fn is_ready(n: Int) -> Bool
   n > 1
-}
+end
 
 `
 
@@ -84,141 +84,141 @@ func hoverAt(t *testing.T, src string, at protocol.Position) (string, *protocol.
 
 func TestHover_PipeCallStages(t *testing.T) {
 	runPipeHoverCases(t, []pipeHoverCase{
-		{"an owner function, multi-line", `fn main() {
+		{"an owner function, multi-line", `fn main()
   lines = ["1", "x"]
   total = lines
   |> Iter.map(fn s -> String.to_int(s))
   ▮|> Maybe.values()
   |> Iter.sum()
   io.inspect(total)
-}
+end
 `, "`Iter<Maybe<Int>>` → `Maybe.values(maybes)` → `List<Int>`\n\n```nomi\nfn values(maybes: Iter<Maybe<Int>>) -> List<Int>\n```\n\nThe piped value fills `maybes`."},
-		{"a call with a lambda, on one line", `fn main() {
+		{"a call with a lambda, on one line", `fn main()
   io.inspect([1, 2, 3] ▮|> Iter.filter(fn x -> x > 2) |> Iter.to_list())
-}
+end
 `, "`List<Int>` → `Iter.filter(source, pred)` → `Iter<Int>`\n\n```nomi\nfn filter(source: Iter<Int>, pred: (Int) -> Bool) -> Iter<Int>\n```\n\nThe piped value fills `source`."},
-		{"a then stage's capture", `fn main() {
+		{"a then stage's capture", `fn main()
   io.inspect(10 ▮|> then &divide(100, &1))
-}
+end
 `, "`Int` → `then &divide(100, &1)` → `Int`\n\n`&1` is the `Int`; the stage returns the capture's result."},
-		{"a pipe inside a lambda body", `fn main() {
+		{"a pipe inside a lambda body", `fn main()
   xs = [1, 2] |> Iter.map(fn n -> n ▮|> Int.to_string()) |> Iter.to_list()
   io.inspect(xs)
-}
+end
 `, "`Int` → `Int.to_string(n)` → `String`\n\n```nomi\nfn to_string(n: Int) -> String\n```\n\nThe piped value fills `n`."},
 	})
 }
 
 func TestHover_PipeValueStages(t *testing.T) {
 	runPipeHoverCases(t, []pipeHoverCase{
-		{"a function value", `fn main() {
+		{"a function value", `fn main()
   f = fn n: Int -> n * 2
   io.inspect(3 ▮|> f())
-}
+end
 `, "`Int` → `f(Int)` → `Int`\n\n```nomi\nf: (n: Int) -> Int\n```\n\nThe piped value fills argument 1."},
-		{"a struct's call form", `fn main() {
-  io.inspect(.{x: 1, y: 2} ▮|> Point())
-}
-`, "`.{x: Int, y: Int}` → `Point(…)` → `Point`\n\n```nomi\nstruct Point {\n    x: Int\n    y: Int\n}\n```\n\nBuilds the type from the piped value."},
-		{"a distinct type's constructor", `fn main() {
+		{"a struct's call form", `fn main()
+  io.inspect({x: 1, y: 2} ▮|> Point())
+end
+`, "`{x: Int, y: Int}` → `Point(…)` → `Point`\n\n```nomi\nstruct Point\n    x: Int\n    y: Int\nend\n```\n\nBuilds the type from the piped value."},
+		{"a distinct type's constructor", `fn main()
   io.inspect("bob" ▮|> UserId())
-}
+end
 `, "`String` → `UserId(…)` → `UserId`\n\n```nomi\ntype UserId String\n```\n\nBuilds the type from the piped value."},
-		{"a variant constructor", `fn main() {
+		{"a variant constructor", `fn main()
   io.inspect(4 ▮|> Shape.Dot())
-}
+end
 `, "`Int` → `Shape.Dot(…)` → `Shape`\n\n```nomi\nShape.Dot(Int)\n```\n\nThe piped value is the payload."},
 	})
 }
 
 func TestHover_PipeKeywordStages(t *testing.T) {
 	runPipeHoverCases(t, []pipeHoverCase{
-		{"then", `fn main() {
+		{"then", `fn main()
   n = 3
   ▮|> then fn v -> v + 1
   io.inspect(n)
-}
+end
 `, "`Int` → `then fn v -> …` → `Int`\n\n`v` is the `Int`; the stage returns the lambda's result."},
-		{"then with a pattern", `fn main() {
+		{"then with a pattern", `fn main()
   n = (1, 2)
   ▮|> then fn (a, b) -> a + b
   io.inspect(n)
-}
+end
 `, "`(Int, Int)` → `then fn (a, b) -> …` → `Int`\n\n`(a, b)` matches the `(Int, Int)`; the stage returns the lambda's result."},
-		{"tap", `fn main() {
+		{"tap", `fn main()
   n = 3
   ▮|> tap fn v -> io.inspect(v)
   io.inspect(n)
-}
+end
 `, "`Int` → `tap fn v -> …` → `Int`\n\n`v` is the `Int`; the lambda runs for its effect and the value passes on unchanged."},
-		{"tap with a function by name", `fn main() {
+		{"tap with a function by name", `fn main()
   n = 3
   ▮|> tap io.inspect
   io.inspect(n)
-}
+end
 `, "`Int` → `tap io.inspect` → `Int`\n\n`io.inspect` runs on the `Int` for its effect and the value passes on unchanged."},
-		{"a ? in a function", `fn parse(s: String) -> Result<Int, String> {
+		{"a ? in a function", `fn parse(s: String) -> Result<Int, String>
   n = s |> String.to_int() ▮|> Maybe.to_result("bad")?
   Ok(n)
-}
+end
 
-fn main() {
+fn main()
   io.inspect(parse("1"))
-}
+end
 `, "`Maybe<Int>` → `Maybe.to_result(maybe, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(maybe: Maybe<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `maybe`.\n\nAnswers the success value, or returns the `Err` from `fn parse`."},
-		{"a ? in a lambda", `fn main() {
-  f = fn s: String -> {
+		{"a ? in a lambda", `fn main()
+  f = fn s: String ->
     n = s ▮|> String.to_int()?
     Some(n)
-  }
+  end
   io.inspect(f("1"))
-}
+end
 `, "`String` → `String.to_int(s)` → `Maybe<Int>` → `?` → `Int`\n\n```nomi\nfn to_int(s: String) -> Maybe<Int>\n```\n\nThe piped value fills `s`.\n\nAnswers the success value, or returns `None` from the enclosing lambda."},
 		{"a ? in a test body", `fn main() {}
 
-test "parses" {
+test "parses"
   n = "4" |> String.to_int() ▮|> Maybe.to_result("no")?
   assert n == 4
-}
+end
 `, "`Maybe<Int>` → `Maybe.to_result(maybe, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(maybe: Maybe<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `maybe`.\n\nAnswers the success value, or returns the `Err` from `test \"parses\"`."},
-		{"a ? after a call", `fn parse(s: String) -> Maybe<Int> {
+		{"a ? after a call", `fn parse(s: String) -> Maybe<Int>
   n = s ▮|> String.to_int()?
   Some(n)
-}
+end
 
-fn main() {
+fn main()
   io.inspect(parse("1"))
-}
+end
 `, "`String` → `String.to_int(s)` → `Maybe<Int>` → `?` → `Int`\n\n```nomi\nfn to_int(s: String) -> Maybe<Int>\n```\n\nThe piped value fills `s`.\n\nAnswers the success value, or returns `None` from `fn parse`."},
-		{"dbg", `fn main() {
+		{"dbg", `fn main()
   n = 3 ▮|> dbg
   io.inspect(n)
-}
+end
 `, "`Int` → `dbg` → `Int`\n\nPrints the value with its source line and passes it on unchanged."},
-		{"a bare if", `fn main() {
-  io.inspect(3 |> is_ready() ▮|> if { 1 } else { 2 })
-}
+		{"a bare if", `fn main()
+  io.inspect(3 |> is_ready() ▮|> if then 1 else 2)
+end
 `, "`Bool` → `if` → `Int`\n\nBranches on the piped `Bool`."},
-		{"if prefixing its condition", `fn main() {
-  io.inspect(3 ▮|> if is_ready() { "y" } else { "n" })
-}
+		{"if prefixing its condition", `fn main()
+  io.inspect(3 ▮|> if is_ready() then "y" else "n")
+end
 `, "`Int` → `is_ready(n)` → `Bool` → `if` → `String`\n\n```nomi\nfn is_ready(n: Int) -> Bool\n```\n\nThe piped value fills `n`.\n\nBranches on the piped `Bool`."},
-		{"case prefixing its subject", `fn main() {
+		{"case prefixing its subject", `fn main()
   t = 3
-  ▮|> case divide(1) {
+  ▮|> case divide(1)
     0 -> "zero"
     _ -> "other"
-  }
+  end
   io.inspect(t)
-}
+end
 `, "`Int` → `divide(a, b)` → `Int` → `case` → `String`\n\n```nomi\nfn divide(a: Int, b: Int) -> Int\n```\n\nThe piped value fills `a`.\n\nMatches the piped `Int` against the arms."},
-		{"todo", `fn later() -> Int {
+		{"todo", `fn later() -> Int
   3 ▮|> todo
-}
+end
 
-fn main() {
+fn main()
   io.inspect(later())
-}
+end
 `, "`Int` → `todo`\n\nStops the program here when it runs; the pipeline has the type its position expects."},
 	})
 }
@@ -227,17 +227,17 @@ fn main() {
 // pipe whose incoming value has no type shows nothing.
 func TestHover_PipeThatFailsToType(t *testing.T) {
 	runPipeHoverCases(t, []pipeHoverCase{
-		{"an undefined stage", `fn main() {
+		{"an undefined stage", `fn main()
   io.inspect("x" ▮|> nope())
-}
+end
 `, "`String` → `nope()`"},
-		{"a bare name stage", `fn main() {
+		{"a bare name stage", `fn main()
   io.inspect(3 ▮|> Int.to_string)
-}
+end
 `, "`Int` → `Int.to_string`"},
-		{"an unknown head", `fn main() {
+		{"an unknown head", `fn main()
   io.inspect(nope() ▮|> Int.to_string())
-}
+end
 `, ""},
 	})
 }

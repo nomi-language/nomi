@@ -35,7 +35,7 @@ func TestReplVM_AnInputsCostDoesNotGrowWithTheSession(t *testing.T) {
 		s := newReplSession(io.Discard, io.Discard)
 		var first, last vmhost.SessionCost
 		for i := 1; i <= 100; i++ {
-			cost, errs := replInputCost(s, fmt.Sprintf("fn f%d(n: Int) -> Int {\n  n + %d\n}\nv%d = f%d(%d)", i, i, i, i, i))
+			cost, errs := replInputCost(s, fmt.Sprintf("fn f%d(n: Int) -> Int\n  n + %d\nend\nv%d = f%d(%d)", i, i, i, i, i))
 			if errs != "" {
 				t.Fatalf("input %d: %s", i, errs)
 			}
@@ -55,14 +55,14 @@ func TestReplVM_AnInputsCostDoesNotGrowWithTheSession(t *testing.T) {
 	})
 	t.Run("inputs that use earlier ones", func(t *testing.T) {
 		s := newReplSession(io.Discard, io.Discard)
-		if _, errs := replInputCost(s, "struct P {\n  x: Int\n}\nfn base(p: P) -> Int {\n  p.x\n}\nv0 = P{x: 1}"); errs != "" {
+		if _, errs := replInputCost(s, "struct P\n  x: Int\nend\nfn base(p: P) -> Int\n  p.x\nend\nv0 = P{x: 1}"); errs != "" {
 			t.Fatal(errs)
 		}
 		var third, last vmhost.SessionCost
 		for i := 1; i <= 99; i++ {
 			// Each input reads the first input's type, function and value
 			// and the input before it's value.
-			cost, errs := replInputCost(s, fmt.Sprintf("fn f%d(p: P) -> Int {\n  base(p) + %d\n}\nv%d = P{x: f%d(v0) + v%d.x}", i, i, i, i, i-1))
+			cost, errs := replInputCost(s, fmt.Sprintf("fn f%d(p: P) -> Int\n  base(p) + %d\nend\nv%d = P{x: f%d(v0) + v%d.x}", i, i, i, i, i-1))
 			if errs != "" {
 				t.Fatalf("input %d: %s", i+1, errs)
 			}
@@ -93,7 +93,7 @@ func TestReplVM_WallTimePerInput(t *testing.T) {
 	s := newReplSession(io.Discard, io.Discard)
 	times := make([]time.Duration, n+1)
 	for i := 1; i <= n; i++ {
-		input := fmt.Sprintf("fn f%d(n: Int) -> Int {\n  n + %d\n}\nv%d = f%d(f1(%d))", i, i, i, i, i)
+		input := fmt.Sprintf("fn f%d(n: Int) -> Int\n  n + %d\nend\nv%d = f%d(f1(%d))", i, i, i, i, i)
 		start := time.Now()
 		s.eval(input, io.Discard, os.Stderr)
 		times[i] = time.Since(start)

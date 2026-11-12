@@ -55,7 +55,7 @@ import (
 // that "a caller needing an answer for a synthesized position needs a
 // non-positional route; this is the wrong door and must not be widened into
 // one" — this is that route, and `preludeByName` is the same oracle
-// synthderive.go, iter.go, lists.go and maps.go already use for exactly the
+// iter.go, lists.go and maps.go already use for exactly the
 // no-position case. It is shadow-safe by construction: preludeAnchorsOf takes
 // the declaration `ModuleScope` resolves the name to and compares it against
 // the spec, so a module declaring its own `Outcome` gets no anchor.
@@ -76,7 +76,7 @@ import (
 //
 // # What is NOT claimed
 //
-// `.Arr[1, 2, 3]` and `%.Obj{"k" => v}` — the LIST and MAP literal-attach forms
+// `.Arr[1, 2, 3]` and `.Obj{"k" => v}` — the LIST and MAP literal-attach forms
 // — are not routed here. Their TypeName slot carries a DotVariantType too, but
 // the value under it is a list or a map literal, and those refuse for their own
 // reasons in their own files. Routing them through here would replace one

@@ -17,51 +17,51 @@ func TestIRErasedScalar_EveryPositionRuns(t *testing.T) {
 
 type Meters Int
 
-impl Display for Meters {
-    fn to_string(Meters(n)) -> String {
+impl Display for Meters
+    fn to_string(Meters(n)) -> String
         "${Int.to_string(n)} m"
-    }
-}
+    end
+end
 
-fn show(n: Int) -> Display {
+fn show(n: Int) -> Display
     n
-}
+end
 
-fn text(s: String) -> Display {
+fn text(s: String) -> Display
     s
-}
+end
 
-fn meters(n: Int) -> Display {
+fn meters(n: Int) -> Display
     Meters(n)
-}
+end
 
-fn pick(c: Bool) -> Display {
-    if c { 1.5 } else { 2.5 }
-}
+fn pick(c: Bool) -> Display
+    if c then 1.5 else 2.5
+end
 
-fn arm(n: Int) -> Display {
-    case n {
+fn arm(n: Int) -> Display
+    case n
         0 -> True
         _ -> False
-    }
-}
+    end
+end
 
-fn early(n: Int) -> Display {
-    if n > 0 {
+fn early(n: Int) -> Display
+    if n > 0 then
         return n
-    }
+    end
     "negative"
-}
+end
 
-fn both(d: Display, n: Int) -> String {
+fn both(d: Display, n: Int) -> String
     "${Display.to_string(d)}/${Int.to_string(n)}"
-}
+end
 
-fn flag() -> Bool {
+fn flag() -> Bool
     True
-}
+end
 
-fn main() {
+fn main()
     io.print(Display.to_string(show(5)))
     io.print(Display.to_string(text("hi")))
     io.print(Display.to_string(meters(3)))
@@ -71,12 +71,12 @@ fn main() {
     io.print(Display.to_string(arm(1)))
     io.print(Display.to_string(early(8)))
     io.print(Display.to_string(early(-1)))
-    d: Display = if flag() { 5 } else { 6 }
+    d: Display = if flag() then 5 else 6
     io.print(Display.to_string(d))
-    e: Display = case 2 {
+    e: Display = case 2
         1 -> "one"
         _ -> "other"
-    }
+    end
     io.print(Display.to_string(e))
     f = &both(5, &1)
     io.print(f(3))
@@ -84,7 +84,7 @@ fn main() {
     io.print(g(4))
     h: (Int) -> Display = fn n -> n + 1
     io.print(Display.to_string(h(9)))
-}
+end
 `
 	const want = "5\n" +
 		"hi\n" +

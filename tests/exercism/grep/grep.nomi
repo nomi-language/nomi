@@ -1,13 +1,13 @@
 //# A small `grep`: searches files for lines that match a string, with the
 //# canonical flags.
 
-import {
+import
     std::fs
     std::io
-}
+end
 
 /// The canonical flags.
-pub enum Flag {
+pub enum Flag
     /// `-n`: put each line's number, from 1, before it.
     LineNumbers
     /// `-l`: answer the names of the files with a match, not the lines.
@@ -18,7 +18,7 @@ pub enum Flag {
     Invert
     /// `-x`: match only a line that is the whole pattern.
     WholeLine
-}
+end
 
 /// The lines of `files` that contain `pattern`, in file order, as `flags`
 /// say. With more than one file each line starts with its file's name.
@@ -27,7 +27,7 @@ pub fn grep(
     pattern: String,
     flags: Set<Flag>,
     files: List<String>,
-) -> Result<List<String>, io.Error> {
+) -> Result<List<String>, io.Error>
     named = Iter.count(files) > 1
 
     files
@@ -35,7 +35,7 @@ pub fn grep(
     |> Result.collect()?
     |> Iter.flatten()
     |> Ok()
-}
+end
 
 /// What `grep` answers for one file.
 fn search(
@@ -43,7 +43,7 @@ fn search(
     pattern: String,
     flags: Set<Flag>,
     named: Bool,
-) -> Result<List<String>, io.Error> {
+) -> Result<List<String>, io.Error>
     text = fs.read_text(file)?
 
     found =
@@ -52,38 +52,38 @@ fn search(
         |> Iter.filter(fn (_index, line) -> matches(line, pattern, flags))
         |> Iter.to_list()
 
-    if .FileNames in flags {
-        Ok(if Iter.is_empty(found) { [] } else { [file] })
-    } else {
+    if .FileNames in flags then
+        Ok(if Iter.is_empty(found) then [] else [file])
+    else
         found
-        |> Iter.map(fn (index, line) -> {
-            file_part = if named { "${file}:" } else { "" }
+        |> Iter.map(fn (index, line) ->
+            file_part = if named then "${file}:" else ""
 
-            number_part = if .LineNumbers in flags {
+            number_part = if .LineNumbers in flags then
                 "${index + 1}:"
-            } else {
+            else
                 ""
-            }
+            end
 
             file_part + number_part + line
-        })
+        end)
         |> Iter.to_list()
         |> Ok()
-    }
-}
+    end
+end
 
-fn matches(line: String, pattern: String, flags: Set<Flag>) -> Bool {
-    (line, pattern) = if .IgnoreCase in flags {
+fn matches(line: String, pattern: String, flags: Set<Flag>) -> Bool
+    (line, pattern) = if .IgnoreCase in flags then
         (String.fold_case(line), String.fold_case(pattern))
-    } else {
+    else
         (line, pattern)
-    }
+    end
 
-    found = if .WholeLine in flags {
+    found = if .WholeLine in flags then
         line == pattern
-    } else {
+    else
         pattern in line
-    }
+    end
 
     found != (.Invert in flags)
-}
+end

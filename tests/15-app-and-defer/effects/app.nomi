@@ -8,15 +8,15 @@
 //
 // `load` dispatches by deployment name; each builder returns a fully-constructed
 // EffectsApp with both data fields and dependency handlers.
-import {
+import
     dev
     effects.{Clock, Console, Logger}
     prod
     test as test_env
-}
+end
 
 // Boot passes a root Context to the selected application constructor.
-pub struct EffectsApp {
+pub struct EffectsApp
     context: Context
 
     deployment: String = "dev"
@@ -26,12 +26,12 @@ pub struct EffectsApp {
     logger: Logger
     clock: Clock
     console: Console
-}
+end
 
-pub fn load(deployment: String, context: Context) -> EffectsApp {
-    case deployment {
+pub fn load(deployment: String, context: Context) -> EffectsApp
+    case deployment
         "prod" -> prod.build(context)
         "test" -> test_env.build(context)
         _ -> dev.build(context)
-    }
-}
+    end
+end

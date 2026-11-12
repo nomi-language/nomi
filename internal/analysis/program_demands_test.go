@@ -18,23 +18,23 @@ import (
 // coherence check over every file's demands (FinalizeCoherence) reports it.
 func faultProject() incrementalProject {
 	return incrementalProject{name: "fault", entry: "main", texts: map[string]string{
-		"main": `import {
+		"main": `import
     std::io
     fault
-}
+end
 
-fn main() {
+fn main()
     io.print("start")
-}
+end
 `,
-		"fault": `pub enum Error {
+		"fault": `pub enum Error
     Bad String
     Run (Int) -> Int
-}
+end
 
-pub fn mk(s: String) -> Result<Int, Error> {
+pub fn mk(s: String) -> Result<Int, Error>
     Err(Error.Bad(s))
-}
+end
 `,
 	}}
 }

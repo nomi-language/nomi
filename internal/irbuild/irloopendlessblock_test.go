@@ -19,46 +19,46 @@ func TestIRLoopEndless_BlockEndingInALoop(t *testing.T) {
 	// The block statement ending main, nested two deep.
 	verifyEndlessTrap(t, `import std::io
 
-fn main() {
+fn main()
     zero = 0
     io.print("main")
-    {
+    begin
         io.print("start")
-        {
+        begin
             io.print("inner")
-            Iter.loop(fn -> {
+            Iter.loop(fn ->
                 io.print("again")
                 io.print(1 / zero)
-            })
-        }
-    }
-}
+            end)
+        end
+    end
+end
 `, "line 12: division by zero", "main\nstart\ninner\nagain\n")
 
 	// A block value bound to a name, with code after it that never runs,
 	// and a block ending an Int function.
 	verifyEndlessTrap(t, `import std::io
 
-fn tail_block() -> Int {
-    {
+fn tail_block() -> Int
+    begin
         io.print("tail block")
-        Iter.loop(0, fn n -> {
-            if n == 1 { io.print(1 / (n - 1)) }
+        Iter.loop(0, fn n ->
+            if n == 1 then io.print(1 / (n - 1))
             n + 1
-        })
-    }
-}
+        end)
+    end
+end
 
-fn main() {
-    x = {
+fn main()
+    x = begin
         io.print("value block")
         _ = tail_block()
-        Iter.loop(fn -> {
+        Iter.loop(fn ->
             io.print("never")
-        })
-    }
+        end)
+    end
     io.inspect(x)
-}
+end
 `, "line 7: division by zero", "value block\ntail block\n")
 
 	// Arms that are blocks ending in a block that never finishes, in a
@@ -66,99 +66,98 @@ fn main() {
 	// finishes as an operand. Each main reaches a different one.
 	pick := `import std::io
 
-fn pick(flag: Int) -> Int {
-    y = case flag {
-        0 -> {
+fn pick(flag: Int) -> Int
+    y = case flag
+        0 ->
             io.print("arm 0")
-            {
-                Iter.loop(0, fn n -> {
-                    if n == 1 { io.print(1 / (n - 1)) }
+            begin
+                Iter.loop(0, fn n ->
+                    if n == 1 then io.print(1 / (n - 1))
                     n + 1
-                })
-            }
-        }
+                end)
+            end
         _ -> flag * 10
-    }
+    end
     io.inspect(y)
-    if y > 15 {
-        {
+    if y > 15 then
+        begin
             io.print("if branch")
-            Iter.loop(fn -> {
+            Iter.loop(fn ->
                 io.print(1 / (y - y))
-            })
-        }
-    } else {
+            end)
+        end
+    else
         io.print("else")
-    }
+    end
     y
-}
+end
 `
 	verifyEndlessTrap(t, pick+`
-fn main() {
+fn main()
     io.inspect(pick(1) + pick(0))
-}
+end
 `, "line 9: division by zero", "10\nelse\narm 0\n")
 	verifyEndlessTrap(t, pick+`
-fn main() {
+fn main()
     io.inspect(pick(1) + pick(2))
-}
-`, "line 21: division by zero", "10\nelse\n20\nif branch\n")
+end
+`, "line 20: division by zero", "10\nelse\n20\nif branch\n")
 	verifyEndlessTrap(t, pick+`
-fn main() {
-    io.inspect(pick(1) + {
+fn main()
+    io.inspect(pick(1) + begin
         io.print("operand")
-        Iter.loop(0, fn n -> {
-            if n == 1 { io.print(1 / (n - 1)) }
+        Iter.loop(0, fn n ->
+            if n == 1 then io.print(1 / (n - 1))
             n + 1
-        })
-    })
-}
-`, "line 34: division by zero", "10\nelse\noperand\n")
+        end)
+    end)
+end
+`, "line 33: division by zero", "10\nelse\noperand\n")
 
 	// A lambda's body, a loop body and a concurrent body, each ending in a
 	// block that never finishes.
 	verifyEndlessTrap(t, `import std::io
 
-fn main() {
+fn main()
     zero = 0
-    f = fn label: String -> {
+    f = fn label: String ->
         io.print(label)
-        {
-            Iter.loop(fn -> {
+        begin
+            Iter.loop(fn ->
                 io.print("lambda loop")
                 io.print(1 / zero)
-            })
-        }
-    }
-    total = Iter.loop(0, fn i -> {
-        if i == 2 { break i }
+            end)
+        end
+    end
+    total = Iter.loop(0, fn i ->
+        if i == 2 then break i
         io.print("outer ${i}")
         i + 1
-    })
+    end)
     io.inspect(total)
-    concurrent {
+    concurrent
         io.print("concurrent")
-        {
+        begin
             f("lambda")
-        }
-    }
-}
+        end
+    end
+end
 `, "line 10: division by zero", "outer 0\nouter 1\n2\nconcurrent\nlambda\nlambda loop\n")
 
 	verifyEndlessTrap(t, `import std::io
 
-fn main() {
-    _ = Iter.loop(0, fn i -> {
+fn main()
+    _ = Iter.loop(0, fn i ->
         io.print("outer ${i}")
-        {
+        begin
             io.print("inner block")
-            Iter.loop(0, fn n -> {
-                if n == 1 { io.print(1 / (n - 1)) }
+            Iter.loop(0, fn n ->
+                if n == 1 then io.print(1 / (n - 1))
                 n + 1
-            })
-        }
-    })
-}
+            end)
+        end
+    end)
+end
 `, "line 9: division by zero", "outer 0\ninner block\n")
 }
 
@@ -169,30 +168,30 @@ func TestIRLoopEndless_TestBodyBlocks(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "endless_block_test.nomi")
 	src := `import std::io
 
-test "a block statement" {
+test "a block statement"
     assert 1 == 1
-    {
+    begin
         io.print("block")
-        Iter.loop(fn -> {
+        Iter.loop(fn ->
             io.print(1 / 0)
-        })
-    }
-}
+        end)
+    end
+end
 
-test "a bound block" {
+test "a bound block"
     assert 2 == 2
-    x = {
+    x = begin
         io.print("bound block")
-        {
-            Iter.loop(0, fn n -> {
-                if n == 1 { io.print(1 / (n - 1)) }
+        begin
+            Iter.loop(0, fn n ->
+                if n == 1 then io.print(1 / (n - 1))
                 n + 1
-            })
-        }
-    }
+            end)
+        end
+    end
     io.print("never")
     io.inspect(x)
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)

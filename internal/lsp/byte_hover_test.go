@@ -15,9 +15,9 @@ func TestHover_ByteLiteralShowsByte(t *testing.T) {
 		want  string
 		end   uint32
 	}{
-		{"binding", "fn f() -> Byte {\n  b: Byte = ▮0x81\n  b\n}\n", "```nomi\n0x81: Byte\n```", 16},
-		{"comparison", "fn f(b: Byte) -> Bool {\n  b == ▮128\n}\n", "```nomi\n128: Byte\n```", 10},
-		{"pattern", "fn f(b: Byte) -> Int {\n  case b {\n    ▮0x80 -> 1\n    _ -> 2\n  }\n}\n", "```nomi\n0x80: Byte\n```", 8},
+		{"binding", "fn f() -> Byte\n  b: Byte = ▮0x81\n  b\nend\n", "```nomi\n0x81: Byte\n```", 16},
+		{"comparison", "fn f(b: Byte) -> Bool\n  b == ▮128\nend\n", "```nomi\n128: Byte\n```", 10},
+		{"pattern", "fn f(b: Byte) -> Int\n  case b\n    ▮0x80 -> 1\n    _ -> 2\n  end\nend\n", "```nomi\n0x80: Byte\n```", 8},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

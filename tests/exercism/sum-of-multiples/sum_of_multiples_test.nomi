@@ -1,6 +1,6 @@
 import sum_of_multiples
 
-test "sums the multiples" {
+test "sums the multiples"
     [
         ("no multiples within limit", [3, 5], 1, 0),
         ("one factor has multiples within limit", [3, 5], 4, 3),
@@ -24,7 +24,7 @@ test "sums the multiples" {
             39614537,
         ),
     ]
-    |> subtests (description, factors, limit, expected), description {
+    |> subtests (description, factors, limit, expected), description
         assert sum_of_multiples.sum(factors, limit) == expected
-    }
-}
+    end
+end

@@ -15,7 +15,7 @@ the `String` functions take for finding, splitting and replacing text.
 ## Numbers, booleans, operators
 
 ```nomi-run
-fn main() {
+fn main()
     dbg 42 + 8
     dbg 10 - 3
     dbg 2 * 21
@@ -27,8 +27,7 @@ fn main() {
     dbg Int.pow(2, 100)
     dbg 0b1011 >>> 1 &&& 1 // the second-lowest bit
     dbg 0b0011 ||| 0b0100 // set a bit
-}
-
+end
 ```
 <!-- expect
 dbg line 2: 42 + 8 = 50
@@ -83,13 +82,12 @@ Spec: [Integer division and remainder](/spec/expressions/#integer-division-and-r
 ## Number literal forms
 
 ```nomi-run
-fn main() {
+fn main()
     dbg 1_000_000
     dbg 0xFF
     dbg 0b1010
     dbg 1.0e10
-}
-
+end
 ```
 <!-- expect
 dbg line 2: 1_000_000 = 1000000
@@ -105,7 +103,7 @@ notation.
 ## Exact arithmetic with `Decimal`
 
 ```nomi-run
-fn main() {
+fn main()
     // Float carries base-2 imprecision
     dbg 0.1 + 0.2 == 0.3
 
@@ -114,8 +112,7 @@ fn main() {
 
     // Sum four prices
     dbg 19.99d + 5.00d + 2.50d + 0.99d
-}
-
+end
 ```
 <!-- expect
 dbg line 3: 0.1 + 0.2 == 0.3 = False
@@ -165,13 +162,12 @@ and a quotient that ends is exact with no trailing zeros: `10.00d / 4d` is
 ```nomi-run
 import std::io
 
-fn main() {
+fn main()
     name = "Nomi"
     io.print("Hello, ${name}!")
     io.print("1 + 2 = ${1 + 2}")
     io.print("Hello" + ", " + "Nomi")
-}
-
+end
 ```
 <!-- expect
 Hello, Nomi!
@@ -194,10 +190,9 @@ write `\${`. A `$` on its own is ordinary text:
 ```nomi-run
 import std::io
 
-fn main() {
+fn main()
     io.print("echo \${HOME} costs $5")
-}
-
+end
 ```
 <!-- expect
 echo ${HOME} costs $5
@@ -240,7 +235,7 @@ graphemes, so `Iter.to_list("café")` is a list of four strings.
 code points instead:
 
 ```nomi-run
-fn main() {
+fn main()
     dbg String.length("café")
     dbg Iter.to_list("café")
 
@@ -249,8 +244,7 @@ fn main() {
     |> Iter.map(Codepoint.to_int)
     |> Iter.to_list()
     |> dbg
-}
-
+end
 ```
 <!-- expect
 dbg line 2: String.length("café") = 4
@@ -273,22 +267,21 @@ the character, its code point and its UTF-8 byte the same thing. `'é'` is an
 error; write `"é"` as a string.
 
 ```nomi-run
-fn kind(cp: Codepoint) -> String {
-    case cp {
+fn kind(cp: Codepoint) -> String
+    case cp
         ',' -> "comma"
         ' ' -> "space"
         _ -> Codepoint.to_string(cp)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     "a, b"
     |> String.to_codepoints()
     |> Iter.map(kind)
     |> Iter.to_list()
     |> dbg
-}
-
+end
 ```
 <!-- expect
 dbg line 14:
@@ -309,7 +302,7 @@ and [`to_digit`](/reference/code_points/#codepointto_digit) accept only ASCII
 `0` to `9`, which is what a phone number or a checksum means.
 
 ```nomi-run
-fn main() {
+fn main()
     text = "Tél 555-01"
 
     text
@@ -324,8 +317,7 @@ fn main() {
     |> Iter.map(Codepoint.to_digit)
     |> Maybe.values()
     |> dbg
-}
-
+end
 ```
 <!-- expect
 dbg line 9:
@@ -369,18 +361,18 @@ Spec: [Strings](/spec/types/#strings),
 ```nomi-run
 import std::io
 
-fn main() {
+fn main()
     raw = String.to_bytes("café")
     dbg Bytes.length(raw)
     dbg raw |> Iter.map(Byte.to_int) |> Iter.to_list()
 
     prefix = Bytes.from_list([0x67, 0x6F, 0x3A])
 
-    case Bytes.to_string(prefix + raw) {
+    case Bytes.to_string(prefix + raw)
         Ok(text) -> io.print(text)
         Err(reason) -> io.print(reason)
-    }
-}
+    end
+end
 ```
 <!-- expect
 dbg line 5: Bytes.length(raw) = 5
@@ -422,7 +414,7 @@ Spec: [Byte literals](/spec/literals/#byte-literals).
 ```nomi-run
 import std::io
 
-fn main() {
+fn main()
     name = "Alice"
 
     query = """
@@ -432,8 +424,7 @@ fn main() {
         """
 
     io.print(query)
-}
-
+end
 ```
 <!-- expect
 SELECT *
@@ -449,7 +440,7 @@ usual. The indentation that every line shares is removed.
 ```nomi-run
 import std::io
 
-fn main() {
+fn main()
     pattern = `\d{3,4}`
     template = `price: ${PRICE}`
 
@@ -462,8 +453,7 @@ fn main() {
     io.print(pattern)
     io.print(template)
     io.print(query)
-}
-
+end
 ```
 <!-- expect
 \d{3,4}
@@ -516,7 +506,7 @@ text (`$$` is a literal `$`):
 ```nomi-run
 import std::regex.Regex
 
-fn main() {
+fn main()
     text = "Order 1042 shipped 2026-10-25, order 977 on 2026-10-26"
     date = Regex`(\d{4})-(\d{2})-(\d{2})`
 
@@ -529,7 +519,7 @@ fn main() {
     dbg String.replace(text, date, "$3/$2/$1")
 
     dbg String.find_all(text, Regex`(?i)order \d+`)
-}
+end
 ```
 <!-- expect
 dbg line 7: String.contains(text, date) = True

@@ -15,36 +15,36 @@ import "testing"
 func TestIRSignalCall_TheCallbackItself(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn skip(x: Int) -> Int {
-  if x == 2 { continue }
-  if x == 4 { break }
+fn skip(x: Int) -> Int
+  if x == 2 then continue
+  if x == 4 then break
   x * 10
-}
+end
 
-fn decide(x: Int) -> Bool {
-  if x == 2 { continue }
-  if x == 5 { break True }
+fn decide(x: Int) -> Bool
+  if x == 2 then continue
+  if x == 5 then break True
   x % 2 == 1
-}
+end
 
-fn grow(n: Int) -> Int {
-  if n > 20 { break }
+fn grow(n: Int) -> Int
+  if n > 20 then break
   n * 2
-}
+end
 
-fn pair(x: Int) -> List<Int> {
-  if x == 2 { continue }
-  if x == 4 { break }
+fn pair(x: Int) -> List<Int>
+  if x == 2 then continue
+  if x == 4 then break
   [x, x]
-}
+end
 
-fn show(x: Int) {
-  if x == 2 { continue }
-  if x == 4 { break }
+fn show(x: Int)
+  if x == 2 then continue
+  if x == 4 then break
   io.print("each ${x}")
-}
+end
 
-fn main() {
+fn main()
   io.print(Debug.inspect(Iter.map([1, 2, 3, 4, 5], skip) |> Iter.to_list()))
   io.print(Debug.inspect(Iter.filter([1, 2, 3, 4, 5, 6, 7], decide) |> Iter.to_list()))
   io.print(Debug.inspect(Iter.take_while([1, 2, 3, 4, 5, 6, 7], decide) |> Iter.to_list()))
@@ -55,12 +55,12 @@ fn main() {
   io.print(Debug.inspect(Iter.find([1, 2, 3, 4, 5, 6], decide)))
   io.print(Debug.inspect(Iter.any_match([2, 4, 6, 5, 7], decide)))
   io.print(Debug.inspect(Iter.all_match([1, 2, 3, 5, 6], decide)))
-  io.print(Debug.inspect(Map.map_values(%{"a" => 1, "b" => 2, "c" => 3, "d" => 4, "e" => 5}, skip)))
-  io.print(Debug.inspect(Map.map_keys(%{1 => "a", 2 => "b", 3 => "c", 4 => "d", 5 => "e"}, skip)))
+  io.print(Debug.inspect(Map.map_values({"a" => 1, "b" => 2, "c" => 3, "d" => 4, "e" => 5}, skip)))
+  io.print(Debug.inspect(Map.map_keys({1 => "a", 2 => "b", 3 => "c", 4 => "d", 5 => "e"}, skip)))
   io.print(Debug.inspect(Iter.find([1, 2, 3, 4, 5, 6], f: decide)))
   io.print(Debug.inspect([1, 2, 3, 4, 5] |> Iter.map(skip) |> Iter.to_list()))
-}
-`, "[10, 30]\n[1, 3, 5]\n[1, 3]\n[4, 5, 6]\n[1, 1, 3, 3]\n[1, 2, 4, 8, 16]\neach 1\neach 3\nSome(1)\nTrue\nTrue\n%{\"a\" => 10, \"c\" => 30}\n%{10 => \"a\", 30 => \"c\"}\nSome(1)\n[10, 30]\n")
+end
+`, "[10, 30]\n[1, 3, 5]\n[1, 3]\n[4, 5, 6]\n[1, 1, 3, 3]\n[1, 2, 4, 8, 16]\neach 1\neach 3\nSome(1)\nTrue\nTrue\n{\"a\" => 10, \"c\" => 30}\n{10 => \"a\", 30 => \"c\"}\nSome(1)\n[10, 30]\n")
 }
 
 // The function itself as the callback of every seeded iteration function,
@@ -70,37 +70,37 @@ fn main() {
 func TestIRSignalCall_ASeededCallWithFrom(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn add(acc: Int, x: Int) -> Int {
-  if x == 2 { continue }
-  if x == 4 { break acc * 100 }
+fn add(acc: Int, x: Int) -> Int
+  if x == 2 then continue
+  if x == 4 then break acc * 100
   acc + x
-}
+end
 
-fn emit(s: Int, x: Int) -> (Int, Int) {
-  if x == 2 { continue }
-  if x == 4 { break }
+fn emit(s: Int, x: Int) -> (Int, Int)
+  if x == 2 then continue
+  if x == 4 then break
   (s + x, x * 10)
-}
+end
 
-fn tick(n: Int) -> Int {
-  if n == 5 { break n * 10 }
+fn tick(n: Int) -> Int
+  if n == 5 then break n * 10
   n + 1
-}
+end
 
-fn halt(n: Int) -> Int {
-  if n == 3 { break }
+fn halt(n: Int) -> Int
+  if n == 3 then break
   n + 1
-}
+end
 
-fn odd_steps(n: Int) -> Int {
-  if n % 2 == 0 {
+fn odd_steps(n: Int) -> Int
+  if n % 2 == 0 then
     return n + 3
-  }
-  if n > 10 { break n }
+  end
+  if n > 10 then break n
   n + 1
-}
+end
 
-fn main() {
+fn main()
   io.print(Debug.inspect(Iter.reduce([1, 2, 3, 4, 5], 0, add)))
   io.print(Debug.inspect(Iter.reduce([1, 2, 3], 10, add)))
   io.print(Debug.inspect([1, 2, 3] |> Iter.reduce(0, add)))
@@ -112,7 +112,7 @@ fn main() {
   io.print(Debug.inspect(Iter.loop(0, halt)))
   io.print(Debug.inspect(Iter.loop(1, odd_steps)))
   io.print(Debug.inspect(Iter.loop(f: tick, from: 2)))
-}
+end
 `, "400\n14\n4\n4\n4\n[1, 4, 400]\n(4, [10, 30])\n50\n3\n13\n50\n")
 }
 
@@ -122,30 +122,30 @@ fn main() {
 func TestIRSignalCall_FromWithAnyCallback(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn plus(a: Int, b: Int) -> Int {
+fn plus(a: Int, b: Int) -> Int
   a + b
-}
+end
 
-fn main() {
+fn main()
   io.print(Debug.inspect(Iter.reduce([1, 2, 3], 0, plus)))
   io.print(Debug.inspect(Iter.reduce([1, 2, 3], 100, Int.add)))
   io.print(Debug.inspect(Iter.reduce([1, 2, 3], 0, &(&1 * 10 + &2))))
-  io.print(Debug.inspect(Iter.reduce([1, 2, 3, 4], 0, fn acc, x -> {
-    if x == 2 { continue }
-    if x == 4 { break acc * 10 }
+  io.print(Debug.inspect(Iter.reduce([1, 2, 3, 4], 0, fn acc, x ->
+    if x == 2 then continue
+    if x == 4 then break acc * 10
     acc + x
-  })))
+  end)))
   io.print(Debug.inspect(Iter.scan([1, 2, 3], 1, plus) |> Iter.to_list()))
   io.print(Debug.inspect(Iter.map_reduce(["a", "bb"], 0, fn n, s -> (n + 1, s + s))))
-  io.print(Debug.inspect(Iter.loop(1, fn n -> {
-    if n > 4 { break n }
+  io.print(Debug.inspect(Iter.loop(1, fn n ->
+    if n > 4 then break n
     n + 2
-  })))
-  io.print(Debug.inspect(Iter.loop(0, &(if &1 > 3 { break } else { &1 + 1 }))))
-  io.print(Debug.inspect(Iter.reduce([1, 2, 3], 0, &(if &2 == 2 { continue } else { &1 + &2 }))))
+  end)))
+  io.print(Debug.inspect(Iter.loop(0, &(if &1 > 3 then break else &1 + 1))))
+  io.print(Debug.inspect(Iter.reduce([1, 2, 3], 0, &(if &2 == 2 then continue else &1 + &2))))
   empty: List<Int> = []
   io.print(Debug.inspect(Iter.reduce(empty, 7, plus)))
-}
+end
 `, "6\n106\n123\n40\n[2, 4, 7]\n(2, [\"aa\", \"bbbb\"])\n5\n4\n4\n7\n")
 }
 
@@ -155,39 +155,39 @@ fn main() {
 func TestIRSignalCall_ALoopOverAnyFunctionValueLowers(t *testing.T) {
 	const src = `import std::io
 
-struct Cfg {
+struct Cfg
   step: (Int) -> Int
-}
+end
 
-fn up(n: Int) -> Int {
+fn up(n: Int) -> Int
   n + 1
-}
+end
 
-fn bump(n: Int, by: Int) -> Int {
+fn bump(n: Int, by: Int) -> Int
   n + by
-}
+end
 
-fn partial() -> Int {
+fn partial() -> Int
   Iter.loop(1, &bump(&1, 4))
-}
+end
 
-fn field() -> Int {
+fn field() -> Int
   cfg = Cfg{step: up}
   Iter.loop(0, cfg.step)
-}
+end
 
-fn local() -> Int {
+fn local() -> Int
   f = fn n: Int -> n + 2
   Iter.loop(0, f)
-}
+end
 
-fn named() -> Int {
+fn named() -> Int
   Iter.loop(0, up)
-}
+end
 
-fn main() {
+fn main()
   io.print(partial() + field() + local() + named())
-}
+end
 `
 	if declined := irDeclinesOf(t, src); len(declined) != 0 {
 		t.Fatalf("declined %v; want every body lowered", declined)
@@ -198,30 +198,30 @@ fn main() {
 func TestIRSignalCall_PatternSeedFrom(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Acc {
+struct Acc
   total: Int
   items: List<Int>
-}
+end
 
-fn keep(acc: (Int, List<Int>), x: Int) -> (Int, List<Int>) {
-  if x == 2 { continue }
+fn keep(acc: (Int, List<Int>), x: Int) -> (Int, List<Int>)
+  if x == 2 then continue
   (acc.first + x, acc.second + [x])
-}
+end
 
-fn add(acc: Acc, x: Int) -> Acc {
-  if x == 2 { continue }
-  if x == 4 { break }
+fn add(acc: Acc, x: Int) -> Acc
+  if x == 2 then continue
+  if x == 4 then break
   Acc{total: acc.total + x, items: acc.items + [x]}
-}
+end
 
-fn main() {
+fn main()
   a = Iter.reduce([1, 2, 3], (0, []), keep)
   io.print(Debug.inspect(a))
   b = Iter.reduce([1, 2, 3, 4, 5], Acc{total: 0, items: []}, add)
   io.print(Debug.inspect(b))
   c = Iter.reduce([1, 2, 3], (0, []), fn (n, xs), x -> (n + x, xs + [x]))
   io.print(Debug.inspect(c))
-}
+end
 `, "(4, [1, 3])\nAcc{total: 4, items: [1, 3]}\n(6, [1, 2, 3])\n")
 }
 
@@ -230,25 +230,25 @@ fn main() {
 func TestIRSignalCall_DefersRunAsTheFunctionLeaves(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn inner(x: Int) -> Int {
+fn inner(x: Int) -> Int
   defer io.print("inner ${x}")
-  if x == 2 { continue }
-  if x == 3 { break x * 10 }
+  if x == 2 then continue
+  if x == 3 then break x * 10
   x
-}
+end
 
-fn step(n: Int) -> Int {
+fn step(n: Int) -> Int
   defer io.print("step ${n}")
-  if n == 1 { return 2 }
-  if n == 3 { break n * 10 }
+  if n == 1 then return 2
+  if n == 3 then break n * 10
   n + 1
-}
+end
 
-fn main() {
+fn main()
   out = Iter.map([1, 2, 3, 4], inner) |> Iter.to_list()
   io.print(Debug.inspect(out))
   io.print(Debug.inspect(Iter.loop(0, step)))
-}
+end
 `, "inner 1\ninner 2\ninner 3\n[1, 30]\nstep 0\nstep 1\nstep 2\nstep 3\n30\n")
 }
 
@@ -256,17 +256,17 @@ fn main() {
 func TestIRSignalCall_AGenericFunction(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn head_or_skip<T>(xs: List<T>) -> T {
-  case List.head(xs) {
+fn head_or_skip<T>(xs: List<T>) -> T
+  case List.head(xs)
     Some(x) -> x
     None -> continue
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(Debug.inspect(Iter.map([[1], [], [2]], head_or_skip) |> Iter.to_list()))
   io.print(Debug.inspect(Iter.map([["a"], [], ["b"]], head_or_skip) |> Iter.to_list()))
-}
+end
 `, "[1, 2]\n[\"a\", \"b\"]\n")
 }
 
@@ -278,28 +278,28 @@ func TestIRSignalCall_AnotherFilesFunction(t *testing.T) {
 import lib
 import lib.{keep, add, step}
 
-fn main() {
+fn main()
   io.print(Debug.inspect(Iter.map([3, -1, 4, 500, 6], lib.keep) |> Iter.to_list()))
   io.print(Debug.inspect(Iter.map([3, -1, 4, 500, 6], keep) |> Iter.to_list()))
   io.print(Debug.inspect(Iter.reduce([1, -5, 2], 0, lib.add)))
   io.print(Debug.inspect(Iter.reduce([1, -5, 2], 0, add)))
   io.print(Debug.inspect(Iter.loop(0, lib.step)))
   io.print(Debug.inspect(Iter.loop(1, step)))
-}
-`, "[6, 8, 500]\n[6, 8, 500]\n3\n3\n300\n300\n", map[string]string{"lib.nomi": `pub fn keep(n: Int) -> Int {
-  if n < 0 { continue }
-  if n > 100 { break n }
+end
+`, "[6, 8, 500]\n[6, 8, 500]\n3\n3\n300\n300\n", map[string]string{"lib.nomi": `pub fn keep(n: Int) -> Int
+  if n < 0 then continue
+  if n > 100 then break n
   n * 2
-}
+end
 
-pub fn add(acc: Int, n: Int) -> Int {
-  if n < 0 { continue }
+pub fn add(acc: Int, n: Int) -> Int
+  if n < 0 then continue
   acc + n
-}
+end
 
-pub fn step(n: Int) -> Int {
-  if n >= 3 { break n * 100 }
+pub fn step(n: Int) -> Int
+  if n >= 3 then break n * 100
   n + 1
-}
+end
 `})
 }

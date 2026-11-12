@@ -280,10 +280,10 @@ func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
 			// application type called from a test with no boot, and a
 			// factory whose lambda reads it.
 			steps = append(steps,
-				replace("body only, read moved", "imports_app", "pub fn read() -> String {\n", "pub fn read() -> String {\n\n    // The tag.\n"),
-				replace("read added", "imports_app", "pub fn payload_of(value: Int) -> Int {\n    value\n", "pub fn payload_of(value: Int) -> Int {\n    _ = Settings.tag\n    value\n"),
-				appendText("factory reads", "imports_app", "\npub fn reader() -> () -> String {\n    fn -> Settings.tag\n}\n"),
-				appendText("test reads without a boot", "no_app_name", "\ntest \"reads\" {\n    assert read() == \"\"\n}\n"),
+				replace("body only, read moved", "imports_app", "pub fn read() -> String\n", "pub fn read() -> String\n\n    // The tag.\n"),
+				replace("read added", "imports_app", "pub fn payload_of(value: Int) -> Int\n    value\n", "pub fn payload_of(value: Int) -> Int\n    _ = Settings.tag\n    value\n"),
+				appendText("factory reads", "imports_app", "\npub fn reader() -> () -> String\n    fn -> Settings.tag\nend\n"),
+				appendText("test reads without a boot", "no_app_name", "\ntest \"reads\"\n    assert read() == \"\"\nend\n"),
 			)
 		}
 		seqs = append(seqs, sequence{p, steps})
@@ -377,24 +377,24 @@ func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
 // "impl import ... unused").
 func unusedImplImportProject() incrementalProject {
 	return incrementalProject{name: "unused impl import", entry: "main", texts: map[string]string{
-		"main": `import {
+		"main": `import
     std::io
     shout
-}
+end
 
-fn main() {
+fn main()
     io.print("quiet")
-}
+end
 `,
-		"shout": `pub interface Shout {
+		"shout": `pub interface Shout
     fn shout(self) -> String
-}
+end
 
-impl Shout for Int {
-    fn shout(n: Int) -> String {
+impl Shout for Int
+    fn shout(n: Int) -> String
         "${n}!"
-    }
-}
+    end
+end
 `,
 	}}
 }
@@ -521,8 +521,8 @@ func FuzzOpenFromRecordMatchesFull(f *testing.F) {
 		if i%4 != 0 {
 			continue
 		}
-		f.Add(uint(i), uint(0), p.texts[p.entry]+"\nfn zz_added() -> Int { 1 }\n", false)
-		f.Add(uint(i), uint(0), p.texts[p.entry]+"\nfn zz_added() -> Int { 1 }\n", true)
+		f.Add(uint(i), uint(0), p.texts[p.entry]+"\nfn zz_added() -> Int\n    1\nend\n", false)
+		f.Add(uint(i), uint(0), p.texts[p.entry]+"\nfn zz_added() -> Int\n    1\nend\n", true)
 	}
 	f.Fuzz(func(t *testing.T, project, file uint, src string, onDisk bool) {
 		if !utf8.ValidString(src) || len(src) > 2*fuzzSeedText {

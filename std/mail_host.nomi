@@ -2,10 +2,10 @@
 //# Go's `mime/quotedprintable` and `time` (rt/mail.go). It is internal; a
 //# program imports std::mail.
 
-import {
+import
     int.Int
     strings.String
-}
+end
 
 /// `text` as Go's `quotedprintable.Writer` writes text.
 pub host fn quoted_printable(text: String) -> String

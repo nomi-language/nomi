@@ -8,14 +8,14 @@
 // `banner` is called on both apps, so the same interface-typed field is read
 // twice with a different implementor behind it. The two answers differ in every
 // character on purpose — see core.nomi.
-import {
+import
     std::io
     core.{self, Logger}
     extra.{self}
     wire.{self}
-}
+end
 
-fn main() {
+fn main()
     io.print(core.banner(wire.loud()))
     io.print(core.banner(wire.hushed()))
     io.print(core.origin())
@@ -27,4 +27,4 @@ fn main() {
     // Both mirrors of `shared.Stamp` read from OUTSIDE the merged package, so the
     // alias each co-tenant declares is exercised rather than merely emitted.
     io.print("${wire.mark_text(wire.mark())}${extra.other_text(extra.other())}")
-}
+end

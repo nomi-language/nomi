@@ -14,36 +14,36 @@ import (
 
 const debugInfoSrc = `import std::io
 
-fn describe(pair: (Int, Int), limit: Int) -> String {
+fn describe(pair: (Int, Int), limit: Int) -> String
   (a, b) = pair
   total = a + b
   total = total * 2
-  label = case total {
+  label = case total
     0 -> "zero"
-    n -> {
+    n ->
       doubled = n * 2
       "n=${doubled}"
-    }
-  }
-  if total > limit {
+  end
+  if total > limit then
     io.print("over")
-  }
+  end
   steps = Iter.loop(0, fn i ->
-    if i == limit {
+    if i == limit then
       break i
-    } else {
+    else
       i + 1
-    }
+    end
+  end
   )
   scaled = [1, 2]
     |> Iter.map(fn x -> x * total)
     |> Iter.to_list()
   "${label} ${steps} ${scaled}"
-}
+end
 
-fn main() {
+fn main()
   io.print(describe((1, 2), 3))
-}
+end
 `
 
 func debugInfoFuncs(t *testing.T) map[string][]*ir.Func {
@@ -99,10 +99,10 @@ func TestDebugInfo_EveryNamedValueIsAVariable(t *testing.T) {
 		"pair: (Int, Int) @3-28", "limit: Int @3-28",
 		"a: Int @4-28", "b: Int @4-28",
 		"total: Int @5-28", "total: Int @6-28",
-		"n: Int @9-13", "doubled: Int @10-12",
+		"n: Int @9-12", "doubled: Int @10-11",
 		"label: String @7-28",
-		"i: Int @17-22",
-		"steps: Int @17-28",
+		"i: Int @16-22",
+		"steps: Int @16-28",
 		"scaled: List<Int> @24-28",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
@@ -142,8 +142,8 @@ func TestDebugInfo_AVariableIsDeclaredAtItsName(t *testing.T) {
 		"total 5:3-8", "total 6:3-8",
 		"n 9:5-6", "doubled 10:7-14",
 		"label 7:3-8",
-		"i 17:27-28",
-		"steps 17:3-8",
+		"i 16:27-28",
+		"steps 16:3-8",
 		"scaled 24:3-9",
 		// The lambda's parameter, and its capture of the second `total`.
 		"x 25:20-21", "total 6:3-8",
@@ -152,20 +152,20 @@ func TestDebugInfo_AVariableIsDeclaredAtItsName(t *testing.T) {
 		t.Fatalf("declarations:\n%s\n\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 
-	src := `struct P {
+	src := `struct P
   x: Int
   y: Int
-}
+end
 
-fn main() {
-  .{x, y: why} = P{x: 1, y: 2}
-  m = case Some(x) {
+fn main()
+  {x:, y: why} = P{x: 1, y: 2}
+  m = case Some(x)
     Some(n) as whole -> (n, whole)
     None -> (0, None)
-  }
+  end
   f = fn (a, b): (Int, Int) -> a + b
   _ = (why, m, f((1, 2)))
-}
+end
 `
 	p, err := AnalyzeSource("main", src)
 	if err != nil {
@@ -193,7 +193,7 @@ fn main() {
 			}
 		}
 	}
-	want = []string{"x 7:5-6", "why 7:11-14", "n 9:10-11", "whole 9:16-21", "m 8:3-4", "f 12:3-4", "a 12:11-12", "b 12:14-15"}
+	want = []string{"x 7:4-5", "why 7:11-14", "n 9:10-11", "whole 9:16-21", "m 8:3-4", "f 12:3-4", "a 12:11-12", "b 12:14-15"}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("declarations:\n%s\n\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
@@ -210,8 +210,8 @@ func TestDebugInfo_StatementsArmsIterationsAndStagesAreMarked(t *testing.T) {
 	for _, want := range []string{
 		"4 statement", "5 statement", "6 statement", "7 statement",
 		"8 arm", "10 statement", "11 statement",
-		"14 statement", "15 statement",
-		"17 iteration", "18 statement", "19 statement", "21 statement",
+		"13 statement", "14 statement",
+		"16 iteration", "17 statement", "18 statement", "20 statement",
 		"24 statement", "25 stage", "26 stage", "27 statement",
 	} {
 		found := false
@@ -232,24 +232,24 @@ func TestDebugInfo_StatementsArmsIterationsAndStagesAreMarked(t *testing.T) {
 // parameter of that type: every spelling below is written back into the
 // fixture as a parameter type, and the front end accepts each.
 func TestDebugInfo_TypesSpellAsAnnotations(t *testing.T) {
-	src := `struct Box<T> {
+	src := `struct Box<T>
   item: T
-}
+end
 
-enum Tree<T> {
+enum Tree<T>
   Leaf
   Node {value: T}
-}
+end
 
-fn main() {
+fn main()
   bs = [Box{item: Box{item: "s"}}]
   tr: Tree<Int> = Tree.Node{value: 1}
   g = fn b: Box<Int> -> b.item
   o: Maybe<Box<Int>> = None
-  m: Map<String, Box<Int>> = %{"a" => Box{item: 2}}
+  m: Map<String, Box<Int>> = {"a" => Box{item: 2}}
   pair = (Box{item: 1}, [Box{item: 2.5}])
   _ = (bs, tr, g, o, m, pair)
-}
+end
 `
 	p, err := AnalyzeSource("main", src)
 	if err != nil {
@@ -280,7 +280,7 @@ fn main() {
 		_, typ, _ := strings.Cut(v, ": ")
 		params = append(params, fmt.Sprintf("p%d: %s", i, typ))
 	}
-	probe := src + "\nfn probe(" + strings.Join(params, ", ") + ") {\n  _ = (p0, p1, p2, p3, p4, p5)\n}\n"
+	probe := src + "\nfn probe(" + strings.Join(params, ", ") + ")\n  _ = (p0, p1, p2, p3, p4, p5)\nend\n"
 	if _, err := AnalyzeSource("main", probe); err != nil {
 		t.Fatalf("a spelling does not check as a parameter type: %v\n%s", err, probe)
 	}

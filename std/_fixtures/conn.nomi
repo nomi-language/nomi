@@ -5,135 +5,134 @@
 //# and a struct holding the interface value and a function. Loaded only by a
 //# test binary with NOMI_STD_FIXTURES=1 (std.FixturesLoaded).
 
-import {
+import
     display.Display
     int.Int
     iter.Iter
     lists.List
     results.Result.{self, Err, Ok}
     strings.String
-}
+end
 
 /// One column's value as a connection answers it.
-pub enum Value {
+pub enum Value
     Null
     Number Int
     Text String
-}
+end
 
 /// What a column held when a caller wanted something else.
-pub enum Found {
+pub enum Found
     Nothing
     Number
     Text
-}
+end
 
 /// Why a query or a column read failed.
-pub enum Error {
+pub enum Error
     Refused {reason: String}
     Decode {column: Int, found: Found}
-}
+end
 
 /// A connection the program implements.
-pub interface Conn {
+pub interface Conn
     fn query(conn: self, sql: String) -> Result<List<List<Value>>, Error>
     fn name(conn: self) -> String
-}
+end
 
 /// A connection that refuses every query.
-pub struct Closed {
+pub struct Closed
     name: String
-}
+end
 
-impl Conn for Closed {
-    fn query(conn: Closed, sql: String) -> Result<List<List<Value>>, Error> {
+impl Conn for Closed
+    fn query(conn: Closed, sql: String) -> Result<List<List<Value>>, Error>
         Err(Error.Refused{reason: "${conn.name} is closed to ${sql}"})
-    }
+    end
 
-    fn name(conn: Closed) -> String {
+    fn name(conn: Closed) -> String
         conn.name
-    }
-}
+    end
+end
 
 /// A value a column decodes to.
-pub interface FromValue {
+pub interface FromValue
     fn from_value(value: Value, column: Int) -> Result<self, Error>
-}
+end
 
-impl FromValue for Int {
-    fn from_value(value: Value, column: Int) -> Result<Int, Error> {
-        case value {
+impl FromValue for Int
+    fn from_value(value: Value, column: Int) -> Result<Int, Error>
+        case value
             Value.Number(n) -> Ok(n)
-            other -> Err(Error.Decode{column, found: found(other)})
-        }
-    }
-}
+            other -> Err(Error.Decode{column:, found: found(other)})
+        end
+    end
+end
 
-impl FromValue for String {
-    fn from_value(value: Value, column: Int) -> Result<String, Error> {
-        case value {
+impl FromValue for String
+    fn from_value(value: Value, column: Int) -> Result<String, Error>
+        case value
             Value.Text(s) -> Ok(s)
-            other -> Err(Error.Decode{column, found: found(other)})
-        }
-    }
-}
+            other -> Err(Error.Decode{column:, found: found(other)})
+        end
+    end
+end
 
-fn found(value: Value) -> Found {
-    case value {
+fn found(value: Value) -> Found
+    case value
         Value.Null -> Found.Nothing
         Value.Number(_) -> Found.Number
         Value.Text(_) -> Found.Text
-    }
-}
+    end
+end
 
 /// A connection and what to tell about each query it runs.
-pub struct Pool {
+pub struct Pool
     conn: Conn
     log: (String) -> String
-}
+end
 
-impl Pool {
+impl Pool
     /// The first column of every row the query answers, decoded.
-    pub fn column<T>(pool: Pool, sql: String) -> Result<List<T>, Error> where T: FromValue {
+    pub fn column<T>(pool: Pool, sql: String) -> Result<List<T>, Error> where T: FromValue
         rows = Conn.query(pool.conn, sql)?
         decode(rows, [])
-    }
+    end
 
     /// The connection's name, as the pool's log tells it.
-    pub fn describe(pool: Pool) -> String {
+    pub fn describe(pool: Pool) -> String
         pool.log(Conn.name(pool.conn))
-    }
-}
+    end
+end
 
-fn decode<T>(rows: List<List<Value>>, done: List<T>) -> Result<List<T>, Error> where T: FromValue {
-    case rows {
+fn decode<T>(rows: List<List<Value>>, done: List<T>) -> Result<List<T>, Error> where T: FromValue
+    case rows
         [] ->
             Ok(
                 Iter.reverse(done)
                 |> Iter.to_list()
             )
 
-        [row, ..rest] -> {
-            value = case row {
+        [row, ..rest] ->
+            value = case row
                 [first, ..] -> first
                 [] -> Value.Null
-            }
+            end
 
             decoded = T.from_value(value, 0)?
             decode(rest, [decoded, ..done])
-        }
-    }
-}
+    end
+end
 
 /// The connections' names, joined. A non-generic function over an `Iter`
 /// with a default, which a std module lowered once for the process cannot
 /// declare.
-pub fn names(conns: Iter<Conn>, separator: String = ", ") -> String {
+pub fn names(conns: Iter<Conn>, separator: String = ", ") -> String
     Iter.map(conns, &Conn.name(&1)) |> String.join(separator)
-}
+end
 
 /// Each value shown, joined: a generic function whose default a call may
 /// leave out.
-pub fn shown<T>(values: Iter<T>, separator: String = ", ") -> String where T: Display {
+pub fn shown<T>(values: Iter<T>, separator: String = ", ") -> String where T: Display
     Iter.map(values, &Display.to_string(&1)) |> String.join(separator)
-}
+end

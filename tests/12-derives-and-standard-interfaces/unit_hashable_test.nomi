@@ -1,45 +1,45 @@
-struct Tagged {
+struct Tagged
     name: String
     marker: Unit
-}
+end
 
 derive Equatable for Tagged
 derive Hashable for Tagged
 
-fn same<T>(a: T, b: T) -> Bool where T: Equatable {
+fn same<T>(a: T, b: T) -> Bool where T: Equatable
     Equatable.equal(a, b)
-}
+end
 
-fn digest<T>(value: T) -> Int where T: Hashable {
+fn digest<T>(value: T) -> Int where T: Hashable
     Hashable.hash(value)
-}
+end
 
-test "unit is equatable and always hashes the same" {
+test "unit is equatable and always hashes the same"
     assert Equatable.equal(Unit, Unit)
     assert Unit.equal(Unit, Unit)
     assert Hashable.hash(Unit) == 0
     assert Unit.hash(Unit) == Hashable.hash(Unit)
     assert same(Unit, Unit)
     assert digest(Unit) == 0
-}
+end
 
-test "tuples holding unit hash through unit's impl" {
+test "tuples holding unit hash through unit's impl"
     assert Hashable.hash(('a', Unit)) == 3007
     assert Hashable.hash((1, Unit, "x")) == Hashable.hash((1, Unit, "x"))
     assert digest(('a', Unit)) == Hashable.hash(('a', Unit))
     assert ('a', Unit) == ('a', Unit)
     assert ('a', Unit) != ('b', Unit)
-}
+end
 
-test "a derived hash over a struct with a unit field" {
+test "a derived hash over a struct with a unit field"
     a = Tagged{name: "a", marker: Unit}
     b = Tagged{name: "a", marker: Unit}
     assert Hashable.hash(a) == Hashable.hash(b)
     assert Equatable.equal(a, b)
     refute Hashable.hash(a) == Hashable.hash(Tagged{name: "b", marker: Unit})
-}
+end
 
-test "unit and values holding it key sets and maps" {
+test "unit and values holding it key sets and maps"
     units = [Unit, Unit, Unit] |> Iter.to_set()
     assert Set.size(units) == 1
     assert Unit in units
@@ -62,9 +62,9 @@ test "unit and values holding it key sets and maps" {
     assert Set.size(tagged) == 2
 
     records =
-        [.{name: "r", marker: Unit}, .{name: "r", marker: Unit}, .{name: "s", marker: Unit}]
+        [{name: "r", marker: Unit}, {name: "r", marker: Unit}, {name: "s", marker: Unit}]
         |> Iter.to_set()
 
     assert Set.size(records) == 2
-    assert .{name: "s", marker: Unit} in records
-}
+    assert {name: "s", marker: Unit} in records
+end

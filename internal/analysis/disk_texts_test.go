@@ -112,7 +112,7 @@ func TestClosedFilesAreReadOnlyWhenTheirStatChanges(t *testing.T) {
 
 	// The same size and the same modification time, as a second write
 	// within one timestamp tick leaves them: the stat cannot tell.
-	sameStat := strings.Replace(layeredProject().texts["palette"], "pub fn name() -> String {", "pub fn nome() -> String {", 1)
+	sameStat := strings.Replace(layeredProject().texts["palette"], "pub fn name() -> String", "pub fn nome() -> String", 1)
 
 	t.Run("a rewrite within the racy window is noticed", func(t *testing.T) {
 		// Written just now: the stat the first analysis takes is racy.
@@ -175,12 +175,12 @@ func TestClosedFilesAreReadOnlyWhenTheirStatChanges(t *testing.T) {
 
 	t.Run("a new file is noticed", func(t *testing.T) {
 		d := openDiskProject(t, old)
-		d.main = strings.Replace(d.main, "    palette\n}", "    palette\n    extra\n}", 1)
+		d.main = strings.Replace(d.main, "    palette\nend", "    palette\n    extra\nend", 1)
 		d.main = strings.Replace(d.main, "${palette.name()}", "${palette.name()} ${extra.more()}", 1)
 		if _, diags := d.edit(); !strings.Contains(diags, "extra") {
 			t.Fatalf("the import of the missing extra is not reported:\n%s", diags)
 		}
-		d.write("extra", "pub fn more() -> String {\n    \"more\"\n}\n", old)
+		d.write("extra", "pub fn more() -> String\n    \"more\"\nend\n", old)
 		// The language server's answer to a created file: it analyzes the
 		// open documents again, with no program kept.
 		if read := d.reads(func() { d.dm.ReanalyzeOpen("") }); !slices.Contains(read, "extra") {

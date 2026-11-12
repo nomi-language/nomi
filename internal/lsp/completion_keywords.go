@@ -17,19 +17,19 @@ type keywordShape struct {
 }
 
 var keywordShapes = map[string]keywordShape{
-	"if":     {"if ${1:condition} {\n\t$0\n}", "if condition { … }"},
-	"case":   {"case ${1:value} {\n\t$0\n}", "case value { … }"},
-	"fn":     {"fn ${1:name}(${2}) -> ${3:Unit} {\n\t$0\n}", "fn name(…) -> Type { … }"},
-	"struct": {"struct ${1:Name} {\n\t$0\n}", "struct Name { … }"},
-	"enum":   {"enum ${1:Name} {\n\t$0\n}", "enum Name { … }"},
-	"impl":   {"impl ${1:Type} {\n\t$0\n}", "impl Type { … }"},
-	"test":   {"test \"${1:name}\" {\n\tassert $0\n}", "test \"name\" { … }"},
-	"group":  {"group \"${1:name}\" {\n\t$0\n}", "group \"name\" { … }"},
+	"if":     {"if ${1:condition} then\n\t$0\nend", "if condition then … end"},
+	"case":   {"case ${1:value}\n\t$0\nend", "case value … end"},
+	"fn":     {"fn ${1:name}(${2}) -> ${3:Unit}\n\t$0\nend", "fn name(…) -> Type … end"},
+	"struct": {"struct ${1:Name}\n\t$0\nend", "struct Name … end"},
+	"enum":   {"enum ${1:Name}\n\t$0\nend", "enum Name … end"},
+	"impl":   {"impl ${1:Type}\n\t$0\nend", "impl Type … end"},
+	"test":   {"test \"${1:name}\"\n\tassert $0\nend", "test \"name\" … end"},
+	"group":  {"group \"${1:name}\"\n\t$0\nend", "group \"name\" … end"},
 }
 
 // ifElseShape is the `if` with its `else`, which an `if` whose value is not
 // Unit needs. It is offered beside `if`, and only as a snippet.
-var ifElseShape = keywordShape{"if ${1:condition} {\n\t${2}\n} else {\n\t$0\n}", "if condition { … } else { … }"}
+var ifElseShape = keywordShape{"if ${1:condition} then\n\t${2}\nelse\n\t$0\nend", "if condition then … else … end"}
 
 // shapedKeywordCandidates offers words as keywords, those that open a block
 // inserting their shape as a snippet. Without snippet support the item

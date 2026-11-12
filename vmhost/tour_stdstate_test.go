@@ -120,7 +120,7 @@ go.env = Object.assign({ GODEBUG: "gcstoptheworld=1" }, JSON.parse(process.argv[
   globalThis.nomiWarm();
   const warm = performance.now() - t;
   t = performance.now();
-  const r = globalThis.nomiRun('import std::io\n\nfn main() {\n    io.print("hello")\n}\n');
+  const r = globalThis.nomiRun('import std::io\n\nfn main()\n    io.print("hello")\nend\n');
   const run = performance.now() - t;
   const answer = JSON.stringify({ log, start, warm, run, out: r.output + r.error });
   process.stdout.write(answer, () => process.exit(0));

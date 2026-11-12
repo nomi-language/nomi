@@ -1,8 +1,8 @@
-import {
+import
     std::io
     listing
-}
+end
 
-fn main() {
+fn main()
     io.print("${listing.total(listing.all)}")
-}
+end

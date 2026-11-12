@@ -6,10 +6,10 @@
 // Thirty-five corpus files were sole-blocked on `compiler.hover` and every one
 // of them reaches it through the identical fourteen-line helper:
 //
-//     case compiler.hover(source) {
+//     case compiler.hover(source)
 //       Ok(hover) -> hover.signature
 //       Err(message) -> message
-//     }
+//     end
 //
 // So the corpus exercises exactly TWO of the pipeline's answers — one successful
 // signature, and whichever failure that fixture happens to provoke — and reads
@@ -30,21 +30,21 @@
 // absolute text in compiler_hover_test.go is what fails for it,
 // which is why `markdown_starts_fenced` and `signature_is_one_line` are printed
 // as separate rows from two reads of one value.
-import {
+import
     std::compiler
     std::io
-}
+end
 
 // signature_of is the corpus helper's shape, kept so this fixture exercises the
 // same `case` over `Result<Hover, String>` that thirty-five files do.
-fn signature_of(source: String) -> String {
-    case compiler.hover(source) {
+fn signature_of(source: String) -> String
+    case compiler.hover(source)
         Ok(hover) -> hover.signature
         Err(message) -> message
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     // --- THE SUCCESSFUL ARM, and the three kinds of thing hover names ---------
     //
     // A local binding, a function declaration and a stdlib function. Each takes a
@@ -53,10 +53,10 @@ fn main() {
     io.print(
         "binding = " + signature_of(
             """
-            fn main() {
+            fn main()
               ansˇwer = 42
               _ = answer
-            }
+            end
             """
         )
     )
@@ -64,13 +64,13 @@ fn main() {
     io.print(
         "declaration = " + signature_of(
             """
-            fn douˇble(n: Int) -> Int {
+            fn douˇble(n: Int) -> Int
               n * 2
-            }
+            end
 
-            fn main() {
+            fn main()
               _ = double(21)
-            }
+            end
             """
         )
     )
@@ -78,9 +78,9 @@ fn main() {
     io.print(
         "stdlib = " + signature_of(
             """
-            fn main() {
+            fn main()
               _ = String.trˇim(" hi ")
-            }
+            end
             """
         )
     )
@@ -95,13 +95,13 @@ fn main() {
     // still failing loudly if the two fields trade places.
     case compiler.hover(
         """
-        fn main() {
+        fn main()
           totˇal: Int = 0
           _ = total
-        }
+        end
         """
-    ) {
-        Ok(hover) -> {
+    )
+        Ok(hover) ->
             io.print(
                 "signature_is_one_line = " + Bool.to_string(
                     not String.contains(hover.signature, "\n")
@@ -125,10 +125,10 @@ fn main() {
                     String.contains(hover.markdown, hover.signature)
                 )
             )
-        }
 
-        Err(message) -> io.print("both_fields = UNEXPECTED " + message)
-    }
+        Err(message) ->
+            io.print("both_fields = UNEXPECTED " + message)
+    end
 
     // --- EVERY FAILURE ARM ---------------------------------------------------
     //
@@ -137,20 +137,20 @@ fn main() {
     // fallible-host case, so a VM program that turned one of these into a
     // panic would fail on the exit code rather than print the `Err` text on
     // stdout.
-    io.print("no_marker = " + signature_of("fn main() {\n  _ = 1\n}\n"))
-    io.print("two_markers = " + signature_of("fn maˇin() {\n  _ = ˇ1\n}\n"))
+    io.print("no_marker = " + signature_of("fn main()\n  _ = 1\nend\n"))
+    io.print("two_markers = " + signature_of("fn maˇin()\n  _ = ˇ1\nend\n"))
     io.print("parse_error = " + signature_of("fn maˇin( {\n"))
 
     io.print(
         "type_error = " + signature_of(
             """
-            fn main() {
+            fn main()
               couˇnt: Int = "zero"
               _ = count
-            }
+            end
             """
         )
     )
 
-    io.print("no_target = " + signature_of("fn main() {\n  _ = 1\n}\nˇ"))
-}
+    io.print("no_target = " + signature_of("fn main()\n  _ = 1\nend\nˇ"))
+end

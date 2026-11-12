@@ -1,22 +1,22 @@
-import {
+import
     std::instant.Instant
 
     // Clock implementations. The Clock interface itself lives in
     // effects.nomi.
     effects.Clock
-}
+end
 
 // FakeClock returns its configured `at` value verbatim. Useful
 // for tests where time should be deterministic.
-pub struct FakeClock {
+pub struct FakeClock
     at: Int
-}
+end
 
-impl Clock for FakeClock {
-    fn now(value: FakeClock) -> Int {
+impl Clock for FakeClock
+    fn now(value: FakeClock) -> Int
         value.at
-    }
-}
+    end
+end
 
 // SystemClock reads the real wall clock (seconds since the Unix
 // epoch). The production handler.
@@ -25,8 +25,8 @@ impl Clock for FakeClock {
 // receives all state through `value`.
 pub type SystemClock
 
-impl Clock for SystemClock {
-    fn now(_value: SystemClock) -> Int {
+impl Clock for SystemClock
+    fn now(_value: SystemClock) -> Int
         Instant.to_seconds(Instant.now())
-    }
-}
+    end
+end

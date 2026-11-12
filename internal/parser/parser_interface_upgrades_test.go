@@ -10,7 +10,7 @@ import (
 // Interface upgrades v1: parser-side coverage for
 //   - `field` items, which an interface body refuses
 //   - `open fn ...` modifier on default methods
-//   - `impl Iface for Type { … }` blocks (the sole interface-impl form;
+//   - `impl Iface for Type` blocks (the sole interface-impl form;
 //     kept brief here)
 
 // An interface declares functions only. A `field` item is refused with a
@@ -22,17 +22,17 @@ func TestInterfaceFieldItemIsRefused(t *testing.T) {
 	}{
 		{
 			"a well-formed field item",
-			"pub interface Named {\n  field name: String\n}",
+			"pub interface Named\n  field name: String\nend",
 			"line 2, col 3: interfaces declare functions only; replace `field name: String` with a function requirement such as `fn name(value: self) -> String`",
 		},
 		{
 			"a generic field type, beside a function",
-			"interface Container<T> {\n  fn size(value: self) -> Int\n  field items: List<T>\n}",
+			"interface Container<T>\n  fn size(value: self) -> Int\n  field items: List<T>\nend",
 			"line 3, col 3: interfaces declare functions only; replace `field items: List<T>` with a function requirement such as `fn items(value: self) -> List<T>`",
 		},
 		{
 			"a field item with no type",
-			"interface Bad {\n  field context\n}",
+			"interface Bad\n  field context\nend",
 			"line 2, col 3: interfaces declare functions only; replace `field name: String` with a function requirement such as `fn name(value: self) -> String`",
 		},
 	} {
@@ -50,18 +50,22 @@ func TestInterfaceFieldItemIsRefused(t *testing.T) {
 
 // `field` is an ordinary identifier outside an interface body.
 func TestFieldIsAnOrdinaryIdentifier(t *testing.T) {
-	nodes := parse(t, "struct Box {\n  field: Int\n}\nfn f(field: Int) -> Int {\n  field + 1\n}")
+	nodes := parse(t, "struct Box\n  field: Int\nend\nfn f(field: Int) -> Int\n  field + 1\nend")
 	if len(nodes) != 2 {
 		t.Fatalf("expected 2 nodes, got %d", len(nodes))
 	}
 }
 
 func TestInterfaceOpenDefault(t *testing.T) {
-	nodes := parse(t, `interface MyIface {
+	nodes := parse(t, `interface MyIface
   fn required_method(value: self) -> Int
-  fn final_default(_value: self) -> String { "fixed" }
-  open fn extension_point(_value: self) -> String { "hi" }
-}`)
+  fn final_default(_value: self) -> String
+      "fixed"
+  end
+  open fn extension_point(_value: self) -> String
+      "hi"
+  end
+end`)
 	idef := nodes[0].(*ast.InterfaceDef)
 	if len(idef.Methods) != 3 {
 		t.Fatalf("expected 3 methods, got %d", len(idef.Methods))
@@ -82,11 +86,11 @@ func TestInterfaceOpenDefault(t *testing.T) {
 // not an inherent op (Items) and not a required method. `open host fn` is
 // the overridable variant.
 func TestInterfaceHostBackedDefault(t *testing.T) {
-	nodes := parse(t, `interface Seq {
+	nodes := parse(t, `interface Seq
   fn next(value: self) -> Int
   host fn reduce(value: self) -> Int
   open host fn sort(value: self) -> Int
-}`)
+end`)
 	idef := nodes[0].(*ast.InterfaceDef)
 	if len(idef.Methods) != 3 {
 		t.Fatalf("expected 3 contract methods (host defaults included), got %d", len(idef.Methods))
@@ -113,8 +117,8 @@ func TestInterfaceHostBackedDefault(t *testing.T) {
 // defaults, host defaults are `host fn`.)
 func TestInterfacePubItemRejected(t *testing.T) {
 	for _, src := range []string{
-		"interface I {\n  pub fn foo(x: self) -> Int { 1 }\n}",
-		"interface I {\n  pub host fn foo(x: self) -> Int\n}",
+		"interface I\n  pub fn foo(x: self) -> Int { 1 }\nend",
+		"interface I\n  pub host fn foo(x: self) -> Int\nend",
 	} {
 		tokens := lexer.Lex(src)
 		_, err := Parse(tokens)
@@ -129,9 +133,9 @@ func TestInterfacePubItemRejected(t *testing.T) {
 }
 
 func TestInterfaceOpenRequiresDefault(t *testing.T) {
-	src := `interface Bad {
+	src := `interface Bad
   open fn no_body(value: self) -> Int
-}`
+end`
 	tokens := lexer.Lex(src)
 	_, err := Parse(tokens)
 	if err == nil {
@@ -146,11 +150,13 @@ func TestInterfaceOpenRequiresDefault(t *testing.T) {
 // remain regular identifiers — struct fields named `field` parse, local
 // bindings named `open` parse.
 func TestFieldOpenAreContextualKeywords(t *testing.T) {
-	nodes := parse(t, `struct Box { field: Int }
-fn make() -> Int {
+	nodes := parse(t, `struct Box
+    field: Int
+end
+fn make() -> Int
   open = 42
   open
-}`)
+end`)
 	if len(nodes) != 2 {
 		t.Fatalf("expected 2 nodes, got %d", len(nodes))
 	}

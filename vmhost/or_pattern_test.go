@@ -14,157 +14,163 @@ import (
 func TestOrPattern_RunsInEveryPosition(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-enum Tri {
+enum Tri
     Equilateral
     Isosceles
     Scalene
-}
+end
 
-enum Ev {
+enum Ev
     A Int
     B Int
     C String
-}
+end
 
-enum Two {
+enum Two
     L Int
     R Int
-}
+end
 
-enum Shape {
+enum Shape
     Circle {r: Float}
     Square {r: Float}
     Rect {w: Float, h: Float}
     Point
-}
+end
 
-struct P {
+struct P
     kind: Tri
     n: Int
-}
+end
 
-fn tri(m: Maybe<Tri>) -> String {
-    case m {
+fn tri(m: Maybe<Tri>) -> String
+    case m
         Some(.Equilateral or .Isosceles) -> "two equal"
         Some(.Scalene) -> "none equal"
         None -> "no triangle"
-    }
-}
+    end
+end
 
-fn ev(e: Ev) -> String {
-    case e {
+fn ev(e: Ev) -> String
+    case e
         .A(n) or .B(n) when n > 0 -> "positive ${n}"
         .A(n) -> "A ${n}"
         .B(n) -> "B ${n}"
         .C(s) -> s
-    }
-}
+    end
+end
 
-fn shape(s: Shape) -> String {
-    case s {
-        .Circle{r} or .Square{r} -> "round-ish ${r}"
-        .Rect(.{w: 0.0, h: x} or .{w: x, h: 0.0}) -> "flat ${x}"
+fn shape(s: Shape) -> String
+    case s
+        .Circle{r:} or .Square{r:} -> "round-ish ${r}"
+        .Rect({w: 0.0, h: x} or {w: x, h: 0.0}) -> "flat ${x}"
         .Rect(_) or .Point -> "other"
-    }
-}
+    end
+end
 
-fn num(n: Int) -> String {
-    case n {
+fn num(n: Int) -> String
+    case n
         1 or 2 or 3 -> "small"
         -1 or -2 -> "negative"
         _ -> "big"
-    }
-}
+    end
+end
 
-fn word(s: String) -> String {
-    case s {
+fn word(s: String) -> String
+    case s
         "yes" or "y" -> "affirmative"
         "no" or "n" -> "negative"
         _ -> "?"
-    }
-}
+    end
+end
 
-fn closer(cs: List<Codepoint>) -> String {
-    case cs {
+fn closer(cs: List<Codepoint>) -> String
+    case cs
         [')' or ']' or '}' as c, ..rest] -> "closer ${c} then ${Iter.count(rest)}"
         [] or [_] -> "short"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn pair(t: (Int, Int)) -> Int {
-    case t {
+fn pair(t: (Int, Int)) -> Int
+    case t
         (0, x) or (x, 0) -> x
         (a, b) -> a * b
-    }
-}
+    end
+end
 
-fn field(p: P) -> String {
-    case p {
-        P{kind: .Equilateral or .Isosceles, n} -> "eq ${n}"
+fn field(p: P) -> String
+    case p
+        P{kind: .Equilateral or .Isosceles, n:} -> "eq ${n}"
         P{n: 1 or 2} -> "small"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn entry(m: Map<String, Int>) -> String {
-    case m {
-        %{"k" => 1 or 2 as v} -> "low ${v}"
+fn entry(m: Map<String, Int>) -> String
+    case m
+        {"k" => 1 or 2 as v} -> "low ${v}"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn nested(m: Maybe<Ev>) -> String {
-    case m {
+fn nested(m: Maybe<Ev>) -> String
+    case m
         Some(.A(n) or (.B(n) or .A(n))) or Some(.B(n)) -> "${n}"
         Some(.C(_)) or None -> "none"
-    }
-}
+    end
+end
 
-fn whole(e: Ev) -> String {
-    case e {
+fn whole(e: Ev) -> String
+    case e
         .A(_) or .B(_) as v -> "numeric " + ev(v)
         .C(_) -> "string"
-    }
-}
+    end
+end
 
-fn first_num(e: Ev) -> Int {
-    .A(n) or .B(n) = e else { return -1 }
+fn first_num(e: Ev) -> Int
+    .A(n) or .B(n) = e else
+        return -1
+    end
     n
-}
+end
 
-fn iff(e: Ev) -> String {
-    if .A(n) or .B(n) = e {
+fn iff(e: Ev) -> String
+    if .A(n) or .B(n) = e then
         "got ${n}"
-    } else {
+    else
         "nothing"
-    }
-}
+    end
+end
 
-fn plain(t: Two) -> Int {
+fn plain(t: Two) -> Int
     .L(n) or .R(n) = t
     n
-}
+end
 
-fn param(.L(n) or .R(n): Two) -> Int {
+fn param(.L(n) or .R(n): Two) -> Int
     n + 1
-}
+end
 
-fn tup((x, 0) or (_, x): (Int, Int)) -> Int {
+fn tup((x, 0) or (_, x): (Int, Int)) -> Int
     x
-}
+end
 
-fn fallback(r: Result<Two, String>) -> Int {
-    Ok(.L(n) or .R(n)) = r else { Two.L(0) }
+fn fallback(r: Result<Two, String>) -> Int
+    Ok(.L(n) or .R(n)) = r else
+        Two.L(0)
+    end
     n
-}
+end
 
-fn fallback_name(r: Result<Int, String>) -> Int {
-    Ok(n or n) = r else { 5 }
+fn fallback_name(r: Result<Int, String>) -> Int
+    Ok(n or n) = r else
+        5
+    end
     n
-}
+end
 
-fn main() {
+fn main()
     io.print(tri(Some(Tri.Isosceles)))
     io.print(tri(Some(Tri.Scalene)))
     io.print(tri(None))
@@ -191,8 +197,8 @@ fn main() {
     io.print(field(P{kind: Tri.Isosceles, n: 5}))
     io.print(field(P{kind: Tri.Scalene, n: 2}))
     io.print(field(P{kind: Tri.Scalene, n: 9}))
-    io.print(entry(%{"k" => 2}))
-    io.print(entry(%{"k" => 3}))
+    io.print(entry({"k" => 2}))
+    io.print(entry({"k" => 3}))
     io.print(nested(Some(Ev.B(6))))
     io.print(nested(None))
     io.print(whole(Ev.B(1)))
@@ -211,7 +217,7 @@ fn main() {
     io.print(fallback(Err("x")))
     io.print(fallback_name(Ok(1)))
     io.print(fallback_name(Err("x")))
-}
+end
 `)
 	want := `two equal
 none equal
@@ -269,37 +275,37 @@ nothing
 func TestOrPattern_RunsInTests(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	const name = "or_test.nomi"
-	p, err := vmhost.LoadSource(name, `enum Two {
+	p, err := vmhost.LoadSource(name, `enum Two
     L Int
     R Int
-}
+end
 
-test "assert binds from either alternative" {
+test "assert binds from either alternative"
     assert Some(n) or Some(n) = Some(3)
     assert n == 3
     assert .L(k) or .R(k) = Two.R(4)
     assert k == 4
-}
+end
 
-test "assert fails when no alternative matches" {
+test "assert fails when no alternative matches"
     assert 1 or 2 = 3
-}
+end
 
-group "setup" {
-    setup {
+group "setup"
+    setup begin
         Two.R(7)
-    }
+    end
 
-    test "binds from the alternative that matched", .L(n) or .R(n) {
+    test "binds from the alternative that matched", .L(n) or .R(n)
         assert n == 7
-    }
-}
+    end
+end
 
-test "subtests" {
-    subtests [Two.L(1), Two.R(1)], .L(n) or .R(n) {
+test "subtests"
+    subtests [Two.L(1), Two.R(1)], .L(n) or .R(n)
         assert n == 1
-    }
-}
+    end
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the tests: %v", err)

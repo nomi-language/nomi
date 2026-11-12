@@ -1,0 +1,40 @@
+// The error types of a small service, each with the `From` impls a `?`
+// applies when a lower layer's error crosses into this one.
+pub enum DiskError
+    Full String
+    Missing String
+end
+
+pub enum NetError
+    Down Int
+end
+
+/// What a handler fails with: one variant per lower layer.
+pub enum ApiError
+    Disk DiskError
+    Net NetError
+end
+
+impl From<DiskError> for ApiError
+    fn from(e: DiskError) -> ApiError
+        ApiError.Disk(e)
+    end
+end
+
+impl From<NetError> for ApiError
+    fn from(e: NetError) -> ApiError
+        ApiError.Net(e)
+    end
+end
+
+/// An error with a note, generic in what it wraps.
+pub struct Noted<E>
+    inner: E
+    note: String
+end
+
+impl<E> From<E> for Noted<E>
+    fn from(e: E) -> Noted<E>
+        Noted{inner: e, note: "noted"}
+    end
+end

@@ -7,23 +7,23 @@ import (
 	"github.com/nomi-language/nomi/internal/parser"
 )
 
-const positionalDecls = `struct Student {
+const positionalDecls = `struct Student
   name: String
   score: Int
-}
+end
 
-struct Opt {
+struct Opt
   a: Int
   b: Int = 2
-}
+end
 
-enum Shape {
+enum Shape
   Rect {w: Float, h: Float}
-}
+end
 
-fn apply<A, B>(x: A, f: (A) -> B) -> B {
+fn apply<A, B>(x: A, f: (A) -> B) -> B
   f(x)
-}
+end
 
 `
 
@@ -46,7 +46,7 @@ func TestPositionalStructLit_Errors(t *testing.T) {
 			"its fields are `name` and `score`", ""},
 		{"  s = Nope{1}", "a struct literal names its fields; write each value as `field: value` in `Nope{...}`", "", ""},
 	} {
-		src := positionalDecls + "fn main() {\n" + tc.body + "\n  _ = s\n}\n"
+		src := positionalDecls + "fn main()\n" + tc.body + "\n  _ = s\nend\n"
 		_, errs := checkSource(src)
 		var found *TypeError
 		for i := range errs {

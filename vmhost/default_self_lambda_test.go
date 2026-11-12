@@ -13,111 +13,111 @@ import (
 // existential.
 
 // defaultSelfLambdaIface leaves a "%s" where defaultSelfLambdaPrinted goes.
-const defaultSelfLambdaIface = `interface Temperature {
+const defaultSelfLambdaIface = `interface Temperature
     fn unit(t: self) -> String
 %s
-    fn units(t: self) -> String {
+    fn units(t: self) -> String
         [t, t] |> Iter.map(fn c -> Temperature.unit(c)) |> String.join(",")
-    }
+    end
 
-    fn kept(t: self) -> Int {
+    fn kept(t: self) -> Int
         [t, t, t] |> Iter.filter(fn c -> Temperature.unit(c) != "K") |> Iter.count()
-    }
+    end
 
-    fn joined(t: self) -> String {
+    fn joined(t: self) -> String
         [t, t, t] |> Iter.reduce("", fn acc, c -> "${acc}${Temperature.unit(c)}")
-    }
+    end
 
-    fn looped(t: self) -> String {
-        (c, n) = Iter.loop((t, 0), fn state -> {
+    fn looped(t: self) -> String
+        (c, n) = Iter.loop((t, 0), fn state ->
             (c, n) = state
-            if n == 2 {
+            if n == 2 then
                 break state
-            }
+            end
             (c, n + 1)
-        })
+        end)
         "${Temperature.unit(c)}${n}"
-    }
+    end
 
-    fn named(t: self) -> String {
+    fn named(t: self) -> String
         f = fn c = t -> "<${Temperature.unit(c)}>"
         g = fn -> [t] |> Iter.map(f) |> String.join("")
         "${f(t)}${g()}"
-    }
+    end
 
-    fn nested(t: self) -> String {
+    fn nested(t: self) -> String
         [t, t]
             |> Iter.map(fn a -> [a, a] |> Iter.map(fn b -> Temperature.unit(b)) |> String.join("+"))
             |> String.join(",")
-    }
+    end
 
-    fn total(_t: self, ts: List<self>) -> Decimal where self: Distinct<Decimal> {
+    fn total(_t: self, ts: List<self>) -> Decimal where self: Distinct<Decimal>
         ts
-            |> Iter.map(fn c -> {
+            |> Iter.map(fn c ->
                 self(n) = c
                 n
-            })
+            end)
             |> Iter.reduce(0d, fn acc, n -> acc + n)
-    }
+    end
 
-    fn sum(_t: self, ts: List<self>) -> Decimal where self: Distinct<Decimal> {
+    fn sum(_t: self, ts: List<self>) -> Decimal where self: Distinct<Decimal>
         ts |> Iter.map(fn self(n) -> n) |> Iter.reduce(0d, fn acc, n -> acc + n)
-    }
+    end
 
-    fn doubled(_t: self, ts: List<self>) -> List<self> where self: Distinct<Decimal> {
+    fn doubled(_t: self, ts: List<self>) -> List<self> where self: Distinct<Decimal>
         ts
-            |> Iter.map(fn c -> case c {
+            |> Iter.map(fn c -> case c
                 self(n) -> self(n * 2d)
-            })
+            end)
             |> Iter.to_list()
-    }
+    end
 
-    fn first(t: self) -> String {
+    fn first(t: self) -> String
         cs = [t, t]
         head = cs |> Iter.map(fn c -> c) |> Iter.to_list() |> List.head()
-        case head {
+        case head
             Some(c) -> "first ${Temperature.unit(c)}"
             None -> "none"
-        }
-    }
+        end
+    end
 
-    fn pick(t: self, m: Maybe<self>) -> String {
-        case m {
+    fn pick(t: self, m: Maybe<self>) -> String
+        case m
             Some(c) -> [c, t] |> Iter.map(fn x -> Temperature.unit(x)) |> String.join("")
             None -> "-"
-        }
-    }
+        end
+    end
 
-    fn chained(t: self) -> String {
+    fn chained(t: self) -> String
         [t] |> Iter.map(fn c -> Temperature.units(c)) |> String.join(";")
-    }
-}
+    end
+end
 `
 
 // A default that names its own file's `io` import, which the sibling-file
 // program's impls reach from a file whose `io` is its own import.
 const defaultSelfLambdaPrinted = `
-    fn printed(t: self) {
+    fn printed(t: self)
         [t, t] |> Iter.each(fn c -> io.print("each ${Temperature.unit(c)}"))
-    }
+    end
 `
 
 const defaultSelfLambdaImpls = `type Celsius Decimal
 type Fahrenheit Decimal
 
-impl Temperature for Celsius {
-    fn unit(_t: Celsius) -> String {
+impl Temperature for Celsius
+    fn unit(_t: Celsius) -> String
         "C"
-    }
-}
+    end
+end
 
-impl Temperature for Fahrenheit {
-    fn unit(_t: Fahrenheit) -> String {
+impl Temperature for Fahrenheit
+    fn unit(_t: Fahrenheit) -> String
         "F"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     c = Celsius(1d)
     f = Fahrenheit(2d)
     io.print(Celsius.units(c))
@@ -144,7 +144,7 @@ fn main() {
     io.print(Fahrenheit.pick(f, None))
     io.print(Celsius.chained(c))
     io.print(Fahrenheit.chained(f))
-}
+end
 `
 
 const defaultSelfLambdaWant = "C,C\nF,F\n3\n3\n%sCCC\nFFF\nC2\nF2\n" +
@@ -167,7 +167,7 @@ func TestDefaultSelfLambda_Runs(t *testing.T) {
 func TestDefaultSelfLambda_InterfaceInASiblingFile(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{
 		"temps.nomi": "import std::io\n\npub " + fmt.Sprintf(defaultSelfLambdaIface, defaultSelfLambdaPrinted),
-		"main.nomi": "import {\n    std::io\n    temps.{Temperature}\n}\n\n" +
+		"main.nomi": "import\n    std::io\n    temps.{Temperature}\nend\n\n" +
 			fmt.Sprintf(defaultSelfLambdaImpls, "    Celsius.printed(c)\n    Fahrenheit.printed(f)\n"),
 	})
 	want := fmt.Sprintf(defaultSelfLambdaWant, "each C\neach C\neach F\neach F\n")
@@ -183,41 +183,41 @@ func TestDefaultSelfLambda_InterfaceInASiblingFile(t *testing.T) {
 func TestDefaultSelfLambda_InterfaceValueStaysExistential(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
-interface Temperature {
+interface Temperature
     fn unit(t: self) -> String
 
-    fn against(t: self, other: Temperature) -> String {
+    fn against(t: self, other: Temperature) -> String
         mine = [t] |> Iter.map(fn c -> Temperature.unit(c)) |> String.join("")
         theirs = [other, other] |> Iter.map(fn o -> Temperature.unit(o)) |> String.join("")
         "${mine} vs ${theirs} vs ${Temperature.unit(other)}"
-    }
-}
+    end
+end
 
-struct Celsius {
+struct Celsius
     v: Int
-}
+end
 
-struct Kelvin {
+struct Kelvin
     v: Int
-}
+end
 
-impl Temperature for Celsius {
-    fn unit(_t: Celsius) -> String {
+impl Temperature for Celsius
+    fn unit(_t: Celsius) -> String
         "C"
-    }
-}
+    end
+end
 
-impl Temperature for Kelvin {
-    fn unit(_t: Kelvin) -> String {
+impl Temperature for Kelvin
+    fn unit(_t: Kelvin) -> String
         "K"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Celsius.against(Celsius{v: 1}, Kelvin{v: 2}))
     io.print(Kelvin.against(Kelvin{v: 2}, Celsius{v: 1}))
     io.print(Temperature.against(Celsius{v: 1}, Celsius{v: 3}))
-}
+end
 `})
 	want := "C vs KK vs K\nK vs CC vs C\nC vs CC vs C\n"
 	if got != want {

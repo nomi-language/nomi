@@ -10,27 +10,27 @@ nomi add github.com/nomi-language/nomi/lib/password_hashers
 ```
 
 ```nomi
-import {
+import
     password_hashers.{Argon2id, Bcrypt}
     std::passwords.{self, PasswordHasher, Pbkdf2}
-}
+end
 
-fn hashers() -> List<PasswordHasher> {
+fn hashers() -> List<PasswordHasher>
     [Argon2id{}, Bcrypt{}, Pbkdf2{}]
-}
+end
 
-fn sign_in(password: String, stored: String) -> Result<Maybe<String>, String> {
-    if passwords.verify(password, stored, hashers())? {
+fn sign_in(password: String, stored: String) -> Result<Maybe<String>, String>
+    if passwords.verify(password, stored, hashers())? then
         // A new hash to store when this one was made another way.
-        if passwords.needs_rehash(stored, hasher: Argon2id{}) {
+        if passwords.needs_rehash(stored, hasher: Argon2id{}) then
             Ok(Some(passwords.hash(password, hasher: Argon2id{})?))
-        } else {
+        else
             Ok(None)
-        }
-    } else {
+        end
+    else
         Err("wrong password")
-    }
-}
+    end
+end
 ```
 
 A release `nomi` carries the module's Go code prebuilt, so a program that

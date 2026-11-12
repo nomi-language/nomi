@@ -205,7 +205,7 @@ var pureCrossings = map[string]bool{
 	"Maybe.with_default": true, "Result.with_default": true,
 	"List.head": true, "List.tail": true, "List.concat": true, "List.compare": true, "List.contains": true,
 	"List.remove_at": true,
-	"Vector.compare": true, "vm.unreachable": true, "vm.hash_value": true,
+	"Vector.compare": true, "vm.hash_value": true,
 	"vm.bang_failed": true, "vm.bang_none": true, captureShapeKey: true,
 	"Range.contains": true, "Range.step_by": true, "Range.known_count": true,
 	"Range.is_bounded": true, "Range.containsFloat": true,

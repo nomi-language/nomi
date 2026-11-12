@@ -29,19 +29,19 @@ var localesProject = map[string]string{
 		"text = '''\n.input {$count :integer}\n.match $count\none {{{$count} rzecz}}\nfew {{{$count} rzeczy}}\nmany {{{$count} rzeczy}}\n* {{{$count} rzeczy}}\n'''\n",
 	"locales/pt/text.toml": "[items]\nsource = '''\n.input {$count :integer}\n.match $count\none {{{$count} item}}\n* {{{$count} items}}\n'''\n" +
 		"text = '''\n.input {$count :integer}\n.match $count\none {{{$count} item}}\nmany {{{$count} de itens}}\n* {{{$count} itens}}\n'''\n",
-	"main.nomi": `import {
+	"main.nomi": `import
     std::io
     text
-}
+end
 
-fn report(locale: Locale) {
-    case Locale.load(locale) {
+fn report(locale: Locale)
+    case Locale.load(locale)
         Ok(_) -> io.print("${locale} loaded")
         Err(e) -> io.print(Display.to_string(e))
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     pl = Locale` + "`pl`" + `
     io.print("${Locale.loaded()}")
     io.print(text.items(3) |> Phrase.format(pl))
@@ -53,7 +53,7 @@ fn main() {
     io.print("${Locale.loaded()}")
     report(Locale` + "`de`" + `)
     report(Locale` + "`pt-BR`" + `)
-}
+end
 `,
 }
 

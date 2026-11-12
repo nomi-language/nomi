@@ -8,18 +8,17 @@ import (
 // A field whose type comes from its default shows that type as an inlay
 // hint after its name, and a hover on it names the type.
 func TestInlayHintFieldTypeFromDefault(t *testing.T) {
-	src := `struct Game {
+	src := `struct Game
     word: String
     misses = 0
     ratio = 1.5
-}
+end
 
-enum Shape {
+enum Shape
     Circle{radius = 1.0}
-}
+end
 
-fn main() {
-}`
+fn main() end`
 	hints := filterByKind(getInlayHints(t, src), InlayHintKindType)
 	var labels []string
 	for _, h := range hints {
@@ -41,7 +40,7 @@ fn main() {
 }
 
 func TestHoverFieldTypeFromDefault(t *testing.T) {
-	got := hoverAtMark(t, "struct Game {\n    word: String\n    ▮misses = 0\n}\n")
+	got := hoverAtMark(t, "struct Game\n    word: String\n    ▮misses = 0\nend\n")
 	want := "```nomi\nmisses: Int\n```"
 	if got != want {
 		t.Errorf("hover = %q, want %q", got, want)
@@ -52,12 +51,12 @@ func TestHoverFieldTypeFromDefault(t *testing.T) {
 // prints with its trailing defaults left out; the declaration shows its
 // defaults.
 func TestHoverDefaultTypeArguments(t *testing.T) {
-	src := "struct Tagged<T, Tag = String> {\n    value: T\n    tag: Tag\n}\n\nfn label(t: Tagged<Int, String>) -> String {\n    ▮t.tag\n}\n"
-	want := "```nomi\nt: Tagged<Int, String>\n\nstruct Tagged<Int> {\n    value: Int\n    tag: String\n}\n```"
+	src := "struct Tagged<T, Tag = String>\n    value: T\n    tag: Tag\nend\n\nfn label(t: Tagged<Int, String>) -> String\n    ▮t.tag\nend\n"
+	want := "```nomi\nt: Tagged<Int, String>\n\nstruct Tagged<Int>\n    value: Int\n    tag: String\nend\n```"
 	if got := hoverAtMark(t, src); got != want {
 		t.Errorf("hover = %q, want %q", got, want)
 	}
-	decl := "struct ▮Tagged<T, Tag = String> {\n    value: T\n    tag: Tag\n}\n"
+	decl := "struct ▮Tagged<T, Tag = String>\n    value: T\n    tag: Tag\nend\n"
 	if got := hoverAtMark(t, decl); !strings.Contains(got, "struct Tagged<T, Tag = String>") {
 		t.Errorf("declaration hover = %q, want it to show the default", got)
 	}

@@ -12,26 +12,26 @@ import (
 // synthesized `impl Debug` and derive headers, which reported
 // "impl block: 'Debug' is not an interface".
 func TestEnumVariantNamedLikeAPreludeInterface_DoesNotShadowIt(t *testing.T) {
-	src := `enum Op {
+	src := `enum Op
   Display
   Debug
   Equatable
   Hashable
   Comparable
   Ordering
-}
+end
 
 derive Equatable for Op
 derive Hashable for Op
 derive Comparable for Op
 derive Display for Op
 
-fn main() {
+fn main()
   a = Debug.inspect(Op.Debug)
   b = Op.Debug == Op.Display
   c = Display.to_string(Op.Ordering)
   d = Comparable.compare(Op.Display, Op.Debug)
-}
+end
 `
 	_, errs := checkProjectWithFiles(t, src, nil)
 	for _, e := range errs {
@@ -45,13 +45,13 @@ fn main() {
 // A type named `Debug` is still the reserved-name error, and only that: the
 // synthesized `impl Debug` headers resolve to the interface, not to it.
 func TestTypeNamedDebug_IsOnlyTheReservedNameError(t *testing.T) {
-	src := `struct Debug {
+	src := `struct Debug
   n: Int
-}
+end
 
-fn main() {
+fn main()
   a = Debug{n: 1}
-}
+end
 `
 	_, errs := checkProjectWithFiles(t, src, nil)
 	var reserved bool

@@ -21,16 +21,16 @@ func TestRunCommand_AnEditToAnEmbeddedDotfileIsReadOnTheNextRun(t *testing.T) {
 	}
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"site\"\nentry_points = [\"main\"]\n")
-	mustWrite(t, filepath.Join(dir, "main.nomi"), `import {
+	mustWrite(t, filepath.Join(dir, "main.nomi"), `import
   std::embed.Files
   std::io
-}
+end
 
 embed site `+"`all:conf`"+`
 
-fn main() {
+fn main()
   io.print(Files.read_text(site, "conf/.env")!)
-}
+end
 `)
 	mustWrite(t, filepath.Join(dir, "conf", ".env"), "one\n")
 	cache := newCacheDir(t)
@@ -81,18 +81,18 @@ func TestRunCommand_AnEmbeddedFileChangedAfterCompilingIsRefused(t *testing.T) {
 	}
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"site\"\nentry_points = [\"main\"]\n")
-	mustWrite(t, filepath.Join(dir, "main.nomi"), `import {
+	mustWrite(t, filepath.Join(dir, "main.nomi"), `import
   std::embed.Files
   std::io
-}
+end
 
 embed site `+"`a.txt`"+`
 
-fn main() {
+fn main()
   io.print(Files.metadata(site, "a.txt")!.size)
   _ = io.read_line()
   io.print(Files.read_text(site, "a.txt")!)
-}
+end
 `)
 	file := filepath.Join(dir, "a.txt")
 	mustWrite(t, file, "one\n")

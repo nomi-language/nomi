@@ -10,17 +10,17 @@
 //
 // Refused rather than lowered, and never run: the whole program is refused, so
 // there is no VM output to compare.
-import {
+import
     std::io
     money.{self, Money}
-}
+end
 
-fn same(a: Money, b: Money) -> Bool {
+fn same(a: Money, b: Money) -> Bool
     a == b
-}
+end
 
-fn main() {
+fn main()
     a = money.at(1, "x")
     b = money.at(1, "y")
     io.print("eq = ${Bool.to_string(same(a, b))}")
-}
+end

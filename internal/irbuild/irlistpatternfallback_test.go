@@ -10,23 +10,37 @@ import (
 // listCaseTestNested; TestIRListPattern_LiteralHeadRetains runs one.
 func TestIRListPattern_SuffixOnlyMatchesEveryList(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn pick(xs: List<Int>) -> Int { case xs { [.._rest] -> 1; _ -> 0 } }
-fn all(xs: List<Int>) -> List<Int> { case xs { [..rest] -> rest } }
-fn main() {
+fn pick(xs: List<Int>) -> Int
+    case xs
+        [.._rest] -> 1
+        _ -> 0
+    end
+end
+fn all(xs: List<Int>) -> List<Int>
+    case xs
+        [..rest] -> rest
+    end
+end
+fn main()
   io.print(pick([1, 2]))
   io.print(pick([]))
   io.inspect(all([3, 4]))
-}
+end
 `, "1\n1\n[3, 4]\n")
 }
 
 func TestIRListPattern_LiteralHeadRetains(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn pick(xs: List<Int>) -> Int { case xs { [1, ..] -> 1; _ -> 0 } }
-fn main() {
+fn pick(xs: List<Int>) -> Int
+    case xs
+        [1, ..] -> 1
+        _ -> 0
+    end
+end
+fn main()
   io.print(pick([1, 2]))
   io.print(pick([2, 1]))
   io.print(pick([]))
-}
+end
 `, "1\n0\n0\n")
 }

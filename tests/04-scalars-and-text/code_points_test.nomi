@@ -1,39 +1,39 @@
-test "codepoints convert to and from integers and strings" {
+test "codepoints convert to and from integers and strings"
     assert Some(a) = Int.to_codepoint(65)
 
     assert Codepoint.to_int(a) == 65
     assert Codepoint.to_string(a) == "A"
-}
+end
 
-test "codepoint construction rejects surrogate values" {
+test "codepoint construction rejects surrogate values"
     assert Int.to_codepoint(55_296) == None
-}
+end
 
-test "codepoint ranges iterate over scalar values" {
+test "codepoint ranges iterate over scalar values"
     assert Some(start) = Int.to_codepoint(97)
-    assert Some(end) = Int.to_codepoint(100)
+    assert Some(stop) = Int.to_codepoint(100)
 
     exclusive_values =
-        start..end
+        start..stop
         |> Iter.map(Codepoint.to_int)
         |> Iter.to_list()
 
     inclusive_values =
-        start..=end
+        start..=stop
         |> Iter.map(Codepoint.to_int)
         |> Iter.to_list()
 
     stepped_values =
-        Range.step_by(start..=end, 2)
+        Range.step_by(start..=stop, 2)
         |> Iter.map(Codepoint.to_int)
         |> Iter.to_list()
 
     assert exclusive_values == [97, 98, 99]
     assert inclusive_values == [97, 98, 99, 100]
     assert stepped_values == [97, 99]
-}
+end
 
-test "codepoint ranges skip surrogate values" {
+test "codepoint ranges skip surrogate values"
     assert Some(before_surrogates) = Int.to_codepoint(55_295)
     assert Some(after_surrogates) = Int.to_codepoint(57_344)
 
@@ -49,9 +49,9 @@ test "codepoint ranges skip surrogate values" {
 
     assert inclusive_values == [55_295, 57_344]
     assert stepped_values == [55_295, 57_344]
-}
+end
 
-test "is_letter is Unicode general category L" {
+test "is_letter is Unicode general category L"
     // ASCII, Latin-1, Cyrillic, CJK and title-case letters.
     assert String.to_codepoints("Azéжд中ǅ") |> Iter.all_match(Codepoint.is_letter)
     // A digit, a space and an emoji.
@@ -60,9 +60,9 @@ test "is_letter is Unicode general category L" {
     assert Some(combining_acute) = Int.to_codepoint(0x0301)
 
     refute Codepoint.is_letter(combining_acute)
-}
+end
 
-test "is_digit and to_digit read ASCII digits only" {
+test "is_digit and to_digit read ASCII digits only"
     assert String.to_codepoints("0459") |> Iter.all_match(Codepoint.is_digit)
 
     assert String.to_codepoints("0459") |> Iter.map(Codepoint.to_digit) |> Iter.to_list() == [
@@ -78,17 +78,17 @@ test "is_digit and to_digit read ASCII digits only" {
     assert String.to_codepoints("０１٣a ")
         |> Iter.map(Codepoint.to_digit)
         |> Iter.all_match(Maybe.is_none)
-}
+end
 
-test "is_whitespace is Unicode White_Space" {
+test "is_whitespace is Unicode White_Space"
     // Space, tab, newline, carriage return, no-break space U+00A0 and the
     // ideographic space U+3000.
     assert String.to_codepoints(" \t\n\r\u{a0}\u{3000}") |> Iter.all_match(Codepoint.is_whitespace)
     // A letter, a digit, an emoji and the zero-width space U+200B.
     refute String.to_codepoints("a7🙂\u{200b}") |> Iter.any_match(Codepoint.is_whitespace)
-}
+end
 
-test "is_upper and is_lower are general categories Lu and Ll" {
+test "is_upper and is_lower are general categories Lu and Ll"
     assert String.to_codepoints("AÉЖ") |> Iter.all_match(Codepoint.is_upper)
     refute String.to_codepoints("AÉЖ") |> Iter.any_match(Codepoint.is_lower)
     assert String.to_codepoints("aéжß") |> Iter.all_match(Codepoint.is_lower)
@@ -97,4 +97,4 @@ test "is_upper and is_lower are general categories Lu and Ll" {
     // Lt) is neither upper nor lower.
     refute String.to_codepoints("中7🙂ǅ") |> Iter.any_match(Codepoint.is_upper)
     refute String.to_codepoints("中7🙂ǅ") |> Iter.any_match(Codepoint.is_lower)
-}
+end

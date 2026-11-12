@@ -19,29 +19,29 @@ func TestNestedSpawn_AwaitedByTheTaskThatSpawnedIt(t *testing.T) {
 import std::tasks.Task
 import std::io
 
-fn square(n: Int) -> Int {
+fn square(n: Int) -> Int
   n * n
-}
+end
 
-fn sum_of_squares(a: Int, b: Int) -> Int {
+fn sum_of_squares(a: Int, b: Int) -> Int
   x = Task.spawn(fn -> square(a))
   y = Task.spawn(fn -> square(b))
   Task.await(x) + Task.await(y)
-}
+end
 
-fn deeper(n: Int) -> Int {
+fn deeper(n: Int) -> Int
   t = Task.spawn(fn -> sum_of_squares(n, n + 1))
   Task.await(t)
-}
+end
 
-fn main() -> Unit {
-  total = concurrent {
+fn main() -> Unit
+  total = concurrent
     a = Task.spawn(fn -> sum_of_squares(3, 4))
     b = Task.spawn(fn -> deeper(1))
     Task.await(a) + Task.await(b)
-  }
+  end
   io.print("total ${total}")
-}
+end
 `
 	runInBubble(t, src, "total 30")
 }
@@ -56,25 +56,25 @@ import std::duration.Duration
 import std::io
 import std::timer
 
-fn background() -> Int {
+fn background() -> Int
   timer.sleep(Duration.minutes(5))
   io.print("background finished")
   0
-}
+end
 
-fn start() -> Int {
+fn start() -> Int
   t = Task.spawn(fn -> background())
   _t = t
   1
-}
+end
 
-fn main() -> Unit {
-  n = concurrent {
+fn main() -> Unit
+  n = concurrent
     parent = Task.spawn(fn -> start())
     Task.await(parent)
-  }
+  end
   io.print("after block ${n}")
-}
+end
 `
 	out, elapsed := runInBubble(t, src, "after block 1")
 	if strings.Contains(out, "background finished") {
@@ -92,32 +92,32 @@ import std::duration.Duration
 import std::io
 import std::timer
 
-fn fast_fail() -> Result<Int, String> {
+fn fast_fail() -> Result<Int, String>
   Err("boom")
-}
+end
 
-fn slow() -> Result<Int, String> {
+fn slow() -> Result<Int, String>
   timer.sleep(Duration.minutes(5))
   Ok(0)
-}
+end
 
-fn outer() -> Result<Int, String> {
+fn outer() -> Result<Int, String>
   inner = Task.spawn(fn -> fast_fail())
   Ok(Task.await(inner)?)
-}
+end
 
-fn main() -> Unit {
-  outcome: Result<Int, String> = concurrent {
+fn main() -> Unit
+  outcome: Result<Int, String> = concurrent
     parent = Task.spawn(fn -> outer())
     sibling = Task.spawn(fn -> slow())
     _sibling = sibling
     Ok(Task.await(parent)?)
-  }
-  case outcome {
+  end
+  case outcome
     Ok(v) -> io.print("ok:" + Display.to_string(v))
     Err(e) -> io.print("err:" + e)
-  }
-}
+  end
+end
 `
 	_, elapsed := runInBubble(t, src, "err:boom")
 	assertVirtualized(t, elapsed, "a nested failure past a 5m sibling")
@@ -129,21 +129,21 @@ func TestNestedSpawn_TrapFailsTheAwaiter(t *testing.T) {
 	src := `
 import std::tasks.Task
 
-fn divide(n: Int) -> Int {
+fn divide(n: Int) -> Int
   100 / n
-}
+end
 
-fn outer() -> Int {
+fn outer() -> Int
   inner = Task.spawn(fn -> divide(0))
   Task.await(inner)
-}
+end
 
-fn main() -> Unit {
-  _n = concurrent {
+fn main() -> Unit
+  _n = concurrent
     parent = Task.spawn(fn -> outer())
     Task.await(parent)
-  }
-}
+  end
+end
 `
 	p, err := vmhost.LoadSource("main", src)
 	if err != nil {
@@ -166,29 +166,29 @@ import std::duration.Duration
 import std::io
 import std::timer
 
-fn slow() -> Int {
+fn slow() -> Int
   timer.sleep(Duration.minutes(5))
   io.print("slow finished")
   0
-}
+end
 
-fn outer() -> Int {
+fn outer() -> Int
   inner = Task.spawn(fn -> slow())
   Task.await(inner)
-}
+end
 
-fn main() -> Unit {
-  cancelled = concurrent {
+fn main() -> Unit
+  cancelled = concurrent
     parent = Task.spawn(fn -> outer())
     timer.sleep(Duration.seconds(1))
     Task.cancel(parent)
-    case Task.outcome(parent) {
+    case Task.outcome(parent)
       .Cancelled -> True
       _ -> False
-    }
-  }
+    end
+  end
   io.print("cancelled ${cancelled}")
-}
+end
 `
 	out, elapsed := runInBubble(t, src, "cancelled True")
 	if strings.Contains(out, "slow finished") {

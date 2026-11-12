@@ -21,51 +21,51 @@
 // rows use, chosen from the value's kind, and
 // `assert Ok(d) = parse(s)`, which is what the construct is actually for in the
 // corpus, is here.
-fn compute() -> Int {
+fn compute() -> Int
     7
-}
+end
 
-fn label() -> String {
+fn label() -> String
     "ok"
-}
+end
 
-test "an identifier pattern always matches and binds into the enclosing scope" {
+test "an identifier pattern always matches and binds into the enclosing scope"
     assert n = compute()
     assert n == 7
     assert n * 2 == 14
-}
+end
 
-test "a bound name survives several statements and a rebinding" {
+test "a bound name survives several statements and a rebinding"
     assert first = compute()
     doubled = first * 2
     assert second = doubled
     assert first == 7
     assert second == 14
-}
+end
 
-test "literal patterns that match bind nothing and hold" {
+test "literal patterns that match bind nothing and hold"
     assert 7 = compute()
     assert "ok" = label()
-}
+end
 
-test "a literal pattern that does not match reports the value it saw" {
+test "a literal pattern that does not match reports the value it saw"
     assert 3 = compute()
-}
+end
 
-test "a String that does not match shows its quotes in the report" {
+test "a String that does not match shows its quotes in the report"
     assert "no" = label()
-}
+end
 
-fn parse(s: String) -> Result<Int, String> {
+fn parse(s: String) -> Result<Int, String>
     Err("not a number: " + s)
-}
+end
 
-test "a prelude-enum pattern that does not match shows the value it saw" {
+test "a prelude-enum pattern that does not match shows the value it saw"
     assert Ok(d) = parse("x")
     assert d == 1
-}
+end
 
-test "a List pattern that does not match shows the whole list" {
+test "a List pattern that does not match shows the whole list"
     assert [a, b] = ["one"]
     assert a == b
-}
+end

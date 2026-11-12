@@ -2,13 +2,13 @@
 //# the module root, so every file in `todo` may import it and no other module
 //# may.
 
-import {
+import
     item.Item
     stringkit::pad
-}
+end
 
 /// One line of the list: the id, right-aligned, then the item.
-pub fn row(item: Item) -> String {
+pub fn row(item: Item) -> String
     id =
         item
         |> Item.id()
@@ -16,4 +16,4 @@ pub fn row(item: Item) -> String {
         |> pad.pad_left(3, " ")
 
     "${id}  ${item}"
-}
+end

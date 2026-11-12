@@ -39,7 +39,7 @@ func TestModules_TheServerReportsAMissingModuleAndNeverDownloads(t *testing.T) {
 	}
 	write(filepath.Join(dir, "go.mod"), "module example.com/app\n\ngo 1.22\n\nrequire example.com/greet v0.1.0\n")
 	write(filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	src := "import {\n    greet\n    std::io\n}\n\nfn main() {\n    io.print(greet.hello(\"you\"))\n}\n"
+	src := "import\n    greet\n    std::io\nend\n\nfn main()\n    io.print(greet.hello(\"you\"))\nend\n"
 	path := filepath.Join(dir, "main.nomi")
 	write(path, src)
 	uri := fileuri.FromPath(path)
@@ -72,7 +72,7 @@ func TestModules_TheServerReportsAMissingModuleAndNeverDownloads(t *testing.T) {
 	mod := filepath.Join(cache, "example.com", "greet@v0.1.0")
 	write(filepath.Join(mod, "go.mod"), "module example.com/greet\n\ngo 1.22\n")
 	write(filepath.Join(mod, "nomi.toml"), "[module]\nname = \"greet\"\n")
-	write(filepath.Join(mod, "greet.nomi"), "pub fn hello(name: String) -> String {\n    \"hello, ${name}\"\n}\n")
+	write(filepath.Join(mod, "greet.nomi"), "pub fn hello(name: String) -> String\n    \"hello, ${name}\"\nend\n")
 	write(filepath.Join(cache, "cache", "download", "example.com", "greet", "@v", "v0.1.0.ziphash"), "h1:x\n")
 
 	s = NewServer()

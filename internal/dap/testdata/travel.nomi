@@ -1,24 +1,23 @@
 import std::io
 
-fn square(n: Int) -> Int {
+fn square(n: Int) -> Int
     s = n * n
     s
-}
+end
 
-fn sum_squares(n: Int, acc: Int) -> Int {
-    case n {
-        // The base case.
-        0 -> acc
+fn sum_squares(n: Int, acc: Int) -> Int
+    case n
+        0 ->
+            acc
 
-        _ -> {
+        _ ->
             sq = square(n)
             sum_squares(n - 1, acc + sq)
-        }
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print("summing")
     total = sum_squares(5, 0)
     io.print("${total}")
-}
+end

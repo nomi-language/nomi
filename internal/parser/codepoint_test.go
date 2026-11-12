@@ -43,7 +43,7 @@ func TestCodepointLiteralRange(t *testing.T) {
 }
 
 func TestCodepointLiteralPatterns(t *testing.T) {
-	c, ok := parseExpr(t, "case cp {\n    'a' -> 1\n    '\\n' -> 2\n    _ -> 3\n}").(*ast.Case)
+	c, ok := parseExpr(t, "case cp\n    'a' -> 1\n    '\\n' -> 2\n    _ -> 3\nend").(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case")
 	}
@@ -55,7 +55,7 @@ func TestCodepointLiteralPatterns(t *testing.T) {
 	}
 
 	// Nested positions go through parsePattern.
-	c, ok = parseExpr(t, "case x {\n    Some('a') -> 1\n    ('b', _) -> 2\n    _ -> 3\n}").(*ast.Case)
+	c, ok = parseExpr(t, "case x\n    Some('a') -> 1\n    ('b', _) -> 2\n    _ -> 3\nend").(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case")
 	}
@@ -89,8 +89,8 @@ func TestCodepointLiteralErrorsReportTheLexerDiagnosis(t *testing.T) {
 		{"x = 'é'", 1, 5, `codepoint literal 'é' is U+00E9, not ASCII: a codepoint literal is ASCII only (U+0000–U+007F); write "é" as a string, or use Int.to_codepoint for another scalar value`},
 		{"x = 'a", 1, 5, `unterminated codepoint literal; close it with '`},
 		{`x = '\q'`, 1, 5, `invalid escape \q in codepoint literal; the escapes are \n, \r, \t, \\, \' and \u{...}`},
-		{"case c {\n    'ab' -> 1\n    _ -> 2\n}", 2, 5, `codepoint literal 'ab' holds more than one character; write "ab" as a string`},
-		{"case c {\n    Some('é') -> 1\n    _ -> 2\n}", 2, 10, `codepoint literal 'é' is U+00E9, not ASCII: a codepoint literal is ASCII only (U+0000–U+007F); write "é" as a string, or use Int.to_codepoint for another scalar value`},
+		{"case c\n    'ab' -> 1\n    _ -> 2\nend", 2, 5, `codepoint literal 'ab' holds more than one character; write "ab" as a string`},
+		{"case c\n    Some('é') -> 1\n    _ -> 2\nend", 2, 10, `codepoint literal 'é' is U+00E9, not ASCII: a codepoint literal is ASCII only (U+0000–U+007F); write "é" as a string, or use Int.to_codepoint for another scalar value`},
 	}
 	for _, c := range cases {
 		_, err := Parse(lexer.Lex(c.src))

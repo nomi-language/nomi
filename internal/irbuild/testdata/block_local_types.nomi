@@ -10,92 +10,92 @@ import std::io
 // `Point{x: 3, y: 4}` below "struct 'Point' has no field 'x'". A block-local
 // type does not shadow a module-level one today, so that third type is not a
 // Nomi program and cannot be a fixture.
-fn first() -> Int {
-    struct Point {
+fn first() -> Int
+    struct Point
         x: Int
         y: Int
-    }
+    end
 
     p = Point{x: 3, y: 4}
     p.x + p.y
-}
+end
 
-fn second() -> String {
-    struct Point {
+fn second() -> String
+    struct Point
         name: String
-    }
+    end
 
     Point{name: "second"}.name
-}
+end
 
 // A block-local struct with a field DEFAULT, so the default expression is
 // resolved against the block-local declaration rather than a module-level one.
-fn defaulted() -> Int {
-    struct Defaulted {
+fn defaulted() -> Int
+    struct Defaulted
         v: Int = 99
-    }
+    end
 
     d = Defaulted{}
     d.v
-}
+end
 
 // A block-local enum, matched by a `case` over its own variants, reached through
 // a nested `fn` whose declared return type is the block-local enum.
-fn colored() -> String {
-    enum Color {
+fn colored() -> String
+    enum Color
         Red
         Green
         Blue
-    }
+    end
 
-    fn pick() -> Color {
+    fn pick() -> Color
         Color.Green
-    }
+    end
 
-    case pick() {
+    case pick()
         Color.Red -> "red"
         Color.Green -> "green"
         Color.Blue -> "blue"
-    }
-}
+    end
+end
 
 // A block-local alias is TRANSPARENT: `Count` is `Int`, and an `Int` flows into
 // a `Count` position without a conversion.
-fn counted() -> Int {
+fn counted() -> Int
     typealias Count Int
 
-    fn make(n: Int) -> Count {
+    fn make(n: Int) -> Count
         n
-    }
+    end
 
     make(5)
-}
+end
 
 // A block-local distinct is NOT transparent: it is built by its constructor
 // and read by destructuring, which is what separates it from the alias above.
-fn wrapped() -> Int {
+fn wrapped() -> Int
     type UserId Int
 
     UserId(n) = UserId(42)
     n
-}
+end
 
 // A block-local NOMINAL struct beside a structurally identical ANONYMOUS one.
 // Anonymous structs are structural and lowered in canonical field order, so
 // the two must not be interned together: the nominal one is a distinct type
 // however identical its field list is.
-fn nominal_vs_anon() -> String {
-    struct Pair {
+fn nominal_vs_anon() -> String
+    struct Pair
         a: Int
         b: Int
-    }
+    end
 
     nominal = Pair{a: 1, b: 2}
-    anon = .{a: 3, b: 4}
+    anon = {a: 3, b: 4}
     "${nominal.a + nominal.b} ${anon.a + anon.b}"
-}
+end
 
-fn main() {
+fn main()
     io.print("${first()}")
     io.print(second())
     io.print("${defaulted()}")
@@ -103,4 +103,4 @@ fn main() {
     io.print("${counted()}")
     io.print("${wrapped()}")
     io.print(nominal_vs_anon())
-}
+end

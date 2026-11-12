@@ -63,7 +63,7 @@ type setFn struct {
 }
 
 // setFuncs is the lowered surface of `impl Set<T>`. The empty set is the
-// literal `%[]`, which irset.go lowers.
+// literal `[]`, which irset.go lowers.
 //
 // Use across tests/: size 12 sites, contains? 11, insert 1, union 1,
 // intersection 1, difference 1, subset? 1, remove 0.

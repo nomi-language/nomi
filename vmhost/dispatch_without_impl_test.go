@@ -20,59 +20,59 @@ func TestRun_ADispatchWithNoImplementationAnywhereRuns(t *testing.T) {
 			name: "program interface",
 			src: `import std::io
 
-interface Named {
+interface Named
     fn name(n: self) -> String
-}
+end
 
-fn all() -> List<Named> {
+fn all() -> List<Named>
     []
-}
+end
 
-fn main() {
+fn main()
     Iter.each(all(), fn n -> io.print(Named.name(n)))
     io.print("done")
-}
+end
 `,
 			want: "done\n",
 		},
 		{
 			name: "std interface",
-			src: `import {
+			src: `import
     std::io
     std::jobs.Handler
-}
+end
 
-fn handlers() -> List<Handler> {
+fn handlers() -> List<Handler>
     []
-}
+end
 
-fn main() {
+fn main()
     Iter.each(handlers(), fn h -> io.print(Handler.kind(h)))
     io.print("done")
-}
+end
 `,
 			want: "done\n",
 		},
 		{
 			name: "dispatch in std",
-			src: `import {
+			src: `import
     std::io
     std::jobs.Worker
     std::jobs_testing.Inline
-}
+end
 
-pub struct App {
+pub struct App
     worker: Worker
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
     Ok(App{worker: Worker.new(Inline.new(), max_running: 1)})
-}
+end
 
-fn main() {
+fn main()
     Worker.start(App.worker, [])
     io.print("started")
-}
+end
 `,
 			want: "started\n",
 		},
@@ -94,32 +94,32 @@ func TestRun_ADispatchWhoseOnlyImplementationDeclinedIsBlocked(t *testing.T) {
 	plantDecline(t)
 	out, err := runVM(t, `import std::io
 
-interface Named {
+interface Named
     fn name(n: self) -> String
-}
+end
 
-struct Cat {
+struct Cat
     lives: Int
-}
+end
 
-fn planted_decline(a: Int) -> Int {
+fn planted_decline(a: Int) -> Int
     a
-}
+end
 
-impl Named for Cat {
-    fn name(c: Cat) -> String {
+impl Named for Cat
+    fn name(c: Cat) -> String
         "cat ${planted_decline(c.lives)}"
-    }
-}
+    end
+end
 
-fn all() -> List<Named> {
+fn all() -> List<Named>
     [Cat{lives: 9}]
-}
+end
 
-fn main() {
+fn main()
     io.print("start")
     Iter.each(all(), fn n -> io.print(Named.name(n)))
-}
+end
 `)
 	b, blocked := vmhost.IsBlocked(err)
 	if !blocked {

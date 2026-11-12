@@ -22,7 +22,7 @@ func TestOpenFromRecordReadsEmbeddedFiles(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
 		"nomi.toml":    "[module]\nname = \"site\"\nentry_points = [\"main\"]\n",
-		"main.nomi":    "import {\n    std::embed.Files\n    std::io\n    assets\n}\n\nfn main() {\n    io.print(Files.paths(assets.static))\n}\n",
+		"main.nomi":    "import\n    std::embed.Files\n    std::io\n    assets\nend\n\nfn main()\n    io.print(Files.paths(assets.static))\nend\n",
 		"assets.nomi":  "import std::embed.Files\n\n/// The static files.\npub embed static `static`\n",
 		"static/a.txt": "a\n",
 	}

@@ -57,7 +57,7 @@ func expectErrorT(t *testing.T, errs []analysis.TypeError, substr string) {
 
 func TestChecker_RejectShadowingPrelude_Typealias(t *testing.T) {
 	src := `typealias Int String
-fn main() {}
+fn main() end
 `
 	errs := buildProjectForDefaultConfig(src)
 	expectErrorT(t, errs, "Int")
@@ -65,8 +65,10 @@ fn main() {}
 }
 
 func TestChecker_RejectShadowingPrelude_Struct(t *testing.T) {
-	src := `struct String { len: Int = 0 }
-fn main() {}
+	src := `struct String
+    len: Int = 0
+end
+fn main() end
 `
 	errs := buildProjectForDefaultConfig(src)
 	expectErrorT(t, errs, "String")
@@ -79,7 +81,7 @@ fn main() {}
 // struct via name-and-kind matching at the project-build pass.
 func TestChecker_AllowConfigAsTypealias(t *testing.T) {
 	src := `typealias Config Int
-fn main() {}
+fn main() end
 `
 	errs := buildProjectForDefaultConfig(src)
 	if len(errs) != 0 {
@@ -92,7 +94,7 @@ func TestChecker_AllowDistinctTypeWrapper(t *testing.T) {
 	// genuinely wants a domain-specific Int-like type — they create a
 	// real new type rather than confusingly aliasing the built-in.
 	src := `type UserId Int
-fn main() {}
+fn main() end
 `
 	errs := buildProjectForDefaultConfig(src)
 	if len(errs) != 0 {

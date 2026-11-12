@@ -324,7 +324,7 @@ func TestValType_ClassesAndSpelling(t *testing.T) {
 		{NewStructType(point), ClassRef, "shapes.Point"},
 		{NewEnumType(NewSymbol("maybe.Maybe"), IntType), ClassRef, "maybe.Maybe<Int>"},
 		{NewTupleType(IntType, StringType), ClassRef, "(Int, String)"},
-		{NewRecordType([]string{"x", "y"}, []*ValType{IntType, IntType}), ClassRef, ".{x: Int, y: Int}"},
+		{NewRecordType([]string{"x", "y"}, []*ValType{IntType, IntType}), ClassRef, "{x: Int, y: Int}"},
 		{NewMapType(StringType, NewListType(IntType)), ClassRef, "Map<String, List<Int>>"},
 		{NewFuncType([]*ValType{IntType}, BoolType), ClassRef, "(Int) -> Bool"},
 		{NewIfaceType(NewSymbol("Speaker")), ClassRef, "dyn Speaker"},

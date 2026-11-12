@@ -336,6 +336,14 @@ type importBindingUseKey struct {
 func markQualifiedObjectUses(nodes []ast.Node, byName map[string]int, used []bool) {
 	for _, n := range nodes {
 		ast.Inspect(n, func(n ast.Node) bool {
+			// `x in c` is `Contains.contains(c, x)` (checkIn), so it uses
+			// the import that brings Contains into scope, which only a std
+			// file, having no prelude, writes. Contains is a reserved name.
+			if b, ok := n.(*ast.Binary); ok && b.Op == "in" && !compilerWritten(b.Line) {
+				if i, ok := byName["Contains"]; ok {
+					used[i] = true
+				}
+			}
 			if fa, ok := n.(*ast.FieldAccess); ok {
 				switch obj := fa.Object.(type) {
 				case *ast.Ident:

@@ -36,20 +36,17 @@ import (
 // the golden files record it. A cell named without its type here would print
 // a different diagnostic for the same cycle.
 //
-// # Ordering: onces settle in the LEAST fixed point, never in the recursive one
+// # Ordering: onces settle with the bodies
 //
 // A stdlib function may read a once (`Duration.parse`) and a once's RHS may call
-// a function, so the two settle in one interleaved fixed point — see
-// stdLeastFixedPoint, which tries the onces first each round because a once RHS
-// reading a SIBLING once needs it published, and declaration order gives that
-// within a single round.
-//
-// They are deliberately absent from stdRecursiveClosure. That phase exists to
-// admit mutually-recursive FUNCTIONS behind a tail-call interlock; a `once` cycle
-// is a diagnosed Nomi error, not a shape to admit, so a once that has not settled
-// by the least fixed point is refused as `unlowered stdlib once binding` and its
-// reference sites name that rather than falling through to `type-qualified
-// reference`.
+// a function of its module, so the two settle in one fixed point, the
+// prebuild's (irPrebuildStdBodies): each binding's cell is named ahead so a
+// body reading it builds, its RHS builds once the bodies it calls have, and a
+// binding whose RHS does not build is withdrawn with the bodies and refused as
+// `unlowered stdlib once binding`, which its reference sites name rather than
+// falling through to `type-qualified reference`. The settled bindings are
+// then emitted before the bodies, inside the window where every emitted
+// sibling is bound.
 
 // stdOnce is one stdlib `once` binding as a reference site sees it.
 type stdOnce struct {
@@ -281,6 +278,9 @@ func (g *gen) emitStdOnce(o *stdOnce) {
 		g.stdUnloweredFunc("once "+o.key, o.key, g.dc.take().why)
 		produced = o.k
 	}
+	// Set only when the cell is there: the prebuild names it ahead
+	// (irPrebuildStdBodies), and a reference must not outlive a refusal.
+	o.irCell = nil
 	if g.irMod != nil && g.irMod.Cell(sym) != nil {
 		o.irCell = sym
 	}
@@ -310,7 +310,7 @@ func (bl *irScalarBuilder) stdOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bool
 	if o == nil && g.std != nil {
 		o = g.std.byOnce[key]
 	}
-	if o == nil || !o.settled || o.irCell == nil || !irRetainedValueKind(o.k) {
+	if o == nil || !o.settled || o.irCell == nil || !irOnceKind(o.k) {
 		return no()
 	}
 	n := ir.NewRefOnce(g.irNodePos(t), bl.f.NewTemp(), o.irCell)
@@ -363,7 +363,7 @@ func (bl *irScalarBuilder) stdFileOnceValue(at ast.Node, line, col int) (ir.Temp
 			o = c
 		}
 	}
-	if o == nil || o.recv != "" || !o.settled || o.irCell == nil || !irRetainedValueKind(o.k) {
+	if o == nil || o.recv != "" || !o.settled || o.irCell == nil || !irOnceKind(o.k) {
 		return no()
 	}
 	n := ir.NewRefOnce(g.irNodePos(at), bl.f.NewTemp(), o.irCell)

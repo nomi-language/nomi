@@ -2,20 +2,20 @@
 // does.
 import std::io
 
-struct App {
+struct App
     name: String
-}
+end
 
-enum StartError {
+enum StartError
     NoName
     TooLong Int
-}
+end
 
-fn boot() -> Result<App, StartError> {
+fn boot() -> Result<App, StartError>
     defer io.print("boot cleanup")
     Err(StartError.TooLong(3))
-}
+end
 
-fn main() {
+fn main()
     io.print("main runs for ${App.name}")
-}
+end

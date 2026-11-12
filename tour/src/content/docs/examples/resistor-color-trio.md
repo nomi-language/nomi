@@ -15,7 +15,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# metric unit that keeps it whole.
 
 /// A band color, in value order: black is 0 and white is 9.
-pub enum Color {
+pub enum Color
     Black
     Brown
     Red
@@ -26,46 +26,46 @@ pub enum Color {
     Violet
     Grey
     White
-}
+end
 
 /// The unit a resistance is written in, each a thousand times the one before.
-pub enum Magnitude {
+pub enum Magnitude
     Ohms
     Kiloohms
     Megaohms
     Gigaohms
-}
+end
 
 /// A resistance as the label on a resistor reads it: `33 kiloohms`.
-pub struct Resistance {
+pub struct Resistance
     value: Int
     unit: Magnitude
-}
+end
 
 /// The resistance the first three bands give: two digits, then the number
 /// of zeros after them. Bands after the third are ignored. `None` when there
 /// are fewer than three bands.
-pub fn label(bands: List<Color>) -> Maybe<Resistance> {
-    [first, second, zeros, ..] = bands else { return None }
+pub fn label(bands: List<Color>) -> Maybe<Resistance>
+    [first, second, zeros, ..] = bands else return None
 
     ohms = (digit(first) * 10 + digit(second)) * Int.pow(10, digit(zeros))
     Some(in_largest_unit(ohms))
-}
+end
 
 /// `ohms` in the largest unit that keeps the value whole.
-fn in_largest_unit(ohms: Int) -> Resistance {
+fn in_largest_unit(ohms: Int) -> Resistance
     [Magnitude.Kiloohms, .Megaohms, .Gigaohms]
-    |> Iter.reduce(Resistance{value: ohms, unit: .Ohms}, fn resistance, unit -> {
-        if resistance.value != 0 and resistance.value % 1000 == 0 {
-            .{value: resistance.value / 1000, unit}
-        } else {
+    |> Iter.reduce(Resistance{value: ohms, unit: .Ohms}, fn resistance, unit ->
+        if resistance.value != 0 and resistance.value % 1000 == 0 then
+            {value: resistance.value / 1000, unit:}
+        else
             resistance
-        }
-    })
-}
+        end
+    end)
+end
 
-fn digit(color: Color) -> Int {
-    case color {
+fn digit(color: Color) -> Int
+    case color
         .Black -> 0
         .Brown -> 1
         .Red -> 2
@@ -76,16 +76,16 @@ fn digit(color: Color) -> Int {
         .Violet -> 7
         .Grey -> 8
         .White -> 9
-    }
-}
+    end
+end
 
 // FILE: resistor_color_trio_test.nomi
-import {
+import
     resistor_color_trio
     resistor_color_trio.{Color, Magnitude, Resistance}
-}
+end
 
-test "label" {
+test "label"
     [
         ("Orange and orange and black", [Color.Orange, .Orange, .Black], 33, Magnitude.Ohms),
         ("Blue and grey and brown", [.Blue, .Grey, .Brown], 680, .Ohms),
@@ -98,15 +98,15 @@ test "label" {
         ("First two colors make an invalid octal number", [.Black, .Grey, .Black], 8, .Ohms),
         ("Ignore extra colors", [.Blue, .Green, .Yellow, .Orange], 650, .Kiloohms),
     ]
-    |> subtests (description, bands, value, unit), description {
-        assert resistor_color_trio.label(bands) == Some(Resistance{value, unit})
-    }
-}
+    |> subtests (description, bands, value, unit), description
+        assert resistor_color_trio.label(bands) == Some(Resistance{value:, unit:})
+    end
+end
 
 // Not a canonical case: the exercise always gives at least three bands.
-test "fewer than three bands have no label" {
+test "fewer than three bands have no label"
     assert resistor_color_trio.label([.Orange, .Orange]) == None
-}
+end
 ```
 <!-- expect
 ok label (10 cases)
@@ -116,7 +116,7 @@ test result: ok. 11 passed, 0 failed
 
 ## How it's written
 
-- The answer is a `Resistance` struct of a value and a `Magnitude` enum (`Ohms`, `Kiloohms`, `Megaohms`, `Gigaohms`), matching the canonical `{value, unit}`, rather than the label text. The enum is `Magnitude`, not `Unit`: `Unit` names Nomi's empty value and is reserved, and `Magnitude` says what the variants are.
+- The answer is a `Resistance` struct of a value and a `Magnitude` enum (`Ohms`, `Kiloohms`, `Megaohms`, `Gigaohms`), matching the canonical `{value:, unit:}`, rather than the label text. The enum is `Magnitude`, not `Unit`: `Unit` names Nomi's empty value and is reserved, and `Magnitude` says what the variants are.
 - `label` takes a `List<Color>` and answers `Maybe<Resistance>`, `None` for fewer than three bands, for the reason resistor-color-duo gives. The binding `else` keeps the success path unindented.
 - The third band's zeros are `Int.pow(10, digit(zeros))`, inline in the ohms expression.
 - `in_largest_unit` folds over the larger units with `Iter.reduce`, dividing by 1000 while the value stays whole and is not zero. It needs no arm for running out of units, which a recursive walk down a list of units would.

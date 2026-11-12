@@ -26,14 +26,18 @@ module.exports = grammar({
     $.string_content,
     $.triple_string_content,
     $.raw_string_content,
-    // The end of a statement or a `case` arm at a line break: zero-width, at
-    // the start of the next line, and emitted only where a statement or an arm
+    // The end of a statement, a `case` arm or a header line at a line break:
+    // zero-width, at the start of the next line, and emitted only where one
     // can end. The Go lexer ends a statement at a line break after a token
-    // that can end one unless the next line starts with `|>`, `)` or `]`, and
-    // its parser steps over the break only before `else` and, after a
-    // declaration's signature, before `{` and `where`. Without this token a
-    // complete statement (`x = a`, `f`, `Foo`) would extend into the next line
-    // as `a - 1`, the call `f (2)` or the typed list `Foo [1]`.
+    // that can end one unless the next line starts with `|>`, `)`, `]`,
+    // `where` or a binary operator, and its parser steps over the break
+    // before `else` and `end`. Without this token a complete statement
+    // (`x = a`, `f`, `Foo`) would extend into the next line as `a - 1`, the
+    // call `f (2)` or the typed list `Foo [1]`. After a header (`fn f()`,
+    // `if c then`, `fn x ->`, `case x`, `struct P`) it is the line break
+    // that ends the header, so the body follows on the lines below; where a
+    // header could also go on with an expression on its line (`then`, `->`,
+    // an `else`), the token decides the block form.
     $._statement_end,
     // Line-leading attached test prompts. The first prompt opens an attached
     // test node; following body-line prompts are named extras so prompted
@@ -59,15 +63,9 @@ module.exports = grammar({
     // Anywhere else it is an identifier, so a binding, parameter or field
     // named `host` reads as one in every position.
     $.host_keyword,
-    // Zero-width, before a `{` that starts its line where a statement may
-    // end before it. The brace opens a block statement, or after a
-    // declaration's signature its body, as the Go parser steps over the line
-    // break there. A block on the line of the statement before it is an
-    // error, as two statements on one line are (`p = Point{}`).
-    $._newline_brace,
     // The contextual keyword `subtests` as a pipe stage, after the `|>` of a
     // pipeline that stands as a statement, when a pattern follows it on its
-    // line after a space (`rows |> subtests (input, want) { ... }`), as the
+    // line after a space (`rows |> subtests (input, want)`), as the
     // Go parser reads it. `x |> subtests(y)` leaves it an identifier.
     $._subtests_stage_keyword,
     // The contextual keyword `todo` with its reason, emitted only when a
@@ -81,6 +79,9 @@ module.exports = grammar({
   word: $ => $.identifier,
 
   conflicts: $ => [
+    // `{..m, ...}`: a brace whose first item is a spread is a struct update
+    // or a map literal until its first entry, `name:` or `key =>`, decides.
+    [$.struct_update_spread, $.map_update_spread],
     // `x is sql.Error.Closed`: after `is`, a lowercase name is a pattern
     // that binds it (the compiler's error) or a file qualifying a variant
     // until the `.` after it decides.
@@ -93,7 +94,7 @@ module.exports = grammar({
     // keyword declaration's or a field access until the `!` or the name
     // after it decides.
     [$.keyword_declaration, $._expression],
-    // `if #P{x, y} = p {`: a punned field is a struct literal's field or a
+    // `if P{x:, y:} = p then`: a punned field is a struct literal's field or a
     // struct pattern's until the `=` after the `}` decides.
     [$.struct_construction, $.pattern_field],
     // `x as T` is an ascription, or a pattern named `T` read in its
@@ -103,11 +104,6 @@ module.exports = grammar({
     [$._expression_as_pattern, $.binary_expression, $.ascription_expression],
     [$._simple_type, $._expression_as_pattern],
     [$.lambda, $._expression_as_pattern, $.ascription_expression],
-    // `if #[.., z] = v` and `if #[.., z] == v`: a `..` is a vector
-    // pattern's or a vector literal's bare spread, and a name after it the
-    // pattern's rest or the spread's head, until the `=` or `==` decides.
-    [$._collection_items, $.pattern_spread],
-    [$._expression, $.pattern_spread],
     [$._expression, $._expression_or_statement],
     [$._expression, $._callable_expression],
     [$._expression, $._lambda_body_expression],
@@ -133,8 +129,8 @@ module.exports = grammar({
     // `if [.., z] = xs` and `if [.., z] == xs`: a bare `..` is a list
     // pattern's rest or a list literal's spread until the `=` or `==` decides.
     [$.list_pattern, $._collection_items],
-    // `if a or b {` is the boolean `or` of two names, and `if A or B = v`
-    // an or pattern, until the `=` or the `{` decides.
+    // `if a or b then` is the boolean `or` of two names, and `if A or B = v`
+    // an or pattern, until the `=` or the `then` decides.
     [$._case_pattern, $._expression],
     [$.destructuring_binding, $._expression, $._case_pattern],
     // `sql.Error.Closed` after `if` or in a case arm is the pattern or the
@@ -158,7 +154,7 @@ module.exports = grammar({
     // `type` declarations vs trailing `.member` lookups; surfaced by the
     // same expanded LR(1) lookahead as the import conflict above.
     [$._simple_type],
-    // `case { .Variant [ ... }`: parser can't tell whether dot_variant is
+    // `case` arms `.Variant [ ...`: parser can't tell whether dot_variant is
     // a complete case-pattern (followed by a `[...]` list pattern at
     // _case_pattern) or the prefix of a list-variant pattern. Resolved at
     // GLR runtime — both are valid until the closing `]` decides.
@@ -188,7 +184,7 @@ module.exports = grammar({
     [$.enum_variant],
     // `Ok(n) = r` is a pattern_binding unless an `else` follows its value.
     [$.pattern_binding, $._else_binding_pattern],
-    // `.{y, x: _c}`: an anonymous struct (a struct pattern with `as`) and a
+    // `{y:, x: _c}`: an anonymous struct (a struct pattern with `as`) and a
     // destructure stay alive until the `=` decides.
     [$.anon_struct, $.destructuring_binding],
     // `((a, b) as inner, c) = pair`: a destructure's nested pattern reads as
@@ -204,6 +200,18 @@ module.exports = grammar({
     // function type read the same until what follows the `->` decides, as
     // the Go parser decides it (parseParamPattern).
     [$.tuple_type, $.function_type],
+    // A line below an arm's `->` is a statement of the arm's body or the
+    // next arm, until its `->` decides, as the Go parser's startsCaseArm
+    // decides it; and a line below a binding's `else` an arm or a body
+    // statement, until the `->` decides.
+    [$.arm_block],
+    [$._case_pattern, $._expression, $.arm_block],
+    [$._expression, $.arm_block],
+    [$.else_arm, $._expression],
+    [$._else_arm_pattern, $._expression],
+    [$.body, $.else_arms],
+    [$.interface_method],
+    [$._expression_or_statement, $.else_binding],
   ],
 
   rules: {
@@ -283,13 +291,12 @@ module.exports = grammar({
       );
       // As in a block, a statement ends at a line break or a semicolon. With
       // the separator optional, `x is Err(.V{})` could also read as `x is
-      // Err` followed by a second statement `(.V{})`. A block that starts
-      // its line follows `_newline_brace`, as in `statements`.
+      // Err` followed by a second statement `(.V{})`.
       const separator = repeat1(choice(';', $._statement_end));
       return seq(
         $.attached_comment_test_prompt_marker,
         field('body', item),
-        repeat(seq(choice(separator, $._newline_brace), field('body', item))),
+        repeat(seq(separator, field('body', item))),
         optional(separator),
         $._attached_test_prompt_group_end,
       );
@@ -340,16 +347,15 @@ module.exports = grammar({
     //   pub import some_mod.{Helper as Helpr}
     import_statement: $ => seq(optional($.pub), 'import', $._import_body),
 
-    // Import block: `import { entry entry ... }` — bundles multiple imports
-    // into a single statement. Entries use the same `_import_body` shape as a
-    // standalone import. Commas appear only inside an entry's selective name
-    // list (`mod.{a, b}`). `pub import { ... }` re-exports every entry.
+    // Import block: `import` alone on its line, one entry per line below,
+    // then `end` — bundles multiple imports into a single statement. Entries
+    // use the same `_import_body` shape as a standalone import. Commas
+    // appear only inside an entry's selective name list (`mod.{a, b}`).
+    // `pub import` alone re-exports every entry.
     import_block: $ => seq(
       optional($.pub),
       'import',
-      '{',
-      repeat1($._import_body),
-      '}',
+      typeBody($, $._import_body),
     ),
 
     // The body of an import (everything after the `import` keyword), shared by
@@ -408,7 +414,7 @@ module.exports = grammar({
       alias($._import_path_keyword, $.identifier),
     ),
 
-    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|in|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with/)),
+    _import_path_keyword: _ => token(prec(-1, /and|as|assert|begin|break|case|continue|dbg|defer|else|end|enum|export|extern|fn|for|if|impl|import|in|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with/)),
 
     import_selector: $ => prec.right(seq(
       ':',
@@ -493,7 +499,7 @@ module.exports = grammar({
       $.parameters,
       optional(seq('->', field('return_type', $._type))),
       optional($.where_clause),
-      optional(choice($.go_selector_binding, seq(optional($._newline_brace), $.body))),
+      choice(seq(optional($._statement_end), $.go_selector_binding), $.body),
     )),
 
     // Host declarations
@@ -522,8 +528,7 @@ module.exports = grammar({
     // Host type — opaque runtime-provided type:
     //   pub host type Instant
     //   pub host type Int
-    // prec.right attaches a following `{` as the item body rather than
-    // ending the declaration and parsing a standalone block.
+    // It has no body: its functions go in an `impl` or beside it.
     extern_type_definition: $ => prec.right(1, seq(
       optional($.pub),
       $.host_keyword,
@@ -531,7 +536,6 @@ module.exports = grammar({
       field('name', $.qualified_type_identifier),
       optional($.type_parameters),
       optional($.where_clause),
-      optional($.type_body),
     )),
 
     parameters: $ => seq('(', commaSep($.parameter), ')'),
@@ -561,7 +565,7 @@ module.exports = grammar({
       $.tuple_pattern,
       $.struct_pattern,
       $.map_pattern,
-      $.vector_pattern,
+      $.list_pattern,
       $.enum_pattern,
       alias($._param_or_pattern, $.or_pattern),
       alias($._param_as_pattern, $.as_pattern),
@@ -636,8 +640,7 @@ module.exports = grammar({
     //
     // The inner type is `_distinct_inner_type` (not the full `_type`):
     // the Go parser only admits TYPE_IDENT / IDENT / LPAREN starts there,
-    // which keeps a brace after the name unambiguous — `type Foo {` is
-    // always the item body (`struct` owns record types).
+    // A distinct type takes no body (`struct` owns record types).
     type_definition: $ => prec.right(seq(
       optional($.pub),
       optional('opaque'),
@@ -646,25 +649,9 @@ module.exports = grammar({
       optional($.type_parameters),
       optional(choice(
         $.go_selector_binding,
-        seq($._distinct_inner_type, optional($.type_body)),
-        $.type_body,
+        $._distinct_inner_type,
       )),
     )),
-
-    // Type and extern-type bodies hold only the type's own qualified API.
-    // Fields belong to structs; variants belong to enums; interface impls and
-    // derives stay outside the type.
-    type_body: $ => seq(
-      optional($._newline_brace),
-      '{',
-      repeat(choice(
-        $._decorated_inherent_item,
-        $.function_definition,
-        $.extern_func_definition,
-        $.once_binding,
-      )),
-      '}',
-    ),
 
     // The type expressions admitted as a distinct type's RHS — everything
     // except `self` and an anonymous struct type (`struct` owns record
@@ -678,8 +665,8 @@ module.exports = grammar({
       $.tuple_type,
     ),
 
-    // Struct — nominal record type with named fields. No space before `{`
-    // is a formatter convention, not a grammar requirement.
+    // Struct — nominal record type with named fields, one per line below
+    // its header, then `end`.
     struct_definition: $ => seq(
       optional($.pub),
       optional('opaque'),
@@ -775,13 +762,40 @@ module.exports = grammar({
       $.parameters,
       optional(seq('->', field('return_type', $._type))),
       optional($.where_clause),
-      optional($.body),
+      // A required function has no body, so the line below it is the next
+      // member or the interface's `end`: as the Go parser's
+      // interfaceBodyFollows decides, a body never starts with a line that
+      // starts a function.
+      optional(field('body', alias($._interface_method_body, $.body))),
     ),
+
+    _interface_method_body: $ => {
+      const separator = repeat1(choice(';', $._statement_end));
+      const run = seq($._item, repeat($.decorated_item));
+      const first = choice(
+        $.derive_conformance,
+        $.once_binding,
+        $.type_definition,
+        $.struct_definition,
+        $.enum_definition,
+        $.type_alias,
+        $.interface_definition,
+        $.impl_block,
+        $.import_statement,
+        $.import_block,
+        $._expression_or_statement,
+      );
+      return choice(
+        'end',
+        seq(separator, optional(seq(first, repeat($.decorated_item), repeat(seq(separator, run)), optional(separator))), 'end'),
+      );
+    },
 
     // Function-level `where` clause:
     //   where T: Comparable, K: Hashable and Equatable
     // Constrains a type variable already in scope without re-declaring it. It
-    // sits after the return type and before a body brace when a body exists.
+    // sits after the return type, on the header's line or on a line of its
+    // own below it, before the body.
     // `where` is a hard keyword.
     where_clause: $ => prec.right(seq(
       'where',
@@ -803,10 +817,10 @@ module.exports = grammar({
     // Top-level `impl` block. `impl Iface for Type` implements one interface
     // for one type. `impl Type` defines type-qualified functions and
     // type-associated once bindings.
-    //   impl Type { ... }
-    //   impl Display for Type { ... }
-    //   impl<T> Iter for List<T> where T: Bound { ... }
-    //   impl Display for Conn
+    //   impl Type                    (items below, then `end`)
+    //   impl Display for Type        (items below, then `end`)
+    //   impl<T> Iter for List<T> where T: Bound
+    //   impl Display for Conn end
     // `self` is parsed as a type expression inside item signatures so the
     // analyzer can reject concrete uses with a targeted diagnostic.
     impl_block: $ => seq(
@@ -825,24 +839,14 @@ module.exports = grammar({
           optional($.where_clause),
           $._impl_body,
         )),
-        seq(
-          field('interface', $._type),
-          'for',
-          field('receiver', $._type),
-          optional($.where_clause),
-        ),
       ),
     ),
 
-    _impl_body: $ => seq(
-      optional($._newline_brace),
-      '{',
-      repeat(choice($.decorated_impl_item, $.function_definition, $.extern_func_definition, $.once_binding)),
-      '}',
-    ),
+    _impl_body: $ => typeBody($, choice($.function_definition, $.extern_func_definition, $.once_binding), $.decorated_impl_item),
 
-    // `test "name" { }`, or `test "name", pattern { }` binding the group's
-    // setup value with any irrefutable pattern (`db`, `(a, b)`, `.{a, b}`).
+    // `test "name"`, or `test "name", pattern` binding the group's setup
+    // value with any irrefutable pattern (`db`, `(a, b)`, `{a:, b:}`), its
+    // body below and `end`.
     test_declaration: $ => seq(
       'test',
       field('name', $.string),
@@ -864,12 +868,11 @@ module.exports = grammar({
     // their position. The compiler rejects a second `clock`, `boot` or
     // `setup`; the grammar accepts it, so an editor keeps highlighting.
     group_body: $ => seq(
-      '{',
       repeat(choice($.clock_block, $.boot_block, $.setup_block, $.test_declaration, $.group_subtests)),
-      '}',
+      'end',
     ),
 
-    // `subtests rows, pattern { ... }` in a group holds the group's lines
+    // `subtests rows, pattern` in a group holds the group's lines
     // and tests and runs them once per row, with the pattern bound to it.
     // The compiler rejects anything beside it in the group and a second one
     // inside it; the grammar accepts both, so an editor keeps highlighting.
@@ -895,7 +898,7 @@ module.exports = grammar({
       field('boot', $._expression),
     ),
 
-    // `setup expr` or `setup { stmts; value }`: its value is what a test's
+    // `setup expr` or `setup begin ... end`: its value is what a test's
     // pattern binds.
     setup_block: $ => seq(
       'setup',
@@ -1047,18 +1050,16 @@ module.exports = grammar({
       ')',
     )),
 
-    // Anonymous struct type, `.{x: Int, y: Int}`, as its value is written —
+    // Anonymous struct type, `{x: Int, y: Int}`, as its value is written —
     // appears in any type-expression slot (function parameter type,
     // distinct-type tuple element, generic type argument, struct field type).
     // Field types are full type expressions; no defaults (`=`) are allowed in
-    // type position.
+    // type position. It has at least one field.
     anon_struct_type: $ => prec(2, seq(
-      '.{',
-      optional(seq(
-        $.anon_struct_type_field,
-        repeat(seq(',', $.anon_struct_type_field)),
-        optional(','),
-      )),
+      '{',
+      $.anon_struct_type_field,
+      repeat(seq(',', $.anon_struct_type_field)),
+      optional(','),
       '}',
     )),
 
@@ -1068,27 +1069,38 @@ module.exports = grammar({
       field('type', $._type),
     ),
 
-    // Body (block). Lambdas live in their own rule (`fn params -> body`). A
-    // `{` always opens a block: a struct literal with no type name opens with
-    // `.{`.
-    body: $ => seq('{', statements($), '}'),
+    // A body: the statements on the lines below its header, then `end`;
+    // `end` on the header's line is the empty body (`fn noop() end`).
+    body: $ => choice('end', seq(bodyStatements($), 'end')),
 
-    // A lambda, `fn params -> body`. Its body runs to the end of its
-    // expression, a `|>` included: `fn s -> f(s) |> g()` pipes inside the
-    // body. A parameter's annotation is a full type, so `fn f: (Int) -> Int
+    // A block expression, `begin`, its statements below and `end`.
+    begin_block: $ => seq('begin', $.body),
+
+    // A lambda, `fn params -> body`. A body on the `->`'s line runs to the
+    // end of its expression, a `|>` included: `fn s -> f(s) |> g()` pipes
+    // inside the body. An `->` that ends its line takes the lines below, to
+    // `end`. A parameter's annotation is a full type, so `fn f: (Int) -> Int
     // -> f(1)` reads the function type `(Int) -> Int` whole before the
     // lambda's own `->`.
-    lambda: $ => prec.right(3, seq(
-      'fn',
-      optional(commaSep1($.lambda_parameter)),
-      '->',
-      field('body', prec(2, $._expression)),
-    )),
+    lambda: $ => choice(
+      prec.right(3, seq(
+        'fn',
+        optional(commaSep1($.lambda_parameter)),
+        '->',
+        field('body', prec(2, $._expression)),
+      )),
+      prec(3, seq(
+        'fn',
+        optional(commaSep1($.lambda_parameter)),
+        '->',
+        field('body', $.body),
+      )),
+    ),
 
     // The pipe stage `x |> then fn v -> body` applies the lambda to the
     // piped value. Its lambda's body ends at the next `|>` of the pipeline,
-    // so it is parsed from `_lambda_body_expression`, which has no pipe;
-    // braces keep a pipe inside it. `x |> then &f(a, &1)` applies a
+    // so it is parsed from `_lambda_body_expression`, which has no pipe; a
+    // body below the `->`, closed by `end`, keeps a pipe inside it. `x |> then &f(a, &1)` applies a
     // capture, which ends with its body.
     then_stage: $ => seq('then', optional($.question), choice(
       field('lambda', alias($._then_lambda, $.lambda)),
@@ -1115,12 +1127,20 @@ module.exports = grammar({
 
     // A call body is preferred over ending the lambda early: without it,
     // `then fn v -> io.print(v)` parsed as `(x |> then fn v -> io).print(v)`.
-    _then_lambda: $ => prec.right(3, seq(
-      'fn',
-      optional(commaSep1($.lambda_parameter)),
-      '->',
-      field('body', prec(2, choice(prec.dynamic(1, $.call_expression), $._lambda_body_expression))),
-    )),
+    _then_lambda: $ => choice(
+      prec.right(3, seq(
+        'fn',
+        optional(commaSep1($.lambda_parameter)),
+        '->',
+        field('body', prec(2, choice(prec.dynamic(1, $.call_expression), $._lambda_body_expression))),
+      )),
+      prec(3, seq(
+        'fn',
+        optional(commaSep1($.lambda_parameter)),
+        '->',
+        field('body', $.body),
+      )),
+    ),
 
     _lambda_body_expression: $ => choice(
       $.identifier,
@@ -1139,7 +1159,7 @@ module.exports = grammar({
       $.raw_tagged_string,
       $.boolean,
       $.list,
-      $.body,
+      $.begin_block,
       $.lambda,
       $.if_expression,
       $.case_expression,
@@ -1148,8 +1168,6 @@ module.exports = grammar({
       $.map_construction,
       $.anon_struct,
       $.struct_update,
-      $.vector,
-      $.set,
       $.typed_list,
       $.call_expression,
       $.field_access,
@@ -1181,47 +1199,49 @@ module.exports = grammar({
       optional(seq('=', $._expression)),
     ),
 
-    anon_struct_field: $ => prec(1, seq($._field_identifier, ':', $._expression)),
+    // A field of an anonymous struct, `x: 1`, or punned, `x:`, which is
+    // `x: x`.
+    anon_struct_field: $ => prec(1, seq($._field_identifier, ':', optional($._expression))),
 
-    // A struct literal with no type name, `.{x: 1, y: 2}`: the struct its
-    // position expects, or an anonymous struct. A punned field (`.{x, y}`)
-    // is a bare identifier child, as a struct update's punned field is: it
-    // names a variable.
+    // A struct literal with no type name, `{x: 1, y: 2}`: the struct its
+    // position expects, or an anonymous struct. A `{` always opens data.
     anon_struct: $ => prec(6, seq(
-      '.{',
-      commaSep(choice($.anon_struct_field, $.identifier)),
+      '{',
+      commaSep1($.anon_struct_field),
       '}',
     )),
 
     map_entry: $ => prec(2, seq($._expression, '=>', $._expression)),
 
-    // Struct update by spread: `.{..base, f: v}` — copy `base`, override the
+    // Struct update by spread: `{..base, f: v}` — copy `base`, override the
     // named fields. The result takes the spread head's type, so no type name is
     // written, and `..` at the first position inside the brace is the whole
-    // distinction from `anon_struct` (`.{f: v}`).
+    // distinction from `anon_struct` (`{f: v}`).
     //
     // A collection literal takes spreads anywhere; a struct update does not.
     // Its order is pure notation, and base-then-overrides is the only order
     // under which "a later field wins" reads correctly. So: exactly one
-    // spread, and it is the FIRST element. `.{a: 1, ..b}` and `.{..a, ..b}`
-    // are not accepted here and land in the surrounding block/ERROR recovery,
+    // spread, and it is the FIRST element. `{a: 1, ..b}` and `{..a, ..b}`
+    // are not accepted here and land in ERROR recovery,
     // matching the Go parser's `struct spread ".." must be the first element`.
     //
     // A comma follows the spread and each field but the last, whose comma is
     // optional, as in every other brace literal.
-    struct_update: $ => prec(6, seq(
-      '.{',
+    // `{..base}` alone is a struct update, as the Go parser reads it, over
+    // the map literal it also spells (dynamic precedence).
+    struct_update: $ => prec.dynamic(11, prec(6, seq(
+      '{',
       $.struct_update_spread,
       repeat(seq(',', $.struct_update_field)),
       optional(','),
       '}',
-    )),
+    ))),
 
     // The spread element. `head` is a full expression, matching the Go parser,
     // which calls `parseExpr(1)` after the `..` exactly as the list spread does
-    // — so `.{..config, tag: "x"}`, `.{..f(x), a: 1}` and `.{..a.b, c: 2}` all
+    // — so `{..config, tag: "x"}`, `{..f(x), a: 1}` and `{..a.b, c: 2}` all
     // parse here and the checker, not the grammar, decides what is a struct.
-    // A `..` with no head (`.{.., city: "NYC"}`) is the bare spread: the value
+    // A `..` with no head (`{.., city: "NYC"}`) is the bare spread: the value
     // already at the field or key the literal is written at. The token after
     // it, a `,` or the closing `}`, decides it.
     struct_update_spread: $ => prec.right(seq('..', optional(field('head', $._expression)))),
@@ -1229,11 +1249,8 @@ module.exports = grammar({
     map_update_spread: $ => prec.right(seq('..', optional(field('head', $._expression)))),
 
     // A field in an update, shaped like `struct_construction`'s field: it may
-    // be punned, `.{..base, x}` meaning `x: x`.
-    struct_update_field: $ => choice(
-      seq(field('field_name', $._field_identifier), ':', $._expression),
-      field('field_name', $._field_identifier),
-    ),
+    // be punned, `{..base, x:}` meaning `x: x`.
+    struct_update_field: $ => seq(field('field_name', $._field_identifier), ':', optional($._expression)),
 
     // Expression / statement catch-all for function bodies
     _expression_or_statement: $ => choice(
@@ -1266,18 +1283,19 @@ module.exports = grammar({
       field('value', $._expression),
     ),
 
-    // A binding whose pattern can fail, and what runs when it does:
-    // `Some(e) = m else { return 0 }`, or case arms over the value that did
-    // not match, `Ok(n) = r else { Err(e) -> return Err(e) }`. Braces always.
+    // A binding whose pattern can fail, and what runs when it does: its
+    // value on the `else`'s line (`Some(e) = m else return 0`), or on the
+    // lines below, to `end`, a body or case arms over the value that did not
+    // match (`Err(e) -> return Err(e)`).
     //
     // The pattern is read in its expression spelling, as a case arm's escape
     // hatch reads one: `Some(e)` and `.Some(e)` are calls, `Ok((w, h))` a call
-    // of a tuple, `[first, ..rest]` a list, `#[a, ..]` a vector,
+    // of a tuple, `[first, ..rest]` a bracket literal,
     // `#.Valid{addr, score}` a struct construction. An expression statement is never followed by `=`, so the
     // `=` commits to this rule without making a statement-leading pattern
     // compete with the expression it looks like. A bare name is left out: it
-    // always matches, and admitting it would let `x = if c { a } else { b }`
-    // read its `else` as this rule's. A map pattern (`%{"k" => v}`), a
+    // always matches, and admitting it would let `x = if c then a else b`
+    // read its `else` as this rule's. A map pattern (`{"k" => v}`), a
     // struct pattern with no type name (`.{a, b}`) and a tuple of names are a
     // destructuring_binding that an `else` follows.
     //
@@ -1294,7 +1312,7 @@ module.exports = grammar({
         field('binding', $.destructuring_binding),
       ),
       'else',
-      field('else', choice($.body, $.else_arms)),
+      field('else', choice($.body, $.else_arms, $._expression)),
     )),
 
     // A binding whose variant or struct pattern always matches, so it has no
@@ -1311,7 +1329,7 @@ module.exports = grammar({
     )),
 
     // A binding whose pattern ends in `as name`: `(x, y) as both = pair`,
-    // `Some(n) as m = find() else { return 0 }`. The pattern is read in its
+    // `Some(n) as m = find() else return 0`. The pattern is read in its
     // expression spelling, as else_binding's is, so a statement-leading
     // pattern never competes with the expression it looks like; an
     // expression statement is never followed by `as`, so the `as` commits.
@@ -1320,29 +1338,27 @@ module.exports = grammar({
       field('pattern', alias($._expression_as_pattern, $.as_pattern)),
       '=',
       field('value', $._expression),
-      optional(seq('else', field('else', choice($.body, $.else_arms)))),
+      optional(seq('else', field('else', choice($.body, $.else_arms, $._expression)))),
     )),
 
     _else_binding_pattern: $ => choice(
       $.call_expression,
       $.list,
-      $.vector,
-      $.set,
       $.tuple_expression,
       $.struct_construction,
-      // `.A(n) or .B(n) = e else { ... }`: alternatives in their
+      // `.A(n) or .B(n) = e else ...`: alternatives in their
       // expression spelling, which is the boolean `or`.
       $.binary_expression,
     ),
 
-    else_arms: $ => seq('{', repeat1(seq($.else_arm, optional($._statement_end))), '}'),
+    else_arms: $ => armsBody($, $.else_arm),
 
     // An else arm is a case arm whose pattern is not a tuple, a literal or a
-    // headless `{...}`: after `else {` a block and arms are both possible,
+    // headless `{...}`: below an `else` a body and arms are both possible,
     // and the static precedence that makes a case arm's `(a, b)` a
-    // tuple_pattern would make a block's `{ (80, 24) }` or
-    // `{ .{addr: "", score: 0} }` a pattern too. Those patterns still parse,
-    // through the expression escape a case arm has.
+    // tuple_pattern would make a body's `(80, 24)` or `{addr: "", score: 0}`
+    // a pattern too. Those patterns still parse, through the expression
+    // escape a case arm has.
     else_arm: $ => choice(
       prec.dynamic(20, seq(
         $._else_arm_pattern,
@@ -1365,14 +1381,12 @@ module.exports = grammar({
       $.qualified_variant,
       $.dot_variant,
       '_',
-      // Patterns that name their type, `#.Valid{addr}`, `#Check.Valid{addr}`
-      // and `%Kvs{"k" => v}`.
+      // Patterns that name their type, `.Valid{addr}`, `Check.Valid{addr}`
+      // and `Kvs{"k" => v}`.
       alias($._named_struct_pattern, $.struct_pattern),
       alias($._named_map_pattern, $.map_pattern),
       $.enum_pattern,
       $.list_pattern,
-      $.vector_pattern,
-      $.set_pattern,
       alias($._else_arm_or_pattern, $.or_pattern),
       alias($._else_arm_as_pattern, $.as_pattern),
     )),
@@ -1415,11 +1429,11 @@ module.exports = grammar({
 
     bare_assertion: $ => choice('assert', 'refute'),
 
-    // `subtests rows, pattern { body }`: the body runs once per row, with the
-    // pattern bound to it. `subtests rows, pattern, name { body }` names each
-    // row with a String expression that reads the pattern's bindings.
-    // The stage form, `rows |> subtests pattern { body }`, is the same
-    // statement with the pipe's source as its rows; it ends its pipeline.
+    // `subtests rows, pattern`, its body and `end`: the body runs once per
+    // row, with the pattern bound to it. `subtests rows, pattern, name` names
+    // each row with a String expression that reads the pattern's bindings.
+    // The stage form, `rows |> subtests pattern`, is the same statement with
+    // the pipe's source as its rows; it ends its pipeline.
     subtests_statement: $ => choice(
       seq(
         alias($._subtests_keyword, 'subtests'),
@@ -1452,27 +1466,23 @@ module.exports = grammar({
         '=',
         field('value', $._expression),
       ),
-      // Struct: .{name, age} = expr  or  .{name: n, age: a} = expr.
+      // Struct: {name:, age:} = expr  or  {name: n, age: a} = expr. A
+      // punned field, `name:`, binds the field's name. Its fields are an
+      // anonymous struct's, a binding or a nested pattern spelled as the
+      // expression it looks like, so the struct and the destructure read
+      // alike until the `=` decides.
       seq(
-        '.{',
-        commaSep1(choice(
-          field('binding', $.identifier),
-          // `_field_identifier`, as anon_struct_field's name is, so the two
-          // readings of `.{x: a` stay alive until `=` decides.
-          seq(field('field', $._field_identifier), ':', choice(
-            field('binding', choice($.identifier, '_')),
-            field('pattern', $._destructuring_subpattern),
-          )),
-        )),
+        '{',
+        commaSep1($.anon_struct_field),
         '}',
         '=',
         field('value', $._expression),
       ),
-      // Map: %{key => binding, ...} = expr, or %Kvs{...} = expr — flat
+      // Map: {key => binding, ...} = expr, or Kvs{...} = expr — flat
       // destructure binding the value at each key. Keys are expressions
       // (string/int/tuple/bool/...).
       seq(
-        choice('%{', seq('%', field('type', $._literal_head), '{')),
+        choice('{', seq(field('type', $._struct_name), token.immediate('{'))),
         commaSep1(seq($._expression, '=>', choice(
           field('binding', choice($.identifier, '_')),
           field('pattern', $._destructuring_subpattern),
@@ -1484,21 +1494,19 @@ module.exports = grammar({
     ),
 
     // A destructure's nested pattern other than a name, in its expression
-    // spelling: `((a, b) as inner, c) = pair`, `.{x: Some(a), y} = q else
-    // { ... }`, `%{"k" => (a, b)} = m`.
+    // spelling: `((a, b) as inner, c) = pair`, `{x: Some(a), y:} = q else
+    // ...`, `{"k" => (a, b)} = m`.
     _destructuring_subpattern: $ => choice(
       alias($._expression_as_pattern, $.as_pattern),
       $.call_expression,
       $.tuple_expression,
       $.list,
-      $.vector,
-      $.set,
       $.struct_construction,
       $.map_construction,
       $.anon_struct,
-      // A literal or a bare variant a field must equal, `.{x: 0, y} = p else
-      // { ... }` or `.{done: True, n} = s else { ... }`, which only a binding
-      // with `else` can use.
+      // A literal or a bare variant a field must equal, `{x: 0, y:} = p else
+      // ...` or `{done: True, n:} = s else ...`, which only a binding with
+      // `else` can use.
       $.integer,
       $.float,
       $.decimal,
@@ -1536,7 +1544,7 @@ module.exports = grammar({
       $.raw_tagged_string,
       $.boolean,
       $.list,
-      $.body,
+      $.begin_block,
       $.lambda,
       $.if_expression,
       $.case_expression,
@@ -1545,8 +1553,6 @@ module.exports = grammar({
       $.map_construction,
       $.anon_struct,
       $.struct_update,
-      $.vector,
-      $.set,
       $.typed_list,
       $.call_expression,
       $.field_access,
@@ -1580,54 +1586,6 @@ module.exports = grammar({
       'as',
       field('name', choice($.identifier, $.type_identifier)),
     )),
-
-    // Expression excluding body — used where a { would be ambiguous (e.g., case value {)
-    _non_block_expression: $ => choice(
-      $.identifier,
-      alias($._full_module_path, $.module_path),
-      $.self_expression,
-      $.type_identifier,
-      $.dot_variant,
-      $.field_accessor,
-      $.integer,
-      $.float,
-      $.decimal,
-      $.codepoint,
-      $.string,
-      $.triple_string,
-      $.raw_string,
-      $.tagged_type_string,
-      $.tagged_type_triple_string,
-      $.raw_tagged_string,
-      $.boolean,
-      $.list,
-      $.if_expression,
-      $.case_expression,
-      $.concurrent_block,
-      $.struct_construction,
-      $.map_construction,
-      $.anon_struct,
-      $.struct_update,
-      $.vector,
-      $.set,
-      $.typed_list,
-      $.call_expression,
-      $.lambda,
-      $.field_access,
-      $.type_field_access,
-      $.binary_expression,
-      $.is_expression,
-      $.ascription_expression,
-      $.range_expression,
-      $.unary_expression,
-      $.pipe_expression,
-      $.try_expression,
-      $.dbg_expression,
-      $.todo_expression,
-      $.unreachable_expression,
-      $.paren_expression,
-      $.tuple_expression,
-    ),
 
     // Literals
     integer: $ => token(choice(
@@ -1777,19 +1735,36 @@ module.exports = grammar({
     ),
 
     // Control flow
-    if_expression: $ => prec.right(seq(
+    //
+    // `if c then` ending its line is the block form: each branch's
+    // statements on the lines below, `else` or `else if c then` starting a
+    // line, and one `end` that closes the chain. Anything after `then` on
+    // its line makes the `if` one inline expression with no `end`, whose
+    // `else` branch extends as far right as an expression does
+    // (`if c then a else b`).
+    if_expression: $ => ifForms($, seq('if', field('condition', choice($.if_match_condition, $._expression)))),
+
+    // A block `if`'s branch: the statements below its `then` or `else`.
+    _if_branch: $ => bodyStatements($),
+
+    // `else if c then` starting a line, and its branch below.
+    else_if_clause: $ => seq(
+      'else',
       'if',
-      choice($.if_match_condition, $._expression),
-      $.body,
-      optional(seq('else', choice($.if_expression, $.body))),
-    )),
+      field('condition', choice($.if_match_condition, $._expression)),
+      'then',
+      optional(field('consequence', alias($._if_branch, $.block))),
+    ),
+
+    // `else` alone on its line, and its branch below.
+    else_clause: $ => seq('else', optional(field('body', alias($._if_branch, $.block)))),
 
     // The pattern may be read in its expression spelling, as a case arm's
     // escape reads it, with its `or` and `as`: in `if Shape.Circle(r) = s` the head `Shape.Circle`
     // is a type_field_access by static precedence before the `=` shows the
     // whole is a pattern. Where both readings parse, the pattern wins, by a
     // margin above what the literals of an expression reading add up to
-    // (`%{"a" => x} or %{"b" => x}` holds two map constructions).
+    // (`{"a" => x} or {"b" => x}` holds two map constructions).
     if_match_condition: $ => choice(
       prec.dynamic(1000, seq(
         field('pattern', $._case_pattern),
@@ -1835,45 +1810,30 @@ module.exports = grammar({
       $.type_identifier,
     ),
 
-    pipe_if_expression: $ => prec.right(11, seq(
-      'if',
-      $.body,
-      optional(seq('else', choice($.pipe_if_expression, $.body))),
-    )),
+    // The pipe stage `|> if then a else b`, whose condition is the piped
+    // value.
+    pipe_if_expression: $ => ifForms($, 'if'),
 
-    // Concurrent block: `concurrent { body }` — structured concurrency
-    // scope. `Task.spawn(fn -> ...)` calls inside the block spawn tasks tied
-    // to this scope; tasks must be awaited before the block exits.
-    //
-    // Body braces are spelled inline ('{' ... '}') rather than via
-    // `$.body` so tree-sitter sees a distinct production it can pin
-    // against the ambiguous "identifier + bare body" parse. `$.body`
-    // is itself a valid bare expression in `_expression`, so when the
-    // grammar used `field('body', $.body)`, the LR parser would
-    // pre-empt the keyword form on the leading `concurrent` lexeme
-    // and reduce it to a plain identifier expression followed by a
-    // standalone body. (tree-sitter still factors the shared shape
-    // back to the `body` rule node in the parse tree — a cosmetic
-    // detail; the `concurrent_block` parent is what the Go pipeline
-    // and the highlighter care about.)
+    // Concurrent block: `concurrent` alone on its line, its body below and
+    // `end` — structured concurrency scope. `Task.spawn(fn -> ...)` calls
+    // inside the block spawn tasks tied to this scope; tasks must be awaited
+    // before the block exits.
     concurrent_block: $ => seq(
       'concurrent',
-      '{',
-      statements($),
-      '}',
+      field('body', $.body),
     ),
 
     case_expression: $ => prec(1, choice(
-      // With scrutinee (`case x { pattern -> ... }`): arms match patterns.
-      seq('case', $._non_block_expression, '{', repeat(seq($.case_branch, optional($._statement_end))), '}'),
-      // Scrutinee-less (`case { guard -> ... }`): arms are boolean guard
+      // With scrutinee (`case x`, arms below): arms match patterns.
+      seq('case', field('value', $._expression), armsBody($, $.case_branch)),
+      // Scrutinee-less (`case` alone on its line): arms are boolean guard
       // EXPRESSIONS, not patterns. Splitting the two forms (rather than sharing
       // one branch with `choice(_case_pattern, _expression)`) keeps a guard
       // like `Float.is_nan(a)` from being parsed as a malformed `Type.Variant`
       // enum_pattern — there is no pattern alternative here to compete with it.
       // `_statement_end` ends an arm at a line break, so a body can't extend
       // into the next arm's pattern (`-1`, `.Some`, `[x]`, `(a, b)`).
-      seq('case', '{', repeat(seq($.guard_branch, optional($._statement_end))), '}'),
+      seq('case', armsBody($, $.guard_branch)),
     )),
 
     case_branch: $ => choice(
@@ -1907,12 +1867,22 @@ module.exports = grammar({
 
     // What follows an arm's `->`: an expression, or an assertion
     // (`Err(e) -> assert e == "x"`), which is a statement and not an
-    // expression elsewhere.
-    _arm_body: $ => choice($.assertion, $._expression),
+    // expression elsewhere, on the `->`'s line; or, when the `->` ends its
+    // line, the statements below it up to the next arm or the `end` that
+    // closes the arms (arm_block).
+    _arm_body: $ => choice($.assertion, $._expression, $.arm_block),
+
+    // An arm's body below its `->`: statements one per line, up to the line
+    // that starts the next arm or the arms' `end`.
+    arm_block: $ => seq(
+      repeat1(choice(';', $._statement_end)),
+      $._item,
+      repeat(seq(repeat1(choice(';', $._statement_end)), $._item)),
+    ),
 
     _case_pattern: $ => prec(2, choice(
       // A bare name has no precedence over the expression it also reads
-      // as, so `if a or b {` stays the boolean `or` until the `{` decides
+      // as, so `if a or b then` stays the boolean `or` until the `then` decides
       // (the conflict with _expression below).
       prec(0, $.identifier),
       $.type_identifier,
@@ -1936,8 +1906,6 @@ module.exports = grammar({
       $.map_pattern,
       $.enum_pattern,
       $.list_pattern,
-      $.vector_pattern,
-      $.set_pattern,
       // String prefix pattern: "hello" + rest. Above the pattern's own
       // precedence, so after `is` the `+` continues the pattern.
       prec(3, seq($.string, '+', $.identifier)),
@@ -1969,63 +1937,34 @@ module.exports = grammar({
       field('name', choice($.identifier, $.type_identifier)),
     )),
 
-    // A struct pattern, `.{x, y: pat}`, or one that names its type or
-    // variant: `#Point{x, y}`, `#Shape.Circle{radius}`, `#.Circle{radius}`.
+    // A struct pattern, `{x:, y: pat}`, or one that names its type or
+    // variant: `Point{x:, y:}`, `Shape.Circle{radius:}`, `.Circle{radius:}`.
     struct_pattern: $ => prec(11, choice(
-      seq('.{', commaSep($.pattern_field), '}'),
+      seq('{', commaSep1($.pattern_field), '}'),
       $._named_struct_pattern,
     )),
 
     _named_struct_pattern: $ => seq(field('type', $._struct_name), token.immediate('{'), commaSep($.pattern_field), '}'),
 
-    // A map pattern, `%{"k" => pat}`, or one that names a map-distinct type
-    // or a map-payload variant: `%Kvs{..}`, `%.Obj{"k" => v}`. Each key is an
-    // expression, the key the map must hold.
+    // A map pattern, `{"k" => pat}` or `{}`, which matches every map, or one
+    // that names a map-distinct type or a map-payload variant:
+    // `Kvs{"k" => v}`, `.Obj{"k" => v}`. Each key is an expression, the key
+    // the map must hold. Its first entry's `=>` tells it from a struct
+    // pattern, whose fields are `name:`; `Name{}` is the struct pattern.
     map_pattern: $ => prec(11, choice(
-      seq('%{', commaSep($._map_pattern_entry), '}'),
+      seq('{', commaSep($._map_pattern_entry), '}'),
       $._named_map_pattern,
     )),
 
-    _named_map_pattern: $ => seq('%', field('type', $._literal_head), '{', commaSep($._map_pattern_entry), '}'),
+    _named_map_pattern: $ => seq(field('type', $._struct_name), token.immediate('{'), commaSep1($._map_pattern_entry), '}'),
 
     _map_pattern_entry: $ => seq($._expression, '=>', $._case_pattern),
 
-    // A vector pattern, taken apart from either end: `#[first, ..rest]`,
-    // `#[.., last]`, `#[a, ..mid, z]`, `#[a, b, ..]`, the exact `#[a, b]`, or
-    // one that names its type: `#Path[a, ..]`, `#.Items[x]`. One `..` may
-    // stand among the elements, with a name, `_` or nothing after it.
-    vector_pattern: $ => prec(11, seq(
-      choice('#[', seq('#', field('type', $._literal_head), '[')),
-      optional(seq(
-        choice($.pattern_spread, $._case_pattern),
-        repeat(seq(',', choice($.pattern_spread, $._case_pattern))),
-        optional(','),
-      )),
-      ']',
-    )),
-
-    // A set pattern tests membership: `%["admin", ..rest]` matches a set
-    // holding "admin" and binds the other elements, `%[x, ..]` only tests,
-    // and `%[1, 2]` with no `..` matches exactly that set. Its elements are
-    // expressions, the values the set must hold, and `..` comes last; they
-    // are read as a set literal's elements are, so `..rest` is a spread.
-    set_pattern: $ => prec(11, seq(
-      choice('%[', seq('%', field('type', $._literal_head), '[')),
-      optional($._collection_items),
-      ']',
-    )),
-
-    // The `..` of a vector pattern and what it binds: a name, `_`, or
-    // nothing.
-    pattern_spread: $ => seq('..', optional(choice($.identifier, '_'))),
-
-    pattern_field: $ => choice(
-      seq(field('name', $._field_identifier), ':', $._case_pattern),
-      // A punned field. Its precedence is struct_construction's, so at the
-      // `,` after `x` in `if #P{x, y} = p` neither reading wins statically and
-      // both stay alive (the conflict above) until the `=` decides.
-      prec(10, field('name', $._field_identifier)),
-    ),
+    // A struct pattern's field, `x: pat`, or punned, `x:`, which binds the
+    // field's name. Its precedence is struct_construction's, so at the `,`
+    // after `x:` in `if P{x:, y:} = p` neither reading wins statically and
+    // both stay alive (the conflict above) until the `=` decides.
+    pattern_field: $ => prec(10, seq(field('name', $._field_identifier), ':', optional($._case_pattern))),
 
     // A tuple pattern, `(a, b)`. One pattern in parentheses only groups.
     tuple_pattern: $ => seq(
@@ -2185,38 +2124,6 @@ module.exports = grammar({
     // keyword's line; the compiler rejects an interpolated one.
     unreachable_expression: $ => prec.right(1, seq('unreachable', $._same_line, field('reason', choice($.string, $.triple_string, $.raw_string)))),
 
-    // The name of a type built on a shape, written right after the shape's
-    // symbol with no space: `#Point{..}`, `#geo.Point{..}`,
-    // `#Shape.Circle{..}`, `#.Circle{..}`, `%Kvs{..}`, `#Path[..]`. Every
-    // segment but the last names the owner, and `.Circle` is a variant of
-    // the enum the position expects.
-    _literal_head: $ => choice(
-      alias($._immediate_dot_variant, $.dot_variant),
-      seq(
-        alias(token.immediate(/[A-Z][a-zA-Z0-9_]*/), $.type_identifier),
-        repeat(seq(token.immediate('.'), $.type_identifier)),
-      ),
-      seq(
-        alias(token.immediate(/[a-z_][a-zA-Z0-9_]*/), $.identifier),
-        repeat1(seq(token.immediate('.'), $.type_identifier)),
-      ),
-      // `#db::schema.Point{..}`: a file named by its full path.
-      seq(
-        alias($._immediate_full_module_path, $.module_path),
-        repeat1(seq(token.immediate('.'), $.type_identifier)),
-      ),
-    ),
-
-    _immediate_full_module_path: $ => seq(
-      alias(token.immediate(/[a-z_][a-zA-Z0-9_]*/), $.identifier),
-      repeat1(seq(
-        token.immediate('::'),
-        choice($.identifier, alias($._import_path_keyword, $.identifier)),
-      )),
-    ),
-
-    _immediate_dot_variant: $ => seq(token.immediate('.'), $.type_identifier),
-
     // The name a named struct literal or pattern starts with: `Point`,
     // `Shape.Circle`, `geo.Point`, `.Circle`.
     _struct_name: $ => choice(
@@ -2229,48 +2136,29 @@ module.exports = grammar({
     ),
 
     // A struct literal that names its type, with the `{` against the name:
-    // `Point{x: 1, y}`, `geo.Point{..}`, a struct-shaped variant
+    // `Point{x: 1, y:}`, `geo.Point{..}`, a struct-shaped variant
     // `Shape.Circle{radius: 1.0}`, `Circle{..}` or `.Circle{..}`. A punned
-    // field (`Point{x}`) means `x: x`. The literal with no name is
-    // `anon_struct` (`.{x: 1}`).
+    // field (`Point{x:}`) means `x: x`. The literal with no name is
+    // `anon_struct` (`{x: 1}`).
     struct_construction: $ => prec.dynamic(10, prec(10, seq(
       field('type', $._struct_name),
       token.immediate('{'),
-      commaSep(choice(
-        seq(field('field_name', $._field_identifier), ':', $._expression),
-        field('field_name', $._field_identifier),
-      )),
+      commaSep(seq(field('field_name', $._field_identifier), ':', optional($._expression))),
       '}',
     ))),
 
-    // A map literal, `%{"a" => 1}` or the empty `%{}`, or one that names a
-    // map-distinct type or a map-payload variant: `%Kvs{"a" => 1}`,
-    // `%.Obj{..}`, `%Json.Obj{..}`. The anonymous form takes spreads
-    // anywhere among its entries (`%{..base, k => v}`, `%{"a" => 1, ..m}`);
-    // a `..` with no head (`%{.., k => v}`) is the map already at the field
-    // or key the literal is written at.
+    // A map literal, `{"a" => 1}` or the empty `{}`, or one that names a
+    // map-distinct type or a map-payload variant: `Kvs{"a" => 1}`,
+    // `.Obj{..}`, `Json.Obj{..}`. Its first entry's `=>` tells it from a
+    // struct literal, whose fields are `name:`; `Name{}` is the struct
+    // literal, which the compiler reads as the empty map when Name is a type
+    // over one. The anonymous form takes spreads anywhere among its entries
+    // (`{..base, k => v}`, `{"a" => 1, ..m}`); a `..` with no head
+    // (`{.., k => v}`) is the map already at the field or key the literal is
+    // written at.
     map_construction: $ => prec.dynamic(10, prec(10, choice(
-      seq('%{', commaSep(choice($.map_update_spread, $.map_entry)), '}'),
-      seq('%', field('type', $._literal_head), '{', commaSep($.map_entry), '}'),
-    ))),
-
-    // A vector literal, `#[1, 2]`, `#[]`, with spreads anywhere
-    // (`#[..v, x]`, `#[x, ..v, ..w]`, the bare `#[.., x]`), or one that names a
-    // vector-distinct type or a vector-payload variant: `#Path[1, 2]`,
-    // `#.Items[1]`.
-    vector: $ => prec.dynamic(10, prec(10, seq(
-      choice('#[', seq('#', field('type', $._literal_head), '[')),
-      optional($._collection_items),
-      ']',
-    ))),
-
-    // A set literal, `%[1, 2]`, `%[]`, with spreads anywhere (`%[..s, x]`,
-    // `%[x, ..s, ..t]`, the bare `%[.., x]`), or one that names a
-    // set-distinct type: `%Tags["a"]`.
-    set: $ => prec.dynamic(10, prec(10, seq(
-      choice('%[', seq('%', field('type', $._literal_head), '[')),
-      optional($._collection_items),
-      ']',
+      seq('{', commaSep(choice($.map_update_spread, $.map_entry)), '}'),
+      seq(field('type', $._struct_name), token.immediate('{'), commaSep1($.map_entry), '}'),
     ))),
 
     // The elements of a list, vector or set literal: expressions and `..`
@@ -2282,9 +2170,11 @@ module.exports = grammar({
       optional(','),
     ),
 
-    // A list attached to a list-distinct type or a list-payload enum
-    // variant: `Items[1, 2, 3]`, `JV.Arr[...]`, `.Arr[...]`. A list has no
-    // symbol, so the name stands before its bracket.
+    // A bracket literal that names the type it builds: a type over a list,
+    // a vector or a set, or a variant whose payload is one (`Items[1, 2,
+    // 3]`, `Path[1]`, `JV.Arr[...]`, `.Arr[...]`), or the std collection
+    // itself (`Vector[1, 2]`, `Set[..s, 3]`). The compiler decides which
+    // collection it is.
     typed_list: $ => prec.dynamic(10, prec(10, seq(
       choice($.type_identifier, $.type_field_access, $.dot_variant),
       $.list,
@@ -2326,8 +2216,10 @@ module.exports = grammar({
       // (`f < Int > (x)`) — that has no `(` immediately after the `>`.
       optional(field('type_arguments', seq('<', commaSep1($._type), '>'))),
       '(',
+      // A named argument, `status: 404`, or punned, `status:`, which is
+      // `status: status`.
       commaSep(choice(
-        seq($.identifier, ':', $._expression),
+        seq($.identifier, ':', optional($._expression)),
         $._expression,
       )),
       ')',
@@ -2385,8 +2277,6 @@ module.exports = grammar({
       $.tuple_expression,
       $.list,
       $.typed_list,
-      $.vector,
-      $.set,
       $.map_construction,
       $.string,
       $.triple_string,
@@ -2421,16 +2311,13 @@ function commaSep1(rule) {
   return seq(rule, repeat(seq(',', rule)), optional(','));
 }
 
-// The statements of a file or a block. A statement ends at a line break
+// The statements of a file. A statement ends at a line break
 // (`_statement_end`) or a semicolon, so a second statement on a statement's
 // line without one is an error (`x = 1 2`, `p = Point{}`). The Go parser
 // refuses only the second form, a statement right after another with nothing
 // between them; the formatter never writes two statements on one line. An item led by `//!`
 // prompts (`decorated_item`) needs no separator before it: a prompt starts its
-// line, and the scanner emits it where the line's statement end would be. A
-// block that starts its line follows `_newline_brace`, since the scanner
-// leaves a line break before `{` to it: after a declaration's signature that
-// brace opens the body.
+// line, and the scanner emits it where the line's statement end would be.
 //
 // Each separator ends the run of items before it rather than starting the
 // item after it, so no item's subtree starts with an empty token: an editor
@@ -2441,27 +2328,75 @@ function statements($, item = $._item) {
   const run = seq(item, repeat($.decorated_item));
   return seq(
     repeat(';'),
-    repeat(seq(run, choice(separator, $._newline_brace))),
+    repeat(seq(run, separator)),
     optional(run),
   );
 }
 
-// A type body: `{`, items one per line, `}`. As in the Go parser, an item
-// ends at a line break (`_statement_end`) or a semicolon, and semicolons may
-// stand anywhere between the braces, so a second item on an item's line
-// without one is an error (`x: Int y: Int`). An item led by `//!` prompts
-// (`decorated`) needs no separator before it: a prompt starts its line, and
-// the scanner emits it where the line's statement end would be.
+// The statements of a body below its header: the line break that ends the
+// header, then statements as in `statements`. The scanner emits no
+// `_statement_end` before a line that starts with `end` or `else`, which
+// closes the body.
+function bodyStatements($, item = $._item) {
+  const separator = repeat1(choice(';', $._statement_end));
+  const run = seq(item, repeat($.decorated_item));
+  return seq(
+    separator,
+    optional(seq(run, repeat(seq(separator, run)), optional(separator))),
+  );
+}
+
+// A type body: items one per line below the header, then `end`; `end` on
+// the header's line when it has none. As in the Go parser, an item ends at
+// a line break (`_statement_end`) or a semicolon, so a second item on an
+// item's line without one is an error (`x: Int y: Int`). An item led by
+// `//!` prompts (`decorated`) needs no separator before it: a prompt starts
+// its line, and the scanner emits it where the line's statement end would
+// be.
 function typeBody($, item, decorated) {
   const separator = repeat1(choice(';', $._statement_end));
   const next = decorated
     ? choice(seq(separator, choice(item, decorated)), decorated)
     : seq(separator, item);
-  const first = decorated ? choice(item, decorated) : item;
-  return seq(
-    '{',
-    repeat(';'),
-    optional(seq(first, repeat(next), optional(separator))),
-    '}',
+  // A `//!` prompt or a doc comment on the line after the header leaves no
+  // statement end before a decorated first item.
+  const first = decorated ? choice(seq(separator, choice(item, decorated)), decorated) : seq(separator, item);
+  return choice(
+    'end',
+    seq(separator, 'end'),
+    seq(first, repeat(next), optional(separator), 'end'),
+  );
+}
+
+// A `case`'s or a binding `else`'s arms, one per line below its header,
+// then `end`; `end` on the header's line when there are none.
+function armsBody($, arm) {
+  const separator = repeat1(choice(';', $._statement_end));
+  return choice(
+    'end',
+    seq(separator, arm, repeat(seq(separator, arm)), optional(separator), 'end'),
+  );
+}
+
+// The two forms of an `if` after its head (`if c`, or the condition-less
+// pipe stage's `if`): the block form, `then` ending its line, each branch's
+// statements below, an `else if c then` chain sharing one `end`; and the
+// inline form, a value after `then` on its line, no `end`.
+function ifForms($, head) {
+  return choice(
+    prec.right(seq(
+      head,
+      'then',
+      field('consequence', $._expression),
+      optional(seq('else', field('alternative', $._expression))),
+    )),
+    seq(
+      head,
+      'then',
+      optional(field('consequence', alias($._if_branch, $.block))),
+      repeat(field('alternative', $.else_if_clause)),
+      optional(field('alternative', $.else_clause)),
+      'end',
+    ),
   );
 }

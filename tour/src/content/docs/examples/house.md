@@ -31,14 +31,14 @@ once phrases = [
 ]
 
 /// The verses `start` to `end`, both included, counting from 1.
-pub fn recite(start: Int, end: Int) -> List<String> {
-    start..=end
+pub fn recite(start: Int, stop: Int) -> List<String>
+    start..=stop
     |> Iter.map(verse)
     |> Iter.to_list()
-}
+end
 
 /// Verse `number` embeds every earlier phrase, newest first.
-fn verse(number: Int) -> String {
+fn verse(number: Int) -> String
     embedded =
         phrases
         |> Iter.take(number)
@@ -46,7 +46,7 @@ fn verse(number: Int) -> String {
         |> String.join(" ")
 
     "This is ${embedded}."
-}
+end
 
 // FILE: house_test.nomi
 import house
@@ -111,28 +111,28 @@ once verses = [
     ),
 ]
 
-test "single verses" {
-    subtests verses, (description, number, expected), description {
+test "single verses"
+    subtests verses, (description, number, expected), description
         assert house.recite(number, number) == [expected]
-    }
-}
+    end
+end
 
-test "several verses" {
+test "several verses"
     [
         ("multiple verses", 4, 8),
         ("full rhyme", 1, 12),
     ]
-    |> subtests (description, start, end), description {
+    |> subtests (description, start, stop), description
         expected =
             verses
             |> Iter.drop(start - 1)
-            |> Iter.take(end - start + 1)
+            |> Iter.take(stop - start + 1)
             |> Iter.map(.third)
             |> Iter.to_list()
 
-        assert house.recite(start, end) == expected
-    }
-}
+        assert house.recite(start, stop) == expected
+    end
+end
 ```
 <!-- expect
 ok single verses (12 cases)

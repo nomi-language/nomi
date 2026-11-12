@@ -7,25 +7,25 @@ import (
 // genericIfaceHead declares a generic interface, a generic struct, and an impl
 // of the first for the second, the shape the corpus's
 // `11-interfaces-and-impls/type_argument_inference` runs.
-const genericIfaceHead = `interface Chooser<T> {
+const genericIfaceHead = `interface Chooser<T>
   fn left(p: self) -> T
   fn right(p: self) -> T
-}
+end
 
-struct Pair<E> {
+struct Pair<E>
   a: E
   b: E
-}
+end
 
-impl Chooser for Pair<E> {
-  fn left(p: Pair<E>) -> E {
+impl Chooser for Pair<E>
+  fn left(p: Pair<E>) -> E
     p.a
-  }
+  end
 
-  fn right(p: Pair<E>) -> E {
+  fn right(p: Pair<E>) -> E
     p.b
-  }
-}
+  end
+end
 
 `
 
@@ -45,7 +45,7 @@ impl Chooser for Pair<E> {
 //   - `resolveIfaces`, which does not resolve one, so `d.order` is empty and no
 //     table can be minted for any of its methods.
 func TestGenericIface_IsStillNotErasable(t *testing.T) {
-	g := lowerableGen(t, genericIfaceHead+"fn main() {\n}\n")
+	g := lowerableGen(t, genericIfaceHead+"fn main() end\n")
 	d := g.ifaces["Chooser"]
 	if d == nil {
 		t.Fatal("no `Chooser` def")

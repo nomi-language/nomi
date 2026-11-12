@@ -16,216 +16,217 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// A binary tree node: a value and a subtree on each side, either of which
 /// may be missing.
-pub struct Tree<T> {
+pub struct Tree<T>
     value: T
     left: Maybe<Tree<T>>
     right: Maybe<Tree<T>>
-}
+end
 
 /// A tree seen from one of its nodes, the focus. The zipper holds the focus
 /// subtree and the path back to the root, nearest parent first, so moving
 /// the focus or changing it rebuilds only the nodes on that path.
-pub opaque struct Zipper<T> {
+pub opaque struct Zipper<T>
     focus: Tree<T>
     path: List<Crumb<T>>
-}
+end
 
 /// One step up from a focus: the parent's value and the parent's other
 /// subtree, on the side the focus was not.
-enum Crumb<T> {
+enum Crumb<T>
     FromLeft {value: T, right: Maybe<Tree<T>>}
     FromRight {value: T, left: Maybe<Tree<T>>}
-}
+end
 
-impl Zipper<T> {
+impl Zipper<T>
     /// A zipper on `tree` with its root in focus.
-    pub fn from_tree(tree: Tree<T>) -> Zipper<T> {
-        .{focus: tree, path: []}
-    }
+    pub fn from_tree(tree: Tree<T>) -> Zipper<T>
+        {focus: tree, path: []}
+    end
 
     /// The whole tree, whatever the focus.
-    pub fn to_tree(zipper: Zipper<T>) -> Tree<T> {
-        case Zipper.up(zipper) {
+    pub fn to_tree(zipper: Zipper<T>) -> Tree<T>
+        case Zipper.up(zipper)
             Some(parent) -> Zipper.to_tree(parent)
             None -> zipper.focus
-        }
-    }
+        end
+    end
 
     /// The value of the focus node.
-    pub fn value(zipper: Zipper<T>) -> T {
+    pub fn value(zipper: Zipper<T>) -> T
         zipper.focus.value
-    }
+    end
 
     /// The zipper on the focus's left subtree, or `None` when it has none.
-    pub fn left(zipper: Zipper<T>) -> Maybe<Zipper<T>> {
-        .{value, left, right} = zipper.focus
+    pub fn left(zipper: Zipper<T>) -> Maybe<Zipper<T>>
+        {value:, left:, right:} = zipper.focus
 
-        Some(Zipper{focus: left?, path: [.FromLeft{value, right}, ..zipper.path]})
-    }
+        Some(Zipper{focus: left?, path: [.FromLeft{value:, right:}, ..zipper.path]})
+    end
 
     /// The zipper on the focus's right subtree, or `None` when it has none.
-    pub fn right(zipper: Zipper<T>) -> Maybe<Zipper<T>> {
-        .{value, left, right} = zipper.focus
+    pub fn right(zipper: Zipper<T>) -> Maybe<Zipper<T>>
+        {value:, left:, right:} = zipper.focus
 
-        Some(Zipper{focus: right?, path: [.FromRight{value, left}, ..zipper.path]})
-    }
+        Some(Zipper{focus: right?, path: [.FromRight{value:, left:}, ..zipper.path]})
+    end
 
     /// The zipper on the focus's parent, or `None` at the root.
-    pub fn up(zipper: Zipper<T>) -> Maybe<Zipper<T>> {
-        case zipper.path {
-            [] -> None
+    pub fn up(zipper: Zipper<T>) -> Maybe<Zipper<T>>
+        case zipper.path
+            [] ->
+                None
 
-            [.FromLeft{value, right}, ..path] ->
-                Some(Zipper{focus: .{value, left: Some(zipper.focus), right}, path})
+            [.FromLeft{value:, right:}, ..path] ->
+                Some(Zipper{focus: {value:, left: Some(zipper.focus), right:}, path:})
 
-            [.FromRight{value, left}, ..path] ->
-                Some(Zipper{focus: .{value, left, right: Some(zipper.focus)}, path})
-        }
-    }
+            [.FromRight{value:, left:}, ..path] ->
+                Some(Zipper{focus: {value:, left:, right: Some(zipper.focus)}, path:})
+        end
+    end
 
     /// `zipper` with the focus node's value replaced by `value`.
-    pub fn set_value(zipper: Zipper<T>, value: T) -> Zipper<T> {
-        .{..zipper, focus: .{.., value}}
-    }
+    pub fn set_value(zipper: Zipper<T>, value: T) -> Zipper<T>
+        {..zipper, focus: {.., value:}}
+    end
 
     /// `zipper` with the focus node's left subtree replaced by `left`.
-    pub fn set_left(zipper: Zipper<T>, left: Maybe<Tree<T>>) -> Zipper<T> {
-        .{..zipper, focus: .{.., left}}
-    }
+    pub fn set_left(zipper: Zipper<T>, left: Maybe<Tree<T>>) -> Zipper<T>
+        {..zipper, focus: {.., left:}}
+    end
 
     /// `zipper` with the focus node's right subtree replaced by `right`.
-    pub fn set_right(zipper: Zipper<T>, right: Maybe<Tree<T>>) -> Zipper<T> {
-        .{..zipper, focus: .{.., right}}
-    }
-}
+    pub fn set_right(zipper: Zipper<T>, right: Maybe<Tree<T>>) -> Zipper<T>
+        {..zipper, focus: {.., right:}}
+    end
+end
 
 // FILE: zipper_test.nomi
 import zipper.{Tree, Zipper}
 
 /// One canonical operation on a zipper.
-enum Operation {
+enum Operation
     Left
     Right
     Up
     SetValue Int
     SetLeft Maybe<Tree<Int>>
     SetRight Maybe<Tree<Int>>
-}
+end
 
 /// A node with no subtrees.
-fn leaf(value: Int) -> Tree<Int> {
-    .{value, left: None, right: None}
-}
+fn leaf(value: Int) -> Tree<Int>
+    {value:, left: None, right: None}
+end
 
 /// The tree every canonical case starts from.
-fn initial_tree() -> Tree<Int> {
-    .{value: 1, left: Some(.{value: 2, left: None, right: Some(leaf(3))}), right: Some(leaf(4))}
-}
+fn initial_tree() -> Tree<Int>
+    {value: 1, left: Some({value: 2, left: None, right: Some(leaf(3))}), right: Some(leaf(4))}
+end
 
 /// The zipper on the initial tree after each operation in turn, or `None`
 /// once a move finds no node.
-fn follow(operations: List<Operation>) -> Maybe<Zipper<Int>> {
+fn follow(operations: List<Operation>) -> Maybe<Zipper<Int>>
     start = initial_tree() |> Zipper.from_tree() |> Some()
 
     Iter.reduce(operations, start, fn zipper, operation -> apply(zipper?, operation))
-}
+end
 
-fn apply(zipper: Zipper<Int>, operation: Operation) -> Maybe<Zipper<Int>> {
-    case operation {
+fn apply(zipper: Zipper<Int>, operation: Operation) -> Maybe<Zipper<Int>>
+    case operation
         .Left -> Zipper.left(zipper)
         .Right -> Zipper.right(zipper)
         .Up -> Zipper.up(zipper)
         .SetValue(value) -> Some(Zipper.set_value(zipper, value))
         .SetLeft(left) -> Some(Zipper.set_left(zipper, left))
         .SetRight(right) -> Some(Zipper.set_right(zipper, right))
-    }
-}
+    end
+end
 
-test "the tree after the operations" {
+test "the tree after the operations"
     cases: List<(String, List<Operation>, Tree<Int>)> = [
         ("data is retained", [], initial_tree()),
         ("tree from deep focus", [.Left, .Right], initial_tree()),
         (
             "set_value",
             [.Left, .SetValue(5)],
-            .{
+            {
                 value: 1,
-                left: Some(.{value: 5, left: None, right: Some(leaf(3))}),
+                left: Some({value: 5, left: None, right: Some(leaf(3))}),
                 right: Some(leaf(4)),
             },
         ),
         (
             "set_value after traversing up",
             [.Left, .Right, .Up, .SetValue(5)],
-            .{
+            {
                 value: 1,
-                left: Some(.{value: 5, left: None, right: Some(leaf(3))}),
+                left: Some({value: 5, left: None, right: Some(leaf(3))}),
                 right: Some(leaf(4)),
             },
         ),
         (
             "set_left with leaf",
             [.Left, .SetLeft(Some(leaf(5)))],
-            .{
+            {
                 value: 1,
-                left: Some(.{value: 2, left: Some(leaf(5)), right: Some(leaf(3))}),
+                left: Some({value: 2, left: Some(leaf(5)), right: Some(leaf(3))}),
                 right: Some(leaf(4)),
             },
         ),
         (
             "set_right with null",
             [.Left, .SetRight(None)],
-            .{value: 1, left: Some(leaf(2)), right: Some(leaf(4))},
+            {value: 1, left: Some(leaf(2)), right: Some(leaf(4))},
         ),
         (
             "set_right with subtree",
-            [.SetRight(Some(.{value: 6, left: Some(leaf(7)), right: Some(leaf(8))}))],
-            .{
+            [.SetRight(Some({value: 6, left: Some(leaf(7)), right: Some(leaf(8))}))],
+            {
                 value: 1,
-                left: Some(.{value: 2, left: None, right: Some(leaf(3))}),
-                right: Some(.{value: 6, left: Some(leaf(7)), right: Some(leaf(8))}),
+                left: Some({value: 2, left: None, right: Some(leaf(3))}),
+                right: Some({value: 6, left: Some(leaf(7)), right: Some(leaf(8))}),
             },
         ),
         (
             "set_value on deep focus",
             [.Left, .Right, .SetValue(5)],
-            .{
+            {
                 value: 1,
-                left: Some(.{value: 2, left: None, right: Some(leaf(5))}),
+                left: Some({value: 2, left: None, right: Some(leaf(5))}),
                 right: Some(leaf(4)),
             },
         ),
     ]
 
-    subtests cases, (description, operations, expected), description {
+    subtests cases, (description, operations, expected), description
         assert follow(operations) |> Maybe.map(Zipper.to_tree) == Some(expected)
-    }
-}
+    end
+end
 
-test "the value at the focus" {
+test "the value at the focus"
     [
         ("left, right and value", [Operation.Left, .Right], 3),
         ("left, right, and up", [.Left, .Up, .Right, .Up, .Left, .Right], 3),
         ("test ability to descend multiple levels and return", [.Left, .Right, .Up, .Up], 1),
     ]
-    |> subtests (description, operations, expected), description {
+    |> subtests (description, operations, expected), description
         assert follow(operations) |> Maybe.map(Zipper.value) == Some(expected)
-    }
-}
+    end
+end
 
-test "no node to move to" {
+test "no node to move to"
     [
         ("dead end", [Operation.Left, .Left]),
         ("traversing up from top", [.Up]),
     ]
-    |> subtests (description, operations), description {
+    |> subtests (description, operations), description
         assert follow(operations) == None
-    }
-}
+    end
+end
 
-test "different paths to same zipper" {
+test "different paths to same zipper"
     assert follow([.Left, .Up, .Right]) == follow([.Right])
-}
+end
 ```
 <!-- expect
 ok the tree after the operations (8 cases)
@@ -240,7 +241,7 @@ test result: ok. 14 passed, 0 failed
 - `Tree<T>` is a struct of a value and two `Maybe<Tree<T>>` subtrees, so the canonical data's `null` subtree is `None` and every tree has a root node to focus on. `Zipper.from_tree` therefore cannot fail.
 - Nomi values cannot change, so the zipper is the persistent structure zippers were invented for: an opaque struct of the focus subtree and the path back to the root, nearest parent first. Each step of the path is a private `Crumb`, `FromLeft` or `FromRight`, holding the parent's value and its other subtree. A move or a change answers a new zipper and rebuilds only the nodes on the path; `to_tree` walks `up` until there is no parent.
 - `left`, `right` and `up` answer `Maybe<Zipper<T>>`, with `None` where there is no node to move to, which is the canonical "dead end" and "traversing up from top". `left` and `right` read the subtree with `?` inside the new zipper's literal (`focus: left?`).
-- `set_value`, `set_left` and `set_right` cannot fail and answer a `Zipper<T>`, each one spread update of the focus (`.{..zipper, focus: .{.., value}}`).
+- `set_value`, `set_left` and `set_right` cannot fail and answer a `Zipper<T>`, each one spread update of the focus (`{..zipper, focus: {.., value:}}`).
 - The "different paths to same zipper" case is one `==` between two zippers. `==` compares the zipper, its path of crumbs and its trees structurally, so none of the three types derives `Equatable`.
 - The canonical cases are a starting tree and a list of operations, all on the same tree. The test file writes each operation as an `Operation` variant and `follow` applies them with one `Iter.reduce` over a `Maybe<Zipper<Int>>`, as `apply(zipper?, operation)`: the `?` exits the lambda, so the first move that finds no node leaves `None` for the rest of the fold. The cases are three `subtests` tables by what they expect (a tree, a value, no zipper) and one test for the two paths. `leaf` and `initial_tree` keep the expected trees short.
 - The canonical data's `left`, `right` and `value` operations at the end of a case are what the table asserts: a case ending in `value` is a row of the value table, and `to_tree` is applied by the tree table.

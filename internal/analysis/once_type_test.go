@@ -82,20 +82,20 @@ func messages(errs []analysis.TypeError) []string {
 	return out
 }
 
-const onceLib = `pub enum Direction {
+const onceLib = `pub enum Direction
     North
     South
-}
+end
 
-pub struct Limits {
+pub struct Limits
     low: Int
-}
+end
 
-impl Limits {
+impl Limits
     pub once top = 10
 
     pub once next = Limits.top + 1
-}
+end
 
 pub once help = ["a", "b"]
 
@@ -106,70 +106,70 @@ pub once doubled = help |> Iter.map(fn s -> s + s) |> Iter.to_list()
 pub once pairs = [(Limits.next, help)]
 `
 
-const onceMain = `import {
+const onceMain = `import
     lib
     lib.{help, directions, doubled, pairs, Direction, Limits}
-}
+end
 
-struct Box {
+struct Box
     items: List<String>
-}
+end
 
-fn tuple(n: Int) -> (Int, List<String>) {
+fn tuple(n: Int) -> (Int, List<String>)
     (n, help)
-}
+end
 
-fn listed() -> List<List<String>> {
+fn listed() -> List<List<String>>
     [help]
-}
+end
 
-fn boxed() -> Box {
+fn boxed() -> Box
     Box{ items: help }
-}
+end
 
-fn count(xs: List<String>) -> Int {
+fn count(xs: List<String>) -> Int
     Iter.count(xs)
-}
+end
 
-fn argument() -> Int {
+fn argument() -> Int
     count(help)
-}
+end
 
-fn arm(b: Bool) -> (Int, List<String>) {
-    case b {
+fn arm(b: Bool) -> (Int, List<String>)
+    case b
         True -> (1, help)
         False -> (0, lib.help)
-    }
-}
+    end
+end
 
-fn keyed() -> Map<String, List<String>> {
-    %{"k" => help}
-}
+fn keyed() -> Map<String, List<String>>
+    {"k" => help}
+end
 
-fn name(d: Direction) -> String {
-    case d {
+fn name(d: Direction) -> String
+    case d
         Direction.North -> "n"
         Direction.South -> "s"
-    }
-}
+    end
+end
 
-fn names() -> List<String> {
+fn names() -> List<String>
     directions |> Iter.map(name) |> Iter.to_list()
-}
+end
 
-fn chained() -> (List<String>, Int, Int, List<(Int, List<String>)>) {
+fn chained() -> (List<String>, Int, Int, List<(Int, List<String>)>)
     (doubled, Limits.top, Limits.next, pairs)
-}
+end
 
-fn later() -> (Int, List<String>) {
+fn later() -> (Int, List<String>)
     local
-}
+end
 
 once local = (Limits.top, help)
 
-fn main() {
+fn main()
     _ = (tuple(1), listed(), boxed(), argument(), arm(True), keyed(), names(), chained(), later())
-}
+end
 `
 
 // Every composite position over another file's unannotated `once`, and over
@@ -192,13 +192,13 @@ func TestOnceType_InferredOnceIsTypedAtEveryRead(t *testing.T) {
 func TestOnceType_WrongUseOfInferredOnceIsRejected(t *testing.T) {
 	src := `import lib.help
 
-fn wrong() -> Int {
+fn wrong() -> Int
     help
-}
+end
 
-fn main() {
+fn main()
     _ = wrong()
-}
+end
 `
 	got := checkOnceProject(t, map[string]string{"main.nomi": src, "lib.nomi": onceLib}, []string{"", "lib"})
 	errs := got["main.nomi"]
@@ -212,13 +212,13 @@ fn main() {
 func TestOnceType_FileQualifiedReadIsTyped(t *testing.T) {
 	src := `import lib
 
-fn first() -> (Int, List<String>) {
+fn first() -> (Int, List<String>)
     (1, lib.doubled)
-}
+end
 
-fn main() {
+fn main()
     _ = first()
-}
+end
 `
 	for _, order := range [][]string{{"", "lib"}, {"lib", ""}} {
 		got := checkOnceProject(t, map[string]string{"main.nomi": src, "lib.nomi": onceLib}, order)
@@ -233,27 +233,27 @@ fn main() {
 // An owner-level `once` read in an attached test above it, and through its
 // owner from another file, as std/float's `Float.pi` is.
 func TestOnceType_OwnerLevelOnceIsTypedAboveItsDeclaration(t *testing.T) {
-	lib := `pub struct Limits {
+	lib := `pub struct Limits
     low: Int
-}
+end
 
-impl Limits {
+impl Limits
     //! assert Limits.top == 10
     //
     pub once top = 10
 
     pub once bottom = 0 - Limits.top
-}
+end
 `
 	src := `import lib.Limits
 
-fn span() -> Int {
+fn span() -> Int
     Limits.top - Limits.bottom
-}
+end
 
-fn main() {
+fn main()
     _ = span()
-}
+end
 `
 	for _, order := range [][]string{{"", "lib"}, {"lib", ""}} {
 		got := checkOnceProject(t, map[string]string{"main.nomi": src, "lib.nomi": lib}, order)
@@ -281,9 +281,9 @@ pub once second = [first]
 `
 	src := `import a.first
 
-fn main() {
+fn main()
     _ = first
-}
+end
 `
 	files := map[string]string{"main.nomi": src, "a.nomi": a, "b.nomi": b}
 	want := map[string][]string{

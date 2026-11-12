@@ -157,11 +157,11 @@ func TestTryOperandSetsAgreeWithTheChecker(t *testing.T) {
 // same name is reachable, and the anchor's (Origin, Name) rule carries the
 // weight on its own.
 func TestFragmentIdentityIsNotAName(t *testing.T) {
-	src := "enum Fragment<T> {\n" +
+	src := "enum Fragment<T>\n" +
 		"  Static String\n" +
 		"  Dynamic T\n" +
-		"}\n\n" +
-		"fn main() -> Unit {\n  if True { }\n}\n"
+		"end\n\n" +
+		"fn main() -> Unit\n  if True then \n  end\nend\n"
 	p, err := AnalyzeSource("frag_shadow", src)
 	if err != nil {
 		if strings.Contains(err.Error(), "Fragment") {

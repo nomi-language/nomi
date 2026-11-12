@@ -5,24 +5,24 @@
 // half a value-only fixture cannot see.
 import std::io
 
-fn noisy(label: String, v: Int) -> Int {
+fn noisy(label: String, v: Int) -> Int
     io.print("  eval ${label}")
     v
-}
+end
 
-fn add(x: Int, y: Int) -> Int {
+fn add(x: Int, y: Int) -> Int
     x + y
-}
+end
 
-fn divide(x: Int, y: Int) -> Int {
+fn divide(x: Int, y: Int) -> Int
     x / y
-}
+end
 
-fn apply(f: (Int) -> Int, v: Int) -> Int {
+fn apply(f: (Int) -> Int, v: Int) -> Int
     f(v)
-}
+end
 
-fn main() {
+fn main()
     // The capture's `&1` takes the piped value wherever it stands, in both
     // positions.
     io.print("slot 1:  ${10 |> then &divide(100, &1)}")
@@ -60,4 +60,4 @@ fn main() {
 
     // A pipe stage whose callee is a partial capture's value.
     io.print("chained: ${20 |> half()}")
-}
+end

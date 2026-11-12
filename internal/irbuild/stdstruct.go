@@ -301,9 +301,9 @@ func stdEmptyListDefault() *stdFieldDefault {
 	}, lit: stdDefaultLit{form: stdDefaultEmptyList}}
 }
 
-// stdEmptyMapDefault is `= %{}` on a Map field.
+// stdEmptyMapDefault is `= {}` on a Map field.
 //
-// The value is the untyped `kindEmptyMap` sentinel, the same one `%{}`
+// The value is the untyped `kindEmptyMap` sentinel, the same one `{}`
 // produces at a user site (irmap.go), so the field's real key and value
 // kinds are reached through the ordinary `coerce` that discharges it. Nothing
 // here renders a Go type argument, so this default cannot disagree with the field
@@ -610,7 +610,7 @@ var stdStructSpecs = []stdStructSpec{{
 	// NO NEW MACHINERY. It is
 	// `Project` minus one field: `entry_point` is the same scalar, `env` is the
 	// same `Map<String, String>` projection through stdMapField's nil-gen
-	// process-wide intern, and the DEFAULT is the one new piece — `%{}`
+	// process-wide intern, and the DEFAULT is the one new piece — `{}`
 	// rather than `None`, which is stdEmptyMapDefault above.
 	//
 	// It is deliberately NOT the same Go type as `Project`. See rt.RunFile: a

@@ -2,11 +2,11 @@
 A boolean or of two names as an if condition
 ================================================================================
 
-fn f() {
-  if a or b {
+fn f()
+  if a or b then
     c
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -16,19 +16,19 @@ fn f() {
     (parameters)
     (body
       (if_expression
-        (binary_expression
+        condition: (binary_expression
           (identifier)
           (identifier))
-        (body
+        consequence: (block
           (identifier))))))
 
 ================================================================================
 An enum payload named through its file
 ================================================================================
 
-enum E {
+enum E
   Io io.Error
-}
+end
 
 --------------------------------------------------------------------------------
 

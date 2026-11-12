@@ -17,32 +17,32 @@ func TestRun_MainErrIsAMainError(t *testing.T) {
 	for _, tc := range []struct {
 		name, src, text string
 	}{
-		{"String", "fn main() -> Result<Unit, String> {\n    Err(\"boom\")\n}\n", "boom"},
-		{"Display", `struct Oops {
+		{"String", "fn main() -> Result<Unit, String>\n    Err(\"boom\")\nend\n", "boom"},
+		{"Display", `struct Oops
     code: Int
-}
+end
 
-impl Display for Oops {
-    fn to_string(o: Oops) -> String {
+impl Display for Oops
+    fn to_string(o: Oops) -> String
         "oops ${o.code}"
-    }
-}
+    end
+end
 
-fn main() -> Result<Unit, Oops> {
+fn main() -> Result<Unit, Oops>
     Err(Oops{code: 7})
-}
+end
 `, "oops 7"},
-		{"no Display", `struct Oops {
+		{"no Display", `struct Oops
     zeta: String
     alpha: Int
-}
+end
 
-fn main() -> Result<Unit, Oops> {
+fn main() -> Result<Unit, Oops>
     Err(Oops{zeta: "z", alpha: 1})
-}
+end
 `, `Oops{zeta: "z", alpha: 1}`},
-		{"Int", "fn main() -> Result<Unit, Int> {\n    Err(42)\n}\n", "42"},
-		{"List of String", "fn main() -> Result<Unit, List<String>> {\n    Err([\"a\", \"b\"])\n}\n", "[a, b]"},
+		{"Int", "fn main() -> Result<Unit, Int>\n    Err(42)\nend\n", "42"},
+		{"List of String", "fn main() -> Result<Unit, List<String>>\n    Err([\"a\", \"b\"])\nend\n", "[a, b]"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p, err := vmhost.LoadSource("main.nomi", tc.src)
@@ -75,9 +75,9 @@ fn main() -> Result<Unit, Oops> {
 
 func TestRun_MainOkAndUnitMainsSucceed(t *testing.T) {
 	for _, src := range []string{
-		"fn main() -> Result<Unit, String> {\n    Ok(Unit)\n}\n",
-		"fn main() -> Unit {\n    Unit\n}\n",
-		"fn main() {\n    _ = 1\n}\n",
+		"fn main() -> Result<Unit, String>\n    Ok(Unit)\nend\n",
+		"fn main() -> Unit\n    Unit\nend\n",
+		"fn main()\n    _ = 1\nend\n",
 	} {
 		p, err := vmhost.LoadSource("main.nomi", src)
 		if err != nil {
@@ -93,9 +93,9 @@ func TestRun_MainOkAndUnitMainsSucceed(t *testing.T) {
 // `Ok` payload or a plain value is never printed, so the program is an error.
 func TestLoad_MainReturningAValueIsRejected(t *testing.T) {
 	for _, src := range []string{
-		"fn main() -> Result<String, String> {\n    Ok(\"hello\")\n}\n",
-		"fn main() -> Maybe<Int> {\n    None\n}\n",
-		"fn main() -> Int {\n    1\n}\n",
+		"fn main() -> Result<String, String>\n    Ok(\"hello\")\nend\n",
+		"fn main() -> Maybe<Int>\n    None\nend\n",
+		"fn main() -> Int\n    1\nend\n",
 	} {
 		_, err := vmhost.LoadSource("main.nomi", src)
 		if err == nil {

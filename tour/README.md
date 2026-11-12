@@ -114,7 +114,6 @@ above (`test/`; it skips without Chrome or the staged `public/nomi/`).
 ## Cloudflare Pages
 
 Cloudflare Pages settings:
-
 ```txt
 Framework preset: None
 Build command: make deploy-tour

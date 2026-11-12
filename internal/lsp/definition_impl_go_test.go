@@ -11,13 +11,13 @@ import (
 func TestForeignGoDefinition_TraversesImplBlock(t *testing.T) {
 	src := `gopkg "example.com/binding/ffi" as ffi
 
-struct Widget {
+struct Widget
   value: String
-}
+end
 
-impl Widget {
+impl Widget
   fn echo(value: String) -> String go ffi.Echo
-}
+end
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {

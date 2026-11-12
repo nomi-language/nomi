@@ -1,6 +1,6 @@
 import micro_blog
 
-test "truncate" {
+test "truncate"
     [
         ("English language short", "Hi", "Hi"),
         ("English language long", "Hello there", "Hello"),
@@ -15,15 +15,15 @@ test "truncate" {
         ("Emoji long", "❄🌡🤧🤒🏥🕰😀", "❄🌡🤧🤒🏥"),
         ("Royal Flush?", "🃎🂸🃅🃋🃍🃁🃊", "🃎🂸🃅🃋🃍"),
     ]
-    |> subtests (description, post, expected), description {
+    |> subtests (description, post, expected), description
         assert micro_blog.truncate(post) == expected
-    }
-}
+    end
+end
 
 // Not a canonical case: the canonical data avoids characters made of several
 // codepoints. A family emoji is five codepoints joined into one grapheme, and
 // an "e" with a combining accent is two, so each counts as one character.
-test "graphemes of several codepoints" {
+test "graphemes of several codepoints"
     assert micro_blog.truncate("👨‍👩‍👧 ok and more") == "👨‍👩‍👧 ok "
     assert micro_blog.truncate("cafés") == "cafés"
-}
+end

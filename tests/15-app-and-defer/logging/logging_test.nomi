@@ -1,24 +1,24 @@
 // std/log through an app field: the program logs through App.logger, a test
 // replaces it with log_testing's recorder, and under a virtual clock every
 // record carries the same time.
-import {
+import
     std::io
     std::log.{self, Level, Logger}
     std::log_testing
     std::testing.Clock
     orders_app.{self, App, place_order}
-}
+end
 
-group "logging through an app field" {
+group "logging through an app field"
     clock Clock.Virtual
 
     boot orders_app.boot()
 
-    test "a test records what the program logs" {
-        got = log_testing.run(fn logger -> {
+    test "a test records what the program logs"
+        got = log_testing.run(fn logger ->
             with App.logger = logger
             place_order(42)
-        })
+        end)
 
         assert log_testing.messages(got.records) == ["checking stock", "order placed"]
 
@@ -30,19 +30,19 @@ group "logging through an app field" {
             log.int("order", 42),
             log.bool("rush", False),
         ]
-    }
+    end
 
-    test "a minimum level drops the records below it" {
-        got = log_testing.run(min: Level.Info, fn logger -> {
+    test "a minimum level drops the records below it"
+        got = log_testing.run(min: Level.Info, fn logger ->
             with App.logger = logger
             place_order(7)
-        })
+        end)
 
         assert log_testing.messages(got.records) == ["order placed"]
-    }
+    end
 
-    test "text and JSON lines, at the virtual clock's time" {
-        out = io.capture("", fn -> {
+    test "text and JSON lines, at the virtual clock's time"
+        out = io.capture("", fn ->
             log.warn(
                 Logger.text(io.stdout),
                 "slow",
@@ -51,10 +51,10 @@ group "logging through an app field" {
 
             log.error(Logger.json(io.stdout), "failed", [log.int("code", 500)])
             log.debug(Logger.text(io.stdout), "dropped")
-        })
+        end)
 
         text_line = "time=2000-01-01T00:00:00+00:00 level=WARN msg=slow path=\"/a b\" ms=1.5\n"
         json_line = "{\"time\":\"2000-01-01T00:00:00+00:00\",\"level\":\"ERROR\",\"msg\":\"failed\",\"code\":500}\n"
         assert out.output == text_line + json_line
-    }
-}
+    end
+end

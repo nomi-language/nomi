@@ -1,21 +1,21 @@
-import {
+import
     std::compiler
     test_helpers
-}
+end
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-enum Direction {
+enum Direction
     North
     South
     East
     West
-}
+end
 
-test "concrete annotations assert the inferred type" {
+test "concrete annotations assert the inferred type"
     count: Int = 0
     greeting: String = "hello"
     active: Bool = True
@@ -23,64 +23,64 @@ test "concrete annotations assert the inferred type" {
     assert count == 0
     assert greeting == "hello"
     assert active
-}
+end
 
-test "annotations drive otherwise-unconstrained generic inference" {
-    ages: Map<String, Int> = %{}
+test "annotations drive otherwise-unconstrained generic inference"
+    ages: Map<String, Int> = {}
     scores: List<Int> = []
     buckets: List<Map<String, Int>> = []
 
     assert Map.size(ages) == 0
     assert Iter.count(scores) == 0
     assert Iter.count(buckets) == 0
-}
+end
 
-test "function annotations drive lambda parameter types" {
+test "function annotations drive lambda parameter types"
     add_one: (Int) -> Int = &(&1 + 1)
 
     assert add_one(41) == 42
-}
+end
 
-test "variant constructors compose with annotations" {
+test "variant constructors compose with annotations"
     opt: Maybe<Int> = Some(7)
     res: Result<Int, String> = Ok(42)
 
     assert opt == Some(7)
     assert res == Ok(42)
-}
+end
 
-test "user-defined type annotations preserve the intended type" {
+test "user-defined type annotations preserve the intended type"
     origin: Point = Point{x: 0, y: 0}
     facing: Direction = Direction.North
 
     assert origin.x == 0
     assert facing == Direction.North
-}
+end
 
-test "annotation mismatches are rejected" {
+test "annotation mismatches are rejected"
     diagnostics = compiler.check(
         """
-        fn main() {
+        fn main()
           count: Int = "zero"
           _ = count
-        }
+        end
         """
     )
 
     assert test_helpers.has_diagnostic(diagnostics, "type mismatch: expected Int, got String")
-}
+end
 
-test "annotated bindings expose the annotated hover signature" {
+test "annotated bindings expose the annotated hover signature"
     signature = test_helpers.hover_signature(
         """
-        fn main() {
+        fn main()
           scoˇres: List<Int> = []
           length = Iter.count(scores)
           _ = length
           Unit
-        }
+        end
         """
     )
 
     assert signature == "scores: List<Int>"
-}
+end

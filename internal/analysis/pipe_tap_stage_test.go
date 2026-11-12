@@ -8,14 +8,14 @@ import (
 // whatever the lambda does with it.
 func TestPipeTapStage_AnswersThePipedValue(t *testing.T) {
 	for name, src := range map[string]string{
-		"unit call":       "import std::io\n\nfn f() -> Int {\n    1\n    |> tap fn n -> io.print(Int.to_string(n))\n}\n",
-		"mid pipeline":    "import std::io\n\nfn f() -> List<String> {\n    [1, 2]\n    |> tap fn xs -> io.print(Int.to_string(Iter.count(xs)))\n    |> Iter.map(Int.to_string)\n    |> Iter.to_list()\n}\n",
-		"block body":      "import std::io\n\nfn f() -> Int {\n    3\n    |> tap fn n -> {\n        io.print(\"a\")\n        io.print(Int.to_string(n))\n    }\n}\n",
-		"binding tail":    "fn f() -> Int {\n    3\n    |> tap fn n -> { _ = n + 1 }\n}\n",
-		"dbg tail":        "fn f() -> Int {\n    3\n    |> tap fn n -> dbg n * 2\n}\n",
-		"piped dbg tail":  "fn f() -> Int {\n    3\n    |> tap fn n -> { n |> Int.to_string() |> dbg }\n}\n",
-		"todo body":       "fn f() -> Int {\n    3\n    |> tap fn _ -> todo\n}\n",
-		"after a ? stage": "import std::io\n\nfn f(r: Result<Int, String>) -> Result<Int, String> {\n    x =\n        r\n        |> Result.map_err(fn e -> e)?\n        |> tap fn n -> io.print(Int.to_string(n))\n\n    Ok(x)\n}\n",
+		"unit call":       "import std::io\n\nfn f() -> Int\n    1\n    |> tap fn n -> io.print(Int.to_string(n))\nend\n",
+		"mid pipeline":    "import std::io\n\nfn f() -> List<String>\n    [1, 2]\n    |> tap fn xs -> io.print(Int.to_string(Iter.count(xs)))\n    |> Iter.map(Int.to_string)\n    |> Iter.to_list()\nend\n",
+		"block body":      "import std::io\n\nfn f() -> Int\n    3\n    |> tap fn n ->\n        io.print(\"a\")\n        io.print(Int.to_string(n))\n    end\nend\n",
+		"binding tail":    "fn f() -> Int\n    3\n    |> tap fn n ->\n        _ = n + 1\n    end\nend\n",
+		"dbg tail":        "fn f() -> Int\n    3\n    |> tap fn n -> dbg n * 2\nend\n",
+		"piped dbg tail":  "fn f() -> Int\n    3\n    |> tap fn n ->\n        n |> Int.to_string() |> dbg\n    end\nend\n",
+		"todo body":       "fn f() -> Int\n    3\n    |> tap fn _ -> todo\nend\n",
+		"after a ? stage": "import std::io\n\nfn f(r: Result<Int, String>) -> Result<Int, String>\n    x =\n        r\n        |> Result.map_err(fn e -> e)?\n        |> tap fn n -> io.print(Int.to_string(n))\n\n    Ok(x)\nend\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(src)
@@ -34,13 +34,13 @@ func TestPipeTapStage_LambdaMustReturnUnit(t *testing.T) {
 	}{
 		{
 			"Int body",
-			"fn f() -> Int {\n    1\n    |> tap fn n -> n + 1\n}\n",
+			"fn f() -> Int\n    1\n    |> tap fn n -> n + 1\nend\n",
 			3, 20,
 			"`tap` passes its input on unchanged, so its lambda must return Unit; got Int\nhelp: use `then` to replace the value with the lambda's result",
 		},
 		{
 			"block ending in a value",
-			"import std::io\n\nfn f() -> Int {\n    1\n    |> tap fn n -> {\n        io.print(\"x\")\n        Int.to_string(n)\n    }\n}\n",
+			"import std::io\n\nfn f() -> Int\n    1\n    |> tap fn n ->\n        io.print(\"x\")\n        Int.to_string(n)\n    end\nend\n",
 			7, 9,
 			"`tap` passes its input on unchanged, so its lambda must return Unit; got String\nhelp: use `then` to replace the value with the lambda's result",
 		},
@@ -65,15 +65,15 @@ func TestPipeTapStage_ArityAndBoundary(t *testing.T) {
 	}{
 		{
 			"two parameters",
-			"fn f() -> Int {\n    1\n    |> tap fn _a, _b -> {}\n}\n",
+			"fn f() -> Int\n    1\n    |> tap fn _a, _b -> end\nend\n",
 			3, 12,
 			"a `tap` lambda takes one parameter, the piped value; this one takes 2",
 		},
 		{
 			"parameter after the body",
-			"import std::io\n\nfn f() -> Int {\n    1\n    |> tap fn n -> io.print(Int.to_string(n))\n    |> then fn m -> m + n\n}\n",
+			"import std::io\n\nfn f() -> Int\n    1\n    |> tap fn n -> io.print(Int.to_string(n))\n    |> then fn m -> m + n\nend\n",
 			6, 25,
-			"'n' is the parameter of the `tap` stage on line 5, whose body ends at the next `|>`\nhelp: write `tap fn n -> { ... }` to keep the pipe inside it",
+			"'n' is the parameter of the `tap` stage on line 5, whose body ends at the next `|>`\nhelp: write the body below `tap fn n ->`, closed by `end`, to keep the pipe inside it",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

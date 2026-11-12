@@ -96,42 +96,42 @@ func irTestGroupVMFiles(t *testing.T, src string, siblings map[string]string, wa
 
 const irTestGroupBootSetupSource = `import std::io
 
-pub struct App {
+pub struct App
   context: Context
   label: String
-}
+end
 
-pub fn boot(startup: Startup) -> Result<App, String> {
+pub fn boot(startup: Startup) -> Result<App, String>
   io.print("boot ${startup.args}")
   Ok(App{context: Context.root(), label: "booted"})
-}
+end
 
-fn main() {}
+fn main() end
 
-fn show(suffix: String) -> String {
+fn show(suffix: String) -> String
   App.label + suffix
-}
+end
 
-group "group" {
+group "group"
   boot boot(Startup{args: ["group"]})
-  setup .{n: 1, word: "one"}
+  setup {n: 1, word: "one"}
 
-  test "reads the app and the setup value", .{n, word} {
+  test "reads the app and the setup value", {n:, word:}
     io.print(show("!"))
     assert App.label == "booted"
     assert n == 1
     assert word == "one"
-  }
+  end
 
-  test "binds the value with a name", value {
+  test "binds the value with a name", value
     assert value.n == 1
-  }
+  end
 
-  test "binds the value with a nested pattern", .{n: count, word} {
+  test "binds the value with a nested pattern", {n: count, word:}
     assert count == 1
     assert word == "one"
-  }
-}
+  end
+end
 `
 
 // Each case boots its own app (the boot prints once per case, above the whole
@@ -155,29 +155,29 @@ func TestIRTestGroup_BootSetupAndContextAgree(t *testing.T) {
 	}
 }
 
-const irTestGroupFailingSource = `pub struct App {
+const irTestGroupFailingSource = `pub struct App
   context: Context
   label: String
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), label: "booted"})
-}
+end
 
-fn main() {}
+fn main() end
 
-group "group" {
+group "group"
   boot boot()
-  setup .{word: "one"}
+  setup {word: "one"}
 
-  test "a failing qualified call shows its rows", .{word} {
+  test "a failing qualified call shows its rows", {word:}
     assert String.length(word) == 5
-  }
+  end
 
-  test "a failing app read", .{word} {
+  test "a failing app read", {word:}
     assert App.label == word
-  }
-}
+  end
+end
 `
 
 // A failing assertion's report, including the rows a qualified call inside the
@@ -189,46 +189,46 @@ func TestIRTestGroup_FailureReportsAgree(t *testing.T) {
 	}
 }
 
-const irTestGroupVirtualSource = `import {
+const irTestGroupVirtualSource = `import
   std::duration.Duration
   std::io
   std::supervisors.Supervisor
   std::testing.Clock
   std::timer
-}
+end
 
-pub struct App {
+pub struct App
   context: Context
   work: Supervisor
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), work: Supervisor.new(max_running: 2)})
-}
+end
 
-fn main() {}
+fn main() end
 
-fn slow() -> Unit {
+fn slow() -> Unit
   timer.sleep(Duration.minutes(10))
   io.print("slow work done")
-}
+end
 
-group "virtual" {
+group "virtual"
   clock Clock.Virtual
 
   boot boot()
 
-  test "an hour passes at once" {
+  test "an hour passes at once"
     timer.sleep(Duration.minutes(60))
     assert 1 == 1
-  }
+  end
 
-  test "a group's work is flushed in virtual time" {
+  test "a group's work is flushed in virtual time"
     _ = Supervisor.spawn(App.work, fn -> slow())
     _ = Supervisor.flush(App.work)
     assert 2 == 2
-  }
-}
+  end
+end
 `
 
 // `clock Clock.Virtual` runs each case, its boot and its drain in the bubble a
@@ -251,28 +251,28 @@ func TestIRTestGroup_VirtualClockRunsInTheBubble(t *testing.T) {
 	}
 }
 
-const irTestGroupBootFaultSource = `pub struct App {
+const irTestGroupBootFaultSource = `pub struct App
   context: Context
   n: Int
-}
+end
 
-fn zero() -> Int {
+fn zero() -> Int
   0
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), n: 10 / zero()})
-}
+end
 
-fn main() {}
+fn main() end
 
-group "group" {
+group "group"
   boot boot()
 
-  test "never reaches its body" {
+  test "never reaches its body"
     assert App.n == 10
-  }
-}
+  end
+end
 `
 
 // A fault in a group boot fails the case with the fault's text.
@@ -287,45 +287,45 @@ func TestIRTestGroup_ABootFaultFailsTheCase(t *testing.T) {
 // case's activation and its block extends through the test. A case's own
 // `with` holds to the end of its body.
 func TestIRTestGroup_ASetupWithReachesTheBody(t *testing.T) {
-	const src = `pub struct App {
+	const src = `pub struct App
   context: Context
   label: String
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), label: "booted"})
-}
+end
 
-fn main() {}
+fn main() end
 
-fn label() -> String {
+fn label() -> String
   App.label
-}
+end
 
-group "group" {
+group "group"
   boot boot()
 
-  test "plain" {
+  test "plain"
     assert App.label == "booted"
-  }
-}
+  end
+end
 
-group "overridden" {
+group "overridden"
   boot boot()
-  setup {
+  setup begin
     with App.label = "set up"
-  }
+  end
 
-  test "reads the setup's override" {
+  test "reads the setup's override"
     assert App.label == "set up"
     assert label() == "set up"
-  }
+  end
 
-  test "reads its own override" {
+  test "reads its own override"
     with App.label = "own"
     assert label() == "own"
-  }
-}
+  end
+end
 `
 	run := irTestGroupVM(t, src, 3)
 	if run.vm.exit != 0 {
@@ -379,94 +379,94 @@ func TestIRTestGroup_TheRunnerRefusesAnUnrecordedBoot(t *testing.T) {
 func TestIRTestGroup_ASetupReturnIsItsValue(t *testing.T) {
 	const src = `import std::io
 
-fn main() {}
+fn main() end
 
-group "plain return" {
-  setup {
+group "plain return"
+  setup begin
     x = 1
     return x + 1
-  }
+  end
 
-  test "binds the returned value", v {
+  test "binds the returned value", v
     assert v == 2
-  }
-}
+  end
+end
 
-group "early return" {
-  setup {
+group "early return"
+  setup begin
     flag = True
-    if flag {
+    if flag then
       io.print("early")
       return "early"
-    }
+    end
     io.print("late")
     "late"
-  }
+  end
 
-  test "binds the early value", v {
+  test "binds the early value", v
     io.print("body sees ${v}")
     assert v == "early"
-  }
-}
+  end
+end
 
-group "falls past an early return" {
-  setup {
+group "falls past an early return"
+  setup begin
     flag = False
-    if flag {
+    if flag then
       return (1, "one")
-    }
+    end
     (2, "two")
-  }
+  end
 
-  test "binds the tail value", (n, s) {
+  test "binds the tail value", (n, s)
     assert n == 2
     assert s == "two"
-  }
-}
+  end
+end
 
-group "return in a case arm" {
-  setup {
-    case Some(3) {
+group "return in a case arm"
+  setup begin
+    case Some(3)
       Some(n) -> return n * 10
-      None -> {}
-    }
+      None -> Unit
+    end
     0
-  }
+  end
 
-  test "binds the arm's value", v {
+  test "binds the arm's value", v
     assert v == 30
-  }
-}
+  end
+end
 
-group "return from a block" {
-  setup {
-    {
+group "return from a block"
+  setup begin
+    begin
       defer io.print("block closed")
       io.print("in block")
       return 7
-    }
-  }
+    end
+  end
 
-  test "runs the block's defer first", v {
+  test "runs the block's defer first", v
     io.print("body")
     assert v == 7
-  }
-}
+  end
+end
 
-group "bare return in a Unit setup" {
-  setup {
+group "bare return in a Unit setup"
+  setup begin
     io.print("before")
-    if True {
+    if True then
       return
-    }
+    end
     io.print("never")
-  }
+  end
 
-  test "runs the body" {
+  test "runs the body"
     io.print("body after a bare return")
     assert True
-  }
-}
+  end
+end
 `
 	run := irTestGroupVM(t, src, 6)
 	if run.vm.exit != 0 || !strings.Contains(run.vm.stdout, "6 passed, 0 failed") {
@@ -496,44 +496,44 @@ group "bare return in a Unit setup" {
 func TestIRTestGroup_ASetupsFailedCheckFailsTheTest(t *testing.T) {
 	const src = `import std::testing
 
-fn main() {}
+fn main() end
 
-group "expression" {
+group "expression"
   setup testing.check(1 == 2)
 
-  test "fails", _r {
+  test "fails", _r
     assert True
-  }
-}
+  end
+end
 
-group "block tail" {
-  setup {
+group "block tail"
+  setup begin
     n = 3
     testing.check(n == 4)
-  }
+  end
 
-  test "fails too", _r {
+  test "fails too", _r
     assert True
-  }
-}
+  end
+end
 
-group "return" {
-  setup {
+group "return"
+  setup begin
     return testing.check(5 == 6)
-  }
+  end
 
-  test "fails as well", _r {
+  test "fails as well", _r
     assert True
-  }
-}
+  end
+end
 
-group "ok" {
+group "ok"
   setup testing.check(5 > 1)
 
-  test "binds the Ok", r {
+  test "binds the Ok", r
     assert r == Ok(True)
-  }
-}
+  end
+end
 `
 	run := irTestGroupVM(t, src, 4)
 	if run.vm.exit == 0 || !strings.Contains(run.vm.stdout, "1 passed, 3 failed") {

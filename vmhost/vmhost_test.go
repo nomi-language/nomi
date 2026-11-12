@@ -16,34 +16,34 @@ import (
 // the builder declines `count` at its call to `planted_decline`.
 const blockedProgram = `import std::io
 
-fn count(n: Int, acc: Int) -> Int {
-  if n == 0 {
+fn count(n: Int, acc: Int) -> Int
+  if n == 0 then
     acc
-  } else {
+  else
     planted_decline(n) + 3
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print("before")
   io.print(Int.to_string(count(3, 0)))
-}
+end
 
-test "counts" {
+test "counts"
   assert count(3, 0) == 3
-}
+end
 
-test "adds" {
+test "adds"
   assert 1 + 2 == 3
-}
+end
 
-test "fails" {
+test "fails"
   assert 1 + 2 == 4
-}
+end
 
-fn planted_decline(n: Int) -> Int {
+fn planted_decline(n: Int) -> Int
   n
-}
+end
 `
 
 func writeProgram(t *testing.T, src string) string {
@@ -58,13 +58,13 @@ func writeProgram(t *testing.T, src string) string {
 func TestRun_ARetainedProgramRunsOnTheVM(t *testing.T) {
 	path := writeProgram(t, `import std::io
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
   n * 2
-}
+end
 
-fn main() {
+fn main()
   io.print(Int.to_string(double(21)))
-}
+end
 `)
 	p, err := vmhost.Load(path)
 	if err != nil {
@@ -216,9 +216,9 @@ func TestTest_LineSelectsOneCase(t *testing.T) {
 func TestLoadSource_RunsAVirtualProgram(t *testing.T) {
 	p, err := vmhost.LoadSource("main", `import std::io
 
-fn main() {
+fn main()
   io.print("hi")
-}
+end
 `)
 	if err != nil {
 		t.Fatal(err)

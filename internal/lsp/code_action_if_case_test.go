@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -48,7 +49,7 @@ func ifCaseRoundTrip(t *testing.T, src, there, back string) {
 	if there == toIfElse {
 		kw = "if"
 	}
-	at += strings.Index(mid[at:], kw+" ")
+	at += regexp.MustCompile(`\b` + kw + `[ \n]`).FindStringIndex(mid[at:])[0]
 	again := checkRefactor(t, mid[:at]+"‸"+mid[at:], back, protocol.CodeActionKindRefactorRewrite)
 	if again != clean {
 		t.Errorf("round trip:\n%s\nvia:\n%s\nback:\n%s", clean, mid, again)
@@ -58,22 +59,22 @@ func ifCaseRoundTrip(t *testing.T, src, there, back string) {
 func TestIfCase_ChainToSubjectlessCase(t *testing.T) {
 	src := fnMain(`x = 3
 
-label = ‸if x > 10 {
+label = ‸if x > 10 then
     "big"
-} else if x > 0 {
+else if x > 0 then
     "positive"
-} else {
+else
     "other"
-}
+end
 
 io.print(label)`)
 	convertIfCase(t, src, toCase, fnMain(`x = 3
 
-label = case {
+label = case
     x > 10 -> "big"
     x > 0 -> "positive"
     _ -> "other"
-}
+end
 
 io.print(label)`))
 }
@@ -81,22 +82,22 @@ io.print(label)`))
 func TestIfCase_SubjectlessCaseToChain(t *testing.T) {
 	src := fnMain(`x = 3
 
-label = ‸case {
+label = ‸case
     x > 10 -> "big"
     x > 0 -> "positive"
     _ -> "other"
-}
+end
 
 io.print(label)`)
 	convertIfCase(t, src, toIfElse, fnMain(`x = 3
 
-label = if x > 10 {
+label = if x > 10 then
     "big"
-} else if x > 0 {
+else if x > 0 then
     "positive"
-} else {
+else
     "other"
-}
+end
 
 io.print(label)`))
 }
@@ -105,93 +106,93 @@ func TestIfCase_RoundTrips(t *testing.T) {
 	cases := map[string]struct{ src, there, back string }{
 		"chain": {fnMain(`x = 3
 
-‸if x > 10 {
+‸if x > 10 then
     io.print("big")
-} else if x > 0 {
+else if x > 0 then
     io.print("positive")
-} else {
+else
     io.print("other")
-}`), toCase, toIfElse},
+end`), toCase, toIfElse},
 		"case to chain": {fnMain(`x = 3
 
-‸case {
+‸case
     x > 10 -> io.print("big")
     x > 0 -> io.print("positive")
     _ -> io.print("other")
-}`), toIfElse, toCase},
+end`), toIfElse, toCase},
 		"block arms": {fnMain(`x = 3
 
-label = ‸case {
-    x > 10 -> {
+label = ‸case
+    x > 10 ->
         y = x * 2
         "big ${y}"
-    }
 
-    _ -> "small"
-}
+    _ ->
+        "small"
+end
 
 io.print(label)`), toIfElse, toCase},
 		"unit no else": {fnMain(`x = 3
 
-‸if x > 10 { io.print("big") }`), toCase, toIfElse},
+‸if x > 10 then io.print("big")`), toCase, toIfElse},
 		"pattern if": {fnMain(`m = Some(3)
 
-n = ‸if Some(v) = m { v } else { 0 }
+n = ‸if Some(v) = m then v else 0
 
 io.print(n)`), toCase, toIfElse},
 		"pattern case": {fnMain(`m = Some(3)
 
-n = ‸case m {
+n = ‸case m
     Some(v) -> v
     _ -> 0
-}
+end
 
 io.print(n)`), toIfElse, toCase},
 		"pattern if unit": {fnMain(`m = Some(3)
 
-‸if Some(v) = m { io.print(v) }`), toCase, toIfElse},
+‸if Some(v) = m then io.print(v)`), toCase, toIfElse},
 		"pattern if else if": {fnMain(`m = Some(3)
 x = 2
 
-n = ‸if Some(v) = m {
+n = ‸if Some(v) = m then
     v
-} else if x > 1 {
+else if x > 1 then
     x
-} else {
+else
     0
-}
+end
 
 io.print(n)`), toCase, toIfElse},
 		"literal case": {fnMain(`n = 2
 
-label = ‸case n {
+label = ‸case n
     1 -> "one"
     -2 -> "minus two"
     _ -> "many"
-}
+end
 
 io.print(label)`), toIfElse, "Convert to case on 'n'"},
-		"literal string field": {fnMainAfter("struct P {\n    name: String\n}\n\n", `p = P{name: "a"}
+		"literal string field": {fnMainAfter("struct P\n    name: String\nend\n\n", `p = P{name: "a"}
 
-‸if p.name == "a" {
+‸if p.name == "a" then
     io.print(1)
-} else if p.name == "b" {
+else if p.name == "b" then
     io.print(2)
-}`), "Convert to case on 'p.name'", toIfElse},
+end`), "Convert to case on 'p.name'", toIfElse},
 		"in a lambda": {fnMain(`xs = [1, 2, 3]
 
-Iter.each(xs, fn x -> {
+Iter.each(xs, fn x ->
     y = x + 1
 
-    ‸if y > 1 { io.print(x) } else { io.print(0) }
-})`), toCase, toIfElse},
+    ‸if y > 1 then io.print(x) else io.print(0)
+end)`), toCase, toIfElse},
 		"control flow arms": {fnMain(`xs = [1, 2, 3]
 
-Iter.each(xs, fn x -> {
+Iter.each(xs, fn x ->
     y = x + 1
 
-    ‸if y == 2 { continue } else { io.print(x) }
-})`), toCase, toIfElse},
+    ‸if y == 2 then continue else io.print(x)
+end)`), toCase, toIfElse},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) { ifCaseRoundTrip(t, c.src, c.there, c.back) })
@@ -201,32 +202,32 @@ Iter.each(xs, fn x -> {
 func TestIfCase_LiteralChainToCase(t *testing.T) {
 	src := fnMain(`n = 2
 
-label = ‸if n == 1 {
+label = ‸if n == 1 then
     "one"
-} else if n == -2 {
+else if n == -2 then
     "minus two"
-} else {
+else
     "many"
-}
+end
 
 io.print(label)`)
 	convertIfCase(t, src, "Convert to case on 'n'", fnMain(`n = 2
 
-label = case n {
+label = case n
     1 -> "one"
     -2 -> "minus two"
     _ -> "many"
-}
+end
 
 io.print(label)`))
 	// The same chain also converts to a subject-less case.
 	convertIfCase(t, src, toCase, fnMain(`n = 2
 
-label = case {
+label = case
     n == 1 -> "one"
     n == -2 -> "minus two"
     _ -> "many"
-}
+end
 
 io.print(label)`))
 }
@@ -234,15 +235,15 @@ io.print(label)`))
 func TestIfCase_PatternCaseToIf(t *testing.T) {
 	src := fnMain(`m = Some(3)
 
-n = ‸case m {
+n = ‸case m
     Some(v) -> v
     _ -> 0
-}
+end
 
 io.print(n)`)
 	convertIfCase(t, src, toIfElse, fnMain(`m = Some(3)
 
-n = if Some(v) = m { v } else { 0 }
+n = if Some(v) = m then v else 0
 
 io.print(n)`))
 }
@@ -251,24 +252,25 @@ func TestIfCase_NestedInArm(t *testing.T) {
 	src := fnMain(`x = 3
 m = Some(1)
 
-label = case m {
-    Some(v) -> ‸if v > x { "more" } else { "less" }
+label = case m
+    Some(v) -> ‸if v > x then "more" else "less"
     None -> "none"
-}
+end
 
 io.print(label)`)
 	convertIfCase(t, src, toCase, fnMain(`x = 3
 m = Some(1)
 
-label = case m {
+label = case m
     Some(v) ->
-        case {
+        case
             v > x -> "more"
             _ -> "less"
-        }
+        end
 
-    None -> "none"
-}
+    None ->
+        "none"
+end
 
 io.print(label)`))
 }
@@ -276,22 +278,22 @@ io.print(label)`))
 func TestIfCase_ElseIfRungHeaderConvertsWholeChain(t *testing.T) {
 	src := fnMain(`x = 3
 
-label = if x > 10 {
+label = if x > 10 then
     "big"
-} el‸se if x > 0 {
+el‸se if x > 0 then
     "positive"
-} else {
+else
     "other"
-}
+end
 
 io.print(label)`)
 	convertIfCase(t, src, toCase, fnMain(`x = 3
 
-label = case {
+label = case
     x > 10 -> "big"
     x > 0 -> "positive"
     _ -> "other"
-}
+end
 
 io.print(label)`))
 }
@@ -299,47 +301,45 @@ io.print(label)`))
 func TestIfCase_CommentsKept(t *testing.T) {
 	src := fnMain(`x = 3
 
-label = ‸if x > 10 {
+label = ‸if x > 10 then
     // large
     "big"
-} else {
+else
     "other" // fallback
-}
+end
 
 io.print(label)`)
 	ifCaseRoundTrip(t, src, toCase, toIfElse)
 	convertIfCase(t, src, toCase, fnMain(`x = 3
 
-label = case {
-    x > 10 -> {
+label = case
+    x > 10 ->
         // large
         "big"
-    }
 
-    _ -> {
+    _ ->
         "other" // fallback
-    }
-}
+end
 
 io.print(label)`))
 
 	// An arm's own comments move into the branch block.
 	convertIfCase(t, fnMain(`x = 3
 
-label = ‸case {
+label = ‸case
     // large
     x > 10 -> "big"
     _ -> "other" // fallback
-}
+end
 
 io.print(label)`), toIfElse, fnMain(`x = 3
 
-label = if x > 10 {
+label = if x > 10 then
     // large
     "big"
-} else {
+else
     "other" // fallback
-}
+end
 
 io.print(label)`))
 }
@@ -348,66 +348,66 @@ func TestIfCase_Refusals(t *testing.T) {
 	cases := map[string]string{
 		"in the body": fnMain(`x = 3
 
-label = if x > 10 { "bi‸g" } else { "other" }
+label = if x > 10 then "bi‸g" else "other"
 
 io.print(label)`),
 		"guard": fnMain(`m = Some(3)
 
-label = ‸case m {
+label = ‸case m
     Some(v) when v > 1 -> "big"
     _ -> "other"
-}
+end
 
 io.print(label)`),
 		"binding arm": fnMain(`n = 3
 
-label = ‸case n {
+label = ‸case n
     1 -> "one"
     other -> "${other}"
-}
+end
 
 io.print(label)`),
 		"three pattern arms": fnMain(`r: Result<Int, String> = Ok(1)
 
-label = ‸case r {
+label = ‸case r
     Ok(1) -> "one"
     Ok(_) -> "other"
     Err(_) -> "err"
-}
+end
 
 io.print(label)`),
-		"effectful subject": fnMainAfter("fn next() -> Int {\n    3\n}\n\n", `label = ‸case next() {
+		"effectful subject": fnMainAfter("fn next() -> Int\n    3\nend\n\n", `label = ‸case next()
     1 -> "one"
     _ -> "many"
-}
+end
 
 io.print(label)`),
 		"float literal": fnMain(`f = 1.5
 
-label = ‸case f {
+label = ‸case f
     1.5 -> "x"
     _ -> "y"
-}
+end
 
 io.print(label)`),
 		"pattern rung later": fnMain(`x = 3
 m = Some(1)
 
-label = ‸if x > 1 {
+label = ‸if x > 1 then
     "a"
-} else if Some(v) = m {
+else if Some(v) = m then
     "${v}"
-} else {
+else
     "c"
-}
+end
 
 io.print(label)`),
 		"pipe stage case": fnMain(`m = Some(3)
 
-n = m |> ‸case {
+n = m |> ‸case
     Some(v) -> v
     _ -> 0
-}
+end
 
 io.print(n)`),
 	}
@@ -425,13 +425,13 @@ func TestIfCase_LiteralCaseNeedsOneSubject(t *testing.T) {
 	actions, _ := refactorActions(t, s, fnMain(`a = 1
 b = 2
 
-label = ‸if a == 1 {
+label = ‸if a == 1 then
     "x"
-} else if b == 2 {
+else if b == 2 then
     "y"
-} else {
+else
     "z"
-}
+end
 
 io.print(label)`))
 	titles := actionTitles(actions)
@@ -446,11 +446,11 @@ func TestIfCase_RefusedWhenACommentWouldBeLost(t *testing.T) {
 	// no place for it.
 	src := fnMain(`x = 3
 
-label = ‸case {
+label = ‸case
     x > 10 -> "big"
     _ -> "other"
     // end
-}
+end
 
 io.print(label)`)
 	assertFormatted(t, src)
@@ -460,17 +460,17 @@ io.print(label)`)
 func TestIfCase_StructLiteralConditionConverts(t *testing.T) {
 	// A struct literal starts with its name or `.`, so it reads the same in an `if`
 	// condition as in a case arm, and the conversion is offered.
-	src := fnMainAfter("struct P {\n    x: Int\n}\n\n", `p = P{x: 1}
+	src := fnMainAfter("struct P\n    x: Int\nend\n\n", `p = P{x: 1}
 
-label = ‸case {
+label = ‸case
     p == P{x: 1} -> "one"
     _ -> "other"
-}
+end
 
 io.print(label)`)
 	assertFormatted(t, src)
 	got := checkRefactor(t, src, toIfElse, protocol.CodeActionKindRefactorRewrite)
-	if !strings.Contains(got, "if p == (P{x: 1}) {") {
+	if !strings.Contains(got, "if p == P{x: 1} then") {
 		t.Fatalf("the condition did not keep its literal:\n%s", got)
 	}
 }

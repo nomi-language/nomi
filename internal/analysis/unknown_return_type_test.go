@@ -12,9 +12,9 @@ import (
 // Unit with what the caller wanted.
 func TestUnknownReturnType_IsTheOnlyError(t *testing.T) {
 	rows := []struct{ name, src string }{
-		{"a function", "fn f() -> Itn {\n    1\n}\n\nfn main() {\n    _ = f() + 1\n}\n"},
-		{"inside a type argument", "fn g(x: Int) -> Maybe<Itn> {\n    Some(x)\n}\n\nfn main() {\n    _ = Maybe.with_default(g(1), 2)\n}\n"},
-		{"an impl function", "struct P {\n    x: Int\n}\n\nimpl P {\n    fn x_of(p: P) -> Itn {\n        p.x\n    }\n}\n\nfn main() {\n    _ = P.x_of(P{x: 1}) + 1\n}\n"},
+		{"a function", "fn f() -> Itn\n    1\nend\n\nfn main()\n    _ = f() + 1\nend\n"},
+		{"inside a type argument", "fn g(x: Int) -> Maybe<Itn>\n    Some(x)\nend\n\nfn main()\n    _ = Maybe.with_default(g(1), 2)\nend\n"},
+		{"an impl function", "struct P\n    x: Int\nend\n\nimpl P\n    fn x_of(p: P) -> Itn\n        p.x\n    end\nend\n\nfn main()\n    _ = P.x_of(P{x: 1}) + 1\nend\n"},
 	}
 	for _, r := range rows {
 		t.Run(r.name, func(t *testing.T) {

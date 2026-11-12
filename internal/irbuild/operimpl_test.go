@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -29,42 +30,42 @@ func operGen(t *testing.T, src string) (*gen, []Unsupported) {
 // different right-hand types, which is the shape `implsByIface`'s key collapses.
 const operThreeAdds = `type Day Int
 
-fn day_value(day: Day) -> Int {
+fn day_value(day: Day) -> Int
   Day(n) = day
   n
-}
+end
 
 type Days Int
 
-fn days_value(days: Days) -> Int {
+fn days_value(days: Days) -> Int
   Days(n) = days
   n
-}
+end
 
 type Weeks Int
 
-fn weeks_value(weeks: Weeks) -> Int {
+fn weeks_value(weeks: Weeks) -> Int
   Weeks(n) = weeks
   n
-}
+end
 
-impl Add<Days, Day> for Day {
-  fn add(lhs: Day, rhs: Days) -> Day {
+impl Add<Days, Day> for Day
+  fn add(lhs: Day, rhs: Days) -> Day
     Day(day_value(lhs) + days_value(rhs))
-  }
-}
+  end
+end
 
-impl Add<Weeks, Day> for Day {
-  fn add(lhs: Day, rhs: Weeks) -> Day {
+impl Add<Weeks, Day> for Day
+  fn add(lhs: Day, rhs: Weeks) -> Day
     Day(day_value(lhs) + weeks_value(rhs) * 7)
-  }
-}
+  end
+end
 
-impl Subtract<Days, Day> for Day {
-  fn subtract(lhs: Day, rhs: Days) -> Day {
+impl Subtract<Days, Day> for Day
+  fn subtract(lhs: Day, rhs: Days) -> Day
     Day(day_value(lhs) - days_value(rhs))
-  }
-}
+  end
+end
 `
 
 // TestOperImpl_OperatorImplsNeverEnterImplsByIface is the guard on operator
@@ -146,16 +147,16 @@ func TestOperImpl_ThreeAddsForOneReceiverAllSurvive(t *testing.T) {
 func TestOperImpl_TheFourInterfacesAnchor(t *testing.T) {
 	const src = `type Score Int
 
-fn score_value(s: Score) -> Int {
+fn score_value(s: Score) -> Int
   Score(n) = s
   n
-}
+end
 
-impl Add<Score, Score> for Score {
-  fn add(lhs: Score, rhs: Score) -> Score {
+impl Add<Score, Score> for Score
+  fn add(lhs: Score, rhs: Score) -> Score
     Score(score_value(lhs) + score_value(rhs))
-  }
-}
+  end
+end
 `
 	p, err := AnalyzeSource("operimpl_anchor", src)
 	if err != nil {
@@ -203,9 +204,14 @@ impl Add<Score, Score> for Score {
 func TestOperImpl_TheFourNamesAreReserved(t *testing.T) {
 	for _, s := range operIfaceSpecs {
 		t.Run(s.nomi, func(t *testing.T) {
-			src := "pub interface " + s.nomi + "<Rhs, Out> {\n  fn " + s.method +
-				"(lhs: self, rhs: Rhs): Out\n}\n"
-			if _, err := AnalyzeSource("operimpl_reserved", src); err == nil {
+			src := "pub interface " + s.nomi + "<Rhs, Out>\n  fn " + s.method +
+				"(lhs: self, rhs: Rhs) -> Out\nend\n"
+			_, err := AnalyzeSource("operimpl_reserved", src)
+			if err != nil && !strings.Contains(err.Error(), "is reserved") {
+				t.Errorf("the analyzer rejects `pub interface %s` for another reason, so the "+
+					"reservation is untested: %v", s.nomi, err)
+			}
+			if err == nil {
 				t.Errorf("the analyzer accepted `pub interface %s`. operIfaceByName is "+
 					"name-keyed, so a declarable spec name is a reachable wrong answer "+
 					"rather than a coverage gap — and the import check in "+
@@ -227,28 +233,28 @@ func TestOperImpl_TheFourFrontEndFencesStillHold(t *testing.T) {
 	const decls = `type Score Int
 type Other Int
 
-fn score_value(s: Score) -> Int {
+fn score_value(s: Score) -> Int
   Score(n) = s
   n
-}
+end
 `
 	for _, row := range []struct{ name, impl string }{{
 		"the rhs disagrees with the header",
-		"impl Add<Score, Score> for Score {\n  fn add(lhs: Score, rhs: Other) -> Score { _ = rhs;\n" +
-			"    Score(score_value(lhs))\n  }\n}\n",
+		"impl Add<Score, Score> for Score\n  fn add(lhs: Score, rhs: Other) -> Score\n    _ = rhs\n" +
+			"    Score(score_value(lhs))\n  end\nend\n",
 	}, {
 		"the result disagrees with the header",
-		"impl Add<Score, Score> for Score {\n  fn add(lhs: Score, rhs: Score) -> Other { _ = rhs;\n" +
-			"    Other(score_value(lhs))\n  }\n}\n",
+		"impl Add<Score, Score> for Score\n  fn add(lhs: Score, rhs: Score) -> Other\n    _ = rhs\n" +
+			"    Other(score_value(lhs))\n  end\nend\n",
 	}, {
 		"a second function in the block",
-		"impl Add<Score, Score> for Score {\n" +
-			"  fn add(lhs: Score, rhs: Score) -> Score { _ = rhs;\n    Score(score_value(lhs))\n  }\n" +
-			"  fn extra(lhs: Score) -> Score {\n    lhs\n  }\n}\n",
+		"impl Add<Score, Score> for Score\n" +
+			"  fn add(lhs: Score, rhs: Score) -> Score\n      _ = rhs\n    Score(score_value(lhs))\n  end\n" +
+			"  fn extra(lhs: Score) -> Score\n    lhs\n  end\nend\n",
 	}, {
 		"the wrong method name",
-		"impl Add<Score, Score> for Score {\n  fn plus(lhs: Score, rhs: Score) -> Score { _ = rhs;\n" +
-			"    Score(score_value(lhs))\n  }\n}\n",
+		"impl Add<Score, Score> for Score\n  fn plus(lhs: Score, rhs: Score) -> Score\n    _ = rhs\n" +
+			"    Score(score_value(lhs))\n  end\nend\n",
 	}} {
 		t.Run(row.name, func(t *testing.T) {
 			if _, err := AnalyzeSource("operimpl_fence", decls+row.impl); err == nil {
@@ -268,17 +274,18 @@ fn score_value(s: Score) -> Int {
 // The operator route must claim ONLY the four anchored stdlib interfaces. A user generic
 // interface must reach `g.operImpls` never, whatever else happens to it.
 func TestOperImpl_TheOperatorRouteClaimsOnlyTheFour(t *testing.T) {
-	const src = `interface Pair<A, B> {
+	const src = `interface Pair<A, B>
   fn combine(v: self, other: A) -> B
-}
+end
 
 type Score Int
 
-impl Pair<Score, Score> for Score {
-  fn combine(v: Score, other: Score) -> Score { _ = other;
+impl Pair<Score, Score> for Score
+  fn combine(v: Score, other: Score) -> Score
+      _ = other
     v
-  }
-}
+  end
+end
 `
 	g, _ := operGen(t, src)
 	if len(g.operImpls) != 0 {

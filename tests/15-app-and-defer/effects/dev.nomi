@@ -1,4 +1,4 @@
-import {
+import
     // dev app wiring. Data fields take their EffectsApp defaults;
     // dependency fields are constructed explicitly (interface fields
     // can't carry defaults). Returns the full EffectsApp payload; the
@@ -7,13 +7,13 @@ import {
     clocks.FakeClock
     console.StdConsole
     log.ProdLogger
-}
+end
 
-pub fn build(context: Context) -> EffectsApp {
+pub fn build(context: Context) -> EffectsApp
     EffectsApp{
-        context,
+        context:,
         logger: ProdLogger,
         clock: FakeClock{at: 0},
         console: StdConsole,
     }
-}
+end

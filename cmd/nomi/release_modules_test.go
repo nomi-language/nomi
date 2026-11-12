@@ -75,7 +75,7 @@ func TestReleaseArchive_RunsAGoBindingFromAFetchedModule(t *testing.T) {
 		"nomi.toml": "[module]\nname = \"greet\"\n",
 		"greet.nomi": "gopkg \"example.com/greet/goside\" as goside\n\n" +
 			"fn shout(s: String) -> String go goside.Shout\n\n" +
-			"/// Greets name, loudly.\npub fn hello(name: String) -> String {\n    shout(\"hello, ${name}\")\n}\n",
+			"/// Greets name, loudly.\npub fn hello(name: String) -> String\n    shout(\"hello, ${name}\")\nend\n",
 		"goside/goside.go": "package goside\n\nimport \"strings\"\n\nfunc Shout(s string) string { return strings.ToUpper(s) + \"!\" }\n",
 	})
 
@@ -92,7 +92,7 @@ func TestReleaseArchive_RunsAGoBindingFromAFetchedModule(t *testing.T) {
 	app := filepath.Join(tmp, "app")
 	mustWrite(t, filepath.Join(app, "go.mod"), "module example.com/app\n\ngo 1.27.0\n")
 	mustWrite(t, filepath.Join(app, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	mustWrite(t, filepath.Join(app, "main.nomi"), "import {\n    greet\n    std::io\n}\n\nfn main() {\n    io.print(greet.hello(\"you\"))\n}\n")
+	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    greet\n    std::io\nend\n\nfn main()\n    io.print(greet.hello(\"you\"))\nend\n")
 
 	toolchains := filepath.Join(tmp, "toolchains")
 	env := []string{

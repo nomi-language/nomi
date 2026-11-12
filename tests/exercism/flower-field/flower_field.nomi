@@ -5,7 +5,7 @@ once neighbours = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0),
 
 /// Writes the count of adjacent flowers into each empty square of a board of
 /// `*` flowers and ` ` spaces. A square next to no flower stays a space.
-pub fn annotate(garden: List<String>) -> List<String> {
+pub fn annotate(garden: List<String>) -> List<String>
     flowers =
         garden
         |> Iter.with_index()
@@ -14,30 +14,26 @@ pub fn annotate(garden: List<String>) -> List<String> {
 
     garden
     |> Iter.with_index()
-    |> Iter.map(fn (row, line) -> {
+    |> Iter.map(fn (row, line) ->
         line
         |> Iter.with_index()
         |> Iter.map(fn (column, square) -> annotate_square(flowers, (row, column), square))
         |> String.join()
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
-fn flowers_in_row(row: Int, line: String) -> Iter<(Int, Int)> {
+fn flowers_in_row(row: Int, line: String) -> Iter<(Int, Int)>
     line
     |> Iter.with_index()
     |> Iter.filter(fn (_column, square) -> square == "*")
     |> Iter.map(fn (column, _square) -> (row, column))
-}
+end
 
-fn annotate_square(flowers: Set<(Int, Int)>, (row, column): (Int, Int), square: String) -> String {
-    if square == "*" { return square }
+fn annotate_square(flowers: Set<(Int, Int)>, (row, column): (Int, Int), square: String) -> String
+    if square == "*" then return square
 
     count = Iter.count_by(neighbours, fn (dr, dc) -> (row + dr, column + dc) in flowers)
 
-    if count == 0 {
-        " "
-    } else {
-        Int.to_string(count)
-    }
-}
+    if count == 0 then " " else Int.to_string(count)
+end

@@ -14,37 +14,31 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# The runs of adjacent digits of one length in a string of digits.
 
 /// Why a series has no slices of the length asked for.
-pub enum Error {
+pub enum Error
     EmptySeries
     ZeroLength
     NegativeLength
     LengthTooLarge
-}
+end
 
 /// Every run of `length` adjacent characters in `series`, in the order they
 /// start. Runs overlap, and equal runs are all kept.
-pub fn slices(series: String, length: Int) -> Result<List<String>, Error> {
+pub fn slices(series: String, length: Int) -> Result<List<String>, Error>
     size = String.length(series)
 
-    case {
+    case
         size == 0 -> Err(.EmptySeries)
         length < 0 -> Err(.NegativeLength)
         length == 0 -> Err(.ZeroLength)
         length > size -> Err(.LengthTooLarge)
-
-        _ ->
-            series
-            |> Iter.windows(length)
-            |> Iter.map(String.join)
-            |> Iter.to_list()
-            |> Ok()
-    }
-}
+        _ -> series |> Iter.windows(length) |> Iter.map(String.join) |> Iter.to_list() |> Ok()
+    end
+end
 
 // FILE: series_test.nomi
 import series.{self, Error}
 
-test "slices" {
+test "slices"
     [
         ("slices of one from one", "1", 1, ["1"]),
         ("slices of one from two", "12", 1, ["1", "2"]),
@@ -58,12 +52,12 @@ test "slices" {
             ["91849", "18493", "84939", "49390", "93904", "39042", "90424", "04243"],
         ),
     ]
-    |> subtests (description, digits, length, expected), description {
+    |> subtests (description, digits, length, expected), description
         assert series.slices(digits, length) == Ok(expected)
-    }
-}
+    end
+end
 
-test "errors" {
+test "errors"
     [
         ("slice length is too large", "12345", 6, Error.LengthTooLarge),
         ("slice length is way too large", "12345", 42, .LengthTooLarge),
@@ -71,10 +65,10 @@ test "errors" {
         ("slice length cannot be negative", "123", -1, .NegativeLength),
         ("empty series is invalid", "", 1, .EmptySeries),
     ]
-    |> subtests (description, digits, length, expected), description {
+    |> subtests (description, digits, length, expected), description
         assert series.slices(digits, length) == Err(expected)
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok slices (6 cases)

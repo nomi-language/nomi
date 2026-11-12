@@ -1,64 +1,64 @@
-import {
+import
     std::compiler
     std::json.Json.{self, Int as JInt, String as JStr}
     test_helpers
-}
+end
 
-enum VariantShape {
+enum VariantShape
     Circle Float
     Square Float
     Origin
-}
+end
 
-fn area(s: VariantShape) -> Float {
-    case s {
+fn area(s: VariantShape) -> Float
+    case s
         .Circle(r) -> 3.14 * r * r
         .Square(side) -> side * side
         .Origin -> 0.0
-    }
-}
+    end
+end
 
-fn make_shape() -> VariantShape {
+fn make_shape() -> VariantShape
     VariantShape.Circle(2.0)
-}
+end
 
-fn try_describe(s: Maybe<VariantShape>) -> String {
-    case s {
+fn try_describe(s: Maybe<VariantShape>) -> String
+    case s
         Some(.Circle(r)) -> "circle radius=${r}"
         Some(_) -> "other shape"
         None -> "no shape"
-    }
-}
+    end
+end
 
-fn classify(n: Int) -> Result<String, String> {
-    case n {
+fn classify(n: Int) -> Result<String, String>
+    case n
         0 -> Ok("zero")
         x when x > 0 -> Ok("positive")
         _ -> Err("negative")
-    }
-}
+    end
+end
 
-fn json_encode_kind(jv: Json) -> String {
-    case jv {
+fn json_encode_kind(jv: Json) -> String
+    case jv
         .Obj(_) -> "obj-with-2"
         .Null -> "null"
         _ -> "other"
-    }
-}
+    end
+end
 
-test "bare variants resolve in pattern position and owner selector imports" {
-    hand_built = %Json.Obj{"name" => JStr("Ada"), "age" => JInt(36)}
+test "bare variants resolve in pattern position and owner selector imports"
+    hand_built = Json.Obj{"name" => JStr("Ada"), "age" => JInt(36)}
     null_jv: Json = Json.Null
 
-    json_pattern = case hand_built {
+    json_pattern = case hand_built
         .Obj(_) -> "got-obj"
         _ -> "no"
-    }
+    end
 
-    classified = case classify(7) {
+    classified = case classify(7)
         Ok(s) -> "good: ${s}"
         Err(e) -> "bad: ${e}"
-    }
+    end
 
     assert area(VariantShape.Square(3.0)) == 9.0
     assert area(make_shape()) == 12.56
@@ -68,83 +68,83 @@ test "bare variants resolve in pattern position and owner selector imports" {
     assert json_encode_kind(hand_built) == "obj-with-2"
     assert json_encode_kind(null_jv) == "null"
     assert json_pattern == "got-obj"
-}
+end
 
-enum DotColor {
+enum DotColor
     Red
     Green
     Blue
-}
+end
 
-enum DotShape {
+enum DotShape
     Circle Float
     Square Float
     Rect {w: Float, h: Float}
     Origin
-}
+end
 
-enum DotValue {
+enum DotValue
     Arr List<Int>
     Obj Map<String, Int>
     Nil
-}
+end
 
-struct DotBox {
+struct DotBox
     color: DotColor
     shape: DotShape
-}
+end
 
-fn paint(c: DotColor) -> Int {
-    case c {
+fn paint(c: DotColor) -> Int
+    case c
         DotColor.Red -> 1
         DotColor.Green -> 2
         DotColor.Blue -> 3
-    }
-}
+    end
+end
 
-fn default_color() -> DotColor {
+fn default_color() -> DotColor
     .Red
-}
+end
 
-fn id_color(c: DotColor) -> DotColor {
+fn id_color(c: DotColor) -> DotColor
     c
-}
+end
 
-test "dot-leading variants resolve from contextual enum types" {
+test "dot-leading variants resolve from contextual enum types"
     c1: DotColor = .Red
     s1: DotShape = .Circle(1.0)
     s2: DotShape = .Rect{w: 4.0, h: 3.0}
-    v1: DotValue = %.Obj{"k" => 1}
+    v1: DotValue = .Obj{"k" => 1}
     v2: DotValue = .Arr[1, 2, 3]
     v3: DotValue = .Nil
     b: DotBox = DotBox{color: .Red, shape: .Origin}
     hit1: Int = paint(.Green)
     c2: DotColor = default_color()
     palette: List<DotColor> = [.Red, .Green, .Blue]
-    themes: Map<String, DotColor> = %{"a" => .Red, "b" => .Blue}
-    c3: DotColor = if 1 > 0 { .Red } else { .Blue }
+    themes: Map<String, DotColor> = {"a" => .Red, "b" => .Blue}
+    c3: DotColor = if 1 > 0 then .Red else .Blue
 
     hit2: Int = paint(
-        case 1 {
+        case 1
             1 -> .Red
             _ -> .Blue
-        }
+        end
     )
 
     c4: DotColor = id_color(.Green)
 
-    hit3: Int = case c1 {
+    hit3: Int = case c1
         .Red -> 10
         .Green -> 20
         .Blue -> 30
-    }
+    end
 
-    hit4: Float = case s1 {
+    hit4: Float = case s1
         .Circle(r) -> r
         .Square(_) -> 0.0
-        .Rect{w, h: _} -> w
+        .Rect{w:, h: _} -> w
         .Origin -> -1.0
-    }
+    end
 
     theme =
         themes
@@ -153,7 +153,7 @@ test "dot-leading variants resolve from contextual enum types" {
     assert c1 == DotColor.Red
     assert s2.w == 4.0
     assert s2.h == 3.0
-    assert v1 == %DotValue.Obj{"k" => 1}
+    assert v1 == DotValue.Obj{"k" => 1}
     assert v2 == DotValue.Arr[1, 2, 3]
     assert v3 == DotValue.Nil
     assert b.shape == DotShape.Origin
@@ -166,54 +166,54 @@ test "dot-leading variants resolve from contextual enum types" {
     assert hit2 == 1
     assert hit3 == 10
     assert hit4 == 1.0
-}
+end
 
-enum Input {
+enum Input
     Quit
     Guess Int
-}
+end
 
-fn classify_input(s: String) -> Result<Input, String> {
-    if s == "q" { return Ok(.Quit) }
+fn classify_input(s: String) -> Result<Input, String>
+    if s == "q" then return Ok(.Quit)
 
     guess =
         String.to_int(s)
         |> Maybe.to_result("invalid integer")?
 
     Ok(.Guess(guess))
-}
+end
 
-fn classify_input_case(s: String) -> Result<Input, String> {
-    case s {
-        "q" -> Ok(.Quit)
+fn classify_input_case(s: String) -> Result<Input, String>
+    case s
+        "q" ->
+            Ok(.Quit)
 
-        other -> {
+        other ->
             guess =
                 String.to_int(other)
                 |> Maybe.to_result("invalid integer")?
 
             Ok(.Guess(guess))
-        }
-    }
-}
+    end
+end
 
-fn pick_input(early: Bool) -> Result<Input, String> {
-    if early { Ok(.Quit) } else { Ok(.Guess(0)) }
-}
+fn pick_input(early: Bool) -> Result<Input, String>
+    if early then Ok(.Quit) else Ok(.Guess(0))
+end
 
-fn wrap_input(n: Int) -> Result<Input, String> {
+fn wrap_input(n: Int) -> Result<Input, String>
     Input.Guess(n) |> Ok()
-}
+end
 
-fn show_input(r: Result<Input, String>) -> String {
-    case r {
+fn show_input(r: Result<Input, String>) -> String
+    case r
         Ok(.Quit) -> "quit"
         Ok(.Guess(n)) -> "guess ${n}"
         Err(e) -> "error ${e}"
-    }
-}
+    end
+end
 
-test "dot-leading variants resolve inside generic variant constructors" {
+test "dot-leading variants resolve inside generic variant constructors"
     r: Result<Input, String> = Ok(.Quit)
     classified_q = classify_input("q") |> show_input()
 
@@ -244,26 +244,26 @@ test "dot-leading variants resolve inside generic variant constructors" {
     assert show_input(r) == "quit"
     assert guessed == "guess 42"
     assert wrapped == "guess 99"
-}
+end
 
-test "dot-leading variant diagnostics require a contextual enum type" {
+test "dot-leading variant diagnostics require a contextual enum type"
     diagnostics = compiler.check(
         """
-          enum Color {
+          enum Color
             Red
             Green
             Blue
-          }
+          end
 
-          struct Box {
+          struct Box
             color: Color
-          }
+          end
 
-          fn main() {
+          fn main()
             _c1 = .Red
             _b: Box = .Red
             _c2: Color = .Purple
-          }
+          end
         """
     )
 
@@ -280,37 +280,36 @@ test "dot-leading variant diagnostics require a contextual enum type" {
     )
 
     assert test_helpers.has_diagnostic(diagnostics, "no variant 'Purple' on enum Color")
-}
+end
 
-test "bare variant construction diagnostics require enum qualification" {
+test "bare variant construction diagnostics require enum qualification"
     diagnostics = compiler.check(
         """
           import std::json: Json
 
-          enum Shape {
+          enum Shape
             Circle Float
             Position (Int, Int)
-          }
+          end
 
-          enum Container {
+          enum Container
             Items List<Int>
             Pairs Map<String, Int>
-          }
+          end
 
-          fn main() {
-            bad_map = %Pairs{"a" => 1}
+          fn main()
+            bad_map = Pairs{"a" => 1}
             bad_list = Items[1, 2, 3]
             bad_call = Position(10, 20)
-            bad_imported = %Obj{"k" => Json.Null}
+            bad_imported = Obj{"k" => Json.Null}
 
             discard(bad_map)
             discard(bad_list)
             discard(bad_call)
             discard(bad_imported)
-          }
+          end
 
-          fn discard<T>(_x: T) {
-          }
+          fn discard<T>(_x: T) end
         """
     )
 
@@ -335,4 +334,4 @@ test "bare variant construction diagnostics require enum qualification" {
         diagnostics,
         "variant 'Obj' must be qualified through its enum",
     )
-}
+end

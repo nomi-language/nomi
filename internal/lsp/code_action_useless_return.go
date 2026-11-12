@@ -14,10 +14,9 @@ import (
 //
 //   - on a line of its own, the line goes;
 //   - followed by a comment, the keyword goes and the comment stays;
-//   - as a case arm's body (`0 -> return`), it becomes `{}`, since an arm
-//     needs a body;
-//   - inside a one-line branch (`if x { return } else { ... }`), the keyword
-//     and the space before it go.
+//   - as a case arm's body (`0 -> return`) or a one-line branch
+//     (`if x then return else ...`), it becomes `Unit`, since an arm and a
+//     branch need a value. (`{}` is an empty map.)
 func buildUselessReturnActions(content, uri string, diags []protocol.Diagnostic) []protocol.CodeAction {
 	var lines *lineIndex
 	var actions []protocol.CodeAction
@@ -77,12 +76,8 @@ func uselessReturnEdit(r protocol.Range, before, after string) (protocol.TextEdi
 		end := r.End
 		end.Character += uint32(gap)
 		return protocol.TextEdit{Range: protocol.Range{Start: r.Start, End: end}}, true
-	case strings.HasSuffix(strings.TrimRight(before, " \t"), "->"):
-		return protocol.TextEdit{Range: r, NewText: "{}"}, true
-	case strings.HasSuffix(before, " ") && r.Start.Character > 0:
-		start := r.Start
-		start.Character--
-		return protocol.TextEdit{Range: protocol.Range{Start: start, End: r.End}}, true
+	case strings.HasSuffix(before, " "):
+		return protocol.TextEdit{Range: r, NewText: "Unit"}, true
 	}
 	return protocol.TextEdit{}, false
 }

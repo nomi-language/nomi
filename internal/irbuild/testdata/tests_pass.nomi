@@ -2,31 +2,31 @@
 // summary. The point is the shape of a test binary, not a failure: a file that
 // declares tests builds a test program whose report is fully specified even
 // when nothing goes wrong.
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn is_even(n: Int) -> Bool {
+fn is_even(n: Int) -> Bool
     n % 2 == 0
-}
+end
 
-test "arithmetic" {
+test "arithmetic"
     assert 1 + 1 == 2
     assert double(21) == 42
-}
+end
 
-test "predicates" {
+test "predicates"
     assert is_even(4)
     refute is_even(5)
-}
+end
 
-test "bindings and text" {
+test "bindings and text"
     total = double(5)
     assert total == 10
     assert "ab" + "c" == "abc"
-}
+end
 
-test "logical operators" {
+test "logical operators"
     assert 1 < 2 and 3 > 2
     assert 1 > 2 or 2 > 1
-}
+end

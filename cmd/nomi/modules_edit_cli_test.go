@@ -115,7 +115,7 @@ func TestModules_NewStartsAProject(t *testing.T) {
 	// In the current directory, the next command needs no cd, and a
 	// main.nomi already there is kept.
 	app := filepath.Join(work, "app")
-	mustWrite(t, filepath.Join(app, "main.nomi"), "fn main() {\n}\n")
+	mustWrite(t, filepath.Join(app, "main.nomi"), "fn main() end\n")
 	out = c.must(app, "new", "example.com/app", ".")
 	if out != "wrote nomi.toml, go.mod and AGENTS.md\nkept main.nomi, which was already there\nnext: nomi run main.nomi" {
 		t.Errorf("nomi new . printed\n%s", out)
@@ -147,7 +147,7 @@ func TestModules_AddALocalModule(t *testing.T) {
 	lib := filepath.Join(app, "csvdata")
 	mustWrite(t, filepath.Join(lib, "go.mod"), "module example.com/csvdata\n\ngo 1.27.0\n")
 	mustWrite(t, filepath.Join(lib, "nomi.toml"), "[module]\nname = \"csvdata\"\n")
-	mustWrite(t, filepath.Join(lib, "csvdata.nomi"), "pub fn rows() -> Int {\n    3\n}\n")
+	mustWrite(t, filepath.Join(lib, "csvdata.nomi"), "pub fn rows() -> Int\n    3\nend\n")
 
 	if out := c.must(app, "add", "./csvdata"); out != "added example.com/csvdata from ./csvdata (module csvdata; import csvdata)" {
 		t.Fatalf("nomi add ./csvdata printed %q", out)
@@ -158,7 +158,7 @@ func TestModules_AddALocalModule(t *testing.T) {
 			t.Errorf("go.mod lacks %q:\n%s", want, goMod)
 		}
 	}
-	mustWrite(t, filepath.Join(app, "main.nomi"), "import {\n    std::io\n    csvdata\n}\n\nfn main() {\n    io.print(csvdata.rows())\n}\n")
+	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    std::io\n    csvdata\nend\n\nfn main()\n    io.print(csvdata.rows())\nend\n")
 	if out := c.must(app, "run", "main.nomi"); out != "3" {
 		t.Errorf("a program using the local module printed %q", out)
 	}
@@ -188,13 +188,13 @@ func TestModules_RemoveADependency(t *testing.T) {
 	publishFiles(t, c.proxy, "example.com/greet", "v0.1.0", map[string]string{
 		"go.mod":     "module example.com/greet\n\ngo 1.22\n\nrequire example.com/strutil v1.0.0\n",
 		"nomi.toml":  "[module]\nname = \"greet\"\n",
-		"greet.nomi": "pub fn hello() -> String {\n    \"hello\"\n}\n",
+		"greet.nomi": "pub fn hello() -> String\n    \"hello\"\nend\n",
 	})
 	work := t.TempDir()
 	c.must(work, "new", "example.com/app")
 	app := filepath.Join(work, "app")
 	c.must(app, "add", "example.com/greet")
-	mustWrite(t, filepath.Join(app, "lib", "talk.nomi"), "import greet\n\npub fn talk() -> String {\n    greet.hello()\n}\n")
+	mustWrite(t, filepath.Join(app, "lib", "talk.nomi"), "import greet\n\npub fn talk() -> String\n    greet.hello()\nend\n")
 
 	_, stderr, err := c.run(app, "remove", "example.com/greet")
 	if err == nil || stderr != "nomi remove: lib/talk.nomi:1 imports greet; remove the import first" {
@@ -231,7 +231,7 @@ func TestModules_UpdateWithinAMajorVersion(t *testing.T) {
 		return map[string]string{
 			"go.mod":     "module example.com/greet\n\ngo 1.22\n",
 			"nomi.toml":  "[module]\nname = \"greet\"\n",
-			"greet.nomi": "pub fn hello() -> String {\n    \"" + v + "\"\n}\n",
+			"greet.nomi": "pub fn hello() -> String\n    \"" + v + "\"\nend\n",
 		}
 	}
 	publishFiles(t, c.proxy, "example.com/greet", "v1.0.0", greet("v1.0.0"))
@@ -247,7 +247,7 @@ func TestModules_UpdateWithinAMajorVersion(t *testing.T) {
 	publishFiles(t, c.proxy, "example.com/greet/v2", "v2.0.0", map[string]string{
 		"go.mod":     "module example.com/greet/v2\n\ngo 1.22\n",
 		"nomi.toml":  "[module]\nname = \"greet\"\n",
-		"greet.nomi": "pub fn hello() -> String {\n    \"v2\"\n}\n",
+		"greet.nomi": "pub fn hello() -> String\n    \"v2\"\nend\n",
 	})
 	if out := c.must(app, "update", "greet"); out != "example.com/greet v1.0.0 -> v1.2.0" {
 		t.Fatalf("nomi update greet printed %q", out)

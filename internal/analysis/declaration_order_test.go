@@ -13,48 +13,48 @@ func TestDeclarationOrder_ImportCycleSignaturesCarryVariants(t *testing.T) {
 	files := map[string]string{
 		"a.nomi": `import b.Tag
 
-pub enum Wrap<T> {
+pub enum Wrap<T>
     Hit(T)
     Miss
-}
+end
 
-pub fn tag_of(w: Wrap<Int>) -> Tag<Int> {
-    case w {
+pub fn tag_of(w: Wrap<Int>) -> Tag<Int>
+    case w
         .Hit(n) -> Tag.Big(n)
         .Miss -> Tag.Small
-    }
-}
+    end
+end
 `,
 		"b.nomi": `import a.Wrap
 
-pub enum Tag<T> {
+pub enum Tag<T>
     Big(T)
     Small
-}
+end
 
-pub fn wrap_of(t: Tag<Int>) -> Wrap<Int> {
-    case t {
+pub fn wrap_of(t: Tag<Int>) -> Wrap<Int>
+    case t
         .Big(n) -> Wrap.Hit(n)
         .Small -> Wrap.Miss
-    }
-}
+    end
+end
 `,
-		"main.nomi": `import {
+		"main.nomi": `import
     std::io
     a.{Wrap, tag_of}
     b.{Tag, wrap_of}
-}
+end
 
-fn main() {
-    case tag_of(Wrap.Hit(4)) {
+fn main()
+    case tag_of(Wrap.Hit(4))
         .Big(n) -> io.print("big ${n}")
         .Small -> io.print("small")
-    }
-    case wrap_of(Tag.Small) {
+    end
+    case wrap_of(Tag.Small)
         .Hit(n) -> io.print("hit ${n}")
         .Miss -> io.print("miss")
-    }
-}
+    end
+end
 `,
 	}
 	for _, order := range [][]string{{"", "a", "b"}, {"b", "a", ""}} {
@@ -74,19 +74,19 @@ fn main() {
 // and `Shape.UserId(n)` bound a UserId rather than an Int. Every order now
 // checks clean. vmhost's TestDeclarationOrder_EmbedsADistinctTypeDeclaredBelow
 // runs the program.
-const embedsDistinctUse = `fn main() {
+const embedsDistinctUse = `fn main()
     s: Shape = UserId(5)
-    n = case s {
+    n = case s
         Shape.UserId(k) -> k + 1
         Shape.Dot -> 0
-    }
+    end
     dbg n
     dbg Shape.UserId(8)
-}
+end
 `
 
 func TestDeclarationOrder_EmbedsADistinctTypeInOneFile(t *testing.T) {
-	enum := "enum Shape {\n    embeds UserId\n    Dot\n}\n\n"
+	enum := "enum Shape\n    embeds UserId\n    Dot\nend\n\n"
 	distinct := "type UserId Int\n\n"
 	for name, src := range map[string]string{
 		"distinct first": distinct + enum + embedsDistinctUse,
@@ -105,9 +105,9 @@ func TestDeclarationOrder_EmbedsADistinctTypeInOneFile(t *testing.T) {
 func TestDeclarationOrder_EmbedsADistinctTypeFromAnotherFile(t *testing.T) {
 	for _, ids := range []string{"ids", "zids"} {
 		files := map[string]string{
-			"shape.nomi":  "import " + ids + ".UserId\n\npub enum Shape {\n    embeds UserId\n    Dot\n}\n",
+			"shape.nomi":  "import " + ids + ".UserId\n\npub enum Shape\n    embeds UserId\n    Dot\nend\n",
 			ids + ".nomi": "pub type UserId Int\n",
-			"main.nomi":   "import {\n    shape.Shape\n    " + ids + ".UserId\n}\n\n" + embedsDistinctUse,
+			"main.nomi":   "import\n    shape.Shape\n    " + ids + ".UserId\nend\n\n" + embedsDistinctUse,
 		}
 		for file, errs := range checkOnceProject(t, files, []string{"", "shape", ids}) {
 			if len(errs) > 0 {
@@ -121,11 +121,11 @@ func TestDeclarationOrder_EmbedsADistinctTypeFromAnotherFile(t *testing.T) {
 func TestDeclarationOrder_EmbedsADistinctTypeAcrossAnImportCycle(t *testing.T) {
 	for _, ids := range []string{"ids", "zids"} {
 		files := map[string]string{
-			"shape.nomi": "import " + ids + ".UserId\n\npub enum Shape {\n    embeds UserId\n    Dot\n}\n",
+			"shape.nomi": "import " + ids + ".UserId\n\npub enum Shape\n    embeds UserId\n    Dot\nend\n",
 			ids + ".nomi": "import shape.Shape\n\npub type UserId Int\n\n" +
-				"pub fn bump(s: Shape) -> Int {\n    case s {\n        Shape.UserId(k) -> k + 1\n        Shape.Dot -> 0\n    }\n}\n",
-			"main.nomi": "import {\n    shape.Shape\n    " + ids + ".{UserId, bump}\n}\n\n" +
-				"fn main() {\n    dbg bump(UserId(5))\n    dbg Shape.UserId(8)\n}\n",
+				"pub fn bump(s: Shape) -> Int\n    case s\n        Shape.UserId(k) -> k + 1\n        Shape.Dot -> 0\n    end\nend\n",
+			"main.nomi": "import\n    shape.Shape\n    " + ids + ".{UserId, bump}\nend\n\n" +
+				"fn main()\n    dbg bump(UserId(5))\n    dbg Shape.UserId(8)\nend\n",
 		}
 		for file, errs := range checkOnceProject(t, files, []string{"", "shape", ids}) {
 			if len(errs) > 0 {

@@ -17,8 +17,8 @@ func TestDebugIter_ViewedSourcesRender(t *testing.T) {
 	want := "1 range    1..=3\n" +
 		"2 user     Count{n: 2}\n" +
 		"3 list     [Point{x: 1, y: 2}]\n" +
-		"4 set      %[Point{x: 3, y: 4}]\n" +
-		"5 map      %{\"p\" => Point{x: 5, y: 6}}\n" +
+		"4 set      Set[Point{x: 3, y: 4}]\n" +
+		"5 map      {\"p\" => Point{x: 5, y: 6}}\n" +
 		"6 generic  Count{n: 1}\n" +
 		"7 generic  [Point{x: 0, y: 0}]\n" +
 		"8 field    Holder{items: 1..=4}\n" +

@@ -7,20 +7,20 @@ import "testing"
 func TestFormatAscription(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{
-			"fn main() {\n    x = []   as   List<Int>\n}\n",
-			"fn main() {\n    x = [] as List<Int>\n}\n",
+			"fn main()\n    x = []   as   List<Int>\nend\n",
+			"fn main()\n    x = [] as List<Int>\nend\n",
 		},
 		{
-			"fn main() {\n    x = xs |> Iter.to_list() as List<Int>\n}\n",
-			"fn main() {\n    x = xs |> Iter.to_list() as List<Int>\n}\n",
+			"fn main()\n    x = xs |> Iter.to_list() as List<Int>\nend\n",
+			"fn main()\n    x = xs |> Iter.to_list() as List<Int>\nend\n",
 		},
 		{
-			"fn main() {\n    x = (y as Int) + 1\n}\n",
-			"fn main() {\n    x = (y as Int) + 1\n}\n",
+			"fn main()\n    x = (y as Int) + 1\nend\n",
+			"fn main()\n    x = (y as Int) + 1\nend\n",
 		},
 		{
-			"once admin = .{tags: [] as List<String>, user: `GET /u/{id}` as Route<.{id: Uuid}>}\n",
-			"once admin = .{tags: [] as List<String>, user: `GET /u/{id}` as Route<.{id: Uuid}>}\n",
+			"once admin = {tags: [] as List<String>, user: `GET /u/{id}` as Route<{id: Uuid}>}\n",
+			"once admin = {tags: [] as List<String>, user: `GET /u/{id}` as Route<{id: Uuid}>}\n",
 		},
 	}
 	for _, c := range cases {

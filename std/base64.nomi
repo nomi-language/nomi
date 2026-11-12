@@ -13,12 +13,12 @@
 //# an `Err` naming the first byte it cannot read. Every function here is
 //# pure, so a typed literal's handler may call them.
 
-import {
+import
     bool.Bool.{self, False, True}
     bytes.Bytes
     results.Result.{self, Err, Ok}
     strings.String
-}
+end
 
 /// `data` in base64's standard alphabet, padded with `=` to a multiple of
 /// four characters, or with no padding when `padded` is `False`.
@@ -36,9 +36,9 @@ import {
 //! assert base64.encode(String.to_bytes("f"), padded: False) == "Zg"
 //! assert base64.encode(String.to_bytes("foo"), padded: False) == "Zm9v"
 //
-pub fn encode(data: Bytes, padded = True) -> String {
+pub fn encode(data: Bytes, padded = True) -> String
     standard(data, padded)
-}
+end
 
 host fn standard(data: Bytes, padded: Bool) -> String
 
@@ -63,9 +63,9 @@ pub host fn decode(text: String) -> Result<Bytes, String>
 //! assert base64.encode_url(String.to_bytes("f")) == "Zg=="
 //! assert base64.encode_url(Bytes.from_list([251, 255, 191, 102]), padded: False) == "-_-_Zg"
 //
-pub fn encode_url(data: Bytes, padded = True) -> String {
+pub fn encode_url(data: Bytes, padded = True) -> String
     url_safe(data, padded)
-}
+end
 
 host fn url_safe(data: Bytes, padded: Bool) -> String
 

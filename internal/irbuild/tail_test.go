@@ -29,25 +29,25 @@ import (
 // changes, the failure without this test is a driver arm at a `//line` the Go
 // compiler rejects — and no other test in this file would reach it.
 func TestTail_ASynthesizedBodyIsNeverACycleMember(t *testing.T) {
-	src := `import {
+	src := `import
   std::io
-}
+end
 
-struct Inner {
+struct Inner
   n: Int
-}
+end
 
 derive Display for Inner
 
-struct Wrapper {
+struct Wrapper
   inner: Inner
-}
+end
 
 derive Display for Wrapper
 
-fn main() {
+fn main()
   io.print("${Wrapper{inner: Inner{n: 1}}}")
-}
+end
 `
 	p, err := AnalyzeSource("main", src)
 	if err != nil {

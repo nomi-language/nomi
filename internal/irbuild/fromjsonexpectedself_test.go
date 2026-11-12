@@ -15,9 +15,9 @@ func TestReturnSelf_FromJsonAtTheAnnotatedType(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	const want = "Ok(3)\n" +
-		"Err([1]: expected int, got bool)\n" +
+		"Err([1]: expected Int, got bool)\n" +
 		"Ok(a)\n" +
-		"Err(expected object, got array)\n"
+		"Err(expected Note, got array)\n"
 	got := vmReference(fixture("fromjson_expected_self.nomi"))
 	if got.stdout != want || got.stderr != "" || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",

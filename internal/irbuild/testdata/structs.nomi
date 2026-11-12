@@ -1,59 +1,59 @@
 import std::io
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-struct Segment {
+struct Segment
     from: Point
     to: Point
-}
+end
 
 /// `Marker` is zero-sized: every field it has is zero-sized, and it has none.
-struct Marker {}
+struct Marker end
 
-struct Tagged {
+struct Tagged
     mark: Marker
     n: Int
-}
+end
 
 /// Defaults, including one that calls a module function. Field order here is
 /// what decides the order the defaults are evaluated in.
-struct Config {
+struct Config
     retries: Int = fallback()
     label: String = "default"
     scale: Float
-}
+end
 
 /// The evaluation-order pin: `noisy` prints, so the output shows WHEN each
 /// field expression runs. Literal
 /// fields go in source order, then the defaults in declaration order.
-struct Ordered {
+struct Ordered
     a: Int = noisy(100)
     b: Int = noisy(200)
     c: Int
     d: Int
-}
+end
 
-fn fallback() -> Int {
+fn fallback() -> Int
     3
-}
+end
 
-fn noisy(n: Int) -> Int {
+fn noisy(n: Int) -> Int
     io.print("eval ${n}")
     n
-}
+end
 
-fn dx(s: Segment) -> Int {
+fn dx(s: Segment) -> Int
     s.to.x - s.from.x
-}
+end
 
-fn origin() -> Point {
+fn origin() -> Point
     Point{x: 0, y: 0}
-}
+end
 
-fn main() {
+fn main()
     s = Segment{from: origin(), to: Point{x: 4, y: 9}}
     io.print("dx = ${dx(s)}")
     io.print("to.y = ${s.to.y}")
@@ -69,4 +69,4 @@ fn main() {
 
     o = Ordered{d: noisy(1), c: noisy(2)}
     io.print("ordered = ${o.a} ${o.b} ${o.c} ${o.d}")
-}
+end

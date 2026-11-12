@@ -13,39 +13,39 @@ import (
 // a body the machine finds unretained.
 func TestDeclinePosition_ASynthesizedBodyIsReportedAtItsDerive(t *testing.T) {
 	entry, name, files, manifest, err := SplitMultiFile(`// FILE: money.nomi
-pub struct Money {
+pub struct Money
     cents: Int
-}
+end
 
-impl Equatable for Money {
-    fn equal(a: Money, b: Money) -> Bool {
+impl Equatable for Money
+    fn equal(a: Money, b: Money) -> Bool
         a.cents == b.cents
-    }
-}
+    end
+end
 
-pub struct Coin {
+pub struct Coin
     n: Int
-}
+end
 
 derive Hashable for Coin
 derive Equatable for Coin
 
 // FILE: main.nomi
-import {
+import
     std::io
     money.{Coin, Money}
-}
+end
 
-struct Rec {
+struct Rec
     m: Money
     c: Coin
-}
+end
 
 derive Equatable for Rec
 
-fn main() {
+fn main()
     io.inspect(Rec{m: Money{cents: 1}, c: Coin{n: 2}} == Rec{m: Money{cents: 1}, c: Coin{n: 2}})
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("split: %v", err)

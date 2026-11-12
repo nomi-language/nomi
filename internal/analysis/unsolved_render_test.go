@@ -13,9 +13,9 @@ func TestDiagnostics_AnUnsolvedTypeVariableReadsAsUnderscore(t *testing.T) {
 	for _, tc := range []struct {
 		name, src, want string
 	}{
-		{"a struct field", "struct Contact {\n  name: String\n}\n\nfn read<T>() -> Maybe<T> {\n  None\n}\n\nfn main() {\n  _ = Contact{name: read()}\n}\n",
+		{"a struct field", "struct Contact\n  name: String\nend\n\nfn read<T>() -> Maybe<T>\n  None\nend\n\nfn main()\n  _ = Contact{name: read()}\nend\n",
 			"field 'name' of Contact: expected String, got Maybe<_>"},
-		{"a return", "fn read<T>() -> Maybe<T> {\n  None\n}\n\nfn get() -> Int {\n  read()\n}\n\nfn main() {\n  _ = get()\n}\n",
+		{"a return", "fn read<T>() -> Maybe<T>\n  None\nend\n\nfn get() -> Int\n  read()\nend\n\nfn main()\n  _ = get()\nend\n",
 			"return type mismatch: expected Int, got Maybe<_>"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

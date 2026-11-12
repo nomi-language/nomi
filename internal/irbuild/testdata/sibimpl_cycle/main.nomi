@@ -1,10 +1,10 @@
 // Refused for `sibling file import cycle`, so never run by the harness, but a
 // real program: it type-checks and terminates.
-import {
+import
     std::io
     decls.{self, Thing}
-}
+end
 
-fn main() {
+fn main()
     io.print("go = ${Int.to_string(Thing.go(decls.thing(3)))}")
-}
+end

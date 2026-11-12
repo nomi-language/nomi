@@ -1,9 +1,9 @@
-import {
+import
     resistor_color_trio
     resistor_color_trio.{Color, Magnitude, Resistance}
-}
+end
 
-test "label" {
+test "label"
     [
         ("Orange and orange and black", [Color.Orange, .Orange, .Black], 33, Magnitude.Ohms),
         ("Blue and grey and brown", [.Blue, .Grey, .Brown], 680, .Ohms),
@@ -16,12 +16,12 @@ test "label" {
         ("First two colors make an invalid octal number", [.Black, .Grey, .Black], 8, .Ohms),
         ("Ignore extra colors", [.Blue, .Green, .Yellow, .Orange], 650, .Kiloohms),
     ]
-    |> subtests (description, bands, value, unit), description {
-        assert resistor_color_trio.label(bands) == Some(Resistance{value, unit})
-    }
-}
+    |> subtests (description, bands, value, unit), description
+        assert resistor_color_trio.label(bands) == Some(Resistance{value:, unit:})
+    end
+end
 
 // Not a canonical case: the exercise always gives at least three bands.
-test "fewer than three bands have no label" {
+test "fewer than three bands have no label"
     assert resistor_color_trio.label([.Orange, .Orange]) == None
-}
+end

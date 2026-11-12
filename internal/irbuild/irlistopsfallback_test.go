@@ -7,9 +7,15 @@ import (
 // head, tail and concat never read an element, so a list of retained structs
 // takes the same cell operations as a list of scalars.
 func TestIRListOps_NominalElementsRetain(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", `struct Box { value: Int }
-fn choose(xs: List<Box>) -> Maybe<Box> { List.head(xs) }
-fn main() { _ = choose([Box{value: 7}]) }
+	p, err := AnalyzeSource("main.nomi", `struct Box
+    value: Int
+end
+fn choose(xs: List<Box>) -> Maybe<Box>
+    List.head(xs)
+end
+fn main()
+    _ = choose([Box{value: 7}])
+end
 `)
 	if err != nil {
 		t.Fatal(err)

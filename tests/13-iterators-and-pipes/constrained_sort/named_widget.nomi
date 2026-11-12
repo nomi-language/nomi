@@ -1,18 +1,18 @@
-pub struct Weight {
+pub struct Weight
     grams: Int
-}
+end
 
-impl Comparable for Weight {
-    fn compare(a: Weight, b: Weight) -> Ordering {
+impl Comparable for Weight
+    fn compare(a: Weight, b: Weight) -> Ordering
         Int.compare(a.grams, b.grams)
-    }
-}
+    end
+end
 
-pub struct NamedWidget {
+pub struct NamedWidget
     name: String
     weight: Weight
-}
+end
 
-pub fn make(name: String, grams: Int) -> NamedWidget {
-    NamedWidget{name, weight: Weight{grams}}
-}
+pub fn make(name: String, grams: Int) -> NamedWidget
+    NamedWidget{name:, weight: Weight{grams:}}
+end

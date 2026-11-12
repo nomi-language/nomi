@@ -12,17 +12,17 @@ import (
 func TestIRBoolPattern_SingletonPayloadBindsAMarker(t *testing.T) {
 	src := `import std::io
 
-fn choose(b: Bool) -> String {
-  case b {
+fn choose(b: Bool) -> String
+  case b
     Bool.True(x) -> Debug.inspect(x)
     Bool.False(_) -> "no"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(choose(True))
   io.print(choose(False))
-}
+end
 `
 	if names := irRetainedFuncNames(t, src); !names["choose"] {
 		t.Fatal("choose was not retained")

@@ -258,27 +258,6 @@ func qualifiedSpellings(owners []string, fn string) []string {
 	return out
 }
 
-// shapeLiteralConfusion is the hint and fix for a list literal `[1, 2]`
-// where a vector or a set is expected: the vector literal is `#[1, 2]` and
-// the set literal `%[1, 2]`.
-func shapeLiteralConfusion(e TypeError, want Type, value ast.Node) TypeError {
-	lit, ok := unparen(value).(*ast.ListLit)
-	if !ok || lit.TypeName != nil {
-		return e
-	}
-	sigil, shape := "", ""
-	switch {
-	case isVectorType(want):
-		sigil, shape = "#", "vector"
-	case isSetType(want):
-		sigil, shape = "%", "set"
-	default:
-		return e
-	}
-	return e.WithHint(fmt.Sprintf("a %s literal is `%s[...]`; `[...]` is a list", shape, sigil)).
-		withFix(parser.Replace("Write `"+sigil+"[`", lit.Line, lit.Col, lit.Line, lit.Col, sigil))
-}
-
 // methodCallError is the error msg at fa's field, with the method-call hint
 // and fix when fa is called (`xs.len()`).
 func (c *checker) methodCallError(fa *ast.FieldAccess, objTy Type, msg string) TypeError {
@@ -289,17 +268,4 @@ func (c *checker) methodCallError(fa *ast.FieldAccess, objTy Type, msg string) T
 		}
 	}
 	return e
-}
-
-// isListDistinct reports whether t is a distinct type over a list, the
-// only type a named list literal builds.
-func isListDistinct(t Type) bool {
-	dt, ok := t.(*DistinctType)
-	return ok && dt.Inner != nil
-}
-
-// sigilFix is the Fix replacing the width bytes at line:col with sigil:
-// `Vector[` becomes `#[`.
-func sigilFix(sigil string, line, col, width int) *parser.Fix {
-	return parser.Replace("Write `"+sigil+"[`", line, col, line, col+width, sigil)
 }

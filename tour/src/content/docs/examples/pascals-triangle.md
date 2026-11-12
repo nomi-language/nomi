@@ -14,24 +14,24 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# The first rows of Pascal's triangle.
 
 /// The first `count` rows of Pascal's triangle, starting from `[1]`.
-pub fn rows(count: Int) -> List<List<Int>> {
+pub fn rows(count: Int) -> List<List<Int>>
     Iter.iterate([1], next_row)
     |> Iter.take(count)
     |> Iter.to_list()
-}
+end
 
 /// The row below `row`: each value is the sum of the two above it, with a
 /// zero standing in past either end.
-fn next_row(row: List<Int>) -> List<Int> {
+fn next_row(row: List<Int>) -> List<Int>
     Iter.zip([0, ..row], [..row, 0])
     |> Iter.map(fn (left, right) -> left + right)
     |> Iter.to_list()
-}
+end
 
 // FILE: pascals_triangle_test.nomi
 import pascals_triangle
 
-test "rows" {
+test "rows"
     [
         ("zero rows", 0, []),
         ("single row", 1, [[1]]),
@@ -61,10 +61,10 @@ test "rows" {
             ],
         ),
     ]
-    |> subtests (description, count, expected), description {
+    |> subtests (description, count, expected), description
         assert pascals_triangle.rows(count) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok rows (8 cases)

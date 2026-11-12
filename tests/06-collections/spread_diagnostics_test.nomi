@@ -3,25 +3,25 @@
 import std::compiler.{self, Diagnostic}
 
 // whether a diagnostic at line:col reads exactly message, before any help
-fn at(diagnostics: List<Diagnostic>, line: Int, col: Int, message: String) -> Bool {
-    Iter.any_match(diagnostics, fn d -> {
+fn at(diagnostics: List<Diagnostic>, line: Int, col: Int, message: String) -> Bool
+    Iter.any_match(diagnostics, fn d ->
         d.line == line
             and d.col == col
             and (d.message == message or String.starts_with(d.message, message + "\nhelp: "))
-    })
-}
+    end)
+end
 
-test "a spread that is no Iter, or an Iter of other elements, is refused" {
+test "a spread that is no Iter, or an Iter of other elements, is refused"
     diagnostics = compiler.check(
         """
-        fn main() {
+        fn main()
           n = 3
           words = ["a"] |> Iter.map(fn w -> w + "!")
           _a = [1, ..n]
           _b = [1, ..words]
-          _c = #[..#[1], ..Some("x")]
-          _d = %[..%[1], ..n]
-        }
+          _c = Vector[..Vector[1], ..Some("x")]
+          _d = Set[..Set[1], ..n]
+        end
         """
     )
 
@@ -33,6 +33,6 @@ test "a spread that is no Iter, or an Iter of other elements, is refused" {
     )
 
     assert at(diagnostics, 5, 14, "list spread element type mismatch: Int vs String")
-    assert at(diagnostics, 6, 18, "vector spread element type mismatch: expected Int, got String")
-    assert at(diagnostics, 7, 18, "set spread `..` requires an Iter of the set's elements, got Int")
-}
+    assert at(diagnostics, 6, 28, "vector spread element type mismatch: expected Int, got String")
+    assert at(diagnostics, 7, 22, "set spread `..` requires an Iter of the set's elements, got Int")
+end

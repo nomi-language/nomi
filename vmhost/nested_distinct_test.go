@@ -25,18 +25,18 @@ type Name String
 
 type Label Name
 
-enum Holder {
+enum Holder
     Has Wrapped
     Empty
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Holder.Has(Wrapped(Meters(3))))
     io.inspect([Wrapped(Meters(4))])
     io.inspect(Some(Label(Name("x"))))
     Wrapped(Meters(m)) = Wrapped(Meters(5))
     io.print(m)
-}
+end
 `)
 	p, err := vmhost.Load(path)
 	if err != nil {

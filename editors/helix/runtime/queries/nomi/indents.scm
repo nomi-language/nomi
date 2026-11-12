@@ -1,17 +1,28 @@
+;; A body is written below its header line and closed by `end`, so the
+;; node that owns the header indents the lines below it, and `end` and
+;; `else` return to the header's level. A body node itself starts on its
+;; first statement's line, so capturing it as well would indent twice.
 [
   (anon_struct)
   (anon_struct_type)
-  (body)
+  (begin_block)
+  (case_branch)
   (case_expression)
   (concurrent_block)
-  (else_arms)
-  (enum_body)
+  (else_arm)
+  (else_binding)
+  (enum_definition)
   (enum_variant)
+  (function_definition)
   (function_type)
+  (group_declaration)
+  (group_subtests)
+  (guard_branch)
   (if_expression)
   (impl_block)
   (import_block)
   (interface_definition)
+  (interface_method)
   (lambda)
   (list)
   (list_pattern)
@@ -19,25 +30,24 @@
   (map_pattern)
   (parameters)
   (paren_expression)
-  (set)
-  (set_pattern)
-  (struct_body)
+  (pipe_if_expression)
   (struct_construction)
+  (struct_definition)
   (struct_pattern)
   (struct_update)
-  (group_body)
+  (subtests_statement)
+  (test_declaration)
   (tuple_expression)
   (tuple_pattern)
   (tuple_type)
-  (type_body)
   (type_parameters)
   (typed_list)
-  (vector)
-  (vector_pattern)
   (where_clause)
 ] @indent
 
 [
+  "end"
+  "else"
   "}"
   "]"
   ")"

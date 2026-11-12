@@ -10,15 +10,15 @@ import "testing"
 // the spread form is guarded with the same wording, and this file sits beside
 // opaque_struct_update_test.go, sharing its module fixtures.
 //
-// `.{..c}` alone names no field, but it is rejected for its own reason: a
+// `{..c}` alone names no field, but it is rejected for its own reason: a
 // spread that changes no field is its base value.
 
 func TestOpaqueUpdate_SpreadNamingAFieldFromOutsideIsRefused(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
 
-fn wreck(c: Counter) -> Counter {
-  .{..c, value: -999}
-}
+fn wreck(c: Counter) -> Counter
+  {..c, value: -999}
+end
 `))
 	expectOpaquePatchRefused(t, errs, "value")
 }
@@ -26,9 +26,9 @@ fn wreck(c: Counter) -> Counter {
 func TestOpaqueUpdate_SpreadNamingNoFieldIsTheNoFieldError(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{Counter}
 
-fn copy(c: Counter) -> Counter {
-  .{..c}
-}
+fn copy(c: Counter) -> Counter
+  {..c}
+end
 `))
 	want := "a struct spread with no fields is its base value; write `c`"
 	if len(errs) != 1 || errs[0].Message != want {
@@ -42,16 +42,16 @@ fn copy(c: Counter) -> Counter {
 func TestOpaqueUpdate_SpreadInsideTheDeclaringFileIsAccepted(t *testing.T) {
 	_, errs := opaqueProject(t, map[string]string{
 		"counter.nomi": counterModule + `
-pub fn set_value_by_spread(c: Counter, v: Int) -> Counter {
-  .{..c, value: v}
-}
+pub fn set_value_by_spread(c: Counter, v: Int) -> Counter
+  {..c, value: v}
+end
 `,
 		"open.nomi": openModule,
 		"main.nomi": `import counter.{self, Counter}
 
-fn use(c: Counter) -> Int {
+fn use(c: Counter) -> Int
   counter.value(counter.set_value_by_spread(c, 3))
-}
+end
 `,
 	})
 	if len(errs) != 0 {
@@ -65,9 +65,9 @@ fn use(c: Counter) -> Int {
 func TestOpaqueUpdate_SpreadOnATransparentStructIsUntouched(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import open.{Open}
 
-fn shift(o: Open) -> Open {
-  .{..o, a: 9}
-}
+fn shift(o: Open) -> Open
+  {..o, a: 9}
+end
 `))
 	if len(errs) != 0 {
 		t.Fatalf("a spread over a transparent struct must stay legal, got %v", errs)

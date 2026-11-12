@@ -12,36 +12,42 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-const callUsersSrc = `pub struct User {
+const callUsersSrc = `pub struct User
     name: String
-}
+end
 
-pub fn make() -> User { User{name: normalize("a")} }
+pub fn make() -> User
+    User{name: normalize("a")}
+end
 
-fn normalize(s: String) -> String { String.trim(s) }
+fn normalize(s: String) -> String
+    String.trim(s)
+end
 
-impl User {
-    pub fn rename(u: User, name: String) -> User { User{name: normalize(name)} }
-}
+impl User
+    pub fn rename(u: User, name: String) -> User
+        User{name: normalize(name)}
+    end
+end
 `
 
 const callMainSrc = `import models::users
 import models::users.User
 import std::io
 
-fn main() {
+fn main()
     u = users.make()
     v = User.rename(u, "b")
     w = users.make() |> User.rename("c")
     f = users.make
     io.inspect((v, w, f(), seed))
-}
+end
 
 once seed = users.make()
 
-test "makes" {
+test "makes"
     assert users.make().name == "a"
-}
+end
 `
 
 func callHierarchyServer(t *testing.T) (*Server, string, string) {
@@ -114,7 +120,7 @@ func TestCallHierarchy(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("prepare on a call: %d items", len(items))
 	}
-	if got, want := itemString(dir, items[0]), "make models/users.nomi 4:0-4:52 sel 4:7-4:11"; got != want {
+	if got, want := itemString(dir, items[0]), "make models/users.nomi 4:0-6:3 sel 4:7-4:11"; got != want {
 		t.Errorf("prepare: %s, want %s", got, want)
 	}
 
@@ -129,9 +135,9 @@ func TestCallHierarchy(t *testing.T) {
 		got = append(got, itemString(dir, c.From)+" from "+rangesString(c.FromRanges))
 	}
 	want := []string{
-		"main main.nomi 4:0-10:1 sel 4:3-4:7 from 5:14-5:18 7:14-7:18",
+		"main main.nomi 4:0-10:3 sel 4:3-4:7 from 5:14-5:18 7:14-7:18",
 		"seed main.nomi 12:0-12:24 sel 12:5-12:9 from 12:18-12:22",
-		`test "makes" main.nomi 14:0-16:1 sel 14:5-14:12 from 15:17-15:21`,
+		`test "makes" main.nomi 14:0-16:3 sel 14:5-14:12 from 15:17-15:21`,
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("incoming of make:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -151,8 +157,8 @@ func TestCallHierarchy(t *testing.T) {
 	for _, c := range out {
 		got = append(got, c.To.Name+" "+itemString(dir, c.To)[len(c.To.Name)+1:]+" from "+rangesString(c.FromRanges))
 	}
-	if len(got) != 3 || !strings.HasPrefix(got[0], "make models/users.nomi 4:0-4:52 sel 4:7-4:11 from 5:14-5:18 7:14-7:18") ||
-		!strings.HasPrefix(got[1], "rename models/users.nomi 9:4-9:80 sel 9:11-9:17 from 6:13-6:19 7:29-7:35") ||
+	if len(got) != 3 || !strings.HasPrefix(got[0], "make models/users.nomi 4:0-6:3 sel 4:7-4:11 from 5:14-5:18 7:14-7:18") ||
+		!strings.HasPrefix(got[1], "rename models/users.nomi 13:4-15:7 sel 13:11-13:17 from 6:13-6:19 7:29-7:35") ||
 		!strings.HasPrefix(got[2], "inspect std:io.nomi") {
 		t.Errorf("outgoing of main:\n%s", strings.Join(got, "\n"))
 	}
@@ -170,7 +176,7 @@ func TestCallHierarchy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(out) != 1 || itemString(dir, out[0].To) != "normalize models/users.nomi 6:0-6:52 sel 6:3-6:12" || rangesString(out[0].FromRanges) != "9:62-9:71" {
+	if len(out) != 1 || itemString(dir, out[0].To) != "normalize models/users.nomi 8:0-10:3 sel 8:3-8:12" || rangesString(out[0].FromRanges) != "14:19-14:28" {
 		for _, c := range out {
 			t.Logf("%s from %s", itemString(dir, c.To), rangesString(c.FromRanges))
 		}
@@ -184,7 +190,7 @@ func TestCallHierarchy(t *testing.T) {
 	for _, c := range in {
 		got = append(got, c.From.Name+" from "+rangesString(c.FromRanges))
 	}
-	if strings.Join(got, ", ") != "make from 4:35-4:44, rename from 9:62-9:71" {
+	if strings.Join(got, ", ") != "make from 5:15-5:24, rename from 14:19-14:28" {
 		t.Errorf("incoming of normalize: %v", got)
 	}
 

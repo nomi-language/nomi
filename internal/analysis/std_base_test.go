@@ -200,7 +200,7 @@ func TestStdBase_ABuildOverTheBaseMatchesOneThatFoldsEveryFile(t *testing.T) {
 // bind, the build keeps the base.
 func TestStdBase_AProgramDeclaringAPrimitiveUnderAStdlibNameFoldsEveryFile(t *testing.T) {
 	program := func(name string) stdBaseSeed {
-		seed := stdBaseSeed{name: name, src: "import std::io\n\ntypealias " + name + " Int\n\nfn main() {\n    value: " + name + " = 2\n    io.print(value)\n}\n"}
+		seed := stdBaseSeed{name: name, src: "import std::io\n\ntypealias " + name + " Int\n\nfn main()\n    value: " + name + " = 2\n    io.print(value)\nend\n"}
 		if _, diags := checkSeed(t, seed); diags != "" {
 			t.Fatalf("the program with %s does not check: %s", name, diags)
 		}
@@ -237,31 +237,31 @@ func dumpWithoutBase(t *testing.T, seed stdBaseSeed) string {
 // base visits thousands, which is what the counter is shown to see.
 func TestStdBase_AProgramsBuildVisitsNoStdlibFile(t *testing.T) {
 	root := appScopeProject(t, map[string]string{
-		"main.nomi": `import {
+		"main.nomi": `import
     std::io
     shapes.{Shape, Circle}
-}
+end
 
-fn main() {
+fn main()
     io.print(Shape.area(Circle{radius: 2}))
     io.print(Circle{radius: 2} == Circle{radius: 3})
-}
+end
 `,
-		"shapes.nomi": `pub interface Shape {
+		"shapes.nomi": `pub interface Shape
     fn area(value: self) -> Int
-}
+end
 
-pub struct Circle {
+pub struct Circle
     radius: Int
-}
+end
 
 derive Equatable for Circle
 
-impl Shape for Circle {
-    fn area(value: Circle) -> Int {
+impl Shape for Circle
+    fn area(value: Circle) -> Int
         value.radius * value.radius
-    }
-}
+    end
+end
 `,
 	})
 	seed := stdBaseSeed{name: "main", path: filepath.Join(root, "main.nomi")}

@@ -13,39 +13,39 @@ import (
 // arguments past the callee's last parameter when it passes too many. A
 // pipe stage counts the piped value.
 func TestArityErrorsAreAtTheCall(t *testing.T) {
-	const decls = `struct P {
+	const decls = `struct P
   x: Int
-}
+end
 
-impl P {
-  fn get(p: P) -> Int {
+impl P
+  fn get(p: P) -> Int
     p.x
-  }
-}
+  end
+end
 
-enum E {
+enum E
   A(Int)
   B
-}
+end
 
-fn f(a: Int) -> Int {
+fn f(a: Int) -> Int
   a
-}
+end
 
-fn add(a: Int, b: Int) -> Int {
+fn add(a: Int, b: Int) -> Int
   a + b
-}
+end
 
-fn opt(a: Int, b: Int = 2) -> Int {
+fn opt(a: Int, b: Int = 2) -> Int
   a + b
-}
+end
 
-fn id<T>(a: T) -> T {
+fn id<T>(a: T) -> T
   a
-}
+end
 
 `
-	// Each call is on the line after `fn main() {`, at column 7.
+	// Each call is on the line after `fn main()`, at column 7.
 	for _, tc := range []struct {
 		name, call, message, span string
 	}{
@@ -97,9 +97,9 @@ fn id<T>(a: T) -> T {
 			"no parameter named 'c'", "+1:14-+1:15"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "import std::io\n\n" + decls + "fn main() {\n  _ = " + tc.call + "\n}\n"
+			src := "import std::io\n\n" + decls + "fn main()\n  _ = " + tc.call + "\nend\n"
 			if strings.HasPrefix(tc.call, "io.") {
-				src = "import std::io\n\n" + decls + "fn main() {\n  " + strings.Repeat(" ", 4) + tc.call + "\n}\n"
+				src = "import std::io\n\n" + decls + "fn main()\n  " + strings.Repeat(" ", 4) + tc.call + "\nend\n"
 			}
 			callLine := strings.Count(src[:strings.Index(src, "fn main()")], "\n") + 2
 			_, errs := checkSourceWithStdlib(src)
@@ -134,23 +134,23 @@ func TestArityErrorsOfOtherCalleesAreAtTheCall(t *testing.T) {
 		name, src, message, span string
 	}{
 		{"lambda, too many",
-			"fn main() {\n  g = fn a: Int -> a\n  _ = g(1, 2)\n}\n",
+			"fn main()\n  g = fn a: Int -> a\n  _ = g(1, 2)\nend\n",
 			"expected 1 arguments, got 2", "3:12-3:13"},
 		{"lambda, too few",
-			"fn main() {\n  g = fn a: Int -> a\n  _ = g()\n}\n",
+			"fn main()\n  g = fn a: Int -> a\n  _ = g()\nend\n",
 			"expected 1 arguments, got 0", "3:7-3:10"},
 		{"a named function with defaults held as a value, too few",
-			"fn opt(a: Int, b: Int = 2) -> Int {\n  a + b\n}\n\nfn main() {\n  g = opt\n  _ = g()\n}\n",
+			"fn opt(a: Int, b: Int = 2) -> Int\n  a + b\nend\n\nfn main()\n  g = opt\n  _ = g()\nend\n",
 			"expected 1 to 2 arguments, got 0",
 			"7:7-7:10"},
 		{"a function-typed parameter, too few",
-			"fn twice(h: (Int, Int) -> Int) -> Int {\n  h(1)\n}\n",
+			"fn twice(h: (Int, Int) -> Int) -> Int\n  h(1)\nend\n",
 			"expected 2 arguments, got 1", "2:3-2:7"},
 		{"a struct constructor, too many",
-			"struct Q {\n  x: Int\n}\n\nfn main() {\n  _ = Q(.{x: 1}, 2)\n}\n",
-			"Q takes 1 argument, got 2; expected Q(.{...}) with the struct's fields", "6:18-6:19"},
+			"struct Q\n  x: Int\nend\n\nfn main()\n  _ = Q({x: 1}, 2)\nend\n",
+			"Q takes 1 argument, got 2; expected Q({...}) with the struct's fields", "6:17-6:18"},
 		{"testing.check, too many",
-			"import std::testing\n\ntest \"t\" {\n  _ = testing.check(true, false)\n  assert true\n}\n",
+			"import std::testing\n\ntest \"t\"\n  _ = testing.check(true, false)\n  assert true\nend\n",
 			"testing.check expects 1 argument, got 2", "4:27-4:32"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

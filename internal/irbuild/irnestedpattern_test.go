@@ -37,36 +37,36 @@ func irRetainedFuncNames(t *testing.T, src string) map[string]bool {
 
 const irNestedPatternSource = `import std::io
 
-enum Shape {
+enum Shape
   Circle Int
   Square Int
   Dot
   Named String
   Box {w: Int, h: Int}
-}
+end
 
-fn classify(m: Maybe<Shape>) -> Int {
-  case m {
+fn classify(m: Maybe<Shape>) -> Int
+  case m
     Some(Shape.Circle(r)) -> r * 3
     Some(Shape.Square(4)) -> 100
     Some(Shape.Square(s)) -> s * s
     Some(.Named("x")) -> 7
-    Some(Shape.Box{w, h}) -> w * h
+    Some(Shape.Box{w:, h:}) -> w * h
     Some(Shape.Dot) -> 0
     Some(_) -> 1
     None -> -1
-  }
-}
+  end
+end
 
-fn outcome(r: Result<Shape, String>) -> String {
-  case r {
+fn outcome(r: Result<Shape, String>) -> String
+  case r
     Ok(Shape.Circle(_)) -> "circle"
     Ok(_other) -> "other"
     Err(e) -> e
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(classify(Some(Shape.Circle(2))))
   io.print(classify(Some(Shape.Square(4))))
   io.print(classify(Some(Shape.Square(5))))
@@ -78,7 +78,7 @@ fn main() {
   io.print(outcome(Ok(Shape.Circle(1))))
   io.print(outcome(Ok(Shape.Dot)))
   io.print(outcome(Err("bad")))
-}
+end
 `
 
 // A variant pattern nested in a prelude constructor's payload tests the outer
@@ -96,46 +96,45 @@ func TestIRNestedPattern_VariantInsidePreludePayload(t *testing.T) {
 		"6\n100\n25\n7\n1\n18\n0\n-1\ncircle\nother\nbad\n")
 }
 
-const irChannelFieldSource = `import {
+const irChannelFieldSource = `import
   std::channels.{Channel, Receiver, Sender}
   std::io
-}
+end
 
-enum Request {
+enum Request
   Increment Int
   Get {reply: Channel<Int>}
   Explode
-}
+end
 
-struct Counter {
+struct Counter
   inbox: Channel<Request>
-}
+end
 
-fn increment(counter: Counter, n: Int) -> Unit {
-  case Sender.send(counter.inbox.sender, Request.Increment(n)) {
+fn increment(counter: Counter, n: Int) -> Unit
+  case Sender.send(counter.inbox.sender, Request.Increment(n))
     Ok(_) -> Unit
     Err(_) -> Unit
-  }
-}
+  end
+end
 
-fn ask(counter: Counter, reply: Channel<Int>) -> Unit {
-  _ = Sender.send(counter.inbox.sender, Request.Get{reply})
+fn ask(counter: Counter, reply: Channel<Int>) -> Unit
+  _ = Sender.send(counter.inbox.sender, Request.Get{reply:})
   Unit
-}
+end
 
-fn handle(counter: Counter, count: Int) -> Int {
-  case Receiver.receive(counter.inbox.receiver) {
+fn handle(counter: Counter, count: Int) -> Int
+  case Receiver.receive(counter.inbox.receiver)
     Some(Request.Increment(n)) -> count + n
-    Some(Request.Get{reply}) -> {
+    Some(Request.Get{reply:}) ->
       _ = Sender.send(reply.sender, count)
       count
-    }
     Some(Request.Explode) -> count / 0
     None -> -1
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   counter = Counter{inbox: Channel.buffered<Request>(8)}
   reply = Channel.buffered<Int>(1)
   increment(counter, 5)
@@ -145,11 +144,11 @@ fn main() {
   b = handle(counter, a)
   c = handle(counter, b)
   io.print(c)
-  case Receiver.receive(reply.receiver) {
+  case Receiver.receive(reply.receiver)
     Some(v) -> io.print(v)
     None -> io.print("none")
-  }
-}
+  end
+end
 `
 
 // A struct field holding a Channel of an enum whose struct-shaped variant
@@ -200,52 +199,52 @@ func TestIRNestedPattern_MessageLoopCorpusProgram(t *testing.T) {
 	// functions' read-back is held to it here.
 }
 
-const irSpawnCallSupervisorSource = `import {
+const irSpawnCallSupervisorSource = `import
   std::channels.{Channel, Receiver, Sender}
   std::duration.Duration
   std::supervisors.{Restart, Supervisor}
   std::testing.Clock
-}
+end
 
-pub struct App {
+pub struct App
   context: Context
   done: Channel<Int>
-}
+end
 
-fn group(timeout: Duration) -> Supervisor {
+fn group(timeout: Duration) -> Supervisor
   Supervisor.new(shutdown_timeout: timeout, max_running: 2, restart: Restart.Temporary)
-}
+end
 
-fn start(done: Channel<Int>) -> Unit {
+fn start(done: Channel<Int>) -> Unit
   _ = Supervisor.spawn(group(Duration.seconds(1)), fn -> report(done, 1))
   _ = group(Duration.seconds(2)) |> Supervisor.spawn(fn -> report(done, 2))
   Unit
-}
+end
 
-fn report(done: Channel<Int>, n: Int) -> Unit {
+fn report(done: Channel<Int>, n: Int) -> Unit
   _ = Sender.send(done.sender, n)
   Unit
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
   done = Channel.buffered<Int>(4)
   start(done)
-  Ok(App{context: Context.root(), done})
-}
+  Ok(App{context: Context.root(), done:})
+end
 
-fn main() {}
+fn main() end
 
-group "spawn over a called supervisor" {
+group "spawn over a called supervisor"
   clock Clock.Virtual
 
   boot boot()
 
-  test "both tasks report" {
+  test "both tasks report"
     a = Receiver.receive(App.done.receiver)
     b = Receiver.receive(App.done.receiver)
     assert a != b
-  }
-}
+  end
+end
 `
 
 // A supervisor argument that is a call, written directly or piped, is
@@ -268,37 +267,41 @@ func TestIRNestedPattern_BoundariesPreserveFallback(t *testing.T) {
 	for _, tc := range []struct{ name, fn, why, src string }{
 		{"self-carrying channel", "pick", "an ident kind outside the domain: Channel<Request>", `import std::channels.{Channel, Receiver}
 
-enum Request {
+enum Request
   Ask {reply: Channel<Request>}
   Stop
-}
+end
 
-fn pick(inbox: Channel<Request>) -> Int {
-  case Receiver.receive(inbox.receiver) {
+fn pick(inbox: Channel<Request>) -> Int
+  case Receiver.receive(inbox.receiver)
     Some(Request.Stop) -> 1
     Some(_) -> 2
     None -> 0
-  }
-}
+  end
+end
 
-fn main() { _ = pick(Channel.buffered<Request>(1)) }
+fn main()
+    _ = pick(Channel.buffered<Request>(1))
+end
 `},
 		{"self-carrying channel of a composite", "pick", "an ident kind outside the domain: Channel<Request>", `import std::channels.{Channel, Receiver}
 
-enum Request {
+enum Request
   Ask {reply: Channel<List<Request>>}
   Stop
-}
+end
 
-fn pick(inbox: Channel<Request>) -> Int {
-  case Receiver.receive(inbox.receiver) {
+fn pick(inbox: Channel<Request>) -> Int
+  case Receiver.receive(inbox.receiver)
     Some(Request.Stop) -> 1
     Some(_) -> 2
     None -> 0
-  }
-}
+  end
+end
 
-fn main() { _ = pick(Channel.buffered<Request>(1)) }
+fn main()
+    _ = pick(Channel.buffered<Request>(1))
+end
 `},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -335,25 +338,25 @@ fn main() { _ = pick(Channel.buffered<Request>(1)) }
 func TestIRNestedPattern_FloatFieldSubPatternRuns(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-enum Shape {
+enum Shape
   Box {w: Float, h: Int}
   Dot
-}
+end
 
-fn pick(m: Maybe<Shape>) -> Int {
-  case m {
-    Some(Shape.Box{w: 2.0, h}) -> h
+fn pick(m: Maybe<Shape>) -> Int
+  case m
+    Some(Shape.Box{w: 2.0, h:}) -> h
     Some(_) -> 0
     None -> -1
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(pick(Some(Shape.Box{w: 2.0, h: 7})))
   io.print(pick(Some(Shape.Box{w: 2.5, h: 7})))
   io.print(pick(Some(Shape.Dot)))
   io.print(pick(None))
-}
+end
 `, "7\n0\n0\n-1\n", "pick", "main")
 }
 
@@ -361,24 +364,24 @@ fn main() {
 // the outer tag, the payload, then the inner tag, each failure reaching the
 // mismatch report.
 func TestIRNestedPattern_PatternAssertion(t *testing.T) {
-	out := irPatternAssertVM(t, `enum Shape {
+	out := irPatternAssertVM(t, `enum Shape
   Circle Int
   Dot
-}
+end
 
-fn pick(n: Int) -> Maybe<Shape> {
-  if n > 0 { Some(Shape.Circle(n)) } else { Some(Shape.Dot) }
-}
+fn pick(n: Int) -> Maybe<Shape>
+  if n > 0 then Some(Shape.Circle(n)) else Some(Shape.Dot)
+end
 
-test "a nested pattern binds the inner payload" {
+test "a nested pattern binds the inner payload"
   assert Some(Shape.Circle(r)) = pick(3)
   assert r == 3
-}
+end
 
-test "an inner tag mismatch fails the assertion" {
+test "an inner tag mismatch fails the assertion"
   assert Some(Shape.Circle(r)) = pick(0)
   assert r == 0
-}
+end
 `, 2)
 	if !strings.Contains(out, "1 passed, 1 failed") {
 		t.Errorf("the report lacks one pass and one failure:\n%s", out)
@@ -389,29 +392,29 @@ test "an inner tag mismatch fails the assertion" {
 // native's Go: the call is spelled inline in the spawn, after the task body's
 // func literal.
 func TestIRNestedPattern_SpawnOverACalledAppSupervisor(t *testing.T) {
-	src := `import {
+	src := `import
   std::io
   std::supervisors.{Supervisor}
-}
-pub struct App {
+end
+pub struct App
   context: Context
   s: Supervisor
-}
-fn boot() -> Result<App, String> {
+end
+fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), s: Supervisor.new(max_running: 1)})
-}
-fn pick() -> Supervisor {
+end
+fn pick() -> Supervisor
   App.s
-}
-fn spawn_into() -> Unit {
+end
+fn spawn_into() -> Unit
   _ = Supervisor.spawn(pick(), fn -> io.print("ran"))
   Unit
-}
-fn main() {
+end
+fn main()
   spawn_into()
   _ = Supervisor.flush(App.s)
   Unit
-}
+end
 `
 	if names := irRetainedFuncNames(t, src); !names["spawn_into"] {
 		t.Fatal("spawn_into was not retained")
@@ -424,23 +427,23 @@ fn main() {
 // operands left the cursor, whether the call is piped or an argument. The
 // tasks' own order is the scheduler's, so they print nothing.
 func TestIRNestedPattern_SpawnOverAMultilineCalledSupervisor(t *testing.T) {
-	src := `import {
+	src := `import
   std::duration.Duration
   std::io
   std::supervisors.{Backoff, Restart, Supervisor}
-}
-pub struct App {
+end
+pub struct App
   context: Context
   s: Supervisor
-}
-fn boot() -> Result<App, String> {
+end
+fn boot() -> Result<App, String>
   start()
   Ok(App{context: Context.root(), s: Supervisor.new(max_running: 1)})
-}
-fn group(timeout: Duration) -> Supervisor {
+end
+fn group(timeout: Duration) -> Supervisor
   Supervisor.new(shutdown_timeout: timeout, max_running: 1)
-}
-fn start() -> Unit {
+end
+fn start() -> Unit
   _ =
     Supervisor.new(
       shutdown_timeout: Duration.seconds(5),
@@ -457,15 +460,15 @@ fn start() -> Unit {
     fn -> idle(2),
   )
   Unit
-}
-fn idle(n: Int) -> Unit {
+end
+fn idle(n: Int) -> Unit
   _ = n
   Unit
-}
-fn main() {
+end
+fn main()
   _ = Supervisor.flush(App.s)
   io.print("done")
-}
+end
 `
 	if names := irRetainedFuncNames(t, src); !names["start"] {
 		t.Fatal("start was not retained")

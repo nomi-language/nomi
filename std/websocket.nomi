@@ -8,13 +8,13 @@
 //# function returns:
 //#
 //# ```nomi
-//# fn echo(request: Request) -> Response {
-//#     websocket.accept(request, fn ws -> {
-//#         _ = WebSocket.each(ws, fn message -> {
+//# fn echo(request: Request) -> Response
+//#     websocket.accept(request, fn ws ->
+//#         _ = WebSocket.each(ws, fn message ->
 //#             _ = WebSocket.send(ws, message)
-//#         })
-//#     })
-//# }
+//#         end)
+//#     end)
+//# end
 //# ```
 //#
 //# A client connects with `websocket.connect` to a `ws://` or `wss://`
@@ -40,7 +40,7 @@
 //# leaves it unset or sets it longer than any connection. When the program
 //# shuts down, each connection is closed with 1001.
 
-import {
+import
     bool.Bool.{self, False, True}
     bytes.{Byte, Bytes}
     display.Display
@@ -58,13 +58,13 @@ import {
     tls.{self, ClientConfig}
     unit.Unit
     url.Url
-}
+end
 
 /// One message: text, which is UTF-8, or bytes.
-pub enum Message {
+pub enum Message
     Text String
     Binary Bytes
-}
+end
 
 derive Equatable for Message
 
@@ -72,7 +72,7 @@ derive Equatable for Message
 /// 6455's: 1000 normal, 1001 going away, 1002 a protocol error, 1006 no
 /// close frame, 1007 bad data, 1008 a policy violation, 1009 too big, 1011
 /// a server error, and 3000 to 4999 for libraries and applications.
-pub enum Error {
+pub enum Error
     /// The server did not accept the handshake: its status, and why.
     Handshake {status: Status, reason: String}
     /// The peer broke the protocol or sent a message over the limit, so
@@ -91,31 +91,31 @@ pub enum Error {
     Network {error: net.Error}
     /// A URL that is not `ws://` or `wss://`.
     InvalidUrl {url: String, reason: String}
-}
+end
 
 derive Equatable for Error
 
-impl Display for Error {
+impl Display for Error
     //! import std::websocket.Error
     //!
     //! assert "${Error.Protocol{code: 1009, reason: "a message over 10 bytes"}}"
     //!     == "websocket closed with 1009: a message over 10 bytes"
     //
-    fn to_string(error: Error) -> String {
-        case error {
-            .Handshake{status, reason} -> "websocket handshake refused (${status}): ${reason}"
-            .Protocol{code, reason} -> "websocket closed with ${code}: ${reason}"
-            .Closed{code, reason} -> "websocket closed with ${code}: ${reason}"
+    fn to_string(error: Error) -> String
+        case error
+            .Handshake{status:, reason:} -> "websocket handshake refused (${status}): ${reason}"
+            .Protocol{code:, reason:} -> "websocket closed with ${code}: ${reason}"
+            .Closed{code:, reason:} -> "websocket closed with ${code}: ${reason}"
             .Timeout -> "websocket idle timeout"
-            .Invalid{reason} -> "websocket: ${reason}"
-            .Network{error} -> "websocket: ${error}"
-            .InvalidUrl{url, reason} -> "websocket url ${url}: ${reason}"
-        }
-    }
-}
+            .Invalid{reason:} -> "websocket: ${reason}"
+            .Network{error:} -> "websocket: ${error}"
+            .InvalidUrl{url:, reason:} -> "websocket url ${url}: ${reason}"
+        end
+    end
+end
 
 /// How `accept` takes a handshake.
-pub struct AcceptOptions {
+pub struct AcceptOptions
     /// Origins besides the request's own host whose pages may connect.
     allowed_origins: List<Origin> = []
     /// The subprotocols the server speaks, most preferred first; the first
@@ -129,10 +129,10 @@ pub struct AcceptOptions {
     ping_interval: Maybe<Duration> = None
     /// Ends a receive that sees no frame, a pong included, for this long.
     idle_timeout: Maybe<Duration> = None
-}
+end
 
 /// How `connect` opens a connection.
-pub struct ConnectOptions {
+pub struct ConnectOptions
     /// Headers sent with the handshake, such as `Authorization`.
     headers: Headers = Headers[]
     /// The subprotocols offered, most preferred first.
@@ -143,39 +143,39 @@ pub struct ConnectOptions {
     /// TLS for `wss://`; its server name is the URL's host unless set.
     tls: ClientConfig = ClientConfig{}
     dial: DialOptions = DialOptions{}
-}
+end
 
 /// An open WebSocket connection, either end.
-pub opaque struct WebSocket {
+pub opaque struct WebSocket
     handle: http_host.Handle
     protocol: Maybe<String>
-}
+end
 
-impl WebSocket {
+impl WebSocket
     /// The next message, or `Ok(None)` once the peer has closed with 1000
     /// or 1001 or no code, and on every call after that. It waits until
     /// a message comes, and stops when the task is cancelled.
-    pub fn receive(ws: WebSocket) -> Result<Maybe<Message>, Error> {
+    pub fn receive(ws: WebSocket) -> Result<Maybe<Message>, Error>
         got = http_host.ws_receive(ws.handle) |> Result.map_err(error_of)?
 
-        case got {
-            None -> Ok(None)
+        case got
+            None ->
+                Ok(None)
 
-            Some(data) -> {
+            Some(data) ->
                 payload = Bytes.slice(data, 1, Bytes.length(data))
 
-                if Bytes.get(data, 0) |> Maybe.map(Byte.to_int) == Some(1) {
+                if Bytes.get(data, 0) |> Maybe.map(Byte.to_int) == Some(1) then
                     text =
                         Bytes.to_string(payload)
-                        |> Result.map_err(fn reason -> Error.Invalid{reason})?
+                        |> Result.map_err(fn reason -> Error.Invalid{reason:})?
 
                     Ok(Some(Message.Text(text)))
-                } else {
+                else
                     Ok(Some(Message.Binary(payload)))
-                }
-            }
-        }
-    }
+                end
+        end
+    end
 
     /// Hands each message to `handle` as it arrives, until the peer closes
     /// cleanly (`Ok`) or the connection fails.
@@ -183,19 +183,19 @@ impl WebSocket {
     //! import std::http_testing
     //! import std::websocket.{self, Message, WebSocket}
     //!
-    //! echo = fn request: Request -> {
-    //!     websocket.accept(request, fn ws -> {
-    //!         _ = WebSocket.each(ws, fn message -> {
+    //! echo = fn request: Request ->
+    //!     websocket.accept(request, fn ws ->
+    //!         _ = WebSocket.each(ws, fn message ->
     //!             _ = WebSocket.send(ws, message)
-    //!         })
-    //!     })
-    //! }
+    //!         end)
+    //!     end)
+    //! end
     //!
-    //! got = http_testing.open_websocket(echo, "/echo", fn ws -> {
+    //! got = http_testing.open_websocket(echo, "/echo", fn ws ->
     //!     _ = WebSocket.send_text(ws, "hello")
     //!     _ = WebSocket.send(ws, Message.Binary(String.to_bytes("raw")))
     //!     [WebSocket.receive(ws), WebSocket.receive(ws)]
-    //! })
+    //! end)
     //!
     //! assert Ok(replies) = got
     //!
@@ -204,38 +204,38 @@ impl WebSocket {
     //!     Ok(Some(Message.Binary(String.to_bytes("raw")))),
     //! ]
     //
-    pub fn each(ws: WebSocket, handle: (Message) -> Unit) -> Result<Unit, Error> {
-        case WebSocket.receive(ws)? {
-            Some(message) -> {
+    pub fn each(ws: WebSocket, handle: (Message) -> Unit) -> Result<Unit, Error>
+        case WebSocket.receive(ws)?
+            Some(message) ->
                 handle(message)
                 WebSocket.each(ws, handle)
-            }
 
-            None -> Ok(Unit)
-        }
-    }
+            None ->
+                Ok(Unit)
+        end
+    end
 
     /// Sends `message` as one frame. Sends from several tasks go one at a
     /// time.
-    pub fn send(ws: WebSocket, message: Message) -> Result<Unit, Error> {
-        sent = case message {
+    pub fn send(ws: WebSocket, message: Message) -> Result<Unit, Error>
+        sent = case message
             .Text(text) -> http_host.ws_send(ws.handle, True, String.to_bytes(text))
             .Binary(data) -> http_host.ws_send(ws.handle, False, data)
-        }
+        end
 
         sent |> Result.map_err(error_of)
-    }
+    end
 
     /// Sends `text` as a text message.
-    pub fn send_text(ws: WebSocket, text: String) -> Result<Unit, Error> {
+    pub fn send_text(ws: WebSocket, text: String) -> Result<Unit, Error>
         WebSocket.send(ws, Message.Text(text))
-    }
+    end
 
     /// Sends a ping carrying `data`, at most 125 bytes; the peer answers
     /// with a pong, which `receive` takes on its way.
-    pub fn ping(ws: WebSocket, data: Bytes = String.to_bytes("")) -> Result<Unit, Error> {
+    pub fn ping(ws: WebSocket, data: Bytes = String.to_bytes("")) -> Result<Unit, Error>
         http_host.ws_ping(ws.handle, data) |> Result.map_err(error_of)
-    }
+    end
 
     /// Closes the connection with `code` and `reason`, at most 123 bytes:
     /// sends a close frame, waits up to five seconds for the peer's, then
@@ -244,30 +244,30 @@ impl WebSocket {
     //! import std::http_testing
     //! import std::websocket.{self, Error, WebSocket}
     //!
-    //! leave = fn request: Request -> {
-    //!     websocket.accept(request, fn ws -> {
+    //! leave = fn request: Request ->
+    //!     websocket.accept(request, fn ws ->
     //!         _ = WebSocket.close(ws, 4000, "done here")
-    //!     })
-    //! }
+    //!     end)
+    //! end
     //!
     //! got = http_testing.open_websocket(leave, "/", fn ws -> WebSocket.receive(ws))
     //! assert Ok(received) = got
     //! assert received == Err(Error.Closed{code: 4000, reason: "done here"})
     //
-    pub fn close(ws: WebSocket, code: Int = 1000, reason: String = "") -> Result<Unit, Error> {
+    pub fn close(ws: WebSocket, code: Int = 1000, reason: String = "") -> Result<Unit, Error>
         http_host.ws_close(ws.handle, code, reason) |> Result.map_err(error_of)
-    }
+    end
 
     /// The subprotocol the two ends agreed on, if any.
-    pub fn protocol(ws: WebSocket) -> Maybe<String> {
+    pub fn protocol(ws: WebSocket) -> Maybe<String>
         ws.protocol
-    }
+    end
 
     /// A number no other WebSocket of the program has, for keeping
     /// connections in a `Map`.
-    pub fn id(ws: WebSocket) -> Int {
+    pub fn id(ws: WebSocket) -> Int
         http_host.ws_id(ws.handle)
-    }
+    end
 
     /// A WebSocket over `conn`, whose handshake was done some other way;
     /// `client` says which end this is, since a client masks its frames.
@@ -276,11 +276,11 @@ impl WebSocket {
         client: Bool,
         protocol: Maybe<String> = None,
         max_message_size: Int = 1_048_576,
-    ) -> WebSocket {
+    ) -> WebSocket
         handle = http_host.ws_open(Connection.handle_of(conn), client, max_message_size, 0, 0)
-        WebSocket{handle, protocol}
-    }
-}
+        WebSocket{handle:, protocol:}
+    end
+end
 
 /// Accepts `request`'s WebSocket handshake: the `101` response, which runs
 /// `on_open` over the connection once it is sent and closes the connection
@@ -291,17 +291,17 @@ impl WebSocket {
 //! import std::http_testing
 //! import std::websocket.{self, AcceptOptions, WebSocket}
 //!
-//! chat = fn request: Request -> {
-//!     websocket.accept(request, AcceptOptions{protocols: ["chat.v2", "chat.v1"]}, fn ws -> {
+//! chat = fn request: Request ->
+//!     websocket.accept(request, AcceptOptions{protocols: ["chat.v2", "chat.v1"]}, fn ws ->
 //!         _ = WebSocket.send_text(ws, "welcome")
-//!     })
-//! }
+//!     end)
+//! end
 //!
 //! offered = Headers[("Sec-WebSocket-Protocol", "chat.v1, chat.v2")]
 //!
-//! got = http_testing.open_websocket(chat, "/chat", offered, fn ws -> {
+//! got = http_testing.open_websocket(chat, "/chat", offered, fn ws ->
 //!     (WebSocket.protocol(ws), WebSocket.receive(ws), WebSocket.receive(ws))
-//! })
+//! end)
 //!
 //! assert Ok(seen) = got
 //! assert seen == (Some("chat.v2"), Ok(Some(websocket.Message.Text("welcome"))), Ok(None))
@@ -320,15 +320,16 @@ pub fn accept(
     request: Request,
     options: AcceptOptions = AcceptOptions{},
     on_open: (WebSocket) -> Unit,
-) -> Response {
-    case handshake(request, options) {
-        Err(refused) -> refused
+) -> Response
+    case handshake(request, options)
+        Err(refused) ->
+            refused
 
-        Ok((key, protocol)) -> {
-            chosen = case protocol {
+        Ok((key, protocol)) ->
+            chosen = case protocol
                 Some(p) -> [("Sec-WebSocket-Protocol", p)]
                 None -> []
-            }
+            end
 
             Headers(extra) = options.headers
 
@@ -340,7 +341,7 @@ pub fn accept(
 
             headers = Headers(required + chosen + extra)
 
-            Response.upgrade(Status.switching_protocols, headers, fn conn: Connection -> {
+            Response.upgrade(Status.switching_protocols, headers, fn conn: Connection ->
                 handle = http_host.ws_open(
                     Connection.handle_of(conn),
                     False,
@@ -349,13 +350,12 @@ pub fn accept(
                     net.nanos(options.idle_timeout),
                 )
 
-                ws = WebSocket{handle, protocol}
+                ws = WebSocket{handle:, protocol:}
                 on_open(ws)
                 _ = WebSocket.close(ws)
-            })
-        }
-    }
-}
+            end)
+    end
+end
 
 /// Whether `request` asks to upgrade to a WebSocket, for a handler that
 /// serves a page and a socket at one path.
@@ -365,11 +365,11 @@ pub fn accept(
 //!
 //! r = http_testing.request(Method.Get, "/")
 //! refute websocket.is_upgrade(r)
-//! assert websocket.is_upgrade(.{..r, headers: Headers[("Upgrade", "WebSocket")]})
+//! assert websocket.is_upgrade({..r, headers: Headers[("Upgrade", "WebSocket")]})
 //
-pub fn is_upgrade(request: Request) -> Bool {
+pub fn is_upgrade(request: Request) -> Bool
     tokens(request.headers, "Upgrade") |> Iter.any_match(fn t -> String.lowercase(t) == "websocket")
-}
+end
 
 /// Connects to `url`, `ws://` or `wss://`, and runs the handshake. An
 /// `Error.Handshake` holds the status of a server that refused.
@@ -378,57 +378,57 @@ pub fn is_upgrade(request: Request) -> Bool {
 //! import std::url.Url
 //! import std::websocket.{self, Error, Message, WebSocket}
 //!
-//! echo = fn request: Request -> {
-//!     websocket.accept(request, fn ws -> {
-//!         _ = WebSocket.each(ws, fn message -> {
+//! echo = fn request: Request ->
+//!     websocket.accept(request, fn ws ->
+//!         _ = WebSocket.each(ws, fn message ->
 //!             _ = WebSocket.send(ws, message)
-//!         })
-//!     })
-//! }
+//!         end)
+//!     end)
+//! end
 //!
-//! said = http_testing.with_server(echo, fn server -> {
+//! said = http_testing.with_server(echo, fn server ->
 //!     ws = websocket.connect(Url.parse("ws://${server.url.host}/echo")!)!
 //!     _ = WebSocket.send_text(ws, "over a socket")
 //!     reply = WebSocket.receive(ws)
 //!     _ = WebSocket.close(ws)
 //!     reply
-//! })
+//! end)
 //!
 //! assert said == Ok(Some(Message.Text("over a socket")))
 //!
 //! page = fn _: Request -> Response{status: Status.not_found}
 //!
-//! refused = http_testing.with_server(page, fn server -> {
+//! refused = http_testing.with_server(page, fn server ->
 //!     websocket.connect(Url.parse("ws://${server.url.host}/")!) |> Result.map(fn _ -> Unit)
-//! })
+//! end)
 //!
-//! assert Err(Error.Handshake{status, reason: _}) = refused
+//! assert Err(Error.Handshake{status:, reason: _}) = refused
 //! assert status == Status.not_found
 //! assert websocket.connect(Url`https://example.com`) is Err(Error.InvalidUrl{url: _, reason: _})
-pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<WebSocket, Error> {
-    if url.scheme != "ws" and url.scheme != "wss" {
+pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<WebSocket, Error>
+    if url.scheme != "ws" and url.scheme != "wss" then
         return Err(Error.InvalidUrl{url: "${url}", reason: "a WebSocket URL is ws:// or wss://"})
-    }
+    end
 
     secure = url.scheme == "wss"
     host = Url.hostname(url)
 
     port =
         Url.port(url)
-        |> Maybe.with_default(if secure { "443" } else { "80" })
+        |> Maybe.with_default(if secure then "443" else "80")
 
     address = net.join_host_port(host, port)
 
-    conn = if secure {
-        named = .{
+    conn = if secure then
+        named = {
             ..options.tls,
             server_name: Some(Maybe.with_default(options.tls.server_name, host)),
         }
 
-        tls.dial(address, named, options.dial) |> Result.map_err(fn error -> Error.Network{error})?
-    } else {
-        net.dial(address, options.dial) |> Result.map_err(fn error -> Error.Network{error})?
-    }
+        tls.dial(address, named, options.dial) |> Result.map_err(fn error -> Error.Network{error:})?
+    else
+        net.dial(address, options.dial) |> Result.map_err(fn error -> Error.Network{error:})?
+    end
 
     Headers(pairs) = options.headers
     flat = Iter.reduce(pairs, [], fn acc: List<String>, (k, v) -> acc + [k, v])
@@ -446,108 +446,108 @@ pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<W
         )
         |> Result.map_err(error_of)?
 
-    protocol = case http_host.ws_protocol(handle) {
+    protocol = case http_host.ws_protocol(handle)
         "" -> None
         chosen -> Some(chosen)
-    }
+    end
 
-    Ok(WebSocket{handle, protocol})
-}
+    Ok(WebSocket{handle:, protocol:})
+end
 
 /// The key and chosen subprotocol of a handshake `accept` takes, or the
 /// response that refuses it.
-fn handshake(
-    request: Request,
-    options: AcceptOptions,
-) -> Result<(String, Maybe<String>), Response> {
-    if request.method != Method.Get {
+fn handshake(request: Request, options: AcceptOptions) -> Result<(String, Maybe<String>), Response>
+    if request.method != Method.Get then
         refused =
             Response.error(Status.method_not_allowed, "a WebSocket handshake is a GET")
             |> Response.with_headers(Headers[("Allow", "GET")])
 
         return Err(refused)
-    }
+    end
 
-    upgrading = Iter.any_match(tokens(request.headers, "Connection"), fn t -> {
+    upgrading = Iter.any_match(tokens(request.headers, "Connection"), fn t ->
         String.lowercase(t) == "upgrade"
-    })
+    end)
 
-    if not is_upgrade(request) or not upgrading {
+    if not is_upgrade(request) or not upgrading then
         refused =
             Response.error(Status.upgrade_required, "this resource is a WebSocket")
             |> Response.with_headers(Headers[("Upgrade", "websocket"), ("Connection", "Upgrade")])
 
         return Err(refused)
-    }
+    end
 
-    if Headers.get(request.headers, "Sec-WebSocket-Version") != Some("13") {
+    if Headers.get(request.headers, "Sec-WebSocket-Version") != Some("13") then
         refused =
             Response.error(Status.upgrade_required, "only WebSocket version 13 is spoken")
             |> Response.with_headers(Headers[("Sec-WebSocket-Version", "13")])
 
         return Err(refused)
-    }
+    end
 
     key = Headers.get(request.headers, "Sec-WebSocket-Key") |> Maybe.with_default("")
 
-    if not http_host.ws_valid_key(key) {
+    if not http_host.ws_valid_key(key) then
         return Err(Response.error(Status.bad_request, "a bad Sec-WebSocket-Key"))
-    }
+    end
 
-    if not origin_allowed(request, options.allowed_origins) {
+    if not origin_allowed(request, options.allowed_origins) then
         return Err(Response.error(Status.forbidden, "WebSocket origin not allowed"))
-    }
+    end
 
     offered = tokens(request.headers, "Sec-WebSocket-Protocol")
     chosen = Iter.find(options.protocols, fn p -> List.contains(offered, p))
     Ok((key, chosen))
-}
+end
 
 /// Whether a browser's `Origin` is the request's own host or an allowed
 /// one; a request with none is not from a browser and passes.
-fn origin_allowed(request: Request, allowed: List<Origin>) -> Bool {
-    case Headers.get(request.headers, "Origin") {
-        None -> True
-        Some("") -> True
+fn origin_allowed(request: Request, allowed: List<Origin>) -> Bool
+    case Headers.get(request.headers, "Origin")
+        None ->
+            True
+
+        Some("") ->
+            True
 
         Some(text) ->
-            case Origin.parse(text) {
+            case Origin.parse(text)
                 Ok(origin) -> List.contains(allowed, origin) or same_host(origin, request)
                 Err(_) -> False
-            }
-    }
-}
+            end
+    end
+end
 
-fn same_host(origin: Origin, request: Request) -> Bool {
+fn same_host(origin: Origin, request: Request) -> Bool
     host = request.host |> Maybe.with_default("") |> String.lowercase()
 
-    case Url.parse("${origin}") {
+    case Url.parse("${origin}")
         Ok(u) -> host != "" and u.host == host
         Err(_) -> False
-    }
-}
+    end
+end
 
 /// A comma-separated header's values, trimmed, empty ones left out.
-fn tokens(headers: Headers, name: String) -> List<String> {
+fn tokens(headers: Headers, name: String) -> List<String>
     Headers.values(headers, name)
     |> Iter.flat_map(fn v -> String.split(v, ","))
     |> Iter.map(String.trim)
     |> Iter.filter(fn t -> t != "")
     |> Iter.to_list()
-}
+end
 
-fn error_of(parts: List<String>) -> Error {
-    case parts {
-        ["Handshake", status, reason] -> Error.Handshake{status: Status(number(status)), reason}
-        ["Protocol", code, reason] -> Error.Protocol{code: number(code), reason}
-        ["Closed", code, reason] -> Error.Closed{code: number(code), reason}
+fn error_of(parts: List<String>) -> Error
+    case parts
+        ["Handshake", status, reason] -> Error.Handshake{status: Status(number(status)), reason:}
+        ["Protocol", code, reason] -> Error.Protocol{code: number(code), reason:}
+        ["Closed", code, reason] -> Error.Closed{code: number(code), reason:}
         ["Timeout"] -> Error.Timeout
         ["Network", ..rest] -> Error.Network{error: net.Error.from_parts(rest)}
-        ["Invalid", reason] -> Error.Invalid{reason}
+        ["Invalid", reason] -> Error.Invalid{reason:}
         _ -> Error.Invalid{reason: String.join(parts, " ")}
-    }
-}
+    end
+end
 
-fn number(text: String) -> Int {
+fn number(text: String) -> Int
     String.to_int(text) |> Maybe.with_default(0)
-}
+end

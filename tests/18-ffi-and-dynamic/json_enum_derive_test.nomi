@@ -1,33 +1,33 @@
 import std::json.{FromJson, Json, ToJson}
 
-struct Circle {
+struct Circle
     radius: Float
-}
+end
 
 derive Equatable for Circle
 derive ToJson for Circle
 derive FromJson for Circle
 
-enum Shape {
+enum Shape
     embeds Circle
     Rect {width_px: Int, height_px: Int}
     Pair (Int, String)
     Label String
     Dot
-}
+end
 
 derive Equatable for Shape
 derive ToJson for Shape with ToJson.Options{rename_all: Json.Case.Camel}
 derive FromJson for Shape with FromJson.Options{rename_all: Json.Case.Camel}
 
-fn decoded(text: String) -> Result<Shape, String> {
-    case Json.decode(text) {
+fn decoded(text: String) -> Result<Shape, String>
+    case Json.decode(text)
         Ok(json) -> Shape.from_json(json) |> Result.map_err(&Display.to_string(&1))
         Err(e) -> Err(Display.to_string(e))
-    }
-}
+    end
+end
 
-test "a derived enum's FromJson reads what its ToJson writes" {
+test "a derived enum's FromJson reads what its ToJson writes"
     shapes = [
         Shape.Circle{radius: 2.5},
         Shape.Rect{width_px: 3, height_px: 4},
@@ -48,34 +48,36 @@ test "a derived enum's FromJson reads what its ToJson writes" {
 
     back = Iter.map(texts, &decoded(&1)) |> Iter.to_list()
     assert back == Iter.map(shapes, &Ok(&1)) |> Iter.to_list()
-}
+end
 
-test "a derived enum's FromJson names what it could not read" {
+test "a derived enum's FromJson names what it could not read"
     assert decoded("\"Square\"") == Err("expected Shape, got \"Square\"")
-    assert decoded("{\"Label\":3}") == Err("Label: expected string, got int")
-    assert decoded("{\"Pair\":[1]}") == Err("Pair: expected array of 2, got array")
-    assert decoded("{\"Pair\":[1,2]}") == Err("Pair.[1]: expected string, got int")
+    assert decoded("{\"Label\":3}") == Err("Label: expected String, got int")
+    assert decoded("{\"Pair\":[1]}") == Err("Pair: expected (Int, String), got array")
+    assert decoded("{\"Pair\":[1,2]}") == Err("Pair.[1]: expected String, got int")
     assert decoded("{\"Rect\":{\"widthPx\":3}}") == Err("Rect.heightPx: expected Int, got missing")
     assert decoded("{\"Hexagon\":1}") == Err("expected Shape, got object")
-    assert decoded("7") == Err("expected string or object, got int")
-}
+    assert decoded("{\"Rect\":1}") == Err("Rect: expected Shape.Rect, got int")
+    assert decoded("{\"Circle\":[]}") == Err("Circle: expected Circle, got array")
+    assert decoded("7") == Err("expected Shape, got int")
+end
 
-test "vectors and sets cross as JSON arrays" {
-    v = #[1, 2, 3]
+test "vectors and sets cross as JSON arrays"
+    v = Vector[1, 2, 3]
     assert Json.encode_as(v) == "[1,2,3]"
     back: Result<Vector<Int>, Json.ShapeError> = FromJson.from_json(ToJson.to_json(v))
     assert back == Ok(v)
 
-    s = %["a"]
+    s = Set["a"]
     assert Json.encode_as(s) == "[\"a\"]"
 
     twice: Result<Set<Int>, Json.ShapeError> = FromJson.from_json(
         Json.Arr([Json.Int(2), Json.Int(2)])
     )
 
-    assert twice == Ok(%[2])
-}
+    assert twice == Ok([2])
+end
 
-test "a whole JSON number reads as a Float" {
+test "a whole JSON number reads as a Float"
     assert Float.from_json(Json.Int(2)) == Ok(2.0)
-}
+end

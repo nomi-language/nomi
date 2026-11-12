@@ -182,15 +182,16 @@ func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.Comple
 		r.scope = doc.Analysis.ModuleScope
 	}
 	r.ctx = classifyCompletion(doc.Content, off)
-	if (trigger == "#" || trigger == "%") && r.ctx.kind != ctxShapeHead {
-		// Only a name right after the symbol of a literal; a `%` after an
-		// operand is the remainder operator.
-		return nil, nil
-	}
 	r.demoteMapSpreadField()
 
 	if (trigger == "{" || trigger == ",") && r.ctx.kind != ctxStructField && r.ctx.kind != ctxPatternField {
 		return nil, nil
+	}
+	if r.ctx.kind == ctxStructField && trigger == "" && r.bareBraceOpensBlock() {
+		// `n: Int = {‸}`: no struct is expected, so the `{` is as likely a
+		// block's, and an invoked request offers what a block's first
+		// statement can name.
+		r.ctx = classifyAsBlock(doc.Content, off)
 	}
 	if trigger == ":" && r.ctx.kind != ctxType {
 		return nil, nil
@@ -200,12 +201,33 @@ func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.Comple
 	return &protocol.CompletionList{IsIncomplete: r.incomplete, Items: items}, nil
 }
 
-// demoteMapSpreadField makes the slot after `.{..base, ` an expression
-// when base is a map: the next element is an entry's key, `key => value`,
-// not a field label.
+// bareBraceOpensBlock reports whether the struct literal the cursor's field
+// label is in is a `{` with no name, no spread and no field written but the
+// one being typed, at a position that expects no struct: a brace a block
+// opens as well, with no fields to offer.
+func (r *completionRequest) bareBraceOpensBlock() bool {
+	lit := r.ctx.structLit
+	if lit == nil || lit.TypeName != nil || lit.Spread != nil || len(lit.Fields) > 1 {
+		return false
+	}
+	return len(r.structFieldCandidates()) == 0
+}
+
+// demoteMapSpreadField makes the slot after `{..base, ` an expression
+// when base is a map, and the first slot of a `{` where no struct is
+// expected: the next element is an entry's key, `key => value`, not a field
+// label.
 func (r *completionRequest) demoteMapSpreadField() {
 	lit := r.ctx.structLit
-	if r.ctx.kind != ctxStructField || lit == nil || lit.Spread == nil {
+	if r.ctx.kind != ctxStructField || lit == nil {
+		return
+	}
+	if lit.Spread == nil {
+		// `{co‸}` where no struct is expected is a map's first key as
+		// much as a field: with no fields to offer, offer values.
+		if lit.TypeName == nil && len(fieldsOf(r.structLitType(r.ctx.hit, 1, lit))) == 0 {
+			r.ctx.kind = ctxExpr
+		}
 		return
 	}
 	if _, isMap := analysis.ResolveTypeVar(r.exprType(lit.Spread)).(*analysis.MapType); isMap {
@@ -227,7 +249,7 @@ func triggerCharacter(params *protocol.CompletionParams) string {
 // and the `{` of a block cost nothing: `>` only completes the `|>` of a pipe
 // or the return type after a signature's `)` (`fn f() ->`), and `{`
 // only a struct literal's fields, whose `{` follows its type name or `.`
-// (`Point{`, `.{`; braceMayOpenLiteral), a quote or backtick only a typed literal's body (`Date"`),
+// (`Point{`, `{`; braceMayOpenLiteral), a quote or backtick only a typed literal's body (`Date"`),
 // and `:` only an annotation, whose `:` follows the annotated name.
 func triggerMayOpen(trigger, content string, off int) bool {
 	switch trigger {
@@ -251,7 +273,7 @@ func triggerMayOpen(trigger, content string, off int) bool {
 		// opens nothing.
 		return off >= 1 && content[off-1] == ','
 	case "}":
-		// Only the `}` an auto-pair plugin closes `Point{` or `.{` with, the
+		// Only the `}` an auto-pair plugin closes `Point{` or `{` with, the
 		// cursor between the braces; a `}` closing a block opens nothing.
 
 		return off >= 2 && off < len(content) && content[off-1] == '{' && content[off] == '}' && braceMayOpenLiteral(content, off-1)
@@ -269,23 +291,61 @@ func triggerMayOpen(trigger, content string, off int) bool {
 }
 
 // braceMayOpenLiteral reports, from the text alone, whether the `{` at brace
-// can open a struct literal: right after the `.` of one with no name (`.{`),
-// or against a type or variant name (`Point{`, `geo.Point{`, `.Circle{`).
-// Any other `{` opens a block or a map, so it costs nothing.
+// can open a struct literal: against a type or variant name (`Point{`,
+// `geo.Point{`, `.Circle{`), or with no name where a value starts (`= {`,
+// `({`, `[{`, `, {`, `: {`, an arm's or a lambda's `-> {`, `return {`, a
+// line's first `{`), where a struct with no name stands. A `{` after a
+// condition, a signature or any other word opens no literal, and after `#`
+// or `%` a map, so it costs nothing.
 func braceMayOpenLiteral(content string, brace int) bool {
-	if brace >= 1 && content[brace-1] == '.' {
-		return true
-	}
 	i := brace
 	for i > 0 && (isWordByte(content[i-1]) || content[i-1] == '.') {
 		i--
 	}
-	name := content[i:brace]
-	if i >= 1 && (content[i-1] == '#' || content[i-1] == '%') {
+	if i < brace {
+		name := content[i:brace]
+		if i >= 1 && (content[i-1] == '#' || content[i-1] == '%') {
+			return false
+		}
+		last := name[strings.LastIndexByte(name, '.')+1:]
+		return last != "" && last[0] >= 'A' && last[0] <= 'Z'
+	}
+	for i > 0 && (content[i-1] == ' ' || content[i-1] == '\t') {
+		i--
+	}
+	if i == 0 {
+		return true
+	}
+	switch c := content[i-1]; c {
+	case '\n', '=', '(', '[', ',', ':', '{':
+		return true
+	case '>':
+		if i < 2 {
+			return false
+		}
+		switch content[i-2] {
+		case '=':
+			return true // a map entry's value, `k => {`
+		case '-':
+			// An arm's or a lambda's body; after a signature's `)`, the
+			// return type.
+			j := i - 2
+			for j > 0 && content[j-1] == ' ' {
+				j--
+			}
+			return j == 0 || content[j-1] != ')' || endsLambdaHeader(content, i-2)
+		}
 		return false
 	}
-	last := name[strings.LastIndexByte(name, '.')+1:]
-	return last != "" && last[0] >= 'A' && last[0] <= 'Z'
+	j := i
+	for j > 0 && isWordByte(content[j-1]) {
+		j--
+	}
+	switch content[j:i] {
+	case "return", "break", "dbg":
+		return true
+	}
+	return false
 }
 
 // endsLambdaHeader reports whether the `->` at arrow ends a lambda's
@@ -382,30 +442,10 @@ func (r *completionRequest) candidates() []candidate {
 		return r.importNameCandidates()
 	case ctxImplItem:
 		return r.implStubCandidates()
-	case ctxShapeHead:
-		return r.shapeHeadCandidates()
 	case ctxPathSegment:
 		return r.pathSegmentCandidates()
 	}
 	return nil
-}
-
-// shapeHeadCandidates offers the names a literal's `#` or `%` can head:
-// after `#`, structs, enums and distinct types over a vector;
-// after `%`, distinct types over a map or set. Unqualified, the modules
-// that qualify such a name are offered too.
-func (r *completionRequest) shapeHeadCandidates() []candidate {
-	sigil := r.ctx.shapeSigil
-	keep := func(sym *analysis.Symbol) bool {
-		return typeSymbol(sym) && analysis.LiteralSigil(realSymbol(sym).Type) == sigil
-	}
-	if r.ctx.typeQualifier != "" {
-		return r.moduleMemberCandidates(r.ctx.typeQualifier, keep)
-	}
-	out := r.scopeCandidates(func(sym *analysis.Symbol) bool {
-		return keep(sym) || typeQualifierModule(sym)
-	})
-	return out
 }
 
 // items filters the candidates against the typed prefix, ranks them and

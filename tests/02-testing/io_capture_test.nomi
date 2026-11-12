@@ -1,136 +1,136 @@
 // `io.capture(input, run)` calls `run` with `input` as its stdin and answers
 // what it returned and everything it printed.
-import {
+import
     std::duration.Duration
     std::io.{self, Reader, Writer}
     std::tasks.Task
     std::timer
-}
+end
 
-fn read_words(acc: List<String>) -> List<String> {
-    case io.read_line() {
+fn read_words(acc: List<String>) -> List<String>
+    case io.read_line()
         Ok(Some(line)) -> read_words(acc + String.split(line, " "))
         _ -> acc
-    }
-}
+    end
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     words = read_words([])
     io.print("words: ${Iter.count(words)}")
     Ok(Unit)
-}
+end
 
-fn write_n(s: String, n: Int) -> Unit {
-    if n > 0 {
+fn write_n(s: String, n: Int) -> Unit
+    if n > 0 then
         io.write(s)
         // Yield, so two tasks writing at once interleave.
         timer.sleep(Duration.milliseconds(0))
         write_n(s, n - 1)
-    }
-}
+    end
+end
 
-test "a program's main runs against the given input" {
+test "a program's main runs against the given input"
     run = io.capture("the fox\nthe dog", main)
     assert run.value == Ok(Unit)
     assert run.output == "words: 4\n"
-}
+end
 
-test "print, write and inspect are captured byte for byte" {
-    run = io.capture("", fn -> {
+test "print, write and inspect are captured byte for byte"
+    run = io.capture("", fn ->
         io.print("line")
         io.write("no newline ")
         io.inspect([1, 2])
         io.print(3)
-    })
+    end)
 
     assert run.output == "line\nno newline [1, 2]\n3\n"
-}
+end
 
-test "read_line reads the input a line at a time, then None at the end" {
-    run = io.capture("one\n\nlast", fn -> {
+test "read_line reads the input a line at a time, then None at the end"
+    run = io.capture("one\n\nlast", fn ->
         [io.read_line(), io.read_line(), io.read_line(), io.read_line()]
-    })
+    end)
 
     assert run.value == [Ok(Some("one")), Ok(Some("")), Ok(Some("last")), Ok(None)]
     assert run.output == ""
-}
+end
 
-test "an inner capture keeps its own output" {
-    outer = io.capture("outer", fn -> {
+test "an inner capture keeps its own output"
+    outer = io.capture("outer", fn ->
         io.write("a")
 
-        inner = io.capture("inner", fn -> {
+        inner = io.capture("inner", fn ->
             io.write("b")
             io.read_line()
-        })
+        end)
 
         io.write(inner.output)
         (inner.value, io.read_line())
-    })
+    end)
 
     assert outer.value == (Ok(Some("inner")), Ok(Some("outer")))
     assert outer.output == "ab"
-}
+end
 
-test "tasks started inside the capture are captured" {
-    run = io.capture("", fn -> {
-        concurrent {
-            t = Task.spawn(fn -> {
+test "tasks started inside the capture are captured"
+    run = io.capture("", fn ->
+        concurrent
+            t = Task.spawn(fn ->
                 io.print("from task")
                 2
-            })
+            end)
 
             Task.await(t)
-        }
-    })
+        end
+    end)
 
     assert run.value == 2
     assert run.output == "from task\n"
-}
+end
 
-test "two tasks capturing at once do not see each other's output" {
-    both = concurrent {
+test "two tasks capturing at once do not see each other's output"
+    both = concurrent
         a = Task.spawn(fn -> io.capture("", fn -> write_n("a", 20)))
         b = Task.spawn(fn -> io.capture("", fn -> write_n("b", 20)))
         (Task.await(a).output, Task.await(b).output)
-    }
+    end
 
     assert both == (String.repeat("a", 20), String.repeat("b", 20))
-}
+end
 
-test "stderr is captured apart from stdout and the transcript" {
-    run = io.capture("Ada", fn -> {
+test "stderr is captured apart from stdout and the transcript"
+    run = io.capture("Ada", fn ->
         io.eprint("warning: first")
         io.write("name: ")
 
-        case io.read_line() {
+        case io.read_line()
             Ok(Some(name)) -> io.print("hi ${name}")
             _ -> io.ewrite("no name")
-        }
-    })
+        end
+    end)
 
     assert run.output == "name: hi Ada\n"
     assert run.errors == "warning: first\n"
     assert run.transcript == "name: \n    > Ada\nhi Ada\n"
-}
+end
 
-test "the stream handles reach the capture" {
-    run = io.capture("one\n", fn -> {
+test "the stream handles reach the capture"
+    run = io.capture("one\n", fn ->
         _ = Writer.print(io.stdout, "to stdout")
         _ = Writer.write(io.stderr, String.to_bytes("to stderr"))
         Reader.read_line(io.stdin)
-    })
+    end)
 
     assert run.value == Ok(Some("one"))
     assert run.output == "to stdout\n"
     assert run.errors == "to stderr"
-}
+end
 
-test "a replay ignores what the program writes to stderr" {
-    warned = fn -> {
+test "a replay ignores what the program writes to stderr"
+    warned = fn ->
         io.eprint("warning: no config file")
         io.print("ready")
-    }
+    end
 
     assert io.replay(
         """
@@ -138,36 +138,36 @@ test "a replay ignores what the program writes to stderr" {
         """,
         warned,
     )
-}
+end
 
-test "an inner capture keeps its own errors" {
-    outer = io.capture("", fn -> {
+test "an inner capture keeps its own errors"
+    outer = io.capture("", fn ->
         io.eprint("outer")
         inner = io.capture("", fn -> io.eprint("inner"))
         inner.errors
-    })
+    end)
 
     assert outer.value == "inner\n"
     assert outer.errors == "outer\n"
-}
+end
 
-test "a stream read before a capture writes into the capture" {
+test "a stream read before a capture writes into the capture"
     out = io.stdout
     input = io.stdin
 
-    run = io.capture("typed\n", fn -> {
+    run = io.capture("typed\n", fn ->
         _ = Writer.print(out, "before")
 
-        concurrent {
-            t = Task.spawn(fn -> {
+        concurrent
+            t = Task.spawn(fn ->
                 _ = Writer.print(out, "from a task")
                 Reader.read_line(input)
-            })
+            end)
 
             Task.await(t)
-        }
-    })
+        end
+    end)
 
     assert run.value == Ok(Some("typed"))
     assert run.output == "before\nfrom a task\n"
-}
+end

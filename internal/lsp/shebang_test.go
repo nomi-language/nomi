@@ -15,13 +15,13 @@ func TestShebangFile_PositionsAreUnshifted(t *testing.T) {
 	src := "#!/usr/bin/env nomi\n" +
 		"import std::io\n" +
 		"\n" +
-		"fn double(n: Int) -> Int {\n" +
+		"fn double(n: Int) -> Int\n" +
 		"    n + n\n" +
-		"}\n" +
+		"end\n" +
 		"\n" +
-		"fn main() {\n" +
+		"fn main()\n" +
 		"    io.print(double(\"x\"))\n" +
-		"}\n"
+		"end\n"
 	s := NewServer()
 	s.docs.Open(uri, src)
 	snap := s.docs.Snapshot(uri)
@@ -96,10 +96,10 @@ func TestShebangFile_PositionsAreUnshifted(t *testing.T) {
 // A file's first import goes below its shebang, which must stay line 1.
 func TestImportInsertEdit_KeepsShebangFirst(t *testing.T) {
 	cases := map[string]struct{ content, want string }{
-		"no shebang":         {"fn main() {}\n", "import std::io\n\nfn main() {}\n"},
-		"shebang":            {"#!/usr/bin/env nomi\nfn main() {}\n", "#!/usr/bin/env nomi\nimport std::io\n\nfn main() {}\n"},
+		"no shebang":         {"fn main() end\n", "import std::io\n\nfn main() end\n"},
+		"shebang":            {"#!/usr/bin/env nomi\nfn main() end\n", "#!/usr/bin/env nomi\nimport std::io\n\nfn main() end\n"},
 		"only a shebang":     {"#!/usr/bin/env nomi", "#!/usr/bin/env nomi\nimport std::io\n"},
-		"shebang then blank": {"#!/usr/bin/env nomi\n\nfn main() {}\n", "#!/usr/bin/env nomi\nimport std::io\n\n\nfn main() {}\n"},
+		"shebang then blank": {"#!/usr/bin/env nomi\n\nfn main() end\n", "#!/usr/bin/env nomi\nimport std::io\n\n\nfn main() end\n"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

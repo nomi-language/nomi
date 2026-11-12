@@ -1,6 +1,10 @@
 package irbuild
 
 import (
+	"cmp"
+	"slices"
+
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -29,6 +33,22 @@ import (
 // values, and everything else sees through the box (rt.Unbox). A
 // value whose own runtime type names its impl is erased unchanged
 // (irErases), so a struct, a plain enum or a scalar costs nothing.
+//
+// Where a written expression becomes an interface value is the checker's
+// record (analysis.FileAnalysis.Coercions): the interface, the value's type
+// and the impl block. coerceRecorded makes the value from it, at an
+// annotated binding, a struct or record literal's field, a struct field's
+// default and a qualified call's operand; coerceEmpty, which every other
+// position converts through, names the record's impl when the expression
+// has one. A value enters an interface inside a conversion the checker
+// records as a whole, with no record of its own: a function's result
+// through an adapter (irfuncwiden.go), a `?` operand's error, an element a
+// view converts as it reads it, an operand of `==` against an interface
+// value. There the box's impl is the program's one impl of the interface
+// instance for the value's kind, which the checker's coherence makes one.
+// The kinds that entered each interface, which a Debug rendering of a held
+// value names (existentialDebugImpls), are the records' too
+// (checkedErasures).
 
 // irBoxes is one unit's boxing state.
 type irBoxes struct {
@@ -71,15 +91,14 @@ type irBoxedImpl struct {
 // (`List<Int>`, `Map<String, main.Point>`).
 type irBoxTypeToken struct{ key string }
 
-// irBoxedErasure reports whether a value of kind have enters the program
-// interface existential want boxed.
-func (g *gen) irBoxedErasure(want, have kind) bool {
-	return g.irBoxPlanFor(want, have) != nil
-}
-
 // irBoxPlanFor is the plan that boxes have into want, or nil when have
-// enters want unboxed or not at all.
-func (g *gen) irBoxPlanFor(want, have kind) *irBoxPlan {
+// enters want unboxed or not at all. impl is the impl block the checker
+// recorded for the coercion (analysis.Coercion.Impl), nil for a value
+// entering an interface inside a conversion the checker records as a whole
+// (a function's result through an adapter, a `?` operand's error, an
+// operand of `==` against an interface value), where the program's one
+// impl of the interface instance for have is the impl.
+func (g *gen) irBoxPlanFor(want, have kind, impl *ast.ImplBlock) *irBoxPlan {
 	if !irExistentialKind(want) {
 		return nil
 	}
@@ -105,7 +124,7 @@ func (g *gen) irBoxPlanFor(want, have kind) *irBoxPlan {
 	}
 	// Recorded before planning, which registers impls and may ask again.
 	g.boxes.plans[key] = nil
-	p := g.irBoxPlan(d, have)
+	p := g.irBoxPlan(d, have, impl)
 	g.boxes.plans[key] = p
 	if p != nil {
 		g.boxes.order = append(g.boxes.order, key)
@@ -124,7 +143,7 @@ func irStdBoxingIface(d *ifaceDef) bool {
 	return d.stdShared && !d.universal && (d.nomi == "Display" || d.nomi == "Debug")
 }
 
-func (g *gen) irBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
+func (g *gen) irBoxPlan(d *ifaceDef, have kind, impl *ast.ImplBlock) *irBoxPlan {
 	if d.stdShared {
 		return g.irStdBoxPlan(d, have)
 	}
@@ -172,7 +191,7 @@ func (g *gen) irBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
 	for _, m := range d.order {
 		var found *stdRecvCand
 		for _, c := range g.stdRecvCandidates(have, m.name, d.nomi, nil) {
-			if c.d.iface == nil || !sameIfaceInstance(c.d.iface, d) {
+			if c.d.iface == nil || !sameIfaceInstance(c.d.iface, d) || (impl != nil && c.d.decl != impl) {
 				continue
 			}
 			if found != nil {
@@ -368,11 +387,11 @@ func (g *gen) irContainerDisplayInstance(have kind) (*ir.Symbol, *gen) {
 	if ib == nil || ib.Interface == nil || typeText(ib.Interface) != "Display" {
 		return nil, nil
 	}
-	args, ok := g.stdInstSolve(f, tps, ib, []kind{have}, kindString, have)
+	args, ok := g.stdRecvTypeArgs(tps, ib, have, false)
 	if !ok {
 		return nil, nil
 	}
-	inst, _ := g.stdInsts.instantiate(f, tps, args, nil, g)
+	inst, _ := g.stdInsts.instantiate(f, tps, args, g)
 	if inst == nil {
 		return nil, nil
 	}
@@ -439,15 +458,109 @@ func (g *gen) boxedEnumDecl(d *typeDef) bool {
 	return g.boxes.enums[decl]
 }
 
-// eraseBoxed boxes v, a value of kind have, as the existential want: the
-// one instruction that makes the static type's identity explicit where the
-// value becomes an interface value. The caller has asked irBoxedErasure.
-func (bl *irScalarBuilder) eraseBoxed(at ast.Node, v ir.Temp, want, have kind) ir.Temp {
-	p := bl.g.irBoxPlanFor(want, have)
-	if p == nil {
-		// The caller asks irBoxedErasure first, whose answer is memoized.
-		panic("irbuild: eraseBoxed of " + have.nomi() + " as " + want.nomi() + ", which irBoxedErasure refuses")
+// coercionAt is the checker's record of the interface value the
+// expression n becomes (analysis.FileAnalysis.Coercions), nil when it
+// becomes none. A copy of a written expression the builder lowers (a pipe
+// stage with its subject spliced in) keeps the written one's position and
+// node type, and finds the record by them.
+func (g *gen) coercionAt(n ast.Node) *analysis.Coercion {
+	fa := g.srcFA()
+	if fa == nil || n == nil || len(fa.Coercions) == 0 {
+		return nil
 	}
+	if rec := fa.Coercions[n]; rec != nil {
+		return rec
+	}
+	if g.coercionsFA != fa {
+		g.coercionsFA = fa
+		g.coercionsAt = make(map[irCoercionPos]*analysis.Coercion, len(fa.Coercions))
+		for c, rec := range fa.Coercions {
+			line, col := nodePos(c)
+			g.coercionsAt[irCoercionPos{line, col, c.NodeType()}] = rec
+		}
+	}
+	line, col := nodePos(n)
+	return g.coercionsAt[irCoercionPos{line, col, n.NodeType()}]
+}
+
+// irCoercionPos finds a coercion record by its expression's position and
+// node type.
+type irCoercionPos struct {
+	line, col int
+	node      string
+}
+
+// irCoercion is how a value entered an interface value.
+type irCoercion uint8
+
+const (
+	// irNotCoerced: the checker recorded no coercion at the expression,
+	// or one the value does not enter.
+	irNotCoerced irCoercion = iota
+	// irCoercedUnboxed: the value is the interface value unchanged, its
+	// runtime type naming its impl (irErases).
+	irCoercedUnboxed
+	// irCoercedBoxed: the value is boxed (eraseBoxed).
+	irCoercedBoxed
+)
+
+// coerceRecorded makes v, the value of the expression at with kind have,
+// the interface value the checker recorded there (coercionAt): boxed when
+// have's runtime value names no impl of the interface, else v itself at
+// the interface's kind. It is the one place a written expression becomes
+// an interface value. want is the position's kind, which the record's
+// interface must be, or kindInvalid where the position's kind is not known
+// yet (a qualified call's operand, lowered before its callee is selected).
+// The answer is irNotCoerced, with v and have, when the checker recorded
+// none, or have is already the interface's kind.
+func (bl *irScalarBuilder) coerceRecorded(at ast.Node, v ir.Temp, have, want kind) (ir.Temp, kind, irCoercion) {
+	rec := bl.g.coercionAt(at)
+	if rec == nil {
+		return v, have, irNotCoerced
+	}
+	// kindInvalid: sentinel — the position's kind is not known yet, and the record's interface is it.
+	if recorded := bl.g.project(rec.Iface); want == kindInvalid {
+		want = recorded
+	} else if recorded != want {
+		return v, have, irNotCoerced
+	}
+	if want == have || !irExistentialKind(want) {
+		return v, have, irNotCoerced
+	}
+	out, how := bl.intoExistential(at, v, want, have, rec.Impl)
+	if how == irNotCoerced {
+		return v, have, irNotCoerced
+	}
+	return out, want, how
+}
+
+// intoExistential makes v, a value of kind have, a value of the existential
+// want: boxed when have's runtime value names no impl of want's interface
+// (irBoxPlanFor), unchanged when it does (irErases). impl is the impl the
+// checker recorded, or nil (irBoxPlanFor).
+func (bl *irScalarBuilder) intoExistential(at ast.Node, v ir.Temp, want, have kind, impl *ast.ImplBlock) (ir.Temp, irCoercion) {
+	if p := bl.g.irBoxPlanFor(want, have, impl); p != nil {
+		return bl.eraseBoxed(at, v, want, p), irCoercedBoxed
+	}
+	if bl.g.irErases(want, have) {
+		return v, irCoercedUnboxed
+	}
+	return v, irNotCoerced
+}
+
+// recordedImpl is the impl the checker recorded for the coercion at the
+// expression at into want, nil when it recorded none there.
+func (g *gen) recordedImpl(at ast.Node, want kind) *ast.ImplBlock {
+	if rec := g.coercionAt(at); rec != nil && g.project(rec.Iface) == want {
+		return rec.Impl
+	}
+	return nil
+}
+
+// eraseBoxed boxes v as the existential want by the plan p: the one
+// instruction that makes the static type's identity explicit where the
+// value becomes an interface value.
+func (bl *irScalarBuilder) eraseBoxed(at ast.Node, v ir.Temp, want kind, p *irBoxPlan) ir.Temp {
 	bl.g.noteBoxedImpls(p)
 	pure := bl.effectFree(v)
 	mk := ir.NewMakeExistential(bl.g.irNodePos(at), bl.f.NewTemp(), p.typ, v)
@@ -484,4 +597,75 @@ func (g *gen) irRecordBoxedImpls() {
 		}
 		g.irMod.Implement(e.method, e.typ, e.fn)
 	}
+}
+
+// checkedErasures is, per interface of the program, the kinds of the values
+// the checker recorded entering it in this unit's source
+// (analysis.FileAnalysis.Coercions): what a body of the unit may box into
+// it. Read once per gen from the record, so the answer does not depend on
+// which bodies are lowered first. A coercion whose types name a type
+// parameter (in a generic body) is left out; its instances are typed at
+// their own call sites.
+//
+// The interfaces, and each one's kinds, are in source order of the value
+// that first entered it, not the record's map order: the answer orders a
+// Render's impls (existentialDebugImpls), which are encoded, so a map order
+// here would make a lowering's bytes differ from one process to the next.
+func (g *gen) checkedErasures() []checkedErasure {
+	if g.erasures != nil {
+		return g.erasures
+	}
+	g.erasures = []checkedErasure{}
+	fa := g.srcFA()
+	if fa == nil {
+		return g.erasures
+	}
+	type entry struct {
+		rec                *analysis.Coercion
+		line, col          int
+		node, haveT, wantT string
+	}
+	entries := make([]entry, 0, len(fa.Coercions))
+	for n, rec := range fa.Coercions {
+		if analysis.ContainsTypeParam(rec.Value) || analysis.ContainsTypeParam(rec.Iface) {
+			continue
+		}
+		line, col := nodePos(n)
+		entries = append(entries, entry{rec: rec, line: line, col: col,
+			node: n.NodeType(), haveT: rec.Value.String(), wantT: rec.Iface.String()})
+	}
+	slices.SortFunc(entries, func(a, b entry) int {
+		return cmp.Or(cmp.Compare(a.line, b.line), cmp.Compare(a.col, b.col),
+			cmp.Compare(a.node, b.node), cmp.Compare(a.wantT, b.wantT), cmp.Compare(a.haveT, b.haveT))
+	})
+	at := map[*ifaceDef]int{}
+	seen := map[*ifaceDef]map[kind]bool{}
+	for _, e := range entries {
+		wk := g.project(e.rec.Iface)
+		if !irExistentialKind(wk) || wk.iface == nil {
+			continue
+		}
+		hk := g.project(e.rec.Value)
+		if hk.tag == tagInvalid || irExistentialKind(hk) {
+			continue
+		}
+		i, ok := at[wk.iface]
+		if !ok {
+			i = len(g.erasures)
+			at[wk.iface] = i
+			g.erasures = append(g.erasures, checkedErasure{iface: wk.iface})
+			seen[wk.iface] = map[kind]bool{}
+		}
+		if !seen[wk.iface][hk] {
+			seen[wk.iface][hk] = true
+			g.erasures[i].kinds = append(g.erasures[i].kinds, hk)
+		}
+	}
+	return g.erasures
+}
+
+// checkedErasure is the kinds checkedErasures found entering one interface.
+type checkedErasure struct {
+	iface *ifaceDef
+	kinds []kind
 }

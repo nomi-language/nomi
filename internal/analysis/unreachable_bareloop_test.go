@@ -8,28 +8,30 @@ import "testing"
 func TestUnreachable_BareLoopResolvedBySymbol(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `import std::iter.Iter.{loop, loop as forever}
 
-fn bare() {
-  loop(fn -> {
+fn bare()
+  loop(fn ->
     _ = 1
-  })
+  end)
   _ = 2
-}
+end
 
-fn aliased() {
+fn aliased()
   _ = 0
-  {
-    forever(fn -> { _ = 1 })
-  }
+  begin
+    forever(fn ->
+        _ = 1
+    end)
+  end
   _ = 3
-}
+end
 
-fn guarded() {
-  loop(0, fn n -> {
-    if n > 3 { break }
+fn guarded()
+  loop(0, fn n ->
+    if n > 3 then break
     n + 1
-  })
+  end)
   _ = 4
-}
+end
 `)
 	got := unreachableErrors(errs)
 	const loopHint = "remove it, or give the loop a `break` that ends it"
@@ -38,7 +40,7 @@ fn guarded() {
 		msg       string
 	}{
 		{7, 3, "unreachable code after a loop that never breaks"},
-		{15, 3, "unreachable code: the block above always loops forever"},
+		{17, 3, "unreachable code: the block above always loops forever"},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d unreachable-code errors, want %d: %v", len(got), len(want), got)
@@ -60,16 +62,16 @@ fn guarded() {
 // ordinary call, and the statement after it runs.
 func TestUnreachable_LocalFunctionNamedLoopIsACall(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn loop(f: () -> Unit) {
+fn loop(f: () -> Unit)
   f()
-}
+end
 
-fn caller() {
-  loop(fn -> {
+fn caller()
+  loop(fn ->
     _ = 1
-  })
+  end)
   _ = 2
-}
+end
 `)
 	if got := unreachableErrors(errs); len(got) != 0 {
 		t.Fatalf("unexpected unreachable-code errors: %v", got)

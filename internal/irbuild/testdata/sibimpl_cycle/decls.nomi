@@ -8,31 +8,31 @@
 // counts as used when the program uses an impl block that file declares for a
 // type declared elsewhere. `Thing.go` (main.nomi, back.nomi) resolves to hop's
 // block and `Other.beta` (hop.nomi) to back's.
-import {
+import
     back
     hop
-}
+end
 
-pub struct Thing {
+pub struct Thing
     n: Int
-}
+end
 
-pub struct Other {
+pub struct Other
     n: Int
-}
+end
 
-pub interface Alpha {
+pub interface Alpha
     fn go(x: self) -> Int
-}
+end
 
-pub interface Beta {
+pub interface Beta
     fn beta(x: self) -> Int
-}
+end
 
-pub fn thing(n: Int) -> Thing {
-    Thing{n}
-}
+pub fn thing(n: Int) -> Thing
+    Thing{n:}
+end
 
-pub fn other(n: Int) -> Other {
-    Other{n}
-}
+pub fn other(n: Int) -> Other
+    Other{n:}
+end

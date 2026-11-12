@@ -9,15 +9,19 @@ import (
 // A call in tail position while a `defer` is pending is not a tail call:
 // the deferred call runs when its block ends, after the call returns.
 func TestMarkTailCalls_PendingDeferKeepsTheFrame(t *testing.T) {
-	src := `fn f(n: Int) -> Int {
+	src := `fn f(n: Int) -> Int
   defer g(0)
-  if n == 0 {
+  if n == 0 then
     return h()
-  }
+  end
   f(n - 1)
-}
-fn g(n: Int) -> Int { n }
-fn h() -> Int { 0 }
+end
+fn g(n: Int) -> Int
+    n
+end
+fn h() -> Int
+    0
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -32,20 +36,22 @@ fn h() -> Int { 0 }
 // has ended, and one in the function around a lambda, leave the call a
 // tail call.
 func TestMarkTailCalls_EndedOrOuterDeferIsNotPending(t *testing.T) {
-	src := `fn f(n: Int) -> Int {
-  if n == 0 {
+	src := `fn f(n: Int) -> Int
+  if n == 0 then
     defer g(0)
     g(1)
-  } else {
+  else
     g(2)
-  }
+  end
   f(n - 1)
-}
-fn k(n: Int) -> (Int) -> Int {
+end
+fn k(n: Int) -> (Int) -> Int
   defer g(0)
   fn x -> f(x)
-}
-fn g(n: Int) -> Int { n }
+end
+fn g(n: Int) -> Int
+    n
+end
 `
 	nodes, _ := parseForTailTest(t, src)
 	MarkTailCalls(nodes)

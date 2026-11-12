@@ -1,27 +1,27 @@
 import std::compiler
 
-enum Shape {
+enum Shape
     Circle {r: Float}
     Square {side: Float}
     Point
-}
+end
 
-enum Block {
+enum Block
     Item String
     Text String
-}
+end
 
-struct Order {
+struct Order
     id: Int
     state: State
-}
+end
 
-enum State {
+enum State
     Open
     Shipped Int
-}
+end
 
-test "is tests a variant and its payload" {
+test "is tests a variant and its payload"
     shape = Shape.Point
     assert shape is .Point
     refute shape is .Circle{r: _}
@@ -33,16 +33,16 @@ test "is tests a variant and its payload" {
     m: Maybe<Int> = None
     assert m is None
     assert Shape.Point is Shape.Point
-}
+end
 
-test "an or pattern goes in parentheses" {
+test "an or pattern goes in parentheses"
     assert Shape.Point is (.Circle{r: _} or .Point)
     refute Shape.Square{side: 1.0} is (.Circle{r: _} or .Point)
     assert 3 is (1 or 2 or 3)
     assert 'b' is ('a' or 'b')
-}
+end
 
-test "literals, string prefixes and nesting" {
+test "literals, string prefixes and nesting"
     assert -1 is -1
     assert "/users/7" is "/users/" + _id
     refute "/posts/7" is "/users/" + _id
@@ -52,22 +52,22 @@ test "literals, string prefixes and nesting" {
     assert order is Order{state: .Shipped(_)}
     refute order is Order{state: .Open}
     assert (1, "a") is (_, "a")
-}
+end
 
-test "collection patterns" {
+test "collection patterns"
     assert [1, 2, 3] is [_, _, ..]
     refute [1] is [_, _, ..]
     assert [1, 2, 3] is [1, ..]
-    assert #[1, 2] is #[1, _]
-    assert %{"a" => 1} is %{"a" => 1}
+    assert Vector[1, 2] is [1, _]
+    assert {"a" => 1} is {"a" => 1}
     key = "a"
-    assert %{"a" => 1} is %{key => _}
-    refute %{"b" => 1} is %{key => _}
-    assert %[1, 2] is %[1, ..]
-    refute %[2] is %[1, ..]
-}
+    assert {"a" => 1} is {key => _}
+    refute {"b" => 1} is {key => _}
+    assert Set[1, 2] is [1, ..]
+    refute Set[2] is [1, ..]
+end
 
-test "is binds like ==" {
+test "is binds like =="
     shape = Shape.Point
     assert not shape is .Circle{r: _}
     assert shape is .Point and not shape is .Square{side: _}
@@ -76,82 +76,82 @@ test "is binds like ==" {
     assert not [] |> List.head() is Some(_)
     assert (shape is .Point) == True
     assert 2 + 1 is 3
-}
+end
 
-test "is in lambdas and captures" {
+test "is in lambdas and captures"
     blocks = [Block.Item("a"), Block.Text("b"), Block.Item("c")]
     assert (blocks |> Iter.count_by(&(&1 is .Item(_)))) == 2
     assert (blocks |> Iter.reject(&(&1 is .Item(_))) |> Iter.count()) == 1
     assert (blocks |> Iter.count_by(fn b -> b is .Text(_))) == 1
     assert ([Some(1), None] |> Iter.reject(&(&1 is None)) |> Iter.to_list()) == [Some(1)]
-}
+end
 
-test "a name in the pattern is an error" {
+test "a name in the pattern is an error"
     result =
         """
-        fn main() {
+        fn main()
           m = Some(1)
           _ = m is Some(n)
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert "an `is` test binds nothing, so its pattern cannot name `n`" in message
-}
+end
 
-test "a bare or before a pattern asks for parentheses" {
+test "a bare or before a pattern asks for parentheses"
     result =
         """
-        enum K {
+        enum K
           A
           B
           C
-        }
+        end
 
-        fn main() {
+        fn main()
           k = K.A
           _ = k is .A or .B
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert "a pattern cannot be its right operand: `is` takes one pattern" in message
-}
+end
 
-test "is does not chain with a comparison" {
+test "is does not chain with a comparison"
     result =
         """
-        fn main() {
+        fn main()
           _ = 1 == 1 is True
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert "`is` does not chain with a comparison" in message
-}
+end
 
-test "a pattern that cannot match the type is the case arm's error" {
+test "a pattern that cannot match the type is the case arm's error"
     result =
         """
-        fn main() {
+        fn main()
           _ = 1 is "one"
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert "pattern \"one\" is a String, but the value is an Int" in message
-}
+end
 
-test "a pattern that always matches is an error" {
+test "a pattern that always matches is an error"
     result =
         """
-        fn main() {
+        fn main()
           _ = 1 is _
-        }
+        end
         """
         |> compiler.run()
 
@@ -161,4 +161,4 @@ test "a pattern that always matches is an error" {
         message,
         "`_` matches every value of type Int, so this test is always True",
     )
-}
+end

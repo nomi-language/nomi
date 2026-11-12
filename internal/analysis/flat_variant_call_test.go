@@ -11,27 +11,27 @@ import (
 // `Two.Both((1, 2))` does. It was checked against the declaration's own
 // `A` and `B`, and then a second time as a one-argument call, so
 // `t: Two<Int, Int> = Two.Both(1, 2)` gave three errors, two at column 1.
-const flatVariantShapes = `pub enum Two<A, B> {
+const flatVariantShapes = `pub enum Two<A, B>
     Both (A, B)
-}
+end
 
-pub enum Three<A, B, C> {
+pub enum Three<A, B, C>
     All (A, B, C)
-}
+end
 
-pub enum Tagged<T> {
+pub enum Tagged<T>
     Tag (T, String)
-}
+end
 
-pub enum Seg {
+pub enum Seg
     Pair (Int, String)
-}
+end
 
-pub fn first(t: Two<Int, String>) -> Int {
-    case t {
+pub fn first(t: Two<Int, String>) -> Int
+    case t
         .Both(n, _) -> n
-    }
-}
+    end
+end
 `
 
 func TestFlatVariantCall_InfersAsTheTupledForm(t *testing.T) {
@@ -49,11 +49,11 @@ func TestFlatVariantCall_InfersAsTheTupledForm(t *testing.T) {
 		{"an aliased variant", "import shapes.Two.{Both as B2}",
 			"    t = B2(1, \"x\")\n    _ = shapes.first(t)\n"},
 		{"three elements", "",
-			"    t = shapes.Three.All(1, \"y\", True)\n    _ = case t {\n        .All(n, s, b) -> if b { n + String.length(s) } else { 0 }\n    }\n"},
+			"    t = shapes.Three.All(1, \"y\", True)\n    _ = case t\n        .All(n, s, b) -> if b then n + String.length(s) else 0\n    end\n"},
 		{"a type parameter beside a concrete type", "",
-			"    t = shapes.Tagged.Tag(7, \"seven\")\n    _ = case t {\n        .Tag(n, s) -> n + String.length(s)\n    }\n"},
+			"    t = shapes.Tagged.Tag(7, \"seven\")\n    _ = case t\n        .Tag(n, s) -> n + String.length(s)\n    end\n"},
 		{"nested generics", "",
-			"    t = shapes.Two.Both(shapes.Two.Both(1, \"x\"), Maybe.Some(\"z\"))\n    _ = case t {\n        .Both(inner, _) -> shapes.first(inner)\n    }\n"},
+			"    t = shapes.Two.Both(shapes.Two.Both(1, \"x\"), Maybe.Some(\"z\"))\n    _ = case t\n        .Both(inner, _) -> shapes.first(inner)\n    end\n"},
 		{"a pipe", "",
 			"    t = 9 |> shapes.Two.Both(\"nine\")\n    _ = shapes.first(t)\n"},
 		{"a pipe into a placeholder", "",
@@ -70,7 +70,7 @@ func TestFlatVariantCall_InfersAsTheTupledForm(t *testing.T) {
 			"    s: shapes.Seg = .Pair(1, \"a\")\n    _ = s\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "import shapes\n" + tc.imports + "\n\nfn main() {\n" + tc.body + "}\n"
+			src := "import shapes\n" + tc.imports + "\n\nfn main()\n" + tc.body + "end\n"
 			_, errs := checkProjectWithFiles(t, src, map[string]string{"shapes.nomi": flatVariantShapes})
 			if len(errs) > 0 {
 				msgs := make([]string, len(errs))
@@ -95,7 +95,7 @@ func TestFlatVariantCall_ReportsTheWrongElement(t *testing.T) {
 		{"non-generic", "    t = shapes.Seg.Pair(1, 2)", "argument 2: expected String, got Int", 28},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "import shapes\n\nfn main() {\n" + tc.line + "\n    _ = t\n}\n"
+			src := "import shapes\n\nfn main()\n" + tc.line + "\n    _ = t\nend\n"
 			_, errs := checkProjectWithFiles(t, src, map[string]string{"shapes.nomi": flatVariantShapes})
 			if len(errs) != 1 || errs[0].Message != tc.msg || errs[0].Line != 4 || errs[0].Col != tc.col {
 				t.Fatalf("want one error %q at 4:%d, got %v", tc.msg, tc.col, errs)

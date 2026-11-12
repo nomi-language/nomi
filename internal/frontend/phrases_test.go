@@ -23,10 +23,10 @@ locales = ["en", "pl", "pt", "pt-PT"]
 partial_locales = ["de"]
 `
 
-const shopCart = `pub enum Status {
+const shopCart = `pub enum Status
     Pending
     Shipped
-}
+end
 
 pub phrase cart_items(count: Int) ` + "`" + `
     .input {$count :integer}
@@ -65,7 +65,7 @@ func shopFiles() map[string]string {
 	return map[string]string{
 		"nomi.toml": shopManifest,
 		"cart.nomi": shopCart,
-		"main.nomi": "import {\n    std::io\n    cart\n}\n\nfn main() {\n    io.print(Phrase.format(cart.cart_items(3), Locale`pl`))\n    io.print(Phrase.format(cart.order_status(cart.Status.Pending), Locale`pl`))\n}\n",
+		"main.nomi": "import\n    std::io\n    cart\nend\n\nfn main()\n    io.print(Phrase.format(cart.cart_items(3), Locale`pl`))\n    io.print(Phrase.format(cart.order_status(cart.Status.Pending), Locale`pl`))\nend\n",
 		"locales/pl/cart.toml": entry("cart_items", cartItemsSource,
 			".input {$count :integer}\n.match $count\none {{{$count} produkt}}\nfew {{{$count} produkty}}\nmany {{{$count} produktów}}\n* {{{$count} produktu}}") +
 			entry("order_status", orderStatusSource, ".input {$status :string}\n.match $status\nPending {{Czeka}}\nShipped {{Wysłane}}\n* {{Wysłane}}"),

@@ -16,16 +16,18 @@ func TestPreludeLifecycleProject(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "main.nomi")
 	src := `import std::calendar.Date
- struct App { context: Context
- count: Int }
- fn boot(startup: Startup) -> Result<App, String> {
+ struct App
+     context: Context
+ count: Int
+ end
+ fn boot(startup: Startup) -> Result<App, String>
   Ok(App{context: Context.root(), count: Map.size(startup.env)})
- }
- fn main() {
+ end
+ fn main()
   _ = Date.new(2024, 1, 2)
   _ = Int.to_string(App.count)
   _ = Context.deadline(App.context)
- }
+ end
  `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)

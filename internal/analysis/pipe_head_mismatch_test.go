@@ -9,43 +9,43 @@ import (
 
 const pipeHeadDecls = `type Fahrenheit Decimal
 
-impl Display for Fahrenheit {
-  fn to_string(Fahrenheit(n)) -> String {
+impl Display for Fahrenheit
+  fn to_string(Fahrenheit(n)) -> String
     "${n} F"
-  }
-}
+  end
+end
 
 type Celsius Decimal
 
-impl Celsius {
-  fn to_fahrenheit(Celsius(n)) -> Fahrenheit {
+impl Celsius
+  fn to_fahrenheit(Celsius(n)) -> Fahrenheit
     Fahrenheit(n * 1.8d + 32d)
-  }
-}
+  end
+end
 
-struct Plain {
+struct Plain
   x: Int
-}
+end
 
-fn half(x: Float) -> Float {
+fn half(x: Float) -> Float
   x / 2.0
-}
+end
 
-fn dec(x: Decimal) -> Decimal {
+fn dec(x: Decimal) -> Decimal
   x
-}
+end
 
-fn label(width: Int, text: String) -> String {
+fn label(width: Int, text: String) -> String
   String.pad_start(text, width)
-}
+end
 
-fn total(xs: List<Int>) -> Int {
+fn total(xs: List<Int>) -> Int
   Iter.count(xs)
-}
+end
 
-fn first<T>(xs: List<T>) -> Maybe<T> {
+fn first<T>(xs: List<T>) -> Maybe<T>
   List.head(xs)
-}
+end
 
 `
 
@@ -126,7 +126,7 @@ func TestPipeHeadMismatch_IsReportedAtTheStage(t *testing.T) {
 			"first", "Iter.map(fn x -> x + 1)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := pipeHeadDecls + "fn main() {\n" + tc.body + "}\n"
+			src := pipeHeadDecls + "fn main()\n" + tc.body + "end\n"
 			_, errs := checkSourceWithStdlib(src)
 			if len(errs) == 0 {
 				t.Fatalf("the front end accepts this program, which pipes a value its stage does not take")
@@ -151,14 +151,14 @@ func TestPipeHeadMismatch_IsReportedAtTheStage(t *testing.T) {
 
 // The mirror: a stage that takes what the pipe passes reports nothing.
 func TestPipeHeadMismatch_AMatchingStageIsAccepted(t *testing.T) {
-	src := pipeHeadDecls + `fn main() {
+	src := pipeHeadDecls + `fn main()
   c = Celsius(1d)
   _ = c |> Celsius.to_fahrenheit() |> Display.to_string() |> String.pad_start(6)
   _ = "x" |> then &label(4, &1)
   _ = "x" |> then &label(width: 4, text: &1)
   _ = [1] |> Iter.map(fn x -> x + 1) |> Iter.to_list() |> total()
   _ = 3 |> Int.to_float() |> half()
-}
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	for _, e := range errs {

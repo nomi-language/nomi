@@ -14,36 +14,36 @@
 // not reliably structural either — it recurses through `Equatable.equal`,
 // so a distinct wrapping a struct with a custom impl diverges under a derive
 // too; that is a separate open item and not what this fixture pins.
-import {
+import
     std::duration.Duration
     std::io
-}
+end
 
-enum Color {
+enum Color
     Red
     Green
     Blue
-}
+end
 
-impl Equatable for Color {
-    fn equal(a: Color, b: Color) -> Bool {
+impl Equatable for Color
+    fn equal(a: Color, b: Color) -> Bool
         _ = b
         _ = a
         True
-    }
-}
+    end
+end
 
 type Tag Int
 
-impl Equatable for Tag {
-    fn equal(a: Tag, b: Tag) -> Bool {
+impl Equatable for Tag
+    fn equal(a: Tag, b: Tag) -> Bool
         _ = b
         _ = a
         True
-    }
-}
+    end
+end
 
-fn main() -> Unit {
+fn main() -> Unit
     io.print("enum same: ${Bool.to_string(Color.Red == Color.Red)}")
     io.print("enum diff: ${Bool.to_string(Color.Red == Color.Green)}")
     io.print("enum ne:   ${Bool.to_string(Color.Red != Color.Blue)}")
@@ -51,4 +51,4 @@ fn main() -> Unit {
     io.print("distinct diff: ${Bool.to_string(Tag(7) == Tag(8))}")
     io.print("duration eq: ${Bool.to_string(Duration.seconds(5) == Duration.milliseconds(5000))}")
     io.print("duration ne: ${Bool.to_string(Duration.seconds(5) != Duration.seconds(6))}")
-}
+end

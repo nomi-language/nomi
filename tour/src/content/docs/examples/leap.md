@@ -16,14 +16,14 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 import std::calendar.Date
 
 /// Whether `year` is a leap year in the Gregorian calendar.
-pub fn is_leap_year(year: Int) -> Bool {
+pub fn is_leap_year(year: Int) -> Bool
     Date.is_leap_year(year)
-}
+end
 
 // FILE: leap_test.nomi
 import leap.is_leap_year
 
-test "leap years" {
+test "leap years"
     [
         ("year not divisible by 4 in common year", 2015, False),
         ("year divisible by 2, not divisible by 4 in common year", 1970, False),
@@ -35,10 +35,10 @@ test "leap years" {
         ("year divisible by 400 but not by 125 is still a leap year", 2400, True),
         ("year divisible by 200, not divisible by 400 in common year", 1800, False),
     ]
-    |> subtests (description, year, expected), description {
+    |> subtests (description, year, expected), description
         assert is_leap_year(year) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok leap years (9 cases)

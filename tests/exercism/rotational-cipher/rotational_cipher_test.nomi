@@ -1,6 +1,6 @@
 import rotational_cipher
 
-test "rotate" {
+test "rotate"
     [
         ("rotate a by 0, same output as input", "a", 0, "a"),
         ("rotate a by 1", "a", 1, "b"),
@@ -18,7 +18,7 @@ test "rotate" {
             "Gur dhvpx oebja sbk whzcf bire gur ynml qbt.",
         ),
     ]
-    |> subtests (description, text, key, expected), description {
+    |> subtests (description, text, key, expected), description
         assert rotational_cipher.rotate(text, key) == expected
-    }
-}
+    end
+end

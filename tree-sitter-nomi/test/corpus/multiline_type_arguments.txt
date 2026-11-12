@@ -2,9 +2,9 @@
 Typed binding first in a block
 ================================================================================
 
-fn main() {
-    t: Map<String, Int> = %{}
-}
+fn main()
+    t: Map<String, Int> = {}
+end
 
 --------------------------------------------------------------------------------
 
@@ -25,11 +25,11 @@ fn main() {
 Typed binding after another statement
 ================================================================================
 
-fn main() {
+fn main()
     a = 1
     x: Int = a
     y: List<Int> = []
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -56,21 +56,21 @@ fn main() {
 Binding annotation with a multi-line type argument list
 ================================================================================
 
-fn main() {
+fn main()
     t: Map<
         String,
         Int
-    > = %{}
+    > = {}
     u: Map<
         String, // keys
         Int
-    > = %{}
+    > = {}
     v: Map<
         // keys
         String,
         Int
-    > = %{}
-}
+    > = {}
+end
 
 --------------------------------------------------------------------------------
 
@@ -114,9 +114,9 @@ fn size(m: Map<
     // ok
     Int,
     String
-> {
+>
     Ok(Map.size(m))
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -155,9 +155,9 @@ fn pair<
 >(a: A, b: B) -> (
     A, // first
     B
-) where A: Display {
+) where A: Display
     (a, b)
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -200,9 +200,9 @@ Multi-line function type parameter
 fn apply(f: (
     Int, // x
     Int
-) -> Int) -> Int {
+) -> Int) -> Int
     f(1, 2)
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -230,12 +230,12 @@ Struct type parameters and field type across lines
 
 struct Holder<
     T // t
-> {
+>
     items: Map<
         String, // k
         T
     >
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -311,11 +311,11 @@ impl<
     T // t
 > Named for Holder<
     T // t
-> {
-    fn name(h: self) -> String {
+>
+    fn name(h: self) -> String
         "h"
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -346,11 +346,11 @@ impl<
 Multi-line turbofish
 ================================================================================
 
-fn main() {
+fn main()
     ch = Channel.buffered<
         Int // i
     >(4)
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -375,9 +375,9 @@ Module-qualified generic type
 
 fn twice(t: tasks.Task<
     Int // n
->, s: span.Span<String>) -> Int {
+>, s: span.Span<String>) -> Int
     1
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -408,23 +408,22 @@ fn twice(t: tasks.Task<
 Typed binding in lambda and case-arm blocks
 ================================================================================
 
-fn main() {
-    f = fn k -> {
+fn main()
+    f = fn k ->
         t: Map<
             String, // k
             Int
-        > = %{}
+        > = {}
         Map.get(t, k)
-    }
-    x = case f("a") {
-        Some(v) -> {
-            m: Map<String, Int> = %{}
+    end
+    x = case f("a")
+        Some(v) ->
+            m: Map<String, Int> = {}
             m
-        }
-        None -> %{}
-    }
-    g = fn p -> .{x: p, y: p}
-}
+        None -> {}
+    end
+    g = fn p -> {x: p, y: p}
+end
 
 --------------------------------------------------------------------------------
 
@@ -464,7 +463,7 @@ fn main() {
             (enum_pattern
               (type_identifier)
               (identifier))
-            (body
+            (arm_block
               (binding
                 (identifier)
                 (generic_type
@@ -493,10 +492,10 @@ fn main() {
 Typed binding with a module-qualified annotation
 ================================================================================
 
-fn main() {
+fn main()
     ch: channels.Channel<String> = channels.Channel.buffered<String>(1)
     b: shapes.Shape = .Ring{r: 7}
-}
+end
 
 --------------------------------------------------------------------------------
 

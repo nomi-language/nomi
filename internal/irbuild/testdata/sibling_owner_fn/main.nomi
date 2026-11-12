@@ -1,11 +1,11 @@
-import {
+import
     std::io
     boxes
     boxes.Box as Crate
     boxes.Shape
-}
+end
 
-fn main() {
+fn main()
     io.print("seven ${Crate.seven()}")
     io.print("size ${Crate.size(Crate{items: [1, 2]})}")
     io.inspect(Crate.of("a"))
@@ -27,4 +27,4 @@ fn main() {
     io.inspect(Shape.twice("x"))
     io.print("qualified ${boxes.Box.seven()} ${boxes.Box.of(True) |> boxes.Box.size()}")
     io.inspect(boxes.Shape.twice(3))
-}
+end

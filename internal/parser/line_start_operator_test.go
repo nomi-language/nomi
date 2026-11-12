@@ -20,10 +20,10 @@ func TestBinaryOperatorStartingALine(t *testing.T) {
 		name, format string
 		line, col    int
 	}{
-		{"assert", "fn f() {\n    assert 1 + 1\n        %s 2\n}", 3, 9},
-		{"binding", "fn f() -> Bool {\n    x = g(1)\n    %s 2\n}", 3, 5},
-		{"after a comment", "fn f() -> Bool {\n    x = #[1, 2] // pair\n        %s 2\n}", 3, 9},
-		{"parentheses", "fn f() -> Bool {\n    (1 + 1\n        %s 2)\n}", 3, 9},
+		{"assert", "fn f()\n    assert 1 + 1\n        %s 2\nend", 3, 9},
+		{"binding", "fn f() -> Bool\n    x = g(1)\n    %s 2\nend", 3, 5},
+		{"after a comment", "fn f() -> Bool\n    x = Vector[1, 2] // pair\n        %s 2\nend", 3, 9},
+		{"parentheses", "fn f() -> Bool\n    (1 + 1\n        %s 2)\nend", 3, 9},
 	}
 	for _, shape := range shapes {
 		for _, op := range ops {
@@ -55,10 +55,10 @@ func TestBinaryOperatorStartingALine(t *testing.T) {
 func TestComparisonOrBooleanOperatorContinuesALine(t *testing.T) {
 	ops := []string{"==", "!=", "<", ">", "<=", ">=", "and", "or"}
 	for _, format := range []string{
-		"fn f() {\n    assert 1 + 1\n        %s 2\n}",
-		"fn f() -> Bool {\n    x = g(1)\n        %s 2\n    x\n}",
-		"fn f() -> Bool {\n    x = g(1) // first\n        %s 2\n    x\n}",
-		"fn f() -> Bool {\n    (1 + 1\n        %s 2)\n}",
+		"fn f()\n    assert 1 + 1\n        %s 2\nend",
+		"fn f() -> Bool\n    x = g(1)\n        %s 2\n    x\nend",
+		"fn f() -> Bool\n    x = g(1) // first\n        %s 2\n    x\nend",
+		"fn f() -> Bool\n    (1 + 1\n        %s 2)\nend",
 	} {
 		for _, op := range ops {
 			src := fmt.Sprintf(format, op)
@@ -73,9 +73,9 @@ func TestComparisonOrBooleanOperatorContinuesALine(t *testing.T) {
 // `or_else`) starts a new statement.
 func TestNameStartingWithAndOrOrStartsAStatement(t *testing.T) {
 	for _, src := range []string{
-		"fn f(order: Int) -> Int {\n    x = 1\n    order\n}",
-		"fn f() -> Bool {\n    x = g(1)\n    or_else(x)\n}",
-		"fn f(android: Int) -> Int {\n    x = 1\n    android\n}",
+		"fn f(order: Int) -> Int\n    x = 1\n    order\nend",
+		"fn f() -> Bool\n    x = g(1)\n    or_else(x)\nend",
+		"fn f(android: Int) -> Int\n    x = 1\n    android\nend",
 	} {
 		nodes, err := Parse(lexer.Lex(src))
 		if err != nil {
@@ -92,8 +92,8 @@ func TestNameStartingWithAndOrOrStartsAStatement(t *testing.T) {
 // may start a line.
 func TestOperatorEndingALineAndPipeStartingOneParse(t *testing.T) {
 	for _, src := range []string{
-		"fn f() {\n    assert 1 + 1 ==\n        2\n}",
-		"fn f() -> List<Int> {\n    [1, 2]\n    |> Iter.to_list()\n}",
+		"fn f()\n    assert 1 + 1 ==\n        2\nend",
+		"fn f() -> List<Int>\n    [1, 2]\n    |> Iter.to_list()\nend",
 	} {
 		if _, err := Parse(lexer.Lex(src)); err != nil {
 			t.Errorf("Parse(%q): %v", src, err)
@@ -106,12 +106,12 @@ func TestOperatorEndingALineAndPipeStartingOneParse(t *testing.T) {
 // as written, never by the lexer's name for it.
 func TestUnexpectedTokensAreShownAsWritten(t *testing.T) {
 	cases := []struct{ src, want string }{
-		{"fn f() -> Bool {\n    x = == 2\n}", "`==` needs an operand before it"},
-		{"fn f() {\n    {\n    == 2\n}", "`==` needs an operand before it"},
-		{"fn f() -> Int {\n    x = )\n}", "unexpected `)`"},
-		{"fn f(n: Int) -> Int {\n    case n {\n        => 1\n    }\n}", "unexpected `=>` in case pattern"},
-		{"struct S {\n    ,\n}", "expected field name in struct `S` body, got `,`"},
-		{"fn f() -> Int {\n    x = \"a${)}\"\n    1\n}", "unexpected `)`"},
+		{"fn f() -> Bool\n    x = == 2\nend", "`==` needs an operand before it"},
+		{"fn f()\n\n    == 2\nend", "`==` cannot start a line: the line break ended the expression before it"},
+		{"fn f() -> Int\n    x = )\nend", "unexpected `)`"},
+		{"fn f(n: Int) -> Int\n    case n\n        => 1\n    end\nend", "unexpected `=>` in case pattern"},
+		{"struct S\n    ,\nend", "expected field name in struct `S` body, got `,`"},
+		{"fn f() -> Int\n    x = \"a${)}\"\n    1\nend", "unexpected `)`"},
 	}
 	for _, tc := range cases {
 		err := parseError(t, tc.src)

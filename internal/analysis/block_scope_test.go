@@ -13,24 +13,24 @@ var blockForms = []struct {
 	name string
 	form string
 }{
-	{"if arm", "if flag {\nBODY\n}"},
-	{"else arm", "if flag {\nUnit\n} else {\nBODY\n}"},
-	{"else if arm", "if flag {\nUnit\n} else if total > 0 {\nBODY\n} else {\nUnit\n}"},
-	{"case arm", "case flag {\nTrue -> {\nBODY\n}\nFalse -> Unit\n}"},
-	{"bare block", "{\nBODY\n}"},
-	{"nested block", "{\n{\nBODY\n}\n}"},
-	{"concurrent", "concurrent {\nBODY\n}"},
-	{"lambda body", "f = fn -> {\nBODY\n}\nf()"},
-	{"block value", "v = {\nBODY\n}\n_ = v"},
+	{"if arm", "if flag then\nBODY\nend"},
+	{"else arm", "if flag then\nUnit\nelse\nBODY\nend"},
+	{"else if arm", "if flag then\nUnit\nelse if total > 0 then\nBODY\nelse\nUnit\nend"},
+	{"case arm", "case flag\nTrue ->\nBODY\nFalse -> Unit\nend"},
+	{"bare block", "begin\nBODY\nend"},
+	{"nested block", "begin\nbegin\nBODY\nend\nend"},
+	{"concurrent", "concurrent\nBODY\nend"},
+	{"lambda body", "f = fn ->\nBODY\nend\nf()"},
+	{"block value", "v = begin\nBODY\nend\n_ = v"},
 }
 
 // blockScopeProgram puts form, with body in it, between an outer `total`
 // binding and a read of it after the form. The returned line is body's
 // first line.
 func blockScopeProgram(form, body string) (string, int) {
-	head := "fn main() {\nflag = True\ntotal = 1\n"
+	head := "fn main()\nflag = True\ntotal = 1\n"
 	before, after, _ := strings.Cut(form, "BODY")
-	src := head + before + body + after + "\n_ = total\n_ = flag\n}\n"
+	src := head + before + body + after + "\n_ = total\n_ = flag\nend\n"
 	return src, strings.Count(head+before, "\n") + 1
 }
 
@@ -112,14 +112,14 @@ func TestBlockScope_BindingDoesNotLeak(t *testing.T) {
 // A block whose value is read must not end in a binding: its value is Unit.
 func TestBlockScope_BlockEndingInABindingIsUnit(t *testing.T) {
 	errs := buildProjectForDefaultConfig(`
-fn main() {
-  v = if True {
+fn main()
+  v = if True then
     _x = 1
-  } else {
+  else
     2
-  }
+  end
   _ = v
-}
+end
 `)
 	expectErrorT(t, errs, "if/else branch type mismatch: then is Unit, else is Int")
 }
@@ -129,40 +129,44 @@ fn main() {
 func TestBlockScope_OtherBodies(t *testing.T) {
 	t.Run("test body", func(t *testing.T) {
 		expectNeverReadAt(t, buildProjectForDefaultConfig(`
-test "t" {
+test "t"
   total = 1
   assert total == 1
   total = total + 1
-}
+end
 `), "total", 5)
 	})
 	t.Run("refutable binding else", func(t *testing.T) {
 		expectNeverReadAt(t, buildProjectForDefaultConfig(`
-fn pick(m: Maybe<Int>) -> Int {
+fn pick(m: Maybe<Int>) -> Int
   total = 1
-  Some(n) = m else {
+  Some(n) = m else
     total = total + 1
     return 0
-  }
+  end
   n + total
-}
-fn main() {
+end
+fn main()
   _ = pick(None)
-}
+end
 `), "total", 5)
 	})
 	t.Run("with", func(t *testing.T) {
 		expectNeverReadAt(t, buildProjectForDefaultConfig(`
-struct App { port: Int }
-fn boot() -> Result<App, String> { Ok(App{port: 3}) }
-fn main() {
+struct App
+    port: Int
+end
+fn boot() -> Result<App, String>
+    Ok(App{port: 3})
+end
+fn main()
   total = App.port
-  if True {
+  if True then
     with App.port = 4
     total = total + App.port
-  }
+  end
   _ = total
-}
-`), "total", 8)
+end
+`), "total", 12)
 	})
 }

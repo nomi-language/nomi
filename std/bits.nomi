@@ -11,9 +11,9 @@
 //#
 //# once continuation = Bits`10aa_aaaa`
 //#
-//# fn payload(byte: Int) -> Maybe<Int> {
+//# fn payload(byte: Int) -> Maybe<Int>
 //#     Bits.field(continuation, byte)
-//# }
+//# end
 //# ```
 //#
 //# A pattern has any width, since an Int has any size. `Bits` takes an
@@ -22,7 +22,7 @@
 //# error at the literal, whose text is the `Error`'s: ``typed literal
 //# Bits`10x2` is invalid: `2` at index 3 is not a bit: ...``.
 
-import {
+import
     bool.Bool.{self, False}
     code_points.Codepoint
     debug.Debug
@@ -35,7 +35,7 @@ import {
     maybe.Maybe.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
-}
+end
 
 /// A bit pattern, built by the raw typed literal ``Bits`110x_aaaa` ``:
 /// its width in bits, the mask of its `0` and `1` bits, their value, and
@@ -46,18 +46,18 @@ import {
 //! assert Bits.field(utf8_lead, 0b1100_0011) == Some(3)
 //! assert Debug.inspect(utf8_lead) == "Bits`110a_aaaa`"
 //
-pub opaque struct Bits {
+pub opaque struct Bits
     text: String
     width: Int
     mask: Int
     value: Int
     field_mask: Int
-}
+end
 
 derive Equatable for Bits
 
 /// Why text is not a bit pattern. `index` counts characters from 0.
-pub enum Error {
+pub enum Error
     /// The pattern has no bits: it is empty or only `_`.
     Empty
 
@@ -71,28 +71,29 @@ pub enum Error {
     /// The field letter at `index` comes after other bits that follow the
     /// field's first bits: a field's bits are written together.
     SplitField {index: Int, field: String}
-}
+end
 
 derive Equatable for Error
 
-impl Display for Error {
-    fn to_string(e: Error) -> String {
-        case e {
-            Error.Empty -> "a bit pattern needs at least one bit: `0`, `1`, `x` or a field letter"
+impl Display for Error
+    fn to_string(e: Error) -> String
+        case e
+            Error.Empty ->
+                "a bit pattern needs at least one bit: `0`, `1`, `x` or a field letter"
 
-            Error.Character{index, found} ->
+            Error.Character{index:, found:} ->
                 "`${found}` at index ${index} is not a bit: a bit pattern is written in `0`, `1`, `x`, one lowercase field letter and `_`"
 
-            Error.SecondField{index, field, found} ->
+            Error.SecondField{index:, field:, found:} ->
                 "`${found}` at index ${index} names a second field: this pattern's field is `${field}`, and a pattern has one"
 
-            Error.SplitField{index, field} ->
+            Error.SplitField{index:, field:} ->
                 "`${field}` at index ${index} splits field `${field}`: write its bits together"
-        }
-    }
-}
+        end
+    end
+end
 
-impl Bits {
+impl Bits
     /// Read a bit pattern from its text, as the literal does: ``Bits`10xx` ``
     /// is `Bits.parse("10xx")`. Each `0` and `1` is a bit the Int must
     /// have, each `x` a bit it may have either way, and each lowercase
@@ -106,7 +107,7 @@ impl Bits {
     //! assert Bits.parse("aa0a") == Err(Error.SplitField{index: 3, field: "a"})
     //! assert Bits.width(Bits.parse("aa_aa")?) == 4
     //
-    pub fn parse(text: String) -> Result<Bits, Error> {
+    pub fn parse(text: String) -> Result<Bits, Error>
         start = Scan{
             index: 0,
             width: 0,
@@ -120,22 +121,25 @@ impl Bits {
 
         scan = Iter.reduce(String.to_codepoints(text), start, fn acc, cp -> read_bit(acc, cp))
 
-        case scan.failure {
-            Some(e) -> Err(e)
-            None when scan.width == 0 -> Err(Error.Empty)
+        case scan.failure
+            Some(e) ->
+                Err(e)
+
+            None when scan.width == 0 ->
+                Err(Error.Empty)
 
             None ->
                 Ok(
                     Bits{
-                        text,
+                        text:,
                         width: scan.width,
                         mask: scan.mask,
                         value: scan.value,
                         field_mask: scan.field_mask,
                     }
                 )
-        }
-    }
+        end
+    end
 
     /// Whether `n`'s bits fit the pattern: every `0` and `1` bit of the
     /// pattern is `n`'s, and `n` has no bit above the pattern's width. A
@@ -148,9 +152,9 @@ impl Bits {
     //! refute Bits.matches(lead, 0b1_1000_0000)
     //! refute Bits.matches(lead, -1)
     //
-    pub fn matches(pattern: Bits, n: Int) -> Bool {
+    pub fn matches(pattern: Bits, n: Int) -> Bool
         n >= 0 and n >>> pattern.width == 0 and n &&& pattern.mask == pattern.value
-    }
+    end
 
     /// The bits of `n` under the pattern's field letter, read as a number,
     /// when `n` matches the pattern, and `None` when it does not. A pattern
@@ -161,67 +165,67 @@ impl Bits {
     //! assert Bits.field(continuation, 0b0010_0011) == None
     //! assert Bits.field(Bits`1aaa_0000`, 0b1101_0000) == Some(5)
     //
-    pub fn field(pattern: Bits, n: Int) -> Maybe<Int> {
-        if pattern.field_mask == 0 { unreachable "Bits.field: the pattern has no field letter" }
+    pub fn field(pattern: Bits, n: Int) -> Maybe<Int>
+        if pattern.field_mask == 0 then unreachable "Bits.field: the pattern has no field letter"
 
-        if not Bits.matches(pattern, n) { return None }
+        if not Bits.matches(pattern, n) then return None
 
         Some(
             (n &&& pattern.field_mask) >>> (Int.bit_length(
                 pattern.field_mask &&& -pattern.field_mask
             ) - 1)
         )
-    }
+    end
 
     /// The number of bits the pattern spells, not counting `_`.
     //! assert Bits.width(Bits`10_xx`) == 4
     //
-    pub fn width(pattern: Bits) -> Int {
+    pub fn width(pattern: Bits) -> Int
         pattern.width
-    }
+    end
 
     /// The mask of the pattern's `0` and `1` bits.
     //! assert Bits.mask(Bits`10xx_aa01`) == 0b1100_0011
     //
-    pub fn mask(pattern: Bits) -> Int {
+    pub fn mask(pattern: Bits) -> Int
         pattern.mask
-    }
+    end
 
     /// The value the masked bits must have: the pattern's `1` bits.
     //! assert Bits.value(Bits`10xx_aa01`) == 0b1000_0001
     //
-    pub fn value(pattern: Bits) -> Int {
+    pub fn value(pattern: Bits) -> Int
         pattern.value
-    }
-}
+    end
+end
 
-impl Literal for Bits {
+impl Literal for Bits
     /// ``Bits`10xx_xxxx` `` is the pattern `Bits.parse` reads from its
     /// text. A raw literal is checked when the program is checked, so a
     /// malformed one is a compile error at the literal.
-    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Bits, Error> {
-        body = Iter.reduce(fragments, "", fn acc, frag -> {
-            case frag {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Bits, Error>
+        body = Iter.reduce(fragments, "", fn acc, frag ->
+            case frag
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
-            }
-        })
+            end
+        end)
 
         Bits.parse(body)
-    }
-}
+    end
+end
 
-impl Debug for Bits {
+impl Debug for Bits
     /// The raw literal that builds the pattern, as written.
-    fn inspect(pattern: Bits) -> String {
+    fn inspect(pattern: Bits) -> String
         "Bits`${pattern.text}`"
-    }
-}
+    end
+end
 
 // The pattern read so far, most significant bit first: each bit shifts the
 // masks left by one. closed is whether a bit outside the field followed
 // the field's first bit.
-struct Scan {
+struct Scan
     index: Int
     width: Int
     mask: Int
@@ -230,19 +234,19 @@ struct Scan {
     field_mask: Int
     closed: Bool
     failure: Maybe<Error>
-}
+end
 
-fn read_bit(s: Scan, cp: Codepoint) -> Scan {
-    if Maybe.is_some(s.failure) { return s }
+fn read_bit(s: Scan, cp: Codepoint) -> Scan
+    if Maybe.is_some(s.failure) then return s
 
     found = Display.to_string(cp)
     index = s.index + 1
 
-    if found == "_" { return .{..s, index} }
+    if found == "_" then return {..s, index:}
 
-    shifted = .{
+    shifted = {
         ..s,
-        index,
+        index:,
         width: s.width + 1,
         mask: s.mask <<< 1,
         value: s.value <<< 1,
@@ -250,25 +254,32 @@ fn read_bit(s: Scan, cp: Codepoint) -> Scan {
         closed: Maybe.is_some(s.field),
     }
 
-    case found {
-        "0" -> .{..shifted, mask: shifted.mask ||| 1}
-        "1" -> .{..shifted, mask: shifted.mask ||| 1, value: shifted.value ||| 1}
-        "x" -> shifted
+    case found
+        "0" ->
+            {..shifted, mask: shifted.mask ||| 1}
+
+        "1" ->
+            {..shifted, mask: shifted.mask ||| 1, value: shifted.value ||| 1}
+
+        "x" ->
+            shifted
 
         _ when not Codepoint.is_lower(cp) or Codepoint.to_int(cp) > 127 ->
-            .{..s, failure: Some(Error.Character{index: s.index, found})}
+            {..s, failure: Some(Error.Character{index: s.index, found:})}
 
         _ ->
-            case s.field {
-                None -> .{..shifted, field: Some(found), field_mask: 1, closed: False}
+            case s.field
+                None ->
+                    {..shifted, field: Some(found), field_mask: 1, closed: False}
 
                 Some(field) when field != found ->
-                    .{..s, failure: Some(Error.SecondField{index: s.index, field, found})}
+                    {..s, failure: Some(Error.SecondField{index: s.index, field:, found:})}
 
                 Some(field) when s.closed ->
-                    .{..s, failure: Some(Error.SplitField{index: s.index, field})}
+                    {..s, failure: Some(Error.SplitField{index: s.index, field:})}
 
-                Some(_) -> .{..shifted, field_mask: shifted.field_mask ||| 1, closed: False}
-            }
-    }
-}
+                Some(_) ->
+                    {..shifted, field_mask: shifted.field_mask ||| 1, closed: False}
+            end
+    end
+end

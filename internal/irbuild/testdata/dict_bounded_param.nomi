@@ -12,41 +12,41 @@
 // another one.
 import std::io
 
-interface Shout {
+interface Shout
     fn shout(v: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
     name: String
-}
+end
 
-struct Cat {
+struct Cat
     name: String
-}
+end
 
-impl Shout for Dog {
-    fn shout(d: Dog) -> String {
+impl Shout for Dog
+    fn shout(d: Dog) -> String
         "woof from " + d.name
-    }
-}
+    end
+end
 
-impl Shout for Cat {
-    fn shout(c: Cat) -> String {
+impl Shout for Cat
+    fn shout(c: Cat) -> String
         "meow from " + c.name
-    }
-}
+    end
+end
 
-fn announce<T>(x: T) -> String where T: Shout {
+fn announce<T>(x: T) -> String where T: Shout
     T.shout(x)
-}
+end
 
-fn twice<U>(y: U) -> String where U: Shout {
+fn twice<U>(y: U) -> String where U: Shout
     announce(y) + " / " + announce(y)
-}
+end
 
-fn main() {
+fn main()
     io.print(announce(Dog{name: "rex"}))
     io.print(announce(Cat{name: "mia"}))
     io.print(twice(Dog{name: "rex"}))
     io.print(twice(Cat{name: "mia"}))
-}
+end

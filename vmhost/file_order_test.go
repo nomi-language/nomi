@@ -50,49 +50,49 @@ func loadInEveryFileOrder(t *testing.T, files map[string]string, want string) {
 // templates it records.
 func TestFileOrder_ImplHeaderOfAnInterfaceFromAnotherFile(t *testing.T) {
 	loadInEveryFileOrder(t, map[string]string{
-		"%s.nomi": `pub interface Holds<T> {
+		"%s.nomi": `pub interface Holds<T>
     fn held(value: self) -> T
-}
+end
 `,
 		"impls.nomi": `import %s.Holds
 
-pub struct Box {
+pub struct Box
     n: Int
-}
+end
 
-impl Holds<Int> for Box {
-    fn held(value: Box) -> Int {
+impl Holds<Int> for Box
+    fn held(value: Box) -> Int
         value.n
-    }
-}
+    end
+end
 
-pub struct Bag {
+pub struct Bag
     s: String
-}
+end
 
-impl Holds for Bag {
-    fn held(value: Bag) -> String {
+impl Holds for Bag
+    fn held(value: Bag) -> String
         value.s
-    }
-}
+    end
+end
 `,
-		"main.nomi": `import {
+		"main.nomi": `import
     std::io
     impls.{Box, Bag}
     %s.Holds
-}
+end
 
-fn first<H>(h: H) -> Int where H: Holds<Int> {
+fn first<H>(h: H) -> Int where H: Holds<Int>
     H.held(h)
-}
+end
 
-fn second<H>(h: H) -> String where H: Holds<String> {
+fn second<H>(h: H) -> String where H: Holds<String>
     H.held(h)
-}
+end
 
-fn main() {
+fn main()
     io.print("${first(Box{n: 2})} ${second(Bag{s: "x"})}")
-}
+end
 `,
 	}, "2 x\n")
 }
@@ -102,43 +102,43 @@ fn main() {
 // `fn name(value: Wrap<T>)` was "unknown type "T"".
 func TestFileOrder_ImplOverAGenericStructFromAnotherFile(t *testing.T) {
 	loadInEveryFileOrder(t, map[string]string{
-		"%s.nomi": `pub struct Wrap<T> {
+		"%s.nomi": `pub struct Wrap<T>
     item: T
     count: Int = 1
-}
+end
 
-pub struct Shown<T> where T: Display {
+pub struct Shown<T> where T: Display
     item: T
-}
+end
 `,
 		"impls.nomi": `import %s.{Wrap, Shown}
 
-pub interface Greets {
+pub interface Greets
     fn name(value: self) -> String
-}
+end
 
-impl Greets for Wrap<T> {
-    fn name(value: Wrap<T>) -> String {
+impl Greets for Wrap<T>
+    fn name(value: Wrap<T>) -> String
         "wrap ${value.count}"
-    }
-}
+    end
+end
 
-impl Greets for Shown<T> {
-    fn name(value: Shown<T>) -> String {
+impl Greets for Shown<T>
+    fn name(value: Shown<T>) -> String
         "shown ${value.item}"
-    }
-}
+    end
+end
 `,
-		"main.nomi": `import {
+		"main.nomi": `import
     std::io
     impls.Greets
     %s.{Wrap, Shown}
-}
+end
 
-fn main() {
+fn main()
     io.print(Greets.name(Wrap{item: 1.5}))
     io.print(Greets.name(Shown{item: 7}))
-}
+end
 `,
 	}, "wrap 1\nshown 7\n")
 }
@@ -148,35 +148,35 @@ fn main() {
 func TestFileOrder_ImplAboveTheGenericStructItIsFor(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-interface Greets {
+interface Greets
     fn name(value: self) -> String
-}
+end
 
-impl Greets for Wrap<T> {
-    fn name(value: Wrap<T>) -> String {
+impl Greets for Wrap<T>
+    fn name(value: Wrap<T>) -> String
         "wrap ${value.count}"
-    }
-}
+    end
+end
 
-impl Greets for Shown<T> {
-    fn name(value: Shown<T>) -> String {
+impl Greets for Shown<T>
+    fn name(value: Shown<T>) -> String
         "shown ${value.item}"
-    }
-}
+    end
+end
 
-struct Wrap<T> {
+struct Wrap<T>
     item: T
     count: Int = 1
-}
+end
 
-struct Shown<T> where T: Display {
+struct Shown<T> where T: Display
     item: T
-}
+end
 
-fn main() {
+fn main()
     io.print(Greets.name(Wrap{item: 1.5}))
     io.print(Greets.name(Shown{item: 7}))
-}
+end
 `)
 	if want := "wrap 1\nshown 7\n"; got != want {
 		t.Fatalf("output %q, want %q", got, want)

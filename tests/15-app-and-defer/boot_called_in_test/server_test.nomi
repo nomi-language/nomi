@@ -2,60 +2,60 @@
 //# Result it returns. What boot starts ends with the test: its deferred
 //# calls run and its supervised work stops when the test finishes.
 
-import {
+import
     std::compiler
     std::io
     std::testing.Clock
     server
-}
+end
 
-test "a boot that fails returns its Err" {
+test "a boot that fails returns its Err"
     assert server.boot(
-        Startup{env: %{"STORE" => "postgres"}}
+        Startup{env: {"STORE" => "postgres"}}
     ) is Err("STORE=postgres needs DATABASE_URL")
-}
+end
 
-group "a boot that succeeds" {
+group "a boot that succeeds"
     // Virtual time: the heartbeat boot spawns sleeps for an hour, and the
     // drain at the end of each test stops it at once.
     clock Clock.Virtual
 
-    test "returns the app" {
-        app = server.boot(Startup{env: %{"STORE" => "files"}})?
+    test "returns the app"
+        app = server.boot(Startup{env: {"STORE" => "files"}})?
         assert app.store == "files"
         io.print("test body ends")
-    }
+    end
 
-    test "starts work that ends with the test" {
-        app = server.boot(Startup{env: %{"STORE" => "files", "HEARTBEAT" => "on"}})?
+    test "starts work that ends with the test"
+        app = server.boot(Startup{env: {"STORE" => "files", "HEARTBEAT" => "on"}})?
         assert app.store == "files"
         io.print("test body ends")
-    }
+    end
 
-    test "the next test starts with none of it" {
+    test "the next test starts with none of it"
         io.print("the next test runs")
         assert True
-    }
-}
+    end
+end
 
-test "outside a test, a call of boot is refused" {
+test "outside a test, a call of boot is refused"
     diagnostics = compiler.check(
         """
-        pub struct App {
+        pub struct App
           context: Context
-        }
+        end
 
-        pub fn boot() -> Result<App, String> {
+        pub fn boot() -> Result<App, String>
           Ok(App{context: Context.root()})
-        }
+        end
 
-        fn restart() -> Result<App, String> {
+        fn restart() -> Result<App, String>
           boot()
-        }
+        end
 
-        fn main() {
+        fn main()
           _ = restart()
-        }
+        end
         """
     )
 
@@ -65,4 +65,4 @@ test "outside a test, a call of boot is refused" {
             "entry-point boot cannot be called or captured as an ordinary function; a `group` calls it on its `boot` line, and a test may call it to check the Result it returns",
         ),
     ]
-}
+end

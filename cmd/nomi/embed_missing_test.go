@@ -10,17 +10,17 @@ import (
 // missingEmbedProgram embeds a frontend's build folder, as a program that
 // serves a Vite build does, and reads it through `Files.sub` and a literal
 // path under it.
-const missingEmbedProgram = `import {
+const missingEmbedProgram = `import
   std::embed.Files
   std::io
-}
+end
 
 embed web ` + "`web/dist`" + `
 
-fn main() {
+fn main()
   io.print(Files.sub(web, "web/dist")! |> Files.paths())
   io.print(Files.read_text(web, "web/dist/index.html"))
-}
+end
 `
 
 const missingEmbedWarning = "warning: the `embed` pattern `web/dist` matches no file: `web/dist` does not exist, so `web` is empty until it does"

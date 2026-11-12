@@ -26,7 +26,7 @@ func TestPartialApplication_TypeSolvedByALaterUse(t *testing.T) {
 		},
 		{
 			name: "Map.get",
-			body: "    g = &Map.get(&1, noted(1))\n    io.inspect(g(%{1 => \"a\"}))\n    io.inspect(g(%{2 => \"b\"}))\n",
+			body: "    g = &Map.get(&1, noted(1))\n    io.inspect(g({1 => \"a\"}))\n    io.inspect(g({2 => \"b\"}))\n",
 			want: "made 1\nSome(\"a\")\nmade 1\nNone\n",
 		},
 		{
@@ -48,31 +48,31 @@ func TestPartialApplication_TypeSolvedByALaterUse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			main := `import std::io
 
-struct Box {
+struct Box
     value: Int
-}
+end
 
-impl Box {
-    fn pad<T>(x: T, n: Int = 2) -> (T, Int) {
+impl Box
+    fn pad<T>(x: T, n: Int = 2) -> (T, Int)
         (x, n)
-    }
-}
+    end
+end
 
-fn pad<T>(x: T, n: Int = 2) -> (T, Int) {
+fn pad<T>(x: T, n: Int = 2) -> (T, Int)
     (x, n)
-}
+end
 
-fn noted(n: Int) -> Int {
+fn noted(n: Int) -> Int
     io.print("made ${n}")
     n
-}
+end
 
-fn adder(n: Int) -> (Int) -> Int {
+fn adder(n: Int) -> (Int) -> Int
     fn x -> x + n
-}
+end
 
-fn main() {
-` + tc.body + "}\n"
+fn main()
+` + tc.body + "end\n"
 			got := runSiblingProgram(t, map[string]string{"main.nomi": main})
 			if got != tc.want {
 				t.Fatalf("output %q, want %q", got, tc.want)

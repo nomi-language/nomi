@@ -1,0 +1,26 @@
+fn take(p: {x: Int, y: Int}) -> Int
+    {y: b, x:} = p
+    //  ^ variable.parameter
+    //     ^ variable.parameter
+    total = x + b
+    y = b
+    q = {x: total, y:}
+    //   ^ variable.other.member
+    //             ^ variable
+    r = {..q, x:}
+
+    case r
+        {x: 0, y:} -> y
+        // <- type
+        //     ^ variable.other.member
+        _ -> total
+    end
+end
+
+fn block_value(a: Int) -> Int
+    b = begin
+        a + 1
+    end
+
+    b
+end

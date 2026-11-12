@@ -61,7 +61,7 @@ func buildWithStdlibForDerive(src string) *analysis.FileAnalysis {
 	// (the common case) land on fa.TypeErrors. Idempotent re-walk —
 	// duplicate diagnostics from synth-band positions would be a
 	// regression, but this codepath is unit-test-only.
-	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex)...)
+	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex, nil)...)
 	analysis.BuildTypes(fa, nodes)
 	// CheckTypes populates fa.ImplManifest with call-site / generic-
 	// bound recordings; FinalizeCoherence then consumes the manifest
@@ -104,11 +104,14 @@ func errMsgs(errs []analysis.TypeError) string {
 // — the richer message names the interface, the receiver type, and
 // the offending field via DeriveCtx provenance.
 func TestDeriveEquatableOnFieldWithoutImplErrors(t *testing.T) {
-	src := `struct User { id: Int, f: (Int) -> Int }
+	src := `struct User
+  id: Int
+  f: (Int) -> Int
+end
 
-struct Wrapper {
+struct Wrapper
   id: User
-}
+end
 derive Equatable for Wrapper`
 
 	fa := buildWithStdlibForDerive(src)
@@ -125,20 +128,24 @@ derive Equatable for Wrapper`
 // struct, an enum payload, a distinct type's inner type, a container of
 // one and a generic type over one.
 func TestDeriveOverAFieldWithEqualityIsAccepted(t *testing.T) {
-	const decls = `struct User { id: Int }
+	const decls = `struct User
+    id: Int
+end
 
-enum Kind {
+enum Kind
   A User
   B
-}
+end
 
 type Id User
 
-struct Box<T> { v: T }
+struct Box<T>
+    v: T
+end
 `
 	for _, iface := range []string{"Equatable", "Hashable"} {
 		for _, field := range []string{"User", "Kind", "Id", "List<User>", "Box<User>", "Maybe<Kind>", "(Int, User)"} {
-			src := decls + "\nstruct W {\n  f: " + field + "\n}\nderive " + iface + " for W\n"
+			src := decls + "\nstruct W\n  f: " + field + "\nend\nderive " + iface + " for W\n"
 			fa := buildWithStdlibForDerive(src)
 			if len(fa.TypeErrors) != 0 {
 				t.Errorf("derive %s over %s: the front end rejects this:\n  %s", iface, field, errMsgs(fa.TypeErrors))
@@ -151,12 +158,12 @@ struct Box<T> { v: T }
 // Hashable and Display only when each part does (and Comparable, for a
 // tuple), so a derive checks each part, as it checks a field of type P or
 // List<P>. A Map key or Set element needs no impl (spec §5 *Hashing and
-// keys*), so `%{p => 1}` beside the derive is no error. For Equatable and
+// keys*), so `{p => 1}` beside the derive is no error. For Equatable and
 // Hashable a part of a declared type meets the interface by its equality
 // (spec §5 *Equality bounds*), so only a P holding a function is refused.
 func TestDeriveChecksEachPartOfATupleOrAnonymousStructField(t *testing.T) {
-	const plain = "struct P {\n    x: Int\n}\n\n"
-	const holdsFn = "struct P {\n    f: (Int) -> Int\n}\n\n"
+	const plain = "struct P\n    x: Int\nend\n\n"
+	const holdsFn = "struct P\n    f: (Int) -> Int\nend\n\n"
 	for _, tc := range []struct {
 		iface, field string
 		ok           bool
@@ -165,19 +172,19 @@ func TestDeriveChecksEachPartOfATupleOrAnonymousStructField(t *testing.T) {
 		{"Equatable", "(Int, P)", false},
 		{"Comparable", "(Int, P)", false},
 		{"Display", "(Int, P)", false},
-		{"Hashable", ".{a: Int, p: P}", false},
-		{"Equatable", ".{a: Int, p: (P, Int)}", false},
+		{"Hashable", "{a: Int, p: P}", false},
+		{"Equatable", "{a: Int, p: (P, Int)}", false},
 		{"Hashable", "(Int, String)", true},
-		{"Equatable", ".{a: Int, b: (String, Int)}", true},
+		{"Equatable", "{a: Int, b: (String, Int)}", true},
 	} {
-		p, keys := plain, "\nfn keys(p: P) -> Map<P, Int> {\n    %{p => 1}\n}\n"
+		p, keys := plain, "\nfn keys(p: P) -> Map<P, Int>\n    {p => 1}\nend\n"
 		help := "add `derive " + tc.iface + "` to `P` or write an `impl " + tc.iface + " for P` block"
 		byEquality := tc.iface == "Equatable" || tc.iface == "Hashable"
 		if byEquality && !tc.ok {
 			p, keys = holdsFn, ""
 			help = "`P` holds a function, an Iter or a handle to running state, which has no equality; write an `impl " + tc.iface + " for P` block that leaves it out"
 		}
-		src := p + "struct W {\n    f: " + tc.field + "\n}\n\nderive " + tc.iface + " for W\n" + keys
+		src := p + "struct W\n    f: " + tc.field + "\nend\n\nderive " + tc.iface + " for W\n" + keys
 		fa := buildWithStdlibForDerive(src)
 		if tc.ok {
 			if len(fa.TypeErrors) != 0 {
@@ -187,7 +194,7 @@ func TestDeriveChecksEachPartOfATupleOrAnonymousStructField(t *testing.T) {
 		}
 		if byEquality {
 			// The same derive over a P with equality is accepted.
-			if accepted := buildWithStdlibForDerive(plain + "struct W {\n    f: " + tc.field + "\n}\n\nderive " + tc.iface + " for W\n"); len(accepted.TypeErrors) != 0 {
+			if accepted := buildWithStdlibForDerive(plain + "struct W\n    f: " + tc.field + "\nend\n\nderive " + tc.iface + " for W\n"); len(accepted.TypeErrors) != 0 {
 				t.Errorf("derive %s over %s of a P with equality: unexpected errors:\n  %s", tc.iface, tc.field, errMsgs(accepted.TypeErrors))
 			}
 		}
@@ -211,12 +218,15 @@ func TestDeriveChecksEachPartOfATupleOrAnonymousStructField(t *testing.T) {
 // the variant payload's type. The DeriveCtx FieldName carries the
 // variant name so the user knows which variant to fix.
 func TestDeriveOnEnumPayloadWithoutImplErrors(t *testing.T) {
-	src := `struct NoImpl { x: Int, f: (Int) -> Int }
+	src := `struct NoImpl
+  x: Int
+  f: (Int) -> Int
+end
 
-enum E {
+enum E
   V NoImpl
   Empty
-}
+end
 derive Equatable for E`
 
 	fa := buildWithStdlibForDerive(src)
@@ -235,7 +245,10 @@ derive Equatable for E`
 // Equatable impl errors at the derive declaration, naming the inner type
 // via DeriveCtx provenance on the missing-impl diagnostic.
 func TestDeriveOnDistinctInnerWithoutImplErrors(t *testing.T) {
-	src := `struct NoImpl { x: Int, f: (Int) -> Int }
+	src := `struct NoImpl
+  x: Int
+  f: (Int) -> Int
+end
 
 type W NoImpl
 derive Equatable for W`
@@ -255,10 +268,10 @@ derive Equatable for W`
 // whose fields are primitive-typed (Int, String) — both of which ship
 // stdlib impls — produces no @derive bound error.
 func TestDeriveOnStructWithImplFieldClean(t *testing.T) {
-	src := `struct Point {
+	src := `struct Point
   x: Int
   y: Int
-}
+end
 derive Equatable for Point
 derive Hashable for Point
 derive Comparable for Point
@@ -279,9 +292,9 @@ derive Debug for Point`
 // synthesized fn handles the requirement at the call site, so the
 // derive-bound check at the decl site must not flag it.
 func TestDeriveOnGenericFieldClean(t *testing.T) {
-	src := `struct Box<T> {
+	src := `struct Box<T>
   value: T
-}
+end
 derive Equatable for Box`
 
 	fa := buildWithStdlibForDerive(src)
@@ -299,10 +312,10 @@ derive Equatable for Box`
 // bound-check runs in defineTopLevel's wake, that entry exists, so the
 // recursive reference passes the impl lookup naturally.
 func TestDeriveRecursiveTypeIsClean(t *testing.T) {
-	src := `struct Cell {
+	src := `struct Cell
   value: Int
   next: Cell
-}
+end
 derive Equatable for Cell`
 
 	fa := buildWithStdlibForDerive(src)
@@ -319,14 +332,14 @@ derive Equatable for Cell`
 // synthesized FuncDefs; when the bound-check runs after that pass, both
 // (A, Equatable) and (B, Equatable) are in fa.Impls.
 func TestDeriveMutuallyRecursiveTypesAreClean(t *testing.T) {
-	src := `struct A {
+	src := `struct A
   b: B
-}
+end
 derive Equatable for A
 
-struct B {
+struct B
   a: A
-}
+end
 derive Equatable for B`
 
 	fa := buildWithStdlibForDerive(src)
@@ -346,17 +359,19 @@ func TestDeriveMultiArgChecksEachInterface(t *testing.T) {
 	// both Equatable and Comparable; the derive Comparable should fail
 	// because HalfImpl has no Comparable impl, but the derive Equatable
 	// should succeed.
-	src := `struct HalfImpl { x: Int }
+	src := `struct HalfImpl
+    x: Int
+end
 
-impl Equatable for HalfImpl {
-  fn equal(a: HalfImpl, b: HalfImpl) -> Bool {
+impl Equatable for HalfImpl
+  fn equal(a: HalfImpl, b: HalfImpl) -> Bool
     Equatable.equal(a.x, b.x)
-  }
-}
+  end
+end
 
-struct Wrap {
+struct Wrap
   h: HalfImpl
-}
+end
 derive Equatable for Wrap
 derive Comparable for Wrap`
 
@@ -385,13 +400,13 @@ derive Comparable for Wrap`
 // so it must not surface a "Renderable does not implement Debug"
 // error (which would be true but unactionable).
 func TestDeriveDebugOnInterfaceTypedPayloadIsClean(t *testing.T) {
-	src := `pub interface Speech {
+	src := `pub interface Speech
   fn say(value: self) -> String
-}
+end
 
-struct Holder {
+struct Holder
   what: Speech
-}
+end
 derive Debug for Holder`
 
 	fa := buildWithStdlibForDerive(src)
@@ -412,11 +427,13 @@ derive Debug for Holder`
 // on T field f" message with DeriveCtx provenance. Producing both
 // would double-report the same fix.
 func TestDeriveGapRoutedThroughDetectMissingImpls(t *testing.T) {
-	src := `struct C { n: Int }
+	src := `struct C
+    n: Int
+end
 
-struct B {
+struct B
   c: C
-}
+end
 derive Display for B`
 
 	fa := buildWithStdlibForDerive(src)

@@ -9,7 +9,7 @@ import (
 // A TYPE-qualified call to an interface impl method records the same impl
 // demand the INTERFACE-qualified spelling of that call records.
 //
-// `Comparable.compare(#["a"], #["b"])` and `Vector.compare(#["a"], #["b"])`
+// `Comparable.compare(["a"], ["b"])` and `Vector.compare(["a"], ["b"])`
 // invoke one impl body. The first records (Comparable, Vector<String>) —
 // checkGenericCall's interface-object arm reads the interface's SelfParam
 // binding out of `subs` and hands it to recordBoundConformance, whose
@@ -21,8 +21,8 @@ import (
 // The consequence would be a runtime fault, because `impl Comparable for
 // Vector<T>`'s body dispatches `Comparable.compare(ha, hb)` at the bare
 // `T` and dispatch registration is demand-driven off the manifest.
-// `Vector.compare(#["a"], #["b"])` would die with "Comparable.compare: no
-// implementation for type 'String'" while `Iter.sort(#["c", "a", "b"])`, an
+// `Vector.compare(["a"], ["b"])` would die with "Comparable.compare: no
+// implementation for type 'String'" while `Iter.sort(["c", "a", "b"])`, an
 // ordinary free generic whose `<T: Comparable>` bound is checked and
 // recorded, answers.
 //

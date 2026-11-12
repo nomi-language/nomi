@@ -7,12 +7,12 @@ import (
 // Rule 2 (positive case): a Task binding is consumed by `await` inside
 // the block. Accepted.
 func TestTaskLifetime_BindingAwaited_OK(t *testing.T) {
-	src := `fn demo() -> Int {
-  concurrent {
+	src := `fn demo() -> Int
+  concurrent
     t = Task.spawn(fn -> 42)
     Task.await(t)
-  }
-}`
+  end
+end`
 	errs := analyzeConcurrent(src)
 	expectNoConcurrentError(t, errs, "is never awaited")
 }
@@ -20,12 +20,12 @@ func TestTaskLifetime_BindingAwaited_OK(t *testing.T) {
 // Rule 2 (negative case): a Task binding whose name is never
 // referenced after the binding. Rejected.
 func TestTaskLifetime_BindingNeverAwaited_Errors(t *testing.T) {
-	src := `fn demo() -> Int {
-  concurrent {
+	src := `fn demo() -> Int
+  concurrent
     t = Task.spawn(fn -> 42)
     0
-  }
-}`
+  end
+end`
 	errs := analyzeConcurrent(src)
 	expectConcurrentError(t, errs, "Task bound to 't' is never awaited")
 }
@@ -37,12 +37,12 @@ func TestTaskLifetime_BindingNeverAwaited_Errors(t *testing.T) {
 // (broader uses of the binding are also accepted; only the wholly-
 // unused case is rejected).
 func TestTaskLifetime_BindingReferencedAsTail_OK(t *testing.T) {
-	src := `fn demo() -> Int {
-  concurrent {
+	src := `fn demo() -> Int
+  concurrent
     t = Task.spawn(fn -> 42)
     Task.await(t)
-  }
-}`
+  end
+end`
 	errs := analyzeConcurrent(src)
 	expectNoConcurrentError(t, errs, "is never awaited")
 }
@@ -55,15 +55,15 @@ func TestTaskLifetime_BindingReferencedAsTail_OK(t *testing.T) {
 // The nested block's own Rule 2/Rule 3 checks still run
 // independently.
 func TestTaskLifetime_BindingReferencedInNestedConcurrent_OK(t *testing.T) {
-	src := `fn demo() -> Int {
-  concurrent {
+	src := `fn demo() -> Int
+  concurrent
     t = Task.spawn(fn -> 42)
-    concurrent {
+    concurrent
       Task.await(t)
-    }
+    end
     0
-  }
-}`
+  end
+end`
 	errs := analyzeConcurrent(src)
 	expectNoConcurrentError(t, errs, "is never awaited")
 }
@@ -71,12 +71,12 @@ func TestTaskLifetime_BindingReferencedInNestedConcurrent_OK(t *testing.T) {
 // Rule 3 (positive case): the block's tail expression has a non-Task
 // type. Accepted.
 func TestTaskLifetime_BlockTailNonTask_OK(t *testing.T) {
-	src := `fn demo() -> Int {
-  concurrent {
+	src := `fn demo() -> Int
+  concurrent
     t = Task.spawn(fn -> 42)
     Task.await(t)
-  }
-}`
+  end
+end`
 	errs := analyzeConcurrent(src)
 	expectNoConcurrentError(t, errs, "cannot escape")
 }
@@ -85,15 +85,15 @@ func TestTaskLifetime_BlockTailNonTask_OK(t *testing.T) {
 // `Task.spawn(...)` call directly — Task value escapes via the block's
 // return value into the enclosing function's return.
 func TestTaskLifetime_BlockTailIsSpawn_Errors(t *testing.T) {
-	src := `fn spawn_one() -> Task<Int> {
-  concurrent {
+	src := `fn spawn_one() -> Task<Int>
+  concurrent
     Task.spawn(fn -> 42)
-  }
-}
-fn demo() -> Int {
+  end
+end
+fn demo() -> Int
   spawn_one()
   0
-}`
+end`
 	errs := analyzeConcurrent(src)
 	expectConcurrentError(t, errs, "cannot escape")
 }
@@ -101,16 +101,16 @@ fn demo() -> Int {
 // Rule 3 (negative case via reference): the block's tail expression is
 // a reference to a binding whose value is a Task. Same escape.
 func TestTaskLifetime_BlockTailRefersToTaskBinding_Errors(t *testing.T) {
-	src := `fn spawn_one() -> Task<Int> {
-  concurrent {
+	src := `fn spawn_one() -> Task<Int>
+  concurrent
     t = Task.spawn(fn -> 42)
     t
-  }
-}
-fn demo() -> Int {
+  end
+end
+fn demo() -> Int
   spawn_one()
   0
-}`
+end`
 	errs := analyzeConcurrent(src)
 	expectConcurrentError(t, errs, "cannot escape")
 }
@@ -119,16 +119,16 @@ fn demo() -> Int {
 // tuple containing a Task value. The tuple value escapes when the
 // block returns it.
 func TestTaskLifetime_BlockTailTupleWithTask_Errors(t *testing.T) {
-	src := `fn spawn_pair() -> (Int, Task<Int>) {
-  concurrent {
+	src := `fn spawn_pair() -> (Int, Task<Int>)
+  concurrent
     t = Task.spawn(fn -> 42)
     (1, t)
-  }
-}
-fn demo() -> Int {
+  end
+end
+fn demo() -> Int
   spawn_pair()
   0
-}`
+end`
 	errs := analyzeConcurrent(src)
 	expectConcurrentError(t, errs, "cannot escape")
 }
@@ -137,24 +137,24 @@ fn demo() -> Int {
 // skips the wait (spec §16). The discard is the error, at the `_ =`, and
 // names the await that would count; `_ = Task.await(t)` is accepted.
 func TestTaskLifetime_DiscardingTheHandle_Errors(t *testing.T) {
-	src := `fn demo() -> Int {
-  concurrent {
+	src := `fn demo() -> Int
+  concurrent
     t = Task.spawn(fn -> 42)
     _ = t
     0
-  }
-}`
+  end
+end`
 	errs := analyzeConcurrent(src)
 	expectConcurrentError(t, errs, "`_ = t` discards the Task without waiting for it")
 	expectNoConcurrentError(t, errs, "is never awaited")
 
-	awaited := `fn demo() -> Int {
-  concurrent {
+	awaited := `fn demo() -> Int
+  concurrent
     t = Task.spawn(fn -> 42)
     _ = Task.await(t)
     0
-  }
-}`
+  end
+end`
 	errs = analyzeConcurrent(awaited)
 	expectNoConcurrentError(t, errs, "discards the Task")
 	expectNoConcurrentError(t, errs, "is never awaited")

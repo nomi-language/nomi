@@ -1,4 +1,4 @@
-test "strings implement Iter over graphemes" {
+test "strings implement Iter over graphemes"
     indexed =
         "abc"
         |> Iter.with_index()
@@ -8,9 +8,9 @@ test "strings implement Iter over graphemes" {
     assert Iter.last("hello") == Some("o")
     assert Iter.get("hello", 1) == Some("e")
     assert indexed == [(0, "a"), (1, "b"), (2, "c")]
-}
+end
 
-test "String-specific reverse and length stay distinct from generic Iter forms" {
+test "String-specific reverse and length stay distinct from generic Iter forms"
     assert String.reverse("abc") == "cba"
     assert String.length("abc") == 3
-}
+end

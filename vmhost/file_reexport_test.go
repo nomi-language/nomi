@@ -9,26 +9,26 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-const reexportLeaf = `pub fn make_box(n: Int) -> Box {
+const reexportLeaf = `pub fn make_box(n: Int) -> Box
     Box{value: n}
-}
+end
 
-pub fn open_box(b: Box) -> Int {
+pub fn open_box(b: Box) -> Int
     b.value
-}
+end
 
-pub struct Box {
+pub struct Box
     value: Int
-}
+end
 `
 
 // A facade that re-exports a whole file is a check error at its `pub`,
 // reported for the facade file, not the entry that imports it.
 func TestFileReExport_IsACheckErrorInTheFacade(t *testing.T) {
 	path := writeCycleProject(t, map[string]string{
-		"facade.nomi": "pub import {\n    leaf\n}\n",
+		"facade.nomi": "pub import\n    leaf\nend\n",
 		"leaf.nomi":   reexportLeaf,
-		"main.nomi":   "import facade.{leaf}\n\nfn main() {\n    _b = leaf.make_box(7)\n}\n",
+		"main.nomi":   "import facade.{leaf}\n\nfn main()\n    _b = leaf.make_box(7)\nend\n",
 	})
 	err := vmhost.Check(path)
 	if err == nil {
@@ -44,19 +44,19 @@ func TestFileReExport_IsACheckErrorInTheFacade(t *testing.T) {
 // The same facade listing its items runs, selected or aliased.
 func TestFileReExport_ItemFacadeRuns(t *testing.T) {
 	path := writeCycleProject(t, map[string]string{
-		"facade.nomi": "pub import {\n    leaf.{Box, make_box, open_box}\n}\n",
+		"facade.nomi": "pub import\n    leaf.{Box, make_box, open_box}\nend\n",
 		"leaf.nomi":   reexportLeaf,
-		"main.nomi": `import {
+		"main.nomi": `import
     std::io
     facade.{Box, make_box, open_box as open}
-}
+end
 
-fn main() {
+fn main()
     b = make_box(7)
     io.inspect(open(b))
     io.inspect(b.value)
     io.inspect(open(Box{value: 8}))
-}
+end
 `,
 	})
 	if err := vmhost.Check(path); err != nil {

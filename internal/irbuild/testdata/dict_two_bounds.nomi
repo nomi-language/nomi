@@ -34,69 +34,69 @@
 //     assumed unaffected.
 import std::io
 
-interface Greet {
+interface Greet
     fn hello(value: self) -> String
-}
+end
 
-struct Meters {
+struct Meters
     amount: Int
-}
+end
 
-struct Label {
+struct Label
     head: String
     tail: String
-}
+end
 
-impl Display for Meters {
-    fn to_string(m: Meters) -> String {
+impl Display for Meters
+    fn to_string(m: Meters) -> String
         Int.to_string(m.amount) + "m"
-    }
-}
+    end
+end
 
-impl Greet for Meters {
-    fn hello(m: Meters) -> String {
+impl Greet for Meters
+    fn hello(m: Meters) -> String
         _ = m
         "hi meters"
-    }
-}
+    end
+end
 
-impl Display for Label {
-    fn to_string(l: Label) -> String {
+impl Display for Label
+    fn to_string(l: Label) -> String
         l.head + "-" + l.tail
-    }
-}
+    end
+end
 
-impl Greet for Label {
-    fn hello(l: Label) -> String {
+impl Greet for Label
+    fn hello(l: Label) -> String
         "hi " + l.head
-    }
-}
+    end
+end
 
-fn both<T>(x: T) -> String where T: Display and Greet {
+fn both<T>(x: T) -> String where T: Display and Greet
     T.hello(x) + " - " + T.to_string(x)
-}
+end
 
-fn reversed<T>(x: T) -> String where T: Greet and Display {
+fn reversed<T>(x: T) -> String where T: Greet and Display
     T.hello(x) + " - " + T.to_string(x)
-}
+end
 
-fn only_second<T>(x: T) -> String where T: Display and Greet {
+fn only_second<T>(x: T) -> String where T: Display and Greet
     T.hello(x)
-}
+end
 
-fn relay<U>(y: U) -> String where U: Display and Greet {
+fn relay<U>(y: U) -> String where U: Display and Greet
     both(y) + " / " + reversed(y)
-}
+end
 
-fn one_bound<T>(x: T) -> String where T: Display {
+fn one_bound<T>(x: T) -> String where T: Display
     T.to_string(x)
-}
+end
 
-fn mixed<T>(x: T) -> String where T: Display and Greet {
+fn mixed<T>(x: T) -> String where T: Display and Greet
     one_bound(x) + " | " + T.hello(x)
-}
+end
 
-fn main() {
+fn main()
     io.print(both(Meters{amount: 3}))
     io.print(both(Label{head: "a", tail: "b"}))
     io.print(reversed(Meters{amount: 4}))
@@ -107,4 +107,4 @@ fn main() {
     io.print(relay(Label{head: "g", tail: "h"}))
     io.print(mixed(Meters{amount: 7}))
     io.print(mixed(Label{head: "i", tail: "j"}))
-}
+end

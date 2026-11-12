@@ -12,17 +12,17 @@ import (
 func TestTravel_ReplayingForwardRestartsWhereTheRecordingDid(t *testing.T) {
 	s := travelProgram(t, `import std::io
 
-fn add(acc: Int, n: Int) -> Int {
+fn add(acc: Int, n: Int) -> Int
     io.print("adding ${acc} ${n}")
     s = acc + n
     s
-}
+end
 
-fn main() {
+fn main()
     a = add(0, 1)
     b = add(a, 2)
     io.print("${b}")
-}
+end
 `, "")
 	s.breakAt(5)
 	s.runPasses()
@@ -60,27 +60,26 @@ fn main() {
 func TestTravel_GoingBackCostsTheStatementsBeforeItsTarget(t *testing.T) {
 	s := travelProgram(t, `import std::io
 
-fn count(n: Int, acc: Int) -> Int {
-    case n {
+fn count(n: Int, acc: Int) -> Int
+    case n
         0 ->
             acc
 
-        _ -> {
+        _ ->
             io.write(".")
             count(n - 1, acc + 1)
-        }
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     total = count(1000, 0)
     io.print(" ${total}")
-}
+end
 `, "")
-	s.breakAt(17)
+	s.breakAt(16)
 	s.runPasses()
 	st := s.stop()
-	s.line(st, vm.StopBreakpoint, 17)
+	s.line(st, vm.StopBreakpoint, 16)
 	live := s.d.Stats()
 	if live.Recorded != 1000 {
 		t.Fatalf("recorded %d crossings, want the 1000 writes", live.Recorded)
@@ -89,16 +88,16 @@ fn main() {
 		t.Fatal(err)
 	}
 	st = s.stop()
-	s.line(st, vm.StopStep, 16)
+	s.line(st, vm.StopStep, 15)
 	back := s.d.Stats()
-	// Line 16 is the program's first statement: the replay ran one
+	// Line 15 is the program's first statement: the replay ran one
 	// statement and answered nothing.
 	if back.Steps != 1 || back.Answered != 0 {
 		t.Fatalf("the replay to the first statement ran %d statements and answered %d crossings", back.Steps, back.Answered)
 	}
 	s.d.Continue()
 	st = s.stop()
-	s.line(st, vm.StopBreakpoint, 17)
+	s.line(st, vm.StopBreakpoint, 16)
 	again := s.d.Stats()
 	if again.Steps != live.Steps || again.Answered != 1000 || again.Recorded != 1000 {
 		t.Fatalf("forward to the present again: %+v, want %d statements and 1000 answered from 1000 recorded", again, live.Steps)
@@ -109,7 +108,7 @@ fn main() {
 		t.Fatal(err)
 	}
 	st = s.stop()
-	s.line(st, vm.StopStart, 16)
+	s.line(st, vm.StopStart, 15)
 	if got := s.d.Stats(); got.Steps != 1 || got.Passes != again.Passes+1 {
 		t.Fatalf("reverse continue: %+v", got)
 	}

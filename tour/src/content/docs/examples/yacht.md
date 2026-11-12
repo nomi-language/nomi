@@ -14,7 +14,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Scores a throw of five dice in the dice game Yacht.
 
 /// The twelve ways to score a throw of five dice.
-pub enum Category {
+pub enum Category
     Ones
     Twos
     Threes
@@ -27,11 +27,11 @@ pub enum Category {
     BigStraight
     Choice
     Yacht
-}
+end
 
 /// The score of five `dice` in `category`: 0 when they do not make it.
-pub fn score(dice: List<Int>, category: Category) -> Int {
-    case category {
+pub fn score(dice: List<Int>, category: Category) -> Int
+    case category
         .Ones -> face_total(dice, 1)
         .Twos -> face_total(dice, 2)
         .Threes -> face_total(dice, 3)
@@ -44,60 +44,60 @@ pub fn score(dice: List<Int>, category: Category) -> Int {
         .BigStraight -> straight(dice, from: 2)
         .Choice -> Iter.sum(dice)
         .Yacht -> yacht(dice)
-    }
-}
+    end
+end
 
 /// The total of the dice showing `face`.
-fn face_total(dice: List<Int>, face: Int) -> Int {
+fn face_total(dice: List<Int>, face: Int) -> Int
     count = Iter.count_by(dice, &(&1 == face))
     face * count
-}
+end
 
 /// All the dice when three show one face and two another, or 0.
-fn full_house(dice: List<Int>) -> Int {
-    if group_sizes(dice) == [2, 3] {
+fn full_house(dice: List<Int>) -> Int
+    if group_sizes(dice) == [2, 3] then
         Iter.sum(dice)
-    } else {
+    else
         0
-    }
-}
+    end
+end
 
 /// Four times the face that at least four dice show, or 0.
-fn four_of_a_kind(dice: List<Int>) -> Int {
+fn four_of_a_kind(dice: List<Int>) -> Int
     dice
     |> Iter.frequencies()
     |> Iter.find(fn (_face, count) -> count >= 4)
     |> Maybe.map(fn (face, _count) -> 4 * face)
     |> Maybe.with_default(0)
-}
+end
 
 /// 30 when the dice are the five faces counting up `from`, or 0.
-fn straight(dice: List<Int>, from: Int) -> Int {
-    if Iter.sort(dice) == Iter.to_list(from..from + 5) {
+fn straight(dice: List<Int>, from: Int) -> Int
+    if Iter.sort(dice) == Iter.to_list(from..from + 5) then
         30
-    } else {
+    else
         0
-    }
-}
+    end
+end
 
 /// 50 when all five dice show one face, or 0.
-fn yacht(dice: List<Int>) -> Int {
-    if group_sizes(dice) == [5] { 50 } else { 0 }
-}
+fn yacht(dice: List<Int>) -> Int
+    if group_sizes(dice) == [5] then 50 else 0
+end
 
 /// How many dice show each face that comes up, smallest group first: a full
 /// house is `[2, 3]`, a yacht `[5]`.
-fn group_sizes(dice: List<Int>) -> List<Int> {
+fn group_sizes(dice: List<Int>) -> List<Int>
     dice
     |> Iter.frequencies()
     |> Map.values()
     |> Iter.sort()
-}
+end
 
 // FILE: yacht_test.nomi
 import yacht.{self, Category}
 
-test "yacht" {
+test "yacht"
     [
         ("Yacht", [5, 5, 5, 5, 5], Category.Yacht, 50),
         ("Not Yacht", [1, 3, 3, 2, 5], .Yacht, 0),
@@ -134,10 +134,10 @@ test "yacht" {
         ("Choice", [3, 3, 5, 6, 6], .Choice, 23),
         ("Yacht as choice", [2, 2, 2, 2, 2], .Choice, 10),
     ]
-    |> subtests (description, dice, category, expected), description {
+    |> subtests (description, dice, category, expected), description
         assert yacht.score(dice, category) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok yacht (29 cases)
@@ -151,5 +151,5 @@ test result: ok. 29 passed, 0 failed
 - Several categories ask for a shape, not particular faces. `group_sizes` answers how many dice show each face that comes up, sorted: `Iter.frequencies`, then the map's values, then `Iter.sort`. A full house is `[2, 3]` and a yacht `[5]`, whatever the faces are.
 - The straights compare the sorted dice with the five faces counting up from 1 or from 2, built as a range, `Iter.to_list(from..from + 5)`; `from` is a named argument at the call, `straight(dice, from: 1)`.
 - Four of a kind finds the face that four or more dice show with `Iter.find` over the frequencies, so a yacht scores as four of a kind too. No such face is a real answer, scored 0, so `Maybe.with_default(0)` is the rule, not a guess.
-- Each category that is made or not is its own function, so every arm of `score` is one call and stays on one line; an `if` in an arm would break past the formatter's one-line width and put that arm across lines.
+- Each category that is made or not is its own function, so every arm of `score` is one call and stays on one line; an `if` in an arm breaks past the formatter's one-line width and takes every arm with it.
 - The 29 canonical cases are one `subtests` table named by the description column.

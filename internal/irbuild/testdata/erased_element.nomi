@@ -17,45 +17,45 @@
 // stopped crashing does not pass.
 import std::io
 
-pub interface Alpha {
+pub interface Alpha
     fn a(value: self) -> String
-}
+end
 
-pub interface Beta {
+pub interface Beta
     fn b(value: self) -> String
-}
+end
 
-struct P {
+struct P
     n: Int
-}
+end
 
-impl Alpha for P {
-    fn a(value: P) -> String {
+impl Alpha for P
+    fn a(value: P) -> String
         "A/P" + Int.to_string(value.n)
-    }
-}
+    end
+end
 
-impl Beta for P {
-    fn b(value: P) -> String {
+impl Beta for P
+    fn b(value: P) -> String
         "B/P" + Int.to_string(value.n)
-    }
-}
+    end
+end
 
-struct Q {
+struct Q
     s: String
-}
+end
 
-impl Alpha for Q {
-    fn a(value: Q) -> String {
+impl Alpha for Q
+    fn a(value: Q) -> String
         "A/Q" + value.s
-    }
-}
+    end
+end
 
-impl Beta for Q {
-    fn b(value: Q) -> String {
+impl Beta for Q
+    fn b(value: Q) -> String
         "B/Q" + value.s
-    }
-}
+    end
+end
 
 // The LIST pair. Declared Alpha-first so the interning order is the one that
 // crashed: the second spelling is the one that found an entry already there.
@@ -65,13 +65,13 @@ impl Beta for Q {
 // user interface is refused in its own right (`unrepresentable inferred
 // type`) and this fixture is not about that gap. The LIST TYPE is what has to
 // reach the intern table, and a parameter annotation is what puts it there.
-fn join_alphas(xs: List<Alpha>, extra: Alpha) -> String {
+fn join_alphas(xs: List<Alpha>, extra: Alpha) -> String
     Int.to_string(Iter.count(xs)) + "/" + Alpha.a(extra)
-}
+end
 
-fn join_betas(xs: List<Beta>, extra: Beta) -> String {
+fn join_betas(xs: List<Beta>, extra: Beta) -> String
     Int.to_string(Iter.count(xs)) + "/" + Beta.b(extra)
-}
+end
 
 // The MAYBE pair, which is the same collision in the prelude table.
 //
@@ -84,21 +84,21 @@ fn join_betas(xs: List<Beta>, extra: Beta) -> String {
 // transcript therefore proves the None side and the lowering proves the Some
 // side; the unit test beside this reads the two instances' type arguments
 // back directly.
-fn show_alpha(m: Maybe<Alpha>) -> String {
-    case m {
+fn show_alpha(m: Maybe<Alpha>) -> String
+    case m
         Some(v) -> Alpha.a(v)
         None -> "A/none"
-    }
-}
+    end
+end
 
-fn show_beta(m: Maybe<Beta>) -> String {
-    case m {
+fn show_beta(m: Maybe<Beta>) -> String
+    case m
         Some(v) -> Beta.b(v)
         None -> "B/none"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     p = P{n: 7}
     q = Q{s: "z"}
 
@@ -116,4 +116,4 @@ fn main() {
 
     io.print(show_alpha(None))
     io.print(show_beta(None))
-}
+end

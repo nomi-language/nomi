@@ -14,74 +14,74 @@ func TestIRShortCircuitLeavingOperand_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn check(is_ready: Bool) -> Result<Int, String> {
-    ok = is_ready or {
+fn check(is_ready: Bool) -> Result<Int, String>
+    ok = is_ready or begin
         return Err("x")
-    }
-    Ok(if ok { 1 } else { 0 })
-}
+    end
+    Ok(if ok then 1 else 0)
+end
 
-fn early(x: Bool) -> Int {
-    y = x and {
+fn early(x: Bool) -> Int
+    y = x and begin
         return 1
-    }
-    if y { 3 } else { 2 }
-}
+    end
+    if y then 3 else 2
+end
 
-fn both(x: Int) -> Bool {
-    x > 0 and case x {
+fn both(x: Int) -> Bool
+    x > 0 and case x
         1 -> return True
         _ -> return False
-    }
-}
+    end
+end
 
-fn id(b: Bool) -> Bool {
+fn id(b: Bool) -> Bool
     b
-}
+end
 
-fn wrapped(x: Int) -> Bool {
-    x > 0 and id(case x {
+fn wrapped(x: Int) -> Bool
+    x > 0 and id(case x
         1 -> return True
         _ -> return False
-    })
-}
+    end)
+end
 
-fn grouped(x: Int) -> Bool {
-    x > 0 and (case x {
+fn grouped(x: Int) -> Bool
+    x > 0 and (case x
         1 -> return True
         _ -> return False
-    })
-}
+    end)
+end
 
-fn negated(x: Int) -> Bool {
-    x > 0 and not case x {
+fn negated(x: Int) -> Bool
+    x > 0 and not case x
         1 -> return True
         _ -> return False
-    }
-}
+    end
+end
 
-fn either(x: Int) -> Int {
-    b = x > 0 or (if x == 0 { return 7 } else { return 8 })
-    if b { 1 } else { 2 }
-}
+fn either(x: Int) -> Int
+    b = x > 0 or (if x == 0 then return 7 else return 8)
+    if b then 1 else 2
+end
 
-fn chain(a: Bool, b: Bool) -> String {
-    some = a or b or {
+fn chain(a: Bool, b: Bool) -> String
+    some = a or b or begin
         return "neither"
-    }
+    end
     "some ${some}"
-}
+end
 
-fn half(n: Int) -> Result<Int, String> {
-    if n % 2 == 0 { Ok(n / 2) } else { Err("odd ${n}") }
-}
+fn half(n: Int) -> Result<Int, String>
+    if n % 2 == 0 then Ok(n / 2) else Err("odd ${n}")
+end
 
-fn halves(n: Int) -> Result<Bool, String> {
+fn halves(n: Int) -> Result<Bool, String>
     ok = n > 0 and half(n)? > 0
     Ok(ok)
-}
+end
 
-fn main() {
+fn main()
     io.inspect(check(True))
     io.inspect(check(False))
     io.inspect(early(True))
@@ -100,17 +100,17 @@ fn main() {
     io.inspect(chain(False, False))
     io.inspect(halves(0))
     io.inspect(halves(3))
-    kept = Iter.map([1, 2, 3, 4, 5], fn n -> {
-        _ = n != 2 or {
+    kept = Iter.map([1, 2, 3, 4, 5], fn n ->
+        _ = n != 2 or begin
             continue
-        }
-        _ = n < 4 or {
+        end
+        _ = n < 4 or begin
             break
-        }
+        end
         n * 10
-    }) |> Iter.to_list()
+    end) |> Iter.to_list()
     io.inspect(kept)
-}
+end
 `
 	const want = "Ok(1)\n" +
 		"Err(\"x\")\n" +

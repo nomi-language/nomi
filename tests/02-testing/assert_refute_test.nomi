@@ -1,9 +1,9 @@
-import {
+import
     std::assertions.AssertionFailure
     std::testing
-}
+end
 
-test "assert and refute accept expected booleans" {
+test "assert and refute accept expected booleans"
     assert True
     refute False
     refute 1 == 2
@@ -13,28 +13,28 @@ test "assert and refute accept expected booleans" {
 
     assert truth == True
     assert falsity == False
-}
+end
 
-fn fails_assertion() -> Result<Unit, AssertionFailure> {
+fn fails_assertion() -> Result<Unit, AssertionFailure>
     assert 1 == 2
     Ok(Unit)
-}
+end
 
-fn fails_check() -> Result<Bool, AssertionFailure> {
+fn fails_check() -> Result<Bool, AssertionFailure>
     checked = testing.check(1 == 2)?
     Ok(checked)
-}
+end
 
-test "assertion failures are Result.Err values" {
+test "assertion failures are Result.Err values"
     assert Err(failure) = fails_assertion()
 
     assert failure.line == 19
     assert failure.keyword == "assert"
     assert failure.expression == "1 == 2"
     assert failure.reason == "assertion failed"
-}
+end
 
-test "check returns assertion Result values without propagating" {
+test "check returns assertion Result values without propagating"
     check_result = testing.check(1 == 1)
     assert check_result == Ok(True)
 
@@ -43,12 +43,12 @@ test "check returns assertion Result values without propagating" {
     assert failure.keyword == "check"
     assert failure.expression == "1 == 2"
     assert failure.reason == "check failed"
-}
+end
 
-test "`?` check propagates assertion failures" {
+test "`?` check propagates assertion failures"
     assert Err(failure) = fails_check()
 
     assert failure.line == 24
     assert failure.keyword == "check"
     assert failure.reason == "check failed"
-}
+end

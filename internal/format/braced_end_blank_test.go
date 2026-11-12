@@ -11,24 +11,24 @@ import "testing"
 func TestFormat_BracedEndTrivia_DropsBlankLines(t *testing.T) {
 	for name, c := range map[string]struct{ src, want string }{
 		"anon struct literal": {
-			"fn main() {\n    x = .{a: 0 / 0\n\n    //\n    }\n}\n",
-			"fn main() {\n    x = .{\n        a: 0 / 0,\n        //\n    }\n}\n",
+			"fn main()\n    x = {a: 0 / 0\n\n    //\n    }\nend\n",
+			"fn main()\n    x = {\n        a: 0 / 0,\n        //\n    }\nend\n",
 		},
 		"named struct literal": {
-			"fn main() {\n    x = P{a: 0\n\n    // c\n\n    // d\n    }\n}\n",
-			"fn main() {\n    x = P{\n        a: 0,\n        // c\n        // d\n    }\n}\n",
+			"fn main()\n    x = P{a: 0\n\n    // c\n\n    // d\n    }\nend\n",
+			"fn main()\n    x = P{\n        a: 0,\n        // c\n        // d\n    }\nend\n",
 		},
 		"map literal": {
-			"fn main() {\n    m = %{1 => 2\n\n    // c\n    }\n}\n",
-			"fn main() {\n    m = %{\n        1 => 2,\n        // c\n    }\n}\n",
+			"fn main()\n    m = {1 => 2\n\n    // c\n    }\nend\n",
+			"fn main()\n    m = {\n        1 => 2,\n        // c\n    }\nend\n",
 		},
 		"anon struct type": {
-			"fn f(p: .{x: Int\n\n// c\n}) -> Int {\n    1\n}\n",
-			"fn f(p: .{\n    x: Int,\n    // c\n}) -> Int {\n    1\n}\n",
+			"fn f(p: {x: Int\n\n// c\n}) -> Int\n    1\nend\n",
+			"fn f(p: {\n    x: Int,\n    // c\n}) -> Int\n    1\nend\n",
 		},
 		"struct variant": {
-			"enum Shape {\n    Rect {w: Int\n\n    // c\n    }\n}\n",
-			"enum Shape {\n    Rect {\n        w: Int,\n        // c\n    }\n}\n",
+			"enum Shape\n    Rect {w: Int\n\n    // c\n    }\nend\n",
+			"enum Shape\n    Rect {\n        w: Int,\n        // c\n    }\nend\n",
 		},
 	} {
 		t.Run(name, func(t *testing.T) { migrates(t, c.src, c.want) })

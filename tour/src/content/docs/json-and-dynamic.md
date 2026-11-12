@@ -17,15 +17,15 @@ by field. Options after `with` rename the fields:
 ```nomi-run
 import std::json.{FromJson, Json, ToJson}
 
-struct User {
+struct User
     first_name: String
     age: Int
-}
+end
 
 derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}
 derive FromJson for User with FromJson.Options{rename_all: Json.Case.Camel}
 
-fn main() -> Result<Unit, Json.Error> {
+fn main() -> Result<Unit, Json.Error>
     text = Json.encode_as(User{first_name: "Ada", age: 36})
     dbg text
 
@@ -33,8 +33,7 @@ fn main() -> Result<Unit, Json.Error> {
     dbg user
 
     Ok(Unit)
-}
-
+end
 ```
 <!-- expect
 dbg line 13: text = "{\"firstName\":\"Ada\",\"age\":36}"
@@ -48,25 +47,28 @@ and how enums and `Maybe` fields map to JSON.
 
 A shape used in one place needs no struct. An anonymous struct is JSON when
 each field is, as a struct deriving both with no options: its field names
-are the keys, and a missing `Maybe` field reads as `None`.
+are the keys, and a missing `Maybe` field reads as `None`. A PATCH body that
+must tell a key left out from one set to `null` types the field
+`Presence<Maybe<T>>` ([`std::presence`](/reference/presence/)): a missing key
+is `Absent`, `null` is `Present(None)`, and an `Absent` field is left out
+when written.
 
 ```nomi-run
 import std::json.Json
 
-fn main() -> Result<Unit, Json.Error> {
-    reply = Json.encode_as(.{error: "no todo 99"})
+fn main() -> Result<Unit, Json.Error>
+    reply = Json.encode_as({error: "no todo 99"})
     dbg reply
 
-    todo = Json.decode_as<.{title: String, order: Maybe<Int>}>(`{"title": "milk"}`)?
+    todo = Json.decode_as<{title: String, order: Maybe<Int>}>(`{"title": "milk"}`)?
     dbg todo
 
     Ok(Unit)
-}
-
+end
 ```
 <!-- expect
 dbg line 5: reply = "{\"error\":\"no todo 99\"}"
-dbg line 8: todo = .{order: None, title: "milk"}
+dbg line 8: todo = {order: None, title: "milk"}
 -->
 
 A frontend written in TypeScript can share these shapes. `nomi types` writes
@@ -93,30 +95,30 @@ enum with a variant for each kind of JSON value. Match on it with `case` when
 the shape varies, or when you need only a part of a document:
 
 ```nomi-run
-import {
+import
     std::io
     std::json.Json
-}
+end
 
-fn describe(jv: Json) -> String {
-    case jv {
+fn describe(jv: Json) -> String
+    case jv
         .String(s) -> "the text ${s}"
         .Int(n) -> "the whole number ${n}"
         .Arr(items) -> "a list of ${Iter.count(items)}"
         .Obj(fields) -> "an object with the keys ${Map.keys(fields) |> String.join(", ")}"
         _ -> Json.kind(jv)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     ["\"hi\"", "42", "[1, 2, 3]", "{\"name\": \"Ada\", \"age\": 36}", "null", "{"]
-    |> Iter.each(fn text -> {
-        case Json.decode(text) {
+    |> Iter.each(fn text ->
+        case Json.decode(text)
             Ok(jv) -> io.print(describe(jv))
             Err(e) -> io.print("not JSON: ${e}")
-        }
-    })
-}
+        end
+    end)
+end
 ```
 <!-- expect
 the text hi
@@ -148,44 +150,44 @@ users has one bad entry:
 
 ```nomi-run
 // FILE: main.nomi
-import {
+import
     std::dynamic.{self, Dynamic}
     std::fs
     std::io
     std::json.Json
-}
+end
 
-struct User {
+struct User
     name: String
     age: Int
-}
+end
 
 // One user, from a value read as Dynamic.
-fn user(d: Dynamic) -> Result<User, dynamic.Error> {
+fn user(d: Dynamic) -> Result<User, dynamic.Error>
     name = Dynamic.at_field(d, "name", Dynamic.as_string)?
     age = Dynamic.at_field(d, "age", Dynamic.as_int)?
-    Ok(User{name, age})
-}
+    Ok(User{name:, age:})
+end
 
 // Print each user, or why it could not be read.
-fn print_users(users: Dynamic, count: Int) {
+fn print_users(users: Dynamic, count: Int)
     0..count
-    |> Iter.each(fn i -> {
-        case Dynamic.at_index(users, i, user) {
+    |> Iter.each(fn i ->
+        case Dynamic.at_index(users, i, user)
             Ok(u) -> io.print("${u.name} is ${u.age}")
             Err(e) -> io.print("user ${i}: ${e}")
-        }
-    })
-}
+        end
+    end)
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     text = fs.read_text("users.json") |> Result.map_err(&"${&1}")?
     users = Json.decode(text) |> Result.map_err(&"${&1}")? |> Json.to_dynamic()
 
     count = Dynamic.as_list(users) |> Result.map_err(&"${&1}")? |> Iter.count()
     print_users(users, count)
     Ok(Unit)
-}
+end
 
 // FILE: users.json
 [
@@ -215,19 +217,19 @@ when a file is too large to hold, and both name the line and column of
 anything malformed:
 
 ```nomi-run
-import {
+import
     std::csv
     std::xml.{self, Element}
-}
+end
 
-fn main() {
+fn main()
     rows = csv.decode_rows("name,age\nAda,36\n")!
     dbg rows |> Iter.map(&csv.Row.get(&1, "age")) |> Iter.to_list()
 
     doc = xml.decode("<feed><title>News &amp; notes</title></feed>")!
     dbg Element.child_text(doc, "title")
     dbg csv.decode("a,\"b")
-}
+end
 ```
 <!-- expect
 dbg line 8: rows |> Iter.map(&csv.Row.get(&1, "age")) |> Iter.to_list() = [Some("36")]

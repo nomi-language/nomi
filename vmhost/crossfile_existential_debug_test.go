@@ -12,35 +12,35 @@ import (
 // of every file of the program, not only the declaring one's.
 func TestCrossFileExistentialDebug_RendersAnotherFilesImplementer(t *testing.T) {
 	entry, name, files, manifest, err := SplitMultiFile(`// FILE: named.nomi
-pub interface Named {
+pub interface Named
     fn name(n: self) -> String
-}
+end
 
-pub struct Holder {
+pub struct Holder
     held: Named
-}
+end
 
 // FILE: main.nomi
-import {
+import
     std::io
     named.{Holder, Named}
-}
+end
 
-struct Mark {
+struct Mark
     k: Int
-}
+end
 
-impl Named for Mark {
-    fn name(m: Mark) -> String {
+impl Named for Mark
+    fn name(m: Mark) -> String
         "m${m.k}"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     h = Holder{held: Mark{k: 1}}
     io.print(Named.name(h.held))
     io.print(Debug.inspect(h))
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("split: %v", err)

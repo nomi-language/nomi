@@ -187,11 +187,12 @@ type FileBodies struct {
 	// References maps each identifier's position to the symbol it refers to.
 	References map[Pos]*Symbol
 	// PunnedFieldLabels maps the position of a punned struct-literal field,
-	// the `context` of `App{context}` or `.{context}`, to the field it
-	// labels. One token there is both the field's label and a read of the
-	// variable, and References holds the variable. Find References and
-	// rename read this map for the field. Nil until a punned label is
-	// recorded (setPunnedFieldLabel).
+	// the `context` of `App{context:}` or `{context:}`, to the field it
+	// labels, and of a punned named argument, the `status` of
+	// `f(status:)`, to its argument hint. One name there is both the label
+	// and a read of the variable, and References holds the variable. Find
+	// References and rename read this map for the label. Nil until a punned
+	// label is recorded (setPunnedFieldLabel).
 	PunnedFieldLabels map[Pos]*Symbol
 	// TodoPlaceholders maps each bare `todo` that names no binding in scope to
 	// the placeholder it is (spec §2 *Keywords*). The parser reads a bare
@@ -284,7 +285,7 @@ type FileBodies struct {
 	// opens its function. Nil until the first record.
 	OperatorImpls map[*ast.Binary]*OperatorImpl
 	// TargetStructs maps a brace literal with no type name and no spread
-	// (`.{street: "1 Main", city: "Bath"}`) to the nominal struct it builds
+	// (`{street: "1 Main", city: "Bath"}`) to the nominal struct it builds
 	// because the position expected that struct (checkTargetTypedStructLit).
 	// The IR builder lowers such a literal exactly as the named literal
 	// `Address{...}`; a brace literal absent from this map is an anonymous
@@ -297,6 +298,43 @@ type FileBodies struct {
 	// call, so it records what a written call records, and the IR builder
 	// lowers it with x evaluated first. Nil until the first record.
 	Memberships map[*ast.Binary]*ast.Call
+	// CallDefaults maps each call that leaves a defaulted parameter out to
+	// the declaration whose defaults fill it and the slots it fills
+	// (call_defaults.go). The IR builder fills a call's omitted parameters
+	// from this record alone. Nil until the first record.
+	CallDefaults map[*ast.Call]*DefaultedCall
+	// HoleDisplays maps each interpolation hole's expression to how its
+	// value renders by Display (hole_display.go): its own text, the
+	// machine's rendering of a scalar or a structural value, its parts
+	// each by its record, the impl of its type, the impl an interface
+	// value holds, or a type parameter's instance. The IR builder renders
+	// a hole from this record. Nil until the first record.
+	HoleDisplays map[ast.Node]*DisplayRender
+	// Operators maps each binary operator over a value that is not a
+	// primitive to what it means (operator_uses.go): an impl's call, a
+	// comparison by shape, a comparison of two interface values by their
+	// run-time types, or, over a type parameter, the bound each instance
+	// resolves. Nil until the first record.
+	Operators map[*ast.Binary]*OperatorUse
+	// Coercions maps each expression of a concrete type, or of a type
+	// parameter bounded by the interface, checked against an interface
+	// type to the interface value it becomes: the interface, the value's
+	// type and the impl (coercions.go). A call's receiver and a source at
+	// an `Iter<T>` position are not coercions. The IR builder makes each
+	// interface value from this record. Nil until the first record.
+	Coercions map[ast.Node]*Coercion
+	// IterViews maps each expression checked against an `Iter<T>` position
+	// whose type is not an interface to the view the callee receives over
+	// it (iter_views.go): the source's type, the element it pushes, which
+	// built-in walk it is, or the type's own `impl Iter`, or a type
+	// parameter each instance resolves. The IR builder builds each view
+	// from this record. Nil until the first record.
+	IterViews map[ast.Node]*IterView
+	// DefaultedRefs maps each declared function named as a value where a
+	// function of fewer parameters is expected (defaultFilledFuncValue)
+	// to the slots a call of that shorter value fills from the function's
+	// defaults. Nil until the first record.
+	DefaultedRefs map[ast.Node]*DefaultedCall
 	// StandIns holds each position, by line and column, where References
 	// holds a name that the text there does not spell: the two columns of a
 	// membership test's `in` (`Contains` and its `contains`), and the

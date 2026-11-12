@@ -17,78 +17,78 @@ import (
 const bangProgram = `import std::io
 import helper
 
-struct Oops {
+struct Oops
     code: Int
-}
+end
 
-struct Nice {
+struct Nice
     why: String
-}
+end
 
-impl Display for Nice {
-    fn to_string(n: Nice) -> String {
+impl Display for Nice
+    fn to_string(n: Nice) -> String
         "nice: ${n.why}"
-    }
-}
+    end
+end
 
-struct User {
+struct User
     name: String
     nickname: Maybe<String>
-}
+end
 
-enum Color {
+enum Color
     Red
     Green
-}
+end
 
-interface Parse {
+interface Parse
     fn parse(text: String) -> Maybe<self>
-}
+end
 
-impl Parse for Int {
-    fn parse(text: String) -> Maybe<Int> {
+impl Parse for Int
+    fn parse(text: String) -> Maybe<Int>
         String.to_int(text)
-    }
-}
+    end
+end
 
-fn half(n: Int) -> Result<Int, String> {
-    if n % 2 == 0 {
+fn half(n: Int) -> Result<Int, String>
+    if n % 2 == 0 then
         Ok(n / 2)
-    } else {
+    else
         Err("${n} is odd")
-    }
-}
+    end
+end
 
-fn oops(n: Int) -> Result<Int, Oops> {
-    if n > 0 { Ok(n) } else { Err(Oops{code: n}) }
-}
+fn oops(n: Int) -> Result<Int, Oops>
+    if n > 0 then Ok(n) else Err(Oops{code: n})
+end
 
-fn nice(n: Int) -> Result<Int, Nice> {
-    if n > 0 { Ok(n) } else { Err(Nice{why: "too small"}) }
-}
+fn nice(n: Int) -> Result<Int, Nice>
+    if n > 0 then Ok(n) else Err(Nice{why: "too small"})
+end
 
-fn first<T>(xs: List<T>) -> Maybe<T> {
+fn first<T>(xs: List<T>) -> Maybe<T>
     List.head(xs)
-}
+end
 
-fn pick(_u: User, _c: Color, _t: (Int, String), _cp: Codepoint, _d: Decimal, _f: Float, _b: Bool, _s: String) -> Maybe<Int> {
+fn pick(_u: User, _c: Color, _t: (Int, String), _cp: Codepoint, _d: Decimal, _f: Float, _b: Bool, _s: String) -> Maybe<Int>
     None
-}
+end
 
-fn main() {
-    fn local(n: Int) -> Maybe<Int> {
-        if n > 0 { Some(n) } else { None }
-    }
+fn main()
+    fn local(n: Int) -> Maybe<Int>
+        if n > 0 then Some(n) else None
+    end
     f = local
-    m = %{"a" => 1}
+    m = {"a" => 1}
     _ = (f(1), m, helper.twice(1))
     io.print("%BODY%")
-}
+end
 `
 
-const bangHelper = `pub fn twice(n: Int) -> Maybe<Int> {
-    if n < 100 { Some(n * 2) } else { None }
-}
+const bangHelper = `pub fn twice(n: Int) -> Maybe<Int>
+    if n < 100 then Some(n * 2) else None
+end
 `
 
 // runBang writes bangProgram with body as main's last line, and helper.nomi

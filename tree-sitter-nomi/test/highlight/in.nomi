@@ -1,11 +1,11 @@
 // `in` reads as a keyword. The caret lines below each line name the
 // highlight of the token they point at.
-pub fn member(x: Int, xs: List<Int>) -> Bool {
+pub fn member(x: Int, xs: List<Int>) -> Bool
     x in xs
     //^^ keyword
-}
+end
 
-pub fn absent(id: Int, seen: Set<Int>) -> Bool {
+pub fn absent(id: Int, seen: Set<Int>) -> Bool
     not id in seen
     //     ^^ keyword
-}
+end

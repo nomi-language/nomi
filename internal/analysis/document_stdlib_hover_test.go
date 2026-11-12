@@ -24,7 +24,7 @@ func TestDocumentManager_StdlibFileTypesDistinctDestructure(t *testing.T) {
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, nil)
 
-	src := "import std::int.{Int}\n\nopaque type Dur Int\n\nfn unwrap(x: Dur) -> Int {\n  Dur(n) = x\n  n\n}"
+	src := "import std::int.{Int}\n\nopaque type Dur Int\n\nfn unwrap(x: Dur) -> Int\n  Dur(n) = x\n  n\nend"
 	uri := "file:///path/to/std/dur.nomi"
 	dm.Open(uri, src)
 
@@ -57,17 +57,17 @@ func TestDocumentManager_StdlibFileAllowsTopLevelImplForLocalType(t *testing.T) 
 
 	src := `import std::strings: String
 
-pub interface Show {
+pub interface Show
   fn show(value: self) -> String
-}
+end
 
 pub opaque type Thing Int
 
-impl Show for Thing {
-  fn show(_value: Thing) -> String {
+impl Show for Thing
+  fn show(_value: Thing) -> String
     "thing"
-  }
-}
+  end
+end
 `
 	uri := "file:///path/to/std/local_impl.nomi"
 	dm.Open(uri, src)

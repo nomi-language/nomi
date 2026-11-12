@@ -32,7 +32,7 @@ func (bl *irScalarBuilder) captureFunc(t *ast.Capture) (ir.Temp, kind, bool, boo
 	if call := t.PartialCall(); call != nil {
 		return bl.partialApplication(t, call)
 	}
-	ft, _ := analysis.ResolveTypeVar(bl.g.srcFA().ExprTypes[t]).(*analysis.FuncType)
+	ft, _ := analysis.ResolveClosed(bl.g.srcFA().ExprTypes[t]).(*analysis.FuncType)
 	holes := t.Holes()
 	if ft == nil || len(holes) == 0 {
 		return no("a capture the checker gave no function type")

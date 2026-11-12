@@ -19,7 +19,9 @@ type exprKey struct {
 
 func keyOf(n ast.Node) (exprKey, bool) {
 	line, col := nodePos(n)
-	if line <= 0 {
+	if line <= 0 || analysis.IsSynthesizedLine(line) {
+		// A derived or expanded body's node is typed for the IR builder
+		// and is at no position a document holds.
 		return exprKey{}, false
 	}
 	return exprKey{line, col, n.NodeType()}, true

@@ -17,18 +17,18 @@ const pointsToml = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[mone
 // currencyProgram prints each of exprs, each a Currency.
 func currencyProgram(exprs ...string) string {
 	all := strings.Join(exprs, " ")
-	src := "import {\n    std::io\n"
+	src := "import\n    std::io\n"
 	if strings.Contains(all, "Currency") {
 		src += "    std::currency.Currency\n"
 	}
 	if strings.Contains(all, "Money") {
 		src += "    std::money.Money\n"
 	}
-	src += "}\n\nfn main() {\n"
+	src += "end\n\nfn main()\n"
 	for _, e := range exprs {
 		src += "    io.print(Debug.inspect(" + e + "))\n"
 	}
-	return src + "}\n"
+	return src + "end\n"
 }
 
 // oneDiagnostic is the single diagnostic err holds.
@@ -115,10 +115,10 @@ func TestCurrencyLiteral_NoListAndNoModule(t *testing.T) {
 // A currency made from values while the program runs is not checked, nor
 // is one Currency.parse reads.
 func TestCurrency_RuntimeIsUnrestricted(t *testing.T) {
-	src := "import {\n    std::io\n    std::currency.Currency\n}\n\nfn main() {\n" +
+	src := "import\n    std::io\n    std::currency.Currency\nend\n\nfn main()\n" +
 		"    code = \"GEMS\"\n    digits = 3\n" +
 		"    io.print(Debug.inspect(Currency.custom(code, digits)))\n" +
-		"    io.print(Debug.inspect(Currency.parse(\"PST:0\")))\n}\n"
+		"    io.print(Debug.inspect(Currency.parse(\"PST:0\")))\nend\n"
 	p, err := loadManifest(t, src, pointsToml)
 	if err != nil {
 		t.Fatal(err)
@@ -206,16 +206,16 @@ func TestCurrencyCustomCall_LiteralArgumentsListedIsAHint(t *testing.T) {
 // its own list: the library lists GEMS:2 and writes it, and the
 // application lists PTS:0 and writes it.
 const currencyModules = `// FILE: app/main.nomi
-import {
+import
     std::io
     std::currency.Currency
     gems::shop
-}
+end
 
-fn main() {
+fn main()
     io.print(Debug.inspect(Currency` + "`PTS:0`" + `))
     io.print(Debug.inspect(shop.gems))
-}
+end
 // FILE: app/nomi.toml
 [module]
 name = "app"

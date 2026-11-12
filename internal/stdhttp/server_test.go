@@ -14,33 +14,32 @@ import std::io.{self, Writer}
 import std::supervisors.Supervisor
 import std::url.Url
 
-struct App {
+struct App
     web: Supervisor
     context: Context
-}
+end
 
-fn boot(_startup: Startup) -> Result<App, String> {
+fn boot(_startup: Startup) -> Result<App, String>
     Ok(App{web: Supervisor.new(max_running: 8), context: Context.root()})
-}
+end
 
-fn handle(request: Request) -> Response {
-    case request.url.path {
+fn handle(request: Request) -> Response
+    case request.url.path
         "/hello" ->
             Response{body: Body.Text("hello ${Request.user_agent(request) |> Maybe.with_default("?")}")}
 
-        "/echo" -> {
+        "/echo" ->
             text = Bytes.to_string(Body.read_all(request.body)!)!
             Response{status: Status.created, body: Body.Text("${request.method} ${text}")}
-        }
 
         "/stream" ->
             Response{
                 headers: Headers.set(Headers[], "Content-Type", "text/event-stream"),
-                body: Body.Produce(fn w -> {
+                body: Body.Produce(fn w ->
                     Writer.print(w, "data: one")?
                     Writer.flush(w)?
                     Writer.print(w, "data: two")
-                }),
+                end),
             }
 
         "/deadline" ->
@@ -57,15 +56,15 @@ fn handle(request: Request) -> Response {
 
         _ ->
             Response{status: Status.not_found, body: Body.Text("no ${request.url.path}")}
-    }
-}
+    end
+end
 
-fn get(base: String, path: String) -> String {
+fn get(base: String, path: String) -> String
     response = http.get(Url.parse("${base}${path}")!)!
     "${Status.code(response.status)} ${Response.text(response)!}"
-}
+end
 
-fn main() {
+fn main()
     listener = http.listen(Server{address: "127.0.0.1:0", request_timeout: Some(Duration.seconds(30))})!
     _ = Supervisor.spawn(App.web, fn -> http.serve(listener, handle, App.web))
     base = "http://${Listener.address(listener)}"
@@ -82,7 +81,7 @@ fn main() {
     io.print("cookie ${Response.text(who)!}")
     io.print(get(base, "/whoami"))
     Listener.shutdown(listener)
-}
+end
 `
 
 // A server answers requests with a Nomi handler: a body read and echoed, a
@@ -118,28 +117,28 @@ import std::http.{Headers, Method, Response, Status}
 import std::http_testing
 import std::io
 
-fn show(r: Response) -> String {
+fn show(r: Response) -> String
     "${Status.code(r.status)} ${Headers.get(r.headers, "Content-Type") |> Maybe.with_default("-")} ${Headers.get(r.headers, "Location") |> Maybe.with_default("-")} ${Response.text(r) |> Result.with_default("?")}"
-}
+end
 
-fn main() {
-    files = %{"site/a.txt" => "hello", "site/docs/index.html" => "<p>docs</p>", "site/pics/x.png" => "png", "site/pics/y z.txt" => "y"}
-    ran = fs_testing.run(Sandbox{files}, fn -> {
+fn main()
+    files = {"site/a.txt" => "hello", "site/docs/index.html" => "<p>docs</p>", "site/pics/x.png" => "png", "site/pics/y z.txt" => "y"}
+    ran = fs_testing.run(Sandbox{files:}, fn ->
         serve = http.file_server("site")
         get = fn target: String -> show(serve(http_testing.request(Method.Get, target)))
         ranged = http_testing.request(Method.Get, "/a.txt")
         [
             get("/a.txt"),
-            show(serve(.{..ranged, headers: Headers.set(ranged.headers, "Range", "bytes=1-3")})),
+            show(serve({..ranged, headers: Headers.set(ranged.headers, "Range", "bytes=1-3")})),
             get("/docs"),
             get("/docs/"),
             get("/docs/index.html"),
             get("/pics/"),
             get("/missing.txt"),
         ]
-    })
+    end)
     Iter.each(ran.value, fn line -> io.print(line))
-}
+end
 `)
 	for _, w := range []string{
 		"200 text/plain; charset=utf-8 - hello",
@@ -165,19 +164,19 @@ func TestServer_FormReadersHaveDefaultLimits(t *testing.T) {
 import std::http_testing
 import std::io.{self, Reader}
 
-fn posted(body: Reader) -> Request {
-    .{
+fn posted(body: Reader) -> Request
+    {
         ..http_testing.request(Method.Post, "/"),
         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
         body: Body.Stream(body),
     }
-}
+end
 
-fn form(size: Int) -> Request {
+fn form(size: Int) -> Request
     posted(Reader.from_text("a=${String.repeat("x", size - 2)}"))
-}
+end
 
-fn main() {
+fn main()
     io.print("at ${Request.post_form(form(10_485_760)) |> Result.is_ok()}")
     io.print("over ${Request.post_form(form(10_485_761))}")
     io.print("raised ${Request.post_form(Request.limit_body(form(10_485_761), 20_000_000)) |> Result.is_ok()}")
@@ -186,14 +185,14 @@ fn main() {
     io.print("huge ${Request.post_form(posted(huge))}")
     io.print("left ${Bytes.length(Reader.read_all(huge)!)}")
 
-    upload = .{
+    upload = {
         ..http_testing.request(Method.Post, "/upload"),
         headers: Headers[("Content-Type", "multipart/form-data; boundary=b")],
         body: Body.Stream(Reader.from_bytes(String.to_bytes(String.repeat("x", 33_554_433)))),
     }
 
     io.print("multipart ${Request.multipart_form(upload) |> Result.map(fn _ -> "read")}")
-}
+end
 `)
 	for _, w := range []string{
 		"at True",
@@ -218,29 +217,29 @@ import std::http_testing
 import std::io
 import std::url.{Query, Url}
 
-fn echo(request: Request) -> Response {
-    limited = if request.url.path == "/small" { Request.limit_body(request, 3) } else { request }
+fn echo(request: Request) -> Response
+    limited = if request.url.path == "/small" then Request.limit_body(request, 3) else request
 
-    case Request.form(limited) {
+    case Request.form(limited)
         Ok(form) -> Response{body: Body.Text(Query.get(form, "a") |> Maybe.with_default(""))}
         Err(e) -> Response.error(Status.request_entity_too_large, "${e}")
-    }
-}
+    end
+end
 
-fn main() {
-    http_testing.with_server(echo, server: Server{max_body: Some(5)}, fn server -> {
-        post = fn path: String, a: String -> {
+fn main()
+    http_testing.with_server(echo, server: Server{max_body: Some(5)}, fn server ->
+        post = fn path: String, a: String ->
             url = Url.resolve_text(server.url, path)!
             r = Client.post_form(server.client, url, Query[("a", a)])!
             io.print("${path} ${a}: ${Status.code(r.status)} ${Response.text(r)!}")
-        }
+        end
 
         post("/", "123")
         post("/", "1234")
         post("/small", "1")
         post("/small", "12")
-    })
-}
+    end)
+end
 `)
 	for _, w := range []string{
 		"/ 123: 200 123",

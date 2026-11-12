@@ -67,7 +67,10 @@ func debugBodyIsNameOnly(fn *ast.FuncDef) (string, bool) {
 // delegates to the structural synthesizer for non-opaque types — its output
 // is byte-identical to an explicit @derive Debug.
 func TestSynthesizeAutoDebug_NonOpaqueIsStructural(t *testing.T) {
-	nodes := parseNodes(t, `struct Point { x: Int; y: Int }`)
+	nodes := parseNodes(t, `struct Point
+    x: Int
+    y: Int
+end`)
 	var structDef ast.Node
 	for _, n := range nodes {
 		if _, ok := n.(*ast.StructDef); ok {
@@ -167,9 +170,11 @@ pub host type Task<T>
 
 pub host type Dynamic
 
-impl Debug for Dynamic {
-  fn inspect(_value: Dynamic) -> String { "custom" }
-}
+impl Debug for Dynamic
+  fn inspect(_value: Dynamic) -> String
+      "custom"
+  end
+end
 `
 	nodes := parseNodes(t, src)
 	nodes, _ = LowerDerives(nodes)
@@ -216,17 +221,26 @@ impl Debug for Dynamic {
 // duplicate one for a type @derive Debug already covered.
 func TestSynthesizeUniversalDebug_CoversDeclaredTypes(t *testing.T) {
 	src := `
-struct Foo { a: Int }
+struct Foo
+    a: Int
+end
 
-enum Bar { Red; Green }
+enum Bar
+    Red
+    Green
+end
 
 opaque type Baz Int
 
-struct Qux { q: Int }
+struct Qux
+    q: Int
+end
 
-impl Debug for Qux {
-  fn inspect(_value: Qux) -> String { "custom" }
-}
+impl Debug for Qux
+  fn inspect(_value: Qux) -> String
+      "custom"
+  end
+end
 `
 	nodes := parseNodes(t, src)
 	// Mirror the production pipeline: LowerDerives (turns the
@@ -305,11 +319,15 @@ derive Debug for NonZeroInt
 // the explicit impl-block form (the highest-priority override).
 func TestSynthesizeUniversalDebug_ExplicitImplSuppressesAuto(t *testing.T) {
 	src := `
-struct Custom { a: Int }
+struct Custom
+    a: Int
+end
 
-impl Debug for Custom {
-  fn inspect(_value: Custom) -> String { "hand-written" }
-}
+impl Debug for Custom
+  fn inspect(_value: Custom) -> String
+      "hand-written"
+  end
+end
 `
 	nodes := parseNodes(t, src)
 	nodes, _ = LowerDerives(nodes)
@@ -339,9 +357,15 @@ impl Debug for Custom {
 // also what lets stdlib modules (which get no prelude) declare types without
 // carrying a `std/debug.{Debug}` import.
 func TestUniversalDebug_ImportIndependent_BareBuild(t *testing.T) {
-	src := `struct Point { x: Int; y: Int }
+	src := `struct Point
+    x: Int
+    y: Int
+end
 
-enum Color { Red; Green }
+enum Color
+    Red
+    Green
+end
 
 pub host type Handle
 
@@ -357,11 +381,15 @@ opaque type Token Int`
 	// scope — the compiler-known header route covers Debug (any block) and
 	// the derivable protocols on synthesized blocks only (see
 	// derive_scope_test.go).
-	_, errs = checkSource(`struct P { x: Int }
+	_, errs = checkSource(`struct P
+    x: Int
+end
 
-impl Display for P {
-  fn to_string(_value: P) -> String { "p" }
-}`)
+impl Display for P
+  fn to_string(_value: P) -> String
+      "p"
+  end
+end`)
 	expectError(t, errs, "undefined interface 'Display'")
 }
 
@@ -373,9 +401,15 @@ impl Display for P {
 // slices.
 func TestSynthesizeUniversalDebug_Idempotent(t *testing.T) {
 	src := `
-struct Point { x: Int; y: Int }
+struct Point
+    x: Int
+    y: Int
+end
 
-enum Shape { Circle Float; Nothing }
+enum Shape
+    Circle Float
+    Nothing
+end
 `
 	nodes := parseNodes(t, src)
 	nodes, _ = LowerDerives(nodes)

@@ -34,18 +34,18 @@ func TestUnsupported_NamesTheOnceItsReaderDeclinedFor(t *testing.T) {
 			name: "initializer declines",
 			src: `import std::io
 
-fn planted_decline(a: Int) -> Int {
+fn planted_decline(a: Int) -> Int
     a
-}
+end
 
-once w: Int = {
+once w: Int = begin
     u = planted_decline(1)
     u
-}
+end
 
-fn main() {
+fn main()
     io.print("${w}")
-}
+end
 `,
 			at:     "main.nomi:8:9: this `once w` is not supported yet, so `fn main` cannot run",
 			reason: "[main] reads `once w`, whose initializer did not lower; [once w] " + plantedReason,
@@ -73,18 +73,18 @@ fn main() {
 // A declaration-level decline at a top-level `fn` names its body; only a
 // `fn` declared inside a body is a nested one.
 func TestUnsupported_OnlyANestedFnIsCalledNested(t *testing.T) {
-	src := `fn main() {
-    fn helper() -> Int {
+	src := `fn main()
+    fn helper() -> Int
         1
-    }
+    end
     helper()
-}
+end
 
-impl Int {
-    fn twice(n: Int) -> Int {
+impl Int
+    fn twice(n: Int) -> Int
         n * 2
-    }
-}
+    end
+end
 `
 	nodes, errs := parser.ParseWithRecovery(lexer.Lex(src))
 	if len(errs) > 0 {

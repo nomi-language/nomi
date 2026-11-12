@@ -63,7 +63,7 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 	case "known_count", "is_infinite", "each_while":
 		// `impl Iter for Range<T>`'s members, named by the type: the Iter
 		// protocol over the Range's view.
-		return bl.iterCall(t, args, method)
+		return bl.iterCall(t, args, method, nil)
 	case "to_string", "inspect":
 		// std's Debug impl for a Range is its Display (`to_string(r)`), so
 		// both render as `Debug.inspect(r)` does.
@@ -142,7 +142,7 @@ func (bl *irScalarBuilder) rangeStructLit(t *ast.StructLit) (ir.Temp, kind, bool
 		switch f.Name {
 		case "start":
 			start = f.Value
-		case "end":
+		case "stop":
 			if name, _, _, bare := preludeValueName(f.Value); !bare || name != "None" {
 				return no()
 			}

@@ -2,12 +2,12 @@ import std::io
 
 // note prints as a side effect and returns its input, so a line's ORDER is
 // observable where its value alone would not be.
-fn note(tag: String, n: Int) -> Int {
+fn note(tag: String, n: Int) -> Int
     io.print("  ${tag} ${n}")
     n
-}
+end
 
-fn main() {
+fn main()
     // The headline: a seed that is NOT the zero value. A lowering that dropped
     // the callback's default would print 6 here and pass every other comparison
     // in this file that happens to seed from zero — which is the bug this
@@ -53,9 +53,9 @@ fn main() {
     // against the outer's, the inner fold would start at 1000 and this would be
     // 3060 instead of 1074.
     io.print(
-        "${Iter.reduce([1, 2], 1000, fn outer, _a -> {
+        "${Iter.reduce([1, 2], 1000, fn outer, _a ->
             outer + Iter.reduce([10, 20], 7, fn inner, b -> inner + b)
-        })}"
+        end)}"
     )
 
     // Order and count. The list literal is eager, so both source elements print
@@ -65,4 +65,4 @@ fn main() {
     io.print(
         "${Iter.reduce([note("src", 1), note("src", 2)], note("seed", 100), fn acc, x -> acc + x)}"
     )
-}
+end

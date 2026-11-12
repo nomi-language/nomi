@@ -1,34 +1,34 @@
 // What the migrate tools share: their arguments and the connection they
 // open.
-import {
+import
     std::sql.{self, Conn}
     postgres
     sqlite
-}
+end
 
 /// A tool's arguments: the migrations directory and the database URL.
-pub struct Options {
+pub struct Options
     dir: String
     url: String
-}
+end
 
 /// The usage line of the tool named `tool`.
-pub fn usage(tool: String) -> String {
+pub fn usage(tool: String) -> String
     "usage: nomi tool migrate ${tool} [--dir db/migrations] [--url URL]\n" + "  --dir defaults to db/migrations, sqlkit's default\n" + "  --url defaults to $DATABASE_URL: postgres://... or postgresql://... for Postgres,\n" + "        sqlite:PATH for a SQLite file"
-}
+end
 
 /// The options from `args`, with `env` for the URL's default.
-//! assert cli.options("up", ["--dir", "migrations"], %{"DATABASE_URL" => "postgres://db"})
+//! assert cli.options("up", ["--dir", "migrations"], {"DATABASE_URL" => "postgres://db"})
 //!     == Ok(Options{dir: "migrations", url: "postgres://db"})
 //!
-//! assert Result.is_err(cli.options("up", ["--force"], %{}))
-//! assert Result.is_err(cli.options("up", [], %{}))
+//! assert Result.is_err(cli.options("up", ["--force"], {}))
+//! assert Result.is_err(cli.options("up", [], {}))
 //
 pub fn options(
     tool: String,
     args: List<String>,
     env: Map<String, String>,
-) -> Result<Options, String> {
+) -> Result<Options, String>
     start = Options{
         dir: "db/migrations",
         url: Map.get(env, "DATABASE_URL") |> Maybe.with_default(""),
@@ -36,33 +36,33 @@ pub fn options(
 
     parsed = read(tool, args, start)?
 
-    if parsed.url == "" {
+    if parsed.url == "" then
         return Err("no database: pass --url or set DATABASE_URL\n${usage(tool)}")
-    }
+    end
 
     Ok(parsed)
-}
+end
 
-fn read(tool: String, args: List<String>, so_far: Options) -> Result<Options, String> {
-    case args {
+fn read(tool: String, args: List<String>, so_far: Options) -> Result<Options, String>
+    case args
         [] -> Ok(so_far)
-        ["--dir", dir, ..rest] -> read(tool, rest, .{..so_far, dir})
-        ["--url", url, ..rest] -> read(tool, rest, .{..so_far, url})
+        ["--dir", dir, ..rest] -> read(tool, rest, {..so_far, dir:})
+        ["--url", url, ..rest] -> read(tool, rest, {..so_far, url:})
         [other, ..] -> Err("unknown argument `${other}`\n${usage(tool)}")
-    }
-}
+    end
+end
 
 /// A connection to the database at `url`.
-pub fn open(url: String) -> Result<Conn, sql.Error> {
-    if String.starts_with(url, "postgres://") or String.starts_with(url, "postgresql://") {
+pub fn open(url: String) -> Result<Conn, sql.Error>
+    if String.starts_with(url, "postgres://") or String.starts_with(url, "postgresql://") then
         postgres.connect(url)
-    } else if String.starts_with(url, "sqlite:") {
+    else if String.starts_with(url, "sqlite:") then
         sqlite.open(String.replace(url, "sqlite:", ""))
-    } else {
+    else
         Err(
             sql.Error.Connection{
                 message: "`${url}` is not a database URL: write postgres://... or sqlite:PATH",
             }
         )
-    }
-}
+    end
+end

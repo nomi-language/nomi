@@ -2,19 +2,19 @@ package analysis
 
 import "testing"
 
-const resultWideningDecls = `interface Named {
+const resultWideningDecls = `interface Named
     fn name(value: self) -> String
-}
+end
 
-struct Pt {
+struct Pt
     x: Int
-}
+end
 
-impl Named for Pt {
-    fn name(p: Pt) -> String {
+impl Named for Pt
+    fn name(p: Pt) -> String
         "pt"
-    }
-}
+    end
+end
 
 `
 
@@ -25,29 +25,29 @@ impl Named for Pt {
 // was compared without it, so `(1, Pt{x: 5})` was rejected as a
 // `(Int, Named)` result though `t: (Int, Named) = (1, Pt{x: 5})` was not.
 func TestResultWidening_TailWidensAsABindingDoes(t *testing.T) {
-	src := resultWideningDecls + `fn pair() -> (Int, Named) {
+	src := resultWideningDecls + `fn pair() -> (Int, Named)
     (1, Pt{x: 5})
-}
+end
 
-fn early(n: Int) -> (Int, Named) {
-    if n > 0 {
+fn early(n: Int) -> (Int, Named)
+    if n > 0 then
         return (n, Pt{x: n})
-    }
+    end
     (0, Pt{x: 0})
-}
+end
 
-fn gen<A>(a: A) -> (A, Named) {
+fn gen<A>(a: A) -> (A, Named)
     (a, Pt{x: 5})
-}
+end
 
-fn bound(t: (Int, Named)) -> (Int, Named) {
+fn bound(t: (Int, Named)) -> (Int, Named)
     t
-}
+end
 
-fn binding() -> (Int, Named) {
+fn binding() -> (Int, Named)
     t: (Int, Named) = (1, Pt{x: 5})
     t
-}
+end
 `
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -59,10 +59,10 @@ fn binding() -> (Int, Named) {
 // value's side as a hole.
 func TestResultWidening_OwnTypeParametersStayRigid(t *testing.T) {
 	cases := map[string]string{
-		"tail":            "fn wrap<T>(x: T) -> List<T> {\n    x\n}\n",
-		"return":          "fn wrap<T>(x: T) -> List<T> {\n    return x\n}\n",
-		"tuple":           "fn pair<A, B>(a: A, b: B) -> (A, B) {\n    (b, a)\n}\n",
-		"concrete result": "fn f<T>(x: T) -> Int {\n    return x\n}\n",
+		"tail":            "fn wrap<T>(x: T) -> List<T>\n    x\nend\n",
+		"return":          "fn wrap<T>(x: T) -> List<T>\n    return x\nend\n",
+		"tuple":           "fn pair<A, B>(a: A, b: B) -> (A, B)\n    (b, a)\nend\n",
+		"concrete result": "fn f<T>(x: T) -> Int\n    return x\nend\n",
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {

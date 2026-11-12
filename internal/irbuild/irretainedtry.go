@@ -41,6 +41,14 @@ func (bl *irScalarBuilder) tryValue(t *ast.TryOp, operand, whole ast.Node) (ir.T
 	for i := range u.payloads {
 		carried[i] = u.payloads[i].k
 	}
+	if conv := bl.g.recordedTryConversion(t); conv != nil {
+		// A `?` the checker converts through the boundary's `From` impl
+		// exits to a fn's declared result only.
+		if concurrent || testBoundary {
+			return no()
+		}
+		return bl.convertingTry(t, operand, whole, src, k, pure, conv)
+	}
 	if testBoundary {
 		// An AssertionFailure payload (`testing.check(e)?`) reports the
 		// failed check itself: the VM's runner reads the propagated failure
@@ -49,6 +57,12 @@ func (bl *irScalarBuilder) tryValue(t *ast.TryOp, operand, whole ast.Node) (ir.T
 			return no()
 		}
 	} else if !concurrent && !irTryFits(bl.returnKind, d, carried) {
+		if irTryWidens(bl.returnKind, d, carried) {
+			// The operand's error inhabits the boundary's: an interface
+			// it implements, an enum that embeds it, a structure at wider
+			// type arguments (tryfrom.go).
+			return bl.wideningTry(t, operand, whole, src, k, pure)
+		}
 		return no()
 	}
 	if !pure {

@@ -71,8 +71,8 @@ func TestDbg_ThreeShapes(t *testing.T) {
 			// A blank source line, such as the one between two case arms, is
 			// printed empty rather than as the indent alone.
 			name: "multi-line operand with a blank line",
-			expr: "case n {\n    1 -> 42\n\n    _ -> 0\n}",
-			want: "dbg line 7:\n  case n {\n      1 -> 42\n\n      _ -> 0\n  }\n  = 42\n",
+			expr: "case n\n    1 -> 42\n\n    _ -> 0\nend",
+			want: "dbg line 7:\n  case n\n      1 -> 42\n\n      _ -> 0\n  end\n  = 42\n",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -1,13 +1,13 @@
-pub struct User {
+pub struct User
     name: String
     age: Int
-}
+end
 
-pub struct Point {
+pub struct Point
     x: Int
     y: Int
-}
+end
 
-pub interface Greeting {
+pub interface Greeting
     fn greet(value: self) -> String
-}
+end

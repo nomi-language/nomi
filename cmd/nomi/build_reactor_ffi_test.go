@@ -15,29 +15,29 @@ import (
 
 // reactorFFIMain binds a function of the project's own Go package (hash.go)
 // and one of Go's standard library, and exports functions that call them.
-const reactorFFIMain = `import {
+const reactorFFIMain = `import
     std::io
     hash
-}
+end
 
 gopkg "strings"
 
 fn upper(s: String) -> String go strings.ToUpper
 
-fn main() {
+fn main()
     io.print(upper("main ran"))
-}
+end
 
-export fn shout(text: String) -> String {
+export fn shout(text: String) -> String
     upper(text)
-}
+end
 
-export fn digest(text: String) -> String {
+export fn digest(text: String) -> String
     text
     |> String.to_bytes()
     |> hash.sha256()
     |> hash.to_hex()
-}
+end
 `
 
 const reactorFFIHashNomi = `gopkg "reactorgo"

@@ -48,26 +48,26 @@ func TestHostKeyword_AGoBoundStdModuleLeavesTheToolchainFreePath(t *testing.T) {
 	}{
 		{
 			name:         "rt-backed primitive declared with host fn",
-			source:       "fn size(s: String) -> Int {\n  Bytes.length(String.to_bytes(s))\n}\n",
+			source:       "fn size(s: String) -> Int\n  Bytes.length(String.to_bytes(s))\nend\n",
 			wantFastPath: true,
 			why:          "the control: std/bytes was never on the wrapper path",
 		},
 		{
 			name:         "std/calendar",
-			source:       "import std::calendar.Date\n\nfn render(d: Date) -> String {\n  Date.to_string(d)\n}\n",
+			source:       "import std::calendar.Date\n\nfn render(d: Date) -> String\n  Date.to_string(d)\nend\n",
 			wantFastPath: true,
 			why:          "calendar's Go is nomi/stdcalendar and its facade declares host fn",
 		},
 		{
 			name:         "std/regex",
-			source:       "import std::regex.Regex\n\nfn pat<C>(r: Regex<C>) -> String {\n  Regex.pattern(r)\n}\n",
+			source:       "import std::regex.Regex\n\nfn pat<C>(r: Regex<C>) -> String\n  Regex.pattern(r)\nend\n",
 			wantFastPath: true,
 			why:          "regex's Go is nomi/stdregex and its facade declares host fn",
 		},
 		{
 			name: "std/random",
 			source: "import std::random.Seed\n\n" +
-				"fn s(n: Int) -> Seed {\n  Seed.from_int(n)\n}\n",
+				"fn s(n: Int) -> Seed\n  Seed.from_int(n)\nend\n",
 			wantFastPath: true,
 			why:          "random's Go is nomi/stdrandom and its facade declares host fn",
 		},

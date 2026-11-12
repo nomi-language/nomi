@@ -14,72 +14,72 @@ func TestIRNestedFreeParam_PassedThroughParameterRuns(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"std flatten", `import std::io
 
-fn main() {
+fn main()
   io.print("${Maybe.flatten(Maybe.None)}")
   io.print("${Maybe.is_none(Maybe.flatten(Maybe.None))}")
   io.print("${Maybe.flatten(Maybe.flatten(Maybe.None))}")
   io.print("${Maybe.None |> Maybe.flatten()}")
-}
+end
 `, "None\nTrue\nNone\nNone\n"},
 		{"user enum nesting", `import std::io
 
-fn flat<T>(m: Maybe<Maybe<T>>) -> Maybe<T> {
-  case m {
+fn flat<T>(m: Maybe<Maybe<T>>) -> Maybe<T>
+  case m
     Some(inner) -> inner
     None -> Maybe.None
-  }
-}
+  end
+end
 
-fn pair<T>(m: Maybe<(T, Int)>) -> Maybe<(T, Int)> {
+fn pair<T>(m: Maybe<(T, Int)>) -> Maybe<(T, Int)>
   m
-}
+end
 
-fn main() {
+fn main()
   io.print("${flat(Maybe.None)}")
   io.print("${Maybe.is_none(pair(Maybe.None))}")
-}
+end
 `, "None\nTrue\n"},
 		{"list nesting", `import std::io
 
-fn count<T>(xs: List<List<T>>) -> Int {
+fn count<T>(xs: List<List<T>>) -> Int
   Iter.count(xs)
-}
+end
 
-fn sizes<T>(m: Maybe<List<T>>) -> Int {
-  case m {
+fn sizes<T>(m: Maybe<List<T>>) -> Int
+  case m
     Some(xs) -> Iter.count(xs)
     None -> 0
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print("${count([])}")
   io.print("${sizes(Maybe.None)}")
-}
+end
 `, "0\n0\n"},
 		{"constructor argument", `import std::io
 
-fn unwrap_outer<T, E>(r: Result<Result<T, E>, E>) -> Result<T, E> {
-  case r {
+fn unwrap_outer<T, E>(r: Result<Result<T, E>, E>) -> Result<T, E>
+  case r
     Ok(inner) -> inner
     Err(e) -> Err(e)
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print("${unwrap_outer(Err("x"))}")
-}
+end
 `, "Err(x)\n"},
 		{"generic caller", `import std::io
 
-fn outer<T>(x: T) -> Bool {
+fn outer<T>(x: T) -> Bool
   _ = x
   Maybe.is_none(Maybe.flatten(Maybe.None))
-}
+end
 
-fn main() {
+fn main()
   io.print("${outer(1)}")
-}
+end
 `, "True\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

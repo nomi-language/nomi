@@ -30,7 +30,9 @@ import (
 // # The type of the propagated value
 //
 // `?` propagates the operand's own `Err(e)` value, so the propagated value
-// must have the boundary's return type:
+// must have the boundary's return type. The one exception is a `?` the
+// checker converts through the boundary error type's `From` impl, which
+// propagates `Err(F.from(e))` (tryfrom.go). Otherwise:
 //
 //	fn a() -> Result<Int, String> { v = m()?; Ok(v) }   // m(): Maybe<Int>
 //	fn b() -> Int                 { v = r()?; v }       // r(): Result<Int, Int>

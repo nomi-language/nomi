@@ -172,7 +172,7 @@ func TestRunWatch_RunsAgainOnEveryChange(t *testing.T) {
 	dir := t.TempDir()
 	app := filepath.Join(dir, "app.nomi")
 	lib := filepath.Join(dir, "lib.nomi")
-	writeSource(t, app, "import std::io\n\nfn main() {\n  io.print(\"one\")\n}\n")
+	writeSource(t, app, "import std::io\n\nfn main()\n  io.print(\"one\")\nend\n")
 	var out watchOutput
 	stdin, typed := io.Pipe()
 	defer typed.Close()
@@ -181,36 +181,36 @@ func TestRunWatch_RunsAgainOnEveryChange(t *testing.T) {
 	})
 	at := out.await(t, ctx, 0, "one\n")
 
-	writeSource(t, app, "import std::io\n\nfn main() {\n  io.print(\"two!\")\n}\n")
+	writeSource(t, app, "import std::io\n\nfn main()\n  io.print(\"two!\")\nend\n")
 	at = out.await(t, ctx, at, "app.nomi changed; running again\ntwo!\n")
 
 	// A build error is printed as `nomi run` prints it, and the next change
 	// runs again.
-	writeSource(t, app, "import std::io\n\nfn main() {\n  io.print(\"three\"\n}\n")
+	writeSource(t, app, "import std::io\n\nfn main()\n  io.print(\"three\"\nend\n")
 	at = out.await(t, ctx, at, "app.nomi changed; running again\n")
 	at = out.await(t, ctx, at, "error")
-	writeSource(t, app, "import std::io\n\nfn main() {\n  io.print(\"three\")\n}\n")
+	writeSource(t, app, "import std::io\n\nfn main()\n  io.print(\"three\")\nend\n")
 	at = out.await(t, ctx, at, "app.nomi changed; running again\nthree\n")
 
 	// A file the program comes to import is watched from the run that
 	// imports it.
-	writeSource(t, lib, "pub fn greet() -> String {\n  \"hello\"\n}\n")
-	writeSource(t, app, "import lib\nimport std::io\n\nfn main() {\n  io.print(lib.greet())\n}\n")
+	writeSource(t, lib, "pub fn greet() -> String\n  \"hello\"\nend\n")
+	writeSource(t, app, "import lib\nimport std::io\n\nfn main()\n  io.print(lib.greet())\nend\n")
 	at = out.await(t, ctx, at, "running again\nhello\n")
-	writeSource(t, lib, "pub fn greet() -> String {\n  \"hello again\"\n}\n")
+	writeSource(t, lib, "pub fn greet() -> String\n  \"hello again\"\nend\n")
 	at = out.await(t, ctx, at, "lib.nomi changed; running again\nhello again\n")
 
 	// A run still computing is stopped.
-	writeSource(t, app, "import std::io\n\nfn spin(n: Int) -> Int {\n  spin(n + 1)\n}\n\nfn main() {\n  io.print(\"spinning\")\n  io.print(spin(0))\n}\n")
+	writeSource(t, app, "import std::io\n\nfn spin(n: Int) -> Int\n  spin(n + 1)\nend\n\nfn main()\n  io.print(\"spinning\")\n  io.print(spin(0))\nend\n")
 	at = out.await(t, ctx, at, "running again\nspinning\n")
-	writeSource(t, app, "import std::io\n\nfn main() {\n  io.print(\"stopped the spin\")\n}\n")
+	writeSource(t, app, "import std::io\n\nfn main()\n  io.print(\"stopped the spin\")\nend\n")
 	at = out.await(t, ctx, at, "app.nomi changed; running again\nstopped the spin\n")
 
 	// A run waiting for input is stopped, and the line typed next is the
 	// next run's.
-	writeSource(t, app, "import std::io\n\nfn main() {\n  io.print(\"waiting\")\n  case io.read_line() {\n    Ok(Some(line)) -> io.print(\"got ${line}\")\n    _ -> io.print(\"eof\")\n  }\n}\n")
+	writeSource(t, app, "import std::io\n\nfn main()\n  io.print(\"waiting\")\n  case io.read_line()\n    Ok(Some(line)) -> io.print(\"got ${line}\")\n    _ -> io.print(\"eof\")\n  end\nend\n")
 	at = out.await(t, ctx, at, "running again\nwaiting\n")
-	writeSource(t, app, "import std::io\n\nfn main() {\n  io.print(\"reading again\")\n  case io.read_line() {\n    Ok(Some(line)) -> io.print(\"got ${line}\")\n    _ -> io.print(\"eof\")\n  }\n}\n")
+	writeSource(t, app, "import std::io\n\nfn main()\n  io.print(\"reading again\")\n  case io.read_line()\n    Ok(Some(line)) -> io.print(\"got ${line}\")\n    _ -> io.print(\"eof\")\n  end\nend\n")
 	at = out.await(t, ctx, at, "app.nomi changed; running again\nreading again\n")
 	if _, err := io.WriteString(typed, "typed\n"); err != nil {
 		t.Fatal(err)
@@ -241,19 +241,19 @@ func TestTestWatch_RunsTheTestsAgainOnEveryChange(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 	dir := t.TempDir()
 	lib := filepath.Join(dir, "lib.nomi")
-	writeSource(t, lib, "pub fn double(n: Int) -> Int {\n  n + 1\n}\n")
-	writeSource(t, filepath.Join(dir, "lib_test.nomi"), "import lib\n\ntest \"double\" {\n  assert lib.double(2) == 4\n}\n")
+	writeSource(t, lib, "pub fn double(n: Int) -> Int\n  n + 1\nend\n")
+	writeSource(t, filepath.Join(dir, "lib_test.nomi"), "import lib\n\ntest \"double\"\n  assert lib.double(2) == 4\nend\n")
 	var out watchOutput
 	ctx := startWatch(t, func(ctx context.Context) error {
 		return testWatch(ctx, testArgs{root: dir, format: vmhost.TestFormatText}, &out, &out, nil)
 	})
 	at := out.await(t, ctx, 0, "1 failed")
 	// lib.nomi has no tests; it is watched because the tests import it.
-	writeSource(t, lib, "pub fn double(n: Int) -> Int {\n  n * 2\n}\n")
+	writeSource(t, lib, "pub fn double(n: Int) -> Int\n  n * 2\nend\n")
 	at = out.await(t, ctx, at, "lib.nomi changed; running again\n")
 	at = out.await(t, ctx, at, "1 passed")
 	// A new test file under the path is watched too.
-	writeSource(t, filepath.Join(dir, "more_test.nomi"), "test \"more\" {\n  assert 1 == 2\n}\n")
+	writeSource(t, filepath.Join(dir, "more_test.nomi"), "test \"more\"\n  assert 1 == 2\nend\n")
 	at = out.await(t, ctx, at, "more_test.nomi changed; running again\n")
 	out.await(t, ctx, at, "1 failed")
 }
@@ -264,7 +264,7 @@ func TestRunWatch_CtrlCExitsWithTheSignalsStatus(t *testing.T) {
 	}
 	dir := t.TempDir()
 	app := filepath.Join(dir, "app.nomi")
-	writeSource(t, app, "import std::io\n\nfn spin(n: Int) -> Int {\n  spin(n + 1)\n}\n\nfn main() {\n  io.print(\"spinning\")\n  io.print(spin(0))\n}\n")
+	writeSource(t, app, "import std::io\n\nfn spin(n: Int) -> Int\n  spin(n + 1)\nend\n\nfn main()\n  io.print(\"spinning\")\n  io.print(spin(0))\nend\n")
 	cmd := exec.Command(nomiBin, "run", "--watch", app)
 	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir())
 	var out watchOutput

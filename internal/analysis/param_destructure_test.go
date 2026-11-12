@@ -6,48 +6,70 @@ import "testing"
 
 func TestParamDestructure_Distinct_SelfTyped(t *testing.T) {
 	src := `type Dur Int
-fn unwrap(Dur(x)) -> Int { x }`
+fn unwrap(Dur(x)) -> Int
+    x
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestParamDestructure_Distinct_RedundantAnnotation(t *testing.T) {
 	src := `type Dur Int
-fn unwrap(Dur(x): Dur) -> Int { x }`
+fn unwrap(Dur(x): Dur) -> Int
+    x
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestParamDestructure_Tuple_Annotated(t *testing.T) {
-	src := `fn add((a, b): (Int, Int)) -> Int { a + b }`
+	src := `fn add((a, b): (Int, Int)) -> Int
+    a + b
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestParamDestructure_TypedStruct_SelfTyped(t *testing.T) {
-	src := `struct Point { x: Int; y: Int }
-fn sum(Point{x, y}) -> Int { x + y }`
+	src := `struct Point
+    x: Int
+    y: Int
+end
+fn sum(Point{x:, y:}) -> Int
+    x + y
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestParamDestructure_AnonStruct_Annotated(t *testing.T) {
-	src := `struct Point { x: Int; y: Int }
-fn sum(.{x, y}: Point) -> Int { x + y }`
+	src := `struct Point
+    x: Int
+    y: Int
+end
+fn sum({x:, y:}: Point) -> Int
+    x + y
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestParamDestructure_SingleVariantEnum_Qualified(t *testing.T) {
-	src := `enum Wrapper { Only(Int) }
-fn open(Wrapper.Only(n)) -> Int { n }`
+	src := `enum Wrapper
+    Only(Int)
+end
+fn open(Wrapper.Only(n)) -> Int
+    n
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestParamDestructure_NestedTupleOfDistinct(t *testing.T) {
 	src := `type Dur Int
-fn pair((Dur(a), n): (Dur, Int)) -> Int { a + n }`
+fn pair((Dur(a), n): (Dur, Int)) -> Int
+    a + n
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -56,7 +78,9 @@ func TestParamDestructure_SelfTyped_BindsInnerType(t *testing.T) {
 	// The inner binding x has the distinct's Inner type (Int); using it as an
 	// Int must type-check.
 	src := `type Dur Int
-fn dbl(Dur(x)) -> Int { x + 1 }`
+fn dbl(Dur(x)) -> Int
+    x + 1
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -65,16 +89,24 @@ fn dbl(Dur(x)) -> Int { x + 1 }`
 // types are checked against the derived type, not skipped.
 func TestParamDestructure_SelfTyped_CallSiteTyped(t *testing.T) {
 	src := `type Dur Int
-fn unwrap(Dur(x)) -> Int { x }
-fn caller() -> Int { unwrap("oops") }`
+fn unwrap(Dur(x)) -> Int
+    x
+end
+fn caller() -> Int
+    unwrap("oops")
+end`
 	_, errs := checkSource(src)
 	expectError(t, errs, "expected Dur")
 }
 
 func TestParamDestructure_SelfTyped_CallSiteAccepts(t *testing.T) {
 	src := `type Dur Int
-fn unwrap(Dur(x)) -> Int { x }
-fn caller() -> Int { unwrap(Dur(5)) }`
+fn unwrap(Dur(x)) -> Int
+    x
+end
+fn caller() -> Int
+    unwrap(Dur(5))
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -83,29 +115,43 @@ fn caller() -> Int { unwrap(Dur(5)) }`
 
 func TestParamDestructure_Reject_MultiVariantEnum(t *testing.T) {
 	// .Some on a multi-variant enum is refutable.
-	src := `enum Opt { Some(Int); Nothing }
-fn f(.Some(x): Opt) -> Int { x }`
+	src := `enum Opt
+    Some(Int)
+    Nothing
+end
+fn f(.Some(x): Opt) -> Int
+    x
+end`
 	_, errs := checkSource(src)
 	expectError(t, errs, "refutable pattern in parameter")
 }
 
 func TestParamDestructure_Reject_MapPattern(t *testing.T) {
 	src := `type Kvs Map<String, Int>
-fn f(%{"k" => v}: Kvs) -> Int { v }`
+fn f({"k" => v}: Kvs) -> Int
+    v
+end`
 	_, errs := checkSource(src)
 	expectError(t, errs, "refutable pattern in parameter")
 }
 
 func TestParamDestructure_Reject_ListPattern(t *testing.T) {
-	src := `fn f([a, b]: List<Int>) -> Int { a + b }`
+	src := `fn f([a, b]: List<Int>) -> Int
+    a + b
+end`
 	_, errs := checkSource(src)
 	expectError(t, errs, "refutable pattern in parameter")
 }
 
 func TestParamDestructure_Reject_NestedRefutable(t *testing.T) {
 	// A tuple whose element is a refutable multi-variant enum variant.
-	src := `enum Opt { Some(Int); Nothing }
-fn f((.Some(x), n): (Opt, Int)) -> Int { x + n }`
+	src := `enum Opt
+    Some(Int)
+    Nothing
+end
+fn f((.Some(x), n): (Opt, Int)) -> Int
+    x + n
+end`
 	_, errs := checkSource(src)
 	expectError(t, errs, "refutable pattern in parameter")
 }
@@ -118,20 +164,29 @@ fn f((.Some(x), n): (Opt, Int)) -> Int { x + n }`
 // so that regression can't slip back in.
 
 func TestParamDestructure_Reject_TupleNoAnnotation(t *testing.T) {
-	src := `fn f((a, b)) -> Int { a + b }`
+	src := `fn f((a, b)) -> Int
+    a + b
+end`
 	_, errs := checkSource(src)
 	expectErrorCount(t, errs, "needs a type annotation", 1)
 }
 
 func TestParamDestructure_Reject_AnonStructNoAnnotation(t *testing.T) {
-	src := `fn f(.{x, y}) -> Int { x + y }`
+	src := `fn f({x:, y:}) -> Int
+    x + y
+end`
 	_, errs := checkSource(src)
 	expectErrorCount(t, errs, "needs a type annotation", 1)
 }
 
 func TestParamDestructure_Reject_DotEnumNoAnnotation(t *testing.T) {
-	src := `enum Opt { Some(Int); Nothing }
-fn f(.Some(x)) -> Int { x }`
+	src := `enum Opt
+    Some(Int)
+    Nothing
+end
+fn f(.Some(x)) -> Int
+    x
+end`
 	_, errs := checkSource(src)
 	expectErrorCount(t, errs, "needs a type annotation", 1)
 }
@@ -150,8 +205,12 @@ fn f(.Some(x)) -> Int { x }`
 // the divergence it feared lives only in matchPattern's case path, not params.)
 func TestParamDestructure_EmbeddedDistinctVariant_Accepted(t *testing.T) {
 	src := `type UserId Int
-enum Identifier { embeds UserId }
-fn open(Identifier.UserId(n)) -> Int { n }`
+enum Identifier
+    embeds UserId
+end
+fn open(Identifier.UserId(n)) -> Int
+    n
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -160,9 +219,15 @@ fn open(Identifier.UserId(n)) -> Int { n }`
 // `fn area(S.Circle{r})`. Exercises the QualifiedType struct-pattern head
 // derivation (resolve the qualifier S, not the unknown type `S.Circle`).
 func TestParamDestructure_EmbeddedStructVariant_Accepted(t *testing.T) {
-	src := `struct Circle { r: Int }
-enum S { embeds Circle }
-fn area(S.Circle{r}) -> Int { r * 2 }`
+	src := `struct Circle
+    r: Int
+end
+enum S
+    embeds Circle
+end
+fn area(S.Circle{r:}) -> Int
+    r * 2
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -171,10 +236,10 @@ fn area(S.Circle{r}) -> Int { r * 2 }`
 
 func TestParamDestructure_Lambda_Distinct_SelfTyped(t *testing.T) {
 	src := `type Dur Int
-fn run() -> Int {
+fn run() -> Int
   f = fn Dur(x) -> x + 1
   f(Dur(5))
-}`
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -183,11 +248,13 @@ func TestParamDestructure_Lambda_Reject_MapPattern(t *testing.T) {
 	// The intended map-pattern break: a map pattern in a lambda param is now
 	// refutable and rejected.
 	src := `type Kvs Map<String, Int>
-fn run() -> Int {
-  f = fn %{"k" => v}: Kvs -> v
+fn run() -> Int
+  f = fn {"k" => v}: Kvs -> v
   f(g())
-}
-fn g() -> Kvs { g() }`
+end
+fn g() -> Kvs
+    g()
+end`
 	_, errs := checkSource(src)
 	expectError(t, errs, "refutable pattern in parameter")
 }

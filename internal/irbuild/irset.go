@@ -44,14 +44,14 @@ func irSetElemKind(k kind) bool {
 	return false
 }
 
-func (bl *irScalarBuilder) setMake(t *ast.SetLit) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) setMake(t *ast.ListLit) (ir.Temp, kind, bool, bool) {
 	// kindInvalid: sentinel — no expected element kind.
 	return bl.setMakeOf(t, kindInvalid)
 }
 
 // setMakeOf builds a set literal; elem, when not kindInvalid, is the
 // expected element kind each item is lowered against.
-func (bl *irScalarBuilder) setMakeOf(t *ast.SetLit, elem kind) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) setMakeOf(t *ast.ListLit, elem kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(t.Spreads) == 1 && t.Spreads[0].At == 0 {
 		return bl.setUpdate(t)

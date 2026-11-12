@@ -1,4 +1,4 @@
-import {
+import
     std::duration.Duration
     std::fs
     std::fs_testing.{self, Sandbox}
@@ -9,112 +9,112 @@ import {
     std::storage_testing.{self, Memory}
     std::url.Url
     std::uuid.Uuid
-}
+end
 
 // A store under a directory of its own, so each conformance rule starts
 // empty.
-fn fresh_local(root: String) -> Result<Store, storage.Error> {
+fn fresh_local(root: String) -> Result<Store, storage.Error>
     id =
         Uuid.v4() |> Result.map_err(fn e -> storage.Error.Backend{code: "Random", message: "${e}"})?
 
     Ok(storage.local("${root}/${id}", public_base: Some(Url`/files/`)))
-}
+end
 
-test "Memory passes the conformance suite" {
+test "Memory passes the conformance suite"
     assert storage_testing.conformance(fn -> Ok(Memory.new())) == []
-}
+end
 
-test "the local store passes the conformance suite in a sandbox" {
+test "the local store passes the conformance suite in a sandbox"
     ran = fs_testing.run(Sandbox{}, fn -> storage_testing.conformance(fn -> fresh_local("store")))
     assert ran.value == []
-}
+end
 
-test "the local store passes the conformance suite on disk" {
+test "the local store passes the conformance suite on disk"
     dir = fs.make_temp_dir()?
     defer fs.remove_all_quietly(dir)
 
     assert storage_testing.conformance(fn -> fresh_local(dir)) == []
-}
+end
 
-test "the local store keeps a content type beside each object" {
-    ran = fs_testing.run(Sandbox{}, fn -> {
+test "the local store keeps a content type beside each object"
+    ran = fs_testing.run(Sandbox{}, fn ->
         store = storage.local("files")
         Store.put(store, "posts/a.jpg", String.to_bytes("jpeg"), "image/jpeg")?
         Store.info(store, "posts/a.jpg")
-    })
+    end)
 
     assert Ok(Some(info)) = ran.value
     assert info.content_type == "image/jpeg" and info.size == 4
     assert fs_testing.text(ran, "/work/files/posts/a.jpg") == Some("jpeg")
     assert fs_testing.text(ran, "/work/files/.nomi-storage/types/posts/a.jpg") == Some("image/jpeg")
-}
+end
 
-test "a file copied in by hand is typed from its bytes" {
-    ran = fs_testing.run(Sandbox{files: %{"files/page.html" => "<!DOCTYPE html><p>hi"}}, fn -> {
+test "a file copied in by hand is typed from its bytes"
+    ran = fs_testing.run(Sandbox{files: {"files/page.html" => "<!DOCTYPE html><p>hi"}}, fn ->
         Store.get(storage.local("files"), "page.html")
-    })
+    end)
 
     assert Ok(object) = ran.value
     assert object.info.content_type == "text/html; charset=utf-8"
-}
+end
 
-test "a delete removes the object and its type, and leaves directories" {
-    ran = fs_testing.run(Sandbox{}, fn -> {
+test "a delete removes the object and its type, and leaves directories"
+    ran = fs_testing.run(Sandbox{}, fn ->
         store = storage.local("files")
         Store.put(store, "a/b.txt", String.to_bytes("x"), "text/plain")?
         Store.delete(store, "a/b.txt")?
         Store.delete(store, "a/b.txt")?
         Store.delete(store, "a")
-    })
+    end)
 
     assert ran.value == Ok(Unit)
-    assert ran.files == %{}
-}
+    assert ran.files == {}
+end
 
-test "keys a and a/b cannot both exist on the local store" {
-    ran = fs_testing.run(Sandbox{}, fn -> {
+test "keys a and a/b cannot both exist on the local store"
+    ran = fs_testing.run(Sandbox{}, fn ->
         store = storage.local("files")
         _ = Store.put(store, "a", String.to_bytes("x"), "text/plain")
         (Store.put(store, "a/b", String.to_bytes("y"), "text/plain"), Store.get(store, "a/b"))
-    })
+    end)
 
     assert (Err(.Backend{}), Err(.NotFound{key: "a/b"})) = ran.value
-}
+end
 
-test "a key cannot climb out of the root" {
-    ran = fs_testing.run(Sandbox{}, fn -> {
+test "a key cannot climb out of the root"
+    ran = fs_testing.run(Sandbox{}, fn ->
         Store.put(storage.local("files"), "../outside.txt", String.to_bytes("x"), "text/plain")
-    })
+    end)
 
     assert ran.value == Err(storage.Error.InvalidKey{
             key: "../outside.txt",
             reason: "segment .. starts with a dot",
         })
 
-    assert ran.files == %{}
-}
+    assert ran.files == {}
+end
 
-test "a store with no public base has no URLs" {
+test "a store with no public base has no URLs"
     assert Store.url(storage.local("files"), "a.txt") == Err(storage.Error.NoPublicUrl)
-}
+end
 
 fn serve(
     store: Store,
     method: Method,
     key: String,
     headers: List<(String, String)> = [],
-) -> Response {
+) -> Response
     request = http_testing.request(method, "/files/${key}")
 
-    request = .{
+    request = {
         ..Request.with_path_value(request, "key", key),
         headers: Headers(headers),
     }
 
     storage.handler(store)(request)
-}
+end
 
-test "the handler serves an object with its stored type" {
+test "the handler serves an object with its stored type"
     store = Memory.new()
     _ = Store.put(store, "img/a.webp", String.to_bytes("RIFF....WEBP"), "image/webp")
     response = serve(store, Method.Get, "img/a.webp")
@@ -122,9 +122,9 @@ test "the handler serves an object with its stored type" {
     assert Headers.get(response.headers, "Content-Type") == Some("image/webp")
     assert Headers.get(response.headers, "Cache-Control") == None
     assert Response.text(response) == Ok("RIFF....WEBP")
-}
+end
 
-test "the handler answers a range, a HEAD and a conditional request" {
+test "the handler answers a range, a HEAD and a conditional request"
     store = Memory.new()
     _ = Store.put(store, "a.txt", String.to_bytes("hello"), "text/plain")
     ranged = serve(store, Method.Get, "a.txt", headers: [("Range", "bytes=1-3")])
@@ -139,9 +139,9 @@ test "the handler answers a range, a HEAD and a conditional request" {
     later = http.format_time(Instant.now() + Duration.hours(1))
     unchanged = serve(store, Method.Get, "a.txt", headers: [("If-Modified-Since", later)])
     assert unchanged.status == Status.not_modified
-}
+end
 
-test "the handler maps store errors to statuses" {
+test "the handler maps store errors to statuses"
     assert serve(Memory.new(), Method.Get, "missing.txt").status == Status.not_found
     assert serve(Memory.new(), Method.Get, "../x").status == Status.not_found
 
@@ -151,14 +151,14 @@ test "the handler maps store errors to statuses" {
             storage.Error.Unavailable{message: "down"},
             storage.Error.Backend{code: "X", message: "x"},
         ]
-        |> Iter.map(fn error -> serve(storage_testing.Failing{error}, Method.Get, "a.txt").status)
+        |> Iter.map(fn error -> serve(storage_testing.Failing{error:}, Method.Get, "a.txt").status)
         |> Iter.to_list()
 
     assert statuses == [Status.forbidden, Status.service_unavailable, Status.internal_server_error]
-}
+end
 
-test "the local store writes the characters a file name cannot hold as escapes" {
-    ran = fs_testing.run(Sandbox{}, fn -> {
+test "the local store writes the characters a file name cannot hold as escapes"
+    ran = fs_testing.run(Sandbox{}, fn ->
         store = storage.local("files")
 
         _ =
@@ -167,7 +167,7 @@ test "the local store writes the characters a file name cannot hold as escapes" 
             |> Result.collect()?
 
         Store.get(store, "a:b*?.txt") |> Result.map(fn object -> object.data)
-    })
+    end)
 
     assert ran.value == Ok(String.to_bytes("a:b*?.txt"))
     assert fs_testing.text(ran, "/work/files/a%3Ab%2A%3F.txt") == Some("a:b*?.txt")
@@ -178,9 +178,9 @@ test "the local store writes the characters a file name cannot hold as escapes" 
 
     assert fs_testing.text(ran, "/work/files/.nomi-storage/types/a%3Ab%2A%3F.txt")
         == Some("text/plain")
-}
+end
 
-test "a key's URL routes back to its object" {
+test "a key's URL routes back to its object"
     store = Memory.new(public_base: Url`http://app.test/files/`)
     files = storage.handler(store)
     router = Router.new([Route.to_with("GET /files/{key...}", fn r, _ -> files(r))])!
@@ -188,21 +188,21 @@ test "a key's URL routes back to its object" {
 
     served =
         keys
-        |> Iter.map(fn key -> {
+        |> Iter.map(fn key ->
             _ = Store.put(store, key, String.to_bytes(key), "text/plain")
             u = Store.url(store, key)!
             response = Router.serve(router, Request{method: Method.Get, url: u})
             (u.path, Response.text(response))
-        })
+        end)
         |> Iter.to_list()
 
     assert served == keys |> Iter.map(fn key -> ("/files/${key}", Ok(key))) |> Iter.to_list()
-}
+end
 
-test "the local store lists keys as written, not as their file names" {
+test "the local store lists keys as written, not as their file names"
     keys = ["a:b*?.txt", "100%/x(1) é.jpg", "con.txt", "end. ", "dir/sub/deep.txt"]
 
-    ran = fs_testing.run(Sandbox{}, fn -> {
+    ran = fs_testing.run(Sandbox{}, fn ->
         store = storage.local("files")
 
         _ =
@@ -213,7 +213,7 @@ test "the local store lists keys as written, not as their file names" {
         all = storage.list_all(store)?
         folded = Store.list(store, storage.ListOptions{delimiter: "/"})?
         Ok((all, folded))
-    })
+    end)
 
     assert Ok((all, folded)) = ran.value
     assert all.objects |> Iter.map(fn e -> e.key) |> Iter.to_list() == Iter.sort(keys)
@@ -225,9 +225,9 @@ test "the local store lists keys as written, not as their file names" {
         "con.txt",
         "end. ",
     ]
-}
+end
 
-test "a local store with no directory yet lists nothing" {
+test "a local store with no directory yet lists nothing"
     ran = fs_testing.run(Sandbox{}, fn -> Store.list(storage.local("none"), storage.ListOptions{}))
     assert ran.value == Ok(storage.Listing{})
-}
+end

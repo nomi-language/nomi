@@ -1,99 +1,99 @@
 import std::compiler
 
-test "an unwrapped Vector.get traps on an index past the end" {
+test "an unwrapped Vector.get traps on an index past the end"
     result =
         """
-        fn main() {
-          _ = Vector.get(#[1, 2, 3, 4, 5], 7)!
-        }
+        fn main()
+          _ = Vector.get(Vector[1, 2, 3, 4, 5], 7)!
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "line 2: `Vector.get(#[1, 2, 3, 4, 5], 7)` found nothing")
-}
+    assert String.contains(message, "line 2: `Vector.get(Vector[1, 2, 3, 4, 5], 7)` found nothing")
+end
 
-test "an unwrapped Vector.get traps on a negative index" {
+test "an unwrapped Vector.get traps on a negative index"
     result =
         """
-        fn main() {
-          _ = Vector.get(#[1, 2], -1)!
-        }
+        fn main()
+          _ = Vector.get(Vector[1, 2], -1)!
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "line 2: `Vector.get(#[1, 2], -1)` found nothing")
-}
+    assert String.contains(message, "line 2: `Vector.get(Vector[1, 2], -1)` found nothing")
+end
 
-test "vector set traps on an index outside the vector" {
+test "vector set traps on an index outside the vector"
     result =
         """
-        fn main() {
-          _ = Vector.set(#["a"], 1, "b")
-        }
+        fn main()
+          _ = Vector.set(Vector["a"], 1, "b")
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert String.contains(message, "line 2: index 1 is out of range for a Vector of length 1")
-}
+end
 
-test "an unwrapped Bytes.get traps on an index outside the buffer" {
+test "an unwrapped Bytes.get traps on an index outside the buffer"
     result =
         """
-        fn main() {
+        fn main()
           _ = Bytes.get(String.to_bytes("hi"), 2)!
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
 
     assert String.contains(message, "line 2: `Bytes.get(String.to_bytes(\"hi\"), 2)` found nothing")
-}
+end
 
-test "an index trap inside a std call is reported at the program's call" {
+test "an index trap inside a std call is reported at the program's call"
     result =
         """
-        fn main() {
-          rows = [#[1, 2], #[3]]
+        fn main()
+          rows = [Vector[1, 2], Vector[3]]
           _ = rows |> Iter.map(&Vector.set(&1, 1, 0)) |> Iter.to_list()
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert String.contains(message, "line 3: index 1 is out of range for a Vector of length 1")
-}
+end
 
-test "get answers None where its unwrapping traps" {
-    assert Vector.get(#[1, 2, 3, 4, 5], 7) == None
+test "get answers None where its unwrapping traps"
+    assert Vector.get([1, 2, 3, 4, 5], 7) == None
     assert Bytes.get(String.to_bytes("hi"), 2) == None
-}
+end
 
-test "list remove_at traps on an index outside the list" {
+test "list remove_at traps on an index outside the list"
     result =
         """
-        fn main() {
+        fn main()
           _ = List.remove_at([1, 2, 3], 3)
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert String.contains(message, "line 2: index 3 is out of range for a List of length 3")
-}
+end
 
-test "an unwrapped Map.get traps on a missing key and names the call" {
+test "an unwrapped Map.get traps on a missing key and names the call"
     result =
         """
-        fn main() {
-          _ = Map.get(%{"a" => 1}, "z")!
-        }
+        fn main()
+          _ = Map.get({"a" => 1}, "z")!
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "line 2: `Map.get(%{\"a\" => 1}, \"z\")` found nothing")
-}
+    assert String.contains(message, "line 2: `Map.get({\"a\" => 1}, \"z\")` found nothing")
+end

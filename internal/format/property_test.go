@@ -108,35 +108,35 @@ func TestProperty_SemanticallyEquivalent(t *testing.T) {
 // It exists because the corpus cannot reach these. The corpus is already
 // formatted, so a shape the formatter mangles is committed in its mangled form
 // and then round-trips perfectly: the input that triggers the bug is exactly the
-// input no formatted file contains. `nomi fmt` writes `.{n: n}` as the punned
-// `.{n}`, which must read back as the same one-field struct.
+// input no formatted file contains. `nomi fmt` writes `{n:}` as the punned
+// `{n:}`, which must read back as the same one-field struct.
 //
 // The check is the ROUND TRIP, not the emitted text, deliberately. Pinning the
 // output string would accept a future change that re-broke meaning while
 // happening to keep the same spelling; an AST comparison cannot.
 func TestProperty_SemanticallyEquivalentShapes(t *testing.T) {
-	const preamble = `struct Box {
+	const preamble = `struct Box
   n: Int
   label: String
-}
+end
 
-fn probe(box: Box, n: Int, label: String) -> Box {
+fn probe(box: Box, n: Int, label: String) -> Box
 `
 	for _, tc := range []struct {
 		name string
 		body string
 	}{
-		// One field, anonymous, punned: `.{n}` is a struct.
-		{"one field anonymous punned", "  Struct.update(box, .{n: n})\n"},
-		{"two fields anonymous punned", "  Struct.update(box, .{n: n, label: label})\n"},
+		// One field, anonymous, punned: `{n:}` is a struct.
+		{"one field anonymous punned", "  Struct.update(box, {n:})\n"},
+		{"two fields anonymous punned", "  Struct.update(box, {n:, label:})\n"},
 		// A type name disambiguates at any arity, including one.
-		{"one field nominal punned", "  Box{n: n, label: label}\n"},
+		{"one field nominal punned", "  Box{n:, label:}\n"},
 		// Not a pun, so never at risk; present so a fix that keyed on arity
 		// alone rather than on punning would show up here.
-		{"one field anonymous not punned", "  Struct.update(box, .{n: 1})\n"},
+		{"one field anonymous not punned", "  Struct.update(box, {n: 1})\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := preamble + tc.body + "}\n"
+			src := preamble + tc.body + "end\n"
 			if _, err := parser.Parse(lexer.Lex(src)); err != nil {
 				t.Fatalf("source did not parse (fix the fixture, not the formatter): %v", err)
 			}

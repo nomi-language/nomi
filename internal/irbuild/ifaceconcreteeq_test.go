@@ -18,37 +18,37 @@ func TestInterfaceValueEqualsConcrete_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	src := `interface Shape {
+	src := `interface Shape
     fn area(s: self) -> Int
-}
+end
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
 derive Equatable for Point
 derive Hashable for Point
 
-impl Shape for Point {
-    fn area(p: Point) -> Int {
+impl Shape for Point
+    fn area(p: Point) -> Int
         p.x * p.y
-    }
-}
+    end
+end
 
-fn two() -> Int {
+fn two() -> Int
     2
-}
+end
 
-fn main() {
+fn main()
     t: Equatable = (1, "a")
     dbg t == (1, "a")
     dbg (1, "a") == t
     dbg t != (1, "b")
     dbg t == (1, "b")
-    a: Equatable = .{name: "n", n: 2}
-    dbg a == .{name: "n", n: 2}
-    dbg .{name: "n", n: 3} != a
+    a: Equatable = {name: "n", n: 2}
+    dbg a == {name: "n", n: 2}
+    dbg {name: "n", n: 3} != a
     p: Equatable = Point{x: 1, y: 2}
     dbg p == Point{x: 1, y: two()}
     dbg Point{x: 2, y: 2} == p
@@ -73,7 +73,7 @@ fn main() {
     dbg sh == Point{x: two(), y: 2}
     d: Display = 4
     dbg d == 4
-}
+end
 `
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
@@ -86,8 +86,8 @@ fn main() {
 dbg line 26: (1, "a") == t = True
 dbg line 27: t != (1, "b") = True
 dbg line 28: t == (1, "b") = False
-dbg line 30: a == .{name: "n", n: 2} = True
-dbg line 31: .{name: "n", n: 3} != a = True
+dbg line 30: a == {name: "n", n: 2} = True
+dbg line 31: {name: "n", n: 3} != a = True
 dbg line 33: p == Point{x: 1, y: two()} = True
 dbg line 34: Point{x: 2, y: 2} == p = False
 dbg line 36: i == 3 = True

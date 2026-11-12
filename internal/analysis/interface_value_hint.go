@@ -631,7 +631,8 @@ func (c ivCandidate) whereEdit(toks []token.Token) (parser.Edit, bool) {
 				commas = append(commas, i)
 			}
 		}
-		if depth == 0 && toks[i].Type == token.LBRACE {
+		// The clause ends with its header line; the body starts below.
+		if depth == 0 && (toks[i].Type == token.NEWLINE || toks[i].Type == token.COMMENT || toks[i].Type == token.SEMICOLON || toks[i].Type == token.EOF) {
 			end = i
 		}
 	}
@@ -646,7 +647,11 @@ func (c ivCandidate) whereEdit(toks []token.Token) (parser.Edit, bool) {
 		if before < 0 {
 			return parser.Edit{}, false
 		}
-		return parser.Edit{Start: tokEnd(toks[before]), End: tokStart(toks[end]), Text: " "}, true
+		text := ""
+		if toks[end].Type == token.COMMENT {
+			text = " "
+		}
+		return parser.Edit{Start: tokEnd(toks[before]), End: tokStart(toks[end]), Text: text}, true
 	}
 	return listEntryEdit(toks, at, commas, end), true
 }

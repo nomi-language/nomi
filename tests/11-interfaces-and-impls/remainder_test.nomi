@@ -1,94 +1,94 @@
-import {
+import
     std::compiler
     std::duration.Duration
-}
+end
 
 type Minutes Int
 
-impl Remainder<Minutes, Minutes> for Minutes {
-    fn remainder(Minutes(a), Minutes(b)) -> Minutes {
+impl Remainder<Minutes, Minutes> for Minutes
+    fn remainder(Minutes(a), Minutes(b)) -> Minutes
         Minutes(a % b)
-    }
-}
+    end
+end
 
-fn rem<T>(a: T, b: T) -> T where T: Remainder<T, T> {
+fn rem<T>(a: T, b: T) -> T where T: Remainder<T, T>
     a % b
-}
+end
 
-test "Int remainder takes the sign of the left operand" {
+test "Int remainder takes the sign of the left operand"
     assert 7 % 3 == 1
     assert -7 % 3 == -1
     assert 7 % -3 == 1
     assert -7 % -3 == -1
     assert Int.remainder(-7, 3) == Remainder.remainder(-7, 3)
-}
+end
 
-test "Int remainder by a NonZeroInt cannot trap" {
+test "Int remainder by a NonZeroInt cannot trap"
     nz = Int.to_non_zero(4)!
     assert 10 % nz == 2
     assert Int.remainder(-10, nz) == -2
-}
+end
 
-test "Float remainder is IEEE fmod" {
+test "Float remainder is IEEE fmod"
     assert 7.5 % 2.0 == 1.5
     assert -7.5 % 2.0 == -1.5
     assert 7.5 % -2.0 == 1.5
     assert Float.is_nan(1.0 % 0.0)
     assert Float.is_nan(Float.positive_infinity() % 3.0)
     assert 3.0 % Float.negative_infinity() == 3.0
-}
+end
 
-test "Decimal remainder is exact at the larger scale" {
+test "Decimal remainder is exact at the larger scale"
     assert 10.5d % 3d == 1.5d
     assert Decimal.to_string(7.25d % 0.5d) == "0.25"
     assert -7.5d % 2d == -1.5d
     assert 7.5d % -2d == 1.5d
     assert Decimal.to_string(10d % 2.50d) == "0.00"
-}
+end
 
-test "Duration remainder is how far into the interval" {
+test "Duration remainder is how far into the interval"
     assert Duration.minutes(40) % Duration.minutes(15) == Duration.minutes(10)
     assert Duration.seconds(-7) % Duration.seconds(3) == Duration.seconds(-1)
-}
+end
 
-test "a type of its own implements Remainder" {
+test "a type of its own implements Remainder"
     assert Minutes(130) % Minutes(60) == Minutes(10)
     assert rem(Minutes(5), Minutes(3)) == Minutes(2)
     assert rem(10, 4) == 2
     assert rem(10.5d, 4d) == 2.5d
-}
+end
 
-fn trap_text(source: String) -> String {
-    case compiler.run(source) {
+fn trap_text(source: String) -> String
+    case compiler.run(source)
         Err(message) -> message
         Ok(_) -> "ran to the end"
-    }
-}
+    end
+end
 
-test "a remainder by zero traps" {
-    assert "line 3: division by zero" in trap_text("fn main() {\n  zero = 0\n  _ = 7 % zero\n}\n")
+test "a remainder by zero traps"
+    assert "line 3: division by zero" in trap_text("fn main()\n  zero = 0\n  _ = 7 % zero\nend\n")
 
     assert "line 3: division by zero" in trap_text(
-        "fn main() {\n  zero = 0.0d\n  _ = 7d % zero\n}\n"
+        "fn main()\n  zero = 0.0d\n  _ = 7d % zero\nend\n"
     )
 
     assert "division by zero" in trap_text(
-        "import std::duration.Duration\nfn main() {\n  _ = Duration.seconds(7) % Duration.seconds(0)\n}\n"
+        "import std::duration.Duration\nfn main()\n  _ = Duration.seconds(7) % Duration.seconds(0)\nend\n"
     )
-}
+end
 
-test "a type without a Remainder impl is refused at the operator" {
+test "a type without a Remainder impl is refused at the operator"
     diagnostics =
         """
         type Score Int
 
-        fn main() {
+        fn main()
           dbg Score(5) % Score(2)
-        }
+        end
         """
         |> compiler.check()
 
     assert [d] = diagnostics
     assert "no impl of `Remainder` for `Score` (required via remainder operator `%`)" in d.message
     assert (d.line, d.col) == (4, 16)
-}
+end

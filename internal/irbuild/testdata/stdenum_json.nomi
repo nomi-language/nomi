@@ -19,7 +19,7 @@
 //     two variants at one field. Here every field is a different type, so a
 //     collapsed pair does not lower -- and the read-back below is what proves
 //     each `case` arm names the field its own variant stores into.
-//   - The NESTED MAP PATTERN. `Obj(%{"name" => String(n)})` is the whole point of
+//   - The NESTED MAP PATTERN. `Obj({"name" => String(n)})` is the whole point of
 //     std/json being a typed tagged enum rather than `Dynamic`: it descends a
 //     Map payload, matches a String key, and matches the VARIANT of the value
 //     found there. Three mechanisms in one arm.
@@ -49,30 +49,30 @@
 // Deliberately absent: `Json.to_dynamic`. `Dynamic` is a `pub host type` with no
 // rt representation, so it refuses by name, and a fixture that reached for it
 // would fail for a reason it is not about.
-import {
+import
     std::io
     std::json.Json
-}
+end
 
 // A user enum with a container payload, so the local route is exercised beside
 // the shared-def one.
-enum Local {
+enum Local
     Items List<Int>
     Named Map<String, Int>
     Empty
-}
+end
 
-fn describe_local(l: Local) -> String {
-    case l {
+fn describe_local(l: Local) -> String
+    case l
         .Items(xs) -> "items:${Iter.count(xs)}"
         .Named(m) -> "named:${Map.size(m)}"
         .Empty -> "empty"
-    }
-}
+    end
+end
 
 // Every variant, so all six payload fields plus the bare one are read back.
-fn describe(jv: Json) -> String {
-    case jv {
+fn describe(jv: Json) -> String
+    case jv
         Json.String(s) -> "string:" + s
         Json.Int(n) -> "int:${n}"
         Json.Float(f) -> "float:${f}"
@@ -80,64 +80,64 @@ fn describe(jv: Json) -> String {
         Json.Arr(items) -> "arr:${Iter.count(items)}"
         Json.Obj(fields) -> "obj:${Map.size(fields)}"
         Json.Null -> "null"
-    }
-}
+    end
+end
 
 // The nested map pattern: descend an Obj, match a String key, match the
 // VARIANT of the value bound there.
-fn name_of(jv: Json) -> String {
-    case jv {
-        Json.Obj(%{"name" => Json.String(n)}) -> "named " + n
+fn name_of(jv: Json) -> String
+    case jv
+        Json.Obj({"name" => Json.String(n)}) -> "named " + n
         Json.Obj(_) -> "object without a String name"
         _ -> "not an object"
-    }
-}
+    end
+end
 
-fn decode_error(src: String) -> String {
-    case Json.decode(src) {
+fn decode_error(src: String) -> String
+    case Json.decode(src)
         Ok(_) -> "unexpectedly parsed"
         Err(e) -> Json.DecodeError.to_string(e)
-    }
-}
+    end
+end
 
-fn decode_kind(src: String) -> String {
-    case Json.decode(src) {
+fn decode_kind(src: String) -> String
+    case Json.decode(src)
         Ok(jv) -> Json.kind(jv)
         Err(_) -> "error"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     // --- every payload position, read back out of its own rt field ----------
     io.print(describe(Json.String("hi")))
     io.print(describe(Json.Int(7)))
     io.print(describe(Json.Float(2.5)))
     io.print(describe(Json.Bool(True)))
     io.print(describe(Json.Arr[Json.Int(1), Json.Int(2), Json.Int(3)]))
-    io.print(describe(%Json.Obj{"a" => Json.Int(1), "b" => Json.Null}))
+    io.print(describe(Json.Obj{"a" => Json.Int(1), "b" => Json.Null}))
     io.print(describe(Json.Null))
 
     // --- the empty container shapes: a nil List and a zero Map --------------
     //
     // The empty Obj is reached through `decode` rather than through a literal.
-    // `%Json.Obj{}` has no key or value type to solve from, since an empty
+    // `Json.Obj{}` has no key or value type to solve from, since an empty
     // brace literal in variant position carries none, so the fixture does not
     // spell it. Decoding `{}` produces the same zero Map.
     io.print(describe(Json.Arr[]))
 
-    case Json.decode("{}") {
+    case Json.decode("{}")
         Ok(jv) -> io.print(describe(jv))
         Err(_) -> io.print("decode failed")
-    }
+    end
 
     // --- the nested map pattern ---------------------------------------------
-    io.print(name_of(%Json.Obj{"name" => Json.String("Ada"), "age" => Json.Int(36)}))
-    io.print(name_of(%Json.Obj{"age" => Json.Int(36)}))
+    io.print(name_of(Json.Obj{"name" => Json.String("Ada"), "age" => Json.Int(36)}))
+    io.print(name_of(Json.Obj{"age" => Json.Int(36)}))
     io.print(name_of(Json.Int(1)))
 
     // --- encode: a hand-built object keeps its INSERTION order --------------
     io.print(
-        Json.encode(%Json.Obj{"x" => Json.Int(1), "y" => Json.Float(2.5), "ok" => Json.Bool(True)})
+        Json.encode(Json.Obj{"x" => Json.Int(1), "y" => Json.Float(2.5), "ok" => Json.Bool(True)})
     )
 
     // The documented lossiness: a whole Float loses its point.
@@ -147,10 +147,10 @@ fn main() {
     // --- decode, then encode: object keys come back SORTED ------------------
     io.print(decode_kind("{\"b\": 2, \"a\": 1}"))
 
-    case Json.decode("{\"b\": 2, \"a\": 1, \"c\": [true, null]}") {
+    case Json.decode("{\"b\": 2, \"a\": 1, \"c\": [true, null]}")
         Ok(jv) -> io.print(Json.encode(jv))
         Err(_) -> io.print("decode failed")
-    }
+    end
 
     // Int and Float are split at parse time by the LEXEME, not by the value.
     io.print(decode_kind("36"))
@@ -165,10 +165,10 @@ fn main() {
 
     // --- Display and Debug both route through std's own impls --------------
     io.print("display:" + Display.to_string(Json.Int(42)))
-    io.print("display_obj:" + Display.to_string(%Json.Obj{"k" => Json.Bool(False)}))
+    io.print("display_obj:" + Display.to_string(Json.Obj{"k" => Json.Bool(False)}))
 
     // --- the negative control: a user enum with a container payload --------
     io.print(describe_local(Local.Items[1, 2]))
-    io.print(describe_local(%Local.Named{"k" => 9}))
+    io.print(describe_local(Local.Named{"k" => 9}))
     io.print(describe_local(Local.Empty))
-}
+end

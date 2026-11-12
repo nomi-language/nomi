@@ -193,8 +193,9 @@ type argPlan struct {
 //     what makes `each(items, opts: 8, handler)` route `handler` past claimed
 //     slot 1 while keeping `add(1, a: 2)` the duplicate it reads as.
 //  2. The trailing-lambda exception: when a call under-fills
-//     and its last positional is a lambda or a block — or a bare name whose own
-//     slot does not take a function while the last parameter does — that
+//     and its last positional is a lambda, a field accessor or a capture — or a
+//     bare name whose own slot does not take a function while the last
+//     parameter does — that
 //     argument MOVES to the last slot and the slot it vacates falls back to its
 //     default. SUPPRESSED when a named argument targets the last parameter
 //     (`namedTargetsLast` below), so
@@ -205,10 +206,9 @@ type argPlan struct {
 // Rule 2 has to be decided BEFORE the arguments are lowered, because it is the
 // SLOT and not the position whose declared type each argument is checked
 // against. Reading it off the position instead type-checks `fn n -> n + 1` as an Int
-// and reports a mismatch for a call the checker accepted — and in the shape
-// where the two slots agree, `fn pick(a: Int = 1, b: Int = 2)` called
-// `pick({ 5 })`, it silently fills the wrong one and answers 52 where the
-// right answer is 15.
+// and reports a mismatch for a call the checker accepted. A block is a value,
+// not a function, and stays in its slot: `fn pick(a: Int = 1, b: Int = 2)`
+// called `pick({ 5 })` fills `a` and answers 52.
 func argSlotPlan(args []ast.Node, params []kind, names []string) (argPlan, bool) {
 	plan := argPlan{
 		slots: make([]int, len(args)),
@@ -277,7 +277,7 @@ func argSlotPlan(args []ast.Node, params []kind, names []string) (argPlan, bool)
 		if lastSlot != lastParam && !filled[lastParam] {
 			routed := false
 			switch args[lastWritten].(type) {
-			case *ast.Lambda, *ast.Block, *ast.FieldAccessor, *ast.Capture:
+			case *ast.Lambda, *ast.FieldAccessor, *ast.Capture:
 				routed = true
 			case *ast.Ident:
 				// The SLOT the argument currently occupies decides, not its

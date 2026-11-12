@@ -22,13 +22,13 @@
 //# ```nomi
 //# import std::toml.Toml
 //#
-//# fn server(name: String, port: Int, hosts: List<String>) -> Toml {
+//# fn server(name: String, port: Int, hosts: List<String>) -> Toml
 //#     Toml"""
 //#     [servers.${name}]
 //#     port = ${port}
 //#     hosts = ${hosts}
 //#     """
-//# }
+//# end
 //# ```
 //#
 //# A slot's value must implement `ToToml`, which turns it into a
@@ -36,7 +36,7 @@
 //# type can implement it too. The literal writes the `Toml.Value` itself, so
 //# no impl can put TOML text in the document.
 
-import {
+import
     bool.Bool
     calendar.{Date, NaiveDateTime, OffsetDateTime, Time}
     equatable.Equatable
@@ -50,13 +50,13 @@ import {
     strings.String
     toml_host
     unit.Unit
-}
+end
 
 /// TOML source text, made by a `Toml"..."` literal. Its own type keeps it
 /// apart from an arbitrary `String`, so a function that takes TOML says so.
 pub type Toml String
 
-impl Toml {
+impl Toml
     /// Returns the literal TOML text.
     //! assert Toml.text(
     //!     Toml"""
@@ -70,11 +70,11 @@ impl Toml {
     //!
     //! assert Toml.text(Toml"title = 'demo'") == "title = 'demo'"
     //
-    pub fn text(source: Toml) -> String {
+    pub fn text(source: Toml) -> String
         Toml(raw) = source
         raw
-    }
-}
+    end
+end
 
 /// A TOML value, which `ToToml` makes and a `Toml"..."` literal writes. The
 /// literal writes each kind itself, so a value cannot hold TOML text: a
@@ -89,10 +89,10 @@ impl Toml {
 //! v = Toml.Value.Array([Toml.Value.Int(1), Toml.Value.String("a\"b")])
 //! assert Toml.Value.text(v) == "[1, \"a\\\"b\"]"
 //!
-//! t = Toml.Value.Table(%{"x y" => Toml.Value.Int(1)})
+//! t = Toml.Value.Table({"x y" => Toml.Value.Int(1)})
 //! assert Toml.Value.text(t) == "{\"x y\" = 1}"
 //
-pub enum Toml.Value {
+pub enum Toml.Value
     String String
     Int Int
     Float Float
@@ -103,44 +103,57 @@ pub enum Toml.Value {
     OffsetDateTime OffsetDateTime
     Array List<Toml.Value>
     Table Map<String, Toml.Value>
-}
+end
 
 derive Equatable for Toml.Value
 
-impl Toml.Value {
+impl Toml.Value
     /// The value as TOML, as a `Toml"..."` literal writes it where a slot
     /// stands for a value.
-    pub fn text(value: Toml.Value) -> String {
-        case value {
-            .String(s) -> toml_host.quote(s)
-            .Int(n) -> "${n}"
-            .Float(x) -> toml_host.float(x)
-            .Bool(b) -> if b { "true" } else { "false" }
-            .Date(d) -> "${d}"
-            .Time(t) -> "${t}"
-            .NaiveDateTime(t) -> "${t}"
-            .OffsetDateTime(t) -> "${t}"
+    pub fn text(value: Toml.Value) -> String
+        case value
+            .String(s) ->
+                toml_host.quote(s)
 
-            .Array(items) -> {
+            .Int(n) ->
+                "${n}"
+
+            .Float(x) ->
+                toml_host.float(x)
+
+            .Bool(b) ->
+                if b then "true" else "false"
+
+            .Date(d) ->
+                "${d}"
+
+            .Time(t) ->
+                "${t}"
+
+            .NaiveDateTime(t) ->
+                "${t}"
+
+            .OffsetDateTime(t) ->
+                "${t}"
+
+            .Array(items) ->
                 texts =
                     items
                     |> Iter.map(fn item -> Toml.Value.text(item))
                     |> Iter.to_list()
 
                 "[" + String.join(texts, ", ") + "]"
-            }
 
-            .Table(entries) -> {
+            .Table(entries) ->
                 pairs =
                     entries
                     |> Iter.map(fn (k, v) -> toml_host.quote(k) + " = " + Toml.Value.text(v))
                     |> Iter.to_list()
 
                 "{" + String.join(pairs, ", ") + "}"
-            }
-        }
-    }
-}
+        end
+    end
+end
 
 /// A value a `Toml"..."` slot can hold. `to_toml` returns the value as a
 /// `Toml.Value`, which the literal writes where the slot stands for a value,
@@ -150,11 +163,11 @@ impl Toml.Value {
 /// another `ToToml`'s:
 ///
 /// ```nomi
-/// impl ToToml for Port {
-///     fn to_toml(port: Port) -> Toml.Value {
+/// impl ToToml for Port
+///     fn to_toml(port: Port) -> Toml.Value
 ///         ToToml.to_toml(port.number)
-///     }
-/// }
+///     end
+/// end
 /// ```
 ///
 /// No impl can write TOML text. The literal writes every `Toml.Value`
@@ -164,97 +177,97 @@ impl Toml.Value {
 //!
 //! assert ToToml.to_toml("a\"b") == Toml.Value.String("a\"b")
 //! assert ToToml.to_toml([1, 2]) == Toml.Value.Array([Toml.Value.Int(1), Toml.Value.Int(2)])
-//! assert ToToml.to_toml(%{"n" => 2.0}) == Toml.Value.Table(%{"n" => Toml.Value.Float(2.0)})
+//! assert ToToml.to_toml({"n" => 2.0}) == Toml.Value.Table({"n" => Toml.Value.Float(2.0)})
 //
-pub interface ToToml {
+pub interface ToToml
     fn to_toml(value: self) -> Toml.Value
-}
+end
 
-impl ToToml for Toml.Value {
+impl ToToml for Toml.Value
     /// The value itself.
-    fn to_toml(value: Toml.Value) -> Toml.Value {
+    fn to_toml(value: Toml.Value) -> Toml.Value
         value
-    }
-}
+    end
+end
 
-impl ToToml for String {
+impl ToToml for String
     /// A basic string: `"` and `\` escaped, and every control character
     /// written as an escape.
-    fn to_toml(value: String) -> Toml.Value {
+    fn to_toml(value: String) -> Toml.Value
         Toml.Value.String(value)
-    }
-}
+    end
+end
 
-impl ToToml for Int {
+impl ToToml for Int
     /// Its decimal digits. TOML integers are 64-bit, so a reader may refuse
     /// an `Int` outside that range.
-    fn to_toml(value: Int) -> Toml.Value {
+    fn to_toml(value: Int) -> Toml.Value
         Toml.Value.Int(value)
-    }
-}
+    end
+end
 
-impl ToToml for Float {
+impl ToToml for Float
     /// The shortest text that reads back as the value, with `.0` when it
     /// would read as an integer; `inf`, `-inf` and `nan` for those.
-    fn to_toml(value: Float) -> Toml.Value {
+    fn to_toml(value: Float) -> Toml.Value
         Toml.Value.Float(value)
-    }
-}
+    end
+end
 
-impl ToToml for Bool {
-    fn to_toml(value: Bool) -> Toml.Value {
+impl ToToml for Bool
+    fn to_toml(value: Bool) -> Toml.Value
         Toml.Value.Bool(value)
-    }
-}
+    end
+end
 
-impl ToToml for Date {
+impl ToToml for Date
     /// A local date, `2026-05-04`.
-    fn to_toml(value: Date) -> Toml.Value {
+    fn to_toml(value: Date) -> Toml.Value
         Toml.Value.Date(value)
-    }
-}
+    end
+end
 
-impl ToToml for Time {
+impl ToToml for Time
     /// A local time, `09:30:00`.
-    fn to_toml(value: Time) -> Toml.Value {
+    fn to_toml(value: Time) -> Toml.Value
         Toml.Value.Time(value)
-    }
-}
+    end
+end
 
-impl ToToml for NaiveDateTime {
+impl ToToml for NaiveDateTime
     /// A local date-time, `2026-05-04T09:30:00`.
-    fn to_toml(value: NaiveDateTime) -> Toml.Value {
+    fn to_toml(value: NaiveDateTime) -> Toml.Value
         Toml.Value.NaiveDateTime(value)
-    }
-}
+    end
+end
 
-impl ToToml for OffsetDateTime {
+impl ToToml for OffsetDateTime
     /// An offset date-time, `2026-05-04T09:30:00+02:00`.
-    fn to_toml(value: OffsetDateTime) -> Toml.Value {
+    fn to_toml(value: OffsetDateTime) -> Toml.Value
         Toml.Value.OffsetDateTime(value)
-    }
-}
+    end
+end
 
-impl ToToml for List<T> where T: ToToml {
+impl ToToml for List<T> where T: ToToml
     /// An array of its items' values.
-    fn to_toml(value: List<T>) -> Toml.Value {
+    fn to_toml(value: List<T>) -> Toml.Value
         items =
             value
             |> Iter.map(fn item -> ToToml.to_toml(item))
             |> Iter.to_list()
 
         Toml.Value.Array(items)
-    }
-}
+    end
+end
 
-impl ToToml for Map<String, V> where V: ToToml {
+impl ToToml for Map<String, V> where V: ToToml
     /// An inline table, each key quoted, in the map's order.
-    fn to_toml(value: Map<String, V>) -> Toml.Value {
+    fn to_toml(value: Map<String, V>) -> Toml.Value
         Toml.Value.Table(Map.map_values(value, fn item -> ToToml.to_toml(item)))
-    }
-}
+    end
+end
 
-impl CheckedLiteral<ToToml, Toml> for Toml {
+impl CheckedLiteral<ToToml, Toml> for Toml
     /// A `Toml` literal is checked when the program is checked: its text,
     /// with a stand-in for each slot, must be TOML, and each slot must stand
     /// for a whole key or value. In value position a slot is its value's
@@ -285,37 +298,37 @@ impl CheckedLiteral<ToToml, Toml> for Toml {
     //! id = 42
     //! assert Toml.text(Toml"${id} = true") == "\"42\" = true"
     //
-    fn check(statics: List<String>) -> Result<Unit, LiteralError> {
+    fn check(statics: List<String>) -> Result<Unit, LiteralError>
         (fragment, offset, message) = toml_host.check(statics)
 
-        if fragment < 0 {
+        if fragment < 0 then
             Ok(Unit)
-        } else {
-            Err(LiteralError{fragment, offset, message})
-        }
-    }
+        else
+            Err(LiteralError{fragment:, offset:, message:})
+        end
+    end
 
-    fn build(fragments: List<Fragment<ToToml>>) -> Toml {
+    fn build(fragments: List<Fragment<ToToml>>) -> Toml
         statics =
             fragments
-            |> Iter.flat_map(fn frag -> {
-                case frag {
+            |> Iter.flat_map(fn frag ->
+                case frag
                     .Static(s) -> [s]
                     .Dynamic(_) -> []
-                }
-            })
+                end
+            end)
             |> Iter.to_list()
 
         slots =
             fragments
-            |> Iter.flat_map(fn frag -> {
-                case frag {
+            |> Iter.flat_map(fn frag ->
+                case frag
                     .Static(_) -> []
                     .Dynamic(v) -> [Toml.Value.text(ToToml.to_toml(v))]
-                }
-            })
+                end
+            end)
             |> Iter.to_list()
 
         Toml(toml_host.build(statics, slots))
-    }
-}
+    end
+end

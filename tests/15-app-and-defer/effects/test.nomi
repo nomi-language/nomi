@@ -1,15 +1,15 @@
-import {
+import
     // test app wiring. Tweaks data-field defaults and uses TaggedLogger so output
     // is visibly tagged.
     app.EffectsApp
     clocks.FakeClock
     console.StdConsole
     log.TaggedLogger
-}
+end
 
-pub fn build(context: Context) -> EffectsApp {
+pub fn build(context: Context) -> EffectsApp
     EffectsApp{
-        context,
+        context:,
         deployment: "test",
         database_url: "postgres://localhost/myapp_test",
         max_connections: 2,
@@ -17,4 +17,4 @@ pub fn build(context: Context) -> EffectsApp {
         clock: FakeClock{at: 0},
         console: StdConsole,
     }
-}
+end

@@ -1,9 +1,9 @@
-import {
+import
     phone_number
     phone_number.Error
-}
+end
 
-test "cleans phone numbers" {
+test "cleans phone numbers"
     [
         ("cleans the number", "(223) 456-7890", Ok("2234567890")),
         ("cleans numbers with dots", "223.456.7890", Ok("2234567890")),
@@ -52,7 +52,7 @@ test "cleans phone numbers" {
             Err(.ExchangeCodeStartsWithOne),
         ),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert phone_number.clean(phrase) == expected
-    }
-}
+    end
+end

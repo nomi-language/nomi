@@ -1,6 +1,6 @@
 import reverse_string.reverse
 
-test "reverses strings" {
+test "reverses strings"
     [
         ("an empty string", "", ""),
         ("a word", "robot", "tobor"),
@@ -12,7 +12,7 @@ test "reverses strings" {
         ("grapheme cluster with pre-combined form", "Würstchenstand", "dnatsnehctsrüW"),
         ("grapheme clusters", "ผู้เขียนโปรแกรม", "มรกแรปโนยขีเผู้"),
     ]
-    |> subtests (description, text, expected), description {
+    |> subtests (description, text, expected), description
         assert reverse(text) == expected
-    }
-}
+    end
+end

@@ -29,7 +29,7 @@
 //# entity it declares is still an error where it is used. An XXE or
 //# "billion laughs" document fails before it expands anything.
 
-import {
+import
     bool.Bool.{self, False, True}
     bytes.Bytes
     debug.Debug
@@ -45,12 +45,12 @@ import {
     strings.String
     unit.Unit
     xml_host
-}
+end
 
 /// The namespace the `xml` prefix is bound to in every document.
-pub fn xml_namespace() -> String {
+pub fn xml_namespace() -> String
     "http://www.w3.org/XML/1998/namespace"
-}
+end
 
 /// An element's or attribute's name: its local part, the namespace it is
 /// in (`""` for none), and the prefix written before it (`""` for none).
@@ -61,42 +61,42 @@ pub fn xml_namespace() -> String {
 //! assert "${Name{local: "href", space: "http://www.w3.org/1999/xlink", prefix: "xlink"}}"
 //!     == "xlink:href"
 //
-pub struct Name {
+pub struct Name
     local: String
     space: String = ""
     prefix: String = ""
-}
+end
 
 derive Equatable for Name
 derive Debug for Name
 
-impl Display for Name {
+impl Display for Name
     /// The name as written: `prefix:local`, or `local` with no prefix.
-    fn to_string(name: Name) -> String {
-        if name.prefix == "" {
+    fn to_string(name: Name) -> String
+        if name.prefix == "" then
             name.local
-        } else {
+        else
             "${name.prefix}:${name.local}"
-        }
-    }
-}
+        end
+    end
+end
 
 /// An attribute: its name and its value, with entities and character
 /// references replaced.
-pub struct Attribute {
+pub struct Attribute
     name: Name
     value: String
-}
+end
 
 derive Equatable for Attribute
 derive Debug for Attribute
 
 /// A namespace declaration on an element: `xmlns:prefix="uri"`, or
 /// `xmlns="uri"` when `prefix` is `""`.
-pub struct Namespace {
+pub struct Namespace
     prefix: String
     uri: String
-}
+end
 
 derive Equatable for Namespace
 derive Debug for Namespace
@@ -106,53 +106,53 @@ derive Debug for Namespace
 //! a = Element{name: Name{local: "a"}, children: [Node.Text("hi")]}
 //! assert xml.encode(a) == Ok("<a>hi</a>")
 //
-pub struct Element {
+pub struct Element
     name: Name
     attributes: List<Attribute> = []
     namespaces: List<Namespace> = []
     children: List<Node> = []
-}
+end
 
 derive Equatable for Element
 derive Debug for Element
 
 /// What an element holds: an element, text, a comment or a processing
 /// instruction. Adjacent text and CDATA are one `Text`.
-pub enum Node {
+pub enum Node
     Element Element
     Text String
     Comment String
     Instruction {target: String, data: String}
-}
+end
 
 derive Equatable for Node
 derive Debug for Node
 
-impl Element {
+impl Element
     /// An element named `local`, in no namespace, with `children`.
     //! assert Element.new("b", [Node.Text("x")]) == Element{
     //!     name: Name{local: "b"},
     //!     children: [Node.Text("x")],
     //! }
     //
-    pub fn new(local: String, children: List<Node> = []) -> Element {
-        Element{name: Name{local}, children}
-    }
+    pub fn new(local: String, children: List<Node> = []) -> Element
+        Element{name: Name{local:}, children:}
+    end
 
     /// The child elements, in order.
     //! doc = decode("<a>x<b/><!-- c --><d/></a>")!
     //! assert Element.elements(doc) |> Iter.map(fn e -> e.name.local) |> Iter.to_list() == ["b", "d"]
     //
-    pub fn elements(element: Element) -> List<Element> {
+    pub fn elements(element: Element) -> List<Element>
         element.children
-        |> Iter.flat_map(fn node -> {
-            case node {
+        |> Iter.flat_map(fn node ->
+            case node
                 .Element(e) -> [e]
                 _ -> []
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
-    }
+    end
 
     /// The first child element named `local`, in the namespace `space`, or
     /// in any namespace when `space` is `None`.
@@ -160,9 +160,9 @@ impl Element {
     //! assert Element.child(doc, "k") |> Maybe.map(&Element.text(&1)) == Some("1")
     //! assert Element.child(doc, "k", space: Some("urn:y")) == None
     //
-    pub fn child(element: Element, local: String, space: Maybe<String> = None) -> Maybe<Element> {
+    pub fn child(element: Element, local: String, space: Maybe<String> = None) -> Maybe<Element>
         Element.elements(element) |> Iter.find(fn e -> named(e.name, local, space))
-    }
+    end
 
     /// Every child element named `local`, in the namespace `space`, or in
     /// any namespace when `space` is `None`.
@@ -177,11 +177,11 @@ impl Element {
         element: Element,
         local: String,
         space: Maybe<String> = None,
-    ) -> List<Element> {
+    ) -> List<Element>
         Element.elements(element)
         |> Iter.filter(fn e -> named(e.name, local, space))
         |> Iter.to_list()
-    }
+    end
 
     /// The text of the first child element named `local`, as
     /// `Element.text` reads it.
@@ -189,30 +189,26 @@ impl Element {
     //! assert Element.child_text(doc, "Code") == Some("NoSuchKey")
     //! assert Element.child_text(doc, "Message") == None
     //
-    pub fn child_text(
-        element: Element,
-        local: String,
-        space: Maybe<String> = None,
-    ) -> Maybe<String> {
-        Element.child(element, local, space: space) |> Maybe.map(fn e -> Element.text(e))
-    }
+    pub fn child_text(element: Element, local: String, space: Maybe<String> = None) -> Maybe<String>
+        Element.child(element, local, space:) |> Maybe.map(fn e -> Element.text(e))
+    end
 
     /// All the text in the element and the elements in it, in document
     /// order, with no comment or instruction.
     //! doc = decode("<p>a <b>bold</b> <![CDATA[<raw>]]>&amp; more<!-- no --></p>")!
     //! assert Element.text(doc) == "a bold <raw>& more"
     //
-    pub fn text(element: Element) -> String {
+    pub fn text(element: Element) -> String
         element.children
-        |> Iter.map(fn node -> {
-            case node {
+        |> Iter.map(fn node ->
+            case node
                 .Element(e) -> Element.text(e)
                 .Text(t) -> t
                 _ -> ""
-            }
-        })
+            end
+        end)
         |> String.join("")
-    }
+    end
 
     /// The value of the attribute named `local` in the namespace `space`,
     /// which is `""`, none, for an attribute written with no prefix.
@@ -221,26 +217,26 @@ impl Element {
     //! assert Element.attribute(doc, "id", space: "urn:x") == Some("8")
     //! assert Element.attribute(doc, "name") == None
     //
-    pub fn attribute(element: Element, local: String, space: String = "") -> Maybe<String> {
+    pub fn attribute(element: Element, local: String, space: String = "") -> Maybe<String>
         element.attributes
         |> Iter.find(fn a -> a.name.local == local and a.name.space == space)
         |> Maybe.map(fn a -> a.value)
-    }
-}
+    end
+end
 
-fn named(name: Name, local: String, space: Maybe<String>) -> Bool {
+fn named(name: Name, local: String, space: Maybe<String>) -> Bool
     name.local == local
-        and case space {
+        and case space
             Some(s) -> name.space == s
             None -> True
-        }
-}
+        end
+end
 
 /// A token of a document, as `tokens` reads them. Text between tags is
 /// `Text`, white space included; adjacent CDATA and text may be more than
 /// one token. White space outside the root element is not a token, and
 /// neither is the XML declaration.
-pub enum Token {
+pub enum Token
     /// A start tag, or the start of an empty-element tag `<a/>`, which an
     /// `End` follows.
     Start {name: Name, attributes: List<Attribute>, namespaces: List<Namespace>}
@@ -256,7 +252,7 @@ pub enum Token {
     /// A DOCTYPE, with what follows `<!` and before `>`, read only with
     /// `allow_doctype`.
     Doctype String
-}
+end
 
 derive Equatable for Token
 derive Debug for Token
@@ -266,7 +262,7 @@ derive Debug for Token
 //!     "line 1, column 7: <b> is closed by </a>"
 //! )
 //
-pub enum Error {
+pub enum Error
     /// The text is not well-formed XML, at `line` and `column`, both from
     /// 1, the column in code points.
     Syntax {message: String, line: Int, column: Int}
@@ -278,20 +274,20 @@ pub enum Error {
     /// holding `--`, an instruction holding `?>`, or a prefix with no
     /// namespace.
     Invalid {message: String}
-}
+end
 
 derive Equatable for Error
 derive Debug for Error
 
-impl Display for Error {
-    fn to_string(error: Error) -> String {
-        case error {
-            .Syntax{message, line, column} -> "line ${line}, column ${column}: ${message}"
-            .Io{error} -> "${error}"
-            .Invalid{message} -> message
-        }
-    }
-}
+impl Display for Error
+    fn to_string(error: Error) -> String
+        case error
+            .Syntax{message:, line:, column:} -> "line ${line}, column ${column}: ${message}"
+            .Io{error:} -> "${error}"
+            .Invalid{message:} -> message
+        end
+    end
+end
 
 /// The root element of the document `text`. Comments and processing
 /// instructions outside the root are dropped.
@@ -317,26 +313,26 @@ impl Display for Error {
 //!         column: 9,
 //!     })
 //
-pub fn decode(text: String, allow_doctype = False) -> Result<Element, Error> {
-    read(Reader.from_text(text), allow_doctype: allow_doctype)
-}
+pub fn decode(text: String, allow_doctype = False) -> Result<Element, Error>
+    read(Reader.from_text(text), allow_doctype:)
+end
 
 /// The root element of the document `data`, which must be UTF-8.
 //! assert decode_bytes(String.to_bytes("<a/>")) == Ok(Element.new("a"))
 //
-pub fn decode_bytes(data: Bytes, allow_doctype = False) -> Result<Element, Error> {
-    read(Reader.from_bytes(data), allow_doctype: allow_doctype)
-}
+pub fn decode_bytes(data: Bytes, allow_doctype = False) -> Result<Element, Error>
+    read(Reader.from_bytes(data), allow_doctype:)
+end
 
 /// The root element of the document `reader` holds, read to its end.
 //! assert read(Reader.from_text("<a>1</a>")) == Ok(Element.new("a", [Node.Text("1")]))
 //
-pub fn read(reader: Reader, allow_doctype = False) -> Result<Element, Error> {
+pub fn read(reader: Reader, allow_doctype = False) -> Result<Element, Error>
     handle = xml_host.open(reader, allow_doctype)
     root = read_root(handle)?
     rest(handle)?
     Ok(root)
-}
+end
 
 /// Each token left in `reader`, read as the iterator runs, so a large
 /// document is never held whole. A failure is an item, and the last one.
@@ -358,37 +354,40 @@ pub fn read(reader: Reader, allow_doctype = False) -> Result<Element, Error> {
 //!         Token.End{name: Name{local: "a"}},
 //!     ])
 //
-pub fn tokens(reader: Reader, allow_doctype = False) -> Iter<Result<Token, Error>> {
+pub fn tokens(reader: Reader, allow_doctype = False) -> Iter<Result<Token, Error>>
     TokenIter{tokens: xml_host.open(reader, allow_doctype)}
-}
+end
 
-struct TokenIter {
+struct TokenIter
     tokens: xml_host.Tokens
-}
+end
 
-impl Iter<Result<Token, Error>> for TokenIter {
-    fn each_while(iter: TokenIter, yield: (Result<Token, Error>) -> Bool) -> Bool {
+impl Iter<Result<Token, Error>> for TokenIter
+    fn each_while(iter: TokenIter, yield: (Result<Token, Error>) -> Bool) -> Bool
         each_token(iter.tokens, yield)
-    }
-}
+    end
+end
 
-fn each_token(tokens: xml_host.Tokens, yield: (Result<Token, Error>) -> Bool) -> Bool {
-    case next_token(tokens) {
+fn each_token(tokens: xml_host.Tokens, yield: (Result<Token, Error>) -> Bool) -> Bool
+    case next_token(tokens)
         Ok(Some(token)) ->
-            if yield(Ok(token)) {
+            if yield(Ok(token)) then
                 each_token(tokens, yield)
-            } else {
+            else
                 False
-            }
+            end
 
-        Ok(None) -> True
-        Err(e) -> yield(Err(e))
-    }
-}
+        Ok(None) ->
+            True
+
+        Err(e) ->
+            yield(Err(e))
+    end
+end
 
 // The next token, None at the end of the document.
-fn next_token(tokens: xml_host.Tokens) -> Result<Maybe<Token>, Error> {
-    case xml_host.next(tokens) {
+fn next_token(tokens: xml_host.Tokens) -> Result<Maybe<Token>, Error>
+    case xml_host.next(tokens)
         1 ->
             Ok(
                 Some(
@@ -400,9 +399,14 @@ fn next_token(tokens: xml_host.Tokens) -> Result<Maybe<Token>, Error> {
                 )
             )
 
-        2 -> Ok(Some(Token.End{name: name_of(xml_host.name(tokens))}))
-        3 -> Ok(Some(Token.Text(xml_host.text(tokens))))
-        4 -> Ok(Some(Token.Comment(xml_host.text(tokens))))
+        2 ->
+            Ok(Some(Token.End{name: name_of(xml_host.name(tokens))}))
+
+        3 ->
+            Ok(Some(Token.Text(xml_host.text(tokens))))
+
+        4 ->
+            Ok(Some(Token.Comment(xml_host.text(tokens))))
 
         5 ->
             Ok(
@@ -411,61 +415,68 @@ fn next_token(tokens: xml_host.Tokens) -> Result<Maybe<Token>, Error> {
                 )
             )
 
-        6 -> Ok(Some(Token.Doctype(xml_host.text(tokens))))
+        6 ->
+            Ok(Some(Token.Doctype(xml_host.text(tokens))))
 
         _ ->
-            case xml_host.stopped(tokens) {
+            case xml_host.stopped(tokens)
                 [1, line, column] ->
-                    Err(Error.Syntax{message: xml_host.message(tokens), line, column})
+                    Err(Error.Syntax{message: xml_host.message(tokens), line:, column:})
 
-                [2, ..] -> Err(Error.Io{error: xml_host.failure(tokens)})
-                _ -> Ok(None)
-            }
-    }
-}
+                [2, ..] ->
+                    Err(Error.Io{error: xml_host.failure(tokens)})
 
-fn name_of(parts: List<String>) -> Name {
-    case parts {
-        [prefix, local, space] -> Name{local, space, prefix}
+                _ ->
+                    Ok(None)
+            end
+    end
+end
+
+fn name_of(parts: List<String>) -> Name
+    case parts
+        [prefix, local, space] -> Name{local:, space:, prefix:}
         _ -> Name{local: ""}
-    }
-}
+    end
+end
 
-fn attributes_of(flat: List<String>) -> List<Attribute> {
+fn attributes_of(flat: List<String>) -> List<Attribute>
     flat
     |> Iter.chunks(4)
-    |> Iter.map(fn chunk -> {
-        case chunk {
-            [prefix, local, space, value] -> Attribute{name: Name{local, space, prefix}, value}
+    |> Iter.map(fn chunk ->
+        case chunk
+            [prefix, local, space, value] -> Attribute{name: Name{local:, space:, prefix:}, value:}
             _ -> Attribute{name: Name{local: ""}, value: ""}
-        }
-    })
+        end
+    end)
     |> Iter.to_list()
-}
+end
 
-fn namespaces_of(flat: List<String>) -> List<Namespace> {
+fn namespaces_of(flat: List<String>) -> List<Namespace>
     flat
     |> Iter.chunks(2)
-    |> Iter.map(fn chunk -> {
-        case chunk {
-            [prefix, uri] -> Namespace{prefix, uri}
+    |> Iter.map(fn chunk ->
+        case chunk
+            [prefix, uri] -> Namespace{prefix:, uri:}
             _ -> Namespace{prefix: "", uri: ""}
-        }
-    })
+        end
+    end)
     |> Iter.to_list()
-}
+end
 
 // The root element, after any comments, instructions and DOCTYPE before
 // it.
-fn read_root(tokens: xml_host.Tokens) -> Result<Element, Error> {
-    case next_token(tokens)? {
-        Some(.Start{name, attributes, namespaces}) ->
-            read_children(tokens, Element{name, attributes, namespaces}, [])
+fn read_root(tokens: xml_host.Tokens) -> Result<Element, Error>
+    case next_token(tokens)?
+        Some(.Start{name:, attributes:, namespaces:}) ->
+            read_children(tokens, Element{name:, attributes:, namespaces:}, [])
 
-        Some(_) -> read_root(tokens)
-        None -> Err(Error.Syntax{message: "the document has no root element", line: 1, column: 1})
-    }
-}
+        Some(_) ->
+            read_root(tokens)
+
+        None ->
+            Err(Error.Syntax{message: "the document has no root element", line: 1, column: 1})
+    end
+end
 
 // The element whose start tag was read last, with its children read up to
 // its end tag. `reversed` is the children read so far, last first.
@@ -473,41 +484,46 @@ fn read_children(
     tokens: xml_host.Tokens,
     element: Element,
     reversed: List<Node>,
-) -> Result<Element, Error> {
-    case next_token(tokens)? {
-        Some(.Start{name, attributes, namespaces}) -> {
-            child = read_children(tokens, Element{name, attributes, namespaces}, [])?
+) -> Result<Element, Error>
+    case next_token(tokens)?
+        Some(.Start{name:, attributes:, namespaces:}) ->
+            child = read_children(tokens, Element{name:, attributes:, namespaces:}, [])?
             read_children(tokens, element, [Node.Element(child), ..reversed])
-        }
 
-        Some(.End{}) -> Ok(.{..element, children: Iter.reverse(reversed)})
+        Some(.End{}) ->
+            Ok({..element, children: Iter.reverse(reversed)})
 
         Some(.Text(text)) ->
-            case reversed {
+            case reversed
                 [.Text(before), ..others] ->
                     read_children(tokens, element, [Node.Text(before + text), ..others])
 
-                _ -> read_children(tokens, element, [Node.Text(text), ..reversed])
-            }
+                _ ->
+                    read_children(tokens, element, [Node.Text(text), ..reversed])
+            end
 
-        Some(.Comment(text)) -> read_children(tokens, element, [Node.Comment(text), ..reversed])
+        Some(.Comment(text)) ->
+            read_children(tokens, element, [Node.Comment(text), ..reversed])
 
-        Some(.Instruction{target, data}) ->
-            read_children(tokens, element, [Node.Instruction{target, data}, ..reversed])
+        Some(.Instruction{target:, data:}) ->
+            read_children(tokens, element, [Node.Instruction{target:, data:}, ..reversed])
 
-        Some(.Doctype(_)) -> read_children(tokens, element, reversed)
-        None -> Ok(element)
-    }
-}
+        Some(.Doctype(_)) ->
+            read_children(tokens, element, reversed)
+
+        None ->
+            Ok(element)
+    end
+end
 
 // Reads what follows the root, so a second root or stray text is an
 // error.
-fn rest(tokens: xml_host.Tokens) -> Result<Unit, Error> {
-    case next_token(tokens)? {
+fn rest(tokens: xml_host.Tokens) -> Result<Unit, Error>
+    case next_token(tokens)?
         Some(_) -> rest(tokens)
         None -> Ok(Unit)
-    }
-}
+    end
+end
 
 /// How `encode` and `write` write a tree.
 //! tree = Element.new(
@@ -525,7 +541,7 @@ fn rest(tokens: xml_host.Tokens) -> Result<Unit, Error> {
 //!     """
 //! )
 //
-pub struct WriteOptions {
+pub struct WriteOptions
     /// Put each child element on a line of its own, indented by this
     /// once per level. An element that holds text other than white space
     /// is written as it is, since indenting it would change its text;
@@ -533,7 +549,7 @@ pub struct WriteOptions {
     indent: String = ""
     /// Start with `<?xml version="1.0" encoding="UTF-8"?>`.
     declaration: Bool = False
-}
+end
 
 /// The tree under `root` as XML text. Text and attribute values are
 /// escaped, an element with no children is written `<a/>`, and a
@@ -550,22 +566,22 @@ pub struct WriteOptions {
 //!
 //! assert encode(a) == Ok("<a xmlns=\"urn:x\" q=\"1 &lt; 2 &amp; &quot;3&quot;\">&lt;&amp;&gt;</a>")
 //!
-//! assert decode(encode(a)!) == Ok(.{
+//! assert decode(encode(a)!) == Ok({
 //!         ..a,
 //!         namespaces: [Namespace{prefix: "", uri: "urn:x"}],
 //!     })
 //!
 //! assert encode(Element.new("a b")) == Err(Error.Invalid{message: "\"a b\" is not an XML name"})
 //
-pub fn encode(root: Element, options: WriteOptions = WriteOptions{}) -> Result<String, Error> {
-    body = element_text(root, %{"xml" => xml_namespace()}, options, 0, False)?
+pub fn encode(root: Element, options: WriteOptions = WriteOptions{}) -> Result<String, Error>
+    body = element_text(root, {"xml" => xml_namespace()}, options, 0, False)?
 
-    if options.declaration {
+    if options.declaration then
         Ok("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n${body}")
-    } else {
+    else
         Ok(body)
-    }
-}
+    end
+end
 
 /// Writes the tree under `root` to `w` as `encode` writes it.
 //! (written, data) = Writer.collect(fn w -> write(w, Element.new("a")))
@@ -576,94 +592,94 @@ pub fn write(
     w: Writer,
     root: Element,
     options: WriteOptions = WriteOptions{},
-) -> Result<Unit, Error> {
+) -> Result<Unit, Error>
     text = encode(root, options)?
     Writer.write_text(w, text) |> Result.map_err(fn e -> Error.Io{error: e})
-}
+end
 
-fn invalid(message: String) -> Result<Unit, Error> {
-    Err(Error.Invalid{message})
-}
+fn invalid(message: String) -> Result<Unit, Error>
+    Err(Error.Invalid{message:})
+end
 
-fn check_name(name: Name) -> Result<Unit, Error> {
-    if not xml_host.is_name(name.local) {
+fn check_name(name: Name) -> Result<Unit, Error>
+    if not xml_host.is_name(name.local) then
         return invalid("${Debug.inspect(name.local)} is not an XML name")
-    }
+    end
 
-    if name.prefix != "" and not xml_host.is_name(name.prefix) {
+    if name.prefix != "" and not xml_host.is_name(name.prefix) then
         return invalid("${Debug.inspect(name.prefix)} is not an XML name")
-    }
+    end
 
-    if name.prefix != "" and name.space == "" {
+    if name.prefix != "" and name.space == "" then
         return invalid("${name} has a prefix and no namespace")
-    }
+    end
 
-    if name.prefix == "xmlns" { return invalid("${name} uses the reserved prefix xmlns") }
+    if name.prefix == "xmlns" then return invalid("${name} uses the reserved prefix xmlns")
 
-    if name.prefix == "xml" and name.space != xml_namespace() {
+    if name.prefix == "xml" and name.space != xml_namespace() then
         return invalid("${name} puts the prefix xml in another namespace")
-    }
+    end
 
     Ok(Unit)
-}
+end
 
 // The prefixes declared on one element, and the bindings in scope in it.
-struct Scope {
+struct Scope
     bindings: Map<String, String>
     declared: List<Namespace>
-}
+end
 
 // The scope with `prefix` bound to `uri`, declared on this element unless
 // it already is in scope.
-fn bind(scope: Scope, prefix: String, uri: String) -> Result<Scope, Error> {
+fn bind(scope: Scope, prefix: String, uri: String) -> Result<Scope, Error>
     if Map.get(scope.bindings, prefix) == Some(uri)
-        or prefix == "" and uri == "" and Map.get(scope.bindings, "") == None {
+        or prefix == "" and uri == "" and Map.get(scope.bindings, "") == None then
         return Ok(scope)
-    }
+    end
 
-    if Iter.any_match(scope.declared, fn n -> n.prefix == prefix) {
+    if Iter.any_match(scope.declared, fn n -> n.prefix == prefix) then
         return Err(
             Error.Invalid{
                 message: "the prefix ${Debug.inspect(prefix)} is bound to two namespaces on one element",
             }
         )
-    }
+    end
 
     Ok(
         Scope{
             bindings: Map.put(scope.bindings, prefix, uri),
-            declared: scope.declared + [Namespace{prefix, uri}],
+            declared: scope.declared + [Namespace{prefix:, uri:}],
         }
     )
-}
+end
 
 // The prefix for an attribute in the namespace `space`: its own, or one in
 // scope for the namespace, or a new one.
-fn attribute_prefix(scope: Scope, name: Name) -> String {
-    if name.prefix != "" {
+fn attribute_prefix(scope: Scope, name: Name) -> String
+    if name.prefix != "" then
         name.prefix
-    } else {
+    else
         found =
             Map.keys(scope.bindings)
             |> Iter.sort()
             |> Iter.find(fn p -> p != "" and Map.get(scope.bindings, p) == Some(name.space))
 
-        case found {
+        case found
             Some(p) -> p
             None -> fresh_prefix(scope, 1)
-        }
-    }
-}
+        end
+    end
+end
 
-fn fresh_prefix(scope: Scope, n: Int) -> String {
+fn fresh_prefix(scope: Scope, n: Int) -> String
     candidate = "ns${n}"
 
-    if Map.get(scope.bindings, candidate) == None {
+    if Map.get(scope.bindings, candidate) == None then
         candidate
-    } else {
+    else
         fresh_prefix(scope, n + 1)
-    }
-}
+    end
+end
 
 fn element_text(
     element: Element,
@@ -671,145 +687,147 @@ fn element_text(
     options: WriteOptions,
     depth: Int,
     inline: Bool,
-) -> Result<String, Error> {
+) -> Result<String, Error>
     check_name(element.name)?
 
-    declared = Iter.reduce(element.namespaces, Ok(Scope{bindings, declared: []}), fn state, n -> {
-        case state {
-            Err(e) -> break Err(e)
+    declared = Iter.reduce(element.namespaces, Ok(Scope{bindings:, declared: []}), fn state, n ->
+        case state
+            Err(e) ->
+                break Err(e)
 
-            Ok(scope) -> {
-                if n.prefix != "" and not xml_host.is_name(n.prefix) {
+            Ok(scope) ->
+                if n.prefix != "" and not xml_host.is_name(n.prefix) then
                     break Err(
                         Error.Invalid{message: "${Debug.inspect(n.prefix)} is not an XML name"}
                     )
-                }
+                end
 
-                if n.prefix == "xmlns" or n.prefix == "xml" {
+                if n.prefix == "xmlns" or n.prefix == "xml" then
                     break Err(Error.Invalid{message: "the prefix ${n.prefix} cannot be declared"})
-                }
+                end
 
-                if n.prefix != "" and n.uri == "" {
+                if n.prefix != "" and n.uri == "" then
                     break Err(
                         Error.Invalid{
                             message: "the prefix ${n.prefix} is declared with no namespace",
                         }
                     )
-                }
+                end
 
                 bind(scope, n.prefix, n.uri)
-            }
-        }
-    })?
+        end
+    end)?
 
     scope = bind(declared, element.name.prefix, element.name.space)?
 
-    (scope, attributes) = Iter.reduce(element.attributes, Ok((scope, [])), fn state, a -> {
-        case state {
-            Err(e) -> break Err(e)
+    (scope, attributes) = Iter.reduce(element.attributes, Ok((scope, [])), fn state, a ->
+        case state
+            Err(e) ->
+                break Err(e)
 
             Ok((scope, written)) ->
-                case attribute_text(scope, a) {
+                case attribute_text(scope, a)
                     Ok((scope, text)) -> Ok((scope, written + [text]))
                     Err(e) -> break Err(e)
-                }
-        }
-    })?
+                end
+        end
+    end)?
 
     expanded =
         element.attributes |> Iter.map(fn a -> (a.name.space, a.name.local)) |> Iter.to_list()
 
-    if Iter.count(Iter.to_set(expanded)) != Iter.count(expanded) {
+    if Iter.count(Iter.to_set(expanded)) != Iter.count(expanded) then
         return Err(Error.Invalid{message: "<${element.name}> has an attribute twice"})
-    }
+    end
 
     declarations =
         scope.declared
-        |> Iter.map(fn n -> {
-            name = if n.prefix == "" {
+        |> Iter.map(fn n ->
+            name = if n.prefix == "" then
                 "xmlns"
-            } else {
+            else
                 "xmlns:${n.prefix}"
-            }
+            end
 
             " ${name}=\"${xml_host.escape_attribute(n.uri)}\""
-        })
+        end)
         |> String.join("")
 
     open = "<${element.name}${declarations}${String.join(attributes, "")}"
 
-    if element.children == [] { return Ok("${open}/>") }
+    if element.children == [] then return Ok("${open}/>")
 
-    mixed = Iter.any_match(element.children, fn node -> {
-        case node {
+    mixed = Iter.any_match(element.children, fn node ->
+        case node
             .Text(t) -> String.trim(t) != ""
             _ -> False
-        }
-    })
+        end
+    end)
 
     indented = options.indent != "" and not inline and not mixed
 
-    children = if indented {
+    children = if indented then
         Iter.filter(element.children, fn node -> not (node is .Text(_)))
         |> Iter.to_list()
-    } else {
+    else
         element.children
-    }
+    end
 
-    texts = Iter.reduce(children, Ok([]), fn state, node -> {
-        case state {
-            Err(e) -> break Err(e)
+    texts = Iter.reduce(children, Ok([]), fn state, node ->
+        case state
+            Err(e) ->
+                break Err(e)
 
             Ok(done) ->
-                case node_text(node, scope.bindings, options, depth + 1, inline or mixed) {
+                case node_text(node, scope.bindings, options, depth + 1, inline or mixed)
                     Ok(text) -> Ok(done + [text])
                     Err(e) -> break Err(e)
-                }
-        }
-    })?
+                end
+        end
+    end)?
 
-    inner = if indented {
+    inner = if indented then
         pad = String.repeat(options.indent, depth + 1)
 
         (texts |> Iter.map(fn text -> "\n${pad}${text}") |> String.join("")) + "\n" + String.repeat(
             options.indent,
             depth,
         )
-    } else {
+    else
         String.join(texts, "")
-    }
+    end
 
     Ok("${open}>${inner}</${element.name}>")
-}
+end
 
-fn attribute_text(scope: Scope, attribute: Attribute) -> Result<(Scope, String), Error> {
+fn attribute_text(scope: Scope, attribute: Attribute) -> Result<(Scope, String), Error>
     name = attribute.name
     value = xml_host.escape_attribute(attribute.value)
 
-    if name.space == "" {
-        if name.prefix != "" {
+    if name.space == "" then
+        if name.prefix != "" then
             return Err(Error.Invalid{message: "${name} has a prefix and no namespace"})
-        }
+        end
 
-        if not xml_host.is_name(name.local) {
+        if not xml_host.is_name(name.local) then
             return Err(Error.Invalid{message: "${Debug.inspect(name.local)} is not an XML name"})
-        }
+        end
 
         Ok((scope, " ${name.local}=\"${value}\""))
-    } else {
+    else
         prefix = attribute_prefix(scope, name)
-        written = Name{local: name.local, space: name.space, prefix}
+        written = Name{local: name.local, space: name.space, prefix:}
         check_name(written)?
 
-        bound = if prefix == "xml" {
+        bound = if prefix == "xml" then
             scope
-        } else {
+        else
             bind(scope, prefix, name.space)?
-        }
+        end
 
         Ok((bound, " ${written}=\"${value}\""))
-    }
-}
+    end
+end
 
 fn node_text(
     node: Node,
@@ -817,31 +835,34 @@ fn node_text(
     options: WriteOptions,
     depth: Int,
     inline: Bool,
-) -> Result<String, Error> {
-    case node {
-        .Element(e) -> element_text(e, bindings, options, depth, inline)
-        .Text(t) -> Ok(xml_host.escape_text(t))
+) -> Result<String, Error>
+    case node
+        .Element(e) ->
+            element_text(e, bindings, options, depth, inline)
+
+        .Text(t) ->
+            Ok(xml_host.escape_text(t))
 
         .Comment(c) ->
-            if String.contains(c, "--") or String.ends_with(c, "-") {
+            if String.contains(c, "--") or String.ends_with(c, "-") then
                 Err(Error.Invalid{message: "a comment cannot hold -- or end with -"})
-            } else {
+            else
                 Ok("<!--${c}-->")
-            }
+            end
 
-        .Instruction{target, data} ->
-            if not xml_host.is_name(target) or String.lowercase(target) == "xml" {
+        .Instruction{target:, data:} ->
+            if not xml_host.is_name(target) or String.lowercase(target) == "xml" then
                 Err(
                     Error.Invalid{
                         message: "${Debug.inspect(target)} cannot be an instruction's target",
                     }
                 )
-            } else if String.contains(data, "?>") {
+            else if String.contains(data, "?>") then
                 Err(Error.Invalid{message: "an instruction cannot hold ?>"})
-            } else if data == "" {
+            else if data == "" then
                 Ok("<?${target}?>")
-            } else {
+            else
                 Ok("<?${target} ${data}?>")
-            }
-    }
-}
+            end
+    end
+end

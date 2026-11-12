@@ -421,10 +421,6 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"Arm.after":               channelHost("Arm.after"),
 		"Receiver.receive_within": channelHost("Receiver.receive_within"),
 
-		// A call the builder lowered as unreachable: a bound dispatch on a type
-		// argument it filled itself (irbuild's holeBoundCall). It faults with
-		// the builder's text if control ever arrives.
-		"vm.unreachable": unreachableHost,
 		// The two traps of a failed postfix `!` (unwrap.go).
 		"vm.bang_failed": bangFailedHost,
 		"vm.bang_none":   bangNoneHost,
@@ -852,7 +848,7 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 	case *ir.Proj:
 		// A destructuring parameter's names are projections off the one
 		// parameter holding the whole value, so a function like
-		// `fn sum_point(Point{x, y}) -> Int { x + y }` reaches here twice.
+		// `fn sum_point(Point{x:, y:}) -> Int { x + y }` reaches here twice.
 		//
 		// Declared and anonymous fields, tuple components, variant payloads
 		// and distinct inners share the projection consumer.

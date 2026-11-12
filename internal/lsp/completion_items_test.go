@@ -34,13 +34,13 @@ func textEditOf(t *testing.T, it protocol.CompletionItem) protocol.TextEdit {
 }
 
 const greetDecls = `/// Greets someone by name.
-fn greet(name: String, punct: String = "!") -> String {
+fn greet(name: String, punct: String = "!") -> String
     "hi ${name}${punct}"
-}
+end
 
-fn now() -> Int {
+fn now() -> Int
     1
-}
+end
 `
 
 func TestInitialize_CompletionCapabilities(t *testing.T) {
@@ -76,8 +76,8 @@ func TestInitialize_CompletionCapabilities(t *testing.T) {
 	if cp == nil || cp.ResolveProvider == nil || !*cp.ResolveProvider {
 		t.Fatalf("completion provider = %#v, want resolveProvider", caps.CompletionProvider)
 	}
-	if strings.Join(cp.TriggerCharacters, " ") != ". > { } \" ` : , # % $ [" {
-		t.Fatalf("trigger characters = %v, want . > { } \" ` : , # %% $ [", cp.TriggerCharacters)
+	if strings.Join(cp.TriggerCharacters, " ") != ". > { } \" ` : , $ [" {
+		t.Fatalf("trigger characters = %v, want . > { } \" ` : , $ [", cp.TriggerCharacters)
 	}
 	if !s.snippetSupport {
 		t.Fatal("the client's snippetSupport was not read")
@@ -91,29 +91,27 @@ func TestCompletion_TriggerCharacters(t *testing.T) {
 		name, trigger, src string
 		open               bool
 	}{
-		{"pipe", ">", "fn f(xs: List<Int>) -> Int {\n    xs |>" + cursorMark + "\n}\n", true},
-		{"arrow", ">", "fn f(c: Bool) -> Int {\n    case c {\n        True ->" + cursorMark + "\n    }\n}\n", false},
-		{"comparison", ">", "fn f(n: Int) -> Bool {\n    n >" + cursorMark + "\n}\n", false},
-		{"struct literal", "{", "struct P {\n    x: Int\n}\n\nfn f() -> P {\n    P{" + cursorMark + "}\n}\n", true},
-		{"block", "{", "fn f() {" + cursorMark + "\n}\n", false},
-		{"struct literal, brace auto-paired", "}", "struct P {\n    x: Int\n}\n\nfn f() -> P {\n    P{" + cursorMark + "}\n}\n", true},
-		{"struct pattern, brace auto-paired", "}", "struct P {\n    x: Int\n}\n\nfn f(p: P) -> Int {\n    case p {\n        P{" + cursorMark + "} -> 0\n    }\n}\n", true},
-		{"struct literal's next field", ",", "struct P {\n    x: Int\n    y: Int\n}\n\nfn f() -> P {\n    P{x: 1," + cursorMark + "}\n}\n", true},
-		{"struct pattern's next field", ",", "struct P {\n    x: Int\n    y: Int\n}\n\nfn f(p: P) -> Int {\n    case p {\n        P{x," + cursorMark + "} -> 0\n    }\n}\n", true},
-		{"comma in a call", ",", "fn g(a: Int, b: Int) -> Int {\n    a\n}\n\nfn f() -> Int {\n    g(1," + cursorMark + ")\n}\n", false},
-		{"comma in a list", ",", "fn f() -> List<Int> {\n    [1," + cursorMark + "]\n}\n", false},
-		{"closing a block", "}", "fn f() {\n    x = 1\n}" + cursorMark + "\n", false},
-		{"auto-paired block", "}", "fn f() {" + cursorMark + "}\n", false},
-		{"anonymous block after a name", "{", "fn f() -> Int {\n    case n{" + cursorMark + "}\n}\n", false},
-		{"typed literal", `"`, "import std::calendar.Date\n\nfn f() {\n    _ = Date\"" + cursorMark + "\"\n}\n", true},
-		{"plain string", `"`, "fn f() {\n    _ = \"" + cursorMark + "\"\n}\n", false},
-		{"parameter annotation", ":", "struct Game {\n    turn: Int\n}\n\nfn slay(game:" + cursorMark + ") {}\n", true},
-		{"binding annotation", ":", "fn f() {\n    n:" + cursorMark + "\n}\n", true},
+		{"pipe", ">", "fn f(xs: List<Int>) -> Int\n    xs |>" + cursorMark + "\nend\n", true},
+		{"arrow", ">", "fn f(c: Bool) -> Int\n    case c\n        True ->" + cursorMark + "\n    end\nend\n", false},
+		{"comparison", ">", "fn f(n: Int) -> Bool\n    n >" + cursorMark + "\nend\n", false},
+		{"struct literal", "{", "struct P\n    x: Int\nend\n\nfn f() -> P\n    P{" + cursorMark + "\nend\n", true},
+		{"struct literal, brace auto-paired", "}", "struct P\n    x: Int\nend\n\nfn f() -> P\n    P{" + cursorMark + "}\nend\n", true},
+		{"struct pattern, brace auto-paired", "}", "struct P\n    x: Int\nend\n\nfn f(p: P) -> Int\n    case p\n        P{" + cursorMark + "} -> 0\n    end\nend\n", true},
+		{"struct literal's next field", ",", "struct P\n    x: Int\n    y: Int\nend\n\nfn f() -> P\n    P{x: 1," + cursorMark + "}\nend\n", true},
+		{"struct pattern's next field", ",", "struct P\n    x: Int\n    y: Int\nend\n\nfn f(p: P) -> Int\n    case p\n        P{x:," + cursorMark + "} -> 0\n    end\nend\n", true},
+		{"comma in a call", ",", "fn g(a: Int, b: Int) -> Int\n    a\nend\n\nfn f() -> Int\n    g(1," + cursorMark + ")\nend\n", false},
+		{"comma in a list", ",", "fn f() -> List<Int>\n    [1," + cursorMark + "]\nend\n", false},
+		{"closing a literal", "}", "fn f() -> Int\n    x = {a: 1}" + cursorMark + "\n    x.a\nend\n", false},
+		{"brace after a name", "{", "fn f() -> Int\n    case n{" + cursorMark + "}\nend\n", false},
+		{"typed literal", `"`, "import std::calendar.Date\n\nfn f()\n    _ = Date\"" + cursorMark + "\"\nend\n", true},
+		{"plain string", `"`, "fn f()\n    _ = \"" + cursorMark + "\"\nend\n", false},
+		{"parameter annotation", ":", "struct Game\n    turn: Int\nend\n\nfn slay(game:" + cursorMark + ") end\n", true},
+		{"binding annotation", ":", "fn f()\n    n:" + cursorMark + "\nend\n", true},
 		{"return type", ">", "fn f() ->" + cursorMark + "\n", true},
 		{"generic return type", ">", "fn f<T>(x: T) ->" + cursorMark + "\n", true},
-		{"lambda arrow after a tuple pattern", ">", "fn f() {\n    g = fn (a, b) ->" + cursorMark + "\n}\n", false},
-		{"struct field declaration", ":", "struct P {\n    x:" + cursorMark + "\n}\n", true},
-		{"struct literal field", ":", "struct P {\n    x: Int\n}\n\nfn f() -> P {\n    P{x:" + cursorMark + "}\n}\n", false},
+		{"lambda arrow after a tuple pattern", ">", "fn f()\n    g = fn (a, b) ->" + cursorMark + "\nend\n", false},
+		{"struct field declaration", ":", "struct P\n    x:" + cursorMark + "\nend\n", true},
+		{"struct literal field", ":", "struct P\n    x: Int\nend\n\nfn f() -> P\n    P{x:" + cursorMark + "}\nend\n", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -143,12 +141,12 @@ func TestCompletion_TriggerCharacters(t *testing.T) {
 }
 
 func TestCompletion_DetailIsTheHoverSignature(t *testing.T) {
-	items := complete(t, "fn f(s: String) -> String {\n    String.tri"+cursorMark+"\n}\n")
+	items := complete(t, "fn f(s: String) -> String\n    String.tri"+cursorMark+"\nend\n")
 	it := mustItem(t, items, "trim")
 	if it.Detail == nil || *it.Detail != "fn trim(s: String) -> String" {
 		t.Fatalf("detail = %v, want the signature", it.Detail)
 	}
-	items = complete(t, greetDecls+"fn f() -> String {\n    gre"+cursorMark+"\n}\n")
+	items = complete(t, greetDecls+"fn f() -> String\n    gre"+cursorMark+"\nend\n")
 	it = mustItem(t, items, "greet")
 	if it.Detail == nil || *it.Detail != `fn greet(name: String, punct: String = "!") -> String` {
 		t.Fatalf("detail = %q", *it.Detail)
@@ -159,7 +157,7 @@ func TestCompletion_DetailIsTheHoverSignature(t *testing.T) {
 }
 
 func TestCompletion_FieldDetailIsItsType(t *testing.T) {
-	src := "struct Box<T> {\n    /// What the box holds.\n    value: T\n}\n\nfn f(b: Box<Int>) -> Int {\n    b." + cursorMark + "\n}\n"
+	src := "struct Box<T>\n    /// What the box holds.\n    value: T\nend\n\nfn f(b: Box<Int>) -> Int\n    b." + cursorMark + "\nend\n"
 	s := NewServer()
 	items := completeIn(t, s, "file:///box.nomi", src).Items
 	it := mustItem(t, items, "value")
@@ -177,7 +175,7 @@ func TestCompletion_FieldDetailIsItsType(t *testing.T) {
 
 func TestCompletion_ResolveAddsDocumentation(t *testing.T) {
 	s := NewServer()
-	items := completeIn(t, s, "file:///resolve.nomi", greetDecls+"fn f() -> String {\n    gre"+cursorMark+"\n}\n").Items
+	items := completeIn(t, s, "file:///resolve.nomi", greetDecls+"fn f() -> String\n    gre"+cursorMark+"\nend\n").Items
 	it := mustItem(t, items, "greet")
 	if it.Data == nil {
 		t.Fatal("item carries no resolve data")
@@ -193,7 +191,7 @@ func TestCompletion_ResolveAddsDocumentation(t *testing.T) {
 	}
 
 	// An item from an older list resolves to itself.
-	completeIn(t, s, "file:///resolve.nomi", greetDecls+"fn f() -> String {\n    no"+cursorMark+"\n}\n")
+	completeIn(t, s, "file:///resolve.nomi", greetDecls+"fn f() -> String\n    no"+cursorMark+"\nend\n")
 	again, _ := s.completionItemResolve(nil, &stale)
 	if again.Documentation != nil {
 		t.Fatal("a stale item resolved against the newer list")
@@ -209,13 +207,13 @@ func TestCompletion_InsertText(t *testing.T) {
 		text     string
 		snippet  bool
 	}{
-		{"required parameters only", true, greetDecls + "fn f() -> String {\n    gre" + cursorMark + "\n}\n", "greet", "greet(${1:name})$0", true},
-		{"no parameters", true, greetDecls + "fn f() -> Int {\n    no" + cursorMark + "\n}\n", "now", "now()$0", true},
-		{"owner function", true, "fn f(s: String) -> String {\n    String.tri" + cursorMark + "\n}\n", "trim", "trim(${1:s})$0", true},
-		{"plain text, required parameters", false, greetDecls + "fn f() -> String {\n    gre" + cursorMark + "\n}\n", "greet", "greet", false},
-		{"plain text, no parameters", false, greetDecls + "fn f() -> Int {\n    no" + cursorMark + "\n}\n", "now", "now()", false},
-		{"parenthesis already written", true, greetDecls + "fn f() -> String {\n    gre" + cursorMark + "(\"a\")\n}\n", "greet", "greet", false},
-		{"a binding is not called", true, "fn f() -> Int {\n    total = 1\n    tot" + cursorMark + "\n}\n", "total", "total", false},
+		{"required parameters only", true, greetDecls + "fn f() -> String\n    gre" + cursorMark + "\nend\n", "greet", "greet(${1:name})$0", true},
+		{"no parameters", true, greetDecls + "fn f() -> Int\n    no" + cursorMark + "\nend\n", "now", "now()$0", true},
+		{"owner function", true, "fn f(s: String) -> String\n    String.tri" + cursorMark + "\nend\n", "trim", "trim(${1:s})$0", true},
+		{"plain text, required parameters", false, greetDecls + "fn f() -> String\n    gre" + cursorMark + "\nend\n", "greet", "greet", false},
+		{"plain text, no parameters", false, greetDecls + "fn f() -> Int\n    no" + cursorMark + "\nend\n", "now", "now()", false},
+		{"parenthesis already written", true, greetDecls + "fn f() -> String\n    gre" + cursorMark + "(\"a\")\nend\n", "greet", "greet", false},
+		{"a binding is not called", true, "fn f() -> Int\n    total = 1\n    tot" + cursorMark + "\nend\n", "total", "total", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -239,11 +237,11 @@ func TestCompletion_TextEditReplacesTheWord(t *testing.T) {
 		label      string
 		start, end uint32 // UTF-16 columns on the cursor's line
 	}{
-		{"typed prefix", "fn f() -> Int {\n    total = 1\n    tot" + cursorMark + "\n}\n", "total", 4, 7},
-		{"word continues past the cursor", "fn f() -> Int {\n    total = 1\n    to" + cursorMark + "tl\n}\n", "total", 4, 8},
-		{"non-ASCII earlier on the line", "fn f() -> String {\n    total = \"é\"\n    x = \"ééé\" + tot" + cursorMark + "\n}\n", "total", 16, 19},
-		{"a name before a ?", "fn find(s: String) -> Maybe<Int> {\n    String.to_int(s)\n}\n\nfn f() -> Maybe<Int> {\n    fi" + cursorMark + "nd?\n}\n", "find", 4, 8},
-		{"after a dot", "fn f(s: String) -> String {\n    String.tr" + cursorMark + "\n}\n", "trim", 11, 13},
+		{"typed prefix", "fn f() -> Int\n    total = 1\n    tot" + cursorMark + "\nend\n", "total", 4, 7},
+		{"word continues past the cursor", "fn f() -> Int\n    total = 1\n    to" + cursorMark + "tl\nend\n", "total", 4, 8},
+		{"non-ASCII earlier on the line", "fn f() -> String\n    total = \"é\"\n    x = \"ééé\" + tot" + cursorMark + "\nend\n", "total", 16, 19},
+		{"a name before a ?", "fn find(s: String) -> Maybe<Int>\n    String.to_int(s)\nend\n\nfn f() -> Maybe<Int>\n    fi" + cursorMark + "nd?\nend\n", "find", 4, 8},
+		{"after a dot", "fn f(s: String) -> String\n    String.tr" + cursorMark + "\nend\n", "trim", 11, 13},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -260,13 +258,13 @@ func TestCompletion_TextEditReplacesTheWord(t *testing.T) {
 
 // A field accepted straight after the `,` brings the space after it.
 func TestCompletion_FieldAfterACommaGetsItsSpace(t *testing.T) {
-	src := "struct P {\n    x: Int\n    y: Int\n}\n\nfn f() -> P {\n    P{x: 1," + cursorMark + "}\n}\n"
+	src := "struct P\n    x: Int\n    y: Int\nend\n\nfn f() -> P\n    P{x: 1," + cursorMark + "end\nend\n"
 	items := complete(t, src)
 	te := textEditOf(t, mustItem(t, items, "y"))
 	if !strings.HasPrefix(te.NewText, " y") {
 		t.Fatalf("insert = %q, want it to start with the space after the comma", te.NewText)
 	}
-	spaced := complete(t, "struct P {\n    x: Int\n    y: Int\n}\n\nfn f() -> P {\n    P{x: 1, "+cursorMark+"}\n}\n")
+	spaced := complete(t, "struct P\n    x: Int\n    y: Int\nend\n\nfn f() -> P\n    P{x: 1, "+cursorMark+"end\nend\n")
 	if te := textEditOf(t, mustItem(t, spaced, "y")); strings.HasPrefix(te.NewText, " ") {
 		t.Fatalf("insert = %q after a space, want no second space", te.NewText)
 	}

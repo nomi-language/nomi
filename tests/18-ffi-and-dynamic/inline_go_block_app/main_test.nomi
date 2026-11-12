@@ -1,9 +1,9 @@
 import ffi
 
-test "local Go package functions are available" {
+test "local Go package functions are available"
     assert ffi.echo_upper("inline") == "INLINE"
-}
+end
 
-test "local Go package types can back opaque Nomi types" {
+test "local Go package types can back opaque Nomi types"
     assert ffi.box_label(ffi.make_box("local")) == "local"
-}
+end

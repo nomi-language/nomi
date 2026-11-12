@@ -20,12 +20,12 @@
 //            import" / fixAll drops it.
 //   FIXALL   Several edits at once, then save with fixAll-on-save: one pass
 //            removes the unused imports and re-adds the missing ones.
-import {
+import
     std::duration.Duration
     std::io
-}
+end
 
-fn main() {
+fn main()
     ["a", "b", "c"]
     |> String.join()
     |> io.print()
@@ -33,4 +33,4 @@ fn main() {
     5
     |> Duration.seconds()
     |> io.inspect()
-}
+end

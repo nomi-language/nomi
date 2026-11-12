@@ -11,17 +11,17 @@ import (
 // value has no Display (spec: Display and Debug). Each rejection names the
 // part that has no Display.
 func TestDisplayOfStructuralTypesRejectsAPartWithoutDisplay(t *testing.T) {
-	const decls = `struct Q {
+	const decls = `struct Q
   a: Int
-}
+end
 
-fn inc(x: Int) -> Int {
+fn inc(x: Int) -> Int
   x + 1
-}
+end
 
-fn show<T>(x: T) -> String where T: Display {
+fn show<T>(x: T) -> String where T: Display
   "${x}"
-}
+end
 `
 	cases := []struct {
 		name, body, want string
@@ -29,7 +29,7 @@ fn show<T>(x: T) -> String where T: Display {
 		{"a function value", `"${inc}"`, "no impl of `Display` for `(Int) -> Int`; a function value has no `Display`"},
 		{"a function in a tuple", `"${(1, inc)}"`, "no impl of `Display` for `(Int) -> Int`; a function value has no `Display`"},
 		{"a struct without Display in a tuple", `"${(1, Q{a: 1})}"`, "no impl of `Display` for `Q`"},
-		{"a struct without Display in a record", `"${.{q: Q{a: 1}}}"`, "no impl of `Display` for `Q`"},
+		{"a struct without Display in a record", `"${{q: Q{a: 1}}}"`, "no impl of `Display` for `Q`"},
 		{"a struct without Display in a list", `"${[Q{a: 1}]}"`, "no impl of `Display` for `Q`"},
 		{"a tuple with a struct without Display at a bound", `show((1, Q{a: 1}))`,
 			"(Int, Q) does not implement Display (required by `where T: Display`)\n" +
@@ -39,7 +39,7 @@ fn show<T>(x: T) -> String where T: Display {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := decls + "\nfn render() -> String {\n  " + tc.body + "\n}\n"
+			src := decls + "\nfn render() -> String\n  " + tc.body + "\nend\n"
 			fa := buildWithStdlibForDerive(src)
 			if !hasErrSubstring(fa.TypeErrors, tc.want) {
 				t.Fatalf("the checker admits %s, or rejects it with another message; want %q, got:\n%s",
@@ -53,20 +53,20 @@ fn show<T>(x: T) -> String where T: Display {
 // Display, at an interpolation and at a bound, including nested in a generic
 // std type whose impl requires its argument to be Display.
 func TestDisplayOfStructuralTypesAdmitsDisplayParts(t *testing.T) {
-	const decls = `fn show<T>(x: T) -> String where T: Display {
+	const decls = `fn show<T>(x: T) -> String where T: Display
   "${x}"
-}
+end
 `
 	for _, body := range []string{
 		`"${(1, Some(2))}"`,
-		`"${.{a: 1, b: [Some(2)]}}"`,
+		`"${{a: 1, b: [Some(2)]}}"`,
 		`show((1, Some(2)))`,
 		`show(Some((1, 2)))`,
 		`show([(1, "x")])`,
-		`show(.{a: Some((1, 2))})`,
+		`show({a: Some((1, 2))})`,
 	} {
 		t.Run(body, func(t *testing.T) {
-			src := decls + "\nfn render() -> String {\n  " + body + "\n}\n"
+			src := decls + "\nfn render() -> String\n  " + body + "\nend\n"
 			fa := buildWithStdlibForDerive(src)
 			if len(fa.TypeErrors) != 0 {
 				t.Fatalf("the checker rejects %s:\n%s", body, errorsText(fa.TypeErrors))

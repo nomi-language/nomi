@@ -65,7 +65,7 @@ func IsComplete(source string) bool {
 			depth--
 		}
 	}
-	if depth > 0 {
+	if depth > 0 || openBodies(tokens) > 0 {
 		return false
 	}
 
@@ -84,6 +84,77 @@ func IsComplete(source string) bool {
 	}
 	// No real tokens: empty or whitespace.
 	return true
+}
+
+// openBodies counts the bodies tokens open and do not close with `end`, by
+// the tokens alone: a declaration keyword starting a line (`fn name(`,
+// `struct`, `enum`, `interface`, `impl`, `test`), `case`, `begin`, and a
+// `then`, a lambda's `->`, a binding's `else`, `import` or `concurrent` that
+// ends its line. A REPL reads on until each has its `end`.
+func openBodies(tokens []token.Token) int {
+	type opener struct{ then, iface bool }
+	var open []opener
+	endsLine := func(i int) bool {
+		if i+1 >= len(tokens) {
+			return true
+		}
+		n := tokens[i+1]
+		return n.Type == token.NEWLINE || n.Type == token.COMMENT || n.Type == token.EOF || n.Line > tokens[i].Line
+	}
+	startsLine := func(i int) bool {
+		return i == 0 || tokens[i-1].Line < tokens[i].Line || tokens[i-1].Type == token.PUB || tokens[i-1].Type == token.OPAQUE
+	}
+	for i, t := range tokens {
+		switch t.Type {
+		case token.END:
+			if len(open) > 0 {
+				open = open[:len(open)-1]
+			}
+		case token.CASE, token.BEGIN:
+			open = append(open, opener{})
+		case token.THEN:
+			if endsLine(i) && (i == 0 || tokens[i-1].Type != token.PIPE) {
+				open = append(open, opener{then: true})
+			}
+		case token.ELSE:
+			if endsLine(i) && (len(open) == 0 || !open[len(open)-1].then) {
+				open = append(open, opener{})
+			}
+		case token.ARROW:
+			if !endsLine(i) {
+				continue
+			}
+			for j := i - 1; j >= 0 && tokens[j].Line == t.Line; j-- {
+				if tokens[j].Type == token.FN {
+					open = append(open, opener{})
+					break
+				}
+			}
+		case token.STRUCT, token.ENUM, token.INTERFACE, token.IMPL, token.TEST:
+			if startsLine(i) {
+				open = append(open, opener{iface: t.Type == token.INTERFACE})
+			}
+		case token.FN:
+			inIface := len(open) > 0 && open[len(open)-1].iface
+			if !inIface && startsLine(i) && i+2 < len(tokens) && tokens[i+1].Type == token.IDENT &&
+				(tokens[i+2].Type == token.LPAREN || tokens[i+2].Type == token.LT) {
+				open = append(open, opener{})
+			}
+		case token.IMPORT:
+			if endsLine(i) {
+				open = append(open, opener{})
+			}
+		case token.IDENT:
+			if (t.Lexeme == "concurrent" || t.Lexeme == "group") && endsLine(i) && startsLine(i) {
+				open = append(open, opener{})
+			}
+			if t.Lexeme == "group" && startsLine(i) && i+1 < len(tokens) && tokens[i+1].Line == t.Line &&
+				(tokens[i+1].Type == token.STRING_LITERAL || tokens[i+1].Type == token.STRING_START) {
+				open = append(open, opener{})
+			}
+		}
+	}
+	return len(open)
 }
 
 type lexer struct {
@@ -216,7 +287,7 @@ func startsContinuationOperator(rest string) bool {
 	case strings.HasPrefix(rest, "&&&"), strings.HasPrefix(rest, "|||"), strings.HasPrefix(rest, "^^^"):
 		return true
 	}
-	for _, word := range []string{"and", "or", "is", "in"} {
+	for _, word := range []string{"and", "or", "is", "in", "where"} {
 		if strings.HasPrefix(rest, word) && (len(rest) == len(word) || !isIdentPart(rest[len(word)])) {
 			return true
 		}
@@ -1064,6 +1135,8 @@ var keywords = map[string]token.TokenType{
 	"self":        token.SELF,
 	"then":        token.THEN,
 	"tap":         token.TAP,
+	"end":         token.END,
+	"begin":       token.BEGIN,
 	// `open` is a contextual keyword, recognized by lexeme before an
 	// interface default method only (parseInterfaceDef), so `open = ...`
 	// keeps working elsewhere. `field` is an ordinary identifier; the
@@ -1408,7 +1481,7 @@ func isDigit(ch byte) bool {
 // for the C-family negation `&!f(&1)`.
 func startsCaptureBody(ch byte) bool {
 	switch {
-	case ch == '(', ch == '[', ch == '#', ch == '%', ch == '.', ch == '!', ch == '"', ch == '`':
+	case ch == '(', ch == '[', ch == '{', ch == '#', ch == '%', ch == '.', ch == '!', ch == '"', ch == '`':
 		return true
 	case ch >= 'a' && ch <= 'z', ch >= 'A' && ch <= 'Z':
 		return true
@@ -1441,6 +1514,7 @@ func canEndStatement(tt token.TokenType) bool {
 		token.TAGGED_STRING_LITERAL, token.TAGGED_TRIPLE_STRING_LITERAL,
 		token.RAW_TAGGED_STRING_LITERAL, token.RAW_TAGGED_TRIPLE_STRING_LITERAL,
 		token.RPAREN, token.RBRACKET, token.RBRACE, token.GT,
+		token.END,
 		token.RETURN, token.BREAK, token.CONTINUE, token.QUESTION,
 		token.ASSERT, token.REFUTE, token.DBG,
 		token.UNDERSCORE, token.PLACEHOLDER:

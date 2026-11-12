@@ -1,4 +1,4 @@
-import {
+import
     add.Add
     bool.Bool.{self, False, True}
     comparable.Comparable
@@ -21,7 +21,7 @@ import {
     strings.String
     subtract.Subtract
     summable.Summable
-}
+end
 
 //# Operations on the IEEE 754 double-precision `Float` type: the special
 //# values (`nan`, `±infinity`), the constants `pi` and `e`, classification predicates, rounding, powers,
@@ -38,7 +38,7 @@ import {
 /// 64-bit floating point number.
 pub host type Float
 
-impl Float {
+impl Float
     /// Returns IEEE 754 NaN ("not a number"). Produced by indeterminate
     /// operations like 0.0 / 0.0. NaN propagates through arithmetic and
     /// comparisons; use `Float.is_nan` to test for it.
@@ -82,18 +82,18 @@ impl Float {
     //! assert Float.is_infinite(Float.positive_infinity())
     //! refute Float.is_infinite(42.0)
     //
-    pub fn is_infinite(x: Float) -> Bool {
+    pub fn is_infinite(x: Float) -> Bool
         x == Float.positive_infinity() or x == Float.negative_infinity()
-    }
+    end
 
     /// True if x is a finite real number — not NaN, not ±Infinity.
     //! assert Float.is_finite(42.0)
     //! refute Float.is_finite(Float.nan())
     //! refute Float.is_finite(Float.negative_infinity())
     //
-    pub fn is_finite(x: Float) -> Bool {
+    pub fn is_finite(x: Float) -> Bool
         not Float.is_nan(x) and not Float.is_infinite(x)
-    }
+    end
 
     /// Converts a Float to an Int by truncating toward zero, exactly at any
     /// magnitude. Returns None for NaN and ±Infinity. Use
@@ -140,9 +140,9 @@ impl Float {
     //! assert Float.round(2.675, 2, RoundingMode.HalfUp) == 2.67
     //! assert Float.round(-0.4) == 0.0
     //
-    pub fn round(x: Float, scale: Int = 0, mode = RoundingMode.HalfEven) -> Float {
+    pub fn round(x: Float, scale: Int = 0, mode = RoundingMode.HalfEven) -> Float
         float_round(x, scale, mode)
-    }
+    end
 
     /// Rounds a Float toward -∞. NaN and ±Infinity pass through unchanged.
     //! assert Float.floor(3.7) == 3.0
@@ -169,9 +169,9 @@ impl Float {
     //! assert Float.abs(Float.negative_infinity()) == Float.positive_infinity()
     //! assert Float.is_nan(Float.abs(Float.nan()))
     //
-    pub fn abs(x: Float) -> Float {
-        if float_bits(x) < 0 { -x } else { x }
-    }
+    pub fn abs(x: Float) -> Float
+        if float_bits(x) < 0 then -x else x
+    end
 
     /// Whether `a` and `b` differ by at most `tolerance`: `a == b`, or
     /// `Float.abs(a - b) <= tolerance`. Use it where a computed Float should
@@ -189,11 +189,11 @@ impl Float {
     //! refute Float.equal_within(Float.positive_infinity(), Float.negative_infinity(), 1e300)
     //! refute Float.equal_within(Float.nan(), Float.nan(), 1.0)
     //
-    pub fn equal_within(a: Float, b: Float, tolerance: Float) -> Bool {
+    pub fn equal_within(a: Float, b: Float, tolerance: Float) -> Bool
         require_tolerance(tolerance)
         // `==` holds for two NaNs, so NaN is ruled out first.
         not Float.is_nan(a) and not Float.is_nan(b) and (a == b or Float.abs(a - b) <= tolerance)
-    }
+    end
 
     /// Returns the sign of `x` as -1, 0, or +1. Both zeros give 0, and so does
     /// NaN, which is neither less than nor greater than zero; test for it with
@@ -203,13 +203,13 @@ impl Float {
     //! assert Float.sign(Float.positive_infinity()) == 1
     //! assert Float.sign(Float.nan()) == 0
     //
-    pub fn sign(x: Float) -> Int {
-        case {
+    pub fn sign(x: Float) -> Int
+        case
             x < 0.0 -> -1
             x > 0.0 -> 1
             _ -> 0
-        }
-    }
+        end
+    end
 
     /// `x` raised to the power `y`, with IEEE 754's results at the edges, as
     /// Go's `math.Pow` gives them: `Float.pow(x, 0.0)` and
@@ -313,9 +313,9 @@ impl Float {
         min_fraction: Int = 0,
         max_fraction: Int = 3,
         grouping: Bool = True,
-    ) -> String {
+    ) -> String
         float_format(locale, f, min_fraction, max_fraction, grouping)
-    }
+    end
 
     /// `f` as a percentage in `locale`: `f` times 100, with the locale's
     /// percent sign where the locale puts it.
@@ -325,9 +325,9 @@ impl Float {
     //! assert Float.format_percent(0.256, Locale`tr`) == "%26"
     //! assert Float.format_percent(0.1234, Locale`en`, 1) == "12.3%"
     //
-    pub fn format_percent(f: Float, locale: Locale, max_fraction: Int = 0) -> String {
+    pub fn format_percent(f: Float, locale: Locale, max_fraction: Int = 0) -> String
         float_format_percent(locale, f, max_fraction)
-    }
+    end
 
     /// Read text a reader of `locale` wrote as a `Float`, strictly unless
     /// `lenient: True`, as `Int.parse_in` reads an `Int`. The locale's
@@ -343,9 +343,9 @@ impl Float {
         text: String,
         locale: Locale,
         lenient: Bool = False,
-    ) -> Result<Float, NumberParseError> {
+    ) -> Result<Float, NumberParseError>
         float_parse_in(text, locale, lenient)
-    }
+    end
 
     /// Read a percentage a reader of `locale` wrote, as a fraction:
     /// `12,5 %` is `0.125`. The percent sign is required, where the locale
@@ -361,10 +361,10 @@ impl Float {
         text: String,
         locale: Locale,
         lenient: Bool = False,
-    ) -> Result<Float, NumberParseError> {
+    ) -> Result<Float, NumberParseError>
         float_parse_percent_in(text, locale, lenient)
-    }
-}
+    end
+end
 
 host fn float_round(x: Float, scale: Int, mode: RoundingMode) -> Float
 
@@ -403,7 +403,7 @@ host fn require_tolerance(tolerance: Float) -> Unit
 // Traps when `Float.clamp`'s bounds are NaN or backwards.
 host fn require_clamp_bounds(low: Float, high: Float) -> Unit
 
-impl Display for Float {
+impl Display for Float
     /// Returns the canonical string form of `x`, matching the runtime
     /// stringifier used by `io.print` and string interpolation. NaN renders as
     /// `NaN`, ±Infinity as `+Inf` / `-Inf`.
@@ -411,47 +411,47 @@ impl Display for Float {
     //! assert Float.to_string(1e20) == "100000000000000000000.0"
     //
     host fn to_string(x: Float) -> String
-}
+end
 
-impl Add<Float, Float> for Float {
+impl Add<Float, Float> for Float
     host fn add(lhs: Float, rhs: Float) -> Float
-}
+end
 
-impl Summable for Float {
+impl Summable for Float
     /// The sum of no Floats: `0.0`. `x + 0.0` is `x` for every Float but
     /// `-0.0`, which it turns into `0.0` (equal under `==`).
     //! assert Float.empty_sum() == 0.0
     //! assert 2.5 + Float.empty_sum() == 2.5
     //
-    fn empty_sum() -> Float {
+    fn empty_sum() -> Float
         0.0
-    }
-}
+    end
+end
 
-impl Subtract<Float, Float> for Float {
+impl Subtract<Float, Float> for Float
     host fn subtract(lhs: Float, rhs: Float) -> Float
-}
+end
 
-impl Multiply<Float, Float> for Float {
+impl Multiply<Float, Float> for Float
     host fn multiply(lhs: Float, rhs: Float) -> Float
-}
+end
 
-impl Productable for Float {
+impl Productable for Float
     /// The product of no Floats: `1.0`. `x * 1.0` is `x` for every Float,
     /// NaN and the infinities included.
     //! assert Float.empty_product() == 1.0
     //! assert 2.5 * Float.empty_product() == 2.5
     //
-    fn empty_product() -> Float {
+    fn empty_product() -> Float
         1.0
-    }
-}
+    end
+end
 
-impl Divide<Float, Float> for Float {
+impl Divide<Float, Float> for Float
     host fn divide(lhs: Float, rhs: Float) -> Float
-}
+end
 
-impl Remainder<Float, Float> for Float {
+impl Remainder<Float, Float> for Float
     /// `lhs % rhs`: IEEE 754's `fmod`, `lhs - rhs * trunc(lhs / rhs)` computed
     /// exactly, so it takes the sign of `lhs` and never traps. A zero `rhs`
     /// or an infinite `lhs` gives NaN, and an infinite `rhs` gives `lhs`.
@@ -463,41 +463,41 @@ impl Remainder<Float, Float> for Float {
     //! assert 3.0 % Float.positive_infinity() == 3.0
     //
     host fn remainder(lhs: Float, rhs: Float) -> Float
-}
+end
 
-impl Debug for Float {
+impl Debug for Float
     /// The same text as `Display` (`3.14`): a Float's literal is its
     /// user-facing form.
     //! assert Debug.inspect(3.14) == Display.to_string(3.14)
     //
-    fn inspect(x: Float) -> String {
+    fn inspect(x: Float) -> String
         to_string(x)
-    }
-}
+    end
+end
 
-impl Equatable for Float {
-    fn equal(a: Float, b: Float) -> Bool {
+impl Equatable for Float
+    fn equal(a: Float, b: Float) -> Bool
         a == b
-    }
-}
+    end
+end
 
-impl Hashable for Float {
+impl Hashable for Float
     // Hash must agree with `==`: equal values hash equally. Two cases need
     // normalizing before taking the raw bits, because `==` treats them as equal
     // but their bit patterns differ: signed zero (`-0.0 == 0.0`) and NaN (which
     // is reflexively equal under Nomi's structural `==`, yet has many encodings).
-    fn hash(x: Float) -> Int {
-        if Float.is_nan(x) {
+    fn hash(x: Float) -> Int
+        if Float.is_nan(x) then
             float_bits(Float.nan())
-        } else if x == 0.0 {
+        else if x == 0.0 then
             0
-        } else {
+        else
             float_bits(x)
-        }
-    }
-}
+        end
+    end
+end
 
-impl Comparable for Float {
+impl Comparable for Float
     // A total order. NaN is placed at the top: all NaNs compare Equal to each
     // other and Greater than every non-NaN Float, including +Infinity. For
     // non-NaN operands the IEEE order applies; -0.0 and +0.0 compare Equal.
@@ -522,16 +522,16 @@ impl Comparable for Float {
     // often than it helps. Java splits the same three behaviours across three
     // spellings (`==`, `.equals()`, `Double.compare`) for the same reason and
     // with the same hashing motivation; Nomi's `==` is Java's `.equals()`.
-    fn compare(a: Float, b: Float) -> Ordering {
-        case {
+    fn compare(a: Float, b: Float) -> Ordering
+        case
             Float.is_nan(a) and Float.is_nan(b) -> Equal
             Float.is_nan(a) -> Greater
             Float.is_nan(b) -> Less
             a < b -> Less
             a == b -> Equal
             _ -> Greater
-        }
-    }
+        end
+    end
 
     /// The lesser of `a` and `b`: NaN if either is NaN, and `-0.0` as the
     /// lesser of the two zeros (IEEE 754-2019 `minimum`). Other ties return
@@ -542,8 +542,8 @@ impl Comparable for Float {
     //! assert Float.is_nan(Float.min(Float.nan(), 1.0))
     //! assert Float.is_nan(Comparable.min(1.0, Float.nan()))
     //
-    fn min(a: Float, b: Float) -> Float {
-        case {
+    fn min(a: Float, b: Float) -> Float
+        case
             Float.is_nan(a) -> a
             Float.is_nan(b) -> b
             a < b -> a
@@ -551,8 +551,8 @@ impl Comparable for Float {
             // Equal, so either the same value or the two zeros.
             float_bits(b) < 0 -> b
             _ -> a
-        }
-    }
+        end
+    end
 
     /// The greater of `a` and `b`: NaN if either is NaN, and `0.0` as the
     /// greater of the two zeros (IEEE 754-2019 `maximum`). Other ties return
@@ -561,8 +561,8 @@ impl Comparable for Float {
     //! assert Float.to_string(Float.max(-0.0, 0.0)) == "0.0"
     //! assert Float.is_nan(Float.max(1.0, Float.nan()))
     //
-    fn max(a: Float, b: Float) -> Float {
-        case {
+    fn max(a: Float, b: Float) -> Float
+        case
             Float.is_nan(a) -> a
             Float.is_nan(b) -> b
             a > b -> a
@@ -570,8 +570,8 @@ impl Comparable for Float {
             // Equal, so either the same value or the two zeros.
             float_bits(a) < 0 -> b
             _ -> a
-        }
-    }
+        end
+    end
 
     /// `value` held to `low..high`, both ends included. A NaN `value` stays
     /// NaN, as every IEEE operation on one does; `compare` would put it above
@@ -587,14 +587,14 @@ impl Comparable for Float {
     //! assert Float.is_nan(Float.clamp(Float.nan(), 0.0, 1.0))
     //! assert Float.clamp(Float.positive_infinity(), 0.0, 1.0) == 1.0
     //
-    fn clamp(value: Float, low: Float, high: Float) -> Float {
+    fn clamp(value: Float, low: Float, high: Float) -> Float
         require_clamp_bounds(low, high)
 
-        case {
+        case
             Float.is_nan(value) -> value
             value < low -> low
             value > high -> high
             _ -> value
-        }
-    }
-}
+        end
+    end
+end

@@ -11,14 +11,14 @@ import (
 // stripped indentation; an offset at a static's end lands on the next slot's
 // `${`.
 func TestCheckedLiteralPosMapsOffsetsToSource(t *testing.T) {
-	src := "fn main() {\n" +
+	src := "fn main()\n" +
 		"    a = Shout\"it is ${n} oh no! times\"\n" +
 		"    b = Shout\"x\\ty! ${n}\"\n" +
 		"    c = Shout\"\"\"\n" +
 		"        first ${n}\n" +
 		"        second!\n" +
 		"        \"\"\"\n" +
-		"}\n"
+		"end\n"
 	cases := []struct {
 		name             string
 		site             irbuild.LiteralSite

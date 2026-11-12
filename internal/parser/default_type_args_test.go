@@ -23,7 +23,7 @@ func TestTypeParamDefault(t *testing.T) {
 }
 
 func TestTypeParamDefaultBeforeRequiredIsRefused(t *testing.T) {
-	_, errs := parser.ParseWithRecovery(lexer.Lex("struct Pair<A = Int, B> {\n    a: A\n    b: B\n}\n"))
+	_, errs := parser.ParseWithRecovery(lexer.Lex("struct Pair<A = Int, B>\n    a: A\n    b: B\nend\n"))
 	if len(errs) == 0 || !strings.Contains(errs[0].Error(), "type parameter `B` has no default, so it can't follow `A`, which has one") {
 		t.Fatalf("want the ordering error, got %v", errs)
 	}
@@ -31,7 +31,7 @@ func TestTypeParamDefaultBeforeRequiredIsRefused(t *testing.T) {
 
 // A struct field may leave out its type when it has a default.
 func TestStructFieldWithoutType(t *testing.T) {
-	nodes, errs := parser.ParseWithRecovery(lexer.Lex("struct Game {\n    word: String\n    misses = 0\n}\n"))
+	nodes, errs := parser.ParseWithRecovery(lexer.Lex("struct Game\n    word: String\n    misses = 0\nend\n"))
 	if len(errs) > 0 {
 		t.Fatalf("parse errors: %v", errs)
 	}

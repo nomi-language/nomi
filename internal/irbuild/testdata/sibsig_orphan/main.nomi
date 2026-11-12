@@ -3,19 +3,19 @@
 //
 // `rules.ping()` is here so rules.nomi is genuinely part of the program's
 // reference graph rather than an inert file beside it.
-import {
+import
     std::io
     money.{self, Money}
     rules
-}
+end
 
-fn same(a: Money, b: Money) -> Bool {
+fn same(a: Money, b: Money) -> Bool
     a == b
-}
+end
 
-fn main() {
+fn main()
     a = money.at(1, "x")
     b = money.at(1, "y")
     io.print("ping = ${rules.ping()}")
     io.print("eq = ${Bool.to_string(same(a, b))}")
-}
+end

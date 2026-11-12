@@ -19,7 +19,7 @@ func (bl *irScalarBuilder) inferredRegionValue(value ast.Node, statement bool) (
 	bl.sh.result = result
 	defer func() { bl.sh.result = outer }()
 	sig := irFuncSig{inferResult: true}
-	if seq, isSeq := bl.g.irSeqKindOf(analysis.ResolveTypeVar(bl.g.checkedExprType(value))); isSeq {
+	if seq, isSeq := bl.g.irSeqKindOf(analysis.ResolveClosed(bl.g.checkedExprType(value))); isSeq {
 		// The checker typed the region as an `Iter<T>`: an arm of another
 		// kind (a `List<T>` beside a call answering the sequence) enters it,
 		// so the first arm's kind is not the region's.

@@ -281,7 +281,7 @@ func importRegionBounds(content string, lineOffs []int, nodes []ast.Node) (int, 
 			if analysis.IsSynthesizedLine(v.Line) {
 				continue
 			}
-			closeOff := matchBraceEnd(content, posToOffset(lineOffs, v.Line, v.Col))
+			closeOff := importBlockEnd(content, lineOffs, v)
 			note(v.Line-1, lineIndexOf(lineOffs, closeOff))
 		}
 	}

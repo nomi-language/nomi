@@ -69,10 +69,10 @@ func joinMessages(errs []analysis.TypeError) string {
 	return strings.Join(out, "\n  ")
 }
 
-const identityShapes = `pub struct Point {
+const identityShapes = `pub struct Point
   x: Int
   y: Int
-}
+end
 `
 
 // TestInterfaceIdentity_ABoundNamesOneDeclarationNotASpelling is the soundness
@@ -93,35 +93,35 @@ func TestInterfaceIdentity_ABoundNamesOneDeclarationNotASpelling(t *testing.T) {
 import svg
 import ascii
 
-fn main() {
+fn main()
   _tag = ascii.tag()
   _drawn = svg.draw(Point{x: 1, y: 2})
-}
+end
 `, map[string]string{
 		"shapes": identityShapes,
-		"svg": `pub interface Renderer {
+		"svg": `pub interface Renderer
   fn render(value: self) -> String
-}
+end
 
-pub fn draw<T>(x: T) -> String where T: Renderer {
+pub fn draw<T>(x: T) -> String where T: Renderer
   Renderer.render(x)
-}
+end
 `,
 		"ascii": `import shapes.{Point}
 
-pub interface Renderer {
+pub interface Renderer
   fn render(value: self) -> String
-}
+end
 
-impl Renderer for Point {
-  fn render(p: Point) -> String {
+impl Renderer for Point
+  fn render(p: Point) -> String
     "ascii(${p.x},${p.y})"
-  }
-}
+  end
+end
 
-pub fn tag() -> String {
+pub fn tag() -> String
   "ascii"
-}
+end
 `,
 	})
 	// Exactly one diagnostic, and it is this one. Without the field the
@@ -138,19 +138,19 @@ pub fn tag() -> String {
 func sameNamedRenderer(tag string) string {
 	return `import shapes.{Point}
 
-pub interface Renderer {
+pub interface Renderer
   fn render(value: self) -> String
-}
+end
 
-impl Renderer for Point {
-  fn render(p: Point) -> String {
+impl Renderer for Point
+  fn render(p: Point) -> String
     "` + tag + `(${p.x},${p.y})"
-  }
-}
+  end
+end
 
-pub fn show(p: Point) -> String {
+pub fn show(p: Point) -> String
   Renderer.render(p)
-}
+end
 `
 }
 
@@ -165,11 +165,11 @@ func TestInterfaceIdentity_TwoSameNamedInterfacesForOneReceiverAreAccepted(t *te
 import svg
 import ascii
 
-fn main() {
+fn main()
   p = Point{x: 1, y: 2}
   _svg = svg.show(p)
   _ascii = ascii.show(p)
-}
+end
 `, map[string]string{
 		"shapes": identityShapes,
 		"svg":    sameNamedRenderer("svg"),
@@ -193,20 +193,20 @@ func TestInterfaceIdentity_ADuplicateOfOneDeclarationIsStillRejected(t *testing.
 import svg
 import ascii
 
-fn main() {
+fn main()
   _drawn = svg.show(Point{x: 1, y: 2})
-}
+end
 `, map[string]string{
 		"shapes": identityShapes,
 		"svg":    sameNamedRenderer("svg"),
 		"ascii": `import shapes.{Point}
 import svg.{Renderer}
 
-impl Renderer for Point {
-  fn render(p: Point) -> String {
+impl Renderer for Point
+  fn render(p: Point) -> String
     "ascii(${p.x},${p.y})"
-  }
-}
+  end
+end
 `,
 	})
 	var got string
@@ -234,26 +234,26 @@ func TestInterfaceIdentity_OneDeclarationStillSatisfiesItsOwnBound(t *testing.T)
 	errs := buildSiblingProject(t, `import shapes.{Point}
 import svg
 
-fn main() {
+fn main()
   _drawn = svg.draw(Point{x: 1, y: 2})
-}
+end
 `, map[string]string{
 		"shapes": identityShapes,
 		"svg": `import shapes.{Point}
 
-pub interface Renderer {
+pub interface Renderer
   fn render(value: self) -> String
-}
+end
 
-impl Renderer for Point {
-  fn render(p: Point) -> String {
+impl Renderer for Point
+  fn render(p: Point) -> String
     "svg(${p.x},${p.y})"
-  }
-}
+  end
+end
 
-pub fn draw<T>(x: T) -> String where T: Renderer {
+pub fn draw<T>(x: T) -> String where T: Renderer
   Renderer.render(x)
-}
+end
 `,
 	})
 	if len(errs) != 0 {
@@ -272,14 +272,14 @@ pub fn draw<T>(x: T) -> String where T: Renderer {
 func TestInterfaceIdentity_StdlibBoundsStillHold(t *testing.T) {
 	errs := buildSiblingProject(t, `import std::io
 
-fn describe<T>(x: T) -> String where T: Display {
+fn describe<T>(x: T) -> String where T: Display
   Display.to_string(x)
-}
+end
 
-fn main() {
+fn main()
   io.print(describe(42))
   io.print(describe("hi"))
-}
+end
 `, nil)
 	if len(errs) != 0 {
 		t.Fatalf("a stdlib bound must still be satisfied by its stdlib impls; got:\n  %s", joinMessages(errs))

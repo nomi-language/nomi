@@ -21,11 +21,11 @@ type Callback (String) -> String
 
 type Tags List<String>
 
-enum Shape {
+enum Shape
   embeds Id
   embeds Expired
   Dot
-}
+end
 
 `
 
@@ -43,7 +43,7 @@ func TestDistinctCtor_AcceptedForms(t *testing.T) {
 		`a: Shape = 5 |> Shape.Id()`,
 		`a: Shape = Shape.Expired`,
 	} {
-		src := distinctCtorDecls + "fn main() {\n  " + stmt + "\n  _ = a\n}\n"
+		src := distinctCtorDecls + "fn main()\n  " + stmt + "\n  _ = a\nend\n"
 		if _, errs := checkSource(src); len(errs) != 0 {
 			t.Errorf("%s: want no errors, got %v", stmt, errs)
 		}
@@ -68,7 +68,7 @@ func TestDistinctCtor_RejectionsNameTheMistakeAndTheForm(t *testing.T) {
 		{`1 |> Pair()`, "Pair wraps (Int, String), so Pair(...) takes a (Int, String); got Int"},
 		{`1 |> Pair("x")`, "Pair takes the piped value as its only argument, got 1 more"},
 	} {
-		src := distinctCtorDecls + "fn main() {\n  _ = " + tc.expr + "\n}\n"
+		src := distinctCtorDecls + "fn main()\n  _ = " + tc.expr + "\nend\n"
 		_, errs := checkSource(src)
 		var got []string
 		found := false
@@ -89,41 +89,41 @@ func TestDistinctCtor_RejectionsNameTheMistakeAndTheForm(t *testing.T) {
 // Shape` and then failed when called, because its only call form takes a
 // record. A positional variant and an embedded distinct stay first-class.
 func TestStructVariantValue_IsRejected(t *testing.T) {
-	const decls = `struct Circle {
+	const decls = `struct Circle
   radius: Float
-}
+end
 
 type Id Int
 
-enum Shape {
+enum Shape
   embeds Circle
   embeds Id
   Rect {w: Float, h: Float}
   Dot Float
-}
+end
 
-fn apply(f: (Float) -> Shape) -> Shape {
+fn apply(f: (Float) -> Shape) -> Shape
   f(1.0)
-}
+end
 
-fn apply_id(f: (Int) -> Shape) -> Shape {
+fn apply_id(f: (Int) -> Shape) -> Shape
   f(1)
-}
+end
 
-fn build(f: (.{w: Float, h: Float}) -> Shape) -> Shape {
-  f(.{w: 1.0, h: 2.0})
-}
+fn build(f: ({w: Float, h: Float}) -> Shape) -> Shape
+  f({w: 1.0, h: 2.0})
+end
 
 `
 	for _, tc := range []struct {
 		stmt string
 		want string
 	}{
-		{`f = Shape.Rect`, "Shape.Rect is a struct-shaped variant and is not a function value; build it with Shape.Rect{...} or Shape.Rect(.{...}), inside a lambda where a function is needed"},
+		{`f = Shape.Rect`, "Shape.Rect is a struct-shaped variant and is not a function value; build it with Shape.Rect{...} or Shape.Rect({...}), inside a lambda where a function is needed"},
 		{`f = Shape.Circle`, "Shape.Circle is a struct-shaped variant and is not a function value"},
 		{`f = build(Shape.Rect)`, "Shape.Rect is a struct-shaped variant and is not a function value"},
 	} {
-		src := decls + "fn main() {\n  " + tc.stmt + "\n  _ = f\n}\n"
+		src := decls + "fn main()\n  " + tc.stmt + "\n  _ = f\nend\n"
 		_, errs := checkSource(src)
 		var got []string
 		found := false
@@ -139,13 +139,13 @@ fn build(f: (.{w: Float, h: Float}) -> Shape) -> Shape {
 	}
 	for _, stmt := range []string{
 		`s = apply(Shape.Dot)`,
-		`s = Shape.Rect(.{w: 1.0, h: 2.0})`,
-		`s = .{w: 1.0, h: 2.0} |> Shape.Rect()`,
+		`s = Shape.Rect({w: 1.0, h: 2.0})`,
+		`s = {w: 1.0, h: 2.0} |> Shape.Rect()`,
 		`s = Shape.Rect{w: 1.0, h: 2.0}`,
-		`s = Shape.Circle(.{radius: 1.0})`,
+		`s = Shape.Circle({radius: 1.0})`,
 		`s = apply_id(Shape.Id)`,
 	} {
-		src := decls + "fn main() {\n  " + stmt + "\n  _ = s\n}\n"
+		src := decls + "fn main()\n  " + stmt + "\n  _ = s\nend\n"
 		if _, errs := checkSource(src); len(errs) != 0 {
 			t.Errorf("%s: want no errors, got %v", stmt, errs)
 		}

@@ -1,19 +1,18 @@
 import std::io
 
-fn main() {
+fn main()
     io.print("type lines; end with ctrl-d")
 
-    count = Iter.loop(0, fn seen -> {
-        case io.read_line() {
-            Ok(Some(line)) -> {
+    count = Iter.loop(0, fn seen ->
+        case io.read_line()
+            Ok(Some(line)) ->
                 io.print("got ${line}")
                 seen + 1
-            }
 
-            // End of input, or a read error.
-            _ -> break seen
-        }
-    })
+            _ ->
+                break seen
+        end
+    end)
 
     io.print("${count} lines")
-}
+end

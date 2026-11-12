@@ -17,120 +17,116 @@
 // those are two types.
 import std::io
 
-fn parse(n: Int) -> Result<Int, String> {
-    if n < 0 {
-        Err("negative ${n}")
-    } else {
-        Ok(n * 2)
-    }
-}
+fn parse(n: Int) -> Result<Int, String>
+    if n < 0 then Err("negative ${n}") else Ok(n * 2)
+end
 
-fn find(n: Int) -> Maybe<Int> {
-    if n == 3 { Some(30) } else { None }
-}
+fn find(n: Int) -> Maybe<Int>
+    if n == 3 then Some(30) else None
+end
 
 // The plain shape: unwrap on `Ok`, propagate on `Err`.
-fn calc(n: Int) -> Result<Int, String> {
+fn calc(n: Int) -> Result<Int, String>
     v = parse(n)?
 
     Ok(v + 1)
-}
+end
 
 // The boundary's SUCCESS type differs from the operand's.
-fn is_positive(n: Int) -> Result<Bool, String> {
+fn is_positive(n: Int) -> Result<Bool, String>
     v = parse(n)?
 
     Ok(v > 0)
-}
+end
 
 // Two `?`s in one expression. The left guard has to run before the right
 // operand is evaluated at all, which the second row observes: `parse(-2)` is
 // never reached because `parse(-1)` already unwound.
-fn sum_two(a: Int, b: Int) -> Result<Int, String> {
+fn sum_two(a: Int, b: Int) -> Result<Int, String>
     Ok(parse(a)? + parse(b)?)
-}
+end
 
 // `Maybe` propagates `None`, which carries nothing.
-fn scaled(n: Int) -> Maybe<Int> {
+fn scaled(n: Int) -> Maybe<Int>
     v = find(n)?
 
     Some(v + 1)
-}
+end
 
 // A `?` after a pipe stage: the parser builds `n |> parse()?` as the stage
 // `n |> parse()` and then a `?` stage, and `r?` is the plain form.
-fn piped(n: Int) -> Result<Int, String> {
+fn piped(n: Int) -> Result<Int, String>
     v = n |> parse()?
 
     Ok(v + 100)
-}
+end
 
-fn piped_bare(r: Result<Int, String>) -> Result<Int, String> {
+fn piped_bare(r: Result<Int, String>) -> Result<Int, String>
     v = r?
 
     Ok(v + 1000)
-}
+end
 
 // THE BOUNDARY. `?` unwinds the lambda, so `after the lambda` prints on both
 // paths and the enclosing function observes the failure as an ordinary value.
-fn through_lambda(n: Int) -> Result<Int, String> {
-    f = fn x: Int -> {
+fn through_lambda(n: Int) -> Result<Int, String>
+    f = fn x: Int ->
         v = parse(x)?
 
         Ok(v + 7)
-    }
+    end
 
     inner = f(n)
     io.print("after the lambda")
 
-    case inner {
+    case inner
         Ok(v) -> Ok(v)
         Err(e) -> Err("outer saw ${e}")
-    }
-}
+    end
+end
 
 // The innermost boundary, and a `?` whose own boundary is not settled when it
 // is emitted: `outer`'s result is decided by its tail, which comes after its
 // `?`.
-fn nested_lambda(n: Int) -> Result<Int, String> {
-    outer = fn x: Int -> {
-        inner = fn y: Int -> {
+fn nested_lambda(n: Int) -> Result<Int, String>
+    outer = fn x: Int ->
+        inner = fn y: Int ->
             v = parse(y)?
 
             Ok(v + 1)
-        }
+        end
 
         io.print("outer body ran")
         got = inner(x)?
 
         Ok(got * 10)
-    }
+    end
 
     outer(n)
-}
+end
 
-fn show(r: Result<Int, String>) -> String {
-    case r {
+fn show(r: Result<Int, String>) -> String
+    case r
         Ok(v) -> "ok ${v}"
         Err(e) -> "err ${e}"
-    }
-}
+    end
+end
 
-fn show_bool(r: Result<Bool, String>) -> String {
-    case r {
+fn show_bool(r: Result<Bool, String>) -> String
+    case r
         Ok(v) -> "ok ${v}"
         Err(e) -> "err ${e}"
-    }
-}
+    end
+end
 
-fn show_maybe(m: Maybe<Int>) -> String {
-    case m {
+fn show_maybe(m: Maybe<Int>) -> String
+    case m
         Some(v) -> "some ${v}"
         None -> "none"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(show(calc(4)))
     io.print(show(calc(-1)))
 
@@ -154,4 +150,4 @@ fn main() {
 
     io.print(show(nested_lambda(1)))
     io.print(show(nested_lambda(-1)))
-}
+end

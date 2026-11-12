@@ -25,43 +25,43 @@
 
 import std::io
 
-enum Signal {
+enum Signal
     Go {n: Int = 3}
     Halt
-}
+end
 
-enum Gear {
+enum Gear
     Drive {n: Int = 7}
     Park
-}
+end
 
-enum Reading {
+enum Reading
     Exact Int
     Missing
-}
+end
 
-fn signal(s: Signal) -> String {
-    case s {
-        Signal.Go{n} -> "signal-go-${n}"
+fn signal(s: Signal) -> String
+    case s
+        Signal.Go{n:} -> "signal-go-${n}"
         Signal.Halt -> "signal-halt"
-    }
-}
+    end
+end
 
-fn gear(g: Gear = .Drive{}) -> String {
-    case g {
-        Gear.Drive{n} -> "gear-drive-${n}"
+fn gear(g: Gear = .Drive{}) -> String
+    case g
+        Gear.Drive{n:} -> "gear-drive-${n}"
         Gear.Park -> "gear-park"
-    }
-}
+    end
+end
 
-fn reading(r: Reading) -> String {
-    case r {
+fn reading(r: Reading) -> String
+    case r
         Reading.Exact(v) -> "exact-${v}"
         Reading.Missing -> "missing"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(signal(.Go{n: 1}))
     io.print(signal(.Go{}))
     io.print(signal(.Halt))
@@ -72,4 +72,4 @@ fn main() {
 
     io.print(reading(.Exact(42)))
     io.print(reading(.Missing))
-}
+end

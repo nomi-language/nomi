@@ -15,17 +15,17 @@ import (
 // arguments aren't bindings, so the locally-determined rule doesn't apply
 // here — this is the unification capability.
 func TestUnificationGap_UnsolvedParamIntoConcreteParam(t *testing.T) {
-	src := `import {
+	src := `import
   std::channels.{Channel, Sender}
   std::io
-}
-fn produce(ch: Channel<Int>, n: Int) -> Unit {
+end
+fn produce(ch: Channel<Int>, n: Int) -> Unit
   r = Sender.send(ch.sender, n)
   io.print("sent")
-}
-fn main() -> Unit {
+end
+fn main() -> Unit
   produce(Channel.buffered(4), 10)
-}`
+end`
 	expectClean(t, checkWithStdlib(src))
 }
 
@@ -35,66 +35,78 @@ fn main() -> Unit {
 // argument; a later argument that conflicts with that binding must be rejected.
 
 func TestUnificationGap_SharedTypeVarConflict_Direct(t *testing.T) {
-	src := `fn g<T>(a: T, _b: T) -> T { a }
-fn main() -> Unit {
+	src := `fn g<T>(a: T, _b: T) -> T
+    a
+end
+fn main() -> Unit
   x = g(1, "two")
-}`
+end`
 	expectErrorContaining(t, checkWithStdlib(src), "expected Int, got String")
 }
 
 func TestUnificationGap_SharedTypeVarConflict_Pipe(t *testing.T) {
-	src := `fn g<T>(a: T, _b: T) -> T { a }
-fn main() -> Unit {
+	src := `fn g<T>(a: T, _b: T) -> T
+    a
+end
+fn main() -> Unit
   x = 1 |> g("two")
-}`
+end`
 	expectErrorContaining(t, checkWithStdlib(src), "expected Int, got String")
 }
 
 func TestUnificationGap_MapGetWrongKey_Direct(t *testing.T) {
 	src := `import std::maps: Map
-fn main() -> Unit {
-  m = %{1 => "one"}
+fn main() -> Unit
+  m = {1 => "one"}
   v = Map.get(m, "wrong")
-}`
+end`
 	expectErrorContaining(t, checkWithStdlib(src), "expected Int, got String")
 }
 
 func TestUnificationGap_MapGetWrongKey_Pipe(t *testing.T) {
 	src := `import std::maps: Map
-fn main() -> Unit {
-  m = %{1 => "one"}
+fn main() -> Unit
+  m = {1 => "one"}
   v = m |> Map.get("wrong")
-}`
+end`
 	expectErrorContaining(t, checkWithStdlib(src), "expected Int, got String")
 }
 
 // Same-type arguments to a shared type var must still type-check cleanly —
 // enforcement must not over-report.
 func TestUnificationGap_SharedTypeVarSameType_Clean(t *testing.T) {
-	src := `fn g<T>(a: T, _b: T) -> T { a }
-fn main() -> Unit {
+	src := `fn g<T>(a: T, _b: T) -> T
+    a
+end
+fn main() -> Unit
   x = g(1, 2)
-}`
+end`
 	expectClean(t, checkWithStdlib(src))
 }
 
 // --- Struct.update gains real patch validation under enforcement ---
 
 func TestStructsUpdate_ValidPartialPatch_Clean(t *testing.T) {
-	src := `struct User { name: String; age: Int }
-fn main() -> Unit {
+	src := `struct User
+    name: String
+    age: Int
+end
+fn main() -> Unit
   u = User{name: "Alice", age: 30}
-  updated = Struct.update(u, .{name: "Bob"})
-}`
+  updated = Struct.update(u, {name: "Bob"})
+end`
 	expectClean(t, checkWithStdlib(src))
 }
 
 func TestStructsUpdate_BogusPatchField_Rejected(t *testing.T) {
-	src := `struct User { name: String; age: Int }
-fn main() -> Unit {
+	src := `struct User
+    name: String
+    age: Int
+end
+fn main() -> Unit
   u = User{name: "Alice", age: 30}
-  updated = Struct.update(u, .{bogus: 5})
-}`
+  updated = Struct.update(u, {bogus: 5})
+end`
 	expectErrorContaining(t, checkWithStdlib(src), "User has no field 'bogus'")
 }
 
@@ -109,18 +121,20 @@ fn main() -> Unit {
 // it would for any other enum name. The now-removed Control-coercion machinery
 // used to rewrite the callback's return type here; this pins that it doesn't.
 func TestUserControlEnum_OrdinaryUnification(t *testing.T) {
-	src := `enum Control<R> {
+	src := `enum Control<R>
   Break
   BreakWith R
   Continue
   Return
   ReturnWith R
-}
+end
 
-fn apply<T>(f: (T) -> T, x: T) -> T { f(x) }
-fn main() -> Unit {
+fn apply<T>(f: (T) -> T, x: T) -> T
+    f(x)
+end
+fn main() -> Unit
   r = apply(fn _n -> Control.BreakWith(42), 5)
-}`
+end`
 	expectErrorContaining(t, checkWithStdlib(src), "expected Control<Int>, got Int")
 }
 
@@ -131,11 +145,12 @@ fn main() -> Unit {
 // `break sum` exits with it). Pins S-from-default inference under loop's
 // `(S) -> S` signature.
 func TestLoopStatefulKeywordSugar_Clean(t *testing.T) {
-	src := `fn main() -> Unit {
+	src := `fn main() -> Unit
   total = Iter.loop(0, fn sum: Int ->
-    if sum > 10 { break sum } else { sum + 1 }
+    if sum > 10 then break sum else sum + 1
+  end
   )
-}`
+end`
 	expectClean(t, checkWithStdlib(src))
 }
 
@@ -148,9 +163,9 @@ func TestLoopStatefulKeywordSugar_Clean(t *testing.T) {
 // does not also call the placeholder private.
 func TestControlNotImportable(t *testing.T) {
 	src := withStdlibTestImports(`import std::iter.{Control}
-fn main() -> Unit {
+fn main() -> Unit
   io_check = 1
-}`)
+end`)
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
 	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
@@ -171,18 +186,18 @@ fn main() -> Unit {
 // A side-effect callback declared `(T) -> ()` discards its return, so a lambda
 // returning a value is accepted (the parameter types must still match).
 func TestUnitDiscardCallback_ValueReturningLambda_Clean(t *testing.T) {
-	src := `fn main() -> Unit {
+	src := `fn main() -> Unit
   Iter.each([1, 2, 3], fn x -> x + 1)
-}`
+end`
 	expectClean(t, checkWithStdlib(src))
 }
 
 // The Unit-discard relation ignores only the return — a wrong parameter type is
 // still rejected.
 func TestUnitDiscardCallback_WrongParamType_Rejected(t *testing.T) {
-	src := `fn main() -> Unit {
+	src := `fn main() -> Unit
   Iter.each([1, 2, 3], fn s: String -> s)
-}`
+end`
 	errs := checkWithStdlib(src)
 	if len(errs) == 0 {
 		t.Fatal("expected rejection: a (String) -> _ lambda for lists.each over List<Int>, got none")
@@ -192,22 +207,32 @@ func TestUnitDiscardCallback_WrongParamType_Rejected(t *testing.T) {
 // --- Partial<T> is coherent in user-written (non-generic) functions ---
 
 func TestPartial_UserFunctionAcceptsDeepPartial(t *testing.T) {
-	src := `struct User { name: String; age: Int }
-fn patch(u: User, _p: Partial<User>) -> User { u }
-fn main() -> Unit {
+	src := `struct User
+    name: String
+    age: Int
+end
+fn patch(u: User, _p: Partial<User>) -> User
+    u
+end
+fn main() -> Unit
   base = User{name: "A", age: 1}
-  result = patch(base, .{name: "B"})
-}`
+  result = patch(base, {name: "B"})
+end`
 	expectClean(t, checkWithStdlib(src))
 }
 
 func TestPartial_UserFunctionRejectsBogusPatch(t *testing.T) {
-	src := `struct User { name: String; age: Int }
-fn patch(u: User, _p: Partial<User>) -> User { u }
-fn main() -> Unit {
+	src := `struct User
+    name: String
+    age: Int
+end
+fn patch(u: User, _p: Partial<User>) -> User
+    u
+end
+fn main() -> Unit
   base = User{name: "A", age: 1}
-  result = patch(base, .{bogus: 5})
-}`
+  result = patch(base, {bogus: 5})
+end`
 	errs := checkWithStdlib(src)
 	if len(errs) == 0 {
 		t.Fatal("expected rejection of a bogus patch field for Partial<User>, got none")

@@ -12,39 +12,39 @@ func TestPartialComputedDefault_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
     std::io
     lib
-}
+end
 
-fn base() -> Int {
+fn base() -> Int
     io.print("base")
     10
-}
+end
 
-fn conn(host: String, port: Int = base() + 1) -> String {
+fn conn(host: String, port: Int = base() + 1) -> String
     "${host}:${port}"
-}
+end
 
-fn span(a: Int, b: Int = a * 2, c: Int = a + b) -> (Int, Int, Int) {
+fn span(a: Int, b: Int = a * 2, c: Int = a + b) -> (Int, Int, Int)
     (a, b, c)
-}
+end
 
-fn pair<A>(x: A, y: A = x) -> (A, A) {
+fn pair<A>(x: A, y: A = x) -> (A, A)
     (x, y)
-}
+end
 
-struct Box {
+struct Box
     v: Int
-}
+end
 
-impl Box {
-    fn make(a: Int, b: Int = a * 2) -> Box {
+impl Box
+    fn make(a: Int, b: Int = a * 2) -> Box
         Box{v: a + b}
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     c = &conn("h", &1)
     io.print(c(3))
     io.print(c())
@@ -74,18 +74,18 @@ fn main() {
     io.print(l())
     io.print(l(1))
     io.inspect(n)
-}
+end
 `, "h:3\nbase\nh:11\n99\nbase\nx:11\ny:5\n(4, 8, 12)\n(4, 1, 5)\n(3, 6, 7)\n(1, 1)\nBox{v: 3}\n14\n6\n14\n"+
 		"lib base\nl:42\nl:1\n100\n", map[string]string{"lib.nomi": `import std::io
 
-fn base() -> Int {
+fn base() -> Int
     io.print("lib base")
     40
-}
+end
 
-pub fn dial(host: String, port: Int = base() + 2) -> String {
+pub fn dial(host: String, port: Int = base() + 2) -> String
     "${host}:${port}"
-}
+end
 `})
 }
 
@@ -101,15 +101,15 @@ func TestPartialComputedDefault_ALaterPlaceholderFillsFirst(t *testing.T) {
 	}
 	verifyLambdaProgram(t, `import std::io
 
-fn span(a: Int, b: Int = a * 2) -> (Int, Int) {
+fn span(a: Int, b: Int = a * 2) -> (Int, Int)
     (a, b)
-}
+end
 
-fn three(a: Int, b: Int = a + 1, c: Int = a + b) -> (Int, Int, Int) {
+fn three(a: Int, b: Int = a + 1, c: Int = a + b) -> (Int, Int, Int)
     (a, b, c)
-}
+end
 
-fn main() {
+fn main()
     u = &span(b: &1, &2)
     io.inspect(u(1, 2))
     io.inspect(u(a: 5))
@@ -126,7 +126,7 @@ fn main() {
     q = &cf(y: &1, &2)
     io.inspect(q(x: 4))
     io.inspect(q(0, 4))
-}
+end
 `, "(2, 1)\n(5, 10)\n(7, 3)\n(7, 14)\n(9, 18)\n(1, 2, 3)\n(1, 10, 11)\n(1, 2, 100)\n45\n40\n")
 }
 
@@ -136,14 +136,14 @@ fn main() {
 // the unmentioned `style`, whose own default runs first. The function is
 // named bare and through its module.
 func TestPartialComputedDefault_StdCallee(t *testing.T) {
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
     std::io
     std::strings
     std::strings.ListStyle
     std::strings.ListWidth
-}
+end
 
-fn main() {
+fn main()
     names = ["Ann", "Bo", "Cy"]
     [ListStyle.And, ListStyle.Or]
     |> Iter.map(&String.join_list(names, Locale`+"`en`"+`, style: &1))
@@ -155,5 +155,5 @@ fn main() {
     io.print(by_width(width: ListWidth.Short))
     both = &strings.String.join_list(&1, Locale`+"`en`"+`, style: &2)
     io.print(both(["x", "y"]))
-}`, "Ann, Bo, and Cy\nAnn, Bo, or Cy\nAnn, Bo, and Cy\nAnn, Bo, and Cy\nAnn, Bo, & Cy\nx and y\n")
+end`, "Ann, Bo, and Cy\nAnn, Bo, or Cy\nAnn, Bo, and Cy\nAnn, Bo, and Cy\nAnn, Bo, & Cy\nx and y\n")
 }

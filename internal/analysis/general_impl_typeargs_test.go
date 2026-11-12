@@ -113,29 +113,29 @@ func TestStdlibAddTypeArgSetsSolve(t *testing.T) {
 func TestGeneralInterfaceBareTypeArgSolves(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`import std::io
 
-interface Chooser<T> {
+interface Chooser<T>
   fn first(p: self) -> T
 
-  fn pick(p: self) -> T {
+  fn pick(p: self) -> T
     Chooser.first(p)
-  }
-}
+  end
+end
 
-struct Pair<E> {
+struct Pair<E>
   a: E
   b: E
-}
+end
 
-impl Chooser for Pair<E> {
-  fn first(p: Pair<E>) -> E {
+impl Chooser for Pair<E>
+  fn first(p: Pair<E>) -> E
     p.a
-  }
-}
+  end
+end
 
-fn f() {
+fn f()
   x = Chooser.pick(Pair{a: 1, b: 2})
   io.print(x)
-}
+end
 
 `)
 	expectNoStdlibErrors(t, errs)

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/webtypes"
@@ -65,8 +66,8 @@ func runTypes(args []string) error {
 
 // typesFor is the declarations file for paths. Each path is a .nomi file,
 // or a directory, which names every .nomi file under it, as a directory
-// import reaches them. Each file is checked as `nomi check` checks it: a
-// file another named file imports through that importer.
+// import reaches them. Each file is checked in the programs of its project
+// that load it (typesRoots).
 func typesFor(paths []string) (string, error) {
 	filesOf := make([][]string, len(paths))
 	var all []string
@@ -85,7 +86,10 @@ func typesFor(paths []string) (string, error) {
 		}
 	}
 	sort.Strings(all)
-	roots, _ := programRoots(all)
+	roots, err := typesRoots(all)
+	if err != nil {
+		return "", fmt.Errorf("nomi types: %w", err)
+	}
 	w := webtypes.NewWriter(webtypes.IntsNumber)
 	for _, root := range roots {
 		prog, err := irbuild.AnalyzeFile(root, frontend.Config{})
@@ -123,6 +127,72 @@ func typesFor(paths []string) (string, error) {
 	b.WriteString("// send one that may be larger as a String.\n\n")
 	b.WriteString(strings.TrimSuffix(w.Declarations(), "\n"))
 	return b.String(), nil
+}
+
+// typesRoots is the programs files are checked in, as `nomi check` checks
+// their project (discoverCheckFiles): each program of the project, of the
+// project root analysis.ProjectRoot finds for each file, that loads one of
+// files, so a file that reads an application field is checked under the
+// entry whose boot returns the application. A file no program of its
+// project loads is checked as before, through another of files that
+// imports it or on its own (programRoots).
+func typesRoots(files []string) ([]string, error) {
+	named := map[string]bool{}
+	for _, f := range files {
+		named[f] = true
+	}
+	projects := map[string]bool{}
+	reached := map[string]bool{}
+	seen := map[string]bool{}
+	var roots []string
+	for _, f := range files {
+		if _, _, ok := frontend.StdlibFile(f); ok {
+			continue
+		}
+		dir := analysis.ProjectRoot(f, "")
+		if projects[dir] {
+			continue
+		}
+		projects[dir] = true
+		programs, _, _, err := discoverCheckFiles(dir)
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range programs {
+			loads := []string{p}
+			if imported, err := frontend.ImportedFiles(p); err == nil {
+				loads = append(loads, imported...)
+			}
+			reaches := false
+			for _, l := range loads {
+				if named[l] {
+					reached[l] = true
+					reaches = true
+				}
+			}
+			if reaches && !seen[p] {
+				seen[p] = true
+				roots = append(roots, p)
+			}
+		}
+	}
+	var rest []string
+	for _, f := range files {
+		if !reached[f] {
+			rest = append(rest, f)
+		}
+	}
+	if len(rest) > 0 {
+		own, _ := programRoots(rest)
+		for _, r := range own {
+			if !seen[r] {
+				seen[r] = true
+				roots = append(roots, r)
+			}
+		}
+	}
+	sort.Strings(roots)
+	return roots, nil
 }
 
 // typesFiles is the .nomi files path names, absolute and sorted: path

@@ -8,13 +8,13 @@ supports. In the browser it runs on SQLite's official WebAssembly build
 instead ([In the browser](#in-the-browser)).
 
 ```nomi
-import {
+import
     std::io
     std::sql.{self, Conn, Error, Row, Sql}
     sqlite
-}
+end
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     db = sqlite.open("notes.db")?
     defer sql.close_quietly(db)
 
@@ -26,16 +26,16 @@ fn main() -> Result<Unit, Error> {
     _ = Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"hello"})")?
     rows = Conn.query(db, Sql"SELECT body FROM notes")?
 
-    Iter.each(rows, fn row -> {
+    Iter.each(rows, fn row ->
         io.print(
             Row.get<String>(row, "body")
             |> Result.with_default("?")
         )
-    })
+    end)
 
     Conn.close(db)?
     Ok(Unit)
-}
+end
 ```
 
 ## What it does
@@ -47,7 +47,7 @@ fn main() -> Result<Unit, Error> {
   seconds: a statement that finds the file locked by another connection
   waits up to that long for it, then fails with `SQLITE_BUSY`.
 - Parameters are bound as `?1`, `?2`, ..., never spliced into the SQL.
-- `Conn.begin` on the connection is `BEGIN`; on a transaction it is a
+- `Conn.begin_transaction` on the connection is `BEGIN`; on a transaction it is a
   savepoint, which `commit` releases and `rollback` rolls back to. Inside a
   transaction, a statement must run on the innermost open transaction or
   savepoint: SQLite has one transaction per connection, so one sent through

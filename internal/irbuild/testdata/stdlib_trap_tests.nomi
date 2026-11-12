@@ -3,27 +3,27 @@
 // into the stdlib replaced it (the function's line), through a lambda the
 // stdlib runs (the lambda's line), and in a host function (the call's
 // line, which the host's text does not name).
-fn share(n: Int) -> Int {
+fn share(n: Int) -> Int
     Int.floor_div(10, n)
-}
+end
 
-test "a stdlib trap in a test body" {
+test "a stdlib trap in a test body"
     assert Int.modulo(5, 0) == 0
-}
+end
 
-test "a stdlib trap through a program function" {
+test "a stdlib trap through a program function"
     assert share(0) > 0
-}
+end
 
-test "a lambda the stdlib runs" {
+test "a lambda the stdlib runs"
     quotients = [5, 0] |> Iter.map(&(10 / &1)) |> Iter.to_list()
     assert quotients == []
-}
+end
 
-test "a host function's trap" {
+test "a host function's trap"
     assert String.repeat("ab", 0 - 2) == ""
-}
+end
 
-test "the next case still runs" {
+test "the next case still runs"
     assert Int.abs(0 - 3) == 3
-}
+end

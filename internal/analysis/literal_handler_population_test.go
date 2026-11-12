@@ -178,19 +178,19 @@ func TestLiteralHandler_NoTypeDeclaresFromFragmentsUnderTwoOwners(t *testing.T) 
 	}
 	t.Logf("%d files, %d receivers declare `from_fragments`, 0 clashes:\n%s", files, len(byType), renderCensus(byType))
 
-	const handler = "impl Literal for Pick {\n" +
-		"  fn from_fragments(fragments: List<Fragment<String>>) -> String {\n    \"literal\"\n  }\n}\n\n"
+	const handler = "impl Literal for Pick\n" +
+		"  fn from_fragments(fragments: List<Fragment<String>>) -> String\n    \"literal\"\n  end\nend\n\n"
 	for _, ctl := range []struct {
 		name  string
 		rival string
 	}{{
 		name: "an inherent rival",
-		rival: "impl Pick {\n" +
-			"  pub fn from_fragments(fragments: List<Fragment<String>>) -> String {\n    \"inherent\"\n  }\n}\n",
+		rival: "impl Pick\n" +
+			"  pub fn from_fragments(fragments: List<Fragment<String>>) -> String\n    \"inherent\"\n  end\nend\n",
 	}, {
 		name: "a second interface impl",
-		rival: "impl Other for Pick {\n" +
-			"  fn from_fragments(fragments: List<Fragment<String>>) -> Int {\n    7\n  }\n}\n",
+		rival: "impl Other for Pick\n" +
+			"  fn from_fragments(fragments: List<Fragment<String>>) -> Int\n    7\n  end\nend\n",
 	}} {
 		t.Run("positive control: "+ctl.name, func(t *testing.T) {
 			dir := t.TempDir()

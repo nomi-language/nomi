@@ -48,10 +48,10 @@ func (c *checker) rejectIsBindings(n *ast.Is) bool {
 		if id, ok := n.Pattern.(*ast.IdentPattern); ok && id.Name == site.name {
 			e = e.WithHint(fmt.Sprintf("to compare the value with `%s`, write `%s == %s`", site.name, value, site.name))
 		} else if namedByAs(n.Pattern, site.pos) {
-			e = e.WithHint(fmt.Sprintf("to use `%s`, match with `if %s = %s { ... }`", site.name, pattern, value)).
+			e = e.WithHint(fmt.Sprintf("to use `%s`, match with `if %s = %s then`", site.name, pattern, value)).
 				WithHint(fmt.Sprintf("to test only, remove `as %s`", site.name))
 		} else {
-			e = e.WithHint(fmt.Sprintf("to use `%s`, match with `if %s = %s { ... }`", site.name, pattern, value)).
+			e = e.WithHint(fmt.Sprintf("to use `%s`, match with `if %s = %s then`", site.name, pattern, value)).
 				WithHint(fmt.Sprintf("to test only, write `_` where `%s` is", site.name))
 		}
 		c.report(e)

@@ -21,7 +21,7 @@ func orPatternOf(t *testing.T, n ast.Node, alternatives int) *ast.OrPattern {
 // arm it joins whole patterns, and an `as` after the last alternative names
 // the whole value.
 func TestOrPattern_TopOfAnArm(t *testing.T) {
-	or := orPatternOf(t, caseArmPattern(t, ".Circle{r} or .Square{r}"), 2)
+	or := orPatternOf(t, caseArmPattern(t, ".Circle{r:} or .Square{r:}"), 2)
 	for _, alt := range or.Alternatives {
 		if _, ok := alt.(*ast.StructPattern); !ok {
 			t.Fatalf("alternative: got %T", alt)
@@ -50,7 +50,7 @@ func TestOrPattern_TopOfAnArm(t *testing.T) {
 // A guard after an `or` pattern applies to the whole arm, and `or` inside a
 // guard is the boolean operator.
 func TestOrPattern_GuardStaysBoolean(t *testing.T) {
-	c, ok := parseExpr(t, "case v {\n    .A(n) or .B(n) when n > 0 or n < -9 -> 0\n    _ -> 1\n}").(*ast.Case)
+	c, ok := parseExpr(t, "case v\n    .A(n) or .B(n) when n > 0 or n < -9 -> 0\n    _ -> 1\nend").(*ast.Case)
 	if !ok || len(c.Branches) != 2 {
 		t.Fatal("want two arms")
 	}
@@ -60,7 +60,7 @@ func TestOrPattern_GuardStaysBoolean(t *testing.T) {
 		t.Fatalf("guard: got %#v", c.Branches[0].Guard)
 	}
 
-	c, ok = parseExpr(t, "case {\n    a or b -> 0\n    _ -> 1\n}").(*ast.Case)
+	c, ok = parseExpr(t, "case\n    a or b -> 0\n    _ -> 1\nend").(*ast.Case)
 	if !ok {
 		t.Fatal("want a subject-less case")
 	}
@@ -89,19 +89,19 @@ func TestOrPattern_Nested(t *testing.T) {
 	}
 	orPatternOf(t, tp.Patterns[0], 2)
 
-	sp, ok := caseArmPattern(t, "P{kind: .A or .B, n}").(*ast.StructPattern)
+	sp, ok := caseArmPattern(t, "P{kind: .A or .B, n:}").(*ast.StructPattern)
 	if !ok || len(sp.Fields) != 2 {
 		t.Fatal("want a struct pattern")
 	}
 	orPatternOf(t, sp.Fields[0].Pattern, 2)
 
-	sp, ok = caseArmPattern(t, ".{x: a or b}").(*ast.StructPattern)
+	sp, ok = caseArmPattern(t, "{x: a or b}").(*ast.StructPattern)
 	if !ok {
 		t.Fatal("want an anonymous struct pattern")
 	}
 	orPatternOf(t, sp.Fields[0].Pattern, 2)
 
-	mp, ok := caseArmPattern(t, `%{"k" => 1 or 2}`).(*ast.MapPattern)
+	mp, ok := caseArmPattern(t, `{"k" => 1 or 2}`).(*ast.MapPattern)
 	if !ok {
 		t.Fatal("want a map pattern")
 	}
@@ -118,11 +118,11 @@ func TestOrPattern_Grouping(t *testing.T) {
 	asPatternOf(t, or.Alternatives[0], "a")
 	asPatternOf(t, or.Alternatives[1], "a")
 
-	_, err := Parse(lexer.Lex("case v {\n    .A(n) as a or .B(n) -> 0\n}"))
+	_, err := Parse(lexer.Lex("case v\n    .A(n) as a or .B(n) -> 0\nend"))
 	if err == nil || !strings.Contains(err.Error(), "an `as` names the whole `or` pattern") {
 		t.Fatalf("`as` before `or`: got %v", err)
 	}
-	_, err = Parse(lexer.Lex("case v {\n    .A or -> 0\n}"))
+	_, err = Parse(lexer.Lex("case v\n    .A or -> 0\nend"))
 	if err == nil || !strings.Contains(err.Error(), "expected a pattern after `or`") {
 		t.Fatalf("`or` with nothing after it: got %v", err)
 	}
@@ -131,7 +131,7 @@ func TestOrPattern_Grouping(t *testing.T) {
 // A line that ends in `or` continues on the next, and a comment after the
 // `or` is the next alternative's.
 func TestOrPattern_BrokenAcrossLines(t *testing.T) {
-	c, ok := parseExpr(t, "case v {\n    .A or\n        .B or // last\n        .C -> 0\n}").(*ast.Case)
+	c, ok := parseExpr(t, "case v\n    .A or\n        .B or // last\n        .C -> 0\nend").(*ast.Case)
 	if !ok || len(c.Branches) != 1 {
 		t.Fatal("want one arm")
 	}
@@ -143,7 +143,7 @@ func TestOrPattern_BrokenAcrossLines(t *testing.T) {
 }
 
 func TestOrPattern_StatementAndParameterPositions(t *testing.T) {
-	pb := parsePatternBinding(t, ".A(n) or .B(n) = e else { return 0 }")
+	pb := parsePatternBinding(t, ".A(n) or .B(n) = e else\n    return 0\nend")
 	orPatternOf(t, pb.Pattern, 2)
 	if pb.Else == nil {
 		t.Fatal("want the else")
@@ -151,18 +151,18 @@ func TestOrPattern_StatementAndParameterPositions(t *testing.T) {
 	pb = parsePatternBinding(t, ".A(n) or .B(n) as v = e")
 	orPatternOf(t, asPatternOf(t, pb.Pattern, "v").Pattern, 2)
 
-	ifNode, ok := parseExpr(t, "if Some(1 or 2) = m { 0 } else { 1 }").(*ast.If)
+	ifNode, ok := parseExpr(t, "if Some(1 or 2) = m then 0 else 1").(*ast.If)
 	if !ok || ifNode.CondPattern == nil {
 		t.Fatal("want a pattern if")
 	}
 
-	f, ok := parse(t, "fn f(.A(n) or .B(n): E) -> Int { n }")[0].(*ast.FuncDef)
+	f, ok := parse(t, "fn f(.A(n) or .B(n): E) -> Int\n    n\nend")[0].(*ast.FuncDef)
 	if !ok || len(f.Params) != 1 {
 		t.Fatal("want a function with one parameter")
 	}
 	orPatternOf(t, f.Params[0].Destructure, 2)
 
-	ifNode, ok = parseExpr(t, "if a or b { 0 } else { 1 }").(*ast.If)
+	ifNode, ok = parseExpr(t, "if a or b then 0 else 1").(*ast.If)
 	if !ok || ifNode.CondPattern != nil {
 		t.Fatal("`if a or b` is a boolean condition")
 	}

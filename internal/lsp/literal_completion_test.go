@@ -13,7 +13,7 @@ import (
 func TestLiteralCompletion_DateOffersItsDocumentedExamples(t *testing.T) {
 	s := NewServer()
 	s.snippetSupport = true
-	src := "import std::calendar.Date\n\nfn f() {\n    _ = Date\"" + cursorMark + "\"\n}\n"
+	src := "import std::calendar.Date\n\nfn f()\n    _ = Date\"" + cursorMark + "\"\nend\n"
 	items := completeIn(t, s, "file:///literal_completion.nomi", src).Items
 	if len(items) == 0 {
 		t.Fatal("no examples offered inside Date\"\"")
@@ -48,7 +48,7 @@ func TestLiteralCompletion_DateOffersItsDocumentedExamples(t *testing.T) {
 
 func TestLiteralCompletion_PlainTextReplacesTheTypedBody(t *testing.T) {
 	s := NewServer()
-	src := "import std::calendar.Date\n\nfn f() {\n    _ = Date\"20" + cursorMark + "\n}\n"
+	src := "import std::calendar.Date\n\nfn f()\n    _ = Date\"20" + cursorMark + "\nend\n"
 	items := completeIn(t, s, "file:///literal_completion.nomi", src).Items
 	it := mustItem(t, items, "2026-05-04")
 	edit := it.TextEdit.(protocol.TextEdit)
@@ -62,19 +62,19 @@ func TestLiteralCompletion_PlainTextReplacesTheTypedBody(t *testing.T) {
 }
 
 func TestLiteralCompletion_TypeWithoutExamplesOffersNothing(t *testing.T) {
-	src := "import std::literals.{Fragment, Literal}\n\n/// A probe.\ntype Probe\n\nimpl Literal for Probe {\n" +
-		"    fn from_fragments(fragments: List<Fragment<String>>) -> Probe {\n        _ = fragments\n        Probe\n    }\n}\n\n" +
-		"fn f() -> Probe {\n    Probe\"" + cursorMark + "\"\n}\n"
+	src := "import std::literals.{Fragment, Literal}\n\n/// A probe.\ntype Probe\n\nimpl Literal for Probe\n" +
+		"    fn from_fragments(fragments: List<Fragment<String>>) -> Probe\n        _ = fragments\n        Probe\n    end\nend\n\n" +
+		"fn f() -> Probe\n    Probe\"" + cursorMark + "\"\nend\n"
 	if items := complete(t, src); len(items) != 0 {
 		t.Fatalf("offered %v for a type whose docs have no example", itemLabels(items))
 	}
 }
 
 func TestLiteralCompletion_UserTypeExamples(t *testing.T) {
-	src := "import std::literals.{Fragment, Literal}\n\n/// A probe, written `Probe\"a-1\"`.\ntype Probe\n\nimpl Literal for Probe {\n" +
+	src := "import std::literals.{Fragment, Literal}\n\n/// A probe, written `Probe\"a-1\"`.\ntype Probe\n\nimpl Literal for Probe\n" +
 		"    //! assert Probe.name(Probe\"b-2\") == \"\"\n" +
-		"    fn from_fragments(fragments: List<Fragment<String>>) -> Probe {\n        _ = fragments\n        Probe\n    }\n}\n\n" +
-		"fn f() -> Probe {\n    Probe\"" + cursorMark + "\"\n}\n"
+		"    fn from_fragments(fragments: List<Fragment<String>>) -> Probe\n        _ = fragments\n        Probe\n    end\nend\n\n" +
+		"fn f() -> Probe\n    Probe\"" + cursorMark + "\"\nend\n"
 	if got := strings.Join(itemLabels(complete(t, src)), " "); got != "a-1 b-2" {
 		t.Fatalf("examples = %q, want \"a-1 b-2\"", got)
 	}
@@ -123,8 +123,8 @@ func TestLiteralCompletion_EveryStdlibLiteralTypeHasAnExample(t *testing.T) {
 			t.Fatalf("no std/%s", module)
 		}
 		for _, name := range names {
-			if !strings.Contains(string(src), "impl Literal for "+name+" {") && !strings.Contains(string(src), "impl Literal for "+name+"<") &&
-				!regexp.MustCompile(`impl CheckedLiteral<[^{]*> for `+name+` \{`).MatchString(string(src)) {
+			if !regexp.MustCompile(`(?m)impl Literal for `+name+`(<[^\n]*)?$`).MatchString(string(src)) &&
+				!regexp.MustCompile(`(?m)impl CheckedLiteral<[^\n]*> for `+name+`$`).MatchString(string(src)) {
 				t.Errorf("std/%s has no Literal or CheckedLiteral impl for %s", module, name)
 			}
 			if len(docExamples(string(src), name)) == 0 {
@@ -141,18 +141,18 @@ func TestDocExamples_ReadCodeNotProse(t *testing.T) {
 	src := strings.Join([]string{
 		"/// A day. See `Date`s — positive if `later` is after; write `Date\"2026-05-04\"`.",
 		"/// A raw one: `` Date`2026-06-01` ``, and a placeholder `Date\"…\"`.",
-		"pub struct Date {",
+		"pub struct Date",
 		"    n: Int",
-		"}",
+		"end",
 		"",
-		"impl Date {",
+		"impl Date",
 		"    /// Number of whole days between two `Date`s — positive if `later` is",
 		"    //! assert Date.days_between(Date\"2026-05-04\"?, Date\"2026-05-07\"?) == 3",
 		"    //! assert Date\"2026-${m}-04\"? == x",
-		"    pub fn days_between(a: Date, b: Date) -> Int {",
+		"    pub fn days_between(a: Date, b: Date) -> Int",
 		"        0",
-		"    }",
-		"}",
+		"    end",
+		"end",
 	}, "\n")
 	got := strings.Join(docExamples(src, "Date"), " | ")
 	if want := "2026-05-04 | 2026-06-01 | 2026-05-07"; got != want {

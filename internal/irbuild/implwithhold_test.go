@@ -196,9 +196,9 @@ func TestIRImplWithhold_AGenWithoutTheStdlibIndexDeclinesAOnceByName(t *testing.
 
 once pi = Float.atan2(0.0, -1.0)
 
-fn main() {
+fn main()
     io.inspect(pi > 3.0)
-}
+end
 `
 	prog, err := AnalyzeSource("entry.nomi", src)
 	if err != nil {

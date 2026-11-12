@@ -12,9 +12,9 @@ import (
 // form declined in the IR builder: the enum was outside the retained domain,
 // so construction was "qualified call, Type.method: Shape.Wrapped" and a
 // widening binding "a binding annotation outside the retained value domain".
-const embedsCompositeDecls = `struct Circle {
+const embedsCompositeDecls = `struct Circle
     r: Int
-}
+end
 
 type Wrapped Circle
 
@@ -22,49 +22,49 @@ type Tagged Color
 
 type Boxed Box<Int>
 
-enum Color {
+enum Color
     Red
     Green
-}
+end
 
-struct Box<T> {
+struct Box<T>
     value: T
-}
+end
 `
 
-const embedsCompositeEnum = `enum Shape {
+const embedsCompositeEnum = `enum Shape
     embeds Wrapped
     embeds Tagged
     embeds Boxed
     Dot
-}
+end
 `
 
-const embedsCompositeUse = `fn describe(s: Shape) -> String {
-    case s {
+const embedsCompositeUse = `fn describe(s: Shape) -> String
+    case s
         Shape.Wrapped(c) -> "circle ${c.r}"
-        Shape.Tagged(c) -> case c {
+        Shape.Tagged(c) -> case c
             .Red -> "red"
             .Green -> "green"
-        }
+        end
         Shape.Boxed(b) -> "box ${b.value}"
         .Dot -> "dot"
-    }
-}
+    end
+end
 
-fn radius(s: Shape) -> Int {
-    Shape.Wrapped(c) = s else {
+fn radius(s: Shape) -> Int
+    Shape.Wrapped(c) = s else
         return 0
-    }
+    end
     c.r
-}
+end
 
-fn circle(r: Int) -> Circle {
+fn circle(r: Int) -> Circle
     io.print("circle ${r}")
-    Circle{r: r}
-}
+    Circle{r:}
+end
 
-fn main() {
+fn main()
     shapes = [
         Shape.Wrapped(circle(1)),
         Shape.Tagged(Color.Green),
@@ -82,7 +82,7 @@ fn main() {
     w: Shape = Wrapped(Circle{r: 7})
     io.print("${Shape.Wrapped(Circle{r: 7}) == w}")
     [Circle{r: 8}] |> Iter.map(Shape.Wrapped) |> Iter.map(Debug.inspect) |> String.join(", ") |> io.print()
-}
+end
 `
 
 func TestEmbedsDistinct_OverAStructAnEnumAndAGenericStruct(t *testing.T) {
@@ -122,39 +122,39 @@ type UserId Int
 
 type Expired
 
-struct Circle {
+struct Circle
     r: Int
-}
+end
 
-enum Shape<T> {
+enum Shape<T>
     embeds UserId
     embeds Circle
     embeds Expired
     Val(T)
     Rect {w: Int}
-}
+end
 
-fn first(s: Shape<Int>) -> Int {
-    case s {
+fn first(s: Shape<Int>) -> Int
+    case s
         Shape.UserId(n) -> n
-        Shape.Circle{r} -> r
+        Shape.Circle{r:} -> r
         Shape.Expired -> 7
         Shape.Val(v) -> v
-        Shape.Rect{w} -> w
-    }
-}
+        Shape.Rect{w:} -> w
+    end
+end
 
-fn main() {
+fn main()
     io.print("${first(Shape.UserId(3))} ${first(4 |> Shape.UserId())} ${first(Shape.Val(5))}")
-    io.print("${first(Shape.Circle(.{r: 6}))} ${first(.{r: 8} |> Shape.Circle())} ${first(Shape.Expired)}")
-    io.print("${first(Shape.Rect(.{w: 12}))} ${first(.{w: 13} |> Shape.Rect())}")
+    io.print("${first(Shape.Circle({r: 6}))} ${first({r: 8} |> Shape.Circle())} ${first(Shape.Expired)}")
+    io.print("${first(Shape.Rect({w: 12}))} ${first({w: 13} |> Shape.Rect())}")
     t: Shape<String> = Shape.UserId(9)
     io.print(Debug.inspect(t))
     xs = [Shape.UserId(10), Shape.Val("a")]
     io.print(Debug.inspect(xs))
     f: (Int) -> Shape<Float> = Shape.UserId
     io.print(Debug.inspect([f(11), Shape.Val(1.5)]))
-}
+end
 `)
 	want := "3 4 5\n6 8 7\n12 13\nUserId(9)\n[UserId(10), Val(\"a\")]\n[UserId(11), Val(1.5)]\n"
 	if got != want {

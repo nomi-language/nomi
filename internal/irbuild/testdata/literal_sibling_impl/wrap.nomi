@@ -9,51 +9,51 @@
 // had just resolved.
 import std::literals.{Fragment, Literal}
 
-pub struct Boxed {
+pub struct Boxed
     text: String
     slots: Int
-}
+end
 
 /// Zero-sized tag carrier. `Wrap"..."` concatenates the body and counts how
 /// many `${...}` slots it had.
 pub type Wrap
 
-impl Literal for Wrap {
-    fn from_fragments(fragments: List<Fragment<String>>) -> Boxed {
+impl Literal for Wrap
+    fn from_fragments(fragments: List<Fragment<String>>) -> Boxed
         Boxed{
-            text: Iter.reduce(fragments, "", fn acc, frag -> {
-                case frag {
+            text: Iter.reduce(fragments, "", fn acc, frag ->
+                case frag
                     .Static(s) -> acc + s
                     .Dynamic(v) -> acc + v
-                }
-            }),
-            slots: Iter.reduce(fragments, 0, fn acc, frag -> {
-                case frag {
+                end
+            end),
+            slots: Iter.reduce(fragments, 0, fn acc, frag ->
+                case frag
                     .Static(_) -> acc
                     .Dynamic(_) -> acc + 1
-                }
-            }),
+                end
+            end),
         }
-    }
-}
+    end
+end
 
 /// A slot value of a type declared in THIS file. It makes the handler's
 /// parameter — `List<Fragment<Slot>>` — name a nominal type whose `*typeDef`
 /// is a different pointer in the entry's package, which is the shape
 /// `importLiteralSig` translates for.
-pub struct Slot {
+pub struct Slot
     n: Int
-}
+end
 
 pub type Slots
 
-impl Literal for Slots {
-    fn from_fragments(fragments: List<Fragment<Slot>>) -> Int {
-        Iter.reduce(fragments, 0, fn acc, frag -> {
-            case frag {
+impl Literal for Slots
+    fn from_fragments(fragments: List<Fragment<Slot>>) -> Int
+        Iter.reduce(fragments, 0, fn acc, frag ->
+            case frag
                 .Static(s) -> acc + String.length(s)
                 .Dynamic(v) -> acc + v.n
-            }
-        })
-    }
-}
+            end
+        end)
+    end
+end

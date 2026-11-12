@@ -400,7 +400,7 @@ func TestVMDbg_TheCrossingsNameIsWhatTheProducerInterned(t *testing.T) {
 		t.Skip("integration; lowers one program; -short")
 	}
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
-	mod := dbgLoweredModule(t, "fn main() {\n  n = 2\n  dbg n\n}\n")
+	mod := dbgLoweredModule(t, "fn main()\n  n = 2\n  dbg n\nend\n")
 	found := ""
 	for _, f := range mod.Funcs() {
 		for _, b := range f.Blocks() {

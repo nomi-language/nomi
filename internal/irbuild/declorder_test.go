@@ -20,38 +20,38 @@ import (
 // generic struct holding another declaration (Pair<T, Child>), a Maybe of a
 // generic instance, an enum that embeds a marker, and a distinct type.
 var declOrderBlocks = []string{
-	`pub struct Parent {
+	`pub struct Parent
     t: Tree<Int>
     k: Kind
     p: Maybe<Pair<Child, Mark>>
-}`,
-	`pub struct Child {
+end`,
+	`pub struct Child
     n: Int
     m: Meters
-}
+end
 
 derive Equatable for Child`,
-	`pub enum Tree<T> {
+	`pub enum Tree<T>
     Leaf T
     Node Child
     Both {
         left: Pair<T, Child>
         size: Meters
     }
-}
+end
 
 derive Equatable for Tree<T> where T: Equatable`,
-	`pub struct Pair<A, B> {
+	`pub struct Pair<A, B>
     a: A
     b: B
-}
+end
 
 derive Equatable for Pair<A, B> where A: Equatable, B: Equatable`,
-	`pub enum Kind {
+	`pub enum Kind
     Plain
     Holds Child
     embeds Mark
-}`,
+end`,
 	`pub type Mark`,
 	`pub type Meters Int
 
@@ -59,28 +59,28 @@ derive Equatable for Meters`,
 }
 
 const (
-	declOrderMain = `fn show(p: Parent) {
+	declOrderMain = `fn show(p: Parent)
     io.inspect(p)
-    case p.t {
+    case p.t
         Tree.Leaf(n) -> io.print("leaf ${n}")
         Tree.Node(ch) -> io.print("node ${ch.n}")
-        Tree.Both{left, size: _} -> io.print("both ${left.a} ${left.b.n}")
-    }
-    case p.k {
+        Tree.Both{left:, size: _} -> io.print("both ${left.a} ${left.b.n}")
+    end
+    case p.k
         Kind.Plain -> io.print("plain")
         Kind.Holds(ch) -> io.print("holds ${ch.n}")
         Kind.Mark -> io.print("mark")
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     c = Child{n: 3, m: Meters(5)}
     show(Parent{t: Tree.Leaf(1), k: Kind.Plain, p: None})
     show(Parent{t: Tree.Node(c), k: Kind.Holds(c), p: Some(Pair{a: c, b: Mark})})
     io.print(Tree.Node(c) == Tree.Node(c))
     io.print(Tree.Both{left: Pair{a: 2, b: c}, size: Meters(9)} == Tree.Leaf(2))
     show(Parent{t: Tree.Both{left: Pair{a: 2, b: c}, size: Meters(9)}, k: Mark, p: None})
-}
+end
 `
 	declOrderWant = `Parent{t: Leaf(1), k: Plain, p: None}
 leaf 1
@@ -176,7 +176,7 @@ func declOrderFiles(order []int, nfiles int) map[string]string {
 		}
 		head := ""
 		if len(imports) > 0 {
-			head = "import {\n    " + strings.Join(imports, "\n    ") + "\n}\n\n"
+			head = "import\n    " + strings.Join(imports, "\n    ") + "\nend\n\n"
 		}
 		out[name] = head + text
 	}

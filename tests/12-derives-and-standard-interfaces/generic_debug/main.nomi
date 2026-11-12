@@ -1,17 +1,17 @@
 import std::io
 
-struct Box<T> {
+struct Box<T>
     value: T
-}
+end
 
 derive Display for Box<T>
 
-enum Tree<T> {
+enum Tree<T>
     Leaf
     Node {left: Tree<T>, value: T, right: Tree<T>}
-}
+end
 
-fn main() {
+fn main()
     box = Box{value: 42}
     io.inspect(box)
     io.print(box)
@@ -20,4 +20,4 @@ fn main() {
     tree: Tree<Int> = Tree.Node{left: leaf, value: 5, right: leaf}
     io.inspect(tree)
     _ = dbg box
-}
+end

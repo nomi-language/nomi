@@ -9,21 +9,21 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-const filesNotes = `import {
+const filesNotes = `import
     std::fs
     std::io
-}
+end
 
-fn save(text: String) -> Result<Unit, io.Error> {
+fn save(text: String) -> Result<Unit, io.Error>
     fs.write_text("notes.txt", text)
-}
+end
 
-fn main() -> Result<Unit, io.Error> {
+fn main() -> Result<Unit, io.Error>
     text = fs.read_text("notes.txt")?
     save(text + "!")?
     io.print("saved")
     Ok(Unit)
-}
+end
 `
 
 // A build for a target lacking a class the program reaches is refused with
@@ -80,18 +80,18 @@ func TestCheckTarget_NamesTheProgramsOwnCallSites(t *testing.T) {
 // entered std through.
 func TestCheckTarget_ACrossingDeepInStdIsReportedAtTheProgramsCall(t *testing.T) {
 	defer vmhost.LackingTargetForTest("nomitest", "nofiles", vmhost.ClassFiles)()
-	src := `import {
+	src := `import
     std::fs
     std::io
-}
+end
 
-fn scratch() -> Result<Int, io.Error> {
+fn scratch() -> Result<Int, io.Error>
     fs.glob("notes/*.txt") |> Result.map(fn names -> Iter.count(names))
-}
+end
 
-fn main() {
+fn main()
     io.print(scratch())
-}
+end
 `
 	path := filepath.Join(t.TempDir(), "scratch.nomi")
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
@@ -122,15 +122,15 @@ fn main() {
 // wasip1 refuses a program that reaches std/process, and builds one with
 // --allow-unsupported processes. A native target builds it.
 func TestCheckTarget_WebAssemblyRefusesProcesses(t *testing.T) {
-	src := `import {
+	src := `import
     std::io
     std::process.{self, Command}
-}
+end
 
-fn main() -> Result<Unit, io.Error> {
+fn main() -> Result<Unit, io.Error>
     _ = process.run(Command{program: "make"})?
     Ok(Unit)
-}
+end
 `
 	path := filepath.Join(t.TempDir(), "build.nomi")
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
@@ -182,21 +182,21 @@ func TestCheckTarget_WebAssemblyRefusesAServerAndKeepsTheClient(t *testing.T) {
 	}
 	server := load(`import std::http
 
-fn main() -> Result<Unit, http.Error> {
+fn main() -> Result<Unit, http.Error>
     listener = http.listen()?
     dbg listener.server.address
     Ok(Unit)
-}
+end
 `)
-	client := load(`import {
+	client := load(`import
     std::http
     std::url.Url
-}
+end
 
-fn main() -> Result<Unit, http.Error> {
+fn main() -> Result<Unit, http.Error>
     _ = http.get(Url.parse("https://example.com")!)?
     Ok(Unit)
-}
+end
 `)
 	if refused := client.CheckTarget("nomi build --target js/wasm", "js", "wasm", false, nil); refused != nil {
 		t.Fatalf("js/wasm refuses a program that only sends requests:\n%s", refused.Error())

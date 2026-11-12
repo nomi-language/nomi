@@ -2,24 +2,24 @@
 // selective import (`Span{...}`) and through the file's qualifier
 // (`span.Span{...}`). Both spellings reach the one template span.nomi
 // declares, so a value built one way passes where the other is annotated.
-import {
+import
     std::io
     span.{self, Span}
-}
+end
 
-fn width(s: Span<Int>) -> Int {
+fn width(s: Span<Int>) -> Int
     s.stop - s.start
-}
+end
 
-fn label(s: span.Span<String>) -> String {
+fn label(s: span.Span<String>) -> String
     "${s.start}..${s.stop}"
-}
+end
 
-fn widen(s: Span<Int>, by: Int) -> Span<Int> {
+fn widen(s: Span<Int>, by: Int) -> Span<Int>
     Span{start: s.start - by, stop: s.stop + by}
-}
+end
 
-fn main() {
+fn main()
     bare = Span{start: 1, stop: 5}
     qualified = span.Span{start: 2, stop: 9}
     io.print("bare width = ${width(bare)}")
@@ -28,4 +28,4 @@ fn main() {
     io.print("label = ${label(span.Span{start: "a", stop: "z"})}")
     io.print("label bare = ${label(Span{start: "m", stop: "n"})}")
     io.print("equal = ${bare == span.Span{start: 1, stop: 5}}")
-}
+end

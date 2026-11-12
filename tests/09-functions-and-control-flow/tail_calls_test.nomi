@@ -1,63 +1,59 @@
-fn count(n: Int) -> Int {
-    if n == 0 { 0 } else { count(n - 1) }
-}
+fn count(n: Int) -> Int
+    if n == 0 then 0 else count(n - 1)
+end
 
-fn fact(n: Int, acc: Int) -> Int {
-    if n <= 1 {
+fn fact(n: Int, acc: Int) -> Int
+    if n <= 1 then
         acc
-    } else {
+    else
         fact(n - 1, Int.wrapping_mul(acc, n))
-    }
-}
+    end
+end
 
-fn is_even(n: Int) -> Bool {
-    if n == 0 { True } else { is_odd(n - 1) }
-}
+fn is_even(n: Int) -> Bool
+    if n == 0 then True else is_odd(n - 1)
+end
 
-fn is_odd(n: Int) -> Bool {
-    if n == 0 { False } else { is_even(n - 1) }
-}
+fn is_odd(n: Int) -> Bool
+    if n == 0 then False else is_even(n - 1)
+end
 
-fn sum_up_to(n: Int) -> Int {
-    if n == 0 { 0 } else { 1 + sum_up_to(n - 1) }
-}
+fn sum_up_to(n: Int) -> Int
+    if n == 0 then 0 else 1 + sum_up_to(n - 1)
+end
 
-interface Stepper {
+interface Stepper
     fn step(value: self, n: Int) -> Int
-}
+end
 
-struct Down {}
+struct Down end
 
-impl Stepper for Down {
-    fn step(value: Down, n: Int) -> Int {
-        if n == 0 {
-            0
-        } else {
-            Stepper.step(value, n - 1)
-        }
-    }
-}
+impl Stepper for Down
+    fn step(value: Down, n: Int) -> Int
+        if n == 0 then 0 else Stepper.step(value, n - 1)
+    end
+end
 
-test "tail calls run in constant stack for self recursion" {
+test "tail calls run in constant stack for self recursion"
     assert count(1000000) == 0
-}
+end
 
-test "tail calls run in constant stack for accumulator recursion" {
+test "tail calls run in constant stack for accumulator recursion"
     _ = fact(100000, 1)
 
     assert True
-}
+end
 
-test "tail calls run in constant stack for mutual recursion" {
+test "tail calls run in constant stack for mutual recursion"
     assert is_even(1000000)
-}
+end
 
-test "ordinary non-tail recursion still computes normally" {
+test "ordinary non-tail recursion still computes normally"
     assert sum_up_to(1000) == 1000
-}
+end
 
-test "tail calls run through interface dispatch" {
+test "tail calls run through interface dispatch"
     s = Down{}
 
     assert Stepper.step(s, 100000) == 0
-}
+end

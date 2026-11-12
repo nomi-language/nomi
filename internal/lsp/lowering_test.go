@@ -22,17 +22,17 @@ import (
 // itself, which is no call, and lowers.
 const loweringBlocked = `import std::io
 
-fn planted_decline(n: Int) -> Int {
+fn planted_decline(n: Int) -> Int
   n
-}
+end
 
-fn evens(xs: List<Int>) -> List<Int> {
+fn evens(xs: List<Int>) -> List<Int>
   Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
   io.print(evens([1, 2]))
-}
+end
 `
 
 var loweringFixed = strings.Replace(loweringBlocked, "fn x -> planted_decline(x)", "planted_decline", 1)
@@ -164,10 +164,10 @@ func TestLoweringDiagnostics_BlockImportedProjectFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	src := "import std::io\n\nfn main() {\n    import shapes\n    io.inspect(shapes.area(2))\n}\n"
+	src := "import std::io\n\nfn main()\n    import shapes\n    io.inspect(shapes.area(2))\nend\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi":   src,
-		"shapes.nomi": "pub fn area(r: Int) -> Int {\n    r * 3\n}\n",
+		"shapes.nomi": "pub fn area(r: Int) -> Int\n    r * 3\nend\n",
 		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	if d := loweringDiagnostics(filepath.Join(dir, "main.nomi"), src, nil); len(d) != 0 {
@@ -181,7 +181,7 @@ func TestLoweringDiagnostics_AStdModuleLoweredWithTheProgram(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	src := "import {\n    std::io\n    std::uuid.Uuid\n}\n\nfn main() {\n    id = Uuid.nil()\n    io.print(\"${id} ${Uuid.version(id)}\")\n}\n"
+	src := "import\n    std::io\n    std::uuid.Uuid\nend\n\nfn main()\n    id = Uuid.nil()\n    io.print(\"${id} ${Uuid.version(id)}\")\nend\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi": src,
 		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
@@ -213,7 +213,7 @@ func TestLoweringDiagnostics_InvalidBacktickLiteral(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	src := "import std::regex.Regex\n\nfn main() {\n    _ = Regex`[`\n}\n"
+	src := "import std::regex.Regex\n\nfn main()\n    _ = Regex`[`\nend\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi": src,
 		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",

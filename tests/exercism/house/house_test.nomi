@@ -60,25 +60,25 @@ once verses = [
     ),
 ]
 
-test "single verses" {
-    subtests verses, (description, number, expected), description {
+test "single verses"
+    subtests verses, (description, number, expected), description
         assert house.recite(number, number) == [expected]
-    }
-}
+    end
+end
 
-test "several verses" {
+test "several verses"
     [
         ("multiple verses", 4, 8),
         ("full rhyme", 1, 12),
     ]
-    |> subtests (description, start, end), description {
+    |> subtests (description, start, stop), description
         expected =
             verses
             |> Iter.drop(start - 1)
-            |> Iter.take(end - start + 1)
+            |> Iter.take(stop - start + 1)
             |> Iter.map(.third)
             |> Iter.to_list()
 
-        assert house.recite(start, end) == expected
-    }
-}
+        assert house.recite(start, stop) == expected
+    end
+end

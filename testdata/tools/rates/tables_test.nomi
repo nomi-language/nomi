@@ -2,7 +2,7 @@
 // inputs sha256: e9e14b41a5e6e5c0e3b42572f14e9f3dd4e1a0e492a3e594a046584d55136330
 import csvdata
 
-test "generated tables are current" {
+test "generated tables are current"
     assert csvdata.inputs_digest("data")
         == Ok("e9e14b41a5e6e5c0e3b42572f14e9f3dd4e1a0e492a3e594a046584d55136330")
-}
+end

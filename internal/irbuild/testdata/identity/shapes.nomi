@@ -5,11 +5,11 @@
 /// Each has its own `rt.TypeID`, so the two cannot be confused at run time
 /// either: dispatch, equality and rendering all key on that identity, not on
 /// the spelling.
-pub struct Point {
+pub struct Point
     x: Int
     y: Int
-}
+end
 
-pub fn origin_x() -> Int {
+pub fn origin_x() -> Int
     Point{x: 0, y: 7}.x
-}
+end

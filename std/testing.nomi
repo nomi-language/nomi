@@ -4,10 +4,10 @@
 //# but returns `Result<Subject, AssertionFailure>` instead of propagating the
 //# failure. It is useful when tests need to inspect or render a failure value.
 
-import {
+import
     assertions.AssertionFailure
     results.Result
-}
+end
 
 /// Which clock a `group` runs under, declared as `clock Clock.Virtual`
 /// or `clock Clock.System` beside the group's `boot` and `setup`.
@@ -27,14 +27,14 @@ import {
 ///
 /// A group without a `clock` line runs under `System`, so each group that
 /// wants virtual time declares it.
-pub enum Clock {
+pub enum Clock
     /// The real clock. The default, and what every test used before this
     /// existed.
     System
 
     /// A clock that only advances when every task in the test is blocked.
     Virtual
-}
+end
 
 /// Returns `Ok(subject)` when `subject` would pass `assert`; otherwise returns
 /// `Err(failure)` with the same structured assertion context used by

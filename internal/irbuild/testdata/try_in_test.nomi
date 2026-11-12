@@ -27,72 +27,68 @@
 // (`-1 |> parse()?`).
 import std::io
 
-fn parse(n: Int) -> Result<Int, String> {
-    if n < 0 {
-        Err("negative ${n}")
-    } else {
-        Ok(n * 2)
-    }
-}
+fn parse(n: Int) -> Result<Int, String>
+    if n < 0 then Err("negative ${n}") else Ok(n * 2)
+end
 
-fn find(n: Int) -> Maybe<Int> {
-    if n == 3 { Some(30) } else { None }
-}
+fn find(n: Int) -> Maybe<Int>
+    if n == 3 then Some(30) else None
+end
 
-test "succeeds?" {
+test "succeeds?"
     v = parse(4)?
 
     assert v == 8
-}
+end
 
-test "propagates?" {
+test "propagates?"
     io.print("before the ?")
     v = parse(-1)?
 
     io.print("after the ?")
     assert v == 0
-}
+end
 
-test "propagates? None" {
+test "propagates? None"
     v = find(4)?
 
     assert v == 0
-}
+end
 
-test "`?` inside a nested construct" {
+test "`?` inside a nested construct"
     base = parse(2)?
 
-    if base > 0 {
+    if base > 0 then
         inner = parse(-7)?
 
         assert inner == 0
-    } else {
+    else
         assert base == 0
-    }
-}
+    end
+end
 
-test "`?` in pipe position" {
+test "`?` in pipe position"
     v = -1 |> parse()?
 
     assert v == 0
-}
+end
 
-test "`?` inside a lambda" {
-    f = fn x: Int -> {
+test "`?` inside a lambda"
+    f = fn x: Int ->
         v = parse(x)?
 
         Ok(v + 7)
-    }
+    end
 
     inner = f(-4)
     io.print("after the lambda")
 
-    case inner {
+    case inner
         Ok(_) -> assert False
         Err(e) -> assert e == "negative -4"
-    }
-}
+    end
+end
 
-test "the case after a propagating one still runs" {
+test "the case after a propagating one still runs"
     assert 1 == 1
-}
+end

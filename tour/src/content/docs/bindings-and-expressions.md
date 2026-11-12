@@ -10,11 +10,10 @@ values, bindings, blocks, and `if` and `case`.
 ## A first program
 
 ```nomi-run
-fn main() {
+fn main()
     greeting = "Hello, Nomi!"
     dbg greeting
-}
-
+end
 ```
 <!-- expect
 dbg line 3: greeting = "Hello, Nomi!"
@@ -32,11 +31,10 @@ To print output for the people using your program, use
 ```nomi-run
 import std::io
 
-fn main() {
+fn main()
     io.print("Hello, Nomi!")
     io.inspect("Hello, Nomi!")
-}
-
+end
 ```
 <!-- expect
 Hello, Nomi!
@@ -64,21 +62,22 @@ save; the examples here format themselves after each edit
 ## Tiny functions
 
 ```nomi-run
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn main() {
+fn main()
     dbg double(4)
-}
-
+end
 ```
 <!-- expect
 dbg line 6: double(4) = 8
 -->
 
-A function is written `fn name(params) -> ReturnType { body }`. The last
-expression in the body is the value the function returns.
+A function is written `fn name(params) -> ReturnType`, its body on the
+lines below, and `end`. The last expression in the body is the value the
+function returns. Every body in Nomi is written this way: a header line, the
+lines below it, and `end`.
 
 That is enough for the examples in this chapter.
 [Functions & Lambdas](/functions-and-lambdas/) covers the rest: default
@@ -92,15 +91,14 @@ Nomi keeps comments, documentation and tests next to the code they describe.
 //# Geometry helpers.
 
 /// Returns the area of a rectangle.
-fn area(width: Int, height: Int) -> Int {
+fn area(width: Int, height: Int) -> Int
     // Rectangles multiply their sides.
     width * height
-}
+end
 
-fn main() {
+fn main()
     dbg area(6, 7)
-}
-
+end
 ```
 <!-- expect
 dbg line 10: area(6, 7) = 42
@@ -116,15 +114,14 @@ There are three kinds of comment:
 A test can live in the same file as the code it checks:
 
 ```nomi-run
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-test "double doubles its input" {
+test "double doubles its input"
     assert double(4) == 8
     refute double(4) == 9
-}
-
+end
 ```
 <!-- expect
 ok double doubles its input
@@ -139,10 +136,9 @@ For a small example, write it directly above the declaration with `//!`:
 ```nomi-run
 //! assert double(4) == 8
 //! refute double(4) == 9
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
-
+end
 ```
 <!-- expect
 ok double //! test lines 1-2
@@ -160,13 +156,12 @@ generated from them.
 ## Bindings
 
 ```nomi-run
-fn main() {
+fn main()
     name = "Nomi"
     port = 8080
     dbg name
     dbg port
-}
-
+end
 ```
 <!-- expect
 dbg line 4: name = "Nomi"
@@ -188,11 +183,10 @@ Every binding must be read. If you mean to ignore a value, bind it to `_`
 or to a name that starts with `_`, such as `_unused_port`:
 
 ```nomi-run
-fn main() {
+fn main()
     _ignored_count = 3
     dbg "done"
-}
-
+end
 ```
 <!-- expect
 dbg line 3: "done" = "done"
@@ -204,16 +198,15 @@ does. If it returns a value, use the value, look at it with `dbg`, or
 discard it with `_ =`:
 
 ```nomi-run
-fn compute() -> Int {
+fn compute() -> Int
     42
-}
+end
 
-fn main() {
+fn main()
     _ = compute()
     dbg compute()
     Unit
-}
-
+end
 ```
 <!-- expect
 dbg line 7: compute() = 42
@@ -223,14 +216,14 @@ This version is an error, because nothing uses the `Int` that `compute()`
 returns:
 
 ```nomi-run error
-fn compute() -> Int {
+fn compute() -> Int
     42
-}
+end
 
-fn main() {
+fn main()
     compute()
     Unit
-}
+end
 ```
 <!-- expect
 main.nomi:6:5: non-final expression has type Int, but only Unit results can be ignored — write `_ = ...` if intentional, use `dbg ...` to inspect it, or move it to the end to return it
@@ -247,13 +240,12 @@ Functions and types at the top of a file can't be redeclared this way.
 Shadowing is useful when you refine a value one step at a time:
 
 ```nomi-run
-fn main() {
+fn main()
     name = "  JANE  "
     name = String.trim(name)
     name = String.lowercase(name)
     dbg name
-}
-
+end
 ```
 <!-- expect
 dbg line 5: name = "jane"
@@ -265,12 +257,12 @@ The pipe operator `|>` passes each stage's result to the stage below it, and
 [Pipes](/pipes/) covers it in detail:
 
 ```nomi-run
-fn main() {
+fn main()
     "  JANE  "
     |> String.trim()
     |> String.lowercase()
     |> dbg
-}
+end
 ```
 <!-- expect
 dbg line 5:
@@ -296,18 +288,16 @@ first `name` is never read.
   starts with two underscores, such as `__x`, is an ordinary binding.
 - The read rule covers every name a pattern binds: a destructured
   parameter, a `case` arm, an `if` condition.
-- Two statements need a newline, a space or `;` between them. `p = Point{}`
-  is `` unexpected `{` right after the end of a statement ``, not a binding
-  followed by an empty block.
+- Two statements need a newline, a space or `;` between them.
 
 ```nomi
-fn main() {
+fn main()
     name = "a"
     read_name = fn -> name
     name = 3
     dbg read_name() // "a"
     dbg name // 3
-}
+end
 ```
 
 Spec: [Bindings](/spec/declarations-and-scope/#bindings),
@@ -323,17 +313,16 @@ right-hand side. You need one when the right-hand side doesn't say what the
 type is. The usual case is an empty collection:
 
 ```nomi-run
-fn main() {
+fn main()
     // The annotation says what the map holds.
-    scores: Map<String, Int> = %{}
+    scores: Map<String, Int> = {}
     Map.size(scores) |> dbg
 
     // A call can take the types instead.
     Iter.to_map<String, Int>([])
     |> Map.size()
     |> dbg
-}
-
+end
 ```
 <!-- expect
 dbg line 4: Map.size(scores) = 0
@@ -343,17 +332,18 @@ dbg line 9:
   = 0
 -->
 
-`%{}` alone could be a map of any key and value types, so you say which.
-The empty literals `[]`, `#[]`, `%[]` and `%{}` are each collection's empty
-value, and each needs its type from somewhere. There are three ways to give
+`{}` alone could be a map of any key and value types, so you say which.
+The empty literals `[]` and `{}` are each collection's empty value, and each
+needs its type from somewhere: `[]` is a list, a vector or a set by the type
+it is given, as `[1, 2]` is. There are three ways to give
 a type:
 
-- Annotate the binding: `scores: Map<String, Int> = %{}`. Use this when you
+- Annotate the binding: `scores: Map<String, Int> = {}`. Use this when you
   name the value.
 - Give type arguments to a call: `Iter.to_map<String, Int>([])`. Use this
   when the value goes straight into a pipe or another call. `Iter.to_map`
   builds a map from pairs; [Collections](/collections/) covers it.
-- Write `as` after the value: `.{name: "Ada", tags: [] as List<String>}`.
+- Write `as` after the value: `{name: "Ada", tags: [] as List<String>}`.
   Use this where no annotation fits, such as a field of an anonymous
   struct. `as` only states the type; it never converts a value.
 
@@ -383,24 +373,23 @@ Spec: [Locally-determined bindings and turbofish](/spec/type-relations/#locally-
 ## Blocks are expressions
 
 ```nomi-run
-fn main() {
-    total = {
+fn main()
+    total = begin
         a = 10
         b = 20
         a + b
-    }
+    end
 
     dbg total
-}
-
+end
 ```
 <!-- expect
 dbg line 8: total = 30
 -->
 
-A `{ ... }` block runs its lines and gives the value of its last expression.
-Names bound inside the block, like `a` and `b`, are not visible outside it.
-That makes a block a tidy place for intermediate steps.
+A `begin` ... `end` block runs its lines and gives the value of its last
+expression. Names bound inside the block, like `a` and `b`, are not visible
+outside it. That makes a block a tidy place for intermediate steps.
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
@@ -408,8 +397,8 @@ That makes a block a tidy place for intermediate steps.
 - A block whose last statement is a binding has the value `Unit`.
 - An expression before the last line must be `Unit`, except a `dbg`. A
   function that returns `Unit` may end with `dbg expr` or `|> dbg`.
-- `;` ends a statement, so a short block fits on one line:
-  `{ a = 1; a + 1 }`.
+- `;` ends a statement, so two short statements fit on one line:
+  `a = 1; a + 1`.
 - A line that starts with `|>`, `and`, `or`, `is`, `in` or a comparison
   continues the line above. A line that starts with `+` or `-` does not, so
   a long sum breaks after its operator.
@@ -425,29 +414,29 @@ Spec: [Block expressions](/spec/expressions/#block-expressions),
 `if`/`else` and `case` also give values, so you can bind their result:
 
 ```nomi-run
-fn main() {
+fn main()
     x = 42
 
-    size = if x > 50 { "big" } else { "small" }
+    size = if x > 50 then "big" else "small"
     dbg size
 
-    label = case x {
+    label = case x
         0 -> "zero"
         1 -> "one"
         _ -> "many"
-    }
+    end
 
     dbg label
 
-    range = case {
+    range = case
         x < 0 -> "negative"
         x < 10 -> "small"
         x < 100 -> "medium"
         _ -> "large"
-    }
+    end
 
     dbg range
-}
+end
 ```
 <!-- expect
 dbg line 5: size = "small"
@@ -455,14 +444,17 @@ dbg line 13: label = "many"
 dbg line 22: range = "medium"
 -->
 
-- `if` takes a `Bool` condition.
-- An `if` without `else` gives a `Maybe`: `if x > 50 { "big" }` is
+- `if` takes a `Bool` condition. With more after `then` on its line it is
+  one line, as `size` is. A `then` that ends its line takes the lines below,
+  up to `else` or `end`, as a function's body does.
+- An `if` without `else` gives a `Maybe`: `if x > 50 then "big"` is
   `Some("big")` when the condition holds and `None` when it does not. When
   its branch is `Unit`, such as a print, or leaves with `return`, the `if`
   is a statement with no value.
-- `case x { ... }` compares `x` against each pattern in turn and uses the
-  first arm that matches. `_` matches anything.
-- `case { ... }`, with nothing after `case`, takes the first arm whose
+- `case x` ... `end` compares `x` against each pattern in turn and uses the
+  first arm that matches. `_` matches anything. An arm whose `->` ends its
+  line takes the lines below as its body, up to the next arm.
+- `case` ... `end`, with nothing after `case`, takes the first arm whose
   condition is true. Use it instead of a long `else if` chain.
 
 [Pattern Matching](/pattern-matching/) covers patterns in full, including
@@ -474,11 +466,10 @@ the `if Pattern = expr` form.
 once max_retries = 3
 once timeout_ms = 30 * 1000
 
-fn main() {
+fn main()
     dbg max_retries
     dbg timeout_ms
-}
-
+end
 ```
 <!-- expect
 dbg line 5: max_retries = 3
@@ -503,13 +494,13 @@ for constants and configuration.
   its type: `Money.zero`.
 
 ```nomi
-struct Money {
+struct Money
     cents: Int
-}
+end
 
-impl Money {
+impl Money
     pub once zero = Money{cents: 0}
-}
+end
 ```
 
 Spec: [`once` Bindings](/spec/declarations-and-scope/#once-bindings).
@@ -527,7 +518,7 @@ Inside a function body, Nomi works out types from how values are used:
   type, or another `case` arm.
 - In `f: (Int) -> Int = fn x -> x + 1`, the lambda's `x` gets its type from the
   annotation, so you don't write `fn x: Int ->`.
-- In `m: Map<String, Int> = %{}`, the annotation tells `%{}` which map it
+- In `m: Map<String, Int> = {}`, the annotation tells `{}` which map it
   is.
 
 Inference stops at two boundaries.
@@ -548,11 +539,11 @@ from an annotation on the binding, or from the expression on the right and
 what is expected of it there. Later lines don't count:
 
 ```nomi-run error
-fn main() {
-    m = %{} // error: nothing here says what the map holds
+fn main()
+    m = {} // error: nothing here says what the map holds
     m = Map.put(m, "alice", 90)
     dbg m
-}
+end
 ```
 <!-- expect
 main.nomi:2:5: binding 'm' type is not locally determined: it has unsolved type parameter(s) — add an annotation (`m: T = …`) or a type argument (`f<T>(…)`)

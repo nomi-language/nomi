@@ -11,9 +11,9 @@ func TestExtractImports(t *testing.T) {
 	src := `import math: math
 import models.{User, Point}
 
-fn main() {
+fn main()
     math.double(21)
-}
+end
 `
 	dir := "/project"
 	imports := ExtractImports(src, dir)
@@ -41,13 +41,13 @@ fn main() {
 // in a parent module never propagated fresh diagnostics to dependents
 // until LSP restart (the scenario reported on tests/15-app-and-defer/effects/).
 func TestExtractImports_BlockForm(t *testing.T) {
-	src := `import {
+	src := `import
   std::io
   math: math
   models.{User, Point}
-}
+end
 
-fn main() {}
+fn main() end
 `
 	dir := "/project"
 	imports := ExtractImports(src, dir)
@@ -70,10 +70,10 @@ fn main() {}
 func TestExtractImports_MixedStandaloneAndBlock(t *testing.T) {
 	src := `import math: math
 
-import {
+import
   models.{User}
   utils: utils
-}
+end
 
 import shared: Shared
 `
@@ -96,8 +96,8 @@ import shared: Shared
 
 func TestReverseDeps(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("fn double(x: Int) -> Int { x * 2 }"), 0644)
-	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("import math: math\nfn main() { math.double(21) }"), 0644)
+	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("fn double(x: Int) -> Int\n    x * 2\nend"), 0644)
+	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("import math: math\nfn main()\n    math.double(21)\nend"), 0644)
 
 	dm := NewDocumentManager()
 	dm.SetWorkspaceRoot(dir)
@@ -127,8 +127,8 @@ func TestReverseDeps(t *testing.T) {
 // dependents and the LSP to skip publishing fresh diagnostics on rename.
 func TestReverseDeps_BlockFormImport(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("pub fn double(x: Int) -> Int { x * 2 }"), 0644)
-	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("import {\n  math.{double}\n}\n\nfn main() { double(21) }\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("pub fn double(x: Int) -> Int\n    x * 2\nend"), 0644)
+	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("import\n  math.{double}\nend\n\nfn main()\n    double(21)\nend\n"), 0644)
 
 	dm := NewDocumentManager()
 	dm.SetWorkspaceRoot(dir)

@@ -21,7 +21,7 @@
 // blocker in that function, and every `derive FromJson` body calls it.
 import std::io
 
-fn main() {
+fn main()
     a = [1, 2]
     b = [3]
     io.print(Debug.inspect(a + b))
@@ -31,4 +31,4 @@ fn main() {
     io.print(Debug.inspect(empty))
     s = ["x"]
     io.print(Debug.inspect(["w"] + s + ["y", "z"]))
-}
+end

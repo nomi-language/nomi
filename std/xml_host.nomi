@@ -3,13 +3,13 @@
 //# (internal/stdxml, over Go's encoding/xml). It is internal; a program
 //# imports std::xml.
 
-import {
+import
     bool.Bool
     int.Int
     io.{Error, Reader}
     lists.List
     strings.String
-}
+end
 
 /// An XML token reader over a `Reader`, which reads it a token at a time.
 pub host type Tokens

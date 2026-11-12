@@ -1,6 +1,6 @@
 import std::duration.Duration
 
-test "durations construct from named units" {
+test "durations construct from named units"
     assert Duration.to_string(Duration.seconds(5)) == "5s"
     assert Duration.to_string(Duration.milliseconds(1500)) == "1s500ms"
 
@@ -8,22 +8,22 @@ test "durations construct from named units" {
     assert Duration.to_string(Duration.hours(1)) == "1h"
     assert Duration.to_string(Duration.nanoseconds(0)) == "0s"
     assert Duration.to_string(Duration.microseconds(1)) == "1µs"
-}
+end
 
-test "duration debug matches display" {
+test "duration debug matches display"
     assert Duration.inspect(Duration.seconds(5)) == "5s"
-}
+end
 
-test "durations expose total units" {
+test "durations expose total units"
     assert Duration.as_micros(Duration.milliseconds(2)) == 2000
     assert Duration.as_millis(Duration.seconds(2)) == 2000
     assert Duration.as_seconds(Duration.minutes(3)) == 180
     assert Duration.as_minutes(Duration.hours(2)) == 120
     assert Duration.as_hours(Duration.minutes(150)) == 2
     assert Duration.as_nanos(Duration.microseconds(2)) == 2000
-}
+end
 
-test "durations support arithmetic" {
+test "durations support arithmetic"
     assert Duration.add(Duration.seconds(1), Duration.milliseconds(500))
         == Duration.milliseconds(1500)
 
@@ -36,8 +36,8 @@ test "durations support arithmetic" {
     assert Duration.multiply(Duration.seconds(2), 3) == Duration.seconds(6)
     assert Duration.seconds(2) * 3 == Duration.seconds(6)
     assert Duration.seconds(6) / 3 == Duration.seconds(2)
-}
+end
 
-test "duration equality uses nanosecond magnitude" {
+test "duration equality uses nanosecond magnitude"
     assert Duration.seconds(5) == Duration.milliseconds(5000)
-}
+end

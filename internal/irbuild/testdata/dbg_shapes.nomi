@@ -34,16 +34,16 @@
 // pipes, and both call one function on one node.
 import std::io
 
-struct Rev {
+struct Rev
     zeta: Int
     alpha: Int
-}
+end
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn main() {
+fn main()
     a = dbg 41 + 1
     io.print("a=${a}")
 
@@ -82,4 +82,4 @@ fn main() {
     // A String is its literal, so a multi-line one reads on one line.
     h = dbg "first\nsecond\tthird"
     io.print("h=${h}")
-}
+end

@@ -1,29 +1,23 @@
 //# The runs of adjacent digits of one length in a string of digits.
 
 /// Why a series has no slices of the length asked for.
-pub enum Error {
+pub enum Error
     EmptySeries
     ZeroLength
     NegativeLength
     LengthTooLarge
-}
+end
 
 /// Every run of `length` adjacent characters in `series`, in the order they
 /// start. Runs overlap, and equal runs are all kept.
-pub fn slices(series: String, length: Int) -> Result<List<String>, Error> {
+pub fn slices(series: String, length: Int) -> Result<List<String>, Error>
     size = String.length(series)
 
-    case {
+    case
         size == 0 -> Err(.EmptySeries)
         length < 0 -> Err(.NegativeLength)
         length == 0 -> Err(.ZeroLength)
         length > size -> Err(.LengthTooLarge)
-
-        _ ->
-            series
-            |> Iter.windows(length)
-            |> Iter.map(String.join)
-            |> Iter.to_list()
-            |> Ok()
-    }
-}
+        _ -> series |> Iter.windows(length) |> Iter.map(String.join) |> Iter.to_list() |> Ok()
+    end
+end

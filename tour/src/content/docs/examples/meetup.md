@@ -17,59 +17,59 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 import std::calendar.{Date, Weekday}
 
 /// Which of a month's days on a given weekday a meetup falls on.
-pub enum Week {
+pub enum Week
     First
     Second
     Third
     Fourth
     Last
     Teenth
-}
+end
 
 /// The date of the meetup in `month` of `year` that falls on `weekday` in
 /// `week`: the first to fourth such day, the last, or the one from the 13th
 /// to the 19th.
-pub fn meetup(year: Int, month: Int, week: Week, weekday: Weekday) -> Date {
+pub fn meetup(year: Int, month: Int, week: Week, weekday: Weekday) -> Date
     days = days_on(year, month, weekday)
-    #[first, second, third, fourth, ..] = days else {
+    [first, second, third, fourth, ..] = days else
         unreachable "a weekday falls at least four times in every month"
-    }
+    end
     last = Iter.last(days)!
 
-    case week {
+    case week
         .First -> first
         .Second -> second
         .Third -> third
         .Fourth -> fourth
         .Last -> last
         .Teenth -> teenth(days)
-    }
-}
+    end
+end
 
 /// Every day of the month that falls on `weekday`, in order: four or five
 /// of them.
-fn days_on(year: Int, month: Int, weekday: Weekday) -> Vector<Date> {
+fn days_on(year: Int, month: Int, weekday: Weekday) -> Vector<Date>
     1..=Date.days_in_month(year, month)!
     |> Iter.map(&Date.new(year, month, &1)!)
     |> Iter.filter(&(Date.weekday(&1) == weekday))
     |> Iter.to_vector()
-}
+end
 
 /// The one of `days` that falls from the 13th to the 19th.
-fn teenth(days: Vector<Date>) -> Date {
-    Some(day) = Iter.find(days, &(Date.day(&1) in 13..=19)) else {
+fn teenth(days: Vector<Date>) -> Date
+    Some(day) = Iter.find(days, &(Date.day(&1) in 13..=19)) else
         unreachable "the 13th to the 19th are seven days, so one falls on every weekday"
-    }
+    end
     day
-}
+end
 
 // FILE: meetup_test.nomi
-import {
+import
     std::calendar.{Date, Weekday}
     meetup.{self, Week}
-}
+end
 
-test "meetup" {
+test "meetup"
     [
         (
             "when teenth Monday is the 13th, the first day of the teenth week",
@@ -783,10 +783,10 @@ test "meetup" {
             Date`2012-12-07`,
         ),
     ]
-    |> subtests (description, year, month, week, weekday, expected), description {
+    |> subtests (description, year, month, week, weekday, expected), description
         assert meetup.meetup(year, month, week, weekday) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok meetup (95 cases)
@@ -797,7 +797,7 @@ test result: ok. 95 passed, 0 failed
 
 - The week is an enum, `Week`, with the canonical data's six descriptors, and the day is std/calendar's `Weekday`. The canonical strings (`"teenth"`, `"Monday"`) are the test table's data, written as variants: the first row qualifies them (`Week.Teenth`, `Weekday.Monday`) and the rows after it write `.First`, `.Tuesday`.
 - `days_on` lists the month's days on the weekday: `Date.days_in_month(year, month)!` days, each `Date.new(year, month, day)!`, filtered by weekday. The calendar decides the month's length, with no table of month lengths or leap-year rule here. Both `!`s trap only for a month that is not 1 to 12, which the caller chose, and the trap names the call (style §29).
-- The first four weeks are taken apart with a vector pattern, `#[first, second, third, fourth, ..]`. A weekday falls four or five times in every month, so the pattern cannot fail, and its `else` is an `unreachable` that says why (style §29). The last day is `Iter.last(days)!`: the pattern above matched, so `days` is not empty. A vector pattern needs at least as many elements as it names, and the last day is the fourth in a month with four, so it cannot be a fifth name in the same pattern.
+- The first four weeks are taken apart with a vector pattern, `Vector[first, second, third, fourth, ..]`. A weekday falls four or five times in every month, so the pattern cannot fail, and its `else` is an `unreachable` that says why (style §29). The last day is `Iter.last(days)!`: the pattern above matched, so `days` is not empty. A vector pattern needs at least as many elements as it names, and the last day is the fourth in a month with four, so it cannot be a fifth name in the same pattern.
 - The teenth day is `Iter.find` over the days for one from the 13th to the 19th. Those are seven days in a row, so one of them is on every weekday, and the `None` that `Iter.find` can answer is an `unreachable` that says so.
 - The expected dates are `Date` literals, ``Date`2013-05-13` ``, so the table compares dates, not strings.
 - The 95 canonical cases are one `subtests` table named by the description column.

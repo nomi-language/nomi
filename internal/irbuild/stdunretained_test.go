@@ -39,7 +39,7 @@ func TestStdBodiesTheCacheDeclinesAreBuiltPerProgram(t *testing.T) {
 			t.Errorf("std %s is not retained (%s) and no program builds it", name, whys[name])
 			continue
 		}
-		if inst, why := s.instantiate(f, nil, nil, nil, nil); inst == nil {
+		if inst, why := s.instantiate(f, nil, nil, nil); inst == nil {
 			t.Errorf("std %s is built per program, and does not build: %s", name, why)
 		}
 	}

@@ -9,17 +9,17 @@ import (
 	"github.com/nomi-language/nomi/internal/vm"
 )
 
-const travelFilesSrc = `import {
+const travelFilesSrc = `import
     std::fs
     std::io
-}
+end
 
-fn main() {
+fn main()
     path = "PATH"
     _ = fs.write_text(path, "one", mode: .Append)
     text = fs.read_text(path)
     io.inspect(text)
-}
+end
 `
 
 // Stepping back over std/fs on the disk answers its crossings from the
@@ -57,19 +57,19 @@ func TestTravel_StepBackNeverWritesAFileTwice(t *testing.T) {
 	}
 }
 
-const travelSandboxSrc = `import {
+const travelSandboxSrc = `import
     std::fs
     std::fs_testing.{self, Sandbox}
     std::io
-}
+end
 
-fn main() {
-    ran = fs_testing.run(Sandbox{files: %{"in.txt" => "a"}}, fn -> {
+fn main()
+    ran = fs_testing.run(Sandbox{files: {"in.txt" => "a"}}, fn ->
         _ = fs.write_text("in.txt", "b", mode: .Append)
         fs.read_text("in.txt")
-    })
+    end)
     io.inspect(ran.value)
-}
+end
 `
 
 // Inside fs_testing.run the replay builds the sandbox again and runs its file

@@ -4,22 +4,22 @@
 // declaring file's private function and its type, a generic function with
 // defaults, the bare spelling after a selective import, and a same-file
 // generic with a default.
-import {
+import
     std::io
     lib
     lib.{add, label, spread}
-}
+end
 
-fn note(s: String) -> String {
+fn note(s: String) -> String
     io.print("arg ${s}")
     s
-}
+end
 
-fn pick<T>(a: T, b: T, first: Bool = True) -> T {
-    if first { a } else { b }
-}
+fn pick<T>(a: T, b: T, first: Bool = True) -> T
+    if first then a else b
+end
 
-fn main() {
+fn main()
     io.print(lib.add(1, 2))
     io.print(lib.add(1))
     io.print(lib.add(1, b: 5))
@@ -43,4 +43,4 @@ fn main() {
     io.print(pick(1, 2))
     io.print(pick("x", "y", False))
     io.print(pick("x", "y", first: False))
-}
+end

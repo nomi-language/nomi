@@ -34,20 +34,20 @@ func runTodo(t *testing.T, src string) (string, string, error) {
 func TestTodo_ReachingOneStopsTheProgram(t *testing.T) {
 	path, out, err := runTodo(t, `import std::io
 
-struct Header {
+struct Header
     name: String
     size: Int
-}
+end
 
-fn parse(text: String) -> Header {
+fn parse(text: String) -> Header
     todo "parse the header"
-}
+end
 
-fn main() {
+fn main()
     io.print("before")
     h = parse("abc")
     io.print(h.name)
-}
+end
 `)
 	if out != "before\n" {
 		t.Errorf("output %q, want only what ran before the todo", out)
@@ -58,10 +58,10 @@ fn main() {
 }
 
 func TestTodo_ABareTodoNamesOnlyItsPlace(t *testing.T) {
-	path, _, err := runTodo(t, `fn main() {
+	path, _, err := runTodo(t, `fn main()
     _ = 1
     todo
-}
+end
 `)
 	if want := "todo reached at " + path + ":3"; err == nil || err.Error() != want {
 		t.Fatalf("error %v, want %q", err, want)
@@ -73,75 +73,75 @@ func TestTodo_ABareTodoNamesOnlyItsPlace(t *testing.T) {
 func TestTodo_UntakenTodosDoNotTrapInAnyPosition(t *testing.T) {
 	_, out, err := runTodo(t, `import std::io
 
-struct Header {
+struct Header
     name: String
     size: Int
-}
+end
 
-enum Shape {
+enum Shape
     Circle(Int)
     Square(Int)
-}
+end
 
-fn area(s: Shape) -> Int {
-    case s {
+fn area(s: Shape) -> Int
+    case s
         .Square(_) -> todo
         .Circle(r) -> r * r * 3
-    }
-}
+    end
+end
 
-fn first<T>(xs: List<T>, d: T) -> T {
-    case List.head(xs) {
+fn first<T>(xs: List<T>, d: T) -> T
+    case List.head(xs)
         Some(x) -> x
         None -> todo "empty"
-    }
-}
+    end
+end
 
-fn header(ready: Bool) -> Header {
-    if ready {
+fn header(ready: Bool) -> Header
+    if ready then
         Header{name: "h", size: 1}
-    } else {
+    else
         Header{name: "h", size: todo "size"}
-    }
-}
+    end
+end
 
-fn twice(n: Int) -> Int {
+fn twice(n: Int) -> Int
     n * 2
-}
+end
 
-fn pick(flag: Bool) -> Int {
-    if flag {
+fn pick(flag: Bool) -> Int
+    if flag then
         twice(todo)
-    } else {
+    else
         3
-    }
-}
+    end
+end
 
-fn piped(flag: Bool) -> Int {
-    if flag {
+fn piped(flag: Bool) -> Int
+    if flag then
         5 |> todo
-    } else {
+    else
         4
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Int.to_string(area(Shape.Circle(1))))
     io.print(first(["a"], "b"))
     io.print(Int.to_string(first([7], 0)))
     io.print(Int.to_string(header(True).size))
     io.print(Int.to_string(pick(False)))
     io.print(Int.to_string(piped(False)))
-    f = fn x: Int -> if x > 10 { todo } else { x + 1 }
+    f = fn x: Int -> if x > 10 then todo else x + 1
     io.print(Int.to_string(f(1)))
-    ys = [1, 2] |> Iter.map(fn x -> if x > 5 { todo } else { x * 10 }) |> Iter.to_list()
+    ys = [1, 2] |> Iter.map(fn x -> if x > 5 then todo else x * 10) |> Iter.to_list()
     io.print(Int.to_string(Iter.count(ys)))
-    n: Int = if False { todo } else { 6 }
+    n: Int = if False then todo else 6
     io.print(Int.to_string(n))
-    if False {
+    if False then
         todo "never"
-    }
-}
+    end
+end
 `)
 	if err != nil {
 		t.Fatalf("an untaken todo trapped: %v", err)
@@ -154,29 +154,29 @@ fn main() {
 // A `todo` in a generic body traps in the instance that reaches it, and one
 // as a pipe stage traps after the piped value is computed.
 func TestTodo_GenericAndPipeStageTodosTrap(t *testing.T) {
-	path, _, err := runTodo(t, `fn first<T>(xs: List<T>) -> T {
+	path, _, err := runTodo(t, `fn first<T>(xs: List<T>) -> T
     _ = xs
     todo "first"
-}
+end
 
-fn main() {
+fn main()
     _ = first([1])
-}
+end
 `)
 	if want := "todo reached at " + path + ":3: first"; err == nil || err.Error() != want {
 		t.Fatalf("error %v, want %q", err, want)
 	}
 	path, out, err := runTodo(t, `import std::io
 
-fn loud(n: Int) -> Int {
+fn loud(n: Int) -> Int
     io.print("piped")
     n
-}
+end
 
-fn main() {
+fn main()
     n: Int = 5 |> loud() |> todo
     io.print(Int.to_string(n))
-}
+end
 `)
 	if out != "piped\n" {
 		t.Errorf("output %q, want the piped value computed before the trap", out)
@@ -197,7 +197,7 @@ func TestTodo_AnOperandTodoTrapsAtTheTodo(t *testing.T) {
 		"x = not not todo",
 		"x: Bool = not todo",
 		"x = g(not todo)",
-		"x = not (if True { todo } else { todo })",
+		"x = not (if True then todo else todo)",
 		"x = todo and True",
 		"x = False or todo",
 		"x = True and not todo",
@@ -209,27 +209,27 @@ func TestTodo_AnOperandTodoTrapsAtTheTodo(t *testing.T) {
 		"x = 2.0 - todo",
 		"x = \"a\" + todo",
 		"x = loud(1) * todo",
-		"x = if todo { 1 } else { 2 }",
-		"x = if not todo { 1 } else { 2 }",
+		"x = if todo then 1 else 2",
+		"x = if not todo then 1 else 2",
 	}
 	for _, form := range forms {
 		t.Run(form, func(t *testing.T) {
 			path, out, err := runTodo(t, `import std::io
 
-fn g(b: Bool) -> Bool {
+fn g(b: Bool) -> Bool
     b
-}
+end
 
-fn loud(n: Int) -> Int {
+fn loud(n: Int) -> Int
     io.print("loud")
     n
-}
+end
 
-fn main() {
+fn main()
     io.print("before")
     `+form+`
     _ = x
-}
+end
 `)
 			want := "before\n"
 			if strings.Contains(form, "loud") {
@@ -243,9 +243,9 @@ fn main() {
 			}
 		})
 	}
-	path, _, err := runTodo(t, `fn main() {
+	path, _, err := runTodo(t, `fn main()
     _ = not todo "negate"
-}
+end
 `)
 	if want := "todo reached at " + path + ":2: negate"; err == nil || err.Error() != want {
 		t.Fatalf("error %v, want %q", err, want)
@@ -257,19 +257,19 @@ fn main() {
 func TestTodo_UntakenOperandTodosDoNotTrap(t *testing.T) {
 	_, out, err := runTodo(t, `import std::io
 
-fn main() {
+fn main()
     a = False and todo
     b = True or not todo
-    c = if False { todo == 1 } else { False }
-    d = if False { 1 + todo } else { 7 }
-    e = if False { not todo } else { True }
-    if False {
-        if not todo {
+    c = if False then todo == 1 else False
+    d = if False then 1 + todo else 7
+    e = if False then not todo else True
+    if False then
+        if not todo then
             io.print("never")
-        }
-    }
+        end
+    end
     io.print("${a} ${b} ${c} ${d} ${e}")
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("an untaken todo trapped: %v", err)
@@ -285,31 +285,31 @@ fn main() {
 func TestTodo_ANameTodoIsAnOrdinaryName(t *testing.T) {
 	path, out, err := runTodo(t, `import std::io
 
-struct Todo {
+struct Todo
     title: String
     done: Bool
-}
+end
 
-struct Box {
+struct Box
     todo: Todo
-}
+end
 
-fn apply(todo: Todo) -> Todo {
+fn apply(todo: Todo) -> Todo
     todo
-}
+end
 
-fn title_of(todo: Todo) -> String {
+fn title_of(todo: Todo) -> String
     todo.title
-}
+end
 
-fn pick(m: Maybe<Int>) -> Int {
-    case m {
+fn pick(m: Maybe<Int>) -> Int
+    case m
         Some(todo) -> todo
         None -> todo
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     t = Todo{title: "milk", done: False}
     io.print(apply(t).title)
     io.print(title_of(t))
@@ -317,12 +317,12 @@ fn main() {
     io.print(todo + 1)
     box = Box{todo: t}
     io.print(box.todo.title)
-    io.print(.{todo}.todo)
+    io.print({todo:}.todo)
     f = fn todo: Int -> todo * 10
     io.print(f(4))
     io.print(pick(Some(7)))
     io.print(pick(None))
-}
+end
 `)
 	if want := "milk\nmilk\n2\nmilk\n1\n40\n7\n"; out != want {
 		t.Errorf("output %q, want %q", out, want)
@@ -337,15 +337,15 @@ fn main() {
 func TestTodo_AFunctionNamedTodoShadowsTheBarePlaceholder(t *testing.T) {
 	path, out, err := runTodo(t, `import std::io
 
-fn todo() -> Int {
+fn todo() -> Int
     5
-}
+end
 
-fn main() {
+fn main()
     io.print(todo())
     io.print([1, 2] |> Iter.map(fn _ -> todo()) |> Iter.sum())
     todo "still the placeholder"
-}
+end
 `)
 	if want := "5\n10\n"; out != want {
 		t.Errorf("output %q, want %q", out, want)
@@ -360,11 +360,11 @@ fn main() {
 // value is still the placeholder.
 func TestTodo_AModuleNamedTodoLeavesTheBarePlaceholder(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "todo.nomi"), []byte("pub fn label() -> String {\n    \"from todo\"\n}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "todo.nomi"), []byte("pub fn label() -> String\n    \"from todo\"\nend\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "main.nomi")
-	src := "import std::io\nimport todo\n\nfn later() -> Int {\n    todo\n}\n\nfn main() {\n    io.print(todo.label())\n    io.inspect(later())\n}\n"
+	src := "import std::io\nimport todo\n\nfn later() -> Int\n    todo\nend\n\nfn main()\n    io.print(todo.label())\n    io.inspect(later())\nend\n"
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}

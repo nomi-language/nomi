@@ -10,13 +10,13 @@ import (
 // callee. Before, the call was accepted and its result passed as any type.
 func TestCallNonFunction_IsAnErrorAtTheCallee(t *testing.T) {
 	errs := checkWithStdlib(`
-struct P {
+struct P
   a: Int
-}
+end
 
 type Handler (Int) -> Int
 
-fn main() {
+fn main()
   _ = 1()
   _ = ""()
   pair = (1, 2)
@@ -28,13 +28,13 @@ fn main() {
   _ = f(1)
   h = Handler(fn x -> x)
   _ = h(2)
-  _ = Wrap.One(#[1])
-}
+  _ = Wrap.One(Vector[1])
+end
 
-enum Wrap {
+enum Wrap
   One Vector<Int>
   Zero
-}
+end
 `)
 	var got []string
 	for _, e := range errs {
@@ -59,47 +59,47 @@ enum Wrap {
 // declined the body.
 func TestCallNonFunction_TypeParamAndInterfaceValues(t *testing.T) {
 	errs := checkWithStdlib(`
-struct Box<T> {
+struct Box<T>
   v: T
-}
+end
 
-fn evens<T>(xs: List<T>) -> List<T> {
-  case xs {
+fn evens<T>(xs: List<T>) -> List<T>
+  case xs
     [] -> []
     [x, ..rest] -> [x(rest)]
-  }
-}
+  end
+end
 
-fn bounded<T>(x: T) -> String where T: Display {
+fn bounded<T>(x: T) -> String where T: Display
   x(1)
-}
+end
 
-fn field<T>(b: Box<T>) -> Int {
+fn field<T>(b: Box<T>) -> Int
   b.v(1)
-}
+end
 
-fn piped<T>(x: Int, y: T) -> Int {
+fn piped<T>(x: Int, y: T) -> Int
   x |> y()
-}
+end
 
-fn partial<T>(x: T) -> Int {
+fn partial<T>(x: T) -> Int
   h = &x(&1)
   h(1)
-}
+end
 
-fn iface(x: Display) -> String {
+fn iface(x: Display) -> String
   x(1)
-}
+end
 
-fn piped_int(x: Int, y: Int) -> Int {
+fn piped_int(x: Int, y: Int) -> Int
   x |> y()
-}
+end
 
-fn applies<T>(f: (T) -> T, x: T) -> T {
+fn applies<T>(f: (T) -> T, x: T) -> T
   f(x)
-}
+end
 
-fn main() {
+fn main()
   _ = evens([1])
   _ = bounded(1)
   _ = field(Box{v: 1})
@@ -108,7 +108,7 @@ fn main() {
   _ = iface(1)
   _ = piped_int(1, 2)
   _ = applies(fn n -> n, 1)
-}
+end
 `)
 	var got []string
 	for _, e := range errs {

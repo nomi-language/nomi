@@ -12,7 +12,7 @@ import (
 
 // A hover on `as` shows the type it gives the value.
 func TestHoverAscription(t *testing.T) {
-	got := hoverAtMark(t, "fn main() {\n    tags = [] ▮as List<String>\n    _ = tags\n}\n")
+	got := hoverAtMark(t, "fn main()\n    tags = [] ▮as List<String>\n    _ = tags\nend\n")
 	if !strings.Contains(got, "List<String>") {
 		t.Errorf("hover = %q, want it to name List<String>", got)
 	}
@@ -21,7 +21,7 @@ func TestHoverAscription(t *testing.T) {
 // An `as` whose value already has the type is marked unnecessary, as a
 // hint over `as Type`.
 func TestRedundantAscriptionHint(t *testing.T) {
-	src := "fn main() {\n    x = 3\n    _ = x as Int\n    _ = [] as List<Int>\n}\n"
+	src := "fn main()\n    x = 3\n    _ = x as Int\n    _ = [] as List<Int>\nend\n"
 	nodes, errs := parser.ParseWithRecovery(lexer.Lex(src))
 	if len(errs) > 0 {
 		t.Fatal(errs)

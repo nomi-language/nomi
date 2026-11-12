@@ -10,9 +10,9 @@ belongs to no type is called through its file's name, as in
 [`io.print(value)`](/reference/io/#ioprint).
 
 The [Structs, Enums, Distinct Types](/structs-enums-distinct/#type-owned-functions)
-chapter showed `impl Type { ... }` blocks, which add functions to a type. This
+chapter showed `impl Type` blocks, which add functions to a type. This
 chapter covers interfaces. An `interface` lists functions that a type must
-provide. A type provides them in an `impl Interface for Type { ... }` block.
+provide. A type provides them in an `impl Interface for Type` block.
 
 You call these functions through the type's name, as in `User.to_json(user)`,
 or through the interface's name, as in
@@ -23,35 +23,34 @@ or through the interface's name, as in
 ```nomi-run
 import std::io
 
-interface Speech {
+interface Speech
     fn speak(animal: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
     name: String
-}
+end
 
-impl Speech for Dog {
-    fn speak(d: Dog) -> String {
+impl Speech for Dog
+    fn speak(d: Dog) -> String
         "${d.name} says woof"
-    }
-}
+    end
+end
 
-struct Cat {
+struct Cat
     name: String
-}
+end
 
-impl Speech for Cat {
-    fn speak(c: Cat) -> String {
+impl Speech for Cat
+    fn speak(c: Cat) -> String
         "${c.name} says meow"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Dog.speak(Dog{name: "Rex"}))
     io.print(Cat.speak(Cat{name: "Whiskers"}))
-}
-
+end
 ```
 <!-- expect
 Rex says woof
@@ -78,21 +77,21 @@ impl:
 ```nomi-run
 import std::io
 
-interface Speech {
+interface Speech
     fn speak(animal: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
     name: String
-}
+end
 
-impl Speech for Dog {
-    fn speak(d: Dog) -> String {
+impl Speech for Dog
+    fn speak(d: Dog) -> String
         "${d.name} says woof"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     rex = Dog{name: "Rex"}
 
     // Through the type.
@@ -103,8 +102,7 @@ fn main() {
 
     // Most printing does not need explicit stringification.
     io.print(42)
-}
-
+end
 ```
 <!-- expect
 Rex says woof
@@ -153,9 +151,9 @@ An interface is also a type. A parameter used only through one interface
 takes the interface as its type, and any implementor passes:
 
 ```nomi
-fn introduce(pet: Speech) -> String {
+fn introduce(pet: Speech) -> String
     "Meet the pet: ${Speech.speak(pet)}"
-}
+end
 ```
 
 `introduce` takes a `Dog` or a `Cat`. Inside it, `pet` is called through the
@@ -168,7 +166,7 @@ under one bound.
 
 Where a value's type is written as an interface, the branches of an `if` or
 `case` may be different types that implement it:
-`pet: Speech = if quiet { Cat{name: "Tom"} } else { Dog{name: "Rex"} }`,
+`pet: Speech = if quiet then Cat{name: "Tom"} else Dog{name: "Rex"}`,
 then `Speech.speak(pet)`. Without the `: Speech`, the branches must have one
 type.
 
@@ -192,42 +190,41 @@ A type can't replace a default unless the interface marks it `open`:
 ```nomi-run
 import std::io
 
-interface Formatted {
+interface Formatted
     fn label(value: self) -> String
 
     // No `open`: an impl can't replace this.
-    fn shout(value: self) -> String {
+    fn shout(value: self) -> String
         "${label(value)}!"
-    }
+    end
 
     // `open`: an impl may replace this.
-    open fn brief(value: self) -> String {
+    open fn brief(value: self) -> String
         label(value)
-    }
-}
+    end
+end
 
-struct User {
+struct User
     name: String
-}
+end
 
-impl Formatted for User {
-    fn label(u: User) -> String {
+impl Formatted for User
+    fn label(u: User) -> String
         u.name
-    }
+    end
 
     // `brief` is `open`, so this override is allowed.
-    fn brief(u: User) -> String {
+    fn brief(u: User) -> String
         "user:${u.name}"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     alice = User{name: "Alice"}
     io.print(Formatted.label(alice))
     io.print(Formatted.shout(alice))
     io.print(Formatted.brief(alice))
-}
-
+end
 ```
 <!-- expect
 Alice
@@ -253,7 +250,7 @@ other functions by their bare names. Everywhere else, write the qualifier.
 - A default may give its trailing parameters default values. A required
   function may not.
 - An operation with no `self` that belongs with the interface goes in an
-  inherent `impl Formatted { ... }` block and is called
+  inherent `impl Formatted` block and is called
   `Formatted.name(...)`.
 
 Spec: [Item kinds](/spec/interfaces-implementations-and-derive/#item-kinds),
@@ -275,46 +272,45 @@ an error.
 ```nomi-run
 import std::io
 
-interface Scale {
+interface Scale
     fn unit(value: self) -> String
 
-    fn format(value: self) -> String where self: Display {
+    fn format(value: self) -> String where self: Display
         "${value} ${unit(value)}"
-    }
-}
+    end
+end
 
 type Grams Int
 
-impl Display for Grams {
-    fn to_string(Grams(n)) -> String {
+impl Display for Grams
+    fn to_string(Grams(n)) -> String
         "${n}"
-    }
-}
+    end
+end
 
-impl Scale for Grams {
-    fn unit(_g: Grams) -> String {
+impl Scale for Grams
+    fn unit(_g: Grams) -> String
         "g"
-    }
-}
+    end
+end
 
 type Secret Int
 
 // No Display, so Secret writes `format` itself.
-impl Scale for Secret {
-    fn unit(_s: Secret) -> String {
+impl Scale for Secret
+    fn unit(_s: Secret) -> String
         "?"
-    }
+    end
 
-    fn format(_s: Secret) -> String {
+    fn format(_s: Secret) -> String
         "hidden"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Scale.format(Grams(250)))
     io.print(Scale.format(Secret(7)))
-}
-
+end
 ```
 <!-- expect
 250 g
@@ -342,24 +338,23 @@ automatically. You don't write an `impl` or a `derive` for it. Every value,
 including those of types you declare, can be shown with `dbg`:
 
 ```nomi-run
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-enum Status {
+enum Status
     Active
     Pending Int
-}
+end
 
 type Email String
 
-fn main() {
+fn main()
     dbg Point{x: 3, y: 4}
     dbg Status.Pending(7)
     dbg Email("a@b.com")
-}
-
+end
 ```
 <!-- expect
 dbg line 14: Point{x: 3, y: 4} = Point{x: 3, y: 4}
@@ -369,7 +364,7 @@ dbg line 16: Email("a@b.com") = Email("a@b.com")
 
 That's why `dbg` has worked on everything in the tour so far.
 
-To show a type differently, write `impl Debug for Type { ... }`. Your impl is
+To show a type differently, write `impl Debug for Type`. Your impl is
 used in place of the automatic one.
 
 <div class="tour-details">
@@ -393,27 +388,26 @@ Spec: [Display and Debug](/spec/interfaces-implementations-and-derive/#display-a
 
 [`io.print`](/reference/io/#ioprint) needs a different interface,
 [`Display`](/reference/display/). `Display` is the text you show to users, and
-your types don't get it automatically. Write an `impl Display for Type { ... }`
+your types don't get it automatically. Write an `impl Display for Type`
 block with a `to_string` function:
 
 ```nomi-run
 import std::io
 
-struct User {
+struct User
     name: String
     age: Int
-}
+end
 
-impl Display for User {
-    fn to_string(u: User) -> String {
+impl Display for User
+    fn to_string(u: User) -> String
         "${u.name} (${u.age})"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(User{name: "Alice", age: 30})
-}
-
+end
 ```
 <!-- expect
 Alice (30)
@@ -430,27 +424,26 @@ mention another type parameter. That links two type parameters without making
 them the same type:
 
 ```nomi-run
-interface StepBy<S> {
+interface StepBy<S>
     fn step_by(value: self, step: S) -> self
-}
+end
 
 type Counter Int
 
-impl StepBy<Int> for Counter {
-    fn step_by(value: Counter, step: Int) -> Counter {
+impl StepBy<Int> for Counter
+    fn step_by(value: Counter, step: Int) -> Counter
         Counter(n) = value
         Counter(n + step)
-    }
-}
+    end
+end
 
-fn advance<T, S>(value: T, step: S) -> T where T: StepBy<S> {
+fn advance<T, S>(value: T, step: S) -> T where T: StepBy<S>
     T.step_by(value, step)
-}
+end
 
-fn main() {
+fn main()
     dbg advance(Counter(10), 5)
-}
-
+end
 ```
 <!-- expect
 dbg line 19: advance(Counter(10), 5) = Counter(15)
@@ -470,16 +463,16 @@ its body if it has one. If it needs its own type parameter, declare it in
 `<...>` after the function's name:
 
 ```nomi ignore
-interface Ranked<T> {
+interface Ranked<T>
     fn item(value: self) -> T
 
-    fn prefer<K>(_value: self, lhs: K, rhs: K) -> Bool where K: Comparable {
-        case Comparable.compare(lhs, rhs) {
+    fn prefer<K>(_value: self, lhs: K, rhs: K) -> Bool where K: Comparable
+        case Comparable.compare(lhs, rhs)
             .Less -> False
             _ -> True
-        }
-    }
-}
+        end
+    end
+end
 ```
 
 `T` comes from `Ranked<T>`. `K` comes from `prefer<K>`. Naming a type
@@ -502,50 +495,49 @@ scores, and adding a number of days to a day:
 ```nomi-run
 type Score Int
 
-fn score_number(score: Score) -> Int {
+fn score_number(score: Score) -> Int
     Score(n) = score
     n
-}
+end
 
 type Day Int
 
-fn day_number(day: Day) -> Int {
+fn day_number(day: Day) -> Int
     Day(n) = day
     n
-}
+end
 
 type Days Int
 
-fn days_number(days: Days) -> Int {
+fn days_number(days: Days) -> Int
     Days(n) = days
     n
-}
+end
 
-impl Add<Score, Score> for Score {
-    fn add(lhs: Score, rhs: Score) -> Score {
+impl Add<Score, Score> for Score
+    fn add(lhs: Score, rhs: Score) -> Score
         Score(score_number(lhs) + score_number(rhs))
-    }
-}
+    end
+end
 
-impl Add<Days, Day> for Day {
-    fn add(lhs: Day, rhs: Days) -> Day {
+impl Add<Days, Day> for Day
+    fn add(lhs: Day, rhs: Days) -> Day
         Day(day_number(lhs) + days_number(rhs))
-    }
-}
+    end
+end
 
-fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out> {
+fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out>
     lhs + rhs
-}
+end
 
-fn main() {
+fn main()
     score = Score(2) + Score(3)
     day = Day(10) + Days(4)
 
     dbg score_number(score)
     dbg day_number(day)
     dbg plus(Day(10), Days(4))
-}
-
+end
 ```
 <!-- expect
 dbg line 42: score_number(score) = 5
@@ -604,26 +596,25 @@ a `where T: Equatable` or `where T: Hashable` bound, so `p in [q]` and
 have no equality.
 
 ```nomi-run
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-fn main() {
+fn main()
     dbg Point{x: 1, y: 2} == Point{x: 1, y: 2}
     dbg Point{x: 1, y: 2} == Point{x: 1, y: 3}
-    dbg %{Point{x: 1, y: 2} => "home"}
-}
-
+    dbg {Point{x: 1, y: 2} => "home"}
+end
 ```
 <!-- expect
 dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True
 dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
-dbg line 9: %{Point{x: 1, y: 2} => "home"} = %{Point{x: 1, y: 2} => "home"}
+dbg line 9: {Point{x: 1, y: 2} => "home"} = {Point{x: 1, y: 2} => "home"}
 -->
 
 You write an `impl Equatable` only for custom equality. An `impl Equatable
-for Type { ... }` block you write replaces the built-in `==` for that type,
+for Type` block you write replaces the built-in `==` for that type,
 and generic code bounded by `Equatable` uses it too. That's how `DateTime` compares
 by the moment it names: the same moment in two time zones is `==` (see
 [Dates and times](/dates-and-times/)).
@@ -636,19 +627,18 @@ own type without a `Comparable` impl is a compile error. `derive Comparable`
 compares the first field, then the next field if those are equal, and so on:
 
 ```nomi-run
-struct Version {
+struct Version
     major: Int
     minor: Int
-}
+end
 
 derive Comparable for Version
 
-fn main() {
+fn main()
     dbg Version{major: 1, minor: 9} < Version{major: 1, minor: 10}
     dbg Version{major: 2, minor: 0} < Version{major: 1, minor: 10}
     dbg Version.max(Version{major: 1, minor: 9}, Version{major: 1, minor: 10})
-}
-
+end
 ```
 <!-- expect
 dbg line 9: Version{major: 1, minor: 9} < Version{major: 1, minor: 10} = True
@@ -669,18 +659,17 @@ changes whenever someone reorders the fields. Choose the order where you sort,
 with [`Iter.sort_by`](/reference/iter/#itersort_by) and the field to sort on:
 
 ```nomi-run
-struct User {
+struct User
     name: String
     age: Int
-}
+end
 
-fn main() {
+fn main()
     users = [User{name: "Cara", age: 35}, User{name: "Ann", age: 41}]
     sorted = users |> Iter.sort_by(.name)
 
     dbg sorted
-}
-
+end
 ```
 <!-- expect
 dbg line 10: sorted = [User{name: "Ann", age: 41}, User{name: "Cara", age: 35}]
@@ -700,19 +689,18 @@ function. It returns every variant in a `List`, in the order they are
 declared:
 
 ```nomi-run
-enum Coin {
+enum Coin
     Penny
     Nickel
     Dime
     Quarter
-}
+end
 
 derive Variants for Coin
 
-fn main() {
+fn main()
     dbg Coin.variants()
-}
-
+end
 ```
 <!-- expect
 dbg line 11: Coin.variants() = [Penny, Nickel, Dime, Quarter]
@@ -746,7 +734,7 @@ Spec: [Derive](/spec/interfaces-implementations-and-derive/#derive),
 ## One impl per type and interface
 
 A type can implement an interface only once in a whole program. Two
-`impl Display for User { ... }` blocks anywhere in the program are a compile
+`impl Display for User` blocks anywhere in the program are a compile
 error, reported before anything runs.
 
 A generic interface is the one exception: a type may implement it once at
@@ -778,26 +766,26 @@ declares the interface or the type, with one exception for type arguments.
   then it applies in every file.
 
 ```nomi
-interface Holds<T> {
+interface Holds<T>
     fn holds(b: self, x: T) -> Bool
-}
+end
 
-struct Box {
+struct Box
     n: Int
     s: String
-}
+end
 
-impl Holds<Int> for Box {
-    fn holds(b: Box, x: Int) -> Bool {
+impl Holds<Int> for Box
+    fn holds(b: Box, x: Int) -> Bool
         b.n == x
-    }
-}
+    end
+end
 
-impl Holds<String> for Box {
-    fn holds(b: Box, x: String) -> Bool {
+impl Holds<String> for Box
+    fn holds(b: Box, x: String) -> Bool
         b.s == x
-    }
-}
+    end
+end
 ```
 
 Spec: [Several instantiations for one type](/spec/interfaces-implementations-and-derive/#several-instantiations-for-one-type),
@@ -807,7 +795,7 @@ Spec: [Several instantiations for one type](/spec/interfaces-implementations-and
 
 ## Why not structural field matching?
 
-A parameter of type `.{x: Int, y: Int}` accepts only values with exactly those
+A parameter of type `{x: Int, y: Int}` accepts only values with exactly those
 fields, never a `Point` or a wider struct that happens to have them. Two
 fields with the same name often mean different things, such as the `id` of a
 `User` and of an `Order`, so a function that took both by accident would hide

@@ -1,66 +1,66 @@
-import {
+import
     std::random.Seed
     simple_cipher.Cipher
-}
+end
 
-group "random key cipher" {
-    setup {
+group "random key cipher"
+    setup begin
         (cipher, _seed) = Seed.from_int(2026) |> Cipher.random()
         cipher
-    }
+    end
 
-    test "Can encode", cipher {
+    test "Can encode", cipher
         plaintext = "aaaaaaaaaa"
         key_start = Cipher.key(cipher) |> String.take(10)
 
         assert Cipher.encode(cipher, plaintext) == key_start
-    }
+    end
 
-    test "Can decode", cipher {
+    test "Can decode", cipher
         ciphertext = Cipher.key(cipher) |> String.take(10)
 
         assert Cipher.decode(cipher, ciphertext) == "aaaaaaaaaa"
-    }
+    end
 
-    test "Is reversible", cipher {
+    test "Is reversible", cipher
         plaintext = "abcdefghij"
 
         assert Cipher.decode(cipher, Cipher.encode(cipher, plaintext)) == plaintext
-    }
+    end
 
-    test "Key is made only of lowercase letters", cipher {
+    test "Key is made only of lowercase letters", cipher
         letters = Cipher.key(cipher) |> String.to_codepoints()
 
         refute Iter.is_empty(letters)
         assert Iter.all_match(letters, &(&1 in 'a'..='z'))
-    }
-}
+    end
+end
 
-test "substitution cipher encodes" {
+test "substitution cipher encodes"
     [
         ("Can encode", "abcdefghij", "aaaaaaaaaa", "abcdefghij"),
         ("Can double shift encode", "iamapandabear", "iamapandabear", "qayaeaagaciai"),
         ("Can wrap on encode", "abcdefghij", "zzzzzzzzzz", "zabcdefghi"),
         ("Can encode messages longer than the key", "abc", "iamapandabear", "iboaqcnecbfcr"),
     ]
-    |> subtests (description, key, plaintext, expected), description {
+    |> subtests (description, key, plaintext, expected), description
         assert Cipher.new(key) |> Cipher.encode(plaintext) == expected
-    }
-}
+    end
+end
 
-test "substitution cipher decodes" {
+test "substitution cipher decodes"
     [
         ("Can decode", "abcdefghij", "abcdefghij", "aaaaaaaaaa"),
         ("Can wrap on decode", "abcdefghij", "zabcdefghi", "zzzzzzzzzz"),
         ("Can decode messages longer than the key", "abc", "iboaqcnecbfcr", "iamapandabear"),
     ]
-    |> subtests (description, key, ciphertext, expected), description {
+    |> subtests (description, key, ciphertext, expected), description
         assert Cipher.new(key) |> Cipher.decode(ciphertext) == expected
-    }
-}
+    end
+end
 
-test "substitution cipher is reversible" {
+test "substitution cipher is reversible"
     cipher = Cipher.new("abcdefghij")
 
     assert Cipher.decode(cipher, Cipher.encode(cipher, "abcdefghij")) == "abcdefghij"
-}
+end

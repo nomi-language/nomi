@@ -2,44 +2,44 @@
 
 /// A school's roster: each student's grade, keyed by name. A name is
 /// enrolled at most once, in one grade.
-pub opaque struct School {
+pub opaque struct School
     grades: Map<String, Int>
-}
+end
 
 /// Why a student cannot be added.
-pub enum Error {
+pub enum Error
     AlreadyEnrolled
-}
+end
 
-impl School {
+impl School
     /// A school with no students.
-    pub fn new() -> School {
-        .{grades: %{}}
-    }
+    pub fn new() -> School
+        {grades: {}}
+    end
 
     /// `school` with `name` enrolled in `grade`, or `AlreadyEnrolled` when
     /// the name is on the roster already, in this grade or another.
-    pub fn add(school: School, name: String, grade: Int) -> Result<School, Error> {
-        if name in school.grades {
+    pub fn add(school: School, name: String, grade: Int) -> Result<School, Error>
+        if name in school.grades then
             Err(.AlreadyEnrolled)
-        } else {
-            Ok(.{grades: Map.put(school.grades, name, grade)})
-        }
-    }
+        else
+            Ok({grades: Map.put(school.grades, name, grade)})
+        end
+    end
 
     /// Every student, by grade and then by name.
-    pub fn roster(school: School) -> List<String> {
+    pub fn roster(school: School) -> List<String>
         school.grades
         |> Iter.sort_by(fn (name, grade) -> (grade, name))
         |> Iter.map(.first)
         |> Iter.to_list()
-    }
+    end
 
     /// The students in `grade`, by name.
-    pub fn grade(school: School, grade: Int) -> List<String> {
+    pub fn grade(school: School, grade: Int) -> List<String>
         school.grades
         |> Iter.filter(fn (_name, in_grade) -> in_grade == grade)
         |> Iter.map(.first)
         |> Iter.sort()
-    }
-}
+    end
+end

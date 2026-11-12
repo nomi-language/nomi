@@ -13,7 +13,7 @@ func TestGenerateFunction_FromCall(t *testing.T) {
 	src := fnMain("count = 3\nlabel: String = for‸mat_count(count, \"items\", count + 1)\nio.print(label)\n")
 	got := checkRefactor(t, src, "Generate function 'format_count'", quickfix)
 	want := fnMain("count = 3\nlabel: String = format_count(count, \"items\", count + 1)\nio.print(label)\n") +
-		"\nfn format_count(count: Int, arg2: String, arg3: Int) -> String {\n    todo\n}\n"
+		"\nfn format_count(count: Int, arg2: String, arg3: Int) -> String\n    todo\nend\n"
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
@@ -23,26 +23,26 @@ func TestGenerateFunction_DiscardedAndPiped(t *testing.T) {
 	src := fnMain("[1, 2] |> rep‸ort(label: \"n\")\n\nio.print(\"done\")\n")
 	got := checkRefactor(t, src, "Generate function 'report'", quickfix)
 	want := fnMain("[1, 2] |> report(label: \"n\")\n\nio.print(\"done\")\n") +
-		"\nfn report(arg1: List<Int>, label: String) {\n    todo\n}\n"
+		"\nfn report(arg1: List<Int>, label: String)\n    todo\nend\n"
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
 
 func TestGenerateFunction_InherentImpl(t *testing.T) {
-	user := "struct User {\n    name: String\n}\n\n"
+	user := "struct User\n    name: String\nend\n\n"
 	body := "u = User{name: \"a\"}\ngreeting: String = User.gre‸et(u)\nio.print(greeting)\n"
 	// No inherent block yet: a new one follows the calling declaration.
 	got := checkRefactor(t, fnMainAfter(user, body), "Generate function 'User.greet'", quickfix)
 	want := fnMainAfter(user, "u = User{name: \"a\"}\ngreeting: String = User.greet(u)\nio.print(greeting)\n") +
-		"\nimpl User {\n    fn greet(u: User) -> String {\n        todo\n    }\n}\n"
+		"\nimpl User\n    fn greet(u: User) -> String\n        todo\n    end\nend\n"
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 	// An existing block gains the function at its end.
-	impl := "impl User {\n    fn new(name: String) -> User {\n        User{name}\n    }\n}\n\n"
+	impl := "impl User\n    fn new(name: String) -> User\n        User{name:}\n    end\nend\n\n"
 	got = checkRefactor(t, fnMainAfter(user+impl, body), "Generate function 'User.greet'", quickfix)
-	want = fnMainAfter(user+"impl User {\n    fn new(name: String) -> User {\n        User{name}\n    }\n\n    fn greet(u: User) -> String {\n        todo\n    }\n}\n\n", "u = User{name: \"a\"}\ngreeting: String = User.greet(u)\nio.print(greeting)\n")
+	want = fnMainAfter(user+"impl User\n    fn new(name: String) -> User\n        User{name:}\n    end\n\n    fn greet(u: User) -> String\n        todo\n    end\nend\n\n", "u = User{name: \"a\"}\ngreeting: String = User.greet(u)\nio.print(greeting)\n")
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}

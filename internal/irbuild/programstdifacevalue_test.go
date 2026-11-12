@@ -20,70 +20,70 @@ func TestProgramStdInterfaceValue_DispatchesToAQualifiedImpl(t *testing.T) {
 	}
 	dir := t.TempDir()
 	files := map[string]string{
-		"main.nomi": `import {
+		"main.nomi": `import
     bind
     color.{Color, Shade}
     std::io
     std::sql
-}
+end
 
-enum Size {
+enum Size
     Small
     Large
-}
+end
 
-impl sql.ToSql for Size {
-    fn to_sql(value: Size) -> sql.Value {
-        case value {
+impl sql.ToSql for Size
+    fn to_sql(value: Size) -> sql.Value
+        case value
             .Small -> sql.Value.Text("small")
             .Large -> sql.Value.Text("large")
-        }
-    }
-}
+        end
+    end
+end
 
-fn main() {
+fn main()
     io.print(bind.bind(Size.Large) == sql.Value.Text("large"))
     io.print(bind.bind(Color.Red) == sql.Value.Text("red"))
     io.print(bind.bind(Shade.Dark) == sql.Value.Text("dark"))
     io.print(bind.bind(3) == sql.Value.Int(3))
     io.print(bind.bind(Some("a")) == sql.Value.Text("a"))
-}
+end
 `,
 		"bind.nomi": `import std::sql.{ToSql, Value}
 
-pub fn bind(value: ToSql) -> Value {
+pub fn bind(value: ToSql) -> Value
     ToSql.to_sql(value)
-}
+end
 `,
 		"color.nomi": `import std::sql.{self, ToSql}
 
-pub enum Color {
+pub enum Color
     Red
     Blue
-}
+end
 
-impl sql.ToSql for Color {
-    fn to_sql(value: Color) -> sql.Value {
-        case value {
+impl sql.ToSql for Color
+    fn to_sql(value: Color) -> sql.Value
+        case value
             .Red -> sql.Value.Text("red")
             .Blue -> sql.Value.Text("blue")
-        }
-    }
-}
+        end
+    end
+end
 
-pub enum Shade {
+pub enum Shade
     Light
     Dark
-}
+end
 
-impl ToSql for Shade {
-    fn to_sql(value: Shade) -> sql.Value {
-        case value {
+impl ToSql for Shade
+    fn to_sql(value: Shade) -> sql.Value
+        case value
             .Light -> sql.Value.Text("light")
             .Dark -> sql.Value.Text("dark")
-        }
-    }
-}
+        end
+    end
+end
 `,
 	}
 	for name, src := range files {

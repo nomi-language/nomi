@@ -16,37 +16,37 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// The `stones`, each the dots on its two halves, laid in a chain, each
 /// turned as it must be, where touching halves match and the two free ends
 /// match each other; `None` when no order makes one.
-pub fn chain(stones: List<(Int, Int)>) -> Maybe<List<(Int, Int)>> {
-    case stones {
+pub fn chain(stones: List<(Int, Int)>) -> Maybe<List<(Int, Int)>>
+    case stones
         [] -> Some([])
-        [(start, end) as first, ..rest] -> extend(start, end, [first], rest)
-    }
-}
+        [(start, stop) as first, ..rest] -> extend(start, stop, [first], rest)
+    end
+end
 
 /// Lays the stones `left` after `laid`, which runs from `start` to `end`
 /// and is held last stone first, trying each stone that fits, either way
 /// round, and backing out of any that leads nowhere.
 fn extend(
     start: Int,
-    end: Int,
+    stop: Int,
     laid: List<(Int, Int)>,
     left: List<(Int, Int)>,
-) -> Maybe<List<(Int, Int)>> {
-    if left == [] and start == end { return Some(Iter.reverse(laid)) }
+) -> Maybe<List<(Int, Int)>>
+    if left == [] and start == stop then return Some(Iter.reverse(laid))
 
     left
     |> picks()
     |> Iter.flat_map(fn ((a, b), others) -> [((a, b), others), ((b, a), others)])
-    |> Iter.filter(fn ((a, _b), _others) -> a == end)
+    |> Iter.filter(fn ((a, _b), _others) -> a == stop)
     |> Iter.find_map(fn ((a, b), others) -> extend(start, b, [(a, b), ..laid], others))
-}
+end
 
 /// Each stone of `stones` with the stones other than it.
-fn picks(stones: List<(Int, Int)>) -> Iter<((Int, Int), List<(Int, Int)>)> {
+fn picks(stones: List<(Int, Int)>) -> Iter<((Int, Int), List<(Int, Int)>)>
     stones
     |> Iter.with_index()
     |> Iter.map(fn (index, stone) -> (stone, List.remove_at(stones, index)))
-}
+end
 
 // FILE: dominoes_test.nomi
 import dominoes
@@ -54,21 +54,21 @@ import dominoes
 /// Whether `chain` is a chain of exactly `stones`: each stone's second half
 /// matches the next one's first, the last stone's matches the first's, and
 /// it holds each stone as often as `stones` does, either way round.
-fn is_chain_of(chain: List<(Int, Int)>, stones: List<(Int, Int)>) -> Bool {
+fn is_chain_of(chain: List<(Int, Int)>, stones: List<(Int, Int)>) -> Bool
     next = chain |> Iter.drop(1) |> Iter.concat(Iter.take(chain, 1))
     linked = Iter.zip(chain, next) |> Iter.all_match(fn ((_a, b), (c, _d)) -> b == c)
     linked and has_same_stones(chain, stones)
-}
+end
 
-fn has_same_stones(a: List<(Int, Int)>, b: List<(Int, Int)>) -> Bool {
+fn has_same_stones(a: List<(Int, Int)>, b: List<(Int, Int)>) -> Bool
     a |> Iter.map(unturned) |> Iter.frequencies() == b |> Iter.map(unturned) |> Iter.frequencies()
-}
+end
 
-fn unturned((a, b): (Int, Int)) -> (Int, Int) {
+fn unturned((a, b): (Int, Int)) -> (Int, Int)
     (Int.min(a, b), Int.max(a, b))
-}
+end
 
-test "can chain" {
+test "can chain"
     [
         ("empty input = empty output", []),
         ("singleton input = singleton output", [(1, 1)]),
@@ -81,13 +81,13 @@ test "can chain" {
             [(1, 2), (5, 3), (3, 1), (1, 2), (2, 4), (1, 6), (2, 3), (3, 4), (5, 6)],
         ),
     ]
-    |> subtests (description, stones), description {
+    |> subtests (description, stones), description
         assert Some(chain) = dominoes.chain(stones)
         assert is_chain_of(chain, stones)
-    }
-}
+    end
+end
 
-test "cannot chain" {
+test "cannot chain"
     [
         ("singleton that can't be chained", [(1, 2)]),
         ("can't be chained", [(1, 2), (4, 1), (2, 3)]),
@@ -96,10 +96,10 @@ test "cannot chain" {
         ("disconnected - single isolated", [(1, 2), (2, 3), (3, 1), (4, 4)]),
         ("separate three-domino loops", [(1, 2), (2, 3), (3, 1), (4, 5), (5, 6), (6, 4)]),
     ]
-    |> subtests (description, stones), description {
+    |> subtests (description, stones), description
         assert dominoes.chain(stones) == None
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok can chain (7 cases)

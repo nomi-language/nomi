@@ -19,22 +19,22 @@ import (
 // The unknown NAME and the two wrong VALUES would be reported by nothing.
 //
 // This path goes through `checkStructLitAgainstStruct`, which the
-// constructor-call record form `Point(.{x: "s"})` already used and which
+// constructor-call record form `Point({x: "s"})` already used and which
 // already refused all five in that spelling.
 func TestCheck_StructLit_ValidatesFields(t *testing.T) {
-	const decls = `struct Point {
+	const decls = `struct Point
   x: Int
   y: Int
-}
-struct Box {
+end
+struct Box
   v: Int
-}
-struct Holder {
+end
+struct Holder
   p: Point
-}
-struct Weight {
+end
+struct Weight
   kg: Float
-}
+end
 `
 	cases := []struct {
 		name string
@@ -86,7 +86,7 @@ struct Weight {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, errs := checkSource(decls + "fn main() {\n  _a = " + tc.expr + "\n}\n")
+			_, errs := checkSource(decls + "fn main()\n  _a = " + tc.expr + "\nend\n")
 			for _, w := range tc.want {
 				expectError(t, errs, w)
 			}
@@ -102,7 +102,7 @@ struct Weight {
 // below, and every one of them is a shape the language accepts elsewhere.
 //
 // Each row was measured in BOTH spellings at the twin — `Cfg{f: v}` and
-// `Cfg(.{f: v})` — and the two agreed on every one, which is what established
+// `Cfg({f: v})` — and the two agreed on every one, which is what established
 // that adopting the call form's rule costs no leniency.
 func TestCheck_StructLit_StaysLenientWhereTheLanguageIs(t *testing.T) {
 	cases := []struct {
@@ -111,41 +111,43 @@ func TestCheck_StructLit_StaysLenientWhereTheLanguageIs(t *testing.T) {
 	}{
 		{
 			name: "an untyped empty list at List<Int>",
-			src:  "struct Cfg {\n  v: List<Int>\n}\nfn main() {\n  _a = Cfg{v: []}\n}\n",
+			src:  "struct Cfg\n  v: List<Int>\nend\nfn main()\n  _a = Cfg{v: []}\nend\n",
 		},
 		{
 			name: "a lambda at a function-typed field, params inferred from the field",
-			src:  "struct Cfg {\n  f: (Int) -> Int\n}\nfn main() {\n  _a = Cfg{f: fn x -> x + 1}\n}\n",
+			src:  "struct Cfg\n  f: (Int) -> Int\nend\nfn main()\n  _a = Cfg{f: fn x -> x + 1}\nend\n",
 		},
 		{
 			name: "an anonymous-struct field",
-			src:  "struct Cfg {\n  v: .{ a: Int }\n}\nfn main() {\n  _a = Cfg{v: .{a: 1}}\n}\n",
+			src:  "struct Cfg\n  v: { a: Int }\nend\nfn main()\n  _a = Cfg{v: {a: 1}}\nend\n",
 		},
 		{
 			name: "a bare type-parameter field, which is what inference binds",
-			src:  "struct Box<T> {\n  v: T\n}\nfn main() {\n  _a = Box{v: 1}\n}\n",
+			src:  "struct Box<T>\n  v: T\nend\nfn main()\n  _a = Box{v: 1}\nend\n",
 		},
 		{
 			name: "a defaulted field omitted",
-			src:  "struct Cfg {\n  port: Int = 80\n}\nfn main() {\n  _a = Cfg{}\n}\n",
+			src:  "struct Cfg\n  port: Int = 80\nend\nfn main()\n  _a = Cfg{}\nend\n",
 		},
 		{
 			name: "a concrete implementer at an interface-typed field",
-			src: `interface Clock {
+			src: `interface Clock
   fn at(c: self) -> Int
-}
-struct RealClock {
+end
+struct RealClock
   t: Int
-}
-impl Clock for RealClock {
-  fn at(c: RealClock) -> Int { c.t }
-}
-struct Cfg {
+end
+impl Clock for RealClock
+  fn at(c: RealClock) -> Int
+      c.t
+  end
+end
+struct Cfg
   c: Clock
-}
-fn main() {
+end
+fn main()
   _a = Cfg{c: RealClock{t: 1}}
-}
+end
 `,
 		},
 	}
@@ -164,18 +166,18 @@ fn main() {
 //
 //	field 'c' of Cfg: expected Clock, got NoClock
 func TestCheck_StructLit_InterfaceFieldRefusalUsesTheSharedWording(t *testing.T) {
-	src := `interface Clock {
+	src := `interface Clock
   fn at(c: self) -> Int
-}
-struct NoClock {
+end
+struct NoClock
   t: Int
-}
-struct Cfg {
+end
+struct Cfg
   c: Clock
-}
-fn main() {
+end
+fn main()
   _a = Cfg{c: NoClock{t: 1}}
-}
+end
 `
 	_, errs := checkSource(src)
 	expectError(t, errs, "field 'c' of Cfg: expected Clock, got NoClock")
@@ -198,26 +200,26 @@ fn main() {
 // field" and "missing required field" have no meaning there.
 //
 // The one place an anonymous struct meets a nominal shape is the
-// constructor-call record form `Cfg(.{...})`, and that position was already
+// constructor-call record form `Cfg({...})`, and that position was already
 // checked by the function this change made shared. It is the SOURCE of the
 // rule, not a new target of it.
 func TestCheck_AnonStruct_IsStructuralAndUnvalidated(t *testing.T) {
 	t.Run("an anon struct literal has no field-name rule to break", func(t *testing.T) {
-		_, errs := checkSource("fn main() {\n  r = .{a: 1, b: \"two\"}\n  _x = r.a\n  _y = r.b\n}\n")
+		_, errs := checkSource("fn main()\n  r = {a: 1, b: \"two\"}\n  _x = r.a\n  _y = r.b\nend\n")
 		expectNoErrors(t, errs)
 	})
 	t.Run("an anon struct type annotation admits the matching literal", func(t *testing.T) {
-		_, errs := checkSource("fn main() {\n  _r: .{ a: Int } = .{a: 1}\n}\n")
+		_, errs := checkSource("fn main()\n  _r: { a: Int } = {a: 1}\nend\n")
 		expectNoErrors(t, errs)
 	})
 	t.Run("two anon structs with different fields stay distinct types", func(t *testing.T) {
-		_, errs := checkSource("fn take(_r: .{ a: Int }) {}\nfn main() {\n  take(.{b: 1})\n}\n")
+		_, errs := checkSource("fn take(_r: { a: Int }) end\nfn main()\n  take({b: 1})\nend\n")
 		if len(withoutUnusedBindingErrors(errs)) == 0 {
 			t.Fatalf("expected the structural mismatch to be reported, got none")
 		}
 	})
 	t.Run("the constructor-call record form still reports, unchanged", func(t *testing.T) {
-		_, errs := checkSource("struct Cfg {\n  port: Int\n}\nfn main() {\n  _a = Cfg(.{bogus: 1})\n}\n")
+		_, errs := checkSource("struct Cfg\n  port: Int\nend\nfn main()\n  _a = Cfg({bogus: 1})\nend\n")
 		expectError(t, errs, "Cfg has no field 'bogus'")
 		expectError(t, errs, "missing field 'port' of Cfg")
 	})
@@ -234,11 +236,11 @@ func TestCheck_AnonStruct_IsStructuralAndUnvalidated(t *testing.T) {
 // are closed in the same words.
 func TestCheck_StructVariantLit_RequiresNonDefaultedFields(t *testing.T) {
 	t.Run("a required variant field omitted is reported", func(t *testing.T) {
-		_, errs := checkSource("enum Shape {\n  Wrap { inner: Int }\n}\nfn main() {\n  _s = Shape.Wrap{}\n}\n")
+		_, errs := checkSource("enum Shape\n  Wrap { inner: Int }\nend\nfn main()\n  _s = Shape.Wrap{}\nend\n")
 		expectError(t, errs, "missing field 'inner' of Shape.Wrap")
 	})
 	t.Run("an unknown name does not excuse the field it displaced", func(t *testing.T) {
-		_, errs := checkSource("enum Shape {\n  Wrap { inner: Int }\n}\nfn main() {\n  _s = Shape.Wrap{bogus: 1}\n}\n")
+		_, errs := checkSource("enum Shape\n  Wrap { inner: Int }\nend\nfn main()\n  _s = Shape.Wrap{bogus: 1}\nend\n")
 		expectError(t, errs, "no field 'bogus' on variant Wrap of enum Shape")
 		expectError(t, errs, "missing field 'inner' of Shape.Wrap")
 	})
@@ -252,11 +254,11 @@ func TestCheck_StructVariantLit_RequiresNonDefaultedFields(t *testing.T) {
 	// `tests/07-structs-and-enums/variant_field_defaults/`, the
 	// corpus file whose subject is exactly this.
 	t.Run("a defaulted variant field may be omitted", func(t *testing.T) {
-		_, errs := checkSource("enum Backoff {\n  Exponential { max_restarts: Int = 10, max_elapsed: Int = 900 }\n}\nfn main() {\n  _b = Backoff.Exponential{}\n}\n")
+		_, errs := checkSource("enum Backoff\n  Exponential { max_restarts: Int = 10, max_elapsed: Int = 900 }\nend\nfn main()\n  _b = Backoff.Exponential{}\nend\n")
 		expectNoErrors(t, errs)
 	})
 	t.Run("a defaulted variant field may still be supplied", func(t *testing.T) {
-		_, errs := checkSource("enum Backoff {\n  Exponential { max_restarts: Int = 10, max_elapsed: Int = 900 }\n}\nfn main() {\n  _b = Backoff.Exponential{max_restarts: 3}\n}\n")
+		_, errs := checkSource("enum Backoff\n  Exponential { max_restarts: Int = 10, max_elapsed: Int = 900 }\nend\nfn main()\n  _b = Backoff.Exponential{max_restarts: 3}\nend\n")
 		expectNoErrors(t, errs)
 	})
 }

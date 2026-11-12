@@ -21,56 +21,56 @@ import (
 func TestRun_EmbeddedValueInsideAGenericValueIsRebuilt(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-struct Circle {
+struct Circle
   r: Int
-}
+end
 
 type Wrapped Circle
 
-enum Shape {
+enum Shape
   embeds Circle
   embeds Wrapped
   Dot
-}
+end
 
-enum Box<T> {
+enum Box<T>
   Full T
   Named{value: T, n: Int}
   Empty
-}
+end
 
-struct Holder<T> {
+struct Holder<T>
   value: T
-}
+end
 
-fn describe(s: Shape) -> String {
-  case s {
-    Shape.Circle{r} -> "circle ${r}"
-    Shape.Wrapped(.{r}) -> "wrapped ${r}"
+fn describe(s: Shape) -> String
+  case s
+    Shape.Circle{r:} -> "circle ${r}"
+    Shape.Wrapped({r:}) -> "wrapped ${r}"
     Shape.Dot -> "dot"
-  }
-}
+  end
+end
 
-fn take(m: Maybe<Shape>) -> String {
-  case m {
+fn take(m: Maybe<Shape>) -> String
+  case m
     Some(s) -> "some ${describe(s)}"
     None -> "none"
-  }
-}
+  end
+end
 
-fn give(m: Maybe<Circle>) -> Maybe<Shape> {
+fn give(m: Maybe<Circle>) -> Maybe<Shape>
   m
-}
+end
 
-fn boxed(b: Box<Shape>) -> String {
-  case b {
+fn boxed(b: Box<Shape>) -> String
+  case b
     Box.Full(s) -> "full ${describe(s)}"
-    Box.Named{value, n} -> "named ${describe(value)} ${n}"
+    Box.Named{value:, n:} -> "named ${describe(value)} ${n}"
     Box.Empty -> "empty"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   c = Circle{r: 1}
   s: Shape = c
   m = Some(c)
@@ -108,14 +108,14 @@ fn main() {
   io.inspect(l == [s, Circle{r: 3}])
   io.inspect([s, Shape.Dot] == l)
   io.inspect(l != [s, Shape.Dot])
-  st = %[c]
+  st = Set[c]
   sw: Set<Shape> = st
   io.inspect(Set.contains(sw, s))
-  mp = %{c => Circle{r: 5}}
+  mp = {c => Circle{r: 5}}
   mw: Map<Shape, Shape> = mp
   io.inspect(Map.get(mw, s))
-  io.inspect(mp == %{s => Shape.Dot})
-  io.inspect(%{s => Circle{r: 5}} == mp)
+  io.inspect(mp == {s => Shape.Dot})
+  io.inspect({s => Circle{r: 5}} == mp)
   b = Box.Full(c)
   bw: Box<Shape> = b
   io.print(boxed(bw))
@@ -142,7 +142,7 @@ fn main() {
   mm: Maybe<Maybe<Circle>> = Some(m)
   mmw: Maybe<Maybe<Shape>> = mm
   io.inspect(mmw)
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v\n%s", err, out)
@@ -201,35 +201,35 @@ Some(Some(Circle{r: 1}))
 func TestRun_EmbeddedValueInsideARecursiveGenericValueIsRebuilt(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-struct Circle {
+struct Circle
   r: Int
-}
+end
 
-enum Shape {
+enum Shape
   embeds Circle
   Dot
-}
+end
 
-enum Chain<T> {
+enum Chain<T>
   Link{head: T, tail: Chain<T>}
   End
-}
+end
 
-fn describe(s: Shape) -> String {
-  case s {
-    Shape.Circle{r} -> "circle ${r}"
+fn describe(s: Shape) -> String
+  case s
+    Shape.Circle{r:} -> "circle ${r}"
     Shape.Dot -> "dot"
-  }
-}
+  end
+end
 
-fn walk(c: Chain<Shape>) -> String {
-  case c {
-    Chain.Link{head, tail} -> "${describe(head)} -> ${walk(tail)}"
+fn walk(c: Chain<Shape>) -> String
+  case c
+    Chain.Link{head:, tail:} -> "${describe(head)} -> ${walk(tail)}"
     Chain.End -> "end"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   t = Chain.Link{head: Circle{r: 1}, tail: Chain.Link{head: Circle{r: 2}, tail: Chain.End}}
   w: Chain<Shape> = t
   io.print(walk(w))
@@ -240,15 +240,15 @@ fn main() {
   io.inspect(t == Chain.Link{head: Shape.Dot, tail: Chain.End})
   io.inspect(t == w)
   c = Circle{r: 1}
-  v = #[c]
+  v = Vector[c]
   vw: Vector<Shape> = v
   io.inspect(vw)
-  io.inspect(v == #[Shape.Dot])
-  r = .{a: c, n: 1}
-  rw: .{a: Shape, n: Int} = r
+  io.inspect(v == Vector[Shape.Dot])
+  r = {a: c, n: 1}
+  rw: {a: Shape, n: Int} = r
   io.inspect(rw)
-  io.inspect(r == .{a: Shape.Dot, n: 1})
-}
+  io.inspect(r == {a: Shape.Dot, n: 1})
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v\n%s", err, out)
@@ -258,9 +258,9 @@ circle 1 -> circle 2 -> end
 circle 1 -> circle 2 -> end | end
 False
 True
-#[Circle{r: 1}]
+Vector[Circle{r: 1}]
 False
-.{a: Circle{r: 1}, n: 1}
+{a: Circle{r: 1}, n: 1}
 False
 `
 	if out != want {
@@ -275,16 +275,16 @@ False
 func TestRun_ComparisonLiteralTakesTheWiderType(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-struct Circle {
+struct Circle
   r: Int
-}
+end
 
-enum Plain {
+enum Plain
   embeds Circle
   Spot
-}
+end
 
-fn main() {
+fn main()
   c = Circle{r: 1}
   s: Plain = c
   io.inspect([c, c] == [s, Plain.Spot])
@@ -297,10 +297,10 @@ fn main() {
   m = Some(c)
   io.inspect(m == Some(Plain.Spot))
   io.inspect(Some(Plain.Spot) != m)
-  io.inspect(%{c => c} == %{s => Plain.Spot})
-  io.inspect(%{s => Plain.Circle{r: 1}} == %{c => c})
+  io.inspect({c => c} == {s => Plain.Spot})
+  io.inspect({s => Plain.Circle{r: 1}} == {c => c})
   io.inspect([Some(c)] == [Some(s), Some(Plain.Spot)])
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v\n%s", err, out)
@@ -327,16 +327,16 @@ False
 func TestEmbeddedValueInsideAGenericValue_RunsInTests(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	const name = "embeds_test.nomi"
-	p, err := vmhost.LoadSource(name, `struct Circle {
+	p, err := vmhost.LoadSource(name, `struct Circle
   r: Int
-}
+end
 
-enum Plain {
+enum Plain
   embeds Circle
   Spot
-}
+end
 
-test "a Maybe value against a wider construction" {
+test "a Maybe value against a wider construction"
   c = Circle{r: 1}
   m = Some(c)
   assert Some(c) == Some(Plain.Circle{r: 1})
@@ -344,9 +344,9 @@ test "a Maybe value against a wider construction" {
   refute m == Some(Plain.Spot)
   s: Plain = c
   assert m == Some(s)
-}
+end
 
-test "a list value against a wider literal" {
+test "a list value against a wider literal"
   c = Circle{r: 1}
   s: Plain = c
   cs = [c, c]
@@ -354,7 +354,7 @@ test "a list value against a wider literal" {
   refute cs == [s, Plain.Spot]
   w: List<Plain> = cs
   assert w == [s, s]
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the tests: %v", err)

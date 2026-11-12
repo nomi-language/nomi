@@ -15,7 +15,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# acids of its protein.
 
 /// The amino acids the exercise's codons stand for.
-pub enum AminoAcid {
+pub enum AminoAcid
     Methionine
     Phenylalanine
     Leucine
@@ -23,18 +23,18 @@ pub enum AminoAcid {
     Tyrosine
     Cysteine
     Tryptophan
-}
+end
 
 /// Why a strand does not translate.
-pub enum Error {
+pub enum Error
     /// A codon before the first STOP that stands for nothing, given as it
     /// appears in the strand: three letters, or fewer at the strand's end.
     InvalidCodon String
-}
+end
 
 /// The amino acids `strand`'s codons stand for, up to its first STOP codon.
 /// Whatever follows a STOP is not read.
-pub fn proteins(strand: String) -> Result<List<AminoAcid>, Error> {
+pub fn proteins(strand: String) -> Result<List<AminoAcid>, Error>
     strand
     |> Iter.chunks(3)
     |> Iter.map(String.join)
@@ -43,11 +43,11 @@ pub fn proteins(strand: String) -> Result<List<AminoAcid>, Error> {
     |> Result.collect()?
     |> Maybe.values()
     |> Ok()
-}
+end
 
 /// The amino acid `codon` stands for, `None` for a STOP codon.
-fn translate(codon: String) -> Result<Maybe<AminoAcid>, Error> {
-    case codon {
+fn translate(codon: String) -> Result<Maybe<AminoAcid>, Error>
+    case codon
         "AUG" -> Ok(Some(.Methionine))
         "UUU" or "UUC" -> Ok(Some(.Phenylalanine))
         "UUA" or "UUG" -> Ok(Some(.Leucine))
@@ -57,16 +57,16 @@ fn translate(codon: String) -> Result<Maybe<AminoAcid>, Error> {
         "UGG" -> Ok(Some(.Tryptophan))
         "UAA" or "UAG" or "UGA" -> Ok(None)
         _ -> Err(.InvalidCodon(codon))
-    }
-}
+    end
+end
 
 // FILE: protein_translation_test.nomi
-import {
+import
     protein_translation
     protein_translation.{AminoAcid, Error}
-}
+end
 
-test "proteins" {
+test "proteins"
     [
         ("Empty RNA sequence results in no proteins", "", []),
         ("Methionine RNA sequence", "AUG", [AminoAcid.Methionine]),
@@ -129,12 +129,12 @@ test "proteins" {
             [.Phenylalanine, .Phenylalanine],
         ),
     ]
-    |> subtests (description, strand, expected), description {
+    |> subtests (description, strand, expected), description
         assert protein_translation.proteins(strand) == Ok(expected)
-    }
-}
+    end
+end
 
-test "invalid codons" {
+test "invalid codons"
     [
         (
             "Unknown amino acids, not part of a codon, can't translate",
@@ -143,10 +143,10 @@ test "invalid codons" {
         ),
         ("Incomplete RNA sequence can't translate", "AUGU", .InvalidCodon("U")),
     ]
-    |> subtests (description, strand, expected), description {
+    |> subtests (description, strand, expected), description
         assert protein_translation.proteins(strand) == Err(expected)
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok proteins (28 cases)

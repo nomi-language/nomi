@@ -28,7 +28,7 @@ func TestCheck_AGopkgPathNoModuleProvidesIsRejected(t *testing.T) {
 				t.Fatal(err)
 			}
 			entry := filepath.Join(dir, "main.nomi")
-			src := "gopkg \"" + tc.path + "\" as go_ffi\n\nfn main() {\n}\n"
+			src := "gopkg \"" + tc.path + "\" as go_ffi\n\nfn main()\nend\n"
 			if err := os.WriteFile(entry, []byte(src), 0o644); err != nil {
 				t.Fatal(err)
 			}

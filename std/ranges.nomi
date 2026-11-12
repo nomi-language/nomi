@@ -1,4 +1,4 @@
-import {
+import
     bool.Bool.{self, False, True}
     comparable.Comparable
     contains.Contains
@@ -11,7 +11,7 @@ import {
     maybe.Maybe.{self, None, Some}
     steppable.Steppable
     strings.String
-}
+end
 
 //# Ranges: `1..5`, `1..=5` and the unbounded `Range.from(n)`. A range's own
 //# functions are `contains` (its `Contains` impl, two comparisons),
@@ -32,13 +32,13 @@ import {
 /// `Range<T>` impls `Iter<T>` when `T` also impls `Discrete`. Generic
 /// ranges over non-discrete comparable values are still useful as
 /// containment/interval values.
-pub opaque struct Range<T> where T: Comparable {
+pub opaque struct Range<T> where T: Comparable
     start: T
-    end: Maybe<T>
+    stop: Maybe<T>
     inclusive: Bool
-}
+end
 
-impl Range<T> {
+impl Range<T>
     /// Returns an unbounded ascending integer range starting at `n`.
     /// Pair with `Iter.take(N)` before materializing. As an iterator it is
     /// `Iter.is_infinite`, so `Iter.to_list` and the other terminals that must
@@ -51,18 +51,18 @@ impl Range<T> {
     //! top = 9_223_372_036_854_775_807
     //! assert Range.from(top) |> Iter.take(2) |> Iter.to_list() == [top, top + 1]
     //
-    pub fn from(n: Int) -> Range<Int> {
-        Range{start: n, end: None, inclusive: False}
-    }
+    pub fn from(n: Int) -> Range<Int>
+        Range{start: n, stop: None, inclusive: False}
+    end
 
     /// Returns an unbounded ascending integer range starting at 0.
     /// Pair with `Iter.take(N)` before materializing.
     //! assert Range.contains(Range.naturals(), 0)
     //! refute Range.contains(Range.naturals(), -1)
     //
-    pub fn naturals() -> Range<Int> {
-        Range{start: 0, end: None, inclusive: False}
-    }
+    pub fn naturals() -> Range<Int>
+        Range{start: 0, stop: None, inclusive: False}
+    end
 
     /// Returns a lazy iterable that advances through the range by `by`.
     ///
@@ -89,24 +89,24 @@ impl Range<T> {
     //! assert 1..=5 |> Range.step_by(0) |> Iter.to_list() == []
     //! assert 5..=1 |> Iter.to_list() == []
     //
-    pub fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S> {
-        StepByRange{range: r, by}
-    }
+    pub fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S>
+        StepByRange{range: r, by:}
+    end
 
     /// True iff the range has an upper bound. Useful as a guard before
     /// passing an integer range to `Iter.to_list`.
     //! assert Range.is_bounded(1..5)
     //! refute Range.is_bounded(Range.from(1))
     //
-    pub fn is_bounded<T>(r: Range<T>) -> Bool {
-        case r.end {
+    pub fn is_bounded<T>(r: Range<T>) -> Bool
+        case r.stop
             Some(_) -> True
             None -> False
-        }
-    }
-}
+        end
+    end
+end
 
-impl Contains for Range<T> where T: Comparable {
+impl Contains for Range<T> where T: Comparable
     /// Whether `x` falls inside the range: two comparisons. An exclusive range
     /// leaves out its end; an unbounded integer range checks only the start.
     //! assert Range.contains(1..5, 1)
@@ -117,22 +117,22 @@ impl Contains for Range<T> where T: Comparable {
     //! refute Range.contains(1..=5, 6)
     //! assert Range.contains(1.25d..=2.50d, 1.50d)
     //
-    fn contains(c: Range<T>, x: T) -> Bool {
-        case c.end {
-            Some(e) -> {
-                if c.inclusive {
+    fn contains(c: Range<T>, x: T) -> Bool
+        case c.stop
+            Some(e) ->
+                if c.inclusive then
                     x >= c.start and x <= e
-                } else {
+                else
                     x >= c.start and x < e
-                }
-            }
+                end
 
-            None -> x >= c.start
-        }
-    }
-}
+            None ->
+                x >= c.start
+        end
+    end
+end
 
-impl Display for Range<T> {
+impl Display for Range<T>
     // Use Debug for endpoints so every comparable value can be rendered, even
     // if it has no user-facing Display impl.
     /// The range as its literal, each endpoint in its `Debug` form:
@@ -143,140 +143,136 @@ impl Display for Range<T> {
     //! assert Display.to_string(Range.from(3)) == "3.."
     //! assert Debug.inspect(1..=5) == Display.to_string(1..=5)
     //
-    fn to_string(r: Range<T>) -> String {
+    fn to_string(r: Range<T>) -> String
         start_str = Debug.inspect(r.start)
 
-        case r.end {
-            Some(e) -> {
-                sep = if r.inclusive { "..=" } else { ".." }
+        case r.stop
+            Some(e) ->
+                sep = if r.inclusive then "..=" else ".."
                 start_str + sep + Debug.inspect(e)
-            }
 
-            None -> start_str + ".."
-        }
-    }
-}
+            None ->
+                start_str + ".."
+        end
+    end
+end
 
-impl Debug for Range<T> {
-    fn inspect(r: Range<T>) -> String {
+impl Debug for Range<T>
+    fn inspect(r: Range<T>) -> String
         to_string(r)
-    }
-}
+    end
+end
 
-opaque struct StepByRange<T, S> where T: Comparable {
+opaque struct StepByRange<T, S> where T: Comparable
     range: Range<T>
     by: S
-}
+end
 
-impl Iter for StepByRange<T, S> where T: Comparable and Steppable<S> {
-    fn each_while(s: StepByRange<T, S>, yield: (T) -> Bool) -> Bool {
+impl Iter for StepByRange<T, S> where T: Comparable and Steppable<S>
+    fn each_while(s: StepByRange<T, S>, yield: (T) -> Bool) -> Bool
         r = s.range
         step = T.step_by(r.start, s.by)
 
         // The walk goes the way the step goes: down to the end when it moves
         // the start down, up to it otherwise.
-        down = case step {
+        down = case step
             Some(next) -> next < r.start
             None -> False
-        }
+        end
 
-        in_bounds = case r.end {
+        in_bounds = case r.stop
             Some(e) ->
-                if down and r.inclusive {
+                if down and r.inclusive then
                     r.start >= e
-                } else if down {
+                else if down then
                     r.start > e
-                } else if r.inclusive {
+                else if r.inclusive then
                     r.start <= e
-                } else {
+                else
                     r.start < e
-                }
+                end
 
-            None -> True
-        }
+            None ->
+                True
+        end
 
-        if in_bounds == False {
+        if in_bounds == False then
             True
-        } else {
-            case step {
+        else
+            case step
                 // No further step exists (the element type saturated): `r.start` is
                 // the last element.
-                None -> yield(r.start)
+                None ->
+                    yield(r.start)
 
-                Some(next) -> {
+                Some(next) ->
                     moved = next < r.start or next > r.start
 
-                    if moved == False {
+                    if moved == False then
                         // A zero step would spin forever; stop without emitting, which is
                         // what the pull form's `None` meant here.
                         True
-                    } else {
-                        if yield(r.start) {
+                    else
+                        if yield(r.start) then
                             each_while(StepByRange{
                                 range: Range{
                                     start: next,
-                                    end: r.end,
+                                    stop: r.stop,
                                     inclusive: r.inclusive,
                                 },
                                 by: s.by,
                             }, yield)
-                        } else {
+                        else
                             False
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+                        end
+                    end
+            end
+        end
+    end
+end
 
 // `is_infinite` is returned by the Range's view rather than written here: an
 // unbounded Range is endless, a rule over Int that a body generic in `T`
 // cannot state.
-impl Iter for Range<T> where T: Discrete {
-    fn known_count(r: Range<T>) -> Maybe<Int> {
-        case r.end {
-            Some(e) -> {
-                if r.start > e {
-                    Some(0)
-                } else {
-                    case Discrete.steps_between(r.start, e) {
-                        Some(n) -> Some(if r.inclusive { n + 1 } else { n })
-                        None -> None
-                    }
-                }
-            }
-
-            None -> None
-        }
-    }
-
-    fn each_while(r: Range<T>, yield: (T) -> Bool) -> Bool {
-        done = case r.end {
+impl Iter for Range<T> where T: Discrete
+    fn known_count(r: Range<T>) -> Maybe<Int>
+        case r.stop
             Some(e) ->
-                if r.inclusive {
-                    r.start > e
-                } else {
-                    r.start >= e
-                }
+                if r.start > e then
+                    Some(0)
+                else
+                    case Discrete.steps_between(r.start, e)
+                        Some(n) -> Some(if r.inclusive then n + 1 else n)
+                        None -> None
+                    end
+                end
 
+            None ->
+                None
+        end
+    end
+
+    fn each_while(r: Range<T>, yield: (T) -> Bool) -> Bool
+        done = case r.stop
+            Some(e) -> if r.inclusive then r.start > e else r.start >= e
             None -> False
-        }
+        end
 
-        if done {
+        if done then
             True
-        } else {
-            case Discrete.next(r.start) {
+        else
+            case Discrete.next(r.start)
                 // The element type saturated: `r.start` is the last element.
-                None -> yield(r.start)
+                None ->
+                    yield(r.start)
 
                 Some(next) ->
-                    if yield(r.start) {
-                        each_while(Range{start: next, end: r.end, inclusive: r.inclusive}, yield)
-                    } else {
+                    if yield(r.start) then
+                        each_while(Range{start: next, stop: r.stop, inclusive: r.inclusive}, yield)
+                    else
                         False
-                    }
-            }
-        }
-    }
-}
+                    end
+            end
+        end
+    end
+end

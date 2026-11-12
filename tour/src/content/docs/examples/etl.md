@@ -16,35 +16,35 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// Turns the legacy table, a score for each list of upper-case letters, into
 /// a score for each lower-case letter.
-pub fn transform(legacy: Map<Int, List<String>>) -> Map<String, Int> {
+pub fn transform(legacy: Map<Int, List<String>>) -> Map<String, Int>
     legacy
-    |> Iter.flat_map(fn (score, letters) -> {
+    |> Iter.flat_map(fn (score, letters) ->
         Iter.map(letters, fn letter -> (String.lowercase(letter), score))
-    })
+    end)
     |> Iter.to_map()
-}
+end
 
 // FILE: etl_test.nomi
 import etl
 
-test "single letter" {
-    assert etl.transform(%{1 => ["A"]}) == %{"a" => 1}
-}
+test "single letter"
+    assert etl.transform({1 => ["A"]}) == {"a" => 1}
+end
 
-test "single score with multiple letters" {
-    legacy = %{1 => ["A", "E", "I", "O", "U"]}
+test "single score with multiple letters"
+    legacy = {1 => ["A", "E", "I", "O", "U"]}
 
-    assert etl.transform(legacy) == %{"a" => 1, "e" => 1, "i" => 1, "o" => 1, "u" => 1}
-}
+    assert etl.transform(legacy) == {"a" => 1, "e" => 1, "i" => 1, "o" => 1, "u" => 1}
+end
 
-test "multiple scores with multiple letters" {
-    legacy = %{1 => ["A", "E"], 2 => ["D", "G"]}
+test "multiple scores with multiple letters"
+    legacy = {1 => ["A", "E"], 2 => ["D", "G"]}
 
-    assert etl.transform(legacy) == %{"a" => 1, "d" => 2, "e" => 1, "g" => 2}
-}
+    assert etl.transform(legacy) == {"a" => 1, "d" => 2, "e" => 1, "g" => 2}
+end
 
-test "multiple scores with differing numbers of letters" {
-    legacy = %{
+test "multiple scores with differing numbers of letters"
+    legacy = {
         1 => ["A", "E", "I", "O", "U", "L", "N", "R", "S", "T"],
         2 => ["D", "G"],
         3 => ["B", "C", "M", "P"],
@@ -54,7 +54,7 @@ test "multiple scores with differing numbers of letters" {
         10 => ["Q", "Z"],
     }
 
-    assert etl.transform(legacy) == %{
+    assert etl.transform(legacy) == {
         "a" => 1,
         "b" => 3,
         "c" => 3,
@@ -82,7 +82,7 @@ test "multiple scores with differing numbers of letters" {
         "y" => 4,
         "z" => 10,
     }
-}
+end
 ```
 <!-- expect
 ok single letter

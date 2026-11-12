@@ -55,9 +55,10 @@ func dumpErrors(b *strings.Builder, prefix string, errs []TypeError, path func(s
 // DumpFileForTest renders what one file's analysis holds about itself as
 // canonical text: the given diagnostics in order, then, each sorted, the type
 // the checker gave every expression (by position and node kind), every
-// definition's type, what every reference resolves to and the type, call and
-// dispatch it carries, every other fact the checker records about a body
-// node (expected types, target structs, field accessors, lambda patterns,
+// definition's type, what every reference resolves to and the type, call,
+// dispatch and `?` conversion it carries, every other fact the checker
+// records about a body node (expected types, target structs, field
+// accessors, lambda patterns,
 // subtests rows, application-field reads, punned labels, inferred bounds,
 // type-method modules, block imports), the file's own impls and demands, its
 // imports, and its scopes from the module scope down. Two analyses of one file
@@ -116,6 +117,9 @@ func dumpFile(fa *FileAnalysis, errs []TypeError, root string, unused func(*Impl
 		if sym.DispatchImpl != nil {
 			l, c := nodeLineCol(sym.DispatchImpl)
 			line += fmt.Sprintf(" dispatch %d:%d %s", l, c, typ(sym.DispatchReceiver))
+		}
+		if sym.TryOp != nil && sym.TryOp.Convert != nil {
+			line += fmt.Sprintf(" converts %s to %s", typ(sym.TryOp.Convert.From), typ(sym.TryOp.Convert.To))
 		}
 		lines = append(lines, line)
 	}

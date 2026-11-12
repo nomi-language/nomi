@@ -6,23 +6,25 @@ import (
 
 func TestIRBytes_TourProgram(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
+fn main()
  raw = String.to_bytes("café")
  dbg Bytes.length(raw)
  dbg raw |> Iter.map(Byte.to_int) |> Iter.to_list()
  prefix = String.to_bytes("go:")
- case Bytes.to_string(prefix + raw) {
+ case Bytes.to_string(prefix + raw)
   Ok(text) -> io.print(text)
   Err(reason) -> io.print(reason)
- }
-}
+ end
+end
 `, "dbg line 4: Bytes.length(raw) = 5\ndbg line 5: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]\ngo:café\n")
 }
 
 func TestIRBytes_BoundariesAndImmutableViews(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn echo(data: Bytes) -> Bytes { data }
-fn main() {
+fn echo(data: Bytes) -> Bytes
+    data
+end
+fn main()
  raw = echo(String.to_bytes("café"))
  io.inspect(raw)
  io.inspect(Bytes.get(raw, 3))
@@ -41,14 +43,19 @@ fn main() {
  io.inspect(stream |> Iter.to_list())
  io.inspect(raw)
  io.inspect(String.to_bytes("") |> Iter.map(Byte.to_int) |> Iter.to_list())
-}
+end
 `, "<<99, 97, 102, 195, 169>>\nSome(195)\nNone\nNone\nSome(255)\nNone\nNone\nErr(\"invalid UTF-8\")\nOk(\"caf\")\n<<99, 97, 102, 195, 169>>\n<<>>\n[195, 169]\n[195, 169]\n<<99, 97, 102, 195, 169>>\n[]\n")
 }
 
 func TestIRBytes_UserStructFieldDebug(t *testing.T) {
-	verifyLambdaProgram(t, `struct Packet { data: Bytes }
-fn main() { dbg Packet{data: String.to_bytes("a")} return }
-`, "dbg line 2: Packet{data: String.to_bytes(\"a\")} = Packet{data: <<97>>}\n")
+	verifyLambdaProgram(t, `struct Packet
+    data: Bytes
+end
+fn main()
+    dbg Packet{data: String.to_bytes("a")}
+    return
+end
+`, "dbg line 5: Packet{data: String.to_bytes(\"a\")} = Packet{data: <<97>>}\n")
 }
 
 // A user struct with a Bytes or Byte field is retained, as a std struct's is.
@@ -58,26 +65,30 @@ fn main() { dbg Packet{data: String.to_bytes("a")} return }
 // `handle` it passes to a Go binding as "an ident bound nowhere".
 func TestIRBytes_UserStructFieldsCrossCallsAndCallbacks(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-struct Request {
+struct Request
  path: String
  body: Bytes
  flag: Byte
-}
-fn first(data: Bytes) -> Byte {
- case Bytes.get(data, 0) {
+end
+fn first(data: Bytes) -> Byte
+ case Bytes.get(data, 0)
   Some(b) -> b
   None -> first(String.to_bytes("?"))
- }
-}
-fn handle(req: Request) -> Result<Bytes, String> { Ok(req.body) }
-fn apply(f: (Request) -> Result<Bytes, String>, r: Request) -> Result<Bytes, String> { f(r) }
-fn main() {
+ end
+end
+fn handle(req: Request) -> Result<Bytes, String>
+    Ok(req.body)
+end
+fn apply(f: (Request) -> Result<Bytes, String>, r: Request) -> Result<Bytes, String>
+    f(r)
+end
+fn main()
  body = String.to_bytes("xyz")
- r = Request{path: "/", body, flag: first(body)}
+ r = Request{path: "/", body:, flag: first(body)}
  apply(handle, r) |> io.inspect()
  r |> io.inspect()
  (r == r) |> io.inspect()
  Bytes.length(r.body) |> io.print()
-}
+end
 `, "Ok(<<120, 121, 122>>)\nRequest{path: \"/\", body: <<120, 121, 122>>, flag: 120}\nTrue\n3\n")
 }

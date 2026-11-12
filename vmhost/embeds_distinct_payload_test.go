@@ -9,7 +9,7 @@ import (
 )
 
 // An `embeds` of a distinct over a value matches its payload pattern against
-// the distinct's inner value, as the checker types it: `Shape.Wrapped(.{r})`
+// the distinct's inner value, as the checker types it: `Shape.Wrapped({r:})`
 // is a struct pattern over Circle for `type Wrapped Circle`. Each position a
 // pattern is tested in runs, matched and not: a tail `case`, a pattern `if`,
 // an `else` that leaves and one that supplies the payload, a variant payload
@@ -19,9 +19,9 @@ import (
 func TestRun_EmbeddedDistinctPayloadPatterns(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-struct Circle {
+struct Circle
   r: Int
-}
+end
 
 type Wrapped Circle
 
@@ -39,7 +39,7 @@ type Twice Meters
 
 type Again Wrapped
 
-enum Shape {
+enum Shape
   embeds Wrapped
   embeds UserId
   embeds Pair
@@ -48,115 +48,115 @@ enum Shape {
   embeds Twice
   embeds Again
   Dot
-}
+end
 
-enum Holder {
+enum Holder
   Hold(Shape)
   Empty
-}
+end
 
-fn tail_case(s: Shape) -> String {
-  case s {
-    Shape.Wrapped(.{r: 1}) -> "case one"
-    Shape.Wrapped(.{r}) -> "case ${r}"
+fn tail_case(s: Shape) -> String
+  case s
+    Shape.Wrapped({r: 1}) -> "case one"
+    Shape.Wrapped({r:}) -> "case ${r}"
     _ -> "case miss"
-  }
-}
+  end
+end
 
-fn tail_if(s: Shape) -> String {
-  if Shape.Wrapped(.{r}) = s {
+fn tail_if(s: Shape) -> String
+  if Shape.Wrapped({r:}) = s then
     "if ${r}"
-  } else {
+  else
     "if miss"
-  }
-}
+  end
+end
 
-fn else_leaves(s: Shape) -> String {
-  Shape.Wrapped(.{r}) = s else {
+fn else_leaves(s: Shape) -> String
+  Shape.Wrapped({r:}) = s else
     return "else miss"
-  }
+  end
   "else ${r}"
-}
+end
 
-fn else_fallback(s: Shape) -> String {
-  Shape.Wrapped(.{r}) = s else {
+fn else_fallback(s: Shape) -> String
+  Shape.Wrapped({r:}) = s else
     Circle{r: 0}
-  }
+  end
   "fallback ${r}"
-}
+end
 
-fn nested(h: Holder) -> String {
-  case h {
-    .Hold(Shape.Wrapped(.{r})) -> "nested ${r}"
+fn nested(h: Holder) -> String
+  case h
+    .Hold(Shape.Wrapped({r:})) -> "nested ${r}"
     _ -> "nested miss"
-  }
-}
+  end
+end
 
-fn mid_case(s: Shape) -> String {
-  n = case s {
-    Shape.Wrapped(.{r}) -> r
+fn mid_case(s: Shape) -> String
+  n = case s
+    Shape.Wrapped({r:}) -> r
     _ -> -1
-  }
+  end
   "mid ${n}"
-}
+end
 
-fn literal(s: Shape) -> String {
-  case s {
+fn literal(s: Shape) -> String
+  case s
     Shape.UserId("ann") -> "user ann"
     _ -> "user miss"
-  }
-}
+  end
+end
 
-fn tuple(s: Shape) -> String {
-  case s {
+fn tuple(s: Shape) -> String
+  case s
     Shape.Pair((1, b)) -> "pair ${b}"
     _ -> "pair miss"
-  }
-}
+  end
+end
 
-fn list(s: Shape) -> String {
-  case s {
+fn list(s: Shape) -> String
+  case s
     Shape.Ids([x, ..]) -> "ids ${x}"
     _ -> "ids miss"
-  }
-}
+  end
+end
 
-fn map(s: Shape) -> String {
-  case s {
-    Shape.Kvs(%{"k" => v}) -> "kvs ${v}"
+fn map(s: Shape) -> String
+  case s
+    Shape.Kvs({"k" => v}) -> "kvs ${v}"
     _ -> "kvs miss"
-  }
-}
+  end
+end
 
-fn distinct(s: Shape) -> String {
-  case s {
+fn distinct(s: Shape) -> String
+  case s
     Shape.Twice(Meters(m)) -> "twice ${m}"
     _ -> "twice miss"
-  }
-}
+  end
+end
 
-fn again(s: Shape) -> String {
-  case s {
-    Shape.Again(Wrapped(.{r})) -> "again ${r}"
+fn again(s: Shape) -> String
+  case s
+    Shape.Again(Wrapped({r:})) -> "again ${r}"
     _ -> "again miss"
-  }
-}
+  end
+end
 
-fn pair_fallback(s: Shape) -> String {
-  Shape.Pair((a, b)) = s else {
+fn pair_fallback(s: Shape) -> String
+  Shape.Pair((a, b)) = s else
     (0, 0)
-  }
+  end
   "pair fallback ${a} ${b}"
-}
+end
 
-fn again_fallback(s: Shape) -> String {
-  Shape.Again(Wrapped(.{r})) = s else {
+fn again_fallback(s: Shape) -> String
+  Shape.Again(Wrapped({r:})) = s else
     Wrapped(Circle{r: 0})
-  }
+  end
   "again fallback ${r}"
-}
+end
 
-fn main() {
+fn main()
   w = Shape.Wrapped(Circle{r: 2})
   io.print(tail_case(Shape.Wrapped(Circle{r: 1})))
   io.print(tail_case(w))
@@ -178,8 +178,8 @@ fn main() {
   io.print(tuple(Shape.Pair((2, 9))))
   io.print(list(Shape.Ids([4, 5])))
   io.print(list(Shape.Ids([])))
-  io.print(map(Shape.Kvs(%{"k" => 3})))
-  io.print(map(Shape.Kvs(%{"j" => 3})))
+  io.print(map(Shape.Kvs({"k" => 3})))
+  io.print(map(Shape.Kvs({"j" => 3})))
   io.print(distinct(Shape.Twice(Meters(8))))
   io.print(distinct(Shape.Dot))
   io.print(again(Shape.Again(Wrapped(Circle{r: 6}))))
@@ -188,7 +188,7 @@ fn main() {
   io.print(pair_fallback(Shape.Dot))
   io.print(again_fallback(Shape.Again(Wrapped(Circle{r: 7}))))
   io.print(again_fallback(Shape.Dot))
-}
+end
 `)
 	want := strings.Join([]string{
 		"case one",
@@ -233,41 +233,41 @@ func TestRun_EmbeddedDistinctPayloadPatternsInATestBody(t *testing.T) {
 	const name = "main_test.nomi"
 	p, err := vmhost.LoadSource(name, `import std::io
 
-struct Circle {
+struct Circle
   r: Int
-}
+end
 
 type Wrapped Circle
 
-enum Shape {
+enum Shape
   embeds Wrapped
   Dot
-}
+end
 
-test "assert matched" {
-  assert Shape.Wrapped(.{r}) = Shape.Wrapped(Circle{r: 2})
+test "assert matched"
+  assert Shape.Wrapped({r:}) = Shape.Wrapped(Circle{r: 2})
   io.print("assert ${r}")
-}
+end
 
-test "assert missed" {
-  assert Shape.Wrapped(.{r: _}) = Shape.Dot
-}
+test "assert missed"
+  assert Shape.Wrapped({r: _}) = Shape.Dot
+end
 
-test "case" {
+test "case"
   w = Shape.Wrapped(Circle{r: 7})
-  a = case w {
-    Shape.Wrapped(.{r}) -> "wrapped ${r}"
+  a = case w
+    Shape.Wrapped({r:}) -> "wrapped ${r}"
     _ -> "dot"
-  }
+  end
   d = Shape.Dot
-  b = case d {
-    Shape.Wrapped(.{r}) -> "wrapped ${r}"
+  b = case d
+    Shape.Wrapped({r:}) -> "wrapped ${r}"
     _ -> "dot"
-  }
+  end
   io.print("${a}, ${b}")
   assert a == "wrapped 7"
   assert b == "dot"
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the test: %v", err)
@@ -281,7 +281,7 @@ test "case" {
 		"  assert 2",
 		"FAIL main_test.nomi :: assert missed",
 		"  line 20: pattern did not match",
-		"    assert Shape.Wrapped(.{r: _}) = Shape.Dot",
+		"    assert Shape.Wrapped({r: _}) = Shape.Dot",
 		"    actual: Dot",
 		"ok main_test.nomi :: case",
 		"  wrapped 7, dot",
@@ -301,65 +301,65 @@ test "case" {
 func TestRun_PreludeWrappersHoldAnEnumWithEmbeds(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-struct Circle {
+struct Circle
   r: Int
-}
+end
 
 type Wrapped Circle
 
-enum Shape {
+enum Shape
   embeds Wrapped
   Dot
-}
+end
 
-enum Plain {
+enum Plain
   embeds Circle
   Spot
-}
+end
 
-struct Holder {
+struct Holder
   shape: Maybe<Shape>
-}
+end
 
-fn maybe(m: Maybe<Shape>) -> String {
-  case m {
-    Some(Shape.Wrapped(.{r})) -> "some ${r}"
+fn maybe(m: Maybe<Shape>) -> String
+  case m
+    Some(Shape.Wrapped({r:})) -> "some ${r}"
     Some(_) -> "some dot"
     None -> "none"
-  }
-}
+  end
+end
 
-fn result(m: Result<Shape, String>) -> String {
-  case m {
+fn result(m: Result<Shape, String>) -> String
+  case m
     Ok(Shape.Wrapped(c)) -> "ok ${c.r}"
     Ok(_) -> "ok dot"
     Err(e) -> "err ${e}"
-  }
-}
+  end
+end
 
-fn plain(m: Maybe<Plain>) -> String {
-  case m {
-    Some(Plain.Circle{r}) -> "plain ${r}"
+fn plain(m: Maybe<Plain>) -> String
+  case m
+    Some(Plain.Circle{r:}) -> "plain ${r}"
     Some(_) -> "plain spot"
     None -> "plain none"
-  }
-}
+  end
+end
 
-fn list(xs: List<Shape>) -> String {
-  case xs {
-    [Shape.Wrapped(.{r}), ..] -> "list ${r}"
+fn list(xs: List<Shape>) -> String
+  case xs
+    [Shape.Wrapped({r:}), ..] -> "list ${r}"
     _ -> "list miss"
-  }
-}
+  end
+end
 
-fn tuple(t: (Shape, Int)) -> String {
-  case t {
-    (Shape.Wrapped(.{r}), n) -> "tuple ${r + n}"
+fn tuple(t: (Shape, Int)) -> String
+  case t
+    (Shape.Wrapped({r:}), n) -> "tuple ${r + n}"
     (_, n) -> "tuple ${n}"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(maybe(None))
   io.print(maybe(Some(Shape.Dot)))
   io.print(maybe(Some(Wrapped(Circle{r: 1}))))
@@ -378,7 +378,7 @@ fn main() {
   io.print(maybe(h.shape))
   shapes: List<Shape> = [Wrapped(Circle{r: 8}), Shape.Dot]
   io.print(maybe(List.head(shapes)))
-  m: Map<String, Shape> = %{"a" => Shape.Dot}
+  m: Map<String, Shape> = {"a" => Shape.Dot}
   io.print(maybe(Map.get(m, "a")))
   io.print(maybe(Map.get(m, "b")))
   nested: Maybe<Maybe<Shape>> = Some(Some(Shape.Dot))
@@ -387,7 +387,7 @@ fn main() {
   one: Maybe<Shape> = Some(Wrapped(Circle{r: 1}))
   io.inspect(one == Some(Shape.Dot))
   io.inspect(one == Some(Shape.Wrapped(Circle{r: 1})))
-}
+end
 `)
 	want := strings.Join([]string{
 		"none",

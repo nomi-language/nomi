@@ -81,7 +81,7 @@ func collectExports(p *Program, gens []*gen) []Export {
 			for j, prm := range fd.Params {
 				ep := ExportParam{Name: prm.Name}
 				if prm.Destructure != nil {
-					// `Req{path}` names no parameter, as `Req` written
+					// `Req{path:}` names no parameter, as `Req` written
 					// alone does (its name is `_`): the parser's
 					// `__destr_` slot is not a name a host should see.
 					ep.Name = "_"
@@ -124,7 +124,7 @@ func (g *gen) jsonCrossing(name string, t analysis.Type) *ir.Func {
 	if len(tps) != 1 {
 		return nil
 	}
-	inst, _ := g.stdInsts.instantiate(f, tps, []kind{k}, nil, g)
+	inst, _ := g.stdInsts.instantiate(f, tps, []kind{k}, g)
 	if inst == nil || inst.gen.irMod == nil {
 		return nil
 	}

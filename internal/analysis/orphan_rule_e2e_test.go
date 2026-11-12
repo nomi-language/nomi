@@ -172,15 +172,15 @@ func TestOrphanRule_ProjectTypeShadowingStdlibInherentReceiver_NoFalsePositive(t
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt> {
-  if n > 0 { Some(PositiveInt(n)) } else { None }
-}
+pub fn from_int(n: Int) -> Maybe<PositiveInt>
+  if n > 0 then Some(PositiveInt(n)) else None
+end
 `,
 		"main.nomi": `import positive: from_int
 
-fn main() {
+fn main()
   p = from_int(3)
-}
+end
 `,
 	}
 	for rel, content := range files {

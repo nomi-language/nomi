@@ -35,13 +35,13 @@ which refuses a form another site posts. `main` sends two posts through
 them without a network, one good and one bad, to show the responses:
 
 ```nomi-run
-import {
+import
     std::html.Html
     std::http.{self, CrossOrigin, Request, Response, Route, Router, Status}
     std::http_testing
-}
+end
 
-fn layout(title: String, content: Html) -> Html {
+fn layout(title: String, content: Html) -> Html
     Html"""
     <html>
       <head>
@@ -51,9 +51,9 @@ fn layout(title: String, content: Html) -> Html {
       <body>${content}</body>
     </html>
     """
-}
+end
 
-fn signup_form(email: String, error: Maybe<String>) -> Html {
+fn signup_form(email: String, error: Maybe<String>) -> Html
     Html"""
     <form method='post' action='/signup'>
       <input name='email' value='${email}'>
@@ -61,24 +61,24 @@ fn signup_form(email: String, error: Maybe<String>) -> Html {
       <button>Sign up</button>
     </form>
     """
-}
+end
 
-fn show_signup(Request) -> Html {
+fn show_signup(Request) -> Html
     layout("Sign up", signup_form("", None))
-}
+end
 
-fn signup(request: Request) -> Response {
+fn signup(request: Request) -> Response
     email = Request.form_value(request, "email") |> Maybe.with_default("")
 
-    if not String.contains(email, "@") {
+    if not String.contains(email, "@") then
         page = layout("Sign up", signup_form(email, Some("That is not an email address.")))
-        return .{..Response.html(page), status: Status.unprocessable_entity}
-    }
+        return {..Response.html(page), status: Status.unprocessable_entity}
+    end
 
     Response.redirect(request, "/welcome", Status.see_other)
-}
+end
 
-fn main() {
+fn main()
     router = Router.new([Route.to("GET /signup", show_signup), Route.to("POST /signup", signup)])!
     app = Router.handler(router) |> http.cross_origin_protection(CrossOrigin{})
     post = fn email: String -> app(http_testing.form_request(.Post, "/signup", [("email", email)]))
@@ -87,7 +87,7 @@ fn main() {
     bad = post("<ada>")
     dbg bad.status
     dbg Response.text(bad)
-}
+end
 ```
 <!-- expect
 dbg line 49: post("ada@example.com").status = Status(303)
@@ -141,32 +141,32 @@ An API handler returns a response with a `Json` body. A type the frontend
 reads derives `ToJson`, and is `pub` so that `nomi types` declares it:
 
 ```nomi-run
-import {
+import
     std::http.{Request, Response}
     std::http_testing
     std::json.ToJson
-}
+end
 
-pub struct Todo {
+pub struct Todo
     id: Int
     title: String
     done: Bool
-}
+end
 
 derive ToJson for Todo
 
-pub fn list_todos(Request) -> Response {
+pub fn list_todos(Request) -> Response
     todos = [
         Todo{id: 1, title: "Write the API", done: True},
         Todo{id: 2, title: "Write the page", done: False},
     ]
 
     Response.json(todos)
-}
+end
 
-fn main() {
+fn main()
     dbg Response.text(list_todos(http_testing.request(.Get, "/api/todos")))
-}
+end
 ```
 <!-- expect
 dbg line 25: Response.text(list_todos(http_testing.request(.Get, "/api/todos"))) = Ok("[{\"id\":1,\"title\":\"Write the API\",\"done\":true},{\"id\":2,\"title\":\"Write the page\",\"done\":false}]")
@@ -243,24 +243,24 @@ serves from:
 
 ```nomi-run compile-only
 // FILE: app.nomi
-import {
+import
     std::embed.Files
     std::http.{self, Route, Router, Server}
     std::supervisors.Supervisor
     api
-}
+end
 
 embed web `web/dist`
 
-struct App {
+struct App
     server: Supervisor
-}
+end
 
-fn boot(Startup) -> Result<App, String> {
+fn boot(Startup) -> Result<App, String>
     Ok(App{server: Supervisor.new(max_running: 256)})
-}
+end
 
-fn main() -> Result<Unit, http.Error> {
+fn main() -> Result<Unit, http.Error>
     frontend = http.file_server_embedded(
         Files.sub(web, "web/dist")!,
         single_page: True,
@@ -271,30 +271,30 @@ fn main() -> Result<Unit, http.Error> {
     listener = http.listen(Server{address: ":8080"})?
     http.serve(listener, Router.handler(Router.new(routes)?), App.server)
     Ok(Unit)
-}
+end
 
 // FILE: api.nomi
-import {
+import
     std::http.{Request, Response}
     std::json.ToJson
-}
+end
 
-pub struct Todo {
+pub struct Todo
     id: Int
     title: String
     done: Bool
-}
+end
 
 derive ToJson for Todo
 
-pub fn list_todos(Request) -> Response {
+pub fn list_todos(Request) -> Response
     todos = [
         Todo{id: 1, title: "Write the API", done: True},
         Todo{id: 2, title: "Write the page", done: False},
     ]
 
     Response.json(todos)
-}
+end
 
 // FILE: web/dist/index.html
 <div id="root"></div>

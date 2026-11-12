@@ -27,12 +27,12 @@ import (
 const Source = `import std::duration.{Duration}
 import std::instant.{Instant}
 
-pub struct Point {
+pub struct Point
   x: Int
   y: Int
-}
+end
 
-pub struct Tagged {
+pub struct Tagged
   label: String
   x: Int
   y: Int
@@ -44,7 +44,7 @@ pub struct Tagged {
   raw: Bytes
   tags: List<String>
   near: Maybe<Point>
-}
+end
 
 pub host type Box
 
@@ -72,10 +72,10 @@ pub host fn attempt(f: (String) -> Result<Int, String>, s: String) -> Result<Int
 pub host fn run(f: () -> Result<Unit, String>) -> Result<Unit, String>
 pub host fn visit(f: (Int) -> Unit, n: Int) -> Unit
 
-pub struct Query {
+pub struct Query
   path: String
   params: Map<String, List<String>>
-}
+end
 
 pub host fn query(path: String, words: List<String>) -> Query
 pub host fn sizes(m: Map<String, List<String>>) -> Map<String, Int>

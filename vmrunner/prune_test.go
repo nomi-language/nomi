@@ -32,48 +32,48 @@ func funcNames(t *testing.T, img []byte) (map[string]bool, []string) {
 
 const prunedProgram = `import std::io
 
-interface Shape {
+interface Shape
   fn area(s: self) -> Int
-}
+end
 
-struct Square {
+struct Square
   side: Int
-}
+end
 
-struct Circle {
+struct Circle
   r: Int
-}
+end
 
-impl Shape for Square {
-  fn area(s: Square) -> Int {
+impl Shape for Square
+  fn area(s: Square) -> Int
     s.side * s.side
-  }
-}
+  end
+end
 
-impl Shape for Circle {
-  fn area(c: Circle) -> Int {
+impl Shape for Circle
+  fn area(c: Circle) -> Int
     3 * c.r * c.r
-  }
-}
+  end
+end
 
 once table = build_table()
 
-fn build_table() -> Int {
+fn build_table() -> Int
   42
-}
+end
 
-fn never_called() -> Int {
+fn never_called() -> Int
   7
-}
+end
 
-fn total<T>(xs: List<T>) -> Int where T: Shape {
+fn total<T>(xs: List<T>) -> Int where T: Shape
   xs |> Iter.map(fn x -> T.area(x)) |> Iter.reduce(0, fn a, b -> a + b)
-}
+end
 
-fn main() {
+fn main()
   io.print(total([Square{side: 2}]))
   io.print(table)
-}
+end
 `
 
 // A built image holds what main reaches, through a call, a dispatch, a
@@ -106,7 +106,7 @@ func TestBuild_TheImageHoldsOnlyWhatTheProgramReaches(t *testing.T) {
 // function anyway fails with an error that names it rather than running
 // something else. A pruning bug therefore cannot pass as a different output.
 func TestRun_AnImageMissingACalleeFailsLoudly(t *testing.T) {
-	img := image(t, "import std::io\n\nfn helper() {\n  io.print(\"after\")\n}\n\nfn main() {\n  io.print(\"before\")\n  helper()\n}\n")
+	img := image(t, "import std::io\n\nfn helper()\n  io.print(\"after\")\nend\n\nfn main()\n  io.print(\"before\")\n  helper()\nend\n")
 	im, err := ir.DecodeImage(img)
 	if err != nil {
 		t.Fatal(err)

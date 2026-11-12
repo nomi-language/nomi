@@ -29,62 +29,62 @@ import std::io
 // The namespace owner, a STRUCT — so `Probe.Reading` is also a legal
 // type-qualified MEMBER read and the ambiguity the value side has to resolve is
 // really present.
-pub struct Probe {
+pub struct Probe
     id: Int
-}
+end
 
-pub enum Probe.Reading {
+pub enum Probe.Reading
     Steady
     Spike Int
     Blip {at: Int}
-}
+end
 
 // A dotted enum whose OWNER IS NOT DECLARED AT ALL. This is the corpus's own
 // shape and it is the one a lookup keyed on the leading segment gets wrong:
 // `import telemetry.Probe.Reading` binds the dotted name and never binds
 // `Probe`, so nothing resolves `Signal` here either.
-pub enum Signal.Level {
+pub enum Signal.Level
     Low
     High
-}
+end
 
-fn severity(r: Probe.Reading) -> Int {
-    case r {
+fn severity(r: Probe.Reading) -> Int
+    case r
         .Steady -> 0
         .Spike(n) -> n
-        .Blip{at} -> at
-    }
-}
+        .Blip{at:} -> at
+    end
+end
 
 // The dotted qualifier in PATTERN position, spelled in full rather than through
 // the dot shorthand — the form the corpus file writes.
-fn severity_qualified(r: Probe.Reading) -> Int {
-    case r {
+fn severity_qualified(r: Probe.Reading) -> Int
+    case r
         Probe.Reading.Steady -> 0
         Probe.Reading.Spike(n) -> n
-        Probe.Reading.Blip{at} -> at
-    }
-}
+        Probe.Reading.Blip{at:} -> at
+    end
+end
 
-fn level_name(l: Signal.Level) -> String {
-    case l {
+fn level_name(l: Signal.Level) -> String
+    case l
         Signal.Level.Low -> "low"
         Signal.Level.High -> "high"
-    }
-}
+    end
+end
 
 // A dotted value NESTED inside a prelude variant, so the descent reaches it
 // rather than stopping at the `Maybe`.
-fn inner_severity(m: Maybe<Probe.Reading>) -> Int {
-    case m {
+fn inner_severity(m: Maybe<Probe.Reading>) -> Int
+    case m
         Some(Probe.Reading.Steady) -> 0
         Some(Probe.Reading.Spike(n)) -> n
-        Some(Probe.Reading.Blip{at}) -> at
+        Some(Probe.Reading.Blip{at:}) -> at
         None -> -1
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     steady = Probe.Reading.Steady
     spike = Probe.Reading.Spike(3)
     blip = Probe.Reading.Blip{at: 9}
@@ -114,4 +114,4 @@ fn main() {
     io.print("differ = ${Probe.Reading.Spike(4) == spike}")
     io.print("bare same = ${Probe.Reading.Steady == steady}")
     io.print("cross = ${Probe.Reading.Steady == spike}")
-}
+end

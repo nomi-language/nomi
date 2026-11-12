@@ -1,14 +1,14 @@
-==========
+================================================================================
 Scrutinee-less case with a Type.method guard
-==========
+================================================================================
 
-once r = case {
+once r = case
   Float.is_nan(a) -> 0
   a < b -> 1
   _ -> 2
-}
+end
 
----
+--------------------------------------------------------------------------------
 
 (source_file
   (once_binding
@@ -30,16 +30,16 @@ once r = case {
         (identifier)
         (integer)))))
 
-==========
+================================================================================
 Scrutinee-full case still matches patterns
-==========
+================================================================================
 
-once r = case m {
+once r = case m
   None -> 0
   Some(x) -> x
-}
+end
 
----
+--------------------------------------------------------------------------------
 
 (source_file
   (once_binding
@@ -55,18 +55,18 @@ once r = case m {
           (identifier))
         (identifier)))))
 
-==========
+================================================================================
 Arm body ending in a call does not swallow the next .Variant arm
-==========
+================================================================================
 
-once r = case d {
+once r = case d
   .A ->
     sort(xs, fn a, b -> cmp(a, b))
   .B ->
     other
-}
+end
 
----
+--------------------------------------------------------------------------------
 
 (source_file
   (once_binding
@@ -76,19 +76,21 @@ once r = case d {
       (case_branch
         (dot_variant
           (type_identifier))
-        (call_expression
-          (identifier)
-          (identifier)
-          (lambda
-            (lambda_parameter
-              (identifier))
-            (lambda_parameter
-              (identifier))
-            (call_expression
-              (identifier)
-              (identifier)
-              (identifier)))))
+        (arm_block
+          (call_expression
+            (identifier)
+            (identifier)
+            (lambda
+              (lambda_parameter
+                (identifier))
+              (lambda_parameter
+                (identifier))
+              (call_expression
+                (identifier)
+                (identifier)
+                (identifier))))))
       (case_branch
         (dot_variant
           (type_identifier))
-        (identifier)))))
+        (arm_block
+          (identifier))))))

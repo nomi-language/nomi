@@ -16,20 +16,20 @@ import (
 func TestAnalyze_ShapeHovers(t *testing.T) {
 	const src = `import std::io
 
-enum Room {
+enum Room
   /// The cave.
   Cave
-}
+end
 
-fn main() {
-  s = %["a"]
+fn main()
+  s = Set["a"]
   r: Room = .Cave
   pair = (1, "a")
-  case s {
-    %["a", ..rest] -> io.inspect(rest)
+  case s
+    ["a", ..rest] -> io.inspect(rest)
     _ -> io.inspect((r, pair))
-  }
-}
+  end
+end
 `
 	lib := std.Load()
 	fa, nodes := highlight.AnalyzeNodes(src, lib)
@@ -42,8 +42,8 @@ fn main() {
 		pos  analysis.Pos
 		want string
 	}{
-		{"the % of a set literal", analysis.Pos{Line: 9, Col: 7}, "```nomi\nSet<String>\n```"},
-		{"its closing bracket", analysis.Pos{Line: 9, Col: 12}, "```nomi\nSet<String>\n```"},
+		{"the head of a set literal", analysis.Pos{Line: 9, Col: 7}, "```nomi\nSet<String>\n```"},
+		{"its closing bracket", analysis.Pos{Line: 9, Col: 14}, "```nomi\nSet<String>\n```"},
 		{"the . of a variant", analysis.Pos{Line: 10, Col: 13}, "```nomi\nRoom.Cave\n```\n\n*`Room` from the expected type*\n\nThe cave."},
 		{"the ( of a tuple", analysis.Pos{Line: 11, Col: 10}, "```nomi\ntuple (Int, String)\n```"},
 		{"the head of a set pattern", analysis.Pos{Line: 13, Col: 5}, "set pattern: matches a `Set<String>` containing `\"a\"`; `rest` is `Set<String>`"},

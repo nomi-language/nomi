@@ -12,16 +12,16 @@ import (
 // A group's `subtests` block binds its row in the group's setup and tests:
 // hover over a use names the binding's type, go-to-definition reaches the
 // pattern.
-const groupSubtestsSrc = `group "stores" {
-  subtests [("memory", 1), ("sqlite", 2)], (store, workers), store {
+const groupSubtestsSrc = `group "stores"
+  subtests [("memory", 1), ("sqlite", 2)], (store, workers), store
     setup workers * 2
 
-    test "reads the row", doubled {
+    test "reads the row", doubled
       assert doubled == workers * 2
       assert store != ""
-    }
-  }
-}
+    end
+  end
+end
 `
 
 func TestGroupSubtests_HoverAndDefinition(t *testing.T) {

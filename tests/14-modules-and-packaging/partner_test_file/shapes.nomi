@@ -1,26 +1,26 @@
 //# Shapes whose helpers stay private: shapes_test.nomi, the partner test
 //# file, reads them without any of them being `pub`.
 
-enum Kind {
+enum Kind
     Round
     Square
-}
+end
 
-struct Shape {
+struct Shape
     kind: Kind
     size: Int
-}
+end
 
 opaque type Area Int
 
-fn area(shape: Shape) -> Area {
-    case shape.kind {
+fn area(shape: Shape) -> Area
+    case shape.kind
         .Round -> Area(shape.size * shape.size * 3)
         .Square -> Area(shape.size * shape.size)
-    }
-}
+    end
+end
 
-pub fn describe(size: Int) -> String {
-    Area(a) = area(Shape{kind: .Square, size})
+pub fn describe(size: Int) -> String
+    Area(a) = area(Shape{kind: .Square, size:})
     "square of area ${a}"
-}
+end

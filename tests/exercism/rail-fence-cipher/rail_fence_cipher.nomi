@@ -2,16 +2,16 @@
 //# rails, then read off one rail after another.
 
 /// `message` read off the rails, top rail first.
-pub fn encode(message: String, rails: Int) -> String {
+pub fn encode(message: String, rails: Int) -> String
     message
     |> Iter.zip(zigzag(rails))
     |> Iter.sort_by(.second)
     |> Iter.map(.first)
     |> String.join()
-}
+end
 
 /// The message whose encoding on `rails` rails is `ciphertext`.
-pub fn decode(ciphertext: String, rails: Int) -> String {
+pub fn decode(ciphertext: String, rails: Int) -> String
     positions =
         0..String.length(ciphertext)
         |> Iter.zip(zigzag(rails))
@@ -23,14 +23,14 @@ pub fn decode(ciphertext: String, rails: Int) -> String {
     |> Iter.sort_by(.first)
     |> Iter.map(.second)
     |> String.join()
-}
+end
 
 /// The rail each position of the message is written on, without end: down
 /// from the top rail to the bottom, then back up.
-fn zigzag(rails: Int) -> Iter<Int> {
+fn zigzag(rails: Int) -> Iter<Int>
     up = Iter.reverse(1..rails - 1)
 
     0..rails
     |> Iter.concat(up)
     |> Iter.cycle()
-}
+end

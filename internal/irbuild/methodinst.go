@@ -15,10 +15,19 @@ import (
 // (an impl member) are withheld from their block when it is registered,
 // because their parameters name a type nothing has bound (implItemSig's and
 // inheritDefaults' `generic impl function` gap). A call knows the binding:
-// the checker's instantiated signature at the call solves each method type
-// parameter. So a call builds one item per (block, method, arguments) under
-// the block's frame plus the solved one, as genericimpl.go's
-// genericImplInst.subst was written to carry, and queues its body.
+// the checker records the type argument it instantiated the call at for
+// each method type parameter (calleeTypeArgs). So a call builds one item per
+// (block, method, arguments) under the block's frame plus those, as
+// genericimpl.go's genericImplInst.subst was written to carry, and queues
+// its body. A type argument inference left open at the call, which no value
+// depends on (`Box.flat(Box.Full(None))`), is read as the type the checker
+// closed it as (analysis.TypeVar.Closed), as the call's operands are.
+//
+// The block's frame is its instance's. A type-qualified call names the
+// instance the checker instantiated the block's own parameters at
+// (templateCallInstance), not the receiver operand's: `Box.flat(b)` with
+// `fn flat(b: Box<Maybe<T>>) -> Maybe<T>` in `impl Box<T>` over a
+// `Box<Maybe<Int>>` is `Box<Int>`'s.
 //
 // The body is built after the caller's, by flushMethodInsts, for
 // flushMonoInstances' reason: the call names the item's symbol, and building
@@ -45,6 +54,7 @@ type methodInst struct {
 type withheldMember struct {
 	params []ast.Param
 	tps    []ast.TypeParam
+	where  []ast.WhereConstraint
 	ret    ast.TypeExpr
 	body   *ast.Block
 	decl   *ast.FuncDef
@@ -79,6 +89,7 @@ func (d *implDef) withheldMember(method string) (withheldMember, bool) {
 			return w, false
 		}
 		w.params, w.tps, w.ret, w.line, w.body = w.decl.Params, w.decl.TypeParams, w.decl.ReturnTypeExpr, w.decl.Line, w.decl.Body
+		w.where = w.decl.WhereClauses
 	case d.iface != nil && d.iface.methods[method] != nil:
 		m := d.iface.methods[method]
 		if m.decl == nil || m.decl.Body == nil || m.decl.Extern {
@@ -89,6 +100,7 @@ func (d *implDef) withheldMember(method string) (withheldMember, bool) {
 			return w, false
 		}
 		w.params, w.tps, w.ret, w.body, w.line = m.decl.Params, m.decl.TypeParams, m.decl.ReturnTypeExpr, b, m.decl.Line
+		w.where = m.decl.WhereClauses
 		w.shape = &m.shape
 	default:
 		return w, false
@@ -112,71 +124,40 @@ func (d *implDef) supplies(method string) bool {
 	return ok
 }
 
+// typeParamNames is w's own type parameters' names, in declaration order.
+func (w withheldMember) typeParamNames() []string {
+	names := make([]string, len(w.tps))
+	for i, tp := range w.tps {
+		names[i] = tp.Name
+	}
+	return names
+}
+
 // genericMethodItem is the item a call t to `method` on block d reaches when
 // d withheld it as a generic impl function, instantiated at the type
-// arguments the checker solved for t, or nil.
+// arguments the checker instantiated t at (calleeTypeArgs), or nil.
 func (bl *irScalarBuilder) genericMethodItem(t *ast.Call, d *implDef, method string) *implItem {
-	g := bl.g
 	w, ok := d.withheldMember(method)
 	if !ok {
 		return nil
 	}
-	// Only the member's own type parameters need the checker's solved
-	// signature; with none, the block's frame is the whole binding. The
-	// signature at `X.grow(x)` inside a generic caller names X, not the
-	// instance, so it cannot be required then.
-	var here []kind
-	// kindInvalid: sentinel — a result the checker left open solves nothing.
-	result := kindInvalid
-	if len(w.tps) > 0 {
-		ft := g.checkedCallSignature(t)
-		if ft == nil || len(ft.Params) != len(w.params) {
-			return nil
-		}
-		here = make([]kind, len(ft.Params))
-		for i, pt := range ft.Params {
-			// kindInvalid: sentinel — an open parameter solves nothing.
-			here[i] = kindInvalid
-			if !irUnsolvedType(pt) {
-				here[i] = g.project(pt)
-			}
-		}
-		if ft.Return != nil && !irUnsolvedType(ft.Return) {
-			result = g.project(ft.Return)
-		}
+	args, ok := bl.g.calleeTypeArgs(t.Func, w.typeParamNames())
+	if !ok {
+		return nil
 	}
-	return g.methodInstance(d, method, w, here, result)
+	return bl.g.methodInstance(d, method, w, args)
 }
 
-// methodInstance is block d's withheld member w instantiated at the
-// parameter and result kinds a call was typed at, which are this gen's: each
-// of the member's own type parameters is solved by unifying its annotations
-// against them. kindInvalid at a position solves nothing. The instance is
-// interned per (block, method, arguments) and its body queued.
+// methodInstance is block d's withheld member w instantiated at args, its
+// own type parameters' arguments in declaration order, which are this
+// gen's kinds, under the block's own frame. The instance is interned per
+// (block, method, arguments) and its body queued.
 //
 // A call in another file reaches this through the declaring gen
 // (siblingMethodInstance), which hands it kinds imported into its own tables.
-func (g *gen) methodInstance(d *implDef, method string, w withheldMember, here []kind, result kind) *implItem {
-	solved := map[string]kind{}
-	if len(w.tps) > 0 {
-		if len(here) != len(w.params) {
-			return nil
-		}
-		own := make(map[string]bool, len(w.tps))
-		for _, tp := range w.tps {
-			own[tp.Name] = true
-		}
-		for i, p := range w.params {
-			// kindInvalid: sentinel — an open parameter solves nothing.
-			if p.TypeAnnotation == nil || here[i] == kindInvalid {
-				continue
-			}
-			g.unifyTypeParams(p.TypeAnnotation, here[i], own, solved)
-		}
-		// kindInvalid: sentinel — an open result solves nothing.
-		if w.ret != nil && result != kindInvalid {
-			g.unifyTypeParams(w.ret, result, own, solved)
-		}
+func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []kind) *implItem {
+	if len(own) != len(w.tps) {
+		return nil
 	}
 	frame := map[string]kind{}
 	if def := d.recv.def; def != nil && def.genericOf != nil {
@@ -188,13 +169,9 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, here [
 		frame[n] = k
 	}
 	args := make([]string, 0, len(w.tps))
-	for _, tp := range w.tps {
-		k, ok := solved[tp.Name]
-		if !ok || (k != kindUnit && !irCallableValueKind(k)) {
-			return nil
-		}
-		frame[tp.Name] = k
-		args = append(args, k.key())
+	for i, tp := range w.tps {
+		frame[tp.Name] = own[i]
+		args = append(args, own[i].key())
 	}
 	key := fmt.Sprintf("%p\x00%s\x00%s", d, method, strings.Join(args, "\x00"))
 	if mi := g.methodInsts[key]; mi != nil {
@@ -282,7 +259,7 @@ func (g *gen) flushMethodInsts() {
 // methodInstAccessors asks g, the gen that declares the instance it, for an
 // accessor per defaulted parameter of it (irFileSlotRetain), so a call in
 // another file can fill a default that names what only this file can lower
-// (siblingFill). name is the callee name the call site gives the instance.
+// (fillFromAccessors). name is the callee name the call site gives the instance.
 // It answers the instance's callee symbol, or nil when it is no instance of
 // a declared member. A request after the instance was built queues it again,
 // so the next flush builds the accessors.

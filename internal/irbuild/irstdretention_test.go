@@ -12,29 +12,29 @@ func TestIRStdRetention_ProgramsRunOnTheVM(t *testing.T) {
 	}{
 		{"Int and Float rt hosts", `import std::io
 
-fn wrap(a: Int, b: Int) -> Int {
+fn wrap(a: Int, b: Int) -> Int
   Int.wrapping_add(Int.wrapping_mul(a, b), Int.bitwise_xor(a, 5))
-}
+end
 
-fn classify(x: Float) -> String {
-  if Float.is_nan(x) {
+fn classify(x: Float) -> String
+  if Float.is_nan(x) then
     "nan"
-  } else if x == Float.positive_infinity() {
+  else if x == Float.positive_infinity() then
     "inf"
-  } else {
+  else
     Float.to_string(Float.floor(x))
-  }
-}
+  end
+end
 
-fn text(n: Int) -> String {
+fn text(n: Int) -> String
   Int.to_string(n)
-}
+end
 
-fn whole(x: Float) -> Maybe<Int> {
+fn whole(x: Float) -> Maybe<Int>
   Float.to_int(x)
-}
+end
 
-fn main() {
+fn main()
   io.print(wrap(3, 4))
   io.print(classify(Float.nan()))
   io.print(classify(Float.positive_infinity()))
@@ -42,99 +42,99 @@ fn main() {
   io.print(text(-12))
   io.inspect(whole(3.9))
   io.inspect(whole(Float.nan()))
-}
+end
 `, "18\nnan\ninf\n2.0\n-12\nSome(3)\nNone\n",
 			[]string{"wrap", "classify", "text", "whole", "main"}},
 		{"String hosts", `import std::io
 
-fn shout(s: String) -> String {
+fn shout(s: String) -> String
   String.uppercase(String.replace(s, "a", "o"))
-}
+end
 
-fn trimmed(s: String) -> String {
-  if String.starts_with(s, "<") and String.ends_with(s, ">") {
+fn trimmed(s: String) -> String
+  if String.starts_with(s, "<") and String.ends_with(s, ">") then
     String.slice(s, 1, String.length(s) - 1)
-  } else {
+  else
     s
-  }
-}
+  end
+end
 
-fn words(s: String) -> List<String> {
+fn words(s: String) -> List<String>
   String.split(s, " ")
-}
+end
 
-fn joined(xs: List<String>) -> String {
+fn joined(xs: List<String>) -> String
   String.join(xs, "-")
-}
+end
 
-fn main() {
+fn main()
   io.print(shout("banana"))
   io.print(trimmed("<tag>"))
   io.print(trimmed("tag"))
   io.inspect(words("a b c"))
   io.print(joined(words("x y")))
   io.print(String.reverse("abc"))
-}
+end
 `, "BONONO\ntag\ntag\n[\"a\", \"b\", \"c\"]\nx-y\ncba\n",
 			[]string{"shout", "trimmed", "words", "joined"}},
 		{"Decimal ordering", `import std::io
 
-fn smaller(a: Decimal, b: Decimal) -> Decimal {
-  if a <= b { a } else { b }
-}
+fn smaller(a: Decimal, b: Decimal) -> Decimal
+  if a <= b then a else b
+end
 
-fn sign(d: Decimal) -> Int {
-  case {
+fn sign(d: Decimal) -> Int
+  case
     d < 0d -> -1
     d > 0d -> 1
     _ -> 0
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.inspect(smaller(1.50d, 1.5d))
   io.inspect(smaller(2d, 1.25d))
   io.print(sign(-0.5d))
   io.print(sign(0.00d))
   io.print(sign(3d))
   io.inspect(1.5d >= 1.50d)
-}
+end
 `, "1.50d\n1.25d\n-1\n0\n1\nTrue\n",
 			[]string{"smaller", "sign", "main"}},
 		{"lists of String pairs", `import std::io
 
-fn entry_name(entry: (String, String)) -> String {
+fn entry_name(entry: (String, String)) -> String
   (name, _) = entry
   name
-}
+end
 
-fn entry_value(entry: (String, String)) -> String {
+fn entry_value(entry: (String, String)) -> String
   (_, value) = entry
   value
-}
+end
 
-fn lookup(entries: List<(String, String)>, key: String) -> Maybe<String> {
-  case Iter.find(entries, fn entry -> entry_name(entry) == key) {
+fn lookup(entries: List<(String, String)>, key: String) -> Maybe<String>
+  case Iter.find(entries, fn entry -> entry_name(entry) == key)
     .Some(entry) -> Maybe.Some(entry_value(entry))
     .None -> Maybe.None
-  }
-}
+  end
+end
 
-fn values(entries: List<(String, String)>, key: String) -> List<String> {
+fn values(entries: List<(String, String)>, key: String) -> List<String>
   entries
   |> Iter.filter(fn entry -> entry_name(entry) == key)
   |> Iter.map(fn entry -> entry_value(entry))
   |> Iter.to_list()
-}
+end
 
-fn put(entries: List<(String, String)>, key: String, value: String) -> List<(String, String)> {
+fn put(entries: List<(String, String)>, key: String, value: String) -> List<(String, String)>
   entries
   |> Iter.filter(fn entry -> entry_name(entry) != key)
   |> Iter.concat([(key, value)])
   |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
   xs = [("a", "1"), ("b", "2"), ("a", "3")]
   io.inspect(lookup(xs, "a"))
   io.inspect(lookup(xs, "z"))
@@ -142,54 +142,54 @@ fn main() {
   io.inspect(Iter.any_match(xs, fn entry -> entry_value(entry) == "2"))
   io.inspect(values(put(xs, "a", "9"), "a"))
   io.inspect(Iter.count(put(xs, "c", "4")))
-}
+end
 `, "Some(\"1\")\nNone\n[\"1\", \"3\"]\nTrue\n[\"9\"]\n4\n",
 			[]string{"entry_name", "entry_value", "lookup", "values", "put", "main"}},
 		{"std Debug through io.inspect", `import std::io
 import std::calendar.{Date}
 
-fn show(d: Decimal) -> Decimal {
+fn show(d: Decimal) -> Decimal
   d
-}
+end
 
-fn day(d: Date) -> Date {
+fn day(d: Date) -> Date
   d
-}
+end
 
-fn main() {
+fn main()
   io.inspect(show(2.50d))
-  case Date"2024-01-02" {
+  case Date"2024-01-02"
     Ok(d) -> io.inspect(day(d))
     Err(_) -> io.print("bad")
-  }
-}
+  end
+end
 `, "2.50d\n2024-01-02\n",
 			[]string{"show", "day", "main"}},
 		{"std/json's DecodeError and ShapeError", `import std::io
 import std::json.Json
 
-fn failure() -> Json.DecodeError {
+fn failure() -> Json.DecodeError
   Json.DecodeError{message: "bad", line: 2, col: 3, offset: 9}
-}
+end
 
-fn position(e: Json.DecodeError) -> String {
+fn position(e: Json.DecodeError) -> String
   "${e.line}:${e.col}"
-}
+end
 
-fn shape() -> Json.ShapeError {
+fn shape() -> Json.ShapeError
   Json.ShapeError{path: ["a", "b"], expected: "Int", got: "String"}
-}
+end
 
-fn depth(e: Json.ShapeError) -> Int {
+fn depth(e: Json.ShapeError) -> Int
   Iter.count(e.path)
-}
+end
 
-fn main() {
+fn main()
   io.print(position(failure()))
   io.print(Display.to_string(failure()))
   io.print(depth(shape()))
   io.inspect(shape())
-}
+end
 `, "2:3\njson decode error at line 2, col 3: bad\n2\nJson.ShapeError{path: [\"a\", \"b\"], expected: \"Int\", got: \"String\"}\n",
 			[]string{"failure", "position", "shape", "depth", "main"}},
 		// Project carries a prelude Maybe in a field whose default std
@@ -197,26 +197,26 @@ fn main() {
 		{"std/compiler's Project", `import std::io
 import std::compiler.Project
 
-fn project() -> Project {
-  Project{entry_point: "main", files: %{"main" => "fn main() {}"}}
-}
+fn project() -> Project
+  Project{entry_point: "main", files: {"main" => "fn main() end"}}
+end
 
-fn configured(p: Project) -> Project {
-  .{..p, manifest: Some("[module]\nname = \"demo\"\n")}
-}
+fn configured(p: Project) -> Project
+  {..p, manifest: Some("[module]\nname = \"demo\"\n")}
+end
 
-fn has_manifest(p: Project) -> Bool {
-  case p.manifest {
+fn has_manifest(p: Project) -> Bool
+  case p.manifest
     Some(_) -> True
     None -> False
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(has_manifest(project()))
   io.print(has_manifest(configured(project())))
   io.print(project().entry_point)
-}
+end
 `, "False\nTrue\nmain\n",
 			[]string{"project", "configured", "has_manifest", "main"}},
 	} {

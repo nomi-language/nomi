@@ -51,22 +51,22 @@ func TestStdinCancel_ACancelledTaskStopsWaitingForInput(t *testing.T) {
 		"Reader.read":      "io.Reader.read(io.stdin)",
 	} {
 		t.Run(name, func(t *testing.T) {
-			src := `import {
+			src := `import
     std::io
     std::tasks.Task
-}
+end
 
-fn main() {
-    outcome = concurrent {
-        reader = Task.spawn(fn -> {
+fn main()
+    outcome = concurrent
+        reader = Task.spawn(fn ->
             _ = ` + read + `
             1
-        })
+        end)
         Task.cancel(reader)
         Task.outcome(reader)
-    }
+    end
     io.inspect(outcome)
-}
+end
 `
 			if got := runOnPipe(t, src, nil); got != "Cancelled\n" {
 				t.Fatalf("output %q, want the task's cancellation", got)
@@ -79,25 +79,25 @@ fn main() {
 // The first task waits for a line, is cancelled, and then the line is
 // written; main reads it.
 func TestStdinCancel_InputThatArrivesAfterACancelledReadIsReadNext(t *testing.T) {
-	src := `import {
+	src := `import
     std::duration.Duration
     std::io
     std::tasks.Task
     std::timer
-}
+end
 
-fn main() {
-    outcome = concurrent {
+fn main()
+    outcome = concurrent
         reader = Task.spawn(fn -> io.read_line())
         timer.sleep(Duration.milliseconds(50))
         Task.cancel(reader)
         Task.outcome(reader)
-    }
+    end
     io.inspect(outcome)
     io.print("ready")
     io.print(io.read_line())
     io.print(io.read_line())
-}
+end
 `
 	got := runOnPipe(t, src, func(w *os.File) {
 		time.Sleep(300 * time.Millisecond)
@@ -112,24 +112,24 @@ fn main() {
 // A `concurrent` block whose body fails tears down its tasks, a task
 // waiting on standard input among them, and the program ends.
 func TestStdinCancel_AScopesTeardownStopsATaskWaitingForInput(t *testing.T) {
-	src := `import {
+	src := `import
     std::io
     std::tasks.Task
-}
+end
 
-fn scope() -> Result<Int, String> {
+fn scope() -> Result<Int, String>
     stop: Result<Int, String> = Err("stop")
-    concurrent {
+    concurrent
         waiting = Task.spawn(fn -> io.read_line())
         n = stop?
         _ = Task.await(waiting)
         Ok(n)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(scope())
-}
+end
 `
 	if got := runOnPipe(t, src, nil); got != "Err(stop)\n" {
 		t.Fatalf("output %q", got)

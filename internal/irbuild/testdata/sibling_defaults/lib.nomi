@@ -1,38 +1,38 @@
 import std::io
 
-pub enum Mode {
+pub enum Mode
     Keep
     Shift
-}
+end
 
-fn base() -> Int {
+fn base() -> Int
     io.print("base")
     100
-}
+end
 
-pub fn add(a: Int, b: Int = 1) -> Int {
+pub fn add(a: Int, b: Int = 1) -> Int
     a + b
-}
+end
 
 /// A default naming an earlier parameter.
-pub fn twice(a: Int, b: Int = a * 2) -> Int {
+pub fn twice(a: Int, b: Int = a * 2) -> Int
     a + b
-}
+end
 
 /// Defaults naming this file's private function and a type the caller never
 /// imports by name.
-pub fn offset(x: Int, by: Int = base(), mode: Mode = Mode.Shift) -> Int {
-    case mode {
+pub fn offset(x: Int, by: Int = base(), mode: Mode = Mode.Shift) -> Int
+    case mode
         .Keep -> x
         .Shift -> x + by
-    }
-}
+    end
+end
 
-pub fn label(tag: String, n: Int = String.length(tag), suffix: String = "!") -> String {
+pub fn label(tag: String, n: Int = String.length(tag), suffix: String = "!") -> String
     "${tag}:${n}${suffix}"
-}
+end
 
 /// A generic function with defaults, one of whose types mentions `T`.
-pub fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False) -> List<T> {
-    if twice { [x, x, ..xs] } else { [x, ..xs] }
-}
+pub fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False) -> List<T>
+    if twice then [x, x, ..xs] else [x, ..xs]
+end

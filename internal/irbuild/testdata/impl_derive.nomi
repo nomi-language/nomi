@@ -16,20 +16,20 @@ import std::io
 //
 // Fields are Int deliberately. Nomi's `==` on Float is reflexive for NaN, which
 // float_semantics.nomi covers, and that rule is not this fixture's subject.
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
 derive Equatable for Point
 
-impl Display for Point {
-    fn to_string(p: Point) -> String {
+impl Display for Point
+    fn to_string(p: Point) -> String
         "(${p.x}, ${p.y})"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     a = Point{x: 1, y: 2}
     b = Point{x: 1, y: 2}
     c = Point{x: 9, y: 2}
@@ -40,4 +40,4 @@ fn main() {
     io.print("a is ${a}")
     io.print(Display.to_string(c))
     io.print(Point.to_string(c))
-}
+end

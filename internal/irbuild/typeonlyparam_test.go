@@ -12,59 +12,59 @@ func TestTypeOnlyParams_Run(t *testing.T) {
 	}
 	const main = `import std::io
 
-struct Request {
+struct Request
     path: String
-}
+end
 
-enum Method {
+enum Method
     Get
     Post
-}
+end
 
 type Cents Int
 
 typealias Id Int
 
-interface Handler {
+interface Handler
     fn handle(h: self, Request) -> String
-}
+end
 
-struct Static {}
+struct Static end
 
-impl Handler for Static {
-    fn handle(Static, r: Request) -> String {
+impl Handler for Static
+    fn handle(Static, r: Request) -> String
         "static " + r.path
-    }
-}
+    end
+end
 
-fn stats(Request) -> String {
+fn stats(Request) -> String
     "ok"
-}
+end
 
-fn verb(Method, n: Int) -> Int {
+fn verb(Method, n: Int) -> Int
     n + 1
-}
+end
 
-fn cents(Cents) -> Int {
+fn cents(Cents) -> Int
     2
-}
+end
 
-fn id(Id) -> Int {
+fn id(Id) -> Int
     3
-}
+end
 
-fn second<T>(T, b: T) -> T {
+fn second<T>(T, b: T) -> T
     b
-}
+end
 
-fn apply(f: (Request) -> String) -> String {
+fn apply(f: (Request) -> String) -> String
     f(Request{path: "/"})
-}
+end
 
-fn main() {
-    fn inner(Int) -> Int {
+fn main()
+    fn inner(Int) -> Int
         4
-    }
+    end
     io.print(stats(Request{path: "/"}))
     io.print(verb(.Post, 1))
     io.print(cents(Cents(5)))
@@ -75,7 +75,7 @@ fn main() {
     g = fn Request -> "free"
     io.print(g(Request{path: "/x"}))
     io.print(Handler.handle(Static{}, Request{path: "/h"}))
-}
+end
 `
 	verifyLambdaProgram(t, main, "ok\n2\n2\n3\n5\n4\nlambda\nfree\nstatic /h\n")
 }

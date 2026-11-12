@@ -2,10 +2,12 @@
 // the test whose declaration starts on line N: a `test`, a `group`, or an
 // attached `//!` test. Zed and Neovim find it with tree-sitter
 // (editors/zed/languages/nomi/runnables.scm, editors/nvim/lua/nomi/runner.lua);
-// VS Code has no tree-sitter, so this scans the text, skipping comments and
-// string literals when it matches braces.
+// VS Code has no tree-sitter, so this reads the layout `nomi fmt` writes: a
+// test's body is indented below its header, and the `end` that closes it
+// stands at the header's indentation. Lines inside a multi-line string do
+// not count.
 
-const testHeader = /^\s*(?:test|group)\s+"/;
+const testHeader = /^\s*(?:test\s+"|group(?:\s+"|\s*(?:\/\/.*)?$))/;
 const attachedTest = /^\s*\/\/!/;
 
 /**
@@ -26,151 +28,102 @@ export function enclosingTestLine(text: string, cursorLine: number): number | un
     return first + 1;
   }
 
-  const lineStarts: number[] = [];
-  let offset = 0;
-  for (const line of lines) {
-    lineStarts.push(offset);
-    offset += line.length + 1;
-  }
-  // Offsets below assume "\n" line ends; normalize so they hold for CRLF too.
-  const source = lines.join("\n");
-
+  const inString = multilineStringLines(lines);
   for (let header = cursorLine; header >= 0; header--) {
-    if (!testHeader.test(lines[header])) {
+    if (inString[header] || !testHeader.test(lines[header])) {
       continue;
     }
-    const open = scan(source, lineStarts[header], "open");
-    if (open === undefined) {
-      continue;
-    }
-    const close = scan(source, open, "close");
-    const closeLine = close === undefined ? lines.length - 1 : lineOf(lineStarts, close);
-    if (closeLine >= cursorLine) {
+    if (closingLine(lines, inString, header) >= cursorLine) {
       return header + 1;
     }
   }
   return undefined;
 }
 
-function lineOf(lineStarts: number[], offset: number): number {
-  let lo = 0;
-  let hi = lineStarts.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1;
-    if (lineStarts[mid] <= offset) {
-      lo = mid;
-    } else {
-      hi = mid - 1;
+// The 0-based line of the `end` that closes the body below `header`: the
+// first later line, outside a multi-line string, that is not blank and is
+// indented no deeper than the header. When that line is not an `end` at the
+// header's indentation the body was never closed, and it ends the line
+// before.
+function closingLine(lines: string[], inString: boolean[], header: number): number {
+  const indent = indentOf(lines[header]);
+  for (let i = header + 1; i < lines.length; i++) {
+    if (inString[i] || lines[i].trim() === "") {
+      continue;
     }
+    const n = indentOf(lines[i]);
+    if (n > indent) {
+      continue;
+    }
+    return n === indent && /^end\b/.test(lines[i].trim()) ? i : i - 1;
   }
-  return lo;
+  return lines.length - 1;
 }
 
-type Frame =
-  | { kind: "code"; depth: number }
-  | { kind: "string" }
-  | { kind: "triple" }
-  | { kind: "raw" };
-
-/**
- * Scans Nomi source from `start`. In "open" mode it returns the offset of the
- * first `{` outside comments and literals; in "close" mode `start` is a `{` and
- * it returns the offset of its matching `}`. Interpolations (`${...}`) inside
- * strings are scanned as code.
- */
-function scan(src: string, start: number, mode: "open" | "close"): number | undefined {
-  const stack: Frame[] = [{ kind: "code", depth: 0 }];
-  let i = start;
-  while (i < src.length) {
-    const top = stack[stack.length - 1];
-    const c = src[i];
-    switch (top.kind) {
-      case "code":
-        if (src.startsWith("//", i)) {
-          const eol = src.indexOf("\n", i);
-          i = eol < 0 ? src.length : eol;
-          continue;
-        }
-        if (src.startsWith('"""', i)) {
-          stack.push({ kind: "triple" });
-          i += 3;
-          continue;
-        }
-        if (c === '"') {
-          stack.push({ kind: "string" });
-        } else if (c === "`") {
-          stack.push({ kind: "raw" });
-        } else if (c === "'") {
-          // A codepoint literal: 'a', '\n', '\'', '\u{7F}'.
-          const end = codepointEnd(src, i);
-          if (end !== undefined) {
-            i = end;
-          }
-        } else if (c === "{") {
-          if (mode === "open" && stack.length === 1) {
-            return i;
-          }
-          top.depth++;
-        } else if (c === "}") {
-          top.depth--;
-          if (top.depth <= 0) {
-            if (stack.length === 1) {
-              if (mode === "close") {
-                return i;
-              }
-              top.depth = 0;
-            } else {
-              stack.pop();
-            }
-          }
-        }
-        i++;
-        continue;
-      case "string":
-        if (c === "\\") {
-          i += 2;
-          continue;
-        }
-        if (src.startsWith("${", i)) {
-          stack.push({ kind: "code", depth: 1 });
-          i += 2;
-          continue;
-        }
-        if (c === '"' || c === "\n") {
-          stack.pop();
-        }
-        i++;
-        continue;
-      case "triple":
-        if (src.startsWith("\\${", i)) {
-          i += 3;
-          continue;
-        }
-        if (src.startsWith("${", i)) {
-          stack.push({ kind: "code", depth: 1 });
-          i += 2;
-          continue;
-        }
-        if (src.startsWith('"""', i)) {
-          stack.pop();
-          i += 3;
-          continue;
-        }
-        i++;
-        continue;
-      case "raw":
-        if (c === "`") {
-          stack.pop();
-        }
-        i++;
-        continue;
-    }
-  }
-  return undefined;
+function indentOf(line: string): number {
+  return line.length - line.trimStart().length;
 }
 
-// The offset of a codepoint literal's closing quote, given its opening quote.
-function codepointEnd(src: string, open: number): number | undefined {
-  const m = /^'(?:\\(?:[nt\\']|u\{[0-9a-fA-F]+\})|[^'\\\n])'/.exec(src.slice(open, open + 16));
-  return m ? open + m[0].length - 1 : undefined;
+// Which lines start inside a triple-quoted or multi-line raw string, which
+// a body's indentation does not govern.
+function multilineStringLines(lines: string[]): boolean[] {
+  const out: boolean[] = [];
+  let open: '"""' | "`" | undefined;
+  for (const line of lines) {
+    out.push(open !== undefined);
+    let i = 0;
+    while (i < line.length) {
+      if (open === '"""') {
+        const end = line.indexOf('"""', i);
+        if (end < 0) {
+          break;
+        }
+        open = undefined;
+        i = end + 3;
+        continue;
+      }
+      if (open === "`") {
+        const end = line.indexOf("`", i);
+        if (end < 0) {
+          break;
+        }
+        open = undefined;
+        i = end + 1;
+        continue;
+      }
+      if (line.startsWith("//", i)) {
+        break;
+      }
+      if (line.startsWith('"""', i)) {
+        open = '"""';
+        i += 3;
+        continue;
+      }
+      if (line[i] === '"') {
+        i = stringEnd(line, i);
+        continue;
+      }
+      if (line[i] === "'") {
+        const m = /^'(?:\\(?:[nt\\']|u\{[0-9a-fA-F]+\})|[^'\\])'/.exec(line.slice(i, i + 16));
+        i += m ? m[0].length : 1;
+        continue;
+      }
+      if (line[i] === "`") {
+        open = "`";
+        i++;
+        continue;
+      }
+      i++;
+    }
+  }
+  return out;
+}
+
+// The offset just past the string literal opened at `open` on its line.
+function stringEnd(line: string, open: number): number {
+  let i = open + 1;
+  while (i < line.length && line[i] !== '"') {
+    i += line[i] === "\\" ? 2 : 1;
+  }
+  return i + 1;
 }

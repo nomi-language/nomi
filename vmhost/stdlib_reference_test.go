@@ -60,18 +60,18 @@ func TestStdlibSource_RecheckedDurationIsTheSharedDuration(t *testing.T) {
 	if !ok {
 		t.Fatal("std/duration is not embedded")
 	}
-	text := strings.Replace(string(src), "import {\n",
-		"import {\n    calendar.{Date, NaiveDateTime, OffsetDateTime, Time}\n", 1)
+	text := strings.Replace(string(src), "import\n",
+		"import\n    calendar.{Date, NaiveDateTime, OffsetDateTime, Time}\n", 1)
 	if text == string(src) {
 		t.Fatal("std/duration.nomi no longer opens with an import block")
 	}
-	text += "\ntest \"shared calendar, fresh duration\" {\n" +
+	text += "\ntest \"shared calendar, fresh duration\"\n" +
 		"  earlier = Time.new(10, 0)?\n" +
 		"  later = Time.new(10, 1)?\n" +
 		"  assert Duration.as_seconds(Time.between(earlier, later)) == 60\n" +
 		"  day = Date.new(2024, 1, 2)?\n" +
 		"  assert Result.is_ok(OffsetDateTime.with_offset(NaiveDateTime.at_midnight(day), Duration.hours(1)))\n" +
-		"}\n"
+		"end\n"
 	p, err := vmhost.LoadStdlibSource("duration", text)
 	if err != nil {
 		t.Fatalf("the re-checked std/duration does not check against the shared std/calendar: %v", err)
@@ -95,10 +95,10 @@ func TestStdlibSource_RecheckedDurationIsTheSharedDuration(t *testing.T) {
 // this builder can see", and the case was blocked.
 func TestStdlibReference_ReadsTheModulesOwnOnceBare(t *testing.T) {
 	body := "w = stderr\n" +
-		"run = capture(\"\", fn -> {\n" +
+		"run = capture(\"\", fn ->\n" +
 		"    _ = Writer.print(stdout, \"out\")\n" +
 		"    _ = Writer.print(w, \"err\")\n" +
-		"})\n" +
+		"end)\n" +
 		"assert run.output == \"out\\n\"\n" +
 		"assert run.errors == \"err\\n\"\n"
 	cases, err := vmhost.StdlibReference("io", body, "", io.Discard)

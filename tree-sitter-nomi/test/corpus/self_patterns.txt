@@ -2,19 +2,19 @@
 self patterns and construction in an interface default
 ================================================================================
 
-interface Scaled {
-  fn scale(self(n) as t, by: Int) -> self where self: Distinct<Int> {
+interface Scaled
+  fn scale(self(n) as t, by: Int) -> self where self: Distinct<Int>
     self(m) = t
-    case t {
+    case t
       self(0) -> self(m)
       _ -> n |> self()
-    }
-  }
+    end
+  end
 
-  fn all(_t: self, ns: List<Int>) -> Int where self: Distinct<Int> {
+  fn all(_t: self, ns: List<Int>) -> Int where self: Distinct<Int>
     ns |> Iter.map(self) |> Iter.count()
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -40,14 +40,14 @@ interface Scaled {
           (generic_type
             (type_identifier)
             (type_identifier))))
-      (body
+      body: (body
         (pattern_binding
           pattern: (call_expression
             function: (self_expression)
             (identifier))
           value: (identifier))
         (case_expression
-          (identifier)
+          value: (identifier)
           (case_branch
             (enum_pattern
               (self_type)
@@ -78,7 +78,7 @@ interface Scaled {
           (generic_type
             (type_identifier)
             (type_identifier))))
-      (body
+      body: (body
         (pipe_expression
           (pipe_expression
             (identifier)

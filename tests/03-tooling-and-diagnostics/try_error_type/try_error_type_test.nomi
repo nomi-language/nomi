@@ -3,7 +3,8 @@
 //
 //   1. the boundary must be a `Result` or a `Maybe` at all;
 //   2. the flavours must agree — `Result` for a `Result`, `Maybe` for a `Maybe`;
-//   3. when both are `Result`s, the ERROR TYPES must be the same type.
+//   3. when both are `Result`s, the error type must inhabit the boundary's,
+//      or the boundary's must have a `From` impl at it, which converts.
 //
 // Without (3), a `?` propagates the operand's variant value untyped, so
 // `Json.decode(s)?` inside a function declaring `Result<_, String>` would
@@ -11,27 +12,27 @@
 // unnoticed until a caller rendered the value and died in
 // `Display.to_string`. The checker rejects these programs at the `?`,
 // naming both error types.
-import {
+import
     std::compiler
     test_helpers
-}
+end
 
-test "`?` may not launder the error type" {
+test "`?` may not launder the error type"
     diagnostics = compiler.check(
         """
-          fn parse(s: String) -> Result<Int, Int> {
+          fn parse(s: String) -> Result<Int, Int>
             Err(String.length(s))
-          }
+          end
 
-          fn describe(s: String) -> Result<Int, String> {
+          fn describe(s: String) -> Result<Int, String>
             n = parse(s)?
 
             Ok(n)
-          }
+          end
 
-          fn main() {
+          fn main()
             _ = describe("x")
-          }
+          end
         """
     )
 
@@ -42,68 +43,68 @@ test "`?` may not launder the error type" {
         diagnostics,
         "`?` error type mismatch: expected String, got Int",
     )
-}
+end
 
-test "a matching `?` error type is clean" {
+test "a matching `?` error type is clean"
     diagnostics = compiler.check(
         """
-          fn parse(s: String) -> Result<Int, String> {
+          fn parse(s: String) -> Result<Int, String>
             Err(s)
-          }
+          end
 
-          fn describe(s: String) -> Result<Int, String> {
+          fn describe(s: String) -> Result<Int, String>
             n = parse(s)?
 
             Ok(n)
-          }
+          end
 
-          fn main() {
+          fn main()
             _ = describe("x")
-          }
+          end
         """
     )
 
     assert Iter.count(diagnostics) == 0
-}
+end
 
-test "converting the error at the `?` site is clean" {
+test "converting the error at the `?` site is clean"
     diagnostics = compiler.check(
         """
-          fn parse(s: String) -> Result<Int, Int> {
+          fn parse(s: String) -> Result<Int, Int>
             Err(String.length(s))
-          }
+          end
 
-          fn describe(s: String) -> Result<Int, String> {
+          fn describe(s: String) -> Result<Int, String>
             n = Result.map_err(parse(s), fn code -> Int.to_string(code))?
 
             Ok(n)
-          }
+          end
 
-          fn main() {
+          fn main()
             _ = describe("x")
-          }
+          end
         """
     )
 
     assert Iter.count(diagnostics) == 0
-}
+end
 
-test "`?` on a Maybe may not propagate out of a Result boundary" {
+test "`?` on a Maybe may not propagate out of a Result boundary"
     diagnostics = compiler.check(
         """
-          fn find(_s: String) -> Maybe<Int> {
+          fn find(_s: String) -> Maybe<Int>
             None
-          }
+          end
 
-          fn describe(s: String) -> Result<Int, String> {
+          fn describe(s: String) -> Result<Int, String>
             n = find(s)?
 
             Ok(n)
-          }
+          end
 
-          fn main() {
+          fn main()
             _ = describe("x")
-          }
+          end
         """
     )
 
@@ -111,24 +112,24 @@ test "`?` on a Maybe may not propagate out of a Result boundary" {
         diagnostics,
         "`?` on a Maybe cannot propagate out of a function returning Result<Int, String>",
     )
-}
+end
 
-test "`?` needs a Result or Maybe boundary to propagate into" {
+test "`?` needs a Result or Maybe boundary to propagate into"
     diagnostics = compiler.check(
         """
-          fn parse(s: String) -> Result<Int, String> {
+          fn parse(s: String) -> Result<Int, String>
             Err(s)
-          }
+          end
 
-          fn describe(s: String) -> Int {
+          fn describe(s: String) -> Int
             n = parse(s)?
 
             n
-          }
+          end
 
-          fn main() {
+          fn main()
             _ = describe("x")
-          }
+          end
         """
     )
 
@@ -136,4 +137,88 @@ test "`?` needs a Result or Maybe boundary to propagate into" {
         diagnostics,
         "`?` cannot propagate a Result out of a function returning Int",
     )
-}
+end
+
+test "a `?` with no From impl names the impl and Result.map_err"
+    diagnostics = compiler.check(
+        """
+          enum Low
+            Failed
+          end
+
+          enum High
+            Other
+          end
+
+          fn low() -> Result<Int, Low>
+            Err(.Failed)
+          end
+
+          fn high() -> Result<Int, High>
+            n = low()?
+
+            Ok(n)
+          end
+
+          fn main()
+            _ = high()
+          end
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+
+    assert test_helpers.has_diagnostic(
+        diagnostics,
+        "write `impl From<Low> for High` and the `?` converts the error, or convert it before the `?` with Result.map_err",
+    )
+end
+
+test "a `?` applies one From impl, never a chain"
+    diagnostics = compiler.check(
+        """
+          enum Low
+            Failed
+          end
+
+          enum Mid
+            Low Low
+          end
+
+          enum High
+            Mid Mid
+          end
+
+          impl From<Low> for Mid
+            fn from(e: Low) -> Mid
+              Mid.Low(e)
+            end
+          end
+
+          impl From<Mid> for High
+            fn from(e: Mid) -> High
+              High.Mid(e)
+            end
+          end
+
+          fn low() -> Result<Int, Low>
+            Err(.Failed)
+          end
+
+          fn high() -> Result<Int, High>
+            n = low()?
+
+            Ok(n)
+          end
+
+          fn main()
+            _ = high()
+          end
+        """
+    )
+
+    assert test_helpers.has_diagnostic(
+        diagnostics,
+        "`?` error type mismatch: expected High, got Low",
+    )
+end

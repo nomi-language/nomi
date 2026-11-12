@@ -2,13 +2,13 @@
 If condition can match a pattern
 ================================================================================
 
-fn main() {
-  label = if Some(name) = maybe_name {
+fn main()
+  label = if Some(name) = maybe_name then
     name
-  } else {
+  else
     "unknown"
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -20,30 +20,31 @@ fn main() {
       (binding
         (identifier)
         (if_expression
-          (if_match_condition
+          condition: (if_match_condition
             pattern: (enum_pattern
               (type_identifier)
               (identifier))
             value: (identifier))
-          (body
+          consequence: (block
             (identifier))
-          (body
-            (string
-              (string_content))))))))
+          alternative: (else_clause
+            body: (block
+              (string
+                (string_content)))))))))
 
 ================================================================================
 A map pattern in an if condition
 ================================================================================
 
-fn host_or(config: Map<String, String>, fallback: String) -> String {
-    if %{"host" => host} = config {
+fn host_or(config: Map<String, String>, fallback: String) -> String
+    if {"host" => host} = config then
         host
-    } else if %{"mode" => "debug", "port" => port} = config {
+    else if {"mode" => "debug", "port" => port} = config then
         port
-    } else {
+    else
         fallback
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -69,9 +70,9 @@ fn host_or(config: Map<String, String>, fallback: String) -> String {
               (string_content))
             (identifier))
           (identifier))
-        (body
+        (block
           (identifier))
-        (if_expression
+        (else_if_clause
           (if_match_condition
             (map_pattern
               (string
@@ -82,24 +83,25 @@ fn host_or(config: Map<String, String>, fallback: String) -> String {
                 (string_content))
               (identifier))
             (identifier))
-          (body
-            (identifier))
-          (body
+          (block
+            (identifier)))
+        (else_clause
+          (block
             (identifier)))))))
 
 ================================================================================
 A struct pattern with punned fields in an if condition
 ================================================================================
 
-fn f(p: Point) -> Int {
-    if Point{x, y} = p {
+fn f(p: Point) -> Int
+    if Point{x:, y:} = p then
         x + y
-    } else if .{x: 0, y} = p {
+    else if {x: 0, y:} = p then
         y
-    } else {
+    else
         0
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -121,11 +123,11 @@ fn f(p: Point) -> Int {
             (pattern_field
               (identifier)))
           (identifier))
-        (body
+        (block
           (binary_expression
             (identifier)
             (identifier)))
-        (if_expression
+        (else_if_clause
           (if_match_condition
             (struct_pattern
               (pattern_field
@@ -134,26 +136,27 @@ fn f(p: Point) -> Int {
               (pattern_field
                 (identifier)))
             (identifier))
-          (body
-            (identifier))
-          (body
+          (block
+            (identifier)))
+        (else_clause
+          (block
             (integer)))))))
 
 ================================================================================
 List and or patterns in an if condition
 ================================================================================
 
-fn f(xs: List<Int>, m: Map<String, Int>) -> Int {
-    if [first, ..rest] = xs {
+fn f(xs: List<Int>, m: Map<String, Int>) -> Int
+    if [first, ..rest] = xs then
         first
-    } else if [a] or [a, _] = xs {
+    else if [a] or [a, _] = xs then
         a
-    } else if %{"a" => v} or %{"b" => v} = m {
+    else if {"a" => v} or {"b" => v} = m then
         v
-    } else {
+    else
         0
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -180,9 +183,9 @@ fn f(xs: List<Int>, m: Map<String, Int>) -> Int {
             (identifier)
             (identifier))
           (identifier))
-        (body
+        (block
           (identifier))
-        (if_expression
+        (else_if_clause
           (if_match_condition
             (or_pattern
               (list_pattern
@@ -190,21 +193,22 @@ fn f(xs: List<Int>, m: Map<String, Int>) -> Int {
               (list_pattern
                 (identifier)))
             (identifier))
-          (body
+          (block
+            (identifier)))
+        (else_if_clause
+          (if_match_condition
+            (or_pattern
+              (map_pattern
+                (string
+                  (string_content))
+                (identifier))
+              (map_pattern
+                (string
+                  (string_content))
+                (identifier)))
             (identifier))
-          (if_expression
-            (if_match_condition
-              (or_pattern
-                (map_pattern
-                  (string
-                    (string_content))
-                  (identifier))
-                (map_pattern
-                  (string
-                    (string_content))
-                  (identifier)))
-              (identifier))
-            (body
-              (identifier))
-            (body
-              (integer))))))))
+          (block
+            (identifier)))
+        (else_clause
+          (block
+            (integer)))))))

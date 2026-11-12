@@ -22,18 +22,18 @@ type Wrapped Maybe<Int>
 
 type Res Result<Int, String>
 
-struct P {
+struct P
     x: Int
-}
+end
 
 type WP P
 
 type Twice2 WP
 
-enum Color {
+enum Color
     Red
     Green
-}
+end
 
 type C Color
 
@@ -43,34 +43,34 @@ type Vs Vector<Int>
 
 type Ms List<Meters>
 
-struct H {
+struct H
     p: WP
     w: Wrapped
-}
+end
 
-impl Display for WP {
-    fn to_string(w: WP) -> String {
+impl Display for WP
+    fn to_string(w: WP) -> String
         WP(p) = w
         "wp ${p.x}"
-    }
-}
+    end
+end
 
-fn first<T>(xs: List<T>) -> Maybe<T> {
+fn first<T>(xs: List<T>) -> Maybe<T>
     List.head(xs)
-}
+end
 
-fn get(w: Wrapped) -> Int {
-    case w {
+fn get(w: Wrapped) -> Int
+    case w
         Wrapped(Some(v)) -> v
         Wrapped(None) -> 0
-    }
-}
+    end
+end
 
-fn unwrap(Wrapped(m): Wrapped) -> Maybe<Int> {
+fn unwrap(Wrapped(m): Wrapped) -> Maybe<Int>
     m
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Wrapped(Some(1)))
     io.inspect(Wrapped(None))
     io.inspect(unwrap(Wrapped(Some(5))))
@@ -88,20 +88,20 @@ fn main() {
     io.inspect(p.x)
     io.inspect(C(Color.Green))
     io.print(Display.to_string(WP(P{x: 4})))
-    io.inspect(Ids(%[1, 2]) == Ids(%[2, 1]))
-    io.inspect(Vs(#[1, 2]))
+    io.inspect(Ids(Set[1, 2]) == Ids(Set[2, 1]))
+    io.inspect(Vs(Vector[1, 2]))
     io.inspect(Ms([Meters(1)]))
     io.inspect(first([Wrapped(Some(1))]))
     io.inspect([1, 2] |> Iter.map(fn n -> Wrapped(Some(n))) |> Iter.to_list())
-    io.inspect(Map.get(%{Wrapped(Some(1)) => "a"}, Wrapped(Some(1))))
+    io.inspect(Map.get({Wrapped(Some(1)) => "a"}, Wrapped(Some(1))))
     h = H{p: WP(P{x: 2}), w: Wrapped(None)}
     io.inspect(h)
     io.inspect(h == H{p: WP(P{x: 2}), w: Wrapped(Some(1))})
-    {
+    begin
         type Local Maybe<String>
         io.inspect(Local(Some("a")))
-    }
-}
+    end
+end
 `
 	const want = "Wrapped(Some(1))\n" +
 		"Wrapped(None)\n" +
@@ -118,7 +118,7 @@ fn main() {
 		"C(Green)\n" +
 		"wp 4\n" +
 		"True\n" +
-		"Vs(#[1, 2])\n" +
+		"Vs(Vector[1, 2])\n" +
 		"Ms([Meters(1)])\n" +
 		"Some(Wrapped(Some(1)))\n" +
 		"[Wrapped(Some(1)), Wrapped(Some(2))]\n" +
@@ -138,49 +138,49 @@ fn main() {
 func TestIRDistinctOverNominalType_CycleRuns(t *testing.T) {
 	const src = `import std::io
 
-struct Node {
+struct Node
     v: Int
     next: Maybe<Link>
-}
+end
 
 type Link Node
 
-struct W {
+struct W
     b: Maybe<B>
-}
+end
 
 type B W
 
-struct Tree {
+struct Tree
     kids: List<Branch>
-}
+end
 
 type Branch Tree
 
-enum Expr {
+enum Expr
     Lit(Int)
     Neg(Boxed)
-}
+end
 
 type Boxed Expr
 
-fn total(n: Node) -> Int {
-    case n.next {
+fn total(n: Node) -> Int
+    case n.next
         Some(Link(m)) -> n.v + total(m)
         None -> n.v
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     chain = Node{v: 1, next: Some(Link(Node{v: 2, next: None}))}
     io.print(total(chain))
     io.inspect(chain)
     inner = B(W{b: None})
     B(w) = B(W{b: Some(inner)})
-    case w.b {
+    case w.b
         Some(_) -> io.print("nested")
         None -> io.print("flat")
-    }
+    end
     _ = dbg w
     io.print(inner == B(W{b: None}))
     io.print(B(w) == inner)
@@ -190,7 +190,7 @@ fn main() {
     e = Expr.Neg(Boxed(Expr.Lit(3)))
     io.inspect(e)
     io.print(e == Expr.Neg(Boxed(Expr.Lit(3))))
-}
+end
 `
 	want := "3\n" +
 		"Node{v: 1, next: Some(Link(Node{v: 2, next: None}))}\n" +

@@ -24,19 +24,19 @@ import comparable.{Comparable, Ordering}
 //!
 //! assert Iter.max_by(["bb", "a", "ccc"], fn s -> Reverse.of(s)) == Some("a")
 //
-pub struct Reverse<T> {
+pub struct Reverse<T>
     value: T
-}
+end
 
-impl Reverse<T> {
+impl Reverse<T>
     /// `value`, ordered in reverse.
-    pub fn of(value: T) -> Reverse<T> {
-        Reverse{value}
-    }
-}
+    pub fn of(value: T) -> Reverse<T>
+        Reverse{value:}
+    end
+end
 
-impl Comparable for Reverse<T> where T: Comparable {
-    fn compare(a: Reverse<T>, b: Reverse<T>) -> Ordering {
+impl Comparable for Reverse<T> where T: Comparable
+    fn compare(a: Reverse<T>, b: Reverse<T>) -> Ordering
         T.compare(b.value, a.value)
-    }
-}
+    end
+end

@@ -15,38 +15,38 @@ import (
 func TestAnalyze_DiscardHovers(t *testing.T) {
 	const src = `import std::io
 
-enum Coin {
+enum Coin
   Penny
   Dime
-}
+end
 
-fn count() -> Int {
+fn count() -> Int
   3
-}
+end
 
-fn second(_: String, b: Int) -> Int {
+fn second(_: String, b: Int) -> Int
   b
-}
+end
 
-fn main() {
+fn main()
   (_, coins) = (1, [Coin.Penny])
   _ = count()
-  a = case Some("a") {
+  a = case Some("a")
     Some(_) -> 1
     None -> 0
-  }
-  c = case Coin.Dime {
+  end
+  c = case Coin.Dime
     .Penny -> 1
     _ -> 2
-  }
+  end
   n = Iter.reduce(["a"], 0, fn total, _ -> total + 1)
   r = Iter.reduce([1, 2], (0, []), fn (_, acc), x -> (x, [x, ..acc]))
-  d = case {
+  d = case
     c > 1 -> 1
     _ -> 2
-  }
+  end
   io.inspect((coins, a, n, r, d, second("a", 2)))
-}
+end
 `
 	lib := std.Load()
 	fa, nodes := highlight.AnalyzeNodes(src, lib)

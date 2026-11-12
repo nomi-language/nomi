@@ -13,26 +13,32 @@ const prepareRenameMain = `import models::users
 import models::users.User
 import std::io
 
-fn double(n: Int) -> Int { n * 2 }
+fn double(n: Int) -> Int
+    n * 2
+end
 
-interface Named {
+interface Named
     fn label(value: self) -> String
-}
+end
 
-impl Named for User {
-    fn label(value: User) -> String { value.name }
-}
+impl Named for User
+    fn label(value: User) -> String
+        value.name
+    end
+end
 
-impl Display for User {
-    fn to_string(u: User) -> String { u.name }
-}
+impl Display for User
+    fn to_string(u: User) -> String
+        u.name
+    end
+end
 
-fn main() {
+fn main()
     total = double(21)
     p = User{name: String.trim(" a ")}
     n = Iter.map([1, 2], fn x -> x + total) |> Iter.count()
     io.print(Int.to_string(users.make() + total + n) + p.name)
-}
+end
 `
 
 func prepareRenameServer(t *testing.T) (*Server, string) {
@@ -48,7 +54,7 @@ func prepareRenameServer(t *testing.T) (*Server, string) {
 		}
 	}
 	write("nomi.toml", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	write("models/users.nomi", "pub fn make() -> Int { 1 }\n\npub struct User {\n    name: String\n}\n")
+	write("models/users.nomi", "pub fn make() -> Int\n    1\nend\n\npub struct User\n    name: String\nend\n")
 	write("main.nomi", prepareRenameMain)
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)

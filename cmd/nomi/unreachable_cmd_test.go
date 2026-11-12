@@ -21,17 +21,17 @@ func TestUnreachable_BuildAcceptsItAndReachingItTraps(t *testing.T) {
 	entry := filepath.Join(dir, "main.nomi")
 	mustWrite(t, entry, `import std::io
 
-fn position(n: Int, ns: List<Int>) -> Int {
-    Some(i) = ns |> Iter.find_index(&(&1 == n)) else {
+fn position(n: Int, ns: List<Int>) -> Int
+    Some(i) = ns |> Iter.find_index(&(&1 == n)) else
         unreachable "every number is listed"
-    }
+    end
     i
-}
+end
 
-fn main() {
+fn main()
     io.print("${position(2, [1, 2])}")
     io.print("${position(3, [1, 2])}")
-}
+end
 `)
 	const wantOut, wantErr = "1\n", "line 5: unreachable: every number is listed\n"
 	if r := runProcess(t, env, dir, "", nomiBin, "run", entry); r.exit != 1 || r.stdout != wantOut || r.stderr != wantErr {

@@ -8,11 +8,11 @@
 //#
 //# Both are pure, so a typed literal's handler may call them.
 
-import {
+import
     bytes.Bytes
     results.Result.{self, Err, Ok}
     strings.String
-}
+end
 
 /// `data` as two lowercase hexadecimal digits per byte.
 //! import std::hex

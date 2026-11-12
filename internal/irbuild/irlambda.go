@@ -628,11 +628,11 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 		// A local copy of a declared function (`g = parse`) keeps its
 		// defaults: the call goes through the function's shorter value,
 		// whose body calls it by name with the arguments written here.
-		ref, name := bl.g.copiedFuncRef(t.Func)
-		if ref == nil {
+		rec := bl.g.callDefaultsOf(t)
+		if rec == nil || rec.Ref == nil {
 			return no()
 		}
-		short, sk, _, ok := bl.callFuncValueOf(ref, name, params[:len(t.Args)], funcResult(fk))
+		short, sk, _, ok := bl.callFuncValueOf(rec.Ref, funcRefName(rec.Ref), params[:len(t.Args)], funcResult(fk), rec)
 		if !ok {
 			return no()
 		}
@@ -735,6 +735,10 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	if bl.g.onces[t.Name] != nil {
 		return no()
 	}
+	if v, k, mobile, ok, handled := bl.stdOwnFuncRef(t, true); handled {
+		// A stdlib sibling resolves before `g.funcs`, as a call to it does.
+		return v, k, mobile, ok
+	}
 	if bl.g.defaultFilledRef(t) {
 		return bl.callFuncValue(t, t.Name)
 	}
@@ -753,13 +757,16 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 		}
 	}
 	if tpl := bl.g.irMonoTemplate(sig); tpl != nil {
-		inst, ok := bl.g.funcRefInstance(t, tpl, t.Name)
+		inst, ok := bl.g.monoInstanceAt(t, tpl, t.Name)
 		if !ok {
 			return no()
 		}
 		sig = inst.sig
 	}
 	if sig == nil || !sig.lowerable || sig.decl == nil || sig.dict != nil || sig.tps != nil {
+		if v, k, mobile, ok, handled := bl.stdOwnFuncRef(t, false); handled {
+			return v, k, mobile, ok
+		}
 		return no()
 	}
 	fk := funcKindIn(bl.g, sig.params, sig.result)
@@ -860,7 +867,7 @@ func (g *gen) lambdaCheckedResult(lam *ast.Lambda) kind {
 		ty = tv.Resolved
 	}
 	ft, isFunc := ty.(*analysis.FuncType)
-	if !isFunc || ft.Return == nil || irUnsolvedType(ft.Return) {
+	if !isFunc || ft.Return == nil {
 		return kindInvalid
 	}
 	return g.project(ft.Return)
@@ -876,7 +883,7 @@ func (g *gen) lambdaTypedResult(lam *ast.Lambda) kind {
 		return k
 	}
 	ft, isFunc := g.srcFA().ExprTypes[lam].(*analysis.FuncType)
-	if !isFunc || ft.Return == nil || irUnsolvedType(ft.Return) {
+	if !isFunc || ft.Return == nil {
 		return kindInvalid
 	}
 	return g.project(ft.Return)
@@ -891,7 +898,7 @@ func (g *gen) lambdaArity(t *ast.Lambda) int {
 	if g.fa == nil {
 		return len(t.Params)
 	}
-	ft, _ := analysis.ResolveTypeVar(g.srcFA().ExprTypes[t]).(*analysis.FuncType)
+	ft, _ := analysis.ResolveClosed(g.srcFA().ExprTypes[t]).(*analysis.FuncType)
 	if ft == nil || len(ft.Params) >= len(t.Params) {
 		return len(t.Params)
 	}

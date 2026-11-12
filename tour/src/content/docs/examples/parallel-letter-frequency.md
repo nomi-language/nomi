@@ -174,48 +174,48 @@ once workers = 4
 /// keyed by the letter in lower case. Each text is counted by its own task,
 /// at most `workers` at once, and the counts are added up when all have
 /// finished.
-pub fn frequency(texts: List<String>) -> Map<String, Int> {
-    counts = concurrent {
+pub fn frequency(texts: List<String>) -> Map<String, Int>
+    counts = concurrent
         texts
         |> Task.spawn_all(letter_counts, max_running: workers)
         |> Task.await_all()
-    }
+    end
 
-    Iter.reduce(counts, %{}, &Map.merge_with(&1, &2, Int.add))
-}
+    Iter.reduce(counts, {}, &Map.merge_with(&1, &2, Int.add))
+end
 
 /// How often each letter appears in `text`, ignoring case.
-fn letter_counts(text: String) -> Map<String, Int> {
+fn letter_counts(text: String) -> Map<String, Int>
     text
     |> String.lowercase()
     |> String.to_codepoints()
     |> Iter.filter(Codepoint.is_letter)
     |> Iter.map(Codepoint.to_string)
     |> Iter.frequencies()
-}
+end
 
 // FILE: parallel_letter_frequency_test.nomi
-import {
+import
     novel
     parallel_letter_frequency
-}
+end
 
-test "letter frequency" {
+test "letter frequency"
     [
-        ("no texts", [], %{}),
-        ("one text with one letter", ["a"], %{"a" => 1}),
-        ("one text with multiple letters", ["bbcccd"], %{"b" => 2, "c" => 3, "d" => 1}),
-        ("two texts with one letter", ["e", "f"], %{"e" => 1, "f" => 1}),
-        ("two texts with multiple letters", ["ggh", "hhi"], %{"g" => 2, "h" => 3, "i" => 1}),
-        ("ignore letter casing", ["m", "M"], %{"m" => 2}),
-        ("ignore whitespace", ["   ", "\t", "\r\n"], %{}),
-        ("ignore punctuation", ["!", "?", ";", ",", "."], %{}),
-        ("ignore numbers", ["1", "2", "3", "4", "5", "6", "7", "8", "9"], %{}),
-        ("Unicode letters", ["本", "φ", "ほ", "ø"], %{"本" => 1, "φ" => 1, "ほ" => 1, "ø" => 1}),
+        ("no texts", [], {}),
+        ("one text with one letter", ["a"], {"a" => 1}),
+        ("one text with multiple letters", ["bbcccd"], {"b" => 2, "c" => 3, "d" => 1}),
+        ("two texts with one letter", ["e", "f"], {"e" => 1, "f" => 1}),
+        ("two texts with multiple letters", ["ggh", "hhi"], {"g" => 2, "h" => 3, "i" => 1}),
+        ("ignore letter casing", ["m", "M"], {"m" => 2}),
+        ("ignore whitespace", ["   ", "\t", "\r\n"], {}),
+        ("ignore punctuation", ["!", "?", ";", ",", "."], {}),
+        ("ignore numbers", ["1", "2", "3", "4", "5", "6", "7", "8", "9"], {}),
+        ("Unicode letters", ["本", "φ", "ほ", "ø"], {"本" => 1, "φ" => 1, "ほ" => 1, "ø" => 1}),
         (
             "large texts",
             novel.texts,
-            %{
+            {
                 "a" => 845,
                 "b" => 155,
                 "c" => 278,
@@ -246,21 +246,21 @@ test "letter frequency" {
         (
             "many small texts",
             Iter.repeat("abbccc") |> Iter.take(50) |> Iter.to_list(),
-            %{"a" => 50, "b" => 100, "c" => 150},
+            {"a" => 50, "b" => 100, "c" => 150},
         ),
     ]
-    |> subtests (description, texts, expected), description {
+    |> subtests (description, texts, expected), description
         assert parallel_letter_frequency.frequency(texts) == expected
-    }
-}
+    end
+end
 
 // Not the canonical case: the canonical "combination of lower- and
 // uppercase letters, punctuation and white space" counts a published
 // passage that is not reproduced here. This text mixes the same things.
-test "combination of lower- and uppercase letters, punctuation and white space" {
+test "combination of lower- and uppercase letters, punctuation and white space"
     text = "The Quick, brown fox -- JUMPS over the lazy dog!\n\tTwice: The quick fox."
 
-    assert parallel_letter_frequency.frequency([text]) == %{
+    assert parallel_letter_frequency.frequency([text]) == {
         "a" => 1,
         "b" => 1,
         "c" => 3,
@@ -288,7 +288,7 @@ test "combination of lower- and uppercase letters, punctuation and white space" 
         "y" => 1,
         "z" => 1,
     }
-}
+end
 ```
 <!-- expect
 ok letter frequency (12 cases)

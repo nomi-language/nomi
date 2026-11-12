@@ -8,23 +8,23 @@ import "testing"
 func TestNamedGapGeneric_FillsTheSlotAtTheInstance(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Box<T> {
+struct Box<T>
     v: T
-}
+end
 
-impl Box<T> {
-    fn pick<T>(_b: Box<T>, other: Maybe<T> = None, n: Int = 0) -> Int {
-        case other {
+impl Box<T>
+    fn pick<T>(_b: Box<T>, other: Maybe<T> = None, n: Int = 0) -> Int
+        case other
             Some(_) -> n + 1
             None -> n
-        }
-    }
-}
+        end
+    end
+end
 
-fn main() {
+fn main()
     io.print(Box.pick(Box{v: 1}, n: 2))
     io.print(Box.pick(Box{v: "a"}, n: 5))
     io.print(Box.pick(Box{v: 1}, other: Some(3), n: 2))
-}
+end
 `, "2\n5\n3\n")
 }

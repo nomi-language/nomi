@@ -1,16 +1,16 @@
 // Priority lives in a sibling file so the main example exercises
 // constrained interface defaults across imports.
-pub struct Priority {
+pub struct Priority
     level: Int
-}
+end
 
 /// Constructs a Priority value for the constrained-default example.
-pub fn make(level: Int) -> Priority {
-    Priority{level}
-}
+pub fn make(level: Int) -> Priority
+    Priority{level:}
+end
 
-impl Comparable for Priority {
-    fn compare(a: Priority, b: Priority) -> Ordering {
+impl Comparable for Priority
+    fn compare(a: Priority, b: Priority) -> Ordering
         Int.compare(a.level, b.level)
-    }
-}
+    end
+end

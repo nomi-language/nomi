@@ -14,11 +14,11 @@ import (
 // names, translated into Polish and Portuguese; Portugal's Portuguese falls
 // back to Portuguese, and German is a partial locale.
 const shopCart = `/// Where an order is.
-pub enum Status {
+pub enum Status
     Pending
     Shipped
     Delivered
-}
+end
 
 /// How many items the cart holds.
 pub phrase cart_items(count: Int) ` + "`" + `
@@ -52,7 +52,7 @@ const portugueseCart = "[cart_items]\nsource = '''\n" + cartItemsSource + "'''\n
 func shopProject() map[string]string {
 	return map[string]string{
 		"nomi.toml":            "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\", \"pt\", \"pt-PT\"]\npartial_locales = [\"de\"]\n",
-		"main.nomi":            "import {\n    std::io\n    cart\n}\n\nfn main() {\n    io.print(Phrase.format(cart.cart_items(3), Locale`pl`))\n    io.print(Phrase.format(cart.order_status(.Shipped), Locale`pl`))\n}\n",
+		"main.nomi":            "import\n    std::io\n    cart\nend\n\nfn main()\n    io.print(Phrase.format(cart.cart_items(3), Locale`pl`))\n    io.print(Phrase.format(cart.order_status(.Shipped), Locale`pl`))\nend\n",
 		"cart.nomi":            shopCart,
 		"locales/pl/cart.toml": polishCart,
 		"locales/pt/cart.toml": portugueseCart,

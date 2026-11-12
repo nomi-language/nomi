@@ -1,11 +1,11 @@
-import {
+import
     std::calendar.Date
     std::instant.Instant
     std::json.{FromJson, Json, ToJson}
-}
+end
 
 /// A customer with an account.
-pub struct User {
+pub struct User
     id: UserId
     display_name: String
     email: Maybe<String>
@@ -15,7 +15,7 @@ pub struct User {
     role: Role
     prefs: Map<String, Bool>
     notes: List<Note>
-}
+end
 
 derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}
 
@@ -24,43 +24,43 @@ pub type UserId Int
 derive ToJson for UserId
 derive FromJson for UserId
 
-pub enum Role {
+pub enum Role
     Admin
     Member {since: Date}
     Guest String
     Pair (Int, String)
-}
+end
 
 derive ToJson for Role
 
 /// One page of a listing.
-pub struct Page<T> {
+pub struct Page<T>
     items: List<T>
     total: Int
     next: Maybe<Int>
-}
+end
 
 derive ToJson for Page<T> where T: ToJson
 
 pub typealias UserPage Page<User>
 
 /// Whole cents, written as a string by hand.
-pub struct Money {
+pub struct Money
     cents: Int
-}
+end
 
-impl ToJson for Money {
-    fn to_json(value: Money) -> Json {
+impl ToJson for Money
+    fn to_json(value: Money) -> Json
         Json.String("${value.cents}")
-    }
-}
+    end
+end
 
-pub struct Note {
+pub struct Note
     text: String
-}
+end
 
 derive ToJson for Note
 
-pub struct Plain {
+pub struct Plain
     x: Int
-}
+end

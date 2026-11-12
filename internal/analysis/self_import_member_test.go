@@ -11,14 +11,14 @@ import (
 func TestSelfImportMissingFileMemberIsRejected(t *testing.T) {
 	errs := checkWithStdlib(`import std::io.{self, Error}
 
-fn f(e: Error) -> Error {
+fn f(e: Error) -> Error
   e
-}
+end
 
-fn main() {
+fn main()
   io.print("a")
   io.no_such_function(1)
-}
+end
 `)
 	var got []string
 	for _, e := range errs {

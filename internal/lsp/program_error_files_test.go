@@ -11,31 +11,31 @@ import (
 
 // orphanChild is an imported file with an orphan impl at 6:5..6:8 (the
 // function `to_string`, line 6, column 8).
-const orphanChild = `pub struct Box {
+const orphanChild = `pub struct Box
     n: Int
-}
+end
 
-impl Display for Bool {
-    fn to_string(_b: Bool) -> String {
+impl Display for Bool
+    fn to_string(_b: Bool) -> String
         "b"
-    }
-}
+    end
+end
 `
 
 // fixedChild is orphanChild without the orphan impl, its other lines kept.
-const fixedChild = `pub struct Box {
+const fixedChild = `pub struct Box
     n: Int
-}
+end
 `
 
-const orphanMain = `import {
+const orphanMain = `import
     std::io
     child.Box
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Box{n: 1})
-}
+end
 `
 
 // orphanDiags are the orphan-impl diagnostics among diags.
@@ -139,7 +139,7 @@ func TestOrphanImplInAnotherModuleIsPublishedOnItsFile(t *testing.T) {
 	files := map[string]string{
 		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"app/go.mod":    "module app\n\ngo 1.27.0\n\nrequire fx v0.0.0\n\nreplace fx => ../fx\n",
-		"app/main.nomi": "import {\n    std::io\n    fx::rate.Rate\n}\n\nfn main() {\n    io.inspect(Rate{per_unit: 4})\n}\n",
+		"app/main.nomi": "import\n    std::io\n    fx::rate.Rate\nend\n\nfn main()\n    io.inspect(Rate{per_unit: 4})\nend\n",
 		"fx/nomi.toml":  "[module]\nname = \"fx\"\n",
 		"fx/go.mod":     "module fx\n\ngo 1.27.0\n",
 		"fx/rate.nomi":  strings.Replace(orphanChild, "Box {\n    n: Int", "Rate {\n    per_unit: Int", 1),

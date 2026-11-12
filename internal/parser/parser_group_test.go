@@ -8,21 +8,21 @@ import (
 	"github.com/nomi-language/nomi/internal/lexer"
 )
 
-// `group {` at the top level is a group with its name missing. The parse
-// reports that at the `{` and refuses the file, and the recovering parses
+// `group` alone on its line at the top level is a group with its name
+// missing. The parse reports that at the keyword and refuses the file, and the recovering parses
 // still read the body as a group, so its tests are checked and an editor
 // works inside it.
 func TestParseGroupWithoutAName(t *testing.T) {
-	src := "group {\n  test \"a\" {\n    assert 1 == 1\n  }\n}\n"
-	const want = "a `group` needs a name; name the group for what its tests share, such as `group \"dates\" { ... }`"
+	src := "group\n  test \"a\"\n    assert 1 == 1\n  end\nend\n"
+	const want = "a `group` needs a name; name the group for what its tests share, such as `group \"dates\"`"
 
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("Parse admits a group without a name")
 	}
 	var pe ParseError
-	if !errors.As(err, &pe) || pe.Message != want || pe.Line != 1 || pe.Col != 7 {
-		t.Fatalf("Parse error %v, want %q at 1:7", err, want)
+	if !errors.As(err, &pe) || pe.Message != want || pe.Line != 1 || pe.Col != 1 {
+		t.Fatalf("Parse error %v, want %q at 1:1", err, want)
 	}
 
 	nodes, errs, _ := ParseResilient(lexer.Lex(src))
@@ -47,7 +47,7 @@ func TestParseGroupWithoutAName(t *testing.T) {
 // `group "name" { ... }` at the top level is a test group: a TestDecl with
 // Group set, holding its lines and its tests.
 func TestParseGroup(t *testing.T) {
-	src := "group \"parsing\" {\n  setup 1\n\n  test \"x\", n {\n    assert n == 1\n  }\n}"
+	src := "group \"parsing\"\n  setup 1\n\n  test \"x\", n\n    assert n == 1\n  end\nend"
 	decl, ok := parse(t, src)[0].(*ast.TestDecl)
 	if !ok || !decl.Group {
 		t.Fatalf("expected a group, got %#v", parse(t, src)[0])
@@ -72,9 +72,9 @@ func TestParseGroup(t *testing.T) {
 // `group` keep working. `tests`
 // is an ordinary identifier everywhere.
 func TestParseGroupIsAContextualKeyword(t *testing.T) {
-	src := "struct Row {\n  group: String\n}\n\n" +
-		"fn group(group: Int) -> Int {\n  group\n}\n\n" +
-		"fn f(row: Row) {\n  group = row.group\n  tests = group\n  g(group, tests)\n  group(2)\n  r = Row{group: \"a\"}\n  if group {\n    g(1)\n  }\n}\n\n" +
+	src := "struct Row\n  group: String\nend\n\n" +
+		"fn group(group: Int) -> Int\n  group\nend\n\n" +
+		"fn f(row: Row)\n  group = row.group\n  tests = group\n  g(group, tests)\n  group(2)\n  r = Row{group: \"a\"}\n  if group then\n    g(1)\n  end\nend\n\n" +
 		"group(3)"
 	nodes := parse(t, src)
 	if len(nodes) != 4 {

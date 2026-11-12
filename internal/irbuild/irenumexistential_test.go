@@ -13,65 +13,65 @@ func TestIREnumHeldAsAnInterface_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-interface Show {
+interface Show
     fn show(value: self) -> String
-}
+end
 
-enum Coin {
+enum Coin
     Penny
     Dime
-}
+end
 
-enum Note {
+enum Note
     Paper Int
     Coin Coin
-}
+end
 
-enum Opt<T> {
+enum Opt<T>
     Has T
     Nothing
-}
+end
 
-struct Holder {
+struct Holder
     s: Show
-}
+end
 
-impl Show for Coin {
-    fn show(c: Coin) -> String {
-        case c {
+impl Show for Coin
+    fn show(c: Coin) -> String
+        case c
             .Penny -> "penny"
             .Dime -> "dime"
-        }
-    }
-}
+        end
+    end
+end
 
-impl Show for Note {
-    fn show(n: Note) -> String {
-        case n {
+impl Show for Note
+    fn show(n: Note) -> String
+        case n
             .Paper(v) -> "paper ${v}"
             .Coin(c) -> "coin ${Show.show(c)}"
-        }
-    }
-}
+        end
+    end
+end
 
-impl Show for Opt<Int> {
-    fn show(o: Opt<Int>) -> String {
-        case o {
+impl Show for Opt<Int>
+    fn show(o: Opt<Int>) -> String
+        case o
             .Has(v) -> "has ${v}"
             .Nothing -> "nothing"
-        }
-    }
-}
+        end
+    end
+end
 
-fn shown(s: Show) -> String {
+fn shown(s: Show) -> String
     "<" + Show.show(s) + ">"
-}
+end
 
-fn made() -> Show {
+fn made() -> Show
     Note.Paper(5)
-}
+end
 
-fn main() {
+fn main()
     s: Show = Coin.Dime
     io.print(Show.show(s))
     io.print(shown(Coin.Penny))
@@ -79,14 +79,14 @@ fn main() {
     xs: List<Show> = [Coin.Penny, Note.Coin(Coin.Dime), Opt.Has(3), nothing]
     io.print(xs |> Iter.map(fn x -> Show.show(x)) |> String.join(", "))
     m: Maybe<Show> = Some(Coin.Dime)
-    case m {
+    case m
         Some(v) -> io.print(shown(v))
         None -> io.print("none")
-    }
+    end
     io.print(Show.show(made()))
     h = Holder{s: Note.Coin(Coin.Penny)}
     io.print(Show.show(h.s))
-}
+end
 `
 	irRunSource(t, src, "dime\n<penny>\npenny, coin dime, has 3, nothing\n<dime>\npaper 5\ncoin penny\n")
 }

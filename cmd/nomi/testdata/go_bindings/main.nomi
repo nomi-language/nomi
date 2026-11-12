@@ -1,11 +1,11 @@
-import {
+import
     std::hash as std_hash
     std::io
     hash
     urls
-}
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     url = urls.parse("https://example.com/search?tag=go&tag=nomi&q=hello+world")?
 
     tags =
@@ -28,4 +28,4 @@ fn main() -> Result<Unit, String> {
     agrees = std_hash.sha256_hex(String.to_bytes("nomi")) == digest
     io.print("std/hash agrees: ${agrees}")
     Ok(Unit)
-}
+end

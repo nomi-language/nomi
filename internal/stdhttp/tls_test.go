@@ -64,24 +64,24 @@ import std::url.Url
 import std::duration.Duration
 import std::instant.Instant
 
-struct App {
+struct App
     web: Supervisor
-}
+end
 
-fn boot(_startup: Startup) -> Result<App, String> {
+fn boot(_startup: Startup) -> Result<App, String>
     Ok(App{web: Supervisor.new(max_running: 8)})
-}
+end
 
-fn hello(request: Request) -> Response {
+fn hello(request: Request) -> Response
     Response{body: Body.Text("secure ${request.url.path}")}
-}
+end
 
-fn echo(conn: Connection) -> Unit {
+fn echo(conn: Connection) -> Unit
     line = Reader.read_line(Connection.reader(conn))! |> Maybe.with_default("")
     _ = Writer.write_text(Connection.writer(conn), "echo ${line}\n")
-}
+end
 
-fn main() {
+fn main()
     certificate = Certificate.load("CERT", "KEY")!
     io.print("subject ${Certificate.info(certificate).subject} ${Certificate.info(certificate).dns_names}")
     trusted = ClientConfig{roots: Roots.Files(["CERT"])}
@@ -109,7 +109,7 @@ fn main() {
 
     starttls = net.listen("127.0.0.1:0")!
     _ = Supervisor.spawn(App.web, fn -> net.serve(starttls, fn c -> echo(tls.server(c, ServerConfig{certificates: [certificate]})!), App.web))
-    upgraded = tls.client(net.dial(net.Listener.address(starttls))!, .{..trusted, server_name: Some("localhost")})!
+    upgraded = tls.client(net.dial(net.Listener.address(starttls))!, {..trusted, server_name: Some("localhost")})!
     _ = Writer.write_text(Connection.writer(upgraded), "starttls\n")
     io.print("upgraded ${Reader.read_line(Connection.reader(upgraded))! |> Maybe.with_default("-")} ${Iter.count(tls.state(upgraded)!.verified_chains)}")
     Connection.close(upgraded)
@@ -133,7 +133,7 @@ fn main() {
 
     secure = tls.listen("127.0.0.1:0", ServerConfig{certificates: [certificate], next_protocols: ["echo/1"]})!
     _ = Supervisor.spawn(App.web, fn -> net.serve(secure, echo, App.web))
-    sconn = tls.dial(net.Listener.address(secure), .{..trusted, next_protocols: ["echo/1"]})!
+    sconn = tls.dial(net.Listener.address(secure), {..trusted, next_protocols: ["echo/1"]})!
     _ = Writer.write_text(Connection.writer(sconn), "pong\n")
     io.print("tls ${Reader.read_line(Connection.reader(sconn))! |> Maybe.with_default("-")}")
     state = tls.state(sconn)!
@@ -144,7 +144,7 @@ fn main() {
     io.print("refused ${refused |> Result.is_err()}")
     net.Listener.close(secure)
     io.print("plain state ${tls.state(conn) |> Maybe.is_some()} ${Version.Tls12}")
-}
+end
 `
 
 // HTTPS, TCP and TLS over TCP end to end on 127.0.0.1: a server with a

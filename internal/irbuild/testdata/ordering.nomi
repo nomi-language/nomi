@@ -36,46 +36,46 @@
 // `import std::comparable.Ordering.{Less}` and the front end says so.
 import std::comparable.Ordering.{Equal, Greater, Less}
 
-pub struct Priority {
+pub struct Priority
     level: Int
-}
+end
 
-impl Comparable for Priority {
-    fn compare(a: Priority, b: Priority) -> Ordering {
+impl Comparable for Priority
+    fn compare(a: Priority, b: Priority) -> Ordering
         Int.compare(a.level, b.level)
-    }
-}
+    end
+end
 
 /// name renders an Ordering, so the three variants are observable rather than
 /// only comparable. A `case` over every variant plus a qualified head.
-fn name(o: Ordering) -> String {
-    case o {
+fn name(o: Ordering) -> String
+    case o
         .Less -> "less"
         Ordering.Equal -> "equal"
         .Greater -> "greater"
-    }
-}
+    end
+end
 
-test "the three variants are distinct values" {
+test "the three variants are distinct values"
     assert name(Less) == "less"
     assert name(Equal) == "equal"
     assert name(Greater) == "greater"
     assert name(Ordering.Less) == "less"
-}
+end
 
-test "Int.compare answers all three" {
+test "Int.compare answers all three"
     assert name(Int.compare(1, 2)) == "less"
     assert name(Int.compare(2, 2)) == "equal"
     assert name(Int.compare(3, 2)) == "greater"
-}
+end
 
-test "String.compare is byte-lexicographic" {
+test "String.compare is byte-lexicographic"
     assert name(String.compare("a", "b")) == "less"
     assert name(String.compare("b", "b")) == "equal"
     assert name(String.compare("b", "a")) == "greater"
-}
+end
 
-test "the ordering operators dispatch to a user Comparable impl" {
+test "the ordering operators dispatch to a user Comparable impl"
     low = Priority{level: 1}
     high = Priority{level: 9}
     assert low < high
@@ -85,9 +85,9 @@ test "the ordering operators dispatch to a user Comparable impl" {
     assert low <= Priority{level: 1}
     assert high >= low
     refute low >= high
-}
+end
 
-test "Float compare is a total order and the operators are not" {
+test "Float compare is a total order and the operators are not"
     nan = 0.0 / 0.0
     assert name(Float.compare(nan, nan)) == "equal"
     assert name(Float.compare(nan, 1.0)) == "greater"
@@ -98,8 +98,8 @@ test "Float compare is a total order and the operators are not" {
     // The INTERFACE-qualified spelling of the same call.
     assert name(Comparable.compare(nan, nan)) == "equal"
     assert name(Comparable.compare(1.0, 2.0)) == "less"
-}
+end
 
-test "a failing ordering comparison renders its operands" {
+test "a failing ordering comparison renders its operands"
     assert Priority{level: 9} < Priority{level: 1}
-}
+end

@@ -107,7 +107,7 @@ const (
 	// unboundedly many Go types. See collections.go.
 	tagList
 	tagTuple
-	// tagAnonStruct is `.{x: Int, y: String}` — a RECORD, structural like the
+	// tagAnonStruct is `{x: Int, y: String}` — a RECORD, structural like the
 	// tuple beside it and canonicalized by field name rather than by position.
 	// Its identity is the interned *compKind, which additionally carries the
 	// field NAMES: a tuple's components are addressed by index and a record's
@@ -130,31 +130,31 @@ const (
 	// EMITTED function values rather than anything the tag carries, because a
 	// Nomi map key is compared structurally and not by any user impl.
 	tagMap
-	// tagEmptyMap is `%{}` before its type arguments are known — the
+	// tagEmptyMap is `{}` before its type arguments are known — the
 	// third untyped literal, alongside tagEmptyList and tagBareNone, and it
 	// exists for the same reason: the checker solves the type from context and
 	// coerce discharges it at the one place that context is known.
 	tagEmptyMap
-	// tagEmptySet is the untyped `%[]` — the FOURTH untyped literal, alongside
+	// tagEmptySet is the untyped `[]` — the FOURTH untyped literal, alongside
 	// tagEmptyList, tagBareNone and tagEmptyMap, and it exists for exactly
 	// their reason: a set literal with no elements has no element type, the
 	// checker solves it from context, and coerce discharges it at the one place
 	// that context is known.
 	//
 	// It is NOT `Set<Unit>`: `Set<Int>` is a NAMED kind (a generic std struct
-	// instance, tagNamed), so an untyped `%[]` cannot be an instance of it with
+	// instance, tagNamed), so an untyped `[]` cannot be an instance of it with
 	// a placeholder argument the way `[]` cannot be a `List<Unit>`. See
 	// stdgenstruct.go and sets.go.
 	tagEmptySet
-	// tagEmptyVector is the untyped `#[]` — the FIFTH untyped literal, alongside
+	// tagEmptyVector is the untyped `[]` — the FIFTH untyped literal, alongside
 	// tagEmptyList, tagBareNone, tagEmptyMap and tagEmptySet, and it exists for
 	// exactly their reason: a vector literal with no elements has no element
 	// type, the checker solves it from context, and coerce discharges it at the
 	// one place that context is known. `06-collections/vectors_test.nomi` writes
-	// `empty: Vector<Int> = #[]`, so the annotation IS that context.
+	// `empty: Vector<Int> = []`, so the annotation IS that context.
 	//
 	// It is NOT `Vector<Unit>`: `Vector<Int>` is a NAMED kind (a generic std HOST
-	// type instance, tagNamed), so an untyped `#[]` cannot be an instance of it
+	// type instance, tagNamed), so an untyped `[]` cannot be an instance of it
 	// with a placeholder argument the way `[]` cannot be a `List<Unit>`. See
 	// stdgenhost.go and vectors.go.
 	tagEmptyVector
@@ -199,14 +199,14 @@ var (
 	// kindBareNone is the prelude `None` before its type argument is known.
 	// See prelude.go: it exists only to be discharged by coerce.
 	kindBareNone = kind{tag: tagBareNone}
-	// kindEmptyMap is `%{}` before its type arguments are known. Its
+	// kindEmptyMap is `{}` before its type arguments are known. Its
 	// Go type is the only one an entry-less map can be given, and it is never
 	// wrong because there is no entry to observe. See maps.go.
 	kindEmptyMap = kind{tag: tagEmptyMap}
-	// kindEmptySet is `%[]` before its element type is known — the sentinel
+	// kindEmptySet is `[]` before its element type is known — the sentinel
 	// kindEmptyMap is one level up. See sets.go.
 	kindEmptySet = kind{tag: tagEmptySet}
-	// kindEmptyVector is `#[]` before its element type is known. See vectors.go.
+	// kindEmptyVector is `[]` before its element type is known. See vectors.go.
 	kindEmptyVector = kind{tag: tagEmptyVector}
 )
 
@@ -440,7 +440,7 @@ type gen struct {
 	fa *analysis.FileAnalysis
 	// namesFrom is the unit, plus one, of the file whose names what is
 	// being lowered was written under (0 outside): another file's
-	// parameter default filled here (ifaceSlotDefault, siblingDefaultArgs),
+	// parameter default filled here (ifaceSlotDefault, fillCallDefaults),
 	// or an interface signature read here. A bare name that file binds to
 	// a `once` reads that file's cell (onceValue). See lowerNamesFrom.
 	namesFrom int
@@ -635,8 +635,16 @@ type gen struct {
 	// omitted; ifaceSlotQueue holds them for flushIfaceSlotDefaults. See
 	// ifaceslotdefault.go.
 	ifaceSlotDefaults map[irIfaceSlotDefault]*irIfaceSlotReq
-	ifaceSlotQueue    []*irIfaceSlotReq
-	genericSubst      []map[string]kind
+	// callDefaultsAt indexes callDefaultsFA's CallDefaults by position, for
+	// a copy of a written call (callDefaultsOf).
+	callDefaultsFA *analysis.FileAnalysis
+	callDefaultsAt map[analysis.Pos]*analysis.DefaultedCall
+	// synthDefaults is the record each call callFuncValueOf is lowering
+	// fills from: the default-filled function value's, or the copied
+	// function's.
+	synthDefaults  map[*ast.Call]*analysis.DefaultedCall
+	ifaceSlotQueue []*irIfaceSlotReq
+	genericSubst   []map[string]kind
 	// defaultArgKinds is each default type argument this gen wrote into an
 	// annotation that left it out, as the declaring file resolves it. See
 	// defaulttypeargs.go.
@@ -652,6 +660,21 @@ type gen struct {
 	// stdprogiface.go.
 	stdProgIfaces map[*ast.InterfaceDef]*ifaceDef
 	stdProgHeld   map[*ifaceDef]map[kind]bool
+	// erasures is checkedErasures' answer, read once from the checker's
+	// record of this unit's source.
+	erasures []checkedErasure
+	// coercionsAt indexes coercionsFA's Coercions by position, for a copy
+	// of a written expression (coercionAt).
+	coercionsFA *analysis.FileAnalysis
+	coercionsAt map[irCoercionPos]*analysis.Coercion
+	// iterViewsAt indexes iterViewsFA's IterViews by position, for a copy
+	// of a written source (iterViewAt).
+	iterViewsFA *analysis.FileAnalysis
+	iterViewsAt map[irCoercionPos]*analysis.IterView
+	// holeFor maps a name the builder binds in place of a written
+	// expression it has lowered already (a pipe prefix's held value,
+	// pipeStageValues) to that expression, whose records it reads.
+	holeFor map[ast.Node]ast.Node
 	// stdProgCaller is, in a std instance gen, the program's gen whose call
 	// asked for the instance. A std interface held as a value in the
 	// instance's signature or body is that gen's def, and its dispatch
@@ -1002,9 +1025,7 @@ type gen struct {
 	implSelf    string
 	// defaultSelf is set while an interface default is lowered for one
 	// implementor: the interface, and the implementor's kind every `self`
-	// position takes. The checker types a `self` value in a default as the
-	// interface, so a generic call it passes one to reads the implementor
-	// from here (checkedMonoCallKinds). See inheritDefaults.
+	// position takes. See inheritDefaults.
 	defaultSelf *irDefaultSelf
 	// defaultInst is the instance whose body is being lowered while this
 	// file lowers one of its interface's defaults for another file's

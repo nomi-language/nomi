@@ -8,14 +8,14 @@
 /// "no fields to default and none to require". The result was a variant
 /// whose payload was missing fields, matching no `case` branch, with
 /// nothing reported anywhere.
-pub enum Backoff {
+pub enum Backoff
     Exponential {max_restarts: Int = 10, max_elapsed: Int = 900}
     Off
-}
+end
 
 /// A required field beside a defaulted one, to check that omitting the
 /// required one is still an error across the boundary rather than
 /// silently producing a short payload.
-pub enum Retry {
+pub enum Retry
     Bounded {limit: Int, note: String = "bounded"}
-}
+end

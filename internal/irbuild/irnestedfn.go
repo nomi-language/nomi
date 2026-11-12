@@ -74,7 +74,7 @@ func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, name string) bool {
 	if fd.ReturnTypeExpr != nil {
 		if want := bl.g.typeOf(fd.ReturnTypeExpr); want != kindUnit && irCallableValueKind(want) {
 			// `fn f() -> Shape { Spot{n: 3} }`, `fn f() -> Display { 5 }`,
-			// `fn f() -> Set<Int> { %[] }`: the body and each `return`
+			// `fn f() -> Set<Int> { [] }`: the body and each `return`
 			// answer the declared type, widened to it as a module
 			// function's result is (lambdaFunction's declaredFnLambda).
 			prevFor, prev, prevDecl := bl.g.lambdaWantFor, bl.g.lambdaWant, bl.g.declaredFnLambda
@@ -186,14 +186,10 @@ func (g *gen) nestedInstanceSet(fd *ast.FuncDef, visiting map[*ast.FuncDef]bool)
 	}
 	visiting[fd] = true
 	defer delete(visiting, fd)
-	params := map[string]bool{}
-	for _, tp := range fd.TypeParams {
-		params[tp.Name] = true
-	}
 	var out [][]kind
 	seen := map[string]bool{}
-	add := func(ft *analysis.FuncType) {
-		args, ok := g.nestedInstanceArgs(fd, params, ft)
+	add := func(sym *analysis.Symbol) {
+		args, ok := g.nestedInstanceArgs(fd, analysis.CallTypeArgs(sym))
 		if key := kindsKey(args); ok && !seen[key] {
 			seen[key] = true
 			out = append(out, args)
@@ -201,43 +197,33 @@ func (g *gen) nestedInstanceSet(fd *ast.FuncDef, visiting map[*ast.FuncDef]bool)
 	}
 	for _, ref := range g.nestedGenericCalls(fd) {
 		if ref.within == nil || ref.within == fd {
-			add(ref.ft)
+			add(ref.sym)
 			continue
 		}
 		for _, outer := range g.nestedInstanceSet(ref.within, visiting) {
 			g.genericSubst = append(g.genericSubst, nestedFrame(ref.within, outer))
-			add(ref.ft)
+			add(ref.sym)
 			g.genericSubst = g.genericSubst[:len(g.genericSubst)-1]
 		}
 	}
 	return out
 }
 
-// nestedInstanceArgs solves fd's type parameters from one call's checked
-// signature, or reports false when a parameter is unsolved or outside the
-// domain.
-func (g *gen) nestedInstanceArgs(fd *ast.FuncDef, params map[string]bool, ft *analysis.FuncType) ([]kind, bool) {
-	if len(ft.Params) != len(fd.Params) {
-		return nil, false
-	}
-	if irUnsolvedType(ft) {
-		// `apply(1, fn x -> Ok(x + 1))` leaves the error type open and makes no
-		// value of it (spec, "Determined type arguments"): the holes are
-		// filled as a module-level generic call's are, so the instance the
-		// declaration builds and the one this call names agree.
-		ft = irFillHolesByPosition(ft, false).(*analysis.FuncType)
-	}
-	solved := map[string]kind{}
-	for i, p := range fd.Params {
-		g.unifyTypeParams(p.TypeAnnotation, g.project(ft.Params[i]), params, solved)
-	}
-	if fd.ReturnTypeExpr != nil {
-		g.unifyTypeParams(fd.ReturnTypeExpr, g.project(ft.Return), params, solved)
-	}
+// nestedInstanceArgs is fd's type arguments in types, the ones the checker
+// instantiated one reference at (analysis.CallTypeArgs), or false when one
+// is missing or outside the domain. `apply(1, fn x -> Ok(x + 1))` leaves
+// the error type open and makes no value of it (spec, "Determined type
+// arguments"): it is the type the checker closed it as, as at every other
+// call.
+func (g *gen) nestedInstanceArgs(fd *ast.FuncDef, types map[string]analysis.Type) ([]kind, bool) {
 	args := make([]kind, len(fd.TypeParams))
 	for i, tp := range fd.TypeParams {
-		k, found := solved[tp.Name]
-		if !found || !(irCallableValueKind(k) || k == kindUnit) {
+		t, found := types[tp.Name]
+		if !found {
+			return nil, false
+		}
+		k := g.project(t)
+		if !(irCallableValueKind(k) || k == kindUnit) {
 			return nil, false
 		}
 		args[i] = k
@@ -249,7 +235,7 @@ func (g *gen) nestedInstanceArgs(fd *ast.FuncDef, params map[string]bool, ft *an
 // instantiated: its signature there, and the innermost generic nested fn
 // whose body holds it, or nil.
 type nestedCallRef struct {
-	ft     *analysis.FuncType
+	sym    *analysis.Symbol
 	within *ast.FuncDef
 }
 
@@ -278,10 +264,8 @@ func (g *gen) nestedGenericCalls(fd *ast.FuncDef) []nestedCallRef {
 		})
 		for _, pos := range positions {
 			sym := g.fa.References[pos]
-			if ft, isFunc := sym.CallType.(*analysis.FuncType); isFunc {
-				def := sym.Node.(*ast.FuncDef)
-				g.nestedCalls[def] = append(g.nestedCalls[def], nestedCallRef{ft: ft, within: within[pos]})
-			}
+			def := sym.Node.(*ast.FuncDef)
+			g.nestedCalls[def] = append(g.nestedCalls[def], nestedCallRef{sym: sym, within: within[pos]})
 		}
 	}
 	return g.nestedCalls[fd]
@@ -367,24 +351,18 @@ func (bl *irScalarBuilder) genericNestedRef(id *ast.Ident) (inst *ast.Ident, isN
 		return nil, false
 	}
 	fd := gn.fd
-	params := map[string]bool{}
-	for _, tp := range fd.TypeParams {
-		params[tp.Name] = true
-	}
 	var args []kind
 	ok := false
 	if bl.g.fa != nil {
 		pos := analysis.Pos{Line: id.Line, Col: id.Col}
 		if sym := bl.g.srcFA().References[pos]; sym != nil {
-			ft, isFunc := sym.CallType.(*analysis.FuncType)
-			if !isFunc && bl.g.nestedGenericCalls(fd) != nil && bl.g.nestedWithin[pos] == fd {
+			if sym.CallType != nil {
+				args, ok = bl.g.nestedInstanceArgs(fd, analysis.CallTypeArgs(sym))
+			} else if bl.g.nestedGenericCalls(fd) != nil && bl.g.nestedWithin[pos] == fd {
 				// A call in fd's own body, which the checker does not
-				// instantiate: fd's own signature, at the instance being
+				// instantiate: at fd's own parameters, the instance being
 				// built, whose frame is the innermost.
-				ft, isFunc = sym.Type.(*analysis.FuncType)
-			}
-			if isFunc {
-				args, ok = bl.g.nestedInstanceArgs(fd, params, ft)
+				args, ok = bl.g.nestedOwnArgs(fd)
 			}
 		}
 	}
@@ -398,6 +376,20 @@ func (bl *irScalarBuilder) genericNestedRef(id *ast.Ident) (inst *ast.Ident, isN
 		return nil, true
 	}
 	return &ast.Ident{Name: name, Line: id.Line, Col: id.Col}, true
+}
+
+// nestedOwnArgs is fd's own type parameters in the frame of the instance of
+// fd being built.
+func (g *gen) nestedOwnArgs(fd *ast.FuncDef) ([]kind, bool) {
+	args := make([]kind, len(fd.TypeParams))
+	for i, tp := range fd.TypeParams {
+		k, bound := g.genericSubstKind(tp.Name)
+		if !bound {
+			return nil, false
+		}
+		args[i] = k
+	}
+	return args, true
 }
 
 // reaches reports whether name is bound in this builder or one enclosing it.

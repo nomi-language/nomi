@@ -61,86 +61,86 @@ func irPatternAssertVM(t *testing.T, src string, wantCases int) string {
 	return out.String()
 }
 
-const irPatternAssertUngroupedSource = `fn compute() -> Int {
+const irPatternAssertUngroupedSource = `fn compute() -> Int
   7
-}
+end
 
-fn label() -> String {
+fn label() -> String
   "ok"
-}
+end
 
-fn parse(s: String) -> Result<Int, String> {
+fn parse(s: String) -> Result<Int, String>
   Err("not a number: " + s)
-}
+end
 
-fn found(n: Int) -> Maybe<Int> {
+fn found(n: Int) -> Maybe<Int>
   Some(n)
-}
+end
 
-enum Shape {
+enum Shape
   Circle Float
   Square Int
   Dot
-}
+end
 
-fn square(n: Int) -> Shape {
+fn square(n: Int) -> Shape
   Shape.Square(n)
-}
+end
 
-test "an identifier pattern binds into the enclosing scope" {
+test "an identifier pattern binds into the enclosing scope"
   assert n = compute()
   assert n == 7
   assert n * 2 == 14
-}
+end
 
-test "literal patterns that match bind nothing and hold" {
+test "literal patterns that match bind nothing and hold"
   assert 7 = compute()
   assert "ok" = label()
-}
+end
 
-test "a literal pattern that does not match reports the value it saw" {
+test "a literal pattern that does not match reports the value it saw"
   assert 3 = compute()
-}
+end
 
-test "a String that does not match shows its quotes" {
+test "a String that does not match shows its quotes"
   assert "no" = label()
-}
+end
 
-test "a prelude pattern that matches binds its payload" {
+test "a prelude pattern that matches binds its payload"
   assert Some(v) = found(4)
   assert v == 4
-}
+end
 
-test "a prelude pattern that does not match shows the value it saw" {
+test "a prelude pattern that does not match shows the value it saw"
   assert Ok(d) = parse("x")
   assert d == 1
-}
+end
 
-test "a bare-name value shows its definition" {
+test "a bare-name value shows its definition"
   parsed = parse("y")
   assert Ok(d) = parsed
   assert d == 1
-}
+end
 
-test "a user enum pattern with a literal payload" {
+test "a user enum pattern with a literal payload"
   shape = square(3)
   assert Shape.Square(4) = shape
-}
+end
 
-test "a bare-name Bool subject shows its definition" {
+test "a bare-name Bool subject shows its definition"
   holds = 3 > 4
   assert holds
-}
+end
 
-test "a refuted bare name shows its definition" {
+test "a refuted bare name shows its definition"
   holds = 3 < 4
   refute holds
-}
+end
 
-test "a passing bare name" {
+test "a passing bare name"
   holds = 3 < 4
   assert holds
-}
+end
 `
 
 // Ungrouped cases: every pattern shape, passing and failing, and bare-name
@@ -155,75 +155,75 @@ func TestIRPatternAssert_UngroupedCasesAgree(t *testing.T) {
 	}
 }
 
-const irPatternAssertGroupedSource = `import {
+const irPatternAssertGroupedSource = `import
   std::duration.Duration
   std::instant.Instant
   std::tasks.Task
   std::testing.Clock
   std::timer
-}
+end
 
-fn long_sleep() -> Unit {
+fn long_sleep() -> Unit
   timer.sleep(Duration.seconds(5))
-}
+end
 
-fn short_fail() -> Result<Int, String> {
+fn short_fail() -> Result<Int, String>
   Err("boom")
-}
+end
 
-fn pair_of() -> (Int, String) {
+fn pair_of() -> (Int, String)
   (1, "one")
-}
+end
 
-group "sibling cancellation under a virtual clock" {
+group "sibling cancellation under a virtual clock"
   clock Clock.Virtual
 
-  test "a short-circuit cancels its siblings instead of waiting for them" {
+  test "a short-circuit cancels its siblings instead of waiting for them"
     before = Instant.now()
 
-    outcome = concurrent {
+    outcome = concurrent
       short = Task.spawn(fn -> short_fail())
       long = Task.spawn(fn -> long_sleep())
       _l = long
       Ok(Task.await(short)?)
-    }
+    end
 
     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
 
     assert Err(e) = outcome
     assert e == "boom"
     assert elapsed == 0
-  }
+  end
 
-  test "a failing pattern over a concurrent block shows its definition" {
-    outcome = concurrent {
+  test "a failing pattern over a concurrent block shows its definition"
+    outcome = concurrent
       short = Task.spawn(fn -> short_fail())
       Ok(Task.await(short)?)
-    }
+    end
 
     assert Ok(n) = outcome
     assert n == 1
-  }
+  end
 
-  test "a tuple pattern binds both parts" {
+  test "a tuple pattern binds both parts"
     pair = pair_of()
     assert (n, word) = pair
     assert n == 1
     assert word == "one"
-  }
+  end
 
-  test "a list pattern that does not match shows the whole list" {
+  test "a list pattern that does not match shows the whole list"
     assert [a, b] = ["one"]
     assert a == b
-  }
-}
+  end
+end
 `
 
 // concurrent_runtime_test.nomi's virtual-clock shape, plus tuple and list
 // patterns and a failing pattern whose value is a concurrent block's result.
 func TestIRPatternAssert_GroupedCasesAgree(t *testing.T) {
 	out := irPatternAssertVM(t, irPatternAssertGroupedSource, 4)
-	for _, want := range []string{"outcome", "concurrent {", "[\"one\"]", "2 passed"} {
+	for _, want := range []string{"outcome", "concurrent", "[\"one\"]", "2 passed"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the report lacks %q:\n%s", want, out)
 		}
@@ -234,22 +234,22 @@ func TestIRPatternAssert_GroupedCasesAgree(t *testing.T) {
 // records one stage per prefix, so that case is retained for the VM too, and
 // retaining it moves no Source.
 func TestIRPatternAssert_APipeBindingCarriesItsStages(t *testing.T) {
-	const src = `fn parse(s: String) -> Result<Int, String> {
+	const src = `fn parse(s: String) -> Result<Int, String>
   Err("not a number: " + s)
-}
+end
 
-fn one() -> Result<Int, String> {
+fn one() -> Result<Int, String>
   Ok(1)
-}
+end
 
-test "retained" {
+test "retained"
   assert Ok(_) = one()
-}
+end
 
-test "a pipe binding" {
+test "a pipe binding"
   r = "x" |> parse()
   assert Ok(_) = r
-}
+end
 `
 	path := filepath.Join(t.TempDir(), "pipe_test.nomi")
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {

@@ -1,7 +1,7 @@
-import {
+import
     int.Int
     iter.Iter
-}
+end
 
 /// A type whose values can be multiplied together: `empty_product()` is the
 /// product of no values, so multiplying by it changes nothing:
@@ -20,6 +20,6 @@ import {
 //! assert Int.empty_product() == 1
 //! assert Iter.product([2, 3, 4]) == 24
 //
-pub interface Productable {
+pub interface Productable
     fn empty_product() -> self
-}
+end

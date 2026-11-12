@@ -13,18 +13,18 @@ import (
 const taskTrapSrc = `import std::io
 import std::tasks.Task
 
-fn work(n: Int) -> Int {
+fn work(n: Int) -> Int
   r = 10 / n
   r
-}
+end
 
-fn main() {
-  v = concurrent {
+fn main()
+  v = concurrent
     t = Task.spawn(fn -> work(0))
     Task.await(t)
-  }
+  end
   io.print("${v}")
-}
+end
 `
 
 func TestDebug_ATaskFailureStopsInTheTaskAndAgainWhereItIsAwaited(t *testing.T) {
@@ -81,19 +81,19 @@ func TestDebug_AnAwaitedTaskFailureIsNotATrapStop(t *testing.T) {
 const twoTasksSrc = `import std::io
 import std::tasks.Task
 
-fn work(n: Int) -> Int {
+fn work(n: Int) -> Int
   r = n * 2
   r
-}
+end
 
-fn main() {
-  v = concurrent {
+fn main()
+  v = concurrent
     a = Task.spawn(fn -> work(1))
     b = Task.spawn(fn -> work(2))
     Task.await(a) + Task.await(b)
-  }
+  end
   io.print("${v}")
-}
+end
 `
 
 // Two tasks reach the same breakpoint. Each is reported, one at a time: one
@@ -126,14 +126,14 @@ func TestDebug_TwoThreadsAtABreakpointAreBothReported(t *testing.T) {
 
 const stdStepSrc = `import std::io
 
-fn main() {
+fn main()
   m = Some(2)
-  r = Maybe.map(m, fn v -> {
+  r = Maybe.map(m, fn v ->
     w = v * 3
     w
-  })
+  end)
   io.print("${r}")
-}
+end
 `
 
 // maybeMapLine is the line of `pub fn map` in std's maybe.nomi, read from the
@@ -197,13 +197,13 @@ func TestDebug_StepInEntersTheStandardLibraryWhenNothingIsSkipped(t *testing.T) 
 
 const oneLineSrc = `import std::io
 
-fn count(n: Int, acc: Int) -> Int {
-  if n == 0 { acc } else { count(n - 1, acc + n) }
-}
+fn count(n: Int, acc: Int) -> Int
+  if n == 0 then acc else count(n - 1, acc + n)
+end
 
-fn main() {
+fn main()
   io.print("${count(2, 0)}")
-}
+end
 `
 
 // A line breakpoint stops once each time an activation reaches the line, at

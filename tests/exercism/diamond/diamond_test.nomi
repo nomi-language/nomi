@@ -1,20 +1,20 @@
 import diamond
 
-test "Degenerate case with a single 'A' row" {
+test "Degenerate case with a single 'A' row"
     assert diamond.rows('A') == [
         "A",
     ]
-}
+end
 
-test "Degenerate case with no row containing 3 distinct groups of spaces" {
+test "Degenerate case with no row containing 3 distinct groups of spaces"
     assert diamond.rows('B') == [
         " A ",
         "B B",
         " A ",
     ]
-}
+end
 
-test "Smallest non-degenerate case with odd diamond side length" {
+test "Smallest non-degenerate case with odd diamond side length"
     assert diamond.rows('C') == [
         "  A  ",
         " B B ",
@@ -22,9 +22,9 @@ test "Smallest non-degenerate case with odd diamond side length" {
         " B B ",
         "  A  ",
     ]
-}
+end
 
-test "Smallest non-degenerate case with even diamond side length" {
+test "Smallest non-degenerate case with even diamond side length"
     assert diamond.rows('D') == [
         "   A   ",
         "  B B  ",
@@ -34,9 +34,9 @@ test "Smallest non-degenerate case with even diamond side length" {
         "  B B  ",
         "   A   ",
     ]
-}
+end
 
-test "Largest possible diamond" {
+test "Largest possible diamond"
     assert diamond.rows('Z') == [
         "                         A                         ",
         "                        B B                        ",
@@ -90,4 +90,4 @@ test "Largest possible diamond" {
         "                        B B                        ",
         "                         A                         ",
     ]
-}
+end

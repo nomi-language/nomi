@@ -1,66 +1,66 @@
 // A generic interface implemented for one type at several type arguments.
 // Each call takes the impl its arguments choose, and a type argument only
 // the result names is chosen by the type the result is expected to have.
-import {
+import
     std::compiler
     std::regex.Regex
     test_helpers
-}
+end
 
-interface Holds<T> {
+interface Holds<T>
     fn holds(b: self, x: T) -> Bool
 
-    fn holds_none(b: self, xs: List<T>) -> Bool {
+    fn holds_none(b: self, xs: List<T>) -> Bool
         Iter.all_match(xs, fn x -> not Holds.holds(b, x))
-    }
-}
+    end
+end
 
-struct Box {
+struct Box
     n: Int
     s: String
-}
+end
 
-impl Holds<Int> for Box {
-    fn holds(b: Box, x: Int) -> Bool {
+impl Holds<Int> for Box
+    fn holds(b: Box, x: Int) -> Bool
         b.n == x
-    }
-}
+    end
+end
 
-impl Holds<String> for Box {
-    fn holds(b: Box, x: String) -> Bool {
+impl Holds<String> for Box
+    fn holds(b: Box, x: String) -> Bool
         b.s == x
-    }
-}
+    end
+end
 
-fn holds_by<C, T>(c: C, x: T) -> Bool where C: Holds<T> {
+fn holds_by<C, T>(c: C, x: T) -> Bool where C: Holds<T>
     C.holds(c, x)
-}
+end
 
-interface Gets<T> {
+interface Gets<T>
     fn got(value: self) -> T
-}
+end
 
-impl Gets<Int> for Box {
-    fn got(b: Box) -> Int {
+impl Gets<Int> for Box
+    fn got(b: Box) -> Int
         b.n
-    }
-}
+    end
+end
 
-impl Gets<String> for Box {
-    fn got(b: Box) -> String {
+impl Gets<String> for Box
+    fn got(b: Box) -> String
         b.s
-    }
-}
+    end
+end
 
-fn text(g: Gets<String>) -> String {
+fn text(g: Gets<String>) -> String
     Gets.got(g)
-}
+end
 
-fn number(g: Gets<Int>) -> Int {
+fn number(g: Gets<Int>) -> Int
     Gets.got(g)
-}
+end
 
-test "a call takes the impl its argument's type chooses" {
+test "a call takes the impl its argument's type chooses"
     b = Box{n: 1, s: "a"}
     assert Box.holds(b, 1)
     assert Holds.holds(b, "a")
@@ -71,64 +71,64 @@ test "a call takes the impl its argument's type chooses" {
     refute Holds.holds_none(b, ["a"])
     picks = Iter.filter(["a", "b"], &Holds.holds(b, &1)) |> Iter.to_list()
     assert picks == ["a"]
-}
+end
 
-test "a result-only type argument is chosen by the expected type" {
+test "a result-only type argument is chosen by the expected type"
     b = Box{n: 7, s: "seven"}
     n: Int = Box.got(b)
     s: String = Gets.got(b)
     assert n == 7 and s == "seven"
-}
+end
 
-test "a value held as an instantiation dispatches at its own arguments" {
+test "a value held as an instantiation dispatches at its own arguments"
     b = Box{n: 2, s: "two"}
     assert text(b) == "two" and number(b) == 2
     texts: List<Gets<String>> = [b, Box{n: 3, s: "three"}]
     assert Iter.map(texts, &Gets.got(&1)) |> String.join(",") == "two,three"
     assert String.join(Iter.map(texts, &Gets.got(&1)), ",") == "two,three"
-}
+end
 
-test "String contains a String, a Regex and a Codepoint" {
+test "String contains a String, a Regex and a Codepoint"
     assert String.contains("a-b", "-b")
     assert String.contains("order 66", Regex`\d+`)
     assert Contains.contains("a-b", '-')
     refute "ab" |> String.contains('-')
-}
+end
 
-test "an argument that does not choose an impl is an error" {
+test "an argument that does not choose an impl is an error"
     diagnostics = compiler.check(
         """
-        interface Holds<T> {
+        interface Holds<T>
           fn holds(b: self, x: T) -> Bool
-        }
+        end
 
-        enum Color {
+        enum Color
           Red
-        }
+        end
 
-        enum Shade {
+        enum Shade
           Red
-        }
+        end
 
-        struct Box {
+        struct Box
           n: Int
-        }
+        end
 
-        impl Holds<Color> for Box {
-          fn holds(b: Box, x: Color) -> Bool {
+        impl Holds<Color> for Box
+          fn holds(b: Box, x: Color) -> Bool
             x == .Red
-          }
-        }
+          end
+        end
 
-        impl Holds<Shade> for Box {
-          fn holds(b: Box, x: Shade) -> Bool {
+        impl Holds<Shade> for Box
+          fn holds(b: Box, x: Shade) -> Bool
             x == .Red
-          }
-        }
+          end
+        end
 
-        fn main() {
+        fn main()
           _x = Box.holds(Box{n: 1}, .Red)
-        }
+        end
         """
     )
 
@@ -136,32 +136,32 @@ test "an argument that does not choose an impl is an error" {
         diagnostics,
         "`Holds.holds` for `Box` has impls at `Color` and `Shade`; the argument's type does not choose one: annotate it",
     )
-}
+end
 
-test "a generic impl beside a concrete one overlaps" {
+test "a generic impl beside a concrete one overlaps"
     diagnostics = compiler.check(
         """
-        interface Holds<T> {
+        interface Holds<T>
           fn holds(b: self, x: T) -> Bool
-        }
+        end
 
-        struct Wrap<T> {
+        struct Wrap<T>
           v: T
-        }
+        end
 
-        impl Holds<T> for Wrap<T> where T: Equatable {
-          fn holds(b: Wrap<T>, x: T) -> Bool {
+        impl Holds<T> for Wrap<T> where T: Equatable
+          fn holds(b: Wrap<T>, x: T) -> Bool
             b.v == x
-          }
-        }
+          end
+        end
 
-        impl Holds<Int> for Wrap<T> {
-          fn holds(b: Wrap<T>, x: Int) -> Bool {
+        impl Holds<Int> for Wrap<T>
+          fn holds(b: Wrap<T>, x: Int) -> Bool
             x == 0
-          }
-        }
+          end
+        end
         """
     )
 
     assert test_helpers.has_diagnostic(diagnostics, "overlapping impls: `Holds<T>` for `Wrap`")
-}
+end

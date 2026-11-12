@@ -3,28 +3,28 @@ package irbuild
 import "testing"
 
 // A user generic called at a type argument nothing determines, where no
-// value of it is made (spec, "Determined type arguments"), runs at the hole
-// read as Unit, or as Int when every hole is an empty list's element; and a
-// value built with such a hole is shown through std's Debug instance.
+// value of it is made (spec, "Determined type arguments"), runs at the type
+// the checker closed the argument as (analysis's closed_vars.go); and a
+// value built with such an argument is shown through std's Debug instance.
 func TestIRUndeterminedTypeArgument_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
 	const src = `import std::io
 
-fn ident<T>(x: T) -> T {
+fn ident<T>(x: T) -> T
     x
-}
+end
 
-fn count_all<T>(xs: List<T>) -> Int {
+fn count_all<T>(xs: List<T>) -> Int
     Iter.count(xs)
-}
+end
 
-fn first<T>(xs: List<T>) -> Maybe<T> {
+fn first<T>(xs: List<T>) -> Maybe<T>
     List.head(xs)
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Result.is_ok(ident(Ok(1))))
     io.inspect(Maybe.is_some(ident(None)))
     io.inspect(ident(Err("e")) |> Result.is_ok())
@@ -33,7 +33,7 @@ fn main() {
     f: (Int) -> Int = fn x -> x + 1
     held = (1, Ok(f)).second
     io.inspect(held)
-}
+end
 `
 	const want = "True\n" +
 		"False\n" +
@@ -55,56 +55,56 @@ func TestIRUndeterminedTypeArgument_StdShapesRun(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn main() {
+fn main()
     io.inspect(Some([]))
-    io.inspect(Some(%[]))
+    io.inspect(Some(Set[]))
     io.inspect(Ok([]))
     io.inspect(Some(Some([])))
-    io.inspect(Some(%{}))
-    io.inspect(Some(#[]))
-    io.inspect(%{})
-    io.inspect(Map.size(%{}))
-    io.inspect(%{} |> Map.size())
-    io.inspect(Map.keys(%{}) |> Iter.to_list())
-    io.inspect([%{}])
-    io.inspect((%{}, 1))
-    io.inspect(%{} == %{})
-    io.inspect(%[] != %[])
-    io.inspect(#[] == #[])
-    io.print("${%{}}")
-    io.inspect(Set.size(%[]))
-    io.inspect(Set.union(%[], %[]))
-    io.inspect(Vector.length(#[]))
+    io.inspect(Some({}))
+    io.inspect(Some(Vector[]))
+    io.inspect({})
+    io.inspect(Map.size({}))
+    io.inspect({} |> Map.size())
+    io.inspect(Map.keys({}) |> Iter.to_list())
+    io.inspect([{}])
+    io.inspect(({}, 1))
+    io.inspect({} == {})
+    io.inspect(Set[] != Set[])
+    io.inspect(Vector[] == Vector[])
+    io.print("${{}}")
+    io.inspect(Set.size(Set[]))
+    io.inspect(Set.union(Set[], Set[]))
+    io.inspect(Vector.length(Vector[]))
     io.inspect(Iter.zip([], []) |> Iter.to_list())
     io.inspect(Iter.zip([], [1]) |> Iter.count())
     io.inspect(Iter.concat([], []) |> Iter.to_list())
-    io.inspect(Iter.concat(%[], []) |> Iter.to_list())
-    io.inspect(Iter.to_list(#[]))
-    io.inspect(Iter.count(%{}))
-    fn apply<T, U>(x: T, f: (T) -> U) -> U {
+    io.inspect(Iter.concat(Set[], []) |> Iter.to_list())
+    io.inspect(Iter.to_list(Vector[]))
+    io.inspect(Iter.count({}))
+    fn apply<T, U>(x: T, f: (T) -> U) -> U
         f(x)
-    }
+    end
     io.inspect(apply(1, fn x -> Ok(x + 1)))
-}
+end
 `
 	const want = "Some([])\n" +
-		"Some(%[])\n" +
+		"Some(Set[])\n" +
 		"Ok([])\n" +
 		"Some(Some([]))\n" +
-		"Some(%{})\n" +
-		"Some(#[])\n" +
-		"%{}\n" +
+		"Some({})\n" +
+		"Some(Vector[])\n" +
+		"{}\n" +
 		"0\n" +
 		"0\n" +
 		"[]\n" +
-		"[%{}]\n" +
-		"(%{}, 1)\n" +
+		"[{}]\n" +
+		"({}, 1)\n" +
 		"True\n" +
 		"False\n" +
 		"True\n" +
-		"%{}\n" +
+		"{}\n" +
 		"0\n" +
-		"%[]\n" +
+		"Set[]\n" +
 		"0\n" +
 		"[]\n" +
 		"0\n" +
@@ -121,24 +121,24 @@ func TestIRUndeterminedTypeArgument_DbgOfAnOpenEmpty(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `fn main() {
-    dbg %{}
-    dbg %[]
-    dbg #[]
-}
+	const src = `fn main()
+    dbg {}
+    dbg Set[]
+    dbg Vector[]
+end
 `
 	if _, err := AnalyzeSource("entry.nomi", src); err != nil {
 		t.Fatalf("the front end rejects this, so nothing below is tested: %v", err)
 	}
 	got := vmReference(writeTemp(t, src))
-	want := "dbg line 2: %{} = %{}\ndbg line 3: %[] = %[]\ndbg line 4: #[] = #[]\n"
+	want := "dbg line 2: {} = {}\ndbg line 3: Set[] = Set[]\ndbg line 4: Vector[] = Vector[]\n"
 	if got.stdout+got.stderr != want || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s", got.exit, got.stdout, got.stderr, want)
 	}
 }
 
-// `Map.get(%{}, 1)`, whose key fixes K and leaves V open, and
-// `Iter.zip([], %{})` run by the same fill rule. A Map, a Range or
+// `Map.get({}, 1)`, whose key fixes K and leaves V open, and
+// `Iter.zip([], {})` run by the same fill rule. A Map, a Range or
 // a user `Iter` as `Iter.zip`'s or `Iter.concat`'s second operand is viewed
 // as it is as the first.
 func TestIRUndeterminedTypeArgument_MapShapesRun(t *testing.T) {
@@ -147,33 +147,33 @@ func TestIRUndeterminedTypeArgument_MapShapesRun(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Countdown {
+struct Countdown
     from: Int
-}
+end
 
-impl Iter for Countdown {
-    fn each_while(c: Countdown, yield: (Int) -> Bool) -> Bool {
-        if c.from == 0 {
+impl Iter for Countdown
+    fn each_while(c: Countdown, yield: (Int) -> Bool) -> Bool
+        if c.from == 0 then
             True
-        } else if yield(c.from) {
+        else if yield(c.from) then
             each_while(Countdown{from: c.from - 1}, yield)
-        } else {
+        else
             False
-        }
-    }
-}
+        end
+    end
+end
 
-fn main() {
-    io.inspect(Map.get(%{}, 1))
-    io.inspect(Map.get(%{}, "k") == None)
-    io.inspect(Iter.zip([], %{}) |> Iter.to_list())
-    io.inspect(Iter.zip([1], %{}) |> Iter.count())
-    io.inspect(Iter.zip([1], %{1 => 2}) |> Iter.to_list())
+fn main()
+    io.inspect(Map.get({}, 1))
+    io.inspect(Map.get({}, "k") == None)
+    io.inspect(Iter.zip([], {}) |> Iter.to_list())
+    io.inspect(Iter.zip([1], {}) |> Iter.count())
+    io.inspect(Iter.zip([1], {1 => 2}) |> Iter.to_list())
     io.inspect(Iter.zip([1, 2], 5..9) |> Iter.to_list())
     io.inspect(Iter.zip(["a", "b"], Countdown{from: 3}) |> Iter.to_list())
-    io.inspect(Iter.concat([(1, 2)], %{3 => 4}) |> Iter.to_list())
+    io.inspect(Iter.concat([(1, 2)], {3 => 4}) |> Iter.to_list())
     io.inspect(Iter.concat([9], Countdown{from: 2}) |> Iter.to_list())
-}
+end
 `
 	const want = "None\n" +
 		"True\n" +

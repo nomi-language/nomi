@@ -28,15 +28,15 @@ import shapes.Holder.{Of as O, Wrap as W, Empty}
 import shapes.Pair.{Both}
 import shapes.Shape.{Sq}
 
-fn show(h: shapes.Holder<Int>) -> String {
-    case h {
-        O{value} -> "of ${value}"
+fn show(h: shapes.Holder<Int>) -> String
+    case h
+        O{value:} -> "of ${value}"
         W(v) -> "wrap ${v}"
         Empty -> "empty"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(show(O{value: 1}))
     io.print(show(W(2)))
     io.print(show(Empty))
@@ -48,31 +48,31 @@ fn main() {
     io.print(Debug.inspect(p))
     io.print(Int.to_string(same.make()))
     io.print(Debug.inspect(Sq(9)))
-}
+end
 `,
 		"same.nomi": `import shapes.Holder.{Of}
 
-pub fn make() -> Int {
+pub fn make() -> Int
     h = Of{value: 8}
-    case h {
-        Of{value} -> value
+    case h
+        Of{value:} -> value
         _ -> 0
-    }
-}
+    end
+end
 `,
-		"shapes.nomi": `pub enum Holder<T> {
+		"shapes.nomi": `pub enum Holder<T>
     Of {value: T}
     Wrap T
     Empty
-}
+end
 
-pub enum Pair<A, B> {
+pub enum Pair<A, B>
     Both {left: A, right: B}
-}
+end
 
-pub enum Shape {
+pub enum Shape
     Sq Int
-}
+end
 `,
 	}
 	for name, src := range files {

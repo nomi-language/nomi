@@ -7,7 +7,7 @@ import (
 
 // STRUCT AND DISTINCT PATTERNS IN A `case`.
 //
-// A struct pattern (`User{name: "Alice"}`, `Point{x, y}`) reads each named
+// A struct pattern (`User{name: "Alice"}`, `Point{x:, y:}`) reads each named
 // field in the pattern's order and binds or tests it; a distinct pattern
 // (`Id(x)`) reads the wrapped value and matches its payload pattern. The
 // subject's type is the pattern's (the checker requires it), so there is no
@@ -18,7 +18,7 @@ import (
 // patterns.
 func irNominalCaseKind(k kind) bool {
 	if irRetainedRecordKind(k) {
-		// An anonymous record's `.{x: 10, y}` pattern reads its fields the
+		// An anonymous record's `{x: 10, y:}` pattern reads its fields the
 		// same way; the checker types the pattern against the record.
 		return true
 	}
@@ -46,7 +46,7 @@ func (bl *irScalarBuilder) nominalCaseTest(pattern ast.Node, subj ir.Temp, k kin
 			return false
 		}
 		// A written type name names this struct, directly or through an
-		// alias (`Human{age} = person`): the checker rejects any other
+		// alias (`Human{age:} = person`): the checker rejects any other
 		// (structPatternNames), so the name selects nothing here.
 		for _, f := range p.Fields {
 			fd := k.def.field(f.Name)
@@ -74,7 +74,7 @@ func (bl *irScalarBuilder) nominalCaseTest(pattern ast.Node, subj ir.Temp, k kin
 			}
 		}
 	case *ast.MapPattern:
-		// `%Kvs{"a" => v}` over a distinct of a map, or the bare `%{"a" => v}`
+		// `Kvs{"a" => v}` over a distinct of a map, or the bare `{"a" => v}`
 		// that matches against the inner map: the inner map's pattern.
 		if !irCompositeDistinct(k.def) || k.def.inner.tag != tagMap || (p.TypeName != nil && typeText(p.TypeName) != k.def.nomi) {
 			return false
@@ -84,33 +84,36 @@ func (bl *irScalarBuilder) nominalCaseTest(pattern ast.Node, subj ir.Temp, k kin
 		anon.TypeName = nil
 		return bl.mapCaseTest(&anon, inner, k.def.inner, arm, next)
 	case *ast.ListPattern:
-		// `Items[a, b]` over a distinct of a list, or the bare `[a, b]`
-		// that matches against the inner list: the inner list's pattern.
-		if !irCompositeDistinct(k.def) || k.def.inner.tag != tagList || (p.TypeName != nil && typeText(p.TypeName) != k.def.nomi) {
-			return false
+		switch p.Kind {
+		case ast.SeqVector:
+			// `Path[a, ..]` over a distinct of a vector, or the bare `[a, ..]`
+			// that matches against the inner vector.
+			if !irDistinctOverVector(k) || (p.TypeName != nil && typeText(p.TypeName) != k.def.nomi) {
+				return false
+			}
+			inner := bl.distinctProjection(p, subj, k, true, "irstructpattern.go nominalCaseTest")
+			anon := *p
+			anon.TypeName = nil
+			return bl.vectorCaseTest(&anon, inner, k.def.inner, arm, next)
+		case ast.SeqSet:
+			if !irDistinctOverSet(k) || (p.TypeName != nil && typeText(p.TypeName) != k.def.nomi) {
+				return false
+			}
+			inner := bl.distinctProjection(p, subj, k, true, "irstructpattern.go nominalCaseTest")
+			anon := *p
+			anon.TypeName = nil
+			return bl.setCaseTest(&anon, inner, k.def.inner, arm, next)
+		default:
+			// `Items[a, b]` over a distinct of a list, or the bare `[a, b]`
+			// that matches against the inner list: the inner list's pattern.
+			if !irCompositeDistinct(k.def) || k.def.inner.tag != tagList || (p.TypeName != nil && typeText(p.TypeName) != k.def.nomi) {
+				return false
+			}
+			inner := bl.distinctProjection(p, subj, k, true, "irstructpattern.go nominalCaseTest")
+			anon := *p
+			anon.TypeName = nil
+			return bl.listCaseTest(&anon, inner, k.def.inner, arm, next)
 		}
-		inner := bl.distinctProjection(p, subj, k, true, "irstructpattern.go nominalCaseTest")
-		anon := *p
-		anon.TypeName = nil
-		return bl.listCaseTest(&anon, inner, k.def.inner, arm, next)
-	case *ast.VectorPattern:
-		// `#Path[a, ..]` over a distinct of a vector, or the bare `#[a, ..]`
-		// that matches against the inner vector.
-		if !irDistinctOverVector(k) || (p.TypeName != nil && typeText(p.TypeName) != k.def.nomi) {
-			return false
-		}
-		inner := bl.distinctProjection(p, subj, k, true, "irstructpattern.go nominalCaseTest")
-		anon := *p
-		anon.TypeName = nil
-		return bl.vectorCaseTest(&anon, inner, k.def.inner, arm, next)
-	case *ast.SetPattern:
-		if !irDistinctOverSet(k) || (p.TypeName != nil && typeText(p.TypeName) != k.def.nomi) {
-			return false
-		}
-		inner := bl.distinctProjection(p, subj, k, true, "irstructpattern.go nominalCaseTest")
-		anon := *p
-		anon.TypeName = nil
-		return bl.setCaseTest(&anon, inner, k.def.inner, arm, next)
 	case *ast.EnumPattern:
 		if !irDistinctOverValue(k.def) || (p.Binding != "" && p.Payload != nil) {
 			return false

@@ -361,7 +361,9 @@ func exportsFunctions(nodes []ast.Node) bool {
 // holdsFrom reports whether fa's analysis holds something of the files keys
 // name, whose paths are paths and whose impl methods are impls: a symbol one
 // of them defines, a call or an operator dispatched to one of their impl
-// methods, or a type-qualified call that reached one of them.
+// methods, a type-qualified call that reached one of them, an interpolation
+// that renders through one of them, or a call that takes the defaults one
+// of them declares.
 func holdsFrom(fa *FileAnalysis, keys, paths map[string]bool, impls map[ast.Node]bool) bool {
 	for key := range fa.TypeMethodModules {
 		if keys[key] {
@@ -385,6 +387,21 @@ func holdsFrom(fa *FileAnalysis, keys, paths map[string]bool, impls map[ast.Node
 	}
 	for _, op := range fa.OperatorImpls {
 		if impls[op.Method] {
+			return true
+		}
+	}
+	for _, use := range fa.Operators {
+		if use.Impl != nil && impls[use.Impl.Method] {
+			return true
+		}
+	}
+	for _, rec := range fa.HoleDisplays {
+		if rec.displaysThrough(impls) {
+			return true
+		}
+	}
+	for _, rec := range fa.CallDefaults {
+		if paths[rec.File] {
 			return true
 		}
 	}

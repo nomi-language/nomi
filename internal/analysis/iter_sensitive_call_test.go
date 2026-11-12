@@ -29,50 +29,50 @@ func iterSensitiveDecideHint(name, words string) string {
 
 const strayContinueError = "'continue' can only be used inside an iter-callback (e.g. a lambda passed to Iter.map/Iter.filter/Iter.loop/etc.)"
 
-const keepHelpers = `fn keep(acc: Int, x: Int) -> Int {
-    if x < 0 { continue }
+const keepHelpers = `fn keep(acc: Int, x: Int) -> Int
+    if x < 0 then continue
     acc + x
-}
+end
 
-fn skip(x: Int) -> Int {
-    if x < 0 { continue }
-    if x > 100 { break }
+fn skip(x: Int) -> Int
+    if x < 0 then continue
+    if x > 100 then break
     x
-}
+end
 
-fn emit(s: Int, x: Int) -> (Int, Int) {
-    if x < 0 { continue }
+fn emit(s: Int, x: Int) -> (Int, Int)
+    if x < 0 then continue
     (s + x, x)
-}
+end
 
-fn big(x: Int) -> Bool {
-    if x < 0 { continue }
+fn big(x: Int) -> Bool
+    if x < 0 then continue
     x > 1
-}
+end
 
-fn step(n: Int) -> Int {
-    if n > 3 { break n }
+fn step(n: Int) -> Int
+    if n > 3 then break n
     n + 1
-}
+end
 
-fn add(acc: (Int, List<Int>), x: Int) -> (Int, List<Int>) {
-    if x < 0 { continue }
+fn add(acc: (Int, List<Int>), x: Int) -> (Int, List<Int>)
+    if x < 0 then continue
     (acc.first + x, acc.second + [x])
-}
+end
 
-struct Acc {
+struct Acc
     total: Int
     items: List<Int>
-}
+end
 
-fn add_acc(acc: Acc, x: Int) -> Acc {
-    if x < 0 { continue }
+fn add_acc(acc: Acc, x: Int) -> Acc
+    if x < 0 then continue
     Acc{total: acc.total + x, items: acc.items + [x]}
-}
+end
 
-fn apply(f: (Int) -> Int, x: Int) -> Int {
+fn apply(f: (Int) -> Int, x: Int) -> Int
     f(x)
-}
+end
 `
 
 // iterSensitivityErrors is every error of src that is about where `break`,
@@ -94,7 +94,7 @@ func iterSensitivityErrors(src string) []string {
 // starting value as `from:`, tuple and struct starting values included.
 func TestIterSensitiveCall_AdmitsTheCallbackItself(t *testing.T) {
 	src := keepHelpers + `
-fn main() {
+fn main()
     _ = Iter.map([1, 2], skip) |> Iter.to_list()
     _ = [1, 2] |> Iter.map(skip) |> Iter.to_list()
     _ = Iter.filter([1, 2], big) |> Iter.to_list()
@@ -109,8 +109,8 @@ fn main() {
     _ = Iter.loop(0, step)
     _ = Iter.reduce([1, 2], (0, []), add)
     _ = Iter.reduce([1, 2], Acc{total: 0, items: []}, add_acc)
-    _ = Map.map_values(%{"a" => 1}, skip)
-}
+    _ = Map.map_values({"a" => 1}, skip)
+end
 `
 	if got := iterSensitivityErrors(src); len(got) != 0 {
 		t.Errorf("the checker rejects an allowed form: %v\n%s", got, src)
@@ -140,21 +140,21 @@ func TestIterSensitiveCall_RejectsEveryCall(t *testing.T) {
 		{"the whole body of a map_reduce lambda", "_ = Iter.map_reduce([1], 0, fn s, x -> emit(s, x))", "emit", cont, "Iter.map_reduce(xs, <start>, emit)", true},
 		{"the whole body of a loop lambda", "_ = Iter.loop(0, fn n -> step(n))", "step", "`break`", "Iter.loop(<start>, step)", true},
 		{"a pattern parameter rebuilt", "_ = Iter.reduce([1], (0, []), fn (n, xs), x -> add((n, xs), x))", "add", cont, "Iter.reduce(xs, <start>, add)", true},
-		{"a binding then the call", "_ = Iter.reduce([1], 0, fn acc, x -> {\n        y = x * 10\n        keep(acc, y)\n    })", "keep", cont, reduceKeep, true},
-		{"an if arm", "_ = Iter.reduce([1], 0, fn acc, x -> if x > 1 { keep(acc, x) } else { acc })", "keep", cont, reduceKeep, true},
-		{"a case arm", "_ = Iter.map([1], fn x -> case x {\n        1 -> skip(x)\n        _ -> 0\n    }) |> Iter.to_list()", "skip", both, mapSkip, true},
+		{"a binding then the call", "_ = Iter.reduce([1], 0, fn acc, x ->\n        y = x * 10\n        keep(acc, y)\n    end)", "keep", cont, reduceKeep, true},
+		{"an if arm", "_ = Iter.reduce([1], 0, fn acc, x -> if x > 1 then keep(acc, x) else acc)", "keep", cont, reduceKeep, true},
+		{"a case arm", "_ = Iter.map([1], fn x -> case x\n        1 -> skip(x)\n        _ -> 0\n    end) |> Iter.to_list()", "skip", both, mapSkip, true},
 		{"a computed argument", "_ = Iter.reduce([1], 0, fn acc, x -> keep(acc, x * 2))", "keep", cont, reduceKeep, true},
 		{"an argument of another call", "_ = Iter.map([1], fn x -> apply(fn y -> y, skip(x))) |> Iter.to_list()", "skip", both, mapSkip, true},
 		{"an operand", "_ = Iter.map([1], fn x -> skip(x) + 1) |> Iter.to_list()", "skip", both, mapSkip, true},
 		{"a lambda passed to another function", "_ = Iter.map([1], fn x -> apply(fn y -> skip(y), x)) |> Iter.to_list()", "skip", both, mapSkip, true},
 		{"a capture passed to another function", "_ = Iter.map([1], fn x -> apply(&skip(&1), x)) |> Iter.to_list()", "skip", both, mapSkip, true},
 		{"a capture with a value argument", "_ = Iter.map([1], &keep(1, &1)) |> Iter.to_list()", "keep", cont, reduceKeep, true},
-		{"a defer", "_ = Iter.map([1], fn x -> {\n        defer io.print(skip(x))\n        x\n    }) |> Iter.to_list()", "skip", both, mapSkip, true},
-		{"a concurrent block", "_ = Iter.map([1], fn x -> {\n        concurrent {\n            _ = skip(x)\n        }\n        x\n    }) |> Iter.to_list()", "skip", both, mapSkip, true},
+		{"a defer", "_ = Iter.map([1], fn x ->\n        defer io.print(skip(x))\n        x\n    end) |> Iter.to_list()", "skip", both, mapSkip, true},
+		{"a concurrent block", "_ = Iter.map([1], fn x ->\n        concurrent\n            _ = skip(x)\n        end\n        x\n    end) |> Iter.to_list()", "skip", both, mapSkip, true},
 		{"outside every callback", "_ = skip(1)", "skip", both, mapSkip, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			src := "import std::io\n\n" + keepHelpers + "\nfn main() {\n    " + c.body + "\n}\n"
+			src := "import std::io\n\n" + keepHelpers + "\nfn main()\n    " + c.body + "\nend\n"
 			_, errs := checkSourceWithStdlib(src)
 			want := iterSensitiveCallError(c.callee, c.words, c.shape)
 			if c.inCallback {
@@ -187,11 +187,11 @@ func TestIterSensitiveCall_SuggestsAShapeThatFits(t *testing.T) {
 		// A two-parameter helper in a map's callback is a fold's.
 		{"_ = Iter.map([1], fn x -> keep(0, x)) |> Iter.to_list()", "keep", "`continue`", "Iter.reduce(xs, <start>, keep)"},
 		// A loop's step answers its state.
-		{"_ = Iter.loop(0, fn n -> { if n > 3 { break n }\n        step(n) })", "step", "`break`", "Iter.loop(<start>, step)"},
+		{"_ = Iter.loop(0, fn n ->\n    if n > 3 then break n\n        step(n)\nend)", "step", "`break`", "Iter.loop(<start>, step)"},
 		// Three parameters fit no callback.
 		{"_ = Iter.map([1], fn x -> three(x, 1, 2)) |> Iter.to_list()", "three", "`continue`", ""},
 	} {
-		src := "import std::io\n\n" + keepHelpers + threeHelper + "\nfn main() {\n    " + c.body + "\n}\n"
+		src := "import std::io\n\n" + keepHelpers + threeHelper + "\nfn main()\n    " + c.body + "\nend\n"
 		want := iterSensitiveCallError(c.callee, c.words, c.shape)
 		got := iterSensitivityErrors(src)
 		found := false
@@ -206,27 +206,27 @@ func TestIterSensitiveCall_SuggestsAShapeThatFits(t *testing.T) {
 
 // threeHelper takes three parameters, which no iteration's callback does.
 const threeHelper = `
-fn three(a: Int, b: Int, c: Int) -> Int {
-    if a < 0 { continue }
+fn three(a: Int, b: Int, c: Int) -> Int
+    if a < 0 then continue
     a + b + c
-}
+end
 `
 
 // A two-level chain: outer calls inner, which uses `break`. The call in
 // outer is the error, and outer, which uses neither keyword, is an ordinary
 // function.
 func TestIterSensitiveCall_RejectsAChain(t *testing.T) {
-	src := `fn inner(x: Int) -> Int {
-    if x > 10 { break x } else { x + 1 }
-}
+	src := `fn inner(x: Int) -> Int
+    if x > 10 then break x else x + 1
+end
 
-fn outer(x: Int) -> Int {
+fn outer(x: Int) -> Int
     inner(x)
-}
+end
 
-fn main() {
+fn main()
     _ = Iter.map([1, 2, 3], outer) |> Iter.to_list()
-}
+end
 `
 	got := iterSensitivityErrors(src)
 	if len(got) != 1 || got[0] != iterSensitiveCallError("inner", "`break`", "Iter.map(xs, inner)") {
@@ -239,31 +239,31 @@ fn main() {
 // callback or an iter-sensitive function.
 func TestIterSensitiveCall_RejectsABreakInANestedLambda(t *testing.T) {
 	for _, src := range []string{
-		`fn apply(f: (Int) -> Int, x: Int) -> Int {
+		`fn apply(f: (Int) -> Int, x: Int) -> Int
     f(x)
-}
+end
 
-fn main() {
-    _ = Iter.map([1], fn x -> apply(fn y -> {
-        if y == 2 { continue }
+fn main()
+    _ = Iter.map([1], fn x -> apply(fn y ->
+        if y == 2 then continue
         y
-    }, x)) |> Iter.to_list()
-}
+    end, x)) |> Iter.to_list()
+end
 `,
-		`fn apply(f: (Int) -> Int, x: Int) -> Int {
+		`fn apply(f: (Int) -> Int, x: Int) -> Int
     f(x)
-}
+end
 
-fn skip(x: Int) -> Int {
-    apply(fn y -> {
-        if y == 2 { continue }
+fn skip(x: Int) -> Int
+    apply(fn y ->
+        if y == 2 then continue
         y
-    }, x)
-}
+    end, x)
+end
 
-fn main() {
+fn main()
     _ = Iter.map([1], skip) |> Iter.to_list()
-}
+end
 `,
 	} {
 		got := iterSensitivityErrors(src)
@@ -280,20 +280,20 @@ fn main() {
 // A `continue` in a fold's callback lambda written before `from:` is the
 // fold's: the lambda is the callback wherever the named argument stands.
 func TestIterSensitiveCall_AdmitsASignalInACallbackBeforeFrom(t *testing.T) {
-	src := `fn main() {
-    _ = Iter.reduce([1, 2], 0, fn acc, x -> {
-        if x > 1 { continue }
+	src := `fn main()
+    _ = Iter.reduce([1, 2], 0, fn acc, x ->
+        if x > 1 then continue
         acc + x
-    })
-    _ = Iter.reduce([1, 2], 0, fn acc, x -> {
-        if x > 1 { break acc }
+    end)
+    _ = Iter.reduce([1, 2], 0, fn acc, x ->
+        if x > 1 then break acc
         acc + x
-    })
-    _ = Iter.loop(0, fn n -> {
-        if n > 1 { break n }
+    end)
+    _ = Iter.loop(0, fn n ->
+        if n > 1 then break n
         n + 1
-    })
-}
+    end)
+end
 `
 	if got := iterSensitivityErrors(src); len(got) != 0 {
 		t.Errorf("the checker rejects a callback's own signal: %v", got)
@@ -304,25 +304,25 @@ func TestIterSensitiveCall_AdmitsASignalInACallbackBeforeFrom(t *testing.T) {
 // in a callback or in an iter-sensitive function's own body.
 func TestIterSensitiveCall_RejectsASignalInAConcurrentBlock(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
-		{`fn main() {
-    _ = Iter.map([1, 2], fn x -> {
-        concurrent {
-            if x > 1 { continue }
-        }
+		{`fn main()
+    _ = Iter.map([1, 2], fn x ->
+        concurrent
+            if x > 1 then continue
+        end
         x
-    }) |> Iter.to_list()
-}
+    end) |> Iter.to_list()
+end
 `, "'continue' cannot leave a `concurrent` block: the block runs as an activation of its own, so no iteration around it sees the signal"},
-		{`fn stop(x: Int) -> Int {
-    concurrent {
-        if x > 1 { break }
-    }
+		{`fn stop(x: Int) -> Int
+    concurrent
+        if x > 1 then break
+    end
     x
-}
+end
 
-fn main() {
+fn main()
     _ = Iter.map([1, 2], stop) |> Iter.to_list()
-}
+end
 `, "'break' cannot leave a `concurrent` block: the block runs as an activation of its own, so no iteration around it sees the signal"},
 	} {
 		got := iterSensitivityErrors(c.src)
@@ -340,17 +340,17 @@ fn main() {
 // checker sees, through the reference each generic call records, and a call
 // of one is rejected as any other's is.
 func TestIterSensitiveCall_AdmitsAGenericFunction(t *testing.T) {
-	src := `fn head_or_skip<T>(xs: List<T>) -> T {
-    case List.head(xs) {
+	src := `fn head_or_skip<T>(xs: List<T>) -> T
+    case List.head(xs)
         Some(x) -> x
         None -> continue
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     _ = Iter.map([[1], []], head_or_skip) |> Iter.to_list()
     _ = Iter.map([["a"], []], head_or_skip) |> Iter.to_list()
-}
+end
 `
 	if got := iterSensitivityErrors(src); len(got) != 0 {
 		t.Errorf("the checker rejects a generic iter-sensitive callback: %v", got)

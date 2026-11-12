@@ -22,15 +22,15 @@ func TestStdInterfaceValueParameter_Runs(t *testing.T) {
 	}
 	dir := t.TempDir()
 	files := map[string]string{
-		"main.nomi": `import {
+		"main.nomi": `import
     std::io
     std::json.Json
     std::matcher.Matcher
     std::plural.PluralCategory
     words
-}
+end
 
-fn main() {
+fn main()
     io.print(words.words("a b  c"))
     io.print(String.split("x,y", ","))
     comma: Matcher = ","
@@ -38,31 +38,31 @@ fn main() {
     io.print(words.parts("1;2", ";"))
     io.print(String.starts_with("hello", "he"))
     io.print(String.replace("a-b", "-", "+"))
-    io.print(Json.encode_as(%{"k" => [1]}))
+    io.print(Json.encode_as({"k" => [1]}))
     io.print(words.encoded([4, 5]))
     io.print(PluralCategory.cardinal(1, Locale` + "`en`" + `) == PluralCategory.One)
     io.print(PluralCategory.cardinal(1.5d, Locale` + "`fr`" + `) == PluralCategory.One)
     encode = Json.encode_as
     io.print(encode([6]))
-}
+end
 `,
-		"words.nomi": `import {
+		"words.nomi": `import
     std::json.Json
     std::matcher.Matcher
     std::regex.Regex
-}
+end
 
-pub fn words(text: String) -> List<String> {
+pub fn words(text: String) -> List<String>
     String.split(text, Regex` + "`\\s+`" + `)
-}
+end
 
-pub fn parts(text: String, on: Matcher) -> List<String> {
+pub fn parts(text: String, on: Matcher) -> List<String>
     String.split(text, on)
-}
+end
 
-pub fn encoded(xs: List<Int>) -> String {
+pub fn encoded(xs: List<Int>) -> String
     Json.encode_as(xs)
-}
+end
 `,
 	}
 	for name, src := range files {

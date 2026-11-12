@@ -6,38 +6,52 @@ import (
 
 func TestIRListEquality_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn left() -> List<Int> { io.print("left"); [1, 2] }
-fn right() -> List<Int> { io.print("right"); [1, 2] }
-fn empty() -> List<Int> { [] }
-fn main() {
+fn left() -> List<Int>
+    io.print("left")
+    [1, 2]
+end
+fn right() -> List<Int>
+    io.print("right")
+    [1, 2]
+end
+fn empty() -> List<Int>
+    []
+end
+fn main()
  io.print(left() == right())
  io.print([1, 2] != [1, 3])
  io.print([1] == [])
  io.print([] != [1])
  io.print([[1], empty()] == [[1], empty()])
  io.print([0.0 / 0.0] == [0.0 / 0.0])
-}
+end
 `, "left\nright\nTrue\nTrue\nFalse\nTrue\nTrue\nTrue\n")
 }
 
 func TestIRListEquality_FindLinksThroughProcess(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn find(list: List<Int>, target: Int) -> Maybe<Int> {
- if list == [] { None } else {
+fn find(list: List<Int>, target: Int) -> Maybe<Int>
+ if list == [] then
+     None
+ else
   Iter.reduce(list, None, fn acc, x ->
-   case acc {
+   case acc
     Some(v) -> Some(v)
-    None -> if x == target { Some(x) } else { None }
-   }
+    None -> if x == target then Some(x) else None
+   end
+  end
   )
- }
-}
-fn process(list: List<Int>) -> Maybe<Int> { val = find(list, 3)?; Some(val * 10) }
-fn main() {
+ end
+end
+fn process(list: List<Int>) -> Maybe<Int>
+    val = find(list, 3)?
+    Some(val * 10)
+end
+fn main()
  io.inspect(process([1, 2, 3, 4]))
  io.inspect(process([1, 2, 4, 5]))
  io.inspect(process([]))
-}
+end
 `, "Some(30)\nNone\nNone\n")
 }
 
@@ -46,14 +60,14 @@ fn main() {
 // a Map compares order-insensitively, and NaN equals itself.
 func TestIRListEquality_VectorsAndMapsCompareStructurally(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
- io.print(#[1, 2] == #[1, 2])
- io.print(#[1, 2] != #[2, 1])
- io.print(Vector.equal(#[0.0 / 0.0], #[0.0 / 0.0]))
- io.print(%{"a" => 1, "b" => 2} == %{"b" => 2, "a" => 1})
- io.print(%{"a" => 1} != %{"a" => 2})
- io.print(Map.equal(%{1 => "x"}, %{1 => "x"}))
-}
+fn main()
+ io.print(Vector[1, 2] == Vector[1, 2])
+ io.print(Vector[1, 2] != Vector[2, 1])
+ io.print(Vector.equal(Vector[0.0 / 0.0], Vector[0.0 / 0.0]))
+ io.print({"a" => 1, "b" => 2} == {"b" => 2, "a" => 1})
+ io.print({"a" => 1} != {"a" => 2})
+ io.print(Map.equal({1 => "x"}, {1 => "x"}))
+end
 `, "True\nTrue\nTrue\nTrue\nTrue\nTrue\n")
 }
 
@@ -63,7 +77,9 @@ fn main() {
 func TestIRListEquality_DistinctElementsRetain(t *testing.T) {
 	p, err := AnalyzeSource("main.nomi", `import std::io
 type Id Int
-fn main() { io.print([Id(1)] == [Id(1)]) }`)
+fn main()
+    io.print([Id(1)] == [Id(1)])
+end`)
 	if err != nil {
 		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
 	}

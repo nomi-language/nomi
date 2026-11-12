@@ -3,124 +3,124 @@
 //
 // Every assertion here pins a rule of the language rather than one reasoned
 // from the construct's name. See internal/irbuild/appfield.go.
-pub struct Settings {
+pub struct Settings
     context: Context
 
     label: String
     size: Int
-}
+end
 
-pub fn boot() -> Result<Settings, String> {
+pub fn boot() -> Result<Settings, String>
     Ok(Settings{context: Context.root(), label: "booted", size: 1})
-}
+end
 
-fn main() {}
+fn main() end
 
 // deep never mentions an app field of its own and is two calls from any
 // `with`, which is the property AGENTS.md states and a struct-passing lowering
 // cannot express: overrides flow down the call chain to callees that read the
 // field even when intermediates never mention it.
-fn deep() -> String {
+fn deep() -> String
     Settings.label
-}
+end
 
-fn middle() -> String {
+fn middle() -> String
     deep()
-}
+end
 
-fn sized() -> Int {
+fn sized() -> Int
     Settings.size
-}
+end
 
 // A `with` followed by an early return: the override is in force for the
 // returned call and ends with the function.
-fn early(on: Bool) -> String {
+fn early(on: Bool) -> String
     with Settings.label = "early"
-    if on { return middle() }
+    if on then return middle()
     "late ${middle()}"
-}
+end
 
 // A `with` in a lambda's body holds for that call of the lambda.
-fn in_lambda() -> List<String> {
+fn in_lambda() -> List<String>
     ["a", "b"]
-    |> Iter.map(fn tag -> {
+    |> Iter.map(fn tag ->
         with Settings.label = "lambda ${tag}"
         middle()
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
 // A closure returned after a `with` line reads the field in force where it
 // is called, not where it was made.
-fn closure() -> () -> String {
+fn closure() -> () -> String
     with Settings.label = "made"
     fn -> middle()
-}
+end
 
-group "app fields" {
+group "app fields"
     boot boot()
 
-    test "a read with no override sees the booted value" {
+    test "a read with no override sees the booted value"
         assert Settings.label == "booted"
         assert Settings.size == 1
-    }
+    end
 
-    test "an override reaches a deep callee through an intermediate" {
+    test "an override reaches a deep callee through an intermediate"
         assert middle() == "booted"
 
         with Settings.label = "scoped"
         assert middle() == "scoped"
-    }
+    end
 
-    test "the value reads the field in force where its line runs" {
+    test "the value reads the field in force where its line runs"
         with Settings.label = Settings.label + "-once"
         assert Settings.label == "booted-once"
 
         with Settings.label = Settings.label + "-twice"
         assert Settings.label == "booted-once-twice"
-    }
+    end
 
-    test "an override in a block ends with the block" {
-        if True {
+    test "an override in a block ends with the block"
+        if True then
             with Settings.label = "a"
             with Settings.size = 9
             assert sized() == 9
             assert Settings.label == "a"
             _ = Settings.label
-        }
+        end
 
         assert Settings.label == "booted"
         assert sized() == 1
-    }
+    end
 
-    test "a with in a lambda and before an early return" {
+    test "a with in a lambda and before an early return"
         assert in_lambda() == ["lambda a", "lambda b"]
         assert early(True) == "early"
         assert early(False) == "late early"
         assert middle() == "booted"
-    }
+    end
 
-    test "a closure does not carry the override it was made under" {
+    test "a closure does not carry the override it was made under"
         f = closure()
         assert f() == "booted"
         with Settings.label = "caller"
         assert f() == "caller"
-    }
+    end
 
-    test "a later case does not see an earlier case's override" {
+    test "a later case does not see an earlier case's override"
         assert Settings.label == "booted"
-    }
-}
+    end
+end
 
-group "an override in a setup" {
+group "an override in a setup"
     boot boot()
 
-    setup {
+    setup begin
         with Settings.label = "from-setup"
-    }
+    end
 
-    test "reaches the test body" {
+    test "reaches the test body"
         assert Settings.label == "from-setup"
         assert middle() == "from-setup"
-    }
-}
+    end
+end

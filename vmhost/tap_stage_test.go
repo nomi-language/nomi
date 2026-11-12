@@ -28,21 +28,21 @@ func runTapProgram(t *testing.T, src string) string {
 func TestTapStage_RunsInOrderAndPassesTheValueOn(t *testing.T) {
 	src := `import std::io
 
-fn next(n: Int) -> Int {
+fn next(n: Int) -> Int
     io.print("next ${n}")
     n + 1
-}
+end
 
-fn main() {
+fn main()
     total =
         1
         |> next()
         |> tap fn n -> io.print("tap ${n}")
         |> next()
-        |> tap fn n -> {
+        |> tap fn n ->
             io.print("braced ${n}")
             io.print("again ${n}")
-        }
+        end
         |> then fn n -> n * 10
         |> tap fn n -> io.print("last ${n}")
 
@@ -55,7 +55,7 @@ fn main() {
         |> Iter.to_list()
 
     io.print("${words}")
-}
+end
 `
 	want := "next 1\ntap 2\nnext 2\nbraced 3\nagain 3\nlast 30\ntotal 30\ngot 2 words\n[GO, NORTH]\n"
 	if got := runTapProgram(t, src); got != want {
@@ -68,16 +68,16 @@ fn main() {
 func TestTapStage_InsideACapture(t *testing.T) {
 	src := `import std::io
 
-fn main() {
-    run = io.capture("", fn -> {
+fn main()
+    run = io.capture("", fn ->
         io.print("start")
         7
         |> tap fn n -> io.print("saw ${n}")
         |> then fn n -> n + 1
-    })
+    end)
     io.print("value ${run.value}")
     io.write("output [${run.output}]\n")
-}
+end
 `
 	want := "value 8\noutput [start\nsaw 7\n]\n"
 	if got := runTapProgram(t, src); got != want {
@@ -90,10 +90,10 @@ fn main() {
 func TestTapStage_DbgTail(t *testing.T) {
 	src := `import std::io
 
-fn main() {
+fn main()
     n = 4 |> tap fn v -> dbg v * 2
     io.print("n ${n}")
-}
+end
 `
 	want := "dbg line 4: v * 2 = 8\nn 4\n"
 	if got := runTapProgram(t, src); got != want {
@@ -106,16 +106,16 @@ fn main() {
 func TestTapStage_GenericAndInLambda(t *testing.T) {
 	src := `import std::io
 
-fn logged<T>(x: T, label: String) -> T {
+fn logged<T>(x: T, label: String) -> T
     x |> tap fn v -> io.print("${label}: ${Debug.inspect(v)}")
-}
+end
 
-fn main() {
+fn main()
     a = logged(5, "five")
     b = logged("s", "str")
     xs = Iter.map([1, 2], fn x -> x |> tap fn y -> io.print("in ${y}")) |> Iter.to_list()
     io.print("${a} ${b} ${xs}")
-}
+end
 `
 	want := "five: 5\nstr: \"s\"\nin 1\nin 2\n5 s [1, 2]\n"
 	if got := runTapProgram(t, src); got != want {

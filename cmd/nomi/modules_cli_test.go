@@ -28,13 +28,13 @@ func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
 	publishFiles(t, proxy, "example.com/strings2", "v1.2.0", map[string]string{
 		"go.mod":        "module example.com/strings2\n\ngo 1.22\n",
 		"nomi.toml":     "[module]\nname = \"strings2\"\n",
-		"strings2.nomi": "import strings2::twice\n\npub fn shout(s: String) -> String {\n    twice.twice(String.uppercase(s))\n}\n",
-		"twice.nomi":    "pub fn twice(s: String) -> String {\n    \"${s}${s}\"\n}\n",
+		"strings2.nomi": "import strings2::twice\n\npub fn shout(s: String) -> String\n    twice.twice(String.uppercase(s))\nend\n",
+		"twice.nomi":    "pub fn twice(s: String) -> String\n    \"${s}${s}\"\nend\n",
 	})
 	app := filepath.Join(tmp, "app")
 	mustWrite(t, filepath.Join(app, "go.mod"), "module example.com/app\n\ngo 1.27.0\n")
 	mustWrite(t, filepath.Join(app, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	mustWrite(t, filepath.Join(app, "main.nomi"), "import {\n    std::io\n    strings2\n}\n\nfn main() {\n    io.print(strings2.shout(\"hey\"))\n}\n")
+	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    std::io\n    strings2\nend\n\nfn main()\n    io.print(strings2.shout(\"hey\"))\nend\n")
 
 	emptyPath := filepath.Join(tmp, "bin")
 	if err := os.MkdirAll(emptyPath, 0o755); err != nil {
@@ -119,7 +119,7 @@ func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
 
 	// No go.mod: nomi add says what to create.
 	bare := filepath.Join(tmp, "bare")
-	mustWrite(t, filepath.Join(bare, "main.nomi"), "fn main() {\n}\n")
+	mustWrite(t, filepath.Join(bare, "main.nomi"), "fn main() end\n")
 	_, stderr, err = nomi(bare, "add", "example.com/strings2")
 	if err == nil || !strings.Contains(stderr, "no go.mod") {
 		t.Fatalf("nomi add with no go.mod: %v\n%s", err, stderr)

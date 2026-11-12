@@ -2,16 +2,16 @@ import std::io
 
 // Named arguments to a generic function fill the parameter they name, in a
 // direct call and in a pipe, in any order.
-fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False) -> List<T> {
+fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False) -> List<T>
     base = [x, ..xs]
-    if twice { [x, ..base] } else { base }
-}
+    if twice then [x, ..base] else base
+end
 
-fn g(x: Int, y: Int = 0) -> Int {
+fn g(x: Int, y: Int = 0) -> Int
     x * 10 + y
-}
+end
 
-fn main() {
+fn main()
     io.print(Debug.inspect(spread(1, twice: True)))
 
     io.print(
@@ -32,4 +32,4 @@ fn main() {
             |> g(y: 2)
         )
     )
-}
+end

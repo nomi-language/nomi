@@ -14,7 +14,7 @@ import (
 // improbable.
 func TestUnusedBindings_ReportInSourceOrder(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
-	src := "fn main() {\n  a = 1\n  b = 2\n  c = 3\n  d = 4\n}\n"
+	src := "fn main()\n  a = 1\n  b = 2\n  c = 3\n  d = 4\nend\n"
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}

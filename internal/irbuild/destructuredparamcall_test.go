@@ -13,47 +13,47 @@ func TestDestructuredParamCalls_Run(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const lib = `pub struct Point {
+	const lib = `pub struct Point
     x: Int
     y: Int
-}
+end
 
-impl Point {
-    pub fn scale(Point{x, y}, by: Int = x, plus: Int = 0) -> Int {
+impl Point
+    pub fn scale(Point{x:, y:}, by: Int = x, plus: Int = 0) -> Int
         x * by + y + plus
-    }
-}
+    end
+end
 
-pub fn area((w, h): (Int, Int), scale: Int = w) -> Int {
+pub fn area((w, h): (Int, Int), scale: Int = w) -> Int
     w * h * scale
-}
+end
 `
-	const main = `import {
+	const main = `import
     std::io
     lib
     lib.Point
-}
+end
 
-struct Pt<T> {
+struct Pt<T>
     x: T
     y: T
-}
+end
 
-impl Pt<T> {
-    fn pick<T>(Pt{x, y}: Pt<T>, first: Bool = True, other: T = y) -> T {
-        if first { x } else { other }
-    }
-}
+impl Pt<T>
+    fn pick<T>(Pt{x:, y:}: Pt<T>, first: Bool = True, other: T = y) -> T
+        if first then x else other
+    end
+end
 
-fn local_area((w, h): (Int, Int), scale: Int = h) -> Int {
+fn local_area((w, h): (Int, Int), scale: Int = h) -> Int
     w * h * scale
-}
+end
 
-fn swap<A, B>((a, b): (A, B), keep: Bool = False, fallback: A = a) -> (B, A) {
-    if keep { (b, fallback) } else { (b, a) }
-}
+fn swap<A, B>((a, b): (A, B), keep: Bool = False, fallback: A = a) -> (B, A)
+    if keep then (b, fallback) else (b, a)
+end
 
-fn main() {
+fn main()
     io.print(lib.area((2, 3)))
     io.print(lib.area((2, 3), scale: 2))
     io.print(lib.area(scale: 3, (2, 3)))
@@ -66,7 +66,7 @@ fn main() {
     io.inspect(swap((1, "x"), fallback: 5, keep: True))
     io.inspect(Pt.pick(Pt{x: 1, y: 2}, first: False))
     io.inspect(Pt.pick(Pt{x: "a", y: "b"}, other: "c", first: False))
-}
+end
 `
 	verifyLambdaProgram(t, main, "12\n12\n18\n18\n6\n5\n9\n(\"x\", 1)\n(\"x\", 1)\n(\"x\", 5)\n2\n\"c\"\n",
 		map[string]string{"lib.nomi": lib})

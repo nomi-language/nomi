@@ -22,29 +22,29 @@ const loadCounter = `import std::io
 
 once greeting = make_greeting()
 
-fn make_greeting() -> String {
+fn make_greeting() -> String
     io.print("counter booted")
     "Hello"
-}
+end
 
-export fn add(a: Int, b: Int) -> Int {
+export fn add(a: Int, b: Int) -> Int
     a + b
-}
+end
 
-export fn greet(name: String) -> String {
+export fn greet(name: String) -> String
     "${greeting}, ${name}!"
-}
+end
 `
 
 const loadWords = `import std::io
 
-fn main() {
+fn main()
     io.print("words main ran")
-}
+end
 
-export fn shout(text: String) -> String {
+export fn shout(text: String) -> String
     String.uppercase(text)
-}
+end
 `
 
 // wasmMemoryMinimum is the initial size in bytes the module's memory
@@ -96,7 +96,7 @@ func TestBuildCommand_ReactorLoadsOneProgramPerInstance(t *testing.T) {
 	}
 	mustWrite(t, filepath.Join(dir, "counter.nomi"), loadCounter)
 	mustWrite(t, filepath.Join(dir, "words.nomi"), loadWords)
-	mustWrite(t, filepath.Join(dir, "lib.nomi"), "export fn twice(n: Int) -> Int {\n    n * 2\n}\n")
+	mustWrite(t, filepath.Join(dir, "lib.nomi"), "export fn twice(n: Int) -> Int\n    n * 2\nend\n")
 	nomi("build-vm", "--reactor", "--target", "wasip1/wasm", "-o", "reactor.wasm")
 	nomi("build-vm", "--reactor", "-o", "vm-reactor.wasm")
 	nomi("build-vm", "--reactor", "--no-network", "--target", "wasip1/wasm", "-o", "reactor-nonet.wasm")

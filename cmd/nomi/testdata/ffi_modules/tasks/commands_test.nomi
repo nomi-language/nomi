@@ -1,96 +1,96 @@
-import {
+import
     std::instant.Instant
     commands.{self, Command}
     store.Store
     system.Clock
     task.{Status, Task}
-}
+end
 
 once noon = Instant.from_seconds(1_700_000_000)
 
 /// A clock that always reads `at`.
-struct FixedClock {
+struct FixedClock
     at: Instant
-}
+end
 
-impl Clock for FixedClock {
-    fn now(clock: FixedClock) -> Instant {
+impl Clock for FixedClock
+    fn now(clock: FixedClock) -> Instant
         clock.at
-    }
-}
+    end
+end
 
 /// A store that keeps nothing. It accepts every change, or refuses every
 /// change with `error`.
-struct FakeStore {
+struct FakeStore
     error: Maybe<String> = None
-}
+end
 
-impl Store for FakeStore {
-    fn load(_store: FakeStore) -> Result<Map<Int, Task>, String> {
-        Ok(%{})
-    }
+impl Store for FakeStore
+    fn load(_store: FakeStore) -> Result<Map<Int, Task>, String>
+        Ok({})
+    end
 
-    fn save(store: FakeStore, task: Task) -> Result<Unit, String> {
+    fn save(store: FakeStore, task: Task) -> Result<Unit, String>
         _ = task
         outcome(store)
-    }
+    end
 
-    fn delete(store: FakeStore, id: Int) -> Result<Unit, String> {
+    fn delete(store: FakeStore, id: Int) -> Result<Unit, String>
         _ = id
         outcome(store)
-    }
-}
+    end
+end
 
-fn outcome(store: FakeStore) -> Result<Unit, String> {
-    case store.error {
+fn outcome(store: FakeStore) -> Result<Unit, String>
+    case store.error
         None -> Ok(Unit)
         Some(error) -> Err(error)
-    }
-}
+    end
+end
 
 /// Runs each line in turn, starting from no tasks, and returns the tasks and
 /// the lines the last command showed.
-fn run_lines(lines: List<String>) -> Result<(Map<Int, Task>, List<String>), String> {
-    Iter.reduce(lines, Ok((%{}, [])), fn state, line -> {
+fn run_lines(lines: List<String>) -> Result<(Map<Int, Task>, List<String>), String>
+    Iter.reduce(lines, Ok(({}, [])), fn state, line ->
         (tasks, _shown) = state?
         command = commands.parse(line)?
         commands.run(command, tasks, FakeStore{}, FixedClock{at: noon})
-    })
-}
+    end)
+end
 
-test "words become commands" {
+test "words become commands"
     assert commands.parse("") == Ok(Command.Blank)
     assert commands.parse("list done") == Ok(Command.List{status: Some(Status.Done)})
 
     assert commands.parse("delete 4") == Ok(Command.Delete{id: 4})
-}
+end
 
-test "malformed lines are errors" {
+test "malformed lines are errors"
     assert commands.parse("add") == Err("unknown command 'add', try 'help'")
     assert commands.parse("list later") == Err("unknown status 'later'")
-}
+end
 
-test "added tasks are numbered from 1 and stamped by the clock" {
+test "added tasks are numbered from 1 and stamped by the clock"
     (tasks, _shown) = run_lines(["add first", "add second"])?
 
     assert Map.get(tasks, 2) == Some(Task{id: 2, title: "second", created: noon})
-}
+end
 
-test "list shows the tasks with a status, in id order" {
+test "list shows the tasks with a status, in id order"
     (_tasks, shown) = run_lines(
         ["add a", "add b", "add c", "done 3", "start 2", "done 1", "list done"]
     )?
 
     assert shown == ["[x] 1 a", "[x] 3 c"]
-}
+end
 
-test "an unknown id is an error" {
+test "an unknown id is an error"
     assert run_lines(["add a", "done 7"]) == Err("no task with id 7")
-}
+end
 
-test "a failed save is an error" {
+test "a failed save is an error"
     store = FakeStore{error: Some("disk full")}
-    result = commands.run(Command.Add{title: "a"}, %{}, store, FixedClock{at: noon})
+    result = commands.run(Command.Add{title: "a"}, {}, store, FixedClock{at: noon})
 
     assert result == Err("disk full")
-}
+end

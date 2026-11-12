@@ -25,19 +25,19 @@ func TestFunctionEquality_DerivesAndBoundsAreRejected(t *testing.T) {
 		want  string
 		hint  string
 	}{
-		{"derived Equatable", derive, "struct W {\n    f: (Int) -> Int\n}\n\nderive Equatable for W\n",
+		{"derived Equatable", derive, "struct W\n    f: (Int) -> Int\nend\n\nderive Equatable for W\n",
 			"no impl of `Equatable` for `(Int) -> Int` (required via `derive Equatable for W`, field `f`)",
 			"a function value has no equality; write an `impl Equatable for W` that leaves the field out"},
-		{"derived Hashable through a list", derive, "struct W {\n    fs: List<(Int) -> Int>\n}\n\nderive Hashable for W\n",
+		{"derived Hashable through a list", derive, "struct W\n    fs: List<(Int) -> Int>\nend\n\nderive Hashable for W\n",
 			"no impl of `Hashable` for `(Int) -> Int` (required via `derive Hashable for W`, field `fs`)",
 			"a function value has no equality; write an `impl Hashable for W` that leaves the field out"},
-		{"derived Comparable on an enum payload", derive, "enum E {\n    Step((Int) -> Int)\n}\n\nderive Comparable for E\n",
+		{"derived Comparable on an enum payload", derive, "enum E\n    Step((Int) -> Int)\nend\n\nderive Comparable for E\n",
 			"no impl of `Comparable` for `(Int) -> Int` (required via `derive Comparable for E`, field `Step`)",
 			"a function value has no equality; write an `impl Comparable for E` that leaves the field out"},
-		{"bound met by a function", bound, "fn same<T>(a: T, b: T) -> Bool where T: Equatable {\n    a == b\n}\n\nfn main() {\n    g = fn x: Int -> x\n    _ = same(g, g)\n}\n",
+		{"bound met by a function", bound, "fn same<T>(a: T, b: T) -> Bool where T: Equatable\n    a == b\nend\n\nfn main()\n    g = fn x: Int -> x\n    _ = same(g, g)\nend\n",
 			"(Int) -> Int does not implement Equatable (required by `where T: Equatable`)",
 			"a function value has no equality"},
-		{"bound met by a tuple holding one", bound, "fn same<T>(a: T, b: T) -> Bool where T: Equatable {\n    a == b\n}\n\nfn main() {\n    g = fn x: Int -> x\n    _ = same((1, g), (1, g))\n}\n",
+		{"bound met by a tuple holding one", bound, "fn same<T>(a: T, b: T) -> Bool where T: Equatable\n    a == b\nend\n\nfn main()\n    g = fn x: Int -> x\n    _ = same((1, g), (1, g))\nend\n",
 			"(Int, (Int) -> Int) does not implement Equatable (required by `where T: Equatable`)",
 			"`(Int, (Int) -> Int)` holds `(Int) -> Int`, and a function value has no equality"},
 	}

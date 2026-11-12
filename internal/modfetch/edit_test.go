@@ -96,7 +96,7 @@ func TestRemove_DropsTheRequirementAndWhatOnlyItNeeded(t *testing.T) {
 	p.publish(t, "example.com/other", "v1.0.0", map[string]string{
 		"go.mod":     "module example.com/other\n\ngo 1.22\n",
 		"nomi.toml":  "[module]\nname = \"other\"\n",
-		"other.nomi": "pub fn one() -> Int {\n    1\n}\n",
+		"other.nomi": "pub fn one() -> Int\n    1\nend\n",
 	})
 	app, _ := setup(t, p)
 	for _, m := range []string{"example.com/greet@v0.1.0", "example.com/other@v1.0.0"} {
@@ -131,7 +131,7 @@ func TestRemove_KeepsAnIndirectRequirementAnotherModuleNeeds(t *testing.T) {
 	p.publish(t, "example.com/loud", "v1.0.0", map[string]string{
 		"go.mod":    "module example.com/loud\n\ngo 1.22\n\nrequire example.com/strutil v1.0.0\n",
 		"nomi.toml": "[module]\nname = \"loud\"\n",
-		"loud.nomi": "pub fn one() -> Int {\n    1\n}\n",
+		"loud.nomi": "pub fn one() -> Int\n    1\nend\n",
 	})
 	app, _ := setup(t, p)
 	for _, m := range []string{"example.com/greet@v0.1.0", "example.com/loud@v1.0.0"} {
@@ -183,7 +183,7 @@ func TestUpdate_StaysWithinTheModulePath(t *testing.T) {
 	p.publish(t, "example.com/greet/v2", "v2.0.0", map[string]string{
 		"go.mod":     "module example.com/greet/v2\n\ngo 1.22\n",
 		"nomi.toml":  "[module]\nname = \"greet\"\n",
-		"greet.nomi": "pub fn hello() -> Int {\n    2\n}\n",
+		"greet.nomi": "pub fn hello() -> Int\n    2\nend\n",
 	})
 	app, _ := setup(t, p)
 	if _, err := Add(app, "example.com/greet@v0.1.0", Options{}); err != nil {
@@ -241,12 +241,12 @@ func TestAddAndUpdate_KeepTheLibModulesOnOneCommit(t *testing.T) {
 		p.publish(t, sqlite, v, map[string]string{
 			"go.mod":      "module " + sqlite + "\n\ngo 1.22\n",
 			"nomi.toml":   "[module]\nname = \"sqlite\"\n",
-			"sqlite.nomi": "pub fn version() -> String {\n    \"" + v + "\"\n}\n",
+			"sqlite.nomi": "pub fn version() -> String\n    \"" + v + "\"\nend\n",
 		})
 		p.publish(t, sqlkit, v, map[string]string{
 			"go.mod":      "module " + sqlkit + "\n\ngo 1.22\n\nrequire " + sqlite + " " + older + "\n",
 			"nomi.toml":   "[module]\nname = \"sqlkit\"\n",
-			"sqlkit.nomi": "pub fn version() -> String {\n    \"" + v + "\"\n}\n",
+			"sqlkit.nomi": "pub fn version() -> String\n    \"" + v + "\"\nend\n",
 		})
 	}
 	app, _ := setup(t, p)
@@ -295,12 +295,12 @@ func TestAddAndUpdate_KeepTheLibModulesAtTheReleasesCommit(t *testing.T) {
 		p.publish(t, sqlite, v, map[string]string{
 			"go.mod":      "module " + sqlite + "\n\ngo 1.22\n",
 			"nomi.toml":   "[module]\nname = \"sqlite\"\n",
-			"sqlite.nomi": "pub fn version() -> String {\n    \"" + v + "\"\n}\n",
+			"sqlite.nomi": "pub fn version() -> String\n    \"" + v + "\"\nend\n",
 		})
 		p.publish(t, sqlkit, v, map[string]string{
 			"go.mod":      "module " + sqlkit + "\n\ngo 1.22\n\nrequire " + sqlite + " " + older + "\n",
 			"nomi.toml":   "[module]\nname = \"sqlkit\"\n",
-			"sqlkit.nomi": "pub fn version() -> String {\n    \"" + v + "\"\n}\n",
+			"sqlkit.nomi": "pub fn version() -> String\n    \"" + v + "\"\nend\n",
 		})
 	}
 	for _, path := range []string{sqlite, sqlkit} {

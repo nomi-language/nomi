@@ -18,7 +18,9 @@ import (
 // and its syntax tree must equal src's once src's is put in the order Format
 // writes it in (imports combined and sorted, type body items ordered, a body
 // that is one block flattened, a tail `return` dropped, a parameter's
-// self-typing annotation dropped). Positions, comment
+// self-typing annotation dropped), and an arm's body that is a block of one
+// expression, jump or assertion is that node in both (unwrapArmBodies).
+// Positions, comment
 // placement, blank lines and parentheses are ignored, and so is the other
 // spelling of a parenthesized name in a pattern (bindGroupedNames). Comment
 // text is not: both texts must hold the same comments and doc comments. A
@@ -41,6 +43,8 @@ func SameMeaning(src, formatted string) error {
 	if err != nil {
 		return fmt.Errorf("the formatted text does not parse: %v", err)
 	}
+	unwrapArmBodies(reflect.ValueOf(orig), map[uintptr]bool{})
+	unwrapArmBodies(reflect.ValueOf(out), map[uintptr]bool{})
 	bindGroupedNames(reflect.ValueOf(orig))
 	bindGroupedNames(reflect.ValueOf(out))
 	nameImportSegments(reflect.ValueOf(orig))
@@ -175,6 +179,8 @@ var astSkipFields = map[string]bool{
 	// An empty `{}` body on an ExternType or TypeDef is no body; the
 	// formatter drops the braces. A body with items compares by its Items.
 	"HasBody": true,
+	// An `if` written inline or across lines with `end`: the same branches.
+	"Inline": true,
 }
 
 func astSkipField(name string) bool {
@@ -185,8 +191,8 @@ func astSkipField(name string) bool {
 }
 
 // bindGroupedNames rewrites, in place, a variant or struct field pattern
-// whose payload is a parenthesized name, `Some((n))` or `.{x: (n)}`, to the
-// binding the parser builds for `Some(n)` and `.{x: n}`. The two bind the
+// whose payload is a parenthesized name, `Some((n))` or `{x: (n)}`, to the
+// binding the parser builds for `Some(n)` and `{x: n}`. The two bind the
 // same name to the same value; the formatter writes the second.
 func bindGroupedNames(v reflect.Value) {
 	switch v.Kind() {
@@ -223,6 +229,61 @@ func bindGroupedNames(v reflect.Value) {
 			bindGroupedNames(v.MapIndex(k))
 		}
 	}
+}
+
+// unwrapArmBodies rewrites, in place, every `case` or binding `else` arm
+// whose body is a block of one expression, jump or assertion to that node. `p -> e` and `p ->` with e on the line below are the same arm; the
+// parser keeps the block for the second when e carries a comment
+// (parser.singleBody), so that the comment has a statement to sit on, and
+// the formatter moves a body below its `->` when the arms break. The
+// comments themselves are compared by changedComments.
+func unwrapArmBodies(v reflect.Value, seen map[uintptr]bool) {
+	switch v.Kind() {
+	case reflect.Interface:
+		if !v.IsNil() {
+			unwrapArmBodies(v.Elem(), seen)
+		}
+	case reflect.Ptr:
+		if v.IsNil() || seen[v.Pointer()] {
+			return
+		}
+		seen[v.Pointer()] = true
+		unwrapArmBodies(v.Elem(), seen)
+	case reflect.Struct:
+		if v.Type() == caseBranchType && v.CanAddr() {
+			br := v.Addr().Interface().(*ast.CaseBranch)
+			br.Body = armBodyExpr(br.Body)
+		}
+		for i := 0; i < v.NumField(); i++ {
+			unwrapArmBodies(v.Field(i), seen)
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			unwrapArmBodies(v.Index(i), seen)
+		}
+	}
+}
+
+// armBodyExpr is body's one expression, jump or assertion when body is a
+// block of only that, and body otherwise. A block holding a `begin` block stays: the
+// inner block is the body's statement, not the body.
+func armBodyExpr(body ast.Node) ast.Node {
+	b, ok := body.(*ast.Block)
+	if !ok || b == nil || len(b.Stmts) != 1 {
+		return body
+	}
+	switch s := b.Stmts[0].(type) {
+	case *ast.ExprStmt:
+		if _, isBlock := s.Expr.(*ast.Block); isBlock {
+			return body
+		}
+		return s.Expr
+	case *ast.Break, *ast.Continue, *ast.Return, *ast.Assertion:
+		// An `assert` on the `->`'s line is an expression, and on its own
+		// line a statement: the same node either way.
+		return s
+	}
+	return body
 }
 
 // nameImportSegments rewrites, in place, each path segment of every import

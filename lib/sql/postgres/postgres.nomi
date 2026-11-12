@@ -19,7 +19,7 @@
 //# constraint as Postgres does, and a not-null violation as Postgres 18
 //# names it (`users_email_not_null`).
 
-import {
+import
     std::calendar.{Date, NaiveDateTime, Time}
     std::channels.{Arm, Channel, Receiver, Sender}
     std::duration.Duration
@@ -28,38 +28,38 @@ import {
     std::sql.{self, Conn, ConstraintKind, Dialect, Row, Statement, Value}
     std::supervisors.Supervisor
     std::uuid.Uuid
-}
+end
 
 gopkg "github.com/nomi-language/nomi/lib/sql/postgres/goside"
 
 opaque type Handle go goside.Session
 
 // An array element as it crosses to Go: a Cell with no items.
-struct Item {
+struct Item
     kind: Int
     int: Int
     float: Float
     text: String
     bytes: Bytes
-}
+end
 
 // A value as it crosses to Go, tagged by kind: 0 null, 1 int, 2 float,
 // 3 text, 4 bytes, 5 a decimal's text, 6 bool (int 1 or 0), 7 a date's,
 // 8 a time's and 9 a timestamp's ISO text, 10 an instant's Unix
 // nanoseconds, 11 a uuid's and 12 JSON's text, 13 an array of items.
-struct Cell {
+struct Cell
     kind: Int
     int: Int
     float: Float
     text: String
     bytes: Bytes
     items: List<Item>
-}
+end
 
 // An error as Go reports it: kind 0 none, 1 connection, 2 constraint,
 // 3 database, 4 finished, 5 closed, 6 the task's context ended,
 // 7 serialization.
-struct Failure {
+struct Failure
     kind: Int
     code: String
     message: String
@@ -67,19 +67,19 @@ struct Failure {
     name: String
     table: String
     column: String
-}
+end
 
-struct Answer {
+struct Answer
     columns: List<String>
     rows: List<List<Cell>>
     changed: Int
     failure: Failure
-}
+end
 
-struct RawRow {
+struct RawRow
     columns: List<String>
     cells: List<Cell>
-}
+end
 
 fn connect_raw(url: String) -> Result<Handle, String> go goside.Connect
 
@@ -110,11 +110,11 @@ fn close_raw(h: Handle) -> Failure go goside.Close
 
 opaque type ListenHandle go goside.Listener
 
-struct Notice {
+struct Notice
     channel: String
     payload: String
     failure: Failure
-}
+end
 
 fn listen_raw(url: String, channel: String) -> Result<ListenHandle, String> go goside.Listen
 
@@ -132,10 +132,10 @@ fn listener_received_raw(l: ListenHandle) -> Int go goside.Received
 
 /// A pool of connections to a Postgres database, or a transaction or
 /// savepoint on it: what `pool` and `connect` return, and what
-/// `Conn.begin` returns on one.
-pub opaque struct PgConn {
+/// `Conn.begin_transaction` returns on one.
+pub opaque struct PgConn
     handle: Handle
-}
+end
 
 /// A pool of connections to the database at `url`
 /// (`postgres://user:password@host:5432/name`). It connects lazily, as Go's
@@ -143,9 +143,9 @@ pub opaque struct PgConn {
 /// is `Err(.Connection)` from the first statement, so a program that must
 /// fail early calls `Conn.ping` on it. Statements run on any connection of
 /// the pool, and a transaction on one it holds until it ends.
-pub fn pool(url: String) -> Conn {
+pub fn pool(url: String) -> Conn
     PgConn{handle: pool_raw(url)}
-}
+end
 
 /// One connection to the database at `url`, opened now: an unreachable
 /// server is `Err(.Connection)`. A transaction has the whole connection
@@ -154,12 +154,12 @@ pub fn pool(url: String) -> Conn {
 /// allows, then `Err(.Timeout)`); inside the transaction, use the `Conn`
 /// its `begin` returned. What a temporary table needs, since it lives on
 /// one connection.
-pub fn connect(url: String) -> Result<Conn, sql.Error> {
-    case connect_raw(url) {
-        Ok(handle) -> Ok(PgConn{handle})
-        Err(message) -> Err(sql.Error.Connection{message})
-    }
-}
+pub fn connect(url: String) -> Result<Conn, sql.Error>
+    case connect_raw(url)
+        Ok(handle) -> Ok(PgConn{handle:})
+        Err(message) -> Err(sql.Error.Connection{message:})
+    end
+end
 
 /// The URL of a fresh empty database on a throwaway server, for tests:
 /// `postgres.connect(postgres.scratch()?)`. The first call in a process
@@ -168,21 +168,21 @@ pub fn connect(url: String) -> Result<Conn, sql.Error> {
 /// is removed when the process ends. Each call makes another database on
 /// it. A machine with no `initdb` or `postgres` on `PATH`, and Windows,
 /// return `Err(.Connection)` saying so.
-pub fn scratch() -> Result<String, sql.Error> {
-    scratch_raw() |> Result.map_err(fn message -> sql.Error.Connection{message})
-}
+pub fn scratch() -> Result<String, sql.Error>
+    scratch_raw() |> Result.map_err(fn message -> sql.Error.Connection{message:})
+end
 
 /// A connection of its own that listens on one channel, from `listen`.
-pub opaque struct Listener {
+pub opaque struct Listener
     handle: ListenHandle
-}
+end
 
 /// A notification: the channel it was sent on and its payload, as
 /// `NOTIFY channel, 'payload'` or `pg_notify(channel, payload)` sent it.
-pub struct Notification {
+pub struct Notification
     channel: String
     payload: String
-}
+end
 
 derive Equatable for Notification
 
@@ -190,28 +190,28 @@ derive Equatable for Notification
 /// of its own, opened now: an unreachable server is `Err(.Connection)`. A
 /// notification sent on the channel from then on waits on the server for
 /// the listener's next `wait`, in the order they were sent.
-pub fn listen(url: String, channel: String) -> Result<Listener, sql.Error> {
-    case listen_raw(url, channel) {
-        Ok(handle) -> Ok(Listener{handle})
-        Err(message) -> Err(sql.Error.Connection{message})
-    }
-}
+pub fn listen(url: String, channel: String) -> Result<Listener, sql.Error>
+    case listen_raw(url, channel)
+        Ok(handle) -> Ok(Listener{handle:})
+        Err(message) -> Err(sql.Error.Connection{message:})
+    end
+end
 
-impl Listener {
+impl Listener
     /// The next notification, waiting for one as long as it takes: a
     /// `Context.with_timeout` deadline ends the wait with `Err(.Timeout)`,
     /// and the listener still works. After `close` it is `Err(.Closed)`.
-    pub fn wait(listener: Listener) -> Result<Notification, sql.Error> {
+    pub fn wait(listener: Listener) -> Result<Notification, sql.Error>
         notice = wait_raw(listener.handle)
         failed(notice.failure)?
         Ok(Notification{channel: notice.channel, payload: notice.payload})
-    }
+    end
 
     /// Closes the listener's connection. A `wait` running on another task
     /// ends with `Err(.Closed)`. Closing it again does nothing.
-    pub fn close(listener: Listener) -> Result<Unit, sql.Error> {
+    pub fn close(listener: Listener) -> Result<Unit, sql.Error>
         failed(close_listener_raw(listener.handle))
-    }
+    end
 
     /// The listener's notifications as a channel, so one can be an arm of
     /// `Channel.select` beside a timer or another channel: `forward` runs
@@ -222,11 +222,11 @@ impl Listener {
         listener: Listener,
         supervisor: Supervisor,
         capacity: Int = 16,
-    ) -> Receiver<Result<Notification, sql.Error>> {
+    ) -> Receiver<Result<Notification, sql.Error>>
         channel = Channel.buffered<Result<Notification, sql.Error>>(capacity)
         _ = Supervisor.spawn(supervisor, fn -> Listener.forward(listener, channel.sender))
         channel.receiver
-    }
+    end
 
     /// Waits for each notification and sends it on `sender`, until the
     /// listener closes, the calling task is cancelled (as a supervisor's
@@ -240,25 +240,27 @@ impl Listener {
     /// `close` ends it even when nothing reads the channel. Two tasks
     /// forwarding one listener take turns, and each notification goes to
     /// one of them.
-    pub fn forward(listener: Listener, sender: Sender<Result<Notification, sql.Error>>) {
-        case Listener.wait(listener) {
+    pub fn forward(listener: Listener, sender: Sender<Result<Notification, sql.Error>>)
+        case Listener.wait(listener)
             Ok(notification) ->
-                if deliver(listener, sender, Ok(notification)) {
+                if deliver(listener, sender, Ok(notification)) then
                     Listener.forward(listener, sender)
-                } else {
+                else
                     Sender.close(sender)
-                }
+                end
 
-            Err(.Closed) -> Sender.close(sender)
-            Err(.Timeout) -> Sender.close(sender)
+            Err(.Closed) ->
+                Sender.close(sender)
 
-            Err(e) -> {
+            Err(.Timeout) ->
+                Sender.close(sender)
+
+            Err(e) ->
                 _ = deliver(listener, sender, Err(e))
                 Sender.close(sender)
-            }
-        }
-    }
-}
+        end
+    end
+end
 
 // How often a send blocked on a full channel looks again at whether its
 // listener was closed. A closed listener otherwise keeps the task until
@@ -271,26 +273,27 @@ fn deliver(
     listener: Listener,
     sender: Sender<Result<Notification, sql.Error>>,
     value: Result<Notification, sql.Error>,
-) -> Bool {
+) -> Bool
     sent = Channel.select([
         Arm.send(sender, value, fn _ -> Some(True)),
         Arm.after(forward_recheck, fn -> None),
     ])
 
-    case sent {
-        Some(_) -> True
+    case sent
+        Some(_) ->
+            True
 
         None ->
-            if listener_closed_raw(listener.handle) {
+            if listener_closed_raw(listener.handle) then
                 False
-            } else {
+            else
                 deliver(listener, sender, value)
-            }
-    }
-}
+            end
+    end
+end
 
-impl Conn for PgConn {
-    fn query(conn: PgConn, statement: Statement) -> Result<List<Row>, sql.Error> {
+impl Conn for PgConn
+    fn query(conn: PgConn, statement: Statement) -> Result<List<Row>, sql.Error>
         params = cells(statement)?
         answer = run_raw(conn.handle, statement.parts, params)
         failed(answer.failure)?
@@ -302,57 +305,57 @@ impl Conn for PgConn {
             |> Iter.to_list()
 
         Ok(rows)
-    }
+    end
 
-    fn each_row(conn: PgConn, statement: Statement, f: (Row) -> Bool) -> Result<Unit, sql.Error> {
+    fn each_row(conn: PgConn, statement: Statement, f: (Row) -> Bool) -> Result<Unit, sql.Error>
         query = "${statement}"
         params = cells(statement)?
 
-        failure = each_row_raw(conn.handle, statement.parts, params, fn raw -> {
+        failure = each_row_raw(conn.handle, statement.parts, params, fn raw ->
             f(to_row(query, raw.columns, raw.cells))
-        })
+        end)
 
         failed(failure)
-    }
+    end
 
-    fn exec(conn: PgConn, statement: Statement) -> Result<Int, sql.Error> {
+    fn exec(conn: PgConn, statement: Statement) -> Result<Int, sql.Error>
         params = cells(statement)?
         answer = exec_raw(conn.handle, statement.parts, params)
         failed(answer.failure)?
         Ok(answer.changed)
-    }
+    end
 
-    fn begin(conn: PgConn) -> Result<Conn, sql.Error> {
+    fn begin_transaction(conn: PgConn) -> Result<Conn, sql.Error>
         (handle, failure) = begin_raw(conn.handle)
         failed(failure)?
-        Ok(PgConn{handle})
-    }
+        Ok(PgConn{handle:})
+    end
 
-    fn commit(tx: PgConn) -> Result<Unit, sql.Error> {
+    fn commit(tx: PgConn) -> Result<Unit, sql.Error>
         failed(commit_raw(tx.handle))
-    }
+    end
 
-    fn rollback(tx: PgConn) -> Result<Unit, sql.Error> {
+    fn rollback(tx: PgConn) -> Result<Unit, sql.Error>
         failed(rollback_raw(tx.handle))
-    }
+    end
 
-    fn ping(conn: PgConn) -> Result<Unit, sql.Error> {
+    fn ping(conn: PgConn) -> Result<Unit, sql.Error>
         failed(ping_raw(conn.handle))
-    }
+    end
 
-    fn dialect(conn: PgConn) -> Dialect {
+    fn dialect(conn: PgConn) -> Dialect
         _ = conn
         Dialect.Postgres
-    }
+    end
 
-    fn close(conn: PgConn) -> Result<Unit, sql.Error> {
+    fn close(conn: PgConn) -> Result<Unit, sql.Error>
         failed(close_raw(conn.handle))
-    }
-}
+    end
+end
 
 /// `Ok` for no failure, else the `sql.Error` it is.
-fn failed(failure: Failure) -> Result<Unit, sql.Error> {
-    case failure.kind {
+fn failed(failure: Failure) -> Result<Unit, sql.Error>
+    case failure.kind
         0 -> Ok(Unit)
         1 -> Err(sql.Error.Connection{message: failure.message})
         2 -> Err(constraint_error(failure))
@@ -361,93 +364,118 @@ fn failed(failure: Failure) -> Result<Unit, sql.Error> {
         6 -> Err(sql.Error.Timeout)
         7 -> Err(sql.Error.Serialization{message: failure.message})
         _ -> Err(sql.Error.Database{code: failure.code, message: failure.message})
-    }
-}
+    end
+end
 
-fn constraint_error(failure: Failure) -> sql.Error {
-    kind = case failure.constraint {
+fn constraint_error(failure: Failure) -> sql.Error
+    kind = case failure.constraint
         0 -> ConstraintKind.Unique
         1 -> ConstraintKind.ForeignKey
         2 -> ConstraintKind.NotNull
         _ -> ConstraintKind.Check
-    }
+    end
 
     sql.Error.Constraint{
-        kind,
+        kind:,
         name: failure.name,
         table: present(failure.table),
         column: present(failure.column),
     }
-}
+end
 
-fn present(text: String) -> Maybe<String> {
-    if text == "" { None } else { Some(text) }
-}
+fn present(text: String) -> Maybe<String>
+    if text == "" then None else Some(text)
+end
 
 /// The cells a statement's parameters are written as.
-fn cells(statement: Statement) -> Result<List<Cell>, sql.Error> {
+fn cells(statement: Statement) -> Result<List<Cell>, sql.Error>
     statement.params
     |> Iter.with_index()
     |> Iter.map(fn (position, value) -> to_cell(position + 1, value))
     |> Result.collect()
-}
+end
 
-fn item(kind: Int) -> Item {
-    Item{kind, int: 0, float: 0.0, text: "", bytes: Bytes.from_list([])}
-}
+fn item(kind: Int) -> Item
+    Item{kind:, int: 0, float: 0.0, text: "", bytes: Bytes.from_list([])}
+end
 
-fn text_item(kind: Int, text: String) -> Item {
-    .{..item(kind), text}
-}
+fn text_item(kind: Int, text: String) -> Item
+    {..item(kind), text:}
+end
 
 /// The item a value that is not an array is written as. An `Int` past a
 /// `BIGINT`, a signed 64-bit integer, is written as a decimal, which a
 /// `NUMERIC` column takes and a `BIGINT` one refuses.
-fn to_item(value: Value) -> Maybe<Item> {
-    case value {
-        .Null -> Some(item(0))
+fn to_item(value: Value) -> Maybe<Item>
+    case value
+        .Null ->
+            Some(item(0))
 
         .Int(n) when n > 9_223_372_036_854_775_807 or n < -9_223_372_036_854_775_808 ->
             Some(text_item(5, "${n}"))
 
-        .Int(n) -> Some(.{..item(1), int: n})
-        .Float(x) -> Some(.{..item(2), float: x})
-        .Text(s) -> Some(text_item(3, s))
-        .Bytes(b) -> Some(.{..item(4), bytes: b})
-        .Decimal(d) -> Some(text_item(5, "${d}"))
-        .Bool(b) -> Some(.{..item(6), int: if b { 1 } else { 0 }})
-        .Date(d) -> Some(text_item(7, "${d}"))
-        .Time(t) -> Some(text_item(8, "${t}"))
-        .Timestamp(t) -> Some(text_item(9, "${t}"))
-        .Timestamptz(i) -> Some(.{..item(10), int: Instant.as_nanos(i)})
-        .Uuid(id) -> Some(text_item(11, "${id}"))
-        .Json(j) -> Some(text_item(12, Json.encode(j)))
-        .Array(_) -> None
-    }
-}
+        .Int(n) ->
+            Some({..item(1), int: n})
+
+        .Float(x) ->
+            Some({..item(2), float: x})
+
+        .Text(s) ->
+            Some(text_item(3, s))
+
+        .Bytes(b) ->
+            Some({..item(4), bytes: b})
+
+        .Decimal(d) ->
+            Some(text_item(5, "${d}"))
+
+        .Bool(b) ->
+            Some({..item(6), int: if b then 1 else 0})
+
+        .Date(d) ->
+            Some(text_item(7, "${d}"))
+
+        .Time(t) ->
+            Some(text_item(8, "${t}"))
+
+        .Timestamp(t) ->
+            Some(text_item(9, "${t}"))
+
+        .Timestamptz(i) ->
+            Some({..item(10), int: Instant.as_nanos(i)})
+
+        .Uuid(id) ->
+            Some(text_item(11, "${id}"))
+
+        .Json(j) ->
+            Some(text_item(12, Json.encode(j)))
+
+        .Array(_) ->
+            None
+    end
+end
 
 /// The cell parameter `$position` is written as. An array's elements cross
 /// as items, and an array of arrays is refused.
-fn to_cell(position: Int, value: Value) -> Result<Cell, sql.Error> {
+fn to_cell(position: Int, value: Value) -> Result<Cell, sql.Error>
     nested = sql.Error.Database{
         code: "22000",
         message: "parameter $${position} is an Array of Arrays, and only one-dimensional arrays cross",
     }
 
-    case value {
-        .Array(values) -> {
+    case value
+        .Array(values) ->
             items =
                 values
                 |> Iter.map(fn v -> to_item(v) |> Maybe.to_result(nested))
                 |> Result.collect()?
 
-            Ok(Cell{kind: 13, int: 0, float: 0.0, text: "", bytes: Bytes.from_list([]), items})
-        }
+            Ok(Cell{kind: 13, int: 0, float: 0.0, text: "", bytes: Bytes.from_list([]), items:})
 
-        _ -> {
-            Some(it) = to_item(value) else {
+        _ ->
+            Some(it) = to_item(value) else
                 None -> return Err(nested)
-            }
+            end
 
             Ok(
                 Cell{
@@ -459,11 +487,10 @@ fn to_cell(position: Int, value: Value) -> Result<Cell, sql.Error> {
                     items: [],
                 }
             )
-        }
-    }
-}
+    end
+end
 
-fn to_row(query: String, columns: List<String>, cells: List<Cell>) -> Row {
+fn to_row(query: String, columns: List<String>, cells: List<Cell>) -> Row
     Row.new(
         query,
         Iter.zip(
@@ -473,11 +500,11 @@ fn to_row(query: String, columns: List<String>, cells: List<Cell>) -> Row {
         )
         |> Iter.to_list(),
     )
-}
+end
 
 /// The value a cell reads as.
-fn to_value(c: Cell) -> Value {
-    case c.kind {
+fn to_value(c: Cell) -> Value
+    case c.kind
         13 ->
             Value.Array(
                 c.items
@@ -485,15 +512,16 @@ fn to_value(c: Cell) -> Value {
                 |> Iter.to_list()
             )
 
-        _ -> scalar(c.kind, c.int, c.float, c.text, c.bytes)
-    }
-}
+        _ ->
+            scalar(c.kind, c.int, c.float, c.text, c.bytes)
+    end
+end
 
 /// The value of a cell or item that is not an array. Text the Go side
 /// wrote for a calendar value, a uuid or JSON always parses; were it not
 /// to, the value would read as that text.
-fn scalar(kind: Int, int: Int, float: Float, text: String, bytes: Bytes) -> Value {
-    parsed = case kind {
+fn scalar(kind: Int, int: Int, float: Float, text: String, bytes: Bytes) -> Value
+    parsed = case kind
         1 -> Some(Value.Int(int))
         2 -> Some(Value.Float(float))
         3 -> Some(Value.Text(text))
@@ -507,7 +535,7 @@ fn scalar(kind: Int, int: Int, float: Float, text: String, bytes: Bytes) -> Valu
         11 -> Uuid.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Uuid)
         12 -> Json.decode(text) |> Result.to_maybe() |> Maybe.map(Value.Json)
         _ -> Some(Value.Null)
-    }
+    end
 
     Maybe.with_default(parsed, Value.Text(text))
-}
+end

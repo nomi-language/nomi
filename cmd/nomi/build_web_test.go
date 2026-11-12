@@ -24,125 +24,124 @@ import (
 var webPrograms = map[string]string{
 	// A program with no main whose function a page calls: it builds, and
 	// the page's run() runs nothing.
-	"exports.nomi": `export fn double(n: Int) -> Int {
+	"exports.nomi": `export fn double(n: Int) -> Int
   n * 2
-}
+end
 `,
 	// A program a page loads and calls: main runs first, then the calls.
 	"game.nomi": `import std::io
 import std::json.{ToJson, FromJson}
 
-struct Game {
+struct Game
   word: String
   guesses: List<String>
-}
+end
 
 derive ToJson for Game
 derive FromJson for Game
 
-enum Outcome {
+enum Outcome
   Won
   Playing {left: Int}
-}
+end
 
 derive ToJson for Outcome
 derive FromJson for Outcome
 
-fn main() {
+fn main()
   io.print("ready")
-}
+end
 
-export fn new_game(word: String) -> Game {
-  Game{word, guesses: []}
-}
+export fn new_game(word: String) -> Game
+  Game{word:, guesses: []}
+end
 
-export fn guess(game: Game, letter: String) -> Game {
+export fn guess(game: Game, letter: String) -> Game
   io.print("guessed ${letter}")
-  .{..game, guesses: [letter, ..game.guesses]}
-}
+  {..game, guesses: [letter, ..game.guesses]}
+end
 
-export fn outcome(game: Game) -> Outcome {
-  if List.head(game.guesses) == Some("w") { Outcome.Won } else { Outcome.Playing{left: 6 - Iter.count(game.guesses)} }
-}
+export fn outcome(game: Game) -> Outcome
+  if List.head(game.guesses) == Some("w") then Outcome.Won else Outcome.Playing{left: 6 - Iter.count(game.guesses)}
+end
 
-export fn describe(o: Outcome) -> String {
-  case o {
+export fn describe(o: Outcome) -> String
+  case o
     Outcome.Won -> "won"
-    Outcome.Playing{left} -> "${left} left"
-  }
-}
+    Outcome.Playing{left:} -> "${left} left"
+  end
+end
 
-export fn divide(a: Int, b: Int) -> Int {
+export fn divide(a: Int, b: Int) -> Int
   a / b
-}
+end
 
-export fn nothing() {
-}
+export fn nothing() end
 `,
-	"failing.nomi": `fn main() -> Result<Unit, String> {
+	"failing.nomi": `fn main() -> Result<Unit, String>
   Err("no setup")
-}
+end
 
-export fn one() -> Int {
+export fn one() -> Int
   1
-}
+end
 `,
 	"hello.nomi": `import std::io
 
-fn main() {
+fn main()
   io.write("What is your name? ")
-  case io.read_line() {
+  case io.read_line()
     Ok(Some(name)) -> io.print("Hello, ${name}! héllo ✓")
     _ -> io.print("no name")
-  }
-}
+  end
+end
 `,
 	"startup.nomi": `import std::io
 
-struct App {
+struct App
   context: Context
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
   io.print(startup.args)
   io.print(Map.get(startup.env, "NAME"))
   Ok(App{context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
   io.print("main ran")
-}
+end
 `,
 	"trap.nomi": `import std::io
 
-fn main() {
+fn main()
   zero = String.length("")
   io.print("dividing")
   io.print("${100 / zero}")
-}
+end
 `,
-	"spin.nomi": `fn main() {
+	"spin.nomi": `fn main()
   _ = Iter.loop(0, fn n -> n + 1)
-}
+end
 `,
 	"oom.nomi": `import std::io
 
-fn main() {
+fn main()
   big = String.repeat("x", 1_500_000_000)
   io.print(String.length(big))
-}
+end
 `,
-	"file.nomi": `import {
+	"file.nomi": `import
   std::fs
   std::io
-}
+end
 
-fn main() -> Result<Unit, io.Error> {
+fn main() -> Result<Unit, io.Error>
   text = fs.read_text("data.txt")?
   fs.write_text("out/shout.txt", String.uppercase(text))?
   io.print(text)
   Ok(Unit)
-}
+end
 `,
 }
 
@@ -712,11 +711,11 @@ func memoryMax(t *testing.T, module []byte, sections []wasmSection) uint64 {
 func TestWebStaticDir(t *testing.T) {
 	dir := t.TempDir()
 	lone := filepath.Join(dir, "lone", "app.nomi")
-	mustWrite(t, lone, "fn main() {\n}\n")
+	mustWrite(t, lone, "fn main() end\n")
 	project := filepath.Join(dir, "project")
 	mustWrite(t, filepath.Join(project, "nomi.toml"), "")
 	nested := filepath.Join(project, "cmd", "tool.nomi")
-	mustWrite(t, nested, "fn main() {\n}\n")
+	mustWrite(t, nested, "fn main() end\n")
 	for _, c := range []struct{ entry, flag, want string }{
 		{lone, "", filepath.Join(dir, "lone", "web")},
 		{nested, "", filepath.Join(project, "web")},

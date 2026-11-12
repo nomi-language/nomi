@@ -2,10 +2,10 @@
 With one override, then the statements it covers
 ================================================================================
 
-fn one() {
+fn one()
   with MyApp.logger = Silent
   run()
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -26,11 +26,11 @@ fn one() {
 With on consecutive lines
 ================================================================================
 
-fn several() {
+fn several()
   with MyApp.a = 1
   with MyApp.b = MyApp.a + 1
   run()
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -60,12 +60,12 @@ fn several() {
 With a file-qualified target and an unparenthesized struct literal
 ================================================================================
 
-fn qualified() {
+fn qualified()
   with app.MyApp.logger = Silent
   with MyApp.store = FakeStore{}
   with MyApp.clock = FakeClock{at: 1}
   run()
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -102,21 +102,21 @@ fn qualified() {
 With in a branch, a lambda body and a block statement
 ================================================================================
 
-fn nested(quiet: Bool) {
-  if quiet {
+fn nested(quiet: Bool)
+  if quiet then
     with MyApp.logger = Silent
     run()
-  }
-  f = fn -> {
+  end
+  f = fn ->
     with MyApp.logger = Silent
     run()
-  }
-  {
+  end
+  begin
     with MyApp.logger = Silent
     run()
-  }
+  end
   MyApp.logger
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -130,7 +130,7 @@ fn nested(quiet: Bool) {
     (body
       (if_expression
         (identifier)
-        (body
+        (block
           (with_statement
             (field_access
               (type_identifier)
@@ -149,14 +149,15 @@ fn nested(quiet: Bool) {
               (type_identifier))
             (call_expression
               (identifier)))))
-      (body
-        (with_statement
-          (field_access
-            (type_identifier)
-            (identifier))
-          (type_identifier))
-        (call_expression
-          (identifier)))
+      (begin_block
+        (body
+          (with_statement
+            (field_access
+              (type_identifier)
+              (identifier))
+            (type_identifier))
+          (call_expression
+            (identifier))))
       (field_access
         (type_identifier)
         (identifier)))))
@@ -165,10 +166,10 @@ fn nested(quiet: Bool) {
 With as a function body's last line
 ================================================================================
 
-fn last() {
+fn last()
   run()
   with MyApp.clock = FakeClock{at: 1}
-}
+end
 
 --------------------------------------------------------------------------------
 

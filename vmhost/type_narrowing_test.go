@@ -13,98 +13,97 @@ import "testing"
 func TestTypeNarrowing_RunsInEveryArmShape(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-struct Circle {
+struct Circle
     radius: Float
-}
+end
 
 type Tag String
 
-enum Shape {
+enum Shape
     embeds Circle
     embeds Tag
     Point
-}
+end
 
-struct Wrap {
+struct Wrap
     shape: Shape
-}
+end
 
-fn take(c: Circle) -> String {
+fn take(c: Circle) -> String
     "circle ${c.radius}"
-}
+end
 
-fn tag_text(t: Tag) -> String {
-    case t {
+fn tag_text(t: Tag) -> String
+    case t
         Tag(s) -> "tag ${s}"
-    }
-}
+    end
+end
 
-fn name(s: Shape) -> String {
-    case s {
+fn name(s: Shape) -> String
+    case s
         .Circle{radius: _} -> "a circle"
         .Tag(_) -> "a tag"
         .Point -> "a point"
-    }
-}
+    end
+end
 
-fn plain(value: Shape) -> String {
-    case value {
-        .Circle{radius} -> "${take(value)} r=${radius}"
+fn plain(value: Shape) -> String
+    case value
+        .Circle{radius:} -> "${take(value)} r=${radius}"
         .Tag(_) -> tag_text(value)
         .Point -> name(value)
-    }
-}
+    end
+end
 
-fn guarded(value: Shape) -> String {
-    case value {
+fn guarded(value: Shape) -> String
+    case value
         .Circle{radius: _} when value.radius > 1.0 -> "big ${take(value)}"
         .Circle{radius: _} -> "small ${value.radius}"
         _ -> name(value)
-    }
-}
+    end
+end
 
-fn captured(value: Shape) -> String {
-    case value {
-        .Circle{radius: _} -> {
+fn captured(value: Shape) -> String
+    case value
+        .Circle{radius: _} ->
             f = fn -> take(value)
             f()
-        }
         _ -> "other"
-    }
-}
+    end
+end
 
-fn as_bound(value: Shape) -> String {
-    case value {
+fn as_bound(value: Shape) -> String
+    case value
         Shape.Circle{radius: _} as s -> "${take(value)}, ${name(s)}"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn destructured(w: Wrap) -> String {
+fn destructured(w: Wrap) -> String
     Wrap{shape: s} = w
-    case s {
+    case s
         .Tag(_) -> tag_text(s)
         _ -> "not a tag"
-    }
-}
+    end
+end
 
-fn by_if(value: Shape) -> String {
-    if .Circle{radius: _} = value {
+fn by_if(value: Shape) -> String
+    if .Circle{radius: _} = value then
         take(value)
-    } else {
+    else
         "not a circle"
-    }
-}
+    end
+end
 
-fn by_if_distinct(value: Shape) -> String {
-    if .Tag(_) = value {
+fn by_if_distinct(value: Shape) -> String
+    if .Tag(_) = value then
         tag_text(value)
-    } else {
+    else
         "not a tag"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(plain(Circle{radius: 2.0}))
     io.print(plain(Shape.Tag("x")))
     io.print(plain(Shape.Point))
@@ -119,7 +118,7 @@ fn main() {
     io.print(by_if(Shape.Point))
     io.print(by_if_distinct(Shape.Tag("z")))
     io.print(by_if_distinct(Circle{radius: 1.0}))
-}
+end
 `)
 	want := `circle 2.0 r=2.0
 tag x
@@ -148,62 +147,61 @@ not a tag
 func TestTypeNarrowing_NarrowedValueWidensBackIntoTheEnum(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-struct Circle {
+struct Circle
     radius: Float
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Point
-}
+end
 
-struct Wrap {
+struct Wrap
     shape: Shape
-}
+end
 
 derive Equatable for Circle
 
 derive Equatable for Shape
 
-impl Display for Circle {
-    fn to_string(c: Circle) -> String {
+impl Display for Circle
+    fn to_string(c: Circle) -> String
         "circle of ${c.radius}"
-    }
-}
+    end
+end
 
-impl Display for Shape {
-    fn to_string(s: Shape) -> String {
-        case s {
+impl Display for Shape
+    fn to_string(s: Shape) -> String
+        case s
             .Circle{radius: _} -> "a shape"
             .Point -> "a point"
-        }
-    }
-}
+        end
+    end
+end
 
-fn same(value: Shape) -> Shape {
-    case value {
+fn same(value: Shape) -> Shape
+    case value
         .Circle{radius: _} -> value
         .Point -> value
-    }
-}
+    end
+end
 
-fn describe(value: Shape, other: Shape) -> String {
-    case value {
-        .Circle{radius: _} -> {
+fn describe(value: Shape, other: Shape) -> String
+    case value
+        .Circle{radius: _} ->
             all: List<Shape> = [value, Shape.Point]
             w = Wrap{shape: value}
             "${Display.to_string(value)}; ${Shape.to_string(value)}; ${value == other} ${other != value}; ${Iter.count(all)}; ${Debug.inspect(w)}"
-        }
         .Point -> Display.to_string(value)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(describe(Circle{radius: 1.0}, Circle{radius: 1.0}))
     io.print(describe(Circle{radius: 1.0}, Shape.Point))
     io.print(describe(Shape.Point, Shape.Point))
     io.print(Display.to_string(same(Circle{radius: 2.0})))
-}
+end
 `)
 	want := `circle of 1.0; a shape; True False; 2; Wrap{shape: Circle{radius: 1.0}}
 circle of 1.0; a shape; False True; 2; Wrap{shape: Circle{radius: 1.0}}
@@ -220,34 +218,34 @@ a shape
 func TestEmbedWiden_StructFieldFromACall(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-struct Circle {
+struct Circle
     radius: Float
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Point
-}
+end
 
-struct Wrap {
+struct Wrap
     shape: Shape
     n: Int
-}
+end
 
-fn mk() -> Circle {
+fn mk() -> Circle
     io.print("mk")
     Circle{radius: 2.0}
-}
+end
 
-fn num() -> Int {
+fn num() -> Int
     io.print("num")
     1
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Wrap{shape: mk(), n: num()})
     io.inspect(Wrap{n: num(), shape: mk()})
-}
+end
 `)
 	want := `mk
 num

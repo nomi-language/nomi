@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// A `main` or an entry boot that returns `Err(Exit{code, message})` with
+// A `main` or an entry boot that returns `Err(Exit{code:, message:})` with
 // std/process's Exit exits with the code and prints the message alone, with
 // no `error: `, after the shutdown every run ends with.
 
@@ -14,60 +14,60 @@ var exitPrograms = []struct {
 	stdout, stderr string
 	exit           int
 }{
-	{"main's Exit sets the status", `import {
+	{"main's Exit sets the status", `import
   std::io
   std::process.Exit
-}
+end
 
-fn main() -> Result<Unit, Exit> {
+fn main() -> Result<Unit, Exit>
   io.print("before")
   io.eprint("warning")
   Err(Exit{code: 3, message: "usage: count <file>"})
-}
+end
 `, "before\n", "warning\nusage: count <file>\n", 3},
 	{"an empty message prints nothing", `import std::process.Exit
 
-fn main() -> Result<Unit, Exit> {
+fn main() -> Result<Unit, Exit>
   Err(Exit{code: 42})
-}
+end
 `, "", "", 42},
 	{"code 0 succeeds and still prints the message", `import std::process.Exit
 
-fn main() -> Result<Unit, Exit> {
+fn main() -> Result<Unit, Exit>
   Err(Exit{code: 0, message: "nothing to do"})
-}
+end
 `, "", "nothing to do\n", 0},
 	{"a code past 255 is a trap", `import std::process.Exit
 
-fn main() -> Result<Unit, Exit> {
+fn main() -> Result<Unit, Exit>
   Err(Exit{code: 256, message: "x"})
-}
+end
 `, "", "exit code 256 is outside 0 to 255\n", 1},
-	{"boot's Exit sets the status after its cleanup", `import {
+	{"boot's Exit sets the status after its cleanup", `import
   std::io
   std::process.Exit
-}
+end
 
-struct App {
+struct App
   port: Int
-}
+end
 
-fn boot() -> Result<App, Exit> {
+fn boot() -> Result<App, Exit>
   defer io.print("cleanup")
   Err(Exit{code: 5, message: "no port"})
-}
+end
 
-fn main() {
+fn main()
   io.print("main ran on ${App.port}")
-}
+end
 `, "cleanup\n", "no port\n", 5},
-	{"a program's own Exit is an ordinary error", `struct Exit {
+	{"a program's own Exit is an ordinary error", `struct Exit
   code: Int
-}
+end
 
-fn main() -> Result<Unit, Exit> {
+fn main() -> Result<Unit, Exit>
   Err(Exit{code: 9})
-}
+end
 `, "", "error: Exit{code: 9}\n", 1},
 }
 

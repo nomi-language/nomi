@@ -8,30 +8,30 @@ import "testing"
 func TestFormat_ParenthesizedNameBeforeLessKeepsParens(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
 		{
-			"fn main() {\n    g((f)<Dog>((Dog{weight: 31})))\n}\n",
-			"fn main() {\n    g((f) < Dog > (Dog{weight: 31}))\n}\n",
+			"fn main()\n    g((f)<Dog>((Dog{weight: 31})))\nend\n",
+			"fn main()\n    g((f) < Dog > (Dog{weight: 31}))\nend\n",
 		},
 		{
-			"fn main() {\n    g(((a.b)) < Dog > (x))\n}\n",
-			"fn main() {\n    g((a.b) < Dog > x)\n}\n",
+			"fn main()\n    g(((a.b)) < Dog > (x))\nend\n",
+			"fn main()\n    g((a.b) < Dog > x)\nend\n",
 		},
 		{
-			"fn main() {\n    g(-(f) < Dog > (x))\n}\n",
-			"fn main() {\n    g(-(f) < Dog > x)\n}\n",
+			"fn main()\n    g(-(f) < Dog > (x))\nend\n",
+			"fn main()\n    g(-(f) < Dog > x)\nend\n",
 		},
 		{
-			"fn main() {\n    g(a + (f) < Dog > (x))\n}\n",
-			"fn main() {\n    g(a + (f) < Dog > x)\n}\n",
+			"fn main()\n    g(a + (f) < Dog > (x))\nend\n",
+			"fn main()\n    g(a + (f) < Dog > x)\nend\n",
 		},
 		// Elsewhere a parenthesized name loses its parentheses.
 		{
-			"fn main() {\n    g((f) > Dog)\n}\n",
-			"fn main() {\n    g(f > Dog)\n}\n",
+			"fn main()\n    g((f) > Dog)\nend\n",
+			"fn main()\n    g(f > Dog)\nend\n",
 		},
 		// A call with type arguments stays one.
 		{
-			"fn main() {\n    g(f < Dog > (x))\n}\n",
-			"fn main() {\n    g(f<Dog>(x))\n}\n",
+			"fn main()\n    g(f < Dog > (x))\nend\n",
+			"fn main()\n    g(f<Dog>(x))\nend\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

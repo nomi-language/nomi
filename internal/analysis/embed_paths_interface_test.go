@@ -14,9 +14,9 @@ import (
 func TestEmbeddedPathsCheckTheSameAgainstInterfaces(t *testing.T) {
 	dir := t.TempDir()
 	p := incrementalProject{name: "embedded paths", entry: "main", dir: dir, texts: map[string]string{
-		"main": "import {\n    std::embed.Files\n    web::pages\n}\n\nfn main() {\n" +
+		"main": "import\n    std::embed.Files\n    web::pages\nend\n\nfn main()\n" +
 			"    _ = Files.read_text(pages.assets, \"static/indx.html\")\n" +
-			"    _ = Files.list(Files.sub(pages.assets, \"static\")!, \"css\")\n}\n",
+			"    _ = Files.list(Files.sub(pages.assets, \"static\")!, \"css\")\nend\n",
 		"web/pages": "pub embed assets `static`\n",
 	}}
 	files := map[string]string{

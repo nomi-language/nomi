@@ -1,16 +1,16 @@
-import {
+import
     std::calendar.Date
     std::random.{Generator, Seed}
     baffling_birthdays
-}
+end
 
 /// The value `generator` draws from a fixed seed.
-fn draw<T>(generator: Generator<T>) -> T {
+fn draw<T>(generator: Generator<T>) -> T
     (value, _seed) = Generator.step(generator, Seed.from_int(2024))
     value
-}
+end
 
-test "shared birthday" {
+test "shared birthday"
     [
         ("one birthdate", [Date`2000-01-01`], False),
         (
@@ -60,44 +60,44 @@ test "shared birthday" {
             True,
         ),
     ]
-    |> subtests (description, birthdates, expected), description {
+    |> subtests (description, birthdates, expected), description
         assert baffling_birthdays.has_shared_birthday(birthdates) == expected
-    }
-}
+    end
+end
 
-group "random birthdates" {
+group "random birthdates"
     setup draw(baffling_birthdays.random_birthdates(100))
 
-    test "generate requested number of birthdates" {
+    test "generate requested number of birthdates"
         assert 1..=20
-            |> Iter.all_match(fn size -> {
+            |> Iter.all_match(fn size ->
                 Iter.count(draw(baffling_birthdays.random_birthdates(size))) == size
-            })
-    }
+            end)
+    end
 
-    test "years are not leap years", birthdates {
+    test "years are not leap years", birthdates
         refute birthdates |> Iter.any_match(fn date -> date |> Date.year() |> Date.is_leap_year())
-    }
+    end
 
-    test "months are random", birthdates {
+    test "months are random", birthdates
         assert birthdates |> Iter.map(Date.month) |> Iter.to_set() |> Set.size() > 1
-    }
+    end
 
-    test "days are random", birthdates {
+    test "days are random", birthdates
         assert birthdates |> Iter.map(Date.day) |> Iter.to_set() |> Set.size() > 1
-    }
-}
+    end
+end
 
-test "estimated probability of at least one shared birthday" {
+test "estimated probability of at least one shared birthday"
     [
         ("for one person", 1, 0.0),
         ("among ten people", 10, 11.694818),
         ("among twenty-three people", 23, 50.729723),
         ("among seventy people", 70, 99.915958),
     ]
-    |> subtests (description, group_size, expected), description {
+    |> subtests (description, group_size, expected), description
         estimate = draw(baffling_birthdays.estimated_probability_of_shared_birthday(group_size))
 
         assert Float.equal_within(estimate, expected, 1.0)
-    }
-}
+    end
+end

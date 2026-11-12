@@ -11,28 +11,28 @@ import "testing"
 func TestFormat_PipelineKeepsItsDanglingComments(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
 		{
-			"fn main() {\n    A(// c\n    a) = x |> f\n}\n",
-			"fn main() {\n    A(a) = x |> f // c\n}\n",
+			"fn main()\n    A(// c\n    a) = x |> f\nend\n",
+			"fn main()\n    A(a) = x |> f // c\nend\n",
 		},
 		{
-			"fn main() {\n    A(// c\n    a) = x\n    |> f\n    |> g\n}\n",
-			"fn main() {\n    A(a) =\n        x\n        |> f\n        |> g // c\n}\n",
+			"fn main()\n    A(// c\n    a) = x\n    |> f\n    |> g\nend\n",
+			"fn main()\n    A(a) =\n        x\n        |> f\n        |> g // c\nend\n",
 		},
 		{
-			"{A((//0\na))=0|>\"\"}\n",
-			"{ A(a) = 0 |> \"\" } //0\n",
+			"begin\nA((//0\na))=0|>\"\"\nend\n",
+			"begin\n    A(a) = 0 |> \"\" //0\nend\n",
 		},
 		// When the last stage's line already ends in a comment, the
 		// dangling one goes on a line of its own below the statement, at
 		// the statement's indent, where a second format reads it back. It
 		// used to take the stages' indent and move out on the next format.
 		{
-			"{A((//0\na))=0\n|>0//\n}\n",
-			"{\n    A(a) =\n        0\n        |> 0 //\n    //0\n}\n",
+			"begin\nA((//0\na))=0\n|>0//\nend\n",
+			"begin\n    A(a) =\n        0\n        |> 0 //\n    //0\nend\n",
 		},
 		{
-			"fn main() {\n    g(fn x -> {\n        A(// c\n        a) = x\n            |> f // d\n    })\n}\n",
-			"fn main() {\n    g(fn x -> {\n        A(a) =\n            x\n            |> f // d\n        // c\n    })\n}\n",
+			"fn main()\n    g(fn x ->\n        A(// c\n        a) = x\n            |> f // d\n    end)\nend\n",
+			"fn main()\n    g(fn x ->\n        A(a) =\n            x\n            |> f // d\n        // c\n    end)\nend\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

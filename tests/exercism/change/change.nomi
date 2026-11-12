@@ -1,34 +1,34 @@
 //# The fewest coins that make a given amount of change.
 
 /// Why no change can be given.
-pub enum Error {
+pub enum Error
     NegativeTarget
     CannotMakeTarget
-}
+end
 
 /// The fewest `coins` that add up to `target`, smallest first. Each value in
 /// `coins` may be used any number of times.
-pub fn find_fewest_coins(coins: List<Int>, target: Int) -> Result<List<Int>, Error> {
-    if target < 0 { return Err(.NegativeTarget) }
+pub fn find_fewest_coins(coins: List<Int>, target: Int) -> Result<List<Int>, Error>
+    if target < 0 then return Err(.NegativeTarget)
 
     fewest =
         1..=target
-        |> Iter.reduce(#[Some([])], fn table, amount -> {
+        |> Iter.reduce(Vector[Some([])], fn table, amount ->
             Vector.push(table, best(table, coins, amount))
-        })
+        end)
 
     Vector.get(fewest, target)!
     |> Maybe.map(Iter.sort)
     |> Maybe.to_result(.CannotMakeTarget)
-}
+end
 
 /// The fewest coins that make `amount`, given `table`, which holds the
 /// fewest coins for every smaller amount, or `None` where none make it.
-fn best(table: Vector<Maybe<List<Int>>>, coins: List<Int>, amount: Int) -> Maybe<List<Int>> {
+fn best(table: Vector<Maybe<List<Int>>>, coins: List<Int>, amount: Int) -> Maybe<List<Int>>
     coins
     |> Iter.filter(&(&1 <= amount))
-    |> Iter.flat_map(fn coin -> {
+    |> Iter.flat_map(fn coin ->
         Vector.get(table, amount - coin)! |> Maybe.map(fn rest -> [coin, ..rest])
-    })
+    end)
     |> Iter.min_by(Iter.count)
-}
+end

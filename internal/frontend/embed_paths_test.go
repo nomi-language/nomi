@@ -14,8 +14,8 @@ import (
 func embedPathFiles(body string) map[string]string {
 	return map[string]string{
 		"nomi.toml": embedManifest,
-		"main.nomi": "import {\n    std::embed.Files\n    web::pages\n}\n\nembed site `static page.html`\n\n" +
-			"fn main() {\n    name = \"x\"\n    " + body + "\n    use(name)\n    _ = Files.paths(pages.assets)\n}\n\nfn use(_name: String) {}\n",
+		"main.nomi": "import\n    std::embed.Files\n    web::pages\nend\n\nembed site `static page.html`\n\n" +
+			"fn main()\n    name = \"x\"\n    " + body + "\n    use(name)\n    _ = Files.paths(pages.assets)\nend\n\nfn use(_name: String) end\n",
 		"web/pages.nomi":          "pub embed assets `static page.html`\n",
 		"static/index.html":       "<h1>hi</h1>\n",
 		"static/css/site.css":     "body {}\n",

@@ -1,35 +1,35 @@
 // std/fs on the real disk, inside a temporary directory fs.make_temp_dir
 // makes and a deferred fs.remove_all_quietly removes: each WriteMode,
 // streams, listings, metadata and the errors that name their path.
-import {
+import
     std::fs.{self, Kind}
     std::fs_testing
     std::io.{self, File, Reader, Writer}
     std::path
-}
+end
 
-test "the disk keeps the rules the sandbox models" {
+test "the disk keeps the rules the sandbox models"
     dir = fs.make_temp_dir()?
     defer fs.remove_all_quietly(dir)
 
     assert fs_testing.conformance(dir) == []
-}
+end
 
-test "a temporary directory is gone afterwards" {
+test "a temporary directory is gone afterwards"
     made = made_and_removed()?
 
     assert fs.exists(made) == Ok(False)
-}
+end
 
-fn made_and_removed() -> Result<String, io.Error> {
+fn made_and_removed() -> Result<String, io.Error>
     dir = fs.make_temp_dir()?
     defer fs.remove_all_quietly(dir)
 
     fs.write_text(path.join(dir, "x.txt"), "x")?
     Ok(dir)
-}
+end
 
-test "each write mode" {
+test "each write mode"
     dir = fs.make_temp_dir()?
     defer fs.remove_all_quietly(dir)
 
@@ -42,9 +42,9 @@ test "each write mode" {
     assert fs.read_text(p) == Ok("milk\neggs\n")
     assert refused == Err(io.Error.AlreadyExists{path: p})
     assert fs.read_text(path.join(dir, "atomic.txt")) == Ok("whole")
-}
+end
 
-test "a writer buffers until it closes, and a reader reads it back" {
+test "a writer buffers until it closes, and a reader reads it back"
     dir = fs.make_temp_dir()?
     defer fs.remove_all_quietly(dir)
 
@@ -61,9 +61,9 @@ test "a writer buffers until it closes, and a reader reads it back" {
 
     assert Reader.read_line(r) == Ok(Some("one"))
     assert Reader.read_all_text(r) == Ok("two\n")
-}
+end
 
-test "a discarded atomic writer leaves the old file and nothing beside it" {
+test "a discarded atomic writer leaves the old file and nothing beside it"
     dir = fs.make_temp_dir()?
     defer fs.remove_all_quietly(dir)
 
@@ -76,9 +76,9 @@ test "a discarded atomic writer leaves the old file and nothing beside it" {
 
     assert fs.read_text(p) == Ok("old")
     assert fs.list(dir) |> Result.map(fn entries -> Iter.count(entries)) == Ok(1)
-}
+end
 
-test "a listing is sorted and names each entry's kind" {
+test "a listing is sorted and names each entry's kind"
     dir = fs.make_temp_dir()?
     defer fs.remove_all_quietly(dir)
 
@@ -90,9 +90,9 @@ test "a listing is sorted and names each entry's kind" {
     assert entries
     |> Iter.map(fn e -> (e.name, e.kind))
     |> Iter.to_list() == [("a", Kind.Directory), ("b.txt", Kind.File)]
-}
+end
 
-test "metadata answers the size, and copy and rename move contents" {
+test "metadata answers the size, and copy and rename move contents"
     dir = fs.make_temp_dir()?
     defer fs.remove_all_quietly(dir)
 
@@ -104,9 +104,9 @@ test "metadata answers the size, and copy and rename move contents" {
     assert (fs.metadata(path.join(dir, "b.txt"))?).size == 4
     assert fs.exists(a) == Ok(False)
     assert fs.read_text(path.join(dir, "c.txt")) == Ok("four")
-}
+end
 
-test "errors name the path the program passed" {
+test "errors name the path the program passed"
     dir = fs.make_temp_dir()?
     defer fs.remove_all_quietly(dir)
 
@@ -117,9 +117,9 @@ test "errors name the path the program passed" {
     assert fs.write_text(missing, "x") == Err(io.Error.NotFound{path: path.join(dir, "none")})
     assert fs.remove(dir) == Err(io.Error.DirectoryNotEmpty{path: dir})
     assert fs.read_text(dir) == Err(io.Error.IsADirectory{path: dir})
-}
+end
 
-test "symlinks, modes, a File and within on the disk" {
+test "symlinks, modes, a File and within on the disk"
     dir = fs.make_temp_dir()?
     defer fs.remove_all_quietly(dir)
 
@@ -141,9 +141,9 @@ test "symlinks, modes, a File and within on the disk" {
     patched = File.size(f)
     File.close(f)?
 
-    inside = fs.within(path.join(dir, "site"), fn -> {
+    inside = fs.within(path.join(dir, "site"), fn ->
         Ok((fs.read_text("current/a.txt"), Result.is_ok(fs.read_text("../secret.txt"))))
-    })
+    end)
 
     assert walked
         == Ok([("current", Kind.Symlink), ("pages", Kind.Directory), ("a.txt", Kind.File)])
@@ -151,4 +151,4 @@ test "symlinks, modes, a File and within on the disk" {
     assert patched == Ok(3)
     assert inside == Ok((Ok("abc"), False))
     assert (fs.metadata(path.join(dir, "secret.txt"))?).mode == 0o444
-}
+end

@@ -16,24 +16,24 @@ import std::io
 /// happily, so a fixture that compared one list against itself would pass with
 /// the element walk entirely broken. Built through a function so the front end
 /// cannot fold the two calls into one value.
-fn ints(a: Int, b: Int, c: Int) -> List<Int> {
+fn ints(a: Int, b: Int, c: Int) -> List<Int>
     [a, b, c]
-}
+end
 
-fn label(o: Bool) -> String {
-    if o { "T" } else { "F" }
-}
+fn label(o: Bool) -> String
+    if o then "T" else "F"
+end
 
-fn main() {
+fn main()
     // --- equal, and NOT by address -------------------------------------------
     // Both operands are fresh chains carrying the same values. Under a broken
     // element walk the pointer short-circuit does not fire and this is not Equal.
     io.print(
-        case List.compare(ints(1, 2, 3), ints(1, 2, 3)) {
+        case List.compare(ints(1, 2, 3), ints(1, 2, 3))
             .Less -> "less"
             .Equal -> "equal"
             .Greater -> "greater"
-        }
+        end
     )
 
     // --- differing LENGTH, both directions -----------------------------------
@@ -91,4 +91,4 @@ fn main() {
     // -0.0 and +0.0 compare Equal, which agrees with `==` and with IEEE.
     io.print(label([0.0] <= [-0.0]))
     io.print(label([-0.0] <= [0.0]))
-}
+end

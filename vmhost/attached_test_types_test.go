@@ -10,28 +10,28 @@ import (
 // type, a value wrapping it is locally determined, and an annotation names it.
 const attachedTestTypes = `import std::io
 
-struct User {
+struct User
     name: String
-}
+end
 
-impl User {
+impl User
     //! type Tag String
     //! t: Tag = Tag(User.greet(User{name: "a"}))
     //! Tag(s) = t
     //! io.print(s)
     //! assert t == Tag("hi a")
-    pub fn greet(u: User) -> String {
+    pub fn greet(u: User) -> String
         "hi ${u.name}"
-    }
-}
+    end
+end
 
 //! type TraceId String
 //! traced = Some(TraceId("trace-123"))
 //! io.inspect(traced)
 //! assert traced == Some(TraceId("trace-123"))
-fn answer() -> Int {
+fn answer() -> Int
     42
-}
+end
 `
 
 func TestAttachedTestTypes_Run(t *testing.T) {

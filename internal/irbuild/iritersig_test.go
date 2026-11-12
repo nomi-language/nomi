@@ -9,45 +9,45 @@ func TestIRIterSig_ProgramsRunOnTheVM(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"sequence results, captures and branch values", `import std::io
 
-fn main() {
+fn main()
   base = [1, 2, 3, 4, 5]
-  evens = fn xs: List<Int> -> { xs |> Iter.filter(fn x -> x % 2 == 0) }
+  evens = fn xs: List<Int> -> xs |> Iter.filter(fn x -> x % 2 == 0)
   s = evens(base)
-  scaled = fn k: Int -> { s |> Iter.map(fn x -> x * k) }
+  scaled = fn k: Int -> s |> Iter.map(fn x -> x * k)
   scaled(3) |> Iter.to_list() |> io.inspect()
-  pick = fn flag: Bool -> {
-    if flag {
+  pick = fn flag: Bool ->
+    if flag then
       s
-    } else {
+    else
       base |> Iter.take(1)
-    }
-  }
+    end
+  end
   pick(False) |> Iter.to_list() |> io.inspect()
   pick(True) |> Iter.count() |> io.print()
   total = fn f: (Int) -> Int -> Iter.reduce(scaled(2) |> Iter.map(f), 0, fn a, x -> a + x)
   total(fn x -> x + 1) |> io.print()
-  chosen = if Iter.count(s) > 1 { scaled(5) } else { s }
+  chosen = if Iter.count(s) > 1 then scaled(5) else s
   chosen |> Iter.to_list() |> io.inspect()
   s |> Iter.reduce(0, fn a, x -> a + x) |> io.print()
-}
+end
 `, "[6, 12]\n[1]\n2\n14\n[10, 20]\n6\n"},
 		{"a user source pushes through its own each_while", `import std::io
 
-struct Span {
+struct Span
   lo: Int
   hi: Int
-}
+end
 
-impl Iter for Span {
-  fn each_while(s: Span, yield: (Int) -> Bool) -> Bool {
-    Iter.all_match(s.lo..s.hi, fn x -> {
+impl Iter for Span
+  fn each_while(s: Span, yield: (Int) -> Bool) -> Bool
+    Iter.all_match(s.lo..s.hi, fn x ->
       io.print("visit ${x}")
       yield(x)
-    })
-  }
-}
+    end)
+  end
+end
 
-fn main() {
+fn main()
   span = Span{lo: 1, hi: 4}
   span |> Iter.to_list() |> io.inspect()
   span |> Iter.map(fn x -> x * 10) |> Iter.take(2) |> Iter.to_list() |> io.inspect()
@@ -57,7 +57,7 @@ fn main() {
   odd = span |> Iter.filter(fn x -> x % 2 == 1)
   odd |> Iter.to_list() |> io.inspect()
   odd |> Iter.to_list() |> io.inspect()
-}
+end
 `, "visit 1\nvisit 2\nvisit 3\n[1, 2, 3]\n" +
 			"visit 1\nvisit 2\n[10, 20]\n" +
 			"visit 1\nvisit 2\nvisit 3\n3\n" +
@@ -67,23 +67,23 @@ fn main() {
 			"visit 1\nvisit 2\nvisit 3\n[1, 3]\n"},
 		{"a vector source", `import std::io
 
-fn main() {
-  v = #[3, 1, 4, 1, 5]
+fn main()
+  v = Vector[3, 1, 4, 1, 5]
   v |> Iter.map(fn x -> x * 2) |> Iter.to_list() |> io.inspect()
   Iter.count(v) |> io.print()
   v |> Iter.sort() |> io.inspect()
   Iter.any_match(v, fn x -> x > 4) |> io.print()
   Iter.each_while(v, fn x -> x < 4) |> io.print()
   Vector.push(v, 9) |> Iter.filter(fn x -> x > 3) |> Iter.to_list() |> io.inspect()
-}
+end
 `, "[6, 2, 8, 2, 10]\n5\n[1, 1, 3, 4, 5]\nTrue\nFalse\n[4, 5, 9]\n"},
 		{"each_while over a list", `import std::io
 
-fn main() {
+fn main()
   xs = [1, 2, 3]
   Iter.each_while(xs, fn x -> x < 5) |> io.print()
   Iter.each_while(xs |> Iter.map(fn x -> x * 2), fn x -> x < 3) |> io.print()
-}
+end
 `, "True\nFalse\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })

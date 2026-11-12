@@ -513,7 +513,7 @@ func replDeclOf(n ast.Node, text string) (*replDecl, bool) {
 		name, _ := replTypeName(n)
 		d.key, d.typeName, d.name = "type "+name, name, name
 	case *ast.ImplBlock:
-		d.key = "impl " + replImplHeader(flat)
+		d.key = "impl " + replImplHeader(text)
 		if t.Interface != nil {
 			d.key, d.recvType = replIfaceImplKey(t.Interface, t.Receiver)
 		} else if st, ok := t.Receiver.(*ast.SimpleType); ok {
@@ -562,12 +562,12 @@ func replIfaceImplKey(iface, recv ast.TypeExpr) (key, recvType string) {
 	return "impl impl " + iface.TypeString() + " for " + recv.TypeString(), recvType
 }
 
-// replImplHeader is an impl's header: what it implements for what.
-func replImplHeader(flat string) string {
-	if i := strings.Index(flat, "{"); i >= 0 {
-		return strings.TrimSpace(flat[:i])
-	}
-	return flat
+// replImplHeader is an impl's header, its first line without an `end` that
+// closes an empty one there: what it implements for what.
+func replImplHeader(text string) string {
+	head, _, _ := strings.Cut(text, "\n")
+	head = strings.Join(strings.Fields(head), " ")
+	return strings.TrimSpace(strings.TrimSuffix(head, " end"))
 }
 
 // replNeedsPub reports whether n is a declaration a later file imports
@@ -956,11 +956,11 @@ func (s *replSession) file(in *replInput, plan *replPlan) *replSource {
 		typ := plan.spell(o.typ)
 		src.gen(fmt.Sprintf("host fn %s(init: () -> %s) -> %s", force, typ, typ))
 		src.gen("pub")
-		src.add(fmt.Sprintf("once %s: %s = %s(fn -> {", o.name, typ, force), replGenerated, replOwner{once: i + 1})
+		src.add(fmt.Sprintf("once %s: %s = %s(fn ->", o.name, typ, force), replGenerated, replOwner{once: i + 1})
 		src.add(o.rhs(), o.line+o.rhsLine-1, replOwner{once: i + 1})
-		src.gen("})")
+		src.gen("end)")
 	}
-	src.gen("fn main() {")
+	src.gen("fn main()")
 	for i, st := range in.stmts {
 		if i == len(in.stmts)-1 && in.lastIsExpr {
 			switch {
@@ -1001,7 +1001,7 @@ func (s *replSession) file(in *replInput, plan *replPlan) *replSource {
 			}
 		}
 	}
-	src.gen("Unit\n}")
+	src.gen("Unit\nend")
 	return src
 }
 

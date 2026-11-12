@@ -518,6 +518,11 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	if p.stopped() {
 		return nil, nil, ErrStopped
 	}
+	// The dispatch entries of std interface defaults the program's blocks
+	// inherit, built before the std instances they reach are collected.
+	for _, g := range gens {
+		g.irBuildStdDefaultThunks()
+	}
 	// A generic function instance one file asked another for after that
 	// file's walk ended. See siblinggeneric.go.
 	irFlushLateInstances(gens)

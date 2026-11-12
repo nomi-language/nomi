@@ -130,9 +130,9 @@ func (g *gen) importedVariantAt(at ast.Node, local string, line, col int) (*type
 	if strings.HasPrefix(et.Origin, "std/") {
 		return nil, nil, false
 	}
-	// A type argument nothing determines (`Empty` of a `Holder<T>`) is
-	// filled by its position, as a generic literal's is.
-	k := g.project(irFillHolesByPosition(et, false))
+	// A type argument nothing determines (`Empty` of a `Holder<T>`) is the
+	// type the checker closed it as.
+	k := g.project(et)
 	if k.tag != tagNamed || k.def == nil {
 		return nil, nil, false
 	}
@@ -141,4 +141,15 @@ func (g *gen) importedVariantAt(at ast.Node, local string, line, col int) (*type
 		return nil, nil, false
 	}
 	return k.def, v, true
+}
+
+// irResolvedType follows a checker type variable to what it resolved to.
+func irResolvedType(t analysis.Type) analysis.Type {
+	for {
+		v, isVar := t.(*analysis.TypeVar)
+		if !isVar || v.Resolved == nil {
+			return t
+		}
+		t = v.Resolved
+	}
 }

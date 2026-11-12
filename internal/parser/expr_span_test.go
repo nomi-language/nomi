@@ -66,18 +66,18 @@ func exprSpanText(lines []string, sp ast.Span) string {
 }
 
 func TestExprSpans_CoverTheExpression(t *testing.T) {
-	src := `fn f(xs: List<Int>, p: Point) -> Maybe<(Int) -> Int> {
+	src := `fn f(xs: List<Int>, p: Point) -> Maybe<(Int) -> Int>
   total = p.x + g(1, 2) * 3
   s = Point{x: 1, y: 2}
   h = fn n -> n + 1
   m = "a\tb"
   g = "hi ${p.x}!"
   r = xs |> List.length()
-  case p {
-    Point{x: 0, y} -> y
+  case p
+    Point{x: 0, y:} -> y
     _ -> 0
-  }
-}
+  end
+end
 `
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {

@@ -11,23 +11,23 @@ import (
 // (`Holder<T>`), and the struct-literal check took those as arguments the
 // site supplied, so `Of{value: 1}` reported "field 'value' type mismatch:
 // expected T, got Int".
-const drillGenericShapes = `pub enum Holder<T> {
+const drillGenericShapes = `pub enum Holder<T>
     Of {value: T}
     Wrap T
     Empty
-}
+end
 
-pub enum Pair<A, B> {
+pub enum Pair<A, B>
     Both {left: A, right: B}
-}
+end
 
-pub fn holder_int(h: Holder<Int>) -> Int {
-    case h {
-        .Of{value} -> value
+pub fn holder_int(h: Holder<Int>) -> Int
+    case h
+        .Of{value:} -> value
         .Wrap(v) -> v
         .Empty -> 0
-    }
-}
+    end
+end
 `
 
 func TestDrillThroughGenericVariant_InfersAsTheQualifiedSpelling(t *testing.T) {
@@ -37,20 +37,20 @@ func TestDrillThroughGenericVariant_InfersAsTheQualifiedSpelling(t *testing.T) {
 		{"a positional variant", "import shapes.Holder.{Wrap}",
 			"    h = Wrap(2)\n    _ = shapes.holder_int(h)\n"},
 		{"two type parameters", "import shapes.Pair.{Both}",
-			"    p: shapes.Pair<Int, String> = Both{left: 1, right: \"a\"}\n    q = Both{left: \"b\", right: 2}\n    _ = case q {\n        .Both{left, right} -> String.length(left) + right\n    }\n    _ = p\n"},
+			"    p: shapes.Pair<Int, String> = Both{left: 1, right: \"a\"}\n    q = Both{left: \"b\", right: 2}\n    _ = case q\n        .Both{left:, right:} -> String.length(left) + right\n    end\n    _ = p\n"},
 		{"an aliased struct variant", "import shapes.Holder.{Of as O}",
 			"    h = O{value: 3}\n    _ = shapes.holder_int(h)\n"},
 		{"a struct variant in a pattern", "import shapes.Holder.{Of}",
-			"    h = Of{value: 4}\n    _ = case h {\n        Of{value} -> value + 1\n        _ -> 0\n    }\n"},
+			"    h = Of{value: 4}\n    _ = case h\n        Of{value:} -> value + 1\n        _ -> 0\n    end\n"},
 		{"an aliased struct variant in a pattern", "import shapes.Holder.{Of as O}",
-			"    h = O{value: 4}\n    _ = case h {\n        O{value} -> value + 1\n        _ -> 0\n    }\n"},
+			"    h = O{value: 4}\n    _ = case h\n        O{value:} -> value + 1\n        _ -> 0\n    end\n"},
 		{"the expected type of an argument", "import shapes.Holder.{Of}",
 			"    _ = shapes.holder_int(Of{value: 6})\n"},
 		{"the expected type of an annotation", "import shapes.Holder.{Of}",
 			"    h: shapes.Holder<Int> = Of{value: 7}\n    _ = shapes.holder_int(h)\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "import shapes\n" + tc.imports + "\n\nfn main() {\n" + tc.body + "}\n"
+			src := "import shapes\n" + tc.imports + "\n\nfn main()\n" + tc.body + "end\n"
 			_, errs := checkProjectWithFiles(t, src, map[string]string{"shapes.nomi": drillGenericShapes})
 			if len(errs) > 0 {
 				msgs := make([]string, len(errs))
@@ -66,7 +66,7 @@ func TestDrillThroughGenericVariant_InfersAsTheQualifiedSpelling(t *testing.T) {
 // The arguments an annotation supplies still win over the field: a value of
 // the wrong type is reported against the instantiated field type, not `T`.
 func TestDrillThroughGenericVariant_AnnotationSeedsTheArguments(t *testing.T) {
-	src := "import shapes\nimport shapes.Holder.{Of}\n\nfn main() {\n    h: shapes.Holder<String> = Of{value: 1}\n    _ = h\n}\n"
+	src := "import shapes\nimport shapes.Holder.{Of}\n\nfn main()\n    h: shapes.Holder<String> = Of{value: 1}\n    _ = h\nend\n"
 	_, errs := checkProjectWithFiles(t, src, map[string]string{"shapes.nomi": drillGenericShapes})
 	want := "field 'value' type mismatch: expected String, got Int"
 	for _, e := range errs {
@@ -80,7 +80,7 @@ func TestDrillThroughGenericVariant_AnnotationSeedsTheArguments(t *testing.T) {
 // A variant of this file's own enum written bare in a struct pattern stays
 // rejected; only a drill-through import binds the bare name.
 func TestDrillThroughGenericVariant_SameFileBareStructPatternIsRejected(t *testing.T) {
-	src := "enum Holder<T> {\n    Of {value: T}\n}\n\nfn main() {\n    h = Holder.Of{value: 1}\n    _ = case h {\n        Of{value} -> value\n    }\n}\n"
+	src := "enum Holder<T>\n    Of {value: T}\nend\n\nfn main()\n    h = Holder.Of{value: 1}\n    _ = case h\n        Of{value:} -> value\n    end\nend\n"
 	_, errs := checkProjectWithFiles(t, src, nil)
 	want := "bare variant 'Of' in pattern position; use '.Of' (or 'Holder.Of')"
 	for _, e := range errs {

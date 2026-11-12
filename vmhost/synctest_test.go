@@ -101,17 +101,17 @@ import std::duration.Duration
 import std::io
 import std::timer
 
-fn main() -> Unit {
-  concurrent {
+fn main() -> Unit
+  concurrent
     a = Task.spawn(fn -> timer.sleep(Duration.seconds(10)))
     b = Task.spawn(fn -> timer.sleep(Duration.seconds(10)))
     c = Task.spawn(fn -> timer.sleep(Duration.seconds(10)))
     Task.await(a)
     Task.await(b)
     Task.await(c)
-  }
+  end
   io.print("slept")
-}
+end
 `
 	_, elapsed := runInBubble(t, src, "slept")
 	assertVirtualized(t, elapsed, "3 parallel 10s sleeps")
@@ -125,12 +125,12 @@ import std::duration.Duration
 import std::io
 import std::timer
 
-fn main() -> Unit {
+fn main() -> Unit
   timer.sleep(Duration.minutes(1))
   timer.sleep(Duration.minutes(2))
   timer.sleep(Duration.minutes(2))
   io.print("five minutes later")
-}
+end
 `
 	_, elapsed := runInBubble(t, src, "five minutes later")
 	assertVirtualized(t, elapsed, "5 minutes of sequential sleeps")
@@ -147,26 +147,27 @@ import std::duration.Duration
 import std::io
 import std::timer
 
-fn produce(ch: Channel<Int>, n: Int) -> Unit {
+fn produce(ch: Channel<Int>, n: Int) -> Unit
   timer.sleep(Duration.seconds(30))
-  case Sender.send(ch.sender, n) {
+  case Sender.send(ch.sender, n)
     Ok(u) -> u
     Err(_) -> Unit
-  }
-}
+  end
+end
 
-fn consume(ch: Channel<Int>) -> Int {
+fn consume(ch: Channel<Int>) -> Int
   Iter.loop(0, fn sum ->
-    case Receiver.receive(ch.receiver) {
+    case Receiver.receive(ch.receiver)
       Some(v) -> sum + v
       None -> break sum
-    }
+    end
+  end
   )
-}
+end
 
-fn main() -> Unit {
+fn main() -> Unit
   ch = Channel.buffered<Int>(1)
-  total = concurrent {
+  total = concurrent
     p1 = Task.spawn(fn -> produce(ch, 10))
     p2 = Task.spawn(fn -> produce(ch, 20))
     cons = Task.spawn(fn -> consume(ch))
@@ -174,9 +175,9 @@ fn main() -> Unit {
     Task.await(p2)
     _ = Sender.close(ch.sender)
     Task.await(cons)
-  }
+  end
   io.print(Display.to_string(total))
-}
+end
 `
 	_, elapsed := runInBubble(t, src, "30")
 	assertVirtualized(t, elapsed, "channel round-trip behind 30s sleeps")
@@ -190,29 +191,29 @@ import std::duration.Duration
 import std::io
 import std::timer
 
-fn slow_task() -> Result<Int, String> {
+fn slow_task() -> Result<Int, String>
   timer.sleep(Duration.minutes(5))
   Ok(0)
-}
+end
 
-fn fast_fail() -> Result<Int, String> {
+fn fast_fail() -> Result<Int, String>
   Err("boom")
-}
+end
 
-fn main() -> Unit {
-  outcome: Result<Int, String> = concurrent {
+fn main() -> Unit
+  outcome: Result<Int, String> = concurrent
     fast = Task.spawn(fn -> fast_fail())
     slow1 = Task.spawn(fn -> slow_task())
     slow2 = Task.spawn(fn -> slow_task())
     _slow1_ref = slow1
     _slow2_ref = slow2
     Ok(Task.await(fast)?)
-  }
-  case outcome {
+  end
+  case outcome
     Ok(v) -> io.print("ok:" + Display.to_string(v))
     Err(e) -> io.print("err:" + e)
-  }
-}
+  end
+end
 `
 	_, elapsed := runInBubble(t, src, "err:boom")
 	assertVirtualized(t, elapsed, "cancellation cascade past 5m sleeps")
@@ -222,21 +223,21 @@ fn main() -> Unit {
 // notify with the given arguments.
 func supervisorProgram(groupArgs, rest string) string {
 	return `
-import {
+import
   std::supervisors.Supervisor
   std::duration.Duration
   std::io
   std::timer
-}
+end
 
-struct Config {
+struct Config
   context: Context
   notify: Supervisor
-}
+end
 
-fn boot() -> Result<Config, String> {
+fn boot() -> Result<Config, String>
   Ok(Config{context: Context.root(), notify: Supervisor.new(` + groupArgs + `)})
-}
+end
 ` + rest
 }
 
@@ -244,15 +245,15 @@ fn boot() -> Result<Config, String> {
 // The drain waits for it, and the whole thing is free.
 func TestSynctestGroupDrainVirtualizesItsBudget(t *testing.T) {
 	src := supervisorProgram("shutdown_timeout: Duration.minutes(5), max_running: 4", `
-fn note() -> Unit {
+fn note() -> Unit
   timer.sleep(Duration.seconds(30))
   io.print("note sent")
-}
+end
 
-fn main() -> Unit {
+fn main() -> Unit
   _ = Supervisor.spawn(Config.notify, fn -> note())
   io.print("main returned")
-}
+end
 `)
 	_, elapsed := runInBubble(t, src, "note sent")
 	assertVirtualized(t, elapsed, "30s of grouped work under a 5m budget")
@@ -265,15 +266,15 @@ fn main() -> Unit {
 // context fires.
 func TestSynctestDrainExpiryAbandonsWithoutStallingTheBubble(t *testing.T) {
 	src := supervisorProgram("shutdown_timeout: Duration.minutes(2), max_running: 4", `
-fn forever() -> Unit {
+fn forever() -> Unit
   timer.sleep(Duration.hours(1))
   io.print("SHOULD NOT PRINT")
-}
+end
 
-fn main() -> Unit {
+fn main() -> Unit
   _ = Supervisor.spawn(Config.notify, fn -> forever())
   io.print("main returned")
-}
+end
 `)
 	out, elapsed := runInBubble(t, src, "main returned")
 	if strings.Contains(out, "SHOULD NOT PRINT") {
@@ -287,15 +288,15 @@ fn main() -> Unit {
 // pool, which would be a scheduler synctest cannot see into.
 func TestSynctestMaxRunningQueuesWithoutAPool(t *testing.T) {
 	src := supervisorProgram("shutdown_timeout: Duration.minutes(10), max_running: 2", `
-fn work(n: Int) -> Unit {
+fn work(n: Int) -> Unit
   timer.sleep(Duration.seconds(30))
   io.print("done " + Display.to_string(n))
-}
+end
 
-fn main() -> Unit {
+fn main() -> Unit
   _ = Supervisor.spawn_all(Config.notify, [1, 2, 3, 4, 5, 6], work)
   io.print("spawned")
-}
+end
 `)
 	_, elapsed := runInBubble(t, src, "done 1", "done 2", "done 3", "done 4", "done 5", "done 6")
 	assertVirtualized(t, elapsed, "6 x 30s items through a group of 2")
@@ -308,15 +309,15 @@ fn main() -> Unit {
 func TestSynctestRestartBackoffVirtualizesItsDelays(t *testing.T) {
 	src := supervisorProgram("shutdown_timeout: Duration.minutes(10), max_running: 1, "+
 		"restart: Restart.Transient, backoff: Backoff.Exponential{max_restarts: 3, max_elapsed: Duration.minutes(5)}", `
-fn breaks() -> Unit {
+fn breaks() -> Unit
   io.print("run")
   _ = 1 / 0
   Unit
-}
+end
 
-fn main() -> Unit {
+fn main() -> Unit
   _ = Supervisor.spawn(Config.notify, fn -> breaks())
-}
+end
 `)
 	src = strings.Replace(src, "  std::supervisors.Supervisor\n", "  std::supervisors.{Backoff, Restart, Supervisor}\n", 1)
 	src = strings.Replace(src, "  std::timer\n", "", 1)
@@ -331,17 +332,17 @@ fn main() -> Unit {
 // the one most likely to run inside a bubble.
 func TestSynctestGroupWaitIsInstant(t *testing.T) {
 	src := supervisorProgram("shutdown_timeout: Duration.minutes(5), max_running: 4", `
-fn note(n: Int) -> Unit {
+fn note(n: Int) -> Unit
   timer.sleep(Duration.minutes(1))
   io.print("note " + Display.to_string(n))
-}
+end
 
-fn main() -> Unit {
+fn main() -> Unit
   _ = Supervisor.spawn(Config.notify, fn -> note(1))
   _ = Supervisor.spawn(Config.notify, fn -> note(2))
   _ = Supervisor.flush(Config.notify)
   io.print("flushed")
-}
+end
 `)
 	out, elapsed := runInBubble(t, src, "flushed")
 	flushed := strings.Index(out, "flushed")

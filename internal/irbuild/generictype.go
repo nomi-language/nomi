@@ -651,8 +651,8 @@ func (g *gen) templateInstanceOf(instantiate func([]kind) (kind, bool), t analys
 	args := make([]kind, len(typeArgs))
 	for i, a := range typeArgs {
 		// An argument nothing determines (`E.X(1)`'s other parameter) is
-		// filled as a user template's argument is (irFillHolesByPosition).
-		args[i] = g.project(irFillHolesByPosition(a, true))
+		// the type the checker closed it as.
+		args[i] = g.project(a)
 	}
 	k, ok := instantiate(args)
 	if !ok {
@@ -661,107 +661,41 @@ func (g *gen) templateInstanceOf(instantiate func([]kind) (kind, bool), t analys
 	return k
 }
 
-// checkedStructTypeArgs projects the instantiated field-label types recorded
-// by the checker. It never evaluates field expressions or guesses an omitted
-// parameter. Other representations decline.
-func (g *gen) checkedStructTypeArgs(t *ast.StructLit, tpl *genericTemplate) ([]kind, bool) {
-	sd := tpl.structDecl()
-	if g.fa == nil || sd == nil {
+// literalTypeArgs is the type arguments of the instance the checker typed
+// t, a construction, as (`Box{v: 1}` a Box<Int>, `Holder.Of{value: 5}` a
+// Holder<Int>, `Config(defaults())` a Config<Int>), n of them, in this
+// gen's kinds. A parameter nothing in the
+// literal determines (`Either.L{a: 1}`'s B: spec, "Determined type
+// arguments") is the type the checker closed it as. Nothing is solved from
+// the field values.
+func (g *gen) literalTypeArgs(t ast.Node, n int) ([]kind, bool) {
+	var typeArgs []analysis.Type
+	switch ty := analysis.ResolveClosed(g.checkedExprType(t)).(type) {
+	case *analysis.EnumType:
+		typeArgs = ty.TypeArgs
+	case *analysis.StructType:
+		typeArgs = ty.TypeArgs
+	}
+	if n == 0 || len(typeArgs) != n {
 		return nil, false
 	}
-	return g.checkedFieldTypeArgs(t, tpl, sd.Fields)
-}
-
-// checkedVariantTypeArgs is checkedStructTypeArgs for a struct-shaped
-// variant of a generic enum template (`shapes.Holder.Of{value: 5}`).
-func (g *gen) checkedVariantTypeArgs(t *ast.StructLit, tpl *genericTemplate, variant string) ([]kind, bool) {
-	ed := tpl.enumDecl()
-	if g.fa == nil || ed == nil {
-		return nil, false
-	}
-	for _, v := range ed.Variants {
-		if v.Name == variant && v.Kind == "struct" {
-			return g.checkedFieldTypeArgs(t, tpl, v.Fields)
-		}
-	}
-	return nil, false
-}
-
-// checkedFieldTypeArgs solves tpl's arguments from the checker's
-// instantiated field-label types of t against the declared fields.
-func (g *gen) checkedFieldTypeArgs(t *ast.StructLit, tpl *genericTemplate, declared []ast.StructField) ([]kind, bool) {
-	byName := map[string]ast.TypeExpr{}
-	for _, f := range declared {
-		byName[f.Name] = f.TypeAnnotation
-	}
-	params := templateParamSet(tpl)
-	solved := map[string]kind{}
-	for _, f := range t.Fields {
-		ann := byName[f.Name]
-		if ann == nil || !namesTypeParam(ann, params) {
-			continue
-		}
-		labels := g.srcFA().References
-		if analysis.IsPunnedField(f) {
-			// `Span{start, stop}`: References at a punned label holds the
-			// variable, and the field's instantiated type is kept apart.
-			labels = g.srcFA().PunnedFieldLabels
-		}
-		sym := labels[analysis.Pos{Line: f.Line, Col: f.Col}]
-		if sym == nil || sym.Kind != analysis.SymbolField {
-			return nil, false
-		}
-		ty := sym.Type
-		if irUnsolvedType(ty) {
-			// `Gbox{v: []}` where nothing fixes the list's element: an
-			// unsolved type argument no value has is filled as a generic
-			// call's is (spec, "Determined type arguments").
-			ty = irFillHolesByPosition(ty, false)
-		}
-		k := g.project(ty)
-		if k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k) {
-			return nil, false
-		}
-		g.unifyTypeParams(ann, k, params, solved)
-	}
-	g.solveFromLiteralType(t, tpl, solved)
-	args, ok := templateArgs(tpl, solved)
-	if !ok {
-		return nil, false
-	}
-	for _, k := range args {
+	args := make([]kind, n)
+	for i, a := range typeArgs {
+		k := g.project(a)
 		// A leaf, or any value the IR carries: the instance's own layout is
 		// checked where the literal is built (irRetainedStructKind). Unit is
 		// a field like any other (`Captured<Unit>`'s value).
 		if k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k) {
 			return nil, false
 		}
+		args[i] = k
 	}
 	return args, true
 }
 
-// unifyTypeParams matches a declared annotation against an actual kind, binding
-// every type parameter the annotation names.
-//
-// Structural and one-directional: the annotation is the pattern and the kind is
-// the subject. A parameter already bound to a DIFFERENT kind is left at its
-// first binding rather than overwritten, so a literal the front end would have
-// rejected cannot silently pick the last field's answer — the caller then builds
-// an instance whose field kinds disagree with the values, and structValue
-// refuses each mismatched field by kind. Never picking is the rule impl.go's
-// duplicate-impl arm states: do not let ordering decide.
-//
-// `params` is the SET of names to treat as parameters, rather than a
-// *genericTemplate, because a generic FUNCTION's type parameters ask this
-// function exactly the same question a generic STRUCT's do — "which parameter
-// was `T` bound to, given this annotation and this actual kind" — and the only
-// thing a template would be read for is `templateParamSet`. Two unifiers would
-// be two answers to one question. Taking the set also stops the leaf arm
-// rebuilding the same map at every SimpleType it visits.
 // instanceArgs is generic instance d's type arguments in this gen's kinds.
 // A mirror of another file's instance carries none of its own (mirrorShell):
-// they are read off the owner's def and imported, so `fn show<T>(p:
-// Pair<T>)` solves T from another file's `Pair<Int>` as from its own.
+// they are read off the owner's def and imported.
 func (g *gen) instanceArgs(d *typeDef) ([]kind, bool) {
 	if d.instOrigin == nil {
 		return d.genericArgs, true
@@ -777,6 +711,13 @@ func (g *gen) instanceArgs(d *typeDef) ([]kind, bool) {
 	return args, true
 }
 
+// unifyTypeParams matches a declared annotation against an actual kind,
+// binding every type parameter in params the annotation names. A parameter
+// already bound keeps its first binding. It reads which instance of an
+// impl block a receiver kind is (stdRecvTypeArgs: `List<T>` against
+// `List<Int>`) and the frame an implementation's signature gives an
+// interface's parameter defaults (ifaceDefaultFrame); a call's type
+// arguments are the checker's (calleeTypeArgs), never solved here.
 func (g *gen) unifyTypeParams(ann ast.TypeExpr, actual kind, params map[string]bool, solved map[string]kind) {
 	switch a := ann.(type) {
 	case *ast.SimpleType:
@@ -825,42 +766,6 @@ func (g *gen) unifyTypeParams(ann ast.TypeExpr, actual kind, params map[string]b
 			g.unifyTypeParams(a.Return, parts[len(parts)-1], params, solved)
 		}
 	}
-}
-
-// solveFromLiteralType solves each of tpl's parameters no field fixed from
-// the type the checker gave the literal t. A parameter nothing determines
-// (`Either.L{a: 1}`'s B: spec, "Determined type arguments") has no value
-// in the literal, and its hole is filled by its position
-// (irFillHolesByPosition), as a generic call's is.
-func (g *gen) solveFromLiteralType(t *ast.StructLit, tpl *genericTemplate, solved map[string]kind) {
-	if len(solved) == len(tpl.params) {
-		return
-	}
-	var typeArgs []analysis.Type
-	switch ty := irFillHolesByPosition(analysis.ResolveTypeVar(g.checkedExprType(t)), false).(type) {
-	case *analysis.EnumType:
-		typeArgs = ty.TypeArgs
-	case *analysis.StructType:
-		typeArgs = ty.TypeArgs
-	}
-	if len(typeArgs) != len(tpl.params) {
-		return
-	}
-	for i, p := range tpl.params {
-		if _, found := solved[p]; !found {
-			solved[p] = g.project(typeArgs[i])
-		}
-	}
-}
-
-// templateParamSet is the template's parameters as a set, for namesTypeParam and
-// the unifier's leaf test.
-func templateParamSet(tpl *genericTemplate) map[string]bool {
-	out := make(map[string]bool, len(tpl.params))
-	for _, p := range tpl.params {
-		out[p] = true
-	}
-	return out
 }
 
 // kindsNomi is an argument list's Nomi spelling, for a refusal detail only.

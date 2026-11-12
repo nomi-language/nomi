@@ -1,47 +1,47 @@
 import std::compiler
 
-struct Version {
+struct Version
     major: Int
     minor: Int
-}
+end
 
 derive Comparable for Version
 
 // Ordered by key alone, so two entries with one key tie.
-struct Entry {
+struct Entry
     key: Int
     label: String
-}
+end
 
-impl Comparable for Entry {
-    fn compare(a: Entry, b: Entry) -> Ordering {
+impl Comparable for Entry
+    fn compare(a: Entry, b: Entry) -> Ordering
         Int.compare(a.key, b.key)
-    }
-}
+    end
+end
 
-fn bounded<T>(value: T, low: T, high: T) -> T where T: Comparable {
+fn bounded<T>(value: T, low: T, high: T) -> T where T: Comparable
     Comparable.clamp(value, low, high)
-}
+end
 
-test "a derived Comparable has min, max and clamp" {
+test "a derived Comparable has min, max and clamp"
     old = Version{major: 1, minor: 4}
     new = Version{major: 2, minor: 0}
     assert Version.min(new, old) == old
     assert Version.max(old, new) == new
     assert Version.clamp(Version{major: 3, minor: 1}, old, new) == new
     assert Comparable.min(old, new) == old
-}
+end
 
-test "a tie returns the first argument" {
+test "a tie returns the first argument"
     first = Entry{key: 1, label: "first"}
     second = Entry{key: 1, label: "second"}
     assert Entry.min(first, second).label == "first"
     assert Entry.max(first, second).label == "first"
     assert Entry.clamp(first, second, second).label == "first"
     assert Float.to_string(Float.min(0.0, -0.0)) == "-0.0"
-}
+end
 
-test "clamp through a generic bound" {
+test "clamp through a generic bound"
     assert bounded(15, 0, 10) == 10
     assert bounded("m", "a", "k") == "k"
 
@@ -50,29 +50,29 @@ test "clamp through a generic bound" {
         Version{major: 1, minor: 0},
         Version{major: 2, minor: 0},
     ) == Version{major: 1, minor: 0}
-}
+end
 
-test "a NaN value stays NaN, a NaN bound traps" {
+test "a NaN value stays NaN, a NaN bound traps"
     assert Float.is_nan(Float.clamp(Float.nan(), 0.0, 1.0))
 
     result =
         """
-        fn main() {
+        fn main()
           _ = Float.clamp(0.5, Float.nan(), 1.0)
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert "Comparable.clamp: low NaN is not a number" in message
-}
+end
 
-test "clamp with low above high traps, naming both bounds" {
+test "clamp with low above high traps, naming both bounds"
     result =
         """
-        fn main() {
+        fn main()
           _ = Int.clamp(5, 10, 1)
-        }
+        end
         """
         |> compiler.run()
 
@@ -81,12 +81,12 @@ test "clamp with low above high traps, naming both bounds" {
 
     text =
         """
-        fn main() {
+        fn main()
           _ = String.clamp("b", "z", "a")
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(said) = text
     assert "Comparable.clamp: low \"z\" is greater than high \"a\"" in said
-}
+end

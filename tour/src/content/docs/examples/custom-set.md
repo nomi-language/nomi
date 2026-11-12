@@ -15,101 +15,102 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// A set of values, kept as a list in ascending order with no value twice.
 /// Two sets with the same values hold the same list, so they are equal.
-pub opaque struct CustomSet<T> {
+pub opaque struct CustomSet<T>
     items: List<T>
-}
+end
 
-impl CustomSet<T> {
+impl CustomSet<T>
     /// The set of `values`, each kept once.
-    pub fn from(values: List<T>) -> CustomSet<T> where T: Comparable {
+    pub fn from(values: List<T>) -> CustomSet<T> where T: Comparable
         Iter.reduce(values, CustomSet{items: []}, CustomSet.add)
-    }
+    end
 
     /// Whether `set` holds no values.
-    pub fn is_empty(set: CustomSet<T>) -> Bool {
+    pub fn is_empty(set: CustomSet<T>) -> Bool
         Iter.is_empty(set.items)
-    }
+    end
 
     /// Whether `set` holds `element`.
-    pub fn contains(set: CustomSet<T>, element: T) -> Bool where T: Equatable {
+    pub fn contains(set: CustomSet<T>, element: T) -> Bool where T: Equatable
         element in set.items
-    }
+    end
 
     /// Whether every value of `set` is in `other`.
-    pub fn is_subset(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
+    pub fn is_subset(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable
         Iter.all_match(set.items, &CustomSet.contains(other, &1))
-    }
+    end
 
     /// Whether `set` and `other` share no value.
-    pub fn is_disjoint(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
+    pub fn is_disjoint(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable
         not Iter.any_match(set.items, &CustomSet.contains(other, &1))
-    }
+    end
 
     /// `set` with `element` in it.
-    pub fn add(set: CustomSet<T>, element: T) -> CustomSet<T> where T: Comparable {
-        .{items: insert(set.items, element)}
-    }
+    pub fn add(set: CustomSet<T>, element: T) -> CustomSet<T> where T: Comparable
+        {items: insert(set.items, element)}
+    end
 
     /// The values in both `set` and `other`.
-    pub fn intersection(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
-        .{
+    pub fn intersection(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable
+        {
             items: set.items |> Iter.filter(&CustomSet.contains(other, &1)) |> Iter.to_list(),
         }
-    }
+    end
 
     /// The values in `set` that are not in `other`.
-    pub fn difference(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
-        .{
+    pub fn difference(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable
+        {
             items: set.items |> Iter.reject(&CustomSet.contains(other, &1)) |> Iter.to_list(),
         }
-    }
+    end
 
     /// The values in `set`, `other` or both.
-    pub fn union(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Comparable {
+    pub fn union(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Comparable
         Iter.reduce(other.items, set, CustomSet.add)
-    }
-}
+    end
+end
 
 /// `items`, which is in ascending order with no value twice, with
 /// `element` in its place, or unchanged when it holds `element` already.
-fn insert<T>(items: List<T>, element: T) -> List<T> where T: Comparable {
-    case items {
-        [] -> [element]
+fn insert<T>(items: List<T>, element: T) -> List<T> where T: Comparable
+    case items
+        [] ->
+            [element]
 
         [first, ..rest] ->
-            case Comparable.compare(element, first) {
+            case Comparable.compare(element, first)
                 .Less -> [element, ..items]
                 .Equal -> items
                 .Greater -> [first, ..insert(rest, element)]
-            }
-    }
-}
+            end
+    end
+end
 
 // FILE: custom_set_test.nomi
 import custom_set.CustomSet
 
-test "Returns true if the set contains no elements" {
+test "Returns true if the set contains no elements"
     [
         ("sets with no elements are empty", [], True),
         ("sets with elements are not empty", [1], False),
     ]
-    |> subtests (description, set, expected), description {
+    |> subtests (description, set, expected), description
         assert CustomSet.from(set) |> CustomSet.is_empty() == expected
-    }
-}
+    end
+end
 
-test "Sets can report if they contain an element" {
+test "Sets can report if they contain an element"
     [
         ("nothing is contained in an empty set", [], 1, False),
         ("when the element is in the set", [1, 2, 3], 1, True),
         ("when the element is not in the set", [1, 2, 3], 4, False),
     ]
-    |> subtests (description, set, element, expected), description {
+    |> subtests (description, set, element, expected), description
         assert CustomSet.from(set) |> CustomSet.contains(element) == expected
-    }
-}
+    end
+end
 
-test "A set is a subset if all of its elements are contained in the other set" {
+test "A set is a subset if all of its elements are contained in the other set"
     [
         ("empty set is a subset of another empty set", [], [], True),
         ("empty set is a subset of non-empty set", [], [1], True),
@@ -123,12 +124,12 @@ test "A set is a subset if all of its elements are contained in the other set" {
             False,
         ),
     ]
-    |> subtests (description, set1, set2, expected), description {
+    |> subtests (description, set1, set2, expected), description
         assert CustomSet.is_subset(CustomSet.from(set1), CustomSet.from(set2)) == expected
-    }
-}
+    end
+end
 
-test "Sets are disjoint if they share no elements" {
+test "Sets are disjoint if they share no elements"
     [
         ("the empty set is disjoint with itself", [], [], True),
         ("empty set is disjoint with non-empty set", [], [1], True),
@@ -136,12 +137,12 @@ test "Sets are disjoint if they share no elements" {
         ("sets are not disjoint if they share an element", [1, 2], [2, 3], False),
         ("sets are disjoint if they share no elements", [1, 2], [3, 4], True),
     ]
-    |> subtests (description, set1, set2, expected), description {
+    |> subtests (description, set1, set2, expected), description
         assert CustomSet.is_disjoint(CustomSet.from(set1), CustomSet.from(set2)) == expected
-    }
-}
+    end
+end
 
-test "Sets with the same elements are equal" {
+test "Sets with the same elements are equal"
     [
         ("empty sets are equal", [], [], True),
         ("empty set is not equal to non-empty set", [], [1, 2, 3], False),
@@ -151,23 +152,23 @@ test "Sets with the same elements are equal" {
         ("set is not equal to larger set with same elements", [1, 2, 3], [1, 2, 3, 4], False),
         ("set is equal to a set constructed from an array with duplicates", [1], [1, 1], True),
     ]
-    |> subtests (description, set1, set2, expected), description {
+    |> subtests (description, set1, set2, expected), description
         assert (CustomSet.from(set1) == CustomSet.from(set2)) == expected
-    }
-}
+    end
+end
 
-test "Unique elements can be added to a set" {
+test "Unique elements can be added to a set"
     [
         ("add to empty set", [], 3, [3]),
         ("add to non-empty set", [1, 2, 4], 3, [1, 2, 3, 4]),
         ("adding an existing element does not change the set", [1, 2, 3], 3, [1, 2, 3]),
     ]
-    |> subtests (description, set, element, expected), description {
+    |> subtests (description, set, element, expected), description
         assert CustomSet.from(set) |> CustomSet.add(element) == CustomSet.from(expected)
-    }
-}
+    end
+end
 
-test "Intersection returns a set of all shared elements" {
+test "Intersection returns a set of all shared elements"
     [
         ("intersection of two empty sets is an empty set", [], [], []),
         ("intersection of an empty set and non-empty set is an empty set", [], [3, 2, 5], []),
@@ -185,13 +186,13 @@ test "Intersection returns a set of all shared elements" {
             [2, 3],
         ),
     ]
-    |> subtests (description, set1, set2, expected), description {
+    |> subtests (description, set1, set2, expected), description
         intersection = CustomSet.intersection(CustomSet.from(set1), CustomSet.from(set2))
         assert intersection == CustomSet.from(expected)
-    }
-}
+    end
+end
 
-test "Difference (or Complement) of a set is a set of all elements that are only in the first set" {
+test "Difference (or Complement) of a set is a set of all elements that are only in the first set"
     [
         ("difference of two empty sets is an empty set", [], [], []),
         ("difference of empty set and non-empty set is an empty set", [], [3, 2, 5], []),
@@ -209,24 +210,24 @@ test "Difference (or Complement) of a set is a set of all elements that are only
         ),
         ("difference removes all duplicates in the first set", [1, 1], [1], []),
     ]
-    |> subtests (description, set1, set2, expected), description {
+    |> subtests (description, set1, set2, expected), description
         difference = CustomSet.difference(CustomSet.from(set1), CustomSet.from(set2))
         assert difference == CustomSet.from(expected)
-    }
-}
+    end
+end
 
-test "Union returns a set of all elements in either set" {
+test "Union returns a set of all elements in either set"
     [
         ("union of empty sets is an empty set", [], [], []),
         ("union of an empty set and non-empty set is the non-empty set", [], [2], [2]),
         ("union of a non-empty set and empty set is the non-empty set", [1, 3], [], [1, 3]),
         ("union of non-empty sets contains all unique elements", [1, 3], [2, 3], [3, 2, 1]),
     ]
-    |> subtests (description, set1, set2, expected), description {
+    |> subtests (description, set1, set2, expected), description
         assert CustomSet.union(CustomSet.from(set1), CustomSet.from(set2))
             == CustomSet.from(expected)
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok Returns true if the set contains no elements (2 cases)

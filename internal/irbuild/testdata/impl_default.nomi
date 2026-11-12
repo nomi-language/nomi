@@ -17,46 +17,46 @@ import std::io
 // `shout` is the same rule reached through an EXISTENTIAL: the inherited copy
 // is bound into the dispatch table under the receiver's identity exactly as a
 // written function would be, so an erased value inherits too.
-interface Logger {
+interface Logger
     fn log(value: self, level: String, message: String) -> Unit
 
-    open fn info(value: self, message: String) -> Unit {
+    open fn info(value: self, message: String) -> Unit
         Logger.log(value, "INFO", message)
-    }
+    end
 
-    fn warn(value: self, message: String) -> Unit {
+    fn warn(value: self, message: String) -> Unit
         Logger.log(value, "WARN", message)
-    }
-}
+    end
+end
 
 pub type ProdLogger
 
-pub struct TaggedLogger {
+pub struct TaggedLogger
     tag: String
-}
+end
 
-impl Logger for ProdLogger {
-    fn log(value: ProdLogger, level: String, message: String) -> Unit {
+impl Logger for ProdLogger
+    fn log(value: ProdLogger, level: String, message: String) -> Unit
         _ = value
         io.print("[${level}] ${message}")
-    }
-}
+    end
+end
 
-impl Logger for TaggedLogger {
-    fn log(value: TaggedLogger, level: String, message: String) -> Unit {
+impl Logger for TaggedLogger
+    fn log(value: TaggedLogger, level: String, message: String) -> Unit
         io.print("[${value.tag}|${level}] ${message}")
-    }
+    end
 
-    fn info(value: TaggedLogger, message: String) -> Unit {
+    fn info(value: TaggedLogger, message: String) -> Unit
         io.print("[${value.tag}] ${message}")
-    }
-}
+    end
+end
 
-fn shout(l: Logger) -> Unit {
+fn shout(l: Logger) -> Unit
     Logger.warn(l, "erased")
-}
+end
 
-fn main() {
+fn main()
     prod = ProdLogger
     tagged = TaggedLogger{tag: "app"}
 
@@ -67,4 +67,4 @@ fn main() {
 
     shout(prod)
     shout(tagged)
-}
+end

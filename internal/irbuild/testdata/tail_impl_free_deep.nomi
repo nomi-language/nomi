@@ -5,24 +5,24 @@
 // only if each of these tail calls replaces the caller's activation.
 import std::io
 
-interface Stepper {
+interface Stepper
     fn step(value: self, n: Int) -> Int
-}
+end
 
-struct Down {}
+struct Down end
 
-impl Stepper for Down {
-    fn step(value: Down, n: Int) -> Int {
-        if n == 0 { 0 } else { bounce(value, n - 1) }
-    }
-}
+impl Stepper for Down
+    fn step(value: Down, n: Int) -> Int
+        if n == 0 then 0 else bounce(value, n - 1)
+    end
+end
 
-fn bounce(value: Down, n: Int) -> Int {
+fn bounce(value: Down, n: Int) -> Int
     Stepper.step(value, n)
-}
+end
 
-fn main() {
+fn main()
     s = Down{}
 
     io.print("${bounce(s, 100000000)}")
-}
+end

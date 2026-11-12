@@ -4,43 +4,43 @@
 //# own impl, as `Display.to_string(x)` does. A typed literal's handler
 //# that takes `Fragment<Display>` writes its holes back out this way.
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-impl Display for Point {
-    fn to_string(p: Point) -> String {
+impl Display for Point
+    fn to_string(p: Point) -> String
         "(${p.x}, ${p.y})"
-    }
-}
+    end
+end
 
-fn show(x: Display) -> String {
+fn show(x: Display) -> String
     "<${x}>"
-}
+end
 
-fn show_bounded<T>(x: T) -> String where T: Display {
+fn show_bounded<T>(x: T) -> String where T: Display
     "[${x}]"
-}
+end
 
-fn show_all(xs: List<Display>) -> String {
+fn show_all(xs: List<Display>) -> String
     xs |> Iter.map(fn x -> "${x}") |> String.join(",")
-}
+end
 
-test "a Display parameter interpolates through the value's own impl" {
+test "a Display parameter interpolates through the value's own impl"
     assert show(Point{x: 1, y: 2}) == "<(1, 2)>"
     assert show(3) == "<3>"
     assert show("s") == "<s>"
     assert show(1.5) == "<1.5>"
     assert show(True) == "<True>"
-}
+end
 
-test "a type parameter bounded by Display interpolates" {
+test "a type parameter bounded by Display interpolates"
     assert show_bounded(Point{x: 3, y: 4}) == "[(3, 4)]"
     assert show_bounded(2.5) == "[2.5]"
-}
+end
 
-test "a lambda over a list of Display values interpolates each" {
+test "a lambda over a list of Display values interpolates each"
     xs: List<Display> = [Point{x: 7, y: 8}, Point{x: 9, y: 9}]
     assert show_all(xs) == "(7, 8),(9, 9)"
-}
+end

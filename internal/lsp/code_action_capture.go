@@ -62,7 +62,7 @@ type placeholderUse struct {
 	id    *ast.Ident
 	// field marks the receiver of a field read, `s` in `s.score`.
 	field bool
-	// pun marks a punned struct field, `Point{x}`, whose one token is
+	// pun marks a punned struct field, `Point{x:}`, whose one token is
 	// both the field's label and the read.
 	pun bool
 }
@@ -228,11 +228,15 @@ func (r *refactorRequest) placeholderText(l *ast.Lambda, uses []placeholderUse) 
 		}
 		b.WriteString(r.content[at:off])
 		hole := fmt.Sprintf("&%d", u.param+1)
+		at = off + len(u.id.Name)
 		if u.pun {
+			// `x:` becomes `x: &1`: the pun's colon is the field's.
 			hole = u.id.Name + ": " + hole
+			if at < end && r.content[at] == ':' {
+				at++
+			}
 		}
 		b.WriteString(hole)
-		at = off + len(u.id.Name)
 	}
 	b.WriteString(strings.TrimRight(r.content[at:end], " \t\r\n"))
 	if wrap {

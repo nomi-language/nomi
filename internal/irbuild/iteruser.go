@@ -1,6 +1,9 @@
 package irbuild
 
-import "github.com/nomi-language/nomi/internal/ir"
+import (
+	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/ir"
+)
 
 // A USER type as an `Iter` source: `impl Iter for Tree`.
 //
@@ -44,15 +47,16 @@ import "github.com/nomi-language/nomi/internal/ir"
 //
 // # Where it sits
 //
-// Asked from iterSourceExt, after the built-in sources and before iterSource's
-// refusal.
-//
-// The order is not load-bearing: the lookup asks only a named kind
-// (`tagNamed`), so std's `impl Iter for Set<T>` is never a candidate. The
-// block is this file's (`g.implsByIface`), or another file's: a generic
-// instance's where any file registered it, a monomorphic type's through the
-// program's impl index. A sibling's items are read in the calling file's
-// kinds (importKind), and the view references the symbols its owner interns.
+// The checker records which impl block a written source's view walks
+// (analysis.IterView.Impl), and userIterImplByBlock finds where that block
+// is lowered: this file's (`g.implsByIface`), or another file's, a generic
+// instance's where any file registered it. A source with no expression the
+// checker typed (an instance of a type parameter bounded by Iter, a
+// `flat_map` callback's result) finds its impl by its kind
+// (userIterImplOf), which asks only a named kind (`tagNamed`), so std's
+// `impl Iter for Set<T>` is never a candidate. A sibling's items are read in
+// the calling file's kinds (importKind), and the view references the
+// symbols its owner interns.
 
 // userIterImpl is the `impl Iter` a named source's type has: this file's
 // own, or the one another file of the program declares. owner is the gen
@@ -170,32 +174,66 @@ func (u userIterImpl) fn(g *gen, name string) (userIterFn, bool) {
 		k: funcKindIn(g, params, result), params: params, result: result}, true
 }
 
-// iterUserEachWhile finds the `each_while` lowered for receiver kind recv,
-// in this file or a sibling, and the element type it pushes.
+// iterUserEachWhile is the `each_while` u, the `impl Iter` of receiver
+// kind recv, lowers, and the element type it pushes.
 //
 // Split from the lowering so that RECOGNISING a user source and LOWERING one
 // are two readable steps: every check below is a reason `rt.UserSeq` would not
 // be the right lowering, and the caller adds the one reason that is about the
 // call rather than about the shape.
-func (g *gen) iterUserEachWhile(recv kind) (userIterImpl, userIterFn, kind, bool) {
-	u, ok := g.userIterImplOf(recv)
-	if !ok {
-		return userIterImpl{}, userIterFn{}, kindInvalid, false
-	}
+func (g *gen) iterUserEachWhile(u userIterImpl, recv kind) (userIterFn, kind, bool) {
 	f, ok := u.fn(g, "each_while")
 	if !ok || len(f.params) != 2 {
-		return userIterImpl{}, userIterFn{}, kindInvalid, false
+		return userIterFn{}, kindInvalid, false
 	}
 	if f.params[0] != recv || f.result != kindBool {
-		return userIterImpl{}, userIterFn{}, kindInvalid, false
+		return userIterFn{}, kindInvalid, false
 	}
 	y := f.params[1]
 	if y.tag != tagFunc {
-		return userIterImpl{}, userIterFn{}, kindInvalid, false
+		return userIterFn{}, kindInvalid, false
 	}
 	yp := funcParams(y)
 	if len(yp) != 1 || funcResult(y) != kindBool {
-		return userIterImpl{}, userIterFn{}, kindInvalid, false
+		return userIterFn{}, kindInvalid, false
 	}
-	return u, f, yp[0], true
+	return f, yp[0], true
+}
+
+// userIterImplByBlock is block, the `impl Iter` the checker recorded for a
+// source of kind recv (analysis.IterView.Impl), as the gen that lowers it
+// holds it: this file's, the instance of a generic block where any file
+// registered it (instanceImplAnywhere), or a sibling file's.
+func (g *gen) userIterImplByBlock(recv kind, block *ast.ImplBlock) (userIterImpl, bool) {
+	if recv.tag != tagNamed || recv.def == nil || block == nil {
+		return userIterImpl{}, false
+	}
+	if d := g.implsByIface["Iter"][recv]; d != nil && d.decl == block {
+		return userIterImpl{owner: g, d: d}, true
+	}
+	if g.reg == nil {
+		return userIterImpl{}, false
+	}
+	if recv.def.instOrigin != nil || recv.def.genericOf != nil {
+		src := recv.def.instOrigin
+		if src == nil {
+			src = recv.def
+		}
+		owner, d := g.instanceImplAnywhere(src, "Iter", "each_while")
+		if d == nil || owner == nil || owner == g || d.decl != block {
+			return userIterImpl{}, false
+		}
+		return userIterImpl{owner: owner, d: d}, true
+	}
+	for _, owner := range g.reg.gens {
+		if owner == nil || owner == g {
+			continue
+		}
+		for _, d := range owner.implOrder {
+			if d.decl == block && d.ifaceName == "Iter" {
+				return userIterImpl{owner: owner, d: d}, true
+			}
+		}
+	}
+	return userIterImpl{}, false
 }

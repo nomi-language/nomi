@@ -10,37 +10,39 @@ import "testing"
 func TestReturnTypeScope_BoundArmsRun(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-fn f() -> Result<Int, String> { Ok(1) }
+fn f() -> Result<Int, String>
+    Ok(1)
+end
 
-fn g(s: String) -> Result<Unit, String> {
-    r = case s {
+fn g(s: String) -> Result<Unit, String>
+    r = case s
         "a" -> f()
         _ -> Err("bad")
-    }
+    end
     io.print(Debug.inspect(r))
     Ok(Unit)
-}
+end
 
-fn k(s: String) -> Result<Int, Int> {
-    r = if s == "a" { f() } else { Ok(2) }
+fn k(s: String) -> Result<Int, Int>
+    r = if s == "a" then f() else Ok(2)
     io.print(Debug.inspect(r))
     Ok(1)
-}
+end
 
-fn c() -> Result<Unit, String> {
+fn c() -> Result<Unit, String>
     e = Err("late")
     r: Result<Int, String> = e
     io.print(Debug.inspect(r))
     Ok(Unit)
-}
+end
 
-fn main() {
+fn main()
     _a = g("a")
     _b = g("b")
     _c = k("a")
     _d = k("b")
     _e = c()
-}
+end
 `)
 	want := "Ok(1)\nErr(\"bad\")\nOk(1)\nOk(2)\nErr(\"late\")\n"
 	if got != want {

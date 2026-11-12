@@ -1680,7 +1680,7 @@
 "int.int_to_digits#42(-9223372036854775808, 10)"	"fault Int.to_digits: negative number -9223372036854775808"
 "int.int_to_digits#43(-9223372036854775808, 16)"	"fault Int.to_digits: negative number -9223372036854775808"
 "int.int_to_digits#44(-9223372036854775808, 9223372036854775807)"	"fault Int.to_digits: negative number -9223372036854775808"
-"json.Json.to_dynamic#0(Obj(%{\"a\" => Arr([Int(1), Float(2.5), String(\"x\"), Bool(True), Null]), \"b\" => Obj(%{})}))"	"value Dynamic(map[string]interface {}{\"a\":[]interface {}{1, 2.5, \"x\", true, interface {}(nil)}, \"b\":map[string]interface {}{}})"
+"json.Json.to_dynamic#0(Obj({\"a\" => Arr([Int(1), Float(2.5), String(\"x\"), Bool(True), Null]), \"b\" => Obj({})}))"	"value Dynamic(map[string]interface {}{\"a\":[]interface {}{1, 2.5, \"x\", true, interface {}(nil)}, \"b\":map[string]interface {}{}})"
 "json.Json.to_dynamic#1(Null)"	"value Dynamic(<nil>)"
 "json.Json.to_dynamic#2(String(\"s\"))"	"value Dynamic(\"s\")"
 "json.Json.to_dynamic#3(Int(-3))"	"value Dynamic(-3)"

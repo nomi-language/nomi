@@ -1,0 +1,26 @@
+// An owner function generic over its own T, whose parameter nests it
+// (`Box<Maybe<T>>`), called where nothing determines T: the checker leaves
+// it open, as std/presence's `Presence.flatten(Presence.Present(None))`.
+pub enum Box<T>
+    Empty
+    Full T
+end
+
+impl Box<T>
+    pub fn flat<T>(b: Box<Maybe<T>>) -> Maybe<T>
+        case b
+            .Full(inner) -> inner
+            .Empty -> Maybe.None
+        end
+    end
+end
+
+test "same file, T open"
+    assert Box.flat(Box.Full(Maybe.None)) == Maybe.None
+    empty: Box<Maybe<String>> = Box.Empty
+    assert Box.flat(empty) == Maybe.None
+end
+
+test "same file, T solved"
+    assert Box.flat(Box.Full(Maybe.Some("a"))) == Maybe.Some("a")
+end

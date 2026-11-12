@@ -14,16 +14,16 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# The classic first program.
 
 /// The greeting every program starts with.
-pub fn hello() -> String {
+pub fn hello() -> String
     "Hello, World!"
-}
+end
 
 // FILE: hello_world_test.nomi
 import hello_world.hello
 
-test "Say Hi!" {
+test "Say Hi!"
     assert hello() == "Hello, World!"
-}
+end
 ```
 <!-- expect
 ok Say Hi!

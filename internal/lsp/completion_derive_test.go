@@ -5,24 +5,24 @@ import (
 	"testing"
 )
 
-const deriveDecls = `struct Point {
+const deriveDecls = `struct Point
     x: Int
-}
+end
 
-enum Color {
+enum Color
     Red
     Green
-}
+end
 
 type Meters Int
 
 derive Equatable for Point
 
-impl Display for Color {
-    fn to_string(c: Color) -> String {
+impl Display for Color
+    fn to_string(c: Color) -> String
         "color"
-    }
-}
+    end
+end
 `
 
 func TestCompletion_Derive(t *testing.T) {

@@ -14,22 +14,22 @@ import "testing"
 func TestDeclarationOrder_MaybeToResultHasResultsVariants(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-fn main() {
+fn main()
     m = Some(3)
-    case Maybe.to_result(m, "e") {
+    case Maybe.to_result(m, "e")
         Ok(z) -> io.print("ok ${z}")
         Err(e) -> io.print("err ${e}")
-    }
+    end
     none: Maybe<Int> = None
-    if Ok(z) = Maybe.to_result(none, "none") {
+    if Ok(z) = Maybe.to_result(none, "none") then
         io.print("ok ${z}")
-    } else {
+    else
         io.print("not ok")
-    }
-    if Err(e) = Maybe.to_result(none, "none") {
+    end
+    if Err(e) = Maybe.to_result(none, "none") then
         io.print("err ${e}")
-    }
-}
+    end
+end
 `)
 	if want := "ok 3\nnot ok\nerr none\n"; got != want {
 		t.Fatalf("output %q, want %q", got, want)
@@ -41,30 +41,30 @@ fn main() {
 func TestDeclarationOrder_FieldNamesATypeDeclaredBelow(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-struct A {
+struct A
     b: Box<Int>
     e: Shape<Int>
-}
+end
 
-struct Box<T> {
+struct Box<T>
     v: T
-}
+end
 
-enum Shape<T> {
+enum Shape<T>
     Dot(T)
     Nothing
-}
+end
 
-fn get(a: A) -> Int {
-    case a.e {
+fn get(a: A) -> Int
+    case a.e
         .Dot(x) -> x + a.b.v
         .Nothing -> a.b.v
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print("${get(A{ b: Box{ v: 2 }, e: Shape.Dot(3) })}")
-}
+end
 `)
 	if got != "5\n" {
 		t.Fatalf("output %q, want %q", got, "5\n")
@@ -76,24 +76,24 @@ fn main() {
 func TestDeclarationOrder_RecursiveVariantPayloadHasVariants(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-enum Tree<T> {
+enum Tree<T>
     Leaf(T)
     Node(Tree<T>)
-}
+end
 
-fn depth(t: Tree<Int>) -> Int {
-    case t {
+fn depth(t: Tree<Int>) -> Int
+    case t
         .Leaf(x) -> x
-        .Node(inner) -> case inner {
+        .Node(inner) -> case inner
             .Leaf(y) -> y + 100
             .Node(_) -> 0
-        }
-    }
-}
+        end
+    end
+end
 
-fn main() {
+fn main()
     io.print("${depth(Tree.Node(Tree.Leaf(3)))}")
-}
+end
 `)
 	if got != "103\n" {
 		t.Fatalf("output %q, want %q", got, "103\n")
@@ -106,32 +106,32 @@ fn main() {
 func TestDeclarationOrder_BoundNamesAnInterfaceDeclaredBelow(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-fn sum<B>(b: B) -> Int where B: Bag<Int> {
+fn sum<B>(b: B) -> Int where B: Bag<Int>
     B.size(b) + B.first(b)
-}
+end
 
-interface Bag<T> {
+interface Bag<T>
     fn size(b: self) -> Int
     fn first(b: self) -> T
-}
+end
 
-struct Three {
+struct Three
     n: Int
-}
+end
 
-impl Bag<Int> for Three {
-    fn size(_b: Three) -> Int {
+impl Bag<Int> for Three
+    fn size(_b: Three) -> Int
         3
-    }
+    end
 
-    fn first(b: Three) -> Int {
+    fn first(b: Three) -> Int
         b.n
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print("${sum(Three{ n: 20 })}")
-}
+end
 `)
 	if got != "23\n" {
 		t.Fatalf("output %q, want %q", got, "23\n")
@@ -145,22 +145,22 @@ fn main() {
 func TestDeclarationOrder_EmbedsADistinctTypeDeclaredBelow(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-enum Shape {
+enum Shape
     embeds UserId
     Dot
-}
+end
 
 type UserId Int
 
-fn main() {
+fn main()
     s: Shape = UserId(5)
-    n = case s {
+    n = case s
         Shape.UserId(k) -> k + 1
         Shape.Dot -> 0
-    }
+    end
     io.print("${n}")
     io.print(Debug.inspect(Shape.UserId(8)))
-}
+end
 `)
 	if want := "6\nUserId(8)\n"; got != want {
 		t.Fatalf("output %q, want %q", got, want)

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -61,34 +62,47 @@ func knownCheckerGapFor(report string) *checkerGap {
 	return nil
 }
 
-// stdUnresolved is every value expression of the stdlib's modules, as the
-// shared analysis checked them, that has no resolved type, as
-// describeUnresolved writes it with the file under std/.
-func stdUnresolved() []string {
-	lib := std.Shared()
+// stdUnresolved is every value expression of the stdlib's modules
+// (std.All: shared and program-lowered alike), with their bodies, attached
+// tests and test declarations checked,
+// that has no resolved type, as describeUnresolved writes it with the file
+// under std/, and how many attached tests it walked.
+func stdUnresolved() ([]string, int) {
+	lib := std.All()
 	var mods []string
 	for m := range lib.Files {
 		mods = append(mods, m)
 	}
 	sort.Strings(mods)
 	var out []string
+	attached := 0
 	for _, m := range mods {
-		// The shared stdlib checks a module's bodies when something reads
-		// them, which this does.
 		if err := lib.Bodies(m); err != nil {
 			panic(err)
 		}
-		us := analysis.UnresolvedExprs(lib.Files[m], lib.Nodes[m])
+		// Bodies grafts the module's bodies into a new state: the stdlib
+		// read before it holds the module's interface alone. Its test
+		// declarations are not among its nodes (TestDecls).
+		cur := std.All()
+		tests, err := cur.TestDecls(m)
+		if err != nil {
+			panic(err)
+		}
+		nodes := append(append([]ast.Node(nil), cur.Nodes[m]...), tests...)
+		for _, n := range nodes {
+			attached += len(ast.AttachedTestsOf(n))
+		}
+		us := analysis.UnresolvedExprs(cur.Files[m], nodes)
 		out = append(out, describeUnresolved(m+".nomi", filepath.Join("..", "std", filepath.FromSlash(m)+".nomi"), us)...)
 	}
-	return out
+	return out, attached
 }
 
 // TestKnownCheckerGaps holds each known gap's reproducer to its gap: the
 // front end accepts it and the checker leaves an expression it matches
 // without a type.
 func TestKnownCheckerGaps(t *testing.T) {
-	stdReports := stdUnresolved()
+	stdReports, _ := stdUnresolved()
 	for _, gap := range knownCheckerGaps {
 		t.Run(gap.name, func(t *testing.T) {
 			var reports []string
@@ -131,9 +145,15 @@ func TestKnownCheckerGaps(t *testing.T) {
 
 // TestStdlibExprsAreTyped holds the stdlib's modules, as the shared
 // analysis checks them, to the rule. A report a known gap matches is
-// excused.
+// excused. It fails when it walked no attached test, which says it read the
+// modules' interfaces rather than their bodies.
 func TestStdlibExprsAreTyped(t *testing.T) {
-	for _, r := range stdUnresolved() {
+	reports, attached := stdUnresolved()
+	if attached == 0 {
+		t.Fatal("no std module's attached tests were walked: the harness read interfaces, not bodies")
+	}
+	t.Logf("%d attached tests walked", attached)
+	for _, r := range reports {
 		if knownCheckerGapFor(r) == nil {
 			t.Errorf("std/%s", r)
 		}

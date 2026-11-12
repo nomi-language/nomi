@@ -1,14 +1,14 @@
-import {
+import
     std::assertions.AssertionFailure
     std::testing
-}
+end
 
-fn fails_pattern_binding() -> Result<Unit, AssertionFailure> {
+fn fails_pattern_binding() -> Result<Unit, AssertionFailure>
     assert [_, _] = [1]
     Ok(Unit)
-}
+end
 
-test "rendered comparison failure can be asserted as text" {
+test "rendered comparison failure can be asserted as text"
     actual = "Ada"
     expected = "Grace"
     assert Err(failure) = testing.check(actual == expected)
@@ -22,9 +22,9 @@ test "rendered comparison failure can be asserted as text" {
             expected
               = "Grace"
         """
-}
+end
 
-test "rendered pattern binding failure shows the expected shape" {
+test "rendered pattern binding failure shows the expected shape"
     assert Err(failure) = fails_pattern_binding()
 
     assert AssertionFailure.format(failure) == """
@@ -32,9 +32,9 @@ test "rendered pattern binding failure shows the expected shape" {
           assert [_, _] = [1]
           actual: [1]
         """
-}
+end
 
-test "rendered predicate failure shows direct inputs" {
+test "rendered predicate failure shows direct inputs"
     items = [1, 2, 3]
     assert Err(failure) = testing.check(Iter.any_match(items, fn n -> n == 4))
 
@@ -45,9 +45,9 @@ test "rendered predicate failure shows direct inputs" {
             items
               = [1, 2, 3]
         """
-}
+end
 
-test "rendered binding failure includes the binding source" {
+test "rendered binding failure includes the binding source"
     has_four =
         [1, 2, 3]
         |> Iter.any_match(fn n -> n == 4)
@@ -67,9 +67,9 @@ test "rendered binding failure includes the binding source" {
             |> Iter.any_match(fn n -> n == 4)
               = False
         """
-}
+end
 
-test "rendered pipe-stage check includes pipeline source and values" {
+test "rendered pipe-stage check includes pipeline source and values"
     result = testing.check(
         [1, 2, 3]
         |> Iter.any_match(fn n -> n == 4)
@@ -87,11 +87,11 @@ test "rendered pipe-stage check includes pipeline source and values" {
             |> Iter.any_match(fn n -> n == 4)
               = False
         """
-}
+end
 
-test "a Set reads in the values row as its Debug form" {
-    small = %[1, 2]
-    nested = [%["a"]]
+test "a Set reads in the values row as its Debug form"
+    small = Set[1, 2]
+    nested = [Set["a"]]
     assert Err(failure) = testing.check(Set.size(small) == Iter.count(nested))
 
     assert AssertionFailure.format(failure) == """
@@ -99,17 +99,17 @@ test "a Set reads in the values row as its Debug form" {
           check Set.size(small) == Iter.count(nested)
           values:
             small
-              = %[1, 2]
+              = Set[1, 2]
             nested
-              = [%["a"]]
+              = [Set["a"]]
             Set.size(small)
               = 2
             Iter.count(nested)
               = 1
         """
-}
+end
 
-test "a lazy Iter reads in the values row as a placeholder" {
+test "a lazy Iter reads in the values row as a placeholder"
     doubled = [1, 2, 3] |> Iter.map(fn x -> x * 2)
 
     wrapped = [doubled]
@@ -130,4 +130,4 @@ test "a lazy Iter reads in the values row as a placeholder" {
         """
 
     assert Iter.to_list(doubled) == [2, 4, 6]
-}
+end

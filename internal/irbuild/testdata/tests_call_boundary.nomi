@@ -4,10 +4,10 @@
 // The builder enforces that by construction: a callee is a separate
 // declaration and is never lexically inside an assertion, so it emits no
 // recording at all.
-fn holds(a: Int, b: Int) -> Bool {
+fn holds(a: Int, b: Int) -> Bool
     a < b and b < a
-}
+end
 
-test "a callee's comparisons stay inside it" {
+test "a callee's comparisons stay inside it"
     assert holds(3, 4)
-}
+end

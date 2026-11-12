@@ -13,37 +13,37 @@ import std::io
 typealias Count Int
 typealias Handler (String, String) -> Result<String, String>
 typealias Pairs List<(Int, String)>
-typealias Row .{name: String, size: Int}
+typealias Row {name: String, size: Int}
 typealias Answer Maybe<Int>
 
-fn bump(n: Count) -> Count {
+fn bump(n: Count) -> Count
     n + 1
-}
+end
 
-fn run_alias(handler: Handler) -> Result<String, String> {
+fn run_alias(handler: Handler) -> Result<String, String>
     handler("request", "/home")
-}
+end
 
-fn run_direct(handler: (String, String) -> Result<String, String>) -> Result<String, String> {
+fn run_direct(handler: (String, String) -> Result<String, String>) -> Result<String, String>
     handler("request", "/home")
-}
+end
 
-fn total(rows: Pairs) -> Int {
+fn total(rows: Pairs) -> Int
     Iter.count(rows)
-}
+end
 
-fn label(r: Row) -> String {
+fn label(r: Row) -> String
     "${r.name}:${r.size}"
-}
+end
 
-fn unwrap_or(a: Answer, fallback: Int) -> Int {
-    case a {
+fn unwrap_or(a: Answer, fallback: Int) -> Int
+    case a
         Some(v) -> v
         None -> fallback
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print("bump=${bump(41)}")
 
     aliased = run_alias(fn method, path -> Ok(method + " " + path))
@@ -52,7 +52,7 @@ fn main() {
     io.print("aliased=${Debug.inspect(aliased)}")
 
     io.print("total=${total([(1, "a"), (2, "b")])}")
-    io.print("row=${label(.{name: "disk", size: 3})}")
+    io.print("row=${label({name: "disk", size: 3})}")
     io.print("some=${unwrap_or(Some(7), 0)}")
     io.print("none=${unwrap_or(None, 9)}")
-}
+end

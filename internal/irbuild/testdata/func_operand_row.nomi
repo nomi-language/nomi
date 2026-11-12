@@ -35,17 +35,17 @@
 // correct precisely because a lambda's pointer is not any registered function's.
 // A build that registered lambdas, or that failed to register the std
 // thunk, shows up as a wrong string HERE.
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn apply(f: (Int) -> Int, x: Int) -> Int {
+fn apply(f: (Int) -> Int, x: Int) -> Int
     f(x)
-}
+end
 
-fn takes_s(f: (String) -> String, x: String) -> String {
+fn takes_s(f: (String) -> String, x: String) -> String
     f(x)
-}
+end
 
 // `Computation` is deliberately NOT the last variant, which avoids a FRONT-END
 // defect rather than being a style choice: an enum whose LAST variant has a
@@ -54,47 +54,47 @@ fn takes_s(f: (String) -> String, x: String) -> String {
 // String", because the synthesized universal `impl Debug` picks up the payload
 // function's RETURN type. `enum Token { Eof; Computation (Int) -> Int }` is
 // the whole reproduction.
-enum Token {
+enum Token
     Eof
     Computation (Int) -> Int
     Word String
-}
+end
 
-fn run(t: Token) -> Int {
-    case t {
+fn run(t: Token) -> Int
+    case t
         Token.Computation(f) -> f(5)
         _ -> 0
-    }
-}
+    end
+end
 
-test "a module function reference has no row, since it would only name itself" {
+test "a module function reference has no row, since it would only name itself"
     assert apply(double, 7) == 99
-}
+end
 
-test "a lambda literal argument is not recorded at all" {
+test "a lambda literal argument is not recorded at all"
     // rt.RecordOperand drops it; the row that survives is the CALL's, not the
     // lambda's.
     assert apply(fn x -> x + 1, 7) == 99
-}
+end
 
-test "a binding holding a function names the VALUE, not the binding" {
+test "a binding holding a function names the VALUE, not the binding"
     g = double
     assert apply(g, 7) == 99
-}
+end
 
-test "a stdlib method reference renders under builtin, not func" {
+test "a stdlib method reference renders under builtin, not func"
     assert takes_s(String.trim, " a ") == "NOPE"
-}
+end
 
-test "a function inside a runtime enum payload carries its name" {
+test "a function inside a runtime enum payload carries its name"
     t = Token.Computation(double)
     assert run(t) == 99
-}
+end
 
-test "a lambda inside a runtime enum payload is the registry MISS" {
+test "a lambda inside a runtime enum payload is the registry MISS"
     t = Token.Computation(fn x -> x + 1)
     assert run(t) == 99
-}
+end
 
 // NO `assert Debug.inspect(double) == ...` ROW HERE, and the absence is a
 // known limit of how the row is recorded, not a gap in this file's

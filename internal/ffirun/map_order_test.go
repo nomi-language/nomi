@@ -44,10 +44,10 @@ func TestFFIRun_AGoMapCrossesInSortedKeyOrder(t *testing.T) {
 
 gopkg "crossing" as crossing
 
-struct Pt {
+struct Pt
   x: Int
   y: Int
-}
+end
 
 fn many() -> Map<Int, Int> go crossing.Many
 
@@ -55,19 +55,19 @@ fn grid() -> Map<Pt, Int> go crossing.Grid
 
 fn flags() -> Map<Bool, String> go crossing.Flags
 
-fn show() {
+fn show()
   io.inspect(many())
   io.inspect(grid())
   io.inspect(flags())
-}
+end
 
-fn main() {
+fn main()
   show()
   show()
   show()
   show()
   show()
-}
+end
 `)
 	got := runCrossingProject(t, entry)
 
@@ -80,9 +80,9 @@ fn main() {
 		}
 	}
 	round := strings.Join([]string{
-		"%{" + strings.Join(many, ", ") + "}",
-		`%{Pt{x: 0, y: 9} => 0, Pt{x: 1, y: 1} => 1, Pt{x: 1, y: 2} => 2, Pt{x: 2, y: 0} => 4, Pt{x: 2, y: 1} => 3}`,
-		`%{False => "f", True => "t"}`,
+		"{" + strings.Join(many, ", ") + "}",
+		`{Pt{x: 0, y: 9} => 0, Pt{x: 1, y: 1} => 1, Pt{x: 1, y: 2} => 2, Pt{x: 2, y: 0} => 4, Pt{x: 2, y: 1} => 3}`,
+		`{False => "f", True => "t"}`,
 	}, "\n")
 	want := strings.Repeat(round+"\n", 5)
 	want = strings.TrimSuffix(want, "\n")

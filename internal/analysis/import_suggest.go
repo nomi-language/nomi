@@ -69,6 +69,8 @@ func FindMissingImports(fa *FileAnalysis, nodes []ast.Node) []MissingImport {
 				addTypeSuggestions(fa, typeIndex, v.Name, Pos{Line: v.Line, Col: v.Col}, seen, &out)
 			case *ast.GenericType: // annotation `s: Set<Int>` (the base name)
 				addTypeSuggestions(fa, typeIndex, v.Name, Pos{Line: v.Line, Col: v.Col}, seen, &out)
+			case *ast.TaggedString: // typed literal tag (``Regex`a+` ``); the node sits at the quote
+				addTypeSuggestions(fa, typeIndex, v.Tag, Pos{Line: v.Line, Col: max(v.Col-len(v.Tag), 1)}, seen, &out)
 			case *ast.FieldAccess: // expression-level file API ref (`io.inspect`)
 				if obj, ok := ast.QualifierIdent(v.Object); ok {
 					addNamespaceSuggestion(fa, obj.Name, Pos{Line: obj.Line, Col: obj.Col}, seen, &out)

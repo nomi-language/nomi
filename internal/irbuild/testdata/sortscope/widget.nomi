@@ -1,18 +1,18 @@
 // A type whose `impl Comparable` is written HERE and whose orderings are
 // demanded in main.nomi. See main.nomi for what the split is for.
-pub struct Widget {
+pub struct Widget
     weight: Int
-}
+end
 
-pub fn make(weight: Int) -> Widget {
-    Widget{weight}
-}
+pub fn make(weight: Int) -> Widget
+    Widget{weight:}
+end
 
-impl Comparable for Widget {
-    fn compare(a: Widget, b: Widget) -> Ordering {
+impl Comparable for Widget
+    fn compare(a: Widget, b: Widget) -> Ordering
         Int.compare(a.weight, b.weight)
-    }
-}
+    end
+end
 
 // A SECOND INTERFACE DECLARING `compare` FOR THE SAME RECEIVER, ordering the
 // OPPOSITE way.
@@ -41,48 +41,48 @@ impl Comparable for Widget {
 //
 // And an interface-qualified call CAN name which one it wants, so `Ranked.compare`
 // is resolvable where `Widget.compare` is not.
-pub interface Ranked {
+pub interface Ranked
     fn compare(a: self, b: self) -> Ordering
-}
+end
 
-impl Ranked for Widget {
-    fn compare(a: Widget, b: Widget) -> Ordering {
+impl Ranked for Widget
+    fn compare(a: Widget, b: Widget) -> Ordering
         Int.compare(b.weight, a.weight)
-    }
-}
+    end
+end
 
 // A SECOND type in the same file, ordered by a DIFFERENT rule — descending on
 // its own field. Two receivers of one interface in one file, so a lookup keyed
 // on the METHOD rather than on (receiver declaration, interface) answers one with
 // the other's body and the two rows below disagree.
-pub struct Backwards {
+pub struct Backwards
     n: Int
-}
+end
 
-pub fn back(n: Int) -> Backwards {
-    Backwards{n}
-}
+pub fn back(n: Int) -> Backwards
+    Backwards{n:}
+end
 
-impl Comparable for Backwards {
-    fn compare(a: Backwards, b: Backwards) -> Ordering {
+impl Comparable for Backwards
+    fn compare(a: Backwards, b: Backwards) -> Ordering
         Int.compare(b.n, a.n)
-    }
-}
+    end
+end
 
 // A type with NO `impl Comparable`, reached only by `Equatable`. It exists so
 // the widened lookup can be shown NOT to answer for an interface the type does
 // not implement — a lookup that ignored `iface` would find `equal` and offer it
 // where `compare` was wanted.
-pub struct Unordered {
+pub struct Unordered
     tag: String
-}
+end
 
-pub fn plain(tag: String) -> Unordered {
-    Unordered{tag}
-}
+pub fn plain(tag: String) -> Unordered
+    Unordered{tag:}
+end
 
-impl Equatable for Unordered {
-    fn equal(a: Unordered, b: Unordered) -> Bool {
+impl Equatable for Unordered
+    fn equal(a: Unordered, b: Unordered) -> Bool
         a.tag == b.tag
-    }
-}
+    end
+end

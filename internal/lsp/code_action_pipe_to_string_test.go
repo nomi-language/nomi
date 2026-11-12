@@ -7,8 +7,8 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-const pipeToStringDecls = "type Fahrenheit Decimal\n\nimpl Display for Fahrenheit {\n    fn to_string(Fahrenheit(n)) -> String {\n        \"${n} F\"\n    }\n}\n\n" +
-	"fn label(width: Int, text: String) -> String {\n    String.pad_start(text, width)\n}\n\n"
+const pipeToStringDecls = "type Fahrenheit Decimal\n\nimpl Display for Fahrenheit\n    fn to_string(Fahrenheit(n)) -> String\n        \"${n} F\"\n    end\nend\n\n" +
+	"fn label(width: Int, text: String) -> String\n    String.pad_start(text, width)\nend\n\n"
 
 // pipeToStringActions opens src and returns its published diagnostics and
 // the "Add `|> Display.to_string()`" fixes offered over them.
@@ -46,7 +46,7 @@ const pipeToStringURI = "file:///pipetostring/main.nomi"
 // stage's callee and relates the value's source, and its fix inserts the
 // `Display.to_string()` stage, which leaves a program that checks.
 func TestPipeToStringFix_InsertsTheStage(t *testing.T) {
-	src := pipeToStringDecls + "fn main() {\n    f = Fahrenheit(1d)\n    _ = f |> String.pad_start(6)\n}\n"
+	src := pipeToStringDecls + "fn main()\n    f = Fahrenheit(1d)\n    _ = f |> String.pad_start(6)\nend\n"
 	s := NewServer()
 	diags, actions := pipeToStringActions(t, s, pipeToStringURI, src)
 	var d *protocol.Diagnostic
@@ -77,7 +77,7 @@ func TestPipeToStringFix_InsertsTheStage(t *testing.T) {
 		t.Fatalf("got %d fixes, want 1", len(actions))
 	}
 	edited := applyWorkspaceEdit(t, src, actions[0], pipeToStringURI)
-	want := pipeToStringDecls + "fn main() {\n    f = Fahrenheit(1d)\n    _ = f |> Display.to_string() |> String.pad_start(6)\n}\n"
+	want := pipeToStringDecls + "fn main()\n    f = Fahrenheit(1d)\n    _ = f |> Display.to_string() |> String.pad_start(6)\nend\n"
 	if edited != want {
 		t.Fatalf("got\n%s\nwant\n%s", edited, want)
 	}
@@ -90,7 +90,7 @@ func TestPipeToStringFix_InsertsTheStage(t *testing.T) {
 // A `&1` slot is not preceded by `|>`, so the diagnostic there keeps its help
 // and gets no fix.
 func TestPipeToStringFix_NotOfferedForAPlaceholder(t *testing.T) {
-	src := pipeToStringDecls + "fn main() {\n    f = Fahrenheit(1d)\n    _ = f |> then &label(4, &1)\n}\n"
+	src := pipeToStringDecls + "fn main()\n    f = Fahrenheit(1d)\n    _ = f |> then &label(4, &1)\nend\n"
 	s := NewServer()
 	diags, actions := pipeToStringActions(t, s, pipeToStringURI, src)
 	found := false

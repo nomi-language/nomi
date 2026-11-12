@@ -18,8 +18,8 @@ func project(t *testing.T) string {
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "proj")
 	write(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"proj\"\n")
-	write(t, filepath.Join(root, "main.nomi"), "fn main() {\n}\n")
-	write(t, filepath.Join(root, "lib", "util.nomi"), "pub fn one() -> Int { 1 }\n")
+	write(t, filepath.Join(root, "main.nomi"), "fn main() end\n")
+	write(t, filepath.Join(root, "lib", "util.nomi"), "pub fn one() -> Int\n    1\nend\n")
 	write(t, filepath.Join(root, "notes.txt"), "not read\n")
 	return root
 }
@@ -88,8 +88,8 @@ func TestARecordIsReadUntilAFileItReadChanges(t *testing.T) {
 		name string
 		do   func()
 	}{
-		{"a source edited", func() { write(t, filepath.Join(root, "lib", "util.nomi"), "pub fn one() -> Int { 2 }\n") }},
-		{"a source added", func() { write(t, filepath.Join(root, "lib", "more.nomi"), "pub fn two() -> Int { 2 }\n") }},
+		{"a source edited", func() { write(t, filepath.Join(root, "lib", "util.nomi"), "pub fn one() -> Int\n    2\nend\n") }},
+		{"a source added", func() { write(t, filepath.Join(root, "lib", "more.nomi"), "pub fn two() -> Int\n    2\nend\n") }},
 		{"a source removed", func() { os.Remove(filepath.Join(root, "lib", "more.nomi")) }},
 		{"the manifest edited", func() { write(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"other\"\n") }},
 		{"a catalog added", func() { write(t, filepath.Join(root, "messages", "fr", "main.toml"), "") }},
@@ -113,7 +113,7 @@ func TestAnUnchangedFileWithANewStatIsStillAHit(t *testing.T) {
 	root := project(t)
 	keep(t, root, "image")
 	path := filepath.Join(root, "lib", "util.nomi")
-	write(t, path, "pub fn one() -> Int { 1 }\n")
+	write(t, path, "pub fn one() -> Int\n    1\nend\n")
 	later := time.Now().Add(time.Hour)
 	if err := os.Chtimes(path, later, later); err != nil {
 		t.Fatal(err)
@@ -134,7 +134,7 @@ func TestASameSizedEditWithItsTimeRestoredIsAMiss(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	write(t, path, "pub fn one() -> Int { 3 }\n")
+	write(t, path, "pub fn one() -> Int\n    3\nend\n")
 	if err := os.Chtimes(path, info.ModTime(), info.ModTime()); err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestAFileChangedWhileBuildingIsNotKept(t *testing.T) {
 	useCache(t)
 	root := project(t)
 	e := Open("load", filepath.Join(root, "main.nomi"), []Tree{{Dir: root}})
-	write(t, filepath.Join(root, "lib", "util.nomi"), "pub fn one() -> Int { 4 }\n")
+	write(t, filepath.Join(root, "lib", "util.nomi"), "pub fn one() -> Int\n    4\nend\n")
 	_, before := Counts()
 	e.Store([]Tree{{Dir: root}}, nil, []byte("image"))
 	if _, after := Counts(); after != before {
@@ -263,13 +263,13 @@ func TestSingleFilesOutsideTheTreesAreTracked(t *testing.T) {
 	racyWindow = 0
 	root := project(t)
 	outside := filepath.Join(t.TempDir(), "shared.nomi")
-	write(t, outside, "pub fn x() -> Int { 1 }\n")
+	write(t, outside, "pub fn x() -> Int\n    1\nend\n")
 	e := Open("load", filepath.Join(root, "main.nomi"), []Tree{{Dir: root}})
 	e.Store([]Tree{{Dir: root}}, []string{outside}, []byte("image"))
 	if got := lookup(t, root); got != "image" {
 		t.Fatalf("read %q", got)
 	}
-	write(t, outside, "pub fn x() -> Int { 2 }\n")
+	write(t, outside, "pub fn x() -> Int\n    2\nend\n")
 	if got := lookup(t, root); got != "" {
 		t.Fatalf("an edited file outside the trees read the stale payload %q", got)
 	}
@@ -327,7 +327,7 @@ func TestChangedNamesTheFilesWhoseTextChanged(t *testing.T) {
 	e.Store([]Tree{{Dir: root}}, []string{main}, []byte("image"))
 	e.Sibling("files").Store([]Tree{{Dir: root}}, []string{main}, []byte("files"))
 
-	write(t, filepath.Join(root, "lib", "util.nomi"), "pub fn one() -> Int { 2 }\n")
+	write(t, filepath.Join(root, "lib", "util.nomi"), "pub fn one() -> Int\n    2\nend\n")
 	e = Open("load", main, []Tree{{Dir: root}})
 	if e.Payload() != nil {
 		t.Fatal("a record answered after a file it read changed")
@@ -350,7 +350,7 @@ func TestChangedNamesTheFilesWhoseTextChanged(t *testing.T) {
 		t.Fatalf("the sibling's inputs are %v and %v", trees, files)
 	}
 
-	write(t, filepath.Join(root, "lib", "more.nomi"), "pub fn two() -> Int { 2 }\n")
+	write(t, filepath.Join(root, "lib", "more.nomi"), "pub fn two() -> Int\n    2\nend\n")
 	e = Open("load", main, []Tree{{Dir: root}})
 	if _, ok := e.Changed(); ok {
 		t.Fatal("Changed answered for a file added")
@@ -377,8 +377,8 @@ func TestChangedSourcesNamesSourcesAddedAndRemoved(t *testing.T) {
 
 	util := filepath.Join(root, "lib", "util.nomi")
 	more := filepath.Join(root, "lib", "more.nomi")
-	write(t, util, "pub fn one() -> Int { 2 }\n")
-	write(t, more, "pub fn two() -> Int { 2 }\n")
+	write(t, util, "pub fn one() -> Int\n    2\nend\n")
+	write(t, more, "pub fn two() -> Int\n    2\nend\n")
 	e = Open("load", main, trees)
 	changed, added, removed, ok := e.ChangedSources()
 	if !ok || !slices.Equal(changed, []string{util}) || !slices.Equal(added, []string{more}) || len(removed) != 0 {

@@ -1,24 +1,24 @@
 import std::io
 
-pub struct Limits {
+pub struct Limits
     n: Int
-}
+end
 
-impl Limits {
+impl Limits
     pub once cap: Int = cap_value()
     pub once twice: Int = Limits.cap * 2
-}
+end
 
-pub enum Shade {
+pub enum Shade
     Dark
     Light
-}
+end
 
-impl Shade {
+impl Shade
     pub once name: String = "shade"
-}
+end
 
-fn cap_value() -> Int {
+fn cap_value() -> Int
     io.print("forcing Limits.cap")
     42
-}
+end

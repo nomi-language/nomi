@@ -39,24 +39,24 @@ import std::io as console
 opaque type Meters Int
 
 // zeta before alpha, deliberately. See above.
-struct Rev {
+struct Rev
     zeta: Int
     alpha: Int
-}
+end
 
-struct Custom {
+struct Custom
     zeta: Int
     alpha: Int
-}
+end
 
-impl Debug for Custom {
-    fn inspect(v: Custom) -> String {
+impl Debug for Custom
+    fn inspect(v: Custom) -> String
         _ = v
         "CUSTOM-DEBUG"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     // A String is the cheapest Debug/Display disagreement there is: Debug quotes
     // and Display does not, so these two lines differ by two characters and one
     // of them is the whole routing question.
@@ -79,6 +79,6 @@ fn main() {
     console.inspect(Some(42))
     none: Maybe<Int> = None
     console.inspect(none)
-    console.inspect(.{a: 1, a0: 2})
+    console.inspect({a: 1, a0: 2})
     console.inspect(["a", "b"])
-}
+end

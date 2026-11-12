@@ -19,79 +19,79 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 pub typealias Point (Int, Int)
 
 /// Who a territory belongs to.
-pub enum Owner {
+pub enum Owner
     Black
     White
     Neither
-}
+end
 
 /// An area of connected empty points and who owns it: the player whose
 /// stones alone border it, or neither.
-pub struct Territory {
+pub struct Territory
     owner: Owner
     points: Set<Point>
-}
+end
 
 /// Every empty point of a board, by who owns the territory it lies in.
-pub struct Territories {
+pub struct Territories
     black: Set<Point>
     white: Set<Point>
     neither: Set<Point>
-}
+end
 
 once directions = [(0, -1), (-1, 0), (1, 0), (0, 1)]
 
 /// The territory holding the point `(x, y)`. A point with a stone on it
 /// lies in no territory, and answers an empty one owned by neither.
-pub fn territory(board: List<String>, x: Int, y: Int) -> Result<Territory, String> {
+pub fn territory(board: List<String>, x: Int, y: Int) -> Result<Territory, String>
     points = read(board)
 
-    case Map.get(points, (x, y)) {
+    case Map.get(points, (x, y))
         None -> Err("Invalid coordinate")
         Some(" ") -> Ok(fill(points, (x, y)))
-        Some(_) -> Ok(.{owner: .Neither, points: %[]})
-    }
-}
+        Some(_) -> Ok({owner: .Neither, points: []})
+    end
+end
 
 /// Every territory of the board, gathered by owner.
-pub fn territories(board: List<String>) -> Territories {
+pub fn territories(board: List<String>) -> Territories
     points = read(board)
-    empty: Territories = .{black: %[], white: %[], neither: %[]}
+    empty: Territories = {black: [], white: [], neither: []}
 
     points
     |> Iter.filter(fn (_point, stone) -> stone == " ")
-    |> Iter.reduce(empty, fn found, (point, _stone) -> {
-        if is_claimed(found, point) {
+    |> Iter.reduce(empty, fn found, (point, _stone) ->
+        if is_claimed(found, point) then
             found
-        } else {
+        else
             add(found, fill(points, point))
-        }
-    })
-}
+        end
+    end)
+end
 
 /// Each point of `board` with what stands on it.
-fn read(board: List<String>) -> Map<Point, String> {
+fn read(board: List<String>) -> Map<Point, String>
     board
     |> Iter.with_index()
-    |> Iter.flat_map(fn (y, row) -> {
+    |> Iter.flat_map(fn (y, row) ->
         row |> Iter.with_index() |> Iter.map(fn (x, stone) -> ((x, y), stone))
-    })
+    end)
     |> Iter.to_map()
-}
+end
 
 /// The territory of the empty point `start`: every empty point connected
 /// to it, owned by the one colour of stone they touch, if there is one.
-fn fill(points: Map<Point, String>, start: Point) -> Territory {
-    (area, borders) = spread(points, [start], %[start], %[])
+fn fill(points: Map<Point, String>, start: Point) -> Territory
+    (area, borders) = spread(points, [start], [start], [])
 
-    owner = case Iter.to_list(borders) {
+    owner = case Iter.to_list(borders)
         ["B"] -> Owner.Black
         ["W"] -> .White
         _ -> .Neither
-    }
+    end
 
-    .{owner, points: area}
-}
+    {owner:, points: area}
+end
 
 /// Grows `area` from the points of `frontier` through empty neighbours,
 /// collecting the stones it touches in `borders`.
@@ -100,20 +100,21 @@ fn spread(
     frontier: List<Point>,
     area: Set<Point>,
     borders: Set<String>,
-) -> (Set<Point>, Set<String>) {
-    case frontier {
-        [] -> (area, borders)
+) -> (Set<Point>, Set<String>)
+    case frontier
+        [] ->
+            (area, borders)
 
-        [(x, y), ..rest] -> {
+        [(x, y), ..rest] ->
             around =
                 directions
                 |> Iter.map(fn (dx, dy) -> (x + dx, y + dy))
                 |> Iter.filter(&(&1 in points))
                 |> Iter.to_list()
 
-            (empty, stones) = Iter.partition(around, fn point -> {
+            (empty, stones) = Iter.partition(around, fn point ->
                 Map.get(points, point) == Some(" ")
-            })
+            end)
 
             new = empty |> Iter.reject(&(&1 in area)) |> Iter.to_list()
             touched = stones |> Iter.map(&Map.get(points, &1)!) |> Iter.to_set()
@@ -124,27 +125,26 @@ fn spread(
                 Set.union(area, Iter.to_set(new)),
                 Set.union(borders, touched),
             )
-        }
-    }
-}
+    end
+end
 
-fn is_claimed(found: Territories, point: Point) -> Bool {
+fn is_claimed(found: Territories, point: Point) -> Bool
     [found.black, found.white, found.neither] |> Iter.any_match(&(point in &1))
-}
+end
 
-fn add(found: Territories, territory: Territory) -> Territories {
-    case territory.owner {
-        .Black -> .{..found, black: Set.union(found.black, territory.points)}
-        .White -> .{..found, white: Set.union(found.white, territory.points)}
-        .Neither -> .{..found, neither: Set.union(found.neither, territory.points)}
-    }
-}
+fn add(found: Territories, territory: Territory) -> Territories
+    case territory.owner
+        .Black -> {..found, black: Set.union(found.black, territory.points)}
+        .White -> {..found, white: Set.union(found.white, territory.points)}
+        .Neither -> {..found, neither: Set.union(found.neither, territory.points)}
+    end
+end
 
 // FILE: go_counting_test.nomi
-import {
+import
     go_counting
     go_counting.{Territories, Territory}
-}
+end
 
 once board = [
     "  B  ",
@@ -154,39 +154,39 @@ once board = [
     "  W  ",
 ]
 
-test "territory" {
+test "territory"
     cases: List<(String, Int, Int, Result<Territory, String>)> = [
         (
             "Black corner territory on 5x5 board",
             0,
             1,
-            Ok(.{owner: .Black, points: %[(0, 0), (0, 1), (1, 0)]}),
+            Ok({owner: .Black, points: [(0, 0), (0, 1), (1, 0)]}),
         ),
-        ("White center territory on 5x5 board", 2, 3, Ok(.{owner: .White, points: %[(2, 3)]})),
+        ("White center territory on 5x5 board", 2, 3, Ok({owner: .White, points: [(2, 3)]})),
         (
             "Open corner territory on 5x5 board",
             1,
             4,
-            Ok(.{owner: .Neither, points: %[(0, 3), (0, 4), (1, 4)]}),
+            Ok({owner: .Neither, points: [(0, 3), (0, 4), (1, 4)]}),
         ),
-        ("A stone and not a territory on 5x5 board", 1, 1, Ok(.{owner: .Neither, points: %[]})),
+        ("A stone and not a territory on 5x5 board", 1, 1, Ok({owner: .Neither, points: []})),
         ("Invalid because X is too low for 5x5 board", -1, 1, Err("Invalid coordinate")),
         ("Invalid because X is too high for 5x5 board", 5, 1, Err("Invalid coordinate")),
         ("Invalid because Y is too low for 5x5 board", 1, -1, Err("Invalid coordinate")),
         ("Invalid because Y is too high for 5x5 board", 1, 5, Err("Invalid coordinate")),
     ]
 
-    subtests cases, (description, x, y, expected), description {
+    subtests cases, (description, x, y, expected), description
         assert go_counting.territory(board, x, y) == expected
-    }
-}
+    end
+end
 
-test "territories" {
+test "territories"
     cases: List<(String, List<String>, Territories)> = [
         (
             "One territory is the whole board",
             [" "],
-            .{black: %[], white: %[], neither: %[(0, 0)]},
+            {black: [], white: [], neither: [(0, 0)]},
         ),
         (
             "Two territory rectangular board",
@@ -194,19 +194,19 @@ test "territories" {
                 " BW ",
                 " BW ",
             ],
-            .{black: %[(0, 0), (0, 1)], white: %[(3, 0), (3, 1)], neither: %[]},
+            {black: [(0, 0), (0, 1)], white: [(3, 0), (3, 1)], neither: []},
         ),
         (
             "Two region rectangular board",
             [" B "],
-            .{black: %[(0, 0), (2, 0)], white: %[], neither: %[]},
+            {black: [(0, 0), (2, 0)], white: [], neither: []},
         ),
     ]
 
-    subtests cases, (description, board, expected), description {
+    subtests cases, (description, board, expected), description
         assert go_counting.territories(board) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok territory (8 cases)

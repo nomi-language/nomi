@@ -13,16 +13,16 @@ func TestCheck_MembershipMemberNamesIn(t *testing.T) {
 	cases := []struct {
 		body, want, hint string
 	}{
-		{"  m = %{\"a\" => 1}\n  _ = Map.has_key(m, \"a\")\n", "type 'Map' has no member 'has_key'", mapKey},
-		{"  m = %{\"a\" => 1}\n  _ = Map.contains_key(m, \"a\")\n", "type 'Map' has no member 'contains_key'", mapKey},
-		{"  m = %{\"a\" => 1}\n  _ = Map.has_value(m, 1)\n", "type 'Map' has no member 'has_value'", "test a value with `v in Map.values(m)`; `k in m` tests a key"},
-		{"  s = %[\"a\"]\n  _ = Set.has(s, \"a\")\n", "type 'Set' has no member 'has'", "test membership with `x in s` (it calls `Set.contains(s, x)`)"},
+		{"  m = {\"a\" => 1}\n  _ = Map.has_key(m, \"a\")\n", "type 'Map' has no member 'has_key'", mapKey},
+		{"  m = {\"a\" => 1}\n  _ = Map.contains_key(m, \"a\")\n", "type 'Map' has no member 'contains_key'", mapKey},
+		{"  m = {\"a\" => 1}\n  _ = Map.has_value(m, 1)\n", "type 'Map' has no member 'has_value'", "test a value with `v in Map.values(m)`; `k in m` tests a key"},
+		{"  s = Set[\"a\"]\n  _ = Set.has(s, \"a\")\n", "type 'Set' has no member 'has'", "test membership with `x in s` (it calls `Set.contains(s, x)`)"},
 		{"  _ = List.includes([1], 1)\n", "type 'List' has no member 'includes'", "test membership with `x in list` (it calls `List.contains(list, x)`)"},
-		{"  m = %{\"a\" => 1}\n  _ = m.has_key(\"a\")\n", "Map<String, Int> has no field 'has_key'", mapKey},
+		{"  m = {\"a\" => 1}\n  _ = m.has_key(\"a\")\n", "Map<String, Int> has no field 'has_key'", mapKey},
 	}
 	for _, c := range cases {
 		t.Run(c.want, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib("fn main() {\n" + c.body + "}\n")
+			_, errs := checkSourceWithStdlib("fn main()\n" + c.body + "end\n")
 			if len(errs) != 1 {
 				t.Fatalf("errors = %v, want exactly %q", errs, c.want)
 			}
@@ -41,8 +41,8 @@ func TestCheck_MembershipMemberNamesIn(t *testing.T) {
 // membership test: neither gets the help.
 func TestCheck_MembershipHintIsOnlyForStdAndMembershipNames(t *testing.T) {
 	for _, src := range []string{
-		"struct Map {\n  n: Int\n}\nfn main() {\n  _b = Map.has_key(1)\n}\n",
-		"fn main() {\n  m = %{\"a\" => 1}\n  _ = Map.size_of(m)\n}\n",
+		"struct Map\n  n: Int\nend\nfn main()\n  _b = Map.has_key(1)\nend\n",
+		"fn main()\n  m = {\"a\" => 1}\n  _ = Map.size_of(m)\nend\n",
 	} {
 		_, errs := checkSourceWithStdlib(src)
 		if len(errs) == 0 {

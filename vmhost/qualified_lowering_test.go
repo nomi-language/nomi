@@ -11,27 +11,27 @@ import (
 // parameter and a result.
 func TestLowering_StdInterfaceThroughItsModulesQualifier(t *testing.T) {
 	const program = `// FILE: main.nomi
-import {
+import
     std::display
     std::io
     std::sql
     std::sql_testing.Fake
-}
+end
 
-fn close(c: sql.Conn) {
+fn close(c: sql.Conn)
     sql.close_quietly(c)
-}
+end
 
-fn shown(d: display.Display) -> display.Display {
+fn shown(d: display.Display) -> display.Display
     d
-}
+end
 
-fn main() {
+fn main()
     fake = Fake.new()
     close(fake)
     io.print(Fake.is_closed(fake))
     io.print(shown(3))
-}
+end
 // FILE: nomi.toml
 [module]
 name = "app"
@@ -55,41 +55,41 @@ entry_points = ["main"]
 // and the receiver's functions on that instance.
 func TestLowering_ForeignGenericTypesOwnerFunctions(t *testing.T) {
 	const program = `// FILE: main.nomi
-import {
+import
     boxes.Box
     std::io
-}
+end
 
-fn make<T>(item: T, f: (T) -> Int) -> Box<T> {
+fn make<T>(item: T, f: (T) -> Int) -> Box<T>
     Box.new(item, f)
-}
+end
 
-fn main() {
+fn main()
     b = Box.new("abc", String.length)
     io.print(Box.get(b))
     io.print(Box.fold(b, 1, fn acc, n -> acc + n))
     c = make("abcd", String.length)
     io.print(Box.fold(c, 1, fn acc, n -> acc + n))
-}
+end
 // FILE: boxes.nomi
-pub opaque struct Box<T> {
+pub opaque struct Box<T>
     item: T
     f: (T) -> Int
-}
+end
 
-impl Box<T> {
-    pub fn new(item: T, f: (T) -> Int) -> Box<T> {
-        Box{item, f}
-    }
+impl Box<T>
+    pub fn new(item: T, f: (T) -> Int) -> Box<T>
+        Box{item:, f:}
+    end
 
-    pub fn get(b: Box<T>) -> T {
+    pub fn get(b: Box<T>) -> T
         b.item
-    }
+    end
 
-    pub fn fold<A>(b: Box<T>, initial: A, g: (A, Int) -> A) -> A {
+    pub fn fold<A>(b: Box<T>, initial: A, g: (A, Int) -> A) -> A
         g(initial, b.f(b.item))
-    }
-}
+    end
+end
 // FILE: nomi.toml
 [module]
 name = "app"

@@ -53,54 +53,54 @@ func wantInternalError(t *testing.T, how string, err error) {
 const plantedProgram = `import std::io
 import std::tasks.Task
 
-fn planted_compile_panic_target(n: Int) -> Int {
+fn planted_compile_panic_target(n: Int) -> Int
     n + 1
-}
+end
 
-fn direct() -> Int {
+fn direct() -> Int
     planted_compile_panic_target(1)
-}
+end
 
-fn through_callback() -> List<Int> {
+fn through_callback() -> List<Int>
     [1, 2] |> Iter.map(planted_compile_panic_target) |> Iter.to_list()
-}
+end
 
-fn through_task() -> String {
-    outcome = concurrent {
+fn through_task() -> String
+    outcome = concurrent
         t = Task.spawn(fn -> planted_compile_panic_target(1))
         Task.outcome(t)
-    }
-    case outcome {
+    end
+    case outcome
         .Completed(_) -> "completed"
         .Cancelled -> "cancelled"
         .Failed(_) -> "failed"
-    }
-}
+    end
+end
 
-fn fault(n: Int) -> Int {
+fn fault(n: Int) -> Int
     10 / n
-}
+end
 
-fn main() {
+fn main()
     io.print("before")
     io.print(direct())
-}
+end
 
-test "a direct call" {
+test "a direct call"
     assert direct() == 2
-}
+end
 
-test "a callback" {
+test "a callback"
     assert through_callback() == [2, 3]
-}
+end
 
-test "a task observes nothing" {
+test "a task observes nothing"
     assert through_task() == "completed"
-}
+end
 
-test "an unrelated case passes" {
+test "an unrelated case passes"
     assert 1 + 1 == 2
-}
+end
 `
 
 // TestCompilePanic_IsAnInternalErrorOnEveryPath plants a panic in the VM's
@@ -161,7 +161,7 @@ func TestCompilePanic_IsAnInternalErrorOnEveryPath(t *testing.T) {
 
 	t.Run("REPL", func(t *testing.T) {
 		s := NewSession(io.Discard, io.Discard)
-		p, err := s.LoadFile("repl_in1", "fn planted_compile_panic_target() -> Int {\n    1\n}\n\nfn main() {\n    _ = planted_compile_panic_target()\n}\n")
+		p, err := s.LoadFile("repl_in1", "fn planted_compile_panic_target() -> Int\n    1\nend\n\nfn main()\n    _ = planted_compile_panic_target()\nend\n")
 		if err != nil {
 			t.Fatalf("the input does not load: %v", err)
 		}

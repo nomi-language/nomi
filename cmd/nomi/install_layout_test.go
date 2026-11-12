@@ -64,17 +64,17 @@ func TestInstalledBinaryRunsWithoutASourceTree(t *testing.T) {
 		}
 	}
 	write("nomi.toml", "[module]\nname = \"installcheck\"\nentry_points = [\"main\"]\n")
-	write("main.nomi", `import {
+	write("main.nomi", `import
   std::io
   std::calendar.Date
-}
+end
 
-fn main() {
-  case Date"2026-09-12" {
+fn main()
+  case Date"2026-09-12"
     Ok(d) -> io.print("day ${Date.day(d)}")
     Err(_) -> io.print("parse failed")
-  }
-}
+  end
+end
 `)
 
 	// An explicit environment, not the parent's. NOMI_STD_PATH is set by this
@@ -102,18 +102,18 @@ fn main() {
 	}
 	if err := os.WriteFile(filepath.Join(bootDir, "main.nomi"), []byte(`import std::io
 
-struct App {
+struct App
   port: Int
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{port: 8080, context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
   io.print("listening on :${App.port}")
-}
+end
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -172,14 +172,14 @@ func TestDevelopmentBuildWithoutSourceRunsAGoFFIProjectOnlyWithACheckout(t *test
 		"func Shout(s string) string { return strings.ToUpper(s) }\n")
 	write("ffi.nomi", "gopkg \"fficheck\" as shout\n\n"+
 		"pub fn shout_it(s: String) -> String go shout.Shout\n")
-	write("main.nomi", `import {
+	write("main.nomi", `import
   std::io
   ffi
-}
+end
 
-fn main() {
+fn main()
   io.print(ffi.shout_it("quiet"))
-}
+end
 `)
 
 	env := installedEnv(t, dir, goBin)

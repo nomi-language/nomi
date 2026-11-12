@@ -25,62 +25,62 @@
 //     `name: value` string: '0' sorts below ':', so the composed sort would put
 //     `a0: 2` before `a: 1`, where the name sort, and `Debug.inspect`, put `a`
 //     first.
-interface Speech {
+interface Speech
     fn speak(animal: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
     name: String
     age: Int
-}
+end
 
-impl Speech for Dog {
-    fn speak(d: Dog) -> String {
+impl Speech for Dog
+    fn speak(d: Dog) -> String
         d.name + " says woof"
-    }
-}
+    end
+end
 
-struct Cat {
+struct Cat
     a: Int
     a0: Int
-}
+end
 
-impl Speech for Cat {
-    fn speak(c: Cat) -> String {
+impl Speech for Cat
+    fn speak(c: Cat) -> String
         "meow x" + Int.to_string(c.a)
-    }
-}
+    end
+end
 
-fn announce(s: Speech) -> String {
+fn announce(s: Speech) -> String
     Speech.speak(s)
-}
+end
 
-interface Handler {
+interface Handler
     fn handle(handler: self, input: String) -> String
-}
+end
 
 type Callback (String) -> String
 
-impl Handler for Callback {
-    fn handle(handler: Callback, input: String) -> String {
+impl Handler for Callback
+    fn handle(handler: Callback, input: String) -> String
         handler(input)
-    }
-}
+    end
+end
 
-test "a value of a distinct-over-function type is callable" {
+test "a value of a distinct-over-function type is callable"
     h = Callback(&("handled: " + &1))
 
     assert Handler.handle(h, "request") == "handled: request"
-}
+end
 
-test "an existential-position argument renders as its concrete type" {
+test "an existential-position argument renders as its concrete type"
     d = Dog{name: "Rex", age: 3}
 
     assert announce(d) == "not what Rex says"
-}
+end
 
-test "the row sorts by field name and not by composed string" {
+test "the row sorts by field name and not by composed string"
     c = Cat{a: 1, a0: 2}
 
     assert announce(c) == "not what the cat says"
-}
+end

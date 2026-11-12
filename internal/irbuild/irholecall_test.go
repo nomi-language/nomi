@@ -5,25 +5,27 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/nomi-language/nomi/internal/analysis"
-	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/ir"
 )
 
 const irHoleDisplaySource = `import std::io
 
-fn main() {
+fn main()
   io.print(Maybe.to_string(None))
   io.print(Maybe.to_string(Some(4)))
-}
+  io.print(Display.to_string(Err("x")))
+  c = Ok(3)
+  io.print("${c}")
+end
 `
 
-// `Maybe.to_string(None)` leaves T unconstrained, so the builder instantiates
-// the derived Display at a hole it fills with Unit, which has no Display impl.
-// The Some arm's `Display.to_string(payload)` is PRESENT as the unreachable
-// fault naming the hole, and the program runs because no execution reaches it.
-func TestIRHoleCall_HoleTypedBoundCallIsPresentButUnreached(t *testing.T) {
+// A type argument inference leaves open under a bound Unit lacks is closed
+// at Int, which meets it (analysis's closed_vars.go): `Maybe.to_string(None)`
+// demands Display of its T through the derived impl, as
+// `Display.to_string(Err("x"))` and an interpolated `Ok(3)` do of the other
+// side. So the instance is built at Int, the Some arm's
+// `Display.to_string(payload)` dispatches to Int's impl, and the program
+// runs; no instance holds a Unit that a bound would have to answer.
+func TestIRHoleCall_ABoundedOpenTypeIsClosedAtAnImplementingType(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	if err := os.WriteFile(path, []byte(irHoleDisplaySource), 0600); err != nil {
 		t.Fatal(err)
@@ -36,61 +38,31 @@ func TestIRHoleCall_HoleTypedBoundCallIsPresentButUnreached(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var faults []string
+	var names []string
 	for _, m := range res.IRModules() {
 		for _, f := range m.Funcs() {
-			for _, b := range f.Blocks() {
-				for _, in := range b.Instrs() {
-					c, isCall := in.(*ir.Call)
-					if isCall && c.Crosses() && c.Callee().Name() == irUnreachableHost {
-						faults = append(faults, f.Name())
-					}
-				}
-			}
+			names = append(names, f.Name())
 		}
 	}
-	if len(faults) != 1 || !strings.Contains(faults[0], "Maybe.to_string<Unit>") {
-		t.Fatalf("unreachable faults in %q; want exactly one, in the Maybe.to_string<Unit> instance", faults)
+	all := strings.Join(names, " ")
+	if !strings.Contains(all, "Maybe.to_string<Int>") || strings.Contains(all, "Maybe.to_string<Unit>") {
+		t.Fatalf("Maybe.to_string(None) is not instantiated at Int alone: %q", names)
 	}
-	verifyLambdaProgram(t, irHoleDisplaySource, "None\nSome(4)\n")
-}
-
-// ONLY THE BUILDER'S OWN HOLES QUALIFY. irCheckerHoles reads a type parameter
-// as a hole only where the checker's instantiated signature holds an
-// unresolved variable; one the checker solved, to Unit included, is not a
-// hole, so a bound call on it takes the ordinary route and declines when
-// there is no impl.
-func TestIRHoleCall_ASolvedTypeIsNeverAHole(t *testing.T) {
-	fd := &ast.FuncDef{Name: "hash", Params: []ast.Param{{Name: "value",
-		TypeAnnotation: &ast.GenericType{Name: "Maybe", Params: []ast.TypeExpr{&ast.SimpleType{Name: "T"}}}}}}
-	maybeOf := func(arg analysis.Type) *analysis.FuncType {
-		return &analysis.FuncType{Params: []analysis.Type{&analysis.EnumType{Name: "Maybe", TypeArgs: []analysis.Type{arg}}},
-			Return: analysis.TypeInt}
-	}
-	tps, unit := []string{"T"}, []kind{kindUnit}
-	if holes := irCheckerHoles(fd, tps, unit, maybeOf(&analysis.TypeVar{})); !holes["T"] {
-		t.Fatalf("an unresolved T filled with Unit is not a hole: %v", holes)
-	}
-	if holes := irCheckerHoles(fd, tps, unit, maybeOf(analysis.TypeUnit)); len(holes) != 0 {
-		t.Fatalf("a T the checker solved to Unit reads as a hole: %v", holes)
-	}
-	if holes := irCheckerHoles(fd, tps, []kind{kindInt}, maybeOf(&analysis.TypeVar{})); len(holes) != 0 {
-		t.Fatalf("a T the builder did not fill with Unit reads as a hole: %v", holes)
-	}
+	verifyLambdaProgram(t, irHoleDisplaySource, "None\nSome(4)\nErr(x)\nOk(3)\n")
 }
 
 // And the front end is the other wall: a program whose T the checker SOLVES to
-// a type that does not meet Hashable never reaches the builder, so nothing it
-// solved can become an unreachable fault. A type with equality meets it with
+// a type that does not meet Hashable never reaches the builder. A type with
+// equality meets it with
 // no impl (spec §5 *Equality bounds*), so the type here is a function's.
 func TestIRHoleCall_ASolvedTypeWithNoImplIsRejected(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	src := `import std::io
 
-fn main() {
+fn main()
   x: Maybe<(Int) -> Int> = None
   io.print(Maybe.hash(x))
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)
@@ -98,7 +70,7 @@ fn main() {
 	_, err := Analyze(path)
 	if err == nil {
 		t.Fatal("the front end now ADMITS a Hashable call on a function type, so a checker-solved " +
-			"type with no impl can reach the builder: holeBoundCall must still decline it")
+			"type with no impl can reach the builder")
 	}
 	// The derived `impl Hashable for Maybe<T>` carries `where T: Hashable`,
 	// and the bound check at the call names it.
@@ -113,20 +85,18 @@ fn main() {
 
 const irHoleCompareSource = `import std::io
 
-fn main() {
+fn main()
   io.inspect(Iter.min([]))
   io.inspect(Iter.max([]))
   io.inspect(Iter.min([3, 1, 2]))
-}
+end
 `
 
 // `Iter.min([])` leaves T unconstrained: the callee makes no value of T for
 // an empty source, so the checker admits it as it admits `List.head([])`
-// (analysis/undetermined.go), and the builder instantiates `Iter.min` at a
-// hole it fills with Unit. The body's `item < m` is an ordering on the hole,
-// which Unit cannot answer; holeCompare lowers it to the unreachable fault
-// naming the hole, and the program runs because no execution reaches it.
-func TestIRHoleCall_HoleTypedComparisonIsPresentButUnreached(t *testing.T) {
+// (analysis/undetermined.go). T's `Comparable` bound refuses Unit, so the
+// checker closes T at Int and the body's `item < m` is an ordering on Int.
+func TestIRHoleCall_AComparableOpenTypeIsClosedAtInt(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	if err := os.WriteFile(path, []byte(irHoleCompareSource), 0600); err != nil {
 		t.Fatal(err)
@@ -139,32 +109,15 @@ func TestIRHoleCall_HoleTypedComparisonIsPresentButUnreached(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The comparison is in the reduce callback, a lambda whose body is its
-	// own Func under the instance's FuncValue; a fault there counts for the
-	// instance.
-	var faults []string
-	var walk func(top string, f *ir.Func)
-	walk = func(top string, f *ir.Func) {
-		for _, b := range f.Blocks() {
-			for _, in := range b.Instrs() {
-				if fv, isLambda := in.(*ir.FuncValue); isLambda {
-					walk(top, fv.Body())
-				}
-				c, isCall := in.(*ir.Call)
-				if isCall && c.Crosses() && c.Callee().Name() == irUnreachableHost {
-					faults = append(faults, top)
-				}
-			}
-		}
-	}
+	var names []string
 	for _, m := range res.IRModules() {
 		for _, f := range m.Funcs() {
-			walk(f.Name(), f)
+			names = append(names, f.Name())
 		}
 	}
-	if len(faults) != 2 || !strings.Contains(strings.Join(faults, " "), "min<Unit>") ||
-		!strings.Contains(strings.Join(faults, " "), "max<Unit>") {
-		t.Fatalf("unreachable faults in %q; want one in each of the Iter.min<Unit> and Iter.max<Unit> instances", faults)
+	all := strings.Join(names, " ")
+	if !strings.Contains(all, "min<Int>") || !strings.Contains(all, "max<Int>") || strings.Contains(all, "<Unit>") {
+		t.Fatalf("Iter.min([]) and Iter.max([]) are not instantiated at Int: %q", names)
 	}
 	verifyLambdaProgram(t, irHoleCompareSource, "None\nNone\nSome(1)\n")
 }
@@ -175,10 +128,10 @@ func TestIRHoleCall_ASolvedUnitIsNotComparable(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	src := `import std::io
 
-fn main() {
+fn main()
   xs: List<Unit> = []
   io.inspect(Iter.min(xs))
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)
@@ -186,7 +139,7 @@ fn main() {
 	_, err := Analyze(path)
 	if err == nil {
 		t.Fatal("the front end now ADMITS Iter.min over List<Unit>, so a checker-solved " +
-			"Unit reaches the builder: holeCompare must still decline it")
+			"Unit reaches the builder")
 	}
 	if !strings.Contains(err.Error(), "Unit does not implement Comparable (required by `where T: Comparable`)") {
 		t.Fatalf("rejected for another reason, so the wall is not the one this test names: %v", err)

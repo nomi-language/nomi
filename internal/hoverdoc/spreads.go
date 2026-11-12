@@ -6,7 +6,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// The `..` of a literal's spread: a struct update's `.{..alice, age: 31}`,
+// The `..` of a literal's spread: a struct update's `{..alice, age: 31}`,
 // and each spread of a list, vector, set or map literal, `[..xs, 1]`. Both
 // characters answer with what the spread puts into the literal and the
 // type it spreads; the head after the `..` answers as its symbol, as it

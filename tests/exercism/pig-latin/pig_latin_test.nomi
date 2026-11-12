@@ -1,6 +1,6 @@
 import pig_latin
 
-test "ay is added to words that start with vowels" {
+test "ay is added to words that start with vowels"
     [
         ("word beginning with a", "apple", "appleay"),
         ("word beginning with e", "ear", "earay"),
@@ -9,12 +9,12 @@ test "ay is added to words that start with vowels" {
         ("word beginning with u", "under", "underay"),
         ("word beginning with a vowel and followed by a qu", "equal", "equalay"),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert pig_latin.translate(phrase) == expected
-    }
-}
+    end
+end
 
-test "first letter and ay are moved to the end of words that start with consonants" {
+test "first letter and ay are moved to the end of words that start with consonants"
     [
         ("word beginning with p", "pig", "igpay"),
         ("word beginning with k", "koala", "oalakay"),
@@ -22,12 +22,12 @@ test "first letter and ay are moved to the end of words that start with consonan
         ("word beginning with q without a following u", "qat", "atqay"),
         ("word beginning with consonant and vowel containing qu", "liquid", "iquidlay"),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert pig_latin.translate(phrase) == expected
-    }
-}
+    end
+end
 
-test "some letter clusters are treated like a single consonant" {
+test "some letter clusters are treated like a single consonant"
     [
         ("word beginning with ch", "chair", "airchay"),
         ("word beginning with qu", "queen", "eenquay"),
@@ -36,32 +36,32 @@ test "some letter clusters are treated like a single consonant" {
         ("word beginning with thr", "thrush", "ushthray"),
         ("word beginning with sch", "school", "oolschay"),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert pig_latin.translate(phrase) == expected
-    }
-}
+    end
+end
 
-test "some letter clusters are treated like a single vowel" {
+test "some letter clusters are treated like a single vowel"
     [
         ("word beginning with yt", "yttria", "yttriaay"),
         ("word beginning with xr", "xray", "xrayay"),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert pig_latin.translate(phrase) == expected
-    }
-}
+    end
+end
 
-test "position of y in a word determines if it is a consonant or a vowel" {
+test "position of y in a word determines if it is a consonant or a vowel"
     [
         ("y is treated like a consonant at the beginning of a word", "yellow", "ellowyay"),
         ("y is treated like a vowel at the end of a consonant cluster", "rhythm", "ythmrhay"),
         ("y as second letter in two letter word", "my", "ymay"),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert pig_latin.translate(phrase) == expected
-    }
-}
+    end
+end
 
-test "phrases are translated" {
+test "phrases are translated"
     assert pig_latin.translate("quick fast run") == "ickquay astfay unray"
-}
+end

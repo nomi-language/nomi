@@ -1,216 +1,220 @@
 // Statements nested below a body's first statement list: a guard's body, an
 // arm block, a block operand, a binding's else, an assertion subject, and a
 // test body's nested blocks and setups. Each runs as it would at the top.
-import {
+import
     std::assertions.AssertionFailure
     std::io
     std::iter.Iter.loop
     std::tasks.Task
     std::testing
-}
+end
 
 type TraceId String
 
-fn id(n: Int) -> Int {
+fn id(n: Int) -> Int
     n
-}
+end
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
 // A guard whose body branches before its `return`.
-fn guarded(x: Int) -> Int {
-    if x > 0 {
-        if x > 5 { io.print("big") }
+fn guarded(x: Int) -> Int
+    if x > 0 then
+        if x > 5 then io.print("big")
 
-        y = case x {
+        y = case x
             7 -> 70
             _ -> 0
-        }
+        end
 
-        if y > 100 { return 2 }
+        if y > 100 then return 2
         return y + 1
-    }
+    end
 
     0
-}
+end
 
 // Both arms return after statements that branch.
-fn returning_arms(x: Int) -> Int {
-    if x > 0 {
-        case x {
+fn returning_arms(x: Int) -> Int
+    if x > 0 then
+        case x
             1 -> io.print("one")
             _ -> io.print("more")
-        }
+        end
 
         1
-    } else {
-        if x < -5 { io.print("very negative") }
+    else
+        if x < -5 then io.print("very negative")
         2
-    }
-}
+    end
+end
 
-fn find(n: Int) -> Maybe<Int> {
-    if n > 3 { None } else { Some(n) }
-}
+fn find(n: Int) -> Maybe<Int>
+    if n > 3 then None else Some(n)
+end
 
-fn find_nested(n: Int) -> Maybe<Maybe<Int>> {
-    if n > 3 { None } else { Some(Some(n)) }
-}
+fn find_nested(n: Int) -> Maybe<Maybe<Int>>
+    if n > 3 then None else Some(Some(n))
+end
 
 // An Iter.loop binding else whose statements branch before it leaves.
-fn loop_else_branches() -> Int {
-    loop(0, fn n -> {
-        Some(v) = find(n) else {
-            if n > 10 { io.print("big") }
+fn loop_else_branches() -> Int
+    loop(0, fn n ->
+        Some(v) = find(n) else
+            if n > 10 then io.print("big")
             break n
-        }
+        end
 
         v + 1
-    })
-}
+    end)
+end
 
 // An Iter.loop binding else whose fallback is an `if`.
-fn loop_else_fallback() -> Int {
-    loop(0, fn n -> {
-        Some(v) = find(n) else { if n > 5 { 10 } else { 20 } }
+fn loop_else_fallback() -> Int
+    loop(0, fn n ->
+        Some(v) = find(n) else
+            if n > 5 then 10 else 20
+        end
 
-        if v > 2 { break v }
+        if v > 2 then break v
         n + 1
-    })
-}
+    end)
+end
 
 // An Iter.loop binding else that ends in an `if` whose arms both break.
-fn loop_else_both_break() -> Int {
-    loop(0, fn n -> {
-        Some(Some(v)) = find_nested(n) else { if n > 10 { break 1 } else { break 2 } }
+fn loop_else_both_break() -> Int
+    loop(0, fn n ->
+        Some(Some(v)) = find_nested(n) else
+            if n > 10 then break 1 else break 2
+        end
 
         v + n + 1
-    })
-}
+    end)
+end
 
-fn unwrap(r: Result<Int, Infallible>) -> Int {
-    case r {
+fn unwrap(r: Result<Int, Infallible>) -> Int
+    case r
         Ok(v) -> v
+        Err(e) -> case e end
+    end
+end
 
-        Err(e) ->
-            case e {
-            }
-    }
-}
-
-fn with_local_interface(x: Int) -> Int {
-    interface Sized {
+fn with_local_interface(x: Int) -> Int
+    interface Sized
         fn size(v: self) -> Int
-    }
+    end
 
-    y = {
-        interface Named {
+    y = begin
+        interface Named
             fn name(v: self) -> String
-        }
+        end
 
         x + 1
-    }
+    end
 
-    if y > 0 {
-        interface Ranked {
+    if y > 0 then
+        interface Ranked
             fn rank(v: self) -> Int
-        }
+        end
 
         y * 2
-    } else {
+    else
         0
-    }
-}
+    end
+end
 
-fn case_subject(x: Int) -> Result<Bool, AssertionFailure> {
-    assert case x {
+fn case_subject(x: Int) -> Result<Bool, AssertionFailure>
+    assert case x
         1 -> False
         _ -> x > 0
-    }
+    end
 
     Ok(True)
-}
+end
 
-fn loop_subject(limit: Int) -> Result<Unit, AssertionFailure> {
-    assert loop(0, fn n -> {
-        if n > limit { break n }
+fn loop_subject(limit: Int) -> Result<Unit, AssertionFailure>
+    assert loop(0, fn n ->
+        if n > limit then break n
         n + 1
-    }) == 4
+    end) == 4
 
     Ok(Unit)
-}
+end
 
-fn has(c: Context, t: Type<TraceId>) -> Bool {
+fn has(c: Context, t: Type<TraceId>) -> Bool
     Context.value(c, t) != None
-}
+end
 
-fn witness() -> Type<TraceId> {
+fn witness() -> Type<TraceId>
     TraceId
-}
+end
 
-test "a guard's body may branch before it returns" {
+test "a guard's body may branch before it returns"
     assert guarded(7) == 71
     assert guarded(3) == 1
     assert guarded(-1) == 0
     assert returning_arms(1) == 1
     assert returning_arms(-9) == 2
-}
+end
 
-test "an Iter.loop binding else may branch" {
+test "an Iter.loop binding else may branch"
     assert loop_else_branches() == 4
     assert loop_else_fallback() == 3
     assert loop_else_both_break() == 2
-}
+end
 
-test "an empty case over Infallible is never reached" {
+test "an empty case over Infallible is never reached"
     assert unwrap(Ok(1)) == 1
-}
+end
 
-test "a block may declare an interface" {
+test "a block may declare an interface"
     assert with_local_interface(3) == 8
-}
+end
 
-test "regions and blocks inside an assertion subject" {
+test "regions and blocks inside an assertion subject"
     assert id(
-        {
+        begin
             y = 2
             y + 1
-        }
+        end
     ) == 3
 
-    assert if id(1) == 1 {
-        { io.print("inner") }
-        True
-    } else {
-        False
-    }
+    assert if id(1) == 1 then
+        begin
+            io.print("inner")
+        end
 
-    assert concurrent {
+        True
+    else
+        False
+    end
+
+    assert concurrent
         t = Task.spawn(fn -> 1)
         Task.await(t)
-    } == 1
+    end == 1
 
     assert loop_subject(3) == Ok(Unit)
-}
+end
 
-test "a case subject in a function reports its rows" {
+test "a case subject in a function reports its rows"
     assert Err(failure) = case_subject(1)
 
     assert AssertionFailure.format(failure) == """
-        line 128: assertion failed
-          assert case x {
+        line 129: assertion failed
+          assert case x
               1 -> False
               _ -> x > 0
-          }
+          end
           values:
             x
               = 1
         """
-}
+end
 
-test "a Type witness is a row" {
+test "a Type witness is a row"
     c = Context.with_value(Context.root(), TraceId("x"))
     t = witness()
     assert has(c, t)
@@ -218,7 +222,7 @@ test "a Type witness is a row" {
     assert Err(failure) = testing.check(has(Context.root(), t))
 
     assert AssertionFailure.format(failure) == """
-        line 218: check failed
+        line 222: check failed
           check has(Context.root(), t)
           values:
             Context.root()
@@ -226,43 +230,43 @@ test "a Type witness is a row" {
             t
               = Type
         """
-}
+end
 
-test "a nested block may rebind a name, and the outer one keeps its definition" {
+test "a nested block may rebind a name, and the outer one keeps its definition"
     ok = id(1) == 2
 
-    z = {
+    z = begin
         ok = id(2) == 2
         assert ok
         ok
-    }
+    end
 
     assert z
     assert Err(failure) = testing.check(ok)
 
     assert AssertionFailure.format(failure) == """
-        line 241: check failed
+        line 245: check failed
           check ok
           defined as:
             id(1) == 2
         """
-}
+end
 
-test "an assertion binding and a pattern may rebind a name" {
+test "an assertion binding and a pattern may rebind a name"
     v = id(1) == 1
     v = assert v
     assert v
     x = Some(1)
     assert Some(x) = x
     assert x == 1
-}
+end
 
-test "a pipe binding whose stage holds a pipe records its spine" {
+test "a pipe binding whose stage holds a pipe records its spine"
     ok = [1, 2] |> Iter.any_match(fn x: Int -> x |> double() > 10)
     assert Err(failure) = testing.check(ok)
 
     assert AssertionFailure.format(failure) == """
-        line 262: check failed
+        line 266: check failed
           check ok
           defined as:
             [1, 2] |> Iter.any_match(fn x: Int -> x |> double() > 10)
@@ -272,36 +276,36 @@ test "a pipe binding whose stage holds a pipe records its spine" {
             [1, 2] |> Iter.any_match(fn x: Int -> x |> double() > 10)
               = False
         """
-}
+end
 
-test "an annotated pipe binding" {
+test "an annotated pipe binding"
     xs: List<Int> = [1, 2] |> Iter.map(&(&1 + 1)) |> Iter.to_list()
     assert [2, _] = xs
-}
+end
 
-test "a defer in a test arm runs at the arm's end" {
-    if id(1) == 1 {
+test "a defer in a test arm runs at the arm's end"
+    if id(1) == 1 then
         defer io.print("arm done")
         assert id(2) == 2
         io.print("arm")
-    } else {
+    else
         io.print("other")
-    }
+    end
 
     io.print("after")
-}
+end
 
-group "a setup binding whose every arm returns" {
-    setup {
-        v = case id(1) {
+group "a setup binding whose every arm returns"
+    setup begin
+        v = case id(1)
             1 -> return 5
             _ -> return 6
-        }
+        end
 
         v
-    }
+    end
 
-    test "the setup's value is the returned one", v {
+    test "the setup's value is the returned one", v
         assert v == 5
-    }
-}
+    end
+end

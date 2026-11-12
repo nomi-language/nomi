@@ -1,9 +1,9 @@
-import {
+import
     std::io
     geo
-}
+end
 
-fn main() {
+fn main()
     c = geo.corner(3)
     io.print("${c.x}")
-}
+end

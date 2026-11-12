@@ -237,10 +237,10 @@ func TestRunWeb(t *testing.T) {
 	src := t.TempDir()
 	entry := filepath.Join(src, "hello.nomi")
 	program := func(text string) string {
-		return "import {\n  std::io\n  words\n}\n\nfn main() {\n  io.print(\"" + text + "\")\n  io.print(words.word())\n}\n"
+		return "import\n  std::io\n  words\nend\n\nfn main()\n  io.print(\"" + text + "\")\n  io.print(words.word())\nend\n"
 	}
 	helper := filepath.Join(src, "words.nomi")
-	word := func(text string) string { return "pub fn word() -> String {\n  \"" + text + "\"\n}\n" }
+	word := func(text string) string { return "pub fn word() -> String\n  \"" + text + "\"\nend\n" }
 	mustWrite(t, helper, word("a"))
 	mustWrite(t, entry, program("one"))
 
@@ -321,7 +321,7 @@ func TestRunWeb_BrokenAtStart(t *testing.T) {
 	}
 	env := buildEnv(t.TempDir())
 	entry := filepath.Join(t.TempDir(), "broken.nomi")
-	mustWrite(t, entry, "fn main() {\n  undefined_name()\n}\n")
+	mustWrite(t, entry, "fn main()\n  undefined_name()\nend\n")
 	s := startWebServer(t, env, entry)
 	if state := s.next(); state.Build != 0 || !strings.Contains(state.Error, "undefined_name") {
 		t.Fatalf("first state %+v, want build 0 and the error", state)
@@ -337,7 +337,7 @@ func TestRunWeb_BrokenAtStart(t *testing.T) {
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("/app.wasm before any build: HTTP %d", resp.StatusCode)
 	}
-	mustWrite(t, entry, "fn main() {\n  _ = 1\n}\n")
+	mustWrite(t, entry, "fn main()\n  _ = 1\nend\n")
 	if state := s.next(); state != (webState{Build: 1}) {
 		t.Fatalf("after the fix: %+v, want build 1", state)
 	}
@@ -357,7 +357,7 @@ func TestRunWeb_GoBindings(t *testing.T) {
 	goFile := filepath.Join(dir, "answer.go")
 	mustWrite(t, goFile, "package answer\n\nfunc Answer() int64 {\n\treturn 41\n}\n")
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, "import std::io\n\ngopkg \"answer\"\n\nfn answer() -> Int go answer.Answer\n\nfn main() {\n    io.print(answer())\n}\n")
+	mustWrite(t, entry, "import std::io\n\ngopkg \"answer\"\n\nfn answer() -> Int go answer.Answer\n\nfn main()\n    io.print(answer())\nend\n")
 	s := startWebServer(t, env, entry)
 	if state := s.next(); state != (webState{Build: 1}) {
 		t.Fatalf("first state %+v, want build 1 and no error", state)
@@ -377,8 +377,8 @@ func TestRunWeb_GoBindings(t *testing.T) {
 func TestRunWeb_Refusals(t *testing.T) {
 	env := buildEnv(t.TempDir())
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "a_test.nomi"), "test \"x\" {\n}\n")
-	mustWrite(t, filepath.Join(dir, "site", "a.nomi"), "fn main() {\n}\n")
+	mustWrite(t, filepath.Join(dir, "a_test.nomi"), "test \"x\"\nend\n")
+	mustWrite(t, filepath.Join(dir, "site", "a.nomi"), "fn main() end\n")
 	mustWrite(t, filepath.Join(dir, "site", "web", "app.wasm"), "mine")
 	for _, c := range []struct {
 		args []string
@@ -398,7 +398,7 @@ func TestRunWeb_Refusals(t *testing.T) {
 		}
 	}
 	// Without --web, a flag after the file is still the program's.
-	mustWrite(t, filepath.Join(dir, "args.nomi"), "import std::io\n\nstruct App {\n  context: Context\n}\n\nfn boot(startup: Startup) -> Result<App, String> {\n  io.print(startup.args)\n  Ok(App{context: Context.root()})\n}\n\nfn main() {\n}\n")
+	mustWrite(t, filepath.Join(dir, "args.nomi"), "import std::io\n\nstruct App\n  context: Context\nend\n\nfn boot(startup: Startup) -> Result<App, String>\n  io.print(startup.args)\n  Ok(App{context: Context.root()})\nend\n\nfn main() end\n")
 	if got := runProcess(t, env, dir, "", nomiBin, "run", "args.nomi", "--web"); got.exit != 0 || got.stdout != "[--web]\n" {
 		t.Fatalf("nomi run args.nomi --web: exit %d\n%s", got.exit, got.transcript())
 	}
@@ -435,7 +435,7 @@ func TestRunWeb_Static(t *testing.T) {
 	src := t.TempDir()
 	entry := filepath.Join(src, "page.nomi")
 	program := func(text string) string {
-		return "import std::io\n\nfn main() {\n  io.print(\"" + text + "\")\n}\n"
+		return "import std::io\n\nfn main()\n  io.print(\"" + text + "\")\nend\n"
 	}
 	mustWrite(t, entry, program("one"))
 	web := filepath.Join(src, "web")

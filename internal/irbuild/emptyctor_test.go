@@ -10,7 +10,7 @@ import (
 	"github.com/nomi-language/nomi/internal/vm"
 )
 
-// The empty literals of a generic body (`#[]`, `%[]`, `%{}` in a function
+// The empty literals of a generic body (`[]`, `[]`, `{}` in a function
 // over T) lower and run wherever the call's own type is not what the context
 // asks for: as an `Iter` source, in a pipe. The empty literal the builder
 // emits feeds a retyping Copy, and both temporaries carry a stored type
@@ -18,23 +18,23 @@ import (
 func TestIREmptyCtor_GenericEmptyLiteralsRun(t *testing.T) {
 	src := `import std::io
 
-struct P {
+struct P
   x: Int
-}
+end
 
-fn vec<T>() -> Vector<T> {
-  #[]
-}
+fn vec<T>() -> Vector<T>
+  Vector[]
+end
 
-fn set<T>() -> Set<T> {
-  %[]
-}
+fn set<T>() -> Set<T>
+  Set[]
+end
 
-fn map<K, V>() -> Map<K, V> {
-  %{}
-}
+fn map<K, V>() -> Map<K, V>
+  {}
+end
 
-fn main() {
+fn main()
   io.inspect(Iter.to_list(vec<Int>()))
   io.inspect(vec<String>())
   io.inspect(Iter.count(vec<P>()))
@@ -42,9 +42,9 @@ fn main() {
   io.inspect(Iter.to_list(set<Int>()))
   io.inspect(set<String>() |> Set.insert("a"))
   io.inspect(Iter.to_list(map<String, Int>()))
-  v: Vector<Int> = #[]
+  v: Vector<Int> = Vector[]
   io.inspect(Iter.to_list(v))
-}
+end
 `
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
@@ -76,11 +76,11 @@ fn main() {
 		t.Fatal(err)
 	}
 	const want = `[]
-#[]
+Vector[]
 0
-#[1]
+Vector[1]
 []
-%["a"]
+Set["a"]
 []
 []
 `

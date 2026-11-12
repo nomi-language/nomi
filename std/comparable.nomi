@@ -1,22 +1,22 @@
-import {
+import
     debug.Debug
     display.Display
     variants.Variants
-}
+end
 
 /// Ordering is the result of a three-way comparison: `Less`, `Equal`, or
 /// `Greater`. Returned by `Comparable.compare(a, b)` and by sort
 /// callbacks. Pattern-match on it; do not rely on tag-index ordering.
-pub enum Ordering {
+pub enum Ordering
     Less
     Equal
     Greater
-}
+end
 
 derive Display for Ordering
 derive Variants for Ordering
 
-impl Ordering {
+impl Ordering
     /// `first`, unless it is `Equal`; then `next`. Chains two comparisons
     /// into one, so a comparator orders by one key and breaks ties with a
     /// second, each in its own direction: below, points descending (the
@@ -36,29 +36,29 @@ impl Ordering {
     //!
     //! ranked =
     //!     rows
-    //!     |> Iter.sort_with(fn (a, a_points), (b, b_points) -> {
+    //!     |> Iter.sort_with(fn (a, a_points), (b, b_points) ->
     //!         Ordering.chain(Int.compare(b_points, a_points), String.compare(a, b))
-    //!     })
+    //!     end)
     //!
     //! assert ranked == [("bob", 6), ("ann", 3), ("cy", 3)]
     //
-    pub fn chain(first: Ordering, next: Ordering) -> Ordering {
-        case first {
+    pub fn chain(first: Ordering, next: Ordering) -> Ordering
+        case first
             .Equal -> next
             _ -> first
-        }
-    }
-}
+        end
+    end
+end
 
 /// Direction selects ascending or descending order along a `Comparable`
 /// type. Used as a modifier on sort APIs (`Iter.sort`, `Iter.sort_by`)
 /// that don't take an explicit comparator. For custom orderings, use
 /// `Iter.sort_with` and encode the direction directly in the
 /// `(T, T) -> Ordering` callback.
-pub enum Direction {
+pub enum Direction
     Ascending
     Descending
-}
+end
 
 derive Display for Direction
 
@@ -127,44 +127,44 @@ derive Display for Direction
 //! assert Date.clamp(Date`2027-01-01`, Date`2026-01-01`, Date`2026-12-31`) == Date`2026-12-31`
 //! assert Comparable.max((1, "b"), (1, "a")) == (1, "b")
 //
-pub interface Comparable {
+pub interface Comparable
     fn compare(a: self, b: self) -> Ordering
 
     /// The lesser of `a` and `b` by `compare`; a tie returns `a`. `Float`
     /// overrides it with IEEE 754's `minimum`, where NaN wins.
-    open fn min(a: self, b: self) -> self {
-        case compare(b, a) {
+    open fn min(a: self, b: self) -> self
+        case compare(b, a)
             .Less -> b
             _ -> a
-        }
-    }
+        end
+    end
 
     /// The greater of `a` and `b` by `compare`; a tie returns `a`. `Float`
     /// overrides it with IEEE 754's `maximum`, where NaN wins.
-    open fn max(a: self, b: self) -> self {
-        case compare(b, a) {
+    open fn max(a: self, b: self) -> self
+        case compare(b, a)
             .Greater -> b
             _ -> a
-        }
-    }
+        end
+    end
 
     /// `value` held to `low..high`, both ends included: `low` when `value` is
     /// below it, `high` when above, else `value`. A `low` greater than `high`
     /// is a range written backwards, so it traps, naming both bounds:
     /// `Comparable.clamp: low 10 is greater than high 1`. `Float` overrides
     /// it so that a NaN `value` stays NaN and a NaN bound traps.
-    open fn clamp(value: self, low: self, high: self) -> self {
-        if compare(low, high) == .Greater {
+    open fn clamp(value: self, low: self, high: self) -> self
+        if compare(low, high) == .Greater then
             clamp_reversed(Debug.inspect(low), Debug.inspect(high))
-        }
+        end
 
-        case {
+        case
             compare(value, low) == .Less -> low
             compare(value, high) == .Greater -> high
             _ -> value
-        }
-    }
-}
+        end
+    end
+end
 
 // Traps for a `clamp` whose bounds are backwards, with the text
 // `Comparable.clamp: low 10 is greater than high 1`.

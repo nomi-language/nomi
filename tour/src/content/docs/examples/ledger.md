@@ -13,54 +13,54 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: ledger.nomi
 //# Prints a ledger of dated entries as a table, in American or Dutch style.
 
-import {
+import
     std::calendar.{Date, DateFields}
     std::currency.Currency
     std::money.{CurrencySign, Money}
-}
+end
 
 /// One line of the ledger: when, what for, and the change in cents, negative
 /// for money spent.
-pub struct Entry {
+pub struct Entry
     date: Date
     description: String
     cents: Int
-}
+end
 
 /// The two styles the ledger is printed in: their headings, dates and amounts.
-pub enum Style {
+pub enum Style
     American
     Dutch
-}
+end
 
-impl Style {
-    fn locale(style: Style) -> Locale {
-        case style {
+impl Style
+    fn locale(style: Style) -> Locale
+        case style
             .American -> Locale`en-US`
             .Dutch -> Locale`nl-NL`
-        }
-    }
+        end
+    end
 
     /// How the style writes a negative amount: American style as an
     /// accountant does, in parentheses.
-    fn sign(style: Style) -> CurrencySign {
-        case style {
+    fn sign(style: Style) -> CurrencySign
+        case style
             .American -> .Accounting
             .Dutch -> .Standard
-        }
-    }
+        end
+    end
 
-    fn headings(style: Style) -> (String, String, String) {
-        case style {
+    fn headings(style: Style) -> (String, String, String)
+        case style
             .American -> ("Date", "Description", "Change")
             .Dutch -> ("Datum", "Omschrijving", "Verandering")
-        }
-    }
-}
+        end
+    end
+end
 
 /// The ledger's lines: a heading, then each entry by date, description and
 /// change, with amounts in `currency` written in `style`.
-pub fn format_entries(currency: Currency, style: Style, entries: List<Entry>) -> List<String> {
+pub fn format_entries(currency: Currency, style: Style, entries: List<Entry>) -> List<String>
     (date, description, change) = Style.headings(style)
     heading = row(date, description, String.pad_end(change, 13))
 
@@ -70,55 +70,55 @@ pub fn format_entries(currency: Currency, style: Style, entries: List<Entry>) ->
         |> Iter.map(&format_entry(currency, style, &1))
 
     [heading, ..lines]
-}
+end
 
-fn format_entry(currency: Currency, style: Style, entry: Entry) -> String {
+fn format_entry(currency: Currency, style: Style, entry: Entry) -> String
     locale = Style.locale(style)
     date = Date.format_fields(entry.date, locale, DateFields`yMMdd`)
-    change = Money{amount: Int.to_decimal(entry.cents) / 100d, currency}
+    change = Money{amount: Int.to_decimal(entry.cents) / 100d, currency:}
     row(date, truncate(entry.description), format_change(change, style))
-}
+end
 
 /// The table's three columns: a date ten wide, a description 25 wide, and
 /// a change 13 wide, right-aligned. The heading pads its change on the
 /// right first, so its title is left-aligned.
-fn row(date: String, description: String, change: String) -> String {
+fn row(date: String, description: String, change: String) -> String
     [String.pad_end(date, 10), String.pad_end(description, 25), String.pad_start(change, 13)]
     |> String.join(" | ")
-}
+end
 
 /// `description` cut to 22 characters and an ellipsis when it is wider than
 /// its column.
-fn truncate(description: String) -> String {
-    if String.length(description) <= 25 {
+fn truncate(description: String) -> String
+    if String.length(description) <= 25 then
         description
-    } else {
+    else
         String.take(description, 22) + "..."
-    }
-}
+    end
+end
 
 /// An amount as the style writes it. An amount not in parentheses ends with
 /// a space, so the digits line up with the parenthesized ones.
-fn format_change(change: Money, style: Style) -> String {
+fn format_change(change: Money, style: Style) -> String
     amount =
         Money.format(change, Style.locale(style), display: .Narrow, sign: Style.sign(style))
         |> String.replace("\u{a0}", " ")
 
-    if String.ends_with(amount, ")") {
+    if String.ends_with(amount, ")") then
         amount
-    } else {
+    else
         "${amount} "
-    }
-}
+    end
+end
 
 // FILE: ledger_test.nomi
-import {
+import
     std::calendar.Date
     std::currency.Currency
     ledger.{self, Entry, Style}
-}
+end
 
-test "ledger" {
+test "ledger"
     cases: List<(String, Currency, Style, List<Entry>, List<String>)> = [
         (
             "empty ledger",
@@ -134,7 +134,7 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                .{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                {date: Date`2015-01-01`, description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -146,8 +146,8 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                .{date: Date`2015-01-02`, description: "Get present", cents: 1000},
-                .{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                {date: Date`2015-01-02`, description: "Get present", cents: 1000},
+                {date: Date`2015-01-01`, description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -160,8 +160,8 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                .{date: Date`2015-01-02`, description: "Get present", cents: 1000},
-                .{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                {date: Date`2015-01-02`, description: "Get present", cents: 1000},
+                {date: Date`2015-01-01`, description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -174,9 +174,9 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                .{date: Date`2015-01-01`, description: "Something", cents: 0},
-                .{date: Date`2015-01-01`, description: "Something", cents: -1},
-                .{date: Date`2015-01-01`, description: "Something", cents: 1},
+                {date: Date`2015-01-01`, description: "Something", cents: 0},
+                {date: Date`2015-01-01`, description: "Something", cents: -1},
+                {date: Date`2015-01-01`, description: "Something", cents: 1},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -190,7 +190,7 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                .{
+                {
                     date: Date`2015-01-01`,
                     description: "Freude schoner Gotterfunken",
                     cents: -123456,
@@ -206,7 +206,7 @@ test "ledger" {
             Currency`EUR`,
             .American,
             [
-                .{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                {date: Date`2015-01-01`, description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -218,7 +218,7 @@ test "ledger" {
             Currency`USD`,
             .Dutch,
             [
-                .{date: Date`2015-03-12`, description: "Buy present", cents: 123456},
+                {date: Date`2015-03-12`, description: "Buy present", cents: 123456},
             ],
             [
                 "Datum      | Omschrijving              | Verandering  ",
@@ -230,7 +230,7 @@ test "ledger" {
             Currency`EUR`,
             .Dutch,
             [
-                .{date: Date`2015-03-12`, description: "Buy present", cents: 123456},
+                {date: Date`2015-03-12`, description: "Buy present", cents: 123456},
             ],
             [
                 "Datum      | Omschrijving              | Verandering  ",
@@ -242,7 +242,7 @@ test "ledger" {
             Currency`USD`,
             .Dutch,
             [
-                .{date: Date`2015-03-12`, description: "Buy present", cents: -12345},
+                {date: Date`2015-03-12`, description: "Buy present", cents: -12345},
             ],
             [
                 "Datum      | Omschrijving              | Verandering  ",
@@ -254,7 +254,7 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                .{date: Date`2015-03-12`, description: "Buy present", cents: -12345},
+                {date: Date`2015-03-12`, description: "Buy present", cents: -12345},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -266,8 +266,8 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                .{date: Date`2015-01-01`, description: "Get present", cents: 1000},
-                .{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                {date: Date`2015-01-01`, description: "Get present", cents: 1000},
+                {date: Date`2015-01-01`, description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -277,10 +277,10 @@ test "ledger" {
         ),
     ]
 
-    subtests cases, (description, currency, style, entries, expected), description {
+    subtests cases, (description, currency, style, entries, expected), description
         assert ledger.format_entries(currency, style, entries) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok ledger (12 cases)

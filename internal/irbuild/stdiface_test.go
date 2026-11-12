@@ -14,27 +14,27 @@ import (
 func TestStdIface_ShadowingDeclarationIsNotTheSharedDef(t *testing.T) {
 	g := stdIfaceGen(t, `import std::io
 
-pub interface ToJson {
+pub interface ToJson
   fn to_string(value: self) -> String
-}
+end
 
-struct Mine {
+struct Mine
   n: Int
-}
+end
 
-impl ToJson for Mine {
-  fn to_string(m: Mine) -> String {
+impl ToJson for Mine
+  fn to_string(m: Mine) -> String
     "mine(${m.n})"
-  }
-}
+  end
+end
 
-fn show(d: ToJson) -> String {
+fn show(d: ToJson) -> String
   ToJson.to_string(d)
-}
+end
 
-fn main() {
+fn main()
   io.print(show(Mine{n: 1}))
-}
+end
 `)
 	if _, anchored := g.stdIfaceNamed("ToJson"); anchored {
 		t.Fatal("stdIfaceNamed anchored a name the module declares itself: the anchor is name-keyed")
@@ -68,7 +68,7 @@ func TestStdIface_SpecNamesAreUnshadowableBySource(t *testing.T) {
 	for _, d := range stdIfaceDefs() {
 		name := d.nomi
 		t.Run(name, func(t *testing.T) {
-			src := "pub interface " + name + " {\n  fn probe(value: self) -> String\n}\n\nfn main() {\n  io.print(\"x\")\n}\n"
+			src := "pub interface " + name + "\n  fn probe(value: self) -> String\nend\n\nfn main()\n  io.print(\"x\")\nend\n"
 			if _, err := AnalyzeSource("stdiface_fence", src); err == nil {
 				t.Fatalf("the analyzer accepted `pub interface %s`; stdIfaceByName is name-keyed, so a "+
 					"declarable spec name is a reachable wrong answer rather than a coverage gap", name)
@@ -226,13 +226,13 @@ func TestStdIfaceSpecsAreReachable(t *testing.T) {
 
 const stdIfaceProbeSource = `import std::io
 
-fn show(d: Display) -> String {
+fn show(d: Display) -> String
   Display.to_string(d)
-}
+end
 
-fn main() {
+fn main()
   io.print("${1}")
-}
+end
 `
 
 func stdIfaceGen(t *testing.T, src string) *gen {

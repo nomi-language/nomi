@@ -166,16 +166,12 @@ func (g *gen) linkName(token any, _ string) string {
 	return ""
 }
 
-// stdInstLinkArgs spells a std instance's type arguments, a hole the
-// builder filled marked as one (stdInst.holes).
+// stdInstLinkArgs spells a std instance's type arguments.
 func stdInstLinkArgs(inst *stdInst) string {
 	var b strings.Builder
 	for i, a := range inst.args {
 		if i > 0 {
 			b.WriteByte(',')
-		}
-		if i < len(inst.tps) && inst.holes[inst.tps[i]] {
-			b.WriteString("hole:")
 		}
 		writePortableKind(&b, a)
 	}

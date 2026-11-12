@@ -1,39 +1,39 @@
 //# Translates English words to Pig Latin.
 
-once vowels = %["a", "e", "i", "o", "u", "y"]
+once vowels = Set["a", "e", "i", "o", "u", "y"]
 
 /// `phrase` in Pig Latin, word by word: a word's leading consonants move to
 /// its end, and every word ends in `ay`.
-pub fn translate(phrase: String) -> String {
+pub fn translate(phrase: String) -> String
     phrase
     |> String.words()
     |> Iter.map(translate_word)
     |> String.join(" ")
-}
+end
 
-fn translate_word(word: String) -> String {
+fn translate_word(word: String) -> String
     onset = word |> Iter.to_list() |> onset_length()
     String.drop(word, onset) + String.take(word, onset) + "ay"
-}
+end
 
 /// How many letters at the start of a word move to its end: the consonants
 /// before its first vowel, with a `u` after a `q` counted with the `q`. A
 /// `y` is a consonant only as the first letter, and a word that starts with
 /// `xr` or `yt` keeps its start, as one that starts with a vowel does.
-fn onset_length(letters: List<String>) -> Int {
-    case letters {
+fn onset_length(letters: List<String>) -> Int
+    case letters
         ["x", "r", ..] or ["y", "t", ..] -> 0
         ["y", ..rest] -> 1 + consonants(rest)
         _ -> consonants(letters)
-    }
-}
+    end
+end
 
 /// How many consonants `letters` starts with, where `y` is a vowel and `qu`
 /// is two consonants.
-fn consonants(letters: List<String>) -> Int {
-    case letters {
+fn consonants(letters: List<String>) -> Int
+    case letters
         ["q", "u", ..] -> 2
         [letter, ..rest] when not letter in vowels -> 1 + consonants(rest)
         _ -> 0
-    }
-}
+    end
+end

@@ -16,23 +16,23 @@ func TestEndlessLoopUsesTheStepBudget(t *testing.T) {
 	for _, c := range []struct{ name, src, transcript, output string }{
 		{"main", `import std::io
 
-fn main() {
+fn main()
     io.print("start")
-    _ = Iter.loop(0, fn n -> {
-        if n < 3 { io.print(n) }
+    _ = Iter.loop(0, fn n ->
+        if n < 3 then io.print(n)
         n + 1
-    })
-}
+    end)
+end
 `, "start\n0\n1\n2\n\n--- too long: ", ""},
 		{"a test case", `import std::io
 
-test "spins" {
+test "spins"
     assert 1 == 1
     io.print("case")
-    Iter.loop(fn -> {
+    Iter.loop(fn ->
         _ = 1
-    })
-}
+    end)
+end
 `, "\n--- spins: too long: ", "\ncase\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -65,34 +65,34 @@ func TestTourWorkerLoopChecks(t *testing.T) {
 	if block == "" {
 		t.Fatal("concurrency.md has no plain block declaring `fn outbox_worker()`")
 	}
-	src := `import {
+	src := `import
     std::channels.{Channel, Receiver}
     std::duration.Duration
     std::io
     std::timer
-}
+end
 
-struct Config {
+struct Config
     context: Context
     outbox: Channel<String>
-}
+end
 
-fn boot() -> Result<Config, String> {
+fn boot() -> Result<Config, String>
     Ok(Config{context: Context.root(), outbox: Channel.buffered<String>(8)})
-}
+end
 
-fn drain_pending(outbox: Channel<String>) {
-    case Receiver.receive(outbox.receiver) {
+fn drain_pending(outbox: Channel<String>)
+    case Receiver.receive(outbox.receiver)
         Some(message) -> io.print(message)
         None -> Unit
-    }
-}
+    end
+end
 
 ` + block + `
-fn main() {
+fn main()
     worker: () -> Unit = outbox_worker
     _ = worker
-}
+end
 `
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {

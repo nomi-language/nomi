@@ -29,7 +29,13 @@ import (
 // function (a SymbolInterfaceMethod reference) that no impl writes:
 // `Int.min(3, 4)`, `Comparable.min(3, 4)`, `Version.min(a, b)` on a derived
 // impl, and the same calls inside a generic body once its type argument is
-// known. An impl that writes the function (an `open` override, `Float.min`)
+// known. So do calls the builder writes, which carry no reference: a
+// record field's `ToJson.to_json_field(f)` and a dispatch entry's
+// (`stdProgThunk`), qualified by the interface, and a derived body's
+// `T.from_missing()` at a kind no impl of which writes it
+// (`stdIfaceDefaultAtKind`), found by its unique name. A default with no
+// `self` operand (`fn from_missing() -> Maybe<self>`) takes its receiver
+// from the qualifier, the call's type argument or its checked result. An impl that writes the function (an `open` override, `Float.min`)
 // is found first by every route that finds a written impl function, so it
 // takes precedence. A default is no slot of an rt dispatch table: the
 // anchor of a std interface with a table ignores its defaults
@@ -66,6 +72,28 @@ func (s *stdInstances) stdIfaceDefaultTemplate(iface, method string) *stdFunc {
 			return nil
 		}
 		found = f
+	}
+	return found
+}
+
+// stdIfaceDefaultOwner is the std interface that declares a Nomi-bodied
+// default named method, or "" when none does or two do.
+func (s *stdInstances) stdIfaceDefaultOwner(method string) string {
+	if s == nil || s.std == nil {
+		return ""
+	}
+	found := ""
+	for _, v := range s.std.views {
+		for _, n := range v.nodes {
+			decl, ok := n.(*ast.InterfaceDef)
+			if !ok || stdModuleIfaceDefault(v, decl.Name, method) == nil {
+				continue
+			}
+			if found != "" && found != decl.Name {
+				return ""
+			}
+			found = decl.Name
+		}
 	}
 	return found
 }
@@ -160,6 +188,17 @@ func stdIfaceDefaultRef(fa *analysis.FileAnalysis, line, col int) (iface string,
 	return sym.OwningInterface, true
 }
 
+// irSynthesizedStdIfaceCall reports whether callee is an interface-qualified
+// callee the builder wrote rather than the source: at column 0
+// (synthIfaceCall) or at line 1, column 1 (stdProgThunk), where the checker
+// never records a reference.
+func irSynthesizedStdIfaceCall(callee *ast.FieldAccess) bool {
+	if _, named := callee.Object.(*ast.TypeIdent); !named {
+		return false
+	}
+	return callee.Field.Col == 0 || (callee.Field.Line == 1 && callee.Field.Col == 1)
+}
+
 // stdIfaceDefaultCall lowers `Owner.method(args)`, whose operands are
 // lowered into args, as the default of a std interface at its receiver:
 // the call no written impl function answered. handled is false when the
@@ -171,7 +210,27 @@ func (bl *irScalarBuilder) stdIfaceDefaultCall(t *ast.Call, args irQualArgs, own
 		return no()
 	}
 	iface, ok := stdIfaceDefaultRef(bl.g.srcFA(), fa.Field.Line, fa.Field.Col)
-	if !ok {
+	switch {
+	case ok:
+	case irSynthesizedStdIfaceCall(fa):
+		// A call the builder wrote, where the checker recorded nothing: a
+		// record field's `ToJson.to_json_field(f)` (irrecordjson.go), or a
+		// std interface value's dispatch entry (stdProgThunk). The
+		// qualifier is the std interface's own name, as the builder's
+		// other calls of std impls by name are.
+		iface = owner
+	// kindInvalid: sentinel — kindInvalid marks defaultRecv and instKind as unbound; no operand is judged.
+	case bl.defaultRecv != kindInvalid || (bl.instCall == t && bl.instKind != kindInvalid):
+		// A call the builder respelled with its owner at a kind
+		// (stdIfaceDefaultAtKind; stdKindQualCall for
+		// `FromJson.from_missing<List<Int>>()` or `T.from_missing()` with T
+		// a `List<Int>`), whose owner no reference names: the one std
+		// interface with a default of the name, as a container's std
+		// template is found by its name.
+		if iface = bl.g.stdInsts.stdIfaceDefaultOwner(method); iface == "" {
+			return no()
+		}
+	default:
 		return no()
 	}
 	if d, local := bl.g.ifaceNamed(iface); local && d != nil && bl.g.stdModule == "" {
@@ -187,10 +246,24 @@ func (bl *irScalarBuilder) stdIfaceDefaultCall(t *ast.Call, args irQualArgs, own
 		bl.g.dc.note(why)
 		return ir.NoTemp, kindInvalid, false, false, true
 	}
-	if f.selfIdx < 0 || f.selfIdx >= len(args.kinds) {
+	var recv kind
+	switch {
+	// kindInvalid: sentinel — kindInvalid marks defaultRecv as unbound; no operand is judged.
+	case f.selfIdx < 0 && bl.defaultRecv != kindInvalid:
+		recv = bl.defaultRecv
+	case f.selfIdx < 0:
+		// `Int.from_missing()`: no operand is a `self`, so the qualifier
+		// or the call's result names the receiver.
+		r, ok := bl.stdIfaceDefaultOwnerSelf(t, f, owner, iface)
+		if !ok {
+			return declined("a stdlib interface default with no receiver operand: " + f.key)
+		}
+		recv = r
+	case f.selfIdx >= len(args.kinds):
 		return declined("a stdlib interface default with no receiver operand: " + f.key)
+	default:
+		recv = args.kinds[f.selfIdx]
 	}
-	recv := args.kinds[f.selfIdx]
 	if recv.tag == tagIface {
 		// An erased receiver: a default is no slot of its table.
 		return declined("a stdlib interface default on an erased receiver: " + f.key)
@@ -200,7 +273,7 @@ func (bl *irScalarBuilder) stdIfaceDefaultCall(t *ast.Call, args irQualArgs, own
 			return declined("a stdlib interface default whose self operands differ: " + f.key)
 		}
 	}
-	inst, why := bl.g.stdInsts.instantiate(f, []string{stdIfaceDefaultSelfParam}, []kind{recv}, nil, bl.g)
+	inst, why := bl.g.stdInsts.instantiate(f, []string{stdIfaceDefaultSelfParam}, []kind{recv}, bl.g)
 	if inst == nil {
 		return declined(why)
 	}
@@ -209,6 +282,60 @@ func (bl *irScalarBuilder) stdIfaceDefaultCall(t *ast.Call, args irQualArgs, own
 	defer func() { bl.stdInstPreCall, bl.stdInstPreArgs = prevCall, prevArgs }()
 	v, k, mobile, lowered := bl.stdInstCall(t, inst)
 	return v, k, mobile, lowered, true
+}
+
+// stdIfaceDefaultAtKind lowers `T.method(args)`, a call the checker
+// resolved to a std interface's function, with T bound to k and no impl of
+// k writing method: the default instantiated at k
+// (`T.from_missing()` at a `List<Int>` or a derived struct). handled is
+// false when the call names no such default.
+func (bl *irScalarBuilder) stdIfaceDefaultAtKind(t *ast.Call, args irQualArgs, k kind, method string) (ir.Temp, kind, bool, bool, bool) {
+	prev := bl.defaultRecv
+	bl.defaultRecv = k
+	defer func() { bl.defaultRecv = prev }()
+	return bl.stdIfaceDefaultCall(t, args, "", method)
+}
+
+// stdIfaceDefaultOwnerSelf is the receiver of a call of default f, which
+// takes no `self` operand: the instance a generic qualifier named
+// (`List<Int>.from_missing()`, carried as instKind), the type the
+// qualifier names (`Int.from_missing()`, or a type parameter's binding),
+// the type argument of an interface-qualified call
+// (`FromJson.from_missing<Int>()`), or else the `self` the checked result
+// holds when the default returns `self` or `Maybe<self>`.
+func (bl *irScalarBuilder) stdIfaceDefaultOwnerSelf(t *ast.Call, f *stdFunc, owner, iface string) (kind, bool) {
+	// kindInvalid: sentinel — kindInvalid marks instKind as unbound; no operand is judged.
+	if bl.instCall == t && bl.instKind != kindInvalid {
+		return bl.instKind, true
+	}
+	if owner != iface {
+		// kindInvalid: lookup — asks whether the qualifier names a type; a miss tries the next source, and the caller declines with its own reason.
+		if k := bl.g.qualifierKind(owner); k != kindInvalid {
+			return k, true
+		}
+	}
+	if len(t.TypeArgs) == 1 {
+		// kindInvalid: lookup — asks whether the type argument names a type; a miss tries the next source, and the caller declines with its own reason.
+		if k := bl.g.typeOf(t.TypeArgs[0]); k != kindInvalid {
+			return k, true
+		}
+	}
+	ft := bl.g.checkedCallSignature(t)
+	if ft == nil || f.decl.ReturnTypeExpr == nil {
+		return kindInvalid, false
+	}
+	result := bl.g.project(ft.Return)
+	switch ret := f.decl.ReturnTypeExpr.(type) {
+	case *ast.SelfType:
+		// kindInvalid: lookup — the checked result's self; a miss makes the caller decline with its own reason.
+		return result, result != kindInvalid
+	case *ast.GenericType:
+		if _, self := ret.Params[0].(*ast.SelfType); self && len(ret.Params) == 1 && ret.Name == "Maybe" &&
+			irMaybeKind(result) && len(result.def.preludeArgs) == 1 {
+			return result.def.preludeArgs[0], true
+		}
+	}
+	return kindInvalid, false
 }
 
 // stdIfaceOwnCall lowers a bare call, in the body of an interface default

@@ -8,15 +8,15 @@ import std::io
 // DEFINE String.length. The other three are an emoji ZWJ sequence, a
 // regional-indicator flag pair, and a four-person family — the shapes a
 // code-point implementation gets wrong.
-fn report(label: String, s: String) {
+fn report(label: String, s: String)
     io.print(
         "${label}: length=${Int.to_string(String.length(s))} reverse=${String.reverse(
             s
         )} slice(0,1)=${String.slice(s, 0, 1)}"
     )
-}
+end
 
-fn main() {
+fn main()
     report("combining acute", "héllo")
     report("zwj family", "👩‍👧")
     report("flag", "🇺🇸")
@@ -34,4 +34,4 @@ fn main() {
     // Clusters stay attached to what they modify: reversing this by code point
     // moves the accent onto the wrong base letter.
     io.print(String.reverse("héllo"))
-}
+end

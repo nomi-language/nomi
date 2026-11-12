@@ -18,148 +18,148 @@ import (
 // does not expire.
 func TestIRContext_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"concurrency.md:L800", `import {
+		{"concurrency.md:L800", `import
   std::tasks.Task
   std::duration.Duration
   std::timer
-}
+end
 
-fn slow() -> Int {
+fn slow() -> Int
   timer.sleep(Duration.minutes(5))
   1
-}
+end
 
 // The deadline covers ` + "`slow`" + ` and nothing else.
-fn slow_bounded() -> Int {
+fn slow_bounded() -> Int
   with Run.context = Context.with_timeout(
     Run.context,
     Duration.milliseconds(50),
   )
 
   slow()
-}
+end
 
-fn main() {
-  outcome = concurrent {
+fn main()
+  outcome = concurrent
     t = Task.spawn(fn -> slow_bounded())
     Task.outcome(t)
-  }
+  end
 
   // Reached because ` + "`Task.outcome`" + ` sits outside the deadline.
-  result = case outcome {
+  result = case outcome
     .Completed(v) -> "got " + Display.to_string(v)
     .Cancelled -> "timed out, falling back"
     .Failed(_) -> "broke"
-  }
+  end
   dbg result
-}
+end
 
-struct Run {
+struct Run
   context: Context
-}
+end
 
-fn boot() -> Result<Run, String> {
+fn boot() -> Result<Run, String>
   Ok(Run{context: Context.root()})
-}
+end
 `, "dbg line 34: result = \"timed out, falling back\"\n"},
-		{"a wider inner rebind keeps the outer deadline", `import {
+		{"a wider inner rebind keeps the outer deadline", `import
   std::tasks.Task
   std::duration.Duration
   std::timer
-}
+end
 
-fn inner() -> Int {
+fn inner() -> Int
   with Run.context = Context.with_timeout(Run.context, Duration.minutes(10))
   timer.sleep(Duration.minutes(5))
   1
-}
+end
 
-fn outer() -> Int {
+fn outer() -> Int
   with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(40))
   inner()
-}
+end
 
-fn main() {
-  outcome = concurrent {
+fn main()
+  outcome = concurrent
     t = Task.spawn(fn -> outer())
     Task.outcome(t)
-  }
+  end
   dbg outcome
   Unit
-}
-struct Run {
+end
+struct Run
   context: Context
-}
+end
 
-fn boot() -> Result<Run, String> {
+fn boot() -> Result<Run, String>
   Ok(Run{context: Context.root()})
-}
+end
 `, "dbg line 23: outcome = Cancelled\n"},
-		{"the deadline ends with the rebinding activation", `import {
+		{"the deadline ends with the rebinding activation", `import
   std::duration.Duration
   std::timer
-}
+end
 
-fn bounded(n: Int) -> Int {
+fn bounded(n: Int) -> Int
   with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(20))
   n + 1
-}
+end
 
-fn main() {
+fn main()
   a = bounded(1)
   timer.sleep(Duration.milliseconds(60))
   dbg a
   Unit
-}
-struct Run {
+end
+struct Run
   context: Context
-}
+end
 
-fn boot() -> Result<Run, String> {
+fn boot() -> Result<Run, String>
   Ok(Run{context: Context.root()})
-}
+end
 `, "dbg line 14: a = 2\n"},
-		{"a custom boot's Context field and a deadline that does not expire", `import {
+		{"a custom boot's Context field and a deadline that does not expire", `import
   std::tasks.Task
   std::duration.Duration
   std::timer
-}
+end
 
-struct App {
+struct App
   ctx: Context
   label: String
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{ctx: Context.root(), label: "app"})
-}
+end
 
-fn quick() -> Int {
+fn quick() -> Int
   timer.sleep(Duration.milliseconds(5))
   7
-}
+end
 
-fn roomy() -> Int {
+fn roomy() -> Int
   with App.ctx = Context.with_timeout(App.ctx, Duration.minutes(5))
   quick()
-}
+end
 
-fn tight() -> Int {
+fn tight() -> Int
   with App.ctx = Context.with_timeout(App.ctx, Duration.milliseconds(30))
   timer.sleep(Duration.minutes(5))
   1
-}
+end
 
-fn main() {
-  outcomes = concurrent {
+fn main()
+  outcomes = concurrent
     a = Task.spawn(fn -> roomy())
     b = Task.spawn(fn -> tight())
     (Task.outcome(a), Task.outcome(b))
-  }
+  end
   dbg outcomes
   dbg App.label
   Unit
-}
+end
 `, "dbg line 38: outcomes = (Completed(7), Cancelled)\ndbg line 39: App.label = \"app\"\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
@@ -173,8 +173,8 @@ func TestIRContext_UnsupportedShapesPreserveEmission(t *testing.T) {
 		// A Context value whose type (a generic Maybe) has no single-name identity.
 		"_ = Context.with_value(Context.with_timeout(Run.context, Duration.seconds(1)), Some(1))\n 1",
 	} {
-		p, err := AnalyzeSource("main.nomi", "import std::duration.Duration\nfn run() -> Int {\n"+body+"\n}\nfn main() { _ = run() }\n"+
-			"struct Run {\n context: Context\n}\nfn boot() -> Result<Run, String> { Ok(Run{context: Context.root()}) }")
+		p, err := AnalyzeSource("main.nomi", "import std::duration.Duration\nfn run() -> Int\n"+body+"\nend\nfn main()\n  _ = run()\nend\n"+
+			"struct Run\n context: Context\nend\nfn boot() -> Result<Run, String>\n    Ok(Run{context: Context.root()})\nend")
 		if err != nil {
 			t.Fatalf("the front end now rejects this, so the preservation below is untested: %v", err)
 		}
@@ -206,72 +206,72 @@ func TestIRContext_AnExpiredDeadlineInABlockOnTheMainLine(t *testing.T) {
 		name, src string
 		vm        bool
 	}{
-		{"nested block rebind", `import {
+		{"nested block rebind", `import
   std::channels.{Channel, Receiver}
   std::duration.Duration
   std::io
   std::tasks.Task
-}
+end
 
-struct Config {
+struct Config
   context: Context
-}
+end
 
-fn boot() -> Result<Config, String> {
+fn boot() -> Result<Config, String>
   Ok(Config{context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
   ch: Channel<Int> = Channel.unbuffered()
 
-  {
+  begin
     with Config.context = Context.with_timeout(Config.context, Duration.milliseconds(50))
     io.print("entered")
-    concurrent {
+    concurrent
       r1 = Task.spawn(fn -> Receiver.receive(ch.receiver))
       r2 = Task.spawn(fn -> Receiver.receive(ch.receiver))
       _v1 = Task.await(r1)
       _v2 = Task.await(r2)
-    }
+    end
 
     io.print("unreachable")
-  }
-}
+  end
+end
 `, false},
-		{"function rebind", `import {
+		{"function rebind", `import
   std::duration.Duration
   std::io
   std::tasks.Task
   std::timer
-}
+end
 
-fn slow() -> Int {
+fn slow() -> Int
   timer.sleep(Duration.minutes(5))
   1
-}
+end
 
-fn bounded() -> Int {
+fn bounded() -> Int
   with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(50))
   io.print("entered")
-  n = concurrent {
+  n = concurrent
     t = Task.spawn(fn -> slow())
     Task.await(t)
-  }
+  end
   io.print("unreachable")
   n
-}
+end
 
-fn main() {
+fn main()
   dbg bounded()
   Unit
-}
-struct Run {
+end
+struct Run
   context: Context
-}
+end
 
-fn boot() -> Result<Run, String> {
+fn boot() -> Result<Run, String>
   Ok(Run{context: Context.root()})
-}
+end
 `, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

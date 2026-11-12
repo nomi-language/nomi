@@ -6,7 +6,7 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// Exit is a `main` or an entry boot that returned `Err(Exit{code, message})`
+// Exit is a `main` or an entry boot that returned `Err(Exit{code:, message:})`
 // with std/process's Exit (ir.Module.SetMainExit, BootFailure.Exit): the
 // program ends with status Code, after the same shutdown as any other end
 // of main, and prints Message and a newline to stderr when it is not empty,

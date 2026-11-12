@@ -1,9 +1,9 @@
-import {
+import
     bool.Bool
     lists.List
     maybe.Maybe
     strings.String
-}
+end
 
 //# The `Matcher` interface: what `String.split`, `String.replace`,
 //# `String.starts_with`, `String.ends_with`, `String.find` and
@@ -31,7 +31,7 @@ import {
 //! assert String.contains("order 66", "66")
 //! assert Matcher.split_in(",", "a,b") == ["a", "b"]
 //
-pub interface Matcher {
+pub interface Matcher
     /// True if the matcher matches anywhere in `text`.
     fn is_contained_in(m: self, text: String) -> Bool
     /// True if a match starts at the beginning of `text`.
@@ -48,4 +48,4 @@ pub interface Matcher {
     /// The first match in `text`, the leftmost: the first element `find_all_in`
     /// returns, or `None` when there is no match.
     fn find_in(m: self, text: String) -> Maybe<String>
-}
+end

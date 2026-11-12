@@ -44,7 +44,7 @@ func TestImportPath_SlashIsAnError(t *testing.T) {
 		{"import std/io\n", "import paths use `::`: write `std::io`", 1, 11},
 		{"import std/http.{Request}\n", "import paths use `::`: write `std::http`", 1, 11},
 		{"import views/admin/users\n", "import paths use `::`: write `views::admin::users`", 1, 13},
-		{"import {\n    std/io\n}\n", "import paths use `::`: write `std::io`", 2, 8},
+		{"import\n    std/io\nend\n", "import paths use `::`: write `std::io`", 2, 8},
 		{"import std::http/request\n", "import paths use `::`: write `std::http::request`", 1, 17},
 	} {
 		_, err := Parse(lexer.Lex(c.src))
@@ -61,7 +61,7 @@ func TestImportPath_SlashIsAnError(t *testing.T) {
 
 // `::` joins segments only when it touches both of them.
 func TestImportPath_SpacedDoubleColonIsAnError(t *testing.T) {
-	for _, src := range []string{"import std :: io\n", "fn f() -> Int {\n    db :: posts.count()\n}\n"} {
+	for _, src := range []string{"import std :: io\n", "fn f() -> Int\n    db :: posts.count()\nend\n"} {
 		_, err := Parse(lexer.Lex(src))
 		if err == nil {
 			t.Errorf("%q parses", src)
@@ -75,7 +75,7 @@ func TestImportPath_SpacedDoubleColonIsAnError(t *testing.T) {
 
 // A full path is a FilePath, the object of a member access, in a call.
 func TestFullPath_Expression(t *testing.T) {
-	nodes := parse(t, "fn f() -> Int {\n    db::posts.count(1)\n}\n")
+	nodes := parse(t, "fn f() -> Int\n    db::posts.count(1)\nend\n")
 	fn := nodes[0].(*ast.FuncDef)
 	stmt := fn.Body.Stmts[0]
 	if es, ok := stmt.(*ast.ExprStmt); ok {
@@ -101,13 +101,13 @@ func TestFullPath_Expression(t *testing.T) {
 // A full path qualifies a type, a struct literal and a pattern, as a
 // QualifiedType whose Path holds the segments.
 func TestFullPath_TypesLiteralsPatterns(t *testing.T) {
-	src := "fn f(p: views::admin::users.User) -> Int {\n" +
+	src := "fn f(p: views::admin::users.User) -> Int\n" +
 		"    q = db::schema.Post{id: 1}\n" +
-		"    case p {\n" +
+		"    case p\n" +
 		"        db::schema.Kind.Active -> 1\n" +
 		"        _ -> 2\n" +
-		"    }\n" +
-		"}\n"
+		"    end\n" +
+		"end\n"
 	nodes := parse(t, src)
 	var quals []*ast.QualifiedType
 	ast.Inspect(nodes[0], func(n ast.Node) bool {
@@ -132,7 +132,7 @@ func TestFullPath_TypesLiteralsPatterns(t *testing.T) {
 
 // A full path alone is not a value.
 func TestFullPath_AloneIsAnError(t *testing.T) {
-	_, err := Parse(lexer.Lex("fn f() -> Int {\n    x = db::posts\n    1\n}\n"))
+	_, err := Parse(lexer.Lex("fn f() -> Int\n    x = db::posts\n    1\nend\n"))
 	if err == nil || !strings.Contains(err.Error(), "`db::posts` is a file, not a value") {
 		t.Errorf("got %v, want the file-is-not-a-value error", err)
 	}

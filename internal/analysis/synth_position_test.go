@@ -14,22 +14,22 @@ import (
 // protocols on them, so one run allocates slots from more than one kind and
 // more than one declaration.
 const synthPositionSource = `
-struct Point {
+struct Point
   x: Int
   y: Int
-}
+end
 
-struct Key {
+struct Key
   id: Int
-}
+end
 
 derive Equatable for Key
 derive Hashable for Key
 
-enum Rank {
+enum Rank
   Low
   High
-}
+end
 
 derive Comparable for Rank
 
@@ -123,8 +123,8 @@ func TestSynthPositionsAreAFunctionOfTheDeclaration(t *testing.T) {
 
 	// Leg 2 — interleaving. Unrelated synthesis in between must not move
 	// anything. A global counter fails here even though it is deterministic.
-	synthSlotsOf(t, "struct Unrelated {\n  a: Int\n  b: Int\n}\n")
-	synthSlotsOf(t, "struct AlsoUnrelated {\n  c: Int\n}\n\nderive Equatable for AlsoUnrelated\n")
+	synthSlotsOf(t, "struct Unrelated\n  a: Int\n  b: Int\nend\n")
+	synthSlotsOf(t, "struct AlsoUnrelated\n  c: Int\nend\n\nderive Equatable for AlsoUnrelated\n")
 	if got := synthSlotsOf(t, synthPositionSource); !sameSlots(got, want) {
 		t.Errorf("unrelated synthesis in between moved the slots:\n want %s\n  got %s", showSlots(want), showSlots(got))
 	}
@@ -159,7 +159,7 @@ func TestSynthPositionsAreAFunctionOfTheDeclaration(t *testing.T) {
 // reported `line 1077657600, col 1: impl function 'inspect': …` — a position
 // no programmer can navigate to and no editor can resolve.
 func TestSynthesizedBlocksRecordTheirOrigin(t *testing.T) {
-	src := "struct Point {\n  x: Int\n}\n\nenum Rank {\n  Low\n  High\n}\n\nderive Equatable for Rank\n"
+	src := "struct Point\n  x: Int\nend\n\nenum Rank\n  Low\n  High\nend\n\nderive Equatable for Rank\n"
 	nodes := parseNodes(t, src)
 	decls := map[string]Pos{}
 	for _, n := range nodes {

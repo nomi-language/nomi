@@ -36,97 +36,101 @@ func expectBindingType(t *testing.T, src, name, want string) {
 	}
 }
 
-const returnScopeF = `fn f() -> Result<Int, String> { Ok(1) }
-fn mi() -> Maybe<Int> { Some(1) }
+const returnScopeF = `fn f() -> Result<Int, String>
+    Ok(1)
+end
+fn mi() -> Maybe<Int>
+    Some(1)
+end
 `
 
 func TestReturnTypeScope_ErrInBoundCaseArm(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn g(s: String) -> Result<Unit, String> {
-  r = case s {
+fn g(s: String) -> Result<Unit, String>
+  r = case s
     "a" -> f()
     _ -> Err("bad")
-  }
+  end
   Ok(Unit)
-}`, "r", "Result<Int, String>")
+end`, "r", "Result<Int, String>")
 }
 
 func TestReturnTypeScope_ErrInBoundCaseArmBlock(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn h(s: String) -> Result<Unit, String> {
-  r = case s {
+fn h(s: String) -> Result<Unit, String>
+  r = case s
     "a" -> f()
-    _ -> { Err("bad") }
-  }
+    _ -> Err("bad")
+  end
   Ok(Unit)
-}`, "r", "Result<Int, String>")
+end`, "r", "Result<Int, String>")
 }
 
 func TestReturnTypeScope_ErrInBoundIfElse(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn k(s: String) -> Result<Unit, String> {
-  r = if s == "a" { f() } else { Err("bad") }
+fn k(s: String) -> Result<Unit, String>
+  r = if s == "a" then f() else Err("bad")
   Ok(Unit)
-}`, "r", "Result<Int, String>")
+end`, "r", "Result<Int, String>")
 }
 
 func TestReturnTypeScope_ErrInNonResultFunction(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn m(s: String) -> Int {
-  r = case s {
+fn m(s: String) -> Int
+  r = case s
     "a" -> f()
     _ -> Err("bad")
-  }
+  end
   1
-}`, "r", "Result<Int, String>")
+end`, "r", "Result<Int, String>")
 }
 
 // `Ok(2)` fixes T but not E; E comes from the other arm, not from the
 // function's `Result<Int, Int>`.
 func TestReturnTypeScope_OkInBoundCaseArm(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn g(s: String) -> Result<Int, Int> {
-  r = case s {
+fn g(s: String) -> Result<Int, Int>
+  r = case s
     "a" -> f()
     _ -> Ok(2)
-  }
+  end
   Ok(1)
-}`, "r", "Result<Int, String>")
+end`, "r", "Result<Int, String>")
 }
 
 func TestReturnTypeScope_OkInBoundIfElse(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn g(s: String) -> Result<Int, Int> {
-  r = if s == "a" { f() } else { Ok(2) }
+fn g(s: String) -> Result<Int, Int>
+  r = if s == "a" then f() else Ok(2)
   Ok(1)
-}`, "r", "Result<Int, String>")
+end`, "r", "Result<Int, String>")
 }
 
 func TestReturnTypeScope_SomeAndNoneInBoundArms(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn g(s: String) -> Maybe<String> {
-  r = case s {
+fn g(s: String) -> Maybe<String>
+  r = case s
     "a" -> mi()
     _ -> Some(2)
-  }
+  end
   Some("x")
-}`, "r", "Maybe<Int>")
+end`, "r", "Maybe<Int>")
 	expectBindingType(t, returnScopeF+`
-fn g(s: String) -> Maybe<String> {
-  r = if s == "a" { mi() } else { None }
+fn g(s: String) -> Maybe<String>
+  r = if s == "a" then mi() else None
   Some("x")
-}`, "r", "Maybe<Int>")
+end`, "r", "Maybe<Int>")
 }
 
 // A bound `Err` whose T nothing fixes stays open; a later annotated use
 // fixes it, where the function's `Result<Unit, String>` used to make it
 // `Result<Unit, String>` and reject the annotation.
 func TestReturnTypeScope_BoundErrStaysOpen(t *testing.T) {
-	src := `fn g() -> Result<Unit, String> {
+	src := `fn g() -> Result<Unit, String>
   e = Err("bad")
   r: Result<Int, String> = e
   Ok(Unit)
-}`
+end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 	if got := bindingType(t, fa, "r"); got != "Result<Int, String>" {
@@ -141,57 +145,59 @@ func TestReturnTypeScope_BoundErrStaysOpen(t *testing.T) {
 // function's.
 func TestReturnTypeScope_Lambda(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn g() -> Result<Unit, Int> {
-  h = fn s: String -> case s {
+fn g() -> Result<Unit, Int>
+  h = fn s: String -> case s
     "a" -> f()
     _ -> Err("bad")
-  }
+  end
   r = h("a")
   Ok(Unit)
-}`, "r", "Result<Int, String>")
+end`, "r", "Result<Int, String>")
 }
 
 // Positions whose value is the function's result still take its type.
 func TestReturnTypeScope_ResultPositionsStillPropagate(t *testing.T) {
 	src := returnScopeF + `
-enum Color {
+enum Color
   Red
   Blue
-}
-fn ret(s: String) -> Result<Int, String> {
-  if s == "" {
+end
+fn ret(s: String) -> Result<Int, String>
+  if s == "" then
     return Err("empty")
-  }
-  case s {
+  end
+  case s
     "a" -> Ok(1)
     _ -> Err("no")
-  }
-}
-fn tail_if(s: String) -> Result<Int, String> {
-  if s == "a" { Ok(1) } else { Err("no") }
-}
-fn tail_err() -> Result<Int, String> {
+  end
+end
+fn tail_if(s: String) -> Result<Int, String>
+  if s == "a" then Ok(1) else Err("no")
+end
+fn tail_err() -> Result<Int, String>
   e = Err("bad")
   e
-}
-fn tries(s: String) -> Result<Int, String> {
+end
+fn tries(s: String) -> Result<Int, String>
   x = f()?
   y = ret(s)?
   Ok(x + y)
-}
-fn fallback(m: Maybe<Int>) -> Result<Int, String> {
-  Some(n) = m else { return Err("none") }
+end
+fn fallback(m: Maybe<Int>) -> Result<Int, String>
+  Some(n) = m else
+      return Err("none")
+  end
   Ok(n)
-}
-fn wrapped() -> Maybe<Result<Int, String>> {
+end
+fn wrapped() -> Maybe<Result<Int, String>>
   Some(Err("boom"))
-}
-fn tail_color(s: String) -> Color {
-  case s {
+end
+fn tail_color(s: String) -> Color
+  case s
     "a" -> .Red
     _ -> .Blue
-  }
-}`
+  end
+end`
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 }
@@ -200,17 +206,17 @@ fn tail_color(s: String) -> Color {
 // from the function. Only an earlier arm that names the enum gives it one
 // (earlierArmsExpected), and here the bare arm comes first.
 func TestReturnTypeScope_DotVariantInBoundArmStillNeedsAType(t *testing.T) {
-	src := `enum Color {
+	src := `enum Color
   Red
   Blue
-}
-fn g(s: String) -> Maybe<Color> {
-  c = case s {
+end
+fn g(s: String) -> Maybe<Color>
+  c = case s
     "a" -> .Red
     _ -> Color.Blue
-  }
+  end
   Some(c)
-}`
+end`
 	_, errs := checkSourceWithStdlib(src)
 	expectErrorContaining(t, errs, "requires a determinable enum type")
 }

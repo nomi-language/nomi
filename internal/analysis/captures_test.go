@@ -9,35 +9,35 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-const captureDecls = `struct Point {
+const captureDecls = `struct Point
     x: Int
     y: Int
-}
+end
 
-struct Box<T> {
+struct Box<T>
     v: T
-}
+end
 
-struct Rule {
+struct Rule
     keep: (Int) -> Bool
-}
+end
 
-enum Shape {
+enum Shape
     Circle {radius: Float}
     Dot
-}
+end
 
-fn add(a: Int, b: Int) -> Int {
+fn add(a: Int, b: Int) -> Int
     a + b
-}
+end
 
-fn divide(x: Int, y: Int) -> Int {
+fn divide(x: Int, y: Int) -> Int
     x / y
-}
+end
 
-fn apply2(f: (Int, Int) -> Int) -> Int {
+fn apply2(f: (Int, Int) -> Int) -> Int
     f(3, 4)
-}
+end
 
 `
 
@@ -68,53 +68,53 @@ func captureTypes(t *testing.T, src string) []string {
 // parameters' types.
 func TestCapture_EachBodyIsAFunction(t *testing.T) {
 	for _, tc := range []struct{ name, body, want string }{
-		{"comparison", "fn f() -> (Int) -> Bool { &(&1 > 2) }\n", "(Int) -> Bool"},
-		{"comparison, the parameter on the right", "fn f() -> (Int) -> Bool { &(0 < &1) }\n", "(Int) -> Bool"},
-		{"equality", "fn f() -> (String) -> Bool { &(&1 == \"a\") }\n", "(String) -> Bool"},
-		{"two parameters", "fn f() -> (Int, Int) -> Int { &(&1 + &2) }\n", "(Int, Int) -> Int"},
-		{"two steps", "fn f() -> (Int) -> Int { &(&1 * 2 + 1) }\n", "(Int) -> Int"},
-		{"remainder and equality", "fn f() -> (Int) -> Bool { &(&1 % 2 == 0) }\n", "(Int) -> Bool"},
-		{"list concatenation", "fn f() -> (List<Int>) -> List<Int> { &(&1 + [0]) }\n", "(List<Int>) -> List<Int>"},
-		{"half-open range", "fn f() -> (Int) -> Range<Int> { &(0..&1) }\n", "(Int) -> Range<Int>"},
-		{"negation", "fn f() -> (Int) -> Int { &(-&1) }\n", "(Int) -> Int"},
-		{"not", "fn f() -> (Bool) -> Bool { &(not &1) }\n", "(Bool) -> Bool"},
-		{"a field read", "fn f() -> (Point) -> Bool { &(&1.x > 2) }\n", "(Point) -> Bool"},
-		{"a parenthesized parameter", "fn f() -> (Int, Int) -> Int { &(&2) }\n", "(Int, Int) -> Int"},
-		{"a call", "fn f() -> (Int) -> Int { &Int.max(&1, 0) }\n", "(Int) -> Int"},
-		{"an operator function's call", "fn f() -> Maybe<Int> { Maybe.map(Some(2), &Int.add(7, &1)) }\n", "(Int) -> Int"},
-		{"an operator function's call, the parameter on the left", "fn f() -> Maybe<Float> { Maybe.map(Some(2.5), &Float.divide(&1, 2.0)) }\n", "(Float) -> Float"},
-		{"an operator function's call of several impls", "fn f() -> Maybe<Int> { Maybe.map(Some(2), &Int.divide(10, &1)) }\n", "(Int) -> Int"},
-		{"an operator function's call selecting an impl by the piped type", "fn f() -> Maybe<Int> { Int.to_non_zero(4) |> Maybe.map(&Int.divide(12, &1)) }\n", "(NonZeroInt) -> Int"},
-		{"an operator function's call selecting an impl by the argument's type", "fn f() -> Maybe<Int> { Maybe.map(Int.to_non_zero(4), &Int.divide(12, &1)) }\n", "(NonZeroInt) -> Int"},
-		{"an operator function's call selecting an impl by a Result's type", "fn f() -> Result<Int, String> { Int.to_non_zero(4) |> Maybe.to_result(\"zero\") |> Result.map(&Int.divide(12, &1)) }\n", "(NonZeroInt) -> Int"},
-		{"an operator function's call with no expected type", "fn f() -> Int {\n    inc = &Int.add(7, &1)\n    inc(1)\n}\n", "(Int) -> Int"},
-		{"an operator function's call with no expected type, the parameter on the left", "fn f() -> Int {\n    dec = &Int.subtract(&1, 1)\n    dec(9)\n}\n", "(Int) -> Int"},
-		{"an operator function's call of several impls, the parameter on the left", "fn f() -> Maybe<Int> {\n    Some(d) = Int.to_non_zero(4) else {\n        return None\n    }\n    half = &Int.divide(&1, d)\n    Some(half(9))\n}\n", "(Int) -> Int"},
-		{"an operator function's call reordering its parameters", "fn f() -> (Int, Int) -> Int { &Int.subtract(&2, &1) }\n", "(Int, Int) -> Int"},
-		{"a call reordering its parameters", "fn f() -> (Int, Int) -> Int { &divide(&2, &1) }\n", "(Int, Int) -> Int"},
-		{"a call reusing its parameter", "fn f() -> (Int) -> Int { &add(&1, &1) }\n", "(Int) -> Int"},
-		{"a call with a deeper parameter", "fn f() -> (Int) -> Maybe<Int> { &Some(&1 + 1) }\n", "(Int) -> Maybe<Int>"},
-		{"a call of a type parameter's function", "import std::json.{Json, FromJson}\n\nfn f<T>(xs: List<Json>) -> List<Result<T, Json.ShapeError>> where T: FromJson {\n    Iter.map(xs, &T.from_json(&1)) |> Iter.to_list()\n}\n", "(Json) -> Result<T, Json.ShapeError>"},
-		{"named struct", "fn f() -> (Int) -> Point { &Point{x: &1, y: 0} }\n", "(Int) -> Point"},
-		{"named struct, two parameters", "fn f() -> (Int, Int) -> Point { &Point{y: &1, x: &2} }\n", "(Int, Int) -> Point"},
-		{"anonymous struct where a Point is expected", "fn f() -> (Int) -> Point { &.{x: &1, y: 0} }\n", "(Int) -> Point"},
-		{"generic struct", "fn f() -> (String) -> Box<String> { &Box{v: &1} }\n", "(String) -> Box<String>"},
-		{"struct-shaped variant", "fn f() -> (Float) -> Shape { &Shape.Circle{radius: &1} }\n", "(Float) -> Shape"},
-		{"dot struct-shaped variant", "fn f() -> (Float) -> Shape { &.Circle{radius: &1} }\n", "(Float) -> Shape"},
-		{"tuple", "fn f() -> (Int) -> (Int, Int) { &(&1, 0) }\n", "(Int) -> (Int, Int)"},
-		{"list", "fn f() -> (Int) -> List<Int> { &[&1, 0] }\n", "(Int) -> List<Int>"},
-		{"vector", "fn f() -> (Int) -> Vector<Int> { &#[&1] }\n", "(Int) -> Vector<Int>"},
-		{"set", "fn f() -> (Int) -> Set<Int> { &%[&1] }\n", "(Int) -> Set<Int>"},
-		{"map", "fn f() -> (String) -> Map<String, Int> { &%{&1 => 0} }\n", "(String) -> Map<String, Int>"},
-		{"a generic callback", "fn f() -> List<Int> { [1, 2] |> Iter.map(&(&1 * 2)) |> Iter.to_list() }\n", "(Int) -> Int"},
-		{"an annotated binding", "fn f() -> Bool {\n    big: (Int) -> Bool = &(&1 > 2)\n    big(3)\n}\n", "(Int) -> Bool"},
-		{"a struct field of function type", "fn f() -> Rule { Rule{keep: &(&1 > 2)} }\n", "(Int) -> Bool"},
-		{"the argument of Some", "fn f() -> Maybe<(Int) -> Int> { Some(&(&1 + 1)) }\n", "(Int) -> Int"},
-		{"an ignored parameter", "fn f() -> Int { apply2(&(&2 * 10)) }\n", "(Int, Int) -> Int"},
-		{"a partial ignoring a parameter", "fn f() -> Int { apply2(&add(&1, 100)) }\n", "(Int, Int) -> Int"},
-		{"a then stage", "fn f() -> Int { 10 |> then &divide(100, &1) }\n", "(Int) -> Int"},
-		{"a then stage with no partial", "fn f() -> Int { 10 |> then &(&1 + 1) }\n", "(Int) -> Int"},
-		{"a tap stage", "import std::io\n\nfn f() -> Int { 10 |> tap &io.print(Int.to_string(&1)) }\n", "(Int) -> Unit"},
+		{"comparison", "fn f() -> (Int) -> Bool\n    &(&1 > 2)\nend\n", "(Int) -> Bool"},
+		{"comparison, the parameter on the right", "fn f() -> (Int) -> Bool\n    &(0 < &1)\nend\n", "(Int) -> Bool"},
+		{"equality", "fn f() -> (String) -> Bool\n    &(&1 == \"a\")\nend\n", "(String) -> Bool"},
+		{"two parameters", "fn f() -> (Int, Int) -> Int\n    &(&1 + &2)\nend\n", "(Int, Int) -> Int"},
+		{"two steps", "fn f() -> (Int) -> Int\n    &(&1 * 2 + 1)\nend\n", "(Int) -> Int"},
+		{"remainder and equality", "fn f() -> (Int) -> Bool\n    &(&1 % 2 == 0)\nend\n", "(Int) -> Bool"},
+		{"list concatenation", "fn f() -> (List<Int>) -> List<Int>\n    &(&1 + [0])\nend\n", "(List<Int>) -> List<Int>"},
+		{"half-open range", "fn f() -> (Int) -> Range<Int>\n    &(0..&1)\nend\n", "(Int) -> Range<Int>"},
+		{"negation", "fn f() -> (Int) -> Int\n    &(-&1)\nend\n", "(Int) -> Int"},
+		{"not", "fn f() -> (Bool) -> Bool\n    &(not &1)\nend\n", "(Bool) -> Bool"},
+		{"a field read", "fn f() -> (Point) -> Bool\n    &(&1.x > 2)\nend\n", "(Point) -> Bool"},
+		{"a parenthesized parameter", "fn f() -> (Int, Int) -> Int\n    &(&2)\nend\n", "(Int, Int) -> Int"},
+		{"a call", "fn f() -> (Int) -> Int\n    &Int.max(&1, 0)\nend\n", "(Int) -> Int"},
+		{"an operator function's call", "fn f() -> Maybe<Int>\n    Maybe.map(Some(2), &Int.add(7, &1))\nend\n", "(Int) -> Int"},
+		{"an operator function's call, the parameter on the left", "fn f() -> Maybe<Float>\n    Maybe.map(Some(2.5), &Float.divide(&1, 2.0))\nend\n", "(Float) -> Float"},
+		{"an operator function's call of several impls", "fn f() -> Maybe<Int>\n    Maybe.map(Some(2), &Int.divide(10, &1))\nend\n", "(Int) -> Int"},
+		{"an operator function's call selecting an impl by the piped type", "fn f() -> Maybe<Int>\n    Int.to_non_zero(4) |> Maybe.map(&Int.divide(12, &1))\nend\n", "(NonZeroInt) -> Int"},
+		{"an operator function's call selecting an impl by the argument's type", "fn f() -> Maybe<Int>\n    Maybe.map(Int.to_non_zero(4), &Int.divide(12, &1))\nend\n", "(NonZeroInt) -> Int"},
+		{"an operator function's call selecting an impl by a Result's type", "fn f() -> Result<Int, String>\n    Int.to_non_zero(4) |> Maybe.to_result(\"zero\") |> Result.map(&Int.divide(12, &1))\nend\n", "(NonZeroInt) -> Int"},
+		{"an operator function's call with no expected type", "fn f() -> Int\n    inc = &Int.add(7, &1)\n    inc(1)\nend\n", "(Int) -> Int"},
+		{"an operator function's call with no expected type, the parameter on the left", "fn f() -> Int\n    dec = &Int.subtract(&1, 1)\n    dec(9)\nend\n", "(Int) -> Int"},
+		{"an operator function's call of several impls, the parameter on the left", "fn f() -> Maybe<Int>\n    Some(d) = Int.to_non_zero(4) else\n        return None\n    end\n    half = &Int.divide(&1, d)\n    Some(half(9))\nend\n", "(Int) -> Int"},
+		{"an operator function's call reordering its parameters", "fn f() -> (Int, Int) -> Int\n    &Int.subtract(&2, &1)\nend\n", "(Int, Int) -> Int"},
+		{"a call reordering its parameters", "fn f() -> (Int, Int) -> Int\n    &divide(&2, &1)\nend\n", "(Int, Int) -> Int"},
+		{"a call reusing its parameter", "fn f() -> (Int) -> Int\n    &add(&1, &1)\nend\n", "(Int) -> Int"},
+		{"a call with a deeper parameter", "fn f() -> (Int) -> Maybe<Int>\n    &Some(&1 + 1)\nend\n", "(Int) -> Maybe<Int>"},
+		{"a call of a type parameter's function", "import std::json.{Json, FromJson}\n\nfn f<T>(xs: List<Json>) -> List<Result<T, Json.ShapeError>> where T: FromJson\n    Iter.map(xs, &T.from_json(&1)) |> Iter.to_list()\nend\n", "(Json) -> Result<T, Json.ShapeError>"},
+		{"named struct", "fn f() -> (Int) -> Point\n    &Point{x: &1, y: 0}\nend\n", "(Int) -> Point"},
+		{"named struct, two parameters", "fn f() -> (Int, Int) -> Point\n    &Point{y: &1, x: &2}\nend\n", "(Int, Int) -> Point"},
+		{"anonymous struct where a Point is expected", "fn f() -> (Int) -> Point\n    &{x: &1, y: 0}\nend\n", "(Int) -> Point"},
+		{"generic struct", "fn f() -> (String) -> Box<String>\n    &Box{v: &1}\nend\n", "(String) -> Box<String>"},
+		{"struct-shaped variant", "fn f() -> (Float) -> Shape\n    &Shape.Circle{radius: &1}\nend\n", "(Float) -> Shape"},
+		{"dot struct-shaped variant", "fn f() -> (Float) -> Shape\n    &.Circle{radius: &1}\nend\n", "(Float) -> Shape"},
+		{"tuple", "fn f() -> (Int) -> (Int, Int)\n    &(&1, 0)\nend\n", "(Int) -> (Int, Int)"},
+		{"list", "fn f() -> (Int) -> List<Int>\n    &[&1, 0]\nend\n", "(Int) -> List<Int>"},
+		{"vector", "fn f() -> (Int) -> Vector<Int>\n    &Vector[&1]\nend\n", "(Int) -> Vector<Int>"},
+		{"set", "fn f() -> (Int) -> Set<Int>\n    &Set[&1]\nend\n", "(Int) -> Set<Int>"},
+		{"map", "fn f() -> (String) -> Map<String, Int>\n    &{&1 => 0}\nend\n", "(String) -> Map<String, Int>"},
+		{"a generic callback", "fn f() -> List<Int>\n    [1, 2] |> Iter.map(&(&1 * 2)) |> Iter.to_list()\nend\n", "(Int) -> Int"},
+		{"an annotated binding", "fn f() -> Bool\n    big: (Int) -> Bool = &(&1 > 2)\n    big(3)\nend\n", "(Int) -> Bool"},
+		{"a struct field of function type", "fn f() -> Rule\n    Rule{keep: &(&1 > 2)}\nend\n", "(Int) -> Bool"},
+		{"the argument of Some", "fn f() -> Maybe<(Int) -> Int>\n    Some(&(&1 + 1))\nend\n", "(Int) -> Int"},
+		{"an ignored parameter", "fn f() -> Int\n    apply2(&(&2 * 10))\nend\n", "(Int, Int) -> Int"},
+		{"a partial ignoring a parameter", "fn f() -> Int\n    apply2(&add(&1, 100))\nend\n", "(Int, Int) -> Int"},
+		{"a then stage", "fn f() -> Int\n    10 |> then &divide(100, &1)\nend\n", "(Int) -> Int"},
+		{"a then stage with no partial", "fn f() -> Int\n    10 |> then &(&1 + 1)\nend\n", "(Int) -> Int"},
+		{"a tap stage", "import std::io\n\nfn f() -> Int\n    10 |> tap &io.print(Int.to_string(&1))\nend\n", "(Int) -> Unit"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := captureTypes(t, tc.body)
@@ -130,12 +130,12 @@ func TestCapture_EachBodyIsAFunction(t *testing.T) {
 // from the callee, so it needs no expected type.
 func TestCapture_APartialNeedsNoExpectedType(t *testing.T) {
 	for name, body := range map[string]string{
-		"no expected type":   "fn f() -> Int {\n    inc = &add(1, &1)\n    inc(2)\n}\n",
-		"called by name":     "fn f() -> Int {\n    inc = &add(&1, b: &2)\n    inc(b: 1, a: 2)\n}\n",
-		"called directly":    "fn f() -> Int { (&add(2, &1))(4) }\n",
-		"inside a tuple":     "fn f() -> Int {\n    t = (&Int.max(&1, 0), 1)\n    t.first(-3)\n}\n",
-		"a variant":          "fn f() -> Maybe<Int> {\n    wrap = &Some(&1)\n    wrap(1)\n}\n",
-		"partial of partial": "fn f() -> Int {\n    g = &add(&1, b: &2)\n    h = &g(1, b: &1)\n    h(2)\n}\n",
+		"no expected type":   "fn f() -> Int\n    inc = &add(1, &1)\n    inc(2)\nend\n",
+		"called by name":     "fn f() -> Int\n    inc = &add(&1, b: &2)\n    inc(b: 1, a: 2)\nend\n",
+		"called directly":    "fn f() -> Int\n    (&add(2, &1))(4)\nend\n",
+		"inside a tuple":     "fn f() -> Int\n    t = (&Int.max(&1, 0), 1)\n    t.first(-3)\nend\n",
+		"a variant":          "fn f() -> Maybe<Int>\n    wrap = &Some(&1)\n    wrap(1)\nend\n",
+		"partial of partial": "fn f() -> Int\n    g = &add(&1, b: &2)\n    h = &g(1, b: &1)\n    h(2)\nend\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(captureDecls + body)
@@ -147,9 +147,9 @@ func TestCapture_APartialNeedsNoExpectedType(t *testing.T) {
 // A struct literal whose `&N`s are its whole fields takes their names, by
 // which a call of the function bound to a name passes them.
 func TestCapture_AStructIsCalledByItsFields(t *testing.T) {
-	_, errs := checkSourceWithStdlib(captureDecls + "fn f() -> Point {\n    mk: (Int) -> Point = &Point{x: &1, y: 0}\n    mk(x: 3)\n}\n")
+	_, errs := checkSourceWithStdlib(captureDecls + "fn f() -> Point\n    mk: (Int) -> Point = &Point{x: &1, y: 0}\n    mk(x: 3)\nend\n")
 	expectNoStdlibErrors(t, errs)
-	_, errs = checkSourceWithStdlib(captureDecls + "fn f() -> Bool {\n    big: (Int) -> Bool = &(&1 > 2)\n    big(lhs: 3)\n}\n")
+	_, errs = checkSourceWithStdlib(captureDecls + "fn f() -> Bool\n    big: (Int) -> Bool = &(&1 > 2)\n    big(lhs: 3)\nend\n")
 	wantOnlyError(t, errs, "no parameter named 'lhs'")
 }
 
@@ -171,51 +171,51 @@ func wantOnlyError(t *testing.T, errs []analysis.TypeError, want string) {
 // accepted, and checks its message.
 func TestCapture_Rejections(t *testing.T) {
 	for _, tc := range []struct{ name, body, want string }{
-		{"no expected type", "fn f() -> Bool {\n    big = &(&1 > 2)\n    big(3)\n}\n",
+		{"no expected type", "fn f() -> Bool\n    big = &(&1 > 2)\n    big(3)\nend\n",
 			"cannot infer type for `&1` in `&(&1 > 2)`\nhelp: annotate the binding with the function's type, as in `f: (Int) -> Bool = &(&1 > 2)`, or write a lambda with an annotated parameter, as in `fn x: Int -> x > 2`; a later use of the function does not give it one"},
-		{"no expected type, a struct", "fn f() -> Point {\n    mk = &Point{x: &1, y: 0}\n    mk(1)\n}\n",
-			"cannot infer type for `&1` in `&Point{x: &1, y: 0}`\nhelp: annotate the binding with the function's type, as in `f: (Int) -> Point = &Point{x: &1, y: 0}`, or write a lambda with an annotated parameter, as in `fn x: Int -> Point{x, y: 0}`; a later use of the function does not give it one"},
-		{"no expected type, a reused call", "fn f() -> Int {\n    twice = &add(&1, &1)\n    twice(2)\n}\n",
+		{"no expected type, a struct", "fn f() -> Point\n    mk = &Point{x: &1, y: 0}\n    mk(1)\nend\n",
+			"cannot infer type for `&1` in `&Point{x: &1, y: 0}`\nhelp: annotate the binding with the function's type, as in `f: (Int) -> Point = &Point{x: &1, y: 0}`, or write a lambda with an annotated parameter, as in `fn x: Int -> Point{x:, y: 0}`; a later use of the function does not give it one"},
+		{"no expected type, a reused call", "fn f() -> Int\n    twice = &add(&1, &1)\n    twice(2)\nend\n",
 			"cannot infer type for `&1` in `&add(&1, &1)`"},
-		{"no expected type, a reordered call", "fn f() -> Int {\n    flip = &divide(&2, &1)\n    flip(2, 10)\n}\n",
+		{"no expected type, a reordered call", "fn f() -> Int\n    flip = &divide(&2, &1)\n    flip(2, 10)\nend\n",
 			"cannot infer type for `&2` in `&divide(&2, &1)`"},
-		{"a capture in a construction's argument", "fn f() -> List<Maybe<Int>> { [1] |> Iter.map(Some(&(&1 + 1))) |> Iter.to_list() }\n",
+		{"a capture in a construction's argument", "fn f() -> List<Maybe<Int>>\n    [1] |> Iter.map(Some(&(&1 + 1))) |> Iter.to_list()\nend\n",
 			"cannot infer type for `&1` in `&(&1 + 1)`\nhelp: for a function of the whole call, write `&Some(&1 + 1)`"},
-		{"past the expected arity", "fn f() -> List<Int> { [1] |> Iter.map(&(&2 + 1)) |> Iter.to_list() }\n",
+		{"past the expected arity", "fn f() -> List<Int>\n    [1] |> Iter.map(&(&2 + 1)) |> Iter.to_list()\nend\n",
 			"`Iter.map` passes one argument; `&2` names a second\nhelp: `&N` is the capture's parameter N, and the function expected where the capture stands fixes how many it has"},
-		{"past the arity of an annotation", "fn f() -> Int {\n    g: (Int) -> Int = &(&1 + &3)\n    g(1)\n}\n",
+		{"past the arity of an annotation", "fn f() -> Int\n    g: (Int) -> Int = &(&1 + &3)\n    g(1)\nend\n",
 			"the function expected here takes one argument; `&3` names a third"},
-		{"a partial past the expected arity", "fn f() -> List<Int> { [1] |> Iter.map(&add(&1, &2)) |> Iter.to_list() }\n",
+		{"a partial past the expected arity", "fn f() -> List<Int>\n    [1] |> Iter.map(&add(&1, &2)) |> Iter.to_list()\nend\n",
 			"`Iter.map` passes one argument; `&2` names a second"},
-		{"a then stage passes one argument", "fn f() -> Int { 10 |> then &add(&1, &2) }\n",
+		{"a then stage passes one argument", "fn f() -> Int\n    10 |> then &add(&1, &2)\nend\n",
 			"the function expected here takes one argument; `&2` names a second"},
-		{"no parameter", "fn f() -> List<Int> { [1] |> Iter.map(&add(1, 2)) |> Iter.to_list() }\n",
+		{"no parameter", "fn f() -> List<Int>\n    [1] |> Iter.map(&add(1, 2)) |> Iter.to_list()\nend\n",
 			"a capture uses at least `&1`\nhelp: `&` makes a function of the `&1`, `&2`, ... in its body; for a function of no arguments, write `fn -> add(1, 2)`"},
-		{"captures do not nest", "fn f() -> List<Int> { [1] |> Iter.map(&add(&1, &Int.max(&1, 0))) |> Iter.to_list() }\n",
+		{"captures do not nest", "fn f() -> List<Int>\n    [1] |> Iter.map(&add(&1, &Int.max(&1, 0))) |> Iter.to_list()\nend\n",
 			"captures do not nest; write the inner one as `fn x -> ...`\nhelp: each `&N` belongs to the one capture around it; inside `&add(&1, &Int.max(&1, 0))`, write `&Int.max(&1, 0)` as a lambda"},
-		{"a capture is no pipe stage", "fn f() -> Int { 10 |> &add(&1, 1) }\n",
+		{"a capture is no pipe stage", "fn f() -> Int\n    10 |> &add(&1, 1)\nend\n",
 			"a capture is not a pipe stage: write `then &add(&1, 1)`\nhelp: `then` applies a capture or a lambda to the piped value"},
-		{"a parameter of the wrong type", "fn f() -> (String) -> Point { &Point{x: &1, y: 0} }\n",
+		{"a parameter of the wrong type", "fn f() -> (String) -> Point\n    &Point{x: &1, y: 0}\nend\n",
 			"field 'x' of Point: expected Int, got String"},
-		{"a reduction's callback", "fn f() -> Int { [1, 2] |> Iter.reduce(&(&1 + &2)) }\n",
+		{"a reduction's callback", "fn f() -> Int\n    [1, 2] |> Iter.reduce(&(&1 + &2))\nend\n",
 			"missing argument for parameter 'from'"},
-		{"no expected type, an operator function of several impls", "fn f() -> Int {\n    inv = &Int.divide(12, &1)\n    inv(4)\n}\n",
+		{"no expected type, an operator function of several impls", "fn f() -> Int\n    inv = &Int.divide(12, &1)\n    inv(4)\nend\n",
 			"cannot infer type for `&1` in `&Int.divide(12, &1)`\nhelp: `Int` has 2 `Divide` impls, whose right operands are `Int` and `NonZeroInt`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (Int) -> Int = &Int.divide(12, &1)`, or write a lambda with an annotated parameter, as in `fn x: Int -> Int.divide(12, x)`"},
-		{"no expected type, an operator function of several impls with both operands open", "fn f() -> Int {\n    div = &Int.divide(&1, &2)\n    div(12, 4)\n}\n",
+		{"no expected type, an operator function of several impls with both operands open", "fn f() -> Int\n    div = &Int.divide(&1, &2)\n    div(12, 4)\nend\n",
 			"cannot infer type for `&2` in `&Int.divide(&1, &2)`\nhelp: `Int` has 2 `Divide` impls, whose right operands are `Int` and `NonZeroInt`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (Int, Int) -> Int = &Int.divide(&1, &2)`, or write a lambda with an annotated parameter, as in `fn a: Int, b: Int -> Int.divide(a, b)`"},
-		{"an operand of and", "fn f(ready: Bool) -> (Int) -> Bool { &(&1 > 2) and ready }\n",
+		{"an operand of and", "fn f(ready: Bool) -> (Int) -> Bool\n    &(&1 > 2) and ready\nend\n",
 			"cannot infer type for `&1` in `&(&1 > 2)`"},
-		{"no expected type, a string", "fn f() -> String {\n    say = &\"id ${&1}\"\n    say(1)\n}\n",
+		{"no expected type, a string", "fn f() -> String\n    say = &\"id ${&1}\"\n    say(1)\nend\n",
 			"cannot infer type for `&1` in `&\"id ${&1}\"`\nhelp: annotate the binding with the function's type, as in `f: (T) -> String = &\"id ${&1}\"`, or write a lambda with an annotated parameter, as in `fn x: T -> \"id ${x}\"`; a later use of the function does not give it one"},
-		{"a string with no parameter", "fn f() -> List<String> { [1] |> Iter.map(&\"plain\") |> Iter.to_list() }\n",
+		{"a string with no parameter", "fn f() -> List<String>\n    [1] |> Iter.map(&\"plain\") |> Iter.to_list()\nend\n",
 			"a capture uses at least `&1`\nhelp: `&` makes a function of the `&1`, `&2`, ... in its body; for a function of no arguments, write `fn -> \"plain\"`"},
-		{"a raw string has no slot", "fn f() -> List<String> { [1] |> Iter.map(&`raw ${&1}`) |> Iter.to_list() }\n",
+		{"a raw string has no slot", "fn f() -> List<String>\n    [1] |> Iter.map(&`raw ${&1}`) |> Iter.to_list()\nend\n",
 			"a capture uses at least `&1`"},
-		{"captures do not nest in a string", "fn f() -> List<String> { [1] |> Iter.map(&\"${add(&1, &Int.max(&1, 0))}\") |> Iter.to_list() }\n",
+		{"captures do not nest in a string", "fn f() -> List<String>\n    [1] |> Iter.map(&\"${add(&1, &Int.max(&1, 0))}\") |> Iter.to_list()\nend\n",
 			"captures do not nest; write the inner one as `fn x -> ...`"},
-		{"a capture alone in a string capture's slot", "fn f() -> List<String> { [1] |> Iter.map(&\"${&add(&1, 1)}\") |> Iter.to_list() }\n",
+		{"a capture alone in a string capture's slot", "fn f() -> List<String>\n    [1] |> Iter.map(&\"${&add(&1, 1)}\") |> Iter.to_list()\nend\n",
 			"captures do not nest; write the inner one as `fn x -> ...`"},
-		{"a string capture is one operand", "fn f() -> List<String> { [1] |> Iter.map(&\"a${&1}\" + \"b\") |> Iter.to_list() }\n",
+		{"a string capture is one operand", "fn f() -> List<String>\n    [1] |> Iter.map(&\"a${&1}\" + \"b\") |> Iter.to_list()\nend\n",
 			"cannot infer type for `&1` in `&\"a${&1}\"`"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -246,18 +246,18 @@ func TestCapture_Rejections(t *testing.T) {
 func TestCapture_AParameterOutsideACapture(t *testing.T) {
 	const msg = "`&1` is a capture's parameter: write the function as `&(...)` or `&f(...)`\nhelp: "
 	for _, tc := range []struct{ name, body, help string }{
-		{"a call's argument", "fn f() -> List<Int> { [1] |> Iter.map(Int.max(&1, 0)) |> Iter.to_list() }\n", "write `&Int.max(&1, 0)`"},
-		{"a named argument", "fn f() -> (Int) -> Int { add(a: 1, b: &1) }\n", "write `&add(a: 1, b: &1)`"},
-		{"an operator", "fn f() -> List<Int> { [1] |> Iter.map(&1 * 2 + 1) |> Iter.to_list() }\n", "write `&(&1 * 2 + 1)`"},
-		{"an operator in a call's argument", "fn f() -> Maybe<Int> { Some(&1 + 1) }\n", "write `&(&1 + 1)`"},
-		{"a struct literal", "fn f() -> (Int) -> Point { Point{x: &1, y: 0} }\n", "write `&Point{x: &1, y: 0}`"},
-		{"a tuple", "fn f() -> (Int) -> (Int, Int) { (&1, 0) }\n", "write `&(&1, 0)`"},
-		{"a list", "fn f() -> (Int) -> List<Int> { [&1, 0] }\n", "write `&[&1, 0]`"},
-		{"a string", "fn f() -> List<String> { [1] |> Iter.map(\"id ${&1}\") |> Iter.to_list() }\n", "write `&\"id ${&1}\"`"},
-		{"parentheses", "fn f() -> (Int) -> Int { (&1) + 1 }\n", "write `&((&1) + 1)`"},
-		{"a pipe stage", "fn f() -> Int { 10 |> divide(100, &1) }\n", "a pipe fills the first argument; write `|> then &divide(100, &1)`"},
-		{"alone", "fn f() -> Int {\n    g = &1\n    g\n}\n", "a capture is `&` and the function's body, as in `&(&1 > 2)` or `&Int.max(&1, 0)`; `&N` alone is no function, so write a lambda"},
-		{"inside a lambda in a capture", "fn f() -> (Int) -> Int { &add(&1, (fn y: Int -> y + &1)(1)) }\n", "write `&(y + &1)`"},
+		{"a call's argument", "fn f() -> List<Int>\n    [1] |> Iter.map(Int.max(&1, 0)) |> Iter.to_list()\nend\n", "write `&Int.max(&1, 0)`"},
+		{"a named argument", "fn f() -> (Int) -> Int\n    add(a: 1, b: &1)\nend\n", "write `&add(a: 1, b: &1)`"},
+		{"an operator", "fn f() -> List<Int>\n    [1] |> Iter.map(&1 * 2 + 1) |> Iter.to_list()\nend\n", "write `&(&1 * 2 + 1)`"},
+		{"an operator in a call's argument", "fn f() -> Maybe<Int>\n    Some(&1 + 1)\nend\n", "write `&(&1 + 1)`"},
+		{"a struct literal", "fn f() -> (Int) -> Point\n    Point{x: &1, y: 0}\nend\n", "write `&Point{x: &1, y: 0}`"},
+		{"a tuple", "fn f() -> (Int) -> (Int, Int)\n    (&1, 0)\nend\n", "write `&(&1, 0)`"},
+		{"a list", "fn f() -> (Int) -> List<Int>\n    [&1, 0]\nend\n", "write `&[&1, 0]`"},
+		{"a string", "fn f() -> List<String>\n    [1] |> Iter.map(\"id ${&1}\") |> Iter.to_list()\nend\n", "write `&\"id ${&1}\"`"},
+		{"parentheses", "fn f() -> (Int) -> Int\n    (&1) + 1\nend\n", "write `&((&1) + 1)`"},
+		{"a pipe stage", "fn f() -> Int\n    10 |> divide(100, &1)\nend\n", "a pipe fills the first argument; write `|> then &divide(100, &1)`"},
+		{"alone", "fn f() -> Int\n    g = &1\n    g\nend\n", "a capture is `&` and the function's body, as in `&(&1 > 2)` or `&Int.max(&1, 0)`; `&N` alone is no function, so write a lambda"},
+		{"inside a lambda in a capture", "fn f() -> (Int) -> Int\n    &add(&1, (fn y: Int -> y + &1)(1))\nend\n", "write `&(y + &1)`"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(captureDecls + tc.body)
@@ -279,7 +279,7 @@ func TestCapture_AParameterOutsideACapture(t *testing.T) {
 // A capture's `&N`s are its parameters, so each has the type of the
 // parameter it names.
 func TestCapture_ParametersAreTyped(t *testing.T) {
-	fa, errs := checkSourceWithStdlib(captureDecls + "fn f() -> (Int, String) -> (String, Int) { &(&2, &1) }\n")
+	fa, errs := checkSourceWithStdlib(captureDecls + "fn f() -> (Int, String) -> (String, Int)\n    &(&2, &1)\nend\n")
 	expectNoStdlibErrors(t, errs)
 	var got []string
 	for n, ty := range fa.ExprTypes {

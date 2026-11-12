@@ -623,6 +623,7 @@ json.nomi:String.from_json	ran
 json.nomi:String.to_json	ran
 json.nomi:Time.from_json	ran
 json.nomi:Time.to_json	ran
+json.nomi:object_of_fields	ran
 json.nomi:shape_error_prepend	ran
 json.nomi:shape_error_root	ran
 json.nomi:shape_error_text	ran

@@ -10,52 +10,52 @@ import "testing"
 func TestIRGenericOperImpl_UserType(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Box<T> {
+struct Box<T>
     items: List<T>
-}
+end
 
-impl Add<T, Box<T>> for Box<T> {
-    fn add(b: Box<T>, rhs: T) -> Box<T> {
+impl Add<T, Box<T>> for Box<T>
+    fn add(b: Box<T>, rhs: T) -> Box<T>
         Box{items: b.items + [rhs]}
-    }
-}
+    end
+end
 
-fn grow<T>(b: Box<T>, x: T) -> Box<T> {
+fn grow<T>(b: Box<T>, x: T) -> Box<T>
     b + x
-}
+end
 
-fn main() {
+fn main()
     io.print((Box{items: [1]} + 2).items)
     io.print((Box{items: ["a"]} + "b").items)
     io.print(grow(Box{items: [True]}, False).items)
-}
+end
 `, "[1, 2]\n[a, b]\n[True, False]\n")
 }
 
 func TestIRGenericOperImpl_StdSet(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn plus<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hashable {
+fn plus<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hashable
     a + b
-}
+end
 
-fn left() -> Set<Int> {
+fn left() -> Set<Int>
     io.print("left")
-    %[1, 2]
-}
+    Set[1, 2]
+end
 
-fn main() {
-    io.print(%[1, 2] + %[2, 3])
-    io.print(%[1, 2] + %[])
-    io.print(%["a"] + %["b"])
-    io.print(%[1, 2, 3] - %[2])
-    io.print(%[1, 2] - %[9])
-    io.print(Add.add(%[1], %[2]))
-    io.print(Subtract.subtract(%[1, 2], %[1]))
-    io.print(plus(%["x"], %["y"]))
-    io.print(left() + %[3] - %[1])
-}
-`, "%[1, 2, 3]\n%[1, 2]\n%[a, b]\n%[1, 3]\n%[1, 2]\n%[1, 2]\n%[2]\n%[x, y]\nleft\n%[2, 3]\n")
+fn main()
+    io.print(Set[1, 2] + Set[2, 3])
+    io.print(Set[1, 2] + Set[])
+    io.print(Set["a"] + Set["b"])
+    io.print(Set[1, 2, 3] - Set[2])
+    io.print(Set[1, 2] - Set[9])
+    io.print(Add.add(Set[1], Set[2]))
+    io.print(Subtract.subtract(Set[1, 2], Set[1]))
+    io.print(plus(Set["x"], Set["y"]))
+    io.print(left() + Set[3] - Set[1])
+end
+`, "Set[1, 2, 3]\nSet[1, 2]\nSet[a, b]\nSet[1, 3]\nSet[1, 2]\nSet[1, 2]\nSet[2]\nSet[x, y]\nleft\nSet[2, 3]\n")
 }
 
 // A std operator body that calls a bare host member of its receiver's inherent
@@ -64,24 +64,24 @@ fn main() {
 func TestIRGenericOperImpl_StdBareHostSibling(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Point {
+struct Point
     x: Int
-}
+end
 
-fn join<T>(a: Vector<T>, b: Vector<T>) -> Vector<T> {
+fn join<T>(a: Vector<T>, b: Vector<T>) -> Vector<T>
     a + b
-}
+end
 
-fn main() {
-    a = #[1, 2]
-    io.print(a + #[3])
-    io.print(Add.add(a, #[3]))
-    io.print(#["x"] + #["y", "z"])
-    io.print(join(#[True], #[False]))
-    io.print(Vector.length(#[Point{x: 1}] + #[Point{x: 2}]))
+fn main()
+    a = Vector[1, 2]
+    io.print(a + Vector[3])
+    io.print(Add.add(a, Vector[3]))
+    io.print(Vector["x"] + Vector["y", "z"])
+    io.print(join(Vector[True], Vector[False]))
+    io.print(Vector.length(Vector[Point{x: 1}] + Vector[Point{x: 2}]))
     io.print(Add.add([1], [2]))
-}
-`, "#[1, 2, 3]\n#[1, 2, 3]\n#[x, y, z]\n#[True, False]\n2\n[1, 2]\n")
+end
+`, "Vector[1, 2, 3]\nVector[1, 2, 3]\nVector[x, y, z]\nVector[True, False]\n2\n[1, 2]\n")
 }
 
 // `Map + Map` lowers through std/maps' generic `Add` instance, whose body is
@@ -89,26 +89,26 @@ fn main() {
 func TestIRGenericOperImpl_StdMap(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Point {
+struct Point
     x: Int
-}
+end
 
 derive Hashable for Point
 
-fn merged<K, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V> {
+fn merged<K, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V>
     a + b
-}
+end
 
-fn main() {
-    io.print(%{"a" => 1} + %{"a" => 9, "b" => 2})
-    io.print(Add.add(%{"a" => 1}, %{"b" => 2}))
-    io.print(merged(%{1 => "x"}, %{2 => "y", 1 => "z"}))
-    io.print(Map.size(%{Point{x: 1} => True} + %{Point{x: 2} => False}))
-    io.print(%{"p" => Point{x: 1}} + %{"p" => Point{x: 2}} == %{"p" => Point{x: 2}})
-    e: Map<String, Int> = %{}
+fn main()
+    io.print({"a" => 1} + {"a" => 9, "b" => 2})
+    io.print(Add.add({"a" => 1}, {"b" => 2}))
+    io.print(merged({1 => "x"}, {2 => "y", 1 => "z"}))
+    io.print(Map.size({Point{x: 1} => True} + {Point{x: 2} => False}))
+    io.print({"p" => Point{x: 1}} + {"p" => Point{x: 2}} == {"p" => Point{x: 2}})
+    e: Map<String, Int> = {}
     io.print(e + e)
-}
-`, "%{a => 9, b => 2}\n%{a => 1, b => 2}\n%{1 => z, 2 => y}\n2\nTrue\n%{}\n")
+end
+`, "{a => 9, b => 2}\n{a => 1, b => 2}\n{1 => z, 2 => y}\n2\nTrue\n{}\n")
 }
 
 // Instant has two `Subtract` impls, told apart by the right operand: `Instant -
@@ -119,7 +119,7 @@ func TestIRGenericOperImpl_InstantSubtract(t *testing.T) {
 import std::instant.Instant
 import std::io
 
-fn main() {
+fn main()
     a = Instant.from_seconds(15)
     b = Instant.from_seconds(10)
     io.print(Duration.as_nanos(a - b))
@@ -129,6 +129,6 @@ fn main() {
     io.print(Instant.to_seconds(Subtract.subtract(a, Duration.seconds(1))))
     io.print(Instant.to_seconds(a + Duration.seconds(1)))
     io.print(b + (a - b) == a)
-}
+end
 `, "5000000000\n-5000000000\n10\n5000000000\n14\n16\nTrue\n")
 }

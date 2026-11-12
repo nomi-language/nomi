@@ -22,26 +22,26 @@
 // lowering that "improved" it would make every piped assertion failure report
 // differently from what `nomi test` specifies, which is the one output this
 // project treats as byte-for-byte contract.
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn scaled(n: Int, factor: Int) -> Int {
+fn scaled(n: Int, factor: Int) -> Int
     n * factor
-}
+end
 
-test "a directly written call shows its arguments" {
+test "a directly written call shows its arguments"
     assert double(1 + 2) == 7
-}
+end
 
-test "the same call through a pipe shows none" {
+test "the same call through a pipe shows none"
     assert (1 + 2) |> double() == 7
-}
+end
 
-test "a piped stage's own extra arguments are not shown either" {
+test "a piped stage's own extra arguments are not shown either"
     assert 3 |> scaled(2 + 3) == 7
-}
+end
 
-test "a call nested inside a piped stage's argument still shows its own" {
+test "a call nested inside a piped stage's argument still shows its own"
     assert 3 |> scaled(double(2 + 3)) == 7
-}
+end

@@ -45,7 +45,7 @@ func lambdaParam(t *testing.T, src string, i int) ast.Param {
 // --- function-definition param patterns ---
 
 func TestFuncParam_Plain_NoDestructure(t *testing.T) {
-	p := funcDefParam(t, "fn f(x) { x }", 0)
+	p := funcDefParam(t, "fn f(x)\n    x\nend", 0)
 	if p.Name != "x" {
 		t.Errorf("expected Name x, got %q", p.Name)
 	}
@@ -55,7 +55,7 @@ func TestFuncParam_Plain_NoDestructure(t *testing.T) {
 }
 
 func TestFuncParam_Wildcard(t *testing.T) {
-	p := funcDefParam(t, "fn f(_) { 0 }", 0)
+	p := funcDefParam(t, "fn f(_)\n    0\nend", 0)
 	if p.Name != "_" {
 		t.Errorf("expected Name _, got %q", p.Name)
 	}
@@ -65,7 +65,7 @@ func TestFuncParam_Wildcard(t *testing.T) {
 }
 
 func TestFuncParam_Tuple(t *testing.T) {
-	p := funcDefParam(t, "fn f((a, b): (Int, Int)) -> Int { a + b }", 0)
+	p := funcDefParam(t, "fn f((a, b): (Int, Int)) -> Int\n    a + b\nend", 0)
 	tp, ok := p.Destructure.(*ast.TuplePattern)
 	if !ok {
 		t.Fatalf("expected *ast.TuplePattern, got %T", p.Destructure)
@@ -79,7 +79,7 @@ func TestFuncParam_Tuple(t *testing.T) {
 }
 
 func TestFuncParam_TypedStruct(t *testing.T) {
-	p := funcDefParam(t, "fn f(Point{x, y}) -> Int { x + y }", 0)
+	p := funcDefParam(t, "fn f(Point{x:, y:}) -> Int\n    x + y\nend", 0)
 	sp, ok := p.Destructure.(*ast.StructPattern)
 	if !ok {
 		t.Fatalf("expected *ast.StructPattern, got %T", p.Destructure)
@@ -93,7 +93,7 @@ func TestFuncParam_TypedStruct(t *testing.T) {
 }
 
 func TestFuncParam_AnonStruct(t *testing.T) {
-	p := funcDefParam(t, "fn f(.{x, y}: Point) -> Int { x + y }", 0)
+	p := funcDefParam(t, "fn f({x:, y:}: Point) -> Int\n    x + y\nend", 0)
 	sp, ok := p.Destructure.(*ast.StructPattern)
 	if !ok {
 		t.Fatalf("expected *ast.StructPattern, got %T", p.Destructure)
@@ -104,7 +104,7 @@ func TestFuncParam_AnonStruct(t *testing.T) {
 }
 
 func TestFuncParam_Distinct(t *testing.T) {
-	p := funcDefParam(t, "fn f(Dur(x)) -> Int { x }", 0)
+	p := funcDefParam(t, "fn f(Dur(x)) -> Int\n    x\nend", 0)
 	ep, ok := p.Destructure.(*ast.EnumPattern)
 	if !ok {
 		t.Fatalf("expected *ast.EnumPattern, got %T", p.Destructure)
@@ -118,7 +118,7 @@ func TestFuncParam_Distinct(t *testing.T) {
 }
 
 func TestFuncParam_QualifiedEnumVariant(t *testing.T) {
-	p := funcDefParam(t, "fn f(e.V(x)) -> Int { x }", 0)
+	p := funcDefParam(t, "fn f(e.V(x)) -> Int\n    x\nend", 0)
 	ep, ok := p.Destructure.(*ast.EnumPattern)
 	if !ok {
 		t.Fatalf("expected *ast.EnumPattern, got %T", p.Destructure)
@@ -133,7 +133,7 @@ func TestFuncParam_QualifiedEnumVariant(t *testing.T) {
 }
 
 func TestFuncParam_DotEnumVariant(t *testing.T) {
-	p := funcDefParam(t, "fn f(.V(x): E) -> Int { x }", 0)
+	p := funcDefParam(t, "fn f(.V(x): E) -> Int\n    x\nend", 0)
 	ep, ok := p.Destructure.(*ast.EnumPattern)
 	if !ok {
 		t.Fatalf("expected *ast.EnumPattern, got %T", p.Destructure)
@@ -148,7 +148,7 @@ func TestFuncParam_DotEnumVariant(t *testing.T) {
 
 func TestFuncParam_MixedWithPlain(t *testing.T) {
 	// `Dur(ns), factor: Int` — destructure first param, plain second.
-	nodes := parse(t, "fn f(Dur(ns), factor: Int) -> Int { ns + factor }")
+	nodes := parse(t, "fn f(Dur(ns), factor: Int) -> Int\n    ns + factor\nend")
 	var fd *ast.FuncDef
 	for _, n := range nodes {
 		if v, ok := n.(*ast.FuncDef); ok {
@@ -167,7 +167,7 @@ func TestFuncParam_MixedWithPlain(t *testing.T) {
 }
 
 func TestFuncParam_DistinctSelfTyped_NoAnnotation(t *testing.T) {
-	p := funcDefParam(t, "fn f(Dur(x)) -> Int { x }", 0)
+	p := funcDefParam(t, "fn f(Dur(x)) -> Int\n    x\nend", 0)
 	if p.TypeAnnotation != nil {
 		t.Errorf("expected no annotation on self-typed distinct param")
 	}
@@ -175,7 +175,7 @@ func TestFuncParam_DistinctSelfTyped_NoAnnotation(t *testing.T) {
 
 func TestFuncParam_DistinctRedundantAnnotation(t *testing.T) {
 	// Explicit redundant form stays legal at the parser level.
-	p := funcDefParam(t, "fn f(Dur(x): Dur) -> Int { x }", 0)
+	p := funcDefParam(t, "fn f(Dur(x): Dur) -> Int\n    x\nend", 0)
 	if _, ok := p.Destructure.(*ast.EnumPattern); !ok {
 		t.Fatalf("expected EnumPattern, got %T", p.Destructure)
 	}
@@ -205,7 +205,7 @@ func TestLambdaParam_Tuple_StillWorks(t *testing.T) {
 }
 
 func TestLambdaParam_Struct_StillWorks(t *testing.T) {
-	p := lambdaParam(t, "fn .{x, y} -> x", 0)
+	p := lambdaParam(t, "fn {x:, y:} -> x", 0)
 	sp, ok := p.Destructure.(*ast.StructPattern)
 	if !ok {
 		t.Fatalf("expected *ast.StructPattern, got %T", p.Destructure)
@@ -216,7 +216,7 @@ func TestLambdaParam_Struct_StillWorks(t *testing.T) {
 }
 
 func TestLambdaParam_TypedStruct(t *testing.T) {
-	p := lambdaParam(t, "(fn Point{x, y} -> x)", 0)
+	p := lambdaParam(t, "(fn Point{x:, y:} -> x)", 0)
 	sp, ok := p.Destructure.(*ast.StructPattern)
 	if !ok {
 		t.Fatalf("expected *ast.StructPattern, got %T", p.Destructure)
@@ -228,7 +228,7 @@ func TestLambdaParam_TypedStruct(t *testing.T) {
 
 func TestLambdaParam_Map_StillParses(t *testing.T) {
 	// The parser still accepts map patterns; the checker is the gatekeeper.
-	p := lambdaParam(t, `fn %{"name" => n} -> n`, 0)
+	p := lambdaParam(t, `fn {"name" => n} -> n`, 0)
 	if _, ok := p.Destructure.(*ast.MapPattern); !ok {
 		t.Fatalf("expected *ast.MapPattern, got %T", p.Destructure)
 	}

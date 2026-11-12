@@ -1,11 +1,11 @@
 // Exercises the message-driven counter in counter_app.nomi, booted as that
 // entry file boots it.
-import {
+import
     std::testing.Clock
     counter_app.{self, Config, explode, get, increment}
-}
+end
 
-group "a message-driven worker" {
+group "a message-driven worker"
     // Nothing here sleeps, but the worker blocks on its inbox and the group
     // drains at the end of every case — all of which a virtual clock makes
     // instant and repeatable.
@@ -13,14 +13,14 @@ group "a message-driven worker" {
 
     boot counter_app.boot()
 
-    test "messages accumulate into state a caller can read back" {
+    test "messages accumulate into state a caller can read back"
         increment(Config.counter, 5)
         increment(Config.counter, 7)
 
         assert get(Config.counter) == 12
-    }
+    end
 
-    test "each caller gets its own reply" {
+    test "each caller gets its own reply"
         increment(Config.counter, 1)
         first = get(Config.counter)
         increment(Config.counter, 1)
@@ -28,9 +28,9 @@ group "a message-driven worker" {
 
         assert first == 1
         assert second == 2
-    }
+    end
 
-    test "a handler that breaks restarts the worker with fresh state" {
+    test "a handler that breaks restarts the worker with fresh state"
         increment(Config.counter, 5)
         explode(Config.counter) // the handler divides by zero
         increment(Config.counter, 7)
@@ -46,9 +46,9 @@ group "a message-driven worker" {
         // the crash are still there. The failed message itself is gone,
         // consumed before the handler broke, so a poison message cannot loop.
         assert get(Config.counter) == 7
-    }
+    end
 
-    test "a call observes every cast queued before it" {
+    test "a call observes every cast queued before it"
         // Casts return as soon as the message is queued, so nothing here has
         // necessarily run yet.
         increment(Config.counter, 1)
@@ -59,5 +59,5 @@ group "a message-driven worker" {
         // come back before all three have been applied. That ordering is the
         // whole reason to put state behind a single task.
         assert get(Config.counter) == 6
-    }
-}
+    end
+end

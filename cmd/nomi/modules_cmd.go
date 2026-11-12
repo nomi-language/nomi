@@ -445,7 +445,7 @@ func runNew(args []string) error {
 	files := []struct{ name, text string }{
 		{"nomi.toml", manifestText(name, []string{"main"})},
 		{"go.mod", goModText(path)},
-		{"main.nomi", "import std::io\n\nfn main() {\n    io.print(\"hello\")\n}\n"},
+		{"main.nomi", "import std::io\n\nfn main()\n    io.print(\"hello\")\nend\n"},
 		{"AGENTS.md", agentsText(name)},
 	}
 	var wrote, kept []string
@@ -493,7 +493,7 @@ func agentsText(name string) string {
 		"## Layout\n\n" +
 		"- `nomi.toml` names the module and lists its entry points, the files with a `fn main`.\n" +
 		"- `main.nomi` is the program's entry point.\n" +
-		"- Tests sit beside the code they test, in `test \"name\" { ... }` blocks.\n"
+		"- Tests sit beside the code they test, in `test \"name\"` blocks closed by `end`.\n"
 }
 
 // moduleName is the Nomi module name nomi new gives module path: its last

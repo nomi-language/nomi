@@ -4,12 +4,17 @@ import "testing"
 
 func TestIRIterTerminal_CountAndShortCircuit(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn empty() -> List<Int> { [] }
-fn main() {
+fn empty() -> List<Int>
+    []
+end
+fn main()
  io.print(Iter.count([]))
  io.print(Iter.count(empty()))
  io.print(Iter.count([1, 2, 3]))
- xs = Iter.filter([1, 2, 3, 4], fn n -> { io.print(n); n > 2 })
+ xs = Iter.filter([1, 2, 3, 4], fn n ->
+     io.print(n)
+     n > 2
+ end)
  io.print("created")
  io.print(Iter.is_empty(xs))
  io.print(not Iter.is_empty(xs))
@@ -18,7 +23,7 @@ fn main() {
  io.print(not Iter.is_empty(empty()))
  io.print(Iter.is_empty([1]))
  io.print(not Iter.is_empty([1]))
-}
+end
 `, "0\n0\n3\ncreated\n1\n2\n3\nFalse\n1\n2\n3\nTrue\n1\n2\n3\n4\n2\nTrue\nFalse\nFalse\nTrue\n")
 }
 
@@ -26,14 +31,14 @@ func TestIRIterTerminal_CallbackFault(t *testing.T) {
 	for _, op := range []string{"count", "is_empty"} {
 		t.Run(op, func(t *testing.T) {
 			verifyIterFault(t, `import std::io
-fn main() {
- xs = Iter.map([0, 1], fn n -> {
+fn main()
+ xs = Iter.map([0, 1], fn n ->
   io.print(n)
   10 / n
- })
+ end)
  io.print("created")
  io.print(Iter.`+op+`(xs))
-}
+end
 `, "line 5: division by zero", "created\n0\n")
 		})
 	}
@@ -41,16 +46,16 @@ fn main() {
 
 func TestIRIterTerminal_TourPipelines(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
+fn main()
  io.print(Iter.count(Iter.filter([1, 2, 3, 4, 5], fn n -> n > 2)))
  [1, 2, 3, 4, 5]
  |> Iter.filter(fn n -> n > 2)
  |> Iter.count()
  |> io.print()
-}
+end
 `, "3\n3\n")
 }
 
 func TestIRIterTerminal_EmptyCountStandalone(t *testing.T) {
-	verifyLambdaProgram(t, "fn main() { _ = Iter.count([]) }\n", "")
+	verifyLambdaProgram(t, "fn main()\n    _ = Iter.count([])\nend\n", "")
 }

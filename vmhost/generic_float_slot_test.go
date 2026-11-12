@@ -13,14 +13,14 @@ func TestGenericFloatSlot_FloatsRunAndIntsAreRejected(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 import std::random.Generator
 
-fn weight<T>(pair: (Float, T)) -> Float {
+fn weight<T>(pair: (Float, T)) -> Float
     pair.first
-}
+end
 
-fn main() {
+fn main()
     io.print(weight((10.0, "x")))
     io.print(Generator.weighted((-10.0, "bad"), []) |> Result.is_err())
-}
+end
 `)
 	if want := "10.0\nTrue\n"; got != want {
 		t.Fatalf("output: got %q, want %q", got, want)
@@ -28,9 +28,9 @@ fn main() {
 
 	_, err := vmhost.LoadSource("main.nomi", `import std::random.Generator
 
-fn main() {
+fn main()
     _ = Generator.weighted((-10, "bad"), [])
-}
+end
 `)
 	if err == nil {
 		t.Fatal("the front end accepts an Int in weighted's Float slot")

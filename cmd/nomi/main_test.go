@@ -164,9 +164,9 @@ func TestRunFile_PureNomiSingleFile_FastPath(t *testing.T) {
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "main.nomi")
 	if err := os.WriteFile(entry, []byte(`import std::io
-fn main() {
+fn main()
   io.print("ok")
-}
+end
 	`), 0o644); err != nil {
 		t.Fatalf("write entry: %v", err)
 	}
@@ -315,18 +315,18 @@ func TestRunFile_GoBindingsInTwoFilesWithOneBaseName(t *testing.T) {
 			"gopkg \"twoutil/go%[1]s\"\n\npub fn greet() -> String go go%[1]s.Greet\n\npub fn only_%[1]s() -> String go go%[1]s.Only\n", side))
 	}
 	entry := filepath.Join(root, "main.nomi")
-	mustWrite(t, entry, `import {
+	mustWrite(t, entry, `import
     std::io
     a::util
     b::util as butil
-}
+end
 
-fn main() {
+fn main()
     io.print(util.greet())
     io.print(butil.greet())
     io.print(util.only_a())
     io.print(butil.only_b())
-}
+end
 `)
 	want := "greet from a\ngreet from b\nonly a\nonly b\n"
 	out, err := runNomi(t, cacheRoot, "run", entry)
@@ -369,10 +369,10 @@ fn double_int(n: Int) -> Int go ffi.DoubleInt
 
 fn add_u32(n: Int) -> Int go ffi.AddUint32
 
-fn main() {
+fn main()
   io.print(double_int(21))
   io.print(add_u32(41))
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "run", entryPath)
 	if err != nil {
@@ -402,9 +402,9 @@ gopkg "widthbinding" as ffi
 
 fn double_tiny(n: Int) -> Int go ffi.DoubleInt8
 
-fn main() {
+fn main()
   io.print(double_tiny(128))
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "run", entryPath)
 	if err == nil {
@@ -509,17 +509,17 @@ func TestSyntaxErrorRefusedByRun(t *testing.T) {
 	// `fn x -> n + ` with the operand not yet typed, as mid-edit in an editor.
 	mustWrite(t, entry, `import std::io
 
-fn compute(n: Int) -> Int {
+fn compute(n: Int) -> Int
   total = n * 2
   f = fn x -> n + 
-}
+end
 
-fn main() {
+fn main()
   io.print("hi")
-}
+end
 `)
 	// The diagnostic names the file, line and column, as compilers do.
-	wantDiag := "error: unexpected `}`\n --> " + entry + ":6:1\n"
+	wantDiag := "error: unexpected `end`\n --> " + entry + ":6:1\n"
 
 	out, err := runNomi(t, t.TempDir(), "run", entry)
 	if err == nil {
@@ -535,14 +535,14 @@ fn main() {
 	fixed := filepath.Join(dir, "fixed.nomi")
 	mustWrite(t, fixed, `import std::io
 
-fn compute(n: Int) -> Int {
+fn compute(n: Int) -> Int
   f = fn x: Int -> n + x
   f(2)
-}
+end
 
-fn main() {
+fn main()
   io.print("hi")
-}
+end
 `)
 	if out, err := runNomi(t, t.TempDir(), "run", fixed); err != nil {
 		t.Fatalf("the control fixture must run: %v\n%s", err, out)
@@ -619,7 +619,7 @@ func TestCheckCommand_PureNomiSingleFile_FastPath(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, `fn main() {}
+	mustWrite(t, entry, `fn main() end
 `)
 	out, err := runNomi(t, cacheRoot, "check", entry)
 	if err != nil {
@@ -644,21 +644,21 @@ func TestCheckAndRun_ReturningElseIfChain(t *testing.T) {
 	entry := filepath.Join(t.TempDir(), "main.nomi")
 	mustWrite(t, entry, `import std::io
 
-fn sign(x: Int) -> Int {
-  if x < 0 {
+fn sign(x: Int) -> Int
+  if x < 0 then
     return -1
-  } else if x == 0 {
+  else if x == 0 then
     return 0
-  } else {
+  else
     return 1
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(sign(-5))
   io.print(sign(0))
   io.print(sign(5))
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "check", entry)
 	if err != nil || !strings.Contains(out, "ok ") {
@@ -701,11 +701,11 @@ func TestCheckCommand_DirectoryPureNomi(t *testing.T) {
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "main.nomi"), `import helper
 
-fn main() {
+fn main()
   helper.touch()
-}
+end
 `)
-	mustWrite(t, filepath.Join(dir, "helper.nomi"), `pub fn touch() {}
+	mustWrite(t, filepath.Join(dir, "helper.nomi"), `pub fn touch() end
 `)
 	out, err := runNomi(t, cacheRoot, "check", dir)
 	if err != nil {
@@ -737,31 +737,31 @@ func TestCheckCommand_DirectoryChecksHelpersThroughImporters(t *testing.T) {
 	}
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "settings.nomi"), `pub struct Settings {
+	mustWrite(t, filepath.Join(dir, "settings.nomi"), `pub struct Settings
     context: Context
 
     tag: String
-}
+end
 `)
 	mustWrite(t, filepath.Join(dir, "reader.nomi"), `import settings.Settings
 
-pub fn read() -> String {
+pub fn read() -> String
     Settings.tag
-}
+end
 `)
-	mustWrite(t, filepath.Join(dir, "main.nomi"), `import {
+	mustWrite(t, filepath.Join(dir, "main.nomi"), `import
     std::io
     reader
     settings.Settings
-}
+end
 
-pub fn boot() -> Result<Settings, String> {
+pub fn boot() -> Result<Settings, String>
     Ok(Settings{context: Context.root(), tag: "root"})
-}
+end
 
-fn main() {
+fn main()
     io.print(reader.read())
-}
+end
 `)
 	// On its own, reader.nomi is an error: no entry boot returns Settings.
 	if out, err := runNomi(t, cacheRoot, "check", filepath.Join(dir, "reader.nomi")); err == nil {
@@ -785,14 +785,14 @@ fn main() {
 	// failure is labelled by the file that holds the error, not the importer.
 	mustWrite(t, filepath.Join(dir, "reader.nomi"), `import settings.Settings
 
-pub fn read() -> String {
+pub fn read() -> String
     Settings.tag + 1
-}
+end
 `)
 	// A file nothing imports is checked on its own.
-	mustWrite(t, filepath.Join(dir, "orphan.nomi"), `fn lonely() -> Int {
+	mustWrite(t, filepath.Join(dir, "orphan.nomi"), `fn lonely() -> Int
     "not an int"
-}
+end
 `)
 	out, err = runNomi(t, cacheRoot, "check", dir)
 	if err == nil {
@@ -826,26 +826,26 @@ func TestCheckCommand_TestFiles(t *testing.T) {
 	withPlantedDecline(t)
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "main.nomi"), `fn main() {}
+	mustWrite(t, filepath.Join(dir, "main.nomi"), `fn main() end
 `)
-	mustWrite(t, filepath.Join(dir, "passes_test.nomi"), `test "passes" {
+	mustWrite(t, filepath.Join(dir, "passes_test.nomi"), `test "passes"
   assert 1 + 1 == 2
-}
+end
 `)
 	// The case type-checks and declines at its call to `planted_decline`
 	// (withPlantedDecline), so its error is the lowering's.
-	mustWrite(t, filepath.Join(dir, "lowering_test.nomi"), `fn planted_decline(n: Int) -> Int {
+	mustWrite(t, filepath.Join(dir, "lowering_test.nomi"), `fn planted_decline(n: Int) -> Int
   n
-}
+end
 
-test "evens" {
+test "evens"
   assert Iter.map([1, 2], fn x -> planted_decline(x)) |> Iter.to_list() == [1, 2]
-}
+end
 `)
-	mustWrite(t, filepath.Join(dir, "types_test.nomi"), `test "collect" {
+	mustWrite(t, filepath.Join(dir, "types_test.nomi"), `test "collect"
   dbg Result.collect([])
   assert True
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "check", dir)
 	if err == nil {
@@ -980,9 +980,9 @@ func TestTestCommand_FFIRoundTrip(t *testing.T) {
 
 fn echo_upper(s: String) -> String go ffi.EchoUpper
 
-test "source-declared Go binding is available in tests" {
+test "source-declared Go binding is available in tests"
   assert echo_upper("hello") == "HELLO"
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", testPath)
 	if err != nil {
@@ -1031,25 +1031,25 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "main_test.nomi")
-	mustWrite(t, testPath, "import {\n"+
+	mustWrite(t, testPath, "import\n"+
 		"  std::regex.Regex\n"+
-		"}\n\n"+
-		"test \"regex literals compile and match\" {\n"+
+		"end\n\n"+
+		"test \"regex literals compile and match\"\n"+
 		"  digits = Regex`\\d+`\n"+
 		"  assert Regex.pattern(digits) == `\\d+`\n"+
 		"  assert String.contains(\"room 42\", digits)\n"+
 		"  refute String.contains(\"room\", digits)\n"+
-		"}\n\n"+
-		"test \"regex search helpers return Nomi shapes\" {\n"+
+		"end\n\n"+
+		"test \"regex search helpers return Nomi shapes\"\n"+
 		"  digits = Regex`\\d+`\n"+
 		"  assert String.find(\"a12b34\", digits) == Some(\"12\")\n"+
 		"  assert String.find(\"abc\", digits) == None\n"+
 		"  assert String.find_all(\"a12b34\", digits) == [\"12\", \"34\"]\n"+
 		"  assert String.replace(\"a12b34\", digits, \"#\") == \"a#b#\"\n"+
-		"}\n\n"+
-		"test \"invalid double-quoted regex literals return Err\" {\n"+
+		"end\n\n"+
+		"test \"invalid double-quoted regex literals return Err\"\n"+
 		"  assert Err(_msg) = Regex\"[\"\n"+
-		"}\n")
+		"end\n")
 	out, err := runNomi(t, cacheRoot, "test", testPath)
 	if err != nil {
 		t.Fatalf("nomi test stdlib regex: %v\nstdout/stderr:\n%s", err, out)
@@ -1066,15 +1066,15 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 	}
 
 	mainPath := filepath.Join(dir, "main.nomi")
-	mustWrite(t, mainPath, "import {\n"+
+	mustWrite(t, mainPath, "import\n"+
 		"  std::io\n"+
 		"  std::regex.Regex\n"+
-		"}\n\n"+
-		"fn main() -> Result<Unit, String> {\n"+
+		"end\n\n"+
+		"fn main() -> Result<Unit, String>\n"+
 		"  digits = Regex`\\d+`\n"+
 		"  io.inspect(digits)\n"+
 		"  Ok(Unit)\n"+
-		"}\n")
+		"end\n")
 	out, err = runNomi(t, cacheRoot, "run", mainPath)
 	if err != nil {
 		t.Fatalf("nomi run stdlib regex inspect: %v\nstdout/stderr:\n%s", err, out)
@@ -1087,9 +1087,9 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 	// from `nomi test` alike.
 	badPath := filepath.Join(dir, "bad_test.nomi")
 	mustWrite(t, badPath, "import std::regex.Regex\n\n"+
-		"test \"an invalid backtick literal does not compile\" {\n"+
+		"test \"an invalid backtick literal does not compile\"\n"+
 		"  assert String.contains(\"[\", Regex`[`)\n"+
-		"}\n")
+		"end\n")
 	for _, cmd := range []string{"check", "test"} {
 		out, err = runNomi(t, cacheRoot, cmd, badPath)
 		if err == nil {
@@ -1167,23 +1167,23 @@ func TestTestCommand_RunsGroups(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "math_test.nomi")
-	mustWrite(t, testPath, `group "math" {
-  setup .{base: 2}
+	mustWrite(t, testPath, `group "math"
+  setup {base: 2}
 
-  test "assertions", .{base} {
+  test "assertions", {base:}
     assert base + 2 == 4
     refute base == 5
-  }
+  end
 
-}
+end
 
-group "sibling" {
+group "sibling"
   setup (2, 3)
 
-  test "setup is bound by a tuple pattern", (base, extra) {
+  test "setup is bound by a tuple pattern", (base, extra)
     assert base + extra == 5
-  }
-}
+  end
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err != nil {
@@ -1206,35 +1206,34 @@ func TestTestCommand_DefaultsNomiEnvToTest(t *testing.T) {
 	testPath := filepath.Join(dir, "env_test.nomi")
 	mustWrite(t, testPath, `import std::compiler
 
-test "nomi test defaults NOMI_ENV" {
+test "nomi test defaults NOMI_ENV"
   assert compiler.run(
     """
-    import {
+    import
       std::io
-    }
+    end
 
-    struct Env {
-  context: Context
-
+    struct Env
+      context: Context
       name: String
-    }
+    end
 
-    fn boot(startup: Startup) -> Result<Env, String> {
+    fn boot(startup: Startup) -> Result<Env, String>
       name =
-        case Map.get(startup.env, "NOMI_ENV") {
+        case Map.get(startup.env, "NOMI_ENV")
           Some(value) -> value
           None -> "missing"
-        }
+        end
 
-      Ok(Env{context: Context.root(), name})
-    }
+      Ok(Env{context: Context.root(), name:})
+    end
 
-    fn main() {
+    fn main()
       io.print(Env.name)
-    }
+    end
     """
   ) == Ok("test\n")
-}
+end
 `)
 	cmd := exec.Command(nomiBin, "test", dir)
 	cmd.Env = append(withoutEnv(os.Environ(), "NOMI_ENV"), "NOMI_FFIRUN_CACHE_ROOT="+cacheRoot)
@@ -1256,13 +1255,13 @@ func TestTestCommand_FileTestsSeePrivateMembers(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "module_test.nomi")
-	mustWrite(t, testPath, `fn secret_add(a: Int, b: Int) -> Int {
+	mustWrite(t, testPath, `fn secret_add(a: Int, b: Int) -> Int
   a + b
-}
+end
 
-test "uses private helper" {
+test "uses private helper"
   assert secret_add(2, 3) == 5
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err != nil {
@@ -1280,9 +1279,9 @@ func TestTestCommand_FailureExitsNonZero(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "failure_test.nomi")
-	mustWrite(t, testPath, `test "fails" {
+	mustWrite(t, testPath, `test "fails"
   assert 1 == 2
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1315,11 +1314,11 @@ func TestTestCommand_MultiLineStringFailureIsALineDiff(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "bank_test.nomi")
-	mustWrite(t, testPath, `fn transcript() -> String {
+	mustWrite(t, testPath, `fn transcript() -> String
     "balance?\nYour balance is 500\n\ndeposited 25\nnew balance 525\nbye  \n"
-}
+end
 
-test "deposit" {
+test "deposit"
     output = transcript()
     assert output == """
         balance?
@@ -1329,7 +1328,7 @@ test "deposit" {
         new balance 525
         bye
         """
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1369,33 +1368,32 @@ func TestTestCommand_FailedReplayNumbersTheScript(t *testing.T) {
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "bank_test.nomi"), `import std::io
 
-fn main() {
+fn main()
     io.print("")
     io.print("What is the starting balance?")
     balance = io.read_line() |> Result.with_default(None) |> Maybe.with_default("0") |> String.to_int() |> Maybe.with_default(0)
     io.print("Your starting balance is ${balance}")
     prompt(balance)
-}
+end
 
-fn prompt(balance: Int) {
+fn prompt(balance: Int)
     io.print("")
     io.print("Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)")
-    case io.read_line() {
-        Ok(Some(line)) -> case String.split(line, " ") {
-            ["deposit", n] -> case String.to_int(n) {
-                Some(amount) -> {
+    case io.read_line()
+        Ok(Some(line)) -> case String.split(line, " ")
+            ["deposit", n] -> case String.to_int(n)
+                Some(amount) ->
                     io.print("${amount} deposited, new balance is ${balance + amount}")
                     prompt(balance + amount)
-                }
-                None -> {}
-            }
+                None -> Unit
+            end
             _ -> prompt(balance)
-        }
-        _ -> {}
-    }
-}
+        end
+        _ -> Unit
+    end
+end
 
-test "deposits" {
+test "deposits"
     assert io.replay(
         """
         What is the starting balance?
@@ -1419,7 +1417,7 @@ test "deposits" {
         """,
         main,
     )
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1428,28 +1426,28 @@ test "deposits" {
 	want := `    io.replay: the transcript (-) and what main printed (+) differ
 
            + │ (empty line)
-        32   │ What is the starting balance?
-        33   │     > 500
-        34   │ Your starting balance is 500
-        35   │
-        36   │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-        37 - │ (empty line)
-        38   │     > deposit 25
-        39   │ 25 deposited, new balance is 525
-        40   │
+        31   │ What is the starting balance?
+        32   │     > 500
+        33   │ Your starting balance is 500
+        34   │
+        35   │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        36 - │ (empty line)
+        37   │     > deposit 25
+        38   │ 25 deposited, new balance is 525
+        39   │
              │   ... 3 lines match ...
-        44   │
-        45   │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-        46   │     > deposit nope
-        47 - │ nope is not a number
-        48 - │ (empty line)
-        49 - │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        43   │
+        44   │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        45   │     > deposit nope
+        46 - │ nope is not a number
+        47 - │ (empty line)
+        48 - │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
 test result: FAILED. 0 passed, 1 failed
 `
 	// The echo writes the script as the lines the diff numbers rather than
 	// repeating it above the diff.
-	echo := "  line 30: the transcript differs from the script\n" +
-		"    assert io.replay(\"\"\" lines 32-49 \"\"\", main)\n" +
+	echo := "  line 29: the transcript differs from the script\n" +
+		"    assert io.replay(\"\"\" lines 31-48 \"\"\", main)\n" +
 		"    io.replay: the transcript"
 	if !strings.HasSuffix(out, want) || !strings.Contains(out, echo) {
 		t.Fatalf("got:\n%s\nwant it to end with:\n%s", out, want)
@@ -1467,31 +1465,31 @@ func TestTestCommand_LiteralOperandRowsAndDiffBounds(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "rows_test.nomi")
-	mustWrite(t, testPath, `test "literal" {
+	mustWrite(t, testPath, `test "literal"
     n = 999
     assert n == 1_000
-}
+end
 
-test "bound constant" {
+test "bound constant"
     n = 999
     limit = 1_000
     assert n == limit
-}
+end
 
-test "part of the subject" {
+test "part of the subject"
     out = "a\nb"
     assert out == "a\nc" and True
-}
+end
 
-test "refute" {
+test "refute"
     out = "a\nb"
     refute out == "a\nb"
-}
+end
 
-test "one line" {
+test "one line"
     out = "abc "
     assert out == "abc"
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1526,32 +1524,32 @@ func TestTestCommand_FinalCheckFailureResultFailsTest(t *testing.T) {
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `import std::testing
 
-test "fails" {
+test "fails"
   assert True
   testing.check(1 == 2)
-}
+end
 
-test "passes" {
+test "passes"
   assert True
   testing.check(1 == 1)
-}
+end
 
-test "arm fails" {
+test "arm fails"
   assert True
-  if 1 == 1 {
+  if 1 == 1 then
     testing.check(2 == 3)
-  } else {
+  else
     testing.check(True)
-  }
-}
+  end
+end
 
-test "arm passes" {
+test "arm passes"
   assert True
-  case 3 {
+  case 3
     3 -> testing.check(3 == 3)
     _ -> testing.check(False)
-  }
-}
+  end
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1577,9 +1575,9 @@ func TestTestCommand_FinalRefuteCheckFailureResultPasses(t *testing.T) {
 	testPath := filepath.Join(dir, "refute_check_test.nomi")
 	mustWrite(t, testPath, `import std::testing
 
-test "refute check failure" {
+test "refute check failure"
   refute testing.check(1 == 2)
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err != nil {
@@ -1599,10 +1597,10 @@ func TestTestCommand_FinalDomainErrDoesNotFailTest(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "domain_err_test.nomi")
-	mustWrite(t, testPath, `test "domain err is just a value" {
+	mustWrite(t, testPath, `test "domain err is just a value"
   assert True
   Err("boom")
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err != nil {
@@ -1622,9 +1620,9 @@ func TestTestCommand_RefuteFailureReportsExpression(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "failure_test.nomi")
-	mustWrite(t, testPath, `test "fails" {
+	mustWrite(t, testPath, `test "fails"
   refute 1 == 1
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1648,10 +1646,10 @@ func TestTestCommand_AssertionFailureShowsBindingContext(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "failure_test.nomi")
-	mustWrite(t, testPath, `test "fails" {
+	mustWrite(t, testPath, `test "fails"
   passes = 1 == 2
   assert passes
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1674,14 +1672,14 @@ func TestTestCommand_TryEarlyReturnShowsSourceAndValue(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "failure_test.nomi")
-	mustWrite(t, testPath, `fn parse_id(_text: String) -> Result<Int, String> {
+	mustWrite(t, testPath, `fn parse_id(_text: String) -> Result<Int, String>
   Err("expected a numeric id")
-}
+end
 
-test "formats parsed id" {
+test "formats parsed id"
   id = parse_id("42x")?
   assert id == 42
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1704,13 +1702,13 @@ func TestTestCommand_AssertionFailureShowsPipelineValues(t *testing.T) {
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `
 
-test "fails" {
+test "fails"
   passes =
     [1, 2, 3]
     |> Iter.any_match(fn n -> n == 4)
 
   assert passes
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1731,10 +1729,10 @@ func TestTestCommand_AssertionFailureShowsComparisonValues(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "failure_test.nomi")
-	mustWrite(t, testPath, `test "fails" {
+	mustWrite(t, testPath, `test "fails"
   a = 4
   assert 12345 == a
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1757,16 +1755,16 @@ func TestTestCommand_AssertionFailureSuppressesLiteralCallArgsInComparison(t *te
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `
 
-fn parse_id(s: String) -> Result<Int, String> {
-  case String.to_int(s) {
+fn parse_id(s: String) -> Result<Int, String>
+  case String.to_int(s)
     Some(id) -> Ok(id)
     None -> Err("expected a numeric id")
-  }
-}
+  end
+end
 
-test "fails" {
+test "fails"
   assert parse_id("43") == Ok(42)
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1792,17 +1790,17 @@ func TestTestCommand_AssertionFailureShowsLogicalDecider(t *testing.T) {
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `
 
-fn parse_id(s: String) -> Result<Int, String> {
-  case String.to_int(s) {
+fn parse_id(s: String) -> Result<Int, String>
+  case String.to_int(s)
     Some(id) -> Ok(id)
     None -> Err("expected a numeric id")
-  }
-}
+  end
+end
 
-test "fails" {
+test "fails"
   a = False
   assert parse_id("42") == Ok(42) and a
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1828,10 +1826,10 @@ func TestTestCommand_AssertionFailureShowsOrPredicateDecider(t *testing.T) {
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `
 
-test "fails" {
+test "fails"
   left = False
   assert left or Maybe.is_some(None)
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1856,10 +1854,10 @@ func TestTestCommand_AssertionFailureShowsNegatedPredicateInput(t *testing.T) {
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `
 
-test "fails" {
+test "fails"
   value: Maybe<Int> = None
   assert not Maybe.is_none(value)
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1880,10 +1878,10 @@ func TestTestCommand_RefuteFailureShowsPredicateInput(t *testing.T) {
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `
 
-test "fails" {
+test "fails"
   outcome = Ok(42)
   refute Result.is_ok(outcome)
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1905,10 +1903,10 @@ func TestTestCommand_AssertionFailureShowsPredicateCallValues(t *testing.T) {
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `
 
-test "fails" {
+test "fails"
   body = "created"
   assert String.contains(body, "ok")
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1932,10 +1930,10 @@ func TestTestCommand_AssertionFailureDoesNotLeakCallbackComparisons(t *testing.T
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `
 
-test "fails" {
+test "fails"
   items = [1, 2, 3]
   assert Iter.any_match(items, fn n -> n == 4)
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1962,11 +1960,11 @@ func TestTestCommand_AssertionFailureShowsNestedCallValues(t *testing.T) {
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `
 
-test "fails" {
+test "fails"
   items = [1, 2]
   expected = 3
   assert Iter.count(items) == expected
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -1992,19 +1990,19 @@ func TestTestCommand_AssertionFailureShowsCaseScrutineeValue(t *testing.T) {
 	testPath := filepath.Join(dir, "failure_test.nomi")
 	mustWrite(t, testPath, `
 
-fn parse_id(s: String) -> Result<Int, String> {
-  case String.to_int(s) {
+fn parse_id(s: String) -> Result<Int, String>
+  case String.to_int(s)
     Some(id) -> Ok(id)
     None -> Err("expected a numeric id")
-  }
-}
+  end
+end
 
-test "fails" {
-  assert case parse_id("42") {
+test "fails"
+  assert case parse_id("42")
     Ok(id) -> id == 43
     Err(_) -> False
-  }
-}
+  end
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err == nil {
@@ -2027,13 +2025,13 @@ func TestTestCommand_LineFilterRunsSingleTest(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "line_filter_test.nomi")
-	mustWrite(t, testPath, `test "first" {
+	mustWrite(t, testPath, `test "first"
   assert True
-}
+end
 
-test "second" {
+test "second"
   assert True
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", testPath, "--line", "5")
 	if err != nil {
@@ -2168,9 +2166,9 @@ func TestTestCommand_StdlibFileIsTestedAsItIsOnDisk(t *testing.T) {
 	})
 
 	t.Run("edited body", func(t *testing.T) {
-		const body = "Ok(Time{hour, minute, second, nanosecond})"
-		replaceInFile(t, calendar, body, "Ok(Time{hour, minute: minute + 1, second, nanosecond})")
-		defer replaceInFile(t, calendar, "Ok(Time{hour, minute: minute + 1, second, nanosecond})", body)
+		const body = "Ok(Time{hour:, minute:, second:, nanosecond:})"
+		replaceInFile(t, calendar, body, "Ok(Time{hour:, minute: minute + 1, second:, nanosecond:})")
+		defer replaceInFile(t, calendar, "Ok(Time{hour:, minute: minute + 1, second:, nanosecond:})", body)
 		out, err := runNomiWithStd(t, cacheRoot, stdPath, "test", calendar, "--line", line)
 		if err == nil {
 			t.Fatalf("a prompt calling an edited body passed, so the embedded body ran:\n%s", out)
@@ -2276,14 +2274,14 @@ func TestTestCommand_LineFilterDoesNotRunUnselectedAttachedTests(t *testing.T) {
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "attached_line_filter_test.nomi")
 	mustWrite(t, testPath, `//! assert answer() == 41
-fn answer() -> Int {
+fn answer() -> Int
   42
-}
+end
 
 //! assert False
-fn unrelated() -> Int {
+fn unrelated() -> Int
   0
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", testPath, "--line", "1")
 	if err == nil {
@@ -2307,14 +2305,14 @@ func TestTestCommand_LineFilterRunsAttachedTestFromBodyLine(t *testing.T) {
 	testPath := filepath.Join(dir, "attached_body_line_filter_test.nomi")
 	mustWrite(t, testPath, `//! value = answer()
 //! assert value == 41
-fn answer() -> Int {
+fn answer() -> Int
   42
-}
+end
 
 //! assert False
-fn unrelated() -> Int {
+fn unrelated() -> Int
   0
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", testPath, "--line", "2")
 	if err == nil {
@@ -2336,14 +2334,14 @@ func TestTestCommand_LineFilterChecksUnselectedTestBodies(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "line_filter_checks_unselected_test.nomi")
-	mustWrite(t, testPath, `test "selected" {
+	mustWrite(t, testPath, `test "selected"
   assert True
-}
+end
 
-test "unselected bad analysis" {
+test "unselected bad analysis"
   Missing.value
   assert True
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", testPath, "--line", "1")
 	if err == nil {
@@ -2362,18 +2360,18 @@ func TestTestCommand_LineFilterUsesImportsFromUnselectedTests(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "line_filter_imports_test.nomi")
-	mustWrite(t, testPath, `import {
+	mustWrite(t, testPath, `import
   std::comparable.Direction
   std::comparable.Ordering.{Less}
-}
+end
 
-test "selected" {
+test "selected"
   assert Display.to_string(Direction.Ascending) == "Ascending"
-}
+end
 
-test "unselected uses Less" {
+test "unselected uses Less"
   assert Less == Less
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", testPath, "--line", "6")
 	if err != nil {
@@ -2396,13 +2394,13 @@ func TestTestCommand_DuplicateTestNamesFail(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "duplicates_test.nomi")
-	mustWrite(t, testPath, `test "same" {
+	mustWrite(t, testPath, `test "same"
   assert True
-}
+end
 
-test "same" {
+test "same"
   assert True
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", testPath)
 	if err == nil {
@@ -2423,15 +2421,15 @@ func TestTestCommand_LineFilterRunsGroup(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "line_filter_group_test.nomi")
-	mustWrite(t, testPath, `group "math" {
-  test "one" {
+	mustWrite(t, testPath, `group "math"
+  test "one"
     assert True
-  }
+  end
 
-  test "two" {
+  test "two"
     assert True
-  }
-}
+  end
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", testPath, "--line", "0")
 	if err != nil {
@@ -2454,31 +2452,31 @@ func TestTestCommand_SetupDeferCleansUpPerTest(t *testing.T) {
 	testPath := filepath.Join(dir, "setup_defer_test.nomi")
 	mustWrite(t, testPath, `import std::io
 
-struct Conn {
+struct Conn
   label: String
-}
+end
 
-fn close(conn: Conn) -> Unit {
+fn close(conn: Conn) -> Unit
   io.print("close " + conn.label)
-}
+end
 
-group "setup cleanup" {
-  setup {
+group "setup cleanup"
+  setup begin
     conn = Conn{label: "db"}
     defer close(conn)
-    .{conn: conn}
-  }
+    {conn:}
+  end
 
-  test "one", .{conn} {
+  test "one", {conn:}
     io.print("body one")
     assert conn.label == "db"
-  }
+  end
 
-  test "two", .{conn} {
+  test "two", {conn:}
     io.print("body two")
     assert conn.label == "db"
-  }
-}
+  end
+end
 
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
@@ -2510,13 +2508,13 @@ func TestTestCommand_RunsTestsInOrdinaryModuleFile(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "main.nomi")
-	mustWrite(t, testPath, `fn main() {
+	mustWrite(t, testPath, `fn main()
   Unit
-}
+end
 
-test "inline module test" {
+test "inline module test"
   assert 1 + 1 == 2
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", testPath)
 	if err != nil {
@@ -2536,17 +2534,17 @@ func TestTestCommand_DirectoryDiscoversTestsInOrdinaryModules(t *testing.T) {
 	}
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "math.nomi"), `fn add(a: Int, b: Int) -> Int {
+	mustWrite(t, filepath.Join(dir, "math.nomi"), `fn add(a: Int, b: Int) -> Int
   a + b
-}
+end
 
-test "inline add test" {
+test "inline add test"
   assert add(2, 3) == 5
-}
+end
 `)
-	mustWrite(t, filepath.Join(dir, "helper.nomi"), `fn helper() -> Int {
+	mustWrite(t, filepath.Join(dir, "helper.nomi"), `fn helper() -> Int
   42
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
 	if err != nil {
@@ -2645,9 +2643,9 @@ func TestRunCommand_TestFileErrors(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "example_test.nomi")
-	mustWrite(t, testPath, `test "passes" {
+	mustWrite(t, testPath, `test "passes"
   assert 1 == 1
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "run", testPath)
 	if err == nil {
@@ -2668,9 +2666,9 @@ func TestRunCommand_NoMainErrors(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	library := filepath.Join(dir, "library.nomi")
-	mustWrite(t, library, "pub fn one() -> Int {\n  1\n}\n")
+	mustWrite(t, library, "pub fn one() -> Int\n  1\nend\n")
 	suite := filepath.Join(dir, "suite.nomi")
-	mustWrite(t, suite, "fn one() -> Int {\n  1\n}\n\ntest \"one\" {\n  assert one() == 1\n}\n")
+	mustWrite(t, suite, "fn one() -> Int\n  1\nend\n\ntest \"one\"\n  assert one() == 1\nend\n")
 
 	out, err := runNomi(t, cacheRoot, "run", library)
 	if err == nil {
@@ -2706,11 +2704,11 @@ func TestRunCommand_AssertionsOutsideTestsRun(t *testing.T) {
 	path := filepath.Join(dir, "main.nomi")
 	mustWrite(t, path, `import std::assertions.AssertionFailure
 
-fn main() -> Result<Unit, AssertionFailure> {
+fn main() -> Result<Unit, AssertionFailure>
   assert 1 + 1 == 2
   refute 1 == 2
   Ok(Unit)
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "run", path)
 	if err != nil {
@@ -2727,11 +2725,11 @@ func TestRunCommand_AssertionFailureShowsComparisonValues(t *testing.T) {
 	path := filepath.Join(dir, "main.nomi")
 	mustWrite(t, path, `import std::assertions.AssertionFailure
 
-fn main() -> Result<Unit, AssertionFailure> {
+fn main() -> Result<Unit, AssertionFailure>
   a = 4
   assert 12345 == a
   Ok(Unit)
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "run", path)
 	if err == nil {
@@ -2753,10 +2751,10 @@ func TestRunCommand_AssertionFailureSuppressesObviousLiteralValues(t *testing.T)
 	path := filepath.Join(dir, "main.nomi")
 	mustWrite(t, path, `import std::assertions.AssertionFailure
 
-fn main() -> Result<Unit, AssertionFailure> {
+fn main() -> Result<Unit, AssertionFailure>
   assert 1 == 2
   Ok(Unit)
-}
+end
 `)
 	out, err := runNomi(t, cacheRoot, "run", path)
 	if err == nil {
@@ -2780,17 +2778,17 @@ func TestRunCommand_AssertionFailureCanBeHandledAsResult(t *testing.T) {
 	mustWrite(t, path, `import std::assertions.AssertionFailure
 import std::io
 
-fn validate() -> Result<Unit, AssertionFailure> {
+fn validate() -> Result<Unit, AssertionFailure>
   assert 1 == 2
   Ok(Unit)
-}
+end
 
-fn main() {
-  case validate() {
+fn main()
+  case validate()
     Err(_) -> io.print("caught")
     Ok(_) -> io.print("ok")
-  }
-}
+  end
+end
 `)
 	out, err := runNomi(t, cacheRoot, "run", path)
 	if err != nil {
@@ -2915,9 +2913,9 @@ gopkg "echobinding" as ffi
 
 fn echo_upper(s: String) -> String go ffi.EchoUpper
 
-fn main() {
+fn main()
   io.print(echo_upper("hello"))
-}
+end
 	`)
 	return root, entry
 }
@@ -2976,60 +2974,59 @@ name = "sqlite_driver"
 entry_points = ["main"]
 `)
 
-	mustWrite(t, filepath.Join(root, "store.nomi"), `import {
+	mustWrite(t, filepath.Join(root, "store.nomi"), `import
   sqlite::sqlite
-}
+end
 
-pub struct Store {
+pub struct Store
   conn: sqlite.Conn
-}
+end
 
-pub fn open_raw(path: String) -> Result<sqlite.Conn, String> {
+pub fn open_raw(path: String) -> Result<sqlite.Conn, String>
   sqlite.open(path)
-}
+end
 
-pub fn open_store(path: String) -> Result<Store, String> {
+pub fn open_store(path: String) -> Result<Store, String>
   conn = open_raw(path)?
-  case sqlite.exec(conn, "CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)", []) {
-    Err(e) -> {
+  case sqlite.exec(conn, "CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)", [])
+    Err(e) ->
       sqlite.close(conn)
       Err("create table: ${e}")
-    }
-    Ok(_) -> Ok(Store{conn})
-  }
-}
+    Ok(_) -> Ok(Store{conn:})
+  end
+end
 
-pub fn add(store: Store, title: String) -> Result<Unit, String> {
+pub fn add(store: Store, title: String) -> Result<Unit, String>
   sqlite.exec(store.conn, "INSERT INTO notes (title) VALUES (?)", [title])
-}
+end
 
-pub fn cell(store: Store, query: String) -> Result<String, String> {
-  case sqlite.query_all(store.conn, query, []) {
+pub fn cell(store: Store, query: String) -> Result<String, String>
+  case sqlite.query_all(store.conn, query, [])
     Err(e) -> Err(e)
     Ok(rows) ->
-      case Iter.get(rows, 0) {
+      case Iter.get(rows, 0)
         None -> Err("no rows")
         Some(row) ->
-          case Iter.get(row, 0) {
+          case Iter.get(row, 0)
             None -> Err("no columns")
             Some(c) -> Ok(c)
-          }
-      }
-  }
-}
+          end
+      end
+  end
+end
 
-pub fn close_store(store: Store) -> Unit {
+pub fn close_store(store: Store) -> Unit
   sqlite.close(store.conn)
-}
+end
 `)
 
 	entry := filepath.Join(root, "main.nomi")
-	mustWrite(t, entry, `import {
+	mustWrite(t, entry, `import
   std::io
   store
-}
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
   s = store.open_store("driver.db")?
   _ = store.add(s, "first")?
   _ = store.add(s, "second")?
@@ -3039,7 +3036,7 @@ fn main() -> Result<Unit, String> {
   io.print("head ${head}")
   store.close_store(s)
   Ok(Unit)
-}
+end
 `)
 	return root, entry
 }
@@ -3093,9 +3090,9 @@ entry_points = ["main"]
 `)
 
 	entry := filepath.Join(root, "main.nomi")
-	mustWrite(t, entry, `import {
+	mustWrite(t, entry, `import
   std::io
-}
+end
 
 gopkg "bytebinding" as ffi
 
@@ -3105,7 +3102,7 @@ fn first(data: Bytes) -> Byte go ffi.First
 
 fn singleton(b: Byte) -> Bytes go ffi.Singleton
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
   prefixed = add_prefix(String.to_bytes("hi"))
   text = Bytes.to_string(prefixed)?
   io.print(text)
@@ -3113,13 +3110,13 @@ fn main() -> Result<Unit, String> {
 
   // Int.to_byte answers a Maybe, and try propagates into the enclosing
   // boundary's own kind -- a Result here -- so this one is a case, not a try.
-  case Int.to_byte(65) {
+  case Int.to_byte(65)
     Some(a) -> io.print(Bytes.to_string(singleton(a))?)
     None -> io.print("not a byte")
-  }
+  end
 
   Ok(Unit)
-}
+end
 `)
 	return root, entry
 }
@@ -3174,9 +3171,9 @@ entry_points = ["main"]
 `)
 
 	entry := filepath.Join(root, "main.nomi")
-	mustWrite(t, entry, `import {
+	mustWrite(t, entry, `import
   std::io
-}
+end
 
 gopkg "mapbinding" as ffi
 
@@ -3184,21 +3181,21 @@ fn counts() -> Map<String, Int> go ffi.Counts
 
 fn add_totals(items: Map<String, Int>) -> Map<String, Int> go ffi.AddTotals
 
-fn main() {
+fn main()
   counted = counts()
-  apples = case Map.get(counted, "apples") {
+  apples = case Map.get(counted, "apples")
     Some(value) -> value
     None -> 0
-  }
+  end
   io.print(apples)
 
   with_total = add_totals(counted)
-  total = case Map.get(with_total, "total") {
+  total = case Map.get(with_total, "total")
     Some(value) -> value
     None -> 0
-  }
+  end
   io.print(total)
-}
+end
 `)
 	return root, entry
 }
@@ -3324,16 +3321,16 @@ fn lookup(key: String) -> Maybe<Int> go ffi.LookupMaybe
 
 fn describe(value: Maybe<Int>) -> String go ffi.DescribeMaybe
 
-fn main() {
+fn main()
   present = lookup("present")
-  case present {
+  case present
     Some(n) -> io.print(n)
     None -> io.print(0)
-  }
+  end
 
   io.print(describe(Some(9)))
   io.print(describe(None))
-}
+end
 `)
 	return root, entry
 }
@@ -3417,30 +3414,30 @@ fn validate_nonempty(s: String) -> Result<Unit, String> go ffi.ValidateNonEmpty
 
 fn validate_custom(s: String) -> Result<Unit, String> go ffi.ValidateCustom
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
   io.print(parse_direct("123")?)
   io.print(parse_positive("5")?)
 
-  negative = case parse_positive("-1") {
+  negative = case parse_positive("-1")
     Ok(_) -> "ok"
     Err(message) -> message
-  }
+  end
   io.print(negative)
 
-  empty = case validate_nonempty("") {
+  empty = case validate_nonempty("")
     Ok(_) -> "ok"
     Err(message) -> message
-  }
+  end
   io.print(empty)
 
-  blank = case validate_custom("") {
+  blank = case validate_custom("")
     Ok(_) -> "ok"
     Err(message) -> message
-  }
+  end
   io.print(blank)
 
   Ok(Unit)
-}
+end
 `)
 	return root, entry
 }
@@ -3522,23 +3519,23 @@ entry_points = ["main"]
 
 gopkg "structbinding" as ffi
 
-struct Address {
+struct Address
   city: String
-}
+end
 
 derive Equatable for Address
 derive Display for Address
 
-struct User {
+struct User
   name: String
   age: Int
-}
+end
 
-struct Profile {
+struct Profile
   name: String
   age: Int
   address: Address
-}
+end
 
 derive Equatable for Profile
 
@@ -3550,17 +3547,17 @@ fn find_profile(name: String) -> Result<Profile, String> go ffi.FindProfile
 
 fn birthday(user: User) -> User go ffi.Birthday
 
-fn main() {
+fn main()
   user = load_user("Ada") |> birthday()
   profile = load_profile(user.name)
   found = find_profile(user.name)
   io.print(user.name)
   io.print(user.age)
   io.print(profile.address.city)
-  case found {
+  case found
     Ok(p) -> io.print(p.address.city)
     Err(e) -> io.print(e)
-  }
+  end
   // A Go-returned struct must be indistinguishable from a Nomi-built
   // one: dispatch is keyed on the value's type identity, so a struct
   // marshaled without it compares structurally against a TypeName that
@@ -3574,7 +3571,7 @@ fn main() {
   })
   io.print(profile.address == Address{city: "London"})
   io.print(Display.to_string(profile.address))
-}
+end
 `)
 	return root, entry
 }
@@ -3627,9 +3624,9 @@ gopkg "hiddenbinding" as ffi
 
 fn hidden() -> String go ffi.Hidden
 
-fn main() {
+fn main()
   io.print(hidden())
-}
+end
 `)
 	return root, entry
 }

@@ -6,34 +6,37 @@ func TestIRDistinctBinding_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"named unwrap and operand effects", `import std::io
 type Id Int
-fn mark(n: Int) -> Id { io.print("make") Id(n) }
-fn read(id: Id) -> Int {
+fn mark(n: Int) -> Id
+    io.print("make")
+    Id(n)
+end
+fn read(id: Id) -> Int
   Id(value) = id
   value + 1
-}
-fn main() {
+end
+fn main()
   Id(value) = mark(
     4
   )
   io.print(value)
   read(Id(8)) |> io.print()
-}`, "make\n4\n9\n"},
+end`, "make\n4\n9\n"},
 		{"captured lambda and guard arm", `import std::io
 type Label String
-fn main() {
+fn main()
   label = Label("hello")
-  read = fn early: Bool -> {
-    if early {
+  read = fn early: Bool ->
+    if early then
       Label(text) = label
       return text
-    }
+    end
 
     Label(text) = label
     text + "!"
-  }
+  end
   read(True) |> io.print()
   read(False) |> io.print()
-}`, "hello\nhello!\n"},
+end`, "hello\nhello!\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}

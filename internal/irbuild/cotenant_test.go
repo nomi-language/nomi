@@ -28,18 +28,18 @@ func TestCoTenant_APrivateIfaceFieldOfAPublicStructIsAFrontEndError(t *testing.T
 		t.Skip("integration; -short")
 	}
 	entry := stagedProgram(t, "main.nomi", map[string]string{
-		"main.nomi": "import {\n  std::io\n  core.{self}\n  wire.{self}\n}\n\n" +
-			"fn main() {\n  io.print(wire.relay(core.loud()))\n}\n",
+		"main.nomi": "import\n  std::io\n  core.{self}\n  wire.{self}\nend\n\n" +
+			"fn main()\n  io.print(wire.relay(core.loud()))\nend\n",
 		"core.nomi": "import wire\n\n" +
-			"interface Logger {\n  fn log(value: self, message: String) -> String\n}\n\n" +
-			"pub struct App {\n  name: String\n  logger: Logger\n}\n\n" +
-			"pub struct Prod {\n  prefix: String\n}\n\n" +
-			"impl Logger for Prod {\n  fn log(p: Prod, message: String) -> String { _ = message;\n    p.prefix\n  }\n}\n\n" +
-			"pub fn loud() -> App {\n  App{name: \"loud\", logger: Prod{prefix: \"P\"}}\n}\n\n" +
-			"pub fn origin() -> String {\n  wire.tag\n}\n",
+			"interface Logger\n  fn log(value: self, message: String) -> String\nend\n\n" +
+			"pub struct App\n  name: String\n  logger: Logger\nend\n\n" +
+			"pub struct Prod\n  prefix: String\nend\n\n" +
+			"impl Logger for Prod\n  fn log(p: Prod, message: String) -> String\n      _ = message\n    p.prefix\n  end\nend\n\n" +
+			"pub fn loud() -> App\n  App{name: \"loud\", logger: Prod{prefix: \"P\"}}\nend\n\n" +
+			"pub fn origin() -> String\n  wire.tag\nend\n",
 		"wire.nomi": "import core.{self, App}\n\n" +
 			"pub once tag: String = \"wire\"\n\n" +
-			"pub fn relay(a: App) -> String {\n  \"${a.name}/${tag}\"\n}\n",
+			"pub fn relay(a: App) -> String\n  \"${a.name}/${tag}\"\nend\n",
 	})
 	_, err := Analyze(entry)
 	if err == nil {

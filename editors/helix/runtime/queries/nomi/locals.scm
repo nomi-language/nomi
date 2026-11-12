@@ -2,6 +2,8 @@
 
 (source_file) @local.scope
 (body) @local.scope
+(block) @local.scope
+(arm_block) @local.scope
 (function_definition) @local.scope
 (lambda) @local.scope
 (test_declaration) @local.scope
@@ -23,6 +25,12 @@
 
 (destructuring_binding
   binding: (identifier) @local.definition.variable)
+
+(destructuring_binding
+  (anon_struct_field . (identifier) @local.definition.variable .))
+
+(destructuring_binding
+  (anon_struct_field ":" . (identifier) @local.definition.variable .))
 
 (function_definition
   name: (identifier) @local.definition.function)

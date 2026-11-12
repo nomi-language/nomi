@@ -1,99 +1,102 @@
-enum Tree {
+enum Tree
     Leaf Int
     Node Vector<Tree>
-}
+end
 
 derive Equatable for Tree
 derive Hashable for Tree
 
-struct Dir {
+struct Dir
     name: String
     size: Int
     kids: Vector<Dir>
-}
+end
 
 derive Equatable for Dir
 
-enum Expr {
+enum Expr
     Num Int
     Block Vector<Stmt>
-}
+end
 
-struct Stmt {
+struct Stmt
     label: String
     body: Expr
-}
+end
 
-fn sum(tree: Tree) -> Int {
-    case tree {
+fn sum(tree: Tree) -> Int
+    case tree
         Tree.Leaf(n) -> n
         Tree.Node(kids) -> kids |> Iter.map(&sum(&1)) |> Iter.reduce(0, fn total, n -> total + n)
-    }
-}
+    end
+end
 
-fn depth(tree: Tree) -> Int {
-    case tree {
-        Tree.Leaf(_) -> 1
+fn depth(tree: Tree) -> Int
+    case tree
+        Tree.Leaf(_) ->
+            1
 
         Tree.Node(kids) ->
             1 + (kids
             |> Iter.map(&depth(&1))
             |> Iter.reduce(0, fn deepest, d -> Int.max(deepest, d)))
-    }
-}
+    end
+end
 
-fn total(dir: Dir) -> Int {
+fn total(dir: Dir) -> Int
     dir.kids |> Iter.map(&total(&1)) |> Iter.reduce(dir.size, fn sum, n -> sum + n)
-}
+end
 
-fn eval(expr: Expr) -> Int {
-    case expr {
-        Expr.Num(n) -> n
+fn eval(expr: Expr) -> Int
+    case expr
+        Expr.Num(n) ->
+            n
 
         Expr.Block(stmts) ->
             stmts |> Iter.map(fn stmt -> eval(stmt.body)) |> Iter.reduce(0, fn sum, n -> sum + n)
-    }
-}
+    end
+end
 
-fn sample() -> Tree {
-    Tree.Node(#[Tree.Leaf(1), Tree.Node(#[Tree.Leaf(2), Tree.Leaf(3)]), Tree.Node(#[])])
-}
+fn sample() -> Tree
+    Tree.Node([Tree.Leaf(1), Tree.Node([Tree.Leaf(2), Tree.Leaf(3)]), Tree.Node([])])
+end
 
-test "an enum holds itself through a Vector" {
+test "an enum holds itself through a Vector"
     tree = sample()
 
     assert sum(tree) == 6
     assert depth(tree) == 3
 
-    assert Debug.inspect(tree) == "Node(#[Leaf(1), Node(#[Leaf(2), Leaf(3)]), Node(#[])])"
-}
+    assert Debug.inspect(tree)
+        == "Node(Vector[Leaf(1), Node(Vector[Leaf(2), Leaf(3)]), Node(Vector[])])"
+end
 
-test "a Vector tree compares and hashes by value" {
+test "a Vector tree compares and hashes by value"
     assert sample() == sample()
-    assert sample() != Tree.Node(#[Tree.Leaf(1)])
-    assert Set.size(%[sample(), sample(), Tree.Leaf(1)]) == 2
-}
+    assert sample() != Tree.Node([Tree.Leaf(1)])
+    assert Set.size([sample(), sample(), Tree.Leaf(1)]) == 2
+end
 
-test "a Vector tree grows by pushing a kid" {
+test "a Vector tree grows by pushing a kid"
     assert Tree.Node(kids) = sample()
     grown = Tree.Node(Vector.push(kids, Tree.Leaf(4)))
 
     assert sum(grown) == 10
     assert Vector.get(kids, 0) == Some(Tree.Leaf(1))
-}
+end
 
-test "a struct holds itself through a Vector" {
-    leaf = Dir{name: "a", size: 2, kids: #[]}
+test "a struct holds itself through a Vector"
+    leaf = Dir{name: "a", size: 2, kids: []}
 
     root = Dir{
         name: "root",
         size: 1,
-        kids: #[
+        kids: [
             leaf,
             Dir{
                 name: "b",
                 size: 3,
-                kids: #[
+                kids: [
                     leaf,
                 ],
             },
@@ -104,17 +107,17 @@ test "a struct holds itself through a Vector" {
     assert root.kids |> Iter.map(fn kid -> kid.name) |> Iter.to_list() == ["a", "b"]
     assert root == root
     assert root != leaf
-}
+end
 
-test "an enum and a struct hold each other through Vectors" {
-    program = Expr.Block(#[
+test "an enum and a struct hold each other through Vectors"
+    program = Expr.Block([
         Stmt{
             label: "a",
             body: Expr.Num(1),
         },
         Stmt{
             label: "b",
-            body: Expr.Block(#[
+            body: Expr.Block([
                 Stmt{
                     label: "c",
                     body: Expr.Num(4),
@@ -124,4 +127,4 @@ test "an enum and a struct hold each other through Vectors" {
     ])
 
     assert eval(program) == 5
-}
+end

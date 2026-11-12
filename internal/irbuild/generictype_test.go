@@ -18,8 +18,8 @@ import (
 // only shows it once an assertion FAILS: the fixture's golden record covers
 // that direction and this covers the def.
 func TestGenericInstanceNomiNameIsTheBareName(t *testing.T) {
-	src := "pub struct Box<T> {\n  item: T\n}\n\n" +
-		"fn peek(b: Box<Int>) -> Int {\n  b.item\n}\n"
+	src := "pub struct Box<T>\n  item: T\nend\n\n" +
+		"fn peek(b: Box<Int>) -> Int\n  b.item\nend\n"
 	g := lowerableGen(t, src)
 	inst := onlyGenericInstance(t, g)
 	if inst.nomi != "Box" {
@@ -37,8 +37,8 @@ func TestGenericInstanceNomiNameIsTheBareName(t *testing.T) {
 // structural comparison, ordering traps — so it is asserted rather than
 // inspected.
 func TestGenericInstanceTypeIDIsModuleQualified(t *testing.T) {
-	src := "pub struct Box<T> {\n  item: T\n}\n\n" +
-		"fn peek(b: Box<Int>) -> Int {\n  b.item\n}\n"
+	src := "pub struct Box<T>\n  item: T\nend\n\n" +
+		"fn peek(b: Box<Int>) -> Int\n  b.item\nend\n"
 	g := lowerableGen(t, src)
 	inst := onlyGenericInstance(t, g)
 	got := g.qualifiedNomiName(inst.nomi)
@@ -63,8 +63,8 @@ func TestGenericInstanceTypeIDIsModuleQualified(t *testing.T) {
 // defensive, and a defensive guard can only be exercised at the seam it
 // defends.
 func TestGenericInstanceAtATypeParameterIsRefused(t *testing.T) {
-	src := "pub struct Box<T> {\n  item: T\n}\n\n" +
-		"fn peek(b: Box<Int>) -> Int {\n  b.item\n}\n"
+	src := "pub struct Box<T>\n  item: T\nend\n\n" +
+		"fn peek(b: Box<Int>) -> Int\n  b.item\nend\n"
 	g := lowerableGen(t, src)
 	tpl := g.genericTemplates["Box"]
 	if tpl == nil {
@@ -108,19 +108,20 @@ func TestGenericInstanceAtATypeParameterIsRefused(t *testing.T) {
 // constructed. So the enum rows are here rather than in a parallel test that
 // could drift.
 func TestGenericInstanceNeverSilentlyDropsAField(t *testing.T) {
-	// The unrepresentable member is `.{}`, a record with no fields: typeOf
-	// answers kindInvalid for it and typeRefusal names it. If that type gains
-	// a kind, this guard fails with its own message and a member with no
-	// representation must be chosen instead.
-	src := "pub struct Point {\n  x: Int\n}\n\n" +
-		"pub struct Bag<T> {\n  marker: .{}\n}\n\n" +
-		"pub struct Box<T> {\n  item: T\n}\n\n" +
-		"pub enum Holder<T> {\n  Held T\n  Nothing\n}\n\n" +
-		"pub enum Sack<T> {\n  Stuff .{}\n  Empty\n}\n\n" +
-		"fn size(_b: Bag<Point>) -> Int {\n  0\n}\n\n" +
-		"fn peek(b: Box<Int>) -> Int {\n  b.item\n}\n\n" +
-		"fn hold(_h: Holder<Int>) -> Int {\n  0\n}\n\n" +
-		"fn sack(_s: Sack<Point>) -> Int {\n  0\n}\n"
+	// The unrepresentable member is `Html`, a std type with no
+	// representation here: typeOf answers kindInvalid for it and typeRefusal
+	// names it. If that type gains a kind, this guard fails with its own
+	// message and a member with no representation must be chosen instead.
+	src := "import std::html.Html\n\n" +
+		"pub struct Point\n  x: Int\nend\n\n" +
+		"pub struct Bag<T>\n  marker: Html\nend\n\n" +
+		"pub struct Box<T>\n  item: T\nend\n\n" +
+		"pub enum Holder<T>\n  Held T\n  Nothing\nend\n\n" +
+		"pub enum Sack<T>\n  Stuff Html\n  Empty\nend\n\n" +
+		"fn size(_b: Bag<Point>) -> Int\n  0\nend\n\n" +
+		"fn peek(b: Box<Int>) -> Int\n  b.item\nend\n\n" +
+		"fn hold(_h: Holder<Int>) -> Int\n  0\nend\n\n" +
+		"fn sack(_s: Sack<Point>) -> Int\n  0\nend\n"
 	p, err := AnalyzeSource("main", src)
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +160,7 @@ func TestGenericInstanceNeverSilentlyDropsAField(t *testing.T) {
 		}
 	}
 	if !sawUnlowerable {
-		t.Error("every instance was lowerable, so the unrepresentable `.{}` member did not " +
+		t.Error("every instance was lowerable, so the unrepresentable `Html` member did not " +
 			"produce one — this guard passed without exercising the branch it guards. If a " +
 			"generic interface existential has gained a kind, pick a member with no " +
 			"representation here. Do not delete the check")
@@ -178,10 +179,10 @@ func TestGenericInstanceNeverSilentlyDropsAField(t *testing.T) {
 // template alone would pass the first and silently fail the second, which is
 // the failure mode sharedGenStructDefs' comment describes.
 func TestGenericInstanceIsInternedPerInstantiation(t *testing.T) {
-	src := "pub struct Box<T> {\n  item: T\n}\n\n" +
-		"fn a(b: Box<Int>) -> Int {\n  b.item\n}\n\n" +
-		"fn b(c: Box<Int>) -> Int {\n  c.item\n}\n\n" +
-		"fn c(d: Box<String>) -> String {\n  d.item\n}\n"
+	src := "pub struct Box<T>\n  item: T\nend\n\n" +
+		"fn a(b: Box<Int>) -> Int\n  b.item\nend\n\n" +
+		"fn b(c: Box<Int>) -> Int\n  c.item\nend\n\n" +
+		"fn c(d: Box<String>) -> String\n  d.item\nend\n"
 	g := lowerableGen(t, src)
 	if n := len(g.genericInstOrder); n != 2 {
 		var got []string

@@ -1,4 +1,4 @@
-test "iter constructors produce lazy values that can be bounded" {
+test "iter constructors produce lazy values that can be bounded"
     assert Iter.from(0)
         |> Iter.take(5)
         |> Iter.to_list()
@@ -15,9 +15,9 @@ test "iter constructors produce lazy values that can be bounded" {
         |> String.join()
 
     assert repeated == "ababab"
-}
+end
 
-test "iter terminals inspect positions and size" {
+test "iter terminals inspect positions and size"
     xs = [1, 2, 3, 4, 5]
 
     assert Iter.get(xs, 2) == Some(3)
@@ -27,18 +27,18 @@ test "iter terminals inspect positions and size" {
     assert Iter.is_empty([])
     refute Iter.is_empty(xs)
     refute Iter.is_empty(xs)
-}
+end
 
-test "lazy adapters fuse over bounded infinite sources" {
+test "lazy adapters fuse over bounded infinite sources"
     assert Iter.from(1)
         |> Iter.map(&(&1 * 2))
         |> Iter.filter(&(&1 > 4))
         |> Iter.take(3)
         |> Iter.to_list()
         |> List.equal([6, 8, 10])
-}
+end
 
-test "drop take and while adapters preserve order" {
+test "drop take and while adapters preserve order"
     assert [1, 2, 3, 4, 5]
         |> Iter.drop(2)
         |> Iter.to_list()
@@ -64,9 +64,9 @@ test "drop take and while adapters preserve order" {
         |> Iter.drop_while(&(&1 < 3))
         |> Iter.to_list()
         |> List.equal([3, 4, 1])
-}
+end
 
-test "cycle concat and with_index materialize expected sequences" {
+test "cycle concat and with_index materialize expected sequences"
     assert [1, 2, 3]
         |> Iter.cycle()
         |> Iter.take(7)
@@ -82,9 +82,9 @@ test "cycle concat and with_index materialize expected sequences" {
         |> Iter.with_index()
         |> Iter.to_list()
         |> List.equal([(0, "a"), (1, "b"), (2, "c")])
-}
+end
 
-test "zip pairs values and stops at the shorter input" {
+test "zip pairs values and stops at the shorter input"
     assert [1, 2, 3]
         |> Iter.zip(["x", "y", "z"])
         |> Iter.to_list()
@@ -94,9 +94,9 @@ test "zip pairs values and stops at the shorter input" {
         |> Iter.zip(["a", "b"])
         |> Iter.to_list()
         |> List.equal([(1, "a"), (2, "b")])
-}
+end
 
-test "iter mapping filtering flat mapping and reducing work over lists" {
+test "iter mapping filtering flat mapping and reducing work over lists"
     assert [1, 2, 3]
         |> Iter.map(&(&1 * 2))
         |> Iter.to_list()
@@ -117,9 +117,9 @@ test "iter mapping filtering flat mapping and reducing work over lists" {
         |> Iter.reduce(0, fn acc, x -> acc + x)
 
     assert total == 10
-}
+end
 
-test "iter search predicates short circuit" {
+test "iter search predicates short circuit"
     found =
         Iter.from(0)
         |> Iter.find(&(&1 > 100))
@@ -134,15 +134,15 @@ test "iter search predicates short circuit" {
 
     refute [2, 3, 4]
         |> Iter.all_match(fn x -> x % 2 == 0)
-}
+end
 
-test "iter flattening materializes nested lists" {
+test "iter flattening materializes nested lists"
     assert [[1, 2], [3, 4]]
         |> Iter.flatten()
         |> List.equal([1, 2, 3, 4])
-}
+end
 
-test "iter chunking groups adjacent values" {
+test "iter chunking groups adjacent values"
     assert [1, 2, 3, 4, 5]
         |> Iter.chunks(2)
         |> Iter.to_list()
@@ -167,9 +167,9 @@ test "iter chunking groups adjacent values" {
         |> Iter.chunk_by(&String.contains(&1, "a"))
         |> Iter.to_list()
         |> List.equal([["ant", "ape"], ["bee"], ["bat", "cat"]])
-}
+end
 
-test "iter materializers collect to maps strings and sorted lists" {
+test "iter materializers collect to maps strings and sorted lists"
     pairs =
         [("a", 1), ("b", 2)]
         |> Iter.to_map()
@@ -191,9 +191,9 @@ test "iter materializers collect to maps strings and sorted lists" {
     assert sorted == [1, 2, 3]
     assert custom_sorted == [1, 2, 3]
     assert lazy_sorted == [2, 4, 6]
-}
+end
 
-test "iter partition and group_by collect list values" {
+test "iter partition and group_by collect list values"
     split =
         [1, 2, 3, 4, 5]
         |> Iter.partition(fn x -> x % 2 == 0)
@@ -205,9 +205,9 @@ test "iter partition and group_by collect list values" {
     assert split == ([2, 4], [1, 3, 5])
     assert Map.get(grouped, 1) == Some([1, 3, 5])
     assert Map.get(grouped, 0) == Some([2, 4, 6])
-}
+end
 
-test "iter pipelines can combine lazy adapters and terminals" {
+test "iter pipelines can combine lazy adapters and terminals"
     total =
         [1, 2, 3, 4, 5]
         |> Iter.filter(&(&1 > 2))
@@ -215,59 +215,60 @@ test "iter pipelines can combine lazy adapters and terminals" {
         |> Iter.sum()
 
     assert total == 120
-}
+end
 
-test "iter loop supports explicit state and break values" {
-    countdown = Iter.loop(5, fn n -> {
-        if n == 0 {
+test "iter loop supports explicit state and break values"
+    countdown = Iter.loop(5, fn n ->
+        if n == 0 then
             break n
-        } else {
+        else
             n - 1
-        }
-    })
+        end
+    end)
 
     assert countdown == 0
-}
+end
 
-test "iterators are replayable values" {
+test "iterators are replayable values"
     x = [1, 2, 3, 4, 5] |> Iter.filter(&(&1 > 2))
 
     assert Iter.to_list(x) == [3, 4, 5]
     assert Iter.to_list(x) == [3, 4, 5]
-}
+end
 
 /// A tree, so `each_while` has to walk a shape no built-in source has: the
 /// implementor drives its own recursion and threads the consumer's stop
 /// decision back out through it.
-enum Tree {
+enum Tree
     Leaf
     Node (Tree, Int, Tree)
-}
+end
 
-impl Iter for Tree {
-    fn each_while(t: Tree, yield: (Int) -> Bool) -> Bool {
-        case t {
-            .Leaf -> True
+impl Iter for Tree
+    fn each_while(t: Tree, yield: (Int) -> Bool) -> Bool
+        case t
+            .Leaf ->
+                True
 
             .Node(left, value, right) ->
-                if each_while(left, yield) {
-                    if yield(value) {
+                if each_while(left, yield) then
+                    if yield(value) then
                         each_while(right, yield)
-                    } else {
+                    else
                         False
-                    }
-                } else {
+                    end
+                else
                     False
-                }
-        }
-    }
-}
+                end
+        end
+    end
+end
 
-fn leaf_node(value: Int) -> Tree {
+fn leaf_node(value: Int) -> Tree
     Tree.Node(Tree.Leaf, value, Tree.Leaf)
-}
+end
 
-test "a custom type implements Iter by pushing its own elements" {
+test "a custom type implements Iter by pushing its own elements"
     tree = Tree.Node(Tree.Node(leaf_node(1), 2, leaf_node(3)), 4, leaf_node(5))
 
     // Every generic adapter and terminal works on it with no other conformance.
@@ -281,9 +282,9 @@ test "a custom type implements Iter by pushing its own elements" {
     assert Iter.each_while(tree, fn _x -> True)
     refute Iter.each_while(tree, &(&1 < 3))
     assert Iter.each_while(Tree.Leaf, fn _x -> False)
-}
+end
 
-test "zip advances two unbounded sources in lockstep" {
+test "zip advances two unbounded sources in lockstep"
     // Neither side can drive the other's loop, so zip pulls its right operand.
     // Both operands unbounded is the case that pins it: a materializing right
     // side would never return, and an abandoned cursor would hang the left.
@@ -301,9 +302,9 @@ test "zip advances two unbounded sources in lockstep" {
         |> Iter.zip(["a", "b"])
         |> Iter.to_list()
         |> List.equal([(0, "a"), (1, "b")])
-}
+end
 
-test "a range pushes a long run without exhausting the stack" {
+test "a range pushes a long run without exhausting the stack"
     // Range walks itself by recursing per element, so a long drive is only
     // stack-safe because the recursive `each_while` call is in tail position.
     assert Iter.count(1..=200_000) == 200_000
@@ -311,4 +312,4 @@ test "a range pushes a long run without exhausting the stack" {
     assert 1..=200_000
     |> Iter.map(fn x -> x)
     |> Iter.reduce(0, fn acc, x -> acc + x) == 20_000_100_000
-}
+end

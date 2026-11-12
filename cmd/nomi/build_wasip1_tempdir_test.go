@@ -22,24 +22,24 @@ func TestBuildCommand_Wasip1TempDirNeedsAPreopenedDirectory(t *testing.T) {
 	env := buildEnv(t.TempDir())
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "scratch.nomi")
-	mustWrite(t, entry, `import {
+	mustWrite(t, entry, `import
     std::fs
     std::io
     std::path
-}
+end
 
-fn main() {
+fn main()
     io.print(fs.temp_dir())
     io.print(scratch())
-}
+end
 
-fn scratch() -> Result<String, io.Error> {
+fn scratch() -> Result<String, io.Error>
     dir = fs.make_temp_dir()?
     defer fs.remove_all_quietly(dir)
 
     fs.write_text(path.join(dir, "x.txt"), "x")?
     fs.read_text(path.join(dir, "x.txt"))
-}
+end
 `)
 	mod := filepath.Join(t.TempDir(), "scratch.wasm")
 	if b := runProcess(t, env, dir, "", nomiBin, "build", "--target", "wasip1/wasm", entry, "-o", mod); b.exit != 0 {

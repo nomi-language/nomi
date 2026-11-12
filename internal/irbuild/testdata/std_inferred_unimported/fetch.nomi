@@ -1,16 +1,16 @@
-import {
+import
     std::duration.Duration
     std::random.Error
-}
+end
 
-pub fn fetch(ok: Bool) -> Result<Int, Error> {
-    if ok {
+pub fn fetch(ok: Bool) -> Result<Int, Error>
+    if ok then
         Ok(1)
-    } else {
+    else
         Err(Error.OsEntropy{reason: "refused"})
-    }
-}
+    end
+end
 
-pub fn waits() -> List<Duration> {
+pub fn waits() -> List<Duration>
     [Duration.seconds(2), Duration.milliseconds(5)]
-}
+end

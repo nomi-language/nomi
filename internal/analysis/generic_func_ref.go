@@ -198,7 +198,7 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 		params[i] = Substitute(p, subs)
 	}
 	inst := &FuncType{Params: params, Return: Substitute(ft.Return, subs), DefaultCount: ft.DefaultCount}
-	c.attachCallType(node, inst)
+	c.attachCallTypeArgs(node, inst, subs)
 	return inst
 }
 

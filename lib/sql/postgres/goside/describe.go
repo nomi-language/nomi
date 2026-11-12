@@ -30,6 +30,12 @@ import (
 // join may leave out comes from the statement's generic plan (EXPLAIN
 // EXECUTE under plan_cache_mode = force_generic_plan, which Postgres 12 and
 // later have), so a column of such a table is nullable.
+//
+// A column of a view (or a materialized view) is described through the
+// view's definition, which is described as a statement of its own: the
+// column reads the table column its defining query's column reads, and is
+// nullable when that column is. A view's own attnotnull is always false,
+// so without this every view column came out nullable.
 func Describe(ctx context.Context, url string, migrations []Migration, statements []string) Description {
 	d := Description{Tables: []Table{}, Statements: []Statement{}, Offset: -1}
 	admin, err := pgx.Connect(ctx, url)
@@ -102,9 +108,9 @@ func Describe(ctx context.Context, url string, migrations []Migration, statement
 		}
 		d.Tables = append(d.Tables, t)
 	}
-	names := &typeNames{conn: conn, known: map[uint32]string{}}
+	ds := &describer{conn: conn, types: map[uint32]string{}, views: map[uint32]Statement{}}
 	for _, s := range statements {
-		d.Statements = append(d.Statements, describeStatement(ctx, conn, names, s))
+		d.Statements = append(d.Statements, ds.statement(ctx, s, 0))
 	}
 	return d
 }
@@ -224,33 +230,55 @@ func checkValues(column string, checks []string) []string {
 	return nil
 }
 
-// typeNames answers a type's name as format_type writes it, asking the
-// server once per type and modifier.
-type typeNames struct {
+// describer describes statements on the scratch connection, asking the
+// server once per type name (with no modifier) and once per view.
+type describer struct {
 	conn  *pgx.Conn
-	known map[uint32]string
+	types map[uint32]string
+	views map[uint32]Statement
 }
 
-func (n *typeNames) name(ctx context.Context, oid uint32, modifier int32) (string, error) {
+// maxViewDepth bounds how deep a view over views is followed; a column
+// past it stays nullable.
+const maxViewDepth = 16
+
+// typeName is a type's name as format_type writes it.
+func (ds *describer) typeName(ctx context.Context, oid uint32, modifier int32) (string, error) {
 	if modifier == -1 {
-		if s, ok := n.known[oid]; ok {
+		if s, ok := ds.types[oid]; ok {
 			return s, nil
 		}
 	}
 	var s string
-	if err := n.conn.QueryRow(ctx, "SELECT format_type($1::oid, NULLIF($2::int, -1))", oid, modifier).Scan(&s); err != nil {
+	if err := ds.conn.QueryRow(ctx, "SELECT format_type($1::oid, NULLIF($2::int, -1))", oid, modifier).Scan(&s); err != nil {
 		return "", err
 	}
 	if modifier == -1 {
-		n.known[oid] = s
+		ds.types[oid] = s
 	}
 	return s, nil
 }
 
-// describeStatement prepares one statement and reads its parameter and
-// column types, the table column each column reads, and the tables its
-// outer joins may leave out.
-func describeStatement(ctx context.Context, conn *pgx.Conn, names *typeNames, text string) Statement {
+// view is the description of a view's defining query, by the view's oid,
+// with Error set when it cannot be had.
+func (ds *describer) view(ctx context.Context, oid uint32, depth int) Statement {
+	if s, ok := ds.views[oid]; ok {
+		return s
+	}
+	var def string
+	if err := ds.conn.QueryRow(ctx, "SELECT pg_get_viewdef($1::oid)", oid).Scan(&def); err != nil {
+		return Statement{Error: err.Error()}
+	}
+	s := ds.statement(ctx, strings.TrimSuffix(strings.TrimSpace(def), ";"), depth+1)
+	ds.views[oid] = s
+	return s
+}
+
+// statement prepares one statement and reads its parameter and column
+// types, the table column each column reads, and the tables its outer
+// joins may leave out. depth is how many views deep the statement is.
+func (ds *describer) statement(ctx context.Context, text string, depth int) Statement {
+	conn := ds.conn
 	s := Statement{Columns: []Column{}, Params: []string{}, Offset: -1}
 	sd, err := conn.PgConn().Prepare(ctx, "", text, nil)
 	if err != nil {
@@ -258,7 +286,7 @@ func describeStatement(ctx context.Context, conn *pgx.Conn, names *typeNames, te
 		return s
 	}
 	for _, oid := range sd.ParamOIDs {
-		name, err := names.name(ctx, oid, -1)
+		name, err := ds.typeName(ctx, oid, -1)
 		if err != nil {
 			s.Error = err.Error()
 			return s
@@ -267,20 +295,35 @@ func describeStatement(ctx context.Context, conn *pgx.Conn, names *typeNames, te
 	}
 	outer, planned := outerJoined(ctx, conn, text, len(sd.ParamOIDs))
 	for _, f := range sd.Fields {
-		typeName, err := names.name(ctx, f.DataTypeOID, f.TypeModifier)
+		typeName, err := ds.typeName(ctx, f.DataTypeOID, f.TypeModifier)
 		if err != nil {
 			s.Error = err.Error()
 			return s
 		}
 		c := Column{Name: f.Name, TypeName: typeName, Nullable: true}
 		if f.TableOID != 0 && f.TableAttributeNumber > 0 {
-			var notNull bool
+			var notNull, isView bool
 			err := conn.QueryRow(ctx,
-				"SELECT c.relname, a.attname, a.attnotnull FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid WHERE a.attrelid = $1 AND a.attnum = $2",
-				f.TableOID, int16(f.TableAttributeNumber)).Scan(&c.Table, &c.Column, &notNull)
+				"SELECT c.relname, a.attname, a.attnotnull, c.relkind IN ('v', 'm') FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid WHERE a.attrelid = $1 AND a.attnum = $2",
+				f.TableOID, int16(f.TableAttributeNumber)).Scan(&c.Table, &c.Column, &notNull, &isView)
 			if err != nil {
 				s.Error = err.Error()
 				return s
+			}
+			// A view's column is its defining query's column of the same
+			// position: the table column that one reads (none for an
+			// expression), NOT NULL when that one is non-null there. The
+			// view's tables are planned into this statement, so an outer
+			// join here that may leave the view out marks them.
+			if isView && depth < maxViewDepth {
+				v := ds.view(ctx, f.TableOID, depth)
+				if i := int(f.TableAttributeNumber) - 1; v.Error == "" && i < len(v.Columns) {
+					c.Table, c.Column, notNull = v.Columns[i].Table, v.Columns[i].Column, !v.Columns[i].Nullable
+				}
+				if c.Table == "" {
+					s.Columns = append(s.Columns, c)
+					continue
+				}
 			}
 			// Without a plan nothing says which tables an outer join may
 			// leave out, so every table column may be NULL.

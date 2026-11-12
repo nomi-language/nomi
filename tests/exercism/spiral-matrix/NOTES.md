@@ -13,7 +13,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/spiral-matrix.
 - `0` marks an unwritten square, so "free" is `cell_at(grid, position) == Some(0)`, which is `False` both off the grid and on a written square. One comparison does both checks.
 - The walk is a tail-recursive `fn fill` with the position and heading as tuples; turning clockwise is `(dr, dc) -> (dc, -dr)`. It stops after writing `size * size`, so size 0 needs no special case.
 - `set_cell` returns the new grid. It reads the row with `Vector.get(...)!` and writes with `Vector.set`, both of which trap on an index outside the vector; `fill` only steps onto a square `is_empty` accepted, so the position is always on the grid.
-- The cases are one `subtests` table of `(description, size, expected)` rows. The 4x4 and 5x5 grids are written one grid row per line, which `nomi fmt` keeps because each breaks after its `#[`.
+- The cases are one `subtests` table of `(description, size, expected)` rows. The 4x4 and 5x5 grids are written one grid row per line, which `nomi fmt` keeps because each breaks after its `Vector[`.
 
 ## Friction
 
@@ -35,4 +35,4 @@ The reads in `cell_at` keep `Vector.get`, since their `None` is the edge test. `
 
 A trapping `Vector.set` was added as a result of this exercise. Before it `Vector.set` returned `Maybe<Vector<T>>`, and the three misses that cannot happen travelled up through a `?` in `fill` to a `Maybe.with_default` in `spiral_matrix` that could not be reached.
 
-An indexed nested update (hypothetical syntax, `grid = #[..grid, row => #[.., column => value]]`) would remove `set_cell` altogether; with trapping writes it no longer has to carry a `Maybe`.
+An indexed nested update (hypothetical syntax, `grid = Vector[..grid, row => Vector[.., column => value]]`) would remove `set_cell` altogether; with trapping writes it no longer has to carry a `Maybe`.

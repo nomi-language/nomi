@@ -1,4 +1,4 @@
-import {
+import
     std::duration.Duration
     std::instant.Instant
     std::sql.{self, ConstraintKind}
@@ -7,32 +7,32 @@ import {
     shop
     sqlite
     sqlkit.{self, Rows}
-}
+end
 
-group "the shop" {
+group "the shop"
     // Each test gets a fresh in-memory database with the shop's schema.
-    setup {
+    setup begin
         db = sqlite.memory()?
         defer sql.close_quietly(db)
         sqlkit.migrate(db, schema.migrations)?
         db
-    }
+    end
 
-    test "a user reads back as its row", db {
+    test "a user reads back as its row", db
         id = queries.insert_user(db, "ada@example.com", Some("Ada"))?
 
-        Some(user) = queries.user_by_email(db, "ada@example.com")? else {
+        Some(user) = queries.user_by_email(db, "ada@example.com")? else
             None -> return Err(sql.Error.Database{code: "", message: "no user"})
-        }
+        end
 
-        assert User{id: read_id, email, name} = user
+        assert User{id: read_id, email:, name:} = user
         assert read_id == id
         assert email == "ada@example.com"
         assert name == Some("Ada")
         assert queries.user_by_email(db, "nobody@example.com")? == None
-    }
+    end
 
-    test "a second user with the same email breaks the unique constraint", db {
+    test "a second user with the same email breaks the unique constraint", db
         _ = queries.insert_user(db, "ada@example.com", None)?
 
         assert queries.insert_user(db, "ada@example.com", None) == Err(
@@ -43,13 +43,13 @@ group "the shop" {
                 column: Some("email"),
             }
         )
-    }
+    end
 
-    test "an order reads back with its enum status and decimal total", db {
+    test "an order reads back with its enum status and decimal total", db
         user = queries.insert_user(db, "ada@example.com", None)?
         id = shop.place_paid_order(db, user, 12.50d)?
         order = queries.order(db, id)?
-        assert Order{status, total, shipped_on} = order
+        assert Order{status:, total:, shipped_on:} = order
         assert status == OrderStatus.Paid
         // `==` on Decimal ignores the scale; the text shows it.
         assert "${total}" == "12.50"
@@ -57,9 +57,9 @@ group "the shop" {
 
         assert queries.order(db, id + 1)
             == Err(sql.Error.RowCount{query: "order", expected: "exactly one", found: 0})
-    }
+    end
 
-    test "a query of one enum column reads it as the enum, in every shape", db {
+    test "a query of one enum column reads it as the enum, in every shape", db
         user = queries.insert_user(db, "ada@example.com", None)?
         pending = queries.insert_order(db, user, 1d)?
         paid = shop.place_paid_order(db, user, 2d)?
@@ -68,9 +68,9 @@ group "the shop" {
         assert queries.status_if_placed(db, paid + 1)? == None
         assert queries.statuses_for_user(db, user)? == [OrderStatus.Pending, OrderStatus.Paid]
         assert Rows.to_list(queries.all_statuses(db)) == Ok([OrderStatus.Pending, OrderStatus.Paid])
-    }
+    end
 
-    test "a failed sign-up leaves nothing behind", db {
+    test "a failed sign-up leaves nothing behind", db
         _ = shop.sign_up_with_order(db, "ada@example.com", 5d)?
         failed = shop.sign_up_with_order(db, "ada@example.com", 7d)
         assert Result.is_err(failed)
@@ -80,9 +80,9 @@ group "the shop" {
         assert counts |> Iter.map(fn c -> (c.email, c.orders)) |> Iter.to_list() == [
             ("ada@example.com", 1),
         ]
-    }
+    end
 
-    test "a join reads every order of a user, newest first", db {
+    test "a join reads every order of a user, newest first", db
         user = queries.insert_user(db, "ada@example.com", None)?
         first = queries.insert_order(db, user, 1d)?
         second = queries.insert_order(db, user, 2d)?
@@ -90,12 +90,12 @@ group "the shop" {
         assert rows |> Iter.map(fn r -> r.id) |> Iter.to_list() == [second, first]
 
         assert rows
-            |> Iter.all_match(fn r -> {
+            |> Iter.all_match(fn r ->
                 r.email == "ada@example.com" and r.status == OrderStatus.Pending
-            })
-    }
+            end)
+    end
 
-    test "an outer join's columns are Maybe, and an aggregate counts", db {
+    test "an outer join's columns are Maybe, and an aggregate counts", db
         ada = queries.insert_user(db, "ada@example.com", None)?
         _ = queries.insert_user(db, "grace@example.com", None)?
         _ = queries.insert_order(db, ada, 3d)?
@@ -106,9 +106,9 @@ group "the shop" {
             ("ada@example.com", Some(latest), 2),
             ("grace@example.com", None, 0),
         ]
-    }
+    end
 
-    test "revenue sums the paid orders of each customer", db {
+    test "revenue sums the paid orders of each customer", db
         ada = queries.insert_user(db, "ada@example.com", None)?
         grace = queries.insert_user(db, "grace@example.com", None)?
         _ = shop.place_paid_order(db, ada, 10d)?
@@ -132,9 +132,9 @@ group "the shop" {
                 revenue: 1d,
             },
         ]
-    }
+    end
 
-    test "a total keeps its column's scale, and is exact to 15 digits", db {
+    test "a total keeps its column's scale, and is exact to 15 digits", db
         user = queries.insert_user(db, "ada@example.com", None)?
         whole = queries.insert_order(db, user, 7d)?
         largest = queries.insert_order(db, user, 9_999_999_999.99d)?
@@ -143,34 +143,36 @@ group "the shop" {
 
         // 2^53 + 1 cents does not fit a 64-bit float, which is how SQLite
         // keeps a DECIMAL: the driver refuses it rather than round it.
-        refused = case queries.insert_order(db, user, 90_071_992_547_409.93d) {
-            Err(sql.Error.Database{code, message: _}) -> code
+        refused = case queries.insert_order(db, user, 90_071_992_547_409.93d)
+            Err(sql.Error.Database{code:, message: _}) -> code
             _ -> "not refused"
-        }
+        end
 
         assert refused == "SQLITE_MISMATCH"
-    }
+    end
 
-    test "a sum of many small totals is exact", db {
+    test "a sum of many small totals is exact", db
         user = queries.insert_user(db, "ada@example.com", None)?
 
         Iter.from(0)
         |> Iter.take(1000)
-        |> Iter.each(fn _ -> { _ = shop.place_paid_order(db, user, 0.10d) })
+        |> Iter.each(fn _ ->
+            _ = shop.place_paid_order(db, user, 0.10d)
+        end)
 
         revenue = queries.revenue_since(db, Instant.from_seconds(0))?
         assert revenue |> Iter.map(fn r -> "${r.revenue}") |> Iter.to_list() == ["100.00"]
         assert "${shop.total_of_all_orders(db)?}" == "100.00"
-    }
+    end
 
-    test "a status update answers the rows it changed", db {
+    test "a status update answers the rows it changed", db
         user = queries.insert_user(db, "ada@example.com", None)?
         id = queries.insert_order(db, user, 1d)?
         assert queries.set_status(db, id, .Shipped) == Ok(sqlkit.Changed{rows: 1})
         assert queries.set_status(db, id + 1, .Shipped) == Ok(sqlkit.Changed{rows: 0})
-    }
+    end
 
-    test "revenue since an hour ago counts an order placed now", db {
+    test "revenue since an hour ago counts an order placed now", db
         user = queries.insert_user(db, "ada@example.com", None)?
         _ = shop.place_paid_order(db, user, 10d)?
         now = Instant.now()
@@ -178,5 +180,5 @@ group "the shop" {
         hour_later = queries.revenue_since(db, now + Duration.hours(1))?
         assert hour_ago |> Iter.map(fn r -> r.order_count) |> Iter.to_list() == [1]
         assert hour_later == []
-    }
-}
+    end
+end

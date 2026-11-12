@@ -15,12 +15,12 @@ import (
 
 func TestTypeParamQualifiedDispatch_Valid(t *testing.T) {
 	src := `import std::io
-fn show<T>(x: T) -> String where T: Display {
+fn show<T>(x: T) -> String where T: Display
   T.to_string(x)
-}
-fn main() {
+end
+fn main()
   io.print(show(42))
-}`
+end`
 	_, errs := checkSourceWithStdlib(src)
 	if len(errs) != 0 {
 		t.Fatalf("expected no errors for a valid T.method call, got: %v", errs)
@@ -33,12 +33,12 @@ fn main() {
 // reference, recorded separately.)
 func TestTypeParamQualifiedDispatch_MethodReference(t *testing.T) {
 	src := `import std::io
-fn show<T>(x: T) -> String where T: Display {
+fn show<T>(x: T) -> String where T: Display
   T.to_string(x)
-}
-fn main() {
+end
+fn main()
   io.print(show(42))
-}`
+end`
 	fa, _ := checkSourceWithStdlib(src)
 	for _, sym := range fa.References {
 		if sym != nil && sym.Kind == analysis.SymbolInterfaceMethod && sym.Name == "to_string" {
@@ -57,25 +57,25 @@ fn main() {
 // function's `where` does, so `decode` in `T.decode(n)` and in the partial
 // `T.decode(&1)` references the bound's method, at its position.
 func TestTypeParamQualifiedDispatch_MethodReferenceUnderAnImplWhere(t *testing.T) {
-	src := `interface Decode {
+	src := `interface Decode
   fn decode(n: Int) -> self
-}
+end
 
-struct Pair<T> {
+struct Pair<T>
   a: T
   b: T
-}
+end
 
-fn both<T>(n: Int, f: (Int) -> T) -> Pair<T> {
+fn both<T>(n: Int, f: (Int) -> T) -> Pair<T>
   Pair{a: f(n), b: f(n + 1)}
-}
+end
 
-impl Decode for Pair<T> where T: Decode {
-  fn decode(n: Int) -> Pair<T> {
+impl Decode for Pair<T> where T: Decode
+  fn decode(n: Int) -> Pair<T>
     _ = T.decode(n)
     both(n, &T.decode(&1))
-  }
-}
+  end
+end
 `
 	fa, errs := checkSourceWithStdlib(src)
 	if len(errs) != 0 {
@@ -90,15 +90,17 @@ impl Decode for Pair<T> where T: Decode {
 }
 
 func TestTypeParamQualifiedDispatch_SelfReturnStaysConcreteTypeParam(t *testing.T) {
-	src := `interface Stepper<S> {
+	src := `interface Stepper<S>
   fn step(value: self, by: S) -> Maybe<self>
-}
+end
 
-fn advance<T>(value: T) -> Maybe<T> where T: Stepper<Int> {
+fn advance<T>(value: T) -> Maybe<T> where T: Stepper<Int>
   T.step(value, 1)
-}
+end
 
-fn main() { Unit }`
+fn main()
+    Unit
+end`
 	_, errs := checkSourceWithStdlib(src)
 	if len(errs) != 0 {
 		t.Fatalf("expected self-returning T.method call to keep Maybe<T>, got: %v", errs)
@@ -113,22 +115,38 @@ func TestTypeParamQualifiedDispatch_Errors(t *testing.T) {
 	}{
 		{
 			name: "unbounded type parameter",
-			src: `fn f<T>(x: T) -> String { T.to_string(x) }
-fn main() { Unit }`,
+			src: `fn f<T>(x: T) -> String
+    T.to_string(x)
+end
+fn main()
+    Unit
+end`,
 			want: "has no interface bound",
 		},
 		{
 			name: "function not on bound",
-			src: `fn f<T>(x: T) -> String where T: Display { T.nope(x) }
-fn main() { Unit }`,
+			src: `fn f<T>(x: T) -> String where T: Display
+    T.nope(x)
+end
+fn main()
+    Unit
+end`,
 			want: "declares function 'nope'",
 		},
 		{
 			name: "ambiguous across two bounds",
-			src: `interface A { fn tag(value: self) -> String }
-interface B { fn tag(value: self) -> String }
-fn f<T>(x: T) -> String where T: A and B { T.tag(x) }
-fn main() { Unit }`,
+			src: `interface A
+    fn tag(value: self) -> String
+end
+interface B
+    fn tag(value: self) -> String
+end
+fn f<T>(x: T) -> String where T: A and B
+    T.tag(x)
+end
+fn main()
+    Unit
+end`,
 			want: "is ambiguous",
 		},
 		{
@@ -136,8 +154,12 @@ fn main() { Unit }`,
 			// declared return that disagrees with it is caught at compile time
 			// instead of trapping at runtime.
 			name: "return type checked through the bound",
-			src: `fn show<T>(x: T) -> Int where T: Display { T.to_string(x) }
-fn main() { Unit }`,
+			src: `fn show<T>(x: T) -> Int where T: Display
+    T.to_string(x)
+end
+fn main()
+    Unit
+end`,
 			want: "return type mismatch",
 		},
 	}
@@ -171,25 +193,29 @@ fn main() { Unit }`,
 // rule now covers a callee and a bare value, so a relocation that left the
 // call path emitting too would double-report.
 func TestTypeParamQualifiedMember_ValuePosition(t *testing.T) {
-	const decls = `interface Machine {
+	const decls = `interface Machine
   fn label(value: self) -> String
-}
+end
 
-interface Other {
+interface Other
   fn tag(value: self) -> String
-}
+end
 
-struct Robot {
+struct Robot
   name: String
-}
+end
 
-impl Machine for Robot {
-  fn label(value: Robot) -> String { value.name }
-}
+impl Machine for Robot
+  fn label(value: Robot) -> String
+      value.name
+  end
+end
 
-impl Other for Robot {
-  fn tag(value: Robot) -> String { value.name }
-}
+impl Other for Robot
+  fn tag(value: Robot) -> String
+      value.name
+  end
+end
 `
 	cases := []struct {
 		name string
@@ -200,35 +226,59 @@ impl Other for Robot {
 	}{
 		{
 			name: "bare member no bound declares",
-			src: decls + `fn start<T>(_x: T) -> String where T: Machine { T.Nonexistent }
-fn main() { Unit }`,
+			src: decls + `fn start<T>(_x: T) -> String where T: Machine
+    T.Nonexistent
+end
+fn main()
+    Unit
+end`,
 			want: "no interface bound of type parameter 'T' (Machine) declares function 'Nonexistent'",
 		},
 		{
 			name: "bare member on an unbounded parameter",
-			src: `fn start<T>(_x: T) -> String { T.Nonexistent }
-fn main() { Unit }`,
+			src: `fn start<T>(_x: T) -> String
+    T.Nonexistent
+end
+fn main()
+    Unit
+end`,
 			want: "type parameter 'T' has no interface bound, so 'T.Nonexistent' has nothing to dispatch through; add a `where T: SomeInterface` bound whose interface declares 'Nonexistent'",
 		},
 		{
 			name: "bare member with two bounds, neither declaring it",
-			src: decls + `fn start<T>(_x: T) -> String where T: Machine and Other { T.Nonexistent }
-fn main() { Unit }`,
+			src: decls + `fn start<T>(_x: T) -> String where T: Machine and Other
+    T.Nonexistent
+end
+fn main()
+    Unit
+end`,
 			want: "no interface bound of type parameter 'T' (Machine, Other) declares function 'Nonexistent'",
 		},
 		{
 			name: "bare member ambiguous across two bounds",
-			src: `interface A { fn tag(value: self) -> String }
-interface B { fn tag(value: self) -> String }
-fn f<T>(x: T) -> String where T: A and B { g = T.tag
-  g(x) }
-fn main() { Unit }`,
+			src: `interface A
+    fn tag(value: self) -> String
+end
+interface B
+    fn tag(value: self) -> String
+end
+fn f<T>(x: T) -> String where T: A and B
+    g = T.tag
+  g(x)
+end
+fn main()
+    Unit
+end`,
 			want: "'T.tag' is ambiguous",
 		},
 		{
 			name: "callee position still reports exactly once",
-			src: decls + `fn start<T>(x: T) -> String where T: Machine { T.Nonexistent(x) }
-fn main() { Unit }`,
+			src: decls + `fn start<T>(x: T) -> String where T: Machine
+    T.Nonexistent(x)
+end
+fn main()
+    Unit
+end`,
 			want: "no interface bound of type parameter 'T' (Machine) declares function 'Nonexistent'",
 		},
 		{
@@ -241,15 +291,23 @@ fn main() { Unit }`,
 			// Such a `T` is now also an error at its declaration, since
 			// no call can determine it; the member is still reported.
 			name: "where-clause-only parameter, callee position",
-			src: decls + `fn start<T>() -> String where T: Machine { T.nope() }
-fn main() { Unit }`,
+			src: decls + `fn start<T>() -> String where T: Machine
+    T.nope()
+end
+fn main()
+    Unit
+end`,
 			want: "no interface bound of type parameter 'T' (Machine) declares function 'nope'",
 			also: "type parameter `T` is not used in the signature of `start`, so no call can determine it",
 		},
 		{
 			name: "where-clause-only parameter, value position",
-			src: decls + `fn start<T>() -> String where T: Machine { T.nope }
-fn main() { Unit }`,
+			src: decls + `fn start<T>() -> String where T: Machine
+    T.nope
+end
+fn main()
+    Unit
+end`,
 			want: "no interface bound of type parameter 'T' (Machine) declares function 'nope'",
 			also: "type parameter `T` is not used in the signature of `start`, so no call can determine it",
 		},
@@ -293,40 +351,44 @@ fn main() { Unit }`,
 func TestTypeParamQualifiedMember_ProvidedMemberStillTypes(t *testing.T) {
 	src := `import std::io
 
-interface Greet {
+interface Greet
   fn hello(value: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
   name: String
-}
+end
 
-impl Display for Dog {
-  fn to_string(value: Dog) -> String { "Dog(" + value.name + ")" }
-}
+impl Display for Dog
+  fn to_string(value: Dog) -> String
+      "Dog(" + value.name + ")"
+  end
+end
 
-impl Greet for Dog {
-  fn hello(value: Dog) -> String { "woof, I am " + value.name }
-}
+impl Greet for Dog
+  fn hello(value: Dog) -> String
+      "woof, I am " + value.name
+  end
+end
 
-fn called<T>(x: T) -> String where T: Display and Greet {
+fn called<T>(x: T) -> String where T: Display and Greet
   T.hello(x) + " - " + T.to_string(x)
-}
+end
 
-fn piped<T>(x: T) -> String where T: Greet {
+fn piped<T>(x: T) -> String where T: Greet
   x |> T.hello()
-}
+end
 
-fn bound<T>(x: T) -> String where T: Greet {
+fn bound<T>(x: T) -> String where T: Greet
   f = T.hello
   f(x)
-}
+end
 
-fn main() {
+fn main()
   io.print(called(Dog{name: "Rex"}))
   io.print(piped(Dog{name: "Rex"}))
   io.print(bound(Dog{name: "Rex"}))
-}`
+end`
 	_, errs := checkSourceWithStdlib(src)
 	if len(errs) != 0 {
 		t.Fatalf("expected no errors for provided members in call, pipe and binding position, got: %v", errs)

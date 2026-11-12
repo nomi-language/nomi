@@ -37,12 +37,12 @@ other Nomi functions:
 
 ```nomi-run
 // FILE: main.nomi
-import {
+import
     std::io
     urls
-}
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     url = urls.parse("https://example.com/search?tag=go&tag=nomi&q=hello+world")?
 
     tags =
@@ -54,18 +54,18 @@ fn main() -> Result<Unit, String> {
     io.print(urls.escape_query("a b+c"))
     io.print(urls.unescape_query("%zz"))
     Ok(Unit)
-}
+end
 
 // FILE: urls.nomi
 gopkg "urltools"
 
-pub struct ParsedURL {
+pub struct ParsedURL
     scheme: String
     host: String
     path: String
     raw_query: String
     query: Map<String, List<String>>
-}
+end
 
 pub fn escape_query(value: String) -> String go urltools.EscapeQuery
 
@@ -194,10 +194,10 @@ fn upper(s: String) -> String go strings.ToUpper
 
 fn parse_int(s: String) -> Result<Int, String> go strconv.Atoi
 
-fn main() {
+fn main()
     io.print(upper("hi"))
     io.print(parse_int("42"))
-}
+end
 ```
 <!-- expect
 HI

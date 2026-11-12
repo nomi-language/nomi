@@ -3,17 +3,17 @@
 //# `Int` holds exactly, as it holds a whole number of any size.
 
 /// The grains on `square`, numbered from 1 to 64.
-pub fn square(square: Int) -> Result<Int, String> {
-    if not square in 1..=64 { return Err("square must be between 1 and 64") }
+pub fn square(square: Int) -> Result<Int, String>
+    if not square in 1..=64 then return Err("square must be between 1 and 64")
 
     Ok(grains_on(square))
-}
+end
 
 /// The grains on the whole board.
-pub fn total() -> Int {
+pub fn total() -> Int
     1..=64 |> Iter.map(grains_on) |> Iter.sum()
-}
+end
 
-fn grains_on(square: Int) -> Int {
+fn grains_on(square: Int) -> Int
     Int.pow(2, square - 1)
-}
+end

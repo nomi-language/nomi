@@ -6,15 +6,15 @@
 // String result, a Unit result whose body prints from inside the other file,
 // and a transitive hop (helpers -> deeper) that makes the reference
 // graph two edges deep rather than one.
-import {
+import
     std::io
     helpers
-}
+end
 
-fn main() {
+fn main()
     io.print("double(21) = ${helpers.double(21)}")
     io.print(helpers.shout("hi"))
     io.print("tripled(4) = ${helpers.tripled(4)}")
     helpers.announce()
     io.print("main is done")
-}
+end

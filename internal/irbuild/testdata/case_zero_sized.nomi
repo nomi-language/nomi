@@ -6,39 +6,39 @@ import std::io
 // fixture the rule would ship unexercised.
 type Expired
 
-enum SessionState {
+enum SessionState
     embeds Expired
     Active
-}
+end
 
 // Taking the materialized marker as an argument is what proves it is a real
 // value of the marker type and not a placeholder: the payload has no storage
 // (nothing to read a slot from), so `SessionState.Expired(e)` has to
 // RECONSTRUCT `e` from its type alone.
-fn marker_label(_e: Expired) -> String {
+fn marker_label(_e: Expired) -> String
     "expired"
-}
+end
 
-fn describe(s: SessionState) -> String {
-    case s {
+fn describe(s: SessionState) -> String
+    case s
         SessionState.Expired(e) -> marker_label(e)
         .Active -> "active"
-    }
-}
+    end
+end
 
 // The same variant matched with no binding at all, which must not depend on
 // the materialization path.
-fn is_expired(s: SessionState) -> Bool {
-    case s {
+fn is_expired(s: SessionState) -> Bool
+    case s
         .Expired -> True
         _ -> False
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     expired: SessionState = Expired
     io.print(describe(expired))
     io.print(describe(SessionState.Active))
     io.print("${is_expired(expired)}")
     io.print("${is_expired(SessionState.Active)}")
-}
+end

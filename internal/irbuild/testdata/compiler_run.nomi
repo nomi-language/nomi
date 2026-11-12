@@ -1,7 +1,7 @@
-import {
+import
     std::compiler
     std::io
-}
+end
 
 // `compiler.run` EVALUATES a source and captures its stdout, where
 // `compiler.check` only analyzes one. Every row below is a behaviour only the
@@ -18,43 +18,43 @@ import {
 //
 // This fixture pins no line number about itself, so lines may be added at the
 // end freely.
-fn out(source: String) -> String {
-    case compiler.run(source) {
+fn out(source: String) -> String
+    case compiler.run(source)
         Ok(text) -> "[" + text + "]"
         Err(message) -> "ERR " + message
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     // Plain stdout.
-    io.print("plain = " + out("import std::io\n\nfn main() {\n  io.print(\"hi\")\n}\n"))
+    io.print("plain = " + out("import std::io\n\nfn main()\n  io.print(\"hi\")\nend\n"))
 
     // ORDER, and it is the row that separates a captured buffer from a set of
     // lines: two prints must arrive in program order.
     io.print(
-        "order = " + out("import std::io\n\nfn main() {\n  io.print(\"a\")\n  io.print(\"b\")\n}\n")
+        "order = " + out("import std::io\n\nfn main()\n  io.print(\"a\")\n  io.print(\"b\")\nend\n")
     )
 
     // A program with no `main` runs its top level and stops, rather than
     // failing. Distinguishes "no main is an error" from "no main is empty".
-    io.print("no_main = " + out("fn unused() -> Int {\n  1\n}\n"))
+    io.print("no_main = " + out("fn unused() -> Int\n  1\nend\n"))
 
     // ARITHMETIC EVALUATED, not merely type-checked. A checker answers nothing
     // about 6 * 7.
     io.print(
-        "arith = " + out("import std::io\n\nfn main() {\n  io.print(Debug.inspect(6 * 7))\n}\n")
+        "arith = " + out("import std::io\n\nfn main()\n  io.print(Debug.inspect(6 * 7))\nend\n")
     )
 
     // The failure arms, each a different stage, and each an `Err` rather than a
     // crash.
-    io.print("parse = " + out("fn main() {\n"))
-    io.print("analysis = " + out("fn main() {\n  _ = missing\n}\n"))
+    io.print("parse = " + out("fn main()\n"))
+    io.print("analysis = " + out("fn main()\n  _ = missing\nend\n"))
 
     // A RUNTIME fault, which is the arm no analyzer reaches: this program is
     // type-correct and traps when it runs.
     io.print(
         "trap = " + out(
-            "import std::io\n\nfn main() {\n  zero = 0\n  io.print(Debug.inspect(1 / zero))\n}\n"
+            "import std::io\n\nfn main()\n  zero = 0\n  io.print(Debug.inspect(1 / zero))\nend\n"
         )
     )
 
@@ -63,7 +63,7 @@ fn main() {
     // arm is not merely "the text so far".
     io.print(
         "trap_after_print = " + out(
-            "import std::io\n\nfn main() {\n  io.print(\"before\")\n  io.print(Debug.inspect(1 / 0))\n}\n"
+            "import std::io\n\nfn main()\n  io.print(\"before\")\n  io.print(Debug.inspect(1 / 0))\nend\n"
         )
     )
 
@@ -72,7 +72,7 @@ fn main() {
     // error path.
     io.print(
         "assert_fail = " + out(
-            "import std::assertions.AssertionFailure\n\nfn main() -> Result<Unit, AssertionFailure> {\n  assert 1 == 2\n  Ok(Unit)\n}\n"
+            "import std::assertions.AssertionFailure\n\nfn main() -> Result<Unit, AssertionFailure>\n  assert 1 == 2\n  Ok(Unit)\nend\n"
         )
     )
 
@@ -80,14 +80,14 @@ fn main() {
     // declared nowhere in the text, so this row fails for a pipeline that parsed
     // and evaluated without loading std.
     io.print(
-        "stdlib = " + out("import std::io\n\nfn main() {\n  io.print(String.trim(\"  x  \"))\n}\n")
+        "stdlib = " + out("import std::io\n\nfn main()\n  io.print(String.trim(\"  x  \"))\nend\n")
     )
 
     // DERIVES ARE SYNTHESIZED for the run source. `Debug.inspect` on a struct
     // with no hand-written impl needs the synthesis passes, not just evaluation.
     io.print(
         "derive = " + out(
-            "import std::io\n\nstruct P {\n  x: Int\n}\n\nfn main() {\n  io.print(Debug.inspect(P{x: 1}))\n}\n"
+            "import std::io\n\nstruct P\n  x: Int\nend\n\nfn main()\n  io.print(Debug.inspect(P{x: 1}))\nend\n"
         )
     )
 
@@ -95,7 +95,7 @@ fn main() {
     // shows the pipeline is re-entrant.
     io.print(
         "nested = " + out(
-            "import std::compiler\nimport std::io\n\nfn main() {\n  case compiler.run(\"import std::io\\n\\nfn main() {\\n  io.print(\\\"deep\\\")\\n}\\n\") {\n    Ok(t) -> io.print(\"got \" + t)\n    Err(_) -> io.print(\"err\")\n  }\n}\n"
+            "import std::compiler\nimport std::io\n\nfn main()\n  case compiler.run(\"import std::io\\n\\nfn main()\\n  io.print(\\\"deep\\\")\\nend\\n\")\n    Ok(t) -> io.print(\"got \" + t)\n    Err(_) -> io.print(\"err\")\n  end\nend\n"
         )
     )
-}
+end

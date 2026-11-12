@@ -49,16 +49,16 @@ func TestParse_EnumVariant_TrailingComment(t *testing.T) {
 		src  string
 		want []string // trailing comment per variant, "" for none
 	}{
-		{"bare", "enum Op {\n    ToJson // note\n    FromJson\n}\n", []string{"// note", ""}},
-		{"bare last", "enum Op {\n    ToJson\n    FromJson // note\n}\n", []string{"", "// note"}},
-		{"type payload", "enum Op {\n    Add Int // a\n    Mul (Int, Int) // m\n}\n", []string{"// a", "// m"}},
-		{"paren payload", "enum Op {\n    Add(Int) // a\n    Sub(Int)\n}\n", []string{"// a", ""}},
-		{"generic and function payloads", "enum Op<T> {\n    A Maybe<T> // a\n    B (T) -> T // b\n}\n", []string{"// a", "// b"}},
-		{"struct payload", "enum Shape {\n    Rect {w: Int, h: Int} // r\n    Circle {r: Int} // c\n}\n", []string{"// r", "// c"}},
-		{"multi-line struct payload", "enum Shape {\n    Rect {\n        w: Int\n    } // r\n    Dot\n}\n", []string{"// r", ""}},
-		{"embeds", "enum E {\n    A // a\n    embeds P // p\n}\n", []string{"// a", "// p"}},
-		{"semicolon", "enum Op {\n    A; B // b\n}\n", []string{"", "// b"}},
-		{"doc comment", "enum Op {\n    /// doc\n    A // a\n    B\n}\n", []string{"// a", ""}},
+		{"bare", "enum Op\n    ToJson // note\n    FromJson\nend\n", []string{"// note", ""}},
+		{"bare last", "enum Op\n    ToJson\n    FromJson // note\nend\n", []string{"", "// note"}},
+		{"type payload", "enum Op\n    Add Int // a\n    Mul (Int, Int) // m\nend\n", []string{"// a", "// m"}},
+		{"paren payload", "enum Op\n    Add(Int) // a\n    Sub(Int)\nend\n", []string{"// a", ""}},
+		{"generic and function payloads", "enum Op<T>\n    A Maybe<T> // a\n    B (T) -> T // b\nend\n", []string{"// a", "// b"}},
+		{"struct payload", "enum Shape\n    Rect {w: Int, h: Int} // r\n    Circle {r: Int} // c\nend\n", []string{"// r", "// c"}},
+		{"multi-line struct payload", "enum Shape\n    Rect {\n        w: Int\n    } // r\n    Dot\nend\n", []string{"// r", ""}},
+		{"embeds", "enum E\n    A // a\n    embeds P // p\nend\n", []string{"// a", "// p"}},
+		{"semicolon", "enum Op\n    A\n    B // b\nend\n", []string{"", "// b"}},
+		{"doc comment", "enum Op\n    /// doc\n    A // a\n    B\nend\n", []string{"// a", ""}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -81,9 +81,9 @@ func TestParse_EnumVariant_TrailingComment(t *testing.T) {
 }
 
 // A comment on its own line after a trailing one still belongs to the next
-// variant (or to the enum's EndTrivia before `}`).
+// variant (or to the enum's EndTrivia before `end`).
 func TestParse_EnumVariant_TrailingThenOwnLineComment(t *testing.T) {
-	src := "enum Op {\n    A // a\n\n    // above B\n    B\n    // tail\n}\n"
+	src := "enum Op\n    A // a\n\n    // above B\n    B\n    // tail\nend\n"
 	ed := parseOne(t, src).(*ast.EnumDef)
 	wantTrailing(t, "A", ed.Variants[0].Trailing, "// a")
 	lead := ed.Variants[1].LeadingComments
@@ -97,8 +97,8 @@ func TestParse_EnumVariant_TrailingThenOwnLineComment(t *testing.T) {
 
 func TestParse_StructVariantField_TrailingComment(t *testing.T) {
 	for _, src := range []string{
-		"enum Shape {\n    Rect {\n        w: Int, // w\n        h: Int, // h\n        // end\n    }\n}\n",
-		"enum Shape {\n    Rect {\n        w: Int // w\n        h: Int // h\n        // end\n    }\n}\n",
+		"enum Shape\n    Rect {\n        w: Int, // w\n        h: Int, // h\n        // end\n    }\nend\n",
+		"enum Shape\n    Rect {\n        w: Int // w\n        h: Int // h\n        // end\n    }\nend\n",
 	} {
 		ed := parseOne(t, src).(*ast.EnumDef)
 		rect := ed.Variants[0]
@@ -115,7 +115,7 @@ func TestParse_StructVariantField_TrailingComment(t *testing.T) {
 }
 
 func TestParse_AnonStructTypeField_TrailingComment(t *testing.T) {
-	src := "fn f(p: .{\n    x: Int, // x\n    y: Int // y\n}) -> Int {\n    1\n}\n"
+	src := "fn f(p: {\n    x: Int, // x\n    y: Int // y\n}) -> Int\n    1\nend\n"
 	fd := parseOne(t, src).(*ast.FuncDef)
 	anon, ok := fd.Params[0].TypeAnnotation.(*ast.AnonStructType)
 	if !ok {
@@ -127,7 +127,7 @@ func TestParse_AnonStructTypeField_TrailingComment(t *testing.T) {
 }
 
 func TestParse_StructField_TrailingComment(t *testing.T) {
-	src := "struct P {\n    x: Int // x\n    y: Int = 1 // y\n    z: Int\n}\n"
+	src := "struct P\n    x: Int // x\n    y: Int = 1 // y\n    z: Int\nend\n"
 	sd := parseOne(t, src).(*ast.StructDef)
 	wantTrailing(t, "x", sd.Fields[0].Trailing, "// x")
 	wantTrailing(t, "y", sd.Fields[1].Trailing, "// y")
@@ -138,7 +138,7 @@ func TestParse_StructField_TrailingComment(t *testing.T) {
 }
 
 func TestParse_InterfaceMember_TrailingComment(t *testing.T) {
-	src := "interface Shape {\n    fn area(s: self) -> Int // a\n    fn twice(s: self) -> Int {\n        2\n    } // t\n    fn last(s: self) -> Int\n}\n"
+	src := "interface Shape\n    fn area(s: self) -> Int // a\n    fn twice(s: self) -> Int\n        2\n    end // t\n    fn last(s: self) -> Int\nend\n"
 	id := parseOne(t, src).(*ast.InterfaceDef)
 	if len(id.Methods) != 3 {
 		t.Fatalf("want 3 methods, got %d", len(id.Methods))
@@ -155,10 +155,10 @@ func TestParse_InterfaceMember_TrailingComment(t *testing.T) {
 // bodies did. They must keep parsing.
 func TestParse_TrailingComment_OtherItemPositions(t *testing.T) {
 	for name, src := range map[string]string{
-		"import block": "import {\n    std::math // m\n    std::strings // s\n}\n",
-		"binding":      "fn main() {\n    x = 1 // x\n    y: Int = x + 1 // y\n}\n",
-		"case arm":     "fn f(x: Int) -> Int {\n    case x {\n        1 -> 2 // one\n        _ -> 3 // other\n    }\n}\n",
-		"group":        "group \"g\" {\n    clock Clock.Virtual // c\n    boot server.boot() // b\n    setup .{name: \"x\"} // s\n\n    test \"a\", .{name} {\n        assert name == \"x\" // a\n    } // end\n}\n",
+		"import block": "import\n    std::math // m\n    std::strings // s\nend\n",
+		"binding":      "fn main()\n    x = 1 // x\n    y: Int = x + 1 // y\nend\n",
+		"case arm":     "fn f(x: Int) -> Int\n    case x\n        1 -> 2 // one\n        _ -> 3 // other\n    end\nend\n",
+		"group":        "group \"g\"\n    clock Clock.Virtual // c\n    boot server.boot() // b\n    setup {name: \"x\"} // s\n\n    test \"a\", {name:}\n        assert name == \"x\" // a\n    end // end\nend\n",
 	} {
 		if _, err := Parse(lexer.Lex(src)); err != nil {
 			t.Errorf("%s: parse failed: %v", name, err)

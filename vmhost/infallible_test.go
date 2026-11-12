@@ -15,32 +15,32 @@ import (
 func TestInfallible_AResultThatCannotFailRendersComparesAndHashes(t *testing.T) {
 	_, out, err := runTodo(t, `import std::io
 
-fn get() -> Result<Int, Infallible> {
+fn get() -> Result<Int, Infallible>
     Ok(3)
-}
+end
 
-fn bumped() -> Result<Int, Infallible> {
+fn bumped() -> Result<Int, Infallible>
     n = get()?
     Ok(n + 1)
-}
+end
 
-fn main() {
+fn main()
     r = get()
     io.print(Debug.inspect(r))
     io.print(Debug.inspect(r == Ok(3)))
     io.print(Debug.inspect(r == Ok(4)))
-    s = %[r]
+    s = Set[r]
     io.print(Debug.inspect(Set.contains(s, Ok(3))))
-    m = %{r => "three"}
+    m = {r => "three"}
     io.print(Debug.inspect(Map.get(m, Ok(3))))
-    n = case r {
+    n = case r
         Ok(v) -> v
         Err(e) -> e
-    }
+    end
     io.print(Debug.inspect(n))
     io.print(Debug.inspect(bumped()))
     io.print(Debug.inspect(Result.map(r, fn v -> v * 2)))
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -56,20 +56,20 @@ fn main() {
 func TestInfallible_EmptyCollectionsOfItAreValues(t *testing.T) {
 	_, out, err := runTodo(t, `import std::io
 
-fn none() -> List<Infallible> {
+fn none() -> List<Infallible>
     []
-}
+end
 
-fn nothing() -> Maybe<Infallible> {
+fn nothing() -> Maybe<Infallible>
     None
-}
+end
 
-fn main() {
+fn main()
     io.print(Debug.inspect(none()))
     io.print(Debug.inspect(nothing()))
-    s: Set<Infallible> = %[]
+    s: Set<Infallible> = Set[]
     io.print(Debug.inspect(Set.size(s)))
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -90,11 +90,11 @@ func TestInfallible_AValueHoldingATodoStopsAtTheTodo(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			path, out, err := runTodo(t, `import std::io
 
-fn main() {
+fn main()
     io.print("before")
     x = `+tc.expr+`
     io.print(Debug.inspect(x))
-}
+end
 `)
 			if out != "before\n" {
 				t.Errorf("output %q, want only what ran before the todo", out)
@@ -117,24 +117,24 @@ func TestInfallible_ACallToANeverReturningFunctionStops(t *testing.T) {
 		{"argument", "io.print(Debug.inspect(twice(nev())))"},
 		{"negation", "io.print(Debug.inspect(not nev()))"},
 		{"right operand", "io.print(Debug.inspect(1 + nev()))"},
-		{"case subject", "case nev() {\n        1 -> io.print(\"one\")\n        _ -> io.print(\"other\")\n    }"},
-		{"todo case subject", "case todo {\n        1 -> io.print(\"one\")\n        _ -> io.print(\"other\")\n    }"},
+		{"case subject", "case nev()\n        1 -> io.print(\"one\")\n        _ -> io.print(\"other\")\n    end"},
+		{"todo case subject", "case todo\n        1 -> io.print(\"one\")\n        _ -> io.print(\"other\")\n    end"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path, out, err := runTodo(t, `import std::io
 
-fn nev() -> Infallible {
+fn nev() -> Infallible
     todo "never"
-}
+end
 
-fn twice(n: Int) -> Int {
+fn twice(n: Int) -> Int
     n * 2
-}
+end
 
-fn main() {
+fn main()
     io.print("before")
     `+tc.stmt+`
-}
+end
 `)
 			if out != "before\n" {
 				t.Errorf("output %q, want only what ran before the call", out)
@@ -155,27 +155,27 @@ fn main() {
 func TestInfallible_UntakenNeverReturningCallsComplete(t *testing.T) {
 	_, out, err := runTodo(t, `import std::io
 
-fn nev() -> Infallible {
+fn nev() -> Infallible
     todo "never"
-}
+end
 
-fn absurd(x: Infallible) -> Int {
+fn absurd(x: Infallible) -> Int
     x
-}
+end
 
-fn pick(b: Bool) -> Int {
-    if b {
+fn pick(b: Bool) -> Int
+    if b then
         nev()
-    } else {
+    else
         2
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Debug.inspect(pick(False)))
-    f = fn n: Int -> if n > 0 { n } else { absurd(nev()) }
+    f = fn n: Int -> if n > 0 then n else absurd(nev())
     io.print(Debug.inspect(Iter.map([1, 2], f) |> Iter.to_list()))
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -190,18 +190,18 @@ fn main() {
 func TestInfallible_AnEnumWithAnInfalliblePayload(t *testing.T) {
 	_, out, err := runTodo(t, `import std::io
 
-enum Shape {
+enum Shape
     Circle(Int)
     Impossible(Infallible)
-}
+end
 
-fn main() {
+fn main()
     s = Shape.Circle(2)
     io.print(Debug.inspect(s))
     io.print(Debug.inspect(s == Shape.Circle(2)))
-    m = %{s => 1}
+    m = {s => 1}
     io.print(Debug.inspect(Map.get(m, Shape.Circle(2))))
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -215,10 +215,10 @@ fn main() {
 func TestInfallible_MainReturningAResultThatCannotFail(t *testing.T) {
 	_, out, err := runTodo(t, `import std::io
 
-fn main() -> Result<Unit, Infallible> {
+fn main() -> Result<Unit, Infallible>
     io.print("ran")
     Ok(Unit)
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -237,19 +237,19 @@ fn main() -> Result<Unit, Infallible> {
 func TestInfallible_ItsDisplayEquatableAndHashableImpls(t *testing.T) {
 	_, out, err := runTodo(t, `import std::io
 
-fn get() -> Result<Int, Infallible> {
+fn get() -> Result<Int, Infallible>
     Ok(3)
-}
+end
 
-fn shown<T>(x: T) -> String where T: Display {
+fn shown<T>(x: T) -> String where T: Display
     "<${x}>"
-}
+end
 
-fn hashed<T>(x: T) -> Int where T: Hashable {
+fn hashed<T>(x: T) -> Int where T: Hashable
     Hashable.hash(x)
-}
+end
 
-fn main() {
+fn main()
     r = get()
     io.print(Display.to_string(r))
     io.print("r is ${r}")
@@ -263,9 +263,9 @@ fn main() {
     failed: Result<Infallible, String> = Err("bad")
     io.print(Display.to_string(failed))
     io.print("${failed}")
-    io.print(Debug.inspect(Map.get(%{failed => 1}, Err("bad"))))
-    io.print(Debug.inspect(Set.contains(%[failed], Err("bad"))))
-}
+    io.print(Debug.inspect(Map.get({failed => 1}, Err("bad"))))
+    io.print(Debug.inspect(Set.contains(Set[failed], Err("bad"))))
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -281,33 +281,33 @@ fn main() {
 func TestInfallible_FunctionsOverItLowerAndAreNeverCalled(t *testing.T) {
 	_, out, err := runTodo(t, `import std::io
 
-fn show(x: Infallible) -> String {
+fn show(x: Infallible) -> String
     Display.to_string(x)
-}
+end
 
-fn interpolated(x: Infallible) -> String {
+fn interpolated(x: Infallible) -> String
     "x=${x}"
-}
+end
 
-fn mixed(x: Infallible) -> Int {
+fn mixed(x: Infallible) -> Int
     1 * 31 + Hashable.hash(x)
-}
+end
 
-fn same(x: Infallible, y: Infallible) -> Bool {
+fn same(x: Infallible, y: Infallible) -> Bool
     Equatable.equal(x, y)
-}
+end
 
-fn get() -> Result<Int, Infallible> {
+fn get() -> Result<Int, Infallible>
     Ok(3)
-}
+end
 
-fn main() {
-    s = case get() {
+fn main()
+    s = case get()
         Ok(v) -> "ok ${v}"
         Err(e) -> "${show(e)} ${interpolated(e)} ${mixed(e)} ${same(e, e)}"
-    }
+    end
     io.print(s)
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -323,17 +323,17 @@ fn main() {
 func TestInfallible_ALiteralBesideAnOpenOkTakesItsType(t *testing.T) {
 	_, out, err := runTodo(t, `import std::io
 
-fn main() {
+fn main()
     q: Result<Int, Infallible> = Ok(3)
-    io.print(Debug.inspect(Set.size(%[q, Ok(4)])))
-    io.print(Debug.inspect(Set.size(%[Ok(4), q, Ok(3)])))
+    io.print(Debug.inspect(Set.size(Set[q, Ok(4)])))
+    io.print(Debug.inspect(Set.size(Set[Ok(4), q, Ok(3)])))
     io.print(Debug.inspect([q, Ok(4)]))
     io.print(Debug.inspect([Ok(4), q]))
-    io.print(Debug.inspect(Map.get(%{q => 1, Ok(4) => 2}, Ok(4))))
-    io.print(Debug.inspect(Map.get(%{1 => q, 2 => Ok(4)}, 2)))
-    io.print(Debug.inspect(Vector.length(#[q, Ok(5)])))
+    io.print(Debug.inspect(Map.get({q => 1, Ok(4) => 2}, Ok(4))))
+    io.print(Debug.inspect(Map.get({1 => q, 2 => Ok(4)}, 2)))
+    io.print(Debug.inspect(Vector.length(Vector[q, Ok(5)])))
     io.print("${[q, Ok(4)]}")
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -349,14 +349,14 @@ fn main() {
 func TestInfallible_ItsImplFunctionsAreValues(t *testing.T) {
 	_, out, err := runTodo(t, `import std::io
 
-fn main() {
+fn main()
     xs: List<Infallible> = []
     io.print(Debug.inspect(xs |> Iter.map(Display.to_string) |> Iter.to_list()))
     io.print(Debug.inspect(xs |> Iter.map(Hashable.hash) |> Iter.to_list()))
     io.print(Debug.inspect(xs |> Iter.map(Infallible.to_string) |> Iter.to_list()))
     io.print(Debug.inspect(xs |> Iter.map(fn x -> Equatable.equal(x, x)) |> Iter.to_list()))
     io.print(Debug.inspect(Set.size(Iter.to_set(xs))))
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v", err)

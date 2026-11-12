@@ -1,11 +1,11 @@
-import {
+import
     std::compiler
     std::currency.{self, Currency}
     std::localize.{Localize, NumberParseError}
     std::money.Money
-}
+end
 
-test "an amount is written in its currency as the locale writes it" {
+test "an amount is written in its currency as the locale writes it"
     eur = Money{amount: 1299.5d, currency: Currency`EUR`}
     assert Money.format(eur, Locale`en`) == "€1,299.50"
     assert Money.format(eur, Locale`de`) == "1.299,50\u{a0}€"
@@ -24,9 +24,9 @@ test "an amount is written in its currency as the locale writes it" {
     assert Money.format(Money{amount: -3d, currency: Currency`USD`}, Locale`en`) == "-$3.00"
     assert Localize.localize(eur, Locale`en`) == "€1,299.50"
     assert "${eur}" == "1299.5 EUR"
-}
+end
 
-test "the currency shows as its symbol, narrow symbol, code or name" {
+test "the currency shows as its symbol, narrow symbol, code or name"
     usd = Money{amount: 5d, currency: Currency`USD`}
     assert Money.format(usd, Locale`en-CA`) == "US$5.00"
     assert Money.format(usd, Locale`en-CA`, display: .Narrow) == "$5.00"
@@ -39,9 +39,9 @@ test "the currency shows as its symbol, narrow symbol, code or name" {
 
     assert Money.format(Money{amount: 1d, currency: Currency`JPY`}, Locale`en`, display: .Name)
         == "1 Japanese yen"
-}
+end
 
-test "a custom currency has its own code and minor digits" {
+test "a custom currency has its own code and minor digits"
     btc = Currency`BTC:8`
     assert Currency.code(btc) == "BTC"
     assert Currency.minor_digits(btc) == 8
@@ -57,17 +57,17 @@ test "a custom currency has its own code and minor digits" {
     assert Money.format(Money{amount: 1200d, currency: points}, Locale`de`) == "1.200\u{a0}PTS"
     assert Currency.custom("PTS", 0) == Ok(points)
     refute Currency.custom("PTS", 2) == Ok(points)
-}
+end
 
-test "a currency is checked when it is made" {
+test "a currency is checked when it is made"
     assert Currency.custom("EUR", 2) == Err(currency.Error.IsoCode{code: "EUR"})
     assert Currency.custom("POINTS", 19) == Err(currency.Error.Digits{digits: 19})
     assert Currency.custom("loyalty", 0) == Err(currency.Error.Malformed{text: "loyalty"})
     assert Currency.parse("XBT") == Err(currency.Error.NotIso{code: "XBT"})
     assert Currency.parse("CHF") |> Result.map(&Currency.minor_digits(&1)) == Ok(2)
-}
+end
 
-test "amounts add exactly in one currency" {
+test "amounts add exactly in one currency"
     eur = Currency`EUR`
     a = Money{amount: 0.1d, currency: eur}
     b = Money{amount: 0.2d, currency: eur}
@@ -75,19 +75,19 @@ test "amounts add exactly in one currency" {
     assert a - b == Money{amount: -0.1d, currency: eur}
     assert a * 3 == Money{amount: 0.3d, currency: eur}
     assert Iter.sum([a, b, a]) == Money{amount: 0.4d, currency: eur}
-}
+end
 
-test "adding two currencies traps and names both" {
+test "adding two currencies traps and names both"
     result =
         """
         import std::currency.Currency
         import std::money.Money
 
-        fn main() {
+        fn main()
           eur = Money{amount: 12.50d, currency: Currency`EUR`}
           pln = Money{amount: 3d, currency: Currency`PLN`}
           _ = eur + pln
-        }
+        end
         """
         |> compiler.run()
 
@@ -105,11 +105,11 @@ test "adding two currencies traps and names both" {
         import std::currency.Currency
         import std::money.Money
 
-        fn main() {
+        fn main()
           a = Money{amount: 5d, currency: Currency`PTS:0`}
           b = Money{amount: 5d, currency: Currency`PTS:2`}
           _ = a - b
-        }
+        end
         """
         |> compiler.run()
 
@@ -119,9 +119,9 @@ test "adding two currencies traps and names both" {
         text,
         "line 7: Money.subtract: the amounts are in two currencies, PTS:0 and PTS:2",
     )
-}
+end
 
-test "an amount rounds to its currency's minor digits" {
+test "an amount rounds to its currency's minor digits"
     eur = Currency`EUR`
 
     assert Money.round(Money{amount: 53.90875d, currency: eur}) == Money{
@@ -164,9 +164,9 @@ test "an amount rounds to its currency's minor digits" {
         amount: 0.12345679d,
         currency: Currency`BTC:8`,
     }
-}
+end
 
-test "an amount times a rate rounds to its currency's minor digits" {
+test "an amount times a rate rounds to its currency's minor digits"
     // A 23% tax: 19.99 * 0.23 is 4.5977.
     assert Money.multiply_by(Money`19.99 EUR`, 0.23d) == Money`4.60 EUR`
 
@@ -187,17 +187,17 @@ test "an amount times a rate rounds to its currency's minor digits" {
     // A Float rate becomes a Decimal first.
     assert Some(rate) = Float.to_decimal(0.0825, 4, .HalfEven)
     assert Money.multiply_by(Money`40.00 USD`, rate) == Money`3.30 USD`
-}
+end
 
-test "a rate that needs rounding traps under Unnecessary" {
+test "a rate that needs rounding traps under Unnecessary"
     result =
         """
         import std::decimal.RoundingMode
         import std::money.Money
 
-        fn main() {
+        fn main()
           _ = Money.multiply_by(Money`19.99 EUR`, 0.23d, RoundingMode.Unnecessary)
-        }
+        end
         """
         |> compiler.run()
 
@@ -207,9 +207,9 @@ test "a rate that needs rounding traps under Unnecessary" {
         message,
         "line 5: Decimal.round: decimal: rounding necessary to reach scale 2 but mode is Unnecessary",
     )
-}
+end
 
-test "an amount a reader typed is read strictly by default" {
+test "an amount a reader typed is read strictly by default"
     eur = Currency`EUR`
     assert Money.parse_in("12,50 €", Locale`pl`, eur) == Ok(Money{amount: 12.5d, currency: eur})
 
@@ -233,9 +233,9 @@ test "an amount a reader typed is read strictly by default" {
 
     assert Money.parse_in("¥1,500.5", Locale`en`, Currency`JPY`)
         == Err(NumberParseError.TooManyFractionDigits{max: 0})
-}
+end
 
-test "lenient reading takes the currency on either side, or none" {
+test "lenient reading takes the currency on either side, or none"
     eur = Currency`EUR`
 
     assert Money.parse_in("12,50", Locale`pl`, eur, lenient: True)
@@ -254,13 +254,13 @@ test "lenient reading takes the currency on either side, or none" {
 
     assert Money.parse_in("0.5 BTC", Locale`en`, btc, lenient: True)
         == Ok(Money{amount: 0.5d, currency: btc})
-}
+end
 
-test "a wrong currency reads as a person reads it" {
+test "a wrong currency reads as a person reads it"
     error = NumberParseError.WrongCurrency{expected: Currency`EUR`, found: "zł"}
     assert "${error}" == "expected an amount in EUR, found `zł`"
 
     assert "${NumberParseError.TooManyFractionDigits{
         max: 2,
     }}" == "the amount has more than 2 digits after the decimal point"
-}
+end

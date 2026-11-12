@@ -12,25 +12,25 @@ import (
 
 // orPatternSource binds `r` in both alternatives of an `or` pattern: line
 // 9, columns 14 and 29 are the two sites, and column 35 the use.
-const orPatternSource = `enum Shape {
+const orPatternSource = `enum Shape
   Circle {r: Float}
   Square {r: Float}
   Point
-}
+end
 
-fn radius(s: Shape) -> Float {
-  case s {
-    .Circle{r} or .Square{r} -> r
+fn radius(s: Shape) -> Float
+  case s
+    .Circle{r:} or .Square{r:} -> r
     .Point -> 0.0
-  }
-}
+  end
+end
 `
 
-var orSites = []analysis.Pos{{Line: 9, Col: 13}, {Line: 9, Col: 27}}
+var orSites = []analysis.Pos{{Line: 9, Col: 13}, {Line: 9, Col: 28}}
 
 func TestOrPattern_HoverOnEitherSiteAndTheUse(t *testing.T) {
 	file := checkedFile(orPatternSource)
-	for _, pos := range append(append([]analysis.Pos{}, orSites...), analysis.Pos{Line: 9, Col: 33}) {
+	for _, pos := range append(append([]analysis.Pos{}, orSites...), analysis.Pos{Line: 9, Col: 35}) {
 		sym := file.SymbolAt(pos)
 		if sym == nil {
 			t.Fatalf("no symbol at %v", pos)
@@ -45,7 +45,7 @@ func TestOrPattern_DefinitionIsEverySite(t *testing.T) {
 	uri := "file:///or_pattern_definition.nomi"
 	s := NewServer()
 	s.docs.Open(uri, orPatternSource)
-	for _, at := range []protocol.Position{{Line: 8, Character: 32}, {Line: 8, Character: 26}} {
+	for _, at := range []protocol.Position{{Line: 8, Character: 34}, {Line: 8, Character: 27}} {
 		result, err := s.textDocumentDefinition(nil, &protocol.DefinitionParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri}, Position: at}})
 		if err != nil {
@@ -66,7 +66,7 @@ func TestOrPattern_DefinitionIsEverySite(t *testing.T) {
 func TestOrPattern_RenameEditsEverySiteAndTheUse(t *testing.T) {
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(orPatternSource))
 	fa := buildFile(nodes)
-	sym := fa.SymbolAt(analysis.Pos{Line: 9, Col: 33})
+	sym := fa.SymbolAt(analysis.Pos{Line: 9, Col: 35})
 	if sym == nil {
 		t.Fatal("no symbol at the use of r")
 	}
@@ -85,7 +85,7 @@ func TestOrPattern_RenameEditsEverySiteAndTheUse(t *testing.T) {
 		}
 		cols[e.Range.Start.Character] = true
 	}
-	for _, c := range []uint32{12, 26, 32} {
+	for _, c := range []uint32{12, 27, 34} {
 		if !cols[c] {
 			t.Errorf("no edit at 9:%d: %+v", c+1, edits)
 		}

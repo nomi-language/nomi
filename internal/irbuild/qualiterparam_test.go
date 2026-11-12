@@ -11,24 +11,24 @@ func TestIRQualifiedCallIterParameter_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Box {
+struct Box
     n: Int
-}
+end
 
-impl Box {
-    fn total(boxes: Iter<Box>) -> Int {
+impl Box
+    fn total(boxes: Iter<Box>) -> Int
         Iter.reduce(boxes, 0, fn acc, b -> acc + b.n)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     boxes = [Box{n: 1}, Box{n: 2}]
     io.inspect(Box.total(boxes))
     io.inspect(Box.total([Box{n: 4}]))
     io.inspect(Box.total([]))
-    io.inspect(Box.total(#[Box{n: 5}]))
-    io.inspect([3, 4] |> Iter.map(fn n -> Box{n}) |> Box.total())
-}
+    io.inspect(Box.total(Vector[Box{n: 5}]))
+    io.inspect([3, 4] |> Iter.map(fn n -> Box{n:}) |> Box.total())
+end
 `
 	irRunSource(t, src, "3\n4\n0\n5\n7\n")
 }
@@ -37,34 +37,34 @@ fn main() {
 // as std/sql's `Statement.join` and `Statement.values` are called.
 func TestIRQualifiedCallIterParameter_CrossFile(t *testing.T) {
 	irBacklogProgramVM(t, map[string]string{
-		"boxes.nomi": `pub struct Box {
+		"boxes.nomi": `pub struct Box
     n: Int
-}
+end
 
-impl Box {
-    pub fn total(boxes: Iter<Box>) -> Int {
+impl Box
+    pub fn total(boxes: Iter<Box>) -> Int
         Iter.reduce(boxes, 0, fn acc, b -> acc + b.n)
-    }
+    end
 
-    pub fn count_of<T>(items: Iter<T>) -> Int {
+    pub fn count_of<T>(items: Iter<T>) -> Int
         Iter.count(items)
-    }
-}
+    end
+end
 `,
 		"main_test.nomi": `import boxes.Box
 
-test "a list into another file's Iter parameter" {
+test "a list into another file's Iter parameter"
     boxes = [Box{n: 1}, Box{n: 2}]
     assert Box.total(boxes) == 3
-    assert Box.total(%[Box{n: 4}]) == 4
-    assert [5] |> Iter.map(fn n -> Box{n}) |> Box.total() == 5
-}
+    assert Box.total(Set[Box{n: 4}]) == 4
+    assert [5] |> Iter.map(fn n -> Box{n:}) |> Box.total() == 5
+end
 
-test "a list into another file's generic Iter parameter" {
+test "a list into another file's generic Iter parameter"
     assert Box.count_of([1, 2, 3]) == 3
-    assert Box.count_of(%["a"]) == 1
+    assert Box.count_of(Set["a"]) == 1
     assert [1, 2, 3, 4] |> Iter.filter(fn n -> n > 2) |> Box.count_of() == 2
-}
+end
 `,
 	}, "main_test.nomi", 2)
 }

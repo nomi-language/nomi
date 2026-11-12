@@ -1,8 +1,8 @@
-pub struct Point {
+pub struct Point
     x: Int
     y: Int
-}
+end
 
-pub fn origin() -> Point {
+pub fn origin() -> Point
     Point{x: 0, y: 0}
-}
+end

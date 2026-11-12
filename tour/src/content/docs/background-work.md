@@ -26,29 +26,29 @@ Make one supervisor for each set of rules your app needs. Build them in
 `boot`, and keep them in the app struct:
 
 ```nomi
-import {
+import
     std::channels.Channel
     std::duration.Duration
     std::supervisors.Supervisor
-}
+end
 
-struct Config {
+struct Config
     context: Context
 
     audit: Supervisor
     notify: Supervisor
     // Where background work reports failures nobody is awaiting.
     alerts: Channel<String>
-}
+end
 
-fn boot() -> Result<Config, String> {
+fn boot() -> Result<Config, String>
     Ok(Config{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4, shutdown_timeout: Duration.seconds(30)),
         notify: Supervisor.new(max_running: 50, shutdown_timeout: Duration.milliseconds(200)),
         alerts: Channel.buffered<String>(16),
     })
-}
+end
 ```
 
 - `max_running:` is required. It is how many of this supervisor's tasks can
@@ -104,14 +104,14 @@ Read a supervisor from the app struct by its type name. You don't need to
 pass it as a parameter:
 
 ```nomi
-fn handle_order(id: Int) -> Response {
+fn handle_order(id: Int) -> Response
     resp = build_response(id)
 
     _ = Supervisor.spawn(Config.audit, fn -> record_audit(id, resp))
     _ = Supervisor.spawn(Config.notify, fn -> try_notify(id))
 
     resp
-}
+end
 ```
 
 `handle_order` returns right away. The audit write and the notification keep
@@ -126,55 +126,55 @@ tasks under it, and the handler returns before either task finishes.
 every task under the supervisor has finished:
 
 ```nomi-run
-import {
+import
     std::channels.{Channel, Receiver, Sender}
     std::duration.Duration
     std::supervisors.Supervisor
     std::timer
-}
+end
 
-struct Config {
+struct Config
     context: Context
 
     audit: Supervisor
     // Where the audit tasks put what they wrote, so `main` can look.
     written: Channel<Int>
-}
+end
 
-fn boot() -> Result<Config, String> {
+fn boot() -> Result<Config, String>
     Ok(Config{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4),
         written: Channel.buffered<Int>(8),
     })
-}
+end
 
-fn record_audit(id: Int) -> Unit {
+fn record_audit(id: Int) -> Unit
     // Stands in for the slow part: a write or an API call.
     timer.sleep(Duration.milliseconds(50))
     _ = Sender.send(Config.written.sender, id)
-}
+end
 
-fn handle_order(id: Int) -> String {
+fn handle_order(id: Int) -> String
     _ = Supervisor.spawn(Config.audit, fn -> record_audit(id))
     "order ${id} accepted"
-}
+end
 
 // The two ids arrive in either order, so this sums them.
-fn audited_total() -> Int {
+fn audited_total() -> Int
     first = Receiver.receive(Config.written.receiver)!
     second = Receiver.receive(Config.written.receiver)!
     first + second
-}
+end
 
-fn main() {
+fn main()
     dbg handle_order(1)
     dbg handle_order(2)
 
     // Wait for the audit trail only here, at the end.
     _ = Supervisor.flush(Config.audit)
     dbg audited_total()
-}
+end
 ```
 <!-- expect
 dbg line 43: handle_order(1) = "order 1 accepted"
@@ -207,23 +207,23 @@ _ = Supervisor.spawn_all(Config.notify, users, send_welcome)
 This handler uses both kinds of owner:
 
 ```nomi
-fn handle_order(id: Int) -> Response {
+fn handle_order(id: Int) -> Response
     // Need both values, right here, to build the response.
-    priced = concurrent {
+    priced = concurrent
         validation = Task.spawn(fn -> validate(id))
         pricing = Task.spawn(fn -> price(id))
         Ok((Task.await(validation)?, Task.await(pricing)?))
-    }
+    end
 
-    resp = case priced {
+    resp = case priced
         Ok((v, p)) -> build_response(id, v, p)
         Err(e) -> error_response(id, e)
-    }
+    end
 
     // Outlives the call: the response goes back without waiting.
     _ = Supervisor.spawn(Config.audit, fn -> record_audit(id, resp))
     resp
-}
+end
 ```
 
 ## Shutdown
@@ -264,22 +264,22 @@ that work failed:
 ```nomi
 _ = Supervisor.spawn(Config.notify, fn -> send_welcome(user))
 
-fn send_welcome(user: User) -> Unit {
+fn send_welcome(user: User) -> Unit
     // The work. This is what takes time; the task isn't done until it returns.
     sent = send_email(user.email, welcome_body(user))
 
     // The decision. Both branches end in Unit, so nothing is left unhandled.
-    case sent {
+    case sent
         Ok(_) -> Unit
         Err(e) -> report(Config.alerts, "welcome to ${user.email} failed: ${e}")
-    }
-}
+    end
+end
 
 // Failures nobody is awaiting go on a channel, for a long-lived consumer
 // to drain. A full alerts queue at shutdown is not worth crashing over.
-fn report(ch: Channel<String>, msg: String) -> Unit {
+fn report(ch: Channel<String>, msg: String) -> Unit
     _ = Sender.send(ch.sender, msg)
-}
+end
 ```
 
 `Supervisor.spawn` returns as soon as the task is started. `send_welcome`
@@ -384,22 +384,22 @@ slow and sometimes fails.
 a limit it always returns `Flushed`, so the examples assign it to `_`:
 
 ```nomi
-test "signup sends a welcome email" {
+test "signup sends a welcome email"
     signup("ada@example.com")
 
     _ = Supervisor.flush(Config.notify)
 
     assert was_sent_to("ada@example.com")
-}
+end
 ```
 
 To limit how long it waits, pass a `Wait`:
 
 ```nomi
-case Supervisor.flush(Config.notify, Wait.UpTo(Duration.seconds(5))) {
+case Supervisor.flush(Config.notify, Wait.UpTo(Duration.seconds(5)))
     .Flushed -> report_sent()
     .TimedOut -> carry_on()
-}
+end
 ```
 
 The limit is the longest it will wait. It returns as soon as the work is
@@ -432,60 +432,60 @@ list, an in-memory cache. Give that state to one task, and talk to the task
 with messages. [`std::actors`](/reference/actors/) does this:
 
 ```nomi-run
-import {
+import
     std::actors.{Actor, CallError, Reply}
     std::io
     std::supervisors.{Restart, Supervisor}
     std::testing.Clock
-}
+end
 
-enum Counter {
+enum Counter
     Add Int
     Get {reply: Reply<Int>}
-}
+end
 
-fn handle(count: Int, message: Counter) -> Int {
-    case message {
-        .Add(n) -> count + n
+fn handle(count: Int, message: Counter) -> Int
+    case message
+        .Add(n) ->
+            count + n
 
-        .Get{reply} -> {
+        .Get{reply:} ->
             Reply.send(reply, count)
             count
-        }
-    }
-}
+    end
+end
 
-struct Config {
+struct Config
     context: Context
     counter: Actor<Counter>
-}
+end
 
-fn boot() -> Result<Config, String> {
+fn boot() -> Result<Config, String>
     workers = Supervisor.new(max_running: 1, restart: Restart.Transient)
     Ok(Config{context: Context.root(), counter: Actor.start(workers, 0, handle)})
-}
+end
 
-fn get() -> Result<Int, CallError> {
-    Actor.call(Config.counter, fn reply -> .Get{reply})
-}
+fn get() -> Result<Int, CallError>
+    Actor.call(Config.counter, fn reply -> .Get{reply:})
+end
 
-fn main() {
+fn main()
     _ = Actor.cast(Config.counter, .Add(2))
     io.print("count: ${get()}")
-}
+end
 
-group "a counter actor" {
+group "a counter actor"
     // Waits take no real time under a virtual clock.
     clock Clock.Virtual
 
     boot boot()
 
-    test "messages accumulate into state a caller can read back" {
+    test "messages accumulate into state a caller can read back"
         _ = Actor.cast(Config.counter, .Add(5))
         _ = Actor.cast(Config.counter, .Add(7))
         assert get() == Ok(12)
-    }
-}
+    end
+end
 ```
 <!-- expect
 count: Ok(2)
@@ -534,28 +534,28 @@ memory, std::sql_testing's `Fake` stands in for the transaction, and
 `run_queued` runs what was enqueued:
 
 ```nomi-run
-import {
+import
     std::jobs.{self, Failure, Job}
     std::jobs_testing.{self, Inline}
     std::sql_testing.Fake
-}
+end
 
-fn send_receipt(order: Int) -> Result<Unit, Failure> {
-    if order > 0 {
+fn send_receipt(order: Int) -> Result<Unit, Failure>
+    if order > 0 then
         Ok(Unit)
-    } else {
+    else
         Err(Failure.Discard("no such order"))
-    }
-}
+    end
+end
 
 once receipt_job = Job.new("receipt", send_receipt)
 
-test "a receipt job runs once it is enqueued" {
+test "a receipt job runs once it is enqueued"
     queue = Inline.new()
     _ = jobs.enqueue(queue, Fake.new(), receipt_job, 42)?
     ran = jobs_testing.run_queued(queue, [receipt_job])
     assert Iter.map(ran, &(&1.answer)) |> Iter.to_list() == [Ok(Unit)]
-}
+end
 ```
 <!-- expect
 ok a receipt job runs once it is enqueued
@@ -576,26 +576,26 @@ or a local catcher such as Mailpit. A test passes std::mail_testing's
 `Memory`, which keeps what it is sent:
 
 ```nomi-run
-import {
+import
     std::mail.{self, Address, Mailer, Message}
     std::mail_testing.Memory
-}
+end
 
-fn send_receipt(mailer: Mailer, email: String, order: Int) -> Result<Unit, mail.Error> {
+fn send_receipt(mailer: Mailer, email: String, order: Int) -> Result<Unit, mail.Error>
     Mailer.send(mailer, Message{
         from: Address.parse("Shop <orders@example.com>")?,
         to: [Address.new(email)?],
         subject: "Receipt for order ${order}",
         text: Some("Thanks for order ${order}."),
     })
-}
+end
 
-test "the receipt goes to the customer" {
+test "the receipt goes to the customer"
     memory = Memory.new()
     send_receipt(memory, "ana@example.com", 42)?
     assert [message] = Memory.sent(memory)
     assert message.subject == "Receipt for order 42"
-}
+end
 ```
 <!-- expect
 ok the receipt goes to the customer

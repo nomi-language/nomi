@@ -8,25 +8,25 @@ import "testing"
 // (`impl Display for lib.Dog`), which interpolation and another file's
 // generic reach too.
 func TestBoundCallIface_TupleAndAnImplBesideTheCaller(t *testing.T) {
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
     std::io
     lib
-}
+end
 
-impl Display for lib.Dog {
-    fn to_string(d: lib.Dog) -> String {
+impl Display for lib.Dog
+    fn to_string(d: lib.Dog) -> String
         "dog " + d.name
-    }
-}
+    end
+end
 
-fn show<T>(x: T) -> String where T: Display {
+fn show<T>(x: T) -> String where T: Display
     T.to_string(x)
-}
+end
 
-fn main() {
-    fn txt<T>(x: T) -> String where T: Display {
+fn main()
+    fn txt<T>(x: T) -> String where T: Display
         T.to_string(x)
-    }
+    end
     d = lib.Dog{name: "d"}
     io.print(show((1, "a")))
     io.print(txt((2, "b")))
@@ -34,13 +34,13 @@ fn main() {
     io.print(Display.to_string(d))
     io.print("${d}")
     io.print(lib.render(d))
-}
-`, "(1, a)\n(2, b)\ndog d\ndog d\ndog d\n<dog d>\n", map[string]string{"lib.nomi": `pub struct Dog {
+end
+`, "(1, a)\n(2, b)\ndog d\ndog d\ndog d\n<dog d>\n", map[string]string{"lib.nomi": `pub struct Dog
     name: String
-}
+end
 
-pub fn render<T>(x: T) -> String where T: Display {
+pub fn render<T>(x: T) -> String where T: Display
     "<${x}>"
-}
+end
 `})
 }

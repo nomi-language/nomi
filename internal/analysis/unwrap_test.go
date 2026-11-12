@@ -8,49 +8,49 @@ import (
 )
 
 // unwrapDecls are the declarations the postfix `!` cases read.
-const unwrapDecls = `struct User {
+const unwrapDecls = `struct User
     name: String
     nickname: Maybe<String>
-}
+end
 
-fn half(n: Int) -> Result<Int, String> {
-    if n % 2 == 0 {
+fn half(n: Int) -> Result<Int, String>
+    if n % 2 == 0 then
         Ok(n / 2)
-    } else {
+    else
         Err("odd")
-    }
-}
+    end
+end
 
-fn found(n: Int) -> Maybe<String> {
-    if n > 0 { Some("yes") } else { None }
-}
+fn found(n: Int) -> Maybe<String>
+    if n > 0 then Some("yes") else None
+end
 
-fn count(n: Int) -> Int {
+fn count(n: Int) -> Int
     n
-}
+end
 
-fn small(n: Int) -> Bool {
+fn small(n: Int) -> Bool
     n < 10
-}
+end
 `
 
 // A postfix `!`'s type is the payload of the Result's Ok or the Maybe's
 // Some, on a call, a pipe stage, a field, a binding or a group.
 func TestUnwrap_IsThePayloadsType(t *testing.T) {
 	src := unwrapDecls + `
-fn main() {
+fn main()
     u = User{name: "a", nickname: Some("b")}
     maybe = found(2)
     a = half(4)!
     b = found(1)!
     c = 8 |> half()!
-    d = Map.get(%{"k" => 1.5}, "k")!
+    d = Map.get({"k" => 1.5}, "k")!
     e = "3" |> String.to_int()! |> Int.abs()
     f = u.nickname!
     g = maybe!
     h = (8 |> half())! + 1
     _ = (a, b, c, d, e, f, g, h)
-}
+end
 `
 	fa, errs := checkSourceWithStdlib(src)
 	if len(errs) > 0 {
@@ -85,7 +85,7 @@ func TestUnwrap_RejectsOtherTypes(t *testing.T) {
 		{"    _ = [1] |> Iter.count()!", "`!` unwraps a Result or a Maybe, and `[1] |> Iter.count()` is Int", "remove the `!`", 28},
 	}
 	for _, tc := range cases {
-		_, errs := checkSourceWithStdlib(unwrapDecls + "\nfn main() {\n" + tc.body + "\n}\n")
+		_, errs := checkSourceWithStdlib(unwrapDecls + "\nfn main()\n" + tc.body + "\nend\n")
 		var hit bool
 		for _, e := range errs {
 			if e.Message == tc.msg {
@@ -99,7 +99,7 @@ func TestUnwrap_RejectsOtherTypes(t *testing.T) {
 			t.Errorf("%s: no %q in %v", tc.body, tc.msg, errs)
 		}
 	}
-	_, errs := checkSourceWithStdlib(unwrapDecls + "\nfn g() -> Result<Int, String> {\n    Ok(half(4)!?)\n}\n")
+	_, errs := checkSourceWithStdlib(unwrapDecls + "\nfn g() -> Result<Int, String>\n    Ok(half(4)!?)\nend\n")
 	var tryErr bool
 	for _, e := range errs {
 		tryErr = tryErr || strings.Contains(e.Message, "`?` requires a Result or Maybe, got Int")

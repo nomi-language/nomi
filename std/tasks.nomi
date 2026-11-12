@@ -7,19 +7,19 @@
 //# escape its block, and how errors and cancellation travel are language
 //# rules ([Concurrency](/spec/concurrency/)).
 
-import {
+import
     iter.Iter
     lists.List
     unit.Unit
-}
+end
 
 /// Why a task broke. Cancellation is deliberately absent: being
 /// cancelled is not a failure, and a restart policy that treats it as
 /// one would fight its own shutdown.
-pub enum Failure {
+pub enum Failure
     Panicked String
     Errored String
-}
+end
 
 /// How a task ended. Exactly one of three, and the difference decides
 /// what a restart policy should do about it.
@@ -28,11 +28,11 @@ pub enum Failure {
 /// a `Completed` task carrying an `Err` value, not a `Failed` one. That
 /// task ran to completion and produced a value; `Failed` is reserved for
 /// the unplanned.
-pub enum Outcome<T> {
+pub enum Outcome<T>
     Completed T
     Cancelled
     Failed Failure
-}
+end
 
 /// In-flight or completed asynchronous computation. `Task<T>` carries
 /// one type parameter — the body's return type. Errors-as-values via
@@ -47,15 +47,15 @@ pub enum Outcome<T> {
 /// un-awaited `Task<T>` values, and `Task<T>` escapes are rejected.
 pub host type Task<T>
 
-impl Task<T> {
+impl Task<T>
     /// Spawn `body` as a parallel task in the enclosing `concurrent { }`
     /// block. Legal only inside the dynamic extent of `concurrent { }`;
     /// the analyzer rejects `Task.spawn` calls reachable from a function body
     /// without a `concurrent` ancestor.
-    //! value = concurrent {
+    //! value = concurrent
     //!     task = Task.spawn(fn -> 42)
     //!     Task.await(task)
-    //! }
+    //! end
     //!
     //! assert value == 42
     //
@@ -78,10 +78,10 @@ impl Task<T> {
     ///
     /// Reach for `Task.outcome` when you want that fate as a value instead
     /// of inheriting it — always, if you cancelled the task yourself.
-    //! value = concurrent {
+    //! value = concurrent
     //!     task = Task.spawn(fn -> "done")
     //!     Task.await(task)
-    //! }
+    //! end
     //!
     //! assert value == "done"
     //
@@ -105,11 +105,11 @@ impl Task<T> {
     /// that is `Iter.is_infinite` traps before any task is spawned, and one that
     /// never ends without saying so hangs: `max_running` throttles execution,
     /// not enqueueing.
-    //! results = concurrent {
+    //! results = concurrent
     //!     [1, 2, 3]
     //!     |> Task.spawn_all(&(&1 * 2), max_running: 2)
     //!     |> Task.await_all()
-    //! }
+    //! end
     //!
     //! assert results == [2, 4, 6]
     //
@@ -130,11 +130,11 @@ impl Task<T> {
     /// outcome is settled, so the wait would buy nothing. The cost is that
     /// with two failures you get whichever happened first rather than the
     /// lowest-indexed one.
-    //! results = concurrent {
+    //! results = concurrent
     //!     ["a", "b"]
     //!     |> Task.spawn_all(&(&1 + "!"), max_running: 2)
     //!     |> Task.await_all()
-    //! }
+    //! end
     //!
     //! assert results == ["a!", "b!"]
     //
@@ -147,10 +147,10 @@ impl Task<T> {
     /// Reach for it when you cancelled the task yourself — inheriting a
     /// cancellation you asked for makes no sense — or when you are
     /// deliberately inspecting a task's fate rather than using its value.
-    //! outcome = concurrent {
+    //! outcome = concurrent
     //!     task = Task.spawn(fn -> 42)
     //!     Task.outcome(task)
-    //! }
+    //! end
     //!
     //! expected: Outcome<Int> = .Completed(42)
     //! assert outcome == expected
@@ -180,4 +180,4 @@ impl Task<T> {
     /// finishes is a race, so the only deterministic examples need a
     /// sleeping task. Those live in rt/concurrent_test.go.)
     pub host fn cancel<T>(task: Task<T>) -> Unit
-}
+end

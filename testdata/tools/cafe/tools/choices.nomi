@@ -1,12 +1,12 @@
 // `nomi tool cafe choices`: write enums.nomi from enums.choices, one
 // enum per line. A line `Size: small medium large` declares
 // `pub enum Size` with the variants `Small`, `Medium` and `Large`.
-import {
+import
     std::fs
     std::io
-}
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     text = fs.read_text("enums.choices") |> Result.map_err(fn e -> "enums.choices: ${e}")?
 
     enums =
@@ -26,31 +26,31 @@ fn main() -> Result<Unit, String> {
     fs.write_text("enums.nomi", source + "\n") |> Result.map_err(fn e -> "enums.nomi: ${e}")?
     io.print("wrote enums.nomi")
     Ok(Unit)
-}
+end
 
 // The enum line `number` declares.
-fn enum_of(number: Int, line: String) -> Result<String, String> {
-    (name, words) = case String.split(line, ":") |> Iter.to_list() {
+fn enum_of(number: Int, line: String) -> Result<String, String>
+    (name, words) = case String.split(line, ":") |> Iter.to_list()
         [name, words] -> (String.trim(name), String.words(words))
         _ -> return Err("enums.choices:${number}: write `Name: first second third`")
-    }
+    end
 
-    if Some(word) = Iter.find(words, fn w -> not is_snake_case(w)) {
+    if Some(word) = Iter.find(words, fn w -> not is_snake_case(w)) then
         return Err("enums.choices:${number}: `${word}` is not a snake_case word")
-    }
+    end
 
     variants = words |> Iter.map(fn w -> "    ${String.pascal_case(w)}") |> String.join("\n")
 
     Ok(
         """
         /// The choices of `${name}` in enums.choices.
-        pub enum ${name} {
+        pub enum ${name}
         ${variants}
-        }
+        end
         """
     )
-}
+end
 
-fn is_snake_case(word: String) -> Bool {
+fn is_snake_case(word: String) -> Bool
     word != "" and Iter.all_match(word, fn c -> c in "abcdefghijklmnopqrstuvwxyz_")
-}
+end

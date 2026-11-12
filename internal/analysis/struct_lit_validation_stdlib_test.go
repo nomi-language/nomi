@@ -17,7 +17,7 @@ import (
 //
 // They are here rather than beside the others because `checkSource` builds a
 // file with no stdlib, so `Debug` does not resolve in it at all. Each was
-// measured in both spellings at the twin — `Cfg{f: v}` and `Cfg(.{f: v})` —
+// measured in both spellings at the twin — `Cfg{f: v}` and `Cfg({f: v})` —
 // and both accepted all five.
 func TestCheck_StructLit_StdlibTypedFieldsStayLenient(t *testing.T) {
 	cases := []struct {
@@ -26,23 +26,23 @@ func TestCheck_StructLit_StdlibTypedFieldsStayLenient(t *testing.T) {
 	}{
 		{
 			name: "a Debug field holding an Int — Debug is universal",
-			src:  "struct Cfg {\n  d: Debug\n}\nfn main() {\n  _a = Cfg{d: 5}\n}\n",
+			src:  "struct Cfg\n  d: Debug\nend\nfn main()\n  _a = Cfg{d: 5}\nend\n",
 		},
 		{
 			name: "a Display field holding an Int",
-			src:  "struct Cfg {\n  d: Display\n}\nfn main() {\n  _a = Cfg{d: 5}\n}\n",
+			src:  "struct Cfg\n  d: Display\nend\nfn main()\n  _a = Cfg{d: 5}\nend\n",
 		},
 		{
 			name: "an Iter<Int> field holding a list — interface widening",
-			src:  "struct Cfg {\n  i: Iter<Int>\n}\nfn main() {\n  _a = Cfg{i: [1, 2]}\n}\n",
+			src:  "struct Cfg\n  i: Iter<Int>\nend\nfn main()\n  _a = Cfg{i: [1, 2]}\nend\n",
 		},
 		{
 			name: "a universal Struct field holding a named struct",
-			src:  "struct P {\n  x: Int\n}\nstruct Cfg {\n  s: Struct\n}\nfn main() {\n  _a = Cfg{s: P{x: 1}}\n}\n",
+			src:  "struct P\n  x: Int\nend\nstruct Cfg\n  s: Struct\nend\nfn main()\n  _a = Cfg{s: P{x: 1}}\nend\n",
 		},
 		{
 			name: "None at Maybe<Int>",
-			src:  "struct Cfg {\n  m: Maybe<Int>\n}\nfn main() {\n  _a = Cfg{m: None}\n}\n",
+			src:  "struct Cfg\n  m: Maybe<Int>\nend\nfn main()\n  _a = Cfg{m: None}\nend\n",
 		},
 	}
 	for _, tc := range cases {
@@ -76,9 +76,9 @@ func TestCheck_StructLit_FieldLabelHoverAgreesAcrossSpellings(t *testing.T) {
 		col  int
 	}{
 		// `  _a = Box{v: 1}` — the label `v` starts at column 12.
-		{name: "literal-attach", src: "struct Box<T> {\n  v: T\n}\nfn main() {\n  _a = Box{v: 1}\n}\n", line: 5, col: 12},
-		// `  _a = Box(.{v: 1})` — one column further, past the `(#`.
-		{name: "constructor-call record form", src: "struct Box<T> {\n  v: T\n}\nfn main() {\n  _a = Box(.{v: 1})\n}\n", line: 5, col: 14},
+		{name: "literal-attach", src: "struct Box<T>\n  v: T\nend\nfn main()\n  _a = Box{v: 1}\nend\n", line: 5, col: 12},
+		// `  _a = Box({v: 1})` — one column further, past the `(`.
+		{name: "constructor-call record form", src: "struct Box<T>\n  v: T\nend\nfn main()\n  _a = Box({v: 1})\nend\n", line: 5, col: 13},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

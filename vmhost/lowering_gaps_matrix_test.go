@@ -6,14 +6,10 @@ package vmhost
 // knownLoweringGaps, so TestKnownLoweringGaps holds each reproducer to its
 // decline. A gap whose reason the builder derives from the node alone
 // (noSkip) excuses no matrix cell by that reason; mxKnown names the cells
-// it fails by their shape.
+// it fails by their shape. A gap with std set is one only that std
+// module's own tests reach: its src is appended to the module.
 var matrixLoweringGaps = []loweringGap{}
-
-// matrixCheckerGaps are the expressions the matrix found the checker
-// leaving without a type. They join knownCheckerGaps.
-var matrixCheckerGaps = []checkerGap{}
 
 func init() {
 	knownLoweringGaps = append(knownLoweringGaps, matrixLoweringGaps...)
-	knownCheckerGaps = append(knownCheckerGaps, matrixCheckerGaps...)
 }

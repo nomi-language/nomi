@@ -1,4 +1,4 @@
-import {
+import
     bool.Bool.{self, False, True}
     display.Display
     equatable.Equatable
@@ -7,7 +7,7 @@ import {
     iter.Iter
     lists.List
     results.Result
-}
+end
 
 //# `Maybe<T>`: a value that may be absent, `Some(value)` or `None`. Its
 //# owner functions are called `Maybe.map(m, f)` and so on: test it with
@@ -27,61 +27,61 @@ import {
 //! assert "${n}" == "None"
 //!
 //! assert Maybe.Some(42)
-//!     |> case {
+//!     |> case
 //!         .Some(v) -> v
 //!         .None -> 0
-//!     }
+//!     end
 //!     |> Int.equal(42)
 //
-pub enum Maybe<T> {
+pub enum Maybe<T>
     Some T
     None
-}
+end
 
-impl Maybe<T> {
+impl Maybe<T>
     /// Returns True when the value is Some.
     //! assert Maybe.is_some(Maybe.Some(3))
     //! refute Maybe.is_some(Maybe.None)
     //
-    pub fn is_some<T>(maybe: Maybe<T>) -> Bool {
-        case maybe {
+    pub fn is_some<T>(maybe: Maybe<T>) -> Bool
+        case maybe
             Some(_) -> True
             None -> False
-        }
-    }
+        end
+    end
 
     /// Returns True when the value is None.
     //! refute Maybe.is_none(Maybe.Some(3))
     //! assert Maybe.is_none(Maybe.None)
     //
-    pub fn is_none<T>(maybe: Maybe<T>) -> Bool {
-        case maybe {
+    pub fn is_none<T>(maybe: Maybe<T>) -> Bool
+        case maybe
             Some(_) -> False
             None -> True
-        }
-    }
+        end
+    end
 
     /// Transforms the value inside Some, passes None through.
     //! assert Maybe.map(Maybe.Some(3), &(&1 * 2)) == Maybe.Some(6)
     //! assert Maybe.map(Maybe.None, &(&1 * 2)) == Maybe.None
     //
-    pub fn map<T, U>(maybe: Maybe<T>, f: (T) -> U) -> Maybe<U> {
-        case maybe {
+    pub fn map<T, U>(maybe: Maybe<T>, f: (T) -> U) -> Maybe<U>
+        case maybe
             Some(v) -> Maybe.Some(f(v))
             None -> Maybe.None
-        }
-    }
+        end
+    end
 
     /// Returns the value inside Some, or the default if None.
     //! assert Maybe.with_default(Maybe.Some(5), 0) == 5
     //! assert Maybe.with_default(Maybe.None, 0) == 0
     //
-    pub fn with_default<T>(maybe: Maybe<T>, default: T) -> T {
-        case maybe {
+    pub fn with_default<T>(maybe: Maybe<T>, default: T) -> T
+        case maybe
             Some(v) -> v
             None -> default
-        }
-    }
+        end
+    end
 
     /// Returns `maybe` when it is Some, and otherwise `fallback`: the first
     /// of two places a value may come from. `fallback` is computed even when
@@ -93,16 +93,16 @@ impl Maybe<T> {
     //! nothing: Maybe<Int> = Maybe.None
     //! assert Maybe.otherwise(nothing, Maybe.None) == Maybe.None
     //!
-    //! flags = %{"port" => "8080"}
+    //! flags = {"port" => "8080"}
     //! port = Map.get(flags, "listen") |> Maybe.otherwise(Map.get(flags, "port"))
     //! assert port == Maybe.Some("8080")
     //
-    pub fn otherwise<T>(maybe: Maybe<T>, fallback: Maybe<T>) -> Maybe<T> {
-        case maybe {
+    pub fn otherwise<T>(maybe: Maybe<T>, fallback: Maybe<T>) -> Maybe<T>
+        case maybe
             Some(_) -> maybe
             None -> fallback
-        }
-    }
+        end
+    end
 
     /// Returns `maybe` when it is Some, and otherwise what `fallback`
     /// returns. `fallback` is called only for None, so it can do work, such
@@ -110,42 +110,38 @@ impl Maybe<T> {
     //! assert Maybe.or_else(Maybe.Some(1), fn -> Maybe.Some(2)) == Maybe.Some(1)
     //! assert Maybe.or_else(Maybe.None, fn -> Maybe.Some(2)) == Maybe.Some(2)
     //
-    pub fn or_else<T>(maybe: Maybe<T>, fallback: () -> Maybe<T>) -> Maybe<T> {
-        case maybe {
+    pub fn or_else<T>(maybe: Maybe<T>, fallback: () -> Maybe<T>) -> Maybe<T>
+        case maybe
             Some(_) -> maybe
             None -> fallback()
-        }
-    }
+        end
+    end
 
     /// Converts Maybe to Result. None becomes Err(error).
     //! assert Maybe.to_result(Maybe.Some(3), "missing") == Result.Ok(3)
     //! assert Maybe.to_result(Maybe.None, "missing") == Result.Err("missing")
     //
-    pub fn to_result<T, E>(maybe: Maybe<T>, error: E) -> Result<T, E> {
-        case maybe {
+    pub fn to_result<T, E>(maybe: Maybe<T>, error: E) -> Result<T, E>
+        case maybe
             Some(v) -> Result.Ok(v)
             None -> Result.Err(error)
-        }
-    }
+        end
+    end
 
     /// Like map, but the function returns a Maybe. Flattens the result.
-    //! safe_div = fn a: Int, b: Int -> {
-    //!     if b == 0 {
-    //!         Maybe.None
-    //!     } else {
-    //!         Maybe.Some(a / b)
-    //!     }
-    //! }
+    //! safe_div = fn a: Int, b: Int ->
+    //!     if b == 0 then Maybe.None else Maybe.Some(a / b)
+    //! end
     //!
     //! assert Maybe.flat_map(Maybe.Some(10), &safe_div(&1, 2)) == Maybe.Some(5)
     //! assert Maybe.flat_map(Maybe.Some(10), &safe_div(&1, 0)) == Maybe.None
     //
-    pub fn flat_map<T, U>(maybe: Maybe<T>, f: (T) -> Maybe<U>) -> Maybe<U> {
-        case maybe {
+    pub fn flat_map<T, U>(maybe: Maybe<T>, f: (T) -> Maybe<U>) -> Maybe<U>
+        case maybe
             Some(v) -> f(v)
             None -> Maybe.None
-        }
-    }
+        end
+    end
 
     /// Keeps the value inside Some when `keep` returns True for it, and
     /// otherwise returns None.
@@ -158,12 +154,12 @@ impl Maybe<T> {
     //! host = Maybe.Some("") |> Maybe.filter(&(&1 != "")) |> Maybe.with_default("localhost")
     //! assert host == "localhost"
     //
-    pub fn filter<T>(maybe: Maybe<T>, keep: (T) -> Bool) -> Maybe<T> {
-        case maybe {
+    pub fn filter<T>(maybe: Maybe<T>, keep: (T) -> Bool) -> Maybe<T>
+        case maybe
             Some(v) when keep(v) -> maybe
             _ -> Maybe.None
-        }
-    }
+        end
+    end
 
     /// Removes one level of nesting: `Some(Some(v))` becomes `Some(v)`, and
     /// both `Some(None)` and `None` become `None`.
@@ -174,12 +170,12 @@ impl Maybe<T> {
     //! assert Maybe.flatten(nothing) == Maybe.None
     //! assert Maybe.flatten(Maybe.None) == Maybe.None
     //
-    pub fn flatten<T>(maybe: Maybe<Maybe<T>>) -> Maybe<T> {
-        case maybe {
+    pub fn flatten<T>(maybe: Maybe<Maybe<T>>) -> Maybe<T>
+        case maybe
             Some(inner) -> inner
             None -> Maybe.None
-        }
-    }
+        end
+    end
 
     /// Returns Some of every value in order when every element is Some, and
     /// otherwise None. It stops consuming the iterator at the first None.
@@ -192,13 +188,13 @@ impl Maybe<T> {
     //!
     //! halved =
     //!     [4, 2, 8]
-    //!     |> Iter.map(fn n -> {
-    //!         if n % 2 == 0 {
+    //!     |> Iter.map(fn n ->
+    //!         if n % 2 == 0 then
     //!             Maybe.Some(n / 2)
-    //!         } else {
+    //!         else
     //!             Maybe.None
-    //!         }
-    //!     })
+    //!         end
+    //!     end)
     //!     |> Maybe.collect()
     //!
     //! assert halved == Maybe.Some([2, 1, 4])
@@ -206,21 +202,21 @@ impl Maybe<T> {
     //! // An infinite source ends: collect stops pulling at the first None.
     //! stopped =
     //!     Range.naturals()
-    //!     |> Iter.map(fn n -> if n < 3 { Maybe.Some(n) } else { Maybe.None })
+    //!     |> Iter.map(fn n -> if n < 3 then Maybe.Some(n) else Maybe.None)
     //!     |> Maybe.collect()
     //!
     //! assert stopped == Maybe.None
     //
-    pub fn collect<T>(maybes: Iter<Maybe<T>>) -> Maybe<List<T>> {
-        reversed = Iter.reduce(maybes, Maybe.Some([]), fn acc: Maybe<List<T>>, item -> {
-            case item {
+    pub fn collect<T>(maybes: Iter<Maybe<T>>) -> Maybe<List<T>>
+        reversed = Iter.reduce(maybes, Maybe.Some([]), fn acc: Maybe<List<T>>, item ->
+            case item
                 Some(v) -> Maybe.map(acc, fn vs -> [v, ..vs])
                 None -> break Maybe.None
-            }
-        })
+            end
+        end)
 
         Maybe.map(reversed, fn vs -> Iter.reverse(vs))
-    }
+    end
 
     /// Returns the Some values in order and drops every None.
     //! assert Maybe.values([Maybe.Some(1), Maybe.None, Maybe.Some(3)]) == [1, 3]
@@ -232,30 +228,30 @@ impl Maybe<T> {
     //!
     //! halves =
     //!     [4, 3, 8]
-    //!     |> Iter.map(fn n -> {
-    //!         if n % 2 == 0 {
+    //!     |> Iter.map(fn n ->
+    //!         if n % 2 == 0 then
     //!             Maybe.Some(n / 2)
-    //!         } else {
+    //!         else
     //!             Maybe.None
-    //!         }
-    //!     })
+    //!         end
+    //!     end)
     //!     |> Maybe.values()
     //!
     //! assert halves == [2, 4]
     //
-    pub fn values<T>(maybes: Iter<Maybe<T>>) -> List<T> {
-        reversed = Iter.reduce(maybes, [], fn acc: List<T>, item -> {
-            case item {
+    pub fn values<T>(maybes: Iter<Maybe<T>>) -> List<T>
+        reversed = Iter.reduce(maybes, [], fn acc: List<T>, item ->
+            case item
                 Some(v) -> [v, ..acc]
                 None -> acc
-            }
-        })
+            end
+        end)
 
         Iter.reverse(reversed)
-    }
-}
+    end
+end
 
-impl Iter for Maybe<T> {
+impl Iter for Maybe<T>
     /// A `Maybe` iterates as zero or one elements: `Some(x)` pushes `x` to
     /// `yield`, and `None` pushes nothing. So a `Maybe` goes wherever an
     /// `Iter` does, as in `Iter.concat(lines, reaction)` or a `flat_map`
@@ -266,30 +262,30 @@ impl Iter for Maybe<T> {
     //! assert Iter.concat(["a"], Maybe.Some("b")) |> Iter.to_list() == ["a", "b"]
     //!
     //! assert [1, 2, 3]
-    //! |> Iter.flat_map(fn n -> {
-    //!     if n % 2 == 1 {
+    //! |> Iter.flat_map(fn n ->
+    //!     if n % 2 == 1 then
     //!         Maybe.Some(n * 10)
-    //!     } else {
+    //!     else
     //!         Maybe.None
-    //!     }
-    //! })
+    //!     end
+    //! end)
     //! |> Iter.to_list() == [10, 30]
     //
-    fn each_while(maybe: Maybe<T>, yield: (T) -> Bool) -> Bool {
-        case maybe {
+    fn each_while(maybe: Maybe<T>, yield: (T) -> Bool) -> Bool
+        case maybe
             Some(v) -> yield(v)
             None -> True
-        }
-    }
+        end
+    end
 
     // A Maybe holds zero or one element, so its count is known.
-    fn known_count(maybe: Maybe<T>) -> Maybe<Int> {
-        case maybe {
+    fn known_count(maybe: Maybe<T>) -> Maybe<Int>
+        case maybe
             Some(_) -> Maybe.Some(1)
             None -> Maybe.Some(0)
-        }
-    }
-}
+        end
+    end
+end
 
 derive Display for Maybe<T>
 derive Equatable for Maybe<T>

@@ -12,25 +12,25 @@ func TestIRStdGenericStructWidened_Runs(t *testing.T) {
 	const src = `import std::io
 import std::io.Captured
 
-struct Circle {
+struct Circle
     r: Int
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Dot
-}
+end
 
-fn main() {
+fn main()
     c = Circle{r: 2}
     w: Captured<Shape> = Captured{value: c, output: "", errors: "", transcript: ""}
     io.inspect(w)
-    k: Vector<Captured<Shape>> = #[Captured{value: c, output: "", errors: "", transcript: ""}]
+    k: Vector<Captured<Shape>> = Vector[Captured{value: c, output: "", errors: "", transcript: ""}]
     io.print(Vector.length(k))
     ka = Captured{value: c, output: "", errors: "", transcript: ""}
     kb = Captured{value: Shape.Dot, output: "", errors: "", transcript: ""}
-    io.print(Vector.length(#[ka, kb]))
-}
+    io.print(Vector.length(Vector[ka, kb]))
+end
 `
 	irRunSource(t, src, "Captured{value: Circle{r: 2}, output: \"\", errors: \"\", transcript: \"\"}\n1\n2\n")
 }

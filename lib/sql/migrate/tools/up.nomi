@@ -1,30 +1,30 @@
 // `nomi tool migrate up [--dir db/migrations] [--url URL]`: apply the
 // migrations in the directory that the database has not run, and print each
 // one it ran. The URL defaults to $DATABASE_URL.
-import {
+import
     std::io
     std::sql
     migrate
     migrate::tools::internal::cli.{self, Options}
-}
+end
 
-struct App {
+struct App
     options: Options
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
     Ok(App{options: cli.options("up", startup.args, startup.env)?})
-}
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     db = cli.open(App.options.url) |> Result.map_err(fn e -> "${e}")?
     defer sql.close_quietly(db)
     ran = migrate.up(db, App.options.dir) |> Result.map_err(fn e -> "${e}")?
 
-    case ran {
+    case ran
         [] -> io.print("up to date: nothing to apply")
         _ -> Iter.each(ran, fn version -> io.print("applied ${version}"))
-    }
+    end
 
     Ok(Unit)
-}
+end

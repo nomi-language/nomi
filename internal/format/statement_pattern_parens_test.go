@@ -16,22 +16,22 @@ import (
 // statement the parser reads.
 func TestFormat_StatementPatternKeepsTheParenthesesItsParseNeeds(t *testing.T) {
 	cases := []struct{ src, want string }{
-		{"fn main() {\n    (A(a)) = 0\n}\n", "fn main() {\n    (A(a)) = 0\n}\n"},
-		{"fn main() {\n    ((A((a)))) = 0\n}\n", "fn main() {\n    (A(a)) = 0\n}\n"},
-		{"fn main() {\n    (A(_)) = 0\n}\n", "fn main() {\n    (A(_)) = 0\n}\n"},
-		{"fn main() {\n    (m.A(a)) = 0\n}\n", "fn main() {\n    (m.A(a)) = 0\n}\n"},
-		{"fn main() {\n    (A.B(a)) = 0\n}\n", "fn main() {\n    (A.B(a)) = 0\n}\n"},
-		{"fn main() {\n    ((a, b)) = t\n}\n", "fn main() {\n    ((a, b)) = t\n}\n"},
-		{"fn main() {\n    ((a, (b), _)) = t\n}\n", "fn main() {\n    ((a, b, _)) = t\n}\n"},
-		{"fn main() {\n    (.{x}) = p\n}\n", "fn main() {\n    (.{x}) = p\n}\n"},
-		{"fn main() {\n    (.{x: (n), y}) = p\n}\n", "fn main() {\n    (.{x: n, y}) = p\n}\n"},
+		{"fn main()\n    (A(a)) = 0\nend\n", "fn main()\n    (A(a)) = 0\nend\n"},
+		{"fn main()\n    ((A((a)))) = 0\nend\n", "fn main()\n    (A(a)) = 0\nend\n"},
+		{"fn main()\n    (A(_)) = 0\nend\n", "fn main()\n    (A(_)) = 0\nend\n"},
+		{"fn main()\n    (m.A(a)) = 0\nend\n", "fn main()\n    (m.A(a)) = 0\nend\n"},
+		{"fn main()\n    (A.B(a)) = 0\nend\n", "fn main()\n    (A.B(a)) = 0\nend\n"},
+		{"fn main()\n    ((a, b)) = t\nend\n", "fn main()\n    ((a, b)) = t\nend\n"},
+		{"fn main()\n    ((a, (b), _)) = t\nend\n", "fn main()\n    ((a, b, _)) = t\nend\n"},
+		{"fn main()\n    ({x:}) = p\nend\n", "fn main()\n    ({x:}) = p\nend\n"},
+		{"fn main()\n    ({x: (n), y:}) = p\nend\n", "fn main()\n    ({x: n, y:}) = p\nend\n"},
 		// Inside a block that is a value.
-		{"{((a,a))=\"\"}", "{ ((a, a)) = \"\" }\n"},
+		{"begin\n((a,a))=\"\"\nend", "begin\n    ((a, a)) = \"\"\nend\n"},
 		// A comment inside the pattern breaks it inside the parentheses.
-		{"{((//\na,a))=\"\"}", "{ ((\n    //\n    a,\n    a\n)) = \"\" }\n"},
-		{"{((a, // c\na))=\"\"}", "{ ((\n    a, // c\n    a\n)) = \"\" }\n"},
-		{"{(A(// c\na))=\"\"}", "{ (A(\n    // c\n    a\n)) = \"\" }\n"},
-		{"{((.{// c\nx})) = p}", "{ (.{\n    // c\n    x,\n}) = p }\n"},
+		{"begin\n((//\na,a))=\"\"\nend", "begin\n    ((\n        //\n        a,\n        a\n    )) = \"\"\nend\n"},
+		{"begin\n((a, // c\na))=\"\"\nend", "begin\n    ((\n        a, // c\n        a\n    )) = \"\"\nend\n"},
+		{"begin\n(A(// c\na))=\"\"\nend", "begin\n    (A(\n        // c\n        a\n    )) = \"\"\nend\n"},
+		{"begin\n(({// c\nx:})) = p\nend", "begin\n    ({\n        // c\n        x:,\n    }) = p\nend\n"},
 	}
 	for _, c := range cases {
 		formatsKeepingMeaning(t, c.src, c.want)
@@ -48,19 +48,19 @@ func TestFormat_StatementPatternKeepsTheParenthesesItsParseNeeds(t *testing.T) {
 // alone, which is the plain binding.
 func TestFormat_StatementPatternDropsParenthesesItsParseDoesNotNeed(t *testing.T) {
 	cases := []struct{ src, want string }{
-		{"fn main() {\n    ((a, A(b))) = t\n}\n", "fn main() {\n    (a, A(b)) = t\n}\n"},
-		{"fn main() {\n    (A(a, b)) = t\n}\n", "fn main() {\n    A(a, b) = t\n}\n"},
-		{"fn main() {\n    (.Some(a)) = t\n}\n", "fn main() {\n    .Some(a) = t\n}\n"},
-		{"fn main() {\n    (P{x}) = t\n}\n", "fn main() {\n    P{x} = t\n}\n"},
-		{"fn main() {\n    (.{x: _}) = t\n}\n", "fn main() {\n    .{x: _} = t\n}\n"},
-		{"fn main() {\n    (%{\"k\" => A(a)}) = t\n}\n", "fn main() {\n    %{\"k\" => A(a)} = t\n}\n"},
-		{"fn main() {\n    (%{\"k\" => v}) = m\n}\n", "fn main() {\n    %{\"k\" => v} = m\n}\n"},
-		{"fn main() {\n    (%{\"k\" => _}) = m\n}\n", "fn main() {\n    %{\"k\" => _} = m\n}\n"},
-		{"fn main() {\n    (A(a) as b) = t\n}\n", "fn main() {\n    A(a) as b = t\n}\n"},
-		{"fn main() {\n    (A(a)) = t else { return }\n}\n", "fn main() {\n    A(a) = t else { return }\n}\n"},
-		{"fn main() {\n    ((a, b)) = t else { return }\n}\n", "fn main() {\n    (a, b) = t else { return }\n}\n"},
-		{"fn main() {\n    ((a)) = t\n}\n", "fn main() {\n    a = t\n}\n"},
-		{"fn main() {\n    (_) = t\n}\n", "fn main() {\n    _ = t\n}\n"},
+		{"fn main()\n    ((a, A(b))) = t\nend\n", "fn main()\n    (a, A(b)) = t\nend\n"},
+		{"fn main()\n    (A(a, b)) = t\nend\n", "fn main()\n    A(a, b) = t\nend\n"},
+		{"fn main()\n    (.Some(a)) = t\nend\n", "fn main()\n    .Some(a) = t\nend\n"},
+		{"fn main()\n    (P{x:}) = t\nend\n", "fn main()\n    P{x:} = t\nend\n"},
+		{"fn main()\n    ({x: _}) = t\nend\n", "fn main()\n    {x: _} = t\nend\n"},
+		{"fn main()\n    ({\"k\" => A(a)}) = t\nend\n", "fn main()\n    {\"k\" => A(a)} = t\nend\n"},
+		{"fn main()\n    ({\"k\" => v}) = m\nend\n", "fn main()\n    {\"k\" => v} = m\nend\n"},
+		{"fn main()\n    ({\"k\" => _}) = m\nend\n", "fn main()\n    {\"k\" => _} = m\nend\n"},
+		{"fn main()\n    (A(a) as b) = t\nend\n", "fn main()\n    A(a) as b = t\nend\n"},
+		{"fn main()\n    (A(a)) = t else return\nend\n", "fn main()\n    A(a) = t else return\nend\n"},
+		{"fn main()\n    ((a, b)) = t else return\nend\n", "fn main()\n    (a, b) = t else return\nend\n"},
+		{"fn main()\n    ((a)) = t\nend\n", "fn main()\n    a = t\nend\n"},
+		{"fn main()\n    (_) = t\nend\n", "fn main()\n    _ = t\nend\n"},
 	}
 	for _, c := range cases {
 		formatsKeepingMeaning(t, c.src, c.want)

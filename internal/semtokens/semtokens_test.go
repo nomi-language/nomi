@@ -17,9 +17,9 @@ func TestCollect_ForeignAliasDefinitionsAndImplReferences(t *testing.T) {
 
 pub opaque type Box go ffi.Box
 
-impl Box {
+impl Box
   fn echo(value: String) -> String go ffi.Echo
-}
+end
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
@@ -48,19 +48,19 @@ impl Box {
 // Collect should color the interface and receiver names in an impl header, not
 // repaint the `impl` keyword itself as either type.
 func TestCollect_NoTokenAtImplKeyword(t *testing.T) {
-	src := `interface Speech {
+	src := `interface Speech
   fn speak(s: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
   name: String
-}
+end
 
-impl Speech for Dog {
-  fn speak(d: Dog) -> String {
+impl Speech for Dog
+  fn speak(d: Dog) -> String
     d.name
-  }
-}
+  end
+end
 
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
@@ -94,19 +94,19 @@ impl Speech for Dog {
 // `impl Iface for Type { ... }` block resolves as a type reference and gets an
 // "interface" semantic token.
 func TestCollect_InterfaceTokenAtImplHeader(t *testing.T) {
-	src := `interface Speech {
+	src := `interface Speech
   fn speak(s: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
   name: String
-}
+end
 
-impl Speech for Dog {
-  fn speak(d: Dog) -> String {
+impl Speech for Dog
+  fn speak(d: Dog) -> String
     d.name
-  }
-}
+  end
+end
 
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
@@ -131,10 +131,10 @@ impl Speech for Dog {
 }
 
 func TestCollect_DiscardBindersDoNotEmitSemanticTokens(t *testing.T) {
-	src := `fn ignore(_param: Int) -> Int {
+	src := `fn ignore(_param: Int) -> Int
   _count = 5
   0
-}
+end
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
@@ -160,13 +160,13 @@ func TestCollect_DiscardBindersDoNotEmitSemanticTokens(t *testing.T) {
 }
 
 func TestCollect_FieldsDoNotEmitSemanticTokens(t *testing.T) {
-	src := `struct Point {
+	src := `struct Point
   x: Int
-}
+end
 
-fn read(p: Point) -> Int {
+fn read(p: Point) -> Int
   p.x
-}
+end
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
@@ -189,10 +189,10 @@ fn read(p: Point) -> Int {
 func TestCollect_QualifiedTypeSegmentsUseSourceSpan(t *testing.T) {
 	src := `import std::json: FromJson, Json, ToJson
 
-struct User {
+struct User
   first_name: String
   age: Int
-}
+end
 
 derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}
 derive FromJson for User with FromJson.Options{rename_all: Json.Case.Camel}
@@ -235,9 +235,9 @@ derive FromJson for User with FromJson.Options{rename_all: Json.Case.Camel}
 }
 
 func TestCollect_ParamsUseParameterTokenType(t *testing.T) {
-	src := `fn add_base(n: Int) -> Int {
+	src := `fn add_base(n: Int) -> Int
   n + 1
-}
+end
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
@@ -269,14 +269,14 @@ func TestCollect_ParamsUseParameterTokenType(t *testing.T) {
 }
 
 func TestCollect_NestedFunctionParamsUseParameterTokenType(t *testing.T) {
-	src := `test "nested params" {
+	src := `test "nested params"
   base = 100
-  fn add_base(n: Int) -> Int {
+  fn add_base(n: Int) -> Int
     n + base
-  }
+  end
 
   assert add_base(5) == 105
-}
+end
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
@@ -303,12 +303,12 @@ func TestCollect_NestedFunctionParamsUseParameterTokenType(t *testing.T) {
 }
 
 func TestCollect_ImportPathSegmentsDoNotEmitSemanticTokens(t *testing.T) {
-	src := `import {
+	src := `import
   std::defer: Defer
   std::structs: Struct
   std::type: Type
   std::lists: List
-}
+end
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
@@ -366,18 +366,18 @@ pub fn escape_query(value: String) -> String go urltools.EscapeQuery
 }
 
 func TestCollect_SelectiveStdEnumImportEmitsEnumToken(t *testing.T) {
-	src := `import {
+	src := `import
   std::channels.{self, Channel}
   std::context.{self, Context as Ctx}
   std::iter.Iter
   std::supervisors.{self, Restart}
   std::testing.Clock
-}
+end
 
-fn main() {
+fn main()
   _ = Restart.Permanent
   Unit
-}
+end
 `
 	fa := highlight.Analyze(src, std.Load())
 	if fa == nil {
@@ -400,23 +400,26 @@ fn main() {
 }
 
 func TestCollect_HoverOnlyKeywordMarkersDoNotEmitSemanticTokens(t *testing.T) {
-	src := `enum Result<T, E> { Ok T; Err E }
+	src := `enum Result<T, E>
+    Ok T
+    Err E
+end
 host type AssertionFailure
 
-fn parse() -> Result<Int, String> {
+fn parse() -> Result<Int, String>
   Result.Ok(42)
-}
+end
 
-group "numbers" {
-  setup {
+group "numbers"
+  setup begin
     42
-  }
+  end
 
-  test "uses setup", value {
+  test "uses setup", value
     parsed = parse()?
     assert parsed == value
-  }
-}
+  end
+end
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
@@ -442,21 +445,21 @@ group "numbers" {
 }
 
 func TestCollect_MultilineTestContextBindingsUseTheirOwnLines(t *testing.T) {
-	src := `group "setup semantics" {
-  setup {
-    .{inherited: "parent", value: "child", child_only: "ready"}
-  }
+	src := `group "setup semantics"
+  setup begin
+    {inherited: "parent", value: "child", child_only: "ready"}
+  end
 
-  test "setup binds its record", .{
-    inherited,
-    value,
-    child_only,
-  } {
+  test "setup binds its record", {
+    inherited:,
+    value:,
+    child_only:,
+  }
     assert inherited == "parent"
     assert value == "child"
     assert child_only == "ready"
-  }
-}
+  end
+end
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
@@ -498,10 +501,10 @@ func TestCollect_EmbedsVariantNameSingleTypeToken(t *testing.T) {
 
 pub host type False
 
-pub enum Bool {
+pub enum Bool
   embeds True
   embeds False
-}`
+end`
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
@@ -532,9 +535,9 @@ pub enum Bool {
 // lines of a multi-line test included, and not the `//` line between two
 // groups, the declarations, or their bodies.
 func TestAttachedTestLines_CoversEveryPromptLineAndNothingElse(t *testing.T) {
-	src := `struct Label {
+	src := `struct Label
   text: String
-}
+end
 
 //! assert ready() == 1
 //
@@ -542,16 +545,16 @@ func TestAttachedTestLines_CoversEveryPromptLineAndNothingElse(t *testing.T) {
 //!   |> Iter.map(fn x -> x + ready())
 //!   |> Iter.to_list()
 //! assert xs == [2, 3]
-fn ready() -> Int {
+fn ready() -> Int
   1
-}
+end
 
-impl Label {
+impl Label
   //! assert Label.wrap("x").text == "[x]"
-  fn wrap(text: String) -> Label {
+  fn wrap(text: String) -> Label
     Label{text: "[${text}]"}
-  }
-}
+  end
+end
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
@@ -570,29 +573,29 @@ impl Label {
 // token its written `Enum.Variant` gets, whether its enum is the file's
 // own, block-local, or a std enum the file never names.
 func TestCollect_DotVariantShorthandIsAnEnumMember(t *testing.T) {
-	src := `enum Color {
+	src := `enum Color
     Red
     Green
-}
+end
 
-fn paint(c: Color) -> Int {
-    case c {
+fn paint(c: Color) -> Int
+    case c
         .Red -> 1
         .Green -> 2
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     _a = paint(.Red)
     _b = Iter.sort([3, 1, 2], .Descending)
-    enum Local {
+    enum Local
         One
         Two
-    }
+    end
     pick = fn l: Local -> l
     _c = pick(.Two)
     _d = paint(Color.Red)
-}
+end
 `
 	fa := highlight.Analyze(src, std.Load())
 	if fa == nil {

@@ -2,7 +2,7 @@
 // them. The parts join in the order written; in a map a later key wins and
 // keeps the earlier key's place. A spread in a list, vector or set may be
 // any Iter of its elements; a map spread is a map.
-test "a list spread goes first, between elements, last, or several times" {
+test "a list spread goes first, between elements, last, or several times"
     xs = [2, 3]
     ys = [7, 8]
 
@@ -12,83 +12,83 @@ test "a list spread goes first, between elements, last, or several times" {
     assert [..xs, ..ys] == [2, 3, 7, 8]
     assert [0, ..xs, 5, ..ys, 9] == [0, 2, 3, 5, 7, 8, 9]
     assert [..[], 1, ..xs] == [1, 2, 3]
-}
+end
 
-test "a vector spread goes first, between elements, last, or several times" {
-    v = #[2, 3]
-    w = #[7, 8]
+test "a vector spread goes first, between elements, last, or several times"
+    v = Vector[2, 3]
+    w = Vector[7, 8]
 
-    assert #[..v, 4] == #[2, 3, 4]
-    assert #[1, ..v, 4] == #[1, 2, 3, 4]
-    assert #[1, ..v] == #[1, 2, 3]
-    assert #[..v, ..w] == #[2, 3, 7, 8]
-    assert #[0, ..v, 5, ..w, 9] == #[0, 2, 3, 5, 7, 8, 9]
-}
+    assert [..v, 4] == [2, 3, 4]
+    assert [1, ..v, 4] == [1, 2, 3, 4]
+    assert [1, ..v] == [1, 2, 3]
+    assert [..v, ..w] == [2, 3, 7, 8]
+    assert [0, ..v, 5, ..w, 9] == [0, 2, 3, 5, 7, 8, 9]
+end
 
-test "a set spread goes first, between elements, last, or several times" {
-    s = %[2, 3]
-    t = %[3, 7]
+test "a set spread goes first, between elements, last, or several times"
+    s = Set[2, 3]
+    t = Set[3, 7]
 
-    assert Iter.to_list(%[..s, 4]) == [2, 3, 4]
-    assert Iter.to_list(%[1, ..s, 4]) == [1, 2, 3, 4]
-    assert Iter.to_list(%[1, ..s]) == [1, 2, 3]
-    assert Iter.to_list(%[..s, ..t]) == [2, 3, 7]
-    assert Iter.to_list(%[0, ..s, 5, ..t, 9]) == [0, 2, 3, 5, 7, 9]
-}
+    assert Iter.to_list(Set[..s, 4]) == [2, 3, 4]
+    assert Iter.to_list(Set[1, ..s, 4]) == [1, 2, 3, 4]
+    assert Iter.to_list(Set[1, ..s]) == [1, 2, 3]
+    assert Iter.to_list(Set[..s, ..t]) == [2, 3, 7]
+    assert Iter.to_list(Set[0, ..s, 5, ..t, 9]) == [0, 2, 3, 5, 7, 9]
+end
 
-test "a map spread goes first, between entries, last, or several times" {
-    m = %{"a" => 1, "b" => 2}
-    n = %{"c" => 3}
+test "a map spread goes first, between entries, last, or several times"
+    m = {"a" => 1, "b" => 2}
+    n = {"c" => 3}
 
-    assert Iter.to_list(%{..m, "c" => 3}) == [("a", 1), ("b", 2), ("c", 3)]
-    assert Iter.to_list(%{"x" => 0, ..m, "y" => 9}) == [("x", 0), ("a", 1), ("b", 2), ("y", 9)]
-    assert Iter.to_list(%{"x" => 0, ..m}) == [("x", 0), ("a", 1), ("b", 2)]
-    assert Iter.to_list(%{..m, ..n}) == [("a", 1), ("b", 2), ("c", 3)]
-}
+    assert Iter.to_list({..m, "c" => 3}) == [("a", 1), ("b", 2), ("c", 3)]
+    assert Iter.to_list({"x" => 0, ..m, "y" => 9}) == [("x", 0), ("a", 1), ("b", 2), ("y", 9)]
+    assert Iter.to_list({"x" => 0, ..m}) == [("x", 0), ("a", 1), ("b", 2)]
+    assert Iter.to_list({..m, ..n}) == [("a", 1), ("b", 2), ("c", 3)]
+end
 
-test "a repeated map key takes the later value and keeps the first place" {
-    m = %{"a" => 1, "b" => 2}
-    n = %{"b" => 20, "c" => 30}
+test "a repeated map key takes the later value and keeps the first place"
+    m = {"a" => 1, "b" => 2}
+    n = {"b" => 20, "c" => 30}
 
-    assert Iter.to_list(%{..m, "b" => 0}) == [("a", 1), ("b", 0)]
-    assert Iter.to_list(%{"b" => 0, ..m}) == [("b", 2), ("a", 1)]
-    assert Iter.to_list(%{..m, ..n}) == [("a", 1), ("b", 20), ("c", 30)]
-    assert Iter.to_list(%{..n, ..m}) == [("b", 2), ("c", 30), ("a", 1)]
-}
+    assert Iter.to_list({..m, "b" => 0}) == [("a", 1), ("b", 0)]
+    assert Iter.to_list({"b" => 0, ..m}) == [("b", 2), ("a", 1)]
+    assert Iter.to_list({..m, ..n}) == [("a", 1), ("b", 20), ("c", 30)]
+    assert Iter.to_list({..n, ..m}) == [("b", 2), ("c", 30), ("a", 1)]
+end
 
-struct Team {
+struct Team
     members: List<String>
     scores: Map<String, Map<String, Int>>
-}
+end
 
-test "a bare spread stands anywhere, and a map entry after spreads updates what they hold" {
+test "a bare spread stands anywhere, and a map entry after spreads updates what they hold"
     team = Team{
         members: ["Bo"],
-        scores: %{"ada" => %{"q1" => 5}},
+        scores: {"ada" => {"q1" => 5}},
     }
 
-    extra = %{"ada" => %{"q2" => 7}, "cy" => %{"q1" => 1}}
+    extra = {"ada" => {"q2" => 7}, "cy" => {"q1" => 1}}
 
-    updated = .{
+    updated = {
         ..team,
         members: ["Ada", .., "Cy"],
-        scores: %{"bo" => %{"q1" => 2}, .., ..extra, "ada" => %{.., "q3" => 9}},
+        scores: {"bo" => {"q1" => 2}, .., ..extra, "ada" => {.., "q3" => 9}},
     }
 
     assert updated.members == ["Ada", "Bo", "Cy"]
 
     assert Iter.to_list(updated.scores) == [
-        ("bo", %{"q1" => 2}),
-        ("ada", %{"q2" => 7, "q3" => 9}),
-        ("cy", %{"q1" => 1}),
+        ("bo", {"q1" => 2}),
+        ("ada", {"q2" => 7, "q3" => 9}),
+        ("cy", {"q1" => 1}),
     ]
-}
+end
 
-fn evens(xs: List<Int>) -> Iter<Int> {
+fn evens(xs: List<Int>) -> Iter<Int>
     xs |> Iter.filter(fn x -> x % 2 == 0)
-}
+end
 
-test "a list spread takes any Iter of its elements: a Maybe, an Iter chain, a Set" {
+test "a list spread takes any Iter of its elements: a Maybe, an Iter chain, a Set"
     some_line: Maybe<String> = Some("b")
     no_line: Maybe<String> = None
     shouted = ["c", "d"] |> Iter.map(fn w -> w + "!")
@@ -97,25 +97,25 @@ test "a list spread takes any Iter of its elements: a Maybe, an Iter chain, a Se
     assert ["a", ..some_line] == ["a", "b"]
     assert [..no_line, "z"] == ["z"]
     assert [0, ..evens([1, 2, 3, 4]), 5] == [0, 2, 4, 5]
-    assert [0, ..%[3, 1], 7] == [0, 3, 1, 7]
+    assert [0, ..Set[3, 1], 7] == [0, 3, 1, 7]
     assert [..(1..4)] == [1, 2, 3]
-}
+end
 
-test "a vector spread takes any Iter of its elements" {
+test "a vector spread takes any Iter of its elements"
     some_n: Maybe<Int> = Some(1)
 
-    assert #[0, ..some_n] == #[0, 1]
-    assert #[..evens([2, 3, 4]), 9, ..some_n] == #[2, 4, 9, 1]
-    assert #[..evens([2, 4])] == #[2, 4]
-    assert #[..[5, 6], 7] == #[5, 6, 7]
-    assert #[..%[8], ..#[9]] == #[8, 9]
-}
+    assert Vector[0, ..some_n] == [0, 1]
+    assert Vector[..evens([2, 3, 4]), 9, ..some_n] == [2, 4, 9, 1]
+    assert [..evens([2, 4])] == Vector[2, 4]
+    assert Vector[..[5, 6], 7] == [5, 6, 7]
+    assert [..Set[8], ..[9]] == Vector[8, 9]
+end
 
-test "a set spread takes any Iter of its elements" {
+test "a set spread takes any Iter of its elements"
     some_n: Maybe<Int> = Some(4)
 
-    assert Iter.to_list(%[0, ..some_n, ..evens([4, 6, 7])]) == [0, 4, 6]
-    assert Iter.to_list(%[..[1, 2, 2], 3]) == [1, 2, 3]
-    assert Iter.to_list(%[..some_n]) == [4]
-    assert Iter.to_list(%[..%[1], ..[1, 5]]) == [1, 5]
-}
+    assert Iter.to_list(Set[0, ..some_n, ..evens([4, 6, 7])]) == [0, 4, 6]
+    assert Iter.to_list(Set[..[1, 2, 2], 3]) == [1, 2, 3]
+    assert Iter.to_list(Set[..some_n]) == [4]
+    assert Iter.to_list(Set[..Set[1], ..[1, 5]]) == [1, 5]
+end

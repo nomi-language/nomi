@@ -29,9 +29,9 @@
 // share one surface syntax, so they share one width rule. The break decision
 // is made at the braces, not at the enclosing list, so a long parameter
 // annotation breaks its own anonymous struct rather than the parameter list,
-// and `Map<String, List<.{...}>>` keeps the outer containers inline. The
+// and `Map<String, List<{...}>>` keeps the outer containers inline. The
 // exception is an anonymous struct in a function type's parameter list
-// (`(.{...}) -> R`): the whole signature including `-> R` is fit-checked as
+// (`({...}) -> R`): the whole signature including `-> R` is fit-checked as
 // one unit, so a too-long signature breaks at the parameter list and the
 // struct sits flat at the inner indent.
 //
@@ -59,12 +59,15 @@
 //
 // Some layouts do not depend on width or on how the source was written:
 //
-//   - A `fn` body is always written across lines, as gofmt, Prettier and
-//     rustfmt write one: `fn add(x: Int, y: Int) -> Int` then `x + y` on
-//     its own line. An empty body stays `{}`. This holds for top-level
-//     functions, impl functions and interface defaults; an expression block
-//     such as `if c { x }` keeps its one-line form (see "One-line if and
-//     binding else").
+//   - A body is written below its header and closed by `end`
+//     (emitDocsBlockForceBroken): `fn add(x: Int, y: Int) -> Int`, then
+//     `x + y` on its own line, then `end`. An empty body is ` end` on the
+//     header's line: `fn noop() end`, `impl Marker for P end`. This holds
+//     for functions, declarations' members, `begin` blocks and every body
+//     a header opens; an `if` keeps its inline form when it fits (see
+//     "One-line if and binding else").
+//   - A blank line above a body's first statement goes, as none could
+//     follow a `{`; a `//!` prompt's body keeps its own.
 //   - A block of several statements puts each on its own line:
 //     `a = 1; b = 2` becomes two lines.
 //   - A tail `return value` becomes `value` (stripTailReturns).
@@ -82,27 +85,33 @@
 //
 // # One-line if and binding else
 //
+// The inline forms are `if c then a else b` and `Pattern = e else value`.
 // A one-line guard or binding `else` is limited only by the 100-column line,
 // its indentation and the rest of the line, so a run of guards reads as a
 // run of one-line statements. A plain two-branch `if`/`else` also has a
 // 50-column limit (singleLineValueIfMaxWidth), like rustfmt's
 // single_line_if_else_max_width. A form holding a forced break (a `case`,
-// a block of several statements, a stacked pipe) is never one line.
+// a block of several statements, a stacked pipe) is never one line, and
+// neither is an `else if` chain. An inline `if`'s `else` branch extends as
+// far right as it can, so an inline `if` that a binary operator or a pipe
+// stage follows goes in parentheses (emitIfParens), and an `if` stage that
+// another stage follows is written in block form.
 //
 // # Case arms
 //
-// A `case` always breaks, one arm per line, and each arm is laid out on its
-// own (emitCaseArms): one that fits as `<pattern> -> <body>` stays on its
-// line, and one that does not, or whose body is a block, a triple-quoted
-// literal or holds a forced break such as a stacked pipeline, breaks. So a
-// `case` of short arms can end in a four-stage pipeline written one stage
-// per line without moving the short arms' bodies below their `->`. A broken
-// arm has a blank line before and after it, the rule for a statement that
-// spans lines in a block: arms that all fit sit on consecutive lines, and
-// arms that all break have a blank line between every two. A binding `else`
-// with arms uses the same layout. An `if`/`else` chain differs: its branches
-// are braced blocks joined by `} else {`, so one broken branch breaks them
-// all, as gofmt and rustfmt write them.
+// A `case` always breaks, one arm per line, and its arms share one layout
+// (emitCaseArms). When every arm fits as `<pattern> -> <body>` and no body
+// is a block or a triple-quoted literal, the arms sit on consecutive lines.
+// When any arm needs more than one line (a block body, a triple-quoted
+// body, a body holding a forced break such as a stacked pipeline, a body too
+// wide, a jump carrying its own comment), every arm moves its body below its
+// `->`, with a blank line between every two arms. A comment between the last
+// arm and the `end` then sits at the bodies' indent, since the parser reads
+// the lines below an `->` up to the `end` as that arm's body. A binding
+// `else` with arms uses the same layout. This is intentional: the arms of
+// one `case` always read as one table, so a reader never meets a short arm
+// laid out differently from its neighbours. Do not make arms break one at a
+// time.
 //
 // # A line break after a literal's opening bracket
 //
@@ -111,17 +120,17 @@
 // deleting one line break. The parser records the opening bracket's line on
 // each literal, and the formatter compares it with its first element's
 // line, so the rule needs no flag. The broken form puts the first element
-// below the bracket, so the next format finds the same break. A list with a
-// spread, a pattern with `..`, and every other bracketed form (call
-// arguments, parameter lists, type argument lists, pipes) are laid out by
-// width.
+// below the bracket, so the next format finds the same break. Every bracket
+// and brace literal follows it, a list with a spread among them. A pattern
+// with `..` and every other bracketed form (call arguments, parameter
+// lists, type argument lists, pipes) are laid out by width.
 //
-// A lambda body in braces follows the same rule. The parser builds one tree
-// for `fn x -> { e }` and `fn x -> e` and records only the `{` line and the
-// first statement's line, so braces the formatter adds stay on later runs,
-// even after the body shrinks to fit. A body that does not fit goes below
-// the parameters as a braced block, as rustfmt writes a closure, wherever
-// the lambda stands.
+// A lambda body below its `->` follows the same rule: the parser gives a body
+// closed by `end` an EndLine, and a one-line body none, so a body the
+// formatter moves below the parameters stays there on later runs, even
+// after it shrinks to fit. A body that does not fit goes below the
+// parameters, closed by `end`, as rustfmt writes a closure in a block,
+// wherever the lambda stands.
 //
 // # Filled literal lists
 //
@@ -150,7 +159,10 @@
 // # Compound depth
 //
 // Each list, vector, set, map or struct literal or pattern adds a level
-// (compoundDepth). A call, an enum pattern's payload, a tuple, an `as` or
+// (compoundDepth), except an unnamed list literal with a spread
+// (`[head, ..tail]`): cons-shaped and conventionally short, it adds none and
+// passes none through, so `Zipper{focus: f, path: [.Up{v:}, ..path]}` stays
+// on one line when it fits. A call, an enum pattern's payload, a tuple, an `as` or
 // `or` pattern and parentheses add none but pass their contents' depth
 // through. Only the literal or pattern that reaches maxCompoundDepth (three)
 // levels breaks for it; its elements are laid out on their own merits, so a
@@ -169,7 +181,7 @@
 // its layout.
 //
 // Most other comments are trivia on their construct: a statement's leading
-// and trailing comments, the comments before a closing `}`, a struct
+// and trailing comments, the comments before a closing `}` or `end`, a struct
 // field's leading comments. A comment with no slot of its own (after a
 // `with` statement's `=`, after a spread's `..`, inside a pattern's
 // parentheses) goes to the nearest node: inside the innermost node

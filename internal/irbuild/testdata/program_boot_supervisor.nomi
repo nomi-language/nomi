@@ -16,34 +16,34 @@
 //
 // The VM enters that window for the boot call itself, so a supervisor built
 // by a function boot calls is inside it too.
-import {
+import
     std::duration.Duration
     std::io
     std::supervisors.Supervisor
-}
+end
 
-pub struct BootApp {
+pub struct BootApp
     context: Context
 
     audit: Supervisor
     label: String = "staged"
     tier: Int = 7
-}
+end
 
 // build is called BY boot and creates the supervisor, so the window this
 // exercises is the temporal one rather than the lexical one.
-fn build(context: Context) -> BootApp {
+fn build(context: Context) -> BootApp
     BootApp{
-        context,
+        context:,
         audit: Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 2),
     }
-}
+end
 
-fn boot() -> Result<BootApp, String> {
+fn boot() -> Result<BootApp, String>
     Ok(build(Context.root()))
-}
+end
 
-fn main() {
+fn main()
     io.print("label=${BootApp.label}")
     io.print("tier=${BootApp.tier}")
-}
+end

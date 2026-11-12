@@ -132,7 +132,7 @@ func TestStdlibInstantiationsAreWrittenAndDistinct(t *testing.T) {
 func stdlibProjectImplIndex(t *testing.T) *analysis.ProjectImplIndex {
 	t.Helper()
 	lib := loadStd()
-	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex("fn main() {}"))
+	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex("fn main() end"))
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		return nil, nil
 	}

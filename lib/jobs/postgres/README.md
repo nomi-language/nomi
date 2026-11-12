@@ -14,56 +14,56 @@ A job is enqueued in the same transaction as the write it follows, and a
 worker started in `main` runs it:
 
 ```nomi
-import {
+import
     std::io
     std::jobs.{self, Failure, Job, Queue, Worker}
     std::json.{FromJson, ToJson}
     std::sql.{self, Conn, Sql}
     pgjobs
     postgres
-}
+end
 
-pub struct App {
+pub struct App
     context: Context
     db: Conn
     queue: Queue
     worker: Worker
-}
+end
 
-pub struct NotifyArgs {
+pub struct NotifyArgs
     post_id: Int
-}
+end
 
 derive ToJson for NotifyArgs
 derive FromJson for NotifyArgs
 
 once notify_job = Job.new("notify", notify)
 
-fn notify(args: NotifyArgs) -> Result<Unit, Failure> {
+fn notify(args: NotifyArgs) -> Result<Unit, Failure>
     io.print("post ${args.post_id} published")
     Ok(Unit)
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
     url = "postgres://localhost/app"
     db = postgres.pool(url)
     pgjobs.install(db) |> Result.map_err(fn e -> "${e}")?
     queue = pgjobs.queue(db, url) |> Result.map_err(fn e -> "${e}")?
-    Ok(App{context: Context.root(), db, queue, worker: Worker.new(queue, max_running: 4)})
-}
+    Ok(App{context: Context.root(), db:, queue:, worker: Worker.new(queue, max_running: 4)})
+end
 
-fn publish(post_id: Int) -> Result<Unit, sql.Error> {
-    sql.transaction(App.db, fn tx -> {
+fn publish(post_id: Int) -> Result<Unit, sql.Error>
+    sql.transaction(App.db, fn tx ->
         _ = Conn.exec(tx, Sql"UPDATE posts SET published = true WHERE id = ${post_id}")?
-        _ = jobs.enqueue(App.queue, tx, notify_job, NotifyArgs{post_id})?
+        _ = jobs.enqueue(App.queue, tx, notify_job, NotifyArgs{post_id:})?
         Ok(Unit)
-    })
-}
+    end)
+end
 
-fn main() {
+fn main()
     Worker.start(App.worker, [notify_job])
     // ... serve requests that call publish
-}
+end
 ```
 
 ## What it does

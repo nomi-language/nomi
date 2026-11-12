@@ -1,41 +1,41 @@
 import token
 
-struct UniversalPoint {
+struct UniversalPoint
     x: Int
     y: Int
-}
+end
 
-enum UniversalShape {
+enum UniversalShape
     Circle Float
     Rect {w: Float, h: Float}
     Nothing
-}
+end
 
 type UniversalId Int
 
-fn debug_show<T>(value: T) -> String {
+fn debug_show<T>(value: T) -> String
     Debug.inspect(value)
-}
+end
 
-interface Named {
+interface Named
     fn name_of(value: self) -> String
-}
+end
 
-struct UniversalDog {
+struct UniversalDog
     name: String
-}
+end
 
-impl Named for UniversalDog {
-    fn name_of(d: UniversalDog) -> String {
+impl Named for UniversalDog
+    fn name_of(d: UniversalDog) -> String
         d.name
-    }
-}
+    end
+end
 
-fn describe_named(value: Named) -> String {
+fn describe_named(value: Named) -> String
     Debug.inspect(value)
-}
+end
 
-test "universal Debug renders declared types structurally" {
+test "universal Debug renders declared types structurally"
     assert Debug.inspect(UniversalPoint{x: 1, y: 2}) == "UniversalPoint{x: 1, y: 2}"
 
     assert Debug.inspect(UniversalShape.Circle(1.5)) == "Circle(1.5)"
@@ -43,12 +43,12 @@ test "universal Debug renders declared types structurally" {
 
     assert Debug.inspect(UniversalShape.Nothing) == "Nothing"
     assert Debug.inspect(UniversalId(7)) == "UniversalId(7)"
-}
+end
 
-test "universal Debug works for opaque values generics and existentials" {
+test "universal Debug works for opaque values generics and existentials"
     assert Debug.inspect(token.make(99)) == "<opaque Token>"
     assert debug_show(UniversalPoint{x: 3, y: 4}) == "UniversalPoint{x: 3, y: 4}"
     assert debug_show(42) == "42"
     assert debug_show("hi") == "\"hi\""
     assert describe_named(UniversalDog{name: "Rex"}) == "UniversalDog{name: \"Rex\"}"
-}
+end

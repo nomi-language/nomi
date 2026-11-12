@@ -9,7 +9,7 @@ import (
 // what type the place expects and which values in scope have it, nearest
 // binding first: a typed hole.
 func TestHole_NamesTheExpectedTypeAndWhatFits(t *testing.T) {
-	src := "fn pick(xs: List<String>, fallback: String, count: Int) -> String {\n  label = \"x\"\n  first = List.head(xs)\n  Maybe.with_default(first, _)\n}\n"
+	src := "fn pick(xs: List<String>, fallback: String, count: Int) -> String\n  label = \"x\"\n  first = List.head(xs)\n  Maybe.with_default(first, _)\nend\n"
 	_, errs := checkSourceWithStdlib(src)
 	for _, e := range errs {
 		if !strings.Contains(e.Message, "`_` is a discard name, not a value") {
@@ -31,7 +31,7 @@ func TestHole_NamesTheExpectedTypeAndWhatFits(t *testing.T) {
 
 // With nothing of the type in scope, the hole names the type alone.
 func TestHole_NamesTheTypeWhenNothingFits(t *testing.T) {
-	_, errs := checkSourceWithStdlib("fn f(n: Int) -> String {\n  x: String = _\n  x\n}\n")
+	_, errs := checkSourceWithStdlib("fn f(n: Int) -> String\n  x: String = _\n  x\nend\n")
 	for _, e := range errs {
 		if strings.Contains(e.Message, "`_` is a discard name") {
 			hints := strings.Join(e.Hints, "\n")

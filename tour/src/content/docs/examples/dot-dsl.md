@@ -17,50 +17,50 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// An attribute's value: a whole number, `true` or `false`, or text,
 /// quoted or not.
-pub enum Value {
+pub enum Value
     Number Int
     Flag Bool
     Text String
-}
+end
 
 /// A graph: its nodes and edges, each with its attributes, and the graph's
 /// own attributes. An edge is keyed by its two nodes in order, so `b -- a`
 /// is the edge `("a", "b")`.
-pub struct Graph {
+pub struct Graph
     nodes: Map<String, Map<String, Value>>
     edges: Map<(String, String), Map<String, Value>>
     attrs: Map<String, Value>
-}
+end
 
 /// Why a text is not a graph.
-pub enum Error {
+pub enum Error
     InvalidGraph
     InvalidEdge
     InvalidAttribute
     NodeNameNotAlphanumeric
-}
+end
 
-impl Display for Error {
-    fn to_string(error: Error) -> String {
-        case error {
+impl Display for Error
+    fn to_string(error: Error) -> String
+        case error
             .InvalidGraph -> "invalid graph"
             .InvalidEdge -> "invalid edge"
             .InvalidAttribute -> "invalid attribute"
             .NodeNameNotAlphanumeric -> "node name must be alphanumeric"
-        }
-    }
-}
+        end
+    end
+end
 
 /// One statement inside a graph's braces.
-enum Statement {
+enum Statement
     GraphAttributes Map<String, Value>
     Node {name: String, attributes: Map<String, Value>}
     Edges {names: List<String>, attributes: Map<String, Value>}
-}
+end
 
 /// Reads `text`, a `graph { ... }` with one statement on each line between
 /// the braces. A line that starts with `//` or `#` is a comment.
-pub fn parse(text: String) -> Result<Graph, Error> {
+pub fn parse(text: String) -> Result<Graph, Error>
     lines =
         text
         |> String.lines()
@@ -68,84 +68,86 @@ pub fn parse(text: String) -> Result<Graph, Error> {
         |> Iter.filter(fn line -> line != "" and not is_comment(line))
         |> Iter.to_list()
 
-    ["graph {", ..body, "}"] = lines else { return Err(.InvalidGraph) }
+    ["graph {", ..body, "}"] = lines else return Err(.InvalidGraph)
 
     statements = body |> Iter.map(statement) |> Result.collect()?
 
-    empty: Graph = .{nodes: %{}, edges: %{}, attrs: %{}}
+    empty: Graph = {nodes: {}, edges: {}, attrs: {}}
 
     Ok(Iter.reduce(statements, empty, add))
-}
+end
 
-fn is_comment(line: String) -> Bool {
+fn is_comment(line: String) -> Bool
     String.starts_with(line, "//") or String.starts_with(line, "#")
-}
+end
 
 /// Reads one statement, `subject [name=value, ...];`, where the subject is
 /// a node, a chain of edges `a -- b -- c`, or nothing for the graph's own
 /// attributes.
-fn statement(line: String) -> Result<Statement, Error> {
-    Some(line) = String.strip_suffix(line, ";") else { return Err(.InvalidGraph) }
+fn statement(line: String) -> Result<Statement, Error>
+    Some(line) = String.strip_suffix(line, ";") else return Err(.InvalidGraph)
 
-    (subject, attributes) = case String.split(line, "[") {
-        [subject] -> (subject, %{})
+    (subject, attributes) = case String.split(line, "[")
+        [subject] ->
+            (subject, {})
 
-        [subject, list] -> {
-            Some(inner) = list |> String.trim() |> String.strip_suffix("]") else {
+        [subject, list] ->
+            Some(inner) = list |> String.trim() |> String.strip_suffix("]") else
                 return Err(.InvalidAttribute)
-            }
+            end
 
             (subject, attributes_in(inner)?)
-        }
 
-        _ -> return Err(.InvalidAttribute)
-    }
+        _ ->
+            return Err(.InvalidAttribute)
+    end
 
-    case String.words(subject) {
-        [] -> Ok(.GraphAttributes(attributes))
+    case String.words(subject)
+        [] ->
+            Ok(.GraphAttributes(attributes))
 
-        [name] -> {
-            if not is_alphanumeric(name) { return Err(.NodeNameNotAlphanumeric) }
+        [name] ->
+            if not is_alphanumeric(name) then return Err(.NodeNameNotAlphanumeric)
 
-            Ok(.Node{name, attributes})
-        }
+            Ok(.Node{name:, attributes:})
 
-        words -> Ok(.Edges{names: edge_names(words)?, attributes})
-    }
-}
+        words ->
+            Ok(.Edges{names: edge_names(words)?, attributes:})
+    end
+end
 
 /// The attributes of `name=value, ...`, the text between a statement's
 /// brackets.
-fn attributes_in(list: String) -> Result<Map<String, Value>, Error> {
+fn attributes_in(list: String) -> Result<Map<String, Value>, Error>
     list
     |> String.split(",")
-    |> Iter.map(fn pair -> {
-        case pair |> String.trim() |> String.split("=") {
+    |> Iter.map(fn pair ->
+        case pair |> String.trim() |> String.split("=")
             [name, value] when name != "" and value != "" -> Ok((name, value_of(value)))
             _ -> Err(Error.InvalidAttribute)
-        }
-    })
+        end
+    end)
     |> Result.collect()?
     |> Iter.to_map()
     |> Ok()
-}
+end
 
 /// The value written `text`: quoted text, a whole number, `true` or
 /// `false`, or else unquoted text.
-fn value_of(text: String) -> Value {
+fn value_of(text: String) -> Value
     quoted = String.strip_prefix(text, "\"") |> Maybe.flat_map(&String.strip_suffix(&1, "\""))
 
-    case (quoted, String.to_int(text), text) {
+    case (quoted, String.to_int(text), text)
         (Some(inner), _, _) -> .Text(inner)
         (_, Some(number), _) -> .Number(number)
         (_, _, "true") -> .Flag(True)
         (_, _, "false") -> .Flag(False)
         _ -> .Text(text)
-    }
-}
+    end
+end
 
 /// The nodes of a chain of edges, `a -- b -- c`, written as words.
-fn edge_names(words: List<String>) -> Result<List<String>, Error> {
+fn edge_names(words: List<String>) -> Result<List<String>, Error>
     (names, links) =
         words
         |> Iter.with_index()
@@ -157,38 +159,40 @@ fn edge_names(words: List<String>) -> Result<List<String>, Error> {
         and Iter.all_match(links, &(&1.second == "--"))
         and Iter.all_match(names, is_alphanumeric)
 
-    if valid { Ok(names) } else { Err(.InvalidEdge) }
-}
+    if valid then Ok(names) else Err(.InvalidEdge)
+end
 
-fn is_alphanumeric(name: String) -> Bool {
+fn is_alphanumeric(name: String) -> Bool
     name
     |> String.to_codepoints()
     |> Iter.all_match(fn c -> Codepoint.is_letter(c) or Codepoint.is_digit(c))
-}
+end
 
 /// `graph` with `statement`'s nodes, edges or attributes added. Attributes
 /// given again for the same node, edge or graph replace those given before.
-fn add(graph: Graph, statement: Statement) -> Graph {
-    case statement {
-        .GraphAttributes(attributes) -> .{..graph, attrs: Map.merge(graph.attrs, attributes)}
-        .Node{name, attributes} -> .{..graph, nodes: with_attributes(graph.nodes, name, attributes)}
+fn add(graph: Graph, statement: Statement) -> Graph
+    case statement
+        .GraphAttributes(attributes) ->
+            {..graph, attrs: Map.merge(graph.attrs, attributes)}
 
-        .Edges{names, attributes} -> {
-            nodes = Iter.reduce(names, graph.nodes, &with_attributes(&1, &2, %{}))
+        .Node{name:, attributes:} ->
+            {..graph, nodes: with_attributes(graph.nodes, name, attributes)}
+
+        .Edges{names:, attributes:} ->
+            nodes = Iter.reduce(names, graph.nodes, &with_attributes(&1, &2, {}))
 
             edges =
                 names
                 |> Iter.windows(2)
-                |> Iter.reduce(graph.edges, fn edges, pair -> {
-                    [a, b] = Iter.sort(pair) else { unreachable "a window of two holds two names" }
+                |> Iter.reduce(graph.edges, fn edges, pair ->
+                    [a, b] = Iter.sort(pair) else unreachable "a window of two holds two names"
 
                     with_attributes(edges, (a, b), attributes)
-                })
+                end)
 
-            .{..graph, nodes, edges}
-        }
-    }
-}
+            {..graph, nodes:, edges:}
+    end
+end
 
 /// `entries` with `attributes` merged into those of `key`, which it gains
 /// if it lacks it.
@@ -196,17 +200,17 @@ fn with_attributes<K>(
     entries: Map<K, Map<String, Value>>,
     key: K,
     attributes: Map<String, Value>,
-) -> Map<K, Map<String, Value>> {
-    Map.update(entries, key, %{}, &Map.merge(&1, attributes))
-}
+) -> Map<K, Map<String, Value>>
+    Map.update(entries, key, {}, &Map.merge(&1, attributes))
+end
 
 // FILE: dot_dsl_test.nomi
-import {
+import
     dot_dsl
     dot_dsl.Graph
-}
+end
 
-test "parse" {
+test "parse"
     [
         (
             "empty graph",
@@ -214,7 +218,7 @@ test "parse" {
             graph {
             }
             """,
-            Graph{nodes: %{}, edges: %{}, attrs: %{}},
+            Graph{nodes: {}, edges: {}, attrs: {}},
         ),
         (
             "graph with one node",
@@ -223,10 +227,10 @@ test "parse" {
                 a;
             }
             """,
-            .{
-                nodes: %{"a" => %{}},
-                edges: %{},
-                attrs: %{},
+            {
+                nodes: {"a" => {}},
+                edges: {},
+                attrs: {},
             },
         ),
         (
@@ -236,10 +240,10 @@ test "parse" {
                 a [color=green];
             }
             """,
-            .{
-                nodes: %{"a" => %{"color" => .Text("green")}},
-                edges: %{},
-                attrs: %{},
+            {
+                nodes: {"a" => {"color" => .Text("green")}},
+                edges: {},
+                attrs: {},
             },
         ),
         (
@@ -249,10 +253,10 @@ test "parse" {
                 a -- b;
             }
             """,
-            .{
-                nodes: %{"a" => %{}, "b" => %{}},
-                edges: %{("a", "b") => %{}},
-                attrs: %{},
+            {
+                nodes: {"a" => {}, "b" => {}},
+                edges: {("a", "b") => {}},
+                attrs: {},
             },
         ),
         (
@@ -262,7 +266,7 @@ test "parse" {
                 [foo=1];
             }
             """,
-            .{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
+            {nodes: {}, edges: {}, attrs: {"foo" => .Number(1)}},
         ),
         (
             "graph with comments",
@@ -273,7 +277,7 @@ test "parse" {
                 [foo=1];
             }
             """,
-            .{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
+            {nodes: {}, edges: {}, attrs: {"foo" => .Number(1)}},
         ),
         (
             "graph with nodes, edges, and attributes",
@@ -288,14 +292,14 @@ test "parse" {
                 [bar=true];
             }
             """,
-            .{
-                nodes: %{
-                    "a" => %{"color" => .Text("green")},
-                    "b" => %{"label" => .Text("Beta!")},
-                    "c" => %{},
+            {
+                nodes: {
+                    "a" => {"color" => .Text("green")},
+                    "b" => {"label" => .Text("Beta!")},
+                    "c" => {},
                 },
-                edges: %{("a", "b") => %{"color" => .Text("blue")}, ("b", "c") => %{}},
-                attrs: %{
+                edges: {("a", "b") => {"color" => .Text("blue")}, ("b", "c") => {}},
+                attrs: {
                     "foo" => .Number(1),
                     "title" => .Text("Testing Attrs"),
                     "bar" => .Flag(True),
@@ -309,14 +313,14 @@ test "parse" {
                 a -- b -- c -- d [style=dotted];
             }
             """,
-            .{
-                nodes: %{"a" => %{}, "b" => %{}, "c" => %{}, "d" => %{}},
-                edges: %{
-                    ("a", "b") => %{"style" => .Text("dotted")},
-                    ("b", "c") => %{"style" => .Text("dotted")},
-                    ("c", "d") => %{"style" => .Text("dotted")},
+            {
+                nodes: {"a" => {}, "b" => {}, "c" => {}, "d" => {}},
+                edges: {
+                    ("a", "b") => {"style" => .Text("dotted")},
+                    ("b", "c") => {"style" => .Text("dotted")},
+                    ("c", "d") => {"style" => .Text("dotted")},
                 },
-                attrs: %{},
+                attrs: {},
             },
         ),
         (
@@ -328,19 +332,19 @@ test "parse" {
                 b -- a [color=blue];
             }
             """,
-            .{
-                nodes: %{"a" => %{}, "b" => %{}},
-                edges: %{("a", "b") => %{"color" => .Text("blue")}},
-                attrs: %{},
+            {
+                nodes: {"a" => {}, "b" => {}},
+                edges: {("a", "b") => {"color" => .Text("blue")}},
+                attrs: {},
             },
         ),
     ]
-    |> subtests (description, text, expected), description {
+    |> subtests (description, text, expected), description
         assert dot_dsl.parse(text) == Ok(expected)
-    }
-}
+    end
+end
 
-test "parse errors" {
+test "parse errors"
     [
         (
             "malformed input",
@@ -424,11 +428,11 @@ test "parse errors" {
             "node name must be alphanumeric",
         ),
     ]
-    |> subtests (description, text, expected), description {
+    |> subtests (description, text, expected), description
         assert Err(error) = dot_dsl.parse(text)
         assert "${error}" == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok parse (9 cases)

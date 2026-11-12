@@ -18,26 +18,26 @@ func TestImplementation_MethodOwnerIsExactAcrossSamePositionedInterfaces(t *test
 	main := "import a.Foo\n" +
 		"import b.Bar\n" +
 		"\n" +
-		"impl Foo for Int {\n" +
-		"  fn go(value: self) -> Int { value }\n" +
-		"}\n" +
+		"impl Foo for Int\n" +
+		"  fn go(value: self) -> Int\n      value\n  end\n" +
+		"end\n" +
 		"\n" +
-		"impl Bar for String {\n" +
-		"  fn go(value: self) -> Int { String.length(value) }\n" +
-		"}\n" +
+		"impl Bar for String\n" +
+		"  fn go(value: self) -> Int\n      String.length(value)\n  end\n" +
+		"end\n" +
 		"\n" +
-		"fn main() {\n" +
+		"fn main()\n" +
 		"  _ = Foo.go(1)\n" +
 		"  _ = Bar.go(\"x\")\n" +
-		"}\n"
+		"end\n"
 	s, uri := openProject(t, map[string]string{
 		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-		"a.nomi":    "pub interface Foo {\n  fn go(value: self) -> Int\n}\n",
-		"b.nomi":    "pub interface Bar {\n  fn go(value: self) -> Int\n}\n",
+		"a.nomi":    "pub interface Foo\n  fn go(value: self) -> Int\nend\n",
+		"b.nomi":    "pub interface Bar\n  fn go(value: self) -> Int\nend\n",
 		"main.nomi": main,
 	}, "main.nomi")
 	at := offsetPosition(main, strings.Index(main, "Bar.go")+len("Bar."))
-	barImplLine := uint32(8)
+	barImplLine := uint32(10)
 	for i := 0; i < 50; i++ {
 		result, err := s.textDocumentImplementation(nil, &protocol.ImplementationParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -93,11 +93,11 @@ func definitionAt(t *testing.T, s *Server, uri string, at protocol.Position) pro
 func TestDefinition_StdSymbolLandsInItsOwnFileBesideASamePositionedTwin(t *testing.T) {
 	main := "import std::json.{Json, ToJson}\n" +
 		"\n" +
-		"struct Point { x: Int }\n" +
+		"struct Point\n    x: Int\nend\n" +
 		"\n" +
-		"impl ToJson for Point {\n" +
-		"  fn to_json(_value: self) -> Json { Json.Null }\n" +
-		"}\n"
+		"impl ToJson for Point\n" +
+		"  fn to_json(_value: self) -> Json\n      Json.Null\n  end\n" +
+		"end\n"
 	s, uri := openProject(t, map[string]string{"main.nomi": main}, "main.nomi")
 	real := s.std.Modules["json"].LookupLocal("ToJson")
 	if real == nil {
@@ -122,11 +122,11 @@ func TestDefinition_StdSymbolLandsInItsOwnFileBesideASamePositionedTwin(t *testi
 func TestDefinition_ImplMethodGoesToTheInterfaceItsHeaderNames(t *testing.T) {
 	main := "import std::json\n" +
 		"\n" +
-		"struct Point { x: Int }\n" +
+		"struct Point\n    x: Int\nend\n" +
 		"\n" +
-		"impl json.ToJson for Point {\n" +
-		"  fn to_json(_value: self) -> json.Json { json.Json.Null }\n" +
-		"}\n"
+		"impl json.ToJson for Point\n" +
+		"  fn to_json(_value: self) -> json.Json\n      json.Json.Null\n  end\n" +
+		"end\n"
 	s, uri := openProject(t, map[string]string{"main.nomi": main}, "main.nomi")
 	want := s.std.Modules["json"].LookupLocal("ToJson").Members["to_json"]
 	twin := analysis.NewScope(nil)

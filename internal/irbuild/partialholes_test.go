@@ -13,15 +13,15 @@ func TestPartialOverAnOpenHole_Runs(t *testing.T) {
 	}
 	irRunSource(t, `import std::io
 
-fn pick<T>(c: Bool, a: T, b: T) -> T {
-    if c { a } else { b }
-}
+fn pick<T>(c: Bool, a: T, b: T) -> T
+    if c then a else b
+end
 
-fn main() {
+fn main()
     f = &pick(False, &1, Some(Ok(6.5)))
     io.inspect(f(None))
     g: (Maybe<Result<Float, String>>) -> Maybe<Result<Float, String>> = &pick(True, &1, Some(Ok(6.5)))
     io.inspect(g(Some(Err("e"))))
-}
+end
 `, "Some(Ok(6.5))\nSome(Err(\"e\"))\n")
 }

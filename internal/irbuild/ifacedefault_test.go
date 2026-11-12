@@ -11,118 +11,118 @@ import (
 // one is generic, and the file holds a bounded generic over the interface.
 const ifaceDefaultShape = `import std::hex
 
-pub interface Shape {
+pub interface Shape
     fn area(s: self) -> Int
 
-    fn describe(s: self) -> String {
+    fn describe(s: self) -> String
         label(area(s))
-    }
+    end
 
-    fn coded(s: self) -> String {
+    fn coded(s: self) -> String
         hex.encode(String.to_bytes(describe(s))) + suffix
-    }
+    end
 
-    open fn doubled(s: self) -> Int {
+    open fn doubled(s: self) -> Int
         2 * area(s)
-    }
+    end
 
-    fn report(s: self) -> String {
+    fn report(s: self) -> String
         "${Shape.describe(s)} doubled ${doubled(s)}"
-    }
+    end
 
-    fn pick<T>(s: self, a: T, b: T) -> T {
-        if big(area(s)) { a } else { b }
-    }
+    fn pick<T>(s: self, a: T, b: T) -> T
+        if big(area(s)) then a else b
+    end
 
-    fn same(s: self, t: self) -> Bool {
+    fn same(s: self, t: self) -> Bool
         area(s) == area(t)
-    }
+    end
 
-    fn shown(s: self) -> String {
+    fn shown(s: self) -> String
         Debug.inspect(s)
-    }
+    end
 
-    fn twin(s: self) -> (self, self) {
+    fn twin(s: self) -> (self, self)
         (s, s)
-    }
-}
+    end
+end
 
 once suffix = "!"
 
-fn label(n: Int) -> String {
+fn label(n: Int) -> String
     "area ${n}"
-}
+end
 
-fn big(n: Int) -> Bool {
+fn big(n: Int) -> Bool
     n > 10
-}
+end
 
-pub fn via_bound<T>(x: T) -> String where T: Shape {
+pub fn via_bound<T>(x: T) -> String where T: Shape
     Shape.report(x)
-}
+end
 `
 
 // ifaceDefaultImpls implements Shape for a struct, a distinct type that
 // overrides the open default, a named tuple and Int, none writing a default.
-const ifaceDefaultImpls = `struct Square {
+const ifaceDefaultImpls = `struct Square
     side: Int
-}
+end
 
 type Meters Int
 
 type Span (Int, Int)
 
-impl Shape for Square {
-    fn area(s: Square) -> Int {
+impl Shape for Square
+    fn area(s: Square) -> Int
         s.side * s.side
-    }
-}
+    end
+end
 
-impl Shape for Meters {
-    fn area(m: Meters) -> Int {
+impl Shape for Meters
+    fn area(m: Meters) -> Int
         Meters(n) = m
         n * n
-    }
+    end
 
-    fn doubled(_m: Meters) -> Int {
+    fn doubled(_m: Meters) -> Int
         0
-    }
-}
+    end
+end
 
-impl Shape for Span {
-    fn area(s: Span) -> Int {
+impl Shape for Span
+    fn area(s: Span) -> Int
         s.first * s.second
-    }
-}
+    end
+end
 
-impl Shape for Int {
-    fn area(n: Int) -> Int {
+impl Shape for Int
+    fn area(n: Int) -> Int
         n
-    }
-}
+    end
+end
 `
 
 // ifaceDefaultTri implements Shape for a type whose Debug is derived, in a
 // file of its own.
-const ifaceDefaultTri = `pub struct Tri {
+const ifaceDefaultTri = `pub struct Tri
     base: Int
-}
+end
 
 derive Debug for Tri
 
-impl Shape for Tri {
-    fn area(t: Tri) -> Int {
+impl Shape for Tri
+    fn area(t: Tri) -> Int
         t.base * 2
-    }
-}
+    end
+end
 `
 
 const ifaceDefaultCalls = `
-fn local_bound<T>(x: T) -> String where T: Shape {
+fn local_bound<T>(x: T) -> String where T: Shape
     Shape.coded(x)
-}
+end
 
-fn main() {
+fn main()
     sq = Square{side: 3}
     io.print(Square.describe(sq))
     io.print(Shape.describe(sq))
@@ -145,7 +145,7 @@ fn main() {
     io.print(via_bound(Tri{base: 1}))
     shapes: List<Shape> = [sq, Meters(3), Span(1, 1), Tri{base: 2}, 7]
     io.inspect(shapes |> Iter.map(Shape.report) |> Iter.to_list())
-}
+end
 `
 
 const ifaceDefaultWant = "area 9\narea 9\n617265612039!\narea 9 doubled 18\nbig\n2\nTrue\n" +
@@ -185,7 +185,7 @@ func TestIfaceDefault_LoweredInItsDeclaringFile(t *testing.T) {
 	})
 	t.Run("the impls in the declaring file", func(t *testing.T) {
 		shape := strings.TrimPrefix(ifaceDefaultShape, "import std::hex\n")
-		verifyLambdaProgram(t, "import {\n    std::hex\n    std::io\n}\n"+shape+"\n"+
+		verifyLambdaProgram(t, "import\n    std::hex\n    std::io\nend\n"+shape+"\n"+
 			ifaceDefaultImpls+ifaceDefaultTri+ifaceDefaultCalls, ifaceDefaultWant)
 	})
 }

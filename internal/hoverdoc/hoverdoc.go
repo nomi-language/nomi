@@ -86,7 +86,9 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 	// interface-method contract or the param-name-less instantiated type
 	// the CallType branch below would produce. Nil for generic /
 	// existential receivers, which keep rendering the interface contract.
-	if sym.DispatchImpl != nil {
+	// A converting `?` carries its From impl the same way and renders as a
+	// `?` (renderTryOpHover), naming the impl.
+	if sym.DispatchImpl != nil && sym.Kind != analysis.SymbolTryOp {
 		// The impl method is a `fn` (*FuncDef) or an `host fn` (*ExternFunc);
 		// both render the same signature shape.
 		var (
@@ -668,7 +670,7 @@ func displayValueTypeWithReceiver(t analysis.Type, receiver string) string {
 		for i, f := range v.Fields {
 			parts[i] = f.Name + ": " + displayValueTypeWithReceiver(f.Type, receiver)
 		}
-		return ".{" + strings.Join(parts, ", ") + "}"
+		return "{" + strings.Join(parts, ", ") + "}"
 	default:
 		return t.String()
 	}
@@ -1086,7 +1088,7 @@ func renderTypeExprSubstitutingSelf(te ast.TypeExpr, receiver string) string {
 }
 
 // ParamDisplayName renders a parameter's surface name for a signature: the
-// destructuring pattern (`Dur(x)`, `Point{x, y}`) when the param destructures,
+// destructuring pattern (`Dur(x)`, `Point{x:, y:}`) when the param destructures,
 // otherwise the plain name. Destructure params carry a synthetic `__destr_*`
 // Name (a binding slot) that must never reach hover.
 func ParamDisplayName(p ast.Param) string {
@@ -1151,8 +1153,6 @@ func renderParamPattern(n ast.Node) string {
 		var b strings.Builder
 		if p.TypeName != nil {
 			b.WriteString(p.TypeName.TypeString())
-		} else {
-			b.WriteString(".")
 		}
 		b.WriteString("{")
 		for i, f := range p.Fields {
@@ -1165,7 +1165,7 @@ func renderParamPattern(n ast.Node) string {
 			case f.Binding != "" && f.Binding != f.Name:
 				b.WriteString(f.Name + ": " + f.Binding)
 			default:
-				b.WriteString(f.Name)
+				b.WriteString(f.Name + ":")
 			}
 		}
 		b.WriteString("}")
@@ -1211,7 +1211,7 @@ func renderStructDef(n *ast.StructDef) string {
 	b.WriteString(n.Name)
 	b.WriteString(renderTypeParams(n.TypeParams))
 	b.WriteString(renderWhereClauses(n.WhereClauses))
-	b.WriteString(" {\n")
+	b.WriteString("\n")
 	for _, f := range n.Fields {
 		b.WriteString("    ")
 		b.WriteString(f.Name)
@@ -1222,7 +1222,7 @@ func renderStructDef(n *ast.StructDef) string {
 		b.WriteString(renderDefault(f.Default))
 		b.WriteString("\n")
 	}
-	b.WriteString("}")
+	b.WriteString("end")
 	return b.String()
 }
 
@@ -1237,7 +1237,7 @@ func renderEnumDef(n *ast.EnumDef) string {
 	b.WriteString(n.Name)
 	b.WriteString(renderTypeParams(n.TypeParams))
 	b.WriteString(renderWhereClauses(n.WhereClauses))
-	b.WriteString(" {\n")
+	b.WriteString("\n")
 	for _, v := range n.Variants {
 		b.WriteString("    ")
 		switch v.Kind {
@@ -1275,7 +1275,7 @@ func renderEnumDef(n *ast.EnumDef) string {
 		}
 		b.WriteString("\n")
 	}
-	b.WriteString("}")
+	b.WriteString("end")
 	return b.String()
 }
 
@@ -1946,7 +1946,7 @@ func renderImplProse(info *analysis.ImplInfo) string {
 		return fmt.Sprintf("Implements %s in a top-level impl block.", names)
 	}
 	if info.Receiver != "" {
-		return fmt.Sprintf("Declares that `%s` implements %s. Manual interface implementations use `impl Iface for Type { ... }` blocks; visibility comes from the interface.", info.Receiver, names)
+		return fmt.Sprintf("Declares that `%s` implements %s. Manual interface implementations use `impl Iface for Type` blocks; visibility comes from the interface.", info.Receiver, names)
 	}
 	return fmt.Sprintf("Declares interface conformance for %s.", names)
 }
@@ -2024,6 +2024,11 @@ func renderTryOpHover(sym *analysis.Symbol) string {
 			fmt.Fprintf(&b, "Unwinds to `%s`.", sym.TryOp.Boundary)
 		}
 	}
+	if conv := sym.TryOp.Convert; conv != nil {
+		// A `?` whose error the boundary's `From` impl converts.
+		fmt.Fprintf(&b, "\n\nConverts the error with `impl From<%s> for %s`: returns `Err(%s.from(e))`.",
+			displayValueType(conv.From), displayValueType(conv.To), displayValueType(conv.To))
+	}
 	return b.String()
 }
 
@@ -2086,7 +2091,7 @@ func renderStructFromType(st *analysis.StructType) string {
 	var b strings.Builder
 	b.WriteString("struct ")
 	b.WriteString(st.String())
-	b.WriteString(" {\n")
+	b.WriteString("\n")
 	for _, f := range st.Fields {
 		b.WriteString("    ")
 		b.WriteString(f.Name)
@@ -2096,7 +2101,7 @@ func renderStructFromType(st *analysis.StructType) string {
 		}
 		b.WriteString("\n")
 	}
-	b.WriteString("}")
+	b.WriteString("end")
 	return b.String()
 }
 
@@ -2121,7 +2126,7 @@ func renderInterfaceDef(n *ast.InterfaceDef) string {
 	b.WriteString(n.Name)
 	b.WriteString(renderTypeParams(n.TypeParams))
 	b.WriteString(renderWhereClauses(n.WhereClauses))
-	b.WriteString(" {\n")
+	b.WriteString("\n")
 	for _, m := range n.Methods {
 		b.WriteString("    fn ")
 		b.WriteString(m.Name)
@@ -2143,7 +2148,7 @@ func renderInterfaceDef(n *ast.InterfaceDef) string {
 		}
 		b.WriteString("\n")
 	}
-	b.WriteString("}")
+	b.WriteString("end")
 	return b.String()
 }
 

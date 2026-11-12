@@ -12,39 +12,39 @@
 /// ```nomi
 /// pub type Flags Int
 ///
-/// impl BitwiseAnd<Flags, Flags> for Flags {
-///     fn bitwise_and(lhs: Flags, rhs: Flags) -> Flags {
+/// impl BitwiseAnd<Flags, Flags> for Flags
+///     fn bitwise_and(lhs: Flags, rhs: Flags) -> Flags
 ///         ...
-///     }
-/// }
+///     end
+/// end
 /// ```
-pub interface BitwiseAnd<Rhs, Out> {
+pub interface BitwiseAnd<Rhs, Out>
     fn bitwise_and(lhs: self, rhs: Rhs) -> Out
-}
+end
 
 /// Protocol for the `|||` operator, bitwise or. See `BitwiseAnd`.
-pub interface BitwiseOr<Rhs, Out> {
+pub interface BitwiseOr<Rhs, Out>
     fn bitwise_or(lhs: self, rhs: Rhs) -> Out
-}
+end
 
 /// Protocol for the `^^^` operator, bitwise exclusive or. See `BitwiseAnd`.
-pub interface BitwiseXor<Rhs, Out> {
+pub interface BitwiseXor<Rhs, Out>
     fn bitwise_xor(lhs: self, rhs: Rhs) -> Out
-}
+end
 
 /// Protocol for the prefix `~~~` operator, bitwise not. The operand is the
 /// implementor (`self`); the type parameter is the result type.
-pub interface BitwiseNot<Out> {
+pub interface BitwiseNot<Out>
     fn bitwise_not(value: self) -> Out
-}
+end
 
 /// Protocol for the `<<<` operator, shift left. See `BitwiseAnd`.
-pub interface ShiftLeft<Rhs, Out> {
+pub interface ShiftLeft<Rhs, Out>
     fn shift_left(lhs: self, rhs: Rhs) -> Out
-}
+end
 
 /// Protocol for the `>>>` operator, arithmetic shift right. See
 /// `BitwiseAnd`.
-pub interface ShiftRight<Rhs, Out> {
+pub interface ShiftRight<Rhs, Out>
     fn shift_right(lhs: self, rhs: Rhs) -> Out
-}
+end

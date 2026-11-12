@@ -79,39 +79,39 @@ func TestDocumentSymbols_RangesContainSelectionAndChildren(t *testing.T) {
 // through its closing brace; its selection is the name.
 func TestDocumentSymbols_RangeIsDeclarationExtent(t *testing.T) {
 	input := `/// Adds.
-pub fn add(x: Int, y: Int) -> Int {
+pub fn add(x: Int, y: Int) -> Int
   x + y
-}
+end
 
-struct User {
+struct User
   name: String
   /// Years.
   age: Int = 0
-}
+end
 
-enum Shape {
+enum Shape
   Circle(Float)
   Point
-}
+end
 
-interface Named {
+interface Named
   fn name(value: self) -> String
   fn label(value: self) -> String
-}
+end
 
-impl Named for User {
-  fn label(value: User) -> String {
+impl Named for User
+  fn label(value: User) -> String
     value.name
-  }
-}
+  end
+end
 
 once limit = 10
 
-group "math" {
-  test "adds" {
+group "math"
+  test "adds"
     assert add(1, 2) == 3
-  }
-}
+  end
+end
 `
 	nodes, errs := parser.ParseWithRecovery(lexer.Lex(input))
 	if len(errs) > 0 {
@@ -128,21 +128,21 @@ group "math" {
 	}
 	walk("", syms)
 	want := map[string]string{
-		"add":                       "1:0-3:1 1:7-1:10",
-		"User":                      "5:0-9:1 5:7-5:11",
+		"add":                       "1:0-3:3 1:7-1:10",
+		"User":                      "5:0-9:3 5:7-5:11",
 		"User.name":                 "6:2-6:14 6:2-6:6",
 		"User.age":                  "8:2-8:14 8:2-8:5",
-		"Shape":                     "11:0-14:1 11:5-11:10",
+		"Shape":                     "11:0-14:3 11:5-11:10",
 		"Shape.Circle":              "12:2-12:15 12:2-12:8",
 		"Shape.Point":               "13:2-13:7 13:2-13:7",
-		"Named":                     "16:0-19:1 16:10-16:15",
+		"Named":                     "16:0-19:3 16:10-16:15",
 		"Named.name":                "17:2-17:32 17:5-17:9",
 		"Named.label":               "18:2-18:33 18:5-18:10",
-		"impl Named for User":       "21:0-25:1 21:0-21:4",
-		"impl Named for User.label": "22:2-24:3 22:5-22:10",
+		"impl Named for User":       "21:0-25:3 21:0-21:4",
+		"impl Named for User.label": "22:2-24:5 22:5-22:10",
 		"limit":                     "27:0-27:15 27:5-27:10",
-		"math":                      "29:0-33:1 29:6-29:12",
-		"math.adds":                 "30:2-32:3 30:7-30:13",
+		"math":                      "29:0-33:3 29:6-29:12",
+		"math.adds":                 "30:2-32:5 30:7-30:13",
 	}
 	for k, w := range want {
 		if got[k] != w {

@@ -9,10 +9,10 @@
 
 import std::io
 
-fn fib(n: Int) -> Int {
-    if n < 2 { n } else { fib(n - 1) + fib(n - 2) }
-}
+fn fib(n: Int) -> Int
+    if n < 2 then n else fib(n - 1) + fib(n - 2)
+end
 
-fn main() {
+fn main()
     fib(27) |> io.print()
-}
+end

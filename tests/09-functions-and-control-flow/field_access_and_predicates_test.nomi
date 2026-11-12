@@ -1,42 +1,42 @@
-pub struct Inner {
+pub struct Inner
     value: Int
-}
+end
 
-pub struct Mid {
+pub struct Mid
     inner: Inner
-}
+end
 
-pub struct Outer {
+pub struct Outer
     mid: Mid
-}
+end
 
-pub struct Box<T> {
+pub struct Box<T>
     item: T
-}
+end
 
-pub struct Crate<T> {
+pub struct Crate<T>
     box: Box<T>
-}
+end
 
-fn is_even(n: Int) -> Bool {
+fn is_even(n: Int) -> Bool
     n % 2 == 0
-}
+end
 
-interface Validatable {
+interface Validatable
     fn is_valid(value: self) -> Bool
-}
+end
 
-struct Password {
+struct Password
     text: String
-}
+end
 
-impl Validatable for Password {
-    fn is_valid(p: Password) -> Bool {
+impl Validatable for Password
+    fn is_valid(p: Password) -> Bool
         String.length(p.text) >= 6
-    }
-}
+    end
+end
 
-test "field-access chains resolve through structs and generics" {
+test "field-access chains resolve through structs and generics"
     o = Outer{
         mid: Mid{inner: Inner{value: 42}},
     }
@@ -54,9 +54,9 @@ test "field-access chains resolve through structs and generics" {
     assert o.mid.inner.value == 42
     assert c.box.item.value == 7
     assert pair == (100, 100)
-}
+end
 
-test "predicate-named functions and bindings stay callable" {
+test "predicate-named functions and bindings stay callable"
     nums = [1, 2, 3, 4, 5, 6]
 
     evens =
@@ -74,4 +74,4 @@ test "predicate-named functions and bindings stay callable" {
     refute is_empty
     assert Validatable.is_valid(Password{text: "hunter2"})
     refute Validatable.is_valid(Password{text: "no"})
-}
+end

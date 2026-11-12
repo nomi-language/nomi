@@ -12,95 +12,95 @@
 // leave the zero value in that slot, and `base` is read on every single hop.
 import std::io
 
-struct Ping {
+struct Ping
     base: Int
-}
+end
 
-struct Pong {
+struct Pong
     base: Int
-}
+end
 
-interface Bounce {
+interface Bounce
     fn hop(value: self, n: Int, acc: Int) -> Int
-}
+end
 
 // One member of the cycle is an impl function reached through its interface's
 // name with a CONCRETE receiver, which is the spelling implCall resolves
 // statically; the other is an ordinary free function.
-impl Bounce for Ping {
-    fn hop(value: Ping, n: Int, acc: Int) -> Int {
-        if n == 0 {
+impl Bounce for Ping
+    fn hop(value: Ping, n: Int, acc: Int) -> Int
+        if n == 0 then
             acc
-        } else {
+        else
             pong(Pong{base: value.base + 1}, n - 1, acc + value.base)
-        }
-    }
-}
+        end
+    end
+end
 
-fn pong(value: Pong, n: Int, acc: Int) -> Int {
-    if n == 0 {
+fn pong(value: Pong, n: Int, acc: Int) -> Int
+    if n == 0 then
         acc
-    } else {
+    else
         Bounce.hop(Ping{base: value.base + 1}, n - 1, acc + value.base)
-    }
-}
+    end
+end
 
 // A cycle with NO free member at all, on two different receivers, through two
 // INHERENT impl blocks — so the driver's parameter union holds two distinct
 // struct types and the receiver spelling is the type's own name.
-struct Up {
+struct Up
     step: Int
-}
+end
 
-struct Dn {
+struct Dn
     step: Int
-}
+end
 
-impl Up {
-    fn go(value: Up, n: Int) -> Int {
-        if n == 0 {
+impl Up
+    fn go(value: Up, n: Int) -> Int
+        if n == 0 then
             value.step
-        } else {
+        else
             Dn.go(Dn{step: value.step + 1}, n - 1)
-        }
-    }
-}
+        end
+    end
+end
 
-impl Dn {
-    fn go(value: Dn, n: Int) -> Int {
-        if n == 0 {
+impl Dn
+    fn go(value: Dn, n: Int) -> Int
+        if n == 0 then
             value.step
-        } else {
+        else
             Up.go(Up{step: value.step + 1}, n - 1)
-        }
-    }
-}
+        end
+    end
+end
 
 // Evaluation order across the boundary. Every argument reads a parameter the
 // hop is about to overwrite, in both directions, so a rebind that skipped the
 // temporaries would corrupt one of them. An EVEN number of hops restores the
 // original order and an odd number reverses it; both are read below, because
 // each alone is satisfied by a lowering that never swaps at all.
-struct Flip {}
+struct Flip end
 
-interface Swap {
+interface Swap
     fn flip(value: self, a: Int, b: Int, n: Int) -> Int
-}
+end
 
-impl Swap for Flip {
-    fn flip(value: Flip, a: Int, b: Int, n: Int) -> Int {
+impl Swap for Flip
+    fn flip(value: Flip, a: Int, b: Int, n: Int) -> Int
         _ = value
-        if n == 0 { a - b } else { swapper(b, a, n - 1) }
-    }
-}
+        if n == 0 then a - b else swapper(b, a, n - 1)
+    end
+end
 
-fn swapper(a: Int, b: Int, n: Int) -> Int {
-    if n == 0 {
+fn swapper(a: Int, b: Int, n: Int) -> Int
+    if n == 0 then
         a - b
-    } else {
+    else
         Swap.flip(Flip{}, b, a, n - 1)
-    }
-}
+    end
+end
 
 // The dispatch TABLE still reaches the member, and the member is now an entry
 // wrapper rather than the body. `bindImpl` binds `it.goName`, the wrapper keeps
@@ -108,15 +108,15 @@ fn swapper(a: Int, b: Int, n: Int) -> Int {
 // NOT in tail position — `1 +` makes it an operand — because a tail-position
 // existential dispatch into a cycle is refused for an unrelated reason: the
 // receiver is erased, so there is no member to select.
-fn through_table(b: Bounce, n: Int) -> Int {
+fn through_table(b: Bounce, n: Int) -> Int
     1 + Bounce.hop(b, n, 0)
-}
+end
 
-fn main() {
+fn main()
     io.print("bounce = ${Bounce.hop(Ping{base: 1}, 6, 0)}")
     io.print("pong = ${pong(Pong{base: 1}, 6, 0)}")
     io.print("impl only = ${Up.go(Up{step: 0}, 7)}")
     io.print("swap even = ${swapper(3, 8, 4)}")
     io.print("swap odd = ${swapper(3, 8, 5)}")
     io.print("table = ${through_table(Ping{base: 2}, 3)}")
-}
+end

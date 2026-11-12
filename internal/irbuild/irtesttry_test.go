@@ -10,48 +10,48 @@ import (
 // its text as the formatter renders it (the whole pipe for the pipe spelling)
 // and the propagated variant inspected structurally.
 func TestIRTestBody_TryEndsTheCaseEarly(t *testing.T) {
-	const src = `fn parse(n: Int) -> Result<Int, String> {
-  if n < 0 {
+	const src = `fn parse(n: Int) -> Result<Int, String>
+  if n < 0 then
     Err("negative")
-  } else {
+  else
     Ok(n)
-  }
-}
+  end
+end
 
-fn half(n: Int) -> Maybe<Int> {
-  if n % 2 == 0 {
+fn half(n: Int) -> Maybe<Int>
+  if n % 2 == 0 then
     Some(n / 2)
-  } else {
+  else
     None
-  }
-}
+  end
+end
 
-test "an Ok passes through" {
+test "an Ok passes through"
   v = parse(3)?
   assert v == 3
-}
+end
 
-test "an Err ends the case" {
+test "an Err ends the case"
   v = parse(-1)?
   assert v == 1
-}
+end
 
-test "a None ends the case" {
+test "a None ends the case"
   h = half(3)?
   assert h == 1
-}
+end
 
-test "a piped try" {
+test "a piped try"
   v = -1 |> parse()?
   assert v == 0
-}
+end
 
-test "a try after an assertion that passed" {
+test "a try after an assertion that passed"
   assert 1 == 1
   _ = half(4)?
   _ = half(5)?
   assert 2 == 3
-}
+end
 `
 	out := irTestBodyVM(t, src, 5)
 	for _, want := range []string{
@@ -73,10 +73,10 @@ test "a try after an assertion that passed" {
 func TestIRTestBody_TryOverACheckKeepsNative(t *testing.T) {
 	const src = `import std::testing
 
-test "a try over a check" {
+test "a try over a check"
   passed = testing.check(1 == 2)?
   assert passed
-}
+end
 `
 	irTestBodyVM(t, src, 0)
 }

@@ -1,57 +1,57 @@
-interface Showable {
+interface Showable
     fn show(value: self) -> String
-}
+end
 
-interface Tagged {
+interface Tagged
     fn tag(value: self) -> String
-}
+end
 
 typealias ShowAndTag Showable and Tagged
 
-struct User {
+struct User
     name: String
-}
+end
 
-impl Showable for User {
-    fn show(value: User) -> String {
+impl Showable for User
+    fn show(value: User) -> String
         "user:" + value.name
-    }
-}
+    end
+end
 
-impl Tagged for User {
-    fn tag(_value: User) -> String {
+impl Tagged for User
+    fn tag(_value: User) -> String
         "[user]"
-    }
-}
+    end
+end
 
-struct Tag {
+struct Tag
     label: String
-}
+end
 
-impl Showable for Tag {
-    fn show(value: Tag) -> String {
+impl Showable for Tag
+    fn show(value: Tag) -> String
         "tag:" + value.label
-    }
-}
+    end
+end
 
-fn announce<T>(value: T) -> String where T: Showable {
+fn announce<T>(value: T) -> String where T: Showable
     "announce(" + Showable.show(value) + ")"
-}
+end
 
-fn describe<T>(value: T) -> String where T: Showable and Tagged {
+fn describe<T>(value: T) -> String where T: Showable and Tagged
     Tagged.tag(value) + " " + Showable.show(value)
-}
+end
 
-fn describe_alias<T>(value: T) -> String where T: ShowAndTag {
+fn describe_alias<T>(value: T) -> String where T: ShowAndTag
     Tagged.tag(value) + " " + Showable.show(value)
-}
+end
 
-test "interface bounds constrain generic functions" {
+test "interface bounds constrain generic functions"
     assert announce(User{name: "Alice"}) == "announce(user:Alice)"
     assert announce(Tag{label: "v1.0"}) == "announce(tag:v1.0)"
     assert describe(User{name: "Bob"}) == "[user] user:Bob"
-}
+end
 
-test "interface-bound aliases name reusable bound conjunctions" {
+test "interface-bound aliases name reusable bound conjunctions"
     assert describe_alias(User{name: "Bob"}) == "[user] user:Bob"
-}
+end

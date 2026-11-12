@@ -141,47 +141,47 @@ func TestNamedArg_SlotPlanMirrorsResolveArgs(t *testing.T) {
 func TestNamedArg_InterfaceCallFillsAnEarlierDefault(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-interface Sum {
+interface Sum
     fn base(value: self) -> Int
 
-    open fn f(value: self, a: Int, b: Int = 2, c: Int = 3) -> Int {
+    open fn f(value: self, a: Int, b: Int = 2, c: Int = 3) -> Int
         Sum.base(value) * 1000 + a * 100 + b * 10 + c
-    }
-}
+    end
+end
 
-struct Box {
+struct Box
     n: Int
-}
+end
 
-impl Sum for Box {
-    fn base(value: Box) -> Int {
+impl Sum for Box
+    fn base(value: Box) -> Int
         value.n
-    }
-}
+    end
+end
 
-struct Own {
+struct Own
     n: Int
-}
+end
 
-impl Sum for Own {
-    fn base(value: Own) -> Int {
+impl Sum for Own
+    fn base(value: Own) -> Int
         value.n
-    }
+    end
 
-    fn f(value: Own, a: Int, b: Int = 5, c: Int = 3) -> Int {
+    fn f(value: Own, a: Int, b: Int = 5, c: Int = 3) -> Int
         -(value.n * 1000 + a * 100 + b * 10 + c)
-    }
-}
+    end
+end
 
-fn bounded<T>(x: T) -> Int where T: Sum {
+fn bounded<T>(x: T) -> Int where T: Sum
     T.f(x, 1, c: 9)
-}
+end
 
-fn erased(s: Sum) -> Int {
+fn erased(s: Sum) -> Int
     Sum.f(s, 1, c: 9)
-}
+end
 
-fn main() {
+fn main()
     x = Box{n: 4}
     o = Own{n: 5}
     io.inspect(Sum.f(x, 1, c: 9))
@@ -193,6 +193,6 @@ fn main() {
     io.inspect(bounded(o))
     io.inspect(erased(x))
     io.inspect(erased(o))
-}
+end
 `, "4129\n4129\n-5159\n-5159\n-5159\n4129\n-5159\n4129\n-5129\n")
 }

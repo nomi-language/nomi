@@ -13,7 +13,7 @@ import (
 // struct or record-variant field, or a function parameter, with a default
 // may leave out its type: `misses = 0`, `fn search(query: String, limit =
 // 10)`. Its type is the default's, checked with no expected type, so a
-// default whose type only an expected type tells (`[]`, `%[]`, `None`, a
+// default whose type only an expected type tells (`[]`, `[]`, `None`, a
 // `.Variant`) is an error at the field or parameter, with help that writes
 // the annotation.
 //

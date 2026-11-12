@@ -3,44 +3,44 @@
 // another file (qualified and selectively imported), `io.print` and
 // `io.inspect`, an annotated binding, and a generic body passing its own
 // type parameter on.
-import {
+import
     std::io
     span
     span.twice
-}
+end
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-impl Display for Point {
-    fn to_string(p: Point) -> String {
+impl Display for Point
+    fn to_string(p: Point) -> String
         "(${p.x}, ${p.y})"
-    }
-}
+    end
+end
 
-fn ident<T>(x: T) -> T {
+fn ident<T>(x: T) -> T
     x
-}
+end
 
-fn show<T>(x: T) -> String where T: Display {
+fn show<T>(x: T) -> String where T: Display
     "<${Display.to_string(x)}>"
-}
+end
 
-fn pair<A, B>(a: A, b: B) -> (A, B) {
+fn pair<A, B>(a: A, b: B) -> (A, B)
     (a, b)
-}
+end
 
-fn apply(f: (Int) -> Int, x: Int) -> Int {
+fn apply(f: (Int) -> Int, x: Int) -> Int
     f(x)
-}
+end
 
-fn all_shown<T>(xs: List<T>) -> List<String> where T: Display {
+fn all_shown<T>(xs: List<T>) -> List<String> where T: Display
     xs |> Iter.map(show) |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
     ["x", "y"] |> Iter.each(io.print)
 
     [1, 2] |> Iter.map(ident) |> Iter.each(io.print)
@@ -65,4 +65,4 @@ fn main() {
     g: (String, Int) -> (String, Int) = pair
     io.print(g("k", 8))
     io.print(all_shown([9, 10]))
-}
+end

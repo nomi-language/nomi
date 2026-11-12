@@ -45,15 +45,19 @@ func errsJoin(errs []analysis.TypeError) string {
 // TestImplBlockProject_ModuleFunctionWithLocalTypeAccepted: module helpers for
 // local types are ordinary functions and never orphan impls.
 func TestImplBlockProject_ModuleFunctionWithLocalTypeAccepted(t *testing.T) {
-	src := `pub struct Point {
+	src := `pub struct Point
   x: Int
   y: Int
-}
+end
 
-pub fn origin() -> Point { Point{x: 0, y: 0} }
+pub fn origin() -> Point
+    Point{x: 0, y: 0}
+end
 
 
-fn main() { origin() }`
+fn main()
+    origin()
+end`
 	errs := buildImplBlockProject(src)
 	if errsContain(errs, "orphan") {
 		t.Errorf("local module helper should NOT be an orphan, got: %s", errsJoin(errs))
@@ -63,16 +67,20 @@ fn main() { origin() }`
 // TestImplBlockProject_Collision_DuplicateModuleFunction: two same-name module
 // functions collide in the ordinary module scope.
 func TestImplBlockProject_Collision_DuplicateModuleFunction(t *testing.T) {
-	src := `pub struct Point {
+	src := `pub struct Point
   x: Int
   y: Int
-}
+end
 
-pub fn make() -> Point { Point{x: 0, y: 0} }
-pub fn make() -> Point { Point{x: 1, y: 1} }
+pub fn make() -> Point
+    Point{x: 0, y: 0}
+end
+pub fn make() -> Point
+    Point{x: 1, y: 1}
+end
 
 
-fn main() {}`
+fn main() end`
 	errs := buildImplBlockProject(src)
 	if !errsContain(errs, "'make' is already defined") {
 		t.Errorf("expected duplicate module function error for two make functions, got: %s", errsJoin(errs))
@@ -82,19 +90,23 @@ fn main() {}`
 // TestImplBlockProject_InterfaceImpl_Dispatch: a block-form interface impl
 // type-checks and a bare-name dispatch call resolves (no spurious errors).
 func TestImplBlockProject_InterfaceImpl_Dispatch(t *testing.T) {
-	src := `pub interface Speech {
+	src := `pub interface Speech
     fn speak(value: self) -> String
-}
+end
 
-pub struct Dog { name: String }
+pub struct Dog
+    name: String
+end
 
-impl Speech for Dog {
-    fn speak(d: Dog) -> String { d.name }
-}
+impl Speech for Dog
+    fn speak(d: Dog) -> String
+        d.name
+    end
+end
 
-fn demo() -> String {
+fn demo() -> String
     Speech.speak(Dog{name: "Rex"})
-}`
+end`
 	errs := buildImplBlockProject(src)
 	if len(errs) > 0 {
 		t.Fatalf("block-form interface impl + dispatch should type-check, got: %s", errsJoin(errs))

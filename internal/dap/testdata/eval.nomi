@@ -1,34 +1,34 @@
 import std::io
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-fn norm(p: Point) -> Int {
+fn norm(p: Point) -> Int
     p.x * p.x + p.y * p.y
-}
+end
 
-fn spin(n: Int) -> Int {
-    Iter.loop(0, fn i -> {
-        if i < 0 {
+fn spin(n: Int) -> Int
+    Iter.loop(0, fn i ->
+        if i < 0 then
             break i
-        } else {
+        else
             i + n
-        }
-    })
-}
+        end
+    end)
+end
 
-fn main() {
+fn main()
     p = Point{x: 3, y: 4}
     xs = [1, 2, 3]
     label = "pt"
 
     (1..=6)
-    |> Iter.each(fn i -> {
+    |> Iter.each(fn i ->
         text = "${label} ${i}"
         io.print(text)
-    })
+    end)
 
     io.print("${norm(p)} ${Iter.count(xs)}")
-}
+end

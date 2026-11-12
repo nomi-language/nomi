@@ -16,10 +16,10 @@ func TestTestCommand_RelativePathsAreUnderTheModuleRoot(t *testing.T) {
 	mustWrite(t, filepath.Join(root, "data", "greeting.txt"), "hello\n")
 	test := `import std::fs
 
-test "a relative path is under the module root" {
+test "a relative path is under the module root"
     assert fs.read_text("data/greeting.txt") == Ok("hello\n")
     assert Result.map(fs.current_dir(), fn d -> String.ends_with(d, "/app")) == Ok(True)
-}
+end
 `
 	mustWrite(t, filepath.Join(root, "greeting_test.nomi"), test)
 	mustWrite(t, filepath.Join(root, "sub", "deeper_test.nomi"), test)
@@ -45,16 +45,16 @@ test "a relative path is under the module root" {
 func TestTestCommand_ANestedPartnerTestCallsPrivateFunctions(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"app\"\n")
-	mustWrite(t, filepath.Join(root, "views", "post.nomi"), `fn classes(n: Int, prefix: String = "c") -> String {
+	mustWrite(t, filepath.Join(root, "views", "post.nomi"), `fn classes(n: Int, prefix: String = "c") -> String
     "${prefix}${n}"
-}
+end
 `)
 	mustWrite(t, filepath.Join(root, "views", "post_test.nomi"), `import views::post
 
-test "a partner test calls a private function" {
+test "a partner test calls a private function"
     assert post.classes(1) == "c1"
     assert post.classes(2, prefix: "x") == "x2"
-}
+end
 `)
 	for _, args := range [][]string{
 		{"test", "."},

@@ -86,7 +86,8 @@ func (d Diagnostic) String() string {
 // OneLineHint is hint on one line, for the short form: its lines trimmed and
 // joined with "; ", except that a line ending in ':' or '{', or a line that
 // is only '}', joins with a space. The import-block hint reads
-// `... an import block: import { std::io; std::regex.Regex }`.
+// `... an import block: import; std::io; std::regex.Regex; end`, which
+// parses as the block it stands for.
 func OneLineHint(hint string) string {
 	var b strings.Builder
 	prev := ""
@@ -278,12 +279,21 @@ func located(path, src string, err error) error {
 }
 
 // allSyntaxErrors are the syntax errors of src, in source order, first
-// among them the error first a strict parse stopped at.
+// among them the error first a strict parse stopped at. When ParseAll
+// answers that error itself, its list is the answer, with any second error
+// it keeps on that line (two fields written `P{x, y}`); otherwise first
+// stands for its line.
 func allSyntaxErrors(src string, first parser.ParseError) []parser.ParseError {
 	_, all := parser.ParseAll(lexer.Lex(src))
+	answered := false
+	for _, e := range all {
+		if e.Line == first.Line && e.Col == first.Col && e.Message == first.Message {
+			answered = true
+		}
+	}
 	out := []parser.ParseError{first}
 	for _, e := range all {
-		if e.Line == first.Line {
+		if e.Line == first.Line && (!answered || e.Col == first.Col && e.Message == first.Message) {
 			continue
 		}
 		out = append(out, e)

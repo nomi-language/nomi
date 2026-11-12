@@ -1,6 +1,6 @@
 import markdown
 
-test "markdown" {
+test "markdown"
     [
         (
             "parses normal text as a paragraph",
@@ -56,7 +56,7 @@ test "markdown" {
             "<h1>Start a list</h1><ul><li>Item 1</li><li>Item 2</li></ul><p>End a list</p>",
         ),
     ]
-    |> subtests (description, text, expected), description {
+    |> subtests (description, text, expected), description
         assert markdown.parse(text) == expected
-    }
-}
+    end
+end

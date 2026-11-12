@@ -1,4 +1,4 @@
-test "take drop and take_while materialize expected values" {
+test "take drop and take_while materialize expected values"
     assert Iter.take([1, 2, 3, 4], 2)
         |> Iter.to_list()
         |> List.equal([1, 2])
@@ -10,76 +10,76 @@ test "take drop and take_while materialize expected values" {
     assert Iter.take_while([1, 2, 3, 4, 5], &(&1 < 4))
         |> Iter.to_list()
         |> List.equal([1, 2, 3])
-}
+end
 
-test "take_while callbacks can continue or break with keep decisions" {
+test "take_while callbacks can continue or break with keep decisions"
     skipped =
-        Iter.take_while([1, 2, 3, 4, 5], fn x -> {
-            if x == 2 {
+        Iter.take_while([1, 2, 3, 4, 5], fn x ->
+            if x == 2 then
                 continue
-            } else {
+            else
                 x < 4
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
 
     kept_then_stopped =
-        Iter.take_while([1, 2, 3, 4, 5], fn x -> {
-            if x == 2 {
+        Iter.take_while([1, 2, 3, 4, 5], fn x ->
+            if x == 2 then
                 break True
-            } else {
+            else
                 x < 4
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
 
     stopped_without_taking =
-        Iter.take_while([1, 2, 3, 4, 5], fn x -> {
-            if x == 2 {
+        Iter.take_while([1, 2, 3, 4, 5], fn x ->
+            if x == 2 then
                 break False
-            } else {
+            else
                 x < 4
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
 
     assert skipped == [1, 3]
     assert kept_then_stopped == [1, 2]
     assert stopped_without_taking == [1]
-}
+end
 
-test "filter break values decide whether to keep the current element" {
+test "filter break values decide whether to keep the current element"
     keep_then_stop =
-        Iter.filter([1, 2, 3, 4], fn x -> {
-            if x == 3 {
+        Iter.filter([1, 2, 3, 4], fn x ->
+            if x == 3 then
                 break True
-            } else {
+            else
                 x > 1
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
 
     drop_then_stop =
-        Iter.filter([1, 2, 3, 4], fn x -> {
-            if x == 3 {
+        Iter.filter([1, 2, 3, 4], fn x ->
+            if x == 3 then
                 break False
-            } else {
+            else
                 x > 1
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
 
     stop_without_decision =
-        Iter.filter([1, 2, 3, 4], fn x -> {
-            if x == 3 {
+        Iter.filter([1, 2, 3, 4], fn x ->
+            if x == 3 then
                 break
-            } else {
+            else
                 x > 1
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
 
     assert keep_then_stop == [2, 3]
     assert drop_then_stop == [2]
     assert stop_without_decision == [2]
-}
+end

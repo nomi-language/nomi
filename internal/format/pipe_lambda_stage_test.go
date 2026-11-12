@@ -9,9 +9,9 @@ import "testing"
 // body is `y |> dbg`.
 func TestFormat_LambdaStageBeforeAnotherStageKeepsItsEnd(t *testing.T) {
 	cases := []struct{ src, want string }{
-		{"{(0)|>dbg fn -> 0}\n", "{ 0 |> (fn -> 0) |> dbg }\n"},
+		{"begin\n    (0)|>dbg fn -> 0\nend\n", "begin\n    0 |> (fn -> 0) |> dbg\nend\n"},
 		{"x |> dbg fn -> y\n", "x |> (fn -> y) |> dbg\n"},
-		{"x |> dbg fn -> { y }\n", "x |> (fn -> y) |> dbg\n"},
+		{"x |> dbg fn -> y + 1\n", "x |> (fn -> y + 1) |> dbg\n"},
 		{"x |> dbg fn v -> v\n", "x |> (fn v -> v) |> dbg\n"},
 		{"x |> dbg fn v -> v |> f\n", "x |> (fn v -> v |> f) |> dbg\n"},
 		{"x |> dbg fn -> y == 1\n", "x |> (fn -> y == 1) |> dbg\n"},
@@ -26,7 +26,7 @@ func TestFormat_LambdaStageBeforeAnotherStageKeepsItsEnd(t *testing.T) {
 		// The lambda's body takes in the stage on the next line.
 		{
 			"x\n    // note\n    |> dbg fn -> y\n    |> f()\n",
-			"x\n// note\n|> (fn -> {\n    y\n    |> f()\n})\n|> dbg\n",
+			"x\n// note\n|> (fn ->\n    y\n    |> f()\nend)\n|> dbg\n",
 		},
 		// The last stage needs no parentheses; one a `?` follows does.
 		{"x |> (fn -> y)?\n", "x |> (fn -> y)?\n"},

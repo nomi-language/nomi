@@ -11,9 +11,9 @@ import (
 // cursor made the highlight appear to begin mid-token.
 func TestTokenAt_AnchorsAtTokenStart(t *testing.T) {
 	src := `import std::io
-fn main() {
+fn main()
   io.print("hi")
-}`
+end`
 	fa, _ := checkSourceWithStdlib(src)
 
 	var printStart analysis.Pos

@@ -14,65 +14,77 @@ import (
 // included) have no type of their own, so a
 // name matched against any of them keeps its enum type in the arm.
 func TestNarrowing_APlainVariantLeavesTheEnumType(t *testing.T) {
-	src := `struct Circle { radius: Float }
-enum Shape {
+	src := `struct Circle
+    radius: Float
+end
+enum Shape
   Dot
   Round Float
   Rect { w: Int }
   Wrapped Circle
-}
-enum Named {
+end
+enum Named
   Circle
   Int
-}
-fn b(_x: Bool) -> Int { 1 }
-fn m(_x: Maybe<Int>) -> Int { 2 }
-fn r(_x: Result<Int, String>) -> Int { 3 }
-fn s(_x: Shape) -> Int { 4 }
-fn f(bx: Bool) -> Int {
-  case bx {
+end
+fn b(_x: Bool) -> Int
+    1
+end
+fn m(_x: Maybe<Int>) -> Int
+    2
+end
+fn r(_x: Result<Int, String>) -> Int
+    3
+end
+fn s(_x: Shape) -> Int
+    4
+end
+fn f(bx: Bool) -> Int
+  case bx
     True -> b(bx)
     False -> b(bx)
-  }
-}
-fn g(mx: Maybe<Int>) -> Int {
-  case mx {
+  end
+end
+fn g(mx: Maybe<Int>) -> Int
+  case mx
     Some(_) -> m(mx)
     None -> m(mx)
-  }
-}
-fn h(rx: Result<Int, String>) -> Int {
-  case rx {
+  end
+end
+fn h(rx: Result<Int, String>) -> Int
+  case rx
     Ok(_) -> r(rx)
     Err(_) -> r(rx)
-  }
-}
-fn k(sx: Shape) -> Int {
-  case sx {
+  end
+end
+fn k(sx: Shape) -> Int
+  case sx
     .Dot -> s(sx)
     .Round(_) -> s(sx)
     .Rect{w: _} -> s(sx)
     .Wrapped(_) -> s(sx)
-  }
-}
-fn i(mi: Maybe<Int>, bi: Bool) -> Int {
-  one = if Some(_) = mi { m(mi) } else { 0 }
-  two = if True = bi { b(bi) } else { 0 }
+  end
+end
+fn i(mi: Maybe<Int>, bi: Bool) -> Int
+  one = if Some(_) = mi then m(mi) else 0
+  two = if True = bi then b(bi) else 0
   one + two
-}
-fn n(_x: Named) -> Int { 5 }
-fn l(nx: Named) -> Int {
-  case nx {
+end
+fn n(_x: Named) -> Int
+    5
+end
+fn l(nx: Named) -> Int
+  case nx
     .Circle -> n(nx)
     .Int -> n(nx)
-  }
-}
-fn j(bj: Bool) -> Bool {
-  case bj {
+  end
+end
+fn j(bj: Bool) -> Bool
+  case bj
     True -> bj
     False -> bj
-  }
-}`
+  end
+end`
 	fa, errs := checkSourceWithStdlib(src)
 	if len(errs) > 0 {
 		t.Fatalf("the front end rejects this: %v", errs)

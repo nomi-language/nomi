@@ -10,7 +10,7 @@ func TestIRListSpreadTailOfAnyElement_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn main() {
+fn main()
     lines = [1, 2] |> Iter.map(fn x -> x * 10) |> Iter.to_list()
     io.inspect([0, ..lines])
     iters = [[1] |> Iter.map(fn x -> x)]
@@ -19,7 +19,7 @@ fn main() {
     fs = [fn x: Int -> x + 1]
     gs = [fn x: Int -> x * 2, ..fs]
     io.inspect(gs |> Iter.map(fn f -> f(3)) |> Iter.to_list())
-}
+end
 `
 	irRunSource(t, src, "[0, 10, 20]\n[2, 1]\n[6, 4]\n")
 }

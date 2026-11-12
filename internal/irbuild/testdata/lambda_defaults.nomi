@@ -32,16 +32,16 @@
 //     it.
 import std::io
 
-fn counted() -> Int {
+fn counted() -> Int
     io.print("count: default ran")
     7
-}
+end
 
-fn apply_one(f: (Int) -> Int) -> Int {
+fn apply_one(f: (Int) -> Int) -> Int
     f(1)
-}
+end
 
-fn main() {
+fn main()
     fi = fn x = 5 -> x
     fs = fn s = "hi" -> s
     fb = fn b = True -> b
@@ -79,10 +79,10 @@ fn main() {
     shadowed = fn a = x -> a
     io.print("shadow: ${shadowed()}")
 
-    if True {
+    if True then
         x = 7
         io.print("shadow: inner ${shadowed()} with x now ${x}")
-    }
+    end
 
     io.print("shadow: ${shadowed()}")
 
@@ -106,4 +106,4 @@ fn main() {
     io.print("unread: ${Iter.reduce([1, 2], 0, fn acc, x = 9 -> acc + x)}")
     io.print("unread: ${[1, 2] |> Iter.map(fn x = 5 -> x * 2) |> Iter.to_list()}")
     io.print("unread: ${Iter.reduce([1, 2], 100, fn acc, x = 9 -> acc + x)}")
-}
+end

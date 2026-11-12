@@ -15,14 +15,14 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The first five characters of `post`, or all of it when it is shorter. A
 /// character is a grapheme, so an emoji is one, however many bytes it takes.
-pub fn truncate(post: String) -> String {
+pub fn truncate(post: String) -> String
     String.take(post, 5)
-}
+end
 
 // FILE: micro_blog_test.nomi
 import micro_blog
 
-test "truncate" {
+test "truncate"
     [
         ("English language short", "Hi", "Hi"),
         ("English language long", "Hello there", "Hello"),
@@ -37,18 +37,18 @@ test "truncate" {
         ("Emoji long", "❄🌡🤧🤒🏥🕰😀", "❄🌡🤧🤒🏥"),
         ("Royal Flush?", "🃎🂸🃅🃋🃍🃁🃊", "🃎🂸🃅🃋🃍"),
     ]
-    |> subtests (description, post, expected), description {
+    |> subtests (description, post, expected), description
         assert micro_blog.truncate(post) == expected
-    }
-}
+    end
+end
 
 // Not a canonical case: the canonical data avoids characters made of several
 // codepoints. A family emoji is five codepoints joined into one grapheme, and
 // an "e" with a combining accent is two, so each counts as one character.
-test "graphemes of several codepoints" {
+test "graphemes of several codepoints"
     assert micro_blog.truncate("👨‍👩‍👧 ok and more") == "👨‍👩‍👧 ok "
     assert micro_blog.truncate("cafés") == "cafés"
-}
+end
 ```
 <!-- expect
 ok truncate (12 cases)

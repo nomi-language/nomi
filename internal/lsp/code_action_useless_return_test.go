@@ -47,23 +47,23 @@ func TestUselessReturnFix_RemovesTheReturn(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{
 			"own line",
-			"fn reset() {\n    return\n}\n",
-			"fn reset() {\n}\n",
+			"fn reset()\n    return\nend\n",
+			"fn reset()\nend\n",
 		},
 		{
 			"comment kept",
-			"import std::io\n\nfn greet() {\n    io.print(\"hi\")\n    return // done\n}\n",
-			"import std::io\n\nfn greet() {\n    io.print(\"hi\")\n    // done\n}\n",
+			"import std::io\n\nfn greet()\n    io.print(\"hi\")\n    return // done\nend\n",
+			"import std::io\n\nfn greet()\n    io.print(\"hi\")\n    // done\nend\n",
 		},
 		{
 			"case arm",
-			"import std::io\n\nfn f(x: Int) {\n    case x {\n        0 -> return\n        _ -> io.print(\"x\")\n    }\n}\n",
-			"import std::io\n\nfn f(x: Int) {\n    case x {\n        0 -> {}\n        _ -> io.print(\"x\")\n    }\n}\n",
+			"import std::io\n\nfn f(x: Int)\n    case x\n        0 -> return\n        _ -> io.print(\"x\")\n    end\nend\n",
+			"import std::io\n\nfn f(x: Int)\n    case x\n        0 -> Unit\n        _ -> io.print(\"x\")\n    end\nend\n",
 		},
 		{
 			"one-line branch",
-			"import std::io\n\nfn f(x: Int) {\n    if x > 0 { return } else { io.print(\"x\") }\n}\n",
-			"import std::io\n\nfn f(x: Int) {\n    if x > 0 { } else { io.print(\"x\") }\n}\n",
+			"import std::io\n\nfn f(x: Int)\n    if x > 0 then return else io.print(\"x\")\nend\n",
+			"import std::io\n\nfn f(x: Int)\n    if x > 0 then Unit else io.print(\"x\")\nend\n",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestUselessReturnFix_RemovesTheReturn(t *testing.T) {
 // The `if` that does nothing has no fix: what to keep of its condition is
 // the author's call.
 func TestUselessReturnFix_NotOfferedForAnIf(t *testing.T) {
-	src := "import std::io\n\nfn f(done: Bool) {\n    io.print(\"x\")\n    if done { return }\n}\n"
+	src := "import std::io\n\nfn f(done: Bool)\n    io.print(\"x\")\n    if done then return\nend\n"
 	s := NewServer()
 	if actions := uselessReturnActions(t, s, src); len(actions) != 0 {
 		var titles []string

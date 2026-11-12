@@ -18,19 +18,19 @@ import (
 // interfaces (fromInterfacesDiff) and after an edit of a body and of the
 // facade (runEdits).
 func TestReexport_EveryFileOrder(t *testing.T) {
-	schema := `pub enum Reaction {
+	schema := `pub enum Reaction
     Heart
     Pray
-}
+end
 
-impl Display for Reaction {
-    fn to_string(value: Reaction) -> String {
-        case value {
+impl Display for Reaction
+    fn to_string(value: Reaction) -> String
+        case value
             .Heart -> "heart"
             .Pray -> "pray"
-        }
-    }
-}
+        end
+    end
+end
 `
 	for _, c := range []struct {
 		name  string
@@ -42,32 +42,32 @@ impl Display for Reaction {
 				"schema": schema,
 				"%s": `pub import schema.Reaction
 
-pub fn first() -> Int {
+pub fn first() -> Int
     1
-}
+end
 `,
 				"uses": `import %s.Reaction
 
-pub struct Form {
+pub struct Form
     kind: Reaction
-}
+end
 
-pub fn heart() -> Reaction {
+pub fn heart() -> Reaction
     .Heart
-}
+end
 `,
-				"main": `import {
+				"main": `import
     std::io
     %s.{self, Reaction}
     uses.{Form, heart}
-}
+end
 
-fn main() {
+fn main()
     form = Form{kind: heart()}
     r: %s.Reaction = form.kind
     p: Reaction = .Pray
     io.print("${r} ${p}")
-}
+end
 `,
 			},
 		},
@@ -77,21 +77,21 @@ fn main() {
 				"schema": schema,
 				"%s": `pub import schema.Reaction
 
-pub fn first() -> Int {
+pub fn first() -> Int
     1
-}
+end
 `,
 				"m%s": `pub import %s.Reaction as Kind
 `,
-				"main": `import {
+				"main": `import
     std::io
     m%s.Kind
-}
+end
 
-fn main() {
+fn main()
     k: Kind = .Heart
     io.print("${k}")
-}
+end
 `,
 			},
 		},
@@ -99,39 +99,39 @@ fn main() {
 			name: "a facade in an import cycle",
 			texts: map[string]string{
 				"schema": schema,
-				"%s": `pub import {
+				"%s": `pub import
     schema.Reaction
     uses.Mood
-}
+end
 
-pub fn first() -> Int {
+pub fn first() -> Int
     1
-}
+end
 `,
 				"uses": `import %s.{Reaction, first}
 
-pub enum Mood {
+pub enum Mood
     Calm
     Glad
-}
+end
 
-pub fn mood(r: Reaction) -> Mood {
-    if first() > 0 and r == .Heart { .Glad } else { .Calm }
-}
+pub fn mood(r: Reaction) -> Mood
+    if first() > 0 and r == .Heart then .Glad else .Calm
+end
 `,
-				"main": `import {
+				"main": `import
     std::io
     %s.{Mood, Reaction}
     uses.mood
-}
+end
 
-fn main() {
+fn main()
     m: Mood = mood(Reaction.Heart)
-    io.print(case m {
+    io.print(case m
         .Glad -> "glad"
         .Calm -> "calm"
-    })
-}
+    end)
+end
 `,
 			},
 		},
@@ -151,7 +151,7 @@ fn main() {
 					t.Errorf("facade in %s.nomi: checked against interfaces, the program differs from a full check:\n%s", name, diff)
 				}
 				steps := []editStep{
-					appendText("a function in the entry", "main", "\npub fn extra() -> Int {\n    1\n}\n"),
+					appendText("a function in the entry", "main", "\npub fn extra() -> Int\n    1\nend\n"),
 					replace("the facade", name, "    1\n", "    2\n"),
 				}
 				diff, _ := runEdits(t, p, steps, newManager().RecheckWithOutcome, false)

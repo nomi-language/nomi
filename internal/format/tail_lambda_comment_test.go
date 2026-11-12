@@ -6,12 +6,12 @@ import "testing"
 // keeps its braces and the comment. It used to be written as the bare
 // expression, `Iter.loop(0, fn n -> n + 1)`, and the comment was dropped.
 func TestFormat_TailLambdaKeepsItsBodyComment(t *testing.T) {
-	src := "fn main() {\n" +
-		"    r = Iter.loop(0, fn n -> {\n" +
+	src := "fn main()\n" +
+		"    r = Iter.loop(0, fn n ->\n" +
 		"        // count up\n" +
 		"        n + 1\n" +
-		"    })\n" +
-		"}\n"
+		"    end)\n" +
+		"end\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatal(err)

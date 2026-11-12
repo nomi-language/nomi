@@ -197,7 +197,11 @@ type keyWithoutEqualityReport struct {
 // builds a Set or Map whose element or key has no equality, and answers ty.
 func (c *checker) rejectKeyWithoutEquality(node ast.Node, ty Type) Type {
 	switch n := node.(type) {
-	case *ast.SetLit, *ast.MapLit, *ast.Call:
+	case *ast.MapLit, *ast.Call:
+	case *ast.ListLit:
+		if n.Kind != ast.SeqSet {
+			return ty
+		}
 	case *ast.Binary:
 		if n.Op != "|>" {
 			return ty

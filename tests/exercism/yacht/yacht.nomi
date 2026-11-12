@@ -1,7 +1,7 @@
 //# Scores a throw of five dice in the dice game Yacht.
 
 /// The twelve ways to score a throw of five dice.
-pub enum Category {
+pub enum Category
     Ones
     Twos
     Threes
@@ -14,11 +14,11 @@ pub enum Category {
     BigStraight
     Choice
     Yacht
-}
+end
 
 /// The score of five `dice` in `category`: 0 when they do not make it.
-pub fn score(dice: List<Int>, category: Category) -> Int {
-    case category {
+pub fn score(dice: List<Int>, category: Category) -> Int
+    case category
         .Ones -> face_total(dice, 1)
         .Twos -> face_total(dice, 2)
         .Threes -> face_total(dice, 3)
@@ -31,52 +31,52 @@ pub fn score(dice: List<Int>, category: Category) -> Int {
         .BigStraight -> straight(dice, from: 2)
         .Choice -> Iter.sum(dice)
         .Yacht -> yacht(dice)
-    }
-}
+    end
+end
 
 /// The total of the dice showing `face`.
-fn face_total(dice: List<Int>, face: Int) -> Int {
+fn face_total(dice: List<Int>, face: Int) -> Int
     count = Iter.count_by(dice, &(&1 == face))
     face * count
-}
+end
 
 /// All the dice when three show one face and two another, or 0.
-fn full_house(dice: List<Int>) -> Int {
-    if group_sizes(dice) == [2, 3] {
+fn full_house(dice: List<Int>) -> Int
+    if group_sizes(dice) == [2, 3] then
         Iter.sum(dice)
-    } else {
+    else
         0
-    }
-}
+    end
+end
 
 /// Four times the face that at least four dice show, or 0.
-fn four_of_a_kind(dice: List<Int>) -> Int {
+fn four_of_a_kind(dice: List<Int>) -> Int
     dice
     |> Iter.frequencies()
     |> Iter.find(fn (_face, count) -> count >= 4)
     |> Maybe.map(fn (face, _count) -> 4 * face)
     |> Maybe.with_default(0)
-}
+end
 
 /// 30 when the dice are the five faces counting up `from`, or 0.
-fn straight(dice: List<Int>, from: Int) -> Int {
-    if Iter.sort(dice) == Iter.to_list(from..from + 5) {
+fn straight(dice: List<Int>, from: Int) -> Int
+    if Iter.sort(dice) == Iter.to_list(from..from + 5) then
         30
-    } else {
+    else
         0
-    }
-}
+    end
+end
 
 /// 50 when all five dice show one face, or 0.
-fn yacht(dice: List<Int>) -> Int {
-    if group_sizes(dice) == [5] { 50 } else { 0 }
-}
+fn yacht(dice: List<Int>) -> Int
+    if group_sizes(dice) == [5] then 50 else 0
+end
 
 /// How many dice show each face that comes up, smallest group first: a full
 /// house is `[2, 3]`, a yacht `[5]`.
-fn group_sizes(dice: List<Int>) -> List<Int> {
+fn group_sizes(dice: List<Int>) -> List<Int>
     dice
     |> Iter.frequencies()
     |> Map.values()
     |> Iter.sort()
-}
+end

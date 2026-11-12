@@ -10,11 +10,11 @@ import (
 
 const targetSrc = `import std::io
 
-fn main() {
+fn main()
   f = fn k: Int -> k + 1
   y = f(2) + Maybe.with_default(Maybe.map(Some(1), fn x -> x + 1), 0)
   io.print("${y}")
-}
+end
 `
 
 // The targets of a statement with a call through a variable, a std

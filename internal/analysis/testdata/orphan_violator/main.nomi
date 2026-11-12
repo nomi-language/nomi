@@ -3,12 +3,12 @@
 // expect type-error: orphan impl: `Display`
 import orphan_dep::pad.Pad
 
-impl Display for Pad {
-    fn to_string(p: Pad) -> String {
+impl Display for Pad
+    fn to_string(p: Pad) -> String
         "pad(width=${p.width}, fill=${p.fill})"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     Unit
-}
+end

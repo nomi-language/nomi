@@ -1,25 +1,25 @@
-test "set literals deduplicate inserted values" {
+test "set literals deduplicate inserted values"
     one = 1
     two = 2
-    s = %[one, two, 3, two, one]
+    s = Set[one, two, 3, two, one]
 
     assert Set.size(s) == 3
     assert Set.contains(s, 2)
     refute Set.contains(s, 9)
-}
+end
 
-test "singleton and empty set literals are sets" {
-    one = %[42]
-    empty: Set<Int> = %[]
+test "singleton and empty set literals are sets"
+    one = Set[42]
+    empty: Set<Int> = []
 
     assert Set.size(one) == 1
     assert Set.contains(one, 42)
     assert Set.size(empty) == 0
-}
+end
 
-test "sets support insertion and algebra operations" {
-    a = %[1, 2, 3]
-    b = %[2, 3, 4]
+test "sets support insertion and algebra operations"
+    a = Set[1, 2, 3]
+    b = Set[2, 3, 4]
 
     inserted =
         Set.insert(a, 9)
@@ -37,23 +37,23 @@ test "sets support insertion and algebra operations" {
         Set.difference(a, b)
         |> Set.size()
 
-    assert Set.is_subset_of(%[1, 2], a)
+    assert Set.is_subset_of([1, 2], a)
 
     assert inserted == 4
     assert union_size == 4
     assert intersection_size == 2
     assert difference_size == 1
-}
+end
 
-test "sets deduplicate structural values" {
+test "sets deduplicate structural values"
     p = (1, 2)
-    ts = %[p, (3, 4), p]
+    ts = Set[p, (3, 4), p]
 
     assert Set.size(ts) == 2
-}
+end
 
-test "sets are iterable in insertion order" {
-    assert %[3, 1, 2]
+test "sets are iterable in insertion order"
+    assert Set[3, 1, 2]
         |> Iter.to_list()
         |> List.equal([3, 1, 2])
 
@@ -63,10 +63,10 @@ test "sets are iterable in insertion order" {
         |> Iter.count()
 
     assert size == 2
-}
+end
 
-test "set iter pipelines can materialize back into sets" {
-    xs = %[1, 2, 3]
+test "set iter pipelines can materialize back into sets"
+    xs = Set[1, 2, 3]
 
     assert xs
         |> Iter.map(&(&1 * 10))
@@ -74,17 +74,17 @@ test "set iter pipelines can materialize back into sets" {
         |> List.equal([10, 20, 30])
 
     doubled =
-        %[1, 2, 3]
+        Set[1, 2, 3]
         |> Iter.map(&(&1 * 2))
         |> Iter.to_set()
 
     parity =
-        %[1, 2, 3, 4]
+        Set[1, 2, 3, 4]
         |> Iter.map(&(&1 % 2))
         |> Iter.to_set()
 
     filtered =
-        %[1, 2, 3, 4]
+        Set[1, 2, 3, 4]
         |> Iter.filter(&(&1 > 2))
         |> Iter.to_set()
 
@@ -100,23 +100,23 @@ test "set iter pipelines can materialize back into sets" {
     assert Set.size(filtered) == 2
     assert Set.contains(filtered, 3)
     assert Set.contains(filtered, 4)
-}
+end
 
-test "sets can feed iter reductions" {
+test "sets can feed iter reductions"
     total =
-        %[1, 2, 3, 4]
+        Set[1, 2, 3, 4]
         |> Iter.reduce(0, fn acc, x -> acc + x)
 
     assert total == 10
-}
+end
 
-test "sets combine with + and -" {
-    a = %[1, 2, 3]
-    b = %[2, 3, 4]
+test "sets combine with + and -"
+    a = Set[1, 2, 3]
+    b = Set[2, 3, 4]
 
-    assert a + b == %[1, 2, 3, 4]
-    assert a - b == %[1]
-    assert a + %[] == a
-    assert a + %[9] == Set.insert(a, 9)
-    assert a - %[2] == Set.remove(a, 2)
-}
+    assert a + b == [1, 2, 3, 4]
+    assert a - b == [1]
+    assert a + [] == a
+    assert a + [9] == Set.insert(a, 9)
+    assert a - [2] == Set.remove(a, 2)
+end

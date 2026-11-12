@@ -24,30 +24,32 @@ import (
 func TestSigReason_NamesAReasonForExactlyWhatTypeOfRefuses(t *testing.T) {
 	src := `import std::io
 import std::literals.Literal
+import std::html.Html
 
-struct Point {
+struct Point
   x: Int
   y: Int
-}
+end
 
-interface Speaker {
+interface Speaker
   fn speak(s: self) -> String
-}
+end
 
-impl Speaker for Point {
-  fn speak(s: Point) -> String { _ = s;
+impl Speaker for Point
+  fn speak(s: Point) -> String
+      _ = s
     "point"
-  }
-}
+  end
+end
 
-pub enum Owner.Nested {
+pub enum Owner.Nested
   A
   B Int
-}
+end
 
 // Handler is a LOWERED row: a module-level alias is transparent (typealias.go).
-// u: Literal<Int, Int> is a LOWERED row too, a boxed generic interface. w: .{}
-// supplies the refused half: a record with no fields has no representation.
+// u: Literal<Int, Int> is a LOWERED row too, a boxed generic interface. w: Html
+// supplies the refused half: a std type with no representation here.
 typealias Handler (String) -> String
 
 fn every(
@@ -68,18 +70,18 @@ fn every(
   _o: Ordering,
   _p: Decimal,
   _r: Handler,
-  _s: .{x: Int},
+  _s: {x: Int},
   _t: List<Ordering>,
   _u: Literal<Int, Int>,
   _v: Iter<Int>,
-  _w: .{}
-) -> Int {
+  _w: Html
+) -> Int
   0
-}
+end
 
-fn main() {
+fn main()
   io.print("x")
-}
+end
 `
 	p, err := AnalyzeSource("main", src)
 	if err != nil {

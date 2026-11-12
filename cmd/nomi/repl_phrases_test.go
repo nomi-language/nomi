@@ -31,14 +31,14 @@ func TestReplVM_ANounAndAPhraseAreDeclaredAndFormatted(t *testing.T) {
 // inputs the same way.
 func TestReplVM_ARedeclaredPhraseOrNounIsANewDefinition(t *testing.T) {
 	replExpect(t, replShoe+replShoeCount+
-		"fn old() -> String {\n  Phrase.format(shoe_count(shoe, 1), Locale`en`)\n}\n"+
+		"fn old() -> String\n  Phrase.format(shoe_count(shoe, 1), Locale`en`)\nend\n"+
 		"phrase shoe_count(item: Noun, count: Int) `now {$count} {$item :nomi:noun count=$count}`\n"+
 		"Phrase.format(shoe_count(shoe, 3), Locale`en`)\n"+
 		"old()\n"+
 		"noun shoe `.input {$count :integer} .match $count one {{boot}} * {{boots}}`\n"+
 		"Phrase.format(shoe_count(shoe, 3), Locale`en`)\n"+
 		"old()\n"+
-		"fn shoe_count() -> Int {\n  5\n}\n"+
+		"fn shoe_count() -> Int\n  5\nend\n"+
 		"shoe_count()\n"+
 		"old()\n",
 		"\"now 3 shoes\"\n\"1 shoe\"\n\"now 3 boots\"\n\"1 shoe\"\n5\n\"1 shoe\"\n")
@@ -93,22 +93,22 @@ func TestReplVM_AnOpenBacktickContinuesTheInput(t *testing.T) {
 // where it would be read as names ("undefined variable 'noun'").
 func TestReplVM_EveryTopLevelDeclarationIsADeclaration(t *testing.T) {
 	sources := []string{
-		"fn f() -> Int { 1 }",
+		"fn f() -> Int\n    1\nend",
 		"host fn now_ms() -> Int",
-		"struct P { x: Int }",
-		"enum Color {\n    Red\n    Green\n}",
+		"struct P\n    x: Int\nend",
+		"enum Color\n    Red\n    Green\nend",
 		"type Meters Int",
 		"typealias Id Int",
-		"interface Shape {\n    fn area(value: self) -> Float\n}",
+		"interface Shape\n    fn area(value: self) -> Float\nend",
 		"host type Handle",
-		"impl P {\n    fn get(p: P) -> Int { p.x }\n}",
-		"impl Literal for P { fn from_fragments(fragments: List<Fragment<String>>) -> P { P{x: 1} } }",
+		"impl P\n    fn get(p: P) -> Int\n        p.x\n    end\nend",
+		"impl Literal for P\n    fn from_fragments(fragments: List<Fragment<String>>) -> P\n        P{x: 1}\n    end\nend",
 		"derive Debug for P",
 		"import std::io",
-		"import {\n    std::io\n    std::uuid\n}",
+		"import\n    std::io\n    std::uuid\nend",
 		"gopkg \"strings\" as strs",
-		"test \"t\" {\n    assert 1 == 1\n}",
-		"group \"g\" {\n    test \"t\" {\n        assert 1 == 1\n    }\n}",
+		"test \"t\"\n    assert 1 == 1\nend",
+		"group \"g\"\n    test \"t\"\n        assert 1 == 1\n    end\nend",
 		"once x: Int = 1",
 		"embed site `static`",
 		replShoe,

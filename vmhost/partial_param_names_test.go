@@ -8,22 +8,22 @@ import "testing"
 // inside it `maybe` was the parameter and `maybe.Maybe` a field read on it.
 // The partial is still called by the callee's names.
 func TestPartialApplication_ParameterNamedLikeTheQualifier(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": `import {
+	got := runSiblingProgram(t, map[string]string{"main.nomi": `import
     std::io
     std::maybe
     std::lists
-}
+end
 
-fn noted(n: Int) -> Int {
+fn noted(n: Int) -> Int
     io.print("made ${n}")
     n
-}
+end
 
-fn tag(_label: String, n: Int) -> Int {
+fn tag(_label: String, n: Int) -> Int
     n
-}
+end
 
-fn main() {
+fn main()
     m = &maybe.Maybe.map(&1, fn n: Int -> n + noted(1))
     io.inspect(m(Some(4)))
     io.inspect(m(maybe: Some(1)))
@@ -34,7 +34,7 @@ fn main() {
     io.inspect(h([7]))
     t = &tag(&1, noted(3))
     io.inspect(t(_label: "z"))
-}
+end
 `})
 	want := "made 1\nSome(5)\nmade 1\nSome(2)\nmade 0\n0\nmade 0\n5\nSome(7)\nmade 3\n3\n"
 	if got != want {

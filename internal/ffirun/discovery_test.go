@@ -173,15 +173,15 @@ func TestDiscovery_GoSelectorStructSignature(t *testing.T) {
 	root := stageSourceBindingProject(t)
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-struct Address {
+struct Address
   city: String
-}
+end
 
-struct User {
+struct User
   name: String
   age: Int
   address: Address
-}
+end
 
 fn birthday(user: User) -> User go binding.Birthday
 `)
@@ -204,7 +204,7 @@ fn birthday(user: User) -> User go binding.Birthday
 
 func TestDiscovery_NoSourceBindings(t *testing.T) {
 	root := stageSourceBindingProject(t)
-	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `fn main() {}
+	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `fn main() end
 `)
 	got, err := Discover(root)
 	if err != nil {
@@ -224,9 +224,9 @@ go 1.26.3
 	parentDir := filepath.Join(root, "tests", "18-ffi-and-dynamic")
 	mustWriteHelper(t, filepath.Join(parentDir, "json_test.nomi"), `import std::json
 
-test "plain json test" {
+test "plain json test"
   assert True
-}
+end
 `)
 	fixtureDir := filepath.Join(parentDir, "tagged_ffi_app")
 	mustWriteHelper(t, filepath.Join(fixtureDir, "nomi.toml"), `[module]
@@ -291,9 +291,9 @@ replace example.com/dep => %s
 `, nomiRoot))
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `import dep::binding
 
-fn main() {
+fn main()
   _ = binding.ping()
-}
+end
 `)
 
 	got, err := Discover(root)
@@ -333,7 +333,7 @@ replace (
 	example.com/two v0.0.0 => ../two
 )
 `)
-	mustWriteHelper(t, filepath.Join(app, "main.nomi"), "import {\n    one::binding\n    two::binding as other\n}\n\nfn main() {\n  _ = binding.ping()\n  _ = other.ping()\n}\n")
+	mustWriteHelper(t, filepath.Join(app, "main.nomi"), "import\n    one::binding\n    two::binding as other\nend\n\nfn main()\n  _ = binding.ping()\n  _ = other.ping()\nend\n")
 
 	got, err := Discover(app)
 	if err != nil {
@@ -629,11 +629,11 @@ func TestPrepareRejectsStructShapeMismatch(t *testing.T) {
 	root := stageSourceBindingProject(t)
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-struct User {
+struct User
   name: String
   age: String
   email: String
-}
+end
 
 fn birthday(user: User) -> User go binding.Birthday
 `)
@@ -677,9 +677,9 @@ func TouchEvent(e Event) Event {
 `)
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-struct Event {
+struct Event
   created: Instant
-}
+end
 
 fn touch_event(event: Event) -> Event go binding.TouchEvent
 `)

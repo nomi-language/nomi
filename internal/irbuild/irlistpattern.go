@@ -16,9 +16,9 @@ func (bl *irScalarBuilder) listCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 	if k.tag == tagEmptyList && (spread || len(pat.Heads) != 0) {
 		// The untyped literal `[]` as the subject, whose element type
 		// nothing determines and no value has (spec, "Determined type
-		// arguments"): it enters a list at the kind an unsolved element is
-		// filled with (irFillHolesByPosition), and no head or suffix
-		// pattern matches it, so no projection at that kind runs.
+		// arguments"): it enters a list of Int, a retained list kind, and
+		// no head or suffix pattern matches it, so no projection at that
+		// kind runs.
 		v, vk, ok := bl.coerceEmpty(pattern, subj, k, listKindIn(bl.g, kindInt))
 		if !ok {
 			return false

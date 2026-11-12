@@ -1,7 +1,7 @@
-import {
+import
     std::calendar.Date
     std::money.Money
-}
+end
 
 /// A book, one of the shop's product categories.
 pub noun book `

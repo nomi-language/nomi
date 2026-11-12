@@ -108,16 +108,18 @@ f = Html"""
 A set literal outside a string
 ================================================================================
 
-g = %[1, 2]
+g = Set[1, 2]
 
 --------------------------------------------------------------------------------
 
 (source_file
   (binding
     (identifier)
-    (set
-      (integer)
-      (integer))))
+    (typed_list
+      (type_identifier)
+      (list
+        (integer)
+        (integer)))))
 
 ================================================================================
 String escapes, the carriage return included

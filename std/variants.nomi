@@ -1,7 +1,7 @@
-import {
+import
     comparable.Ordering
     lists.List
-}
+end
 
 /// Variants lists every value of an enum whose variants carry no data.
 /// `T.variants()` returns them in declaration order, the order
@@ -13,6 +13,6 @@ import {
 /// has no single value to list, so deriving it there is a compile error.
 //! assert Ordering.variants() == [Ordering.Less, Ordering.Equal, Ordering.Greater]
 //
-pub interface Variants {
+pub interface Variants
     fn variants() -> List<self>
-}
+end

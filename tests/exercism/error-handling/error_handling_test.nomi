@@ -1,55 +1,55 @@
-import {
+import
     std::io.{self, Reader}
     std::tasks.Task
     error_handling
-}
+end
 
 /// Whether `reader` has been closed: reading from it again is refused.
-fn is_closed(reader: Reader) -> Bool {
+fn is_closed(reader: Reader) -> Bool
     Reader.read_line(reader) == Err(io.Error.Closed)
-}
+end
 
-test "a missing answer is None" {
+test "a missing answer is None"
     assert error_handling.number("1") == Some(1)
     assert error_handling.number("a") == None
-}
+end
 
-test "a failure the caller handles is an Err" {
+test "a failure the caller handles is an Err"
     assert error_handling.parse("1") == Ok(1)
     assert error_handling.parse("a") == Err(.NotANumber{text: "a"})
-}
+end
 
-test "a broken promise traps" {
-    outcome = concurrent {
+test "a broken promise traps"
+    outcome = concurrent
         task = Task.spawn(fn -> error_handling.parse_trusted("a"))
         Task.outcome(task)
-    }
+    end
 
     assert .Failed(_) = outcome
-}
+end
 
-test "a resource is released when the work succeeds" {
+test "a resource is released when the work succeeds"
     reader = Reader.from_text("1\n2\n3\n")
 
     assert error_handling.sum_lines(reader) == Ok(6)
     assert is_closed(reader)
-}
+end
 
-test "a resource is released when the work fails" {
+test "a resource is released when the work fails"
     reader = Reader.from_text("1\nx\n3\n")
 
     assert error_handling.sum_lines(reader) == Err(.NotANumber{text: "x"})
     assert is_closed(reader)
-}
+end
 
-test "a resource is released when the work traps" {
+test "a resource is released when the work traps"
     reader = Reader.from_text("1\nx\n3\n")
 
-    outcome = concurrent {
+    outcome = concurrent
         task = Task.spawn(fn -> error_handling.sum_trusted_lines(reader))
         Task.outcome(task)
-    }
+    end
 
     assert .Failed(_) = outcome
     assert is_closed(reader)
-}
+end

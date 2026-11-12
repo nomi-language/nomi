@@ -1,11 +1,11 @@
 import std::io
 
-fn vals<K, V>(m: Map<K, V>) -> List<V> {
+fn vals<K, V>(m: Map<K, V>) -> List<V>
     Iter.map(m, fn (_, v) -> v) |> Iter.to_list()
-}
+end
 
-fn main() {
-    m = %{"a" => 1, "b" => 2}
+fn main()
+    m = {"a" => 1, "b" => 2}
     pairs = [("x", 10), ("y", 20)]
     nested = [(1, (2, 3)), (4, (5, 6))]
 
@@ -72,4 +72,4 @@ fn main() {
     pairs |> Iter.each(fn (k, _) -> io.print(k))
 
     io.inspect(vals(m))
-}
+end

@@ -14,7 +14,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# The values of a resistor's color bands.
 
 /// A band color, in value order: black is 0 and white is 9.
-pub enum Color {
+pub enum Color
     Black
     Brown
     Red
@@ -25,13 +25,13 @@ pub enum Color {
     Violet
     Grey
     White
-}
+end
 
 derive Variants for Color
 
 /// The digit `color` stands for on a band.
-pub fn color_code(color: Color) -> Int {
-    case color {
+pub fn color_code(color: Color) -> Int
+    case color
         .Black -> 0
         .Brown -> 1
         .Red -> 2
@@ -42,32 +42,32 @@ pub fn color_code(color: Color) -> Int {
         .Violet -> 7
         .Grey -> 8
         .White -> 9
-    }
-}
+    end
+end
 
 /// Every band color, in value order.
-pub fn colors() -> List<Color> {
+pub fn colors() -> List<Color>
     Color.variants()
-}
+end
 
 // FILE: resistor_color_test.nomi
-import {
+import
     resistor_color
     resistor_color.Color
-}
+end
 
-test "Color codes" {
+test "Color codes"
     [
         ("Black", Color.Black, 0),
         ("White", .White, 9),
         ("Orange", .Orange, 3),
     ]
-    |> subtests (description, color, expected), description {
+    |> subtests (description, color, expected), description
         assert resistor_color.color_code(color) == expected
-    }
-}
+    end
+end
 
-test "Colors" {
+test "Colors"
     assert resistor_color.colors() == [
         .Black,
         .Brown,
@@ -80,7 +80,7 @@ test "Colors" {
         .Grey,
         .White,
     ]
-}
+end
 ```
 <!-- expect
 ok Color codes (3 cases)

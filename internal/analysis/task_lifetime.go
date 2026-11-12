@@ -351,20 +351,6 @@ func (tl *taskLifetime) tailEscapes(expr ast.Node, taskBindings []taskBinding) b
 		}
 		return false
 	case *ast.ListLit:
-		for _, item := range node.Items {
-			if tl.tailEscapes(item, taskBindings) {
-				return true
-			}
-		}
-		return false
-	case *ast.VectorLit:
-		for _, item := range node.Operands() {
-			if tl.tailEscapes(item, taskBindings) {
-				return true
-			}
-		}
-		return false
-	case *ast.SetLit:
 		for _, item := range node.Operands() {
 			if tl.tailEscapes(item, taskBindings) {
 				return true
@@ -420,10 +406,6 @@ func positionOf(n ast.Node) (int, int) {
 	case *ast.TupleLit:
 		return node.Line, node.Col
 	case *ast.ListLit:
-		return node.Line, node.Col
-	case *ast.VectorLit:
-		return node.Line, node.Col
-	case *ast.SetLit:
 		return node.Line, node.Col
 	case *ast.StructLit:
 		return node.Line, node.Col

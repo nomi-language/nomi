@@ -23,36 +23,36 @@ import (
 // computes body, with a deferred call that runs a function of its own. Main
 // cancels it once it is running and prints its outcome.
 func safePointTask(decls, body string) string {
-	return `import {
+	return `import
     std::channels.Channel
     std::channels.Receiver
     std::channels.Sender
     std::io
     std::tasks.Task
-}
+end
 
-fn note(text: String) {
+fn note(text: String)
     io.print(text)
-}
+end
 
 ` + decls + `
 
-fn main() {
+fn main()
     started = Channel.buffered<Int>(1)
-    outcome = concurrent {
-        t = Task.spawn(fn -> {
+    outcome = concurrent
+        t = Task.spawn(fn ->
             defer note("cleanup ran")
             _ = Sender.send(started.sender, 1)
             n = ` + body + `
             io.print("finished")
             n
-        })
+        end)
         _ = Receiver.receive(started.receiver)
         Task.cancel(t)
         Task.outcome(t)
-    }
+    end
     dbg outcome
-}
+end
 `
 }
 
@@ -84,32 +84,32 @@ func assertCancelledMidWork(t *testing.T, src string) {
 }
 
 func TestSafePoint_ACancelledLoopStops(t *testing.T) {
-	assertCancelledMidWork(t, safePointTask(`fn spin(limit: Int) -> Int {
+	assertCancelledMidWork(t, safePointTask(`fn spin(limit: Int) -> Int
     Iter.loop(
         0,
-        fn i -> {
-            if i >= limit {
+        fn i ->
+            if i >= limit then
                 break i
-            }
+            end
             i + 1
-        },
+        end,
     )
-}`, "spin(30_000_000)"))
+end`, "spin(30_000_000)"))
 }
 
 func TestSafePoint_ACancelledRecursionStops(t *testing.T) {
 	// A tail call into itself and a plain call per step: the transfer and the
 	// call are both safe points.
-	assertCancelledMidWork(t, safePointTask(`fn step(acc: Int) -> Int {
+	assertCancelledMidWork(t, safePointTask(`fn step(acc: Int) -> Int
     acc + 1
-}
+end
 
-fn spin(n: Int, acc: Int) -> Int {
-    if n == 0 {
+fn spin(n: Int, acc: Int) -> Int
+    if n == 0 then
         return acc
-    }
+    end
     spin(n - 1, step(acc))
-}`, "spin(30_000_000, 0)"))
+end`, "spin(30_000_000, 0)"))
 }
 
 func TestSafePoint_ACancelledReduceOverARangeStops(t *testing.T) {
@@ -126,37 +126,37 @@ func TestSafePoint_ACancelledIterationDrivenInGoStops(t *testing.T) {
 // reports the deadline, the rest of main is skipped, and main's deferred call
 // runs.
 func TestSafePoint_ADeadlineStopsABusyLoopOnTheMainLine(t *testing.T) {
-	out, err := runSafePoint(t, `import {
+	out, err := runSafePoint(t, `import
     std::duration.Duration
     std::io
-}
+end
 
-struct App {
+struct App
     context: Context
-}
+end
 
-fn boot(_startup: Startup) -> Result<App, String> {
+fn boot(_startup: Startup) -> Result<App, String>
     Ok(App{context: Context.root()})
-}
+end
 
-fn note(text: String) {
+fn note(text: String)
     io.print(text)
-}
+end
 
-fn main() {
+fn main()
     defer note("cleanup ran")
     with App.context = Context.with_timeout(App.context, Duration.milliseconds(5))
     n = Iter.loop(
         0,
-        fn i -> {
-            if i >= 30_000_000 {
+        fn i ->
+            if i >= 30_000_000 then
                 break i
-            }
+            end
             i + 1
-        },
+        end,
     )
     io.print("finished ${n}")
-}
+end
 `)
 	if err == nil || !strings.Contains(err.Error(), rt.MainDeadlineFault) {
 		t.Fatalf("want the deadline fault, got %v; output: %q", err, out)
@@ -172,47 +172,47 @@ fn main() {
 // A deadline inside a task over a loop that never waits settles the task
 // Cancelled, as a deadline reached in a wait does.
 func TestSafePoint_ADeadlineStopsABusyLoopInATask(t *testing.T) {
-	out, err := runSafePoint(t, `import {
+	out, err := runSafePoint(t, `import
     std::duration.Duration
     std::io
     std::tasks.Task
-}
+end
 
-struct App {
+struct App
     context: Context
-}
+end
 
-fn boot(_startup: Startup) -> Result<App, String> {
+fn boot(_startup: Startup) -> Result<App, String>
     Ok(App{context: Context.root()})
-}
+end
 
-fn note(text: String) {
+fn note(text: String)
     io.print(text)
-}
+end
 
-fn bounded() -> Int {
+fn bounded() -> Int
     defer note("cleanup ran")
     with App.context = Context.with_timeout(App.context, Duration.milliseconds(5))
     n = Iter.loop(
         0,
-        fn i -> {
-            if i >= 30_000_000 {
+        fn i ->
+            if i >= 30_000_000 then
                 break i
-            }
+            end
             i + 1
-        },
+        end,
     )
     io.print("finished")
     n
-}
+end
 
-fn main() {
-    outcome = concurrent {
+fn main()
+    outcome = concurrent
         t = Task.spawn(fn -> bounded())
         Task.outcome(t)
-    }
+    end
     dbg outcome
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v\noutput: %q", err, out)

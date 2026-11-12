@@ -12,7 +12,7 @@
 // writing unbuffered straight to fd 1 buys.
 import std::io
 
-fn main() {
+fn main()
     io.print("before")
     io.print(String.repeat("ab", 0 - 2))
-}
+end

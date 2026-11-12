@@ -10,25 +10,25 @@ import std::io
 // ever produce. This is the row that separates `Hashable.hash` — which a
 // program may override — from maps.go's valueHash, which deliberately cannot
 // be overridden and would answer an rt.HashMix fold here.
-struct Written {
+struct Written
     x: Int
-}
+end
 
-impl Hashable for Written {
-    fn hash(w: Written) -> Int {
+impl Hashable for Written
+    fn hash(w: Written) -> Int
         _ = w
         999
-    }
-}
+    end
+end
 
-struct Derived {
+struct Derived
     a: Int
     b: Int
-}
+end
 
 derive Hashable for Derived
 
-fn main() {
+fn main()
     // Declaration index 0. `0 * 31 + h` IS `h`, so this side cannot tell a right
     // mix from no mix, a 0-based index from a 1-based one, or a wrapping add
     // from a trapping one. Three derivations collapse into one observation here,
@@ -59,4 +59,4 @@ fn main() {
     differ = Maybe.hash(Some(4)) == Maybe.hash(None)
     io.print("agree:        ${agree}")
     io.print("differ:       ${differ}")
-}
+end

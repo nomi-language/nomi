@@ -18,57 +18,57 @@ type RequestId Int
 
 type Flag
 
-struct Tag {
+struct Tag
   name: String
-}
+end
 
-fn user_of(c: Context) -> Maybe<UserId> {
+fn user_of(c: Context) -> Maybe<UserId>
   Context.value(c, UserId)
-}
+end
 
-fn find_in(c: Context, witness: Type<Tag>) -> Maybe<Tag> {
+fn find_in(c: Context, witness: Type<Tag>) -> Maybe<Tag>
   Context.value(c, witness)
-}
+end
 
-test "two distincts over one scalar keep two slots" {
+test "two distincts over one scalar keep two slots"
   c = Context.with_value(Context.root(), UserId(1))
   both = Context.with_value(c, RequestId(2))
   assert user_of(both) == Some(UserId(1))
   assert Context.value(both, RequestId) == Some(RequestId(2))
-}
+end
 
-test "a primitive is keyed by its own type" {
+test "a primitive is keyed by its own type"
   c = Context.with_value(Context.root(), 5)
   assert Context.value(c, Int) == Some(5)
   assert Context.value(c, String) == None
-}
+end
 
-test "a child shadows and the parent is unchanged" {
+test "a child shadows and the parent is unchanged"
   parent = Context.with_value(Context.root(), Tag{name: "a"})
   child = Context.with_value(parent, Tag{name: "b"})
   assert find_in(child, Tag) == Some(Tag{name: "b"})
   assert find_in(parent, Tag) == Some(Tag{name: "a"})
-}
+end
 
-test "markers compare equal and are values" {
+test "markers compare equal and are values"
   c = Context.with_value(Context.root(), Flag)
   assert Flag == Flag
   refute Flag != Flag
   assert Context.value(c, Flag) == Some(Flag)
-}
+end
 
-test "a failing lookup reports its operands" {
+test "a failing lookup reports its operands"
   c = Context.with_value(Context.root(), UserId(3))
   assert Context.value(c, UserId) == Some(UserId(4))
-}
+end
 
-test "a case subject records its scrutinee and the arm that ran" {
+test "a case subject records its scrutinee and the arm that ran"
   c = Context.with_value(Context.root(), UserId(3))
-  assert case Context.value(c, UserId) {
+  assert case Context.value(c, UserId)
     Some(UserId(id)) -> id == 4
     None -> False
-  }
-}
+  end
+end
 `
 
 // TestIRContextValue_WitnessesKeyTheStore runs the program above whole.

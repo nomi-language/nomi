@@ -725,6 +725,10 @@ func (c *Checker) AnalyzeStdlibModule(moduleKey string, nodes []ast.Node) (*anal
 	analysis.AttachEditedStdlibImpls(fa, nodes, module, files)
 	var errs []analysis.TypeError
 	errs = append(errs, fa.TypeErrors...)
+	// The derive field check a project build runs over its own files
+	// (Sweep B-bounds), here with the index the module was just given: a
+	// file built on its own has none, and skips it.
+	errs = append(errs, analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex, nil)...)
 	errs = append(errs, analysis.BuildTypes(fa, nodes)...)
 	// Again, now that BuildTypes has typed this file's impls: the index's
 	// function types and receiver identities are read off typed symbols.

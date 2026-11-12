@@ -15,13 +15,13 @@ func TestJSONUserElements_StdInstancesCallTheUsersImpl(t *testing.T) {
 	const want = "" +
 		"dbg line 31: notes = [Note{title: \"b\"}, Note{title: \"a\"}]\n" +
 		"dbg line 33: turbo = [Note{title: \"c\"}]\n" +
-		"dbg line 35: by_key = %{\"k\" => Note{title: \"d\"}}\n" +
+		"dbg line 35: by_key = {\"k\" => Note{title: \"d\"}}\n" +
 		"dbg line 37: maybe = Some(Note{title: \"e\"})\n" +
 		"dbg line 39: none = None\n" +
 		"dbg line 41: nested = [[Note{title: \"f\"}], []]\n" +
 		// The element's shape error carries the list index before the
 		// field: std's decode_list prepends it to the user's impl's error.
-		"dbg line 43: bad = Err(Json.ShapeError{path: [\"[0]\", \"title\"], expected: \"string\", got: \"int\"})\n" +
+		"dbg line 43: bad = Err(Json.ShapeError{path: [\"[0]\", \"title\"], expected: \"String\", got: \"int\"})\n" +
 		"dbg line 44: Json.encode(ToJson.to_json(notes)) = \"[{\\\"title\\\":\\\"b\\\"},{\\\"title\\\":\\\"a\\\"}]\"\n" +
 		"dbg line 45: Json.encode(ToJson.to_json(nested)) = \"[[{\\\"title\\\":\\\"f\\\"}],[]]\"\n" +
 		"dbg line 46: Json.encode(ToJson.to_json([by_key])) = \"[{\\\"k\\\":{\\\"title\\\":\\\"d\\\"}}]\"\n" +
@@ -45,7 +45,7 @@ func TestJSONUserElements_AnotherFilesType(t *testing.T) {
 		"{\"title\":\"x\"}\n" +
 		"[{\"title\":\"x\"},{\"title\":\"x\"}]\n" +
 		"{\"title\":\"y\"}\n" +
-		"expected array, got object\n"
+		"expected List, got object\n"
 	got := vmReference(fixture("json_crossfile/main.nomi"))
 	if got.stdout != want || got.exit != 0 || got.stderr != "" {
 		t.Fatalf("a bounded call at another file's type:\nwant stdout=%q\ngot  %s", want, got)

@@ -28,27 +28,27 @@
 // is required rather than stylistic: the report suppresses a redundant literal,
 // so `assert Some(7) == None` renders no `values:` row at all and would compare
 // nothing. A name forces the row.
-fn to_maybe(n: Int) -> Maybe<Int> {
-    if n > 0 { Some(n) } else { None }
-}
+fn to_maybe(n: Int) -> Maybe<Int>
+    if n > 0 then Some(n) else None
+end
 
-test "an equality against an untyped literal that holds" {
+test "an equality against an untyped literal that holds"
     absent: Maybe<Int> = None
     assert absent == None
     assert None == absent
-}
+end
 
-test "a failing equality renders the untyped operand on the right" {
+test "a failing equality renders the untyped operand on the right"
     present = to_maybe(7)
     assert present == None
-}
+end
 
-test "a failing equality renders the untyped operand on the left" {
+test "a failing equality renders the untyped operand on the left"
     present = to_maybe(7)
     assert None == present
-}
+end
 
-test "a failing list equality renders the untyped operand" {
+test "a failing list equality renders the untyped operand"
     xs = [1, 2]
     assert xs == []
-}
+end

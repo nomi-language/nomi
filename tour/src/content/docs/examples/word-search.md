@@ -14,16 +14,16 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Finds words in a grid of letters, in any of eight directions.
 
 /// A letter's place in the puzzle, counted from 1 at the top left.
-pub struct Position {
+pub struct Position
     column: Int
     row: Int
-}
+end
 
 /// Where a word lies: its first letter and its last.
-pub struct Span {
+pub struct Span
     start: Position
-    end: Position
-}
+    stop: Position
+end
 
 /// The eight directions a word may run in, as a step in rows and a step in
 /// columns.
@@ -31,7 +31,7 @@ once directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, -1), (1, -1), 
 
 /// Where each of `words` lies in the rows of `grid`, or `None` for a word
 /// that is not there.
-pub fn search(grid: List<String>, words: List<String>) -> Map<String, Maybe<Span>> {
+pub fn search(grid: List<String>, words: List<String>) -> Map<String, Maybe<Span>>
     letters =
         grid
         |> Iter.map(Iter.to_vector)
@@ -40,11 +40,11 @@ pub fn search(grid: List<String>, words: List<String>) -> Map<String, Maybe<Span
     words
     |> Iter.map(fn word -> (word, find(letters, word)))
     |> Iter.to_map()
-}
+end
 
 /// Where `word` lies in `letters`: the first cell and direction from which
 /// its letters read in order.
-fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span> {
+fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span>
     spelling = Iter.to_list(word)
     last = Iter.count(spelling) - 1
 
@@ -56,10 +56,10 @@ fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span> {
         |> Iter.find(fn (cell, step) -> reads(letters, spelling, cell, step))?
 
     Some(Span{
-        start: .{column: column + 1, row: row + 1},
-        end: .{column: column + 1 + across * last, row: row + 1 + down * last},
+        start: {column: column + 1, row: row + 1},
+        stop: {column: column + 1 + across * last, row: row + 1 + down * last},
     })
-}
+end
 
 /// Whether `spelling` reads from the cell at `row` and `column`, stepping
 /// `down` rows and `across` columns between letters, without leaving the
@@ -69,17 +69,17 @@ fn reads(
     spelling: List<String>,
     (row, column): (Int, Int),
     (down, across): (Int, Int),
-) -> Bool {
+) -> Bool
     spelling
     |> Iter.with_index()
-    |> Iter.all_match(fn (i, letter) -> {
+    |> Iter.all_match(fn (i, letter) ->
         letter_at(letters, row + down * i, column + across * i) == Some(letter)
-    })
-}
+    end)
+end
 
-fn letter_at(letters: Vector<Vector<String>>, row: Int, column: Int) -> Maybe<String> {
+fn letter_at(letters: Vector<Vector<String>>, row: Int, column: Int) -> Maybe<String>
     letters |> Vector.get(row)? |> Vector.get(column)
-}
+end
 
 // FILE: word_search_test.nomi
 import word_search.{self, Span}
@@ -97,54 +97,54 @@ once puzzle = [
     "clojurermt",
 ]
 
-test "search" {
+test "search"
     cases: List<(String, List<String>, List<String>, Map<String, Maybe<Span>>)> = [
         (
             "Should accept an initial game grid and a target search word",
             ["jefblpepre"],
             ["clojure"],
-            %{"clojure" => None},
+            {"clojure" => None},
         ),
-        ("Should locate one word written left to right", ["clojurermt"], ["clojure"], %{
-            "clojure" => Some(.{start: .{column: 1, row: 1}, end: .{column: 7, row: 1}}),
+        ("Should locate one word written left to right", ["clojurermt"], ["clojure"], {
+            "clojure" => Some({start: {column: 1, row: 1}, stop: {column: 7, row: 1}}),
         }),
         (
             "Should locate the same word written left to right in a different position",
             ["mtclojurer"],
             ["clojure"],
-            %{
-                "clojure" => Some(.{start: .{column: 3, row: 1}, end: .{column: 9, row: 1}}),
+            {
+                "clojure" => Some({start: {column: 3, row: 1}, stop: {column: 9, row: 1}}),
             },
         ),
-        ("Should locate a different left to right word", ["coffeelplx"], ["coffee"], %{
-            "coffee" => Some(.{start: .{column: 1, row: 1}, end: .{column: 6, row: 1}}),
+        ("Should locate a different left to right word", ["coffeelplx"], ["coffee"], {
+            "coffee" => Some({start: {column: 1, row: 1}, stop: {column: 6, row: 1}}),
         }),
         (
             "Should locate that different left to right word in a different position",
             ["xcoffeezlp"],
             ["coffee"],
-            %{
-                "coffee" => Some(.{start: .{column: 2, row: 1}, end: .{column: 7, row: 1}}),
+            {
+                "coffee" => Some({start: {column: 2, row: 1}, stop: {column: 7, row: 1}}),
             },
         ),
         (
             "Should locate a left to right word in two line grid",
             ["jefblpepre", "tclojurerm"],
             ["clojure"],
-            %{
-                "clojure" => Some(.{start: .{column: 2, row: 2}, end: .{column: 8, row: 2}}),
+            {
+                "clojure" => Some({start: {column: 2, row: 2}, stop: {column: 8, row: 2}}),
             },
         ),
         (
             "Should locate a left to right word in three line grid",
             ["camdcimgtc", "jefblpepre", "clojurermt"],
             ["clojure"],
-            %{
-                "clojure" => Some(.{start: .{column: 1, row: 3}, end: .{column: 7, row: 3}}),
+            {
+                "clojure" => Some({start: {column: 1, row: 3}, stop: {column: 7, row: 3}}),
             },
         ),
-        ("Should locate a left to right word in ten line grid", puzzle, ["clojure"], %{
-            "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
+        ("Should locate a left to right word in ten line grid", puzzle, ["clojure"], {
+            "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
         }),
         (
             "Should locate that left to right word in a different position in a ten line grid",
@@ -161,8 +161,8 @@ test "search" {
                 "jalaycalmp",
             ],
             ["clojure"],
-            %{
-                "clojure" => Some(.{start: .{column: 1, row: 9}, end: .{column: 7, row: 9}}),
+            {
+                "clojure" => Some({start: {column: 1, row: 9}, stop: {column: 7, row: 9}}),
             },
         ),
         (
@@ -180,8 +180,8 @@ test "search" {
                 "jalaycalmp",
             ],
             ["fortran"],
-            %{
-                "fortran" => Some(.{start: .{column: 1, row: 7}, end: .{column: 7, row: 7}}),
+            {
+                "fortran" => Some({start: {column: 1, row: 7}, stop: {column: 7, row: 7}}),
             },
         ),
         (
@@ -199,111 +199,111 @@ test "search" {
                 "clojurermt",
             ],
             ["fortran", "clojure"],
-            %{
-                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
-                "fortran" => Some(.{start: .{column: 1, row: 7}, end: .{column: 7, row: 7}}),
+            {
+                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "fortran" => Some({start: {column: 1, row: 7}, stop: {column: 7, row: 7}}),
             },
         ),
-        ("Should locate a single word written right to left", ["rixilelhrs"], ["elixir"], %{
-            "elixir" => Some(.{start: .{column: 6, row: 1}, end: .{column: 1, row: 1}}),
+        ("Should locate a single word written right to left", ["rixilelhrs"], ["elixir"], {
+            "elixir" => Some({start: {column: 6, row: 1}, stop: {column: 1, row: 1}}),
         }),
         (
             "Should locate multiple words written in different horizontal directions",
             puzzle,
             ["elixir", "clojure"],
-            %{
-                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
-                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
+            {
+                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
             },
         ),
         (
             "Should locate words written top to bottom",
             puzzle,
             ["clojure", "elixir", "ecmascript"],
-            %{
-                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
-                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
-                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
+            {
+                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
             },
         ),
         (
             "Should locate words written bottom to top",
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust"],
-            %{
-                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
-                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
-                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
-                "rust" => Some(.{start: .{column: 9, row: 5}, end: .{column: 9, row: 2}}),
+            {
+                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
+                "rust" => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
             },
         ),
         (
             "Should locate words written top left to bottom right",
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java"],
-            %{
-                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
-                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
-                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
-                "rust" => Some(.{start: .{column: 9, row: 5}, end: .{column: 9, row: 2}}),
-                "java" => Some(.{start: .{column: 1, row: 1}, end: .{column: 4, row: 4}}),
+            {
+                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
+                "rust" => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
+                "java" => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
             },
         ),
         (
             "Should locate words written bottom right to top left",
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java", "lua"],
-            %{
-                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
-                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
-                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
-                "rust" => Some(.{start: .{column: 9, row: 5}, end: .{column: 9, row: 2}}),
-                "java" => Some(.{start: .{column: 1, row: 1}, end: .{column: 4, row: 4}}),
-                "lua" => Some(.{start: .{column: 8, row: 9}, end: .{column: 6, row: 7}}),
+            {
+                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
+                "rust" => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
+                "java" => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
+                "lua" => Some({start: {column: 8, row: 9}, stop: {column: 6, row: 7}}),
             },
         ),
         (
             "Should locate words written bottom left to top right",
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java", "lua", "lisp"],
-            %{
-                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
-                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
-                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
-                "rust" => Some(.{start: .{column: 9, row: 5}, end: .{column: 9, row: 2}}),
-                "java" => Some(.{start: .{column: 1, row: 1}, end: .{column: 4, row: 4}}),
-                "lua" => Some(.{start: .{column: 8, row: 9}, end: .{column: 6, row: 7}}),
-                "lisp" => Some(.{start: .{column: 3, row: 6}, end: .{column: 6, row: 3}}),
+            {
+                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
+                "rust" => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
+                "java" => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
+                "lua" => Some({start: {column: 8, row: 9}, stop: {column: 6, row: 7}}),
+                "lisp" => Some({start: {column: 3, row: 6}, stop: {column: 6, row: 3}}),
             },
         ),
         (
             "Should locate words written top right to bottom left",
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java", "lua", "lisp", "ruby"],
-            %{
-                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
-                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
-                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
-                "rust" => Some(.{start: .{column: 9, row: 5}, end: .{column: 9, row: 2}}),
-                "java" => Some(.{start: .{column: 1, row: 1}, end: .{column: 4, row: 4}}),
-                "lua" => Some(.{start: .{column: 8, row: 9}, end: .{column: 6, row: 7}}),
-                "lisp" => Some(.{start: .{column: 3, row: 6}, end: .{column: 6, row: 3}}),
-                "ruby" => Some(.{start: .{column: 8, row: 6}, end: .{column: 5, row: 9}}),
+            {
+                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
+                "rust" => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
+                "java" => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
+                "lua" => Some({start: {column: 8, row: 9}, stop: {column: 6, row: 7}}),
+                "lisp" => Some({start: {column: 3, row: 6}, stop: {column: 6, row: 3}}),
+                "ruby" => Some({start: {column: 8, row: 6}, stop: {column: 5, row: 9}}),
             },
         ),
         (
             "Should fail to locate a word that is not in the puzzle",
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java", "lua", "lisp", "ruby", "haskell"],
-            %{
-                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
-                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
-                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
-                "rust" => Some(.{start: .{column: 9, row: 5}, end: .{column: 9, row: 2}}),
-                "java" => Some(.{start: .{column: 1, row: 1}, end: .{column: 4, row: 4}}),
-                "lua" => Some(.{start: .{column: 8, row: 9}, end: .{column: 6, row: 7}}),
-                "lisp" => Some(.{start: .{column: 3, row: 6}, end: .{column: 6, row: 3}}),
-                "ruby" => Some(.{start: .{column: 8, row: 6}, end: .{column: 5, row: 9}}),
+            {
+                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
+                "rust" => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
+                "java" => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
+                "lua" => Some({start: {column: 8, row: 9}, stop: {column: 6, row: 7}}),
+                "lisp" => Some({start: {column: 3, row: 6}, stop: {column: 6, row: 3}}),
+                "ruby" => Some({start: {column: 8, row: 6}, stop: {column: 5, row: 9}}),
                 "haskell" => None,
             },
         ),
@@ -311,32 +311,32 @@ test "search" {
             "Should fail to locate words that are not on horizontal, vertical, or diagonal lines",
             ["abc", "def"],
             ["aef", "ced", "abf", "cbd"],
-            %{"aef" => None, "ced" => None, "abf" => None, "cbd" => None},
+            {"aef" => None, "ced" => None, "abf" => None, "cbd" => None},
         ),
         (
             "Should not concatenate different lines to find a horizontal word",
             ["abceli", "xirdfg"],
             ["elixir"],
-            %{"elixir" => None},
+            {"elixir" => None},
         ),
         (
             "Should not wrap around horizontally to find a word",
             ["silabcdefp"],
             ["lisp"],
-            %{"lisp" => None},
+            {"lisp" => None},
         ),
         (
             "Should not wrap around vertically to find a word",
             ["s", "u", "r", "a", "b", "c", "t"],
             ["rust"],
-            %{"rust" => None},
+            {"rust" => None},
         ),
     ]
 
-    subtests cases, (description, grid, words, expected), description {
+    subtests cases, (description, grid, words, expected), description
         assert word_search.search(grid, words) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok search (24 cases)

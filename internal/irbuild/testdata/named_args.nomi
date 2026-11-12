@@ -14,21 +14,21 @@ import std::io
 // refusal, and one that only appears when an argument has a side effect. Every
 // other line here is caught by the type checker or by an answer if placement is
 // wrong; this one is caught only by the ORDER of two prints.
-fn order(a: String, b: String) -> String {
+fn order(a: String, b: String) -> String
     a + "/" + b
-}
+end
 
-fn p(tag: String) -> String {
+fn p(tag: String) -> String
     io.print("eval " + tag)
     tag
-}
+end
 
 // A defaulted middle slot, so a named argument has to skip past one.
-fn opts(x: Int, factor: Int = 10, label: String = "L") -> String {
+fn opts(x: Int, factor: Int = 10, label: String = "L") -> String
     label + Display.to_string(x * factor)
-}
+end
 
-fn main() {
+fn main()
     // THE ORDERING WITNESS. `b:` is written first and must be evaluated second.
     // Expected: `eval A`, then `eval B`, then `A/B`.
     io.print(order(b: p("B"), p("A")))
@@ -49,4 +49,4 @@ fn main() {
     // A named argument whose value is a COMPOUND expression, so the recorded
     // operand is the expression and not the NamedArg wrapper.
     io.print(order(a: "x" + "y", b: "z"))
-}
+end

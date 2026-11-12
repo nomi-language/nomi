@@ -2,308 +2,308 @@
 // pattern binds them, at any depth. A name that is read stays a variable,
 // even one that starts with an underscore. The caret lines below each line
 // name the highlight of the token they point at.
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-struct Slot {
+struct Slot
     x: Maybe<Int>
     y: Int
-}
+end
 
-struct Pad {
+struct Pad
     _w: Int
-}
+end
 
 type Wrap (Int, Int)
 
-enum Shape {
+enum Shape
     Rect {w: Int, h: Int}
     Ring Point
     Tags Map<String, Int>
     Items List<Int>
-}
+end
 
-enum Error {
+enum Error
     Invalid String
-}
+end
 
-fn add(a: Int, b: Int) -> Int {
+fn add(a: Int, b: Int) -> Int
     a + b
-}
+end
 
-fn parse(s: String) -> Result<Int, Error> {
+fn parse(s: String) -> Result<Int, Error>
     Err(Error.Invalid(s))
-}
+end
 
-fn _helper(x: Int) -> Int {
+fn _helper(x: Int) -> Int
     x
-}
+end
 
 once _cache = 1
 
-fn tuple_param((_, n): (Int, Int), _: Int) -> Int {
+fn tuple_param((_, n): (Int, Int), _: Int) -> Int
     //          ^ comment
     //             ^ variable
     //                             ^ comment
     n
-}
+end
 
-fn struct_param(Point{x, y: _y}) -> Int {
-    //                      ^ comment
+fn struct_param(Point{x:, y: _y}) -> Int
+    //                       ^ comment
     x
-}
+end
 
-fn pad_param(Pad{_w}) -> Int {
+fn pad_param(Pad{_w:}) -> Int
     //           ^ comment
     0
-}
+end
 
-fn variant_param(Wrap((_c, d))) -> Int {
+fn variant_param(Wrap((_c, d))) -> Int
     //                 ^ comment
     d
-}
+end
 
-fn as_param((a, _b) as _all: (Int, Int)) -> Int {
+fn as_param((a, _b) as _all: (Int, Int)) -> Int
     //          ^ comment
     //                 ^ comment
     a
-}
+end
 
-fn tuple_lambda(xs: List<(Int, String)>) -> Iter<(Int, String)> {
+fn tuple_lambda(xs: List<(Int, String)>) -> Iter<(Int, String)>
     xs |> Iter.filter(fn (divisor, _word) -> divisor > 0)
     //                    ^ variable
     //                             ^ comment
-}
+end
 
-fn wildcard_lambda(xs: List<(Int, String)>) -> Iter<Int> {
+fn wildcard_lambda(xs: List<(Int, String)>) -> Iter<Int>
     xs |> Iter.map(fn (_, _w) -> 0)
     //                 ^ comment
     //                    ^ comment
-}
+end
 
-fn struct_lambda(xs: List<Point>) -> Iter<Int> {
-    xs |> Iter.map(fn Point{x, y: _y} -> x)
-    //                            ^ comment
-}
+fn struct_lambda(xs: List<Point>) -> Iter<Int>
+    xs |> Iter.map(fn Point{x:, y: _y} -> x)
+    //                             ^ comment
+end
 
-fn plain_lambda(xs: List<Int>) -> Iter<Int> {
+fn plain_lambda(xs: List<Int>) -> Iter<Int>
     xs |> Iter.map(fn _x -> 0)
     //                ^ comment
-}
+end
 
-fn discard_binding() -> Int {
+fn discard_binding() -> Int
     _ = 1
     // <- comment
     0
-}
+end
 
-fn wildcard_binding(pair: (Int, Int)) -> Int {
+fn wildcard_binding(pair: (Int, Int)) -> Int
     (i, _) = pair
     //  ^ comment
     i
-}
+end
 
-fn map_binding(m: Map<String, Int>, key: String) -> Int {
-    %{"a" => _a, key => b} = m else { return 0 }
-    //       ^ comment
-    //           ^ variable
+fn map_binding(m: Map<String, Int>, key: String) -> Int
+    {"a" => _a, key => b} = m else return 0
+    //      ^ comment
+    //          ^ variable
     b
-}
+end
 
-fn if_pattern(opt: Maybe<(Int, Int)>) -> Int {
-    if Some((_ia, ib)) = opt { ib } else { 0 }
+fn if_pattern(opt: Maybe<(Int, Int)>) -> Int
+    if Some((_ia, ib)) = opt then ib else 0
     //       ^ comment
-}
+end
 
-fn qualified_if_pattern(shape: Shape) -> Int {
-    if Shape.Ring(Point{x: _px, y}) = shape {
+fn qualified_if_pattern(shape: Shape) -> Int
+    if Shape.Ring(Point{x: _px, y:}) = shape then
         //                 ^ comment
         y
-    } else {
+    else
         0
-    }
-}
+    end
+end
 
-fn tuple_binding(pair: (Int, Int)) -> Int {
+fn tuple_binding(pair: (Int, Int)) -> Int
     (i, _h) = pair
     //  ^ comment
     i
-}
+end
 
-fn else_binding(opt: Maybe<(Int, Int)>) -> Int {
-    Some((o, _n)) = opt else {
+fn else_binding(opt: Maybe<(Int, Int)>) -> Int
+    Some((o, _n)) = opt else
         //   ^ comment
         return 0
-    }
+    end
 
     o
-}
+end
 
-fn list_binding(items: List<Int>) -> Int {
-    [first, .._rest] = items else {
+fn list_binding(items: List<Int>) -> Int
+    [first, .._rest] = items else
         //    ^ comment
         return 0
-    }
+    end
 
     first
-}
+end
 
-fn as_binding(pair: (Int, Int)) -> Int {
+fn as_binding(pair: (Int, Int)) -> Int
     (t, _s) as _u = pair
     //  ^ comment
     //         ^ comment
     t
-}
+end
 
-fn struct_as_binding(q: Point) -> Int {
-    .{x: _c, y} as p = q
-    //   ^ comment
-    //       ^ variable
+fn struct_as_binding(q: Point) -> Int
+    {x: _c, y:} as p = q
+    //  ^ comment
+    //      ^ variable
     y + p.x
-}
+end
 
-fn nested_as(opt: Maybe<(Int, Int)>) -> Int {
-    Some((_a, b) as _p) as _m = opt else {
+fn nested_as(opt: Maybe<(Int, Int)>) -> Int
+    Some((_a, b) as _p) as _m = opt else
         //^ comment
         //          ^ comment
         return 0
-    }
+    end
 
     b
-}
+end
 
-fn nested_destructure(pair: ((Int, Int), Int)) -> Int {
+fn nested_destructure(pair: ((Int, Int), Int)) -> Int
     ((_a, b), c) = pair
     //^ comment
     b + c
-}
+end
 
-fn struct_else(q: Slot) -> Int {
-    .{x: Some(_n), y} = q else {
-        //    ^ comment
+fn struct_else(q: Slot) -> Int
+    {x: Some(_n), y:} = q else
+        //   ^ comment
         return 0
-    }
+    end
 
     y
-}
+end
 
-fn nested(r: Result<Maybe<(Int, Int)>, List<Int>>) -> Int {
-    Ok(Some((_a, b))) = r else {
+fn nested(r: Result<Maybe<(Int, Int)>, List<Int>>) -> Int
+    Ok(Some((_a, b))) = r else
         //   ^ comment
         Err([_x, .._xs]) -> return 0
         //   ^ comment
         //         ^ comment
         Ok(None) -> return 0
         Err(_) -> return 0
-    }
+    end
 
     b
-}
+end
 
-fn strings(s: String) -> Int {
-    case s {
+fn strings(s: String) -> Int
+    case s
         "pre" + _rest -> 1
         //      ^ comment
         _ -> 2
         // <- comment
-    }
-}
+    end
+end
 
-fn maps(m: Map<String, (Int, Int)>, key: String) -> Int {
-    case m {
-        %{"a" => _l, key => (_p, q)} -> q
-        //       ^ comment
-        //           ^ variable
-        //                   ^ comment
+fn maps(m: Map<String, (Int, Int)>, key: String) -> Int
+    case m
+        {"a" => _l, key => (_p, q)} -> q
+        //      ^ comment
+        //          ^ variable
+        //                  ^ comment
         _other -> 0
         // <- comment
-    }
-}
+    end
+end
 
-fn piped(v: Maybe<Result<(Int, Int), String>>) -> Int {
-    v |> case {
+fn piped(v: Maybe<Result<(Int, Int), String>>) -> Int
+    v |> case
         Some(Ok((_ga, gb))) when gb > 0 -> gb
         //       ^ comment
         Some(Err(_)) -> 0
         //       ^ comment
         _ -> 0
         // <- comment
-    }
-}
+    end
+end
 
-fn shapes(shape: Shape) -> Int {
-    case shape {
-        .Rect{w: _w, h} -> h
+fn shapes(shape: Shape) -> Int
+    case shape
+        .Rect{w: _w, h:} -> h
         //       ^ comment
-        Shape.Ring(Point{x: _px, y}) -> y
+        Shape.Ring(Point{x: _px, y:}) -> y
         //                  ^ comment
-        %Shape.Tags{"a" => _tag} -> 0
-        //                 ^ comment
+        Shape.Tags{"a" => _tag} -> 0
+        //                ^ comment
         .Items[_first, .._more] -> 0
         //     ^ comment
         //               ^ comment
         _ -> 0
-    }
-}
+    end
+end
 
-fn alternatives(pair: (Int, Int)) -> Int {
-    case pair {
+fn alternatives(pair: (Int, Int)) -> Int
+    case pair
         (0, _a) or (_a, 0) -> 0
         //  ^ comment
         //          ^ comment
         _ -> 1
-    }
-}
+    end
+end
 
-fn helper_use() -> List<Int> {
+fn helper_use() -> List<Int>
     [1, 2] |> Iter.map(_helper) |> Iter.to_list()
     //                 ^ variable
-}
+end
 
-fn placeholder_use() -> (Int) -> Int {
+fn placeholder_use() -> (Int) -> Int
     &add(1, &1)
     // <- keyword
     //      ^ variable.parameter
-}
+end
 
-fn once_use() -> Maybe<Int> {
+fn once_use() -> Maybe<Int>
     Some(_cache)
     //   ^ variable
-}
+end
 
 // `group` opens a test group only before the group's name; anywhere else it
 // is a name.
-fn next_group(group: Int) -> Int {
+fn next_group(group: Int) -> Int
     group + 1
     // <- variable
-}
+end
 
-group "setup" {
+group "setup"
     setup (1, True)
 
-    test "binds", (_ta, tb) {
+    test "binds", (_ta, tb)
         //         ^ comment
         assert tb
-    }
-}
+    end
+end
 
-test "assertion" {
+test "assertion"
     assert Err(_) = parse("x")
     //         ^ comment
-}
+end
 
-test "nested assertion" {
+test "nested assertion"
     assert Err(Error.Invalid(_msg)) = parse("x")
     //                       ^ comment
-}
+end
 
-fn vector_arms(v: Vector<Int>, s: Set<Int>) -> Int {
-    case v {
-        #[n, _first, .._more] -> n
-        //   ^ comment
-        //             ^ comment
+fn vector_arms(v: Vector<Int>, s: Set<Int>) -> Int
+    case v
+        [n, _first, .._more] -> n
+        //  ^ comment
+        //            ^ comment
         _ -> Set.size(s)
-    }
-}
+    end
+end

@@ -48,9 +48,9 @@ func TestGoImport_TheProjectsModulesAreAccepted(t *testing.T) {
 // A source with no file has no go.mod to read, so only the path itself is
 // checked.
 func TestGoImport_ASourceWithNoFileChecksThePathOnly(t *testing.T) {
-	_, errs := checkSourceWithStdlib("gopkg \"callback:= f(s\" as ffi\n\nfn main() {\n}\n")
+	_, errs := checkSourceWithStdlib("gopkg \"callback:= f(s\" as ffi\n\nfn main() end\n")
 	expectStdlibError(t, errs, "gopkg \"callback:= f(s\": not a valid Go import path: invalid char ':'")
-	_, errs = checkSourceWithStdlib("gopkg \"example.com/other\" as ffi\n\nfn main() {\n}\n")
+	_, errs = checkSourceWithStdlib("gopkg \"example.com/other\" as ffi\n\nfn main() end\n")
 	expectNoStdlibErrors(t, errs)
 }
 
@@ -59,8 +59,8 @@ func TestGoImport_ASourceWithNoFileChecksThePathOnly(t *testing.T) {
 func goImportProject(path string) map[string]string {
 	return map[string]string{
 		"go.mod":    "module app\n\ngo 1.26.3\n\nrequire example.com/dep v1.0.0\n",
-		"ffi.nomi":  "gopkg \"" + path + "\" as go_ffi\n\npub fn one() -> Int {\n  1\n}\n",
-		"main.nomi": "import ffi\n\nfn main() {\n  _ = ffi.one()\n}\n",
+		"ffi.nomi":  "gopkg \"" + path + "\" as go_ffi\n\npub fn one() -> Int\n  1\nend\n",
+		"main.nomi": "import ffi\n\nfn main()\n  _ = ffi.one()\nend\n",
 	}
 }
 
@@ -71,7 +71,7 @@ func goImportProject(path string) map[string]string {
 func TestGoImport_AnUndeclaredAliasIsRejected(t *testing.T) {
 	const src = "gopkg \"strings\" as ffi\n\n" +
 		"pub fn up(s: String) -> String go ffs.ToUpper\n\n" +
-		"fn main() {\n  _ = up(\"a\")\n}\n"
+		"fn main()\n  _ = up(\"a\")\nend\n"
 	_, errs := checkSourceWithStdlib(src)
 	const want = "`go ffs.ToUpper`: no `gopkg` in this file declares the alias ffs\n" +
 		"help: declare the package with `gopkg \"<import path>\" as ffs`"
@@ -90,7 +90,7 @@ func TestGoImport_AnUndeclaredAliasIsRejected(t *testing.T) {
 func TestGoImport_ADeclaredAliasIsAccepted(t *testing.T) {
 	const src = "gopkg \"strings\" as ffi\n\n" +
 		"pub fn up(s: String) -> String go ffi.ToUpper\n\n" +
-		"fn main() {\n  _ = up(\"a\")\n}\n"
+		"fn main()\n  _ = up(\"a\")\nend\n"
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 }

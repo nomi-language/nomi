@@ -71,7 +71,7 @@ func TestTreeSitterInjectsTypedLiteralsByGrammarName(t *testing.T) {
 		}
 		for _, f := range forms {
 			path := filepath.Join(t.TempDir(), "lit.nomi")
-			if err := os.WriteFile(path, []byte("fn f() {\n    x = "+f.src+"\n}\n"), 0o644); err != nil {
+			if err := os.WriteFile(path, []byte("fn f()\n    x = "+f.src+"\n}\n"), 0o644); err != nil {
 				t.Fatal(err)
 			}
 			out, err := runCLI("query", "queries/injections.scm", path)
@@ -158,7 +158,7 @@ func TestTreeSitterInjectsASlottedLiteralAsOneDocument(t *testing.T) {
 		t.Skip("runs the tree-sitter CLI")
 	}
 	runCLI := treeSitterCLI(t)
-	src := "fn menu(avatar: String, initial: String) -> Html {\n" +
+	src := "fn menu(avatar: String, initial: String) -> Html\n" +
 		"    Html\"\"\"\n" +
 		"    <span class=\"a\">\n" +
 		"      <img src=\"${avatar}\" alt=\"\" class=\"b\">\n" +
@@ -166,7 +166,7 @@ func TestTreeSitterInjectsASlottedLiteralAsOneDocument(t *testing.T) {
 		"    </span>\n" +
 		"    \"\"\"\n" +
 		"}\n\n" +
-		"fn row(id: Int, name: String) -> Sql {\n" +
+		"fn row(id: Int, name: String) -> Sql\n" +
 		"    Sql\"SELECT * FROM users WHERE id = ${id} AND name = ${name}\"\n" +
 		"}\n"
 	path := filepath.Join(t.TempDir(), "slots.nomi")

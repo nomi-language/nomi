@@ -1,11 +1,11 @@
 import bowling.{Error, Game}
 
 /// The game after `rolls`, each of which must succeed.
-fn play(rolls: List<Int>) -> Result<Game, Error> {
+fn play(rolls: List<Int>) -> Result<Game, Error>
     Iter.try_reduce(rolls, Game.new(), Game.roll)
-}
+end
 
-test "score" {
+test "score"
     [
         (
             "should be able to score a game with all zeros",
@@ -105,13 +105,13 @@ test "score" {
             Err(.GameNotOver),
         ),
     ]
-    |> subtests (description, rolls, expected), description {
+    |> subtests (description, rolls, expected), description
         assert Ok(game) = play(rolls)
         assert Game.score(game) == expected
-    }
-}
+    end
+end
 
-test "roll" {
+test "roll"
     [
         ("rolls cannot score negative points", [], -1, Error.NegativeRoll),
         ("a roll cannot score more than 10 points", [], 11, .TooManyPins),
@@ -159,8 +159,8 @@ test "roll" {
             .GameOver,
         ),
     ]
-    |> subtests (description, previous, pins, expected), description {
+    |> subtests (description, previous, pins, expected), description
         assert Ok(game) = play(previous)
         assert Game.roll(game, pins) == Err(expected)
-    }
-}
+    end
+end

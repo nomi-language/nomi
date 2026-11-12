@@ -13,51 +13,51 @@ func TestIRLiteralBuiltAsTheOtherOperand_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-interface Reply {
+interface Reply
     fn body(r: self) -> String
-}
+end
 
-struct Page {
+struct Page
     text: String
-}
+end
 
-impl Reply for Page {
-    fn body(p: Page) -> String {
+impl Reply for Page
+    fn body(p: Page) -> String
         p.text
-    }
-}
+    end
+end
 
 typealias Handler (Int) -> Reply
 
-fn page(n: Int) -> Page {
+fn page(n: Int) -> Page
     Page{text: "page ${n}"}
-}
+end
 
-fn wrap(h: Handler) -> Handler {
+fn wrap(h: Handler) -> Handler
     fn n -> h(n * 10)
-}
+end
 
-fn routes() -> List<(String, Handler)> {
+fn routes() -> List<(String, Handler)>
     [("a", page)] |> Iter.map(fn (name, h) -> (name, wrap(h))) |> Iter.to_list()
-}
+end
 
-fn served(rs: Iter<(String, Handler)>) -> List<String> {
+fn served(rs: Iter<(String, Handler)>) -> List<String>
     rs |> Iter.map(fn (name, h) -> "${name}: ${Reply.body(h(1))}") |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
     io.inspect(served([("b", page)] + routes()))
     io.inspect(served(routes() + [("b", page)]))
     io.inspect(served([("b", page), ..routes()]))
     io.inspect(served([..routes(), ("b", page)]))
-    vs: Vector<(String, Handler)> = #[("a", wrap(page))]
-    io.inspect(served(#[("b", page)] + vs))
-    ms: Map<String, Handler> = %{"a" => wrap(page)}
-    joined = %{"b" => page} + ms
+    vs: Vector<(String, Handler)> = Vector[("a", wrap(page))]
+    io.inspect(served(Vector[("b", page)] + vs))
+    ms: Map<String, Handler> = {"a" => wrap(page)}
+    joined = {"b" => page} + ms
     io.inspect(served(joined))
     ds: List<Display> = ["x"]
     io.inspect([1, 2] + ds |> Iter.map(Display.to_string) |> Iter.to_list())
-}
+end
 `
 	irRunSource(t, src, `["b: page 1", "a: page 10"]
 ["a: page 10", "b: page 1"]

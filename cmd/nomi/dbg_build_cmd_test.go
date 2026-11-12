@@ -23,32 +23,32 @@ func TestBuildCommand_RefusesDbgsAndTodosTogether(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, `import {
+	mustWrite(t, entry, `import
     std::io
     header
-}
+end
 
-fn main() {
+fn main()
     io.print("start")
     _ = dbg header.size()
-    if False {
+    if False then
         _ = header.parse("x")
-    }
-}
+    end
+end
 `)
-	mustWrite(t, filepath.Join(dir, "header.nomi"), `pub fn parse(text: String) -> Int {
+	mustWrite(t, filepath.Join(dir, "header.nomi"), `pub fn parse(text: String) -> Int
     todo "parse the header"
-}
+end
 
-pub fn size() -> Int {
+pub fn size() -> Int
     [1, 2] |> Iter.count() |> dbg
-}
+end
 `)
 	mustWrite(t, filepath.Join(dir, "header_test.nomi"), `import header
 
-test "size" {
+test "size"
     assert dbg header.size() == 2
-}
+end
 `)
 
 	if c := runProcess(t, env, dir, "", nomiBin, "check", entry); c.exit != 0 {

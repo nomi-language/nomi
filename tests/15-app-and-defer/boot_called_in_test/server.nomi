@@ -1,40 +1,44 @@
 // An entry whose boot can fail, and whose app can own background work: the
 // partner test calls the boot as an ordinary function. Run as a program, it
 // starts no heartbeat and closes no store, so its output is main's alone.
-import {
+import
     std::duration.Duration
     std::io
     std::supervisors.Supervisor
     std::timer
-}
+end
 
-pub struct App {
+pub struct App
     context: Context
     store: String
     work: Supervisor
-}
+end
 
-fn heartbeat() -> Unit {
+fn heartbeat() -> Unit
     defer io.print("heartbeat stopped")
     io.print("heartbeat started")
     timer.sleep(Duration.seconds(3600))
     io.print("SHOULD NOT PRINT")
-}
+end
 
 // The memory store has nothing to close.
-fn close(store: String) -> Unit {
-    if store != "memory" { io.print("closed the ${store} store") }
-}
+fn close(store: String) -> Unit
+    if store != "memory" then io.print("closed the ${store} store")
+end
 
-pub fn boot(startup: Startup) -> Result<App, String> {
+pub fn boot(startup: Startup) -> Result<App, String>
     store = Map.get(startup.env, "STORE") |> Maybe.with_default("memory")
-    if store == "postgres" { return Err("STORE=postgres needs DATABASE_URL") }
+    if store == "postgres" then return Err("STORE=postgres needs DATABASE_URL")
     defer close(store)
     work = Supervisor.new(max_running: 2)
-    if "HEARTBEAT" in startup.env { _ = Supervisor.spawn(work, heartbeat) }
-    Ok(App{context: Context.root(), store, work})
-}
 
-fn main() {
+    if "HEARTBEAT" in startup.env then
+        _ = Supervisor.spawn(work, heartbeat)
+    end
+
+    Ok(App{context: Context.root(), store:, work:})
+end
+
+fn main()
     io.print("serving from ${App.store}")
-}
+end

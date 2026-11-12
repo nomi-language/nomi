@@ -14,24 +14,23 @@ Each file imports the names it uses from other files.
 
 ## Import syntax
 
-One import stands alone. Two or more go in one `import { ... }` block. You can
+One import stands alone. Two or more go in one `import` ... `end` block. You can
 import a file, import single items from it, and rename what you import:
 
 ```nomi-run
-import {
+import
     std::calendar.Date.parse
     std::io as console
-}
+end
 
-fn main() {
+fn main()
     parsed = parse("2026-05-27")
 
     console.print(String.length("hello"))
     console.print(Iter.count([1, 2, 3]))
     console.print(String.join(["a", "b", "c", "d"]))
     console.inspect(parsed)
-}
-
+end
 ```
 <!-- expect
 5
@@ -49,7 +48,7 @@ Ok(2026-05-27)
   instead of `io`. Use this when a name clashes with one you already have.
 - `String`, `Iter`, `List`, `Map` and the other prelude types need no import.
 
-To import several items from one type or file, list them in `.{...}`:
+To import several items from one type or file, list them in `{...}`:
 
 ```nomi ignore
 import shape.Shape.{Circle, Rectangle}
@@ -63,7 +62,7 @@ import shape.Shape.{self, Circle, Rectangle}
 ```
 
 That imports `Shape`, `Circle` and `Rectangle`. `self` means whatever is
-before the `.{`. So `import std::calendar.{self, Date}` imports both the file
+before the `{`. So `import std::calendar.{self, Date}` imports both the file
 `calendar` and the type `Date`.
 
 <div class="tour-details">
@@ -126,19 +125,19 @@ In a real project, the three files would sit side by side in one directory.
 
 ```nomi-run
 // FILE: math.nomi
-pub fn double(n: Int) -> Int {
+pub fn double(n: Int) -> Int
     n * 2
-}
+end
 
 // FILE: main.nomi
-import {
+import
     std::io
     math
-}
+end
 
-fn main() {
+fn main()
     io.print(math.double(7))
-}
+end
 
 // FILE: nomi.toml
 [module]
@@ -172,36 +171,36 @@ Here two files are both `notifications`, and a function is called `users`:
 
 ```nomi-run
 // FILE: db/notifications.nomi
-pub fn pending() -> Int {
+pub fn pending() -> Int
     3
-}
+end
 
 // FILE: jobs/notifications.nomi
-pub fn pending() -> Int {
+pub fn pending() -> Int
     7
-}
+end
 
 // FILE: views/users.nomi
-pub fn heading() -> String {
+pub fn heading() -> String
     "Users"
-}
+end
 
 // FILE: main.nomi
-import {
+import
     std::io
     db
     jobs
     views
-}
+end
 
-fn users() -> List<String> {
+fn users() -> List<String>
     ["ada", "grace"]
-}
+end
 
-fn main() {
+fn main()
     io.print(db::notifications.pending() + jobs::notifications.pending())
     io.print("${views::users.heading()}: ${users()}")
-}
+end
 
 // FILE: nomi.toml
 [module]
@@ -236,28 +235,28 @@ use it:
 
 ```nomi-run
 // FILE: math.nomi
-pub fn double(n: Int) -> Int {
+pub fn double(n: Int) -> Int
     n * 2
-}
+end
 
 // Private: only math.nomi can call this directly.
-fn helper(n: Int) -> Int {
+fn helper(n: Int) -> Int
     n + 1
-}
+end
 
 // FILE: main.nomi
-import {
+import
     std::io
     math
-}
+end
 
-fn main() {
+fn main()
     io.print(math.double(7))
 
     // Uncomment to see that main.nomi can't call math.nomi's private
     // `helper`:
     // io.print(math.helper(7))
-}
+end
 
 // FILE: nomi.toml
 [module]
@@ -318,42 +317,42 @@ as that a number is positive. Or you may want to change the contents later.
 // FILE: ids.nomi
 pub opaque type UserId Int
 
-impl UserId {
-    pub fn new(n: Int) -> Result<UserId, String> {
-        if n > 0 {
+impl UserId
+    pub fn new(n: Int) -> Result<UserId, String>
+        if n > 0 then
             Ok(UserId(n))
-        } else {
+        else
             Err("user IDs must be positive")
-        }
-    }
+        end
+    end
 
-    pub fn value(id: UserId) -> Int {
+    pub fn value(id: UserId) -> Int
         UserId(n) = id // only ids.nomi can destructure UserId
         n
-    }
-}
+    end
+end
 
 // FILE: main.nomi
-import {
+import
     std::io
     ids.UserId
-}
+end
 
-fn main() {
-    case UserId.new(42) {
+fn main()
+    case UserId.new(42)
         Ok(id) -> io.print(UserId.value(id))
         Err(e) -> io.print("error: ${e}")
-    }
+    end
 
-    case UserId.new(-1) {
+    case UserId.new(-1)
         Ok(_) -> io.print("unexpected")
         Err(e) -> io.print("error: ${e}")
-    }
+    end
 
     // Uncomment to see that main.nomi can hold a UserId, but can't
     // build or take apart one directly:
     // bad = UserId(7)
-}
+end
 
 // FILE: nomi.toml
 [module]
@@ -398,10 +397,10 @@ pub import std::io.{print, write}
 pub import other::parser.parse as parse_source
 
 // A block re-exports every entry.
-pub import {
+pub import
     std::comparable.Ordering
     calc.{add, subtract}
-}
+end
 ```
 
 `pub import` makes public every item the statement imports. Items you only
@@ -466,14 +465,14 @@ function `greet` from `shared`'s file `shared.nomi`. Change the greeting in
 
 ```nomi-run
 // FILE: app/main.nomi
-import {
+import
     std::io
     shared.greet
-}
+end
 
-fn main() {
+fn main()
     io.print(greet("Ada"))
-}
+end
 
 // FILE: app/nomi.toml
 [module]
@@ -491,9 +490,9 @@ replace example.com/shared => ../shared
 
 // FILE: shared/shared.nomi
 /// A greeting for `name`.
-pub fn greet(name: String) -> String {
+pub fn greet(name: String) -> String
     "Hello, ${name}!"
-}
+end
 
 // FILE: shared/nomi.toml
 [module]
@@ -520,13 +519,13 @@ A Nomi module is built on a Go module, which is why both use the word
 
 ## The orphan rule
 
-Suppose two libraries each wrote `impl Display for Int { … }`. Each would
+Suppose two libraries each wrote `impl Display for Int`. Each would
 compile on its own, but a program that used both would have two impls of
 `Display` for `Int`. The **orphan rule** prevents this. An
-`impl Iface for T { ... }` block must be in the Nomi module that declares
+`impl Iface for T` block must be in the Nomi module that declares
 `Iface` or the one that declares `T`. An impl anywhere else is called an
 orphan impl, and it is a compile error. The rule covers generic impls too,
-such as `impl Iface for Box<T> where T: Bound { ... }`.
+such as `impl Iface for Box<T> where T: Bound`.
 
 A program with no `nomi.toml`, such as a lone script, is a module of its own.
 It declares neither `Display` nor `Int`, so it can't write
@@ -534,7 +533,7 @@ It declares neither `Display` nor `Int`, so it can't write
 
 To implement someone else's interface for someone else's type, wrap the type
 in one of your own. Declare `type MyId Int` in your module. Then
-`impl Display for MyId { ... }` is allowed, because `MyId` is yours.
+`impl Display for MyId` is allowed, because `MyId` is yours.
 
 A generic interface, one with type parameters, gives one more way. Take
 `Multiply<Rhs, Out>`, which `*` uses. Its one function is
@@ -547,20 +546,20 @@ works:
 ```nomi-run
 import std::io
 
-struct Rate {
+struct Rate
     per_unit: Decimal
-}
+end
 
-impl Multiply<Rate, Decimal> for Decimal {
-    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal {
+impl Multiply<Rate, Decimal> for Decimal
+    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal
         lhs * rhs.per_unit
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     rate = Rate{per_unit: 4.25d}
     io.print(12.5d * rate)
-}
+end
 ```
 <!-- expect
 53.125

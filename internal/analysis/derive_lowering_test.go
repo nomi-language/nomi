@@ -35,16 +35,16 @@ func implBlocksOf(nodes []ast.Node) []*ast.ImplBlock {
 }
 
 func TestLowerDerives_ImplBlockPassesThrough(t *testing.T) {
-	src := `struct Dog {
+	src := `struct Dog
   name: String
-}
+end
 
 /// Speech behavior.
-impl Speech for Dog {
-  fn speak(_d: self) -> String {
+impl Speech for Dog
+  fn speak(_d: self) -> String
     "woof"
-  }
-}
+  end
+end
 
 `
 	out := lowerSource(t, src)
@@ -93,11 +93,11 @@ impl Speech for Dog {
 }
 
 func TestLowerDerives_GenericImplBlockPassesThrough(t *testing.T) {
-	src := `struct Box<T> {
+	src := `struct Box<T>
   value: T
-}
+end
 
-impl Container for Box<T>
+impl Container for Box<T> end
 
 `
 	out := lowerSource(t, src)
@@ -122,14 +122,14 @@ impl Container for Box<T>
 }
 
 func TestLowerDerives_ConstrainedImplBlockKeepsBounds(t *testing.T) {
-	src := `struct Range<T> where T: Comparable {}
+	src := `struct Range<T> where T: Comparable end
 
-impl Iter for Range<T> where T: Discrete {
+impl Iter for Range<T> where T: Discrete
 
-  fn next(_r: Range<T>) -> Maybe<(T, Range<T>)> {
+  fn next(_r: Range<T>) -> Maybe<(T, Range<T>)>
     none
-  }
-}
+  end
+end
 
 `
 	out := lowerSource(t, src)
@@ -157,24 +157,26 @@ impl Iter for Range<T> where T: Discrete {
 }
 
 func TestLowerDerives_TypeBodyImplIsParseError(t *testing.T) {
-	_, err := parser.Parse(lexer.Lex(`struct Box<T> {
+	_, err := parser.Parse(lexer.Lex(`struct Box<T>
   impl Iter for Box<T> where T: Display
-}
+end
 `))
 	if err == nil {
 		t.Fatal("expected parse error")
 	}
-	if got := err.Error(); got != "line 2, col 3: interface implementations are written as `impl Iface for Type { ... }` blocks outside the type body" {
+	if got := err.Error(); got != "line 2, col 3: interface implementations are written as `impl Iface for Type` blocks outside the type body" {
 		t.Fatalf("unexpected error: %s", got)
 	}
 }
 
 func TestLowerDerives_StructFnItemsAreParseErrors(t *testing.T) {
-	_, err := parser.Parse(lexer.Lex(`struct Dog {
+	_, err := parser.Parse(lexer.Lex(`struct Dog
   name: String
 
-  fn rename(d: Dog, n: String) -> Dog { Dog{name: n} }
-}
+  fn rename(d: Dog, n: String) -> Dog
+    Dog{name: n}
+  end
+end
 `))
 	if err == nil {
 		t.Fatal("expected parse error")
@@ -185,14 +187,14 @@ func TestLowerDerives_StructFnItemsAreParseErrors(t *testing.T) {
 }
 
 func TestLowerDerives_EnumFnItemsAreParseErrors(t *testing.T) {
-	_, err := parser.Parse(lexer.Lex(`enum Status {
+	_, err := parser.Parse(lexer.Lex(`enum Status
   Active
   Pending Int
 
-  pub fn label(s: Status) -> String {
+  pub fn label(s: Status) -> String
     "x"
-  }
-}
+  end
+end
 `))
 	if err == nil {
 		t.Fatal("expected parse error")
@@ -203,23 +205,23 @@ func TestLowerDerives_EnumFnItemsAreParseErrors(t *testing.T) {
 }
 
 func TestLowerDerives_ImplBlocksKeepStableOrder(t *testing.T) {
-	src := `enum Status {
+	src := `enum Status
   Active
   Pending Int
-}
+end
 
 
-impl Display for Status {
-  fn to_string(_s: Status) -> String {
+impl Display for Status
+  fn to_string(_s: Status) -> String
     "status"
-  }
-}
+  end
+end
 
-impl Speech for Status {
-  fn speak(_s: Status) -> String {
+impl Speech for Status
+  fn speak(_s: Status) -> String
     "hello"
-  }
-}
+  end
+end
 
 `
 	out := lowerSource(t, src)
@@ -251,25 +253,25 @@ impl Speech for Status {
 }
 
 func TestLowerDerives_LoweredBlocksFollowTheirDecl(t *testing.T) {
-	src := `struct Dog {
+	src := `struct Dog
   name: String
-}
+end
 
-impl Speech for Dog {
-  fn speak(_d: self) -> String {
+impl Speech for Dog
+  fn speak(_d: self) -> String
     "woof"
-  }
-}
+  end
+end
 
-struct Cat {
+struct Cat
   name: String
-}
+end
 
-impl Speech for Cat {
-  fn speak(_c: Cat) -> String {
+impl Speech for Cat
+  fn speak(_c: Cat) -> String
     "meow"
-  }
-}
+  end
+end
 
 `
 	out := lowerSource(t, src)
@@ -292,10 +294,10 @@ impl Speech for Cat {
 
 func TestLowerDerives_ExternTypeBodyIsParseError(t *testing.T) {
 	_, err := parser.Parse(lexer.Lex(`pub host type List<T> {
-  pub fn first(xs: List<T>) -> T {
+  pub fn first(xs: List<T>) -> T
     panic("x")
-  }
-}
+  end
+end
 `))
 	if err == nil {
 		t.Fatal("expected parse error")
@@ -308,19 +310,19 @@ func TestLowerDerives_ExternTypeBodyIsParseError(t *testing.T) {
 func TestLowerDerives_DistinctAndZeroSizedTypeBodies(t *testing.T) {
 	src := `pub opaque type NonZeroInt Int
 
-impl Display for NonZeroInt {
-  fn to_string(_n: self) -> String {
+impl Display for NonZeroInt
+  fn to_string(_n: self) -> String
     "n"
-  }
-}
+  end
+end
 
 type Sql
 
-impl Literal for Sql {
-  fn from_fragments(_fragments: List<Fragment<String>>) -> String {
+impl Literal for Sql
+  fn from_fragments(_fragments: List<Fragment<String>>) -> String
     "q"
-  }
-}
+  end
+end
 
 `
 	out := lowerSource(t, src)
@@ -343,19 +345,19 @@ impl Literal for Sql {
 
 func TestLowerDerives_ImplReceiverPositionsAreReal(t *testing.T) {
 	t.Run("interface impl", func(t *testing.T) {
-		src := `interface Speech {
+		src := `interface Speech
   fn speak(s: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
   name: String
-}
+end
 
-impl Speech for Dog {
-  fn speak(d: Dog) -> String {
+impl Speech for Dog
+  fn speak(d: Dog) -> String
     d.name
-  }
-}
+  end
+end
 
 `
 		out := lowerSource(t, src)
@@ -379,19 +381,19 @@ impl Speech for Dog {
 	})
 
 	t.Run("generic impl", func(t *testing.T) {
-		src := `interface Container {
+		src := `interface Container
   fn unwrap(c: self) -> Int
-}
+end
 
-struct Box<T> {
+struct Box<T>
   value: T
-}
+end
 
-impl Container for Box<T> {
-  fn unwrap(_b: Box<T>) -> Int {
+impl Container for Box<T>
+  fn unwrap(_b: Box<T>) -> Int
     1
-  }
-}
+  end
+end
 
 `
 		out := lowerSource(t, src)
@@ -423,13 +425,22 @@ impl Container for Box<T> {
 }
 
 func TestLowerDerives_NoBodiesPassThrough(t *testing.T) {
-	src := `struct Point { x: Int; y: Int }
+	src := `struct Point
+    x: Int
+    y: Int
+end
 
-enum Color { Red; Green; Blue }
+enum Color
+    Red
+    Green
+    Blue
+end
 
 pub host type Handle
 
-fn main() { 1 }`
+fn main()
+    1
+end`
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
@@ -449,16 +460,16 @@ fn main() { 1 }`
 }
 
 func TestLowerDerives_NestedImplPreservesGenericBounds(t *testing.T) {
-	src := `struct StepByRange<T, S> where T: Comparable and Steppable<S> {
+	src := `struct StepByRange<T, S> where T: Comparable and Steppable<S>
   value: T
   by: S
-}
+end
 
-impl Iter for StepByRange<T, S> {
-  fn next(_s: StepByRange<T, S>) -> Maybe<(T, StepByRange<T, S>)> {
+impl Iter for StepByRange<T, S>
+  fn next(_s: StepByRange<T, S>) -> Maybe<(T, StepByRange<T, S>)>
     None
-  }
-}
+  end
+end
 
 `
 	out := lowerSource(t, src)
@@ -475,9 +486,9 @@ impl Iter for StepByRange<T, S> {
 }
 
 func TestLowerDerives_DeriveWhereClausePropagatesToSynthImpl(t *testing.T) {
-	src := `struct Box<T> {
+	src := `struct Box<T>
   value: T
-}
+end
 
 derive Display for Box<T> where T: Display
 `
@@ -492,16 +503,16 @@ derive Display for Box<T> where T: Display
 }
 
 func TestLowerDerives_Idempotent(t *testing.T) {
-	src := `struct Dog {
+	src := `struct Dog
   name: String
-}
+end
 
 
-impl Speech for Dog {
-  fn speak(_d: Dog) -> String {
+impl Speech for Dog
+  fn speak(_d: Dog) -> String
     "woof"
-  }
-}
+  end
+end
 
 `
 	once := lowerSource(t, src)

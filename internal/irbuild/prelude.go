@@ -623,20 +623,6 @@ func (g *gen) preludeInstanceOf(spec *preludeSpec, args []kind) kind {
 func (g *gen) preludeTypeOf(t *ast.GenericType) (kind, bool) {
 	a, _, isPrelude := g.preludeAt(t.Line, t.Col)
 	if !isPrelude {
-		// A node DERIVE SYNTHESIS wrote, which has no position to resolve by.
-		//
-		// Asked second for readability and NOT for correctness: asking the
-		// fallback FIRST changes no answer, because the two arms' domains are
-		// DISJOINT — `IsSynthesizedLine` is true
-		// exactly for a position in derive synthesis' reserved band, and
-		// `fa.References` never holds one (analysis/builder.go excludes it). So
-		// what keeps this off real source is the BAND GATE inside
-		// synthPreludeAnchor, not the order; attributing it to the order would
-		// leave a reordering merge looking dangerous when it is free, and would
-		// hide that deleting the gate is the real hazard. See synthderive.go.
-		a, isPrelude = g.synthPreludeAnchor(t)
-	}
-	if !isPrelude {
 		return kindInvalid, false
 	}
 	if len(t.Params) != len(a.spec.params) {
@@ -655,70 +641,6 @@ func (g *gen) preludeTypeOf(t *ast.GenericType) (kind, bool) {
 	return g.preludeInstance(a, args), true
 }
 
-// preludeArgKind projects ONE type argument of a prelude instantiation,
-// substituting a constant where the checker left the position unsolved.
-//
-// # Why a constant is the answer, and the corpus is what settles it
-//
-// `Ok(v)` names T and says nothing about E; `Err(e)` names E and says nothing
-// about T. So a Result built by one constructor and never given a second source
-// of information arrives here as `Result<Int, ?7>` — well typed, with one
-// argument no part of the program ever names.
-//
-// That position is INFORMATION-FREE, and not merely unknown: no value of that
-// type exists anywhere in the program, because if one did it would have solved
-// the variable. The corpus proves the "if one did" half by OMISSION —
-// `Result.equal(Ok(4), Err("bad"))` appears in
-// 12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi and does
-// NOT refuse, because `equal`'s two parameters share one E and `Err` supplies
-// what `Ok` left open. Wherever a sibling position holds the missing half the
-// front end has already closed it, so every site that reaches this function is
-// one where nothing can close it.
-//
-// And the answer does not depend on the choice: `case Ok(4) { Ok(n) -> n }`
-// binds 4, `Result.equal(Ok(4), Ok(4))` is True and `Result.hash(Ok(4))` is
-// stable, at EVERY instantiation of the open side. Same answer at two
-// instantiations means a constant, which is the same reasoning `None` already
-// rests on: kindBareNone renders `rt.None[rt.Unit]` (prelude.go's bareNoneCode)
-// because a payload-less variant observes no type argument. This is that rule
-// with the observation "a variant observes only the parameter it CARRIES", and
-// for a single-payload prelude variant the carried parameter is always solved by
-// its own argument — so a hole is only ever at a position the payload never
-// mentions.
-//
-// # kindUnit rather than a fresh tag, and why the ambiguity is unreachable
-//
-// A defaulted `Result<Int, ?>` becomes `Result<Int, Unit>`, indistinguishable
-// from a Result whose E genuinely IS Unit. That is sound because the two are
-// only ever confusable at a position where one has to become the other, and
-// every such position is one the CHECKER accepted: it would have to have
-// accepted a `Result<Int, Unit>` flowing into a `Result<Int, String>` slot,
-// which is ill typed. Where a declared type IS waiting and disagrees, the
-// caller's own `arg.k != want` check refuses by position rather than emitting
-// Go that does not compile — loud, and pinned by prelude_test.go.
-//
-// Unit is also the choice that costs nothing: it is zero-sized and
-// package-neutral, so the instance interns process-wide and two independently
-// projected `Result<Int, ?>` sites get the SAME def pointer. That is the
-// identity rule, and prelude_unsolved.nomi's `first`/`second` pair exists to
-// hold it: two `Ok(4)` sites compared to each other have nowhere to happen if
-// their holes interned separately.
-// It reports whether the position IS a hole, separately from the kind it
-// answers, because `kindUnit` at a hole and `kindUnit` at a position whose type
-// genuinely IS Unit are indistinguishable in the kind alone, and the caller
-// has one thing it may do to a hole and must not do to a real Unit. See
-// preludeWantedArgs.
-func (g *gen) preludeArgKind(ty analysis.Type) (kind, bool) {
-	// kindInvalid: lookup — asks whether the ordinary projection has an answer before deciding the position is a hole; the caller rejects by position.
-	if k := g.project(ty); k != kindInvalid {
-		return k, false
-	}
-	if isUnsolved(ty) {
-		return kindUnit, true
-	}
-	return kindInvalid, false
-}
-
 // preludeReturn is the enum type a constructor signature returns, or nil.
 func preludeReturn(ty analysis.Type) *analysis.EnumType {
 	ft, isFunc := ty.(*analysis.FuncType)
@@ -730,28 +652,6 @@ func preludeReturn(ty analysis.Type) *analysis.EnumType {
 		return nil
 	}
 	return et
-}
-
-// isUnsolved reports whether ty bottoms out in an inference variable the checker
-// never bound. It is not the same as "unrepresentable": the program is well
-// typed and the position is information-free, which is why preludeArgKind can
-// answer it with a constant.
-//
-// It FOLLOWS THE RESOLUTION CHAIN, exactly as its neighbour isTypeParam does.
-// A TypeVar may resolve to ANOTHER unbound TypeVar; `String()` follows the
-// chain and renders `?6`. A predicate that stopped at the first link would
-// send a chained hole to preludeArgs' `default` arm, filed under `non-scalar
-// type argument`, so `bad = Err("bad")` and an inline `Err("other")` would
-// refuse under two different names depending on chain depth.
-func isUnsolved(ty analysis.Type) bool {
-	tv, isVar := ty.(*analysis.TypeVar)
-	if !isVar {
-		return false
-	}
-	if tv.Resolved == nil {
-		return true
-	}
-	return isUnsolved(tv.Resolved)
 }
 
 // --- construction -----------------------------------------------------------
@@ -794,57 +694,6 @@ func (g *gen) checkedPreludeArgs(a *preludeAnchor, sym *analysis.Symbol) ([]kind
 		}
 	}
 	return args, true
-}
-
-// checkedPreludeArgsUnitHoles is checkedPreludeArgs with every argument the
-// checker left unsolved read as Unit: `Ok(1) == Ok(1)` constrains no error
-// type, so no value the program can build or observe depends on it, as
-// bareVariantOwnKind argues for a bare `None`. A solved argument outside the
-// retained payloads still declines.
-//
-// A hole that is a collection's element (`Some([])`, a `Maybe<List<?>>`) is
-// read as Int instead, the fill a user generic's empty-list hole takes
-// (irFillHolesByPosition).
-func (g *gen) checkedPreludeArgsUnitHoles(a *preludeAnchor, sym *analysis.Symbol) ([]kind, bool) {
-	et := preludeReturn(sym.CallType)
-	if et == nil || len(et.TypeArgs) != len(a.spec.params) {
-		return nil, false
-	}
-	args := make([]kind, len(et.TypeArgs))
-	for i, ty := range et.TypeArgs {
-		args[i] = g.project(irFillHolesByPosition(ty, false))
-		if !irRetainedPreludePayload(args[i]) {
-			return nil, false
-		}
-	}
-	return args, true
-}
-
-// unitHoles is ty with every unsolved inference variable read as Unit, through
-// enum type arguments (`Maybe<Result<Int, ?>>`), which is how far a prelude
-// wrapper nests.
-func unitHoles(ty analysis.Type) analysis.Type {
-	switch t := ty.(type) {
-	case *analysis.TypeVar:
-		if t.Resolved == nil {
-			return analysis.TypeUnit
-		}
-		return unitHoles(t.Resolved)
-	case *analysis.EnumType:
-		changed := false
-		args := make([]analysis.Type, len(t.TypeArgs))
-		for i, a := range t.TypeArgs {
-			args[i] = unitHoles(a)
-			changed = changed || args[i] != a
-		}
-		if !changed {
-			return t
-		}
-		c := *t
-		c.TypeArgs = args
-		return &c
-	}
-	return ty
 }
 
 // bareNoneCode is what an undischarged `None` would render as, and it exists
@@ -919,17 +768,9 @@ func (g *gen) projectPreludeEnum(ty *analysis.EnumType) (kind, bool) {
 	}
 	args := make([]kind, len(ty.TypeArgs))
 	for i, arg := range ty.TypeArgs {
-		// preludeArgKind, not project: a nested instantiation carries the same
-		// holes a constructor's does, and it reached this builder under a
-		// DIFFERENT key name because of it. `Some(Ok(42))` is
-		// `Maybe<Result<Int, ?9>>`, and the outer Some reported
-		// `non-scalar type argument` purely because projecting the inner Result
-		// answered kindInvalid — one gap, two key names, on two lines of one
-		// corpus file (08-pattern-matching/case_patterns_test.nomi:100).
-		// The hole flag is discarded here on purpose: this is a TYPE
-		// projection, not an expression at a position, so there is no want to
-		// close it from. preludeWantedArgs is the reader that needs it.
-		args[i], _ = g.preludeArgKind(arg)
+		// A nested instantiation's open argument (`Some(Ok(42))` is
+		// `Maybe<Result<Int, ?9>>`) is the type the checker closed it as.
+		args[i] = g.project(arg)
 		// kindInvalid: propagates — type projection; the caller rejects `non-scalar` by position.
 		if args[i] == kindInvalid {
 			return kindInvalid, true

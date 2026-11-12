@@ -9,15 +9,15 @@ import "testing"
 // the embedded type, which the hint names.
 func TestVariantAsTypeIsRefusedWithAHint(t *testing.T) {
 	decls := `
-struct Circle {
+struct Circle
   radius: Float
-}
+end
 
-enum Shape {
+enum Shape
   embeds Circle
   Rectangle {width: Float, height: Float}
   Point
-}
+end
 `
 	inline := "`Rectangle` is a variant of `Shape`, not a type: take a `Shape`, or declare `Rectangle` on its own and write `embeds Rectangle` in `Shape`"
 	for _, tc := range []struct{ typ, msg, help string }{
@@ -27,7 +27,7 @@ enum Shape {
 		{"Some", `unknown type "Some"`, "`Some` is a variant of `Maybe`, not a type: take a `Maybe`"},
 	} {
 		t.Run(tc.typ, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib(decls + "\nfn f(_: " + tc.typ + ") -> Int {\n  1\n}\n")
+			_, errs := checkSourceWithStdlib(decls + "\nfn f(_: " + tc.typ + ") -> Int\n  1\nend\n")
 			for _, e := range errs {
 				if e.Message != tc.msg {
 					continue

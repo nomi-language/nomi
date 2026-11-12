@@ -30,36 +30,36 @@ import std::io
 // `debug_display_surfaces.nomi` because that is where the scalar spelling is
 // pinned beside them, so the two spellings of one operation are checked
 // together.
-struct Pt {
+struct Pt
     zz: Int
     a: Int
-}
+end
 
 derive Debug for Pt
 
 // A HAND-WRITTEN `impl Debug`, which is the case no structural renderer can
 // reproduce: it returns text bearing no relation to the fields, so a fixture
 // that only used derived impls could not tell a dispatch from a re-derivation.
-struct Tag {
+struct Tag
     n: Int
-}
+end
 
-impl Debug for Tag {
-    fn inspect(t: Tag) -> String {
+impl Debug for Tag
+    fn inspect(t: Tag) -> String
         "TAG#${t.n}"
-    }
-}
+    end
+end
 
 // A typed `None`. A bare `None` in a list literal is `list element type
 // mismatch` — an untyped-empty widening this file does not own — so the empty
 // variant reaches a container through a function's declared return type
 // instead. The point is to render a bare variant NESTED, and this is the
 // spelling that gets there.
-fn no_int() -> Maybe<Int> {
+fn no_int() -> Maybe<Int>
     None
-}
+end
 
-fn main() {
+fn main()
     io.print(Debug.inspect([1, 2, 3]))
     io.print(Debug.inspect(["a", "b"]))
     io.print(Debug.inspect([1.5, 2.0]))
@@ -102,4 +102,4 @@ fn main() {
     maybes = [Some(1), no_int()]
     io.print(Debug.inspect(maybes))
     io.print(Debug.inspect(Some([1, 2])))
-}
+end

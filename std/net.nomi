@@ -17,7 +17,7 @@
 //# writes stop when the task that opened it is cancelled. std::tls runs TLS
 //# over the same `Connection`.
 
-import {
+import
     bool.Bool.{self, False, True}
     display.Display
     duration.Duration
@@ -34,82 +34,82 @@ import {
     supervisors.Supervisor
     tls
     unit.Unit
-}
+end
 
 /// An open network connection: TCP, or TLS over TCP.
-pub struct Connection {
+pub struct Connection
     handle: http_host.Conn
-}
+end
 
-impl Connection {
+impl Connection
     /// What the peer sends, as a stream. The same reader each call.
-    pub fn reader(conn: Connection) -> Reader {
+    pub fn reader(conn: Connection) -> Reader
         http_host.conn_reader(conn.handle)
-    }
+    end
 
     /// What goes to the peer: each write is sent as it is made.
-    pub fn writer(conn: Connection) -> Writer {
+    pub fn writer(conn: Connection) -> Writer
         http_host.conn_writer(conn.handle)
-    }
+    end
 
     /// Closes both directions. A read or write after it fails.
-    pub fn close(conn: Connection) -> Unit {
+    pub fn close(conn: Connection) -> Unit
         http_host.conn_close(conn.handle)
-    }
+    end
 
     /// Closes the sending direction, so the peer reads the end of its
     /// input, while this side can still read.
-    pub fn close_write(conn: Connection) -> Unit {
+    pub fn close_write(conn: Connection) -> Unit
         http_host.conn_close_write(conn.handle)
-    }
+    end
 
     /// This side's address, `host:port`.
-    pub fn local_address(conn: Connection) -> String {
+    pub fn local_address(conn: Connection) -> String
         http_host.conn_local(conn.handle)
-    }
+    end
 
     /// The peer's address, `host:port`.
-    pub fn remote_address(conn: Connection) -> String {
+    pub fn remote_address(conn: Connection) -> String
         http_host.conn_remote(conn.handle)
-    }
+    end
 
     /// Reads and writes past `at` fail with a timeout; `None` clears it.
-    pub fn set_deadline(conn: Connection, at: Maybe<Instant>) -> Unit {
+    pub fn set_deadline(conn: Connection, at: Maybe<Instant>) -> Unit
         http_host.conn_deadline(conn.handle, 0, unix(at))
-    }
+    end
 
-    pub fn set_read_deadline(conn: Connection, at: Maybe<Instant>) -> Unit {
+    pub fn set_read_deadline(conn: Connection, at: Maybe<Instant>) -> Unit
         http_host.conn_deadline(conn.handle, 1, unix(at))
-    }
+    end
 
-    pub fn set_write_deadline(conn: Connection, at: Maybe<Instant>) -> Unit {
+    pub fn set_write_deadline(conn: Connection, at: Maybe<Instant>) -> Unit
         http_host.conn_deadline(conn.handle, 2, unix(at))
-    }
+    end
 
     /// Closes the receiving direction of a TCP connection.
-    pub fn close_read(conn: Connection) -> Unit {
+    pub fn close_read(conn: Connection) -> Unit
         http_host.conn_close_read(conn.handle)
-    }
+    end
 
     /// Whether small writes go out at once (`True`, Go's default) or wait
     /// to be combined (Nagle's algorithm).
-    pub fn set_no_delay(conn: Connection, on: Bool) -> Unit {
+    pub fn set_no_delay(conn: Connection, on: Bool) -> Unit
         http_host.conn_no_delay(conn.handle, on)
-    }
+    end
 
     /// How long `close` waits to send what is unsent: `None` is the
     /// system's default, zero discards it.
-    pub fn set_linger(conn: Connection, wait: Maybe<Duration>) -> Unit {
+    pub fn set_linger(conn: Connection, wait: Maybe<Duration>) -> Unit
         http_host.conn_linger(
             conn.handle,
             wait
             |> Maybe.map(Duration.as_seconds)
             |> Maybe.with_default(-1),
         )
-    }
+    end
 
     /// The connection's keep-alive probes.
-    pub fn set_keep_alive(conn: Connection, keep_alive: KeepAlive) -> Unit {
+    pub fn set_keep_alive(conn: Connection, keep_alive: KeepAlive) -> Unit
         http_host.conn_keep_alive(
             conn.handle,
             keep_alive.enabled,
@@ -117,30 +117,30 @@ impl Connection {
             nanos(keep_alive.interval),
             Maybe.with_default(keep_alive.count, 0),
         )
-    }
+    end
 
     /// Whether the connection runs Multipath TCP.
-    pub fn is_multipath(conn: Connection) -> Bool {
+    pub fn is_multipath(conn: Connection) -> Bool
         http_host.conn_multipath(conn.handle)
-    }
+    end
 
     /// For std::tls: the connection a handle holds.
-    pub fn of_handle(handle: http_host.Conn) -> Connection {
-        Connection{handle}
-    }
+    pub fn of_handle(handle: http_host.Conn) -> Connection
+        Connection{handle:}
+    end
 
     /// For std::tls: the handle a connection holds.
-    pub fn handle_of(conn: Connection) -> http_host.Conn {
+    pub fn handle_of(conn: Connection) -> http_host.Conn
         conn.handle
-    }
-}
+    end
+end
 
-fn unix(at: Maybe<Instant>) -> Int {
+fn unix(at: Maybe<Instant>) -> Int
     at |> Maybe.map(Instant.as_nanos) |> Maybe.with_default(0)
-}
+end
 
 /// TCP keep-alive probes on a connection.
-pub struct KeepAlive {
+pub struct KeepAlive
     enabled: Bool = True
     /// How long a connection is idle before the first probe; `None` is
     /// Go's 15 seconds.
@@ -150,10 +150,10 @@ pub struct KeepAlive {
     /// How many probes go unanswered before the connection is dropped;
     /// `None` is Go's 9.
     count: Maybe<Int> = None
-}
+end
 
 /// How `dial` connects.
-pub struct DialOptions {
+pub struct DialOptions
     /// The longest connecting may take; the context's deadline applies too.
     timeout: Maybe<Duration> = None
     keep_alive: KeepAlive = KeepAlive{}
@@ -164,17 +164,17 @@ pub struct DialOptions {
     fallback_delay: Maybe<Duration> = None
     /// Asks for Multipath TCP where the system has it.
     multipath: Bool = False
-}
+end
 
 /// How `listen` binds.
-pub struct ListenOptions {
+pub struct ListenOptions
     /// Keep-alive for the connections it accepts.
     keep_alive: KeepAlive = KeepAlive{}
     multipath: Bool = False
-}
+end
 
 /// Why a connection could not be made or used.
-pub enum Error {
+pub enum Error
     /// Nothing listens at `address`.
     Refused {address: String}
     Unreachable {address: String}
@@ -193,75 +193,91 @@ pub enum Error {
     /// Any other failure of `op` (`dial`, `listen`, `lookup`) on `address`.
     Other {op: String, address: String, reason: String}
     Tls {error: tls.Error}
-}
+end
 
 derive Equatable for Error
 
-impl Error {
+impl Error
     /// The error for the parts a crossing returns: a net variant, or a
     /// tls.Error's.
-    pub fn from_parts(parts: List<String>) -> Error {
-        case parts {
-            ["Refused", address] -> Error.Refused{address}
-            ["Unreachable", address] -> Error.Unreachable{address}
-            ["Reset", address] -> Error.Reset{address}
-            ["AddressInUse", address] -> Error.AddressInUse{address}
-            ["Timeout", address] -> Error.Timeout{address}
-            ["Closed"] -> Error.Closed
-            ["InvalidAddress", address, reason] -> Error.InvalidAddress{address, reason}
+    pub fn from_parts(parts: List<String>) -> Error
+        case parts
+            ["Refused", address] ->
+                Error.Refused{address:}
+
+            ["Unreachable", address] ->
+                Error.Unreachable{address:}
+
+            ["Reset", address] ->
+                Error.Reset{address:}
+
+            ["AddressInUse", address] ->
+                Error.AddressInUse{address:}
+
+            ["Timeout", address] ->
+                Error.Timeout{address:}
+
+            ["Closed"] ->
+                Error.Closed
+
+            ["InvalidAddress", address, reason] ->
+                Error.InvalidAddress{address:, reason:}
 
             ["Dns", host, reason, server, not_found, timeout] ->
-                if timeout == "true" {
+                if timeout == "true" then
                     Error.Timeout{address: host}
-                } else {
+                else
                     Error.Dns{
-                        host,
-                        reason,
-                        server: if server == "" { None } else { Some(server) },
+                        host:,
+                        reason:,
+                        server: if server == "" then None else Some(server),
                         not_found: not_found == "true",
                     }
-                }
+                end
 
-            ["Other", op, address, reason] -> Error.Other{op, address, reason}
-            _ -> Error.Tls{error: tls.Error.from_parts(parts)}
-        }
-    }
+            ["Other", op, address, reason] ->
+                Error.Other{op:, address:, reason:}
+
+            _ ->
+                Error.Tls{error: tls.Error.from_parts(parts)}
+        end
+    end
 
     /// A TLS failure as a net error.
-    pub fn of_tls(error: tls.Error) -> Error {
-        Error.Tls{error}
-    }
+    pub fn of_tls(error: tls.Error) -> Error
+        Error.Tls{error:}
+    end
 
     /// Whether the error is a timeout, as Go's `Timeout()` returns.
-    pub fn is_timeout(error: Error) -> Bool {
-        case error {
+    pub fn is_timeout(error: Error) -> Bool
+        case error
             .Timeout{address: _} -> True
             _ -> False
-        }
-    }
-}
+        end
+    end
+end
 
-impl Display for Error {
+impl Display for Error
     //! assert "${Error.Refused{address: "a:1"}}" == "connection refused by a:1"
     //
-    fn to_string(error: Error) -> String {
-        case error {
-            .Refused{address} -> "connection refused by ${address}"
-            .Unreachable{address} -> "${address} is unreachable"
-            .Reset{address} -> "the connection to ${address} was reset"
-            .AddressInUse{address} -> "${address} is already in use"
-            .Timeout{address} -> "timed out on ${address}"
+    fn to_string(error: Error) -> String
+        case error
+            .Refused{address:} -> "connection refused by ${address}"
+            .Unreachable{address:} -> "${address} is unreachable"
+            .Reset{address:} -> "the connection to ${address} was reset"
+            .AddressInUse{address:} -> "${address} is already in use"
+            .Timeout{address:} -> "timed out on ${address}"
             .Closed -> "the connection is closed"
-            .InvalidAddress{address, reason} -> "invalid address ${address}: ${reason}"
-            .Dns{host, reason, server: _, not_found: _} -> "looking up ${host}: ${reason}"
-            .Other{op, address, reason} -> "${op} ${address}: ${reason}"
-            .Tls{error} -> "${error}"
-        }
-    }
-}
+            .InvalidAddress{address:, reason:} -> "invalid address ${address}: ${reason}"
+            .Dns{host:, reason:, server: _, not_found: _} -> "looking up ${host}: ${reason}"
+            .Other{op:, address:, reason:} -> "${op} ${address}: ${reason}"
+            .Tls{error:} -> "${error}"
+        end
+    end
+end
 
 /// A TCP connection to `address`, `host:port`.
-pub fn dial(address: String, options: DialOptions = DialOptions{}) -> Result<Connection, Error> {
+pub fn dial(address: String, options: DialOptions = DialOptions{}) -> Result<Connection, Error>
     k = options.keep_alive
 
     handle =
@@ -278,13 +294,13 @@ pub fn dial(address: String, options: DialOptions = DialOptions{}) -> Result<Con
         )
         |> Result.map_err(Error.from_parts)?
 
-    Ok(Connection{handle})
-}
+    Ok(Connection{handle:})
+end
 
 /// For std::tls: a duration in nanoseconds, 0 for `None`.
-pub fn nanos(d: Maybe<Duration>) -> Int {
+pub fn nanos(d: Maybe<Duration>) -> Int
     d |> Maybe.map(Duration.as_nanos) |> Maybe.with_default(0)
-}
+end
 
 /// Two connections joined in memory, each end's writes the other's
 /// reads, with no buffer: Go's `net.Pipe`. For tests of code that talks
@@ -293,111 +309,111 @@ pub fn nanos(d: Maybe<Duration>) -> Int {
 //! _ = Connection.close(a)
 //! assert Connection.remote_address(b) == "pipe"
 //
-pub fn pipe() -> (Connection, Connection) {
-    case http_host.pipe() {
+pub fn pipe() -> (Connection, Connection)
+    case http_host.pipe()
         [a, b] -> (Connection{handle: a}, Connection{handle: b})
         _ -> todo
-    }
-}
+    end
+end
 
 /// Splits `host:port` (or `[host]:port`) into its host and port: Go's
 /// `SplitHostPort`.
 //! assert net.split_host_port("[::1]:80") == Ok(("::1", "80"))
 //
-pub fn split_host_port(address: String) -> Result<(String, String), Error> {
-    case (http_host.split_host_port(address) |> Result.map_err(Error.from_parts)?) {
+pub fn split_host_port(address: String) -> Result<(String, String), Error>
+    case (http_host.split_host_port(address) |> Result.map_err(Error.from_parts)?)
         [host, port] -> Ok((host, port))
-        _ -> Err(Error.InvalidAddress{address, reason: "no host and port"})
-    }
-}
+        _ -> Err(Error.InvalidAddress{address:, reason: "no host and port"})
+    end
+end
 
 /// Joins a host and port into an address, bracketing an IPv6 host: Go's
 /// `JoinHostPort`.
 //! assert net.join_host_port("::1", "80") == "[::1]:80"
 //
-pub fn join_host_port(host: String, port: String) -> String {
+pub fn join_host_port(host: String, port: String) -> String
     http_host.join_host_port(host, port)
-}
+end
 
 /// A mail exchanger a domain names.
-pub struct Mx {
+pub struct Mx
     host: String
     preference: Int
-}
+end
 
 /// A service location a domain names.
-pub struct Srv {
+pub struct Srv
     target: String
     port: Int
     priority: Int
     weight: Int
-}
+end
 
-fn lookup(kind: String, name: String) -> Result<List<String>, Error> {
+fn lookup(kind: String, name: String) -> Result<List<String>, Error>
     http_host.lookup(kind, name) |> Result.map_err(Error.from_parts)
-}
+end
 
-fn int(text: String) -> Int {
+fn int(text: String) -> Int
     String.to_int(text) |> Maybe.with_default(0)
-}
+end
 
 /// The addresses of `host`, as the system resolver returns.
 //! assert net.lookup_host("localhost")
 //! |> Result.map(fn xs -> Iter.any_match(xs, fn a -> a == "127.0.0.1" or a == "::1")) == Ok(True)
 //
-pub fn lookup_host(host: String) -> Result<List<String>, Error> {
+pub fn lookup_host(host: String) -> Result<List<String>, Error>
     lookup("host", host)
-}
+end
 
 /// The IP addresses of `host`.
-pub fn lookup_ip(host: String) -> Result<List<String>, Error> {
+pub fn lookup_ip(host: String) -> Result<List<String>, Error>
     lookup("ip", host)
-}
+end
 
 /// The names that map to the address `ip`.
-pub fn lookup_address(ip: String) -> Result<List<String>, Error> {
+pub fn lookup_address(ip: String) -> Result<List<String>, Error>
     lookup("address", ip)
-}
+end
 
 /// The canonical name of `host`.
-pub fn lookup_cname(host: String) -> Result<String, Error> {
-    case lookup("cname", host)? {
+pub fn lookup_cname(host: String) -> Result<String, Error>
+    case lookup("cname", host)?
         [name] -> Ok(name)
         _ -> Ok("")
-    }
-}
+    end
+end
 
 /// The name servers of `domain`.
-pub fn lookup_ns(domain: String) -> Result<List<String>, Error> {
+pub fn lookup_ns(domain: String) -> Result<List<String>, Error>
     lookup("ns", domain)
-}
+end
 
 /// The TXT records of `domain`.
-pub fn lookup_txt(domain: String) -> Result<List<String>, Error> {
+pub fn lookup_txt(domain: String) -> Result<List<String>, Error>
     lookup("txt", domain)
-}
+end
 
 /// The mail exchangers of `domain`, most preferred first.
-pub fn lookup_mx(domain: String) -> Result<List<Mx>, Error> {
+pub fn lookup_mx(domain: String) -> Result<List<Mx>, Error>
     Ok(mx_records(lookup("mx", domain)?))
-}
+end
 
-fn mx_records(parts: List<String>) -> List<Mx> {
-    case parts {
-        [host, preference, ..rest] -> [Mx{host, preference: int(preference)}, ..mx_records(rest)]
+fn mx_records(parts: List<String>) -> List<Mx>
+    case parts
+        [host, preference, ..rest] -> [Mx{host:, preference: int(preference)}, ..mx_records(rest)]
         _ -> []
-    }
-}
+    end
+end
 
 /// The port number of a TCP service name, such as `"http"`.
 //! assert net.lookup_port("http") == Ok(80)
 //
-pub fn lookup_port(service: String) -> Result<Int, Error> {
-    case lookup("port", service)? {
+pub fn lookup_port(service: String) -> Result<Int, Error>
+    case lookup("port", service)?
         [port] -> Ok(int(port))
         _ -> Ok(0)
-    }
-}
+    end
+end
 
 /// The SRV records for `_service._protocol.domain`, with the canonical
 /// name they were found under.
@@ -405,73 +421,71 @@ pub fn lookup_srv(
     service: String,
     protocol: String,
     domain: String,
-) -> Result<(String, List<Srv>), Error> {
-    case lookup("srv", "${service} ${protocol} ${domain}")? {
+) -> Result<(String, List<Srv>), Error>
+    case lookup("srv", "${service} ${protocol} ${domain}")?
         [cname, ..rest] -> Ok((cname, srv_records(rest)))
         [] -> Ok(("", []))
-    }
-}
+    end
+end
 
-fn srv_records(parts: List<String>) -> List<Srv> {
-    case parts {
+fn srv_records(parts: List<String>) -> List<Srv>
+    case parts
         [target, port, priority, weight, ..rest] ->
             [Srv{
-                target,
+                target:,
                 port: int(port),
                 priority: int(priority),
                 weight: int(weight),
             }, ..srv_records(rest)]
 
-        _ -> []
-    }
-}
+        _ ->
+            []
+    end
+end
 
 /// A listening socket. Close it with `Listener.close`; a program that is
 /// shutting down closes every listener when its supervisors start draining.
-pub struct Listener {
+pub struct Listener
     handle: http_host.TcpListener
-}
+end
 
-impl Listener {
+impl Listener
     /// The address it is bound to, with the port it picked for port 0.
-    pub fn address(listener: Listener) -> String {
+    pub fn address(listener: Listener) -> String
         http_host.net_listener_address(listener.handle)
-    }
+    end
 
     /// The next connection. `Error.Closed` once the listener is closed or
     /// the calling task is stopped.
-    pub fn accept(listener: Listener) -> Result<Connection, Error> {
+    pub fn accept(listener: Listener) -> Result<Connection, Error>
         handle = http_host.net_accept(listener.handle) |> Result.map_err(Error.from_parts)?
-        Ok(Connection{handle})
-    }
+        Ok(Connection{handle:})
+    end
 
     /// An `accept` still waiting at `at` fails with `Error.Timeout`;
     /// `None` clears it.
-    pub fn set_deadline(listener: Listener, at: Maybe<Instant>) -> Unit {
+    pub fn set_deadline(listener: Listener, at: Maybe<Instant>) -> Unit
         http_host.net_listener_deadline(listener.handle, unix(at))
-    }
+    end
 
     /// Stops listening. A connection already accepted stays open.
-    pub fn close(listener: Listener) -> Unit {
+    pub fn close(listener: Listener) -> Unit
         http_host.net_listener_close(listener.handle)
-    }
+    end
 
     /// For std::tls: the listener a handle holds.
-    pub fn of_handle(handle: http_host.TcpListener) -> Listener {
-        Listener{handle}
-    }
+    pub fn of_handle(handle: http_host.TcpListener) -> Listener
+        Listener{handle:}
+    end
 
     /// For std::tls: the handle a listener holds.
-    pub fn handle_of(listener: Listener) -> http_host.TcpListener {
+    pub fn handle_of(listener: Listener) -> http_host.TcpListener
         listener.handle
-    }
-}
+    end
+end
 
 /// Binds `address`, `host:port`; port 0 picks a free one.
-pub fn listen(
-    address: String,
-    options: ListenOptions = ListenOptions{},
-) -> Result<Listener, Error> {
+pub fn listen(address: String, options: ListenOptions = ListenOptions{}) -> Result<Listener, Error>
     k = options.keep_alive
 
     handle =
@@ -485,29 +499,29 @@ pub fn listen(
         )
         |> Result.map_err(Error.from_parts)?
 
-    Ok(Listener{handle})
-}
+    Ok(Listener{handle:})
+end
 
 /// Handles each connection `listener` accepts with `handler`, each as a
 /// task of `supervisor`, and closes the connection when the handler
 /// returns. Returns when the listener is closed or the calling task is
 /// stopped, as at shutdown, after closing the listener.
-pub fn serve(listener: Listener, handler: (Connection) -> Unit, supervisor: Supervisor) -> Unit {
+pub fn serve(listener: Listener, handler: (Connection) -> Unit, supervisor: Supervisor) -> Unit
     defer Listener.close(listener)
     accept_each(listener, handler, supervisor)
-}
+end
 
-fn accept_each(listener: Listener, handler: (Connection) -> Unit, supervisor: Supervisor) -> Unit {
-    case Listener.accept(listener) {
-        Ok(conn) -> {
-            _ = Supervisor.spawn(supervisor, fn -> {
+fn accept_each(listener: Listener, handler: (Connection) -> Unit, supervisor: Supervisor) -> Unit
+    case Listener.accept(listener)
+        Ok(conn) ->
+            _ = Supervisor.spawn(supervisor, fn ->
                 defer Connection.close(conn)
                 handler(conn)
-            })
+            end)
 
             accept_each(listener, handler, supervisor)
-        }
 
-        Err(_) -> Unit
-    }
-}
+        Err(_) ->
+            Unit
+    end
+end

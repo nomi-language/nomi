@@ -1,0 +1,26 @@
+// A body is written below its header and closed by `end`. The words that
+// open and close bodies are keywords: `then`, `else`, `begin` and `end`.
+fn sign(n: Int) -> String
+    if n < 0 then
+        //   ^ keyword
+        "-"
+    else
+        "+"
+    end
+    // <- keyword
+end
+
+fn short(n: Int) -> String
+    if n < 0 then "-" else "+"
+    //       ^ keyword
+    //                ^ keyword
+end
+
+fn total() -> Int
+    x = begin
+        //  ^ keyword
+        1
+    end
+
+    x
+end

@@ -22,7 +22,7 @@ func TestVM_TupleFunctionPart(t *testing.T) {
 		"record = 6",
 		"record destructured = 6",
 		"debug = (1, <function>)",
-		"record debug = .{f: <function>, n: 3}",
+		"record debug = {f: <function>, n: 3}",
 		"nested debug = (Pt{x: 1}, <function>)",
 		"",
 	}, "\n")
@@ -34,64 +34,84 @@ func TestVM_TupleFunctionPart(t *testing.T) {
 func TestIRTuple_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"construction and indexing", `import std::io
-fn make(n: Int) -> (Int, String) { (n + 1, "answer") }
-fn main() { pair = make(41) io.print(pair.first) io.print(pair.second) }
+fn make(n: Int) -> (Int, String)
+    (n + 1, "answer")
+end
+fn main()
+    pair = make(41)
+    io.print(pair.first)
+    io.print(pair.second)
+end
 `, "42\nanswer\n"},
 		{"effects and destructuring", `import std::io
-fn item(n: Int) -> Int { io.print(n) n + 10 }
-fn main() {
+fn item(n: Int) -> Int
+    io.print(n)
+    n + 10
+end
+fn main()
   (a, _, c) = (item(
     1
   ), item(2), item(3))
-  io.print(a) io.print(c)
-}`, "1\n2\n3\n11\n13\n"},
+  io.print(a)
+    io.print(c)
+end`, "1\n2\n3\n11\n13\n"},
 		{"nested and destructured parameters", `import std::io
-fn sum((a, b): (Int, Int)) -> Int { a + b }
-fn main() {
+fn sum((a, b): (Int, Int)) -> Int
+    a + b
+end
+fn main()
   nested = ((10, 20), "nested")
   inner = nested.first
   io.print(sum(inner))
   io.print(nested.second)
-}`, "30\nnested\n"},
+end`, "30\nnested\n"},
 		{"conditional and callable tuples", `import std::io
-fn choose(flag: Bool) -> (Int, String) {
-  if flag { (1, "first") } else { (2, "second") }
-}
-fn main() {
+fn choose(flag: Bool) -> (Int, String)
+  if flag then (1, "first") else (2, "second")
+end
+fn main()
   get = fn flag: Bool -> choose(flag)
   (n, text) = get(False)
-  io.print(n) io.print(text)
-}`, "2\nsecond\n"},
+  io.print(n)
+    io.print(text)
+end`, "2\nsecond\n"},
 		{"list and struct components", `import std::io
-struct Point { x: Int }
-fn main() {
+struct Point
+    x: Int
+end
+fn main()
   pair = ([1, 2], Point{x: 7})
   xs = pair.first
   point = pair.second
-  io.inspect(xs) io.print(point.x)
-}`, "[1, 2]\n7\n"},
+  io.inspect(xs)
+    io.print(point.x)
+end`, "[1, 2]\n7\n"},
 		{"computed projection and discard", `import std::io
-fn make(n: Int) -> (Int, Int) {
+fn make(n: Int) -> (Int, Int)
   io.print(n)
   (n, n + 1)
-}
-fn main() {
+end
+fn main()
   io.print(make(10).second)
   (_, _) = make(20)
   Unit
-}`, "10\n11\n20\n"},
+end`, "10\n11\n20\n"},
 		{"named tuple items and a struct field named first", `import std::io
 type Pair (Int, String)
-struct Holder { first: (String, Int) }
-fn main() {
+struct Holder
+    first: (String, Int)
+end
+fn main()
   p = Pair(3, "three")
-  io.print(p.first) io.print(p.second)
+  io.print(p.first)
+    io.print(p.second)
   h = Holder{first: ("h", 4)}
-  io.print(h.first.first) io.print(h.first.second)
+  io.print(h.first.first)
+    io.print(h.first.second)
   [p] |> Iter.map(.second) |> Iter.to_list() |> io.inspect()
   [h] |> Iter.map(.first.second) |> Iter.to_list() |> io.inspect()
   [(1, 2)] |> Iter.map(&(&1.first + &1.second)) |> Iter.to_list() |> io.inspect()
-}`, "3\nthree\nh\n4\n[\"three\"]\n[4]\n[3]\n"},
+end`, "3\nthree\nh\n4\n[\"three\"]\n[4]\n[3]\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}

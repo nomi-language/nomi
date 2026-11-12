@@ -9,45 +9,45 @@ import std::io
 // function's name carries the INTERFACE as well as the receiver. A
 // dispatch keyed on the method name alone has one slot for two answers, and
 // which one it returns would be arbitrary.
-interface Speech {
+interface Speech
     fn speak(animal: self) -> String
-}
+end
 
-interface Greeter {
+interface Greeter
     fn greet(value: self) -> String
-}
+end
 
-interface Farewell {
+interface Farewell
     fn greet(value: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
     name: String
-}
+end
 
-struct Person {
+struct Person
     name: String
-}
+end
 
-impl Speech for Dog {
-    fn speak(d: Dog) -> String {
+impl Speech for Dog
+    fn speak(d: Dog) -> String
         "${d.name} says woof"
-    }
-}
+    end
+end
 
-impl Greeter for Person {
-    fn greet(p: Person) -> String {
+impl Greeter for Person
+    fn greet(p: Person) -> String
         "Hello, ${p.name}"
-    }
-}
+    end
+end
 
-impl Farewell for Person {
-    fn greet(p: Person) -> String {
+impl Farewell for Person
+    fn greet(p: Person) -> String
         "Goodbye, ${p.name}"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     rex = Dog{name: "Rex"}
     alice = Person{name: "Alice"}
 
@@ -55,4 +55,4 @@ fn main() {
     io.print(Dog.speak(rex))
     io.print(Greeter.greet(alice))
     io.print(Farewell.greet(alice))
-}
+end

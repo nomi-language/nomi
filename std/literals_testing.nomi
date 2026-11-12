@@ -5,14 +5,14 @@
 //# chooses, so a library's tests can show that `build` keeps to this: a value
 //# that makes `build` trap fails the test.
 
-import {
+import
     iter.Iter
     lists.List
     literals.{Fragment, LiteralError}
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
-}
+end
 
 /// Runs `check` over `statics`, the text around a literal's slots, and when
 /// it accepts, runs `build` once per value with that value in every slot.
@@ -32,11 +32,11 @@ import {
 //! built = build_each(["a", "b"], ["x", "y"], fn _ -> Ok(Unit), fn fragments -> Iter.count(fragments))
 //! assert built == Ok([3, 3])
 //!
-//! refused = build_each(["a"], ["x"], fn _ -> {
+//! refused = build_each(["a"], ["x"], fn _ ->
 //!     Err(LiteralError{fragment: 0, offset: 0, message: "no"})
-//! }, fn _ -> {
+//! end, fn _ ->
 //!     0
-//! })
+//! end)
 //!
 //! assert refused == Err(LiteralError{fragment: 0, offset: 0, message: "no"})
 //
@@ -45,9 +45,10 @@ pub fn build_each<I, T>(
     values: List<I>,
     check: (List<String>) -> Result<Unit, LiteralError>,
     build: (List<Fragment<I>>) -> T,
-) -> Result<List<T>, LiteralError> {
-    case check(statics) {
-        Err(e) -> Err(e)
+) -> Result<List<T>, LiteralError>
+    case check(statics)
+        Err(e) ->
+            Err(e)
 
         Ok(_) ->
             Ok(
@@ -55,20 +56,20 @@ pub fn build_each<I, T>(
                 |> Iter.map(fn v -> build(fill(statics, v)))
                 |> Iter.to_list()
             )
-    }
-}
+    end
+end
 
 // The fragments of a literal whose statics are statics and whose every slot
 // holds value.
-fn fill<I>(statics: List<String>, value: I) -> List<Fragment<I>> {
+fn fill<I>(statics: List<String>, value: I) -> List<Fragment<I>>
     statics
     |> Iter.with_index()
-    |> Iter.flat_map(fn (i, s) -> {
-        if i == 0 {
+    |> Iter.flat_map(fn (i, s) ->
+        if i == 0 then
             [Fragment.Static(s)]
-        } else {
+        else
             [Fragment.Dynamic(value), Fragment.Static(s)]
-        }
-    })
+        end
+    end)
     |> Iter.to_list()
-}
+end

@@ -22,21 +22,21 @@ func inherentDefaultClashes(fa *analysis.FileAnalysis) []analysis.TypeError {
 }
 
 // ord2 declares an open default `least` and a final default `most`.
-const ord2 = `interface Ord2 {
+const ord2 = `interface Ord2
     fn cmp(a: self, b: self) -> Int
 
-    open fn least(a: self, b: self) -> self {
-        if cmp(a, b) <= 0 { a } else { b }
-    }
+    open fn least(a: self, b: self) -> self
+        if cmp(a, b) <= 0 then a else b
+    end
 
-    fn most(a: self, b: self) -> self {
-        if cmp(a, b) >= 0 { a } else { b }
-    }
-}
+    fn most(a: self, b: self) -> self
+        if cmp(a, b) >= 0 then a else b
+    end
+end
 
-struct Odd {
+struct Odd
     n: Int
-}
+end
 `
 
 // The reproducer: `Odd.least(a, b)` checked clean and was refused when it
@@ -46,25 +46,25 @@ struct Odd {
 func TestInherentDefaultClash_OpenAndFinalDefaults(t *testing.T) {
 	fa := buildInherentFixture(t, map[string]string{
 		"main.nomi": ord2 + `
-impl Ord2 for Odd {
-    fn cmp(a: Odd, b: Odd) -> Int {
+impl Ord2 for Odd
+    fn cmp(a: Odd, b: Odd) -> Int
         a.n - b.n
-    }
-}
+    end
+end
 
-impl Odd {
-    pub fn least(_a: Odd, b: Odd) -> Odd {
+impl Odd
+    pub fn least(_a: Odd, b: Odd) -> Odd
         b
-    }
+    end
 
-    pub fn most(a: Odd, _b: Odd) -> Odd {
+    pub fn most(a: Odd, _b: Odd) -> Odd
         a
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg Odd.least(Odd{n: 1}, Odd{n: 2})
-}
+end
 `,
 	})
 	got := inherentDefaultClashes(fa)
@@ -92,35 +92,35 @@ fn main() {
 // own function, in the type's file.
 func TestInherentDefaultClash_ImplInAnotherFile(t *testing.T) {
 	fa := buildInherentFixture(t, map[string]string{
-		"shapes.nomi": `pub struct Odd {
+		"shapes.nomi": `pub struct Odd
     n: Int
-}
+end
 
-impl Odd {
-    pub fn least(_a: Odd, b: Odd) -> Odd {
+impl Odd
+    pub fn least(_a: Odd, b: Odd) -> Odd
         b
-    }
-}
+    end
+end
 `,
 		"main.nomi": `import shapes.Odd
 
-interface Ord2 {
+interface Ord2
     fn cmp(a: self, b: self) -> Int
 
-    open fn least(a: self, b: self) -> self {
-        if cmp(a, b) <= 0 { a } else { b }
-    }
-}
+    open fn least(a: self, b: self) -> self
+        if cmp(a, b) <= 0 then a else b
+    end
+end
 
-impl Ord2 for Odd {
-    fn cmp(a: Odd, b: Odd) -> Int {
+impl Ord2 for Odd
+    fn cmp(a: Odd, b: Odd) -> Int
         a.n - b.n
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     Unit
-}
+end
 `,
 	})
 	wantOneClash := func(got []analysis.TypeError) {
@@ -146,38 +146,38 @@ fn main() {
 func TestInherentDefaultClash_OverridesAndOtherNamesAreNoClash(t *testing.T) {
 	fa := buildInherentFixture(t, map[string]string{
 		"main.nomi": ord2 + `
-struct Even {
+struct Even
     n: Int
-}
+end
 
-impl Ord2 for Odd {
-    fn cmp(a: Odd, b: Odd) -> Int {
+impl Ord2 for Odd
+    fn cmp(a: Odd, b: Odd) -> Int
         a.n - b.n
-    }
+    end
 
-    fn least(_a: Odd, b: Odd) -> Odd {
+    fn least(_a: Odd, b: Odd) -> Odd
         b
-    }
-}
+    end
+end
 
-impl Odd {
-    pub fn lesser(a: Odd, _b: Odd) -> Odd {
+impl Odd
+    pub fn lesser(a: Odd, _b: Odd) -> Odd
         a
-    }
-}
+    end
+end
 
-impl Even {
-    pub fn least(a: Even, _b: Even) -> Even {
+impl Even
+    pub fn least(a: Even, _b: Even) -> Even
         a
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     assert Odd.least(Odd{n: 1}, Odd{n: 2}).n == 2
     assert Odd.most(Odd{n: 1}, Odd{n: 2}).n == 2
     assert Odd.lesser(Odd{n: 1}, Odd{n: 2}).n == 1
     assert Even.least(Even{n: 1}, Even{n: 2}).n == 1
-}
+end
 `,
 	})
 	if got := inherentDefaultClashes(fa); len(got) != 0 {

@@ -35,7 +35,7 @@ func TestRPC_ImplImportCheckWhileSiblingIsRead(t *testing.T) {
 		files[name] = string(src)
 	}
 	// A dot variant in hop: checking hop records its enum on the node.
-	files["hop.nomi"] += "\nfn order() -> Ordering {\n    .Less\n}\n"
+	files["hop.nomi"] += "\nfn order() -> Ordering\n    .Less\nend\n"
 	dir := writeProject(t, files)
 	declsURI := fileuri.FromPath(filepath.Join(dir, "decls.nomi"))
 	hopURI := fileuri.FromPath(filepath.Join(dir, "hop.nomi"))

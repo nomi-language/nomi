@@ -8,18 +8,18 @@ import (
 
 func TestEnumVariantTypes(t *testing.T) {
 	tokens := lexer.Lex(`
-enum Result<T, E> {
+enum Result<T, E>
     Ok T
     Err E
-}
-enum Maybe<T> {
+end
+enum Maybe<T>
     Some T
     None
-}
-enum Bool {
+end
+enum Bool
     True
     False
-}
+end
 `)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := BuildFile(nodes)

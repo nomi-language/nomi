@@ -1,6 +1,6 @@
 // A function may be named `todo`; in its file a bare `todo` reads it (see
 // todo.nomi for the placeholder).
-pub fn todo() -> Int {
+pub fn todo() -> Int
     // ^^^^ function.definition
     1
-}
+end

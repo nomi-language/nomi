@@ -15,62 +15,62 @@ import (
 )
 
 // timeoutProgram's cases never finish, each in its own way, except the last.
-const timeoutProgram = `import {
+const timeoutProgram = `import
     std::duration.Duration
     std::tasks.Task
     std::testing.Clock
     std::timer
-}
+end
 
-fn spin(n: Int) -> Int {
+fn spin(n: Int) -> Int
     spin(n + 1)
-}
+end
 
-fn never_negative() -> Maybe<Int> {
+fn never_negative() -> Maybe<Int>
     Iter.iterate(0, &(&1 + 1)) |> Iter.find(&(&1 < 0))
-}
+end
 
-test "spins" {
+test "spins"
     assert spin(0) == 1
-}
+end
 
-test "loops inside the standard library" {
+test "loops inside the standard library"
     assert never_negative() == None
-}
+end
 
-test "tasks spin" {
-    total = concurrent {
+test "tasks spin"
+    total = concurrent
         a = Task.spawn(fn -> spin(0))
         b = Task.spawn(fn -> spin(1))
         Task.await(a) + Task.await(b)
-    }
+    end
     assert total == 0
-}
+end
 
-test "sleeps" {
+test "sleeps"
     timer.sleep(Duration.seconds(60))
     assert 1 == 1
-}
+end
 
-group "virtual" {
+group "virtual"
     clock Clock.Virtual
 
-    test "spins in a bubble" {
+    test "spins in a bubble"
         assert spin(0) == 1
-    }
-}
+    end
+end
 
-test "runs after" {
+test "runs after"
     assert 1 == 1
-}
+end
 
-fn through_std() -> Maybe<Int> {
+fn through_std() -> Maybe<Int>
     Maybe.map(Some(0), &spin(&1))
-}
+end
 
-test "loops through a standard library call" {
+test "loops through a standard library call"
     assert through_std() == None
-}
+end
 `
 
 // A case that does not finish within its limit is stopped and fails with
@@ -184,15 +184,15 @@ func TestTestTimeout_TheJSONRecordIsAFailureAtTheLine(t *testing.T) {
 // Zero is no limit, and so is a program never given one: a case that sleeps
 // past what a limit would allow passes.
 func TestTestTimeout_ZeroIsNoLimit(t *testing.T) {
-	src := `import {
+	src := `import
     std::duration.Duration
     std::timer
-}
+end
 
-test "naps" {
+test "naps"
     timer.sleep(Duration.milliseconds(150))
     assert 1 == 1
-}
+end
 `
 	for _, limit := range []time.Duration{-1, 0} {
 		p, err := vmhost.Load(writeProgram(t, src))
@@ -223,15 +223,15 @@ test "naps" {
 // A program with a debugger runs its cases with no limit, since a paused
 // case must not time out (`nomi dap`).
 func TestTestTimeout_ADebuggerRunsWithoutALimit(t *testing.T) {
-	p, err := vmhost.Load(writeProgram(t, `import {
+	p, err := vmhost.Load(writeProgram(t, `import
     std::duration.Duration
     std::timer
-}
+end
 
-test "naps" {
+test "naps"
     timer.sleep(Duration.milliseconds(150))
     assert 1 == 1
-}
+end
 `))
 	if err != nil {
 		t.Fatalf("the front end rejects this: %v", err)
@@ -252,17 +252,17 @@ test "naps" {
 // steps and one that takes a hundred thousand.
 func TestTestTimeout_ALimitCostsACaseThatFinishesNothingPerStep(t *testing.T) {
 	added := func(steps int) float64 {
-		src := fmt.Sprintf(`fn count(n: Int) -> Int {
-    if n == 0 {
+		src := fmt.Sprintf(`fn count(n: Int) -> Int
+    if n == 0 then
         0
-    } else {
+    else
         count(n - 1)
-    }
-}
+    end
+end
 
-test "counts" {
+test "counts"
     assert count(%d) == 0
-}
+end
 `, steps)
 		allocs := func(limit time.Duration) float64 {
 			p, err := vmhost.Load(writeProgram(t, src))
@@ -289,21 +289,21 @@ test "counts" {
 // a count of the rest between them. down(0)'s tail call replaced its frame
 // with spin's, so there are 22: spin, twenty downs and the test.
 func TestTestTimeout_ALongStackShowsItsEnds(t *testing.T) {
-	p, err := vmhost.Load(writeProgram(t, `fn spin(n: Int) -> Int {
+	p, err := vmhost.Load(writeProgram(t, `fn spin(n: Int) -> Int
     spin(n + 1)
-}
+end
 
-fn down(n: Int) -> Int {
-    if n == 0 {
+fn down(n: Int) -> Int
+    if n == 0 then
         spin(0)
-    } else {
+    else
         1 + down(n - 1)
-    }
-}
+    end
+end
 
-test "goes down" {
+test "goes down"
     assert down(20) == 0
-}
+end
 `))
 	if err != nil {
 		t.Fatalf("the front end rejects this: %v", err)

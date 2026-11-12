@@ -3,10 +3,10 @@
 //# `timer` is separate from `Instant` and `Duration`: those files describe
 //# time values, while this file performs time-based waiting.
 
-import {
+import
     duration.Duration
     unit.Unit
-}
+end
 
 /// Suspends the current task for the given duration.
 ///

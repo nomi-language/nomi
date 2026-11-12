@@ -15,46 +15,46 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# them.
 
 /// Every score, oldest first.
-pub fn scores(scores: List<Int>) -> List<Int> {
+pub fn scores(scores: List<Int>) -> List<Int>
     scores
-}
+end
 
 /// The most recent score, or `None` before the first game.
-pub fn latest(scores: List<Int>) -> Maybe<Int> {
+pub fn latest(scores: List<Int>) -> Maybe<Int>
     Iter.last(scores)
-}
+end
 
 /// The highest score, or `None` before the first game.
-pub fn personal_best(scores: List<Int>) -> Maybe<Int> {
+pub fn personal_best(scores: List<Int>) -> Maybe<Int>
     Iter.max(scores)
-}
+end
 
 /// The three highest scores, highest first, or all of them when there are
 /// fewer than three.
-pub fn personal_top_three(scores: List<Int>) -> List<Int> {
+pub fn personal_top_three(scores: List<Int>) -> List<Int>
     scores
     |> Iter.sort(.Descending)
     |> Iter.take(3)
     |> Iter.to_list()
-}
+end
 
 // FILE: high_scores_test.nomi
 import high_scores
 
-test "List of scores" {
+test "List of scores"
     assert high_scores.scores([30, 50, 20, 70]) == [30, 50, 20, 70]
-}
+end
 
-test "Latest score" {
+test "Latest score"
     assert high_scores.latest([100, 0, 90, 30]) == Some(30)
-}
+end
 
-test "Personal best" {
+test "Personal best"
     assert high_scores.personal_best([40, 100, 70]) == Some(100)
-}
+end
 
-group "Top 3 scores" {
-    test "personal top three" {
+group "Top 3 scores"
+    test "personal top three"
         [
             (
                 "Personal top three from a list of scores",
@@ -66,39 +66,39 @@ group "Top 3 scores" {
             ("Personal top when there are less than 3", [30, 70], [70, 30]),
             ("Personal top when there is only one", [40], [40]),
         ]
-        |> subtests (description, scores, expected), description {
+        |> subtests (description, scores, expected), description
             assert high_scores.personal_top_three(scores) == expected
-        }
-    }
+        end
+    end
 
-    test "Latest score after personal top scores" {
+    test "Latest score after personal top scores"
         scores = [70, 50, 20, 30]
         _ = high_scores.personal_top_three(scores)
 
         assert high_scores.latest(scores) == Some(30)
-    }
+    end
 
-    test "Scores after personal top scores" {
+    test "Scores after personal top scores"
         scores = [30, 50, 20, 70]
         _ = high_scores.personal_top_three(scores)
 
         assert high_scores.scores(scores) == [30, 50, 20, 70]
-    }
+    end
 
-    test "Latest score after personal best" {
+    test "Latest score after personal best"
         scores = [20, 70, 15, 25, 30]
         _ = high_scores.personal_best(scores)
 
         assert high_scores.latest(scores) == Some(30)
-    }
+    end
 
-    test "Scores after personal best" {
+    test "Scores after personal best"
         scores = [20, 70, 15, 25, 30]
         _ = high_scores.personal_best(scores)
 
         assert high_scores.scores(scores) == [20, 70, 15, 25, 30]
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok List of scores

@@ -138,55 +138,55 @@ func TestStdlibBacklog_CasesRunOnTheVM(t *testing.T) {
 const stdlibBacklogUserSource = `import std::channels.{Channel, Sender, ChannelClosed}
 import std::tasks.{Task}
 
-test "Maybe.None as a field access" {
+test "Maybe.None as a field access"
   assert Maybe.is_none(Maybe.None)
   refute Maybe.is_some(Maybe.None)
-}
+end
 
-test "a bare variant typed by the call" {
+test "a bare variant typed by the call"
   assert Maybe.with_default(Maybe.None, 4) == 4
   assert Maybe.to_result(None, "missing") == Result.Err("missing")
-}
+end
 
-test "an unconstrained type argument" {
+test "an unconstrained type argument"
   assert Result.map(Result.Ok(3), fn x -> x * 2) == Result.Ok(6)
   assert Result.to_maybe(Result.Ok(3)) == Some(3)
-}
+end
 
-test "untyped empty lists" {
+test "untyped empty lists"
   assert List.head([]) == None
   assert String.join([], ", ") == ""
-}
+end
 
-test "lists of Byte and Bytes equality" {
+test "lists of Byte and Bytes equality"
   a = Int.to_byte(97)?
   b = Int.to_byte(98)?
   assert Bytes.from_list([a, b]) |> Bytes.to_list() == [a, b]
   refute Bytes.from_list([a]) == Bytes.from_list([b])
   assert Display.to_string(Bytes.from_list([a, b])) == "Bytes(2)"
-}
+end
 
-test "a std marker value" {
+test "a std marker value"
   ch = Channel.buffered<Int>(1)
   refute Sender.send(ch.sender, 7) == Result.Err(ChannelClosed)
   Sender.close(ch.sender)
   assert Sender.send(ch.sender, 7) == Result.Err(ChannelClosed)
-}
+end
 
-test "Task.spawn_all over a List" {
-  results = concurrent {
+test "Task.spawn_all over a List"
+  results = concurrent
     [1, 2, 3]
     |> Task.spawn_all(fn n: Int -> n * 2, max_running: 2)
     |> Task.await_all()
-  }
+  end
   assert results == [2, 4, 6]
-}
+end
 
-test "Decimal Range.contains" {
+test "Decimal Range.contains"
   assert Range.contains(1.25d..=2.50d, 2.50d)
   refute Range.contains(1.25d..2.50d, 2.50d)
   refute Range.contains(1.25d..2.50d, 1.2d)
-}
+end
 `
 
 // TestStdlibBacklog_UserFileRunsOnTheVM runs stdlibBacklogUserSource on the VM

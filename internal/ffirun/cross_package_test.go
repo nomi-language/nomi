@@ -95,21 +95,21 @@ func Keep(items []string, check core.Check) int64 { return 0 }
 	return root
 }
 
-const crossPackageNomiStructs = `struct Cell {
+const crossPackageNomiStructs = `struct Cell
   text: String
   n: Int
-}
+end
 
-struct Address {
+struct Address
   city: String
-}
+end
 
-struct User {
+struct User
   name: String
   address: Address
   cells: List<Cell>
   best: Maybe<Cell>
-}
+end
 `
 
 // A struct of another package the bound package imports projects by its
@@ -211,27 +211,27 @@ func Parse(s string) url.URL { return url.URL{} }
 `,
 		"main.nomi": `gopkg "example.com/app/adapter"
 
-struct Cell {
+struct Cell
   text: String
   n: Int
   ch: Int
   count: Int
-}
+end
 
-struct Address {
+struct Address
   city: String
-}
+end
 
-struct User {
+struct User
   name: String
   address: String
   cells: List<Cell>
   best: Maybe<Cell>
-}
+end
 
-struct Url {
+struct Url
   path: String
-}
+end
 
 fn make_cell(t: String) -> Cell go adapter.MakeCell
 
@@ -276,9 +276,9 @@ func Make() elsewhere.Thing { return elsewhere.Thing{} }
 `,
 		"main.nomi": `gopkg "example.com/app/adapter"
 
-struct Thing {
+struct Thing
   name: String
-}
+end
 
 fn make() -> Thing go adapter.Make
 `,

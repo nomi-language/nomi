@@ -41,23 +41,23 @@ func highlightsAt(t *testing.T, src string, line, char uint32) []string {
 	return out
 }
 
-const highlightSrc = `struct Point {
+const highlightSrc = `struct Point
     x: Int
     y: Int
-}
+end
 
-fn shift(p: Point, by: Int) -> Point {
+fn shift(p: Point, by: Int) -> Point
     x = p.x + by
     y = p.y + by
-    Point{x, y: y}
-}
+    Point{x:, y:}
+end
 
-fn main() {
+fn main()
     total = shift(Point{x: 1, y: 2}, 3)
     total = shift(total, 4)
     w = ("é", total.x)
     w
-}
+end
 `
 
 func TestDocumentHighlight(t *testing.T) {

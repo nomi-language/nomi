@@ -7,62 +7,63 @@
 // representation `Maybe` lowers to lives in rt and is implemented once.
 import std::io
 
-struct Box {
+struct Box
     slot: Maybe<Int>
-}
+end
 
-fn pick(flag: Bool) -> Maybe<Int> {
-    if flag { Some(7) } else { None }
-}
+fn pick(flag: Bool) -> Maybe<Int>
+    if flag then Some(7) else None
+end
 
 // The qualified spelling of both constructors, which is a different AST shape
 // from the bare one: `Maybe.Some(x)` is a call through a field access.
-fn pick_qualified(flag: Bool) -> Maybe<String> {
-    if flag { Maybe.Some("yes") } else { Maybe.None }
-}
+fn pick_qualified(flag: Bool) -> Maybe<String>
+    if flag then Maybe.Some("yes") else Maybe.None
+end
 
 // A Maybe as a PARAMETER type, matched with the bare pattern head.
-fn or_zero(m: Maybe<Int>) -> Int {
-    case m {
+fn or_zero(m: Maybe<Int>) -> Int
+    case m
         Some(v) -> v
         None -> 0
-    }
-}
+    end
+end
 
 // The qualified pattern head, and the dotted one, against the same type.
-fn describe(m: Maybe<String>) -> String {
-    case m {
+fn describe(m: Maybe<String>) -> String
+    case m
         Maybe.Some(s) -> "some ${s}"
         .None -> "none"
-    }
-}
+    end
+end
 
 // Nesting: `Maybe<Maybe<Int>>` is two instantiations, and the inner one is a
 // payload of the outer. A representation that flattened them would answer the
 // same for `Some(None)` and `None`.
-fn depth(m: Maybe<Maybe<Int>>) -> String {
-    case m {
+fn depth(m: Maybe<Maybe<Int>>) -> String
+    case m
         Some(inner) ->
-            case inner {
+            case inner
                 Some(v) -> "some some ${v}"
                 None -> "some none"
-            }
+            end
 
-        None -> "none"
-    }
-}
+        None ->
+            "none"
+    end
+end
 
 // A literal INSIDE the payload pattern, so the arm can fail on the payload
 // after the tag matched and fall through to a later arm.
-fn is_one(m: Maybe<Int>) -> String {
-    case m {
+fn is_one(m: Maybe<Int>) -> String
+    case m
         Some(1) -> "one"
         Some(other) -> "other ${other}"
         None -> "nothing"
-    }
-}
+    end
+end
 
-fn main() -> Unit {
+fn main() -> Unit
     io.print("${or_zero(pick(True))}")
     io.print("${or_zero(pick(False))}")
     io.print(describe(pick_qualified(True)))
@@ -92,10 +93,10 @@ fn main() -> Unit {
     // to survive being carried and read back.
     f: Maybe<Float> = Some(0.5)
 
-    case f {
+    case f
         Some(x) -> io.print("${x}")
         None -> io.print("no float")
-    }
+    end
 
     // A NaN payload, carried and read back. `==` on a Maybe is REFUSED
     // (`equality on a named type`) because it dispatches
@@ -106,16 +107,16 @@ fn main() -> Unit {
     // through the tagged struct unchanged.
     n: Maybe<Float> = Some(0.0 / 0.0)
 
-    case n {
+    case n
         Some(x) -> io.print("${x}")
         None -> io.print("no nan")
-    }
+    end
 
     // A Maybe of a List, the other kind a bare `==` gets wrong. Same reason.
     xs: Maybe<List<Int>> = Some([1, 2, 3])
 
-    case xs {
+    case xs
         Some(l) -> io.print("${l}")
         None -> io.print("no list")
-    }
-}
+    end
+end

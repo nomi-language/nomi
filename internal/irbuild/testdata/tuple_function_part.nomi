@@ -5,20 +5,20 @@ import std::io
 // is called. Its Debug renders the function as `<function>`. `==` over such a
 // value stays a compile error (functions have no equality), so no row
 // compares one.
-struct Pt {
+struct Pt
     x: Int
-}
+end
 
-fn scaler(n: Int) -> (Int, (Int) -> Int) {
+fn scaler(n: Int) -> (Int, (Int) -> Int)
     (n, fn x: Int -> x * n)
-}
+end
 
-fn apply(p: (Int, (Int) -> Int)) -> Int {
+fn apply(p: (Int, (Int) -> Int)) -> Int
     (n, f) = p
     f(n)
-}
+end
 
-fn main() {
+fn main()
     p = (1, fn x: Int -> x + 1)
     (n, f) = p
     io.print("destructured = ${f(n)}")
@@ -26,10 +26,10 @@ fn main() {
     io.print("projected = ${g(10)}")
     io.print("returned and passed = ${apply(scaler(7))}")
 
-    case p {
+    case p
         (0, _) -> io.print("zero")
         (a, fa) -> io.print("matched = ${fa(a)}")
-    }
+    end
 
     offset = 100
     (label, add) = ("captured", fn x: Int -> x + offset)
@@ -38,13 +38,13 @@ fn main() {
 
     io.print("list = ${scaled}")
 
-    r = .{n: 3, f: fn x: Int -> x * 2}
+    r = {n: 3, f: fn x: Int -> x * 2}
     h = r.f
     io.print("record = ${h(r.n)}")
-    .{n: m, f: k} = r
+    {n: m, f: k} = r
     io.print("record destructured = ${k(m)}")
 
     io.print("debug = ${Debug.inspect(p)}")
     io.print("record debug = ${Debug.inspect(r)}")
     io.print("nested debug = ${Debug.inspect((Pt{x: 1}, fn x: Int -> x))}")
-}
+end

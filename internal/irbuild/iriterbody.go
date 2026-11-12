@@ -28,7 +28,12 @@ func irIterOwnArity(method string) (int, bool) {
 	return 0, false
 }
 
-func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string) (ir.Temp, kind, bool, bool) {
+// iterCall lowers t, a call of the `Iter` operation method, over its
+// source's view. srcAt is the source expression, whose view the checker
+// recorded (viewSourceAt), or nil where the callee's own type names the
+// source (`Range.each_while(r, f)`) or the source is no expression the
+// checker typed against an Iter (a spread's part): its kind names it.
+func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string, srcAt ast.Node) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if !args.ok || !bl.g.iterOwns("Iter") {
 		return no()
@@ -115,52 +120,36 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		src, sk = v, k
 		args.temps[0], args.kinds[0] = v, k
 	}
-	rangeElem, isRange := irIterRangeElem(sk)
-	if isRange && method == "known_count" && !bl.inheritsStepsBetween(rangeElem) {
-		// A Range's count protocol is answered with rt.RangeKnownCount
-		// rather than through the view; `count` and `is_empty`
-		// walk the view.
-		return bl.rangeKnownCount(t, src, rangeElem)
-	}
-	vecElem, isVector := vectorElem(sk)
-	isVector = isVector && (irRetainedVectorKind(sk) || irCallableValueKind(vecElem))
-	// A Map pushes `(K, V)` pairs and a Set its members.
-	isMap := sk.tag == tagMap && sk != kindEmptyMap && irRetainedMapKind(sk)
-	setMember, isSet := setElem(sk)
-	isSet = isSet && sk != kindEmptySet && irRetainedSetKind(sk)
-	// A Maybe pushes its payload, or nothing.
-	maybeMember, isMaybe := maybeIterElem(sk)
-	var userEach *userIterSource
-	var userElem kind
-	if !isVector && !isMap && !isSet && !isMaybe {
-		userEach, userElem = bl.userSource(sk)
-	}
-	if sk.tag != tagList && sk.tag != tagSeq && sk != kindString && sk != irBytesKind() && !isRange && !isVector && !isMap && !isSet && !isMaybe && userEach == nil {
+	vs, ok := bl.viewSourceFor(srcAt, sk)
+	if !ok {
 		return no()
 	}
-	elem := kindString
-	if isMap {
-		elem = bl.g.tupleKind([]kind{sk.comp.parts[0], sk.comp.parts[1]})
-		if !irRetainedTupleKind(elem) {
+	elem := vs.elem
+	switch vs.dom {
+	case analysis.IterViewRange:
+		if method == "known_count" && !bl.inheritsStepsBetween(elem) {
+			// A Range's count protocol is answered with rt.RangeKnownCount
+			// rather than through the view; `count` and `is_empty`
+			// walk the view.
+			return bl.rangeKnownCount(t, src, elem)
+		}
+	case analysis.IterViewVector:
+		if !irRetainedVectorKind(sk) && !irCallableValueKind(elem) {
 			return no()
 		}
-	} else if isSet {
-		elem = setMember
-	} else if isMaybe {
-		elem = maybeMember
-	} else if isRange {
-		elem = rangeElem
-	} else if isVector {
-		elem = vecElem
-	} else if userEach != nil {
-		elem = userElem
-	} else if sk == irBytesKind() {
-		elem = irByteKind()
-	} else if sk != kindString {
-		if sk.comp == nil || len(sk.comp.parts) != 1 || !(irCallableValueKind(sk.comp.parts[0]) || sk.comp.parts[0] == kindUnit || (irRetainedSeqKind(sk.comp.parts[0])) || (irExistentialKind(sk.comp.parts[0]))) {
+	case analysis.IterViewMap:
+		// A Map pushes `(K, V)` pairs.
+		if !irRetainedMapKind(sk) || !irRetainedTupleKind(elem) {
 			return no()
 		}
-		elem = sk.comp.parts[0]
+	case analysis.IterViewSet:
+		if !irRetainedSetKind(sk) {
+			return no()
+		}
+	case analysis.IterViewList, viewSeq:
+		if !(irCallableValueKind(elem) || elem == kindUnit || irRetainedSeqKind(elem) || irExistentialKind(elem)) {
+			return no()
+		}
 	}
 	result := listKindIn(bl.g, elem)
 	var comparator *stdFunc
@@ -283,10 +272,10 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		bl.side(n.Dst(), irScalarSide{k: k})
 		return n.Dst()
 	}
-	if method == "count" && sk.tag == tagList {
+	if method == "count" && vs.dom == analysis.IterViewList {
 		return appendOp(t, ir.IterCount, ir.IterOverList, kindInt, src), kindInt, false, true
 	}
-	if method == "count" && isMap {
+	if method == "count" && vs.dom == analysis.IterViewMap {
 		return appendOp(t, ir.IterCount, ir.IterOverMap, kindInt, src), kindInt, false, true
 	}
 	if method == "known_count" {
@@ -297,47 +286,48 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 			return no()
 		}
 		over := ir.IterOverNothing
-		switch {
-		case sk.tag == tagList:
+		switch vs.dom {
+		case analysis.IterViewList:
 			over = ir.IterOverList
-		case sk == kindString:
+		case analysis.IterViewString:
 			over = ir.IterOverString
-		case sk.tag == tagSeq:
+		case viewSeq:
 			over = ir.IterOverSeq
-		case isVector:
+		case analysis.IterViewVector:
 			over = ir.IterOverVector
-		case isMap:
+		case analysis.IterViewMap:
 			over = ir.IterOverMap
-		case isSet:
+		case analysis.IterViewSet:
 			over = ir.IterOverSet
-		case isMaybe:
+		case analysis.IterViewMaybe:
 			over = ir.IterOverMaybe
 		}
 		if over != ir.IterOverNothing {
 			return appendOp(t, ir.IterKnownCount, over, mk, src), mk, false, true
 		}
 	}
-	if isRange {
+	switch vs.dom {
+	case analysis.IterViewRange:
 		view, ok := bl.rangeView(t, src, elem)
 		if !ok {
 			return no()
 		}
 		src = appendOp(t.Args[0], ir.IterView, ir.IterOverRange, seqKindIn(bl.g, elem), view...)
-	} else if isMap {
+	case analysis.IterViewMap:
 		src = bl.mapView(t.Args[0], src, sk, elem)
-	} else if isSet {
+	case analysis.IterViewSet:
 		src = appendOp(t.Args[0], ir.IterView, ir.IterOverSet, seqKindIn(bl.g, elem), src)
-	} else if isMaybe {
+	case analysis.IterViewMaybe:
 		src = appendOp(t.Args[0], ir.IterView, ir.IterOverMaybe, seqKindIn(bl.g, elem), src)
-	} else if isVector {
+	case analysis.IterViewVector:
 		src = appendOp(t.Args[0], ir.IterView, ir.IterOverVector, seqKindIn(bl.g, elem), src)
-	} else if userEach != nil {
-		src = bl.userView(t.Args[0], src, sk, userEach, elem)
-	} else if sk.tag == tagList {
+	case analysis.IterViewImpl:
+		src = bl.userView(t.Args[0], src, sk, vs.user, elem)
+	case analysis.IterViewList:
 		src = appendOp(t.Args[0], ir.IterView, ir.IterOverList, seqKindIn(bl.g, elem), src)
-	} else if sk == irBytesKind() {
+	case analysis.IterViewBytes:
 		src = appendOp(t.Args[0], ir.IterView, ir.IterOverBytes, seqKindIn(bl.g, elem), src)
-	} else if sk == kindString {
+	case analysis.IterViewString:
 		src = appendOp(t.Args[0], ir.IterView, ir.IterOverString, seqKindIn(bl.g, elem), src)
 	}
 	if v, k, ok, handled := bl.iterStage(t, args, method, src, elem); handled {
@@ -624,7 +614,7 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call, method string) (ir.Temp, 
 		}
 		bl.qualRecordArgs, bl.qualRecordSeen = rec, true
 	}
-	return bl.iterCall(t, args, method)
+	return bl.iterCall(t, args, method, srcNode)
 }
 
 // irSeqKindOf is the retained kind of a value the checker typed as std's
@@ -656,13 +646,13 @@ type userIterSource struct {
 	elem       kind
 }
 
-// userSource is the `each_while` a named source's own `impl Iter` declares,
-// and the element it pushes, when the retained pipeline can walk it:
-// iterUserEachWhile's recognition, a retained element, and a source-written
-// body the VM can link. A written `known_count` or `is_infinite` override the
-// VM cannot link declines.
-func (bl *irScalarBuilder) userSource(sk kind) (*userIterSource, kind) {
-	u, each, elem, ok := bl.g.iterUserEachWhile(sk)
+// userSource is the `each_while` u, a named source's own `impl Iter`,
+// declares, and the element it pushes, when the retained pipeline can walk
+// it: iterUserEachWhile's recognition, a retained element, and a
+// source-written body the VM can link. A written `known_count` or
+// `is_infinite` override the VM cannot link declines.
+func (bl *irScalarBuilder) userSource(sk kind, u userIterImpl) (*userIterSource, kind) {
+	each, elem, ok := bl.g.iterUserEachWhile(u, sk)
 	if !ok || !irRetainedValueKind(elem) {
 		return nil, kindInvalid
 	}
@@ -713,147 +703,6 @@ func (bl *irScalarBuilder) userView(at ast.Node, src ir.Temp, sk kind, us *userI
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: seqKindIn(bl.g, elem)})
 	return n.Dst()
-}
-
-// seqView is src, a value of kind sk, as a lowered `Iter<elem>`: the same view
-// iterCall builds over its source, for a source entering a declared `Iter<T>`
-// position (a parameter, a field, a payload, an annotated binding). A sequence
-// of that element passes unchanged; any other kind declines. The element may
-// be a function: the views read elements without looking at them.
-func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.Temp, bool) {
-	if !irCallableValueKind(elem) && elem != kindUnit {
-		return ir.NoTemp, false
-	}
-	want := seqKindIn(bl.g, elem)
-	if sk == want {
-		return src, true
-	}
-	if sk == kindEmptyList || sk == kindEmptySet || sk == kindEmptyVector {
-		// `[]`, `%[]` or `#[]` entering an `Iter<T>` is built at T.
-		target := bl.g.listKind(elem)
-		if sk == kindEmptySet {
-			target = bl.g.setKindOf(elem)
-		} else if sk == kindEmptyVector {
-			target = bl.g.vectorKindOf(elem)
-		}
-		v, k, ok := bl.coerceEmpty(at, src, sk, target)
-		if !ok {
-			return ir.NoTemp, false
-		}
-		src, sk = v, k
-	}
-	view := func(over ir.IterDomain, operands ...ir.Temp) ir.Temp {
-		n := ir.NewIter(bl.g.irNodePos(at), bl.f.NewTemp(), ir.IterView, over, operands...)
-		bl.b.Append(n)
-		bl.side(n.Dst(), irScalarSide{k: want})
-		return n.Dst()
-	}
-	switch {
-	case sk.tag == tagList && sk.comp != nil && len(sk.comp.parts) == 1 && sk.comp.parts[0] == elem:
-		return view(ir.IterOverList, src), true
-	case sk.tag == tagList && sk.comp != nil && len(sk.comp.parts) == 1 && bl.erasesUnboxed(elem, sk.comp.parts[0]):
-		// `it: Iter<Shape> = [circle]` for an interface Shape: an
-		// existential is the concrete value, so each element is already
-		// the interface's value and the list is viewed as it is.
-		return view(ir.IterOverList, src), true
-	case sk == kindString && elem == kindString:
-		return view(ir.IterOverString, src), true
-	case sk == irBytesKind() && elem == irByteKind():
-		return view(ir.IterOverBytes, src), true
-	}
-	if from, ok := irSeqSourceElem(sk); ok && from != elem && irCallableValueKind(from) && !bl.erasesUnboxed(elem, from) {
-		// `it: Iter<Shape> = [circle]` for `enum Shape { embeds Circle }`:
-		// each element is a Circle record, and a Shape holding one is the
-		// enum's record around it, so the source is viewed at its own
-		// element and each element converted as it is read (rebuildAdapter:
-		// an embedded value widened, a Maybe<Circle> rebuilt as a
-		// Maybe<Shape>, a List<Int> viewed as an Iter<Int>, a value that
-		// enters an interface boxed boxed).
-		if fn, ok := bl.rebuildAdapter(at, from, elem); ok {
-			inner := src
-			if sk.tag != tagSeq {
-				inner, ok = bl.seqView(at, src, sk, from)
-			}
-			if ok {
-				return bl.iterAppend(at, ir.IterMap, ir.IterOverSeq, want, inner, fn), true
-			}
-		}
-	}
-	if rangeElem, isRange := irIterRangeElem(sk); isRange {
-		if rangeElem != elem {
-			return ir.NoTemp, false
-		}
-		ops, ok := bl.rangeView(at, src, elem)
-		if !ok {
-			return ir.NoTemp, false
-		}
-		// The view answers the Range's own known_count, so it carries the
-		// element's distance function (rt.Seq's Count). One whose impl
-		// inherits the None default has no count to carry.
-		if bl.inheritsStepsBetween(elem) {
-			return view(ir.IterOverRange, ops...), true
-		}
-		maybeInt, shared := bl.g.sharedMaybe(kindInt)
-		if !shared {
-			return ir.NoTemp, false
-		}
-		steps, ok := bl.discreteRef(at, elem, "steps_between", []kind{elem, elem}, maybeInt)
-		if !ok {
-			return ir.NoTemp, false
-		}
-		return view(ir.IterOverRange, append(ops, steps)...), true
-	}
-	if vecElem, isVector := vectorElem(sk); isVector {
-		erased := irExistentialKind(elem) && bl.g.irErases(elem, vecElem)
-		if (vecElem != elem && !erased) || !(irRetainedVectorKind(sk) || irCallableValueKind(vecElem)) {
-			return ir.NoTemp, false
-		}
-		return view(ir.IterOverVector, src), true
-	}
-	if sk.tag == tagMap && sk != kindEmptyMap && irRetainedMapKind(sk) {
-		pair := bl.g.tupleKind([]kind{sk.comp.parts[0], sk.comp.parts[1]})
-		if pair != elem || !irRetainedTupleKind(pair) {
-			return ir.NoTemp, false
-		}
-		return bl.mapView(at, src, sk, pair), true
-	}
-	if member, isSet := setElem(sk); isSet {
-		if sk == kindEmptySet || !irRetainedSetKind(sk) || member != elem {
-			return ir.NoTemp, false
-		}
-		return view(ir.IterOverSet, src), true
-	}
-	if member, isMaybe := maybeIterElem(sk); isMaybe {
-		if member != elem && !(irExistentialKind(elem) && bl.g.irErases(elem, member)) {
-			return ir.NoTemp, false
-		}
-		return view(ir.IterOverMaybe, src), true
-	}
-	if it, userElem := bl.userSource(sk); it != nil && userElem == elem {
-		return bl.userView(at, src, sk, it, elem), true
-	}
-	return ir.NoTemp, false
-}
-
-// irSeqSourceElem is the element a typed list, vector, set or sequence
-// holds: the element seqView views it at before converting each one.
-func irSeqSourceElem(k kind) (kind, bool) {
-	switch {
-	case k.tag == tagSeq && k.comp != nil:
-		return seqElem(k), true
-	case k.tag == tagList && k != kindEmptyList && k.comp != nil && len(k.comp.parts) == 1:
-		return k.comp.parts[0], true
-	}
-	if elem, ok := vectorElem(k); ok && k != kindEmptyVector {
-		return elem, true
-	}
-	if elem, ok := setElem(k); ok && k != kindEmptySet {
-		return elem, true
-	}
-	if elem, ok := maybeIterElem(k); ok {
-		return elem, true
-	}
-	return kindInvalid, false
 }
 
 // maybeIterElem is the element a prelude `Maybe<T>` pushes as an `Iter`
@@ -1064,11 +913,11 @@ func (bl *irScalarBuilder) stdCompareInstanceSym(k kind) *ir.Symbol {
 	}
 	ord := stdEnumKind(stdEnumOrdering)
 	tps, ib := s.stdTemplateParams(f)
-	args, ok := bl.g.stdInstSolve(f, tps, ib, []kind{k, k}, ord, k)
+	args, ok := bl.g.stdRecvTypeArgs(tps, ib, k, false)
 	if !ok {
 		return nil
 	}
-	inst, _ := s.instantiate(f, tps, args, nil, bl.g)
+	inst, _ := s.instantiate(f, tps, args, bl.g)
 	if inst == nil || len(inst.view.params) != 2 || inst.view.params[0] != k || inst.view.params[1] != k || inst.view.result != ord {
 		return nil
 	}
@@ -1183,55 +1032,61 @@ func (bl *irScalarBuilder) iterPaired(t *ast.Call, op ir.IterOp, k kind, operand
 	return n.Dst()
 }
 
-// iterPlainView views a second source operand — zip's right side — for the
-// families whose view takes no minted operand: a sequence, a List, a String,
-// Bytes and a Vector.
+// iterPlainView views a source operand other than an Iter call's first
+// (zip's right side, `Task.spawn_all`'s source) as the sequence of its
+// element, as the checker recorded its view (viewSourceAt).
 func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.Temp, kind, bool) {
-	view := func(over ir.IterDomain, elem kind) (ir.Temp, kind, bool) {
-		n := ir.NewIter(bl.g.irNodePos(at), bl.f.NewTemp(), ir.IterView, over, src)
-		bl.b.Append(n)
-		bl.side(n.Dst(), irScalarSide{k: seqKindIn(bl.g, elem)})
-		return n.Dst(), elem, true
-	}
-	if vecElem, isVector := vectorElem(sk); isVector && irRetainedValueKind(sk) {
-		return view(ir.IterOverVector, vecElem)
-	}
-	if member, isSet := setElem(sk); isSet && sk != kindEmptySet && irRetainedSetKind(sk) {
-		return view(ir.IterOverSet, member)
-	}
-	if member, isMaybe := maybeIterElem(sk); isMaybe {
-		return view(ir.IterOverMaybe, member)
-	}
-	// `Iter.zip(xs, m)`, `Iter.zip(xs, 5..9)`: a Map pushes its `(K, V)`
-	// pairs, a Range its elements and a user source what its `each_while`
-	// does, viewed as an Iter call's first operand is (seqView).
-	var elem kind
-	var sourced bool
-	if sk.tag == tagMap && sk != kindEmptyMap && irRetainedMapKind(sk) {
-		elem, sourced = bl.g.tupleKind([]kind{sk.comp.parts[0], sk.comp.parts[1]}), true
-	} else if re, isRange := irIterRangeElem(sk); isRange {
-		elem, sourced = re, true
-	} else if it, ue := bl.userSource(sk); it != nil {
-		elem, sourced = ue, true
-	}
-	if sourced {
-		if v, ok := bl.seqView(at, src, sk, elem); ok {
-			return v, elem, true
-		}
+	vs, ok := bl.viewSourceAt(at, sk)
+	if !ok {
 		return ir.NoTemp, kindInvalid, false
 	}
-	switch {
-	case sk == kindString:
-		return view(ir.IterOverString, kindString)
-	case sk == irBytesKind():
-		return view(ir.IterOverBytes, irByteKind())
-	case (sk.tag == tagSeq || sk.tag == tagList) && sk.comp != nil && len(sk.comp.parts) == 1 && irCallableValueKind(sk.comp.parts[0]):
-		if sk.tag == tagSeq {
-			return src, sk.comp.parts[0], true
+	view := func(over ir.IterDomain) (ir.Temp, kind, bool) {
+		n := ir.NewIter(bl.g.irNodePos(at), bl.f.NewTemp(), ir.IterView, over, src)
+		bl.b.Append(n)
+		bl.side(n.Dst(), irScalarSide{k: seqKindIn(bl.g, vs.elem)})
+		return n.Dst(), vs.elem, true
+	}
+	switch vs.dom {
+	case analysis.IterViewVector:
+		if irRetainedValueKind(sk) {
+			return view(ir.IterOverVector)
 		}
-		return view(ir.IterOverList, sk.comp.parts[0])
+	case analysis.IterViewSet:
+		if irRetainedSetKind(sk) {
+			return view(ir.IterOverSet)
+		}
+	case analysis.IterViewMaybe:
+		return view(ir.IterOverMaybe)
+	case analysis.IterViewMap, analysis.IterViewRange, analysis.IterViewImpl:
+		// `Iter.zip(xs, m)`, `Iter.zip(xs, 5..9)`: a Map pushes its `(K, V)`
+		// pairs, a Range its elements and a user source what its
+		// `each_while` does, viewed as an Iter call's first operand is.
+		if v, ok := bl.viewAs(at, src, sk, vs, vs.elem); ok {
+			return v, vs.elem, true
+		}
+	case analysis.IterViewString:
+		return view(ir.IterOverString)
+	case analysis.IterViewBytes:
+		return view(ir.IterOverBytes)
+	case viewSeq:
+		if irCallableValueKind(vs.elem) {
+			return src, vs.elem, true
+		}
+	case analysis.IterViewList:
+		if irCallableValueKind(vs.elem) {
+			return view(ir.IterOverList)
+		}
 	}
 	return ir.NoTemp, kindInvalid, false
+}
+
+// irIterSourceArg is the source expression of a written Iter call: its
+// first argument.
+func irIterSourceArg(t *ast.Call) ast.Node {
+	if len(t.Args) == 0 {
+		return nil
+	}
+	return argExpr(t.Args[0])
 }
 
 // mapView views a Map as its `(K, V)` pairs. Go takes a minted tuple

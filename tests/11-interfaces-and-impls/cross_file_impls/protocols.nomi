@@ -2,24 +2,24 @@
 // file declares.
 import things.Crate
 
-pub interface Holds {
+pub interface Holds
     fn held(value: self) -> String
 
-    fn shout(value: self) -> String {
+    fn shout(value: self) -> String
         "${Holds.held(value)}!"
-    }
-}
+    end
+end
 
-pub interface Gets<T> {
+pub interface Gets<T>
     fn got(value: self) -> T
 
-    fn twice(value: self) -> List<T> {
+    fn twice(value: self) -> List<T>
         [Gets.got(value), Gets.got(value)]
-    }
-}
+    end
+end
 
-impl Holds for Crate {
-    fn held(c: Crate) -> String {
+impl Holds for Crate
+    fn held(c: Crate) -> String
         "crate of ${c.count}"
-    }
-}
+    end
+end

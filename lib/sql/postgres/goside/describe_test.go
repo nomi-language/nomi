@@ -139,6 +139,61 @@ func TestDescribe_AColumnAnOuterJoinMayLeaveOutIsNullable(t *testing.T) {
 	}
 }
 
+// A view's columns are described through its definition: a NOT NULL table
+// column reached through inner joins is non-null, one an outer join inside
+// the view may leave out is nullable, an expression is nullable, and so is
+// a view's column an outer join of the statement may leave out.
+func TestDescribe_AViewColumnIsNullableAsItsDefinitionsColumnIs(t *testing.T) {
+	views := Migration{Path: "db/3.up.sql", Text: `
+CREATE VIEW post_authors AS
+  SELECT p.title, u.email, u.name, p.title || '!' AS shout, u.status
+  FROM posts p
+  JOIN users u ON u.id = p.user_id;
+CREATE VIEW post_readers AS
+  SELECT p.title, u.email FROM posts p LEFT JOIN users u ON u.id = p.user_id;
+CREATE VIEW post_titles AS SELECT title FROM post_authors;
+CREATE MATERIALIZED VIEW post_counts AS
+  SELECT u.email, count(*) AS n FROM posts p JOIN users u ON u.id = p.user_id GROUP BY u.email;`}
+	d := Describe(background, fresh(t), append(slices.Clone(shopMigrations), views), []string{
+		"SELECT d.title, d.email, d.name, d.shout, d.status FROM post_authors d",
+		"SELECT r.title, r.email FROM post_readers r",
+		"SELECT t.title FROM post_titles t",
+		"SELECT r.kind, d.title FROM reactions r LEFT JOIN post_authors d ON d.title = 'x'",
+		"SELECT c.email, c.n FROM post_counts c",
+	})
+	if d.Error != "" {
+		t.Fatalf("Describe: %s (migration %q, offset %d)", d.Error, d.Migration, d.Offset)
+	}
+	for i, want := range [][]bool{{false, false, true, true, false}, {false, true}, {false}, {false, true}, {false, true}} {
+		s := d.Statements[i]
+		if s.Error != "" {
+			t.Fatalf("statement %d: %s", i, s.Error)
+		}
+		var got []bool
+		for _, c := range s.Columns {
+			got = append(got, c.Nullable)
+		}
+		if !slices.Equal(got, want) {
+			t.Errorf("statement %d: nullable %v, want %v", i, got, want)
+		}
+	}
+	// The column a view's column reads is the table column under it, so a
+	// CHECK enum reaches through the view.
+	want := []Column{
+		{Name: "title", TypeName: "text", Table: "posts", Column: "title"},
+		{Name: "email", TypeName: "text", Table: "users", Column: "email"},
+		{Name: "name", TypeName: "text", Table: "users", Column: "name", Nullable: true},
+		{Name: "shout", TypeName: "text", Nullable: true},
+		{Name: "status", TypeName: "character varying(10)", Table: "users", Column: "status"},
+	}
+	if !slices.Equal(d.Statements[0].Columns, want) {
+		t.Errorf("columns = %+v", d.Statements[0].Columns)
+	}
+	if c := d.Statements[2].Columns[0]; c.Table != "posts" || c.Column != "title" {
+		t.Errorf("a view over a view reads %q.%q", c.Table, c.Column)
+	}
+}
+
 // A development server made by a bare initdb has the encoding SQL_ASCII,
 // where pgx refuses a simple-protocol query, so reading the plan that way
 // failed and every table column came out nullable. client_encoding in the

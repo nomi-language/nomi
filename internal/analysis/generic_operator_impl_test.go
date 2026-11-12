@@ -12,15 +12,15 @@ import (
 // formal parameter left the header's T unbound at every use site, and each
 // `Box<Int> + Int` was "no matching Add impl".
 
-const genericOperatorBox = `struct Box<T> {
+const genericOperatorBox = `struct Box<T>
     items: List<T>
-}
+end
 
-impl Add<T, Box<T>> for Box<T> {
-    fn add(b: Box<T>, rhs: T) -> Box<T> {
+impl Add<T, Box<T>> for Box<T>
+    fn add(b: Box<T>, rhs: T) -> Box<T>
         Box{items: b.items + [rhs]}
-    }
-}
+    end
+end
 `
 
 func TestGenericOperatorImpl_Accepted(t *testing.T) {
@@ -28,56 +28,56 @@ func TestGenericOperatorImpl_Accepted(t *testing.T) {
 		name string
 		src  string
 	}{
-		{"set union", `fn main() {
-    s: Set<Int> = %[1, 2] + %[3]
+		{"set union", `fn main()
+    s: Set<Int> = Set[1, 2] + Set[3]
     _ = s
-}
+end
 `},
-		{"set difference", `fn main() {
-    s: Set<String> = %["a", "b"] - %["a"]
+		{"set difference", `fn main()
+    s: Set<String> = Set["a", "b"] - Set["a"]
     _ = s
-}
+end
 `},
-		{"interface-qualified", `fn main() {
-    s: Set<Int> = Add.add(%[1], %[2])
+		{"interface-qualified", `fn main()
+    s: Set<Int> = Add.add(Set[1], Set[2])
     _ = s
-}
+end
 `},
-		{"bounded generic", `fn f<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hashable {
+		{"bounded generic", `fn f<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hashable
     a + b
-}
+end
 
-fn main() {
-    _ = f(%[1], %[2])
-}
+fn main()
+    _ = f(Set[1], Set[2])
+end
 `},
-		{"map merge", `fn main() {
-    m: Map<String, Int> = %{"a" => 1} + %{"b" => 2}
+		{"map merge", `fn main()
+    m: Map<String, Int> = {"a" => 1} + {"b" => 2}
     _ = m
-}
+end
 `},
-		{"map in generic code", `fn f<K, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V> {
+		{"map in generic code", `fn f<K, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V>
     a + b
-}
+end
 
-fn main() {
-    _ = f(%{1 => "x"}, %{2 => "y"})
-}
+fn main()
+    _ = f({1 => "x"}, {2 => "y"})
+end
 `},
 		{"user generic type", genericOperatorBox + `
-fn main() {
+fn main()
     b: Box<String> = Box{items: ["a"]} + "b"
     _ = b
-}
+end
 `},
 		{"user generic type in generic code", genericOperatorBox + `
-fn grow<T>(b: Box<T>, x: T) -> Box<T> {
+fn grow<T>(b: Box<T>, x: T) -> Box<T>
     b + x
-}
+end
 
-fn main() {
+fn main()
     _ = grow(Box{items: [1]}, 2)
-}
+end
 `},
 	}
 	for _, row := range rows {
@@ -95,34 +95,34 @@ func TestGenericOperatorImpl_RightOperandMismatch(t *testing.T) {
 		src  string
 		want string
 	}{
-		{"set plus element", `fn main() {
-    _ = %[1] + 2
-}
+		{"set plus element", `fn main()
+    _ = Set[1] + 2
+end
 `, "binary + right operand mismatch: Add expects Set<Int>, got Int"},
-		{"set minus element", `fn main() {
-    _ = %["a"] - 1
-}
+		{"set minus element", `fn main()
+    _ = Set["a"] - 1
+end
 `, "binary - right operand mismatch: Subtract expects Set<String>, got Int"},
-		{"set plus other element type", `fn main() {
-    _ = %[1] + %["x"]
-}
+		{"set plus other element type", `fn main()
+    _ = Set[1] + Set["x"]
+end
 `, "binary + right operand mismatch: Add expects Set<Int>, got Set<String>"},
-		{"map plus key", `fn main() {
-    _ = %{"a" => 1} + "b"
-}
+		{"map plus key", `fn main()
+    _ = {"a" => 1} + "b"
+end
 `, "binary + right operand mismatch: Add expects Map<String, Int>, got String"},
-		{"map plus other value type", `fn main() {
-    _ = %{"a" => 1} + %{"a" => "x"}
-}
+		{"map plus other value type", `fn main()
+    _ = {"a" => 1} + {"a" => "x"}
+end
 `, "binary + right operand mismatch: Add expects Map<String, Int>, got Map<String, String>"},
-		{"interface-qualified", `fn main() {
-    _ = Add.add(%[1], 2)
-}
+		{"interface-qualified", `fn main()
+    _ = Add.add(Set[1], 2)
+end
 `, "argument 2: expected Set<Int>, got Int"},
 		{"user generic type", genericOperatorBox + `
-fn main() {
+fn main()
     _ = Box{items: [1]} + "x"
-}
+end
 `, "binary + right operand mismatch: Add expects Int, got String"},
 	}
 	for _, row := range rows {
@@ -148,21 +148,21 @@ func TestGenericOperatorImpl_SeveralImplsStillNoMatch(t *testing.T) {
 type Days Int
 type Weeks Int
 
-impl Add<Days, Day> for Day {
-    fn add(Day(d), Days(n)) -> Day {
+impl Add<Days, Day> for Day
+    fn add(Day(d), Days(n)) -> Day
         Day(d + n)
-    }
-}
+    end
+end
 
-impl Add<Weeks, Day> for Day {
-    fn add(Day(d), Weeks(n)) -> Day {
+impl Add<Weeks, Day> for Day
+    fn add(Day(d), Weeks(n)) -> Day
         Day(d + 7 * n)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     _ = Day(1) + "x"
-}
+end
 `
 	errs := diagnosticsFor(t, src)
 	want := "no matching Add impl for Day + String"
@@ -177,9 +177,9 @@ fn main() {
 // There is no `Map - Map`: a map difference has no single obvious meaning
 // (by key, or by entry), so `-` on two maps is the missing-impl error.
 func TestGenericOperatorImpl_NoMapSubtract(t *testing.T) {
-	src := `fn main() {
-    _ = %{"a" => 1} - %{"a" => 1}
-}
+	src := `fn main()
+    _ = {"a" => 1} - {"a" => 1}
+end
 `
 	errs := diagnosticsFor(t, src)
 	want := "no impl of `Subtract` for `Map`"
@@ -201,13 +201,13 @@ import std::instant.Instant
 
 func TestInstantSubtract_SelectsByRightOperand(t *testing.T) {
 	src := instantSubtractImports + `
-fn main() {
+fn main()
     a = Instant.from_seconds(15)
     d: Duration = a - Instant.from_seconds(10)
     i: Instant = a - Duration.seconds(5)
     q: Duration = Subtract.subtract(a, Instant.from_seconds(10))
     _ = (d, i, q)
-}
+end
 `
 	for _, e := range diagnosticsFor(t, src) {
 		t.Errorf("line %d: %s", e.Line, e.Message)
@@ -221,21 +221,21 @@ func TestInstantSubtract_Rejected(t *testing.T) {
 		want string
 	}{
 		{"instant minus int", instantSubtractImports + `
-fn main() {
+fn main()
     _ = Instant.from_seconds(15) - 5
-}
+end
 `, "no matching Subtract impl for Instant - Int"},
 		{"instant minus instant is not an instant", instantSubtractImports + `
-fn main() {
+fn main()
     i: Instant = Instant.from_seconds(15) - Instant.from_seconds(10)
     _ = i
-}
+end
 `, "expected Instant, got Duration"},
 		{"instant minus duration is not a duration", instantSubtractImports + `
-fn main() {
+fn main()
     d: Duration = Instant.from_seconds(15) - Duration.seconds(5)
     _ = d
-}
+end
 `, "expected Duration, got Instant"},
 	}
 	for _, row := range rows {

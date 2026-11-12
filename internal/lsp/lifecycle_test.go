@@ -170,7 +170,7 @@ func datesFixture(t testing.TB) (dir, uri, text string) {
 // and the cursor position after typed.
 func typedIn(text, typed string) (string, protocol.Position) {
 	line := strings.Count(text, "\n") + 1
-	return text + "test \"typing\" {\n    " + typed + "\n}\n", protocol.Position{Line: uint32(line), Character: uint32(4 + len(typed))}
+	return text + "test \"typing\"\n    " + typed + "\nend\n", protocol.Position{Line: uint32(line), Character: uint32(4 + len(typed))}
 }
 
 func median(ds []time.Duration) time.Duration {
@@ -370,7 +370,7 @@ func TestRPC_HoverWaitsForTheEditsAnalysis(t *testing.T) {
 func TestRPC_LiteralDiagnosticsFollowTheLatestEdit(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "main.nomi")
-	invalid := "import std::calendar.Date\n\nfn main() {\n    _ = Date\"2026-02-30\"\n}\n"
+	invalid := "import std::calendar.Date\n\nfn main()\n    _ = Date\"2026-02-30\"\nend\n"
 	valid := strings.Replace(invalid, "2026-02-30", "2026-02-28", 1)
 	if err := os.WriteFile(path, []byte(invalid), 0o644); err != nil {
 		t.Fatal(err)
@@ -424,10 +424,10 @@ func TestCompletion_StaleAnalysisMapsPositions(t *testing.T) {
 	s := NewServer()
 	s.snippetSupport = true
 	uri := "file:///stale.nomi"
-	old := "fn f(count: Int) -> Int {\n    total = count + 1\n    total\n}\n"
+	old := "fn f(count: Int) -> Int\n    total = count + 1\n    total\nend\n"
 	s.docs.Open(uri, old)
 
-	src := "// a comment\n// and another\n\nfn f(count: Int) -> Int {\n    total = count + 1\n    tot" + cursorMark + "\n    total\n}\n"
+	src := "// a comment\n// and another\n\nfn f(count: Int) -> Int\n    total = count + 1\n    tot" + cursorMark + "\n    total\nend\n"
 	text, pos := splitCursor(t, src)
 	s.docs.SetText(uri, text)
 	if snap := s.docs.Snapshot(uri); snap.Current() {
@@ -436,7 +436,7 @@ func TestCompletion_StaleAnalysisMapsPositions(t *testing.T) {
 	items := completeAt(t, s, uri, pos)
 	labelsInclude(t, items, "total")
 
-	src = "\n\nfn f(count: Int) -> Int {\n    total = count + 1\n    jso" + cursorMark + "\n    total\n}\n"
+	src = "\n\nfn f(count: Int) -> Int\n    total = count + 1\n    jso" + cursorMark + "\n    total\nend\n"
 	text, pos = splitCursor(t, src)
 	s.docs.SetText(uri, text)
 	items = completeAt(t, s, uri, pos)

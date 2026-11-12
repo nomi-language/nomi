@@ -23,19 +23,19 @@ func TestDeclarationNamedLikeAFileImportTakesTheName(t *testing.T) {
 		// want is the one diagnostic, `line:col message`, or "" for none.
 		want string
 	}{
-		{"the directory imported instead", "import jobs\n\npub fn b() -> Int {\n    jobs::b.x()\n}\n", ""},
-		{"nested path", "import jobs::b\n\npub fn b() -> Int {\n    1\n}\n", "1:14 " + taken + "`import jobs::b` cannot bind it"},
-		{"alias", "import jobs::notifications as b\n\npub fn b() -> Int {\n    1\n}\n", "1:31 " + taken + "`import jobs::notifications` cannot bind it"},
-		{"one segment", "import b\n\npub fn b() -> Int {\n    1\n}\n", "1:8 " + taken + "`import b` cannot bind it"},
+		{"the directory imported instead", "import jobs\n\npub fn b() -> Int\n    jobs::b.x()\nend\n", ""},
+		{"nested path", "import jobs::b\n\npub fn b() -> Int\n    1\nend\n", "1:14 " + taken + "`import jobs::b` cannot bind it"},
+		{"alias", "import jobs::notifications as b\n\npub fn b() -> Int\n    1\nend\n", "1:31 " + taken + "`import jobs::notifications` cannot bind it"},
+		{"one segment", "import b\n\npub fn b() -> Int\n    1\nend\n", "1:8 " + taken + "`import b` cannot bind it"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			dir := t.TempDir()
 			files := map[string]string{
 				"a.nomi":                  c.src,
-				"b.nomi":                  "pub fn x() -> Int {\n    2\n}\n",
-				"jobs/b.nomi":             "pub fn x() -> Int {\n    2\n}\n",
-				"jobs/notifications.nomi": "pub fn x() -> Int {\n    2\n}\n",
-				"main.nomi":               "import a\n\nfn main() {\n    dbg a.b()\n}\n",
+				"b.nomi":                  "pub fn x() -> Int\n    2\nend\n",
+				"jobs/b.nomi":             "pub fn x() -> Int\n    2\nend\n",
+				"jobs/notifications.nomi": "pub fn x() -> Int\n    2\nend\n",
+				"main.nomi":               "import a\n\nfn main()\n    dbg a.b()\nend\n",
 			}
 			for name, src := range files {
 				path := filepath.Join(dir, filepath.FromSlash(name))

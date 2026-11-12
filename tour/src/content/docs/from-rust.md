@@ -19,7 +19,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `let x = 1;`, `let mut x` | `x = 1`. Nothing is mutable; a later `x = ...` binds the name again. |
 | `xs.len()`, `s.trim()` | `Iter.count(xs)`, `String.trim(s)`: there are no method calls. |
 | `(1, "a")`, `t.0` | A tuple is `(1, "a")` as in Rust, but its items are read as `t.first`, `t.second`, ... |
-| `c.then(\|\| x)`; `if c { x }` needs `x: ()` | `if c { x }` is a `Maybe`: `Some(x)` or `None`. With a `Unit` branch it is a statement. |
+| `c.then(\|\| x)`; `if c { x }` needs `x: ()` | `if c then x` is a `Maybe`: `Some(x)` or `None`. With a `Unit` branch it is a statement. |
 | `x as f64` | `Int.to_float(x)`. Nomi's `x as T` is no cast: it only states a type the value already fits (`[] as List<String>`) |
 | `impl Drop` | `defer close(x)` on the line after acquiring it; it runs when its block ends, and the checker requires one for a resource. `defer on error` runs only when the function fails. |
 | `for x in xs { .. }` | `Iter.each(xs, fn x -> ..)`, a fold, or recursion |
@@ -32,20 +32,22 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | Rust | Nomi |
 |---|---|
 | `v.iter().map(f).collect()` | `xs \|> Iter.map(f) \|> Iter.to_list()` |
-| `match x { A => .. }` | `case x { A -> .. }`, with guards written `when` |
+| `match x { A => .. }` | `case x`, arms such as `A -> ..` one per line, then `end`; guards are written `when` |
 | `Point { x: 1 }` | `Point{x: 1}` |
-| `vec![1, 2]`, `HashMap` | `[1, 2]` (a list) or `#[1, 2]` (a vector), `%{"a" => 1}` |
+| `vec![1, 2]`, `HashMap` | `[1, 2]`, a list, or a vector where one is expected (`Vector[1, 2]` where nothing says which), `{"a" => 1}` |
 | `Option<T>`, `.unwrap()` | `Maybe<T>`, a postfix `!` |
+| `impl From<sqlx::Error> for ApiError` and `?` | The same: `impl From<sql.Error> for ApiError`, and `?` applies it. There is no `Into`, and `?` converts once, never through a chain of impls. |
 | `.unwrap_or(x)`, `.or(other)`, `.or_else(f)` | `Maybe.with_default(m, x)`, `Maybe.otherwise(m, other)`, `Maybe.or_else(m, f)` |
+| serde's `Option<Option<T>>` for a key missing or `null` | `Presence<Maybe<T>>`: `Absent`, `Present(None)` or `Present(Some(v))` |
 | `trait`, `fn f(&self)` | `interface`, `fn f(value: self)` |
 | `Vec<Dog>` into `Vec<Box<dyn Speak>>` takes a `map` | A `List<Dog>` passes where a `List<Speak>` is expected, with nothing copied |
 | `Shape::new()`, `Shape::Circle { radius: 1 }` | `Shape.new()`, `Shape.Circle{radius: 1}` or `.Circle{radius: 1}` |
 | `format!("{x}")` | `"${x}"` |
 | `todo!("parse")` | `todo "parse"` |
-| `tokio::spawn` | `Task.spawn` inside a `concurrent { .. }` block |
-| `#[test] fn t()` | `test "name" { assert .. }` |
+| `tokio::spawn` | `Task.spawn` inside a `concurrent` ... `end` block |
+| `#[test] fn t()` | `test "name"` ... `end` |
 | `mod`, `use a::b` | A file is the unit of import: `import a.{b}`. A path is `::`-joined like Rust's (`import db::posts`), and the file is then used by its last part, `posts.find(1)`. Importing a directory, `import db`, is like `use crate::db`: `db::posts.find(1)` reaches the file. |
-| axum's `.route("/users/{id}", get(show))` with `Path(id): Path<u64>` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: .{id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
+| axum's `.route("/users/{id}", get(show))` with `Path(id): Path<u64>` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 
 Statements end at a newline, with no semicolons.
 
@@ -79,43 +81,43 @@ fn parse_square(text: &str) -> Result<Shape, String> {
 
 ```nomi-run
 // FILE: shapes.nomi
-enum Shape {
+enum Shape
     Circle {radius: Int}
     Square {side: Int}
-}
+end
 
-impl Shape {
-    fn area(shape: Shape) -> Int {
-        case shape {
-            .Circle{radius} -> 3 * radius * radius
-            .Square{side} -> side * side
-        }
-    }
-}
+impl Shape
+    fn area(shape: Shape) -> Int
+        case shape
+            .Circle{radius:} -> 3 * radius * radius
+            .Square{side:} -> side * side
+        end
+    end
+end
 
-fn total_area(shapes: List<Shape>) -> Int {
+fn total_area(shapes: List<Shape>) -> Int
     Iter.sum_by(shapes, Shape.area)
-}
+end
 
-fn parse_square(text: String) -> Result<Shape, String> {
+fn parse_square(text: String) -> Result<Shape, String>
     side =
         String.trim(text)
         |> String.to_int()
         |> Maybe.to_result("not a number: ${text}")?
 
-    Ok(.Square{side})
-}
+    Ok(.Square{side:})
+end
 
 // FILE: shapes_test.nomi
 import shapes.{Shape, parse_square, total_area}
 
-test "the same program" {
+test "the same program"
     shapes = [Shape.Circle{radius: 1}, .Square{side: 2}]
 
     assert total_area(shapes) == 7
     assert parse_square(" 3 ") == Ok(.Square{side: 3})
     assert parse_square("x") == Err("not a number: x")
-}
+end
 ```
 <!-- expect
 ok the same program

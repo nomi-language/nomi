@@ -11,7 +11,7 @@ func TestIRInspectChannelClosed_Runs(t *testing.T) {
 	const src = `import std::io
 import std::channels.{ChannelClosed}
 
-fn main() {
+fn main()
     io.inspect(ChannelClosed)
     m: Maybe<ChannelClosed> = Some(ChannelClosed)
     io.inspect(m)
@@ -20,7 +20,7 @@ fn main() {
     e: Result<Unit, ChannelClosed> = Err(ChannelClosed)
     io.inspect(e)
     io.print(Debug.inspect(e))
-}
+end
 `
 	irRunSource(t, src, "ChannelClosed\nSome(ChannelClosed)\nOk(Unit)\nErr(ChannelClosed)\nErr(ChannelClosed)\n")
 }

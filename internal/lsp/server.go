@@ -200,7 +200,7 @@ func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams
 	// carry no documentation until the client resolves them.
 	capabilities.CompletionProvider = &protocol.CompletionOptions{
 		// `$` and `[` complete in catalogs only (catalogs.go).
-		TriggerCharacters: []string{".", ">", "{", "}", `"`, "`", ":", ",", "#", "%", "$", "["},
+		TriggerCharacters: []string{".", ">", "{", "}", `"`, "`", ":", ",", "$", "["},
 		ResolveProvider:   boolPtr(true),
 	}
 	s.snippetSupport = clientSnippetSupport(params)

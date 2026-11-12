@@ -28,26 +28,26 @@ func runCaptureProgram(t *testing.T, src, input string) (string, error) {
 func TestCapture_RedirectsOnlyInsideTheCall(t *testing.T) {
 	src := `import std::io
 
-fn echo() -> Int {
-    case io.read_line() {
+fn echo() -> Int
+    case io.read_line()
         Ok(Some(line)) -> io.print("got " + line)
         _ -> io.print("err eof")
-    }
+    end
     _ = dbg 5
     7
-}
+end
 
-fn main() {
+fn main()
     io.print("before")
-    run = io.capture("inner\n", fn -> {
+    run = io.capture("inner\n", fn ->
         a = echo()
         b = echo()
         a + b
-    })
+    end)
     io.print("value ${run.value}")
     io.write("output [${run.output}]\n")
     _ = echo()
-}
+end
 `
 	got, err := runCaptureProgram(t, src, "outer\n")
 	if err != nil {
@@ -68,17 +68,17 @@ fn main() {
 // what the call printed before it is dropped. In a task, the trap settles the
 // task and the spawner's output is its own again.
 func TestCapture_TrapPropagatesAndRestoresOutput(t *testing.T) {
-	const boom = `fn boom() -> Int {
+	const boom = `fn boom() -> Int
     io.print("partial")
     1 / 0
-}
+end
 
 `
-	got, err := runCaptureProgram(t, "import std::io\n\n"+boom+`fn main() {
+	got, err := runCaptureProgram(t, "import std::io\n\n"+boom+`fn main()
     io.print("before")
     _ = io.capture("", boom)
     io.print("unreachable")
-}
+end
 `, "")
 	if err == nil || !strings.Contains(err.Error(), "division by zero") {
 		t.Fatalf("err = %v, want the division trap", err)
@@ -86,14 +86,14 @@ func TestCapture_TrapPropagatesAndRestoresOutput(t *testing.T) {
 	if got != "before\n" {
 		t.Fatalf("output = %q, want only %q", got, "before\n")
 	}
-	got, err = runCaptureProgram(t, "import std::io\nimport std::tasks.Task\n\n"+boom+`fn main() {
-    outcome = concurrent {
+	got, err = runCaptureProgram(t, "import std::io\nimport std::tasks.Task\n\n"+boom+`fn main()
+    outcome = concurrent
         t = Task.spawn(fn -> io.capture("", boom).value)
         Task.outcome(t)
-    }
+    end
     io.print("after")
     io.inspect(outcome)
-}
+end
 `, "")
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -108,13 +108,13 @@ func TestCapture_TrapPropagatesAndRestoresOutput(t *testing.T) {
 func TestCapture_SelectiveImport(t *testing.T) {
 	got, err := runCaptureProgram(t, `import std::io.{capture, print}
 
-fn main() {
-    c = capture("", fn -> {
+fn main()
+    c = capture("", fn ->
         print("in")
         42
-    })
+    end)
     print(c.output + "${c.value}")
-}
+end
 `, "")
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -130,10 +130,10 @@ func TestCapture_WithOutputStillReceivesNormalOutput(t *testing.T) {
 	var out bytes.Buffer
 	p, err := vmhost.LoadSource("main.nomi", `import std::io
 
-pub fn shout() -> String {
+pub fn shout() -> String
     io.print("outside")
     io.capture("", fn -> io.print("inside")).output
-}
+end
 `, vmhost.WithOutput(&out))
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -159,19 +159,19 @@ func TestCapture_DebugAndAnnotation(t *testing.T) {
 	got, err := runCaptureProgram(t, `import std::io
 import std::io.Captured
 
-struct Point {
+struct Point
     x: Int
-}
+end
 
-fn show(c: Captured<Point>) -> String {
+fn show(c: Captured<Point>) -> String
     "${c.value.x}|${c.output}"
-}
+end
 
-fn main() {
-    run = io.capture("", fn -> {
+fn main()
+    run = io.capture("", fn ->
         io.write("hi")
         42
-    })
+    end)
     io.inspect(run)
     _ = dbg run
     io.print(Debug.inspect([run]))
@@ -180,7 +180,7 @@ fn main() {
     io.print(show(p))
     u = io.capture("", fn -> io.write("u"))
     io.inspect((u, run))
-}
+end
 `, "")
 	if err != nil {
 		t.Fatalf("run: %v", err)

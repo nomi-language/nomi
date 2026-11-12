@@ -35,7 +35,7 @@ func TestToPipe_LiteralSubjectLeads(t *testing.T) {
 // One stage stays on its line, and the one-line statement sits with its
 // neighbours.
 func TestToPipe_InnermostCallWithoutArgumentsLeads(t *testing.T) {
-	decls := "fn seed() -> List<Int> {\n    [1, 2]\n}\n\n"
+	decls := "fn seed() -> List<Int>\n    [1, 2]\nend\n\n"
 	got := checkRefactor(t, fnMainAfter(decls, "n = Iter.count(se‸ed())\nio.inspect(n)\n"), "Convert to pipe", rewrite)
 	if want := fnMainAfter(decls, "n = seed() |> Iter.count()\nio.inspect(n)\n"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
@@ -48,11 +48,11 @@ func TestToPipe_InnermostCallWithoutArgumentsLeads(t *testing.T) {
 func TestToPipe_InLambdaBody(t *testing.T) {
 	src := fnMain("n = Iter.map([[1]], fn xs -> Iter.count(Iter.filter‸(xs, fn x -> x > 0)))\nio.inspect(Iter.to_list(n))\n")
 	got := checkRefactor(t, src, "Convert to pipe", rewrite)
-	if !strings.Contains(got, "fn xs -> {\n") || !strings.Contains(got, "|> Iter.count()") || strings.Contains(got, "(xs") {
+	if !strings.Contains(got, "fn xs ->\n") || !strings.Contains(got, "|> Iter.count()") || strings.Contains(got, "(xs") {
 		t.Fatalf("got\n%s", got)
 	}
 	back := checkRefactor(t, strings.Replace(got, "|> Iter.count(", "|> Iter.co‸unt(", 1), "Convert from pipe", rewrite)
-	if !strings.Contains(back, "fn xs -> {\n        Iter.count(Iter.filter(xs, fn x -> x > 0))\n    })") {
+	if !strings.Contains(back, "fn xs ->\n        Iter.count(Iter.filter(xs, fn x -> x > 0))\n    end)") {
 		t.Fatalf("back:\n%s", back)
 	}
 }
@@ -76,7 +76,7 @@ func TestToPipe_Refused(t *testing.T) {
 		// A lone call is never a pipe (style.md §1).
 		"lone call": "n = Iter.count‸([1, 2])\nio.inspect(n)\n",
 		// A call in a later argument is a value, not the subject.
-		"later argument": "m = Map.put(%{\"a\" => 1}, \"k\", Iter.count‸([1]))\nio.inspect(m)\n",
+		"later argument": "m = Map.put({\"a\" => 1}, \"k\", Iter.count‸([1]))\nio.inspect(m)\n",
 		// A partial capture's call is the capture's body, not a stage.
 		"capture": "f = &Iter.map‸(Iter.filter([1], fn x -> x > 0), &1)\nio.inspect(f(fn x -> x + 1))\n",
 	} {
@@ -89,37 +89,37 @@ func TestToPipe_Refused(t *testing.T) {
 }
 
 func TestFromPipe_Stages(t *testing.T) {
-	decls := "fn parse(s: String) -> Result<Int, String> {\n    Maybe.with_default(String.to_int(s), 0) |> Ok()\n}\n\nfn divide(a: Int, b: Int) -> Int {\n    a / b\n}\n\n"
+	decls := "fn parse(s: String) -> Result<Int, String>\n    Maybe.with_default(String.to_int(s), 0) |> Ok()\nend\n\nfn divide(a: Int, b: Int) -> Int\n    a / b\nend\n\n"
 	cases := []struct{ name, body, want string }{
 		{
 			"a then stage's partial capture",
-			"fn f() -> Int {\n    10 |> then &div‸ide(100, &1)\n}\n",
-			"fn f() -> Int {\n    divide(100, 10)\n}\n",
+			"fn f() -> Int\n    10 |> then &div‸ide(100, &1)\nend\n",
+			"fn f() -> Int\n    divide(100, 10)\nend\n",
 		},
 		{
 			"a ? stage",
-			"fn f() -> Result<Int, String> {\n    n = \"4\"\n    |> parse()‸?\n\n    Ok(n)\n}\n",
-			"fn f() -> Result<Int, String> {\n    n = parse(\"4\")?\n\n    Ok(n)\n}\n",
+			"fn f() -> Result<Int, String>\n    n = \"4\"\n    |> parse()‸?\n\n    Ok(n)\nend\n",
+			"fn f() -> Result<Int, String>\n    n = parse(\"4\")?\n\n    Ok(n)\nend\n",
 		},
 		{
 			"case stage",
-			"fn f() -> Int {\n    \"4\"\n    |> case pa‸rse() {\n        Ok(n) -> n\n        Err(_) -> 0\n    }\n}\n",
-			"fn f() -> Int {\n    case parse(\"4\") {\n        Ok(n) -> n\n        Err(_) -> 0\n    }\n}\n",
+			"fn f() -> Int\n    \"4\"\n    |> case pa‸rse()\n        Ok(n) -> n\n        Err(_) -> 0\n    end\nend\n",
+			"fn f() -> Int\n    case parse(\"4\")\n        Ok(n) -> n\n        Err(_) -> 0\n    end\nend\n",
 		},
 		{
 			"bare case stage",
-			"fn f() -> Int {\n    parse(\"4\")\n    |> ca‸se {\n        Ok(n) -> n\n        Err(_) -> 0\n    }\n}\n",
-			"fn f() -> Int {\n    case parse(\"4\") {\n        Ok(n) -> n\n        Err(_) -> 0\n    }\n}\n",
+			"fn f() -> Int\n    parse(\"4\")\n    |> ca‸se\n        Ok(n) -> n\n        Err(_) -> 0\n    end\nend\n",
+			"fn f() -> Int\n    case parse(\"4\")\n        Ok(n) -> n\n        Err(_) -> 0\n    end\nend\n",
 		},
 		{
 			"if stage",
-			"fn f() -> Int {\n    [1]\n    |> if Iter.is_em‸pty() { 0 } else { 1 }\n}\n",
-			"fn f() -> Int {\n    if Iter.is_empty([1]) { 0 } else { 1 }\n}\n",
+			"fn f() -> Int\n    [1]\n    |> if Iter.is_em‸pty() then 0 else 1\nend\n",
+			"fn f() -> Int\n    if Iter.is_empty([1]) then 0 else 1\nend\n",
 		},
 		{
 			"comparison",
-			"fn f() -> Bool {\n    [1] |> Iter.to_‸list() == [1]\n}\n",
-			"fn f() -> Bool {\n    Iter.to_list([1]) == [1]\n}\n",
+			"fn f() -> Bool\n    [1] |> Iter.to_‸list() == [1]\nend\n",
+			"fn f() -> Bool\n    Iter.to_list([1]) == [1]\nend\n",
 		},
 	}
 	for _, c := range cases {
@@ -148,7 +148,7 @@ func TestFromPipe_RefusesThenStage(t *testing.T) {
 
 // A pipe nested in a lambda inside a pipe: the cursor picks the inner one.
 func TestFromPipe_InnermostPipeline(t *testing.T) {
-	src := fnMain("n =\n    [[1, 2]]\n    |> Iter.map(fn xs -> { xs |> Iter.cou‸nt() })\n    |> Iter.to_list()\n\nio.inspect(n)\n")
+	src := fnMain("n =\n    [[1, 2]]\n    |> Iter.map(fn xs -> xs |> Iter.cou‸nt())\n    |> Iter.to_list()\n\nio.inspect(n)\n")
 	got := checkRefactor(t, src, "Convert from pipe", rewrite)
 	// `nomi fmt` drops the braces a one-expression body no longer needs.
 	want := fnMain("n =\n    [[1, 2]]\n    |> Iter.map(fn xs -> Iter.count(xs))\n    |> Iter.to_list()\n\nio.inspect(n)\n")

@@ -120,7 +120,7 @@ func (g *gen) irImplSlotDefaults(d *implDef, it *implItem) {
 		return
 	}
 	// The body's symbol as irImplLower interns it, and the accessors' name as
-	// a call site's siblingFill gives it (implMemberSite.symName).
+	// a call site's defaultHome gives it (implMemberSite.symName).
 	callee := g.irCalleeSym(it, d.ownerName()+"."+it.name)
 	name := d.recv.nomi() + "." + it.name
 	sig := &fnSig{params: it.params, result: it.result, decl: fd, lowerable: true}
@@ -137,61 +137,6 @@ func (site *implMemberSite) accessorDefaults() bool {
 	it := site.item
 	return site.iface == "" && !site.synth && site.withheld == nil && it != nil && !it.inherited &&
 		it.decl != nil && it.decl.Public
-}
-
-// siblingImplFill is siblingFill against site, a sibling file's inherent impl
-// function whose accessors its file builds.
-func (bl *irScalarBuilder) siblingImplFill(at ast.Node, site *implMemberSite, owning *gen, params []kind, temps []ir.Temp, mobile []bool) bool {
-	callee := owning.irCalleeSym(site.item, site.symName)
-	decl := &ast.FuncDef{Name: site.symName, Params: site.fn.params0}
-	return bl.siblingFill(at, owning, callee, decl, params, temps, mobile)
-}
-
-// namedSiblingImplFill fills the slots a named-argument call to a sibling
-// file's inherent impl function leaves out, `Fake.new(answer: f)`, with its
-// file's accessors when a default names what this file cannot
-// (siblingDefaultsAgree). handled is false when the callee is not such a
-// function, or its defaults lower here; ok is whether the slots were filled.
-func (bl *irScalarBuilder) namedSiblingImplFill(t *ast.Call, fa *ast.FieldAccess, fd *ast.FuncDef, kinds []kind, temps []ir.Temp) (ok, handled bool) {
-	g := bl.g
-	ti, isType := fa.Object.(*ast.TypeIdent)
-	if !isType || fa.Field == nil || g.files == nil || g.reg == nil {
-		return false, false
-	}
-	d, found := g.namedType(ti.Name)
-	if !found || d == nil || d.decl == nil || d.instOrigin != nil || d.genericOf != nil {
-		return false, false
-	}
-	site, params, _, owning := g.siblingImplMemberBy(d, fa.Field.Name, "", nil)
-	if site == nil || site.item.decl != fd || !site.accessorDefaults() || len(params) != len(temps) {
-		return false, false
-	}
-	var slots []int
-	for i, tmp := range temps {
-		if tmp == ir.NoTemp {
-			slots = append(slots, i)
-		}
-	}
-	if bl.siblingDefaultsAgree(site.fn, owning, slots) {
-		return false, false
-	}
-	for i, tmp := range temps {
-		switch {
-		case tmp == ir.NoTemp:
-			kinds[i] = params[i]
-		case kinds[i] != params[i] && irExistentialKind(params[i]):
-			// A concrete operand of an interface-typed slot enters it by
-			// erasure, as a positional call's does (qualEraseSlotted).
-			v, got, erased := bl.coerceEmpty(t, tmp, kinds[i], params[i])
-			if !erased {
-				return false, true
-			}
-			temps[i], kinds[i] = v, got
-		case kinds[i] != params[i]:
-			return false, true
-		}
-	}
-	return bl.siblingImplFill(t, site, owning, params, temps, nil), true
 }
 
 // irFileSlotRetain builds the accessor for one defaulted parameter: the
@@ -259,52 +204,29 @@ func (g *gen) irSlotAccessorRetain(fd *ast.FuncDef, sig *fnSig, sym *ir.Symbol, 
 	}
 }
 
-// siblingFill completes a call's operand vector against a sibling file's
-// function: temps holds every written operand at its parameter slot and
-// ir.NoTemp at each omitted one. Each omitted slot becomes a call to the
-// accessor the declaring unit `owner` builds for it (irFileSlotRetain), in
-// ascending order, after every written operand is held, so the written
-// arguments run first and each default runs once. callee is the function's
-// own symbol in owner's table. ok is false when an omitted slot has no
-// default.
-func (bl *irScalarBuilder) siblingFill(at ast.Node, owner *gen, callee *ir.Symbol, decl *ast.FuncDef, params []kind, temps []ir.Temp, mobile []bool) bool {
-	omitted := false
-	for _, t := range temps {
-		if t == ir.NoTemp {
-			omitted = true
+// defaultHome is where a call of site, a sibling file's impl function
+// whose unit's gen is owning, fills the parameters it leaves out
+// (fillCallDefaults): the accessors owning builds for the function
+// (irImplSlotDefaults), or for the instance of a withheld member
+// (methodInstAccessors), and none for any other.
+func (site *implMemberSite) defaultHome(owning *gen) defaultHome {
+	home := defaultHome{owner: owning}
+	switch {
+	case site.accessorDefaults():
+		callee := owning.irCalleeSym(site.item, site.symName)
+		home.accessor = func(slot int) *ir.Symbol { return owning.irFileSlotSym(callee, site.symName, slot) }
+	case site.instAccessors != nil:
+		var callee *ir.Symbol
+		asked := false
+		home.accessor = func(slot int) *ir.Symbol {
+			if !asked {
+				callee, asked = site.instAccessors(), true
+			}
+			if callee == nil {
+				return nil
+			}
+			return owning.irFileSlotSym(callee, site.symName, slot)
 		}
 	}
-	if !omitted {
-		return true
-	}
-	if owner == nil || callee == nil || decl == nil || len(decl.Params) != len(temps) || len(params) != len(temps) {
-		return false
-	}
-	pos := bl.g.irNodePos(at)
-	for i, t := range temps {
-		if t == ir.NoTemp || (i < len(mobile) && mobile[i]) || irHeldValue(bl.f, t, bl.sides) {
-			continue
-		}
-		cp := ir.NewCopy(pos, bl.f.NewTemp(), t)
-		bl.b.Append(cp)
-		bl.side(cp.Dst(), irScalarSide{k: params[i], copy: irCopyForce})
-		temps[i] = cp.Dst()
-	}
-	for slot := range temps {
-		if temps[slot] != ir.NoTemp {
-			continue
-		}
-		if decl.Params[slot].Default == nil || !irCallOperandKind(params[slot]) {
-			return false
-		}
-		sym := owner.irFileSlotSym(callee, decl.Name, slot)
-		c := ir.NewCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, sym, temps[:slot]...)
-		bl.b.Append(c)
-		bl.side(c.Dst(), irScalarSide{k: params[slot]})
-		cp := ir.NewCopy(pos, bl.f.NewTemp(), c.Dst())
-		bl.b.Append(cp)
-		bl.side(cp.Dst(), irScalarSide{k: params[slot], copy: irCopyForce})
-		temps[slot] = cp.Dst()
-	}
-	return true
+	return home
 }

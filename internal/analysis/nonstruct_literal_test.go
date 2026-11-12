@@ -10,16 +10,16 @@ import (
 // and `Context{}` was then reported as not supported yet when it ran.
 func TestNonStructLiteral_IsRejected(t *testing.T) {
 	cases := []struct{ name, src, want, hint string }{
-		{"host type", "fn main() {\n    c = Context{}\n    _ = c\n}\n",
+		{"host type", "fn main()\n    c = Context{}\n    _ = c\nend\n",
 			"`Context` is a host type, not a struct, so a struct literal cannot build it",
 			"`Context` has no fields to fill in; its values come from its own functions or literals"},
-		{"enum", "enum Shape {\n    Dot\n}\n\nfn main() {\n    s = Shape{}\n    _ = s\n}\n",
+		{"enum", "enum Shape\n    Dot\nend\n\nfn main()\n    s = Shape{}\n    _ = s\nend\n",
 			"`Shape` is an enum, not a struct, so a struct literal cannot build it",
 			"build one of its variants, as `Shape.Variant{...}` or `Shape.Variant(...)`"},
-		{"distinct type", "type Meters Int\n\nfn main() {\n    m = Meters{}\n    _ = m\n}\n",
+		{"distinct type", "type Meters Int\n\nfn main()\n    m = Meters{}\n    _ = m\nend\n",
 			"`Meters` is a distinct type, not a struct, so a struct literal cannot build it",
 			"build one with `Meters(...)`"},
-		{"interface", "interface I {\n    fn f(x: self) -> Int\n}\n\nfn main() {\n    _a = I{v: 1}\n}\n",
+		{"interface", "interface I\n    fn f(x: self) -> Int\nend\n\nfn main()\n    _a = I{v: 1}\nend\n",
 			"`I` is an interface, not a struct, so a struct literal cannot build it", ""},
 	}
 	for _, tc := range cases {

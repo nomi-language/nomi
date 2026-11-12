@@ -16,26 +16,26 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# `Int` holds exactly, as it holds a whole number of any size.
 
 /// The grains on `square`, numbered from 1 to 64.
-pub fn square(square: Int) -> Result<Int, String> {
-    if not square in 1..=64 { return Err("square must be between 1 and 64") }
+pub fn square(square: Int) -> Result<Int, String>
+    if not square in 1..=64 then return Err("square must be between 1 and 64")
 
     Ok(grains_on(square))
-}
+end
 
 /// The grains on the whole board.
-pub fn total() -> Int {
+pub fn total() -> Int
     1..=64 |> Iter.map(grains_on) |> Iter.sum()
-}
+end
 
-fn grains_on(square: Int) -> Int {
+fn grains_on(square: Int) -> Int
     Int.pow(2, square - 1)
-}
+end
 
 // FILE: grains_test.nomi
 import grains
 
-group "returns the number of grains on the square" {
-    test "counts the grains" {
+group "returns the number of grains on the square"
+    test "counts the grains"
         [
             ("grains on square 1", 1, 1),
             ("grains on square 2", 2, 2),
@@ -45,26 +45,26 @@ group "returns the number of grains on the square" {
             ("grains on square 32", 32, 2147483648),
             ("grains on square 64", 64, 9223372036854775808),
         ]
-        |> subtests (description, square, expected), description {
+        |> subtests (description, square, expected), description
             assert grains.square(square) == Ok(expected)
-        }
-    }
+        end
+    end
 
-    test "rejects squares off the board" {
+    test "rejects squares off the board"
         [
             ("square 0 is invalid", 0),
             ("negative square is invalid", -1),
             ("square greater than 64 is invalid", 65),
         ]
-        |> subtests (description, square), description {
+        |> subtests (description, square), description
             assert grains.square(square) == Err("square must be between 1 and 64")
-        }
-    }
-}
+        end
+    end
+end
 
-test "returns the total number of grains on the board" {
+test "returns the total number of grains on the board"
     assert grains.total() == 18446744073709551615
-}
+end
 ```
 <!-- expect
 ok returns the number of grains on the square / counts the grains (7 cases)

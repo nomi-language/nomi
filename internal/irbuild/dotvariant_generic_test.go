@@ -13,60 +13,59 @@ func TestDotVariant_GenericEnumBareVariant(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
     std::io
     trees.Slot
-}
+end
 
-enum Tree<T> {
+enum Tree<T>
     Leaf
     Node (Tree<T>, T, Tree<T>)
-}
+end
 
-fn size<T>(t: Tree<T>) -> Int {
-    case t {
+fn size<T>(t: Tree<T>) -> Int
+    case t
         .Leaf -> 0
         .Node((l, _, r)) -> size(l) + 1 + size(r)
-    }
-}
+    end
+end
 
-fn empty<T>() -> Tree<T> {
+fn empty<T>() -> Tree<T>
     .Leaf
-}
+end
 
-fn insert(t: Tree<Int>, n: Int) -> Tree<Int> {
-    case t {
+fn insert(t: Tree<Int>, n: Int) -> Tree<Int>
+    case t
         .Leaf -> .Node((.Leaf, n, .Leaf))
-        .Node((l, v, r)) -> {
-            if n < v {
+        .Node((l, v, r)) ->
+            if n < v then
                 .Node((insert(l, n), v, r))
-            } else {
+            else
                 .Node((l, v, insert(r, n)))
-            }
-        }
-    }
-}
+            end
+    end
+end
 
-fn count(trees: List<Tree<String>>) -> Int {
+fn count(trees: List<Tree<String>>) -> Int
     trees |> Iter.map(size) |> Iter.sum()
-}
+end
 
-fn slots() -> List<Slot<Int>> {
+fn slots() -> List<Slot<Int>>
     [.Empty, .Full(2), .Empty]
-}
+end
 
-fn main() {
+fn main()
     t: Tree<Int> = empty()
     io.inspect(size([3, 1, 2] |> Iter.reduce(t, fn acc, n -> insert(acc, n))))
     io.inspect(count([.Leaf, .Node((.Leaf, "a", .Leaf))]))
     io.inspect(slots())
     s: Slot<String> = .Empty
     io.inspect(s)
-}
-`, "3\n1\n[Empty, Full(2), Empty]\nEmpty\n", map[string]string{"trees.nomi": `pub enum Slot<T> {
+end
+`, "3\n1\n[Empty, Full(2), Empty]\nEmpty\n", map[string]string{"trees.nomi": `pub enum Slot<T>
     Empty
     Full T
-}
+end
 `})
 }
 
@@ -83,38 +82,38 @@ func TestDotVariant_GenericSlotSolvedByItsSiblings(t *testing.T) {
 	}
 	verifyLambdaProgram(t, `import std::io
 
-enum Tree<T> {
+enum Tree<T>
     Leaf
     Node {
         left: Tree<T>
         value: T
     }
-}
+end
 
-enum Pos<T> {
+enum Pos<T>
     Leaf
     Node (Pos<T>, T)
-}
+end
 
-enum Slot<T> {
+enum Slot<T>
     Empty
     Full T
-}
+end
 
-struct Box<T> {
+struct Box<T>
     inner: Tree<T>
     v: T
-}
+end
 
-fn pair<T>(t: Tree<T>, v: T) -> Tree<T> {
+fn pair<T>(t: Tree<T>, v: T) -> Tree<T>
     .Node{left: t, value: v}
-}
+end
 
-fn both<T>(a: Slot<T>, b: Slot<T>) -> List<Slot<T>> {
+fn both<T>(a: Slot<T>, b: Slot<T>) -> List<Slot<T>>
     [a, b]
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Tree.Node{left: .Leaf, value: 4})
     io.inspect(Tree.Node{left: .Node{left: .Leaf, value: 3}, value: 4})
     io.inspect(Pos.Node((.Node((.Leaf, 1)), 4)))
@@ -123,7 +122,7 @@ fn main() {
     io.inspect(pair(.Node{left: .Leaf, value: 1}, 2))
     io.inspect(both(.Empty, .Full("x")))
     io.inspect(Maybe.Some(Tree.Node{left: .Leaf, value: True}))
-}
+end
 `, `Node{left: Leaf, value: 4}
 Node{left: Node{left: Leaf, value: 3}, value: 4}
 Node(Node(Leaf, 1), 4)

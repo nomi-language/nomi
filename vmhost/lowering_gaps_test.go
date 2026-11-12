@@ -38,18 +38,44 @@ type loweringGap struct {
 	// still fails there.
 	noSkip bool
 	src    string
+	// std, when set, names the std module src is appended to (its imports
+	// after the module's own, stdEdited): a gap only a std module's own
+	// tests reach. src then declares a test named "matrix", which
+	// TestKnownLoweringGaps lowers as `nomi test std/<module>.nomi` does.
+	std string
+}
+
+// check checks the gap's reproducer.
+func (gap loweringGap) check(dir string) lowerOutcome {
+	if gap.std == "" {
+		return checkLowers(dir, gap.src)
+	}
+	src, from := stdEdited(gap.std, gap.src)
+	o, _ := checkStdLowers(gap.std, src, from)
+	return o
 }
 
 var knownLoweringGaps = []loweringGap{}
 
-// knownGapFor is the known gap every one of reasons matches, or nil.
+// knownGapFor is the known gap every one of reasons matches, or nil. A gap
+// of a std module's own tests excuses nothing here: knownStdGapFor.
 func knownGapFor(reasons []string) *loweringGap {
+	return knownGapIn("", reasons)
+}
+
+// knownStdGapFor is knownGapFor for a std module's own tests: the gaps of
+// that module (loweringGap.std) and those of any program.
+func knownStdGapFor(module string, reasons []string) *loweringGap {
+	return knownGapIn(module, reasons)
+}
+
+func knownGapIn(module string, reasons []string) *loweringGap {
 	var found *loweringGap
 	for _, r := range reasons {
 		var match *loweringGap
 		for i := range knownLoweringGaps {
 			gap := &knownLoweringGaps[i]
-			if gap.panics || gap.noSkip {
+			if gap.panics || gap.noSkip || (gap.std != "" && gap.std != module) {
 				continue
 			}
 			for _, want := range append([]string{gap.reason}, gap.alsoSkip...) {
@@ -87,7 +113,7 @@ func TestKnownLoweringGaps(t *testing.T) {
 	t.Setenv("NOMI_DEBUG_LOWERING", "1")
 	for _, gap := range knownLoweringGaps {
 		t.Run(gap.name, func(t *testing.T) {
-			o := checkLowers(t.TempDir(), gap.src)
+			o := gap.check(t.TempDir())
 			switch {
 			case !o.accepted:
 				t.Fatalf("the front end rejects this reproducer now; if that is the fix (%s), "+

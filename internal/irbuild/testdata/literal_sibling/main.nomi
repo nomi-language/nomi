@@ -9,12 +9,12 @@
 // Both instantiations are present because at `T = String` a `Fragment`'s two
 // payloads are the same type: a spec with them swapped is invisible there
 // and puts a String where an Int belongs at `T = Int`.
-import {
+import
     std::io
     frag
-}
+end
 
-fn main() {
+fn main()
     a = frag.static_string("a")
     b = frag.dynamic_string("b")
     io.print(frag.show_string(a))
@@ -29,4 +29,4 @@ fn main() {
     // the container, so the element's anchor is resolved at this file's spelling
     // rather than borrowed from the owner's.
     io.print(frag.join([a, b, frag.static_string("z")]))
-}
+end

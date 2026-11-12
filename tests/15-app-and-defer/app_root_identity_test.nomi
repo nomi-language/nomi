@@ -1,148 +1,148 @@
 import std::compiler.{self, Diagnostic}
 
-fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
+fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool
     Iter.any_match(diagnostics, fn diagnostic -> text in diagnostic.message)
-}
+end
 
-test "an ordinary named application exposes scoped fields" {
+test "an ordinary named application exposes scoped fields"
     assert Ok(output) = compiler.run(
         """
-        import {
+        import
           std::io
-        }
+        end
 
-        struct Settings {
+        struct Settings
           tag: String
           context: Context
-        }
+        end
 
-        fn boot() -> Result<Settings, String> {
+        fn boot() -> Result<Settings, String>
           Ok(Settings{tag: "base", context: Context.root()})
-        }
+        end
 
-        fn show() {
+        fn show()
           io.print(Settings.tag)
-        }
+        end
 
-        fn inner() {
+        fn inner()
           with Settings.tag = "inner"
           show()
-        }
+        end
 
-        fn main() {
+        fn main()
           show()
           inner()
           show()
-        }
+        end
         """
     )
 
     assert output == "base\ninner\nbase\n"
-}
+end
 
-test "an application may rename its Context field" {
+test "an application may rename its Context field"
     assert Ok(output) = compiler.run(
         """
-        import {
+        import
           std::io
-        }
+        end
 
-        struct Named {
+        struct Named
           tag: String
           execution: Context
-        }
+        end
 
-        fn boot() -> Result<Named, String> {
+        fn boot() -> Result<Named, String>
           Ok(Named{tag: "named", execution: Context.root()})
-        }
+        end
 
-        fn main() {
+        fn main()
           _ = Context.deadline(Named.execution)
           io.print(Named.tag)
-        }
+        end
         """
     )
 
     assert output == "named\n"
-}
+end
 
-test "an anonymous application boots, and code that reads no field runs under it" {
+test "an anonymous application boots, and code that reads no field runs under it"
     assert Ok(output) = compiler.run(
         """
-        import {
+        import
           std::io
-        }
+        end
 
-        fn boot() -> Result<.{tag: String, execution: Context}, String> {
-          Ok(.{tag: "anonymous", execution: Context.root()})
-        }
+        fn boot() -> Result<{tag: String, execution: Context}, String>
+          Ok({tag: "anonymous", execution: Context.root()})
+        end
 
-        fn main() {
+        fn main()
           io.print("ran")
-        }
+        end
         """
     )
 
     assert output == "ran\n"
-}
+end
 
-test "an unavailable field is rejected" {
+test "an unavailable field is rejected"
     diagnostics = compiler.check(
         """
-        struct App {
+        struct App
           context: Context
-        }
+        end
 
-        fn boot() -> Result<App, String> {
+        fn boot() -> Result<App, String>
           Ok(App{context: Context.root()})
-        }
+        end
 
-        fn main() {
+        fn main()
           _ = App.missing
-        }
+        end
         """
     )
 
     assert has_diagnostic(diagnostics, "type 'App' has no member 'missing'")
-}
+end
 
-test "an application needs no Context field" {
+test "an application needs no Context field"
     assert Ok(output) = compiler.run(
         """
-        import {
+        import
           std::io
-        }
+        end
 
-        struct App {
+        struct App
           tag: String
-        }
+        end
 
-        fn boot() -> Result<App, String> {
+        fn boot() -> Result<App, String>
           Ok(App{tag: "no context"})
-        }
+        end
 
-        fn main() {
+        fn main()
           io.print(App.tag)
-        }
+        end
         """
     )
 
     assert output == "no context\n"
-}
+end
 
-test "boot rejects two Context fields" {
+test "boot rejects two Context fields"
     diagnostics = compiler.check(
         """
-        struct App {
+        struct App
           first: Context
           second: Context
-        }
+        end
 
-        fn boot() -> Result<App, String> {
+        fn boot() -> Result<App, String>
           Ok(App{first: Context.root(), second: Context.root()})
-        }
+        end
 
-        fn main() {}
+        fn main() end
         """
     )
 
@@ -150,20 +150,20 @@ test "boot rejects two Context fields" {
         diagnostics,
         "an application struct may have at most one Context-typed field",
     )
-}
+end
 
-test "boot takes no Context parameter" {
+test "boot takes no Context parameter"
     diagnostics = compiler.check(
         """
-        struct App {
+        struct App
           context: Context
-        }
+        end
 
-        fn boot(context: Context) -> Result<App, String> {
-          Ok(App{context})
-        }
+        fn boot(context: Context) -> Result<App, String>
+          Ok(App{context:})
+        end
 
-        fn main() {}
+        fn main() end
         """
     )
 
@@ -171,46 +171,46 @@ test "boot takes no Context parameter" {
         diagnostics,
         "boot must be `fn boot() -> Result<App, E>` or `fn boot(startup: Startup) -> Result<App, E>`, taking no parameter or one Startup and returning the application struct in a Result",
     )
-}
+end
 
-test "field replacement preserves the declared field type" {
+test "field replacement preserves the declared field type"
     diagnostics = compiler.check(
         """
-        import {
+        import
           std::io
-        }
+        end
 
-        struct App {
+        struct App
           tag: String
           context: Context
-        }
+        end
 
-        fn boot() -> Result<App, String> {
+        fn boot() -> Result<App, String>
           Ok(App{tag: "base", context: Context.root()})
-        }
+        end
 
-        fn main() {
+        fn main()
           with App.tag = 42
           io.print(App.tag)
-        }
+        end
         """
     )
 
     assert has_diagnostic(diagnostics, "`App.tag` replacement expects String, got Int")
-}
+end
 
-test "boot takes at most one Startup" {
+test "boot takes at most one Startup"
     diagnostics = compiler.check(
         """
-        struct App {
+        struct App
           port: Int
-        }
+        end
 
-        fn boot(startup: Startup, _port: Int) -> Result<App, String> {
+        fn boot(startup: Startup, _port: Int) -> Result<App, String>
           Ok(App{port: Iter.count(startup.args)})
-        }
+        end
 
-        fn main() {}
+        fn main() end
         """
     )
 
@@ -218,37 +218,37 @@ test "boot takes at most one Startup" {
         diagnostics,
         "boot must be `fn boot() -> Result<App, E>` or `fn boot(startup: Startup) -> Result<App, E>`, taking no parameter or one Startup and returning the application struct in a Result",
     )
-}
+end
 
-test "boot may take no parameter, or a Startup with a default" {
+test "boot may take no parameter, or a Startup with a default"
     no_parameter = compiler.check(
         """
-        struct App {
+        struct App
           port: Int
-        }
+        end
 
-        fn boot() -> Result<App, String> {
+        fn boot() -> Result<App, String>
           Ok(App{port: 8080})
-        }
+        end
 
-        fn main() {}
+        fn main() end
         """
     )
 
     defaulted = compiler.check(
         """
-        struct App {
+        struct App
           port: Int
-        }
+        end
 
-        fn boot(startup: Startup = Startup{}) -> Result<App, String> {
+        fn boot(startup: Startup = Startup{}) -> Result<App, String>
           Ok(App{port: Iter.count(startup.args)})
-        }
+        end
 
-        fn main() {}
+        fn main() end
         """
     )
 
     assert no_parameter == []
     assert defaulted == []
-}
+end

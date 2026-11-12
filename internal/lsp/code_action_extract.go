@@ -99,8 +99,7 @@ func (r *refactorRequest) extractTarget() ast.Node {
 func isExpression(n ast.Node) bool {
 	switch n.(type) {
 	case *ast.Ident, *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit,
-		*ast.StringLit, *ast.StringInterp, *ast.TaggedString, *ast.ListLit, *ast.VectorLit,
-		*ast.SetLit, *ast.MapLit, *ast.TupleLit, *ast.Unary, *ast.Binary, *ast.GroupedExpr,
+		*ast.StringLit, *ast.StringInterp, *ast.TaggedString, *ast.ListLit, *ast.MapLit, *ast.TupleLit, *ast.Unary, *ast.Binary, *ast.GroupedExpr,
 		*ast.Call, *ast.FieldAccess, *ast.StructLit, *ast.RangeLit, *ast.If, *ast.Case, *ast.TryOp:
 		return true
 	}
@@ -167,7 +166,7 @@ func (r *refactorRequest) canHoist(n, stmt ast.Node, block *ast.Block, effectful
 func hoistsThrough(parent, child ast.Node) bool {
 	switch p := parent.(type) {
 	case *ast.Call, *ast.NamedArg, *ast.GroupedExpr, *ast.Unary, *ast.FieldAccess,
-		*ast.ListLit, *ast.VectorLit, *ast.SetLit, *ast.TupleLit, *ast.MapLit, *ast.StructLit,
+		*ast.ListLit, *ast.TupleLit, *ast.MapLit, *ast.StructLit,
 		*ast.StringInterp, *ast.TaggedString, *ast.RangeLit, *ast.TryOp, *ast.Dbg, *ast.Return,
 		*ast.ExprStmt, *ast.Binding, *ast.Assertion, *ast.TupleDestructure,
 		*ast.StructDestructure, *ast.DistinctDestructure, *ast.With:
@@ -474,8 +473,7 @@ func (r *refactorRequest) needsParens(value ast.Node, use ast.Node) bool {
 			return false
 		}
 		return true
-	case *ast.NamedArg, *ast.Binding, *ast.ExprStmt, *ast.Return, *ast.ListLit, *ast.VectorLit,
-		*ast.SetLit, *ast.TupleLit, *ast.MapLit, *ast.StructLit, *ast.StringInterp, *ast.GroupedExpr, *ast.Block:
+	case *ast.NamedArg, *ast.Binding, *ast.ExprStmt, *ast.Return, *ast.ListLit, *ast.TupleLit, *ast.MapLit, *ast.StructLit, *ast.StringInterp, *ast.GroupedExpr, *ast.Block:
 		return false
 	}
 	return true

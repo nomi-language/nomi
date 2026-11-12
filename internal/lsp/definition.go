@@ -69,7 +69,7 @@ func (s *Server) textDocumentDefinition(ctx *glsp.Context, params *protocol.Defi
 	}
 	_, tokenStart, _, tokenOK := doc.Analysis.TokenAt(pos)
 
-	// A punned pattern field (`.{home} = routes.public`) defines the
+	// A punned pattern field (`{home:} = routes.public`) defines the
 	// binding it names: its definition is the field it reads.
 	if field := doc.Analysis.PunnedFieldLabels[tokenStart]; tokenOK && field != nil && doc.Analysis.DefinitionAt(tokenStart) == sym {
 		return s.toUTF16Location(s.definitionLocationForSymbol(uri, field, field)), nil

@@ -6,8 +6,8 @@
 // what makes this the fixture the `T.member` edge exists for.
 import decls.{self, Beta, Other, Thing}
 
-impl Beta for Other {
-    fn beta(x: Other) -> Int {
+impl Beta for Other
+    fn beta(x: Other) -> Int
         Thing.go(decls.thing(x.n))
-    }
-}
+    end
+end

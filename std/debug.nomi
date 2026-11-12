@@ -27,14 +27,14 @@ import strings.String
 //# | Type | Display | Debug |
 //# |---|---|---|
 //# | `List<T>` | `[Display(v1), Display(v2), ...]`, `[]` for empty | `[Debug(...), ...]` |
-//# | `Vector<T>` | `#[Display(v1), ...]`, `#[]` for empty | `#[Debug(...), ...]` |
-//# | `Set<T>` | `%[Display(v1), ...]`, `%[]` for empty | `%[Debug(...), ...]` |
-//# | `Map<K, V>` | `%{Display(k) => Display(v), ...}`, `%{}` for empty | `%{Debug(...) => Debug(...), ...}` |
+//# | `Vector<T>` | `Vector[Display(v1), ...]`, `Vector[]` for empty | `Vector[Debug(...), ...]` |
+//# | `Set<T>` | `Set[Display(v1), ...]`, `Set[]` for empty | `Set[Debug(...), ...]` |
+//# | `Map<K, V>` | `{Display(k) => Display(v), ...}`, `{}` for empty | `{Debug(...) => Debug(...), ...}` |
 //# | `Maybe<T>` | `Some(Display(v))`, `None` | `Some(Debug(v))`, `None` |
 //# | `Result<T, E>` | `Ok(Display(v))`, `Err(Display(e))` | `Ok(Debug(v))`, `Err(Debug(e))` |
 //# | `Range<T>` | `Debug(start)..Debug(end)`, `Debug(start)..=Debug(end)`, `Debug(start)..` for unbounded integer ranges | identical |
 //# | Tuple `(...)` | `(Display(a), Display(b), ...)` | `(Debug(a), Debug(b), ...)` |
-//# | Anon struct `.{f: V, ...}` | `.{f: Display(v), ...}` | `.{f: Debug(v), ...}` |
+//# | Anon struct `{f: V, ...}` | `{f: Display(v), ...}` | `{f: Debug(v), ...}` |
 //#
 //# Tuples and anonymous structs are syntactic intrinsics with no named type
 //# to attach an impl to; they get language-level rendering, as their literal
@@ -105,6 +105,6 @@ import strings.String
 /// `Unit` as `Unit` — internals are host-side, so there is nothing structural
 /// to render). Value kinds with no declaration render deterministic
 /// placeholders: `<function>`, `<Task>`, `<Channel>`, `<file M>`, `<context>`.
-pub interface Debug {
+pub interface Debug
     fn inspect(value: self) -> String
-}
+end

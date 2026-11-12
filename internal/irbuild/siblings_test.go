@@ -51,9 +51,9 @@ func TestSiblingFile_PrivateDeclarationIsNotCallable(t *testing.T) {
 	// the file is importable and one of its two functions is reachable, so a
 	// check that looked at the FILE rather than the DECLARATION would pass.
 	private := stagedProgram(t, "main.nomi", map[string]string{
-		"main.nomi": "import {\n  std::io\n  helpers\n}\n\nfn main() {\n  io.print(\"${helpers.secret(2)}\")\n}\n",
-		"helpers.nomi": "pub fn public_one(x: Int) -> Int {\n  x + 1\n}\n\n" +
-			"fn secret(x: Int) -> Int {\n  x * 100\n}\n",
+		"main.nomi": "import\n  std::io\n  helpers\nend\n\nfn main()\n  io.print(\"${helpers.secret(2)}\")\nend\n",
+		"helpers.nomi": "pub fn public_one(x: Int) -> Int\n  x + 1\nend\n\n" +
+			"fn secret(x: Int) -> Int\n  x * 100\nend\n",
 	})
 	if _, err := Analyze(private); err == nil {
 		t.Fatal("the analyzer accepted a reference to a non-pub sibling declaration; " +

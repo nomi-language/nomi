@@ -170,7 +170,7 @@ func publishGreet(t *testing.T, p *testProxy, versions ...string) {
 		p.publish(t, "example.com/greet", v, map[string]string{
 			"go.mod":     "module example.com/greet\n\ngo 1.22\n\nrequire example.com/strutil v1.0.0\n",
 			"nomi.toml":  "[module]\nname = \"greet\"\n",
-			"greet.nomi": "pub fn hello(name: String) -> String {\n    \"hello, ${name} (" + v + ")\"\n}\n",
+			"greet.nomi": "pub fn hello(name: String) -> String\n    \"hello, ${name} (" + v + ")\"\nend\n",
 		})
 	}
 }
@@ -247,7 +247,7 @@ func TestFetch_ATamperedZipFailsVerification(t *testing.T) {
 	p.tamper(t, "example.com/greet", "v0.1.0", map[string]string{
 		"go.mod":     "module example.com/greet\n\ngo 1.22\n\nrequire example.com/strutil v1.0.0\n",
 		"nomi.toml":  "[module]\nname = \"greet\"\n",
-		"greet.nomi": "pub fn hello(name: String) -> String {\n    \"pwned\"\n}\n",
+		"greet.nomi": "pub fn hello(name: String) -> String\n    \"pwned\"\nend\n",
 	})
 	_, err := Fetch(app, Options{})
 	if err == nil {

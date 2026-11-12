@@ -22,9 +22,9 @@ undefined_name
 assert 1 == 1
 once fine = 5
 
-fn main() {
+fn main()
   io.inspect(x + a + b + fine)
-}
+end
 `)
 	var got []string
 	for _, e := range errs {

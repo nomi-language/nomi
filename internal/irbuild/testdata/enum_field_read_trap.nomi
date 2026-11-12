@@ -22,46 +22,46 @@
 // THIS FIXTURE PINS ITS OWN LINE NUMBERS. Every error text below embeds the
 // line the access sits on. Adding or removing a line above the last test moves
 // them.
-struct Circle {
+struct Circle
     radius: Float
-}
+end
 
 type Marker Int
 
-enum Shape {
+enum Shape
     Rect {height: Int}
     Wrap Circle
     Num Int
     embeds Marker
     Point
-}
+end
 
-test "struct-shaped payload without the name" {
+test "struct-shaped payload without the name"
     s = Shape.Rect{height: 2}
 
     assert s.radius == 0.0
-}
+end
 
-test "positional struct payload without the name" {
+test "positional struct payload without the name"
     s = Shape.Wrap(Circle{radius: 1.0})
 
     assert s.height == 2
-}
+end
 
-test "a scalar payload has no fields at all" {
+test "a scalar payload has no fields at all"
     s = Shape.Num(3)
 
     assert s.height == 2
-}
+end
 
-test "an embeds of a distinct carries no struct" {
+test "an embeds of a distinct carries no struct"
     s = Shape.Marker(7)
 
     assert s.height == 2
-}
+end
 
-test "a bare variant carries nothing" {
+test "a bare variant carries nothing"
     s = Shape.Point
 
     assert s.height == 2
-}
+end

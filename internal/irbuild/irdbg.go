@@ -445,7 +445,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 				if d.recv.tag != tagNamed || d.recv.def == nil || bl.g.implsByIface["Iter"][d.recv] != d {
 					continue
 				}
-				if it, userElem := bl.userSource(d.recv); it != nil && userElem == elem {
+				if it, userElem := bl.userSource(d.recv, userIterImpl{owner: bl.g, d: d}); it != nil && userElem == elem {
 					attempt(d.recv)
 				}
 			}
@@ -564,11 +564,11 @@ func (bl *irScalarBuilder) stdInstDebugSym(k kind) *ir.Symbol {
 	// kindInvalid: sentinel — no call site supplies a result kind. A Unit
 	// argument is admitted: k is a built instance, so Unit is its argument
 	// (`Captured<Unit>`), not a hole.
-	args, ok := bl.g.stdInstSolveHoled(f, tps, ib, []kind{k}, kindInvalid, k, true)
+	args, ok := bl.g.stdRecvTypeArgs(tps, ib, k, true)
 	if !ok {
 		return nil
 	}
-	inst, _ := s.instantiate(f, tps, args, nil, bl.g)
+	inst, _ := s.instantiate(f, tps, args, bl.g)
 	if inst == nil || len(inst.view.params) != 1 || inst.view.params[0] != k || inst.view.result != kindString {
 		return nil
 	}

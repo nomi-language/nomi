@@ -15,91 +15,91 @@ func TestTypeParamBound_UnboundedUseIsAnError(t *testing.T) {
 	}{
 		{
 			name:  "interface call",
-			decl:  "fn f<T>(x: T) -> String{bound} {\n    Display.to_string(x)\n}\n",
+			decl:  "fn f<T>(x: T) -> String{bound}\n    Display.to_string(x)\nend\n",
 			bound: " where T: Display",
 			want:  "main.nomi:2:23: `x` is a `T`, and `f` does not require Display of `T`",
 			help:  "require it in the signature: `fn f<T>(x: T) -> String where T: Display`",
 		},
 		{
 			name:  "pipe",
-			decl:  "fn f<T>(x: T) -> String{bound} {\n    x |> Display.to_string()\n}\n",
+			decl:  "fn f<T>(x: T) -> String{bound}\n    x |> Display.to_string()\nend\n",
 			bound: " where T: Display",
 			want:  "main.nomi:2:5: `x` is a `T`, and `f` does not require Display of `T`",
 			help:  "`fn f<T>(x: T) -> String where T: Display`",
 		},
 		{
 			name:  "interpolation",
-			decl:  "fn f<T>(x: T) -> String{bound} {\n    \"<${x}>\"\n}\n",
+			decl:  "fn f<T>(x: T) -> String{bound}\n    \"<${x}>\"\nend\n",
 			bound: " where T: Display",
 			want:  "main.nomi:2:9: `x` is a `T`, and `f` does not require Display of `T`",
 			help:  "`fn f<T>(x: T) -> String where T: Display`",
 		},
 		{
 			name:  "interpolated list",
-			decl:  "fn f<T>(xs: List<T>) -> String{bound} {\n    \"${xs}\"\n}\n",
+			decl:  "fn f<T>(xs: List<T>) -> String{bound}\n    \"${xs}\"\nend\n",
 			bound: " where T: Display",
 			want:  "main.nomi:2:8: `xs` holds values of `T`, and `f` does not require Display of `T`",
 			help:  "`fn f<T>(xs: List<T>) -> String where T: Display`",
 		},
 		{
 			name:  "ordering",
-			decl:  "fn f<T>(a: T, b: T) -> Bool{bound} {\n    a < b\n}\n",
+			decl:  "fn f<T>(a: T, b: T) -> Bool{bound}\n    a < b\nend\n",
 			bound: " where T: Comparable",
 			want:  "main.nomi:2:5: `a` is a `T`, and `f` does not require Comparable of `T`",
 			help:  "`fn f<T>(a: T, b: T) -> Bool where T: Comparable`",
 		},
 		{
 			name:  "hash",
-			decl:  "fn f<T>(x: T) -> Int{bound} {\n    Hashable.hash(x)\n}\n",
+			decl:  "fn f<T>(x: T) -> Int{bound}\n    Hashable.hash(x)\nend\n",
 			bound: " where T: Hashable",
 			want:  "main.nomi:2:19: `x` is a `T`, and `f` does not require Hashable of `T`",
 			help:  "`fn f<T>(x: T) -> Int where T: Hashable`",
 		},
 		{
 			name:  "generic call",
-			decl:  "fn shown<U>(u: U) -> String where U: Display {\n    Display.to_string(u)\n}\n\nfn f<T>(x: T) -> String{bound} {\n    shown(x)\n}\n",
+			decl:  "fn shown<U>(u: U) -> String where U: Display\n    Display.to_string(u)\nend\n\nfn f<T>(x: T) -> String{bound}\n    shown(x)\nend\n",
 			bound: " where T: Display",
 			want:  "main.nomi:6:11: `x` is a `T`, and `f` does not require Display of `T`",
 			help:  "`fn f<T>(x: T) -> String where T: Display`",
 		},
 		{
 			name:  "piped generic call",
-			decl:  "fn shown<U>(u: U) -> String where U: Display {\n    Display.to_string(u)\n}\n\nfn f<T>(x: T) -> String{bound} {\n    x |> shown()\n}\n",
+			decl:  "fn shown<U>(u: U) -> String where U: Display\n    Display.to_string(u)\nend\n\nfn f<T>(x: T) -> String{bound}\n    x |> shown()\nend\n",
 			bound: " where T: Display",
 			want:  "main.nomi:6:5: `x` is a `T`, and `f` does not require Display of `T`",
 			help:  "`fn f<T>(x: T) -> String where T: Display`",
 		},
 		{
 			name:  "sort",
-			decl:  "fn f<T>(xs: List<T>) -> List<T>{bound} {\n    Iter.sort(xs)\n}\n",
+			decl:  "fn f<T>(xs: List<T>) -> List<T>{bound}\n    Iter.sort(xs)\nend\n",
 			bound: " where T: Comparable",
 			want:  "main.nomi:2:15: `xs` holds values of `T`, and `f` does not require Comparable of `T`",
 			help:  "`fn f<T>(xs: List<T>) -> List<T> where T: Comparable`",
 		},
 		{
 			name:  "second parameter beside a bound one",
-			decl:  "fn f<A, B>(a: A, b: B) -> String where A: Display{bound} {\n    \"${a} ${b}\"\n}\n",
+			decl:  "fn f<A, B>(a: A, b: B) -> String where A: Display{bound}\n    \"${a} ${b}\"\nend\n",
 			bound: ", B: Display",
 			want:  "main.nomi:2:13: `b` is a `B`, and `f` does not require Display of `B`",
 			help:  "`fn f<A, B>(a: A, b: B) -> String where A: Display, B: Display`",
 		},
 		{
 			name:  "interface impl block",
-			decl:  "struct Box<T> {\n    value: T\n}\n\nimpl Display for Box<T>{bound} {\n    fn to_string(b: Box<T>) -> String {\n        \"[${b.value}]\"\n    }\n}\n",
+			decl:  "struct Box<T>\n    value: T\nend\n\nimpl Display for Box<T>{bound}\n    fn to_string(b: Box<T>) -> String\n        \"[${b.value}]\"\n    end\nend\n",
 			bound: " where T: Display",
 			want:  "main.nomi:7:13: `b.value` is a `T`, and `impl Display for Box<T>` does not require Display of `T`",
 			help:  "require it on the impl block: `impl Display for Box<T> where T: Display`",
 		},
 		{
 			name:  "inherent impl block",
-			decl:  "struct Box<T> {\n    value: T\n}\n\nimpl Box<T> {\n    fn show(b: Box<T>) -> String{bound} {\n        \"[${b.value}]\"\n    }\n}\n",
+			decl:  "struct Box<T>\n    value: T\nend\n\nimpl Box<T>\n    fn show(b: Box<T>) -> String{bound}\n        \"[${b.value}]\"\n    end\nend\n",
 			bound: " where T: Display",
 			want:  "main.nomi:7:13: `b.value` is a `T`, and `Box.show` does not require Display of `T`",
 			help:  "`fn show(b: Box<T>) -> String where T: Display`",
 		},
 		{
 			name:  "interface type parameter",
-			decl:  "interface Holder<T> {\n    fn get(h: self) -> T\n\n    fn shown(h: self) -> String{bound} {\n        \"${get(h)}\"\n    }\n}\n",
+			decl:  "interface Holder<T>\n    fn get(h: self) -> T\n\n    fn shown(h: self) -> String{bound}\n        \"${get(h)}\"\n    end\nend\n",
 			bound: " where T: Display",
 			want:  "main.nomi:5:12: this value is a `T`, and `Holder.shown` does not require Display of `T`",
 			help:  "`fn shown(h: self) -> String where T: Display`",
@@ -107,7 +107,7 @@ func TestTypeParamBound_UnboundedUseIsAnError(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := func(bound string) string {
-				return replaceBound(tc.decl, bound) + "\nfn main() {\n    Unit\n}\n"
+				return replaceBound(tc.decl, bound) + "\nfn main()\n    Unit\nend\n"
 			}
 			rejects(t, src(""), tc.want, tc.help)
 			admits(t, src(tc.bound))
@@ -129,16 +129,16 @@ func replaceBound(decl, bound string) string {
 func TestTypeParamBound_DebugAndEqualityNeedNone(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
-fn look<T>(x: T) -> String {
+fn look<T>(x: T) -> String
     "${Debug.inspect(x)} ${x == x}"
-}
+end
 
 type Plain Int
 
-fn main() {
+fn main()
     io.print(look(Plain(3)))
     io.print(look([1, 2]))
-}
+end
 `})
 	if want := "Plain(3) True\n[1, 2] True\n"; got != want {
 		t.Fatalf("output %q, want %q", got, want)
@@ -149,56 +149,56 @@ fn main() {
 func TestTypeParamBound_BoundedFormsRun(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
-fn shown<U>(u: U) -> String where U: Display {
+fn shown<U>(u: U) -> String where U: Display
     Display.to_string(u)
-}
+end
 
-fn wrap<T>(x: T) -> String where T: Display {
+fn wrap<T>(x: T) -> String where T: Display
     "<${x}> ${shown(x)} ${x |> shown()}"
-}
+end
 
-fn least<T>(xs: List<T>) -> List<T> where T: Comparable {
+fn least<T>(xs: List<T>) -> List<T> where T: Comparable
     Iter.sort(xs)
-}
+end
 
-struct Box<T> {
+struct Box<T>
     value: T
-}
+end
 
-impl Display for Box<T> where T: Display {
-    fn to_string(b: Box<T>) -> String {
+impl Display for Box<T> where T: Display
+    fn to_string(b: Box<T>) -> String
         "[${b.value}]"
-    }
-}
+    end
+end
 
-impl Box<T> {
-    fn show(b: Box<T>) -> String where T: Display {
+impl Box<T>
+    fn show(b: Box<T>) -> String where T: Display
         "box ${b.value}"
-    }
-}
+    end
+end
 
-interface Holder<T> {
+interface Holder<T>
     fn get(h: self) -> T
 
-    fn told(h: self) -> String where T: Display {
+    fn told(h: self) -> String where T: Display
         "holds ${get(h)}"
-    }
-}
+    end
+end
 
-impl Holder<Int> for Box<Int> {
-    fn get(b: Box<Int>) -> Int {
+impl Holder<Int> for Box<Int>
+    fn get(b: Box<Int>) -> Int
         b.value
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(wrap(1))
     io.print("${least([3, 1, 2])}")
     io.print("${Box{ value: 4 }}")
     io.print(Box.show(Box{ value: "s" }))
     io.print(Holder.told(Box{ value: 5 }))
     io.print("${[Box{ value: 6 }]}")
-}
+end
 `})
 	if want := "<1> 1 1\n[1, 2, 3]\n[4]\nbox s\nholds 5\n[[6]]\n"; got != want {
 		t.Fatalf("output %q, want %q", got, want)
@@ -212,12 +212,12 @@ func TestTypeParamBound_ConditionalImplNamesTheElement(t *testing.T) {
 
 type Foo Int
 
-fn show<T>(value: T) -> String where T: Display {
+fn show<T>(value: T) -> String where T: Display
     Display.to_string(value)
-}
+end
 
-fn main() {
+fn main()
     io.print(show([Foo(1)]))
-}
+end
 `, "no impl of `Display` for `Foo`")
 }

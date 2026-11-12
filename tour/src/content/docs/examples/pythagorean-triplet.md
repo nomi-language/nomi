@@ -15,27 +15,27 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// Every Pythagorean triplet `(a, b, c)`, with `a < b < c`, whose sides sum
 /// to `n`, smallest `a` first.
-pub fn triplets_with_sum(n: Int) -> List<(Int, Int, Int)> {
+pub fn triplets_with_sum(n: Int) -> List<(Int, Int, Int)>
     1..n / 3
     |> Iter.map(&triplet(n, &1))
     |> Maybe.values()
-}
+end
 
 /// The triplet summing to `n` whose shortest side is `a`, if there is one.
 /// With `c = n - a - b`, `a² + b² = c²` gives `b = (n² - 2na) / (2(n - a))`,
 /// so `b` is whole or there is no such triplet.
-fn triplet(n: Int, a: Int) -> Maybe<(Int, Int, Int)> {
+fn triplet(n: Int, a: Int) -> Maybe<(Int, Int, Int)>
     top = n * n - 2 * n * a
     bottom = 2 * (n - a)
     b = top / bottom
 
-    if top % bottom == 0 and a < b { (a, b, n - a - b) }
-}
+    if top % bottom == 0 and a < b then (a, b, n - a - b)
+end
 
 // FILE: pythagorean_triplet_test.nomi
 import pythagorean_triplet
 
-test "triplets with sum" {
+test "triplets with sum"
     [
         ("triplets whose sum is 12", 12, [(3, 4, 5)]),
         ("triplets whose sum is 108", 108, [(27, 36, 45)]),
@@ -68,10 +68,10 @@ test "triplets with sum" {
             ],
         ),
     ]
-    |> subtests (description, n, expected), description {
+    |> subtests (description, n, expected), description
         assert pythagorean_triplet.triplets_with_sum(n) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok triplets with sum (7 cases)

@@ -31,13 +31,13 @@
 // by `Date.parse` and rendered by `Display.to_string`, which are different
 // functions in different places, so a fraction-suppression or zero-padding bug
 // shows up as text rather than as a failure.
-import {
+import
     std::calendar.{Date, Days, Error, Months, NaiveDateTime, Time, Weeks, Years}
     std::duration.Duration
     std::io
-}
+end
 
-fn run() -> Result<Unit, Error> {
+fn run() -> Result<Unit, Error>
     // --- THE TYPED LITERAL AND ITS ACCESSORS ---------------------------------
     //
     // `Date"…"` desugars to `Literal.from_fragments` over a `List<Fragment<String>>`
@@ -183,28 +183,28 @@ fn run() -> Result<Unit, Error> {
     io.print("between = " + Duration.to_string(Time.between(Time"08:30:00"?, Time"08:33:00"?)))
 
     Ok(Unit)
-}
+end
 
 // fault_text renders the error side of a `Result<Date, Error>` so the parse
 // messages are OBSERVABLE. Without this they would be compared but never
 // printed, and a fixture that cannot print a value cannot pin it.
-fn fault_text(r: Result<Date, Error>) -> String {
-    case r {
+fn fault_text(r: Result<Date, Error>) -> String
+    case r
         Ok(d) -> "unexpectedly parsed: " + Date.to_string(d)
         Err(e) -> Display.to_string(e)
-    }
-}
+    end
+end
 
-fn time_fault_text(r: Result<Time, Error>) -> String {
-    case r {
+fn time_fault_text(r: Result<Time, Error>) -> String
+    case r
         Ok(t) -> "unexpectedly parsed: " + Time.to_string(t)
         Err(e) -> Display.to_string(e)
-    }
-}
+    end
+end
 
-fn main() {
-    case run() {
+fn main()
+    case run()
         Ok(_u) -> Unit
         Err(e) -> io.print("FAULT: " + Display.to_string(e))
-    }
-}
+    end
+end

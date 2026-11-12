@@ -67,7 +67,7 @@ func TestThen_NestedPrefixesEndAtThePipe(t *testing.T) {
 
 // Braces keep a pipe inside a `then` lambda.
 func TestThen_BracedBodyHoldsAPipe(t *testing.T) {
-	_, stages := pipeStages(t, parseExpr(t, "xs |> then fn v -> { v |> Iter.count() } |> dbg"))
+	_, stages := pipeStages(t, parseExpr(t, "xs |> then fn v ->\n    v |> Iter.count()\nend |> dbg"))
 	if len(stages) != 2 {
 		t.Fatalf("got %d stages, want 2", len(stages))
 	}
@@ -127,10 +127,10 @@ func TestThen_FunctionByNameIsACall(t *testing.T) {
 
 func TestThen_Errors(t *testing.T) {
 	for src, want := range map[string]string{
-		"x = then fn v -> v":            "`then` is a pipe stage: write `value |> then fn v -> ...`",
-		"x = 5 |> then f":               "`then` takes a lambda or a capture: write `then fn v -> ...` or `then &f(&1)`",
-		"x = 5 |> then":                 "`then` takes a lambda or a capture: write `then fn v -> ...` or `then &f(&1)`",
-		"x = 5 |> if then fn v -> v {}": "`then` is a pipe stage",
+		"x = then fn v -> v": "`then` is a pipe stage: write `value |> then fn v -> ...`",
+		"x = 5 |> then f":    "`then` takes a lambda or a capture: write `then fn v -> ...` or `then &f(&1)`",
+		"x = 5 |> then":      "`then` takes a lambda or a capture: write `then fn v -> ...` or `then &f(&1)`",
+		"x = if then 1":      "`then` is a pipe stage",
 	} {
 		if err := parseError(t, src); !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: error %q, want it to contain %q", src, err, want)

@@ -12,28 +12,28 @@ type Wrap<T> T
 derive Equatable for Wrap
 derive Hashable for Wrap
 
-impl Tagged<T> {
-    fn tag(Tagged((t, _)): Tagged<T>) -> String {
+impl Tagged<T>
+    fn tag(Tagged((t, _)): Tagged<T>) -> String
         t
-    }
-}
+    end
+end
 
-impl Display for Wrap<T> where T: Display {
-    fn to_string(value: Wrap<T>) -> String {
+impl Display for Wrap<T> where T: Display
+    fn to_string(value: Wrap<T>) -> String
         Wrap(inner) = value
         "<${inner}>"
-    }
-}
+    end
+end
 
-fn value<T>(Tagged((_, v)): Tagged<T>) -> T {
+fn value<T>(Tagged((_, v)): Tagged<T>) -> T
     v
-}
+end
 
-fn first<D>(xs: List<D>) -> D where D: Distinct<Int> {
+fn first<D>(xs: List<D>) -> D where D: Distinct<Int>
     List.head(xs)!
-}
+end
 
-test "a generic distinct takes its type argument from what it wraps" {
+test "a generic distinct takes its type argument from what it wraps"
     a = Tagged(("n", 1))
     b: Tagged<String> = Tagged("s", "x")
 
@@ -41,26 +41,26 @@ test "a generic distinct takes its type argument from what it wraps" {
     assert value(a) + 1 == 2
     assert value(b) == "x"
     assert Debug.inspect(a) == "Tagged(\"n\", 1)"
-}
+end
 
-test "a generic distinct over a list, a map and a function" {
+test "a generic distinct over a list, a map and a function"
     Ids(xs) = Ids[1, 2, 3]
-    kv = %Kvs{"a" => True}
+    kv = Kvs{"a" => True}
     double = Handler(fn x -> x * 2)
 
     assert xs == [1, 2, 3]
-    assert Debug.inspect(kv) == "Kvs(%{\"a\" => True})"
+    assert Debug.inspect(kv) == "Kvs({\"a\" => True})"
     assert double(21) == 42
-}
+end
 
-test "a generic distinct derives, implements and is a function value" {
+test "a generic distinct derives, implements and is a function value"
     w = 5 |> Wrap()
 
     assert w == Wrap(5)
     assert w != Wrap(6)
     assert "${w}" == "<5>"
-    assert Map.get(%{Wrap("k") => 1}, Wrap("k")) == Some(1)
+    assert Map.get({Wrap("k") => 1}, Wrap("k")) == Some(1)
     assert Iter.map([1, 2], Wrap) |> Iter.to_list() == [Wrap(1), Wrap(2)]
     assert Iter.map([Wrap("a")], fn Wrap(x) -> x) |> Iter.to_list() == ["a"]
     assert first([Wrap(4)]) == Wrap(4)
-}
+end

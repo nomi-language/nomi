@@ -308,6 +308,30 @@ func TestDescribe_PlanMarksTheLeftJoinedTable(t *testing.T) {
 	}
 }
 
+// A view's column names the table column under it, and the plan names the
+// aliases written inside the view, not the view's: sqlkit's outer_joined
+// counts on both.
+func TestDescribe_AViewIsPlannedIntoTheQuery(t *testing.T) {
+	m := append(slices.Clone(schema), Migration{Path: "3.sql", Text: "CREATE VIEW user_orders AS SELECT u.email, o.id FROM users u LEFT JOIN orders o ON o.user_id = u.id;"})
+	d := Describe(m, []string{"SELECT d.email, d.id FROM user_orders d"})
+	if d.Error != "" {
+		t.Fatalf("describe: %s", d.Error)
+	}
+	s := d.Statements[0]
+	want := []Column{
+		{Name: "email", Declared: "TEXT", Table: "users", Origin: "email", NotNull: true},
+		{Name: "id", Declared: "INTEGER", Table: "orders", Origin: "id", NotNull: true},
+	}
+	if !slices.Equal(s.Columns, want) {
+		t.Errorf("columns %+v", s.Columns)
+	}
+	if !slices.ContainsFunc(s.Plan, func(line string) bool {
+		return strings.HasPrefix(line, "SEARCH o ") && strings.Contains(line, "LEFT-JOIN")
+	}) {
+		t.Errorf("plan %q", s.Plan)
+	}
+}
+
 // A statement SQLite rejects is its message and the byte it names; a
 // migration it rejects stops the description at that migration.
 func TestDescribe_Errors(t *testing.T) {

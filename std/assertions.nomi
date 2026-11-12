@@ -14,41 +14,41 @@
 //# `testing.check(expr)` builds the same success or failure as an ordinary
 //# `Result<Subject, AssertionFailure>` value instead of propagating.
 
-import {
+import
     int.Int
     lists.List
     maybe.Maybe.{self, None}
     strings.String
-}
+end
 
 /// One observed value while evaluating an assertion expression.
-pub struct AssertionValue {
+pub struct AssertionValue
     expression: String
     value: String
     pipeline: List<AssertionPipelineStage>
-}
+end
 
 /// One observed value in a pipeline expression.
-pub struct AssertionPipelineStage {
+pub struct AssertionPipelineStage
     expression: String
     value: String
-}
+end
 
 /// Extra context for failures such as `assert valid`, where the asserted
 /// expression is a binding. `expression` is the source expression that produced
 /// the binding's value.
-pub struct AssertionBinding {
+pub struct AssertionBinding
     name: String
     expression: String
     value: String
     pipeline: List<AssertionPipelineStage>
-}
+end
 
 /// One assertion-authored detail row.
-pub struct AssertionDetail {
+pub struct AssertionDetail
     label: String
     value: String
-}
+end
 
 /// Additional details supplied by custom assertion values.
 ///
@@ -61,21 +61,21 @@ pub struct AssertionDetail {
 /// differs from it, the report shows a line diff of the two instead, the
 /// one a failed `==` over multi-line Strings shows: `-` lines are only in
 /// `expected`, `+` lines only in `actual`.
-pub struct AssertionDetails {
+pub struct AssertionDetails
     reason: String = "assertion failed"
     actual: Maybe<String> = None
     expected: Maybe<String> = None
     details: List<AssertionDetail> = []
-}
+end
 
 /// Custom values that can be used with `assert`, `refute`, and
 /// `testing.check`.
 ///
 /// `failure(value)` returns `None` when the value passes, or `Some(details)`
 /// when it fails. The runtime wraps those details in an `AssertionFailure`.
-pub interface Assertable {
+pub interface Assertable
     fn failure(value: self) -> Maybe<AssertionDetails>
-}
+end
 
 /// Structured failure produced by `assert`, `refute`, `testing.check` and
 /// `subtests`.
@@ -89,7 +89,7 @@ pub interface Assertable {
 /// explanation rows supplied by an `Assertable` value. `subtests` holds the
 /// failing rows of a `subtests` statement, whose `keyword` is `"subtests"`,
 /// and is empty for every other failure.
-pub struct AssertionFailure {
+pub struct AssertionFailure
     line: Int
     keyword: String
     expression: String
@@ -99,16 +99,16 @@ pub struct AssertionFailure {
     values: List<AssertionValue>
     details: List<AssertionDetail>
     subtests: List<SubtestFailure> = []
-}
+end
 
 /// One failing row of a `subtests` statement: the row, rendered as a
 /// `values:` row renders a value, and the failure that ended it.
-pub struct SubtestFailure {
+pub struct SubtestFailure
     row: String
     failure: AssertionFailure
-}
+end
 
-impl AssertionFailure {
+impl AssertionFailure
     /// Render this failure the same way `nomi test` and `nomi run` report it.
     //! failure = AssertionFailure{
     //!     line: 7,
@@ -124,4 +124,4 @@ impl AssertionFailure {
     //! assert String.contains(AssertionFailure.format(failure), "assert False")
     //
     pub host fn format(failure: AssertionFailure) -> String
-}
+end

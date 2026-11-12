@@ -1,10 +1,10 @@
-import {
+import
     std::assertions.AssertionFailure
     std::testing
     test_helpers
-}
+end
 
-test "equality assertions record compared values" {
+test "equality assertions record compared values"
     actual = "Ada"
     expected = "Grace"
     assert Err(failure) = testing.check(actual == expected)
@@ -16,9 +16,9 @@ test "equality assertions record compared values" {
     assert left.value == "\"Ada\""
     assert right.expression == "expected"
     assert right.value == "\"Grace\""
-}
+end
 
-test "predicate assertions record call arguments" {
+test "predicate assertions record call arguments"
     body = "created"
     assert Err(failure) = testing.check(String.contains(body, "ok"))
     observed_failure: AssertionFailure = failure
@@ -29,9 +29,9 @@ test "predicate assertions record call arguments" {
     assert observed.value == "\"created\""
     assert needle.expression == "\"ok\""
     assert needle.value == "\"ok\""
-}
+end
 
-test "length assertions show the source, observed length, and expected value" {
+test "length assertions show the source, observed length, and expected value"
     items = [1, 2]
     expected = 3
     assert Err(failure) = testing.check(Iter.count(items) == expected)
@@ -44,17 +44,17 @@ test "length assertions show the source, observed length, and expected value" {
     assert observed.value == "2"
     assert wanted.expression == "expected"
     assert wanted.value == "3"
-}
+end
 
-test "pattern assertion bindings expose field hovers" {
+test "pattern assertion bindings expose field hovers"
     signature = test_helpers.hover_signature(
         """
-        import {
+        import
           std::assertions.AssertionFailure
           std::testing
-        }
+        end
 
-        test "equality assertions record compared values" {
+        test "equality assertions record compared values"
           actual = "Ada"
           expected = "Grace"
           assert Err(failure) = testing.check(actual == expected)
@@ -64,9 +64,9 @@ test "pattern assertion bindings expose field hovers" {
           assert [left, _] = observed_failure.values
 
           assert left.expˇression == "actual"
-        }
+        end
         """
     )
 
     assert signature == "expression: String"
-}
+end

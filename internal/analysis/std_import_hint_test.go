@@ -19,16 +19,16 @@ func withStdSources(t *testing.T, sources map[string]string) {
 // mean.
 func TestStdImportHints(t *testing.T) {
 	withStdSources(t, map[string]string{
-		"http":      "pub enum Method {\n    Get\n    Post\n}\n\npub struct Request {\n    method: Method\n}\n",
-		"glossary":  "pub opaque struct Term {\n    n: Int\n}\n\nstruct Argument {\n    a: Int\n}\n",
-		"a":         "pub struct Shared {\n    x: Int\n}\n",
-		"b":         "pub struct Shared {\n    x: Int\n}\n\npub struct Wide {\n    x: Int\n}\n",
-		"c":         "pub struct Wide {\n    x: Int\n}\n",
-		"d":         "pub struct Wide {\n    x: Int\n}\n",
-		"e":         "pub struct Wide {\n    x: Int\n}\n",
-		"http_host": "pub struct Wire {\n    x: Int\n}\n",
-		"io":        "pub fn print(s: String) {\n}\n",
-		"empty":     "fn f() {\n}\n",
+		"http":      "pub enum Method\n    Get\n    Post\nend\n\npub struct Request\n    method: Method\nend\n",
+		"glossary":  "pub opaque struct Term\n    n: Int\nend\n\nstruct Argument\n    a: Int\nend\n",
+		"a":         "pub struct Shared\n    x: Int\nend\n",
+		"b":         "pub struct Shared\n    x: Int\nend\n\npub struct Wide\n    x: Int\nend\n",
+		"c":         "pub struct Wide\n    x: Int\nend\n",
+		"d":         "pub struct Wide\n    x: Int\nend\n",
+		"e":         "pub struct Wide\n    x: Int\nend\n",
+		"http_host": "pub struct Wire\n    x: Int\nend\n",
+		"io":        "pub fn print(s: String) end\n",
+		"empty":     "fn f() end\n",
 	})
 	types := []struct{ name, want string }{
 		{"Method", "import `std::http.Method`"},

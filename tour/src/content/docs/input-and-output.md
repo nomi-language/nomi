@@ -20,18 +20,18 @@ code:
 ```nomi-run
 import std::io
 
-fn main() {
+fn main()
     io.print("hello")
     io.write("no newline, ")
     io.write("so this continues the line\n")
-    io.inspect(.{name: "Ada", langs: ["en", "fr"]})
+    io.inspect({name: "Ada", langs: ["en", "fr"]})
     io.print((1, "x"))
-}
+end
 ```
 <!-- expect
 hello
 no newline, so this continues the line
-.{langs: ["en", "fr"], name: "Ada"}
+{langs: ["en", "fr"], name: "Ada"}
 (1, x)
 -->
 
@@ -57,15 +57,15 @@ stopped:
 import std::io.{self, Error, Writer}
 
 /// Write a report to whichever stream the caller picks.
-fn report(to: Writer, count: Int) -> Result<Unit, Error> {
+fn report(to: Writer, count: Int) -> Result<Unit, Error>
     to |> Writer.print("${count} items")
-}
+end
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     report(io.stdout, 3)?
     report(io.stderr, 0)?
     Ok(Unit)
-}
+end
 ```
 <!-- expect
 3 items
@@ -89,18 +89,18 @@ when reading fails. A loop over the input stops at `None`:
 import std::io
 
 // The lines of standard input that are not blank, until it ends.
-fn count_lines(count: Int) -> Result<Int, io.Error> {
-    case io.read_line()? {
+fn count_lines(count: Int) -> Result<Int, io.Error>
+    case io.read_line()?
         Some("") -> count_lines(count)
         Some(_) -> count_lines(count + 1)
         None -> Ok(count)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     run = io.capture("milk\n\neggs\nbread\n", fn -> count_lines(0))
     dbg run.value
-}
+end
 ```
 <!-- expect
 dbg line 14: run.value = Ok(3)
@@ -121,17 +121,17 @@ struct:
 ```nomi-run
 import std::io
 
-struct App {
+struct App
     args: List<String>
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
     Ok(App{args: startup.args})
-}
+end
 
-fn main() {
+fn main()
     io.print("${Iter.count(App.args)} arguments: ${String.join(App.args, ", ")}")
-}
+end
 ```
 <!-- expect
 0 arguments: 
@@ -153,15 +153,15 @@ To exit with another status, return [`Exit`](/reference/process/) from
 `error: ` before it, and its `code` is the exit status:
 
 ```nomi-run error
-import {
+import
     std::io
     std::process.Exit
-}
+end
 
-fn main() -> Result<Unit, Exit> {
+fn main() -> Result<Unit, Exit>
     io.eprint("checking the arguments")
     Err(Exit{code: 2, message: "usage: count <file>"})
-}
+end
 ```
 <!-- expect
 checking the arguments
@@ -193,26 +193,26 @@ program could not be started at all, such as `NotFound` when nothing on the
 `PATH` has its name:
 
 ```nomi-run
-import {
+import
     std::io
     std::process.{self, Command, Status}
     std::process_testing.{self, Answer}
-}
+end
 
 /// The current git branch, or `None` when git fails, as it does outside a
 /// repository.
-fn current_branch() -> Result<Maybe<String>, io.Error> {
+fn current_branch() -> Result<Maybe<String>, io.Error>
     command = Command{program: "git", args: ["branch", "--show-current"]}
     out = process.output(command)?
 
-    if Status.is_success(out.status) {
+    if Status.is_success(out.status) then
         Ok(Some(String.trim(Bytes.to_string(out.stdout)!)))
-    } else {
+    else
         Ok(None)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     in_repo = process_testing.run([Answer{program: "git", stdout: "main\n"}], current_branch)
     dbg in_repo.value
 
@@ -222,7 +222,7 @@ fn main() {
     )
 
     dbg outside.value
-}
+end
 ```
 <!-- expect
 dbg line 22: in_repo.value = Ok(Some("main"))

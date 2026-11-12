@@ -82,14 +82,14 @@ func expectErrContaining(t *testing.T, errs []analysis.TypeError, substr string)
 func TestUniversalDebug_NoBoundGenericTypeChecks(t *testing.T) {
 	src := `import std::io
 
-fn show<T>(x: T) -> String {
+fn show<T>(x: T) -> String
     Debug.inspect(x)
-}
+end
 
-fn main() -> Unit {
+fn main() -> Unit
     io.print(show(42))
     io.print(show("hi"))
-}
+end
 `
 	expectNoErrs(t, checkUniversalDebugProject(t, src))
 }
@@ -103,15 +103,17 @@ fn main() -> Unit {
 func TestUniversalDebug_BoundDebugOnNonDebugTypeChecks(t *testing.T) {
 	src := `import std::io
 
-struct P { x: Int }
+struct P
+    x: Int
+end
 
-fn show<T>(x: T) -> String where T: Debug {
+fn show<T>(x: T) -> String where T: Debug
     Debug.inspect(x)
-}
+end
 
-fn main() -> Unit {
+fn main() -> Unit
     io.print(show(P{x: 1}))
-}
+end
 `
 	expectNoErrs(t, checkUniversalDebugProject(t, src))
 }
@@ -123,15 +125,17 @@ fn main() -> Unit {
 func TestUniversalDebug_DisplayBoundStillErrors(t *testing.T) {
 	src := `import std::io
 
-struct P { x: Int }
+struct P
+    x: Int
+end
 
-fn show<T>(x: T) -> String where T: Display {
+fn show<T>(x: T) -> String where T: Display
     Display.to_string(x)
-}
+end
 
-fn main() -> Unit {
+fn main() -> Unit
     io.print(show(P{x: 1}))
-}
+end
 `
 	errs := checkUniversalDebugProject(t, src)
 	expectErrContaining(t, errs, "Display")

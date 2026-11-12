@@ -9,17 +9,17 @@ pub import shapes.origin_x
 /// spelling. Different field set, so a mix-up would also be observable — but
 /// the point of the fixture is that a mix-up is not REPRESENTABLE: the two
 /// are two types with two identities at run time.
-struct Point {
+struct Point
     label: String
     weight: Int
-}
+end
 
-fn heavier(p: Point) -> Int {
+fn heavier(p: Point) -> Int
     p.weight + 1
-}
+end
 
-fn main() {
+fn main()
     mine = Point{label: "here", weight: 41}
     io.print("label = ${mine.label}")
     io.print("heavier = ${heavier(mine)}")
-}
+end

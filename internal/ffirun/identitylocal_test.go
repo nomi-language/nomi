@@ -48,8 +48,8 @@ func stageLocalIdentityProject(t *testing.T) string {
 	write("project/assets/embedder.go", "package assets\n\nimport \"embed\"\n\n"+
 		"//go:embed *.txt\nvar fs embed.FS\n")
 	write("project/assets/asset.txt", "an embedded asset\n")
-	write("project/assets/query.nomi", "fn q() {}\n")
-	write("project/main.nomi", "fn main() {\n  io.print(\"hello\")\n}\n")
+	write("project/assets/query.nomi", "fn q() end\n")
+	write("project/main.nomi", "fn main()\n  io.print(\"hello\")\nend\n")
 	return root
 }
 
@@ -173,14 +173,14 @@ func TestCache_LocalGoIdentityInvalidates(t *testing.T) {
 	// discriminates — a project scope that kept `.nomi` fails here. A first
 	// draft put the file at the project root, where nothing could ever select
 	// it, and the row passed while defending nothing.
-	edit("assets/query.nomi", "fn q() { io.print(\"edited\") }\n")
+	edit("assets/query.nomi", "fn q()\n    io.print(\"edited\")\nend\n")
 	if !rerun("nomi source beside an embed directive") {
 		t.Fatal("cache MISSED for a `.nomi` edit next to a `//go:embed`: the " +
 			"wrapper calls rt.LoadFile(entry), so a source edit must propagate " +
 			"without a Go rebuild. Sweeping project `.nomi` into the key trades " +
 			"one stale-answer bug for an 18 MB relink on every source edit.")
 	}
-	edit("main.nomi", "fn main() {\n  io.print(\"edited\")\n}\n")
+	edit("main.nomi", "fn main()\n  io.print(\"edited\")\nend\n")
 	if !rerun("nomi source at the project root") {
 		t.Fatal("cache MISSED for a plain `.nomi` edit")
 	}
@@ -281,7 +281,7 @@ func TestLocalIdentity_NomiScopeSplit(t *testing.T) {
 	write("go.mod", "module scopesplit\n\ngo 1.26.3\n")
 	write("pkg/embedder.go", "package pkg\n\nimport \"embed\"\n\n//go:embed *\nvar fs embed.FS\n")
 	write("pkg/asset.txt", "an embedded asset\n")
-	write("pkg/program.nomi", "fn main() {}\n")
+	write("pkg/program.nomi", "fn main() end\n")
 
 	compilerSel, err := identityFilesScoped(root, compilerTreeScope)
 	if err != nil {

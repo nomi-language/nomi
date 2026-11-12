@@ -1,30 +1,30 @@
-import {
+import
     std::duration.Duration
     std::io
     app.{self, EffectsApp}
     clocks.FakeClock
     effects.{Clock, Console, Logger}
     greeter
-}
+end
 
-struct SetupHandle {
+struct SetupHandle
     label: String
-}
+end
 
-fn close(_value: SetupHandle) -> Unit {
+fn close(_value: SetupHandle) -> Unit
     Unit
-}
+end
 
-pub fn boot(startup: Startup) -> Result<EffectsApp, String> {
-    deployment = case Map.get(startup.env, "NOMI_ENV") {
+pub fn boot(startup: Startup) -> Result<EffectsApp, String>
+    deployment = case Map.get(startup.env, "NOMI_ENV")
         Some(value) -> value
         None -> "dev"
-    }
+    end
 
     Ok(app.load(deployment, Context.root()))
-}
+end
 
-fn main() {
+fn main()
     io.print("deployment=${EffectsApp.deployment}")
     io.print("port=${EffectsApp.port}")
     io.print("database=${EffectsApp.database_url}")
@@ -46,24 +46,24 @@ fn main() {
 
     io.print("clock-before=${Clock.now(EffectsApp.clock)}")
 
-    {
+    begin
         with EffectsApp.clock = FakeClock{at: 4242}
         io.print("clock-inside=${Clock.now(EffectsApp.clock)}")
-    }
+    end
 
     io.print("clock-after=${Clock.now(EffectsApp.clock)}")
 
     io.print("context-before=${Context.deadline_remaining(EffectsApp.context) != None}")
 
-    {
+    begin
         with EffectsApp.context = Context.with_timeout(EffectsApp.context, Duration.seconds(60))
 
         io.print("context-inside=${Context.deadline_remaining(EffectsApp.context) != None}")
-    }
+    end
 
     io.print("context-after=${Context.deadline_remaining(EffectsApp.context) != None}")
 
     greeter.greet("Ada")
     Logger.warn(EffectsApp.logger, "config checked")
     Console.writeln(EffectsApp.console, "console ready")
-}
+end

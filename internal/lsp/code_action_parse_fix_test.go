@@ -50,177 +50,46 @@ func applyAllEdits(content string, action protocol.CodeAction) string {
 }
 
 // Each fix gives the program the user meant: it checks with no
-// diagnostics, and `nomi fmt` leaves it as it is. (A case holding a braced
-// arm is one `nomi fmt` writes with every arm broken and a blank line
-// between arms, so the sibling arms here are written that way already; the
-// fix itself only touches the arm it braces.)
+// diagnostics, and `nomi fmt` leaves it as it is.
 func TestParseFix_RepairsTheProgram(t *testing.T) {
 	for _, tc := range []struct{ name, title, src, want string }{
 		{
-			"case arm, body on the next line", "Put the arm's body in braces",
-			`import std::io
-
-pub fn f(r: Result<Int, String>) -> Int {
-    case r {
-        Ok(n) ->
-            io.print("got ${n}")
-            n
-
-        Err(_) -> 0
-    }
-}
-`,
-			`import std::io
-
-pub fn f(r: Result<Int, String>) -> Int {
-    case r {
-        Ok(n) -> {
-            io.print("got ${n}")
-            n
-        }
-
-        Err(_) -> 0
-    }
-}
-`,
-		},
-		{
-			"case arm, body on the arrow's line", "Put the arm's body in braces",
-			`import std::io
-
-pub fn f(r: Result<Int, String>) -> Int {
-    case r {
-        Ok(n) -> io.print("got ${n}")
-              n
-
-        Err(_) -> 0
-    }
-}
-`,
-			`import std::io
-
-pub fn f(r: Result<Int, String>) -> Int {
-    case r {
-        Ok(n) -> {
-            io.print("got ${n}")
-            n
-        }
-
-        Err(_) -> 0
-    }
-}
-`,
-		},
-		{
-			"else arm", "Put the arm's body in braces",
-			`import std::io
-
-pub fn f(r: Result<Int, String>) -> Int {
-    Ok(n) = r else {
-        Err(msg) ->
-            io.print(msg)
-            0
-    }
-
-    n
-}
-`,
-			`import std::io
-
-pub fn f(r: Result<Int, String>) -> Int {
-    Ok(n) = r else {
-        Err(msg) -> {
-            io.print(msg)
-            0
-        }
-    }
-
-    n
-}
-`,
-		},
-		{
-			"lambda argument", "Put the lambda's body in braces",
-			`import std::io
-
-pub fn f(xs: List<Int>) -> Int {
-    xs
-    |> Iter.reduce(0, fn acc, x ->
-        io.print("x")
-        acc + x)
-}
-`,
-			`import std::io
-
-pub fn f(xs: List<Int>) -> Int {
-    xs
-    |> Iter.reduce(0, fn acc, x -> {
-        io.print("x")
-        acc + x
-    })
-}
-`,
-		},
-		{
-			"lambda argument closed below", "Put the lambda's body in braces",
-			`import std::io
-
-pub fn f(xs: List<Int>) {
-    xs
-    |> Iter.each(fn x ->
-        io.print("x")
-        io.print("${x}")
-    )
-}
-`,
-			`import std::io
-
-pub fn f(xs: List<Int>) {
-    xs
-    |> Iter.each(fn x -> {
-        io.print("x")
-        io.print("${x}")
-    })
-}
-`,
-		},
-		{
 			"doc comment run", "Use `//` comments",
-			`pub fn f(text: String) -> Int {
+			`pub fn f(text: String) -> Int
     /// if text == "" { 0 }
     /// else
     String.length(text)
-}
+end
 `,
-			`pub fn f(text: String) -> Int {
+			`pub fn f(text: String) -> Int
     // if text == "" { 0 }
     // else
     String.length(text)
-}
+end
 `,
 		},
 		{
 			"prompt before a statement", "Use `//` comments",
-			`pub fn f(x: Int) -> Int {
+			`pub fn f(x: Int) -> Int
     //! assert f(1) == 1
     x
-}
+end
 `,
-			`pub fn f(x: Int) -> Int {
+			`pub fn f(x: Int) -> Int
     // assert f(1) == 1
     x
-}
+end
 `,
 		},
 		{
 			"another language's binding", "Remove `let`",
-			"pub fn f() -> Int {\n    let x = 1\n    x\n}\n",
-			"pub fn f() -> Int {\n    x = 1\n    x\n}\n",
+			"pub fn f() -> Int\n    let x = 1\n    x\nend\n",
+			"pub fn f() -> Int\n    x = 1\n    x\nend\n",
 		},
 		{
 			"a method call", "Call `Iter.count`",
-			"pub fn f(xs: List<Int>) -> Int {\n    xs.len()\n}\n",
-			"pub fn f(xs: List<Int>) -> Int {\n    Iter.count(xs)\n}\n",
+			"pub fn f(xs: List<Int>) -> Int\n    xs.len()\nend\n",
+			"pub fn f(xs: List<Int>) -> Int\n    Iter.count(xs)\nend\n",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -256,8 +125,8 @@ pub fn f(xs: List<Int>) {
 // A parse error with no fix gets none.
 func TestParseFix_NoneForOtherErrors(t *testing.T) {
 	s := NewServer()
-	src := "pub fn f() -> Int {\n    1 +\n}\n"
-	for _, title := range []string{"Put the arm's body in braces", "Put the lambda's body in braces", "Use `//` comments"} {
+	src := "pub fn f() -> Int\n    1 +\nend\n"
+	for _, title := range []string{"Use `//` comments", "Remove `let`"} {
 		if got := parseFixActions(t, s, src, title); len(got) != 0 {
 			t.Errorf("offered %q for an unrelated error", title)
 		}

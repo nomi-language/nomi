@@ -220,7 +220,7 @@
 05-calendar-and-time/dates_test.nomi:literal Date`2026-06-04` at 97:40 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date`2026-06-05` at 60:29 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date`2026-12-30` at 55:13 failure	ran
-05-calendar-and-time/dates_test.nomi:literal Date`2026-12-31` at 37:11 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-12-31` at 37:12 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date`2027-01-04` at 61:31 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date`2028-02-29` at 83:32 failure	ran
 05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T10:00:00-04:00[America/New_York]` at 81:29 failure	ran
@@ -266,7 +266,7 @@
 05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T09:30:00` at 78:30 failure	ran
 05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T09:30:00` at 83:9 failure	ran
 05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T10:00:00` at 85:9 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T11:30:00` at 94:11 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T11:30:00` at 94:12 failure	ran
 05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T13:45:00` at 79:32 failure	ran
 05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T14:30:00.5` at 76:45 failure	ran
 05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T14:30:00` at 10:10 failure	ran
@@ -316,13 +316,8 @@
 05-calendar-and-time/times_test.nomi:literal Time`23:30:00` at 24:12 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time`23:30:00` at 28:23 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time`23:45:12.5` at 17:12 failure	ran
-06-collections/contains_test.nomi:List<Int>.contains	ran
-06-collections/contains_test.nomi:Map<String, Int>.contains	ran
-06-collections/contains_test.nomi:Range<Int>.contains	ran
-06-collections/contains_test.nomi:Set<Int>.contains	ran
 06-collections/contains_test.nomi:Tag.equal	ran
 06-collections/contains_test.nomi:Tag.inspect	ran
-06-collections/contains_test.nomi:Vector<Int>.contains	ran
 06-collections/contains_test.nomi:all_present	ran
 06-collections/contains_test.nomi:all_present	ran
 06-collections/contains_test.nomi:all_present	ran
@@ -568,6 +563,21 @@
 08-pattern-matching/try_error_conversion_test.nomi:describe_twice	ran
 08-pattern-matching/try_error_conversion_test.nomi:error_text	ran
 08-pattern-matching/try_error_conversion_test.nomi:parse_small	ran
+08-pattern-matching/try_from/errors.nomi:ApiError.from	ran
+08-pattern-matching/try_from/errors.nomi:ApiError.from	ran
+08-pattern-matching/try_from/errors.nomi:ApiError.inspect	ran
+08-pattern-matching/try_from/errors.nomi:DiskError.inspect	ran
+08-pattern-matching/try_from/errors.nomi:NetError.inspect	ran
+08-pattern-matching/try_from/errors.nomi:Noted.from	ran
+08-pattern-matching/try_from/errors.nomi:Noted.inspect	ran
+08-pattern-matching/try_from/try_from_test.nomi:LocalError.inspect	ran
+08-pattern-matching/try_from/try_from_test.nomi:String.from	ran
+08-pattern-matching/try_from/try_from_test.nomi:as_text	ran
+08-pattern-matching/try_from/try_from_test.nomi:fetch	ran
+08-pattern-matching/try_from/try_from_test.nomi:handle	ran
+08-pattern-matching/try_from/try_from_test.nomi:local	ran
+08-pattern-matching/try_from/try_from_test.nomi:noted	ran
+08-pattern-matching/try_from/try_from_test.nomi:read	ran
 08-pattern-matching/try_test.nomi:bool_result	ran
 08-pattern-matching/try_test.nomi:calc	ran
 08-pattern-matching/try_test.nomi:double	ran
@@ -772,6 +782,7 @@
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi:Box.gather	ran
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi:Box.grow	ran
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi:Box.grow	ran
+10-generics-and-type-wrappers/expansive_impl_member_test.nomi:Box.inspect	ran
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi:Box.inspect	ran
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi:Box.inspect	ran
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi:Box.inspect	ran
@@ -1220,6 +1231,7 @@
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:User.to_json	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:admin	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:user	ran
+11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:users.User.to_json_field	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users/teams.nomi:Member.inspect	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users/teams.nomi:member	ran
 11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.got	ran
@@ -1351,6 +1363,9 @@
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.to_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.to_string	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:counted	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:cross_file_derives_test.Purse.to_json_field	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:cross_file_derives_test.Spare.to_json_field	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:cross_file_derives_test.Wallet.to_json_field	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:wallet	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.compare	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.equal	ran
@@ -1381,6 +1396,10 @@
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.inspect	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.to_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.to_string	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:money.Cents.to_json_field	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:money.Coin.to_json_field	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:money.Money.to_json_field	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:money.Tally.to_json_field	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Coord.compare	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Coord.equal	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Coord.hash	ran
@@ -1475,7 +1494,7 @@
 12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Tree.inspect	ran
 12-derives-and-standard-interfaces/generic_debug/main.nomi:Box.inspect	ran
 12-derives-and-standard-interfaces/generic_debug/main.nomi:Box.inspect	ran
-12-derives-and-standard-interfaces/generic_debug/main.nomi:Box.to_string	ran
+12-derives-and-standard-interfaces/generic_debug/main.nomi:Display.to_string	ran
 12-derives-and-standard-interfaces/generic_debug/main.nomi:Display.to_string	ran
 12-derives-and-standard-interfaces/generic_debug/main.nomi:Tree.inspect	ran
 12-derives-and-standard-interfaces/generic_debug/main.nomi:main	ran
@@ -1671,6 +1690,8 @@
 14-modules-and-packaging/partner_test_derive/todos.nomi:TodoJson.inspect	ran
 14-modules-and-packaging/partner_test_derive/todos.nomi:TodoJson.to_json	ran
 14-modules-and-packaging/partner_test_derive/todos.nomi:encoded	ran
+14-modules-and-packaging/partner_test_derive/todos.nomi:todos.Tag.to_json_field	ran
+14-modules-and-packaging/partner_test_derive/todos.nomi:todos.TodoJson.to_json_field	ran
 14-modules-and-packaging/partner_test_derive/todos_test.nomi:TodoJson.equal	ran
 14-modules-and-packaging/partner_test_derive/todos_test.nomi:TodoJson.from_json	ran
 14-modules-and-packaging/partner_test_derive/todos_test.nomi:`!` failure Json.Error	ran
@@ -1753,6 +1774,7 @@
 15-app-and-defer/deadline_floor/supervisor_app.nomi:main	ran
 15-app-and-defer/effects/app.nomi:EffectsApp.database_url default	ran
 15-app-and-defer/effects/app.nomi:EffectsApp.deployment default	ran
+15-app-and-defer/effects/app.nomi:EffectsApp.inspect	ran
 15-app-and-defer/effects/app.nomi:EffectsApp.max_connections default	ran
 15-app-and-defer/effects/app.nomi:EffectsApp.port default	ran
 15-app-and-defer/effects/app.nomi:load	ran
@@ -1872,6 +1894,7 @@
 16-concurrency/jobs/app.nomi:Greeting.inspect	ran
 16-concurrency/jobs/app.nomi:Greeting.mood default	ran
 16-concurrency/jobs/app.nomi:Greeting.to_json	ran
+16-concurrency/jobs/app.nomi:app.Greeting.to_json_field	ran
 16-concurrency/jobs/app.nomi:boot	ran
 16-concurrency/jobs/app.nomi:boot failure	ran
 16-concurrency/jobs/app.nomi:greet	ran
@@ -2041,15 +2064,10 @@
 18-ffi-and-dynamic/inline_go_block_app/ffi.nomi:make_box	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/inline_go_block_app/ffi.nomi:make_box_raw	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/inline_go_block_app/main.nomi:main	UNLINKED: a project Go binding this process does not link
-18-ffi-and-dynamic/json_anon_struct_test.nomi:.{detail: maybe.Maybe<Unit>, error: String}.to_json	ran
-18-ffi-and-dynamic/json_anon_struct_test.nomi:.{error: String}.to_json	ran
-18-ffi-and-dynamic/json_anon_struct_test.nomi:.{extra: maybe.Maybe<.{k: String}>, items: List<.{done: Bool, id: Int}>, name: String}.to_json	ran
-18-ffi-and-dynamic/json_anon_struct_test.nomi:.{order: maybe.Maybe<Int>, title: String}.to_json	ran
-18-ffi-and-dynamic/json_anon_struct_test.nomi:.{order: maybe.Maybe<Int>}.to_json	ran
-18-ffi-and-dynamic/json_anon_struct_test.nomi:.{p: .{x: Int, y: Int}}.to_json	ran
-18-ffi-and-dynamic/json_anon_struct_test.nomi:.{user: json_anon_struct_test.User}.to_json	ran
-18-ffi-and-dynamic/json_anon_struct_test.nomi:List<.{x: Int}>.to_json	ran
-18-ffi-and-dynamic/json_anon_struct_test.nomi:Map<String, .{x: Int}>.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:List<{x: Int}>.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:List<{x: Int}>.to_json_field	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:Map<String, {x: Int}>.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:Map<String, {x: Int}>.to_json_field	ran
 18-ffi-and-dynamic/json_anon_struct_test.nomi:Pinned.equal	ran
 18-ffi-and-dynamic/json_anon_struct_test.nomi:Pinned.from_json	ran
 18-ffi-and-dynamic/json_anon_struct_test.nomi:Pinned.inspect	ran
@@ -2060,11 +2078,28 @@
 18-ffi-and-dynamic/json_anon_struct_test.nomi:User.to_json	ran
 18-ffi-and-dynamic/json_anon_struct_test.nomi:decoded	ran
 18-ffi-and-dynamic/json_anon_struct_test.nomi:encoded	ran
-18-ffi-and-dynamic/json_anon_struct_test.nomi:maybe.Maybe<.{x: Int}>.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:json_anon_struct_test.Pinned.to_json_field	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:json_anon_struct_test.User.to_json_field	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:maybe.Maybe<{x: Int}>.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:maybe.Maybe<{x: Int}>.to_json_field	ran
 18-ffi-and-dynamic/json_anon_struct_test.nomi:shape_error	ran
 18-ffi-and-dynamic/json_anon_struct_test.nomi:shape_error	ran
 18-ffi-and-dynamic/json_anon_struct_test.nomi:shape_error	ran
 18-ffi-and-dynamic/json_anon_struct_test.nomi:shape_error	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{detail: maybe.Maybe<Int>, error: String}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{detail: maybe.Maybe<Int>, error: String}.to_json_field	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{error: String}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{error: String}.to_json_field	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{extra: maybe.Maybe<{k: String}>, items: List<{done: Bool, id: Int}>, name: String}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{extra: maybe.Maybe<{k: String}>, items: List<{done: Bool, id: Int}>, name: String}.to_json_field	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{order: maybe.Maybe<Int>, title: String}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{order: maybe.Maybe<Int>, title: String}.to_json_field	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{order: maybe.Maybe<Int>}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{order: maybe.Maybe<Int>}.to_json_field	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{p: {x: Int, y: Int}}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{p: {x: Int, y: Int}}.to_json_field	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{user: json_anon_struct_test.User}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:{user: json_anon_struct_test.User}.to_json_field	ran
 18-ffi-and-dynamic/json_container_decode_test.nomi:decode	ran
 18-ffi-and-dynamic/json_container_decode_test.nomi:decode	ran
 18-ffi-and-dynamic/json_decode_error_text_test.nomi:decode_error	ran
@@ -2076,6 +2111,8 @@
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.from_json	ran
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.inspect	ran
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.to_json	ran
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:json_derive_defaults_test.Game.to_json_field	ran
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:json_derive_defaults_test.Shape.to_json_field	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Account.equal	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Account.from_json	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Account.inspect	ran
@@ -2088,17 +2125,24 @@
 18-ffi-and-dynamic/json_derive_test.nomi:User.from_json	ran
 18-ffi-and-dynamic/json_derive_test.nomi:User.inspect	ran
 18-ffi-and-dynamic/json_derive_test.nomi:User.to_json	ran
+18-ffi-and-dynamic/json_derive_test.nomi:json_derive_test.Account.to_json_field	ran
+18-ffi-and-dynamic/json_derive_test.nomi:json_derive_test.Address.to_json_field	ran
+18-ffi-and-dynamic/json_derive_test.nomi:json_derive_test.User.to_json_field	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.equal	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.from_json	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.inspect	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.to_json	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Set<String>.to_json	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Set<String>.to_json_field	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.equal	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.from_json	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.inspect	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.to_json	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Vector<Int>.to_json	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Vector<Int>.to_json_field	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:decoded	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:json_enum_derive_test.Circle.to_json_field	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:json_enum_derive_test.Shape.to_json_field	ran
 18-ffi-and-dynamic/json_test.nomi:describe_root	ran
 18-ffi-and-dynamic/json_test.nomi:extract_first_tag	ran
 18-ffi-and-dynamic/json_test.nomi:sample_json	ran
@@ -2341,7 +2385,7 @@
 19-locales/locale_test.nomi:literal Locale`en` at 67:69 failure	ran
 19-locales/locale_test.nomi:literal Locale`en` at 68:54 failure	ran
 19-locales/locale_test.nomi:literal Locale`en` at 68:69 failure	ran
-19-locales/locale_test.nomi:literal Locale`en` at 73:39 failure	ran
+19-locales/locale_test.nomi:literal Locale`en` at 73:38 failure	ran
 19-locales/locale_test.nomi:literal Locale`es-419` at 45:63 failure	ran
 19-locales/locale_test.nomi:literal Locale`es-419` at 46:29 failure	ran
 19-locales/locale_test.nomi:literal Locale`es-419` at 46:49 failure	ran
@@ -2362,7 +2406,7 @@
 19-locales/locale_test.nomi:literal Locale`pl` at 65:72 failure	ran
 19-locales/locale_test.nomi:literal Locale`pl` at 69:44 failure	ran
 19-locales/locale_test.nomi:literal Locale`pl` at 69:59 failure	ran
-19-locales/locale_test.nomi:literal Locale`pl` at 73:15 failure	ran
+19-locales/locale_test.nomi:literal Locale`pl` at 73:14 failure	ran
 19-locales/locale_test.nomi:literal Locale`pt-AO` at 48:29 failure	ran
 19-locales/locale_test.nomi:literal Locale`pt-AO` at 48:48 failure	ran
 19-locales/locale_test.nomi:literal Locale`pt-BR` at 29:26 failure	ran
@@ -2672,6 +2716,7 @@
 20-data-access/jwt_test.nomi:`!` failure JwtError	ran
 20-data-access/jwt_test.nomi:before_expiry	ran
 20-data-access/jwt_test.nomi:ec_public	ran
+20-data-access/jwt_test.nomi:jwt_test.Login.to_json_field	ran
 20-data-access/jwt_test.nomi:rsa_private	ran
 20-data-access/jwt_test.nomi:rsa_public_pem	ran
 20-data-access/jwt_test.nomi:secret	ran
@@ -2692,6 +2737,7 @@
 20-data-access/sessions_test.nomi:check Route literal at 56:13 failure	ran
 20-data-access/sessions_test.nomi:get	ran
 20-data-access/sessions_test.nomi:home	ran
+20-data-access/sessions_test.nomi:sessions_test.Visit.to_json_field	ran
 20-data-access/sessions_test.nomi:sign_in	ran
 20-data-access/sessions_test.nomi:sign_out	ran
 20-data-access/sessions_test.nomi:signed_in	ran
@@ -2732,10 +2778,9 @@
 20-data-access/storage_test.nomi:check Route literal at 186:40 failure	ran
 20-data-access/storage_test.nomi:check Url literal at 184:37 failure	ran
 20-data-access/storage_test.nomi:check Url literal at 20:57 failure	ran
-20-data-access/storage_test.nomi:check Url literal at 58:35 failure	ran
 20-data-access/storage_test.nomi:fresh_local	ran
 20-data-access/storage_test.nomi:serve	ran
-20-data-access/transactions_test.nomi:ForgetsRollback.begin	ran
+20-data-access/transactions_test.nomi:ForgetsRollback.begin_transaction	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.close	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.commit	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.dialect	ran
@@ -2745,7 +2790,7 @@
 20-data-access/transactions_test.nomi:ForgetsRollback.ping	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.query	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.rollback	ran
-20-data-access/transactions_test.nomi:NeverCloses.begin	ran
+20-data-access/transactions_test.nomi:NeverCloses.begin_transaction	ran
 20-data-access/transactions_test.nomi:NeverCloses.close	ran
 20-data-access/transactions_test.nomi:NeverCloses.commit	ran
 20-data-access/transactions_test.nomi:NeverCloses.dialect	ran
@@ -3132,22 +3177,22 @@ exercism/ledger/ledger_test.nomi:literal Currency`USD` at 32:13 failure	ran
 exercism/ledger/ledger_test.nomi:literal Currency`USD` at 46:13 failure	ran
 exercism/ledger/ledger_test.nomi:literal Currency`USD` at 60:13 failure	ran
 exercism/ledger/ledger_test.nomi:literal Currency`USD` at 76:13 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 155:25 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 156:25 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 23:25 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 36:25 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 50:25 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 63:25 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 64:25 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 65:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 155:24 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 156:24 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 23:24 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 36:24 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 50:24 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 63:24 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 64:24 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 65:24 failure	ran
 exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 80:27 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 95:25 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-01-02` at 35:25 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-01-02` at 49:25 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-03-12` at 107:25 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-03-12` at 119:25 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-03-12` at 131:25 failure	ran
-exercism/ledger/ledger_test.nomi:literal Date`2015-03-12` at 143:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 95:24 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-02` at 35:24 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-02` at 49:24 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-03-12` at 107:24 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-03-12` at 119:24 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-03-12` at 131:24 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-03-12` at 143:24 failure	ran
 exercism/lens-person/lens_person.nomi:Address.inspect	ran
 exercism/lens-person/lens_person.nomi:Born.inspect	ran
 exercism/lens-person/lens_person.nomi:Name.inspect	ran
@@ -3157,7 +3202,7 @@ exercism/lens-person/lens_person.nomi:rename_streets	ran
 exercism/lens-person/lens_person.nomi:set_birth_month	ran
 exercism/lens-person/lens_person.nomi:set_current_street	ran
 exercism/lens-person/lens_person_test.nomi:literal Date`1970-03-02` at 15:13 failure	ran
-exercism/lens-person/lens_person_test.nomi:literal Date`1970-03-31` at 58:50 failure	ran
+exercism/lens-person/lens_person_test.nomi:literal Date`1970-03-31` at 58:48 failure	ran
 exercism/lens-person/lens_person_test.nomi:literal Date`1970-09-02` at 39:30 failure	ran
 exercism/line-up/line_up.nomi:format	ran
 exercism/line-up/line_up.nomi:suffix	ran
@@ -3502,6 +3547,8 @@ exercism/rest-api/rest_api.nomi:Users.inspect	ran
 exercism/rest-api/rest_api.nomi:Users.to_json	ran
 exercism/rest-api/rest_api.nomi:find	ran
 exercism/rest-api/rest_api.nomi:net_owed	ran
+exercism/rest-api/rest_api.nomi:rest_api.User.to_json_field	ran
+exercism/rest-api/rest_api.nomi:rest_api.Users.to_json_field	ran
 exercism/rest-api/rest_api.nomi:with_net	ran
 exercism/reverse-string/reverse_string.nomi:reverse	ran
 exercism/rna-transcription/rna_transcription.nomi:complement	ran
@@ -4196,7 +4243,6 @@ std/http.nomi:ClientOptions.redirects default	NETWORK: declared in std/http, std
 std/http.nomi:ClientOptions.round_trip default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ClientOptions.timeout default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ClientOptions.tls default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:ClientOptions.transport default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Compress.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ConnState.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ConnState.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4619,6 +4665,10 @@ std/jobs.nomi:Job.kind	ran
 std/jobs.nomi:Job.kind	ran
 std/jobs.nomi:Job.new	ran
 std/jobs.nomi:Job.new	ran
+std/jobs.nomi:Job.new default 2	ran
+std/jobs.nomi:Job.new default 3	ran
+std/jobs.nomi:Job.new default 4	ran
+std/jobs.nomi:Job.new default 5	ran
 std/jobs.nomi:Job.renamed_from	ran
 std/jobs.nomi:Job.renamed_from	ran
 std/jobs.nomi:Job.run	ran
@@ -4639,7 +4689,10 @@ std/jobs.nomi:Rate.burst default	ran
 std/jobs.nomi:Rate.equal	ran
 std/jobs.nomi:Rate.inspect	ran
 std/jobs.nomi:Schedule.cron	ran
+std/jobs.nomi:Schedule.cron default 5	ran
+std/jobs.nomi:Schedule.cron default 6	ran
 std/jobs.nomi:Schedule.every	ran
+std/jobs.nomi:Schedule.every default 5	ran
 std/jobs.nomi:Schedule.inspect	ran
 std/jobs.nomi:Schedule.name	ran
 std/jobs.nomi:Schedule.next_after	ran
@@ -4936,8 +4989,8 @@ std/money.nomi:Money.sign	ran
 std/money.nomi:Money.split	ran
 std/money.nomi:Money.subtract	ran
 std/money.nomi:Money.to_string	ran
-std/money.nomi:literal Currency`XXX` at 390:27 failure	ran
-std/money.nomi:literal Currency`XXX` at 450:52 failure	ran
+std/money.nomi:literal Currency`XXX` at 391:27 failure	ran
+std/money.nomi:literal Currency`XXX` at 451:52 failure	ran
 std/net.nomi:Connection.close	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.close_read	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.close_write	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -5313,7 +5366,7 @@ std/sql.nomi:where_of	ran
 std/sql_testing.nomi:Failure.equal	ran
 std/sql_testing.nomi:Failure.inspect	ran
 std/sql_testing.nomi:Failure.to_string	ran
-std/sql_testing.nomi:Fake.begin	ran
+std/sql_testing.nomi:Fake.begin_transaction	ran
 std/sql_testing.nomi:Fake.close	ran
 std/sql_testing.nomi:Fake.commit	ran
 std/sql_testing.nomi:Fake.committed	ran
@@ -5334,7 +5387,7 @@ std/sql_testing.nomi:Level.inspect	ran
 std/sql_testing.nomi:State.inspect	ran
 std/sql_testing.nomi:add	ran
 std/sql_testing.nomi:answer_nothing	ran
-std/sql_testing.nomi:begin	ran
+std/sql_testing.nomi:begin_transaction	ran
 std/sql_testing.nomi:check_with	ran
 std/sql_testing.nomi:check_with	ran
 std/sql_testing.nomi:check_with	ran
@@ -5685,6 +5738,7 @@ std/uuid.nomi:random_int	ran
 std/uuid.nomi:read_char	ran
 std/uuid.nomi:read_half	ran
 std/uuid.nomi:unsigned_key	ran
+std/uuid.nomi:uuid.Uuid.to_json_field	ran
 std/uuid.nomi:with_variant	ran
 std/uuid.nomi:with_version	ran
 std/websocket.nomi:AcceptOptions.allowed_origins default	ran

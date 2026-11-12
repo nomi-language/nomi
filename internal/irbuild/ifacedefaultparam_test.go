@@ -17,43 +17,43 @@ func TestIfaceDefault_ParamDefaultsFilledInTheDeclaringFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const shape = `pub interface Shape {
+	const shape = `pub interface Shape
     fn area(s: self) -> Int
 
-    fn describe(s: self, prefix: String = default_prefix(), times: Int = base_times) -> String {
+    fn describe(s: self, prefix: String = default_prefix(), times: Int = base_times) -> String
         "${prefix} ${area(s)} x${times}"
-    }
-}
+    end
+end
 
-fn default_prefix() -> String {
+fn default_prefix() -> String
     "shape"
-}
+end
 
 once base_times: Int = 1
 
-pub fn all(shapes: List<Shape>) -> List<String> {
+pub fn all(shapes: List<Shape>) -> List<String>
     shapes |> Iter.map(&Shape.describe(&1)) |> Iter.to_list()
-}
+end
 `
-	const square = `pub struct Square {
+	const square = `pub struct Square
     side: Int
-}
+end
 
-impl Shape for Square {
-    fn area(s: Square) -> Int {
+impl Shape for Square
+    fn area(s: Square) -> Int
         s.side * s.side
-    }
-}
+    end
+end
 `
-	const calls = `fn default_prefix() -> String {
+	const calls = `fn default_prefix() -> String
     "main"
-}
+end
 
-fn show(s: Shape) -> String {
+fn show(s: Shape) -> String
     Shape.describe(s)
-}
+end
 
-fn main() {
+fn main()
     sq = Square{side: 3}
     io.print(Square.describe(sq))
     io.print(Square.describe(sq, "box"))
@@ -61,7 +61,7 @@ fn main() {
     io.print(Square.describe(sq, times: 2))
     io.print(all([sq]))
     io.print(show(sq))
-}
+end
 `
 	const want = "shape 9 x1\nbox 9 x1\nshape 9 x1\nshape 9 x2\n[shape 9 x1]\nshape 9 x1\n"
 	t.Run("the impl in the calling file", func(t *testing.T) {
@@ -86,53 +86,53 @@ func TestIfaceDefault_GenericParamDefaultFilledInTheDeclaringFile(t *testing.T) 
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const shape = `pub interface Shape<T> {
+	const shape = `pub interface Shape<T>
     fn first(s: self) -> T
 
-    fn describe(s: self, x: (List<T>, String) = pick()) -> String {
+    fn describe(s: self, x: (List<T>, String) = pick()) -> String
         (xs, who) = x
         "${who} ${Iter.count([first(s), ..xs])}"
-    }
-}
+    end
+end
 
-fn pick<T>() -> (List<T>, String) {
+fn pick<T>() -> (List<T>, String)
     ([], "shape")
-}
+end
 `
-	const impls = `pub struct Square {
+	const impls = `pub struct Square
     side: Int
-}
+end
 
-pub struct Pair<E> {
+pub struct Pair<E>
     a: E
     b: E
-}
+end
 
-impl Shape for Square {
-    fn first(s: Square) -> Int {
+impl Shape for Square
+    fn first(s: Square) -> Int
         s.side
-    }
-}
+    end
+end
 
-impl Shape for Pair<E> {
-    fn first(p: Pair<E>) -> E {
+impl Shape for Pair<E>
+    fn first(p: Pair<E>) -> E
         p.a
-    }
-}
+    end
+end
 `
-	const mainPick = `fn pick<T>() -> (List<T>, String) {
+	const mainPick = `fn pick<T>() -> (List<T>, String)
     ([], "main")
-}
+end
 
 `
 	// A generic caller whose own type parameter is also named T.
-	const show = `fn show<T>(p: Pair<T>) -> String {
+	const show = `fn show<T>(p: Pair<T>) -> String
     Pair.describe(p)
-}
+end
 
 `
 	const showCall = "    io.print(show(Pair{a: True, b: False}))\n"
-	const calls = `fn main() {
+	const calls = `fn main()
     sq = Square{side: 3}
     io.print(Square.describe(sq))
     io.print(Square.describe(sq, ([1, 2], "given")))
@@ -142,7 +142,7 @@ impl Shape for Pair<E> {
     mine: (List<Int>, String) = pick()
     (none, who) = mine
     io.print("${who} ${Iter.count(none)}")
-}
+end
 `
 	withShow := show + strings.Replace(calls, "//SHOW\n", showCall, 1)
 	const want = "shape 1\ngiven 3\nshape 1\nshape 1\n"

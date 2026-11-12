@@ -19,13 +19,13 @@
 // And `std/io.{print}` is a stdlib FILE's free function reached bare, the
 // spelling that would otherwise report `call to an unlowered function` for
 // the one host function this builder does lower.
-import {
+import
     std::io.print
     std::strings.String.{starts_with as has}
     lib.{self, Widget, label, make, twice as doubled}
-}
+end
 
-fn main() {
+fn main()
     w = make("Ada")
     print("label = ${label(w)}")
     print("doubled(21) = ${doubled(21)}")
@@ -37,4 +37,4 @@ fn main() {
     // different declarations this would not type-check.
     typed: Widget = lib.make("Grace")
     print("qualified label = ${label(typed)}")
-}
+end

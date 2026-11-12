@@ -107,15 +107,15 @@ func TestOpaque_BlocksConstructorOutsideOwningModule(t *testing.T) {
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt> {
-  if n > 0 { Some(PositiveInt(n)) } else { None }
-}
+pub fn from_int(n: Int) -> Maybe<PositiveInt>
+  if n > 0 then Some(PositiveInt(n)) else None
+end
 `,
 		"main.nomi": `import positive_int.{PositiveInt}
 
-fn main() {
+fn main()
   p = PositiveInt(5)
-}
+end
 `,
 	})
 	opaqueExpectErrorContains(t, errs, "opaque")
@@ -130,15 +130,15 @@ func TestOpaque_AllowsConstructorInsideOwningModule(t *testing.T) {
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt> {
-  if n > 0 { Some(PositiveInt(n)) } else { None }
-}
+pub fn from_int(n: Int) -> Maybe<PositiveInt>
+  if n > 0 then Some(PositiveInt(n)) else None
+end
 `,
 		"main.nomi": `import positive_int
 
-fn main() {
+fn main()
   p = positive_int.from_int(5)
-}
+end
 `,
 	})
 	opaqueExpectNoErrors(t, errs)
@@ -153,9 +153,9 @@ func TestOpaque_NonOpaqueConstructorAllowedOutside(t *testing.T) {
 `,
 		"main.nomi": `import open_int.{OpenInt}
 
-fn main() {
+fn main()
   p = OpenInt(5)
-}
+end
 `,
 	})
 	opaqueExpectNoErrors(t, errs)
@@ -171,19 +171,19 @@ func TestOpaque_IntCallOutsideOwningModuleNamesTheAccessors(t *testing.T) {
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt> {
-  if n > 0 { Some(PositiveInt(n)) } else { None }
-}
+pub fn from_int(n: Int) -> Maybe<PositiveInt>
+  if n > 0 then Some(PositiveInt(n)) else None
+end
 `,
 		"main.nomi": `import positive_int
 
-fn main() {
+fn main()
   p = positive_int.from_int(5)
-  case p {
+  case p
     Some(v) -> Int(v)
     None -> 0
-  }
-}
+  end
+end
 `,
 	})
 	opaqueExpectErrorContains(t, errs, "`Int` is a type, not a function\nhelp: the value inside PositiveInt is private to the file that declares it; use a function its module exports")
@@ -197,20 +197,20 @@ func TestOpaque_AllowsParameterDestructuringInsideOwningModule(t *testing.T) {
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt> {
-  if n > 0 { Some(PositiveInt(n)) } else { None }
-}
+pub fn from_int(n: Int) -> Maybe<PositiveInt>
+  if n > 0 then Some(PositiveInt(n)) else None
+end
 
-pub fn to_int(PositiveInt(n)) -> Int {
+pub fn to_int(PositiveInt(n)) -> Int
   n
-}
+end
 `,
 		"main.nomi": `import positive_int
 
-fn main() {
+fn main()
   p = positive_int.from_int(5)
   Unit
-}
+end
 `,
 	})
 	opaqueExpectNoErrors(t, errs)
@@ -224,11 +224,11 @@ func TestOpaque_AllowsDestructuringOnNonOpaqueOutside(t *testing.T) {
 `,
 		"main.nomi": `import open_int.{OpenInt}
 
-fn demo() -> Int {
+fn demo() -> Int
   v = OpenInt(5)
   OpenInt(n) = v
   n
-}
+end
 `,
 	})
 	opaqueExpectNoErrors(t, errs)
@@ -245,17 +245,17 @@ func TestOpaque_BlocksDestructuringOutsideOwningModule(t *testing.T) {
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt> {
-  if n > 0 { Some(PositiveInt(n)) } else { None }
-}
+pub fn from_int(n: Int) -> Maybe<PositiveInt>
+  if n > 0 then Some(PositiveInt(n)) else None
+end
 `,
 		"main.nomi": `import positive_int.{PositiveInt}
 
-fn unwrap(p: PositiveInt) -> Int {
-  case p {
+fn unwrap(p: PositiveInt) -> Int
+  case p
     PositiveInt(n) -> n
-  }
-}
+  end
+end
 `,
 	})
 	opaqueExpectErrorContains(t, errs, "opaque")
@@ -269,22 +269,22 @@ func TestOpaque_AllowsDestructuringInsideOwningModule(t *testing.T) {
 
 pub opaque type PositiveInt Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt> {
-  if n > 0 { Some(PositiveInt(n)) } else { None }
-}
+pub fn from_int(n: Int) -> Maybe<PositiveInt>
+  if n > 0 then Some(PositiveInt(n)) else None
+end
 
-pub fn to_int(p: PositiveInt) -> Int {
-  case p {
+pub fn to_int(p: PositiveInt) -> Int
+  case p
     PositiveInt(n) -> n
-  }
-}
+  end
+end
 `,
 		"main.nomi": `import positive_int
 
-fn main() {
+fn main()
   p = positive_int.from_int(5)
   Unit
-}
+end
 `,
 	})
 	opaqueExpectNoErrors(t, errs)
@@ -297,22 +297,22 @@ fn main() {
 
 func TestOpaque_StructBody_BlocksConstructorOutsideOwningModule(t *testing.T) {
 	_, errs := opaqueProject(t, map[string]string{
-		"date.nomi": `pub opaque struct Date {
+		"date.nomi": `pub opaque struct Date
   year: Int
   month: Int
   day: Int
-}
+end
 
-pub fn make(year: Int, month: Int, day: Int) -> Date {
-  Date{year: year, month: month, day: day}
-}
+pub fn make(year: Int, month: Int, day: Int) -> Date
+  Date{year:, month:, day:}
+end
 
 `,
 		"main.nomi": `import date.{Date}
 
-fn main() {
+fn main()
   d = Date{year: 2026, month: 5, day: 4}
-}
+end
 `,
 	})
 	opaqueExpectErrorContains(t, errs, "opaque")
@@ -322,26 +322,32 @@ func TestOpaque_StructBody_BlocksFieldAccessOutsideOwningModule(t *testing.T) {
 	// Field access on an opaque struct from outside its module is
 	// rejected. Same-module accessors still see fields directly.
 	_, errs := opaqueProject(t, map[string]string{
-		"date.nomi": `pub opaque struct Date {
+		"date.nomi": `pub opaque struct Date
   year: Int
   month: Int
   day: Int
-}
+end
 
-pub fn make(year: Int, month: Int, day: Int) -> Date {
-  Date{year: year, month: month, day: day}
-}
+pub fn make(year: Int, month: Int, day: Int) -> Date
+  Date{year:, month:, day:}
+end
 
-pub fn year(d: Date) -> Int { d.year }
-pub fn month(d: Date) -> Int { d.month }
-pub fn day(d: Date) -> Int { d.day }
+pub fn year(d: Date) -> Int
+    d.year
+end
+pub fn month(d: Date) -> Int
+    d.month
+end
+pub fn day(d: Date) -> Int
+    d.day
+end
 
 `,
 		"main.nomi": `import date.{Date}
 
-fn report(d: Date) -> Int {
+fn report(d: Date) -> Int
   d.year
-}
+end
 `,
 	})
 	opaqueExpectErrorContains(t, errs, "opaque")
@@ -355,54 +361,60 @@ func TestOpaque_StructBody_AllowsAccessorsInsideOwningModule(t *testing.T) {
 	// post-stdlib-as-package-cutover collision check rejects two
 	// reachable modules sharing a last-path segment.
 	_, errs := opaqueProject(t, map[string]string{
-		"cal.nomi": `pub opaque struct Date {
+		"cal.nomi": `pub opaque struct Date
   year: Int
   month: Int
   day: Int
-}
+end
 
-pub fn make(year: Int, month: Int, day: Int) -> Date {
-  Date{year: year, month: month, day: day}
-}
+pub fn make(year: Int, month: Int, day: Int) -> Date
+  Date{year:, month:, day:}
+end
 
-pub fn year(d: Date) -> Int { d.year }
-pub fn month(d: Date) -> Int { d.month }
-pub fn day(d: Date) -> Int { d.day }
+pub fn year(d: Date) -> Int
+    d.year
+end
+pub fn month(d: Date) -> Int
+    d.month
+end
+pub fn day(d: Date) -> Int
+    d.day
+end
 
 `,
 		"main.nomi": `import cal
 
-fn main() {
+fn main()
   d = cal.make(2026, 5, 4)
   y = cal.year(d)
-}
+end
 `,
 	})
 	opaqueExpectNoErrors(t, errs)
 }
 
 func TestOpaque_StructBody_BlocksDestructuringOutsideOwningModule(t *testing.T) {
-	// Struct destructuring (`case d { Date{year, ...} -> ... }`) on an
+	// Struct destructuring (`case d { Date{year:, ...} -> ... }`) on an
 	// opaque struct from outside its module is also blocked.
 	_, errs := opaqueProject(t, map[string]string{
-		"date.nomi": `pub opaque struct Date {
+		"date.nomi": `pub opaque struct Date
   year: Int
   month: Int
   day: Int
-}
+end
 
-pub fn make(year: Int, month: Int, day: Int) -> Date {
-  Date{year: year, month: month, day: day}
-}
+pub fn make(year: Int, month: Int, day: Int) -> Date
+  Date{year:, month:, day:}
+end
 
 `,
 		"main.nomi": `import date.{Date}
 
-fn report(d: Date) -> Int {
-  case d {
+fn report(d: Date) -> Int
+  case d
     Date{year: y, month: m, day: dd} -> y
-  }
-}
+  end
+end
 `,
 	})
 	opaqueExpectErrorContains(t, errs, "opaque")
@@ -414,19 +426,23 @@ func TestOpaque_EnumBody_BlocksVariantConstructorOutsideOwningModule(t *testing.
 	// Constructing a variant of an opaque enum from outside its module
 	// is blocked — outside callers go through exported smart constructors.
 	_, errs := opaqueProject(t, map[string]string{
-		"status.nomi": `pub opaque enum Status {
+		"status.nomi": `pub opaque enum Status
   Active
   Inactive String
-}
+end
 
-pub fn active() -> Status { Status.Active }
-pub fn inactive(reason: String) -> Status { Status.Inactive(reason) }
+pub fn active() -> Status
+    Status.Active
+end
+pub fn inactive(reason: String) -> Status
+    Status.Inactive(reason)
+end
 `,
 		"main.nomi": `import status.{Status}
 
-fn main() {
+fn main()
   s = Status.Active
-}
+end
 `,
 	})
 	opaqueExpectErrorContains(t, errs, "opaque")
@@ -434,19 +450,23 @@ fn main() {
 
 func TestOpaque_EnumBody_BlocksDataVariantConstructorOutsideOwningModule(t *testing.T) {
 	_, errs := opaqueProject(t, map[string]string{
-		"status.nomi": `pub opaque enum Status {
+		"status.nomi": `pub opaque enum Status
   Active
   Inactive String
-}
+end
 
-pub fn active() -> Status { Status.Active }
-pub fn inactive(reason: String) -> Status { Status.Inactive(reason) }
+pub fn active() -> Status
+    Status.Active
+end
+pub fn inactive(reason: String) -> Status
+    Status.Inactive(reason)
+end
 `,
 		"main.nomi": `import status.{Status}
 
-fn main() {
+fn main()
   s = Status.Inactive("reason")
-}
+end
 `,
 	})
 	opaqueExpectErrorContains(t, errs, "opaque")
@@ -454,22 +474,26 @@ fn main() {
 
 func TestOpaque_EnumBody_BlocksDestructuringOutsideOwningModule(t *testing.T) {
 	_, errs := opaqueProject(t, map[string]string{
-		"status.nomi": `pub opaque enum Status {
+		"status.nomi": `pub opaque enum Status
   Active
   Inactive String
-}
+end
 
-pub fn active() -> Status { Status.Active }
-pub fn inactive(reason: String) -> Status { Status.Inactive(reason) }
+pub fn active() -> Status
+    Status.Active
+end
+pub fn inactive(reason: String) -> Status
+    Status.Inactive(reason)
+end
 `,
 		"main.nomi": `import status.{Status}
 
-fn describe(s: Status) -> String {
-  case s {
+fn describe(s: Status) -> String
+  case s
     Active -> "active"
     Inactive(r) -> r
-  }
-}
+  end
+end
 `,
 	})
 	opaqueExpectErrorContains(t, errs, "opaque")
@@ -477,20 +501,24 @@ fn describe(s: Status) -> String {
 
 func TestOpaque_EnumBody_AllowsConstructorsInsideOwningModule(t *testing.T) {
 	_, errs := opaqueProject(t, map[string]string{
-		"status.nomi": `pub opaque enum Status {
+		"status.nomi": `pub opaque enum Status
   Active
   Inactive String
-}
+end
 
-pub fn active() -> Status { Status.Active }
-pub fn inactive(reason: String) -> Status { Status.Inactive(reason) }
+pub fn active() -> Status
+    Status.Active
+end
+pub fn inactive(reason: String) -> Status
+    Status.Inactive(reason)
+end
 
 `,
 		"main.nomi": `import status
 
-fn main() {
+fn main()
   s = status.active()
-}
+end
 `,
 	})
 	opaqueExpectNoErrors(t, errs)

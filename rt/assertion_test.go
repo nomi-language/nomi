@@ -157,8 +157,8 @@ func TestInspectStructIsValueStructValDisplay(t *testing.T) {
 		{"out of order", "Point", []string{`y: "two"`, "x: 1"}, `Point{x: 1, y: "two"}`},
 		// By the name, not the composed string: `a0: 2` sorts before `a: 1`
 		// as a string (`0` < `:`), and Debug.inspect renders `a` first.
-		{"name is a prefix of another", "", []string{"a0: 2", "a: 1"}, ".{a: 1, a0: 2}"},
-		{"prefix name, values reversed", "", []string{"ab: 1", "a: 9"}, ".{a: 9, ab: 1}"},
+		{"name is a prefix of another", "", []string{"a0: 2", "a: 1"}, "{a: 1, a0: 2}"},
+		{"prefix name, values reversed", "", []string{"ab: 1", "a: 9"}, "{a: 9, ab: 1}"},
 		{"no fields", "Nothing", nil, "Nothing{}"},
 		{"nested", "Outer", []string{"tag: 9", "p: Point{x: 1}"}, "Outer{p: Point{x: 1}, tag: 9}"},
 	}
@@ -187,10 +187,10 @@ func TestFormatListAndMapServeBothRenderings(t *testing.T) {
 
 	var empty Map[string, int64]
 	m := MapPut(empty, HashString, Eq[string], "a", int64(1))
-	if got := FormatMap(m, FormatString, FormatInt); got != "%{a => 1}" {
+	if got := FormatMap(m, FormatString, FormatInt); got != "{a => 1}" {
 		t.Fatalf("Display rendering = %q", got)
 	}
-	if got := FormatMap(m, StringLiteral, InspectInt); got != `%{"a" => 1}` {
+	if got := FormatMap(m, StringLiteral, InspectInt); got != `{"a" => 1}` {
 		t.Fatalf("Inspect rendering = %q", got)
 	}
 }

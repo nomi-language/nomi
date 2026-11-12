@@ -4,17 +4,17 @@
 //# again from the files as they are, so `nomi test` notices a migration or
 //# a query changed after the last `nomi tool sqlkit generate`.
 
-import {
+import
     std::fs
     std::hash
     migrate
-}
+end
 
 /// One input: its path from the module root and its text.
-pub struct Input {
+pub struct Input
     path: String
     text: String
-}
+end
 
 derive Equatable for Input
 
@@ -22,34 +22,34 @@ derive Equatable for Input
 /// without a `.down.sql` file: the files `migrate.read` takes as
 /// migrations (`migrate.is_migration_file`), so a directory golang-migrate
 /// keeps describes the schema its `.up.sql` files build.
-pub fn read(dir: String) -> Result<List<Input>, String> {
+pub fn read(dir: String) -> Result<List<Input>, String>
     pattern = "${sqltext_dir(dir)}*.sql"
     paths = fs.glob(pattern) |> Result.map_err(fn e -> "${dir}: ${e}")?
 
     paths
-    |> Iter.filter(fn path -> {
+    |> Iter.filter(fn path ->
         name = String.split(path, "/") |> Iter.last() |> Maybe.with_default(path)
         migrate.is_migration_file(name)
-    })
+    end)
     |> Iter.sort()
-    |> Iter.map(fn path -> {
+    |> Iter.map(fn path ->
         fs.read_text(path)
-        |> Result.map(fn text -> Input{path, text})
+        |> Result.map(fn text -> Input{path:, text:})
         |> Result.map_err(fn e -> "${path}: ${e}")
-    })
+    end)
     |> Result.collect()
-}
+end
 
 // `dir` with one `/` after it, or nothing for the current directory.
-fn sqltext_dir(dir: String) -> String {
+fn sqltext_dir(dir: String) -> String
     trimmed = String.strip_suffix(dir, "/") |> Maybe.with_default(dir)
 
-    if trimmed == "" or trimmed == "." {
+    if trimmed == "" or trimmed == "." then
         ""
-    } else {
+    else
         "${trimmed}/"
-    }
-}
+    end
+end
 
 /// The SHA-256 digest of inputs, each path and text in order: what a
 /// generated file records.
@@ -60,20 +60,20 @@ fn sqltext_dir(dir: String) -> String {
 //! assert inputs.digest(one)
 //!     != inputs.digest([Input{path: "db/migrations/2.sql", text: "CREATE TABLE t (n INTEGER);\n"}])
 //
-pub fn digest(inputs: List<Input>) -> String {
+pub fn digest(inputs: List<Input>) -> String
     inputs
     |> Iter.map(fn i -> "${i.path}\u{0}${i.text}\u{0}")
     |> String.join()
     |> String.to_bytes()
     |> hash.sha256_hex()
-}
+end
 
 /// The digest of the `.sql` files in `migrations` and then in `queries`,
 /// as they are now, by relative paths, which a test resolves under its
 /// module root: what the generated test compares with the digest the
 /// generated files record.
-pub fn current(migrations: String, queries: String) -> Result<String, String> {
+pub fn current(migrations: String, queries: String) -> Result<String, String>
     m = read(migrations)?
     q = read(queries)?
     Ok(digest(m + q))
-}
+end

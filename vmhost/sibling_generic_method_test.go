@@ -12,51 +12,51 @@ import (
 
 // siblingGenericLeaf declares impl functions with their own type parameters,
 // which the programs below call from another file.
-const siblingGenericLeaf = `pub struct Box {
+const siblingGenericLeaf = `pub struct Box
     value: Int
-}
+end
 
-impl Box {
-    pub fn ident<T>(x: T) -> T {
+impl Box
+    pub fn ident<T>(x: T) -> T
         x
-    }
+    end
 
-    pub fn pick<T>(c: Bool, a: T, b: T) -> T {
-        if c { a } else { b }
-    }
+    pub fn pick<T>(c: Bool, a: T, b: T) -> T
+        if c then a else b
+    end
 
-    pub fn pad<T>(x: T, n: Int = 2) -> (T, Int) {
+    pub fn pad<T>(x: T, n: Int = 2) -> (T, Int)
         (x, n)
-    }
+    end
 
-    pub fn twice<T>(x: T) -> (T, T) {
+    pub fn twice<T>(x: T) -> (T, T)
         (Box.ident(x), Box.ident(x))
-    }
-}
+    end
+end
 
-pub struct Wrap<T> {
+pub struct Wrap<T>
     v: T
-}
+end
 
-impl<T> Wrap<T> {
-    pub fn map<U>(w: Wrap<T>, f: (T) -> U) -> Wrap<U> {
+impl<T> Wrap<T>
+    pub fn map<U>(w: Wrap<T>, f: (T) -> U) -> Wrap<U>
         Wrap{ v: f(w.v) }
-    }
-}
+    end
+end
 
-pub interface Pairs {
+pub interface Pairs
     fn pair<U>(b: self, u: U) -> (self, U)
 
-    fn second<U>(_b: self, u: U) -> U {
+    fn second<U>(_b: self, u: U) -> U
         u
-    }
-}
+    end
+end
 
-impl Pairs for Box {
-    fn pair<U>(b: Box, u: U) -> (Box, U) {
+impl Pairs for Box
+    fn pair<U>(b: Box, u: U) -> (Box, U)
         (b, u)
-    }
-}
+    end
+end
 `
 
 // runSiblingProgram writes files into a module whose entry is main.nomi,
@@ -148,10 +148,10 @@ func TestSiblingGenericImplFunction_Runs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			main := "import {\n    std::io\n    leaf\n    leaf.{Box, Wrap, Pairs}\n}\n\n" +
-				"fn uses<P>(x: P) -> P where P: Pairs {\n    x\n}\n\n" +
-				"fn both<T>(x: T) -> (T, T) {\n    leaf.Box.twice(x)\n}\n\n" +
-				"fn main() {\n    _ = uses(Box{ value: 0 })\n    _ = both(Wrap{ v: 0 })\n" + tc.body + "}\n"
+			main := "import\n    std::io\n    leaf\n    leaf.{Box, Wrap, Pairs}\nend\n\n" +
+				"fn uses<P>(x: P) -> P where P: Pairs\n    x\nend\n\n" +
+				"fn both<T>(x: T) -> (T, T)\n    leaf.Box.twice(x)\nend\n\n" +
+				"fn main()\n    _ = uses(Box{ value: 0 })\n    _ = both(Wrap{ v: 0 })\n" + tc.body + "end\n"
 			got := runSiblingProgram(t, map[string]string{"leaf.nomi": siblingGenericLeaf, "main.nomi": main})
 			if got != tc.want {
 				t.Fatalf("output %q, want %q", got, tc.want)
@@ -166,52 +166,52 @@ func TestSiblingGenericImplFunction_ImportCycle(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{
 		"a.nomi": `import b.{Pod}
 
-pub struct Cell<T> {
+pub struct Cell<T>
     v: T
-}
+end
 
-impl<T> Cell<T> {
-    pub fn pair<U>(c: Cell<T>, u: U) -> Pod<(T, U)> {
+impl<T> Cell<T>
+    pub fn pair<U>(c: Cell<T>, u: U) -> Pod<(T, U)>
         Pod{ item: (c.v, u) }
-    }
-}
+    end
+end
 
-pub fn round(c: Cell<Int>) -> Cell<(Int, String)> {
+pub fn round(c: Cell<Int>) -> Cell<(Int, String)>
     Pod.cell(Pod{ item: c.v }, "r")
-}
+end
 `,
 		"b.nomi": `import a.{Cell}
 
-pub struct Pod<T> {
+pub struct Pod<T>
     item: T
-}
+end
 
-impl<T> Pod<T> {
-    pub fn cell<U>(p: Pod<T>, u: U) -> Cell<(T, U)> {
+impl<T> Pod<T>
+    pub fn cell<U>(p: Pod<T>, u: U) -> Cell<(T, U)>
         Cell{ v: (p.item, u) }
-    }
-}
+    end
+end
 
-pub fn back(p: Pod<Int>) -> Pod<(Int, Bool)> {
+pub fn back(p: Pod<Int>) -> Pod<(Int, Bool)>
     Cell.pair(Cell{ v: p.item }, True)
-}
+end
 `,
-		"main.nomi": `import {
+		"main.nomi": `import
     std::io
     a
     a.{Cell}
     b
     b.{Pod}
-}
+end
 
-fn main() {
+fn main()
     c = Cell{ v: 1 }
     p = Pod{ item: 2 }
     io.inspect(Pod.cell(p, True))
     io.inspect(Cell.pair(c, "x"))
     io.inspect(a.round(c))
     io.inspect(b.back(p))
-}
+end
 `,
 	})
 	want := "Cell{v: (2, True)}\nPod{item: (1, \"x\")}\nCell{v: (1, \"r\")}\nPod{item: (2, True)}\n"
@@ -224,24 +224,24 @@ fn main() {
 // named as a value through its module's qualifier, runs as the unqualified
 // spelling does.
 func TestStdModuleQualifiedOwnFamily_Runs(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": `import {
+	got := runSiblingProgram(t, map[string]string{"main.nomi": `import
     std::io
     std::iter
     std::lists
     std::maps
     std::maybe
-}
+end
 
-fn main() {
+fn main()
     io.inspect(lists.List.head([4, 5]))
     io.inspect(iter.Iter.find([1, 2, 3], fn x -> x > 1))
-    io.inspect(maps.Map.get(%{1 => "z"}, 1))
+    io.inspect(maps.Map.get({1 => "z"}, 1))
     io.inspect(maybe.Maybe.with_default(None, 3))
     f: (List<String>) -> Maybe<String> = lists.List.head
     io.inspect(f(["a"]))
     g: (Maybe<Int>, (Int) -> Int) -> Maybe<Int> = maybe.Maybe.map
     io.inspect(g(Some(2), fn x -> x * 3))
-}
+end
 `})
 	want := "Some(4)\nSome(2)\nSome(\"z\")\n3\nSome(\"a\")\nSome(6)\n"
 	if got != want {

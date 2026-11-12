@@ -2,14 +2,14 @@
 struct body with fields, derive declaration, and inherent impl
 ================================================================================
 
-pub struct Point {
+pub struct Point
   x: Int
   y: Int = 0
 
-  pub fn origin() -> Point {
+  pub fn origin() -> Point
     Point{x: 0, y: 0}
-  }
-}
+  end
+end
 
 derive Debug for Point
 
@@ -48,12 +48,12 @@ derive Debug for Point
 enum body with variants and derive declaration
 ================================================================================
 
-pub enum Shape {
+pub enum Shape
   Point
   Circle Float
   Rect {w: Float, h: Float}
   embeds Square
-}
+end
 
 derive Debug for Shape
 
@@ -88,11 +88,11 @@ derive Debug for Shape
 function-typed and parenthesized positional payloads
 ================================================================================
 
-enum Handler {
+enum Handler
   Num ((Int) -> Int)
   Two (Int) -> Int
   One (Int)
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -118,9 +118,9 @@ enum Handler {
 variant struct payload with default
 ================================================================================
 
-enum ApiError {
+enum ApiError
   HttpError {status: Int, retryable: Bool = false}
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -140,60 +140,12 @@ enum ApiError {
           (boolean))))))
 
 ================================================================================
-host type with derive declaration and inherent impl functions
-================================================================================
-
-pub host type Int {
-  pub host fn to_float(x: Int) -> Float
-
-  pub fn double(n: Int) -> Int {
-    n * 2
-  }
-}
-
-derive Equatable for Int
-
---------------------------------------------------------------------------------
-
-(source_file
-  (extern_type_definition
-    (pub)
-    (host_keyword)
-    name: (qualified_type_identifier
-      (type_identifier))
-    (type_body
-      (extern_func_definition
-        (pub)
-        (host_keyword)
-        name: (identifier)
-        (parameters
-          (parameter
-            name: (identifier)
-            (type_identifier)))
-        return_type: (type_identifier))
-      (function_definition
-        (pub)
-        name: (identifier)
-        (parameters
-          (parameter
-            name: (identifier)
-            (type_identifier)))
-        return_type: (type_identifier)
-        (body
-          (binary_expression
-            (identifier)
-            (integer))))))
-  (derive_conformance
-    interface: (type_identifier)
-    receiver: (type_identifier)))
-
-================================================================================
 struct with standalone derive declarations
 ================================================================================
 
-pub struct Token {
+pub struct Token
   text: String
-}
+end
 
 derive Equatable for Token
 derive Hashable for Token
@@ -220,8 +172,7 @@ derive Hashable for Token
 struct with bodyless derive declaration
 ================================================================================
 
-pub struct Source {
-}
+pub struct Source end
 
 derive Debug for Source
 
@@ -241,13 +192,13 @@ derive Debug for Source
 struct with inherent type functions
 ================================================================================
 
-struct Person {
-  fn greet(p: Person) -> String {
+struct Person
+  fn greet(p: Person) -> String
     "hello"
-  }
+  end
 
   host fn farewell(p: Person) -> String
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -279,8 +230,7 @@ struct Person {
 struct with derive declaration
 ================================================================================
 
-pub struct Score {
-}
+pub struct Score end
 
 derive Comparable for Score
 
@@ -321,123 +271,16 @@ derive Hashable for Duration
     receiver: (type_identifier)))
 
 ================================================================================
-zero-sized type with typed-literal helper
-================================================================================
-
-pub type Sql {
-  fn escape(s: String) -> String {
-    s
-  }
-}
-
---------------------------------------------------------------------------------
-
-(source_file
-  (type_definition
-    (pub)
-    (qualified_type_identifier
-      (type_identifier))
-    (type_body
-      (function_definition
-        (identifier)
-        (parameters
-          (parameter
-            (identifier)
-            (type_identifier)))
-        (type_identifier)
-        (body
-          (identifier))))))
-
-================================================================================
-distinct type with inner type and inherent impl
-================================================================================
-
-pub opaque type Duration Int {
-  pub fn seconds(n: Int) -> Duration {
-    Duration(n)
-  }
-}
-
---------------------------------------------------------------------------------
-
-(source_file
-  (type_definition
-    (pub)
-    (qualified_type_identifier
-      (type_identifier))
-    (type_identifier)
-    (type_body
-      (function_definition
-        (pub)
-        (identifier)
-        (parameters
-          (parameter
-            (identifier)
-            (type_identifier)))
-        (type_identifier)
-        (body
-          (call_expression
-            (type_identifier)
-            (identifier)))))))
-
-================================================================================
-type body with attached test on inherent function
-================================================================================
-
-pub opaque type Duration Int {
-  //! assert Duration.seconds(5) == Duration(5)
-  //
-  pub fn seconds(n: Int) -> Duration {
-    Duration(n)
-  }
-}
-
---------------------------------------------------------------------------------
-
-(source_file
-  (type_definition
-    (pub)
-    name: (qualified_type_identifier
-      (type_identifier))
-    (type_identifier)
-    (type_body
-      (attached_test_prompt
-        (attached_comment_test_prompt_marker)
-        body: (assertion
-          value: (binary_expression
-            (call_expression
-              function: (field_access
-                (type_identifier)
-                (identifier))
-              (integer))
-            (call_expression
-              function: (type_identifier)
-              (integer)))))
-      (line_comment)
-      (function_definition
-        (pub)
-        name: (identifier)
-        (parameters
-          (parameter
-            name: (identifier)
-            (type_identifier)))
-        return_type: (type_identifier)
-        (body
-          (call_expression
-            function: (type_identifier)
-            (identifier)))))))
-
-================================================================================
 generic struct with inherent impl function using type params
 ================================================================================
 
-struct Box<T> {
+struct Box<T>
   value: T
 
-  fn value(b: Box<T>) -> T {
+  fn value(b: Box<T>) -> T
     b.value
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 

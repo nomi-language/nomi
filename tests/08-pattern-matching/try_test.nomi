@@ -1,95 +1,91 @@
-fn safe_div(a: Int, b: Int) -> Result<Int, String> {
-    if b == 0 {
-        Err("div by zero")
-    } else {
-        Ok(a / b)
-    }
-}
+fn safe_div(a: Int, b: Int) -> Result<Int, String>
+    if b == 0 then Err("div by zero") else Ok(a / b)
+end
 
-fn calc(a: Int, b: Int) -> Result<Int, String> {
+fn calc(a: Int, b: Int) -> Result<Int, String>
     result = safe_div(a, b)?
     Ok(result + 1)
-}
+end
 
-fn int_result() -> Result<Int, String> {
+fn int_result() -> Result<Int, String>
     Ok(41)
-}
+end
 
-fn bool_result() -> Result<Bool, String> {
+fn bool_result() -> Result<Bool, String>
     Ok(True)
-}
+end
 
-fn try_arithmetic() -> Result<Int, String> {
+fn try_arithmetic() -> Result<Int, String>
     Ok(int_result()? + 1)
-}
+end
 
-fn try_multiple_operands() -> Result<Int, String> {
+fn try_multiple_operands() -> Result<Int, String>
     Ok(int_result()? + int_result()? + 2)
-}
+end
 
-fn try_boolean_expression() -> Result<Bool, String> {
+fn try_boolean_expression() -> Result<Bool, String>
     value = bool_result()? and 1 == 1 and (2 > 1 or 4 == 5)
     Ok(value)
-}
+end
 
-fn find(list: List<Int>, target: Int) -> Maybe<Int> {
-    if list == [] {
+fn find(list: List<Int>, target: Int) -> Maybe<Int>
+    if list == [] then
         None
-    } else {
-        Iter.reduce(list, None, fn acc, x -> {
-            case acc {
+    else
+        Iter.reduce(list, None, fn acc, x ->
+            case acc
                 Some(v) -> Some(v)
-                None -> if x == target { Some(x) } else { None }
-            }
-        })
-    }
-}
+                None -> if x == target then Some(x) else None
+            end
+        end)
+    end
+end
 
-fn process(list: List<Int>) -> Maybe<Int> {
+fn process(list: List<Int>) -> Maybe<Int>
     val = find(list, 3)?
     Some(val * 10)
-}
+end
 
-fn pipe_unwrap(m: Maybe<Int>) -> Result<Int, String> {
+fn pipe_unwrap(m: Maybe<Int>) -> Result<Int, String>
     n =
         m
         |> Maybe.to_result("missing")?
 
     Ok(n * 10)
-}
+end
 
-fn double(x: Int) -> Int {
+fn double(x: Int) -> Int
     x * 2
-}
+end
 
-fn pipe_chain(m: Maybe<Int>) -> Result<Int, String> {
+fn pipe_chain(m: Maybe<Int>) -> Result<Int, String>
     doubled =
         m
         |> Maybe.to_result("missing")?
         |> double()
 
     Ok(doubled)
-}
+end
 
-test "unwraps? Result values and propagates Err values" {
+test "unwraps? Result values and propagates Err values"
     assert calc(10, 2) == Ok(6)
     assert calc(10, 0) == Err("div by zero")
-}
+end
 
-test "`?` unwraps only its immediate operand in surrounding expressions" {
+test "`?` unwraps only its immediate operand in surrounding expressions"
     assert try_arithmetic() == Ok(42)
     assert try_multiple_operands() == Ok(84)
     assert try_boolean_expression() == Ok(True)
-}
+end
 
-test "unwraps? Maybe values and propagates None" {
+test "unwraps? Maybe values and propagates None"
     assert process([1, 2, 3, 4]) == Some(30)
     assert process([1, 2, 4, 5]) == None
-}
+end
 
-test "`?` can unwrap the previous pipe stage" {
+test "`?` can unwrap the previous pipe stage"
     assert pipe_unwrap(Some(4)) == Ok(40)
     assert pipe_unwrap(None) == Err("missing")
     assert pipe_chain(Some(7)) == Ok(14)
     assert pipe_chain(None) == Err("missing")
-}
+end

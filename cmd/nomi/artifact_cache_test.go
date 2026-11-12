@@ -287,7 +287,7 @@ var sharedStd = sync.OnceValues(func() (string, error) {
 	}
 	defer os.RemoveAll(dir)
 	hello := filepath.Join(dir, "hello.nomi")
-	if err := os.WriteFile(hello, []byte("fn main() {\n}\n"), 0o644); err != nil {
+	if err := os.WriteFile(hello, []byte("fn main() end\n"), 0o644); err != nil {
 		return "", err
 	}
 	if out, err := exec.Command(nomiBin, "run", hello).CombinedOutput(); err != nil {

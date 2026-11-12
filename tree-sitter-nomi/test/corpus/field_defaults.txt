@@ -2,14 +2,14 @@
 A field whose type comes from its default
 ==========
 
-struct Game {
+struct Game
     word: String
     misses = 0
-}
+end
 
-enum Shape {
+enum Shape
     Circle{radius = 1.0}
-}
+end
 
 ---
 

@@ -1,9 +1,9 @@
-import {
+import
     std::channels.Receiver
     std::compiler
     std::supervisors.Supervisor
     supervisor_app.{self, Config}
-}
+end
 
 // A deadline is a ceiling on a region, and it can only ever tighten.
 // That held for derivation alone: rebinding the context field to one
@@ -20,98 +20,98 @@ import {
 // the fault's text names the context in force when `main` blocked, so a
 // passing assertion means the work really reached the sleep and was cut
 // short there, not that the program failed early for some unrelated reason.
-fn escape_program(attempt: String) -> String {
+fn escape_program(attempt: String) -> String
     """
-      import {
+      import
         std::duration.Duration
         std::io
         std::timer
-      }
+      end
 
-      struct Config {
+      struct Config
         context: Context
 
-        spare: .{context: Context}
-      }
+        spare: {context: Context}
+      end
 
-      fn boot() -> Result<Config, String> {
-        Ok(Config{context: Context.root(), spare: .{context: Context.root()}})
-      }
+      fn boot() -> Result<Config, String>
+        Ok(Config{context: Context.root(), spare: {context: Context.root()}})
+      end
 
-      fn inner() {
+      fn inner()
         with Config.context = ${attempt}
         io.print("entered")
         timer.sleep(Duration.seconds(5))
         io.print("escaped the deadline")
-      }
+      end
 
-      fn main() {
+      fn main()
         with Config.context = Context.with_timeout(
           Config.context,
           Duration.milliseconds(20),
         )
         inner()
-      }
+      end
     """
-}
+end
 
-test "Context.root() cannot widen an inherited deadline" {
+test "Context.root() cannot widen an inherited deadline"
     assert Err(fault) = compiler.run(escape_program("Context.root()"))
     assert "the context in force when `main` blocked" in fault
-}
+end
 
-test "a root stashed in boot cannot widen an inherited deadline" {
+test "a root stashed in boot cannot widen an inherited deadline"
     assert Err(fault) = compiler.run(escape_program("Config.spare.context"))
     assert "the context in force when `main` blocked" in fault
-}
+end
 
 // The floor is a floor, not a freeze: a tighter inner bound still wins.
-test "a nested deadline still tightens" {
+test "a nested deadline still tightens"
     assert Err(fault) = compiler.run(
         """
-        import {
+        import
           std::duration.Duration
           std::io
           std::timer
-        }
+        end
 
-        struct Empty {
+        struct Empty
           context: Context
-        }
+        end
 
-        fn boot() -> Result<Empty, String> {
+        fn boot() -> Result<Empty, String>
           Ok(Empty{context: Context.root()})
-        }
+        end
 
-        fn inner() {
+        fn inner()
           with Empty.context = Context.with_timeout(Empty.context, Duration.milliseconds(20))
           io.print("entered")
           timer.sleep(Duration.seconds(5))
           io.print("outlasted the inner bound")
-        }
+        end
 
-        fn main() {
+        fn main()
           with Empty.context = Context.with_timeout(Empty.context, Duration.seconds(30))
           inner()
-        }
+        end
         """
     )
 
     assert "the context in force when `main` blocked" in fault
-}
+end
 
 // Work handed to a Supervisor outlives the call that spawned it, so the
 // ceiling that call was under is not its ceiling. A handler bounding
 // itself is the ordinary shape for request work; it used to kill the
 // background task it had just spawned, while `Supervisor.flush` reported
 // success and the work vanished. `supervisor_app.handler` is that handler.
-group "supervisor work and the spawner's deadline" {
+group "supervisor work and the spawner's deadline"
     boot supervisor_app.boot()
 
-    test "background work does not inherit the spawner's deadline" {
+    test "background work does not inherit the spawner's deadline"
         supervisor_app.handler()
         _ = Supervisor.flush(Config.audit)
 
         assert Receiver.receive(Config.done.receiver) == Some(1)
-    }
-}
+    end
+end

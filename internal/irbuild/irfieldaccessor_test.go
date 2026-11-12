@@ -10,30 +10,30 @@ import "testing"
 func TestIRFieldAccessor_RunsWhereTheCheckerAcceptsIt(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Address {
+struct Address
   city: String
-}
+end
 
-struct User {
+struct User
   name: String
   age: Int
   address: Address
   greet: (String) -> String
-}
+end
 
-struct Box<T> {
+struct Box<T>
   value: T
-}
+end
 
-fn name_of() -> (User) -> String {
+fn name_of() -> (User) -> String
   .name
-}
+end
 
-fn values<T>(boxes: List<Box<T>>) -> List<T> {
+fn values<T>(boxes: List<Box<T>>) -> List<T>
   boxes |> Iter.map(.value) |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
   users = [
     User{name: "Ann", age: 40, address: Address{city: "Bath"}, greet: fn s -> "hi ${s}"},
     User{name: "Bob", age: 30, address: Address{city: "York"}, greet: fn s -> "yo ${s}"},
@@ -53,8 +53,8 @@ fn main() {
   hello = greet(User{name: "Cy", age: 1, address: Address{city: "Ayr"}, greet: fn s -> "hey ${s}"})
   io.print(hello("there"))
   io.print([(1, "a"), (2, "b")] |> Iter.map(.second) |> Iter.to_list())
-  points = [.{x: 1, y: 2}, .{x: 3, y: 4}]
+  points = [{x: 1, y: 2}, {x: 3, y: 4}]
   io.print(points |> Iter.map(.y) |> Iter.to_list())
-}
+end
 `, "[Ann, Bob]\n[40, 30]\n[Bath, York]\n[Bob, Ann]\n[40, 30]\n[Ann, Bob]\n[Rye, Ely]\n[1, 2]\nhey there\n[a, b]\n[2, 4]\n")
 }

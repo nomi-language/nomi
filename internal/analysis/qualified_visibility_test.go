@@ -10,44 +10,44 @@ import (
 // privacySibling declares one private declaration of every kind a type
 // position can name, beside a public function and a public generic struct.
 const privacySibling = `
-struct Hidden {
+struct Hidden
   v: Int
-}
+end
 
-impl Hidden {
-  pub fn make() -> Hidden {
+impl Hidden
+  pub fn make() -> Hidden
     Hidden{v: 3}
-  }
-}
+  end
+end
 
-enum Color {
+enum Color
   Red
   Boxed(Int)
-}
+end
 
-interface Shape {
+interface Shape
   fn area(s: self) -> Int
-}
+end
 
 typealias Meters Int
 
-fn helper() -> Int {
+fn helper() -> Int
   1
-}
+end
 
-pub fn ident<T>(x: T) -> T {
+pub fn ident<T>(x: T) -> T
   x
-}
+end
 
-pub struct Span<T> {
+pub struct Span<T>
   start: T
   stop: T
-}
+end
 
-pub enum Slot<T> {
+pub enum Slot<T>
   Empty
   Full(T)
-}
+end
 `
 
 // A top-level declaration without `pub` is private to its file (spec §14 *Visibility*).
@@ -63,67 +63,67 @@ func TestQualifiedPrivateTypeIsRejected(t *testing.T) {
 	}{
 		{
 			name: "type annotation",
-			body: "fn f(x: other.Hidden) -> Int {\n  x.v\n}\n",
+			body: "fn f(x: other.Hidden) -> Int\n  x.v\nend\n",
 			want: "file 'other' has no member 'Hidden'",
 		},
 		{
 			name: "struct literal",
-			body: "fn f() -> Int {\n  h = other.Hidden{v: 1}\n  h.v\n}\n",
+			body: "fn f() -> Int\n  h = other.Hidden{v: 1}\n  h.v\nend\n",
 			want: "file 'other' has no member 'Hidden'",
 		},
 		{
 			name: "binding annotation",
-			body: "fn f() -> Int {\n  h: other.Hidden = other.Hidden.make()\n  h.v\n}\n",
+			body: "fn f() -> Int\n  h: other.Hidden = other.Hidden.make()\n  h.v\nend\n",
 			want: "file 'other' has no member 'Hidden'",
 		},
 		{
 			name: "type argument",
-			body: "fn f(xs: List<other.Hidden>) -> Int {\n  Iter.count(xs)\n}\n",
+			body: "fn f(xs: List<other.Hidden>) -> Int\n  Iter.count(xs)\nend\n",
 			want: "file 'other' has no member 'Hidden'",
 		},
 		{
 			name: "explicit type argument of a call",
-			body: "fn f() -> Int {\n  other.ident<other.Meters>(3)\n}\n",
+			body: "fn f() -> Int\n  other.ident<other.Meters>(3)\nend\n",
 			want: "file 'other' has no member 'Meters'",
 		},
 		{
 			name: "inherent function of a private type",
-			body: "fn f() -> Int {\n  h = other.Hidden.make()\n  h.v\n}\n",
+			body: "fn f() -> Int\n  h = other.Hidden.make()\n  h.v\nend\n",
 			want: "file 'other' has no member 'Hidden'",
 		},
 		{
 			name: "enum variant value",
-			body: "fn f() -> Int {\n  c = other.Color.Red\n  case c {\n    _ -> 1\n  }\n}\n",
+			body: "fn f() -> Int\n  c = other.Color.Red\n  case c\n    _ -> 1\n  end\nend\n",
 			want: "file 'other' has no member 'Color'",
 		},
 		{
 			name: "enum constructor",
-			body: "fn f() -> Int {\n  c = other.Color.Boxed(2)\n  case c {\n    _ -> 1\n  }\n}\n",
+			body: "fn f() -> Int\n  c = other.Color.Boxed(2)\n  case c\n    _ -> 1\n  end\nend\n",
 			want: "file 'other' has no member 'Color'",
 		},
 		{
 			name: "enum variant pattern",
-			body: "fn f(c: Int) -> Int {\n  case c {\n    _ -> 1\n  }\n}\n\nfn g(c: other.Color) -> Int {\n  case c {\n    other.Color.Red -> 1\n    other.Color.Boxed(n) -> n\n  }\n}\n",
+			body: "fn f(c: Int) -> Int\n  case c\n    _ -> 1\n  end\nend\n\nfn g(c: other.Color) -> Int\n  case c\n    other.Color.Red -> 1\n    other.Color.Boxed(n) -> n\n  end\nend\n",
 			want: "file 'other' has no member 'Color'",
 		},
 		{
 			name: "interface bound",
-			body: "fn f<T>(x: T) -> Int where T: other.Shape {\n  T.area(x)\n}\n",
+			body: "fn f<T>(x: T) -> Int where T: other.Shape\n  T.area(x)\nend\n",
 			want: "file 'other' has no member 'Shape'",
 		},
 		{
 			name: "impl header",
-			body: "struct Sq {\n  n: Int\n}\n\nimpl other.Shape for Sq {\n  fn area(s: Sq) -> Int {\n    s.n\n  }\n}\n",
+			body: "struct Sq\n  n: Int\nend\n\nimpl other.Shape for Sq\n  fn area(s: Sq) -> Int\n    s.n\n  end\nend\n",
 			want: "file 'other' has no member 'Shape'",
 		},
 		{
 			name: "type alias",
-			body: "fn f(m: other.Meters) -> Int {\n  m\n}\n",
+			body: "fn f(m: other.Meters) -> Int\n  m\nend\n",
 			want: "file 'other' has no member 'Meters'",
 		},
 		{
 			name: "private function",
-			body: "fn f() -> Int {\n  other.helper()\n}\n",
+			body: "fn f() -> Int\n  other.helper()\nend\n",
 			want: "file 'other' has no member 'helper'",
 		},
 	}
@@ -156,7 +156,7 @@ func TestSelectiveImportOfPrivateDeclarationIsRejected(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.imp, func(t *testing.T) {
-			entry := tc.imp + "\n\nfn main() {}\n"
+			entry := tc.imp + "\n\nfn main() end\n"
 			errs := buildProjectExpectingErrors(t, entry, map[string]string{"other": privacySibling})
 			if len(errs) == 0 {
 				t.Fatalf("the front end now ADMITS importing a private declaration:\n%s", entry)
@@ -180,32 +180,32 @@ func TestPrivateTypeOwnFileAndPublicTypesAcrossFilesAreAccepted(t *testing.T) {
 	entry := `import other
 import other.{Hidden, Shape}
 
-struct Point {
+struct Point
   x: Int
-}
+end
 
-struct Sq {
+struct Sq
   n: Int
-}
+end
 
-impl other.Shape for Sq {
-  fn area(s: Sq) -> Int {
+impl other.Shape for Sq
+  fn area(s: Sq) -> Int
     s.n
-  }
-}
+  end
+end
 
-fn area_of<T>(x: T) -> Int where T: Shape {
+fn area_of<T>(x: T) -> Int where T: Shape
   T.area(x)
-}
+end
 
-fn color(c: other.Color) -> Int {
-  case c {
+fn color(c: other.Color) -> Int
+  case c
     other.Color.Red -> 1
     other.Color.Boxed(n) -> n
-  }
-}
+  end
+end
 
-fn demo() -> Int {
+fn demo() -> Int
   p = other.ident(Point{x: 1})
   span = other.Span{start: Point{x: 1}, stop: Point{x: 2}}
   slot: other.Slot<Point> = other.Slot.Full(Point{x: 3})
@@ -214,12 +214,12 @@ fn demo() -> Int {
   bare = Hidden{v: 2}
   made = other.Hidden.make()
   m: other.Meters = 4
-  n = case slot {
+  n = case slot
     other.Slot.Full(q) -> q.x
     other.Slot.Empty -> 0
-  }
+  end
   Iter.count(points) + h.v + bare.v + made.v + m + n + color(other.Color.Boxed(5)) + area_of(Sq{n: 6})
-}
+end
 `
 	errs := buildProjectExpectingErrors(t, entry, map[string]string{"other": sibling})
 	var got []string

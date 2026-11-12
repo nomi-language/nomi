@@ -12,59 +12,59 @@ func TestConcurrentOperands_Run(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import {
+	irRunSource(t, `import
     std::io
     std::supervisors.Supervisor
     std::tasks.Task
-}
+end
 
-struct App {
+struct App
     context: Context
     work: Supervisor
-}
+end
 
-struct Holder {
+struct Holder
     sup: Supervisor
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{context: Context.root(), work: Supervisor.new(1)})
-}
+end
 
-fn seven() -> Int {
+fn seven() -> Int
     7
-}
+end
 
-fn job() -> Unit {
+fn job() -> Unit
     io.print("job")
-}
+end
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn main() {
+fn main()
     f = fn -> 8
-    n = concurrent {
+    n = concurrent
         a = Task.spawn(seven)
         b = Task.spawn(f)
         Task.await(a) + Task.await(b)
-    }
+    end
     io.inspect(n)
     h = Holder{sup: App.work}
     _ = Task.await_all([Supervisor.spawn(h.sup, job)])
-    _ = Task.await_all([Supervisor.spawn(if n > 0 { App.work } else { h.sup }, job)])
-    xs = concurrent {
-        from_vector = Task.spawn_all(#[1, 2], double, max_running: 2)
-        from_set = Task.spawn_all(%[3], double, max_running: 1)
+    _ = Task.await_all([Supervisor.spawn(if n > 0 then App.work else h.sup, job)])
+    xs = concurrent
+        from_vector = Task.spawn_all(Vector[1, 2], double, max_running: 2)
+        from_set = Task.spawn_all(Set[3], double, max_running: 1)
         from_range = Task.spawn_all(1..=2, double, max_running: 1)
         from_iter = Task.spawn_all([4] |> Iter.map(fn x: Int -> x + 1), double, max_running: 1)
         [from_vector, from_set, from_range, from_iter] |> Iter.map(Task.await_all) |> Iter.to_list()
-    }
+    end
     io.inspect(xs)
-    _ = Task.await_all(Supervisor.spawn_all(App.work, #[1], fn x: Int -> io.inspect(x)))
+    _ = Task.await_all(Supervisor.spawn_all(App.work, Vector[1], fn x: Int -> io.inspect(x)))
     _ = Task.await_all(Supervisor.spawn_all(App.work, [2] |> Iter.map(fn x: Int -> x + 1), fn x: Int -> io.inspect(x)))
     _ = Task.await_all(Supervisor.spawn_all(App.work, 5..=5, fn x: Int -> io.inspect(x)))
-}
+end
 `, "15\njob\njob\n[[2, 4], [6], [2, 4], [10]]\n1\n3\n5\n")
 }

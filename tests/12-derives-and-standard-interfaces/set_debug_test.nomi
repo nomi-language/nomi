@@ -1,33 +1,33 @@
-struct Point {
+struct Point
     x: Int
-}
+end
 
-enum Color {
+enum Color
     Red
     Blue
-}
+end
 
-struct Palette {
+struct Palette
     colors: Set<Color>
-}
+end
 
-test "a Set of enum values inspects each member through its Debug" {
-    colors = %[Color.Red, Color.Blue]
+test "a Set of enum values inspects each member through its Debug"
+    colors = Set[Color.Red, Color.Blue]
 
-    assert Debug.inspect(colors) == "%[Red, Blue]"
-}
+    assert Debug.inspect(colors) == "Set[Red, Blue]"
+end
 
-test "a Set of structs inspects each member through its Debug" {
-    points = %[Point{x: 1}, Point{x: 2}]
+test "a Set of structs inspects each member through its Debug"
+    points = Set[Point{x: 1}, Point{x: 2}]
 
-    assert Debug.inspect(points) == "%[Point{x: 1}, Point{x: 2}]"
-}
+    assert Debug.inspect(points) == "Set[Point{x: 1}, Point{x: 2}]"
+end
 
-test "a Set of declared members nested in other values inspects" {
-    colors = %[Color.Blue]
+test "a Set of declared members nested in other values inspects"
+    colors = Set[Color.Blue]
 
-    assert Debug.inspect([colors]) == "[%[Blue]]"
-    assert Debug.inspect(Some(colors)) == "Some(%[Blue])"
-    assert Debug.inspect(Palette{colors}) == "Palette{colors: %[Blue]}"
-    assert Debug.inspect(%[Some(Color.Red)]) == "%[Some(Red)]"
-}
+    assert Debug.inspect([colors]) == "[Set[Blue]]"
+    assert Debug.inspect(Some(colors)) == "Some(Set[Blue])"
+    assert Debug.inspect(Palette{colors:}) == "Palette{colors: Set[Blue]}"
+    assert Debug.inspect(Set[Some(Color.Red)]) == "Set[Some(Red)]"
+end

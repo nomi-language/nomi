@@ -4,7 +4,7 @@
 // That is the discriminator, and its wrong answer is a field read that names
 // nothing rather than a comparison that comes out badly: main.nomi holds a
 // mirror of BOTH declarations under one Nomi name, and the structural
-// comparator built for `.{x: Int, y: Int}` reads `x` off a struct that
+// comparator built for `{x: Int, y: Int}` reads `x` off a struct that
 // has only `lat`. Nominal identity is (declaring file, name) — in the builder
 // the `*typeDef` POINTER, and across the boundary the declaration NODE the
 // mirror carries verbatim.
@@ -12,17 +12,17 @@
 // The Float is load-bearing twice over: it makes the two comparators textually
 // different, and Nomi's `==` on Float is REFLEXIVE ON NaN where IEEE's is not,
 // so `nan == nan` must be True through the mirror as well.
-pub struct Point {
+pub struct Point
     lat: Float
     lon: Float
-}
+end
 
-pub fn at(lat: Float, lon: Float) -> Point {
-    Point{lat, lon}
-}
+pub fn at(lat: Float, lon: Float) -> Point
+    Point{lat:, lon:}
+end
 
 /// A sibling type inside a TUPLE, which is the third structural shape the
 /// boundary re-interns.
-pub fn pair(p: Point) -> (Point, Float) {
+pub fn pair(p: Point) -> (Point, Float)
     (p, p.lat)
-}
+end

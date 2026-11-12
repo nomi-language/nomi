@@ -3,24 +3,24 @@
 // its own impls, and neither shadows the other.
 import shapes
 
-struct Point {
+struct Point
     label: String
-}
+end
 
-impl Display for Point {
-    fn to_string(p: Point) -> String {
+impl Display for Point
+    fn to_string(p: Point) -> String
         "entry(${p.label})"
-    }
-}
+    end
+end
 
-test "same-named types in two files are distinct types" {
+test "same-named types in two files are distinct types"
     mine = Point{label: "here"}
 
     assert Display.to_string(mine) == "entry(here)"
     assert Display.to_string(shapes.origin()) == "shapes(0, 0)"
-}
+end
 
-test "each same-named type keeps its own Debug rendering" {
+test "each same-named type keeps its own Debug rendering"
     assert Debug.inspect(Point{label: "here"}) == "Point{label: \"here\"}"
     assert Debug.inspect(shapes.origin()) == "Point{x: 0, y: 0}"
-}
+end

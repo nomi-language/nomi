@@ -10,18 +10,18 @@ import (
 // (std/dynamic's Dynamic) render through that host, as `Debug.inspect(x)`
 // does, and match the golden record of `nomi test`.
 
-const irDbgHostSource = `import {
+const irDbgHostSource = `import
   std::io
   std::json.Json
-}
+end
 
-test "dbg and inspect of a Dynamic" {
+test "dbg and inspect of a Dynamic"
   dyn = Json.to_dynamic(Json.String("hi"))
   dbg dyn
   io.inspect(dyn)
   x = dbg Json.to_dynamic(Json.String("four"))
   assert Debug.inspect(x) == "\"four\""
-}
+end
 `
 
 func TestIRDbgHost_DynamicRendersThroughItsHost(t *testing.T) {

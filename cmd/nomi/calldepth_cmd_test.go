@@ -15,22 +15,22 @@ import (
 
 const recursesForever = `import std::io
 
-fn down(n: Int) -> Int {
+fn down(n: Int) -> Int
   down(n + 1) + 1
-}
+end
 
-fn main() {
+fn main()
   io.print("start")
   down(0) |> io.print()
-}
+end
 
-test "recurses" {
+test "recurses"
   assert down(0) == 0
-}
+end
 
-test "adds" {
+test "adds"
   assert 1 + 2 == 3
-}
+end
 `
 
 func TestRunCommand_UnboundedRecursionIsAFaultOnTheVM(t *testing.T) {

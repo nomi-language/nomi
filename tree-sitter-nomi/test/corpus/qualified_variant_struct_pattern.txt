@@ -2,10 +2,10 @@
 Qualified enum variant with a struct payload in a case
 ================================================================================
 
-once r = case e {
-  IoError.NotFound{path} -> path
+once r = case e
+  IoError.NotFound{path:} -> path
   _ -> ""
-}
+end
 
 --------------------------------------------------------------------------------
 

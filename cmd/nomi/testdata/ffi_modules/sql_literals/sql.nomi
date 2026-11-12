@@ -8,10 +8,10 @@
 import std::literals.{Fragment, Literal}
 
 /// A SQL statement and the values for its `?` placeholders, in order.
-pub struct Query {
+pub struct Query
     sql: String
     args: List<String>
-}
+end
 
 /// The `Sql"..."` literal. A slot takes any `Display` value and passes it as
 /// text.
@@ -22,28 +22,28 @@ pub struct Query {
 //
 pub type Sql
 
-impl Literal for Sql {
-    fn from_fragments(fragments: List<Fragment<Display>>) -> Query {
+impl Literal for Sql
+    fn from_fragments(fragments: List<Fragment<Display>>) -> Query
         sql =
             fragments
-            |> Iter.map(fn fragment -> {
-                case fragment {
+            |> Iter.map(fn fragment ->
+                case fragment
                     .Static(text) -> text
                     .Dynamic(_) -> "?"
-                }
-            })
+                end
+            end)
             |> String.join()
 
         args =
             fragments
-            |> Iter.flat_map(fn fragment -> {
-                case fragment {
+            |> Iter.flat_map(fn fragment ->
+                case fragment
                     .Static(_) -> []
                     .Dynamic(value) -> [Display.to_string(value)]
-                }
-            })
+                end
+            end)
             |> Iter.to_list()
 
-        Query{sql, args}
-    }
-}
+        Query{sql:, args:}
+    end
+end

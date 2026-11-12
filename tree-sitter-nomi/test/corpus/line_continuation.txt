@@ -2,12 +2,12 @@
 A comparison or boolean operator starting a line continues the expression
 ================================================================================
 
-fn f() {
+fn f()
   assert g(x)
     == "a"
   ok = a
     and b
-}
+end
 
 --------------------------------------------------------------------------------
 

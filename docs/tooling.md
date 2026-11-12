@@ -21,7 +21,7 @@ in the [standard library reference](/reference/). To install `nomi`, see
 | `nomi run --web <file>` | Serve a browser build on localhost and rebuild it on a change ([A program in the browser](#a-program-in-the-browser)). |
 | `nomi test [path]` | Run tests ([Running tests](#running-tests)). |
 | `nomi check <path>` | Check a program without running it, as text or JSON ([Checking](#checking-nomi-check)). |
-| `nomi fmt [-w\|-l\|-d] <paths>` | Format source ([Formatting](#formatting)). |
+| `nomi fmt [-w\|-l\|-d\|-check] <paths>` | Format source ([Formatting](#formatting)). |
 | `nomi` | The REPL ([The REPL](#the-repl)). |
 | `nomi build <file>` | Write an executable ([Executables](#executables)), a browser folder with `--web` ([A program in the browser](#a-program-in-the-browser)), or a `.nomic` file with `--no-vm` ([Compiled programs and `nomi-vm`](#compiled-programs-and-nomi-vm)). |
 | `nomi build-vm` | Write `nomi-vm`, or with `--reactor` the WASI reactor, with no program ([Compiled programs and `nomi-vm`](#compiled-programs-and-nomi-vm)). |
@@ -117,10 +117,13 @@ with its own `nomi.toml`). The output declares each `pub` struct, enum,
 distinct type and `typealias` those files declare that crosses as JSON (it
 derives `ToJson` or `FromJson`, or implements `ToJson` by hand), and every
 type it reaches in any file, std types included, each once, in the order they
-are reached. It goes to stdout, or to the file `-o` names. Each file is
-checked as `nomi check` checks it, and an error stops the command with its
-diagnostics. A path whose files declare no such type is an error. The
-command writes types only: no client, fetch wrapper or validation.
+are reached. It goes to stdout, or to the file `-o` names. The files are
+checked as `nomi check` checks their project: in each of its programs that
+loads one of them, so a file that reads an application field is checked
+under the entry whose `fn boot` returns the application. An error stops
+the command with its diagnostics. A path whose files declare no such type
+is an error. The command writes types only: no client, fetch wrapper or
+validation.
 
 ```
 nomi types models.nomi api -o ../web/src/api-types.ts
@@ -212,9 +215,9 @@ $ cat hi.nomi
 #!/usr/bin/env nomi
 import std::io
 
-fn main() {
+fn main()
     io.print("hi")
-}
+end
 $ chmod +x hi.nomi
 $ ./hi.nomi a b
 ```
@@ -817,9 +820,11 @@ wherever `nomi test` runs.
 
 ## Formatting
 
-`nomi fmt [-w|-l|-d] <paths>` formats Nomi source: `-w` writes the result
-to each file, `-l` lists the files that would change, and `-d` shows a diff.
-Editors format on save through `nomi-lsp`.
+`nomi fmt [-w|-l|-d|-check] <paths>` formats Nomi source: `-w` writes the
+result to each file, `-l` lists the files that would change, and `-d` shows a
+diff. `-check` lists them as `-l` does and exits 1 when there are any, which is
+the check a CI step runs (`-l` exits 0). Editors format on save through
+`nomi-lsp`.
 
 `nomi fmt` gives every program one layout and has no options. It indents 4
 spaces per level and breaks lines at 100 columns. It keeps a few layout
@@ -855,13 +860,13 @@ on. A literal that starts its line (a statement, a function's result, an
 argument on a line of its own) puts them at that line's indent:
 
 ```nomi
-fn footer() -> Html {
+fn footer() -> Html
     Html"""
     <footer class="site">
       <p>Made with Nomi</p>
     </footer>
     """
-}
+end
 ```
 
 A literal that follows code on its line (after a binding's `=`, a struct
@@ -870,20 +875,21 @@ or a declaration's header) puts them one level in, the way a broken
 pipeline continues after `=`:
 
 ```nomi
-fn page(name: String, avatar: Maybe<String>) -> Html {
+fn page(name: String, avatar: Maybe<String>) -> Html
     title = Html"""
         <h1>${name}</h1>
         """
 
-    case avatar {
+    case avatar
         Some(url) -> Html"""
             ${title}
             <img src="${url}" alt="">
             """
 
-        None -> title
-    }
-}
+        None ->
+            title
+    end
+end
 ```
 
 A case arm's or a lambda's literal stays on the `->` line. `nomi fmt` moves
@@ -904,41 +910,34 @@ overflowing chain bound to a name moves under the binding, one indent in. A
 pipeline with a `then` or `tap` stage is always stacked, since that lambda's
 body ends at the next `|>`.
 
+**Bodies.** A function's, a declaration's and a test's body always goes on
+the lines below its header, one indent in, closed by `end` at the header's
+indent; an empty one is `end` on the header's line.
+
 **`if`, binding `else` and lambda bodies.** See
 [one-line `if` and binding `else`](../internal/format/doc.go)
-for when a guard or a two-branch `if` goes on one line; an `else if` chain
-is always broken. A single-expression lambda whose body is an `if` holding
-`break`, `continue` or `return` goes below the header in braces, as does a
-value-producing lambda body that does not fit, and a call it ends closes
-with `})`. A braced body written with its contents below the `{` stays that
-way (the [formatter's package doc](../internal/format/doc.go) says why).
+for when a guard or a two-branch `if` is written inline on one line; an
+`else if` chain is always in block form. An inline `if` too wide for its
+line is written in block form. An inline `if` that something follows on its
+line, a binary operator's left operand or a pipe's head, goes in
+parentheses, and an `if` stage that another stage follows is written in
+block form. A single-expression lambda whose body is an `if` holding
+`break`, `continue` or `return` goes below the header, closed by `end`, as
+does a value-producing lambda body that does not fit, and a call it ends
+closes with `end)`. A body written below its `->` stays that way (the
+[formatter's package doc](../internal/format/doc.go) says why).
 
-**`case` arms.** Each arm is laid out on its own. An arm that fits on one
-line as `pattern -> body`, with a body that is not a block or a
-triple-quoted string, stays on that line. Any other arm breaks: a block body
-keeps `-> {` on the pattern's line, and so does a triple-quoted body its
-`"""`, and any other body, such as a stacked pipeline, goes on the next line
-one indent in. One-line arms sit on consecutive lines, and a broken arm has
-a blank line before and after it, as a statement that spans lines does:
-
-```nomi
-fn slices(digits: String, length: Int) -> Result<List<String>, String> {
-    case {
-        length < 1 -> Err("too short")
-        length > String.length(digits) -> Err("too long")
-
-        _ ->
-            digits
-            |> Iter.windows(length)
-            |> Iter.map(String.join)
-            |> Iter.to_list()
-            |> Ok()
-    }
-}
-```
-
-A binding `else` with arms lays them out the same way. Blank lines the
-source put between arms are ignored, and a comment stays above its arm.
+**`case` arms.** When every arm fits on one line as `pattern -> body` and no
+body is a block, the arms sit on consecutive lines. Otherwise every arm
+breaks: a triple-quoted body keeps its `"""` on the pattern's line, any
+other body, a block's statements included, goes on the lines below the `->`
+one indent in, and one blank line separates every two arms. A triple-quoted body breaks
+the arms as a block does, and so does a stacked pipeline. A binding `else`
+with arms lays them out the same way. The rule is deliberate: when any arm
+needs more than one line, every arm moves its body below `->` with a blank
+line between arms, so the arms of one `case` always share one layout.
+Blank lines the source put between arms are ignored, and a comment stays
+above its arm.
 
 **Trailing commas.** A multi-line call has a trailing comma after its last
 argument when it has more than one argument, and none when it has one.
@@ -952,8 +951,9 @@ same holds inside `impl` and `interface` blocks. Consecutive `derive`s for
 one type lose the blank lines between them. A test group's `clock`, `boot`
 and `setup` move to the top of the group in that order.
 
-**Imports.** A file's or block's imports are combined into one `import { …
-}` block sorted with `std::` paths first, and a lone import stays bare.
+**Imports.** A file's or block's imports are combined into one `import`
+block, `import` alone on its line, one entry per line and `end`, sorted with
+`std::` paths first, and a lone import stays bare.
 Separate `import` lines of one path merge into a selector list
 (`import std::calendar.{Date, Months}`); two entries of one block do not. A
 comment line between two `import` statements keeps them apart, and each side
@@ -984,8 +984,9 @@ levels of brackets break
 make room, so it may run past 100 columns.
 
 **Small layouts.** One space follows `not`, and parentheses written around
-it or its operand stay. A `?` or `!` sits against its expression. `} else`
-and `} else if` share a line. A long `or` pattern breaks after each `or`.
+it or its operand stay. A `?` or `!` sits against its expression. In a block `if`, `else` and
+`else if c then` start their own lines at the `if`'s indent. A long `or`
+pattern breaks after each `or`.
 The arms or branches of a `|> case` or `|> if` stage sit one indent in from
 the line its `|>` is on.
 
@@ -1084,7 +1085,7 @@ A std host function that acts outside the program in a way some target cannot ha
 
 `nomi build` walks what `main`, the boot and the exported functions can reach, and refuses a program that reaches a call of a class its target lacks. It writes nothing and lists each call in the program's own code that reaches the class, at that call: the std function it calls (`fs.read_text`), the host function that one reaches (`fs_host.read_text`), and the functions the call is reached through. A hint follows, to build for another target or pass `--allow-unsupported <class>`.
 
-The walk counts a call in a branch the program never takes, so `--allow-unsupported <class>` (repeatable) builds anyway. Such a call returns `Err(io.Error.Unsupported{operation, target})` when it runs; it never traps. `--no-vm` names no target and is not checked.
+The walk counts a call in a branch the program never takes, so `--allow-unsupported <class>` (repeatable) builds anyway. Such a call returns `Err(io.Error.Unsupported{operation:, target:})` when it runs; it never traps. `--no-vm` names no target and is not checked.
 
 A project with Go bindings is checked the same way, over the std calls it reaches. A Go binding itself carries no class: what a bound Go function does is opaque to the compiler, and whether its package builds for the target is for Go to decide (above). A bound function that reads a file in a `js/wasm` module reaches Go's in-memory file system there, as std::fs's calls do.
 
@@ -1371,7 +1372,7 @@ above it offers `loadRuntime(reactor)`, which compiles the module once;
 to a program whose `exports` are the load's signatures and whose
 `call(name, ...args)` JSON-encodes the arguments, calls `nomi_call`, and
 resolves with `ok` or rejects with an `Error` carrying `error`; and
-`runtime.run(nomic, .{stdin, args, env})`, which loads into a fresh instance,
+`runtime.run(nomic, {stdin:, args:, env:})`, which loads into a fresh instance,
 calls `nomi_main`, and resolves with its exit status and output. Without
 `nomic`, `load()` and `run()` call `nomi_load` with length 0, so they use
 the program built into the module, and reject with that error result on a
@@ -1493,13 +1494,12 @@ and `GOOS` and `GOARCH` pick a build's target as `--target` does.
 
 ## Editors and debugger
 
-- Opinionated formatter: `nomi fmt [-w|-l|-d] <paths>`
+- Opinionated formatter: `nomi fmt [-w|-l|-d|-check] <paths>`
 - Check without running: `nomi check`, which also reports, at its source, any code the program reaches that type-checks but cannot be compiled to run yet
 - Language server: `nomi-lsp` (diagnostics, hover, go-to-definition, completion, rename, code actions). It reports each `todo` and `dbg` as a warning. Hover on a keyword shows the construct it starts, what it does there and a link to the page that teaches it, following the place it stands in: `as` in an import or a pattern, `case` as an expression or a pipe stage, the function a `return` leaves, the iteration a `break` leaves, what a `pub` publishes. Its quick fixes include:
   - append `()` to a pipe stage that names a function without calling it;
   - insert `then` before a lambda written as a pipe stage;
   - insert `|> Display.to_string()` before a stage that takes a `String` when the piped value implements `Display`;
-  - add braces around a `case` arm whose body continues on the next line;
   - put `|> Iter.take(todo)` before a terminal stage over an infinite iterator;
   - write a tuple read by number by its ordinal, `t.0` as `t.first`;
   - name a struct literal's values written without field names, in declaration order;

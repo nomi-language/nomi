@@ -121,32 +121,32 @@ func AddScore(lhs Score, rhs Score) Score {
 func AddBonus(lhs Score, rhs Bonus) Score {
 	return Score{Points: lhs.Points + rhs.Points*10}
 }
-`, `import {
+`, `import
   std::io
-}
+end
 
 gopkg "implbinding" as go_add
 
-pub struct Score {
+pub struct Score
   points: Int
-}
+end
 
-pub struct Bonus {
+pub struct Bonus
   points: Int
-}
+end
 
-impl Add<Score, Score> for Score {
+impl Add<Score, Score> for Score
   fn add(lhs: Score, rhs: Score) -> Score go go_add.AddScore
-}
+end
 
-impl Add<Bonus, Score> for Score {
+impl Add<Bonus, Score> for Score
   fn add(lhs: Score, rhs: Bonus) -> Score go go_add.AddBonus
-}
+end
 
-fn main() {
+fn main()
   io.print(Int.to_string((Score{points: 1} + Score{points: 2}).points))
   io.print(Int.to_string((Score{points: 1} + Bonus{points: 2}).points))
-}
+end
 `)
 
 	got := runImplKeyProject(t, entryPath, "vmrun")
@@ -176,23 +176,23 @@ func TestFFIRun_GenericReceiverImplIsCallable(t *testing.T) {
 	_, entryPath := stageImplKeyProject(t, `package implbinding
 
 func Origin() int64 { return 7 }
-`, `import {
+`, `import
   std::io
-}
+end
 
 gopkg "implbinding" as go_box
 
-pub opaque struct Box<T> {
+pub opaque struct Box<T>
   item: T
-}
+end
 
-impl Box<T> {
+impl Box<T>
   pub fn origin() -> Int go go_box.Origin
-}
+end
 
-fn main() {
+fn main()
   io.print(Int.to_string(Box.origin()))
-}
+end
 `)
 
 	got := runImplKeyProject(t, entryPath, "vmrun")
@@ -232,45 +232,45 @@ func Describe(s Score) string { return "described" }
 func Render(s Score) string { return "rendered" }
 
 func Label(n int64) string { return "label" }
-`, `import {
+`, `import
   std::io
-}
+end
 
 gopkg "implbinding" as go_add
 
-pub struct Score {
+pub struct Score
   points: Int
-}
+end
 
-pub struct Bonus {
+pub struct Bonus
   points: Int
-}
+end
 
-pub opaque struct Box<T> {
+pub opaque struct Box<T>
   item: T
-}
+end
 
-impl Add<Score, Score> for Score {
+impl Add<Score, Score> for Score
   fn add(lhs: Score, rhs: Score) -> Score go go_add.AddScore
-}
+end
 
-impl Add<Bonus, Score> for Score {
+impl Add<Bonus, Score> for Score
   fn add(lhs: Score, rhs: Bonus) -> Score go go_add.AddBonus
-}
+end
 
-impl Score {
+impl Score
   pub fn describe(s: Score) -> String go go_add.Describe
-}
+end
 
-impl Display for Score {
+impl Display for Score
   fn to_string(s: Score) -> String go go_add.Render
-}
+end
 
-impl Box<T> {
+impl Box<T>
   pub fn label(n: Int) -> String go go_add.Label
-}
+end
 
-fn main() {
+fn main()
   a = Score.add(Score{points: 1}, Score{points: 2})
   io.print(a.points)
   b = Add.add(Score{points: 1}, Bonus{points: 2})
@@ -281,7 +281,7 @@ fn main() {
   io.print(Display.to_string(a))
   io.print("${a}")
   io.print(Box.label(3))
-}
+end
 `)
 
 	got := runImplKeyProject(t, entryPath, "vmrun")

@@ -5577,7 +5577,7 @@ func (b *bound) fn210(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn211 adapts strings.String.slice: slice(s: String, start: Int, end: Int) -> String
+// fn211 adapts strings.String.slice: slice(s: String, start: Int, stop: Int) -> String
 func (b *bound) fn211(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("strings.String.slice", 3, len(args))
@@ -5592,7 +5592,7 @@ func (b *bound) fn211(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a2, err := b.in124(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("strings.String.slice", 2, "strings.String.slice", "end", err)
+		return nil, hostadapt.Param("strings.String.slice", 2, "strings.String.slice", "stop", err)
 	}
 	r0 := rt.StringSlice(a0, a1, a2)
 	v0, err := b.out5(r0)
@@ -6597,7 +6597,7 @@ func (b *bound) fn286(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn287 adapts bytes.Bytes.slice: slice(data: Bytes, start: Int, end: Int) -> Bytes
+// fn287 adapts bytes.Bytes.slice: slice(data: Bytes, start: Int, stop: Int) -> Bytes
 func (b *bound) fn287(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("bytes.Bytes.slice", 3, len(args))
@@ -6612,7 +6612,7 @@ func (b *bound) fn287(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a2, err := b.in124(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.slice", 2, "bytes.Bytes.slice", "end", err)
+		return nil, hostadapt.Param("bytes.Bytes.slice", 2, "bytes.Bytes.slice", "stop", err)
 	}
 	r0 := rt.BytesSlice(a0, a1, a2)
 	v0, err := b.out100(r0)

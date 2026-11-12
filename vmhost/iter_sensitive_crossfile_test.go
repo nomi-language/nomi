@@ -11,16 +11,16 @@ import (
 // iterSensitiveLib is a file whose `pub` functions use `continue` and
 // `break`.
 const iterSensitiveLib = `// FILE: lib.nomi
-pub fn keep(n: Int) -> Int {
-  if n < 0 { continue }
-  if n > 100 { break n }
+pub fn keep(n: Int) -> Int
+  if n < 0 then continue
+  if n > 100 then break n
   n * 2
-}
+end
 
-pub fn add(acc: Int, n: Int) -> Int {
-  if n < 0 { continue }
+pub fn add(acc: Int, n: Int) -> Int
+  if n < 0 then continue
   acc + n
-}
+end
 `
 
 // loadIterSensitiveProject loads lib.nomi, an entry and, when other is not
@@ -47,15 +47,15 @@ func loadIterSensitiveProject(t *testing.T, entry, other string) (*vmhost.Progra
 // Another file's iter-sensitive function may be `pub`, and is used from the
 // entry as the callback itself, a fold's with its starting value as `from:`.
 func TestIterSensitive_AnotherFilesFunctionAsACallback(t *testing.T) {
-	p, err := loadIterSensitiveProject(t, `import {
+	p, err := loadIterSensitiveProject(t, `import
   std::io
   lib
-}
+end
 
-fn main() {
+fn main()
   io.inspect(Iter.map([3, -1, 4, 500, 6], lib.keep) |> Iter.to_list())
   io.inspect(Iter.reduce([1, -5, 2], 0, lib.add))
-}
+end
 `, "")
 	if err != nil {
 		t.Fatalf("the project does not load: %v", err)
@@ -71,37 +71,37 @@ fn main() {
 func TestIterSensitive_AnotherFilesFunctionCalledDirectlyIsRejected(t *testing.T) {
 	const want = "`lib.keep` uses `break` and `continue`, so it cannot be called: pass it as an iteration callback itself"
 	for _, c := range []struct{ name, entry, other, file string }{
-		{"as the whole body of a callback lambda", `import {
+		{"as the whole body of a callback lambda", `import
   std::io
   lib
-}
+end
 
-fn main() {
+fn main()
   io.inspect(Iter.map([1, 2], fn x -> lib.keep(x)) |> Iter.to_list())
-}
+end
 `, "", "main.nomi:7:"},
-		{"from the entry", `import {
+		{"from the entry", `import
   std::io
   lib
-}
+end
 
-fn main() {
+fn main()
   io.inspect(Iter.map([1, 2], fn x -> lib.keep(x) + 1) |> Iter.to_list())
-}
+end
 `, "", "main.nomi:7:"},
-		{"from a file the entry imports", `import {
+		{"from a file the entry imports", `import
   std::io
   other
-}
+end
 
-fn main() {
+fn main()
   io.inspect(other.twice(1))
-}
+end
 `, `import lib
 
-pub fn twice(n: Int) -> Int {
+pub fn twice(n: Int) -> Int
   lib.keep(n) * 2
-}
+end
 `, "other.nomi:4:"},
 	} {
 		t.Run(c.name, func(t *testing.T) {

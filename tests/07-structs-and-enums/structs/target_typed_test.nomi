@@ -1,98 +1,98 @@
 // Target-typed struct literals: a brace literal with no type name and no
 // spread builds the nominal struct its position expects. Where no struct is
 // expected it stays an anonymous struct.
-import {
+import
     std::compiler
     test_helpers
-}
+end
 
-struct Address {
+struct Address
     street: String
     city: String
     zip: String = "00000"
-}
+end
 
-struct Person {
+struct Person
     name: String
     address: Address
-}
+end
 
-struct Box<T> {
+struct Box<T>
     item: T
-}
+end
 
-fn city_of(address: Address) -> String {
+fn city_of(address: Address) -> String
     address.city
-}
+end
 
-fn home() -> Address {
-    .{street: "3 Ret", city: "York"}
-}
+fn home() -> Address
+    {street: "3 Ret", city: "York"}
+end
 
-test "a brace literal builds the annotated struct" {
-    address: Address = .{street: "1 Main", city: "Bath"}
+test "a brace literal builds the annotated struct"
+    address: Address = {street: "1 Main", city: "Bath"}
     assert address == Address{street: "1 Main", city: "Bath"}
     assert address.zip == "00000"
-}
+end
 
-test "a brace literal builds a struct field, an argument and a return value" {
-    ada = Person{name: "Ada", address: .{street: "1 Main", city: "Bath"}}
+test "a brace literal builds a struct field, an argument and a return value"
+    ada = Person{name: "Ada", address: {street: "1 Main", city: "Bath"}}
     assert ada.address.city == "Bath"
-    assert city_of(.{street: "2 Arg", city: "Ely"}) == "Ely"
+    assert city_of({street: "2 Arg", city: "Ely"}) == "Ely"
     assert home().city == "York"
-}
+end
 
-test "a brace literal builds the element type of a typed list" {
+test "a brace literal builds the element type of a typed list"
     people: List<Person> = [
-        .{name: "Ada", address: .{street: "1 Main", city: "Bath"}},
+        {name: "Ada", address: {street: "1 Main", city: "Bath"}},
     ]
 
     assert Iter.map(people, .address.city) |> Iter.to_list() == ["Bath"]
-}
+end
 
-test "a brace literal builds a generic struct at its known argument" {
-    boxed: Box<Int> = .{item: 3}
+test "a brace literal builds a generic struct at its known argument"
+    boxed: Box<Int> = {item: 3}
     assert boxed == Box{item: 3}
-}
+end
 
-test "a spread updates a struct-typed field written with `..`" {
-    ada: Person = .{name: "Ada", address: .{street: "1 Main", city: "Bath"}}
-    moved = .{..ada, address: .{.., city: "NYC"}}
+test "a spread updates a struct-typed field written with `..`"
+    ada: Person = {name: "Ada", address: {street: "1 Main", city: "Bath"}}
+    moved = {..ada, address: {.., city: "NYC"}}
     assert moved.address == Address{street: "1 Main", city: "NYC"}
-}
+end
 
-test "a partial brace literal names the missing field of the struct" {
+test "a partial brace literal names the missing field of the struct"
     diagnostics = compiler.check(
         """
-          struct Address {
+          struct Address
             street: String
             city: String
-          }
+          end
 
-          fn main() {
-            address: Address = .{city: "Bath"}
+          fn main()
+            address: Address = {city: "Bath"}
             dbg address
-          }
+          end
         """
     )
 
     assert test_helpers.has_diagnostic(diagnostics, "missing field 'street' of Address")
-}
+end
 
-test "an unknown field names the struct" {
+test "an unknown field names the struct"
     diagnostics = compiler.check(
         """
-          struct Address {
+          struct Address
             street: String
             city: String
-          }
+          end
 
-          fn main() {
-            address: Address = .{street: "1 Main", city: "Bath", postcode: "BA1"}
+          fn main()
+            address: Address = {street: "1 Main", city: "Bath", postcode: "BA1"}
             dbg address
-          }
+          end
         """
     )
 
     assert test_helpers.has_diagnostic(diagnostics, "Address has no field 'postcode'")
-}
+end

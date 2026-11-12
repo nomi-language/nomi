@@ -11,14 +11,14 @@ import (
 // content, decides per file, and never names a checkout file the embedded
 // std lacks.
 func TestNavigator_NamesTheCheckoutOnlyForAMatchingFile(t *testing.T) {
-	files := stdFS("pub enum Maybe<T> {\n  Some(T)\n  None\n}\n")
+	files := stdFS("pub enum Maybe<T>\n  Some(T)\n  None\nend\n")
 	checkout := t.TempDir()
 	for _, name := range []string{"maybe.nomi", "strings.nomi"} {
 		if err := os.WriteFile(filepath.Join(checkout, name), files[name].Data, 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(checkout, "extra.nomi"), []byte("fn f() {}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(checkout, "extra.nomi"), []byte("fn f() end\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	dir := New(filepath.Join(t.TempDir(), "std"), files)
@@ -36,7 +36,7 @@ func TestNavigator_NamesTheCheckoutOnlyForAMatchingFile(t *testing.T) {
 	want("_fixtures/nested/deeper/module.nomi", dir.Location("_fixtures/nested/deeper/module.nomi"))
 
 	maybe := filepath.Join(checkout, "maybe.nomi")
-	if err := os.WriteFile(maybe, []byte("pub enum Maybe<T> {\n  None\n  Some(T)\n}\n"), 0o644); err != nil {
+	if err := os.WriteFile(maybe, []byte("pub enum Maybe<T>\n  None\n  Some(T)\nend\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	later := time.Now().Add(time.Minute)

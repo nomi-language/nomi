@@ -1,7 +1,7 @@
 import relative_distance
 
 /// The family the canonical data's first two complex cases share.
-once family = %{
+once family = {
     "Aiko" => ["Bao", "Carlos"],
     "Bao" => ["Dalia", "Elias"],
     "Carlos" => ["Fatima", "Gustavo"],
@@ -58,7 +58,7 @@ once family = %{
 
 /// The family of the last complex case: `family` with Elias left out, so
 /// Javier's line is a tree of its own.
-once split_family = %{
+once split_family = {
     "Aiko" => ["Bao", "Carlos"],
     "Bao" => ["Dalia"],
     "Carlos" => ["Fatima", "Gustavo"],
@@ -112,26 +112,26 @@ once split_family = %{
     "Zara" => ["Mohammed"],
 }
 
-test "degree of separation" {
+test "degree of separation"
     [
         (
             "Direct parent-child relation",
-            %{"Vera" => ["Tomoko"], "Tomoko" => ["Aditi"]},
+            {"Vera" => ["Tomoko"], "Tomoko" => ["Aditi"]},
             "Vera",
             "Tomoko",
             Some(1),
         ),
-        ("Sibling relationship", %{"Dalia" => ["Olga", "Yassin"]}, "Olga", "Yassin", Some(1)),
+        ("Sibling relationship", {"Dalia" => ["Olga", "Yassin"]}, "Olga", "Yassin", Some(1)),
         (
             "Two degrees of separation, grandchild",
-            %{"Khadija" => ["Mateo"], "Mateo" => ["Rami"]},
+            {"Khadija" => ["Mateo"], "Mateo" => ["Rami"]},
             "Khadija",
             "Rami",
             Some(2),
         ),
         (
             "Unrelated individuals",
-            %{"Priya" => ["Rami"], "Kaito" => ["Elif"]},
+            {"Priya" => ["Rami"], "Kaito" => ["Elif"]},
             "Priya",
             "Kaito",
             None,
@@ -146,7 +146,7 @@ test "degree of separation" {
             Some(12),
         ),
     ]
-    |> subtests (description, tree, from, to, expected), description {
+    |> subtests (description, tree, from, to, expected), description
         assert relative_distance.degree_of_separation(tree, from, to) == expected
-    }
-}
+    end
+end

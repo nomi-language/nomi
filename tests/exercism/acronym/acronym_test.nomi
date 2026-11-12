@@ -1,6 +1,6 @@
 import acronym.abbreviate
 
-test "abbreviates phrases" {
+test "abbreviates phrases"
     [
         ("basic", "Portable Network Graphics", "PNG"),
         ("lowercase words", "Ruby on Rails", "ROR"),
@@ -16,7 +16,7 @@ test "abbreviates phrases" {
         ("apostrophes", "Halley's Comet", "HC"),
         ("underscore emphasis", "The Road _Not_ Taken", "TRNT"),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert abbreviate(phrase) == expected
-    }
-}
+    end
+end

@@ -15,19 +15,19 @@ func TestQualifiedAlias_LiteralThroughAnAliasOfAnImportedStruct(t *testing.T) {
 		"main.nomi": `import shapes
 import std::io
 
-fn main() {
+fn main()
     p = shapes.P{x: 1}
     q: shapes.P = shapes.P{x: 2}
     io.print("${p.x + q.x}")
-}
+end
 `,
 		"shapes.nomi": `import geom as g
 
 pub typealias P g.Pt
 `,
-		"geom.nomi": `pub struct Pt {
+		"geom.nomi": `pub struct Pt
     x: Int
-}
+end
 `,
 	}, "3\n")
 }
@@ -46,18 +46,18 @@ func TestQualifiedAlias_TargetOfTheSameName(t *testing.T) {
 		"main.nomi": `import items
 import std::io
 
-fn main() {
+fn main()
     all: List<items.Item> = [items.Item{n: 4}]
     io.print("${Iter.sum_by(all, &(&1.n))}")
-}
+end
 `,
 		"items.nomi": `import base as src
 
 pub typealias Item src.Item
 `,
-		"base.nomi": `pub struct Item {
+		"base.nomi": `pub struct Item
     n: Int
-}
+end
 `,
 	}, "4\n")
 }

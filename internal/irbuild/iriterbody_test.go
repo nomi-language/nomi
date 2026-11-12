@@ -13,25 +13,25 @@ import (
 
 func TestIRIterBody_TourMap(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
+fn main()
  [1, 2, 3]
  |> Iter.map(fn n -> n * n)
  |> Iter.to_list()
  |> io.inspect()
-}
+end
 `, "[1, 4, 9]\n")
 }
 
 func TestIRIterBody_CallbackFaultKeepsItsPosition(t *testing.T) {
 	verifyIterFault(t, `import std::io
-fn main() {
- xs = Iter.map([1, 0, 2], fn n -> {
+fn main()
+ xs = Iter.map([1, 0, 2], fn n ->
   io.print(n)
   10 / n
- })
+ end)
  io.print("created")
  io.inspect(Iter.to_list(xs))
-}
+end
 `, "line 5: division by zero", "created\n1\n0\n")
 }
 
@@ -71,48 +71,66 @@ func verifyIterFault(t *testing.T, src, fault, output string) {
 }
 func TestIRIterBody_LazyRepeatableAndCaptured(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn source() -> List<Int> { io.print("source"); [1, 2] }
-fn main() {
+fn source() -> List<Int>
+    io.print("source")
+    [1, 2]
+end
+fn main()
  offset = 10
- xs = Iter.map(source(), fn n -> { io.print(n); n + offset })
+ xs = Iter.map(source(), fn n ->
+     io.print(n)
+     n + offset
+ end)
  io.print("created")
  io.inspect(Iter.to_list(xs))
  io.inspect(Iter.to_list(xs))
-}
+end
 `, "source\ncreated\n1\n2\n[11, 12]\n1\n2\n[11, 12]\n")
 }
 
 func TestIRIterBody_ListIdentityAndEmptyMap(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn empty() -> List<Int> { [] }
-fn size(_xs: List<Int>, n: Int) -> Int { n }
-fn after() -> Int { io.print("after"); 9 }
-fn main() {
+fn empty() -> List<Int>
+    []
+end
+fn size(_xs: List<Int>, n: Int) -> Int
+    n
+end
+fn after() -> Int
+    io.print("after")
+    9
+end
+fn main()
  xs = [1, 2]
  io.print(size(Iter.to_list(xs), after()))
- io.inspect(Iter.to_list(Iter.map(empty(), fn n -> { io.print(n); n + 1 })))
+ io.inspect(Iter.to_list(Iter.map(empty(), fn n ->
+     io.print(n)
+     n + 1
+ end)))
  io.inspect(Iter.to_list(Iter.map(Iter.map(xs, fn n -> n + 1), fn n -> "item ${n}")))
-}
+end
 `, "after\n9\n[]\n[\"item 2\", \"item 3\"]\n")
 }
 
 // A Map whose values are Maps is an iteration source like any other map.
 func TestIRIterBody_NestedMapSourceRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() { io.inspect(Iter.to_list(Iter.map(%{1 => %{2 => 3}}, fn p -> p.first + 1))) }
+fn main()
+    io.inspect(Iter.to_list(Iter.map({1 => {2 => 3}}, fn p -> p.first + 1)))
+end
 `, "[2]\n")
 }
 
 func TestIRIterBody_CallbackReturnKeepsMapping(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
+fn main()
  mapped = [1, 2, 3, 4, 5]
- |> Iter.map(fn x -> {
-  if x == 3 { return 300 }
+ |> Iter.map(fn x ->
+  if x == 3 then return 300
   x * 10
- })
+ end)
  |> Iter.to_list()
  io.inspect(mapped)
-}
+end
 `, "[10, 20, 300, 40, 50]\n")
 }

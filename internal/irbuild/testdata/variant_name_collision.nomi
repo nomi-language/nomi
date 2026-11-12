@@ -29,17 +29,17 @@
 
 import std::io
 
-enum Signal {
+enum Signal
     Go {n: Int = 3}
     Halt
-}
+end
 
-enum Gear {
+enum Gear
     Go {n: Int = 7, label: String}
     Park
-}
+end
 
-fn main() {
+fn main()
     first = Signal.Go{}
     second = Gear.Go{label: "top"}
     explicit = Signal.Go{n: 5}
@@ -48,4 +48,4 @@ fn main() {
     io.print("gear-default ${second.n}")
     io.print("gear-label ${second.label}")
     io.print("signal-explicit ${explicit.n}")
-}
+end

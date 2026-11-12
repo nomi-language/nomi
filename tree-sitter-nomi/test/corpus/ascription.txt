@@ -2,10 +2,10 @@
 Type ascription
 ==========
 
-fn main() {
+fn main()
     tags = [] as List<String>
     doubled = xs |> Iter.to_list() as List<Int>
-}
+end
 
 ---
 

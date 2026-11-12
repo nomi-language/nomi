@@ -11,22 +11,22 @@ import (
 // Tag its field names, for the partner-test derive tests.
 const apiSource = `import std::json.{Json, ToJson}
 
-struct Tag {
+struct Tag
     name: String
-}
+end
 
 derive ToJson for Tag
 
-struct TodoJson {
+struct TodoJson
     title: String
     tag: Tag
-}
+end
 
 derive ToJson for TodoJson
 
-pub fn encoded(title: String) -> String {
-    Json.encode_as(TodoJson{title, tag: Tag{name: "home"}})
-}
+pub fn encoded(title: String) -> String
+    Json.encode_as(TodoJson{title:, tag: Tag{name: "home"}})
+end
 `
 
 // derivesFromJson is api_test.nomi deriving FromJson for api.nomi's
@@ -36,10 +36,10 @@ import std::json.{FromJson, Json}
 
 derive FromJson for TodoJson
 
-test "decodes" {
+test "decodes"
     todo_json = Json.decode_as<TodoJson>(api.encoded("milk"))!
     assert todo_json.title == "milk"
-}
+end
 `
 
 // apiProject writes files into a fresh directory and checks the file
@@ -73,17 +73,17 @@ func TestPartnerTestDerive_DerivesForThePartnersPrivateType(t *testing.T) {
 // whose production code decodes TodoJson, has no FromJson for it.
 func TestPartnerTestDerive_ProductionCodeDoesNotSeeIt(t *testing.T) {
 	api := withTagFromJson + `
-pub fn title_of(text: String) -> String {
-    case Json.decode_as<TodoJson>(text) {
+pub fn title_of(text: String) -> String
+    case Json.decode_as<TodoJson>(text)
         Ok(t) -> t.title
         Err(_) -> ""
-    }
-}
+    end
+end
 `
 	files := map[string]string{
 		"api.nomi":      api,
 		"api_test.nomi": derivesFromJson,
-		"main.nomi":     "import api\n\nfn main() {\n    dbg api.title_of(api.encoded(\"milk\"))\n}\n",
+		"main.nomi":     "import api\n\nfn main()\n    dbg api.title_of(api.encoded(\"milk\"))\nend\n",
 	}
 	if err := apiProject(t, "api_test.nomi", files); err != nil {
 		t.Fatalf("the front end rejects the program with the test file, so this test shows nothing: %v", err)
@@ -114,7 +114,7 @@ func TestPartnerTestDerive_DuplicatingThePartnersImplIsAnError(t *testing.T) {
 // after no sibling, and an ordinary file, get the error a derive in another
 // file always got.
 func TestPartnerTestDerive_NoOtherFileDerivesForTheType(t *testing.T) {
-	api := strings.Replace(withTagFromJson, "struct TodoJson {", "pub struct TodoJson {", 1)
+	api := strings.Replace(withTagFromJson, "struct TodoJson", "pub struct TodoJson", 1)
 	for _, entry := range []string{"other_test.nomi", "other.nomi"} {
 		t.Run(entry, func(t *testing.T) {
 			err := apiProject(t, entry, map[string]string{"api.nomi": api, entry: derivesFromJson})
@@ -161,15 +161,15 @@ func TestPartnerTestDerive_AFieldWithoutTheImplIsAnError(t *testing.T) {
 func TestPartnerTestDerive_AHandWrittenImplToo(t *testing.T) {
 	test := `import api.{TodoJson}
 
-impl Display for TodoJson {
-    fn to_string(t: TodoJson) -> String {
+impl Display for TodoJson
+    fn to_string(t: TodoJson) -> String
         "todo ${t.title}"
-    }
-}
+    end
+end
 
-test "displays" {
+test "displays"
     assert "${TodoJson{title: "milk", tag: api.Tag{name: "home"}}}" == "todo milk"
-}
+end
 `
 	test = strings.Replace(test, "import api.{TodoJson}", "import api.{self, TodoJson}", 1)
 	if err := apiProject(t, "api_test.nomi", map[string]string{"api.nomi": apiSource, "api_test.nomi": test}); err != nil {

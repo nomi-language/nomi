@@ -5,7 +5,7 @@
 // the row; each email job skips a notification already sent, so running it
 // twice sends once. Deliveries go to a channel in place of Mailgun, and the
 // worker starts at most four a second, as the app's Mailgun limiter did.
-import {
+import
     std::channels.{Channel, Receiver, Sender}
     std::duration.Duration
     std::io
@@ -15,44 +15,44 @@ import {
     std::uuid.Uuid
     pgjobs
     postgres
-}
+end
 
-pub enum NotificationType {
+pub enum NotificationType
     NewPost
     MagicLink
-}
+end
 
 derive Equatable for NotificationType
 derive ToJson for NotificationType
 derive FromJson for NotificationType
 
-pub struct EmailArgs {
+pub struct EmailArgs
     notification_id: Uuid
     notification_type: NotificationType
     post_id: Maybe<Uuid> = None
     user_id: Maybe<Uuid> = None
-}
+end
 
 derive ToJson for EmailArgs
 derive FromJson for EmailArgs
 
-pub struct BatchArgs {
+pub struct BatchArgs
     post_id: Uuid
     notification_type: NotificationType
-}
+end
 
 derive ToJson for BatchArgs
 derive FromJson for BatchArgs
 
-pub struct App {
+pub struct App
     context: Context
     db: Conn
     queue: Queue
     worker: Worker
     sent: Channel<String>
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
     url = postgres.scratch() |> Result.map_err(fn e -> "${e}")?
     db = postgres.pool(url)
     defer on error sql.close_quietly(db)
@@ -61,8 +61,8 @@ pub fn boot() -> Result<App, String> {
 
     Ok(App{
         context: Context.root(),
-        db,
-        queue,
+        db:,
+        queue:,
         worker: Worker.new(
             queue,
             max_running: 1,
@@ -71,9 +71,9 @@ pub fn boot() -> Result<App, String> {
         ),
         sent: Channel.buffered(64),
     })
-}
+end
 
-fn create_tables(db: Conn) -> Result<Unit, sql.Error> {
+fn create_tables(db: Conn) -> Result<Unit, sql.Error>
     pgjobs.install(db)?
 
     _ = Conn.exec(
@@ -100,7 +100,7 @@ fn create_tables(db: Conn) -> Result<Unit, sql.Error> {
     )?
 
     Ok(Unit)
-}
+end
 
 pub once email_job = Job.new(
     "email_notification",
@@ -112,21 +112,28 @@ pub once email_job = Job.new(
 pub once batch_job = Job.new("email_notification_batch", timeout: Duration.minutes(30), fan_out)
 
 /// The publish step: the post and its batch job commit together.
-pub fn publish(post_id: Uuid) -> Result<Unit, sql.Error> {
-    sql.transaction(App.db, fn tx -> {
+pub fn publish(post_id: Uuid) -> Result<Unit, sql.Error>
+    sql.transaction(App.db, fn tx ->
         _ = Conn.exec(tx, Sql"UPDATE posts SET published = true WHERE id = ${post_id}")?
-        _ = jobs.enqueue(App.queue, tx, batch_job, BatchArgs{post_id, notification_type: .NewPost})?
+
+        _ = jobs.enqueue(
+            App.queue,
+            tx,
+            batch_job,
+            BatchArgs{post_id:, notification_type: .NewPost},
+        )?
+
         Ok(Unit)
-    })
-}
+    end)
+end
 
 /// The fan-out: each subscriber's notification row and email job commit
 /// together, so a crash between them cannot leave one without the other.
-pub fn fan_out(args: BatchArgs) -> Result<Unit, Failure> {
+pub fn fan_out(args: BatchArgs) -> Result<Unit, Failure>
     users = unnotified_subscribers(args.post_id) |> Result.map_err(retry)?
 
-    Iter.each(users, fn user_id -> {
-        _ = sql.transaction(App.db, fn tx -> {
+    Iter.each(users, fn user_id ->
+        _ = sql.transaction(App.db, fn tx ->
             id = create_notification(tx, user_id, args.post_id)?
 
             email = EmailArgs{
@@ -138,27 +145,27 @@ pub fn fan_out(args: BatchArgs) -> Result<Unit, Failure> {
 
             _ = jobs.enqueue(App.queue, tx, email_job, email)?
             Ok(Unit)
-        })
-    })
+        end)
+    end)
 
     Ok(Unit)
-}
+end
 
 /// One email. Safe to run twice: a notification already sent is skipped.
-pub fn send_email(args: EmailArgs) -> Result<Unit, Failure> {
+pub fn send_email(args: EmailArgs) -> Result<Unit, Failure>
     status = notification_status(args.notification_id) |> Result.map_err(retry)?
 
-    if status == "sent_to_provider" { return Ok(Unit) }
+    if status == "sent_to_provider" then return Ok(Unit)
 
     deliver(args)
     mark(args.notification_id, "sent_to_provider") |> Result.map_err(retry)
-}
+end
 
-fn retry(error: sql.Error) -> Failure {
+fn retry(error: sql.Error) -> Failure
     Failure.Retry("${error}")
-}
+end
 
-fn unnotified_subscribers(post_id: Uuid) -> Result<List<Uuid>, sql.Error> {
+fn unnotified_subscribers(post_id: Uuid) -> Result<List<Uuid>, sql.Error>
     rows = Conn.query(
         App.db,
         Sql"""
@@ -172,74 +179,74 @@ fn unnotified_subscribers(post_id: Uuid) -> Result<List<Uuid>, sql.Error> {
 
     seed: Result<List<Uuid>, sql.Error> = Ok([])
 
-    Iter.reduce(rows, seed, fn acc, row -> {
+    Iter.reduce(rows, seed, fn acc, row ->
         ids = acc?
         Ok(ids + [Row.get<Uuid>(row, "id")?])
-    })
-}
+    end)
+end
 
-fn create_notification(tx: Conn, user_id: Uuid, post_id: Uuid) -> Result<Uuid, sql.Error> {
+fn create_notification(tx: Conn, user_id: Uuid, post_id: Uuid) -> Result<Uuid, sql.Error>
     rows = Conn.query(
         tx,
         Sql"INSERT INTO notifications (user_id, post_id) VALUES (${user_id}, ${post_id}) RETURNING id",
     )?
 
     Row.get<Uuid>(Iter.first(rows)!, "id")
-}
+end
 
-fn notification_status(id: Uuid) -> Result<String, sql.Error> {
+fn notification_status(id: Uuid) -> Result<String, sql.Error>
     rows = Conn.query(App.db, Sql"SELECT status FROM notifications WHERE id = ${id}")?
     Row.get<String>(Iter.first(rows)!, "status")
-}
+end
 
-fn mark(id: Uuid, status: String) -> Result<Unit, sql.Error> {
+fn mark(id: Uuid, status: String) -> Result<Unit, sql.Error>
     _ = Conn.exec(App.db, Sql"UPDATE notifications SET status = ${status} WHERE id = ${id}")?
     Ok(Unit)
-}
+end
 
 // In place of the Mailgun call: record the delivery.
-fn deliver(args: EmailArgs) {
+fn deliver(args: EmailArgs)
     rows =
         Conn.query(App.db, Sql"SELECT u.email FROM users u WHERE u.id = ${args.user_id}")
         |> Result.with_default([])
 
-    email = case Iter.first(rows) {
+    email = case Iter.first(rows)
         Some(row) -> Row.get<String>(row, "email") |> Result.with_default("?")
         None -> "?"
-    }
+    end
 
     _ = Sender.send(App.sent.sender, email)
-}
+end
 
 /// Add a user, returning its id.
-pub fn add_user(email: String, subscribed: Bool) -> Result<Uuid, sql.Error> {
+pub fn add_user(email: String, subscribed: Bool) -> Result<Uuid, sql.Error>
     rows = Conn.query(
         App.db,
         Sql"INSERT INTO users (email, subscribed) VALUES (${email}, ${subscribed}) RETURNING id",
     )?
 
     Row.get<Uuid>(Iter.first(rows)!, "id")
-}
+end
 
 /// Add an unpublished post, returning its id.
-pub fn add_post(title: String) -> Result<Uuid, sql.Error> {
+pub fn add_post(title: String) -> Result<Uuid, sql.Error>
     rows = Conn.query(App.db, Sql"INSERT INTO posts (title) VALUES (${title}) RETURNING id")?
     Row.get<Uuid>(Iter.first(rows)!, "id")
-}
+end
 
 /// The next `count` deliveries, sorted, waiting up to ten seconds for each.
-pub fn deliveries(count: Int) -> List<String> {
-    Iter.map(1..=count, fn _ -> {
-        case Receiver.receive_within(App.sent.receiver, Duration.seconds(10)) {
+pub fn deliveries(count: Int) -> List<String>
+    Iter.map(1..=count, fn _ ->
+        case Receiver.receive_within(App.sent.receiver, Duration.seconds(10))
             Ok(Some(email)) -> email
             _ -> "nothing"
-        }
-    })
+        end
+    end)
     |> Iter.sort()
     |> Iter.to_list()
-}
+end
 
-fn main() -> Result<Unit, sql.Error> {
+fn main() -> Result<Unit, sql.Error>
     Worker.start(App.worker, [email_job, batch_job])
     _ = add_user("ada@example.com", True)?
     _ = add_user("grace@example.com", True)?
@@ -248,4 +255,4 @@ fn main() -> Result<Unit, sql.Error> {
     publish(post)?
     Iter.each(deliveries(2), &io.print("emailed ${&1}"))
     Ok(Unit)
-}
+end

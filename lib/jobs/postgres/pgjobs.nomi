@@ -9,7 +9,7 @@
 //#     db = postgres.pool(url)
 //#     defer on error sql.close_quietly(db)
 //#     queue = pgjobs.queue(db, url) |> Result.map_err(fn e -> "${e}")?
-//#     Ok(App{..., db, queue, worker: Worker.new(queue, max_running: 4)})
+//#     Ok(App{..., db:, queue:, worker: Worker.new(queue, max_running: 4)})
 //# }
 //# ```
 //#
@@ -34,7 +34,7 @@
 //# again. Each schedule's latest tick is a row of `nomi_jobs_schedules`,
 //# written in the same transaction as the tick's job.
 
-import {
+import
     std::channels.{Arm, Channel, Receiver, Sender}
     std::duration.Duration
     std::instant.Instant
@@ -46,7 +46,7 @@ import {
     std::supervisors.Supervisor
     std::tasks.Task
     postgres.{self, Listener, Notification}
-}
+end
 
 /// A queue in `table` of the database `db` points at. `url` names the same
 /// database for the connection each worker listens on. Finished jobs are
@@ -62,14 +62,14 @@ pub fn queue(
     url: String,
     table: String = "nomi_jobs",
     retention: Duration = Duration.hours(24 * 7),
-) -> Result<Queue, sql.Error> {
+) -> Result<Queue, sql.Error>
     name =
         valid_table(table)
-        |> Result.map_err(fn message -> sql.Error.Database{code: "42602", message})?
+        |> Result.map_err(fn message -> sql.Error.Database{code: "42602", message:})?
 
     check_schema(db, name)?
-    Ok(Table{db, url, table: name, retention})
-}
+    Ok(Table{db:, url:, table: name, retention:})
+end
 
 // The columns of the jobs table the queue's statements read or write.
 once required_columns = [
@@ -95,7 +95,7 @@ once required_columns = [
 // its columns, the unique index an enqueue's ON CONFLICT names, and the
 // schedules table. Names resolve through the search path, as the queue's
 // statements do. The other indexes only make it faster, and are not checked.
-fn check_schema(db: Conn, table: String) -> Result<Unit, sql.Error> {
+fn check_schema(db: Conn, table: String) -> Result<Unit, sql.Error>
     schedules = "${table}_schedules"
     unique = "${table}_unique"
 
@@ -111,18 +111,18 @@ fn check_schema(db: Conn, table: String) -> Result<Unit, sql.Error> {
 
     seed: Result<(List<String>, List<String>), sql.Error> = Ok(([], []))
 
-    (columns, relations) = Iter.reduce(rows, seed, fn acc, row -> {
+    (columns, relations) = Iter.reduce(rows, seed, fn acc, row ->
         (cs, rs) = acc?
         name = Row.get<String>(row, "name")?
 
-        if Row.get<String>(row, "kind")? == "column" {
+        if Row.get<String>(row, "kind")? == "column" then
             Ok((cs + [name], rs))
-        } else {
+        else
             Ok((cs, rs + [name]))
-        }
-    })?
+        end
+    end)?
 
-    if columns == [] {
+    if columns == [] then
         return Err(
             sql.Error.Database{
                 code: "42P01",
@@ -131,7 +131,7 @@ fn check_schema(db: Conn, table: String) -> Result<Unit, sql.Error> {
                 )}.",
             }
         )
-    }
+    end
 
     missing_columns =
         required_columns
@@ -140,26 +140,26 @@ fn check_schema(db: Conn, table: String) -> Result<Unit, sql.Error> {
 
     lacks =
         [
-            if missing_columns != [] {
+            if missing_columns != [] then
                 "the columns ${String.join(missing_columns, ", ")}"
-            } else {
+            else
                 ""
-            },
-            if not (unique in relations) {
+            end,
+            if not (unique in relations) then
                 "the index ${unique}"
-            } else {
+            else
                 ""
-            },
-            if not (schedules in relations) {
+            end,
+            if not (schedules in relations) then
                 "the table ${schedules}"
-            } else {
+            else
                 ""
-            },
+            end,
         ]
         |> Iter.filter(fn s -> s != "")
         |> Iter.to_list()
 
-    if lacks == [] { return Ok(Unit) }
+    if lacks == [] then return Ok(Unit)
 
     Err(
         sql.Error.Database{
@@ -172,23 +172,23 @@ fn check_schema(db: Conn, table: String) -> Result<Unit, sql.Error> {
             )}.",
         }
     )
-}
+end
 
-fn renamed(table: String) -> String {
-    if table == "nomi_jobs" {
+fn renamed(table: String) -> String
+    if table == "nomi_jobs" then
         ""
-    } else {
+    else
         ", with nomi_jobs replaced by ${table}"
-    }
-}
+    end
+end
 
 /// Create `table`, its indexes and its schedules table, as `schema.sql`
 /// declares them, where they are missing, and bring a table made from an
 /// earlier `schema.sql` up to it, as `schema_upgrade.sql` does.
-pub fn install(conn: Conn, table: String = "nomi_jobs") -> Result<Unit, sql.Error> {
+pub fn install(conn: Conn, table: String = "nomi_jobs") -> Result<Unit, sql.Error>
     name =
         valid_table(table)
-        |> Result.map_err(fn message -> sql.Error.Database{code: "42602", message})?
+        |> Result.map_err(fn message -> sql.Error.Database{code: "42602", message:})?
 
     statements = [
         Sql"""
@@ -226,21 +226,21 @@ pub fn install(conn: Conn, table: String = "nomi_jobs") -> Result<Unit, sql.Erro
         Sql"CREATE TABLE IF NOT EXISTS nomi_jobs_schedules (name text PRIMARY KEY, last_tick timestamptz NOT NULL)",
     ]
 
-    Iter.reduce(statements, Ok(Unit), fn done, statement -> {
+    Iter.reduce(statements, Ok(Unit), fn done, statement ->
         _ = done?
         _ = Conn.exec(conn, in_table(name, statement))?
         Ok(Unit)
-    })
-}
+    end)
+end
 
 /// A job no worker has claimed for a while: its kind is one no running
 /// worker handles, or no worker runs its queue.
-pub struct StuckJob {
+pub struct StuckJob
     id: JobId
     queue: String
     kind: String
     run_at: Instant
-}
+end
 
 derive Equatable for StuckJob
 
@@ -250,10 +250,10 @@ pub fn stuck(
     conn: Conn,
     older_than: Duration,
     table: String = "nomi_jobs",
-) -> Result<List<StuckJob>, sql.Error> {
+) -> Result<List<StuckJob>, sql.Error>
     name =
         valid_table(table)
-        |> Result.map_err(fn message -> sql.Error.Database{code: "42602", message})?
+        |> Result.map_err(fn message -> sql.Error.Database{code: "42602", message:})?
 
     statement = Sql"""
         SELECT id, queue, kind, run_at FROM nomi_jobs
@@ -265,7 +265,7 @@ pub fn stuck(
 
     seed: Result<List<StuckJob>, sql.Error> = Ok([])
 
-    Iter.reduce(rows, seed, fn acc, row -> {
+    Iter.reduce(rows, seed, fn acc, row ->
         found = acc?
         id = Row.get<Int>(row, "id")?
 
@@ -277,20 +277,20 @@ pub fn stuck(
         }
 
         Ok(found + [job])
-    })
-}
+    end)
+end
 
-struct Table {
+struct Table
     db: Conn
     url: String
     table: String
     retention: Duration
-}
+end
 
-impl Queue for Table {
-    fn insert(t: Table, conn: Conn, job: NewJob) -> Result<Enqueued, sql.Error> {
+impl Queue for Table
+    fn insert(t: Table, conn: Conn, job: NewJob) -> Result<Enqueued, sql.Error>
         insert_job(t, conn, job, 3)
-    }
+    end
 
     fn claim(
         t: Table,
@@ -299,7 +299,7 @@ impl Queue for Table {
         kinds: List<String>,
         limit: Int,
         lease: Duration,
-    ) -> Result<List<Claimed>, sql.Error> {
+    ) -> Result<List<Claimed>, sql.Error>
         statement = Sql"""
             WITH picked AS (
                 SELECT id FROM nomi_jobs
@@ -322,22 +322,22 @@ impl Queue for Table {
 
         seed: Result<List<((Int, Int, Int), Claimed)>, sql.Error> = Ok([])
 
-        claimed = Iter.reduce(rows, seed, fn acc, row -> {
+        claimed = Iter.reduce(rows, seed, fn acc, row ->
             found = acc?
             run_at = Row.get<Instant>(row, "run_at")?
             c = claimed_of(row)?
             order = (0 - Row.get<Int>(row, "priority")?, Instant.as_nanos(run_at), id_of(c.id))
             Ok(found + [(order, c)])
-        })?
+        end)?
 
         claimed
         |> Iter.sort_by(fn (order, _) -> order)
         |> Iter.map(fn (_, c) -> c)
         |> Iter.to_list()
         |> Ok()
-    }
+    end
 
-    fn renew(t: Table, worker: String, job: Claimed, lease: Duration) -> Result<Bool, sql.Error> {
+    fn renew(t: Table, worker: String, job: Claimed, lease: Duration) -> Result<Bool, sql.Error>
         statement = Sql"""
             UPDATE nomi_jobs SET locked_until = now() + ${millis(lease)} * interval '1 millisecond'
             WHERE id = ${id_of(
@@ -347,24 +347,24 @@ impl Queue for Table {
 
         changed = Conn.exec(t.db, in_table(t.table, statement))?
         Ok(changed == 1)
-    }
+    end
 
-    fn settle(t: Table, worker: String, job: Claimed, how: Settle) -> Result<Bool, sql.Error> {
+    fn settle(t: Table, worker: String, job: Claimed, how: Settle) -> Result<Bool, sql.Error>
         id = id_of(job.id)
 
-        statement = case how {
+        statement = case how
             .Completed -> Sql"""
                 UPDATE nomi_jobs SET state = 'completed', finished_at = now(), locked_by = NULL, locked_until = NULL
                 WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
                 """
 
-            .Retry{at, error} -> Sql"""
+            .Retry{at:, error:} -> Sql"""
                 UPDATE nomi_jobs SET state = 'available', run_at = ${at}, locked_by = NULL, locked_until = NULL,
                     errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
                 WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
                 """
 
-            .Snoozed{at, error} -> Sql"""
+            .Snoozed{at:, error:} -> Sql"""
                 UPDATE nomi_jobs SET state = 'available', run_at = ${at}, attempt = attempt - 1,
                     locked_by = NULL, locked_until = NULL,
                     errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
@@ -376,13 +376,13 @@ impl Queue for Table {
                     errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
                 WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
                 """
-        }
+        end
 
         changed = Conn.exec(t.db, in_table(t.table, statement))?
         Ok(changed == 1)
-    }
+    end
 
-    fn release(t: Table, worker: String) -> Result<Int, sql.Error> {
+    fn release(t: Table, worker: String) -> Result<Int, sql.Error>
         statement = Sql"""
             UPDATE nomi_jobs SET state = 'available', attempt = attempt - 1, run_at = now(),
                 locked_by = NULL, locked_until = NULL
@@ -390,9 +390,9 @@ impl Queue for Table {
             """
 
         Conn.exec(t.db, in_table(t.table, statement))
-    }
+    end
 
-    fn rescue(t: Table) -> Result<Int, sql.Error> {
+    fn rescue(t: Table) -> Result<Int, sql.Error>
         statement = Sql"""
             UPDATE nomi_jobs SET
                 state = CASE WHEN attempt >= max_attempts THEN 'discarded' ELSE 'available' END,
@@ -403,9 +403,9 @@ impl Queue for Table {
             """
 
         Conn.exec(t.db, in_table(t.table, statement))
-    }
+    end
 
-    fn prune(t: Table) -> Result<Int, sql.Error> {
+    fn prune(t: Table) -> Result<Int, sql.Error>
         statement = Sql"""
             DELETE FROM nomi_jobs WHERE id IN (
                 SELECT id FROM nomi_jobs
@@ -416,57 +416,57 @@ impl Queue for Table {
             """
 
         Conn.exec(t.db, in_table(t.table, statement))
-    }
+    end
 
-    fn watch(t: Table, supervisor: Supervisor, wake: Sender<Unit>) -> Unit {
+    fn watch(t: Table, supervisor: Supervisor, wake: Sender<Unit>) -> Unit
         stop: Channel<Unit> = Channel.buffered(1)
         Sender.close_on_drain(stop.sender)
         _ = Supervisor.spawn(supervisor, fn -> listen(t, wake, stop.receiver))
-    }
+    end
 
-    fn last_tick(t: Table, schedule: String) -> Result<Maybe<Instant>, sql.Error> {
+    fn last_tick(t: Table, schedule: String) -> Result<Maybe<Instant>, sql.Error>
         statement = Sql"SELECT last_tick FROM nomi_jobs_schedules WHERE name = ${schedule}"
         rows = Conn.query(t.db, in_table(t.table, statement))?
 
-        case rows {
+        case rows
             [row, ..] -> Row.get<Instant>(row, "last_tick") |> Result.map(&Some(&1))
             [] -> Ok(None)
-        }
-    }
+        end
+    end
 
     fn record_tick(
         t: Table,
         schedule: String,
         tick: Instant,
         job: Maybe<NewJob>,
-    ) -> Result<Maybe<Enqueued>, sql.Error> {
+    ) -> Result<Maybe<Enqueued>, sql.Error>
         statement = Sql"""
             INSERT INTO nomi_jobs_schedules (name, last_tick) VALUES (${schedule}, ${tick})
             ON CONFLICT (name) DO UPDATE
             SET last_tick = GREATEST(nomi_jobs_schedules.last_tick, EXCLUDED.last_tick)
             """
 
-        sql.transaction(t.db, fn tx -> {
+        sql.transaction(t.db, fn tx ->
             _ = Conn.exec(tx, in_table(t.table, statement))?
 
-            case job {
+            case job
                 Some(new_job) -> insert_job(t, tx, new_job, 3) |> Result.map(&Some(&1))
                 None -> Ok(None)
-            }
-        })
-    }
-}
+            end
+        end)
+    end
+end
 
 // Insert `job`, or find the job that holds its unique key. A holder that is
 // gone by the time it is looked for, finished and pruned, frees the key, so
 // the insert is tried again, up to `tries` times.
-fn insert_job(t: Table, conn: Conn, job: NewJob, tries: Int) -> Result<Enqueued, sql.Error> {
-    states = Maybe.map(job.unique_key, fn _ -> {
-        case job.unique_across {
+fn insert_job(t: Table, conn: Conn, job: NewJob, tries: Int) -> Result<Enqueued, sql.Error>
+    states = Maybe.map(job.unique_key, fn _ ->
+        case job.unique_across
             .Live -> "live"
             .Kept -> "kept"
-        }
-    })
+        end
+    end)
 
     statement = Sql"""
         INSERT INTO nomi_jobs (queue, kind, args, max_attempts, run_at, priority, unique_key, unique_states)
@@ -480,23 +480,25 @@ fn insert_job(t: Table, conn: Conn, job: NewJob, tries: Int) -> Result<Enqueued,
 
     rows = Conn.query(conn, in_table(t.table, statement))?
 
-    case rows {
-        [row, ..] -> {
+    case rows
+        [row, ..] ->
             id = Row.get<Int>(row, "id")?
             _ = Conn.query(conn, Sql"SELECT pg_notify(${t.table}, ${job.queue})")?
             Ok(Enqueued{id: JobId(id), duplicate: False})
-        }
 
-        [] -> {
+        [] ->
             holder = Sql"""
                 SELECT id FROM nomi_jobs
                 WHERE unique_key = ${job.unique_key}
                   AND (unique_states = 'kept' OR state IN ('available', 'running'))
                 """
 
-            case Conn.query(conn, in_table(t.table, holder))? {
-                [row, ..] -> Ok(Enqueued{id: JobId(Row.get<Int>(row, "id")?), duplicate: True})
-                [] when tries > 1 -> insert_job(t, conn, job, tries - 1)
+            case Conn.query(conn, in_table(t.table, holder))?
+                [row, ..] ->
+                    Ok(Enqueued{id: JobId(Row.get<Int>(row, "id")?), duplicate: True})
+
+                [] when tries > 1 ->
+                    insert_job(t, conn, job, tries - 1)
 
                 [] ->
                     Err(
@@ -505,87 +507,90 @@ fn insert_job(t: Table, conn: Conn, job: NewJob, tries: Int) -> Result<Enqueued,
                             message: "the job holding the unique key kept changing",
                         }
                     )
-            }
-        }
-    }
-}
+            end
+    end
+end
 
 // Listen on the table's channel and wake the worker on each notification,
 // until `stop` closes as shutdown starts. A connection that fails is opened
 // again after a pause; the worker also claims on a timer, so a notification
 // lost meanwhile costs at most a poll.
-fn listen(t: Table, wake: Sender<Unit>, stop: Receiver<Unit>) {
-    stopped = case postgres.listen(t.url, t.table) {
+fn listen(t: Table, wake: Sender<Unit>, stop: Receiver<Unit>)
+    stopped = case postgres.listen(t.url, t.table)
         Ok(listener) -> relay(listener, wake, stop)
         Err(_) -> False
-    }
+    end
 
-    if stopped { return }
+    if stopped then return
 
     pause = Channel.select([
         Arm.receive(stop, fn got -> Maybe.is_none(got)),
         Arm.after(Duration.seconds(5), fn -> False),
     ])
 
-    if not pause { listen(t, wake, stop) }
-}
+    if not pause then listen(t, wake, stop)
+end
 
 // Wake the worker for each notification `listener` hears. True when `stop`
 // closed; False when the connection failed. Either way the listener is
 // closed, which ends its forwarding task.
-fn relay(listener: Listener, wake: Sender<Unit>, stop: Receiver<Unit>) -> Bool {
+fn relay(listener: Listener, wake: Sender<Unit>, stop: Receiver<Unit>) -> Bool
     heard: Channel<Result<Notification, sql.Error>> = Channel.buffered(4)
 
-    concurrent {
+    concurrent
         forwarding = Task.spawn(fn -> Listener.forward(listener, heard.sender))
         stopped = relay_until(heard.receiver, wake, stop)
         _ = Listener.close(listener)
         _ = Task.outcome(forwarding)
         stopped
-    }
-}
+    end
+end
 
 fn relay_until(
     heard: Receiver<Result<Notification, sql.Error>>,
     wake: Sender<Unit>,
     stop: Receiver<Unit>,
-) -> Bool {
+) -> Bool
     next = Channel.select([
-        Arm.receive(heard, fn got -> {
-            case got {
+        Arm.receive(heard, fn got ->
+            case got
                 Some(Ok(_)) -> Relay.Heard
                 _ -> Relay.Failed
-            }
-        }),
-        Arm.receive(stop, fn got -> {
-            if Maybe.is_none(got) {
+            end
+        end),
+        Arm.receive(stop, fn got ->
+            if Maybe.is_none(got) then
                 Relay.Stopped
-            } else {
+            else
                 Relay.Again
-            }
-        }),
+            end
+        end),
     ])
 
-    case next {
-        .Heard -> {
+    case next
+        .Heard ->
             jobs.wake(wake)
             relay_until(heard, wake, stop)
-        }
 
-        .Again -> relay_until(heard, wake, stop)
-        .Failed -> False
-        .Stopped -> True
-    }
-}
+        .Again ->
+            relay_until(heard, wake, stop)
 
-enum Relay {
+        .Failed ->
+            False
+
+        .Stopped ->
+            True
+    end
+end
+
+enum Relay
     Heard
     Again
     Failed
     Stopped
-}
+end
 
-fn claimed_of(row: Row) -> Result<Claimed, sql.Error> {
+fn claimed_of(row: Row) -> Result<Claimed, sql.Error>
     Ok(Claimed{
         id: JobId(Row.get<Int>(row, "id")?),
         queue: Row.get<String>(row, "queue")?,
@@ -594,20 +599,20 @@ fn claimed_of(row: Row) -> Result<Claimed, sql.Error> {
         attempt: Row.get<Int>(row, "attempt")?,
         max_attempts: Row.get<Int>(row, "max_attempts")?,
     })
-}
+end
 
-fn id_of(JobId(n)) -> Int {
+fn id_of(JobId(n)) -> Int
     n
-}
+end
 
-fn millis(d: Duration) -> Int {
+fn millis(d: Duration) -> Int
     Duration.as_millis(d)
-}
+end
 
 // The statement against `table` in place of `nomi_jobs`, in its SQL text,
 // never its parameters. The name is checked by valid_table.
-fn in_table(table: String, statement: Statement) -> Statement {
-    if table == "nomi_jobs" { return statement }
+fn in_table(table: String, statement: Statement) -> Statement
+    if table == "nomi_jobs" then return statement
 
     Statement{
         parts: statement.parts
@@ -615,12 +620,12 @@ fn in_table(table: String, statement: Statement) -> Statement {
         |> Iter.to_list(),
         params: statement.params,
     }
-}
+end
 
-fn valid_table(table: String) -> Result<String, String> {
-    if Matcher.is_contained_in(Regex`^[a-z_][a-z0-9_]*$`, table) {
+fn valid_table(table: String) -> Result<String, String>
+    if Matcher.is_contained_in(Regex`^[a-z_][a-z0-9_]*$`, table) then
         Ok(table)
-    } else {
+    else
         Err("table name ${table} is not lowercase letters, digits and _")
-    }
-}
+    end
+end

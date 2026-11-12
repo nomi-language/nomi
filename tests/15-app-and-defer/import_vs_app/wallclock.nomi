@@ -2,16 +2,16 @@
 // returns its stored `at` Instant, so its `now` impl is pure.
 import std::instant.Instant
 
-pub interface Clock {
+pub interface Clock
     fn now(value: self) -> Instant
-}
+end
 
-pub struct FakeClock {
+pub struct FakeClock
     at: Instant
-}
+end
 
-impl Clock for FakeClock {
-    fn now(value: FakeClock) -> Instant {
+impl Clock for FakeClock
+    fn now(value: FakeClock) -> Instant
         value.at
-    }
-}
+    end
+end

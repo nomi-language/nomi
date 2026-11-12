@@ -9,8 +9,8 @@ import (
 // fixed program checks clean.
 func TestTupleOrdinal_QuickFixWritesTheOrdinal(t *testing.T) {
 	s := NewServer()
-	src := "pub fn f(t: (Int, (String, Int))) -> Int {\n    t.0 + t.1.1\n}\n"
-	want := "pub fn f(t: (Int, (String, Int))) -> Int {\n    t.first + t.second.second\n}\n"
+	src := "pub fn f(t: (Int, (String, Int))) -> Int\n    t.0 + t.1.1\nend\n"
+	want := "pub fn f(t: (Int, (String, Int))) -> Int\n    t.first + t.second.second\nend\n"
 	got := src
 	for _, title := range []string{"Write `.first`", "Write `.second.second`"} {
 		actions := parseFixActions(t, s, got, title)
@@ -33,15 +33,15 @@ func TestTupleOrdinal_QuickFixWritesTheOrdinal(t *testing.T) {
 // many as they have, and an accessor over tuples offers them too. A struct
 // offers its fields, a `first` among them as an ordinary field.
 func TestTupleOrdinal_Completion(t *testing.T) {
-	decls := "type Pair (Int, String)\n\nstruct Holder {\n    first: Int\n}\n\n"
+	decls := "type Pair (Int, String)\n\nstruct Holder\n    first: Int\nend\n\n"
 	for _, tc := range []struct {
 		name, src string
 		want, not []string
 	}{
-		{"tuple", "fn f(t: (Int, String, Bool)) -> Int {\n    t." + cursorMark + "\n}\n", []string{"first", "second", "third"}, []string{"fourth"}},
-		{"named tuple", decls + "fn f(p: Pair) -> Int {\n    p." + cursorMark + "\n}\n", []string{"first", "second"}, []string{"third"}},
-		{"accessor", "fn f(ps: List<(Int, String)>) -> List<String> {\n    ps |> Iter.map(." + cursorMark + ") |> Iter.to_list()\n}\n", []string{"first", "second"}, []string{"third"}},
-		{"struct", decls + "fn f(h: Holder) -> Int {\n    h." + cursorMark + "\n}\n", []string{"first"}, []string{"second"}},
+		{"tuple", "fn f(t: (Int, String, Bool)) -> Int\n    t." + cursorMark + "\nend\n", []string{"first", "second", "third"}, []string{"fourth"}},
+		{"named tuple", decls + "fn f(p: Pair) -> Int\n    p." + cursorMark + "\nend\n", []string{"first", "second"}, []string{"third"}},
+		{"accessor", "fn f(ps: List<(Int, String)>) -> List<String>\n    ps |> Iter.map(." + cursorMark + ") |> Iter.to_list()\nend\n", []string{"first", "second"}, []string{"third"}},
+		{"struct", decls + "fn f(h: Holder) -> Int\n    h." + cursorMark + "\nend\n", []string{"first"}, []string{"second"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			labels := itemLabels(complete(t, tc.src))

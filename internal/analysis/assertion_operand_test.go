@@ -16,7 +16,7 @@ func TestAssertionOperand_IsRejected(t *testing.T) {
 			"write the assertion as its own statement, or bind its value first: `ok = assert condition`"},
 		{"x = True == (assert True)\n  assert x", "`assert` cannot be an operand of `==`", ""},
 	} {
-		src := "test \"x\" {\n  " + tc.stmt + "\n}\n"
+		src := "test \"x\"\n  " + tc.stmt + "\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectStdlibError(t, errs, tc.want)
 		if tc.hint != "" {
@@ -33,7 +33,7 @@ func TestAssertionOperand_StatementForms(t *testing.T) {
 		"refute 1 == 2",
 		"b = assert 1 == 1\n  assert b",
 	} {
-		src := "test \"x\" {\n  " + stmt + "\n}\n"
+		src := "test \"x\"\n  " + stmt + "\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectNoStdlibErrors(t, errs)
 	}
@@ -62,13 +62,13 @@ func TestAssertionAsValue_IsRejected(t *testing.T) {
 		{"tuple element", "t = (assert x, 1)\n  assert t == (True, 1)", "assert", 8, ""},
 		{"variant payload", "m = Some(refute not x)\n  assert m", "refute", 12, ""},
 		{"parenthesized binding value", "ok = (assert x)\n  assert ok", "assert", 9, ""},
-		{"if condition", "assert if assert x { True } else { False }", "assert", 13, ""},
-		{"case scrutinee", "assert case assert x {\n    True -> True\n    False -> False\n  }", "assert", 15, ""},
+		{"if condition", "assert if assert x then True else False", "assert", 13, ""},
+		{"case scrutinee", "assert case assert x\n    True -> True\n    False -> False\n  end", "assert", 15, ""},
 		{"returned value", "return assert x", "assert", 10, ""},
 		{"pipe head", "ok = (assert x) |> id()\n  assert ok", "assert", 9, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "fn id(b: Bool) -> Bool {\n  b\n}\n\ntest \"x\" {\n  x = True\n  " + tc.stmt + "\n}\n"
+			src := "fn id(b: Bool) -> Bool\n  b\nend\n\ntest \"x\"\n  x = True\n  " + tc.stmt + "\nend\n"
 			_, errs := checkSourceWithStdlib(src)
 			errs = withoutUnusedBindingErrors(errs)
 			if len(errs) == 0 {
@@ -104,9 +104,9 @@ func TestAssertionAsValue_StatementPositions(t *testing.T) {
 		"ok = assert x |> id()\n  assert ok",
 		"ok = refute not x\n  refute ok",
 		"assert True = x",
-		"case id(x) {\n    True -> assert x\n    False -> refute x\n  }",
+		"case id(x)\n    True -> assert x\n    False -> refute x\n  end",
 	} {
-		src := "fn id(b: Bool) -> Bool {\n  b\n}\n\ntest \"x\" {\n  x = True\n  " + stmt + "\n}\n"
+		src := "fn id(b: Bool) -> Bool\n  b\nend\n\ntest \"x\"\n  x = True\n  " + stmt + "\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectNoStdlibErrors(t, errs)
 	}

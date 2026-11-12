@@ -2,11 +2,11 @@
 // line 7, and the operator path has always carried a real position.
 import std::io
 
-fn divide_via_operator() -> Int {
+fn divide_via_operator() -> Int
     zero = 0
     20 / zero
-}
+end
 
-fn main() {
+fn main()
     io.print(Int.to_string(divide_via_operator()))
-}
+end

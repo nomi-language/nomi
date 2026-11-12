@@ -104,8 +104,8 @@ func TestIRConstRef_EveryRoutedSiteHasAPosition(t *testing.T) {
 // constRefNodesUnder collects every node whose position `irNodePos` reads for
 // a `const` or a `ref`.
 //
-// `*ast.Call` and `*ast.FieldAccess` are in because `%[]`,
-// `#[]`, a stdlib `once` read and an app-field read take their
+// `*ast.Call` and `*ast.FieldAccess` are in because `[]`,
+// `[]`, a stdlib `once` read and an app-field read take their
 // position from one; both populations are far larger than the routed sites,
 // which is the superset this test's header argues for.
 func constRefNodesUnder(root ast.Node) []ast.Node {
@@ -119,7 +119,7 @@ func constRefNodesUnder(root ast.Node) []ast.Node {
 		seen[n] = true
 		switch n.(type) {
 		case *ast.IntLit, *ast.FloatLit, *ast.StringLit, *ast.DecimalLit,
-			*ast.TypeIdent, *ast.Ident, *ast.ListLit, *ast.ListSpreadLit,
+			*ast.TypeIdent, *ast.Ident, *ast.ListLit,
 			*ast.Call, *ast.FieldAccess:
 			out = append(out, n)
 		}

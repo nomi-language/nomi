@@ -64,6 +64,7 @@ type vtok struct {
 	text  string
 	start int
 	line  int
+	col   int
 	// interp is set inside a string's `${...}`.
 	interp bool
 	// prompt is set on a line holding a `//!` prompt.
@@ -106,7 +107,7 @@ func sourceTokens(src string) []vtok {
 		if tk.Type == token.STRING_START || tk.Type == token.TRIPLE_STRING_START {
 			inside = depth > 1
 		}
-		out = append(out, vtok{typ: tk.Type, text: tk.Lexeme, start: start, line: tk.Line, interp: inside})
+		out = append(out, vtok{typ: tk.Type, text: tk.Lexeme, start: start, line: tk.Line, col: tk.Col, interp: inside})
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].start < out[j].start })
 	for i := range out {
@@ -125,7 +126,7 @@ func canEnd(t token.TokenType) bool {
 		token.RAW_STRING_LITERAL, token.RAW_TRIPLE_STRING_LITERAL,
 		token.TAGGED_STRING_LITERAL, token.TAGGED_TRIPLE_STRING_LITERAL,
 		token.RAW_TAGGED_STRING_LITERAL, token.RAW_TAGGED_TRIPLE_STRING_LITERAL,
-		token.RPAREN, token.RBRACKET, token.RBRACE, token.GT,
+		token.RPAREN, token.RBRACKET, token.RBRACE, token.GT, token.END,
 		token.RETURN, token.BREAK, token.CONTINUE, token.ASSERT, token.REFUTE, token.DBG,
 		token.EXPORT, token.UNDERSCORE, token.COMMENT, token.DOC_COMMENT, token.TEST_PROMPT:
 		return true
@@ -243,7 +244,8 @@ func (l *layout) joinLines(src string, p float64) string {
 }
 
 // comment puts comments between tokens: at the end of a line and on a line
-// of their own between statements, alone inside an empty `{}`, and, once per
+// of their own between statements, alone inside an empty `{}` or an empty
+// body closed by `end` on its header's line, and, once per
 // pass at most, on a line break inside an expression, where few constructs
 // take one.
 func (l *layout) comment(src string, p float64) string {
@@ -252,8 +254,10 @@ func (l *layout) comment(src string, p float64) string {
 	// start in three passes of four.
 	inside := l.r.Intn(4) != 0
 	for _, g := range gaps(src, sourceTokens(src)) {
-		if g.prev.typ == token.LBRACE && g.next.typ == token.RBRACE && g.start == g.end {
-			// An empty `{}` gets a body of one comment line, one time in
+		if g.prev.typ == token.LBRACE && g.next.typ == token.RBRACE && g.start == g.end ||
+			g.next.typ == token.END && g.prev.line == g.next.line {
+			// An empty `{}`, or a header with its `end` on its line (an
+			// empty body), gets a body of one comment line, one time in
 			// two whatever p is: few seeds have one.
 			if l.r.Intn(2) == 0 {
 				edits = append(edits, edit{g.start, g.end, "\n" + l.indent() + l.note("e") + "\n" + l.indent()})
@@ -392,7 +396,7 @@ func (l *layout) wrap(src string, p float64) string {
 // enumPayloads finds each positional payload in an enum body, and no bare,
 // struct-shaped or embedded variant.
 func TestLayoutWrap_EnumPayloads(t *testing.T) {
-	src := "enum E {\n    A\n    Full Int // c\n    Pair (\n        Int,\n        String\n    )\n    Gen Map<String, List<Int>>\n    F (Int) -> Int\n    S {x: Int}\n    embeds G\n    Last T\n}\n"
+	src := "enum E\n    A\n    Full Int // c\n    Pair (\n        Int,\n        String\n    )\n    Gen Map<String, List<Int>>\n    F (Int) -> Int\n    S {x: Int}\n    embeds G\n    Last T\nend\n"
 	want := []string{"Int", "(\n        Int,\n        String\n    )", "Map<String, List<Int>>", "(Int) -> Int", "T"}
 	toks := sourceTokens(src)
 	var got []string
@@ -406,34 +410,38 @@ func TestLayoutWrap_EnumPayloads(t *testing.T) {
 
 // enumPayloads is the first and last token index of each positional
 // payload in an enum body: the type after a variant's name, through the
-// end of its line outside brackets.
+// end of its line outside brackets. The body is the lines after the
+// `enum` header up to the `end` in the header's column; a variant's name
+// starts its line, in the column of the body's first token.
 func enumPayloads(toks []vtok) [][2]int {
 	var out [][2]int
 	for i := 0; i < len(toks); i++ {
 		if toks[i].typ != token.ENUM {
 			continue
 		}
-		open := i + 1
-		for open < len(toks) && toks[open].typ != token.LBRACE {
+		head := i
+		for head > 0 && toks[head-1].line == toks[i].line {
+			head--
+		}
+		open := i
+		for open+1 < len(toks) && toks[open+1].line == toks[i].line {
 			open++
 		}
-		if open == len(toks) {
+		close := open + 1
+		for close < len(toks) && !(toks[close].typ == token.END && toks[close].col == toks[head].col && toks[close-1].line != toks[close].line) {
+			close++
+		}
+		if close >= len(toks) {
 			return out
 		}
-		close := matching(toks, open)
-		if close < 0 {
-			return out
+		if close == open+1 {
+			i = close
+			continue
 		}
-		depth := 0
+		variantCol := toks[open+1].col
 		for j := open + 1; j+1 < close; j++ {
-			switch toks[j].typ {
-			case token.LBRACE:
-				depth++
-			case token.RBRACE:
-				depth--
-			}
 			name, next := toks[j], toks[j+1]
-			if depth != 0 || name.typ != token.TYPE_IDENT || toks[j-1].line == name.line && j-1 != open ||
+			if name.typ != token.TYPE_IDENT || name.col != variantCol || toks[j-1].line == name.line ||
 				next.line != name.line || name.interp || name.prompt {
 				continue
 			}

@@ -2,7 +2,7 @@
 //
 // # `untyped:` — an UNTYPED LITERAL nested inside a tuple
 //
-// `[]`, `%{}`, `%[]`, `#[]` and a bare `None` have no type of their own;
+// `[]`, `{}`, `Set[]`, `Vector[]` and a bare `None` have no type of their own;
 // the checker solves each from context. `coerce` discharged them at the TOP
 // LEVEL only, so `(0, [])` flowing into a `(Int, List<Int>)` position was never
 // discharged — and the same absence was reported under THREE different key
@@ -31,12 +31,12 @@
 // its refusal is asserted in coercetuple_test.go instead.
 import std::io
 
-fn take_pair(t: (Int, List<Int>)) -> Int {
+fn take_pair(t: (Int, List<Int>)) -> Int
     (n, _rest) = t
     n
-}
+end
 
-fn main() {
+fn main()
     // Position 1: an annotated binding.
     bound: (Int, List<Int>) = (0, [])
     (b0, b1) = bound
@@ -47,15 +47,15 @@ fn main() {
 
     // Position 3: an `Iter.reduce` SEED, which is where this was found. The
     // accumulator is (Int, List<Int>) and the seed is written (0, []).
-    taken = Iter.reduce([10, 20, 30, 40], (0, []), fn state, x -> {
+    taken = Iter.reduce([10, 20, 30, 40], (0, []), fn state, x ->
         (count, acc) = state
 
-        if count >= 2 {
+        if count >= 2 then
             break (count, acc)
-        } else {
+        else
             (count + 1, [x, ..acc])
-        }
-    })
+        end
+    end)
 
     (kept_count, kept) = taken
     io.print("untyped: seed ${kept_count} ${Iter.reverse(kept)}")
@@ -76,12 +76,12 @@ fn main() {
     // pattern introduces.
     counts =
         [("a", 1), ("b", 2), ("a", 3)]
-        |> Iter.reduce(%{}, fn acc, (k, v) -> {
-            case Map.get(acc, k) {
+        |> Iter.reduce({}, fn acc, (k, v) ->
+            case Map.get(acc, k)
                 Some(prev) -> Map.put(acc, k, prev + v)
                 None -> Map.put(acc, k, v)
-            }
-        })
+            end
+        end)
 
     // Compared rather than interpolated: `"${a_Maybe}"` is a separate gap
     // (`rendering a non-scalar value`) and this file is not about that one.
@@ -93,4 +93,4 @@ fn main() {
         |> Iter.reduce(0, fn acc, (a, (b, c)) -> acc + a + b + c)
 
     io.print("pattern: nested ${sums}")
-}
+end

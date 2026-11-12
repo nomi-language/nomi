@@ -1,6 +1,6 @@
 import std::random.{Generator, Seed}
 
-test "seeded generators produce deterministic values" {
+test "seeded generators produce deterministic values"
     seed = Seed.from_int(123)
     die = Generator.int(1, 6)
 
@@ -20,9 +20,9 @@ test "seeded generators produce deterministic values" {
         |> Generator.step(seed)
 
     assert choice == "scissors"
-}
+end
 
-test "random generators compose dependent draws" {
+test "random generators compose dependent draws"
     seed = Seed.from_int(123)
     size = Generator.int(1, 4)
 
@@ -32,19 +32,19 @@ test "random generators compose dependent draws" {
         |> Generator.step(seed)
 
     assert sized == [False, False, True, False]
-}
+end
 
-test "weighted generators require positive total weight" {
+test "weighted generators require positive total weight"
     assert Generator.weighted((0.0, "never"), [])
         |> Result.is_err()
-}
+end
 
-test "weighted generators reject negative weights" {
+test "weighted generators reject negative weights"
     assert Generator.weighted((-1.0, "bad"), [])
         |> Result.is_err()
-}
+end
 
-test "an integer range of any width draws in range" {
+test "an integer range of any width draws in range"
     seed = Seed.from_int(2026)
     top = Int.pow(2, 63) - 1
 
@@ -85,9 +85,9 @@ test "an integer range of any width draws in range" {
     assert past |> Iter.all_match(&(&1 >= -huge and &1 <= huge))
     assert past |> Iter.any_match(&(&1 > Int.pow(10, 30)))
     assert past |> Iter.any_match(&(&1 < -Int.pow(10, 30)))
-}
+end
 
-test "a float range wider than a Float can span draws in range" {
+test "a float range wider than a Float can span draws in range"
     (xs, _) =
         Generator.float(-1.0e308, 1.0e308)
         |> Generator.list(8)
@@ -96,4 +96,4 @@ test "a float range wider than a Float can span draws in range" {
     assert xs |> Iter.all_match(fn x -> Float.is_finite(x) and x >= -1.0e308 and x < 1.0e308)
     assert xs |> Iter.any_match(&(&1 < 0.0))
     assert xs |> Iter.any_match(&(&1 > 0.0))
-}
+end

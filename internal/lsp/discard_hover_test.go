@@ -12,19 +12,19 @@ import (
 func TestHover_Discard(t *testing.T) {
 	const coin = `import std::io
 
-enum Coin {
+enum Coin
   Penny
   Dime
-}
+end
 
-struct Point {
+struct Point
   x: Int
   y: Int
-}
+end
 
-fn count() -> Int {
+fn count() -> Int
   3
-}
+end
 
 `
 	cases := []struct {
@@ -34,124 +34,124 @@ fn count() -> Int {
 		// broken is true for a program the checker rejects on purpose.
 		broken bool
 	}{
-		{"a tuple element", coin + `fn main() {
+		{"a tuple element", coin + `fn main()
   (▮_, coins) = (1, [Coin.Penny])
   io.inspect(coins)
-}
+end
 `, "`Int`, discarded", false},
-		{"a struct field", coin + `fn main() {
-  Point{x: ▮_, y} = Point{x: 1, y: 2}
+		{"a struct field", coin + `fn main()
+  Point{x: ▮_, y:} = Point{x: 1, y: 2}
   io.inspect(y)
-}
+end
 `, "`Int`, discarded", false},
-		{"a variant payload in a case arm", coin + `fn main() {
-  n = case Some("a") {
+		{"a variant payload in a case arm", coin + `fn main()
+  n = case Some("a")
     Some(▮_) -> 1
     None -> 0
-  }
+  end
   io.inspect(n)
-}
+end
 `, "`String`, discarded: matches any `String`", false},
-		{"a list element in a case arm", coin + `fn main() {
-  n = case [1, 2] {
+		{"a list element in a case arm", coin + `fn main()
+  n = case [1, 2]
     [▮_] -> 1
     _ -> 0
-  }
+  end
   io.inspect(n)
-}
+end
 `, "`Int`, discarded: matches any `Int`", false},
-		{"a vector element in a case arm", coin + `fn main() {
-  n = case #[1, 2] {
-    #[▮_, ..] -> 1
+		{"a vector element in a case arm", coin + `fn main()
+  n = case Vector[1, 2]
+    [▮_, ..] -> 1
     _ -> 0
-  }
+  end
   io.inspect(n)
-}
+end
 `, "`Int`, discarded: matches any `Int`", false},
-		{"a case arm's whole pattern", coin + `fn main() {
-  n = case Coin.Dime {
+		{"a case arm's whole pattern", coin + `fn main()
+  n = case Coin.Dime
     .Penny -> 1
     ▮_ -> 2
-  }
+  end
   io.inspect(n)
-}
+end
 `, "`Coin`, discarded: matches any `Coin`", false},
-		{"an or-pattern alternative", coin + `fn main() {
-  n = case 3 {
+		{"an or-pattern alternative", coin + `fn main()
+  n = case 3
     1 or ▮_ -> 1
-  }
+  end
   io.inspect(n)
-}
+end
 `, "`Int`, discarded: matches any `Int`", false},
-		{"a binding", coin + `fn main() {
+		{"a binding", coin + `fn main()
   ▮_ = count()
   io.inspect(0)
-}
+end
 `, "`Int`, discarded", false},
-		{"an annotated binding", coin + `fn main() {
+		{"an annotated binding", coin + `fn main()
   ▮_: Int = count()
   io.inspect(0)
-}
+end
 `, "`Int`, discarded", false},
-		{"a binding with else", coin + `fn main() {
-  Some(▮_) = Some(Coin.Dime) else {
+		{"a binding with else", coin + `fn main()
+  Some(▮_) = Some(Coin.Dime) else
     return
-  }
+  end
   io.inspect(0)
-}
+end
 `, "`Coin`, discarded: matches any `Coin`", false},
-		{"an if pattern", coin + `fn main() {
-  n = if Some(▮_) = Some(1.5) { 1 } else { 0 }
+		{"an if pattern", coin + `fn main()
+  n = if Some(▮_) = Some(1.5) then 1 else 0
   io.inspect(n)
-}
+end
 `, "`Float`, discarded: matches any `Float`", false},
-		{"a lambda parameter", coin + `fn main() {
+		{"a lambda parameter", coin + `fn main()
   n = Iter.reduce(["a", "b"], 0, fn total, ▮_ -> total + 1)
   io.inspect(n)
-}
+end
 `, "`String`, discarded", false},
-		{"a lone lambda parameter", coin + `fn main() {
+		{"a lone lambda parameter", coin + `fn main()
   xs = ["a"] |> Iter.map(fn ▮_ -> 0) |> Iter.to_list()
   io.inspect(xs)
-}
+end
 `, "`String`, discarded", false},
-		{"a function parameter", coin + `fn second(▮_: String, b: Int) -> Int {
+		{"a function parameter", coin + `fn second(▮_: String, b: Int) -> Int
   b
-}
+end
 
-fn main() {
+fn main()
   io.inspect(second("a", 2))
-}
+end
 `, "`String`, discarded", false},
-		{"a reduce seed pattern", coin + `fn main() {
+		{"a reduce seed pattern", coin + `fn main()
   r = Iter.reduce([1, 2], (0, []), fn (▮_, acc), x -> (x, [x, ..acc]))
   io.inspect(r)
-}
+end
 `, "`Int`, discarded", false},
-		{"a subtests row pattern", coin + `test "rows" {
-  subtests [(1, "a")], (n, ▮_) {
+		{"a subtests row pattern", coin + `test "rows"
+  subtests [(1, "a")], (n, ▮_)
     assert n > 0
-  }
+  end
   io.inspect(0)
-}
+end
 `, "`String`, discarded", false},
-		{"an assert pattern", coin + `test "assert" {
+		{"an assert pattern", coin + `test "assert"
   assert Some(▮_) = Some(1)
   io.inspect(0)
-}
+end
 `, "`Int`, discarded: matches any `Int`", false},
-		{"a case with no subject", coin + `fn main() {
+		{"a case with no subject", coin + `fn main()
   d = count()
-  n = case {
+  n = case
     d > 2 -> 1
     ▮_ -> 2
-  }
+  end
   io.inspect(n)
-}
+end
 `, "Otherwise: runs when no condition above holds.", false},
-		{"a value whose type failed to infer", coin + `fn main() {
+		{"a value whose type failed to infer", coin + `fn main()
   ▮_ = nope()
-}
+end
 `, "discarded", true},
 	}
 	for _, tc := range cases {
@@ -179,9 +179,9 @@ fn main() {
 
 // A name that starts with `_` is a binding, with its own hover.
 func TestHover_UnderscoreNameIsNotADiscard(t *testing.T) {
-	src, pos := hoverMarkerPosition(t, `fn main() {
+	src, pos := hoverMarkerPosition(t, `fn main()
   ▮_unused = 3
-}
+end
 `)
 	got, _ := hoverAt(t, src, protocol.Position{Line: uint32(pos.Line - 1), Character: uint32(pos.Col - 1)})
 	if !strings.Contains(got, "_unused: Int") || strings.Contains(got, "discarded") {

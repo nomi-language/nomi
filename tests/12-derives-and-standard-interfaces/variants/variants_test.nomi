@@ -1,39 +1,39 @@
 import coins.{self, Coin}
 
-enum Suit {
+enum Suit
     Clubs
     Diamonds
     Hearts
     Spades
-}
+end
 
 derive Variants for Suit
 
-fn others<T>(value: T) -> List<T> where T: Variants {
+fn others<T>(value: T) -> List<T> where T: Variants
     T.variants() |> Iter.filter(&(&1 != value)) |> Iter.to_list()
-}
+end
 
-test "variants lists every variant in declaration order" {
+test "variants lists every variant in declaration order"
     assert Suit.variants() == [Suit.Clubs, Suit.Diamonds, Suit.Hearts, Suit.Spades]
-}
+end
 
-test "an enum declared in another file lists its variants" {
+test "an enum declared in another file lists its variants"
     assert Coin.variants() == [Coin.Penny, Coin.Nickel, Coin.Dime, Coin.Quarter]
-}
+end
 
-test "variants agrees with the order derive Comparable ranks them in" {
+test "variants agrees with the order derive Comparable ranks them in"
     assert Coin.variants() == (Coin.variants() |> Iter.sort() |> Iter.to_list())
     assert Coin.Penny < Coin.Quarter
-}
+end
 
-test "variants feeds a pipe" {
+test "variants feeds a pipe"
     assert Coin.variants() |> Iter.map(coins.cents) |> Iter.to_list() == [1, 5, 10, 25]
 
     names = Suit.variants() |> Iter.map(&Debug.inspect(&1)) |> String.join(", ")
     assert names == "Clubs, Diamonds, Hearts, Spades"
-}
+end
 
-test "generic code calls variants through a bound" {
+test "generic code calls variants through a bound"
     assert others(Coin.Dime) == [Coin.Penny, Coin.Nickel, Coin.Quarter]
     assert others(Suit.Hearts) == [Suit.Clubs, Suit.Diamonds, Suit.Spades]
-}
+end

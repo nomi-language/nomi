@@ -15,41 +15,41 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The primes up to and including `limit`, by the Sieve of Eratosthenes:
 /// each prime marks its multiples, and the numbers left unmarked are prime.
-pub fn primes(limit: Int) -> List<Int> {
-    composites = Iter.reduce(2..=limit, %[], fn marked, n -> {
-        if n in marked {
+pub fn primes(limit: Int) -> List<Int>
+    composites = Iter.reduce(2..=limit, Set[], fn marked, n ->
+        if n in marked then
             marked
-        } else {
+        else
             multiples = Range.step_by(n * n..=limit, n) |> Iter.to_set()
             marked + multiples
-        }
-    })
+        end
+    end)
 
     2..=limit
     |> Iter.reject(&(&1 in composites))
     |> Iter.to_list()
-}
+end
 
 // FILE: sieve_test.nomi
 import sieve
 
-test "no primes under two" {
+test "no primes under two"
     assert sieve.primes(1) == []
-}
+end
 
-test "find first prime" {
+test "find first prime"
     assert sieve.primes(2) == [2]
-}
+end
 
-test "find primes up to 10" {
+test "find primes up to 10"
     assert sieve.primes(10) == [2, 3, 5, 7]
-}
+end
 
-test "limit is prime" {
+test "limit is prime"
     assert sieve.primes(13) == [2, 3, 5, 7, 11, 13]
-}
+end
 
-test "find primes up to 1000" {
+test "find primes up to 1000"
     assert sieve.primes(1000) == [
         2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89,
         97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181,
@@ -61,7 +61,7 @@ test "find primes up to 1000" {
         751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827, 829, 839, 853, 857, 859, 863,
         877, 881, 883, 887, 907, 911, 919, 929, 937, 941, 947, 953, 967, 971, 977, 983, 991, 997,
     ]
-}
+end
 ```
 <!-- expect
 ok no primes under two

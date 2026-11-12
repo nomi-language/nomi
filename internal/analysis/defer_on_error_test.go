@@ -11,48 +11,48 @@ import (
 // released or handed on leaks it.
 
 func TestDeferOnErrorCoversTheErrorExitsOfAHandedOnValue(t *testing.T) {
-	expectReleaseErrors(t, `struct Store {
+	expectReleaseErrors(t, `struct Store
     reader: Reader
-}
+end
 
-fn open(path: String) -> Result<Store, Error> {
+fn open(path: String) -> Result<Store, Error>
     r = fs.open(path)?
     defer on error Reader.close_quietly(r)
     _ = Reader.read_line(r)?
     Ok(Store{reader: r})
-}
+end
 
-fn returned(path: String, early: Bool) -> Result<Reader, Error> {
+fn returned(path: String, early: Bool) -> Result<Reader, Error>
     r = fs.open(path)?
     defer on error Reader.close_quietly(r)
-    if early {
+    if early then
         return Ok(r)
-    }
+    end
     _ = Reader.read_line(r)?
     Ok(r)
-}
+end
 `)
 }
 
 func TestAnErrorExitBeforeTheHandOnLeaks(t *testing.T) {
-	errs := expectReleaseErrors(t, `struct Store {
+	errs := expectReleaseErrors(t, `struct Store
     reader: Reader
-}
+end
 
-fn open(path: String) -> Result<Store, Error> {
+fn open(path: String) -> Result<Store, Error>
     r = fs.open(path)?
     _ = Reader.read_line(r)?
     Ok(Store{reader: r})
-}
+end
 
-fn early(path: String, other: String) -> Result<Reader, Error> {
+fn early(path: String, other: String) -> Result<Reader, Error>
     r = fs.open(path)?
-    case fs.read_text(other) {
+    case fs.read_text(other)
         Err(e) -> return Err(e)
         Ok(_) -> Unit
-    }
+    end
     Ok(r)
-}
+end
 `, at(7, 28, "`r` leaks if this `?` returns an error: it isn't released on that path; add `defer on error Reader.close_quietly(r)` after acquiring it"),
 		at(14, 19, "`r` leaks if this `return` runs: it isn't released on that path; add `defer on error Reader.close_quietly(r)` after acquiring it"))
 	if errs[0].Code != analysis.ErrorExitLeakCode {
@@ -68,50 +68,50 @@ fn early(path: String, other: String) -> Result<Reader, Error> {
 }
 
 func TestAnErrorExitBeforeTheDeferLeaks(t *testing.T) {
-	expectReleaseErrors(t, `fn first(path: String, other: String) -> Result<Maybe<String>, Error> {
+	expectReleaseErrors(t, `fn first(path: String, other: String) -> Result<Maybe<String>, Error>
     r = fs.open(path)?
     _ = fs.read_text(other)?
     defer Reader.close_quietly(r)
     Reader.read_line(r)
-}
+end
 
-fn handed(path: String, other: String) -> Result<Reader, Error> {
+fn handed(path: String, other: String) -> Result<Reader, Error>
     r = fs.open(path)?
     _ = fs.read_text(other)?
     defer on error Reader.close_quietly(r)
     Ok(r)
-}
+end
 `, at(3, 28, "`r` leaks if this `?` returns an error: its `defer` comes after it; move the `defer` up to right after acquiring `r`"),
 		at(10, 28, "`r` leaks if this `?` returns an error: its `defer on error` comes after it; move it up to right after acquiring `r`"))
 }
 
 func TestDeferOnErrorAloneLeavesTheSuccessPathUnreleased(t *testing.T) {
-	expectReleaseErrors(t, `fn all(path: String) -> Result<String, Error> {
+	expectReleaseErrors(t, `fn all(path: String) -> Result<String, Error>
     r = fs.open(path)?
     defer on error Reader.close_quietly(r)
     Reader.read_all_text(r)
-}
+end
 `, at(2, 5, "`r` is released only if the body fails; write `defer Reader.close_quietly(r)` after it, or return it"))
 }
 
 func TestDeferOnErrorNeedsAFunctionThatCanFail(t *testing.T) {
-	expectReleaseErrors(t, `fn note(n: Int) {
+	expectReleaseErrors(t, `fn note(n: Int)
     io.print(n)
-}
+end
 
-fn plain(n: Int) -> Int {
+fn plain(n: Int) -> Int
     defer on error note(n)
     n + 1
-}
+end
 
-fn fallible(n: Int) -> Result<Int, String> {
+fn fallible(n: Int) -> Result<Int, String>
     defer on error note(n)
     Ok(n)
-}
+end
 
-fn optional(n: Int) -> Maybe<Int> {
+fn optional(n: Int) -> Maybe<Int>
     defer on error note(n)
     Some(n)
-}
+end
 `, at(6, 5, "`defer on error` runs only when `plain` fails, and it returns Int, which carries no failure; write `defer`"))
 }

@@ -30,7 +30,7 @@ func TestCheckMainReturn_RejectsAValue(t *testing.T) {
 		{"Int", "Int", "1"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib("fn main() -> " + tc.ret + " {\n    " + tc.body + "\n}\n")
+			_, errs := checkSourceWithStdlib("fn main() -> " + tc.ret + "\n    " + tc.body + "\nend\n")
 			got := mainReturnErrors(errs)
 			if len(got) != 1 {
 				t.Fatalf("got %d main return errors, want 1, among %v", len(got), errs)
@@ -51,10 +51,10 @@ func TestCheckMainReturn_RejectsAValue(t *testing.T) {
 // knows how to finish with.
 func TestCheckMainReturn_AcceptsUnitAndResultOfUnit(t *testing.T) {
 	for _, src := range []string{
-		"fn main() {\n    Unit\n}\n",
-		"fn main() -> Unit {\n    Unit\n}\n",
-		"fn main() -> Result<Unit, String> {\n    Ok(Unit)\n}\n",
-		"struct Missing {\n    path: String\n}\n\nfn main() -> Result<Unit, Missing> {\n    Err(Missing{path: \"app.toml\"})\n}\n",
+		"fn main()\n    Unit\nend\n",
+		"fn main() -> Unit\n    Unit\nend\n",
+		"fn main() -> Result<Unit, String>\n    Ok(Unit)\nend\n",
+		"struct Missing\n    path: String\nend\n\nfn main() -> Result<Unit, Missing>\n    Err(Missing{path: \"app.toml\"})\nend\n",
 	} {
 		_, errs := checkSourceWithStdlib(src)
 		if got := mainReturnErrors(errs); len(got) != 0 {
@@ -67,7 +67,7 @@ func TestCheckMainReturn_AcceptsUnitAndResultOfUnit(t *testing.T) {
 // Only a top-level `fn main` is the entry: a function named main inside an
 // impl block returns what it likes.
 func TestCheckMainReturn_IgnoresAnImplFunctionNamedMain(t *testing.T) {
-	_, errs := checkSourceWithStdlib("struct App {\n    name: String\n}\n\nimpl App {\n    fn main(app: App) -> String {\n        app.name\n    }\n}\n")
+	_, errs := checkSourceWithStdlib("struct App\n    name: String\nend\n\nimpl App\n    fn main(app: App) -> String\n        app.name\n    end\nend\n")
 	if got := mainReturnErrors(errs); len(got) != 0 {
 		t.Fatalf("rejected an impl function named main: %v", got)
 	}

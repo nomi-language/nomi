@@ -14,16 +14,16 @@ This `boot` stores files in a Spaces bucket in production and in a local
 directory elsewhere:
 
 ```nomi
-import {
+import
     std::storage.{self, Store}
     std::url.Url
     s3
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
     env = startup.env
 
-    store = if Map.get(env, "ENVIRONMENT") == Some("prod") {
+    store = if Map.get(env, "ENVIRONMENT") == Some("prod") then
         s3.store(s3.Config{
             endpoint: Url`https://nyc3.digitaloceanspaces.com`,
             bucket: "photos",
@@ -35,12 +35,12 @@ fn boot(startup: Startup) -> Result<App, String> {
             cache_control: Some("public, max-age=31536000, immutable"),
         })
         |> Result.map_err(fn e -> "${e}")?
-    } else {
+    else
         storage.local("tmp/files", public_base: Some(Url`/files/`))
-    }
+    end
 
-    Ok(App{store})
-}
+    Ok(App{store:})
+end
 ```
 
 - `s3.store(config)` checks the config and sends nothing. An endpoint

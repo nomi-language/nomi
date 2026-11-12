@@ -11,19 +11,19 @@ func TestIRUnsolvedTypeArgumentAroundAnEmptyLiteral_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Gbox<A> {
+struct Gbox<A>
     v: A
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Gbox{v: []})
-    io.inspect(Gbox{v: %[]})
-    io.inspect(Gbox{v: %{}})
+    io.inspect(Gbox{v: Set[]})
+    io.inspect(Gbox{v: {}})
     io.inspect(Gbox{v: [[]]})
-    io.inspect([%[]])
-    io.inspect([#[]])
-    io.inspect(Map.get(%{"k" => []}, "k"))
-}
+    io.inspect([Set[]])
+    io.inspect([Vector[]])
+    io.inspect(Map.get({"k" => []}, "k"))
+end
 `
-	irRunSource(t, src, "Gbox{v: []}\nGbox{v: %[]}\nGbox{v: %{}}\nGbox{v: [[]]}\n[%[]]\n[#[]]\nSome([])\n")
+	irRunSource(t, src, "Gbox{v: []}\nGbox{v: Set[]}\nGbox{v: {}}\nGbox{v: [[]]}\n[Set[]]\n[Vector[]]\nSome([])\n")
 }

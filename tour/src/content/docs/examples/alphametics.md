@@ -17,18 +17,18 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// A letter of the puzzle and what it adds to the sum: `weight` is the
 /// total of its place values, positive in the addends and negative in the
 /// result, so a solution makes the weighted digits add up to zero.
-struct Letter {
+struct Letter
     name: String
     weight: Int
     leading: Bool
-}
+end
 
 /// The digit of each letter that makes `puzzle`, written as
 /// `"SEND + MORE == MONEY"`, a true sum, with a different digit for each
 /// letter and no leading zero in a word of more than one letter; `None`
 /// when no digits do.
-pub fn solve(puzzle: String) -> Maybe<Map<String, Int>> {
-    [left, right] = String.split(puzzle, "==") else { return None }
+pub fn solve(puzzle: String) -> Maybe<Map<String, Int>>
+    [left, right] = String.split(puzzle, "==") else return None
 
     addends = left |> String.split("+") |> Iter.map(fn word -> (String.trim(word), 1))
 
@@ -39,12 +39,12 @@ pub fn solve(puzzle: String) -> Maybe<Map<String, Int>> {
         |> Iter.map(fn (name, uses) -> letter(name, uses))
         |> Iter.sort_by(.Descending, fn letter -> Int.abs(letter.weight))
 
-    assign(letters, %[], 0, %{})
-}
+    assign(letters, [], 0, {})
+end
 
 /// Each letter of `word` with its place value times `sign`, and whether it
 /// leads a word of more than one letter.
-fn places(word: String, sign: Int) -> List<(String, Int, Bool)> {
+fn places(word: String, sign: Int) -> List<(String, Int, Bool)>
     last = String.length(word) - 1
 
     word
@@ -52,15 +52,15 @@ fn places(word: String, sign: Int) -> List<(String, Int, Bool)> {
     |> Iter.with_index()
     |> Iter.map(fn (place, name) -> (name, sign * Int.pow(10, place), place == last and last > 0))
     |> Iter.to_list()
-}
+end
 
-fn letter(name: String, uses: List<(String, Int, Bool)>) -> Letter {
-    .{
-        name,
+fn letter(name: String, uses: List<(String, Int, Bool)>) -> Letter
+    {
+        name:,
         weight: uses |> Iter.map(fn (_name, value, _leading) -> value) |> Iter.sum(),
         leading: Iter.any_match(uses, fn (_name, _value, leading) -> leading),
     }
-}
+end
 
 /// Gives each of `letters` an unused digit in turn, keeping the weighted
 /// `total` of the digits given so far, and backs out of a digit after which
@@ -72,68 +72,68 @@ fn assign(
     used: Set<Int>,
     total: Int,
     digits: Map<String, Int>,
-) -> Maybe<Map<String, Int>> {
-    [letter, ..rest] = letters else { return if total == 0 { digits } }
+) -> Maybe<Map<String, Int>>
+    [letter, ..rest] = letters else return if total == 0 then digits
 
     0..=9
-    |> Iter.filter(fn digit -> {
+    |> Iter.filter(fn digit ->
         not digit in used and not (letter.leading and digit == 0)
-    })
+    end)
     |> Iter.map(fn digit -> (digit, total + letter.weight * digit))
     |> Iter.filter(fn (_digit, after) -> is_reachable(after, rest))
-    |> Iter.find_map(fn (digit, after) -> {
+    |> Iter.find_map(fn (digit, after) ->
         assign(rest, Set.insert(used, digit), after, Map.put(digits, letter.name, digit))
-    })
-}
+    end)
+end
 
 /// Whether the letters `rest` could still bring `total` to zero: each adds
 /// at most nine times its weight when the weight is positive, and takes
 /// away at most nine times its size when it is negative.
-fn is_reachable(total: Int, rest: List<Letter>) -> Bool {
+fn is_reachable(total: Int, rest: List<Letter>) -> Bool
     weights = Iter.map(rest, .weight)
     gains = weights |> Iter.filter(&(&1 > 0)) |> Iter.sum()
     losses = weights |> Iter.filter(&(&1 < 0)) |> Iter.sum()
     total + 9 * losses <= 0 and 0 <= total + 9 * gains
-}
+end
 
 // FILE: alphametics_test.nomi
 import alphametics
 
-test "solve" {
+test "solve"
     [
-        ("puzzle with three letters", "I + BB == ILL", Some(%{"I" => 1, "B" => 9, "L" => 0})),
+        ("puzzle with three letters", "I + BB == ILL", Some({"I" => 1, "B" => 9, "L" => 0})),
         ("solution must have unique value for each letter", "A == B", None),
         ("leading zero solution is invalid", "ACA + DD == BD", None),
         (
             "puzzle with two digits final carry",
             "A + A + A + A + A + A + A + A + A + A + A + B == BCC",
-            Some(%{"A" => 9, "B" => 1, "C" => 0}),
+            Some({"A" => 9, "B" => 1, "C" => 0}),
         ),
         (
             "puzzle with four letters",
             "AS + A == MOM",
-            Some(%{"A" => 9, "S" => 2, "M" => 1, "O" => 0}),
+            Some({"A" => 9, "S" => 2, "M" => 1, "O" => 0}),
         ),
         (
             "puzzle with six letters",
             "NO + NO + TOO == LATE",
-            Some(%{"N" => 7, "O" => 4, "T" => 9, "L" => 1, "A" => 0, "E" => 2}),
+            Some({"N" => 7, "O" => 4, "T" => 9, "L" => 1, "A" => 0, "E" => 2}),
         ),
         (
             "puzzle with seven letters",
             "HE + SEES + THE == LIGHT",
-            Some(%{"E" => 4, "G" => 2, "H" => 5, "I" => 0, "L" => 1, "S" => 9, "T" => 7}),
+            Some({"E" => 4, "G" => 2, "H" => 5, "I" => 0, "L" => 1, "S" => 9, "T" => 7}),
         ),
         (
             "puzzle with eight letters",
             "SEND + MORE == MONEY",
-            Some(%{"S" => 9, "E" => 5, "N" => 6, "D" => 7, "M" => 1, "O" => 0, "R" => 8, "Y" => 2}),
+            Some({"S" => 9, "E" => 5, "N" => 6, "D" => 7, "M" => 1, "O" => 0, "R" => 8, "Y" => 2}),
         ),
         (
             "puzzle with ten letters",
             "AND + A + STRONG + OFFENSE + AS + A + GOOD == DEFENSE",
             Some(
-                %{
+                {
                     "A" => 5,
                     "D" => 3,
                     "E" => 4,
@@ -151,7 +151,7 @@ test "solve" {
             "puzzle with ten letters and 199 addends",
             "THIS + A + FIRE + THEREFORE + FOR + ALL + HISTORIES + I + TELL + A + TALE + THAT + FALSIFIES + ITS + TITLE + TIS + A + LIE + THE + TALE + OF + THE + LAST + FIRE + HORSES + LATE + AFTER + THE + FIRST + FATHERS + FORESEE + THE + HORRORS + THE + LAST + FREE + TROLL + TERRIFIES + THE + HORSES + OF + FIRE + THE + TROLL + RESTS + AT + THE + HOLE + OF + LOSSES + IT + IS + THERE + THAT + SHE + STORES + ROLES + OF + LEATHERS + AFTER + SHE + SATISFIES + HER + HATE + OFF + THOSE + FEARS + A + TASTE + RISES + AS + SHE + HEARS + THE + LEAST + FAR + HORSE + THOSE + FAST + HORSES + THAT + FIRST + HEAR + THE + TROLL + FLEE + OFF + TO + THE + FOREST + THE + HORSES + THAT + ALERTS + RAISE + THE + STARES + OF + THE + OTHERS + AS + THE + TROLL + ASSAILS + AT + THE + TOTAL + SHIFT + HER + TEETH + TEAR + HOOF + OFF + TORSO + AS + THE + LAST + HORSE + FORFEITS + ITS + LIFE + THE + FIRST + FATHERS + HEAR + OF + THE + HORRORS + THEIR + FEARS + THAT + THE + FIRES + FOR + THEIR + FEASTS + ARREST + AS + THE + FIRST + FATHERS + RESETTLE + THE + LAST + OF + THE + FIRE + HORSES + THE + LAST + TROLL + HARASSES + THE + FOREST + HEART + FREE + AT + LAST + OF + THE + LAST + TROLL + ALL + OFFER + THEIR + FIRE + HEAT + TO + THE + ASSISTERS + FAR + OFF + THE + TROLL + FASTS + ITS + LIFE + SHORTER + AS + STARS + RISE + THE + HORSES + REST + SAFE + AFTER + ALL + SHARE + HOT + FISH + AS + THEIR + AFFILIATES + TAILOR + A + ROOFS + FOR + THEIR + SAFE == FORTRESSES",
             Some(
-                %{
+                {
                     "A" => 1,
                     "E" => 0,
                     "F" => 5,
@@ -166,10 +166,10 @@ test "solve" {
             ),
         ),
     ]
-    |> subtests (description, puzzle, expected), description {
+    |> subtests (description, puzzle, expected), description
         assert alphametics.solve(puzzle) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok solve (10 cases)

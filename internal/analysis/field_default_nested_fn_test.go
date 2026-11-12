@@ -7,31 +7,31 @@ import "testing"
 // checked and typed. Without the signature checkNestedFunc skipped the body,
 // and expressions in it, and a call of it, had no type.
 func TestFieldDefault_NestedFnIsChecked(t *testing.T) {
-	src := `struct D {
-    v: (Int) -> Int = {
-        fn inner(n: Int) -> Int {
+	src := `struct D
+    v: (Int) -> Int = begin
+        fn inner(n: Int) -> Int
             n * 2
-        }
+        end
         inner
-    }
-}
+    end
+end
 
-enum Job {
-    Run {label: Int = {
-        fn pick() -> Int {
-            case 1 {
+enum Job
+    Run {label: Int = begin
+        fn pick() -> Int
+            case 1
                 1 -> 2
                 _ -> 3
-            }
-        }
+            end
+        end
         pick()
-    }}
+    end}
     Idle
-}
+end
 
-fn make() -> D {
+fn make() -> D
     D{}
-}
+end
 `
 	fa, nodes := checkNodes(t, src)
 	if got := UnresolvedExprs(fa, nodes); len(got) > 0 {
@@ -43,14 +43,14 @@ fn make() -> D {
 
 // The nested fn's body is checked, so an error in it is reported.
 func TestFieldDefault_NestedFnBodyErrorIsReported(t *testing.T) {
-	src := `struct D {
-    v: Int = {
-        fn inner() -> Int {
+	src := `struct D
+    v: Int = begin
+        fn inner() -> Int
             "nope"
-        }
+        end
         inner()
-    }
-}
+    end
+end
 `
 	_, errs := checkSource(src)
 	expectError(t, errs, "return type mismatch: expected Int, got String")

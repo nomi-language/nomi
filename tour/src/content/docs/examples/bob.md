@@ -16,22 +16,22 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// Bob's reply to `remark`. He answers a question, a shout, a shouted
 /// question and silence each in his own way, and anything else with
 /// "Whatever."
-pub fn response(remark: String) -> String {
+pub fn response(remark: String) -> String
     remark = String.trim(remark)
-    if remark == "" { return "Fine. Be that way!" }
+    if remark == "" then return "Fine. Be that way!"
 
-    case (String.ends_with(remark, "?"), String.is_upper(remark)) {
+    case (String.ends_with(remark, "?"), String.is_upper(remark))
         (True, True) -> "Calm down, I know what I'm doing!"
         (True, False) -> "Sure."
         (False, True) -> "Whoa, chill out!"
         (False, False) -> "Whatever."
-    }
-}
+    end
+end
 
 // FILE: bob_test.nomi
 import bob.response
 
-test "bob's responses" {
+test "bob's responses"
     [
         ("asking a question", "Does this cryogenic chamber make me look fat?", "Sure."),
         ("shouting", "WATCH OUT!", "Whoa, chill out!"),
@@ -76,10 +76,10 @@ test "bob's responses" {
             "Whatever.",
         ),
     ]
-    |> subtests (description, remark, expected), description {
+    |> subtests (description, remark, expected), description
         assert response(remark) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok bob's responses (26 cases)

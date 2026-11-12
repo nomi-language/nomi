@@ -1848,19 +1848,7 @@ func lowerStdlibModuleIn(v *stdModuleView, earlier *stdlibIndex, dc *declineCens
 		g.dc = dc
 	}
 	g.skipLint = v.embedded && !lintEmbeddedStdlib
-	// The bindings before the bodies, because a body may read one and the text
-	// then reads in the order the declarations are written. An emitted binding
-	// counts as output on its own: a module with a lowerable `once` and no
-	// lowerable function still has a package to write, and returning an empty
-	// Source for it would leave every reference naming a symbol nobody emitted.
 	emitted := false
-	for _, o := range onces {
-		if !o.settled {
-			continue
-		}
-		g.emitStdOnce(o)
-		emitted = true
-	}
 	emittable := make(map[*stdCandidate]bool, len(settled)+len(withCycles))
 	for c := range settled {
 		emittable[c] = true
@@ -1868,7 +1856,9 @@ func lowerStdlibModuleIn(v *stdModuleView, earlier *stdlibIndex, dc *declineCens
 	for c := range withCycles {
 		emittable[c] = true
 	}
-	g.irPrebuildStdBodies(module, pkg, cands, emittable, earlier)
+	// The prebuild settles the `once` bindings with the bodies, since an
+	// initializer may call a body and a body may read a binding.
+	g.irPrebuildStdBodies(module, pkg, cands, emittable, onces, earlier)
 	g.irStdTailCycles(cands, emittable)
 	// Every body sees every emitted sibling: the graphs irPrebuildStdBodies
 	// left in the module may link to a member of a recursive cycle from any
@@ -1883,6 +1873,19 @@ func lowerStdlibModuleIn(v *stdModuleView, earlier *stdlibIndex, dc *declineCens
 	// binding would differ from this one only in the view's why, which the
 	// arm writes to the view as well.
 	restoreSiblings, views := g.bindStdSiblingViews(module, pkg, cands, emittable, earlier)
+	// The bindings before the bodies, because a body reads one through its
+	// cell, and inside the sibling window, because an initializer calls a
+	// body as a body does. An emitted binding counts as output on its own: a
+	// module with a lowerable `once` and no lowerable function still has a
+	// package to write, and returning an empty Source for it would leave
+	// every reference naming a symbol nobody emitted.
+	for _, o := range onces {
+		if !o.settled {
+			continue
+		}
+		g.emitStdOnce(o)
+		emitted = true
+	}
 	for _, c := range cands {
 		if c.fd == nil || c.f.why != "" {
 			continue
@@ -2310,7 +2313,7 @@ func stdInferredParamKind(p ast.Param, anchors stdAnchors) kind {
 	if !found || sym.Kind != analysis.SymbolParam || sym.Name != p.Name || sym.Type == nil {
 		return kindInvalid
 	}
-	t := analysis.ResolveTypeVar(sym.Type)
+	t := analysis.ResolveClosed(sym.Type)
 	switch t {
 	case analysis.TypeInt:
 		return kindInt
@@ -2378,7 +2381,7 @@ func stdParamKind(p ast.Param, anchors stdAnchors) (kind, string) {
 	}
 	// A destructuring parameter's kind is the head's type, and the head is
 	// resolved through the same anchored table an annotation is: nothing else
-	// is admitted, so `Point{x, y}` in a hypothetical std module refuses rather
+	// is admitted, so `Point{x:, y:}` in a hypothetical std module refuses rather
 	// than resolving against a declaration this pass cannot see.
 	//
 	// Opaques only, and deliberately not every stdAnchors family: a MONOMORPHIC
@@ -3289,7 +3292,14 @@ func (g *gen) stdlibSibling(name string) *stdFunc {
 // that follows finds every callee already there; each body then rebuilds its
 // own graph (irScalarLower replaces the prebuilt graph). The prebuild's text
 // is discarded.
-func (g *gen) irPrebuildStdBodies(module, pkg string, cands []*stdCandidate, emitted map[*stdCandidate]bool, earlier *stdlibIndex) {
+//
+// The module's settled `once` bindings take part in the same fixed point,
+// since an initializer may call a body and a body may read a binding: each
+// is assumed to build, its cell named ahead (stdOnce.irCell) so a body
+// reading it builds, and one whose initializer does not build is withdrawn
+// (settled cleared) with the bodies. The cells the prebuild built are
+// removed, and lowerStdlibModuleIn emits each survivor once.
+func (g *gen) irPrebuildStdBodies(module, pkg string, cands []*stdCandidate, emitted map[*stdCandidate]bool, onces []*stdOnce, earlier *stdlibIndex) {
 	var todo []*stdCandidate
 	for _, c := range cands {
 		if c.fd != nil && c.f.why == "" && emitted[c] {
@@ -3329,6 +3339,25 @@ func (g *gen) irPrebuildStdBodies(module, pkg string, cands []*stdCandidate, emi
 			v.irBody = fn
 		}
 	}
+	var pendingOnces []*stdOnce
+	for _, o := range onces {
+		if o.settled {
+			pendingOnces = append(pendingOnces, o)
+		}
+	}
+	onceSym := func(o *stdOnce) *ir.Symbol { return g.irTypes().Symbol(o, o.nomiName()) }
+	dropCell := func(o *stdOnce) {
+		if cell := mod.Cell(onceSym(o)); cell != nil {
+			mod.RemoveCell(cell)
+		}
+	}
+	defer func() {
+		for _, o := range pendingOnces {
+			if o.settled {
+				dropCell(o)
+			}
+		}
+	}()
 	for declined := true; declined; {
 		declined = false
 		// Every graph from the last round goes, because it may link to a body
@@ -3338,6 +3367,13 @@ func (g *gen) irPrebuildStdBodies(module, pkg string, cands []*stdCandidate, emi
 				mod.RemoveFunc(fn)
 			}
 			setIRBody(c, nil)
+		}
+		builtOnce := map[*stdOnce]bool{}
+		for _, o := range pendingOnces {
+			if o.settled {
+				dropCell(o)
+				o.irCell = onceSym(o)
+			}
 		}
 		// A qualified or operator sibling call links through the callee's
 		// irBody, which exists only once that body has built in this round,
@@ -3359,10 +3395,33 @@ func (g *gen) irPrebuildStdBodies(module, pkg string, cands []*stdCandidate, emi
 					progress = true
 				}
 			}
+			for _, o := range pendingOnces {
+				if !o.settled || builtOnce[o] {
+					continue
+				}
+				restore := g.snapshot()
+				tmp := g.tmp
+				g.emitStdOnce(o)
+				g.tmp = tmp
+				restore()
+				// Named ahead again: a body later in the round reads it.
+				o.irCell = onceSym(o)
+				if mod.Cell(onceSym(o)) != nil {
+					builtOnce[o] = true
+					progress = true
+				}
+			}
 		}
 		for _, c := range todo {
 			if g.irStdPending[c.f.key] && c.f.irBody == nil {
 				delete(g.irStdPending, c.f.key)
+				declined = true
+			}
+		}
+		for _, o := range pendingOnces {
+			if o.settled && !builtOnce[o] {
+				// closeStdOnces' refusal, which a reference names.
+				o.settled, o.irCell, o.why = false, nil, "unlowered stdlib once binding"
 				declined = true
 			}
 		}

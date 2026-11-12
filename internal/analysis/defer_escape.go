@@ -182,13 +182,7 @@ func (s *escapeScan) carries(n ast.Node) *deferEscape {
 		}
 		return s.carriesAny(args)
 	case *ast.ListLit:
-		return s.carriesAny(v.Items)
-	case *ast.VectorLit:
-		return s.carriesAny(v.Items)
-	case *ast.SetLit:
-		return s.carriesAny(v.Items)
-	case *ast.ListSpreadLit:
-		return s.carriesAny(v.Items)
+		return s.carriesAny(v.Operands())
 	case *ast.TupleLit:
 		return s.carriesAny(v.Items)
 	case *ast.MapLit:

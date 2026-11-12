@@ -29,22 +29,22 @@ func TestFieldRead_TheCheckerWallsOffThreeBackstops(t *testing.T) {
 		want     string
 	}{
 		{"field access on a scalar",
-			"fn read(n: Int) -> Int {\n  n.x\n}\n",
+			"fn read(n: Int) -> Int\n  n.x\nend\n",
 			"Int has no field 'x'"},
 		{"field access on a distinct type (over a scalar)",
-			"type M Int\n\nfn read(m: M) -> Int {\n  m.n\n}\n",
+			"type M Int\n\nfn read(m: M) -> Int\n  m.n\nend\n",
 			"'M' has no field 'n'"},
 		{"field access on a distinct type (wrapping a struct)",
-			"struct C {\n  r: Float\n}\n\ntype W C\n\nfn read(w: W) -> Float {\n  w.r\n}\n",
+			"struct C\n  r: Float\nend\n\ntype W C\n\nfn read(w: W) -> Float\n  w.r\nend\n",
 			"'W' has no field 'r'"},
 		{"field access on an enum (no variant supplies the name)",
-			"enum E {\n  V Int\n}\n\nfn read(e: E) -> Int {\n  e.V\n}\n",
+			"enum E\n  V Int\nend\n\nfn read(e: E) -> Int\n  e.V\nend\n",
 			"enum 'E' has no field 'V'"},
 		{"field access on an interface value",
-			"fn read(d: Display) -> String {\n  d.name\n}\n",
+			"fn read(d: Display) -> String\n  d.name\nend\n",
 			"interface 'Display' has no field 'name'"},
 		{"field access on a bounded type parameter",
-			"fn read<T>(x: T) -> String where T: Display {\n  x.name\n}\n",
+			"fn read<T>(x: T) -> String where T: Display\n  x.name\nend\n",
 			"type parameter `T` has no field 'name'"},
 	}
 	for _, tc := range cases {
@@ -66,26 +66,26 @@ func TestFieldRead_TheCheckerWallsOffThreeBackstops(t *testing.T) {
 func TestFieldRead_OffAnUnwrapOrATry(t *testing.T) {
 	irRunSource(t, `import std::io
 
-struct P {
+struct P
     x: Int
-}
+end
 
-fn get(n: Int) -> Maybe<P> {
+fn get(n: Int) -> Maybe<P>
     Some(P{x: n})
-}
+end
 
-fn found(n: Int) -> Result<Int, String> {
+fn found(n: Int) -> Result<Int, String>
     Ok(n + 1)
-}
+end
 
-fn twice(n: Int) -> Maybe<Int> {
+fn twice(n: Int) -> Maybe<Int>
     Some(get(n)?.x * 2)
-}
+end
 
-fn main() {
+fn main()
     io.print(Int.to_string(get(3)!.x))
     io.print(Int.to_string(twice(4)!))
     io.print(Int.to_string(found(1)!))
-}
+end
 `, "3\n8\n2\n")
 }

@@ -16,10 +16,10 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The square code of `plaintext`: its columns, separated by spaces, each as
 /// long as the rectangle is tall.
-pub fn ciphertext(plaintext: String) -> String {
+pub fn ciphertext(plaintext: String) -> String
     text = normalize(plaintext)
     length = String.length(text)
-    if length == 0 { return "" }
+    if length == 0 then return ""
 
     columns = width(length)
     rows = (length + columns - 1) / columns
@@ -30,34 +30,30 @@ pub fn ciphertext(plaintext: String) -> String {
     |> Iter.transpose()
     |> Iter.map(String.join)
     |> String.join(" ")
-}
+end
 
 /// `text` in lower case, with everything but letters and digits removed.
-fn normalize(text: String) -> String {
+fn normalize(text: String) -> String
     text
     |> String.lowercase()
     |> String.to_codepoints()
     |> Iter.filter(fn cp -> Codepoint.is_letter(cp) or Codepoint.is_digit(cp))
     |> Iter.to_list()
     |> String.from_codepoints()
-}
+end
 
 /// The fewest columns that hold `length` letters in a rectangle no taller
 /// than it is wide.
-fn width(length: Int) -> Int {
+fn width(length: Int) -> Int
     root = Int.sqrt(length)
 
-    if root * root == length {
-        root
-    } else {
-        root + 1
-    }
-}
+    if root * root == length then root else root + 1
+end
 
 // FILE: crypto_square_test.nomi
 import crypto_square
 
-test "crypto square" {
+test "crypto square"
     [
         ("empty plaintext results in an empty ciphertext", "", ""),
         ("normalization results in empty plaintext", "... --- ...", ""),
@@ -80,10 +76,10 @@ test "crypto square" {
             "imtgdvs fearwer mayoogo anouuio ntnnlvt wttddes aohghn  sseoau ",
         ),
     ]
-    |> subtests (description, plaintext, expected), description {
+    |> subtests (description, plaintext, expected), description
         assert crypto_square.ciphertext(plaintext) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok crypto square (8 cases)

@@ -1,21 +1,21 @@
 //# Converts a number, written as digits in one base, to its digits in another.
 
 /// Why a number cannot be rebased.
-pub enum Error {
+pub enum Error
     InvalidInputBase
     InvalidDigit
     InvalidOutputBase
-}
+end
 
 /// The digits, most significant first, of the number that `digits` writes
 /// in `input_base`, written in `output_base`. Zero, and an empty list of
 /// digits, come out as `[0]`.
-pub fn rebase(input_base: Int, digits: List<Int>, output_base: Int) -> Result<List<Int>, Error> {
-    if input_base < 2 { return Err(.InvalidInputBase) }
+pub fn rebase(input_base: Int, digits: List<Int>, output_base: Int) -> Result<List<Int>, Error>
+    if input_base < 2 then return Err(.InvalidInputBase)
 
-    Some(number) = Int.from_digits(digits, input_base) else { return Err(.InvalidDigit) }
+    Some(number) = Int.from_digits(digits, input_base) else return Err(.InvalidDigit)
 
-    if output_base < 2 { return Err(.InvalidOutputBase) }
+    if output_base < 2 then return Err(.InvalidOutputBase)
 
     Ok(Int.to_digits(number, output_base))
-}
+end

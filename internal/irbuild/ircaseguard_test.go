@@ -4,20 +4,20 @@ import "testing"
 
 func TestIRCaseGuard_CompleteProgram(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn classify(n: Int) -> String {
-  case n {
+fn classify(n: Int) -> String
+  case n
     0 -> "zero"
     n when n < 0 -> "negative"
     n when n > 100 -> "huge"
     _ -> "regular"
-  }
-}
-fn main() {
+  end
+end
+fn main()
   io.print(classify(0))
   io.print(classify(-5))
   io.print(classify(500))
   io.print(classify(42))
-}
+end
 `, "zero\nnegative\nhuge\nregular\n")
 }
 
@@ -25,26 +25,25 @@ fn main() {
 // subjects, and its body may shadow and read it.
 func TestIRCaseGuard_IdentifierFallback(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn describe(s: String) -> String {
-  case s {
+fn describe(s: String) -> String
+  case s
     "q" -> "quit"
-    other -> {
+    other ->
       n = String.length(other)
       "${other}:${n}"
-    }
-  }
-}
-fn bump(n: Int) -> Int {
-  case n + 1 {
+  end
+end
+fn bump(n: Int) -> Int
+  case n + 1
     1 -> 100
     m -> m * 2
-  }
-}
-fn main() {
+  end
+end
+fn main()
   io.print(describe("q"))
   io.print(describe("abc"))
   io.print(bump(0))
   io.print(bump(4))
-}
+end
 `, "quit\nabc:3\n100\n10\n")
 }

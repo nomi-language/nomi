@@ -952,13 +952,116 @@ func TestLSPSurvivesTypingPathologicalShapes(t *testing.T) {
 	runTyping(t, []typingSeed{
 		{
 			name:  "type cycle",
-			files: map[string]string{"main.nomi": "type E E\n\ntype A B\n\ntype B List<A>\n\ntypealias X Y\n\ntypealias Y X\n\nfn main() {\n}\n"},
+			files: map[string]string{"main.nomi": "type E E\n\ntype A B\n\ntype B List<A>\n\ntypealias X Y\n\ntypealias Y X\n\nfn main() end\n"},
 			open:  "main.nomi",
 		},
 		{
 			name:  "deep nesting",
-			files: map[string]string{"main.nomi": "fn main() {\n  x = " + strings.Repeat("{", 3000) + "\n  todo\n"},
+			files: map[string]string{"main.nomi": "fn main()\n  x = " + strings.Repeat("{", 3000) + "\n  todo\n"},
 			open:  "main.nomi",
+		},
+	}, quickPlan)
+}
+
+// TestLSPSurvivesTypingBraceStructs types anonymous struct literals and
+// patterns, and punned fields and arguments: `a:` is a struct's or a call's
+// field until its `,` or close.
+func TestLSPSurvivesTypingBraceStructs(t *testing.T) {
+	runTyping(t, []typingSeed{
+		{
+			name: "brace structs",
+			files: map[string]string{"main.nomi": `import std::io
+
+struct P
+    a: Int
+    b: Int
+end
+
+fn show(p: {a: Int, b: Int}, label: String) -> String
+    "${label} ${p.a} ${p.b}"
+end
+
+fn main()
+    total = begin
+        a: Int = 1
+        a + 1
+    end
+    a = total
+    b = 2
+    p = P{a:, b:}
+    q = {a:, b: 3}
+    {a: x, b:} = q
+    io.print("${x} ${b}")
+    label = "q"
+    io.print(show({..q, a: x}, label:))
+    io.print(case p
+        P{a:, b: 2} -> "two ${a}"
+        _ -> "other"
+    end)
+    dbg {a:}
+end
+`},
+			open: "main.nomi",
+		},
+	}, quickPlan)
+}
+
+// TestLSPSurvivesTypingHeaderBodies types bodies a header line opens and
+// `end` closes, so every state between is one the server sees: a function
+// header and the enter after it, `if c then` before its branch, an `else
+// if` chain, a `case` arm mid-edit and an arm whose body runs below its
+// `->`, a lambda's `fn x ->` before its body, a binding's `else`, and a
+// `begin` with no `end` yet.
+func TestLSPSurvivesTypingHeaderBodies(t *testing.T) {
+	runTyping(t, []typingSeed{
+		{
+			name: "header bodies",
+			files: map[string]string{"main.nomi": `import std::io
+
+enum Shape
+    Circle Float
+    Square Float
+end
+
+fn area(s: Shape) -> Float
+    case s
+        .Circle(r) ->
+            d = r * 2.0
+            d * r
+
+        .Square(w) -> w * w
+    end
+end
+
+fn sign(n: Int) -> String
+    if n < 0 then
+        "minus"
+    else if n == 0 then
+        "zero"
+    else
+        "plus"
+    end
+end
+
+fn main()
+    xs = [1, -2, 3]
+    total = begin
+        n = Iter.count(xs)
+        n * 2
+    end
+    labels =
+        xs
+        |> Iter.map(fn x ->
+            s = sign(x)
+            "${s} ${x}"
+        end)
+        |> Iter.to_list()
+    Some(first) = List.head(labels) else return
+    io.print(if total > 2 then first else "none")
+    io.print("${area(.Circle(1.0))}")
+end
+`},
+			open: "main.nomi",
 		},
 	}, quickPlan)
 }

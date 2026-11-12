@@ -9,19 +9,19 @@ import (
 // tail as a lambda's returns are: the case's pattern binds the joined type.
 func TestSetupReturn_TypesTheSetupValue(t *testing.T) {
 	errs := checkWithStdlib(`
-group "g" {
-  setup {
+group "g"
+  setup begin
     x = 1
-    if x > 0 {
+    if x > 0 then
       return "positive"
-    }
+    end
     "other"
-  }
+  end
 
-  test "t", v {
+  test "t", v
     assert v == 2
-  }
-}
+  end
+end
 `)
 	if len(errs) != 1 || !strings.Contains(errs[0].Message, "String vs Int") {
 		t.Fatalf("want the one error that v is a String, got %v", errs)
@@ -31,30 +31,30 @@ group "g" {
 // A setup whose only exit is a `return` has the returned value's type.
 func TestSetupReturn_ReturnOnly(t *testing.T) {
 	errs := checkWithStdlib(`
-group "g" {
-  setup {
+group "g"
+  setup begin
     x = 1
     return x + 1
-  }
+  end
 
-  test "t", v {
+  test "t", v
     assert v == 2
-  }
-}
+  end
+end
 `)
 	if len(errs) != 0 {
 		t.Fatalf("want no errors, got %v", errs)
 	}
 	errs = checkWithStdlib(`
-group "g" {
-  setup {
+group "g"
+  setup begin
     return "s"
-  }
+  end
 
-  test "t", v {
+  test "t", v
     assert v == 2
-  }
-}
+  end
+end
 `)
 	if len(errs) != 1 || !strings.Contains(errs[0].Message, "String vs Int") {
 		t.Fatalf("want the one error that v is a String, got %v", errs)
@@ -65,18 +65,18 @@ group "g" {
 // return.
 func TestSetupReturn_DisagreeingReturnIsAnError(t *testing.T) {
 	errs := checkWithStdlib(`
-group "g" {
-  setup {
-    if True {
+group "g"
+  setup begin
+    if True then
       return 1
-    }
+    end
     "x"
-  }
+  end
 
-  test "t", v {
+  test "t", v
     assert v == "x"
-  }
-}
+  end
+end
 `)
 	if len(errs) != 1 || !strings.Contains(errs[0].Message, "return type mismatch") {
 		t.Fatalf("want one return type mismatch, got %v", errs)

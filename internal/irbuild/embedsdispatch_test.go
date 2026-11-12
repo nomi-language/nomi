@@ -11,66 +11,66 @@ import "testing"
 
 const embedsDispatchDecls = `import std::io
 
-struct Circle {
+struct Circle
   radius: Float
-}
+end
 
-enum Shape {
+enum Shape
   embeds Circle
   Dot
-}
+end
 
-impl Display for Circle {
-  fn to_string(_c: Circle) -> String {
+impl Display for Circle
+  fn to_string(_c: Circle) -> String
     "circle-display"
-  }
-}
+  end
+end
 
-impl Display for Shape {
-  fn to_string(_s: Shape) -> String {
+impl Display for Shape
+  fn to_string(_s: Shape) -> String
     "shape-display"
-  }
-}
+  end
+end
 
-impl Debug for Circle {
-  fn inspect(_c: Circle) -> String {
+impl Debug for Circle
+  fn inspect(_c: Circle) -> String
     "circle-debug"
-  }
-}
+  end
+end
 
-impl Debug for Shape {
-  fn inspect(_s: Shape) -> String {
+impl Debug for Shape
+  fn inspect(_s: Shape) -> String
     "shape-debug"
-  }
-}
+  end
+end
 
-impl Equatable for Circle {
-  fn equal(_a: Circle, _b: Circle) -> Bool {
+impl Equatable for Circle
+  fn equal(_a: Circle, _b: Circle) -> Bool
     io.print("circle-eq")
     True
-  }
-}
+  end
+end
 
-impl Equatable for Shape {
-  fn equal(_a: Shape, _b: Shape) -> Bool {
+impl Equatable for Shape
+  fn equal(_a: Shape, _b: Shape) -> Bool
     io.print("shape-eq")
     True
-  }
-}
+  end
+end
 
-impl Comparable for Circle {
-  fn compare(_a: Circle, _b: Circle) -> Ordering {
+impl Comparable for Circle
+  fn compare(_a: Circle, _b: Circle) -> Ordering
     io.print("circle-cmp")
     Ordering.Equal
-  }
-}
+  end
+end
 
-impl Comparable for Shape {
-  fn compare(_a: Shape, _b: Shape) -> Ordering {
+impl Comparable for Shape
+  fn compare(_a: Shape, _b: Shape) -> Ordering
     io.print("shape-cmp")
     Ordering.Less
-  }
-}
+  end
+end
 
 `
 
@@ -78,15 +78,15 @@ impl Comparable for Shape {
 // a binding, a declared result and a parameter, each dispatching through the
 // enum.
 func TestIREmbedsDispatch_StaticTypeDecides(t *testing.T) {
-	verifyLambdaProgram(t, embedsDispatchDecls+`fn make() -> Shape {
+	verifyLambdaProgram(t, embedsDispatchDecls+`fn make() -> Shape
   Circle{radius: 2.0}
-}
+end
 
-fn same(a: Shape, b: Shape) -> Bool {
+fn same(a: Shape, b: Shape) -> Bool
   Equatable.equal(a, b)
-}
+end
 
-fn main() {
+fn main()
   bound: Shape = Circle{radius: 1.0}
   q = Shape.Circle{radius: 1.0}
   io.inspect(bound)
@@ -94,6 +94,6 @@ fn main() {
   Equatable.equal(bound, q) |> io.print()
   same(Circle{radius: 3.0}, q) |> io.print()
   (bound < q) |> io.print()
-}
+end
 `, "shape-debug\nshape-debug\nshape-eq\nTrue\nshape-eq\nTrue\nshape-cmp\nTrue\n")
 }

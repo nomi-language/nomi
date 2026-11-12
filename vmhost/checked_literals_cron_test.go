@@ -18,7 +18,7 @@ func TestCheckedLiteral_CronRefusesBadExpressionsAndSlots(t *testing.T) {
 		{"    _ = Cron`0 3 * *`", "typed literal Cron`0 3 * *` is invalid: a cron expression has five fields (minute, hour, day of month, month, day of week), not 4", 9},
 		{"    _ = Cron\"0 ${v} * * *\"", "typed literal Cron\"0 ${v} * * *\" is invalid: a cron expression takes no slots", 16},
 	} {
-		src := "import {\n    std::io\n    std::jobs.Cron\n}\n\nfn main() {\n    v = \"3\"\n    io.print(v)\n" + c.line + "\n}\n"
+		src := "import\n    std::io\n    std::jobs.Cron\nend\n\nfn main()\n    v = \"3\"\n    io.print(v)\n" + c.line + "\nend\n"
 		ds := literalDiagnostics(t, src)
 		if len(ds) != 1 {
 			t.Fatalf("%s: %d diagnostics, want 1: %v", c.line, len(ds), ds)

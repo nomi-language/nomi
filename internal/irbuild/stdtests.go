@@ -19,7 +19,11 @@ package irbuild
 // Each case is an ordinary test body (irtestbody.go), so what it admits and
 // what it declines is the user test path's, including the VM-only retry. A
 // case inside a type's items has that type as its self type (`implSelf`), so a
-// bare same-owner call resolves as the member bodies' does.
+// bare same-owner call resolves as the member bodies' does. A bare call to
+// one of the module's own top-level functions, or its bare name as a value,
+// is what the module's own file alias spells (`encode(b)` is `hex.encode(b)`:
+// ownSiblingCall, stdOwnFuncRef), so named arguments, defaults, assertion
+// rows and callbacks reach it as they reach the qualified spelling.
 
 import (
 	"fmt"
@@ -411,6 +415,75 @@ func (bl *irScalarBuilder) ownModuleCall(t *ast.Call, fa *ast.FieldAccess) (*ast
 		bl.pipedCall = &bare
 	}
 	return &bare, true
+}
+
+// ownSiblingCall is ownModuleCall's converse, for a stdlib module the
+// process lowers once: a bare call to a top-level function of the module
+// the lowering holds as a sibling (stdlibSibling, f) is the call through the
+// module's own file alias, `encode(b)` in std/hex the call `hex.encode(b)`
+// is, whose route places named arguments and defaults (namedQualCall) and,
+// in an assertion subject, records the call's rows. In one of the module's
+// own test bodies every such call takes it (qualFilePlan through
+// stdOwnFileQualifier); in a body of the module only one naming an argument
+// does (qualFilePlan through ownSiblingPlan), since a positional one is
+// stdFuncPlan's already. The copy's field stands at the callee's position,
+// where the checker recorded the reference; a piped call stays the piped
+// call, and an Iter.loop's named step its step.
+func (bl *irScalarBuilder) ownSiblingCall(t *ast.Call, callee *ast.Ident, f *stdFunc, hasNamed bool) (*ast.Call, bool) {
+	g := bl.g
+	if f != g.stdSiblings["."+callee.Name] || g.stdModule == "" {
+		return nil, false
+	}
+	alias := path.Base(g.stdModule)
+	if irQualIsLocal(bl, alias) {
+		return nil, false
+	}
+	if bl.stdTestOwnType() {
+		if _, isStd := bl.stdOwnFileQualifier(alias); !isStd {
+			return nil, false
+		}
+	} else if !hasNamed || !bl.ownModuleAlias(alias) {
+		return nil, false
+	}
+	qualified := *t
+	qualified.Func = &ast.FieldAccess{
+		Object: &ast.Ident{Name: alias, Line: callee.Line, Col: callee.Col},
+		Field:  &ast.Ident{Name: callee.Name, Line: callee.Line, Col: callee.Col},
+		Line:   callee.Line, Col: callee.Col,
+	}
+	if bl.pipedCall == t {
+		bl.pipedCall = &qualified
+	}
+	if bl.signalCall == t {
+		// An Iter.loop's named step (irsignalcall.go).
+		bl.signalCall = &qualified
+	}
+	return &qualified, true
+}
+
+// ownModuleAlias reports whether owner is this stdlib module's own file
+// alias, bound to the module's own scope.
+func (bl *irScalarBuilder) ownModuleAlias(owner string) bool {
+	g := bl.g
+	if g.stdModule == "" || g.fa == nil || owner != path.Base(g.stdModule) {
+		return false
+	}
+	scope := moduleScopeOf(g.fa, owner)
+	return scope != nil && scope == g.fa.ModuleScope
+}
+
+// ownSiblingPlan plans `hex.add3(...)` in a body of std/hex (ownSiblingCall
+// writes it): the module's own top-level function, a sibling of the
+// lowering, as a bare positional call to it plans.
+func (bl *irScalarBuilder) ownSiblingPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
+	if bl.stdTestOwnType() || !bl.ownModuleAlias(owner) || bl.g.stdSiblings == nil {
+		return nil
+	}
+	f := bl.g.stdSiblings["."+method]
+	if f == nil {
+		return nil
+	}
+	return bl.stdFuncPlan(t, args, f)
 }
 
 // stdOwnFileQualifier answers a stdlib module's own file alias inside one of

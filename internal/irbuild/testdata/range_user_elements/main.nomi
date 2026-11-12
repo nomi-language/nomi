@@ -1,47 +1,47 @@
 // Range literals over user element types: a struct, an enum, and another
 // file's distinct type. Each is ordered by its own Comparable impl and stepped
 // by its own Steppable impl.
-import {
+import
     std::io
     units
-}
+end
 
-struct Meters {
+struct Meters
     n: Int
-}
+end
 
 derive Comparable for Meters
 
-impl Steppable<Int> for Meters {
-    fn step_by(value: Meters, by: Int) -> Maybe<Meters> {
-        if value.n + by > 9 {
+impl Steppable<Int> for Meters
+    fn step_by(value: Meters, by: Int) -> Maybe<Meters>
+        if value.n + by > 9 then
             None
-        } else {
+        else
             Some(Meters{n: value.n + by})
-        }
-    }
-}
+        end
+    end
+end
 
-enum Level {
+enum Level
     Low
     Mid
     High
-}
+end
 
 derive Comparable for Level
 
-impl Steppable<Int> for Level {
-    fn step_by(value: Level, by: Int) -> Maybe<Level> {
-        case (value, by) {
+impl Steppable<Int> for Level
+    fn step_by(value: Level, by: Int) -> Maybe<Level>
+        case (value, by)
             (_, 0) -> Some(value)
             (Level.Low, _) -> Some(Level.Mid)
             (Level.Mid, _) -> Some(Level.High)
             (Level.High, _) -> None
-        }
-    }
-}
+        end
+    end
+end
 
-fn main() {
+fn main()
     r = Meters{n: 1}..=Meters{n: 7}
     io.print(Debug.inspect(r))
     io.print(Bool.to_string(Range.contains(r, Meters{n: 7})))
@@ -69,4 +69,4 @@ fn main() {
     io.print(Debug.inspect(grams))
     io.print(Bool.to_string(Range.contains(g, units.grams(3))))
     io.print(Bool.to_string(Range.contains(g, units.grams(4))))
-}
+end

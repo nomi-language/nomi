@@ -14,20 +14,20 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# A matrix read from text, and its rows and columns.
 
 /// A matrix of numbers read from text, one row per line.
-pub opaque struct Matrix {
+pub opaque struct Matrix
     rows: Vector<Vector<Int>>
-}
+end
 
 /// Why text is not a matrix.
-pub enum Error {
+pub enum Error
     NotANumber String
-}
+end
 
-impl Matrix {
+impl Matrix
     /// The matrix whose rows are the lines of `text`, each a list of numbers
     /// separated by spaces, or `NotANumber` with the first word that is not
     /// one.
-    pub fn parse(text: String) -> Result<Matrix, Error> {
+    pub fn parse(text: String) -> Result<Matrix, Error>
         rows =
             text
             |> String.lines()
@@ -35,39 +35,39 @@ impl Matrix {
             |> Result.collect()?
             |> Iter.to_vector()
 
-        Ok(.{rows})
-    }
+        Ok({rows:})
+    end
 
     /// The numbers of row `index`, counted from 1, or `None` past the last.
-    pub fn row(matrix: Matrix, index: Int) -> Maybe<List<Int>> {
+    pub fn row(matrix: Matrix, index: Int) -> Maybe<List<Int>>
         matrix.rows
         |> Vector.get(index - 1)?
         |> Iter.to_list()
         |> Some()
-    }
+    end
 
     /// The numbers of column `index`, counted from 1, top to bottom, or
     /// `None` past the last.
-    pub fn column(matrix: Matrix, index: Int) -> Maybe<List<Int>> {
+    pub fn column(matrix: Matrix, index: Int) -> Maybe<List<Int>>
         matrix.rows
         |> Iter.map(&Vector.get(&1, index - 1))
         |> Maybe.collect()
-    }
-}
+    end
+end
 
-fn parse_row(line: String) -> Result<Vector<Int>, Error> {
+fn parse_row(line: String) -> Result<Vector<Int>, Error>
     line
     |> String.words()
     |> Iter.map(fn word -> String.to_int(word) |> Maybe.to_result(Error.NotANumber(word)))
     |> Result.collect()?
     |> Iter.to_vector()
     |> Ok()
-}
+end
 
 // FILE: matrix_test.nomi
 import matrix.Matrix
 
-test "rows" {
+test "rows"
     [
         ("extract row from one number matrix", "1", 1, [1]),
         ("can extract row", "1 2\n3 4", 2, [3, 4]),
@@ -79,14 +79,14 @@ test "rows" {
             [8, 7, 6],
         ),
     ]
-    |> subtests (description, text, index, expected), description {
+    |> subtests (description, text, index, expected), description
         assert Ok(matrix) = Matrix.parse(text)
 
         assert Matrix.row(matrix, index) == Some(expected)
-    }
-}
+    end
+end
 
-test "columns" {
+test "columns"
     [
         ("extract column from one number matrix", "1", 1, [1]),
         ("can extract column", "1 2 3\n4 5 6\n7 8 9", 3, [3, 6, 9]),
@@ -103,25 +103,25 @@ test "columns" {
             [1903, 3, 4],
         ),
     ]
-    |> subtests (description, text, index, expected), description {
+    |> subtests (description, text, index, expected), description
         assert Ok(matrix) = Matrix.parse(text)
 
         assert Matrix.column(matrix, index) == Some(expected)
-    }
-}
+    end
+end
 
 // Not canonical: the canonical matrices are all well formed and every index
 // is in range.
-test "a word that is not a number is an error" {
+test "a word that is not a number is an error"
     assert Matrix.parse("1 2\n3 four") == Err(.NotANumber("four"))
-}
+end
 
-test "an index past the last row or column is None" {
+test "an index past the last row or column is None"
     matrix = Matrix.parse("1 2\n3 4")?
 
     assert Matrix.row(matrix, 3) == None
     assert Matrix.column(matrix, 0) == None
-}
+end
 ```
 <!-- expect
 ok rows (4 cases)

@@ -482,7 +482,7 @@ func (g *gen) stdLiteralImpl(tag string, fd *ast.FuncDef, label string) (literal
 }
 
 // genericLiteralImpl is the handler fd at the instance a literal of a generic
-// type is, `Route<.{id: Uuid}>` for `impl CheckedLiteral<String, Route<P>>
+// type is, `Route<{id: Uuid}>` for `impl CheckedLiteral<String, Route<P>>
 // for Route<P>`: the instance's impl item when this file declares the type,
 // and an instance of the std template when std does. The instance is the
 // literal's type as the checker solved it.
@@ -544,11 +544,11 @@ func (g *gen) genericLiteralImpl(t *ast.TaggedString, fd *ast.FuncDef, label str
 	if len(tps) == 0 {
 		return literalTarget{}, false
 	}
-	args, ok := g.stdInstSolve(f, tps, ib, nil, kindInvalid, k)
+	args, ok := g.stdRecvTypeArgs(tps, ib, k, false)
 	if !ok {
 		return literalTarget{}, false
 	}
-	inst, why := g.stdInsts.instantiate(f, tps, args, nil, g)
+	inst, why := g.stdInsts.instantiate(f, tps, args, g)
 	if inst == nil {
 		if why != "" {
 			g.dc.note("a generic typed literal's handler: " + why)

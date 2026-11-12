@@ -8,15 +8,15 @@ import (
 
 const accessorHoverDecls = `type Pair (Int, String)
 
-struct Address {
+struct Address
   city: String
-}
+end
 
-struct User {
+struct User
   /// The name the user signs in with.
   name: String
   address: Address
-}
+end
 
 `
 
@@ -27,22 +27,22 @@ func TestHover_FieldAccessor(t *testing.T) {
 	for _, tc := range []struct {
 		name, body, want string
 	}{
-		{"a tuple item", `fn main() {
+		{"a tuple item", `fn main()
   rules = [(1, "a")]
   _ = rules |> Iter.map(▮.second) |> Iter.to_list()
-}
+end
 `, "```nomi\n.second: ((Int, String)) -> String\n```"},
-		{"a named tuple's item", `fn main() {
+		{"a named tuple's item", `fn main()
   _ = [Pair(1, "a")] |> Iter.map(▮.first) |> Iter.to_list()
-}
+end
 `, "```nomi\n.first: (Pair) -> Int\n```"},
-		{"a struct field with a doc", `fn names(users: List<User>) -> List<String> {
+		{"a struct field with a doc", `fn names(users: List<User>) -> List<String>
   Iter.map(users, ▮.name) |> Iter.to_list()
-}
+end
 `, "```nomi\n.name: (User) -> String\n```\n\nThe name the user signs in with."},
-		{"a path, in a pipe", `fn cities(users: List<User>) -> List<String> {
+		{"a path, in a pipe", `fn cities(users: List<User>) -> List<String>
   users |> Iter.map(▮.address.city) |> Iter.to_list()
-}
+end
 `, "```nomi\n.address.city: (User) -> String\n```"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -13,40 +13,40 @@ func TestIRBlockLocalGenericType_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn other() -> String {
-    struct Box<T> {
+fn other() -> String
+    struct Box<T>
         label: String
         v: T
-    }
+    end
     b = Box{label: "o", v: [1]}
     "${b.label}:${Iter.count(b.v)}"
-}
+end
 
-fn main() {
+fn main()
     type Meters Int
-    struct Box<T> {
+    struct Box<T>
         v: T
-    }
-    enum Opt<T> {
+    end
+    enum Opt<T>
         Has T
         Nothing
-    }
-    struct Tagged<T> {
+    end
+    struct Tagged<T>
         m: Meters
         o: Opt<T>
-    }
+    end
     io.inspect(Box{v: "s"})
-    io.inspect(Box(.{v: 1.5}))
+    io.inspect(Box({v: 1.5}))
     io.inspect(Box{v: Box{v: 2}}.v.v)
-    case Opt.Has(Meters(3)) {
+    case Opt.Has(Meters(3))
         .Has(Meters(n)) -> io.inspect(n)
         .Nothing -> io.inspect(0)
-    }
+    end
     io.inspect(Tagged{m: Meters(1), o: Opt.Has(True)})
     io.inspect(Iter.map([1, 2], fn x -> Box{v: x}) |> Iter.to_list())
     io.inspect([Opt.Has(1), Opt.Nothing])
     io.print(other())
-}
+end
 `
 	const want = "Box{v: \"s\"}\n" +
 		"Box{v: 1.5}\n" +

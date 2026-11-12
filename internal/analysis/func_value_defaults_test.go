@@ -11,25 +11,25 @@ import (
 // value has every parameter, and a call through it passes every argument.
 
 const funcValueDefaultsDecls = `
-fn parse(s: String, strict: Bool = False) -> Maybe<Int> {
-  if strict { None } else { String.to_int(s) }
-}
+fn parse(s: String, strict: Bool = False) -> Maybe<Int>
+  if strict then None else String.to_int(s)
+end
 
-fn apply(f: (String) -> Maybe<Int>, s: String) -> Maybe<Int> {
+fn apply(f: (String) -> Maybe<Int>, s: String) -> Maybe<Int>
   f(s)
-}
+end
 
-fn two(a: String, b: Int) -> Int {
+fn two(a: String, b: Int) -> Int
   String.length(a) + b
-}
+end
 
-fn three(a: String, b: Int, strict: Bool = False) -> Int {
-  if strict { 0 } else { String.length(a) + b }
-}
+fn three(a: String, b: Int, strict: Bool = False) -> Int
+  if strict then 0 else String.length(a) + b
+end
 
-fn seed(n: Int = 1) -> Int {
+fn seed(n: Int = 1) -> Int
   n
-}
+end
 `
 
 func TestFuncValueDefaults_FillWhereFewerParametersAreExpected(t *testing.T) {
@@ -47,7 +47,7 @@ func TestFuncValueDefaults_FillWhereFewerParametersAreExpected(t *testing.T) {
 		`_ = Result.map(Ok(["a"]), String.join)`,
 	} {
 		t.Run(stmt, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + "\nfn main() {\n  " + stmt + "\n}\n")
+			_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + "\nfn main()\n  " + stmt + "\nend\n")
 			expectNoStdlibErrors(t, errs)
 		})
 	}
@@ -66,11 +66,11 @@ func TestFuncValueDefaults_RejectedWhereADefaultCannotFill(t *testing.T) {
 		{"_ = two |> apply(\"1\")", "`apply` takes (String) -> Maybe<Int> as its first argument, but the pipe passes (String, Int) -> Int"},
 	} {
 		t.Run(tc.stmt, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + "\nfn main() {\n  " + tc.stmt + "\n}\n")
+			_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + "\nfn main()\n  " + tc.stmt + "\nend\n")
 			expectStdlibError(t, errs, tc.want)
 		})
 	}
-	_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + "\nfn main() {\n  " + copied + "\n}\n")
+	_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + "\nfn main()\n  " + copied + "\nend\n")
 	found := false
 	for _, e := range errs {
 		if strings.Contains(diagText(e), "help: a function value takes its defaults only where its shorter type is expected, so pass a capture that calls it: &g(&1)") {
@@ -84,14 +84,14 @@ func TestFuncValueDefaults_RejectedWhereADefaultCannotFill(t *testing.T) {
 
 func TestFuncValueDefaults_AcceptedThroughALambdaOrAPartial(t *testing.T) {
 	_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + `
-fn main() {
+fn main()
   a: Maybe<Maybe<Int>> = Maybe.map(Some("1"), fn s -> parse(s))
   b: List<Maybe<Int>> = Iter.map(["1"], &parse(&1)) |> Iter.to_list()
   c: List<Maybe<Int>> = Iter.map(["1"], &parse(&1, strict: True)) |> Iter.to_list()
   f: (String) -> Maybe<Int> = fn s -> parse(s)
   g: (String, Bool) -> Maybe<Int> = parse
   _ = (a, b, c, f("1"), g("1", True), apply(&parse(&1), "2"), parse("3"))
-}
+end
 `)
 	expectNoStdlibErrors(t, errs)
 }
@@ -116,23 +116,23 @@ func TestFuncValueDefaults_ACallThroughTheValuePassesEveryArgument(t *testing.T)
 	} {
 		t.Run(tc.body, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + `
-fn pass<T>(x: T) -> T {
+fn pass<T>(x: T) -> T
   x
-}
+end
 
-struct Holder {
+struct Holder
   f: (String, Bool) -> Maybe<Int>
-}
+end
 
 once held = parse
 
-fn through(f: (String, Bool) -> Maybe<Int>) -> Maybe<Int> {
+fn through(f: (String, Bool) -> Maybe<Int>) -> Maybe<Int>
   "1" |> f()
-}
+end
 
-fn main() {
+fn main()
   ` + tc.body + `
-}
+end
 `)
 			expectStdlibError(t, errs, tc.want)
 		})
@@ -145,7 +145,7 @@ fn main() {
 // defaults, owner functions and nested functions included.
 func TestFuncValueDefaults_ADirectCallALambdaAndAPartialKeepTheirDefaults(t *testing.T) {
 	_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + `
-fn main() {
+fn main()
   a = parse("1")
   b = "1" |> parse()
   h = fn x = 1 -> x
@@ -153,23 +153,23 @@ fn main() {
   g = parse
   g2 = g
   p = Parsing.parse
-  fn local(n: Int, m: Int = 5) -> Int {
+  fn local(n: Int, m: Int = 5) -> Int
     n * m
-  }
+  end
   l = local
   c = fn s: String -> g(s)
   _ = (a, b, h(), h(2), k("1"), k(s: "1"), g("1", True), "1" |> g(True), g("1"), "1" |> g(), g2("1"), p("1"), l(3), c("1"))
-}
+end
 
-struct Parsing {
+struct Parsing
   n: Int
-}
+end
 
-impl Parsing {
-  fn parse(s: String, strict: Bool = False) -> Maybe<Int> {
-    if strict { None } else { String.to_int(s) }
-  }
-}
+impl Parsing
+  fn parse(s: String, strict: Bool = False) -> Maybe<Int>
+    if strict then None else String.to_int(s)
+  end
+end
 `)
 	expectNoStdlibErrors(t, errs)
 }

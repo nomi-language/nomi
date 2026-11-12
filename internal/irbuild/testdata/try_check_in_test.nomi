@@ -35,53 +35,49 @@
 //   - An ordinary `?` over a plain `Err` in the SAME FILE still reports
 //     `test returned early`. A fix that routed every test-body `?` through
 //     the assertion arm would break this row.
-import {
+import
     std::io
     std::testing
-}
+end
 
-fn parse(n: Int) -> Result<Int, String> {
-    if n < 0 {
-        Err("negative ${n}")
-    } else {
-        Ok(n * 2)
-    }
-}
+fn parse(n: Int) -> Result<Int, String>
+    if n < 0 then Err("negative ${n}") else Ok(n * 2)
+end
 
-fn shape(n: Int) -> Result<Int, String> {
-    if n < 0 { Err("bad ${n}") } else { Ok(n) }
-}
+fn shape(n: Int) -> Result<Int, String>
+    if n < 0 then Err("bad ${n}") else Ok(n)
+end
 
-test "a passing check unwraps and the case runs on" {
+test "a passing check unwraps and the case runs on"
     passed = testing.check(1 == 1)?
     io.print("after the passing check")
 
     assert passed
-}
+end
 
-test "a failing check reports the check and not an early return" {
+test "a failing check reports the check and not an early return"
     io.print("before the failing check")
     passed = testing.check(1 == 2)?
 
     io.print("this line must not run")
 
     assert passed
-}
+end
 
-test "a failing check over a shape subject reports the check" {
+test "a failing check over a shape subject reports the check"
     v = testing.check(shape(-3))?
 
     io.print("this line must not run either")
 
     assert v == Ok(3)
-}
+end
 
-test "an ordinary `?` still reports test returned early" {
+test "an ordinary `?` still reports test returned early"
     v = parse(-1)?
 
     assert v == 0
-}
+end
 
-test "the case after a propagating one still runs" {
+test "the case after a propagating one still runs"
     assert 1 == 1
-}
+end

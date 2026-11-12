@@ -17,10 +17,16 @@ func onlyAppFieldError(t *testing.T, errs []analysis.TypeError, want string) {
 }
 
 const appFieldsRecursionPrefix = `
-struct App { context: Context
-n: Int }
-fn boot() -> Result<App, String> { Ok(App{context: Context.root(), n: 1}) }
-fn main() { _ = 1 }
+struct App
+    context: Context
+    n: Int
+end
+fn boot() -> Result<App, String>
+    Ok(App{context: Context.root(), n: 1})
+end
+fn main()
+    _ = 1
+end
 `
 
 // A lambda that calls the function holding it reaches that function's body,
@@ -29,45 +35,53 @@ fn main() { _ = 1 }
 func TestAppFields_SelfRecursiveLambdaEnds(t *testing.T) {
 	// This overflowed the Go stack in appReadWalker.
 	expectNoErrorsT(t, buildProjectForDefaultConfig(`
-fn later(x: Int) -> (Int) -> Int {
+fn later(x: Int) -> (Int) -> Int
   fn n -> later(x)(n)
-}
-fn main() { _ = later(1)(2) }
+end
+fn main()
+    _ = later(1)(2)
+end
 `))
 }
 
 // A read reached only through a self-recursive function's lambda is still
 // found.
 func TestAppFields_ReadThroughASelfRecursiveFunctionsLambda(t *testing.T) {
-	onlyAppFieldError(t, buildProjectForDefaultConfig(appFieldsRecursionPrefix+`fn later(x: Int) -> (Int) -> Int {
-  fn k -> if k == 0 { App.n } else { later(x)(k - 1) }
-}
-test "default" { assert later(1)(0) == 1 }
-`), "this test has no boot, but code it runs reads `App.n` (line 7)")
+	onlyAppFieldError(t, buildProjectForDefaultConfig(appFieldsRecursionPrefix+`fn later(x: Int) -> (Int) -> Int
+  fn k -> if k == 0 then App.n else later(x)(k - 1)
+end
+test "default"
+    assert later(1)(0) == 1
+end
+`), "this test has no boot, but code it runs reads `App.n` (line 13)")
 }
 
 // The spec's shape (§7 *Tail-call optimization*, tail position does not cross a lambda): the
 // function recurses inside the callback it hands to Iter.reduce, and the
 // callback reads the field.
 func TestAppFields_ReadThroughARecursiveReduceCallback(t *testing.T) {
-	onlyAppFieldError(t, buildProjectForDefaultConfig(appFieldsRecursionPrefix+`fn total(xs: List<Int>) -> Int {
+	onlyAppFieldError(t, buildProjectForDefaultConfig(appFieldsRecursionPrefix+`fn total(xs: List<Int>) -> Int
   Iter.reduce(xs, 0, fn acc, _ -> acc + App.n + total([]))
-}
-test "default" { assert total([1]) == 1 }
-`), "this test has no boot, but code it runs reads `App.n` (line 7)")
+end
+test "default"
+    assert total([1]) == 1
+end
+`), "this test has no boot, but code it runs reads `App.n` (line 13)")
 }
 
 // Mutual recursion through lambdas: ping's lambda calls pong, whose lambda
 // calls ping and reads the field.
 func TestAppFields_ReadThroughMutuallyRecursiveLambdas(t *testing.T) {
-	onlyAppFieldError(t, buildProjectForDefaultConfig(appFieldsRecursionPrefix+`fn ping(x: Int) -> (Int) -> Int {
+	onlyAppFieldError(t, buildProjectForDefaultConfig(appFieldsRecursionPrefix+`fn ping(x: Int) -> (Int) -> Int
   fn k -> pong(x)(k)
-}
-fn pong(x: Int) -> (Int) -> Int {
-  fn k -> if k == 0 { App.n } else { ping(x)(k - 1) }
-}
-test "default" { assert ping(1)(0) == 1 }
-`), "this test has no boot, but code it runs reads `App.n` (line 10)")
+end
+fn pong(x: Int) -> (Int) -> Int
+  fn k -> if k == 0 then App.n else ping(x)(k - 1)
+end
+test "default"
+    assert ping(1)(0) == 1
+end
+`), "this test has no boot, but code it runs reads `App.n` (line 16)")
 }
 
 // A stdlib function's body is walked against the stdlib file that declares
@@ -76,11 +90,19 @@ test "default" { assert ping(1)(0) == 1 }
 // body's positions up in the calling file's references, where they name
 // nothing, and found no read.
 func TestAppFields_ReadThroughAStdlibFunction(t *testing.T) {
-	onlyAppFieldError(t, buildProjectForDefaultConfig(appFieldsRecursionPrefix+`struct Bag { items: List<Int> }
-impl Iter<Int> for Bag {
-  fn each_while(collection: Bag, yield: (Int) -> Bool) -> Bool { Iter.each_while(collection.items, yield) }
-  fn known_count(_collection: Bag) -> Maybe<Int> { Some(App.n) }
-}
-test "default" { assert Iter.count(Bag{items: [1]}) == 1 }
-`), "this test has no boot, but code it runs reads `App.n` (line 9)")
+	onlyAppFieldError(t, buildProjectForDefaultConfig(appFieldsRecursionPrefix+`struct Bag
+    items: List<Int>
+end
+impl Iter<Int> for Bag
+  fn each_while(collection: Bag, yield: (Int) -> Bool) -> Bool
+      Iter.each_while(collection.items, yield)
+  end
+  fn known_count(_collection: Bag) -> Maybe<Int>
+      Some(App.n)
+  end
+end
+test "default"
+    assert Iter.count(Bag{items: [1]}) == 1
+end
+`), "this test has no boot, but code it runs reads `App.n` (line 20)")
 }

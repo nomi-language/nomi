@@ -62,8 +62,8 @@ func TestArgSlots_BareNameRouting(t *testing.T) {
 			[]ast.Node{atomNode(), name}, []kind{kindInt, fn}, 1},
 		{"a lambda routes without consulting any type",
 			[]ast.Node{atomNode(), &ast.Lambda{}}, []kind{kindInt, kindInt, kindInt}, 2},
-		{"so does a block",
-			[]ast.Node{&ast.Block{}}, []kind{kindInt, kindInt}, 1},
+		{"a block is a value and stays in its slot",
+			[]ast.Node{&ast.Block{}}, []kind{kindInt, kindInt}, 0},
 	}
 	for _, tc := range cases {
 		t.Run(tc.what, func(t *testing.T) {
@@ -110,6 +110,6 @@ func readFixture(t *testing.T, name string) string {
 	return string(src)
 }
 
-// atomNode is a stand-in argument that is neither a lambda, a block nor a bare
-// name, so it never routes.
+// atomNode is a stand-in argument that is neither a lambda nor a bare name,
+// so it never routes.
 func atomNode() ast.Node { return &ast.IntLit{Value: 1} }

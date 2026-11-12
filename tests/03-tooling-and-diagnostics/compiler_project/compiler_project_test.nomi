@@ -1,45 +1,45 @@
-import {
+import
     std::compiler.{self, Project}
     test_helpers
-}
+end
 
-test "compiler can check diagnostics across an in-memory project" {
+test "compiler can check diagnostics across an in-memory project"
     diagnostics = compiler.check_project(Project{
         entry_point: "main",
-        files: %{
+        files: {
             "main" => """
                 import api.{make, secret}
 
-                fn main() {
+                fn main()
                   w = make("Ada")
                   _ = secret(w)
-                }
+                end
                 """,
             "api" => """
-                pub struct Widget {
+                pub struct Widget
                   name: String
-                }
+                end
 
-                pub fn label(w: Widget) -> String {
+                pub fn label(w: Widget) -> String
                   w.name
-                }
+                end
 
-                fn secret(w: Widget) -> String {
+                fn secret(w: Widget) -> String
                   "secret " + w.name
-                }
+                end
 
-                pub fn make(name: String) -> Widget {
-                  Widget{name}
-                }
+                pub fn make(name: String) -> Widget
+                  Widget{name:}
+                end
                 """,
         },
     })
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "'secret' is private and cannot be imported")
-}
+end
 
-test "compiler project checks manifest entry points" {
+test "compiler project checks manifest entry points"
     diagnostics = compiler.check_project(Project{
         entry_point: "main",
         manifest: Some(
@@ -49,19 +49,19 @@ test "compiler project checks manifest entry points" {
             entry_points = ["other"]
             """
         ),
-        files: %{
+        files: {
             "main" => """
                 import other
 
-                fn main() {
+                fn main()
                   other.helper()
                   Unit
-                }
+                end
                 """,
             "other" => """
-                pub fn helper() -> Unit {
+                pub fn helper() -> Unit
                   Unit
-                }
+                end
                 """,
         },
     })
@@ -77,4 +77,4 @@ test "compiler project checks manifest entry points" {
         diagnostics,
         "other is declared in nomi.toml entry_points but has no entry callback",
     )
-}
+end

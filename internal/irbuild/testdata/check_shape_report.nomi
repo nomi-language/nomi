@@ -21,15 +21,15 @@
 // rendering surface in the family and no field-by-field assertion reaches it.
 import std::testing
 
-fn find_name(id: Int) -> Maybe<String> {
-    if id == 1 { Some("Ada") } else { None }
-}
+fn find_name(id: Int) -> Maybe<String>
+    if id == 1 then Some("Ada") else None
+end
 
-test "a shape check that holds keeps the whole file honest" {
+test "a shape check that holds keeps the whole file honest"
     assert Ok(found) = testing.check(find_name(1))
     assert found
-}
+end
 
-test "a failing shape check renders its own failure value" {
+test "a failing shape check renders its own failure value"
     assert Ok(_) = testing.check(find_name(2))
-}
+end

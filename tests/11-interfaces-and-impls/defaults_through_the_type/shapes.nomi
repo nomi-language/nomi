@@ -1,46 +1,46 @@
 import shape.Shape
 
-pub struct Square {
+pub struct Square
     side: Int
-}
+end
 
 pub type Meters Int
 
 pub type Span (Int, Int)
 
-pub enum Tile {
+pub enum Tile
     Small
     Big
-}
+end
 
-impl Shape for Square {
-    fn area(s: Square) -> Int {
+impl Shape for Square
+    fn area(s: Square) -> Int
         s.side * s.side
-    }
-}
+    end
+end
 
-impl Shape for Meters {
-    fn area(m: Meters) -> Int {
+impl Shape for Meters
+    fn area(m: Meters) -> Int
         Meters(n) = m
         n * n
-    }
+    end
 
-    fn doubled(_m: Meters) -> Int {
+    fn doubled(_m: Meters) -> Int
         0
-    }
-}
+    end
+end
 
-impl Shape for Span {
-    fn area(s: Span) -> Int {
+impl Shape for Span
+    fn area(s: Span) -> Int
         s.first * s.second
-    }
-}
+    end
+end
 
-impl Shape for Tile {
-    fn area(t: Tile) -> Int {
-        case t {
+impl Shape for Tile
+    fn area(t: Tile) -> Int
+        case t
             .Small -> 1
             .Big -> 4
-        }
-    }
-}
+        end
+    end
+end

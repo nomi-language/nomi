@@ -17,25 +17,25 @@ import (
 func TestReservedTypeNameIsPublishedAlone(t *testing.T) {
 	tmp := t.TempDir()
 	files := map[string]string{
-		"units.nomi": `pub enum Unit {
+		"units.nomi": `pub enum Unit
     Ohms
     Kiloohms
-}
+end
 
-impl Display for Unit {
-    fn to_string(unit: Unit) -> String {
-        case unit {
+impl Display for Unit
+    fn to_string(unit: Unit) -> String
+        case unit
             .Ohms -> "ohms"
             .Kiloohms -> "kiloohms"
-        }
-    }
-}
+        end
+    end
+end
 `,
 		"units_test.nomi": `import units.Unit
 
-test "unit" {
+test "unit"
     assert Display.to_string(Unit.Ohms) == "ohms"
-}
+end
 `,
 	}
 	for name, src := range files {
@@ -54,7 +54,7 @@ test "unit" {
 			pubs[string(p.URI)] = p.Diagnostics
 		}
 	}
-	const want = "type name 'Unit' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyUnit { ... }`)"
+	const want = "type name 'Unit' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyUnit`)"
 	for _, name := range []string{"units.nomi", "units_test.nomi"} {
 		uri := fileuri.FromPath(filepath.Join(tmp, name))
 		s.docs.Open(uri, files[name])

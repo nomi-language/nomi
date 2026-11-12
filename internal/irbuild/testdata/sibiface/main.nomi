@@ -15,22 +15,22 @@
 // The LOCAL `Point` beside it is the control. It shares the sibling's name and
 // has its own `impl Display`, so a route that resolved by NAME rather than by
 // declaration would print one of these two lines twice.
-import {
+import
     std::io
     things.{self, Loud, Soft, Tagger}
-}
+end
 
-struct Point {
+struct Point
     label: String
-}
+end
 
-impl Display for Point {
-    fn to_string(p: Point) -> String {
+impl Display for Point
+    fn to_string(p: Point) -> String
         "entry(" + p.label + ")"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     mine = Point{label: "here"}
     far = things.origin()
     q = things.quiet(3)
@@ -66,4 +66,4 @@ fn main() {
     io.print(Tagger.tag("arg", things.origin()))
 
     // An aliased type import is testdata/dictalias's case.
-}
+end

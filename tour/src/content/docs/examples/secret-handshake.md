@@ -16,47 +16,47 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 once reverse_bit = 16
 
 /// An action of the handshake, in the order the bits list them.
-pub enum Action {
+pub enum Action
     Wink
     DoubleBlink
     CloseYourEyes
     Jump
-}
+end
 
 derive Variants for Action
 
 /// The actions `number`'s bits ask for: one per set bit from 1 to 8, in that
 /// order, reversed when bit 16 is set too. Higher bits are ignored.
-pub fn commands(number: Int) -> List<Action> {
+pub fn commands(number: Int) -> List<Action>
     actions =
         Action.variants()
         |> Iter.filter(fn action -> is_set(number, bit(action)))
         |> Iter.to_list()
 
-    if is_set(number, reverse_bit) {
+    if is_set(number, reverse_bit) then
         Iter.reverse(actions)
-    } else {
+    else
         actions
-    }
-}
+    end
+end
 
-fn bit(action: Action) -> Int {
-    case action {
+fn bit(action: Action) -> Int
+    case action
         .Wink -> 1
         .DoubleBlink -> 2
         .CloseYourEyes -> 4
         .Jump -> 8
-    }
-}
+    end
+end
 
-fn is_set(number: Int, bit: Int) -> Bool {
+fn is_set(number: Int, bit: Int) -> Bool
     number &&& bit != 0
-}
+end
 
 // FILE: secret_handshake_test.nomi
 import secret_handshake.{self, Action}
 
-test "commands" {
+test "commands"
     [
         ("wink for 1", 1, [Action.Wink]),
         ("double blink for 10", 2, [.DoubleBlink]),
@@ -70,10 +70,10 @@ test "commands" {
         ("reverse all possible actions", 31, [.Jump, .CloseYourEyes, .DoubleBlink, .Wink]),
         ("do nothing for zero", 0, []),
     ]
-    |> subtests (description, number, expected), description {
+    |> subtests (description, number, expected), description
         assert secret_handshake.commands(number) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok commands (11 cases)

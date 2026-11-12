@@ -1,14 +1,14 @@
 import std::compiler
 
-test "dbg expression prints source and returns value" {
+test "dbg expression prints source and returns value"
     result = compiler.run(
         """
         import std::io
 
-        fn main() {
+        fn main()
           x = dbg 41 + 1
           io.print(x)
-        }
+        end
         """
     )
 
@@ -19,23 +19,23 @@ test "dbg expression prints source and returns value" {
 
         """
     )
-}
+end
 
-test "dbg pipe stage prints source and passes the value through" {
+test "dbg pipe stage prints source and passes the value through"
     result = compiler.run(
         """
         import std::io
 
-        fn double(n: Int) -> Int {
+        fn double(n: Int) -> Int
           n + n
-        }
+        end
 
-        fn main() {
+        fn main()
           5
           |> dbg
           |> double()
           |> io.print()
-        }
+        end
         """
     )
 
@@ -46,4 +46,4 @@ test "dbg pipe stage prints source and passes the value through" {
 
         """
     )
-}
+end

@@ -4,7 +4,7 @@ import std::io
 // Equatable reaches Decimal's through `Equatable.equal`, whose host body is
 // rt.EqDecimal, the same function `==` runs; so the two must agree, including
 // across scales (`1.50d` against `1.5d`).
-fn main() {
+fn main()
     a = Some(1.50d)
     b = Some(1.5d)
     c = Some(2d)
@@ -20,4 +20,4 @@ fn main() {
     err: Result<Decimal, String> = Err("no")
     io.print("result equal across scales = ${Result.equal(ok, also)}")
     io.print("result equal ok err = ${Result.equal(ok, err)}")
-}
+end

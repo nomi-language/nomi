@@ -5,82 +5,82 @@
 //# call with no type parameters of its own, a nested instance, a generic
 //# caller, a pipe stage and a bounded type parameter's dispatch all run.
 
-struct Box<T> {
+struct Box<T>
     items: List<T>
-}
+end
 
-impl Box<T> {
-    fn gather(b: Box<T>) -> Box<List<T>> {
+impl Box<T>
+    fn gather(b: Box<T>) -> Box<List<T>>
         Box{items: [b.items]}
-    }
+    end
 
-    fn pairs<U>(b: Box<T>, u: U) -> Box<(T, U)> {
+    fn pairs<U>(b: Box<T>, u: U) -> Box<(T, U)>
         Box{items: b.items |> Iter.map(&(&1, u)) |> Iter.to_list()}
-    }
+    end
 
-    fn size(b: Box<T>) -> Int {
+    fn size(b: Box<T>) -> Int
         Iter.count(b.items)
-    }
-}
+    end
+end
 
-interface Grow {
+interface Grow
     fn grow(x: self) -> Box<self>
-}
+end
 
-impl Grow for Box<T> {
-    fn grow(x: Box<T>) -> Box<Box<T>> {
+impl Grow for Box<T>
+    fn grow(x: Box<T>) -> Box<Box<T>>
         Box{items: [x, x]}
-    }
-}
+    end
+end
 
-fn twice<A>(b: Box<A>) -> Box<List<List<A>>> {
+fn twice<A>(b: Box<A>) -> Box<List<List<A>>>
     Box.gather(Box.gather(b))
-}
+end
 
-fn self_pairs<A>(b: Box<A>, a: A) -> Box<(A, A)> {
+fn self_pairs<A>(b: Box<A>, a: A) -> Box<(A, A)>
     Box.pairs(b, a)
-}
+end
 
-fn grown<X>(x: X) -> Box<X> where X: Grow {
+fn grown<X>(x: X) -> Box<X> where X: Grow
     X.grow(x)
-}
+end
 
-test "a member with no type parameters of its own builds per call" {
+test "a member with no type parameters of its own builds per call"
     assert Box.gather(Box{items: [1, 2]}).items == [[1, 2]]
-}
+end
 
-test "a nested instance gathers" {
+test "a nested instance gathers"
     one = Box{items: [1]}
     two = Box{items: [2, 3]}
     nested = Box.gather(Box{items: [one, two]})
     assert Box.size(nested) == 1
     assert nested.items == [[one, two]]
-}
+end
 
-test "a generic caller gathers twice" {
+test "a generic caller gathers twice"
     deep = twice(Box{items: ["a"]})
 
     assert deep.items == [
         [["a"]],
     ]
-}
+end
 
-test "a pipe stage gathers" {
+test "a pipe stage gathers"
     deep = Box{items: [True]} |> Box.gather() |> Box.gather()
 
     assert deep.items == [
         [[True]],
     ]
-}
+end
 
-test "a member with its own type parameter from a generic caller" {
+test "a member with its own type parameter from a generic caller"
     assert self_pairs(Box{items: [1, 2]}, 9).items == [(1, 9), (2, 9)]
     assert Box.pairs(Box{items: ["s"]}, 'c').items == [("s", 'c')]
-}
+end
 
-test "a bounded type parameter dispatches to an expansive interface impl" {
+test "a bounded type parameter dispatches to an expansive interface impl"
     assert Box.size(grown(Box{items: [7]})) == 2
     regrown = Box.grow(Box{items: [1]}) |> Box.grow()
 
     assert Box.size(regrown) == 2
-}
+end

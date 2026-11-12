@@ -15,45 +15,53 @@ import (
 // one. The hint names the `break` that would end it.
 func TestUnreachable_StatementAfterALoopThatNeverBreaks(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn worker() {
-  Iter.loop(fn -> {
+fn worker()
+  Iter.loop(fn ->
     _ = 1
-  })
+  end)
   _ = 2
-}
+end
 
-fn returns_next_state() {
-  Iter.loop(0, fn n -> {
-    if n > 3 { return 0 }
-    if n == 2 { continue }
+fn returns_next_state()
+  Iter.loop(0, fn n ->
+    if n > 3 then return 0
+    if n == 2 then continue
     n + 1
-  })
+  end)
   _ = 3
-}
+end
 
-fn either(flag: Bool) {
-  if flag {
-    Iter.loop(fn -> { _ = 1 })
-  } else {
-    Iter.loop(fn -> { _ = 2 })
-  }
+fn either(flag: Bool)
+  if flag then
+    Iter.loop(fn ->
+        _ = 1
+    end)
+  else
+    Iter.loop(fn ->
+        _ = 2
+    end)
+  end
   _ = 4
-}
+end
 
-fn mixed(flag: Bool) {
-  case flag {
-    True -> Iter.loop(fn -> { _ = 1 })
+fn mixed(flag: Bool)
+  case flag
+    True -> Iter.loop(fn ->
+        _ = 1
+    end)
     False -> return
-  }
+  end
   _ = 5
-}
+end
 
-fn scoped() {
-  {
-    Iter.loop(fn -> { _ = 1 })
-  }
+fn scoped()
+  begin
+    Iter.loop(fn ->
+        _ = 1
+    end)
+  end
   _ = 6
-}
+end
 `)
 	got := unreachableErrors(errs)
 	const loopHint = "remove it, or give the loop a `break` that ends it"
@@ -63,9 +71,9 @@ fn scoped() {
 	}{
 		{6, 3, "unreachable code after a loop that never breaks", loopHint},
 		{15, 3, "unreachable code after a loop that never breaks", loopHint},
-		{24, 3, "unreachable code: the `if` above loops forever in every branch", loopHint},
-		{32, 3, "unreachable code: the `case` above exits in every arm", "remove it"},
-		{39, 3, "unreachable code: the block above always loops forever", loopHint},
+		{28, 3, "unreachable code: the `if` above loops forever in every branch", loopHint},
+		{38, 3, "unreachable code: the `case` above exits in every arm", "remove it"},
+		{47, 3, "unreachable code: the block above always loops forever", loopHint},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d unreachable-code errors, want %d: %v", len(got), len(want), got)
@@ -92,31 +100,32 @@ fn scoped() {
 // `case` whose arms all leave.
 func TestUnreachable_ALoopThatCanStopIsClean(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn guarded() {
-  Iter.loop(0, fn n -> {
-    if n > 3 { break }
+fn guarded()
+  Iter.loop(0, fn n ->
+    if n > 3 then break
     n + 1
-  })
+  end)
   _ = 1
-}
+end
 
-fn in_an_arm() -> Int {
-  total = Iter.loop(0, fn n -> {
-    case n {
-      5 -> {
+fn in_an_arm() -> Int
+  total = Iter.loop(0, fn n ->
+    case n
+      5 ->
         _ = n
         break n
-      }
       _ -> n + 1
-    }
-  })
+    end
+  end)
   total
-}
+end
 
-fn bound() {
-  x = Iter.loop(fn -> { _ = 1 })
+fn bound()
+  x = Iter.loop(fn ->
+      _ = 1
+  end)
   _ = x
-}
+end
 `)
 	if got := unreachableErrors(errs); len(got) != 0 {
 		t.Fatalf("unexpected unreachable-code errors: %v", got)
@@ -125,15 +134,15 @@ fn bound() {
 		src   string
 		never bool
 	}{
-		{"Iter.loop(fn -> { _ = 1 })", true},
-		{"Iter.loop(0, fn n -> { if n > 1 { break } n + 1 })", false},
-		{"Iter.loop(fn -> { Iter.each([1], fn x -> { if x > 0 { break } }) })", true},
-		{"Iter.loop(fn -> { fn inner(x: Int) -> Int { if x > 0 { break } x } })", true},
-		{"Iter.loop(fn -> { Iter.loop(fn -> { break }) })", true},
-		{"Iter.loop(fn -> {\n case 1 {\n  1 -> break\n  _ -> Unit\n }\n})", false},
+		{"Iter.loop(fn ->\n    _ = 1\nend)", true},
+		{"Iter.loop(0, fn n ->\n    (if n > 1 then break)\n    n + 1\nend)", false},
+		{"Iter.loop(fn ->\n    Iter.each([1], fn x ->\n        if x > 0 then break\n    end)\nend)", true},
+		{"Iter.loop(fn ->\n    fn inner(x: Int) -> Int\n        (if x > 0 then break)\n        x\n    end\nend)", true},
+		{"Iter.loop(fn ->\n    Iter.loop(fn ->\n        break\n    end)\nend)", true},
+		{"Iter.loop(fn ->\n case 1\n  1 -> break\n  _ -> Unit\n end\nend)", false},
 		{"Iter.map([1], fn x -> x)", false},
 	} {
-		nodes, err := parser.Parse(lexer.Lex("fn f() {\n" + c.src + "\n}\n"))
+		nodes, err := parser.Parse(lexer.Lex("fn f()\n" + c.src + "\nend\n"))
 		if err != nil || len(nodes) != 1 {
 			t.Fatalf("%s: %v", c.src, err)
 		}

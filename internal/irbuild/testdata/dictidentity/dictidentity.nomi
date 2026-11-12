@@ -11,27 +11,27 @@
 // Neither `announce` call carries a turbofish, so each dictionary is solved
 // from the ARGUMENT's static kind — the same path a name-keyed builder would
 // take, which is what makes this a test of identity rather than of plumbing.
-import {
+import
     std::io
     other.other_announced
     shout.Shout
-}
+end
 
-fn announce<T>(x: T) -> String where T: Shout {
+fn announce<T>(x: T) -> String where T: Shout
     T.shout(x)
-}
+end
 
-struct Widget {
+struct Widget
     label: String
-}
+end
 
-impl Shout for Widget {
-    fn shout(w: Widget) -> String {
+impl Shout for Widget
+    fn shout(w: Widget) -> String
         "entry widget ${w.label}"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(announce(Widget{label: "here"}))
     io.print(other_announced())
-}
+end

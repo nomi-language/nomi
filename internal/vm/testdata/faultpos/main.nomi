@@ -2,11 +2,11 @@
 // run. Line numbers matter here: `Divide.divide` is on line 7.
 import std::io
 
-fn divide_via_impl() -> Int {
+fn divide_via_impl() -> Int
     zero = 0
     Divide.divide(20, zero)
-}
+end
 
-fn main() {
+fn main()
     io.print(Int.to_string(divide_via_impl()))
-}
+end

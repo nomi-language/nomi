@@ -13,69 +13,71 @@ import (
 
 const irMapPatternSource = `import std::io
 
-enum JV {
+enum JV
   Num Int
   Obj Map<String, JV>
   Arr List<JV>
   Pos (Int, Int)
-}
+end
 
-fn describe(m: Map<String, Int>) -> String {
-  case m {
-    %{"a" => 1, "b" => b} -> "one and ${b}"
-    %{"a" => a} -> "a=${a}"
+fn describe(m: Map<String, Int>) -> String
+  case m
+    {"a" => 1, "b" => b} -> "one and ${b}"
+    {"a" => a} -> "a=${a}"
     _ -> "none"
-  }
-}
+  end
+end
 
-fn pick(m: Map<Int, String>) -> String {
-  %{1 => one, 2 => _} = m else { return "missing" }
+fn pick(m: Map<Int, String>) -> String
+  {1 => one, 2 => _} = m else
+      return "missing"
+  end
   one
-}
+end
 
-fn nested(x: Maybe<Map<Int, String>>) -> String {
-  case x {
-    Some(%{-2 => v}) -> v
+fn nested(x: Maybe<Map<Int, String>>) -> String
+  case x
+    Some({-2 => v}) -> v
     _ -> "no match"
-  }
-}
+  end
+end
 
-fn composite(m: Map<(Int, Int), String>, flags: Map<Bool, String>) -> String {
-  a = case m {
-    %{(3, 4) => v} -> v
+fn composite(m: Map<(Int, Int), String>, flags: Map<Bool, String>) -> String
+  a = case m
+    {(3, 4) => v} -> v
     _ -> "?"
-  }
-  b = case flags {
-    %{JV.Num(1) => v} -> v
-    %{True => v} -> v
+  end
+  b = case flags
+    {JV.Num(1) => v} -> v
+    {True => v} -> v
     _ -> "?"
-  }
+  end
   a + b
-}
+end
 
-fn attached(j: JV) -> String {
-  case j {
-    %.Obj{"k" => .Num(n)} -> "obj ${n}"
+fn attached(j: JV) -> String
+  case j
+    .Obj{"k" => .Num(n)} -> "obj ${n}"
     .Arr[.Num(a), .Num(b), ..rest] -> "arr ${a} ${b} ${Iter.count(rest)}"
     .Pos(x, y) -> "pos ${x} ${y}"
     _ -> "other"
-  }
-}
+  end
+end
 
-fn main() {
-  io.print(describe(%{"a" => 1, "b" => 7}))
-  io.print(describe(%{"a" => 3}))
-  io.print(describe(%{"z" => 3}))
-  io.print(pick(%{1 => "x", 2 => "y"}))
-  io.print(nested(Some(%{-2 => "neg"})))
+fn main()
+  io.print(describe({"a" => 1, "b" => 7}))
+  io.print(describe({"a" => 3}))
+  io.print(describe({"z" => 3}))
+  io.print(pick({1 => "x", 2 => "y"}))
+  io.print(nested(Some({-2 => "neg"})))
   io.print(nested(None))
-  io.print(composite(%{(1, 2) => "a", (3, 4) => "b"}, %{True => "t"}))
-  io.print(attached(%JV.Obj{"k" => JV.Num(7)}))
+  io.print(composite({(1, 2) => "a", (3, 4) => "b"}, {True => "t"}))
+  io.print(attached(JV.Obj{"k" => JV.Num(7)}))
   io.print(attached(JV.Arr[JV.Num(1), JV.Num(2), JV.Num(3)]))
   io.print(attached(JV.Arr[JV.Num(1)]))
   io.print(attached(JV.Pos(4, 5)))
-  io.inspect(%JV.Obj{"k" => JV.Arr[JV.Num(1), JV.Pos(2, 3)]})
-}
+  io.inspect(JV.Obj{"k" => JV.Arr[JV.Num(1), JV.Pos(2, 3)]})
+end
 `
 
 // Map patterns and destructuring lower to Map.get, a Some test and the
@@ -92,7 +94,7 @@ func TestIRMapPattern_CaseDestructureAndAttach(t *testing.T) {
 	}
 	verifyLambdaProgram(t, irMapPatternSource,
 		"one and 7\na=3\nnone\nx\nneg\nno match\nbt\nobj 7\narr 1 2 1\nother\npos 4 5\n"+
-			"Obj(%{\"k\" => Arr([Num(1), Pos(2, 3)])})\n")
+			"Obj({\"k\" => Arr([Num(1), Pos(2, 3)])})\n")
 }
 
 // A map binding whose key the map lacks runs its `else`: a map pattern is
@@ -101,20 +103,22 @@ func TestIRMapPattern_CaseDestructureAndAttach(t *testing.T) {
 func TestIRMapPattern_MissingBoundKeyRunsElse(t *testing.T) {
 	irRunSource(t, `import std::io
 
-fn note(k: Int) -> Int {
+fn note(k: Int) -> Int
   io.print("key ${k}")
   k
-}
+end
 
-fn pick(m: Map<Int, String>) -> String {
-  %{note(1) => one, note(2) => _} = m else { return "missing" }
+fn pick(m: Map<Int, String>) -> String
+  {note(1) => one, note(2) => _} = m else
+      return "missing"
+  end
   one
-}
+end
 
-fn main() {
-  io.print(pick(%{1 => "x"}))
-  io.print(pick(%{1 => "x", 2 => "y"}))
-}
+fn main()
+  io.print(pick({1 => "x"}))
+  io.print(pick({1 => "x", 2 => "y"}))
+end
 `, "key 1\nkey 2\nmissing\nkey 1\nkey 2\nx\n")
 }
 
@@ -122,52 +126,52 @@ const irMapFuncsSource = `import std::io
 
 type Key Int
 
-fn main() {
-  io.inspect(Map.get(%{Key(1) => 2}, Key(1)))
-  m = %{"q" => 1, "r" => 2}
+fn main()
+  io.inspect(Map.get({Key(1) => 2}, Key(1)))
+  m = {"q" => 1, "r" => 2}
   io.inspect(Map.keys(m))
   io.inspect(Map.values(Map.remove(m, "q")))
   io.inspect(Map.map_values(m, fn v -> v * 10))
   io.inspect(Map.contains(m, "r"))
-  io.inspect(Map.merge(m, %{"r" => 9, "s" => 3}))
-  io.inspect(Map.map_keys(%{"a" => 1, "b" => 2, "c" => 3}, fn k -> k == "c"))
-  s: Set<Int> = %[]
+  io.inspect(Map.merge(m, {"r" => 9, "s" => 3}))
+  io.inspect(Map.map_keys({"a" => 1, "b" => 2, "c" => 3}, fn k -> k == "c"))
+  s: Set<Int> = Set[]
   io.inspect(Set.size(s))
-  io.inspect(%[1, 2] == %[2, 1])
-}
+  io.inspect(Set[1, 2] == Set[2, 1])
+end
 `
 
 // Map.keys, values, remove, contains?, merge and map_values are machine
 // intrinsics over rt's map, in the keys' insertion order.
 func TestIRMapFuncs_Intrinsics(t *testing.T) {
 	verifyLambdaProgram(t, irMapFuncsSource,
-		"Some(2)\n[\"q\", \"r\"]\n[2]\n%{\"q\" => 10, \"r\" => 20}\nTrue\n%{\"q\" => 1, \"r\" => 9, \"s\" => 3}\n%{False => 2, True => 3}\n0\nTrue\n")
+		"Some(2)\n[\"q\", \"r\"]\n[2]\n{\"q\" => 10, \"r\" => 20}\nTrue\n{\"q\" => 1, \"r\" => 9, \"s\" => 3}\n{False => 2, True => 3}\n0\nTrue\n")
 }
 
 const irEnumFieldSource = `import std::io
 
-struct Circle {
+struct Circle
   radius: Float
-}
+end
 
-enum Shape {
+enum Shape
   Rect {height: Int, label: String = "r"}
   Wrap Circle
   embeds Circle2
   Num Int
   Point
-}
+end
 
-struct Circle2 {
+struct Circle2
   radius: Float
   height: Int
-}
+end
 
-fn height(s: Shape) -> Int {
+fn height(s: Shape) -> Int
   s.height
-}
+end
 
-fn main() {
+fn main()
   r = Shape.Rect{height: 2}
   io.print(r.height)
   io.print(r.label)
@@ -175,7 +179,7 @@ fn main() {
   w = Shape.Wrap(Circle{radius: 2.5})
   io.print(w.radius)
   io.print(height(w))
-}
+end
 `
 
 // A field read on an enum value whose variant is not known reads the

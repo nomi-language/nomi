@@ -92,7 +92,7 @@ func TestParseKeywordDeclRefusals(t *testing.T) {
 		{"tagged phrase", "phrase hi Mf2`Hi`\n", "a `phrase` body is MessageFormat 2 text and takes no tag: remove `Mf2`", 1, 11},
 		{"tagged noun", "noun item Mf2`{{item}}`\n", "a `noun` body is MessageFormat 2 text and takes no tag: remove `Mf2`", 1, 11},
 		{"misspelled type keyword", "pub strct Point {\n    x: Int\n}\n", "`strct` declares nothing: a type is declared with `struct`, `enum` or `type`", 1, 5},
-		{"in a body", "fn main() {\n    phrase hi `Hi`\n}\n", "", 0, 0},
+		{"in a body", "fn main()\n    phrase\n    hi\n    `Hi`\nend\n", "", 0, 0},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

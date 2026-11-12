@@ -18,14 +18,14 @@ type Mark
 
 type Expired
 
-enum Signal {
+enum Signal
   Ping(Unit)
   Marked(Mark)
   embeds Expired
   Stop
-}
+end
 
-fn main() {
+fn main()
   pairs: List<(Signal, String)> = [(Signal.Ping(Unit), "a"), (Signal.Stop, "b")]
   _ = pairs
   _ = Signal.Marked(Mark)
@@ -35,13 +35,13 @@ fn main() {
   n: Int = Signal.Ping(Unit)
   _ = n
   s = Signal.Stop
-  _ = case s {
+  _ = case s
     Signal.Ping -> 1
     Signal.Marked(_) -> 2
     Signal.Expired -> 3
     Signal.Stop -> 4
-  }
-}
+  end
+end
 `)
 	var got []string
 	for _, e := range errs {

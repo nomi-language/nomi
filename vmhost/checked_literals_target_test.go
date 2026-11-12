@@ -10,24 +10,24 @@ import (
 // is expected is that type's literal: in an annotated binding, an argument, a
 // struct field, a returned value and a list element, with and without slots.
 func TestCheckedLiteral_UntaggedTakesItsPositionsType(t *testing.T) {
-	const src = `import {
+	const src = `import
     std::io
     std::url.Url
-}
+end
 
-struct Site {
+struct Site
     home: Url
-}
+end
 
-fn show(u: Url) -> String {
+fn show(u: Url) -> String
     "${u}"
-}
+end
 
-fn make() -> Url {
+fn make() -> Url
     "https://example.com/made"
-}
+end
 
-fn main() {
+fn main()
     a: Url = "https://example.com/a"
     name = "ann b"
     b: Url = "https://example.com/greet/${name}"
@@ -40,7 +40,7 @@ fn main() {
     io.print(us)
     plain = "https://example.com/plain"
     io.print(String.length(plain))
-}
+end
 `
 	var out strings.Builder
 	p, err := LoadSource("main", src)
@@ -72,7 +72,7 @@ func TestCheckedLiteral_UntaggedErrors(t *testing.T) {
 		{"a cron field out of range", "    c: Cron = \"0 25 * * *\"\n    io.print(c)\n",
 			"`Cron` literal \"0 25 * * *\" is invalid: hour 25 is out of range 0-23", 17, 18},
 	} {
-		src := "import {\n    std::io\n    std::jobs.Cron\n    std::url.Url\n}\n\nfn show(u: Url) {\n    io.print(u)\n}\n\nfn tick() -> Cron {\n    \"0 0 * * *\"\n}\n\nfn main() {\n    io.print(tick())\n" + c.body + "}\n"
+		src := "import\n    std::io\n    std::jobs.Cron\n    std::url.Url\nend\n\nfn show(u: Url)\n    io.print(u)\nend\n\nfn tick() -> Cron\n    \"0 0 * * *\"\nend\n\nfn main()\n    io.print(tick())\n" + c.body + "end\n"
 		ds := literalDiagnostics(t, src)
 		if len(ds) != 1 {
 			t.Fatalf("%s: %d diagnostics, want 1: %v", c.name, len(ds), ds)

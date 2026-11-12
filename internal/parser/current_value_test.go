@@ -15,12 +15,12 @@ import (
 
 func TestParseCurrentValue_Struct(t *testing.T) {
 	for _, src := range []string{
-		`.{.., city: "NYC"}`,
-		`.{.., city: "NYC",}`,
-		`.{.., city}`,
-		".{\n  ..,\n  city: \"NYC\",\n}",
-		".{\n  .., // keep\n  city: \"NYC\",\n}",
-		`.{..}`,
+		`{.., city: "NYC"}`,
+		`{.., city: "NYC",}`,
+		`{.., city:}`,
+		"{\n  ..,\n  city: \"NYC\",\n}",
+		"{\n  .., // keep\n  city: \"NYC\",\n}",
+		`{..}`,
 	} {
 		t.Run(src, func(t *testing.T) {
 			lit, ok := parseExpr(t, src).(*ast.StructLit)
@@ -39,7 +39,7 @@ func TestParseCurrentValue_Struct(t *testing.T) {
 }
 
 func TestParseCurrentValue_Map(t *testing.T) {
-	lit, ok := parseExpr(t, `%{.., "city" => "Atlanta"}`).(*ast.MapLit)
+	lit, ok := parseExpr(t, `{.., "city" => "Atlanta"}`).(*ast.MapLit)
 	if !ok {
 		t.Fatalf("want *ast.MapLit")
 	}
@@ -53,9 +53,9 @@ func TestParseCurrentValue_Map(t *testing.T) {
 
 func TestParseCurrentValue_List(t *testing.T) {
 	for _, src := range []string{`[t, ..]`, `[a, b, ..]`, "[\n  t,\n  ..\n]", `[.., 1]`, `[..]`} {
-		lit, ok := parseExpr(t, src).(*ast.ListSpreadLit)
+		lit, ok := parseExpr(t, src).(*ast.ListLit)
 		if !ok {
-			t.Fatalf("%q: want *ast.ListSpreadLit", src)
+			t.Fatalf("%q: want *ast.ListLit", src)
 		}
 		if len(lit.Spreads) != 1 {
 			t.Fatalf("%q: %d spreads", src, len(lit.Spreads))
@@ -72,18 +72,18 @@ func TestParseSetSpread(t *testing.T) {
 		spread string
 		items  int
 	}{
-		{`%[.., 3]`, "*ast.CurrentValue", 1},
-		{`%[..s, 3, 4]`, "*ast.Ident", 2},
-		{`%[..f(x), 3]`, "*ast.Call", 1},
-		{"%[\n  // note\n  ..,\n  3,\n]", "*ast.CurrentValue", 1},
-		{`%[1, ..s]`, "*ast.Ident", 1},
-		{`%[1, 2]`, "", 2},
+		{`Set[.., 3]`, "*ast.CurrentValue", 1},
+		{`Set[..s, 3, 4]`, "*ast.Ident", 2},
+		{`Set[..f(x), 3]`, "*ast.Call", 1},
+		{"Set[\n  // note\n  ..,\n  3,\n]", "*ast.CurrentValue", 1},
+		{`Set[1, ..s]`, "*ast.Ident", 1},
+		{`Set[1, 2]`, "", 2},
 	}
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {
-			lit, ok := parseExpr(t, tc.src).(*ast.SetLit)
+			lit, ok := parseExpr(t, tc.src).(*ast.ListLit)
 			if !ok {
-				t.Fatalf("want *ast.SetLit")
+				t.Fatalf("want *ast.ListLit")
 			}
 			got := ""
 			if len(lit.Spreads) > 0 {
@@ -100,7 +100,7 @@ func TestParseSetSpread(t *testing.T) {
 }
 
 func TestParseCurrentValue_OnlyFirstInStruct(t *testing.T) {
-	err := parseError(t, `.{a: 1, ..}`)
+	err := parseError(t, `{a: 1, ..}`)
 	if !strings.Contains(err.Error(), "struct spread `..` must be the first element") {
 		t.Errorf("%v", err)
 	}
@@ -114,9 +114,8 @@ func TestParseCurrentValue_OnePerLiteral(t *testing.T) {
 		line, col int
 	}{
 		{`[.., 1, ..]`, "list literal takes one bare `..`", 1, 9},
-		{`#[.., 1, ..]`, "vector literal takes one bare `..`", 1, 10},
-		{`%[.., ..]`, "set literal takes one bare `..`", 1, 7},
-		{`%{.., "a" => 1, ..}`, "map literal takes one bare `..`", 1, 17},
+		{`Vector[.., 1, ..]`, "list literal takes one bare `..`", 1, 15},
+		{`{.., "a" => 1, ..}`, "map literal takes one bare `..`", 1, 16},
 	} {
 		err := parseError(t, tc.src)
 		want := fmt.Sprintf("line %d, col %d: %s", tc.line, tc.col, tc.want)
@@ -126,24 +125,24 @@ func TestParseCurrentValue_OnePerLiteral(t *testing.T) {
 	}
 }
 
-// A vector takes a bare `..` anywhere and no named spread: `#[.., x]` is
-// the old vector then x, `#[x, ..]` is x then the old vector.
+// A vector takes a bare `..` anywhere and no named spread: `[.., x]` is
+// the old vector then x, `[x, ..]` is x then the old vector.
 func TestParseVectorCurrentValue(t *testing.T) {
 	cases := []struct {
 		src   string
 		at    int
 		items int
 	}{
-		{`#[.., 1]`, 0, 1},
-		{`#[1, 2, ..]`, 2, 2},
-		{`#[1, .., 2]`, 1, 2},
-		{"#[\n  ..,\n  1,\n]", 0, 1},
-		{"#[\n  1,\n  ..\n]", 1, 1},
+		{`Vector[.., 1]`, 0, 1},
+		{`Vector[1, 2, ..]`, 2, 2},
+		{`Vector[1, .., 2]`, 1, 2},
+		{"Vector[\n  ..,\n  1,\n]", 0, 1},
+		{"Vector[\n  1,\n  ..\n]", 1, 1},
 	}
 	for _, tc := range cases {
-		lit, ok := parseExpr(t, tc.src).(*ast.VectorLit)
+		lit, ok := parseExpr(t, tc.src).(*ast.ListLit)
 		if !ok {
-			t.Fatalf("%q: want *ast.VectorLit", tc.src)
+			t.Fatalf("%q: want *ast.ListLit", tc.src)
 		}
 		if len(lit.Spreads) != 1 {
 			t.Fatalf("%q: %d spreads", tc.src, len(lit.Spreads))
@@ -160,13 +159,13 @@ func TestParseVectorCurrentValue(t *testing.T) {
 }
 
 func TestParseVectorSpreadRefusals(t *testing.T) {
-	const named = "vector spread `..` has no named form"
+	const named = "spread `..` has no named form"
 	for _, tc := range []struct {
 		src, want string
 		line, col int
 	}{
-		{`#Path[1, ..v]`, named, 1, 10},
-		{`#Path[..v, 1]`, named, 1, 7},
+		{`Path[1, ..v]`, named, 1, 9},
+		{`Path[..v, 1]`, named, 1, 6},
 	} {
 		err := parseError(t, tc.src)
 		want := fmt.Sprintf("line %d, col %d: %s", tc.line, tc.col, tc.want)
@@ -176,7 +175,7 @@ func TestParseVectorSpreadRefusals(t *testing.T) {
 	}
 }
 
-// TestParseVectorNamedSpread: `#[..v, x]` is v then x, `#[x, ..v]` is x
+// TestParseVectorNamedSpread: `[..v, x]` is v then x, `[x, ..v]` is x
 // then v. The spread is any expression.
 func TestParseVectorNamedSpread(t *testing.T) {
 	cases := []struct {
@@ -186,20 +185,20 @@ func TestParseVectorNamedSpread(t *testing.T) {
 		items     int
 		line, col int
 	}{
-		{`#[..names, "Iris"]`, "Ident", 0, 1, 1, 3},
-		{`#["Iris", ..names]`, "Ident", 1, 1, 1, 11},
-		{`#[1, 2, ..f(x)]`, "Call", 2, 2, 1, 9},
-		{`#[..Team.names(t), 1]`, "Call", 0, 1, 1, 3},
-		{`#[..#[], 1]`, "VectorLit", 0, 1, 1, 3},
-		{`#[..v]`, "Ident", 0, 0, 1, 3},
+		{`[..names, "Iris"]`, "Ident", 0, 1, 1, 2},
+		{`["Iris", ..names]`, "Ident", 1, 1, 1, 10},
+		{`Vector[1, 2, ..f(x)]`, "Call", 2, 2, 1, 14},
+		{`[..Team.names(t), 1]`, "Call", 0, 1, 1, 2},
+		{`[..Vector[], 1]`, "ListLit", 0, 1, 1, 2},
+		{`[..v]`, "Ident", 0, 0, 1, 2},
 
-		{"#[\n  ..names,\n  \"Iris\",\n]", "Ident", 0, 1, 2, 3},
-		{"#[\n  \"Iris\",\n  ..names\n]", "Ident", 1, 1, 3, 3},
+		{"Vector[\n  ..names,\n  \"Iris\",\n]", "Ident", 0, 1, 2, 3},
+		{"Vector[\n  \"Iris\",\n  ..names\n]", "Ident", 1, 1, 3, 3},
 	}
 	for _, tc := range cases {
-		lit, ok := parseExpr(t, tc.src).(*ast.VectorLit)
+		lit, ok := parseExpr(t, tc.src).(*ast.ListLit)
 		if !ok {
-			t.Fatalf("%q: want *ast.VectorLit", tc.src)
+			t.Fatalf("%q: want *ast.ListLit", tc.src)
 		}
 		if len(lit.Spreads) != 1 {
 			t.Fatalf("%q: %d spreads", tc.src, len(lit.Spreads))

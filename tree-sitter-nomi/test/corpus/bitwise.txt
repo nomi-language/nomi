@@ -53,9 +53,9 @@ once d = ~~~x ||| y ^^^ z
 Three type argument lists closed together
 ================================================================================
 
-fn f(y: Map<String, List<List<Int>>>) -> List<List<List<Int>>> {
+fn f(y: Map<String, List<List<Int>>>) -> List<List<List<Int>>>
     Iter.to_list<List<List<Int>>>(y)
-}
+end
 
 --------------------------------------------------------------------------------
 

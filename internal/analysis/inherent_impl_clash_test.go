@@ -50,25 +50,25 @@ const boxClashMessage = "`Box.multiply` is already `Multiply<Int, Box>`'s `multi
 // got Float", so the inherent function could never be called by its owner.
 func TestInherentImplClash_InherentFnNamedAsAnImplFn(t *testing.T) {
 	fa := buildInherentFixture(t, map[string]string{
-		"main.nomi": `struct Box {
+		"main.nomi": `struct Box
     n: Int
-}
+end
 
-impl Multiply<Int, Box> for Box {
-    fn multiply(lhs: Box, rhs: Int) -> Box {
+impl Multiply<Int, Box> for Box
+    fn multiply(lhs: Box, rhs: Int) -> Box
         Box{n: lhs.n * rhs}
-    }
-}
+    end
+end
 
-impl Box {
-    pub fn multiply(lhs: Box, _factor: Float) -> Box {
+impl Box
+    pub fn multiply(lhs: Box, _factor: Float) -> Box
         lhs
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     Unit
-}
+end
 `,
 	})
 	wantOneClash(t, fa, "", 12, 12, boxClashMessage)
@@ -78,25 +78,25 @@ fn main() {
 // inherent function.
 func TestInherentImplClash_ImplDeclaredAfterTheInherentFn(t *testing.T) {
 	fa := buildInherentFixture(t, map[string]string{
-		"main.nomi": `struct Box {
+		"main.nomi": `struct Box
     n: Int
-}
+end
 
-impl Box {
-    pub fn multiply(lhs: Box, _factor: Float) -> Box {
+impl Box
+    pub fn multiply(lhs: Box, _factor: Float) -> Box
         lhs
-    }
-}
+    end
+end
 
-impl Multiply<Int, Box> for Box {
-    fn multiply(lhs: Box, rhs: Int) -> Box {
+impl Multiply<Int, Box> for Box
+    fn multiply(lhs: Box, rhs: Int) -> Box
         Box{n: lhs.n * rhs}
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     Unit
-}
+end
 `,
 	})
 	wantOneClash(t, fa, "", 6, 12, boxClashMessage)
@@ -106,27 +106,27 @@ fn main() {
 // function: one type, so one clash, reported in the type's file.
 func TestInherentImplClash_ImplInAnotherFile(t *testing.T) {
 	fa := buildInherentFixture(t, map[string]string{
-		"shapes.nomi": `pub struct Box {
+		"shapes.nomi": `pub struct Box
     n: Int
-}
+end
 
-impl Box {
-    pub fn multiply(lhs: Box, _factor: Float) -> Box {
+impl Box
+    pub fn multiply(lhs: Box, _factor: Float) -> Box
         lhs
-    }
-}
+    end
+end
 `,
 		"main.nomi": `import shapes.Box
 
-impl Multiply<Int, Box> for Box {
-    fn multiply(lhs: Box, rhs: Int) -> Box {
+impl Multiply<Int, Box> for Box
+    fn multiply(lhs: Box, rhs: Int) -> Box
         Box{n: lhs.n * rhs}
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     Unit
-}
+end
 `,
 	})
 	wantOneClash(t, fa, "shapes.nomi", 6, 12, boxClashMessage)
@@ -136,25 +136,25 @@ fn main() {
 // type.
 func TestInherentImplClash_GenericReceiver(t *testing.T) {
 	fa := buildInherentFixture(t, map[string]string{
-		"main.nomi": `struct Wrap<T> {
+		"main.nomi": `struct Wrap<T>
     value: T
-}
+end
 
-impl Display for Wrap<T> {
-    fn to_string(_self: Wrap<T>) -> String {
+impl Display for Wrap<T>
+    fn to_string(_self: Wrap<T>) -> String
         "wrap"
-    }
-}
+    end
+end
 
-impl Wrap<T> {
-    pub fn to_string(_w: Wrap<T>, _width: Int) -> String {
+impl Wrap<T>
+    pub fn to_string(_w: Wrap<T>, _width: Int) -> String
         "wide wrap"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     Unit
-}
+end
 `,
 	})
 	wantOneClash(t, fa, "", 12, 12,
@@ -166,40 +166,40 @@ fn main() {
 // inherent function whose name no impl function has is no clash either.
 func TestInherentImplClash_OtherNamesAndOtherTypesAreNoClash(t *testing.T) {
 	fa := buildInherentFixture(t, map[string]string{
-		"other.nomi": `pub struct Box {
+		"other.nomi": `pub struct Box
     n: Int
-}
+end
 
-impl Multiply<Int, Box> for Box {
-    fn multiply(lhs: Box, rhs: Int) -> Box {
+impl Multiply<Int, Box> for Box
+    fn multiply(lhs: Box, rhs: Int) -> Box
         Box{n: lhs.n * rhs}
-    }
-}
+    end
+end
 `,
 		"main.nomi": `import other
 
-struct Box {
+struct Box
     n: Int
-}
+end
 
-impl Multiply<Int, Box> for Box {
-    fn multiply(lhs: Box, rhs: Int) -> Box {
+impl Multiply<Int, Box> for Box
+    fn multiply(lhs: Box, rhs: Int) -> Box
         Box{n: lhs.n * rhs}
-    }
-}
+    end
+end
 
-impl Box {
-    pub fn multiply_by(lhs: Box, _factor: Float) -> Box {
+impl Box
+    pub fn multiply_by(lhs: Box, _factor: Float) -> Box
         lhs
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     a = Box.multiply_by(Box{n: 1}, 1.5)
     b = other.Box.multiply(other.Box{n: 1}, 2)
     assert a.n == 1
     assert b.n == 2
-}
+end
 `,
 	})
 	if got := inherentImplClashes(fa); len(got) != 0 {

@@ -1,24 +1,24 @@
 import std::io
 
-struct Account {
+struct Account
     balance: Int
-}
+end
 
-impl Account {
-    fn deposit(a: Account, n: Int) -> Account {
+impl Account
+    fn deposit(a: Account, n: Int) -> Account
         Account{balance: a.balance + n}
-    }
-}
+    end
+end
 
-fn ident<T>(x: T) -> T {
+fn ident<T>(x: T) -> T
     x
-}
+end
 
-fn transact(start: Account, amounts: List<Int>) -> Account {
+fn transact(start: Account, amounts: List<Int>) -> Account
     amounts |> Iter.reduce(start, fn acc, n -> Account.deposit(acc, n))
-}
+end
 
-fn main() {
+fn main()
     a = transact(Account{balance: 0}, [5, 20, 30])
     io.print("${ident(a.balance)} ${ident("done")}")
-}
+end

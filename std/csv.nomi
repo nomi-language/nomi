@@ -27,7 +27,7 @@
 //# empty line is skipped. A failure names its line and column, the
 //# column counted in code points from 1. The text must be UTF-8.
 
-import {
+import
     bool.Bool.{self, False, True}
     bytes.Bytes
     code_points.Codepoint
@@ -44,10 +44,10 @@ import {
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
-}
+end
 
 /// How many fields each record must have.
-pub enum FieldCount {
+pub enum FieldCount
     /// As many as the first record. A record with another count is a
     /// `Syntax` error.
     SameAsFirst
@@ -57,7 +57,7 @@ pub enum FieldCount {
 
     /// Exactly this many.
     Exactly Int
-}
+end
 
 derive Equatable for FieldCount
 derive Debug for FieldCount
@@ -70,7 +70,7 @@ derive Debug for FieldCount
 //! assert decode("a\"b,c", Options{lazy_quotes: True}) == Ok([["a\"b", "c"]])
 //! assert decode("a\nb,c", Options{fields: .Any}) == Ok([["a"], ["b", "c"]])
 //
-pub struct Options {
+pub struct Options
     /// What separates fields. It may not be a quote, `\r`, `\n` or U+FFFD.
     delimiter: Codepoint = ','
     /// A line that starts with this, with nothing before it, is skipped.
@@ -84,14 +84,14 @@ pub struct Options {
     lazy_quotes: Bool = False
     /// How many fields each record must have.
     fields: FieldCount = FieldCount.SameAsFirst
-}
+end
 
 /// Why CSV could not be read.
 //! assert decode("a,\"b") |> Result.map_err(&Display.to_string(&1)) == Err(
 //!     "line 1, column 5: a quoted field is not closed, or has a quote in it that is not doubled"
 //! )
 //
-pub enum Error {
+pub enum Error
     /// The text is not CSV, or a record has the wrong field count, at
     /// `line` and `column`, both from 1, the column in code points.
     Syntax {message: String, line: Int, column: Int}
@@ -103,20 +103,20 @@ pub enum Error {
     /// character is one that is not allowed, or they are the same, or the
     /// field count is negative.
     InvalidOptions {message: String}
-}
+end
 
 derive Equatable for Error
 derive Debug for Error
 
-impl Display for Error {
-    fn to_string(error: Error) -> String {
-        case error {
-            .Syntax{message, line, column} -> "line ${line}, column ${column}: ${message}"
-            .Io{error} -> "${error}"
-            .InvalidOptions{message} -> message
-        }
-    }
-}
+impl Display for Error
+    fn to_string(error: Error) -> String
+        case error
+            .Syntax{message:, line:, column:} -> "line ${line}, column ${column}: ${message}"
+            .Io{error:} -> "${error}"
+            .InvalidOptions{message:} -> message
+        end
+    end
+end
 
 /// A record read under a header: the header's columns, the record's
 /// fields in the same order, and the line the record starts on.
@@ -126,16 +126,16 @@ impl Display for Error {
 //!     Row{header: ["id", "name"], fields: ["7", "Ada"], line: 2},
 //! ]
 //
-pub struct Row {
+pub struct Row
     header: List<String>
     fields: List<String>
     line: Int
-}
+end
 
 derive Equatable for Row
 derive Debug for Row
 
-impl Row {
+impl Row
     /// The field in the column named `column`, the first such column when
     /// the header names it twice, or `None` when the header does not name
     /// it.
@@ -143,26 +143,26 @@ impl Row {
     //! assert Row.get(row, "name") == Some("Ada")
     //! assert Row.get(row, "email") == None
     //
-    pub fn get(row: Row, column: String) -> Maybe<String> {
+    pub fn get(row: Row, column: String) -> Maybe<String>
         Iter.find_index(row.header, fn name -> name == column)
         |> Maybe.flat_map(fn index -> Iter.get(row.fields, index))
-    }
+    end
 
     /// The fields by column name. When the header names a column twice,
     /// the first one's field is kept.
     //! row = Row{header: ["a", "b", "a"], fields: ["1", "2", "3"], line: 1}
-    //! assert Row.to_map(row) == %{"a" => "1", "b" => "2"}
+    //! assert Row.to_map(row) == {"a" => "1", "b" => "2"}
     //
-    pub fn to_map(row: Row) -> Map<String, String> {
+    pub fn to_map(row: Row) -> Map<String, String>
         Iter.zip(row.header, row.fields)
-        |> Iter.reduce(%{}, fn fields, (name, value) -> {
-            case Map.get(fields, name) {
+        |> Iter.reduce({}, fn fields, (name, value) ->
+            case Map.get(fields, name)
                 Some(_) -> fields
                 None -> Map.put(fields, name, value)
-            }
-        })
-    }
-}
+            end
+        end)
+    end
+end
 
 /// Every record in `text`, each a list of its fields.
 //! assert decode("a,b\r\n\"c,\"\"d\"\"\",\"e\nf\"\n") == Ok([["a", "b"], ["c,\"d\"", "e\nf"]])
@@ -182,9 +182,9 @@ impl Row {
 //!         column: 5,
 //!     })
 //
-pub fn decode(text: String, options: Options = Options{}) -> Result<List<List<String>>, Error> {
+pub fn decode(text: String, options: Options = Options{}) -> Result<List<List<String>>, Error>
     records(Reader.from_text(text), options) |> Result.collect()
-}
+end
 
 /// Every record in `data`, which must be UTF-8.
 //! assert decode_bytes(String.to_bytes("a,b")) == Ok([["a", "b"]])
@@ -195,12 +195,9 @@ pub fn decode(text: String, options: Options = Options{}) -> Result<List<List<St
 //!         column: 3,
 //!     })
 //
-pub fn decode_bytes(
-    data: Bytes,
-    options: Options = Options{},
-) -> Result<List<List<String>>, Error> {
+pub fn decode_bytes(data: Bytes, options: Options = Options{}) -> Result<List<List<String>>, Error>
     records(Reader.from_bytes(data), options) |> Result.collect()
-}
+end
 
 /// The records of `text` after its first, each a `Row` under the header
 /// the first record is. Text with no records has no rows.
@@ -208,9 +205,9 @@ pub fn decode_bytes(
 //! assert rows |> Iter.map(fn row -> Row.get(row, "age")) |> Iter.to_list() == [Some("36"), Some("41")]
 //! assert decode_rows("name,age\n") == Ok([])
 //
-pub fn decode_rows(text: String, options: Options = Options{}) -> Result<List<Row>, Error> {
+pub fn decode_rows(text: String, options: Options = Options{}) -> Result<List<Row>, Error>
     rows(Reader.from_text(text), options) |> Result.collect()
-}
+end
 
 /// Each record left in `reader`, read as the iterator runs, so a large
 /// file is never held whole. A failure is an item, and the last one. Like
@@ -227,9 +224,9 @@ pub fn decode_rows(text: String, options: Options = Options{}) -> Result<List<Ro
 //!         column: 3,
 //!     })]
 //
-pub fn records(reader: Reader, options: Options = Options{}) -> Iter<Result<List<String>, Error>> {
+pub fn records(reader: Reader, options: Options = Options{}) -> Iter<Result<List<String>, Error>>
     RecordIter{records: open(reader, options)}
-}
+end
 
 /// Each record left in `reader` after the first, as a `Row` under the
 /// header the first record is, read as the iterator runs. It runs once,
@@ -243,21 +240,21 @@ pub fn records(reader: Reader, options: Options = Options{}) -> Iter<Result<List
 //!
 //! assert names == Ok([Some("Ada"), Some("Alan")])
 //
-pub fn rows(reader: Reader, options: Options = Options{}) -> Iter<Result<Row, Error>> {
+pub fn rows(reader: Reader, options: Options = Options{}) -> Iter<Result<Row, Error>>
     RowIter{records: open(reader, options)}
-}
+end
 
-fn open(reader: Reader, options: Options) -> csv_host.Records {
-    comment = case options.comment {
+fn open(reader: Reader, options: Options) -> csv_host.Records
+    comment = case options.comment
         Some(c) -> Codepoint.to_int(c)
         None -> 0
-    }
+    end
 
-    fields = case options.fields {
+    fields = case options.fields
         .SameAsFirst -> 0
         .Any -> -1
-        .Exactly(n) -> if n < 0 { -2 } else { n }
-    }
+        .Exactly(n) -> if n < 0 then -2 else n
+    end
 
     csv_host.open(
         reader,
@@ -267,89 +264,90 @@ fn open(reader: Reader, options: Options) -> csv_host.Records {
         options.lazy_quotes,
         fields,
     )
-}
+end
 
 // Why reading stopped, or None at the end of the input.
-fn stopped(records: csv_host.Records) -> Maybe<Error> {
-    case csv_host.stopped(records) {
-        [1, line, column] -> Some(Error.Syntax{message: csv_host.message(records), line, column})
+fn stopped(records: csv_host.Records) -> Maybe<Error>
+    case csv_host.stopped(records)
+        [1, line, column] -> Some(Error.Syntax{message: csv_host.message(records), line:, column:})
         [2, ..] -> Some(Error.Io{error: csv_host.failure(records)})
         [3, ..] -> Some(Error.InvalidOptions{message: csv_host.message(records)})
         _ -> None
-    }
-}
+    end
+end
 
-struct RecordIter {
+struct RecordIter
     records: csv_host.Records
-}
+end
 
-impl Iter<Result<List<String>, Error>> for RecordIter {
-    fn each_while(records: RecordIter, yield: (Result<List<String>, Error>) -> Bool) -> Bool {
+impl Iter<Result<List<String>, Error>> for RecordIter
+    fn each_while(records: RecordIter, yield: (Result<List<String>, Error>) -> Bool) -> Bool
         each_record(records.records, yield)
-    }
-}
+    end
+end
 
-fn each_record(records: csv_host.Records, yield: (Result<List<String>, Error>) -> Bool) -> Bool {
-    case csv_host.next(records) {
+fn each_record(records: csv_host.Records, yield: (Result<List<String>, Error>) -> Bool) -> Bool
+    case csv_host.next(records)
         [] ->
-            case stopped(records) {
+            case stopped(records)
                 Some(e) -> yield(Err(e))
                 None -> True
-            }
+            end
 
         fields ->
-            if yield(Ok(fields)) {
+            if yield(Ok(fields)) then
                 each_record(records, yield)
-            } else {
+            else
                 False
-            }
-    }
-}
+            end
+    end
+end
 
-struct RowIter {
+struct RowIter
     records: csv_host.Records
-}
+end
 
-impl Iter<Result<Row, Error>> for RowIter {
-    fn each_while(rows: RowIter, yield: (Result<Row, Error>) -> Bool) -> Bool {
-        case csv_host.next(rows.records) {
+impl Iter<Result<Row, Error>> for RowIter
+    fn each_while(rows: RowIter, yield: (Result<Row, Error>) -> Bool) -> Bool
+        case csv_host.next(rows.records)
             [] ->
-                case stopped(rows.records) {
+                case stopped(rows.records)
                     Some(e) -> yield(Err(e))
                     None -> True
-                }
+                end
 
-            header -> each_row(rows.records, header, yield)
-        }
-    }
-}
+            header ->
+                each_row(rows.records, header, yield)
+        end
+    end
+end
 
 fn each_row(
     records: csv_host.Records,
     header: List<String>,
     yield: (Result<Row, Error>) -> Bool,
-) -> Bool {
-    case csv_host.next(records) {
+) -> Bool
+    case csv_host.next(records)
         [] ->
-            case stopped(records) {
+            case stopped(records)
                 Some(e) -> yield(Err(e))
                 None -> True
-            }
+            end
 
         fields ->
-            if yield(Ok(Row{header, fields, line: csv_host.line(records)})) {
+            if yield(Ok(Row{header:, fields:, line: csv_host.line(records)})) then
                 each_row(records, header, yield)
-            } else {
+            else
                 False
-            }
-    }
-}
+            end
+    end
+end
 
 /// How `encode` and `write` write CSV.
 //! assert encode([["a", "b"]], WriteOptions{delimiter: '\t', crlf: True}) == "a\tb\r\n"
 //! assert encode([["=SUM(A1:A9)", "-3"]], WriteOptions{escape_formulas: True}) == "'=SUM(A1:A9),'-3\n"
 //
-pub struct WriteOptions {
+pub struct WriteOptions
     /// What separates fields. It may not be a quote, `\r`, `\n` or U+FFFD:
     /// writing with one of those is a trap.
     delimiter: Codepoint = ','
@@ -360,7 +358,7 @@ pub struct WriteOptions {
     /// changes the field: a reader gets the `'` back. Use it for a file a
     /// person opens in a spreadsheet, not one a program reads.
     escape_formulas: Bool = False
-}
+end
 
 /// `records` as CSV text, each record a line. A field is quoted when it
 /// holds the delimiter, a quote, a line break or white space at its
@@ -372,9 +370,9 @@ pub struct WriteOptions {
 //! records = [["a b", " c", ""], [""]]
 //! assert decode(encode(records), Options{fields: .Any}) == Ok(records)
 //
-pub fn encode(records: Iter<List<String>>, options: WriteOptions = WriteOptions{}) -> String {
+pub fn encode(records: Iter<List<String>>, options: WriteOptions = WriteOptions{}) -> String
     records |> Iter.map(fn record -> line(record, options)) |> String.join("")
-}
+end
 
 /// Writes `records` to `w` as `encode` writes them, a record at a time,
 /// and stops at the first write that fails.
@@ -386,29 +384,29 @@ pub fn write(
     w: Writer,
     records: Iter<List<String>>,
     options: WriteOptions = WriteOptions{},
-) -> Result<Unit, io.Error> {
-    Iter.reduce(records, Ok(Unit), fn _, record -> {
-        case Writer.write_text(w, line(record, options)) {
+) -> Result<Unit, io.Error>
+    Iter.reduce(records, Ok(Unit), fn _, record ->
+        case Writer.write_text(w, line(record, options))
             Ok(_) -> Ok(Unit)
             Err(e) -> break Err(e)
-        }
-    })
-}
+        end
+    end)
+end
 
-fn line(record: List<String>, options: WriteOptions) -> String {
-    fields = if options.escape_formulas {
+fn line(record: List<String>, options: WriteOptions) -> String
+    fields = if options.escape_formulas then
         record |> Iter.map(guard) |> Iter.to_list()
-    } else {
+    else
         record
-    }
+    end
 
     csv_host.encode(fields, Codepoint.to_int(options.delimiter), options.crlf)
-}
+end
 
-fn guard(field: String) -> String {
+fn guard(field: String) -> String
     formula =
         ["=", "+", "-", "@", "\t", "\r"]
         |> Iter.any_match(fn start -> String.starts_with(field, start))
 
-    if formula { "'${field}" } else { field }
-}
+    if formula then "'${field}" else field
+end

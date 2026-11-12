@@ -23,7 +23,7 @@ func buildMissing(t *testing.T, src string) []analysis.MissingImport {
 }
 
 func TestFindMissingImports_SuggestsStdlibNamespace(t *testing.T) {
-	got := buildMissing(t, "fn main() {\n  io.inspect(42)\n}\n")
+	got := buildMissing(t, "fn main()\n  io.inspect(42)\nend\n")
 	if len(got) != 1 {
 		t.Fatalf("want 1 missing import, got %d: %+v", len(got), got)
 	}
@@ -37,7 +37,7 @@ func TestFindMissingImports_SuggestsStdlibNamespace(t *testing.T) {
 }
 
 func TestFindMissingImports_AlreadyImported(t *testing.T) {
-	got := buildMissing(t, "import std::io\n\nfn main() {\n  io.inspect(42)\n}\n")
+	got := buildMissing(t, "import std::io\n\nfn main()\n  io.inspect(42)\nend\n")
 	if len(got) != 0 {
 		t.Errorf("want no suggestions when already imported, got %+v", got)
 	}
@@ -46,21 +46,21 @@ func TestFindMissingImports_AlreadyImported(t *testing.T) {
 func TestFindMissingImports_ResolvesToLocalDefNoSuggestion(t *testing.T) {
 	// A local `fn io` makes `io` resolve, so no import is suggested (and no
 	// alias machinery is needed — a collision means the name already binds).
-	got := buildMissing(t, "fn io() -> Int {\n  5\n}\n\nfn main() {\n  io.inspect(42)\n}\n")
+	got := buildMissing(t, "fn io() -> Int\n  5\nend\n\nfn main()\n  io.inspect(42)\nend\n")
 	if len(got) != 0 {
 		t.Errorf("want no suggestions when qualifier resolves locally, got %+v", got)
 	}
 }
 
 func TestFindMissingImports_UnknownQualifierNoSuggestion(t *testing.T) {
-	got := buildMissing(t, "fn main() {\n  ioo.inspect(42)\n}\n")
+	got := buildMissing(t, "fn main()\n  ioo.inspect(42)\nend\n")
 	if len(got) != 0 {
 		t.Errorf("want no suggestions for unknown qualifier, got %+v", got)
 	}
 }
 
 func TestFindMissingImports_LowercaseModuleQualifierSuggestsNamespace(t *testing.T) {
-	got := buildMissing(t, "fn main() {\n  Json.decode(\"{}\")\n}\n")
+	got := buildMissing(t, "fn main()\n  Json.decode(\"{}\")\nend\n")
 	if len(got) != 1 || got[0].ModulePath != "std/json" || got[0].Member != "Json" {
 		t.Errorf("want std/json.Json import suggestion, got %+v", got)
 	}
@@ -71,21 +71,21 @@ func TestFindMissingImports_LowercaseModuleQualifierSuggestsNamespace(t *testing
 // still be detected. These containers are []StructValue, not []Node, so the
 // walker has to recurse into struct elements, not just Node elements.
 func TestFindMissingImports_InsideCaseBody(t *testing.T) {
-	got := buildMissing(t, "fn main() {\n  case 1 {\n    _ -> io.inspect(42)\n  }\n}\n")
+	got := buildMissing(t, "fn main()\n  case 1\n    _ -> io.inspect(42)\n  end\nend\n")
 	if len(got) != 1 || got[0].ModulePath != "std/io" {
 		t.Fatalf("want std/io suggestion inside case body, got %+v", got)
 	}
 }
 
 func TestFindMissingImports_InsideStructLiteral(t *testing.T) {
-	got := buildMissing(t, "fn main() {\n  x = .{a: io.inspect(42)}\n  x\n}\n")
+	got := buildMissing(t, "fn main()\n  x = {a: io.inspect(42)}\n  x\nend\n")
 	if len(got) != 1 || got[0].ModulePath != "std/io" {
 		t.Fatalf("want std/io suggestion inside struct literal, got %+v", got)
 	}
 }
 
 func TestFindMissingImports_InsideMapLiteral(t *testing.T) {
-	got := buildMissing(t, "fn main() {\n  m = %{1 => io.inspect(42)}\n  m\n}\n")
+	got := buildMissing(t, "fn main()\n  m = {1 => io.inspect(42)}\n  m\nend\n")
 	if len(got) != 1 || got[0].ModulePath != "std/io" {
 		t.Fatalf("want std/io suggestion inside map literal, got %+v", got)
 	}
@@ -93,7 +93,7 @@ func TestFindMissingImports_InsideMapLiteral(t *testing.T) {
 
 // Type-qualified use of an unimported stdlib type -> type import suggestion.
 func TestFindMissingImports_SuggestsStdlibModule(t *testing.T) {
-	got := buildMissing(t, "fn main() {\n  Duration.seconds(3)\n}\n")
+	got := buildMissing(t, "fn main()\n  Duration.seconds(3)\nend\n")
 	if len(got) != 1 {
 		t.Fatalf("want 1 suggestion, got %d: %+v", len(got), got)
 	}
@@ -108,14 +108,14 @@ func TestFindMissingImports_SuggestsStdlibModule(t *testing.T) {
 
 // An unresolved type in an annotation position is detected too.
 func TestFindMissingImports_TypeInAnnotation(t *testing.T) {
-	got := buildMissing(t, "fn f(_d: Duration) -> Bool {\n  True\n}\n")
+	got := buildMissing(t, "fn f(_d: Duration) -> Bool\n  True\nend\n")
 	if len(got) != 1 || got[0].ModulePath != "std/duration" || got[0].Member != "Duration" {
 		t.Fatalf("want std/duration.Duration for the annotation, got %+v", got)
 	}
 }
 
 func TestFindMissingImports_ModuleAlreadyImported(t *testing.T) {
-	got := buildMissing(t, "import std::duration.Duration\n\nfn main() {\n  Duration.seconds(1)\n}\n")
+	got := buildMissing(t, "import std::duration.Duration\n\nfn main()\n  Duration.seconds(1)\nend\n")
 	if len(got) != 0 {
 		t.Errorf("want none when duration is imported, got %+v", got)
 	}
@@ -124,7 +124,7 @@ func TestFindMissingImports_ModuleAlreadyImported(t *testing.T) {
 // A prelude type resolves, so it is never suggested even though a stdlib module
 // exports it.
 func TestFindMissingImports_PreludeTypeNoSuggestion(t *testing.T) {
-	got := buildMissing(t, "fn f() -> Result<Int, String> {\n  Ok(1)\n}\n")
+	got := buildMissing(t, "fn f() -> Result<Int, String>\n  Ok(1)\nend\n")
 	if len(got) != 0 {
 		t.Errorf("want none for prelude Result, got %+v", got)
 	}
@@ -133,7 +133,7 @@ func TestFindMissingImports_PreludeTypeNoSuggestion(t *testing.T) {
 // A locally-declared type that happens to share a stdlib name must not be
 // flagged (definition positions are excluded; uses of it resolve locally).
 func TestFindMissingImports_LocalTypeDefinitionNoSuggestion(t *testing.T) {
-	got := buildMissing(t, "struct Set {\n  n: Int\n}\n\nfn main() {\n  Set{n: 1}\n}\n")
+	got := buildMissing(t, "struct Set\n  n: Int\nend\n\nfn main()\n  Set{n: 1}\nend\n")
 	if len(got) != 0 {
 		t.Errorf("want none for a locally-defined Set, got %+v", got)
 	}
@@ -142,8 +142,21 @@ func TestFindMissingImports_LocalTypeDefinitionNoSuggestion(t *testing.T) {
 func TestFindMissingImports_SelfMergeCandidate(t *testing.T) {
 	// Importing one calendar member does not bind every sibling declaration, so
 	// a suggestion is still produced for the missing type in the same file.
-	got := buildMissing(t, "import std::calendar.Date\n\nfn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n")
+	got := buildMissing(t, "import std::calendar.Date\n\nfn f(_t: Time, _d: Date) -> Bool\n  True\nend\n")
 	if len(got) != 1 || got[0].ModulePath != "std/calendar" || got[0].Member != "Time" {
 		t.Fatalf("want std/calendar.Time suggestion, got %+v", got)
+	}
+}
+
+// A typed literal's tag the file never imports is a type to import, at
+// the tag (the literal node itself sits at its quote).
+func TestFindMissingImports_TypedLiteralTag(t *testing.T) {
+	got := buildMissing(t, "fn main()\n  dbg Regex`a+`\nend\n")
+	if len(got) != 1 {
+		t.Fatalf("want 1 missing import, got %d: %+v", len(got), got)
+	}
+	m := got[0]
+	if m.ImportSpec() != "std::regex.Regex" || m.Pos.Line != 2 || m.Pos.Col != 7 {
+		t.Errorf("got %s at %+v, want std::regex.Regex at {2 7}", m.ImportSpec(), m.Pos)
 	}
 }

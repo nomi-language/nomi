@@ -21,7 +21,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `coffee.price()` | `Priced.price(coffee)`, or `T.price(item)` in a generic |
 | `xs.filter { $0 > 1 }` | `Iter.filter(xs, &(&1 > 1))` |
 | `(a, b)`, `pair.0` | `(a, b)`, `pair.first` |
-| `Int?`, `if let x = maybe`, `guard let` | `Maybe<Int>`; `case`, `if Some(x) = maybe { .. }`, or a postfix `?` |
+| `Int?`, `if let x = maybe`, `guard let` | `Maybe<Int>`; `case`, `if Some(x) = maybe then ..`, or a postfix `?` |
 | `throws`, `try`, `do / catch` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
 | `Double(x)`, `x as! Coffee` | `Int.to_float(x)`. Nomi's `x as T` is Swift's upcasting `as` only: it states a type the value already fits (`[] as List<String>`) |
 | Vapor's `configure(_ app:)`, which sets up services on the `Application`, or an app that hands them down with `.environment(..)` | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
@@ -30,18 +30,18 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 
 | Swift | Nomi |
 |---|---|
-| `struct Coffee: Equatable { let size: Size }` | `struct Coffee { size: Size }`, one field per line. `==` and hashing work field by field with nothing declared. |
-| `enum Size { case small, large }` | `enum Size`, one capitalized variant per line: `Small`, `Large` |
+| `struct Coffee: Equatable { let size: Size }` | `struct Coffee`, its fields one per line (`size: Size`), then `end`. `==` and hashing work field by field with nothing declared. |
+| `enum Size { case small, large }` | `enum Size`, one capitalized variant per line, `Small`, `Large`, then `end` |
 | `case .withdraw(let amount):` | `.Withdraw(amount) -> ..` |
-| `protocol Priced { func price() -> Int }` | `interface Priced { fn price(value: self) -> Int }` |
-| `extension Coffee: Priced { .. }` | `impl Priced for Coffee { fn price(coffee: Coffee) -> Int { .. } }` |
+| `protocol Priced { func price() -> Int }` | `interface Priced` with `fn price(value: self) -> Int` below it, then `end` |
+| `extension Coffee: Priced { .. }` | `impl Priced for Coffee` with `fn price(coffee: Coffee) -> Int` and its body below, then `end` |
 | `func total(_ items: [any Priced])` | `fn total(items: List<Priced>)`: a `List<Coffee>` passes as it is |
 | `func larger<T: Comparable>(_ a: T, _ b: T) -> T` | `fn larger<T>(a: T, b: T) -> T where T: Comparable`: a type parameter when the type comes back |
-| `[1, 2]`, `["a": 1]`, `Set([1])` | `[1, 2]`, `%{"a" => 1}`, `%[1]` |
+| `[1, 2]`, `["a": 1]`, `Set([1])` | `[1, 2]`, `{"a" => 1}`, `Set[1]`; as in Swift, `[1]` is the array, vector or set its type says, so `s: Set<Int> = [1]` |
 | `defer { file.close() }` | `defer Reader.close_quietly(r)`: one call, run when the block ends. The checker requires it for a resource, and `defer on error` runs only when the function fails. |
-| `async let`, `TaskGroup` | `Task.spawn` and `Task.await` inside `concurrent { .. }` |
-| `#expect(a == b)`, `XCTAssertEqual(a, b)` | `test "name" { assert a == b }` |
-| Vapor's `app.get("users", ":id")`, then `req.parameters.get("id", as: Int.self)` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: .{id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
+| `async let`, `TaskGroup` | `Task.spawn` and `Task.await` inside `concurrent` ... `end` |
+| `#expect(a == b)`, `XCTAssertEqual(a, b)` | `assert a == b` in a `test "name"` .. `end` |
+| Vapor's `app.get("users", ":id")`, then `req.parameters.get("id", as: Int.self)` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 
 ## The same program
 
@@ -76,57 +76,57 @@ func firstLarge(_ coffees: [Coffee]) -> Coffee? { coffees.first { $0.size == .la
 
 ```nomi-run
 // FILE: coffee.nomi
-enum Size {
+enum Size
     Small
     Large
-}
+end
 
-struct Coffee {
+struct Coffee
     size: Size
     shots: Int = 1
-}
+end
 
-interface Priced {
+interface Priced
     fn price(value: self) -> Int
-}
+end
 
-impl Priced for Coffee {
-    fn price(coffee: Coffee) -> Int {
-        base = case coffee.size {
+impl Priced for Coffee
+    fn price(coffee: Coffee) -> Int
+        base = case coffee.size
             .Small -> 3
             .Large -> 4
-        }
+        end
 
         base + coffee.shots - 1
-    }
-}
+    end
+end
 
-fn parse_size(text: String) -> Result<Size, String> {
-    case text {
+fn parse_size(text: String) -> Result<Size, String>
+    case text
         "small" -> Ok(.Small)
         "large" -> Ok(.Large)
         _ -> Err("unknown size: ${text}")
-    }
-}
+    end
+end
 
-fn total(items: List<Priced>) -> Int {
+fn total(items: List<Priced>) -> Int
     Iter.sum_by(items, Priced.price)
-}
+end
 
-fn first_large(coffees: List<Coffee>) -> Maybe<Coffee> {
+fn first_large(coffees: List<Coffee>) -> Maybe<Coffee>
     Iter.find(coffees, fn coffee -> coffee.size == .Large)
-}
+end
 
 // FILE: coffee_test.nomi
 import coffee.{Coffee, first_large, parse_size, total}
 
-test "the same program" {
+test "the same program"
     order = [Coffee{size: .Small}, Coffee{size: parse_size("large")!, shots: 2}]
 
     assert total(order) == 8
     assert first_large(order) == Some(Coffee{size: .Large, shots: 2})
     assert parse_size("huge") == Err("unknown size: huge")
-}
+end
 ```
 <!-- expect
 ok the same program

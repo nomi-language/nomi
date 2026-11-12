@@ -76,9 +76,9 @@ func TestDisagree_ModulePrefixOnAnImplOwnedDeclaration(t *testing.T) {
 
 pub opaque type Pat go ffi.Pattern
 
-impl Pat {
+impl Pat
   pub fn compile(source: String) -> Pat go ffi.Compile
-}
+end
 
 fn helper(n: Int) -> Int go ffi.Helper
 `
@@ -143,9 +143,9 @@ opaque type RawBox go ffi.Box
 
 pub fn echo(s: String) -> String go ffi.Echo
 
-impl RawBox {
+impl RawBox
   fn label(b: RawBox) -> String go ffi.Label
-}
+end
 `
 	root := writeProject(t, map[string]string{"main.nomi": "import ffi\n", "ffi.nomi": source})
 	pairings := deriveProject(t, root, map[string]string{"ffi.nomi": source})

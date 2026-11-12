@@ -1,67 +1,64 @@
-import {
+import
     commands.{self, Command}
     store.{SqliteStore, Store}
     system.{Clock, Console, SystemClock, Terminal}
     task.Task
-}
+end
 
 /// What the program runs with, read anywhere as `App.console`, `App.clock`
 /// and `App.store`. Swapping one here changes it for the whole program.
-struct App {
+struct App
     console: Console
     clock: Clock
     store: Store
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{
         console: Terminal,
         clock: SystemClock,
         store: SqliteStore{path: "tasks.db"},
     })
-}
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     tasks = Store.load(App.store)?
     Console.write_line(App.console, "tasks. type 'help' for commands.")
 
-    _ = Iter.loop(tasks, fn tasks -> {
+    _ = Iter.loop(tasks, fn tasks ->
         // The end of the input quits too.
         command =
             Console.read_line(App.console)
             |> Maybe.map(commands.parse)
             |> Maybe.with_default(Ok(Command.Quit))
 
-        case command {
-            Ok(Command.Quit) -> {
+        case command
+            Ok(Command.Quit) ->
                 Console.write_line(App.console, "bye.")
                 break
-            }
 
-            Ok(command) -> step(command, tasks)
+            Ok(command) ->
+                step(command, tasks)
 
-            Err(e) -> {
+            Err(e) ->
                 Console.write_line(App.console, "error: ${e}")
                 tasks
-            }
-        }
-    })
+        end
+    end)
 
     Ok(Unit)
-}
+end
 
 /// Runs one command and shows its output. After an error the tasks stay as
 /// they were.
-fn step(command: Command, tasks: Map<Int, Task>) -> Map<Int, Task> {
-    case commands.run(command, tasks, App.store, App.clock) {
-        Ok((tasks, lines)) -> {
+fn step(command: Command, tasks: Map<Int, Task>) -> Map<Int, Task>
+    case commands.run(command, tasks, App.store, App.clock)
+        Ok((tasks, lines)) ->
             Iter.each(lines, &Console.write_line(App.console, &1))
             tasks
-        }
 
-        Err(e) -> {
+        Err(e) ->
             Console.write_line(App.console, "error: ${e}")
             tasks
-        }
-    }
-}
+    end
+end

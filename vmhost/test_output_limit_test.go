@@ -14,15 +14,15 @@ func TestCases_ALimitedCaseKeepsItsOutput(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	p, err := LoadSource("main_test.nomi", `import std::io
 
-fn spin(n: Int) -> Int {
+fn spin(n: Int) -> Int
     spin(n + 1)
-}
+end
 
-test "loops" {
+test "loops"
     io.print("before the loop")
     dbg 1
     assert spin(0) == 0
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end or the builder rejects this: %v", err)

@@ -31,7 +31,7 @@
 //     its own type's method table.
 import std::io
 
-fn main() {
+fn main()
     io.print("contains: ${String.contains("hello world", "o w")}")
     io.print("starts: ${String.starts_with("hello", "he")}")
     io.print("ends: ${String.ends_with("hello.txt", ".txt")}")
@@ -63,4 +63,4 @@ fn main() {
     io.print("inspect float: ${Debug.inspect(2.5)}")
     io.print("hash zero: ${Hashable.hash(0.0 - 0.0)}")
     io.print("hash int: ${Hashable.hash(7)}")
-}
+end

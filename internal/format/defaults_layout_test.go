@@ -7,20 +7,20 @@ import "testing"
 func TestFormatTypesFromDefaults(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{
-			"struct Game {\n    word: String\n    misses   =   0\n}\n",
-			"struct Game {\n    word: String\n    misses = 0\n}\n",
+			"struct Game\n    word: String\n    misses   =   0\nend\n",
+			"struct Game\n    word: String\n    misses = 0\nend\n",
 		},
 		{
-			"enum Shape {\n    Circle {radius   = 1.0}\n}\n",
-			"enum Shape {\n    Circle {radius = 1.0}\n}\n",
+			"enum Shape\n    Circle {radius   = 1.0}\nend\n",
+			"enum Shape\n    Circle {radius = 1.0}\nend\n",
 		},
 		{
 			"pub opaque type Route<P   =   Unit> String\n",
 			"pub opaque type Route<P = Unit> String\n",
 		},
 		{
-			"struct Pair<A, B=List<Int>> {\n    a: A\n    b: B\n}\n",
-			"struct Pair<A, B = List<Int>> {\n    a: A\n    b: B\n}\n",
+			"struct Pair<A, B=List<Int>>\n    a: A\n    b: B\nend\n",
+			"struct Pair<A, B = List<Int>>\n    a: A\n    b: B\nend\n",
 		},
 	}
 	for _, c := range cases {

@@ -26,7 +26,7 @@ func (p *Parser) confusedStmt() error {
 			if n1.Type == token.IDENT && n1.Line == t.Line && n2.Type == token.LPAREN {
 				return ParseError{Line: t.Line, Col: t.Col,
 					Message: fmt.Sprintf("Nomi declares a function with `fn`, not `%s`", t.Lexeme),
-					Hints:   []string{fmt.Sprintf("write `fn %s(...) -> Type { ... }`", n1.Lexeme)},
+					Hints:   []string{fmt.Sprintf("write `fn %s(...) -> Type`", n1.Lexeme)},
 					Fix:     Replace("Write `fn`", t.Line, t.Col, t.Line, t.Col+len(t.Lexeme), "fn")}
 			}
 		}
@@ -53,7 +53,6 @@ func (p *Parser) confusedStmt() error {
 		if n1.Line != t.Line || n1.Type == token.EOF || n1.Type == token.NEWLINE || n1.Type == token.IDENT && n2.Type != token.DOT {
 			return ParseError{Line: t.Line, Col: t.Col,
 				Message: "a Nomi comment starts with `//`, not `#`",
-				Hints:   []string{"`#` starts a vector literal: `#[1, 2]`, `#Path[...]`"},
 				Fix:     Replace("Write `//`", t.Line, t.Col, t.Line, t.Col+1, "//")}
 		}
 	}
@@ -97,8 +96,8 @@ func compoundOperator(tt token.TokenType) bool {
 }
 
 // confusedOperand is the error for an operand written as another language
-// writes it: `match x { ... }`, `{x: 1}`, `{"k": v}`,
-// `%User{name: "a"}`, `%{x: 1}`, `vec![1, 2]`. nil when the operand starts
+// writes it: `match x { ... }`, `{"k": v}`,
+// `User{name: "a"}`, `{x: 1}`, `vec![1, 2]`. nil when the operand starts
 // as Nomi's do.
 func (p *Parser) confusedOperand() error {
 	if err := p.confusedCapture(); err != nil {
@@ -111,45 +110,35 @@ func (p *Parser) confusedOperand() error {
 		case "match", "switch":
 			if n1.Line == t.Line && startsScrutinee(n1.Type) {
 				return ParseError{Line: t.Line, Col: t.Col,
-					Message: fmt.Sprintf("Nomi matches with `case`, not `%s`: write `case x { pattern -> value }`", t.Lexeme),
+					Message: fmt.Sprintf("Nomi matches with `case`, not `%s`: write `case x` with arms such as `pattern -> value`", t.Lexeme),
 					Hints:   []string{"each arm is `pattern -> value`, one per line"},
 					Fix:     Replace("Write `case`", t.Line, t.Col, t.Line, t.Col+len(t.Lexeme), "case")}
 			}
 		case "vec":
 			if n1.Type == token.BANG && n2.Type == token.LBRACKET && n1.Line == t.Line && n1.Col == t.Col+3 && n2.Col == n1.Col+1 {
 				return ParseError{Line: t.Line, Col: t.Col,
-					Message: "Nomi has no macros: a list is `[1, 2]`, and a vector `#[1, 2]`",
+					Message: "Nomi has no macros: a list is `[1, 2]`, and a vector `[1, 2]` where one is expected, else `Vector[1, 2]`",
 					Fix:     Replace("Write a list literal", t.Line, t.Col, n2.Line, n2.Col, "")}
 			}
 		}
-	case token.TYPE_IDENT:
-		if n1.Type == token.LBRACE && n1.Line == t.Line {
-			if t.Lexeme == "Map" && p.mapEntryAt(2) {
-				return ParseError{Line: t.Line, Col: t.Col,
-					Message: "a map literal is `%{key => value}`: `Map` names the type, and the literal starts with `%`",
-					Fix:     Replace("Write `%{`", t.Line, t.Col, t.Line, t.Col+len(t.Lexeme), "%")}
-			}
-		}
 	case token.LBRACE:
-		if p.structFieldAt(1) {
-			return ParseError{Line: t.Line, Col: t.Col,
-				Message: "a struct literal starts with its name, or with `.` where the position gives it: write `.{x: 1}`",
-				Hints:   []string{"a plain `{` opens a block"},
-				Fix:     Replace("Write `.{`", t.Line, t.Col, t.Line, t.Col, ".")}
+		if n1.Type == token.DOTDOT || n1.Type == token.IDENT && n2.Type == token.COLON {
+			// `{a: 1}`, `{a:}`, `{..p}`: a struct, Nomi's own.
+			break
 		}
 		if (n1.Type == token.STRING_LITERAL || n1.Type == token.STRING) && n2.Type == token.COLON {
-			fix := &Fix{Title: "Write a map literal", Edits: []Edit{{Start: Pos{t.Line, t.Col}, End: Pos{t.Line, t.Col}, Text: "%"}}}
+			fix := &Fix{Title: "Write a map literal"}
 			for _, c := range p.colonsAtDepthOne(0) {
 				fix.Edits = append(fix.Edits, Edit{Start: Pos{c.Line, c.Col}, End: Pos{c.Line, c.Col + 1}, Text: " =>"})
 			}
 			return ParseError{Line: t.Line, Col: t.Col,
-				Message: "a map literal is `%{\"k\" => v}`: it starts with `%`, and `=>` joins each key to its value",
+				Message: "a map literal is `{\"k\" => v}`: `=>` joins each key to its value",
 				Fix:     fix}
 		}
 		if p.commaListOnLine(0) {
 			return ParseError{Line: t.Line, Col: t.Col,
-				Message: "a plain `{` opens a block: a tuple is `(a, b)`, and a set is `%[a, b]`",
-				Hints:   []string{"a list is `[a, b]`, a vector `#[a, b]`"}}
+				Message: "a `{` opens a struct, whose fields are `name: value`, or a map, whose entries are `key => value`: a tuple is `(a, b)`, and a set is `[a, b]` where one is expected, else `Set[a, b]`",
+				Hints:   []string{"a list is `[a, b]`"}}
 		}
 	case token.PERCENT:
 		at := 1
@@ -159,12 +148,12 @@ func (p *Parser) confusedOperand() error {
 		if open := p.peekAt(at); open.Type == token.LBRACE && open.Col == p.peekAt(at-1).Col+len(p.peekAt(at-1).Lexeme) && p.structFieldAt(at+1) {
 			if at == 2 {
 				return ParseError{Line: t.Line, Col: t.Col,
-					Message: fmt.Sprintf("a struct literal is its name and its fields: write `%s{...}`; `%%` opens a map, whose entries are `key => value`", n1.Lexeme),
+					Message: fmt.Sprintf("a struct literal is its name and its fields: write `%s{...}`, with no `%%`", n1.Lexeme),
 					Fix:     Replace("Write `"+n1.Lexeme+"{`", t.Line, t.Col, t.Line, t.Col+1, "")}
 			}
 			return ParseError{Line: t.Line, Col: t.Col,
-				Message: "a map's entries are `key => value`: write `%{\"x\" => 1}`, or `.{x: 1}` for a struct with field `x`",
-				Fix:     Replace("Write a struct literal `.{`", t.Line, t.Col, t.Line, t.Col+1, ".")}
+				Message: "a brace literal is written without `%`: `{x: 1}` for a struct with field `x`, `{\"x\" => 1}` for a map",
+				Fix:     Replace("Write a struct literal `{`", t.Line, t.Col, t.Line, t.Col+1, "")}
 		}
 	}
 	return nil
@@ -196,17 +185,6 @@ func (p *Parser) structFieldAt(offset int) bool {
 	case token.IDENT:
 		// `name: mod.Type` is a typed binding; `name: value` is not.
 		return p.peekAt(offset+3).Type != token.DOT
-	}
-	return false
-}
-
-// mapEntryAt reports whether the tokens from offset read as a map entry,
-// `key => value`, with a literal or a name as the key.
-func (p *Parser) mapEntryAt(offset int) bool {
-	key := p.peekAt(offset)
-	switch key.Type {
-	case token.STRING, token.STRING_LITERAL, token.INT, token.IDENT:
-		return p.peekAt(offset+1).Type == token.FAT_ARROW
 	}
 	return false
 }

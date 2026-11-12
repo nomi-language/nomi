@@ -176,8 +176,8 @@ func parseSrc(t *testing.T, src string) []ast.Node {
 func TestInternalAccessWiring_NonSiblingRejected(t *testing.T) {
 	const projectRoot = "/project"
 	sources := map[string]string{
-		"helper":                   "import tools::internal::seed_data\npub fn run() -> Int { seed_data.data() }\n",
-		"tools/internal/seed_data": "pub fn data() -> Int { 0 }\n",
+		"helper":                   "import tools::internal::seed_data\npub fn run() -> Int\n    seed_data.data()\nend\n",
+		"tools/internal/seed_data": "pub fn data() -> Int\n    0\nend\n",
 	}
 	loader := func(_ string, modulePath []string) ([]ast.Node, error) {
 		key := strings.Join(modulePath, "/")
@@ -187,7 +187,7 @@ func TestInternalAccessWiring_NonSiblingRejected(t *testing.T) {
 		}
 		return parseSrc(t, src), nil
 	}
-	entryNodes := parseSrc(t, "import helper: helper\nfn main() {}\n")
+	entryNodes := parseSrc(t, "import helper: helper\nfn main() end\n")
 	_, cache, _ := BuildProjectWithCache(entryNodes, nil, nil, nil, projectRoot, loader)
 	helperFA, ok := cache["helper"]
 	if !ok {
@@ -219,8 +219,8 @@ func TestInternalAccessWiring_NonSiblingRejected(t *testing.T) {
 func TestInternalAccessWiring_ErrorPositionIsImport(t *testing.T) {
 	const projectRoot = "/project"
 	sources := map[string]string{
-		"helper":                   "\n\nimport tools::internal::seed_data\npub fn run() -> Int { seed_data.data() }\n",
-		"tools/internal/seed_data": "pub fn data() -> Int { 0 }\n",
+		"helper":                   "\n\nimport tools::internal::seed_data\npub fn run() -> Int\n    seed_data.data()\nend\n",
+		"tools/internal/seed_data": "pub fn data() -> Int\n    0\nend\n",
 	}
 	loader := func(_ string, modulePath []string) ([]ast.Node, error) {
 		key := strings.Join(modulePath, "/")
@@ -230,7 +230,7 @@ func TestInternalAccessWiring_ErrorPositionIsImport(t *testing.T) {
 		}
 		return parseSrc(t, src), nil
 	}
-	entryNodes := parseSrc(t, "import helper: helper\nfn main() {}\n")
+	entryNodes := parseSrc(t, "import helper: helper\nfn main() end\n")
 	_, cache, _ := BuildProjectWithCache(entryNodes, nil, nil, nil, projectRoot, loader)
 	helperFA := cache["helper"]
 	if helperFA == nil {
@@ -261,8 +261,8 @@ func TestInternalAccessWiring_ErrorPositionIsImport(t *testing.T) {
 func TestInternalAccessWiring_SiblingAllowed(t *testing.T) {
 	const projectRoot = "/project"
 	sources := map[string]string{
-		"tools/seed":               "import tools::internal::seed_data\npub fn run() -> Int { seed_data.data() }\n",
-		"tools/internal/seed_data": "pub fn data() -> Int { 0 }\n",
+		"tools/seed":               "import tools::internal::seed_data\npub fn run() -> Int\n    seed_data.data()\nend\n",
+		"tools/internal/seed_data": "pub fn data() -> Int\n    0\nend\n",
 	}
 	loader := func(_ string, modulePath []string) ([]ast.Node, error) {
 		key := strings.Join(modulePath, "/")
@@ -272,7 +272,7 @@ func TestInternalAccessWiring_SiblingAllowed(t *testing.T) {
 		}
 		return parseSrc(t, src), nil
 	}
-	entryNodes := parseSrc(t, "import tools::seed: seed\nfn main() {}\n")
+	entryNodes := parseSrc(t, "import tools::seed: seed\nfn main() end\n")
 	_, cache, _ := BuildProjectWithCache(entryNodes, nil, nil, nil, projectRoot, loader)
 	seedFA := cache["tools/seed"]
 	if seedFA == nil {
@@ -291,7 +291,7 @@ func TestInternalAccessWiring_SiblingAllowed(t *testing.T) {
 func TestInternalAccessWiring_RootInternalFromRootEntry(t *testing.T) {
 	const projectRoot = "/project"
 	sources := map[string]string{
-		"internal/x": "pub fn x() -> Int { 0 }\n",
+		"internal/x": "pub fn x() -> Int\n    0\nend\n",
 	}
 	loader := func(_ string, modulePath []string) ([]ast.Node, error) {
 		key := strings.Join(modulePath, "/")
@@ -301,7 +301,7 @@ func TestInternalAccessWiring_RootInternalFromRootEntry(t *testing.T) {
 		}
 		return parseSrc(t, src), nil
 	}
-	entryNodes := parseSrc(t, "import internal::x\nfn main() {}\n")
+	entryNodes := parseSrc(t, "import internal::x\nfn main() end\n")
 	entryFA, _, _ := BuildProjectWithCache(entryNodes, nil, nil, nil, projectRoot, loader)
 	for _, e := range entryFA.TypeErrors {
 		if strings.Contains(e.Message, "internal") {

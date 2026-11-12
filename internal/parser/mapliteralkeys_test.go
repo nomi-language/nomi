@@ -9,14 +9,14 @@ import (
 // the expression map-*pattern* key support. The Go parser used to detect a map
 // literal with a single-token heuristic (string/int/float/decimal/ident key
 // followed by `=>`), which couldn't see tuple/variant/list/struct/computed
-// keys, so `%{(1, 2) => "v"}` was misparsed as a block and choked on `=>`.
+// keys, so `{(1, 2) => "v"}` was misparsed as a block and choked on `=>`.
 // Detection now speculatively parses the key expression and peeks for `=>`,
 // so any keyable expression works as a literal key — exactly like the value
 // layer (which already keys on composites) and the tree-sitter grammar (which
 // already parses them).
 
 func TestMapLiteral_TupleKey(t *testing.T) {
-	expr := parseExpr(t, `%{(1, 2) => "v"}`)
+	expr := parseExpr(t, `{(1, 2) => "v"}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected *ast.MapLit, got %T", expr)
@@ -30,7 +30,7 @@ func TestMapLiteral_TupleKey(t *testing.T) {
 }
 
 func TestMapLiteral_VariantKey_FieldAccess(t *testing.T) {
-	expr := parseExpr(t, `%{Color.Red => "r"}`)
+	expr := parseExpr(t, `{Color.Red => "r"}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected *ast.MapLit, got %T", expr)
@@ -44,7 +44,7 @@ func TestMapLiteral_VariantKey_FieldAccess(t *testing.T) {
 }
 
 func TestMapLiteral_BoolKey(t *testing.T) {
-	expr := parseExpr(t, `%{True => "yes", False => "no"}`)
+	expr := parseExpr(t, `{True => "yes", False => "no"}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected *ast.MapLit, got %T", expr)
@@ -55,7 +55,7 @@ func TestMapLiteral_BoolKey(t *testing.T) {
 }
 
 func TestMapLiteral_ListKey(t *testing.T) {
-	expr := parseExpr(t, `%{[1, 2] => "v"}`)
+	expr := parseExpr(t, `{[1, 2] => "v"}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected *ast.MapLit, got %T", expr)
@@ -69,7 +69,7 @@ func TestMapLiteral_ListKey(t *testing.T) {
 }
 
 func TestMapLiteral_StructKey(t *testing.T) {
-	expr := parseExpr(t, `%{Point{x: 1, y: 2} => "v"}`)
+	expr := parseExpr(t, `{Point{x: 1, y: 2} => "v"}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected *ast.MapLit, got %T", expr)
@@ -83,7 +83,7 @@ func TestMapLiteral_StructKey(t *testing.T) {
 }
 
 func TestMapLiteral_ComputedKey(t *testing.T) {
-	expr := parseExpr(t, `%{f(a) => "v"}`)
+	expr := parseExpr(t, `{f(a) => "v"}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected *ast.MapLit, got %T", expr)
@@ -97,7 +97,7 @@ func TestMapLiteral_ComputedKey(t *testing.T) {
 }
 
 func TestMapLiteral_TypePrefixed_TupleKey(t *testing.T) {
-	expr := parseExpr(t, `%Kvs{(1, 2) => "v"}`)
+	expr := parseExpr(t, `Kvs{(1, 2) => "v"}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected *ast.MapLit, got %T", expr)
@@ -116,7 +116,9 @@ func TestMapLiteral_TypePrefixed_TupleKey(t *testing.T) {
 // case <composite-keyed map literal> { branches } — the case-scrutinee
 // detection site. The map literal is the case *value*, not ad-hoc conditionals.
 func TestMapLiteral_CaseScrutinee_TupleKey(t *testing.T) {
-	expr := parseExpr(t, `case %{(1, 2) => "v"} { _ -> 1 }`)
+	expr := parseExpr(t, `case {(1, 2) => "v"}
+    _ -> 1
+end`)
 	c, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)
@@ -136,24 +138,24 @@ func TestMapLiteral_CaseScrutinee_TupleKey(t *testing.T) {
 	}
 }
 
-// --- Disambiguation regressions: these {…} forms must NOT become map literals ---
+// --- A block is `begin ... end`, and a `{` is a struct, never a map literal ---
 
 func TestMapLiteral_Disambig_Block_Call(t *testing.T) {
-	expr := parseExpr(t, `{ io.print(1) }`)
+	expr := parseExpr(t, "begin\n    io.print(1)\nend")
 	if _, ok := expr.(*ast.Block); !ok {
 		t.Fatalf("expected *ast.Block, got %T", expr)
 	}
 }
 
 func TestMapLiteral_Disambig_Block_Binding(t *testing.T) {
-	expr := parseExpr(t, "{ x = 5\n x }")
+	expr := parseExpr(t, "begin\n    x = 5\n    x\nend")
 	if _, ok := expr.(*ast.Block); !ok {
 		t.Fatalf("expected *ast.Block, got %T", expr)
 	}
 }
 
 func TestMapLiteral_Disambig_AnonStruct(t *testing.T) {
-	expr := parseExpr(t, `.{x: 1}`)
+	expr := parseExpr(t, `{x: 1}`)
 	sl, ok := expr.(*ast.StructLit)
 	if !ok {
 		t.Fatalf("expected *ast.StructLit (anon), got %T", expr)
@@ -163,18 +165,17 @@ func TestMapLiteral_Disambig_AnonStruct(t *testing.T) {
 	}
 }
 
-// `{ x }` is a block (single bare-ident expression), not a map / struct —
-// the ident-led ambiguity called out in the design's open items.
+// `begin` holding an ident-led expression is a block.
 func TestMapLiteral_Disambig_Block_BareIdent(t *testing.T) {
-	expr := parseExpr(t, `{ x }`)
+	expr := parseExpr(t, "begin\n    x + 1\nend")
 	if _, ok := expr.(*ast.Block); !ok {
 		t.Fatalf("expected *ast.Block, got %T", expr)
 	}
 }
 
-// `.{ x, y }` is anonymous-struct field punning, not a map.
+// `{ x:, y: }` is anonymous-struct field punning, not a map.
 func TestMapLiteral_Disambig_AnonStruct_Punning(t *testing.T) {
-	expr := parseExpr(t, `.{ x, y }`)
+	expr := parseExpr(t, `{ x:, y: }`)
 	sl, ok := expr.(*ast.StructLit)
 	if !ok {
 		t.Fatalf("expected *ast.StructLit (anon punning), got %T", expr)
@@ -188,14 +189,14 @@ func TestMapLiteral_Disambig_AnonStruct_Punning(t *testing.T) {
 }
 
 func TestMapLiteral_Disambig_Empty(t *testing.T) {
-	expr := parseExpr(t, `{}`)
-	if _, ok := expr.(*ast.Block); !ok {
-		t.Fatalf("expected *ast.Block for empty braces, got %T", expr)
+	expr := parseExpr(t, `begin end`)
+	if b, ok := expr.(*ast.Block); !ok || len(b.Stmts) != 0 {
+		t.Fatalf("expected an empty *ast.Block for `begin end`, got %#v", expr)
 	}
 }
 
 func TestMapLiteral_Disambig_CaseAdHoc(t *testing.T) {
-	expr := parseExpr(t, "case { x > 0 -> \"pos\"\n _ -> \"neg\" }")
+	expr := parseExpr(t, "case\n    x > 0 -> \"pos\"\n _ -> \"neg\"\nend")
 	c, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)

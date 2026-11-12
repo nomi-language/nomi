@@ -23,23 +23,23 @@ func TestTypeCycle_RejectedAtTheDeclaration(t *testing.T) {
 		{"two distinct types", "type A B\ntype B A\n", 2, "type 'B' is defined in terms of itself (B → A → B)"},
 		{"distinct over a list of itself", "type L List<L>\n", 1, "type 'L' is defined in terms of itself"},
 		{"distinct over a maybe of itself", "type M Maybe<M>\n", 1, "type 'M' is defined in terms of itself"},
-		{"distinct over a generic struct of itself", "struct Box<T> {\n    v: T\n}\n\ntype B Box<B>\n", 5, "type 'B' is defined in terms of itself"},
+		{"distinct over a generic struct of itself", "struct Box<T>\n    v: T\nend\n\ntype B Box<B>\n", 5, "type 'B' is defined in terms of itself"},
 		{"distinct over a tuple holding itself", "type P (Int, P)\n", 1, "type 'P' is defined in terms of itself"},
 		{"distinct over a function of itself", "type F (F) -> Int\n", 1, "type 'F' is defined in terms of itself"},
-		{"distinct over an anonymous struct holding itself", "type R (Int, .{next: Maybe<R>})\n", 1, "type 'R' is defined in terms of itself"},
+		{"distinct over an anonymous struct holding itself", "type R (Int, {next: Maybe<R>})\n", 1, "type 'R' is defined in terms of itself"},
 		{"distinct through a typealias", "type A B\n\ntypealias B List<A>\n", 1, "type 'A' is defined in terms of itself"},
 		{"typealias of itself", "typealias X X\n", 1, "typealias 'X' refers to itself"},
 		{"two typealiases", "typealias X Y\n\ntypealias Y X\n", 1, "typealias 'X' refers to itself (X → Y → X)"},
 		{"typealias over a list of itself", "typealias X List<X>\n", 1, "typealias 'X' refers to itself"},
 		{"bound typealias of itself", "typealias S S and Display\n", 1, "typealias 'S' refers to itself"},
-		{"distinct inside a function body", "fn main() {\n    type E E\n}\n", 2, "type 'E' is defined in terms of itself"},
-		{"typealias inside a function body", "fn main() {\n    typealias X List<X>\n}\n", 2, "typealias 'X' refers to itself"},
+		{"distinct inside a function body", "fn main()\n    type E E\nend\n", 2, "type 'E' is defined in terms of itself"},
+		{"typealias inside a function body", "fn main()\n    typealias X List<X>\nend\n", 2, "typealias 'X' refers to itself"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			src := tc.src
 			if !strings.Contains(src, "fn main") {
-				src += "\nfn main() {\n}\n"
+				src += "\nfn main() end\n"
 			}
 			errs := diagnosticsFor(t, src)
 			for _, e := range errs {
@@ -59,19 +59,19 @@ func TestTypeCycle_RejectedAtTheDeclaration(t *testing.T) {
 // and a distinct type may wrap one. A typealias may name one declared after
 // it.
 func TestTypeCycle_LegalRecursionAndOrderStayLegal(t *testing.T) {
-	src := `struct Node {
+	src := `struct Node
     next: Maybe<Node>
     kids: List<Node>
-}
+end
 
-enum Tree {
+enum Tree
     Leaf
     Branch(Tree, Tree)
-}
+end
 
-struct W {
+struct W
     b: Maybe<B>
-}
+end
 
 type B W
 
@@ -85,7 +85,7 @@ typealias Later Earlier
 
 typealias Earlier Int
 
-fn main() {
+fn main()
     _n = Node{next: None, kids: []}
     _t = Tree.Branch(Tree.Leaf, Tree.Leaf)
     w = W{b: None}
@@ -94,7 +94,7 @@ fn main() {
     _f = Forest([])
     A(n) = A(3)
     _m: Later = n + 1
-}
+end
 `
 	if errs := diagnosticsFor(t, src); len(errs) > 0 {
 		t.Fatalf("legal recursive types are rejected:\n%s", cycleMessages(errs))

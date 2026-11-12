@@ -89,30 +89,30 @@ func TestWrapperTestReportIsTheCommandsOwnReport(t *testing.T) {
 	// Three failing shapes, each contributing a different part of the report:
 	// a bound operand, a call argument, and a `defined as:` binding.
 	entry := filepath.Join(root, "report_test.nomi")
-	write(t, entry, `fn no(_v: Int) -> Bool {
+	write(t, entry, `fn no(_v: Int) -> Bool
   False
-}
+end
 
-test "a bound operand" {
+test "a bound operand"
   x = 7
   assert no(x)
-}
+end
 
-test "a binary's two sides" {
+test "a binary's two sides"
   left = 2
   right = 3
   assert left == right
-}
+end
 
-test "a subject that was defined as something" {
+test "a subject that was defined as something"
   total = 40 + 2
   assert no(total)
-}
+end
 
-test "a bare binding as the subject" {
+test "a bare binding as the subject"
   holds = 3 > 4
   assert holds
-}
+end
 `)
 
 	res, err := ffirun.Prepare(entry)

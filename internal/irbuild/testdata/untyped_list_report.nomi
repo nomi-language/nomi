@@ -28,25 +28,25 @@
 // their own, and reversing the order would compare nothing.
 // The CALL is what forces the row, and that is the operand the discharge is
 // about.
-test "an untyped List call that holds" {
+test "an untyped List call that holds"
     assert List.head([]) == None
     assert List.tail([]) == None
     assert List.concat([], []) == []
     assert List.compare([], []) == Ordering.Equal
-}
+end
 
-test "a failing head renders the untyped call" {
+test "a failing head renders the untyped call"
     assert List.head([]) != None
-}
+end
 
-test "a failing tail renders the untyped call" {
+test "a failing tail renders the untyped call"
     assert List.tail([]) != None
-}
+end
 
-test "a failing concat renders the untyped call" {
+test "a failing concat renders the untyped call"
     assert List.concat([], []) != []
-}
+end
 
-test "a failing compare renders the untyped call" {
+test "a failing compare renders the untyped call"
     refute List.compare([], []) == Ordering.Equal
-}
+end

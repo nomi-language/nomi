@@ -2,29 +2,29 @@
 //# diagram of the cups on the windowsill.
 
 /// A plant grown in the class's garden.
-pub enum Plant {
+pub enum Plant
     Grass
     Clover
     Radishes
     Violets
-}
+end
 
-impl Plant {
+impl Plant
     /// The plant a diagram writes as `letter`, or `None` for a letter that
     /// names no plant.
-    pub fn from_letter(letter: String) -> Maybe<Plant> {
-        case letter {
+    pub fn from_letter(letter: String) -> Maybe<Plant>
+        case letter
             "G" -> Some(.Grass)
             "C" -> Some(.Clover)
             "R" -> Some(.Radishes)
             "V" -> Some(.Violets)
             _ -> None
-        }
-    }
-}
+        end
+    end
+end
 
 /// A child of the class, in the alphabetical order cups are handed out.
-pub enum Student {
+pub enum Student
     Alice
     Bob
     Charlie
@@ -37,50 +37,50 @@ pub enum Student {
     Joseph
     Kincaid
     Larry
-}
+end
 
 derive Variants for Student
 
 /// Two rows of cups, the row nearest the window first.
-pub opaque struct Garden {
+pub opaque struct Garden
     rows: List<List<Plant>>
-}
+end
 
-impl Garden {
+impl Garden
     /// Reads a diagram of one line per row of cups, or `None` when a letter
     /// names no plant.
-    pub fn parse(diagram: String) -> Maybe<Garden> {
+    pub fn parse(diagram: String) -> Maybe<Garden>
         rows =
             diagram
             |> String.lines()
             |> Iter.map(parse_row)
             |> Maybe.collect()?
 
-        Some(.{rows})
-    }
+        Some({rows:})
+    end
 
     /// The plants in `student`'s cups: two in each row, left to right, the
     /// row nearest the window first.
-    pub fn plants(garden: Garden, student: Student) -> List<Plant> {
+    pub fn plants(garden: Garden, student: Student) -> List<Plant>
         first_cup = 2 * position(student)
 
         garden.rows
         |> Iter.flat_map(fn row -> row |> Iter.drop(first_cup) |> Iter.take(2))
         |> Iter.to_list()
-    }
-}
+    end
+end
 
-fn parse_row(row: String) -> Maybe<List<Plant>> {
+fn parse_row(row: String) -> Maybe<List<Plant>>
     row
     |> Iter.map(Plant.from_letter)
     |> Maybe.collect()
-}
+end
 
 /// How many students come before `student` in the class. Every student is
 /// in `Student.variants()`, so the search cannot miss.
-fn position(student: Student) -> Int {
-    Some(i) = Student.variants() |> Iter.find_index(&(&1 == student)) else {
+fn position(student: Student) -> Int
+    Some(i) = Student.variants() |> Iter.find_index(&(&1 == student)) else
         unreachable "every student is listed"
-    }
+    end
     i
-}
+end

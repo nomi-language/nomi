@@ -85,13 +85,13 @@
 (derive_conformance
   interface: (_) @name) @item
 
-; Inherent impl blocks (`impl Type { ... }`) defining type-owned API.
+; Inherent impl blocks (`impl Type`, its functions below, `end`) defining type-owned API.
 (impl_block
   !interface
   "impl" @context
   receiver: (_) @name) @item
 
-; Impl blocks (`impl Iface for Type { ... }`) implementing an interface for a
+; Impl blocks (`impl Iface for Type`) implementing an interface for a
 ; type; the interface names the block, the implementing type is its context.
 (impl_block
   interface: (_) @name

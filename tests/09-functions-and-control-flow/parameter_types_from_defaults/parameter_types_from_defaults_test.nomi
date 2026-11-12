@@ -2,65 +2,65 @@
 // type is known from the expression alone (spec §7 *Parameter types from
 // defaults*): `limit = 10` is an `Int` parameter. A default whose type
 // only an expected type tells is an error at the parameter.
-import {
+import
     std::compiler.{self, Diagnostic}
     search.{Mode, Page, search, write}
-}
+end
 
-fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
+fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool
     Iter.any_match(diagnostics, fn diagnostic -> text in diagnostic.message)
-}
+end
 
-fn greet(name = "world", times = 1) -> String {
+fn greet(name = "world", times = 1) -> String
     String.repeat("hello ${name} ", times) |> String.trim()
-}
+end
 
-interface Shout {
+interface Shout
     fn word(value: self) -> String
 
-    fn shout(value: self, marks = "!") -> String {
+    fn shout(value: self, marks = "!") -> String
         "${Shout.word(value)}${marks}"
-    }
-}
+    end
+end
 
-impl Shout for Page {
-    fn word(page: Page) -> String {
+impl Shout for Page
+    fn word(page: Page) -> String
         "page ${page.size}"
-    }
-}
+    end
+end
 
-fn pair<T>(x: T, n = 2) -> (T, Int) {
+fn pair<T>(x: T, n = 2) -> (T, Int)
     (x, n)
-}
+end
 
-test "a generic function's parameter takes its default's type" {
+test "a generic function's parameter takes its default's type"
     assert pair("a") == ("a", 2)
     assert pair(1.5, n: 3) == (1.5, 3)
-}
+end
 
-test "a parameter takes its default's type" {
+test "a parameter takes its default's type"
     assert greet() == "hello world"
     assert greet("nomi", times: 2) == "hello nomi hello nomi"
     assert search("nomi") == "nomi 10 0"
     assert search("nomi", offset: 20) == "nomi 10 20"
     assert write("a.txt") == "replace a.txt"
     assert write("a.txt", mode: Mode.Append) == "append a.txt"
-}
+end
 
-test "a default may read an earlier parameter" {
+test "a default may read an earlier parameter"
     assert Page.window(Page{size: 3}) == "page 6"
-}
+end
 
-test "an interface's default function takes the rule too" {
+test "an interface's default function takes the rule too"
     assert Shout.shout(Page{size: 1}) == "page 1!"
-}
+end
 
-test "a lambda's parameter takes its default's type" {
+test "a lambda's parameter takes its default's type"
     add = fn a: Int, b = 1 -> a + b
     assert add(1) == 2
-}
+end
 
-test "a default whose type needs an expected type is refused" {
-    diagnostics = compiler.check("fn f(since = None) -> Int {\n    1\n}\n")
+test "a default whose type needs an expected type is refused"
+    diagnostics = compiler.check("fn f(since = None) -> Int\n    1\nend\n")
     assert has_diagnostic(diagnostics, "can't tell this parameter's type from `None`")
-}
+end

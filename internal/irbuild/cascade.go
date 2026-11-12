@@ -77,30 +77,33 @@ func patternBinders(p ast.Node) []string {
 		return out
 
 	case *ast.ListPattern:
-		var out []string
-		for _, sub := range t.Heads {
-			out = append(out, patternBinders(sub)...)
-		}
-		out = append(out, patternBinders(t.TailSpread)...)
-		for _, sub := range t.Tails {
-			out = append(out, patternBinders(sub)...)
-		}
-		return out
+		switch t.Kind {
+		case ast.SeqVector:
+			var out []string
+			for _, sub := range t.Heads {
+				out = append(out, patternBinders(sub)...)
+			}
+			out = append(out, patternBinders(t.Rest())...)
+			for _, sub := range t.Tails {
+				out = append(out, patternBinders(sub)...)
+			}
+			return out
 
-	case *ast.VectorPattern:
-		var out []string
-		for _, sub := range t.Heads {
-			out = append(out, patternBinders(sub)...)
-		}
-		out = append(out, patternBinders(t.Rest)...)
-		for _, sub := range t.Tails {
-			out = append(out, patternBinders(sub)...)
-		}
-		return out
+		case ast.SeqSet:
+			return patternBinders(t.Rest())
 
-	case *ast.SetPattern:
-		return patternBinders(t.Rest)
+		default:
+			var out []string
+			for _, sub := range t.Heads {
+				out = append(out, patternBinders(sub)...)
+			}
+			out = append(out, patternBinders(t.TailSpread)...)
+			for _, sub := range t.Tails {
+				out = append(out, patternBinders(sub)...)
+			}
+			return out
 
+		}
 	case *ast.MapPattern:
 		var out []string
 		for _, e := range t.Entries {
@@ -112,7 +115,7 @@ func patternBinders(p ast.Node) []string {
 	return nil
 }
 
-// appendPatternField adds the name a struct-pattern field binds. `Point{x}` puns
+// appendPatternField adds the name a struct-pattern field binds. `Point{x:}` puns
 // (Binding == Name); `Point{x: a}` renames; `Point{x: 1}` matches and binds
 // nothing, which is what a non-nil Pattern means.
 func appendPatternField(out []string, f ast.StructPatternField) []string {
@@ -134,7 +137,7 @@ func appendPatternField(out []string, f ast.StructPatternField) []string {
 //
 // Same rule, same reason: a destructuring parameter this builder refused still
 // puts its names in the body's scope in the source, so leaving them unbound
-// reports the refusal again at every use: `fn scale_point(.{x, y}: Point)`
+// reports the refusal again at every use: `fn scale_point({x, y}: Point)`
 // would report one refused pattern three times.
 func (g *gen) bindPatternNamesInvalid(pat ast.Node) {
 	for _, name := range patternBinders(pat) {

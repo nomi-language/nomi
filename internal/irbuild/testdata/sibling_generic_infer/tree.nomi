@@ -1,16 +1,16 @@
 // Generic types whose instances main.nomi reaches through positions it never
 // annotates: lambda parameters, a generic function's argument, a Maybe's
 // payload.
-pub enum Tree<T> {
+pub enum Tree<T>
     Leaf
     Node T
-}
+end
 
-pub struct Span<T> {
+pub struct Span<T>
     start: T
     stop: T
-}
+end
 
-pub fn first<T>(s: Span<T>) -> T {
+pub fn first<T>(s: Span<T>) -> T
     s.start
-}
+end

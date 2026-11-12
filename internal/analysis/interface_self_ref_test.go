@@ -7,12 +7,12 @@ import "testing"
 // than being a dead token. Mirrors the impl-block `self`, which resolves to
 // the concrete receiver.
 func TestInterfaceSelfTypeRecordsReference(t *testing.T) {
-	src := `interface Greet {
+	src := `interface Greet
   fn hello(value: self) -> String
-}
-fn main() {
+end
+fn main()
   Unit
-}`
+end`
 	fa, _ := checkSourceWithStdlib(src)
 	for _, sym := range fa.References {
 		if sym != nil && sym.Name == "self" {

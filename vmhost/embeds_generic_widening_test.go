@@ -15,53 +15,53 @@ import (
 func TestRun_EmbeddedValueInUserGenericVariant(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-struct Circle {
+struct Circle
   r: Int
-}
+end
 
 type Wrapped Circle
 
-enum Shape {
+enum Shape
   embeds Circle
   embeds Wrapped
   Dot
-}
+end
 
-enum Box<T> {
+enum Box<T>
   Full T
   Named{value: T}
   Empty
-}
+end
 
-struct Holder<T> {
+struct Holder<T>
   value: T
-}
+end
 
-fn describe(s: Shape) -> String {
-  case s {
-    Shape.Circle{r} -> "circle ${r}"
-    Shape.Wrapped(.{r}) -> "wrapped ${r}"
+fn describe(s: Shape) -> String
+  case s
+    Shape.Circle{r:} -> "circle ${r}"
+    Shape.Wrapped({r:}) -> "wrapped ${r}"
     Shape.Dot -> "dot"
-  }
-}
+  end
+end
 
-fn take(b: Box<Shape>) -> String {
-  case b {
+fn take(b: Box<Shape>) -> String
+  case b
     Box.Full(s) -> "full ${describe(s)}"
-    Box.Named{value} -> "named ${describe(value)}"
+    Box.Named{value:} -> "named ${describe(value)}"
     Box.Empty -> "empty"
-  }
-}
+  end
+end
 
-fn give(c: Circle) -> Box<Shape> {
+fn give(c: Circle) -> Box<Shape>
   Box.Full(c)
-}
+end
 
-fn single<T>(x: T) -> List<T> {
+fn single<T>(x: T) -> List<T>
   [x]
-}
+end
 
-fn main() {
+fn main()
   c = Circle{r: 1}
   b: Box<Shape> = Box.Full(c)
   io.print(take(b))
@@ -74,15 +74,15 @@ fn main() {
   l: List<Box<Shape>> = [Box.Full(c), Box.Full(Shape.Dot), Box.Empty]
   io.print(l |> Iter.map(take) |> String.join(", "))
   m: Box<Maybe<Shape>> = Box.Full(Some(c))
-  case m {
+  case m
     Box.Full(Some(s)) -> io.print("maybe ${describe(s)}")
     _ -> io.print("maybe miss")
-  }
+  end
   w: Box<Shape> = Box.Full(Wrapped(Circle{r: 5}))
   io.print(take(w))
   ss: List<Shape> = single(c)
   io.print(ss |> Iter.map(describe) |> String.join(", "))
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v\n%s", err, out)
@@ -112,29 +112,29 @@ circle 1
 func TestRun_EqualityWidensAnEmbeddedValueInsideAGenericType(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-struct Circle {
+struct Circle
   r: Int
-}
+end
 
 type Wrapped Circle
 
-enum Plain {
+enum Plain
   embeds Circle
   embeds Wrapped
   Spot
-}
+end
 
-enum Box<T> {
+enum Box<T>
   Full T
   Named{value: T}
   Empty
-}
+end
 
-struct Holder<T> {
+struct Holder<T>
   value: T
-}
+end
 
-fn main() {
+fn main()
   c = Circle{r: 1}
   s: Plain = c
   io.inspect(Some(Circle{r: 1}) == Some(Plain.Spot))
@@ -157,7 +157,7 @@ fn main() {
   io.inspect([Some(c)] == [Some(s)])
   io.inspect(Some(Wrapped(c)) == Some(s))
   io.inspect(Some(Wrapped(c)) == Some(Plain.Wrapped(c)))
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v\n%s", err, out)

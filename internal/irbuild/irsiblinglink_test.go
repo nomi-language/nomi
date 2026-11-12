@@ -28,19 +28,19 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-const irSiblingLinkLib = `pub fn double(n: Int) -> Int {
+const irSiblingLinkLib = `pub fn double(n: Int) -> Int
   n * 2
-}
+end
 `
 
-const irSiblingLinkEntry = `import {
+const irSiblingLinkEntry = `import
   std::io
   lib
-}
+end
 
-fn main() {
+fn main()
   io.print("${lib.double(7)}")
-}
+end
 `
 
 // irSiblingLinkFixture is the two-file program, entry first.

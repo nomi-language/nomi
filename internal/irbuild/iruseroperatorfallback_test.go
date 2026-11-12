@@ -7,17 +7,27 @@ import (
 func TestIRUserOperator_CoercedOperandPreservesFallback(t *testing.T) {
 	p, err := AnalyzeSource("main.nomi", `type Score Int
 type Points Int
-interface Numeric {
+interface Numeric
  fn number(value: self) -> Int
-}
-impl Numeric for Points {
- fn number(value: Points) -> Int { Points(n) = value; n }
-}
-impl Add<Numeric, Score> for Score {
- fn add(lhs: Score, rhs: Numeric) -> Score { _ = lhs; Score(Numeric.number(rhs)) }
-}
-fn calculate() -> Score { Score(2) + Points(3) }
-fn main() { _ = calculate() }
+end
+impl Numeric for Points
+ fn number(value: Points) -> Int
+     Points(n) = value
+     n
+ end
+end
+impl Add<Numeric, Score> for Score
+ fn add(lhs: Score, rhs: Numeric) -> Score
+     _ = lhs
+     Score(Numeric.number(rhs))
+ end
+end
+fn calculate() -> Score
+    Score(2) + Points(3)
+end
+fn main()
+    _ = calculate()
+end
 `)
 	if err != nil {
 		t.Fatal(err)

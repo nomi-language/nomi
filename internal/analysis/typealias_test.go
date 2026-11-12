@@ -10,8 +10,12 @@ import (
 func TestCheck_TypeAlias(t *testing.T) {
 	_, errs := checkSource(`
 typealias Mapper (Int) -> Int
-fn apply(f: Mapper, x: Int) -> Int { f(x) }
-fn demo() -> Int { apply(fn n -> n + 1, 5) }
+fn apply(f: Mapper, x: Int) -> Int
+    f(x)
+end
+fn demo() -> Int
+    apply(fn n -> n + 1, 5)
+end
 `)
 	expectNoErrors(t, errs)
 }
@@ -21,20 +25,20 @@ fn demo() -> Int { apply(fn n -> n + 1, 5) }
 // are errors that name the target, for a local alias and an imported one.
 func TestCheck_ImplThroughTypeAliasIsAnError(t *testing.T) {
 	_, errs := checkSource(`
-struct Pt {
+struct Pt
     x: Int
-}
+end
 typealias P Pt
-impl P {
-    fn get(p: P) -> Int {
+impl P
+    fn get(p: P) -> Int
         p.x
-    }
-}
-impl Display for P {
-    fn to_string(p: P) -> String {
+    end
+end
+impl Display for P
+    fn to_string(p: P) -> String
         "${p.x}"
-    }
-}
+    end
+end
 `)
 	expectError(t, errs, "`P` is a typealias for `Pt`; write `impl Pt`")
 	expectError(t, errs, "`P` is a typealias for `Pt`; write `impl Display for Pt`")
@@ -42,9 +46,9 @@ impl Display for P {
 
 func TestLowerDerives_DeriveThroughTypeAliasIsAnError(t *testing.T) {
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(`
-struct Pt {
+struct Pt
     x: Int
-}
+end
 typealias P Pt
 derive Debug for P
 `))
@@ -55,15 +59,15 @@ derive Debug for P
 func TestCheck_ImplThroughAnImportedTypeAliasIsAnError(t *testing.T) {
 	_, errs := checkSourceWithModules(t, `
 import shapes.{P, Pt}
-impl Display for P {
-    fn to_string(p: P) -> String {
+impl Display for P
+    fn to_string(p: P) -> String
         "${p.x}"
-    }
-}
+    end
+end
 `, map[string]string{
-		"shapes": `pub struct Pt {
+		"shapes": `pub struct Pt
     pub x: Int
-}
+end
 pub typealias P Pt
 `,
 	})
@@ -73,28 +77,28 @@ pub typealias P Pt
 func TestCheck_CallThroughTypeAliasIsAnError(t *testing.T) {
 	_, errs := checkSourceWithModules(t, `
 import shapes
-struct Pt {
+struct Pt
     x: Int
-}
-impl Pt {
-    fn get(p: Pt) -> Int {
+end
+impl Pt
+    fn get(p: Pt) -> Int
         p.x
-    }
-}
+    end
+end
 typealias P Pt
-fn use_all() -> Int {
+fn use_all() -> Int
     P.get(P{x: 1}) + shapes.Q.y_of(shapes.Q{y: 2})
-}
+end
 `, map[string]string{
-		"shapes": `pub struct Qt {
+		"shapes": `pub struct Qt
     y: Int
-}
+end
 pub typealias Q Qt
-impl Qt {
-    pub fn y_of(q: Qt) -> Int {
+impl Qt
+    pub fn y_of(q: Qt) -> Int
         q.y
-    }
-}
+    end
+end
 `,
 	})
 	expectError(t, errs, "`P` is a typealias for `Pt`; call `Pt.get`")
@@ -105,21 +109,21 @@ impl Qt {
 // struct literal through an alias builds the target.
 func TestCheck_VariantAndLiteralThroughTypeAlias(t *testing.T) {
 	_, errs := checkSource(`
-enum Color {
+enum Color
     Red
     Green
-}
-struct Pt {
+end
+struct Pt
     x: Int
-}
+end
 typealias L Color
 typealias P Pt
-fn red() -> Bool {
+fn red() -> Bool
     L.Red == Color.Red
-}
-fn origin() -> Pt {
+end
+fn origin() -> Pt
     P{x: 0}
-}
+end
 `)
 	expectNoErrors(t, errs)
 }

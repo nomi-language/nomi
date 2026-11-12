@@ -22,9 +22,6 @@
 (enum_definition
   (enum_body)? @class.inner) @class.outer
 
-(type_definition
-  (type_body)? @class.inner) @class.outer
-
 (interface_definition
   (interface_method)* @class.inner) @class.outer
 
@@ -49,7 +46,7 @@
   ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
 
 ; A struct update's entries are its spread and its fields, so the parameter motions walk
-; `.{..base, x: 9}` the same way it walks `Point{x: 1, y: 2}` above.
+; `{..base, x: 9}` the same way it walks `Point{x: 1, y: 2}` above.
 (struct_update
   ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
 
@@ -58,12 +55,6 @@
   ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
 
 (list
-  ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
-
-(vector
-  ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
-
-(set
   ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
 
 (tuple_expression

@@ -196,11 +196,17 @@ func (bl *irScalarBuilder) mapMake(t *ast.MapLit) (ir.Temp, kind, bool, bool) {
 // and value kind each entry is lowered against.
 func (bl *irScalarBuilder) mapMakeOf(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if t.TypeName != nil {
-		// `%Json.Obj{"k" => v}` is the variant call over the anonymous map.
+	if t.TypeName != nil && !t.ShapeHead {
+		// `Json.Obj{"k" => v}` is the variant call over the anonymous map.
 		anon := *t
 		anon.TypeName = nil
 		return bl.attachedVariant(t, t.TypeName, &anon)
+	}
+	if d := bl.g.literalDistinct(t); d != nil && t.TypeName == nil && wants == nil {
+		// `kvs: Kvs = {"a" => 1}`: the distinct type the position expects,
+		// over the map.
+		anon := *t
+		return bl.compositeDistinctMake(&ast.Call{Args: []ast.Node{&anon}, Line: t.Line, Col: t.Col}, d)
 	}
 	if len(t.Spreads) == 1 && t.Spreads[0].At == 0 {
 		if len(t.Entries) == 0 {
@@ -217,10 +223,10 @@ func (bl *irScalarBuilder) mapMakeOf(t *ast.MapLit, wants []kind) (ir.Temp, kind
 	return bl.mapEntries(t, wants)
 }
 
-// emptyMapLit builds `%{}`, the empty map. Like `[]`, it is the map its
+// emptyMapLit builds `{}`, the empty map. Like `[]`, it is the map its
 // position makes it when the checker solved the key and value types there,
 // and otherwise the empty map of no type yet.
-func (bl *irScalarBuilder) emptyMapLit(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) emptyMapLit(t ast.Node, wants []kind) (ir.Temp, kind, bool, bool) {
 	n := ir.NewMakeMap(bl.g.irNodePos(t), bl.f.NewTemp(), nil)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: kindEmptyMap, pureMake: true})
@@ -239,7 +245,7 @@ func (bl *irScalarBuilder) emptyMapLit(t *ast.MapLit, wants []kind) (ir.Temp, ki
 	return n.Dst(), kindEmptyMap, true, true
 }
 
-// mapUpdate builds `%{..base, key => value}`, a map literal with one spread
+// mapUpdate builds `{..base, key => value}`, a map literal with one spread
 // written first: the base, then the entries as a map literal, then
 // `Map.merge(base, literal)`, so the entries win and keep the order
 // Map.merge gives them. The checker typed the literal as the base's
@@ -268,7 +274,7 @@ func (bl *irScalarBuilder) mapUpdate(t *ast.MapLit, wants []kind) (ir.Temp, kind
 		return no()
 	}
 	if bk == kindEmptyMap {
-		// `%{..%{}, "a" => 1}`: the entries say what the base holds.
+		// `{..{}, "a" => 1}`: the entries say what the base holds.
 		if base, bk, ok = bl.coerceEmpty(spread, base, bk, lk); !ok {
 			return no()
 		}
@@ -307,7 +313,7 @@ func (bl *irScalarBuilder) mapEntriesOver(t *ast.MapLit, wants []kind, base ir.T
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	// Keys and values are lowered in source order. Entries whose keys (or
 	// values) differ only by an embedded type join to the enum that embeds
-	// it (`%{1 => circle, 2 => shape}` is a `Map<Int, Shape>`), as the
+	// it (`{1 => circle, 2 => shape}` is a `Map<Int, Shape>`), as the
 	// checker joins them; the embedded ones are widened afterwards.
 	var temps [2][]ir.Temp
 	var items [2][]ast.Node

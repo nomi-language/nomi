@@ -15,22 +15,22 @@ import (
 func TestOrPattern_OneBindingWhereTheAlternativesJoin(t *testing.T) {
 	src := `import std::io
 
-enum Ev {
+enum Ev
   A Int
   B Int
   C Int
-}
+end
 
-fn describe(e: Ev) -> Int {
-  case e {
+fn describe(e: Ev) -> Int
+  case e
     .A(n) or .B(n) or .C(n) when n > 0 -> n * 2
     _ -> 0
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(describe(Ev.B(2)))
-}
+end
 `
 	p, err := AnalyzeSource("main", src)
 	if err != nil {

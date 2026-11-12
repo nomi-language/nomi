@@ -193,7 +193,7 @@ func TestScalarArith_TheOperatorKeysStayUnbound(t *testing.T) {
 //
 //	pub interface Add<Rhs, Out> { … }
 //	  -> type name 'Add' is reserved by the language and cannot be redeclared
-//	     as an interface; pick a different name (e.g. `interface MyAdd { ... }`)
+//	     as an interface; pick a different name (e.g. `interface MyAdd ... end`)
 //	pub type Int Bool
 //	  -> type name 'Int' is reserved by the language and cannot be redeclared
 //	     as a distinct type; …
@@ -213,12 +213,12 @@ func TestScalarArith_TheSevenOwnerNamesAreReserved(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const tail = "\ntest \"t\" {\n  assert 1 == 1\n}\n"
+	const tail = "\ntest \"t\"\n  assert 1 == 1\nend\n"
 	cases := []struct{ name, src string }{
-		{"Add", "pub interface Add<Rhs, Out> {\n  fn m(lhs: self, rhs: Rhs) -> Out\n}\n" + tail},
-		{"Subtract", "pub interface Subtract<Rhs, Out> {\n  fn m(lhs: self, rhs: Rhs) -> Out\n}\n" + tail},
-		{"Multiply", "pub interface Multiply<Rhs, Out> {\n  fn m(lhs: self, rhs: Rhs) -> Out\n}\n" + tail},
-		{"Divide", "pub interface Divide<Rhs, Out> {\n  fn m(lhs: self, rhs: Rhs) -> Out\n}\n" + tail},
+		{"Add", "pub interface Add<Rhs, Out>\n  fn m(lhs: self, rhs: Rhs) -> Out\nend\n" + tail},
+		{"Subtract", "pub interface Subtract<Rhs, Out>\n  fn m(lhs: self, rhs: Rhs) -> Out\nend\n" + tail},
+		{"Multiply", "pub interface Multiply<Rhs, Out>\n  fn m(lhs: self, rhs: Rhs) -> Out\nend\n" + tail},
+		{"Divide", "pub interface Divide<Rhs, Out>\n  fn m(lhs: self, rhs: Rhs) -> Out\nend\n" + tail},
 		{"Int", "pub type Int Bool\n" + tail},
 		{"Float", "pub type Float Bool\n" + tail},
 		{"String", "pub type String Bool\n" + tail},

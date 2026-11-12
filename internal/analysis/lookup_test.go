@@ -7,7 +7,9 @@ import (
 )
 
 func TestSymbolAt_Reference(t *testing.T) {
-	input := `fn double(x: Int) -> Int { x + x }`
+	input := `fn double(x: Int) -> Int
+    x + x
+end`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -29,7 +31,9 @@ func TestSymbolAt_Reference(t *testing.T) {
 }
 
 func TestSymbolAt_Definition(t *testing.T) {
-	input := `fn add(x: Int, y: Int) -> Int { x + y }`
+	input := `fn add(x: Int, y: Int) -> Int
+    x + y
+end`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -67,7 +71,9 @@ func TestScopeAt_InnermostScope(t *testing.T) {
 	// `fn add(x: Int) -> Int { x }` — the body `x` sits at col 25. ScopeAt there
 	// must descend into the fn body scope (NOT the module scope), and that
 	// scope must see the parameter `x`.
-	input := `fn add(x: Int) -> Int { x }`
+	input := `fn add(x: Int) -> Int
+    x
+end`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -89,7 +95,7 @@ func TestScopeAt_LocalsVisibleInFunctionBody(t *testing.T) {
 	// function body must be visible to completion at a later position in that
 	// body. Today ScopeAt returns the module scope, which structurally cannot
 	// reach locals (they live in a child scope).
-	input := "fn main() {\n  a = 1\n  b = 2\n  c = 3\n}"
+	input := "fn main()\n  a = 1\n  b = 2\n  c = 3\nend"
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -106,7 +112,7 @@ func TestScopeAt_LambdaParamVisibleInBody(t *testing.T) {
 	// Tier 2 — the case a transparent-scope workaround would fail: inside a
 	// single-expression lambda body, the lambda's own param must be visible.
 	// `  f = fn x -> x + 1` — the body `x` is at col 15, inside the lambda span.
-	input := "fn main() {\n  f = fn x -> x + 1\n}"
+	input := "fn main()\n  f = fn x -> x + 1\nend"
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -123,7 +129,7 @@ func TestScopeAt_LambdaParamAtTrailingEdge(t *testing.T) {
 	// point between characters, so the End must be treated as touching
 	// (inclusive); otherwise the lambda's param vanishes from completion at the
 	// one position where you're most likely to ask for it.
-	input := "fn make_adder(n: Int) -> (Int) -> Int {\n  fn x -> n + x\n}"
+	input := "fn make_adder(n: Int) -> (Int) -> Int\n  fn x -> n + x\nend"
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -141,7 +147,9 @@ func TestScopeAt_GenericFunctionBody(t *testing.T) {
 	// scope. ScopeAt must descend THROUGH the (span-set) type-param scope to
 	// reach the body — if that scope were span-less the body would be
 	// unreachable. `fn id<T>(x: T) -> T { x }` — body `x` at col 23.
-	input := `fn id<T>(x: T) -> T { x }`
+	input := `fn id<T>(x: T) -> T
+    x
+end`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -159,13 +167,13 @@ func TestScopeAt_TypeBodyFunctionBody(t *testing.T) {
 	// Type-body functions build a scope in BOTH the signature pass and the
 	// bodies pass. Only the bodies-pass scope is span-set; ScopeAt must pick it
 	// so the parameter `g` is visible in the function body. The body `g.v` sits
-	// at col 24 on line 4.
-	input := "struct P {\n  v: Int\n\n  fn get(g: P) -> Int { g.v }\n}"
+	// at col 5 on line 5.
+	input := "struct P\n  v: Int\n\n  fn get(g: P) -> Int\n    g.v\n  end\nend"
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
 
-	names := visibleNames(file.ScopeAt(Pos{Line: 4, Col: 24}))
+	names := visibleNames(file.ScopeAt(Pos{Line: 5, Col: 5}))
 	if !names["g"] {
 		t.Errorf("expected param visible in impl function body, got %v", names)
 	}

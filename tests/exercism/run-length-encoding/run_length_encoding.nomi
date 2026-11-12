@@ -4,30 +4,30 @@ import std::regex.Regex
 
 /// `text` with each run of a repeated character written as its length and
 /// the character once. A character that is not repeated keeps no count.
-pub fn encode(text: String) -> String {
+pub fn encode(text: String) -> String
     text
     |> Iter.chunk_equal()
     |> Iter.map(encode_run)
     |> String.join()
-}
+end
 
-fn encode_run(run: List<String>) -> String {
+fn encode_run(run: List<String>) -> String
     letter = List.head(run)!
 
-    case Iter.count(run) {
+    case Iter.count(run)
         1 -> letter
         count -> "${count}${letter}"
-    }
-}
+    end
+end
 
 /// The text `encode` was given for `encoded`: each character is repeated as
 /// many times as the number before it says, or once when there is none.
-pub fn decode(encoded: String) -> String {
+pub fn decode(encoded: String) -> String
     encoded
     |> String.captures_all(Regex`(\d*)(\D)`)
-    |> Iter.map(fn (count, letter) -> {
+    |> Iter.map(fn (count, letter) ->
         times = String.to_int(count) |> Maybe.with_default(1)
         String.repeat(letter, times)
-    })
+    end)
     |> String.join()
-}
+end

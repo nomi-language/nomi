@@ -18,54 +18,56 @@ import (
 
 // qualifiedStdEntry declares its own DateParts beside std/calendar's and
 // implements each for Q.
-const qualifiedStdEntry = `import { std::calendar std::io }
+const qualifiedStdEntry = `import
+    std::calendar std::io
+end
 
-interface DateParts {
+interface DateParts
     fn stamp(value: self) -> String
-}
+end
 
-struct Q {
+struct Q
     n: Int
-}
+end
 
-impl calendar.DateParts for Q {
-    fn year(value: Q) -> Int {
+impl calendar.DateParts for Q
+    fn year(value: Q) -> Int
         value.n
-    }
+    end
 
-    fn month(_: Q) -> Int {
+    fn month(_: Q) -> Int
         1
-    }
+    end
 
-    fn day(_: Q) -> Int {
+    fn day(_: Q) -> Int
         2
-    }
-}
+    end
+end
 
-impl DateParts for Q {
-    fn stamp(_: Q) -> String {
+impl DateParts for Q
+    fn stamp(_: Q) -> String
         "local"
-    }
-}
+    end
+end
 
-fn total<T>(x: T, y: T) -> Int where T: calendar.DateParts {
+fn total<T>(x: T, y: T) -> Int where T: calendar.DateParts
     calendar.DateParts.year(x) + calendar.DateParts.month(y)
-}
+end
 
-fn as_value(x: calendar.DateParts) -> Int {
+fn as_value(x: calendar.DateParts) -> Int
     calendar.DateParts.day(x)
-}
+end
 
-fn local<T>(x: T, y: T) -> String where T: DateParts {
+fn local<T>(x: T, y: T) -> String where T: DateParts
     DateParts.stamp(x) + DateParts.stamp(y)
-}
+end
 
-fn main() {
+fn main()
     q = Q{n: 7}
     io.print(total(q, q))
     io.print(as_value(q))
     io.print(local(q, q))
-}
+end
 `
 
 func TestInterfaceIdentity_AQualifiedStdInterfaceBesideALocalOneOfItsName(t *testing.T) {
@@ -74,51 +76,53 @@ func TestInterfaceIdentity_AQualifiedStdInterfaceBesideALocalOneOfItsName(t *tes
 	}
 }
 
-const qualifiedModuleOther = `pub interface Shape {
+const qualifiedModuleOther = `pub interface Shape
     fn area(value: self) -> Int
-}
+end
 `
 
-const qualifiedModuleEntry = `import { other std::io }
+const qualifiedModuleEntry = `import
+    other std::io
+end
 
-interface Shape {
+interface Shape
     fn label(value: self) -> String
-}
+end
 
-struct Sq {
+struct Sq
     side: Int
-}
+end
 
-impl other.Shape for Sq {
-    fn area(value: Sq) -> Int {
+impl other.Shape for Sq
+    fn area(value: Sq) -> Int
         value.side * value.side
-    }
-}
+    end
+end
 
-impl Shape for Sq {
-    fn label(_: Sq) -> String {
+impl Shape for Sq
+    fn label(_: Sq) -> String
         "square"
-    }
-}
+    end
+end
 
-fn double<T>(x: T, y: T) -> Int where T: other.Shape {
+fn double<T>(x: T, y: T) -> Int where T: other.Shape
     other.Shape.area(x) + other.Shape.area(y)
-}
+end
 
-fn area_of(x: other.Shape) -> Int {
+fn area_of(x: other.Shape) -> Int
     other.Shape.area(x)
-}
+end
 
-fn labels<T>(x: T, y: T) -> String where T: Shape {
+fn labels<T>(x: T, y: T) -> String where T: Shape
     Shape.label(x) + Shape.label(y)
-}
+end
 
-fn main() {
+fn main()
     s = Sq{side: 3}
     io.print(double(s, s))
     io.print(area_of(s))
     io.print(labels(s, s))
-}
+end
 `
 
 func TestInterfaceIdentity_AQualifiedModuleInterfaceBesideALocalOneOfItsName(t *testing.T) {
@@ -138,35 +142,35 @@ func TestInterfaceIdentity_TheBareNameIsStillTheLocalInterface(t *testing.T) {
 			name: "qualified impl, bare bound",
 			src: `import std::calendar
 
-interface DateParts {
+interface DateParts
     fn stamp(value: self) -> String
-}
+end
 
-struct Q {
+struct Q
     n: Int
-}
+end
 
-impl calendar.DateParts for Q {
-    fn year(value: Q) -> Int {
+impl calendar.DateParts for Q
+    fn year(value: Q) -> Int
         value.n
-    }
+    end
 
-    fn month(_: Q) -> Int {
+    fn month(_: Q) -> Int
         1
-    }
+    end
 
-    fn day(_: Q) -> Int {
+    fn day(_: Q) -> Int
         2
-    }
-}
+    end
+end
 
-fn local<T>(x: T, y: T) -> String where T: DateParts {
+fn local<T>(x: T, y: T) -> String where T: DateParts
     DateParts.stamp(x) + DateParts.stamp(y)
-}
+end
 
-fn main() {
+fn main()
     _s = local(Q{n: 1}, Q{n: 2})
-}
+end
 `,
 			want: "Q does not implement DateParts",
 		},
@@ -174,27 +178,27 @@ fn main() {
 			name: "bare impl, qualified parameter",
 			src: `import std::calendar
 
-interface DateParts {
+interface DateParts
     fn stamp(value: self) -> String
-}
+end
 
-struct Q {
+struct Q
     n: Int
-}
+end
 
-impl DateParts for Q {
-    fn stamp(_: Q) -> String {
+impl DateParts for Q
+    fn stamp(_: Q) -> String
         "local"
-    }
-}
+    end
+end
 
-fn as_value(x: calendar.DateParts) -> Int {
+fn as_value(x: calendar.DateParts) -> Int
     calendar.DateParts.day(x)
-}
+end
 
-fn main() {
+fn main()
     _d = as_value(Q{n: 1})
-}
+end
 `,
 			want: "expected DateParts, got Q",
 		},

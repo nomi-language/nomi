@@ -4,12 +4,12 @@
 // expect type-error: orphan impl: `Display`
 import std::calendar.Date
 
-impl Display for Date {
-    fn to_string(_d: Date) -> String {
+impl Display for Date
+    fn to_string(_d: Date) -> String
         "fake"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     Unit
-}
+end

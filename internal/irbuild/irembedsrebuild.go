@@ -238,7 +238,7 @@ func (bl *irScalarBuilder) rebuildAdapter(at ast.Node, have, want kind) (ir.Temp
 	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
 	sh.frame = newIRFuncFrame(f)
 	sh.entry = f.NewBlock(pos, "entry")
-	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}, rebuildBody: true}
+	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}, rebuildBody: true, unwritten: true}
 	x := bl.g.irAddParam(f, ir.NewSymbol("_"), have)
 	var ok bool
 	recursive := false

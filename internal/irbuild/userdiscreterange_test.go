@@ -18,40 +18,40 @@ type Id Int
 derive Equatable for Id
 derive Comparable for Id
 
-impl Discrete for Id {
-    fn next(Id(n)) -> Maybe<Id> {
+impl Discrete for Id
+    fn next(Id(n)) -> Maybe<Id>
         Some(Id(n + 1))
-    }
+    end
 
-    fn steps_between(Id(a), Id(b)) -> Maybe<Int> {
+    fn steps_between(Id(a), Id(b)) -> Maybe<Int>
         Some(b - a)
-    }
-}
+    end
+end
 
 type Lap Int
 
 derive Equatable for Lap
 derive Comparable for Lap
 
-impl Discrete for Lap {
-    fn next(Lap(n)) -> Maybe<Lap> {
-        if n >= 5 { None } else { Some(Lap(n + 1)) }
-    }
-}
+impl Discrete for Lap
+    fn next(Lap(n)) -> Maybe<Lap>
+        if n >= 5 then None else Some(Lap(n + 1))
+    end
+end
 
-fn val(Id(n)) -> Int {
+fn val(Id(n)) -> Int
     n
-}
+end
 
-fn total(xs: Iter<Id>) -> Int {
+fn total(xs: Iter<Id>) -> Int
     Iter.count(xs)
-}
+end
 
-fn laps(xs: Iter<Lap>) -> (Int, Maybe<Int>) {
+fn laps(xs: Iter<Lap>) -> (Int, Maybe<Int>)
     (Iter.count(xs), Iter.known_count(xs))
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Id(1)..Id(4) |> Iter.map(fn i -> val(i)) |> Iter.to_list())
     io.inspect(Iter.zip([1, 2], Id(1)..Id(4)) |> Iter.count())
     io.inspect(Iter.known_count(Id(1)..=Id(4)))
@@ -61,7 +61,7 @@ fn main() {
     io.inspect(Lap(1)..Lap(3) |> Iter.count())
     io.inspect(Iter.known_count(Lap(1)..Lap(3)))
     io.inspect(laps(Lap(2)..=Lap(4)))
-}
+end
 `
 	const want = "[1, 2, 3]\n" +
 		"2\n" +
@@ -87,29 +87,29 @@ derive Equatable for Id
 derive Comparable for Id
 derive Debug for Id
 
-impl Discrete for Id {
-    fn next(Id(n)) -> Maybe<Id> {
+impl Discrete for Id
+    fn next(Id(n)) -> Maybe<Id>
         Some(Id(n + 1))
-    }
+    end
 
-    fn steps_between(Id(a), Id(b)) -> Maybe<Int> {
+    fn steps_between(Id(a), Id(b)) -> Maybe<Int>
         Some(b - a)
-    }
-}
+    end
+end
 `
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
     std::io
     ids.Id
-}
+end
 
-fn total(xs: Iter<Id>) -> Int {
+fn total(xs: Iter<Id>) -> Int
     Iter.count(xs)
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Id(1)..Id(4) |> Iter.to_list())
     io.inspect(Iter.known_count(Id(1)..=Id(4)))
     io.inspect(total(Id(2)..Id(4)))
-}
+end
 `, "[Id(1), Id(2), Id(3)]\nSome(4)\n2\n", map[string]string{"ids.nomi": ids})
 }

@@ -5,10 +5,10 @@
 // call.
 import std::io
 
-fn count(n: Int) -> Int {
-    if n == 0 { 0 } else { count(n - 1) }
-}
+fn count(n: Int) -> Int
+    if n == 0 then 0 else count(n - 1)
+end
 
-fn main() {
+fn main()
     io.print("${count(100000000)}")
-}
+end

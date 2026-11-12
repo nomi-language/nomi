@@ -3,109 +3,109 @@
 // a struct field as well as on its own, whether its result is the type
 // itself, a `Result` of two implementors, or a distinct type whose runtime
 // value does not name its impl.
-struct Answer {
+struct Answer
     code: Int
-}
+end
 
-interface ToAnswer {
+interface ToAnswer
     fn to_answer(value: self) -> Answer
-}
+end
 
-impl ToAnswer for Answer {
-    fn to_answer(value: Answer) -> Answer {
+impl ToAnswer for Answer
+    fn to_answer(value: Answer) -> Answer
         value
-    }
-}
+    end
+end
 
-impl ToAnswer for Result<T, E> where T: ToAnswer, E: ToAnswer {
-    fn to_answer(value: Result<T, E>) -> Answer {
-        case value {
+impl ToAnswer for Result<T, E> where T: ToAnswer, E: ToAnswer
+    fn to_answer(value: Result<T, E>) -> Answer
+        case value
             Ok(v) -> ToAnswer.to_answer(v)
             Err(e) -> ToAnswer.to_answer(e)
-        }
-    }
-}
+        end
+    end
+end
 
-enum Failure {
+enum Failure
     Missing
-}
+end
 
-impl ToAnswer for Failure {
-    fn to_answer(_value: Failure) -> Answer {
+impl ToAnswer for Failure
+    fn to_answer(_value: Failure) -> Answer
         Answer{code: 404}
-    }
-}
+    end
+end
 
 type Code Int
 
-impl ToAnswer for Code {
-    fn to_answer(value: Code) -> Answer {
+impl ToAnswer for Code
+    fn to_answer(value: Code) -> Answer
         Code(n) = value
         Answer{code: n + 1000}
-    }
-}
+    end
+end
 
-struct Route {
+struct Route
     name: String
     handler: (Int) -> ToAnswer
-}
+end
 
-fn plain(n: Int) -> Answer {
+fn plain(n: Int) -> Answer
     Answer{code: n}
-}
+end
 
-fn failing(n: Int) -> Result<Answer, Failure> {
-    if n > 5 {
+fn failing(n: Int) -> Result<Answer, Failure>
+    if n > 5 then
         Ok(Answer{code: n})
-    } else {
+    else
         Err(Failure.Missing)
-    }
-}
+    end
+end
 
-fn coded(n: Int) -> Code {
+fn coded(n: Int) -> Code
     Code(n)
-}
+end
 
-fn codes(routes: List<(String, (Int) -> ToAnswer)>, n: Int) -> List<Int> {
+fn codes(routes: List<(String, (Int) -> ToAnswer)>, n: Int) -> List<Int>
     routes |> Iter.map(fn (_, h) -> ToAnswer.to_answer(h(n)).code) |> Iter.to_list()
-}
+end
 
-fn first(route: (String, (Int) -> ToAnswer), n: Int) -> Int {
+fn first(route: (String, (Int) -> ToAnswer), n: Int) -> Int
     ToAnswer.to_answer(route.second(n)).code
-}
+end
 
-fn bypassed(name: String) -> (String, (Int) -> ToAnswer) {
+fn bypassed(name: String) -> (String, (Int) -> ToAnswer)
     (name, failing)
-}
+end
 
-test "a list of tuples mixes plain, Result and lambda handlers" {
+test "a list of tuples mixes plain, Result and lambda handlers"
     assert codes([("a", plain), ("b", failing), ("c", fn _ -> Failure.Missing)], 3) == [
         3, 404, 404,
     ]
 
     assert codes([("a", plain), ("b", failing)], 7) == [7, 7]
-}
+end
 
-test "a tuple held in a variable enters as a literal does" {
+test "a tuple held in a variable enters as a literal does"
     route = ("b", failing)
     assert codes([("a", plain), route], 3) == [3, 404]
     assert first(route, 9) == 9
-}
+end
 
-test "an annotated binding, a record and a declared result" {
+test "an annotated binding, a record and a declared result"
     pair: (String, (Int) -> ToAnswer) = ("a", failing)
     assert first(pair, 1) == 404
-    record: .{name: String, handler: (Int) -> ToAnswer} = .{name: "r", handler: failing}
+    record: {name: String, handler: (Int) -> ToAnswer} = {name: "r", handler: failing}
     assert ToAnswer.to_answer(record.handler(8)).code == 8
     assert first(bypassed("x"), 2) == 404
-}
+end
 
-test "a struct field" {
+test "a struct field"
     route = Route{name: "a", handler: failing}
     assert ToAnswer.to_answer(route.handler(1)).code == 404
-}
+end
 
-test "a distinct type's result is dispatched by its impl" {
+test "a distinct type's result is dispatched by its impl"
     route = ("a", coded)
     assert codes([route], 1) == [1001]
     pair: (String, (Int) -> ToAnswer) = route
@@ -115,4 +115,4 @@ test "a distinct type's result is dispatched by its impl" {
     assert handlers |> Iter.map(fn h -> ToAnswer.to_answer(h(3)).code) |> Iter.to_list() == [
         1003, 3,
     ]
-}
+end

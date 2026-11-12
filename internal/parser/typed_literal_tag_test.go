@@ -12,8 +12,8 @@ import (
 // "unexpected a string right after the end of a statement".
 func TestTypedLiteralTag_ALowercaseTagSaysATagIsATypeName(t *testing.T) {
 	for _, src := range []string{
-		"fn main() {\n  d = date\"2026\"\n}\n",
-		"fn main() {\n  d = date\"\"\"\n    2026\n    \"\"\"\n}\n",
+		"fn main()\n  d = date\"2026\"\nend\n",
+		"fn main()\n  d = date\"\"\"\n    2026\n    \"\"\"\nend\n",
 	} {
 		_, err := Parse(lexer.Lex(src))
 		want := "a typed literal starts with a type name, and `date` is not one: a type name starts with a capital letter, as in `Date\"...\"`"

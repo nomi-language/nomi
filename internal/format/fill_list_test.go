@@ -38,97 +38,178 @@ func TestFormat_NumberListFills(t *testing.T) {
 	for _, c := range []struct{ name, src, want string }{
 		{
 			"binding value",
-			"fn main() {\n    xs = [" + sevens + "]\n}\n",
-			"fn main() {\n    xs = [\n" + sevensAt[8] + "    ]\n}\n",
+			"fn main()\n" +
+				"    xs = [" + sevens + "]\n" +
+				"end\n",
+			"fn main()\n" +
+				"    xs = [\n" +
+				sevensAt[8] + "    ]\n" +
+				"end\n",
 		},
 		{
 			"assertion's right side",
-			"test \"t\" {\n    assert g(1) == [" + sevens + "]\n}\n",
-			"test \"t\" {\n    assert g(1) == [\n" + sevensAt[8] + "    ]\n}\n",
+			"test \"t\"\n" +
+				"    assert g(1) == [" + sevens + "]\n" +
+				"end\n",
+			"test \"t\"\n" +
+				"    assert g(1) == [\n" +
+				sevensAt[8] + "    ]\n" +
+				"end\n",
 		},
 		{
 			"the only call argument",
-			"fn main() {\n    f([" + sevens + "])\n}\n",
-			"fn main() {\n    f(\n        [\n" + sevensAt[12] + "        ]\n    )\n}\n",
+			"fn main()\n" +
+				"    f([" + sevens + "])\n" +
+				"end\n",
+			"fn main()\n" +
+				"    f(\n" +
+				"        [\n" +
+				sevensAt[12] + "        ]\n" +
+				"    )\n" +
+				"end\n",
 		},
 		{
 			"a call argument among others",
-			"fn main() {\n    f(1, [" + sevens + "], 2)\n}\n",
-			"fn main() {\n    f(\n        1,\n        [\n" + sevensAt[12] + "        ],\n        2,\n    )\n}\n",
+			"fn main()\n" +
+				"    f(1, [" + sevens + "], 2)\n" +
+				"end\n",
+			"fn main()\n" +
+				"    f(\n" +
+				"        1,\n" +
+				"        [\n" +
+				sevensAt[12] + "        ],\n" +
+				"        2,\n" +
+				"    )\n" +
+				"end\n",
 		},
 		{
 			"struct literal field",
-			"fn main() {\n    p = P{xs: [" + sevens + "], y: 1}\n}\n",
-			"fn main() {\n    p = P{\n        xs: [\n" + sevensAt[12] + "        ],\n        y: 1,\n    }\n}\n",
+			"fn main()\n" +
+				"    p = P{xs: [" + sevens + "], y: 1}\n" +
+				"end\n",
+			"fn main()\n" +
+				"    p = P{\n" +
+				"        xs: [\n" +
+				sevensAt[12] + "        ],\n" +
+				"        y: 1,\n" +
+				"    }\n" +
+				"end\n",
 		},
 		{
 			"pipe head",
-			"fn main() {\n    n = [" + sevens + "] |> Iter.count()\n}\n",
-			"fn main() {\n    n =\n        [\n" + sevensAt[12] + "        ]\n        |> Iter.count()\n}\n",
+			"fn main()\n" +
+				"    n = [" + sevens + "] |> Iter.count()\n" +
+				"end\n",
+			"fn main()\n" +
+				"    n =\n" +
+				"        [\n" +
+				sevensAt[12] + "        ]\n" +
+				"        |> Iter.count()\n" +
+				"end\n",
 		},
 		{
 			"pipe stage argument",
-			"fn main() {\n    n = xs |> Iter.concat([" + sevens + "]) |> Iter.count()\n}\n",
-			"fn main() {\n    n =\n        xs\n        |> Iter.concat(\n            [\n" + sevensAt[16] +
-				"            ]\n        )\n        |> Iter.count()\n}\n",
+			"fn main()\n" +
+				"    n = xs |> Iter.concat([" + sevens + "]) |> Iter.count()\n" +
+				"end\n",
+			"fn main()\n" +
+				"    n =\n" +
+				"        xs\n" +
+				"        |> Iter.concat(\n" +
+				"            [\n" +
+				sevensAt[16] + "            ]\n" +
+				"        )\n" +
+				"        |> Iter.count()\n" +
+				"end\n",
 		},
 		{
 			"vector and set",
-			"fn main() {\n    v = #[" + sevens + "]\n    s = %[" + sevens + "]\n}\n",
-			"fn main() {\n    v = #[\n" + sevensAt[8] + "    ]\n\n    s = %[\n" + sevensAt[8] + "    ]\n}\n",
+			"fn main()\n" +
+				"    v = Vector[" + sevens + "]\n" +
+				"    s = Set[" + sevens + "]\n" +
+				"end\n",
+			"fn main()\n" +
+				"    v = Vector[\n" +
+				sevensAt[8] + "    ]\n" +
+				"\n" +
+				"    s = Set[\n" +
+				sevensAt[8] + "    ]\n" +
+				"end\n",
 		},
 		{
 			"typed list",
-			"fn main() {\n    xs = Primes[" + sevens + "]\n}\n",
-			"fn main() {\n    xs = Primes[\n" + sevensAt[8] + "    ]\n}\n",
+			"fn main()\n" +
+				"    xs = Primes[" + sevens + "]\n" +
+				"end\n",
+			"fn main()\n" +
+				"    xs = Primes[\n" +
+				sevensAt[8] + "    ]\n" +
+				"end\n",
 		},
 		{
 			"every number kind",
-			"fn main() {\n    xs = [1.5, -2, -3.25, 4d, 1_000_000, 0xFF, 0b1010, 1.0e10, -7d, 12.50d, -0.001, 9_999.999_9, 3, 4, 5, 6]\n}\n",
-			"fn main() {\n    xs = [\n" +
+			"fn main()\n    xs = [1.5, -2, -3.25, 4d, 1_000_000, 0xFF, 0b1010, 1.0e10, -7d, 12.50d, -0.001, 9_999.999_9, 3, 4, 5, 6]\nend\n",
+			"fn main()\n" +
+				"    xs = [\n" +
 				"        1.5, -2, -3.25, 4d, 1_000_000, 0xFF, 0b1010, 1.0e10, -7d, 12.50d, -0.001, 9_999.999_9, 3, 4,\n" +
 				"        5, 6,\n" +
-				"    ]\n}\n",
+				"    ]\n" +
+				"end\n",
 		},
 		{
 			// An element wider than a line takes a line of its own, and the
 			// packing goes on after it.
 			"element wider than a line",
-			"fn main() {\n    xs = [0." + strings.Repeat("1", 118) + ", 1, 2, 3, 0." + strings.Repeat("2", 93) + "]\n}\n",
-			"fn main() {\n    xs = [\n" +
+			"fn main()\n" +
+				"    xs = [0." + strings.Repeat("1", 118) + ", 1, 2, 3, 0." + strings.Repeat("2", 93) + "]\n" +
+				"end\n",
+			"fn main()\n" +
+				"    xs = [\n" +
 				"        0." + strings.Repeat("1", 118) + ",\n" +
 				"        1, 2, 3,\n" +
 				"        0." + strings.Repeat("2", 93) + ",\n" +
-				"    ]\n}\n",
+				"    ]\n" +
+				"end\n",
 		},
 		{
 			// The formatter drops parentheses around a literal, so the
 			// list fills on the first format, as it does on the next.
 			"parenthesized literals",
-			"fn main() {\n    xs = [(7), ((14)), -(21), " + strings.TrimPrefix(sevens, "7, 14, 21, ") + "]\n}\n",
-			"fn main() {\n    xs = [\n" + strings.Replace(sevensAt[8], " 21,", " -21,", 1) + "    ]\n}\n",
+			"fn main()\n" +
+				"    xs = [(7), ((14)), -(21), " + strings.TrimPrefix(sevens, "7, 14, 21, ") + "]\n" +
+				"end\n",
+			"fn main()\n" +
+				"    xs = [\n" +
+				strings.Replace(sevensAt[8], " 21,", " -21,", 1) + "    ]\n" +
+				"end\n",
 		},
 		{
 			"fits on one line",
-			"fn main() {\n    xs = [1,\n        2,\n        3,\n    ]\n}\n",
-			"fn main() {\n    xs = [1, 2, 3]\n}\n",
+			"fn main()\n    xs = [1,\n        2,\n        3,\n    ]\nend\n",
+			"fn main()\n    xs = [1, 2, 3]\nend\n",
 		},
 		{
 			// A line break after the `[` keeps the list broken, and a
 			// broken list of numbers is filled, whoever broke it.
 			"written broken after the bracket",
-			"fn main() {\n    xs = [\n        1,\n        2,\n        3,\n    ]\n}\n",
-			"fn main() {\n    xs = [\n        1, 2, 3,\n    ]\n}\n",
+			"fn main()\n    xs = [\n        1,\n        2,\n        3,\n    ]\nend\n",
+			"fn main()\n    xs = [\n        1, 2, 3,\n    ]\nend\n",
 		},
 		{
 			"written broken after the bracket, too wide",
-			"fn main() {\n    xs = [\n" + sevens + "]\n}\n",
-			"fn main() {\n    xs = [\n" + sevensAt[8] + "    ]\n}\n",
+			"fn main()\n" +
+				"    xs = [\n" +
+				sevens + "]\n" +
+				"end\n",
+			"fn main()\n" +
+				"    xs = [\n" +
+				sevensAt[8] + "    ]\n" +
+				"end\n",
 		},
 		{
 			"vector and set written broken after the bracket",
-			"fn main() {\n    v = #[\n1, 2]\n    s = %[\n1, 2]\n}\n",
-			"fn main() {\n    v = #[\n        1, 2,\n    ]\n\n    s = %[\n        1, 2,\n    ]\n}\n",
+			"fn main()\n    v = Vector[\n1, 2]\n    s = Set[\n1, 2]\nend\n",
+			"fn main()\n    v = Vector[\n        1, 2,\n    ]\n\n    s = Set[\n        1, 2,\n    ]\nend\n",
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) { formatsKeepingMeaning(t, c.src, c.want) })
@@ -146,23 +227,48 @@ func TestFormat_NumberListFillsToTheWidth(t *testing.T) {
 		t.Fatalf("the line is %d columns wide, not %d", textWidth(line), defaultWidth)
 	}
 	formatsKeepingMeaning(t,
-		"fn main() {\n    xs = ["+strings.Repeat(f29+", ", 3)+f29+"]\n}\n",
-		"fn main() {\n    xs = [\n"+line+"\n        "+f29+",\n    ]\n}\n")
+		"fn main()\n"+
+			"    xs = ["+strings.Repeat(f29+", ", 3)+f29+"]\n"+
+			"end\n",
+		"fn main()\n"+
+			"    xs = [\n"+
+			line+"\n"+
+			"        "+f29+",\n"+
+			"    ]\n"+
+			"end\n")
 
 	f30 := "0." + strings.Repeat("2", 28)
 	formatsKeepingMeaning(t,
-		"fn main() {\n    xs = ["+strings.Repeat(f30+", ", 3)+f30+"]\n}\n",
-		"fn main() {\n    xs = [\n        "+f30+", "+f30+",\n        "+f30+", "+f30+",\n    ]\n}\n")
+		"fn main()\n"+
+			"    xs = ["+strings.Repeat(f30+", ", 3)+f30+"]\n"+
+			"end\n",
+		"fn main()\n"+
+			"    xs = [\n"+
+			"        "+f30+", "+f30+",\n"+
+			"        "+f30+", "+f30+",\n"+
+			"    ]\n"+
+			"end\n")
 }
 
 // The fill does not read the input's layout: one element per line, packed,
 // or all on one line, the output is the same.
 func TestFormat_NumberListFillIgnoresTheInputLayout(t *testing.T) {
-	want := "fn main() {\n    xs = [\n" + sevensAt[8] + "    ]\n}\n"
+	want := "fn main()\n" +
+		"    xs = [\n" +
+		sevensAt[8] + "    ]\n" +
+		"end\n"
 	for _, src := range []string{
-		"fn main() {\n    xs = [" + sevens + "]\n}\n",
-		"fn main() {\n    xs = [\n        " + strings.ReplaceAll(sevens, ", ", ",\n        ") + ",\n    ]\n}\n",
-		"fn main() {\n    xs = [" + strings.ReplaceAll(sevens, "21, ", "21,\n") + "]\n}\n",
+		"fn main()\n" +
+			"    xs = [" + sevens + "]\n" +
+			"end\n",
+		"fn main()\n" +
+			"    xs = [\n" +
+			"        " + strings.ReplaceAll(sevens, ", ", ",\n        ") + ",\n" +
+			"    ]\n" +
+			"end\n",
+		"fn main()\n" +
+			"    xs = [" + strings.ReplaceAll(sevens, "21, ", "21,\n") + "]\n" +
+			"end\n",
 	} {
 		formatsKeepingMeaning(t, src, want)
 	}
@@ -194,11 +300,15 @@ func TestFormat_ListFillNeedsNumberLiteralsAndNoComments(t *testing.T) {
 		{"trailing comment", "[" + sevens + ", // c\n    5]", "[\n" + strings.TrimSuffix(onePerLine, ",\n") + ", // c\n        5,\n    ]"},
 		{"leading comment", "[\n        // lead\n        " + sevens + "]", "[\n        // lead\n" + onePerLine + "    ]"},
 		{"end comment", "[" + sevens + "\n    // end\n    ]", "[\n" + onePerLine + "        // end\n    ]"},
-		{"vector spread", "#[..ys, " + sevens + "]", "#[\n        ..ys,\n" + onePerLine + "    ]"},
-		{"set spread", "%[..ys, " + sevens + "]", "%[\n        ..ys,\n" + onePerLine + "    ]"},
+		{"vector spread", "Vector[..ys, " + sevens + "]", "Vector[\n        ..ys,\n" + onePerLine + "    ]"},
+		{"set spread", "Set[..ys, " + sevens + "]", "Set[\n        ..ys,\n" + onePerLine + "    ]"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			formatsKeepingMeaning(t, "fn main() {\n    xs = "+c.src+"\n}\n", "fn main() {\n    xs = "+c.want+"\n}\n")
+			formatsKeepingMeaning(t, "fn main()\n"+
+				"    xs = "+c.src+"\n"+
+				"end\n", "fn main()\n"+
+				"    xs = "+c.want+"\n"+
+				"end\n")
 		})
 	}
 
@@ -208,8 +318,13 @@ func TestFormat_ListFillNeedsNumberLiteralsAndNoComments(t *testing.T) {
 		broken = append(broken, "        "+strconv.Itoa(i)+" => "+strconv.Itoa(i)+",\n")
 	}
 	formatsKeepingMeaning(t,
-		"fn main() {\n    m = %{"+strings.Join(entries, ", ")+"}\n}\n",
-		"fn main() {\n    m = %{\n"+strings.Join(broken, "")+"    }\n}\n")
+		"fn main()\n"+
+			"    m = {"+strings.Join(entries, ", ")+"}\n"+
+			"end\n",
+		"fn main()\n"+
+			"    m = {\n"+
+			strings.Join(broken, "")+"    }\n"+
+			"end\n")
 }
 
 // A list of only strings (wide ones too), codepoints or booleans keeps one
@@ -217,7 +332,12 @@ func TestFormat_ListFillNeedsNumberLiteralsAndNoComments(t *testing.T) {
 func TestFormat_NonNumberListsStayOnePerLine(t *testing.T) {
 	for _, elem := range []string{"\"日本語のテキスト\"", "\"a short string\"", "'x'", "False"} {
 		items := strings.Repeat(elem+", ", 29) + elem
-		want := "fn main() {\n    xs = [\n" + strings.Repeat("        "+elem+",\n", 30) + "    ]\n}\n"
-		formatsKeepingMeaning(t, "fn main() {\n    xs = ["+items+"]\n}\n", want)
+		want := "fn main()\n" +
+			"    xs = [\n" +
+			strings.Repeat("        "+elem+",\n", 30) + "    ]\n" +
+			"end\n"
+		formatsKeepingMeaning(t, "fn main()\n"+
+			"    xs = ["+items+"]\n"+
+			"end\n", want)
 	}
 }

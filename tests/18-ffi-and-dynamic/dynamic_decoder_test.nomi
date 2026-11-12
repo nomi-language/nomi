@@ -1,6 +1,6 @@
 import std::dynamic.{self, PathSegment}
 
-test "dynamic.Error display renders root field and index paths" {
+test "dynamic.Error display renders root field and index paths"
     empty = dynamic.Error{path: [], expected: "Object", got: "List"}
     assert dynamic.Error.to_string(empty) == "decode error at <root>: expected Object, got List"
 
@@ -20,4 +20,4 @@ test "dynamic.Error display renders root field and index paths" {
 
     assert dynamic.Error.to_string(nested)
         == "decode error at user.emails[0]: expected String, got Null"
-}
+end

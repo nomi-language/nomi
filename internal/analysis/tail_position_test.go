@@ -102,7 +102,9 @@ func parseForTailTest(t *testing.T, src string) ([]ast.Node, []*ast.Call) {
 }
 
 func TestMarkTailCalls_FunctionBodyLastExpression(t *testing.T) {
-	src := `fn f(n: Int) -> Int { f(n) }
+	src := `fn f(n: Int) -> Int
+    f(n)
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -121,21 +123,21 @@ func TestMarkTailCalls_FunctionBodyLastExpression(t *testing.T) {
 // interface dispatch (MarkTailCalls used to visit only top-level FuncDefs, so
 // deep tail recursion inside an impl-block method overflowed the host stack).
 func TestMarkTailCalls_ImplBlockMethodBody(t *testing.T) {
-	src := `interface Stepper {
+	src := `interface Stepper
   fn step(value: self, n: Int) -> Int
-}
+end
 
-struct Down {}
+struct Down end
 
-impl Stepper for Down {
-  fn step(value: Down, n: Int) -> Int {
-    if n == 0 {
+impl Stepper for Down
+  fn step(value: Down, n: Int) -> Int
+    if n == 0 then
       0
-    } else {
+    else
       Stepper.step(value, n - 1)
-    }
-  }
-}
+    end
+  end
+end
 
 `
 	nodes, calls := parseForTailTest(t, src)
@@ -152,10 +154,10 @@ impl Stepper for Down {
 func TestMarkTailCalls_BindingRHSNotTail(t *testing.T) {
 	// binding always returns Unit; the call on RHS doesn't propagate to
 	// the function's return.
-	src := `fn f() -> Int {
+	src := `fn f() -> Int
   x = f()
   0
-}
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -166,7 +168,9 @@ func TestMarkTailCalls_BindingRHSNotTail(t *testing.T) {
 
 func TestMarkTailCalls_ExprStmtPropagates(t *testing.T) {
 	// ExprStmt is a pass-through wrapper around an expression.
-	src := `fn f() -> Int { f() }
+	src := `fn f() -> Int
+    f()
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -176,9 +180,9 @@ func TestMarkTailCalls_ExprStmtPropagates(t *testing.T) {
 }
 
 func TestMarkTailCalls_IfElseArms(t *testing.T) {
-	src := `fn f(n: Int) -> Int {
-  if n == 0 { f(n) } else { f(n - 1) }
-}
+	src := `fn f(n: Int) -> Int
+  if n == 0 then f(n) else f(n - 1)
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -194,16 +198,24 @@ func TestMarkTailCalls_IfElseArms(t *testing.T) {
 }
 
 func TestMarkTailCalls_CaseBranches(t *testing.T) {
-	src := `fn f(_n: Int) -> Int {
-  case scrutinee() {
+	src := `fn f(_n: Int) -> Int
+  case scrutinee()
     0 -> base()
     _ when guard() == True -> step()
-  }
-}
-fn scrutinee() -> Int { 0 }
-fn base() -> Int { 0 }
-fn guard() -> Bool { True }
-fn step() -> Int { 0 }
+  end
+end
+fn scrutinee() -> Int
+    0
+end
+fn base() -> Int
+    0
+end
+fn guard() -> Bool
+    True
+end
+fn step() -> Int
+    0
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -233,11 +245,15 @@ func callsiteString(c *ast.Call) string {
 }
 
 func TestMarkTailCalls_PipeRHS(t *testing.T) {
-	src := `fn f() -> Int {
+	src := `fn f() -> Int
   source() |> sink()
-}
-fn source() -> Int { 0 }
-fn sink(x: Int) -> Int { x }
+end
+fn source() -> Int
+    0
+end
+fn sink(x: Int) -> Int
+    x
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -255,11 +271,15 @@ fn sink(x: Int) -> Int { x }
 
 func TestMarkTailCalls_ShortCircuitRHS(t *testing.T) {
 	// Nomi spells short-circuit ops as `and` / `or`, not `&&` / `||`.
-	src := `fn f() -> Bool {
+	src := `fn f() -> Bool
   pred() and ready()
-}
-fn pred() -> Bool { True }
-fn ready() -> Bool { True }
+end
+fn pred() -> Bool
+    True
+end
+fn ready() -> Bool
+    True
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -272,9 +292,9 @@ fn ready() -> Bool { True }
 }
 
 func TestMarkTailCalls_ReturnValue(t *testing.T) {
-	src := `fn f() -> Int {
+	src := `fn f() -> Int
   return f()
-}
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -284,12 +304,16 @@ func TestMarkTailCalls_ReturnValue(t *testing.T) {
 }
 
 func TestMarkTailCalls_With(t *testing.T) {
-	src := `fn f() -> Int {
+	src := `fn f() -> Int
   with App.logger = make_logger()
   log_then_return()
-}
-fn make_logger() -> Int { 0 }
-fn log_then_return() -> Int { 0 }
+end
+fn make_logger() -> Int
+    0
+end
+fn log_then_return() -> Int
+    0
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -307,10 +331,12 @@ func TestMarkTailCalls_LambdaBodyMarksOwnTailCall(t *testing.T) {
 	// A lambda's last expression is in tail position relative to the LAMBDA,
 	// regardless of where the lambda itself sits. This test confirms calls
 	// in a lambda's last-stmt position get marked.
-	src := `fn invoke(cb: () -> Int) -> Int { cb() }
-fn f() -> Int {
+	src := `fn invoke(cb: () -> Int) -> Int
+    cb()
+end
+fn f() -> Int
   invoke(fn -> f())
-}
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -339,11 +365,13 @@ fn f() -> Int {
 func TestMarkTailCalls_LambdaInsideNonTailDoesntInherit(t *testing.T) {
 	// Outer non-tail context (binding RHS) must not propagate INTO the lambda;
 	// the lambda body is walked with tail=true at its boundary.
-	src := `fn invoke(cb: () -> Int) -> Int { cb() }
-fn f() -> Int {
+	src := `fn invoke(cb: () -> Int) -> Int
+    cb()
+end
+fn f() -> Int
   result = invoke(fn -> f())
   result + 1
-}
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -374,8 +402,12 @@ fn f() -> Int {
 }
 
 func TestMarkTailCalls_DefaultValueNotTail(t *testing.T) {
-	src := `fn f(n: Int = compute()) -> Int { n }
-fn compute() -> Int { 0 }
+	src := `fn f(n: Int = compute()) -> Int
+    n
+end
+fn compute() -> Int
+    0
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -390,10 +422,12 @@ fn compute() -> Int { 0 }
 func TestMarkTailCalls_TryOpExprNotTail(t *testing.T) {
 	// try f() unwraps Result; the call's value is pattern-matched between the
 	// call's return and the function's return. The sub-expr is NOT tail.
-	src := `fn f() -> Int {
+	src := `fn f() -> Int
   recurse()?
-}
-fn recurse() -> Result<Int, String> { Ok(0) }
+end
+fn recurse() -> Result<Int, String>
+    Ok(0)
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -403,21 +437,21 @@ fn recurse() -> Result<Int, String> { Ok(0) }
 }
 
 func TestMarkTailCalls_ImplMethodBody(t *testing.T) {
-	src := `interface Greet {
+	src := `interface Greet
   fn say(value: self) -> String
-}
+end
 
-struct Hi {}
+struct Hi end
 
-impl Greet for Hi {
-  fn say(_value: Hi) -> String {
+impl Greet for Hi
+  fn say(_value: Hi) -> String
     helper()
-  }
-}
+  end
+end
 
-fn helper() -> String {
+fn helper() -> String
   "hi"
-}
+end
 
 `
 	nodes, calls := parseForTailTest(t, src)
@@ -431,10 +465,12 @@ fn helper() -> String {
 }
 
 func TestMarkTailCalls_AggregateLiteralArgsNotTail(t *testing.T) {
-	src := `fn f() -> List<Int> {
+	src := `fn f() -> List<Int>
   [g(), g()]
-}
-fn g() -> Int { 0 }
+end
+fn g() -> Int
+    0
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -446,8 +482,12 @@ fn g() -> Int { 0 }
 }
 
 func TestMarkTailCalls_NamedArgValueWalked(t *testing.T) {
-	src := `fn f(_x: Int) -> Int { f(x: g()) }
-fn g() -> Int { 0 }
+	src := `fn f(_x: Int) -> Int
+    f(x: g())
+end
+fn g() -> Int
+    0
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -464,11 +504,13 @@ fn g() -> Int { 0 }
 }
 
 func TestMarkTailCalls_BlockPrecedingStatementsNotTail(t *testing.T) {
-	src := `fn f() -> Int {
+	src := `fn f() -> Int
   side_effect()
   f()
-}
-fn side_effect() -> Int { 0 }
+end
+fn side_effect() -> Int
+    0
+end
 `
 	nodes, calls := parseForTailTest(t, src)
 	MarkTailCalls(nodes)
@@ -546,7 +588,7 @@ func collectCalls(root ast.Node) []*ast.Call {
 func TestMarkTailCalls_RunsViaLSPDocumentPipeline(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "tail.nomi")
-	src := "fn f(n: Int) -> Int { f(n) }\n"
+	src := "fn f(n: Int) -> Int\n    f(n)\nend\n"
 	if err := os.WriteFile(path, []byte(src), 0644); err != nil {
 		t.Fatalf("write source: %v", err)
 	}

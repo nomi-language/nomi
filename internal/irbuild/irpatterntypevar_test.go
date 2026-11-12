@@ -9,67 +9,67 @@ import "testing"
 // inspects the type.
 const irPatternThroughTypeVarSource = `import std::io
 
-enum Opt<T> {
+enum Opt<T>
   Nothing
   Has(T)
-}
+end
 
-struct Pt {
+struct Pt
   x: Int
   y: Int
-}
+end
 
-enum Shape {
+enum Shape
   Circle(Int)
   Rect{w: Int, h: Int}
-}
+end
 
 type Id Int
 type Kvs Map<String, Int>
 
-fn pick<T>(c: Bool, a: T, b: T) -> T {
-  if c { b } else { a }
-}
+fn pick<T>(c: Bool, a: T, b: T) -> T
+  if c then b else a
+end
 
-fn main() {
-  case pick(True, Opt.Nothing, Opt.Has((1, "x"))) {
+fn main()
+  case pick(True, Opt.Nothing, Opt.Has((1, "x")))
     .Has((s, t)) -> io.print("tuple ${s} ${t}")
     .Nothing -> io.print("none")
-  }
-  case pick(True, Opt.Nothing, Opt.Has(Pt{x: 3, y: 4})) {
-    .Has(Pt{x, y}) -> io.print("struct ${x} ${y}")
+  end
+  case pick(True, Opt.Nothing, Opt.Has(Pt{x: 3, y: 4}))
+    .Has(Pt{x:, y:}) -> io.print("struct ${x} ${y}")
     .Nothing -> io.print("none")
-  }
-  case pick(True, Opt.Nothing, Opt.Has([1, 2, 3])) {
+  end
+  case pick(True, Opt.Nothing, Opt.Has([1, 2, 3]))
     .Has([a, ..rest]) -> io.print("list ${a} ${rest}")
     .Has([]) -> io.print("empty")
     .Nothing -> io.print("none")
-  }
-  case pick(True, Opt.Nothing, Opt.Has(Shape.Rect{w: 5, h: 6})) {
-    .Has(.Rect{w, h}) -> io.print("struct variant ${w} ${h}")
+  end
+  case pick(True, Opt.Nothing, Opt.Has(Shape.Rect{w: 5, h: 6}))
+    .Has(.Rect{w:, h:}) -> io.print("struct variant ${w} ${h}")
     .Has(.Circle(r)) -> io.print("circle ${r}")
     .Nothing -> io.print("none")
-  }
-  case pick(True, Opt.Nothing, Opt.Has(Opt.Has(7))) {
+  end
+  case pick(True, Opt.Nothing, Opt.Has(Opt.Has(7)))
     .Has(.Has(n)) -> io.print("variant ${n}")
     .Has(.Nothing) -> io.print("inner none")
     .Nothing -> io.print("none")
-  }
-  case pick(True, Opt.Nothing, Opt.Has(%{"k" => 8})) {
-    .Has(%{"k" => v}) -> io.print("map ${v}")
+  end
+  case pick(True, Opt.Nothing, Opt.Has({"k" => 8}))
+    .Has({"k" => v}) -> io.print("map ${v}")
     .Has(_) -> io.print("no k")
     .Nothing -> io.print("none")
-  }
-  case pick(True, Opt.Nothing, Opt.Has(Id(9))) {
+  end
+  case pick(True, Opt.Nothing, Opt.Has(Id(9)))
     .Has(Id(i)) -> io.print("distinct ${i}")
     .Nothing -> io.print("none")
-  }
-  case pick(True, Opt.Nothing, Opt.Has(%Kvs{"a" => 10})) {
-    .Has(%Kvs{"a" => v}) -> io.print("map distinct ${v}")
+  end
+  case pick(True, Opt.Nothing, Opt.Has(Kvs{"a" => 10}))
+    .Has(Kvs{"a" => v}) -> io.print("map distinct ${v}")
     .Has(_) -> io.print("no a")
     .Nothing -> io.print("none")
-  }
-}
+  end
+end
 `
 
 func TestIRPattern_EveryShapeThroughATypeVariable(t *testing.T) {

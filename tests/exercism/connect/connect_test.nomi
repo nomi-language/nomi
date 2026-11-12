@@ -1,9 +1,9 @@
-import {
+import
     connect
     connect.Player
-}
+end
 
-test "winner" {
+test "winner"
     [
         (
             "an empty board has no winner",
@@ -119,7 +119,7 @@ test "winner" {
             Some(.X),
         ),
     ]
-    |> subtests (description, board, expected), description {
+    |> subtests (description, board, expected), description
         assert connect.winner(board) == expected
-    }
-}
+    end
+end

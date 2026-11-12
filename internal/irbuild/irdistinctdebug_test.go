@@ -4,26 +4,33 @@ import "testing"
 
 func TestIRDistinctDebug_CompleteProgram(t *testing.T) {
 	verifyLambdaProgram(t, `type Id Int
-fn main() {
+fn main()
  id = Id(42)
  dbg id
  Id(raw) = id
  dbg raw
-}
+end
 `, "dbg line 4: id = Id(42)\ndbg line 6: raw = 42\n")
 }
 
 func TestIRDistinctDebug_UserOverride(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 type Id Int
-impl Debug for Id {
- fn inspect(value: Id) -> String { _ = value; io.print("inspect"); "custom" }
-}
-fn make() -> Id { io.print("make"); Id(7) }
-fn main() {
+impl Debug for Id
+ fn inspect(value: Id) -> String
+     _ = value
+     io.print("inspect")
+     "custom"
+ end
+end
+fn make() -> Id
+    io.print("make")
+    Id(7)
+end
+fn main()
  dbg make()
-}
-`, "make\ninspect\ndbg line 8: make() = custom\n")
+end
+`, "make\ninspect\ndbg line 15: make() = custom\n")
 }
 
 func TestIRDistinctDebug_ScalarLeavesAndTransparency(t *testing.T) {
@@ -31,20 +38,25 @@ func TestIRDistinctDebug_ScalarLeavesAndTransparency(t *testing.T) {
 type Name String
 type Ratio Float
 type Enabled Bool
-fn main() {
+fn main()
  Name(s) = dbg Name("a\"b")
  io.print(s)
  dbg Ratio(1.5)
  dbg Enabled(True)
-}
+end
 `, "dbg line 6: Name(\"a\\\"b\") = Name(\"a\\\"b\")\na\"b\ndbg line 8: Ratio(1.5) = Ratio(1.5)\ndbg line 9: Enabled(True) = Enabled(True)\n")
 }
 
 func TestIRDistinctDebug_OpaqueOverride(t *testing.T) {
 	verifyLambdaProgram(t, `opaque type Secret Int
-impl Debug for Secret {
- fn inspect(value: Secret) -> String { _ = value; "redacted" }
-}
-fn main() { dbg Secret(7) }
-`, "dbg line 5: Secret(7) = redacted\n")
+impl Debug for Secret
+ fn inspect(value: Secret) -> String
+     _ = value
+     "redacted"
+ end
+end
+fn main()
+    dbg Secret(7)
+end
+`, "dbg line 9: Secret(7) = redacted\n")
 }

@@ -1,50 +1,51 @@
-import {
+import
     std::io
     handler.{self, Request, Response}
-}
+end
 
-fn main() {
+fn main()
     paths = ["/", "/echo", "/missing", "/fail", "/echo", "/", "/fail", "/missing"]
 
-    case handler.serve_concurrently(paths, handle) {
+    case handler.serve_concurrently(paths, handle)
         Ok(lines) -> Iter.each(lines, &io.print(&1))
         Err(e) -> io.print("error: ${e}")
-    }
-}
+    end
+end
 
-fn handle(req: Request) -> Result<Response, String> {
+fn handle(req: Request) -> Result<Response, String>
     n =
         req.query
         |> Map.get("n")
         |> Maybe.with_default("?")
 
-    case req.path {
-        "/" -> Ok(text(200, "hello ${req.method} n=${n}"))
+    case req.path
+        "/" ->
+            Ok(text(200, "hello ${req.method} n=${n}"))
 
         "/echo" ->
             Ok(Response{
                 status: 200,
-                headers: %{"content-type" => "application/octet-stream"},
+                headers: {"content-type" => "application/octet-stream"},
                 body: req.body,
             })
 
-        "/fail" -> {
+        "/fail" ->
             index =
                 req.headers
                 |> Map.get("X-Index")
                 |> Maybe.with_default("?")
 
             Err("refused request ${index}")
-        }
 
-        _ -> Ok(text(404, "not found"))
-    }
-}
+        _ ->
+            Ok(text(404, "not found"))
+    end
+end
 
-fn text(status: Int, body: String) -> Response {
+fn text(status: Int, body: String) -> Response
     Response{
-        status,
-        headers: %{"content-type" => "text/plain"},
+        status:,
+        headers: {"content-type" => "text/plain"},
         body: String.to_bytes(body),
     }
-}
+end

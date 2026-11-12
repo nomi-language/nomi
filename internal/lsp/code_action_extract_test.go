@@ -29,7 +29,7 @@ func TestExtractVariable_CursorTakesInnermostCall(t *testing.T) {
 }
 
 func TestExtractVariable_FieldNameAndCollision(t *testing.T) {
-	decls := "struct User {\n    name: String\n}\n\n"
+	decls := "struct User\n    name: String\nend\n\n"
 	src := fnMainAfter(decls, "name = \"x\"\nu = User{name: \"a\"}\nio.print(\"${«u.name»}${name}\")\n")
 	got := checkRefactor(t, src, "Extract variable 'name2'", extract)
 	if want := fnMainAfter(decls, "name = \"x\"\nu = User{name: \"a\"}\nname2 = u.name\nio.print(\"${name2}${name}\")\n"); got != want {
@@ -38,9 +38,9 @@ func TestExtractVariable_FieldNameAndCollision(t *testing.T) {
 }
 
 func TestExtractVariable_InsideLambdaBlock(t *testing.T) {
-	src := fnMain("n =\n    [1, 2]\n    |> Iter.map(fn x -> {\n        io.print(\"${x}\")\n        Int.to_str‸ing(x)\n    })\n    |> Iter.to_list()\n\nio.inspect(n)\n")
+	src := fnMain("n =\n    [1, 2]\n    |> Iter.map(fn x ->\n        io.print(\"${x}\")\n        Int.to_str‸ing(x)\n    end)\n    |> Iter.to_list()\n\nio.inspect(n)\n")
 	got := checkRefactor(t, src, "Extract variable 'string'", extract)
-	want := fnMain("n =\n    [1, 2]\n    |> Iter.map(fn x -> {\n        io.print(\"${x}\")\n        string = Int.to_string(x)\n        string\n    })\n    |> Iter.to_list()\n\nio.inspect(n)\n")
+	want := fnMain("n =\n    [1, 2]\n    |> Iter.map(fn x ->\n        io.print(\"${x}\")\n        string = Int.to_string(x)\n        string\n    end)\n    |> Iter.to_list()\n\nio.inspect(n)\n")
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
@@ -60,7 +60,7 @@ func TestExtractVariable_Refused(t *testing.T) {
 		// Out of a lambda's body.
 		"lambda body": "n = Iter.map([1], fn x -> Int.to_str‸ing(x))\nio.inspect(Iter.to_list(n))\n",
 		// A case arm runs only when its pattern matches.
-		"case arm": "m = String.to_int(\"1\")\nn = case m {\n    Some(v) -> Int.to_str‸ing(v)\n    None -> \"\"\n}\n\nio.inspect(n)\n",
+		"case arm": "m = String.to_int(\"1\")\nn = case m\n    Some(v) -> Int.to_str‸ing(v)\n    None -> \"\"\nend\n\nio.inspect(n)\n",
 		// The right side of `and` runs only when the left is true.
 		"and": "xs = [1]\nok = Iter.is_empty(xs) and Iter.count‸(xs) > 0\nio.inspect(ok)\n",
 		// A pipe stage is not a value.

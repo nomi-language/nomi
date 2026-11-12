@@ -1,6 +1,6 @@
 import std::io
 
-fn main() {
+fn main()
     xs = [1, 2, 3]
 
     m: Maybe<Int> = List.head([])
@@ -29,4 +29,4 @@ fn main() {
 
     io.print("discharged   ${m == None} ${mt == None} ${ys == []} ${ys}")
     io.print("equal-both   ${List.equal([], [])}")
-}
+end

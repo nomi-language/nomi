@@ -35,63 +35,63 @@ import std::io
 //     number of lines.
 once tag = "declaring"
 
-enum Mode {
+enum Mode
     Fast
     Slow
-}
+end
 
-fn ping() -> Int {
+fn ping() -> Int
     io.print("default ran")
     7
-}
+end
 
-struct Engine {
+struct Engine
     name: String
-}
+end
 
-struct Quiet {
+struct Quiet
     name: String
-}
+end
 
-interface Powered {
+interface Powered
     fn label(e: self) -> String
 
-    open fn describe(e: self, mode: Mode = Mode.Fast) -> String {
-        case mode {
+    open fn describe(e: self, mode: Mode = Mode.Fast) -> String
+        case mode
             .Fast -> Powered.label(e) + " (fast)"
             .Slow -> Powered.label(e) + " (slow)"
-        }
-    }
+        end
+    end
 
-    fn tagged(e: self, suffix: String = tag) -> String {
+    fn tagged(e: self, suffix: String = tag) -> String
         Powered.label(e) + ":" + suffix
-    }
+    end
 
-    fn counted(_e: self, n: Int = ping()) -> Int {
+    fn counted(_e: self, n: Int = ping()) -> Int
         n
-    }
-}
+    end
+end
 
-impl Powered for Engine {
-    fn label(e: Engine) -> String {
+impl Powered for Engine
+    fn label(e: Engine) -> String
         e.name
-    }
-}
+    end
+end
 
-impl Powered for Quiet {
-    fn label(q: Quiet) -> String {
+impl Powered for Quiet
+    fn label(q: Quiet) -> String
         q.name
-    }
+    end
 
-    fn describe(q: Quiet, mode: Mode = Mode.Slow) -> String {
-        case mode {
+    fn describe(q: Quiet, mode: Mode = Mode.Slow) -> String
+        case mode
             .Fast -> q.name + " (quiet-fast)"
             .Slow -> q.name + " (quiet-slow)"
-        }
-    }
-}
+        end
+    end
+end
 
-test "an interface default's parameter default is filled, and supplying it is not" {
+test "an interface default's parameter default is filled, and supplying it is not"
     e = Engine{name: "v8"}
 
     io.print(Powered.describe(e))
@@ -101,9 +101,9 @@ test "an interface default's parameter default is filled, and supplying it is no
     assert Powered.describe(e) == "v8 (fast)"
     assert Powered.describe(e, Mode.Slow) == "v8 (slow)"
     assert Engine.describe(e) == "v8 (fast)"
-}
+end
 
-test "a default is evaluated in the declaring module's scope, not the caller's" {
+test "a default is evaluated in the declaring module's scope, not the caller's"
     e = Engine{name: "v8"}
     tag = "caller-local"
 
@@ -113,9 +113,9 @@ test "a default is evaluated in the declaring module's scope, not the caller's" 
     assert Powered.tagged(e) == "v8:declaring"
     assert tag == "caller-local"
     assert Powered.tagged(e, "given") == "v8:given"
-}
+end
 
-test "an impl override supplies its own default value" {
+test "an impl override supplies its own default value"
     q = Quiet{name: "hush"}
 
     io.print(Powered.describe(q))
@@ -125,12 +125,12 @@ test "an impl override supplies its own default value" {
     assert Powered.describe(q) == "hush (quiet-slow)"
     assert Quiet.describe(q) == "hush (quiet-slow)"
     assert Powered.describe(q, Mode.Fast) == "hush (quiet-fast)"
-}
+end
 
-test "a defaulted argument is evaluated once per call that omits it" {
+test "a defaulted argument is evaluated once per call that omits it"
     e = Engine{name: "v8"}
 
     assert Powered.counted(e) == 7
     assert Powered.counted(e, 3) == 3
     assert Powered.counted(e) + Powered.counted(e) == 14
-}
+end

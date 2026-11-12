@@ -1,43 +1,43 @@
 import std::compiler
 
-test "startup environment can be passed to ordinary helpers" {
+test "startup environment can be passed to ordinary helpers"
     diagnostics = compiler.check(
         """
 
 
-        struct Config {
+        struct Config
           context: Context
           name: String
-        }
+        end
 
-        fn load(startup: Startup, context: Context) -> Config {
+        fn load(startup: Startup, context: Context) -> Config
           Config{
-            context,
+            context:,
             name: Map.get(startup.env, "NOMI_ENV") |> Maybe.with_default("dev"),
           }
-        }
+        end
 
-        fn boot(startup: Startup) -> Result<Config, String> {
+        fn boot(startup: Startup) -> Result<Config, String>
           Ok(load(startup, Context.root()))
-        }
+        end
 
-        fn main() {
+        fn main()
           _ = Config.name
-        }
+        end
         """
     )
 
     assert Iter.count(diagnostics) == 0
-}
+end
 
-test "startup has no ambient instance" {
+test "startup has no ambient instance"
     diagnostics = compiler.check(
         """
-        fn main() {
+        fn main()
           _ = startup
-        }
+        end
         """
     )
 
     assert Iter.count(diagnostics) > 0
-}
+end

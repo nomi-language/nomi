@@ -1,6 +1,6 @@
 import ocr_numbers.{self, Error}
 
-test "convert" {
+test "convert"
     [
         (
             "Recognizes 0",
@@ -180,7 +180,7 @@ test "convert" {
             Ok("123,456,789"),
         ),
     ]
-    |> subtests (description, rows, expected), description {
+    |> subtests (description, rows, expected), description
         assert ocr_numbers.convert(rows) == expected
-    }
-}
+    end
+end

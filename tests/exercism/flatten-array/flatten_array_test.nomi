@@ -1,6 +1,6 @@
 import flatten_array.{self, Nested}
 
-test "flatten" {
+test "flatten"
     [
         ("empty", [], []),
         ("no nesting", [Nested.Value(0), .Value(1), .Value(2)], [0, 1, 2]),
@@ -78,7 +78,7 @@ test "flatten" {
             .Null,
         ], []),
     ]
-    |> subtests (description, array, expected), description {
+    |> subtests (description, array, expected), description
         assert flatten_array.flatten(array) == expected
-    }
-}
+    end
+end

@@ -29,36 +29,36 @@ func TestIRGenericAtFunctionType_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Box<T> {
+struct Box<T>
     v: T
-}
+end
 
-enum Opt<T> {
+enum Opt<T>
     Has T
     Nothing
-}
+end
 
-struct Ops {
+struct Ops
     fs: List<(Int) -> Int>
-}
+end
 
-enum Holder {
+enum Holder
     Many List<(Int) -> Int>
-}
+end
 
-fn first_or<T>(xs: List<T>, d: T) -> T {
+fn first_or<T>(xs: List<T>, d: T) -> T
     Maybe.with_default(List.head(xs), d)
-}
+end
 
-fn main() {
+fn main()
     inc: (Int) -> Int = fn x -> x + 1
     dbl: (Int) -> Int = fn x -> x * 2
     b = Box{v: inc}.v
     io.inspect(b(1))
-    case Opt.Has(dbl) {
+    case Opt.Has(dbl)
         .Has(g) -> io.inspect(g(2))
         .Nothing -> io.inspect(0)
-    }
+    end
     g = Maybe.with_default(Some(inc), dbl)
     io.inspect(g(3))
     h = Result.with_default(Ok<(Int) -> Int, String>(dbl), inc)
@@ -79,13 +79,13 @@ fn main() {
     Iter.each(fs, fn f -> io.inspect(f(100)))
     io.inspect(first_or([], inc)(7))
     io.inspect(first_or(fs, inc)(7))
-    io.inspect(Iter.map(Ops{fs: fs}.fs, fn f -> f(5)) |> Iter.to_list())
-    case Holder.Many(fs) {
+    io.inspect(Iter.map(Ops{fs:}.fs, fn f -> f(5)) |> Iter.to_list())
+    case Holder.Many(fs)
         .Many(gs) -> io.inspect(Iter.map(gs, fn f -> f(7)) |> Iter.to_list())
-    }
+    end
     held = Result.with_default(Err("no"), [fn x: Int -> x - 1])
     io.inspect(Iter.map(held, fn f -> f(1)) |> Iter.to_list())
-}
+end
 `
 	const want = "2\n" +
 		"4\n" +

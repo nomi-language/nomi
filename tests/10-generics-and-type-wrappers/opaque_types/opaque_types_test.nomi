@@ -1,17 +1,17 @@
-import {
+import
     counter
     email.{self, Email}
     status.Status
-}
+end
 
-fn describe(maybe_email: Maybe<Email>) -> String {
-    case maybe_email {
+fn describe(maybe_email: Maybe<Email>) -> String
+    case maybe_email
         Some(e) -> "valid: " + email.to_string(e)
         None -> "invalid"
-    }
-}
+    end
+end
 
-test "opaque distinct types expose smart constructors and accessors" {
+test "opaque distinct types expose smart constructors and accessors"
     inbox = Iter.to_list(email.from_string("inbox@example.com"))
 
     assert describe(email.from_string("alice@example.com")) == "valid: alice@example.com"
@@ -20,35 +20,35 @@ test "opaque distinct types expose smart constructors and accessors" {
     assert email.from_string("a@b") == email.from_string("a@b")
     assert email.from_string("a@b") != email.from_string("c@d")
     assert Iter.count(inbox) == 1
-}
+end
 
-test "opaque structs expose exported constructors updaters and accessors" {
+test "opaque structs expose exported constructors updaters and accessors"
     c0 = counter.new()
     c1 = counter.bump(c0)
 
     assert counter.value(c1) == 1
     assert counter.increments(c1) == 1
-}
+end
 
-test "opaque enums expose predicates and maybe-returning accessors" {
+test "opaque enums expose predicates and maybe-returning accessors"
     s_active = Status.active()
     s_off = Status.inactive("on holiday")
     s_susp = Status.suspend(100, "maintenance")
 
-    off_reason = case Status.inactive_reason(s_off) {
+    off_reason = case Status.inactive_reason(s_off)
         Some(reason) -> "off: " + reason
         None -> "not inactive"
-    }
+    end
 
-    suspended_reason = case Status.suspended_reason(s_susp) {
+    suspended_reason = case Status.suspended_reason(s_susp)
         Some(reason) -> "suspended: " + reason
         None -> "not suspended"
-    }
+    end
 
-    suspended_until = case Status.suspended_until(s_susp) {
+    suspended_until = case Status.suspended_until(s_susp)
         Some(until) -> until
         None -> -1
-    }
+    end
 
     assert Status.is_active(s_active)
     refute Status.is_active(s_off)
@@ -56,4 +56,4 @@ test "opaque enums expose predicates and maybe-returning accessors" {
     assert off_reason == "off: on holiday"
     assert suspended_reason == "suspended: maintenance"
     assert suspended_until == 100
-}
+end

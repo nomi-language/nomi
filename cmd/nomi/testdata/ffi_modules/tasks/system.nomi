@@ -1,36 +1,36 @@
 //# Where the time comes from and where lines are read and written.
 
-import {
+import
     std::instant.Instant
     std::io
-}
+end
 
-pub interface Clock {
+pub interface Clock
     fn now(clock: self) -> Instant
-}
+end
 
 pub type SystemClock
 
-impl Clock for SystemClock {
-    fn now(_clock: SystemClock) -> Instant {
+impl Clock for SystemClock
+    fn now(_clock: SystemClock) -> Instant
         Instant.now()
-    }
-}
+    end
+end
 
-pub interface Console {
+pub interface Console
     fn read_line(console: self) -> Maybe<String>
     fn write_line(console: self, line: String)
-}
+end
 
 /// Standard input and output.
 pub type Terminal
 
-impl Console for Terminal {
-    fn read_line(_console: Terminal) -> Maybe<String> {
+impl Console for Terminal
+    fn read_line(_console: Terminal) -> Maybe<String>
         io.read_line() |> Result.with_default(None)
-    }
+    end
 
-    fn write_line(_console: Terminal, line: String) {
+    fn write_line(_console: Terminal, line: String)
         io.print(line)
-    }
-}
+    end
+end

@@ -11,32 +11,32 @@ func TestIRAppFieldExistentialWrite_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct App {
+struct App
     context: Context
     out: Display
     many: List<Display>
-}
+end
 
-fn boot(_startup: Startup) -> Result<App, String> {
+fn boot(_startup: Startup) -> Result<App, String>
     Ok(App{context: Context.root(), out: 1, many: [1]})
-}
+end
 
-fn main() {
+fn main()
     io.print(Display.to_string(App.out))
     show()
-}
+end
 
-fn show() {
+fn show()
     with App.out = "x"
     with App.many = [2, "y"]
     io.print(Display.to_string(App.out))
     io.print(App.many |> Iter.map(Display.to_string) |> String.join(","))
-}
+end
 `
 	irRunSource(t, src, "1\nx\n2,y\n")
 }
 
-// A `with` sets a Map application field from `%{}`, whose element
+// A `with` sets a Map application field from `{}`, whose element
 // types are the field's.
 func TestIRAppFieldEmptyMapWrite_Runs(t *testing.T) {
 	if testing.Short() {
@@ -44,23 +44,23 @@ func TestIRAppFieldEmptyMapWrite_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct App {
+struct App
     cache: Map<String, Int>
-}
+end
 
-fn boot(_startup: Startup) -> Result<App, String> {
-    Ok(App{cache: %{"a" => 1}})
-}
+fn boot(_startup: Startup) -> Result<App, String>
+    Ok(App{cache: {"a" => 1}})
+end
 
-fn size() -> Int {
+fn size() -> Int
     Map.size(App.cache)
-}
+end
 
-fn main() {
+fn main()
     io.print(size())
-    with App.cache = %{}
+    with App.cache = {}
     io.print(size())
-}
+end
 `
 	irRunSource(t, src, "1\n0\n")
 }

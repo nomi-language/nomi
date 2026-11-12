@@ -25,75 +25,76 @@ import std::io
 // analyzer rather than a guess. It is (kind=param, name="_"), so it lowers —
 // and if that ever changes, this line stops compiling instead of silently
 // becoming a refusal.
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-enum Shape {
+enum Shape
     Dot
     Square Int
-}
+end
 
 type Meters Int
 
-fn apply_int(f: (Int) -> Int, x: Int) -> Int {
+fn apply_int(f: (Int) -> Int, x: Int) -> Int
     f(x)
-}
+end
 
-fn apply_float(f: (Float) -> Float, x: Float) -> Float {
+fn apply_float(f: (Float) -> Float, x: Float) -> Float
     f(x)
-}
+end
 
-fn apply_string(f: (String) -> String, s: String) -> String {
+fn apply_string(f: (String) -> String, s: String) -> String
     f(s)
-}
+end
 
-fn apply_bool(f: (Bool) -> Bool, b: Bool) -> Bool {
+fn apply_bool(f: (Bool) -> Bool, b: Bool) -> Bool
     f(b)
-}
+end
 
-fn apply_unit(f: (Unit) -> String, u: Unit) -> String {
+fn apply_unit(f: (Unit) -> String, u: Unit) -> String
     f(u)
-}
+end
 
-fn apply_point(f: (Point) -> Int, p: Point) -> Int {
+fn apply_point(f: (Point) -> Int, p: Point) -> Int
     f(p)
-}
+end
 
-fn apply_shape(f: (Shape) -> Int, s: Shape) -> Int {
+fn apply_shape(f: (Shape) -> Int, s: Shape) -> Int
     f(s)
-}
+end
 
-fn apply_meters(f: (Meters) -> Int, m: Meters) -> Int {
+fn apply_meters(f: (Meters) -> Int, m: Meters) -> Int
     f(m)
-}
+end
 
-fn apply_list(f: (List<Int>) -> String, xs: List<Int>) -> String {
+fn apply_list(f: (List<Int>) -> String, xs: List<Int>) -> String
     f(xs)
-}
+end
 
-fn apply_pair(f: ((Int, String)) -> String, p: (Int, String)) -> String {
+fn apply_pair(f: ((Int, String)) -> String, p: (Int, String)) -> String
     f(p)
-}
+end
 
 // The higher-order case: `callf`'s own parameter is a function whose parameter
 // is a function, so the lambda passed to it has an inferred parameter of
 // FUNCTION type. A projection that flattened a func type into "some callable"
 // would compile here and lose the frame.
-fn callf(f: ((Int) -> Int) -> Int) -> Int {
+fn callf(f: ((Int) -> Int) -> Int) -> Int
     f(fn n -> n + 1)
-}
+end
 
 // A Unit VALUE, spelled as an `if` with no `else` because that is the one
 // spelling this builder lowers: a bare `Unit` is a type reference and is
 // refused, so writing it here would refuse the fixture for a reason that has
 // nothing to do with lambda parameters.
-fn unit_value() -> Unit {
-    if False {}
-}
+fn unit_value() -> Unit
+    if False then
+    end
+end
 
-fn main() {
+fn main()
     io.print("int = ${apply_int(fn n -> n * 2, 21)}")
     io.print("discard = ${apply_int(fn _ -> 7, 21)}")
     io.print("float = ${apply_float(fn x -> x * 2.0, 1.5)}")
@@ -110,35 +111,35 @@ fn main() {
 
     io.print(
         "dot = ${apply_shape(
-            fn s -> {
-                case s {
+            fn s ->
+                case s
                     Shape.Dot -> 0
                     Shape.Square(n) -> n
-                }
-            },
+                end
+            end,
             Shape.Dot,
         )}"
     )
 
     io.print(
         "square = ${apply_shape(
-            fn s -> {
-                case s {
+            fn s ->
+                case s
                     Shape.Dot -> 0
                     Shape.Square(n) -> n
-                }
-            },
+                end
+            end,
             Shape.Square(9),
         )}"
     )
 
     io.print(
         "meters = ${apply_meters(
-            fn m -> {
-                case m {
+            fn m ->
+                case m
                     Meters(v) -> v
-                }
-            },
+                end
+            end,
             Meters(12),
         )}"
     )
@@ -156,4 +157,4 @@ fn main() {
     // type — so both signatures come from the analyzer and the capture has to
     // name the outer local rather than a copy.
     io.print("nested = ${callf(fn g -> apply_int(fn k -> g(k) + 100, 1))}")
-}
+end

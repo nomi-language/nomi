@@ -37,10 +37,10 @@ func TestModules_InitMakesTheDirectoryAProject(t *testing.T) {
 	// Every file with a fn main is an entry point, a test file is not, and
 	// the program then checks with no further step.
 	tools := t.TempDir()
-	mustWrite(t, filepath.Join(tools, "main.nomi"), "fn main() {\n}\n")
-	mustWrite(t, filepath.Join(tools, "cmd", "seed.nomi"), "fn main() {\n}\n")
-	mustWrite(t, filepath.Join(tools, "util.nomi"), "pub fn two() -> Int {\n    2\n}\n")
-	mustWrite(t, filepath.Join(tools, "util_test.nomi"), "test \"two\" {\n    assert 2 == 2\n}\n")
+	mustWrite(t, filepath.Join(tools, "main.nomi"), "fn main() end\n")
+	mustWrite(t, filepath.Join(tools, "cmd", "seed.nomi"), "fn main() end\n")
+	mustWrite(t, filepath.Join(tools, "util.nomi"), "pub fn two() -> Int\n    2\nend\n")
+	mustWrite(t, filepath.Join(tools, "util_test.nomi"), "test \"two\"\n    assert 2 == 2\nend\n")
 	if out := c.must(tools, "init", "example.com/tools"); out != "wrote nomi.toml and go.mod\nnext: nomi run cmd/seed.nomi" {
 		t.Errorf("nomi init beside two entries printed\n%s", out)
 	}
@@ -109,14 +109,14 @@ const showmiGo = `package go_http
 func Greet(name string) string { return "hello, " + name }
 `
 
-const showmiMain = `import {
+const showmiMain = `import
     std::io
     go_http.greet
-}
+end
 
-fn main() {
+fn main()
     io.print(greet("you"))
-}
+end
 `
 
 // A binding to the Go code beside it, in a directory that is not a project

@@ -1,45 +1,46 @@
 //# A counter held by an actor, for actor_test.nomi.
 
-import {
+import
     std::actors.{Actor, CallError, Reply}
     std::io
     std::supervisors.{Restart, Supervisor}
-}
+end
 
-pub enum Counter {
+pub enum Counter
     Add Int
     Get {reply: Reply<Int>}
     Stall {reply: Reply<Int>}
-}
+end
 
-pub struct App {
+pub struct App
     context: Context
     counter: Actor<Counter>
-}
+end
 
-fn handle(count: Int, message: Counter) -> Int {
-    case message {
-        .Add(n) -> count + n
+fn handle(count: Int, message: Counter) -> Int
+    case message
+        .Add(n) ->
+            count + n
 
-        .Get{reply} -> {
+        .Get{reply:} ->
             Reply.send(reply, count)
             count
-        }
 
-        .Stall{reply: _} -> count
-    }
-}
+        .Stall{reply: _} ->
+            count
+    end
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
     workers = Supervisor.new(max_running: 1, restart: Restart.Transient)
     Ok(App{context: Context.root(), counter: Actor.start(workers, 0, handle)})
-}
+end
 
-pub fn get() -> Result<Int, CallError> {
-    Actor.call(App.counter, fn reply -> .Get{reply})
-}
+pub fn get() -> Result<Int, CallError>
+    Actor.call(App.counter, fn reply -> .Get{reply:})
+end
 
-fn main() {
+fn main()
     _ = Actor.cast(App.counter, .Add(2))
     io.print("count: ${get()}")
-}
+end

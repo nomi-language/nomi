@@ -1,19 +1,17 @@
 package parser
 
 import (
-	"fmt"
-
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/token"
 )
 
-// A named struct is built and matched by its name, with no symbol in
-// front: `Point{x: 1}`, `geo.Point{x: 1}`, `Shape.Circle{radius: 1.0}`,
-// `.Circle{radius: 1.0}`, and the patterns `Point{x, y}`, `.Circle{radius}`.
-// A name with a `{` on its line opens the literal, except at the top of a
-// condition head (the expression between `if` or `case` and the `{` of its
-// body), where `Name {` is the name followed by the body. A literal there
-// is written in parentheses: `case (Point{x: 1}) { ... }`.
+// A named struct or map is built and matched by its name: `Point{x: 1}`,
+// `geo.Point{x: 1}`, `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}`,
+// `Kvs{"a" => 1}`, `.Obj{"k" => v}`, and the patterns `Point{x:, y:}`,
+// `.Circle{radius:}`, `Kvs{"a" => v}`. A name with a `{` on its line opens
+// the literal, wherever an expression or a pattern stands; its first entry,
+// `name:` or `key =>`, says whether it is a struct or a map, and `Name{}`
+// is the one the name declares (the checker decides).
 
 // namedBraceAhead reports whether the tokens at offset start a literal
 // name followed by a `{` on the name's line: `Point{`, `geo.Point{`,
@@ -50,78 +48,6 @@ func (p *Parser) namedBraceAhead(offset int) (n int, ok bool) {
 	return i - offset, true
 }
 
-// matchingBrace is the offset of the `}` that closes the `{` at offset, or
-// -1 when the file ends first.
-func (p *Parser) matchingBrace(offset int) int {
-	depth := 0
-	for i := offset; ; i++ {
-		switch p.peekAt(i).Type {
-		case token.EOF:
-			return -1
-		case token.LBRACE, token.LPAREN, token.LBRACKET:
-			depth++
-		case token.RBRACE, token.RPAREN, token.RBRACKET:
-			depth--
-			if depth == 0 {
-				return i
-			}
-		}
-	}
-}
-
-// enterHead marks the start of a condition head, ended by the returned
-// function.
-func (p *Parser) enterHead() func() {
-	p.heads = append(p.heads, p.pos)
-	return func() { p.heads = p.heads[:len(p.heads)-1] }
-}
-
-// atHeadTop reports whether the parser stands at the top of the innermost
-// condition head: no bracket opened since the head began is still open.
-func (p *Parser) atHeadTop() bool {
-	if len(p.heads) == 0 {
-		return false
-	}
-	depth := 0
-	for i := p.heads[len(p.heads)-1]; i < p.pos; i++ {
-		switch p.tokens[i].Type {
-		case token.LBRACE, token.LPAREN, token.LBRACKET:
-			depth++
-		case token.RBRACE, token.RPAREN, token.RBRACKET:
-			depth--
-		}
-	}
-	return depth <= 0
-}
-
-// headLiteral is the error for a named literal or pattern written at the
-// top of a condition head, `case (Point{x: 1}) {`: there `Name {` is the name
-// and the body, so the literal goes in parentheses. It answers only when
-// the source reads as a literal followed by the body, a `{` right after the
-// name and another `{` after the literal's `}` on the same line; nil
-// otherwise, and the name is read alone.
-func (p *Parser) headLiteral(n int, first token.Token, what string) error {
-	open := p.peekAt(n)
-	last := p.peekAt(n - 1)
-	if !adjacent(last, open) {
-		return nil
-	}
-	end := p.matchingBrace(n)
-	if end < 0 {
-		return nil
-	}
-	closer, body := p.peekAt(end), p.peekAt(end+1)
-	if body.Type != token.LBRACE || body.Line != closer.Line {
-		return nil
-	}
-	return ParseError{Line: first.Line, Col: first.Col,
-		Message: fmt.Sprintf("a %s in an `if` or `case` head is written in parentheses: the `{` after a name there opens the body", what),
-		Fix: &Fix{Title: "Wrap it in parentheses", Edits: []Edit{
-			{Start: Pos{first.Line, first.Col}, End: Pos{first.Line, first.Col}, Text: "("},
-			{Start: Pos{closer.Line, closer.Col + 1}, End: Pos{closer.Line, closer.Col + 1}, Text: ")"},
-		}}}
-}
-
 // parseLiteralName reads the name a named literal or pattern starts with,
 // the cursor on its first token: `Point`, `geo.Point`, `Shape.Circle`,
 // `.Circle`. Every segment but the last names the owner.
@@ -136,21 +62,37 @@ func (p *Parser) parseLiteralName() ast.TypeExpr {
 	return p.literalNameSegments(first)
 }
 
+// braceIsEmpty reports whether the `{` at offset holds nothing but line
+// breaks, comments and `;` before its `}`. An empty named literal is a struct
+// literal whatever trivia it holds, so `A{}` and `A{ // note }` parse alike
+// and formatting one into the other keeps its meaning.
+func (p *Parser) braceIsEmpty(offset int) bool {
+	for i := p.pos + offset + 1; i < len(p.tokens); i++ {
+		switch p.tokens[i].Type {
+		case token.NEWLINE, token.BLANK_LINE, token.COMMENT, token.DOC_COMMENT, token.SEMICOLON:
+			continue
+		case token.RBRACE:
+			return true
+		}
+		return false
+	}
+	return false
+}
+
 // tryNamedStructLit parses a named struct literal when one starts at the
 // cursor. ok is false, with nothing consumed, when none does.
 func (p *Parser) tryNamedStructLit() (ast.Node, bool, error) {
-	n, ok := p.namedBraceAhead(0)
-	if !ok {
+	if _, ok := p.namedBraceAhead(0); !ok {
 		return nil, false, nil
 	}
-	if p.atHeadTop() {
-		if err := p.headLiteral(n, p.peek(), "struct literal"); err != nil {
-			return nil, true, err
-		}
-		return nil, false, nil
-	}
+	n, _ := p.namedBraceAhead(0)
 	first := p.peek()
+	isMap := p.braceOpensMap(n) && !p.braceIsEmpty(n)
 	typeName := p.parseLiteralName()
+	if isMap {
+		lit, err := p.parseTypePrefixedMapLit(typeName, first.Line, first.Col)
+		return lit, true, err
+	}
 	lit, err := p.parseStructLit(typeName, first.Line, first.Col)
 	return lit, true, err
 }

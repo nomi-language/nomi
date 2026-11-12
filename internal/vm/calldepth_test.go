@@ -60,15 +60,15 @@ func requireDepthFault(t *testing.T, err error, line int) {
 func TestCallDepth_InfiniteRecursionFaultsAtTheCall(t *testing.T) {
 	out, err := runDepth(t, `import std::io
 
-fn down(n: Int) -> Int {
+fn down(n: Int) -> Int
   io.print("x")
   down(n + 1) + 1
-}
+end
 
-fn main() {
+fn main()
   io.print("start")
   down(0) |> io.print()
-}
+end
 `)
 	requireDepthFault(t, err, 5)
 	// main plus MaxCallDepth-1 activations of down, each printing before
@@ -88,17 +88,17 @@ func TestCallDepth_RecursionUpToTheLimitRuns(t *testing.T) {
 	src := func(n int) string {
 		return fmt.Sprintf(`import std::io
 
-fn sum(n: Int) -> Int {
-  if n == 0 {
+fn sum(n: Int) -> Int
+  if n == 0 then
     0
-  } else {
+  else
     n + sum(n - 1)
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   sum(%d) |> io.print()
-}
+end
 `, n)
 	}
 	n := rt.MaxCallDepth - 2
@@ -124,13 +124,13 @@ func TestCallDepth_RecursionThroughACallbackFaults(t *testing.T) {
 	defer debug.SetMaxStack(debug.SetMaxStack(2_000_000_000))
 	_, err := runDepth(t, `import std::io
 
-fn walk(n: Int) -> Int {
+fn walk(n: Int) -> Int
   [n] |> Iter.map(fn x -> walk(x + 1) + 1) |> Iter.reduce(0, fn acc, x -> acc + x)
-}
+end
 
-fn main() {
+fn main()
   walk(0) |> io.print()
-}
+end
 `)
 	requireDepthFault(t, err, 4)
 }
@@ -141,21 +141,21 @@ func TestCallDepth_AFaultInATaskIsItsFailure(t *testing.T) {
 	out, err := runDepth(t, `import std::io
 import std::tasks.Task
 
-fn down(n: Int) -> Int {
+fn down(n: Int) -> Int
   down(n + 1) + 1
-}
+end
 
-fn main() {
-  concurrent {
+fn main()
+  concurrent
     worker = Task.spawn(fn -> down(0))
-    case Task.outcome(worker) {
+    case Task.outcome(worker)
       .Completed(v) -> io.print("done: ${v}")
       .Cancelled -> io.print("cancelled")
       .Failed(e) -> io.inspect(e)
-    }
-  }
+    end
+  end
   io.print("after")
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("the spawner failed; the task's fault must stay the task's: %v", err)
@@ -169,17 +169,17 @@ fn main() {
 // A test case that recurses without bound fails with the fault, and the next
 // case still runs.
 func TestCallDepth_ATestCaseFailsAndTheNextRuns(t *testing.T) {
-	p := depthProgram(t, `fn down(n: Int) -> Int {
+	p := depthProgram(t, `fn down(n: Int) -> Int
   down(n + 1) + 1
-}
+end
 
-test "recurses" {
+test "recurses"
   assert down(0) == 0
-}
+end
 
-test "adds" {
+test "adds"
   assert 1 + 2 == 3
-}
+end
 `)
 	cases := p.Cases(&bytes.Buffer{}, vmhost.TestOptions{})
 	if len(cases) != 2 {

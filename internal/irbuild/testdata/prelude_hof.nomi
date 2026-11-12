@@ -49,45 +49,45 @@
 // refused by name as `prelude function over an unsolved instance` and is
 // asserted in preludehof_test.go rather than here, because a refused construct
 // cannot appear in a run fixture at all.
-fn none_int() -> Maybe<Int> {
+fn none_int() -> Maybe<Int>
     None
-}
+end
 
-fn none_string() -> Maybe<String> {
+fn none_string() -> Maybe<String>
     None
-}
+end
 
-fn double(x: Int) -> Int {
+fn double(x: Int) -> Int
     x * 2
-}
+end
 
-fn err_int() -> Result<Int, String> {
+fn err_int() -> Result<Int, String>
     Err("oops")
-}
+end
 
-fn positive_half(x: Int) -> Maybe<Int> {
-    if x > 0 { Some(x / 2) } else { none_int() }
-}
+fn positive_half(x: Int) -> Maybe<Int>
+    if x > 0 then Some(x / 2) else none_int()
+end
 
-fn checked_double(x: Int) -> Result<Int, String> {
-    if x > 0 { Ok(x * 2) } else { err_int() }
-}
+fn checked_double(x: Int) -> Result<Int, String>
+    if x > 0 then Ok(x * 2) else err_int()
+end
 
-test "Maybe.map transforms a Some and leaves a None alone" {
+test "Maybe.map transforms a Some and leaves a None alone"
     some: Maybe<Int> = Some(5)
 
     assert Maybe.map(some, &(&1 * 2)) == Some(10)
     assert Maybe.map(none_int(), &(&1 * 2)) == none_int()
     assert Maybe.is_none(Maybe.map(none_int(), &(&1 * 2)))
     assert Maybe.is_some(Maybe.map(some, &(&1 * 2)))
-}
+end
 
-test "Maybe.map may change the payload TYPE" {
+test "Maybe.map may change the payload TYPE"
     some: Maybe<Int> = Some(7)
 
     assert Maybe.map(some, &Int.to_string(&1)) == Some("7")
     assert Maybe.map(none_int(), &Int.to_string(&1)) == none_string()
-}
+end
 
 // The FUNCTION-REFERENCE spelling, in a BINDING rather than as an assertion
 // operand — and the binding is the corpus spelling as well as the necessary one.
@@ -99,7 +99,7 @@ test "Maybe.map may change the payload TYPE" {
 // rendering for a function value. `08-pattern-matching/maybe_result_test.nomi`
 // writes both of its `map` calls in a binding for its own reasons, so the corpus
 // does not reach that position and this fixture does not manufacture it.
-test "Maybe.map takes a function reference, which is the corpus spelling" {
+test "Maybe.map takes a function reference, which is the corpus spelling"
     some: Maybe<Int> = Some(5)
     mapped = Maybe.map(some, double)
 
@@ -116,9 +116,9 @@ test "Maybe.map takes a function reference, which is the corpus spelling" {
     assert mapped == Some(10)
     assert piped == 10
     assert absent == 0
-}
+end
 
-test "a bare None receiver takes its type from the callback's parameter" {
+test "a bare None receiver takes its type from the callback's parameter"
     n =
         None
         |> Maybe.map(&(&1 * 2))
@@ -126,40 +126,40 @@ test "a bare None receiver takes its type from the callback's parameter" {
 
     assert n == 0
     assert Maybe.is_none(Maybe.map(None, fn x: Int -> x * 2))
-}
+end
 
-test "Maybe.flat_map flattens rather than nesting" {
+test "Maybe.flat_map flattens rather than nesting"
     some: Maybe<Int> = Some(10)
 
     assert Maybe.flat_map(some, &positive_half(&1)) == Some(5)
     assert Maybe.flat_map(none_int(), &positive_half(&1)) == none_int()
-}
+end
 
-test "Maybe.flat_map can turn a present value into an absent one" {
+test "Maybe.flat_map can turn a present value into an absent one"
     negative: Maybe<Int> = Some(-4)
 
     assert Maybe.flat_map(negative, &positive_half(&1)) == none_int()
     assert Maybe.is_none(Maybe.flat_map(negative, &positive_half(&1)))
-}
+end
 
-test "Result.map transforms an Ok and carries the Err VALUE across" {
+test "Result.map transforms an Ok and carries the Err VALUE across"
     good: Result<Int, String> = Ok(7)
 
     assert Result.map(good, &(&1 * 2)) == Ok(14)
     assert Result.map(err_int(), &(&1 * 2)) == Err("oops")
     assert Result.is_err(Result.map(err_int(), &(&1 * 2)))
     assert Result.with_default(Result.map(err_int(), &(&1 * 2)), 0) == 0
-}
+end
 
-test "Result.map may change the Ok TYPE and still carry the Err value" {
+test "Result.map may change the Ok TYPE and still carry the Err value"
     good: Result<Int, String> = Ok(7)
     mapped: Result<String, String> = Result.map(err_int(), &Int.to_string(&1))
 
     assert Result.map(good, &Int.to_string(&1)) == Ok("7")
     assert mapped == Err("oops")
-}
+end
 
-test "Result.map takes a function reference, which is the corpus spelling" {
+test "Result.map takes a function reference, which is the corpus spelling"
     good: Result<Int, String> = Ok(7)
     mapped = Result.map(good, double)
 
@@ -176,34 +176,34 @@ test "Result.map takes a function reference, which is the corpus spelling" {
     assert mapped == Ok(14)
     assert piped == 14
     assert failed == 0
-}
+end
 
-test "Result.flat_map flattens and can turn an Ok into an Err" {
+test "Result.flat_map flattens and can turn an Ok into an Err"
     good: Result<Int, String> = Ok(7)
     negative: Result<Int, String> = Ok(-1)
 
     assert Result.flat_map(good, &checked_double(&1)) == Ok(14)
     assert Result.flat_map(negative, &checked_double(&1)) == Err("oops")
     assert Result.flat_map(err_int(), &checked_double(&1)) == Err("oops")
-}
+end
 
-test "Result.map_err transforms the error and carries the Ok PAYLOAD across" {
+test "Result.map_err transforms the error and carries the Ok PAYLOAD across"
     good: Result<Int, String> = Ok(3)
 
     assert Result.map_err(good, fn e: String -> e + "!") == Ok(3)
     assert Result.map_err(err_int(), fn e: String -> e + "!") == Err("oops!")
     assert Result.is_ok(Result.map_err(good, fn e: String -> e + "!"))
-}
+end
 
-test "Result.map_err may change the error TYPE" {
+test "Result.map_err may change the error TYPE"
     good: Result<Int, String> = Ok(3)
     flagged: Result<Int, Bool> = Result.map_err(err_int(), fn e: String -> e == "oops")
 
     assert flagged == Err(True)
     assert Result.map_err(good, fn e: String -> e == "oops") == Ok(3)
-}
+end
 
-test "the higher-order half composes with the rest of the surface" {
+test "the higher-order half composes with the rest of the surface"
     some: Maybe<Int> = Some(4)
 
     chained =
@@ -220,4 +220,4 @@ test "the higher-order half composes with the rest of the surface" {
     assert lifted == Ok(8)
     assert dropped == none_int()
     assert through == Some(10)
-}
+end

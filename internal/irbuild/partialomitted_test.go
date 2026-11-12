@@ -14,20 +14,20 @@ func TestPartialOmittedDefault_Runs(t *testing.T) {
 	}
 	irRunSource(t, `import std::io
 
-fn base() -> Int {
+fn base() -> Int
     io.print("base")
     10
-}
+end
 
-fn conn(host: String, port: Int = base() + 1, tls: Bool = False) -> String {
+fn conn(host: String, port: Int = base() + 1, tls: Bool = False) -> String
     "${host}:${port}:${tls}"
-}
+end
 
-fn tag<T>(x: T, label: String = "t${base()}", n: Int = 0) -> String where T: Display {
+fn tag<T>(x: T, label: String = "t${base()}", n: Int = 0) -> String where T: Display
     "${label}=${x}/${n}"
-}
+end
 
-fn main() {
+fn main()
     c = &conn(&1)
     io.print(c("h"))
     io.print(c("i"))
@@ -40,6 +40,6 @@ fn main() {
     l = fn a: Int, b: Int = a * 2, z: Int = 1 -> a + b + z
     g = &l(&1, z: 100)
     io.print(g(1))
-}
+end
 `, "base\nh:11:False\nbase\ni:11:False\nbase\nj:11:True\nbase\nk:11:True\nbase\nt10=5/2\n103\n")
 }

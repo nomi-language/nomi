@@ -5,29 +5,29 @@ import "testing"
 // An application-field read is an ordinary field access, and a `with` is one
 // statement per field among the block's other statements.
 func TestFormat_WithStatement(t *testing.T) {
-	src := `fn main() {
+	src := `fn main()
     io.print(App.tag)
     with App.tag = "audit"
     with App.context = Context.with_timeout(App.context, Duration.seconds(1))
     run()
-}
+end
 `
 	formatWithTwice(t, src, src)
 }
 
 // Extra spaces collapse, and comments above and after a `with` line stay.
 func TestFormat_WithKeepsComments(t *testing.T) {
-	src := `fn main() {
+	src := `fn main()
     // why
     with   App.logger =   Silent // inline
     run_import()
-}
+end
 `
-	want := `fn main() {
+	want := `fn main()
     // why
     with App.logger = Silent // inline
     run_import()
-}
+end
 `
 	formatWithTwice(t, src, want)
 }
@@ -35,67 +35,67 @@ func TestFormat_WithKeepsComments(t *testing.T) {
 // A struct-literal value needs no parentheses, so the formatter drops any
 // written around one.
 func TestFormat_WithDropsStructLiteralParentheses(t *testing.T) {
-	src := `fn main() {
+	src := `fn main()
     with App.clock = (FakeClock{at: 4242})
     tick()
-}
+end
 `
-	want := `fn main() {
+	want := `fn main()
     with App.clock = FakeClock{at: 4242}
     tick()
-}
+end
 `
 	formatWithTwice(t, src, want)
 }
 
 // Parentheses around anything other than a struct literal stay.
 func TestFormat_WithKeepsOtherParentheses(t *testing.T) {
-	src := `fn main() {
+	src := `fn main()
     with App.n = (1 + 2)
     tick()
-}
+end
 `
 	formatWithTwice(t, src, src)
 }
 
 // A long value breaks the way a binding's does.
 func TestFormat_WithLongValue(t *testing.T) {
-	src := "fn main() { with App.config = make_config_with_a_long_argument_name(really_long_argument_name, second_really_long_argument)\n run() }\n"
-	want := `fn main() {
+	src := "fn main()\n    with App.config = make_config_with_a_long_argument_name(really_long_argument_name, second_really_long_argument)\n run()\nend\n"
+	want := `fn main()
     with App.config = make_config_with_a_long_argument_name(
         really_long_argument_name,
         second_really_long_argument,
     )
 
     run()
-}
+end
 `
 	formatWithTwice(t, src, want)
 }
 
 // A `with` line in a group's setup formats as it does in any block.
 func TestFormat_WithInSetup(t *testing.T) {
-	src := `group "g" {
-    setup {
+	src := `group "g"
+    setup begin
         with App.store = (FakeStore{})
         Fixture{a: 1}
-    }
+    end
 
-    test "t", .{a} {
+    test "t", {a:}
         assert a == 1
-    }
-}
+    end
+end
 `
-	want := `group "g" {
-    setup {
+	want := `group "g"
+    setup begin
         with App.store = FakeStore{}
         Fixture{a: 1}
-    }
+    end
 
-    test "t", .{a} {
+    test "t", {a:}
         assert a == 1
-    }
-}
+    end
+end
 `
 	formatWithTwice(t, src, want)
 }

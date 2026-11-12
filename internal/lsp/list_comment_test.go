@@ -9,15 +9,15 @@ import (
 
 // listCommentSource is a call whose argument list holds comments, before
 // the first argument, after one's comma and after the last.
-const listCommentSource = `fn add(a: Int, b: Int) -> Int {
+const listCommentSource = `fn add(a: Int, b: Int) -> Int
     a + b
-}
+end
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn main() {
+fn main()
     total = add(
         // the base
         1,
@@ -25,7 +25,7 @@ fn main() {
         // the end
     )
     _ = total
-}
+end
 `
 
 // A comment in an argument list leaves the arguments to the language

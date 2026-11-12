@@ -14,32 +14,32 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Converts a number, written as digits in one base, to its digits in another.
 
 /// Why a number cannot be rebased.
-pub enum Error {
+pub enum Error
     InvalidInputBase
     InvalidDigit
     InvalidOutputBase
-}
+end
 
 /// The digits, most significant first, of the number that `digits` writes
 /// in `input_base`, written in `output_base`. Zero, and an empty list of
 /// digits, come out as `[0]`.
-pub fn rebase(input_base: Int, digits: List<Int>, output_base: Int) -> Result<List<Int>, Error> {
-    if input_base < 2 { return Err(.InvalidInputBase) }
+pub fn rebase(input_base: Int, digits: List<Int>, output_base: Int) -> Result<List<Int>, Error>
+    if input_base < 2 then return Err(.InvalidInputBase)
 
-    Some(number) = Int.from_digits(digits, input_base) else { return Err(.InvalidDigit) }
+    Some(number) = Int.from_digits(digits, input_base) else return Err(.InvalidDigit)
 
-    if output_base < 2 { return Err(.InvalidOutputBase) }
+    if output_base < 2 then return Err(.InvalidOutputBase)
 
     Ok(Int.to_digits(number, output_base))
-}
+end
 
 // FILE: all_your_base_test.nomi
-import {
+import
     all_your_base
     all_your_base.Error
-}
+end
 
-test "rebases digits" {
+test "rebases digits"
     [
         ("single bit one to decimal", 2, [1], 10, Ok([1])),
         ("binary to single decimal", 2, [1, 0, 1], 10, Ok([5])),
@@ -63,10 +63,10 @@ test "rebases digits" {
         ("output base is negative", 2, [1], -7, Err(.InvalidOutputBase)),
         ("both bases are negative", -2, [1], -7, Err(.InvalidInputBase)),
     ]
-    |> subtests (description, input_base, digits, output_base, expected), description {
+    |> subtests (description, input_base, digits, output_base, expected), description
         assert all_your_base.rebase(input_base, digits, output_base) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok rebases digits (21 cases)

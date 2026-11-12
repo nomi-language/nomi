@@ -28,19 +28,19 @@ func buildRefusal(t *testing.T, src string) (string, string) {
 // `nomi build` refuses a program with any `todo` in its files, reached or
 // not, and lists each one in source order.
 func TestTodo_BuildImageRefusesAProgramWithTodos(t *testing.T) {
-	got, path := buildRefusal(t, `fn parse(text: String) -> Int {
+	got, path := buildRefusal(t, `fn parse(text: String) -> Int
     todo "parse the header"
-}
+end
 
-fn main() {
-    if False {
+fn main()
+    if False then
         _ = parse("x")
-    }
+    end
     _ = 1
-    if False {
+    if False then
         todo
-    }
-}
+    end
+end
 `)
 	want := strings.Join([]string{
 		"2 todos remain:",
@@ -51,7 +51,7 @@ fn main() {
 		t.Fatalf("error\n%s\nwant\n%s", got, want)
 	}
 
-	clean := writeProgram(t, "fn main() {\n    _ = 1\n}\n")
+	clean := writeProgram(t, "fn main()\n    _ = 1\nend\n")
 	p, err := vmhost.Load(clean)
 	if err != nil {
 		t.Fatal(err)
@@ -65,18 +65,18 @@ fn main() {
 // each one's operand on one line: a statement, a pipe stage, one in a
 // function nothing calls, and a long multi-line operand, compacted and cut.
 func TestDbg_BuildImageRefusesAProgramWithDbgs(t *testing.T) {
-	got, path := buildRefusal(t, `fn unused(n: Int) -> Int {
+	got, path := buildRefusal(t, `fn unused(n: Int) -> Int
     dbg n + 1
-}
+end
 
-fn main() {
+fn main()
     total = [1, 2, 3] |> Iter.reduce(0, fn sum, n -> sum + n) |> dbg
     _ = dbg total
     _ = dbg [
         "a fairly long first element",
         "and a second one",
     ]
-}
+end
 `)
 	want := strings.Join([]string{
 		"4 dbgs remain:",
@@ -89,7 +89,7 @@ fn main() {
 		t.Fatalf("error\n%s\nwant\n%s", got, want)
 	}
 
-	one, path := buildRefusal(t, "fn main() {\n    _ = dbg 1\n}\n")
+	one, path := buildRefusal(t, "fn main()\n    _ = dbg 1\nend\n")
 	if want := "1 dbg remains:\n  " + path + ":2:9 dbg 1"; one != want {
 		t.Fatalf("error\n%s\nwant\n%s", one, want)
 	}
@@ -98,16 +98,16 @@ fn main() {
 // A program with both is refused once, with one header counting each kind
 // and one list in source order.
 func TestLeftovers_BuildImageListsTodosAndDbgsTogether(t *testing.T) {
-	got, path := buildRefusal(t, `fn later() -> Int {
+	got, path := buildRefusal(t, `fn later() -> Int
     todo "later"
-}
+end
 
-fn main() {
+fn main()
     _ = dbg 1
-    if False {
+    if False then
         _ = later()
-    }
-}
+    end
+end
 `)
 	want := strings.Join([]string{
 		"1 todo and 1 dbg remain:",

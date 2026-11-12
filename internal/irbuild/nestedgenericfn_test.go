@@ -18,37 +18,37 @@ func TestIRGenericNestedFn_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Box<T> {
+struct Box<T>
     v: T
-}
+end
 
-fn outer<T>(x: T) -> List<T> {
-    fn twice<U>(u: U) -> List<U> {
+fn outer<T>(x: T) -> List<T>
+    fn twice<U>(u: U) -> List<U>
         [u, u]
-    }
+    end
     twice(x)
-}
+end
 
-fn main() {
+fn main()
     k = 10
-    fn add_k<T>(x: T, f: (T) -> Int) -> Int {
+    fn add_k<T>(x: T, f: (T) -> Int) -> Int
         f(x) + k
-    }
-    fn pair<A, B>(a: A, b: B) -> (B, A) {
+    end
+    fn pair<A, B>(a: A, b: B) -> (B, A)
         (b, a)
-    }
-    fn ok<T>(x: T) -> Result<T, String> {
+    end
+    fn ok<T>(x: T) -> Result<T, String>
         Ok(x)
-    }
-    fn show<T>(x: T) -> String where T: Display {
+    end
+    fn show<T>(x: T) -> String where T: Display
         Display.to_string(x)
-    }
-    fn label<T>(x: T) -> String where T: Display {
+    end
+    fn label<T>(x: T) -> String where T: Display
         "<" + show(x) + ">"
-    }
-    fn both<A, B>(a: A, b: B) -> String where A: Display, B: Display {
+    end
+    fn both<A, B>(a: A, b: B) -> String where A: Display, B: Display
         label(a) + label(b)
-    }
+    end
     k = 20
     io.inspect(add_k("abc", String.length))
     io.inspect(add_k(5, fn n -> n * 2))
@@ -56,24 +56,24 @@ fn main() {
     io.inspect(3 |> pair("y"))
     io.inspect(Iter.map([1, 2], fn n -> pair(n, k)) |> Iter.to_list())
     io.inspect(Iter.map([True], ok) |> Iter.to_list())
-    fn attempt() -> Result<Box<Int>, String> {
+    fn attempt() -> Result<Box<Int>, String>
         b = ok(Box{v: 1})?
         Ok(b)
-    }
+    end
     io.inspect(attempt())
     io.inspect(ok(Box{v: 2.5}))
     io.inspect(both(1, "z"))
     io.inspect(outer("o"))
     io.inspect(outer(Some(1)))
-    fn count<T>(xs: List<T>, n: Int) -> Int {
-        case List.next_item(xs) {
+    fn count<T>(xs: List<T>, n: Int) -> Int
+        case List.next_item(xs)
             Some((_, rest)) -> count(rest, n + 1)
             None -> n
-        }
-    }
+        end
+    end
     io.inspect(count(["a", "b"], 0))
     io.inspect(count([1.5], 0))
-}
+end
 `
 	const want = "13\n" +
 		"20\n" +
@@ -89,13 +89,13 @@ fn main() {
 		"2\n" +
 		"1\n"
 	irRunSource(t, src, want)
-	const tests = `test "a generic nested fn in a test" {
-    fn ident<T>(x: T) -> T {
+	const tests = `test "a generic nested fn in a test"
+    fn ident<T>(x: T) -> T
         x
-    }
+    end
     assert ident(4) == 4
     assert ident("s") == "s"
-}
+end
 `
 	report, exit := irShapesRun(t, tests, []string{"a generic nested fn in a test"})
 	if exit != 0 || !strings.Contains(report, "1 passed") {

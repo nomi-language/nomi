@@ -7,30 +7,30 @@ import "testing"
 // nothing else under views/admin is part of the program until it does.
 func directoryImportsProject() incrementalProject {
 	return incrementalProject{name: "directory imports", entry: "main", texts: map[string]string{
-		"main": `import {
+		"main": `import
     std::io
     views::admin
-}
+end
 
-fn show(detail: admin::users.UserDetail) -> String {
+fn show(detail: admin::users.UserDetail) -> String
     admin::users.render(detail)
-}
+end
 
-fn main() {
+fn main()
     io.print(show(admin::users.UserDetail{name: "ada"}))
-}
+end
 `,
-		"views/admin/users": `pub struct UserDetail {
+		"views/admin/users": `pub struct UserDetail
     name: String
-}
+end
 
-pub fn render(detail: UserDetail) -> String {
+pub fn render(detail: UserDetail) -> String
     "<${detail.name}>"
-}
+end
 `,
-		"views/admin/reports/daily": `pub fn total() -> Int {
+		"views/admin/reports/daily": `pub fn total() -> Int
     3
-}
+end
 `,
 	}}
 }
@@ -47,7 +47,7 @@ var directoryImportsEdits = []editStep{
 	replace("a reached file's signature", "views/admin/users", "pub fn render(detail: UserDetail) -> String", "pub fn render(detail: UserDetail, width: Int) -> String"),
 	restore("the signature back", "views/admin/users"),
 	replace("body only in a reached file", "views/admin/users", `"<${detail.name}>"`, `detail.name`),
-	replace("every path removed", "main", "fn show(detail: admin::users.UserDetail) -> String {\n    admin::users.render(detail)\n}\n", "fn show(detail: String) -> String {\n    detail\n}\n"),
+	replace("every path removed", "main", "fn show(detail: admin::users.UserDetail) -> String\n    admin::users.render(detail)\nend\n", "fn show(detail: String) -> String\n    detail\nend\n"),
 }
 
 // TestDirectoryImportsIncrementalAndFromInterfaces holds the files a

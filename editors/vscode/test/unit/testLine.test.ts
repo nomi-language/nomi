@@ -14,27 +14,27 @@ const source = [
   /*  1 */ "/// Doubles n.",
   /*  2 */ "//! assert double(2) == 4",
   /*  3 */ "//! assert double(0) == 0",
-  /*  4 */ "fn double(n: Int) -> Int { n * 2 }",
-  /*  5 */ "",
-  /*  6 */ 'test "braces in literals do not count" {',
-  /*  7 */ '    s = "}"',
-  /*  8 */ '    t = "${ #{1: "}"} }"',
-  /*  9 */ "    r = `}}`",
-  /* 10 */ "    c = '}'",
-  /* 11 */ "    // }",
-  /* 12 */ '    u = """',
-  /* 13 */ "        }",
-  /* 14 */ '        """',
+  /*  4 */ "fn double(n: Int) -> Int",
+  /*  5 */ "    n * 2",
+  /*  6 */ "end",
+  /*  7 */ 'test "a string\'s lines do not end it"',
+  /*  8 */ '    s = "end"',
+  /*  9 */ "    // end",
+  /* 10 */ '    u = """',
+  /* 11 */ "end",
+  /* 12 */ '"""',
+  /* 13 */ "    r = `",
+  /* 14 */ "end`",
   /* 15 */ "    assert True",
-  /* 16 */ "}",
+  /* 16 */ "end",
   /* 17 */ "",
-  /* 18 */ 'group "group" {',
-  /* 19 */ "    setup { 1 }",
+  /* 18 */ 'group "group"',
+  /* 19 */ "    setup 1",
   /* 20 */ "",
-  /* 21 */ '    test "inner", n {',
+  /* 21 */ '    test "inner", n',
   /* 22 */ "        assert n == 1",
-  /* 23 */ "    }",
-  /* 24 */ "}",
+  /* 23 */ "    end",
+  /* 24 */ "end",
 ].join("\n");
 
 test("an attached test resolves to the first //! line of its block", () => {
@@ -46,11 +46,12 @@ test("a declaration's own line is not a test", () => {
   assert.equal(at(source, 1), undefined);
   assert.equal(at(source, 4), undefined);
   assert.equal(at(source, 5), undefined);
+  assert.equal(at(source, 6), undefined);
 });
 
-test("braces inside strings, raw strings, codepoints and comments are skipped", () => {
-  for (let line = 6; line <= 16; line++) {
-    assert.equal(at(source, line), 6, `line ${line}`);
+test("lines inside strings, raw strings and comments do not end a test", () => {
+  for (let line = 7; line <= 16; line++) {
+    assert.equal(at(source, line), 7, `line ${line}`);
   }
   assert.equal(at(source, 17), undefined);
 });
@@ -67,15 +68,15 @@ test("a test inside a group wins over the group", () => {
 
 test("a test in a group's subtests block runs for every row; the block's line runs the group", () => {
   const rows = [
-    /* 1 */ 'group "stores" {',
-    /* 2 */ '    subtests ["memory", "sqlite"], store {',
+    /* 1 */ 'group "stores"',
+    /* 2 */ '    subtests ["memory", "sqlite"], store',
     /* 3 */ "        setup store",
     /* 4 */ "",
-    /* 5 */ '        test "reads the row", s {',
+    /* 5 */ '        test "reads the row", s',
     /* 6 */ "            assert s == store",
-    /* 7 */ "        }",
-    /* 8 */ "    }",
-    /* 9 */ "}",
+    /* 7 */ "        end",
+    /* 8 */ "    end",
+    /* 9 */ "end",
   ].join("\n");
   assert.equal(at(rows, 2), 1);
   assert.equal(at(rows, 3), 1);
@@ -86,7 +87,7 @@ test("a test in a group's subtests block runs for every row; the block's line ru
 
 test("CRLF line ends give the same lines", () => {
   const crlf = source.replace(/\n/g, "\r\n");
-  assert.equal(at(crlf, 9), 6);
+  assert.equal(at(crlf, 9), 7);
   assert.equal(at(crlf, 22), 21);
   assert.equal(at(crlf, 17), undefined);
 });

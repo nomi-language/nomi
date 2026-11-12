@@ -16,18 +16,18 @@ func TestAnalyze_FnHovers(t *testing.T) {
 	const src = `import std::io
 
 /// Doubles n.
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
   n * 2
-}
+end
 
-fn main() {
+fn main()
   m = Maybe.map(Some(1), fn n -> [n])
   total = Iter.reduce([1, 2], 0, fn total, x -> total + x)
   k = 3
   |> then fn v -> v + 1
   f = fn -> 42
   io.inspect((m, total, k, f(), double(2)))
-}
+end
 `
 	lib := std.Load()
 	fa, nodes := highlight.AnalyzeNodes(src, lib)
@@ -73,15 +73,15 @@ const lambdaLink = "\n\nMore in the [tour](https://nomi-lang.org/functions-and-l
 func TestAnalyze_KeywordHovers(t *testing.T) {
 	const src = `import std::io
 
-fn main() {
+fn main()
   n = 2
-  label = case n {
+  label = case n
     1 -> "one"
     _ -> "many"
-  }
+  end
   io.print(label)
   _ = n > 1 and n < 3
-}
+end
 `
 	lib := std.Load()
 	fa, nodes := highlight.AnalyzeNodes(src, lib)

@@ -12,17 +12,17 @@ import (
 // accepted and the IR builder declined the call.
 func TestBareVariantCall_IsAnErrorAtTheCallee(t *testing.T) {
 	errs := checkWithStdlib(`
-enum Shape {
+enum Shape
   Circle
   Square Int
   Dot
-}
+end
 
-fn dot() -> Shape {
+fn dot() -> Shape
   .Circle(0)
-}
+end
 
-fn main() {
+fn main()
   _ = Shape.Circle(0)
   _ = Shape.Dot()
   m: Maybe<Int> = None(1)
@@ -32,7 +32,7 @@ fn main() {
   _ = Shape.Circle
   sq: (Int) -> Shape = Shape.Square
   _ = sq
-}
+end
 `)
 	var got []string
 	for _, e := range errs {
@@ -54,21 +54,21 @@ fn main() {
 // variant does carry data.
 func TestUnresolvedVariantPayload_ReportsOnlyTheType(t *testing.T) {
 	errs := checkWithStdlib(`
-enum Shape {
+enum Shape
   Circle Squre
   Dot
-}
+end
 
-fn area(s: Shape) -> Int {
-  case s {
+fn area(s: Shape) -> Int
+  case s
     .Circle(_) -> 1
     .Dot -> 0
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   _ = area(Shape.Circle(0))
-}
+end
 `)
 	var got []string
 	for _, e := range errs {

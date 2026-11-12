@@ -485,7 +485,7 @@ func stdTypeHelp(iface, typeName, origin string, implementers []string) string {
 // the call-site bound check's, which knows the interface's functions.
 func missingImplHelp(iface, typeName string) string {
 	if opIface, ok := operatorInterfaceByName(iface); ok {
-		return fmt.Sprintf("write an `impl %s<Rhs, Out> for %s { fn %s(lhs: %s, rhs: Rhs) -> Out { ... } }` block",
+		return fmt.Sprintf("write an `impl %s<Rhs, Out> for %s` block with `fn %s(lhs: %s, rhs: Rhs) -> Out`",
 			opIface.Interface, typeName, opIface.Method, typeName)
 	}
 	if iface == "Equatable" || iface == "Hashable" {

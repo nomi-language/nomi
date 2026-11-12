@@ -10,7 +10,7 @@
 // The rules live in rt, and this text is the absolute pin over them.
 import std::io
 
-fn main() {
+fn main()
     // Exactness. Under a float64 the first line reads
     // "0.30000000000000004" and the third "0.6000000000000001".
     io.print(Decimal.to_string(0.1d + 0.2d))
@@ -41,4 +41,4 @@ fn main() {
     // Int64's boundary. The literal cannot be written, so it is computed.
     io.print(Decimal.to_string(Int.to_decimal(-9223372036854775807 - 1)))
     io.print(Decimal.to_string(Int.to_decimal(-9223372036854775807 - 1) - 1d))
-}
+end

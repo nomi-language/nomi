@@ -9,30 +9,30 @@ func TestLiteralFuncResult_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import {
+	irRunSource(t, `import
     std::io
     std::literals.{Fragment, Literal}
-}
+end
 
 type Adder
 
-impl Literal for Adder {
-    fn from_fragments(fragments: List<Fragment<Int>>) -> (Int) -> Int {
-        n = fragments |> Iter.map(fn f -> case f {
+impl Literal for Adder
+    fn from_fragments(fragments: List<Fragment<Int>>) -> (Int) -> Int
+        n = fragments |> Iter.map(fn f -> case f
             Fragment.Static(s) -> String.length(s)
             Fragment.Dynamic(d) -> d
-        }) |> Iter.reduce(0, fn acc, x -> acc + x)
+        end) |> Iter.reduce(0, fn acc, x -> acc + x)
         fn x -> x + n
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     f = Adder"add"
     io.print("${f(1)}")
     g = Adder"a${10}b"
     io.print("${g(1)}")
     h = Adder`+"`raw`"+`
     io.print("${h(0)}")
-}
+end
 `, "4\n13\n3\n")
 }

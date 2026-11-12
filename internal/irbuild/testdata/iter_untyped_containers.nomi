@@ -11,7 +11,7 @@ import std::io
 //     instantiation. The lines below are a function of the SOURCE being empty
 //     and of nothing else, which is exactly why a placeholder element type is
 //     sound here.
-//   - EMPTY MAP. `%{} |> Map.put(k, v)` is the opposite case: the key
+//   - EMPTY MAP. `{} |> Map.put(k, v)` is the opposite case: the key
 //     and value types are DETERMINED by the arguments, and the map is then READ
 //     BACK. So these lines are a function of the key type being right — a
 //     placeholder key would hash as the wrong type and `Map.get` would answer
@@ -34,15 +34,15 @@ import std::io
 // (which Nomi's Float equality makes reflexive) and
 // -0.0 (which must find the 0.0 entry). Each is a key whose hashing a wrong
 // instantiation would get wrong in a different way.
-fn lookup(m: Map<List<Int>, String>, key: List<Int>) -> String {
+fn lookup(m: Map<List<Int>, String>, key: List<Int>) -> String
     Map.get(m, key) |> Maybe.with_default("?")
-}
+end
 
-fn lookup_f(m: Map<Float, String>, key: Float) -> String {
+fn lookup_f(m: Map<Float, String>, key: Float) -> String
     Map.get(m, key) |> Maybe.with_default("?")
-}
+end
 
-fn main() {
+fn main()
     // EMPTY LIST as an Iter source. Every terminal must answer for an empty
     // walk.
     io.print("${Iter.is_empty([])}")
@@ -53,7 +53,7 @@ fn main() {
 
     // EMPTY MAP, built by `put` and read back.
     list_keyed =
-        %{}
+        {}
         |> Map.put([1, 2, 3], "lst")
 
     io.print("${lookup(list_keyed, [1, 2, 3])}")
@@ -61,24 +61,24 @@ fn main() {
     io.print("${Map.size(list_keyed)}")
 
     nan_keyed =
-        %{}
+        {}
         |> Map.put(Float.nan(), "n")
 
     io.print("${lookup_f(nan_keyed, Float.nan())}")
 
     zero_keyed =
-        %{}
+        {}
         |> Map.put(-0.0, "z")
 
     io.print("${lookup_f(zero_keyed, 0.0)}")
 
     // Chained puts on the same solved receiver.
     two =
-        %{}
+        {}
         |> Map.put([1], "a")
         |> Map.put([2], "b")
 
     io.print("${lookup(two, [1])}")
     io.print("${lookup(two, [2])}")
     io.print("${Map.size(two)}")
-}
+end

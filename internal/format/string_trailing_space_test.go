@@ -7,10 +7,10 @@ import "testing"
 // line, and it used to strip these too, changing the string.
 func TestFormat_MultiLineStringKeepsTrailingSpaces(t *testing.T) {
 	for name, src := range map[string]string{
-		"triple-quoted":    "fn main() {\n    s = \"\"\"\n        a  \n        b\n        \"\"\"\n}\n",
-		"raw":              "fn main() {\n    s = `\n        a  \n        b\n        `\n}\n",
-		"a line of spaces": "fn main() {\n    s = \"\"\"\n        a\n          \n        b\n        \"\"\"\n}\n",
-		"a call argument":  "fn main() {\n    f(\"\"\"\n    a  \n    \"\"\")\n}\n",
+		"triple-quoted":    "fn main()\n    s = \"\"\"\n        a  \n        b\n        \"\"\"\nend\n",
+		"raw":              "fn main()\n    s = `\n        a  \n        b\n        `\nend\n",
+		"a line of spaces": "fn main()\n    s = \"\"\"\n        a\n          \n        b\n        \"\"\"\nend\n",
+		"a call argument":  "fn main()\n    f(\"\"\"\n    a  \n    \"\"\")\nend\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			got, err := Format(src)

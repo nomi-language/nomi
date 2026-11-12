@@ -33,17 +33,17 @@ func TestParseTestArgs_Timeout(t *testing.T) {
 	}
 }
 
-const timeoutFixture = `fn spin(n: Int) -> Int {
+const timeoutFixture = `fn spin(n: Int) -> Int
     spin(n + 1)
-}
+end
 
-test "spins" {
+test "spins"
     assert spin(0) == 1
-}
+end
 
-test "passes" {
+test "passes"
     assert 1 == 1
-}
+end
 `
 
 // A case that does not finish within --timeout fails at the line it was
@@ -101,13 +101,13 @@ func TestTestCommand_TimeoutReachesTheFFIWrapper(t *testing.T) {
 
 fn echo_upper(s: String) -> String go ffi.EchoUpper
 
-fn spin(s: String) -> String {
+fn spin(s: String) -> String
   spin(echo_upper(s))
-}
+end
 
-test "ffi spins" {
+test "ffi spins"
   assert spin("a") == "b"
-}
+end
 `)
 	stdout, _, err := runNomiSplit(t, cacheRoot, projectRoot, "test", testPath, "--timeout", "300ms", "--format", "json")
 	if err == nil {

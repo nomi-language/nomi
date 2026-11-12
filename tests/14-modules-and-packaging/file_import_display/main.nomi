@@ -1,9 +1,9 @@
-import {
+import
     std::io
     shapes
-}
+end
 
-fn main() {
+fn main()
     io.print(shapes.origin())
     io.print(shapes.price())
     io.print(shapes.red())
@@ -11,4 +11,4 @@ fn main() {
     io.print([shapes.price(), shapes.price()])
     io.inspect(shapes.origin())
     io.inspect(shapes.red())
-}
+end

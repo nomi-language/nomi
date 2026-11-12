@@ -203,7 +203,7 @@ func libProject(t *testing.T, b fakeLibRelease, dir, version string, extraGoMod 
 	mustWrite(t, filepath.Join(dir, "media_test.nomi"), libProjectTest)
 }
 
-const libProjectMain = `import {
+const libProjectMain = `import
     std::fs
     std::html.Html
     std::io
@@ -214,9 +214,9 @@ const libProjectMain = `import {
     schema
     sqlite
     sqlkit
-}
+end
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     io.print(Html.to_string(markdown.render("# Shop")))
     photo = image.decode(fs.read("gradient.png")!)!
     small = Image.fit(photo, 60, 60)
@@ -231,17 +231,17 @@ fn main() -> Result<Unit, Error> {
     changed = queries.set_status(db, order_id, .Paid)?
     io.print("order ${order_id} is paid (${changed.rows} row changed)")
     Ok(Unit)
-}
+end
 `
 
-const libProjectTest = `import {
+const libProjectTest = `import
     std::html.Html
     markdown
-}
+end
 
-test "markdown renders" {
+test "markdown renders"
     assert Html.to_string(markdown.render("*hi*")) == "<p><em>hi</em></p>\n"
-}
+end
 `
 
 const libProjectWant = "<h1>Shop</h1>\n\nlogo 60 by 40\norder 1 is paid (1 row changed)\n"

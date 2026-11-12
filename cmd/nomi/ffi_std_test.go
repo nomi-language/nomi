@@ -21,13 +21,13 @@ fn itoa(n: Int) -> String go strconv.Itoa
 fn atoi(s: String) -> Result<Int, String> go strconv.Atoi
 fn sqrt(x: Float) -> Float go math.Sqrt
 
-fn main() {
+fn main()
     io.print(upper("hi"))
     io.print(itoa(42))
     io.print(atoi("17"))
     io.print(atoi("x"))
     io.print(sqrt(2.0))
-}
+end
 `
 
 const stdBindingWant = "HI\n42\nOk(17)\nErr(strconv.Atoi: parsing \"x\": invalid syntax)\n1.4142135623730951\n"
@@ -92,31 +92,31 @@ func TestFFI_DefaultedParameters(t *testing.T) {
 	}
 	mustWrite(t, filepath.Join(dir, "lib.nomi"), `gopkg "strings" as strs
 
-fn twice(s: String) -> Int {
+fn twice(s: String) -> Int
     String.length(s) * 2
-}
+end
 
 pub fn rep(s: String, n: Int = twice(s)) -> String go strs.Repeat
 `)
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, `import {
+	mustWrite(t, entry, `import
     std::io
     lib
     lib.{rep}
-}
+end
 
 gopkg "strings" as strs
 
 fn upper(s: String = "abc") -> String go strs.ToUpper
 
-fn main() {
+fn main()
     io.print(upper())
     io.print(upper("x"))
     io.print(lib.rep("ab"))
     io.print(lib.rep("ab", 3))
     io.print(rep("q"))
     io.print(lib.rep(n: 2, s: "z"))
-}
+end
 `)
 	const want = "ABC\nX\nabababab\nababab\nqq\nzz\n"
 	env := buildEnv(t.TempDir())
@@ -145,9 +145,9 @@ gopkg "strings" as strings
 
 fn shout(s: String) -> String go strings.Shout
 
-fn main() {
+fn main()
     io.print(shout("hi"))
-}
+end
 `)
 	want := `main.nomi:5:42: Go package "strings" has no top-level function "Shout" for Nomi binding "shout"`
 	for _, cmd := range []string{"check", "run"} {
@@ -163,7 +163,7 @@ fn main() {
 	internal := filepath.Join(dir, "internal", "main.nomi")
 	mustWrite(t, internal, `gopkg "internal/abi" as abi
 
-fn main() {}
+fn main() end
 `)
 	r := runProcess(t, env, t.TempDir(), "", nomiBin, "check", internal)
 	if want := `gopkg "internal/abi": internal to the Go standard library, which no other module may import`; r.exit == 0 || !strings.Contains(r.stderr, want) {
@@ -189,10 +189,10 @@ gopkg "math/big" as big
 fn new_int(x: Int) -> Int go big.NewInt
 fn jacobi(x: Int, y: Int) -> Int go big.Jacobi
 
-fn main() {
+fn main()
     io.print(new_int(-9223372036854775807) - 2)
     io.print(jacobi(123456789012345678901234567890, 987654321098765432109876543211))
-}
+end
 `)
 	const want = "-9223372036854775809\n-1\n"
 	env := buildEnv(t.TempDir())
@@ -222,13 +222,13 @@ fn hex_encoder(w: Writer) -> Writer go hex.NewEncoder
 fn hex_decoder(r: Reader) -> Reader go hex.NewDecoder
 fn limit(r: Reader, n: Int) -> Reader go goio.LimitReader
 
-fn main() {
+fn main()
     (_, encoded) = Writer.collect(fn w -> Writer.write_text(hex_encoder(w), "Nomi"))
     io.print(Bytes.to_string(encoded) |> Result.with_default("?"))
     decoded = hex_decoder(Reader.from_bytes(encoded)) |> Reader.read_all_text()
     io.print(decoded |> Result.with_default("?"))
     io.print(limit(Reader.from_text("abcdef"), 3) |> Reader.read_all_text() |> Result.with_default("?"))
-}
+end
 `)
 	const want = "4e6f6d69\nNomi\nabc\n"
 	env := buildEnv(t.TempDir())
@@ -258,23 +258,23 @@ fn format(i: Int, base: Int) -> String go strconv.FormatInt
 fn format_unsigned(i: Int, base: Int) -> String go strconv.FormatUint
 fn len32(x: Int) -> Int go bits.Len32
 
-test "an Int past int64" {
+test "an Int past int64"
     assert format(123456789012345678901234567890, 10) == ""
-}
+end
 
-test "a negative Int for uint64" {
+test "a negative Int for uint64"
     assert format_unsigned(-1, 10) == ""
-}
+end
 
-test "an Int past uint32" {
+test "an Int past uint32"
     assert len32(4294967296) == 0
-}
+end
 
-test "in range" {
+test "in range"
     assert format(-9223372036854775808, 10) == "-9223372036854775808"
     assert format_unsigned(18446744073709551615, 16) == "ffffffffffffffff"
     assert len32(4294967295) == 32
-}
+end
 `)
 	r := runProcess(t, env, t.TempDir(), "", nomiBin, "test", tests)
 	if r.exit == 0 {
@@ -303,11 +303,11 @@ gopkg "strconv" as strconv
 
 fn format(i: Int, base: Int) -> String go strconv.FormatInt
 
-fn main() {
+fn main()
     io.print(format(12, 10))
     io.print(format(123456789012345678901234567890, 10))
     io.print("not reached")
-}
+end
 `)
 	r = runProcess(t, env, t.TempDir(), "", nomiBin, "run", entry)
 	if want := "line 9: `strconv.FormatInt`'s `i` takes an Int that fits in 64 bits; got 123456789012345678901234567890"; r.exit != 1 || r.stdout != "12\n" || !strings.Contains(r.stderr, want) {

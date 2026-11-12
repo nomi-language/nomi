@@ -15,21 +15,21 @@ import (
 // Decimal>` are two impls of one std interface for one std receiver from
 // two libraries, beside std's own `Multiply<Decimal, Decimal>`.
 const localTypeArgumentProgram = `// FILE: app/main.nomi
-import {
+import
     std::io
     fx::rate.Rate
     shares::count.Shares
-}
+end
 
-fn scale<T>(x: T, r: Rate) -> T where T: Multiply<Rate, T> {
+fn scale<T>(x: T, r: Rate) -> T where T: Multiply<Rate, T>
     x * r
-}
+end
 
-fn has<C>(c: C, r: Rate) -> Bool where C: Contains<Rate> {
+fn has<C>(c: C, r: Rate) -> Bool where C: Contains<Rate>
     C.contains(c, r)
-}
+end
 
-fn main() {
+fn main()
     d = 2.5d
     r = Rate{per_unit: 4d}
     s = Shares{count: 3}
@@ -45,16 +45,16 @@ fn main() {
     io.print(Bool.to_string(has("x4y", r)))
     io.print(Bool.to_string(String.contains("x4y", "4")))
     io.print(Int.to_string(300 * Pct(50)))
-}
+end
 
 type Pct Int
 
-impl Multiply<Pct, Int> for Int {
-    fn multiply(lhs: Int, rhs: Pct) -> Int {
+impl Multiply<Pct, Int> for Int
+    fn multiply(lhs: Int, rhs: Pct) -> Int
         Pct(p) = rhs
         lhs * p / 100
-    }
-}
+    end
+end
 // FILE: app/nomi.toml
 [module]
 name = "app"
@@ -73,27 +73,27 @@ replace fx => ../fx
 
 replace shares => ../shares
 // FILE: fx/rate.nomi
-pub struct Rate {
+pub struct Rate
     per_unit: Decimal
-}
+end
 
-impl Multiply<Rate, Decimal> for Decimal {
-    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal {
+impl Multiply<Rate, Decimal> for Decimal
+    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal
         lhs * rhs.per_unit
-    }
-}
+    end
+end
 
-impl Add<Rate, Decimal> for Decimal {
-    fn add(lhs: Decimal, rhs: Rate) -> Decimal {
+impl Add<Rate, Decimal> for Decimal
+    fn add(lhs: Decimal, rhs: Rate) -> Decimal
         lhs + rhs.per_unit
-    }
-}
+    end
+end
 
-impl Contains<Rate> for String {
-    fn contains(c: String, x: Rate) -> Bool {
+impl Contains<Rate> for String
+    fn contains(c: String, x: Rate) -> Bool
         String.contains(c, Decimal.to_string(x.per_unit))
-    }
-}
+    end
+end
 // FILE: fx/nomi.toml
 [module]
 name = "fx"
@@ -102,15 +102,15 @@ module fx
 
 go 1.27.0
 // FILE: shares/count.nomi
-pub struct Shares {
+pub struct Shares
     count: Int
-}
+end
 
-impl Multiply<Shares, Decimal> for Decimal {
-    fn multiply(lhs: Decimal, rhs: Shares) -> Decimal {
+impl Multiply<Shares, Decimal> for Decimal
+    fn multiply(lhs: Decimal, rhs: Shares) -> Decimal
         lhs * Int.to_decimal(rhs.count)
-    }
-}
+    end
+end
 // FILE: shares/nomi.toml
 [module]
 name = "shares"

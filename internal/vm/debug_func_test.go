@@ -10,29 +10,29 @@ import (
 
 const funcBreakSrc = `import std::io
 
-struct Card {
+struct Card
   n: Int
-}
+end
 
-impl Display for Card {
-  fn to_string(c: Card) -> String {
+impl Display for Card
+  fn to_string(c: Card) -> String
     "card ${c.n}"
-  }
-}
+  end
+end
 
-fn countdown(n: Int) -> Int {
-  if n == 0 {
+fn countdown(n: Int) -> Int
+  if n == 0 then
     0
-  } else {
+  else
     countdown(n - 1)
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(Display.to_string(Card{n: 1}))
   io.print("${countdown(2)}")
   io.print("${Maybe.map(Some(1), fn x -> x + 1)}")
-}
+end
 `
 
 // Each spelling a function breakpoint takes, what it names, and that it

@@ -6,8 +6,8 @@ import "testing"
 func TestTriviaCarrier_Interface(t *testing.T) {
 	nodes := []Node{
 		&SimpleType{}, &QualifiedType{}, &GenericType{}, &FuncType{}, &SelfType{}, &AnonStructType{},
-		&IntLit{}, &FloatLit{}, &StringLit{}, &StringInterp{}, &ListLit{}, &VectorLit{}, &SetLit{},
-		&ListSpreadLit{}, &MapLit{}, &TupleLit{}, &Ident{}, &SelfExpr{}, &TypeIdent{},
+		&IntLit{}, &FloatLit{}, &StringLit{}, &StringInterp{}, &ListLit{},
+		&MapLit{}, &TupleLit{}, &Ident{}, &SelfExpr{}, &TypeIdent{},
 		&Unary{}, &Is{}, &Binary{}, &GroupedExpr{}, &If{}, &Block{}, &Call{}, &FieldAccess{},
 		&StructDef{}, &StructLit{}, &EnumDef{}, &TypeDef{}, &TypeAlias{},
 		&OnceBinding{}, &Binding{}, &TupleDestructure{}, &StructDestructure{},

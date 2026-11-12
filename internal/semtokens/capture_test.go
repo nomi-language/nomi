@@ -13,17 +13,17 @@ import (
 // A capture's `&N` is colored as a parameter, whether the capture is a
 // partial application or not.
 func TestCollect_CaptureParametersAreParameters(t *testing.T) {
-	src := `fn add(a: Int, b: Int) -> Int {
+	src := `fn add(a: Int, b: Int) -> Int
   a + b
-}
+end
 
-fn f() -> (Int) -> Bool {
+fn f() -> (Int) -> Bool
   &(&1 > 2)
-}
+end
 
-fn g() -> (Int) -> Int {
+fn g() -> (Int) -> Int
   &add(1, &1)
-}
+end
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {

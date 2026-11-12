@@ -9,7 +9,7 @@ import (
 )
 
 // A bare `..` (*ast.CurrentValue) is the spread of an update literal with no
-// head: `.{.., city: "NYC"}`, `%{.., "k" => v}`, `%[.., x]`, `[t, ..]`. It
+// head: `{.., city: "NYC"}`, `{.., "k" => v}`, `[.., x]`, `[t, ..]`. It
 // stands for the value already at the field or key the literal is written
 // at, so
 //
@@ -62,7 +62,7 @@ func (c *checker) checkCurrentValue(n *ast.CurrentValue) Type {
 	at, ok := c.currentValues[n]
 	if !ok {
 		c.report(errAt(n, "a bare `..` has no value to update here").
-			WithHint("a bare `..` stands for the value already at a field or key of an update, as in `.{..user, address: .{.., city: \"NYC\"}}`; anywhere else, name the base: `.{..base, field: value}`"))
+			WithHint("a bare `..` stands for the value already at a field or key of an update, as in `{..user, address: {.., city: \"NYC\"}}`; anywhere else, name the base: `{..base, field: value}`"))
 		return nil
 	}
 	return at.ty
@@ -145,15 +145,15 @@ func (c *checker) wholeValueHint(lit *ast.StructLit, ty Type) string {
 	cp := *lit
 	// The `..` stands where the literal opens, so the literal keeps the
 	// layout it was written in.
-	cp.Spread = &ast.CurrentValue{Line: lit.Line, Col: lit.Col + 2}
-	cp.SpreadLine, cp.SpreadCol = lit.Line, lit.Col+2
+	cp.Spread = &ast.CurrentValue{Line: lit.Line, Col: lit.Col + 1}
+	cp.SpreadLine, cp.SpreadCol = lit.Line, lit.Col+1
 	suggestion := format.RenderNode(&cp)
 	if strings.Contains(suggestion, "\n") || len(suggestion) > 60 {
 		names := make([]string, len(lit.Fields))
 		for i, f := range lit.Fields {
 			names[i] = f.Name + ": …"
 		}
-		suggestion = ".{.., " + strings.Join(names, ", ") + "}"
+		suggestion = "{.., " + strings.Join(names, ", ") + "}"
 	}
 	return fmt.Sprintf("a brace without `..` is a whole new %s; to change only the fields written, write `%s`", formatTypeForError(ty), suggestion)
 }
@@ -185,7 +185,7 @@ func (c *checker) markStructUpdatePatch(call *ast.Call) {
 		}
 	}
 	// The patch updates the original, so a nested spread naming the
-	// original's field is redundant there as in `.{..original, ...}`.
+	// original's field is redundant there as in `{..original, ...}`.
 	if patch != nil && original != nil && len(call.Args) == 2 {
 		c.recordUpdatePath(patch, original)
 	}
@@ -220,13 +220,13 @@ func (c *checker) checkPatchLit(lit *ast.StructLit, target Type) (Type, bool) {
 	return &AnonStructType{Fields: fields}, true
 }
 
-// checkSetUpdateLit checks a set literal with spreads, `%[..base, x]` or
-// `%[x, ..s, ..t]`: the union of the spreads and the elements. Each spread
+// checkSetUpdateLit checks a set literal with spreads, `[..base, x]` or
+// `[x, ..s, ..t]`: the union of the spreads and the elements. Each spread
 // is a `Set<T>` or another Iter of T, and each element a T; the result has
 // the first set spread's type (checkSpreadHeads). A lone spread that is a
-// set is its base value; a lone other Iter (`%[..maybe]`) makes a set of
+// set is its base value; a lone other Iter (`[..maybe]`) makes a set of
 // it.
-func (c *checker) checkSetUpdateLit(n *ast.SetLit, expected Type) Type {
+func (c *checker) checkSetUpdateLit(n *ast.ListLit, expected Type) Type {
 	head, allSets, ok := c.checkSpreadHeads(n.Spreads, expected, setSpreads)
 	if !ok {
 		for _, item := range n.Items {
@@ -248,14 +248,14 @@ func (c *checker) checkSetUpdateLit(n *ast.SetLit, expected Type) Type {
 	return head
 }
 
-// checkVectorUpdateLit checks a vector literal with spreads: `#[..v, x]`,
-// `#[x, ..v]`, `#[..v, x, ..w]`, the spread vectors and the elements joined
-// in the order written; a bare `..` (`#[.., x]`, `#[x, ..]`) stands for the
+// checkVectorUpdateLit checks a vector literal with spreads: `[..v, x]`,
+// `[x, ..v]`, `[..v, x, ..w]`, the spread vectors and the elements joined
+// in the order written; a bare `..` (`[.., x]`, `[x, ..]`) stands for the
 // vector at a field or key of an update. Each spread is a `Vector<T>` or
 // another Iter of T, and each element a T; the result has the first vector
 // spread's type (checkSpreadHeads). elemTy, when not nil, is the element type
-// the context expects, which an open spread (`#[..#[], x]`) takes.
-func (c *checker) checkVectorUpdateLit(n *ast.VectorLit, elemTy Type) Type {
+// the context expects, which an open spread (`[..[], x]`) takes.
+func (c *checker) checkVectorUpdateLit(n *ast.ListLit, elemTy Type) Type {
 	var expected Type
 	if elemTy != nil && !ContainsTypeParam(elemTy) && !containsTypeVar(elemTy) {
 		expected = makeVectorType(elemTy, c.reg)

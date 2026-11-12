@@ -42,7 +42,7 @@ func slotModule(areaSize uint64) []byte {
 // A wasip1 module carries its program as a data segment written into its
 // image area, and ReadImage reads it back from the file.
 func TestEmbedWasmImage_WritesTheImageIntoTheArea(t *testing.T) {
-	img := image(t, "fn main() {\n  Unit\n}\n")
+	img := image(t, "fn main()\n  Unit\nend\n")
 	module, err := vmrunner.EmbedWasmImage(slotModule(uint64(len(img)+8)), img)
 	if err != nil {
 		t.Fatal(err)

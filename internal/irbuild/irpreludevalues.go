@@ -68,9 +68,6 @@ func (bl *irScalarBuilder) preludeCallWant(t *ast.Call, want kind) (ir.Temp, kin
 	} else {
 		args, ok := bl.g.checkedPreludeArgs(a, sym)
 		if !ok {
-			args, ok = bl.g.checkedPreludeArgsUnitHoles(a, sym)
-		}
-		if !ok {
 			return no()
 		}
 		k = bl.g.preludeInstance(a, args)

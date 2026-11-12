@@ -308,8 +308,8 @@ func TestTypeNamesAnyWalksEveryCompositeForm(t *testing.T) {
 		{"(Int) -> Bool", false},
 		{"(Int) -> T", true},
 		{"((K, Int)) -> Bool", true},
-		{".{name: T}", true},
-		{".{name: String}", false},
+		{"{name: T}", true},
+		{"{name: String}", false},
 	} {
 		te := parseStdTypeExpr(t, c.src)
 		if got := typeNamesAny(te, tp); got != c.want {
@@ -354,9 +354,9 @@ func parseStdTypeExprImporting(t *testing.T, item, src string) ast.TypeExpr {
 	t.Helper()
 	prog := ""
 	if item != "" {
-		prog = "import {\n  " + item + "\n}\n\n"
+		prog = "import\n  " + item + "\nend\n\n"
 	}
-	prog += "fn f<T, K>(_x: " + src + ", _t: T, _k: K) -> Unit {\n}\n"
+	prog += "fn f<T, K>(_x: " + src + ", _t: T, _k: K) -> Unit end\n"
 	p, err := AnalyzeSource("main", prog)
 	if err != nil {
 		t.Fatalf("front end refused `x: %s` (import %q): %v", src, item, err)
@@ -392,7 +392,7 @@ func parseStdTypeExprImporting(t *testing.T, item, src string) ast.TypeExpr {
 // arm switches on those shapes.
 func parseStdTypeExprUnchecked(t *testing.T, src string) ast.TypeExpr {
 	t.Helper()
-	nodes, err := parser.Parse(lexer.Lex("fn f<T, K>(_x: " + src + ") -> Unit {\n}\n"))
+	nodes, err := parser.Parse(lexer.Lex("fn f<T, K>(_x: " + src + ") -> Unit end\n"))
 	if err != nil {
 		t.Fatalf("`x: %s` does not PARSE, so there is no node to test the arm with: %v", src, err)
 	}
@@ -415,32 +415,32 @@ func parseStdTypeExprUnchecked(t *testing.T, src string) ast.TypeExpr {
 func TestStdRecvGeneric_SelflessCallQualifiedByTheContainer(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-interface Make {
+interface Make
     fn make(n: Int) -> Result<self, String>
-}
+end
 
-impl Make for Int {
-    fn make(n: Int) -> Result<Int, String> {
+impl Make for Int
+    fn make(n: Int) -> Result<Int, String>
         Ok(n)
-    }
-}
+    end
+end
 
-impl Make for Maybe<T> where T: Make {
-    fn make(n: Int) -> Result<Maybe<T>, String> {
+impl Make for Maybe<T> where T: Make
+    fn make(n: Int) -> Result<Maybe<T>, String>
         T.make(n) |> Result.map(Some)
-    }
-}
+    end
+end
 
-impl Make for List<T> where T: Make {
-    fn make(n: Int) -> Result<List<T>, String> {
+impl Make for List<T> where T: Make
+    fn make(n: Int) -> Result<List<T>, String>
         T.make(n) |> Result.map(fn x -> [x, x])
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     r: Result<Maybe<Int>, String> = Maybe.make(1)
     io.print(Debug.inspect(r))
     l: Result<List<Maybe<Int>>, String> = List.make(2)
     io.print(Debug.inspect(l))
-}`, "Ok(Some(1))\nOk([Some(2), Some(2)])\n")
+end`, "Ok(Some(1))\nOk([Some(2), Some(2)])\n")
 }

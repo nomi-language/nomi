@@ -12,9 +12,9 @@ import (
 // storedProjectFiles is a project of three files the entry reaches.
 var storedProjectFiles = map[string]string{
 	"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-	"main.nomi":   "import {\n    std::io\n    shapes\n}\n\nfn main() {\n    io.print(shapes.describe(shapes.Shape.Circle(2)))\n}\n",
-	"shapes.nomi": "import util\n\n/// A shape.\npub enum Shape {\n    Circle(Int)\n    Square(Int)\n}\n\n/// What the shape is.\n//! assert describe(Shape.Square(1)) == \"square 1\"\npub fn describe(s: Shape) -> String {\n    case s {\n        .Circle(r) -> \"circle ${util.twice(r)}\"\n        .Square(n) -> \"square ${n}\"\n    }\n}\n",
-	"util.nomi":   "/// n twice.\npub fn twice(n: Int) -> Int {\n    n * 2\n}\n",
+	"main.nomi":   "import\n    std::io\n    shapes\nend\n\nfn main()\n    io.print(shapes.describe(shapes.Shape.Circle(2)))\nend\n",
+	"shapes.nomi": "import util\n\n/// A shape.\npub enum Shape\n    Circle(Int)\n    Square(Int)\nend\n\n/// What the shape is.\n//! assert describe(Shape.Square(1)) == \"square 1\"\npub fn describe(s: Shape) -> String\n    case s\n        .Circle(r) -> \"circle ${util.twice(r)}\"\n        .Square(n) -> \"square ${n}\"\n    end\nend\n",
+	"util.nomi":   "/// n twice.\npub fn twice(n: Int) -> Int\n    n * 2\nend\n",
 }
 
 // waitStored waits until the server's document manager has written n
@@ -82,7 +82,7 @@ func TestServerOpensAProgramFromItsRecord(t *testing.T) {
 		t.Fatalf("opening from the record built %d files, want the entry alone", built)
 	}
 
-	c2.change(uri, 2, text+"\nfn unused_helper() -> Int {\n    1\n}\n")
+	c2.change(uri, 2, text+"\nfn unused_helper() -> Int\n    1\nend\n")
 	deadline = time.Now().Add(30 * time.Second)
 	for second.docs.StoredEdits() == 0 {
 		if time.Now().After(deadline) {

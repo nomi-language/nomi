@@ -18,7 +18,7 @@ once neighbours = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0),
 
 /// Writes the count of adjacent flowers into each empty square of a board of
 /// `*` flowers and ` ` spaces. A square next to no flower stays a space.
-pub fn annotate(garden: List<String>) -> List<String> {
+pub fn annotate(garden: List<String>) -> List<String>
     flowers =
         garden
         |> Iter.with_index()
@@ -27,48 +27,44 @@ pub fn annotate(garden: List<String>) -> List<String> {
 
     garden
     |> Iter.with_index()
-    |> Iter.map(fn (row, line) -> {
+    |> Iter.map(fn (row, line) ->
         line
         |> Iter.with_index()
         |> Iter.map(fn (column, square) -> annotate_square(flowers, (row, column), square))
         |> String.join()
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
-fn flowers_in_row(row: Int, line: String) -> Iter<(Int, Int)> {
+fn flowers_in_row(row: Int, line: String) -> Iter<(Int, Int)>
     line
     |> Iter.with_index()
     |> Iter.filter(fn (_column, square) -> square == "*")
     |> Iter.map(fn (column, _square) -> (row, column))
-}
+end
 
-fn annotate_square(flowers: Set<(Int, Int)>, (row, column): (Int, Int), square: String) -> String {
-    if square == "*" { return square }
+fn annotate_square(flowers: Set<(Int, Int)>, (row, column): (Int, Int), square: String) -> String
+    if square == "*" then return square
 
     count = Iter.count_by(neighbours, fn (dr, dc) -> (row + dr, column + dc) in flowers)
 
-    if count == 0 {
-        " "
-    } else {
-        Int.to_string(count)
-    }
-}
+    if count == 0 then " " else Int.to_string(count)
+end
 
 // FILE: flower_field_test.nomi
 import flower_field
 
-test "no rows" {
+test "no rows"
     assert flower_field.annotate([]) == []
-}
+end
 
-test "no columns" {
+test "no columns"
     garden = [""]
 
     assert flower_field.annotate(garden) == [""]
-}
+end
 
-test "no flowers" {
+test "no flowers"
     garden = [
         "   ",
         "   ",
@@ -80,9 +76,9 @@ test "no flowers" {
         "   ",
         "   ",
     ]
-}
+end
 
-test "garden full of flowers" {
+test "garden full of flowers"
     garden = [
         "***",
         "***",
@@ -94,9 +90,9 @@ test "garden full of flowers" {
         "***",
         "***",
     ]
-}
+end
 
-test "flower surrounded by spaces" {
+test "flower surrounded by spaces"
     garden = [
         "   ",
         " * ",
@@ -108,9 +104,9 @@ test "flower surrounded by spaces" {
         "1*1",
         "111",
     ]
-}
+end
 
-test "space surrounded by flowers" {
+test "space surrounded by flowers"
     garden = [
         "***",
         "* *",
@@ -122,21 +118,21 @@ test "space surrounded by flowers" {
         "*8*",
         "***",
     ]
-}
+end
 
-test "horizontal line" {
+test "horizontal line"
     garden = [" * * "]
 
     assert flower_field.annotate(garden) == ["1*2*1"]
-}
+end
 
-test "horizontal line, flowers at edges" {
+test "horizontal line, flowers at edges"
     garden = ["*   *"]
 
     assert flower_field.annotate(garden) == ["*1 1*"]
-}
+end
 
-test "vertical line" {
+test "vertical line"
     garden = [
         " ",
         "*",
@@ -152,9 +148,9 @@ test "vertical line" {
         "*",
         "1",
     ]
-}
+end
 
-test "vertical line, flowers at edges" {
+test "vertical line, flowers at edges"
     garden = [
         "*",
         " ",
@@ -170,9 +166,9 @@ test "vertical line, flowers at edges" {
         "1",
         "*",
     ]
-}
+end
 
-test "cross" {
+test "cross"
     garden = [
         "  *  ",
         "  *  ",
@@ -188,9 +184,9 @@ test "cross" {
         "25*52",
         " 2*2 ",
     ]
-}
+end
 
-test "large garden" {
+test "large garden"
     garden = [
         " *  * ",
         "  *   ",
@@ -208,13 +204,13 @@ test "large garden" {
         "1*22*2",
         "111111",
     ]
-}
+end
 
-test "multiple adjacent flowers" {
+test "multiple adjacent flowers"
     garden = [" ** "]
 
     assert flower_field.annotate(garden) == ["1**1"]
-}
+end
 ```
 <!-- expect
 ok no rows

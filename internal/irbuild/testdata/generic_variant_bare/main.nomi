@@ -3,43 +3,43 @@
 // The checker records the instance it solved at each site, and the builder
 // builds the variant there. Both a local enum and another file's, named both
 // ways, run.
-import {
+import
     std::io
     tree.{self, Tree}
-}
+end
 
-enum Box<T> {
+enum Box<T>
     Empty
     Full T
-}
+end
 
-fn value_or(t: Tree<String>, d: String) -> String {
-    case t {
+fn value_or(t: Tree<String>, d: String) -> String
+    case t
         Tree.Leaf -> d
         Tree.Node(v) -> v
-    }
-}
+    end
+end
 
-fn filled(b: Box<Int>) -> Int {
-    case b {
+fn filled(b: Box<Int>) -> Int
+    case b
         Box.Empty -> 0
         Box.Full(n) -> n
-    }
-}
+    end
+end
 
-fn value_or_box(b: Box<String>) -> String {
-    case b {
+fn value_or_box(b: Box<String>) -> String
+    case b
         Box.Empty -> "empty"
         Box.Full(s) -> s
-    }
-}
+    end
+end
 
-fn pick(flag: Bool) -> Box<Int> {
-    b = if flag { Box.Empty } else { Box.Full(1) }
+fn pick(flag: Bool) -> Box<Int>
+    b = if flag then Box.Empty else Box.Full(1)
     b
-}
+end
 
-fn main() {
+fn main()
     boxes = [Box.Empty, Box.Full(2), Box.Empty]
     io.print("boxes = ${Iter.count(boxes)}")
     io.print("equal lists = ${boxes == [Box.Empty, Box.Full(2), Box.Empty]}")
@@ -56,4 +56,4 @@ fn main() {
     io.print(
         "trees = ${trees |> Iter.map(fn t: Tree<String> -> value_or(t, "-")) |> String.join()}"
     )
-}
+end

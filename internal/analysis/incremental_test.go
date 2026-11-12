@@ -30,7 +30,9 @@ import (
 // TestIncrementalMatchesFull (about 13 seconds) applies fixed edit
 // sequences to small projects declared here (layered imports, phrase
 // catalogs, dispatch, application types) and to the multi-file corpus
-// directories. TestIncrementalHarnessCatchesAStaleResult proves a stale
+// directories. TestIncrementalMatchesFullForATryFromImpl adds and removes
+// the `From` impl a `?` in another file converts through.
+// TestIncrementalHarnessCatchesAStaleResult proves a stale
 // recheck fails it. FuzzIncrementalMatchesFull (incremental_fuzz_test.go)
 // mutates a project file and edits it the same way, and
 // TestIncrementalMatchesFullSample (about 2 seconds) and
@@ -305,24 +307,24 @@ var orderEdits = []editStep{
 	replace("body only, a once's value reads it", "main", `"hello"`, `"hello there"`),
 	replace("body only, positions shift", "shapes", "        value.radius + Iter.count(Settings.tag)\n",
 		"        // The tag counts towards the area.\n\n        value.radius + Iter.count(Settings.tag)\n"),
-	replace("signature", "settings", "pub fn default_tag() -> String {\n    main.greeting()\n}",
-		"pub fn default_tag(suffix: String) -> String {\n    main.greeting() + suffix\n}"),
+	replace("signature", "settings", "pub fn default_tag() -> String\n    main.greeting()\nend",
+		"pub fn default_tag(suffix: String) -> String\n    main.greeting() + suffix\nend"),
 	replace("body only, a caller follows the new signature", "main", `io.print(report.title())`, `io.print(report.title())
     io.print(settings.default_tag("!"))`),
 	replace("import added", "main", "    settings.Settings\n", "    settings.{self, Settings}\n"),
 	restore("signature and import back", "settings"),
 	restore("caller and import back", "main"),
-	appendText("declaration added", "shapes", "\npub fn perimeter(circle: Circle) -> Int {\n    circle.radius * 6\n}\n"),
+	appendText("declaration added", "shapes", "\npub fn perimeter(circle: Circle) -> Int\n    circle.radius * 6\nend\n"),
 	replace("body only, uses a declaration from another file", "report", `"area: ${Shape.area(shape)}"`, `"area: ${Shape.area(shape)} ${shapes.perimeter(Circle{radius: 1})}"`),
 	replace("import added", "report", "    settings.Settings\n", "    settings.Settings\n    shapes\n"),
 	restore("declaration's use and import removed", "report"),
 	restore("declaration removed", "shapes"),
-	appendText("impl added", "shapes", "\npub struct Square {\n    side: Int\n}\n\nimpl Shape for Square {\n    fn area(value: Square) -> Int {\n        value.side * value.side\n    }\n}\n"),
+	appendText("impl added", "shapes", "\npub struct Square\n    side: Int\nend\n\nimpl Shape for Square\n    fn area(value: Square) -> Int\n        value.side * value.side\n    end\nend\n"),
 	appendText("derive added", "shapes", "\nderive Display for Square\n"),
 	restore("impl and derive removed", "shapes"),
 	replace("derive removed", "report", "derive Display for Labelled\n", ""),
 	restore("derive back", "report"),
-	replace("impl removed", "report", "impl Shape for Circle {\n    fn area(value: Circle) -> Int {\n        value.radius\n    }\n}\n", ""),
+	replace("impl removed", "report", "impl Shape for Circle\n    fn area(value: Circle) -> Int\n        value.radius\n    end\nend\n", ""),
 	restore("impl back", "report"),
 	replace("once value, same type", "report", "pub once base = Iter.count(main.greeting())", "pub once base = Iter.count(main.greeting()) + 1"),
 	replace("once value, new type", "report", "pub once base = Iter.count(main.greeting()) + 1", "pub once base = main.greeting()"),
@@ -335,10 +337,10 @@ var orderEdits = []editStep{
 	restore("body only, infinite iterator gone", "shapes"),
 	replace("body only, the entry drains an infinite iterator", "main", `io.print(report.title())`, "io.print(report.title())\n    _ = Iter.from(0) |> Iter.map(&(&1 + 1)) |> Iter.to_list()"),
 	restore("body only, the entry's infinite iterator gone", "main"),
-	replace("unparseable", "report", "pub fn title() -> String {", "pub fn title(: String {"),
-	replace("unparseable, typing on", "report", "pub fn title(: String {", "pub fn title(n: String {"),
+	replace("unparseable", "report", "pub fn title() -> String", "pub fn title(: String"),
+	replace("unparseable, typing on", "report", "pub fn title(: String", "pub fn title(n: String"),
 	restore("parses again", "report"),
-	replace("entry unparseable", "main", "fn main() {", "fn main( {"),
+	replace("entry unparseable", "main", "fn main()", "fn main( {"),
 	restore("entry parses again", "main"),
 	// Two bodies edited at once, as one analysis of a burst of typing sees
 	// them: the declaration between them moves by line, not as one stretch.
@@ -353,13 +355,13 @@ var orderEdits = []editStep{
 	// A type function named as one of the type's impl functions is an
 	// error at the type function, added and removed by an edit to either
 	// file.
-	appendText("type function named as an impl function", "shapes", "\nimpl Circle {\n    pub fn area(circle: Circle, _scale: Int) -> Int {\n        circle.radius\n    }\n}\n"),
+	appendText("type function named as an impl function", "shapes", "\nimpl Circle\n    pub fn area(circle: Circle, _scale: Int) -> Int\n        circle.radius\n    end\nend\n"),
 	replace("body only, the clash moves", "shapes", "        value.radius + Iter.count(Settings.tag)\n",
 		"        // The tag counts towards the area.\n\n        value.radius + Iter.count(Settings.tag)\n"),
 	replace("type function renamed", "shapes", "pub fn area(circle: Circle", "pub fn scaled_area(circle: Circle"),
 	restore("type function and its impl block removed", "shapes"),
-	appendText("type function no impl function names, in an impl block", "shapes", "\nimpl Circle {\n    pub fn to_string(_circle: Circle, _width: Int) -> String {\n        \"circle\"\n    }\n}\n"),
-	appendText("impl in another file names it", "report", "\nimpl Display for Circle {\n    fn to_string(_value: Circle) -> String {\n        \"a circle\"\n    }\n}\n"),
+	appendText("type function no impl function names, in an impl block", "shapes", "\nimpl Circle\n    pub fn to_string(_circle: Circle, _width: Int) -> String\n        \"circle\"\n    end\nend\n"),
+	appendText("impl in another file names it", "report", "\nimpl Display for Circle\n    fn to_string(_value: Circle) -> String\n        \"a circle\"\n    end\nend\n"),
 	restore("impl in another file removed", "report"),
 	restore("type function and its impl block removed again", "shapes"),
 }
@@ -372,9 +374,9 @@ var orderEdits = []editStep{
 // sequence restores the file at the end.
 func genericEdits(key, text string) []editStep {
 	steps := []editStep{
-		appendText("declaration added", key, "\npub fn incremental_added() -> Int {\n    1\n}\n"),
-		replace("body only", key, "pub fn incremental_added() -> Int {\n    1\n}", "pub fn incremental_added() -> Int {\n    2\n}"),
-		replace("signature", key, "pub fn incremental_added() -> Int {\n    2\n}", "pub fn incremental_added(n: Int) -> Int {\n    n\n}"),
+		appendText("declaration added", key, "\npub fn incremental_added() -> Int\n    1\nend\n"),
+		replace("body only", key, "pub fn incremental_added() -> Int\n    1\nend", "pub fn incremental_added() -> Int\n    2\nend"),
+		replace("signature", key, "pub fn incremental_added() -> Int\n    2\nend", "pub fn incremental_added(n: Int) -> Int\n    n\nend"),
 		restore("declaration removed", key),
 	}
 	if line := firstBodyLine(text); line != "" {
@@ -389,12 +391,12 @@ func genericEdits(key, text string) []editStep {
 		replace("once value, same type", key, "pub once incremental_once = 1\n", "pub once incremental_once = 2\n"),
 		replace("once value, new type", key, "pub once incremental_once = 2\n", "pub once incremental_once = \"two\"\n"),
 		restore("once removed", key),
-		appendText("impl added", key, "\npub struct IncrementalProbe {\n    n: Int\n}\n\nimpl Display for IncrementalProbe {\n    fn to_string(value: IncrementalProbe) -> String {\n        \"probe\"\n    }\n}\n"),
-		replace("impl replaced by a derive", key, "impl Display for IncrementalProbe {\n    fn to_string(value: IncrementalProbe) -> String {\n        \"probe\"\n    }\n}\n", "derive Display for IncrementalProbe\n"),
+		appendText("impl added", key, "\npub struct IncrementalProbe\n    n: Int\nend\n\nimpl Display for IncrementalProbe\n    fn to_string(value: IncrementalProbe) -> String\n        \"probe\"\n    end\nend\n"),
+		replace("impl replaced by a derive", key, "impl Display for IncrementalProbe\n    fn to_string(value: IncrementalProbe) -> String\n        \"probe\"\n    end\nend\n", "derive Display for IncrementalProbe\n"),
 		restore("derive removed", key),
 		setText("import added", key, "import std::strings\n"+text),
 		restore("import removed", key),
-		appendText("type error", key, "\nfn incremental_bad() -> Int {\n    \"text\"\n}\n"),
+		appendText("type error", key, "\nfn incremental_bad() -> Int\n    \"text\"\nend\n"),
 		restore("type error fixed", key),
 		appendText("unparseable", key, "\nfn incremental_broken( {\n"),
 		restore("parses again", key),
@@ -477,64 +479,64 @@ func readProject(dir, name string) (incrementalProject, error) {
 // palette, which only the entry imports.
 func layeredProject() incrementalProject {
 	return incrementalProject{name: "layered", entry: "main", texts: map[string]string{
-		"main": `import {
+		"main": `import
     std::io
     model
     view
     util
     palette
-}
+end
 
-fn main() {
+fn main()
     item = model.make("anvil", model.default_weight)
     io.print(view.show(item))
     io.print("${util.clamp(-1)} ${model.heavy(item)} ${palette.name()}")
-}
+end
 `,
-		"util": `pub fn clamp(n: Int) -> Int {
-    if n < 0 { 0 } else { n }
-}
+		"util": `pub fn clamp(n: Int) -> Int
+    if n < 0 then 0 else n
+end
 
-pub struct Span {
+pub struct Span
     from: Int
     to: Int
-}
+end
 `,
 		"model": `import util
 
-pub struct Item {
+pub struct Item
     name: String
     weight: Int
-}
+end
 
-pub fn make(name: String, weight: Int) -> Item {
-    Item{name: name, weight: util.clamp(weight)}
-}
+pub fn make(name: String, weight: Int) -> Item
+    Item{name:, weight: util.clamp(weight)}
+end
 
-pub fn heavy(item: Item) -> Bool {
+pub fn heavy(item: Item) -> Bool
     item.weight > 10
-}
+end
 
 pub once default_weight = util.clamp(3)
 
 pub once label = "weight ${default_weight}"
 `,
-		"view": `import {
+		"view": `import
     model.Item
     util
-}
+end
 
-pub fn show(item: Item) -> String {
+pub fn show(item: Item) -> String
     "${item.name}: ${util.clamp(item.weight)}"
-}
+end
 `,
-		"palette": `pub fn name() -> String {
+		"palette": `pub fn name() -> String
     "red"
-}
+end
 
-pub fn unused(n: Int) -> Int {
+pub fn unused(n: Int) -> Int
     n
-}
+end
 `,
 	}}
 }
@@ -543,20 +545,20 @@ pub fn unused(n: Int) -> Int {
 // remove a public declaration, add an impl to the leaf, and change a
 // `once`'s value keeping its type and changing it.
 var layeredEdits = []editStep{
-	replace("signature used by one importer [dependents]", "view", "pub fn show(item: Item) -> String {", "pub fn show(item: Item, prefix: String = \"\") -> String {"),
+	replace("signature used by one importer [dependents]", "view", "pub fn show(item: Item) -> String", "pub fn show(item: Item, prefix: String = \"\") -> String"),
 	replace("body only, the new parameter used", "view", `"${item.name}: `, `"${prefix}${item.name}: `),
 	restore("signature back [dependents]", "view"),
-	replace("signature used by none [dependents]", "palette", "pub fn unused(n: Int) -> Int {", "pub fn unused(n: Int, m: Int = 0) -> Int {"),
+	replace("signature used by none [dependents]", "palette", "pub fn unused(n: Int) -> Int", "pub fn unused(n: Int, m: Int = 0) -> Int"),
 	restore("signature back [dependents]", "palette"),
-	replace("signature used by many [dependents]", "util", "pub fn clamp(n: Int) -> Int {", "pub fn clamp(n: Int, low: Int = 0) -> Int {"),
-	replace("body only, the new parameter used", "util", "if n < 0 { 0 } else { n }", "if n < low { low } else { n }"),
-	replace("signature breaks its callers [dependents]", "util", "pub fn clamp(n: Int, low: Int = 0) -> Int {", "pub fn clamp(n: String, low: Int = 0) -> Int {"),
+	replace("signature used by many [dependents]", "util", "pub fn clamp(n: Int) -> Int", "pub fn clamp(n: Int, low: Int = 0) -> Int"),
+	replace("body only, the new parameter used", "util", "if n < 0 then 0 else n", "if n < low then low else n"),
+	replace("signature breaks its callers [dependents]", "util", "pub fn clamp(n: Int, low: Int = 0) -> Int", "pub fn clamp(n: String, low: Int = 0) -> Int"),
 	restore("signature back [dependents]", "util"),
-	appendText("public declaration added [dependents]", "model", "\npub fn light(item: Item) -> Bool {\n    item.weight < 2\n}\n"),
+	appendText("public declaration added [dependents]", "model", "\npub fn light(item: Item) -> Bool\n    item.weight < 2\nend\n"),
 	replace("body only, the new declaration used", "main", "${model.heavy(item)}", "${model.heavy(item)} ${model.light(item)}"),
 	restore("body only, the new declaration's use removed", "main"),
 	restore("public declaration removed [dependents]", "model"),
-	appendText("impl added in the leaf", "util", "\nimpl Display for Span {\n    fn to_string(value: Span) -> String {\n        \"${value.from}..${value.to}\"\n    }\n}\n"),
+	appendText("impl added in the leaf", "util", "\nimpl Display for Span\n    fn to_string(value: Span) -> String\n        \"${value.from}..${value.to}\"\n    end\nend\n"),
 	restore("impl removed from the leaf", "util"),
 	replace("once value, same type", "model", "pub once default_weight = util.clamp(3)", "pub once default_weight = util.clamp(4)"),
 	replace("once value, same type, a once of the file reads it", "model", "pub once label = \"weight ${default_weight}\"", "pub once label = \"weight: ${default_weight}\""),
@@ -569,32 +571,32 @@ var layeredEdits = []editStep{
 // Shade.shade dispatches to main's impl.
 func dispatchProject() incrementalProject {
 	return incrementalProject{name: "dispatch", entry: "main", texts: map[string]string{
-		"main": `import {
+		"main": `import
     std::io
     shade.{self, Shade, Tint}
-}
+end
 
-impl Shade for Tint {
-    fn shade(value: Tint) -> String {
+impl Shade for Tint
+    fn shade(value: Tint) -> String
         "tint ${value.level}"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(shade.describe())
-}
+end
 `,
-		"shade": `pub interface Shade {
+		"shade": `pub interface Shade
     fn shade(value: self) -> String
-}
+end
 
-pub struct Tint {
+pub struct Tint
     level: Int
-}
+end
 
-pub fn describe() -> String {
+pub fn describe() -> String
     Shade.shade(Tint{level: 2})
-}
+end
 `,
 	}}
 }
@@ -604,32 +606,32 @@ pub fn describe() -> String {
 // for Decimal and Contains for String, used from the entry.
 func rateProject() incrementalProject {
 	return incrementalProject{name: "rate", entry: "main", texts: map[string]string{
-		"main": `import {
+		"main": `import
     std::io
     rate.Rate
-}
+end
 
-fn main() {
+fn main()
     r = Rate{per_unit: 4d}
     io.print(Decimal.to_string(2.5d * r))
     io.print(Bool.to_string(String.contains("x4", r)))
-}
+end
 `,
-		"rate": `pub struct Rate {
+		"rate": `pub struct Rate
     per_unit: Decimal
-}
+end
 
-impl Multiply<Rate, Decimal> for Decimal {
-    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal {
+impl Multiply<Rate, Decimal> for Decimal
+    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal
         lhs * rhs.per_unit
-    }
-}
+    end
+end
 
-impl Contains<Rate> for String {
-    fn contains(c: String, x: Rate) -> Bool {
+impl Contains<Rate> for String
+    fn contains(c: String, x: Rate) -> Bool
         String.contains(c, Decimal.to_string(x.per_unit))
-    }
-}
+    end
+end
 `,
 	}}
 }
@@ -640,33 +642,33 @@ impl Contains<Rate> for String {
 var rateEdits = []editStep{
 	replace("impl body only", "rate", "lhs * rhs.per_unit", "rhs.per_unit * lhs"),
 	replace("impl header moves the local type to a result", "rate",
-		"impl Multiply<Rate, Decimal> for Decimal {\n    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal {\n        rhs.per_unit * lhs",
-		"impl Multiply<Decimal, Rate> for Decimal {\n    fn multiply(lhs: Decimal, rhs: Decimal) -> Rate {\n        Rate{per_unit: lhs * rhs}"),
+		"impl Multiply<Rate, Decimal> for Decimal\n    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal\n        rhs.per_unit * lhs",
+		"impl Multiply<Decimal, Rate> for Decimal\n    fn multiply(lhs: Decimal, rhs: Decimal) -> Rate\n        Rate{per_unit: lhs * rhs}"),
 	restore("impl header back", "rate"),
 	replace("impl removed", "rate",
-		"impl Contains<Rate> for String {\n    fn contains(c: String, x: Rate) -> Bool {\n        String.contains(c, Decimal.to_string(x.per_unit))\n    }\n}\n", ""),
+		"impl Contains<Rate> for String\n    fn contains(c: String, x: Rate) -> Bool\n        String.contains(c, Decimal.to_string(x.per_unit))\n    end\nend\n", ""),
 	restore("impl back", "rate"),
 	replace("impl header names no local type", "rate",
-		"impl Contains<Rate> for String {\n    fn contains(c: String, x: Rate) -> Bool {\n        String.contains(c, Decimal.to_string(x.per_unit))",
-		"impl Contains<Decimal> for String {\n    fn contains(c: String, x: Decimal) -> Bool {\n        String.contains(c, Decimal.to_string(x))"),
+		"impl Contains<Rate> for String\n    fn contains(c: String, x: Rate) -> Bool\n        String.contains(c, Decimal.to_string(x.per_unit))",
+		"impl Contains<Decimal> for String\n    fn contains(c: String, x: Decimal) -> Bool\n        String.contains(c, Decimal.to_string(x))"),
 	// The program's orphan-impl error is about rate, and moves with it.
 	replace("body only, the orphan impl below moves", "rate", "        lhs * rhs.per_unit\n", "        per = rhs.per_unit\n        lhs * per\n"),
 	restore("impl header and body back", "rate"),
 	appendText("impl added in the entry", "main",
-		"\nimpl Add<Rate, Decimal> for Decimal {\n    fn add(lhs: Decimal, rhs: Rate) -> Decimal {\n        lhs + rhs.per_unit\n    }\n}\n"),
+		"\nimpl Add<Rate, Decimal> for Decimal\n    fn add(lhs: Decimal, rhs: Rate) -> Decimal\n        lhs + rhs.per_unit\n    end\nend\n"),
 	replace("impl body only in the entry", "main", "lhs + rhs.per_unit", "rhs.per_unit + lhs"),
 	restore("impl removed from the entry", "main"),
 }
 
 // dispatchEdits change the entry's interface while shade holds its impl.
 var dispatchEdits = []editStep{
-	appendText("declaration added, a file the entry imports calls its impl", "main", "\npub fn extra() -> Int {\n    1\n}\n"),
+	appendText("declaration added, a file the entry imports calls its impl", "main", "\npub fn extra() -> Int\n    1\nend\n"),
 	restore("declaration removed, a file the entry imports calls its impl", "main"),
 	// The impl names only shade's declarations, so shade, which does not
 	// import the entry, sees it go and come back: a recheck of the entry
 	// and its importers alone would keep shade's call dispatched.
 	{"impl removed, a file the entry imports calls it", "main", func(cur, _ string) (string, bool) {
-		i := strings.Index(cur, "impl Shade for Tint {")
+		i := strings.Index(cur, "impl Shade for Tint")
 		j := strings.Index(cur, "fn main()")
 		if i < 0 || j < i {
 			return cur, false
@@ -679,7 +681,7 @@ var dispatchEdits = []editStep{
 // appTypeBoot is the entry boot of the corpus project app_field_permission,
 // which makes `Settings`, declared in a file the entry imports, the
 // application type that project's other files read fields of.
-const appTypeBoot = "pub fn boot() -> Result<Settings, String> {\n    Ok(Settings{context: Context.root(), tag: \"the-real-root\"})\n}\n"
+const appTypeBoot = "pub fn boot() -> Result<Settings, String>\n    Ok(Settings{context: Context.root(), tag: \"the-real-root\"})\nend\n"
 
 // appTypeEdits remove the entry's boot and put it back. The files that read
 // `Settings.tag` do not import the entry, and what their bodies say turns on
@@ -697,30 +699,30 @@ var appTypeEdits = []editStep{
 // label, with the once's type unchanged, must move what main holds too.
 func anonFieldsProject() incrementalProject {
 	return incrementalProject{name: "anonymous fields", entry: "main", texts: map[string]string{
-		"main": `import {
+		"main": `import
     std::io
     routes
-}
+end
 
-fn main() {
+fn main()
     io.print(routes.public.other)
-    .{home} = routes.public
+    {home:} = routes.public
     io.print(home)
     io.print("${routes.helper()}")
-}
+end
 `,
-		"routes": `pub fn helper() -> Int {
+		"routes": `pub fn helper() -> Int
     1
-}
+end
 
-pub once public = .{
+pub once public = {
     home: "/",
     other: "x",
 }
 
-fn local() -> String {
+fn local() -> String
     public.other
-}
+end
 `,
 	}}
 }
@@ -729,7 +731,7 @@ var anonFieldsEdits = []editStep{
 	replace("body only, positions shift", "routes", "    1\n", "    // One.\n\n    1\n"),
 	replace("body only, once value, a label moves after the edit", "routes", "    other: \"x\",\n", "    // The other.\n    other: \"x\",\n"),
 	replace("body only, main", "main", "io.print(home)", "io.print(home + \"!\")"),
-	replace("body only, once value, the labels move together", "routes", "pub once public = .{\n", "pub once public = .{\n\n"),
+	replace("body only, once value, the labels move together", "routes", "pub once public = {\n", "pub once public = {\n\n"),
 	replace("once value, a label moves inside the edit", "routes", "\"/\",\n    // The other.\n    other: \"x\"", "\"/\", other: \"y\""),
 	replace("body only, main again", "main", "io.print(home + \"!\")", "io.print(home)"),
 	restore("routes back", "routes"),
@@ -744,70 +746,70 @@ var anonFieldsEdits = []editStep{
 // an edit to routes that moves a type's field must move what main holds.
 func anonTypeFieldsProject() incrementalProject {
 	return incrementalProject{name: "anonymous type fields", entry: "main", texts: map[string]string{
-		"main": `import {
+		"main": `import
     std::io
     routes
-}
+end
 
-fn shown(r: routes.Row) -> String {
+fn shown(r: routes.Row) -> String
     r.tag
-}
+end
 
-fn main() {
+fn main()
     io.print(routes.make(1).label)
     io.print(routes.holder().inner.note)
     io.print("${routes.boxed().value.code}")
     io.print("${routes.settings.port}")
-    io.print("${routes.take(.{id: 1, size: 2})}")
+    io.print("${routes.take({id: 1, size: 2})}")
     io.print(shown(routes.row()))
-}
+end
 `,
-		"routes": `pub fn helper() -> Int {
+		"routes": `pub fn helper() -> Int
     1
-}
+end
 
-pub typealias Row .{id: Int, tag: String}
+pub typealias Row {id: Int, tag: String}
 
-pub struct Holder {
-    inner: .{id: Int, note: String}
-}
+pub struct Holder
+    inner: {id: Int, note: String}
+end
 
-pub struct Box<T> {
+pub struct Box<T>
     value: T
-}
+end
 
-pub once settings: .{port: Int} = .{port: 80}
+pub once settings: {port: Int} = {port: 80}
 
-pub fn make(id: Int) -> .{id: Int, label: String} {
-    .{id, label: "x"}
-}
+pub fn make(id: Int) -> {id: Int, label: String}
+    {id:, label: "x"}
+end
 
-pub fn take(p: .{id: Int, size: Int}) -> Int {
+pub fn take(p: {id: Int, size: Int}) -> Int
     p.size
-}
+end
 
-pub fn row() -> Row {
-    .{id: 1, tag: "t"}
-}
+pub fn row() -> Row
+    {id: 1, tag: "t"}
+end
 
-pub fn holder() -> Holder {
-    Holder{inner: .{id: 1, note: "n"}}
-}
+pub fn holder() -> Holder
+    Holder{inner: {id: 1, note: "n"}}
+end
 
-pub fn boxed() -> Box<.{id: Int, code: Int}> {
-    Box{value: .{id: 1, code: 2}}
-}
+pub fn boxed() -> Box<{id: Int, code: Int}>
+    Box{value: {id: 1, code: 2}}
+end
 `,
 	}}
 }
 
 var anonTypeFieldsEdits = []editStep{
 	replace("body only, the types below shift", "routes", "    1\n", "    // One.\n\n    1\n"),
-	replace("body only, a literal under a return type", "routes", ".{id, label: \"x\"}", ".{id, label: \"y\"}"),
+	replace("body only, a literal under a return type", "routes", "{id:, label: \"x\"}", "{id:, label: \"y\"}"),
 	replace("body only, main", "main", "r.tag", "r.tag + \"!\""),
-	replace("a declaration line above the types", "routes", "pub typealias Row", "pub fn extra() -> Int {\n    2\n}\n\npub typealias Row"),
-	replace("a return type's field moves", "routes", "-> .{id: Int, label: String}", "-> .{\n    id: Int,\n    label: String,\n}"),
-	replace("a typealias's field moves", "routes", ".{id: Int, tag: String}", ".{tag: String, id: Int}"),
+	replace("a declaration line above the types", "routes", "pub typealias Row", "pub fn extra() -> Int\n    2\nend\n\npub typealias Row"),
+	replace("a return type's field moves", "routes", "-> {id: Int, label: String}", "-> {\n    id: Int,\n    label: String,\n}"),
+	replace("a typealias's field moves", "routes", "{id: Int, tag: String}", "{tag: String, id: Int}"),
 	restore("routes back", "routes"),
 	replace("a struct field's type renamed", "routes", "note: String}", "remark: String}"),
 	restore("routes back again", "routes"),
@@ -821,36 +823,36 @@ var anonTypeFieldsEdits = []editStep{
 // loop ever ends.
 func signalProject() incrementalProject {
 	return incrementalProject{name: "signal", entry: "main", texts: map[string]string{
-		"main": `import {
+		"main": `import
     std::io
     lib
     label
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Iter.map([1, -2, 3], lib.keep) |> Iter.to_list())
     io.inspect(Iter.map([1, 2], fn x -> lib.score(x) * 2) |> Iter.to_list())
     Iter.loop(0, lib.step)
     io.print(label.text())
-}
+end
 `,
-		"lib": `pub fn keep(n: Int) -> Int {
-    if n < 0 { continue }
+		"lib": `pub fn keep(n: Int) -> Int
+    if n < 0 then continue
     n * 2
-}
+end
 
-pub fn score(n: Int) -> Int {
+pub fn score(n: Int) -> Int
     n + 1
-}
+end
 
-pub fn step(n: Int) -> Int {
-    if n < 0 { continue }
+pub fn step(n: Int) -> Int
+    if n < 0 then continue
     n + 1
-}
+end
 `,
-		"label": `pub fn text() -> String {
+		"label": `pub fn text() -> String
     "done"
-}
+end
 `,
 	}}
 }
@@ -859,9 +861,9 @@ pub fn step(n: Int) -> Int {
 // function bodies, which changes what the entry may do with them, and
 // change a body keeping its keywords.
 var signalEdits = []editStep{
-	replace("a body gains continue, another file calls it [dependents]", "lib", "    n + 1\n}\n\npub fn step", "    if n > 9 { continue }\n    n + 1\n}\n\npub fn step"),
+	replace("a body gains continue, another file calls it [dependents]", "lib", "    n + 1\nend\n\npub fn step", "    if n > 9 then continue\n    n + 1\nend\n\npub fn step"),
 	restore("continue removed [dependents]", "lib"),
-	replace("a loop step's body gains break, the loop now ends [dependents]", "lib", "    if n < 0 { continue }\n    n + 1", "    if n < 0 { continue }\n    if n > 3 { break n }\n    n + 1"),
+	replace("a loop step's body gains break, the loop now ends [dependents]", "lib", "    if n < 0 then continue\n    n + 1", "    if n < 0 then continue\n    if n > 3 then break n\n    n + 1"),
 	restore("break removed [dependents]", "lib"),
 	replace("body only, keeping its keywords", "lib", "    n * 2", "    n * 3"),
 }
@@ -1003,8 +1005,8 @@ func TestIncrementalMatchesFullForSeveralFiles(t *testing.T) {
 	}
 	viewBody := replace("", "view", `"${item.name}: `, `"item ${item.name}: `)
 	paletteBody := replace("", "palette", `"red"`, `"blue"`)
-	viewSignature := replace("", "view", "pub fn show(item: Item) -> String {", "pub fn show(item: Item, prefix: String = \"\") -> String {")
-	utilSignature := replace("", "util", "pub fn clamp(n: Int) -> Int {", "pub fn clamp(n: Int, low: Int = 0) -> Int {")
+	viewSignature := replace("", "view", "pub fn show(item: Item) -> String", "pub fn show(item: Item, prefix: String = \"\") -> String")
+	utilSignature := replace("", "util", "pub fn clamp(n: Int) -> Int", "pub fn clamp(n: Int, low: Int = 0) -> Int")
 	modelBody := replace("", "model", "item.weight > 10", "item.weight > 12")
 	sets := []multi{
 		{"two bodies", analysis.RecheckBodies, []editStep{viewBody, paletteBody}},
@@ -1147,8 +1149,8 @@ func TestCheckProgramPrintsWhatTheFrontEndPrints(t *testing.T) {
 	// A derive in an imported file over a field with no impl: the entry's
 	// coherence finds it, and both print it in the file with the derive.
 	deriveElsewhere := incrementalProject{name: "derive in an imported file", entry: "main", texts: map[string]string{
-		"main":  "import {\n    std::io\n    child.Holder\n}\n\nfn main() {\n    io.inspect(Holder{n: 1, o: Opaque{f: fn x -> x}})\n}\n",
-		"child": "pub struct Opaque {\n    f: (Int) -> Int\n}\n\npub struct Holder {\n    n: Int\n    o: Opaque\n}\n\nderive Equatable for Holder\n",
+		"main":  "import\n    std::io\n    child.Holder\nend\n\nfn main()\n    io.inspect(Holder{n: 1, o: Opaque{f: fn x -> x}})\nend\n",
+		"child": "pub struct Opaque\n    f: (Int) -> Int\nend\n\npub struct Holder\n    n: Int\n    o: Opaque\nend\n\nderive Equatable for Holder\n",
 	}}
 	for _, p := range append([]incrementalProject{order, withTypeError, deriveElsewhere}, corpus...) {
 		dir := t.TempDir()

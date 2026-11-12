@@ -16,7 +16,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// Reports whether `number` is the sum of its own digits, each raised to
 /// the power of the number of digits: `153 == 1^3 + 5^3 + 3^3`.
-pub fn is_armstrong(number: Int) -> Bool {
+pub fn is_armstrong(number: Int) -> Bool
     digits = Int.to_digits(number)
     width = Iter.count(digits)
 
@@ -26,12 +26,12 @@ pub fn is_armstrong(number: Int) -> Bool {
         |> Iter.sum()
 
     total == number
-}
+end
 
 // FILE: armstrong_numbers_test.nomi
 import armstrong_numbers
 
-test "recognizes Armstrong numbers" {
+test "recognizes Armstrong numbers"
     [
         ("Zero is an Armstrong number", 0, True),
         ("Single-digit numbers are Armstrong numbers", 5, True),
@@ -45,10 +45,10 @@ test "recognizes Armstrong numbers" {
         ("Armstrong number containing seven zeroes", 186709961001538790100634132976990, True),
         ("The largest and last Armstrong number", 115132219018763992565095597973971522401, True),
     ]
-    |> subtests (description, number, expected), description {
+    |> subtests (description, number, expected), description
         assert armstrong_numbers.is_armstrong(number) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok recognizes Armstrong numbers (11 cases)

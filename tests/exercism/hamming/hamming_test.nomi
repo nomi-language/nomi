@@ -1,6 +1,6 @@
 import hamming.distance
 
-test "hamming distance" {
+test "hamming distance"
     [
         ("empty strands", "", "", Ok(0)),
         ("single letter identical strands", "A", "A", Ok(0)),
@@ -12,7 +12,7 @@ test "hamming distance" {
         ("disallow empty first strand", "", "G", Err("strands must be of equal length")),
         ("disallow empty second strand", "G", "", Err("strands must be of equal length")),
     ]
-    |> subtests (description, strand1, strand2, expected), description {
+    |> subtests (description, strand1, strand2, expected), description
         assert distance(strand1, strand2) == expected
-    }
-}
+    end
+end

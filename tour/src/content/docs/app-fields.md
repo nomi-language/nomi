@@ -17,18 +17,18 @@ any name you like. A context carries a deadline, explained
 ```nomi-run
 import std::io
 
-struct App {
+struct App
     port: Int
     context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{port: 8080, context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
     io.print("listening on :${App.port}")
-}
+end
 ```
 <!-- expect
 listening on :8080
@@ -65,19 +65,19 @@ like any other type. The context field can have any name too:
 ```nomi
 import std::duration.Duration
 
-struct Server {
+struct Server
     port: Int
     execution: Context
-}
+end
 
-fn boot() -> Result<Server, String> {
+fn boot() -> Result<Server, String>
     Ok(Server{port: 8080, execution: Context.root()})
-}
+end
 
-fn bounded_work() {
+fn bounded_work()
     with Server.execution = Context.with_timeout(Server.execution, Duration.seconds(3))
     serve(Server.port)
-}
+end
 ```
 
 Nomi finds the context field by its type, not its name.
@@ -100,45 +100,45 @@ Each line sees the values set by the lines above it.
 
 `with` replaces whole fields of the app struct. To change one part of a
 field, build an updated copy of it:
-`with App.database = .{..App.database, host: "localhost"}`.
+`with App.database = {..App.database, host: "localhost"}`.
 
 ```nomi-run
-import {
+import
     std::log.{self, Logger}
     std::log_testing
-}
+end
 
-struct App {
+struct App
     logger: Logger
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{logger: Logger.text(min: .Warn)})
-}
+end
 
-fn main() {
+fn main()
     greet("World")
-}
+end
 
-fn audit_greet(name: String) {
+fn audit_greet(name: String)
     with App.logger = Logger.with_fields(App.logger, [log.bool("audit", True)])
     greet(name)
-}
+end
 
-fn greet(name: String) {
+fn greet(name: String)
     log.info(App.logger, "hello", [log.string("name", name)])
-}
+end
 
-group "greetings" {
+group "greetings"
     boot boot()
 
-    test "only the audited greeting carries the audit field" {
-        got = log_testing.run(fn logger -> {
+    test "only the audited greeting carries the audit field"
+        got = log_testing.run(fn logger ->
             with App.logger = logger
             greet("World")
             audit_greet("Alice")
             greet("Bob")
-        })
+        end)
 
         fields = Iter.map(got.records, .fields) |> Iter.to_list()
 
@@ -147,8 +147,8 @@ group "greetings" {
             [log.bool("audit", True), log.string("name", "Alice")],
             [log.string("name", "Bob")],
         ]
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok greetings / only the audited greeting carries the audit field
@@ -174,28 +174,28 @@ replacement:
 ```nomi-run
 import std::io
 
-struct App {
+struct App
     greeting: String
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{greeting: "hello"})
-}
+end
 
-fn greet() -> String {
+fn greet() -> String
     "${App.greeting}, world"
-}
+end
 
-fn quiet_greeter() -> () -> String {
+fn quiet_greeter() -> () -> String
     with App.greeting = "psst"
     io.print(greet())
     fn -> greet()
-}
+end
 
-fn main() {
+fn main()
     later = quiet_greeter()
     io.print(later())
-}
+end
 ```
 <!-- expect
 psst, world
@@ -208,8 +208,8 @@ spawned ([Concurrency](/concurrency/)).
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- One field per line. A comma after the value is an error, and so is a `{`
-  after it: `with` takes no block.
+- One field per line. A comma after the value is an error. `with` takes no
+  body: it lasts to the end of the block it stands in.
 - The target must be an app field. `with Point.x = 1` is an error.
 - `with` works in any block: an `if` or `case` arm, a lambda body, a test
   body, a group's `setup`. To limit it to part of a function, put it in a
@@ -230,17 +230,17 @@ in reverse order, last one first:
 ```nomi-run
 import std::io
 
-fn main() {
-    {
+fn main()
+    begin
         io.print("open notes")
         defer io.print("close notes")
         io.print("open log")
         defer io.print("close log")
         io.print("body")
-    }
+    end
 
     io.print("after the block")
-}
+end
 ```
 <!-- expect
 open notes
@@ -273,12 +273,12 @@ function fails after that line, through a `?`, a `return` of `Err` or
 `None`, or a trap:
 
 ```nomi
-pub fn open(path: String) -> Result<SqliteStore, sql.Error> {
+pub fn open(path: String) -> Result<SqliteStore, sql.Error>
     conn = sqlite.open(path)?
     defer on error sql.close_quietly(conn)
     _ = Conn.exec(conn, Sql"CREATE TABLE IF NOT EXISTS notes (body TEXT)")?
-    Ok(SqliteStore{conn})
-}
+    Ok(SqliteStore{conn:})
+end
 ```
 
 The checker holds these rules for every resource. An opened value that is
@@ -329,27 +329,27 @@ program the same way a trap anywhere does.
 ```nomi-run error
 import std::io
 
-struct App {
+struct App
     database: String
-}
+end
 
-fn setting(startup: Startup, key: String) -> Result<String, String> {
-    case Map.get(startup.env, key) {
+fn setting(startup: Startup, key: String) -> Result<String, String>
+    case Map.get(startup.env, key)
         Some(value) -> Ok(value)
         None -> Err("${key} is not set")
-    }
-}
+    end
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
     io.print("opening the log")
     defer io.print("closing the log")
     database = setting(startup, "TOUR_DATABASE_PATH")?
-    Ok(App{database})
-}
+    Ok(App{database:})
+end
 
-fn main() {
+fn main()
     io.print("using ${App.database}")
-}
+end
 ```
 <!-- expect
 opening the log
@@ -371,41 +371,43 @@ is already set, so a program can pick its test settings by it:
 ```nomi-run
 import std::io
 
-struct Config {
+struct Config
     deployment: String = "dev"
     database_url: String = "postgres://localhost/myapp_dev"
     max_connections: Int = 5
-}
+end
 
-fn configure(deployment: String) -> Config {
-    base = Config{deployment}
+fn configure(deployment: String) -> Config
+    base = Config{deployment:}
 
-    case deployment {
-        "prod" -> Struct.update(base, .{max_connections: 20})
+    case deployment
+        "prod" ->
+            Struct.update(base, {max_connections: 20})
 
         "test" ->
             Struct.update(
                 base,
-                .{database_url: "postgres://localhost/myapp_test", max_connections: 2},
+                {database_url: "postgres://localhost/myapp_test", max_connections: 2},
             )
 
-        _ -> base
-    }
-}
+        _ ->
+            base
+    end
+end
 
-fn boot(startup: Startup) -> Result<Config, String> {
+fn boot(startup: Startup) -> Result<Config, String>
     deployment = Map.get(startup.env, "NOMI_ENV") |> Maybe.with_default("dev")
     configured = configure(deployment)
 
     database_url =
         Map.get(startup.env, "DATABASE_URL") |> Maybe.with_default(configured.database_url)
 
-    Ok(Struct.update(configured, .{database_url}))
-}
+    Ok(Struct.update(configured, {database_url:}))
+end
 
-fn main() {
+fn main()
     io.print("${Config.deployment}: ${Config.database_url}, ${Config.max_connections} connections")
-}
+end
 ```
 <!-- expect
 dev: postgres://localhost/myapp_dev, 5 connections
@@ -450,30 +452,30 @@ they run in for each test.
 ```nomi-run
 import std::io
 
-struct Config {
+struct Config
     env: String
-}
+end
 
-fn boot(startup: Startup) -> Result<Config, String> {
+fn boot(startup: Startup) -> Result<Config, String>
     Ok(Config{env: Map.get(startup.env, "APP_ENV") |> Maybe.with_default("dev")})
-}
+end
 
-fn main() {
+fn main()
     io.print("env: ${Config.env}")
-}
+end
 
-group "app-backed behavior" {
-    boot boot(Startup{env: %{"APP_ENV" => "test"}})
+group "app-backed behavior"
+    boot boot(Startup{env: {"APP_ENV" => "test"}})
 
-    test "reads the booted field" {
+    test "reads the booted field"
         assert Config.env == "test"
-    }
+    end
 
-    test "a with line replaces a field for the rest of the body" {
+    test "a with line replaces a field for the rest of the body"
         with Config.env = "staging"
         assert Config.env == "staging"
-    }
-}
+    end
+end
 ```
 <!-- expect
 env: dev
@@ -494,33 +496,33 @@ give its parameter a default. Then a group that needs no input writes
 ```nomi-run
 import std::io
 
-struct Config {
+struct Config
     verbose: Bool
-}
+end
 
-fn boot(startup: Startup = Startup{}) -> Result<Config, String> {
+fn boot(startup: Startup = Startup{}) -> Result<Config, String>
     Ok(Config{verbose: "-v" in startup.args})
-}
+end
 
-fn main() {
+fn main()
     io.print("verbose: ${Config.verbose}")
-}
+end
 
-group "quiet by default" {
+group "quiet by default"
     boot boot()
 
-    test "takes no arguments" {
+    test "takes no arguments"
         assert Config.verbose == False
-    }
-}
+    end
+end
 
-group "verbose" {
+group "verbose"
     boot boot(Startup{args: ["-v"]})
 
-    test "reads -v" {
+    test "reads -v"
         assert Config.verbose
-    }
-}
+    end
+end
 ```
 <!-- expect
 verbose: False
@@ -540,25 +542,25 @@ in a fake mailer with a `with` line:
 
 ```nomi
 // server_test.nomi
-import {
+import
     server
     server.App
     test_support
     test_support.FakeMailer
-}
+end
 
-group "welcome email" {
+group "welcome email"
     boot server.boot(test_support.startup())
 
-    setup {
+    setup begin
         with App.mailer = FakeMailer
         "ada@example.com"
-    }
+    end
 
-    test "sends through the fake", to {
+    test "sends through the fake", to
         assert server.welcome(to)
-    }
-}
+    end
+end
 ```
 
 Here `test_support.startup()` builds the inputs this group needs. If
@@ -575,13 +577,13 @@ line, and the `Err` it returned. The cleanup `boot` deferred still runs when
 the test ends.
 
 ```nomi
-group "without a database path" {
+group "without a database path"
     boot server.boot(Startup{})
 
-    test "never gets this far" {
+    test "never gets this far"
         assert server.is_ready()
-    }
-}
+    end
+end
 ```
 
 If `server.boot` returns `Err("DATABASE_PATH is not set")` for an empty
@@ -602,28 +604,28 @@ what `boot` starts, its cleanup and supervised work, ends with the test.
 ```nomi-run
 import std::io
 
-struct App {
+struct App
     store: String
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
     store = Map.get(startup.env, "STORE") |> Maybe.with_default("memory")
 
-    if store == "postgres" and not ("DATABASE_URL" in startup.env) {
+    if store == "postgres" and not ("DATABASE_URL" in startup.env) then
         return Err("STORE=postgres needs DATABASE_URL")
-    }
+    end
 
-    Ok(App{store})
-}
+    Ok(App{store:})
+end
 
-fn main() {
+fn main()
     io.print("store: ${App.store}")
-}
+end
 
-test "postgres without a URL stops the program" {
-    startup = Startup{env: %{"STORE" => "postgres"}}
+test "postgres without a URL stops the program"
+    startup = Startup{env: {"STORE" => "postgres"}}
     assert boot(startup) is Err("STORE=postgres needs DATABASE_URL")
-}
+end
 ```
 <!-- expect
 store: memory

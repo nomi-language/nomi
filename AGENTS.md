@@ -209,9 +209,9 @@ runs as `go test ./<pkg> -run '^$' -fuzz '^<Name>$' -fuzztime 5m`.
   `knownLoweringGaps` (`vmhost/lowering_fuzz_test.go`).
 - A program that lowers runs, the same twice and as its built image:
   `FuzzLoweredProgramsRun`, `knownRunGaps` (`vmhost/run_fuzz_test.go`).
-- Every feature in every context is rejected as expected or runs:
-  `TestFeatureContextMatrix`, `NOMI_MATRIX=full`
-  (`vmhost/feature_matrix_test.go`).
+- Every feature in every context, a std module's own tests among them, is
+  rejected as expected or runs: `TestFeatureContextMatrix`,
+  `NOMI_MATRIX=full`, `NOMI_MATRIX_ONLY` (`vmhost/feature_matrix_test.go`).
 - Load order does not change a program: `TestLoadOrderDoesNotChangeAProgram`,
   `NOMI_ORDER_COUNT` (`vmhost/load_order_test.go`).
 - Every place irbuild can decline is listed with a class:
@@ -239,6 +239,11 @@ runs as `go test ./<pkg> -run '^$' -fuzz '^<Name>$' -fuzztime 5m`.
 - The stdlib's state reads back as the build it was written from, field by
   field: `TestStdState_ReadsBackAsTheBuild`, `TestStdState_AProcessReadsIt`
   (`std/state_test.go`), `NOMI_STD_STATE=off`.
+- The checker hands irbuild every callee, type argument and expression
+  type closed: `TestElaborationGate` fails on a call or expression outside
+  derived bodies without one; `TestElaborationCensus`,
+  `NOMI_ELAB_CENSUS=1`, `NOMI_ELAB_DIR` count the rest (derived bodies,
+  implicit operations) (`vmhost/elaboration_census_test.go`).
 - `nomi fmt` keeps meaning: `FuzzFormatKeepsMeaning`, `knownFormatGaps`
   (`vmhost/format_meaning_test.go`).
 - An incremental check matches a full one: `FuzzIncrementalMatchesFull`

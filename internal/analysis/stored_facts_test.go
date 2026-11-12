@@ -316,55 +316,55 @@ func reductionsProject() incrementalProject {
 	return incrementalProject{name: "reductions", entry: "main", texts: map[string]string{
 		"chain": `import std::supervisors.Supervisor
 
-pub fn deep() -> Int {
+pub fn deep() -> Int
     _ = Supervisor.new(max_running: 1)
     1
-}
+end
 
-pub fn plain() -> Int {
+pub fn plain() -> Int
     2
-}
+end
 `,
 		"lib": `import chain
 
-pub fn make() -> Int {
+pub fn make() -> Int
     chain.plain()
-}
+end
 
-fn unused_private() -> Int {
+fn unused_private() -> Int
     chain.deep()
-}
+end
 `,
-		"point": `pub struct Point {
+		"point": `pub struct Point
     x: Int
-}
+end
 `,
-		"show": `pub interface Show {
+		"show": `pub interface Show
     fn show(p: self) -> String
-}
+end
 `,
-		"impls": `import {
+		"impls": `import
     point.{Point}
     show.{Show}
-}
+end
 
-impl Show for Point {
-    fn show(p: Point) -> String {
+impl Show for Point
+    fn show(p: Point) -> String
         "p${p.x}"
-    }
-}
+    end
+end
 `,
-		"main": `import {
+		"main": `import
     std::io
     lib
     impls
     point.{Point}
-}
+end
 
-fn main() {
+fn main()
     io.println("${lib.make()}")
     io.println("${Point{x: 1}.x}")
-}
+end
 `,
 	}}
 }
@@ -374,9 +374,9 @@ var reductionsEdits = []editStep{
 	replace("body names a boot-only function as a value", "main", "    io.println(\"${lib.make()}\")\n", "    f = lib.make\n    io.println(\"${f()}\")\n"),
 	restore("body back", "main"),
 	restore("body back", "lib"),
-	replace("body calls Supervisor.new in a lambda", "chain", "pub fn plain() -> Int {\n    2\n", "pub fn plain() -> Int {\n    g = fn -> Supervisor.new(max_running: 2)\n    _ = g\n    2\n"),
+	replace("body calls Supervisor.new in a lambda", "chain", "pub fn plain() -> Int\n    2\n", "pub fn plain() -> Int\n    g = fn -> Supervisor.new(max_running: 2)\n    _ = g\n    2\n"),
 	restore("body back", "chain"),
-	replace("body calls a boot-only std function", "chain", "import std::supervisors.Supervisor\n", "import {\n    std::supervisors.Supervisor\n    std::jobs.{Worker}\n    std::jobs_testing.{Inline}\n}\n"),
-	replace("body calls a boot-only std function", "chain", "pub fn plain() -> Int {\n    2\n", "pub fn plain() -> Int {\n    _ = Worker.new(Inline.new(), 1)\n    2\n"),
+	replace("body calls a boot-only std function", "chain", "import std::supervisors.Supervisor\n", "import\n    std::supervisors.Supervisor\n    std::jobs.{Worker}\n    std::jobs_testing.{Inline}\nend\n"),
+	replace("body calls a boot-only std function", "chain", "pub fn plain() -> Int\n    2\n", "pub fn plain() -> Int\n    _ = Worker.new(Inline.new(), 1)\n    2\n"),
 	restore("body back", "chain"),
 }

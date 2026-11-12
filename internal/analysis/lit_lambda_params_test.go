@@ -9,12 +9,16 @@ import (
 )
 
 const litLambdaTypes = `
-struct Day { n: Int }
-struct Date { n: Int }
+struct Day
+    n: Int
+end
+struct Date
+    n: Int
+end
 
-fn name_of(d: Day) -> String {
+fn name_of(d: Day) -> String
   "${d.n}"
-}
+end
 `
 
 // paramTypeAt is the type the checker gave the parameter declared at
@@ -47,41 +51,41 @@ func litLambdaErrors(errs []analysis.TypeError) string {
 // type is what hover shows.
 func TestLitLambdaParams_AnElementTypesTheOthers(t *testing.T) {
 	src := litLambdaTypes + `
-fn tuples() -> List<(String, (Day) -> String)> {
+fn tuples() -> List<(String, (Day) -> String)>
   [
     ("a", fn d -> name_of(d)),
     ("b", fn d: Day -> "${d.n + 1}"),
     ("c", fn d -> name_of(d)),
   ]
-}
+end
 
-fn records() -> List<String> {
-  rs = [.{f: fn a, b: String -> "${a.n}${b}"}, .{f: fn _a: Day, b -> b}]
+fn records() -> List<String>
+  rs = [{f: fn a, b: String -> "${a.n}${b}"}, {f: fn _a: Day, b -> b}]
   _ = rs
   []
-}
+end
 
-fn maps() -> Map<String, (Day) -> Int> {
-  %{"a" => fn d -> d.n, "b" => fn d: Day -> d.n + 1}
-}
+fn maps() -> Map<String, (Day) -> Int>
+  {"a" => fn d -> d.n, "b" => fn d: Day -> d.n + 1}
+end
 
-fn vectors() -> Int {
-  v = #[fn d -> d.n, fn _d: Day -> 0]
+fn vectors() -> Int
+  v = Vector[fn d -> d.n, fn _d: Day -> 0]
   _ = v
   0
-}
+end
 
-fn nested() -> Int {
+fn nested() -> Int
   ls = [[fn d: Day -> d.n], [fn d -> d.n * 2]]
   _ = ls
   0
-}
+end
 
-fn named_first() -> Int {
+fn named_first() -> Int
   ns = [("a", name_of), ("b", fn d -> "${d.n}")]
   _ = ns
   0
-}
+end
 `
 	fa, errs := checkSourceWithStdlib(src)
 	if len(errs) != 0 {
@@ -91,14 +95,14 @@ fn named_first() -> Int {
 		line, col int
 		want      string
 	}{
-		{11, 14, "Day"},    // tuples, before the annotated element
-		{13, 14, "Day"},    // tuples, after it
-		{18, 17, "Day"},    // records: a, from the second element
-		{18, 65, "String"}, // records: b, from the first
-		{24, 15, "Day"},    // map values
-		{28, 12, "Day"},    // vector
-		{34, 33, "Day"},    // nested list
-		{40, 34, "Day"},    // after a named function
+		{15, 14, "Day"},    // tuples, before the annotated element
+		{17, 14, "Day"},    // tuples, after it
+		{22, 16, "Day"},    // records: a, from the second element
+		{22, 63, "String"}, // records: b, from the first
+		{28, 14, "Day"},    // map values
+		{32, 17, "Day"},    // vector
+		{38, 33, "Day"},    // nested list
+		{44, 34, "Day"},    // after a named function
 	} {
 		if got := paramTypeAt(t, fa, tc.line, tc.col); got != tc.want {
 			t.Errorf("parameter at %d:%d: got %s, want %s", tc.line, tc.col, got, tc.want)
@@ -110,16 +114,16 @@ fn named_first() -> Int {
 // literal's element types differ, and the mismatch names both.
 func TestLitLambdaParams_DisagreeingAnnotations(t *testing.T) {
 	src := litLambdaTypes + `
-fn main() {
+fn main()
   xs = [("a", fn d: Day -> name_of(d)), ("b", fn d: Date -> "${d.n}"), ("c", fn d -> name_of(d))]
   _ = xs
-}
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	if len(errs) == 0 {
 		t.Fatal("the checker admits lambdas annotated `d: Day` and `d: Date` at the same place")
 	}
-	want := "10:41 list element type mismatch: expected (String, (Day) -> String), got (String, (Date) -> String)"
+	want := "14:41 list element type mismatch: expected (String, (Day) -> String), got (String, (Date) -> String)"
 	if got := litLambdaErrors(errs); !strings.HasPrefix(got, want) || len(errs) != 1 {
 		t.Fatalf("errors:\n%s\nwant only:\n%s", got, want)
 	}
@@ -131,15 +135,15 @@ fn main() {
 // does not type it.
 func TestLitLambdaParams_NothingTypesIt(t *testing.T) {
 	src := litLambdaTypes + `
-fn none() {
+fn none()
   xs = [("a", fn d -> "${d}"), ("b", fn e -> "${e}")]
   _ = xs
-}
+end
 
-fn named_after() {
+fn named_after()
   ys = [("a", fn d -> "${d}"), ("b", name_of)]
   _ = ys
-}
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	if len(errs) == 0 {
@@ -150,9 +154,9 @@ fn named_after() {
 			"help: annotate the parameter with its type, as in `fn " + name + ": T -> ...`, in this element or another one: the parameter at the same place in every element takes it"
 	}
 	want := strings.Join([]string{
-		"10:18 " + hint("d"),
-		"10:41 " + hint("e"),
-		"15:18 " + hint("d"),
+		"14:18 " + hint("d"),
+		"14:41 " + hint("e"),
+		"19:18 " + hint("d"),
 	}, "\n")
 	if got := litLambdaErrors(errs); got != want {
 		t.Fatalf("errors:\n%s\nwant:\n%s", got, want)

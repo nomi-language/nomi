@@ -7,28 +7,28 @@ import "testing"
 // parameter for each interface.
 const anonJsonDecls = `import std::json.{FromJson, Json, ToJson}
 
-struct X {
+struct X
   n: Int
-}
+end
 
-struct U {
+struct U
   name: String
-}
+end
 
 derive ToJson for U
 derive FromJson for U
 
-fn enc<T>(v: T) -> Json where T: ToJson {
+fn enc<T>(v: T) -> Json where T: ToJson
   ToJson.to_json(v)
-}
+end
 
-fn dec<T>(j: Json) -> Result<T, Json.ShapeError> where T: FromJson {
+fn dec<T>(j: Json) -> Result<T, Json.ShapeError> where T: FromJson
   T.from_json(j)
-}
+end
 
-fn put(v: ToJson) -> Json {
+fn put(v: ToJson) -> Json
   ToJson.to_json(v)
-}
+end
 `
 
 // An anonymous struct is ToJson and FromJson when each field is (spec §12
@@ -38,21 +38,21 @@ fn put(v: ToJson) -> Json {
 // under its derive.
 func TestAnonStructJsonAdmitsWhatItsFieldsImplement(t *testing.T) {
 	for _, stmt := range []string{
-		`_ = enc(.{a: 1, b: "x"})`,
-		`_ = enc(.{u: U{name: "a"}, tags: ["t"], at: Some(2)})`,
-		`_ = enc(.{p: .{x: 1, y: 2}})`,
-		`_ = enc([.{x: 1}])`,
-		`_ = enc(%{"k" => .{x: 1}})`,
-		`_ = put(.{error: "no"})`,
-		`_ = Json.encode_as(.{error: "no", n: Some(1)})`,
-		`r: Result<.{title: String, order: Maybe<Int>}, Json.ShapeError> = dec(Json.Null)
+		`_ = enc({a: 1, b: "x"})`,
+		`_ = enc({u: U{name: "a"}, tags: ["t"], at: Some(2)})`,
+		`_ = enc({p: {x: 1, y: 2}})`,
+		`_ = enc([{x: 1}])`,
+		`_ = enc({"k" => {x: 1}})`,
+		`_ = put({error: "no"})`,
+		`_ = Json.encode_as({error: "no", n: Some(1)})`,
+		`r: Result<{title: String, order: Maybe<Int>}, Json.ShapeError> = dec(Json.Null)
   _ = r`,
-		`_ = Json.decode_as<.{title: String, order: Maybe<Int>}>("{}")`,
-		`_ = Json.decode_as<List<.{p: .{x: Int}, u: U}>>("[]")`,
-		`_ = FromJson.from_json<.{a: Int}>(Json.Null)`,
+		`_ = Json.decode_as<{title: String, order: Maybe<Int>}>("{}")`,
+		`_ = Json.decode_as<List<{p: {x: Int}, u: U}>>("[]")`,
+		`_ = FromJson.from_json<{a: Int}>(Json.Null)`,
 	} {
 		t.Run(stmt, func(t *testing.T) {
-			src := anonJsonDecls + "\nfn run() -> Unit {\n  " + stmt + "\n}\n"
+			src := anonJsonDecls + "\nfn run() -> Unit\n  " + stmt + "\nend\n"
 			fa := buildWithStdlibForDerive(src)
 			if len(fa.TypeErrors) != 0 {
 				t.Fatalf("the checker rejects %s:\n%s", stmt, errorsText(fa.TypeErrors))
@@ -65,18 +65,18 @@ func TestAnonStructJsonAdmitsWhatItsFieldsImplement(t *testing.T) {
 // FromJson through it.
 func TestAnonStructJsonFieldOfADerivedStruct(t *testing.T) {
 	src := anonJsonDecls + `
-struct W {
-  at: .{x: Int, y: Int}
-  items: List<.{id: Int}>
-}
+struct W
+  at: {x: Int, y: Int}
+  items: List<{id: Int}>
+end
 
 derive ToJson for W
 derive FromJson for W
 
-fn run() -> Unit {
-  _ = Json.encode_as(W{at: .{x: 1, y: 2}, items: []})
+fn run() -> Unit
+  _ = Json.encode_as(W{at: {x: 1, y: 2}, items: []})
   _ = Json.decode_as<W>("{}")
-}
+end
 `
 	fa := buildWithStdlibForDerive(src)
 	if len(fa.TypeErrors) != 0 {
@@ -90,25 +90,25 @@ func TestAnonStructJsonRejectsAFieldWithoutTheImpl(t *testing.T) {
 	cases := []struct {
 		name, stmt, want string
 	}{
-		{"a ToJson parameter", `_ = put(.{at: X{n: 1}})`,
-			"argument 1: expected ToJson, got .{at: X}\n" +
-				"help: `.{at: X}` is ToJson when each field is, and `X` is not: add `derive ToJson` to `X` or write an `impl ToJson for X` block with `fn to_json(value: X) -> Json`"},
-		{"std's ToJson parameter", `_ = Json.encode_as(.{a: 1, at: X{n: 1}})`,
-			"argument 1: expected ToJson, got .{a: Int, at: X}\n" +
-				"help: `.{a: Int, at: X}` is ToJson when each field is, and `X` is not"},
-		{"a ToJson bound", `_ = enc(.{at: X{n: 1}})`,
-			".{at: X} does not implement ToJson (required by `where T: ToJson`)\n" +
-				"help: `.{at: X}` is ToJson when each field is, and `X` is not"},
-		{"a nested anonymous struct", `_ = enc(.{p: .{at: X{n: 1}}})`,
-			".{p: .{at: X}} does not implement ToJson (required by `where T: ToJson`)\n" +
-				"help: `.{p: .{at: X}}` is ToJson when each field is, and `.{at: X}` is not: `.{at: X}` is ToJson when each field is, and `X` is not"},
-		{"a FromJson bound", `r: Result<.{at: X}, Json.ShapeError> = dec(Json.Null)
+		{"a ToJson parameter", `_ = put({at: X{n: 1}})`,
+			"argument 1: expected ToJson, got {at: X}\n" +
+				"help: `{at: X}` is ToJson when each field is, and `X` is not: add `derive ToJson` to `X` or write an `impl ToJson for X` block with `fn to_json(value: X) -> Json`"},
+		{"std's ToJson parameter", `_ = Json.encode_as({a: 1, at: X{n: 1}})`,
+			"argument 1: expected ToJson, got {a: Int, at: X}\n" +
+				"help: `{a: Int, at: X}` is ToJson when each field is, and `X` is not"},
+		{"a ToJson bound", `_ = enc({at: X{n: 1}})`,
+			"{at: X} does not implement ToJson (required by `where T: ToJson`)\n" +
+				"help: `{at: X}` is ToJson when each field is, and `X` is not"},
+		{"a nested anonymous struct", `_ = enc({p: {at: X{n: 1}}})`,
+			"{p: {at: X}} does not implement ToJson (required by `where T: ToJson`)\n" +
+				"help: `{p: {at: X}}` is ToJson when each field is, and `{at: X}` is not: `{at: X}` is ToJson when each field is, and `X` is not"},
+		{"a FromJson bound", `r: Result<{at: X}, Json.ShapeError> = dec(Json.Null)
   _ = r`,
-			".{at: X} does not implement FromJson (required by `where T: FromJson`)\n" +
-				"help: `.{at: X}` is FromJson when each field is, and `X` is not: add `derive FromJson` to `X` or write an `impl FromJson for X` block with `fn from_json(json: Json) -> Result<X, Json.ShapeError>`"},
-		{"std's FromJson bound", `_ = Json.decode_as<.{at: X}>("{}")`,
-			".{at: X} does not implement FromJson (required by `where T: FromJson`)\n" +
-				"help: `.{at: X}` is FromJson when each field is, and `X` is not"},
+			"{at: X} does not implement FromJson (required by `where T: FromJson`)\n" +
+				"help: `{at: X}` is FromJson when each field is, and `X` is not: add `derive FromJson` to `X` or write an `impl FromJson for X` block with `fn from_json(json: Json) -> Result<X, Json.ShapeError>`"},
+		{"std's FromJson bound", `_ = Json.decode_as<{at: X}>("{}")`,
+			"{at: X} does not implement FromJson (required by `where T: FromJson`)\n" +
+				"help: `{at: X}` is FromJson when each field is, and `X` is not"},
 		// Tuples are not JSON: only an anonymous struct has names to key
 		// an object by.
 		{"a tuple", `_ = put((1, 2))`,
@@ -117,7 +117,7 @@ func TestAnonStructJsonRejectsAFieldWithoutTheImpl(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := anonJsonDecls + "\nfn run() -> Unit {\n  " + tc.stmt + "\n}\n"
+			src := anonJsonDecls + "\nfn run() -> Unit\n  " + tc.stmt + "\nend\n"
 			fa := buildWithStdlibForDerive(src)
 			if !hasErrSubstring(fa.TypeErrors, tc.want) {
 				t.Fatalf("the checker admits %s, or rejects it with another message; want %q, got:\n%s",
@@ -131,9 +131,9 @@ func TestAnonStructJsonRejectsAFieldWithoutTheImpl(t *testing.T) {
 // field to the interface, and names the field.
 func TestAnonStructJsonDeriveRejectsAFieldWithoutTheImpl(t *testing.T) {
 	src := anonJsonDecls + `
-struct W {
-  at: .{x: X}
-}
+struct W
+  at: {x: X}
+end
 
 derive ToJson for W
 `

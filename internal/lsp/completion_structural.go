@@ -13,8 +13,8 @@ import (
 
 // structFieldCandidates offers the fields a struct literal has not written
 // yet, `Point{x: 1, ` offering `y`, with their types. The literal's type is
-// its named type, its spread's (`.{..base, `), or the type its position
-// expects (`a: Address = .{‸}`). Fields without a default rank first, in
+// its named type, its spread's (`{..base, `), or the type its position
+// expects (`a: Address = {‸}`). Fields without a default rank first, in
 // declaration order. A patch (a spread, or a literal with no type name at a
 // field under one) needs no field, so its fields keep declaration order.
 func (r *completionRequest) structFieldCandidates() []candidate {
@@ -206,7 +206,7 @@ func variantNameOf(te ast.TypeExpr) string {
 }
 
 // variantPattern renders the dot-leading pattern that matches v and binds its
-// payload: `.Point`, `.Some(value)`, `.Rect{w, h}`. As a snippet each binding
+// payload: `.Point`, `.Some(value)`, `.Rect{w:, h:}`. As a snippet each binding
 // is a placeholder numbered from n; it returns the next free number.
 func variantPattern(v analysis.VariantDef, n int, snippet bool) (string, int) {
 	hole := func(name string) string {
@@ -231,10 +231,16 @@ func variantPattern(v analysis.VariantDef, n int, snippet bool) (string, int) {
 	return "." + v.Name, n
 }
 
+// fieldNames writes a struct pattern's fields: each punned, `name:`, or,
+// where hole makes the binding a snippet placeholder, `name: ${1:name}`.
 func fieldNames(fields []analysis.FieldDef, hole func(string) string) string {
 	names := make([]string, len(fields))
 	for i, f := range fields {
-		names[i] = hole(f.Name)
+		if b := hole(f.Name); b != f.Name {
+			names[i] = f.Name + ": " + b
+		} else {
+			names[i] = f.Name + ":"
+		}
 	}
 	return strings.Join(names, ", ")
 }
@@ -283,9 +289,9 @@ func testGroupLine(kw, indent string) (snippet, plain string) {
 	case "boot":
 		return "boot ${1:entry}.boot(${2:startup})", "boot "
 	case "setup":
-		return "setup {\n" + inner + "$0\n" + indent + "}", "setup {\n" + inner + "\n" + indent + "}"
+		return "setup begin\n" + inner + "$0\n" + indent + "end", "setup begin\n" + inner + "\n" + indent + "end"
 	case "test":
-		return "test \"${1:name}\" {\n" + inner + "assert $0\n" + indent + "}", "test \"name\" {\n" + inner + "\n" + indent + "}"
+		return "test \"${1:name}\"\n" + inner + "assert $0\n" + indent + "end", "test \"name\"\n" + inner + "\n" + indent + "end"
 	}
 	return kw, kw
 }

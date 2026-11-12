@@ -2,12 +2,12 @@
 An assertion whose subject starts like a pattern is a comparison
 ================================================================================
 
-test "t" {
+test "t"
     assert (1, 2) == (1, 2)
     assert [1, ..[2]] == [1, 2]
     assert Some(1) == Some(1)
     assert "ab" + "c" == "abc"
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -55,11 +55,11 @@ test "t" {
 A pattern assertion binds an identifier, a wildcard or a struct pattern
 ================================================================================
 
-test "t" {
+test "t"
     assert n = compute()
     assert Err(_) = parse("x")
-    assert Point{x, y} = Point{x: 3, y: 4}
-}
+    assert Point{x:, y:} = Point{x: 3, y: 4}
+end
 
 --------------------------------------------------------------------------------
 
@@ -96,12 +96,12 @@ test "t" {
 A case arm's body may be an assertion
 ================================================================================
 
-test "t" {
-    case read() {
+test "t"
+    case read()
         Ok(_) -> assert False
         Err(e) -> assert e == "missing"
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -132,12 +132,12 @@ test "t" {
 A guard arm takes a when clause
 ================================================================================
 
-fn f(n: Int) -> String {
-    case {
+fn f(n: Int) -> String
+    case
         loud("b", n > 10) when n != 50 -> "b"
         _ -> "c"
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -173,12 +173,12 @@ fn f(n: Int) -> String {
 A struct pattern names the whole value with as
 ================================================================================
 
-fn f(s: Shape) -> Int {
-    case s {
-        .Rect{w, h} as r when w == h -> 1
+fn f(s: Shape) -> Int
+    case s
+        .Rect{w:, h:} as r when w == h -> 1
         other -> 2
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -217,11 +217,11 @@ An import reaches a member through its owner
 
 import std::iter.Iter.loop
 
-import {
+import
     std::supervisors.Backoff.Exponential
     results.Result.Ok
     bool.Bool.False
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -252,9 +252,9 @@ import {
 A renaming struct destructure at a statement start
 ================================================================================
 
-fn f(p: Point) {
-    .{x: a, y: b} = p
-}
+fn f(p: Point)
+    {x: a, y: b} = p
+end
 
 --------------------------------------------------------------------------------
 
@@ -267,20 +267,23 @@ fn f(p: Point) {
         (type_identifier)))
     (body
       (destructuring_binding
-        (identifier)
-        (identifier)
-        (identifier)
-        (identifier)
+        (anon_struct_field
+          (identifier)
+          (identifier))
+        (anon_struct_field
+          (identifier)
+          (identifier))
         (identifier)))))
 
 ================================================================================
 An if condition on a type name keeps its block
 ================================================================================
 
-fn f() -> Unit {
-    when_true = if True { Unit }
-    if False {}
-}
+fn f() -> Unit
+    when_true = if True then Unit
+    if False then
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -294,19 +297,17 @@ fn f() -> Unit {
         (identifier)
         (if_expression
           (type_identifier)
-          (body
-            (type_identifier))))
+          (type_identifier)))
       (if_expression
-        (type_identifier)
-        (body)))))
+        (type_identifier)))))
 
 ================================================================================
 An interface declares a host function
 ================================================================================
 
-pub interface Struct {
+pub interface Struct
     host fn update(original: self, updates: Partial<self>) -> self
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -345,14 +346,14 @@ x = 1e20
 A keyword's operand starts on its line
 ================================================================================
 
-fn f(n: Int) -> Int {
+fn f(n: Int) -> Int
     d = n |> dbg
 
     same = dbg n
     v = r?
     parse(n)?
     return
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -390,13 +391,13 @@ fn f(n: Int) -> Int {
 A case arm ends before a negative literal on the next line
 ================================================================================
 
-fn f(d: Decimal) -> Int {
-    case d {
+fn f(d: Decimal) -> Int
+    case d
         2d -> 2
         -0.001d -> 3
         _ -> 0
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -424,13 +425,13 @@ fn f(d: Decimal) -> Int {
 A case arm in an attached test ends before the next prompted arm
 ================================================================================
 
-//! value = case parse("hi") {
+//! value = case parse("hi")
 //!     .Ok(v) -> v
 //!     .Err(_) -> "?"
-//! }
-fn parse(s: String) -> Result<String, String> {
+//! end
+fn parse(s: String) -> Result<String, String>
     Ok(s)
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -480,9 +481,9 @@ A brace inside a comment opens nothing
 ================================================================================
 
 // {port: Int, context: Context}", naming as unacceptable
-fn f() {
+fn f()
     1
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -498,14 +499,14 @@ fn f() {
 A headless brace is classified by its contents
 ================================================================================
 
-fn f() {
-    a = .{x: 1}
-    m = %{"k" => 1}
-    g = fn -> {
-        t: Map<String, Int> = %{}
+fn f()
+    a = {x: 1}
+    m = {"k" => 1}
+    g = fn ->
+        t: Map<String, Int> = {}
         t
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -539,3 +540,46 @@ fn f() {
                 (type_identifier))
               (map_construction))
             (identifier)))))))
+
+================================================================================
+A bare return, break or continue ends at a closing bracket or a comma
+================================================================================
+
+fn f()
+    (if done then break)
+    g((if done then return), x)
+    h([if done then continue, 1])
+    k(if done then break, 2)
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (paren_expression
+        (if_expression
+          (identifier)
+          (break_statement)))
+      (call_expression
+        (identifier)
+        (paren_expression
+          (if_expression
+            (identifier)
+            (return_statement)))
+        (identifier))
+      (call_expression
+        (identifier)
+        (list
+          (if_expression
+            (identifier)
+            (continue_statement))
+          (integer)))
+      (call_expression
+        (identifier)
+        (if_expression
+          (identifier)
+          (break_statement))
+        (integer)))))

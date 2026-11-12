@@ -19,23 +19,23 @@ const embedProgram = `import std::io
 
 host fn shout(s: String) -> String
 
-pub struct Order {
+pub struct Order
   weight: Float
   distance: Int
-}
+end
 
-pub fn cost(o: Order, rate: Float) -> Float {
+pub fn cost(o: Order, rate: Float) -> Float
   o.weight * rate + Int.to_float(o.distance)
-}
+end
 
-pub fn greet(name: String) -> String {
+pub fn greet(name: String) -> String
   io.print("greeting " + name)
   shout(name)
-}
+end
 
-pub fn check(n: Int) -> Result<Int, String> {
-  if n > 0 { Ok(n) } else { Err("not positive") }
-}
+pub fn check(n: Int) -> Result<Int, String>
+  if n > 0 then Ok(n) else Err("not positive")
+end
 `
 
 func shoutTable(*hostadapt.Env) (map[string]hostadapt.Func, error) {
@@ -135,14 +135,14 @@ func TestCall_AnUnretainedFunctionIsBlocked(t *testing.T) {
 func TestCheck_RunsTheFrontEndOnly(t *testing.T) {
 	dir := t.TempDir()
 	clean := filepath.Join(dir, "clean.nomi")
-	if err := os.WriteFile(clean, []byte("import std::io\n\nfn main() {\n  io.print(\"ran\")\n}\n"), 0o644); err != nil {
+	if err := os.WriteFile(clean, []byte("import std::io\n\nfn main()\n  io.print(\"ran\")\nend\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := vmhost.Check(clean); err != nil {
 		t.Errorf("Check(clean) = %v", err)
 	}
 	bad := filepath.Join(dir, "bad.nomi")
-	if err := os.WriteFile(bad, []byte("fn demo() -> Int {\n  \"no\"\n}\n"), 0o644); err != nil {
+	if err := os.WriteFile(bad, []byte("fn demo() -> Int\n  \"no\"\nend\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	var ds vmhost.Diagnostics

@@ -1,11 +1,11 @@
 // A Nomi fault inside a test fails that case and lets the run continue. The
 // fault ends only the case that raised it, and rt's test reporter prints its
 // text in that case's report.
-test "a fault inside a test" {
+test "a fault inside a test"
     zero = 0
     assert 7 / zero == 0
-}
+end
 
-test "the next case still runs" {
+test "the next case still runs"
     assert 1 == 1
-}
+end

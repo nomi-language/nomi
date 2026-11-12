@@ -4,32 +4,40 @@ import "testing"
 
 // The declarations the variance cases share: a struct and an interface it
 // implements, a generic struct and enum, and functions of each shape.
-const varianceDecls = `struct Pt {
+const varianceDecls = `struct Pt
   x: Int
-}
+end
 
-interface Named {
+interface Named
   fn name(v: self) -> String
-}
+end
 
-impl Named for Pt {
-  fn name(_p: Pt) -> String { "pt" }
-}
+impl Named for Pt
+  fn name(_p: Pt) -> String
+      "pt"
+  end
+end
 
-struct Box<T> {
+struct Box<T>
   v: T
-}
+end
 
-enum Opt<T> {
+enum Opt<T>
   Has(T)
   Nothing
-}
+end
 
-fn number(i: Int) -> Int { i }
+fn number(i: Int) -> Int
+    i
+end
 
-fn shown(x: Display) -> String { Display.to_string(x) }
+fn shown(x: Display) -> String
+    Display.to_string(x)
+end
 
-fn float_str(f: Float) -> String { Float.to_string(f) }
+fn float_str(f: Float) -> String
+    Float.to_string(f)
+end
 `
 
 // A std collection's type arguments convert where each element already is
@@ -41,39 +49,45 @@ fn float_str(f: Float) -> String { Float.to_string(f) }
 func TestTypeArgumentVariance_CovariantConverts(t *testing.T) {
 	for name, body := range map[string]string{
 		"List":              `xs: List<Int> = [1]; ys: List<Display> = xs; dbg Iter.count(ys)`,
-		"Vector":            `xs: Vector<Int> = #[1]; ys: Vector<Display> = xs; dbg Iter.count(ys)`,
-		"Set":               `xs: Set<Int> = %[1]; ys: Set<Hashable> = xs; dbg Iter.count(ys)`,
-		"Map values":        `m = %{"a" => Pt{x: 1}}; n: Map<String, Named> = m; dbg Map.size(n)`,
-		"Map keys":          `m = %{1 => "a"}; n: Map<Hashable, String> = m; dbg Map.size(n)`,
+		"Vector":            `xs: Vector<Int> = Vector[1]; ys: Vector<Display> = xs; dbg Iter.count(ys)`,
+		"Set":               `xs: Set<Int> = Set[1]; ys: Set<Hashable> = xs; dbg Iter.count(ys)`,
+		"Map values":        `m = {"a" => Pt{x: 1}}; n: Map<String, Named> = m; dbg Map.size(n)`,
+		"Map keys":          `m = {1 => "a"}; n: Map<Hashable, String> = m; dbg Map.size(n)`,
 		"Maybe":             `x: Maybe<Int> = Some(1); y: Maybe<Display> = x; dbg Maybe.is_some(y)`,
 		"Result":            `x: Result<Int, String> = Ok(1); y: Result<Display, String> = x; dbg Result.is_ok(y)`,
 		"nested":            `xs = [[1]]; ys: List<List<Display>> = xs; dbg Iter.count(ys)`,
 		"tuple element":     `xs = [("a", Pt{x: 1})]; ys: List<(String, Named)> = xs; dbg Iter.count(ys)`,
-		"record field":      `xs = [.{n: 1}]; ys: List<.{n: Display}> = xs; dbg Iter.count(ys)`,
+		"record field":      `xs = [{n: 1}]; ys: List<{n: Display}> = xs; dbg Iter.count(ys)`,
 		"function result":   `fs = [number]; gs: List<(Int) -> Display> = fs; dbg Iter.count(gs)`,
 		"function argument": `fs = [shown]; gs: List<(Int) -> String> = fs; dbg Iter.count(gs)`,
 		"argument":          `xs = [1]; dbg take(xs)`,
-		"named argument":    `xs = [1]; dbg take(xs: xs)`,
+		"named argument":    `xs = [1]; dbg take(xs:)`,
 		"pipe":              `xs = [1]; dbg xs |> take()`,
 		"field":             `xs = [Pt{x: 1}]; g = Gallery{items: xs}; dbg Iter.count(g.items)`,
 		"result":            `dbg Iter.count(widen([1]))`,
-		"branches":          `a = [1]; b = ["x"]; c: List<Display> = if True { a } else { b }; dbg Iter.count(c)`,
-		"case branches": `a = [1]; b = ["x"]; c: List<Display> = case 1 { 1 -> a
-    _ -> b }; dbg Iter.count(c)`,
+		"branches":          `a = [1]; b = ["x"]; c: List<Display> = if True then a else b; dbg Iter.count(c)`,
+		"case branches": `a = [1]; b = ["x"]; c: List<Display> = case 1
+    1 -> a
+    _ -> b
+end; dbg Iter.count(c)`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			src := varianceDecls + `
-struct Gallery {
+struct Gallery
   items: List<Named>
-}
+end
 
-fn take(xs: List<Display>) -> Int { Iter.count(xs) }
+fn take(xs: List<Display>) -> Int
+  Iter.count(xs)
+end
 
-fn widen(xs: List<Int>) -> List<Display> { xs }
+fn widen(xs: List<Int>) -> List<Display>
+  xs
+end
 
-fn main() {
+fn main()
   ` + body + `
-}
+end
 `
 			expectNoErrorsT(t, checkWithStdlib(src))
 		})
@@ -93,12 +107,12 @@ func TestTypeArgumentVariance_PerElementWorkIsRefused(t *testing.T) {
 			"type mismatch: expected List<(Maybe<Int>) -> String>, got List<(Display) -> String>\nhelp: List<(Display) -> String> does not convert to List<(Maybe<Int>) -> String>: each (Display) -> String would need a wrapper to become (Maybe<Int>) -> String, one per element; wrap them where that is meant: `Iter.map(fs, fn f -> fn x -> f(x)) |> Iter.to_list()`"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := varianceDecls + "\nfn main() {\n  " + tc.body + "\n}\n"
+			src := varianceDecls + "\nfn main()\n  " + tc.body + "\nend\n"
 			expectErrorContaining(t, checkWithStdlib(src), tc.want)
 		})
 	}
 	t.Run("a type parameter", func(t *testing.T) {
-		src := "fn wide<T>(xs: List<T>) -> List<Display> where T: Display {\n  xs\n}\n\nfn main() {\n  dbg Iter.count(wide([1]))\n}\n"
+		src := "fn wide<T>(xs: List<T>) -> List<Display> where T: Display\n  xs\nend\n\nfn main()\n  dbg Iter.count(wide([1]))\nend\n"
 		expectErrorContaining(t, checkWithStdlib(src), "T may be a type that becomes Display boxed")
 	})
 }
@@ -106,7 +120,7 @@ func TestTypeArgumentVariance_PerElementWorkIsRefused(t *testing.T) {
 // A function's parameter is contravariant: a list of functions that take a
 // Float is no list of functions that may be passed any Display.
 func TestTypeArgumentVariance_ContravariantIsRefused(t *testing.T) {
-	src := varianceDecls + "\nfn main() {\n  fs = [float_str]\n  gs: List<(Display) -> String> = fs\n  dbg Iter.count(gs)\n}\n"
+	src := varianceDecls + "\nfn main()\n  fs = [float_str]\n  gs: List<(Display) -> String> = fs\n  dbg Iter.count(gs)\nend\n"
 	expectErrorContaining(t, checkWithStdlib(src),
 		"type mismatch: expected List<(Display) -> String>, got List<(Float) -> String>\nhelp: List<(Float) -> String> does not convert to List<(Display) -> String>: each function takes only Float, and one of type (Display) -> String may be passed any Display")
 }
@@ -121,7 +135,7 @@ func TestTypeArgumentVariance_DeclaredTypesAreInvariant(t *testing.T) {
 		"in a List": {`bs = [Box{v: 1}]; cs: List<Box<Display>> = bs; dbg Iter.count(cs)`, "expected List<Box<Display>>, got List<Box<Int>>"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			src := varianceDecls + "\nfn main() {\n  " + tc.body + "\n}\n"
+			src := varianceDecls + "\nfn main()\n  " + tc.body + "\nend\n"
 			expectErrorContaining(t, checkWithStdlib(src), tc.want)
 		})
 	}
@@ -131,42 +145,56 @@ func TestTypeArgumentVariance_DeclaredTypesAreInvariant(t *testing.T) {
 // hands its elements out: a `List<Int>` passes where an `Iter<Display>` is
 // expected. A literal checks each element against the expected type.
 func TestTypeArgumentVariance_IterAndLiterals(t *testing.T) {
-	expectNoErrorsT(t, checkWithStdlib(`fn count(xs: Iter<Display>) -> Int { Iter.count(xs) }
-fn main() {
+	expectNoErrorsT(t, checkWithStdlib(`fn count(xs: Iter<Display>) -> Int
+    Iter.count(xs)
+end
+fn main()
   xs: List<Int> = [1, 2]
   dbg count(xs)
   ys: List<Display> = [1, Some(2)]
   dbg Iter.count(ys)
-}`))
+end`))
 }
 
 // The declarations the collection-literal operand cases share: an
 // interface, a struct that implements it, an alias of a function type that
 // returns the interface, as std/http's `Handler` returns `ToResponse`, and
 // functions that answer routes of that alias.
-const literalOperandDecls = `interface Reply {
+const literalOperandDecls = `interface Reply
   fn body(r: self) -> String
-}
+end
 
-struct Page {
+struct Page
   text: String
-}
+end
 
-impl Reply for Page {
-  fn body(p: Page) -> String { p.text }
-}
+impl Reply for Page
+  fn body(p: Page) -> String
+      p.text
+  end
+end
 
 typealias Handler (Int) -> Reply
 
-fn page(_n: Int) -> Page { Page{text: "p"} }
+fn page(_n: Int) -> Page
+    Page{text: "p"}
+end
 
-fn other(_s: String) -> Page { Page{text: "o"} }
+fn other(_s: String) -> Page
+    Page{text: "o"}
+end
 
-fn routes() -> List<(String, Handler)> { [("a", page)] }
+fn routes() -> List<(String, Handler)>
+    [("a", page)]
+end
 
-fn vroutes() -> Vector<(String, Handler)> { #[("a", page)] }
+fn vroutes() -> Vector<(String, Handler)>
+    Vector[("a", page)]
+end
 
-fn mroutes() -> Map<String, Handler> { %{"a" => page} }
+fn mroutes() -> Map<String, Handler>
+    {"a" => page}
+end
 `
 
 // A collection literal beside a value of a collection type is built as that
@@ -181,12 +209,12 @@ func TestTypeArgumentVariance_LiteralBuiltAsTheOtherOperand(t *testing.T) {
 		"list + literal":    {`r = routes() + [("b", page)]`, "List<(String, (Int) -> Reply)>"},
 		"element, spread":   {`r = [("b", page), ..routes()]`, "List<(String, (Int) -> Reply)>"},
 		"spread, element":   {`r = [..routes(), ("b", page)]`, "List<(String, (Int) -> Reply)>"},
-		"vector + literal":  {`r = #[("b", page)] + vroutes()`, "Vector<(String, (Int) -> Reply)>"},
-		"map + literal":     {`r = %{"b" => page} + mroutes()`, "Map<String, (Int) -> Reply>"},
+		"vector + literal":  {`r = Vector[("b", page)] + vroutes()`, "Vector<(String, (Int) -> Reply)>"},
+		"map + literal":     {`r = {"b" => page} + mroutes()`, "Map<String, (Int) -> Reply>"},
 		"interface element": {`ds: List<Display> = ["a"]; r = [1, 2] + ds`, "List<Display>"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			expectBindingType(t, literalOperandDecls+"\nfn main() {\n  "+tc.body+"\n  dbg r\n}\n", "r", tc.want)
+			expectBindingType(t, literalOperandDecls+"\nfn main()\n  "+tc.body+"\n  dbg r\nend\n", "r", tc.want)
 		})
 	}
 }
@@ -208,7 +236,7 @@ func TestTypeArgumentVariance_LiteralOperandMismatchIsRefused(t *testing.T) {
 			"list spread element type mismatch: (String, (Int) -> Page) vs (String, (Int) -> Reply)"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			src := literalOperandDecls + "\nfn main() {\n  " + tc.body + "\n  dbg r\n}\n"
+			src := literalOperandDecls + "\nfn main()\n  " + tc.body + "\n  dbg r\nend\n"
 			expectErrorContaining(t, checkWithStdlib(src), tc.want)
 		})
 	}

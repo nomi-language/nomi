@@ -72,31 +72,31 @@ import std::io
 opaque type Meters Int
 
 // zeta before alpha, in every struct here, deliberately. See above.
-struct Worker {
+struct Worker
     zeta: Int
     alpha: Int
-}
+end
 
-impl Display for Worker {
-    fn to_string(v: Worker) -> String {
+impl Display for Worker
+    fn to_string(v: Worker) -> String
         _ = v
         "WORKER-DISPLAY"
-    }
-}
+    end
+end
 
 // A hand-written `impl Debug` on an EMBEDDED type: precedence has to survive
 // the delegation, not just a top-level call.
-struct Custom {
+struct Custom
     zeta: Int
     alpha: Int
-}
+end
 
-impl Debug for Custom {
-    fn inspect(v: Custom) -> String {
+impl Debug for Custom
+    fn inspect(v: Custom) -> String
         _ = v
         "CUSTOM-DEBUG"
-    }
-}
+    end
+end
 
 // Zero-sized distinct: the variant takes no arguments and the payload has no
 // storage, so the value is reconstructed from its type when the case binds it.
@@ -107,35 +107,35 @@ type Expired
 // a String. This is the shape that already lowered at the parent.
 type UserId String
 
-enum Node {
+enum Node
     Origin
     Ready Int
     embeds Worker
     embeds Custom
     embeds Expired
     embeds UserId
-}
+end
 
 // `Worker` embedded a SECOND time, so the delegated call has two widening
 // rivals rather than one.
-enum Other {
+enum Other
     embeds Worker
     Blank
-}
+end
 
-fn no_node(_v: Node) -> Bool {
+fn no_node(_v: Node) -> Bool
     False
-}
+end
 
-fn no_worker(_v: Worker) -> Bool {
+fn no_worker(_v: Worker) -> Bool
     False
-}
+end
 
-fn no_meters(_v: Meters) -> Bool {
+fn no_meters(_v: Meters) -> Bool
     False
-}
+end
 
-test "an embeds variant's Debug delegates to the embedded value, unwrapped" {
+test "an embeds variant's Debug delegates to the embedded value, unwrapped"
     w = Worker{zeta: 1, alpha: 2}
     n_worker: Node = Worker{zeta: 1, alpha: 2}
     n_qual = Node.Worker{zeta: 1, alpha: 2}
@@ -186,37 +186,37 @@ test "an embeds variant's Debug delegates to the embedded value, unwrapped" {
     assert "${w}" == "WORKER-DISPLAY"
 
     refute no_worker(w)
-}
+end
 
 // A `values:` row exists only on a FAILING assertion, so each of these fails on
 // purpose. The row is a structural walk that sorts the composed strings, so
 // it must not agree with the Debug rows above.
-test "values row sorts and ignores the hand-written impl" {
+test "values row sorts and ignores the hand-written impl"
     w = Worker{zeta: 1, alpha: 2}
     assert no_worker(w)
-}
+end
 
 // The QUALIFIED spelling. It rows as the Worker alone, as the coerced spelling
 // does, and the two assertions here must agree
 // with each other.
-test "values row for a qualified embeds variant" {
+test "values row for a qualified embeds variant"
     n = Node.Worker{zeta: 1, alpha: 2}
     assert no_node(n)
-}
+end
 
-test "values row for a zero-sized embed" {
+test "values row for a zero-sized embed"
     n = Node.Expired
     assert no_node(n)
-}
+end
 
 // `Node.UserId("ada")` builds a `UserId`: the row, like Debug, renders the
 // distinct, `UserId("ada")`.
-test "values row for a wrapping-distinct embed" {
+test "values row for a wrapping-distinct embed"
     n = Node.UserId("ada")
     assert no_node(n)
-}
+end
 
-test "values row shows an opaque payload Debug hides" {
+test "values row shows an opaque payload Debug hides"
     m = Meters(7)
     assert no_meters(m)
-}
+end

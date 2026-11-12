@@ -6,9 +6,9 @@ import "testing"
 // names them in declaration order, and the fixed program checks clean.
 func TestPositionalStructLit_QuickFixNamesTheFields(t *testing.T) {
 	s := NewServer()
-	decl := "pub struct Student {\n    name: String\n    score: Int\n}\n\n"
-	src := decl + "pub fn f(p: (String, Int)) -> Student {\n    Student{p.first, p.second}\n}\n"
-	want := decl + "pub fn f(p: (String, Int)) -> Student {\n    Student{name: p.first, score: p.second}\n}\n"
+	decl := "pub struct Student\n    name: String\n    score: Int\nend\n\n"
+	src := decl + "pub fn f(p: (String, Int)) -> Student\n    Student{p.first, p.second}\nend\n"
+	want := decl + "pub fn f(p: (String, Int)) -> Student\n    Student{name: p.first, score: p.second}\nend\n"
 	actions := parseFixActions(t, s, src, "Name the fields")
 	if len(actions) != 1 {
 		t.Fatalf("got %d fixes, want 1", len(actions))

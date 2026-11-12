@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -225,45 +226,34 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 // innerSourceElem is the element a flat_map result or a flatten element of
 // kind k pushes when k is a source the view reads rather than a List or an
 // Iter: a String, Bytes, a Range, a Set, a Vector, a Maybe, a Map or a user
-// source.
+// source. Each such value is the machine's, with no expression the checker
+// typed against an Iter, so its kind names its source (viewSourceOfKind).
 func (bl *irScalarBuilder) innerSourceElem(k kind) (kind, bool) {
-	if k == kindString {
-		return kindString, true
+	vs, ok := bl.viewSourceOfKind(k)
+	if !ok {
+		return kindInvalid, false
 	}
-	if k == irBytesKind() {
-		return irByteKind(), true
+	switch vs.dom {
+	case analysis.IterViewList, viewSeq:
+		return kindInvalid, false
+	case analysis.IterViewMap:
+		if !irRetainedMapKind(k) {
+			return kindInvalid, false
+		}
 	}
-	if elem, ok := irIterRangeElem(k); ok {
-		return elem, true
-	}
-	if member, ok := setElem(k); ok && k != kindEmptySet {
-		return member, true
-	}
-	if elem, ok := vectorElem(k); ok && k != kindEmptyVector {
-		return elem, true
-	}
-	if elem, ok := maybeIterElem(k); ok {
-		return elem, true
-	}
-	if k.tag == tagMap && k != kindEmptyMap && irRetainedMapKind(k) {
-		return bl.g.tupleKind([]kind{k.comp.parts[0], k.comp.parts[1]}), true
-	}
-	if it, elem := bl.userSource(k); it != nil {
-		return elem, true
-	}
-	return kindInvalid, false
+	return vs.elem, true
 }
 
 // sourceViewFunc is a function value from a value of kind sk to the Iter of
-// elem it is (seqView's view), for flat_map and flatten to view each inner
-// source with.
+// elem it is (seqView's view, read from the kind), for flat_map and flatten
+// to view each inner source with.
 func (bl *irScalarBuilder) sourceViewFunc(at ast.Node, sk, elem kind) (ir.Temp, bool) {
 	pos := bl.g.irNodePos(at)
 	f := ir.NewFunc(pos, "view")
 	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
 	sh.frame = newIRFuncFrame(f)
 	sh.entry = f.NewBlock(pos, "entry")
-	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}, unwritten: true}
 	param := bl.g.irAddParam(f, ir.NewSymbol("source"), sk)
 	v, ok := child.seqView(at, param, sk, elem)
 	if !ok {

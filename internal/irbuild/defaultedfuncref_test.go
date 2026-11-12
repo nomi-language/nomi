@@ -10,20 +10,20 @@ func TestDefaultedFuncRef_IsTheFullFunction(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
     std::io
     lib
-}
+end
 
-fn greet(name: String, punct: String = "!") -> String {
+fn greet(name: String, punct: String = "!") -> String
     name + punct
-}
+end
 
-fn apply2(f: (String, String) -> String) -> String {
+fn apply2(f: (String, String) -> String) -> String
     f("x", "y")
-}
+end
 
-fn main() {
+fn main()
     f = greet
     io.print(f("a", "?"))
     io.print(apply2(greet))
@@ -31,10 +31,10 @@ fn main() {
     io.print(g("b", "."))
     io.print(apply2(lib.greet))
     io.print(greet("c"))
-}
-`, "a?\nxy\nb.\nxy\nc!\n", map[string]string{"lib.nomi": `pub fn greet(name: String, punct: String = "!") -> String {
+end
+`, "a?\nxy\nb.\nxy\nc!\n", map[string]string{"lib.nomi": `pub fn greet(name: String, punct: String = "!") -> String
     name + punct
-}
+end
 `})
 }
 
@@ -49,33 +49,33 @@ func TestDefaultedFuncRef_FillsWhereFewerParametersAreExpected(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
     std::io
     lib
     lib.shout
-}
+end
 
-fn greet(name: String, punct: String = "!") -> String {
+fn greet(name: String, punct: String = "!") -> String
     name + punct
-}
+end
 
-fn seed(n: Int = 7) -> Int {
+fn seed(n: Int = 7) -> Int
     n
-}
+end
 
-fn apply(f: (String) -> String, s: String) -> String {
+fn apply(f: (String) -> String, s: String) -> String
     f(s)
-}
+end
 
-struct Greeter {
+struct Greeter
     run: (String) -> String
-}
+end
 
-fn pick(loud: Bool) -> (String) -> String {
-    if loud { shout } else { greet }
-}
+fn pick(loud: Bool) -> (String) -> String
+    if loud then shout else greet
+end
 
-fn main() {
+fn main()
     io.inspect(["a", "b"] |> Iter.map(greet) |> Iter.to_list())
     io.inspect(Maybe.map(Some("c"), lib.shout))
     io.inspect(["d"] |> Iter.map(shout) |> Iter.to_list())
@@ -91,7 +91,7 @@ fn main() {
     io.inspect(pick(True)("m"))
     s: () -> Int = seed
     io.inspect(s())
-}
+end
 `, `["a!", "b!"]
 Some("c!!")
 ["d!!"]
@@ -104,9 +104,9 @@ Some("c!!")
 ["l!", "l!!"]
 "m!!"
 7
-`, map[string]string{"lib.nomi": `pub fn shout(s: String, mark: String = "!!") -> String {
+`, map[string]string{"lib.nomi": `pub fn shout(s: String, mark: String = "!!") -> String
     s + mark
-}
+end
 `})
 }
 
@@ -120,35 +120,35 @@ func TestDefaultedFuncRef_FillsAtAGenericPipeHead(t *testing.T) {
 	}
 	verifyLambdaProgram(t, `import std::io
 
-fn run<T>(f: (String) -> T, s: String) -> T {
+fn run<T>(f: (String) -> T, s: String) -> T
     f(s)
-}
+end
 
-fn run_all<T>(fs: List<(String) -> T>, s: String) -> List<T> {
+fn run_all<T>(fs: List<(String) -> T>, s: String) -> List<T>
     fs |> Iter.map(fn f -> f(s)) |> Iter.to_list()
-}
+end
 
-fn run_maybe<T>(f: (String) -> Maybe<T>, s: String) -> Maybe<T> {
+fn run_maybe<T>(f: (String) -> Maybe<T>, s: String) -> Maybe<T>
     f(s)
-}
+end
 
-fn run_pairs<K, T>(ps: List<(K, (String) -> T)>, s: String) -> List<(K, T)> {
+fn run_pairs<K, T>(ps: List<(K, (String) -> T)>, s: String) -> List<(K, T)>
     ps |> Iter.map(fn p -> (p.first, p.second(s))) |> Iter.to_list()
-}
+end
 
-fn scale(s: String, by: Int = 10) -> Maybe<Int> {
+fn scale(s: String, by: Int = 10) -> Maybe<Int>
     Some(String.length(s) * by)
-}
+end
 
-fn twice(s: String) -> Maybe<Int> {
+fn twice(s: String) -> Maybe<Int>
     Some(String.length(s) * 2)
-}
+end
 
-fn size(s: String) -> Int {
+fn size(s: String) -> Int
     String.length(s)
-}
+end
 
-fn main() {
+fn main()
     io.inspect(run(scale, "ab"))
     io.inspect(scale |> run("ab"))
     io.inspect(size |> run("abc"))
@@ -157,7 +157,7 @@ fn main() {
     io.inspect([scale, twice] |> run_all("a"))
     io.inspect(scale |> run_maybe("abc"))
     io.inspect([("ten", scale), ("two", twice)] |> run_pairs("a"))
-}
+end
 `, `Some(20)
 Some(20)
 3

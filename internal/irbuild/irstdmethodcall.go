@@ -59,11 +59,10 @@ func (bl *irScalarBuilder) stdSiblingShortPlan(t *ast.Call, args irQualArgs, f *
 	if f.why != "" || f.decl == nil || len(f.decl.Params) != len(f.params) || namedArgNode(t.Args) != nil {
 		return nil
 	}
-	temps, _, _, ok := slottedOperands(t, args, f.params, f.decl.Params)
-	if !ok || !bl.callDefaults(&fnSig{decl: f.decl, params: f.params}, temps) {
+	full, ok := bl.filledOperands(t, args, f.params, f.decl.Params, defaultHome{})
+	if !ok {
 		return nil
 	}
-	full := irQualArgs{temps: temps, kinds: slices.Clone(f.params), mobile: make([]bool, len(temps)), ok: true}
 	// The plan checks a call as wide as the declaration: the written
 	// operands, then the omitted parameters' default expressions.
 	wide := &ast.Call{Func: t.Func, Args: slices.Clone(t.Args), Line: t.Line, Col: t.Col}
@@ -149,7 +148,7 @@ func (bl *irScalarBuilder) stdUnretainedPlan(f *stdFunc) *irQualPlan {
 	if s == nil || !s.stdUnretainedMonoBody(f) {
 		return nil
 	}
-	inst, why := s.instantiate(f, nil, nil, nil, bl.g)
+	inst, why := s.instantiate(f, nil, nil, bl.g)
 	if inst == nil {
 		bl.g.dc.note(why)
 		return nil

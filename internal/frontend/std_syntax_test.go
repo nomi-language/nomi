@@ -15,7 +15,7 @@ import (
 // alone and at the std file's line and column, and not as what the checker
 // says about the part of the file recovery skipped.
 func TestStdSyntaxErrorIsReportedToEveryProgram(t *testing.T) {
-	_, errs := parser.ParseWithRecovery(lexer.Lex("fn f() -> Int {\n  1\n    * 2\n}\n"))
+	_, errs := parser.ParseWithRecovery(lexer.Lex("fn f() -> Int\n  1\n    * 2\nend\n"))
 	if len(errs) == 0 {
 		t.Fatal("the parser accepts a line that starts with `*`; pick another syntax error")
 	}
@@ -24,7 +24,7 @@ func TestStdSyntaxErrorIsReportedToEveryProgram(t *testing.T) {
 
 	c := New(Config{})
 	c.lib = &broken
-	_, err := c.CheckSource("main", "fn main() {\n  1\n}\n", Mode{})
+	_, err := c.CheckSource("main", "fn main()\n  1\nend\n", Mode{})
 	var ds Diagnostics
 	if !errors.As(err, &ds) {
 		t.Fatalf("CheckSource = %v, want the stdlib's syntax diagnostics", err)
@@ -44,7 +44,7 @@ func TestStdSyntaxErrorIsReportedToEveryProgram(t *testing.T) {
 	// A stdlib module's own check reports it too.
 	c = New(Config{})
 	c.lib = &broken
-	if _, _, err := c.CheckStdlibSource("maybe", "pub fn g() -> Int {\n  1\n}\n", Mode{}); !errors.As(err, &ds) || ds[0].Path != "std/io.nomi" {
+	if _, _, err := c.CheckStdlibSource("maybe", "pub fn g() -> Int\n  1\nend\n", Mode{}); !errors.As(err, &ds) || ds[0].Path != "std/io.nomi" {
 		t.Errorf("CheckStdlibSource = %v, want the stdlib's syntax diagnostics", err)
 	}
 }
@@ -54,7 +54,7 @@ func TestStdSyntaxErrorIsReportedToEveryProgram(t *testing.T) {
 // never imports cannot be lowered and run as if it checked. The same
 // program checks once the stdlib checks.
 func TestStdCheckErrorIsReportedToEveryProgram(t *testing.T) {
-	src := "fn main() {\n  dbg 1\n}\n"
+	src := "fn main()\n  dbg 1\nend\n"
 	c := New(Config{})
 	if _, err := c.CheckSource("main", src, Mode{}); err != nil {
 		t.Fatalf("the program does not check against the embedded stdlib: %v", err)

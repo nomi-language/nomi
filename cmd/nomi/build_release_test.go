@@ -159,7 +159,7 @@ func releaseEnv(t *testing.T, cacheRoot string, extra ...string) []string {
 	return env
 }
 
-const releaseHello = "import std::io\n\nfn main() {\n  io.print(\"hi\")\n}\n"
+const releaseHello = "import std::io\n\nfn main()\n  io.print(\"hi\")\nend\n"
 
 // TestBuildFromRelease_TheInstalledRunnerBuildsEveryProgram: a release-shaped
 // `nomi` with its archive's nomi-vm beside it, no compiler source and no
@@ -221,18 +221,18 @@ func TestBuildFromRelease_AVariantNamedLikeAnInterfaceBuilds(t *testing.T) {
 	entry := filepath.Join(dir, "levels.nomi")
 	mustWrite(t, entry, `import std::io
 
-enum Level {
+enum Level
   Info
   Debug
   Display
-}
+end
 
 derive Display for Level
 
-fn main() {
+fn main()
   io.print(Debug.inspect(Level.Debug))
   io.print(Display.to_string(Level.Display))
-}
+end
 `)
 	env := releaseEnv(t, t.TempDir())
 	out := exe(filepath.Join(t.TempDir(), "levels"))
@@ -275,14 +275,14 @@ func TestBuildFromRelease_StdCompilerNeedsGoToBuildItsRunner(t *testing.T) {
 	b := releaseBuild(t)
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "nested.nomi")
-	mustWrite(t, entry, `import {
+	mustWrite(t, entry, `import
   std::compiler
   std::io
-}
+end
 
-fn main() {
-  io.print(Debug.inspect(compiler.check("fn main() {\n  missing\n}\n")))
-}
+fn main()
+  io.print(Debug.inspect(compiler.check("fn main()\n  missing\nend\n")))
+end
 `)
 	out := exe(filepath.Join(t.TempDir(), "nested"))
 	got := runProcess(t, releaseEnv(t, t.TempDir()), dir, "", exe(filepath.Join(b.install, "nomi")), "build", entry, "-o", out)
@@ -594,7 +594,7 @@ func TestBuildFromRelease_WasmTargetsDownloadTheirRunners(t *testing.T) {
 	}
 	t.Run("wasip1 reactor", func(t *testing.T) {
 		lib := filepath.Join(dir, "lib.nomi")
-		mustWrite(t, lib, "export fn twice(n: Int) -> Int {\n    n * 2\n}\n")
+		mustWrite(t, lib, "export fn twice(n: Int) -> Int\n    n * 2\nend\n")
 		out := filepath.Join(t.TempDir(), "lib.wasm")
 		got := runProcess(t, env, dir, "", nomi, "build", "--target", "wasip1/wasm", lib, "-o", out)
 		if got.exit != 0 || !strings.Contains(got.stderr, "downloading nomi-vm-reactor-nonet for wasip1/wasm") {

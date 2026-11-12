@@ -41,26 +41,26 @@ func allocsPerActivation(t *testing.T, src string) float64 {
 // One comparison, one subtraction, one addition and one call per activation.
 const oneComparison = `import std::io
 
-fn down(n: Int) -> Int {
-  if n < 1 { 0 } else { down(n - 1) + 1 }
-}
+fn down(n: Int) -> Int
+  if n < 1 then 0 else down(n - 1) + 1
+end
 
-fn main() {
+fn main()
   down(%d) |> io.print()
-}
+end
 `
 
 // The same function with three more comparisons per activation, all True for
 // every n that recurses.
 const fourComparisons = `import std::io
 
-fn down(n: Int) -> Int {
-  if n < 1 { 0 } else if n < 250 and n < 251 and n < 252 { down(n - 1) + 1 } else { 0 }
-}
+fn down(n: Int) -> Int
+  if n < 1 then 0 else if n < 250 and n < 251 and n < 252 then down(n - 1) + 1 else 0
+end
 
-fn main() {
+fn main()
   down(%d) |> io.print()
-}
+end
 `
 
 // A bytecode call allocates nothing: its registers are a window on the
@@ -91,25 +91,25 @@ func TestVMCallAllocations(t *testing.T) {
 // A loop of n tail calls, each making one crossing into an intrinsic.
 const crossingLoop = `import std::io
 
-fn spin(n: Int, v: Vector<Int>, acc: Int) -> Int {
-  if n < 1 { acc } else { spin(n - 1, v, Vector.length(v)) }
-}
+fn spin(n: Int, v: Vector<Int>, acc: Int) -> Int
+  if n < 1 then acc else spin(n - 1, v, Vector.length(v))
+end
 
-fn main() {
-  spin(%d, #[1, 2, 3], 0) |> io.print()
-}
+fn main()
+  spin(%d, Vector[1, 2, 3], 0) |> io.print()
+end
 `
 
 // The same loop with one crossing in all, after it.
 const plainLoop = `import std::io
 
-fn spin(n: Int, v: Vector<Int>, acc: Int) -> Int {
-  if n < 1 { Vector.length(v) + acc } else { spin(n - 1, v, acc) }
-}
+fn spin(n: Int, v: Vector<Int>, acc: Int) -> Int
+  if n < 1 then Vector.length(v) + acc else spin(n - 1, v, acc)
+end
 
-fn main() {
-  spin(%d, #[1, 2, 3], 0) |> io.print()
-}
+fn main()
+  spin(%d, Vector[1, 2, 3], 0) |> io.print()
+end
 `
 
 // A crossing into an intrinsic (`Vector.length`, `Map.get`, ...) allocates its

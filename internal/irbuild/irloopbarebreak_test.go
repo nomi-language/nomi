@@ -11,98 +11,98 @@ import "testing"
 func TestIRLoop_BareBreakAnswersTheCurrentState(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Tally {
+struct Tally
     label: String
     count: Int
-}
+end
 
-fn first_even(xs: List<Int>) -> Maybe<Int> {
+fn first_even(xs: List<Int>) -> Maybe<Int>
     Iter.find(xs, fn x -> x % 2 == 0)
-}
+end
 
-fn settle(start: Int) -> Int {
-    Iter.loop(start, fn n -> {
-        if n % 5 == 0 { break }
+fn settle(start: Int) -> Int
+    Iter.loop(start, fn n ->
+        if n % 5 == 0 then break
         n + 1
-    })
-}
+    end)
+end
 
-fn main() {
+fn main()
     // A guard.
-    a = Iter.loop(0, fn n -> {
-        if n * n > 20 { break }
+    a = Iter.loop(0, fn n ->
+        if n * n > 20 then break
         n + 1
-    })
+    end)
     io.inspect(a)
     // An else binding: the pattern fails once five elements are dropped.
-    b = Iter.loop(Tally{label: "t", count: 0}, fn t -> {
-        Some(_) = first_even(Iter.drop([1, 3, 2, 5, 4], t.count) |> Iter.to_list()) else { break }
-        .{..t, count: t.count + 1}
-    })
+    b = Iter.loop(Tally{label: "t", count: 0}, fn t ->
+        Some(_) = first_even(Iter.drop([1, 3, 2, 5, 4], t.count) |> Iter.to_list()) else
+            break
+        end
+        {..t, count: t.count + 1}
+    end)
     io.inspect(b)
     // A case arm, bare and in a block.
-    c = Iter.loop(10, fn n -> {
-        case n % 7 {
+    c = Iter.loop(10, fn n ->
+        case n % 7
             0 -> break
             _ -> n + 1
-        }
-    })
+        end
+    end)
     io.inspect(c)
-    d = Iter.loop(1, fn n -> {
-        case n {
-            8 -> {
+    d = Iter.loop(1, fn n ->
+        case n
+            8 ->
                 io.print("stop at ${n}")
                 break
-            }
             _ -> n * 2
-        }
-    })
+        end
+    end)
     io.inspect(d)
     // A guard nested in an arm's block, and a value 'if' tail.
-    e = Iter.loop(Tally{label: "e", count: 0}, fn t -> {
-        case t.count % 2 {
-            0 -> {
-                if t.count >= 4 { break }
-                .{..t, count: t.count + 1}
-            }
-            _ -> .{..t, count: t.count + 1}
-        }
-    })
+    e = Iter.loop(Tally{label: "e", count: 0}, fn t ->
+        case t.count % 2
+            0 ->
+                if t.count >= 4 then break
+                {..t, count: t.count + 1}
+            _ -> {..t, count: t.count + 1}
+        end
+    end)
     io.inspect(e)
-    f = Iter.loop(3, fn n -> if n > 40 { break } else { n * 3 })
+    f = Iter.loop(3, fn n -> if n > 40 then break else n * 3)
     io.inspect(f)
     // The state, not a binding that shadows the parameter.
-    g = Iter.loop(0, fn n -> {
+    g = Iter.loop(0, fn n ->
         n = n + 100
-        if n > 102 { break }
+        if n > 102 then break
         n - 99
-    })
+    end)
     io.inspect(g)
     // A loop inside a lambda, and one that is a named function's result.
-    climb = fn start: Int -> Iter.loop(start, fn n -> {
-        if n >= 10 { break }
+    climb = fn start: Int -> Iter.loop(start, fn n ->
+        if n >= 10 then break
         n + 3
-    })
+    end)
     io.inspect(climb(1))
     io.inspect(climb(20))
     io.inspect(settle(7))
     // A discarded loop.
-    _ = Iter.loop(0, fn n -> {
+    _ = Iter.loop(0, fn n ->
         io.print("discarded ${n}")
-        if n == 2 { break }
+        if n == 2 then break
         n + 1
-    })
+    end)
     // A stateless loop's state is Unit, as a statement and as a value.
-    Iter.loop(fn -> {
+    Iter.loop(fn ->
         io.print("statement round")
         break
-    })
-    u = Iter.loop(fn -> {
+    end)
+    u = Iter.loop(fn ->
         io.print("value round")
         break
-    })
+    end)
     io.inspect(u)
-}
+end
 `, `5
 Tally{label: "t", count: 5}
 14
@@ -128,37 +128,38 @@ Unit
 func TestIRLoop_BareBreakInAnElseKeepsTheStructState(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Account {
+struct Account
     name: String = "x"
     balance: Int = 0
-}
+end
 
-fn parse_amount(s: String) -> Result<Int, String> {
-    case String.to_int(s) {
+fn parse_amount(s: String) -> Result<Int, String>
+    case String.to_int(s)
         Some(n) -> Ok(n)
         None -> Err("not a number: ${s}")
-    }
-}
+    end
+end
 
-fn open(inputs: List<String>) -> Account {
-    (_, account) = Iter.loop((inputs, Account{}), fn state -> {
+fn open(inputs: List<String>) -> Account
+    (_, account) = Iter.loop((inputs, Account{}), fn state ->
         (rest, account) = state
-        Some(input) = List.head(rest) else { break }
-        case parse_amount(input) {
-            Ok(amount) -> break (rest, .{..account, balance: amount})
-            Err(msg) -> {
+        Some(input) = List.head(rest) else
+            break
+        end
+        case parse_amount(input)
+            Ok(amount) -> break (rest, {..account, balance: amount})
+            Err(msg) ->
                 io.print(msg)
-                (Iter.drop(rest, 1) |> Iter.to_list(), .{..account, name: "${account.name}!"})
-            }
-        }
-    })
+                (Iter.drop(rest, 1) |> Iter.to_list(), {..account, name: "${account.name}!"})
+        end
+    end)
     account
-}
+end
 
-fn main() {
+fn main()
     io.inspect(open(["abc", "12"]))
     io.inspect(open(["abc", "def"]))
-}
+end
 `, `not a number: abc
 Account{name: "x!", balance: 12}
 not a number: abc

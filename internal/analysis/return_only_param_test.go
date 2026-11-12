@@ -7,18 +7,18 @@ import "testing"
 // parameter stayed an inference variable the binding solved later, and
 // `c: Maybe<P> = first()` was accepted for a P with no Variants impl.
 func TestReturnOnlyParam_TheExpectedTypeMustMeetTheBound(t *testing.T) {
-	src := `struct P {
+	src := `struct P
     n: Int
-}
+end
 
-fn first<T>() -> Maybe<T> where T: Variants {
+fn first<T>() -> Maybe<T> where T: Variants
     T.variants() |> List.head()
-}
+end
 
-fn main() {
+fn main()
     c: Maybe<P> = first()
     _ = c
-}
+end
 `
 	errs := checkWithStdlib(src)
 	want := "P does not implement Variants (required by `where T: Variants`)"

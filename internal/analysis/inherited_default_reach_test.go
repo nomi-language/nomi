@@ -9,26 +9,26 @@ import (
 
 // shapeIface declares a required function and a default; squareImpl
 // implements it for Square in another file, writing only the required one.
-const shapeIface = `pub interface Shape {
+const shapeIface = `pub interface Shape
     fn area(s: self) -> Int
 
-    fn describe(s: self) -> String {
+    fn describe(s: self) -> String
         "area ${area(s)}"
-    }
-}
+    end
+end
 `
 
 const squareImpl = `import shape.Shape
 
-pub struct Square {
+pub struct Square
     side: Int
-}
+end
 
-impl Shape for Square {
-    fn area(s: Square) -> Int {
+impl Shape for Square
+    fn area(s: Square) -> Int
         s.side * s.side
-    }
-}
+    end
+end
 `
 
 // A default the type inherits is its member as a function its impl writes
@@ -40,11 +40,11 @@ func TestInheritedDefaultReachedThroughTheTypeWithoutTheInterface(t *testing.T) 
 		"square.nomi": squareImpl,
 		"main.nomi": `import square.Square
 
-fn main() {
+fn main()
     a: Int = Square.area(Square{side: 3})
     d: String = Square.describe(Square{side: 3})
     dbg (a, d)
-}
+end
 `,
 	})
 	if len(errs) != 0 {
@@ -77,9 +77,9 @@ func TestInheritedDefaultKeepsTheImportRules(t *testing.T) {
 			main: `import square.Square
 import shape.Shape
 
-fn main() {
+fn main()
     dbg Square.describe(Square{side: 3})
-}
+end
 `,
 			want: "imported name 'Shape' is unused",
 		},
@@ -87,9 +87,9 @@ fn main() {
 			name: "an interface-qualified call needs the interface in scope",
 			main: `import square.Square
 
-fn main() {
+fn main()
     dbg Shape.describe(Square{side: 3})
-}
+end
 `,
 			want: "undefined type or variant 'Shape'",
 		},
@@ -123,38 +123,38 @@ fn main() {
 func TestInheritedDefaultsOfTwoUnimportedInterfacesAreAmbiguous(t *testing.T) {
 	_, errs := opaqueProject(t, map[string]string{
 		"shape.nomi": shapeIface,
-		"label.nomi": `pub interface Label {
+		"label.nomi": `pub interface Label
     fn name(s: self) -> String
 
-    fn describe(s: self) -> String {
+    fn describe(s: self) -> String
         "label ${name(s)}"
-    }
-}
+    end
+end
 `,
 		"square.nomi": `import shape.Shape
 import label.Label
 
-pub struct Square {
+pub struct Square
     side: Int
-}
+end
 
-impl Shape for Square {
-    fn area(s: Square) -> Int {
+impl Shape for Square
+    fn area(s: Square) -> Int
         s.side * s.side
-    }
-}
+    end
+end
 
-impl Label for Square {
-    fn name(_s: Square) -> String {
+impl Label for Square
+    fn name(_s: Square) -> String
         "square"
-    }
-}
+    end
+end
 `,
 		"main.nomi": `import square.Square
 
-fn main() {
+fn main()
     dbg Square.describe(Square{side: 3})
-}
+end
 `,
 	})
 	for _, e := range errs {

@@ -16,61 +16,61 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// A singly linked list that is last in, first out: `push` puts a value at
 /// the head, and `pop` and `peek` read the head. It is a value, so every
 /// operation answers a list and shares the nodes it did not change.
-pub enum LinkedList<T> {
+pub enum LinkedList<T>
     Empty
     Node {value: T, next: LinkedList<T>}
-}
+end
 
 /// Why a value cannot be read.
-pub enum Error {
+pub enum Error
     EmptyList
-}
+end
 
-impl LinkedList<T> {
+impl LinkedList<T>
     /// The list that pushing `values` one after another onto an empty list
     /// builds, so the last of them is at the head.
-    pub fn from(values: List<T>) -> LinkedList<T> {
+    pub fn from(values: List<T>) -> LinkedList<T>
         Iter.reduce(values, LinkedList.Empty, LinkedList.push)
-    }
+    end
 
     /// `list` with `value` at its head.
-    pub fn push(list: LinkedList<T>, value: T) -> LinkedList<T> {
-        .Node{value, next: list}
-    }
+    pub fn push(list: LinkedList<T>, value: T) -> LinkedList<T>
+        .Node{value:, next: list}
+    end
 
     /// The value at the head of `list` and the list after it, or
     /// `EmptyList`.
-    pub fn pop(list: LinkedList<T>) -> Result<(T, LinkedList<T>), Error> {
-        case list {
+    pub fn pop(list: LinkedList<T>) -> Result<(T, LinkedList<T>), Error>
+        case list
             .Empty -> Err(.EmptyList)
-            .Node{value, next} -> Ok((value, next))
-        }
-    }
+            .Node{value:, next:} -> Ok((value, next))
+        end
+    end
 
     /// The value at the head of `list`, or `EmptyList`.
-    pub fn peek(list: LinkedList<T>) -> Result<T, Error> {
-        case list {
+    pub fn peek(list: LinkedList<T>) -> Result<T, Error>
+        case list
             .Empty -> Err(.EmptyList)
-            .Node{value} -> Ok(value)
-        }
-    }
+            .Node{value:} -> Ok(value)
+        end
+    end
 
     /// `list` with its values in the opposite order.
-    pub fn reverse(list: LinkedList<T>) -> LinkedList<T> {
+    pub fn reverse(list: LinkedList<T>) -> LinkedList<T>
         Iter.reduce(list, LinkedList.Empty, LinkedList.push)
-    }
-}
+    end
+end
 
-impl Iter<T> for LinkedList<T> {
+impl Iter<T> for LinkedList<T>
     /// Walks the list from its head, so `Iter.to_list` answers the values in
     /// the order `pop` would.
-    fn each_while(list: LinkedList<T>, yield: (T) -> Bool) -> Bool {
-        case list {
+    fn each_while(list: LinkedList<T>, yield: (T) -> Bool) -> Bool
+        case list
             .Empty -> True
-            .Node{value, next} -> yield(value) and each_while(next, yield)
-        }
-    }
-}
+            .Node{value:, next:} -> yield(value) and each_while(next, yield)
+        end
+    end
+end
 
 // FILE: simple_linked_list_test.nomi
 import simple_linked_list.LinkedList
@@ -78,7 +78,7 @@ import simple_linked_list.LinkedList
 /// One canonical operation and what it should answer: a count, a pop or a
 /// peek of a given value or one that fails, a push, the values as a list, a
 /// reverse.
-enum Step {
+enum Step
     Count Int
     Pop Int
     PopFails
@@ -87,54 +87,57 @@ enum Step {
     PeekFails
     ToList List<Int>
     Reverse
-}
+end
 
 /// Runs each step's operation on the list built from `values`, in turn, and
 /// answers the steps as they happened. A list that does what every step
 /// says answers the steps it was given.
-fn replay(values: List<Int>, steps: List<Step>) -> List<Step> {
+fn replay(values: List<Int>, steps: List<Step>) -> List<Step>
     (_list, happened) =
         steps
-        |> Iter.map_reduce(LinkedList.from(values), fn list, step -> {
-            case step {
-                .Count(_) -> (list, Step.Count(Iter.count(list)))
+        |> Iter.map_reduce(LinkedList.from(values), fn list, step ->
+            case step
+                .Count(_) ->
+                    (list, Step.Count(Iter.count(list)))
 
-                .Pop(_) or .PopFails -> {
-                    case LinkedList.pop(list) {
+                .Pop(_) or .PopFails ->
+                    case LinkedList.pop(list)
                         Ok((value, rest)) -> (rest, .Pop(value))
                         Err(_) -> (list, .PopFails)
-                    }
-                }
+                    end
 
-                .Push(value) -> (LinkedList.push(list, value), .Push(value))
+                .Push(value) ->
+                    (LinkedList.push(list, value), .Push(value))
 
-                .Peek(_) or .PeekFails -> {
-                    case LinkedList.peek(list) {
+                .Peek(_) or .PeekFails ->
+                    case LinkedList.peek(list)
                         Ok(value) -> (list, .Peek(value))
                         Err(_) -> (list, .PeekFails)
-                    }
-                }
+                    end
 
-                .ToList(_) -> (list, .ToList(Iter.to_list(list)))
-                .Reverse -> (LinkedList.reverse(list), .Reverse)
-            }
-        })
+                .ToList(_) ->
+                    (list, .ToList(Iter.to_list(list)))
+
+                .Reverse ->
+                    (LinkedList.reverse(list), .Reverse)
+            end
+        end)
 
     happened
-}
+end
 
-test "count" {
+test "count"
     [
         ("Empty list has length of zero", [], [Step.Count(0)]),
         ("Singleton list has length of one", [1], [.Count(1)]),
         ("Non-empty list has correct length", [1, 2, 3], [.Count(3)]),
     ]
-    |> subtests (description, values, steps), description {
+    |> subtests (description, values, steps), description
         assert replay(values, steps) == steps
-    }
-}
+    end
+end
 
-test "pop" {
+test "pop"
     [
         ("Pop from empty list is an error", [], [Step.PopFails]),
         ("Can pop from singleton list", [1], [.Pop(1)]),
@@ -142,12 +145,12 @@ test "pop" {
         ("Can pop multiple items", [1, 2], [.Pop(2), .Pop(1)]),
         ("Pop updates the count", [1, 2], [.Count(2), .Pop(2), .Count(1), .Pop(1), .Count(0)]),
     ]
-    |> subtests (description, values, steps), description {
+    |> subtests (description, values, steps), description
         assert replay(values, steps) == steps
-    }
-}
+    end
+end
 
-test "push" {
+test "push"
     [
         ("Can push to an empty list", [], [Step.Push(1)]),
         ("Can push to a non-empty list", [1, 2], [.Push(3)]),
@@ -158,12 +161,12 @@ test "push" {
             [.Push(1), .Push(2), .Pop(2), .Push(3), .Count(2), .Pop(3), .Pop(1), .Count(0)],
         ),
     ]
-    |> subtests (description, values, steps), description {
+    |> subtests (description, values, steps), description
         assert replay(values, steps) == steps
-    }
-}
+    end
+end
 
-test "peek" {
+test "peek"
     [
         ("Peek on empty list is an error", [], [Step.PeekFails]),
         ("Can peek on singleton list", [1], [.Peek(1)]),
@@ -175,12 +178,12 @@ test "peek" {
             [.Push(1), .Push(2), .Peek(2), .Pop(2), .Peek(1), .Push(3), .Peek(3)],
         ),
     ]
-    |> subtests (description, values, steps), description {
+    |> subtests (description, values, steps), description
         assert replay(values, steps) == steps
-    }
-}
+    end
+end
 
-test "toList LIFO" {
+test "toList LIFO"
     [
         ("Empty linked list to list is empty", [], [Step.ToList([])]),
         ("To list with multiple values", [1, 2, 3], [.ToList([3, 2, 1])]),
@@ -190,12 +193,12 @@ test "toList LIFO" {
             [.Push(1), .Push(2), .Push(3), .Pop(3), .Push(4), .ToList([4, 2, 1])],
         ),
     ]
-    |> subtests (description, values, steps), description {
+    |> subtests (description, values, steps), description
         assert replay(values, steps) == steps
-    }
-}
+    end
+end
 
-test "reverse" {
+test "reverse"
     [
         ("Reversed empty list has same values", [], [Step.Reverse, .ToList([])]),
         ("Reversed singleton list is same list", [1], [.Reverse, .ToList([1])]),
@@ -206,10 +209,10 @@ test "reverse" {
         ),
         ("Double reverse", [1, 2, 3], [.Reverse, .Reverse, .Pop(3), .Pop(2), .Pop(1)]),
     ]
-    |> subtests (description, values, steps), description {
+    |> subtests (description, values, steps), description
         assert replay(values, steps) == steps
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok count (3 cases)

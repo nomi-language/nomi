@@ -3,7 +3,7 @@
 
 /// A band color: the ten digit colors in value order, black 0 to white 9,
 /// and the two that only mark a tolerance.
-pub enum Color {
+pub enum Color
     Black
     Brown
     Red
@@ -16,61 +16,65 @@ pub enum Color {
     White
     Gold
     Silver
-}
+end
 
 /// The unit a resistance is written in, each a thousand times the one before.
-pub enum Magnitude {
+pub enum Magnitude
     Ohms
     Kiloohms
     Megaohms
     Gigaohms
-}
+end
 
-impl Display for Magnitude {
-    fn to_string(unit: Magnitude) -> String {
-        case unit {
+impl Display for Magnitude
+    fn to_string(unit: Magnitude) -> String
+        case unit
             .Ohms -> "ohms"
             .Kiloohms -> "kiloohms"
             .Megaohms -> "megaohms"
             .Gigaohms -> "gigaohms"
-        }
-    }
-}
+        end
+    end
+end
 
 /// A resistor's label: `33 ohms ±2%`. A one-band resistor has no tolerance.
-pub struct Label {
+pub struct Label
     value: Decimal
     unit: Magnitude
     tolerance: Maybe<Decimal>
-}
+end
 
-impl Display for Label {
-    fn to_string(label: Label) -> String {
-        case label.tolerance {
+impl Display for Label
+    fn to_string(label: Label) -> String
+        case label.tolerance
             Some(percent) -> "${label.value} ${label.unit} ±${percent}%"
             None -> "${label.value} ${label.unit}"
-        }
-    }
-}
+        end
+    end
+end
 
 /// The label `bands` give: a single black band, two digits, a multiplier
 /// and a tolerance, or three digits, a multiplier and a tolerance. `None`
 /// for any other count of bands, or a band whose color cannot stand there.
-pub fn label(bands: List<Color>) -> Maybe<Label> {
-    case bands {
-        [.Black] -> Some(.{value: 0d, unit: .Ohms, tolerance: None})
-        [first, second, multiplier, tolerance] -> make([first, second], multiplier, tolerance)
+pub fn label(bands: List<Color>) -> Maybe<Label>
+    case bands
+        [.Black] ->
+            Some({value: 0d, unit: .Ohms, tolerance: None})
+
+        [first, second, multiplier, tolerance] ->
+            make([first, second], multiplier, tolerance)
 
         [first, second, third, multiplier, tolerance] ->
             make([first, second, third], multiplier, tolerance)
 
-        _ -> None
-    }
-}
+        _ ->
+            None
+    end
+end
 
 /// The label of the digit bands `digits`, then `multiplier`, the number of
 /// zeros after them, and `tolerance`.
-fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Maybe<Label> {
+fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Maybe<Label>
     number =
         digits
         |> Iter.map(digit)
@@ -81,24 +85,24 @@ fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Maybe<Label
     percent = tolerance_of(tolerance)?
     ohms = number * Int.pow(10, zeros)
     (value, unit) = in_largest_unit(ohms)
-    Some(.{value, unit, tolerance: Some(percent)})
-}
+    Some({value:, unit:, tolerance: Some(percent)})
+end
 
 /// The units above ohms, largest first, with how many ohms each is.
 once units = [(1_000_000_000, Magnitude.Gigaohms), (1_000_000, .Megaohms), (1000, .Kiloohms)]
 
 /// `ohms` in the largest unit it reaches at least one of.
-fn in_largest_unit(ohms: Int) -> (Decimal, Magnitude) {
+fn in_largest_unit(ohms: Int) -> (Decimal, Magnitude)
     (size, unit) =
         units
         |> Iter.find(fn (size, _unit) -> ohms >= size)
         |> Maybe.with_default((1, .Ohms))
 
     (Int.to_decimal(ohms) / Int.to_decimal(size), unit)
-}
+end
 
-fn digit(color: Color) -> Maybe<Int> {
-    case color {
+fn digit(color: Color) -> Maybe<Int>
+    case color
         .Black -> Some(0)
         .Brown -> Some(1)
         .Red -> Some(2)
@@ -110,12 +114,12 @@ fn digit(color: Color) -> Maybe<Int> {
         .Grey -> Some(8)
         .White -> Some(9)
         .Gold or .Silver -> None
-    }
-}
+    end
+end
 
 /// The tolerance in percent a band of `color` marks, if it marks one.
-fn tolerance_of(color: Color) -> Maybe<Decimal> {
-    case color {
+fn tolerance_of(color: Color) -> Maybe<Decimal>
+    case color
         .Grey -> Some(0.05d)
         .Violet -> Some(0.1d)
         .Blue -> Some(0.25d)
@@ -125,5 +129,5 @@ fn tolerance_of(color: Color) -> Maybe<Decimal> {
         .Gold -> Some(5d)
         .Silver -> Some(10d)
         .Black or .Orange or .Yellow or .White -> None
-    }
-}
+    end
+end

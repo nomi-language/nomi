@@ -12,13 +12,13 @@ import (
 )
 
 func TestRename_SameFile(t *testing.T) {
-	src := "fn double(n: Int) -> Int { n + n }\nfn main() { double(1) }"
+	src := "fn double(n: Int) -> Int\n    n + n\nend\nfn main()\n    double(1)\nend"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
 
-	// Find "double" at the call site (line 2, col 17)
-	sym := fa.SymbolAt(analysis.Pos{Line: 2, Col: 17})
+	// Find "double" at the call site (line 5, col 5)
+	sym := fa.SymbolAt(analysis.Pos{Line: 5, Col: 5})
 	if sym == nil {
 		t.Fatal("expected symbol at call site")
 	}
@@ -49,8 +49,8 @@ func TestRename_CrossFile(t *testing.T) {
 	mathFile := filepath.Join(dir, "math.nomi")
 	mainFile := filepath.Join(dir, "main.nomi")
 
-	mathSrc := "pub fn double(n: Int) -> Int { n + n }"
-	mainSrc := "import math\nfn main() { math.double(21) }"
+	mathSrc := "pub fn double(n: Int) -> Int\n    n + n\nend"
+	mainSrc := "import math\nfn main()\n    math.double(21)\nend"
 	os.WriteFile(mathFile, []byte(mathSrc), 0644)
 	os.WriteFile(mainFile, []byte(mainSrc), 0644)
 
@@ -59,7 +59,7 @@ func TestRename_CrossFile(t *testing.T) {
 	dm.Open(mainURI, mainSrc)
 
 	// Rename at the call site "double" in main.nomi.
-	workspaceEdit := collectWorkspaceRename(context.Background(), dm, mainURI, analysis.Pos{Line: 2, Col: 18}, "triple")
+	workspaceEdit := collectWorkspaceRename(context.Background(), dm, mainURI, analysis.Pos{Line: 3, Col: 10}, "triple")
 	if workspaceEdit == nil {
 		t.Fatal("expected workspace edit, got nil")
 	}
@@ -91,8 +91,8 @@ func TestRename_SelectiveImport(t *testing.T) {
 	modelsFile := filepath.Join(dir, "models.nomi")
 	mainFile := filepath.Join(dir, "main.nomi")
 
-	modelsSrc := "pub struct User { name: String }"
-	mainSrc := "import models.{User}\nfn main() { User{name: \"Alice\"} }"
+	modelsSrc := "pub struct User\n    name: String\nend"
+	mainSrc := "import models.{User}\nfn main()\n    User{name: \"Alice\"}\nend"
 	os.WriteFile(modelsFile, []byte(modelsSrc), 0644)
 	os.WriteFile(mainFile, []byte(mainSrc), 0644)
 
@@ -100,8 +100,8 @@ func TestRename_SelectiveImport(t *testing.T) {
 	mainURI := fileuri.FromPath(mainFile)
 	dm.Open(mainURI, mainSrc)
 
-	// Trigger rename at the User use site in main.nomi, line 2 col 14
-	workspaceEdit := collectWorkspaceRename(context.Background(), dm, mainURI, analysis.Pos{Line: 2, Col: 14}, "Person")
+	// Trigger rename at the User use site in main.nomi, line 3 col 5
+	workspaceEdit := collectWorkspaceRename(context.Background(), dm, mainURI, analysis.Pos{Line: 3, Col: 5}, "Person")
 	if workspaceEdit == nil {
 		t.Fatal("expected workspace edit, got nil")
 	}
@@ -122,7 +122,7 @@ func TestRename_SelectiveImport(t *testing.T) {
 }
 
 func TestRename_NoSymbolAtPosition(t *testing.T) {
-	src := "fn double(n: Int) -> Int { n + n }"
+	src := "fn double(n: Int) -> Int\n    n + n\nend"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)

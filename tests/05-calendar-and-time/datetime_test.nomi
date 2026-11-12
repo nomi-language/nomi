@@ -1,36 +1,36 @@
-import {
+import
     std::calendar.{Hours, Minutes, Nanoseconds, Seconds}
     std::calendar.DateTime
     std::calendar.NaiveDateTime
     std::calendar.OffsetDateTime
     std::duration.Duration
     std::instant.Instant
-}
+end
 
-test "zoned datetimes parse and display RFC 9557 bracket form" {
+test "zoned datetimes parse and display RFC 9557 bracket form"
     dt = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
 
     assert DateTime.to_string(dt) == "2026-06-15T12:00:00-04:00[America/New_York]"
-}
+end
 
-test "zoned datetimes can be built from wall readings and zones" {
+test "zoned datetimes can be built from wall readings and zones"
     naive = NaiveDateTime`2026-06-15T12:00:00`
     built = DateTime.in_zone(naive, "America/New_York")?
     rendered = DateTime.to_string(built)
 
     assert rendered == "2026-06-15T12:00:00-04:00[America/New_York]"
-}
+end
 
-test "zoned datetime components project through the stored zone" {
+test "zoned datetime components project through the stored zone"
     dt = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
 
     assert DateTime.year(dt) == 2026
     assert DateTime.month(dt) == 6
     assert DateTime.day(dt) == 15
     assert DateTime.hour(dt) == 12
-}
+end
 
-test "zoned datetimes expose their instant and effective offset" {
+test "zoned datetimes expose their instant and effective offset"
     dt = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
 
     seconds =
@@ -40,9 +40,9 @@ test "zoned datetimes expose their instant and effective offset" {
 
     assert seconds == 1781539200
     assert DateTime.offset(dt) == Duration.hours(-4)
-}
+end
 
-test "zoned datetime equality is instant-only" {
+test "zoned datetime equality is instant-only"
     ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
     paris = DateTime`2026-06-15T18:00:00+02:00[Europe/Paris]`
 
@@ -50,24 +50,24 @@ test "zoned datetime equality is instant-only" {
     assert DateTime.to_string(ny) == "2026-06-15T12:00:00-04:00[America/New_York]"
 
     assert DateTime.to_string(paris) == "2026-06-15T18:00:00+02:00[Europe/Paris]"
-}
+end
 
-test "zoned datetimes can be projected to fixed offset datetimes" {
+test "zoned datetimes can be projected to fixed offset datetimes"
     dt = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
     odt = DateTime.to_offset(dt)
 
     assert OffsetDateTime.to_string(odt) == "2026-06-15T12:00:00-04:00"
-}
+end
 
-test "zoned datetimes add durations as physical elapsed time" {
+test "zoned datetimes add durations as physical elapsed time"
     dt = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
 
     assert dt + Duration.hours(2) == DateTime`2026-06-15T14:00:00-04:00[America/New_York]`
 
     assert dt - Duration.minutes(45) == DateTime`2026-06-15T11:15:00-04:00[America/New_York]`
-}
+end
 
-test "zoned datetimes support civil sub-day arithmetic" {
+test "zoned datetimes support civil sub-day arithmetic"
     dt = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
 
     assert dt + Hours(2) == DateTime`2026-06-15T14:00:00-04:00[America/New_York]`
@@ -79,4 +79,4 @@ test "zoned datetimes support civil sub-day arithmetic" {
     assert dt + Nanoseconds(500_000_000) == DateTime`2026-06-15T12:00:00.5-04:00[America/New_York]`
 
     assert dt - Hours(2) == DateTime`2026-06-15T10:00:00-04:00[America/New_York]`
-}
+end

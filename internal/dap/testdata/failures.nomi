@@ -1,17 +1,17 @@
 import std::io
 
-fn ratio(a: Int, b: Int) -> Int {
+fn ratio(a: Int, b: Int) -> Int
     q = a / b
     q
-}
+end
 
-fn count(n: Int, acc: Int) -> Int {
-    if n == 0 { acc } else { count(n - 1, acc + n) }
-}
+fn count(n: Int, acc: Int) -> Int
+    if n == 0 then acc else count(n - 1, acc + n)
+end
 
-fn main() {
+fn main()
     total = count(3, 0)
     io.print("total ${total}")
     zero = total - 6
     io.print("${ratio(10, zero)}")
-}
+end

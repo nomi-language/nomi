@@ -14,46 +14,47 @@ func TestIRConcurrency_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"concurrency.md:L31", `import std::tasks.Task
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
   n * 2
-}
+end
 
-fn main() {
-  total = concurrent {
+fn main()
+  total = concurrent
     a = Task.spawn(fn -> double(10))
     b = Task.spawn(fn -> double(20))
     c = Task.spawn(fn -> double(30))
     Task.await(a) + Task.await(b) + Task.await(c)
-  }
+  end
   dbg total
-}
+end
 `, "dbg line 14: total = 120\n"},
-		{"concurrency.md:L79", `import {
+		{"concurrency.md:L79", `import
   std::channels.{Channel, Receiver, Sender}
   std::io
   std::tasks.Task
-}
+end
 
-fn produce(out: Sender<Int>, n: Int) -> Unit {
-  case Sender.send(out, n) {
+fn produce(out: Sender<Int>, n: Int) -> Unit
+  case Sender.send(out, n)
     Ok(_) -> Unit
     Err(_) -> io.print("send failed")
-  }
-}
+  end
+end
 
-fn consume(inbox: Receiver<Int>) -> Int {
+fn consume(inbox: Receiver<Int>) -> Int
   Iter.loop(0, fn sum ->
-    case Receiver.receive(inbox) {
+    case Receiver.receive(inbox)
       Some(v) -> sum + v
       None -> break sum
-    }
+    end
+  end
   )
-}
+end
 
-fn main() {
+fn main()
   ch = Channel.buffered<Int>(4)
 
-  total = concurrent {
+  total = concurrent
     p1 = Task.spawn(fn -> produce(ch.sender, 10))
     p2 = Task.spawn(fn -> produce(ch.sender, 20))
     p3 = Task.spawn(fn -> produce(ch.sender, 30))
@@ -65,83 +66,83 @@ fn main() {
     Task.await(p3)
     Sender.close(ch.sender)
     Task.await(cons)
-  }
+  end
 
   dbg total
-}
-`, "dbg line 40: total = 60\n"},
-		{"concurrency.md:L159", `import {
+end
+`, "dbg line 41: total = 60\n"},
+		{"concurrency.md:L159", `import
   std::tasks.Task
   std::duration.Duration
   std::timer
-}
+end
 
-fn short_fail() -> Result<Int, String> {
+fn short_fail() -> Result<Int, String>
   timer.sleep(Duration.milliseconds(10))
   Err("boom")
-}
+end
 
-fn long_sleep() -> Result<Int, String> {
+fn long_sleep() -> Result<Int, String>
   timer.sleep(Duration.seconds(5))
   Ok(0)
-}
+end
 
-fn main() {
-  outcome = concurrent {
+fn main()
+  outcome = concurrent
     short = Task.spawn(fn -> short_fail())
     long = Task.spawn(fn -> long_sleep())
     n = Task.await(short)?
     _ = Task.await(long)?
     Ok(n)
-  }
+  end
 
   _ = dbg outcome
-}
+end
 `, "dbg line 26: outcome = Err(\"boom\")\n"},
-		{"concurrency.md:L243", `import {
+		{"concurrency.md:L243", `import
   std::tasks.Task
-}
+end
 
-fn is_active(id: Int) -> Bool {
+fn is_active(id: Int) -> Bool
   id != 2
-}
+end
 
-fn fetch_user(id: Int) -> String {
+fn fetch_user(id: Int) -> String
   "user-${Display.to_string(id)}"
-}
+end
 
-fn main() {
-  results = concurrent {
+fn main()
+  results = concurrent
     [3, 2, 1]
     |> Iter.filter(is_active)
     |> Task.spawn_all(fetch_user, max_running: 8)
     |> Task.await_all()
-  }
+  end
   dbg results
-}
+end
 `, "dbg line 20: results = [\"user-3\", \"user-1\"]\n"},
-		{"concurrency.md:L650", `import {
+		{"concurrency.md:L650", `import
   std::tasks.Task
   std::duration.Duration
   std::timer
-}
+end
 
-fn serve_conn() -> Int {
+fn serve_conn() -> Int
   // Would take half a minute if left alone.
   timer.sleep(Duration.seconds(30))
   1
-}
+end
 
-fn main() {
-  outcome = concurrent {
+fn main()
+  outcome = concurrent
     conn = Task.spawn(fn -> serve_conn())
     Task.cancel(conn)
     // ` + "`outcome`, not `await`" + ` — inheriting a cancellation you asked for
     // makes no sense.
     Task.outcome(conn)
-  }
+  end
   dbg outcome
-}
+end
 `, "dbg line 21: outcome = Cancelled\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
@@ -155,161 +156,162 @@ func TestIRConcurrency_Mechanisms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"captures, String tasks and a conditional tail", `import std::tasks.Task
 
-fn greet(name: String, n: Int) -> String {
+fn greet(name: String, n: Int) -> String
   "${name}-${Display.to_string(n)}"
-}
+end
 
-fn main() {
+fn main()
   base = 40
   who = "ada"
-  label = concurrent {
+  label = concurrent
     a = Task.spawn(fn -> greet(who, base + 1))
     b = Task.spawn(fn -> base * 2)
     total = Task.await(b)
-    if total > 50 { Task.await(a) } else { "small" }
-  }
+    if total > 50 then Task.await(a) else "small"
+  end
   dbg label
   Unit
-}
+end
 `, "dbg line 16: label = \"ada-41\"\n"},
-		{"nested blocks and a Unit task", `import {
+		{"nested blocks and a Unit task", `import
   std::io
   std::tasks.Task
-}
+end
 
-fn inner(n: Int) -> Int {
-  concurrent {
+fn inner(n: Int) -> Int
+  concurrent
     t = Task.spawn(fn -> n + 1)
     Task.await(t)
-  }
-}
+  end
+end
 
-fn main() {
-  outer = concurrent {
+fn main()
+  outer = concurrent
     a = Task.spawn(fn -> inner(1))
     b = Task.spawn(fn -> inner(2))
     Task.await(a) * Task.await(b)
-  }
-  _ = concurrent {
+  end
+  _ = concurrent
     t = Task.spawn(fn -> io.print("from a task"))
     Task.await(t)
-  }
+  end
   dbg outer
   Unit
-}
+end
 `, "from a task\ndbg line 23: outer = 6\n"},
 		{"a completed outcome and a Maybe try", `import std::tasks.Task
 
-fn half(n: Int) -> Maybe<Int> {
-  if n % 2 == 0 { Some(n / 2) } else { None }
-}
+fn half(n: Int) -> Maybe<Int>
+  if n % 2 == 0 then Some(n / 2) else None
+end
 
-fn main() {
-  outcome = concurrent {
+fn main()
+  outcome = concurrent
     t = Task.spawn(fn -> 21 * 2)
     Task.outcome(t)
-  }
+  end
   dbg outcome
-  found = concurrent {
+  found = concurrent
     a = Task.spawn(fn -> half(10))
     b = Task.spawn(fn -> half(7))
     x = Task.await(a)?
     y = Task.await(b)?
     Some(x + y)
-  }
+  end
   dbg found
   Unit
-}
+end
 `, "dbg line 12: outcome = Completed(42)\ndbg line 20: found = None\n"},
 		{"a lambda batch body over a mapped sequence", `import std::tasks.Task
 
-fn main() {
+fn main()
   offset = 100
-  results = concurrent {
+  results = concurrent
     [1, 2, 3, 4]
     |> Iter.map(fn n -> n * 10)
     |> Task.spawn_all(fn n -> n + offset, max_running: 2)
     |> Task.await_all()
-  }
+  end
   dbg results
   Unit
-}
+end
 `, "dbg line 11: results = [110, 120, 130, 140]\n"},
-		{"an unbuffered channel, a send after close and a drained receive", `import {
+		{"an unbuffered channel, a send after close and a drained receive", `import
   std::channels.{Channel, ChannelClosed, Receiver, Sender}
   std::io
   std::tasks.Task
-}
+end
 
-fn report(r: Result<Unit, ChannelClosed>) -> String {
-  case r {
+fn report(r: Result<Unit, ChannelClosed>) -> String
+  case r
     Ok(_) -> "sent"
     Err(_) -> "closed"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   ch = Channel.unbuffered<String>()
-  got = concurrent {
+  got = concurrent
     t = Task.spawn(fn -> Receiver.receive(ch.receiver))
     first = report(Sender.send(ch.sender, "hi"))
     Sender.close(ch.sender)
     io.print(first)
     Task.await(t)
-  }
+  end
   dbg got
   io.print(report(Sender.send(ch.sender, "late")))
   dbg Receiver.receive(ch.receiver)
   Unit
-}
+end
 `, "sent\ndbg line 23: got = Some(\"hi\")\nclosed\ndbg line 25: Receiver.receive(ch.receiver) = None\n"},
-		{"loop case tails with guards and a wildcard break", `fn pick(limit: Int) -> Int {
-  Iter.loop(0, fn n -> {
-    if n > limit { break n * 10 }
-    case n {
+		{"loop case tails with guards and a wildcard break", `fn pick(limit: Int) -> Int
+  Iter.loop(0, fn n ->
+    if n > limit then break n * 10
+    case n
       0 -> n + 1
       _ -> n + 2
-    }
-  })
-}
+    end
+  end)
+end
 
-fn find() -> Int {
+fn find() -> Int
   Iter.loop(1, fn n ->
-    case n {
+    case n
       1 -> 2
       2 -> 5
       _ -> break n
-    }
+    end
+  end
   )
-}
+end
 
-fn classify(_xs: Int) -> String {
-  Iter.loop("", fn s -> {
-    if String.length(s) > 8 { break "long" }
-    case String.length(s) {
+fn classify(_xs: Int) -> String
+  Iter.loop("", fn s ->
+    if String.length(s) > 8 then break "long"
+    case String.length(s)
       3 -> break s
       _ -> s + "ab"
-    }
-  })
-}
+    end
+  end)
+end
 
-fn main() {
+fn main()
   dbg pick(5)
   dbg classify(0)
   dbg find()
   Unit
-}
-`, "dbg line 32: pick(5) = 70\ndbg line 33: classify(0) = \"long\"\ndbg line 34: find() = 5\n"},
+end
+`, "dbg line 33: pick(5) = 70\ndbg line 34: classify(0) = \"long\"\ndbg line 35: find() = 5\n"},
 		{"scalar Display calls", `import std::io
 
-fn show(n: Int, x: Float, b: Bool, s: String) -> String {
+fn show(n: Int, x: Float, b: Bool, s: String) -> String
   Display.to_string(n) + " " + Display.to_string(x) + " " + Display.to_string(b) + " " + Display.to_string(s)
-}
+end
 
-fn main() {
+fn main()
   io.print(show(7, 1.5, True, "s"))
   io.print("n=${Display.to_string(3)}")
-}
+end
 `, "7 1.5 True s\nn=3\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
@@ -321,10 +323,10 @@ fn main() {
 func TestIRConcurrency_TryAndLoopInsideTheBlockRun(t *testing.T) {
 	// A try inside a task body leaves the task's lambda, whose boundary it
 	// is.
-	verifyLambdaProgram(t, "import {\n std::io\n std::tasks.Task\n}\nfn run() -> Int {\nr = concurrent {\n t = Task.spawn(fn -> {\n x = Some(2)?\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\n"+
-		"fn missing() -> Maybe<Int> { None }\nfn none() -> Int {\nr = concurrent {\n t = Task.spawn(fn -> {\n x = missing()?\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\nfn main() {\n io.print(run())\n io.print(none())\n}\n", "2\n0\n")
+	verifyLambdaProgram(t, "import\n std::io\n std::tasks.Task\nend\nfn run() -> Int\nr = concurrent\n t = Task.spawn(fn ->\n x = Some(2)?\n Some(x)\n end)\n Task.await(t)\n end\n Maybe.with_default(r, 0)\nend\n"+
+		"fn missing() -> Maybe<Int>\n    None\nend\nfn none() -> Int\nr = concurrent\n t = Task.spawn(fn ->\n x = missing()?\n Some(x)\n end)\n Task.await(t)\n end\n Maybe.with_default(r, 0)\nend\nfn main()\n io.print(run())\n io.print(none())\nend\n", "2\n0\n")
 	// An Iter.loop inside the block runs, as one inside any lambda does.
-	verifyLambdaProgram(t, "import {\n std::io\n std::tasks.Task\n}\nfn run() -> Int {\nconcurrent {\n t = Task.spawn(fn -> 1)\n n0 = Task.await(t)\n Iter.loop(n0, fn n -> {\n if n > 3 { break n * 10 }\n n + 1\n })\n }\n}\nfn main() {\n io.print(run())\n}\n", "40\n")
+	verifyLambdaProgram(t, "import\n std::io\n std::tasks.Task\nend\nfn run() -> Int\nconcurrent\n t = Task.spawn(fn -> 1)\n n0 = Task.await(t)\n Iter.loop(n0, fn n ->\n if n > 3 then break n * 10\n n + 1\n end)\n end\nend\nfn main()\n io.print(run())\nend\n", "40\n")
 }
 
 // A task whose body reaches a function the producer did not retain fails the
@@ -335,40 +337,40 @@ func TestIRConcurrency_TryAndLoopInsideTheBlockRun(t *testing.T) {
 func TestIRConcurrency_AMachineLimitInATaskFailsTheRun(t *testing.T) {
 	plantDecline(t)
 	path := filepath.Join(t.TempDir(), "main.nomi")
-	src := `import {
+	src := `import
   std::tasks.Task
   std::duration.Duration
   std::timer
-}
+end
 
-fn planted_decline(n: Int) -> Int {
+fn planted_decline(n: Int) -> Int
   n
-}
+end
 
-fn slow_bounded() -> Int {
+fn slow_bounded() -> Int
   _ = planted_decline(1)
   timer.sleep(Duration.minutes(5))
   1
-}
+end
 
-fn main() {
-  outcome = concurrent {
+fn main()
+  outcome = concurrent
     t = Task.spawn(fn -> slow_bounded())
     Task.outcome(t)
-  }
-  _ = case outcome {
+  end
+  _ = case outcome
     .Completed(_) -> "done"
     .Cancelled -> "timed out"
     .Failed(_) -> "broke"
-  }
-}
-struct Run {
+  end
+end
+struct Run
   context: Context
-}
+end
 
-fn boot() -> Result<Run, String> {
+fn boot() -> Result<Run, String>
   Ok(Run{context: Context.root()})
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)
@@ -405,32 +407,32 @@ fn boot() -> Result<Run, String> {
 func TestIRConcurrency_ACancelledTaskRunsItsDeferredCalls(t *testing.T) {
 	const want = "cleanup\ndbg line 24: outcome = Cancelled\n"
 	path := filepath.Join(t.TempDir(), "main.nomi")
-	src := `import {
+	src := `import
   std::channels.{Channel, Receiver, Sender}
   std::io
   std::tasks.Task
   std::duration.Duration
   std::timer
-}
+end
 
-fn work(started: Sender<Int>) -> Int {
+fn work(started: Sender<Int>) -> Int
   defer io.print("cleanup")
   _ = Sender.send(started, 1)
   timer.sleep(Duration.seconds(30))
   1
-}
+end
 
-fn main() {
+fn main()
   ch = Channel.buffered<Int>(1)
-  outcome = concurrent {
+  outcome = concurrent
     t = Task.spawn(fn -> work(ch.sender))
     _ = Receiver.receive(ch.receiver)
     Task.cancel(t)
     Task.outcome(t)
-  }
+  end
   dbg outcome
   Unit
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)

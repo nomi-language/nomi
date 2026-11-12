@@ -1,7 +1,7 @@
-pub enum Direction {
+pub enum Direction
     North
     South
-}
+end
 
 pub once help = ["a", "b"]
 
@@ -11,12 +11,12 @@ pub once doubled = help |> Iter.map(fn s -> s + s) |> Iter.to_list()
 
 pub once table = [("a", 1)] |> Iter.to_map()
 
-pub struct Limits {
+pub struct Limits
     low: Int
-}
+end
 
-impl Limits {
+impl Limits
     pub once top = 10
 
     pub once next = Limits.top + 1
-}
+end

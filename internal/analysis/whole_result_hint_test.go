@@ -11,25 +11,25 @@ import (
 // so. Where the error types differ too, or the value is not a name, there is
 // no such hint.
 func TestWholeResultHint(t *testing.T) {
-	const decls = `struct Tx {
+	const decls = `struct Tx
     amount: Int
-}
+end
 
-fn parse_amount(input: String) -> Result<Int, String> {
+fn parse_amount(input: String) -> Result<Int, String>
     Err(input)
-}
+end
 
-fn parse_flag(input: String) -> Result<Int, Int> {
+fn parse_flag(input: String) -> Result<Int, Int>
     Err(0)
-}
+end
 
-fn lookup(input: String) -> Maybe<Int> {
+fn lookup(input: String) -> Maybe<Int>
     None
-}
+end
 
-fn take(r: Result<Tx, String>) -> Int {
+fn take(r: Result<Tx, String>) -> Int
     0
-}
+end
 
 `
 	const resultHelp = "`err` is the whole `Result<Int, String>`, so its `Ok` type is still `Int`; " +
@@ -39,60 +39,59 @@ fn take(r: Result<Tx, String>) -> Int {
 	}{
 		{
 			"catch-all arm",
-			`fn withdrawal(input: String) -> Result<Tx, String> {
-    case parse_amount(input) {
-        Ok(amount) -> Ok(Tx{amount: amount})
+			`fn withdrawal(input: String) -> Result<Tx, String>
+    case parse_amount(input)
+        Ok(amount) -> Ok(Tx{amount:})
         err -> err
-    }
-}
+    end
+end
 `,
 			"case branch type mismatch: expected Result<Tx, String>, got Result<Int, String>",
 			resultHelp,
 		},
 		{
 			"as name over Err",
-			`fn withdrawal(input: String) -> Result<Tx, String> {
-    case parse_amount(input) {
-        Ok(amount) -> Ok(Tx{amount: amount})
+			`fn withdrawal(input: String) -> Result<Tx, String>
+    case parse_amount(input)
+        Ok(amount) -> Ok(Tx{amount:})
         Err(_) as err -> err
-    }
-}
+    end
+end
 `,
 			"case branch type mismatch: expected Result<Tx, String>, got Result<Int, String>",
 			resultHelp,
 		},
 		{
 			"return",
-			`fn withdrawal(input: String) -> Result<Tx, String> {
-    case parse_amount(input) {
-        Ok(amount) -> Ok(Tx{amount: amount})
-        err -> {
+			`fn withdrawal(input: String) -> Result<Tx, String>
+    case parse_amount(input)
+        Ok(amount) -> Ok(Tx{amount:})
+        err ->
             return err
-        }
-    }
-}
+    end
+end
 `,
 			"return type mismatch: expected Result<Tx, String>, got Result<Int, String>",
 			resultHelp,
 		},
 		{
 			"argument",
-			`fn withdrawal(input: String) -> Int {
+			`fn withdrawal(input: String) -> Int
     err = parse_amount(input)
     take(err)
-}
+end
 `,
 			"argument 1: expected Result<Tx, String>, got Result<Int, String>",
 			resultHelp,
 		},
 		{
 			"maybe catch-all arm",
-			`fn find(input: String) -> Maybe<Tx> {
-    case lookup(input) {
-        Some(amount) -> Some(Tx{amount: amount})
+			`fn find(input: String) -> Maybe<Tx>
+    case lookup(input)
+        Some(amount) -> Some(Tx{amount:})
         none -> none
-    }
-}
+    end
+end
 `,
 			"case branch type mismatch: expected Maybe<Tx>, got Maybe<Int>",
 			"`none` is the whole `Maybe<Int>`, so its `Some` type is still `Int`; " +
@@ -100,24 +99,24 @@ fn take(r: Result<Tx, String>) -> Int {
 		},
 		{
 			"error types differ",
-			`fn withdrawal(input: String) -> Result<Tx, String> {
-    case parse_flag(input) {
-        Ok(amount) -> Ok(Tx{amount: amount})
+			`fn withdrawal(input: String) -> Result<Tx, String>
+    case parse_flag(input)
+        Ok(amount) -> Ok(Tx{amount:})
         err -> err
-    }
-}
+    end
+end
 `,
 			"case branch type mismatch: expected Result<Tx, String>, got Result<Int, Int>",
 			"",
 		},
 		{
 			"not a name",
-			`fn withdrawal(input: String) -> Result<Tx, String> {
-    case parse_amount(input) {
-        Ok(amount) -> Ok(Tx{amount: amount})
+			`fn withdrawal(input: String) -> Result<Tx, String>
+    case parse_amount(input)
+        Ok(amount) -> Ok(Tx{amount:})
         Err(_) -> parse_amount(input)
-    }
-}
+    end
+end
 `,
 			"case branch type mismatch: expected Result<Tx, String>, got Result<Int, String>",
 			"",

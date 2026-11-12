@@ -1,7 +1,7 @@
-import {
+import
     std::io
     ids
-}
+end
 
 type Id Int
 
@@ -9,25 +9,25 @@ type Pair (Int, String)
 
 type Label String
 
-enum Shape {
+enum Shape
     Circle Float
     Seg (Int, Int)
-}
+end
 
-enum Box<T> {
+enum Box<T>
     Full T
     Empty
-}
+end
 
-fn apply(f: (Int) -> Id, n: Int) -> Id {
+fn apply(f: (Int) -> Id, n: Int) -> Id
     f(n)
-}
+end
 
-fn wrap_all<T>(xs: List<T>) -> List<Maybe<T>> {
+fn wrap_all<T>(xs: List<T>) -> List<Maybe<T>>
     Iter.map(xs, Some) |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
     // A distinct type named as a value is its constructor.
     ids_ = Iter.map([1, 2], Id) |> Iter.to_list()
 
@@ -98,4 +98,4 @@ fn main() {
 
     io.print(Debug.inspect(bs))
     io.print(bs == [Box.Full(1), Box.Full(2)])
-}
+end

@@ -13,51 +13,51 @@
 //   - NON-leakage. Each setup runs inside each case, so the names it binds
 //     are the case's only through its pattern: a sibling group declared after
 //     another must still see its own setup's value.
-group "config" {
-    setup .{limit: 12, label: "root"}
+group "config"
+    setup {limit: 12, label: "root"}
 
-    test "a case reads the value its group produced", .{limit, label} {
+    test "a case reads the value its group produced", {limit:, label:}
         assert limit == 12
         assert label == "root"
-    }
+    end
 
-    test "a case may ignore the value entirely" {
+    test "a case may ignore the value entirely"
         assert (1 + 1) == 2
-    }
+    end
 
-    test "a name binds the whole value", config {
+    test "a name binds the whole value", config
         assert config.limit == 12
         assert config.label == "root"
-    }
-}
+    end
+end
 
-group "scaled" {
-    setup {
+group "scaled"
+    setup begin
         limit = 12 * 2
         (limit, "root/scaled", True)
-    }
+    end
 
-    test "a tuple pattern binds each part", (limit, label, extra) {
+    test "a tuple pattern binds each part", (limit, label, extra)
         assert limit == 24
         assert label == "root/scaled"
         assert extra
-    }
+    end
 
-    test "a nested tuple of parts", (limit, _, _) {
+    test "a nested tuple of parts", (limit, _, _)
         assert limit + 1 == 25
-    }
-}
+    end
+end
 
-group "unit" {
-    setup {
+group "unit"
+    setup begin
         _ = 1 + 1
-    }
+    end
 
-    test "a setup may answer Unit" {
+    test "a setup may answer Unit"
         assert (3 - 1) == 2
-    }
-}
+    end
+end
 
-test "a file-scope case stands beside a group" {
+test "a file-scope case stands beside a group"
     assert (2 * 3) == 6
-}
+end

@@ -23,14 +23,14 @@ func (g *gen) irVectorValueKind(k kind) bool {
 	return ok && (irScalarLeafKind(elem) || g.irStructuralValueKind(elem))
 }
 
-func (bl *irScalarBuilder) vectorMake(t *ast.VectorLit) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) vectorMake(t *ast.ListLit) (ir.Temp, kind, bool, bool) {
 	// kindInvalid: sentinel — no expected element kind.
 	return bl.vectorMakeOf(t, kindInvalid)
 }
 
 // vectorMakeOf builds a vector literal; elem, when not kindInvalid, is the
 // expected element kind each item is lowered against.
-func (bl *irScalarBuilder) vectorMakeOf(t *ast.VectorLit, elem kind) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) vectorMakeOf(t *ast.ListLit, elem kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(t.Spreads) == 1 && (t.Spreads[0].At == 0 || t.Spreads[0].At == len(t.Items)) {
 		return bl.vectorUpdate(t)
@@ -91,7 +91,7 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 		k = args.kinds[1]
 	}
 	if k == kindEmptyVector {
-		// `Vector.next_item(#[])`: an element operand types the vector;
+		// `Vector.next_item([])`: an element operand types the vector;
 		// with none, nothing constrains the element and no value of it
 		// is built or observed, so it is typed as listCallPlan types
 		// `List.head([])`.
@@ -140,13 +140,13 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 
 // lowerSameKindItems lowers a vector or set literal's items, left to right,
 // to one element kind that accept admits. A bare `None` beside typed items
-// (`#[Some(1), None]`) takes their kind, as the checker gives it: it is
+// (`[Some(1), None]`) takes their kind, as the checker gives it: it is
 // lowered after them, and having no effect, lowering it later reorders
 // nothing. Items that differ only by an embedded type join to the enum
-// that embeds it (`#[circle, shape]` is a `Vector<Shape>`), as the checker
+// that embeds it (`[circle, shape]` is a `Vector<Shape>`), as the checker
 // joins them: the embedded ones are widened after every item is lowered.
 // listMakeOf does the same for a list. Items that join no other way
-// (`%[[], [1]]`) take literal at's checked element type (of tagEmptySet or
+// (`[[], [1]]`) take literal at's checked element type (of tagEmptySet or
 // tagEmptyVector), each coerced to it (literalItemsCoerced).
 //
 // want, when not kindInvalid, is the element kind (literalParts): every item
@@ -185,8 +185,8 @@ func (bl *irScalarBuilder) lowerSameKindItems(at ast.Node, of tag, items []ast.N
 	}
 	elem, joined := irEmbedsJoin(typedKinds)
 	if !joined || !accept(elem) || untypedLiteral(elem) {
-		// Items that differ by an empty collection (`%[[], [1]]`), or are
-		// all empty (`%[[]]` inside `%[%[[]], %[[1]]]`), take the checked
+		// Items that differ by an empty collection (`[[], [1]]`), or are
+		// all empty (`[[]]` inside `[[[]], [[1]]]`), take the checked
 		// element type, as a list's items do.
 		if checked, ok := bl.literalItemsCoerced(at, of, 0, typedItems, typedValues, typedKinds); ok {
 			elem, joined = checked, true

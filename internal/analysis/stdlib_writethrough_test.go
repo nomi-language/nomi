@@ -21,7 +21,7 @@ import (
 // resolveStdlibImport's b.modules fast-path — the exact site this
 // task makes write-through.
 func TestResolveStdlibImport_WriteThroughCache(t *testing.T) {
-	src := "fn main() { x = 1 + 2 }"
+	src := "fn main()\n    x = 1 + 2\nend"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 

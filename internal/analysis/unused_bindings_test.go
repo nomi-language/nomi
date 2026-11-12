@@ -58,12 +58,12 @@ func expectDiagnosticContaining(t *testing.T, errs []analysis.TypeError, substr 
 
 func TestUnusedBinding_LocalBindingNeverRead(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn main() {
+fn main()
   total =
     5
     |> dbg
   Unit
-}
+end
 `)
 	e := expectUnusedBindingContaining(t, errs, "binding 'total' is never read")
 	if e.Line != 3 {
@@ -76,114 +76,114 @@ fn main() {
 
 func TestUnusedBinding_ReadBindingIsAccepted(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn demo() -> Int {
+fn demo() -> Int
   total = 5
   dbg total
-}
+end
 `)
 	expectNoUnusedBindings(t, errs)
 }
 
 func TestUnusedBinding_AssertPatternBindingNeverRead(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-test "pattern binding is unused" {
+test "pattern binding is unused"
   assert Some(value) = Some(1)
-}
+end
 `)
 	expectUnusedBindingContaining(t, errs, "binding 'value' is never read")
 }
 
 func TestUnusedBinding_AssertPatternBindingReadIsAccepted(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-test "pattern binding is used" {
+test "pattern binding is used"
   assert Some(value) = Some(1)
   assert value == 1
-}
+end
 `)
 	expectNoUnusedBindings(t, errs)
 }
 
 func TestUnusedBinding_ShadowedBindingMustBeReadBeforeShadow(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn demo() -> String {
+fn demo() -> String
   name = "Jane"
   name = "John"
   dbg name
-}
+end
 `)
 	expectUnusedBindingContaining(t, errs, "binding 'name' is never read")
 }
 
 func TestUnusedBinding_RefinementShadowingIsAccepted(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn demo() -> String {
+fn demo() -> String
   name = "  JANE  "
   name = String.trim(name)
   name = String.lowercase(name)
   dbg name
-}
+end
 `)
 	expectNoUnusedBindings(t, errs)
 }
 
 func TestUnusedBinding_WildcardPatternIsIgnored(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn main() {
+fn main()
   (_, value) = (1, 2)
   dbg value
-}
+end
 `)
 	expectNoUnusedBindings(t, errs)
 }
 
 func TestUnusedBinding_DiscardBindingDoesNotEnterScope(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn demo() -> Int {
+fn demo() -> Int
   _total = 5
   _total
-}
+end
 `)
 	expectDiagnosticContaining(t, errs, "undefined variable '_total'")
 }
 
 func TestUnusedBinding_ShortDiscardBindingDoesNotEnterScope(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn main() {
+fn main()
   _ = 5
-}
+end
 `)
 	expectNoUnusedBindings(t, errs)
 }
 
 func TestUnusedBinding_DiscardParameterDoesNotEnterScope(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn ignore(_value: Int) -> Int {
+fn ignore(_value: Int) -> Int
   _value
-}
+end
 `)
 	expectDiagnosticContaining(t, errs, "undefined variable '_value'")
 }
 
 func TestUnusedBinding_DoubleUnderscoreBindingEntersScope(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn demo() -> Int {
+fn demo() -> Int
   __internal = 5
   __internal
-}
+end
 `)
 	expectNoUnusedBindings(t, errs)
 }
 
 func TestUnusedBinding_MapPatternKeyReadsBinding(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn demo() -> String {
+fn demo() -> String
   base = 1
-  numbers = %{2 => "computed"}
-  case numbers {
-    %{base + 1 => value} -> value
+  numbers = {2 => "computed"}
+  case numbers
+    {base + 1 => value} -> value
     _ -> "?"
-  }
-}
+  end
+end
 `)
 	expectNoUnusedBindings(t, errs)
 }
@@ -193,26 +193,26 @@ fn demo() -> String {
 func TestUnusedBinding_DestructuredParameterNeverRead(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"lambda tuple", `
-fn main() {
+fn main()
   _ = Iter.map([("a", 1)], fn (word, count) -> count) |> Iter.to_list()
-}
+end
 `, "parameter 'word' is never read"},
 		{"lambda struct", `
-struct P {
+struct P
   x: Int
   y: Int
-}
-fn main() {
-  _ = Iter.map([P{x: 1, y: 2}], fn .{x, y} -> x) |> Iter.to_list()
-}
+end
+fn main()
+  _ = Iter.map([P{x: 1, y: 2}], fn {x:, y:} -> x) |> Iter.to_list()
+end
 `, "parameter 'y' is never read"},
 		{"fn tuple", `
-fn first((a, b): (Int, Int)) -> Int {
+fn first((a, b): (Int, Int)) -> Int
   a
-}
-fn main() {
+end
+fn main()
   _ = first((1, 2))
-}
+end
 `, "parameter 'b' is never read"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -229,37 +229,37 @@ fn main() {
 func TestUnusedBinding_ArmPatternBindingNeverRead(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"case arm", `
-fn f(m: Maybe<Int>) -> Int {
-  case m {
+fn f(m: Maybe<Int>) -> Int
+  case m
     Some(v) -> 1
     None -> 0
-  }
-}
+  end
+end
 `, "binding 'v' is never read"},
 		{"case arm list rest", `
-fn f(xs: List<Int>) -> Int {
-  case xs {
+fn f(xs: List<Int>) -> Int
+  case xs
     [x, ..rest] -> x
     [] -> 0
-  }
-}
+  end
+end
 `, "binding 'rest' is never read"},
 		{"else arm", `
-fn f(r: Result<Int, String>) -> Int {
-  Ok(n) = r else {
+fn f(r: Result<Int, String>) -> Int
+  Ok(n) = r else
     Err(e) -> 0
-  }
+  end
   n
-}
+end
 `, "binding 'e' is never read"},
 		{"if condition", `
-fn f(m: Maybe<Int>) -> Int {
-  if Some(v) = m {
+fn f(m: Maybe<Int>) -> Int
+  if Some(v) = m then
     1
-  } else {
+  else
     0
-  }
-}
+  end
+end
 `, "binding 'v' is never read"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -275,26 +275,26 @@ fn f(m: Maybe<Int>) -> Int {
 // `todo` (as the editor's fill-arms action writes it) report nothing.
 func TestUnusedBinding_PatternBindingAcceptedForms(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-struct P {
+struct P
   x: Int
   y: Int
-}
-fn f(m: Maybe<Int>, xs: List<Int>, p: (Int, Int)) -> Int {
+end
+fn f(m: Maybe<Int>, xs: List<Int>, p: (Int, Int)) -> Int
   _ = Iter.map([("a", 1)], fn (_word, count) -> count) |> Iter.to_list()
-  _ = Iter.map([P{x: 1, y: 2}], fn .{x} -> x) |> Iter.to_list()
-  _ = case xs {
+  _ = Iter.map([P{x: 1, y: 2}], fn {x:} -> x) |> Iter.to_list()
+  _ = case xs
     [_, .._rest] -> 1
     [] -> 0
-  }
-  _ = case p {
+  end
+  _ = case p
     (a, b) when a > b -> 1
     _ -> 0
-  }
-  case m {
+  end
+  case m
     Some(v) -> todo
     None -> 0
-  }
-}
+  end
+end
 `)
 	expectNoUnusedBindings(t, errs)
 }

@@ -106,7 +106,7 @@ func TestCheckReservedTypeName_BroadenedSetFromPrelude(t *testing.T) {
 				// agnostic, so struct alone is sufficient — testing every
 				// (kind, name) combination would multiply the test count
 				// without adding signal.
-				src := "pub struct " + name + " { x: Int }\n\nfn main() { Unit }\n"
+				src := "pub struct " + name + "\n    x: Int\nend\n\nfn main()\n    Unit\nend\n"
 				if errs := buildAndCollectErrs(t, src); !containsErrAbout(errs, name) {
 					t.Errorf("expected reserved-name diagnostic for `struct %s`, got: %v", name, errs)
 				}
@@ -130,7 +130,7 @@ func TestCheckReservedTypeName_NonPreludeNamesAllowed(t *testing.T) {
 	for _, name := range []string{"Date", "Duration", "App", "Error", "io.Error", "MyType", "Static", "Dynamic", "Less", "Greater", "Equal", "Control", "Break", "BreakWith", "Continue", "Return", "ReturnWith", "Task"} {
 		name := name
 		t.Run(name, func(t *testing.T) {
-			src := "pub struct " + name + " { x: Int }\n\nfn main() { Unit }\n"
+			src := "pub struct " + name + "\n    x: Int\nend\n\nfn main()\n    Unit\nend\n"
 			errs := buildAndCollectErrs(t, src)
 			for _, e := range errs {
 				if strings.Contains(e, "reserved") && strings.Contains(e, name) {
@@ -158,7 +158,7 @@ func TestCheckReservedTypeName_PreludeInterfaceNames(t *testing.T) {
 	for _, name := range preludeInterfaceNames {
 		name := name
 		t.Run(name, func(t *testing.T) {
-			src := "pub interface " + name + " {\n  fn probe(value: self) -> String\n}\n"
+			src := "pub interface " + name + "\n  fn probe(value: self) -> String\nend\n"
 			if errs := buildAndCollectErrs(t, src); !containsErrAbout(errs, name) {
 				t.Errorf("expected reserved-name diagnostic for `interface %s`, got: %v", name, errs)
 			}
@@ -171,7 +171,7 @@ func TestCheckReservedTypeName_PreludeInterfaceNames(t *testing.T) {
 // than as a silently smaller test.
 var preludeInterfaceNames = []string{
 	"Add", "BitwiseAnd", "BitwiseNot", "BitwiseOr", "BitwiseXor", "Commit", "Comparable", "Contains", "Debug",
-	"Discrete", "Display", "Distinct", "Divide", "ShiftLeft", "ShiftRight",
+	"Discrete", "Display", "Distinct", "Divide", "From", "ShiftLeft", "ShiftRight",
 	"Equatable", "Hashable", "Iter", "Multiply", "Productable", "Release", "Remainder", "Steppable", "Struct",
 	"Subtract", "Summable", "Variants",
 }
@@ -182,7 +182,7 @@ var preludeInterfaceNames = []string{
 // accident, and a list that drifts silently would make the interface check
 // look complete while leaving a name redeclarable.
 func TestCheckReservedTypeName_PreludeInterfaceSetIsExactlyWhatPreludeInjects(t *testing.T) {
-	fa, _ := reservedNamesFA(t, "struct Anchor {\n  x: Int\n}\n")
+	fa, _ := reservedNamesFA(t, "struct Anchor\n  x: Int\nend\n")
 	injected := map[string]bool{}
 	for name, sym := range fa.ModuleScope.Symbols {
 		if sym.Kind == analysis.SymbolInterface && name != "Anchor" {
@@ -212,7 +212,7 @@ func TestCheckReservedTypeName_NonPreludeInterfacesAllowed(t *testing.T) {
 	for _, name := range []string{"App", "Assertable", "DateParts", "TimeParts", "Anchored", "ToJson", "FromJson", "Literal"} {
 		name := name
 		t.Run(name, func(t *testing.T) {
-			src := "pub interface " + name + " {\n  fn probe(value: self) -> String\n}\n"
+			src := "pub interface " + name + "\n  fn probe(value: self) -> String\nend\n"
 			for _, e := range buildAndCollectErrs(t, src) {
 				if strings.Contains(e, "reserved") && strings.Contains(e, name) {
 					t.Errorf("unexpected reserved-name diagnostic for `interface %s` (stdlib but not prelude-injected): %s", name, e)
@@ -227,7 +227,7 @@ func TestCheckReservedTypeName_NonPreludeInterfacesAllowed(t *testing.T) {
 // `type MyDisplay Display` does not wrap a contract. A diagnostic whose only
 // suggestion is impossible is worse than a terse one.
 func TestCheckReservedTypeName_InterfaceRemedyIsFollowable(t *testing.T) {
-	errs := buildAndCollectErrs(t, "pub interface Display {\n  fn probe(value: self) -> String\n}\n")
+	errs := buildAndCollectErrs(t, "pub interface Display\n  fn probe(value: self) -> String\nend\n")
 	var msg string
 	for _, e := range errs {
 		if strings.Contains(e, "reserved") && strings.Contains(e, "'Display'") {
@@ -266,23 +266,23 @@ func TestCheckReservedTypeName_InterfaceRemedyIsFollowable(t *testing.T) {
 // fails while the control keeps passing, which is the shape that says the
 // reservation is load-bearing rather than cosmetic.
 func TestReservedInterfaceName_ClosesAStaticToRuntimeSoundnessGap(t *testing.T) {
-	witness := `pub interface Display {
+	witness := `pub interface Display
   fn render(value: self) -> String
-}
+end
 
-struct Point {
+struct Point
   x: Int
-}
+end
 
-impl Display for Point {
-  fn render(_p: Point) -> String {
+impl Display for Point
+  fn render(_p: Point) -> String
     "pt"
-  }
-}
+  end
+end
 
-fn show<T>(x: T) -> String where T: Display {
+fn show<T>(x: T) -> String where T: Display
   Display.to_string(x)
-}
+end
 `
 	if errs := buildAndCollectErrs(t, witness); !containsErrAbout(errs, "Display") {
 		t.Errorf("the shadowing witness analyzed without a reserved-name diagnostic; "+
@@ -295,17 +295,17 @@ fn show<T>(x: T) -> String where T: Display {
 	// alone reports nothing here, which is part of why the gap was invisible.
 	// The `show(...)` call matters: the bound is checked at the instantiation
 	// site, so a generic function nobody calls is never checked against it.
-	control := `struct Point {
+	control := `struct Point
   x: Int
-}
+end
 
-fn show<T>(x: T) -> String where T: Display {
+fn show<T>(x: T) -> String where T: Display
   Display.to_string(x)
-}
+end
 
-fn main() {
+fn main()
   _s = show(Point{ x: 1 })
-}
+end
 `
 	errs := reservedNamesCheckAll(t, control)
 	found := false

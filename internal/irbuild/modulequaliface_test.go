@@ -30,23 +30,23 @@ import std::storage_testing.Memory
 import shapes
 import shapes.Square
 
-interface Shape {
+interface Shape
     fn area(s: self) -> Int
-}
+end
 
-struct Dot {}
+struct Dot end
 
-impl Shape for Dot {
-    fn area(_: Dot) -> Int {
+impl Shape for Dot
+    fn area(_: Dot) -> Int
         0
-    }
-}
+    end
+end
 
-fn area_of(s: shapes.Shape) -> Int {
+fn area_of(s: shapes.Shape) -> Int
     shapes.Shape.area(s)
-}
+end
 
-fn main() {
+fn main()
     sq: shapes.Shape = Square{side: 3}
     io.print("area ${shapes.Shape.area(sq)}")
     io.print("label ${shapes.Shape.label(sq)}")
@@ -63,25 +63,25 @@ fn main() {
     c: sql.Conn = Fake.new()
     io.print("dialect ${sql.Conn.dialect(c)}")
     io.print("contained ${matcher.Matcher.is_contained_in("an", "banana")}")
-}
+end
 `,
-		"shapes.nomi": `pub interface Shape {
+		"shapes.nomi": `pub interface Shape
     fn area(s: self) -> Int
 
-    fn label(s: self) -> String {
+    fn label(s: self) -> String
         "shape of ${area(s)}"
-    }
-}
+    end
+end
 
-pub struct Square {
+pub struct Square
     side: Int
-}
+end
 
-impl Shape for Square {
-    fn area(s: Square) -> Int {
+impl Shape for Square
+    fn area(s: Square) -> Int
         s.side * s.side
-    }
-}
+    end
+end
 `,
 	}
 	for name, src := range files {

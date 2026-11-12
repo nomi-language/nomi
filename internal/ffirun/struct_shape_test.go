@@ -47,14 +47,14 @@ func TestPrepareBindsAGoStructUnderAnotherNomiName(t *testing.T) {
 	mustWriteHelper(t, filepath.Join(root, "binding", "rows.go"), rowsGo)
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
-struct RawCell {
+struct RawCell
   text: String
-}
+end
 
-struct RawRow {
+struct RawRow
   columns: List<String>
   cells: List<RawCell>
-}
+end
 
 fn each_row(prefix: String, f: (RawRow) -> Bool) -> Int go binding.EachRow
 
@@ -82,18 +82,18 @@ func TestPrepareRejectsAGoStructAgainstADifferentShape(t *testing.T) {
 
 opaque type RawBox go binding.Box
 
-struct RawCell {
+struct RawCell
   text: Int
-}
+end
 
-struct RawRow {
+struct RawRow
   columns: List<String>
   cells: List<RawCell>
-}
+end
 
-struct Thin {
+struct Thin
   columns: List<String>
-}
+end
 
 fn each_row(prefix: String, f: (Thin) -> Bool) -> Int go binding.EachRow
 

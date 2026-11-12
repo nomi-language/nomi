@@ -1,8 +1,6 @@
 package irbuild
 
 import (
-	"github.com/nomi-language/nomi/internal/analysis"
-	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
@@ -112,75 +110,21 @@ func (g *gen) instImplAccessorsPending() bool {
 	return false
 }
 
-// namedInstanceImplFill fills the slots a named-argument call to another
-// file's impl function of a generic type's instance leaves out, `Job.new("k",
-// max_attempts: 3, send)`, with the declaring gen's accessors when a default
-// names what this file cannot. The instance is the one the checker's signature
-// for the call names. handled is false when the callee is no such function, or
-// its defaults lower here; ok is whether the slots were filled.
-func (bl *irScalarBuilder) namedInstanceImplFill(t *ast.Call, fd *ast.FuncDef, kinds []kind, temps []ir.Temp) (ok, handled bool) {
-	g := bl.g
-	if g.reg == nil || fd == nil {
-		return false, false
-	}
-	ft := g.checkedCallSignature(t)
-	if ft == nil {
-		return false, false
-	}
-	var owner *gen
-	var impl *implDef
-	var it *implItem
-	for _, ty := range append(append([]analysis.Type(nil), ft.Params...), ft.Return) {
-		k := g.project(ty)
-		if k.tag != tagNamed || k.def == nil {
-			continue
+// instImplHome is where an instance impl function it of block d, which g
+// emits, fills the parameters a call leaves out (fillCallDefaults): g's
+// accessors for the instance (instImplAccessorsFor), asked for only when a
+// default names what the calling file cannot.
+func (g *gen) instImplHome(d *implDef, it *implItem) defaultHome {
+	name := d.recv.nomi() + "." + it.name
+	var callee *ir.Symbol
+	asked := false
+	return defaultHome{owner: g, accessor: func(slot int) *ir.Symbol {
+		if !asked {
+			callee, asked = g.instImplAccessorsFor(d, it, name), true
 		}
-		src := k.def.instOrigin
-		if src == nil {
-			src = k.def
+		if callee == nil {
+			return nil
 		}
-		o, d := g.instanceImplAnywhere(src, "", fd.Name)
-		if d == nil || d.items[fd.Name] == nil || irImplSource(d.items[fd.Name]) != fd {
-			continue
-		}
-		owner, impl, it = o, d, d.items[fd.Name]
-		break
-	}
-	if it == nil || owner == nil || owner == g || len(it.params) != len(temps) {
-		return false, false
-	}
-	var slots []int
-	for i, tmp := range temps {
-		if tmp == ir.NoTemp {
-			slots = append(slots, i)
-		}
-	}
-	if bl.siblingDefaultsAgree(&fileFunc{name: fd.Name, params0: fd.Params}, owner, slots) {
-		return false, false
-	}
-	params := make([]kind, len(it.params))
-	for i, p := range it.params {
-		ip, imported := g.importKind(p)
-		if !imported {
-			return false, true
-		}
-		params[i] = ip
-	}
-	for i, tmp := range temps {
-		if tmp == ir.NoTemp {
-			kinds[i] = params[i]
-		}
-	}
-	name := impl.recv.nomi() + "." + it.name
-	callee := owner.instImplAccessorsFor(impl, it, name)
-	if callee == nil {
-		return false, true
-	}
-	return bl.siblingFill(t, owner, callee, instImplDecl(fd, name), params, temps, nil), true
-}
-
-// instImplDecl is the declaration of an instance impl function, as
-// siblingFill reads its parameters, under the name the accessors carry.
-func instImplDecl(fd *ast.FuncDef, name string) *ast.FuncDef {
-	return &ast.FuncDef{Name: name, Params: fd.Params}
+		return g.irFileSlotSym(callee, name, slot)
+	}}
 }

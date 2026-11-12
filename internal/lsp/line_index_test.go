@@ -16,8 +16,8 @@ func TestLineIndex_AgreesWithNthLine(t *testing.T) {
 		"",
 		"\n",
 		"a",
-		"fn main() {\n    x = \"é—😀\"\n\n    x\n}",
-		"fn main() {\n    x = \"é—😀\"\n\n    x\n}\n",
+		"fn main()\n    x = \"é—😀\"\n\n    x\nend",
+		"fn main()\n    x = \"é—😀\"\n\n    x\nend\n",
 		"😀😀\nab\n\n",
 	} {
 		li := newLineIndex(content)

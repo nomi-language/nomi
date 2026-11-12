@@ -3,42 +3,42 @@ import std::io
 // A nominal struct and a record of the IDENTICAL shape must not unify.
 //
 // Nominal identity is (declaring file, name) and never the shape, so `Point`
-// and `.{x: Int, y: Int}` are two types, and a value of one is not a value of
+// and `{x: Int, y: Int}` are two types, and a value of one is not a value of
 // the other.
 //
 // The two failing assertions show the values apart at run time: the
 // nominal row carries its type name and the record's does not. The VM's
 // output is checked against the recorded golden.
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-fn nominal_sum(p: Point) -> Int {
+fn nominal_sum(p: Point) -> Int
     p.x + p.y
-}
+end
 
-fn record_sum(p: .{x: Int, y: Int}) -> Int {
+fn record_sum(p: {x: Int, y: Int}) -> Int
     p.x + p.y
-}
+end
 
-fn no_nominal(_p: Point) -> Bool {
+fn no_nominal(_p: Point) -> Bool
     False
-}
+end
 
-fn no_record(_p: .{x: Int, y: Int}) -> Bool {
+fn no_record(_p: {x: Int, y: Int}) -> Bool
     False
-}
+end
 
-test "a record and a same-shaped nominal struct stay apart" {
+test "a record and a same-shaped nominal struct stay apart"
     nom = Point{x: 1, y: 2}
-    rec = .{x: 1, y: 2}
+    rec = {x: 1, y: 2}
     io.print(Int.to_string(nominal_sum(nom)))
     io.print(Int.to_string(record_sum(rec)))
     assert no_nominal(nom)
-}
+end
 
-test "and they render apart" {
-    rec = .{x: 1, y: 2}
+test "and they render apart"
+    rec = {x: 1, y: 2}
     assert no_record(rec)
-}
+end

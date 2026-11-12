@@ -2,9 +2,9 @@
 Distinct destructuring parameters (self-typed)
 ================================================================================
 
-fn subtract(Dur(x), Dur(y)) -> Dur {
+fn subtract(Dur(x), Dur(y)) -> Dur
   x
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -28,9 +28,9 @@ fn subtract(Dur(x), Dur(y)) -> Dur {
 Typed struct destructuring parameter
 ================================================================================
 
-fn sum_pt(Point{x, y}) -> Int {
+fn sum_pt(Point{x:, y:}) -> Int
   x
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -53,9 +53,9 @@ fn sum_pt(Point{x, y}) -> Int {
 Tuple destructuring parameter with annotation
 ================================================================================
 
-fn add_pair((a, b): (Int, Int)) -> Int {
+fn add_pair((a, b): (Int, Int)) -> Int
   a
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -78,9 +78,9 @@ fn add_pair((a, b): (Int, Int)) -> Int {
 Qualified single-variant enum destructuring parameter
 ================================================================================
 
-fn qualified(E.V(x)) -> Int {
+fn qualified(E.V(x)) -> Int
   x
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -123,9 +123,9 @@ once sub = fn Dur(x), Dur(y) -> x
 Parameter written as its type alone
 ================================================================================
 
-fn stats(Request, n: Int) -> Int {
+fn stats(Request, n: Int) -> Int
   f = fn Request -> 1
-}
+end
 
 --------------------------------------------------------------------------------
 

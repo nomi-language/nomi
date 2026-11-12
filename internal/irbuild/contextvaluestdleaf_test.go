@@ -14,21 +14,20 @@ func TestIRContextValueStdLeafWitness_Runs(t *testing.T) {
 import std::duration.Duration
 import std::regex.Regex
 
-fn main() {
+fn main()
     io.inspect(Context.value(Context.root(), Duration))
     c = Context.with_value(Context.root(), Duration.seconds(2))
     io.inspect(Context.value(c, Duration))
     io.inspect(Context.value(c, Int))
-    case Regex.compile("a+") {
-        Ok(re) -> {
+    case Regex.compile("a+")
+        Ok(re) ->
             c2 = Context.with_value(c, re)
             io.inspect(Maybe.is_some(Context.value(c2, Regex)))
             io.inspect(Context.value(c2, Duration))
-        }
         Err(_) -> io.print("bad")
-    }
+    end
     io.inspect(Context.value(Context.with_value(c, 'x'), Codepoint))
-}
+end
 `
 	irRunSource(t, src, "None\nSome(2s)\nNone\nTrue\nSome(2s)\nSome(Codepoint(120))\n")
 }

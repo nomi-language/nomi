@@ -115,7 +115,7 @@ func TestEqualHash_IdentityIsTheShortNameAndFieldsCompareByName(t *testing.T) {
 	if Equal(a, anon) {
 		t.Error("a named struct equals an anonymous record")
 	}
-	if RowText(anon) != ".{x: 1, y: 2}" {
+	if RowText(anon) != "{x: 1, y: 2}" {
 		t.Errorf("anon row = %s", RowText(anon))
 	}
 }

@@ -81,49 +81,36 @@ func classifyImplItem(ctx *completionContext, content string, off int) bool {
 	default:
 		return false
 	}
-	// The innermost bracket open at the cursor must be the block's `{`.
-	open := -1
-	depth := 0
-	for i := before - 1; i >= 0 && open < 0; i-- {
-		switch tokens[i].Type {
-		case token.RBRACE, token.RPAREN, token.RBRACKET:
-			depth++
-		case token.LBRACE, token.LPAREN, token.LBRACKET:
-			if depth > 0 {
-				depth--
-				continue
-			}
-			if tokens[i].Type != token.LBRACE {
-				return false
-			}
-			open = i
-		}
-	}
-	if open < 0 {
+	// The innermost body open at the cursor must be the block's: an
+	// `impl ... for` header starting a line at column 1, with no bracket
+	// open after it.
+	spans := bodySpans(tokens)
+	impl := innermostBody(spans, before)
+	if impl < 0 || tokens[impl].Type != token.IMPL || tokens[impl].Col != 1 {
 		return false
 	}
-	impl, hasFor := -1, false
-	for i := open - 1; i >= 0; i-- {
+	hasFor, headerEnd, depth := false, impl, 0
+	for i := impl + 1; i < before; i++ {
 		t := tokens[i]
-		if t.Type == token.LBRACE || t.Type == token.RBRACE {
-			return false
-		}
-		if t.Type == token.FOR {
-			hasFor = true
-		}
-		if t.Type == token.IMPL {
-			if t.Col != 1 {
-				return false
+		if t.Line == tokens[impl].Line {
+			if t.Type == token.FOR {
+				hasFor = true
 			}
-			impl = i
-			break
+			headerEnd = i
+		}
+		switch t.Type {
+		case token.LBRACE, token.LPAREN, token.LBRACKET:
+			depth++
+		case token.RBRACE, token.RPAREN, token.RBRACKET:
+			depth--
 		}
 	}
-	if impl < 0 || !hasFor {
+	if !hasFor || depth != 0 {
 		return false
 	}
-	implOff, openOff := offOf(tokens[impl]), offOf(tokens[open])
-	nodes, _, _ := parser.ParseResilient(lexer.Lex(content[implOff:openOff+1] + "}"))
+	implOff := offOf(tokens[impl])
+	headerOff := offOf(tokens[headerEnd]) + len(tokens[headerEnd].Lexeme)
+	nodes, _, _ := parser.ParseResilient(lexer.Lex(content[implOff:headerOff] + " end"))
 	if len(nodes) == 0 {
 		return false
 	}
@@ -132,35 +119,28 @@ func classifyImplItem(ctx *completionContext, content string, off int) bool {
 		return false
 	}
 
-	// The block runs to its closing `}`, or, unclosed, to the next line
-	// after the cursor's that starts at column 1.
+	// The block runs to its `end`, or, unclosed, to the next line after
+	// the cursor's that starts at column 1.
 	cursorLine := lineIndexOf(offs, ctx.start) + 1
 	site := &implStubSite{header: header, written: map[string]bool{}}
 	end, closed := len(content), false
-	depth = 0
-scan:
-	for i := open + 1; i < len(tokens); i++ {
+	if close := spans[impl]; close >= 0 {
+		end, closed = offOf(tokens[close])+len("end"), true
+	} else {
+		for _, t := range tokens[before:] {
+			if t.Type == token.EOF {
+				break
+			}
+			if t.Line > cursorLine && t.Col == 1 && t.Type != token.END && t.Type != token.NEWLINE && t.Type != token.BLANK_LINE {
+				end = offs[t.Line-1]
+				break
+			}
+		}
+	}
+	for i := impl + 1; i < len(tokens) && offOf(tokens[i]) < end; i++ {
 		t := tokens[i]
-		if t.Type == token.EOF {
-			break
-		}
-		if t.Line > cursorLine && t.Col == 1 && t.Type != token.RBRACE && t.Type != token.NEWLINE && t.Type != token.BLANK_LINE {
-			end = offs[t.Line-1]
-			break
-		}
-		switch t.Type {
-		case token.LBRACE, token.LPAREN, token.LBRACKET:
-			depth++
-		case token.RBRACE, token.RPAREN, token.RBRACKET:
-			if depth == 0 {
-				end, closed = offOf(t)+1, true
-				break scan
-			}
-			depth--
-		case token.FN:
-			if depth == 0 && t.Line != cursorLine && i+1 < len(tokens) && tokens[i+1].Type == token.IDENT {
-				site.written[tokens[i+1].Lexeme] = true
-			}
+		if t.Type == token.FN && t.Line != cursorLine && innermostBody(spans, i) == impl && i+1 < len(tokens) && tokens[i+1].Type == token.IDENT {
+			site.written[tokens[i+1].Lexeme] = true
 		}
 	}
 	// The other items, for the interface type arguments they pin.
@@ -171,7 +151,7 @@ scan:
 	if end >= cursorEnd {
 		block := content[implOff:lineStart] + content[cursorEnd:end]
 		if !closed {
-			block += "\n}"
+			block += "\nend"
 		}
 		if nodes, _, _ := parser.ParseResilient(lexer.Lex(block)); len(nodes) > 0 {
 			if b, ok := nodes[0].(*ast.ImplBlock); ok {
@@ -424,7 +404,10 @@ func pinTypeArgs(iface, impl ast.TypeExpr, params, local map[string]bool, out ma
 // tab stop, or nothing in plain text) on its own line one level in.
 func (g *stubGen) stub(m *ast.InterfaceMethod, indent, body string, snippet bool) string {
 	inner := indent + strings.Repeat(" ", format.IndentWidth)
-	return g.signature(m, snippet) + " {\n" + inner + body + "\n" + indent + "}"
+	if body == "" {
+		return g.signature(m, snippet) + " end"
+	}
+	return g.signature(m, snippet) + "\n" + inner + body + "\n" + indent + "end"
 }
 
 // signature writes m's signature for the impl: `self` becomes the receiver
@@ -539,9 +522,6 @@ func (g *stubGen) renderType(te ast.TypeExpr, local map[string]bool, snippet boo
 			parts[i] = g.renderType(p, local, snippet)
 		}
 		out := "(" + strings.Join(parts, ", ") + ")"
-		if t.Return == nil {
-			out = "#" + out
-		}
 		if t.Return != nil {
 			out += " -> " + g.renderType(t.Return, local, snippet)
 		}
@@ -551,7 +531,7 @@ func (g *stubGen) renderType(te ast.TypeExpr, local map[string]bool, snippet boo
 		for i, f := range t.Fields {
 			fields[i] = esc(f.Name) + ": " + g.renderType(f.TypeAnnotation, local, snippet)
 		}
-		return ".{" + strings.Join(fields, ", ") + "}"
+		return "{" + strings.Join(fields, ", ") + "}"
 	}
 	if te == nil {
 		return ""

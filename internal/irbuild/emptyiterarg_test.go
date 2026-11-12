@@ -10,21 +10,21 @@ func TestIREmptyCollectionAsIterArgument_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn total(xs: Iter<Int>) -> Int {
+fn total(xs: Iter<Int>) -> Int
     Iter.count(xs)
-}
+end
 
-fn names(xs: Iter<String>) -> String {
+fn names(xs: Iter<String>) -> String
     String.join(xs, ",")
-}
+end
 
-fn main() {
-    io.inspect(total(%[]))
-    io.inspect(total(#[]))
+fn main()
+    io.inspect(total(Set[]))
+    io.inspect(total(Vector[]))
     io.inspect(total([]))
-    io.inspect(names(%[]))
-    io.inspect(total(%[1, 2]))
-}
+    io.inspect(names(Set[]))
+    io.inspect(total(Set[1, 2]))
+end
 `
 	irRunSource(t, src, "0\n0\n0\n\"\"\n2\n")
 }

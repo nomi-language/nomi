@@ -19,16 +19,16 @@ import strings.String
 /// implement `Display`. To implement it for a custom type:
 ///
 /// ```nomi
-/// pub struct Greeter {
+/// pub struct Greeter
 ///     name: String
-/// }
+/// end
 ///
-/// impl Display for Greeter {
-///     fn to_string(g: Greeter) -> String {
+/// impl Display for Greeter
+///     fn to_string(g: Greeter) -> String
 ///         "hi ${g.name}"
-///     }
-/// }
+///     end
+/// end
 /// ```
-pub interface Display {
+pub interface Display
     fn to_string(value: self) -> String
-}
+end

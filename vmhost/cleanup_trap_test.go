@@ -10,15 +10,15 @@ import (
 // failure. It used to end as a machine limit ("the VM cannot run this
 // program"), since joining the two dropped the first one's kind.
 func TestRun_ACleanupTrapDuringATrapReportsBoth(t *testing.T) {
-	o := runInput(t.TempDir(), `fn boom(n: Int) {
+	o := runInput(t.TempDir(), `fn boom(n: Int)
     dbg 10 / n
-}
+end
 
-fn main() {
+fn main()
     zero = 0
     defer boom(zero)
     dbg 1 / zero
-}
+end
 `)
 	if o.class != runTrap {
 		t.Fatalf("the run is %v (%s), not the program's own failure:\n%s", o.class, o.crash, o.transcript)

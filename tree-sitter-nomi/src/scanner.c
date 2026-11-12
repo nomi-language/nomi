@@ -30,8 +30,8 @@
 //   RAW_STRING_CONTENT         — chars inside a backtick raw string. Stops
 //                                only at "`". Backslash is literal,
 //                                `${` is literal, `\${` keeps its `\`.
-//   STATEMENT_END              — zero-width end of a statement or a `case`
-//                                arm at a line break.
+//   STATEMENT_END              — zero-width end of a statement, a `case`
+//                                arm or a header line at a line break.
 //   ATTACHED_COMMENT_TEST_PROMPT — the line-leading `//!` attached-test opener.
 //   ATTACHED_COMMENT_TEST_LINE_PROMPT — the line-leading `//!` attached-test
 //                                body prompt, skipped as an extra.
@@ -41,10 +41,8 @@
 //   SUBTESTS_KEYWORD, GROUP_KEYWORD, HOST_KEYWORD — the contextual keywords
 //                                `subtests`, `group` and `host`, each emitted
 //                                only where what follows makes it one.
-//   NEWLINE_BRACE              — zero-width mark before a `{` that starts
-//                                its line.
 //   SUBTESTS_STAGE_KEYWORD     — the contextual keyword `subtests` as the
-//                                pipe stage `|> subtests pattern { ... }`.
+//                                pipe stage `|> subtests pattern`.
 //   TODO_KEYWORD               — the contextual keyword `todo` before its
 //                                reason, `todo "reason"`.
 //
@@ -57,7 +55,7 @@ enum TokenType {
     TRIPLE_STRING_CONTENT,
     RAW_STRING_CONTENT,
     // Zero-width, at the start of a line, where the line break before it ends
-    // a statement or a `case` arm (see line_continues).
+    // a statement, a `case` arm or a header line (see line_continues).
     STATEMENT_END,
     ATTACHED_COMMENT_TEST_PROMPT,
     ATTACHED_COMMENT_TEST_LINE_PROMPT,
@@ -69,15 +67,12 @@ enum TokenType {
     // only when an expression and a comma follow it (scan_subtests_keyword).
     SUBTESTS_KEYWORD,
     // The contextual keyword `group` that opens a test group, emitted only
-    // when the group's name string or its `{` follows it
+    // when the group's name string or the end of its line follows it
     // (scan_group_keyword).
     GROUP_KEYWORD,
     // The contextual keyword `host` that opens a host declaration, emitted
     // only when `fn` or `type` follows it on its line (scan_host_keyword).
     HOST_KEYWORD,
-    // Zero-width, before a `{` that starts its line, where that brace may
-    // open a block statement or a declaration's body.
-    NEWLINE_BRACE,
     // The contextual keyword `subtests` after a `|>`, emitted only when a
     // pattern follows it after a space (scan_subtests_stage_keyword).
     SUBTESTS_STAGE_KEYWORD,
@@ -312,16 +307,26 @@ static bool at_word(TSLexer *lexer, const char *word) {
     return !is_ident_char(lexer->lookahead);
 }
 
-// Whether the line that starts at the lookahead continues the statement or
-// arm before the line break, as the Go lexer and parser read it. The lexer
-// emits no NEWLINE before a line that starts with `|>`, `)` or `]`, or with
-// an operator no expression starts with (`==`, `!=`, `<`, `<=`, `>`, `>=`,
-// `<<<`, `>>>`, `&&&`, `|||`, `^^^`, `and`, `or`, `is`, `in`); the
-// parser steps over one before `else` (an `if`'s or a binding's) and, after a
-// declaration's signature, before its `{` body and its `where` clause. A
-// statement never starts with `}`, `,` or `{` after a complete statement
-// that a brace could extend, and the end of input ends everything anyway.
-// Every other line starts a new statement: `-1`, `(2)`, `[1]`, `.b`, `!c`.
+// Whether the word at the lookahead is `else` or `end`, the words that close
+// a body. Advances past what it reads.
+static bool at_else_or_end(TSLexer *lexer) {
+    if (lexer->lookahead != 'e') return false;
+    advance(lexer);
+    if (lexer->lookahead == 'l') return at_word(lexer, "lse");
+    if (lexer->lookahead == 'n') return at_word(lexer, "nd");
+    return false;
+}
+
+// Whether the line that starts at the lookahead continues the statement,
+// arm or header before the line break, as the Go lexer and parser read it.
+// The lexer emits no NEWLINE before a line that starts with `|>`, `)` or
+// `]`, with `where`, or with an operator no expression starts with (`==`,
+// `!=`, `<`, `<=`, `>`, `>=`, `<<<`, `>>>`, `&&&`, `|||`, `^^^`, `and`, `or`,
+// `is`, `in`); a line that starts with `else` or `end` closes the body
+// above it (an `if`'s branch, or any body), and an `else` may begin the
+// line after a binding's value. A statement never starts with `}` or `,`,
+// and the end of input ends everything anyway. Every other line starts a
+// new statement: `-1`, `(2)`, `[1]`, `.b`, `!c`, `{x:, y:} = p`.
 // May advance past the lookahead, so the caller marks the token's end first.
 static bool line_continues(TSLexer *lexer) {
     switch (lexer->lookahead) {
@@ -330,7 +335,6 @@ static bool line_continues(TSLexer *lexer) {
         case ']':
         case '}':
         case ',':
-        case '{':
             return true;
         case '|':
             advance(lexer);
@@ -364,7 +368,7 @@ static bool line_continues(TSLexer *lexer) {
             advance(lexer);
             return !is_ident_char(lexer->lookahead);
         case 'e':
-            return at_word(lexer, "else");
+            return at_else_or_end(lexer);
         case 'w':
             return at_word(lexer, "where");
         default:
@@ -374,7 +378,8 @@ static bool line_continues(TSLexer *lexer) {
 
 // Whether `c` can start the operand of `dbg`, `return`, `break` or `todo`. A
 // closing delimiter, a comma or the end of input cannot, and neither can
-// `|>`, which pipes the bare keyword on (`value |> dbg |> f`).
+// `|>`, which pipes the bare keyword on (`value |> dbg |> f`), nor `else`
+// or `end` (`if c then break else continue`).
 static bool starts_operand(TSLexer *lexer) {
     int32_t c = lexer->lookahead;
     if (c == 0 || c == ')' || c == ']' || c == '}' || c == ',') return false;
@@ -382,6 +387,7 @@ static bool starts_operand(TSLexer *lexer) {
         advance(lexer);
         return lexer->lookahead != '>';
     }
+    if (c == 'e') return !at_else_or_end(lexer);
     return true;
 }
 
@@ -469,10 +475,9 @@ static bool scan_subtests_stage_keyword(TSLexer *lexer) {
     int32_t c = lexer->lookahead;
     bool pattern = is_ident_char(c) || c == '[' || c == '(' || c == '#' ||
         c == '%' || c == '"' || c == '\'' || c == '`';
-    if (c == '.') {
-        // A struct pattern, `.{a, b}`.
-        advance(lexer);
-        pattern = lexer->lookahead == '{';
+    if (c == '{') {
+        // A struct pattern, `{a:, b:}`: a `{` always opens data.
+        pattern = true;
     }
     if (!pattern) return false;
     lexer->result_symbol = SUBTESTS_STAGE_KEYWORD;
@@ -481,15 +486,15 @@ static bool scan_subtests_stage_keyword(TSLexer *lexer) {
 
 // The contextual keyword `group`, at the lookahead where a top-level item can
 // start. As in the Go parser, the word is the keyword only when a string, the
-// group's name, follows it on its line (`group "parsing" { ... }`), or the
-// group's `{` with the name missing (`group { ... }`, which the compiler
-// reports); `group = 3`, `group(2)` or a bare `group` leave it an
-// identifier. The token ends after the word.
+// group's name, follows it on its line (`group "parsing"`), or when it ends
+// its line, a group with the name missing (which the compiler reports);
+// `group = 3` or `group(2)` leave it an identifier. The token ends after the
+// word.
 static bool scan_group_keyword(TSLexer *lexer) {
     if (!at_word(lexer, "group")) return false;
     lexer->mark_end(lexer);
     while (lexer->lookahead == ' ' || lexer->lookahead == '\t') advance(lexer);
-    if (lexer->lookahead != '"' && lexer->lookahead != '{') return false;
+    if (lexer->lookahead != '"' && lexer->lookahead != '\n' && lexer->lookahead != '\r') return false;
     lexer->result_symbol = GROUP_KEYWORD;
     return true;
 }
@@ -626,24 +631,15 @@ static bool scan_layout(Scanner *scanner, TSLexer *lexer, const bool *valid_symb
     }
     if (recovering) return false;
 
-    // A line break ends the statement or arm in progress, as the Go lexer
-    // ends one, unless the next line continues it. A brace on the next line
-    // is NEWLINE_BRACE's.
-    if (valid_symbols[STATEMENT_END] && line_break && lexer->lookahead != '{') {
+    // A line break ends the statement, arm or header in progress, as the Go
+    // lexer ends one, unless the next line continues it or closes the body
+    // above it. After a header whose line may go on (`then`, `->`, `else`),
+    // the grammar asks for this token only in the block form, so a line
+    // break there chooses it, as the Go parser does.
+    if (valid_symbols[STATEMENT_END] && line_break) {
         lexer->mark_end(lexer);
         if (line_continues(lexer)) return false;
         lexer->result_symbol = STATEMENT_END;
-        return true;
-    }
-
-    // A `{` that starts its line, after a statement that may end there: a
-    // block statement, or, after a declaration's signature, its body. Only
-    // here may a block follow a statement without a separator, so a name
-    // followed by a brace on its line (`p = Point{}`) is not a name and a
-    // block.
-    if (valid_symbols[NEWLINE_BRACE] && line_break && lexer->lookahead == '{') {
-        lexer->mark_end(lexer);
-        lexer->result_symbol = NEWLINE_BRACE;
         return true;
     }
 

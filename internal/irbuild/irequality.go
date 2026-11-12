@@ -15,12 +15,18 @@ package irbuild
 // package's to widen: structural equality on two distincts of one static type is its
 // inner values' equality, and on two tuples it is every slot's.
 //
-// An impl this builder cannot call declines the comparison; a structural
-// answer is only chosen once the impl's absence is established, because a
-// missed lookup that became a structural comparison would be a wrong answer.
-// `!=` is `ir.Not` over the same answer.
+// Which of the two `==` means is the checker's: it records, for each
+// operator, the impl it calls or that it compares by shape
+// (analysis.FileAnalysis.Operators), and equalityVerdict reads that record.
+// Only an operator over a type parameter is resolved here, at its
+// instance's kind, where a structural answer is chosen once the impl's
+// absence is established, because a missed lookup that became a structural
+// comparison would be a wrong answer. An impl this builder cannot call
+// declines the comparison. `!=` is `ir.Not` over the same answer.
 
 import (
+	"slices"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -32,8 +38,11 @@ func (bl *irScalarBuilder) enumEquality(t *ast.Binary, op ir.CompareOp, lhs, rhs
 	if k.tag != tagNamed || k.def == nil || !k.def.isEnum || !irRetainedEnumKind(k.def) || irParamShape(k) != ir.ValVariant {
 		return ir.NoTemp, false, false
 	}
-	if og, d, hand, known := bl.g.handWrittenEquatableImpl(k); !known {
+	if og, d, hand, known := bl.handWrittenEquatable(t, k); !known {
 		return ir.NoTemp, true, false
+	} else if hand && d == nil {
+		// std's own impl: stdEquality's business.
+		return ir.NoTemp, false, false
 	} else if hand {
 		v, ok := bl.equatableImplCall(t, op, lhs, rhs, k, og, d)
 		return v, true, ok
@@ -64,7 +73,7 @@ func (bl *irScalarBuilder) valueEquality(t *ast.Binary, op ir.CompareOp, lhs, rh
 		// A zero-sized marker has one value, so two of them are equal,
 		// which is rt.Equal's answer; a written Equatable impl still
 		// decides for itself.
-		og, impl, hand, known := bl.g.handWrittenEquatableImpl(k)
+		og, impl, hand, known := bl.handWrittenEquatable(t, k)
 		switch {
 		case !known:
 			return ir.NoTemp, true, false
@@ -81,7 +90,7 @@ func (bl *irScalarBuilder) valueEquality(t *ast.Binary, op ir.CompareOp, lhs, rh
 		if d.rtOpaque || !irDistinctOverValue(d) {
 			return ir.NoTemp, false, false
 		}
-		og, impl, hand, known := bl.g.handWrittenEquatableImpl(k)
+		og, impl, hand, known := bl.handWrittenEquatable(t, k)
 		switch {
 		case !known:
 			return ir.NoTemp, true, false
@@ -100,10 +109,13 @@ func (bl *irScalarBuilder) valueEquality(t *ast.Binary, op ir.CompareOp, lhs, rh
 		// not compared here.
 		return ir.NoTemp, false, false
 	}
-	if bl.g.noEquatableImpl(k) {
+	og, impl, has, known := bl.equatableVerdict(t, k)
+	if !known {
+		return ir.NoTemp, true, false
+	}
+	if !has {
 		return bl.equalityCompare(t, op, ir.ValStruct, lhs, rhs), true, true
 	}
-	og, impl := bl.g.equatableImplOf(k)
 	if impl == nil {
 		// A std impl, or one no table here holds: stdEquality's business,
 		// or a decline.
@@ -264,6 +276,66 @@ func (g *gen) equatableImplOf(k kind) (*gen, *implDef) {
 		}
 	}
 	return nil, nil
+}
+
+// equatableVerdict is how `==` at t compares two values of k, a declared
+// type: through an impl (has), d of og when this program's files declare
+// it and nil for std's own, or by shape. It reads the checker's record of
+// the operator (operatorUse); an operator over a type parameter, and one
+// the builder synthesized, has none, and is resolved at k
+// (instanceEquatable). known is false when the answer cannot be
+// established, or the impl the builder finds for k is not the one the
+// checker recorded.
+func (bl *irScalarBuilder) equatableVerdict(t *ast.Binary, k kind) (og *gen, d *implDef, has, known bool) {
+	use := bl.g.operatorUse(t)
+	if use == nil || use.Form == analysis.OperatorPerInstance || use.Form == analysis.OperatorDispatched {
+		return bl.g.instanceEquatable(k)
+	}
+	if use.Form != analysis.OperatorByImpl || use.Impl == nil {
+		return nil, nil, false, true
+	}
+	og, d = bl.g.equatableImplOf(k)
+	if d == nil {
+		return nil, nil, true, true
+	}
+	if it := d.items["equal"]; use.Impl.Derived() != d.synth || !d.synth && (it == nil || it.decl == nil || ast.ImplMethodDecl(it.decl) != use.Impl.Method) {
+		return nil, nil, false, false
+	}
+	return og, d, true, true
+}
+
+// handWrittenEquatable is equatableVerdict for an enum or a distinct, whose
+// derived impl compares by shape: hand is a hand-written impl, d nil for
+// std's own.
+func (bl *irScalarBuilder) handWrittenEquatable(t *ast.Binary, k kind) (og *gen, d *implDef, hand, known bool) {
+	og, d, has, known := bl.equatableVerdict(t, k)
+	if !has || !known {
+		return nil, nil, false, known
+	}
+	if d == nil {
+		use := bl.g.operatorUse(t)
+		return nil, nil, use != nil && use.Impl != nil && !use.Impl.Derived(), true
+	}
+	return og, d, !d.synth, true
+}
+
+// instanceEquatable is equatableVerdict at an instance's kind k, for an
+// operator the checker resolved over a type parameter: the impl the
+// program's tables hold for k, or its established absence.
+func (g *gen) instanceEquatable(k kind) (og *gen, d *implDef, has, known bool) {
+	if k.def != nil && !k.def.isEnum && !k.def.isDistinct {
+		if g.noEquatableImpl(k) {
+			return nil, nil, false, true
+		}
+		og, d = g.equatableImplOf(k)
+		return og, d, true, true
+	}
+	og, d, hand, known := g.handWrittenEquatableImpl(k)
+	if !hand {
+		// A derived impl of an enum or distinct compares by shape.
+		return nil, nil, false, known
+	}
+	return og, d, true, known
 }
 
 // handWrittenEquatableImpl reports the hand-written `impl Equatable` for an
@@ -503,7 +575,10 @@ func irEqualityContainerKind(k kind) bool {
 // existentialDebugImpls names the Debug body of every type implementing k's
 // interface in this unit (in every unit of the program, for a std instance
 // body), as nestedDebugImpls names a container's leaves.
-// Any implementer whose Debug the renderer cannot name declines.
+// Any implementer whose Debug the renderer cannot name declines, and so
+// does an interface nothing implements or boxes into, except std's
+// Display: a scalar or a std type enters it unboxed and unrecorded
+// (irErases), and renders as itself.
 func (bl *irScalarBuilder) existentialDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 	if s := bl.g.stdInsts; bl.g.stdModule != "" && s != nil && len(s.program) > 0 && k.iface != nil {
 		// A std instance's body at a program's interface or at std's
@@ -528,7 +603,7 @@ func (bl *irScalarBuilder) existentialDebugImpls(k kind) ([]ir.DebugImpl, bool) 
 				}
 			}
 		}
-		return impls, held
+		return impls, held || irStdDisplayExistential(k)
 	}
 	impls, found, ok := bl.unitExistentialDebugImpls(k, true)
 	if !ok {
@@ -559,7 +634,7 @@ func (bl *irScalarBuilder) existentialDebugImpls(k kind) ([]ir.DebugImpl, bool) 
 			}
 		}
 	}
-	return impls, found
+	return impls, found || irStdDisplayExistential(k)
 }
 
 // unitExistentialDebugImpls is existentialDebugImpls over this unit's impls
@@ -574,7 +649,15 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 		}
 		return d != nil && sameIfaceInstance(d, k.iface)
 	}
-	for _, d := range bl.g.implOrder {
+	// The impl blocks this unit declares, and those it registered at each
+	// instance of a generic type it declares (`impl Labeled for Bx<T>` at
+	// Bx<Int>, registerInstanceImpls), whose template block is no
+	// implementer of its own.
+	implementers := slices.Clone(bl.g.implOrder)
+	for _, inst := range bl.g.genericImplQueue {
+		implementers = append(implementers, inst.impl)
+	}
+	for _, d := range implementers {
 		if !of(implIface(d)) || d.recv.tag != tagNamed || d.recv.def == nil {
 			continue
 		}
@@ -615,11 +698,31 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 			boxed = true
 		}
 	}
+	// Every value the checker typed entering the interface in this unit's
+	// source, whether or not the body that boxes it is lowered yet: a body
+	// lowered before the one that boxes a List into it (a derived Debug, a
+	// function declared first) names the same implementers.
+	for _, e := range bl.g.checkedErasures() {
+		if !of(e.iface) {
+			continue
+		}
+		for _, have := range e.kinds {
+			nested, ok := bl.nestedDebugImpls(have)
+			if !ok {
+				nested, ok = bl.boxedEnumDebugImpls(have)
+			}
+			if !ok && !irDebugValueKind(have) {
+				return nil, false, false
+			}
+			impls = append(impls, nested...)
+			boxed = true
+		}
+	}
 	return impls, len(impls) != 0 || boxed, true
 }
 
 // recordedPreludeKind is the instance of a's prelude enum the checker
-// recorded as n's type, when inference solved every argument, or false.
+// recorded as n's type, or false.
 func (g *gen) recordedPreludeKind(n ast.Node, a *preludeAnchor) (kind, bool) {
 	if g.fa == nil {
 		return kindInvalid, false
@@ -630,9 +733,6 @@ func (g *gen) recordedPreludeKind(n ast.Node, a *preludeAnchor) (kind, bool) {
 	}
 	args := make([]kind, len(et.TypeArgs))
 	for i, ty := range et.TypeArgs {
-		if irUnsolvedType(ty) {
-			return kindInvalid, false
-		}
 		args[i] = g.project(ty)
 		if !irRetainedPreludePayload(args[i]) {
 			return kindInvalid, false
@@ -656,4 +756,15 @@ func resolvedEnumType(ty analysis.Type) (*analysis.EnumType, bool) {
 	}
 	et, ok := ty.(*analysis.EnumType)
 	return et, ok && et != nil
+}
+
+// operatorUse is the checker's record of what the operator t means
+// (analysis.FileAnalysis.Operators), nil for an operator over a primitive
+// and for one the builder synthesized.
+func (g *gen) operatorUse(t *ast.Binary) *analysis.OperatorUse {
+	fa := g.srcFA()
+	if fa == nil || t == nil {
+		return nil
+	}
+	return fa.Operators[t]
 }

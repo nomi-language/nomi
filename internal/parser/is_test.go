@@ -49,7 +49,7 @@ func TestIs_Precedence(t *testing.T) {
 		{"x is \"/u/\" + _rest", "{x is Binary}"},
 		{"x is [_, ..]", "{x is ListPattern}"},
 		{"x is (_, 1)", "{x is TuplePattern}"},
-		{"x is %{\"k\" => _}", "{x is MapPattern}"},
+		{"x is {\"k\" => _}", "{x is MapPattern}"},
 		{"x is shape.Shape.Circle", "{x is EnumPattern}"},
 	} {
 		if got := isShape(parseExpr(t, tc.src)); got != tc.want {

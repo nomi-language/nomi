@@ -5,11 +5,11 @@
 //# `storage_testing.Memory`:
 //#
 //# ```nomi
-//# fn save_avatar(user_id: Int, data: Bytes) -> Result<Url, storage.Error> {
+//# fn save_avatar(user_id: Int, data: Bytes) -> Result<Url, storage.Error>
 //#     key = "avatars/${user_id}.png"
 //#     Store.put(App.store, key, data, "image/png")?
 //#     Store.url(App.store, key)
-//# }
+//# end
 //# ```
 //#
 //# `storage.local(root)` keeps objects as plain files under a directory,
@@ -19,11 +19,11 @@
 //# AWS. Boot code picks one:
 //#
 //# ```nomi
-//# store = if production {
+//# store = if production then
 //#     s3.store(config)?
-//# } else {
+//# else
 //#     storage.local("tmp/files", public_base: Some(Url`/files/`))
-//# }
+//# end
 //# ```
 //#
 //# std::storage_testing has `Memory`, a store kept in memory for tests,
@@ -63,7 +63,7 @@
 //# Objects move whole, as `Bytes`; there is no streaming or multipart
 //# upload.
 
-import {
+import
     bool.Bool.{self, False, True}
     bytes.Bytes
     code_points.Codepoint
@@ -83,12 +83,12 @@ import {
     strings.String
     unit.Unit
     url.{self, Url}
-}
+end
 
 /// Why a store call failed.
 //! assert "${Error.NotFound{key: "a.txt"}}" == "no object has the key a.txt"
 //
-pub enum Error {
+pub enum Error
     /// No object has the key. `get` returns it; `info` returns `Ok(None)`
     /// instead, and `delete` returns `Ok`.
     NotFound {key: String}
@@ -113,60 +113,60 @@ pub enum Error {
     /// Anything else, with the backend's own code: an S3 error code such as
     /// `NoSuchBucket`, or an `io.Error` variant's name for the local store.
     Backend {code: String, message: String}
-}
+end
 
 derive Equatable for Error
 derive Debug for Error
 
-impl Display for Error {
-    fn to_string(error: Error) -> String {
-        case error {
-            .NotFound{key} -> "no object has the key ${key}"
-            .InvalidKey{key, reason} -> "invalid key \"${key}\": ${reason}"
-            .InvalidContentType{content_type} -> "invalid content type \"${content_type}\""
+impl Display for Error
+    fn to_string(error: Error) -> String
+        case error
+            .NotFound{key:} -> "no object has the key ${key}"
+            .InvalidKey{key:, reason:} -> "invalid key \"${key}\": ${reason}"
+            .InvalidContentType{content_type:} -> "invalid content type \"${content_type}\""
             .NoPublicUrl -> "the store has no public URL"
-            .Denied{message} -> "denied: ${message}"
-            .Unavailable{message} -> "unavailable: ${message}"
-            .Backend{code, message} -> "${code}: ${message}"
-        }
-    }
-}
+            .Denied{message:} -> "denied: ${message}"
+            .Unavailable{message:} -> "unavailable: ${message}"
+            .Backend{code:, message:} -> "${code}: ${message}"
+        end
+    end
+end
 
 /// What a store knows about an object without reading it.
-pub struct Info {
+pub struct Info
     /// The size in bytes.
     size: Int
     /// The content type `put` stored.
     content_type: String
     /// When the object was last stored.
     modified: Instant
-}
+end
 
 derive Equatable for Info
 derive Debug for Info
 
 /// An object read whole: its bytes and its `Info`.
-pub struct Object {
+pub struct Object
     data: Bytes
     info: Info
-}
+end
 
 derive Equatable for Object
 derive Debug for Object
 
 /// An object as a listing shows it: its key, its size in bytes, and when
 /// it was last stored.
-pub struct Entry {
+pub struct Entry
     key: String
     size: Int
     modified: Instant
-}
+end
 
 derive Equatable for Entry
 derive Debug for Entry
 
 /// Which keys `Store.list` lists, and which page of them.
-pub struct ListOptions {
+pub struct ListOptions
     /// Only keys that start with this. It may be any text a key may hold,
     /// a `/` at its end included.
     prefix: String = ""
@@ -179,7 +179,7 @@ pub struct ListOptions {
     /// The most objects and prefixes a page holds, 1 to 1,000. A value
     /// outside that is taken as the nearer end.
     limit: Int = 1000
-}
+end
 
 derive Equatable for ListOptions
 derive Debug for ListOptions
@@ -187,11 +187,11 @@ derive Debug for ListOptions
 /// One page of a listing: the objects and the common prefixes on it, each
 /// in key order, and the continuation for the page after it, or `None` on
 /// the last page.
-pub struct Listing {
+pub struct Listing
     objects: List<Entry> = []
     prefixes: List<String> = []
     next: Maybe<String> = None
-}
+end
 
 derive Equatable for Listing
 derive Debug for Listing
@@ -223,7 +223,7 @@ derive Debug for Listing
 //! assert Store.get(store, "notes/a.txt")!.data == String.to_bytes("hi")
 //! assert Store.exists(store, "notes/b.txt") == Ok(False)
 //
-pub interface Store {
+pub interface Store
     /// Stores `data` under `key` with `content_type`, replacing any object
     /// there.
     fn put(store: self, key: String, data: Bytes, content_type: String) -> Result<Unit, Error>
@@ -241,10 +241,10 @@ pub interface Store {
     fn list(store: self, options: ListOptions) -> Result<Listing, Error>
 
     /// Whether an object has the key.
-    fn exists(store: self, key: String) -> Result<Bool, Error> {
+    fn exists(store: self, key: String) -> Result<Bool, Error>
         info(store, key) |> Result.map(Maybe.is_some)
-    }
-}
+    end
+end
 
 /// `Ok` when `key` is a valid key, else `Err(.InvalidKey)` saying why. A
 /// key is 1 to 1,024 bytes of segments separated by `/`. Each segment is 1
@@ -265,33 +265,33 @@ pub interface Store {
 //! assert check_key("a\nb") is Err(.InvalidKey{})
 //! assert check_key("") is Err(.InvalidKey{})
 //
-pub fn check_key(key: String) -> Result<Unit, Error> {
-    bad = fn reason: String -> Err(Error.InvalidKey{key, reason})
-    if key == "" { return bad("it is empty") }
+pub fn check_key(key: String) -> Result<Unit, Error>
+    bad = fn reason: String -> Err(Error.InvalidKey{key:, reason:})
+    if key == "" then return bad("it is empty")
     size = byte_length(key)
-    if size > 1024 { return bad("it is ${size} bytes, over 1024") }
+    if size > 1024 then return bad("it is ${size} bytes, over 1024")
 
-    if Some(c) = Iter.find(String.to_codepoints(key), is_control) {
+    if Some(c) = Iter.find(String.to_codepoints(key), is_control) then
         return bad("it holds the control character ${String.to_literal("${c}")}")
-    }
+    end
 
-    if String.contains(key, "\\") {
+    if String.contains(key, "\\") then
         return bad("it holds \\, which a file system may read as a separator")
-    }
+    end
 
     segments = String.split(key, "/")
-    if Iter.any_match(segments, fn s -> s == "") { return bad("it has an empty segment") }
+    if Iter.any_match(segments, fn s -> s == "") then return bad("it has an empty segment")
 
-    if Some(long) = Iter.find(segments, fn s -> byte_length(s) > 255) {
+    if Some(long) = Iter.find(segments, fn s -> byte_length(s) > 255) then
         return bad("a segment is ${byte_length(long)} bytes, over 255")
-    }
+    end
 
-    if Some(dotted) = Iter.find(segments, fn s -> String.starts_with(s, ".")) {
+    if Some(dotted) = Iter.find(segments, fn s -> String.starts_with(s, ".")) then
         return bad("segment ${dotted} starts with a dot")
-    }
+    end
 
     Ok(Unit)
-}
+end
 
 /// `Ok` when `prefix` can start a key, as `list` takes it: at most 1,024
 /// bytes, with no control character and no `\`. It may be empty, end
@@ -300,18 +300,18 @@ pub fn check_key(key: String) -> Result<Unit, Error> {
 //! assert check_prefix("avatars/") == Ok(Unit)
 //! assert check_prefix("a\\b") is Err(.InvalidKey{})
 //
-pub fn check_prefix(prefix: String) -> Result<Unit, Error> {
-    bad = fn reason: String -> Err(Error.InvalidKey{key: prefix, reason})
+pub fn check_prefix(prefix: String) -> Result<Unit, Error>
+    bad = fn reason: String -> Err(Error.InvalidKey{key: prefix, reason:})
     size = byte_length(prefix)
-    if size > 1024 { return bad("it is ${size} bytes, over 1024") }
+    if size > 1024 then return bad("it is ${size} bytes, over 1024")
 
-    if Some(c) = Iter.find(String.to_codepoints(prefix), is_control) {
+    if Some(c) = Iter.find(String.to_codepoints(prefix), is_control) then
         return bad("it holds the control character ${String.to_literal("${c}")}")
-    }
+    end
 
-    if String.contains(prefix, "\\") { return bad("it holds \\, which no key holds") }
+    if String.contains(prefix, "\\") then return bad("it holds \\, which no key holds")
     Ok(Unit)
-}
+end
 
 /// The page of `entries` that `options` asks for, as every backend lists:
 /// the entries whose keys start with the prefix, in key order, each key
@@ -320,7 +320,7 @@ pub fn check_prefix(prefix: String) -> Result<Unit, Error> {
 /// continuation is the last key or prefix of the page before, so a
 /// backend that holds its keys can list with this alone.
 //! at = Instant.from_seconds(0)
-//! entry = fn key: String -> Entry{key, size: 1, modified: at}
+//! entry = fn key: String -> Entry{key:, size: 1, modified: at}
 //! entries = [entry("p/b/2"), entry("p/a"), entry("p/b/1"), entry("q"), entry("p/c")]
 //!
 //! assert page(entries, ListOptions{prefix: "p/"}).objects
@@ -338,43 +338,43 @@ pub fn check_prefix(prefix: String) -> Result<Unit, Error> {
 //!     ListOptions{prefix: "p/", delimiter: "/", limit: 2, continuation: Some("p/b/")},
 //! ) == Listing{objects: [entry("p/c")]}
 //
-pub fn page(entries: Iter<Entry>, options: ListOptions) -> Listing {
-    limit = if options.limit < 1 {
+pub fn page(entries: Iter<Entry>, options: ListOptions) -> Listing
+    limit = if options.limit < 1 then
         1
-    } else if options.limit > 1000 {
+    else if options.limit > 1000 then
         1000
-    } else {
+    else
         options.limit
-    }
+    end
 
     items =
         entries
         |> Iter.filter(fn e -> String.starts_with(e.key, options.prefix))
         |> Iter.sort_by(fn e -> e.key)
-        |> Iter.map(fn e -> {
-            case folded(e.key, options) {
+        |> Iter.map(fn e ->
+            case folded(e.key, options)
                 Some(p) -> (p, None)
                 None -> (e.key, Some(e))
-            }
-        })
+            end
+        end)
         |> Iter.chunk_by(fn (text, _) -> text)
         |> Iter.flat_map(fn group -> Iter.first(group))
-        |> Iter.filter(fn (text, _) -> {
-            case options.continuation {
+        |> Iter.filter(fn (text, _) ->
+            case options.continuation
                 Some(after) -> text > after
                 None -> True
-            }
-        })
+            end
+        end)
         |> Iter.take(limit + 1)
         |> Iter.to_list()
 
     shown = Iter.take(items, limit) |> Iter.to_list()
 
-    next = if Iter.count(items) > limit {
+    next = if Iter.count(items) > limit then
         Iter.last(shown) |> Maybe.map(fn (text, _) -> text)
-    } else {
+    else
         None
-    }
+    end
 
     Listing{
         objects: shown |> Iter.flat_map(fn (_, entry) -> entry) |> Iter.to_list(),
@@ -382,21 +382,21 @@ pub fn page(entries: Iter<Entry>, options: ListOptions) -> Listing {
         |> Iter.filter(fn (_, entry) -> entry == None)
         |> Iter.map(fn (text, _) -> text)
         |> Iter.to_list(),
-        next,
+        next:,
     }
-}
+end
 
 // The common prefix `key` is folded into, when it holds the delimiter
 // after the prefix.
-fn folded(key: String, options: ListOptions) -> Maybe<String> {
-    if options.delimiter == "" { return None }
+fn folded(key: String, options: ListOptions) -> Maybe<String>
+    if options.delimiter == "" then return None
     rest = String.drop(key, String.length(options.prefix))
 
-    case String.split(rest, options.delimiter) {
+    case String.split(rest, options.delimiter)
         [head, _, ..] -> Some("${options.prefix}${head}${options.delimiter}")
         _ -> None
-    }
-}
+    end
+end
 
 /// Every object and common prefix under `prefix`, following each page's
 /// `next` to the last page.
@@ -415,11 +415,11 @@ pub fn list_all(
     prefix: String = "",
     delimiter: String = "",
     page_size: Int = 1000,
-) -> Result<Listing, Error> {
-    follow(store, ListOptions{prefix, delimiter, limit: page_size}, Listing{})
-}
+) -> Result<Listing, Error>
+    follow(store, ListOptions{prefix:, delimiter:, limit: page_size}, Listing{})
+end
 
-fn follow(store: Store, options: ListOptions, done: Listing) -> Result<Listing, Error> {
+fn follow(store: Store, options: ListOptions, done: Listing) -> Result<Listing, Error>
     listed = Store.list(store, options)?
 
     all = Listing{
@@ -427,23 +427,24 @@ fn follow(store: Store, options: ListOptions, done: Listing) -> Result<Listing, 
         prefixes: done.prefixes + listed.prefixes,
     }
 
-    case listed.next {
+    case listed.next
         Some(token) when Some(token) != options.continuation ->
-            follow(store, .{..options, continuation: Some(token)}, all)
+            follow(store, {..options, continuation: Some(token)}, all)
 
-        _ -> Ok(all)
-    }
-}
+        _ ->
+            Ok(all)
+    end
+end
 
-fn byte_length(text: String) -> Int {
+fn byte_length(text: String) -> Int
     Bytes.length(String.to_bytes(text))
-}
+end
 
 // C0 controls, DEL and C1 controls.
-fn is_control(c: Codepoint) -> Bool {
+fn is_control(c: Codepoint) -> Bool
     n = Codepoint.to_int(c)
     n < 0x20 or n >= 0x7f and n <= 0x9f
-}
+end
 
 /// `base` with the segments of `key` joined to its path, each escaped, so
 /// that a `%`, `?` or `#` in a key stays part of the path. A backend's
@@ -452,10 +453,10 @@ fn is_control(c: Codepoint) -> Bool {
 //! assert u.path == "/files/a b/50%(1)#2.jpg"
 //! assert "${u}" == "https://cdn.example.com/files/a%20b/50%25%281%29%232.jpg"
 //
-pub fn join_key(base: Url, key: String) -> Url {
+pub fn join_key(base: Url, key: String) -> Url
     segments = String.split(key, "/") |> Iter.map(url.escape_path_segment) |> Iter.to_list()
     Url.join_path(base, segments)
-}
+end
 
 /// `Ok` when `content_type` can be stored: 1 to 255 characters of
 /// printable ASCII, space to `~`. It refuses CR and LF, which could
@@ -466,18 +467,18 @@ pub fn join_key(base: Url, key: String) -> Url {
 //! assert check_content_type("") is Err(.InvalidContentType{})
 //! assert check_content_type("text/plain\r\nX-Evil: 1") is Err(.InvalidContentType{})
 //
-pub fn check_content_type(content_type: String) -> Result<Unit, Error> {
+pub fn check_content_type(content_type: String) -> Result<Unit, Error>
     printable = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
     length = String.length(content_type)
 
     if length == 0
         or length > 255
-        or Iter.any_match(content_type, fn c -> not String.contains(printable, c)) {
-        Err(Error.InvalidContentType{content_type})
-    } else {
+        or Iter.any_match(content_type, fn c -> not String.contains(printable, c)) then
+        Err(Error.InvalidContentType{content_type:})
+    else
         Ok(Unit)
-    }
-}
+    end
+end
 
 /// A store over the directory `root`. Each object is a plain file at
 /// `<root>/<key>`, so the directory can be backed up, inspected or served
@@ -521,52 +522,52 @@ pub fn check_content_type(content_type: String) -> Result<Unit, Error> {
 /// tests, and `fs.within` applies.
 //! import std::fs_testing
 //!
-//! ran = fs_testing.run(fs_testing.Sandbox{}, fn -> {
+//! ran = fs_testing.run(fs_testing.Sandbox{}, fn ->
 //!     store = local("files", public_base: Some(Url`/files/`))
 //!     Store.put(store, "a/b.txt", String.to_bytes("hi"), "text/plain")?
 //!     Ok((Store.get(store, "a/b.txt")?.info.content_type, "${Store.url(store, "a/b.txt")?}"))
-//! })
+//! end)
 //!
 //! assert ran.value == Ok(("text/plain", "/files/a/b.txt"))
 //! assert fs_testing.text(ran, "/work/files/a/b.txt") == Some("hi")
 //! assert fs_testing.text(ran, "/work/files/.nomi-storage/types/a/b.txt") == Some("text/plain")
 //
-pub fn local(root: String, public_base: Maybe<Url> = None) -> Store {
-    Local{root, public_base}
-}
+pub fn local(root: String, public_base: Maybe<Url> = None) -> Store
+    Local{root:, public_base:}
+end
 
-struct Local {
+struct Local
     root: String
     public_base: Maybe<Url>
-}
+end
 
-impl Local {
-    fn object_path(local: Local, key: String) -> String {
+impl Local
+    fn object_path(local: Local, key: String) -> String
         path.join_all([local.root, ..file_names(key)])
-    }
+    end
 
-    fn type_path(local: Local, key: String) -> String {
+    fn type_path(local: Local, key: String) -> String
         path.join_all([local.root, ".nomi-storage", "types", ..file_names(key)])
-    }
+    end
 
     // The stored type of the object at `key`, else what its bytes look like.
     fn content_type(
         local: Local,
         key: String,
         data: () -> Result<Bytes, Error>,
-    ) -> Result<String, Error> {
-        case fs.read_text(Local.type_path(local, key)) {
+    ) -> Result<String, Error>
+        case fs.read_text(Local.type_path(local, key))
             Ok(text) -> Ok(text)
             Err(.NotFound{}) -> data() |> Result.map(http.detect_content_type)
             Err(.NotADirectory{}) -> data() |> Result.map(http.detect_content_type)
             Err(.IsADirectory{}) -> data() |> Result.map(http.detect_content_type)
             Err(e) -> Err(from_io(key, e))
-        }
-    }
-}
+        end
+    end
+end
 
-impl Store for Local {
-    fn put(local: Local, key: String, data: Bytes, content_type: String) -> Result<Unit, Error> {
+impl Store for Local
+    fn put(local: Local, key: String, data: Bytes, content_type: String) -> Result<Unit, Error>
         check_key(key)?
         check_content_type(content_type)?
         object = Local.object_path(local, key)
@@ -579,177 +580,185 @@ impl Store for Local {
 
         fs.write(object, data, mode: WriteMode.ReplaceAtomically)
         |> Result.map_err(fn e -> from_io(key, e))
-    }
+    end
 
-    fn get(local: Local, key: String) -> Result<Object, Error> {
+    fn get(local: Local, key: String) -> Result<Object, Error>
         check_key(key)?
         object = Local.object_path(local, key)
         meta = fs.metadata(object) |> Result.map_err(fn e -> missing(key, e))?
-        if meta.kind != Kind.File { return Err(Error.NotFound{key}) }
+        if meta.kind != Kind.File then return Err(Error.NotFound{key:})
         data = fs.read(object) |> Result.map_err(fn e -> missing(key, e))?
         content_type = Local.content_type(local, key, fn -> Ok(data))?
 
         Ok(
             Object{
-                data,
-                info: Info{size: Bytes.length(data), content_type, modified: meta.modified},
+                data:,
+                info: Info{size: Bytes.length(data), content_type:, modified: meta.modified},
             }
         )
-    }
+    end
 
-    fn info(local: Local, key: String) -> Result<Maybe<Info>, Error> {
+    fn info(local: Local, key: String) -> Result<Maybe<Info>, Error>
         check_key(key)?
         object = Local.object_path(local, key)
 
-        case fs.metadata(object) {
-            Ok(meta) when meta.kind == Kind.File -> {
-                content_type = Local.content_type(local, key, fn -> {
+        case fs.metadata(object)
+            Ok(meta) when meta.kind == Kind.File ->
+                content_type = Local.content_type(local, key, fn ->
                     fs.read(object) |> Result.map_err(fn e -> missing(key, e))
-                })?
+                end)?
 
-                Ok(Some(Info{size: meta.size, content_type, modified: meta.modified}))
-            }
+                Ok(Some(Info{size: meta.size, content_type:, modified: meta.modified}))
 
-            Ok(_) -> Ok(None)
+            Ok(_) ->
+                Ok(None)
 
             Err(e) ->
-                case missing(key, e) {
+                case missing(key, e)
                     .NotFound{} -> Ok(None)
                     other -> Err(other)
-                }
-        }
-    }
+                end
+        end
+    end
 
-    fn delete(local: Local, key: String) -> Result<Unit, Error> {
+    fn delete(local: Local, key: String) -> Result<Unit, Error>
         check_key(key)?
         object = Local.object_path(local, key)
 
-        is_file = case fs.metadata(object) {
-            Ok(meta) -> meta.kind == Kind.File
+        is_file = case fs.metadata(object)
+            Ok(meta) ->
+                meta.kind == Kind.File
 
             Err(e) ->
-                case missing(key, e) {
+                case missing(key, e)
                     .NotFound{} -> False
                     other -> return Err(other)
-                }
-        }
+                end
+        end
 
-        if is_file { fs.remove(object) |> Result.map_err(fn e -> from_io(key, e))? }
+        if is_file then fs.remove(object) |> Result.map_err(fn e -> from_io(key, e))?
 
-        case fs.remove(Local.type_path(local, key)) {
-            Ok(_) -> Ok(Unit)
+        case fs.remove(Local.type_path(local, key))
+            Ok(_) ->
+                Ok(Unit)
 
             Err(e) ->
-                case missing(key, e) {
+                case missing(key, e)
                     .NotFound{} -> Ok(Unit)
                     other -> Err(other)
-                }
-        }
-    }
+                end
+        end
+    end
 
-    fn url(local: Local, key: String) -> Result<Url, Error> {
+    fn url(local: Local, key: String) -> Result<Url, Error>
         check_key(key)?
 
-        case local.public_base {
+        case local.public_base
             Some(base) -> Ok(join_key(base, key))
             None -> Err(Error.NoPublicUrl)
-        }
-    }
+        end
+    end
 
-    fn list(local: Local, options: ListOptions) -> Result<Listing, Error> {
+    fn list(local: Local, options: ListOptions) -> Result<Listing, Error>
         check_prefix(options.prefix)?
 
-        base = if String.ends_with(local.root, "/") {
+        base = if String.ends_with(local.root, "/") then
             local.root
-        } else {
+        else
             "${local.root}/"
-        }
+        end
 
         entries =
             fs.walk(local.root)
-            |> Iter.map(fn walked -> {
-                case walked {
+            |> Iter.map(fn walked ->
+                case walked
                     Ok(entry) when entry.kind == Kind.File ->
                         local_entry(base, entry.path, options.prefix)
 
-                    Ok(_) -> Ok(None)
-                    Err(.NotFound{path}) when path == local.root -> Ok(None)
-                    Err(e) -> Err(from_io(options.prefix, e))
-                }
-            })
+                    Ok(_) ->
+                        Ok(None)
+
+                    Err(.NotFound{path:}) when path == local.root ->
+                        Ok(None)
+
+                    Err(e) ->
+                        Err(from_io(options.prefix, e))
+                end
+            end)
             |> Result.collect()?
 
         Ok(page(Maybe.values(entries), options))
-    }
-}
+    end
+end
 
 // The entry for the file at `file`, under `base`, when it holds an object
 // whose key starts with `prefix`: no segment of its path starts with `.`,
 // which leaves out the types directory and a put's temporary files.
-fn local_entry(base: String, file: String, prefix: String) -> Result<Maybe<Entry>, Error> {
+fn local_entry(base: String, file: String, prefix: String) -> Result<Maybe<Entry>, Error>
     segments = String.split(String.drop(file, String.length(base)), "/")
-    if Iter.any_match(segments, fn s -> String.starts_with(s, ".")) { return Ok(None) }
+    if Iter.any_match(segments, fn s -> String.starts_with(s, ".")) then return Ok(None)
     key = segments |> Iter.map(key_segment) |> String.join("/")
-    if not String.starts_with(key, prefix) { return Ok(None) }
+    if not String.starts_with(key, prefix) then return Ok(None)
     meta = fs.metadata(file) |> Result.map_err(fn e -> from_io(key, e))?
-    Ok(Some(Entry{key, size: meta.size, modified: meta.modified}))
-}
+    Ok(Some(Entry{key:, size: meta.size, modified: meta.modified}))
+end
 
 // A key's segment from its name on disk: each `%` and two hexadecimal
 // digits `file_names` wrote is the character again.
-fn key_segment(name: String) -> String {
-    case String.split(name, "%") {
+fn key_segment(name: String) -> String
+    case String.split(name, "%")
         [first, ..escaped] ->
             first + (escaped
-            |> Iter.map(fn part -> {
+            |> Iter.map(fn part ->
                 code =
                     hex.decode(String.take(part, 2))
-                    |> Result.flat_map(fn b -> {
+                    |> Result.flat_map(fn b ->
                         Bytes.to_string(b) |> Result.map_err(fn _ -> "not UTF-8")
-                    })
+                    end)
 
-                case code {
+                case code
                     Ok(c) -> c + String.drop(part, 2)
                     Err(_) -> "%" + part
-                }
-            })
+                end
+            end)
             |> String.join(""))
 
-        [] -> name
-    }
-}
+        [] ->
+            name
+    end
+end
 
 // The names on disk of the segments of `key`, as `local` describes them.
-fn file_names(key: String) -> List<String> {
+fn file_names(key: String) -> List<String>
     String.split(key, "/") |> Iter.map(file_name) |> Iter.to_list()
-}
+end
 
-fn file_name(segment: String) -> String {
+fn file_name(segment: String) -> String
     codepoints = String.to_codepoints(segment)
     last = Iter.count(codepoints) - 1
     device = is_device_name(segment)
 
     codepoints
     |> Iter.with_index()
-    |> Iter.map(fn (i, c) -> {
+    |> Iter.map(fn (i, c) ->
         text = "${c}"
 
         escaped = String.contains("%<>:\"|?*", c)
             or i == last and (c == '.' or c == ' ')
             or i == 0 and device
 
-        if escaped {
+        if escaped then
             "%${String.uppercase(hex.encode(String.to_bytes(text)))}"
-        } else {
+        else
             text
-        }
-    })
+        end
+    end)
     |> String.join("")
-}
+end
 
 // Whether Windows keeps `segment` for a device: its part before the first
 // `.`, in any case, is CON, PRN, AUX, NUL, or COM or LPT and a digit.
-fn is_device_name(segment: String) -> Bool {
+fn is_device_name(segment: String) -> Bool
     stem =
         String.split(segment, ".") |> Iter.first() |> Maybe.with_default("") |> String.uppercase()
 
@@ -757,36 +766,36 @@ fn is_device_name(segment: String) -> Bool {
         or String.length(stem) == 4
             and (String.starts_with(stem, "COM") or String.starts_with(stem, "LPT"))
             and String.contains("0123456789", String.drop(stem, 3))
-}
+end
 
 // Create the directories above the file at `file`, which holds `key`.
-fn make_parent(key: String, file: String) -> Result<Unit, Error> {
-    case path.parent(file) {
+fn make_parent(key: String, file: String) -> Result<Unit, Error>
+    case path.parent(file)
         Some(dir) -> fs.create_dir(dir, parents: True) |> Result.map_err(fn e -> from_io(key, e))
         None -> Ok(Unit)
-    }
-}
+    end
+end
 
 // An io.Error from reading `key`, where a path that is not there, or a
 // directory where a file was asked for, means no object has the key.
-fn missing(key: String, error: io.Error) -> Error {
-    case error {
-        .NotADirectory{} -> Error.NotFound{key}
-        .IsADirectory{} -> Error.NotFound{key}
+fn missing(key: String, error: io.Error) -> Error
+    case error
+        .NotADirectory{} -> Error.NotFound{key:}
+        .IsADirectory{} -> Error.NotFound{key:}
         _ -> from_io(key, error)
-    }
-}
+    end
+end
 
-fn from_io(key: String, error: io.Error) -> Error {
-    case error {
-        .NotFound{} -> Error.NotFound{key}
+fn from_io(key: String, error: io.Error) -> Error
+    case error
+        .NotFound{} -> Error.NotFound{key:}
         .PermissionDenied{} -> Error.Denied{message: "${error}"}
         _ -> Error.Backend{code: io_code(error), message: "${error}"}
-    }
-}
+    end
+end
 
-fn io_code(error: io.Error) -> String {
-    case error {
+fn io_code(error: io.Error) -> String
+    case error
         .NotFound{} -> "NotFound"
         .AlreadyExists{} -> "AlreadyExists"
         .PermissionDenied{} -> "PermissionDenied"
@@ -803,8 +812,8 @@ fn io_code(error: io.Error) -> String {
         .TimedOut -> "TimedOut"
         .Unsupported{} -> "Unsupported"
         .Other{} -> "Other"
-    }
-}
+    end
+end
 
 /// A handler that serves `GET` and `HEAD` with the object whose key is the
 /// request's path value `param`, with its stored content type. It handles
@@ -840,12 +849,12 @@ fn io_code(error: io.Error) -> String {
 //! missing = serve(Request.with_path_value(http_testing.request(Method.Get, "/files/x"), "key", "x"))
 //! assert missing.status == Status.not_found
 //
-pub fn handler(store: Store, param: String = "key") -> (Request) -> Response {
-    fn request -> {
+pub fn handler(store: Store, param: String = "key") -> (Request) -> Response
+    fn request ->
         key = Request.path_value(request, param) |> Maybe.with_default("")
 
-        case Store.get(store, key) {
-            Ok(object) -> {
+        case Store.get(store, key)
+            Ok(object) ->
                 response = Response.content(request, key, Some(object.info.modified), object.data)
 
                 typed = response.status == Status.ok
@@ -856,8 +865,8 @@ pub fn handler(store: Store, param: String = "key") -> (Request) -> Response {
                             "multipart/",
                         )
 
-                if typed {
-                    .{
+                if typed then
+                    {
                         ..response,
                         headers: Headers.set(
                             response.headers,
@@ -865,22 +874,27 @@ pub fn handler(store: Store, param: String = "key") -> (Request) -> Response {
                             object.info.content_type,
                         ),
                     }
-                } else {
+                else
                     response
-                }
-            }
+                end
 
             Err(error) ->
-                case error {
-                    .NotFound{} -> Response.error(Status.not_found, "404 page not found")
-                    .InvalidKey{} -> Response.error(Status.not_found, "404 page not found")
-                    .Denied{} -> Response.error(Status.forbidden, "forbidden")
+                case error
+                    .NotFound{} ->
+                        Response.error(Status.not_found, "404 page not found")
+
+                    .InvalidKey{} ->
+                        Response.error(Status.not_found, "404 page not found")
+
+                    .Denied{} ->
+                        Response.error(Status.forbidden, "forbidden")
 
                     .Unavailable{} ->
                         Response.error(Status.service_unavailable, "service unavailable")
 
-                    _ -> Response.error(Status.internal_server_error, "internal server error")
-                }
-        }
-    }
-}
+                    _ ->
+                        Response.error(Status.internal_server_error, "internal server error")
+                end
+        end
+    end
+end

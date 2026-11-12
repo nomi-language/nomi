@@ -15,27 +15,26 @@ func TestExports_ListEachExportedFunctionWithItsBodyAndTypes(t *testing.T) {
 	path := filepath.Join(dir, "main.nomi")
 	src := `import std::json.{ToJson, FromJson}
 
-struct Game {
+struct Game
     word: String
-}
+end
 
 derive ToJson for Game
 derive FromJson for Game
 
-fn main() {
-}
+fn main() end
 
-export fn new_game(word: String) -> Game {
-    Game{word}
-}
+export fn new_game(word: String) -> Game
+    Game{word:}
+end
 
-fn helper() -> Int {
+fn helper() -> Int
     1
-}
+end
 
-export fn tries(game: Game, limit: Int) -> Unit {
+export fn tries(game: Game, limit: Int) -> Unit
     _ = (game, limit)
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
 		t.Fatal(err)
@@ -54,8 +53,8 @@ export fn tries(game: Game, limit: Int) -> Unit {
 		result string
 		line   int
 	}{
-		{"new_game", []string{"word: String"}, "Game", 13},
-		{"tries", []string{"game: Game", "limit: Int"}, "Unit", 21},
+		{"new_game", []string{"word: String"}, "Game", 12},
+		{"tries", []string{"game: Game", "limit: Int"}, "Unit", 20},
 	}
 	if len(res.Exports) != len(want) {
 		t.Fatalf("got %d exports, want %d: %+v", len(res.Exports), len(want), res.Exports)

@@ -1,44 +1,44 @@
 //! assert answer() == 42
 //! assert (answer() + 1) == 43
 //
-fn answer() -> Int {
+fn answer() -> Int
     42
-}
+end
 
-struct Label {
+struct Label
     text: String
-}
+end
 
-fn render(label: Label) -> String {
+fn render(label: Label) -> String
     "[" + label.text + "]"
-}
+end
 
-test "renders labels" {
+test "renders labels"
     assert render(Label{text: "ready"}) == "[ready]"
-}
+end
 
-group "nested examples" {
-    test "done label" {
+group "nested examples"
+    test "done label"
         assert render(Label{text: "done"}) == "[done]"
-    }
-}
+    end
+end
 
 //! assert ready_label() == "[ready]"
 //
-fn ready_label() -> String {
+fn ready_label() -> String
     render(Label{text: "ready"})
-}
+end
 
 //! label = Label{text: "done"}
 //! assert render(label) == "[done]"
 //! refute render(label) == "[ready]"
 //
-fn done_label() -> String {
+fn done_label() -> String
     render(Label{text: "done"})
-}
+end
 
-test "attached test declarations remain ordinary declarations" {
+test "attached test declarations remain ordinary declarations"
     assert answer() == 42
     assert ready_label() == "[ready]"
     assert done_label() == "[done]"
-}
+end

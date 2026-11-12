@@ -14,92 +14,92 @@ import (
 // and a field read through an app field (`App.settings.label`).
 func TestIRSupervisor_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"concurrency.md:L452", `import {
+		{"concurrency.md:L452", `import
   std::channels.{Channel, Receiver, Sender}
   std::supervisors.{Supervisor}
   std::duration.Duration
   std::timer
-}
+end
 
-struct Config {
+struct Config
   context: Context
 
   audit: Supervisor
   // Where the audit tasks put what they wrote, so ` + "`main`" + ` can look.
   written: Channel<Int>
-}
+end
 
-fn boot() -> Result<Config, String> {
+fn boot() -> Result<Config, String>
   Ok(Config{context: Context.root(),
     audit: Supervisor.new(max_running: 4),
     written: Channel.buffered<Int>(8),
   })
-}
+end
 
-fn record_audit(id: Int) -> Unit {
+fn record_audit(id: Int) -> Unit
   // Stands in for the slow part — a write, an API call.
   timer.sleep(Duration.milliseconds(50))
-  case Sender.send(Config.written.sender, id) {
+  case Sender.send(Config.written.sender, id)
     Ok(_) -> Unit
     Err(_) -> Unit
-  }
-}
+  end
+end
 
-fn handle_order(id: Int) -> String {
+fn handle_order(id: Int) -> String
   _ = Supervisor.spawn(Config.audit, fn -> record_audit(id))
   "order ${Display.to_string(id)} accepted"
-}
+end
 
 // Both ids are on the channel by the time this runs, but in whichever
 // order the two tasks got there — so it sums them rather than reading
 // them one at a time and claiming an order.
-fn audited_total() -> Int {
+fn audited_total() -> Int
   first = Maybe.with_default(Receiver.receive(Config.written.receiver), 0)
   second = Maybe.with_default(Receiver.receive(Config.written.receiver), 0)
   first + second
-}
+end
 
-fn main() {
+fn main()
   dbg handle_order(1)
   dbg handle_order(2)
 
   // Only here, at the end, do we wait for the audit trail.
   _ = Supervisor.flush(Config.audit)
   dbg audited_total()
-}
+end
 `, "dbg line 47: handle_order(1) = \"order 1 accepted\"\ndbg line 48: handle_order(2) = \"order 2 accepted\"\ndbg line 52: audited_total() = 3\n"},
-		{"positional and named short calls, a bound and an await", `import {
+		{"positional and named short calls, a bound and an await", `import
   std::supervisors.{Restart, Supervisor, Wait}
   std::duration.Duration
   std::tasks.Task
   std::timer
-}
+end
 
-struct App {
+struct App
   context: Context
   work: Supervisor
   retry: Supervisor
   label: String
-}
+end
 
 // A constructor boot calls, so the short call reads back to native's Go.
-fn retrying() -> Supervisor {
+fn retrying() -> Supervisor
   Supervisor.new(max_running: 3, shutdown_timeout: Duration.seconds(2), restart: Restart.Transient)
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{context: Context.root(),
     work: Supervisor.new(2, Duration.seconds(1)),
     retry: retrying(),
     label: "app",
   })
-}
+end
 
-fn nap() -> Unit {
+fn nap() -> Unit
   timer.sleep(Duration.milliseconds(5))
-}
+end
 
-fn main() {
+fn main()
   t = Supervisor.spawn(App.work, fn -> nap())
   Task.await(t)
   dbg "awaited"
@@ -108,107 +108,107 @@ fn main() {
   dbg flushed
   dbg App.label
   Unit
-}
+end
 `, "dbg line 35: \"awaited\" = \"awaited\"\ndbg line 38: flushed = Flushed\ndbg line 39: App.label = \"app\"\n"},
-		{"a constructor boot calls with one named argument", `import {
+		{"a constructor boot calls with one named argument", `import
   std::supervisors.{Supervisor}
   std::duration.Duration
   std::timer
-}
+end
 
-struct App {
+struct App
   context: Context
   jobs: Supervisor
-}
+end
 
-fn jobs() -> Supervisor {
+fn jobs() -> Supervisor
   Supervisor.new(max_running: 1)
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), jobs: jobs()})
-}
+end
 
-fn main() {
+fn main()
   _ = Supervisor.spawn(App.jobs, fn -> timer.sleep(Duration.milliseconds(1)))
   dbg Supervisor.flush(App.jobs)
   Unit
-}
+end
 `, "dbg line 22: Supervisor.flush(App.jobs) = Flushed\n"},
 		{"short calls to calendar's defaulted Time.new", `import std::calendar.{Error, Time}
 
-fn noon() -> Result<Time, Error> {
+fn noon() -> Result<Time, Error>
   Time.new(12, 0)
-}
+end
 
-fn main() {
+fn main()
   dbg noon()
   dbg Time.new(9, 30, 15)
   Unit
-}
+end
 `, "dbg line 8: noon() = Ok(12:00:00)\ndbg line 9: Time.new(9, 30, 15) = Ok(09:30:15)\n"},
-		{"the prelude with_default pair", `fn half(n: Int) -> Maybe<Int> {
-  if n % 2 == 0 { Some(n / 2) } else { None }
-}
+		{"the prelude with_default pair", `fn half(n: Int) -> Maybe<Int>
+  if n % 2 == 0 then Some(n / 2) else None
+end
 
-fn parse(n: Int) -> Result<Int, String> {
-  if n > 0 { Ok(n) } else { Err("negative") }
-}
+fn parse(n: Int) -> Result<Int, String>
+  if n > 0 then Ok(n) else Err("negative")
+end
 
-fn main() {
+fn main()
   dbg Maybe.with_default(half(8), 0)
   dbg Maybe.with_default(half(7), -1)
   dbg Result.with_default(parse(5), 0)
   dbg Result.with_default(parse(-5), 0)
   Unit
-}
+end
 `, "dbg line 10: Maybe.with_default(half(8), 0) = 4\ndbg line 11: Maybe.with_default(half(7), -1) = -1\ndbg line 12: Result.with_default(parse(5), 0) = 5\ndbg line 13: Result.with_default(parse(-5), 0) = 0\n"},
-		{"a field read through an app field", `struct Settings {
+		{"a field read through an app field", `struct Settings
   label: String
   n: Int
-}
+end
 
-struct App {
+struct App
   context: Context
   settings: Settings
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), settings: Settings{label: "x", n: 2}})
-}
+end
 
-fn main() {
+fn main()
   dbg App.settings.label
   dbg App.settings.n + 1
   Unit
-}
+end
 `, "dbg line 16: App.settings.label = \"x\"\ndbg line 17: App.settings.n + 1 = 3\n"},
 		{"spawn_all into a supervisor", strings.Replace(irSupervisorBatchHeader, "TASKS", "", 1) + `
-fn main() {
+fn main()
   _ = Supervisor.spawn_all(App.audit, [1, 2, 3], record)
   _ = Supervisor.flush(App.audit)
   dbg total(3)
   Unit
-}
+end
 `, "dbg line 37: total(3) = 6\n"},
 		{"await_all over a supervised batch", strings.Replace(irSupervisorBatchHeader, "TASKS", "  std::tasks.Task\n", 1) + `
-fn main() {
+fn main()
   batch = Supervisor.spawn_all(App.audit, [1, 2], record)
   _ = Task.await_all(batch)
   dbg total(2)
   Unit
-}
+end
 `, "dbg line 38: total(2) = 3\n"},
 		{"a supervised task's outcome", strings.Replace(irSupervisorBatchHeader, "TASKS", "  std::tasks.{Outcome, Task}\n", 1) + `
-fn describe(o: Outcome<Unit>) -> String {
-  case o {
+fn describe(o: Outcome<Unit>) -> String
+  case o
     Outcome.Completed(_) -> "completed"
     Outcome.Cancelled -> "cancelled"
     Outcome.Failed(_) -> "failed"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   t = Supervisor.spawn(App.audit, fn -> nap())
   dbg describe(Task.outcome(t))
   u = Supervisor.spawn(App.audit, fn -> nap())
@@ -219,58 +219,58 @@ fn main() {
   dbg Task.outcome(u) != done
   dbg Task.outcome(u) == cancelled
   Unit
-}
+end
 `, "dbg line 45: describe(Task.outcome(t)) = \"completed\"\ndbg line 48: describe(Task.outcome(u)) = \"cancelled\"\ndbg line 51: Task.outcome(u) != done = True\ndbg line 52: Task.outcome(u) == cancelled = True\n"},
-		{"named arguments with holes, reordered, and reaching the last slot", `import {
+		{"named arguments with holes, reordered, and reaching the last slot", `import
   std::supervisors.{GiveUp, Restart, Supervisor}
   std::duration.Duration
   std::timer
-}
+end
 
-struct App {
+struct App
   context: Context
   a: Supervisor
   b: Supervisor
   c: Supervisor
   d: Supervisor
-}
+end
 
 // Skips shutdown_timeout: native fills it with std's _DEFAULT1 accessor.
-fn permanent() -> Supervisor {
+fn permanent() -> Supervisor
   Supervisor.new(max_running: 1, restart: Restart.Permanent)
-}
+end
 
-fn reordered() -> Supervisor {
+fn reordered() -> Supervisor
   Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 4)
-}
+end
 
 // Skips backoff and writes the last parameter, so it calls the full body.
-fn exits() -> Supervisor {
+fn exits() -> Supervisor
   Supervisor.new(3, Duration.seconds(2), Restart.Transient, on_give_up: GiveUp.Exit)
-}
+end
 
 // Three holes. Each earlier hole's value is forced into a temporary and
 // passed to every later accessor's prefix.
-fn gives_up() -> Supervisor {
+fn gives_up() -> Supervisor
   Supervisor.new(max_running: 4, on_give_up: GiveUp.Exit)
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), a: permanent(), b: reordered(), c: exits(), d: gives_up()})
-}
+end
 
-fn nap() -> Unit {
+fn nap() -> Unit
   timer.sleep(Duration.milliseconds(5))
-}
+end
 
-fn main() {
+fn main()
   _ = Supervisor.spawn(App.b, fn -> nap())
   dbg Supervisor.flush(App.b)
   dbg Supervisor.flush(App.c)
   dbg Supervisor.flush(App.a)
   dbg Supervisor.flush(App.d)
   Unit
-}
+end
 `, "dbg line 45: Supervisor.flush(App.b) = Flushed\ndbg line 46: Supervisor.flush(App.c) = Flushed\ndbg line 47: Supervisor.flush(App.a) = Flushed\ndbg line 48: Supervisor.flush(App.d) = Flushed\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
@@ -279,38 +279,38 @@ fn main() {
 
 // irSupervisorBatchHeader is the app for the batch and outcome programs; TASKS
 // is replaced by the std/tasks import each program needs.
-const irSupervisorBatchHeader = `import {
+const irSupervisorBatchHeader = `import
   std::channels.{Channel, Receiver, Sender}
   std::supervisors.{Supervisor}
 TASKS  std::duration.Duration
   std::timer
-}
+end
 
-struct App {
+struct App
   context: Context
   audit: Supervisor
   seen: Channel<Int>
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), audit: Supervisor.new(max_running: 2), seen: Channel.buffered<Int>(8)})
-}
+end
 
-fn record(id: Int) -> Unit {
-  case Sender.send(App.seen.sender, id) {
+fn record(id: Int) -> Unit
+  case Sender.send(App.seen.sender, id)
     Ok(_) -> Unit
     Err(_) -> Unit
-  }
-}
+  end
+end
 
-fn nap() -> Unit {
+fn nap() -> Unit
   timer.sleep(Duration.milliseconds(5))
-}
+end
 
 // The ids arrive in whichever order the tasks got there, so this sums them.
-fn total(n: Int) -> Int {
-  if n == 0 { 0 } else { Maybe.with_default(Receiver.receive(App.seen.receiver), 0) + total(n - 1) }
-}
+fn total(n: Int) -> Int
+  if n == 0 then 0 else Maybe.with_default(Receiver.receive(App.seen.receiver), 0) + total(n - 1)
+end
 `
 
 // Every omitted default runs once per call. A named call that skips several
@@ -324,41 +324,41 @@ func TestIRDefaults_EachHoleRunsOnce(t *testing.T) {
 	t.Run("user function", func(t *testing.T) {
 		verifyLambdaProgram(t, `import std::io
 
-fn noisy(label: String, n: Int) -> Int {
+fn noisy(label: String, n: Int) -> Int
   io.print(label)
   n
-}
+end
 
-fn spread(a: Int, b: Int = noisy("b", a + 1), c: Int = noisy("c", b + 1), d: Int = noisy("d", c + 1), e: Int) -> Int {
+fn spread(a: Int, b: Int = noisy("b", a + 1), c: Int = noisy("c", b + 1), d: Int = noisy("d", c + 1), e: Int) -> Int
   a + b + c + d + e
-}
+end
 
-fn main() {
+fn main()
   io.print(spread(noisy("a", 1), e: noisy("e", 10)))
   io.print(spread(1, c: noisy("c!", 7), e: 10))
-}
+end
 `, "a\ne\nb\nc\nd\n20\nc!\nb\nd\n28\n")
 	})
 	t.Run("std accessors", func(t *testing.T) {
 		src := `import std::supervisors.{GiveUp, Supervisor}
 
-struct App {
+struct App
   context: Context
   s: Supervisor
-}
+end
 
-fn gives_up() -> Supervisor {
+fn gives_up() -> Supervisor
   Supervisor.new(max_running: 4, on_give_up: GiveUp.Exit)
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), s: gives_up()})
-}
+end
 
-fn main() {
+fn main()
   dbg Supervisor.flush(App.s)
   Unit
-}
+end
 `
 		verifyLambdaProgram(t, src, "dbg line 17: Supervisor.flush(App.s) = Flushed\n")
 		p, err := AnalyzeSource("main.nomi", src)
@@ -384,29 +384,31 @@ fn main() {
 // Debug of a Unit, bare and as a supervised task's Completed payload, renders
 // `Unit`.
 func TestIRSupervisor_UnitPayloadDebug(t *testing.T) {
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
   std::supervisors.{Supervisor}
   std::tasks.Task
-}
-struct App {
+end
+struct App
   context: Context
   s: Supervisor
-}
-fn boot() -> Result<App, String> {
+end
+fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), s: Supervisor.new(max_running: 1)})
-}
-fn ok() -> Result<Unit, String> { Ok(Unit) }
-fn show() -> Unit {
+end
+fn ok() -> Result<Unit, String>
+    Ok(Unit)
+end
+fn show() -> Unit
   t = Supervisor.spawn(App.s, fn -> Unit)
   dbg Task.outcome(t)
   dbg ok()
   dbg Unit
   Unit
-}
-fn main() {
+end
+fn main()
   show()
   _ = Supervisor.flush(App.s)
   Unit
-}
-`, "dbg line 15: Task.outcome(t) = Completed(Unit)\ndbg line 16: ok() = Ok(Unit)\ndbg line 17: Unit = Unit\n")
+end
+`, "dbg line 17: Task.outcome(t) = Completed(Unit)\ndbg line 18: ok() = Ok(Unit)\ndbg line 19: Unit = Unit\n")
 }

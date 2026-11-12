@@ -4,48 +4,48 @@
 import std::calendar.{Date, Weekday}
 
 /// Which of a month's days on a given weekday a meetup falls on.
-pub enum Week {
+pub enum Week
     First
     Second
     Third
     Fourth
     Last
     Teenth
-}
+end
 
 /// The date of the meetup in `month` of `year` that falls on `weekday` in
 /// `week`: the first to fourth such day, the last, or the one from the 13th
 /// to the 19th.
-pub fn meetup(year: Int, month: Int, week: Week, weekday: Weekday) -> Date {
+pub fn meetup(year: Int, month: Int, week: Week, weekday: Weekday) -> Date
     days = days_on(year, month, weekday)
-    #[first, second, third, fourth, ..] = days else {
+    [first, second, third, fourth, ..] = days else
         unreachable "a weekday falls at least four times in every month"
-    }
+    end
     last = Iter.last(days)!
 
-    case week {
+    case week
         .First -> first
         .Second -> second
         .Third -> third
         .Fourth -> fourth
         .Last -> last
         .Teenth -> teenth(days)
-    }
-}
+    end
+end
 
 /// Every day of the month that falls on `weekday`, in order: four or five
 /// of them.
-fn days_on(year: Int, month: Int, weekday: Weekday) -> Vector<Date> {
+fn days_on(year: Int, month: Int, weekday: Weekday) -> Vector<Date>
     1..=Date.days_in_month(year, month)!
     |> Iter.map(&Date.new(year, month, &1)!)
     |> Iter.filter(&(Date.weekday(&1) == weekday))
     |> Iter.to_vector()
-}
+end
 
 /// The one of `days` that falls from the 13th to the 19th.
-fn teenth(days: Vector<Date>) -> Date {
-    Some(day) = Iter.find(days, &(Date.day(&1) in 13..=19)) else {
+fn teenth(days: Vector<Date>) -> Date
+    Some(day) = Iter.find(days, &(Date.day(&1) in 13..=19)) else
         unreachable "the 13th to the 19th are seven days, so one falls on every weekday"
-    }
+    end
     day
-}
+end

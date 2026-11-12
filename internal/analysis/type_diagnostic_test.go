@@ -16,8 +16,8 @@ import (
 // them must name each one's declaring file (type_diagnostic.go).
 
 var samePointSiblings = map[string]string{
-	"a": "pub struct Point {\n  x: Int\n}\n",
-	"b": "pub struct Point {\n  x: Int\n}\n\npub fn show(p: Point) -> Int {\n  p.x\n}\n\npub fn show_all(ps: List<Point>) -> Int {\n  Iter.count(ps)\n}\n",
+	"a": "pub struct Point\n  x: Int\nend\n",
+	"b": "pub struct Point\n  x: Int\nend\n\npub fn show(p: Point) -> Int\n  p.x\nend\n\npub fn show_all(ps: List<Point>) -> Int\n  Iter.count(ps)\nend\n",
 }
 
 func assertErrorExact(t *testing.T, errs []analysis.TypeError, want string) {
@@ -36,14 +36,14 @@ func assertErrorExact(t *testing.T, errs []analysis.TypeError, want string) {
 
 func TestTypeDiagnostic_SameNamedStructsNameTheirFiles(t *testing.T) {
 	errs := buildProjectExpectingErrors(t,
-		"import a\nimport b\n\nfn demo() -> Int {\n  b.show(a.Point{x: 1})\n}\n",
+		"import a\nimport b\n\nfn demo() -> Int\n  b.show(a.Point{x: 1})\nend\n",
 		samePointSiblings)
 	assertErrorExact(t, errs, "argument 1: expected b.Point, got a.Point")
 }
 
 func TestTypeDiagnostic_SameNamedTypeInsideAContainerIsQualified(t *testing.T) {
 	errs := buildProjectExpectingErrors(t,
-		"import a\nimport b\n\nfn demo() -> Int {\n  xs: List<a.Point> = [a.Point{x: 1}]\n  b.show_all(xs)\n}\n",
+		"import a\nimport b\n\nfn demo() -> Int\n  xs: List<a.Point> = [a.Point{x: 1}]\n  b.show_all(xs)\nend\n",
 		samePointSiblings)
 	assertErrorExact(t, errs, "argument 1: expected List<b.Point>, got List<a.Point>")
 }
@@ -90,31 +90,30 @@ func buildEntryExpectingErrors(t *testing.T, src string, siblings map[string]str
 func TestTypeDiagnostic_LocalTypeAgainstAnInterfacesSameNamedType(t *testing.T) {
 	errs := buildEntryExpectingErrors(t, `import modes.{Toggle}
 
-enum Mode {
+enum Mode
   On
   Off
-}
+end
 
-struct Box {
+struct Box
   n: Int
-}
+end
 
-impl Toggle for Box {
-  fn mode(_b: Box) -> Mode {
+impl Toggle for Box
+  fn mode(_b: Box) -> Mode
     Mode.On
-  }
-}
+  end
+end
 
-fn main() {
-}
-`, map[string]string{"modes": `pub enum Mode {
+fn main() end
+`, map[string]string{"modes": `pub enum Mode
   On
   Off
-}
+end
 
-pub interface Toggle {
+pub interface Toggle
   fn mode(value: self) -> Mode
-}
+end
 `})
 	assertErrorExact(t, errs,
 		"impl function 'mode': return type main.Mode does not match interface 'Toggle' return type modes.Mode")
@@ -129,7 +128,7 @@ pub interface Toggle {
 // was: only a collision is qualified.
 func TestTypeDiagnostic_OrdinaryMismatchIsUnchanged(t *testing.T) {
 	errs := buildProjectExpectingErrors(t,
-		"import a\n\nfn take(n: Int) -> Int {\n  n\n}\n\nfn bad() -> Int {\n  \"nope\"\n}\n\nfn demo() -> Int {\n  p = a.Point{x: 1}\n  take(\"s\") + p\n}\n",
+		"import a\n\nfn take(n: Int) -> Int\n  n\nend\n\nfn bad() -> Int\n  \"nope\"\nend\n\nfn demo() -> Int\n  p = a.Point{x: 1}\n  take(\"s\") + p\nend\n",
 		samePointSiblings)
 	assertErrorExact(t, errs, "argument 1: expected Int, got String")
 	assertErrorExact(t, errs, "return type mismatch: expected Int, got String")

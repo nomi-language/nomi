@@ -29,13 +29,13 @@ import (
 // declaration at file scope has always been checked, so this pins that nesting
 // no longer hides it.
 func TestNestedFunc_BodyIsCheckedInsideAFunction(t *testing.T) {
-	src := `fn main() {
-  fn bad() -> Int {
+	src := `fn main()
+  fn bad() -> Int
     "nope"
-  }
+  end
 
   _ = bad()
-}`
+end`
 	expectErrorContaining(t, checkWithStdlib(src),
 		"return type mismatch: expected Int, got String")
 }
@@ -44,13 +44,13 @@ func TestNestedFunc_BodyIsCheckedInsideAFunction(t *testing.T) {
 // a separate fix from the arm above: the checker reached the declaration but
 // `sym.Type` was nil, so `checkFunc` returned before looking at the body.
 func TestNestedFunc_BodyIsCheckedInsideATestBody(t *testing.T) {
-	src := `test "t" {
-  fn bad() -> Int {
+	src := `test "t"
+  fn bad() -> Int
     "nope"
-  }
+  end
 
   assert bad() == 1
-}`
+end`
 	expectErrorContaining(t, checkWithStdlib(src),
 		"return type mismatch: expected Int, got String")
 }
@@ -59,15 +59,15 @@ func TestNestedFunc_BodyIsCheckedInsideATestBody(t *testing.T) {
 // `group`'s children are TestDecls of their own, so the signature walk has
 // to re-enter itself rather than stop at the outer group.
 func TestNestedFunc_BodyIsCheckedInsideAGroupedTestBody(t *testing.T) {
-	src := `group "group" {
-  test "t" {
-    fn bad() -> Int {
+	src := `group "group"
+  test "t"
+    fn bad() -> Int
       "nope"
-    }
+    end
 
     assert bad() == 1
-  }
-}`
+  end
+end`
 	expectErrorContaining(t, checkWithStdlib(src),
 		"return type mismatch: expected Int, got String")
 }
@@ -101,18 +101,18 @@ func TestNestedFunc_BodyIsCheckedInsideAGroupedTestBody(t *testing.T) {
 //     covered branch, and it is kept for the same reason a bounds check is:
 //     the wrong answer it forecloses is silent.
 func TestNestedFunc_IsNotCheckedAgainstAModuleSignatureOfTheSameName(t *testing.T) {
-	src := `fn helper() -> String {
+	src := `fn helper() -> String
   "module"
-}
+end
 
-fn main() {
-  fn helper() -> Int {
+fn main()
+  fn helper() -> Int
     101
-  }
+  end
 
   _ = helper()
   _ = 1
-}`
+end`
 	expectClean(t, checkWithStdlib(src))
 }
 
@@ -125,21 +125,21 @@ fn main() {
 // name would keep whichever was built last and report a mismatch in the other
 // body; keyed on the declaration's position, both are right at once.
 func TestNestedFunc_TwoTestBodiesDeclaringTheSameNameDoNotUnify(t *testing.T) {
-	src := `test "first" {
-  fn mk() -> Int {
+	src := `test "first"
+  fn mk() -> Int
     1
-  }
+  end
 
   assert mk() == 1
-}
+end
 
-test "second" {
-  fn mk() -> String {
+test "second"
+  fn mk() -> String
     "s"
-  }
+  end
 
   assert mk() == "s"
-}`
+end`
 	expectClean(t, checkWithStdlib(src))
 }
 
@@ -152,25 +152,25 @@ test "second" {
 // for `mk` and cannot answer all three; the assertion is that each POSITION
 // answers with its own declared return type.
 func TestNestedFunc_SignaturesAreKeyedByPositionNotName(t *testing.T) {
-	src := `fn mk() -> Bool {
+	src := `fn mk() -> Bool
   true
-}
+end
 
-test "first" {
-  fn mk() -> Int {
+test "first"
+  fn mk() -> Int
     1
-  }
+  end
 
   assert mk() == 1
-}
+end
 
-test "second" {
-  fn mk() -> String {
+test "second"
+  fn mk() -> String
     "s"
-  }
+  end
 
   assert mk() == "s"
-}`
+end`
 	tokens := lexer.Lex(withStdlibTestImports(src))
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	lib := loadStd()
@@ -214,109 +214,109 @@ func TestNestedFunc_BodyIsCheckedInEveryExpressionPosition(t *testing.T) {
 	cases := []struct {
 		name, src string
 	}{
-		{"list element", `fn main() {
-  xs = [{
-    fn bad() -> Int {
+		{"list element", `fn main()
+  xs = [begin
+    fn bad() -> Int
       "nope"
-    }
+    end
     bad()
-  }, 2]
+  end, 2]
   assert xs == [1, 2]
-}`},
-		{"tuple element", `fn main() {
-  v = ({
-    fn bad() -> Int {
+end`},
+		{"tuple element", `fn main()
+  v = (begin
+    fn bad() -> Int
       "nope"
-    }
+    end
     bad()
-  }, 2)
+  end, 2)
   assert v == (1, 2)
-}`},
-		{"struct field", `struct P {
+end`},
+		{"struct field", `struct P
   x: Int
-}
+end
 
-fn main() {
-  p = P{x: {
-    fn bad() -> Int {
+fn main()
+  p = P{x: begin
+    fn bad() -> Int
       "nope"
-    }
+    end
     bad()
-  }}
+  end}
   assert p.x == 1
-}`},
-		{"operand", `fn main() {
-  n = 1 + {
-    fn bad() -> Int {
+end`},
+		{"operand", `fn main()
+  n = 1 + begin
+    fn bad() -> Int
       "nope"
-    }
+    end
     bad()
-  }
+  end
   assert n == 2
-}`},
-		{"field receiver", `struct P {
+end`},
+		{"field receiver", `struct P
   x: Int
-}
+end
 
-fn main() {
-  n = {
-    fn bad() -> P {
+fn main()
+  n = begin
+    fn bad() -> P
       "nope"
-    }
+    end
     bad()
-  }.x
+  end.x
   assert n == 1
-}`},
-		{"lambda body in a list", `fn main() {
-  fs = [fn k: Int -> {
-    fn bad() -> Int {
+end`},
+		{"lambda body in a list", `fn main()
+  fs = [fn k: Int ->
+    fn bad() -> Int
       "nope"
-    }
+    end
     bad() + k
-  }]
+  end]
   assert Iter.count(fs) == 1
-}`},
-		{"then body", `fn main() {
+end`},
+		{"then body", `fn main()
   n = 1
-    |> then fn k -> {
-      fn bad() -> Int {
+    |> then fn k ->
+      fn bad() -> Int
         "nope"
-      }
+      end
       bad() + k
-    }
+    end
   assert n == 2
-}`},
-		{"pipe head", `fn main() {
-  n = {
-    fn bad() -> List<Int> {
+end`},
+		{"pipe head", `fn main()
+  n = begin
+    fn bad() -> List<Int>
       "nope"
-    }
+    end
     bad()
-  }
+  end
     |> Iter.count()
   assert n == 2
-}`},
-		{"interpolation", `fn main() {
-  s = "${{
-    fn bad() -> Int {
+end`},
+		{"interpolation", `fn main()
+  s = "${begin
+    fn bad() -> Int
       "nope"
-    }
+    end
     bad()
-  }}"
+  end}"
   assert s == "1"
-}`},
-		{"case on the nested fn's call", `fn main() {
-  xs = [{
-    fn bad() -> Maybe<Int> {
+end`},
+		{"case on the nested fn's call", `fn main()
+  xs = [begin
+    fn bad() -> Maybe<Int>
       "nope"
-    }
-    case bad() {
+    end
+    case bad()
       Some(v) -> v
       None -> 0
-    }
-  }]
+    end
+  end]
   assert xs == [1]
-}`},
+end`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -330,12 +330,12 @@ fn main() {
 // rejects a nested `host` declaration enumerated node kinds the same way the
 // signature walk did, so one in a block that was a list element was accepted.
 func TestNestedFunc_ExternIsRejectedInEveryExpressionPosition(t *testing.T) {
-	src := `fn main() {
-  xs = [{
+	src := `fn main()
+  xs = [begin
     host fn now() -> Int
     now()
-  }]
+  end]
   assert xs == [1]
-}`
+end`
 	expectErrorContaining(t, checkWithStdlib(src), "extern declaration must be at the top level")
 }

@@ -18,23 +18,23 @@ func TestTypeMethod_AProgramTypeNamedLikeAStdTypeKeepsItsOwnMethod(t *testing.T)
 	} {
 		t.Run(tc.name+"."+tc.method, func(t *testing.T) {
 			src := strings.NewReplacer("NAME", tc.name, "METHOD", tc.method).Replace(`
-interface NAME {
+interface NAME
     fn METHOD(value: self) -> String
-}
+end
 
-struct User {
+struct User
     id: Int
-}
+end
 
-impl NAME for User {
-    fn METHOD(u: User) -> String {
+impl NAME for User
+    fn METHOD(u: User) -> String
         "${u.id}"
-    }
-}
+    end
+end
 
-fn shown() -> String {
+fn shown() -> String
     NAME.METHOD(User{id: 1})
-}
+end
 `)
 			_, errs := checkSourceWithStdlib(src)
 			if len(errs) != 0 {

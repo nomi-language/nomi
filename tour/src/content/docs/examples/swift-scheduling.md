@@ -17,18 +17,18 @@ import std::calendar.{Date, Days, Hours, Months, NaiveDateTime, Weekday}
 
 /// A delivery date description: one of the three fixed words, or the N-th
 /// month or quarter.
-enum Description {
+enum Description
     Now
     Asap
     EndOfWeek
     Month Int
     Quarter Int
-}
+end
 
 /// Why a description gives no delivery date.
-pub enum Error {
+pub enum Error
     UnknownDescription String
-}
+end
 
 /// When a delivery promised at a meeting that started at `meeting_start` is
 /// due, by its `description`: `NOW`, `ASAP`, `EOW`, `<N>M` for a month from
@@ -36,99 +36,104 @@ pub enum Error {
 pub fn delivery_date(
     meeting_start: NaiveDateTime,
     description: String,
-) -> Result<NaiveDateTime, Error> {
+) -> Result<NaiveDateTime, Error>
     today = NaiveDateTime.to_date(meeting_start)
     year = Date.year(today)
 
-    case parse(description)? {
-        .Now -> Ok(meeting_start + Hours(2))
-        .Asap when NaiveDateTime.hour(meeting_start) < 13 -> Ok(at(today, 17))
-        .Asap -> Ok(at(today + Days(1), 13))
-        .EndOfWeek -> Ok(end_of_week(today))
+    case parse(description)?
+        .Now ->
+            Ok(meeting_start + Hours(2))
 
-        .Month(month) -> {
-            due_year = if Date.month(today) < month {
+        .Asap when NaiveDateTime.hour(meeting_start) < 13 ->
+            Ok(at(today, 17))
+
+        .Asap ->
+            Ok(at(today + Days(1), 13))
+
+        .EndOfWeek ->
+            Ok(end_of_week(today))
+
+        .Month(month) ->
+            due_year = if Date.month(today) < month then
                 year
-            } else {
+            else
                 year + 1
-            }
+            end
 
             Ok(at(first_workday(due_year, month), 8))
-        }
 
-        .Quarter(quarter) -> {
-            due_year = if Date.month(today) |> quarter_of() <= quarter {
+        .Quarter(quarter) ->
+            due_year = if Date.month(today) |> quarter_of() <= quarter then
                 year
-            } else {
+            else
                 year + 1
-            }
+            end
 
             Ok(at(last_workday_of_quarter(due_year, quarter), 8))
-        }
-    }
-}
+    end
+end
 
 /// The description `text` names, or `UnknownDescription`.
-fn parse(text: String) -> Result<Description, Error> {
-    case text {
+fn parse(text: String) -> Result<Description, Error>
+    case text
         "NOW" -> Ok(.Now)
         "ASAP" -> Ok(.Asap)
         "EOW" -> Ok(.EndOfWeek)
         _ -> numbered(text) |> Maybe.to_result(.UnknownDescription(text))
-    }
-}
+    end
+end
 
 /// `<N>M` for a month from 1 to 12, or `Q<N>` for a quarter from 1 to 4.
-fn numbered(text: String) -> Maybe<Description> {
+fn numbered(text: String) -> Maybe<Description>
     month = String.strip_suffix(text, "M") |> Maybe.flat_map(String.to_int)
     quarter = String.strip_prefix(text, "Q") |> Maybe.flat_map(String.to_int)
 
-    case (month, quarter) {
+    case (month, quarter)
         (Some(n), _) when n in 1..=12 -> Some(.Month(n))
         (_, Some(n)) when n in 1..=4 -> Some(.Quarter(n))
         _ -> None
-    }
-}
+    end
+end
 
 /// Friday at 17:00 for a meeting from Monday to Wednesday, and Sunday at
 /// 20:00 for one later in the week.
-fn end_of_week(today: Date) -> NaiveDateTime {
-    case Date.weekday(today) {
+fn end_of_week(today: Date) -> NaiveDateTime
+    case Date.weekday(today)
         .Monday or .Tuesday or .Wednesday -> at(next_on(today, .Friday), 17)
         .Thursday or .Friday or .Saturday or .Sunday -> at(next_on(today, .Sunday), 20)
-    }
-}
+    end
+end
 
 /// The first day from `day` on, `day` included, that falls on `weekday`.
-fn next_on(day: Date, weekday: Weekday) -> Date {
+fn next_on(day: Date, weekday: Weekday) -> Date
     Some(found) =
         0..7
         |> Iter.map(&(day + Days(&1)))
         |> Iter.find(&(Date.weekday(&1) == weekday))
-    else {
+    else
         unreachable "seven days in a row fall on every weekday"
-    }
+    end
 
     found
-}
+end
 
 /// The first Monday to Friday of `month` in `year`.
-fn first_workday(year: Int, month: Int) -> Date {
+fn first_workday(year: Int, month: Int) -> Date
     first = Date.new(year, month, 1)!
 
     Some(found) =
         0..7
         |> Iter.map(&(first + Days(&1)))
         |> Iter.find(is_workday)
-    else {
+    else
         unreachable "seven days in a row hold five workdays"
-    }
+    end
 
     found
-}
+end
 
 /// The last Monday to Friday of `quarter` in `year`.
-fn last_workday_of_quarter(year: Int, quarter: Int) -> Date {
+fn last_workday_of_quarter(year: Int, quarter: Int) -> Date
     last_month = Date.new(year, quarter * 3, 1)!
     last_day = last_month + Months(1) - Days(1)
 
@@ -136,34 +141,34 @@ fn last_workday_of_quarter(year: Int, quarter: Int) -> Date {
         0..7
         |> Iter.map(&(last_day - Days(&1)))
         |> Iter.find(is_workday)
-    else {
+    else
         unreachable "seven days in a row hold five workdays"
-    }
+    end
 
     found
-}
+end
 
-fn is_workday(day: Date) -> Bool {
+fn is_workday(day: Date) -> Bool
     not Date.weekday(day) is (.Saturday or .Sunday)
-}
+end
 
 /// The quarter, 1 to 4, that `month` falls in.
-fn quarter_of(month: Int) -> Int {
+fn quarter_of(month: Int) -> Int
     (month - 1) / 3 + 1
-}
+end
 
 /// `day` at `hour` o'clock.
-fn at(day: Date, hour: Int) -> NaiveDateTime {
+fn at(day: Date, hour: Int) -> NaiveDateTime
     NaiveDateTime.at_midnight(day) + Hours(hour)
-}
+end
 
 // FILE: swift_scheduling_test.nomi
-import {
+import
     std::calendar.NaiveDateTime
     swift_scheduling
-}
+end
 
-test "delivery date" {
+test "delivery date"
     [
         (
             "NOW translates to two hours later",
@@ -268,18 +273,18 @@ test "delivery date" {
             NaiveDateTime`2019-06-28T08:00:00`,
         ),
     ]
-    |> subtests (description, meeting_start, text, expected), description {
+    |> subtests (description, meeting_start, text, expected), description
         assert swift_scheduling.delivery_date(meeting_start, text) == Ok(expected)
-    }
-}
+    end
+end
 
-test "descriptions that name no delivery date" {
+test "descriptions that name no delivery date"
     meeting_start = NaiveDateTime`2012-02-13T09:00:00`
 
-    subtests ["LATER", "0M", "13M", "Q5", "Q", "M"], text {
+    subtests ["LATER", "0M", "13M", "Q5", "Q", "M"], text
         assert swift_scheduling.delivery_date(meeting_start, text) == Err(.UnknownDescription(text))
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok delivery date (17 cases)

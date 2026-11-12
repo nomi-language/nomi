@@ -142,7 +142,7 @@ WHERE email = @email;
 
 ```nomi
 /// The user with this email, if any.
-pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {
+pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error>
     statement = runtime.statement(
         ["SELECT id, email, name, created_at FROM users WHERE email = ", ""],
         [runtime.bind(email)],
@@ -154,7 +154,7 @@ pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.E
             name: runtime.text_null("user_by_email", row, 2)?,
             created_at: runtime.timestamptz("user_by_email", row, 3)?,
         }))
-}
+end
 ```
 
 The SQL is kept apart from `email`: the statement holds the SQL around each
@@ -218,7 +218,7 @@ each `@name` is written as `?1`, `?2`, ... in order, the form std/sql's
 | `-> Maybe<T>` | `Result<Maybe<T>, sql.Error>` | `Ok(None)` | `Err(.RowCount)` |
 | `-> List<T>` | `Result<List<T>, sql.Error>` | `Ok([])` | all |
 | `-> Rows<T>` | `Rows<T>`, read with `Rows.fold` | | streamed |
-| none | `Result<List<.{...}>, sql.Error>`, anonymous rows of the columns | `Ok([])` | all |
+| none | `Result<List<{...}>, sql.Error>`, anonymous rows of the columns | `Ok([])` | all |
 | `-> Changed`, the SQL returns no rows | `Result<sqlkit.Changed, sql.Error>`, the number of rows changed | | |
 | `-> Unit`, the SQL returns no rows | `Result<Unit, sql.Error>`, the count ignored | | |
 
@@ -242,6 +242,13 @@ sqlx's do: `count(*) AS "n!"` asserts it is never NULL, `AS "email?"` that it
 may be, and `AS "n: Int"` gives an expression's type, which SQLite does not
 report (an anonymous row needs one). The marker is taken out of the SQL that
 is sent.
+
+A view's column is the column it reads: a `NOT NULL` column a view reads
+through inner joins is not a `Maybe`, and one an outer join in the view may
+leave out is. SQLite's plan names the tables inside a view, a subquery or a
+CTE by the aliases written there, not by the query's own, so on SQLite an
+outer join inside one, or of one, makes every column of the query a
+`Maybe`; `AS "n!"` says otherwise.
 
 ### What is checked
 
@@ -384,20 +391,20 @@ A test group's `setup` can hand each test a fresh in-memory database with
 the schema, so no test sees another's rows:
 
 ```nomi
-group "the shop" {
-    setup {
+group "the shop"
+    setup begin
         db = sqlite.memory()?
         defer sql.close_quietly(db)
         sqlkit.migrate(db, schema.migrations)?
         db
-    }
+    end
 
-    test "a user reads back as its row", db {
+    test "a user reads back as its row", db
         id = queries.insert_user(db, "ada@example.com", Some("Ada"))?
-        assert Some(User{id: read_id, email, name}) = queries.user_by_email(db, "ada@example.com")?
+        assert Some(User{id: read_id, email:, name:}) = queries.user_by_email(db, "ada@example.com")?
         assert read_id == id
-    }
-}
+    end
+end
 ```
 
 A constraint the schema leaves unnamed gets the name Postgres would give
@@ -413,22 +420,22 @@ keeps the connection in an app field, so every function reads it as
 `App.db`:
 
 ```nomi
-pub struct App {
+pub struct App
     db: Conn
     context: Context
-}
+end
 
-pub fn boot(startup: Startup) -> Result<App, Error> {
+pub fn boot(startup: Startup) -> Result<App, Error>
     path = Map.get(startup.env, "SHOP_DATABASE") |> Maybe.with_default(":memory:")
     db = sqlite.open(path)?
     defer sql.close_quietly(db)
     sqlkit.migrate(db, schema.migrations)?
-    Ok(App{db, context: Context.root()})
-}
+    Ok(App{db:, context: Context.root()})
+end
 
-pub fn sign_up(email: String) -> Result<Int, Error> {
+pub fn sign_up(email: String) -> Result<Int, Error>
     queries.insert_user(App.db, email, None)
-}
+end
 ```
 
 Every request shares that one `Conn`. While one request's
@@ -469,7 +476,9 @@ What differs from SQLite:
   anonymous row needs no `AS "n: Int"`.
 - A column is non-null only when it reads a `NOT NULL` table column that
   no outer join of the query can leave out, which the query's generic
-  plan shows (Postgres 12 or later). `AS "n!"` and `AS "n?"` still say
+  plan shows (Postgres 12 or later). A view's column is described through
+  the view's definition, and an outer join inside a view or of one leaves
+  out only the tables it joins. `AS "n!"` and `AS "n?"` still say
   otherwise.
 - An enum type's labels, like a `CHECK (column IN (...))`, make the
   column a generated enum.

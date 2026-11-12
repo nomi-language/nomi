@@ -99,7 +99,7 @@ func TestGenerics_NoUnboundedInstantiationChainInTheRepository(t *testing.T) {
 // `random.draw_list`, and the qualified look-alike is `sets.remove` calling
 // `Map.remove`.
 func TestGenerics_InstantiationChainDetectorControls(t *testing.T) {
-	box := "struct Box<T> {\n  inner: T\n}\n\n"
+	box := "struct Box<T>\n  inner: T\nend\n\n"
 	for _, tc := range []struct {
 		name      string
 		clause    string
@@ -110,7 +110,7 @@ func TestGenerics_InstantiationChainDetectorControls(t *testing.T) {
 		// The tail-position witness from the file header.
 		name:      "tail_grow fires",
 		clause:    "the whole detector",
-		src:       box + "fn tail_grow<T>(x: T, depth: Int) -> Int {\n  if depth <= 0 { 0 } else { tail_grow(Box{inner: x}, depth - 1) }\n}\n",
+		src:       box + "fn tail_grow<T>(x: T, depth: Int) -> Int\n  if depth <= 0 then 0 else tail_grow(Box{inner: x}, depth - 1)\nend\n",
 		wantFire:  true,
 		wantRecur: 1,
 	}, {
@@ -118,7 +118,7 @@ func TestGenerics_InstantiationChainDetectorControls(t *testing.T) {
 		// confounder: a detector that only saw the tail shape would miss it.
 		name:      "deep_grow fires",
 		clause:    "the whole detector, non-tail",
-		src:       box + "fn deep_grow<T>(x: T, depth: Int) -> Int {\n  if depth <= 0 { 0 } else { deep_grow(Box{inner: x}, depth - 1) + 1 }\n}\n",
+		src:       box + "fn deep_grow<T>(x: T, depth: Int) -> Int\n  if depth <= 0 then 0 else deep_grow(Box{inner: x}, depth - 1) + 1\nend\n",
 		wantFire:  true,
 		wantRecur: 1,
 	}, {
@@ -128,7 +128,7 @@ func TestGenerics_InstantiationChainDetectorControls(t *testing.T) {
 		// std's accumulator loops would be called unbounded.
 		name:      "same-T accumulator does NOT fire",
 		clause:    "growingArgs' annotation test",
-		src:       "fn drain<T>(items: List<T>, acc: List<T>) -> List<T> {\n  case items {\n    [] -> acc\n    [head, ..tail] -> drain(tail, [head, ..acc])\n  }\n}\n",
+		src:       "fn drain<T>(items: List<T>, acc: List<T>) -> List<T>\n  case items\n    [] -> acc\n    [head, ..tail] -> drain(tail, [head, ..acc])\n  end\nend\n",
 		wantFire:  false,
 		wantRecur: 1,
 	}, {
@@ -136,7 +136,7 @@ func TestGenerics_InstantiationChainDetectorControls(t *testing.T) {
 		// If kindOfConstruction admitted an identifier this would fire.
 		name:      "bare-T identity recursion does NOT fire",
 		clause:    "kindOfConstruction",
-		src:       "fn again<T>(x: T, n: Int) -> T {\n  if n <= 0 { x } else { again(x, n - 1) }\n}\n",
+		src:       "fn again<T>(x: T, n: Int) -> T\n  if n <= 0 then x else again(x, n - 1)\nend\n",
 		wantFire:  false,
 		wantRecur: 1,
 	}, {
@@ -146,7 +146,7 @@ func TestGenerics_InstantiationChainDetectorControls(t *testing.T) {
 		// isolates selfCalls rather than growingArgs.
 		name:      "qualified look-alike is not recursion at all",
 		clause:    "selfCalls' *ast.Ident test",
-		src:       "fn wrap<T>(x: T) -> Box<T> {\n  Box{inner: Box.wrap(x)}\n}\n",
+		src:       "fn wrap<T>(x: T) -> Box<T>\n  Box{inner: Box.wrap(x)}\nend\n",
 		wantFire:  false,
 		wantRecur: 0,
 	}, {
@@ -155,7 +155,7 @@ func TestGenerics_InstantiationChainDetectorControls(t *testing.T) {
 		// scan would answer "no growth" by never asking.
 		name:      "turbofish composed over the type parameter fires",
 		clause:    "growingArgs' turbofish arm (the argument loop is empty for a turbofish)",
-		src:       "fn grow<T>() -> Int {\n  grow<Box<T>>()\n}\n",
+		src:       "fn grow<T>() -> Int\n  grow<Box<T>>()\nend\n",
 		wantFire:  true,
 		wantRecur: 1,
 	}, {
@@ -164,7 +164,7 @@ func TestGenerics_InstantiationChainDetectorControls(t *testing.T) {
 		// every explicit type argument would pass the row above and be wrong.
 		name:      "turbofish at a bare type argument does NOT fire",
 		clause:    "composedOverTypeParam's bare-SimpleType arm",
-		src:       "fn same<T>() -> Int {\n  same<T>()\n}\n",
+		src:       "fn same<T>() -> Int\n  same<T>()\nend\n",
 		wantFire:  false,
 		wantRecur: 1,
 	}, {
@@ -177,7 +177,7 @@ func TestGenerics_InstantiationChainDetectorControls(t *testing.T) {
 		// is wrong.
 		name:      "composed turbofish merely CONTAINING the parameter name does NOT fire",
 		clause:    "mentionsTypeParamName's whole-token test",
-		src:       "fn conc<T>() -> Int {\n  conc<List<Toml>>()\n}\n",
+		src:       "fn conc<T>() -> Int\n  conc<List<Toml>>()\nend\n",
 		wantFire:  false,
 		wantRecur: 1,
 	}} {
@@ -406,19 +406,18 @@ func isIdentByte(b byte) bool {
 // larger instance of the CALLER's own type parameter unless `f` is itself
 // growing, which this scan catches at `f`'s own declaration.
 func kindOfConstruction(n ast.Node) string {
-	switch n.(type) {
+	switch v := n.(type) {
 	case *ast.StructLit:
 		return "a struct literal"
 	case *ast.ListLit:
-		return "a list literal"
-	case *ast.ListSpreadLit:
-		return "a list spread literal"
+		if len(v.Spreads) > 0 {
+			return "a " + v.Kind.String() + " spread literal"
+		}
+		return "a " + v.Kind.String() + " literal"
 	case *ast.TupleLit:
 		return "a tuple literal"
 	case *ast.MapLit:
 		return "a map literal"
-	case *ast.SetLit:
-		return "a set literal"
 	}
 	return ""
 }

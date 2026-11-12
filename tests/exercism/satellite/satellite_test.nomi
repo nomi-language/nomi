@@ -1,11 +1,11 @@
 import satellite.{self, Error, Tree}
 
 /// A node with no subtrees.
-fn leaf(value: String) -> Tree<String> {
-    .Node{left: .Leaf, value, right: .Leaf}
-}
+fn leaf(value: String) -> Tree<String>
+    .Node{left: .Leaf, value:, right: .Leaf}
+end
 
-test "rebuilds the tree" {
+test "rebuilds the tree"
     [
         ("Empty tree", [], [], Tree.Leaf),
         ("Tree with one item", ["a"], ["a"], leaf("a")),
@@ -66,12 +66,12 @@ test "rebuilds the tree" {
             },
         ),
     ]
-    |> subtests (description, preorder, inorder, expected), description {
+    |> subtests (description, preorder, inorder, expected), description
         assert satellite.tree_from_traversals(preorder, inorder) == Ok(expected)
-    }
-}
+    end
+end
 
-test "rejects traversals of no tree" {
+test "rejects traversals of no tree"
     [
         (
             "Reject traversals of different length",
@@ -92,7 +92,7 @@ test "rejects traversals of no tree" {
             .RepeatedItems,
         ),
     ]
-    |> subtests (description, preorder, inorder, expected), description {
+    |> subtests (description, preorder, inorder, expected), description
         assert satellite.tree_from_traversals(preorder, inorder) == Err(expected)
-    }
-}
+    end
+end

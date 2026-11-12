@@ -19,20 +19,20 @@ func TestPartnerTest_LeavesAPrivateFunctionsDefaultOut(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
 		"nomi.toml": "[module]\nname = \"gap\"\n",
-		"gap.nomi": `fn enc(text: String, keep: Bool = False) -> String {
-    text |> Iter.map(fn c -> if keep and c == "/" { c } else { "x" }) |> String.join("")
-}
+		"gap.nomi": `fn enc(text: String, keep: Bool = False) -> String
+    text |> Iter.map(fn c -> if keep and c == "/" then c else "x") |> String.join("")
+end
 
-pub fn use_it() -> String {
+pub fn use_it() -> String
     enc("a/b")
-}
+end
 `,
 		"gap_test.nomi": `import gap
 
-test "default" {
+test "default"
     assert gap.enc("a/b") == "xxx"
     assert gap.enc("a/b", keep: True) == "x/x"
-}
+end
 `,
 	}
 	for name, src := range files {

@@ -1,85 +1,85 @@
-struct Circle {
+struct Circle
     radius: Float
-}
+end
 
-struct Rectangle {
+struct Rectangle
     width: Float
     height: Float
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     embeds Rectangle
     Point
-}
+end
 
 type UserId String
 
-enum Identifier {
+enum Identifier
     embeds UserId
     Anonymous
-}
+end
 
 type Expired
 
-enum SessionState {
+enum SessionState
     embeds Expired
     Active
-}
+end
 
 type NumericUserId Int
 
-enum NumericIdentifier {
+enum NumericIdentifier
     embeds NumericUserId
-}
+end
 
-struct IntCircle {
+struct IntCircle
     r: Int
-}
+end
 
-enum IntShape {
+enum IntShape
     embeds IntCircle
-}
+end
 
-fn make_circle(r: Float) -> Circle {
+fn make_circle(r: Float) -> Circle
     Circle{radius: r}
-}
+end
 
-fn circle_area(c: Circle) -> Float {
+fn circle_area(c: Circle) -> Float
     3.14 * c.radius * c.radius
-}
+end
 
-fn area(s: Shape) -> Float {
-    case s {
+fn area(s: Shape) -> Float
+    case s
         Shape.Point -> 0.0
-        Shape.Rectangle{width, height} -> width * height
-        Shape.Circle{radius} -> 3.14 * radius * radius
-    }
-}
+        Shape.Rectangle{width:, height:} -> width * height
+        Shape.Circle{radius:} -> 3.14 * radius * radius
+    end
+end
 
-fn label(id: Identifier) -> String {
-    case id {
+fn label(id: Identifier) -> String
+    case id
         Identifier.UserId(name) -> name
         Identifier.Anonymous -> "anonymous"
-    }
-}
+    end
+end
 
-fn describe(state: SessionState) -> String {
-    case state {
+fn describe(state: SessionState) -> String
+    case state
         .Expired -> "session has expired"
         SessionState.Active -> "session is active"
-    }
-}
+    end
+end
 
-fn id_value(NumericIdentifier.NumericUserId(n)) -> Int {
+fn id_value(NumericIdentifier.NumericUserId(n)) -> Int
     n
-}
+end
 
-fn int_area(IntShape.IntCircle{r}) -> Int {
+fn int_area(IntShape.IntCircle{r:}) -> Int
     r * r
-}
+end
 
-test "embedded structs coerce to their containing enum" {
+test "embedded structs coerce to their containing enum"
     raw_circle = make_circle(5.0)
     c: Shape = Circle{radius: 5.0}
     r: Shape = Rectangle{width: 3.0, height: 4.0}
@@ -97,9 +97,9 @@ test "embedded structs coerce to their containing enum" {
     assert c.radius == 5.0
     assert r.width == 3.0
     assert areas == [78.5, 12.0, 0.0]
-}
+end
 
-test "embedded distinct types coerce and destructure through enum variants" {
+test "embedded distinct types coerce and destructure through enum variants"
     alice: Identifier = UserId("alice")
     guest = Identifier.Anonymous
     bob = Identifier.UserId("bob")
@@ -112,12 +112,12 @@ test "embedded distinct types coerce and destructure through enum variants" {
     assert label(bob) == "bob"
     assert describe(expired) == "session has expired"
     assert describe(active) == "session is active"
-}
+end
 
-test "embedded variants can destructure directly in parameter position" {
+test "embedded variants can destructure directly in parameter position"
     coerced: NumericIdentifier = NumericUserId(3)
 
     assert id_value(NumericIdentifier.NumericUserId(7)) == 7
     assert id_value(coerced) == 3
     assert int_area(IntShape.IntCircle{r: 4}) == 16
-}
+end

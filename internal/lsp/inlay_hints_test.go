@@ -35,10 +35,10 @@ func filterByKind(hints []InlayHint, kind InlayHintKind) []InlayHint {
 }
 
 func TestInlayHintBindingType(t *testing.T) {
-	src := `fn main() {
+	src := `fn main()
     x = 42
     name = "hello"
-}`
+end`
 	hints := getInlayHints(t, src)
 	found := filterByKind(hints, InlayHintKindType)
 	if len(found) != 2 {
@@ -53,8 +53,12 @@ func TestInlayHintBindingType(t *testing.T) {
 }
 
 func TestInlayHintParamNames(t *testing.T) {
-	src := `fn add(x: Int, y: Int) -> Int { x + y }
-fn main() { add(1, 2) }`
+	src := `fn add(x: Int, y: Int) -> Int
+    x + y
+end
+fn main()
+    add(1, 2)
+end`
 	hints := getInlayHints(t, src)
 	found := filterByKind(hints, InlayHintKindParameter)
 	if len(found) != 2 {
@@ -69,8 +73,12 @@ fn main() { add(1, 2) }`
 }
 
 func TestInlayHintSkipsNamedArgs(t *testing.T) {
-	src := `fn greet(name: String) -> String { name }
-fn main() { greet(name: "Alice") }`
+	src := `fn greet(name: String) -> String
+    name
+end
+fn main()
+    greet(name: "Alice")
+end`
 	hints := getInlayHints(t, src)
 	found := filterByKind(hints, InlayHintKindParameter)
 	if len(found) != 0 {
@@ -79,10 +87,12 @@ fn main() { greet(name: "Alice") }`
 }
 
 func TestInlayHintNested(t *testing.T) {
-	src := `fn add(x: Int, y: Int) -> Int { x + y }
-fn main() {
+	src := `fn add(x: Int, y: Int) -> Int
+    x + y
+end
+fn main()
     result = add(1, add(2, 3))
-}`
+end`
 	hints := getInlayHints(t, src)
 	paramHints := filterByKind(hints, InlayHintKindParameter)
 	// outer: x:, y: + inner: x:, y: = 4
@@ -100,25 +110,31 @@ fn main() {
 }
 
 func TestInlayHintLambdaParams(t *testing.T) {
-	src := `fn apply(f: (Int) -> Int, x: Int) -> Int { f(x) }
-fn main() { apply(fn n -> n + 1, 5) }`
+	src := `fn apply(f: (Int) -> Int, x: Int) -> Int
+    f(x)
+end
+fn main()
+    apply(fn n -> n + 1, 5)
+end`
 	hints := getInlayHints(t, src)
 	typeHints := filterByKind(hints, InlayHintKindType)
 	foundLambda := false
 	for _, h := range typeHints {
-		if h.Label == ": Int" && h.Position.Line == 1 {
+		if h.Label == ": Int" && h.Position.Line == 4 {
 			foundLambda = true
 		}
 	}
 	if !foundLambda {
-		t.Errorf("expected lambda param type hint ': Int' on line 2, got: %+v", typeHints)
+		t.Errorf("expected lambda param type hint ': Int' on line 5, got: %+v", typeHints)
 	}
 }
 
 func TestCheckTypesStdlibCallArgMismatch(t *testing.T) {
 	// String.length takes (s: String): Int — passing an Int should error
 	src := `import std::strings.String
-fn main() { String.length(42) }`
+fn main()
+    String.length(42)
+end`
 	lib := loadStd()
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
@@ -138,7 +154,9 @@ fn main() { String.length(42) }`
 
 func TestInlayHintStdlibCallParams(t *testing.T) {
 	src := `import std::strings.String
-fn main() { String.length("hello") }`
+fn main()
+    String.length("hello")
+end`
 	hints := getInlayHints(t, src)
 	paramHints := filterByKind(hints, InlayHintKindParameter)
 	// String.length has param "s" — should show "s:" hint
@@ -156,10 +174,12 @@ fn main() { String.length("hello") }`
 func TestInlayHintWrappedInModuleCall(t *testing.T) {
 	// Tests that hints work inside io.Inspect() etc.
 	src := `import std::io
-fn add(x: Int, y: Int) -> Int { x + y }
-fn main() {
+fn add(x: Int, y: Int) -> Int
+    x + y
+end
+fn main()
     io.inspect(add(1, 2))
-}`
+end`
 	hints := getInlayHints(t, src)
 	paramHints := filterByKind(hints, InlayHintKindParameter)
 	// add(1, 2) → x:, y: + io.inspect(...) → value: = 3

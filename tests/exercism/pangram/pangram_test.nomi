@@ -1,6 +1,6 @@
 import pangram.is_pangram
 
-test "pangrams" {
+test "pangrams"
     [
         ("empty sentence", "", False),
         ("perfect lower case", "abcdefghijklmnopqrstuvwxyz", True),
@@ -25,7 +25,7 @@ test "pangrams" {
             False,
         ),
     ]
-    |> subtests (description, sentence, expected), description {
+    |> subtests (description, sentence, expected), description
         assert is_pangram(sentence) == expected
-    }
-}
+    end
+end

@@ -32,32 +32,32 @@ func runOutput(t *testing.T, src string) string {
 func TestRun_ContainerComparisonSurface(t *testing.T) {
 	out := runOutput(t, `import std::io
 
-struct P {
+struct P
   a: Int
-}
+end
 
 derive Equatable for P
 
 derive Comparable for P
 
-fn main() {
+fn main()
   io.inspect(List.compare([[1]], [[0]]))
   io.inspect([[1], [2]] < [[1], [3]])
   io.inspect(List.compare([True], [False]))
   io.inspect([False] < [True])
   io.inspect(List.compare([[P{a: 1}]], [[P{a: 2}]]))
-  io.inspect(List.compare([#[1]], [#[2]]))
-  io.inspect(Vector.compare(#[P{a: 1}], #[P{a: 2}]))
-  io.inspect(Vector.compare(#[[1]], #[[1], [0]]))
-  io.inspect(Comparable.compare(#[1], #[2]))
+  io.inspect(List.compare([Vector[1]], [Vector[2]]))
+  io.inspect(Vector.compare(Vector[P{a: 1}], Vector[P{a: 2}]))
+  io.inspect(Vector.compare(Vector[[1]], Vector[[1], [0]]))
+  io.inspect(Comparable.compare(Vector[1], Vector[2]))
   io.inspect(Comparable.compare(True, False))
   io.inspect(Bool.compare(False, True))
   io.inspect(Hashable.hash(True))
   io.inspect(List.hash([[1]]))
-  io.inspect(Set.equal(%[1, 2], %[2, 1]))
-  io.inspect(Hashable.hash(%[1, 2]) == Hashable.hash(%{1 => True, 2 => True}))
+  io.inspect(Set.equal(Set[1, 2], Set[2, 1]))
+  io.inspect(Hashable.hash(Set[1, 2]) == Hashable.hash({1 => True, 2 => True}))
   io.inspect(Iter.sort([True, False, True]))
-}
+end
 `)
 	want := strings.Join([]string{
 		"Greater", "True", "Greater", "True", "Less", "Less", "Less", "Less", "Less",
@@ -75,13 +75,13 @@ fn main() {
 func TestRun_TuplesCompareLexicographically(t *testing.T) {
 	out := runOutput(t, `import std::io
 
-struct P {
+struct P
   a: Int
-}
+end
 
 derive Comparable for P
 
-fn main() {
+fn main()
   io.inspect((1, "b") < (2, "a"))
   io.inspect((1, "b") >= (1, "c"))
   io.inspect(Comparable.compare((1, (2, 3)), (1, (2, 4))))
@@ -91,7 +91,7 @@ fn main() {
   io.inspect(Iter.sort([(2, "a"), (1, "b"), (1, "a")]))
   io.inspect(Iter.sort_by(["bb", "a", "ab"], fn s -> (String.length(s), s)))
   io.inspect(Iter.max([(1, 2.5), (1, 3.5), (0, 9.0)]))
-}
+end
 `)
 	want := strings.Join([]string{
 		"True", "False", "Less", "Greater", "Less", "True",
@@ -107,12 +107,12 @@ fn main() {
 // rather than a program the VM cannot run.
 func TestLoad_OrderingOverAnAnonymousStructIsACompileError(t *testing.T) {
 	for _, c := range []struct{ expr, want string }{
-		{"Iter.sort([.{a: 2}, .{a: 1}])", "types cannot implement `Comparable`"},
-		{".{a: 2} < .{a: 1}", "types cannot implement `Comparable`"},
+		{"Iter.sort([{a: 2}, {a: 1}])", "types cannot implement `Comparable`"},
+		{"{a: 2} < {a: 1}", "types cannot implement `Comparable`"},
 		{"[(1, Unit)] < [(1, Unit)]", "no impl of `Comparable` for `Unit`"},
 		{"Iter.sort([(1, Unit)])", "is Comparable when each element is, and `Unit` is not"},
 	} {
-		_, err := vmhost.Load(writeProgram(t, "import std::io\n\nfn main() {\n  io.inspect("+c.expr+")\n}\n"))
+		_, err := vmhost.Load(writeProgram(t, "import std::io\n\nfn main()\n  io.inspect("+c.expr+")\nend\n"))
 		if err == nil {
 			t.Fatalf("%s: the front end now ACCEPTS this", c.expr)
 		}

@@ -12,36 +12,34 @@ import (
 // a line of its own, then on a partial line, and reads until end of input.
 const bankProgram = `import std::io
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     io.print("What is the starting balance?")
-    balance = case io.read_line() {
+    balance = case io.read_line()
         Ok(Some(line)) -> String.to_int(line) |> Maybe.with_default(0)
         _ -> 0
-    }
+    end
     io.print("Your starting balance: ${balance}")
     io.print("")
     io.print("Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)")
     loop(balance)
     Ok(Unit)
-}
+end
 
-fn loop(balance: Int) -> Unit {
+fn loop(balance: Int) -> Unit
     io.write("amount: ")
-    case io.read_line() {
-        Ok(Some(line)) -> case String.split(line, " ") {
-            ["deposit", n] -> {
+    case io.read_line()
+        Ok(Some(line)) -> case String.split(line, " ")
+            ["deposit", n] ->
                 amount = String.to_int(n) |> Maybe.with_default(0)
                 io.print("${amount} deposited, new balance is ${balance + amount}")
                 loop(balance + amount)
-            }
-            _ -> {
+            _ ->
                 io.print("> unknown command")
                 loop(balance)
-            }
-        }
+        end
         _ -> io.print("bye")
-    }
-}
+    end
+end
 `
 
 // runReplayTests loads src as a test file and answers the reporter's text.
@@ -68,7 +66,7 @@ func runReplayTests(t *testing.T, src string) string {
 // script with no input follows the same rule.
 func TestReplay_PassesOnAMatchingScript(t *testing.T) {
 	out := runReplayTests(t, bankProgram+`
-test "deposit money" {
+test "deposit money"
     assert io.replay("""
         What is the starting balance?
             > 500
@@ -83,9 +81,9 @@ test "deposit money" {
         > unknown command
         amount: bye
         """, main)
-}
+end
 
-test "no input at all" {
+test "no input at all"
     assert io.replay("""
         What is the starting balance?
         Your starting balance: 0
@@ -93,7 +91,7 @@ test "no input at all" {
         Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
         amount: bye
         """, main)
-}
+end
 `)
 	if !strings.HasSuffix(out, "test result: ok. 2 passed, 0 failed\n") {
 		t.Fatalf("want both replays to pass:\n%s", out)
@@ -105,15 +103,15 @@ test "no input at all" {
 func TestReplay_APartialLinePromptIsOutput(t *testing.T) {
 	out := runReplayTests(t, `import std::io
 
-fn main() {
+fn main()
     io.print("What is your name?")
     name = io.read_line() |> Result.with_default(None) |> Maybe.with_default("")
     io.write("Hello, ${name}. Your age: ")
     age = io.read_line() |> Result.with_default(None) |> Maybe.with_default("")
     io.print("${name} is ${age}")
-}
+end
 
-test "asks name and age" {
+test "asks name and age"
     assert io.replay(
         """
         What is your name?
@@ -124,7 +122,7 @@ test "asks name and age" {
         """,
         main,
     )
-}
+end
 `)
 	if !strings.HasSuffix(out, "test result: ok. 1 passed, 0 failed\n") {
 		t.Fatalf("want the replay to pass:\n%s", out)
@@ -139,27 +137,25 @@ test "asks name and age" {
 func TestReplay_APromptStartingWithTheMarker(t *testing.T) {
 	out := runReplayTests(t, `import std::io
 
-fn main() {
+fn main()
     io.print("Exits: north, east.")
     play()
-}
+end
 
-fn play() {
+fn play()
     io.write("> ")
-    case io.read_line() {
-        Ok(Some("north")) -> {
+    case io.read_line()
+        Ok(Some("north")) ->
             io.print("You are in an old armory.")
             play()
-        }
-        Ok(Some(word)) -> {
+        Ok(Some(word)) ->
             io.print("I don't know how to '${word}'.")
             play()
-        }
         _ -> io.print("Bye.")
-    }
-}
+    end
+end
 
-test "walks north" {
+test "walks north"
     assert io.replay("""
         Exits: north, east.
         >
@@ -173,23 +169,23 @@ test "walks north" {
         I don't know how to '> dance'.
         > Bye.
         """, main)
-}
+end
 `)
 	if !strings.HasSuffix(out, "test result: ok. 1 passed, 0 failed\n") {
 		t.Fatalf("want the replay to pass:\n%s", out)
 	}
 	got, err := runCaptureProgram(t, `import std::io
 
-fn main() {
-    run = io.capture("north\n", fn -> {
+fn main()
+    run = io.capture("north\n", fn ->
         io.write("> ")
         _ = io.read_line()
         io.print("ok")
         io.write("> ")
         _ = io.read_line()
-    })
+    end)
     io.write("[${run.transcript}|${run.output}]")
-}
+end
 `, "")
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -208,7 +204,7 @@ fn main() {
 func TestReplay_OutputThatReadsAsInputIsEscaped(t *testing.T) {
 	out := runReplayTests(t, `import std::io
 
-fn quoted() {
+fn quoted()
     io.print("    > quoted")
     io.print("  >")
     io.print("    >> double")
@@ -218,9 +214,9 @@ fn quoted() {
     io.print("    \\x")
     io.write("ask: ")
     _ = io.read_line()
-}
+end
 
-test "escaped" {
+test "escaped"
     assert io.replay(
         """
             \> quoted
@@ -235,25 +231,25 @@ test "escaped" {
         """,
         quoted,
     )
-}
+end
 
-test "not escaped" {
+test "not escaped"
     refute io.replay(
         """
             > quoted
         """,
         fn -> io.print("    > quoted"),
     )
-}
+end
 
-test "a backslash in the output" {
+test "a backslash in the output"
     assert io.replay(
         """
             \\> slashed
         """,
         fn -> io.print("    \\> slashed"),
     )
-}
+end
 `)
 	if !strings.HasSuffix(out, "test result: ok. 3 passed, 0 failed\n") {
 		t.Fatalf("want every replay to pass:\n%s", out)
@@ -264,11 +260,11 @@ test "a backslash in the output" {
 // (`-`) against the transcript (`+`), each line right of the `│` as written,
 // input lines at their indentation, and an input line no read reached is
 // named in the reason. The echo of the assertion writes the script as the
-// source lines the diff numbers, `""" lines 36-44 """`, rather than
+// source lines the diff numbers, `""" lines 34-42 """`, rather than
 // repeating it.
 func TestReplay_FailureIsALineDiff(t *testing.T) {
 	out := runReplayTests(t, bankProgram+`
-test "deposit money" {
+test "deposit money"
     assert io.replay("""
         What is the starting balance?
             > 500
@@ -280,9 +276,9 @@ test "deposit money" {
         25 deposited, new balance is 525
         amount: bye
         """, main)
-}
+end
 
-test "input left over" {
+test "input left over"
     assert io.replay("""
         What is the starting balance?
             > 500
@@ -292,7 +288,7 @@ test "input left over" {
         amount: bye
             > 7
             > 8
-        """, fn -> {
+        """, fn ->
         io.print("What is the starting balance?")
         _ = io.read_line()
         io.print("Your starting balance: 500")
@@ -300,25 +296,25 @@ test "input left over" {
         io.print("Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)")
         io.write("amount: ")
         io.print("bye")
-    })
-}
+    end)
+end
 `)
 	want := `FAIL bank_test.nomi :: deposit money
-  line 35: the transcript differs from the script
-    assert io.replay(""" lines 36-44 """, main)
+  line 33: the transcript differs from the script
+    assert io.replay(""" lines 34-42 """, main)
     io.replay: the transcript (-) and what main printed (+) differ
 
-        36   │ What is the starting balance?
-        37   │     > 500
-        38 - │ Your starting balance is 500
+        34   │ What is the starting balance?
+        35   │     > 500
+        36 - │ Your starting balance is 500
            + │ Your starting balance: 500
-        39   │
-        40   │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-        41   │ amount:
+        37   │
+        38   │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        39   │ amount:
              │   ... 3 lines match ...
 FAIL bank_test.nomi :: input left over
-  line 49: 2 input lines of the script were never read
-    assert io.replay(""" lines 50-57 """, fn -> {
+  line 47: 2 input lines of the script were never read
+    assert io.replay(""" lines 48-55 """, fn ->
 `
 	if !strings.HasPrefix(out, want) {
 		t.Fatalf("got:\n%s\nwant it to start with:\n%s", out, want)
@@ -326,11 +322,11 @@ FAIL bank_test.nomi :: input left over
 	tail := `    io.replay: the transcript (-) and what the function printed (+) differ
 
              │   ... 3 lines match ...
-        53   │
-        54   │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-        55   │ amount: bye
-        56 - │     > 7
-        57 - │     > 8
+        51   │
+        52   │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        53   │ amount: bye
+        54 - │     > 7
+        55 - │     > 8
 test result: FAILED. 0 passed, 2 failed
 `
 	if !strings.HasSuffix(out, tail) {
@@ -344,12 +340,12 @@ test result: FAILED. 0 passed, 2 failed
 // names `main` again. `g`'s row stays: it says which function `g` holds.
 func TestReplay_DiffHidesTheRowsItRepeats(t *testing.T) {
 	out := runReplayTests(t, bankProgram+`
-group "bank" {
-    setup {
+group "bank"
+    setup begin
         500
-    }
+    end
 
-    test "replayed", starting_balance {
+    test "replayed", starting_balance
         assert io.replay(
             """
             What is the starting balance?
@@ -358,40 +354,40 @@ group "bank" {
             """,
             main,
         )
-    }
-}
+    end
+end
 
-test "compared" {
+test "compared"
     starting_balance = 500
     g = main
     assert io.capture("500\n", g).output == """
         What is the starting balance?
         Your starting balance is ${starting_balance}
         """
-}
+end
 `)
 	want := `FAIL bank_test.nomi :: bank / replayed
-  line 40: the transcript differs from the script
-    assert io.replay(""" lines 42-44 """, main)
+  line 38: the transcript differs from the script
+    assert io.replay(""" lines 40-42 """, main)
     io.replay: the transcript (-) and what main printed (+) differ
 
-        42   │ What is the starting balance?
-        43   │     > 500
-        44 - │ Your starting balance is 500
+        40   │ What is the starting balance?
+        41   │     > 500
+        42 - │ Your starting balance is 500
            + │ Your starting balance: 500
            + │ (empty line)
            + │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
            + │ amount: bye
 FAIL bank_test.nomi :: compared
-  line 54: assertion failed
-    assert io.capture("500\n", g).output == """ lines 55-56 """
+  line 52: assertion failed
+    assert io.capture("500\n", g).output == """ lines 53-54 """
     values:
       g
         = <func: main>
     expected """ ... """ (-) and actual io.capture("500\n", g).output (+) differ
 
-        55   │ What is the starting balance?
-        56 - │ Your starting balance is 500
+        53   │ What is the starting balance?
+        54 - │ Your starting balance is 500
              │ \ no newline at end
            + │ Your starting balance: 500
            + │ (empty line)
@@ -409,14 +405,14 @@ test result: FAILED. 0 passed, 2 failed
 // function.
 func TestReplay_AScriptNotWrittenAtTheCallIsNotNumbered(t *testing.T) {
 	out := runReplayTests(t, bankProgram+`
-test "bound script" {
+test "bound script"
     script = """
         What is the starting balance?
             > 500
         Your starting balance is 500
         """
     assert io.replay(script, main)
-}
+end
 `)
 	want := `    io.replay: the transcript (-) and what main printed (+) differ
 
@@ -444,28 +440,28 @@ test result: FAILED. 0 passed, 1 failed
 func TestReplay_TranscriptFields(t *testing.T) {
 	got, err := runCaptureProgram(t, `import std::io
 
-fn main() {
-    run = io.capture("Ada\nGrace\n", fn -> {
+fn main()
+    run = io.capture("Ada\nGrace\n", fn ->
         io.write("name: ")
         _ = io.read_line()
-        inner = io.capture("x\n", fn -> {
+        inner = io.capture("x\n", fn ->
             io.print("inner")
             io.read_line()
-        })
+        end)
         io.print("got ${inner.transcript}")
         io.print("> quoted")
         io.print("  > padded")
         _ = io.read_line()
         _ = io.read_line()
-    })
+    end)
     io.write("transcript [${run.transcript}]\n")
     io.write("output [${run.output}]\n")
-    r = io.replay("q?\n  > a  \n\t> b\n", fn -> {
+    r = io.replay("q?\n  > a  \n\t> b\n", fn ->
         io.print("q?  ")
         _ = io.read_line()
-    })
+    end)
     io.write("replayed [${r.output}|${r.transcript}|${r.expected}|${r.unread}]\n")
-}
+end
 `, "")
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -483,39 +479,39 @@ fn main() {
 // to the lines it spans, and the diff numbers them by source line.
 func TestReplay_NamedArgumentsNumberAndCollapse(t *testing.T) {
 	out := runReplayTests(t, bankProgram+`
-test "script first" {
+test "script first"
     assert io.replay(script: """
         What is the starting balance?
             > 500
         Your starting balance is 500
         """, run: main)
-}
+end
 
-test "run first" {
+test "run first"
     assert io.replay(run: fn -> io.print("hullo"), script: """
         hello
         """)
-}
+end
 `)
 	want := `FAIL bank_test.nomi :: script first
-  line 35: the transcript differs from the script
-    assert io.replay(script: """ lines 36-38 """, run: main)
+  line 33: the transcript differs from the script
+    assert io.replay(script: """ lines 34-36 """, run: main)
     io.replay: the transcript (-) and what main printed (+) differ
 
-        36   │ What is the starting balance?
-        37   │     > 500
-        38 - │ Your starting balance is 500
+        34   │ What is the starting balance?
+        35   │     > 500
+        36 - │ Your starting balance is 500
            + │ Your starting balance: 500
 `
 	if !strings.HasPrefix(out, want) {
 		t.Fatalf("got:\n%s\nwant it to start with:\n%s", out, want)
 	}
 	tail := `FAIL bank_test.nomi :: run first
-  line 43: the transcript differs from the script
-    assert io.replay(run: fn -> io.print("hullo"), script: """ line 44 """)
+  line 41: the transcript differs from the script
+    assert io.replay(run: fn -> io.print("hullo"), script: """ line 42 """)
     io.replay: the transcript (-) and what the function printed (+) differ
 
-        44 - │ hello
+        42 - │ hello
            + │ hullo
 `
 	if !strings.Contains(out, tail) {
@@ -530,18 +526,18 @@ test "run first" {
 func TestReplay_AScriptWithNoInputIsTheOutputAsWritten(t *testing.T) {
 	out := runReplayTests(t, `import std::io
 
-fn main() {
+fn main()
     io.print("-10.0 C |   14.0 F")
     io.print(" -5.0 C |   23.0 F")
-}
+end
 
-fn padded() {
+fn padded()
     io.print(String.pad_start("1", 6))
     io.print("")
     io.print(String.pad_start("22", 6))
-}
+end
 
-test "e2e" {
+test "e2e"
     assert io.replay(
         """
         -10.0 C |   14.0 F
@@ -549,9 +545,9 @@ test "e2e" {
         """,
         main,
     )
-}
+end
 
-test "every line indented" {
+test "every line indented"
     assert io.replay(
         """
              1
@@ -560,9 +556,9 @@ test "every line indented" {
         """,
         padded,
     )
-}
+end
 
-test "the indentation counts" {
+test "the indentation counts"
     refute io.replay(
         """
             -10.0 C |   14.0 F
@@ -570,7 +566,7 @@ test "the indentation counts" {
         """,
         main,
     )
-}
+end
 `)
 	if !strings.HasSuffix(out, "test result: ok. 3 passed, 0 failed\n") {
 		t.Fatalf("want every replay to pass:\n%s", out)
@@ -583,12 +579,12 @@ test "the indentation counts" {
 func TestReplay_AScriptWithNoInputFailsWithALineDiff(t *testing.T) {
 	out := runReplayTests(t, `import std::io
 
-fn main() {
+fn main()
     io.print("-10.0 C |   14.0 F")
     io.print(" -5.0 C |   23.0 F")
-}
+end
 
-test "a wrong line" {
+test "a wrong line"
     assert io.replay(
         """
         -10.0 C |   14.0 F
@@ -596,9 +592,9 @@ test "a wrong line" {
         """,
         main,
     )
-}
+end
 
-test "indented" {
+test "indented"
     assert io.replay(
         """
             -10.0 C |   14.0 F
@@ -606,7 +602,7 @@ test "indented" {
         """,
         main,
     )
-}
+end
 `)
 	want := `FAIL bank_test.nomi :: a wrong line
   line 9: the transcript differs from the script

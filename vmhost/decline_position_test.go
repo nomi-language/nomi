@@ -15,9 +15,9 @@ import (
 // turns up.
 func TestDeclinePosition_IsTheInnermostNode(t *testing.T) {
 	plantDecline(t)
-	const planted = `fn planted_decline(a: Int) -> Int {
+	const planted = `fn planted_decline(a: Int) -> Int
     a
-}
+end
 `
 	for _, c := range []struct {
 		name string
@@ -29,28 +29,28 @@ func TestDeclinePosition_IsTheInnermostNode(t *testing.T) {
 			src: `import std::io
 
 ` + planted + `
-fn first(x: Int) -> Int {
-    if x == 1 {
+fn first(x: Int) -> Int
+    if x == 1 then
         w = planted_decline(1)
         w
-    } else {
+    else
         0
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.inspect(first(1))
-}
+end
 `,
 			want: "main.nomi:9:13: this call to `planted_decline` is not supported yet, so `fn first` cannot run",
 		},
 		{
 			name: "a call in a test body",
 			src: planted + `
-test "loc" {
+test "loc"
     w = planted_decline(1)
     assert w == 1
-}
+end
 `,
 			want: "main.nomi:6:9: this call to `planted_decline` is not supported yet, so test \"loc\" cannot run",
 		},

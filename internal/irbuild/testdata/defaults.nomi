@@ -17,32 +17,32 @@ import std::io
 //     with a local of another type. The default is evaluated in the callee's
 //     scope, so it reaches the module's `base` and not the caller's Int; an
 //     builder resolving it in the caller's scope cannot even lower the call.
-fn shout(tag: String) -> Int {
+fn shout(tag: String) -> Int
     io.print("default ${tag} ran")
     7
-}
+end
 
-fn base() -> Int {
+fn base() -> Int
     100
-}
+end
 
-fn greet(name: String, greeting: String = "Hello", punctuation: String = "!") -> String {
+fn greet(name: String, greeting: String = "Hello", punctuation: String = "!") -> String
     greeting + ", " + name + punctuation
-}
+end
 
-fn counted(a: Int, b: Int = shout("b")) -> Int {
+fn counted(a: Int, b: Int = shout("b")) -> Int
     a + b
-}
+end
 
-fn following(a: Int, b: Int = a + 1, c: Int = b * 10) -> Int {
+fn following(a: Int, b: Int = a + 1, c: Int = b * 10) -> Int
     a * 1000 + b * 100 + c
-}
+end
 
-fn offset(a: Int, b: Int = base()) -> Int {
+fn offset(a: Int, b: Int = base()) -> Int
     a + b
-}
+end
 
-fn main() {
+fn main()
     // Filling the suffix, one parameter at a time.
     io.print(greet("world"))
     io.print(greet("world", "Hi"))
@@ -64,4 +64,4 @@ fn main() {
     base = 1
     io.print("offset = ${offset(5)}")
     io.print("shadowed base = ${base}")
-}
+end

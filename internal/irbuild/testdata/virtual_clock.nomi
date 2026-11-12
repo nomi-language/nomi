@@ -23,67 +23,67 @@
 // as the fact that time passed. Inside a bubble the fake clock starts at
 // midnight UTC 2000-01-01 and advances by exactly the sleep, so these numbers
 // are deterministic; a real clock would produce 30001 or 30004.
-import {
+import
     std::duration.Duration
     std::instant.Instant
     std::io
     std::testing.Clock
     std::timer
-}
+end
 
 /// Sleep for `d` and report how much time the clock says passed.
-fn elapsed_ms(d: Duration) -> Int {
+fn elapsed_ms(d: Duration) -> Int
     before = Instant.now()
     timer.sleep(d)
     after = Instant.now()
     Duration.as_millis(Instant.between(before, after))
-}
+end
 
-group "virtual time" {
+group "virtual time"
     clock Clock.Virtual
 
-    test "a thirty-second sleep costs no real time" {
+    test "a thirty-second sleep costs no real time"
         assert elapsed_ms(Duration.seconds(30)) == 30000
-    }
+    end
 
-    test "so does five minutes" {
+    test "so does five minutes"
         assert elapsed_ms(Duration.minutes(5)) == 300000
-    }
+    end
 
-    test "sleeps compose, and the clock is monotonic across them" {
+    test "sleeps compose, and the clock is monotonic across them"
         first = elapsed_ms(Duration.hours(1))
         second = elapsed_ms(Duration.seconds(1))
         io.print("slept " + Display.to_string(first) + " then " + Display.to_string(second))
         assert first == 3600000
         assert second == 1000
-    }
-}
+    end
+end
 
 // A second group with the clause. The bubble is per CASE, not per group, so
 // each case of each group declaring it runs in one.
-group "virtual time again" {
+group "virtual time again"
     clock Clock.Virtual
 
-    test "another group's virtual clock still bubbles" {
+    test "another group's virtual clock still bubbles"
         assert elapsed_ms(Duration.minutes(90)) == 5400000
-    }
-}
+    end
+end
 
 // The real clock declared explicitly, beside the virtual groups. This is the
 // row that would break if the clock were a per-FILE fact rather than the
 // group's own declaration.
-group "back on the system clock" {
+group "back on the system clock"
     clock Clock.System
 
-    test "a tiny real sleep still works" {
+    test "a tiny real sleep still works"
         assert elapsed_ms(Duration.milliseconds(1)) >= 1
-    }
-}
+    end
+end
 
 // A group with NO clause at all, so the file carries both table shapes: entries
 // with a Bubble and entries without, in one generated table.
-group "no clause" {
-    test "the real clock is the default" {
+group "no clause"
+    test "the real clock is the default"
         assert elapsed_ms(Duration.milliseconds(1)) >= 1
-    }
-}
+    end
+end

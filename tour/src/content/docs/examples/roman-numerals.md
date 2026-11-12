@@ -31,18 +31,18 @@ once numerals = [
 
 /// `number` in Roman numerals. Each numeral, largest first, is written as
 /// many times as it fits into what is left.
-pub fn roman(number: Int) -> String {
-    (_left, parts) = Iter.map_reduce(numerals, number, fn left, (value, symbol) -> {
+pub fn roman(number: Int) -> String
+    (_left, parts) = Iter.map_reduce(numerals, number, fn left, (value, symbol) ->
         (left % value, String.repeat(symbol, left / value))
-    })
+    end)
 
     String.join(parts)
-}
+end
 
 // FILE: roman_numerals_test.nomi
 import roman_numerals
 
-test "converts to Roman numerals" {
+test "converts to Roman numerals"
     [
         ("1 is I", 1, "I"),
         ("2 is II", 2, "II"),
@@ -72,10 +72,10 @@ test "converts to Roman numerals" {
         ("3888 is MMMDCCCLXXXVIII", 3888, "MMMDCCCLXXXVIII"),
         ("3999 is MMMCMXCIX", 3999, "MMMCMXCIX"),
     ]
-    |> subtests (description, number, expected), description {
+    |> subtests (description, number, expected), description
         assert roman_numerals.roman(number) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok converts to Roman numerals (27 cases)

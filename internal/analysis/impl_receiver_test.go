@@ -14,34 +14,34 @@ import (
 // and a same-owner call `greet(p)` from another Person impl resolved to it.
 // The front end accepted the program and the IR builder declined it ("a
 // direct callee outside this module's fn table: greet").
-const implReceiverDecls = `interface Greeter {
+const implReceiverDecls = `interface Greeter
   fn greet(value: self) -> String
-}
+end
 
-interface Message {
+interface Message
   fn message(value: self) -> String
-}
+end
 
-struct Person {
+struct Person
   name: String
-}
+end
 
-struct Peon {
+struct Peon
   n: Int
-}
+end
 
 `
 
 const implReceiverMain = `
-impl Message for Person {
-  fn message(p: Person) -> String {
+impl Message for Person
+  fn message(p: Person) -> String
     greet(p)
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   _ = Message.message(Person{name: "Ada"})
-}
+end
 `
 
 func hasErrorAt(errs []analysis.TypeError, want string, line, col int) bool {
@@ -58,8 +58,8 @@ func TestImplReceiver_UndeclaredTypeIsRejectedAtTheName(t *testing.T) {
 		name, block string
 		line, col   int
 	}{
-		{"an interface impl", "impl Greeter for Ghost {\n  fn greet(p: Person) -> String {\n    p.name\n  }\n}\n", 17, 18},
-		{"a generic interface impl", "impl<T> Greeter for Ghost<T> {\n  fn greet(p: Ghost<T>) -> String {\n    \"x\"\n  }\n}\n", 17, 21},
+		{"an interface impl", "impl Greeter for Ghost\n  fn greet(p: Person) -> String\n    p.name\n  end\nend\n", 17, 18},
+		{"a generic interface impl", "impl<T> Greeter for Ghost<T>\n  fn greet(p: Ghost<T>) -> String\n    \"x\"\n  end\nend\n", 17, 21},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(implReceiverDecls + tc.block + implReceiverMain)
@@ -71,7 +71,7 @@ func TestImplReceiver_UndeclaredTypeIsRejectedAtTheName(t *testing.T) {
 }
 
 func TestImplReceiver_SelfParameterMustBeTheReceiver(t *testing.T) {
-	block := "impl Greeter for Peon {\n  fn greet(p: Person) -> String {\n    p.name\n  }\n}\n"
+	block := "impl Greeter for Peon\n  fn greet(p: Person) -> String\n    p.name\n  end\nend\n"
 	_, errs := checkSourceWithStdlib(implReceiverDecls + block + implReceiverMain)
 	expectStdlibError(t, errs, "impl function 'greet': parameter 1 has type Person, but it stands for `self`, which this block implements for Peon")
 }
@@ -81,12 +81,12 @@ func TestImplReceiver_SelfParameterMustBeTheReceiver(t *testing.T) {
 // call into one of them.
 func TestImplReceiver_TheReceiverIsAccepted(t *testing.T) {
 	for _, src := range []string{
-		implReceiverDecls + "impl Greeter for Person {\n  fn greet(p: Person) -> String {\n    p.name\n  }\n}\n" + implReceiverMain,
-		"interface Sized {\n  fn size(value: self) -> Int\n}\n\nstruct Bag<T> {\n  items: List<T>\n}\n\n" +
-			"impl<T> Sized for Bag<T> {\n  fn size(b: Bag<T>) -> Int {\n    Iter.count(b.items)\n  }\n}\n\n" +
-			"fn main() {\n  _ = Sized.size(Bag{items: [1]})\n}\n",
-		"interface Twice {\n  fn twice(value: self) -> Int\n}\n\nimpl Twice for Int {\n  fn twice(n: Int) -> Int {\n    n * 2\n  }\n}\n\n" +
-			"fn main() {\n  _ = Twice.twice(2)\n}\n",
+		implReceiverDecls + "impl Greeter for Person\n  fn greet(p: Person) -> String\n    p.name\n  end\nend\n" + implReceiverMain,
+		"interface Sized\n  fn size(value: self) -> Int\nend\n\nstruct Bag<T>\n  items: List<T>\nend\n\n" +
+			"impl<T> Sized for Bag<T>\n  fn size(b: Bag<T>) -> Int\n    Iter.count(b.items)\n  end\nend\n\n" +
+			"fn main()\n  _ = Sized.size(Bag{items: [1]})\nend\n",
+		"interface Twice\n  fn twice(value: self) -> Int\nend\n\nimpl Twice for Int\n  fn twice(n: Int) -> Int\n    n * 2\n  end\nend\n\n" +
+			"fn main()\n  _ = Twice.twice(2)\nend\n",
 	} {
 		_, errs := checkSourceWithStdlib(src)
 		expectNoStdlibErrors(t, errs)

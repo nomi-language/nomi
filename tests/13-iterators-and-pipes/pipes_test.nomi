@@ -1,18 +1,18 @@
 import std::compiler
 
-fn double(x: Int) -> Int {
+fn double(x: Int) -> Int
     x * 2
-}
+end
 
-fn add(x: Int, y: Int) -> Int {
+fn add(x: Int, y: Int) -> Int
     x + y
-}
+end
 
-fn divide(x: Int, y: Int) -> Int {
+fn divide(x: Int, y: Int) -> Int
     x / y
-}
+end
 
-test "pipes thread the previous value into call stages" {
+test "pipes thread the previous value into call stages"
     result =
         5
         |> double()
@@ -34,33 +34,33 @@ test "pipes thread the previous value into call stages" {
     assert added == 8
     assert result == 11
     assert placed == 10
-}
+end
 
-test "partial applications leave placeholder arguments open" {
+test "partial applications leave placeholder arguments open"
     add1 = &add(1, &1)
     half = &divide(&1, 2)
 
     assert add1(9) == 10
     assert half(20) == 10
-}
+end
 
-test "bare dbg pipe stages inspect and pass through the previous value" {
+test "bare dbg pipe stages inspect and pass through the previous value"
     result = compiler.run(
         """
           import std::io
 
-          fn double(x: Int) -> Int {
+          fn double(x: Int) -> Int
             x * 2
-          }
+          end
 
-          fn main() {
+          fn main()
             value =
               5
               |> dbg
               |> double()
 
             io.print(value)
-          }
+          end
         """
     )
 
@@ -71,9 +71,9 @@ test "bare dbg pipe stages inspect and pass through the previous value" {
 
         """
     )
-}
+end
 
-test "pipes into dispatch functions preserve interface dispatch" {
+test "pipes into dispatch functions preserve interface dispatch"
     int_text =
         5
         |> Int.to_string()
@@ -84,27 +84,27 @@ test "pipes into dispatch functions preserve interface dispatch" {
         |> Display.to_string()
 
     assert int_text == "5"
-    assert set_text == "%[1, 2, 3]"
-}
+    assert set_text == "Set[1, 2, 3]"
+end
 
-test "tap stages run a function by name and pass the value on" {
+test "tap stages run a function by name and pass the value on"
     result = compiler.run(
         """
           import std::io
 
-          fn log_it(n: Int) {
+          fn log_it(n: Int)
             io.print(n + 100)
-          }
+          end
 
-          fn labeled(n: Int, label: String = "n") {
+          fn labeled(n: Int, label: String = "n")
             io.print(label + " = " + Int.to_string(n))
-          }
+          end
 
-          fn show<T>(v: T) where T: Display {
+          fn show<T>(v: T) where T: Display
             io.print(v)
-          }
+          end
 
-          fn main() {
+          fn main()
             value =
               5
               |> tap log_it
@@ -114,11 +114,11 @@ test "tap stages run a function by name and pass the value on" {
               |> double()
 
             io.print(value)
-          }
+          end
 
-          fn double(x: Int) -> Int {
+          fn double(x: Int) -> Int
             x * 2
-          }
+          end
         """
     )
 
@@ -132,4 +132,4 @@ test "tap stages run a function by name and pass the value on" {
 
         """
     )
-}
+end

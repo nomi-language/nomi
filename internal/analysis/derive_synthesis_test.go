@@ -19,7 +19,9 @@ import (
 func TestDeriveUnsupportedInterfaceErrors(t *testing.T) {
 	// The `derive Iface` validation (unknown protocol) now lives in
 	// LowerDerives' second return value, not fa.TypeErrors.
-	src := `struct Foo { x: Int }
+	src := `struct Foo
+    x: Int
+end
 derive Widget for Foo`
 
 	tokens := lexer.Lex(src)
@@ -55,7 +57,9 @@ func TestDeriveDuplicateInterfaceErrors(t *testing.T) {
 	// Two `derive Equatable` lines on one type — the duplicate
 	// conformance check lives in LowerDerives (message: "duplicate
 	// `impl Equatable` conformance line").
-	src := `struct Foo { x: Int }
+	src := `struct Foo
+    x: Int
+end
 derive Equatable for Foo
 derive Equatable for Foo`
 
@@ -89,7 +93,9 @@ derive Equatable for Foo`
 // The per-protocol sections below verify the emitted impls. This test pins
 // the validation gate's happy path: validation accepts the four canonical names without complaint.
 func TestDeriveAllFourValidatesClean(t *testing.T) {
-	src := `struct Foo { x: Int }
+	src := `struct Foo
+    x: Int
+end
 derive Equatable for Foo
 derive Hashable for Foo
 derive Comparable for Foo
@@ -175,7 +181,10 @@ func synthEqualsForSource(t *testing.T, src, typeName string) *ast.FuncDef {
 // equals(a: T, b: T): Bool { ... } }` whose body is the AND-chain of
 // pairwise field equality.
 func TestDeriveEquatableOnStructSynthesizes(t *testing.T) {
-	src := `struct Point { x: Int; y: Int }
+	src := `struct Point
+    x: Int
+    y: Int
+end
 derive Equatable for Point`
 
 	fn := synthEqualsForSource(t, src, "Point")
@@ -224,7 +233,7 @@ derive Equatable for Point`
 // TestDeriveEquatableOnEmptyStructIsTrue pins the 0-field special case:
 // `@derive Equatable struct Empty {}` yields a body that's just `True`.
 func TestDeriveEquatableOnEmptyStructIsTrue(t *testing.T) {
-	src := `struct Empty {}
+	src := `struct Empty end
 derive Equatable for Empty`
 
 	fn := synthEqualsForSource(t, src, "Empty")
@@ -248,7 +257,11 @@ derive Equatable for Empty`
 // enum produces a `case a { ... }` outer dispatch plus per-variant inner
 // `case b` with a wildcard False arm.
 func TestDeriveEquatableOnEnumSynthesizes(t *testing.T) {
-	src := `enum Color { Red; Green; Blue }
+	src := `enum Color
+    Red
+    Green
+    Blue
+end
 derive Equatable for Color`
 
 	fn := synthEqualsForSource(t, src, "Color")
@@ -372,7 +385,10 @@ derive Equatable for Expired`
 // form is the nested-tuple shape `Variant((a, b))`. Regression for
 // the synthesizer originally emitting Flat: true.
 func TestDeriveEquatableOnPositionalArity2VariantUsesNestedTuple(t *testing.T) {
-	src := `enum Pair { Both(Int, Int); None }
+	src := `enum Pair
+    Both(Int, Int)
+    None
+end
 derive Equatable for Pair`
 
 	fn := synthEqualsForSource(t, src, "Pair")
@@ -453,7 +469,10 @@ derive Equatable for Pair`
 // must NOT add a duplicate FuncDef; otherwise the analyzer's Sweep A
 // emits "already defined" errors.
 func TestSynthesizeDerivesIsIdempotent(t *testing.T) {
-	src := `struct Point { x: Int; y: Int }
+	src := `struct Point
+    x: Int
+    y: Int
+end
 derive Equatable for Point`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.Parse(tokens)
@@ -490,7 +509,10 @@ func synthHashForSource(t *testing.T, src, typeName string) *ast.FuncDef {
 // hash(value: Point): Int { Hashable.hash(value.x) * 31 + Hashable.hash(value.y) } }`.
 // The body is a left-fold mix expressed as Binary(+, Binary(*, Hashable.hash(.x), 31), Hashable.hash(.y)).
 func TestDeriveHashableOnStructSynthesizes(t *testing.T) {
-	src := `struct Point { x: Int; y: Int }
+	src := `struct Point
+    x: Int
+    y: Int
+end
 derive Hashable for Point`
 
 	fn := synthHashForSource(t, src, "Point")
@@ -547,7 +569,7 @@ derive Hashable for Point`
 // TestDeriveHashableOnEmptyStructIsZero pins the 0-field special case:
 // `@derive Hashable struct Empty {}` yields a body of bare `IntLit(0)`.
 func TestDeriveHashableOnEmptyStructIsZero(t *testing.T) {
-	src := `struct Empty {}
+	src := `struct Empty end
 derive Hashable for Empty`
 
 	fn := synthHashForSource(t, src, "Empty")
@@ -572,7 +594,10 @@ derive Hashable for Empty`
 // branch per variant. Bare branches are bare IntLit(index); payload
 // branches are mix(index, payload-hash).
 func TestDeriveHashableOnEnumSynthesizes(t *testing.T) {
-	src := `enum Shape { Circle Float; None }
+	src := `enum Shape
+    Circle Float
+    None
+end
 derive Hashable for Shape`
 
 	fn := synthHashForSource(t, src, "Shape")
@@ -654,7 +679,10 @@ derive Hashable for Id`
 // variant patterns. The Hashable synthesizer reuses enumVariantPattern and must
 // inherit the canonical nested-tuple shape.
 func TestDeriveHashableOnPositionalArity2VariantUsesNestedTuple(t *testing.T) {
-	src := `enum Pair { Both(Int, Int); None }
+	src := `enum Pair
+    Both(Int, Int)
+    None
+end
 derive Hashable for Pair`
 
 	fn := synthHashForSource(t, src, "Pair")
@@ -771,7 +799,10 @@ func assertOrderingValue(t *testing.T, node ast.Node, want string) {
 }
 
 func TestDeriveComparableOnStructSynthesizes(t *testing.T) {
-	src := `struct Point { x: Int; y: Int }
+	src := `struct Point
+    x: Int
+    y: Int
+end
 derive Comparable for Point`
 
 	fn := synthCompareForSource(t, src, "Point")
@@ -849,7 +880,7 @@ derive Comparable for Point`
 // TestDeriveComparableOnEmptyStructIsEqual pins the 0-field special case:
 // `@derive Comparable struct Empty {}` yields a body of bare `Equal`.
 func TestDeriveComparableOnEmptyStructIsEqual(t *testing.T) {
-	src := `struct Empty {}
+	src := `struct Empty end
 derive Comparable for Empty`
 
 	fn := synthCompareForSource(t, src, "Empty")
@@ -872,7 +903,11 @@ derive Comparable for Empty`
 // for j == i, and a wildcard `_ -> Less` for j > i (omitted on the last
 // variant where the explicit arms are exhaustive).
 func TestDeriveComparableOnEnumSynthesizes(t *testing.T) {
-	src := `enum Color { Red; Green; Blue }
+	src := `enum Color
+    Red
+    Green
+    Blue
+end
 derive Comparable for Color`
 
 	fn := synthCompareForSource(t, src, "Color")
@@ -1005,7 +1040,10 @@ derive Comparable for Expired`
 // enumVariantPattern (same helper as Equatable / Hashable), so the
 // canonical nested-tuple shape is inherited — this test pins it.
 func TestDeriveComparableOnPositionalArity2VariantUsesNestedTuple(t *testing.T) {
-	src := `enum Pair { Both(Int, Int); None }
+	src := `enum Pair
+    Both(Int, Int)
+    None
+end
 derive Comparable for Pair`
 
 	fn := synthCompareForSource(t, src, "Pair")
@@ -1089,7 +1127,10 @@ func debugStringPartsContain(parts []ast.StringPart, substr string) bool {
 // `, ` separators, `}`, and one Debug.to_string Call per field as
 // dynamic StringExpr parts.
 func TestDeriveDebugOnStructSynthesizes(t *testing.T) {
-	src := `struct Point { x: Int; y: Int }
+	src := `struct Point
+    x: Int
+    y: Int
+end
 derive Debug for Point`
 
 	fn := synthDebugForSource(t, src, "Point")
@@ -1152,7 +1193,7 @@ derive Debug for Point`
 // the body is a static StringLit `"TypeName{}"` with no interpolation
 // slots, since there are no fields to render.
 func TestDeriveDebugOnEmptyStructIsBareName(t *testing.T) {
-	src := `struct Empty {}
+	src := `struct Empty end
 derive Debug for Empty`
 
 	fn := synthDebugForSource(t, src, "Empty")
@@ -1181,7 +1222,10 @@ derive Debug for Empty`
 // branches are StringInterp with Debug.to_string calls in dynamic slots.
 // Variant names in the rendered text must be BARE (not enum-qualified).
 func TestDeriveDebugOnEnumSynthesizes(t *testing.T) {
-	src := `enum Shape { Circle Float; None }
+	src := `enum Shape
+    Circle Float
+    None
+end
 derive Debug for Shape`
 
 	fn := synthDebugForSource(t, src, "Shape")
@@ -1326,7 +1370,10 @@ derive Debug for Expired`
 // must be a *ast.TuplePattern with Flat == false; the analyzer rejects
 // flat-form variant patterns.
 func TestDeriveDebugOnPositionalArity2VariantUsesNestedTuple(t *testing.T) {
-	src := `enum Pair { Both(Int, Int); None }
+	src := `enum Pair
+    Both(Int, Int)
+    None
+end
 derive Debug for Pair`
 
 	fn := synthDebugForSource(t, src, "Pair")
@@ -1402,14 +1449,17 @@ derive Debug for Pair`
 // both `@derive Equatable` and the manual impl so the user can resolve
 // it without further hunting.
 func TestDeriveCollidesWithManualImplErrors(t *testing.T) {
-	src := `struct Point { x: Int; y: Int }
+	src := `struct Point
+    x: Int
+    y: Int
+end
 derive Equatable for Point
 
-impl Equatable for Point {
-  fn equal(_a: Point, _b: Point) -> Bool {
+impl Equatable for Point
+  fn equal(_a: Point, _b: Point) -> Bool
     False
-  }
-}`
+  end
+end`
 
 	_, errs := buildTypesFromSource(src)
 	if len(errs) == 0 {
@@ -1438,14 +1488,17 @@ impl Equatable for Point {
 // that the collision check is routed through the same code path for
 // every supported derivable protocol, not hard-wired to Equatable.
 func TestDeriveComparableCollidesWithManualImpl(t *testing.T) {
-	src := `struct Point { x: Int; y: Int }
+	src := `struct Point
+    x: Int
+    y: Int
+end
 derive Comparable for Point
 
-impl Comparable for Point {
-  fn compare(_a: Point, _b: Point) -> Ordering {
+impl Comparable for Point
+  fn compare(_a: Point, _b: Point) -> Ordering
     Equal
-  }
-}`
+  end
+end`
 
 	_, errs := buildTypesFromSource(src)
 	if len(errs) == 0 {
@@ -1490,7 +1543,9 @@ func synthFnBy(t *testing.T, src, fnName, ifaceName, typeName string) *ast.FuncD
 // would fall through to a runtime "no impl found" error instead of a
 // compile-time type-check failure (spec §12 *Derive*).
 func TestDeriveOnGenericStructAddsInterfaceBound(t *testing.T) {
-	src := `struct Box<T> { value: T }
+	src := `struct Box<T>
+    value: T
+end
 derive Equatable for Box<T>`
 
 	fn := synthFnBy(t, src, "equal", "Equatable", "Box")
@@ -1527,7 +1582,10 @@ derive Equatable for Box<T>`
 // `@derive Hashable struct Pair<A, B> { left: A; right: B }` produces both
 // `A: Hashable` and `B: Hashable` bounds on the synthesized hash fn.
 func TestDeriveOnMultiParamGenericStruct(t *testing.T) {
-	src := `struct Pair<A, B> { left: A; right: B }
+	src := `struct Pair<A, B>
+    left: A
+    right: B
+end
 derive Hashable for Pair<A, B>`
 
 	fn := synthFnBy(t, src, "hash", "Hashable", "Pair")
@@ -1557,7 +1615,10 @@ derive Hashable for Pair<A, B>`
 // synthesized equals fn. Mirrors the struct test but exercises the EnumDef
 // branch of typeDeclTypeParams.
 func TestDeriveOnGenericEnum(t *testing.T) {
-	src := `enum Maybe<T> { Some T; None }
+	src := `enum Maybe<T>
+    Some T
+    None
+end
 derive Equatable for Maybe<T>`
 
 	fn := synthFnBy(t, src, "equal", "Equatable", "Maybe")
@@ -1586,7 +1647,9 @@ derive Equatable for Maybe<T>`
 // Comparable struct Box<T>` should both stamp `T: <Iface>` onto their
 // synthesized fns.
 func TestDeriveOnGenericStructDebugAndComparable(t *testing.T) {
-	srcDebug := `struct Box<T> { value: T }
+	srcDebug := `struct Box<T>
+    value: T
+end
 derive Debug for Box<T>`
 	fn := synthFnBy(t, srcDebug, "inspect", "Debug", "Box")
 	if fn == nil {
@@ -1599,7 +1662,9 @@ derive Debug for Box<T>`
 		t.Errorf("Debug: expected bound Debug, got %T %v", fn.TypeParams[0].Bounds[0], fn.TypeParams[0].Bounds[0])
 	}
 
-	srcComparable := `struct Box<T> { value: T }
+	srcComparable := `struct Box<T>
+    value: T
+end
 derive Comparable for Box<T>`
 	fn2 := synthFnBy(t, srcComparable, "compare", "Comparable", "Box")
 	if fn2 == nil {
@@ -1617,7 +1682,10 @@ derive Comparable for Box<T>`
 // non-generic path must NOT invent TypeParams. Regression guard against an
 // over-eager helper that returns a stub TypeParam slice for empty input.
 func TestDeriveOnNonGenericStructHasNoTypeParams(t *testing.T) {
-	src := `struct Point { x: Int; y: Int }
+	src := `struct Point
+    x: Int
+    y: Int
+end
 derive Equatable for Point`
 
 	fn := synthFnBy(t, src, "equal", "Equatable", "Point")

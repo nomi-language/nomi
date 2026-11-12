@@ -284,7 +284,7 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int,
 			continue
 		}
 		if manualImpls[recvName][ifaceName] {
-			addErr(line, col, "`derive %s for %s` conflicts with a hand-written `impl %s for %s { ... }` block — a derived impl is synthesized whole, so it cannot coexist with a manual impl; drop one", ifaceName, recvName, ifaceName, recvName)
+			addErr(line, col, "`derive %s for %s` conflicts with a hand-written `impl %s for %s` block — a derived impl is synthesized whole, so it cannot coexist with a manual impl; drop one", ifaceName, recvName, ifaceName, recvName)
 			continue
 		}
 		if ifaceName == "Variants" {
@@ -320,7 +320,7 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int,
 					// as its use.
 					block.Interface = iface
 				}
-				block.Receiver = conf.Receiver
+				block.Receiver = appliedDeriveReceiver(conf.Receiver, typeDeclTypeParams(decl), block.Line)
 				block.WhereClauses = conf.WhereClauses
 				if len(conf.Generics) > 0 {
 					block.Generics = inheritedTypeParams(conf.Generics)
@@ -401,6 +401,44 @@ func appendDeriveDecorator(decl ast.Node, conf *ast.ImplConformance) {
 // for use as a synthesized block's Generics. The slice is copied (the
 // TypeParam structs are values; their Bounds type-exprs are shared) so callers
 // can adjust the block without aliasing the derive node's slice.
+// appliedDeriveReceiver is the receiver a derived impl block's header names.
+// `derive FromJson for Pair` names a generic type bare, and the header
+// applies it to the declaration's own type parameters, `Pair<T>`, as a
+// hand-written `impl FromJson for Pair<T>` does. An interface whose functions
+// take no `self` parameter (FromJson's `from_json(json: Json) -> Result<self,
+// Json.ShapeError>`) reads `self` off the header alone, and a bare `Pair` made
+// it the unapplied type, which no function returning `Pair<T>` matched. A
+// receiver written with arguments, or a type with no parameters, is kept as
+// written. The arguments sit at the block's synthesized line, so they name
+// nothing in the source.
+func appliedDeriveReceiver(recv ast.TypeExpr, params []ast.TypeParam, line int) ast.TypeExpr {
+	if len(params) == 0 {
+		return recv
+	}
+	apply := func(name string, col int) *ast.GenericType {
+		args := make([]ast.TypeExpr, len(params))
+		for i, tp := range params {
+			args[i] = &ast.SimpleType{Name: tp.Name, Line: line, Col: 1}
+		}
+		return &ast.GenericType{Name: name, Params: args, Line: recv.LineNum(), Col: col}
+	}
+	switch r := recv.(type) {
+	case *ast.SimpleType:
+		g := apply(r.Name, r.Col)
+		g.Span = r.Span
+		return g
+	case *ast.QualifiedType:
+		if m, ok := r.Member.(*ast.SimpleType); ok {
+			q := *r
+			g := apply(m.Name, m.Col)
+			g.Line, g.Span = m.Line, m.Span
+			q.Member = g
+			return &q
+		}
+	}
+	return recv
+}
+
 func inheritedTypeParams(tps []ast.TypeParam) []ast.TypeParam {
 	if len(tps) == 0 {
 		return nil

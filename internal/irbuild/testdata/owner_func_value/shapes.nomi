@@ -1,19 +1,19 @@
-pub struct Square {
+pub struct Square
     side: Int
-}
+end
 
-impl Square {
-    pub fn area(s: Square) -> Int {
+impl Square
+    pub fn area(s: Square) -> Int
         s.side * s.side
-    }
-}
+    end
+end
 
-impl Display for Square {
-    fn to_string(s: Square) -> String {
+impl Display for Square
+    fn to_string(s: Square) -> String
         "square ${s.side}"
-    }
-}
+    end
+end
 
-pub fn shout(s: String) -> String {
+pub fn shout(s: String) -> String
     "${s}!"
-}
+end

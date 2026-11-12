@@ -9,17 +9,17 @@ import "testing"
 func TestIRWithDefaultOverUnit_Runs(t *testing.T) {
 	irRunSource(t, `import std::io
 
-fn act(ok: Bool) -> Result<Unit, String> {
+fn act(ok: Bool) -> Result<Unit, String>
     io.print("act ${ok}")
-    if ok { Ok(Unit) } else { Err("no") }
-}
+    if ok then Ok(Unit) else Err("no")
+end
 
-fn main() {
+fn main()
     act(False) |> Result.with_default(Unit)
     done: Unit = Result.with_default(act(True), Unit)
     io.inspect(done)
     io.inspect(Maybe.with_default(Some(Unit), Unit))
     io.inspect(Result.with_default(Ok(3), 0))
-}
+end
 `, "act False\nact True\nUnit\nUnit\n3\n")
 }

@@ -13,49 +13,49 @@ func TestIREmbeddedSourceAsIterOfItsEnum_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Circle {
+struct Circle
     r: Int
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Dot
-}
+end
 
 type P (Iter<Shape>, Int)
 
-struct H {
+struct H
     it: Iter<Shape> = [Circle{r: 1}]
     n: Int = 0
-}
+end
 
-fn total(it: Iter<Shape>) -> Int {
+fn total(it: Iter<Shape>) -> Int
     it
-        |> Iter.map(fn s -> case s {
-            Shape.Circle{r} -> r
+        |> Iter.map(fn s -> case s
+            Shape.Circle{r:} -> r
             Shape.Dot -> 100
-        })
+        end)
         |> Iter.reduce(0, fn acc, n -> acc + n)
-}
+end
 
-fn main() {
+fn main()
     c = Circle{r: 2}
     it: Iter<Shape> = [c, Shape.Dot]
     io.print(total(it))
     xs = [c, c]
     io.print(total(xs))
-    io.print(total(#[c]))
+    io.print(total(Vector[c]))
     P(pi, pn) = P([c], 1)
     io.print(total(pi) + pn)
     h = H{}
     io.print(total(h.it))
-    h2 = .{..h, it: [c, c, c]}
+    h2 = {..h, it: [c, c, c]}
     io.print(total(h2.it))
-    h3 = Struct.update(updates: .{it: [c]}, original: h)
+    h3 = Struct.update(updates: {it: [c]}, original: h)
     io.print(total(h3.it))
     m: Iter<Maybe<Shape>> = [Some(c), None]
     io.print(Iter.count(m))
-}
+end
 `
 	irRunSource(t, src, "102\n4\n2\n3\n1\n6\n2\n2\n")
 }

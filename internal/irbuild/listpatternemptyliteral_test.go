@@ -12,30 +12,30 @@ func TestIRListPatternOverEmptyLiteral_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn main() {
-    n = case [] {
+fn main()
+    n = case []
         [_] -> 1
         _ -> 0
-    }
+    end
     io.inspect(n)
-    m = case [] {
+    m = case []
         [] -> "empty"
         [_, ..] -> "more"
-    }
+    end
     io.inspect(m)
-    io.inspect(case [] {
+    io.inspect(case []
         [_, _] -> 2
         [..] -> 3
-    })
-    io.inspect(case [] {
+    end)
+    io.inspect(case []
         [_, ..rest] -> Iter.count(rest)
         _ -> -1
-    })
-    io.inspect(case [1, 2] {
+    end)
+    io.inspect(case [1, 2]
         [_, _, _] -> []
         [..rest] -> rest
-    })
-}
+    end)
+end
 `
 	irRunSource(t, src, "0\n\"empty\"\n3\n-1\n[1, 2]\n")
 }

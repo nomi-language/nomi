@@ -27,10 +27,10 @@
 // Getting it wrong is a WRONG ANSWER rather than a refusal, because
 // markerValue's zero-sized value lowers perfectly well and would pass every
 // type check on the way in.
-import {
+import
     std::duration.Duration
     std::io
-}
+end
 
 type TraceId String
 
@@ -38,28 +38,28 @@ type Subject String
 
 type Marker
 
-fn trace_of(c: Context) -> String {
-    case Context.value(c, TraceId) {
+fn trace_of(c: Context) -> String
+    case Context.value(c, TraceId)
         Some(TraceId(id)) -> id
         None -> "none"
-    }
-}
+    end
+end
 
-fn subject_of(c: Context) -> String {
-    case Context.value(c, Subject) {
+fn subject_of(c: Context) -> String
+    case Context.value(c, Subject)
         Some(Subject(s)) -> s
         None -> "none"
-    }
-}
+    end
+end
 
 // The witness arrives as a PARAMETER here, so `marker_type` is an ordinary value
 // of type `Type<Marker>` and must NOT be read as a type name. That is the
 // builder's local-binding guard for a type witness, and it must hold here.
-fn marker_of(c: Context, marker_type: Type<Marker>) -> Maybe<Marker> {
+fn marker_of(c: Context, marker_type: Type<Marker>) -> Maybe<Marker>
     Context.value(c, marker_type)
-}
+end
 
-test "two Nomi types over one Go type are two keys" {
+test "two Nomi types over one Go type are two keys"
     root = Context.root()
     traced = Context.with_value(root, TraceId("t-1"))
 
@@ -72,9 +72,9 @@ test "two Nomi types over one Go type are two keys" {
 
     // The parent is untouched by the child's extra binding.
     assert subject_of(traced) == "none"
-}
+end
 
-test "a child shadows and both ends are read" {
+test "a child shadows and both ends are read"
     root = Context.root()
     traced = Context.with_value(root, TraceId("t-1"))
     shadowed = Context.with_value(traced, TraceId("t-2"))
@@ -82,49 +82,49 @@ test "a child shadows and both ends are read" {
     assert trace_of(shadowed) == "t-2"
     assert trace_of(traced) == "t-1"
     assert trace_of(root) == "none"
-}
+end
 
-test "an Int is keyed by Int" {
+test "an Int is keyed by Int"
     c = Context.with_value(Context.root(), 7)
 
-    assert case Context.value(c, Int) {
+    assert case Context.value(c, Int)
         Some(n) -> n == 7
         None -> False
-    }
+    end
 
     assert Context.value(c, TraceId) == None
-}
+end
 
-test "a zero-sized type is a value and a witness" {
+test "a zero-sized type is a value and a witness"
     bare = Marker
     assert bare == Marker
 
     c = Context.with_value(Context.root(), Marker)
     assert marker_of(c, Marker) == Some(Marker)
     assert marker_of(Context.root(), Marker) == None
-}
+end
 
-test "a value survives a deadline derivation" {
+test "a value survives a deadline derivation"
     c = Context.with_value(Context.root(), TraceId("t-1"))
     bounded = Context.with_timeout(c, Duration.seconds(60))
     assert trace_of(bounded) == "t-1"
     io.print("bounded still has a deadline: ${Context.deadline(bounded) != None}")
-}
+end
 
 // THE FAILING CASES. Each puts a Context in an operand position so the report
 // has to render one, and the rendering is what this fixture exists to compare.
-test "a failing assertion renders a Context operand" {
+test "a failing assertion renders a Context operand"
     root = Context.root()
     assert trace_of(root) == "t-1"
-}
+end
 
-test "a failing assertion renders a Context on both sides" {
+test "a failing assertion renders a Context on both sides"
     root = Context.root()
     traced = Context.with_value(root, TraceId("t-1"))
     refute trace_of(traced) == "t-1"
-}
+end
 
-test "a failing marker lookup renders its Context" {
+test "a failing marker lookup renders its Context"
     c = Context.root()
     assert marker_of(c, Marker) == Some(Marker)
-}
+end

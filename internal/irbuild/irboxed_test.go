@@ -17,24 +17,24 @@ func TestIRBoxedExistential_RendersAsTheValue(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "boxed_test.nomi")
 	src := `import std::io
 
-interface Show {
+interface Show
   fn show(value: self) -> String
-}
+end
 
-impl Show for List<T> {
-  fn show(xs: List<T>) -> String {
+impl Show for List<T>
+  fn show(xs: List<T>) -> String
     "n${Iter.count(xs)}"
-  }
-}
+  end
+end
 
-test "rows" {
+test "rows"
   a: Show = [1, 2]
   dbg(a)
   io.inspect(a)
   xs: List<Show> = [a]
   ys: List<Show> = [["s"]]
   assert xs == ys
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)
@@ -76,71 +76,71 @@ test "rows" {
 // variant. A struct, a plain enum and a scalar enter unchanged, so holding
 // one as an existential builds nothing. Counted per erasure in main.
 func TestIRBoxedExistential_OnlyWhereTheValueNamesNoImpl(t *testing.T) {
-	const src = `interface Show {
+	const src = `interface Show
     fn show(value: self) -> String
-}
+end
 
-struct P {
+struct P
     x: Int
-}
+end
 
-enum Coin {
+enum Coin
     Penny
     Dime
-}
+end
 
-struct Circle {
+struct Circle
     r: Int
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Dot
-}
+end
 
-impl Show for P {
-    fn show(p: P) -> String {
+impl Show for P
+    fn show(p: P) -> String
         "p${p.x}"
-    }
-}
+    end
+end
 
-impl Show for Coin {
-    fn show(_c: Coin) -> String {
+impl Show for Coin
+    fn show(_c: Coin) -> String
         "coin"
-    }
-}
+    end
+end
 
-impl Show for Int {
-    fn show(n: Int) -> String {
+impl Show for Int
+    fn show(n: Int) -> String
         "i${n}"
-    }
-}
+    end
+end
 
-impl Show for Shape {
-    fn show(_s: Shape) -> String {
+impl Show for Shape
+    fn show(_s: Shape) -> String
         "shape"
-    }
-}
+    end
+end
 
-impl Show for List<T> where T: Show {
-    fn show(xs: List<T>) -> String {
+impl Show for List<T> where T: Show
+    fn show(xs: List<T>) -> String
         xs |> Iter.map(&T.show(&1)) |> String.join(" ")
-    }
-}
+    end
+end
 
-fn plain() -> List<Show> {
+fn plain() -> List<Show>
     [P{x: 1}, Coin.Penny, 3]
-}
+end
 
-fn boxed() -> List<Show> {
+fn boxed() -> List<Show>
     s: Shape = Circle{r: 1}
     [[1], s, [[2]]]
-}
+end
 
-fn main() {
+fn main()
     _ = plain()
     _ = boxed()
-}
+end
 `
 	res := lowerIROnly(t, src)
 	counts := map[string]int{}
@@ -177,68 +177,68 @@ fn main() {
 // two empty lists of different element types are two values; a struct, a
 // plain enum and a scalar are held unchanged and build nothing.
 func TestIRBoxedExistential_StdInterfacesBoxOnlyWhereTheValueNamesNoImpl(t *testing.T) {
-	const src = `struct P {
+	const src = `struct P
     x: Int
-}
+end
 
-enum Coin {
+enum Coin
     Penny
     Dime
-}
+end
 
-struct Circle {
+struct Circle
     r: Int
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Dot
-}
+end
 
-impl Display for P {
-    fn to_string(p: P) -> String {
+impl Display for P
+    fn to_string(p: P) -> String
         "p${p.x}"
-    }
-}
+    end
+end
 
-impl Display for Coin {
-    fn to_string(_c: Coin) -> String {
+impl Display for Coin
+    fn to_string(_c: Coin) -> String
         "coin"
-    }
-}
+    end
+end
 
-impl Display for Shape {
-    fn to_string(_s: Shape) -> String {
+impl Display for Shape
+    fn to_string(_s: Shape) -> String
         "shape"
-    }
-}
+    end
+end
 
-fn plain() -> List<Display> {
+fn plain() -> List<Display>
     [P{x: 1}, Coin.Penny, 3, "s"]
-}
+end
 
-fn plain_debug() -> List<Debug> {
+fn plain_debug() -> List<Debug>
     [P{x: 1}, Coin.Penny, 3]
-}
+end
 
-fn boxed() -> List<Display> {
+fn boxed() -> List<Display>
     s: Shape = Circle{r: 1}
     ints: List<Int> = []
     strings: List<String> = []
-    [ints, strings, s, %{"a" => 1}]
-}
+    [ints, strings, s, {"a" => 1}]
+end
 
-fn boxed_debug() -> List<Debug> {
+fn boxed_debug() -> List<Debug>
     s: Shape = Circle{r: 1}
     [[1], Some(2), s]
-}
+end
 
-fn main() {
+fn main()
     _ = plain()
     _ = plain_debug()
     _ = boxed()
     _ = boxed_debug()
-}
+end
 `
 	res := lowerIROnly(t, src)
 	keys := map[string][]string{}
@@ -274,78 +274,78 @@ fn main() {
 // does, and not through the impl of the struct an element embeds.
 func TestIRBoxedExistential_DisplayOfAContainerOfAnEmbedsEnum(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-struct Circle {
+struct Circle
   r: Int
-}
-enum Shape {
+end
+enum Shape
   embeds Circle
   Dot
-}
-impl Display for Circle {
-  fn to_string(c: Circle) -> String {
+end
+impl Display for Circle
+  fn to_string(c: Circle) -> String
     "circle ${c.r}"
-  }
-}
-impl Display for Shape {
-  fn to_string(s: Shape) -> String {
-    case s {
-      .Circle{r} -> "shape ${r}"
+  end
+end
+impl Display for Shape
+  fn to_string(s: Shape) -> String
+    case s
+      .Circle{r:} -> "shape ${r}"
       .Dot -> "dot"
-    }
-  }
-}
-fn shape(r: Int) -> Shape {
-  Circle{r}
-}
-fn show(d: Display) -> String {
+    end
+  end
+end
+fn shape(r: Int) -> Shape
+  Circle{r:}
+end
+fn show(d: Display) -> String
   "${d}"
-}
-fn main() {
+end
+fn main()
   d: Display = [shape(1), Shape.Dot]
   io.print(Display.to_string(d))
   io.print(show(d))
   io.print("${[shape(1), Shape.Dot]}")
   n: Display = [[shape(2)], []]
   io.print(Display.to_string(n))
-  v: Display = #[shape(3)]
+  v: Display = Vector[shape(3)]
   io.print(Display.to_string(v))
-  m: Display = %{shape(4) => [shape(5)]}
+  m: Display = {shape(4) => [shape(5)]}
   io.print(Display.to_string(m))
   xs: List<Display> = [[shape(6)], [7]]
   io.print("${xs}")
-}`, "[shape 1, dot]\n[shape 1, dot]\n[shape 1, dot]\n[[shape 2], []]\n#[shape 3]\n%{shape 4 => [shape 5]}\n[[shape 6], [7]]\n")
+end`, "[shape 1, dot]\n[shape 1, dot]\n[shape 1, dot]\n[[shape 2], []]\nVector[shape 3]\n{shape 4 => [shape 5]}\n[[shape 6], [7]]\n")
 }
 
 // `==` and `!=` on two interface values are one comparison each of the
 // interface-value shape, which the machine answers by the operands'
 // run-time types; `==` on two values of a concrete type is unchanged.
 func TestIRExistentialEquality_IsOneInterfaceComparison(t *testing.T) {
-	const src = `interface Show {
+	const src = `interface Show
     fn show(value: self) -> String
-}
+end
 
-struct P {
+struct P
     x: Int
-}
+end
 
-impl Show for P {
-    fn show(p: P) -> String {
+impl Show for P
+    fn show(p: P) -> String
         "p${p.x}"
-    }
-}
+    end
+end
 
-fn held(a: Show, b: Show) -> Bool {
+fn held(a: Show, b: Show) -> Bool
     a == b and not (a != b)
-}
+end
 
-fn plain(a: P, b: P) -> Bool {
+fn plain(a: P, b: P) -> Bool
     a == b
-}
+end
 
-fn main() {
+fn main()
     _ = held(P{x: 1}, P{x: 1})
     _ = plain(P{x: 1}, P{x: 1})
-}
+end
 `
 	res := lowerIROnly(t, src)
 	shapes := map[string][]ir.ValShape{}
@@ -373,38 +373,38 @@ fn main() {
 // both written out and inside a body instantiated at the interface through
 // an Equatable or Hashable bound.
 func TestIRExistentialBounds_CompareAndHashAsTheMachineDoes(t *testing.T) {
-	const src = `interface Show {
+	const src = `interface Show
     fn show(value: self) -> String
-}
+end
 
-struct P {
+struct P
     x: Int
-}
+end
 
-impl Show for P {
-    fn show(p: P) -> String {
+impl Show for P
+    fn show(p: P) -> String
         "p${p.x}"
-    }
-}
+    end
+end
 
-fn same<T>(a: T, b: T) -> Bool where T: Equatable {
+fn same<T>(a: T, b: T) -> Bool where T: Equatable
     Equatable.equal(a, b)
-}
+end
 
-fn bucket<T>(x: T) -> Int where T: Hashable {
+fn bucket<T>(x: T) -> Int where T: Hashable
     Hashable.hash(x)
-}
+end
 
-fn held(a: Show, b: Show) -> Bool {
+fn held(a: Show, b: Show) -> Bool
     Equatable.equal(a, b) and Hashable.hash(a) == Hashable.hash(b)
-}
+end
 
-fn main() {
+fn main()
     a: Show = P{x: 1}
     _ = held(a, a)
     _ = same(a, a)
     _ = bucket(a)
-}
+end
 `
 	res := lowerIROnly(t, src)
 	compares, hashes := map[string][]ir.ValShape{}, map[string]int{}
@@ -446,29 +446,29 @@ fn main() {
 // `embeds` enum's elements through the enum's own impl.
 func TestIRBoxedExistential_DisplayOfAStdContainerWithItsOwnImpl(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-struct Circle {
+struct Circle
   r: Int
-}
-enum Shape {
+end
+enum Shape
   embeds Circle
   Dot
-}
-impl Display for Shape {
-  fn to_string(s: Shape) -> String {
-    case s {
-      .Circle{r} -> "shape ${r}"
+end
+impl Display for Shape
+  fn to_string(s: Shape) -> String
+    case s
+      .Circle{r:} -> "shape ${r}"
       .Dot -> "dot"
-    }
-  }
-}
-fn shape(r: Int) -> Shape {
-  Circle{r}
-}
-fn show(d: Display) -> String {
+    end
+  end
+end
+fn shape(r: Int) -> Shape
+  Circle{r:}
+end
+fn show(d: Display) -> String
   "${d}"
-}
-fn main() {
-  s: Display = %[1, 2]
+end
+fn main()
+  s: Display = Set[1, 2]
   io.print(Display.to_string(s))
   m: Display = Some(shape(1))
   io.print(show(m))
@@ -480,7 +480,7 @@ fn main() {
   n: Display = Some(1)
   o: Display = Some(1)
   io.print(Bool.to_string(n == o))
-}`, "%[1, 2]\nSome(shape 1)\nErr(bad)\n[Some(1), Some([shape 2])]\nTrue\n")
+end`, "Set[1, 2]\nSome(shape 1)\nErr(bad)\n[Some(1), Some([shape 2])]\nTrue\n")
 }
 
 // A source of an `embeds` enum's values entering a declared
@@ -489,33 +489,33 @@ fn main() {
 // lazy Iter.
 func TestIRBoxedExistential_EmbedsEnumSourceAsIterOfDisplay(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-struct Circle {
+struct Circle
   r: Int
-}
-enum Shape {
+end
+enum Shape
   embeds Circle
   Dot
-}
-impl Display for Shape {
-  fn to_string(s: Shape) -> String {
-    case s {
-      .Circle{r} -> "shape ${r}"
+end
+impl Display for Shape
+  fn to_string(s: Shape) -> String
+    case s
+      .Circle{r:} -> "shape ${r}"
       .Dot -> "dot"
-    }
-  }
-}
-fn one() -> Shape {
+    end
+  end
+end
+fn one() -> Shape
   Circle{r: 1}
-}
-fn show(xs: Iter<Display>) -> String {
+end
+fn show(xs: Iter<Display>) -> String
   xs |> Iter.map(Display.to_string) |> String.join(",")
-}
-fn main() {
+end
+fn main()
   shapes: List<Shape> = [one(), Shape.Dot]
   io.print(show(shapes))
-  io.print(show(%[one()]))
+  io.print(show(Set[one()]))
   io.print(show(Iter.map(shapes, fn s -> s)))
-}`, "shape 1,dot\nshape 1\nshape 1,dot\n")
+end`, "shape 1,dot\nshape 1\nshape 1,dot\n")
 }
 
 // An `embeds` enum with a hand-written `impl Debug`, held boxed as a
@@ -527,51 +527,51 @@ fn main() {
 func TestIRBoxedExistential_DebugOfEmbedsEnumWithItsOwnDebug(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-interface Says {
+interface Says
     fn says(s: self) -> String
-}
+end
 
-struct Circle {
+struct Circle
     r: Int
-}
+end
 
-impl Debug for Circle {
-    fn inspect(c: Circle) -> String {
+impl Debug for Circle
+    fn inspect(c: Circle) -> String
         "circle ${c.r}"
-    }
-}
+    end
+end
 
-impl Says for Circle {
-    fn says(_c: Circle) -> String {
+impl Says for Circle
+    fn says(_c: Circle) -> String
         "circle"
-    }
-}
+    end
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Dot
-}
+end
 
-impl Says for Shape {
-    fn says(_s: Shape) -> String {
+impl Says for Shape
+    fn says(_s: Shape) -> String
         "shape"
-    }
-}
+    end
+end
 
-impl Debug for Shape {
-    fn inspect(s: Shape) -> String {
-        case s {
-            .Circle{r} -> "a shape of radius ${r}"
+impl Debug for Shape
+    fn inspect(s: Shape) -> String
+        case s
+            .Circle{r:} -> "a shape of radius ${r}"
             .Dot -> "a dot"
-        }
-    }
-}
+        end
+    end
+end
 
-fn shape(r: Int) -> Shape {
-    Circle{r}
-}
+fn shape(r: Int) -> Shape
+    Circle{r:}
+end
 
-fn main() {
+fn main()
     s: Says = shape(4)
     io.print(Debug.inspect(s))
     d: Says = Shape.Dot
@@ -583,6 +583,6 @@ fn main() {
     io.print(Debug.inspect(g))
     io.inspect(s)
     dbg(s)
-}`, "a shape of radius 4\na dot\ncircle 2\n[a shape of radius 4, a dot, circle 2]\n"+
+end`, "a shape of radius 4\na dot\ncircle 2\n[a shape of radius 4, a dot, circle 2]\n"+
 		"a shape of radius 6\na shape of radius 4\ndbg line 58: s = a shape of radius 4\n")
 }

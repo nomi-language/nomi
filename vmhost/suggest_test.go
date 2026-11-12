@@ -13,7 +13,7 @@ import (
 // An unknown name's diagnostic carries the hint "did you mean" when exactly
 // one name in scope is close to it, and no hint when none is.
 func TestUnknownNames_SuggestTheClosestName(t *testing.T) {
-	helper := "pub fn greet() -> String {\n  \"hi\"\n}\n"
+	helper := "pub fn greet() -> String\n  \"hi\"\nend\n"
 	for _, tc := range []struct {
 		kind, body, want string
 	}{
@@ -28,7 +28,7 @@ func TestUnknownNames_SuggestTheClosestName(t *testing.T) {
 			"struct 'Point' has no field 'yy'; did you mean 'y'?"},
 		{"variant", "  c = Color.Gren\n  io.print(Debug.inspect(c))",
 			"type 'Color' has no member 'Gren'; did you mean 'Green'?"},
-		{"variant pattern", "  c = Color.Red\n  s = case c {\n    Color.Red -> \"r\"\n    Color.Gren -> \"g\"\n  }\n  io.print(s)",
+		{"variant pattern", "  c = Color.Red\n  s = case c\n    Color.Red -> \"r\"\n    Color.Gren -> \"g\"\n  end\n  io.print(s)",
 			"variant Gren not found in enum Color; did you mean 'Green'?"},
 		{"dot variant", "  c: Color = .Gren\n  io.print(Debug.inspect(c))",
 			"no variant 'Gren' on enum Color; did you mean 'Green'?"},
@@ -43,8 +43,8 @@ func TestUnknownNames_SuggestTheClosestName(t *testing.T) {
 			if tc.kind == "import item" {
 				imports += "import helper.{greett}\n"
 			}
-			src := imports + "\nstruct Point {\n  x: Int\n  y: Int\n}\n\nenum Color {\n  Red\n  Green\n}\n\n" +
-				"fn count_items(n: Int) -> Int {\n  n\n}\n\nfn main() {\n" + tc.body + "\n}\n"
+			src := imports + "\nstruct Point\n  x: Int\n  y: Int\nend\n\nenum Color\n  Red\n  Green\nend\n\n" +
+				"fn count_items(n: Int) -> Int\n  n\nend\n\nfn main()\n" + tc.body + "\nend\n"
 			for name, text := range map[string]string{"main.nomi": src, "helper.nomi": helper} {
 				if err := os.WriteFile(filepath.Join(dir, name), []byte(text), 0o644); err != nil {
 					t.Fatal(err)

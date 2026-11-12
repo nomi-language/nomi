@@ -1,6 +1,6 @@
 import isbn_verifier
 
-test "verifies ISBN-10 numbers" {
+test "verifies ISBN-10 numbers"
     [
         ("valid isbn", "3-598-21508-8", True),
         ("invalid isbn check digit", "3-598-21508-9", False),
@@ -24,7 +24,7 @@ test "verifies ISBN-10 numbers" {
         ("invalid characters are not ignored before checking length", "3598P215088", False),
         ("input is too long but contains a valid isbn", "98245726788", False),
     ]
-    |> subtests (description, isbn, expected), description {
+    |> subtests (description, isbn, expected), description
         assert isbn_verifier.is_valid(isbn) == expected
-    }
-}
+    end
+end

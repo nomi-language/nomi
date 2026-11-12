@@ -9,174 +9,174 @@
 // reaches its terminal through `hide`.
 import std::tasks.Task
 
-struct Ticks {
+struct Ticks
     n: Int
-}
+end
 
-impl Iter for Ticks {
-    fn each_while(t: Ticks, yield: (Int) -> Bool) -> Bool {
-        if yield(t.n) {
+impl Iter for Ticks
+    fn each_while(t: Ticks, yield: (Int) -> Bool) -> Bool
+        if yield(t.n) then
             each_while(Ticks{n: t.n + 1}, yield)
-        } else {
+        else
             False
-        }
-    }
+        end
+    end
 
-    fn is_infinite(_t: Ticks) -> Bool {
+    fn is_infinite(_t: Ticks) -> Bool
         True
-    }
-}
+    end
+end
 
 // hide hands its source back through a parameter, which the checker does
 // not follow, so each pipeline below reaches the runtime's trap rather than
 // the checker's error for the same pipeline.
-fn hide<T>(xs: Iter<T>) -> Iter<T> {
+fn hide<T>(xs: Iter<T>) -> Iter<T>
     xs
-}
+end
 
-fn collect(xs: Iter<Int>) -> List<Int> {
+fn collect(xs: Iter<Int>) -> List<Int>
     xs |> Iter.to_list()
-}
+end
 
-test "a user source that says it is infinite" {
+test "a user source that says it is infinite"
     assert Iter.is_infinite(Ticks{n: 0})
     assert Ticks.is_infinite(Ticks{n: 0})
     assert Ticks{n: 0} |> Iter.map(&(&1 * 2)) |> Iter.is_infinite()
     assert Ticks{n: 5} |> Iter.take(2) |> Iter.to_list() == [5, 6]
     assert Iter.find(Ticks{n: 0}, &(&1 > 3)) == Some(4)
-}
+end
 
-test "to_list of repeat" {
+test "to_list of repeat"
     assert hide(Iter.repeat(1)) |> Iter.to_list() == []
-}
+end
 
-test "to_list of from" {
+test "to_list of from"
     assert hide(Iter.from(0)) |> Iter.to_list() == []
-}
+end
 
-test "count of iterate" {
+test "count of iterate"
     assert hide(Iter.iterate(1, &(&1 * 2))) |> Iter.count() == 0
-}
+end
 
-test "to_set of a cycle" {
+test "to_set of a cycle"
     assert hide(
         [1, 2]
         |> Iter.cycle()
     )
-    |> Iter.to_set() == %[]
-}
+    |> Iter.to_set() == Set[]
+end
 
-test "to_list of an unbounded range" {
+test "to_list of an unbounded range"
     assert hide(Range.from(1)) |> Iter.to_list() == []
-}
+end
 
-test "count of naturals" {
+test "count of naturals"
     assert hide(Range.naturals()) |> Iter.count() == 0
-}
+end
 
-test "to_list of an unbounded step_by" {
+test "to_list of an unbounded step_by"
     assert hide(
         Range.from(1)
         |> Range.step_by(2)
     )
     |> Iter.to_list() == []
-}
+end
 
-test "to_list of a user source that says it is infinite" {
+test "to_list of a user source that says it is infinite"
     assert Ticks{n: 0} |> Iter.to_list() == []
-}
+end
 
-test "through a program function" {
+test "through a program function"
     assert collect(Iter.repeat(1)) == []
-}
+end
 
-test "reduce" {
+test "reduce"
     assert hide(Iter.repeat(1)) |> Iter.reduce(0, fn total, x -> total + x) == 0
-}
+end
 
-test "each" {
+test "each"
     hide(Iter.repeat(1)) |> Iter.each(fn _x -> Unit)
     assert False
-}
+end
 
-test "last" {
+test "last"
     assert hide(Iter.from(0)) |> Iter.last() == None
-}
+end
 
-test "sum" {
+test "sum"
     assert hide(Iter.from(0)) |> Iter.sum() == 0
-}
+end
 
-test "max" {
+test "max"
     assert hide(Iter.repeat(1)) |> Iter.max() == None
-}
+end
 
-test "min_by" {
+test "min_by"
     assert hide(Iter.repeat(1)) |> Iter.min_by(fn x -> x) == None
-}
+end
 
-test "frequencies" {
-    assert hide(Iter.from(0)) |> Iter.frequencies() == %{}
-}
+test "frequencies"
+    assert hide(Iter.from(0)) |> Iter.frequencies() == {}
+end
 
-test "sort" {
+test "sort"
     assert hide(Iter.from(0)) |> Iter.sort() == []
-}
+end
 
-test "sort_by" {
+test "sort_by"
     assert hide(Iter.from(0)) |> Iter.sort_by(fn x -> 0 - x) == []
-}
+end
 
-test "to_vector" {
-    assert hide(Iter.from(0)) |> Iter.to_vector() == #[]
-}
+test "to_vector"
+    assert hide(Iter.from(0)) |> Iter.to_vector() == Vector[]
+end
 
-test "to_map" {
-    assert hide(Iter.from(0)) |> Iter.map(fn x -> (x, x)) |> Iter.to_map() == %{}
-}
+test "to_map"
+    assert hide(Iter.from(0)) |> Iter.map(fn x -> (x, x)) |> Iter.to_map() == {}
+end
 
-test "partition" {
+test "partition"
     assert hide(Iter.from(0)) |> Iter.partition(fn x -> x > 1) == ([], [])
-}
+end
 
-test "group_by" {
-    assert hide(Iter.from(0)) |> Iter.group_by(fn x -> x % 2) == %{}
-}
+test "group_by"
+    assert hide(Iter.from(0)) |> Iter.group_by(fn x -> x % 2) == {}
+end
 
-test "reverse" {
+test "reverse"
     assert hide(Iter.from(0)) |> Iter.reverse() == []
-}
+end
 
-test "flatten" {
+test "flatten"
     assert hide(Iter.repeat([1])) |> Iter.flatten() == []
-}
+end
 
-test "map_reduce" {
+test "map_reduce"
     assert hide(Iter.from(0)) |> Iter.map_reduce(0, fn s, x -> (s + x, x)) == (0, [])
-}
+end
 
-test "String.join" {
+test "String.join"
     assert hide(Iter.repeat("a")) |> String.join(", ") == ""
-}
+end
 
-test "Maybe.values" {
+test "Maybe.values"
     assert hide(Iter.repeat(Maybe.Some(1))) |> Maybe.values() == []
-}
+end
 
-test "Result.partition" {
+test "Result.partition"
     ok: Result<Int, String> = Result.Ok(1)
     assert hide(Iter.repeat(ok)) |> Result.partition() == ([], [])
-}
+end
 
-test "Task.spawn_all" {
-    tasks = concurrent {
+test "Task.spawn_all"
+    tasks = concurrent
         hide(Iter.repeat(1)) |> Task.spawn_all(&(&1 * 2), max_running: 2) |> Task.await_all()
-    }
+    end
 
     assert tasks == []
-}
+end
 
-test "through adapters that keep it infinite" {
+test "through adapters that keep it infinite"
     assert hide(Iter.from(0))
     |> Iter.map(&(&1 * 2))
     |> Iter.filter(&(&1 > 3))
@@ -189,20 +189,20 @@ test "through adapters that keep it infinite" {
     |> Iter.chunk_by(&Iter.count(&1))
     |> Iter.flat_map(fn chunk -> chunk)
     |> Iter.to_list() == []
-}
+end
 
-test "zip of two infinite sources" {
+test "zip of two infinite sources"
     assert Iter.zip(hide(Iter.from(0)), hide(Iter.repeat("a"))) |> Iter.to_list() == []
-}
+end
 
-test "concat with an infinite source" {
+test "concat with an infinite source"
     assert Iter.concat([1, 2], hide(Iter.repeat(3))) |> Iter.to_list() == []
-}
+end
 
-test "sort_with" {
+test "sort_with"
     assert hide(Iter.from(0)) |> Iter.sort_with(&Int.compare(&1, &2)) == []
-}
+end
 
-test "to_list of an unbounded range from a negative start" {
+test "to_list of an unbounded range from a negative start"
     assert hide(Range.from(-1)) |> Iter.to_list() == []
-}
+end

@@ -33,38 +33,38 @@ func runSourceOutput(t *testing.T, src string) string {
 func TestGenericInstanceDebug_EachInstanceRendersThroughItsOwnBody(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-struct Box<T> {
+struct Box<T>
     v: T
-}
+end
 
-struct A {
+struct A
     n: Int
-}
+end
 
-struct B {
+struct B
     s: String
-}
+end
 
-enum Tree<T> {
+enum Tree<T>
     Leaf(T)
     Empty
-}
+end
 
-fn main() {
+fn main()
     io.inspect((Box{v: True}, Box{v: ""}))
     io.inspect([(Box{v: A{n: 1}}, Box{v: B{s: "x"}})])
     pair = (Box{v: A{n: 2}}, Box{v: B{s: "y"}})
     _ = dbg pair
     e: Tree<A> = Tree.Empty
     io.inspect((Tree.Leaf(1), Tree.Leaf("a"), e))
-    io.print(Debug.inspect(.{left: Box{v: 3}, right: Box{v: [B{s: "z"}]}}))
-}
+    io.print(Debug.inspect({left: Box{v: 3}, right: Box{v: [B{s: "z"}]}}))
+end
 `)
 	want := "(Box{v: True}, Box{v: \"\"})\n" +
 		"[(Box{v: A{n: 1}}, Box{v: B{s: \"x\"}})]\n" +
 		"dbg line 24: pair = (Box{v: A{n: 2}}, Box{v: B{s: \"y\"}})\n" +
 		"(Leaf(1), Leaf(\"a\"), Empty)\n" +
-		".{left: Box{v: 3}, right: Box{v: [B{s: \"z\"}]}}\n"
+		"{left: Box{v: 3}, right: Box{v: [B{s: \"z\"}]}}\n"
 	if got != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", got, want)
 	}

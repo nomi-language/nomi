@@ -262,6 +262,13 @@ func (r *refactorRequest) span(n ast.Node) (int, int, bool) {
 		step(r.tokens[k])
 	}
 	end := r.tokenEnd(k)
+	// A body closed by `end` holds no child at its `end`: the parser's
+	// span, when it recorded one, runs through it.
+	if hs, ok := n.(ast.HasSpan); ok && !hs.GetSpan().IsZero() {
+		if e := posToOffset(r.offs, hs.GetSpan().EndLine, hs.GetSpan().EndCol); e > end && e <= len(r.content) {
+			end = e
+		}
+	}
 	r.spans[n] = [2]int{first, end}
 	return first, end, first < end
 }

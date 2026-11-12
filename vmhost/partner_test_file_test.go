@@ -9,24 +9,24 @@ import (
 
 // shapesSource declares a private function, type and enum, and an opaque
 // type, for the partner-test visibility tests.
-const shapesSource = `enum Kind {
+const shapesSource = `enum Kind
     Round
     Square
-}
+end
 
-struct Shape {
+struct Shape
     kind: Kind
     size: Int
-}
+end
 
 pub opaque type Area Int
 
-fn area(shape: Shape) -> Area {
-    case shape.kind {
+fn area(shape: Shape) -> Area
+    case shape.kind
         .Round -> Area(shape.size * 3)
         .Square -> Area(shape.size)
-    }
-}
+    end
+end
 `
 
 // partnerProject writes shapes.nomi and the files given into a fresh
@@ -45,10 +45,10 @@ func partnerProject(t *testing.T, entry string, files map[string]string) error {
 
 const readsPrivate = `import shapes.{Area, Kind, Shape, area}
 
-test "reads" {
+test "reads"
     Area(n) = area(Shape{kind: Kind.Square, size: 2})
     assert n == 2
-}
+end
 `
 
 // shapes_test.nomi, the partner test of shapes.nomi, imports and uses its
@@ -83,7 +83,7 @@ func TestPartnerTestFile_NoOtherFileReadsPrivateDeclarations(t *testing.T) {
 func TestPartnerTestFile_DoesNotReexport(t *testing.T) {
 	files := map[string]string{
 		"shapes_test.nomi": readsPrivate,
-		"user.nomi":        "import shapes_test.{area}\n\nfn main() {}\n",
+		"user.nomi":        "import shapes_test.{area}\n\nfn main() end\n",
 	}
 	if err := partnerProject(t, "user.nomi", files); err == nil {
 		t.Fatal("a file reaches shapes.nomi's private area through its partner test")

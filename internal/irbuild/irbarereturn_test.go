@@ -5,52 +5,55 @@ import "testing"
 func TestIRBareReturn_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"named sequential guards", `import std::io
-fn check(n: Int) -> Bool { io.print("check") n > 0 }
-fn visit(n: Int) {
-  if n < 0 {
+fn check(n: Int) -> Bool
+    io.print("check")
+    n > 0
+end
+fn visit(n: Int)
+  if n < 0 then
     message = "negative"
     io.print(message)
     return
-  }
+  end
 
-  if n > 0 and check(n) { return }
+  if n > 0 and check(n) then return
   io.print("zero")
-}
-fn main() {
+end
+fn main()
   visit(-1)
   visit(0)
   visit(1)
   io.print("done")
-}`, "negative\nzero\ncheck\ndone\n"},
+end`, "negative\nzero\ncheck\ndone\n"},
 		{"captured lambda activation", `import std::io
-fn main() {
+fn main()
   message = "tail"
-  visit = fn stop: Bool -> {
-    if stop {
+  visit = fn stop: Bool ->
+    if stop then
       io.print("early")
       return
-    }
+    end
 
     io.print(message)
-  }
+  end
   visit(True)
   visit(False)
   io.print("main")
-}`, "early\ntail\nmain\n"},
+end`, "early\ntail\nmain\n"},
 		{"nested lambda activation", `import std::io
-fn main() {
-  outer = fn stop: Bool -> {
-    inner = fn -> {
-      if stop { return }
+fn main()
+  outer = fn stop: Bool ->
+    inner = fn ->
+      if stop then return
       io.print("inner")
-    }
+    end
     inner()
     io.print("outer")
-  }
+  end
   outer(True)
   outer(False)
   io.print("main")
-}`, "outer\ninner\nouter\nmain\n"},
+end`, "outer\ninner\nouter\nmain\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}

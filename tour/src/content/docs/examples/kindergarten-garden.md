@@ -15,29 +15,29 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# diagram of the cups on the windowsill.
 
 /// A plant grown in the class's garden.
-pub enum Plant {
+pub enum Plant
     Grass
     Clover
     Radishes
     Violets
-}
+end
 
-impl Plant {
+impl Plant
     /// The plant a diagram writes as `letter`, or `None` for a letter that
     /// names no plant.
-    pub fn from_letter(letter: String) -> Maybe<Plant> {
-        case letter {
+    pub fn from_letter(letter: String) -> Maybe<Plant>
+        case letter
             "G" -> Some(.Grass)
             "C" -> Some(.Clover)
             "R" -> Some(.Radishes)
             "V" -> Some(.Violets)
             _ -> None
-        }
-    }
-}
+        end
+    end
+end
 
 /// A child of the class, in the alphabetical order cups are handed out.
-pub enum Student {
+pub enum Student
     Alice
     Bob
     Charlie
@@ -50,59 +50,59 @@ pub enum Student {
     Joseph
     Kincaid
     Larry
-}
+end
 
 derive Variants for Student
 
 /// Two rows of cups, the row nearest the window first.
-pub opaque struct Garden {
+pub opaque struct Garden
     rows: List<List<Plant>>
-}
+end
 
-impl Garden {
+impl Garden
     /// Reads a diagram of one line per row of cups, or `None` when a letter
     /// names no plant.
-    pub fn parse(diagram: String) -> Maybe<Garden> {
+    pub fn parse(diagram: String) -> Maybe<Garden>
         rows =
             diagram
             |> String.lines()
             |> Iter.map(parse_row)
             |> Maybe.collect()?
 
-        Some(.{rows})
-    }
+        Some({rows:})
+    end
 
     /// The plants in `student`'s cups: two in each row, left to right, the
     /// row nearest the window first.
-    pub fn plants(garden: Garden, student: Student) -> List<Plant> {
+    pub fn plants(garden: Garden, student: Student) -> List<Plant>
         first_cup = 2 * position(student)
 
         garden.rows
         |> Iter.flat_map(fn row -> row |> Iter.drop(first_cup) |> Iter.take(2))
         |> Iter.to_list()
-    }
-}
+    end
+end
 
-fn parse_row(row: String) -> Maybe<List<Plant>> {
+fn parse_row(row: String) -> Maybe<List<Plant>>
     row
     |> Iter.map(Plant.from_letter)
     |> Maybe.collect()
-}
+end
 
 /// How many students come before `student` in the class. Every student is
 /// in `Student.variants()`, so the search cannot miss.
-fn position(student: Student) -> Int {
-    Some(i) = Student.variants() |> Iter.find_index(&(&1 == student)) else {
+fn position(student: Student) -> Int
+    Some(i) = Student.variants() |> Iter.find_index(&(&1 == student)) else
         unreachable "every student is listed"
-    }
+    end
     i
-}
+end
 
 // FILE: kindergarten_garden_test.nomi
 import kindergarten_garden.{Garden, Plant, Student}
 
-group "partial garden" {
-    test "plants" {
+group "partial garden"
+    test "plants"
         [
             (
                 "garden with single student",
@@ -123,27 +123,27 @@ group "partial garden" {
                 [.Clover, .Grass, .Radishes, .Clover],
             ),
         ]
-        |> subtests (description, diagram, student, expected), description {
+        |> subtests (description, diagram, student, expected), description
             assert Some(garden) = Garden.parse(diagram)
 
             assert Garden.plants(garden, student) == expected
-        }
-    }
+        end
+    end
 
-    test "multiple students for the same garden with three students" {
+    test "multiple students for the same garden with three students"
         garden = Garden.parse("VVCCGG\nVVCCGG")?
 
         [
             ("second student's garden", Student.Bob, [Plant.Clover, .Clover, .Clover, .Clover]),
             ("third student's garden", .Charlie, [.Grass, .Grass, .Grass, .Grass]),
         ]
-        |> subtests (description, student, expected), description {
+        |> subtests (description, student, expected), description
             assert Garden.plants(garden, student) == expected
-        }
-    }
-}
+        end
+    end
+end
 
-test "full garden" {
+test "full garden"
     garden = Garden.parse("VRCGVVRVCGGCCGVRGCVCGCGV\nVRCCCGCRRGVCGCRVVCVGCGCV")?
 
     [
@@ -168,14 +168,14 @@ test "full garden" {
         ),
         ("for Larry, last student's garden", .Larry, [.Grass, .Violets, .Clover, .Violets]),
     ]
-    |> subtests (description, student, expected), description {
+    |> subtests (description, student, expected), description
         assert Garden.plants(garden, student) == expected
-    }
-}
+    end
+end
 
-test "a letter that names no plant" {
+test "a letter that names no plant"
     assert Garden.parse("VX\nRC") == None
-}
+end
 ```
 <!-- expect
 ok partial garden / plants (3 cases)
@@ -188,7 +188,7 @@ test result: ok. 18 passed, 0 failed
 ## How it's written
 
 - Plants and students are enums. The class is fixed at twelve named children, so asking for a child who is not in it cannot be written, and `Garden.plants` needs no error.
-- The diagram is parsed once into an opaque `Garden` by `Garden.parse`, which returns `None` for a letter that names no plant: `Maybe.collect()?` over the rows, then `Some(.{rows})`. A diagram is data, so a bad one is an answer rather than a trap. The canonical data has no bad diagram; the test file adds one, marked as not canonical.
+- The diagram is parsed once into an opaque `Garden` by `Garden.parse`, which returns `None` for a letter that names no plant: `Maybe.collect()?` over the rows, then `Some({rows:})`. A diagram is data, so a bad one is an answer rather than a trap. The canonical data has no bad diagram; the test file adds one, marked as not canonical.
 - A student's position is their index in `derive Variants`' list (`Iter.find_index`), so the alphabetical order lives only in the enum's declaration. Every student is in that list, so the search cannot miss: its `None` is `unreachable "every student is listed"` (style §29), a trap if the enum and the list ever disagree, rather than a default that would answer a wrong position.
 - `Garden.plants` takes two cups from each row with `Iter.drop` and `Iter.take` under one `Iter.flat_map`.
 - "partial garden" is a `group` of its two tests, the nested canonical group "multiple students for the same garden with three students" among them, since groups do not nest; "full garden" is a plain test. Where every row shares a diagram, the test parses it once with `?` before the table; where rows bring their own, the row parses it with `assert Some(garden) = ...`, since `?` cannot be used in a `subtests` body.

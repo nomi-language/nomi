@@ -1,73 +1,73 @@
-struct Feed {
+struct Feed
     name: String
     items: Iter<Int>
-}
+end
 
-impl Equatable for Feed {
-    fn equal(a: Feed, b: Feed) -> Bool {
+impl Equatable for Feed
+    fn equal(a: Feed, b: Feed) -> Bool
         a.name == b.name
-    }
-}
+    end
+end
 
-enum Source {
+enum Source
     Lazy Iter<Int>
     Empty
-}
+end
 
-struct Countdown {
+struct Countdown
     from: Int
-}
+end
 
-impl Iter for Countdown {
-    fn each_while(c: Countdown, yield: (Int) -> Bool) -> Bool {
-        if c.from == 0 {
+impl Iter for Countdown
+    fn each_while(c: Countdown, yield: (Int) -> Bool) -> Bool
+        if c.from == 0 then
             True
-        } else if yield(c.from) {
+        else if yield(c.from) then
             each_while(Countdown{from: c.from - 1}, yield)
-        } else {
+        else
             False
-        }
-    }
-}
+        end
+    end
+end
 
-fn total(xs: Iter<Int>) -> Int {
+fn total(xs: Iter<Int>) -> Int
     Iter.sum(xs)
-}
+end
 
-fn doubled(xs: List<Int>) -> Iter<Int> {
+fn doubled(xs: List<Int>) -> Iter<Int>
     xs |> Iter.map(&(&1 * 2))
-}
+end
 
-fn evens() -> Iter<Int> {
+fn evens() -> Iter<Int>
     [2, 4, 6]
-}
+end
 
-fn first_of<T>(xs: Iter<T>) -> Maybe<T> {
+fn first_of<T>(xs: Iter<T>) -> Maybe<T>
     Iter.first(xs)
-}
+end
 
-test "an Iter is a struct field" {
+test "an Iter is a struct field"
     feed = Feed{name: "odds", items: [1, 3, 5] |> Iter.map(&(&1 + 1))}
 
     assert Iter.to_list(feed.items) == [2, 4, 6]
-}
+end
 
-test "a struct field takes any source" {
+test "a struct field takes any source"
     feed = Feed{name: "list", items: [1, 2]}
 
     assert total(feed.items) == 3
-}
+end
 
-test "an Iter is a tuple part and a record field" {
+test "an Iter is a tuple part and a record field"
     pair = (1, [1, 2] |> Iter.map(&(&1 * 10)))
     (_, tens) = pair
-    record = .{label: "r", items: [3] |> Iter.map(&(&1 + 1))}
+    record = {label: "r", items: [3] |> Iter.map(&(&1 + 1))}
 
     assert Iter.to_list(tens) == [10, 20]
     assert Iter.to_list(record.items) == [4]
-}
+end
 
-test "an Iter is a Some and an Ok payload" {
+test "an Iter is a Some and an Ok payload"
     bumped = [1, 2] |> Iter.map(&(&1 + 1))
 
     found = Some(bumped)
@@ -75,77 +75,77 @@ test "an Iter is a Some and an Ok payload" {
 
     assert found |> Maybe.map(fn it -> Iter.to_list(it)) == Some([2, 3])
     assert checked |> Result.map(fn it -> Iter.count(it)) == Ok(2)
-}
+end
 
-test "an Iter is an enum payload" {
+test "an Iter is an enum payload"
     large = [4, 5] |> Iter.filter(&(&1 > 4))
 
     source = Source.Lazy(large)
 
-    case source {
+    case source
         .Lazy(it) -> assert Iter.to_list(it) == [5]
         .Empty -> assert False
-    }
-}
+    end
+end
 
-test "an Iter is a parameter and a return type" {
+test "an Iter is a parameter and a return type"
     rest = ["a", "b"] |> Iter.drop(1)
 
     assert total(doubled([1, 2, 3])) == 12
     assert Iter.to_list(evens()) == [2, 4, 6]
     assert first_of(rest) == Some("b")
-}
+end
 
-test "a list holds Iters" {
+test "a list holds Iters"
     streams: List<Iter<Int>> = [[1] |> Iter.map(&(&1 * 3)), [4, 5]]
 
     assert streams |> Iter.flat_map(fn s -> s) |> Iter.to_list() == [3, 4, 5]
-}
+end
 
-test "a closure captures an Iter" {
+test "a closure captures an Iter"
     squares = [1, 2, 3] |> Iter.map(fn x -> x * x)
 
     sum_squares = fn -> total(squares)
 
     assert sum_squares() == 14
-}
+end
 
-test "a lambda parameter is an Iter" {
+test "a lambda parameter is an Iter"
     size = fn xs: Iter<Int> -> Iter.count(xs)
 
     assert size([1, 2, 3]) == 3
-}
+end
 
-test "every source enters an Iter parameter" {
-    v: Vector<Int> = #[1, 2]
+test "every source enters an Iter parameter"
+    v: Vector<Int> = [1, 2]
 
     assert total([1, 2]) == 3
     assert total([]) == 0
     assert total(1..4) == 6
-    assert total(%[5, 6]) == 11
+    assert total(Set[5, 6]) == 11
     assert total(v) == 3
     assert total(Countdown{from: 3}) == 6
-}
+end
 
-test "storing an Iter does not consume it" {
+test "storing an Iter does not consume it"
     feed = Feed{name: "twice", items: [1, 2] |> Iter.map(&(&1 * 5))}
 
     assert Iter.to_list(feed.items) == [5, 10]
     assert Iter.to_list(feed.items) == [5, 10]
-}
+end
 
-test "an Iter over a source keeps the source's count" {
+test "an Iter over a source keeps the source's count"
     known = fn xs: Iter<Int> -> Iter.known_count(xs)
     mapped = [1, 2] |> Iter.map(fn x -> x)
 
     assert known([1, 2, 3]) == Some(3)
     assert known(1..4) == Some(3)
-    assert known(%[1, 2]) == Some(2)
+    assert known(Set[1, 2]) == Some(2)
     assert known(Countdown{from: 2}) == None
     assert known(mapped) == None
-}
+end
 
-test "an Iter over a collection inspects as the collection" {
+test "an Iter over a collection inspects as the collection"
     shown = fn xs: Iter<Int> -> Debug.inspect(xs)
     mapped = [1, 2] |> Iter.map(fn x -> x)
 
@@ -154,11 +154,11 @@ test "an Iter over a collection inspects as the collection" {
     assert shown([1, 2]) == "[1, 2]"
     assert shown(mapped) == "<iter>"
     assert Debug.inspect(feed) == "Feed{name: \"f\", items: <iter>}"
-}
+end
 
-test "a struct holding an Iter compares through its own Equatable" {
+test "a struct holding an Iter compares through its own Equatable"
     a = Feed{name: "same", items: [1]}
     b = Feed{name: "same", items: [2, 3]}
 
     assert a == b
-}
+end

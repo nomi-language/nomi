@@ -1,16 +1,16 @@
-fn make_adder(n: Int) -> (Int) -> Int {
+fn make_adder(n: Int) -> (Int) -> Int
     fn x -> n + x
-}
+end
 
-fn apply(f: (Int) -> Int, x: Int) -> Int {
+fn apply(f: (Int) -> Int, x: Int) -> Int
     f(x)
-}
+end
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-test "closures capture values and lambdas infer local parameter types" {
+test "closures capture values and lambdas infer local parameter types"
     add5 = make_adder(5)
     square = fn n: Int -> n * n
     greet = fn name = "world" -> "hello, " + name + "!"
@@ -19,9 +19,9 @@ test "closures capture values and lambdas infer local parameter types" {
     assert square(7) == 49
     assert greet("nomi") == "hello, nomi!"
     assert apply(double, 7) == 14
-}
+end
 
-test "lambdas compose through iterator pipelines" {
+test "lambdas compose through iterator pipelines"
     doubled =
         [1, 2, 3]
         |> Iter.map(fn x -> x * 2)
@@ -40,32 +40,32 @@ test "lambdas compose through iterator pipelines" {
     assert doubled == [2, 4, 6]
     assert large == [4, 5]
     assert incremented == [11, 21, 31]
-}
+end
 
-test "lambda defaults drive parameter inference" {
-    square = Iter.loop(5, fn n -> {
-        if n == 0 {
+test "lambda defaults drive parameter inference"
+    square = Iter.loop(5, fn n ->
+        if n == 0 then
             break 0
-        } else {
+        else
             n - 1
-        }
-    })
+        end
+    end)
 
     any_pos =
         [-1, -2, 3, -4]
-        |> Iter.reduce(False, fn _seen, x -> {
-            if x > 0 {
+        |> Iter.reduce(False, fn _seen, x ->
+            if x > 0 then
                 break True
-            } else {
+            else
                 False
-            }
-        })
+            end
+        end)
 
-    fib = Iter.loop((0, 1), fn state -> {
+    fib = Iter.loop((0, 1), fn state ->
         (a, b) = state
-        if b > 50 { break state }
+        if b > 50 then break state
         (b, a + b)
-    })
+    end)
 
     squares =
         [1, 2, 3]
@@ -74,33 +74,33 @@ test "lambda defaults drive parameter inference" {
 
     found =
         [1, 2, 3, 4]
-        |> Iter.reduce(None, fn acc, x -> {
-            case acc {
+        |> Iter.reduce(None, fn acc, x ->
+            case acc
                 Some(v) -> Some(v)
-                None -> if x == 3 { Some(x) } else { None }
-            }
-        })
+                None -> if x == 3 then Some(x) else None
+            end
+        end)
 
-    taken = Iter.reduce([10, 20, 30, 40], (0, []), fn state, x -> {
+    taken = Iter.reduce([10, 20, 30, 40], (0, []), fn state, x ->
         (count, acc) = state
 
-        if count >= 2 {
+        if count >= 2 then
             break (count, acc)
-        } else {
+        else
             (count + 1, [x, ..acc])
-        }
-    })
+        end
+    end)
 
     (_, kept) = taken
 
     counts =
         [("a", 1), ("b", 2), ("a", 3)]
-        |> Iter.reduce(%{}, fn acc, (k, v) -> {
-            case Map.get(acc, k) {
+        |> Iter.reduce({}, fn acc, (k, v) ->
+            case Map.get(acc, k)
                 Some(prev) -> Map.put(acc, k, prev + v)
                 None -> Map.put(acc, k, v)
-            }
-        })
+            end
+        end)
 
     assert square == 0
     assert any_pos
@@ -110,9 +110,9 @@ test "lambda defaults drive parameter inference" {
     assert Iter.reverse(kept) == [10, 20]
     assert Map.get(counts, "a") == Some(4)
     assert Map.get(counts, "b") == Some(2)
-}
+end
 
-test "one element's annotation types the lambdas beside it in a literal" {
+test "one element's annotation types the lambdas beside it in a literal"
     tokens = [
         ("double", fn n -> n * 2),
         ("negate", fn n: Int -> 0 - n),
@@ -124,7 +124,7 @@ test "one element's annotation types the lambdas beside it in a literal" {
     applied = Iter.map(tokens, fn (name, f) -> (name, f(5))) |> Iter.to_list()
     square = Iter.find(tokens, fn (name, _) -> name == "square")
 
-    by_name = %{"inc" => fn n -> n + 1, "dec" => fn n: Int -> n - 1}
+    by_name = {"inc" => fn n -> n + 1, "dec" => fn n: Int -> n - 1}
 
     assert applied == [
         ("double", 10),
@@ -136,4 +136,4 @@ test "one element's annotation types the lambdas beside it in a literal" {
 
     assert Maybe.map(square, fn (_, f) -> f(7)) == Some(49)
     assert Maybe.map(Map.get(by_name, "inc"), fn f -> f(1)) == Some(2)
-}
+end

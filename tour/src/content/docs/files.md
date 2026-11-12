@@ -16,19 +16,19 @@ program starts with, so you can edit `todo.txt` below and run it again:
 
 ```nomi-run
 // FILE: main.nomi
-import {
+import
     std::fs
     std::io
-}
+end
 
-fn main() -> Result<Unit, io.Error> {
+fn main() -> Result<Unit, io.Error>
     fs.write_text("todo.txt", "milk\n", mode: .Append)?
     io.write(fs.read_text("todo.txt")?)
 
     fs.write_text("done.txt", "nothing yet\n")?
     io.write(fs.read_text("done.txt")?)
     Ok(Unit)
-}
+end
 
 // FILE: todo.txt
 bread
@@ -51,23 +51,23 @@ name the path they are about. A program branches on the ones it expects,
 and its `Display` text names the path and the problem for the rest:
 
 ```nomi-run
-import {
+import
     std::fs
     std::io
-}
+end
 
-fn main() {
-    case fs.read_text("settings.toml") {
+fn main()
+    case fs.read_text("settings.toml")
         Ok(text) -> io.print(text)
-        Err(io.Error.NotFound{path}) -> io.print("no ${path}, so the defaults")
+        Err(io.Error.NotFound{path:}) -> io.print("no ${path}, so the defaults")
         Err(e) -> io.eprint("cannot read the settings: ${e}")
-    }
+    end
 
-    case fs.write_text("logs/today.txt", "started\n") {
+    case fs.write_text("logs/today.txt", "started\n")
         Ok(_) -> io.print("written")
         Err(e) -> io.print(e)
-    }
-}
+    end
+end
 ```
 <!-- expect
 no settings.toml, so the defaults
@@ -105,29 +105,29 @@ returns a `Result`, and stops at the first `Err`:
 
 ```nomi-run
 // FILE: main.nomi
-import {
+import
     std::fs
     std::io
-}
+end
 
-fn count_errors(path: String) -> Result<Int, io.Error> {
+fn count_errors(path: String) -> Result<Int, io.Error>
     fs.lines(path)
-    |> Iter.try_reduce(0, fn count, line -> {
-        if String.starts_with(line?, "ERROR") {
+    |> Iter.try_reduce(0, fn count, line ->
+        if String.starts_with(line?, "ERROR") then
             Ok(count + 1)
-        } else {
+        else
             Ok(count)
-        }
-    })
-}
+        end
+    end)
+end
 
-fn main() -> Result<Unit, io.Error> {
+fn main() -> Result<Unit, io.Error>
     lines = Result.collect(fs.lines("server.log"))?
     io.print("${Iter.count(lines)} lines")
     io.print("${count_errors("server.log")?} errors")
     io.print(Iter.first(fs.lines("server.log")))
     Ok(Unit)
-}
+end
 
 // FILE: server.log
 INFO started
@@ -158,12 +158,12 @@ reader into a writer:
 
 ```nomi-run
 // FILE: main.nomi
-import {
+import
     std::fs
     std::io.{self, Reader, Writer}
-}
+end
 
-fn prepend_header(input: String, output: String) -> Result<Int, io.Error> {
+fn prepend_header(input: String, output: String) -> Result<Int, io.Error>
     r = fs.open(input)?
     defer Reader.close_quietly(r)
 
@@ -174,14 +174,14 @@ fn prepend_header(input: String, output: String) -> Result<Int, io.Error> {
     copied = Reader.copy_to(r, w)?
     Writer.close(w)?
     Ok(copied)
-}
+end
 
-fn main() -> Result<Unit, io.Error> {
+fn main() -> Result<Unit, io.Error>
     copied = prepend_header("prices.csv", "with-header.csv")?
     io.print("copied ${copied} bytes")
     io.write(fs.read_text("with-header.csv")?)
     Ok(Unit)
-}
+end
 
 // FILE: prices.csv
 apple,3
@@ -228,16 +228,16 @@ standard input:
 ```nomi-run
 import std::io.{self, Reader}
 
-fn count_lines(r: Reader) -> Result<Int, io.Error> {
+fn count_lines(r: Reader) -> Result<Int, io.Error>
     lines = Reader.lines(r) |> Result.collect()?
     Ok(Iter.count(lines))
-}
+end
 
-fn main() {
+fn main()
     run = io.capture("one\ntwo\nthree\n", fn -> count_lines(io.stdin))
     io.print(run.value)
     io.print(count_lines(Reader.from_text("a\nb")))
-}
+end
 ```
 <!-- expect
 Ok(3)
@@ -275,13 +275,13 @@ and takes them apart. It only reads the text, so it never fails:
 
 ```nomi-run read-only:photos/*
 // FILE: main.nomi
-import {
+import
     std::fs
     std::io
     std::path
-}
+end
 
-fn main() -> Result<Unit, io.Error> {
+fn main() -> Result<Unit, io.Error>
     fs.create_dir("photos/2026/summer", parents: True)?
     fs.write_text(path.join("photos/2026", "notes.txt"), "trip\n")?
 
@@ -293,7 +293,7 @@ fn main() -> Result<Unit, io.Error> {
     io.print(path.clean("photos/2026/../alps.jpg"))
     io.print(fs.exists("photos/2026/notes.txt")?)
     Ok(Unit)
-}
+end
 
 // FILE: photos/beach.jpg
 
@@ -323,18 +323,18 @@ directories:
 
 ```nomi-run read-only:notes/* read-only:notes/2026/*
 // FILE: main.nomi
-import {
+import
     std::fs
     std::io
-}
+end
 
-fn main() -> Result<Unit, io.Error> {
+fn main() -> Result<Unit, io.Error>
     entries = Result.collect(fs.walk("notes"))?
     Iter.each(entries, fn e -> io.print("${e.path} ${Debug.inspect(e.kind)}"))
 
     io.print(fs.glob("notes/**/*.md")?)
     Ok(Unit)
-}
+end
 
 // FILE: notes/todo.md
 milk
@@ -368,19 +368,19 @@ through a symlink, is an error instead of a file:
 
 ```nomi-run read-only:private.txt
 // FILE: main.nomi
-import {
+import
     std::fs
     std::io
-}
+end
 
-fn page(name: String) -> Result<String, io.Error> {
+fn page(name: String) -> Result<String, io.Error>
     fs.within("site", fn -> fs.read_text(name)) |> Result.map(String.trim)
-}
+end
 
-fn main() {
+fn main()
     io.print(page("index.txt"))
     io.print(page("../private.txt"))
-}
+end
 
 // FILE: site/index.txt
 home
@@ -404,32 +404,32 @@ sandbox: a file system in memory, made from the files you give it.
 `fs_testing.run` returns the function's result and every file afterwards:
 
 ```nomi-run
-import {
+import
     std::fs
     std::fs_testing.{self, Failure, Sandbox}
     std::io
-}
+end
 
-fn sort_file(input: String, output: String) -> Result<Int, io.Error> {
+fn sort_file(input: String, output: String) -> Result<Int, io.Error>
     lines = Result.collect(fs.lines(input))?
     sorted = Iter.sort(lines)
     fs.write_text(output, String.join(sorted, "\n") + "\n", mode: .ReplaceAtomically)?
     Ok(Iter.count(sorted))
-}
+end
 
-test "sorts the lines into the output file" {
-    ran = fs_testing.run(Sandbox{files: %{"in.txt" => "pear\napple\n"}}, fn -> {
+test "sorts the lines into the output file"
+    ran = fs_testing.run(Sandbox{files: {"in.txt" => "pear\napple\n"}}, fn ->
         sort_file("in.txt", "out.txt")
-    })
+    end)
 
     assert ran.value == Ok(2)
     assert fs_testing.text(ran, "/work/out.txt") == Some("apple\npear\n")
     assert ran.open == []
-}
+end
 
-test "a full disk leaves the old output in place" {
+test "a full disk leaves the old output in place"
     sandbox = Sandbox{
-        files: %{"in.txt" => "b\na\n", "out.txt" => "old\n"},
+        files: {"in.txt" => "b\na\n", "out.txt" => "old\n"},
         failures: [
             Failure{path: "out.txt", operation: .Write, error: io.Error.NoSpace{path: "out.txt"}},
         ],
@@ -439,7 +439,7 @@ test "a full disk leaves the old output in place" {
 
     assert ran.value == Err(io.Error.NoSpace{path: "out.txt"})
     assert fs_testing.text(ran, "/work/out.txt") == Some("old\n")
-}
+end
 ```
 <!-- expect
 ok sorts the lines into the output file

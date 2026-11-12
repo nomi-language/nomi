@@ -14,34 +14,34 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# How two lists relate: equal, one inside the other, or neither.
 
 /// How the first list relates to the second.
-pub enum Relation {
+pub enum Relation
     Equal
     Sublist
     Superlist
     Unequal
-}
+end
 
 /// How `first` relates to `second`. One list is inside another when its
 /// elements appear there in order and next to each other.
-pub fn sublist<T>(first: List<T>, second: List<T>) -> Relation where T: Equatable {
-    case {
+pub fn sublist<T>(first: List<T>, second: List<T>) -> Relation where T: Equatable
+    case
         first == second -> .Equal
         contains_run(second, first) -> .Sublist
         contains_run(first, second) -> .Superlist
         _ -> .Unequal
-    }
-}
+    end
+end
 
 /// Whether `run` appears in `list` with its elements next to each other.
 /// Every list holds the empty run; `Iter.windows` of size 0 yields nothing.
-fn contains_run<T>(list: List<T>, run: List<T>) -> Bool where T: Equatable {
+fn contains_run<T>(list: List<T>, run: List<T>) -> Bool where T: Equatable
     Iter.is_empty(run) or Iter.windows(list, Iter.count(run)) |> Iter.any_match(&(&1 == run))
-}
+end
 
 // FILE: sublist_test.nomi
 import sublist.{self, Relation}
 
-test "sublist" {
+test "sublist"
     [
         ("empty lists", [], [], Relation.Equal),
         ("empty list within non empty list", [], [1, 2, 3], .Sublist),
@@ -62,10 +62,10 @@ test "sublist" {
         ("order matters to a list", [1, 2, 3], [3, 2, 1], .Unequal),
         ("same digits but different numbers", [1, 0, 1], [10, 1], .Unequal),
     ]
-    |> subtests (description, first, second, expected), description {
+    |> subtests (description, first, second, expected), description
         assert sublist.sublist(first, second) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok sublist (18 cases)

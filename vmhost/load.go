@@ -218,11 +218,24 @@ func hostKeys(tables []HostTable) (map[string]bool, error) {
 	return keys, nil
 }
 
-// lowering serializes lower, loadStdlib and a Session's CheckFile, whose
-// session files a lowering reads. A lowering's decline hooks are its own
+// lowering serializes lower, loadStdlib, a Session's CheckFile, whose
+// session files a lowering reads, and a check of a stdlib module's source
+// (checkStdlibSource). A lowering's decline hooks are its own
 // (irbuild.Program.Declines), so the lowerings that do not take it, a
 // relink and a relowering of an analyzed file, run beside these safely.
 var lowering sync.Mutex
+
+// checkStdlibSource checks src as the stdlib module named module
+// (frontend.Checker.CheckStdlibSource) under the lowering lock. The check
+// reads the shared stdlib's analyses, which a lowering on another goroutine
+// writes when it checks a module's bodies (std.StdLib.Bodies), so an
+// embedder that checks a std file while it loads a program needs the two
+// serialized, as a lowering and a Session's CheckFile are.
+func checkStdlibSource(fc frontend.Config, module, src string, mode frontend.Mode) ([]ast.Node, *analysis.FileAnalysis, error) {
+	lowering.Lock()
+	defer lowering.Unlock()
+	return frontend.New(fc).CheckStdlibSource(module, src, mode)
+}
 
 // loweringStopped is the error of c's lowering context once it is done, or
 // nil.
@@ -417,7 +430,7 @@ func Check(path string, opts ...Option) error {
 			return err
 		}
 		fc.ProjectRoot = root
-		if _, _, err = frontend.New(fc).CheckStdlibSource(module, string(data), mode); err != nil || !hasTests {
+		if _, _, err = checkStdlibSource(fc, module, string(data), mode); err != nil || !hasTests {
 			return err
 		}
 		// The module's `//!` cases are lowered as `nomi test` lowers them.
@@ -476,7 +489,7 @@ func LoadStdlib(path string) (*Program, error) {
 		}
 		return loadStdlib(module, nil, nil, irbuild.GenerateStdlibTestIR)
 	}
-	nodes, fa, err := frontend.New(frontend.Config{}).CheckStdlibSource(module, string(src), frontend.Mode{Tests: true})
+	nodes, fa, err := checkStdlibSource(frontend.Config{}, module, string(src), frontend.Mode{Tests: true})
 	if err != nil {
 		return nil, err
 	}
@@ -487,7 +500,7 @@ func LoadStdlib(path string) (*Program, error) {
 // tour's reference editors append one `test` to the module and run it. The
 // source is checked as `nomi test` checks a stdlib file.
 func LoadStdlibSource(module, src string) (*Program, error) {
-	nodes, fa, err := frontend.New(frontend.Config{}).CheckStdlibSource(module, src, frontend.Mode{Tests: true})
+	nodes, fa, err := checkStdlibSource(frontend.Config{}, module, src, frontend.Mode{Tests: true})
 	if err != nil {
 		return nil, err
 	}
@@ -568,7 +581,7 @@ func ReferenceTestSource(src, body, context string) (string, int) {
 	line := strings.Count(prefix, "\n") + 1
 	var b strings.Builder
 	b.WriteString(prefix)
-	b.WriteString("test \"reference\" {\n")
+	b.WriteString("test \"reference\"\n")
 	if context = strings.TrimSpace(context); context != "" {
 		b.WriteString(indentLines(context, "  "))
 		b.WriteByte('\n')
@@ -577,7 +590,7 @@ func ReferenceTestSource(src, body, context string) (string, int) {
 	if body != "" && !strings.HasSuffix(body, "\n") {
 		b.WriteByte('\n')
 	}
-	b.WriteString("}\n")
+	b.WriteString("end\n")
 	return b.String(), line
 }
 
@@ -626,7 +639,7 @@ func loadStdlib(module string, nodes []ast.Node, fa *analysis.FileAnalysis,
 // longer under wasm — so a long-lived host (the tour's worker) pays it at
 // startup, before its first run is timed.
 func Warm() {
-	_, _ = LoadSource("warm", "fn main() {\n}\n")
+	_, _ = LoadSource("warm", "fn main() end\n")
 }
 
 // newProgram opens a lowered program. Every host function a machine calls is a generated adapter, std/compiler's table

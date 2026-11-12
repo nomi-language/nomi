@@ -26,8 +26,8 @@ const carriedToml = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18
 // localeLiteral is a program that formats in the locale tag names, written
 // as a literal.
 func localeLiteral(tag string) string {
-	return "import {\n    std::io\n}\n\nfn main() {\n" +
-		"    io.print(String.join_list([\"a\", \"b\"], Locale`" + tag + "`))\n}\n"
+	return "import\n    std::io\nend\n\nfn main()\n" +
+		"    io.print(String.join_list([\"a\", \"b\"], Locale`" + tag + "`))\nend\n"
 }
 
 // A Locale literal naming a locale whose chain reaches none of the listed
@@ -94,14 +94,14 @@ func mustManifest(t *testing.T, toml string) *analysis.Manifest {
 // source locale: dates, money and lists in English, in process and in a
 // built image alike. Locale.negotiate answers as it did.
 func TestNotCarriedLocale_FormatsAsTheSource(t *testing.T) {
-	const src = `import {
+	const src = `import
     std::io
     std::calendar.Date
     std::currency.Currency
     std::money.Money
-}
+end
 
-fn main() {
+fn main()
     fr = Result.with_default(Locale.parse("fr"), Locale` + "`en`" + `)
     io.print(Date.format(Date` + "`2026-10-20`" + `, fr, style: .Long))
     io.print(Money.format(Money{amount: 12.5d, currency: Currency` + "`EUR`" + `}, fr))
@@ -110,7 +110,7 @@ fn main() {
     io.print(Locale.negotiate([fr], Locale.available(), Locale` + "`de`" + `))
     io.print(Locale.negotiate([Locale` + "`de-AT`" + `], Locale.available(), Locale` + "`en`" + `))
     io.print(Locale.fallbacks(fr))
-}
+end
 `
 	for _, c := range []struct{ name, toml, want string }{
 		{"source en", carriedToml,

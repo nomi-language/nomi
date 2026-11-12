@@ -1,4 +1,4 @@
-import {
+import
     std::calendar.{Date, NaiveDateTime, Time}
     std::channels.{Channel, Receiver, Sender}
     std::duration.Duration
@@ -10,24 +10,24 @@ import {
     std::timer
     std::uuid.Uuid
     sqlite
-}
+end
 
-test "the driver passes std/sql_testing's conformance suite" {
+test "the driver passes std/sql_testing's conformance suite"
     failures = sql_testing.conformance(fn -> sqlite.memory())
     assert failures == []
-}
+end
 
-test "the conformance suite runs every rule" {
+test "the conformance suite runs every rule"
     assert Iter.count(sql_testing.rules()) == 29
-}
+end
 
-test "a connection says it is SQLite" {
+test "a connection says it is SQLite"
     db = sqlite.memory()?
     defer sql.close_quietly(db)
     assert Conn.dialect(db) == Dialect.Sqlite
-}
+end
 
-fn values_db() -> Result<Conn, sql.Error> {
+fn values_db() -> Result<Conn, sql.Error>
     db = sqlite.memory()?
     defer on error sql.close_quietly(db)
 
@@ -42,9 +42,9 @@ fn values_db() -> Result<Conn, sql.Error> {
     )?
 
     Ok(db)
-}
+end
 
-test "every Value reads back as the Value it was written as" {
+test "every Value reads back as the Value it was written as"
     db = values_db()?
     defer sql.close_quietly(db)
     day = Date`2026-10-19`
@@ -65,9 +65,9 @@ test "every Value reads back as the Value it was written as" {
 
     rows = Conn.query(db, Sql"SELECT * FROM v")?
 
-    Some(row) = Iter.first(rows) else {
+    Some(row) = Iter.first(rows) else
         None -> return Err(sql.Error.Database{code: "", message: "no row"})
-    }
+    end
 
     assert Row.values(row) == [
         Value.Int(7),
@@ -83,18 +83,18 @@ test "every Value reads back as the Value it was written as" {
         Value.Uuid(id),
         Value.Json(j),
     ]
-}
+end
 
-test "NULL reads back as Null in a column of every type" {
+test "NULL reads back as Null in a column of every type"
     db = values_db()?
     defer sql.close_quietly(db)
     nothing: Maybe<Int> = None
     _ = Conn.exec(db, Sql"INSERT INTO v (i, day) VALUES (${nothing}, ${nothing})")?
     rows = Conn.query(db, Sql"SELECT i, day, j FROM v")?
     assert rows |> Iter.map(Row.values) |> Iter.to_list() == [[Value.Null, Value.Null, Value.Null]]
-}
+end
 
-test "an expression's column has no declared type and keeps its storage class" {
+test "an expression's column has no declared type and keeps its storage class"
     db = sqlite.memory()?
     defer sql.close_quietly(db)
     rows = Conn.query(db, Sql"SELECT count(*) AS n, 'x' || ${"y"} AS s, 1.5 AS f")?
@@ -102,34 +102,34 @@ test "an expression's column has no declared type and keeps its storage class" {
     assert rows |> Iter.map(Row.values) |> Iter.to_list() == [
         [Value.Int(1), Value.Text("xy"), Value.Float(1.5)],
     ]
-}
+end
 
-fn money_db() -> Result<Conn, sql.Error> {
+fn money_db() -> Result<Conn, sql.Error>
     db = sqlite.memory()?
     defer on error sql.close_quietly(db)
     _ = Conn.exec(db, Sql"CREATE TABLE m (id INTEGER PRIMARY KEY, amount DECIMAL(12, 2))")?
     Ok(db)
-}
+end
 
 // The text of each amount, which shows its scale: `==` on Decimal does not.
-fn amounts(db: Conn) -> Result<List<String>, sql.Error> {
+fn amounts(db: Conn) -> Result<List<String>, sql.Error>
     rows = Conn.query(db, Sql"SELECT amount FROM m ORDER BY id")?
 
     rows
     |> Iter.map(fn row -> Row.get<Decimal>(row, "amount") |> Result.map(fn d -> "${d}"))
     |> Result.collect()
-}
+end
 
 // The message of a SQLITE_MISMATCH error, or what the result was instead.
-fn mismatch<T>(result: Result<T, sql.Error>) -> String {
-    case result {
-        Err(sql.Error.Database{code: "SQLITE_MISMATCH", message}) -> message
+fn mismatch<T>(result: Result<T, sql.Error>) -> String
+    case result
+        Err(sql.Error.Database{code: "SQLITE_MISMATCH", message:}) -> message
         Err(e) -> "another error: ${e}"
         Ok(_) -> "Ok"
-    }
-}
+    end
+end
 
-test "a Decimal reads back at its column's scale" {
+test "a Decimal reads back at its column's scale"
     db = money_db()?
     defer sql.close_quietly(db)
 
@@ -142,9 +142,9 @@ test "a Decimal reads back at its column's scale" {
     assert amounts(db)? == ["12.50", "12.50", "7.00", "0.10", "-3.05"]
     _ = Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (${9_999_999_999_999.99d})")?
     assert amounts(db)? |> Iter.last() == Some("9999999999999.99")
-}
+end
 
-test "a Decimal SQLite would round is refused when it is written" {
+test "a Decimal SQLite would round is refused when it is written"
     db = money_db()?
     defer sql.close_quietly(db)
     big = 123_456_789_012_345_678.91d
@@ -158,9 +158,9 @@ test "a Decimal SQLite would round is refused when it is written" {
         |> String.starts_with("parameter ?1 is the Decimal 90071992547409.93, of 16 digits")
 
     assert amounts(db)? == []
-}
+end
 
-test "an Int past 64 bits is refused when it is written" {
+test "an Int past 64 bits is refused when it is written"
     db = money_db()?
     defer sql.close_quietly(db)
     top = 9_223_372_036_854_775_807
@@ -173,9 +173,9 @@ test "an Int past 64 bits is refused when it is written" {
         |> String.starts_with("parameter ?1 is the Int -9223372036854775809,")
 
     assert amounts(db)? == []
-}
+end
 
-test "the Ints at the ends of the 64-bit range are written and read back" {
+test "the Ints at the ends of the 64-bit range are written and read back"
     db = sqlite.memory()?
     defer sql.close_quietly(db)
     _ = Conn.exec(db, Sql"CREATE TABLE n (v INTEGER NOT NULL)")?
@@ -192,9 +192,9 @@ test "the Ints at the ends of the 64-bit range are written and read back" {
         Ok(Value.Int(-9_223_372_036_854_775_808)),
         Ok(Value.Int(9_223_372_036_854_775_807)),
     ]
-}
+end
 
-test "a stored value that is not exactly a decimal of the column's scale is refused" {
+test "a stored value that is not exactly a decimal of the column's scale is refused"
     db = money_db()?
     defer sql.close_quietly(db)
     _ = Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (12.555)")?
@@ -209,9 +209,9 @@ test "a stored value that is not exactly a decimal of the column's scale is refu
 
     assert mismatch(amounts(db))
         |> String.starts_with("the column `amount` is DECIMAL(12, 2) and holds 90071992547409.94")
-}
+end
 
-fn users_db() -> Result<Conn, sql.Error> {
+fn users_db() -> Result<Conn, sql.Error>
     db = sqlite.memory()?
     defer on error sql.close_quietly(db)
 
@@ -238,16 +238,16 @@ fn users_db() -> Result<Conn, sql.Error> {
 
     _ = Conn.exec(db, Sql"INSERT INTO users (email, handle) VALUES ('a@example.com', 'a')")?
     Ok(db)
-}
+end
 
-fn constraint(result: Result<Int, sql.Error>) -> Maybe<sql.Error> {
-    case result {
+fn constraint(result: Result<Int, sql.Error>) -> Maybe<sql.Error>
+    case result
         Err(e) -> Some(e)
         Ok(_) -> None
-    }
-}
+    end
+end
 
-test "a UNIQUE column's violation has Postgres's name for it, and names the table and column" {
+test "a UNIQUE column's violation has Postgres's name for it, and names the table and column"
     db = users_db()?
     defer sql.close_quietly(db)
     e = constraint(Conn.exec(db, Sql"INSERT INTO users (email) VALUES ('a@example.com')"))
@@ -260,9 +260,9 @@ test "a UNIQUE column's violation has Postgres's name for it, and names the tabl
             column: Some("email"),
         }
     )
-}
+end
 
-test "a unique index's violation names the index" {
+test "a unique index's violation names the index"
     db = users_db()?
     defer sql.close_quietly(db)
 
@@ -278,9 +278,9 @@ test "a unique index's violation names the index" {
             column: Some("handle"),
         }
     )
-}
+end
 
-test "NOT NULL, CHECK and foreign key violations are constraint errors" {
+test "NOT NULL, CHECK and foreign key violations are constraint errors"
     db = users_db()?
     defer sql.close_quietly(db)
     nothing: Maybe<String> = None
@@ -324,26 +324,26 @@ test "NOT NULL, CHECK and foreign key violations are constraint errors" {
             column: Some("id"),
         }
     )
-}
+end
 
-test "SQL the engine rejects is a Database error with its message" {
+test "SQL the engine rejects is a Database error with its message"
     db = sqlite.memory()?
     defer sql.close_quietly(db)
 
     assert Conn.query(db, Sql"SELECT nope FROM nowhere")
         == Err(sql.Error.Database{code: "SQLITE_ERROR", message: "no such table: nowhere"})
-}
+end
 
-test "exec answers the rows a statement changed" {
+test "exec answers the rows a statement changed"
     db = users_db()?
     defer sql.close_quietly(db)
 
     _ = Conn.exec(db, Sql"INSERT INTO users (email) VALUES ('b@example.com'), ('c@example.com')")?
 
     assert Conn.exec(db, Sql"UPDATE users SET age = 30") == Ok(3)
-}
+end
 
-fn events_db() -> Result<Conn, sql.Error> {
+fn events_db() -> Result<Conn, sql.Error>
     db = sqlite.memory()?
     defer on error sql.close_quietly(db)
 
@@ -353,14 +353,14 @@ fn events_db() -> Result<Conn, sql.Error> {
     )?
 
     Ok(db)
-}
+end
 
-fn ns(db: Conn, statement: sql.Statement) -> Result<List<Int>, sql.Error> {
+fn ns(db: Conn, statement: sql.Statement) -> Result<List<Int>, sql.Error>
     rows = Conn.query(db, statement)?
     rows |> Iter.map(fn row -> Row.get<Int>(row, "n")) |> Result.collect()
-}
+end
 
-test "an Instant compares in time order with CURRENT_TIMESTAMP" {
+test "an Instant compares in time order with CURRENT_TIMESTAMP"
     db = events_db()?
     defer sql.close_quietly(db)
     now = Instant.now()
@@ -373,9 +373,9 @@ test "an Instant compares in time order with CURRENT_TIMESTAMP" {
     assert ns(db, Sql"SELECT n FROM events WHERE at < ${hour_later} ORDER BY n")? == [1, 2]
     assert ns(db, Sql"SELECT n FROM events ORDER BY at")? == [1, 2, 3]
     assert ns(db, Sql"SELECT n FROM events ORDER BY at DESC")? == [3, 2, 1]
-}
+end
 
-test "an Instant is written as SQLite writes a timestamp, and either form reads back" {
+test "an Instant is written as SQLite writes a timestamp, and either form reads back"
     db = events_db()?
     defer sql.close_quietly(db)
     whole = Instant.from_seconds(1_760_000_000)
@@ -397,19 +397,19 @@ test "an Instant is written as SQLite writes a timestamp, and either form reads 
         Ok(half),
         Ok(whole),
     ]
-}
+end
 
-test "a path that cannot be opened is a Connection error" {
-    opened = case sqlite.open("/nonexistent/dir/x.db") {
+test "a path that cannot be opened is a Connection error"
+    opened = case sqlite.open("/nonexistent/dir/x.db")
         Err(sql.Error.Connection{message: _}) -> "Connection"
         Err(e) -> "${e}"
         Ok(_) -> "Ok"
-    }
+    end
 
     assert opened == "Connection"
-}
+end
 
-test "an Array parameter is refused, since SQLite has no arrays" {
+test "an Array parameter is refused, since SQLite has no arrays"
     db = sqlite.memory()?
     defer sql.close_quietly(db)
 
@@ -419,44 +419,44 @@ test "an Array parameter is refused, since SQLite has no arrays" {
             message: "parameter ?1 is an Array, and SQLite has no array type; bind one parameter per element, as in `IN (?1, ?2)`, or the elements as JSON text",
         }
     )
-}
+end
 
 // One task holds a transaction open until told to end it, with `outcome`;
 // meanwhile another writes and reads through the shared connection. The
 // other's statements wait for the transaction and run outside it.
 fn beside_a_transaction(
     outcome: Result<Unit, sql.Error>,
-) -> Result<(Result<Unit, sql.Error>, Result<Int, sql.Error>, List<Int>, List<Int>), sql.Error> {
+) -> Result<(Result<Unit, sql.Error>, Result<Int, sql.Error>, List<Int>, List<Int>), sql.Error>
     db = sqlite.memory()?
     defer sql.close_quietly(db)
     _ = Conn.exec(db, Sql"CREATE TABLE t (n INTEGER)")?
     opened: Channel<Unit> = Channel.buffered(1)
     finish: Channel<Unit> = Channel.buffered(1)
 
-    (held, wrote, read) = concurrent {
-        holder = Task.spawn(fn -> {
-            sql.transaction(db, fn tx -> {
+    (held, wrote, read) = concurrent
+        holder = Task.spawn(fn ->
+            sql.transaction(db, fn tx ->
                 _ = Conn.exec(tx, Sql"INSERT INTO t VALUES (1)")?
                 _ = Sender.send(opened.sender, Unit)
                 _ = Receiver.receive(finish.receiver)
                 outcome
-            })
-        })
+            end)
+        end)
 
         _ = Receiver.receive(opened.receiver)
 
-        other = Task.spawn(fn -> {
+        other = Task.spawn(fn ->
             wrote = Conn.exec(db, Sql"INSERT INTO t VALUES (2)")
             read = Conn.query(db, Sql"SELECT n FROM t ORDER BY n")
             (wrote, read)
-        })
+        end)
 
         // The other task's statements are waiting by now.
         timer.sleep(Duration.milliseconds(50))
         _ = Sender.send(finish.sender, Unit)
         (wrote, read) = Task.await(other)
         (Task.await(holder), wrote, read)
-    }
+    end
 
     seen =
         read?
@@ -469,13 +469,13 @@ fn beside_a_transaction(
         |> Iter.to_list()
 
     Ok((held, wrote, seen, after))
-}
+end
 
-test "a statement from another task waits for an open transaction, then runs outside it" {
+test "a statement from another task waits for an open transaction, then runs outside it"
     assert beside_a_transaction(Ok(Unit)) == Ok((Ok(Unit), Ok(1), [1, 2], [1, 2]))
-}
+end
 
-test "a rolled-back transaction leaves another task's write standing" {
+test "a rolled-back transaction leaves another task's write standing"
     failed = Err(sql.Error.Database{code: "X", message: "undo"})
     assert beside_a_transaction(failed) == Ok((failed, Ok(1), [2], [2]))
-}
+end

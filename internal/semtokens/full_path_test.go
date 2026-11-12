@@ -11,7 +11,7 @@ import (
 // Each segment of a path at a use is a module token of its own length, as a
 // file qualifier is.
 func TestCollect_FullPathSegmentsAreNamespaces(t *testing.T) {
-	src := "import std\n\nfn main() {\n    std::io.print(\"x\")\n}\n"
+	src := "import std\n\nfn main()\n    std::io.print(\"x\")\nend\n"
 	fa := highlight.Analyze(src, std.Load())
 	if fa == nil {
 		t.Fatal("Analyze returned nil")

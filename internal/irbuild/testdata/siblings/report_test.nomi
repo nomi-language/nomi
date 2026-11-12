@@ -6,10 +6,10 @@
 // exit status.
 import helpers
 
-test "a call into a sibling file shows its arguments" {
+test "a call into a sibling file shows its arguments"
     assert helpers.double(3) == 7
-}
+end
 
-test "a passing cross-file call reports nothing extra" {
+test "a passing cross-file call reports nothing extra"
     assert helpers.shout("a") == "a!"
-}
+end

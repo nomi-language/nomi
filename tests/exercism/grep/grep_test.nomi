@@ -1,13 +1,13 @@
-import {
+import
     std::fs_testing.{self, Sandbox}
     std::io
     grep.{self, Flag}
-}
+end
 
 once all_files = ["iliad.txt", "midsummer-night.txt", "paradise-lost.txt"]
 
 once sandbox = Sandbox{
-    files: %{
+    files: {
         "iliad.txt" => """
             Achilles sing, O Goddess! Peleus' son;
             His wrath pernicious, who ten thousand woes
@@ -47,58 +47,58 @@ fn grep_in_sandbox(
     pattern: String,
     flags: Set<Flag>,
     files: List<String>,
-) -> Result<List<String>, io.Error> {
+) -> Result<List<String>, io.Error>
     fs_testing.run(sandbox, fn -> grep.grep(pattern, flags, files)).value
-}
+end
 
-test "Test grepping a single file" {
+test "Test grepping a single file"
     [
         (
             "One file, one match, no flags",
             "Agamemnon",
-            %[],
+            Set[],
             "iliad.txt",
             ["Of Atreus, Agamemnon, King of men."],
         ),
         (
             "One file, one match, print line numbers flag",
             "Forbidden",
-            %[Flag.LineNumbers],
+            Set[Flag.LineNumbers],
             "paradise-lost.txt",
             ["2:Of that Forbidden Tree, whose mortal tast"],
         ),
         (
             "One file, one match, case-insensitive flag",
             "FORBIDDEN",
-            %[.IgnoreCase],
+            [.IgnoreCase],
             "paradise-lost.txt",
             ["Of that Forbidden Tree, whose mortal tast"],
         ),
         (
             "One file, one match, print file names flag",
             "Forbidden",
-            %[.FileNames],
+            [.FileNames],
             "paradise-lost.txt",
             ["paradise-lost.txt"],
         ),
         (
             "One file, one match, match entire lines flag",
             "With loss of Eden, till one greater Man",
-            %[.WholeLine],
+            [.WholeLine],
             "paradise-lost.txt",
             ["With loss of Eden, till one greater Man"],
         ),
         (
             "One file, one match, multiple flags",
             "OF ATREUS, Agamemnon, KIng of MEN.",
-            %[.LineNumbers, .IgnoreCase, .WholeLine],
+            [.LineNumbers, .IgnoreCase, .WholeLine],
             "iliad.txt",
             ["9:Of Atreus, Agamemnon, King of men."],
         ),
         (
             "One file, several matches, no flags",
             "may",
-            %[],
+            [],
             "midsummer-night.txt",
             [
                 "Nor how it may concern my modesty,",
@@ -109,7 +109,7 @@ test "Test grepping a single file" {
         (
             "One file, several matches, print line numbers flag",
             "may",
-            %[.LineNumbers],
+            [.LineNumbers],
             "midsummer-night.txt",
             [
                 "3:Nor how it may concern my modesty,",
@@ -120,21 +120,21 @@ test "Test grepping a single file" {
         (
             "One file, several matches, match entire lines flag",
             "may",
-            %[.WholeLine],
+            [.WholeLine],
             "midsummer-night.txt",
             [],
         ),
         (
             "One file, several matches, case-insensitive flag",
             "ACHILLES",
-            %[.IgnoreCase],
+            [.IgnoreCase],
             "iliad.txt",
             ["Achilles sing, O Goddess! Peleus' son;", "The noble Chief Achilles from the son"],
         ),
         (
             "One file, several matches, inverted flag",
             "Of",
-            %[.Invert],
+            [.Invert],
             "paradise-lost.txt",
             [
                 "Brought Death into the World, and all our woe,",
@@ -147,21 +147,21 @@ test "Test grepping a single file" {
         (
             "One file, no matches, various flags",
             "Gandalf",
-            %[.LineNumbers, .FileNames, .WholeLine, .IgnoreCase],
+            [.LineNumbers, .FileNames, .WholeLine, .IgnoreCase],
             "iliad.txt",
             [],
         ),
         (
             "One file, one match, file flag takes precedence over line flag",
             "ten",
-            %[.LineNumbers, .FileNames],
+            [.LineNumbers, .FileNames],
             "iliad.txt",
             ["iliad.txt"],
         ),
         (
             "One file, several matches, inverted and match entire lines flags",
             "Illustrious into Ades premature,",
-            %[.WholeLine, .Invert],
+            [.WholeLine, .Invert],
             "iliad.txt",
             [
                 "Achilles sing, O Goddess! Peleus' son;",
@@ -175,23 +175,23 @@ test "Test grepping a single file" {
             ],
         ),
     ]
-    |> subtests (description, pattern, flags, file, expected), description {
+    |> subtests (description, pattern, flags, file, expected), description
         assert grep_in_sandbox(pattern, flags, [file]) == Ok(expected)
-    }
-}
+    end
+end
 
-test "Test grepping multiples files at once" {
+test "Test grepping multiples files at once"
     [
         (
             "Multiple files, one match, no flags",
             "Agamemnon",
-            %[],
+            Set[],
             ["iliad.txt:Of Atreus, Agamemnon, King of men."],
         ),
         (
             "Multiple files, several matches, no flags",
             "may",
-            %[],
+            Set[],
             [
                 "midsummer-night.txt:Nor how it may concern my modesty,",
                 "midsummer-night.txt:But I beseech your grace that I may know",
@@ -201,7 +201,7 @@ test "Test grepping multiples files at once" {
         (
             "Multiple files, several matches, print line numbers flag",
             "that",
-            %[Flag.LineNumbers],
+            Set[Flag.LineNumbers],
             [
                 "midsummer-night.txt:5:But I beseech your grace that I may know",
                 "midsummer-night.txt:6:The worst that may befall me in this case,",
@@ -212,13 +212,13 @@ test "Test grepping multiples files at once" {
         (
             "Multiple files, one match, print file names flag",
             "who",
-            %[.FileNames],
+            [.FileNames],
             ["iliad.txt", "paradise-lost.txt"],
         ),
         (
             "Multiple files, several matches, case-insensitive flag",
             "TO",
-            %[.IgnoreCase],
+            [.IgnoreCase],
             [
                 "iliad.txt:Caused to Achaia's host, sent many a soul",
                 "iliad.txt:Illustrious into Ades premature,",
@@ -235,7 +235,7 @@ test "Test grepping multiples files at once" {
         (
             "Multiple files, several matches, inverted flag",
             "a",
-            %[.Invert],
+            [.Invert],
             [
                 "iliad.txt:Achilles sing, O Goddess! Peleus' son;",
                 "iliad.txt:The noble Chief Achilles from the son",
@@ -245,31 +245,31 @@ test "Test grepping multiples files at once" {
         (
             "Multiple files, one match, match entire lines flag",
             "But I beseech your grace that I may know",
-            %[.WholeLine],
+            [.WholeLine],
             ["midsummer-night.txt:But I beseech your grace that I may know"],
         ),
         (
             "Multiple files, one match, multiple flags",
             "WITH LOSS OF EDEN, TILL ONE GREATER MAN",
-            %[.LineNumbers, .IgnoreCase, .WholeLine],
+            [.LineNumbers, .IgnoreCase, .WholeLine],
             ["paradise-lost.txt:4:With loss of Eden, till one greater Man"],
         ),
         (
             "Multiple files, no matches, various flags",
             "Frodo",
-            %[.LineNumbers, .FileNames, .WholeLine, .IgnoreCase],
+            [.LineNumbers, .FileNames, .WholeLine, .IgnoreCase],
             [],
         ),
         (
             "Multiple files, several matches, file flag takes precedence over line number flag",
             "who",
-            %[.LineNumbers, .FileNames],
+            [.LineNumbers, .FileNames],
             ["iliad.txt", "paradise-lost.txt"],
         ),
         (
             "Multiple files, several matches, inverted and match entire lines flags",
             "Illustrious into Ades premature,",
-            %[.WholeLine, .Invert],
+            [.WholeLine, .Invert],
             [
                 "iliad.txt:Achilles sing, O Goddess! Peleus' son;",
                 "iliad.txt:His wrath pernicious, who ten thousand woes",
@@ -297,13 +297,12 @@ test "Test grepping multiples files at once" {
             ],
         ),
     ]
-    |> subtests (description, pattern, flags, expected), description {
+    |> subtests (description, pattern, flags, expected), description
         assert grep_in_sandbox(pattern, flags, all_files) == Ok(expected)
-    }
-}
+    end
+end
 
 // Not a canonical case: the exercise reads only files that exist.
-test "a missing file is the error reading it" {
-    assert grep_in_sandbox("Of", %[], ["odyssey.txt"])
-        == Err(io.Error.NotFound{path: "odyssey.txt"})
-}
+test "a missing file is the error reading it"
+    assert grep_in_sandbox("Of", [], ["odyssey.txt"]) == Err(io.Error.NotFound{path: "odyssey.txt"})
+end

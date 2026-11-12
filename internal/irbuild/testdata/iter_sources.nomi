@@ -1,24 +1,24 @@
-import {
+import
     std::comparable.Direction
     std::io
-}
+end
 
-fn note(label: String, n: Int) -> Int {
+fn note(label: String, n: Int) -> Int
     io.print("${label} ${n}")
     n
-}
+end
 
 // `Maybe<Int>` has no Display on either path — string interpolation refuses it
 // as `rendering a non-scalar value`, which is a renderer gap and not an `Iter`
 // one. Spelling the two arms out keeps this fixture about the iteration.
-fn show(m: Maybe<Int>) -> String {
-    case m {
+fn show(m: Maybe<Int>) -> String
+    case m
         Some(n) -> "Some(${n})"
         None -> "None"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     // --- String as a push source -----------------------------------------------
     // Grapheme CLUSTERS, not bytes and not code points: "e" plus U+0301 is one
     // element. A walk over runes prints six here and a walk over bytes seven.
@@ -31,10 +31,10 @@ fn main() {
         "abcde"
         |> Iter.drop(1)
         |> Iter.with_index()
-        |> Iter.map(fn pair -> {
+        |> Iter.map(fn pair ->
             (i, c) = pair
             "${i}${c}"
-        })
+        end)
         |> Iter.to_list()
 
     io.print("${labelled}")
@@ -44,16 +44,16 @@ fn main() {
 
     // --- Map as a push source --------------------------------------------------
     // Insertion order, which is what a Map's iteration promises.
-    scores: Map<String, Int> = %{"b" => 2, "a" => 1, "c" => 3}
+    scores: Map<String, Int> = {"b" => 2, "a" => 1, "c" => 3}
     io.print("${scores |> Iter.to_list()}")
     io.print("${scores |> Iter.count()}")
 
     rendered =
         scores
-        |> Iter.map(fn pair -> {
+        |> Iter.map(fn pair ->
             (k, v) = pair
             "${k}=${v}"
-        })
+        end)
         |> Iter.to_list()
 
     io.print("${rendered}")
@@ -173,10 +173,10 @@ fn main() {
         Iter.from(1)
         |> Iter.drop(2)
         |> Iter.with_index()
-        |> Iter.map(fn pair -> {
+        |> Iter.map(fn pair ->
             (i, n) = pair
             i + n
-        })
+        end)
         |> Iter.take(4)
         |> Iter.to_list()
 
@@ -190,10 +190,10 @@ fn main() {
         |> Iter.map(&note("outer", &1))
         |> Iter.flat_map(fn x -> [x, x * 10])
         |> Iter.with_index()
-        |> Iter.map(fn pair -> {
+        |> Iter.map(fn pair ->
             (i, n) = pair
             note("inner", i * 1000 + n)
-        })
+        end)
         |> Iter.take(3)
         |> Iter.to_list()
 
@@ -216,4 +216,4 @@ fn main() {
 
     io.print("${cycled |> Iter.to_list()}")
     io.print("${cycled |> Iter.to_list()}")
-}
+end

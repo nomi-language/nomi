@@ -15,7 +15,8 @@ type inlayHintSettings struct {
 	// ParameterNames is the `x:` before a positional argument.
 	ParameterNames bool
 	// BindingTypes is the `: Int` after an unannotated binding's name or
-	// lambda parameter.
+	// lambda parameter, and the `From<E>` after a `?` that converts its
+	// error.
 	BindingTypes bool
 	// PipeTypes is the type at the end of each stage line of a multi-line
 	// pipeline (pipe_hints.go).

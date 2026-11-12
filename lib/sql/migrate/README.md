@@ -15,19 +15,19 @@ command line ([The tool](#the-tool)), and `migrate.up` applies them from
 the program:
 
 ```nomi
-import {
+import
     std::sql
     migrate
     postgres
-}
+end
 
-fn main() -> Result<Unit, migrate.Error> {
+fn main() -> Result<Unit, migrate.Error>
     db = postgres.pool("postgres://localhost/app")
     defer sql.close_quietly(db)
     _ = migrate.up(db, "db/migrations")?
     // ... serve
     Ok(Unit)
-}
+end
 ```
 
 ## What it does
@@ -96,16 +96,16 @@ it with `migrate.up_from`, which reads the embedded files by the same
 rule (`migrate.read_from` reads them without applying):
 
 ```nomi
-import {
+import
     std::sql.Conn
     migrate
-}
+end
 
 embed migrations `db/migrations`
 
-fn migrated(db: Conn) -> Result<List<String>, migrate.Error> {
+fn migrated(db: Conn) -> Result<List<String>, migrate.Error>
     migrate.up_from(db, migrations, "db/migrations")
-}
+end
 ```
 
 A program that uses sqlkit has its migrations in the generated schema

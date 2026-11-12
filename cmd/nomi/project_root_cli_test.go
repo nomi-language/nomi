@@ -17,10 +17,10 @@ import (
 func TestRunFile_ASubdirectoryFileResolvesFromMainNomi(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
-		"main.nomi":     "fn main() {\n}\n",
-		"greeting.nomi": "pub fn text() -> String {\n  \"hello from the project root\"\n}\n",
-		"tools/say.nomi": "import {\n  std::io\n  greeting\n}\n\n" +
-			"fn main() {\n  io.print(greeting.text())\n}\n",
+		"main.nomi":     "fn main() end\n",
+		"greeting.nomi": "pub fn text() -> String\n  \"hello from the project root\"\nend\n",
+		"tools/say.nomi": "import\n  std::io\n  greeting\nend\n\n" +
+			"fn main()\n  io.print(greeting.text())\nend\n",
 	}
 	for rel, src := range files {
 		path := filepath.Join(dir, filepath.FromSlash(rel))
@@ -55,22 +55,22 @@ func TestLoneFile_TheOrphanRuleHoldsIt(t *testing.T) {
 	orphans := filepath.Join(dir, "orphans.nomi")
 	mustWrite(t, orphans, `import std::io
 
-impl Debug for Bool {
-    fn inspect(_b: Bool) -> String {
+impl Debug for Bool
+    fn inspect(_b: Bool) -> String
         "mine"
-    }
-}
+    end
+end
 
-impl Debug for List<Int> {
-    fn inspect(_xs: List<Int>) -> String {
+impl Debug for List<Int>
+    fn inspect(_xs: List<Int>) -> String
         "mine"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Debug.inspect(True))
     io.inspect([1, 2])
-}
+end
 `)
 	for _, sub := range []string{"check", "run"} {
 		cmd := exec.Command(nomiBin, sub, orphans)
@@ -91,19 +91,19 @@ fn main() {
 	own := filepath.Join(t.TempDir(), "own.nomi")
 	mustWrite(t, own, `import std::io
 
-interface Show {
+interface Show
     fn show(value: self) -> String
-}
+end
 
-impl Show for Bool {
-    fn show(_b: Bool) -> String {
+impl Show for Bool
+    fn show(_b: Bool) -> String
         "mine"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Show.show(True))
-}
+end
 `)
 	cmd := exec.Command(nomiBin, "run", own)
 	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NO_COLOR=1")

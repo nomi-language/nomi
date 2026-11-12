@@ -3,50 +3,50 @@ import std::io
 // A `fn` declared inside a field's default is checked as one inside a
 // function body is, so its body and its call have types and the default
 // runs.
-struct Defaults {
-    unit: Unit = {
-        fn inner() -> Unit {
+struct Defaults
+    unit: Unit = begin
+        fn inner() -> Unit
             Unit
-        }
+        end
 
         inner()
-    }
-    twice: (Int) -> Int = {
-        fn double(n: Int) -> Int {
+    end
+    twice: (Int) -> Int = begin
+        fn double(n: Int) -> Int
             n * 2
-        }
+        end
 
         double
-    }
-    word: String = {
-        fn pick(n: Int) -> String {
-            case n {
+    end
+    word: String = begin
+        fn pick(n: Int) -> String
+            case n
                 1 -> "one"
                 _ -> "many"
-            }
-        }
+            end
+        end
 
         pick(1)
-    }
-}
+    end
+end
 
-enum Job {
+enum Job
     Run {
-        label: String = {
-            fn name() -> String {
+        label: String = begin
+            fn name() -> String
                 "job"
-            }
+            end
 
             name()
-        },
+        end,
     }
     Idle
-}
+end
 
-fn main() {
+fn main()
     d = Defaults{}
     io.inspect(d.unit)
     io.inspect(d.twice(4))
     io.print(d.word)
     io.inspect(Job.Run{})
-}
+end

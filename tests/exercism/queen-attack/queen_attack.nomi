@@ -1,35 +1,35 @@
 //# Whether two queens on a chessboard can attack each other.
 
 /// A queen on an 8 by 8 board, at a zero-based row and column.
-pub opaque struct Queen {
+pub opaque struct Queen
     row: Int
     column: Int
-}
+end
 
-impl Queen {
+impl Queen
     /// Places a queen, or says which coordinate is off the board.
-    pub fn new(row: Int, column: Int) -> Result<Queen, Error> {
-        case {
+    pub fn new(row: Int, column: Int) -> Result<Queen, Error>
+        case
             row < 0 -> Err(.RowNotPositive)
             row > 7 -> Err(.RowNotOnBoard)
             column < 0 -> Err(.ColumnNotPositive)
             column > 7 -> Err(.ColumnNotOnBoard)
-            _ -> Ok(.{row, column})
-        }
-    }
+            _ -> Ok({row:, column:})
+        end
+    end
 
     /// Reports whether two queens share a row, a column or a diagonal.
-    pub fn can_attack(white: Queen, black: Queen) -> Bool {
+    pub fn can_attack(white: Queen, black: Queen) -> Bool
         rows = Int.abs(white.row - black.row)
         columns = Int.abs(white.column - black.column)
         rows == 0 or columns == 0 or rows == columns
-    }
-}
+    end
+end
 
 /// Why a queen cannot be placed.
-pub enum Error {
+pub enum Error
     RowNotPositive
     RowNotOnBoard
     ColumnNotPositive
     ColumnNotOnBoard
-}
+end

@@ -25,10 +25,10 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		name:  "a private sibling function is one diagnostic, at its position",
 		entry: "main",
 		files: map[string]string{
-			"main": "import api.{make, secret}\n\nfn main() {\n  w = make(\"Ada\")\n  _ = secret(w)\n}\n",
-			"api": "pub struct Widget {\n  name: String\n}\n\npub fn label(w: Widget) -> String {\n  w.name\n}\n\n" +
-				"fn secret(w: Widget) -> String {\n  \"secret \" + w.name\n}\n\n" +
-				"pub fn make(name: String) -> Widget {\n  Widget{name}\n}\n",
+			"main": "import api.{make, secret}\n\nfn main()\n  w = make(\"Ada\")\n  _ = secret(w)\nend\n",
+			"api": "pub struct Widget\n  name: String\nend\n\npub fn label(w: Widget) -> String\n  w.name\nend\n\n" +
+				"fn secret(w: Widget) -> String\n  \"secret \" + w.name\nend\n\n" +
+				"pub fn make(name: String) -> Widget\n  Widget{name:}\nend\n",
 		},
 		want: []string{"1:19 'secret' is private and cannot be imported"},
 	}, {
@@ -36,29 +36,29 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		entry:    "main",
 		manifest: "[module]\nname = \"demo\"\nentry_points = [\"other\"]\n",
 		files: map[string]string{
-			"main":  "import other\n\nfn main() {\n  other.helper()\n  Unit\n}\n",
-			"other": "pub fn helper() -> Unit {\n  Unit\n}\n",
+			"main":  "import other\n\nfn main()\n  other.helper()\n  Unit\nend\n",
+			"other": "pub fn helper() -> Unit\n  Unit\nend\n",
 		},
 		want: []string{
 			"3:4 entry callback in main but file is not declared in nomi.toml entry_points; " +
 				"add \"main\" to entry_points, or move the entry callback to an entry file or to a tool under tools/",
 			"1:1 other is declared in nomi.toml entry_points but has no entry callback; " +
-				"add `fn main() { ... }`, or remove \"other\" from entry_points",
+				"add `fn main()`, or remove \"other\" from entry_points",
 		},
 	}, {
 		name:  "without a manifest the same project is clean",
 		entry: "main",
 		files: map[string]string{
-			"main":  "import other\n\nfn main() {\n  other.helper()\n  Unit\n}\n",
-			"other": "pub fn helper() -> Unit {\n  Unit\n}\n",
+			"main":  "import other\n\nfn main()\n  other.helper()\n  Unit\nend\n",
+			"other": "pub fn helper() -> Unit\n  Unit\nend\n",
 		},
 		want: nil,
 	}, {
 		name:  "a fault in a sibling file is reported",
 		entry: "main",
 		files: map[string]string{
-			"main": "import api\n\nfn main() {\n  Unit\n}\n",
-			"api":  "pub fn broken() -> Int {\n  undefined_name\n}\n",
+			"main": "import api\n\nfn main()\n  Unit\nend\n",
+			"api":  "pub fn broken() -> Int\n  undefined_name\nend\n",
 		},
 		want: []string{
 			"1:8 imported module 'api' is unused — remove the import",
@@ -68,25 +68,25 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		name:  "a sibling parse error is reported, and alone",
 		entry: "main",
 		files: map[string]string{
-			"main": "import api\n\nfn main() {\n  Unit\n}\n",
-			"api":  "pub fn broken() -> Int {\n",
+			"main": "import api\n\nfn main()\n  Unit\nend\n",
+			"api":  "pub fn broken() -> Int\n",
 		},
-		want: []string{"1:24 expected '}' to close block"},
+		want: []string{"1:5 expected `end` to close a function's body"},
 	}, {
 		name:  "file names may carry .nomi and are normalized",
 		entry: "main.nomi",
 		files: map[string]string{
-			"main.nomi": "import api.{make, secret}\n\nfn main() {\n  w = make(\"Ada\")\n  _ = secret(w)\n}\n",
-			"api.nomi": "pub struct Widget {\n  name: String\n}\n\n" +
-				"fn secret(w: Widget) -> String {\n  \"secret \" + w.name\n}\n\n" +
-				"pub fn make(name: String) -> Widget {\n  Widget{name}\n}\n",
+			"main.nomi": "import api.{make, secret}\n\nfn main()\n  w = make(\"Ada\")\n  _ = secret(w)\nend\n",
+			"api.nomi": "pub struct Widget\n  name: String\nend\n\n" +
+				"fn secret(w: Widget) -> String\n  \"secret \" + w.name\nend\n\n" +
+				"pub fn make(name: String) -> Widget\n  Widget{name:}\nend\n",
 		},
 		want: []string{"1:19 'secret' is private and cannot be imported"},
 	}, {
 		name:  "a single-file project checks against the standard library",
 		entry: "main",
 		files: map[string]string{
-			"main": "fn main() {\n  _ = String.trim(\"  x  \")\n}\n",
+			"main": "fn main()\n  _ = String.trim(\"  x  \")\nend\n",
 		},
 		want: nil,
 	}} {
@@ -120,7 +120,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 	// non-whitespace)` — so Some errors where None is clean. Two different
 	// answers, one of which is not even a diagnostic list.
 	t.Run("an EMPTY manifest is Some, not None", func(t *testing.T) {
-		files := map[string]string{"main": "fn main() {\n  Unit\n}\n"}
+		files := map[string]string{"main": "fn main()\n  Unit\nend\n"}
 		if _, err := stdcompiler.ProjectSpecDiagnostics(specOf("main", files, new("")), ""); err == nil {
 			t.Error("Some(\"\") produced no error, so it was treated as None and the " +
 				"pointer in ProjectSpec is doing nothing")
@@ -142,7 +142,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 	// this error's text.
 	t.Run("a missing entry point is an error", func(t *testing.T) {
 		_, err := stdcompiler.ProjectSpecDiagnostics(
-			specOf("absent", map[string]string{"main": "fn main() {\n  Unit\n}\n"}, nil), "")
+			specOf("absent", map[string]string{"main": "fn main()\n  Unit\nend\n"}, nil), "")
 		if err == nil {
 			t.Fatal("want an error for an entry point absent from files")
 		}
@@ -153,7 +153,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 	})
 	t.Run("an unparseable manifest is an error", func(t *testing.T) {
 		_, err := stdcompiler.ProjectSpecDiagnostics(
-			specOf("main", map[string]string{"main": "fn main() {\n  Unit\n}\n"},
+			specOf("main", map[string]string{"main": "fn main()\n  Unit\nend\n"},
 				new("[module\n")), "")
 		if err == nil {
 			t.Fatal("want an error for a manifest that is not TOML")

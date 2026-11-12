@@ -32,13 +32,13 @@
 //# Every function here is pure, so a typed literal's handler may call them,
 //# except `pbkdf2_sha256`, whose cost is its iteration count.
 
-import {
+import
     bool.Bool
     bytes.Bytes
     hex
     int.Int
     strings.String
-}
+end
 
 /// The SHA-256 digest of `data`: 32 bytes.
 //! import std::hash
@@ -56,9 +56,9 @@ pub host fn sha256(data: Bytes) -> Bytes
 //! assert hash.sha256_hex(String.to_bytes("abc"))
 //!     == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 //
-pub fn sha256_hex(data: Bytes) -> String {
+pub fn sha256_hex(data: Bytes) -> String
     hex.encode(sha256(data))
-}
+end
 
 /// The SHA-512 digest of `data`: 64 bytes.
 //! import std::hash
@@ -78,9 +78,9 @@ pub host fn sha512(data: Bytes) -> Bytes
 //!     String.to_bytes("abc")
 //! ) == "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"
 //
-pub fn sha512_hex(data: Bytes) -> String {
+pub fn sha512_hex(data: Bytes) -> String
     hex.encode(sha512(data))
-}
+end
 
 /// The MD5 digest of `data`: 16 bytes (RFC 1321). MD5 is here for formats
 /// that still name it, such as ETags, legacy checksums and Gravatar's
@@ -110,9 +110,9 @@ pub host fn md5(data: Bytes) -> Bytes
 //! key = email |> String.trim() |> String.lowercase() |> String.to_bytes() |> hash.md5_hex()
 //! assert key == "3e3417d7ef77d5932a6734b916515ed5"
 //
-pub fn md5_hex(data: Bytes) -> String {
+pub fn md5_hex(data: Bytes) -> String
     hex.encode(md5(data))
-}
+end
 
 /// The SHA-1 digest of `data`: 20 bytes (FIPS 180-4). SHA-1 is here for
 /// formats that still name it, such as Git object names and older
@@ -135,9 +135,9 @@ pub host fn sha1(data: Bytes) -> Bytes
 //! assert hash.sha1_hex(String.to_bytes("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"))
 //!     == "84983e441c3bd26ebaae4aa1f95129e5e54670f1"
 //
-pub fn sha1_hex(data: Bytes) -> String {
+pub fn sha1_hex(data: Bytes) -> String
     hex.encode(sha1(data))
-}
+end
 
 /// The HMAC-SHA256 of `data` under `key` (RFC 2104): 32 bytes. The same
 /// key and data always give the same MAC, and a different key a different

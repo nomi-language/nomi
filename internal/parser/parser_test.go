@@ -116,9 +116,9 @@ func TestDecimalLiteralMisplacedSeparator(t *testing.T) {
 	for _, lit := range []string{"1__0.5d", "1.5__0d", "1_d", "1_.5d", "1.5_d"} {
 		for _, src := range []string{
 			"x = " + lit,
-			"x = case y {\n    " + lit + " -> 1\n    _ -> 2\n}",
-			"x = case y {\n    -" + lit + " -> 1\n    _ -> 2\n}",
-			"x = case y {\n    [" + lit + ", _] -> 1\n    _ -> 2\n}",
+			"x = case y\n    " + lit + " -> 1\n    _ -> 2\nend",
+			"x = case y\n    -" + lit + " -> 1\n    _ -> 2\nend",
+			"x = case y\n    [" + lit + ", _] -> 1\n    _ -> 2\nend",
 		} {
 			err := parseError(t, src)
 			if want := "invalid decimal \"" + lit + "\""; !strings.Contains(err.Error(), want) {
@@ -150,7 +150,7 @@ func TestDecimalInBinary(t *testing.T) {
 
 func TestDecimalCasePattern(t *testing.T) {
 	// A decimal literal must be valid as a case pattern.
-	src := "case x {\n  1.50d -> 1\n  _ -> 0\n}"
+	src := "case x\n  1.50d -> 1\n  _ -> 0\nend"
 	expr := parseExpr(t, src)
 	ce, ok := expr.(*ast.Case)
 	if !ok {
@@ -191,10 +191,10 @@ func TestQualifiedTypeDeclarationAndDestructure(t *testing.T) {
 	nodes := parse(t, `type Day Int
 type Day.Hours Int
 
-fn value(hours: Day.Hours) -> Int {
+fn value(hours: Day.Hours) -> Int
   Day.Hours(n) = hours
   n
-}
+end
 `)
 	if len(nodes) != 3 {
 		t.Fatalf("expected 3 nodes, got %d", len(nodes))
@@ -353,10 +353,10 @@ func TestStringConcat(t *testing.T) {
 }
 
 func TestStringPrefixPattern(t *testing.T) {
-	expr := parseExpr(t, `case path {
+	expr := parseExpr(t, `case path
   "/users/" + id -> id
   _ -> ""
-}`)
+end`)
 	ce, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)
@@ -664,7 +664,7 @@ func TestBinding_WithTypeAnnotation(t *testing.T) {
 }
 
 func TestBinding_WithGenericTypeAnnotation(t *testing.T) {
-	src := `m: Map<String, Int> = %{}`
+	src := `m: Map<String, Int> = {}`
 	tokens := lexer.Lex(src)
 	nodes, errs := ParseWithRecovery(tokens)
 	if len(errs) != 0 {
@@ -709,7 +709,7 @@ func TestTypeIdent(t *testing.T) {
 }
 
 func TestIfElse(t *testing.T) {
-	expr := parseExpr(t, "if flag { 1 } else { 2 }")
+	expr := parseExpr(t, "if flag then 1 else 2")
 	ifNode, ok := expr.(*ast.If)
 	if !ok {
 		t.Fatalf("expected *ast.If, got %T", expr)
@@ -747,7 +747,7 @@ func TestIfElse(t *testing.T) {
 }
 
 func TestIfNoElse(t *testing.T) {
-	expr := parseExpr(t, "if x > 0 { \"yes\" }")
+	expr := parseExpr(t, "if x > 0 then \"yes\"")
 	ifNode, ok := expr.(*ast.If)
 	if !ok {
 		t.Fatalf("expected *ast.If, got %T", expr)
@@ -769,7 +769,7 @@ func TestIfNoElse(t *testing.T) {
 }
 
 func TestIfPatternCondition(t *testing.T) {
-	expr := parseExpr(t, `if Some(name) = maybe_name { name } else { "none" }`)
+	expr := parseExpr(t, `if Some(name) = maybe_name then name else "none"`)
 	ifNode, ok := expr.(*ast.If)
 	if !ok {
 		t.Fatalf("expected *ast.If, got %T", expr)
@@ -792,7 +792,7 @@ func TestIfPatternCondition(t *testing.T) {
 
 func TestIfTypeIdentCondition(t *testing.T) {
 	// Regression: if True { ... } was parsed as struct literal True{...}
-	expr := parseExpr(t, "if True { 42 }")
+	expr := parseExpr(t, "if True then 42")
 	ifNode, ok := expr.(*ast.If)
 	if !ok {
 		t.Fatalf("expected *ast.If, got %T", expr)
@@ -810,7 +810,7 @@ func TestIfTypeIdentCondition(t *testing.T) {
 }
 
 func TestIfElseIfElse(t *testing.T) {
-	expr := parseExpr(t, "if a { 1 } else if b { 2 } else { 3 }")
+	expr := parseExpr(t, "if a then 1 else if b then 2 else 3")
 	ifNode, ok := expr.(*ast.If)
 	if !ok {
 		t.Fatalf("expected *ast.If, got %T", expr)
@@ -831,7 +831,7 @@ func TestIfElseIfElse(t *testing.T) {
 }
 
 func TestIfElseOnNewLine(t *testing.T) {
-	expr := parseExpr(t, "if a {\n  1\n}\nelse {\n  2\n}")
+	expr := parseExpr(t, "if a then\n  1\nelse\n  2\nend")
 	ifNode, ok := expr.(*ast.If)
 	if !ok {
 		t.Fatalf("expected *ast.If, got %T", expr)
@@ -842,7 +842,7 @@ func TestIfElseOnNewLine(t *testing.T) {
 }
 
 func TestIfElseIfOnNewLine(t *testing.T) {
-	src := "if a {\n  1\n}\nelse if b {\n  2\n}\nelse {\n  3\n}"
+	src := "if a then\n  1\nelse if b then\n  2\nelse\n  3\nend"
 	expr := parseExpr(t, src)
 	ifNode, ok := expr.(*ast.If)
 	if !ok {
@@ -1033,7 +1033,7 @@ func TestChainedFieldAccess(t *testing.T) {
 // --- Function Definitions ---
 
 func TestParseFuncDef(t *testing.T) {
-	nodes := parse(t, "fn add(x, y) { x + y }")
+	nodes := parse(t, "fn add(x, y)\n    x + y\nend")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1073,7 +1073,7 @@ func TestParseFuncDef(t *testing.T) {
 }
 
 func TestParseFuncDefTyped(t *testing.T) {
-	nodes := parse(t, "fn add(x: Int, y: Int) -> Int { x + y }")
+	nodes := parse(t, "fn add(x: Int, y: Int) -> Int\n    x + y\nend")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1093,7 +1093,9 @@ func TestParseFuncDefTyped(t *testing.T) {
 }
 
 func TestParseFuncDefDefault(t *testing.T) {
-	nodes := parse(t, `fn greet(name, greeting = "Hello") { greeting + " " + name }`)
+	nodes := parse(t, `fn greet(name, greeting = "Hello")
+    greeting + " " + name
+end`)
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1117,7 +1119,7 @@ func TestParseFuncDefDefault(t *testing.T) {
 }
 
 func TestParseFuncDefPublic(t *testing.T) {
-	nodes := parse(t, "pub fn add(x, y) { x + y }")
+	nodes := parse(t, "pub fn add(x, y)\n    x + y\nend")
 	var fd *ast.FuncDef
 	for _, n := range nodes {
 		if v, ok := n.(*ast.FuncDef); ok {
@@ -1137,7 +1139,7 @@ func TestParseFuncDefPublic(t *testing.T) {
 }
 
 func TestParsePubFn(t *testing.T) {
-	nodes := parse(t, "pub fn foo(x: Int) -> Int { x + 1 }")
+	nodes := parse(t, "pub fn foo(x: Int) -> Int\n    x + 1\nend")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1154,7 +1156,7 @@ func TestParsePubFn(t *testing.T) {
 }
 
 func TestParseFnNotPubByDefault(t *testing.T) {
-	nodes := parse(t, "fn foo(x: Int) -> Int { x + 1 }")
+	nodes := parse(t, "fn foo(x: Int) -> Int\n    x + 1\nend")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1184,7 +1186,7 @@ func TestParsePubBeforeUnsupportedTokenErrors(t *testing.T) {
 }
 
 func TestParsePubTypeStruct(t *testing.T) {
-	nodes := parse(t, "pub struct Foo { name: String; age: Int }")
+	nodes := parse(t, "pub struct Foo\n    name: String\n    age: Int\nend")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1201,7 +1203,7 @@ func TestParsePubTypeStruct(t *testing.T) {
 }
 
 func TestParsePubTypeEnum(t *testing.T) {
-	nodes := parse(t, "pub enum Color { Red; Blue }")
+	nodes := parse(t, "pub enum Color\n    Red\n    Blue\nend")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1235,7 +1237,7 @@ func TestParsePubTypeDistinct(t *testing.T) {
 }
 
 func TestParsePubInterface(t *testing.T) {
-	nodes := parse(t, "pub interface Display { fn to_string(value: self) -> String }")
+	nodes := parse(t, "pub interface Display\n    fn to_string(value: self) -> String\nend")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1406,7 +1408,7 @@ func TestParseRejectsGoBlocks(t *testing.T) {
 		msg       string
 	}{
 		{"go {\n  var x = 1\n}", 1, 1, "Nomi has no `go { ... }` blocks; declare a Go package with `gopkg \"import/path\" as alias` and bind its functions and types with `go alias.Symbol`"},
-		{"fn f() -> Int go {\n  return 1\n}", 1, 15, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
+		{"fn f() -> Int go\n  return 1\nend", 1, 15, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
 		{"pub fn f(x: Int) -> Int\n  go { return x }", 2, 3, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
 		{"type Conn go {\n  db *sql.DB\n}", 1, 11, "a type has no `go { ... }` body; bind a Go type with `opaque type Name go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
 		{"pub opaque type Conn go { db *sql.DB }", 1, 22, "a type has no `go { ... }` body; bind a Go type with `opaque type Name go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
@@ -1451,7 +1453,7 @@ func TestParsePubTypeNotOpaqueByDefault(t *testing.T) {
 // --- Return ---
 
 func TestParseReturn(t *testing.T) {
-	nodes := parse(t, "fn f(x) { if x < 0 { return -x }\n x }")
+	nodes := parse(t, "fn f(x)\n    if x < 0 then return -x\n x\nend")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1489,7 +1491,7 @@ func TestParseReturn(t *testing.T) {
 }
 
 func TestParseReturnBare(t *testing.T) {
-	nodes := parse(t, "fn f() { return }")
+	nodes := parse(t, "fn f()\n    return\nend")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -1631,7 +1633,7 @@ func TestLambdaTupleDestructureWithDefault(t *testing.T) {
 
 func TestLambdaMultiStatement(t *testing.T) {
 	// fn x -> { y = x * 2; y + 1 } — block expr for multi-stmt body
-	expr := parseExpr(t, "fn x -> { y = x * 2; y + 1 }")
+	expr := parseExpr(t, "fn x ->\n    y = x * 2\n    y + 1\nend")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1762,7 +1764,7 @@ func TestLambdaTupleDestructureMultiParams(t *testing.T) {
 }
 
 func TestLambdaStructDestructureParam(t *testing.T) {
-	expr := parseExpr(t, "fn .{x, y} -> x + y")
+	expr := parseExpr(t, "fn {x:, y:} -> x + y")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1790,7 +1792,7 @@ func TestLambdaStructDestructureParam(t *testing.T) {
 }
 
 func TestLambdaStructDestructureRenameParam(t *testing.T) {
-	expr := parseExpr(t, "fn .{name: n, age: a} -> n")
+	expr := parseExpr(t, "fn {name: n, age: a} -> n")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1808,7 +1810,7 @@ func TestLambdaStructDestructureRenameParam(t *testing.T) {
 }
 
 func TestLambdaMapDestructureParam(t *testing.T) {
-	expr := parseExpr(t, `fn %{"name" => n} -> n`)
+	expr := parseExpr(t, `fn {"name" => n} -> n`)
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1826,8 +1828,8 @@ func TestLambdaMapDestructureParam(t *testing.T) {
 }
 
 func TestBlockStillWorks(t *testing.T) {
-	// { 1 + 2 } should still parse as a Block, not a Lambda
-	expr := parseExpr(t, "{ 1 + 2 }")
+	// `begin ... end` is a block expression.
+	expr := parseExpr(t, "begin\n    1 + 2\nend")
 	block, ok := expr.(*ast.Block)
 	if !ok {
 		t.Fatalf("expected *ast.Block, got %T", expr)
@@ -1838,7 +1840,7 @@ func TestBlockStillWorks(t *testing.T) {
 }
 
 func TestBlockExpression(t *testing.T) {
-	expr := parseExpr(t, "{ x = 5; x + 1 }")
+	expr := parseExpr(t, "begin\n    x = 5; x + 1\nend")
 	block, ok := expr.(*ast.Block)
 	if !ok {
 		t.Fatalf("expected *ast.Block, got %T", expr)
@@ -1867,7 +1869,7 @@ func TestBlockExpression(t *testing.T) {
 }
 
 func TestBlockExpressionWithAnnotatedBinding(t *testing.T) {
-	expr := parseExpr(t, "{ value: Maybe<Int> = None; value }")
+	expr := parseExpr(t, "begin\n    value: Maybe<Int> = None\n    value\nend")
 	block, ok := expr.(*ast.Block)
 	if !ok {
 		t.Fatalf("expected *ast.Block, got %T", expr)
@@ -1971,12 +1973,12 @@ func TestParsePipeChain(t *testing.T) {
 }
 
 func TestParsePipeDbgFinalStageBeforeNextStatement(t *testing.T) {
-	src := `fn main() {
+	src := `fn main()
   [1, 2, 3]
   |> dbg
 
   value = 4
-}`
+end`
 	nodes := parse(t, src)
 	fn, ok := nodes[0].(*ast.FuncDef)
 	if !ok {
@@ -2167,10 +2169,10 @@ func TestParseMultilineList(t *testing.T) {
 }
 
 func TestParseVectorLiteral(t *testing.T) {
-	expr := parseExpr(t, "#[1, 2, 3]")
-	vector, ok := expr.(*ast.VectorLit)
+	expr := parseExpr(t, "Vector[1, 2, 3]")
+	vector, ok := expr.(*ast.ListLit)
 	if !ok {
-		t.Fatalf("expected *ast.VectorLit, got %T", expr)
+		t.Fatalf("expected got %T", expr)
 	}
 	if len(vector.Items) != 3 {
 		t.Fatalf("expected 3 items, got %d", len(vector.Items))
@@ -2178,10 +2180,10 @@ func TestParseVectorLiteral(t *testing.T) {
 }
 
 func TestParseEmptyVectorLiteral(t *testing.T) {
-	expr := parseExpr(t, "#[]")
-	vector, ok := expr.(*ast.VectorLit)
+	expr := parseExpr(t, "Vector[]")
+	vector, ok := expr.(*ast.ListLit)
 	if !ok {
-		t.Fatalf("expected *ast.VectorLit, got %T", expr)
+		t.Fatalf("expected got %T", expr)
 	}
 	if len(vector.Items) != 0 {
 		t.Fatalf("expected 0 items, got %d", len(vector.Items))
@@ -2189,10 +2191,10 @@ func TestParseEmptyVectorLiteral(t *testing.T) {
 }
 
 func TestParseSetLiteral(t *testing.T) {
-	expr := parseExpr(t, "%[1, 2, 3]")
-	set, ok := expr.(*ast.SetLit)
+	expr := parseExpr(t, "Set[1, 2, 3]")
+	set, ok := expr.(*ast.ListLit)
 	if !ok {
-		t.Fatalf("expected *ast.SetLit, got %T", expr)
+		t.Fatalf("expected got %T", expr)
 	}
 	if len(set.Items) != 3 {
 		t.Fatalf("expected 3 items, got %d", len(set.Items))
@@ -2200,10 +2202,10 @@ func TestParseSetLiteral(t *testing.T) {
 }
 
 func TestParseEmptySetLiteral(t *testing.T) {
-	expr := parseExpr(t, "%[]")
-	set, ok := expr.(*ast.SetLit)
+	expr := parseExpr(t, "Set[]")
+	set, ok := expr.(*ast.ListLit)
 	if !ok {
-		t.Fatalf("expected *ast.SetLit, got %T", expr)
+		t.Fatalf("expected got %T", expr)
 	}
 	if len(set.Items) != 0 {
 		t.Fatalf("expected 0 items, got %d", len(set.Items))
@@ -2253,7 +2255,7 @@ func TestParsePipePlaceholder(t *testing.T) {
 
 func TestCaseAdHoc(t *testing.T) {
 	// case { x > 0 -> "positive"\n _ -> "other" }
-	expr := parseExpr(t, "case { x > 0 -> \"positive\"\n _ -> \"other\" }")
+	expr := parseExpr(t, "case\n    x > 0 -> \"positive\"\n _ -> \"other\"\nend")
 	c, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)
@@ -2289,7 +2291,7 @@ func TestCaseAdHoc(t *testing.T) {
 
 func TestCaseValueMatch(t *testing.T) {
 	// case x { 1 -> "one"\n 2 -> "two"\n _ -> "other" }
-	expr := parseExpr(t, "case x { 1 -> \"one\"\n 2 -> \"two\"\n _ -> \"other\" }")
+	expr := parseExpr(t, "case x\n    1 -> \"one\"\n 2 -> \"two\"\n _ -> \"other\"\nend")
 	c, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)
@@ -2317,7 +2319,7 @@ func TestCaseValueMatch(t *testing.T) {
 
 func TestCaseGuard(t *testing.T) {
 	// case x { n when n > 10 -> "big"\n _ -> "small" }
-	expr := parseExpr(t, "case x { n when n > 10 -> \"big\"\n _ -> \"small\" }")
+	expr := parseExpr(t, "case x\n    n when n > 10 -> \"big\"\n _ -> \"small\"\nend")
 	c, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)
@@ -2351,7 +2353,7 @@ func TestCaseGuard(t *testing.T) {
 
 func TestCaseIdentBinding(t *testing.T) {
 	// case x { n -> n + 1 }
-	expr := parseExpr(t, "case x { n -> n + 1 }")
+	expr := parseExpr(t, "case x\n    n -> n + 1\nend")
 	c, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)
@@ -2371,7 +2373,7 @@ func TestCaseIdentBinding(t *testing.T) {
 
 func TestCaseStringMatch(t *testing.T) {
 	// case s { "hello" -> "greeting"\n _ -> "unknown" }
-	expr := parseExpr(t, "case s { \"hello\" -> \"greeting\"\n _ -> \"unknown\" }")
+	expr := parseExpr(t, "case s\n    \"hello\" -> \"greeting\"\n _ -> \"unknown\"\nend")
 	c, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)
@@ -2414,7 +2416,7 @@ func TestParseLambdaAsLastArg(t *testing.T) {
 
 func TestCaseBoolMatch(t *testing.T) {
 	// case b { True -> "yes"\n False -> "no" }
-	expr := parseExpr(t, "case b { True -> \"yes\"\n False -> \"no\" }")
+	expr := parseExpr(t, "case b\n    True -> \"yes\"\n False -> \"no\"\nend")
 	c, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)
@@ -2503,24 +2505,6 @@ func TestParseTupleThreeElements(t *testing.T) {
 	}
 	if len(tuple.Items) != 3 {
 		t.Errorf("expected 3 items, got %d", len(tuple.Items))
-	}
-}
-
-func TestParseBraceIsAlwaysBlock(t *testing.T) {
-	// Without trailing-lambda sugar and without `it` shorthand, { ... } is
-	// always a block expression (or struct/map literal when shaped as one),
-	// never a lambda.
-	tokens := lexer.Lex(`{ 1 + 2 }`)
-	nodes, err := Parse(tokens)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	stmt := nodes[0].(*ast.ExprStmt)
-	if _, ok := stmt.Expr.(*ast.Lambda); ok {
-		t.Error("expected Block, got Lambda — `{ ... }` is never a lambda anymore")
-	}
-	if _, ok := stmt.Expr.(*ast.Block); !ok {
-		t.Errorf("expected Block, got %T", stmt.Expr)
 	}
 }
 
@@ -2957,7 +2941,7 @@ func TestTryIsAName(t *testing.T) {
 		}
 	}
 	// `try` binds a value and names a function.
-	nodes := parse(t, "fn try(x: Int) -> Int {\n    x\n}\ntry = try(1)")
+	nodes := parse(t, "fn try(x: Int) -> Int\n    x\nend\ntry = try(1)")
 	if fn, ok := nodes[0].(*ast.FuncDef); !ok || fn.Name != "try" {
 		t.Fatalf("first node is %#v, want fn try", nodes[0])
 	}
@@ -2969,7 +2953,7 @@ func TestTryIsAName(t *testing.T) {
 }
 
 func TestStructDestructurePunning(t *testing.T) {
-	nodes := parse(t, ".{x, y} = point")
+	nodes := parse(t, "{x:, y:} = point")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
@@ -2989,7 +2973,7 @@ func TestStructDestructurePunning(t *testing.T) {
 }
 
 func TestStructDestructureRename(t *testing.T) {
-	nodes := parse(t, ".{x: a, y: b} = point")
+	nodes := parse(t, "{x: a, y: b} = point")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
@@ -3023,10 +3007,10 @@ func TestPatternAssertionBindingEnumPattern(t *testing.T) {
 }
 
 func TestCaseAnonStructPattern(t *testing.T) {
-	expr := parseExpr(t, `case point {
-	.{x: 1} -> "one"
+	expr := parseExpr(t, `case point
+	{x: 1} -> "one"
 	_ -> "other"
-}`)
+end`)
 	ce, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected Case, got %T", expr)
@@ -3044,10 +3028,10 @@ func TestCaseAnonStructPattern(t *testing.T) {
 }
 
 func TestCaseAnonStructPatternBinding(t *testing.T) {
-	expr := parseExpr(t, `case point {
-	.{x, y} -> x + y
+	expr := parseExpr(t, `case point
+	{x:, y:} -> x + y
 	_ -> 0
-}`)
+end`)
 	ce, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected Case, got %T", expr)
@@ -3068,13 +3052,13 @@ func TestCaseAnonStructPatternBinding(t *testing.T) {
 }
 
 // `_` in a struct-pattern field position is a wildcard — accepts any
-// value for that field without binding. Both anon (`.{a: _}`) and
+// value for that field without binding. Both anon (`{a: _}`) and
 // variant-qualified (`Foo.Bar{a: _}`) struct patterns accept it.
 func TestCaseStructPatternWildcardField(t *testing.T) {
-	expr := parseExpr(t, `case point {
-  .{x: 1, y: _} -> "x=1"
+	expr := parseExpr(t, `case point
+  {x: 1, y: _} -> "x=1"
   _ -> "other"
-}`)
+end`)
 	ce, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected Case, got %T", expr)
@@ -3095,10 +3079,10 @@ func TestCaseStructPatternWildcardField(t *testing.T) {
 }
 
 func TestCaseStructPatternFloat(t *testing.T) {
-	expr := parseExpr(t, `case point {
-	.{score: 3.14} -> "pi"
+	expr := parseExpr(t, `case point
+	{score: 3.14} -> "pi"
 	_ -> "other"
-}`)
+end`)
 	ce, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected Case, got %T", expr)
@@ -3117,10 +3101,10 @@ func TestCaseStructPatternFloat(t *testing.T) {
 }
 
 func TestCaseStructPatternNegativeInt(t *testing.T) {
-	expr := parseExpr(t, `case point {
-	.{x: -1} -> "negative"
+	expr := parseExpr(t, `case point
+	{x: -1} -> "negative"
 	_ -> "other"
-}`)
+end`)
 	ce, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected Case, got %T", expr)
@@ -3139,10 +3123,10 @@ func TestCaseStructPatternNegativeInt(t *testing.T) {
 }
 
 func TestCaseNamedStructPatternFloat(t *testing.T) {
-	expr := parseExpr(t, `case p {
+	expr := parseExpr(t, `case p
 	Point{score: 3.14} -> "pi"
 	_ -> "other"
-}`)
+end`)
 	ce, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected Case, got %T", expr)
@@ -3161,10 +3145,10 @@ func TestCaseNamedStructPatternFloat(t *testing.T) {
 }
 
 func TestCaseNamedStructPatternNegativeInt(t *testing.T) {
-	expr := parseExpr(t, `case p {
+	expr := parseExpr(t, `case p
 	Point{x: -1} -> "negative"
 	_ -> "other"
-}`)
+end`)
 	ce, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected Case, got %T", expr)
@@ -3182,14 +3166,14 @@ func TestCaseNamedStructPatternNegativeInt(t *testing.T) {
 	}
 }
 
-// Map-distinct call-form pattern: `Kvs(%{"a" => v})` parses as an
+// Map-distinct call-form pattern: `Kvs({"a" => v})` parses as an
 // EnumPattern wrapping an anonymous MapPattern (TypeName=nil). Mirrors
 // `Pair((a, b))` for tuple-distinct patterns. The literal-attach form
-// `%Kvs{"a" => v}` (a MapPattern with TypeName=Kvs) is unaffected.
+// `Kvs{"a" => v}` (a MapPattern with TypeName=Kvs) is unaffected.
 func TestParser_MapPattern_CallForm(t *testing.T) {
-	expr := parseExpr(t, `case kv {
-	Kvs(%{"a" => v}) -> v
-}`)
+	expr := parseExpr(t, `case kv
+	Kvs({"a" => v}) -> v
+end`)
 	ce, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected Case, got %T", expr)
@@ -3228,7 +3212,7 @@ func TestParser_MapPattern_CallForm(t *testing.T) {
 }
 
 func TestMapLiteral(t *testing.T) {
-	expr := parseExpr(t, `%{"alice" => 30, "bob" => 25}`)
+	expr := parseExpr(t, `{"alice" => 30, "bob" => 25}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected MapLit, got %T", expr)
@@ -3246,7 +3230,7 @@ func TestMapLiteral(t *testing.T) {
 }
 
 func TestMapLiteralSingleEntry(t *testing.T) {
-	expr := parseExpr(t, `%{1 => "one"}`)
+	expr := parseExpr(t, `{1 => "one"}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected MapLit, got %T", expr)
@@ -3257,7 +3241,7 @@ func TestMapLiteralSingleEntry(t *testing.T) {
 }
 
 func TestMapLiteralWithVariableKeys(t *testing.T) {
-	expr := parseExpr(t, `%{x => 1, y => 2}`)
+	expr := parseExpr(t, `{x => 1, y => 2}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected MapLit, got %T", expr)
@@ -3272,7 +3256,7 @@ func TestMapLiteralWithVariableKeys(t *testing.T) {
 // key disambiguates: brace literals with `=>` separators are map literals,
 // brace literals with `:` are struct literals.
 func TestParser_MapLit_TypePrefixed(t *testing.T) {
-	expr := parseExpr(t, `%Kvs{"a" => 1, "b" => 2}`)
+	expr := parseExpr(t, `Kvs{"a" => 1, "b" => 2}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected MapLit, got %T", expr)
@@ -3306,7 +3290,7 @@ func TestParser_StructLit_TypePrefixed_StillWorks(t *testing.T) {
 // A LITERAL BODY ATTACHES TO A MODULE-QUALIFIED NAME. Without that, none of
 // these parsed as a literal: the chain stopped at the member access and the
 // body became a separate anonymous struct or list, which the checker then
-// reported as `non-final expression has type .{r: Int}`.
+// reported as `non-final expression has type {r: Int}`.
 //
 // The boundary is the LITERAL-ATTACH forms specifically. `shapes.Shape.Square(4)`
 // worked throughout because a call is a postfix form; `{` and `[` are only
@@ -3419,7 +3403,7 @@ func TestParser_LiteralAttach_ModuleQualifiedHeadLeavesMemberAccessAlone(t *test
 	// UPPERCASE segments. `a.b.Outer` stays member access and `{v: 1}` after
 	// it opens a block, a second statement on the line, which is an error.
 	t.Run("a.b.Outer {v: 1} is two statements on one line", func(t *testing.T) {
-		_, err := Parse(lexer.Lex("fn main() {\n  a.b.Outer{v: 1}\n}\n"))
+		_, err := Parse(lexer.Lex("fn main()\n  a.b.Outer{v: 1}\nend\n"))
 		if err == nil || !strings.Contains(err.Error(), "right after the end of a statement") {
 			t.Fatalf("Parse = %v, want the second statement refused", err)
 		}
@@ -3428,9 +3412,9 @@ func TestParser_LiteralAttach_ModuleQualifiedHeadLeavesMemberAccessAlone(t *test
 }
 
 func TestInterfaceDef(t *testing.T) {
-	nodes := parse(t, `interface Display {
+	nodes := parse(t, `interface Display
 	fn ToString(value: self) -> String
-}`)
+end`)
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
@@ -3460,12 +3444,12 @@ func TestInterfaceDef(t *testing.T) {
 }
 
 func TestInterfaceDefWithDefault(t *testing.T) {
-	nodes := parse(t, `interface Formatted {
+	nodes := parse(t, `interface Formatted
 	fn format(value: self, style: String) -> String
-	fn format_pretty(value: self) -> String {
+	fn format_pretty(value: self) -> String
 		format(value, "pretty")
-	}
-}`)
+	end
+end`)
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
@@ -3485,11 +3469,11 @@ func TestInterfaceDefWithDefault(t *testing.T) {
 // interface method parses into InterfaceMethod.WhereClauses — the surface for
 // constrained interface functions (e.g. `sort ... where T: Comparable`).
 func TestInterfaceMethodWhereClause(t *testing.T) {
-	nodes := parse(t, `interface Sortable<T> {
-	fn sort<K>(source: self, _key: (T) -> K) -> List<T> where T: Comparable, K: Hashable {
+	nodes := parse(t, `interface Sortable<T>
+	fn sort<K>(source: self, _key: (T) -> K) -> List<T> where T: Comparable, K: Hashable
 		source
-	}
-}`)
+	end
+end`)
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
@@ -3525,11 +3509,11 @@ func TestInterfaceMethodWhereClause(t *testing.T) {
 // TestInterfaceMethodWhereSelf verifies `where self: ...` parses with `self`
 // as the constraint's subject, beside a type-variable constraint.
 func TestInterfaceMethodWhereSelf(t *testing.T) {
-	nodes := parse(t, `interface Scale<T> {
-	fn format(scale: self) -> String where self: Display and Hashable, T: Display {
+	nodes := parse(t, `interface Scale<T>
+	fn format(scale: self) -> String where self: Display and Hashable, T: Display
 		"${scale}"
-	}
-}`)
+	end
+end`)
 	m := nodes[0].(*ast.InterfaceDef).Methods[0]
 	if m.Body == nil {
 		t.Fatal("expected default body after where clause")
@@ -3554,16 +3538,16 @@ func TestInterfaceMethodWhereSelf(t *testing.T) {
 // `case` arm, and that `self` in expression position is a SelfExpr, called
 // or named as a value.
 func TestSelfPatternsAndConstruction(t *testing.T) {
-	nodes := parse(t, `interface S {
-	fn f(self(n) as t, xs: List<Int>) -> self where self: Distinct<Int> {
+	nodes := parse(t, `interface S
+	fn f(self(n) as t, xs: List<Int>) -> self where self: Distinct<Int>
 		self(m) = t
 		_ = xs |> Iter.map(self)
-		case t {
+		case t
 			self(0) -> self(m)
 			_ -> self(n)
-		}
-	}
-}`)
+		end
+	end
+end`)
 	m := nodes[0].(*ast.InterfaceDef).Methods[0]
 	as, ok := m.Params[0].Destructure.(*ast.AsPattern)
 	if !ok {
@@ -3600,7 +3584,7 @@ func TestSelfPatternsAndConstruction(t *testing.T) {
 	} else if _, isSelf := call.Func.(*ast.SelfExpr); !isSelf {
 		t.Fatalf("arm body callee: got %T", call.Func)
 	}
-	if _, err := Parse(lexer.Lex("fn f(x: Int) -> Int {\n  case x {\n    self -> 1\n  }\n}\n")); err == nil ||
+	if _, err := Parse(lexer.Lex("fn f(x: Int) -> Int\n  case x\n    self -> 1\n  end\nend\n")); err == nil ||
 		!strings.Contains(err.Error(), "`self` in a pattern takes the wrapped value apart: write `self(x)`") {
 		t.Fatalf("bare self pattern: got %v", err)
 	}
@@ -3609,11 +3593,11 @@ func TestSelfPatternsAndConstruction(t *testing.T) {
 // TestInterfaceMethodWhereClauseMultiple verifies a where clause with several
 // constraints and an `and`-joined bound list parses fully.
 func TestInterfaceMethodWhereClauseMultiple(t *testing.T) {
-	nodes := parse(t, `interface Keyed<T> {
-	fn group<K>(source: self, _key: (T) -> K) -> List<T> where T: Comparable, K: Hashable and Equatable {
+	nodes := parse(t, `interface Keyed<T>
+	fn group<K>(source: self, _key: (T) -> K) -> List<T> where T: Comparable, K: Hashable and Equatable
 		source
-	}
-}`)
+	end
+end`)
 	m := nodes[0].(*ast.InterfaceDef).Methods[0]
 	if len(m.TypeParams) != 1 || m.TypeParams[0].Name != "K" {
 		t.Fatalf("expected method type param K, got %#v", m.TypeParams)
@@ -3630,9 +3614,9 @@ func TestInterfaceMethodWhereClauseMultiple(t *testing.T) {
 }
 
 func TestInterfaceMethodWhereClauseOnRequiredMethod(t *testing.T) {
-	nodes := parse(t, `interface Sortable<T> {
+	nodes := parse(t, `interface Sortable<T>
 	fn sort(source: self) -> List<T> where T: Comparable
-}`)
+end`)
 	m := nodes[0].(*ast.InterfaceDef).Methods[0]
 	if m.Body != nil {
 		t.Fatal("expected required method, got default body")
@@ -3647,9 +3631,9 @@ func TestFuncDefWhereClause(t *testing.T) {
 	r: Range<T>,
 	_by: S,
 ) -> Iter<T>
-where T: Comparable and Steppable<S> {
+where T: Comparable and Steppable<S>
 	r
-}`)
+end`)
 	fn := nodes[0].(*ast.FuncDef)
 	if len(fn.WhereClauses) != 1 {
 		t.Fatalf("expected 1 where constraint, got %d", len(fn.WhereClauses))
@@ -3678,7 +3662,9 @@ func TestExternFuncWhereClause(t *testing.T) {
 }
 
 func TestStructDefPublic(t *testing.T) {
-	nodes := parse(t, `pub struct User { name: String }`)
+	nodes := parse(t, `pub struct User
+    name: String
+end`)
 	var sd *ast.StructDef
 	for _, n := range nodes {
 		if v, ok := n.(*ast.StructDef); ok {
@@ -3695,7 +3681,9 @@ func TestStructDefPublic(t *testing.T) {
 }
 
 func TestStructDefPrivate(t *testing.T) {
-	nodes := parse(t, `struct Config { name: String }`)
+	nodes := parse(t, `struct Config
+    name: String
+end`)
 	sd := nodes[0].(*ast.StructDef)
 	if sd.Public {
 		t.Error("expected struct without `pub` modifier to be private")
@@ -3705,7 +3693,10 @@ func TestStructDefPrivate(t *testing.T) {
 // TestParser_StructDef_Basic verifies that `struct Foo { a: Int; b: String }`
 // parses to a StructDef with two fields, public flag, and field types.
 func TestParser_StructDef_Basic(t *testing.T) {
-	nodes := parse(t, `pub struct Foo { a: Int; b: String }`)
+	nodes := parse(t, `pub struct Foo
+    a: Int
+    b: String
+end`)
 	var sd *ast.StructDef
 	for _, n := range nodes {
 		if v, ok := n.(*ast.StructDef); ok {
@@ -3736,7 +3727,9 @@ func TestParser_StructDef_Basic(t *testing.T) {
 // TestParser_StructDef_Generic verifies generic struct declarations of
 // the form `struct Box<T> { v: T }`.
 func TestParser_StructDef_Generic(t *testing.T) {
-	nodes := parse(t, `struct Box<T> { v: T }`)
+	nodes := parse(t, `struct Box<T>
+    v: T
+end`)
 	sd, ok := nodes[0].(*ast.StructDef)
 	if !ok {
 		t.Fatalf("expected StructDef, got %T", nodes[0])
@@ -3755,7 +3748,9 @@ func TestParser_StructDef_Generic(t *testing.T) {
 // TestParser_StructDef_FieldDefault verifies field defaults survive
 // `struct Foo { a: Int = 0 }`.
 func TestParser_StructDef_FieldDefault(t *testing.T) {
-	nodes := parse(t, `struct Foo { a: Int = 0 }`)
+	nodes := parse(t, `struct Foo
+    a: Int = 0
+end`)
 	sd, ok := nodes[0].(*ast.StructDef)
 	if !ok {
 		t.Fatalf("expected StructDef, got %T", nodes[0])
@@ -3768,7 +3763,7 @@ func TestParser_StructDef_FieldDefault(t *testing.T) {
 // TestParser_StructDef_Empty verifies that the empty-brace form
 // `struct Empty {}` yields a zero-field StructDef.
 func TestParser_StructDef_Empty(t *testing.T) {
-	nodes := parse(t, `struct Empty {}`)
+	nodes := parse(t, `struct Empty end`)
 	sd, ok := nodes[0].(*ast.StructDef)
 	if !ok {
 		t.Fatalf("expected StructDef, got %T", nodes[0])
@@ -3784,7 +3779,9 @@ func TestParser_StructDef_Empty(t *testing.T) {
 // TestParser_StructDef_Private verifies that a struct declared without
 // `pub` parses with Public=false.
 func TestParser_StructDef_Private(t *testing.T) {
-	nodes := parse(t, `struct Foo { a: Int }`)
+	nodes := parse(t, `struct Foo
+    a: Int
+end`)
 	sd, ok := nodes[0].(*ast.StructDef)
 	if !ok {
 		t.Fatalf("expected StructDef, got %T", nodes[0])
@@ -3801,7 +3798,7 @@ func TestParser_StructDef_Private(t *testing.T) {
 // parses to an EnumDef with the expected name, public flag, type params,
 // and a bare + positional variant.
 func TestParser_EnumDef_Generic(t *testing.T) {
-	src := "pub enum Maybe<T> { None; Some T }"
+	src := "pub enum Maybe<T>\n    None\n    Some T\nend"
 	nodes := parse(t, src)
 	var ed *ast.EnumDef
 	for _, n := range nodes {
@@ -3845,7 +3842,7 @@ func TestParser_EnumDef_EmptyBodyRejected(t *testing.T) {
 // TestParser_EnumDef_EmbedsVariant verifies an enum body accepts
 // `embeds TypeName` variants alongside bare variants.
 func TestParser_EnumDef_EmbedsVariant(t *testing.T) {
-	src := "enum Drawable { embeds Circle; Line }"
+	src := "enum Drawable\n    embeds Circle\n    Line\nend"
 	nodes := parse(t, src)
 	ed, ok := nodes[0].(*ast.EnumDef)
 	if !ok {
@@ -3865,7 +3862,7 @@ func TestParser_EnumDef_EmbedsVariant(t *testing.T) {
 // TestParser_EnumDef_StructPayloadVariant verifies the struct-payload
 // variant form (`Rectangle{w: Float, h: Float}`) parses inside an enum body.
 func TestParser_EnumDef_StructPayloadVariant(t *testing.T) {
-	src := "enum Shape {\n  Rectangle{w: Float, h: Float}\n  Point\n}"
+	src := "enum Shape\n  Rectangle{w: Float, h: Float}\n  Point\nend"
 	nodes := parse(t, src)
 	ed, ok := nodes[0].(*ast.EnumDef)
 	if !ok {
@@ -3886,7 +3883,7 @@ func TestParser_EnumDef_StructPayloadVariant(t *testing.T) {
 // TestParser_EnumDef_SingleVariant verifies the minimum-viable sum type
 // (one bare variant, no `|` separator) parses to an EnumDef.
 func TestParser_EnumDef_SingleVariant(t *testing.T) {
-	nodes := parse(t, "enum Foo { A }")
+	nodes := parse(t, "enum Foo\n    A\nend")
 	ed, ok := nodes[0].(*ast.EnumDef)
 	if !ok {
 		t.Fatalf("expected *ast.EnumDef, got %T", nodes[0])
@@ -3897,7 +3894,11 @@ func TestParser_EnumDef_SingleVariant(t *testing.T) {
 }
 
 func TestEnumDefPublic(t *testing.T) {
-	nodes := parse(t, `pub enum Color { Red; Green; Blue }`)
+	nodes := parse(t, `pub enum Color
+    Red
+    Green
+    Blue
+end`)
 	var ed *ast.EnumDef
 	for _, n := range nodes {
 		if v, ok := n.(*ast.EnumDef); ok {
@@ -3916,7 +3917,7 @@ func TestEnumDefPublic(t *testing.T) {
 // TestParser_StructKeyword verifies the `struct` keyword produces a
 // StructDef with the expected name, public flag, and fields.
 func TestParser_StructKeyword(t *testing.T) {
-	nodes := parse(t, "pub struct Point { x: Int; y: Int }")
+	nodes := parse(t, "pub struct Point\n    x: Int\n    y: Int\nend")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -3938,7 +3939,7 @@ func TestParser_StructKeyword(t *testing.T) {
 // TestParser_EnumKeyword verifies the `enum` keyword with a body of
 // `variant` items produces an EnumDef.
 func TestParser_EnumKeyword(t *testing.T) {
-	nodes := parse(t, "pub enum Color { Red; Green; Blue }")
+	nodes := parse(t, "pub enum Color\n    Red\n    Green\n    Blue\nend")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -3963,7 +3964,7 @@ func TestParser_EnumKeyword(t *testing.T) {
 // TestParser_EnumSingleVariant verifies a single-variant enum parses
 // successfully.
 func TestParser_EnumSingleVariant(t *testing.T) {
-	nodes := parse(t, "enum Singleton { Only }")
+	nodes := parse(t, "enum Singleton\n    Only\nend")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -3977,9 +3978,9 @@ func TestParser_EnumSingleVariant(t *testing.T) {
 }
 
 func TestInterfaceDefPublic(t *testing.T) {
-	nodes := parse(t, `pub interface Display {
+	nodes := parse(t, `pub interface Display
 	fn to_string(value: self) -> String
-}`)
+end`)
 	var id *ast.InterfaceDef
 	for _, n := range nodes {
 		if v, ok := n.(*ast.InterfaceDef); ok {
@@ -4058,7 +4059,7 @@ func TestImportSelective(t *testing.T) {
 // Block form: entries separated by newlines (the canonical form),
 // terminated by `}`.
 func TestImportBlock_NewlineSeparated(t *testing.T) {
-	nodes := parse(t, "import {\n  std::lists: List\n  std::maps: Map\n}")
+	nodes := parse(t, "import\n  std::lists: List\n  std::maps: Map\nend")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
@@ -4311,7 +4312,7 @@ func TestParseImportAllowsDottedSelectorInsideOwnerBrace(t *testing.T) {
 }
 
 // TestParseImportAllowsDottedSingleSelective confirms `.User` shorthand for
-// `.{User}` after a slash-separated path still parses.
+// `{User}` after a slash-separated path still parses.
 func TestParseImportAllowsDottedSingleSelective(t *testing.T) {
 	if _, err := Parse(lexer.Lex("import models.User\n")); err != nil {
 		t.Fatalf("single-selective `.User` must still parse: %v", err)
@@ -4432,7 +4433,9 @@ func TestTrailingPositionalAfterNamed(t *testing.T) {
 
 func TestGenericTypeAnnotation(t *testing.T) {
 	// Simple generic: x: List<Int> = [1]
-	nodes := parse(t, `fn foo(x: List<Int>) -> Map<String, Int> { x }`)
+	nodes := parse(t, `fn foo(x: List<Int>) -> Map<String, Int>
+    x
+end`)
 	fd, ok := nodes[0].(*ast.FuncDef)
 	if !ok {
 		t.Fatalf("expected FuncDef, got %T", nodes[0])
@@ -4446,7 +4449,9 @@ func TestGenericTypeAnnotation(t *testing.T) {
 }
 
 func TestNestedGenericTypeAnnotation(t *testing.T) {
-	nodes := parse(t, `fn foo(x: Map<String, List<Int>>) -> Result<List<String>, Error> { x }`)
+	nodes := parse(t, `fn foo(x: Map<String, List<Int>>) -> Result<List<String>, Error>
+    x
+end`)
 	fd := nodes[0].(*ast.FuncDef)
 	if fd.Params[0].TypeAnnotation == nil || fd.Params[0].TypeAnnotation.TypeString() != "Map<String, List<Int>>" {
 		t.Errorf("param type = %v, want %q", fd.Params[0].TypeAnnotation, "Map<String, List<Int>>")
@@ -4457,7 +4462,9 @@ func TestNestedGenericTypeAnnotation(t *testing.T) {
 }
 
 func TestFuncTypeParams(t *testing.T) {
-	nodes := parse(t, `fn first<A>(list: List<A>) -> A { list }`)
+	nodes := parse(t, `fn first<A>(list: List<A>) -> A
+    list
+end`)
 	fd := nodes[0].(*ast.FuncDef)
 	if len(fd.TypeParams) != 1 || fd.TypeParams[0].Name != "A" {
 		t.Errorf("TypeParams = %v, want ['A]", fd.TypeParams)
@@ -4479,7 +4486,7 @@ func TestInlineGenericBoundsRejected(t *testing.T) {
 }
 
 func TestStructTypeParams(t *testing.T) {
-	nodes := parse(t, "struct Pair<A, B> { first: A; second: B }")
+	nodes := parse(t, "struct Pair<A, B>\n    first: A\n    second: B\nend")
 	sd := nodes[0].(*ast.StructDef)
 	if len(sd.TypeParams) != 2 || sd.TypeParams[0].Name != "A" || sd.TypeParams[1].Name != "B" {
 		t.Errorf("TypeParams = %v, want [A B]", sd.TypeParams)
@@ -4490,7 +4497,7 @@ func TestStructTypeParams(t *testing.T) {
 }
 
 func TestEnumTypeParams(t *testing.T) {
-	nodes := parse(t, "enum Result<T, E> { Ok T; Err E }")
+	nodes := parse(t, "enum Result<T, E>\n    Ok T\n    Err E\nend")
 	ed := nodes[0].(*ast.EnumDef)
 	if len(ed.TypeParams) != 2 || ed.TypeParams[0].Name != "T" || ed.TypeParams[1].Name != "E" {
 		t.Errorf("TypeParams = %v, want [T E]", ed.TypeParams)
@@ -4498,7 +4505,7 @@ func TestEnumTypeParams(t *testing.T) {
 }
 
 func TestInterfaceTypeParams(t *testing.T) {
-	nodes := parse(t, "interface Container<T> {\n  fn get(key: String) -> T\n}")
+	nodes := parse(t, "interface Container<T>\n  fn get(key: String) -> T\nend")
 	id := nodes[0].(*ast.InterfaceDef)
 	if len(id.TypeParams) != 1 || id.TypeParams[0].Name != "T" {
 		t.Errorf("TypeParams = %v, want ['T]", id.TypeParams)
@@ -4506,10 +4513,10 @@ func TestInterfaceTypeParams(t *testing.T) {
 }
 
 func TestParseEnumStructVariant(t *testing.T) {
-	src := `enum Shape {
+	src := `enum Shape
     Rectangle{width: Float, height: Float}
     Point
-}`
+end`
 	tokens := lexer.Lex(src)
 	nodes, err := Parse(tokens)
 	if err != nil {
@@ -4532,10 +4539,10 @@ func TestParseEnumStructVariant(t *testing.T) {
 }
 
 func TestParseEnumStructVariantWithDefaults(t *testing.T) {
-	src := `enum Error {
+	src := `enum Error
     HttpError{status: Int, message: String, retryable: Bool = false}
     Timeout
-}`
+end`
 	tokens := lexer.Lex(src)
 	nodes, err := Parse(tokens)
 	if err != nil {
@@ -4589,12 +4596,12 @@ func TestParser_Enum_PipeAlternationRejected(t *testing.T) {
 // TestParser_Enum_AllVariantKinds covers bare, positional, struct-payload,
 // and embed variants — one variant per line.
 func TestParser_Enum_AllVariantKinds(t *testing.T) {
-	src := `enum Shape {
+	src := `enum Shape
   Circle Float
   Rectangle {width: Float, height: Float}
   Point
   embeds Polygon
-}`
+end`
 	tokens := lexer.Lex(src)
 	nodes, err := Parse(tokens)
 	if err != nil {
@@ -4627,7 +4634,7 @@ func TestParser_Enum_AllVariantKinds(t *testing.T) {
 // space-separated payload syntax — `| Number Int` — parses to a
 // positional variant whose payload type is Int.
 func TestParser_Variant_PayloadTypeExpr_Primitive(t *testing.T) {
-	src := "enum Token { Number Int }"
+	src := "enum Token\n    Number Int\nend"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	if len(ed.Variants) != 1 || ed.Variants[0].Name != "Number" {
@@ -4645,7 +4652,7 @@ func TestParser_Variant_PayloadTypeExpr_Primitive(t *testing.T) {
 // TestParser_Variant_PayloadTypeExpr_Tuple verifies the new syntax
 // for tuple payloads: `| Position (Int, Int)`.
 func TestParser_Variant_PayloadTypeExpr_Tuple(t *testing.T) {
-	src := "enum Token { Position (Int, Int) }"
+	src := "enum Token\n    Position (Int, Int)\nend"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	if len(ed.Variants) != 1 {
@@ -4664,7 +4671,7 @@ func TestParser_Variant_PayloadTypeExpr_Tuple(t *testing.T) {
 // TestParser_Variant_PayloadTypeExpr_Function verifies a function-typed
 // variant payload parses: `| Computation (Int) -> Int`.
 func TestParser_Variant_PayloadTypeExpr_Function(t *testing.T) {
-	src := "enum Token { Computation (Int) -> Int }"
+	src := "enum Token\n    Computation (Int) -> Int\nend"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	v := ed.Variants[0]
@@ -4677,7 +4684,7 @@ func TestParser_Variant_PayloadTypeExpr_Function(t *testing.T) {
 // TestParser_Variant_PayloadTypeExpr_Generic verifies a generic payload
 // parses: `| Inner Maybe<Int>`.
 func TestParser_Variant_PayloadTypeExpr_Generic(t *testing.T) {
-	src := "enum Token { Inner Maybe<Int> }"
+	src := "enum Token\n    Inner Maybe<Int>\nend"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	v := ed.Variants[0]
@@ -4690,7 +4697,7 @@ func TestParser_Variant_PayloadTypeExpr_Generic(t *testing.T) {
 // TestParser_Variant_PayloadTypeExpr_Map verifies a multi-param generic
 // payload (Map<K, V>) parses.
 func TestParser_Variant_PayloadTypeExpr_Map(t *testing.T) {
-	src := "enum Token { Bag Map<String, Int> }"
+	src := "enum Token\n    Bag Map<String, Int>\nend"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	v := ed.Variants[0]
@@ -4703,7 +4710,7 @@ func TestParser_Variant_PayloadTypeExpr_Map(t *testing.T) {
 // TestParser_Variant_StructPayload_HasSpace verifies a struct-payload
 // variant with a leading space before `{` parses cleanly.
 func TestParser_Variant_StructPayload_HasSpace(t *testing.T) {
-	src := "enum Token { Card {rank: Int, suit: String} }"
+	src := "enum Token\n    Card {rank: Int, suit: String}\nend"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	v := ed.Variants[0]
@@ -4715,7 +4722,7 @@ func TestParser_Variant_StructPayload_HasSpace(t *testing.T) {
 // TestParser_Variant_BareUnchanged verifies bare variants (no payload)
 // still parse correctly.
 func TestParser_Variant_BareUnchanged(t *testing.T) {
-	src := "enum Token { Eof }"
+	src := "enum Token\n    Eof\nend"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	if ed.Variants[0].Kind != "bare" {
@@ -4726,7 +4733,7 @@ func TestParser_Variant_BareUnchanged(t *testing.T) {
 // TestParser_Variant_EmbedUnchanged verifies `embeds X` survives the
 // new payload syntax.
 func TestParser_Variant_EmbedUnchanged(t *testing.T) {
-	src := "enum Token { embeds Rect }"
+	src := "enum Token\n    embeds Rect\nend"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	if ed.Variants[0].Kind != "embedded" || ed.Variants[0].Name != "Rect" {
@@ -4740,7 +4747,7 @@ func TestParser_Variant_EmbedUnchanged(t *testing.T) {
 // per the no-1-tuples rule collapses to `Int`. Migration is formatter-
 // driven; the AST is identical to the new form.
 func TestParser_Variant_OldParenForm_StillParses(t *testing.T) {
-	src := "enum Token { Number(Int) }"
+	src := "enum Token\n    Number(Int)\nend"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	v := ed.Variants[0]
@@ -4755,7 +4762,7 @@ func TestParser_Variant_OldParenForm_StillParses(t *testing.T) {
 // parses — under the unified type-expression rule, the outer parens
 // collapse (no 1-tuples) and the AST matches the new `| Position (Int, Int)`.
 func TestParser_Variant_OldDoubleParens_StillParses(t *testing.T) {
-	src := "enum Token { Position((Int, Int)) }"
+	src := "enum Token\n    Position((Int, Int))\nend"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	v := ed.Variants[0]
@@ -4770,7 +4777,7 @@ func TestParser_Variant_OldDoubleParens_StillParses(t *testing.T) {
 // payload (the unified type-expression rule reads `(Int, Int)` as a
 // tuple type).
 func TestParser_Variant_OldMultiArgParens_NowParses(t *testing.T) {
-	src := "enum Token { Position(Int, Int) }"
+	src := "enum Token\n    Position(Int, Int)\nend"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	v := ed.Variants[0]
@@ -4805,7 +4812,7 @@ func TestIdentColumnTracking(t *testing.T) {
 }
 
 func TestTypeIdentColumnTracking(t *testing.T) {
-	tokens := lexer.Lex("struct User { name: String }")
+	tokens := lexer.Lex("struct User\n    name: String\nend")
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatal(err)
@@ -4817,7 +4824,7 @@ func TestTypeIdentColumnTracking(t *testing.T) {
 }
 
 func TestFuncDefColumnTracking(t *testing.T) {
-	tokens := lexer.Lex("fn Add(x: Int) -> Int { x }")
+	tokens := lexer.Lex("fn Add(x: Int) -> Int\n    x\nend")
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatal(err)
@@ -4829,13 +4836,13 @@ func TestFuncDefColumnTracking(t *testing.T) {
 }
 
 func TestParseWithRecovery_MultipleFunctions(t *testing.T) {
-	input := `fn Add(x: Int, y: Int) -> Int {
+	input := `fn Add(x: Int, y: Int) -> Int
     x +
-}
+end
 
-fn Sub(x: Int, y: Int) -> Int {
+fn Sub(x: Int, y: Int) -> Int
     x - y
-}`
+end`
 	tokens := lexer.Lex(input)
 	nodes, errs := ParseWithRecovery(tokens)
 
@@ -4854,7 +4861,9 @@ fn Sub(x: Int, y: Int) -> Int {
 }
 
 func TestParseWithRecovery_NoErrors(t *testing.T) {
-	input := `fn Add(x: Int, y: Int) -> Int { x + y }`
+	input := `fn Add(x: Int, y: Int) -> Int
+    x + y
+end`
 	tokens := lexer.Lex(input)
 	nodes, errs := ParseWithRecovery(tokens)
 	if len(errs) != 0 {
@@ -4868,11 +4877,11 @@ func TestParseWithRecovery_NoErrors(t *testing.T) {
 func TestParseWithRecovery_SkipsToNextDeclaration(t *testing.T) {
 	input := `type { invalid }
 
-enum Color {
+enum Color
     Red
     Green
     Blue
-}`
+end`
 	tokens := lexer.Lex(input)
 	nodes, errs := ParseWithRecovery(tokens)
 
@@ -4956,7 +4965,7 @@ func TestExternFuncWithDocComment(t *testing.T) {
 }
 
 func TestFuncDefWithDocComment(t *testing.T) {
-	source := "/// Adds two numbers.\nfn Add(x: Int, y: Int) -> Int { x + y }"
+	source := "/// Adds two numbers.\nfn Add(x: Int, y: Int) -> Int\n    x + y\nend"
 	nodes := parse(t, source)
 	fd, ok := nodes[0].(*ast.FuncDef)
 	if !ok {
@@ -4973,17 +4982,17 @@ func TestFuncDefWithDocComment(t *testing.T) {
 // to the AST. Critical for nomi-fenced code examples whose readability
 // depends on indented case arms, lambda bodies, etc.
 func TestFuncDefDocCommentPreservesIndent(t *testing.T) {
-	source := "/// case x {\n" +
+	source := "/// case x\n" +
 		"///   Some(v) -> v\n" +
 		"///   None -> 0\n" +
-		"/// }\n" +
-		"fn Probe() -> Int { 0 }"
+		"/// end\n" +
+		"fn Probe() -> Int\n    0\nend"
 	nodes := parse(t, source)
 	fd, ok := nodes[0].(*ast.FuncDef)
 	if !ok {
 		t.Fatalf("expected *ast.FuncDef, got %T", nodes[0])
 	}
-	want := "case x {\n  Some(v) -> v\n  None -> 0\n}"
+	want := "case x\n  Some(v) -> v\n  None -> 0\nend"
 	if fd.Doc != want {
 		t.Errorf("doc indent not preserved:\ngot  %q\nwant %q", fd.Doc, want)
 	}
@@ -4996,7 +5005,7 @@ func TestFuncDefDocCommentBlankAndTrailingSpace(t *testing.T) {
 	source := "/// First paragraph.\n" +
 		"///   \n" + // trailing whitespace on a logically-blank line
 		"/// Second paragraph.\n" +
-		"fn Probe() -> Int { 0 }"
+		"fn Probe() -> Int\n    0\nend"
 	nodes := parse(t, source)
 	fd, ok := nodes[0].(*ast.FuncDef)
 	if !ok {
@@ -5024,10 +5033,10 @@ func TestParseStdlibDeclarations(t *testing.T) {
 host type Int
 
 /// A value that may or may not be present.
-enum Maybe<T> {
+enum Maybe<T>
     Some T
     None
-}
+end
 `
 	nodes := parse(t, source)
 	if len(nodes) != 2 {
@@ -5043,7 +5052,7 @@ enum Maybe<T> {
 }
 
 func TestParseTypeExpr_Simple(t *testing.T) {
-	tokens := lexer.Lex("fn foo(x: Int) -> Int { x }")
+	tokens := lexer.Lex("fn foo(x: Int) -> Int\n    x\nend")
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatal(err)
@@ -5069,7 +5078,7 @@ func TestParseTypeExpr_Simple(t *testing.T) {
 }
 
 func TestParseTypeExpr_Generic(t *testing.T) {
-	tokens := lexer.Lex("fn foo(x: List<Int>) -> String { x }")
+	tokens := lexer.Lex("fn foo(x: List<Int>) -> String\n    x\nend")
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatal(err)
@@ -5092,7 +5101,7 @@ func TestParseTypeExpr_Generic(t *testing.T) {
 }
 
 func TestParseTypeExpr_FuncType(t *testing.T) {
-	tokens := lexer.Lex("fn apply(f: (Int) -> String) -> String { f(1) }")
+	tokens := lexer.Lex("fn apply(f: (Int) -> String) -> String\n    f(1)\nend")
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatal(err)
@@ -5155,7 +5164,9 @@ func TestParseOnce_WithAnnotation(t *testing.T) {
 }
 
 func TestQualifiedTypeAnnotation(t *testing.T) {
-	nodes := parse(t, `fn foo(r: io.Reader) -> io.Writer { r }`)
+	nodes := parse(t, `fn foo(r: io.Reader) -> io.Writer
+    r
+end`)
 	fd := nodes[0].(*ast.FuncDef)
 	paramType := fd.Params[0].TypeAnnotation
 	qt, ok := paramType.(*ast.QualifiedType)
@@ -5178,7 +5189,9 @@ func TestQualifiedTypeAnnotation(t *testing.T) {
 }
 
 func TestQualifiedGenericType(t *testing.T) {
-	nodes := parse(t, `fn foo(xs: io.List<Int>) { xs }`)
+	nodes := parse(t, `fn foo(xs: io.List<Int>)
+    xs
+end`)
 	fd := nodes[0].(*ast.FuncDef)
 	paramType := fd.Params[0].TypeAnnotation
 	qt, ok := paramType.(*ast.QualifiedType)
@@ -5250,9 +5263,9 @@ func TestDistinctDestructureNotBinding(t *testing.T) {
 
 func TestInterface_RequiresFnKeyword(t *testing.T) {
 	src := `
-interface Speaker {
+interface Speaker
     speak(value: self): String
-}
+end
 `
 	tokens := lexer.Lex(src)
 	_, err := Parse(tokens)
@@ -5266,9 +5279,9 @@ interface Speaker {
 
 func TestInterface_AcceptsFnKeyword(t *testing.T) {
 	src := `
-interface Speaker {
+interface Speaker
     fn speak(value: self) -> String
-}
+end
 `
 	nodes := parse(t, src)
 	var iface *ast.InterfaceDef
@@ -5568,11 +5581,11 @@ func TestParseRawTaggedTriple(t *testing.T) {
 
 // TestParser_AnonStructTypeInTuple verifies that an anonymous struct type
 // can appear as an element of a distinct-tuple type:
-// `type Tagged (String, .{name: String, age: Int})`. The InnerTypeExpr is a
+// `type Tagged (String, {name: String, age: Int})`. The InnerTypeExpr is a
 // tuple-form FuncType (Return == nil) whose second element is an
 // AnonStructType with two StructField entries, no defaults.
 func TestParser_AnonStructTypeInTuple(t *testing.T) {
-	nodes := parse(t, "type Tagged (String, .{name: String, age: Int})\n")
+	nodes := parse(t, "type Tagged (String, {name: String, age: Int})\n")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -5614,7 +5627,7 @@ func TestParser_AnonStructTypeInTuple(t *testing.T) {
 // TestParser_AnonStructTypeInFunctionParam verifies an anon struct type as
 // a function parameter annotation.
 func TestParser_AnonStructTypeInFunctionParam(t *testing.T) {
-	nodes := parse(t, "fn greet(p: .{name: String, age: Int}) -> String { p.name }\n")
+	nodes := parse(t, "fn greet(p: {name: String, age: Int}) -> String\n    p.name\nend\n")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -5641,10 +5654,10 @@ func TestParser_AnonStructTypeInFunctionParam(t *testing.T) {
 }
 
 // TestParser_AnonStructTypeInGenericArg verifies an anon struct type as a
-// generic type argument: `List<.{x: Int, y: Int}>`. The function param's
+// generic type argument: `List<{x: Int, y: Int}>`. The function param's
 // TypeAnnotation is a GenericType whose Params[0] is the AnonStructType.
 func TestParser_AnonStructTypeInGenericArg(t *testing.T) {
-	nodes := parse(t, "fn first(_xs: List<.{x: Int, y: Int}>) -> Int { 0 }\n")
+	nodes := parse(t, "fn first(_xs: List<{x: Int, y: Int}>) -> Int\n    0\nend\n")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -5683,27 +5696,24 @@ func TestParser_AnonStructTypeInGenericArg(t *testing.T) {
 // TestParser_AnonStructType_RejectedAtTopLevelType pins the carve-out: an
 // anon struct as the *bare RHS* of a top-level `type` decl is rejected
 // (the `struct` keyword is the only way to declare a top-level record).
-// The rejection at parser.go's parseTypeDef LBRACE check fires *before*
-// parseTypeAnnotation is called, so adding LBRACE handling there cannot
-// open this loophole.
 func TestParser_AnonStructType_RejectedAtTopLevelType(t *testing.T) {
 	tokens := lexer.Lex("type MyStruct {x: Int}\n")
 	_, err := Parse(tokens)
 	if err == nil {
 		t.Fatal("expected parse error, got nil")
 	}
-	if !strings.Contains(err.Error(), "distinct `type` declarations do not take bodies") {
-		t.Errorf("expected type-body rejection, got %q", err.Error())
+	if !strings.Contains(err.Error(), "a type over an anonymous struct is a struct") {
+		t.Errorf("expected the anonymous-struct rejection, got %q", err.Error())
 	}
 }
 
 // TestParser_AnonStructType_RequiresSeparatorBetweenFields pins the rule
 // that adjacent fields must be separated by a comma or a newline. Run-on
-// fields like `.{a: Int b: Int}` are rejected — they're indistinguishable
+// fields like `{a: Int b: Int}` are rejected — they're indistinguishable
 // from a field type that happens to start with another identifier, and
 // reading them is unpleasant.
 func TestParser_AnonStructType_RequiresSeparatorBetweenFields(t *testing.T) {
-	tokens := lexer.Lex("fn f(p: .{a: Int b: Int}) -> Int { p.a }\n")
+	tokens := lexer.Lex("fn f(p: {a: Int b: Int}) -> Int { p.a }\n")
 	_, err := Parse(tokens)
 	if err == nil {
 		t.Fatal("expected parse error, got nil")
@@ -5729,7 +5739,9 @@ func findFuncDef(t *testing.T, nodes []ast.Node, name string) *ast.FuncDef {
 
 func TestParseAttachedTestOnFunction(t *testing.T) {
 	nodes := parse(t, `//! assert answer() == 42
-fn answer() -> Int { 42 }
+fn answer() -> Int
+    42
+end
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if len(fn.AttachedTests) != 1 {
@@ -5750,7 +5762,9 @@ func TestParseAttachedTestMergesSurroundingDocComments(t *testing.T) {
 	nodes := parse(t, `/// Computes the answer.
 //! assert answer() == 42
 /// Used by the examples.
-fn answer() -> Int { 42 }
+fn answer() -> Int
+    42
+end
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if fn.Doc != "Computes the answer.\nUsed by the examples." {
@@ -5768,7 +5782,9 @@ func TestParseAttachedBlockTestOnFunction(t *testing.T) {
 	nodes := parse(t, `//! value = answer()
 //! assert value == 42
 //! refute value == 41
-fn answer() -> Int { 42 }
+fn answer() -> Int
+    42
+end
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if len(fn.AttachedTests) != 1 {
@@ -5798,7 +5814,9 @@ func TestParseAttachedCommentBlockTestOnFunction(t *testing.T) {
 //! assert value == 42
 //! refute value == 41
 /// Used by the examples.
-fn answer() -> Int { 42 }
+fn answer() -> Int
+    42
+end
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if fn.Doc != "Computes the answer.\nUsed by the examples." {
@@ -5825,7 +5843,9 @@ fn answer() -> Int { 42 }
 func TestParseStripsBlankLineBetweenAttachedTestAndDeclaration(t *testing.T) {
 	nodes := parse(t, `//! assert answer() == 42
 
-fn answer() -> Int { 42 }
+fn answer() -> Int
+    42
+end
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if len(fn.AttachedTests) != 1 {
@@ -5839,7 +5859,9 @@ fn answer() -> Int { 42 }
 func TestParseAttachedTestPreservesTrailingPromptBlank(t *testing.T) {
 	nodes := parse(t, `//! assert answer() == 42
 //!
-fn answer() -> Int { 42 }
+fn answer() -> Int
+    42
+end
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if len(fn.AttachedTests) != 1 {
@@ -5855,7 +5877,9 @@ func TestParseStripsBlankLineBetweenAttachedTestBlocks(t *testing.T) {
 
 //! refute answer() == 41
 //!
-fn answer() -> Int { 42 }
+fn answer() -> Int
+    42
+end
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if len(fn.AttachedTests) != 2 {
@@ -5875,7 +5899,9 @@ func TestParseCommentSeparatedAttachedTestBlocksOnFunction(t *testing.T) {
 			nodes := parse(t, `//! assert answer() == 42
 `+separator+`
 //! refute answer() == 41
-fn answer() -> Int { 42 }
+fn answer() -> Int
+    42
+end
 `)
 			fn := findFuncDef(t, nodes, "answer")
 			if len(fn.AttachedTests) != 2 {
@@ -5896,7 +5922,9 @@ func TestParseAttachedTestPreservesBlankDocAfter(t *testing.T) {
 //! assert answer() == 42
 /// Used by examples.
 ///
-fn answer() -> Int { 42 }
+fn answer() -> Int
+    42
+end
 `)
 	fn := findFuncDef(t, nodes, "answer")
 	if fn.Doc != "Computes the answer.\nUsed by examples.\n" {
@@ -5921,9 +5949,9 @@ fn answer() -> Int { 42 }
 }
 
 func TestParseRejectsTestWithoutAssertion(t *testing.T) {
-	_, err := Parse(lexer.Lex(`test "only setup" {
+	_, err := Parse(lexer.Lex(`test "only setup"
   value = 42
-}
+end
 `))
 	if err == nil {
 		t.Fatal("expected test without assertion to be rejected")
@@ -5934,11 +5962,11 @@ func TestParseRejectsTestWithoutAssertion(t *testing.T) {
 }
 
 func TestParseRejectsGroupWithoutAssertion(t *testing.T) {
-	_, err := Parse(lexer.Lex(`group "group" {
-  test "only setup" {
+	_, err := Parse(lexer.Lex(`group "group"
+  test "only setup"
     value = 42
-  }
-}
+  end
+end
 `))
 	if err == nil {
 		t.Fatal("expected group without assertion to be rejected")
@@ -5950,15 +5978,15 @@ func TestParseRejectsGroupWithoutAssertion(t *testing.T) {
 
 // A group's `boot` line holds the call to an entry's boot, as written.
 func TestParseTestsBootExpression(t *testing.T) {
-	nodes, err := Parse(lexer.Lex(`group "env" {
+	nodes, err := Parse(lexer.Lex(`group "env"
   clock Clock.Virtual
   boot server.boot(startup())
   setup Config{name: "Ada"}
 
-  test "reads active app" {
+  test "reads active app"
     assert AppEnv.label == "test"
-  }
-}
+  end
+end
 `))
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
@@ -5988,31 +6016,31 @@ func TestParseTestsBootExpression(t *testing.T) {
 func TestParseGroupRejects(t *testing.T) {
 	for name, tc := range map[string]struct{ src, want string }{
 		"nested group": {
-			"group \"outer\" {\n  group \"inner\" {\n    test \"t\" { assert true }\n  }\n}\n",
+			"group \"outer\"\n  group \"inner\"\n    test \"t\"\n      assert true\n    end\n  end\nend\n",
 			"write a sibling group instead",
 		},
 		"fn boot": {
-			"group \"g\" {\n  fn boot(startup: Startup) -> Result<App, String> { Ok(App{}) }\n  test \"t\" { assert true }\n}\n",
+			"group \"g\"\n  fn boot(startup: Startup) -> Result<App, String> { Ok(App{}) }\n  test \"t\"\n      assert true\n    end\nend\n",
 			"a `group` does not define `fn boot`",
 		},
 		"duplicate clock": {
-			"group \"g\" {\n  clock Clock.Virtual\n  clock Clock.System\n  test \"t\" { assert true }\n}\n",
+			"group \"g\"\n  clock Clock.Virtual\n  clock Clock.System\n  test \"t\"\n      assert true\n    end\nend\n",
 			"a `group` has at most one `clock` line",
 		},
 		"duplicate boot": {
-			"group \"g\" {\n  boot server.boot(s)\n  boot server.boot(s)\n  test \"t\" { assert true }\n}\n",
+			"group \"g\"\n  boot server.boot(s)\n  boot server.boot(s)\n  test \"t\"\n      assert true\n    end\nend\n",
 			"a `group` has at most one `boot` line",
 		},
 		"duplicate setup": {
-			"group \"g\" {\n  setup 1\n  setup 2\n  test \"t\" { assert true }\n}\n",
+			"group \"g\"\n  setup 1\n  setup 2\n  test \"t\"\n      assert true\n    end\nend\n",
 			"a `group` has at most one `setup` line",
 		},
 		"duplicate setup separated by a test": {
-			"group \"g\" {\n  setup 1\n  test \"t\" { assert true }\n  setup 2\n}\n",
+			"group \"g\"\n  setup 1\n  test \"t\"\n      assert true\n    end\n  setup 2\nend\n",
 			"a `group` has at most one `setup` line",
 		},
 		"duplicate clock after boot and setup": {
-			"group \"g\" {\n  clock Clock.Virtual\n  boot server.boot(s)\n  setup 1\n  clock Clock.Virtual\n  test \"t\" { assert true }\n}\n",
+			"group \"g\"\n  clock Clock.Virtual\n  boot server.boot(s)\n  setup 1\n  clock Clock.Virtual\n  test \"t\"\n      assert true\n    end\nend\n",
 			"a `group` has at most one `clock` line",
 		},
 	} {
@@ -6033,9 +6061,9 @@ func TestParseGroupRejects(t *testing.T) {
 // position.
 func TestParseGroupLinesInAnyOrder(t *testing.T) {
 	for name, src := range map[string]string{
-		"setup, boot, clock": "group \"g\" {\n  setup 1\n  boot server.boot(s)\n  clock Clock.Virtual\n  test \"t\" { assert true }\n}\n",
-		"between tests":      "group \"g\" {\n  test \"a\" { assert true }\n  boot server.boot(s)\n  test \"b\" { assert true }\n  setup 1\n  test \"c\" { assert true }\n  clock Clock.Virtual\n}\n",
-		"after tests":        "group \"g\" {\n  test \"a\" { assert true }\n  clock Clock.Virtual\n  setup 1\n  boot server.boot(s)\n}\n",
+		"setup, boot, clock": "group \"g\"\n  setup 1\n  boot server.boot(s)\n  clock Clock.Virtual\n  test \"t\"\n      assert true\n  end\nend\n",
+		"between tests":      "group \"g\"\n  test \"a\"\n      assert true\n  end\n  boot server.boot(s)\n  test \"b\"\n      assert true\n  end\n  setup 1\n  test \"c\"\n      assert true\n  end\n  clock Clock.Virtual\nend\n",
+		"after tests":        "group \"g\"\n  test \"a\"\n      assert true\n  end\n  clock Clock.Virtual\n  setup 1\n  boot server.boot(s)\nend\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			nodes, err := Parse(lexer.Lex(src))
@@ -6061,7 +6089,7 @@ func TestParseGroupLinesInAnyOrder(t *testing.T) {
 // A group's `subtests` block holds the group's lines and tests: they are the
 // group's own, and the block's header is the group's Subtests.
 func TestParseGroupSubtestsBlock(t *testing.T) {
-	src := "group \"g\" {\n  subtests [(\"a\", 1)], (s, n), s {\n    boot server.boot(st(n))\n    setup n\n    test \"t\" { assert s != \"\" }\n    test \"u\" { assert n > 0 }\n  }\n}\n"
+	src := "group \"g\"\n  subtests [(\"a\", 1)], (s, n), s\n    boot server.boot(st(n))\n    setup n\n    test \"t\"\n        assert s != \"\"\n    end\n    test \"u\"\n        assert n > 0\n    end\n  end\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
@@ -6080,8 +6108,8 @@ func TestParseGroupSubtestsBlock(t *testing.T) {
 	if name, ok := st.Name.(*ast.Ident); !ok || name.Name != "s" {
 		t.Errorf("name %#v, want the column s", st.Name)
 	}
-	if st.Line != 2 || st.Col != 3 || st.EndLine != 7 {
-		t.Errorf("block at %d:%d to line %d, want 2:3 to line 7", st.Line, st.Col, st.EndLine)
+	if st.Line != 2 || st.Col != 3 || st.EndLine != 11 {
+		t.Errorf("block at %d:%d to line %d, want 2:3 to line 11", st.Line, st.Col, st.EndLine)
 	}
 	if decl.Boot == nil || decl.Setup == nil || len(decl.Body.Stmts) != 2 {
 		t.Fatalf("boot %v, setup %v, %d tests; want the block's items on the group", decl.Boot, decl.Setup, len(decl.Body.Stmts))
@@ -6100,7 +6128,7 @@ func TestGroupRowLabels(t *testing.T) {
 		{`subtests [("a", 1), ("b\"c", 2)], (s, n)`, `("a", 1)|("b\"c", 2)`},
 		{`subtests [(1, "one"), (2, "two")], (n, word), word`, "one|two"},
 	} {
-		src := "group \"g\" {\n  " + c.header + " {\n    test \"t\" { assert True }\n  }\n}\n"
+		src := "group \"g\"\n  " + c.header + "\n    test \"t\"\n      assert True\n    end\n  end\nend\n"
 		nodes, err := Parse(lexer.Lex(src))
 		if err != nil {
 			t.Fatalf("%s: %v", c.header, err)
@@ -6116,16 +6144,16 @@ func TestGroupRowLabels(t *testing.T) {
 func TestParseGroupSubtestsRefusals(t *testing.T) {
 	const alone = "a `group` with a `subtests` block holds nothing else: its clock, boot, setup and tests go inside the block, which runs them once per row"
 	for _, c := range []struct{ name, body, want string }{
-		{"a test before it", "test \"a\" { assert True }\n  subtests [1], n {\n    test \"t\" { assert n > 0 }\n  }", alone},
-		{"a setup after it", "subtests [1], n {\n    test \"t\" { assert n > 0 }\n  }\n  setup 1", alone},
-		{"a second block", "subtests [1], n {\n    test \"t\" { assert n > 0 }\n  }\n  subtests [2], m {\n    test \"u\" { assert m > 0 }\n  }", alone},
-		{"a block inside it", "subtests [1], n {\n    subtests [2], m {\n      test \"t\" { assert m > n }\n    }\n  }",
+		{"a test before it", "test \"a\"\n      assert True\n    end\n  subtests [1], n\n    test \"t\"\n      assert n > 0\n    end\n  end", alone},
+		{"a setup after it", "subtests [1], n\n    test \"t\"\n      assert n > 0\n    end\n  end\n  setup 1", alone},
+		{"a second block", "subtests [1], n\n    test \"t\"\n      assert n > 0\n    end\n  end\n  subtests [2], m\n    test \"u\"\n      assert m > 0\n    end\n  end", alone},
+		{"a block inside it", "subtests [1], n\n    subtests [2], m\n      test \"t\"\n      assert m > n\n    end\n    end\n  end",
 			"`subtests` in a group cannot hold another `subtests`: each row of the outer one boots the group once"},
-		{"no pattern", "subtests [1] {\n    test \"t\" { assert True }\n  }",
-			"expected a comma and a pattern after the rows in `subtests`, such as `subtests [\"memory\", \"sqlite\"], store { ... }`"},
+		{"no pattern", "subtests [1]\n    test \"t\"\n        assert True\n    end\n  end",
+			"expected a comma and a pattern after the rows in `subtests`, such as `subtests [\"memory\", \"sqlite\"], store`"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			_, err := Parse(lexer.Lex("group \"g\" {\n  " + c.body + "\n}\n"))
+			_, err := Parse(lexer.Lex("group \"g\"\n  " + c.body + "\nend\n"))
 			if err == nil {
 				t.Fatal("the parser accepts it")
 			}
@@ -6137,13 +6165,13 @@ func TestParseGroupSubtestsRefusals(t *testing.T) {
 }
 
 func TestParseTestsSetupExpression(t *testing.T) {
-	nodes, err := Parse(lexer.Lex(`group "fixture" {
+	nodes, err := Parse(lexer.Lex(`group "fixture"
   setup Config{name: "Ada"}
 
-  test "reads setup", .{name} {
+  test "reads setup", {name:}
     assert name == "Ada"
-  }
-}
+  end
+end
 `))
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
@@ -6186,13 +6214,13 @@ fn answer() -> Int { 42 }
 func TestParseAttachedTestOnTypeBodyExternFunction(t *testing.T) {
 	nodes := parse(t, `host type Int
 
-impl Display for Int {
+impl Display for Int
   /// Converts an int.
   //! assert Int.to_string(42) == "42"
   /// Matches interpolation.
   // Host implementation lives in Go.
   host fn to_string(n: self) -> String
-}
+end
 
 `)
 	if len(nodes) != 2 {
@@ -6237,7 +6265,9 @@ impl Display for Int {
 func TestParseAttachedTestAllowsAnnotatedBindingInBlock(t *testing.T) {
 	nodes := parse(t, `//! value: Maybe<Int> = None
 //! assert value == None
-fn ready() -> Bool { True }
+fn ready() -> Bool
+    True
+end
 `)
 	fn := findFuncDef(t, nodes, "ready")
 	if len(fn.AttachedTests) != 1 {
@@ -6369,7 +6399,7 @@ func TestParseDotVariant_StructLit(t *testing.T) {
 }
 
 func TestParseDotVariant_MapLit(t *testing.T) {
-	expr := parseExpr(t, `%.Obj{"k" => 1}`)
+	expr := parseExpr(t, `.Obj{"k" => 1}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected *ast.MapLit, got %T", expr)
@@ -6403,7 +6433,9 @@ func TestParseDotVariant_ListLit(t *testing.T) {
 
 func TestParseDotVariant_BareInPattern(t *testing.T) {
 	// case x { .Red -> 1 }
-	src := `case x { .Red -> 1 }`
+	src := `case x
+    .Red -> 1
+end`
 	expr := parseExpr(t, src)
 	cs, ok := expr.(*ast.Case)
 	if !ok {
@@ -6427,7 +6459,9 @@ func TestParseDotVariant_BareInPattern(t *testing.T) {
 
 func TestParseDotVariant_CallInPattern(t *testing.T) {
 	// case x { .Circle(r) -> r }
-	src := `case x { .Circle(r) -> r }`
+	src := `case x
+    .Circle(r) -> r
+end`
 	expr := parseExpr(t, src)
 	cs, ok := expr.(*ast.Case)
 	if !ok {
@@ -6451,7 +6485,9 @@ func TestParseDotVariant_CallInPattern(t *testing.T) {
 
 func TestParseDotVariant_StructPatternInPattern(t *testing.T) {
 	// case x { .Rect{w, h} -> w * h }
-	src := `case x { .Rect{w, h} -> w * h }`
+	src := `case x
+    .Rect{w:, h:} -> w * h
+end`
 	expr := parseExpr(t, src)
 	cs, ok := expr.(*ast.Case)
 	if !ok {
@@ -6471,8 +6507,10 @@ func TestParseDotVariant_StructPatternInPattern(t *testing.T) {
 }
 
 func TestParseDotVariant_MapPatternInPattern(t *testing.T) {
-	// case x { %.Obj{"k" => v} -> v }
-	src := `case x { %.Obj{"k" => v} -> v }`
+	// case x { .Obj{"k" => v} -> v }
+	src := `case x
+    .Obj{"k" => v} -> v
+end`
 	expr := parseExpr(t, src)
 	cs, ok := expr.(*ast.Case)
 	if !ok {
@@ -6493,7 +6531,9 @@ func TestParseDotVariant_MapPatternInPattern(t *testing.T) {
 
 func TestParseDotVariant_ListPatternInPattern(t *testing.T) {
 	// case x { .Arr[a, b] -> a + b }
-	src := `case x { .Arr[a, b] -> a + b }`
+	src := `case x
+    .Arr[a, b] -> a + b
+end`
 	expr := parseExpr(t, src)
 	cs, ok := expr.(*ast.Case)
 	if !ok {
@@ -6516,8 +6556,8 @@ func TestParseDotVariant_ListPatternInPattern(t *testing.T) {
 // both the plain and the type-prefixed spelling.
 func TestParseListPattern_TrailingComma(t *testing.T) {
 	for _, src := range []string{
-		"case x {\n    [\n        a,\n        b,\n    ] -> a + b\n}",
-		"case x {\n    .Arr[\n        .Num(n),\n    ] -> n\n}",
+		"case x\n    [\n        a,\n        b,\n    ] -> a + b\nend",
+		"case x\n    .Arr[\n        .Num(n),\n    ] -> n\nend",
 	} {
 		expr := parseExpr(t, src)
 		cs, ok := expr.(*ast.Case)
@@ -6535,10 +6575,12 @@ func TestParseListPattern_TrailingComma(t *testing.T) {
 }
 
 func TestParseTopLevelInherentImplAccepted(t *testing.T) {
-	src := `impl List<T> {
+	src := `impl List<T>
   pub once Empty = []
-  pub fn first(_xs: self) -> T { panic("x") }
-}`
+  pub fn first(_xs: self) -> T
+      panic("x")
+  end
+end`
 	nodes := parse(t, src)
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
@@ -6575,7 +6617,7 @@ func TestParseDeriveOnExternTypeRejected(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Interface-header surface form: `derive Iface` synthesized conformances and
-// `impl Iface for Type { ... }` blocks. The old `impl` / `derive impl` /
+// `impl Iface for Type` blocks. The old `impl` / `derive impl` /
 // `derives` type-body spellings are rejected.
 // ---------------------------------------------------------------------------
 
@@ -6593,18 +6635,18 @@ func structDefNamed(t *testing.T, src string) *ast.StructDef {
 
 // A struct followed by a sibling derive declaration and interface impl block.
 func TestParseImplHeader_StructBody(t *testing.T) {
-	src := `pub struct Point {
+	src := `pub struct Point
   x: Int
   y: Int
-}
+end
 derive Equatable for Point
 
 
-impl Display for Point {
-  fn to_string(_p: self) -> String {
+impl Display for Point
+  fn to_string(_p: self) -> String
     "pt"
-  }
-}
+  end
+end
 
 `
 	sd := structDefNamed(t, src)
@@ -6635,9 +6677,9 @@ impl Display for Point {
 func TestParseImplHeader_HostFn(t *testing.T) {
 	src := `pub host type List<T>
 
-impl iter for List<T> {
+impl iter for List<T>
   host fn known_count(list: self) -> Maybe<Int>
-}
+end
 
 `
 	nodes := parse(t, src)
@@ -6661,9 +6703,11 @@ impl iter for List<T> {
 // `impl Iface for Type { ... }` block — parses DIRECTLY into
 // an *ast.ImplBlock with Interface + Receiver + plain-method Items.
 func TestParseImplBlock_Simple(t *testing.T) {
-	src := `impl Display for Money {
-  fn to_string(_m: self) -> String { "$" }
-}`
+	src := `impl Display for Money
+  fn to_string(_m: self) -> String
+      "$"
+  end
+end`
 	nodes := parse(t, src)
 	blk, ok := nodes[0].(*ast.ImplBlock)
 	if !ok {
@@ -6704,13 +6748,17 @@ func TestParseImplBlock_Simple(t *testing.T) {
 // Two interfaces on one foreign type = two independent `impl ... for`
 // blocks.
 func TestParseImplBlock_TwoBlocks(t *testing.T) {
-	src := `impl Display for Money {
-  fn to_string(_m: self) -> String { "$" }
-}
+	src := `impl Display for Money
+  fn to_string(_m: self) -> String
+      "$"
+  end
+end
 
-impl Comparable for Money {
-  fn compare(_a: Money, _b: Money) -> Ordering { Ordering.Eq }
-}`
+impl Comparable for Money
+  fn compare(_a: Money, _b: Money) -> Ordering
+      Ordering.Eq
+  end
+end`
 	nodes := parse(t, src)
 	if len(nodes) != 2 {
 		t.Fatalf("expected 2 top-level nodes, got %d", len(nodes))
@@ -6731,9 +6779,11 @@ impl Comparable for Money {
 
 // `impl Iter for Box<T> { ... }` — receiver generics are named by the receiver.
 func TestParseImplBlock_Generic(t *testing.T) {
-	src := `impl Iter for Box<T> {
-  fn next(_b: self) -> Maybe<(T, self)> { None }
-}`
+	src := `impl Iter for Box<T>
+  fn next(_b: self) -> Maybe<(T, self)>
+      None
+  end
+end`
 	nodes := parse(t, src)
 	blk, ok := nodes[0].(*ast.ImplBlock)
 	if !ok {
@@ -6751,9 +6801,11 @@ func TestParseImplBlock_Generic(t *testing.T) {
 }
 
 func TestParseImplBlock_WhereClause(t *testing.T) {
-	src := `impl iter for Box<T> where T: Display and Debug {
-  fn next(_b: self) -> Maybe<(T, self)> { None }
-}`
+	src := `impl iter for Box<T> where T: Display and Debug
+  fn next(_b: self) -> Maybe<(T, self)>
+      None
+  end
+end`
 	nodes := parse(t, src)
 	blk, ok := nodes[0].(*ast.ImplBlock)
 	if !ok {
@@ -6774,18 +6826,18 @@ func TestParseImplBlock_WhereClause(t *testing.T) {
 }
 
 func TestParseTypeDeclarations_WhereClause(t *testing.T) {
-	src := `struct Box<T> where T: Display {
+	src := `struct Box<T> where T: Display
   value: T
-}
+end
 
-enum MaybeBox<T> where T: Display {
+enum MaybeBox<T> where T: Display
   Empty
   Full Box<T>
-}
+end
 
-interface Renderable<T> where T: Display {
+interface Renderable<T> where T: Display
   fn render(value: self) -> String
-}
+end
 
 host type Handle<T> where T: Display
 `
@@ -6862,9 +6914,9 @@ func TestParseDeriveOptionsBeforeWhereClause(t *testing.T) {
 
 // `host fn` methods are admitted inside an `impl ... for` block.
 func TestParseImplBlock_ExternFn(t *testing.T) {
-	src := `impl iter for List<T> {
+	src := `impl iter for List<T>
   host fn known_count(list: self) -> Maybe<Int>
-}`
+end`
 	nodes := parse(t, src)
 	blk, ok := nodes[0].(*ast.ImplBlock)
 	if !ok {
@@ -6887,12 +6939,14 @@ func TestParseImplBlock_ExternFn(t *testing.T) {
 
 func TestParseImplBlock_PubMethodRejected(t *testing.T) {
 	cases := []string{
-		`impl Display for Money {
-  pub fn to_string(m: self) -> String { "$" }
-}`,
-		`impl iter for List<T> {
+		`impl Display for Money
+  pub fn to_string(m: self) -> String
+      "$"
+  end
+end`,
+		`impl iter for List<T>
   pub host fn known_count(list: self) -> Maybe<Int>
-}`,
+end`,
 	}
 	for _, src := range cases {
 		tokens := lexer.Lex(src)
@@ -6907,9 +6961,11 @@ func TestParseImplBlock_PubMethodRejected(t *testing.T) {
 }
 
 func TestParseImplBlock_InterfaceTypeArgsAccepted(t *testing.T) {
-	src := `impl iter<T> for Box<T> {
-  fn next(_b: self) -> Maybe<Int> { None }
-}`
+	src := `impl iter<T> for Box<T>
+  fn next(_b: self) -> Maybe<Int>
+      None
+  end
+end`
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("unexpected parse error for `impl iter<T> for ...`: %v", err)
@@ -6925,10 +6981,10 @@ func TestParseImplBlock_InterfaceTypeArgsAccepted(t *testing.T) {
 
 // `@impl` is removed syntax and is rejected even where old code commonly used it.
 func TestParseImplBlock_AtImplRejected(t *testing.T) {
-	src := `impl Display for Money {
+	src := `impl Display for Money
   @impl Display
   fn to_string(m: self) -> String { "$" }
-}`
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for `@impl` inside an impl block, got nil")
@@ -6941,9 +6997,9 @@ func TestParseImplBlock_AtImplRejected(t *testing.T) {
 // A nested conformance line inside an `impl ... for` block is rejected —
 // the header already names the single interface.
 func TestParseImplBlock_NestedConformanceRejected(t *testing.T) {
-	src := `impl Display for Money {
+	src := `impl Display for Money
   impl Comparable
-}`
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for a nested conformance line, got nil")
@@ -6955,14 +7011,14 @@ func TestParseImplBlock_NestedConformanceRejected(t *testing.T) {
 
 // `impl Display Money` has neither a `for` clause nor an opening body.
 func TestParseImplBlock_InvalidHeaderRejected(t *testing.T) {
-	src := `impl Display Money {
+	src := `impl Display Money
   fn to_string(m: self) -> String { "$" }
-}`
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for a missing `for`, got nil")
 	}
-	if !strings.Contains(err.Error(), "expected `{` for an inherent impl block or `for Type`") {
+	if !strings.Contains(err.Error(), "expected `for Type` in an interface impl declaration") {
 		t.Errorf("expected an invalid-header rejection, got %q", err.Error())
 	}
 }
@@ -6971,13 +7027,13 @@ func TestParseImplBlock_InvalidHeaderRejected(t *testing.T) {
 
 // `implements Display { ... }` is not the conformance keyword.
 func TestParseImplHeader_InlineImplementsBodyRejected(t *testing.T) {
-	src := `pub struct Point {
+	src := `pub struct Point
   x: Int
 
-  implements Display {
+  implements Display
     fn to_string(p: self) -> String { "pt" }
-  }
-}`
+  end
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for an `implements Display` entry, got nil")
@@ -6990,9 +7046,9 @@ func TestParseImplHeader_InlineImplementsBodyRejected(t *testing.T) {
 // A top-level `implements Iface for Type { ... }` block is not a surface
 // form — use `impl Iface for Type { ... }`.
 func TestParseImplHeader_TopLevelImplementsForRejected(t *testing.T) {
-	src := `implements Display for Money {
+	src := `implements Display for Money
   fn to_string(m: self) -> String { "$" }
-}`
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for a top-level `implements ... for ...` block, got nil")
@@ -7005,7 +7061,7 @@ func TestParseImplHeader_TopLevelImplementsForRejected(t *testing.T) {
 // The `@derive` decorator is not a surface form — it is rejected at parse
 // time, pointing at the `derive Iface` line instead.
 func TestParseImplHeader_DeriveDecoratorRejected(t *testing.T) {
-	src := "@derive Equatable, Hashable\npub struct Point {\n  x: Int\n}"
+	src := "@derive Equatable, Hashable\npub struct Point\n  x: Int\nend"
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for an `@derive` decorator, got nil")
@@ -7018,23 +7074,23 @@ func TestParseImplHeader_DeriveDecoratorRejected(t *testing.T) {
 // --- Cheap parse-time rejections. ---
 
 func TestParseImplHeader_ConformanceTypeArgsRejected(t *testing.T) {
-	src := `pub struct Foo {
+	src := `pub struct Foo
   impl iter<T>
-}`
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for `impl iter<T>` conformance line, got nil")
 	}
-	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type { ... }` blocks outside the type body") {
+	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type` blocks outside the type body") {
 		t.Errorf("expected type-body impl rejection, got %q", err.Error())
 	}
 }
 
 func TestParseImplHeader_AtImplRejected(t *testing.T) {
-	src := `pub struct Foo {
+	src := `pub struct Foo
   @impl
   fn to_string(f: self) -> String { "x" }
-}`
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for removed `@impl` syntax, got nil")
@@ -7045,9 +7101,9 @@ func TestParseImplHeader_AtImplRejected(t *testing.T) {
 }
 
 func TestParseImplBlock_FieldItemRejected(t *testing.T) {
-	src := `impl Display for Money {
+	src := `impl Display for Money
   field cents: Int
-}`
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for `field` item inside an impl block, got nil")
@@ -7059,13 +7115,13 @@ func TestParseImplBlock_FieldItemRejected(t *testing.T) {
 
 // A module-qualified implementation header parses as a top-level impl block.
 func TestParseImplHeader_QualifiedImplBlock(t *testing.T) {
-	src := `pub struct Point {}
+	src := `pub struct Point end
 
-impl render.Display for Point {
-  fn to_string(_p: self) -> String {
+impl render.Display for Point
+  fn to_string(_p: self) -> String
     "pt"
-  }
-}
+  end
+end
 
 `
 	nodes := parse(t, src)
@@ -7079,16 +7135,16 @@ impl render.Display for Point {
 }
 
 func TestParseImplHeader_PlainImplMethodNames(t *testing.T) {
-	src := `pub struct Point {}
+	src := `pub struct Point end
 
-impl render.Display for Point {
+impl render.Display for Point
 
-  fn to_string(_p: self) -> String {
+  fn to_string(_p: self) -> String
     "pt"
-  }
-}
+  end
+end
 
-impl Debug for Point
+impl Debug for Point end
 `
 	nodes := parse(t, src)
 	if len(nodes) != 3 {
@@ -7108,28 +7164,28 @@ impl Debug for Point
 }
 
 func TestParseImplHeader_QualifiedPlainFunctionRejected(t *testing.T) {
-	src := `pub struct Point {
+	src := `pub struct Point
   impl Display
 
-  fn Display.to_string(p: self) -> String {
+  fn Display.to_string(p: self) -> String
     "pt"
-  }
-}`
+  end
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for qualified plain fn, got nil")
 	}
-	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type { ... }` blocks outside the type body") {
+	if !strings.Contains(err.Error(), "interface implementations are written as `impl Iface for Type` blocks outside the type body") {
 		t.Errorf("expected type-body impl rejection, got %q", err.Error())
 	}
 }
 
 // @impl is removed syntax, not a type-body annotation.
 func TestParseImplHeader_TagBeforeStructFieldRejected(t *testing.T) {
-	src := `pub struct Foo {
+	src := `pub struct Foo
   @impl Display
   x: Int
-}`
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for `@impl` before a struct field, got nil")
@@ -7141,10 +7197,10 @@ func TestParseImplHeader_TagBeforeStructFieldRejected(t *testing.T) {
 
 // @impl before an enum `variant` item is rejected as removed syntax.
 func TestParseImplHeader_TagBeforeEnumVariantRejected(t *testing.T) {
-	src := `pub enum Color {
+	src := `pub enum Color
   @impl Display
   Red
-}`
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for `@impl` before an enum variant, got nil")
@@ -7156,12 +7212,12 @@ func TestParseImplHeader_TagBeforeEnumVariantRejected(t *testing.T) {
 
 // @impl before a non-method item is rejected as removed syntax.
 func TestParseImplHeader_TagBeforeConformanceRejected(t *testing.T) {
-	src := `pub struct Money {
+	src := `pub struct Money
   cents: Int
 
   @impl Display
   impl Comparable
-}`
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for `@impl` before a conformance line, got nil")
@@ -7174,11 +7230,11 @@ func TestParseImplHeader_TagBeforeConformanceRejected(t *testing.T) {
 // `derive Foo { ... }` in a type body is rejected; derives are sibling
 // declarations and the impl is synthesized structurally.
 func TestParseImplHeader_DeriveConformanceBodyRejected(t *testing.T) {
-	src := `pub struct Foo {
-  derive Equatable {
+	src := `pub struct Foo
+  derive Equatable
     fn equals(a: Foo, b: Foo) -> Bool { True }
-  }
-}`
+  end
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for `derive Foo { ... }` with a body, got nil")
@@ -7191,11 +7247,11 @@ func TestParseImplHeader_DeriveConformanceBodyRejected(t *testing.T) {
 // `impl Iface for Type` written INSIDE a type body is rejected; manual
 // interface implementations live as sibling top-level blocks.
 func TestParseImplHeader_TypeBodyImplRejected(t *testing.T) {
-	src := `pub struct Foo {
-  impl Display for Bar {
+	src := `pub struct Foo
+  impl Display for Bar
     fn to_string(f: Bar) -> String { "x" }
-  }
-}`
+  end
+end`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for an impl block inside a type body, got nil")
@@ -7205,13 +7261,17 @@ func TestParseImplHeader_TypeBodyImplRejected(t *testing.T) {
 	}
 }
 
-// `impl Display for Money` with no `{}` is a bodyless interface impl,
-// equivalent to an empty implementation body.
-func TestParseImplBlock_BodylessInterfaceImplAccepted(t *testing.T) {
-	src := `impl Display for Money`
+// `impl Display for Money end` is an empty interface impl, for a marker or
+// default-only interface. Without the `end` the impl is not closed.
+func TestParseImplBlock_EmptyInterfaceImplAccepted(t *testing.T) {
+	if _, err := Parse(lexer.Lex(`impl Display for Money`)); err == nil ||
+		!strings.Contains(err.Error(), "expected `end` to close the `impl Iface for Type` block") {
+		t.Fatalf("an impl with no `end`: %v, want the missing `end`", err)
+	}
+	src := `impl Display for Money end`
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
-		t.Fatalf("unexpected parse error for bodyless impl: %v", err)
+		t.Fatalf("unexpected parse error for an empty impl: %v", err)
 	}
 	if len(nodes) != 1 {
 		t.Fatalf("expected one node, got %d", len(nodes))
@@ -7225,8 +7285,8 @@ func TestParseImplBlock_BodylessInterfaceImplAccepted(t *testing.T) {
 	}
 }
 
-func TestParseImplBlock_BodylessInterfaceImplWhereAccepted(t *testing.T) {
-	src := `impl Marker for Box<T> where T: Hashable`
+func TestParseImplBlock_EmptyInterfaceImplWhereAccepted(t *testing.T) {
+	src := `impl Marker for Box<T> where T: Hashable end`
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("unexpected parse error for bodyless impl with where: %v", err)
@@ -7246,15 +7306,15 @@ func TestParseImplBlock_BodylessInterfaceImplWhereAccepted(t *testing.T) {
 	}
 }
 
-// Bodyless inherent impl has no meaning.
-func TestParseImplBlock_BodylessInherentImplRejected(t *testing.T) {
+// An inherent impl closes with `end` as any body does.
+func TestParseImplBlock_UnclosedInherentImplRejected(t *testing.T) {
 	src := `impl Money`
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
-		t.Fatal("expected parse error for bodyless inherent impl, got nil")
+		t.Fatal("expected parse error for an unclosed inherent impl, got nil")
 	}
-	if !strings.Contains(err.Error(), "expected `{` for an inherent impl block or `for Type`") {
-		t.Errorf("expected a missing-`{` inherent impl rejection, got %q", err.Error())
+	if !strings.Contains(err.Error(), "expected `end` to close the `impl Type` block") {
+		t.Errorf("expected the missing `end`, got %q", err.Error())
 	}
 }
 
@@ -7270,7 +7330,7 @@ func TestParseBareControlFollowedByComment(t *testing.T) {
 		{"continue", func(n ast.Node) bool { c, ok := n.(*ast.Continue); return ok && c.Value == nil }},
 	} {
 		t.Run(tc.kw, func(t *testing.T) {
-			nodes := parse(t, "fn f() {\n    "+tc.kw+" // done\n}")
+			nodes := parse(t, "fn f()\n    "+tc.kw+" // done\nend")
 			fd := nodes[0].(*ast.FuncDef)
 			if len(fd.Body.Stmts) != 1 || !tc.bare(fd.Body.Stmts[0]) {
 				t.Fatalf("body = %#v, want one bare %s", fd.Body.Stmts, tc.kw)

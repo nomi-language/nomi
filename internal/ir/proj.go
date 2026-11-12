@@ -127,15 +127,15 @@ const (
 	// `Index` counts from the front when it is zero or more, and from the end
 	// when it is negative, -1 being the last element. A vector pattern's
 	// heads read from the front and its tails, after a `..`, from the end
-	// (`#[first, .., last]`). It is in bounds only after a MatchVectorLen or
+	// (`[first, .., last]`). It is in bounds only after a MatchVectorLen or
 	// MatchVectorMin test passed. Owner: vectorCaseTest.
 	ProjVectorElem
 	// ProjVectorSlice reads the Vector of a Vector's elements from position
 	// `Index` up to `Drop` elements before its end: the `..rest` of
-	// `#[a, ..rest, z]`, with `Index` the heads and `Drop` the tails.
+	// `[a, ..rest, z]`, with `Index` the heads and `Drop` the tails.
 	//
 	// A WINDOW AND NOT A COPY: the result shares the subject's storage, so
-	// a recursive `#[x, ..rest]` walk is linear (rt.VectorSlice). Owner:
+	// a recursive `[x, ..rest]` walk is linear (rt.VectorSlice). Owner:
 	// vectorCaseTest.
 	ProjVectorSlice
 	// ProjListSlice reads the List of a List's elements from position

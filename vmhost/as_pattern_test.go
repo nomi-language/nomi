@@ -13,101 +13,108 @@ import (
 func TestAsPattern_RunsInEveryPosition(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-enum Kind {
+enum Kind
     Deposit
     Withdrawal
-}
+end
 
-struct Tx {
+struct Tx
     kind: Kind
     start: Int
-    end: Int
-}
+    stop: Int
+end
 
-struct Line {
+struct Line
     from: Tx
     to: Tx
-}
+end
 
-fn failure(r: Result<Tx, String>) -> String {
-    case r {
+fn failure(r: Result<Tx, String>) -> String
+    case r
         Err(m) -> m
         Ok(_) -> "?"
-    }
-}
+    end
+end
 
-fn describe(result: Result<Tx, String>) -> String {
-    case result {
-        Ok(Tx{kind: .Deposit} as t) -> "deposited ${t.end - t.start}"
+fn describe(result: Result<Tx, String>) -> String
+    case result
+        Ok(Tx{kind: .Deposit} as t) -> "deposited ${t.stop - t.start}"
         Ok(t) -> "other ${t.start}"
         Err(_) as e -> "failed: ${failure(e)}"
-    }
-}
+    end
+end
 
-fn head(xs: List<Maybe<Int>>) -> String {
-    case xs {
+fn head(xs: List<Maybe<Int>>) -> String
+    case xs
         [Some(n) as first, ..rest] as all -> "${n} ${Maybe.with_default(first, 0)} ${Iter.count(rest)} of ${Iter.count(all)}"
         [None, ..] -> "none first"
         [] -> "empty"
-    }
-}
+    end
+end
 
-fn entry(m: Map<String, Int>) -> String {
-    case m {
-        %{"k" => 1 as one} as all -> "one ${one} of ${Map.size(all)}"
+fn entry(m: Map<String, Int>) -> String
+    case m
+        {"k" => 1 as one} as all -> "one ${one} of ${Map.size(all)}"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn start_of(l: Line) -> Int {
-    case l {
+fn start_of(l: Line) -> Int
+    case l
         Line{from: Tx{kind: .Withdrawal} as src} -> src.start
         _ -> 0
-    }
-}
+    end
+end
 
-fn tuple_arm(p: (Maybe<Int>, String)) -> String {
-    case p {
+fn tuple_arm(p: (Maybe<Int>, String)) -> String
+    case p
         (Some(_) as m, label) -> "${label} ${Maybe.with_default(m, 0)}"
         (None, label) as whole -> "${label} none ${whole.second}"
-    }
-}
+    end
+end
 
-fn param(.{start, end} as tx: Tx) -> Int {
-    start + end + tx.start
-}
+fn param({start:, stop:} as tx: Tx) -> Int
+    start + stop + tx.start
+end
 
-fn binding(m: Maybe<Int>, pair: (Int, Int)) -> String {
+fn binding(m: Maybe<Int>, pair: (Int, Int)) -> String
     (x, y) as both = pair
-    Some(n) as found = m else { return "none" }
+    Some(n) as found = m else
+        return "none"
+    end
     "${x} ${y} ${both.first} ${n} ${Maybe.with_default(found, 0)}"
-}
+end
 
-fn fallback(r: Result<(Int, Int), String>) -> Int {
-    Ok((w, h) as size) = r else { (10, 20) }
+fn fallback(r: Result<(Int, Int), String>) -> Int
+    Ok((w, h) as size) = r else
+        (10, 20)
+    end
     w + h + size.first
-}
+end
 
-fn if_pattern(r: Result<Int, String>) -> String {
-    if Ok(v) as res = r {
-        "${v} ${case res { Ok(_) -> "ok", Err(_) -> "err" }}"
-    } else {
+fn if_pattern(r: Result<Int, String>) -> String
+    if Ok(v) as res = r then
+        "${v} ${case res
+            Ok(_) -> "ok"
+            Err(_) -> "err"
+        end}"
+    else
         "not ok"
-    }
-}
+    end
+end
 
-fn main() {
-    io.print(describe(Ok(Tx{kind: .Deposit, start: 1, end: 5})))
-    io.print(describe(Ok(Tx{kind: .Withdrawal, start: 1, end: 5})))
+fn main()
+    io.print(describe(Ok(Tx{kind: .Deposit, start: 1, stop: 5})))
+    io.print(describe(Ok(Tx{kind: .Withdrawal, start: 1, stop: 5})))
     io.print(describe(Err("boom")))
     io.print(head([Some(4), None, Some(6)]))
     io.print(head([None]))
-    io.print(entry(%{"k" => 1, "j" => 2}))
-    io.print(entry(%{"k" => 2}))
-    io.print(start_of(Line{from: Tx{kind: .Withdrawal, start: 7, end: 8}, to: Tx{kind: .Deposit, start: 0, end: 0}}))
+    io.print(entry({"k" => 1, "j" => 2}))
+    io.print(entry({"k" => 2}))
+    io.print(start_of(Line{from: Tx{kind: .Withdrawal, start: 7, stop: 8}, to: Tx{kind: .Deposit, start: 0, stop: 0}}))
     io.print(tuple_arm((Some(3), "three")))
     io.print(tuple_arm((None, "nothing")))
-    io.print(param(Tx{kind: .Deposit, start: 2, end: 3}))
+    io.print(param(Tx{kind: .Deposit, start: 2, stop: 3}))
     io.print(binding(Some(5), (1, 2)))
     io.print(binding(None, (1, 2)))
     io.print(fallback(Ok((1, 2))))
@@ -116,7 +123,7 @@ fn main() {
     io.print(if_pattern(Err("e")))
     sums = [(1, 2), (3, 4)] |> Iter.map(fn (a, b) as p -> a + b + p.first) |> Iter.to_list()
     io.print("${sums}")
-}
+end
 `)
 	want := `deposited 4
 other 1
@@ -146,32 +153,32 @@ not ok
 func TestAsPattern_RunsInTests(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	const name = "as_test.nomi"
-	p, err := vmhost.LoadSource(name, `fn find(n: Int) -> Maybe<Int> {
-    if n > 0 { Some(n) } else { None }
-}
+	p, err := vmhost.LoadSource(name, `fn find(n: Int) -> Maybe<Int>
+    if n > 0 then Some(n) else None
+end
 
-test "assert binds the name" {
+test "assert binds the name"
     assert Some(n) as m = find(3)
     assert n == 3
     assert m == Some(3)
-}
+end
 
-test "assert fails on a mismatch" {
+test "assert fails on a mismatch"
     assert Some(_) as m = find(0)
     assert m == None
-}
+end
 
-group "setup" {
-    setup {
+group "setup"
+    setup begin
         (1, "one")
-    }
+    end
 
-    test "binds the whole setup value", (n, word) as pair {
+    test "binds the whole setup value", (n, word) as pair
         assert n == 1
         assert word == "one"
         assert pair.second == "one"
-    }
-}
+    end
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the tests: %v", err)
@@ -190,62 +197,61 @@ group "setup" {
 // An anonymous record pattern, with or without `as`, nested in a variant
 // payload, a struct field or a tuple: in a pattern assertion, a `case` arm,
 // a binding with `else` and a lambda parameter. A record pattern of names
-// cannot fail, so `assert Holder{r: .{a: x, b}} = h` has no mismatch edge.
+// cannot fail, so `assert Holder{r: {a: x, b:}} = h` has no mismatch edge.
 func TestAsPattern_NestedRecordPatternsRun(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	const name = "record_as_test.nomi"
-	p, err := vmhost.LoadSource(name, `struct Holder {
-    r: .{a: Int, b: Int}
-}
+	p, err := vmhost.LoadSource(name, `struct Holder
+    r: {a: Int, b: Int}
+end
 
-test "assertion" {
-    rec: Result<.{a: Int, b: Int}, String> = Ok(.{a: 1, b: 2})
-    assert Ok(.{a: x, b} as whole) = rec
+test "assertion"
+    rec: Result<{a: Int, b: Int}, String> = Ok({a: 1, b: 2})
+    assert Ok({a: x, b:} as whole) = rec
     assert x + b == whole.a + whole.b
-    assert Some(.{a: y, b: _} as w) = Some(.{a: 3, b: 4})
+    assert Some({a: y, b: _} as w) = Some({a: 3, b: 4})
     assert y + w.b == 7
-}
+end
 
-test "case arm" {
-    rec: Maybe<.{a: Int, b: Int}> = Some(.{a: 1, b: 2})
-    n = case rec {
-        Some(.{a: 2, b} as whole) -> b + whole.a
-        Some(.{a: x, b: _} as whole) -> x + whole.b
+test "case arm"
+    rec: Maybe<{a: Int, b: Int}> = Some({a: 1, b: 2})
+    n = case rec
+        Some({a: 2, b:} as whole) -> b + whole.a
+        Some({a: x, b: _} as whole) -> x + whole.b
         None -> 0
-    }
+    end
     assert n == 3
-}
+end
 
-test "binding with else" {
-    rec: Result<.{a: Int, b: Int}, String> = Ok(.{a: 1, b: 2})
-    Ok(.{a: x, b} as whole) = rec else {
-        Err(_) -> {
+test "binding with else"
+    rec: Result<{a: Int, b: Int}, String> = Ok({a: 1, b: 2})
+    Ok({a: x, b:} as whole) = rec else
+        Err(_) ->
             assert False
             return
-        }
-    }
+    end
     assert x + b + whole.b == 5
-}
+end
 
-test "lambda parameter" {
-    pairs = [(.{a: 1, b: 2}, 3), (.{a: 4, b: 5}, 6)]
-    sums = pairs |> Iter.map(fn (.{a: x, b} as whole, c) -> x + b + c + whole.a) |> Iter.to_list()
+test "lambda parameter"
+    pairs = [({a: 1, b: 2}, 3), ({a: 4, b: 5}, 6)]
+    sums = pairs |> Iter.map(fn ({a: x, b:} as whole, c) -> x + b + c + whole.a) |> Iter.to_list()
     assert sums == [7, 19]
-}
+end
 
-test "struct field and tuple" {
-    h = Holder{r: .{a: 1, b: 2}}
-    assert Holder{r: .{a: x, b}} = h
-    assert Holder{r: .{a: 1, b: y} as whole} = h
-    assert (.{a: p, b: q} as rec, c) = (whole, 3)
+test "struct field and tuple"
+    h = Holder{r: {a: 1, b: 2}}
+    assert Holder{r: {a: x, b:}} = h
+    assert Holder{r: {a: 1, b: y} as whole} = h
+    assert ({a: p, b: q} as rec, c) = (whole, 3)
     assert x + b + y + p + q + c + rec.a == 12
-}
+end
 
-test "a record test fails" {
-    rec: Result<.{a: Int, b: Int}, String> = Ok(.{a: 1, b: 2})
-    assert Ok(.{a: 9, b} as whole) = rec
+test "a record test fails"
+    rec: Result<{a: Int, b: Int}, String> = Ok({a: 1, b: 2})
+    assert Ok({a: 9, b:} as whole) = rec
     assert b == whole.b
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the tests: %v", err)
@@ -256,7 +262,7 @@ test "a record test fails" {
 	rep.Summary()
 	out := buf.String()
 	if strings.Contains(out, "BLOCKED") || !strings.Contains(out, "5 passed, 1 failed") ||
-		!strings.Contains(out, "pattern did not match\n    assert Ok(.{a: 9, b} as whole) = rec") {
+		!strings.Contains(out, "pattern did not match\n    assert Ok({a: 9, b:} as whole) = rec") {
 		t.Fatalf("want five passing cases and one pattern mismatch:\n%s", out)
 	}
 }

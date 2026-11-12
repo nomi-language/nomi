@@ -34,7 +34,8 @@ type Table struct {
 
 // Column is one result column of a statement: its name, its type as
 // Postgres writes it, the table column it reads ("" and "" for an
-// expression), and whether it may be NULL: always for an expression, and
+// expression; for a view's column, the table column the view's column
+// reads), and whether it may be NULL: always for an expression, and
 // for a table column unless it is NOT NULL and no outer join of the
 // statement can leave its table out.
 type Column struct {

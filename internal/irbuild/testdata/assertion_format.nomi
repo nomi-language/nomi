@@ -16,11 +16,11 @@
 // involved. An Assertable's `details:` block is absent for the same kind of
 // reason — an Assertable subject is refused, so it cannot be reached from a
 // lowered program at all.
-import {
+import
     std::assertions.AssertionFailure
     std::io
     std::testing
-}
+end
 
 // Declared `zed` BEFORE `alpha`, which is the point of the type. An assertion's
 // `values:` row is the structural rendering, which sorts the
@@ -28,38 +28,38 @@ import {
 // `Point{alpha: 1, zed: 2}` and one that used declaration order (which is what
 // `Debug.inspect` uses) would read `Point{zed: 2, alpha: 1}`. Two renderings of
 // one value, pinned apart, and this is the one an assertion shows.
-struct Point {
+struct Point
     zed: Int
     alpha: Int
-}
+end
 
-fn is_same_alpha(left: Point, right: Point) -> Bool {
+fn is_same_alpha(left: Point, right: Point) -> Bool
     left.alpha == right.alpha
-}
+end
 
-fn fails_pattern_binding() -> Result<Unit, AssertionFailure> {
+fn fails_pattern_binding() -> Result<Unit, AssertionFailure>
     assert [_, _] = [1]
     Ok(Unit)
-}
+end
 
 // A failure whose keyword is `refute`, which no `check` can produce: `refute`
 // says so in its own words rather than reusing "assertion failed", and the
 // renderer prints whichever keyword the failure carries.
-fn fails_refutation() -> Result<Unit, AssertionFailure> {
+fn fails_refutation() -> Result<Unit, AssertionFailure>
     refute True
     Ok(Unit)
-}
+end
 
-test "a bare Bool failure renders the header and the assertion" {
+test "a bare Bool failure renders the header and the assertion"
     assert Err(failure) = testing.check(False)
 
     assert AssertionFailure.format(failure) == """
         line 54: check failed
           check False
         """
-}
+end
 
-test "a failed comparison renders both operands in the order they were seen" {
+test "a failed comparison renders both operands in the order they were seen"
     actual = "Ada"
     expected = "Grace"
     assert Err(failure) = testing.check(actual == expected)
@@ -73,9 +73,9 @@ test "a failed comparison renders both operands in the order they were seen" {
             expected
               = "Grace"
         """
-}
+end
 
-test "a struct-valued operand renders with its fields sorted, not declared" {
+test "a struct-valued operand renders with its fields sorted, not declared"
     left = Point{zed: 2, alpha: 1}
     right = Point{zed: 2, alpha: 9}
     assert Err(failure) = testing.check(is_same_alpha(left, right))
@@ -89,9 +89,9 @@ test "a struct-valued operand renders with its fields sorted, not declared" {
             right
               = Point{alpha: 9, zed: 2}
         """
-}
+end
 
-test "a bound-name subject renders the expression it was defined as" {
+test "a bound-name subject renders the expression it was defined as"
     alpha_matches = is_same_alpha(Point{zed: 0, alpha: 3}, Point{zed: 0, alpha: 4})
     assert Err(failure) = testing.check(alpha_matches)
 
@@ -101,9 +101,9 @@ test "a bound-name subject renders the expression it was defined as" {
           defined as:
             is_same_alpha(Point{zed: 0, alpha: 3}, Point{zed: 0, alpha: 4})
         """
-}
+end
 
-test "a pattern assertion renders its own keyword once and shows actual" {
+test "a pattern assertion renders its own keyword once and shows actual"
     assert Err(failure) = fails_pattern_binding()
 
     assert AssertionFailure.format(failure) == """
@@ -111,18 +111,18 @@ test "a pattern assertion renders its own keyword once and shows actual" {
           assert [_, _] = [1]
           actual: [1]
         """
-}
+end
 
-test "a failed refutation carries the refute keyword and its own reason" {
+test "a failed refutation carries the refute keyword and its own reason"
     assert Err(failure) = fails_refutation()
 
     assert AssertionFailure.format(failure) == """
         line 49: refute failed
           refute True
         """
-}
+end
 
-test "the rendered text is an ordinary String and can be printed" {
+test "the rendered text is an ordinary String and can be printed"
     assert Err(failure) = testing.check(1 == 2)
     io.print(AssertionFailure.format(failure))
-}
+end

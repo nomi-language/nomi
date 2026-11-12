@@ -16,61 +16,61 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 import std::reverse.Reverse
 
 /// Why the results could not be tallied.
-pub enum Error {
+pub enum Error
     /// A row is not `home;away;outcome` with an outcome of `win`, `draw` or
     /// `loss`.
     InvalidRow String
-}
+end
 
 /// How a match ended for one of its teams.
-enum Outcome {
+enum Outcome
     Win
     Draw
     Loss
-}
+end
 
-impl Outcome {
-    fn parse(word: String) -> Maybe<Outcome> {
-        case word {
+impl Outcome
+    fn parse(word: String) -> Maybe<Outcome>
+        case word
             "win" -> Some(.Win)
             "draw" -> Some(.Draw)
             "loss" -> Some(.Loss)
             _ -> None
-        }
-    }
+        end
+    end
 
     /// How the match ended for the other team.
-    fn reverse(outcome: Outcome) -> Outcome {
-        case outcome {
+    fn reverse(outcome: Outcome) -> Outcome
+        case outcome
             .Win -> .Loss
             .Draw -> .Draw
             .Loss -> .Win
-        }
-    }
-}
+        end
+    end
+end
 
 /// One team's line of the table.
-struct Standing {
+struct Standing
     team: String
     won: Int
     drawn: Int
     lost: Int
-}
+end
 
-impl Standing {
-    fn played(standing: Standing) -> Int {
+impl Standing
+    fn played(standing: Standing) -> Int
         standing.won + standing.drawn + standing.lost
-    }
+    end
 
-    fn points(standing: Standing) -> Int {
+    fn points(standing: Standing) -> Int
         3 * standing.won + standing.drawn
-    }
-}
+    end
+end
 
 /// The league table for `rows`, one match per row written
 /// `home;away;outcome`, where the outcome is the home team's. Teams are
 /// ordered by points, most first, and then by name.
-pub fn tally(rows: List<String>) -> Result<List<String>, Error> {
+pub fn tally(rows: List<String>) -> Result<List<String>, Error>
     results =
         rows
         |> Iter.map(parse_row)
@@ -80,56 +80,56 @@ pub fn tally(rows: List<String>) -> Result<List<String>, Error> {
     standings =
         results
         |> Iter.group_by(fn (team, _outcome) -> team)
-        |> Iter.map(fn (team, rows) -> {
+        |> Iter.map(fn (team, rows) ->
             standing(team, Iter.map(rows, fn (_team, outcome) -> outcome))
-        })
+        end)
         |> Iter.sort_by(fn s -> (Reverse.of(Standing.points(s)), s.team))
 
-    table = Iter.map(standings, fn s -> {
+    table = Iter.map(standings, fn s ->
         numbers = [Standing.played(s), s.won, s.drawn, s.lost, Standing.points(s)]
         line(s.team, Iter.map(numbers, Int.to_string))
-    })
+    end)
 
     Ok([line("Team", ["MP", "W", "D", "L", "P"]), ..table])
-}
+end
 
 /// The outcome of the match in `row` for each of its two teams.
-fn parse_row(row: String) -> Result<List<(String, Outcome)>, Error> {
-    [home, away, word] = String.split(row, ";") else { return Err(.InvalidRow(row)) }
+fn parse_row(row: String) -> Result<List<(String, Outcome)>, Error>
+    [home, away, word] = String.split(row, ";") else return Err(.InvalidRow(row))
 
-    Some(outcome) = Outcome.parse(word) else { return Err(.InvalidRow(row)) }
+    Some(outcome) = Outcome.parse(word) else return Err(.InvalidRow(row))
 
     Ok([(home, outcome), (away, Outcome.reverse(outcome))])
-}
+end
 
-fn standing(team: String, outcomes: Iter<Outcome>) -> Standing {
-    .{
-        team,
+fn standing(team: String, outcomes: Iter<Outcome>) -> Standing
+    {
+        team:,
         won: count(outcomes, .Win),
         drawn: count(outcomes, .Draw),
         lost: count(outcomes, .Loss),
     }
-}
+end
 
-fn count(outcomes: Iter<Outcome>, wanted: Outcome) -> Int {
+fn count(outcomes: Iter<Outcome>, wanted: Outcome) -> Int
     Iter.count_by(outcomes, &(&1 == wanted))
-}
+end
 
 /// A line of the table: the team's name in a column of 30, then each
 /// cell right-aligned in a column of 2.
-fn line(team: String, cells: Iter<String>) -> String {
+fn line(team: String, cells: Iter<String>) -> String
     columns = cells |> Iter.map(&String.pad_start(&1, 2)) |> String.join(" | ")
     "${String.pad_end(team, 30)} | ${columns}"
-}
+end
 
 // FILE: tournament_test.nomi
 import tournament
 
-test "just the header if no input" {
+test "just the header if no input"
     assert tournament.tally([]) == Ok(["Team                           | MP |  W |  D |  L |  P"])
-}
+end
 
-test "a win is three points, a loss is zero points" {
+test "a win is three points, a loss is zero points"
     table = [
         "Team                           | MP |  W |  D |  L |  P",
         "Allegoric Alaskans             |  1 |  1 |  0 |  0 |  3",
@@ -137,9 +137,9 @@ test "a win is three points, a loss is zero points" {
     ]
 
     assert tournament.tally(["Allegoric Alaskans;Blithering Badgers;win"]) == Ok(table)
-}
+end
 
-test "a win can also be expressed as a loss" {
+test "a win can also be expressed as a loss"
     table = [
         "Team                           | MP |  W |  D |  L |  P",
         "Allegoric Alaskans             |  1 |  1 |  0 |  0 |  3",
@@ -147,9 +147,9 @@ test "a win can also be expressed as a loss" {
     ]
 
     assert tournament.tally(["Blithering Badgers;Allegoric Alaskans;loss"]) == Ok(table)
-}
+end
 
-test "a different team can win" {
+test "a different team can win"
     table = [
         "Team                           | MP |  W |  D |  L |  P",
         "Blithering Badgers             |  1 |  1 |  0 |  0 |  3",
@@ -157,9 +157,9 @@ test "a different team can win" {
     ]
 
     assert tournament.tally(["Blithering Badgers;Allegoric Alaskans;win"]) == Ok(table)
-}
+end
 
-test "a draw is one point each" {
+test "a draw is one point each"
     table = [
         "Team                           | MP |  W |  D |  L |  P",
         "Allegoric Alaskans             |  1 |  0 |  1 |  0 |  1",
@@ -167,9 +167,9 @@ test "a draw is one point each" {
     ]
 
     assert tournament.tally(["Allegoric Alaskans;Blithering Badgers;draw"]) == Ok(table)
-}
+end
 
-test "There can be more than one match" {
+test "There can be more than one match"
     rows = [
         "Allegoric Alaskans;Blithering Badgers;win",
         "Allegoric Alaskans;Blithering Badgers;win",
@@ -182,9 +182,9 @@ test "There can be more than one match" {
     ]
 
     assert tournament.tally(rows) == Ok(table)
-}
+end
 
-test "There can be more than one winner" {
+test "There can be more than one winner"
     rows = [
         "Allegoric Alaskans;Blithering Badgers;loss",
         "Allegoric Alaskans;Blithering Badgers;win",
@@ -197,9 +197,9 @@ test "There can be more than one winner" {
     ]
 
     assert tournament.tally(rows) == Ok(table)
-}
+end
 
-test "There can be more than two teams" {
+test "There can be more than two teams"
     rows = [
         "Allegoric Alaskans;Blithering Badgers;win",
         "Blithering Badgers;Courageous Californians;win",
@@ -214,9 +214,9 @@ test "There can be more than two teams" {
     ]
 
     assert tournament.tally(rows) == Ok(table)
-}
+end
 
-test "typical input" {
+test "typical input"
     rows = [
         "Allegoric Alaskans;Blithering Badgers;win",
         "Devastating Donkeys;Courageous Californians;draw",
@@ -235,9 +235,9 @@ test "typical input" {
     ]
 
     assert tournament.tally(rows) == Ok(table)
-}
+end
 
-test "incomplete competition (not all pairs have played)" {
+test "incomplete competition (not all pairs have played)"
     rows = [
         "Allegoric Alaskans;Blithering Badgers;loss",
         "Devastating Donkeys;Allegoric Alaskans;loss",
@@ -254,9 +254,9 @@ test "incomplete competition (not all pairs have played)" {
     ]
 
     assert tournament.tally(rows) == Ok(table)
-}
+end
 
-test "ties broken alphabetically" {
+test "ties broken alphabetically"
     rows = [
         "Courageous Californians;Devastating Donkeys;win",
         "Allegoric Alaskans;Blithering Badgers;win",
@@ -275,9 +275,9 @@ test "ties broken alphabetically" {
     ]
 
     assert tournament.tally(rows) == Ok(table)
-}
+end
 
-test "ensure points sorted numerically" {
+test "ensure points sorted numerically"
     rows = [
         "Devastating Donkeys;Blithering Badgers;win",
         "Devastating Donkeys;Blithering Badgers;win",
@@ -293,17 +293,17 @@ test "ensure points sorted numerically" {
     ]
 
     assert tournament.tally(rows) == Ok(table)
-}
+end
 
 // Not canonical: the canonical data has no malformed rows.
-test "a row that is not a match is an error" {
+test "a row that is not a match is an error"
     row = "Allegoric Alaskans;Blithering Badgers;tie"
 
     assert tournament.tally([row]) == Err(.InvalidRow(row))
 
     assert tournament.tally(["Allegoric Alaskans;win"])
         == Err(.InvalidRow("Allegoric Alaskans;win"))
-}
+end
 ```
 <!-- expect
 ok just the header if no input

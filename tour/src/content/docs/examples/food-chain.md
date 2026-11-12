@@ -15,26 +15,26 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// An animal the old lady swallows: its name, the line sung about it when
 /// she swallows it, and what follows its name when it is the one caught.
-struct Animal {
+struct Animal
     name: String
     reaction: Maybe<String> = None
     detail: String = ""
-}
+end
 
 /// The animals in the order she swallows them. Nothing is said about the fly:
 /// its verse goes straight to the closing line.
 once animals = [
     Animal{name: "fly"},
-    .{
+    {
         name: "spider",
         reaction: Some("It wriggled and jiggled and tickled inside her."),
         detail: " that wriggled and jiggled and tickled inside her",
     },
-    .{name: "bird", reaction: Some("How absurd to swallow a bird!")},
-    .{name: "cat", reaction: Some("Imagine that, to swallow a cat!")},
-    .{name: "dog", reaction: Some("What a hog, to swallow a dog!")},
-    .{name: "goat", reaction: Some("Just opened her throat and swallowed a goat!")},
-    .{name: "cow", reaction: Some("I don't know how she swallowed a cow!")},
+    {name: "bird", reaction: Some("How absurd to swallow a bird!")},
+    {name: "cat", reaction: Some("Imagine that, to swallow a cat!")},
+    {name: "dog", reaction: Some("What a hog, to swallow a dog!")},
+    {name: "goat", reaction: Some("Just opened her throat and swallowed a goat!")},
+    {name: "cow", reaction: Some("I don't know how she swallowed a cow!")},
 ]
 
 /// The last verse, after the cow: she swallows a horse and dies, so nothing
@@ -45,37 +45,35 @@ once closing = "I don't know why she swallowed the fly. Perhaps she'll die."
 
 /// The lines of verses `start` to `end`, both included, counting from 1, with
 /// an empty line between two verses.
-pub fn recite(start: Int, end: Int) -> List<String> {
-    start..=end
+pub fn recite(start: Int, stop: Int) -> List<String>
+    start..=stop
     |> Iter.map(verse)
     |> Iter.intersperse([""])
     |> Iter.flatten()
-}
+end
 
 /// Verse `number`: the new animal, what she said about it, and every animal
 /// caught back down to the fly.
-fn verse(number: Int) -> List<String> {
-    if number > Iter.count(animals) { return horse_verse }
+fn verse(number: Int) -> List<String>
+    if number > Iter.count(animals) then return horse_verse
 
     swallowed = animals |> Iter.take(number) |> Iter.reverse()
-    [newest, ..] = swallowed else {
-        unreachable "every verse up to the cow swallows at least the fly"
-    }
+    [newest, ..] = swallowed else unreachable "every verse up to the cow swallows at least the fly"
 
     chain =
         swallowed
         |> Iter.zip(Iter.drop(swallowed, 1))
-        |> Iter.map(fn (predator, prey) -> {
+        |> Iter.map(fn (predator, prey) ->
             "She swallowed the ${predator.name} to catch the ${prey.name}${prey.detail}."
-        })
+        end)
 
     ["I know an old lady who swallowed a ${newest.name}.", ..newest.reaction, ..chain, closing]
-}
+end
 
 // FILE: food_chain_test.nomi
 import food_chain
 
-test "food chain" {
+test "food chain"
     [
         (
             "fly",
@@ -254,10 +252,10 @@ test "food chain" {
             ],
         ),
     ]
-    |> subtests (description, start, end, expected), description {
-        assert food_chain.recite(start, end) == expected
-    }
-}
+    |> subtests (description, start, stop, expected), description
+        assert food_chain.recite(start, stop) == expected
+    end
+end
 ```
 <!-- expect
 ok food chain (10 cases)

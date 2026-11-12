@@ -1,19 +1,19 @@
 // `todo` is the placeholder where a value is read, and an ordinary name
 // where a name stands. The caret lines below each line name the highlight
 // of the token they point at.
-pub fn parse(text: String) -> Int {
+pub fn parse(text: String) -> Int
     todo "parse the header"
     // <- keyword
-}
+end
 
-pub fn later() -> Int {
+pub fn later() -> Int
     todo
     // <- keyword
-}
+end
 
-pub fn apply(todo: Int) -> Int {
+pub fn apply(todo: Int) -> Int
     //       ^^^^ variable.parameter
-    _ = .{todo: 1}
-    //    ^^^^ variable.other.member
+    _ = {todo: 1}
+    //   ^^^^ variable.other.member
     todo
-}
+end

@@ -34,14 +34,14 @@ func firstFuncDef(p *Program, name string) *ast.FuncDef {
 func TestDict_BoundsAreTheMergeOfTwoSyntaxes(t *testing.T) {
 	// The inline spelling is not merely unsupported here: the front end
 	// refuses it, so nothing downstream can ever see it.
-	if _, err := AnalyzeSource("probe.nomi", "fn f<T: Display>(x: T) -> Int {\n  0\n}\n"); err == nil {
+	if _, err := AnalyzeSource("probe.nomi", "fn f<T: Display>(x: T) -> Int\n  0\nend\n"); err == nil {
 		t.Fatal("the parser accepted an inline bound; typeParamBoundsOf reads WhereClauses on the premise that it does not")
 	} else if !strings.Contains(err.Error(), "inline generic bounds are not supported") {
 		t.Fatalf("inline bound rejected for another reason, so this premise is unverified: %v", err)
 	}
 	p, err := AnalyzeSource("probe.nomi",
-		"interface Shout {\n  fn shout(v: self) -> String\n}\n\n"+
-			"fn f<T>(x: T) -> String where T: Shout {\n  T.shout(x)\n}\n")
+		"interface Shout\n  fn shout(v: self) -> String\nend\n\n"+
+			"fn f<T>(x: T) -> String where T: Shout\n  T.shout(x)\nend\n")
 	if err != nil {
 		t.Fatalf("analyze: %v", err)
 	}
@@ -83,23 +83,23 @@ func TestDict_AnAliasedTypeImportDispatchesToItsImpl(t *testing.T) {
 // (std/parse's `read_fields` is lowered with every listed module that
 // imports it, and TestProgramStdModulesQualify fails on any decline).
 func TestDict_TheErasedBodyIsNotLoweredOrDeclined(t *testing.T) {
-	p, err := AnalyzeSource("loud.nomi", `interface Shout {
+	p, err := AnalyzeSource("loud.nomi", `interface Shout
     fn shout(v: self) -> String
-}
+end
 
-impl Shout for Int {
-    fn shout(v: Int) -> String {
+impl Shout for Int
+    fn shout(v: Int) -> String
         "${v}!"
-    }
-}
+    end
+end
 
-fn loud<T>(x: T) -> String where T: Shout {
+fn loud<T>(x: T) -> String where T: Shout
     T.shout(x)
-}
+end
 
-fn main() {
+fn main()
     _ = loud(1)
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)

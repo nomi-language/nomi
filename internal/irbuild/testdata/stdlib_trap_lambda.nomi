@@ -2,16 +2,16 @@
 // code, so the report names the lambda's line, not the `Iter.map` call.
 import std::io
 
-fn main() {
+fn main()
     io.print("before")
 
     quotients =
         [5, 0, 1]
-        |> Iter.map(fn x -> {
+        |> Iter.map(fn x ->
             divisor = x
             10 / divisor
-        })
+        end)
         |> Iter.to_list()
 
     io.print(quotients)
-}
+end

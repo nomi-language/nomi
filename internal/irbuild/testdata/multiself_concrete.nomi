@@ -21,51 +21,51 @@
 // route is dict_self_identity.nomi.
 import std::io
 
-interface Cmp {
+interface Cmp
     fn cmp(a: self, b: self) -> Int
 
-    open fn spread(a: self, b: self) -> Int {
+    open fn spread(a: self, b: self) -> Int
         Cmp.cmp(a, b) - Cmp.cmp(b, a)
-    }
-}
+    end
+end
 
-struct Box {
+struct Box
     n: Int
-}
+end
 
-struct Cup {
+struct Cup
     n: Int
-}
+end
 
-impl Cmp for Box {
-    fn cmp(x: Box, y: Box) -> Int {
+impl Cmp for Box
+    fn cmp(x: Box, y: Box) -> Int
         x.n - y.n
-    }
-}
+    end
+end
 
-impl Cmp for Cup {
-    fn cmp(x: Cup, y: Cup) -> Int {
+impl Cmp for Cup
+    fn cmp(x: Cup, y: Cup) -> Int
         x.n + y.n
-    }
+    end
 
-    fn spread(x: Cup, y: Cup) -> Int {
+    fn spread(x: Cup, y: Cup) -> Int
         Cmp.cmp(x, y) * 10
-    }
-}
+    end
+end
 
-fn box_cmp(a: Box, b: Box) -> Int {
+fn box_cmp(a: Box, b: Box) -> Int
     Cmp.cmp(a, b)
-}
+end
 
-fn cup_cmp(a: Cup, b: Cup) -> Int {
+fn cup_cmp(a: Cup, b: Cup) -> Int
     Cmp.cmp(a, b)
-}
+end
 
-fn main() {
+fn main()
     io.print("${Cmp.cmp(Box{n: 9}, Box{n: 4})}")
     io.print("${Cmp.cmp(Cup{n: 9}, Cup{n: 4})}")
     io.print("${box_cmp(Box{n: 9}, Box{n: 4})}")
     io.print("${cup_cmp(Cup{n: 9}, Cup{n: 4})}")
     io.print("${Cmp.spread(Box{n: 9}, Box{n: 4})}")
     io.print("${Cmp.spread(Cup{n: 9}, Cup{n: 4})}")
-}
+end

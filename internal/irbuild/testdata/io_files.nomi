@@ -7,66 +7,66 @@
 // `NotFound` is reached by reading a path nothing creates. `NotADirectory` is
 // reached by writing INTO a path whose parent is a regular file, which is
 // ENOTDIR rather than ENOENT.
-import {
+import
     std::fs
     std::io
-}
+end
 
 once path: String = "${fs.temp_dir()}/nomi-io-files-fixture.txt"
 
-fn describe(e: io.Error) -> String {
-    case e {
-        io.Error.NotFound{path} -> "missing:${path}"
+fn describe(e: io.Error) -> String
+    case e
+        io.Error.NotFound{path:} -> "missing:${path}"
         io.Error.NotADirectory{path: _} -> "not a directory"
         _ -> "other"
-    }
-}
+    end
+end
 
-test "write_text then read_text round-trips the contents" {
+test "write_text then read_text round-trips the contents"
     assert fs.write_text(path, "alpha\nbeta") == Ok(Unit)
     assert fs.read_text(path) == Ok("alpha\nbeta")
-}
+end
 
-test "write_text replaces rather than appending" {
+test "write_text replaces rather than appending"
     assert fs.write_text(path, "one") == Ok(Unit)
     assert fs.write_text(path, "two") == Ok(Unit)
     assert fs.read_text(path) == Ok("two")
-}
+end
 
-test "Append appends" {
+test "Append appends"
     assert fs.write_text(path, "one") == Ok(Unit)
     assert fs.write_text(path, "two", mode: .Append) == Ok(Unit)
     assert fs.read_text(path) == Ok("onetwo")
-}
+end
 
-test "a missing file reads as NotFound carrying the path verbatim" {
+test "a missing file reads as NotFound carrying the path verbatim"
     missing = "${fs.temp_dir()}/nomi-io-files-fixture-absent.txt"
 
-    case fs.read_text(missing) {
+    case fs.read_text(missing)
         Ok(_) -> assert False
         Err(e) -> assert describe(e) == "missing:${missing}"
-    }
-}
+    end
+end
 
-test "io.Error renders through its Display impl" {
+test "io.Error renders through its Display impl"
     missing = "${fs.temp_dir()}/nomi-io-files-fixture-absent.txt"
 
-    case fs.read_text(missing) {
+    case fs.read_text(missing)
         Ok(_) -> assert False
         Err(e) -> assert Display.to_string(e) == "${missing}: not found"
-    }
-}
+    end
+end
 
-test "a write whose parent is not a directory reports NotADirectory" {
+test "a write whose parent is not a directory reports NotADirectory"
     assert fs.write_text(path, "parent") == Ok(Unit)
 
-    case fs.write_text(path + "/child", "x") {
+    case fs.write_text(path + "/child", "x")
         Ok(_) -> assert False
         Err(e) -> assert describe(e) == "not a directory"
-    }
-}
+    end
+end
 
-test "io.Error values compare by variant and payload" {
+test "io.Error values compare by variant and payload"
     assert io.Error.NotFound{path: "a"} == io.Error.NotFound{path: "a"}
     refute io.Error.NotFound{path: "a"} == io.Error.NotFound{path: "b"}
     refute io.Error.NotFound{path: "a"} == io.Error.IsADirectory{path: "a"}
@@ -76,4 +76,4 @@ test "io.Error values compare by variant and payload" {
         path: "a",
         code: "EIO",
     }
-}
+end

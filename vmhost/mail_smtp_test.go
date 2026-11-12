@@ -246,21 +246,21 @@ func testCertificate(t *testing.T, dir string) (*tls.Config, string) {
 	return &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}}}, path
 }
 
-const mailProgram = `import {
+const mailProgram = `import
     std::html.Html
     std::io
     std::mail.{self, Address, Attachment, Credentials, Mailer, Message, Security, SmtpConfig}
     std::tls.{ClientConfig, Roots}
-}
+end
 
-fn show(answer: Result<Unit, mail.Error>) -> String {
-    case answer {
+fn show(answer: Result<Unit, mail.Error>) -> String
+    case answer
         Ok(_) -> "ok"
         Err(e) -> "err ${e}"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     trusted = ClientConfig{roots: Roots.Files(["CERT"])}
     credentials = Some(Credentials{username: "user", password: "secret"})
 
@@ -282,30 +282,30 @@ fn main() {
         ],
     }
 
-    starttls = SmtpConfig{host: "127.0.0.1", port: STARTTLS_PORT, credentials, tls: trusted}
+    starttls = SmtpConfig{host: "127.0.0.1", port: STARTTLS_PORT, credentials:, tls: trusted}
     io.print("starttls plain ${show(Mailer.send(mail.smtp(starttls), message))}")
 
-    login = SmtpConfig{host: "localhost", port: LOGIN_PORT, credentials, tls: trusted}
+    login = SmtpConfig{host: "localhost", port: LOGIN_PORT, credentials:, tls: trusted}
     io.print("starttls login ${show(Mailer.send(mail.smtp(login), message))}")
 
-    implicit = SmtpConfig{host: "127.0.0.1", port: IMPLICIT_PORT, security: Security.Tls, credentials, tls: trusted}
+    implicit = SmtpConfig{host: "127.0.0.1", port: IMPLICIT_PORT, security: Security.Tls, credentials:, tls: trusted}
     io.print("implicit ${show(Mailer.send(mail.smtp(implicit), message))}")
 
     off = SmtpConfig{host: "127.0.0.1", port: OFF_PORT, security: Security.Off}
     io.print("off ${show(Mailer.send(mail.smtp(off), message))}")
 
-    rejected = .{..message, to: [Address.new("reject@example.com")!], cc: [], bcc: []}
+    rejected = {..message, to: [Address.new("reject@example.com")!], cc: [], bcc: []}
     io.print("rejected ${show(Mailer.send(mail.smtp(off), rejected))}")
 
     wrong = Some(Credentials{username: "user", password: "wrong"})
-    io.print("wrong password ${show(Mailer.send(mail.smtp(.{..starttls, credentials: wrong}), message))}")
+    io.print("wrong password ${show(Mailer.send(mail.smtp({..starttls, credentials: wrong}), message))}")
 
-    untrusted = .{..starttls, tls: ClientConfig{}}
+    untrusted = {..starttls, tls: ClientConfig{}}
     io.print("untrusted ${show(Mailer.send(mail.smtp(untrusted), message))}")
 
-    required = .{..off, security: Security.StartTls}
+    required = {..off, security: Security.StartTls}
     io.print("required ${show(Mailer.send(mail.smtp(required), message))}")
-}
+end
 `
 
 // std/mail's SMTP backend end to end against a fake server written here

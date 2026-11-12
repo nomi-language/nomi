@@ -6,33 +6,33 @@ once neighbours = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0),
 /// for dead, row by row: a live cell with two or three live
 /// neighbours lives on, a dead cell with three comes alive, and every other
 /// cell is dead.
-pub fn tick(board: Vector<Vector<Int>>) -> Vector<Vector<Int>> {
+pub fn tick(board: Vector<Vector<Int>>) -> Vector<Vector<Int>>
     board
     |> Iter.with_index()
-    |> Iter.map(fn (row, cells) -> {
+    |> Iter.map(fn (row, cells) ->
         cells
         |> Iter.with_index()
         |> Iter.map(fn (column, cell) -> next_state(cell, live_neighbours(board, row, column)))
         |> Iter.to_vector()
-    })
+    end)
     |> Iter.to_vector()
-}
+end
 
-fn live_neighbours(board: Vector<Vector<Int>>, row: Int, column: Int) -> Int {
+fn live_neighbours(board: Vector<Vector<Int>>, row: Int, column: Int) -> Int
     neighbours
     |> Iter.flat_map(fn (dr, dc) -> cell_at(board, row + dr, column + dc))
     |> Iter.sum()
-}
+end
 
 /// The cell at `row` and `column`, or None off the board.
-fn cell_at(board: Vector<Vector<Int>>, row: Int, column: Int) -> Maybe<Int> {
+fn cell_at(board: Vector<Vector<Int>>, row: Int, column: Int) -> Maybe<Int>
     cells = Vector.get(board, row)?
     Vector.get(cells, column)
-}
+end
 
-fn next_state(cell: Int, live_neighbours: Int) -> Int {
-    case (cell, live_neighbours) {
+fn next_state(cell: Int, live_neighbours: Int) -> Int
+    case (cell, live_neighbours)
         (1, 2) or (_, 3) -> 1
         _ -> 0
-    }
-}
+    end
+end

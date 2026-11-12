@@ -13,54 +13,56 @@ import (
 
 const wasiGame = `import std::json.{ToJson, FromJson}
 
-struct Game {
+struct Game
     word: String
     guesses: List<String>
     state: State
-}
+end
 
-enum State {
+enum State
     Playing
     Won
-}
+end
 
 derive ToJson for Game
 derive FromJson for Game
 derive ToJson for State
 derive FromJson for State
 
-export fn new_game(word: String) -> Game {
-    Game{word, guesses: [], state: State.Playing}
-}
+export fn new_game(word: String) -> Game
+    Game{word:, guesses: [], state: State.Playing}
+end
 
-export fn guess(game: Game, letter: String) -> Game {
-    .{..game, guesses: [letter, ..game.guesses]}
-}
+export fn guess(game: Game, letter: String) -> Game
+    {..game, guesses: [letter, ..game.guesses]}
+end
 
-export fn win(game: Game) -> Game {
-    .{..game, state: State.Won}
-}
+export fn win(game: Game) -> Game
+    {..game, state: State.Won}
+end
 
-export fn divide(a: Int, b: Int) -> Int {
+export fn divide(a: Int, b: Int) -> Int
     a / b
-}
+end
 `
 
 const wasiGreet = `import std::io
 
-fn main() {
-    Ok(Some(name)) = io.read_line() else { return }
+fn main()
+    Ok(Some(name)) = io.read_line() else
+        return
+    end
     io.print("Hello, ${String.trim(name)}!")
-}
+end
 `
 
 const wasiTrap = `import std::io
 
-fn main() {
+fn main()
     io.print("before")
     n = 10 / String.length("")
     io.print("after ${n}")
-}
+end
 `
 
 // wasiSleep's tasks sleep 50 and 20 ms under concurrent, so the run takes at
@@ -70,20 +72,20 @@ import std::tasks.Task
 import std::timer
 import std::duration.Duration
 
-fn main() {
-    total = concurrent {
-        a = Task.spawn(fn -> {
+fn main()
+    total = concurrent
+        a = Task.spawn(fn ->
             timer.sleep(Duration.milliseconds(50))
             1
-        })
-        b = Task.spawn(fn -> {
+        end)
+        b = Task.spawn(fn ->
             timer.sleep(Duration.milliseconds(20))
             2
-        })
+        end)
         Task.await(a) + Task.await(b)
-    }
+    end
     io.print("total ${total}")
-}
+end
 `
 
 // TestBuildCommand_ReactorWritesTheWasiLoader builds the reactor with no

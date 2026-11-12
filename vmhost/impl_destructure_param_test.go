@@ -9,7 +9,7 @@ import (
 )
 
 // An impl function's parameter may destructure its argument, as a file-level
-// function's may: a distinct (`Balance(n)`), a struct (`Point{x, y}`) and a
+// function's may: a distinct (`Balance(n)`), a struct (`Point{x:, y:}`) and a
 // tuple (`(a, b): (Int, Int)`), in an inherent block, an interface impl, a
 // generic block, and an interface default. Each used to be refused as
 // "destructuring parameter", so every call to one stopped the program with
@@ -19,66 +19,84 @@ func TestImplDestructuringParams_Run(t *testing.T) {
 
 type Balance Int
 
-impl Balance {
-    pub fn cents(Balance(n)) -> Int { n * 100 }
-    pub fn add(Balance(a), Balance(b)) -> Balance { Balance(a + b) }
-}
+impl Balance
+    pub fn cents(Balance(n)) -> Int
+        n * 100
+    end
+    pub fn add(Balance(a), Balance(b)) -> Balance
+        Balance(a + b)
+    end
+end
 
 type Slug String
 
-impl Equatable for Slug {
-    fn equal(Slug(a), Slug(b)) -> Bool { a == b }
-}
+impl Equatable for Slug
+    fn equal(Slug(a), Slug(b)) -> Bool
+        a == b
+    end
+end
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-impl Point {
-    fn sum(Point{x, y}) -> Int { x + y }
-    fn swap((a, b): (Int, Int)) -> (Int, Int) { (b, a) }
-    fn shifted(Point{x, y} as p, (dx, dy): (Int, Int)) -> String {
+impl Point
+    fn sum(Point{x:, y:}) -> Int
+        x + y
+    end
+    fn swap((a, b): (Int, Int)) -> (Int, Int)
+        (b, a)
+    end
+    fn shifted(Point{x:, y:} as p, (dx, dy): (Int, Int)) -> String
         "${Point.sum(p)} -> ${x + dx},${y + dy}"
-    }
-}
+    end
+end
 
-interface Named {
+interface Named
     fn name(value: self) -> String
-    fn wrapped(value: self, (open, close): (String, String)) -> String {
+    fn wrapped(value: self, (open, close): (String, String)) -> String
         "${open}${Named.name(value)}${close}"
-    }
-    fn plus(value: self, Point{x, y}) -> String { "${Named.name(value)}+${x + y}" }
-}
+    end
+    fn plus(value: self, Point{x:, y:}) -> String
+        "${Named.name(value)}+${x + y}"
+    end
+end
 
-impl Named for Point {
-    fn name(Point{x, y}) -> String { "p${x}${y}" }
-}
+impl Named for Point
+    fn name(Point{x:, y:}) -> String
+        "p${x}${y}"
+    end
+end
 
-struct Box<T> {
+struct Box<T>
     value: T
     count: Int
-}
+end
 
-impl Box<T> {
-    fn get(Box{value}: Box<T>) -> T { value }
-}
+impl Box<T>
+    fn get(Box{value:}: Box<T>) -> T
+        value
+    end
+end
 
-impl Display for Box<T> where T: Display {
-    fn to_string(Box{value, count}: Box<T>) -> String { "${T.to_string(value)} x${count}" }
-}
+impl Display for Box<T> where T: Display
+    fn to_string(Box{value:, count:}: Box<T>) -> String
+        "${T.to_string(value)} x${count}"
+    end
+end
 
-interface Pick<T> {
+interface Pick<T>
     fn pick(value: self, pair: (T, T)) -> T
-}
+end
 
-impl Pick<String> for Point {
-    fn pick(Point{x, y}, (a, b): (String, String)) -> String {
-        if x > y { a } else { b }
-    }
-}
+impl Pick<String> for Point
+    fn pick(Point{x:, y:}, (a, b): (String, String)) -> String
+        if x > y then a else b
+    end
+end
 
-fn main() {
+fn main()
     io.print(Balance.cents(Balance.add(Balance(1), Balance(2))))
     io.print(Slug("a") == Slug("a"))
     io.print(Slug("a") == Slug("b"))
@@ -92,7 +110,7 @@ fn main() {
     io.print(Box.get(Box{value: "v", count: 1}))
     io.print(Display.to_string(Box{value: 7, count: 3}))
     io.print(Pick.pick(Point{x: 2, y: 1}, ("first", "second")))
-}
+end
 `)
 	want := `300
 True
@@ -119,52 +137,60 @@ func TestImplDestructuringParams_RunFromAnotherFile(t *testing.T) {
 	entry, name, files, manifest, err := vmhost.SplitMultiFile(`// FILE: money.nomi
 pub type Balance Int
 
-impl Balance {
-    pub fn cents(Balance(n)) -> Int { n * 100 }
-}
+impl Balance
+    pub fn cents(Balance(n)) -> Int
+        n * 100
+    end
+end
 
-pub struct Pair {
+pub struct Pair
     left: Int
     right: Int
-}
+end
 
-impl Pair {
-    pub fn total(Pair{left, right}) -> Int { left + right }
-}
+impl Pair
+    pub fn total(Pair{left:, right:}) -> Int
+        left + right
+    end
+end
 
-pub interface Shape {
+pub interface Shape
     fn area(shape: self) -> Int
-    fn describe(shape: self, (label, unit): (String, String)) -> String {
+    fn describe(shape: self, (label, unit): (String, String)) -> String
         "${label} ${Shape.area(shape)} ${unit}"
-    }
-}
+    end
+end
 
-impl Shape for Pair {
-    fn area(Pair{left, right}) -> Int { left * right }
-}
+impl Shape for Pair
+    fn area(Pair{left:, right:}) -> Int
+        left * right
+    end
+end
 
 // FILE: main.nomi
-import {
+import
     std::io
     money.Balance
     money.Pair
     money.Shape
-}
+end
 
-struct Square {
+struct Square
     side: Int
-}
+end
 
-impl Shape for Square {
-    fn area(Square{side}) -> Int { side * side }
-}
+impl Shape for Square
+    fn area(Square{side:}) -> Int
+        side * side
+    end
+end
 
-fn main() {
+fn main()
     io.print(Balance.cents(Balance(3)))
     io.print(Pair.total(Pair{left: 3, right: 4}))
     io.print(Shape.describe(Pair{left: 3, right: 4}, ("area", "m2")))
     io.print(Shape.describe(Square{side: 3}, ("square", "m2")))
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("split: %v", err)

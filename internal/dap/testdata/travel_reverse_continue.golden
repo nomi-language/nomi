@@ -3,8 +3,8 @@
 -> launch {"console":"internalConsole","mode":"run","program":"$TESTDATA/travel.nomi","request":"launch","type":"nomi"}
 <- response launch
 <- event initialized
--> setBreakpoints {"breakpoints":[{"condition":"n % 2 == 0","line":4},{"line":23}],"source":{"path":"$TESTDATA/travel.nomi"}}
-<- response setBreakpoints {"breakpoints":[{"id":1,"line":4,"source":{"path":"$TESTDATA/travel.nomi"},"verified":true},{"id":2,"line":23,"source":{"path":"$TESTDATA/travel.nomi"},"verified":true}]}
+-> setBreakpoints {"breakpoints":[{"condition":"n % 2 == 0","line":4},{"line":22}],"source":{"path":"$TESTDATA/travel.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":1,"line":4,"source":{"path":"$TESTDATA/travel.nomi"},"verified":true},{"id":2,"line":22,"source":{"path":"$TESTDATA/travel.nomi"},"verified":true}]}
 -> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
 <- response setExceptionBreakpoints {}
 -> configurationDone
@@ -22,7 +22,7 @@
 <- event output {"category":"console","output":"Going back runs the program again from its start, answering input, the clock, randomness and files from what this session recorded; nothing is printed or read again until it passes the point it had reached.\n"}
 <- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":4,"name":"square","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":24,"id":2,"line":14,"name":"sum_squares","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":0,"id":1048577,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":24,"id":3,"line":22,"name":"main","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}}],"totalFrames":4}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":4,"name":"square","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":24,"id":2,"line":14,"name":"sum_squares","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":0,"id":1048577,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":24,"id":3,"line":21,"name":"main","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}}],"totalFrames":4}
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}
@@ -31,7 +31,7 @@
 <- response reverseContinue
 <- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":4,"name":"square","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":24,"id":2,"line":14,"name":"sum_squares","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":0,"id":1048578,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":24,"id":3,"line":22,"name":"main","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}}],"totalFrames":4}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":4,"name":"square","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":24,"id":2,"line":14,"name":"sum_squares","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":0,"id":1048578,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":24,"id":3,"line":21,"name":"main","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}}],"totalFrames":4}
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}
@@ -40,14 +40,14 @@
 <- response reverseContinue
 <- event stopped {"allThreadsStopped":true,"description":"Start of the program","reason":"entry","text":"No breakpoint stopped the program before this point, so going back stopped at its first statement.","threadId":1}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":21,"name":"main","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}}],"totalFrames":1}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":20,"name":"main","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}}],"totalFrames":1}
 -> reverseContinue {"threadId":1}
 <- response reverseContinue failed "No more history: this is the first statement the program ran."
 -> continue {"threadId":1}
 <- response continue {"allThreadsContinued":true}
 <- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":4,"name":"square","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":24,"id":2,"line":14,"name":"sum_squares","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":0,"id":1048579,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":24,"id":3,"line":22,"name":"main","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}}],"totalFrames":4}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":4,"name":"square","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":24,"id":2,"line":14,"name":"sum_squares","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":0,"id":1048579,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":24,"id":3,"line":21,"name":"main","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}}],"totalFrames":4}
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}
@@ -56,7 +56,7 @@
 <- response continue {"allThreadsContinued":true}
 <- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":4,"name":"square","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":24,"id":2,"line":14,"name":"sum_squares","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":0,"id":1048580,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":24,"id":3,"line":22,"name":"main","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}}],"totalFrames":4}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":4,"name":"square","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":24,"id":2,"line":14,"name":"sum_squares","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}},{"column":0,"id":1048580,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":24,"id":3,"line":21,"name":"main","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}}],"totalFrames":4}
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}
@@ -65,7 +65,7 @@
 <- response continue {"allThreadsContinued":true}
 <- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[2],"reason":"breakpoint","threadId":1}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":23,"name":"main","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}}],"totalFrames":1}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":22,"name":"main","source":{"name":"travel.nomi","path":"$TESTDATA/travel.nomi"}}],"totalFrames":1}
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}

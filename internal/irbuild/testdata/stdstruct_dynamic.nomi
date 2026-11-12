@@ -44,21 +44,21 @@
 //
 // `derive Display for PathSegment` is the same question one level down, and
 // `seg_display` asks it of the enum.
-import {
+import
     std::dynamic
     std::dynamic.PathSegment
     std::io
-}
+end
 
 // seg renders a segment through a `case`, so both payload positions are read.
-fn seg(s: PathSegment) -> String {
-    case s {
+fn seg(s: PathSegment) -> String
+    case s
         PathSegment.Field(name) -> "field:" + name
         PathSegment.Index(i) -> "index:" + Int.to_string(i)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     e = dynamic.Error{
         path: [PathSegment.Field("user"), PathSegment.Index(3)],
         expected: "Int",
@@ -70,15 +70,17 @@ fn main() {
     io.print("got = " + e.got)
 
     // --- BOTH variants, read back out of the list ----------------------------
-    case e.path {
-        [first, second] -> {
+    case e.path
+        [first, second] ->
             io.print("path.first = " + seg(first))
             io.print("path.second = " + seg(second))
-        }
 
-        [] -> io.print("path = UNEXPECTED empty")
-        [_, ..] -> io.print("path = UNEXPECTED length")
-    }
+        [] ->
+            io.print("path = UNEXPECTED empty")
+
+        [_, ..] ->
+            io.print("path = UNEXPECTED length")
+    end
 
     // --- Tag ORDER, independent of the list ----------------------------------
     io.print("tag_order = " + seg(PathSegment.Field("a")) + "/" + seg(PathSegment.Index(1)))
@@ -90,4 +92,4 @@ fn main() {
     // --- An EMPTY path, which is the nil *List ------------------------------
     empty = dynamic.Error{path: [], expected: "List", got: "Int"}
     io.print("empty.display = " + Display.to_string(empty))
-}
+end

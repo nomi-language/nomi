@@ -20,9 +20,9 @@ import (
 // surface as LSP diagnostics (parity with `nomi run`), not be silently dropped.
 func TestLoweringErrorsSurfaceAsDiagnostics(t *testing.T) {
 	dm := analysis.NewDocumentManager()
-	src := "struct Dog {\n" +
+	src := "struct Dog\n" +
 		"  name: String\n" +
-		"}\n" +
+		"end\n" +
 		"\n" +
 		"derive Equatable for Dog\n" +
 		"derive Equatable for Dog\n"
@@ -47,17 +47,17 @@ func TestLoweringErrorsSurfaceAsDiagnostics(t *testing.T) {
 
 func TestDuplicateTestNamesSurfaceAsDiagnostics(t *testing.T) {
 	dm := analysis.NewDocumentManager()
-	src := `group "math" {
-  test "adds" {
+	src := `group "math"
+  test "adds"
     assert True
-  }
-}
+  end
+end
 
-group "math" {
-  test "adds" {
+group "math"
+  test "adds"
     assert True
-  }
-}
+  end
+end
 `
 	doc := dm.Open("file:///test.nomi", src)
 	if doc.Analysis == nil {
@@ -106,7 +106,7 @@ func TestParseErrorsToDiagnostics_Empty(t *testing.T) {
 func TestAttachedTestDiagnosticsAllowOrdinaryAssert(t *testing.T) {
 	content := strings.Join([]string{
 		"//! assert 1 == 1",
-		"fn ready() -> Bool { True }",
+		"fn ready() -> Bool\n    True\nend",
 	}, "\n")
 	nodes, parseErrs := parser.ParseWithRecovery(lexer.Lex(content))
 	if len(parseErrs) != 0 {
@@ -124,7 +124,7 @@ func TestAttachedTestDiagnosticsAllowBlankSeparatedBlocks(t *testing.T) {
 		"",
 		"//! refute answer() == 41",
 		"//!",
-		"fn answer() -> Int { 42 }",
+		"fn answer() -> Int\n    42\nend",
 	}, "\n")
 	nodes, parseErrs := parser.ParseWithRecovery(lexer.Lex(content))
 	if len(parseErrs) != 0 {
@@ -143,7 +143,7 @@ func TestAttachedTestDiagnosticsAllowCommentSeparatedBlocks(t *testing.T) {
 				"//! assert answer() == 42",
 				separator,
 				"//! refute answer() == 41",
-				"fn answer() -> Int { 42 }",
+				"fn answer() -> Int\n    42\nend",
 			}, "\n")
 			nodes, parseErrs := parser.ParseWithRecovery(lexer.Lex(content))
 			if len(parseErrs) != 0 {
@@ -185,10 +185,10 @@ func TestTypeErrorsToDiagnostics(t *testing.T) {
 
 func TestBuildPublishedDiagnosticsSuppressesExpectedFixtureErrors(t *testing.T) {
 	content := strings.Join([]string{
-		"fn main() {",
+		"fn main()",
 		"  bad = Nope // expect type-error: undefined name 'Nope'",
 		"  also_bad = other // expect type-error: undefined name 'other'",
-		"}",
+		"end",
 	}, "\n")
 	errs := []analysis.TypeError{
 		{Line: 2, Col: 9, Message: "undefined name 'Nope'"},
@@ -202,9 +202,9 @@ func TestBuildPublishedDiagnosticsSuppressesExpectedFixtureErrors(t *testing.T) 
 
 func TestBuildPublishedDiagnosticsReportsFixtureDrift(t *testing.T) {
 	content := strings.Join([]string{
-		"fn main() {",
+		"fn main()",
 		"  bad = Nope // expect type-error: undefined name 'Nope'",
-		"}",
+		"end",
 	}, "\n")
 	errs := []analysis.TypeError{
 		{Line: 2, Col: 9, Message: "undefined name 'Surprise'"},
@@ -222,7 +222,7 @@ func TestBuildPublishedDiagnosticsReportsFixtureDrift(t *testing.T) {
 }
 
 func TestBuildPublishedDiagnosticsDoesNotSuppressNonFixtureErrors(t *testing.T) {
-	content := "fn main() { bad = Nope } // expect type-error: undefined name 'Nope'"
+	content := "fn main()\n    bad = Nope\nend // expect type-error: undefined name 'Nope'"
 	errs := []analysis.TypeError{
 		{Line: 1, Col: 19, Message: "undefined name 'Nope'"},
 	}
@@ -312,9 +312,9 @@ func TestStdlibSameOwnerPipeCallPublishesCleanly(t *testing.T) {
 
 func TestBuildPublishedDiagnosticsReportsDbgWarning(t *testing.T) {
 	content := strings.Join([]string{
-		"fn main() {",
+		"fn main()",
 		"  dbg 42",
-		"}",
+		"end",
 	}, "\n")
 	nodes, parseErrs := parser.ParseWithRecovery(lexer.Lex(content))
 	if len(parseErrs) != 0 {
@@ -352,10 +352,10 @@ func TestOperatorDiagnosticsStartAtTheOperator(t *testing.T) {
 	src := strings.Join([]string{
 		"import std::instant.Instant",
 		"",
-		"fn main() {",
+		"fn main()",
 		"    _ = Instant.from_seconds(15) - 5",
 		`    _ = "é" == 1`,
-		"}",
+		"end",
 	}, "\n")
 	uri := "file:///operator_position.nomi"
 	s := NewServer()
@@ -389,7 +389,9 @@ func TestOperatorDiagnosticsStartAtTheOperator(t *testing.T) {
 func TestTypeErrorsViaDocumentManager(t *testing.T) {
 	dm := analysis.NewDocumentManager()
 	// This function has a return type mismatch: declared Int, returns String
-	doc := dm.Open("file:///test.nomi", `fn bad() -> Int { "hello" }`)
+	doc := dm.Open("file:///test.nomi", `fn bad() -> Int
+    "hello"
+end`)
 	if doc.Analysis == nil {
 		t.Fatal("expected analysis to be non-nil")
 	}
@@ -435,8 +437,8 @@ func TestDocumentManager_DiscardBindingSuppressesIgnoredExpressionDiagnostic(t *
 func TestImportedFileBuildErrorsPublishOnThatFile(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-		"main.nomi":   "import std::io\nimport helper\n\nfn main() {\n  io.print(helper.greet())\n}\n",
-		"helper.nomi": "import std::regex\n\nstruct A {\n  x: Int\n}\n\nenum A {\n  One\n}\n\npub fn greet() -> String {\n  \"hi\"\n}\n",
+		"main.nomi":   "import std::io\nimport helper\n\nfn main()\n  io.print(helper.greet())\nend\n",
+		"helper.nomi": "import std::regex\n\nstruct A\n  x: Int\nend\n\nenum A\n  One\nend\n\npub fn greet() -> String\n  \"hi\"\nend\n",
 	})
 	lib := loadStd()
 	dm := analysis.NewDocumentManager()
@@ -475,9 +477,9 @@ func TestImportedFileBuildErrorsPublishOnThatFile(t *testing.T) {
 func TestMissingImportPublishesOnTheImportLine(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-		"main.nomi":   "import std::io\nimport helper\nimport lib\n\nfn main() {\n  io.print(helper.greet())\n  lib.go()\n}\n",
-		"helper.nomi": "import utlis\n\npub fn greet() -> String {\n  utlis.name()\n}\n",
-		"utils.nomi":  "pub fn name() -> String {\n  \"hi\"\n}\n",
+		"main.nomi":   "import std::io\nimport helper\nimport lib\n\nfn main()\n  io.print(helper.greet())\n  lib.go()\nend\n",
+		"helper.nomi": "import utlis\n\npub fn greet() -> String\n  utlis.name()\nend\n",
+		"utils.nomi":  "pub fn name() -> String\n  \"hi\"\nend\n",
 	})
 	lib := loadStd()
 	dm := analysis.NewDocumentManager()
@@ -514,31 +516,31 @@ func TestMissingImportPublishesOnTheImportLine(t *testing.T) {
 // block the hint spells.
 func TestGroupedImportPathPublishesAtTheBrace(t *testing.T) {
 	dm := analysis.NewDocumentManager()
-	src := "import std::{io, regex.Regex}\n\nfn main() {\n}\n"
+	src := "import std::{io, regex.Regex}\n\nfn main()\nend\n"
 	doc := dm.Open("file:///test.nomi", src)
 	var got []string
 	for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Analysis, doc.Errors, nil) {
 		got = append(got, fmt.Sprintf("%d:%d: %s", d.Range.Start.Line+1, d.Range.Start.Character+1, d.Message))
 	}
 	want := "1:13: braces select names from one file, as in `std::regex.{Regex, Match}`\n" +
-		"help: to import several files, list each in an import block:\nimport {\n    std::io\n    std::regex.Regex\n}"
+		"help: to import several files, list each in an import block:\nimport\n    std::io\n    std::regex.Regex\nend"
 	if strings.Join(got, "\n---\n") != want {
 		t.Errorf("publishes:\n%s\nwant:\n%s", strings.Join(got, "\n---\n"), want)
 	}
 }
 
-// A group written without a name publishes the missing name at the `{`,
+// A group written without a name publishes the missing name at `group`,
 // and nothing about a file-level expression. Its body is still read as a
 // group's, so a type error in one of its tests is published too.
 func TestGroupWithoutANamePublishesTheMissingName(t *testing.T) {
 	dm := analysis.NewDocumentManager()
-	src := "group {\n    test \"a\" {\n        assert 1 == \"one\"\n    }\n}\n"
+	src := "group\n    test \"a\"\n        assert 1 == \"one\"\n    end\nend\n"
 	doc := dm.Open("file:///test.nomi", src)
 	var got []string
 	for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Analysis, doc.Errors, doc.Analysis.TypeErrors) {
 		got = append(got, fmt.Sprintf("%d:%d: %s", d.Range.Start.Line+1, d.Range.Start.Character+1, d.Message))
 	}
-	const missing = "1:7: a `group` needs a name; name the group for what its tests share, such as `group \"dates\" { ... }`"
+	const missing = "1:1: a `group` needs a name; name the group for what its tests share, such as `group \"dates\"`"
 	if len(got) == 0 || got[0] != missing {
 		t.Fatalf("publishes:\n%s\nwant first:\n%s", strings.Join(got, "\n"), missing)
 	}
@@ -562,13 +564,13 @@ func TestGroupWithoutANamePublishesTheMissingName(t *testing.T) {
 func TestNestedTestDeclarationsPublishTheRefusal(t *testing.T) {
 	cases := []struct{ name, src, want, inner string }{
 		{"test in a test",
-			"test \"outer\" {\n    test \"inner\" { assert 1 == \"one\" }\n    assert 1 == 1\n}\n",
-			"2:5: a `test` is declared at the top level of a file or in a `group`; it cannot be nested inside a body", "2:"},
+			"test \"outer\"\n    test \"inner\"\n        assert 1 == \"one\"\n    end\n    assert 1 == 1\nend\n",
+			"2:5: a `test` is declared at the top level of a file or in a `group`; it cannot be nested inside a body", "3:"},
 		{"group in a function",
-			"fn main() {\n    group \"g\" {\n        test \"a\" { assert 1 == \"one\" }\n    }\n}\n",
-			"2:5: a `group` is declared at the top level of a file; it cannot be nested inside a body", "3:"},
+			"fn main()\n    group \"g\"\n        test \"a\"\n            assert 1 == \"one\"\n        end\n    end\nend\n",
+			"2:5: a `group` is declared at the top level of a file; it cannot be nested inside a body", "4:"},
 		{"test in an attached prompt",
-			"//! test \"x\" { assert 1 == 1 }\n//! assert answer() == 42\n//\nfn answer() -> Int {\n    42\n}\n",
+			"//! test \"x\"\n//!     assert 1 == 1\n//! end\n//! assert answer() == 42\n//\nfn answer() -> Int\n    42\nend\n",
 			"1:5: a `test` is declared at the top level of a file or in a `group`; it cannot be nested inside a body", ""},
 	}
 	for _, c := range cases {
@@ -613,13 +615,13 @@ func TestImplOnlyImportPublishesWhatTheProgramUses(t *testing.T) {
 	}
 	// extra.nomi imports hop, whose one impl the program uses, and spare,
 	// whose one impl it does not.
-	files["spare.nomi"] = "import decls.{Alpha, Other}\n\nimpl Alpha for Other {\n    fn go(x: Other) -> Int {\n        x.n\n    }\n}\n"
-	files["extra.nomi"] = "import {\n    hop\n    spare\n}\n\npub fn one() -> Int {\n    1\n}\n"
+	files["spare.nomi"] = "import decls.{Alpha, Other}\n\nimpl Alpha for Other\n    fn go(x: Other) -> Int\n        x.n\n    end\nend\n"
+	files["extra.nomi"] = "import\n    hop\n    spare\nend\n\npub fn one() -> Int\n    1\nend\n"
 	files["main.nomi"] = strings.Replace(files["main.nomi"], "    std::io\n", "    std::io\n    extra\n", 1)
 	// The derive is there because opening another file type-checks main.nomi
 	// as that file's entry, from a tree the editor parsed but did not lower.
-	files["main.nomi"] = strings.Replace(files["main.nomi"], "fn main() {\n",
-		"derive Equatable for Box\n\nstruct Box {\n    n: Int\n}\n\nfn main() {\n    _ = extra.one()\n    _ = Box{n: 1} == Box{n: 2}\n", 1)
+	files["main.nomi"] = strings.Replace(files["main.nomi"], "fn main()\n",
+		"derive Equatable for Box\n\nstruct Box\n    n: Int\nend\n\nfn main()\n    _ = extra.one()\n    _ = Box{n: 1} == Box{n: 2}\n", 1)
 	dir := writeProject(t, files)
 	lib := loadStd()
 	dm := analysis.NewDocumentManager()

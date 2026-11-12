@@ -219,8 +219,6 @@ func patternText(n ast.Node) string {
 		var b strings.Builder
 		if p.TypeName != nil {
 			b.WriteString(p.TypeName.TypeString())
-		} else {
-			b.WriteString(".")
 		}
 		b.WriteString("{")
 		for i, f := range p.Fields {
@@ -233,38 +231,24 @@ func patternText(n ast.Node) string {
 			case f.Binding != "" && f.Binding != f.Name:
 				b.WriteString(f.Name + ": " + f.Binding)
 			default:
-				b.WriteString(f.Name)
+				b.WriteString(f.Name + ":")
 			}
 		}
 		b.WriteString("}")
 		return b.String()
 	case *ast.TuplePattern:
 		return "(" + patternListText(p.Patterns) + ")"
-	case *ast.VectorPattern:
-		parts := make([]string, 0, len(p.Heads)+len(p.Tails)+1)
-		for _, h := range p.Heads {
-			parts = append(parts, patternText(h))
-		}
-		if p.Spread {
-			rest := ".."
-			if p.Rest != nil {
-				rest += patternText(p.Rest)
-			}
-			parts = append(parts, rest)
-		}
-		for _, t := range p.Tails {
-			parts = append(parts, patternText(t))
-		}
-		return shapeHeadText("#", p.TypeName) + "[" + strings.Join(parts, ", ") + "]"
-	case *ast.SetPattern:
-		return shapeHeadText("%", p.TypeName) + "[..]"
 	case *ast.ListPattern:
 		parts := make([]string, 0, len(p.Heads)+1)
 		for _, h := range p.Heads {
 			parts = append(parts, patternText(h))
 		}
 		if p.TailSpread != nil {
-			parts = append(parts, ".."+patternText(p.TailSpread))
+			if p.BareRest {
+				parts = append(parts, "..")
+			} else {
+				parts = append(parts, ".."+patternText(p.TailSpread))
+			}
 		}
 		for _, t := range p.Tails {
 			parts = append(parts, patternText(t))
@@ -275,7 +259,7 @@ func patternText(n ast.Node) string {
 		}
 		return prefix + "[" + strings.Join(parts, ", ") + "]"
 	case *ast.MapPattern:
-		return shapeHeadText("%", p.TypeName) + "{..}"
+		return shapeHeadText(p.TypeName) + "{..}"
 	}
 	return "_"
 }
@@ -288,12 +272,12 @@ func patternListText(ps []ast.Node) string {
 	return strings.Join(parts, ", ")
 }
 
-// shapeHeadText is how a literal or pattern of a built-in shape starts: its
-// symbol and, when it names one, the type built on the shape (`#`, `#Point`,
-// `%Kvs`, `#.Circle`).
-func shapeHeadText(sigil string, name ast.TypeExpr) string {
+// shapeHeadText is how a literal or pattern of a built-in shape starts: the
+// type built on the shape when it names one (`Kvs`, `.Circle`), else
+// nothing.
+func shapeHeadText(name ast.TypeExpr) string {
 	if name == nil {
-		return sigil
+		return ""
 	}
-	return sigil + name.TypeString()
+	return name.TypeString()
 }

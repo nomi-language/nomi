@@ -2,13 +2,13 @@
 //# what it sends in memory, so a test sends and asserts with no server:
 //#
 //# ```nomi
-//# test "signing up sends a login link" {
+//# test "signing up sends a login link"
 //#     memory = Memory.new()
 //#     with App.mailer = memory
 //#     sign_up("ana@example.com")?
 //#     assert [message] = Memory.sent(memory)
 //#     assert message.subject == "Your login link"
-//# }
+//# end
 //# ```
 //#
 //# `Failing` is a mailer whose every send fails with an error the test
@@ -19,7 +19,7 @@
 //# every backend passes: a backend's own tests run it against mailers it
 //# opens.
 
-import {
+import
     base64
     bool.Bool.{self, False, True}
     bytes.{Byte, Bytes}
@@ -40,10 +40,10 @@ import {
     tasks.Task
     tls.{self, Certificate, ClientConfig, Roots, ServerConfig}
     unit.Unit
-}
+end
 
 /// One message as a server received it.
-pub struct Received {
+pub struct Received
     /// The envelope sender, `MAIL FROM`.
     from: String
     /// The envelope recipients, `RCPT TO`, in order.
@@ -54,14 +54,14 @@ pub struct Received {
     tls: Bool
     /// The user it authenticated as.
     username: Maybe<String>
-}
+end
 
 derive Equatable for Received
 
-struct State {
+struct State
     sent: List<Message>
     received: List<Received>
-}
+end
 
 /// A `Mailer` that keeps every message it sends, shared by every copy of
 /// the value. It writes each message with `mail.render` first, so a
@@ -80,37 +80,37 @@ struct State {
 //! assert Memory.sent(memory) == [message]
 //! assert Iter.map(Memory.received(memory), &(&1.recipients)) |> Iter.to_list() == [["b@example.com"]]
 //
-pub opaque struct Memory {
+pub opaque struct Memory
     state: Channel<State>
-}
+end
 
-impl Memory {
+impl Memory
     /// A mailer that has sent nothing.
-    pub fn new() -> Memory {
+    pub fn new() -> Memory
         state: Channel<State> = Channel.buffered(1)
         _ = Sender.send(state.sender, State{sent: [], received: []})
-        Memory{state}
-    }
+        Memory{state:}
+    end
 
     /// Every message sent, oldest first.
-    pub fn sent(memory: Memory) -> List<Message> {
+    pub fn sent(memory: Memory) -> List<Message>
         peek(memory.state).sent
-    }
+    end
 
     /// The same sends as a server receives them: envelope and text.
-    pub fn received(memory: Memory) -> List<Received> {
+    pub fn received(memory: Memory) -> List<Received>
         peek(memory.state).received
-    }
-}
+    end
+end
 
-impl Mailer for Memory {
-    fn send(memory: Memory, message: Message) -> Result<Unit, Error> {
+impl Mailer for Memory
+    fn send(memory: Memory, message: Message) -> Result<Unit, Error>
         data = mail.render(message)?
 
         received = Received{
             from: Address.email(message.from),
             recipients: mail.recipients(message),
-            data,
+            data:,
             tls: False,
             username: None,
         }
@@ -123,25 +123,25 @@ impl Mailer for Memory {
         })
 
         Ok(Unit)
-    }
-}
+    end
+end
 
-fn take(state: Channel<State>) -> State {
-    case Receiver.receive(state.receiver) {
+fn take(state: Channel<State>) -> State
+    case Receiver.receive(state.receiver)
         Some(s) -> s
         None -> State{sent: [], received: []}
-    }
-}
+    end
+end
 
-fn put(state: Channel<State>, s: State) {
+fn put(state: Channel<State>, s: State)
     _ = Sender.send(state.sender, s)
-}
+end
 
-fn peek(state: Channel<State>) -> State {
+fn peek(state: Channel<State>) -> State
     s = take(state)
     put(state, s)
     s
-}
+end
 
 /// A `Mailer` whose every send fails with `error`, for testing what a
 /// caller does when mail cannot go out. The default `error` is a
@@ -158,35 +158,35 @@ fn peek(state: Channel<State>) -> State {
 //!
 //! assert Err(Error.Rejected{command: _, code: 550, reply: _}) = Mailer.send(failing, message)
 //
-pub struct Failing {
+pub struct Failing
     error: Error = Error.Network{reason: "the test's mailer is failing"}
-}
+end
 
-impl Mailer for Failing {
-    fn send(failing: Failing, _message: Message) -> Result<Unit, Error> {
+impl Mailer for Failing
+    fn send(failing: Failing, _message: Message) -> Result<Unit, Error>
         Err(failing.error)
-    }
-}
+    end
+end
 
 /// An SMTP server `with_smtp_server` runs.
-pub opaque struct SmtpServer {
+pub opaque struct SmtpServer
     config: SmtpConfig
     state: Channel<State>
-}
+end
 
-impl SmtpServer {
+impl SmtpServer
     /// A config that reaches the server: its port, STARTTLS with roots
     /// that trust its certificate when it offers it, and its credentials
     /// when it asks for them.
-    pub fn config(server: SmtpServer) -> SmtpConfig {
+    pub fn config(server: SmtpServer) -> SmtpConfig
         server.config
-    }
+    end
 
     /// Every message it accepted, oldest first.
-    pub fn received(server: SmtpServer) -> List<Received> {
+    pub fn received(server: SmtpServer) -> List<Received>
         peek(server.state).received
-    }
-}
+    end
+end
 
 /// Runs `body` while an SMTP server listens on 127.0.0.1, then stops it.
 /// With `starttls` it offers STARTTLS with a certificate made for
@@ -204,9 +204,9 @@ impl SmtpServer {
 //!
 //! credentials = Some(Credentials{username: "u", password: "p"})
 //!
-//! (sent, received) = with_smtp_server(starttls: True, credentials: credentials, fn server -> {
+//! (sent, received) = with_smtp_server(starttls: True, credentials:, fn server ->
 //!     (Mailer.send(mail.smtp(SmtpServer.config(server)), message), SmtpServer.received(server))
-//! })
+//! end)
 //!
 //! assert sent == Ok(Unit)
 //!
@@ -224,100 +224,100 @@ pub fn with_smtp_server<T>(
     starttls: Bool = False,
     credentials: Maybe<Credentials> = None,
     body: (SmtpServer) -> T,
-) -> T {
+) -> T
     listener = net.listen("127.0.0.1:0")!
     (host, port) = net.split_host_port(Listener.address(listener))!
 
-    (server_tls, client_tls) = if starttls {
-        (cert, key) = case http_host.test_certificate() {
+    (server_tls, client_tls) = if starttls then
+        (cert, key) = case http_host.test_certificate()
             [c, k] -> (c, k)
             _ -> ("", "")
-        }
+        end
 
         certificate = Certificate.from_pem(cert, key)!
         (Some(ServerConfig{certificates: [certificate]}), ClientConfig{roots: Roots.Pem(cert)})
-    } else {
+    else
         (None, ClientConfig{})
-    }
+    end
 
     state: Channel<State> = Channel.buffered(1)
     _ = Sender.send(state.sender, State{sent: [], received: []})
 
     config = SmtpConfig{
-        host,
+        host:,
         port: String.to_int(port) |> Maybe.with_default(0),
-        security: if starttls {
+        security: if starttls then
             Security.StartTls
-        } else {
+        else
             Security.Off
-        },
-        credentials,
+        end,
+        credentials:,
         timeout: Duration.seconds(10),
         tls: client_tls,
     }
 
-    server = SmtpServer{config, state}
-    rules = Rules{tls: server_tls, credentials, state}
+    server = SmtpServer{config:, state:}
+    rules = Rules{tls: server_tls, credentials:, state:}
 
-    concurrent {
+    concurrent
         serving = Task.spawn(fn -> accept_each(listener, rules))
         result = body(server)
         Listener.close(listener)
         Task.await(serving)
         result
-    }
-}
+    end
+end
 
-struct Rules {
+struct Rules
     tls: Maybe<ServerConfig>
     credentials: Maybe<Credentials>
     state: Channel<State>
-}
+end
 
 // One connection's state.
-struct Peer {
+struct Peer
     conn: Connection
     tls: Bool
     username: Maybe<String>
     from: Maybe<String>
     recipients: List<String>
-}
+end
 
-fn accept_each(listener: Listener, rules: Rules) {
-    case Listener.accept(listener) {
-        Ok(conn) -> {
+fn accept_each(listener: Listener, rules: Rules)
+    case Listener.accept(listener)
+        Ok(conn) ->
             serve(conn, rules)
             Connection.close(conn)
             accept_each(listener, rules)
-        }
 
-        Err(_) -> Unit
-    }
-}
+        Err(_) ->
+            Unit
+    end
+end
 
-fn serve(conn: Connection, rules: Rules) {
-    peer = Peer{conn, tls: False, username: None, from: None, recipients: []}
+fn serve(conn: Connection, rules: Rules)
+    peer = Peer{conn:, tls: False, username: None, from: None, recipients: []}
 
-    if reply(peer, "220 127.0.0.1 nomi test SMTP") { converse(peer, rules) }
-}
+    if reply(peer, "220 127.0.0.1 nomi test SMTP") then converse(peer, rules)
+end
 
 // Writes `line` and a CRLF, and returns whether the write went through.
-fn reply(peer: Peer, line: String) -> Bool {
+fn reply(peer: Peer, line: String) -> Bool
     Result.is_ok(Writer.write_text(Connection.writer(peer.conn), "${line}\r\n"))
-}
+end
 
-fn read(peer: Peer) -> Maybe<String> {
-    case Reader.read_line(Connection.reader(peer.conn)) {
+fn read(peer: Peer) -> Maybe<String>
+    case Reader.read_line(Connection.reader(peer.conn))
         Ok(Some(line)) -> Some(line)
         _ -> None
-    }
-}
+    end
+end
 
-fn converse(peer: Peer, rules: Rules) {
-    line = case read(peer) {
+fn converse(peer: Peer, rules: Rules)
+    line = case read(peer)
         Some(l) -> l
         None -> return
-    }
+    end
 
     verb = String.uppercase(
         String.split(line, " ")
@@ -327,20 +327,20 @@ fn converse(peer: Peer, rules: Rules) {
 
     argument = String.drop(line, String.length(verb) + 1)
 
-    next = case verb {
-        "EHLO" -> {
+    next = case verb
+        "EHLO" ->
             offers =
                 [
-                    if rules.tls is Some(_) and not peer.tls {
+                    if rules.tls is Some(_) and not peer.tls then
                         ["STARTTLS"]
-                    } else {
+                    else
                         []
-                    },
-                    if rules.credentials is Some(_) {
+                    end,
+                    if rules.credentials is Some(_) then
                         ["AUTH PLAIN LOGIN"]
-                    } else {
+                    else
                         []
-                    },
+                    end,
                     ["8BITMIME"],
                 ]
                 |> Iter.flatten()
@@ -351,138 +351,139 @@ fn converse(peer: Peer, rules: Rules) {
             ok =
                 offers
                 |> Iter.with_index()
-                |> Iter.all_match(fn (i, offer) -> {
+                |> Iter.all_match(fn (i, offer) ->
                     reply(
                         peer,
-                        if i == lines - 1 {
+                        if i == lines - 1 then
                             "250 ${offer}"
-                        } else {
+                        else
                             "250-${offer}"
-                        },
+                        end,
                     )
-                })
+                end)
 
-            if ok { Some(peer) } else { None }
-        }
+            if ok then Some(peer) else None
 
-        "HELO" -> answer(peer, "250 127.0.0.1")
+        "HELO" ->
+            answer(peer, "250 127.0.0.1")
 
         "STARTTLS" ->
-            case rules.tls {
-                Some(config) when not peer.tls -> {
+            case rules.tls
+                Some(config) when not peer.tls ->
                     _ = reply(peer, "220 ready to start TLS")
 
-                    case tls.server(peer.conn, config) {
+                    case tls.server(peer.conn, config)
                         Ok(conn) ->
-                            Some(Peer{conn, tls: True, username: None, from: None, recipients: []})
+                            Some(Peer{conn:, tls: True, username: None, from: None, recipients: []})
 
-                        Err(_) -> None
-                    }
-                }
+                        Err(_) ->
+                            None
+                    end
 
-                _ -> answer(peer, "502 STARTTLS is not offered")
-            }
+                _ ->
+                    answer(peer, "502 STARTTLS is not offered")
+            end
 
-        "AUTH" -> authenticate(peer, rules, argument)
+        "AUTH" ->
+            authenticate(peer, rules, argument)
 
-        "MAIL" -> {
-            if rules.credentials is Some(_) and peer.username is None {
+        "MAIL" ->
+            if rules.credentials is Some(_) and peer.username is None then
                 answer(peer, "530 authentication required")
-            } else {
+            else
                 from = path(argument, "FROM:")
-                answer(.{..peer, from: Some(from), recipients: []}, "250 sender ok")
-            }
-        }
+                answer({..peer, from: Some(from), recipients: []}, "250 sender ok")
+            end
 
-        "RCPT" -> {
+        "RCPT" ->
             to = path(argument, "TO:")
 
-            if peer.from is None {
+            if peer.from is None then
                 answer(peer, "503 MAIL FROM first")
-            } else if String.starts_with(to, "reject") {
+            else if String.starts_with(to, "reject") then
                 answer(peer, "550 no such user ${to}")
-            } else {
-                answer(
-                    .{..peer, recipients: List.concat(peer.recipients, [to])},
-                    "250 recipient ok",
-                )
-            }
-        }
+            else
+                answer({..peer, recipients: List.concat(peer.recipients, [to])}, "250 recipient ok")
+            end
 
-        "DATA" -> {
-            case peer.from {
-                Some(from) when not Iter.is_empty(peer.recipients) -> {
+        "DATA" ->
+            case peer.from
+                Some(from) when not Iter.is_empty(peer.recipients) ->
                     _ = reply(peer, "354 end with a line holding a dot")
 
-                    case read_data(peer, []) {
-                        Some(data) -> {
+                    case read_data(peer, [])
+                        Some(data) ->
                             received = Received{
-                                from,
+                                from:,
                                 recipients: peer.recipients,
-                                data,
+                                data:,
                                 tls: peer.tls,
                                 username: peer.username,
                             }
 
                             s = take(rules.state)
-                            put(rules.state, .{..s, received: List.concat(s.received, [received])})
-                            answer(.{..peer, from: None, recipients: []}, "250 queued")
-                        }
+                            put(rules.state, {..s, received: List.concat(s.received, [received])})
+                            answer({..peer, from: None, recipients: []}, "250 queued")
 
-                        None -> None
-                    }
-                }
+                        None ->
+                            None
+                    end
 
-                _ -> answer(peer, "503 no sender or recipient yet")
-            }
-        }
+                _ ->
+                    answer(peer, "503 no sender or recipient yet")
+            end
 
-        "RSET" -> answer(.{..peer, from: None, recipients: []}, "250 reset")
-        "NOOP" -> answer(peer, "250 ok")
+        "RSET" ->
+            answer({..peer, from: None, recipients: []}, "250 reset")
 
-        "QUIT" -> {
+        "NOOP" ->
+            answer(peer, "250 ok")
+
+        "QUIT" ->
             _ = reply(peer, "221 bye")
             None
-        }
 
-        _ -> answer(peer, "502 not implemented")
-    }
+        _ ->
+            answer(peer, "502 not implemented")
+    end
 
-    case next {
+    case next
         Some(p) -> converse(p, rules)
         None -> Unit
-    }
-}
+    end
+end
 
-fn answer(peer: Peer, line: String) -> Maybe<Peer> {
-    if reply(peer, line) { Some(peer) } else { None }
-}
+fn answer(peer: Peer, line: String) -> Maybe<Peer>
+    if reply(peer, line) then Some(peer) else None
+end
 
 // The address in `FROM:<a@b>` or `TO:<a@b>`, without parameters after it.
-fn path(argument: String, prefix: String) -> String {
+fn path(argument: String, prefix: String) -> String
     rest = String.drop(argument, String.length(prefix))
     first = String.split(rest, " ") |> List.head() |> Maybe.with_default("")
     String.replace(String.replace(first, "<", ""), ">", "")
-}
+end
 
-fn read_data(peer: Peer, lines: List<String>) -> Maybe<String> {
-    case read(peer) {
-        None -> None
-        Some(".") -> Some(String.join(Iter.map(lines, fn l -> "${l}\r\n")))
+fn read_data(peer: Peer, lines: List<String>) -> Maybe<String>
+    case read(peer)
+        None ->
+            None
 
-        Some(line) -> {
-            unstuffed = if String.starts_with(line, ".") {
+        Some(".") ->
+            Some(String.join(Iter.map(lines, fn l -> "${l}\r\n")))
+
+        Some(line) ->
+            unstuffed = if String.starts_with(line, ".") then
                 String.drop(line, 1)
-            } else {
+            else
                 line
-            }
+            end
 
             read_data(peer, List.concat(lines, [unstuffed]))
-        }
-    }
-}
+    end
+end
 
-fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer> {
+fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer>
     words = String.split(argument, " ")
 
     mechanism = String.uppercase(
@@ -490,79 +491,81 @@ fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer> {
         |> Maybe.with_default("")
     )
 
-    pair = case mechanism {
-        "PLAIN" -> {
-            token = case Iter.get(words, 1) {
-                Some(t) -> Some(t)
+    pair = case mechanism
+        "PLAIN" ->
+            token = case Iter.get(words, 1)
+                Some(t) ->
+                    Some(t)
 
-                None -> {
+                None ->
                     _ = reply(peer, "334 ")
                     read(peer)
-                }
-            }
+            end
 
             token
             |> Maybe.flat_map(decode)
-            |> Maybe.flat_map(fn text -> {
-                case String.split(text, "\u{0}") {
+            |> Maybe.flat_map(fn text ->
+                case String.split(text, "\u{0}")
                     [_, user, password] -> Some((user, password))
                     _ -> None
-                }
-            })
-        }
+                end
+            end)
 
-        "LOGIN" -> {
+        "LOGIN" ->
             _ = reply(peer, "334 VXNlcm5hbWU6")
             user = read(peer) |> Maybe.flat_map(decode)
             _ = reply(peer, "334 UGFzc3dvcmQ6")
             password = read(peer) |> Maybe.flat_map(decode)
 
-            case (user, password) {
+            case (user, password)
                 (Some(u), Some(p)) -> Some((u, p))
                 _ -> None
-            }
-        }
+            end
 
-        _ -> None
-    }
+        _ ->
+            None
+    end
 
-    case (rules.credentials, pair) {
+    case (rules.credentials, pair)
         (Some(expected), Some((user, password))) when expected.username == user
             and expected.password == password ->
-            answer(.{..peer, username: Some(user)}, "235 authenticated")
+            answer({..peer, username: Some(user)}, "235 authenticated")
 
-        (None, _) -> answer(peer, "502 AUTH is not offered")
-        _ -> answer(peer, "535 authentication failed")
-    }
-}
+        (None, _) ->
+            answer(peer, "502 AUTH is not offered")
 
-fn decode(token: String) -> Maybe<String> {
+        _ ->
+            answer(peer, "535 authentication failed")
+    end
+end
+
+fn decode(token: String) -> Maybe<String>
     base64.decode(token)
     |> Result.to_maybe()
     |> Maybe.flat_map(fn b -> Bytes.to_string(b) |> Result.to_maybe())
-}
+end
 
 /// What a backend under `conformance` is: a mailer, and what has reached
 /// its server since it was opened.
-pub struct Opened {
+pub struct Opened
     mailer: Mailer
     received: () -> List<Received>
-}
+end
 
 /// A conformance rule a mailer broke, and how. Its `Display` is `rule:
 /// message`.
-pub struct Broken {
+pub struct Broken
     rule: String
     message: String
-}
+end
 
 derive Equatable for Broken
 
-impl Display for Broken {
-    fn to_string(broken: Broken) -> String {
+impl Display for Broken
+    fn to_string(broken: Broken) -> String
         "${broken.rule}: ${broken.message}"
-    }
-}
+    end
+end
 
 /// Runs every conformance rule against mailers from `open`, and returns
 /// the rules broken: none for a backend that conforms. Each rule opens a
@@ -577,52 +580,52 @@ impl Display for Broken {
 /// headers in order, and an attachment.
 //! import std::mail
 //!
-//! memory = fn -> {
+//! memory = fn ->
 //!     m = Memory.new()
 //!     Opened{mailer: m, received: fn -> Memory.received(m)}
-//! }
+//! end
 //!
 //! assert conformance(memory) == []
 //!
 //! smtp = with_smtp_server(starttls: True, credentials: Some(
 //!     mail.Credentials{username: "u", password: "p"}
-//! ), fn server -> {
-//!     conformance(fn -> {
+//! ), fn server ->
+//!     conformance(fn ->
 //!         before = Iter.count(SmtpServer.received(server))
 //!
 //!         Opened{
 //!             mailer: mail.smtp(SmtpServer.config(server)),
 //!             received: fn -> SmtpServer.received(server) |> Iter.drop(before) |> Iter.to_list(),
 //!         }
-//!     })
-//! })
+//!     end)
+//! end)
 //!
 //! assert smtp == []
 //
-pub fn conformance(open: () -> Opened) -> List<Broken> {
+pub fn conformance(open: () -> Opened) -> List<Broken>
     checks()
-    |> Iter.flat_map(fn (rule, check) -> {
-        case check(open()) {
+    |> Iter.flat_map(fn (rule, check) ->
+        case check(open())
             Ok(_) -> []
-            Err(message) -> [Broken{rule, message}]
-        }
-    })
+            Err(message) -> [Broken{rule:, message:}]
+        end
+    end)
     |> Iter.to_list()
-}
+end
 
 /// The names of the conformance rules, in the order `conformance` runs
 /// them.
 //! assert Iter.contains(rules(), "bcc is in no header")
 //
-pub fn rules() -> List<String> {
+pub fn rules() -> List<String>
     checks() |> Iter.map(fn (rule, _) -> rule) |> Iter.to_list()
-}
+end
 
-fn address(email: String) -> Address {
+fn address(email: String) -> Address
     Address.new(email) |> Result.with_default(Address.new("invalid@example.com")!)
-}
+end
 
-fn base() -> Message {
+fn base() -> Message
     Message{
         from: Address.new("sender@example.com", name: "Sender")
         |> Result.with_default(address("sender@example.com")),
@@ -630,46 +633,49 @@ fn base() -> Message {
         subject: "Conformance",
         text: Some("Hello."),
     }
-}
+end
 
-fn send(o: Opened, message: Message) -> Result<Unit, String> {
+fn send(o: Opened, message: Message) -> Result<Unit, String>
     Mailer.send(o.mailer, message) |> Result.map_err(fn e -> "send: ${e}")
-}
+end
 
-fn expect(holds: Bool, message: String) -> Result<Unit, String> {
-    if holds { Ok(Unit) } else { Err(message) }
-}
+fn expect(holds: Bool, message: String) -> Result<Unit, String>
+    if holds then Ok(Unit) else Err(message)
+end
 
-fn one(o: Opened) -> Result<Received, String> {
-    case o.received() {
+fn one(o: Opened) -> Result<Received, String>
+    case o.received()
         [r] -> Ok(r)
         got -> Err("the server received ${Iter.count(got)} messages, not 1")
-    }
-}
+    end
+end
 
-fn refused(o: Opened, message: Message, why: String) -> Result<Unit, String> {
-    case Mailer.send(o.mailer, message) {
+fn refused(o: Opened, message: Message, why: String) -> Result<Unit, String>
+    case Mailer.send(o.mailer, message)
         Err(Error.InvalidMessage{reason: _}) ->
             expect(
                 Iter.is_empty(o.received()),
                 "${why} was refused, and a message was delivered anyway",
             )
 
-        Err(e) -> Err("${why} failed with ${e}, not an InvalidMessage")
-        Ok(_) -> Err("${why} was sent")
-    }
-}
+        Err(e) ->
+            Err("${why} failed with ${e}, not an InvalidMessage")
 
-fn head_of(data: String) -> List<String> {
+        Ok(_) ->
+            Err("${why} was sent")
+    end
+end
+
+fn head_of(data: String) -> List<String>
     String.split(data, "\r\n\r\n") |> List.head() |> Maybe.with_default("") |> String.split("\r\n")
-}
+end
 
-fn checks() -> List<(String, (Opened) -> Result<Unit, String>)> {
+fn checks() -> List<(String, (Opened) -> Result<Unit, String>)>
     [
         (
             "a message reaches every recipient once",
-            fn o -> {
-                send(o, .{
+            fn o ->
+                send(o, {
                     ..base(),
                     cc: [address("cc@example.com")],
                     bcc: [address("bcc@example.com"), address("to@example.com")],
@@ -681,70 +687,70 @@ fn checks() -> List<(String, (Opened) -> Result<Unit, String>)> {
                     r.recipients == ["to@example.com", "cc@example.com", "bcc@example.com"],
                     "the envelope's recipients are ${r.recipients}",
                 )
-            },
+            end,
         ),
         (
             "bcc is in no header",
-            fn o -> {
-                send(o, .{..base(), bcc: [address("hidden@example.com")]})?
+            fn o ->
+                send(o, {..base(), bcc: [address("hidden@example.com")]})?
                 r = one(o)?
 
                 expect(
                     not String.contains(r.data, "hidden@example.com"),
                     "the message text names the Bcc recipient",
                 )
-            },
+            end,
         ),
         (
             "the envelope sender is the From address",
-            fn o -> {
+            fn o ->
                 send(o, base())?
                 r = one(o)?
                 expect(r.from == "sender@example.com", "the envelope sender is ${r.from}")
-            },
+            end,
         ),
         (
             "a message with no recipient is refused",
-            fn o -> refused(o, .{..base(), to: []}, "a message with no recipient"),
+            fn o -> refused(o, {..base(), to: []}, "a message with no recipient"),
         ),
         (
             "a message with no body is refused",
-            fn o -> refused(o, .{..base(), text: None}, "a message with no body"),
+            fn o -> refused(o, {..base(), text: None}, "a message with no body"),
         ),
         (
             "a reserved header is refused",
-            fn o -> {
-                refused(o, .{..base(), headers: [("Subject", "again")]}, "a second Subject header")
-            },
+            fn o ->
+                refused(o, {..base(), headers: [("Subject", "again")]}, "a second Subject header")
+            end,
         ),
         (
             "a header value with a line break is refused",
-            fn o -> {
+            fn o ->
                 refused(
                     o,
-                    .{..base(), headers: [("X-Note", "a\r\nBcc: evil@example.com")]},
+                    {..base(), headers: [("X-Note", "a\r\nBcc: evil@example.com")]},
                     "a header value with a line break",
                 )
-            },
+            end,
         ),
         (
             "a subject with a line break adds no header",
-            fn o -> {
-                send(o, .{..base(), subject: "hi\r\nBcc: evil@example.com"})?
+            fn o ->
+                send(o, {..base(), subject: "hi\r\nBcc: evil@example.com"})?
                 r = one(o)?
 
                 expect(
-                    not Iter.any_match(head_of(r.data), fn line -> {
+                    not Iter.any_match(head_of(r.data), fn line ->
                         String.starts_with(String.lowercase(line), "bcc:")
-                    }),
+                    end),
                     "a Bcc line reached the headers",
                 )
-            },
+            end,
         ),
         (
             "a non-ASCII message arrives as 7-bit CRLF text",
-            fn o -> {
-                send(o, .{..base(), subject: "Grüße 🎉", text: Some("Grüße\naus Köln")})?
+            fn o ->
+                send(o, {..base(), subject: "Grüße 🎉", text: Some("Grüße\naus Köln")})?
                 r = one(o)?
                 bytes = String.to_bytes(r.data) |> Bytes.to_list()
 
@@ -760,19 +766,19 @@ fn checks() -> List<(String, (Opened) -> Result<Unit, String>)> {
                 )?
 
                 expect(
-                    Iter.all_match(String.split(r.data, "\r\n"), fn line -> {
+                    Iter.all_match(String.split(r.data, "\r\n"), fn line ->
                         Bytes.length(String.to_bytes(line)) <= 998
-                    }),
+                    end),
                     "a line is longer than 998 bytes",
                 )?
 
                 expect(String.contains(r.data, "=?utf-8?b?"), "the subject is not encoded")
-            },
+            end,
         ),
         (
             "a line that starts with a dot arrives intact",
-            fn o -> {
-                send(o, .{..base(), text: Some("before\n.hidden\n..two\n.")})?
+            fn o ->
+                send(o, {..base(), text: Some("before\n.hidden\n..two\n.")})?
                 r = one(o)?
                 lines = String.split(r.data, "\r\n")
 
@@ -782,12 +788,12 @@ fn checks() -> List<(String, (Opened) -> Result<Unit, String>)> {
                         and Iter.contains(lines, "."),
                     "the lines starting with a dot changed: ${lines}",
                 )
-            },
+            end,
         ),
         (
             "text and HTML arrive as multipart/alternative",
-            fn o -> {
-                send(o, .{..base(), html: Some(Html"<p>Hello.</p>")})?
+            fn o ->
+                send(o, {..base(), html: Some(Html"<p>Hello.</p>")})?
                 r = one(o)?
 
                 expect(
@@ -796,30 +802,32 @@ fn checks() -> List<(String, (Opened) -> Result<Unit, String>)> {
                         and String.contains(r.data, "text/html"),
                     "the message is not multipart/alternative with both parts",
                 )
-            },
+            end,
         ),
         (
             "extra headers arrive in order",
-            fn o -> {
-                send(o, .{..base(), headers: [("X-First", "1"), ("X-Second", "2")]})?
+            fn o ->
+                send(o, {..base(), headers: [("X-First", "1"), ("X-Second", "2")]})?
                 head = head_of(one(o)?.data)
                 first = Iter.find_index(head, &(&1 == "X-First: 1"))
                 second = Iter.find_index(head, &(&1 == "X-Second: 2"))
 
-                case (first, second) {
+                case (first, second)
                     (Some(a), Some(b)) when a < b -> Ok(Unit)
                     _ -> Err("the headers arrived as ${head}")
-                }
-            },
+                end
+            end,
         ),
         (
             "an attachment arrives",
-            fn o -> {
+            fn o ->
                 data = String.to_bytes("one,two\n")
 
-                send(o, .{
+                send(o, {
                     ..base(),
-                    attachments: [Attachment{filename: "rows.csv", content_type: "text/csv", data}],
+                    attachments: [
+                        Attachment{filename: "rows.csv", content_type: "text/csv", data:},
+                    ],
                 })?
 
                 r = one(o)?
@@ -830,7 +838,7 @@ fn checks() -> List<(String, (Opened) -> Result<Unit, String>)> {
                         and String.contains(r.data, base64.encode(data)),
                     "the attachment is missing or not base64",
                 )
-            },
+            end,
         ),
     ]
-}
+end

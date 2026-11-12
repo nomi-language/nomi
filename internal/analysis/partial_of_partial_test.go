@@ -10,9 +10,9 @@ import "testing"
 // function".
 
 const partialOfPartialDecls = `
-fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String {
+fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String
   "${host}:${Int.to_string(port)}/${Int.to_string(timeout)}"
-}
+end
 `
 
 // Each case binds the partial at Unit, so the mismatch names its type.
@@ -41,7 +41,7 @@ func TestPartialOfPartial_TypesAsAFunctionOfTheOpenSlots(t *testing.T) {
   x: Unit = &la(a: "a", b: &1)`, "expected Unit, got (Int) -> String"},
 	} {
 		t.Run(tc.want, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib(partialOfPartialDecls + "\nfn main() {\n" + tc.src + "\n  _ = x\n}\n")
+			_, errs := checkSourceWithStdlib(partialOfPartialDecls + "\nfn main()\n" + tc.src + "\n  _ = x\nend\n")
 			expectStdlibError(t, errs, tc.want)
 		})
 	}
@@ -49,7 +49,7 @@ func TestPartialOfPartial_TypesAsAFunctionOfTheOpenSlots(t *testing.T) {
 
 func TestPartialOfPartial_CallsAndDefaultsCheck(t *testing.T) {
 	_, errs := checkSourceWithStdlib(partialOfPartialDecls + `
-fn main() {
+fn main()
   c = &connect(&1, port: &2)
   e = &c(port: &1, host: "x")
   s: String = e(9)
@@ -58,7 +58,7 @@ fn main() {
   three = &connect(&1, port: &2, timeout: &3)
   m: (Int, Int) -> String = &three(timeout: &1, host: "h", &2)
   _ = (s, t, u, m)
-}
+end
 `)
 	expectNoStdlibErrors(t, errs)
 }
@@ -77,7 +77,7 @@ func TestPartialOfPartial_RejectsAWrongCall(t *testing.T) {
   x = e("p")`, "argument 1: expected Int, got String"},
 	} {
 		t.Run(tc.want, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib(partialOfPartialDecls + "\nfn main() {\n  c = &connect(&1, port: &2)\n" + tc.src + "\n  _ = x\n}\n")
+			_, errs := checkSourceWithStdlib(partialOfPartialDecls + "\nfn main()\n  c = &connect(&1, port: &2)\n" + tc.src + "\n  _ = x\nend\n")
 			expectStdlibError(t, errs, tc.want)
 		})
 	}

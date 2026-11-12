@@ -49,7 +49,7 @@ func TestTravel_ReverseContinueToAConditionalBreakpoint(t *testing.T) {
 	h.start(false, runConfig("travel.nomi"))
 	h.breakWith("travel.nomi",
 		map[string]any{"line": 4, "condition": "n % 2 == 0"},
-		map[string]any{"line": 23},
+		map[string]any{"line": 22},
 	)
 	h.configure()
 	thread := h.stopped()
@@ -177,7 +177,7 @@ func TestTravel_StepBackIsOffInATaskProgram(t *testing.T) {
 func TestTravel_ARecordingMismatchIsAnInternalError(t *testing.T) {
 	h := newHarness(t)
 	h.start(false, runConfig("travel.nomi"))
-	h.breakAt("travel.nomi", 23)
+	h.breakAt("travel.nomi", 22)
 	h.configure()
 	thread := h.stopped()
 	h.srv.mu.Lock()

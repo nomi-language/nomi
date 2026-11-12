@@ -1,133 +1,133 @@
 //# Complex numbers and their arithmetic.
 
 /// A complex number `real + imaginary * i`.
-pub opaque struct Complex {
+pub opaque struct Complex
     real: Float
     imaginary: Float
-}
+end
 
-impl Complex {
+impl Complex
     /// `real + imaginary * i`.
-    pub fn new(real: Float, imaginary: Float) -> Complex {
-        .{real, imaginary}
-    }
+    pub fn new(real: Float, imaginary: Float) -> Complex
+        {real:, imaginary:}
+    end
 
     /// The real part of `z`.
-    pub fn real(z: Complex) -> Float {
+    pub fn real(z: Complex) -> Float
         z.real
-    }
+    end
 
     /// The imaginary part of `z`.
-    pub fn imaginary(z: Complex) -> Float {
+    pub fn imaginary(z: Complex) -> Float
         z.imaginary
-    }
+    end
 
     /// The distance of `z` from zero, `sqrt(a^2 + b^2)`.
-    pub fn abs(z: Complex) -> Float {
+    pub fn abs(z: Complex) -> Float
         Float.sqrt(z.real * z.real + z.imaginary * z.imaginary)
-    }
+    end
 
     /// `z` with its imaginary part negated.
-    pub fn conjugate(z: Complex) -> Complex {
-        .{..z, imaginary: -z.imaginary}
-    }
+    pub fn conjugate(z: Complex) -> Complex
+        {..z, imaginary: -z.imaginary}
+    end
 
     /// `e` to the power `z`: `e^a * (cos(b) + i * sin(b))`.
-    pub fn exp(z: Complex) -> Complex {
+    pub fn exp(z: Complex) -> Complex
         scale = Float.exp(z.real)
-        .{real: scale * Float.cos(z.imaginary), imaginary: scale * Float.sin(z.imaginary)}
-    }
+        {real: scale * Float.cos(z.imaginary), imaginary: scale * Float.sin(z.imaginary)}
+    end
 
     /// Whether each part of `a` is within `tolerance` of the same part of
     /// `b`.
-    pub fn equal_within(a: Complex, b: Complex, tolerance: Float) -> Bool {
+    pub fn equal_within(a: Complex, b: Complex, tolerance: Float) -> Bool
         Float.equal_within(a.real, b.real, tolerance)
             and Float.equal_within(a.imaginary, b.imaginary, tolerance)
-    }
+    end
 
     /// `x` as a complex number with no imaginary part.
-    pub fn from_real(x: Float) -> Complex {
-        .{real: x, imaginary: 0.0}
-    }
-}
+    pub fn from_real(x: Float) -> Complex
+        {real: x, imaginary: 0.0}
+    end
+end
 
-impl Add<Complex, Complex> for Complex {
-    fn add(lhs: Complex, rhs: Complex) -> Complex {
-        .{real: lhs.real + rhs.real, imaginary: lhs.imaginary + rhs.imaginary}
-    }
-}
+impl Add<Complex, Complex> for Complex
+    fn add(lhs: Complex, rhs: Complex) -> Complex
+        {real: lhs.real + rhs.real, imaginary: lhs.imaginary + rhs.imaginary}
+    end
+end
 
-impl Subtract<Complex, Complex> for Complex {
-    fn subtract(lhs: Complex, rhs: Complex) -> Complex {
-        .{real: lhs.real - rhs.real, imaginary: lhs.imaginary - rhs.imaginary}
-    }
-}
+impl Subtract<Complex, Complex> for Complex
+    fn subtract(lhs: Complex, rhs: Complex) -> Complex
+        {real: lhs.real - rhs.real, imaginary: lhs.imaginary - rhs.imaginary}
+    end
+end
 
-impl Multiply<Complex, Complex> for Complex {
-    fn multiply(lhs: Complex, rhs: Complex) -> Complex {
-        .{
+impl Multiply<Complex, Complex> for Complex
+    fn multiply(lhs: Complex, rhs: Complex) -> Complex
+        {
             real: lhs.real * rhs.real - lhs.imaginary * rhs.imaginary,
             imaginary: lhs.imaginary * rhs.real + lhs.real * rhs.imaginary,
         }
-    }
-}
+    end
+end
 
-impl Divide<Complex, Complex> for Complex {
+impl Divide<Complex, Complex> for Complex
     /// Dividing by zero gives infinities and NaNs, as `/` on `Float` does.
-    fn divide(lhs: Complex, rhs: Complex) -> Complex {
+    fn divide(lhs: Complex, rhs: Complex) -> Complex
         denominator = rhs.real * rhs.real + rhs.imaginary * rhs.imaginary
 
-        .{
+        {
             real: (lhs.real * rhs.real + lhs.imaginary * rhs.imaginary) / denominator,
             imaginary: (lhs.imaginary * rhs.real - lhs.real * rhs.imaginary) / denominator,
         }
-    }
-}
+    end
+end
 
-impl Add<Float, Complex> for Complex {
-    fn add(lhs: Complex, rhs: Float) -> Complex {
+impl Add<Float, Complex> for Complex
+    fn add(lhs: Complex, rhs: Float) -> Complex
         lhs + Complex.from_real(rhs)
-    }
-}
+    end
+end
 
-impl Subtract<Float, Complex> for Complex {
-    fn subtract(lhs: Complex, rhs: Float) -> Complex {
+impl Subtract<Float, Complex> for Complex
+    fn subtract(lhs: Complex, rhs: Float) -> Complex
         lhs - Complex.from_real(rhs)
-    }
-}
+    end
+end
 
-impl Multiply<Float, Complex> for Complex {
-    fn multiply(lhs: Complex, rhs: Float) -> Complex {
+impl Multiply<Float, Complex> for Complex
+    fn multiply(lhs: Complex, rhs: Float) -> Complex
         lhs * Complex.from_real(rhs)
-    }
-}
+    end
+end
 
-impl Divide<Float, Complex> for Complex {
-    fn divide(lhs: Complex, rhs: Float) -> Complex {
+impl Divide<Float, Complex> for Complex
+    fn divide(lhs: Complex, rhs: Float) -> Complex
         lhs / Complex.from_real(rhs)
-    }
-}
+    end
+end
 
-impl Add<Complex, Complex> for Float {
-    fn add(lhs: Float, rhs: Complex) -> Complex {
+impl Add<Complex, Complex> for Float
+    fn add(lhs: Float, rhs: Complex) -> Complex
         Complex.from_real(lhs) + rhs
-    }
-}
+    end
+end
 
-impl Subtract<Complex, Complex> for Float {
-    fn subtract(lhs: Float, rhs: Complex) -> Complex {
+impl Subtract<Complex, Complex> for Float
+    fn subtract(lhs: Float, rhs: Complex) -> Complex
         Complex.from_real(lhs) - rhs
-    }
-}
+    end
+end
 
-impl Multiply<Complex, Complex> for Float {
-    fn multiply(lhs: Float, rhs: Complex) -> Complex {
+impl Multiply<Complex, Complex> for Float
+    fn multiply(lhs: Float, rhs: Complex) -> Complex
         Complex.from_real(lhs) * rhs
-    }
-}
+    end
+end
 
-impl Divide<Complex, Complex> for Float {
-    fn divide(lhs: Float, rhs: Complex) -> Complex {
+impl Divide<Complex, Complex> for Float
+    fn divide(lhs: Float, rhs: Complex) -> Complex
         Complex.from_real(lhs) / rhs
-    }
-}
+    end
+end

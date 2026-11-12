@@ -32,13 +32,13 @@ var fieldDefaultDiagnostic = regexp.MustCompile(`^field '[^']+' of [^:]+: expect
 
 // plantedBadFieldDefault is a struct whose field default is the wrong type. It
 // analyzed clean and RAN, printing `port=not an int`, until this rule landed.
-const plantedBadFieldDefault = `struct Cfg {
+const plantedBadFieldDefault = `struct Cfg
   port: Int = "not an int"
-}
+end
 
-fn main() {
+fn main()
   _ = Cfg{}.port
-}
+end
 `
 
 // TestFieldDefault_TreeIsClean is BOTH the blast-radius census for the
@@ -245,39 +245,45 @@ func TestFieldDefault_RejectsAtTheDeclaration(t *testing.T) {
 		{
 			// Reproduction 1. Ran and printed the String.
 			name: "scalar mismatch on a top-level struct",
-			src: `struct Cfg {
+			src: `struct Cfg
   port: Int = "not an int"
-}
-fn main() { _ = Cfg{}.port }
+end
+fn main()
+    _ = Cfg{}.port
+end
 `,
 			want: "field 'port' of Cfg: expected Int, got String",
 		},
 		{
 			// Reproduction 2. Ran and trapped at the first dispatch.
 			name: "interface-typed field defaulted to a non-implementer",
-			src: `interface Clock {
+			src: `interface Clock
   fn at(c: self) -> Int
-}
-struct NoClock {
+end
+struct NoClock
   t: Int
-}
-struct Cfg {
+end
+struct Cfg
   clock: Clock = NoClock{t: 7}
-}
-fn main() { _ = Cfg{} }
+end
+fn main()
+    _ = Cfg{}
+end
 `,
 			want: "field 'clock' of Cfg: expected Clock, got NoClock",
 		},
 		{
 			// Not only interfaces: a scalar in an interface-typed field.
 			name: "interface-typed field defaulted to a scalar",
-			src: `interface Clock {
+			src: `interface Clock
   fn at(c: self) -> Int
-}
-struct Cfg {
+end
+struct Cfg
   clock: Clock = 5
-}
-fn main() { _ = Cfg{} }
+end
+fn main()
+    _ = Cfg{}
+end
 `,
 			want: "field 'clock' of Cfg: expected Clock, got Int",
 		},
@@ -286,11 +292,13 @@ fn main() { _ = Cfg{} }
 			// ast.StructField a struct's are and were unchecked for the
 			// same reason.
 			name: "enum record variant field",
-			src: `enum Status {
+			src: `enum Status
   Active {since: Int = "bad"}
   Gone
-}
-fn main() { _ = Status.Gone }
+end
+fn main()
+    _ = Status.Gone
+end
 `,
 			want: "field 'since' of Status.Active: expected Int, got String",
 		},
@@ -299,13 +307,15 @@ fn main() { _ = Status.Gone }
 			// bypass for the entire rule: CheckTypes's walk sees only
 			// top-level nodes.
 			name: "block-local struct declaration",
-			src: `fn f() -> Int {
-  struct Local {
+			src: `fn f() -> Int
+  struct Local
     v: Int = "bad"
-  }
+  end
   Local{}.v
-}
-fn main() { _ = f() }
+end
+fn main()
+    _ = f()
+end
 `,
 			want: "field 'v' of Local: expected Int, got String",
 		},
@@ -316,13 +326,15 @@ fn main() { _ = f() }
 			// `struct` inside a struct body outright. Two of the 16 std
 			// sites are this shape, so it needs its own case.
 			name: "dotted-name top-level declaration",
-			src: `struct Owner {
+			src: `struct Owner
   n: Int
-}
-struct Owner.Options {
+end
+struct Owner.Options
   flag: Int = "bad"
-}
-fn main() { _ = Owner{n: 1} }
+end
+fn main()
+    _ = Owner{n: 1}
+end
 `,
 			want: "field 'flag' of Owner.Options: expected Int, got String",
 		},
@@ -334,10 +346,10 @@ fn main() { _ = Owner{n: 1} }
 			// refusal needs no special arm — argMatchesParam has nothing
 			// to unify, because Int carries no type variable.
 			name: "concrete default for a bare type-parameter field",
-			src: `struct Box<T> {
+			src: `struct Box<T>
   v: T = 0
-}
-fn main() { }
+end
+fn main() end
 `,
 			want: "field 'v' of Box: expected T, got Int",
 		},
@@ -345,10 +357,10 @@ fn main() { }
 			// Same decision one level in: the container matches, the
 			// element type does not.
 			name: "concrete element for a List<T> field",
-			src: `struct Box<T> {
+			src: `struct Box<T>
   items: List<T> = [1]
-}
-fn main() { }
+end
+fn main() end
 `,
 			want: "field 'items' of Box: expected List<T>, got List<Int>",
 		},
@@ -388,11 +400,13 @@ func TestFieldDefault_LeavesTheLegitimateFormsAlone(t *testing.T) {
 			// that was unchecked. A CALL, not a literal.
 			name: "a call returning exactly the field type",
 			src: `
-pub struct Cfg {
+pub struct Cfg
   context: Context = Context.root()
   port: Int = 3000
-}
-fn main() { _ = Cfg{}.port }
+end
+fn main()
+    _ = Cfg{}.port
+end
 `,
 		},
 		{
@@ -402,11 +416,13 @@ fn main() { _ = Cfg{}.port }
 			// what makes this position reachable in the IR builder.
 			name: "a call default beside a required type-parameter field",
 			src: `
-pub struct MyApp<T> {
+pub struct MyApp<T>
   context: Context = Context.root()
   config: T
-}
-fn main() { _ = MyApp{config: 42}.config }
+end
+fn main()
+    _ = MyApp{config: 42}.config
+end
 `,
 		},
 		{
@@ -415,19 +431,23 @@ fn main() { _ = MyApp{config: 42}.config }
 			// nothing but the impl distinguishes them, which is what
 			// makes this the control for that rejection.
 			name: "interface-typed field defaulted to an implementer",
-			src: `interface Clock {
+			src: `interface Clock
   fn at(c: self) -> Int
-}
-struct FakeClock {
+end
+struct FakeClock
   t: Int
-}
-impl Clock for FakeClock {
-  fn at(c: FakeClock) -> Int { c.t }
-}
-struct Cfg {
+end
+impl Clock for FakeClock
+  fn at(c: FakeClock) -> Int
+      c.t
+  end
+end
+struct Cfg
   clock: Clock = FakeClock{t: 1}
-}
-fn main() { _ = Clock.at(Cfg{}.clock) }
+end
+fn main()
+    _ = Clock.at(Cfg{}.clock)
+end
 `,
 		},
 		{
@@ -436,35 +456,41 @@ fn main() { _ = Clock.at(Cfg{}.clock) }
 			// the expected type. std/supervisors and
 			// tests/07-structs-and-enums both rely on it.
 			name: "dot-variant shorthand default",
-			src: `enum Restart {
+			src: `enum Restart
   Temporary
   Permanent
-}
-struct Cfg {
+end
+struct Cfg
   restart: Restart = .Temporary
-}
-fn main() { _ = Cfg{} }
+end
+fn main()
+    _ = Cfg{}
+end
 `,
 		},
 		{
 			// An untyped constructor whose element types are solved from
 			// the field.
 			name: "constructor with type arguments solved from the field",
-			src: `struct Cfg {
-  tasks: Map<Int, String> = %{}
-}
-fn main() { _ = Cfg{} }
+			src: `struct Cfg
+  tasks: Map<Int, String> = {}
+end
+fn main()
+    _ = Cfg{}
+end
 `,
 		},
 		{
 			// A defaulted field on a generic struct whose own type
 			// mentions no parameter.
 			name: "concrete default on a generic struct",
-			src: `struct Box<T> {
+			src: `struct Box<T>
   label: String = "unnamed"
   inner: T
-}
-fn main() { _ = Box{inner: 7}.label }
+end
+fn main()
+    _ = Box{inner: 7}.label
+end
 `,
 		},
 		{
@@ -473,11 +499,13 @@ fn main() { _ = Box{inner: 7}.label }
 			// default solves through `T` rather than against something
 			// concrete.
 			name: "empty list default for a List<T> field",
-			src: `struct Box<T> {
+			src: `struct Box<T>
   items: List<T> = []
   inner: T
-}
-fn main() { _ = Box{inner: 7}.items }
+end
+fn main()
+    _ = Box{inner: 7}.items
+end
 `,
 		},
 		{
@@ -485,13 +513,13 @@ fn main() { _ = Box{inner: 7}.items }
 			// the type parameter, so there is nothing concrete to
 			// disagree with.
 			name: "type-parameter-typed default for a type-parameter field",
-			src: `interface Zeroed {
+			src: `interface Zeroed
   fn zero() -> self
-}
-struct Box<T> where T: Zeroed {
+end
+struct Box<T> where T: Zeroed
   v: T = T.zero()
-}
-fn main() { }
+end
+fn main() end
 `,
 		},
 	}
@@ -530,34 +558,38 @@ fn main() { }
 // built in a struct literal, and the literal path's own recording made the
 // assertion hold no matter what the path under test did.
 func TestFieldDefault_RecordsConformance(t *testing.T) {
-	const src = `pub interface Clock {
+	const src = `pub interface Clock
   fn at(c: self) -> Int
-}
+end
 
-pub struct FakeClock {
+pub struct FakeClock
   t: Int
-}
+end
 
-impl Clock for FakeClock {
-  fn at(c: FakeClock) -> Int { c.t }
-}
+impl Clock for FakeClock
+  fn at(c: FakeClock) -> Int
+      c.t
+  end
+end
 
-pub struct RealClock {
+pub struct RealClock
   base: Int
-}
+end
 
-impl Clock for RealClock {
-  fn at(c: RealClock) -> Int { c.base }
-}
+impl Clock for RealClock
+  fn at(c: RealClock) -> Int
+      c.base
+  end
+end
 
-pub struct Cfg {
+pub struct Cfg
   clock: Clock = RealClock{base: 42}
   spare: Clock = FakeClock{t: 1}
-}
+end
 
-fn main() {
+fn main()
   _ = Clock.at(Cfg{}.clock)
-}
+end
 `
 	lib := loadStd()
 	dm := analysis.NewDocumentManager()
@@ -852,30 +884,30 @@ func fieldDefaultsInAST(nodes []ast.Node) []string {
 // because it is the half that does not depend on stdlib's contents.
 func TestFieldDefault_AcrossAModuleBoundary(t *testing.T) {
 	const moduleSrc = `
-pub struct Cfg {
+pub struct Cfg
   context: Context = Context.root()
   port: Int = 3000
-}
+end
 
-pub fn make() -> Cfg {
+pub fn make() -> Cfg
   Cfg{}
-}
+end
 `
 	const badModuleSrc = `
-pub struct Cfg {
+pub struct Cfg
   context: Context = 5
   port: Int = 3000
-}
+end
 
-pub fn make() -> Cfg {
+pub fn make() -> Cfg
   Cfg{}
-}
+end
 `
 	const importerSrc = `import cfg
 
-fn main() {
+fn main()
   _ = cfg.make().port
-}
+end
 `
 	run := func(t *testing.T, module string) []analysis.TypeError {
 		t.Helper()

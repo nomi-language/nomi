@@ -31,17 +31,17 @@ func TestLambdaArgDiagnostic_ReportedOnce(t *testing.T) {
 	}{
 		{
 			"nested call",
-			"fn f() -> Int {\n    Iter.count(Iter.filter([1, 2, 3], fn x -> x > nope))\n}\n",
+			"fn f() -> Int\n    Iter.count(Iter.filter([1, 2, 3], fn x -> x > nope))\nend\n",
 			2, 51, "undefined variable 'nope'",
 		},
 		{
 			"interface call inside a pipe stage",
-			"fn f() -> Int {\n    limit = 2\n    [1, 2, 3]\n    |> then fn xs -> xs |> Iter.filter(fn x -> x > Iter.count(xs) - limit)\n    |> Iter.count()\n}\n",
-			4, 63, "'xs' is the parameter of the `then` stage on line 4, whose body ends at the next `|>`\nhelp: write `then fn xs -> { ... }` to keep the pipe inside it",
+			"fn f() -> Int\n    limit = 2\n    [1, 2, 3]\n    |> then fn xs -> xs |> Iter.filter(fn x -> x > Iter.count(xs) - limit)\n    |> Iter.count()\nend\n",
+			4, 63, "'xs' is the parameter of the `then` stage on line 4, whose body ends at the next `|>`\nhelp: write the body below `then fn xs ->`, closed by `end`, to keep the pipe inside it",
 		},
 		{
 			"plain generic call",
-			"fn apply<T>(x: T, f: (T) -> T) -> T {\n    f(x)\n}\n\nfn f() -> Int {\n    apply(1, fn n -> n + nope)\n}\n",
+			"fn apply<T>(x: T, f: (T) -> T) -> T\n    f(x)\nend\n\nfn f() -> Int\n    apply(1, fn n -> n + nope)\nend\n",
 			6, 26, "undefined variable 'nope'",
 		},
 	} {
@@ -60,7 +60,7 @@ func TestLambdaArgDiagnostic_ReportedOnce(t *testing.T) {
 
 // TestLambdaArgDiagnostic_ValidNestedCallAccepted is the acceptance mirror.
 func TestLambdaArgDiagnostic_ValidNestedCallAccepted(t *testing.T) {
-	_, errs := checkSourceWithStdlib("fn f() -> Int {\n    limit = 1\n    Iter.count(Iter.filter([1, 2, 3], fn x -> x > limit))\n}\n")
+	_, errs := checkSourceWithStdlib("fn f() -> Int\n    limit = 1\n    Iter.count(Iter.filter([1, 2, 3], fn x -> x > limit))\nend\n")
 	expectNoStdlibErrors(t, errs)
 }
 
@@ -70,20 +70,20 @@ func TestLambdaArgDiagnostic_ValidNestedCallAccepted(t *testing.T) {
 // that lambda twice (once through checkBlockExpectingReturn, then again in
 // checkFunc), reporting each error in its body twice.
 func TestLambdaBodyDiagnostic_ReportedOnce(t *testing.T) {
-	const decls = "fn apply<T>(x: T, f: (T) -> T) -> T {\n    f(x)\n}\n\nfn plain(x: Int, f: (Int) -> Int) -> Int {\n    f(x)\n}\n\n"
+	const decls = "fn apply<T>(x: T, f: (T) -> T) -> T\n    f(x)\nend\n\nfn plain(x: Int, f: (Int) -> Int) -> Int\n    f(x)\nend\n\n"
 	for _, tc := range []struct{ name, src string }{
-		{"generic function", "fn f() -> Int {\n    apply(1, fn n -> n + nope)\n}\n"},
-		{"owner function", "fn f() -> Maybe<Int> {\n    Maybe.map(Some(1), fn n -> n + nope)\n}\n"},
-		{"interface owner function", "fn f() -> List<Int> {\n    Iter.map([1, 2], fn n -> n + nope) |> Iter.to_list()\n}\n"},
-		{"file function", "fn f() -> Int {\n    plain(1, fn n -> n + nope)\n}\n"},
-		{"nested lambdas", "fn f() -> Int {\n    apply(1, fn n -> apply(n, fn m -> m + nope))\n}\n"},
-		{"then stage", "fn f() -> Int {\n    1 |> then fn n -> n + nope\n}\n"},
-		{"pipe call stage", "fn f() -> List<Int> {\n    [1, 2] |> Iter.map(fn n -> n + nope) |> Iter.to_list()\n}\n"},
-		{"annotated binding", "fn f() -> Int {\n    g: (Int) -> Int = fn n -> n + nope\n    g(1)\n}\n"},
-		{"function body", "fn f() -> (Int) -> Int {\n    fn n -> n + nope\n}\n"},
-		{"function body, annotated parameter", "fn f() -> (Int) -> Int {\n    fn n: Int -> n + nope\n}\n"},
-		{"nested function body", "fn f() -> Int {\n    fn g() -> (Int) -> Int {\n        fn n -> n + nope\n    }\n    g()(1)\n}\n"},
-		{"stray discard", "fn f() -> (Int) -> Int {\n    fn _n -> _\n}\n"},
+		{"generic function", "fn f() -> Int\n    apply(1, fn n -> n + nope)\nend\n"},
+		{"owner function", "fn f() -> Maybe<Int>\n    Maybe.map(Some(1), fn n -> n + nope)\nend\n"},
+		{"interface owner function", "fn f() -> List<Int>\n    Iter.map([1, 2], fn n -> n + nope) |> Iter.to_list()\nend\n"},
+		{"file function", "fn f() -> Int\n    plain(1, fn n -> n + nope)\nend\n"},
+		{"nested lambdas", "fn f() -> Int\n    apply(1, fn n -> apply(n, fn m -> m + nope))\nend\n"},
+		{"then stage", "fn f() -> Int\n    1 |> then fn n -> n + nope\nend\n"},
+		{"pipe call stage", "fn f() -> List<Int>\n    [1, 2] |> Iter.map(fn n -> n + nope) |> Iter.to_list()\nend\n"},
+		{"annotated binding", "fn f() -> Int\n    g: (Int) -> Int = fn n -> n + nope\n    g(1)\nend\n"},
+		{"function body", "fn f() -> (Int) -> Int\n    fn n -> n + nope\nend\n"},
+		{"function body, annotated parameter", "fn f() -> (Int) -> Int\n    fn n: Int -> n + nope\nend\n"},
+		{"nested function body", "fn f() -> Int\n    fn g() -> (Int) -> Int\n        fn n -> n + nope\n    end\n    g()(1)\nend\n"},
+		{"stray discard", "fn f() -> (Int) -> Int\n    fn _n -> _\nend\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(decls + tc.src)
@@ -102,6 +102,6 @@ func TestLambdaBodyDiagnostic_ReportedOnce(t *testing.T) {
 // mirror: a lone lambda body still takes its parameter types from the
 // declared return type.
 func TestLambdaBodyDiagnostic_FunctionBodyLambdaInfersParams(t *testing.T) {
-	_, errs := checkSourceWithStdlib("fn f(k: Int) -> (Int) -> Int {\n    fn n -> n + k\n}\n")
+	_, errs := checkSourceWithStdlib("fn f(k: Int) -> (Int) -> Int\n    fn n -> n + k\nend\n")
 	expectNoStdlibErrors(t, errs)
 }

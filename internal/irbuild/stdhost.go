@@ -152,7 +152,7 @@ type stdHostSpec struct {
 	// projectPhantomHost), a std function whose type parameters stand only
 	// there is not generic to the builder (stdrecvgeneric.go's phantomOnly),
 	// and a generic function of a program's is instantiated at X from the
-	// checker's types (genericmono.go's solvePhantomParams).
+	// checker's record of the call (calleeTypeArgs).
 	phantom []string
 }
 

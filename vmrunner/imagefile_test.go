@@ -17,21 +17,21 @@ import (
 
 const echoProgram = `import std::io
 
-struct App {
+struct App
   context: Context
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
   io.print("args: ${startup.args}")
   Ok(App{context: Context.root()})
-}
+end
 
-fn main() {
-  case io.read_line() {
+fn main()
+  case io.read_line()
     Ok(Some(line)) -> io.print("read: ${line}")
     _ -> io.print("no line")
-  }
-}
+  end
+end
 `
 
 func writeImageFile(t *testing.T, data []byte) string {
@@ -44,7 +44,7 @@ func writeImageFile(t *testing.T, data []byte) string {
 }
 
 func TestImageFile_HeaderLayout(t *testing.T) {
-	img := image(t, "fn main() {\n  Unit\n}\n")
+	img := image(t, "fn main()\n  Unit\nend\n")
 	data := vmrunner.EncodeImageFile(img, vmrunner.FlagUsesCompiler, "v1.2.3")
 	want := []byte("NOMIC\x00\x00\x00")
 	want = binary.LittleEndian.AppendUint32(want, ir.FormatVersion)
@@ -73,7 +73,7 @@ func TestRunBare_RunsAnImageFileByPath(t *testing.T) {
 // An Int literal past int64's range is a constant the image carries: written
 // by the encoder, read back by the decoder, and loaded beside its word.
 func TestRunBare_AnImageCarriesABigIntConstant(t *testing.T) {
-	src := "import std::io\n\nfn main() {\n  io.print(123456789012345678901234567890 * 2)\n  io.print(-9223372036854775808)\n}\n"
+	src := "import std::io\n\nfn main()\n  io.print(123456789012345678901234567890 * 2)\n  io.print(-9223372036854775808)\nend\n"
 	path := writeImageFile(t, vmrunner.EncodeImageFile(image(t, src), 0, "test"))
 	var out, errOut bytes.Buffer
 	code := vmrunner.RunBare([]string{path}, &out, &errOut, strings.NewReader(""), false, vmrunner.ErrNoImage)
@@ -102,7 +102,7 @@ func TestRunBare_ReadsAFramedImageFromStdinAndLeavesTheRest(t *testing.T) {
 }
 
 func TestReadImageFile_ReadsNothingPastTheImage(t *testing.T) {
-	data := vmrunner.EncodeImageFile(image(t, "fn main() {\n  Unit\n}\n"), 0, "test")
+	data := vmrunner.EncodeImageFile(image(t, "fn main()\n  Unit\nend\n"), 0, "test")
 	r := bytes.NewReader(append(append([]byte(nil), data...), "rest"...))
 	if _, err := vmrunner.ReadImageFile(r, "stdin"); err != nil {
 		t.Fatal(err)
@@ -116,7 +116,7 @@ func TestReadImageFile_ReadsNothingPastTheImage(t *testing.T) {
 // An image in another format is refused before it is decoded, naming the
 // version that wrote it and this runner's own.
 func TestRunBare_RefusesAnotherImageFormatNamingBothVersions(t *testing.T) {
-	data := vmrunner.EncodeImageFile(image(t, "fn main() {\n  Unit\n}\n"), 0, "v9.9.9")
+	data := vmrunner.EncodeImageFile(image(t, "fn main()\n  Unit\nend\n"), 0, "v9.9.9")
 	binary.LittleEndian.PutUint32(data[8:12], ir.FormatVersion+1)
 	path := writeImageFile(t, data)
 	var errOut bytes.Buffer
@@ -135,7 +135,7 @@ func TestRunBare_RefusesAnotherImageFormatNamingBothVersions(t *testing.T) {
 }
 
 func TestRunBare_AnImageUsingStdCompilerNeedsItsRunner(t *testing.T) {
-	path := writeImageFile(t, vmrunner.EncodeImageFile(image(t, "fn main() {\n  Unit\n}\n"), vmrunner.FlagUsesCompiler, "test"))
+	path := writeImageFile(t, vmrunner.EncodeImageFile(image(t, "fn main()\n  Unit\nend\n"), vmrunner.FlagUsesCompiler, "test"))
 	var errOut bytes.Buffer
 	code := vmrunner.RunBare([]string{path}, &bytes.Buffer{}, &errOut, nil, false, vmrunner.ErrNoImage)
 	if code != 1 || !strings.Contains(errOut.String(), "imports std/compiler") ||
@@ -145,7 +145,7 @@ func TestRunBare_AnImageUsingStdCompilerNeedsItsRunner(t *testing.T) {
 }
 
 func TestRunBare_RefusesWhatIsNotAnImageFile(t *testing.T) {
-	data := vmrunner.EncodeImageFile(image(t, "fn main() {\n  Unit\n}\n"), 0, "test")
+	data := vmrunner.EncodeImageFile(image(t, "fn main()\n  Unit\nend\n"), 0, "test")
 	cases := []struct {
 		name  string
 		stdin []byte

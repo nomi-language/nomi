@@ -12,35 +12,35 @@ func TestIRStructUpdatePatchValue_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct User {
+struct User
     name: String
     age: Int
     tags: List<String>
-}
+end
 
-fn older() -> .{age: Int} {
+fn older() -> {age: Int}
     io.print("patch")
-    .{age: 40}
-}
+    {age: 40}
+end
 
-fn base() -> User {
+fn base() -> User
     io.print("base")
     User{name: "z", age: 0, tags: ["t"]}
-}
+end
 
-fn main() {
+fn main()
     u = User{name: "a", age: 1, tags: ["u"]}
-    patch = .{name: "b"}
+    patch = {name: "b"}
     io.inspect(Struct.update(u, patch))
     io.inspect(Struct.update(u, older()))
     io.inspect(Struct.update(updates: older(), original: base()))
-    both = .{age: 2, name: "c"}
+    both = {age: 2, name: "c"}
     io.inspect(Struct.update(original: u, updates: both))
-    p = (1, .{tags: ["x", "y"]})
+    p = (1, {tags: ["x", "y"]})
     io.inspect(Struct.update(u, p.second))
-    cleared: .{tags: List<String>} = .{tags: []}
+    cleared: {tags: List<String>} = {tags: []}
     io.inspect(Struct.update(u, cleared))
-}
+end
 `
 	const want = "User{name: \"b\", age: 1, tags: [\"u\"]}\n" +
 		"patch\n" +

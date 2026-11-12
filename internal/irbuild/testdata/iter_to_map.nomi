@@ -18,7 +18,7 @@
 // expressible, so the literals live outside the interpolation.
 import std::io
 
-fn main() {
+fn main()
     pairs = Iter.to_map([("a", 1), ("b", 2)])
     dup = Iter.to_map([("x", 1), ("x", 9)])
     dup3 = Iter.to_map([("x", 1), ("y", 2), ("x", 9)])
@@ -59,18 +59,18 @@ fn main() {
     io.print("get     ${get_hit}")
     io.print("miss    ${get_miss}")
     io.print("empty   ${Map.size(Iter.to_map([(1, 2)])) == 1}")
-}
+end
 
-fn found(got: Maybe<String>, want: String) -> Bool {
-    case got {
+fn found(got: Maybe<String>, want: String) -> Bool
+    case got
         .Some(v) -> v == want
         .None -> False
-    }
-}
+    end
+end
 
-fn found_int(got: Maybe<Int>, want: Int) -> Bool {
-    case got {
+fn found_int(got: Maybe<Int>, want: Int) -> Bool
+    case got
         .Some(v) -> v == want
         .None -> False
-    }
-}
+    end
+end

@@ -50,35 +50,35 @@
 import std::io
 
 // --- rendering helpers, so every answer is one printed line -----------------
-fn show_ints(xs: List<Int>) -> String {
-    case List.head(xs) {
-        None -> "."
+fn show_ints(xs: List<Int>) -> String
+    case List.head(xs)
+        None ->
+            "."
 
-        Some(x) -> {
-            rest = case List.tail(xs) {
+        Some(x) ->
+            rest = case List.tail(xs)
                 Some(more) -> show_ints(more)
                 None -> "."
-            }
+            end
 
             "${x}-${rest}"
-        }
-    }
-}
+    end
+end
 
-fn show_count(m: Maybe<Int>) -> String {
-    case m {
+fn show_count(m: Maybe<Int>) -> String
+    case m
         Some(n) -> "Some(${n})"
         None -> "None"
-    }
-}
+    end
+end
 
-fn show_bool(b: Bool) -> String {
+fn show_bool(b: Bool) -> String
     "${b}"
-}
+end
 
 /// Two Codepoints and a stepped walk over the range between them, rendered as
 /// their scalar values so ORDER and LENGTH are both in the output.
-fn cp_steps(from: Int, to: Int, by: Int) -> Maybe<String> {
+fn cp_steps(from: Int, to: Int, by: Int) -> Maybe<String>
     a = Int.to_codepoint(from)?
     b = Int.to_codepoint(to)?
 
@@ -89,10 +89,10 @@ fn cp_steps(from: Int, to: Int, by: Int) -> Maybe<String> {
             |> Iter.to_list()
         )
     )
-}
+end
 
 /// The plain inclusive walk over a Codepoint range, same rendering.
-fn cp_walk(from: Int, to: Int) -> Maybe<String> {
+fn cp_walk(from: Int, to: Int) -> Maybe<String>
     a = Int.to_codepoint(from)?
     b = Int.to_codepoint(to)?
 
@@ -103,16 +103,16 @@ fn cp_walk(from: Int, to: Int) -> Maybe<String> {
             |> Iter.to_list()
         )
     )
-}
+end
 
-fn show_maybe_str(m: Maybe<String>) -> String {
-    case m {
+fn show_maybe_str(m: Maybe<String>) -> String
+    case m
         Some(s) -> s
         None -> "None"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     // --- 1. THE BOUND POLARITY, at identical endpoints -----------------------
     // The whole exclusive/inclusive distinction, and the only thing that differs
     // between each pair is the operator. An implementation that confused the two
@@ -358,4 +358,4 @@ fn main() {
 
     io.print("${1..=5 |> Iter.any_match(&(&1 == 3))}")
     io.print("${1..5 |> Iter.all_match(&(&1 < 5))}")
-}
+end

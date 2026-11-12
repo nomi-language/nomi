@@ -62,12 +62,6 @@ type stdInst struct {
 	fd   *ast.FuncDef
 	tps  []string
 	args []kind
-	// holes are the type parameters the BUILDER filled: the checker left them
-	// unsolved at the call, and the builder read each as Unit
-	// (stdInstCallAt). No value of a hole is built or observed, so a bound
-	// dispatch on one is unreachable (irHoleBoundCall). A parameter the
-	// checker solved is never a hole, whatever it solved it to.
-	holes map[string]bool
 	// gen builds this instance's body; the signature below was resolved
 	// through it, so the two cannot disagree about an annotation.
 	gen  *gen
@@ -165,13 +159,10 @@ func listedModulesNamed(spelling string) []string {
 }
 
 // stdInstKey is the declaration pointer plus each argument's identity.
-func stdInstKey(fd *ast.FuncDef, tps []string, args []kind, holes map[string]bool) string {
+func stdInstKey(fd *ast.FuncDef, args []kind) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%p", fd)
-	for i, a := range args {
-		if i < len(tps) && holes[tps[i]] {
-			b.WriteString("\x00hole")
-		}
+	for _, a := range args {
 		b.WriteString("\x00")
 		b.WriteString(a.key())
 	}
@@ -180,8 +171,8 @@ func stdInstKey(fd *ast.FuncDef, tps []string, args []kind, holes map[string]boo
 
 // instantiate answers the instance of f at args, building its closure on a
 // cold table. A nested call reached while a closure is attempted joins it.
-func (s *stdInstances) instantiate(f *stdFunc, tps []string, args []kind, holes map[string]bool, caller *gen) (*stdInst, string) {
-	key := stdInstKey(f.decl, tps, args, holes)
+func (s *stdInstances) instantiate(f *stdFunc, tps []string, args []kind, caller *gen) (*stdInst, string) {
+	key := stdInstKey(f.decl, args)
 	prevCaller := s.caller
 	s.caller = caller
 	defer func() { s.caller = prevCaller }()
@@ -195,12 +186,12 @@ func (s *stdInstances) instantiate(f *stdFunc, tps []string, args []kind, holes 
 		return nil, why
 	}
 	if s.attempting {
-		return s.queue(f, tps, args, holes, key)
+		return s.queue(f, tps, args, key)
 	}
-	return s.attemptClosure(f, tps, args, holes, key)
+	return s.attemptClosure(f, tps, args, key)
 }
 
-func (s *stdInstances) attemptClosure(f *stdFunc, tps []string, args []kind, holes map[string]bool, key string) (*stdInst, string) {
+func (s *stdInstances) attemptClosure(f *stdFunc, tps []string, args []kind, key string) (*stdInst, string) {
 	s.attempting = true
 	// The closure is built in the middle of the caller's own attempt, whose
 	// decline record is set aside and restored, and neither the decline
@@ -215,7 +206,7 @@ func (s *stdInstances) attemptClosure(f *stdFunc, tps []string, args []kind, hol
 		s.pendingOrder = nil
 		s.building = nil
 	}()
-	top, why := s.queue(f, tps, args, holes, key)
+	top, why := s.queue(f, tps, args, key)
 	if top == nil {
 		s.failed[key] = why
 		return nil, why
@@ -238,7 +229,7 @@ func (s *stdInstances) attemptClosure(f *stdFunc, tps []string, args []kind, hol
 // queue resolves one instance's signature and adds it to the closure. The
 // signature is resolved here rather than when the body is built, because a
 // recursive caller of a pending instance needs its parameter kinds first.
-func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, holes map[string]bool, key string) (*stdInst, string) {
+func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, key string) (*stdInst, string) {
 	depth := 1
 	if s.building != nil {
 		depth = s.building.depth + 1
@@ -291,7 +282,7 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, holes map[st
 		// A default's every `self` is the receiver it is instantiated at.
 		return nil, "a stdlib interface default whose interface its module does not declare: " + f.key
 	}
-	inst := &stdInst{f: f, fd: f.decl, tps: tps, args: args, holes: holes, gen: g, depth: depth}
+	inst := &stdInst{f: f, fd: f.decl, tps: tps, args: args, gen: g, depth: depth}
 	g.stdInstCur = inst
 	view := *f
 	view.canon = nil
@@ -664,21 +655,23 @@ func (s *stdInstances) stdTemplateParams(f *stdFunc) ([]string, *ast.ImplBlock) 
 	return names, ib
 }
 
-// solve binds a template's type parameters by unifying its declared
-// annotations against concrete kinds: each parameter's, the result's, and
-// for a receiver-selected impl member the receiver's against self. An
-// unsolved parameter or one outside the value domain answers false.
-func (g *gen) stdInstSolve(f *stdFunc, tps []string, ib *ast.ImplBlock, params []kind, result, self kind) ([]kind, bool) {
-	return g.stdInstSolveHoled(f, tps, ib, params, result, self, false)
-}
-
-// stdInstSolveHoled is stdInstSolve, admitting a Unit argument when unitOK:
-// the reading of a type argument the checker left unsolved.
-func (g *gen) stdInstSolveHoled(f *stdFunc, tps []string, ib *ast.ImplBlock, params []kind, result, self kind, unitOK bool) ([]kind, bool) {
-	solved, ok := g.stdInstUnify(f, tps, ib, params, result, self)
-	if !ok {
+// stdRecvTypeArgs is the arguments of tps, the type parameters of a member
+// of impl block ib, at the receiver kind self that selected the block
+// (`impl Display for List<T>` at `List<Int>`): each is read off self where
+// ib's receiver names it. A parameter the receiver does not name, or an
+// argument outside the value domain (Unit admitted when unitOK), answers
+// false. This reads which instance of the block a dispatch reaches; a
+// call's own type arguments come from the checker (calleeTypeArgs).
+func (g *gen) stdRecvTypeArgs(tps []string, ib *ast.ImplBlock, self kind, unitOK bool) ([]kind, bool) {
+	if ib == nil {
 		return nil, false
 	}
+	set := make(map[string]bool, len(tps))
+	for _, n := range tps {
+		set[n] = true
+	}
+	solved := map[string]kind{}
+	g.unifyTypeParams(ib.Receiver, self, set, solved)
 	out := make([]kind, len(tps))
 	for i, n := range tps {
 		k, ok := solved[n]
@@ -690,42 +683,11 @@ func (g *gen) stdInstSolveHoled(f *stdFunc, tps []string, ib *ast.ImplBlock, par
 	return out, true
 }
 
-// stdInstUnify is the type parameters of f each of params, result and self
-// solves, by name; a parameter nothing solves is absent.
-func (g *gen) stdInstUnify(f *stdFunc, tps []string, ib *ast.ImplBlock, params []kind, result, self kind) (map[string]kind, bool) {
-	set := make(map[string]bool, len(tps))
-	for _, n := range tps {
-		set[n] = true
-	}
-	solved := map[string]kind{}
-	// kindInvalid: sentinel — no receiver kind selects this member.
-	if self != kindInvalid && ib != nil {
-		g.unifyTypeParams(ib.Receiver, self, set, solved)
-	}
-	if params != nil {
-		if len(params) != len(f.decl.Params) {
-			return nil, false
-		}
-		for i, p := range f.decl.Params {
-			// kindInvalid: lookup — a parameter the checker gave no kind binds nothing; an unsolved type parameter declines below.
-			if p.TypeAnnotation != nil && params[i] != kindInvalid {
-				g.unifyTypeParams(p.TypeAnnotation, params[i], set, solved)
-			}
-		}
-	}
-	// kindInvalid: lookup — as above, for the result.
-	if result != kindInvalid && f.decl.ReturnTypeExpr != nil {
-		g.unifyTypeParams(f.decl.ReturnTypeExpr, result, set, solved)
-	}
-	return solved, true
-}
-
 // --- call sites --------------------------------------------------------------
 
-// stdInstCallAt instantiates template f for the call t, solving its type
-// parameters from the checker's instantiated signature at t (and from self,
-// for a receiver-selected impl member), and lowers the call. handled is false
-// when f is nil.
+// stdInstCallAt instantiates template f for the call t at the type
+// arguments the checker instantiated t at (stdInstTypeArgs), and lowers the
+// call. handled is false when f is nil.
 func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir.Temp, kind, bool, bool, bool) {
 	if f == nil || bl.g.stdInsts == nil {
 		return ir.NoTemp, kindInvalid, false, false, false
@@ -738,80 +700,15 @@ func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir
 	}
 	s := bl.g.stdInsts
 	tps, ib := s.stdTemplateParams(f)
-	var params []kind
-	result := kindInvalid
-	if ft := bl.g.checkedCallSignature(t); ft != nil {
-		params = make([]kind, len(ft.Params))
-		for i, p := range ft.Params {
-			params[i] = bl.g.project(p)
-		}
-		result = bl.g.project(ft.Return)
-	}
 	var args []kind
-	var holes map[string]bool
 	if stdGenericTemplateUsable(f) {
 		if len(tps) == 0 {
 			return no("a generic stdlib call with no type parameters to solve: " + f.key)
 		}
 		var ok bool
-		// kindInvalid: sentinel — no receiver kind selects this member.
-		if cur := bl.g.stdInstCur; (params == nil || irKindsUnprojected(params)) && self == kindInvalid && cur != nil && cur.fd == f.decl {
-			// A self-call the checker recorded no instantiated signature
-			// for (a tail call inside the template's own body), or recorded
-			// one over the template's own type parameters, which do not
-			// project outside the instance's frame: the same type
-			// parameters, so the instance's own arguments.
-			args, ok, holes = cur.args, true, cur.holes
-		} else {
-			args, ok = bl.g.stdInstSolve(f, tps, ib, params, result, self)
-			// kindInvalid: sentinel — no receiver kind selects this member.
-			if !ok && self != kindInvalid {
-				// A receiver built with a type argument nothing determined
-				// (`(1, Ok(f)).second`, whose error type is the Unit the
-				// constructor read the hole as): the receiver's own kind
-				// is the instance, Unit included.
-				args, ok = bl.g.stdInstSolveHoled(f, tps, ib, params, result, self, true)
-			}
-		}
-		if ft := bl.g.checkedCallSignature(t); !ok && ft != nil {
-			// A type argument nothing in the program constrains
-			// (`Result.map(Result.Ok(3), f)` leaves E open) is read as Unit,
-			// as checkedPreludeArgsUnitHoles reads a constructor's: no value
-			// of that type is built or observed.
-			holed := make([]kind, len(ft.Params))
-			for i, p := range ft.Params {
-				holed[i] = bl.g.project(unitHoles(p))
-			}
-			args, ok = bl.g.stdInstSolveHoled(f, tps, ib, holed, bl.g.project(unitHoles(ft.Return)), self, true)
-		}
-		if ft := bl.g.checkedCallSignature(t); !ok && ft != nil && irOnlyEmptyListsUnsolved(t, ft) {
-			// `List.next_item([])`: the open type argument is an element of
-			// an empty list and nothing else, so no value of it is built or
-			// observed. Read as Int, the representation listCallPlan gives
-			// `List.head([])`, where Unit has no retained list.
-			holed := make([]kind, len(ft.Params))
-			for i, p := range ft.Params {
-				holed[i] = bl.g.project(irFillHoles(p, analysis.TypeInt))
-			}
-			args, ok = bl.g.stdInstSolveHoled(f, tps, ib, holed, bl.g.project(irFillHoles(ft.Return, analysis.TypeInt)), self, true)
-		}
-		if ft := bl.g.checkedCallSignature(t); !ok && ft != nil && len(ft.Params) == 0 && len(t.Args) == 0 {
-			// `List.empty_sum() == []`: a call with no operands whose result
-			// holds a collection element nothing determines, so no value of
-			// it is built or observed. The element is filled as an empty
-			// collection's is (projectFilledHoles).
-			// kindInvalid: lookup — a result with no filled kind leaves the call unsolved, and it declines below.
-			if result := bl.g.projectFilledHoles(ft.Return); result != kindInvalid {
-				args, ok = bl.g.stdInstSolveHoled(f, tps, ib, []kind{}, result, self, true)
-			}
-		}
+		args, ok = bl.stdInstTypeArgs(t, f, tps, ib, self)
 		if !ok {
-			return no("a generic stdlib call whose type arguments are unsolved or outside the domain: " + f.key)
-		}
-		if ft := bl.g.checkedCallSignature(t); ft != nil && holes == nil {
-			holes = irCheckerHoles(f.decl, tps, args, ft)
-		} else if ft == nil && holes == nil {
-			holes = irCheckerHoles(f.decl, tps, args, bl.g.checkedArgSignature(t))
+			return no("a generic stdlib call whose type arguments are unrecorded or outside the domain: " + f.key)
 		}
 	} else {
 		// A monomorphic body the cache could not retain because it reaches
@@ -819,12 +716,67 @@ func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir
 		// like an instance with no arguments.
 		tps = nil
 	}
-	inst, why := s.instantiate(f, tps, args, holes, bl.g)
+	inst, why := s.instantiate(f, tps, args, bl.g)
 	if inst == nil {
 		return no(why)
 	}
 	v, k, mobile, ok := bl.stdInstCall(t, inst)
 	return v, k, mobile, ok, true
+}
+
+// stdInstTypeArgs is the arguments of tps, template f's type parameters, at
+// the call t: the checker's (calleeTypeArgs). For a member of an impl
+// block the receiver kind self selected, the call's record is the interface
+// method's, so the block's receiver parameters are read off self
+// (stdRecvTypeArgs). A type argument inference left open is the type the
+// checker closed it as, which may be Unit (`Result.map(Result.Ok(3), f)`'s
+// E).
+func (bl *irScalarBuilder) stdInstTypeArgs(t *ast.Call, f *stdFunc, tps []string, ib *ast.ImplBlock, self kind) ([]kind, bool) {
+	g := bl.g
+	recv := map[string]kind{}
+	// kindInvalid: sentinel — no receiver kind selects this member.
+	if self != kindInvalid && ib != nil {
+		// The parameters the block's receiver names, which a derived
+		// member's own declaration may list too.
+		set := make(map[string]bool, len(tps))
+		for _, n := range tps {
+			set[n] = true
+		}
+		mentioned := map[string]bool{}
+		markMentionedParams(ib.Receiver, set, mentioned)
+		var named []string
+		for _, n := range tps {
+			if mentioned[n] {
+				named = append(named, n)
+			}
+		}
+		ks, ok := g.stdRecvTypeArgs(named, ib, self, true)
+		if !ok {
+			return nil, false
+		}
+		for i, n := range named {
+			recv[n] = ks[i]
+		}
+	}
+	var rest []string
+	for _, n := range tps {
+		if _, ok := recv[n]; !ok {
+			rest = append(rest, n)
+		}
+	}
+	called, ok := g.calleeTypeArgs(t.Func, rest)
+	if !ok {
+		return nil, false
+	}
+	out := make([]kind, len(tps))
+	for i, n := range tps {
+		if k, ok := recv[n]; ok {
+			out[i] = k
+			continue
+		}
+		out[i], called = called[0], called[1:]
+	}
+	return out, true
 }
 
 // irClosedDefaults is args, the positional operands of a call to fd, with
@@ -855,18 +807,6 @@ func irClosedDefaults(fd *ast.FuncDef, args []ast.Node) []ast.Node {
 func irDefaultsNotAllLiteral(fd *ast.FuncDef) bool {
 	for _, p := range fd.Params {
 		if p.Default != nil && !irClosedLiteral(p.Default) {
-			return true
-		}
-	}
-	return false
-}
-
-// irKindsUnprojected reports a projected parameter list with a position that
-// did not project (kindInvalid).
-func irKindsUnprojected(ks []kind) bool {
-	for _, k := range ks {
-		// kindInvalid: sentinel — the projection's failure.
-		if k == kindInvalid {
 			return true
 		}
 	}
@@ -1160,6 +1100,14 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 		call.TypeArgs = nil
 		call.Func = &ast.FieldAccess{Object: &ast.TypeIdent{Name: owner, Line: fa.Line, Col: fa.Col},
 			Field: fa.Field, Line: fa.Line, Col: fa.Col}
+		if k.def != nil && k.def.genericOf != nil {
+			// The template's name does not say which instance an owner
+			// function's call is (`Field.from_json(json)` has no Field
+			// operand), so the instance travels beside the call.
+			prevCall, prevKind := bl.instCall, bl.instKind
+			bl.instCall, bl.instKind = &call, k
+			defer func() { bl.instCall, bl.instKind = prevCall, prevKind }()
+		}
 		v, rk, mobile, ok := bl.lower(&call)
 		return v, rk, mobile, ok, true
 	}
@@ -1219,6 +1167,11 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 	}
 	f := bl.g.stdGenericTemplate(base, method)
 	if f == nil {
+		// No impl of the container writes method: a std interface's
+		// default (`T.from_missing()` at a `List<Int>`).
+		if v, rk, mobile, ok, handled := bl.stdIfaceDefaultAtKind(t, bl.irQualLowerArgs(t), k, method); handled {
+			return v, rk, mobile, ok, true
+		}
 		return no()
 	}
 	return bl.stdInstCallAt(t, f, k)
@@ -1344,6 +1297,11 @@ func (bl *irScalarBuilder) kindImplCall(t *ast.Call, k kind, method string) (ir.
 		}
 	}
 	if plan == nil {
+		// No impl of k writes method: a std interface's default
+		// (`T.from_missing()` at a derived struct).
+		if v, rk, mobile, ok, handled := bl.stdIfaceDefaultAtKind(t, args, k, method); handled {
+			return v, rk, mobile, ok
+		}
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	return bl.qualEmit(t, args, plan)
@@ -1450,181 +1408,4 @@ func irOwnOperationFamily(owner, method string) bool {
 		return method == "to_result" || method == "with_default"
 	}
 	return false
-}
-
-// irOnlyEmptyListsUnsolved reports whether every operand of t whose checked
-// parameter the checker left open is an empty list literal, or a list
-// literal of them (`Iter.sum([[]])`), and one is.
-func irOnlyEmptyListsUnsolved(t *ast.Call, ft *analysis.FuncType) bool {
-	if len(ft.Params) != len(t.Args) {
-		return false
-	}
-	open := false
-	for i, p := range ft.Params {
-		if !irUnsolvedType(p) && !irUnsolvedIfaceArg(p) {
-			continue
-		}
-		if !irHoldsNoElement(t.Args[i]) {
-			return false
-		}
-		open = true
-	}
-	return open
-}
-
-// irHoldsNoElement reports an unannotated list literal whose items are, at
-// every depth, empty list literals: `[]`, `[[]]`, `[[], [[]]]`. The element
-// type its innermost lists leave open has no value anywhere in it.
-func irHoldsNoElement(n ast.Node) bool {
-	lit, isList := n.(*ast.ListLit)
-	if !isList || lit.TypeName != nil {
-		return false
-	}
-	for _, item := range lit.Items {
-		if !irHoldsNoElement(item) {
-			return false
-		}
-	}
-	return true
-}
-
-// irUnsolvedIfaceArg reports an interface type with an argument the checker
-// left open: `Iter<List<?>>`, the parameter `Iter.sum([])` is checked at.
-func irUnsolvedIfaceArg(t analysis.Type) bool {
-	if tv, isVar := t.(*analysis.TypeVar); isVar && tv.Resolved != nil {
-		return irUnsolvedIfaceArg(tv.Resolved)
-	}
-	it, isIface := t.(*analysis.InterfaceType)
-	if !isIface {
-		return false
-	}
-	for _, a := range it.TypeArgs {
-		if irUnsolvedType(a) {
-			return true
-		}
-	}
-	return false
-}
-
-// projectFilledHoles is the kind of ty with the holes the checker left open
-// filled as a user generic call's are (checkedMonoTypeArgsFilled): a hole
-// that is a collection's element or key (`%{}`'s, `[]`'s) as Int, the
-// representation of an element the program never holds, and any other hole
-// (`Ok(1)`'s error type) as Unit. It answers kindInvalid when the filled
-// type has no representation.
-func (g *gen) projectFilledHoles(ty analysis.Type) kind {
-	// kindInvalid: lookup — a filled type with no kind answers kindInvalid to the caller, which decides.
-	if k := g.project(irFillHolesByPosition(ty, false)); k != kindInvalid && irCallableValueKind(k) {
-		return k
-	}
-	return kindInvalid
-}
-
-// irFillHolesByPosition is ty with each open hole filled: Int when it is a
-// collection's type argument (elem), Unit otherwise.
-func irFillHolesByPosition(ty analysis.Type, elem bool) analysis.Type {
-	switch t := ty.(type) {
-	case *analysis.TypeVar:
-		if t.Resolved != nil {
-			return irFillHolesByPosition(t.Resolved, elem)
-		}
-		if elem {
-			return analysis.TypeInt
-		}
-		return analysis.TypeUnit
-	case *analysis.ListType:
-		return &analysis.ListType{Elem: irFillHolesByPosition(t.Elem, true)}
-	case *analysis.MapType:
-		return &analysis.MapType{Key: irFillHolesByPosition(t.Key, true), Val: irFillHolesByPosition(t.Val, true)}
-	case *analysis.TupleType:
-		elems := make([]analysis.Type, len(t.Elems))
-		for i, e := range t.Elems {
-			elems[i] = irFillHolesByPosition(e, false)
-		}
-		return &analysis.TupleType{Elems: elems}
-	case *analysis.FuncType:
-		c := *t
-		c.Params = make([]analysis.Type, len(t.Params))
-		for i, p := range t.Params {
-			c.Params[i] = irFillHolesByPosition(p, false)
-		}
-		c.Return = irFillHolesByPosition(t.Return, false)
-		return &c
-	case *analysis.EnumType:
-		// A user generic enum's argument is a payload's type, filled as an
-		// element is: a user enum at Unit has no representation, since a
-		// Unit payload does not lower. A std enum's (`Ok(1)`'s error type)
-		// is Unit.
-		user := !analysis.IsStdlibKey(t.Origin)
-		c := *t
-		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
-		for i, a := range t.TypeArgs {
-			c.TypeArgs[i] = irFillHolesByPosition(a, user)
-		}
-		return &c
-	case *analysis.StructType:
-		// A generic std struct here is a collection (`Set<T>`), and a user
-		// generic struct's argument is a field's type, filled as a user
-		// enum's is.
-		c := *t
-		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
-		for i, a := range t.TypeArgs {
-			c.TypeArgs[i] = irFillHolesByPosition(a, true)
-		}
-		return &c
-	case *analysis.DistinctType:
-		// `Vector<T>`, a std host type over its elements.
-		c := *t
-		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
-		for i, a := range t.TypeArgs {
-			c.TypeArgs[i] = irFillHolesByPosition(a, true)
-		}
-		return &c
-	}
-	return ty
-}
-
-// irFillHoles is ty with every inference variable the checker left open
-// replaced by fill, at any depth.
-func irFillHoles(ty analysis.Type, fill analysis.Type) analysis.Type {
-	switch t := ty.(type) {
-	case *analysis.TypeVar:
-		if t.Resolved == nil {
-			return fill
-		}
-		return irFillHoles(t.Resolved, fill)
-	case *analysis.ListType:
-		return &analysis.ListType{Elem: irFillHoles(t.Elem, fill)}
-	case *analysis.MapType:
-		return &analysis.MapType{Key: irFillHoles(t.Key, fill), Val: irFillHoles(t.Val, fill)}
-	case *analysis.TupleType:
-		elems := make([]analysis.Type, len(t.Elems))
-		for i, e := range t.Elems {
-			elems[i] = irFillHoles(e, fill)
-		}
-		return &analysis.TupleType{Elems: elems}
-	case *analysis.EnumType:
-		c := *t
-		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
-		for i, a := range t.TypeArgs {
-			c.TypeArgs[i] = irFillHoles(a, fill)
-		}
-		return &c
-	case *analysis.StructType:
-		c := *t
-		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
-		for i, a := range t.TypeArgs {
-			c.TypeArgs[i] = irFillHoles(a, fill)
-		}
-		return &c
-	case *analysis.InterfaceType:
-		// `Iter<List<?>>`, the parameter `Iter.sum([])` is checked at.
-		c := *t
-		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
-		for i, a := range t.TypeArgs {
-			c.TypeArgs[i] = irFillHoles(a, fill)
-		}
-		return &c
-	}
-	return ty
 }

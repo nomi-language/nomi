@@ -1,29 +1,29 @@
 //# Compiler and analyzer operations for test tooling.
 
-import {
+import
     int.Int
     lists.List
     maps.Map
     maybe.Maybe.{self, None}
     results.Result
     strings.String
-}
+end
 
 /// A compiler diagnostic with 1-based source coordinates.
-pub struct Diagnostic {
+pub struct Diagnostic
     line: Int
     col: Int
     message: String
-}
+end
 
 /// Hover text returned by the same renderer used by the editor.
-pub struct Hover {
+pub struct Hover
     /// The first rendered signature line, with markdown removed.
     signature: String
 
     /// The full markdown hover body.
     markdown: String
-}
+end
 
 /// An in-memory Nomi project for compiler tests.
 ///
@@ -33,21 +33,21 @@ pub struct Hover {
 ///
 /// `manifest` is optional `nomi.toml` content. When present, checks that
 /// depend on package metadata, such as `entry_points`, use it.
-pub struct Project {
+pub struct Project
     entry_point: String
     files: Map<String, String>
     manifest: Maybe<String> = None
-}
+end
 
 /// Options for running a `.nomi` file under the current test project root.
-pub struct RunFile {
+pub struct RunFile
     /// Module path without `.nomi`, such as `"main"` or `"tools/seed"`.
     entry_point: String
 
     /// Process environment overrides included in `startup.env` when `boot`
     /// builds the app value. Missing keys inherit the current test process env.
-    env: Map<String, String> = %{}
-}
+    env: Map<String, String> = {}
+end
 
 /// Checks `source` as a standalone Nomi entry file and returns every
 /// diagnostic as data.
@@ -62,9 +62,9 @@ pub struct RunFile {
 //!
 //! diagnostics = compiler.check(
 //!     """
-//!     fn main() {
+//!     fn main()
 //!       dbg missing
-//!     }
+//!     end
 //!     """
 //! )
 //!
@@ -90,14 +90,14 @@ pub host fn check(source: String) -> List<Diagnostic>
 //!
 //! case compiler.run(
 //!     """
-//!     fn main() {
+//!     fn main()
 //!       _ = dbg 41 + 1
-//!     }
+//!     end
 //!     """
-//! ) {
+//! )
 //!     Ok(out) -> assert String.contains(out, "41 + 1 = 42")
 //!     Err(e) -> assert String.contains(e, "unreachable: the program above runs")
-//! }
+//! end
 //
 pub host fn run(source: String) -> Result<String, String>
 
@@ -114,10 +114,10 @@ pub host fn run_file(run: RunFile) -> Result<String, String>
 //!
 //! hover = compiler.hover(
 //!     """
-//!     fn main() {
+//!     fn main()
 //!       ansˇwer = 42
 //!       _ = answer
-//!     }
+//!     end
 //!     """
 //! )?
 //!
@@ -138,27 +138,27 @@ pub host fn hover(source: String) -> Result<Hover, String>
 //!         entry_points = ["main"]
 //!         """
 //!     ),
-//!     files: %{
+//!     files: {
 //!         "main" => """
 //!             import api.{Widget, make}
 //!
-//!             fn main() {
+//!             fn main()
 //!               w = make("Ada")
 //!               Widget.secret(w)
-//!             }
+//!             end
 //!             """,
 //!         "api" => """
-//!             pub struct Widget {
+//!             pub struct Widget
 //!               name: String
-//!             }
+//!             end
 //!
-//!             fn secret(w: Widget) -> String {
+//!             fn secret(w: Widget) -> String
 //!               "secret " + w.name
-//!             }
+//!             end
 //!
-//!             pub fn make(name: String) -> Widget {
-//!               Widget{name}
-//!             }
+//!             pub fn make(name: String) -> Widget
+//!               Widget{name:}
+//!             end
 //!             """,
 //!     },
 //! })

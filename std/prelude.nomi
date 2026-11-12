@@ -4,7 +4,7 @@
 // Whole-file imports bind a file API object. The prelude intentionally avoids
 // those: user files get universal types, variants, core protocols, and lifecycle
 // types. File API objects such as `io` still require imports.
-pub import {
+pub import
     add.Add
     bitwise.{BitwiseAnd, BitwiseNot, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight}
 
@@ -16,6 +16,7 @@ pub import {
     comparable.{Comparable, Ordering}
     contains.Contains
     context.Context
+    convert.From
 
     // Ordering's variants are intentionally not preluded; use `Ordering.Less` or
     // `.Less`.
@@ -53,4 +54,4 @@ pub import {
     unit.Unit
     variants.Variants
     vectors.Vector
-}
+end

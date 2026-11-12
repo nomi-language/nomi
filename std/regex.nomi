@@ -39,7 +39,7 @@
 //# - When every group is named (`(?P<year>...)` or `(?<year>...)`) with a
 //#   name a field can have, `C` is the anonymous struct of the groups:
 //#   ``Regex`(?P<year>\d{4})-(?P<month>\d\d)?` `` is a
-//#   `Regex<.{year: String, month: Maybe<String>}>`.
+//#   `Regex<{year: String, month: Maybe<String>}>`.
 //# - Otherwise several groups are a tuple in order (``Regex`(\d+)-(\w+)?` ``
 //#   is a `Regex<(String, Maybe<String>)>`, and ``Regex`(a)|(b)` `` a
 //#   `Regex<(Maybe<String>, Maybe<String>)>`), one group is its type alone,
@@ -63,7 +63,7 @@
 //# Annotating a binding of a literal names its type, as
 //# ``digits: Regex<Unit> = Regex`\d+` ``.
 
-import {
+import
     bool.Bool.False
     debug.Debug
     display.Display
@@ -74,7 +74,7 @@ import {
     maybe.Maybe
     results.Result
     strings.String
-}
+end
 
 /// A compiled regular expression whose capture groups have the type `C`.
 ///
@@ -101,7 +101,7 @@ import {
 //! assert String.captures("ann@", pair) == Maybe.Some(("ann", Maybe.None))
 //! assert String.captures("none", pair) == Maybe.None
 //!
-//! .{year, month} = String.captures("2024-05", Regex`(?P<year>\d{4})-(?P<month>\d\d)`)!
+//! {year:, month:} = String.captures("2024-05", Regex`(?P<year>\d{4})-(?P<month>\d\d)`)!
 //! assert year + month == "202405"
 //!
 //! assert String.captures_all("a=1 b=2", Regex`(\w)=(\d)`) == [("a", "1"), ("b", "2")]
@@ -112,7 +112,7 @@ import {
 //
 pub host type Regex<C>
 
-impl Regex<C> {
+impl Regex<C>
     /// Compile a pattern into a `Regex`. Its groups are known only once it
     /// runs, so `String.captures` gives them as a list, one `Maybe` per
     /// group.
@@ -126,9 +126,9 @@ impl Regex<C> {
     //! assert Regex.pattern(Regex`\d+`) == "\\d+"
     //
     pub host fn pattern<C>(re: Regex<C>) -> String
-}
+end
 
-impl Matcher for Regex<C> {
+impl Matcher for Regex<C>
     /// True if the regex matches anywhere in `text`.
     host fn is_contained_in(re: Regex<C>, text: String) -> Bool
 
@@ -150,49 +150,49 @@ impl Matcher for Regex<C> {
 
     /// The leftmost match, which may be empty.
     host fn find_in(re: Regex<C>, text: String) -> Maybe<String>
-}
+end
 
-impl Literal for Regex<C> {
+impl Literal for Regex<C>
     fn from_fragments(
         fragments: List<Fragment<String>>,
-    ) -> Result<Regex<List<Maybe<String>>>, String> {
-        body = Iter.reduce(fragments, "", fn acc, frag -> {
-            case frag {
+    ) -> Result<Regex<List<Maybe<String>>>, String>
+        body = Iter.reduce(fragments, "", fn acc, frag ->
+            case frag
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
-            }
-        })
+            end
+        end)
 
         Regex.compile(body)
-    }
-}
+    end
+end
 
-impl Display for Regex<C> {
+impl Display for Regex<C>
     /// The source pattern.
-    fn to_string(re: Regex<C>) -> String {
+    fn to_string(re: Regex<C>) -> String
         Regex.pattern(re)
-    }
-}
+    end
+end
 
 // Whether m occurs in text. Generic, so a program builds it after every std
 // module is lowered: std/strings and this file import each other, and this
 // file's bodies are lowered before String's own functions exist to call.
-fn occurs<M>(m: M, text: String) -> Bool where M: Matcher {
+fn occurs<M>(m: M, text: String) -> Bool where M: Matcher
     M.is_contained_in(m, text)
-}
+end
 
-impl Debug for Regex<C> {
+impl Debug for Regex<C>
     /// The typed literal that builds this regex: raw, unless the pattern holds
     /// a backtick, which a raw literal cannot.
     //! assert Debug.inspect(Regex`\d+`) == "Regex`\\d+`"
     //! assert Debug.inspect(Regex.compile("a`b")?) == "Regex\"a`b\""
-    fn inspect(re: Regex<C>) -> String {
+    fn inspect(re: Regex<C>) -> String
         pattern = Regex.pattern(re)
 
-        if occurs("`", pattern) {
+        if occurs("`", pattern) then
             "Regex${Debug.inspect(pattern)}"
-        } else {
+        else
             "Regex`${pattern}`"
-        }
-    }
-}
+        end
+    end
+end

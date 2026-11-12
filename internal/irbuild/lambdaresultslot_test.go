@@ -13,36 +13,36 @@ func TestIRLambdaTailRegionWritesTheDeclaredResult_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-interface Named {
+interface Named
     fn name(value: self) -> String
-}
+end
 
-struct Pt {
+struct Pt
     x: Int
-}
+end
 
-impl Named for Pt {
-    fn name(p: Pt) -> String {
+impl Named for Pt
+    fn name(p: Pt) -> String
         "pt${p.x}"
-    }
-}
+    end
+end
 
-fn main() {
-    fn named() -> Named {
-        case [Pt{x: 5}] {
+fn main()
+    fn named() -> Named
+        case [Pt{x: 5}]
             [p] -> p
             _ -> todo
-        }
-    }
+        end
+    end
 
-    later: () -> Named = fn -> case 1 {
+    later: () -> Named = fn -> case 1
         1 -> Pt{x: 7}
         _ -> todo
-    }
+    end
 
     io.print(Named.name(named()))
     io.print(Named.name(later()))
-}
+end
 `
 	irRunSource(t, src, "pt5\npt7\n")
 }

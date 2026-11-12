@@ -1,40 +1,40 @@
 //# Where tasks are kept between runs. `Store` is what the commands use;
 //# `SqliteStore` keeps tasks in a SQLite file.
 
-import {
+import
     std::instant.Instant
     sql_literals::sql.{Query, Sql}
     sqlite::sqlite
     task.{Status, Task}
-}
+end
 
-pub interface Store {
+pub interface Store
     fn load(store: self) -> Result<Map<Int, Task>, String>
     fn save(store: self, task: Task) -> Result<Unit, String>
     fn delete(store: self, id: Int) -> Result<Unit, String>
-}
+end
 
 /// Tasks in the SQLite database at `path`. Each operation opens the database
 /// and closes it before it returns.
-pub struct SqliteStore {
+pub struct SqliteStore
     path: String
-}
+end
 
-impl Store for SqliteStore {
-    fn load(store: SqliteStore) -> Result<Map<Int, Task>, String> {
+impl Store for SqliteStore
+    fn load(store: SqliteStore) -> Result<Map<Int, Task>, String>
         conn = connect(store.path)?
         defer sqlite.close(conn)
 
         rows = query_all(conn, Sql"SELECT id, title, created, status FROM tasks")?
 
-        Iter.reduce(rows, Ok(%{}), fn tasks, row -> {
+        Iter.reduce(rows, Ok({}), fn tasks, row ->
             tasks = tasks?
             task = parse_row(row)?
             Ok(Map.put(tasks, task.id, task))
-        })
-    }
+        end)
+    end
 
-    fn save(store: SqliteStore, task: Task) -> Result<Unit, String> {
+    fn save(store: SqliteStore, task: Task) -> Result<Unit, String>
         conn = connect(store.path)?
         defer sqlite.close(conn)
 
@@ -51,18 +51,18 @@ impl Store for SqliteStore {
         )?
 
         Ok(Unit)
-    }
+    end
 
-    fn delete(store: SqliteStore, id: Int) -> Result<Unit, String> {
+    fn delete(store: SqliteStore, id: Int) -> Result<Unit, String>
         conn = connect(store.path)?
         defer sqlite.close(conn)
 
         exec(conn, Sql"DELETE FROM tasks WHERE id = ${id}")?
         Ok(Unit)
-    }
-}
+    end
+end
 
-fn connect(path: String) -> Result<sqlite.Conn, String> {
+fn connect(path: String) -> Result<sqlite.Conn, String>
     conn = sqlite.open(path)?
 
     created = exec(
@@ -77,23 +77,23 @@ fn connect(path: String) -> Result<sqlite.Conn, String> {
         """,
     )
 
-    case created {
-        Ok(_) -> Ok(conn)
+    case created
+        Ok(_) ->
+            Ok(conn)
 
-        Err(e) -> {
+        Err(e) ->
             sqlite.close(conn)
             Err("create the tasks table: ${e}")
-        }
-    }
-}
+    end
+end
 
-fn parse_row(row: List<String>) -> Result<Task, String> {
+fn parse_row(row: List<String>) -> Result<Task, String>
     malformed = "malformed task row: ${row}"
 
-    case row {
+    case row
         [id, title, created, status] -> Ok(Task{
             id: id |> String.to_int() |> Maybe.to_result(malformed)?,
-            title,
+            title:,
             created: created
             |> String.to_int()
             |> Maybe.map(Instant.from_seconds)
@@ -101,13 +101,13 @@ fn parse_row(row: List<String>) -> Result<Task, String> {
             status: status |> Status.parse() |> Maybe.to_result(malformed)?,
         })
         _ -> Err(malformed)
-    }
-}
+    end
+end
 
-fn exec(conn: sqlite.Conn, query: Query) -> Result<Unit, String> {
+fn exec(conn: sqlite.Conn, query: Query) -> Result<Unit, String>
     sqlite.exec(conn, query.sql, query.args)
-}
+end
 
-fn query_all(conn: sqlite.Conn, query: Query) -> Result<List<List<String>>, String> {
+fn query_all(conn: sqlite.Conn, query: Query) -> Result<List<List<String>>, String>
     sqlite.query_all(conn, query.sql, query.args)
-}
+end

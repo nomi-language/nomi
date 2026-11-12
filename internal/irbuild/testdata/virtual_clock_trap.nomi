@@ -16,28 +16,28 @@
 // The sleep before the fault is not decoration: it puts the fault after virtual
 // time has been spent, so the case is genuinely inside a bubble that has
 // advanced its clock when it dies.
-import {
+import
     std::duration.Duration
     std::testing.Clock
     std::timer
-}
+end
 
-fn boom(n: Int) -> Int {
+fn boom(n: Int) -> Int
     timer.sleep(Duration.minutes(10))
     100 / n
-}
+end
 
-group "a fault under a virtual clock" {
+group "a fault under a virtual clock"
     clock Clock.Virtual
 
-    test "the trap's own text survives the bubble" {
+    test "the trap's own text survives the bubble"
         assert boom(0) == 0
-    }
+    end
 
     // A second case, so the run continues past the fault exactly as it does on
     // the real clock: a bubble is per CASE, and one case dying must not take the
     // next one with it.
-    test "the next case still runs" {
+    test "the next case still runs"
         assert boom(4) == 25
-    }
-}
+    end
+end

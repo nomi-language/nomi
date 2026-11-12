@@ -3,7 +3,7 @@
 //# server in production and into a test's `mail_testing.Memory`:
 //#
 //# ```nomi
-//# fn send_login_link(email: String, link: Url) -> Result<Unit, mail.Error> {
+//# fn send_login_link(email: String, link: Url) -> Result<Unit, mail.Error>
 //#     message = Message{
 //#         from: Address.parse("Updates <no-reply@example.com>")?,
 //#         to: [Address.new(email)?],
@@ -13,7 +13,7 @@
 //#     }
 //#
 //#     Mailer.send(App.mailer, message)
-//# }
+//# end
 //# ```
 //#
 //# `mail.smtp` is a mailer for any SMTP server: a provider's relay
@@ -38,7 +38,7 @@
 //# and HTML together, and CRLF line ends. A limit on how fast mail goes
 //# out belongs to the caller: std::jobs's `Rate` limits sends from jobs.
 
-import {
+import
     base64
     bool.Bool.{self, False, True}
     bytes.Bytes
@@ -61,17 +61,17 @@ import {
     strings.String
     tls.{self, ClientConfig}
     unit.Unit
-}
+end
 
 /// Something that sends messages. `mail.smtp` and
 /// `mail_testing.Memory` implement it.
-pub interface Mailer {
+pub interface Mailer
     /// Sends `message` to every recipient, or fails without sending it.
     fn send(mailer: self, message: Message) -> Result<Unit, Error>
-}
+end
 
 /// One email.
-pub struct Message {
+pub struct Message
     from: Address
     to: List<Address> = []
     cc: List<Address> = []
@@ -91,18 +91,18 @@ pub struct Message {
     /// refused, and so is a value with a line break.
     headers: List<(String, String)> = []
     attachments: List<Attachment> = []
-}
+end
 
 derive Equatable for Message
 
 /// A file sent with a message.
-pub struct Attachment {
+pub struct Attachment
     /// The name a reader saves it as.
     filename: String
     /// `type/subtype`, such as `application/pdf`.
     content_type: String
     data: Bytes
-}
+end
 
 derive Equatable for Attachment
 
@@ -114,14 +114,14 @@ derive Equatable for Attachment
 //! assert Address.name(a) == Some("Ada Lovelace")
 //! assert "${a}" == "Ada Lovelace <ada@example.com>"
 //
-pub opaque struct Address {
+pub opaque struct Address
     email: String
     name: String
-}
+end
 
 derive Equatable for Address
 
-impl Address {
+impl Address
     /// The address `email`, with `name` shown beside it when it is not
     /// empty, or `Err(.InvalidAddress)` saying what is wrong with `email`.
     //! assert Result.is_ok(Address.new("a.b+tag@mail.example.com", name: "Ana"))
@@ -135,12 +135,12 @@ impl Address {
     //! assert Result.is_err(Address.new("ö@example.com"))
     //! assert Result.is_err(Address.new("a@example.com>\r\nBcc: x@y.z"))
     //
-    pub fn new(email: String, name: String = "") -> Result<Address, Error> {
-        case email_problem(email) {
-            Ok(_) -> Ok(Address{email, name})
-            Err(reason) -> Err(Error.InvalidAddress{address: email, reason})
-        }
-    }
+    pub fn new(email: String, name: String = "") -> Result<Address, Error>
+        case email_problem(email)
+            Ok(_) -> Ok(Address{email:, name:})
+            Err(reason) -> Err(Error.InvalidAddress{address: email, reason:})
+        end
+    end
 
     /// An address as a person writes it: `ada@example.com`,
     /// `Ada <ada@example.com>` or `"Lovelace, Ada" <ada@example.com>`.
@@ -149,175 +149,177 @@ impl Address {
     //! assert Address.name(Address.parse("  n@x.org ")?) == None
     //! assert Result.is_err(Address.parse("Ada n@x.org>"))
     //
-    pub fn parse(text: String) -> Result<Address, Error> {
+    pub fn parse(text: String) -> Result<Address, Error>
         trimmed = String.trim(text)
 
-        case String.strip_suffix(trimmed, ">") {
-            None -> Address.new(trimmed)
+        case String.strip_suffix(trimmed, ">")
+            None ->
+                Address.new(trimmed)
 
             Some(before) ->
-                case String.split(before, "<") {
+                case String.split(before, "<")
                     [_] ->
                         Err(Error.InvalidAddress{
                             address: trimmed,
                             reason: "it ends with > and has no <",
                         })
 
-                    parts -> {
+                    parts ->
                         email = Iter.last(parts) |> Maybe.with_default("")
                         count = Iter.count(parts)
                         name_part = parts |> Iter.take(count - 1) |> String.join("<")
 
                         Address.new(email, name: unquote(String.trim(name_part)))
-                        |> Result.map_err(fn _ -> {
+                        |> Result.map_err(fn _ ->
                             Error.InvalidAddress{
                                 address: trimmed,
                                 reason: email_problem(email) |> error_text(),
                             }
-                        })
-                    }
-                }
-        }
-    }
+                        end)
+                end
+        end
+    end
 
     /// The address, such as `ada@example.com`.
-    pub fn email(address: Address) -> String {
+    pub fn email(address: Address) -> String
         address.email
-    }
+    end
 
     /// The display name, or `None` when there is none.
-    pub fn name(address: Address) -> Maybe<String> {
-        if address.name == "" {
+    pub fn name(address: Address) -> Maybe<String>
+        if address.name == "" then
             None
-        } else {
+        else
             Some(address.name)
-        }
-    }
-}
+        end
+    end
+end
 
-impl Display for Address {
-    fn to_string(address: Address) -> String {
-        if address.name == "" {
+impl Display for Address
+    fn to_string(address: Address) -> String
+        if address.name == "" then
             address.email
-        } else {
+        else
             "${address.name} <${address.email}>"
-        }
-    }
-}
+        end
+    end
+end
 
-fn error_text(result: Result<Unit, String>) -> String {
-    case result {
+fn error_text(result: Result<Unit, String>) -> String
+    case result
         Ok(_) -> "it is not an address"
         Err(reason) -> reason
-    }
-}
+    end
+end
 
 // A quoted display name without its quotes and backslash escapes.
-fn unquote(name: String) -> String {
+fn unquote(name: String) -> String
     inner =
         String.strip_prefix(name, "\"")
         |> Maybe.flat_map(fn rest -> String.strip_suffix(rest, "\""))
 
-    case inner {
-        None -> name
+    case inner
+        None ->
+            name
 
-        Some(quoted) -> {
-            (out, _) = Iter.reduce(quoted, ("", False), fn (out, escaped), g -> {
-                if escaped {
+        Some(quoted) ->
+            (out, _) = Iter.reduce(quoted, ("", False), fn (out, escaped), g ->
+                if escaped then
                     ("${out}${g}", False)
-                } else if g == "\\" {
+                else if g == "\\" then
                     (out, True)
-                } else {
+                else
                     ("${out}${g}", False)
-                }
-            })
+                end
+            end)
 
             out
-        }
-    }
-}
+    end
+end
 
-fn byte_length(s: String) -> Int {
+fn byte_length(s: String) -> Int
     Bytes.length(String.to_bytes(s))
-}
+end
 
 // The one code point a grapheme is, or -1 for a grapheme of several.
-fn code_of(g: String) -> Int {
-    case String.to_codepoints(g) {
+fn code_of(g: String) -> Int
+    case String.to_codepoints(g)
         [cp] -> Codepoint.to_int(cp)
         _ -> -1
-    }
-}
+    end
+end
 
-fn is_letter_or_digit(c: Int) -> Bool {
+fn is_letter_or_digit(c: Int) -> Bool
     (c >= 48 and c <= 57) or (c >= 65 and c <= 90) or (c >= 97 and c <= 122)
-}
+end
 
 // RFC 5322's atext: what an atom and a dot-atom are made of.
-fn is_atext(g: String) -> Bool {
+fn is_atext(g: String) -> Bool
     c = code_of(g)
     is_letter_or_digit(c) or String.contains("!#$%&'*+-/=?^_`{|}~", g)
-}
+end
 
-fn email_problem(email: String) -> Result<Unit, String> {
-    if byte_length(email) > 254 { return Err("it is longer than 254 bytes") }
+fn email_problem(email: String) -> Result<Unit, String>
+    if byte_length(email) > 254 then return Err("it is longer than 254 bytes")
 
-    case String.split(email, "@") {
-        [local, domain] -> {
+    case String.split(email, "@")
+        [local, domain] ->
             local_problem(local)?
             domain_problem(domain)
-        }
 
-        [_] -> Err("it has no @")
-        _ -> Err("it has more than one @")
-    }
-}
+        [_] ->
+            Err("it has no @")
 
-fn local_problem(local: String) -> Result<Unit, String> {
-    if local == "" {
+        _ ->
+            Err("it has more than one @")
+    end
+end
+
+fn local_problem(local: String) -> Result<Unit, String>
+    if local == "" then
         Err("nothing comes before the @")
-    } else if byte_length(local) > 64 {
+    else if byte_length(local) > 64 then
         Err("the part before the @ is longer than 64 bytes")
-    } else if Iter.any_match(String.split(local, "."), fn atom -> atom == "") {
+    else if Iter.any_match(String.split(local, "."), fn atom -> atom == "") then
         Err("the part before the @ starts or ends with a dot, or has two together")
-    } else {
-        case Iter.find(local, fn g -> not (g == "." or is_atext(g))) {
+    else
+        case Iter.find(local, fn g -> not (g == "." or is_atext(g)))
             Some(g) -> Err("the part before the @ holds ${String.to_literal(g)}")
             None -> Ok(Unit)
-        }
-    }
-}
+        end
+    end
+end
 
-fn domain_problem(domain: String) -> Result<Unit, String> {
-    if domain == "" { return Err("nothing comes after the @") }
+fn domain_problem(domain: String) -> Result<Unit, String>
+    if domain == "" then return Err("nothing comes after the @")
 
     String.split(domain, ".")
-    |> Iter.find_map(fn label -> {
-        if label == "" {
+    |> Iter.find_map(fn label ->
+        if label == "" then
             Some("the domain starts or ends with a dot, or has two together")
-        } else if byte_length(label) > 63 {
+        else if byte_length(label) > 63 then
             Some("the domain has a label longer than 63 bytes")
-        } else if String.starts_with(label, "-") or String.ends_with(label, "-") {
+        else if String.starts_with(label, "-") or String.ends_with(label, "-") then
             Some("a domain label starts or ends with a hyphen")
-        } else {
+        else
             Iter.find(label, fn g -> not (g == "-" or is_letter_or_digit(code_of(g))))
             |> Maybe.map(fn g -> "the domain holds ${String.to_literal(g)}")
-        }
-    })
+        end
+    end)
     |> Maybe.to_result(Unit)
     |> flip()
-}
+end
 
 // Ok for a missing problem, Err for a found one.
-fn flip(result: Result<String, Unit>) -> Result<Unit, String> {
-    case result {
+fn flip(result: Result<String, Unit>) -> Result<Unit, String>
+    case result
         Ok(problem) -> Err(problem)
         Err(_) -> Ok(Unit)
-    }
-}
+    end
+end
 
 /// Why a message could not be sent.
-pub enum Error {
+pub enum Error
     /// An address std does not accept, and why.
     InvalidAddress {address: String, reason: String}
     /// A message no mailer can send: no recipient, no body, a reserved or
@@ -332,11 +334,11 @@ pub enum Error {
     /// mechanism std speaks), or replied with something that is not
     /// SMTP.
     Protocol {reason: String}
-}
+end
 
 derive Equatable for Error
 
-impl Error {
+impl Error
     /// Whether sending again later may succeed: a network failure or a
     /// 4xx reply. A job that sends mail can return `Failure.Retry` for these
     /// and `Failure.Discard` for the rest.
@@ -344,38 +346,42 @@ impl Error {
     //! refute Error.is_temporary(Error.Rejected{command: "RCPT TO", code: 550, reply: "no such user"})
     //! assert Error.is_temporary(Error.Network{reason: "reset"})
     //
-    pub fn is_temporary(error: Error) -> Bool {
-        case error {
+    pub fn is_temporary(error: Error) -> Bool
+        case error
             .Network{reason: _} -> True
-            .Rejected{command: _, code, reply: _} -> code >= 400 and code < 500
+            .Rejected{command: _, code:, reply: _} -> code >= 400 and code < 500
             _ -> False
-        }
-    }
-}
+        end
+    end
+end
 
-impl Display for Error {
+impl Display for Error
     //! assert "${Error.Rejected{command: "RCPT TO <a@b.c>", code: 550, reply: "no such user"}}"
     //!     == "the mail server rejected RCPT TO <a@b.c>: 550 no such user"
     //
-    fn to_string(error: Error) -> String {
-        case error {
-            .InvalidAddress{address, reason} ->
+    fn to_string(error: Error) -> String
+        case error
+            .InvalidAddress{address:, reason:} ->
                 "invalid email address ${String.to_literal(address)}: ${reason}"
 
-            .InvalidMessage{reason} -> "invalid message: ${reason}"
-            .Network{reason} -> "sending mail: ${reason}"
+            .InvalidMessage{reason:} ->
+                "invalid message: ${reason}"
 
-            .Rejected{command, code, reply} ->
+            .Network{reason:} ->
+                "sending mail: ${reason}"
+
+            .Rejected{command:, code:, reply:} ->
                 "the mail server rejected ${command}: ${code} ${reply}"
 
-            .Protocol{reason} -> "mail server: ${reason}"
-        }
-    }
-}
+            .Protocol{reason:} ->
+                "mail server: ${reason}"
+        end
+    end
+end
 
 // SMTP.
 /// How an SMTP connection is protected.
-pub enum Security {
+pub enum Security
     /// Upgrade with STARTTLS, and fail with `Protocol` if the server does
     /// not offer it. Servers take it on port 587, `SmtpConfig`'s default.
     StartTls
@@ -387,18 +393,18 @@ pub enum Security {
     Tls
     /// No TLS, for a local catcher such as Mailpit.
     Off
-}
+end
 
 derive Equatable for Security
 
 /// A username and password for SMTP AUTH.
-pub struct Credentials {
+pub struct Credentials
     username: String
     password: String
-}
+end
 
 /// Where an SMTP server is and how to reach it.
-pub struct SmtpConfig {
+pub struct SmtpConfig
     /// The server's host name or IP address.
     host: String
     port: Int = 587
@@ -415,12 +421,12 @@ pub struct SmtpConfig {
     /// How TLS checks the server. The server name it checks is `host`
     /// unless this names one.
     tls: ClientConfig = ClientConfig{}
-}
+end
 
 /// A mailer that sends through an SMTP server, one connection per message.
-pub opaque struct Smtp {
+pub opaque struct Smtp
     config: SmtpConfig
-}
+end
 
 /// A mailer for the SMTP server `config` describes. Nothing connects until
 /// a message is sent.
@@ -432,20 +438,20 @@ pub opaque struct Smtp {
 //!     text: Some("hi"),
 //! }
 //!
-//! rejected = .{..message, to: [Address.new("reject-me@example.com")?]}
+//! rejected = {..message, to: [Address.new("reject-me@example.com")?]}
 //! credentials = Credentials{username: "u", password: "p"}
 //!
-//! answers = with_smtp_server(fn server -> {
+//! answers = with_smtp_server(fn server ->
 //!     config = SmtpServer.config(server)
 //!
 //!     [
 //!         Mailer.send(smtp(config), message),
 //!         Mailer.send(smtp(config), rejected),
-//!         Mailer.send(smtp(.{..config, security: Security.StartTls}), message),
-//!         Mailer.send(smtp(.{..config, security: Security.StartTlsIfOffered}), message),
-//!         Mailer.send(smtp(.{..config, credentials: Some(credentials)}), message),
+//!         Mailer.send(smtp({..config, security: Security.StartTls}), message),
+//!         Mailer.send(smtp({..config, security: Security.StartTlsIfOffered}), message),
+//!         Mailer.send(smtp({..config, credentials: Some(credentials)}), message),
 //!     ]
-//! })
+//! end)
 //!
 //! assert [
 //!     Ok(_),
@@ -455,10 +461,10 @@ pub opaque struct Smtp {
 //!     Err(Error.Protocol{reason: _}),
 //! ] = answers
 //!
-//! wrong = with_smtp_server(starttls: True, credentials: Some(credentials), fn server -> {
+//! wrong = with_smtp_server(starttls: True, credentials: Some(credentials), fn server ->
 //!     config = SmtpServer.config(server)
-//!     Mailer.send(smtp(.{..config, credentials: Some(.{..credentials, password: "x"})}), message)
-//! })
+//!     Mailer.send(smtp({..config, credentials: Some({..credentials, password: "x"})}), message)
+//! end)
 //!
 //! assert Err(Error.Rejected{command: "AUTH PLAIN", code: 535, reply: _}) = wrong
 //!
@@ -470,16 +476,16 @@ pub opaque struct Smtp {
 //!
 //! assert Err(Error.Protocol{reason: _}) = Mailer.send(smtp(remote), message)
 //
-pub fn smtp(config: SmtpConfig) -> Smtp {
-    Smtp{config}
-}
+pub fn smtp(config: SmtpConfig) -> Smtp
+    Smtp{config:}
+end
 
-impl Mailer for Smtp {
-    fn send(smtp: Smtp, message: Message) -> Result<Unit, Error> {
+impl Mailer for Smtp
+    fn send(smtp: Smtp, message: Message) -> Result<Unit, Error>
         data = render(message)?
         deliver(smtp.config, message.from.email, recipients(message), data)
-    }
-}
+    end
+end
 
 /// Sends `data`, a rendered message, from `from` to `recipients` over an
 /// SMTP connection `config` describes. `Smtp.send` is `render` and then
@@ -489,44 +495,44 @@ pub fn deliver(
     from: String,
     recipients: List<String>,
     data: String,
-) -> Result<Unit, Error> {
+) -> Result<Unit, Error>
     if config.security == Security.Off
         and config.credentials is Some(_)
-        and not is_loopback(config.host) {
+        and not is_loopback(config.host) then
         return Err(cleartext_credentials(config.host))
-    }
+    end
 
     address = net.join_host_port(config.host, "${config.port}")
     options = net.DialOptions{timeout: Some(config.timeout)}
 
-    dialed = case config.security {
+    dialed = case config.security
         .Tls -> tls.dial(address, tls_config(config), options)
         _ -> net.dial(address, options)
-    }
+    end
 
     conn = dialed |> Result.map_err(fn e -> Error.Network{reason: "${e}"})?
     defer Connection.close(conn)
-    session = Session{conn, timeout: config.timeout, encrypted: config.security == Security.Tls}
+    session = Session{conn:, timeout: config.timeout, encrypted: config.security == Security.Tls}
     converse(config, session, from, recipients, data)
-}
+end
 
-fn tls_config(config: SmtpConfig) -> ClientConfig {
-    case config.tls.server_name {
+fn tls_config(config: SmtpConfig) -> ClientConfig
+    case config.tls.server_name
         Some(_) -> config.tls
-        None -> .{..config.tls, server_name: Some(config.host)}
-    }
-}
+        None -> {..config.tls, server_name: Some(config.host)}
+    end
+end
 
-struct Session {
+struct Session
     conn: Connection
     timeout: Duration
     encrypted: Bool
-}
+end
 
-struct Reply {
+struct Reply
     code: Int
     lines: List<String>
-}
+end
 
 fn converse(
     config: SmtpConfig,
@@ -534,7 +540,7 @@ fn converse(
     from: String,
     recipients: List<String>,
     data: String,
-) -> Result<Unit, Error> {
+) -> Result<Unit, Error>
     expect(plain, read_reply(plain)?, [220], "the greeting")?
     extensions = hello(plain, config)?
     (session, extensions) = secure(plain, extensions, config)?
@@ -543,9 +549,9 @@ fn converse(
 
     _ =
         recipients
-        |> Iter.map(fn to -> {
+        |> Iter.map(fn to ->
             expect(session, command(session, "RCPT TO:<${to}>")?, [250, 251], "RCPT TO <${to}>")
-        })
+        end)
         |> Result.collect()?
 
     expect(session, command(session, "DATA")?, [354], "DATA")?
@@ -553,96 +559,96 @@ fn converse(
     expect(session, read_reply(session)?, [250], "the message")?
     _ = command(session, "QUIT")
     Ok(Unit)
-}
+end
 
 // `data` with a dot doubled at the start of each line that starts with
 // one, and a final line break.
-fn dot_stuffed(data: String) -> String {
+fn dot_stuffed(data: String) -> String
     stuffed =
         String.split(data, "\r\n")
-        |> Iter.map(fn line -> {
-            if String.starts_with(line, ".") {
+        |> Iter.map(fn line ->
+            if String.starts_with(line, ".") then
                 ".${line}"
-            } else {
+            else
                 line
-            }
-        })
+            end
+        end)
         |> String.join("\r\n")
 
-    if String.ends_with(stuffed, "\r\n") {
+    if String.ends_with(stuffed, "\r\n") then
         stuffed
-    } else {
+    else
         "${stuffed}\r\n"
-    }
-}
+    end
+end
 
 // The server's extensions after EHLO, upper-cased, or none after HELO.
-fn hello(session: Session, config: SmtpConfig) -> Result<List<String>, Error> {
+fn hello(session: Session, config: SmtpConfig) -> Result<List<String>, Error>
     reply = command(session, "EHLO ${config.hello}")?
 
-    if reply.code == 250 {
+    if reply.code == 250 then
         Ok(
             List.tail(reply.lines)
             |> Maybe.with_default([])
             |> Iter.map(String.uppercase)
             |> Iter.to_list()
         )
-    } else if reply.code >= 500 {
+    else if reply.code >= 500 then
         expect(session, command(session, "HELO ${config.hello}")?, [250], "HELO")?
         Ok([])
-    } else {
+    else
         expect(session, reply, [250], "EHLO")?
         Ok([])
-    }
-}
+    end
+end
 
 fn secure(
     session: Session,
     extensions: List<String>,
     config: SmtpConfig,
-) -> Result<(Session, List<String>), Error> {
+) -> Result<(Session, List<String>), Error>
     wants = config.security == Security.StartTls or config.security == Security.StartTlsIfOffered
     offered = Iter.any_match(extensions, fn e -> e == "STARTTLS")
 
-    if wants and offered {
+    if wants and offered then
         expect(session, command(session, "STARTTLS")?, [220], "STARTTLS")?
 
         conn =
             tls.client(session.conn, tls_config(config))
             |> Result.map_err(fn e -> Error.Network{reason: "${e}"})?
 
-        upgraded = Session{conn, timeout: session.timeout, encrypted: True}
+        upgraded = Session{conn:, timeout: session.timeout, encrypted: True}
         Ok((upgraded, hello(upgraded, config)?))
-    } else if config.security == Security.StartTls {
+    else if config.security == Security.StartTls then
         Err(Error.Protocol{
             reason: "${config.host} does not offer STARTTLS, and the config requires it (Security.StartTls)",
         })
-    } else {
+    else
         Ok((session, extensions))
-    }
-}
+    end
+end
 
-fn cleartext_credentials(host: String) -> Error {
+fn cleartext_credentials(host: String) -> Error
     Error.Protocol{reason: "refusing to send credentials to ${host} over a connection without TLS"}
-}
+end
 
-fn is_loopback(host: String) -> Bool {
+fn is_loopback(host: String) -> Bool
     host == "localhost" or host == "::1" or String.starts_with(host, "127.")
-}
+end
 
 fn authenticate(
     session: Session,
     extensions: List<String>,
     config: SmtpConfig,
-) -> Result<Unit, Error> {
-    credentials = case config.credentials {
+) -> Result<Unit, Error>
+    credentials = case config.credentials
         None -> return Ok(Unit)
         Some(c) -> c
-    }
+    end
 
-    if not session.encrypted and not is_loopback(config.host) {
+    if not session.encrypted and not is_loopback(config.host) then
         return Err(cleartext_credentials(config.host))
-    }
+    end
 
     mechanisms =
         extensions
@@ -652,70 +658,71 @@ fn authenticate(
     user = String.to_bytes(credentials.username)
     password = String.to_bytes(credentials.password)
 
-    if Iter.contains(mechanisms, "PLAIN") {
+    if Iter.contains(mechanisms, "PLAIN") then
         zero = Bytes.from_list([0])
         token = base64.encode(Bytes.concat(zero, Bytes.concat(user, Bytes.concat(zero, password))))
         expect(session, command(session, "AUTH PLAIN ${token}")?, [235], "AUTH PLAIN")?
         Ok(Unit)
-    } else if Iter.contains(mechanisms, "LOGIN") {
+    else if Iter.contains(mechanisms, "LOGIN") then
         expect(session, command(session, "AUTH LOGIN")?, [334], "AUTH LOGIN")?
         expect(session, command(session, base64.encode(user))?, [334], "AUTH LOGIN")?
         expect(session, command(session, base64.encode(password))?, [235], "AUTH LOGIN")?
         Ok(Unit)
-    } else {
-        offered = if Iter.is_empty(mechanisms) {
+    else
+        offered = if Iter.is_empty(mechanisms) then
             "none"
-        } else {
+        else
             String.join(mechanisms, " ")
-        }
+        end
 
         Err(Error.Protocol{
             reason: "${config.host} offers no AUTH mechanism std/mail speaks (PLAIN, LOGIN); it offers ${offered}",
         })
-    }
-}
+    end
+end
 
 // The reply when its code is one of `codes`; otherwise QUIT is sent, as
 // far as it goes, and the reply is the error.
-fn expect(session: Session, reply: Reply, codes: List<Int>, what: String) -> Result<Unit, Error> {
-    if Iter.contains(codes, reply.code) {
+fn expect(session: Session, reply: Reply, codes: List<Int>, what: String) -> Result<Unit, Error>
+    if Iter.contains(codes, reply.code) then
         Ok(Unit)
-    } else {
+    else
         _ = write(session, "QUIT\r\n")
         Err(Error.Rejected{command: what, code: reply.code, reply: String.join(reply.lines, " ")})
-    }
-}
+    end
+end
 
-fn command(session: Session, line: String) -> Result<Reply, Error> {
+fn command(session: Session, line: String) -> Result<Reply, Error>
     write(session, "${line}\r\n")?
     read_reply(session)
-}
+end
 
-fn deadline(session: Session) {
+fn deadline(session: Session)
     Connection.set_deadline(session.conn, Some(Instant.now() + session.timeout))
-}
+end
 
-fn write(session: Session, text: String) -> Result<Unit, Error> {
+fn write(session: Session, text: String) -> Result<Unit, Error>
     deadline(session)
 
     Writer.write_text(Connection.writer(session.conn), text)
     |> Result.map_err(fn e -> Error.Network{reason: "${e}"})
-}
+end
 
-fn read_reply(session: Session) -> Result<Reply, Error> {
+fn read_reply(session: Session) -> Result<Reply, Error>
     deadline(session)
     read_lines(session, [])
-}
+end
 
-fn read_lines(session: Session, lines: List<String>) -> Result<Reply, Error> {
-    line = case Reader.read_line(Connection.reader(session.conn)) {
+fn read_lines(session: Session, lines: List<String>) -> Result<Reply, Error>
+    line = case Reader.read_line(Connection.reader(session.conn))
         Ok(Some(text)) -> text
         Ok(None) -> return Err(Error.Network{reason: "the server closed the connection"})
         Err(e) -> return Err(Error.Network{reason: "${e}"})
-    }
+    end
 
-    code = case String.to_int(String.take(line, 3)) {
-        Some(n) when String.length(line) >= 3 -> n
+    code = case String.to_int(String.take(line, 3))
+        Some(n) when String.length(line) >= 3 ->
+            n
 
         _ ->
             return Err(
@@ -723,19 +730,19 @@ fn read_lines(session: Session, lines: List<String>) -> Result<Reply, Error> {
                     reason: "the server sent ${String.to_literal(line)}, not an SMTP reply",
                 }
             )
-    }
+    end
 
     more = List.concat(lines, [String.drop(line, 4)])
 
-    if String.slice(line, 3, 4) == "-" {
+    if String.slice(line, 3, 4) == "-" then
         read_lines(session, more)
-    } else {
-        Ok(Reply{code, lines: more})
-    }
-}
+    else
+        Ok(Reply{code:, lines: more})
+    end
+end
 
 // Rendering.
-fn reserved_headers() -> List<String> {
+fn reserved_headers() -> List<String>
     [
         "from",
         "to",
@@ -749,20 +756,20 @@ fn reserved_headers() -> List<String> {
         "content-type",
         "content-transfer-encoding",
     ]
-}
+end
 
-fn invalid(reason: String) -> Result<Unit, Error> {
-    Err(Error.InvalidMessage{reason})
-}
+fn invalid(reason: String) -> Result<Unit, Error>
+    Err(Error.InvalidMessage{reason:})
+end
 
-fn check_message(message: Message) -> Result<Unit, Error> {
-    if Iter.is_empty(message.to) and Iter.is_empty(message.cc) and Iter.is_empty(message.bcc) {
+fn check_message(message: Message) -> Result<Unit, Error>
+    if Iter.is_empty(message.to) and Iter.is_empty(message.cc) and Iter.is_empty(message.bcc) then
         return invalid("it has no recipient in to, cc or bcc")
-    }
+    end
 
-    if message.text == None and message.html == None and Iter.is_empty(message.attachments) {
+    if message.text == None and message.html == None and Iter.is_empty(message.attachments) then
         return invalid("it has no text, HTML or attachment")
-    }
+    end
 
     _ =
         message.headers
@@ -771,56 +778,56 @@ fn check_message(message: Message) -> Result<Unit, Error> {
 
     _ = message.attachments |> Iter.map(check_attachment) |> Result.collect()?
     Ok(Unit)
-}
+end
 
-fn check_header(name: String, value: String) -> Result<Unit, Error> {
-    if name == "" {
+fn check_header(name: String, value: String) -> Result<Unit, Error>
+    if name == "" then
         invalid("a header has an empty name")
-    } else if Iter.any_match(name, fn g -> {
+    else if Iter.any_match(name, fn g ->
         c = code_of(g)
         c < 33 or c > 126 or g == ":"
-    }) {
+    end) then
         invalid("the header name ${String.to_literal(name)} holds a character a name cannot")
-    } else if Iter.contains(reserved_headers(), String.lowercase(name)) {
+    else if Iter.contains(reserved_headers(), String.lowercase(name)) then
         invalid("the header ${name} is written from the message's fields, not its headers")
-    } else if Iter.any_match(value, is_control) {
+    else if Iter.any_match(value, is_control) then
         invalid("the ${name} header's value holds a line break or another control character")
-    } else {
+    else
         Ok(Unit)
-    }
-}
+    end
+end
 
 // A grapheme that holds a control character other than tab.
-fn is_control(g: String) -> Bool {
+fn is_control(g: String) -> Bool
     String.to_codepoints(g)
-    |> Iter.any_match(fn cp -> {
+    |> Iter.any_match(fn cp ->
         c = Codepoint.to_int(cp)
         (c < 32 and c != 9) or c == 127
-    })
-}
+    end)
+end
 
-fn is_token_char(g: String) -> Bool {
+fn is_token_char(g: String) -> Bool
     is_letter_or_digit(code_of(g)) or String.contains("!#$&-^_.+", g)
-}
+end
 
-fn check_attachment(attachment: Attachment) -> Result<Unit, Error> {
+fn check_attachment(attachment: Attachment) -> Result<Unit, Error>
     name = attachment.filename
 
-    if name == "" { return invalid("an attachment has no filename") }
+    if name == "" then return invalid("an attachment has no filename")
 
-    if byte_length(name) > 255 {
+    if byte_length(name) > 255 then
         return invalid(
             "the attachment filename ${String.to_literal(name)} is longer than 255 bytes"
         )
-    }
+    end
 
-    if Iter.any_match(name, is_control) {
+    if Iter.any_match(name, is_control) then
         return invalid(
             "the attachment filename ${String.to_literal(name)} holds a control character"
         )
-    }
+    end
 
-    case String.split(attachment.content_type, "/") {
+    case String.split(attachment.content_type, "/")
         [kind, sub] when kind != ""
             and sub != ""
             and Iter.all_match(kind, is_token_char)
@@ -833,8 +840,8 @@ fn check_attachment(attachment: Attachment) -> Result<Unit, Error> {
                     attachment.content_type
                 )}, not type/subtype"
             )
-    }
-}
+    end
+end
 
 /// `message` as the text a server receives: headers, a blank line and the
 /// body, every line ending in CRLF and all of it 7-bit ASCII. Every
@@ -883,18 +890,18 @@ pub fn render(
     message: Message,
     message_id: Maybe<String> = None,
     date: Maybe<Instant> = None,
-) -> Result<String, Error> {
+) -> Result<String, Error>
     check_message(message)?
 
-    id = case message_id {
+    id = case message_id
         Some(given) -> given
         None -> new_message_id(message.from)
-    }
+    end
 
-    at = case date {
+    at = case date
         Some(given) -> given
         None -> Instant.now()
-    }
+    end
 
     (content_headers, body) = content(message)
 
@@ -912,15 +919,15 @@ pub fn render(
 
     head = lines |> Iter.flatten() |> String.join("\r\n")
     Ok("${head}\r\n\r\n${body}\r\n")
-}
+end
 
-fn new_message_id(from: Address) -> String {
+fn new_message_id(from: Address) -> String
     domain = String.split(from.email, "@") |> Iter.last() |> Maybe.with_default("localhost")
     "<${hex.encode(random.secure_bytes(16))}@${domain}>"
-}
+end
 
 // The headers and body of the message's content, as one MIME entity.
-fn content(message: Message) -> (List<String>, String) {
+fn content(message: Message) -> (List<String>, String)
     bodies =
         [
             message.text |> Maybe.map(text_part),
@@ -928,102 +935,102 @@ fn content(message: Message) -> (List<String>, String) {
         ]
         |> Maybe.values()
 
-    main = case bodies {
+    main = case bodies
         [] -> None
         [one] -> Some(one)
         several -> Some(multipart("alternative", several))
-    }
+    end
 
     attachments = message.attachments |> Iter.map(attachment_part) |> Iter.to_list()
 
-    case main {
+    case main
         Some(part) when Iter.is_empty(attachments) -> part
         Some(part) -> multipart("mixed", List.concat([part], attachments))
         None -> multipart("mixed", attachments)
-    }
-}
+    end
+end
 
-fn text_part(text: String) -> (List<String>, String) {
+fn text_part(text: String) -> (List<String>, String)
     (
         ["Content-Type: text/plain; charset=utf-8", "Content-Transfer-Encoding: quoted-printable"],
         quoted_printable(text),
     )
-}
+end
 
-fn html_part(markup: String) -> (List<String>, String) {
+fn html_part(markup: String) -> (List<String>, String)
     (
         ["Content-Type: text/html; charset=utf-8", "Content-Transfer-Encoding: quoted-printable"],
         quoted_printable(markup),
     )
-}
+end
 
-fn attachment_part(attachment: Attachment) -> (List<String>, String) {
+fn attachment_part(attachment: Attachment) -> (List<String>, String)
     name = attachment.filename
 
-    (type_line, disposition) = if Iter.all_match(name, fn g -> {
+    (type_line, disposition) = if Iter.all_match(name, fn g ->
         c = code_of(g)
         c >= 32 and c <= 126 and g != "\"" and g != "\\"
-    }) {
+    end) then
         (
             "Content-Type: ${attachment.content_type}; name=\"${name}\"",
             "Content-Disposition: attachment; filename=\"${name}\"",
         )
-    } else {
+    else
         (
             "Content-Type: ${attachment.content_type}",
             "Content-Disposition: attachment; filename*=utf-8''${percent_encode(name)}",
         )
-    }
+    end
 
     ([type_line, disposition, "Content-Transfer-Encoding: base64"], base64_lines(attachment.data))
-}
+end
 
 // RFC 2231's attr-char kept, every other byte as %XX.
-fn percent_encode(text: String) -> String {
+fn percent_encode(text: String) -> String
     text
-    |> Iter.flat_map(fn g -> {
-        if is_letter_or_digit(code_of(g)) or String.contains("!#$&+-.^_`|~", g) {
+    |> Iter.flat_map(fn g ->
+        if is_letter_or_digit(code_of(g)) or String.contains("!#$&+-.^_`|~", g) then
             [g]
-        } else {
+        else
             byte_tokens(g, "%")
-        }
-    })
+        end
+    end)
     |> String.join()
-}
+end
 
 // Each byte of `g` as `prefix` and two upper-case hex digits.
-fn byte_tokens(g: String, prefix: String) -> List<String> {
+fn byte_tokens(g: String, prefix: String) -> List<String>
     String.to_bytes(g)
     |> Bytes.to_list()
     |> Iter.map(fn b -> "${prefix}${String.uppercase(hex.encode(Bytes.from_list([b])))}")
     |> Iter.to_list()
-}
+end
 
-fn boundary(subtype: String) -> String {
+fn boundary(subtype: String) -> String
     // Neither quoted-printable nor base64 can write `=_`, so no part holds
     // the boundary.
     "=_nomi_${subtype}"
-}
+end
 
-fn multipart(subtype: String, parts: List<(List<String>, String)>) -> (List<String>, String) {
+fn multipart(subtype: String, parts: List<(List<String>, String)>) -> (List<String>, String)
     b = boundary(subtype)
 
     body =
         parts
-        |> Iter.map(fn (headers, part_body) -> {
+        |> Iter.map(fn (headers, part_body) ->
             "--${b}\r\n${String.join(headers, "\r\n")}\r\n\r\n${part_body}\r\n"
-        })
+        end)
         |> String.join()
 
     (["Content-Type: multipart/${subtype}; boundary=\"${b}\""], "${body}--${b}--")
-}
+end
 
-fn base64_lines(data: Bytes) -> String {
+fn base64_lines(data: Bytes) -> String
     base64.encode(data)
     |> Iter.chunks(76)
     |> Iter.map(fn chunk -> String.join(chunk))
     |> String.join("\r\n")
-}
+end
 
 /// `text` as quoted-printable: printable ASCII as it is, every other byte
 /// of its UTF-8 as `=XX`, each line break as CRLF, whitespace that ends a
@@ -1033,103 +1040,103 @@ fn base64_lines(data: Bytes) -> String {
 //! assert quoted_printable("end \nnext") == "end=20\r\nnext"
 //! assert quoted_printable(String.repeat("x", 80)) == "${String.repeat("x", 75)}=\r\nxxxxx"
 //
-pub fn quoted_printable(text: String) -> String {
+pub fn quoted_printable(text: String) -> String
     mail_host.quoted_printable(text)
-}
+end
 
 // Printable ASCII with no `=?` (which a reader would take for an encoded
 // word) and no word too long to fold.
-fn is_plain(text: String) -> Bool {
-    Iter.all_match(text, fn g -> {
+fn is_plain(text: String) -> Bool
+    Iter.all_match(text, fn g ->
         c = code_of(g)
         c >= 32 and c <= 126
-    }) and not String.contains(text, "=?") and Iter.all_match(String.split(text, " "), fn word -> {
+    end) and not String.contains(text, "=?") and Iter.all_match(String.split(text, " "), fn word ->
         String.length(word) <= 900
-    })
-}
+    end)
+end
 
 /// `text` as RFC 2047 encoded words, base64 UTF-8, cut between graphemes
 /// so that each word is at most 64 characters.
 //! assert encoded_words("Grüße") == ["=?utf-8?b?R3LDvMOfZQ==?="]
 //
-pub fn encoded_words(text: String) -> List<String> {
-    (done, last) = Iter.reduce(text, ([], ""), fn (done, current), g -> {
-        if current != "" and byte_length(current) + byte_length(g) > 39 {
+pub fn encoded_words(text: String) -> List<String>
+    (done, last) = Iter.reduce(text, ([], ""), fn (done, current), g ->
+        if current != "" and byte_length(current) + byte_length(g) > 39 then
             (List.concat(done, [current]), g)
-        } else {
+        else
             (done, "${current}${g}")
-        }
-    })
+        end
+    end)
 
     List.concat(done, [last])
     |> Iter.map(fn chunk -> "=?utf-8?b?${base64.encode(String.to_bytes(chunk))}?=")
     |> Iter.to_list()
-}
+end
 
 // An unstructured header: the subject, or a message's own header.
-fn text_header(name: String, value: String) -> String {
-    if is_plain(value) {
+fn text_header(name: String, value: String) -> String
+    if is_plain(value) then
         fold("${name}: ${value}")
-    } else {
+    else
         "${name}: ${String.join(encoded_words(value), "\r\n ")}"
-    }
-}
+    end
+end
 
-fn optional_addresses(name: String, addresses: List<Address>) -> List<String> {
-    if Iter.is_empty(addresses) {
+fn optional_addresses(name: String, addresses: List<Address>) -> List<String>
+    if Iter.is_empty(addresses) then
         []
-    } else {
+    else
         [address_header(name, addresses)]
-    }
-}
+    end
+end
 
-fn address_header(name: String, addresses: List<Address>) -> String {
+fn address_header(name: String, addresses: List<Address>) -> String
     fold("${name}: ${addresses |> Iter.map(mailbox) |> String.join(", ")}")
-}
+end
 
 // An address as a header writes it: an atom phrase, a quoted string or
 // encoded words, then the address in angle brackets.
-fn mailbox(address: Address) -> String {
+fn mailbox(address: Address) -> String
     name = address.name
 
-    phrase = if name == "" {
+    phrase = if name == "" then
         ""
-    } else if String.trim(name) == name
+    else if String.trim(name) == name
         and not String.contains(name, "  ")
-        and Iter.all_match(name, fn g -> g == " " or is_atext(g)) {
+        and Iter.all_match(name, fn g -> g == " " or is_atext(g)) then
         name
-    } else if is_plain(name) {
+    else if is_plain(name) then
         "\"${String.replace(String.replace(name, "\\", "\\\\"), "\"", "\\\"")}\""
-    } else {
+    else
         String.join(encoded_words(name), " ")
-    }
+    end
 
-    if phrase == "" {
+    if phrase == "" then
         address.email
-    } else {
+    else
         "${phrase} <${address.email}>"
-    }
-}
+    end
+end
 
 // A header line folded before spaces so that each line is at most 78
 // characters where its words allow.
-fn fold(line: String) -> String {
-    if String.length(line) <= 78 { return line }
+fn fold(line: String) -> String
+    if String.length(line) <= 78 then return line
 
     words = String.split(line, " ")
     first = List.head(words) |> Maybe.with_default("")
     rest = List.tail(words) |> Maybe.with_default([])
 
-    (done, last) = Iter.reduce(rest, ([], first), fn (done, current), word -> {
-        if word != "" and String.length(current) + 1 + String.length(word) > 78 {
+    (done, last) = Iter.reduce(rest, ([], first), fn (done, current), word ->
+        if word != "" and String.length(current) + 1 + String.length(word) > 78 then
             (List.concat(done, [current]), word)
-        } else {
+        else
             (done, "${current} ${word}")
-        }
-    })
+        end
+    end)
 
     List.concat(done, [last]) |> String.join("\r\n ")
-}
+end
 
 /// `at` as an RFC 5322 date in UTC.
 //! import std::instant.Instant
@@ -1137,20 +1144,20 @@ fn fold(line: String) -> String {
 //! assert rfc5322_date(Instant.from_seconds(1793638245)) == "Mon, 02 Nov 2026 16:50:45 +0000"
 //! assert rfc5322_date(Instant.from_seconds(951782400)) == "Tue, 29 Feb 2000 00:00:00 +0000"
 //
-pub fn rfc5322_date(at: Instant) -> String {
+pub fn rfc5322_date(at: Instant) -> String
     mail_host.date(Instant.as_nanos(at))
-}
+end
 
 /// The envelope's recipients: every address in to, cc and bcc, each once,
 /// in that order.
-pub fn recipients(message: Message) -> List<String> {
+pub fn recipients(message: Message) -> List<String>
     Iter.concat(message.to, Iter.concat(message.cc, message.bcc))
     |> Iter.map(fn a -> a.email)
-    |> Iter.reduce([], fn seen, email -> {
-        if Iter.contains(seen, email) {
+    |> Iter.reduce([], fn seen, email ->
+        if Iter.contains(seen, email) then
             seen
-        } else {
+        else
             List.concat(seen, [email])
-        }
-    })
-}
+        end
+    end)
+end

@@ -15,31 +15,31 @@ once default_host = "localhost"
 // ---------------------------------------------------------------------------
 // Point's impl block names Drawable2, which is declared later in the file.
 // Declarations can refer to types and interfaces that appear below them.
-pub struct Point {
+pub struct Point
     x: Int
     y: Int
-}
+end
 
-impl Drawable2 for Point {
-    fn draw(_p: Point) -> String {
+impl Drawable2 for Point
+    fn draw(_p: Point) -> String
         "point"
-    }
-}
+    end
+end
 
-pub struct User {
+pub struct User
     name: String
     age: Int = 0
     email: String = ""
-}
+end
 
-pub opaque struct UserId {
+pub opaque struct UserId
     raw: Int
-}
+end
 
-pub struct Pair<A, B> {
+pub struct Pair<A, B>
     first: A
     second: B
-}
+end
 
 // ---------------------------------------------------------------------------
 // Enum declarations
@@ -47,49 +47,49 @@ pub struct Pair<A, B> {
 //
 // Single-line when fits; multi-line preserved when source had it that way;
 // width-decided otherwise. Variant kinds: bare, positional, struct, embedded.
-enum Color {
+enum Color
     Red
     Green
     Blue
-}
+end
 
-pub enum Maybe2<T> {
+pub enum Maybe2<T>
     None
     Some T
-}
+end
 
-pub enum Shape {
+pub enum Shape
     Circle Float
     Rectangle {width: Float, height: Float}
     Point2
-}
+end
 
-pub opaque enum Status {
+pub opaque enum Status
     Active
     Inactive
     Pending Int
-}
+end
 
-pub enum Drawable {
+pub enum Drawable
     embeds Point
     Shape Shape
-}
+end
 
 // Struct-shaped variant payload — short stays flat.
-enum Event {
+enum Event
     Click {x: Int, y: Int}
     Scroll Int
-}
+end
 
 // Struct-shaped variant payload — user-written multi-line preserved.
-enum ParseError {
+enum ParseError
     Invalid {
         line: Int,
         col: Int,
         message: String,
     }
     Unexpected String
-}
+end
 
 // ---------------------------------------------------------------------------
 // Type declarations and aliases
@@ -101,23 +101,23 @@ pub type Expired
 pub opaque type Counter Int
 
 pub typealias Rule (String) -> Maybe<String>
-pub typealias Span .{start: Int, end: Int, line: Int}
+pub typealias Span {start: Int, stop: Int, line: Int}
 
 // ---------------------------------------------------------------------------
 // Interfaces and impls
 // ---------------------------------------------------------------------------
-pub interface Drawable2 {
+pub interface Drawable2
     fn draw(s: self) -> String
-}
+end
 
-pub interface Container<T> {
+pub interface Container<T>
     fn empty() -> self
     fn add(c: self, item: T) -> self
 
-    fn size(_c: self) -> Int {
+    fn size(_c: self) -> Int
         0
-    }
-}
+    end
+end
 
 // ---------------------------------------------------------------------------
 // Function declarations
@@ -126,29 +126,29 @@ pub interface Container<T> {
 // Bodies always render multi-line (empty stays flat as `{}`).
 // Signatures break onto multiple lines when too long for 100 cols.
 // Doc comments preserved above the declaration.
-fn noop() {}
+fn noop() end
 
-fn add(x: Int, y: Int) -> Int {
+fn add(x: Int, y: Int) -> Int
     x + y
-}
+end
 
 /// Doc comment attaches to the next declaration.
 /// Multiple lines preserved.
-pub fn greet(name: String, greeting: String = "Hello") -> String {
+pub fn greet(name: String, greeting: String = "Hello") -> String
     greeting + ", " + name
-}
+end
 
-fn map_pair<A, B, C>(p: Pair<A, B>, f: (A) -> C) -> Pair<C, B> {
+fn map_pair<A, B, C>(p: Pair<A, B>, f: (A) -> C) -> Pair<C, B>
     Pair{first: f(p.first), second: p.second}
-}
+end
 
-fn bounded<T>(_items: List<T>) -> String where T: Drawable2 {
+fn bounded<T>(_items: List<T>) -> String where T: Drawable2
     "drawn"
-}
+end
 
-fn process(_opts: List<.{retries: Int, timeout: Int, on_error: (String) -> Int}>) -> Int {
+fn process(_opts: List<{retries: Int, timeout: Int, on_error: (String) -> Int}>) -> Int
     0
-}
+end
 
 // Long signature — params break one per line; body always breaks.
 pub fn process_all_the_users(
@@ -156,14 +156,14 @@ pub fn process_all_the_users(
     _config: Pair<String, Int>,
     _retry_count: Int,
     _more_options: List<String>,
-) -> Result<List<User>, String> {
+) -> Result<List<User>, String>
     Ok(users)
-}
+end
 
 // ---------------------------------------------------------------------------
 // Bindings — local, destructuring forms
 // ---------------------------------------------------------------------------
-fn binding_forms() {
+fn binding_forms()
     // Simple
     _x = 1
     _y: Int = 2
@@ -175,10 +175,10 @@ fn binding_forms() {
     Email(_) = Email("a@b.com")
 
     // Anon struct literal — short stays flat
-    _short_anon = .{a: 1, b: 2}
+    _short_anon = {a: 1, b: 2}
 
     // Anon struct literal — user-written multi-line preserved
-    _long_anon = .{
+    _long_anon = {
         a: 1,
         b: 2,
         c: 3,
@@ -193,41 +193,41 @@ fn binding_forms() {
         age: 42,
         email: "b@x.com",
     }
-}
+end
 
 // ---------------------------------------------------------------------------
 // Control flow — if/else, case, with
 // ---------------------------------------------------------------------------
-fn control_flow(n: Int) -> String {
+fn control_flow(n: Int) -> String
     // Inline if/else with atomic bodies stays flat.
-    _sign = if n > 0 { 1 } else { 0 }
+    _sign = if n > 0 then 1 else 0
 
     // Guard form — single-line return stays flat.
-    _abs_or_zero = if n < 0 { 0 - n } else { n }
+    _abs_or_zero = if n < 0 then 0 - n else n
 
     // Long if-else — branches break.
-    _classification = if n > 100 {
+    _classification = if n > 100 then
         "big"
-    } else if n > 0 {
+    else if n > 0 then
         "small"
-    } else {
+    else
         "non-positive"
-    }
+    end
 
     // Case expression — always multi-line, one arm per line.
-    shape_label = case n {
+    shape_label = case n
         0 -> "zero"
         1 -> "one"
         _ -> "many"
-    }
+    end
 
     shape_label
-}
+end
 
 // ---------------------------------------------------------------------------
 // Lambdas
 // ---------------------------------------------------------------------------
-fn lambda_forms() {
+fn lambda_forms()
     // Short lambda — flat. Type annotation on the binding so type
     // inference picks up the param shape.
     _inc: (Int) -> Int = fn x -> x + 1
@@ -237,17 +237,17 @@ fn lambda_forms() {
 
     // Lambda with default param.
     _add_with_default: (Int, Int) -> Int = fn x = 1, y -> x + y
-}
+end
 
 // ---------------------------------------------------------------------------
 // Pipes — one |> stays inline; two or more break one stage per line
 // ---------------------------------------------------------------------------
-fn pipe_chain(xs: List<Int>) -> List<Int> {
+fn pipe_chain(xs: List<Int>) -> List<Int>
     Iter.map(xs, &(&1 + 1))
     |> Iter.filter(&(&1 > 0))
     |> Iter.take(10)
     |> Iter.to_list()
-}
+end
 
 // ---------------------------------------------------------------------------
 // Type expressions in nested positions
@@ -256,23 +256,23 @@ fn pipe_chain(xs: List<Int>) -> List<Int> {
 // Anon struct types break at their column when long; outer container
 // (tuple, generic) stays inline. Function-type-with-Return wraps its
 // param list in a Group so a too-long signature breaks at the param list.
-pub type Tagged (String, .{tag: String, payload: Int})
+pub type Tagged (String, {tag: String, payload: Int})
 
-pub type LongTuple (String, .{
+pub type LongTuple (String, {
     status: Int,
     message: String,
     retryable: Bool,
     more_info: String,
 })
 
-pub typealias Pages List<.{
+pub typealias Pages List<{
     status: Int,
     message: String,
     retryable: Bool,
     a_long_field: String,
 }>
 
-pub typealias Endpoint (.{
+pub typealias Endpoint ({
     req: String,
     headers: Map<String, String>,
     body: String,
@@ -284,11 +284,11 @@ pub typealias Endpoint (.{
 //
 // Trailing comments do not force structural breaks. The formatter prefers
 // to let a comment spill past 100 cols rather than uglify the code.
-fn trivia_examples() -> Int {
-    config = %{"host" => "localhost", "port" => "8080", "mode" => "debug"} // explanatory
+fn trivia_examples() -> Int
+    config = {"host" => "localhost", "port" => "8080", "mode" => "debug"} // explanatory
     short_struct = Point{x: 1, y: 2} // a 2D point
     Map.size(config) + short_struct.x
-}
+end
 
 // ---------------------------------------------------------------------------
 // Long-line cases — tail-aware fits
@@ -297,19 +297,19 @@ fn trivia_examples() -> Int {
 // Each Group's flat-vs-broken decision considers what follows on the line.
 // A Group whose own content fits but whose trailing siblings overflow
 // still breaks (no silent overflow).
-fn tail_aware() -> Int {
+fn tail_aware() -> Int
     _long_call = process_all_the_users([], Pair{first: "a", second: 1}, 3, [])
     0
-}
+end
 
 // ---------------------------------------------------------------------------
 // Nomi test coverage
 // ---------------------------------------------------------------------------
-test "formatter showcase declarations remain executable" {
+test "formatter showcase declarations remain executable"
     assert add(2, 3) == 5
     assert greet("Ada") == "Hello, Ada"
     assert control_flow(0) == "zero"
     assert pipe_chain([1, -2, 3]) == [2, 4]
     assert trivia_examples() == 4
     assert tail_aware() == 0
-}
+end

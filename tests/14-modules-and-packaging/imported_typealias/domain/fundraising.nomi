@@ -1,22 +1,22 @@
 // Names an imported typealias in a struct field and an enum payload.
 import domain::models.Reaction
 
-pub struct Form {
+pub struct Form
     kind: Maybe<Reaction>
-}
+end
 
-pub enum Event {
+pub enum Event
     Reacted Reaction
     Cleared
-}
+end
 
-pub fn kind_of(form: Form) -> Maybe<Reaction> {
+pub fn kind_of(form: Form) -> Maybe<Reaction>
     form.kind
-}
+end
 
-pub fn event_of(form: Form) -> Event {
-    case form.kind {
+pub fn event_of(form: Form) -> Event
+    case form.kind
         Some(kind) -> .Reacted(kind)
         None -> .Cleared
-    }
-}
+    end
+end

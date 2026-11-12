@@ -1,10 +1,10 @@
-import {
+import
     comparable.Comparable
     debug.Debug
     display.Display
     equatable.Equatable
     hashable.Hashable
-}
+end
 
 /// Singleton type representing the boolean true value; a variant of `Bool`.
 pub host type True
@@ -26,23 +26,23 @@ derive Hashable for False
 //! assert True == True
 //! refute True == False
 //
-pub enum Bool {
+pub enum Bool
     embeds False
     embeds True
-}
+end
 
 derive Comparable for Bool
 derive Display for Bool
 derive Equatable for Bool
 derive Hashable for Bool
 
-impl Debug for Bool {
+impl Debug for Bool
     /// `True` or `False`, the same text as `Display`: a Bool's literal is
     /// its user-facing form.
     //! assert Debug.inspect(True) == "True"
     //! assert Debug.inspect(False) == Display.to_string(False)
     //
-    fn inspect(b: Bool) -> String {
+    fn inspect(b: Bool) -> String
         Bool.to_string(b)
-    }
-}
+    end
+end

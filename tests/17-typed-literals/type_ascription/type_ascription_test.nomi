@@ -2,74 +2,74 @@
 // `x: Type = value` does (spec §5 *Type ascription*). It converts nothing.
 // It gives a type where no annotation can stand, such as a field of an
 // anonymous struct literal.
-import {
+import
     std::compiler.{self, Diagnostic}
     std::http.Route
     std::uuid.Uuid
-}
+end
 
-fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
+fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool
     Iter.any_match(diagnostics, fn diagnostic -> text in diagnostic.message)
-}
+end
 
-struct Post {
+struct Post
     title: String
-}
+end
 
-once admin = .{
+once admin = {
     home: Route`GET /admin/{$}`,
-    user: `GET /admin/users/{id}` as Route<.{id: Uuid}>,
+    user: `GET /admin/users/{id}` as Route<{id: Uuid}>,
     tags: [] as List<String>,
 }
 
-interface Named {
+interface Named
     fn name(value: self) -> String
-}
+end
 
-impl Named for Post {
-    fn name(post: Post) -> String {
+impl Named for Post
+    fn name(post: Post) -> String
         post.title
-    }
-}
+    end
+end
 
-test "an ascription types an anonymous struct's fields" {
+test "an ascription types an anonymous struct's fields"
     assert "${admin.home}" == "GET /admin/{$}"
     assert "${admin.user}" == "GET /admin/users/{id}"
     assert admin.tags == []
-}
+end
 
-test "an ascription types an empty collection and None" {
+test "an ascription types an empty collection and None"
     later = None as Maybe<Post>
     assert later == None
     names = [] as List<String>
     assert names == []
-}
+end
 
-test "an ascription admits what an annotation admits" {
+test "an ascription admits what an annotation admits"
     named = Post{title: "hello"} as Named
     assert Named.name(named) == "hello"
-}
+end
 
-test "an ascription types a whole pipeline" {
+test "an ascription types a whole pipeline"
     doubled = [1, 2, 3] |> Iter.map(fn n -> n * 2) |> Iter.to_list() as List<Int>
     assert doubled == [2, 4, 6]
     assert 1 + 1 == 2 as Int
-}
+end
 
-test "an ascription converts nothing" {
+test "an ascription converts nothing"
     diagnostics = compiler.check(
         """
-        fn main() {
+        fn main()
             x = 3
             _ = x as Float
-        }
+        end
         """
     )
 
     assert has_diagnostic(diagnostics, "type mismatch: expected Float, got Int")
-}
+end
 
-test "two ascriptions in a row are refused" {
-    diagnostics = compiler.check("fn main() {\n    _ = 1 as Int as Int\n}\n")
+test "two ascriptions in a row are refused"
+    diagnostics = compiler.check("fn main()\n    _ = 1 as Int as Int\nend\n")
     assert has_diagnostic(diagnostics, "`as` can't follow another `as`")
-}
+end

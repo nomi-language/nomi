@@ -33,74 +33,74 @@ func webImage(t *testing.T, src string) []byte {
 const hangman = `import std::io
 import std::json.{ToJson, FromJson}
 
-struct Game {
+struct Game
     word: String
     guesses: List<String>
-}
+end
 
 derive ToJson for Game
 derive FromJson for Game
 
-enum Outcome {
+enum Outcome
     Won
     Lost
     Playing {left: Int}
-}
+end
 
 derive ToJson for Outcome
 derive FromJson for Outcome
 
 once alphabet = load_alphabet()
 
-fn load_alphabet() -> String {
+fn load_alphabet() -> String
     io.print("loading the alphabet")
     "abcdefghijklmnopqrstuvwxyz"
-}
+end
 
-export fn new_game(word: String) -> Game {
-    Game{word, guesses: []}
-}
+export fn new_game(word: String) -> Game
+    Game{word:, guesses: []}
+end
 
-export fn guess(game: Game, letter: String) -> Game {
-    .{..game, guesses: [letter, ..game.guesses]}
-}
+export fn guess(game: Game, letter: String) -> Game
+    {..game, guesses: [letter, ..game.guesses]}
+end
 
-export fn outcome(game: Game) -> Outcome {
+export fn outcome(game: Game) -> Outcome
     left = 6 - Iter.count(game.guesses)
-    if left <= 0 { Outcome.Lost } else { Outcome.Playing{left} }
-}
+    if left <= 0 then Outcome.Lost else Outcome.Playing{left:}
+end
 
-export fn describe(o: Outcome) -> String {
-    case o {
+export fn describe(o: Outcome) -> String
+    case o
         Outcome.Won -> "won"
         Outcome.Lost -> "lost"
-        Outcome.Playing{left} -> "${left} left"
-    }
-}
+        Outcome.Playing{left:} -> "${left} left"
+    end
+end
 
-export fn divide(a: Int, b: Int) -> Int {
+export fn divide(a: Int, b: Int) -> Int
     a / b
-}
+end
 
-export fn huge() -> Int {
+export fn huge() -> Int
     9007199254740993
-}
+end
 
-export fn shout(text: String) {
+export fn shout(text: String)
     io.print(String.uppercase(text))
-}
+end
 
-export fn letters() -> Int {
+export fn letters() -> Int
     String.length(alphabet)
-}
+end
 
-export fn mean(xs: List<Float>) -> Float {
+export fn mean(xs: List<Float>) -> Float
     Iter.reduce(xs, 0.0, fn sum, x -> sum + x) / Int.to_float(Iter.count(xs))
-}
+end
 
-export fn unique(xs: Vector<String>) -> Set<String> {
+export fn unique(xs: Vector<String>) -> Set<String>
     Iter.to_set(xs)
-}
+end
 `
 
 func start(t *testing.T, src string) (*vmrunner.Instance, *bytes.Buffer) {
@@ -173,7 +173,7 @@ func TestInstance_EachFailureIsAnErrorAndTheNextCallRuns(t *testing.T) {
 	callFails(t, in, "nope", `[]`, "no exported function `nope`; the exported functions are describe, divide, guess, huge, letters, mean, new_game, outcome, shout, unique")
 	callFails(t, in, "divide", `[1]`, "`divide(a: Int, b: Int) -> Int` takes 2 arguments, and was called with 1")
 	callFails(t, in, "divide", `{"a": 1}`, "the arguments to `divide(a: Int, b: Int) -> Int` must be a JSON array")
-	callFails(t, in, "divide", `[1, "2"]`, "argument `b` of `divide(a: Int, b: Int) -> Int`: expected int, got string")
+	callFails(t, in, "divide", `[1, "2"]`, "argument `b` of `divide(a: Int, b: Int) -> Int`: expected Int, got string")
 	callFails(t, in, "guess", `[{"word": "x"}, "e"]`, "argument `game` of `guess(game: Game, letter: String) -> Game`: guesses: expected List<String>, got missing")
 	callFails(t, in, "describe", `["Drawn"]`, `argument `+"`o`"+` of `+"`describe(o: Outcome) -> String`"+`: expected Outcome, got "Drawn"`)
 	// An Int crosses as its exact digits at any size, in both directions:
@@ -206,8 +206,8 @@ func TestInstance_PrintsAndSharesOnceValuesAcrossCalls(t *testing.T) {
 }
 
 func TestInstance_RunsMainFirst(t *testing.T) {
-	src := "import std::io\n\nonce count = counted()\n\nfn counted() -> Int {\n    io.print(\"counted\")\n    3\n}\n\n" +
-		"fn main() {\n    io.print(\"main ${count}\")\n}\n\nexport fn twice() -> Int {\n    count * 2\n}\n"
+	src := "import std::io\n\nonce count = counted()\n\nfn counted() -> Int\n    io.print(\"counted\")\n    3\nend\n\n" +
+		"fn main()\n    io.print(\"main ${count}\")\nend\n\nexport fn twice() -> Int\n    count * 2\nend\n"
 	in, out := start(t, src)
 	if got := call(t, in, "twice", `[]`); got != "6" {
 		t.Fatalf("twice answered %s", got)
@@ -221,7 +221,7 @@ func TestInstance_RunsMainFirst(t *testing.T) {
 }
 
 func TestInstance_AFailingMainIsTheStartError(t *testing.T) {
-	src := "fn main() -> Result<Unit, String> {\n    Err(\"no setup\")\n}\n\nexport fn one() -> Int {\n    1\n}\n"
+	src := "fn main() -> Result<Unit, String>\n    Err(\"no setup\")\nend\n\nexport fn one() -> Int\n    1\nend\n"
 	var out, errOut bytes.Buffer
 	_, err := vmrunner.Start(webImage(t, src), &out, &errOut, nil)
 	if err == nil || err.Error() != "error: no setup" {
@@ -233,8 +233,8 @@ func TestInstance_AFailingMainIsTheStartError(t *testing.T) {
 // an Instance, with the text `nomi run` prints, and the cleanup it
 // registered has run.
 func TestInstance_AFailingBootIsTheStartError(t *testing.T) {
-	src := "import std::io\n\nstruct App {\n    n: Int\n}\n\nfn boot() -> Result<App, String> {\n    defer io.print(\"cleanup\")\n    Err(\"no database\")\n}\n\n" +
-		"fn main() {\n    io.print(\"main ran\")\n}\n\nexport fn one() -> Int {\n    App.n\n}\n"
+	src := "import std::io\n\nstruct App\n    n: Int\nend\n\nfn boot() -> Result<App, String>\n    defer io.print(\"cleanup\")\n    Err(\"no database\")\nend\n\n" +
+		"fn main()\n    io.print(\"main ran\")\nend\n\nexport fn one() -> Int\n    App.n\nend\n"
 	for name, open := range map[string]func([]byte, *bytes.Buffer, *bytes.Buffer) (*vmrunner.Instance, error){
 		"Start": func(image []byte, out, errOut *bytes.Buffer) (*vmrunner.Instance, error) {
 			return vmrunner.Start(image, out, errOut, nil)
@@ -270,8 +270,8 @@ func TestInstance_ExportsListsSignatures(t *testing.T) {
 // Boot does not run main; Main runs it over the stdin Boot was given, as
 // often as it is asked, on the booted program.
 func TestInstance_BootLeavesMainToTheHost(t *testing.T) {
-	src := "import std::io\n\nfn main() {\n    case io.read_line() {\n        Ok(Some(line)) -> io.print(\"main read ${line}\")\n        _ -> io.print(\"main read nothing\")\n    }\n}\n\n" +
-		"export fn one() -> Int {\n    1\n}\n"
+	src := "import std::io\n\nfn main()\n    case io.read_line()\n        Ok(Some(line)) -> io.print(\"main read ${line}\")\n        _ -> io.print(\"main read nothing\")\n    end\nend\n\n" +
+		"export fn one() -> Int\n    1\nend\n"
 	var out, errOut bytes.Buffer
 	in, err := vmrunner.Boot(webImage(t, src), &out, &errOut, strings.NewReader("a line\n"), nil)
 	if err != nil {

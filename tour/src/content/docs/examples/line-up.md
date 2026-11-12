@@ -16,26 +16,26 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// The ticket message for the customer `name`, served `number`th today.
 //! assert format("Mary", 1) == "Mary, you are the 1st customer we serve today. Thank you!"
 //
-pub fn format(name: String, number: Int) -> String {
+pub fn format(name: String, number: Int) -> String
     "${name}, you are the ${number}${suffix(number)} customer we serve today. Thank you!"
-}
+end
 
 /// The English ordinal suffix of `number`: 1st, 2nd, 3rd, then th, except
 /// that 11, 12 and 13 take th in every hundred.
-fn suffix(number: Int) -> String {
-    case (number % 100, number % 10) {
+fn suffix(number: Int) -> String
+    case (number % 100, number % 10)
         (11 or 12 or 13, _) -> "th"
         (_, 1) -> "st"
         (_, 2) -> "nd"
         (_, 3) -> "rd"
         _ -> "th"
-    }
-}
+    end
+end
 
 // FILE: line_up_test.nomi
 import line_up
 
-test "format" {
+test "format"
     [
         ("format smallest non-exceptional ordinal numeral 4", "Gianna", 4, "4th"),
         ("format greatest single digit non-exceptional ordinal numeral 9", "Maarten", 9, "9th"),
@@ -93,11 +93,11 @@ test "format" {
             "972nd",
         ),
     ]
-    |> subtests (description, name, number, ordinal), description {
+    |> subtests (description, name, number, ordinal), description
         assert line_up.format(name, number)
             == "${name}, you are the ${ordinal} customer we serve today. Thank you!"
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok format (25 cases)

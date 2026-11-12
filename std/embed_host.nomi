@@ -2,11 +2,11 @@
 //# through the handle the machine gave it (rt.EmbeddedRead). It is
 //# internal; a program reads embedded files through std::embed's `Files`.
 
-import {
+import
     bytes.Bytes
     int.Int
     strings.String
-}
+end
 
 /// The contents of the embedded file `handle` names, whose path in its
 /// tree is `path`. A built program reads them from its image; `nomi run`

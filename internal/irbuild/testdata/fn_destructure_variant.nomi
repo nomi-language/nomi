@@ -35,75 +35,75 @@ import std::io
 //     at the literal, a bare `Extent{...}` at an argument is wrapped by
 //     coerce(); the pattern must address the embedded value either way.
 //     `extent_code` is called both ways for that reason.
-struct Extent {
+struct Extent
     wide: Int
     tall: Int
-}
+end
 
-enum Box {
+enum Box
     embeds Extent
-}
+end
 
 type Meters Int
 
-enum Distance {
+enum Distance
     embeds Meters
-}
+end
 
-struct Origin {
+struct Origin
     x: Int
     y: Int
-}
+end
 
-struct Frame {
+struct Frame
     at: Origin
     scale: Int
-}
+end
 
-enum Window {
+enum Window
     embeds Frame
-}
+end
 
 // A WRITTEN struct-shaped variant rather than an `embeds`, and the only variant,
 // which is what makes the pattern irrefutable.
-enum Cell {
+enum Cell
     Span {lo: Int, hi: Int}
-}
+end
 
 // The TUPLE-shaped sibling. Lowers already; here so the pair is visible.
-fn stretch(Distance.Meters(m)) -> Int {
+fn stretch(Distance.Meters(m)) -> Int
     m * 3
-}
+end
 
 // Punned brace-shaped `embeds`, read back non-commutatively.
-fn extent_code(Box.Extent{wide, tall}) -> Int {
+fn extent_code(Box.Extent{wide:, tall:}) -> Int
     wide * 100 + tall
-}
+end
 
 // Renamed AND permuted against the declaration order.
-fn ratio(Box.Extent{tall: a, wide: b}) -> String {
+fn ratio(Box.Extent{tall: a, wide: b}) -> String
     "${a}/${b}"
-}
+end
 
 // Nested one level below the embedded struct, with a wildcard beside it.
-fn originx(Window.Frame{at: Origin{x, y: _}, scale: _}) -> Int {
+fn originx(Window.Frame{at: Origin{x:, y: _}, scale: _}) -> Int
     x
-}
+end
 
 // A written struct-shaped variant: the fields are the enum's own slots. Written
-// `.{hi, lo}` against a `.{lo, hi}` declaration so a by-position slot lookup
+// `{hi, lo}` against a `{lo, hi}` declaration so a by-position slot lookup
 // answers -7 here instead of 7.
-fn span(Cell.Span{hi, lo}) -> Int {
+fn span(Cell.Span{hi:, lo:}) -> Int
     hi - lo
-}
+end
 
 // Non-leading position, so the anonymous parameter has to land in the right
 // slot.
-fn scaled(k: Int, Box.Extent{wide, tall}, bias: Int) -> Int {
+fn scaled(k: Int, Box.Extent{wide:, tall:}, bias: Int) -> Int
     k * (wide + tall) + bias
-}
+end
 
-fn main() {
+fn main()
     io.print("stretch = ${stretch(Distance.Meters(14))}")
     io.print("extent_code = ${extent_code(Box.Extent{wide: 6, tall: 7})}")
     io.print("ratio = ${ratio(Box.Extent{wide: 3, tall: 8})}")
@@ -119,8 +119,8 @@ fn main() {
 
     sums =
         boxes
-        |> Iter.map(fn Box.Extent{wide, tall} -> wide * 100 + tall)
+        |> Iter.map(fn Box.Extent{wide:, tall:} -> wide * 100 + tall)
         |> Iter.to_list()
 
     io.print("sums = ${sums}")
-}
+end

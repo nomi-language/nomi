@@ -490,7 +490,7 @@ func (g *gen) resolveIface(d *ifaceDef) {
 				continue
 			}
 			// paramKind, so a destructuring parameter (`(a, b): (Int, Int)`,
-			// `Point{x, y}`) has the kind its annotation or pattern head names;
+			// `Point{x:, y:}`) has the kind its annotation or pattern head names;
 			// a default body's prologue reads its names off that value.
 			m.params = append(m.params, g.paramKind(im.Params[j]))
 		}

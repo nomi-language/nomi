@@ -1,29 +1,29 @@
 import perfect_numbers
 
-test "Perfect numbers" {
+test "Perfect numbers"
     [
         ("Smallest perfect number is classified correctly", 6),
         ("Medium perfect number is classified correctly", 28),
         ("Large perfect number is classified correctly", 33550336),
     ]
-    |> subtests (description, number), description {
+    |> subtests (description, number), description
         assert perfect_numbers.classify(number) == Ok(.Perfect)
-    }
-}
+    end
+end
 
-test "Abundant numbers" {
+test "Abundant numbers"
     [
         ("Smallest abundant number is classified correctly", 12),
         ("Medium abundant number is classified correctly", 30),
         ("Large abundant number is classified correctly", 33550335),
         ("Perfect square abundant number is classified correctly", 196),
     ]
-    |> subtests (description, number), description {
+    |> subtests (description, number), description
         assert perfect_numbers.classify(number) == Ok(.Abundant)
-    }
-}
+    end
+end
 
-test "Deficient numbers" {
+test "Deficient numbers"
     [
         ("Smallest prime deficient number is classified correctly", 2),
         ("Smallest non-prime deficient number is classified correctly", 4),
@@ -31,17 +31,17 @@ test "Deficient numbers" {
         ("Large deficient number is classified correctly", 33550337),
         ("Edge case (no factors other than itself) is classified correctly", 1),
     ]
-    |> subtests (description, number), description {
+    |> subtests (description, number), description
         assert perfect_numbers.classify(number) == Ok(.Deficient)
-    }
-}
+    end
+end
 
-test "Invalid inputs" {
+test "Invalid inputs"
     [
         ("Zero is rejected (as it is not a positive integer)", 0),
         ("Negative integer is rejected (as it is not a positive integer)", -1),
     ]
-    |> subtests (description, number), description {
+    |> subtests (description, number), description
         assert perfect_numbers.classify(number) == Err(.NotPositive)
-    }
-}
+    end
+end

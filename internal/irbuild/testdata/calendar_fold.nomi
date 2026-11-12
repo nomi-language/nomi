@@ -36,16 +36,16 @@
 //
 // rt owns the projection (rt/calendar.go), so the pinned text in
 // stdfold_test.go is the guard for both properties.
-import {
+import
     std::calendar.{DateTime, Disambiguation, Error, NaiveDateTime}
     std::instant.Instant
     std::io
-}
+end
 
 // `?` inside `fn main()` is refused by the builder (`try boundary mismatch`:
 // a Unit-returning body cannot propagate), so the fallible half lives here and
 // main discharges it. A property of `main`, not of these types.
-fn run() -> Result<Unit, Error> {
+fn run() -> Result<Unit, Error>
     // 2026-11-01 01:30 in New York is the FOLD: clocks go back at 02:00 EDT, so
     // this wall reading happens twice, an hour apart.
     fold = NaiveDateTime"2026-11-01T01:30:00"?
@@ -82,11 +82,11 @@ fn run() -> Result<Unit, Error> {
     // rendering a std enum through its impl is a separate gap (`rendering a
     // non-scalar value`), and the variant is the stronger claim anyway — it pins
     // WHICH error where a rendered string could come from any of the five.
-    case DateTime.in_zone(fold, "America/New_York", Disambiguation.Reject) {
+    case DateTime.in_zone(fold, "America/New_York", Disambiguation.Reject)
         Ok(_d) -> io.print("fold_reject = unexpectedly ok")
         Err(Error.Ambiguous(m)) -> io.print("fold_reject = ambiguous: " + m)
         Err(_other) -> io.print("fold_reject = wrong variant")
-    }
+    end
 
     // --- the gap, which is the only place the DEFAULT is distinguishable -----
     gap_default = DateTime.in_zone(gap, "America/New_York")?
@@ -103,11 +103,11 @@ fn run() -> Result<Unit, Error> {
     io.print("gap_default_is_earlier = " + Bool.to_string(gap_default == gap_earlier))
     io.print("gap_default_is_later = " + Bool.to_string(gap_default == gap_later))
 
-    case DateTime.in_zone(gap, "America/New_York", Disambiguation.Reject) {
+    case DateTime.in_zone(gap, "America/New_York", Disambiguation.Reject)
         Ok(_d) -> io.print("gap_reject = unexpectedly ok")
         Err(Error.Nonexistent(m)) -> io.print("gap_reject = nonexistent: " + m)
         Err(_other) -> io.print("gap_reject = wrong variant")
-    }
+    end
 
     // --- two zones, one instant ---------------------------------------------
     // Re-projecting the post-transition reading into Tokyo changes every
@@ -117,11 +117,11 @@ fn run() -> Result<Unit, Error> {
     io.print("tokyo_equals_later = " + Bool.to_string(tokyo == fold_later))
     io.print("tokyo_equals_earlier = " + Bool.to_string(tokyo == fold_earlier))
     Ok(Unit)
-}
+end
 
-fn main() {
-    case run() {
+fn main()
+    case run()
         Ok(_u) -> Unit
         Err(_e) -> io.print("FAILED")
-    }
-}
+    end
+end

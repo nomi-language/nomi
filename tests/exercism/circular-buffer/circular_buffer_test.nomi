@@ -2,44 +2,47 @@ import circular_buffer.Buffer
 
 /// One canonical operation and what it should do: a write that succeeds or
 /// fails, a read of a given item or one that fails, a clear, an overwrite.
-enum Step {
+enum Step
     Write Int
     WriteFails Int
     Read Int
     ReadFails
     Clear
     Overwrite Int
-}
+end
 
 /// Runs each step's operation on a buffer of `capacity`, in turn, and
 /// returns the steps as they happened. A run that does what every step says
 /// returns the steps it was given.
-fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
+fn replay(capacity: Int, steps: List<Step>) -> List<Step>
     (_buffer, happened) =
         steps
-        |> Iter.map_reduce(Buffer.new(capacity), fn buffer, step -> {
-            case step {
+        |> Iter.map_reduce(Buffer.new(capacity), fn buffer, step ->
+            case step
                 .Write(item) or .WriteFails(item) ->
-                    case Buffer.write(buffer, item) {
+                    case Buffer.write(buffer, item)
                         Ok(written) -> (written, Step.Write(item))
                         Err(_) -> (buffer, .WriteFails(item))
-                    }
+                    end
 
                 .Read(_) or .ReadFails ->
-                    case Buffer.read(buffer) {
+                    case Buffer.read(buffer)
                         Ok((item, rest)) -> (rest, .Read(item))
                         Err(_) -> (buffer, .ReadFails)
-                    }
+                    end
 
-                .Clear -> (Buffer.clear(buffer), .Clear)
-                .Overwrite(item) -> (Buffer.overwrite(buffer, item), .Overwrite(item))
-            }
-        })
+                .Clear ->
+                    (Buffer.clear(buffer), .Clear)
+
+                .Overwrite(item) ->
+                    (Buffer.overwrite(buffer, item), .Overwrite(item))
+            end
+        end)
 
     happened
-}
+end
 
-test "circular buffer" {
+test "circular buffer"
     [
         ("reading empty buffer should fail", 1, [Step.ReadFails]),
         ("can read an item just written", 1, [.Write(1), .Read(1)]),
@@ -103,7 +106,7 @@ test "circular buffer" {
             ],
         ),
     ]
-    |> subtests (description, capacity, steps), description {
+    |> subtests (description, capacity, steps), description
         assert replay(capacity, steps) == steps
-    }
-}
+    end
+end

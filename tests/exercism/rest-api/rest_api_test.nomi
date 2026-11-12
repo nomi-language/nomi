@@ -1,7 +1,7 @@
-import {
+import
     std::json.Json
     rest_api.{RestApi, User, Users}
-}
+end
 
 once adam_and_bob = `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance":0.0},{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`
 
@@ -9,22 +9,22 @@ once bob_owes_chuck = `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance"
 
 once adam_owes_bob = `{"users":[{"name":"Adam","owes":{"Bob":3.0},"owed_by":{},"balance":-3.0},{"name":"Bob","owes":{},"owed_by":{"Adam":3.0},"balance":3.0}]}`
 
-group "user management" {
-    test "no users" {
+group "user management"
+    test "no users"
         api = RestApi.new(`{"users":[]}`)?
         answer = RestApi.get(api, "/users")?
-        assert Json.decode_as<Users>(answer) == Ok(.{users: []})
-    }
+        assert Json.decode_as<Users>(answer) == Ok({users: []})
+    end
 
-    test "add user" {
+    test "add user"
         api = RestApi.new(`{"users":[]}`)?
         (answer, _api) = RestApi.post(api, "/add", `{"user":"Adam"}`)?
         user: User = Json.decode_as(answer)?
 
-        assert user == .{name: "Adam", owes: %{}, owed_by: %{}, balance: 0.0}
-    }
+        assert user == {name: "Adam", owes: {}, owed_by: {}, balance: 0.0}
+    end
 
-    test "get single user" {
+    test "get single user"
         api = RestApi.new(adam_and_bob)?
         answer = RestApi.get(api, "/users", Some(`{"users":["Bob"]}`))?
         users: Users = Json.decode_as(answer)?
@@ -34,10 +34,10 @@ group "user management" {
         )?
 
         assert users == expected
-    }
-}
+    end
+end
 
-test "iou" {
+test "iou"
     [
         (
             "both users have 0 balance",
@@ -76,10 +76,10 @@ test "iou" {
             `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance":0.0},{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`,
         ),
     ]
-    |> subtests (description, database, payload, expected), description {
+    |> subtests (description, database, payload, expected), description
         assert Ok(api) = RestApi.new(database)
         assert Ok((answer, _api)) = RestApi.post(api, "/iou", payload)
         assert Ok(wanted) = Json.decode_as<Users>(expected)
         assert Json.decode_as<Users>(answer) == Ok(wanted)
-    }
-}
+    end
+end

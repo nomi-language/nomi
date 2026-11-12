@@ -19,56 +19,56 @@ func TestSiblingInstanceArgs_SolveAGenericCallersTypeParameter(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const shape = `pub interface Shape<T> {
+	const shape = `pub interface Shape<T>
     fn first(s: self) -> T
 
-    fn describe(s: self) -> String {
+    fn describe(s: self) -> String
         "first of ${Iter.count([first(s)])}"
-    }
-}
+    end
+end
 `
 	const pair = `import shape.Shape
 
-pub struct Pair<E> {
+pub struct Pair<E>
     a: E
     b: E
-}
+end
 
-impl Shape for Pair<E> {
-    fn first(p: Pair<E>) -> E {
+impl Shape for Pair<E>
+    fn first(p: Pair<E>) -> E
         p.a
-    }
-}
+    end
+end
 
-pub fn width<E>(p: Pair<E>) -> Int {
+pub fn width<E>(p: Pair<E>) -> Int
     Iter.count([p.a, p.b])
-}
+end
 `
 	const main = `import std::io
 import pair.{Pair, width}
 
-struct Point {
+struct Point
     x: Int
-}
+end
 
-fn show<T>(p: Pair<T>) -> String {
+fn show<T>(p: Pair<T>) -> String
     Pair.describe(p)
-}
+end
 
-fn firsts<T>(ps: List<Pair<T>>) -> List<T> {
+fn firsts<T>(ps: List<Pair<T>>) -> List<T>
     ps |> Iter.map(&Pair.first(&1)) |> Iter.to_list()
-}
+end
 
-fn total<T>(p: Pair<T>) -> Int {
+fn total<T>(p: Pair<T>) -> Int
     width(p) + 1
-}
+end
 
-fn main() {
+fn main()
     io.print(show(Pair{a: 1, b: 2}))
     io.print(show(Pair{a: Point{x: 1}, b: Point{x: 2}}))
     io.print(firsts([Pair{a: "x", b: "y"}, Pair{a: "z", b: "w"}]))
     io.print(total(Pair{a: True, b: False}))
-}
+end
 `
 	verifyLambdaProgram(t, main, "first of 1\nfirst of 1\n[x, z]\n3\n",
 		map[string]string{"shape.nomi": shape, "pair.nomi": pair})

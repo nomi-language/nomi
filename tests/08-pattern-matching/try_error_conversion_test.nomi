@@ -3,51 +3,51 @@
 // CONVERTED at the site, and the converted form runs and propagates exactly
 // the declared error type.
 //
-// This is the shape every laundering site converts to — `Result.map_err` is
-// the language's answer (spec §11 gained it for this purpose), not an implicit
-// widening at the boundary.
-enum ParseError {
+// `Result.map_err` converts at the site, for a conversion that is this
+// function's own; a `From` impl on the declared error type converts at every
+// `?` (try_from/).
+enum ParseError
     NotANumber String
     OutOfRange Int
-}
+end
 
-fn error_text(err: ParseError) -> String {
-    case err {
+fn error_text(err: ParseError) -> String
+    case err
         ParseError.NotANumber(s) -> "not a number: " + s
         ParseError.OutOfRange(n) -> "out of range: " + Int.to_string(n)
-    }
-}
+    end
+end
 
-fn parse_small(s: String) -> Result<Int, ParseError> {
-    case s {
+fn parse_small(s: String) -> Result<Int, ParseError>
+    case s
         "7" -> Ok(7)
         "999" -> Err(ParseError.OutOfRange(999))
         _ -> Err(ParseError.NotANumber(s))
-    }
-}
+    end
+end
 
 // The operand fails with a `ParseError`; this function declares `String`. The
 // conversion is written at the `?`.
-fn describe(s: String) -> Result<String, String> {
+fn describe(s: String) -> Result<String, String>
     n = Result.map_err(parse_small(s), &error_text(&1))?
 
     Ok("parsed " + Int.to_string(n))
-}
+end
 
 // The matching case needs no conversion: both sides are `Result<_, String>`.
-fn describe_twice(s: String) -> Result<String, String> {
+fn describe_twice(s: String) -> Result<String, String>
     first = describe(s)?
 
     Ok(first + " / " + first)
-}
+end
 
-test "a converted `?` propagates the DECLARED error type" {
+test "a converted `?` propagates the DECLARED error type"
     assert describe("7") == Ok("parsed 7")
     assert describe("abc") == Err("not a number: abc")
     assert describe("999") == Err("out of range: 999")
-}
+end
 
-test "a matching `?` needs no conversion" {
+test "a matching `?` needs no conversion"
     assert describe_twice("7") == Ok("parsed 7 / parsed 7")
     assert describe_twice("abc") == Err("not a number: abc")
-}
+end

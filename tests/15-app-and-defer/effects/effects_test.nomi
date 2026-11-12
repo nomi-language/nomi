@@ -1,6 +1,6 @@
 import std::compiler.{self, RunFile}
 
-test "effects app prints configured output" {
+test "effects app prints configured output"
     result = compiler.run_file(RunFile{entry_point: "main"})
 
     assert result == Ok(
@@ -25,4 +25,4 @@ test "effects app prints configured output" {
 
         """
     )
-}
+end

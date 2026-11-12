@@ -11,7 +11,7 @@
 //# lowercase hyphenated form. Two UUIDs compare by their 128 bits, as their
 //# text and their bytes do, so v7 identifiers sort by creation time.
 
-import {
+import
     bytes.{Byte, Bytes}
     code_points.Codepoint
     comparable.{Comparable, Ordering}
@@ -30,7 +30,7 @@ import {
     random.{self, Generator, Seed}
     results.Result.{self, Err, Ok}
     strings.String
-}
+end
 
 /// A UUID: 128 bits, held as two 64-bit halves.
 ///
@@ -40,16 +40,16 @@ import {
 //! assert Display.to_string(id) == "0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a"
 //! assert Uuid.version(id) == 7
 //
-pub opaque struct Uuid {
+pub opaque struct Uuid
     high: Int
     low: Int
-}
+end
 
 derive Equatable for Uuid
 derive Hashable for Uuid
 
 /// Why text or bytes are not a UUID. `index` counts characters from 0.
-pub enum Error {
+pub enum Error
     /// The text is not 36 characters, or the bytes are not 16.
     Length {length: Int}
 
@@ -58,31 +58,32 @@ pub enum Error {
 
     /// The character at `index` should be a hexadecimal digit.
     Digit {index: Int, found: String}
-}
+end
 
 derive Equatable for Error
 
-impl Display for Error {
-    fn to_string(e: Error) -> String {
-        case e {
-            Error.Length{length} -> "a UUID is 36 characters or 16 bytes, not ${length}"
+impl Display for Error
+    fn to_string(e: Error) -> String
+        case e
+            Error.Length{length:} ->
+                "a UUID is 36 characters or 16 bytes, not ${length}"
 
-            Error.Separator{index, found} ->
+            Error.Separator{index:, found:} ->
                 "expected `-` at index ${index} of a UUID, found `${found}`"
 
-            Error.Digit{index, found} ->
+            Error.Digit{index:, found:} ->
                 "expected a hexadecimal digit at index ${index} of a UUID, found `${found}`"
-        }
-    }
-}
+        end
+    end
+end
 
-impl Uuid {
+impl Uuid
     /// The nil UUID, all 128 bits zero.
     //! assert Display.to_string(Uuid.nil()) == "00000000-0000-0000-0000-000000000000"
     //
-    pub fn nil() -> Uuid {
+    pub fn nil() -> Uuid
         Uuid{high: 0, low: 0}
-    }
+    end
 
     /// The UUID whose 16 bytes, most significant first, are `data`, as
     /// `bytea` and `BLOB` columns hold it.
@@ -90,39 +91,39 @@ impl Uuid {
     //! assert Uuid.from_bytes(Uuid.to_bytes(id)) == Ok(id)
     //! assert Uuid.from_bytes(Bytes.from_list([])) == Err(Error.Length{length: 0})
     //
-    pub fn from_bytes(data: Bytes) -> Result<Uuid, Error> {
-        if Bytes.length(data) != 16 { return Err(Error.Length{length: Bytes.length(data)}) }
+    pub fn from_bytes(data: Bytes) -> Result<Uuid, Error>
+        if Bytes.length(data) != 16 then return Err(Error.Length{length: Bytes.length(data)})
 
         Ok(Uuid{high: read_half(data, 0), low: read_half(data, 8)})
-    }
+    end
 
     /// The 16 bytes of `id`, most significant first.
     //! assert Bytes.length(Uuid.to_bytes(Uuid.nil())) == 16
     //
-    pub fn to_bytes(id: Uuid) -> Bytes {
+    pub fn to_bytes(id: Uuid) -> Bytes
         Bytes.concat(half_bytes(id.high), half_bytes(id.low))
-    }
+    end
 
     /// The version field: 4 for a random UUID, 7 for a time-ordered one, 1
     /// to 8 for the others RFC 9562 defines, 0 for the nil UUID.
     //! assert Uuid.version(Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`) == 1
     //
-    pub fn version(id: Uuid) -> Int {
+    pub fn version(id: Uuid) -> Int
         id.high >>> 12 &&& 15
-    }
+    end
 
     /// A version 4 UUID: 122 random bits from the operating system's
     /// entropy source, with the version and the variant set. It is
-    /// `Err(.OsEntropy{reason})` when the entropy source is unavailable, as
+    /// `Err(.OsEntropy{reason:})` when the entropy source is unavailable, as
     /// `Seed.from_os` is.
     //! id = Uuid.v4()?
     //! assert Uuid.version(id) == 4
     //
-    pub fn v4() -> Result<Uuid, random.Error> {
+    pub fn v4() -> Result<Uuid, random.Error>
         high = random_int()?
         low = random_int()?
         Ok(Uuid{high: with_version(high, 4), low: with_variant(low)})
-    }
+    end
 
     /// A version 7 UUID: the Unix time in milliseconds from `Instant.now`
     /// in the first 48 bits, then the 74 bits that are not the version or
@@ -130,21 +131,21 @@ impl Uuid {
     /// milliseconds compare greater, so v7 keys keep a database index in
     /// insertion order; two made in the same millisecond are in random
     /// order. Under a test group's virtual clock the time is the virtual
-    /// one. It is `Err(.OsEntropy{reason})` when the entropy source is
+    /// one. It is `Err(.OsEntropy{reason:})` when the entropy source is
     /// unavailable, as `Seed.from_os` is.
     //! id = Uuid.v7()?
     //! assert Uuid.version(id) == 7
     //
-    pub fn v7() -> Result<Uuid, random.Error> {
+    pub fn v7() -> Result<Uuid, random.Error>
         millis = Instant.as_nanos(Instant.now()) / 1000000
         random_high = random_int()?
         low = random_int()?
         high = millis <<< 16 ||| random_high &&& 4095
         Ok(Uuid{high: with_version(high, 7), low: with_variant(low)})
-    }
-}
+    end
+end
 
-impl Parse<Error> for Uuid {
+impl Parse<Error> for Uuid
     /// Read the 36-character hyphenated form, in either case. Braces, a
     /// `urn:uuid:` prefix and the 32-digit form without hyphens are not
     /// accepted.
@@ -158,72 +159,72 @@ impl Parse<Error> for Uuid {
     //!
     //! assert Uuid.parse("6ba7b81g-9dad-11d1-80b4-00c04fd430c8") == Err(Error.Digit{index: 7, found: "g"})
     //
-    fn parse(text: String) -> Result<Uuid, Error> {
+    fn parse(text: String) -> Result<Uuid, Error>
         codepoints = String.to_codepoints(text)
         count = Iter.count(codepoints)
 
-        if count != 36 { return Err(Error.Length{length: count}) }
+        if count != 36 then return Err(Error.Length{length: count})
 
-        (_, high, low, failure) = Iter.reduce(codepoints, (0, 0, 0, None), fn acc, cp -> {
+        (_, high, low, failure) = Iter.reduce(codepoints, (0, 0, 0, None), fn acc, cp ->
             (index, high, low, failure) = acc
 
-            case failure {
+            case failure
                 Some(_) -> acc
                 None -> read_char(high, low, index, cp)
-            }
-        })
+            end
+        end)
 
-        case failure {
+        case failure
             Some(e) -> Err(e)
-            None -> Ok(Uuid{high, low})
-        }
-    }
-}
+            None -> Ok(Uuid{high:, low:})
+        end
+    end
+end
 
-impl Comparable for Uuid {
+impl Comparable for Uuid
     /// By the 128 bits as an unsigned number, which is the order of the
     /// text and of the bytes.
     //! assert Uuid`00000000-0000-0000-0000-000000000001` < Uuid`ffffffff-0000-0000-0000-000000000000`
     //
-    fn compare(a: Uuid, b: Uuid) -> Ordering {
-        case Int.compare(unsigned_key(a.high), unsigned_key(b.high)) {
+    fn compare(a: Uuid, b: Uuid) -> Ordering
+        case Int.compare(unsigned_key(a.high), unsigned_key(b.high))
             Ordering.Equal -> Int.compare(unsigned_key(a.low), unsigned_key(b.low))
             order -> order
-        }
-    }
-}
+        end
+    end
+end
 
-impl Literal for Uuid {
+impl Literal for Uuid
     /// ``Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8` `` is the UUID
     /// `Uuid.parse` reads from its text. A raw literal is checked when the
     /// program is checked, so a malformed one is a compile error at the
     /// literal.
-    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Uuid, Error> {
-        body = Iter.reduce(fragments, "", fn acc, frag -> {
-            case frag {
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Uuid, Error>
+        body = Iter.reduce(fragments, "", fn acc, frag ->
+            case frag
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
-            }
-        })
+            end
+        end)
 
         Uuid.parse(body)
-    }
-}
+    end
+end
 
 // JSON: here rather than in std/json because uuid is lowered with each
 // program (internal/irbuild/programstd.go), and std/json, lowered once for
 // the process, may not import it.
-impl ToJson for Uuid {
+impl ToJson for Uuid
     /// Writes the canonical lowercase text, 8-4-4-4-12 hex digits.
     //! id = Uuid`6BA7B810-9DAD-11D1-80B4-00C04FD430C8`
     //! assert ToJson.to_json(id) == Json.String("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
     //
-    fn to_json(value: Uuid) -> Json {
+    fn to_json(value: Uuid) -> Json
         Json.String(Display.to_string(value))
-    }
-}
+    end
+end
 
-impl FromJson for Uuid {
+impl FromJson for Uuid
     /// Reads UUID text in either case.
     //! id = Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`
     //! assert Uuid.from_json(ToJson.to_json(id)) == Ok(id)
@@ -233,26 +234,27 @@ impl FromJson for Uuid {
     //!     "expected UUID as 8-4-4-4-12 hex digits, got string \"6ba7b810\""
     //! )
     //
-    fn from_json(json: Json) -> Result<Uuid, Json.ShapeError> {
+    fn from_json(json: Json) -> Result<Uuid, Json.ShapeError>
         expected = "UUID as 8-4-4-4-12 hex digits"
 
-        case json {
+        case json
             Json.String(text) ->
                 Uuid.parse(text)
                 |> Result.map_err(fn _ -> Json.ShapeError{
                     path: [],
-                    expected,
+                    expected:,
                     got: "string ${Debug.inspect(text)}",
                 })
 
-            _ -> Err(shape_error_root(expected, json))
-        }
-    }
-}
+            _ ->
+                Err(shape_error_root(expected, json))
+        end
+    end
+end
 
-impl Display for Uuid {
+impl Display for Uuid
     /// The lowercase hyphenated form.
-    fn to_string(id: Uuid) -> String {
+    fn to_string(id: Uuid) -> String
         high = hex(id.high, 16)
         low = hex(id.low, 16)
 
@@ -261,15 +263,15 @@ impl Display for Uuid {
             12,
             16,
         ) + "-" + String.slice(low, 0, 4) + "-" + String.slice(low, 4, 16)
-    }
-}
+    end
+end
 
-impl Debug for Uuid {
+impl Debug for Uuid
     /// The raw literal that builds the UUID.
-    fn inspect(id: Uuid) -> String {
+    fn inspect(id: Uuid) -> String
         "Uuid`${id}`"
-    }
-}
+    end
+end
 
 // Each half is a signed 64-bit Int, as Int.wrapping_mul and the other 64-bit
 // functions leave one.
@@ -277,92 +279,93 @@ once sign_bit = -9_223_372_036_854_775_808
 
 // Each half flips its sign bit, so Int's signed order is the unsigned order
 // of the bits.
-fn unsigned_key(half: Int) -> Int {
+fn unsigned_key(half: Int) -> Int
     half ^^^ sign_bit
-}
+end
 
 // One character of the 36: a hyphen at 8, 13, 18 and 23, otherwise a digit
 // shifted into the half it belongs to (the first 16 digits are the high
 // half).
-fn read_char(high: Int, low: Int, index: Int, cp: Codepoint) -> (Int, Int, Int, Maybe<Error>) {
+fn read_char(high: Int, low: Int, index: Int, cp: Codepoint) -> (Int, Int, Int, Maybe<Error>)
     found = Display.to_string(cp)
     next = index + 1
 
-    if index == 8 or index == 13 or index == 18 or index == 23 {
-        if found == "-" { return (next, high, low, None) }
+    if index == 8 or index == 13 or index == 18 or index == 23 then
+        if found == "-" then return (next, high, low, None)
 
-        return (next, high, low, Some(Error.Separator{index, found}))
-    }
+        return (next, high, low, Some(Error.Separator{index:, found:}))
+    end
 
-    case hex_value(Codepoint.to_int(cp)) {
-        None -> (next, high, low, Some(Error.Digit{index, found}))
+    case hex_value(Codepoint.to_int(cp))
+        None ->
+            (next, high, low, Some(Error.Digit{index:, found:}))
 
         Some(digit) ->
-            if index < 19 {
+            if index < 19 then
                 (next, Int.wrapping_mul(high, 16) ||| digit, low, None)
-            } else {
+            else
                 (next, high, Int.wrapping_mul(low, 16) ||| digit, None)
-            }
-    }
-}
+            end
+    end
+end
 
-fn hex_value(code: Int) -> Maybe<Int> {
-    if code >= 48 and code <= 57 {
+fn hex_value(code: Int) -> Maybe<Int>
+    if code >= 48 and code <= 57 then
         Some(code - 48)
-    } else if code >= 97 and code <= 102 {
+    else if code >= 97 and code <= 102 then
         Some(code - 87)
-    } else if code >= 65 and code <= 70 {
+    else if code >= 65 and code <= 70 then
         Some(code - 55)
-    } else {
+    else
         None
-    }
-}
+    end
+end
 
 // The low `count` hexadecimal digits of n, most significant first.
-fn hex(n: Int, count: Int) -> String {
+fn hex(n: Int, count: Int) -> String
     0..count
     |> Iter.map(fn i -> hex_digit(n >>> ((count - 1 - i) * 4) &&& 15))
     |> String.join()
-}
+end
 
-fn hex_digit(d: Int) -> String {
+fn hex_digit(d: Int) -> String
     String.slice("0123456789abcdef", d, d + 1)
-}
+end
 
 // Eight bytes from start as one half. from_bytes has checked there are 16, so
 // no byte is missing.
-fn read_half(data: Bytes, start: Int) -> Int {
-    Iter.reduce(start..start + 8, 0, fn acc, i -> {
-        byte = case Bytes.get(data, i) {
+fn read_half(data: Bytes, start: Int) -> Int
+    Iter.reduce(start..start + 8, 0, fn acc, i ->
+        byte = case Bytes.get(data, i)
             Some(b) -> Byte.to_int(b)
             None -> 0
-        }
+        end
 
         Int.wrapping_mul(acc, 256) ||| byte
-    })
-}
+    end)
+end
 
-fn half_bytes(half: Int) -> Bytes {
+fn half_bytes(half: Int) -> Bytes
     0..8
     |> Iter.flat_map(fn i -> Int.to_byte(half >>> ((7 - i) * 8) &&& 255))
     |> Iter.to_list()
     |> Bytes.from_list()
-}
+end
 
 // 64 bits from a fresh OS-entropy seed. The generator's first draw over the
 // whole of Int is a bijection of the seed, so the bits are the entropy's.
-fn random_int() -> Result<Int, random.Error> {
+fn random_int() -> Result<Int, random.Error>
     seed = Seed.from_os()?
     (n, _) = Generator.step(Generator.int(sign_bit, -1 - sign_bit), seed)
     Ok(n)
-}
+end
 
 // The version in bits 48 to 51 of the high half.
-fn with_version(high: Int, version: Int) -> Int {
+fn with_version(high: Int, version: Int) -> Int
     high &&& ~~~61440 ||| version <<< 12
-}
+end
 
 // The RFC 9562 variant, binary 10, in the top two bits of the low half.
-fn with_variant(low: Int) -> Int {
+fn with_variant(low: Int) -> Int
     low &&& 4_611_686_018_427_387_903 ||| sign_bit
-}
+end

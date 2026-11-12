@@ -15,35 +15,35 @@ func TestIterMaybeTerminalsOverInterfaceElements(t *testing.T) {
 	}
 	irRunSource(t, `import std::io
 
-interface Named {
+interface Named
     fn name(n: self) -> String
-}
+end
 
-struct A {
+struct A
     s: String
-}
+end
 
-impl Named for A {
-    fn name(n: A) -> String {
+impl Named for A
+    fn name(n: A) -> String
         n.s
-    }
-}
+    end
+end
 
-struct B {
+struct B
     k: Int
-}
+end
 
-impl Named for B {
-    fn name(n: B) -> String {
+impl Named for B
+    fn name(n: B) -> String
         "b${n.k}"
-    }
-}
+    end
+end
 
-fn shown(m: Maybe<Named>) -> String {
+fn shown(m: Maybe<Named>) -> String
     m |> Maybe.map(&Named.name(&1)) |> Maybe.with_default("none")
-}
+end
 
-fn main() {
+fn main()
     xs: List<Named> = [A{s: "x"}, B{k: 2}, A{s: "y"}]
     io.print(shown(xs |> Iter.find(fn n -> Named.name(n) == "b2")))
     io.print(shown(xs |> Iter.find(fn n -> Named.name(n) == "zz")))
@@ -59,7 +59,7 @@ fn main() {
     io.print(Int.to_string(xs |> Iter.count()))
     p = "<"
     io.print(xs |> Iter.map(fn n -> p + Named.name(n)) |> String.join(""))
-}
+end
 `, "b2\nnone\nx\ny\nb2\nnone\nnone\nb2,y\nTrue\nFalse\n3\n<x<b2<y\n")
 }
 
@@ -73,21 +73,21 @@ func TestIterMaybeTerminalsOverFunctionElements(t *testing.T) {
 	}
 	irRunSource(t, `import std::io
 
-struct Foo {
+struct Foo
     n: Int
-}
+end
 
-fn at(m: Maybe<(Foo) -> Foo>) -> Int {
+fn at(m: Maybe<(Foo) -> Foo>) -> Int
     m |> Maybe.map(fn h -> h(Foo{n: 4}).n) |> Maybe.with_default(-1)
-}
+end
 
-fn main() {
+fn main()
     hs: List<(Foo) -> Foo> = [fn f -> Foo{n: f.n + 1}, fn f -> Foo{n: f.n * 10}]
     io.print(Int.to_string(at(Iter.get(hs, 1))))
     io.print(Int.to_string(at(Iter.get(hs, 5))))
     io.print(Int.to_string(at(Iter.first(hs))))
     io.print(Int.to_string(at(Iter.last(hs))))
     io.print(Int.to_string(at(Iter.find(hs, fn h -> h(Foo{n: 1}).n == 2))))
-}
+end
 `, "40\n-1\n5\n40\n5\n")
 }

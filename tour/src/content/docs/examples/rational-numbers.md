@@ -15,90 +15,90 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// A fraction kept in lowest terms with a positive denominator, so two
 /// equal rationals have the same fields and `==` compares them.
-pub opaque struct Rational {
+pub opaque struct Rational
     numerator: Int
     denominator: Int
-}
+end
 
-impl Rational {
+impl Rational
     /// `numerator / denominator` in lowest terms. The denominator is a
     /// divisor the caller chose, so a zero one traps as `/` does: the
     /// reduction divides by it.
-    pub fn new(numerator: Int, denominator: Int) -> Rational {
+    pub fn new(numerator: Int, denominator: Int) -> Rational
         common = Int.gcd(numerator, denominator) * Int.sign(denominator)
-        .{numerator: numerator / common, denominator: denominator / common}
-    }
+        {numerator: numerator / common, denominator: denominator / common}
+    end
 
-    pub fn numerator(r: Rational) -> Int {
+    pub fn numerator(r: Rational) -> Int
         r.numerator
-    }
+    end
 
-    pub fn denominator(r: Rational) -> Int {
+    pub fn denominator(r: Rational) -> Int
         r.denominator
-    }
+    end
 
-    pub fn abs(r: Rational) -> Rational {
-        .{..r, numerator: Int.abs(r.numerator)}
-    }
+    pub fn abs(r: Rational) -> Rational
+        {..r, numerator: Int.abs(r.numerator)}
+    end
 
     /// `r` to the power `exponent`. A negative exponent raises the
     /// reciprocal, so zero to a negative power traps as division by zero
     /// does.
-    pub fn pow(r: Rational, exponent: Int) -> Rational {
-        if exponent >= 0 {
+    pub fn pow(r: Rational, exponent: Int) -> Rational
+        if exponent >= 0 then
             Rational.new(Int.pow(r.numerator, exponent), Int.pow(r.denominator, exponent))
-        } else {
+        else
             Rational.new(Int.pow(r.denominator, -exponent), Int.pow(r.numerator, -exponent))
-        }
-    }
+        end
+    end
 
     /// `base` to the power `r`: the `r.denominator`th root of `base` to the
     /// power `r.numerator`.
-    pub fn raise(base: Float, r: Rational) -> Float {
+    pub fn raise(base: Float, r: Rational) -> Float
         Float.pow(base, Int.to_float(r.numerator) / Int.to_float(r.denominator))
-    }
-}
+    end
+end
 
-impl Add<Rational, Rational> for Rational {
-    fn add(lhs: Rational, rhs: Rational) -> Rational {
+impl Add<Rational, Rational> for Rational
+    fn add(lhs: Rational, rhs: Rational) -> Rational
         Rational.new(
             lhs.numerator * rhs.denominator + rhs.numerator * lhs.denominator,
             lhs.denominator * rhs.denominator,
         )
-    }
-}
+    end
+end
 
-impl Subtract<Rational, Rational> for Rational {
-    fn subtract(lhs: Rational, rhs: Rational) -> Rational {
+impl Subtract<Rational, Rational> for Rational
+    fn subtract(lhs: Rational, rhs: Rational) -> Rational
         Rational.new(
             lhs.numerator * rhs.denominator - rhs.numerator * lhs.denominator,
             lhs.denominator * rhs.denominator,
         )
-    }
-}
+    end
+end
 
-impl Multiply<Rational, Rational> for Rational {
-    fn multiply(lhs: Rational, rhs: Rational) -> Rational {
+impl Multiply<Rational, Rational> for Rational
+    fn multiply(lhs: Rational, rhs: Rational) -> Rational
         Rational.new(lhs.numerator * rhs.numerator, lhs.denominator * rhs.denominator)
-    }
-}
+    end
+end
 
-impl Divide<Rational, Rational> for Rational {
+impl Divide<Rational, Rational> for Rational
     /// Dividing by zero traps, as `/` on `Int` does.
-    fn divide(lhs: Rational, rhs: Rational) -> Rational {
+    fn divide(lhs: Rational, rhs: Rational) -> Rational
         Rational.new(lhs.numerator * rhs.denominator, lhs.denominator * rhs.numerator)
-    }
-}
+    end
+end
 
 // FILE: rational_numbers_test.nomi
 import rational_numbers.Rational
 
 /// The rational a canonical `[numerator, denominator]` pair writes.
-fn rational((numerator, denominator): (Int, Int)) -> Rational {
+fn rational((numerator, denominator): (Int, Int)) -> Rational
     Rational.new(numerator, denominator)
-}
+end
 
-test "addition" {
+test "addition"
     [
         ("Add two positive rational numbers", (1, 2), (2, 3), (7, 6)),
         (
@@ -110,12 +110,12 @@ test "addition" {
         ("Add two negative rational numbers", (-1, 2), (-2, 3), (-7, 6)),
         ("Add a rational number to its additive inverse", (1, 2), (-1, 2), (0, 1)),
     ]
-    |> subtests (description, a, b, expected), description {
+    |> subtests (description, a, b, expected), description
         assert rational(a) + rational(b) == rational(expected)
-    }
-}
+    end
+end
 
-test "subtraction" {
+test "subtraction"
     [
         ("Subtract two positive rational numbers", (1, 2), (2, 3), (-1, 6)),
         (
@@ -127,12 +127,12 @@ test "subtraction" {
         ("Subtract two negative rational numbers", (-1, 2), (-2, 3), (1, 6)),
         ("Subtract a rational number from itself", (1, 2), (1, 2), (0, 1)),
     ]
-    |> subtests (description, a, b, expected), description {
+    |> subtests (description, a, b, expected), description
         assert rational(a) - rational(b) == rational(expected)
-    }
-}
+    end
+end
 
-test "multiplication" {
+test "multiplication"
     [
         ("Multiply two positive rational numbers", (1, 2), (2, 3), (1, 3)),
         (
@@ -146,12 +146,12 @@ test "multiplication" {
         ("Multiply a rational number by 1", (1, 2), (1, 1), (1, 2)),
         ("Multiply a rational number by 0", (1, 2), (0, 1), (0, 1)),
     ]
-    |> subtests (description, a, b, expected), description {
+    |> subtests (description, a, b, expected), description
         assert rational(a) * rational(b) == rational(expected)
-    }
-}
+    end
+end
 
-test "division" {
+test "division"
     [
         ("Divide two positive rational numbers", (1, 2), (2, 3), (3, 4)),
         (
@@ -163,12 +163,12 @@ test "division" {
         ("Divide two negative rational numbers", (-1, 2), (-2, 3), (3, 4)),
         ("Divide a rational number by 1", (1, 2), (1, 1), (1, 2)),
     ]
-    |> subtests (description, a, b, expected), description {
+    |> subtests (description, a, b, expected), description
         assert rational(a) / rational(b) == rational(expected)
-    }
-}
+    end
+end
 
-test "absolute value" {
+test "absolute value"
     [
         ("Absolute value of a positive rational number", (1, 2), (1, 2)),
         (
@@ -185,12 +185,12 @@ test "absolute value" {
         ("Absolute value of zero", (0, 1), (0, 1)),
         ("Absolute value of a rational number is reduced to lowest terms", (2, 4), (1, 2)),
     ]
-    |> subtests (description, r, expected), description {
+    |> subtests (description, r, expected), description
         assert Rational.abs(rational(r)) == rational(expected)
-    }
-}
+    end
+end
 
-test "a rational to an integer power" {
+test "a rational to an integer power"
     [
         ("Raise a positive rational number to a positive integer power", (1, 2), 3, (1, 8)),
         ("Raise a negative rational number to a positive integer power", (-1, 2), 3, (-1, 8)),
@@ -212,23 +212,23 @@ test "a rational to an integer power" {
         ("Raise a positive rational number to the power of zero", (1, 2), 0, (1, 1)),
         ("Raise a negative rational number to the power of zero", (-1, 2), 0, (1, 1)),
     ]
-    |> subtests (description, r, n, expected), description {
+    |> subtests (description, r, n, expected), description
         assert Rational.pow(rational(r), n) == rational(expected)
-    }
-}
+    end
+end
 
-test "a real number to a rational power" {
+test "a real number to a rational power"
     [
         ("Raise a real number to a positive rational number", 8.0, (4, 3), 16.0),
         ("Raise a real number to a negative rational number", 9.0, (-1, 2), 0.3333333333333333),
         ("Raise a real number to a zero rational number", 2.0, (0, 1), 1.0),
     ]
-    |> subtests (description, x, r, expected), description {
+    |> subtests (description, x, r, expected), description
         assert x |> Rational.raise(rational(r)) |> Float.equal_within(expected, 1e-12)
-    }
-}
+    end
+end
 
-test "reduction to lowest terms" {
+test "reduction to lowest terms"
     [
         ("Reduce a positive rational number to lowest terms", (2, 4), (1, 2)),
         ("Reduce places the minus sign on the numerator", (3, -4), (-3, 4)),
@@ -242,11 +242,11 @@ test "reduction to lowest terms" {
         ("Reduce an integer to lowest terms", (-14, 7), (-2, 1)),
         ("Reduce one to lowest terms", (13, 13), (1, 1)),
     ]
-    |> subtests (description, r, expected), description {
+    |> subtests (description, r, expected), description
         reduced = rational(r)
         assert (Rational.numerator(reduced), Rational.denominator(reduced)) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok addition (4 cases)

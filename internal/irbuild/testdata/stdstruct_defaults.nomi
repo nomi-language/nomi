@@ -57,34 +57,34 @@
 // rt's Go type and checks every field's name, order and type against std's
 // declaration, so a permuted or renamed field produces no anchor at all. The
 // field reads below are what would disagree if the layout were wrong.
-import {
+import
     std::assertions.AssertionDetail
     std::assertions.AssertionDetails
     std::io
-}
+end
 
 // shown renders a Maybe<String> without depending on Debug's layout, so the
 // `actual` rows stay readable when they are wrong. A tagless zero Maybe matches
 // neither arm, which is the failure this spelling exposes.
-fn shown(m: Maybe<String>) -> String {
-    case m {
+fn shown(m: Maybe<String>) -> String
+    case m
         Some(s) -> "Some(" + s + ")"
         None -> "None"
-    }
-}
+    end
+end
 
 // labels reads the detail list by SHAPE. An empty list and a nil list share a
 // count, so a count cannot separate them; matching `[]` can, because a nil list
 // that failed to match would fall through to the next arm.
-fn labels(ds: List<AssertionDetail>) -> String {
-    case ds {
+fn labels(ds: List<AssertionDetail>) -> String
+    case ds
         [] -> "[]"
         [one] -> one.label
         [first, ..] -> first.label + "+more"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     // --- EVERY default taken ------------------------------------------------
     all_defaults = AssertionDetails{}
     io.print("all.reason = " + all_defaults.reason)
@@ -124,4 +124,4 @@ fn main() {
     io.print("explicit.reason = " + explicit.reason)
     io.print("explicit.actual = " + shown(explicit.actual))
     io.print("explicit.details = " + labels(explicit.details))
-}
+end

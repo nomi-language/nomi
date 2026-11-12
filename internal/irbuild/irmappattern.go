@@ -20,7 +20,7 @@ import (
 // A key sees the names in scope before the pattern, never a name the pattern
 // itself binds, because the checker resolves it there (analysis/builder.go
 // walks every key of a map pattern before it defines the pattern's names).
-// In `%{"mode" => a, a => b}` the second key is the `a` bound before the
+// In `{"mode" => a, a => b}` the second key is the `a` bound before the
 // pattern. Each key is lowered in a copy of the scope the pattern started in
 // (mapKeyScope), so a name an earlier entry bound is not visible to it.
 //
@@ -28,7 +28,7 @@ import (
 // about the rest, so `{}` matches every map.
 //
 // A missing key or a failed value test selects the next arm, or the `else`
-// of a binding (`%{"k" => v} = m else { ... }`): a map pattern is refutable.
+// of a binding (`{"k" => v} = m else ... end`): a map pattern is refutable.
 
 // mapEntryGet lowers one entry's key and looks it up in subj: the Maybe the
 // lookup answers, its kind and its Some variant.
@@ -38,7 +38,7 @@ func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNo
 	}
 	keyK, valK := mk.comp.parts[0], mk.comp.parts[1]
 	// A key of another type than the map's can never be found, and the
-	// checker admits it (`%{Color.Blue => v}` over a Map<Bool, String>): the
+	// checker admits it (`{Color.Blue => v}` over a Map<Bool, String>): the
 	// lookup is made anyway and misses, so the key
 	// expression still runs.
 	var key ir.Temp
@@ -209,41 +209,44 @@ func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k k
 		}
 		return bl.enumCaseTest(p, value, k, arm, next)
 	case *ast.ListPattern:
-		if irDistinctOverKind(k, tagList) {
-			return bl.nominalCaseTest(p, value, k, arm, next)
-		}
-		if p.TypeName != nil {
-			if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
+		switch p.Kind {
+		case ast.SeqVector:
+			if irDistinctOverVector(k) {
+				return bl.nominalCaseTest(p, value, k, arm, next)
+			}
+			if p.TypeName != nil {
+				if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
+					return false
+				}
+				return bl.enumCaseTest(p, value, k, arm, next)
+			}
+			return irVectorCaseKind(k) && bl.vectorCaseTest(p, value, k, arm, next)
+		case ast.SeqSet:
+			if irDistinctOverSet(k) {
+				return bl.nominalCaseTest(p, value, k, arm, next)
+			}
+			if p.TypeName != nil {
+				if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
+					return false
+				}
+				return bl.enumCaseTest(p, value, k, arm, next)
+			}
+			return irSetCaseKind(k) && bl.setCaseTest(p, value, k, arm, next)
+		default:
+			if irDistinctOverKind(k, tagList) {
+				return bl.nominalCaseTest(p, value, k, arm, next)
+			}
+			if p.TypeName != nil {
+				if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
+					return false
+				}
+				return bl.enumCaseTest(p, value, k, arm, next)
+			}
+			if !irRetainedListKind(k) && !irListTransportKind(k) {
 				return false
 			}
-			return bl.enumCaseTest(p, value, k, arm, next)
+			return bl.listCaseTest(p, value, k, arm, next)
 		}
-		if !irRetainedListKind(k) && !irListTransportKind(k) {
-			return false
-		}
-		return bl.listCaseTest(p, value, k, arm, next)
-	case *ast.VectorPattern:
-		if irDistinctOverVector(k) {
-			return bl.nominalCaseTest(p, value, k, arm, next)
-		}
-		if p.TypeName != nil {
-			if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
-				return false
-			}
-			return bl.enumCaseTest(p, value, k, arm, next)
-		}
-		return irVectorCaseKind(k) && bl.vectorCaseTest(p, value, k, arm, next)
-	case *ast.SetPattern:
-		if irDistinctOverSet(k) {
-			return bl.nominalCaseTest(p, value, k, arm, next)
-		}
-		if p.TypeName != nil {
-			if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
-				return false
-			}
-			return bl.enumCaseTest(p, value, k, arm, next)
-		}
-		return irSetCaseKind(k) && bl.setCaseTest(p, value, k, arm, next)
 	}
 	return false
 }

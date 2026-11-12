@@ -4,7 +4,7 @@ import std::io
 // `==`. Prints from inside the element expressions so a reordering cannot pass:
 // a cons chain nests the LAST element innermost, and if that decided evaluation
 // order these lines would come out backwards.
-fn main() {
+fn main()
     io.print("${[1, 2, 3]}")
     io.print("${["hello", "world"]}")
     io.print("${[True, 4.5 > 1.0]}")
@@ -51,38 +51,38 @@ fn main() {
     io.print("${flagged(["--verbose", "file.txt"])}")
     io.print("${flagged(["file.txt"])}")
     io.print("${order([note(1), note(2), note(3)])}")
-}
+end
 
-fn note(n: Int) -> Int {
+fn note(n: Int) -> Int
     io.print("evaluating ${n}")
     n
-}
+end
 
-fn order(xs: List<Int>) -> String {
+fn order(xs: List<Int>) -> String
     "${xs}"
-}
+end
 
-fn sum(xs: List<Int>) -> Int {
-    case xs {
+fn sum(xs: List<Int>) -> Int
+    case xs
         [] -> 0
         [h, ..t] -> h + sum(t)
-    }
-}
+    end
+end
 
 // Exact-length arms sit between spread arms deliberately: arm order is
 // observable, and `[a, b]` must NOT match a three-element list.
-fn describe(xs: List<Int>) -> String {
-    case xs {
+fn describe(xs: List<Int>) -> String
+    case xs
         [] -> "empty"
         [a] -> "one: ${a}"
         [a, b] -> "two: ${a} and ${b}"
         [a, ..rest] -> "first ${a}, rest ${rest}"
-    }
-}
+    end
+end
 
-fn flagged(args: List<String>) -> String {
-    case args {
+fn flagged(args: List<String>) -> String
+    case args
         ["--verbose", ..rest] -> "verbose with ${rest}"
         _ -> "plain ${args}"
-    }
-}
+    end
+end

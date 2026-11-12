@@ -16,14 +16,14 @@
 // decoration either — the default's VALUE is an enum variant resolved in the
 // DECLARING file's scope, so a fill that resolved it in the caller's scope
 // answers `unknown variant` for a program whose `Mode` is not imported.
-import {
+import
     std::io
     engine.{Engine, Mode, Powered}
-}
+end
 
-fn main() {
+fn main()
     e = Engine{name: "v8"}
     io.print(Powered.describe(e))
     io.print(Powered.describe(e, Mode.Slow))
     io.print(Powered.label(e))
-}
+end

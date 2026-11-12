@@ -1,6 +1,6 @@
 import intergalactic_transmission.{receive, transmit}
 
-test "calculate transmit sequences" {
+test "calculate transmit sequences"
     [
         ("empty message", [], []),
         ("0x00 is transmitted as 0x0000", [0x00], [0x00, 0x00]),
@@ -40,12 +40,12 @@ test "calculate transmit sequences" {
             ],
         ),
     ]
-    |> subtests (description, message, expected), description {
+    |> subtests (description, message, expected), description
         assert transmit(message) == expected
-    }
-}
+    end
+end
 
-test "decode received messages" {
+test "decode received messages"
     [
         ("empty message", [], Ok([])),
         ("zero message", [0x00, 0x00], Ok([0x00])),
@@ -96,7 +96,7 @@ test "decode received messages" {
             Err("wrong parity"),
         ),
     ]
-    |> subtests (description, transmission, expected), description {
+    |> subtests (description, transmission, expected), description
         assert receive(transmission) == expected
-    }
-}
+    end
+end

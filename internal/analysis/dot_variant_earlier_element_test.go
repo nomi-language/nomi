@@ -11,11 +11,11 @@ import (
 // against the enum an earlier element of the same position fixes, as
 // Swift's `[Color.red, .green]` does (spec, "Variant resolution").
 
-const earlierElemDecls = "enum N {\n  A\n  C\n  G\n}\n\nenum M {\n  A\n  C\n  Z\n}\n\nderive Equatable for N\nderive Hashable for N\n\n"
+const earlierElemDecls = "enum N\n  A\n  C\n  G\nend\n\nenum M\n  A\n  C\n  Z\nend\n\nderive Equatable for N\nderive Hashable for N\n\n"
 
 func checkEarlierElem(t *testing.T, body string) []string {
 	t.Helper()
-	_, errs := checkSourceWithStdlib(earlierElemDecls + "fn main() {\n" + body + "\n}\n")
+	_, errs := checkSourceWithStdlib(earlierElemDecls + "fn main()\n" + body + "\nend\n")
 	var out []string
 	for _, e := range errs {
 		out = append(out, diagText(e))
@@ -26,25 +26,25 @@ func checkEarlierElem(t *testing.T, body string) []string {
 func TestDotVariant_EarlierElementSetsTheEnum(t *testing.T) {
 	cases := map[string]string{
 		"list":           "  xs = [N.A, .C, .G]\n  _ = xs",
-		"vector":         "  xs = #[N.A, .C]\n  _ = xs",
-		"set":            "  xs = %[N.A, .C]\n  _ = xs",
-		"map keys":       "  m = %{N.A => 0, .C => 1}\n  _ = m",
-		"map values":     "  m = %{\"a\" => N.A, \"c\" => .C}\n  _ = m",
-		"list of maps":   "  ms = [%{N.A => 0}, %{.C => 1, .G => 2}]\n  _ = ms",
+		"vector":         "  xs = Vector[N.A, .C]\n  _ = xs",
+		"set":            "  xs = Set[N.A, .C]\n  _ = xs",
+		"map keys":       "  m = {N.A => 0, .C => 1}\n  _ = m",
+		"map values":     "  m = {\"a\" => N.A, \"c\" => .C}\n  _ = m",
+		"list of maps":   "  ms = [{N.A => 0}, {.C => 1, .G => 2}]\n  _ = ms",
 		"list of tuples": "  ts = [(N.A, 1), (.C, 2)]\n  _ = ts",
 		"payload":        "  ms = [Some(N.A), Some(.C)]\n  _ = ms",
 		"spread heads":   "  xs = [N.A, .C]\n  ys = [N.G, .A, ..xs]\n  _ = ys",
 		"nested list":    "  xs = [[N.A], [.C, .G]]\n  _ = xs",
 		// `[]` leaves its element type open until `[N.A]` solves it to N.
 		"empty first list":      "  xs = [[], [N.A], [.C]]\n  _ = xs",
-		"empty first map value": "  m = %{\"a\" => [], \"b\" => [N.A], \"c\" => [.C]}\n  _ = m",
+		"empty first map value": "  m = {\"a\" => [], \"b\" => [N.A], \"c\" => [.C]}\n  _ = m",
 		"None first":            "  ms = [None, Some(N.A), Some(.C)]\n  _ = ms",
 		// An Ok's error type, and an Err's value type, stays open until a
 		// later element solves it; the enum in the other one still carries.
 		"Ok payload":      "  rs = [Ok(N.A), Ok(.C), Err(\"x\")]\n  _ = rs",
 		"Ok list payload": "  rs = [Ok([N.A]), Ok([.C, .G]), Err(\"x\")]\n  _ = rs",
 		"Err payload":     "  rs = [Err(N.A), Err(.C), Ok(1)]\n  _ = rs",
-		"Ok map values":   "  m = %{\"a\" => Ok(N.A), \"c\" => Ok(.C)}\n  _ = m",
+		"Ok map values":   "  m = {\"a\" => Ok(N.A), \"c\" => Ok(.C)}\n  _ = m",
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -58,7 +58,7 @@ func TestDotVariant_EarlierElementSetsTheEnum(t *testing.T) {
 // A `once` with an empty first row, as protein-translation's table was
 // written: the rows after `[]` take N from `[N.A]`.
 func TestDotVariant_EmptyFirstRowInAOnce(t *testing.T) {
-	_, errs := checkSourceWithStdlib(earlierElemDecls + "once rows = [[], [N.A], [.C]]\n\nfn main() {\n  _ = rows\n}\n")
+	_, errs := checkSourceWithStdlib(earlierElemDecls + "once rows = [[], [N.A], [.C]]\n\nfn main()\n  _ = rows\nend\n")
 	if len(errs) != 0 {
 		var out []string
 		for _, e := range errs {
@@ -72,16 +72,16 @@ func TestDotVariant_EmptyFirstRowInAOnce(t *testing.T) {
 // row's Ok takes its keys' enum from its first key.
 func TestDotVariant_EarlierElementSetsTheEnumInASubtestsTable(t *testing.T) {
 	src := earlierElemDecls +
-		"fn counts(s: String) -> Result<Map<N, Int>, String> {\n  _ = s\n  Ok(%{N.A => 0, .C => 0})\n}\n\n" +
-		"test \"counts\" {\n" +
+		"fn counts(s: String) -> Result<Map<N, Int>, String>\n  _ = s\n  Ok({N.A => 0, .C => 0})\nend\n\n" +
+		"test \"counts\"\n" +
 		"  cases = [\n" +
-		"    (\"empty\", \"\", Ok(%{N.A => 0, .C => 0})),\n" +
+		"    (\"empty\", \"\", Ok({N.A => 0, .C => 0})),\n" +
 		"    (\"bad\", \"X\", Err(\"bad\")),\n" +
 		"  ]\n" +
-		"  subtests cases, (name, strand, expected), name {\n" +
+		"  subtests cases, (name, strand, expected), name\n" +
 		"    assert counts(strand) == expected\n" +
-		"  }\n" +
-		"}\n"
+		"  end\n" +
+		"end\n"
 	_, errs := checkSourceWithStdlib(src)
 	if len(errs) != 0 {
 		t.Fatalf("the checker rejects the table: %v", errs)
@@ -151,11 +151,11 @@ func TestDotVariant_ExpectedTypeWinsOverTheFirstElement(t *testing.T) {
 	}
 }
 
-const tableDecls = "enum Size {\n  Small\n  Large\n}\n\nenum Color {\n  Red\n  Blue\n}\n\n"
+const tableDecls = "enum Size\n  Small\n  Large\nend\n\nenum Color\n  Red\n  Blue\nend\n\n"
 
 func checkTable(t *testing.T, body string) []string {
 	t.Helper()
-	_, errs := checkSourceWithStdlib(tableDecls + "fn main() {\n" + body + "\n}\n")
+	_, errs := checkSourceWithStdlib(tableDecls + "fn main()\n" + body + "\nend\n")
 	var out []string
 	for _, e := range errs {
 		out = append(out, diagText(e))
@@ -190,9 +190,9 @@ func TestDotVariant_AnUnresolvedFirstRowIsReportedOnce(t *testing.T) {
 
 // A `subtests` table's rows are not reported as undetermined on top of it.
 func TestDotVariant_AnUnresolvedFirstRowOfASubtestsTableIsReportedOnce(t *testing.T) {
-	src := tableDecls + "test \"sizes\" {\n" +
+	src := tableDecls + "test \"sizes\"\n" +
 		"  cases = [\n    (\"a\", .Small, [Color.Red]),\n    (\"b\", .Large, [.Blue]),\n    (\"c\", .Small, [.Red, .Blue]),\n  ]\n" +
-		"  subtests cases, (name, size, colors), name {\n    assert size == Size.Small or colors == [Color.Red]\n  }\n}\n"
+		"  subtests cases, (name, size, colors), name\n    assert size == Size.Small or colors == [Color.Red]\n  end\nend\n"
 	got := frontEndErrors(t, src, frontend.Mode{Tests: true})
 	want := ":13:11: .Small requires a determinable enum type at this position; annotate the binding or qualify the variant\n" +
 		":13:11: help: qualify `Size.Small` in the literal's first element, and the bare variants at its place in the later elements take its enum"
@@ -221,17 +221,17 @@ func TestDotVariant_AVariantAgainstANonEnumIsStillReported(t *testing.T) {
 // An anonymous struct literal after an element of a named struct builds that
 // struct, as it would under an annotation (spec, "Variant resolution").
 func TestStructLit_EarlierElementSetsTheStruct(t *testing.T) {
-	decls := "struct Key {\n  a: Int\n  b: Int\n}\n\n"
+	decls := "struct Key\n  a: Int\n  b: Int\nend\n\n"
 	cases := map[string]string{
-		"list":           "  xs = [Key{a: 1, b: 2}, .{a: 3, b: 4}]\n  _ = xs",
-		"vector":         "  xs = #[Key{a: 1, b: 2}, .{a: 3, b: 4}]\n  _ = xs",
-		"map values":     "  m = %{\"k\" => Key{a: 1, b: 2}, \"j\" => .{a: 3, b: 4}}\n  _ = m",
-		"list of tuples": "  ts = [(Key{a: 1, b: 2}, \"x\"), (.{a: 3, b: 4}, \"y\")]\n  _ = ts",
-		"payload":        "  ms = [Some(Key{a: 1, b: 2}), Some(.{a: 3, b: 4})]\n  _ = ms",
+		"list":           "  xs = [Key{a: 1, b: 2}, {a: 3, b: 4}]\n  _ = xs",
+		"vector":         "  xs = Vector[Key{a: 1, b: 2}, {a: 3, b: 4}]\n  _ = xs",
+		"map values":     "  m = {\"k\" => Key{a: 1, b: 2}, \"j\" => {a: 3, b: 4}}\n  _ = m",
+		"list of tuples": "  ts = [(Key{a: 1, b: 2}, \"x\"), ({a: 3, b: 4}, \"y\")]\n  _ = ts",
+		"payload":        "  ms = [Some(Key{a: 1, b: 2}), Some({a: 3, b: 4})]\n  _ = ms",
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib(decls + "fn main() {\n" + body + "\n}\n")
+			_, errs := checkSourceWithStdlib(decls + "fn main()\n" + body + "\nend\n")
 			for _, e := range errs {
 				t.Errorf("the checker rejects an anonymous struct literal after a named one: %s", diagText(e))
 			}
@@ -242,13 +242,13 @@ func TestStructLit_EarlierElementSetsTheStruct(t *testing.T) {
 // Left to right only, and the literal must still fit the struct: a field the
 // struct lacks is an error at the anonymous literal.
 func TestStructLit_EarlierElementStillChecksTheFields(t *testing.T) {
-	decls := "struct Key {\n  a: Int\n  b: Int\n}\n\n"
+	decls := "struct Key\n  a: Int\n  b: Int\nend\n\n"
 	for name, c := range map[string]struct{ body, want string }{
-		"anonymous first": {"  xs = [.{a: 3, b: 4}, Key{a: 1, b: 2}]\n  _ = xs", "list element type mismatch"},
-		"unknown field":   {"  xs = [Key{a: 1, b: 2}, .{a: 3, c: 4}]\n  _ = xs", "c"},
+		"anonymous first": {"  xs = [{a: 3, b: 4}, Key{a: 1, b: 2}]\n  _ = xs", "list element type mismatch"},
+		"unknown field":   {"  xs = [Key{a: 1, b: 2}, {a: 3, c: 4}]\n  _ = xs", "c"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib(decls + "fn main() {\n" + c.body + "\n}\n")
+			_, errs := checkSourceWithStdlib(decls + "fn main()\n" + c.body + "\nend\n")
 			if len(errs) == 0 {
 				t.Fatalf("the checker admits %q", c.body)
 			}

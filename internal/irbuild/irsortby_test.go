@@ -3,17 +3,17 @@ package irbuild
 import "testing"
 
 func TestIRSortBy_TourUsersByName(t *testing.T) {
-	verifyLambdaProgram(t, `struct User {
+	verifyLambdaProgram(t, `struct User
   name: String
   age: Int
-}
+end
 
-fn main() {
+fn main()
   users = [User{name: "Cara", age: 35}, User{name: "Ann", age: 41}]
   sorted = users |> Iter.sort_by(fn u -> u.name)
 
   dbg sorted
-}
+end
 `, "dbg line 10: sorted = [User{name: \"Ann\", age: 41}, User{name: \"Cara\", age: 35}]\n")
 }
 
@@ -21,21 +21,21 @@ fn main() {
 // keep source order; a nominal key orders through its Comparable impl.
 func TestIRSortBy_KeysStabilityAndNominalKeys(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-struct Rank {
+struct Rank
   n: Int
-}
+end
 derive Comparable for Rank
-struct Item {
+struct Item
   label: String
   weight: Int
-}
-fn main() {
+end
+fn main()
   items = [Item{label: "b", weight: 2}, Item{label: "a", weight: 1}, Item{label: "c", weight: 2}]
   by_weight = items |> Iter.sort_by(fn i -> i.weight)
   io.inspect(by_weight |> Iter.map(fn i -> i.label) |> Iter.to_list())
   ranks = [Rank{n: 3}, Rank{n: 1}, Rank{n: 2}]
   io.inspect(Iter.sort_by(ranks, fn r -> r))
   io.inspect([3, 1, 2] |> Iter.sort_by(fn n -> 0 - n))
-}
+end
 `, "[\"a\", \"b\", \"c\"]\n[Rank{n: 1}, Rank{n: 2}, Rank{n: 3}]\n[3, 2, 1]\n")
 }

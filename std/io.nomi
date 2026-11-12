@@ -72,7 +72,7 @@
 //# - Each call on a stream is atomic, so two tasks sharing one never
 //#   interleave inside a call.
 
-import {
+import
     assertions.{Assertable, AssertionDetails}
     bool.Bool.{self, False, True}
     bytes.Bytes
@@ -85,7 +85,7 @@ import {
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
-}
+end
 
 /// What went wrong in an input or output operation: one error type for
 /// files and the standard streams. A variant a program branches on names
@@ -103,11 +103,11 @@ import {
 /// `"EINVAL"`).
 ///
 /// ```nomi
-/// case fs.read_text("notes.txt") {
+/// case fs.read_text("notes.txt")
 ///     Ok(text) -> io.print(text)
 ///     Err(io.Error.NotFound{path: _}) -> io.print("no notes yet")
 ///     Err(e) -> io.eprint("cannot read the notes: ${e}")
-/// }
+/// end
 /// ```
 //! assert "${Error.NotFound{path: "notes.txt"}}" == "notes.txt: not found"
 //!
@@ -118,7 +118,7 @@ import {
 //! assert "${refused}" == "process.run is not supported on js/wasm"
 //! assert "${Error.TooManyOpen}" == "too many open files"
 //
-pub enum Error {
+pub enum Error
     /// Nothing is at `path`. A write into a missing directory names the
     /// directory.
     NotFound {path: String}
@@ -157,38 +157,67 @@ pub enum Error {
     /// Any other failure: the operation, the path and the operating system's
     /// error code.
     Other {operation: String, path: String, code: String}
-}
+end
 
 derive Equatable for Error
 
-impl Display for Error {
-    fn to_string(e: Error) -> String {
-        case e {
-            Error.NotFound{path} -> "${path}: not found"
-            Error.AlreadyExists{path} -> "${path}: already exists"
-            Error.PermissionDenied{path} -> "${path}: permission denied"
-            Error.NotADirectory{path} -> "${path}: not a directory"
-            Error.IsADirectory{path} -> "${path}: is a directory"
-            Error.DirectoryNotEmpty{path} -> "${path}: directory not empty"
-            Error.InvalidPath{path, reason} -> "invalid path \"${path}\": ${reason}"
-            Error.InvalidText{path, offset} -> "${path}: not UTF-8 text at byte ${offset}"
-            Error.NoSpace{path} -> "${path}: no space left on the device"
-            Error.ReadOnly{path} -> "${path}: read-only file system"
-            Error.TooManyOpen -> "too many open files"
-            Error.Closed -> "the stream is closed"
-            Error.BrokenPipe -> "broken pipe"
-            Error.TimedOut -> "timed out"
-            Error.Unsupported{operation, target} -> "${operation} is not supported on ${target}"
+impl Display for Error
+    fn to_string(e: Error) -> String
+        case e
+            Error.NotFound{path:} ->
+                "${path}: not found"
 
-            Error.Other{operation, path, code} ->
+            Error.AlreadyExists{path:} ->
+                "${path}: already exists"
+
+            Error.PermissionDenied{path:} ->
+                "${path}: permission denied"
+
+            Error.NotADirectory{path:} ->
+                "${path}: not a directory"
+
+            Error.IsADirectory{path:} ->
+                "${path}: is a directory"
+
+            Error.DirectoryNotEmpty{path:} ->
+                "${path}: directory not empty"
+
+            Error.InvalidPath{path:, reason:} ->
+                "invalid path \"${path}\": ${reason}"
+
+            Error.InvalidText{path:, offset:} ->
+                "${path}: not UTF-8 text at byte ${offset}"
+
+            Error.NoSpace{path:} ->
+                "${path}: no space left on the device"
+
+            Error.ReadOnly{path:} ->
+                "${path}: read-only file system"
+
+            Error.TooManyOpen ->
+                "too many open files"
+
+            Error.Closed ->
+                "the stream is closed"
+
+            Error.BrokenPipe ->
+                "broken pipe"
+
+            Error.TimedOut ->
+                "timed out"
+
+            Error.Unsupported{operation:, target:} ->
+                "${operation} is not supported on ${target}"
+
+            Error.Other{operation:, path:, code:} ->
                 "${operation} ${path}: ${code_text(code)} (${code})"
-        }
-    }
-}
+        end
+    end
+end
 
 /// What an operating system error code means, for `Other`'s sentence.
-fn code_text(code: String) -> String {
-    case code {
+fn code_text(code: String) -> String
+    case code
         "EIO" -> "input/output error"
         "ELOOP" -> "too many levels of symbolic links"
         "ENAMETOOLONG" -> "file name too long"
@@ -202,8 +231,8 @@ fn code_text(code: String) -> String {
         "EINTR" -> "interrupted"
         "ENOTSUP" -> "operation not supported"
         _ -> "operating system error"
-    }
-}
+    end
+end
 
 /// Prints a value's user-facing representation to stdout, followed by a
 /// newline. The argument may be any value whose type implements `Display` —
@@ -252,10 +281,10 @@ pub host fn inspect<T>(value: T) -> Unit
 /// ```nomi
 /// io.eprint("warning: no config file, using defaults")
 /// ```
-//! run = capture("", fn -> {
+//! run = capture("", fn ->
 //!     eprint("warning: low disk")
 //!     print("done")
-//! })
+//! end)
 //!
 //! assert run.output == "done\n"
 //! assert run.errors == "warning: low disk\n"
@@ -268,10 +297,10 @@ pub host fn eprint<T>(value: T) -> Unit where T: Display
 /// ```nomi
 /// io.ewrite("working...")
 /// ```
-//! run = capture("", fn -> {
+//! run = capture("", fn ->
 //!     ewrite("a")
 //!     ewrite(1)
-//! })
+//! end)
 //!
 //! assert run.errors == "a1"
 //
@@ -280,7 +309,7 @@ pub host fn ewrite<T>(value: T) -> Unit where T: Display
 /// Reads the next line of standard input, without its `\n` and a `\r`
 /// before it. Returns `Ok(None)` at the end of the input, and `Err` when the
 /// read fails. A line that is not UTF-8 is
-/// `Err(io.Error.InvalidText{path: "<stdin>", offset})`, `offset` being
+/// `Err(io.Error.InvalidText{path: "<stdin>", offset:})`, `offset` being
 /// the byte offset of its first bad sequence within the line; the lines
 /// after it read as usual. A last line with
 /// no newline is still a line. Inside `io.capture` it reads the capture's
@@ -288,10 +317,10 @@ pub host fn ewrite<T>(value: T) -> Unit where T: Display
 /// there at once, and the input that arrives later is the next read's.
 ///
 /// ```nomi
-/// case io.read_line() {
+/// case io.read_line()
 ///     Ok(Some(name)) -> io.print("hello, ${name}")
 ///     _ -> io.print("hello, stranger")
-/// }
+/// end
 /// ```
 //! lines = capture("one\ntwo\r\n", fn -> [read_line(), read_line(), read_line()])
 //! assert lines.value == [Result.Ok(Some("one")), Result.Ok(Some("two")), Result.Ok(None)]
@@ -306,23 +335,23 @@ pub host fn read_line() -> Result<Maybe<String>, Error>
 ///
 /// ```nomi
 /// io.lines()
-/// |> Iter.each(fn line -> {
-///     case line {
+/// |> Iter.each(fn line ->
+///     case line
 ///         Ok(text) -> io.print(String.uppercase(text))
 ///         Err(e) -> io.eprint(e)
-///     }
-/// })
+///     end
+/// end)
 /// ```
-//! run = capture("one\ntwo\n", fn -> {
+//! run = capture("one\ntwo\n", fn ->
 //!     first = read_line()
 //!     (first, Result.collect(lines()))
-//! })
+//! end)
 //!
 //! assert run.value == (Result.Ok(Some("one")), Result.Ok(["two"]))
 //
-pub fn lines() -> Iter<Result<String, Error>> {
+pub fn lines() -> Iter<Result<String, Error>>
     Reader.lines(stdin)
-}
+end
 
 /// A stream bytes are read from. Standard input is one (`io.stdin`). A
 /// `Reader` is a value that names something outside the program: the value
@@ -360,24 +389,24 @@ host fn standard_output() -> Writer
 
 host fn standard_error() -> Writer
 
-impl Reader {
+impl Reader
     /// The next line without its `\n` (and a `\r` before it), or `Ok(None)`
     /// at the end of the stream. A last line with no newline is still a
     /// line. A line that is not UTF-8 is `InvalidText`, with the offset of
     /// the first bad byte in the line.
     ///
     /// ```nomi
-    /// case Reader.read_line(io.stdin) {
+    /// case Reader.read_line(io.stdin)
     ///     Ok(Some(line)) -> io.print("got ${line}")
     ///     Ok(None) -> io.print("no input")
     ///     Err(e) -> io.eprint(e)
-    /// }
+    /// end
     /// ```
     //! import std::io
     //!
-    //! run = capture("a\nb", fn -> {
+    //! run = capture("a\nb", fn ->
     //!     [Reader.read_line(io.stdin), io.read_line(), Reader.read_line(io.stdin)]
-    //! })
+    //! end)
     //!
     //! assert run.value == [Result.Ok(Some("a")), Result.Ok(Some("b")), Result.Ok(None)]
     //!
@@ -396,20 +425,20 @@ impl Reader {
     /// `max` bytes before the end. A `max` below 1 is a trap.
     ///
     /// ```nomi
-    /// case Reader.read(r, max: 4096) {
+    /// case Reader.read(r, max: 4096)
     ///     Ok(Some(chunk)) -> Bytes.length(chunk)
     ///     Ok(None) -> 0
     ///     Err(_) -> -1
-    /// }
+    /// end
     /// ```
     //! r = Reader.from_text("abcdef")
     //! assert Reader.read(r, max: 4) == Result.Ok(Some(String.to_bytes("abcd")))
     //! assert Reader.read(r) == Result.Ok(Some(String.to_bytes("ef")))
     //! assert Reader.read(r) == Result.Ok(None)
     //
-    pub fn read(r: Reader, max: Int = 65536) -> Result<Maybe<Bytes>, Error> {
+    pub fn read(r: Reader, max: Int = 65536) -> Result<Maybe<Bytes>, Error>
         read_up_to(r, max)
-    }
+    end
 
     /// Everything left in the stream; after it the reader is at its end.
     ///
@@ -466,16 +495,16 @@ impl Reader {
     //!     Err(Error.InvalidText{path: "<bytes>", offset: 0}),
     //! ]
     //
-    pub fn lines(r: Reader) -> Iter<Result<String, Error>> {
+    pub fn lines(r: Reader) -> Iter<Result<String, Error>>
         Iter.repeat(r)
-        |> Iter.scan(Ok(""), fn _: Result<String, Error>, reader -> {
-            case Reader.read_line(reader) {
+        |> Iter.scan(Ok(""), fn _: Result<String, Error>, reader ->
+            case Reader.read_line(reader)
                 Ok(Some(line)) -> Ok(line)
                 Ok(None) -> break
                 Err(e) -> break Err(e)
-            }
-        })
-    }
+            end
+        end)
+    end
 
     /// The rest of the stream in pieces of at most `size` bytes, as
     /// `Reader.read` reads them. Like `Reader.lines`, it reads `r` as it
@@ -495,16 +524,16 @@ impl Reader {
     //!         String.to_bytes("e"),
     //!     ])
     //
-    pub fn chunks(r: Reader, size: Int = 65536) -> Iter<Result<Bytes, Error>> {
+    pub fn chunks(r: Reader, size: Int = 65536) -> Iter<Result<Bytes, Error>>
         Iter.repeat(r)
-        |> Iter.scan(Ok(String.to_bytes("")), fn _: Result<Bytes, Error>, reader -> {
-            case Reader.read(reader, max: size) {
+        |> Iter.scan(Ok(String.to_bytes("")), fn _: Result<Bytes, Error>, reader ->
+            case Reader.read(reader, max: size)
                 Ok(Some(chunk)) -> Ok(chunk)
                 Ok(None) -> break
                 Err(e) -> break Err(e)
-            }
-        })
-    }
+            end
+        end)
+    end
 
     /// Copies everything left in `r` into `w` and returns how many bytes it
     /// copied. It reads and writes a chunk at a time, so a large file never
@@ -548,9 +577,9 @@ impl Reader {
     //! Reader.close_quietly(r)
     //! assert Reader.read_line(r) == Result.Err(Error.Closed)
     //
-    pub fn close_quietly(r: Reader) -> Unit {
+    pub fn close_quietly(r: Reader) -> Unit
         _ = close(r)
-    }
+    end
 
     /// A reader over bytes the program holds, for tests and for code
     /// written against `Reader`.
@@ -627,18 +656,18 @@ impl Reader {
     //! assert [Reader.read_line(r), Reader.read_line(r)] == [Result.Ok(Some("1")), Result.Ok(Some("2"))]
     //
     pub host fn from_text_chunks(chunks: Iter<String>) -> Reader
-}
+end
 
-impl Release for Reader {
-    fn release(r: Reader) {
+impl Release for Reader
+    fn release(r: Reader)
         Reader.close_quietly(r)
-    }
-}
+    end
+end
 
 /// Up to max bytes from r, for `Reader.read`.
 host fn read_up_to(r: Reader, max: Int) -> Result<Maybe<Bytes>, Error>
 
-impl Writer {
+impl Writer
     /// Writes `data` to the stream as it is. A writer over a file buffers
     /// what it is given; `flush` and `close` send it on.
     ///
@@ -673,18 +702,18 @@ impl Writer {
     /// ```
     //! import std::io
     //!
-    //! run = capture("", fn -> {
+    //! run = capture("", fn ->
     //!     io.print("one")
     //!     _ = Writer.print(io.stdout, 2)
     //!     _ = Writer.print(io.stderr, "three")
-    //! })
+    //! end)
     //!
     //! assert run.output == "one\n2\n"
     //! assert run.errors == "three\n"
     //
-    pub fn print(w: Writer, value: Display) -> Result<Unit, Error> {
+    pub fn print(w: Writer, value: Display) -> Result<Unit, Error>
         write_text(w, "${value}\n")
-    }
+    end
 
     /// Sends what the writer has buffered on to the file it writes. The
     /// standard streams are not buffered, so flushing one does nothing.
@@ -728,9 +757,9 @@ impl Writer {
     //! run = capture("", fn -> Writer.close_quietly(io.stdout))
     //! assert run.value == Unit
     //
-    pub fn close_quietly(w: Writer) -> Unit {
+    pub fn close_quietly(w: Writer) -> Unit
         _ = close(w)
-    }
+    end
 
     /// Gives up a writer still open. A `ReplaceAtomically` writer from
     /// `fs.create` drops its temporary file and leaves the old file as it
@@ -745,27 +774,27 @@ impl Writer {
     /// trap.
     ///
     /// ```nomi
-    /// fn save(path: String, rows: List<String>) -> Result<Unit, io.Error> {
+    /// fn save(path: String, rows: List<String>) -> Result<Unit, io.Error>
     ///     w = fs.create(path, mode: .ReplaceAtomically)?
     ///     defer Writer.discard(w)
     ///
     ///     Writer.write_lines(w, rows)?
     ///     Writer.close(w)?
     ///     Ok(Unit)
-    /// }
+    /// end
     /// ```
-    //! (_, data) = Writer.collect(fn w -> {
+    //! (_, data) = Writer.collect(fn w ->
     //!     _ = Writer.write_text(w, "kept")
     //!     _ = Writer.close(w)
     //!     Writer.discard(w)
-    //! })
+    //! end)
     //!
     //! assert Bytes.to_string(data) == Result.Ok("kept")
     //!
-    //! (late, _) = Writer.collect(fn w -> {
+    //! (late, _) = Writer.collect(fn w ->
     //!     Writer.discard(w)
     //!     Writer.write_text(w, "x")
-    //! })
+    //! end)
     //!
     //! assert late == Result.Err(Error.Closed)
     //
@@ -778,21 +807,21 @@ impl Writer {
     /// ```nomi
     /// Writer.write_all(w, [header, body])?
     /// ```
-    //! (written, data) = Writer.collect(fn w -> {
+    //! (written, data) = Writer.collect(fn w ->
     //!     Writer.write_all(w, [String.to_bytes("ab"), String.to_bytes("c")])
-    //! })
+    //! end)
     //!
     //! assert written == Result.Ok(Unit)
     //! assert data == String.to_bytes("abc")
     //
-    pub fn write_all(w: Writer, chunks: Iter<Bytes>) -> Result<Unit, Error> {
-        Iter.reduce(chunks, Ok(Unit), fn written: Result<Unit, Error>, chunk -> {
-            case Writer.write(w, chunk) {
+    pub fn write_all(w: Writer, chunks: Iter<Bytes>) -> Result<Unit, Error>
+        Iter.reduce(chunks, Ok(Unit), fn written: Result<Unit, Error>, chunk ->
+            case Writer.write(w, chunk)
                 Ok(_) -> written
                 failed -> break failed
-            }
-        })
-    }
+            end
+        end)
+    end
 
     /// Writes each item's user-facing representation followed by `\n`, as
     /// `Writer.print` writes one, and stops at the first failure, which it
@@ -801,27 +830,27 @@ impl Writer {
     /// ```nomi
     /// Writer.write_lines(io.stdout, ["pear", "apple"])?
     /// ```
-    //! (_, data) = Writer.collect(fn w -> {
+    //! (_, data) = Writer.collect(fn w ->
     //!     Writer.write_lines(
     //!         w,
     //!         Iter.from(1)
     //!         |> Iter.take(3),
     //!     )
-    //! })
+    //! end)
     //!
     //! assert data == String.to_bytes("1\n2\n3\n")
     //!
     //! full = Writer.from_fn(unbuffered: True, fn _ -> Result.Err(Error.BrokenPipe))
     //! assert Writer.write_lines(full, ["a", "b"]) == Result.Err(Error.BrokenPipe)
     //
-    pub fn write_lines<T>(w: Writer, lines: Iter<T>) -> Result<Unit, Error> where T: Display {
-        Iter.reduce(lines, Ok(Unit), fn written: Result<Unit, Error>, line -> {
-            case Writer.write_text(w, "${line}\n") {
+    pub fn write_lines<T>(w: Writer, lines: Iter<T>) -> Result<Unit, Error> where T: Display
+        Iter.reduce(lines, Ok(Unit), fn written: Result<Unit, Error>, line ->
+            case Writer.write_text(w, "${line}\n")
                 Ok(_) -> written
                 failed -> break failed
-            }
-        })
-    }
+            end
+        end)
+    end
 
     /// A writer that hands what is written to `write`, for code written
     /// against `Writer` that should send its bytes somewhere a function can
@@ -843,16 +872,16 @@ impl Writer {
     /// ```nomi
     /// w = Writer.from_fn(fn chunk -> Channel.send(sender, chunk))
     /// ```
-    //! (_, data) = Writer.collect(fn sink -> {
-    //!     upper = Writer.from_fn(fn chunk -> {
+    //! (_, data) = Writer.collect(fn sink ->
+    //!     upper = Writer.from_fn(fn chunk ->
     //!         text = Bytes.to_string(chunk) |> Result.with_default("")
     //!         Writer.write_text(sink, String.uppercase(text))
-    //!     })
+    //!     end)
     //!
     //!     _ = Writer.write_text(upper, "hello, ")
     //!     _ = Writer.write_text(upper, "world")
     //!     Writer.close(upper)
-    //! })
+    //! end)
     //!
     //! assert data == String.to_bytes("HELLO, WORLD")
     //!
@@ -863,9 +892,9 @@ impl Writer {
         close: () -> Result<Unit, Error> = fn -> Ok(Unit),
         unbuffered: Bool = False,
         write: (Bytes) -> Result<Unit, Error>,
-    ) -> Writer {
+    ) -> Writer
         writer_from_fn(write, close, unbuffered)
-    }
+    end
 
     /// Calls `body` with a writer into memory and returns what `body`
     /// returned and every byte it wrote. The writer is closed when `body`
@@ -876,11 +905,11 @@ impl Writer {
     /// ```nomi
     /// (_, data) = Writer.collect(fn w -> Writer.print(w, "hi"))
     /// ```
-    //! (value, data) = Writer.collect(fn w -> {
+    //! (value, data) = Writer.collect(fn w ->
     //!     _ = Writer.print(w, "one")
     //!     _ = Writer.write(w, String.to_bytes("two"))
     //!     42
-    //! })
+    //! end)
     //!
     //! assert value == 42
     //! assert Bytes.to_string(data) == Result.Ok("one\ntwo")
@@ -888,25 +917,25 @@ impl Writer {
     //! (kept, _) = Writer.collect(fn w -> w)
     //! assert Writer.write_text(kept, "late") == Result.Err(Error.Closed)
     //
-    pub fn collect<T>(body: (Writer) -> T) -> (T, Bytes) {
+    pub fn collect<T>(body: (Writer) -> T) -> (T, Bytes)
         w = memory_writer()
         value = body(w)
         _ = close(w)
         (value, collected(w))
-    }
-}
+    end
+end
 
-impl Release for Writer {
-    fn release(w: Writer) {
+impl Release for Writer
+    fn release(w: Writer)
         Writer.discard(w)
-    }
-}
+    end
+end
 
-impl Commit for Writer {
-    fn commit(w: Writer) -> Result<Unit, Error> {
+impl Commit for Writer
+    fn commit(w: Writer) -> Result<Unit, Error>
         Writer.close(w)
-    }
-}
+    end
+end
 
 /// `Writer.from_fn`.
 host fn writer_from_fn(
@@ -933,16 +962,16 @@ host fn collected(w: Writer) -> Bytes
 /// `fs.open` and `fs.create` are the simpler handles.
 pub host type File
 
-impl File {
+impl File
     /// Up to `max` bytes at the position, which moves past them, or
     /// `Ok(None)` at or past the end. `max` must be at least 1.
     ///
     /// ```nomi
     /// header = File.read(f, max: 16)?
     /// ```
-    pub fn read(f: File, max: Int = 65536) -> Result<Maybe<Bytes>, Error> {
+    pub fn read(f: File, max: Int = 65536) -> Result<Maybe<Bytes>, Error>
         file_read(f, max)
-    }
+    end
 
     /// Up to `max` bytes at `position`, or `Ok(None)` at or past the end.
     /// The file's position stays where it was.
@@ -998,23 +1027,23 @@ impl File {
     pub host fn close(f: File) -> Result<Unit, Error>
 
     /// Closes the file and ignores the outcome: the form for a `defer`.
-    pub fn close_quietly(f: File) -> Unit {
+    pub fn close_quietly(f: File) -> Unit
         _ = close(f)
-    }
-}
+    end
+end
 
-impl Release for File {
-    fn release(f: File) {
+impl Release for File
+    fn release(f: File)
         File.close_quietly(f)
-    }
-}
+    end
+end
 
 host fn file_read(f: File, max: Int) -> Result<Maybe<Bytes>, Error>
 
 /// What `io.capture` returns: the value `run` returned, everything it
 /// printed to stdout and to stderr, and its stdout and input together as a
 /// transcript.
-pub struct Captured<T> {
+pub struct Captured<T>
     /// What `run` returned.
     value: T
     /// Everything `io.print`, `io.write` and `io.inspect` wrote while `run`
@@ -1034,7 +1063,7 @@ pub struct Captured<T> {
     /// the end of the input adds nothing, and its prompt stays where it was,
     /// on one line with whatever is printed next.
     transcript: String
-}
+end
 
 /// Calls `run` with `input` as its standard input and returns what it
 /// returned together with everything it printed.
@@ -1070,11 +1099,11 @@ pub struct Captured<T> {
 /// program that asks and answers in turn, `io.replay` reads better. A
 /// program that reads nothing is checked through `output`, which holds the
 /// output as it was written.
-//! run = capture("", fn -> {
+//! run = capture("", fn ->
 //!     print("hi")
 //!     write(1)
 //!     42
-//! })
+//! end)
 //!
 //! assert run.value == 42
 //! assert run.output == "hi\n1"
@@ -1083,26 +1112,26 @@ pub struct Captured<T> {
 //! assert echo.value == [Result.Ok(Some("one")), Result.Ok(Some("two")), Result.Ok(None)]
 //! assert echo.output == ""
 //!
-//! asked = capture("Ada", fn -> {
+//! asked = capture("Ada", fn ->
 //!     write("name: ")
 //!
-//!     case read_line() {
+//!     case read_line()
 //!         Ok(Some(name)) -> print("hello, ${name}")
 //!         _ -> print("hello, stranger")
-//!     }
-//! })
+//!     end
+//! end)
 //!
 //! assert asked.output == "name: hello, Ada\n"
 //! assert asked.transcript == "name: \n    > Ada\nhello, Ada\n"
 //
-pub fn capture<T>(input: String, run: () -> T) -> Captured<T> {
+pub fn capture<T>(input: String, run: () -> T) -> Captured<T>
     run_captured(input, run, fn value, output, errors, transcript -> Captured{
-        value,
-        output,
-        errors,
-        transcript,
+        value:,
+        output:,
+        errors:,
+        transcript:,
     })
-}
+end
 
 /// Calls `run` under a capture of `input` and hands its result, output,
 /// error output and transcript to `finish`, which builds the `Captured`.
@@ -1116,7 +1145,7 @@ host fn run_captured<T>(
 /// What `io.replay` returns. `assert` holds on it when the transcript
 /// matches the script, and its failure shows a line diff of the two. It
 /// does not hold what `run` returned; use `io.capture` to check that.
-pub struct Replayed {
+pub struct Replayed
     /// Everything `run` printed, byte for byte, as in `Captured`.
     output: String
     /// The transcript, as `io.replay` compares it: each line without its
@@ -1126,29 +1155,29 @@ pub struct Replayed {
     expected: String
     /// How many of the script's input lines `run` never read.
     unread: Int
-}
+end
 
-impl Assertable for Replayed {
-    fn failure(replayed: Replayed) -> Maybe<AssertionDetails> {
-        if replayed.transcript == replayed.expected and replayed.unread == 0 {
+impl Assertable for Replayed
+    fn failure(replayed: Replayed) -> Maybe<AssertionDetails>
+        if replayed.transcript == replayed.expected and replayed.unread == 0 then
             None
-        } else {
+        else
             Some(AssertionDetails{
                 reason: replay_reason(replayed),
                 actual: Some(replayed.transcript),
                 expected: Some(replayed.expected),
             })
-        }
-    }
-}
+        end
+    end
+end
 
-fn replay_reason(replayed: Replayed) -> String {
-    case replayed.unread {
+fn replay_reason(replayed: Replayed) -> String
+    case replayed.unread
         0 -> "the transcript differs from the script"
         1 -> "1 input line of the script was never read"
         n -> "${n} input lines of the script were never read"
-    }
-}
+    end
+end
 
 /// Runs `run` against a script of an interactive session and returns a
 /// `Replayed` that `assert` checks: `assert io.replay(script, main)`.
@@ -1220,14 +1249,14 @@ fn replay_reason(replayed: Replayed) -> String {
 /// dropped: it neither appears in the transcript nor fails the replay, so a
 /// program's warnings need not be written into every script. Check them
 /// with `io.capture`'s `errors`.
-//! greet = fn -> {
+//! greet = fn ->
 //!     write("name: ")
 //!
-//!     case read_line() {
+//!     case read_line()
 //!         Ok(Some(name)) -> print("hello, ${name}")
 //!         _ -> print("hello, stranger")
-//!     }
-//! }
+//!     end
+//! end
 //!
 //! assert replay(
 //!     """
@@ -1245,10 +1274,10 @@ fn replay_reason(replayed: Replayed) -> String {
 //!     greet,
 //! )
 //!
-//! table = fn -> {
+//! table = fn ->
 //!     print("-10.0 C |   14.0 F")
 //!     print(" -5.0 C |   23.0 F")
-//! }
+//! end
 //!
 //! assert replay(
 //!     """
@@ -1268,14 +1297,14 @@ fn replay_reason(replayed: Replayed) -> String {
 //!     greet,
 //! )
 //!
-//! repl = fn -> {
+//! repl = fn ->
 //!     write("> ")
 //!
-//!     case read_line() {
+//!     case read_line()
 //!         Ok(Some(word)) -> print("you said ${word}")
 //!         _ -> print("bye")
-//!     }
-//! }
+//!     end
+//! end
 //!
 //! assert replay(
 //!     """
@@ -1286,10 +1315,10 @@ fn replay_reason(replayed: Replayed) -> String {
 //!     repl,
 //! )
 //!
-//! warned = fn -> {
+//! warned = fn ->
 //!     eprint("warning: no config")
 //!     print("ready")
-//! }
+//! end
 //!
 //! assert replay(
 //!     """
@@ -1298,13 +1327,13 @@ fn replay_reason(replayed: Replayed) -> String {
 //!     warned,
 //! )
 //!
-//! ages = fn -> {
+//! ages = fn ->
 //!     print("What is your name?")
 //!     name = read_line() |> Result.with_default(None) |> Maybe.with_default("")
 //!     write("Hello, ${name}. Your age: ")
 //!     age = read_line() |> Result.with_default(None) |> Maybe.with_default("")
 //!     print("${name} is ${age}")
-//! }
+//! end
 //!
 //! assert replay(
 //!     """
@@ -1326,14 +1355,14 @@ fn replay_reason(replayed: Replayed) -> String {
 //!     quoted,
 //! )
 //
-pub fn replay<T>(script: String, run: () -> T) -> Replayed {
+pub fn replay<T>(script: String, run: () -> T) -> Replayed
     run_replayed(script, run, fn _, output, transcript, expected, unread -> Replayed{
-        output,
-        transcript,
-        expected,
-        unread,
+        output:,
+        transcript:,
+        expected:,
+        unread:,
     })
-}
+end
 
 /// Calls `run` under a capture whose input is the script's input lines and
 /// hands `finish` its result, its output, the transcript and the script as

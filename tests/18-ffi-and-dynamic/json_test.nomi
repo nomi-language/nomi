@@ -1,31 +1,44 @@
-import {
+import
     std::dynamic.Dynamic
     std::json.Json
-}
+end
 
-fn describe_root(jv: Json) -> String {
-    case jv {
-        %.Obj{"name" => .String(n), "tags" => .Arr(ts)} ->
+fn describe_root(jv: Json) -> String
+    case jv
+        .Obj{"name" => .String(n), "tags" => .Arr(ts)} ->
             "obj with name=${n}, ${Iter.count(ts)} tags"
 
-        .Obj(_) -> "obj (unexpected shape)"
-        .Arr(_) -> "array"
-        .String(s) -> "string: " + s
-        .Int(n) -> "int: ${n}"
-        .Float(_) -> "float"
-        .Bool(_) -> "bool"
-        .Null -> "null"
-    }
-}
+        .Obj(_) ->
+            "obj (unexpected shape)"
 
-fn extract_first_tag(jv: Json) -> Maybe<String> {
-    case jv {
-        %.Obj{"tags" => .Arr[.String(t), ..]} -> Some(t)
+        .Arr(_) ->
+            "array"
+
+        .String(s) ->
+            "string: " + s
+
+        .Int(n) ->
+            "int: ${n}"
+
+        .Float(_) ->
+            "float"
+
+        .Bool(_) ->
+            "bool"
+
+        .Null ->
+            "null"
+    end
+end
+
+fn extract_first_tag(jv: Json) -> Maybe<String>
+    case jv
+        .Obj{"tags" => .Arr[.String(t), ..]} -> Some(t)
         _ -> None
-    }
-}
+    end
+end
 
-fn sample_json() -> String {
+fn sample_json() -> String
     """
     {
       "name": "Ada",
@@ -36,9 +49,9 @@ fn sample_json() -> String {
       "favorite": null
     }
     """
-}
+end
 
-test "Json decode supports nested pattern matching and encode round trip" {
+test "Json decode supports nested pattern matching and encode round trip"
     assert Ok(parsed) = Json.decode(sample_json())
 
     assert describe_root(parsed) == "obj with name=Ada, 2 tags"
@@ -47,18 +60,18 @@ test "Json decode supports nested pattern matching and encode round trip" {
     assert Json.encode(
         parsed
     ) == "{\"active\":true,\"address\":{\"city\":\"London\",\"zip\":\"EC1\"},\"age\":36,\"favorite\":null,\"name\":\"Ada\",\"tags\":[\"admin\",\"user\"]}"
-}
+end
 
-test "Json values can be constructed and encoded by hand" {
-    hand_built = %Json.Obj{"x" => Json.Int(1), "y" => Json.Float(2.5), "ok" => Json.Bool(True)}
+test "Json values can be constructed and encoded by hand"
+    hand_built = Json.Obj{"x" => Json.Int(1), "y" => Json.Float(2.5), "ok" => Json.Bool(True)}
 
     assert Json.encode(hand_built) == "{\"x\":1,\"y\":2.5,\"ok\":true}"
-}
+end
 
-test "Json to_dynamic interops with Dynamic extractors" {
+test "Json to_dynamic interops with Dynamic extractors"
     greeting = Json.String("hello-from-dynamic")
     dyn = Json.to_dynamic(greeting)
 
     assert Debug.inspect(dyn) == "\"hello-from-dynamic\""
     assert Dynamic.as_string(dyn) == Ok("hello-from-dynamic")
-}
+end

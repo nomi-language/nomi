@@ -17,38 +17,38 @@ import std::regex.Regex
 
 /// `text` with each run of a repeated character written as its length and
 /// the character once. A character that is not repeated keeps no count.
-pub fn encode(text: String) -> String {
+pub fn encode(text: String) -> String
     text
     |> Iter.chunk_equal()
     |> Iter.map(encode_run)
     |> String.join()
-}
+end
 
-fn encode_run(run: List<String>) -> String {
+fn encode_run(run: List<String>) -> String
     letter = List.head(run)!
 
-    case Iter.count(run) {
+    case Iter.count(run)
         1 -> letter
         count -> "${count}${letter}"
-    }
-}
+    end
+end
 
 /// The text `encode` was given for `encoded`: each character is repeated as
 /// many times as the number before it says, or once when there is none.
-pub fn decode(encoded: String) -> String {
+pub fn decode(encoded: String) -> String
     encoded
     |> String.captures_all(Regex`(\d*)(\D)`)
-    |> Iter.map(fn (count, letter) -> {
+    |> Iter.map(fn (count, letter) ->
         times = String.to_int(count) |> Maybe.with_default(1)
         String.repeat(letter, times)
-    })
+    end)
     |> String.join()
-}
+end
 
 // FILE: run_length_encoding_test.nomi
 import run_length_encoding
 
-test "run-length encode a string" {
+test "run-length encode a string"
     [
         ("empty string", "", ""),
         ("single characters only are encoded without count", "XYZ", "XYZ"),
@@ -61,12 +61,12 @@ test "run-length encode a string" {
         ("multiple whitespace mixed in string", "  hsqq qww  ", "2 hs2q q2w2 "),
         ("lowercase characters", "aabbbcccc", "2a3b4c"),
     ]
-    |> subtests (description, text, expected), description {
+    |> subtests (description, text, expected), description
         assert run_length_encoding.encode(text) == expected
-    }
-}
+    end
+end
 
-test "run-length decode a string" {
+test "run-length decode a string"
     [
         ("empty string", "", ""),
         ("single characters only", "XYZ", "XYZ"),
@@ -79,16 +79,16 @@ test "run-length decode a string" {
         ("multiple whitespace mixed in string", "2 hs2q q2w2 ", "  hsqq qww  "),
         ("lowercase string", "2a3b4c", "aabbbcccc"),
     ]
-    |> subtests (description, encoded, expected), description {
+    |> subtests (description, encoded, expected), description
         assert run_length_encoding.decode(encoded) == expected
-    }
-}
+    end
+end
 
-test "encode and then decode" {
+test "encode and then decode"
     text = "zzz ZZ  zZ"
 
     assert text |> run_length_encoding.encode() |> run_length_encoding.decode() == text
-}
+end
 ```
 <!-- expect
 ok run-length encode a string (6 cases)

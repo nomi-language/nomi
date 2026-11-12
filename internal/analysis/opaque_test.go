@@ -40,19 +40,22 @@ func TestOpaque_NonOpaqueSymbolFlagFalse(t *testing.T) {
 // idiom and must be allowed.
 
 func TestOpaque_AllowsPrivateRepresentation(t *testing.T) {
-	src := `struct InternalUserData { id: Int; label: String }
+	src := `struct InternalUserData
+    id: Int
+    label: String
+end
 
 pub opaque type UserHandle InternalUserData
 
-pub fn create(id: Int, label: String) -> UserHandle {
-  UserHandle(InternalUserData{id: id, label: label})
-}
+pub fn create(id: Int, label: String) -> UserHandle
+  UserHandle(InternalUserData{id:, label:})
+end
 
-pub fn name(h: UserHandle) -> String {
-  case h {
+pub fn name(h: UserHandle) -> String
+  case h
     UserHandle(d) -> d.label
-  }
-}`
+  end
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -60,7 +63,9 @@ pub fn name(h: UserHandle) -> String {
 func TestVisibility_NonOpaquePublicTypeStillRequiresPublicRepresentation(t *testing.T) {
 	// Sanity check that the existing §14 *Visibility* rule still fires for non-opaque
 	// distinct types: their wrapped representation must be exported.
-	src := `struct Internal { x: Int }
+	src := `struct Internal
+    x: Int
+end
 
 pub type Foo Internal`
 	_, errs := checkSource(src)
@@ -117,7 +122,9 @@ opaque type RawBox go ffi.Box`
 func TestOpaqueInline_AcceptedOnStructBody(t *testing.T) {
 	// Inline struct body is a valid representation to make opaque —
 	// equivalent to wrapping an unnamed inner struct.
-	src := `pub opaque struct Foo { x: Int }`
+	src := `pub opaque struct Foo
+    x: Int
+end`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
 	sym := fa.ModuleScope.Lookup("Foo")
@@ -135,7 +142,10 @@ func TestOpaqueInline_AcceptedOnStructBody(t *testing.T) {
 func TestOpaqueInline_AcceptedOnEnumBody(t *testing.T) {
 	// Inline enum body is a valid representation to make opaque —
 	// equivalent to wrapping an unnamed sum type.
-	src := `pub opaque enum Color { Red; Blue }`
+	src := `pub opaque enum Color
+    Red
+    Blue
+end`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
 	sym := fa.ModuleScope.Lookup("Color")
@@ -175,7 +185,9 @@ func TestOpaqueInline_PrivateOpaqueAcceptedOnStructBody(t *testing.T) {
 	// type is well-formed (it just has no callers outside the module to
 	// care). Sanity check that the inline-struct opaque doesn't require
 	// `pub`.
-	src := `opaque struct Foo { x: Int }`
+	src := `opaque struct Foo
+    x: Int
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -204,7 +216,10 @@ func TestInlineOpaque_AllowsPrivateRepresentation(t *testing.T) {
 	// The visibility-consistency relaxation rule must fire so the public
 	// opaque type is allowed to wrap a module-private representation.
 	src := `
-struct InternalUserData { id: Int; label: String }
+struct InternalUserData
+    id: Int
+    label: String
+end
 
 pub opaque type UserHandle InternalUserData
 `

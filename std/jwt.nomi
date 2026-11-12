@@ -5,7 +5,7 @@
 //# ```nomi
 //# key = SigningKey.hs256(secret)?
 //#
-//# token = jwt.sign(%{"sub" => Json.String("ada"), "exp" => Json.Int(expires)}, key)
+//# token = jwt.sign({"sub" => Json.String("ada"), "exp" => Json.Int(expires)}, key)
 //#
 //# claims = jwt.verify(token, SigningKey.verifying_key(key))?
 //# ```
@@ -24,7 +24,7 @@
 //#
 //# There is no encryption (JWE), and no fetching of keys from a JWKS URL.
 
-import {
+import
     base64
     bool.Bool.{self, False, True}
     bytes.Bytes
@@ -44,10 +44,10 @@ import {
     signatures.{self, KeyKind, PrivateKey, PublicKey, Scheme}
     strings.String
     unit.Unit
-}
+end
 
 /// A JWS algorithm, as RFC 7518 and RFC 8037 name it in a token's `alg`.
-pub enum Algorithm {
+pub enum Algorithm
     /// HMAC with SHA-256 under a shared secret.
     Hs256
     /// RSA PKCS #1 v1.5 with SHA-256.
@@ -58,48 +58,48 @@ pub enum Algorithm {
     Es256
     /// Ed25519.
     EdDsa
-}
+end
 
 derive Equatable for Algorithm
 
-impl Display for Algorithm {
+impl Display for Algorithm
     /// The algorithm's `alg` name: `HS256`, `RS256`, `PS256`, `ES256` or `EdDSA`.
-    fn to_string(algorithm: Algorithm) -> String {
-        case algorithm {
+    fn to_string(algorithm: Algorithm) -> String
+        case algorithm
             .Hs256 -> "HS256"
             .Rs256 -> "RS256"
             .Ps256 -> "PS256"
             .Es256 -> "ES256"
             .EdDsa -> "EdDSA"
-        }
-    }
-}
+        end
+    end
+end
 
-enum Signer {
+enum Signer
     Hmac Bytes
     Key PrivateKey
-}
+end
 
-enum Checker {
+enum Checker
     Hmac Bytes
     Key PublicKey
-}
+end
 
 /// A key that signs tokens with one algorithm. Its secret never prints:
 /// `Display` and `Debug` show `SigningKey(<alg>)`.
-pub opaque struct SigningKey {
+pub opaque struct SigningKey
     algorithm: Algorithm
     signer: Signer
-}
+end
 
 /// A key that checks tokens of one algorithm. `Display` and `Debug` show
 /// `VerifyingKey(<alg>)`.
-pub opaque struct VerifyingKey {
+pub opaque struct VerifyingKey
     algorithm: Algorithm
     checker: Checker
-}
+end
 
-impl SigningKey {
+impl SigningKey
     /// An HS256 key: HMAC-SHA256 under `secret`, which must hold at least
     /// 32 bytes, as RFC 7518 requires.
     //! import std::jwt.SigningKey
@@ -107,25 +107,25 @@ impl SigningKey {
     //! assert SigningKey.hs256(String.to_bytes("short"))
     //!     == Err("an HS256 secret needs at least 32 bytes, got 5")
     //
-    pub fn hs256(secret: Bytes) -> Result<SigningKey, String> {
+    pub fn hs256(secret: Bytes) -> Result<SigningKey, String>
         checked_secret(secret)?
         Ok(SigningKey{algorithm: .Hs256, signer: Signer.Hmac(secret)})
-    }
+    end
 
     /// An RS256 key, from an RSA private key.
-    pub fn rs256(key: PrivateKey) -> Result<SigningKey, String> {
+    pub fn rs256(key: PrivateKey) -> Result<SigningKey, String>
         keyed(.Rs256, key)
-    }
+    end
 
     /// A PS256 key, from an RSA private key.
-    pub fn ps256(key: PrivateKey) -> Result<SigningKey, String> {
+    pub fn ps256(key: PrivateKey) -> Result<SigningKey, String>
         keyed(.Ps256, key)
-    }
+    end
 
     /// An ES256 key, from an ECDSA P-256 private key.
-    pub fn es256(key: PrivateKey) -> Result<SigningKey, String> {
+    pub fn es256(key: PrivateKey) -> Result<SigningKey, String>
         keyed(.Es256, key)
-    }
+    end
 
     /// An EdDSA key, from an Ed25519 private key.
     //! import std::jwt.SigningKey
@@ -137,86 +137,86 @@ impl SigningKey {
     //! assert SigningKey.eddsa(PrivateKey.generate_ecdsa_p256())
     //!     == Err("EdDSA signs with an Ed25519 key, not ECDSA P-256")
     //
-    pub fn eddsa(key: PrivateKey) -> Result<SigningKey, String> {
+    pub fn eddsa(key: PrivateKey) -> Result<SigningKey, String>
         keyed(.EdDsa, key)
-    }
+    end
 
     /// The algorithm `key` signs with.
-    pub fn algorithm(key: SigningKey) -> Algorithm {
+    pub fn algorithm(key: SigningKey) -> Algorithm
         key.algorithm
-    }
+    end
 
     /// The key that checks what `key` signs: the same secret for HS256,
     /// the public key for the others.
-    pub fn verifying_key(key: SigningKey) -> VerifyingKey {
-        checker = case key.signer {
+    pub fn verifying_key(key: SigningKey) -> VerifyingKey
+        checker = case key.signer
             .Hmac(secret) -> Checker.Hmac(secret)
             .Key(private) -> Checker.Key(PrivateKey.public_key(private))
-        }
+        end
 
-        VerifyingKey{algorithm: key.algorithm, checker}
-    }
-}
+        VerifyingKey{algorithm: key.algorithm, checker:}
+    end
+end
 
-impl Display for SigningKey {
-    fn to_string(key: SigningKey) -> String {
+impl Display for SigningKey
+    fn to_string(key: SigningKey) -> String
         "SigningKey(${key.algorithm})"
-    }
-}
+    end
+end
 
-impl Debug for SigningKey {
-    fn inspect(key: SigningKey) -> String {
+impl Debug for SigningKey
+    fn inspect(key: SigningKey) -> String
         "SigningKey(${key.algorithm})"
-    }
-}
+    end
+end
 
-impl VerifyingKey {
+impl VerifyingKey
     /// An HS256 key: HMAC-SHA256 under `secret`, at least 32 bytes.
-    pub fn hs256(secret: Bytes) -> Result<VerifyingKey, String> {
+    pub fn hs256(secret: Bytes) -> Result<VerifyingKey, String>
         checked_secret(secret)?
         Ok(VerifyingKey{algorithm: .Hs256, checker: Checker.Hmac(secret)})
-    }
+    end
 
     /// An RS256 key, from an RSA public key.
-    pub fn rs256(key: PublicKey) -> Result<VerifyingKey, String> {
+    pub fn rs256(key: PublicKey) -> Result<VerifyingKey, String>
         public_keyed(.Rs256, key)
-    }
+    end
 
     /// A PS256 key, from an RSA public key.
-    pub fn ps256(key: PublicKey) -> Result<VerifyingKey, String> {
+    pub fn ps256(key: PublicKey) -> Result<VerifyingKey, String>
         public_keyed(.Ps256, key)
-    }
+    end
 
     /// An ES256 key, from an ECDSA P-256 public key.
-    pub fn es256(key: PublicKey) -> Result<VerifyingKey, String> {
+    pub fn es256(key: PublicKey) -> Result<VerifyingKey, String>
         public_keyed(.Es256, key)
-    }
+    end
 
     /// An EdDSA key, from an Ed25519 public key.
-    pub fn eddsa(key: PublicKey) -> Result<VerifyingKey, String> {
+    pub fn eddsa(key: PublicKey) -> Result<VerifyingKey, String>
         public_keyed(.EdDsa, key)
-    }
+    end
 
     /// The algorithm `key` checks.
-    pub fn algorithm(key: VerifyingKey) -> Algorithm {
+    pub fn algorithm(key: VerifyingKey) -> Algorithm
         key.algorithm
-    }
-}
+    end
+end
 
-impl Display for VerifyingKey {
-    fn to_string(key: VerifyingKey) -> String {
+impl Display for VerifyingKey
+    fn to_string(key: VerifyingKey) -> String
         "VerifyingKey(${key.algorithm})"
-    }
-}
+    end
+end
 
-impl Debug for VerifyingKey {
-    fn inspect(key: VerifyingKey) -> String {
+impl Debug for VerifyingKey
+    fn inspect(key: VerifyingKey) -> String
         "VerifyingKey(${key.algorithm})"
-    }
-}
+    end
+end
 
 /// What `verify` checks besides the signature.
-pub struct Validation {
+pub struct Validation
     /// How far past `exp`, or before `nbf`, a token is still taken, for
     /// clocks that disagree a little.
     leeway: Duration = Duration.seconds(60)
@@ -229,10 +229,10 @@ pub struct Validation {
     require_expiry: Bool = True
     /// The time to check `exp` and `nbf` against, or `None` for the clock.
     now: Maybe<Instant> = None
-}
+end
 
 /// Why `verify` refused a token.
-pub enum JwtError {
+pub enum JwtError
     /// Not three base64url parts, or a header or claims that are not a
     /// JSON object.
     Malformed String
@@ -253,13 +253,13 @@ pub enum JwtError {
     /// The claims are not the shape `verify_as` reads them as, with
     /// `Json.ShapeError`'s message.
     Claims String
-}
+end
 
 derive Equatable for JwtError
 
-impl Display for JwtError {
-    fn to_string(e: JwtError) -> String {
-        case e {
+impl Display for JwtError
+    fn to_string(e: JwtError) -> String
+        case e
             .Malformed(why) -> "malformed token: ${why}"
             .WrongAlgorithm(why) -> why
             .BadSignature -> "the token's signature does not verify"
@@ -269,9 +269,9 @@ impl Display for JwtError {
             .WrongAudience -> "the token is not for this audience"
             .MissingClaim(name) -> "the token has no `${name}` claim"
             .Claims(shape) -> "the token's claims: ${shape}"
-        }
-    }
-}
+        end
+    end
+end
 
 /// A token holding `claims`, signed by `key`. Its header is
 /// `{"alg":"<alg>","typ":"JWT"}`.
@@ -279,42 +279,43 @@ impl Display for JwtError {
 //! import std::jwt.{self, SigningKey}
 //!
 //! key = SigningKey.hs256(String.to_bytes("a secret of thirty-two bytes, or more"))!
-//! token = jwt.sign(%{"sub" => Json.String("ada"), "admin" => Json.Bool(True)}, key)
+//! token = jwt.sign({"sub" => Json.String("ada"), "admin" => Json.Bool(True)}, key)
 //! assert String.starts_with(token, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.")
 //!
 //! claims = jwt.verify(token, SigningKey.verifying_key(key), jwt.Validation{require_expiry: False})!
 //! assert Map.get(claims, "sub") == Some(Json.String("ada"))
 //
-pub fn sign(claims: Map<String, Json>, key: SigningKey) -> String {
-    header = %{"alg" => Json.String(Display.to_string(key.algorithm)), "typ" => Json.String("JWT")}
+pub fn sign(claims: Map<String, Json>, key: SigningKey) -> String
+    header = {"alg" => Json.String(Display.to_string(key.algorithm)), "typ" => Json.String("JWT")}
     input = "${part(Json.Obj(header))}.${part(Json.Obj(claims))}"
 
-    signature = case key.signer {
-        .Hmac(secret) -> hash.hmac_sha256(secret, String.to_bytes(input))
+    signature = case key.signer
+        .Hmac(secret) ->
+            hash.hmac_sha256(secret, String.to_bytes(input))
 
         .Key(private) ->
             signatures.sign_with(private, scheme(key.algorithm), String.to_bytes(input))!
-    }
+    end
 
     "${input}.${base64.encode_url(signature, padded: False)}"
-}
+end
 
 /// A token holding `claims` as their `ToJson` writes them, signed by
 /// `key`. The claims must be a JSON object, as a struct's derived `ToJson`
 /// is; anything else is a runtime error.
-pub fn sign_as(claims: ToJson, key: SigningKey) -> String {
-    case ToJson.to_json(claims) {
-        .Obj(fields) -> sign(fields, key)
+pub fn sign_as(claims: ToJson, key: SigningKey) -> String
+    case ToJson.to_json(claims)
+        .Obj(fields) ->
+            sign(fields, key)
 
-        other -> {
+        other ->
             refused: Result<String, String> = Err(
                 "jwt.sign_as: the claims must be a JSON object, got ${Json.kind(other)}"
             )
 
             refused!
-        }
-    }
-}
+    end
+end
 
 /// The claims of `token`, once its signature is `key`'s and its header's
 /// `alg` is `key`'s algorithm, and its `exp`, `nbf`, `iss` and `aud` pass
@@ -340,34 +341,34 @@ pub fn sign_as(claims: ToJson, key: SigningKey) -> String {
 //!
 //! after = Validation{now: Some(Instant.from_seconds(1_300_819_500))}
 //! assert jwt.verify(token, key, after) == Err(JwtError.Expired)
-//! assert jwt.verify(token, key, .{..before, issuer: Some("ann")}) == Err(JwtError.WrongIssuer)
+//! assert jwt.verify(token, key, {..before, issuer: Some("ann")}) == Err(JwtError.WrongIssuer)
 //
 pub fn verify(
     token: String,
     key: VerifyingKey,
     validation: Validation = Validation{},
-) -> Result<Map<String, Json>, JwtError> {
-    (header_part, claims_part, signature_part) = case String.split(token, ".") {
+) -> Result<Map<String, Json>, JwtError>
+    (header_part, claims_part, signature_part) = case String.split(token, ".")
         [h, c, s] -> (h, c, s)
         _ -> return Err(JwtError.Malformed("a token is three parts joined by `.`"))
-    }
+    end
 
     header = object(header_part, "header")?
     check_header(header, key.algorithm)?
     signature = decoded(signature_part, "signature")?
     input = String.to_bytes("${header_part}.${claims_part}")
 
-    valid = case key.checker {
+    valid = case key.checker
         .Hmac(secret) -> hash.equal_in_constant_time(hash.hmac_sha256(secret, input), signature)
         .Key(public) -> signatures.is_valid_with(public, scheme(key.algorithm), input, signature)
-    }
+    end
 
-    if not valid { return Err(JwtError.BadSignature) }
+    if not valid then return Err(JwtError.BadSignature)
 
     claims = object(claims_part, "claims")?
     check_claims(claims, validation)?
     Ok(claims)
-}
+end
 
 /// The claims of `token`, checked as `verify` checks them, read as a `T`
 /// by its `FromJson`, such as a struct's derived one.
@@ -375,115 +376,117 @@ pub fn verify(
 //! import std::jwt.{self, SigningKey, Validation}
 //!
 //! key = SigningKey.hs256(String.to_bytes("a secret of thirty-two bytes, or more"))!
-//! token = jwt.sign_as(%{"uid" => 7, "exp" => 2_000_000_000}, key)
+//! token = jwt.sign_as({"uid" => 7, "exp" => 2_000_000_000}, key)
 //! now = Some(Instant.from_seconds(1_900_000_000))
-//! claims: Map<String, Int> = jwt.verify_as(token, SigningKey.verifying_key(key), Validation{now})!
+//! claims: Map<String, Int> = jwt.verify_as(token, SigningKey.verifying_key(key), Validation{now:})!
 //! assert Map.get(claims, "uid") == Some(7)
 //
 pub fn verify_as<T>(
     token: String,
     key: VerifyingKey,
     validation: Validation = Validation{},
-) -> Result<T, JwtError> where T: FromJson {
+) -> Result<T, JwtError> where T: FromJson
     claims = verify(token, key, validation)?
     T.from_json(Json.Obj(claims)) |> Result.map_err(fn e -> JwtError.Claims(Display.to_string(e)))
-}
+end
 
-fn checked_secret(secret: Bytes) -> Result<Unit, String> {
+fn checked_secret(secret: Bytes) -> Result<Unit, String>
     length = Bytes.length(secret)
 
-    if length < 32 {
+    if length < 32 then
         Err("an HS256 secret needs at least 32 bytes, got ${length}")
-    } else {
+    else
         Ok(Unit)
-    }
-}
+    end
+end
 
 /// The key kind an algorithm signs with.
-fn kind(algorithm: Algorithm) -> Maybe<KeyKind> {
-    case algorithm {
+fn kind(algorithm: Algorithm) -> Maybe<KeyKind>
+    case algorithm
         .Hs256 -> None
         .Rs256 -> Some(.Rsa)
         .Ps256 -> Some(.Rsa)
         .Es256 -> Some(.EcdsaP256)
         .EdDsa -> Some(.Ed25519)
-    }
-}
+    end
+end
 
 /// The std::signatures scheme an algorithm signs with.
-fn scheme(algorithm: Algorithm) -> Scheme {
-    case algorithm {
+fn scheme(algorithm: Algorithm) -> Scheme
+    case algorithm
         .Rs256 -> .RsaPkcs1Sha256
         .Ps256 -> .RsaPssSha256
         .Es256 -> .EcdsaSha256
         _ -> .Ed25519
-    }
-}
+    end
+end
 
-fn kind_check(algorithm: Algorithm, have: KeyKind) -> Result<Unit, String> {
-    case kind(algorithm) {
+fn kind_check(algorithm: Algorithm, have: KeyKind) -> Result<Unit, String>
+    case kind(algorithm)
         Some(want) when want == have -> Ok(Unit)
         Some(want) -> Err("${algorithm} signs with an ${want} key, not ${have}")
         None -> Err("${algorithm} signs with a secret, not a key")
-    }
-}
+    end
+end
 
-fn keyed(algorithm: Algorithm, key: PrivateKey) -> Result<SigningKey, String> {
+fn keyed(algorithm: Algorithm, key: PrivateKey) -> Result<SigningKey, String>
     kind_check(algorithm, PrivateKey.kind(key))?
-    Ok(SigningKey{algorithm, signer: Signer.Key(key)})
-}
+    Ok(SigningKey{algorithm:, signer: Signer.Key(key)})
+end
 
-fn public_keyed(algorithm: Algorithm, key: PublicKey) -> Result<VerifyingKey, String> {
+fn public_keyed(algorithm: Algorithm, key: PublicKey) -> Result<VerifyingKey, String>
     kind_check(algorithm, PublicKey.kind(key))?
-    Ok(VerifyingKey{algorithm, checker: Checker.Key(key)})
-}
+    Ok(VerifyingKey{algorithm:, checker: Checker.Key(key)})
+end
 
 /// A JSON value as a token part: its compact JSON in unpadded base64url.
-fn part(value: Json) -> String {
+fn part(value: Json) -> String
     base64.encode_url(String.to_bytes(Json.encode(value)), padded: False)
-}
+end
 
 /// A token part's bytes: unpadded base64url.
-fn decoded(text: String, what: String) -> Result<Bytes, JwtError> {
-    if String.contains(text, "=") {
+fn decoded(text: String, what: String) -> Result<Bytes, JwtError>
+    if String.contains(text, "=") then
         Err(JwtError.Malformed("the ${what} is padded with `=`"))
-    } else {
+    else
         base64.decode_url(text)
         |> Result.map_err(fn e -> JwtError.Malformed("the ${what} is not base64url: ${e}"))
-    }
-}
+    end
+end
 
 /// A token part that holds a JSON object.
-fn object(text: String, what: String) -> Result<Map<String, Json>, JwtError> {
+fn object(text: String, what: String) -> Result<Map<String, Json>, JwtError>
     data = decoded(text, what)?
 
-    json = case Bytes.to_string(data) {
+    json = case Bytes.to_string(data)
         Ok(utf8) ->
             Json.decode(utf8)
             |> Result.map_err(fn e -> JwtError.Malformed("the ${what} is not JSON: ${e}"))?
 
-        Err(_) -> return Err(JwtError.Malformed("the ${what} is not UTF-8"))
-    }
+        Err(_) ->
+            return Err(JwtError.Malformed("the ${what} is not UTF-8"))
+    end
 
-    case json {
+    case json
         .Obj(fields) -> Ok(fields)
         _ -> Err(JwtError.Malformed("the ${what} is not a JSON object"))
-    }
-}
+    end
+end
 
-fn check_header(header: Map<String, Json>, algorithm: Algorithm) -> Result<Unit, JwtError> {
-    if Map.get(header, "crit") |> Maybe.is_some() {
+fn check_header(header: Map<String, Json>, algorithm: Algorithm) -> Result<Unit, JwtError>
+    if Map.get(header, "crit") |> Maybe.is_some() then
         return Err(
             JwtError.Malformed(
                 "the header names critical extensions (`crit`), which are not supported"
             )
         )
-    }
+    end
 
     want = Display.to_string(algorithm)
 
-    case Map.get(header, "alg") {
-        Some(.String(alg)) when alg == want -> Ok(Unit)
+    case Map.get(header, "alg")
+        Some(.String(alg)) when alg == want ->
+            Ok(Unit)
 
         Some(.String("none")) ->
             Err(JwtError.WrongAlgorithm("an unsigned token (`alg` none) is refused"))
@@ -493,11 +496,12 @@ fn check_header(header: Map<String, Json>, algorithm: Algorithm) -> Result<Unit,
                 JwtError.WrongAlgorithm("the token's algorithm is ${alg}, and the key's is ${want}")
             )
 
-        _ -> Err(JwtError.Malformed("the header has no `alg`"))
-    }
-}
+        _ ->
+            Err(JwtError.Malformed("the header has no `alg`"))
+    end
+end
 
-fn check_claims(claims: Map<String, Json>, validation: Validation) -> Result<Unit, JwtError> {
+fn check_claims(claims: Map<String, Json>, validation: Validation) -> Result<Unit, JwtError>
     now = Instant.to_seconds(
         validation.now
         |> Maybe.with_default(Instant.now())
@@ -505,52 +509,65 @@ fn check_claims(claims: Map<String, Json>, validation: Validation) -> Result<Uni
 
     leeway = Duration.as_seconds(validation.leeway)
 
-    case seconds(claims, "exp")? {
+    case seconds(claims, "exp")?
         Some(exp) when now - leeway >= exp -> return Err(JwtError.Expired)
         Some(_) -> Unit
         None when validation.require_expiry -> return Err(JwtError.MissingClaim("exp"))
         None -> Unit
-    }
+    end
 
-    case seconds(claims, "nbf")? {
+    case seconds(claims, "nbf")?
         Some(nbf) when now + leeway < nbf -> return Err(JwtError.NotYetValid)
         _ -> Unit
-    }
+    end
 
-    case validation.issuer {
+    case validation.issuer
         Some(issuer) when Map.get(claims, "iss") != Some(Json.String(issuer)) ->
             return Err(JwtError.WrongIssuer)
 
-        _ -> Unit
-    }
+        _ ->
+            Unit
+    end
 
-    case (validation.audience, Map.get(claims, "aud")) {
-        (_, None) when validation.audience |> Maybe.is_some() -> Err(JwtError.WrongAudience)
-        (None, Some(_)) -> Err(JwtError.WrongAudience)
-        (Some(audience), Some(.String(aud))) when aud == audience -> Ok(Unit)
+    case (validation.audience, Map.get(claims, "aud"))
+        (_, None) when validation.audience |> Maybe.is_some() ->
+            Err(JwtError.WrongAudience)
 
-        (Some(audience), Some(.Arr(list))) when Iter.any_match(list, fn a -> {
-            a == Json.String(audience)
-        }) ->
+        (None, Some(_)) ->
+            Err(JwtError.WrongAudience)
+
+        (Some(audience), Some(.String(aud))) when aud == audience ->
             Ok(Unit)
 
-        (Some(_), Some(_)) -> Err(JwtError.WrongAudience)
-        _ -> Ok(Unit)
-    }
-}
+        (Some(audience), Some(.Arr(list))) when Iter.any_match(list, fn a ->
+            a == Json.String(audience)
+        end) ->
+            Ok(Unit)
+
+        (Some(_), Some(_)) ->
+            Err(JwtError.WrongAudience)
+
+        _ ->
+            Ok(Unit)
+    end
+end
 
 /// A NumericDate claim, whole seconds since the Unix epoch, rounded down.
-fn seconds(claims: Map<String, Json>, name: String) -> Result<Maybe<Int>, JwtError> {
-    case Map.get(claims, name) {
-        None -> Ok(None)
-        Some(.Int(n)) -> Ok(Some(n))
+fn seconds(claims: Map<String, Json>, name: String) -> Result<Maybe<Int>, JwtError>
+    case Map.get(claims, name)
+        None ->
+            Ok(None)
+
+        Some(.Int(n)) ->
+            Ok(Some(n))
 
         Some(.Float(f)) ->
-            case Float.to_int(Float.floor(f)) {
+            case Float.to_int(Float.floor(f))
                 Some(n) -> Ok(Some(n))
                 None -> Err(JwtError.Malformed("`${name}` is not a finite number"))
-            }
+            end
 
-        Some(_) -> Err(JwtError.Malformed("`${name}` is not a number"))
-    }
-}
+        Some(_) ->
+            Err(JwtError.Malformed("`${name}` is not a number"))
+    end
+end

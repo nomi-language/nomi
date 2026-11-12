@@ -15,56 +15,56 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# of the first `n` natural numbers.
 
 /// The square of the sum of the numbers from 1 to `n`.
-pub fn square_of_sum(n: Int) -> Int {
+pub fn square_of_sum(n: Int) -> Int
     1..=n |> Iter.sum() |> Int.pow(2)
-}
+end
 
 /// The sum of the squares of the numbers from 1 to `n`.
-pub fn sum_of_squares(n: Int) -> Int {
+pub fn sum_of_squares(n: Int) -> Int
     1..=n |> Iter.map(&Int.pow(&1, 2)) |> Iter.sum()
-}
+end
 
 /// How much the square of the sum exceeds the sum of the squares, for the
 /// numbers from 1 to `n`.
-pub fn difference_of_squares(n: Int) -> Int {
+pub fn difference_of_squares(n: Int) -> Int
     square_of_sum(n) - sum_of_squares(n)
-}
+end
 
 // FILE: difference_of_squares_test.nomi
 import difference_of_squares
 
-test "Square the sum of the numbers up to the given number" {
+test "Square the sum of the numbers up to the given number"
     [
         ("square of sum 1", 1, 1),
         ("square of sum 5", 5, 225),
         ("square of sum 100", 100, 25502500),
     ]
-    |> subtests (description, n, expected), description {
+    |> subtests (description, n, expected), description
         assert difference_of_squares.square_of_sum(n) == expected
-    }
-}
+    end
+end
 
-test "Sum the squares of the numbers up to the given number" {
+test "Sum the squares of the numbers up to the given number"
     [
         ("sum of squares 1", 1, 1),
         ("sum of squares 5", 5, 55),
         ("sum of squares 100", 100, 338350),
     ]
-    |> subtests (description, n, expected), description {
+    |> subtests (description, n, expected), description
         assert difference_of_squares.sum_of_squares(n) == expected
-    }
-}
+    end
+end
 
-test "Subtract sum of squares from square of sums" {
+test "Subtract sum of squares from square of sums"
     [
         ("difference of squares 1", 1, 0),
         ("difference of squares 5", 5, 170),
         ("difference of squares 100", 100, 25164150),
     ]
-    |> subtests (description, n, expected), description {
+    |> subtests (description, n, expected), description
         assert difference_of_squares.difference_of_squares(n) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok Square the sum of the numbers up to the given number (3 cases)

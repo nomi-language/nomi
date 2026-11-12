@@ -13,23 +13,23 @@ import "testing"
 func TestIRPatternSeed_ReduceSignals(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn main() {
-  skipped = Iter.reduce([1, 2, 3], (0, []), fn (n, xs), x -> {
-    if x == 2 { continue }
+fn main()
+  skipped = Iter.reduce([1, 2, 3], (0, []), fn (n, xs), x ->
+    if x == 2 then continue
     (n + x, xs + [x])
-  })
+  end)
   io.print(Debug.inspect(skipped))
-  stopped = Iter.reduce([1, 2, 3, 4], (0, []), fn (n, xs), x -> {
-    if x == 3 { break }
+  stopped = Iter.reduce([1, 2, 3, 4], (0, []), fn (n, xs), x ->
+    if x == 3 then break
     (n + x, xs + [x])
-  })
+  end)
   io.print(Debug.inspect(stopped))
-  answered = Iter.reduce([1, 2, 3, 4], (0, []), fn (n, xs), x -> {
-    if x == 3 { break (n * 100, xs) }
+  answered = Iter.reduce([1, 2, 3, 4], (0, []), fn (n, xs), x ->
+    if x == 3 then break (n * 100, xs)
     (n + x, xs + [x])
-  })
+  end)
   io.print(Debug.inspect(answered))
-}
+end
 `, "(4, [1, 3])\n(3, [1, 2])\n(300, [1, 2])\n")
 }
 
@@ -38,20 +38,20 @@ fn main() {
 func TestIRPatternSeed_ScanAndMapReduceSignals(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn main() {
-  states = Iter.scan([1, 2, 3, 4], (0, 0), fn (n, k), x -> {
-    if x == 2 { continue }
-    if x == 4 { break }
+fn main()
+  states = Iter.scan([1, 2, 3, 4], (0, 0), fn (n, k), x ->
+    if x == 2 then continue
+    if x == 4 then break
     (n + x, k + 1)
-  }) |> Iter.to_list()
+  end) |> Iter.to_list()
   io.print(Debug.inspect(states))
-  outputs = Iter.map_reduce([1, 2, 3, 4], (0, 0), fn (n, k), x -> {
-    if x == 2 { continue }
-    if x == 4 { break }
+  outputs = Iter.map_reduce([1, 2, 3, 4], (0, 0), fn (n, k), x ->
+    if x == 2 then continue
+    if x == 4 then break
     ((n + x, k + 1), x * 10)
-  })
+  end)
   io.print(Debug.inspect(outputs))
-}
+end
 `, "[(1, 1), (4, 2)]\n((4, 2), [10, 30])\n")
 }
 
@@ -59,23 +59,23 @@ fn main() {
 func TestIRPatternSeed_StructAndNestedPatterns(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Acc {
+struct Acc
   total: Int
   items: List<Int>
-}
+end
 
-fn main() {
-  acc = Iter.reduce([1, 2, 3], Acc{total: 0, items: []}, fn Acc{total, items}, x -> {
-    if x == 2 { continue }
+fn main()
+  acc = Iter.reduce([1, 2, 3], Acc{total: 0, items: []}, fn Acc{total:, items:}, x ->
+    if x == 2 then continue
     Acc{total: total + x, items: items + [x]}
-  })
+  end)
   io.print(Debug.inspect(acc))
-  bounds = Iter.reduce([1, 2, 3], (0, (100, 0)), fn (n, (lo, hi)), x -> {
-    if x == 2 { continue }
+  bounds = Iter.reduce([1, 2, 3], (0, (100, 0)), fn (n, (lo, hi)), x ->
+    if x == 2 then continue
     (n + x, (Int.min(lo, x), Int.max(hi, x)))
-  })
+  end)
   io.print(Debug.inspect(bounds))
-}
+end
 `, "Acc{total: 4, items: [1, 3]}\n(4, (1, 3))\n")
 }
 
@@ -84,14 +84,14 @@ fn main() {
 func TestIRPatternSeed_NamedFunctionFrom(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn keep((n, xs): (Int, List<Int>), x: Int) -> (Int, List<Int>) {
-  if x == 2 { continue }
+fn keep((n, xs): (Int, List<Int>), x: Int) -> (Int, List<Int>)
+  if x == 2 then continue
   (n + x, xs + [x])
-}
+end
 
-fn main() {
+fn main()
   kept = Iter.reduce([1, 2, 3], (0, []), keep)
   io.print(Debug.inspect(kept))
-}
+end
 `, "(4, [1, 3])\n")
 }

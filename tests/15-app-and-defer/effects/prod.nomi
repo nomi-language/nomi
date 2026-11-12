@@ -1,4 +1,4 @@
-import {
+import
     // Production app wiring. Overrides data-field defaults
     // that matter at deploy time and supplies the production dependency
     // handlers (ProdLogger, SystemClock, StdConsole).
@@ -6,11 +6,11 @@ import {
     clocks.SystemClock
     console.StdConsole
     log.ProdLogger
-}
+end
 
-pub fn build(context: Context) -> EffectsApp {
+pub fn build(context: Context) -> EffectsApp
     EffectsApp{
-        context,
+        context:,
         deployment: "prod",
         port: 8080,
         database_url: "postgres://prod-host/myapp",
@@ -19,4 +19,4 @@ pub fn build(context: Context) -> EffectsApp {
         clock: SystemClock,
         console: StdConsole,
     }
-}
+end

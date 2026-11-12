@@ -2,16 +2,16 @@
 //# words, and words the program defines.
 
 /// Why a program cannot run.
-pub enum Error {
+pub enum Error
     EmptyStack
     OnlyOneValue
     DivideByZero
     IllegalOperation
     UndefinedOperation
-}
+end
 
 /// One step a word runs: push a number, or one of the built-in words.
-enum Op {
+enum Op
     Push Int
     Add
     Subtract
@@ -21,11 +21,11 @@ enum Op {
     Drop
     Swap
     Over
-}
+end
 
 /// The words every program starts with, each the steps it runs. A program's
 /// own definitions are added to these, and may replace them.
-once builtins: Map<String, List<Op>> = %{
+once builtins: Map<String, List<Op>> = {
     "+" => [.Add],
     "-" => [.Subtract],
     "*" => [.Multiply],
@@ -38,7 +38,7 @@ once builtins: Map<String, List<Op>> = %{
 
 /// The stack, bottom first, after running each line of `instructions` in
 /// turn.
-pub fn evaluate(instructions: List<String>) -> Result<List<Int>, Error> {
+pub fn evaluate(instructions: List<String>) -> Result<List<Int>, Error>
     tokens =
         instructions
         |> Iter.flat_map(String.words)
@@ -50,19 +50,20 @@ pub fn evaluate(instructions: List<String>) -> Result<List<Int>, Error> {
     stack
     |> Iter.reverse()
     |> Ok()
-}
+end
 
 /// Runs `tokens` on `stack`, top first, with the words defined so far.
 fn run(
     stack: List<Int>,
     words: Map<String, List<Op>>,
     tokens: List<String>,
-) -> Result<List<Int>, Error> {
-    case tokens {
-        [] -> Ok(stack)
+) -> Result<List<Int>, Error>
+    case tokens
+        [] ->
+            Ok(stack)
 
-        [":", name, ..rest] -> {
-            if String.to_int(name) |> Maybe.is_some() { return Err(.IllegalOperation) }
+        [":", name, ..rest] ->
+            if String.to_int(name) |> Maybe.is_some() then return Err(.IllegalOperation)
 
             body = rest |> Iter.take_while(&(&1 != ";")) |> Iter.to_list()
             after = rest |> Iter.drop(Iter.count(body) + 1) |> Iter.to_list()
@@ -73,34 +74,32 @@ fn run(
                 |> Result.collect()?
 
             run(stack, Map.put(words, name, Iter.flatten(ops)), after)
-        }
 
-        [word, ..rest] -> {
+        [word, ..rest] ->
             ops = resolve(words, word)?
             stack = execute(stack, ops)?
             run(stack, words, rest)
-        }
-    }
-}
+    end
+end
 
 /// The steps `word` runs: a number pushes itself, and any other word runs
 /// the steps it was defined with when it was defined.
-fn resolve(words: Map<String, List<Op>>, word: String) -> Result<List<Op>, Error> {
-    if Some(n) = String.to_int(word) { return Ok([.Push(n)]) }
+fn resolve(words: Map<String, List<Op>>, word: String) -> Result<List<Op>, Error>
+    if Some(n) = String.to_int(word) then return Ok([.Push(n)])
 
     Map.get(words, word) |> Maybe.to_result(.UndefinedOperation)
-}
+end
 
-fn execute(stack: List<Int>, ops: List<Op>) -> Result<List<Int>, Error> {
-    case ops {
+fn execute(stack: List<Int>, ops: List<Op>) -> Result<List<Int>, Error>
+    case ops
         [] -> Ok(stack)
         [op, ..rest] -> execute(apply(stack, op)?, rest)
-    }
-}
+    end
+end
 
 /// `stack`, top first, after one step.
-fn apply(stack: List<Int>, op: Op) -> Result<List<Int>, Error> {
-    case (op, stack) {
+fn apply(stack: List<Int>, op: Op) -> Result<List<Int>, Error>
+    case (op, stack)
         (.Push(n), _) -> Ok([n, ..stack])
         (_, []) -> Err(.EmptyStack)
         (.Dup, [a, ..rest]) -> Ok([a, a, ..rest])
@@ -113,5 +112,5 @@ fn apply(stack: List<Int>, op: Op) -> Result<List<Int>, Error> {
         (.Multiply, [b, a, ..rest]) -> Ok([a * b, ..rest])
         (.Divide, [0, _, ..]) -> Err(.DivideByZero)
         (.Divide, [b, a, ..rest]) -> Ok([a / b, ..rest])
-    }
-}
+    end
+end

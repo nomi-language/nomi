@@ -14,61 +14,61 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Whether two queens on a chessboard can attack each other.
 
 /// A queen on an 8 by 8 board, at a zero-based row and column.
-pub opaque struct Queen {
+pub opaque struct Queen
     row: Int
     column: Int
-}
+end
 
-impl Queen {
+impl Queen
     /// Places a queen, or says which coordinate is off the board.
-    pub fn new(row: Int, column: Int) -> Result<Queen, Error> {
-        case {
+    pub fn new(row: Int, column: Int) -> Result<Queen, Error>
+        case
             row < 0 -> Err(.RowNotPositive)
             row > 7 -> Err(.RowNotOnBoard)
             column < 0 -> Err(.ColumnNotPositive)
             column > 7 -> Err(.ColumnNotOnBoard)
-            _ -> Ok(.{row, column})
-        }
-    }
+            _ -> Ok({row:, column:})
+        end
+    end
 
     /// Reports whether two queens share a row, a column or a diagonal.
-    pub fn can_attack(white: Queen, black: Queen) -> Bool {
+    pub fn can_attack(white: Queen, black: Queen) -> Bool
         rows = Int.abs(white.row - black.row)
         columns = Int.abs(white.column - black.column)
         rows == 0 or columns == 0 or rows == columns
-    }
-}
+    end
+end
 
 /// Why a queen cannot be placed.
-pub enum Error {
+pub enum Error
     RowNotPositive
     RowNotOnBoard
     ColumnNotPositive
     ColumnNotOnBoard
-}
+end
 
 // FILE: queen_attack_test.nomi
 import queen_attack.{Error, Queen}
 
-group "Test creation of Queens with valid and invalid positions" {
-    test "queen with a valid position" {
+group "Test creation of Queens with valid and invalid positions"
+    test "queen with a valid position"
         assert Queen.new(2, 2)
-    }
+    end
 
-    test "invalid positions" {
+    test "invalid positions"
         [
             ("queen must have positive row", -2, 2, Error.RowNotPositive),
             ("queen must have row on board", 8, 4, .RowNotOnBoard),
             ("queen must have positive column", 2, -2, .ColumnNotPositive),
             ("queen must have column on board", 4, 8, .ColumnNotOnBoard),
         ]
-        |> subtests (description, row, column, error), description {
+        |> subtests (description, row, column, error), description
             assert Queen.new(row, column) == Err(error)
-        }
-    }
-}
+        end
+    end
+end
 
-test "Test the ability of one queen to attack another" {
+test "Test the ability of one queen to attack another"
     [
         ("cannot attack", (2, 4), (6, 6), False),
         ("can attack on same row", (2, 4), (2, 6), True),
@@ -89,12 +89,12 @@ test "Test the ability of one queen to attack another" {
         (white_row, white_column),
         (black_row, black_column),
         expected
-    ), description {
+    ), description
         assert Ok(white) = Queen.new(white_row, white_column)
         assert Ok(black) = Queen.new(black_row, black_column)
         assert Queen.can_attack(white, black) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok Test creation of Queens with valid and invalid positions / queen with a valid position

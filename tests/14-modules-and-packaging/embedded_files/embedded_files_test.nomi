@@ -3,7 +3,7 @@
 // it: `web/site.nomi` names `web/public` and `web/templates/*.html`, and
 // this file names `data`. A directory's name embeds every file under it
 // but hidden ones.
-import {
+import
     std::embed.Files
     std::fs.{Entry, Kind}
     std::http.{self, Headers, Method, Request, Response, Status}
@@ -11,11 +11,11 @@ import {
     std::instant.Instant
     std::io.Error
     web::site
-}
+end
 
 embed data `data`
 
-test "each declaration holds the files its patterns match, from the module root" {
+test "each declaration holds the files its patterns match, from the module root"
     assert Files.paths(data) == ["data/greeting.txt"]
 
     assert Files.paths(site.assets) == [
@@ -25,9 +25,9 @@ test "each declaration holds the files its patterns match, from the module root"
         "web/public/index.html",
         "web/templates/page.html",
     ]
-}
+end
 
-test "a file reads as bytes or text" {
+test "a file reads as bytes or text"
     assert Files.read_text(data, "data/greeting.txt") == Ok("hello\n")
     assert Files.read(data, "data/greeting.txt") == Ok(String.to_bytes("hello\n"))
 
@@ -37,9 +37,9 @@ test "a file reads as bytes or text" {
     folder = "web/public"
     assert Files.read_text(data, hidden) == Err(Error.NotFound{path: "data/.secret"})
     assert Files.read(site.assets, folder) == Err(Error.IsADirectory{path: "web/public"})
-}
+end
 
-test "a directory lists and walks" {
+test "a directory lists and walks"
     assert Files.list(site.assets, "web/public/docs") == Ok([
             Entry{path: "web/public/docs/guide.txt", name: "guide.txt", kind: Kind.File},
             Entry{path: "web/public/docs/index.html", name: "index.html", kind: Kind.File},
@@ -62,20 +62,20 @@ test "a directory lists and walks" {
         Ok("./web/templates"),
         Ok("./web/templates/page.html"),
     ]
-}
+end
 
-test "metadata gives the size and a fixed time" {
+test "metadata gives the size and a fixed time"
     meta = Files.metadata(data, "data/greeting.txt")!
     assert meta.kind == Kind.File
     assert meta.size == 6
     assert Instant.as_nanos(meta.modified) == 0
-}
+end
 
-fn get(path: String) -> Response {
+fn get(path: String) -> Response
     site.static_files()(http_testing.request(Method.Get, path))
-}
+end
 
-test "a file server answers from the embedded files" {
+test "a file server answers from the embedded files"
     home = get("/")
     assert home.status == Status.ok
     assert Response.text(home) == Ok("<h1>Home</h1>\n")
@@ -86,9 +86,9 @@ test "a file server answers from the embedded files" {
     assert Headers.get(css.headers, "Content-Type") == Some("text/css; charset=utf-8")
 
     assert Response.text(get("/docs/")) == Ok("<h1>Docs</h1>\n")
-}
+end
 
-test "a file server redirects a directory and an index" {
+test "a file server redirects a directory and an index"
     docs = get("/docs")
     assert docs.status == Status.moved_permanently
     assert Headers.get(docs.headers, "Location") == Some("/docs/")
@@ -96,9 +96,9 @@ test "a file server redirects a directory and an index" {
     index = get("/docs/index.html")
     assert index.status == Status.moved_permanently
     assert Headers.get(index.headers, "Location") == Some("/docs/")
-}
+end
 
-test "a file server answers 404 for what it does not serve" {
+test "a file server answers 404 for what it does not serve"
     [
         ("a directory with no index.html", "/css/"),
         ("a hidden file", "/.draft"),
@@ -106,16 +106,16 @@ test "a file server answers 404 for what it does not serve" {
         ("a path that climbs out", "/../site.nomi"),
         ("a template outside the served folder", "/templates/page.html"),
     ]
-    |> subtests (description, path), description {
+    |> subtests (description, path), description
         assert get(path).status == Status.not_found
-    }
-}
+    end
+end
 
-fn with_header(request: Request, name: String, value: String) -> Request {
-    .{..request, headers: Headers.set(request.headers, name, value)}
-}
+fn with_header(request: Request, name: String, value: String) -> Request
+    {..request, headers: Headers.set(request.headers, name, value)}
+end
 
-test "a file server sends each file's SHA-256 as its ETag, taken when the program compiled" {
+test "a file server sends each file's SHA-256 as its ETag, taken when the program compiled"
     home = get("/")
     etag = Headers.get(home.headers, "ETag")!
     assert etag == "\"b5099f092335ab78f581425bd45b226578160c325c80f234b3fae951e2c35e44\""
@@ -125,9 +125,9 @@ test "a file server sends each file's SHA-256 as its ETag, taken when the progra
     unchanged = site.static_files()(again)
     assert unchanged.status == Status.not_modified
     assert Response.text(unchanged) == Ok("")
-}
+end
 
-test "a single-page file server answers a page route with the root index.html" {
+test "a single-page file server answers a page route with the root index.html"
     app = http.file_server_embedded(Files.sub(site.assets, "web/public")!, single_page: True)
     page = with_header(http_testing.request(Method.Get, "/settings"), "Accept", "text/html")
 
@@ -141,9 +141,9 @@ test "a single-page file server answers a page route with the root index.html" {
 
     css = app(with_header(http_testing.request(Method.Get, "/css/site.css"), "Accept", "text/html"))
     assert Headers.get(css.headers, "Content-Type") == Some("text/css; charset=utf-8")
-}
+end
 
-test "a file whose path matches an immutable pattern is cached for a year" {
+test "a file whose path matches an immutable pattern is cached for a year"
     app = http.file_server_embedded(Files.sub(site.assets, "web/public")!, immutable: ["css/**"])
     year = Some("public, max-age=31536000, immutable")
 
@@ -164,4 +164,4 @@ test "a file whose path matches an immutable pattern is cached for a year" {
 
     assert Headers.get(bare(http_testing.request(Method.Get, "/")).headers, "Cache-Control")
         == Some("no-cache")
-}
+end

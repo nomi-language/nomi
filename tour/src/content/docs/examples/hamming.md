@@ -15,20 +15,20 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The number of positions at which two DNA strands differ. Strands of
 /// different lengths have no Hamming distance.
-pub fn distance(strand1: String, strand2: String) -> Result<Int, String> {
-    if String.length(strand1) != String.length(strand2) {
+pub fn distance(strand1: String, strand2: String) -> Result<Int, String>
+    if String.length(strand1) != String.length(strand2) then
         return Err("strands must be of equal length")
-    }
+    end
 
     Iter.zip(strand1, strand2)
     |> Iter.count_by(fn (a, b) -> a != b)
     |> Ok()
-}
+end
 
 // FILE: hamming_test.nomi
 import hamming.distance
 
-test "hamming distance" {
+test "hamming distance"
     [
         ("empty strands", "", "", Ok(0)),
         ("single letter identical strands", "A", "A", Ok(0)),
@@ -40,10 +40,10 @@ test "hamming distance" {
         ("disallow empty first strand", "", "G", Err("strands must be of equal length")),
         ("disallow empty second strand", "G", "", Err("strands must be of equal length")),
     ]
-    |> subtests (description, strand1, strand2, expected), description {
+    |> subtests (description, strand1, strand2, expected), description
         assert distance(strand1, strand2) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok hamming distance (9 cases)

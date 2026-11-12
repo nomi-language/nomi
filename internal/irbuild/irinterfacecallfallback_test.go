@@ -11,15 +11,27 @@ import (
 func TestIRInterfaceCall_BesideAFunctionMapFieldRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 type Token
-struct Point { x: Int }
-struct Outer {
+struct Point
+    x: Int
+end
+struct Outer
   p: List<Point>
-  hooks: Map<String, (Int) -> Int> = %{}
-}
-interface Named { fn name(value: self) -> String }
-impl Named for Token { fn name(value: Token) -> String { _ = value; "token" } }
-fn main() { io.print(Named.name(Token)); io.inspect(Outer{p: [Point{x: 1}]}) }
-`, "token\nOuter{p: [Point{x: 1}], hooks: %{}}\n")
+  hooks: Map<String, (Int) -> Int> = {}
+end
+interface Named
+    fn name(value: self) -> String
+end
+impl Named for Token
+    fn name(value: Token) -> String
+        _ = value
+        "token"
+    end
+end
+fn main()
+    io.print(Named.name(Token))
+    io.inspect(Outer{p: [Point{x: 1}]})
+end
+`, "token\nOuter{p: [Point{x: 1}], hooks: {}}\n")
 }
 
 // An interface-typed parameter is an existential: the call through it is a
@@ -28,15 +40,30 @@ fn main() { io.print(Named.name(Token)); io.inspect(Outer{p: [Point{x: 1}]}) }
 func TestIRInterfaceCall_ErasedReceiverDispatches(t *testing.T) {
 	src := `import std::io
 type Token
-struct Box { n: Int }
-interface Named { fn name(value: self) -> String }
-impl Named for Token { fn name(value: Token) -> String { _ = value; "token" } }
-impl Named for Box { fn name(value: Box) -> String { "box " + Int.to_string(value.n) } }
-fn describe(value: Named) -> String { Named.name(value) }
-fn main() {
+struct Box
+    n: Int
+end
+interface Named
+    fn name(value: self) -> String
+end
+impl Named for Token
+    fn name(value: Token) -> String
+        _ = value
+        "token"
+    end
+end
+impl Named for Box
+    fn name(value: Box) -> String
+        "box " + Int.to_string(value.n)
+    end
+end
+fn describe(value: Named) -> String
+    Named.name(value)
+end
+fn main()
  io.print(describe(Token))
  io.print(describe(Box{n: 2}))
-}
+end
 `
 	p, err := AnalyzeSource("main.nomi", src)
 	if err != nil {

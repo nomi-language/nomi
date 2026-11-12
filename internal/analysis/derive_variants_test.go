@@ -34,16 +34,16 @@ func variantsDeriveErrors(t *testing.T, src string) []string {
 }
 
 func TestDeriveVariants_AcceptsAnEnumWhoseVariantsCarryNoData(t *testing.T) {
-	src := `enum Coin {
+	src := `enum Coin
     Penny
     Nickel
-}
+end
 
 derive Variants for Coin
 
-fn all() -> List<Coin> {
+fn all() -> List<Coin>
     Coin.variants()
-}
+end
 `
 	if errs := variantsDeriveErrors(t, src); len(errs) != 0 {
 		t.Fatalf("the front end rejects `derive Variants` on a data-free enum:\n  %s", strings.Join(errs, "\n  "))
@@ -51,14 +51,14 @@ fn all() -> List<Coin> {
 }
 
 func TestDeriveVariants_RejectsAVariantThatCarriesData(t *testing.T) {
-	src := `enum Shape {
+	src := `enum Shape
     Dot
     Circle Float
-}
+end
 
 derive Variants for Shape
 `
-	want := "`derive Variants for Shape`: variant `Shape.Circle` carries data, and `Variants` lists only variants that carry none; remove its data, or write `impl Variants for Shape { ... }` by hand"
+	want := "`derive Variants for Shape`: variant `Shape.Circle` carries data, and `Variants` lists only variants that carry none; remove its data, or write `impl Variants for Shape` by hand"
 	errs := variantsDeriveErrors(t, src)
 	if len(errs) == 0 {
 		t.Fatal("the front end admits `derive Variants` on an enum with a variant that carries data")
@@ -76,17 +76,17 @@ func TestDeriveVariants_RejectsAType(t *testing.T) {
 	}{
 		{
 			"a struct",
-			"struct Point {\n    x: Int\n}\n\nderive Variants for Point\n",
-			"`derive Variants for Point`: `Variants` lists an enum's variants, and `Point` is a struct, not an enum; write `impl Variants for Point { ... }` to list its values by hand",
+			"struct Point\n    x: Int\nend\n\nderive Variants for Point\n",
+			"`derive Variants for Point`: `Variants` lists an enum's variants, and `Point` is a struct, not an enum; write `impl Variants for Point` to list its values by hand",
 		},
 		{
 			"a distinct type",
 			"type Meters Int\n\nderive Variants for Meters\n",
-			"`derive Variants for Meters`: `Variants` lists an enum's variants, and `Meters` is a distinct type, not an enum; write `impl Variants for Meters { ... }` to list its values by hand",
+			"`derive Variants for Meters`: `Variants` lists an enum's variants, and `Meters` is a distinct type, not an enum; write `impl Variants for Meters` to list its values by hand",
 		},
 		{
 			"a generic enum",
-			"enum Tag<T> {\n    A\n}\n\nderive Variants for Tag<T>\n",
+			"enum Tag<T>\n    A\nend\n\nderive Variants for Tag<T>\n",
 			"`derive Variants for Tag`: `Tag` has type parameters, and `Variants` lists the variants of an enum without them",
 		},
 	}

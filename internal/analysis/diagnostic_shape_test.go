@@ -37,60 +37,60 @@ func TestDiagnosticShape(t *testing.T) {
 	for _, tc := range []wantShape{
 		{
 			name:    "type mismatch spans the value",
-			src:     "fn f() -> Int {\n  x: Int = \"s\"\n  x\n}\n",
+			src:     "fn f() -> Int\n  x: Int = \"s\"\n  x\nend\n",
 			message: "type mismatch: expected Int, got String",
 			span:    "2:12-2:15",
 		},
 		{
 			name:    "argument mismatch spans the argument",
-			src:     "fn g(n: Int) -> Int { n }\n\nfn f() -> Int {\n  g(\"s\")\n}\n",
+			src:     "fn g(n: Int) -> Int\n    n\nend\n\nfn f() -> Int\n  g(\"s\")\nend\n",
 			message: "argument 1: expected Int, got String",
-			span:    "4:5-4:8",
+			span:    "6:5-6:8",
 		},
 		{
 			name:    "return mismatch spans the tail and points at the return type",
-			src:     "fn f() -> Int {\n  \"s\"\n}\n",
+			src:     "fn f() -> Int\n  \"s\"\nend\n",
 			message: "return type mismatch: expected Int, got String",
 			span:    "2:3-2:6",
 			related: []string{"|1:11-1:14|the return type is declared here"},
 		},
 		{
 			name:    "undefined name suggests a close one",
-			src:     "fn f() -> Int {\n  count = 1\n  count + cuont\n}\n",
+			src:     "fn f() -> Int\n  count = 1\n  count + cuont\nend\n",
 			message: "undefined variable 'cuont'",
 			span:    "3:11-3:16",
 			hints:   []string{"did you mean 'count'?"},
 		},
 		{
 			name:    "unknown field suggests a close one",
-			src:     "struct Person {\n  name: String\n}\n\nfn f(p: Person) -> String {\n  p.nmae\n}\n",
+			src:     "struct Person\n  name: String\nend\n\nfn f(p: Person) -> String\n  p.nmae\nend\n",
 			message: "struct 'Person' has no field 'nmae'",
 			span:    "6:5-6:9",
 			hints:   []string{"did you mean 'name'?"},
 		},
 		{
 			name:    "missing field spans the type name",
-			src:     "struct Person {\n  name: String\n  age: Int\n}\n\nfn f() -> Person {\n  Person{name: \"a\"}\n}\n",
+			src:     "struct Person\n  name: String\n  age: Int\nend\n\nfn f() -> Person\n  Person{name: \"a\"}\nend\n",
 			message: "missing field 'age' of Person",
 			span:    "7:3-7:9",
 		},
 		{
 			name:    "non-exhaustive case spans its head",
-			src:     "enum Color {\n  Red\n  Green\n}\n\nfn f(c: Color) -> Int {\n  case c {\n    Color.Red -> 1\n  }\n}\n",
+			src:     "enum Color\n  Red\n  Green\nend\n\nfn f(c: Color) -> Int\n  case c\n    Color.Red -> 1\n  end\nend\n",
 			message: "non-exhaustive case on Color: missing Green",
 			span:    "7:3-7:9",
 			hints:   []string{"add an arm for each missing variant, or a `_` arm"},
 		},
 		{
 			name:    "missing impl function points at the interface function",
-			src:     "interface Shape {\n  fn area(shape: self) -> Int\n  fn label(shape: self) -> String\n}\n\nstruct Sq {\n  side: Int\n}\n\nimpl Shape for Sq {\n  fn area(s: Sq) -> Int {\n    s.side\n  }\n}\n",
+			src:     "interface Shape\n  fn area(shape: self) -> Int\n  fn label(shape: self) -> String\nend\n\nstruct Sq\n  side: Int\nend\n\nimpl Shape for Sq\n  fn area(s: Sq) -> Int\n    s.side\n  end\nend\n",
 			message: "impl 'Shape' for 'Sq': missing function 'label' required by interface 'Shape'",
 			span:    "10:1-10:18",
 			related: []string{"|3:6-3:11|'label' is declared here"},
 		},
 		{
 			name:    "parameter name mismatch points at the interface function",
-			src:     "interface Scaler {\n  fn scale(s: self, factor: Int) -> Int\n}\n\nstruct Sq {\n  side: Int\n}\n\nimpl Scaler for Sq {\n  fn scale(s: Sq, by: Int) -> Int {\n    s.side * by\n  }\n}\n",
+			src:     "interface Scaler\n  fn scale(s: self, factor: Int) -> Int\nend\n\nstruct Sq\n  side: Int\nend\n\nimpl Scaler for Sq\n  fn scale(s: Sq, by: Int) -> Int\n    s.side * by\n  end\nend\n",
 			message: "impl function 'scale': parameter name 'by' does not match interface declaration 'factor'",
 			span:    "10:19-10:21",
 			hints:   []string{"rename it 'factor'"},
@@ -98,7 +98,7 @@ func TestDiagnosticShape(t *testing.T) {
 		},
 		{
 			name:    "duplicate declaration points at the first",
-			src:     "fn dup() -> Int {\n  1\n}\n\nfn dup() -> Int {\n  2\n}\n",
+			src:     "fn dup() -> Int\n  1\nend\n\nfn dup() -> Int\n  2\nend\n",
 			message: "'dup' is already defined in this scope as a function",
 			span:    "5:4-5:7",
 			hints:   []string{"pick a different name"},
@@ -106,28 +106,28 @@ func TestDiagnosticShape(t *testing.T) {
 		},
 		{
 			name:    "unread binding",
-			src:     "fn f() -> Int {\n  unused = 1\n  2\n}\n",
+			src:     "fn f() -> Int\n  unused = 1\n  2\nend\n",
 			message: "binding 'unused' is never read",
 			span:    "2:3-2:9",
 			hints:   []string{"prefix it with '_' if the value is intentionally ignored"},
 		},
 		{
 			name:    "discard read as a value",
-			src:     "fn f() -> Int {\n  x = _\n  x\n}\n",
+			src:     "fn f() -> Int\n  x = _\n  x\nend\n",
 			message: "`_` is a discard name, not a value",
 			span:    "2:7-2:8",
 			hints:   []string{"a capture's parameter is written `&1`, as in `Iter.map(xs, &(&1 * 2))`"},
 		},
 		{
 			name:    "then stage boundary",
-			src:     "fn f() -> Int {\n  [1, 2]\n  |> then fn xs -> xs |> Iter.filter(fn x -> x > Iter.count(xs))\n  |> Iter.count()\n}\n",
+			src:     "fn f() -> Int\n  [1, 2]\n  |> then fn xs -> xs |> Iter.filter(fn x -> x > Iter.count(xs))\n  |> Iter.count()\nend\n",
 			message: "'xs' is the parameter of the `then` stage on line 3, whose body ends at the next `|>`",
 			span:    "3:61-3:63",
-			hints:   []string{"write `then fn xs -> { ... }` to keep the pipe inside it"},
+			hints:   []string{"write the body below `then fn xs ->`, closed by `end`, to keep the pipe inside it"},
 		},
 		{
 			name:    "self render",
-			src:     "struct Foo {\n  name: String\n}\n\nimpl Display for Foo {\n  fn to_string(foo: Foo) -> String {\n    Display.to_string(foo)\n  }\n}\n",
+			src:     "struct Foo\n  name: String\nend\n\nimpl Display for Foo\n  fn to_string(foo: Foo) -> String\n    Display.to_string(foo)\n  end\nend\n",
 			message: "Display.to_string(foo) calls the function being defined with its own receiver, so it never returns",
 			span:    "7:5-7:27",
 			hints:   []string{"Debug.inspect(foo) renders its fields"},
@@ -166,9 +166,9 @@ func TestDiagnosticShape(t *testing.T) {
 // enclosing value's type unknown, so no second mismatch follows from it.
 func TestDiagnosticShape_NoFollowOnMismatch(t *testing.T) {
 	for _, src := range []string{
-		"fn d() -> Maybe<(Int) -> Int> {\n  Some(fn x: Int -> x + nope)\n}\n",
-		"fn d() -> (Int) -> Int {\n  fn _n: Int -> _\n}\n",
-		"fn d() -> (Int, Int) {\n  (1, _)\n}\n",
+		"fn d() -> Maybe<(Int) -> Int>\n  Some(fn x: Int -> x + nope)\nend\n",
+		"fn d() -> (Int) -> Int\n  fn _n: Int -> _\nend\n",
+		"fn d() -> (Int, Int)\n  (1, _)\nend\n",
 	} {
 		_, errs := checkSourceWithStdlib(src)
 		if len(errs) != 1 {
@@ -188,9 +188,9 @@ func TestDiagnosticShape_NoFollowOnMismatch(t *testing.T) {
 // the first error reported.
 func TestDiagnosticShape_UndeterminedLambdaParameter(t *testing.T) {
 	for _, tc := range []struct{ src, at string }{
-		{"fn d() -> Int {\n  f = fn x -> x\n  f(2)\n}\n", "2:10"},
-		{"fn d() -> Int {\n  f: ((Int) -> Int) -> Int = fn g -> g(1)\n  f(case Some(fn x -> x) {\n    Some(h) -> h\n    None -> fn y -> y\n  })\n}\n", "3:18"},
-		{"fn d() -> Int {\n  (fn x -> x, 2).second\n}\n", "2:7"},
+		{"fn d() -> Int\n  f = fn x -> x\n  f(2)\nend\n", "2:10"},
+		{"fn d() -> Int\n  f: ((Int) -> Int) -> Int = fn g -> g(1)\n  f(case Some(fn x -> x)\n    Some(h) -> h\n    None -> fn y -> y\n  end)\nend\n", "3:18"},
+		{"fn d() -> Int\n  (fn x -> x, 2).second\nend\n", "2:7"},
 	} {
 		_, errs := checkSourceWithStdlib(tc.src)
 		var all []string
@@ -206,10 +206,10 @@ func TestDiagnosticShape_UndeterminedLambdaParameter(t *testing.T) {
 	}
 	// A typed parameter, or a function type expected, is accepted.
 	for _, src := range []string{
-		"fn d() -> Int {\n  f = fn x: Int -> x\n  f(2)\n}\n",
-		"fn d() -> Maybe<Int> {\n  Maybe.map(Some(1), fn x -> x + 1)\n}\n",
-		"fn d() -> Int {\n  f: (Int) -> Int = fn x -> x\n  f(1)\n}\n",
-		"fn d() -> Maybe<(Int) -> Int> {\n  Some(fn x -> x + 1)\n}\n",
+		"fn d() -> Int\n  f = fn x: Int -> x\n  f(2)\nend\n",
+		"fn d() -> Maybe<Int>\n  Maybe.map(Some(1), fn x -> x + 1)\nend\n",
+		"fn d() -> Int\n  f: (Int) -> Int = fn x -> x\n  f(1)\nend\n",
+		"fn d() -> Maybe<(Int) -> Int>\n  Some(fn x -> x + 1)\nend\n",
 	} {
 		if _, errs := checkSourceWithStdlib(src); len(errs) != 0 {
 			t.Errorf("%s: want no error, got %v", src, errs)

@@ -1,30 +1,30 @@
-import {
+import
     std::html.Html
     markdown
-}
+end
 
-fn rendered(text: String) -> String {
+fn rendered(text: String) -> String
     Html.to_string(markdown.render(text))
-}
+end
 
-test "Markdown renders as HTML" {
+test "Markdown renders as HTML"
     assert rendered("# Title\n\nSome *text*.") == "<h1>Title</h1>\n<p>Some <em>text</em>.</p>\n"
-}
+end
 
-test "a bare URL becomes a link" {
+test "a bare URL becomes a link"
     assert rendered(
         "watch https://www.youtube.com/watch?v=1"
     ) == "<p>watch <a href=\"https://www.youtube.com/watch?v=1\">https://www.youtube.com/watch?v=1</a></p>\n"
-}
+end
 
-test "raw HTML and a javascript link are left out" {
+test "raw HTML and a javascript link are left out"
     assert rendered("hi <script>alert(1)</script>")
         == "<p>hi <!-- raw HTML omitted -->alert(1)<!-- raw HTML omitted --></p>\n"
 
     assert rendered("[x](javascript:alert(1))") == "<p><a href=\"\">x</a></p>\n"
-}
+end
 
-test "a template inserts the rendered markup as it is" {
+test "a template inserts the rendered markup as it is"
     page = Html"<article>${markdown.render("**bold**")}</article>"
     assert Html.to_string(page) == "<article><p><strong>bold</strong></p>\n</article>"
-}
+end

@@ -6,8 +6,8 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// Map update by spread: `%{..base, key => value}`, which means
-// `Map.merge(base, %{key => value})`. The first element after the spread
+// Map update by spread: `{..base, key => value}`, which means
+// `Map.merge(base, {key => value})`. The first element after the spread
 // decides between it and the struct spread: `=>` makes it a map.
 
 func TestParseMapSpread(t *testing.T) {
@@ -16,15 +16,15 @@ func TestParseMapSpread(t *testing.T) {
 		spread  string // %T of the head
 		entries int
 	}{
-		{`%{..m, "b" => 2}`, "*ast.Ident", 1},
-		{`%{..m, "b" => 2, "c" => 3}`, "*ast.Ident", 2},
-		{`%{..f(y), "b" => 2}`, "*ast.Call", 1},
-		{`%{..a.b, "c" => 2}`, "*ast.FieldAccess", 1},
-		{`%{..m, "b" => 2,}`, "*ast.Ident", 1},
-		{"%{\n  ..m,\n  \"b\" => 2\n}", "*ast.Ident", 1},
-		{"%{\n  ..m,\n  // note\n  \"b\" => 2,\n}", "*ast.Ident", 1},
+		{`{..m, "b" => 2}`, "*ast.Ident", 1},
+		{`{..m, "b" => 2, "c" => 3}`, "*ast.Ident", 2},
+		{`{..f(y), "b" => 2}`, "*ast.Call", 1},
+		{`{..a.b, "c" => 2}`, "*ast.FieldAccess", 1},
+		{`{..m, "b" => 2,}`, "*ast.Ident", 1},
+		{"{\n  ..m,\n  \"b\" => 2\n}", "*ast.Ident", 1},
+		{"{\n  ..m,\n  // note\n  \"b\" => 2,\n}", "*ast.Ident", 1},
 		// A key that is not a literal.
-		{`%{..m, k => v}`, "*ast.Ident", 1},
+		{`{..m, k => v}`, "*ast.Ident", 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {
@@ -52,11 +52,11 @@ func TestParseMapSpread(t *testing.T) {
 	}
 }
 
-// `.{..m}` names nothing that says map, so it parses as the struct spread;
+// `{..m}` names nothing that says map, so it parses as the struct spread;
 // the checker reads the base's type and words its error for a map.
 func TestParseMapSpreadAloneIsTheStructForm(t *testing.T) {
-	expr := parseExpr(t, ".{..m}")
+	expr := parseExpr(t, "{..m}")
 	if lit, ok := expr.(*ast.StructLit); !ok || lit.Spread == nil {
-		t.Fatalf("expected a struct spread for `.{..m}`, got %T", expr)
+		t.Fatalf("expected a struct spread for `{..m}`, got %T", expr)
 	}
 }

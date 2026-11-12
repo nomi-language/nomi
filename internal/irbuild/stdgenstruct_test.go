@@ -102,9 +102,9 @@ func TestStdGenStructBoundGateIsConsulted(t *testing.T) {
 		want  bool
 	}{
 		{"Set: std's own bound-free declaration", set,
-			"pub opaque struct Set<T> {\n  items: Map<T, Bool>\n}\n", true},
+			"pub opaque struct Set<T>\n  items: Map<T, Bool>\nend\n", true},
 		{"Set: a where clause the spec does not declare", set,
-			"pub opaque struct Set<T> where T: Comparable {\n  items: Map<T, Bool>\n}\n", false},
+			"pub opaque struct Set<T> where T: Comparable\n  items: Map<T, Bool>\nend\n", false},
 
 		{"Range: std's own where clause", rng, rangeDecl("<T> where T: Comparable"), true},
 		{"Range: the bound removed", rng, rangeDecl("<T>"), false},
@@ -179,7 +179,7 @@ func TestStdGenStructDefsArePackageNeutral(t *testing.T) {
 //
 // Built from the real `Set` row rather than an invented spec, so the cases are
 // about the clause and not about a shape nothing else uses. `Set.items` is a
-// `Map<T, Bool>`, so `= %{}` is a default std COULD write and
+// `Map<T, Bool>`, so `= {}` is a default std COULD write and
 // stdEmptyMapDefault is the matching row.
 func TestStdGenStructDefaultGateIsConsulted(t *testing.T) {
 	plain := *specNamed(t, "Set")
@@ -195,8 +195,8 @@ func TestStdGenStructDefaultGateIsConsulted(t *testing.T) {
 	wrongShape.fields = append([]stdGenStructField(nil), plain.fields...)
 	wrongShape.fields[0].deflt = stdEmptyListDefault()
 
-	const bare = "pub opaque struct Set<T> {\n  items: Map<T, Bool>\n}\n"
-	const withDefault = "pub opaque struct Set<T> {\n  items: Map<T, Bool> = %{}\n}\n"
+	const bare = "pub opaque struct Set<T>\n  items: Map<T, Bool>\nend\n"
+	const withDefault = "pub opaque struct Set<T>\n  items: Map<T, Bool> = {}\nend\n"
 
 	for _, c := range []struct {
 		label string
@@ -289,11 +289,11 @@ func specNamed(t *testing.T, nomi string) *stdGenStructSpec {
 // The FIELDS are std's verbatim, which matters: a case that also perturbed a
 // field would fail for the field's reason and prove nothing about the gate.
 func rangeDecl(params string) string {
-	return "pub opaque struct Range" + params + " {\n" +
+	return "pub opaque struct Range" + params + "\n" +
 		"  start: T\n" +
-		"  end: Maybe<T>\n" +
+		"  stop: Maybe<T>\n" +
 		"  inclusive: Bool\n" +
-		"}\n"
+		"end\n"
 }
 
 // structDeclIn parses one source and answers the named struct's declaration.

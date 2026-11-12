@@ -2,13 +2,13 @@
 //# `Reader`, and one record written as CSV (internal/stdcsv, over Go's
 //# encoding/csv). It is internal; a program imports std::csv.
 
-import {
+import
     bool.Bool
     int.Int
     io.{Error, Reader}
     lists.List
     strings.String
-}
+end
 
 /// A CSV reader over a `Reader`, which reads it a record at a time.
 pub host type Records

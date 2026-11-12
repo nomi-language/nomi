@@ -4,33 +4,33 @@
 // parameter annotations nor the literals need an import.
 import std::io
 
-fn kind(cp: Codepoint) -> String {
-    case cp {
+fn kind(cp: Codepoint) -> String
+    case cp
         'a' -> "a"
         '\n' -> "newline"
         '\'' -> "quote"
         '\\' -> "backslash"
         '\u{0}' -> "nul"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn first(m: Maybe<Codepoint>) -> String {
-    case m {
+fn first(m: Maybe<Codepoint>) -> String
+    case m
         Some('x') -> "some x"
         Some(_) -> "some other"
         None -> "none"
-    }
-}
+    end
+end
 
-fn pair(p: (Codepoint, Int)) -> String {
-    case p {
+fn pair(p: (Codepoint, Int)) -> String
+    case p
         ('-', n) -> "minus ${n}"
         (_, n) -> "other ${n}"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Codepoint.to_string('A'))
     io.inspect('A')
     io.print(Codepoint.to_int('\u{7F}'))
@@ -70,4 +70,4 @@ fn main() {
         |> Iter.map(Codepoint.to_string)
         |> String.join()
     )
-}
+end

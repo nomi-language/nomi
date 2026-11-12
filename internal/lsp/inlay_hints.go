@@ -170,6 +170,27 @@ func (c *hintCollector) addTypeHint(line, col int, typeName string) {
 	})
 }
 
+// hintTryConversion names the `From` impl a `?` applies to the error it
+// propagates, after the `?`: `n = db.count(conn)? From<sql.Error>`.
+func (c *hintCollector) hintTryConversion(n *ast.TryOp) {
+	if !c.req.settings.BindingTypes || n.Line <= 0 {
+		return
+	}
+	sym := c.fa.References[analysis.Pos{Line: n.Line, Col: n.Col}]
+	if sym == nil || sym.Kind != analysis.SymbolTryOp || sym.TryOp == nil || sym.TryOp.Convert == nil {
+		return
+	}
+	conv := sym.TryOp.Convert
+	kind := InlayHintKindType
+	c.hints = append(c.hints, InlayHint{
+		Position:    inlayHintPos(n.Line, n.Col+1),
+		Label:       conv.Label(),
+		Kind:        &kind,
+		Tooltip:     "the error converts to " + conv.To.String() + " through `impl " + conv.Label() + " for " + conv.To.String() + "`",
+		PaddingLeft: true,
+	})
+}
+
 func (c *hintCollector) addParamHint(line, col int, paramName string) {
 	if !c.req.settings.ParameterNames {
 		return
@@ -322,17 +343,7 @@ func (c *hintCollector) walkNode(node ast.Node) {
 		c.walkNode(n.Object)
 
 	case *ast.ListLit:
-		for _, item := range n.Items {
-			c.walkNode(item)
-		}
-
-	case *ast.VectorLit:
 		for _, item := range n.Operands() {
-			c.walkNode(item)
-		}
-
-	case *ast.SetLit:
-		for _, item := range n.Items {
 			c.walkNode(item)
 		}
 
@@ -356,6 +367,7 @@ func (c *hintCollector) walkNode(node ast.Node) {
 		if n.Expr != nil {
 			c.walkNode(n.Expr)
 		}
+		c.hintTryConversion(n)
 
 	case *ast.Unwrap:
 		c.walkNode(n.Expr)
@@ -530,10 +542,6 @@ func nodePosition(node ast.Node) (int, int) {
 	case *ast.Lambda:
 		return n.Line, n.Col
 	case *ast.ListLit:
-		return n.Line, n.Col
-	case *ast.VectorLit:
-		return n.Line, n.Col
-	case *ast.SetLit:
 		return n.Line, n.Col
 	case *ast.TupleLit:
 		return n.Line, n.Col

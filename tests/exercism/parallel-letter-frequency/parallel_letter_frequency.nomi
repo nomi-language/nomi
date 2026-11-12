@@ -10,23 +10,23 @@ once workers = 4
 /// keyed by the letter in lower case. Each text is counted by its own task,
 /// at most `workers` at once, and the counts are added up when all have
 /// finished.
-pub fn frequency(texts: List<String>) -> Map<String, Int> {
-    counts = concurrent {
+pub fn frequency(texts: List<String>) -> Map<String, Int>
+    counts = concurrent
         texts
         |> Task.spawn_all(letter_counts, max_running: workers)
         |> Task.await_all()
-    }
+    end
 
-    Iter.reduce(counts, %{}, &Map.merge_with(&1, &2, Int.add))
-}
+    Iter.reduce(counts, {}, &Map.merge_with(&1, &2, Int.add))
+end
 
 /// How often each letter appears in `text`, ignoring case.
-fn letter_counts(text: String) -> Map<String, Int> {
+fn letter_counts(text: String) -> Map<String, Int>
     text
     |> String.lowercase()
     |> String.to_codepoints()
     |> Iter.filter(Codepoint.is_letter)
     |> Iter.map(Codepoint.to_string)
     |> Iter.frequencies()
-}
+end
 

@@ -1,61 +1,61 @@
 import std::compiler
 
-test "defer runs on normal exit failed acquire and early return" {
+test "defer runs on normal exit failed acquire and early return"
     result = compiler.run(
         """
         import std::io
 
-        struct Conn {
+        struct Conn
           name: String
-        }
+        end
 
-        fn close(conn: Conn) -> Unit {
+        fn close(conn: Conn) -> Unit
           io.print("close " + conn.name)
-        }
+        end
 
-        fn open(name: String) -> Result<Conn, String> {
-          if name == "bad" {
+        fn open(name: String) -> Result<Conn, String>
+          if name == "bad" then
             Err("open failed")
-          } else {
-            Ok(Conn{name})
-          }
-        }
+          else
+            Ok(Conn{name:})
+          end
+        end
 
-        fn normal_exit() -> Result<Unit, String> {
-          {
+        fn normal_exit() -> Result<Unit, String>
+          begin
             first = open("first")?
             defer close(first)
             second = open("second")?
             defer close(second)
             io.print("body")
-          }
+          end
           Ok(Unit)
-        }
+        end
 
-        fn failed_acquire() -> Result<Unit, String> {
+        fn failed_acquire() -> Result<Unit, String>
           first = open("first")?
           defer close(first)
           _bad = open("bad")?
           Ok(Unit)
-        }
+        end
 
-        fn early_return() -> Int {
+        fn early_return() -> Int
           conn = Conn{name: "early"}
           defer close(conn)
           return 5
-        }
+        end
 
-        fn main() {
-          case normal_exit() {
+        fn main()
+          case normal_exit()
             Ok(_) -> io.print("normal done")
             Err(e) -> io.print(e)
-          }
-          case failed_acquire() {
+          end
+          case failed_acquire()
             Ok(_) -> io.print("unexpected")
             Err(e) -> io.print("failed: " + e)
-          }
+          end
           io.inspect(early_return())
-        }
+        end
         """
     )
 
@@ -72,4 +72,4 @@ test "defer runs on normal exit failed acquire and early return" {
 
         """
     )
-}
+end

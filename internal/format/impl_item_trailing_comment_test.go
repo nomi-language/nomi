@@ -7,15 +7,15 @@ import "testing"
 // with a blank line after it that the next format removed, so formatting a
 // formatted file changed it again.
 func TestFormat_ImplFunctionKeepsItsTrailingComment(t *testing.T) {
-	src := "impl R {\n" +
-		"    fn a() -> Int {\n" +
+	src := "impl R\n" +
+		"    fn a() -> Int\n" +
 		"        1\n" +
-		"    } // the first\n" +
+		"    end // the first\n" +
 		"\n" +
-		"    fn b() -> Int {\n" +
+		"    fn b() -> Int\n" +
 		"        2\n" +
-		"    }\n" +
-		"}\n"
+		"    end\n" +
+		"end\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatal(err)

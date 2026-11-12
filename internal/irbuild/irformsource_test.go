@@ -2,7 +2,7 @@ package irbuild
 
 // irFormSource wraps a body in the smallest program that lowers.
 func irFormSource(body string) string {
-	return "import std::io\n\n" + body + "\nfn main() {\n  io.print(\"go\")\n}\n"
+	return "import std::io\n\n" + body + "\nfn main()\n  io.print(\"go\")\nend\n"
 }
 
 func slicesContain(ss []string, want string) bool {

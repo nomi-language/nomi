@@ -93,7 +93,7 @@ func TestVersionedInstallRunsAGoFFIProject(t *testing.T) {
 		"go.mod":    "module shouter\n\ngo 1.27.0\n",
 		"shout.go":  "package shouter\n\nimport \"strings\"\n\nfunc Shout(s string) string { return strings.ToUpper(s) }\n",
 		"ffi.nomi":  "gopkg \"shouter\" as shout\n\npub fn shout_it(s: String) -> String go shout.Shout\n",
-		"main.nomi": "import {\n  std::io\n  ffi\n}\n\nfn main() {\n  io.print(ffi.shout_it(\"quiet\"))\n}\n",
+		"main.nomi": "import\n  std::io\n  ffi\nend\n\nfn main()\n  io.print(ffi.shout_it(\"quiet\"))\nend\n",
 	}
 	for name, content := range files {
 		mustWrite(t, filepath.Join(proj, name), content)

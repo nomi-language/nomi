@@ -77,8 +77,8 @@ func TestStoredLoweringMatchesTheText(t *testing.T) {
 	}
 	writer.docs.NoteLoweredClean(uri, text, analyzedlowering.Kept)
 
-	literal := strings.Replace(text, "fn main() {\n", "fn main() {\n    _ = Regex`[`\n", 1)
-	literal = strings.Replace(literal, "    shapes\n}", "    shapes\n    std::regex.Regex\n}", 1)
+	literal := strings.Replace(text, "fn main()\n", "fn main()\n    _ = Regex`[`\n", 1)
+	literal = strings.Replace(literal, "    shapes\nend", "    shapes\n    std::regex.Regex\nend", 1)
 	edits := []struct {
 		what, text string
 		relowered  bool

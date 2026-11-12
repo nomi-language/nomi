@@ -1,23 +1,23 @@
-pub struct Widget {
+pub struct Widget
     name: String
-}
+end
 
-pub fn label(w: Widget) -> String {
+pub fn label(w: Widget) -> String
     w.name
-}
+end
 
-pub fn make(name: String) -> Widget {
-    Widget{name}
-}
+pub fn make(name: String) -> Widget
+    Widget{name:}
+end
 
-pub opaque struct Token {
+pub opaque struct Token
     value: String
-}
+end
 
-pub fn reveal(t: Token) -> String {
+pub fn reveal(t: Token) -> String
     t.value
-}
+end
 
-pub fn make_token(value: String) -> Token {
-    Token{value}
-}
+pub fn make_token(value: String) -> Token
+    Token{value:}
+end

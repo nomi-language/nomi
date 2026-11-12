@@ -21,23 +21,23 @@ func TestIRLeftovers_ProgramsRunOnTheVM(t *testing.T) {
 	}{
 		{"range count and known_count", `import std::io
 
-fn count(n: Int) -> Int {
+fn count(n: Int) -> Int
   Iter.count(1..=n)
-}
+end
 
-fn known(n: Int) -> Maybe<Int> {
+fn known(n: Int) -> Maybe<Int>
   Iter.known_count(1..n)
-}
+end
 
-fn empty(n: Int) -> Bool {
+fn empty(n: Int) -> Bool
   Iter.is_empty(1..n)
-}
+end
 
-fn full(n: Int) -> Bool {
+fn full(n: Int) -> Bool
   not Iter.is_empty(1..n)
-}
+end
 
-fn main() {
+fn main()
   io.print(count(5))
   io.print(count(0))
   io.inspect(known(5))
@@ -49,20 +49,20 @@ fn main() {
   io.inspect(empty(1))
   io.inspect(full(3))
   io.print(Iter.count(Range.from(1) |> Iter.take(4)))
-}
+end
 `, "5\n0\nSome(4)\nSome(0)\nSome(0)\nSome(5)\nNone\nNone\nTrue\nTrue\n4\n",
 			[]string{"count", "known", "empty", "full", "main"}},
 		{"group_by builds a Map of Lists", `import std::io
 
-fn by_parity(xs: List<Int>) -> Map<Int, List<Int>> {
+fn by_parity(xs: List<Int>) -> Map<Int, List<Int>>
   xs |> Iter.group_by(fn x -> x % 2)
-}
+end
 
-fn by_initial(words: List<String>) -> Map<String, List<String>> {
+fn by_initial(words: List<String>) -> Map<String, List<String>>
   Iter.group_by(words, fn w: String -> Int.to_string(String.length(w)))
-}
+end
 
-fn main() {
+fn main()
   grouped = by_parity([5, 2, 3, 4, 1, 6])
   io.inspect(grouped)
   io.inspect(Map.get(grouped, 1))
@@ -71,56 +71,56 @@ fn main() {
   io.inspect(by_initial(["ab", "c", "de", "fgh"]))
   io.inspect(Iter.group_by(1..=6, fn x -> x > 3))
   io.inspect([1, 2, 3] |> Iter.map(fn x -> x * 10) |> Iter.group_by(fn x -> x < 15))
-}
-`, "%{1 => [5, 3, 1], 0 => [2, 4, 6]}\nSome([5, 3, 1])\n2\n%{}\n%{\"2\" => [\"ab\", \"de\"], \"1\" => [\"c\"], \"3\" => [\"fgh\"]}\n%{False => [1, 2, 3], True => [4, 5, 6]}\n%{True => [10], False => [20, 30]}\n",
+end
+`, "{1 => [5, 3, 1], 0 => [2, 4, 6]}\nSome([5, 3, 1])\n2\n{}\n{\"2\" => [\"ab\", \"de\"], \"1\" => [\"c\"], \"3\" => [\"fgh\"]}\n{False => [1, 2, 3], True => [4, 5, 6]}\n{True => [10], False => [20, 30]}\n",
 			[]string{"by_parity", "by_initial", "main"}},
 		{"field sub-patterns inside a variant pattern", `import std::io
 
-enum Shape {
+enum Shape
   Box {w: Int, h: Int}
   Named {name: String, sides: Int}
   Dot
-}
+end
 
-struct Circle {
+struct Circle
   r: Int
   tag: String
-}
+end
 
-enum Drawing {
+enum Drawing
   embeds Circle
   Blank
-}
+end
 
-fn describe(s: Maybe<Shape>) -> String {
-  case s {
-    Some(Shape.Box{w: 2, h}) -> "narrow box of height ${h}"
-    Some(Shape.Box{w, h: 0}) -> "flat box of width ${w}"
+fn describe(s: Maybe<Shape>) -> String
+  case s
+    Some(Shape.Box{w: 2, h:}) -> "narrow box of height ${h}"
+    Some(Shape.Box{w:, h: 0}) -> "flat box of width ${w}"
     Some(Shape.Named{name: "tri", sides: n}) -> "triangle-ish ${n}"
-    Some(Shape.Named{name, sides: _}) -> "named ${name}"
+    Some(Shape.Named{name:, sides: _}) -> "named ${name}"
     Some(_) -> "other"
     None -> "nothing"
-  }
-}
+  end
+end
 
-fn top(s: Shape) -> Int {
-  case s {
+fn top(s: Shape) -> Int
+  case s
     Shape.Box{w: 1, h: 1} -> 1
-    Shape.Box{w, h} -> w * h
+    Shape.Box{w:, h:} -> w * h
     _ -> 0
-  }
-}
+  end
+end
 
-fn drawn(d: Drawing) -> String {
-  case d {
-    Drawing.Circle{r: 0, tag} -> "point ${tag}"
-    Drawing.Circle{r, tag: "big"} -> "big ${r}"
-    Drawing.Circle{r, tag: _} -> "circle ${r}"
+fn drawn(d: Drawing) -> String
+  case d
+    Drawing.Circle{r: 0, tag:} -> "point ${tag}"
+    Drawing.Circle{r:, tag: "big"} -> "big ${r}"
+    Drawing.Circle{r:, tag: _} -> "circle ${r}"
     .Blank -> "blank"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(describe(Some(Shape.Box{w: 2, h: 5})))
   io.print(describe(Some(Shape.Box{w: 7, h: 0})))
   io.print(describe(Some(Shape.Box{w: 7, h: 3})))
@@ -135,57 +135,57 @@ fn main() {
   io.print(drawn(Circle{r: 5, tag: "big"}))
   io.print(drawn(Circle{r: 2, tag: "c"}))
   io.print(drawn(Drawing.Blank))
-}
+end
 `, "narrow box of height 5\nflat box of width 7\nother\ntriangle-ish 3\nnamed sq\nother\nnothing\n1\n12\n0\npoint o\nbig 5\ncircle 2\nblank\n",
 			[]string{"describe", "top", "drawn", "main"}},
 		{"nested variant patterns in if-patterns", `import std::io
 
-enum Req {
+enum Req
   Get(Int)
   Put {key: String, value: Int}
   Stop
-}
+end
 
-enum Code {
+enum Code
   Num(Int)
   Word(String)
-}
+end
 
-fn get_id(m: Maybe<Req>) -> Int {
-  if Some(Req.Get(n)) = m {
+fn get_id(m: Maybe<Req>) -> Int
+  if Some(Req.Get(n)) = m then
     n
-  } else {
+  else
     -1
-  }
-}
+  end
+end
 
-fn put_key(m: Maybe<Req>) -> String {
-  if Some(Req.Put{key, value: 0}) = m {
+fn put_key(m: Maybe<Req>) -> String
+  if Some(Req.Put{key:, value: 0}) = m then
     "zero " + key
-  } else {
+  else
     "no"
-  }
-}
+  end
+end
 
-fn stopped(m: Result<Req, String>) -> Bool {
-  if Ok(.Stop) = m {
+fn stopped(m: Result<Req, String>) -> Bool
+  if Ok(.Stop) = m then
     True
-  } else {
+  else
     False
-  }
-}
+  end
+end
 
-fn seven(c: Code) -> String {
-  if Code.Num(7) = c {
+fn seven(c: Code) -> String
+  if Code.Num(7) = c then
     "lucky"
-  } else if Code.Word("seven") = c {
+  else if Code.Word("seven") = c then
     "spelled"
-  } else {
+  else
     "plain"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(get_id(Some(Req.Get(4))))
   io.print(get_id(Some(Req.Stop)))
   io.print(get_id(None))
@@ -199,7 +199,7 @@ fn main() {
   io.print(seven(Code.Num(8)))
   io.print(seven(Code.Word("seven")))
   io.print(seven(Code.Word("six")))
-}
+end
 `, "4\n-1\n-1\nzero a\nno\nno\nTrue\nFalse\nFalse\nlucky\nplain\nspelled\nplain\n",
 			[]string{"get_id", "put_key", "stopped", "seven", "main"}},
 	} {
@@ -256,44 +256,44 @@ func irLeftoversRetained(t *testing.T, src string, names ...string) {
 // `Seq`, and Range cardinality and `group_by` run inside a
 // body. Several cases fail on purpose so the report text itself is compared
 // between the VM and the golden record.
-const irLeftoversTestBodySource = `fn double(n: Int) -> Int {
+const irLeftoversTestBodySource = `fn double(n: Int) -> Int
   n * 2
-}
+end
 
-fn is_big(n: Int) -> Bool {
+fn is_big(n: Int) -> Bool
   n > 100
-}
+end
 
-test "a piped binding asserted bare" {
+test "a piped binding asserted bare"
   ok = 4 |> double() |> is_big()
   assert ok
-}
+end
 
-test "a piped binding refuted bare" {
+test "a piped binding refuted bare"
   small = [1, 2, 3] |> Iter.map(fn x -> x * 2) |> Iter.any_match(fn x -> x > 4)
   refute small
-}
+end
 
-test "a piped binding that passes" {
+test "a piped binding that passes"
   fine = 60 |> double() |> is_big()
   assert fine
-}
+end
 
-test "a piped binding over a pattern" {
+test "a piped binding over a pattern"
   n = 3 |> double() |> double()
   assert 13 = n
-}
+end
 
-test "a sequence row" {
+test "a sequence row"
   ys = [1, 2] |> Iter.map(fn x -> x + 1)
   assert Iter.count(ys) == 3
-}
+end
 
-test "range counts" {
+test "range counts"
   assert Iter.count(1..=20) == 20
   n = Iter.count(1..4)
   assert n == 4
-}
+end
 `
 
 func TestIRLeftovers_TestBodies(t *testing.T) {

@@ -1,36 +1,36 @@
 import std::testing
 
-fn find_name(id: Int) -> Maybe<String> {
-    case id {
+fn find_name(id: Int) -> Maybe<String>
+    case id
         1 -> Some("Ada")
         _ -> None
-    }
-}
+    end
+end
 
-test "assert can check the Bool produced by a pipeline" {
+test "assert can check the Bool produced by a pipeline"
     assert 1
         |> find_name()
         |> Maybe.equal(Some("Ada"))
-}
+end
 
-test "refute can check the Bool produced by a pipeline" {
+test "refute can check the Bool produced by a pipeline"
     refute 2
         |> find_name()
         |> Maybe.equal(Some("Ada"))
-}
+end
 
-test "check can return the pipeline Bool as a Result" {
+test "check can return the pipeline Bool as a Result"
     result = testing.check(
         "Ada Lovelace"
         |> String.contains("Ada")
     )
 
     assert result == Ok(True)
-}
+end
 
-test "pipeline values can feed pattern assertions" {
+test "pipeline values can feed pattern assertions"
     assert Some(name) = 1
         |> find_name()
 
     assert name == "Ada"
-}
+end

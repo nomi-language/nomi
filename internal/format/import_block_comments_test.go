@@ -11,15 +11,16 @@ import (
 // and a comment before the closing brace are all preserved, and the result is
 // idempotent.
 func TestFormat_ImportBlockComments(t *testing.T) {
-	src := "import {\n" +
+	src := "import\n" +
 		"  // network things\n" +
 		"  std::io\n" +
 		"  std::iter // for loops\n" +
 		"  // trailing note\n" +
-		"}\n\n" +
-		"fn main() {\n" +
+		"end\n" +
+		"\n" +
+		"fn main()\n" +
 		"  io.inspect(Iter.count([1]))\n" +
-		"}\n"
+		"end\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("Format: %v", err)
@@ -41,12 +42,12 @@ func TestFormat_ImportBlockComments(t *testing.T) {
 // A blank line before a comment inside a `pub import` block survives. This
 // is the prelude shape (every import is re-exported).
 func TestFormat_BlankBeforeCommentInPubImportBlock(t *testing.T) {
-	src := "pub import {\n" +
+	src := "pub import\n" +
 		"    std::maps.Map\n" +
 		"\n" +
 		"    // a comment\n" +
 		"    std::unit.Unit\n" +
-		"}\n"
+		"end\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("Format: %v", err)

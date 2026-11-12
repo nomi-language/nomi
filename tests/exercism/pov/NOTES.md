@@ -8,7 +8,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/pov.
 
 ## Choices
 
-- `Tree` is a struct of a `String` label and a `List<Tree>` of children, which default to none, so a leaf is `.{label: "x"}` and the tests write each canonical tree as nested literals.
+- `Tree` is a struct of a `String` label and a `List<Tree>` of children, which default to none, so a leaf is `{label: "x"}` and the tests write each canonical tree as nested literals.
 - `Tree.from_pov` is one recursion, `reroot`, that carries the old parent re-hung as a tree: at each node it tries every child, handing it the node without that child and with the node's own old parent added as a child. At the target the carried tree becomes the last child. Nothing is changed in place; each attempt builds its own nodes, and the attempts that do not reach the target are dropped.
 - The carried parent is a `List<Tree>` of none or one rather than a `Maybe<Tree>`, so it joins the children with a spread, `[..tree.children, ..above]`, and needs no case at the old root.
 - A missing label is `None`, from `from_pov` and `path_to` alike. The canonical data's `null` names no error to report, and both lookups are of data the caller passes in.

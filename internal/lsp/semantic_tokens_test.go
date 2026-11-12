@@ -14,7 +14,7 @@ import (
 )
 
 func TestSemanticTokens_BasicFunction(t *testing.T) {
-	src := "fn double(n: Int) -> Int { n + n }"
+	src := "fn double(n: Int) -> Int\n    n + n\nend"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -76,24 +76,24 @@ func TestSemanticTokens_BasicFunction(t *testing.T) {
 // the declaration under the test, the function body, and the `//` line
 // between two prompt groups.
 func TestSemanticTokens_AttachedTestTokensCarryTheModifier(t *testing.T) {
-	src := `struct Label {
+	src := `struct Label
   text: String
-}
+end
 
 //! assert ready_label() == "[ready]"
 //
 //! label = ready_label()
 //! assert label == "[ready]"
-fn ready_label() -> String {
+fn ready_label() -> String
   "[ready]"
-}
+end
 
-impl Label {
+impl Label
   //! assert Label.wrap("x").text == "[x]"
-  fn wrap(text: String) -> Label {
+  fn wrap(text: String) -> Label
     Label{text: "[${text}]"}
-  }
-}
+  end
+end
 `
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
@@ -169,9 +169,9 @@ gopkg "example.com/binding/ffi" as ffi
 
 fn echo_upper(s: String) -> String go ffi.EchoUpper
 
-fn main() {
+fn main()
   io.print(echo_upper("fixture"))
-}
+end
 `
 	if err := os.WriteFile(mainPath, []byte(src), 0o644); err != nil {
 		t.Fatalf("write main.nomi: %v", err)
@@ -201,15 +201,17 @@ func TestSemanticTokens_HtmlLiteralCalleesGetNoTokens(t *testing.T) {
 	src := `import std::html.Html
 import std::html.SafeUrl
 
-fn url(email: String) -> String { email }
+fn url(email: String) -> String
+    email
+end
 
-pub fn avatar(email: String, name: String, color: String) -> Html {
+pub fn avatar(email: String, name: String, color: String) -> Html
     ok = "a" in ["a"]
     Html"""
     <img src="${SafeUrl(url(email))}" alt="${name}" />
     <span class="x ${color}">${name}</span> ${ok}
     """
-}
+end
 `
 	s := NewServer()
 	uri := pathToURI(filepath.Join(t.TempDir(), "main.nomi"))
@@ -231,7 +233,7 @@ pub fn avatar(email: String, name: String, color: String) -> Html {
 	for _, want := range []struct {
 		line int
 		name string
-	}{{8, "SafeUrl"}, {8, "url"}, {8, "email"}, {8, "name"}, {9, "color"}, {9, "name"}, {9, "ok"}} {
+	}{{10, "SafeUrl"}, {10, "url"}, {10, "email"}, {10, "name"}, {11, "color"}, {11, "name"}, {11, "ok"}} {
 		found := false
 		for _, after := range []string{"(", ")", "}"} {
 			if col := strings.Index(lines[want.line], want.name+after); col >= 0 && spelled[[2]int{want.line, col}] == want.name {
@@ -258,9 +260,18 @@ func isIdentText(s string) bool {
 }
 
 func TestSemanticTokens_AllKinds(t *testing.T) {
-	src := `struct Point { x: Int; y: Int }
-enum Color { Red; Green; Blue }
-fn move(p: Point) -> Point { p }`
+	src := `struct Point
+    x: Int
+    y: Int
+end
+enum Color
+    Red
+    Green
+    Blue
+end
+fn move(p: Point) -> Point
+    p
+end`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -323,7 +334,7 @@ func decodeSemanticTokenData(data []protocol.UInteger) []decodedSemanticToken {
 }
 
 // TestStructDestructure_PunningHasNoFieldCollision verifies that a punning
-// struct destructure (`.{x, y} = point`) registers exactly one symbol per
+// struct destructure (`{x:, y:} = point`) registers exactly one symbol per
 // binding position — the SymbolBinding — and does not also register a
 // SymbolField at the same position. The two used to coexist: the analyzer's
 // builder put a SymbolBinding in Definitions and the checker put a
@@ -331,17 +342,17 @@ func decodeSemanticTokenData(data []protocol.UInteger) []decodedSemanticToken {
 // iteration meant `x` and `y` rendered with different semantic-token kinds
 // from one LSP run to the next.
 func TestStructDestructure_PunningHasNoFieldCollision(t *testing.T) {
-	src := `fn main() {
-  point = .{x: 10, y: 20}
-  .{x, y} = point
-}
+	src := `fn main()
+  point = {x: 10, y: 20}
+  {x:, y:} = point
+end
 `
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
 
 	// Locate the binding positions for `x` and `y` on line 3.
-	xPos := analysis.Pos{Line: 3, Col: 5}
+	xPos := analysis.Pos{Line: 3, Col: 4}
 	yPos := analysis.Pos{Line: 3, Col: 8}
 
 	xDef, hasXDef := fa.Definitions[xPos]

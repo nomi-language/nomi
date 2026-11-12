@@ -12,15 +12,15 @@ import (
 // Result, interpolated or not.
 func TestTypedLiteral_BacktickLiteralHasTheHandlersOkType(t *testing.T) {
 	src := "import std::regex.Regex\n\n" +
-		"fn f(w: String) -> List<Regex<Unit>> {\n" +
+		"fn f(w: String) -> List<Regex<Unit>>\n" +
 		"  a: Regex<Unit> = Regex`\\d+`\n" +
 		"  b: Result<Regex<Unit>, String> = Regex\"\\\\d+\"\n" +
 		"  c: Result<Regex<List<Maybe<String>>>, String> = Regex\"${w}\\\\d\"\n" +
-		"  case (b, c) {\n" +
+		"  case (b, c)\n" +
 		"    (Ok(x), Ok(_)) -> [a, x]\n" +
 		"    _ -> [a]\n" +
-		"  }\n" +
-		"}\n"
+		"  end\n" +
+		"end\n"
 	if errs := checkTypedLiteralSource(src); len(errs) != 0 {
 		t.Fatalf("the literals' types are rejected: %v", errs)
 	}
@@ -28,7 +28,7 @@ func TestTypedLiteral_BacktickLiteralHasTheHandlersOkType(t *testing.T) {
 		"  a: Result<Regex<Unit>, String> = Regex`\\d+`\n",
 		"  a: Regex<Unit> = Regex\"\\\\d+\"\n",
 	} {
-		src := "import std::regex.Regex\n\nfn f() -> Unit {\n" + mistyped + "  _ = a\n}\n"
+		src := "import std::regex.Regex\n\nfn f() -> Unit\n" + mistyped + "  _ = a\nend\n"
 		if errs := checkTypedLiteralSource(src); len(errs) == 0 {
 			t.Errorf("%q is admitted", strings.TrimSpace(mistyped))
 		}
@@ -42,7 +42,7 @@ func TestTypedLiteral_TryOnBacktickLiteralIsRejectedWithHint(t *testing.T) {
 	for _, line := range []string{
 		"  digits = Regex`\\d+`?\n",
 	} {
-		src := "import std::regex.Regex\n\nfn f() -> Result<Regex<Unit>, String> {\n" + line + "  Ok(digits)\n}\n"
+		src := "import std::regex.Regex\n\nfn f() -> Result<Regex<Unit>, String>\n" + line + "  Ok(digits)\nend\n"
 		errs := checkTypedLiteralSource(src)
 		var found *analysis.TypeError
 		for i := range errs {
@@ -62,7 +62,7 @@ func TestTypedLiteral_TryOnBacktickLiteralIsRejectedWithHint(t *testing.T) {
 		}
 	}
 	// A double-quoted literal is still a Result, so `?` on it stands.
-	src := "import std::regex.Regex\n\nfn f() -> Result<Regex<Unit>, String> {\n  digits = Regex\"\\\\d+\"?\n  Ok(digits)\n}\n"
+	src := "import std::regex.Regex\n\nfn f() -> Result<Regex<Unit>, String>\n  digits = Regex\"\\\\d+\"?\n  Ok(digits)\nend\n"
 	if errs := checkTypedLiteralSource(src); len(errs) != 0 {
 		t.Fatalf("try on a double-quoted literal is rejected: %v", errs)
 	}

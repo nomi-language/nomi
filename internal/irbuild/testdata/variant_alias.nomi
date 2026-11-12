@@ -1,10 +1,10 @@
-import {
+import
     std::comparable.Ordering.{Equal, Less as Lt}
     std::io
     std::json.Json.{self, Int as Arr, Null as JNull, Obj as JObj, String as JStr}
     std::maybe.Maybe.{None as Nothing, Some as Just}
     std::results.Result.{Err as Bad, Ok as Good}
-}
+end
 
 // A selectively imported enum variant, with and without an `as` alias.
 //
@@ -33,12 +33,12 @@ import {
 //                  native.go's TypeIdent CALL ladder.
 //   - `JNull`      a BARE variant of the same, in value position. native.go's
 //                  TypeIdent VALUE ladder.
-//   - `%JObj{...}`  the map literal-ATTACH form with a bare head. attach.go's
+//   - `JObj{...}`  the map literal-ATTACH form with a bare head. attach.go's
 //                  attachLit, which is a second reject site for one key.
 //   - `Just(7)`    a carrying variant of a PRELUDE enum — a different resolver
 //                  (prelude.go) reached from the same call-ladder rung.
-fn describe(j: Json) -> String {
-    case j {
+fn describe(j: Json) -> String
+    case j
         .Obj(_) -> "obj"
         .Arr(_) -> "arr"
         .String(s) -> "str:" + s
@@ -46,39 +46,39 @@ fn describe(j: Json) -> String {
         .Float(_) -> "float"
         .Bool(_) -> "bool"
         .Null -> "null"
-    }
-}
+    end
+end
 
-fn maybe_label(m: Maybe<Int>) -> String {
-    case m {
+fn maybe_label(m: Maybe<Int>) -> String
+    case m
         .Some(v) -> "some:${v}"
         .None -> "none"
-    }
-}
+    end
+end
 
-fn result_label(r: Result<Int, String>) -> String {
-    case r {
+fn result_label(r: Result<Int, String>) -> String
+    case r
         .Ok(v) -> "ok:${v}"
         .Err(e) -> "err:" + e
-    }
-}
+    end
+end
 
-fn order_label(o: Ordering) -> String {
-    case o {
+fn order_label(o: Ordering) -> String
+    case o
         .Less -> "lt"
         .Equal -> "eq"
         .Greater -> "gt"
-    }
-}
+    end
+end
 
-fn nested_label(m: Maybe<Json>) -> String {
-    case m {
+fn nested_label(m: Maybe<Json>) -> String
+    case m
         .Some(j) -> describe(j)
         .None -> "none"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     // A stdlib enum's carrying variant, reached through an alias.
     io.print(describe(JStr("v")))
     // The TRANSPOSED alias. `arr` here is the wrong answer this fixture exists
@@ -88,7 +88,7 @@ fn main() {
     io.print(describe(JNull))
     // The literal-attach form with a bare aliased head, and a nested aliased
     // construction inside its body.
-    io.print(describe(%JObj{"k" => JStr("nested")}))
+    io.print(describe(JObj{"k" => JStr("nested")}))
 
     // The prelude enums are a second resolver reached from the same rung.
     io.print(maybe_label(Just(7)))
@@ -105,4 +105,4 @@ fn main() {
     // list: `Less as Lt` aliased beside a plain `Equal`.
     io.print(order_label(Lt))
     io.print(order_label(Equal))
-}
+end

@@ -1,6 +1,6 @@
 import atbash_cipher
 
-test "encode" {
+test "encode"
     [
         ("encode yes", "yes", "bvh"),
         ("encode no", "no", "ml"),
@@ -15,12 +15,12 @@ test "encode" {
             "gsvjf rxpyi ldmul cqfnk hlevi gsvoz abwlt",
         ),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert atbash_cipher.encode(phrase) == expected
-    }
-}
+    end
+end
 
-test "decode" {
+test "decode"
     [
         ("decode exercism", "vcvix rhn", "exercism"),
         (
@@ -41,7 +41,7 @@ test "decode" {
             "anobstacleisoftenasteppingstone",
         ),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert atbash_cipher.decode(phrase) == expected
-    }
-}
+    end
+end

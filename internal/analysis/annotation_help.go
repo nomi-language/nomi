@@ -398,7 +398,7 @@ func (c *checker) annotationFor(a, b Type, wrap func(string) string, passes func
 // the function being checked resolves it, or nil when it does not parse or
 // names a type the file cannot.
 func (c *checker) resolveHelpType(s string) Type {
-	nodes, err := parser.Parse(lexer.Lex("fn annotation_help(x: " + s + ") -> Unit {}\n"))
+	nodes, err := parser.Parse(lexer.Lex("fn annotation_help(x: " + s + ") -> Unit end\n"))
 	if err != nil || len(nodes) != 1 {
 		return nil
 	}
@@ -530,7 +530,7 @@ func (c *checker) operandAnnotationHelpWith(e TypeError, ns []ast.Node, ts []Typ
 // annotates the bindings its spreads read as one list type. Every spread
 // must have been checked, and each element must check against the
 // suggested element type.
-func (c *checker) spreadAnnotationHelp(e TypeError, n *ast.ListSpreadLit, a, b Type) TypeError {
+func (c *checker) spreadAnnotationHelp(e TypeError, n *ast.ListLit, a, b Type) TypeError {
 	if c.annotationTrial || c.fa == nil {
 		return e
 	}

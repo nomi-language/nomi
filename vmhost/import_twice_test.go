@@ -11,9 +11,9 @@ import (
 // second, with an alias as the fix. The second import used to be reported
 // only as unused.
 func TestImports_TwoImportsCannotBindOneName(t *testing.T) {
-	thing := "pub struct Thing {\n    n: Int\n}\n"
+	thing := "pub struct Thing\n    n: Int\nend\n"
 	files := map[string]string{"a": thing, "b": thing}
-	main := "import a.{Thing}\nimport b.{Thing}\n\nfn main() {\n    dbg Thing{n: 1}\n}\n"
+	main := "import a.{Thing}\nimport b.{Thing}\n\nfn main()\n    dbg Thing{n: 1}\nend\n"
 	_, err := vmhost.LoadSource("main", main, vmhost.WithVirtualFiles(files))
 	for _, want := range []string{
 		"'Thing' is already imported on line 1 from another file; two imports cannot bind one name",

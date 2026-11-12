@@ -1,6 +1,6 @@
 import change.{self, Error}
 
-test "find fewest coins" {
+test "find fewest coins"
     [
         ("change for 1 cent", [1, 5, 10, 25], 1, Ok([1])),
         ("single coin change", [1, 5, 10, 25, 100], 25, Ok([25])),
@@ -36,7 +36,7 @@ test "find fewest coins" {
         ("error if no combination can add up to target", [5, 10], 94, Err(.CannotMakeTarget)),
         ("cannot find negative change values", [1, 2, 5], -5, Err(.NegativeTarget)),
     ]
-    |> subtests (description, coins, target, expected), description {
+    |> subtests (description, coins, target, expected), description
         assert change.find_fewest_coins(coins, target) == expected
-    }
-}
+    end
+end

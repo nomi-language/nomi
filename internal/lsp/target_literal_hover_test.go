@@ -17,9 +17,9 @@ func TestHover_TargetTypedStringLiteralShowsItsType(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"binding", "import std::url.Url\n\nfn f() -> Url {\n  u: Url = ▮\"https://example.com/\"\n  u\n}\n", "```nomi\n\"https://example.com/\": Url\n```"},
-		{"argument", "import std::url.Url\n\nfn g(u: Url) -> Url {\n  u\n}\n\nfn f() -> Url {\n  g(\"https://ex▮ample.com/\")\n}\n", "```nomi\nu: Url\n```"},
-		{"no position", "fn f() -> Int {\n  s = ▮\"https://example.com/\"\n  String.length(s)\n}\n", ""},
+		{"binding", "import std::url.Url\n\nfn f() -> Url\n  u: Url = ▮\"https://example.com/\"\n  u\nend\n", "```nomi\n\"https://example.com/\": Url\n```"},
+		{"argument", "import std::url.Url\n\nfn g(u: Url) -> Url\n  u\nend\n\nfn f() -> Url\n  g(\"https://ex▮ample.com/\")\nend\n", "```nomi\nu: Url\n```"},
+		{"no position", "fn f() -> Int\n  s = ▮\"https://example.com/\"\n  String.length(s)\nend\n", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

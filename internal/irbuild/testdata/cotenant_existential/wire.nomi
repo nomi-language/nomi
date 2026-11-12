@@ -10,54 +10,54 @@
 // Both store into `core.App`, whose `logger` field is `core.Logger` and whose
 // `tag` field is this file's OWN `Tagger` — so this one mirror exercises both
 // the ordinary cross-unit arm and the crossing-back arm in one walk.
-import {
+import
     core.{App, Logger}
     extra.{self, Quiet}
     shared.{self, Stamp}
-}
+end
 
 // Declared HERE and used as a FIELD TYPE in core, which is what makes core's
 // `App` mirror point back into this file. See core.nomi's struct comment.
-pub interface Tagger {
+pub interface Tagger
     fn tag(value: self) -> String
-}
+end
 
-pub struct Prod {
+pub struct Prod
     prefix: String
-}
+end
 
-pub struct Mark {
+pub struct Mark
     n: Int
-}
+end
 
-impl Logger for Prod {
-    fn log(p: Prod, message: String) -> String {
+impl Logger for Prod
+    fn log(p: Prod, message: String) -> String
         "${p.prefix}>${message}"
-    }
-}
+    end
+end
 
-impl Tagger for Mark {
-    fn tag(m: Mark) -> String {
+impl Tagger for Mark
+    fn tag(m: Mark) -> String
         "m${m.n}"
-    }
-}
+    end
+end
 
 pub once tag: String = "wire"
 
 // A mirror of a type declared OUTSIDE this component. extra.nomi mirrors the
 // SAME type, and the two share one package in the builder — see shared.nomi.
-pub fn mark() -> Stamp {
+pub fn mark() -> Stamp
     shared.stamp("w")
-}
+end
 
-pub fn mark_text(s: Stamp) -> String {
+pub fn mark_text(s: Stamp) -> String
     s.s
-}
+end
 
-pub fn loud() -> App {
+pub fn loud() -> App
     App{name: "loud", logger: Prod{prefix: "P"}, tag: Mark{n: 1}}
-}
+end
 
-pub fn hushed() -> App {
+pub fn hushed() -> App
     App{name: "hushed", logger: Quiet{level: 3}, tag: extra.plain()}
-}
+end

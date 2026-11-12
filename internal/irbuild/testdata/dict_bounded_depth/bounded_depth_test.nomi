@@ -17,39 +17,39 @@
 // generic function reached at TWO different bounded arguments has to select each
 // one's own implementation; sharing an instance would answer `Cat`'s call with
 // `Dog`'s method or refuse outright.
-interface Shout {
+interface Shout
     fn shout(v: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
     name: String
-}
+end
 
-impl Shout for Dog {
-    fn shout(d: Dog) -> String {
+impl Shout for Dog
+    fn shout(d: Dog) -> String
         "woof from " + d.name
-    }
-}
+    end
+end
 
-struct Cat {
+struct Cat
     name: String
-}
+end
 
-impl Shout for Cat {
-    fn shout(c: Cat) -> String {
+impl Shout for Cat
+    fn shout(c: Cat) -> String
         "meow from " + c.name
-    }
-}
+    end
+end
 
-struct Half<T> {
+struct Half<T>
     slot: T
-}
+end
 
-fn hear<T>(r: Half<T>) -> String where T: Shout {
+fn hear<T>(r: Half<T>) -> String where T: Shout
     Shout.shout(r.slot)
-}
+end
 
-test "a bounded type parameter at depth is monomorphized per instantiation" {
+test "a bounded type parameter at depth is monomorphized per instantiation"
     assert hear(Half{slot: Dog{name: "rex"}}) == "woof from rex"
     assert hear(Half{slot: Cat{name: "mia"}}) == "meow from mia"
-}
+end

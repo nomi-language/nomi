@@ -14,43 +14,44 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Rebuilds a binary tree from its preorder and inorder traversals.
 
 /// A binary tree with a value at each node.
-pub enum Tree<T> {
+pub enum Tree<T>
     Leaf
     Node {left: Tree<T>, value: T, right: Tree<T>}
-}
+end
 
 /// Why two traversals describe no tree.
-pub enum Error {
+pub enum Error
     DifferentLengths
     DifferentElements
     RepeatedItems
-}
+end
 
 /// The tree whose pre-order traversal is `preorder` and whose in-order
 /// traversal is `inorder`. The two must hold the same items, each once.
 pub fn tree_from_traversals<T>(
     preorder: List<T>,
     inorder: List<T>,
-) -> Result<Tree<T>, Error> where T: Hashable and Equatable {
+) -> Result<Tree<T>, Error> where T: Hashable and Equatable
     items = Iter.to_set(preorder)
 
-    case {
+    case
         Iter.count(preorder) != Iter.count(inorder) -> Err(.DifferentLengths)
         items != Iter.to_set(inorder) -> Err(.DifferentElements)
         Set.size(items) != Iter.count(preorder) -> Err(.RepeatedItems)
         _ -> Ok(build(preorder, inorder))
-    }
-}
+    end
+end
 
 /// The tree of two traversals of the same unique items. The first item in
 /// pre-order is the root; the items before it in in-order are its left
 /// subtree, and as many items after it in pre-order are that subtree's
 /// pre-order.
-fn build<T>(preorder: List<T>, inorder: List<T>) -> Tree<T> where T: Equatable {
-    case preorder {
-        [] -> .Leaf
+fn build<T>(preorder: List<T>, inorder: List<T>) -> Tree<T> where T: Equatable
+    case preorder
+        [] ->
+            .Leaf
 
-        [root, ..rest] -> {
+        [root, ..rest] ->
             left_inorder =
                 inorder
                 |> Iter.take_while(&(&1 != root))
@@ -66,19 +67,18 @@ fn build<T>(preorder: List<T>, inorder: List<T>) -> Tree<T> where T: Equatable {
                 value: root,
                 right: build(right_preorder, right_inorder),
             }
-        }
-    }
-}
+    end
+end
 
 // FILE: satellite_test.nomi
 import satellite.{self, Error, Tree}
 
 /// A node with no subtrees.
-fn leaf(value: String) -> Tree<String> {
-    .Node{left: .Leaf, value, right: .Leaf}
-}
+fn leaf(value: String) -> Tree<String>
+    .Node{left: .Leaf, value:, right: .Leaf}
+end
 
-test "rebuilds the tree" {
+test "rebuilds the tree"
     [
         ("Empty tree", [], [], Tree.Leaf),
         ("Tree with one item", ["a"], ["a"], leaf("a")),
@@ -139,12 +139,12 @@ test "rebuilds the tree" {
             },
         ),
     ]
-    |> subtests (description, preorder, inorder, expected), description {
+    |> subtests (description, preorder, inorder, expected), description
         assert satellite.tree_from_traversals(preorder, inorder) == Ok(expected)
-    }
-}
+    end
+end
 
-test "rejects traversals of no tree" {
+test "rejects traversals of no tree"
     [
         (
             "Reject traversals of different length",
@@ -165,10 +165,10 @@ test "rejects traversals of no tree" {
             .RepeatedItems,
         ),
     ]
-    |> subtests (description, preorder, inorder, expected), description {
+    |> subtests (description, preorder, inorder, expected), description
         assert satellite.tree_from_traversals(preorder, inorder) == Err(expected)
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok rebuilds the tree (6 cases)

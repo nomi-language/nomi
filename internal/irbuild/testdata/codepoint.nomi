@@ -26,34 +26,34 @@
 import std::io
 
 // --- the surface, one helper per declaration -------------------------------
-fn to_int_of(n: Int) -> Maybe<Int> {
+fn to_int_of(n: Int) -> Maybe<Int>
     Some(Codepoint.to_int(Int.to_codepoint(n)?))
-}
+end
 
-fn to_string_of(n: Int) -> Maybe<String> {
+fn to_string_of(n: Int) -> Maybe<String>
     Some(Codepoint.to_string(Int.to_codepoint(n)?))
-}
+end
 
-fn inspect_of(n: Int) -> Maybe<String> {
+fn inspect_of(n: Int) -> Maybe<String>
     Some(Codepoint.inspect(Int.to_codepoint(n)?))
-}
+end
 
-fn next_of(n: Int) -> Maybe<Codepoint> {
+fn next_of(n: Int) -> Maybe<Codepoint>
     Codepoint.next(Int.to_codepoint(n)?)
-}
+end
 
-fn steps_of(a: Int, b: Int) -> Maybe<Int> {
+fn steps_of(a: Int, b: Int) -> Maybe<Int>
     Codepoint.steps_between(Int.to_codepoint(a)?, Int.to_codepoint(b)?)
-}
+end
 
-fn step_by_of(n: Int, by: Int) -> Maybe<Codepoint> {
+fn step_by_of(n: Int, by: Int) -> Maybe<Codepoint>
     Codepoint.step_by(Int.to_codepoint(n)?, by)
-}
+end
 
 /// Two Codepoints from SEPARATE `to_codepoint` calls, so nothing shares a value.
-fn equal_of(a: Int, b: Int) -> Maybe<Bool> {
+fn equal_of(a: Int, b: Int) -> Maybe<Bool>
     Some(Codepoint.equal(Int.to_codepoint(a)?, Int.to_codepoint(b)?))
-}
+end
 
 /// `String.to_codepoints("abc")`'s result, built SEPARATELY by the program out
 /// of three separately validated Codepoints.
@@ -69,9 +69,9 @@ fn equal_of(a: Int, b: Int) -> Maybe<Bool> {
 /// `non-scalar type argument` — a user-side prelude-over-structural annotation,
 /// unrelated to this slice's key, and worth staying clear of rather than
 /// dragging into the fixture.
-fn literal_abc(a: Codepoint, b: Codepoint, c: Codepoint) -> List<Codepoint> {
+fn literal_abc(a: Codepoint, b: Codepoint, c: Codepoint) -> List<Codepoint>
     [a, b, c]
-}
+end
 
 /// The rt-built chain for `s` against the VM-built one, compared ELEMENT BY
 /// ELEMENT and in order through `join_points`.
@@ -85,41 +85,41 @@ fn literal_abc(a: Codepoint, b: Codepoint, c: Codepoint) -> List<Codepoint> {
 /// whoever owns that key. Rendering both chains compares them structurally
 /// with no pointer anywhere in the path, which is what this fixture needs;
 /// both chains are built from the same input string.
-fn same_as_literal(s: String) -> Maybe<Bool> {
+fn same_as_literal(s: String) -> Maybe<Bool>
     a = Int.to_codepoint(97)?
     b = Int.to_codepoint(98)?
     c = Int.to_codepoint(99)?
     Some(join_points(String.to_codepoints(s)) == join_points(literal_abc(a, b, c)))
-}
+end
 
 // --- rendering, with a visible sentinel for None ---------------------------
-fn show_cp(m: Maybe<Codepoint>) -> String {
-    case m {
+fn show_cp(m: Maybe<Codepoint>) -> String
+    case m
         Some(cp) -> "Some(${Codepoint.to_int(cp)})"
         None -> "None"
-    }
-}
+    end
+end
 
-fn show_int(m: Maybe<Int>) -> String {
-    case m {
+fn show_int(m: Maybe<Int>) -> String
+    case m
         Some(n) -> "Some(${n})"
         None -> "None"
-    }
-}
+    end
+end
 
-fn show_str(m: Maybe<String>) -> String {
-    case m {
+fn show_str(m: Maybe<String>) -> String
+    case m
         Some(s) -> s
         None -> "None"
-    }
-}
+    end
+end
 
-fn show_bool(m: Maybe<Bool>) -> String {
-    case m {
+fn show_bool(m: Maybe<Bool>) -> String
+    case m
         Some(b) -> "${b}"
         None -> "None"
-    }
-}
+    end
+end
 
 /// Renders a `List<Codepoint>` as its code points in order, `-` separated and
 /// `.`-terminated, so both the ORDER and the LENGTH are in the output.
@@ -128,22 +128,22 @@ fn show_bool(m: Maybe<Bool>) -> String {
 /// pipeline, which is refused for its own reasons and would take the whole
 /// fixture with it. `List.tail` answers `Maybe<List<T>>`, so an empty tail and
 /// an empty list are the same base case.
-fn join_points(cps: List<Codepoint>) -> String {
-    case List.head(cps) {
-        None -> "."
+fn join_points(cps: List<Codepoint>) -> String
+    case List.head(cps)
+        None ->
+            "."
 
-        Some(cp) -> {
-            rest = case List.tail(cps) {
+        Some(cp) ->
+            rest = case List.tail(cps)
                 Some(more) -> join_points(more)
                 None -> "."
-            }
+            end
 
             "${Codepoint.to_int(cp)}-${rest}"
-        }
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     // --- to_codepoint VALIDATES ----------------------------------------------
     // A naive int64 newtype admits every one of these. The two range bounds and
     // the two surrogate-block bounds are the four inputs where a missing
@@ -217,4 +217,4 @@ fn main() {
     io.print(show_bool(same_as_literal("abd")))
     io.print(show_bool(same_as_literal("ab")))
     io.print(show_bool(same_as_literal("abcd")))
-}
+end

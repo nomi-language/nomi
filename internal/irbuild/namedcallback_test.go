@@ -14,63 +14,63 @@ import (
 // reduction calls the named function from a seeded lambda.
 func TestNamedCallback_FunctionValuesRun(t *testing.T) {
 	irBacklogProgramVM(t, map[string]string{
-		"util.nomi": `pub fn plus(a: Int, b: Int) -> Int {
+		"util.nomi": `pub fn plus(a: Int, b: Int) -> Int
   a + b
-}
+end
 
-pub fn is_small(n: Int) -> Bool {
+pub fn is_small(n: Int) -> Bool
   n < 3
-}
+end
 `,
 		"main_test.nomi": `import util
 import util.{plus}
 
-struct Money {
+struct Money
   cents: Int
-}
+end
 
-impl Money {
-  fn sum(a: Money, b: Money) -> Money {
+impl Money
+  fn sum(a: Money, b: Money) -> Money
     Money{cents: a.cents + b.cents}
-  }
+  end
 
-  fn double(n: Int) -> Int {
+  fn double(n: Int) -> Int
     n * 2
-  }
-}
+  end
+end
 
-fn add(a: Int, b: Int) -> Int {
+fn add(a: Int, b: Int) -> Int
   a + b
-}
+end
 
-fn longer(a: String, b: String) -> String {
-  if String.length(b) > String.length(a) { b } else { a }
-}
+fn longer(a: String, b: String) -> String
+  if String.length(b) > String.length(a) then b else a
+end
 
-fn is_even(n: Int) -> Bool {
+fn is_even(n: Int) -> Bool
   n % 2 == 0
-}
+end
 
-test "a top-level fn as a reduction" {
+test "a top-level fn as a reduction"
   assert Iter.reduce([1, 2, 3], 0, fn acc, n -> add(acc, n)) == 6
   assert [1, 2, 3, 4] |> Iter.reduce(0, fn acc, n -> add(acc, n)) == 10
   assert Iter.reduce(["a", "ccc", "bb"], "", fn acc, s -> longer(acc, s)) == "ccc"
-}
+end
 
-test "a top-level fn as an adapter" {
+test "a top-level fn as an adapter"
   assert Iter.filter([1, 2, 3, 4], is_even) |> Iter.to_list() == [2, 4]
-}
+end
 
-test "an imported fn" {
+test "an imported fn"
   assert Iter.reduce([1, 2, 3], 0, fn acc, n -> plus(acc, n)) == 6
   assert Iter.reduce([1, 2, 3], 0, fn acc, n -> util.plus(acc, n)) == 6
   assert Iter.filter([1, 2, 3, 4], util.is_small) |> Iter.to_list() == [1, 2]
-}
+end
 
-test "an owner-qualified impl fn" {
+test "an owner-qualified impl fn"
   assert Iter.reduce([Money{cents: 1}, Money{cents: 2}], Money{cents: 0}, fn acc, m -> Money.sum(acc, m)).cents == 3
   assert Iter.map([1, 2], Money.double) |> Iter.to_list() == [2, 4]
-}
+end
 `,
 	}, "main_test.nomi", 4)
 }
@@ -84,84 +84,84 @@ test "an owner-qualified impl fn" {
 func TestNamedCallback_IterSensitiveFunctionsRun(t *testing.T) {
 	const src = `import std::io
 
-fn skip_odd(n: Int) -> Int {
-  if n % 2 == 1 {
+fn skip_odd(n: Int) -> Int
+  if n % 2 == 1 then
     continue
-  }
+  end
   n * 10
-}
+end
 
-fn keep_until_big(n: Int) -> Bool {
-  if n > 3 {
+fn keep_until_big(n: Int) -> Bool
+  if n > 3 then
     break
-  }
+  end
   n % 2 == 0
-}
+end
 
-fn below_five(n: Int) -> Bool {
-  if n >= 5 {
+fn below_five(n: Int) -> Bool
+  if n >= 5 then
     break False
-  }
+  end
   True
-}
+end
 
-fn sum_small(total: Int, n: Int) -> Int {
-  if n < 0 {
+fn sum_small(total: Int, n: Int) -> Int
+  if n < 0 then
     continue
-  }
-  if total > 10 {
+  end
+  if total > 10 then
     break total
-  }
+  end
   total + n
-}
+end
 
-fn stop_at_zero(total: Int, n: Int) -> Int {
-  if n == 0 {
+fn stop_at_zero(total: Int, n: Int) -> Int
+  if n == 0 then
     break
-  }
+  end
   total + n
-}
+end
 
-fn show_until_three(n: Int) -> Unit {
-  if n == 3 {
+fn show_until_three(n: Int) -> Unit
+  if n == 3 then
     break
-  }
+  end
   io.print("each ${n}")
-}
+end
 
-fn double_until(n: Int) -> Int {
-  if n > 20 {
+fn double_until(n: Int) -> Int
+  if n > 20 then
     break
-  }
+  end
   n * 2
-}
+end
 
-test "map skips with continue" {
+test "map skips with continue"
   assert Iter.map([1, 2, 3, 4], skip_odd) |> Iter.to_list() == [20, 40]
   assert [1, 2, 3, 4] |> Iter.map(skip_odd) |> Iter.to_list() == [20, 40]
-}
+end
 
-test "filter stops with a bare break" {
+test "filter stops with a bare break"
   assert Iter.filter([1, 2, 3, 4, 5, 6], keep_until_big) |> Iter.to_list() == [2]
-}
+end
 
-test "take_while stops with break False" {
+test "take_while stops with break False"
   assert Iter.take_while([1, 2, 7, 3], below_five) |> Iter.to_list() == [1, 2]
-}
+end
 
-test "reduce continues and breaks with the accumulator" {
+test "reduce continues and breaks with the accumulator"
   assert Iter.reduce([1, -5, 2, 3, 20, 4], 0, sum_small) == 26
   assert Iter.reduce([1, 2, 0, 4], 0, stop_at_zero) == 3
-}
+end
 
-test "each stops" {
+test "each stops"
   Iter.each([1, 2, 3, 4], show_until_three)
   assert True
-}
+end
 
-test "iterate stops" {
+test "iterate stops"
   assert Iter.iterate(1, double_until) |> Iter.to_list() == [1, 2, 4, 8, 16]
-}
+end
 `
 	out := irTestBodyVM(t, src, 6)
 	if !strings.Contains(out, ":: each stops\n  each 1\n  each 2\n") || strings.Contains(out, "each 3") {
@@ -172,29 +172,29 @@ test "iterate stops" {
 // An iter-sensitive function in parentheses is the callback itself, as the
 // checker admits it and `nomi fmt` writes it without them.
 func TestNamedCallback_ParenthesizedIterSensitiveFunctionsRun(t *testing.T) {
-	const src = `fn skip_big(n: Int) -> Int {
-  if n > 100 {
+	const src = `fn skip_big(n: Int) -> Int
+  if n > 100 then
     continue
-  }
+  end
   n
-}
+end
 
-fn stop_at_zero(total: Int, n: Int) -> Int {
-  if n == 0 {
+fn stop_at_zero(total: Int, n: Int) -> Int
+  if n == 0 then
     break
-  }
+  end
   total + n
-}
+end
 
-test "map skips through parentheses" {
+test "map skips through parentheses"
   assert [5, 500, 7] |> Iter.map((skip_big)) |> Iter.to_list() == [5, 7]
   assert Iter.map([5, 500, 7], f: ((skip_big))) |> Iter.to_list() == [5, 7]
-}
+end
 
-test "reduce stops through parentheses" {
+test "reduce stops through parentheses"
   assert [1, 2, 0, 4] |> Iter.reduce(0, (stop_at_zero)) == 3
   assert Iter.reduce([1, 2, 0, 4], 0, (stop_at_zero)) == 3
-}
+end
 `
 	irTestBodyVM(t, src, 2)
 }
@@ -205,14 +205,14 @@ func TestNamedCallback_StdModuleTypeQualifiedGenericMember(t *testing.T) {
 	const src = `import std::random
 import std::random.{Generator, Seed}
 
-test "the module-qualified spelling" {
+test "the module-qualified spelling"
   seed = random.Seed.from_int(7)
   (a, _) = random.Generator.step(random.Generator.bool(), seed)
   (b, _) = Generator.step(Generator.bool(), Seed.from_int(7))
   assert a == b
   (n, _) = random.Generator.step(random.Generator.constant(3), seed)
   assert n == 3
-}
+end
 `
 	irTestBodyVM(t, src, 1)
 }
@@ -222,43 +222,44 @@ func TestNamedCallback_StdOwnerImportedUnderAnAlias(t *testing.T) {
 	const src = `import std::iter.Iter as It
 import std::strings.String as Str
 
-test "aliased owners" {
+test "aliased owners"
   assert It.count([1, 2]) == 2
   assert It.map([1, 2], fn x -> x + 1) |> It.to_list() == [2, 3]
   assert Str.length("abc") == 3
-}
+end
 `
 	irTestBodyVM(t, src, 1)
 }
 
-// `derive FromJson` decodes a `Maybe<T>` field with `Maybe<T>.from_json`,
-// a call qualified by an applied generic type.
+// `derive FromJson` decodes a `Maybe<T>` field with std/json's
+// `decode_field<Maybe<T>>`, a call whose type argument is an applied
+// generic type.
 func TestNamedCallback_DeriveFromJsonMaybeField(t *testing.T) {
 	const src = `import std::json.{Json, FromJson}
 
-struct User {
+struct User
   name: String
   age: Maybe<Int>
   nick: Maybe<String>
-}
+end
 
 derive FromJson for User
 
-fn decode(src: String) -> Result<User, String> {
-  case Json.decode(src) {
+fn decode(src: String) -> Result<User, String>
+  case Json.decode(src)
     Ok(j) -> Result.map_err(User.from_json(j), fn e -> Json.ShapeError.to_string(e))
     Err(_) -> Err("bad json")
-  }
-}
+  end
+end
 
-test "present, absent and mistyped optional fields" {
+test "present, absent and mistyped optional fields"
   assert Ok(a) = decode("{\"name\": \"a\", \"age\": 3}")
   assert a.age == Some(3)
   assert a.nick == None
   assert Ok(b) = decode("{\"name\": \"b\", \"nick\": \"bee\"}")
   assert b.nick == Some("bee")
-  assert decode("{\"name\": \"c\", \"age\": \"old\"}") == Err("age: expected int, got string")
-}
+  assert decode("{\"name\": \"c\", \"age\": \"old\"}") == Err("age: expected Int, got string")
+end
 `
 	irTestBodyVM(t, src, 1)
 }
@@ -267,36 +268,36 @@ test "present, absent and mistyped optional fields" {
 // omits a default, or names an argument past an omitted one, inside an
 // assertion subject is the program's `Date.new`, never std's.
 func TestNamedCallback_LocalOwnerSharingAStdNameWithDefaults(t *testing.T) {
-	const src = `struct Date {
+	const src = `struct Date
   year: Int
   month: Int
   day: Int
-}
+end
 
-impl Date {
-  fn new(year: Int, month: Int = 1, day: Int = 1) -> Date {
-    Date{year, month, day}
-  }
+impl Date
+  fn new(year: Int, month: Int = 1, day: Int = 1) -> Date
+    Date{year:, month:, day:}
+  end
 
-  fn is_same(a: Date, b: Date, strict: Bool = True) -> Bool {
+  fn is_same(a: Date, b: Date, strict: Bool = True) -> Bool
     a.year == b.year and (not strict or a.day == b.day)
-  }
-}
+  end
+end
 
-test "an omitted default in an assertion subject" {
+test "an omitted default in an assertion subject"
   assert Date.new(2026).month == 1
-}
+end
 
-test "a named argument past an omitted default" {
+test "a named argument past an omitted default"
   assert Date.new(2026, day: 5).day == 5
   assert Date.new(2026, day: 5).month == 1
-}
+end
 
-test "a failing named call reports the written arguments" {
+test "a failing named call reports the written arguments"
   y = 2026
   d = 4
   assert Date.is_same(Date.new(y, day: d), Date.new(y), strict: True)
-}
+end
 `
 	out := irTestBodyVM(t, src, 3)
 	if !strings.Contains(out, "Date.new(y, day: d)\n        = Date{day: 4, month: 1, year: 2026}") {
@@ -309,14 +310,14 @@ test "a failing named call reports the written arguments" {
 // positional form goes through the whole call dispatch. `String.pad_start`
 // with `width:` named and `fill` left out was BLOCKED there.
 func TestNamedCallback_StdShortCallWithANamedArgumentInAnAssertion(t *testing.T) {
-	const src = `test "a named argument before an omitted trailing default" {
+	const src = `test "a named argument before an omitted trailing default"
   assert String.pad_start("7", width: 3) == "  7"
-}
+end
 
-test "a failing one reports the written arguments" {
+test "a failing one reports the written arguments"
   w = 3
   assert String.pad_start("7", width: w) == "7"
-}
+end
 `
 	out := irTestBodyVM(t, src, 2)
 	if !strings.Contains(out, "String.pad_start(\"7\", width: w)\n        = \"  7\"") {
@@ -329,18 +330,18 @@ test "a failing one reports the written arguments" {
 // assertion subject it lowers as it does outside one; it was BLOCKED there
 // as "a named argument".
 func TestNamedCallback_StdShortCallWithAHoleInAnAssertion(t *testing.T) {
-	const src = `import {
+	const src = `import
     std::strings.ListWidth
-}
+end
 
-test "a named argument past an omitted default" {
+test "a named argument past an omitted default"
   assert String.join_list(["a", "b"], Locale` + "`en`" + `, width: .Short) == "a & b"
-}
+end
 
-test "a failing one still reports the call's value" {
+test "a failing one still reports the call's value"
   w = ListWidth.Short
   assert String.join_list(["a", "b"], Locale` + "`en`" + `, width: w) == "a and b"
-}
+end
 `
 	out := irTestBodyVM(t, src, 2)
 	if !strings.Contains(out, "= \"a & b\"") {
@@ -352,7 +353,7 @@ test "a failing one still reports the call's value" {
 // the body is retained. This isolates the std-side gate with a structural
 // value, which needs no impl lookup in the one-module std this harness builds.
 func TestNamedCallback_StdBodyInterpolatesAStructuralValue(t *testing.T) {
-	const body = "pub fn label(pair: (Int, String)) -> String {\n  \"pair ${pair}\"\n}\n"
+	const body = "pub fn label(pair: (Int, String)) -> String\n  \"pair ${pair}\"\nend\n"
 	var c irFuncRetentionCount
 	defer c.observe(t, irFromStd)()
 	lowerStdSourceOnly(t, body)

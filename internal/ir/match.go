@@ -114,11 +114,11 @@ const (
 	// whose `rest` a ProjStrSuffix then reads. Owner: strPrefixTest.
 	MatchStrPrefix
 	// MatchVectorLen asks whether the subject is a vector of EXACTLY `Arity`
-	// elements: the vector pattern with no `..`, `#[a, b]`. Owner:
+	// elements: the vector pattern with no `..`, `[a, b]`. Owner:
 	// vectorCaseTest.
 	MatchVectorLen
 	// MatchVectorMin asks whether the subject is a vector of AT LEAST
-	// `Arity` elements: a vector pattern with a `..`, `#[a, ..rest, z]`,
+	// `Arity` elements: a vector pattern with a `..`, `[a, ..rest, z]`,
 	// whose heads and tails count. As MatchListMin, `Arity` is never zero.
 	// Owner: vectorCaseTest.
 	MatchVectorMin

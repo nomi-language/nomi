@@ -20,7 +20,9 @@ import (
 // a sibling package no Nomi source names.
 
 func TestFindDefinition_ReferenceResolvesToSymbol(t *testing.T) {
-	input := `fn double(x: Int) -> Int { x + x }`
+	input := `fn double(x: Int) -> Int
+    x + x
+end`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := buildFile(nodes)
@@ -46,9 +48,9 @@ func TestFindDefinition_ReferenceResolvesToSymbol(t *testing.T) {
 
 func TestFindDefinition_AttachedAssertCodeUsesNormalReferences(t *testing.T) {
 	input := `//! assert ready_label() == "[ready]"
-fn ready_label() -> String {
+fn ready_label() -> String
   "[ready]"
-}
+end
 `
 	uri := "file:///attached_assert_definition.nomi"
 
@@ -75,16 +77,16 @@ fn ready_label() -> String {
 }
 
 func TestFindDefinition_AttachedAssertTypeQualifiedImplFunctionResolves(t *testing.T) {
-	input, pos := definitionMarkerPosition(t, `struct Box {
+	input, pos := definitionMarkerPosition(t, `struct Box
   n: Int
-}
+end
 
-impl Display for Box {
+impl Display for Box
   //! assert Box.▮to_string(Box{n: 3}) == "box:3"
-  fn to_string(b: Box) -> String {
+  fn to_string(b: Box) -> String
     "box:" + Int.to_string(b.n)
-  }
-}
+  end
+end
 `)
 	uri := "file:///attached_impl_assert_definition.nomi"
 
@@ -111,26 +113,26 @@ impl Display for Box {
 }
 
 func TestFindDefinition_AttachedAssertBareOperatorImplResolvesByArgs(t *testing.T) {
-	input, pos := definitionMarkerPosition(t, `pub interface Divide<Rhs, Out> {
+	input, pos := definitionMarkerPosition(t, `pub interface Divide<Rhs, Out>
   fn divide(lhs: self, rhs: Rhs) -> Out
-}
+end
 
 pub opaque type NonZeroInt Int
 
-impl Divide<Int, Int> for Int {
-  fn divide(lhs: Int, rhs: Int) -> Int {
+impl Divide<Int, Int> for Int
+  fn divide(lhs: Int, rhs: Int) -> Int
     0
-  }
-}
+  end
+end
 
-impl Divide<NonZeroInt, Int> for Int {
+impl Divide<NonZeroInt, Int> for Int
   //! nz = NonZeroInt(3)
   //! assert ▮divide(10, nz) == 10
   //
-  fn divide(lhs: Int, rhs: NonZeroInt) -> Int {
+  fn divide(lhs: Int, rhs: NonZeroInt) -> Int
     10
-  }
-}
+  end
+end
 `)
 	uri := "file:///attached_bare_operator_impl_definition.nomi"
 
@@ -152,9 +154,9 @@ gopkg "example.com/binding/ffi" as ffi
 
 fn echo_upper(s: String) -> String go ▮ffi.EchoUpper
 
-fn main() {
+fn main()
   io.print(echo_upper("fixture"))
-}
+end
 `)
 	if err := os.WriteFile(mainPath, []byte(input), 0o644); err != nil {
 		t.Fatalf("write main.nomi: %v", err)
@@ -185,9 +187,9 @@ gopkg "example.com/▮binding/ffi" as ffi
 
 fn echo_upper(s: String) -> String go ffi.EchoUpper
 
-fn main() {
+fn main()
   io.print(echo_upper("fixture"))
-}
+end
 `)
 	if err := os.WriteFile(mainPath, []byte(input), 0o644); err != nil {
 		t.Fatalf("write main.nomi: %v", err)
@@ -219,9 +221,9 @@ gopkg "example.com/binding/ffi" as ffi
 
 fn echo_upper(s: String) -> String go ffi.▮EchoUpper
 
-fn main() {
+fn main()
   io.print(echo_upper("fixture"))
-}
+end
 `)
 	if err := os.WriteFile(mainPath, []byte(input), 0o644); err != nil {
 		t.Fatalf("write main.nomi: %v", err)
@@ -252,9 +254,9 @@ opaque type RawBox go ffi.▮Box
 
 fn echo_upper(s: String) -> String go ffi.EchoUpper
 
-fn main() {
+fn main()
   io.print(echo_upper("fixture"))
-}
+end
 `)
 	if err := os.WriteFile(mainPath, []byte(input), 0o644); err != nil {
 		t.Fatalf("write main.nomi: %v", err)
@@ -283,9 +285,9 @@ gopkg "example.com/binding/ffi" as ffi
 
 fn echo_upper(s: String) -> String go ffi.EchoUpper
 
-fn main() {
+fn main()
   io.print(▮echo_upper("fixture"))
-}
+end
 `)
 	if err := os.WriteFile(mainPath, []byte(input), 0o644); err != nil {
 		t.Fatalf("write main.nomi: %v", err)
@@ -390,7 +392,9 @@ func definitionMarkerPosition(t *testing.T, input string) (string, protocol.Posi
 }
 
 func TestFindDefinition_DefinitionResolvesToItself(t *testing.T) {
-	input := `fn add(x: Int, y: Int) -> Int { x + y }`
+	input := `fn add(x: Int, y: Int) -> Int
+    x + y
+end`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := buildFile(nodes)
@@ -419,9 +423,9 @@ func TestFindDefinition_DefinitionResolvesToItself(t *testing.T) {
 func TestFindDefinition_EmbedsVariantNameResolvesToEmbeddedType(t *testing.T) {
 	input := `pub host type True
 
-pub enum Bool {
+pub enum Bool
   embeds True
-}`
+end`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := buildFile(nodes)
@@ -584,24 +588,24 @@ func TestFindDefinition_StdlibImportSegmentResolvesToStdlibFile(t *testing.T) {
 func TestFindDefinition_OnTypeQualifiedMethodResolvesToImpl(t *testing.T) {
 	input := `import std::io
 
-pub interface Speech {
+pub interface Speech
   fn speak(animal: self) -> String
-}
+end
 
-pub struct Dog {
+pub struct Dog
   name: String
-}
+end
 
-impl Speech for Dog {
-  fn speak(d: Dog) -> String {
+impl Speech for Dog
+  fn speak(d: Dog) -> String
     d.name + " says woof"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   rex = Dog{name: "Rex"}
   io.inspect(Dog.speak(rex))
-}
+end
 `
 	uri := "file:///test.nomi"
 	s := NewServer()
@@ -643,21 +647,21 @@ fn main() {
 func TestFindDefinition_OnBareSameOwnerMethodResolvesToSibling(t *testing.T) {
 	input := `import std::io
 
-pub struct Point {
+pub struct Point
   x: Int
 
-  pub fn get(p: Point) -> Int {
+  pub fn get(p: Point) -> Int
     p.x
-  }
+  end
 
-  pub fn get_twice(p: Point) -> Int {
+  pub fn get_twice(p: Point) -> Int
     get(p) + get(p)
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.inspect(Point.get_twice(Point{x: 5}))
-}
+end
 `
 	uri := "file:///test.nomi"
 	s := NewServer()
@@ -694,10 +698,10 @@ fn main() {
 func TestFindDefinition_OnDeriveDecoratorArgResolvesToInterface(t *testing.T) {
 	input := `import std::equatable.{Equatable}
 
-pub struct Point {
+pub struct Point
   x: Int
   y: Int
-}
+end
 
 derive Equatable for Point
 `
@@ -741,19 +745,19 @@ derive Equatable for Point
 // Go-to-def on the interface name in an `impl Iface for Type { ... }` block
 // should jump to the interface declaration.
 func TestFindDefinition_OnImplHeaderInterfaceResolvesToInterface(t *testing.T) {
-	input := `interface Speech {
+	input := `interface Speech
   fn speak(s: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
   name: String
-}
+end
 
-impl Speech for Dog {
-  fn speak(d: Dog) -> String {
+impl Speech for Dog
+  fn speak(d: Dog) -> String
     d.name
-  }
-}
+  end
+end
 
 `
 	uri := "file:///test.nomi"
@@ -794,19 +798,19 @@ impl Speech for Dog {
 // name as a reference, SymbolAt returns nil at that position and Zed's
 // editor silently falls back to the references list.
 func TestFindDefinition_OnImplHeaderImportedInterfaceResolvesToInterface(t *testing.T) {
-	input := `import {
+	input := `import
   std::display.Display
-}
+end
 
-pub struct AppEnv {
+pub struct AppEnv
   context: Context
-}
+end
 
-impl Display for AppEnv {
-  fn to_string(_env: AppEnv) -> String {
+impl Display for AppEnv
+  fn to_string(_env: AppEnv) -> String
     "env"
-  }
-}
+  end
+end
 
 `
 	uri := "file:///test.nomi"
@@ -892,9 +896,9 @@ func TestFindDefinition_SelfMarkerDrillThroughStdlib(t *testing.T) {
 func TestFindDefinition_InterfaceQualifiedCallResolvesToConcreteImpl(t *testing.T) {
 	input := "import std::io\n" +
 		"\n" +
-		"fn main() {\n" +
+		"fn main()\n" +
 		"  io.print(Display.to_string(42))\n" +
-		"}\n"
+		"end\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()
@@ -934,9 +938,9 @@ func TestFindDefinition_InterfaceQualifiedCallResolvesToConcreteImpl(t *testing.
 func TestFindDefinition_InterfaceQualifiedCall_ExternImpl_ResolvesToConcreteImpl(t *testing.T) {
 	input := "import std::io\n" +
 		"\n" +
-		"fn main() {\n" +
+		"fn main()\n" +
 		"  io.print(Display.to_string(3.14))\n" +
-		"}\n"
+		"end\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()
@@ -976,9 +980,9 @@ func TestFindDefinition_InterfaceQualifiedCall_ExternImpl_ResolvesToConcreteImpl
 func TestFindDefinition_InterfaceQualifiedCall_DerivedImpl_FallsBackToInterface(t *testing.T) {
 	input := "import std::io\n" +
 		"\n" +
-		"fn main() {\n" +
+		"fn main()\n" +
 		"  io.print(Display.to_string(Ordering.Less))\n" +
-		"}\n"
+		"end\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()
@@ -1012,27 +1016,27 @@ func TestFindDefinition_InterfaceQualifiedCall_DerivedImpl_FallsBackToInterface(
 func TestFindDefinition_InterfaceQualifiedCallResolvesToUserImpl(t *testing.T) {
 	input := "import std::io\n" +
 		"\n" +
-		"pub struct Greeter { name: String }\n" +
+		"pub struct Greeter\n    name: String\nend\n" +
 		"\n" +
-		"impl Display for Greeter {\n" +
-		"  fn to_string(g: self) -> String { \"hi ${g.name}\" }\n" +
-		"}\n" +
+		"impl Display for Greeter\n" +
+		"  fn to_string(g: self) -> String\n      \"hi ${g.name}\"\n  end\n" +
+		"end\n" +
 		"\n" +
-		"fn main() {\n" +
+		"fn main()\n" +
 		"  greeter = Greeter{name: \"Alice\"}\n" +
 		"  io.print(Display.to_string(greeter))\n" +
-		"}\n"
+		"end\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()
 	s.docs.Open(uri, input)
 
-	// `to_string` in `Display.to_string(greeter)` — line 11 (1-based),
-	// LSP 0-based line 10, char 22 (within the `to_string` token).
+	// `to_string` in `Display.to_string(greeter)` — LSP 0-based line 14,
+	// char 22 (within the `to_string` token).
 	params := &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: 10, Character: 22},
+			Position:     protocol.Position{Line: 14, Character: 22},
 		},
 	}
 	result, err := s.textDocumentDefinition(nil, params)
@@ -1046,11 +1050,11 @@ func TestFindDefinition_InterfaceQualifiedCallResolvesToUserImpl(t *testing.T) {
 	if loc.URI != protocol.DocumentUri(uri) {
 		t.Errorf("expected go-to-def to stay in the entry file (%q), got %q", uri, loc.URI)
 	}
-	// The `fn to_string(g: self)` impl method is on line 6 (1-based) →
-	// 0-based line 5; indented 2 spaces, so `to_string` starts at 0-based
-	// char 5 (`  fn ` = chars 0–4, name begins at char 5).
-	if loc.Range.Start.Line != 5 || loc.Range.Start.Character != 5 {
-		t.Errorf("expected the user impl at line 5 char 5 (0-based), got line %d char %d", loc.Range.Start.Line, loc.Range.Start.Character)
+	// The `fn to_string(g: self)` impl method is on 0-based line 7;
+	// indented 2 spaces, so `to_string` starts at 0-based char 5 (`  fn ` =
+	// chars 0–4, name begins at char 5).
+	if loc.Range.Start.Line != 7 || loc.Range.Start.Character != 5 {
+		t.Errorf("expected the user impl at line 7 char 5 (0-based), got line %d char %d", loc.Range.Start.Line, loc.Range.Start.Character)
 	}
 }
 
@@ -1059,25 +1063,25 @@ func TestFindDefinition_InterfaceQualifiedCallResolvesToUserImpl(t *testing.T) {
 // interface method declaration rather than guessing an impl. Locks the
 // decision that we only redirect to an impl for concrete receivers.
 func TestFindDefinition_InterfaceQualifiedCallGenericFallsBackToInterface(t *testing.T) {
-	input := "interface Showable { fn show(value: self) -> String }\n" +
-		"struct User { name: String }\n" +
-		"impl Showable for User {\n" +
-		"  fn show(value: self) -> String { value.name }\n" +
-		"}\n" +
-		"fn render<T>(value: T) -> String where T: Showable {\n" +
+	input := "interface Showable\n    fn show(value: self) -> String\nend\n" +
+		"struct User\n    name: String\nend\n" +
+		"impl Showable for User\n" +
+		"  fn show(value: self) -> String\n      value.name\n  end\n" +
+		"end\n" +
+		"fn render<T>(value: T) -> String where T: Showable\n" +
 		"  Showable.show(value)\n" +
-		"}\n"
+		"end\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()
 	s.docs.Open(uri, input)
 
-	// `show` in `Showable.show(value)` — line 7 (1-based) → LSP 0-based
-	// line 6, char 13 (within the `show` token).
+	// `show` in `Showable.show(value)` — LSP 0-based line 12, char 13
+	// (within the `show` token).
 	params := &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: 6, Character: 13},
+			Position:     protocol.Position{Line: 12, Character: 13},
 		},
 	}
 	result, err := s.textDocumentDefinition(nil, params)
@@ -1091,11 +1095,11 @@ func TestFindDefinition_InterfaceQualifiedCallGenericFallsBackToInterface(t *tes
 	if loc.URI != protocol.DocumentUri(uri) {
 		t.Errorf("expected fallback to stay in the same file (%q), got %q", uri, loc.URI)
 	}
-	// The interface method `show` is on line 1 (0-based line 0). The User
-	// impl method is now on line 4 (0-based line 3) — landing there would
-	// mean we wrongly resolved a concrete impl for a generic receiver.
-	if loc.Range.Start.Line != 0 {
-		t.Errorf("expected fallback to the interface method (0-based line 0), got line %d (line 5 = the User impl)", loc.Range.Start.Line)
+	// The interface method `show` is on 0-based line 1. The User impl
+	// method is on 0-based line 7 — landing there would mean we wrongly
+	// resolved a concrete impl for a generic receiver.
+	if loc.Range.Start.Line != 1 {
+		t.Errorf("expected fallback to the interface method (0-based line 1), got line %d (line 7 = the User impl)", loc.Range.Start.Line)
 	}
 }
 
@@ -1108,10 +1112,10 @@ func TestFindDefinition_OnStdlibModuleFunctionResolvesToStdlibFile(t *testing.T)
 	input := `import std::io
 import std::lists
 
-fn main() {
+fn main()
   first = List.head([3, 1, 2])
   io.inspect(first)
-}
+end
 `
 	uri := "file:///test.nomi"
 	s := NewServer()
@@ -1144,19 +1148,19 @@ fn main() {
 }
 
 func TestFindDefinition_OnImplMethodResolvesToInterfaceMethod(t *testing.T) {
-	input := `interface Speech {
+	input := `interface Speech
   fn speak(value: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
   name: String
-}
+end
 
-impl Speech for Dog {
-  fn speak(d: Dog) -> String {
+impl Speech for Dog
+  fn speak(d: Dog) -> String
     d.name
-  }
-}
+  end
+end
 
 `
 	uri := "file:///test.nomi"

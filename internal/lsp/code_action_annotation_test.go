@@ -9,28 +9,34 @@ import (
 
 const annotationURI = "file:///annotation/main.nomi"
 
-const annotationSrc = `interface Reply {
+const annotationSrc = `interface Reply
   fn body(r: self) -> String
-}
+end
 
-struct Page {
+struct Page
   text: String
-}
+end
 
-impl Reply for Page {
-  fn body(p: Page) -> String { p.text }
-}
+impl Reply for Page
+  fn body(p: Page) -> String
+      p.text
+  end
+end
 
 typealias Handler (Int) -> Reply
 
-fn page(_n: Int) -> Page { Page{text: "p"} }
+fn page(_n: Int) -> Page
+    Page{text: "p"}
+end
 
-fn routes() -> List<(String, Handler)> { [("a", page)] }
+fn routes() -> List<(String, Handler)>
+    [("a", page)]
+end
 
-fn main() {
+fn main()
   mine = [("b", page)]
   _r = mine + routes()
-}
+end
 `
 
 // Two typed lists joined with `+` whose types both convert to one are

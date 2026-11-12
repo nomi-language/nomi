@@ -11,29 +11,29 @@ import "testing"
 func TestIRUnitDbgTail_RunsAndPrints(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Box {
+struct Box
   n: Int
-}
+end
 
-impl Box {
-  fn show(b: Box) {
+impl Box
+  fn show(b: Box)
     dbg b.n
-  }
-}
+  end
+end
 
-fn twice(n: Int) -> Int {
+fn twice(n: Int) -> Int
   dbg n * 2
-}
+end
 
-fn report() -> Unit {
+fn report() -> Unit
   defer io.print("deferred")
   dbg twice(4)
-}
+end
 
-fn main() {
-  fn inner() {
+fn main()
+  fn inner()
     "nested" |> dbg
-  }
+  end
   inner()
   Box.show(Box{n: 7})
   report()
@@ -42,7 +42,7 @@ fn main() {
   |> Iter.map(fn n -> n * 10)
   |> Iter.to_list()
   |> dbg
-}
+end
 `, "dbg line 24: \"nested\" = \"nested\"\n"+
 		"dbg line 9: b.n = 7\n"+
 		"dbg line 14: n * 2 = 8\n"+

@@ -4,15 +4,15 @@ import "testing"
 
 func TestIRFloatCompare_NaNAndInfinity(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn show(a: Float, b: Float) {
+fn show(a: Float, b: Float)
  io.inspect(a == b)
  io.inspect(a != b)
  io.inspect(a < b)
  io.inspect(a <= b)
  io.inspect(a > b)
  io.inspect(a >= b)
-}
-fn main() {
+end
+fn main()
  nan = 0.0 / 0.0
  inf = 1.0 / 0.0
  show(nan, 1.0)
@@ -21,7 +21,7 @@ fn main() {
  show(inf, inf)
  show(-inf, inf)
  show(-0.0, 0.0)
-}`, "False\nTrue\nFalse\nFalse\nFalse\nFalse\n"+
+end`, "False\nTrue\nFalse\nFalse\nFalse\nFalse\n"+
 		"False\nTrue\nFalse\nFalse\nFalse\nFalse\n"+
 		"True\nFalse\nFalse\nFalse\nFalse\nFalse\n"+
 		"True\nFalse\nFalse\nTrue\nFalse\nTrue\n"+

@@ -59,21 +59,21 @@ func TestAssertionFailureType_IsTheCanonicalDeclaration(t *testing.T) {
 // at run time instead, with `struct 'assertions.AssertionFailure' has no field
 // 'bogus'`.
 func TestAssertionFailureType_IgnoresAShadowingDeclaration(t *testing.T) {
-	src := `import {
+	src := `import
   std::io
   std::testing
-}
+end
 
-struct AssertionFailure {
+struct AssertionFailure
   bogus: Int
-}
+end
 
-fn main() -> Unit {
-  case testing.check(1 == 2) {
+fn main() -> Unit
+  case testing.check(1 == 2)
     Err(f) -> io.print("${f.bogus}")
     Ok(_) -> io.print("ok")
-  }
-}`
+  end
+end`
 	_, errs := checkSourceWithStdlib(src)
 	found := false
 	for _, e := range errs {
@@ -100,17 +100,17 @@ fn main() -> Unit {
 // This case guards against the checker starting to REJECT ordinary programs,
 // which is a different failure with no other cover.
 func TestAssertionFailureType_ResolvesWithoutAnImport(t *testing.T) {
-	src := `import {
+	src := `import
   std::io
   std::testing
-}
+end
 
-fn main() -> Unit {
-  case testing.check(1 == 2) {
+fn main() -> Unit
+  case testing.check(1 == 2)
     Err(f) -> io.print(f.reason)
     Ok(_) -> io.print("ok")
-  }
-}`
+  end
+end`
 	_, errs := checkSourceWithStdlib(src)
 	for _, e := range errs {
 		if strings.Contains(e.Message, "reason") || strings.Contains(e.Message, "AssertionFailure") {

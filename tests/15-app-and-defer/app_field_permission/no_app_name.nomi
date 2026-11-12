@@ -1,14 +1,14 @@
 import settings.Settings
 
-struct Ruler {
+struct Ruler
     size: Int
-}
+end
 
-pub fn read() -> String {
+pub fn read() -> String
     Settings.tag
-}
+end
 
-pub fn ruler_size() -> Int {
+pub fn ruler_size() -> Int
     own = Ruler{size: 7}
     own.size
-}
+end

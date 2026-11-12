@@ -16,17 +16,17 @@ import (
 
 const inlineValueSrc = `import std::io
 
-fn scale(xs: List<Int>, by: Int) -> List<Int> {
+fn scale(xs: List<Int>, by: Int) -> List<Int>
     factor = by * 2
     _ = factor
     xs |> Iter.map(fn x -> x * factor) |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
     nums = [1, 2]
     total = nums |> Iter.count()
     io.print("${scale(nums, total)}")
-}
+end
 `
 
 // inlineValuesFor analyzes src and answers the lookups for the whole file

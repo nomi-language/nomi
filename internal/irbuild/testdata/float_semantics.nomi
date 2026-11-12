@@ -8,7 +8,7 @@
 // on values rather than on constants.
 import std::io
 
-fn main() {
+fn main()
     zero = 0.0
     one = 1.0
 
@@ -50,4 +50,4 @@ fn main() {
     io.print("1.0 / 0.0: ${1.0 / 0.0}")
     io.print("-1.0 / 0.0: ${-1.0 / 0.0}")
     io.print("literal nan == itself: ${(0.0 / 0.0) == (0.0 / 0.0)}")
-}
+end

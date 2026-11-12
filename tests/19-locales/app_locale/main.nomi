@@ -2,29 +2,29 @@
 // at boot, and passes it to whatever formats text.
 import std::io
 
-pub struct App {
+pub struct App
     locale: Locale
-}
+end
 
-pub fn boot(startup: Startup) -> Result<App, String> {
+pub fn boot(startup: Startup) -> Result<App, String>
     locale =
         Map.get(startup.env, "LANG")
         |> Maybe.flat_map(fn value -> Locale.from_posix(value) |> Result.to_maybe())
         |> Maybe.with_default(Locale`en`)
 
-    Ok(App{locale})
-}
+    Ok(App{locale:})
+end
 
-pub fn greeting(locale: Locale) -> String {
-    case Locale.language(locale) {
+pub fn greeting(locale: Locale) -> String
+    case Locale.language(locale)
         "pl" -> "Cześć"
         _ -> "Hello"
-    }
-}
+    end
+end
 
 // main pins the locale with a `with` line, so what it prints does not
 // depend on the LANG of the machine running the corpus.
-fn main() {
+fn main()
     with App.locale = Locale`pl-PL`
     io.print("${App.locale}: ${greeting(App.locale)}")
-}
+end

@@ -88,19 +88,19 @@ local source = {
   'import std::io', --  1
   '', --  2
   '//! assert double(2) == 4', --  3
-  'fn double(x: Int) -> Int {', --  4
+  'fn double(x: Int) -> Int', --  4
   '    x * 2', --  5
-  '}', --  6
+  'end', --  6
   '', --  7
-  'test "a" {', --  8
+  'test "a"', --  8
   '    assert True', --  9
-  '}', -- 10
+  'end', -- 10
   '', -- 11
-  'group "g" {', -- 12
-  '    test "b" {', -- 13
+  'group "g"', -- 12
+  '    test "b"', -- 13
   '        assert True', -- 14
-  '    }', -- 15
-  '}', -- 16
+  '    end', -- 15
+  'end', -- 16
 }
 
 local function open(name)
@@ -788,11 +788,11 @@ test('an attribute value holding a slot is not injected into', function()
   local saved_rtp = vim.o.rtp
   vim.o.rtp = table.concat({ plugin, rtp, vim.env.VIMRUNTIME }, ',')
   local path = write('html_slot.nomi', {
-    'fn row(id: Int) -> Html {',
+    'fn row(id: Int) -> Html',
     '    Html"""',
     '        <a href="/admin/posts/${id}/edit" style="x">',
     '        """',
-    '}',
+    'end',
   })
   vim.cmd('edit ' .. vim.fn.fnameescape(path))
   vim.b.did_ftplugin = nil

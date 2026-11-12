@@ -14,7 +14,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Cleans up a North American phone number written by a user.
 
 /// Why a phrase is not a NANP phone number.
-pub enum Error {
+pub enum Error
     Letters
     Punctuation
     TooFewDigits
@@ -24,18 +24,18 @@ pub enum Error {
     AreaCodeStartsWithOne
     ExchangeCodeStartsWithZero
     ExchangeCodeStartsWithOne
-}
+end
 
 /// Cleans a NANP phone number down to its ten digits, dropping punctuation
 /// and a leading country code of 1.
-pub fn clean(phrase: String) -> Result<String, Error> {
+pub fn clean(phrase: String) -> Result<String, Error>
     codepoints = String.to_codepoints(phrase)
 
-    if Iter.any_match(codepoints, Codepoint.is_letter) { return Err(.Letters) }
+    if Iter.any_match(codepoints, Codepoint.is_letter) then return Err(.Letters)
 
-    if not Iter.all_match(codepoints, fn cp -> Codepoint.is_digit(cp) or is_separator(cp)) {
+    if not Iter.all_match(codepoints, fn cp -> Codepoint.is_digit(cp) or is_separator(cp)) then
         return Err(.Punctuation)
-    }
+    end
 
     digits =
         codepoints
@@ -43,39 +43,39 @@ pub fn clean(phrase: String) -> Result<String, Error> {
         |> Maybe.values()
         |> national()?
 
-    case digits {
+    case digits
         [0, ..] -> Err(.AreaCodeStartsWithZero)
         [1, ..] -> Err(.AreaCodeStartsWithOne)
         [_, _, _, 0, ..] -> Err(.ExchangeCodeStartsWithZero)
         [_, _, _, 1, ..] -> Err(.ExchangeCodeStartsWithOne)
         _ -> digits |> Iter.map(Int.to_string) |> String.join() |> Ok()
-    }
-}
+    end
+end
 
 /// Strips the country code from eleven digits, so ten remain.
-fn national(digits: List<Int>) -> Result<List<Int>, Error> {
+fn national(digits: List<Int>) -> Result<List<Int>, Error>
     count = Iter.count(digits)
 
-    case digits {
+    case digits
         _ when count < 10 -> Err(.TooFewDigits)
         _ when count == 10 -> Ok(digits)
         [1, ..rest] when count == 11 -> Ok(rest)
         _ when count == 11 -> Err(.CountryCodeNotOne)
         _ -> Err(.TooManyDigits)
-    }
-}
+    end
+end
 
-fn is_separator(cp: Codepoint) -> Bool {
+fn is_separator(cp: Codepoint) -> Bool
     cp is (' ' or '(' or ')' or '-' or '.' or '+')
-}
+end
 
 // FILE: phone_number_test.nomi
-import {
+import
     phone_number
     phone_number.Error
-}
+end
 
-test "cleans phone numbers" {
+test "cleans phone numbers"
     [
         ("cleans the number", "(223) 456-7890", Ok("2234567890")),
         ("cleans numbers with dots", "223.456.7890", Ok("2234567890")),
@@ -124,10 +124,10 @@ test "cleans phone numbers" {
             Err(.ExchangeCodeStartsWithOne),
         ),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert phone_number.clean(phrase) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok cleans phone numbers (18 cases)

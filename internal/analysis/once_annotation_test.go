@@ -4,7 +4,9 @@ import "testing"
 
 func TestOnceAnnotationIsAvailableBeforeBodyChecking(t *testing.T) {
 	fa, errs := buildTypesFromSource(`pub once label: String = initialize()
-fn initialize() -> String { "service" }`)
+fn initialize() -> String
+    "service"
+end`)
 	if len(errs) != 0 {
 		t.Fatal(errs)
 	}
@@ -33,10 +35,10 @@ pub once label: Label = "service"`)
 // ".North requires a determinable enum type at this position; annotate the
 // binding or qualify the variant" on a binding that was annotated.
 func TestOnceAnnotationIsTheValuesExpectedType(t *testing.T) {
-	_, errs := checkSourceSynth(`pub enum Direction {
+	_, errs := checkSourceSynth(`pub enum Direction
     North
     South
-}
+end
 
 pub once directions: List<Direction> = [.North, .South]
 pub once first: Direction = .North`)

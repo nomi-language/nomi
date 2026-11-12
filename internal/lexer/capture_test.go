@@ -21,7 +21,7 @@ func TestCaptureTokens(t *testing.T) {
 		tok(token.RPAREN, ")"),
 		tok(token.EOF, ""),
 	})
-	for _, src := range []string{"&f(&1)", "&Int.max(&1, 0)", "&Point{x: &1}", "&%{&1 => 0}", "&[&1]", "&.Circle(&1)"} {
+	for _, src := range []string{"&f(&1)", "&Int.max(&1, 0)", "&Point{x: &1}", "&{&1 => 0}", "&[&1]", "&.Circle(&1)"} {
 		if toks := Lex(src); toks[0].Type != token.CAPTURE || toks[0].Lexeme != "&" {
 			t.Errorf("Lex(%q) starts with %v, want the capture's `&`", src, toks[0])
 		}

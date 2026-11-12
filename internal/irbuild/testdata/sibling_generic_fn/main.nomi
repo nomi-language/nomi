@@ -3,27 +3,27 @@
 // `apply`), at several type arguments, including a struct from each file.
 // zulu.nomi and alpha.nomi are lowered in an order that makes some instances
 // arrive after their declaring file's own walk.
-import {
+import
     std::io
     alpha
     ping
     zeta
     zeta.{Tag, apply as run, ident}
     zulu
-}
+end
 
-pub struct Point {
+pub struct Point
     x: Int
     y: Int
-}
+end
 
-impl Display for Point {
-    fn to_string(p: Point) -> String {
+impl Display for Point
+    fn to_string(p: Point) -> String
         "(${p.x}, ${p.y})"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Int.to_string(zeta.ident(4)))
     io.print(ident("bare"))
     p = zeta.ident(Point{x: 1, y: 2})
@@ -41,4 +41,4 @@ fn main() {
     io.print(zulu.floats())
     io.print("ping ${ping.ping("p", 2)}")
     io.print("ping ${ping.ping(Point{x: 0, y: 1}, 1)}")
-}
+end

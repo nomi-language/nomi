@@ -1,6 +1,6 @@
 import state_of_tic_tac_toe
 
-test "won games" {
+test "won games"
     [
         ("Finished game where X won via left column victory", ["XOO", "X  ", "X  "]),
         ("Finished game where X won via middle column victory", ["OXO", " X ", " X "]),
@@ -21,33 +21,33 @@ test "won games" {
         ("Finished game where X won via a row and a column victory", ["XXX", "XOO", "XOO"]),
         ("Finished game where X won via two diagonal victories", ["XOX", "OXO", "XOX"]),
     ]
-    |> subtests (description, board), description {
+    |> subtests (description, board), description
         assert state_of_tic_tac_toe.gamestate(board) == Ok(.Win)
-    }
-}
+    end
+end
 
-test "drawn games" {
+test "drawn games"
     [
         ("Draw", ["XOX", "XXO", "OXO"]),
         ("Another draw", ["XXO", "OXX", "XOO"]),
     ]
-    |> subtests (description, board), description {
+    |> subtests (description, board), description
         assert state_of_tic_tac_toe.gamestate(board) == Ok(.Draw)
-    }
-}
+    end
+end
 
-test "ongoing games" {
+test "ongoing games"
     [
         ("Ongoing game: one move in", ["   ", "X  ", "   "]),
         ("Ongoing game: two moves in", ["O  ", " X ", "   "]),
         ("Ongoing game: five moves in", ["X  ", " XO", "OX "]),
     ]
-    |> subtests (description, board), description {
+    |> subtests (description, board), description
         assert state_of_tic_tac_toe.gamestate(board) == Ok(.Ongoing)
-    }
-}
+    end
+end
 
-test "invalid boards" {
+test "invalid boards"
     [
         (
             "Invalid board: X went twice",
@@ -76,8 +76,8 @@ test "invalid boards" {
             "Impossible board: game should have ended after the game was won",
         ),
     ]
-    |> subtests (description, board, message), description {
+    |> subtests (description, board, message), description
         assert Err(error) = state_of_tic_tac_toe.gamestate(board)
         assert "${error}" == message
-    }
-}
+    end
+end

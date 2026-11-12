@@ -12,7 +12,7 @@ func rangeBacking(v any) (rt.Range[any], error) {
 	if !ok {
 		return rt.Range[any]{}, fmt.Errorf("vm: range receiver is %T, want Range", v)
 	}
-	rawEnd, _ := s.FieldNamed("end")
+	rawEnd, _ := s.FieldNamed("stop")
 	endValue, endSome, ok := maybeParts(rawEnd)
 	if !ok {
 		return rt.Range[any]{}, fmt.Errorf("vm: Range.end must be Maybe")

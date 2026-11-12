@@ -8,10 +8,10 @@
 // call's result as well as the outer's.
 import shapes.Status
 
-test "a type-qualified sibling call shows its arguments" {
+test "a type-qualified sibling call shows its arguments"
     assert Status.is_active(Status.inactive("holiday"))
-}
+end
 
-test "a passing type-qualified sibling call reports nothing extra" {
+test "a passing type-qualified sibling call reports nothing extra"
     assert Status.is_active(Status.active())
-}
+end

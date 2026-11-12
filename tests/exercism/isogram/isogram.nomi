@@ -2,7 +2,7 @@
 
 /// Whether no letter appears in `phrase` more than once, ignoring case.
 /// Spaces, hyphens and other non-letters may repeat.
-pub fn is_isogram(phrase: String) -> Bool {
+pub fn is_isogram(phrase: String) -> Bool
     letters =
         phrase
         |> String.fold_case()
@@ -11,4 +11,4 @@ pub fn is_isogram(phrase: String) -> Bool {
         |> Iter.to_list()
 
     letters |> Iter.to_set() |> Set.size() == Iter.count(letters)
-}
+end

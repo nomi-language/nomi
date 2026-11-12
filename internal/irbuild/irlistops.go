@@ -28,10 +28,9 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 	// kindInvalid: sentinel — no argument supplied a typed list representation.
 	if lk == kindInvalid && irAllEmptyLists(lists) {
 		// `List.head([])`: nothing constrains the element, so no value of it
-		// is built or observed, as checkedPreludeArgsUnitHoles argues for an
-		// unconstrained prelude argument. A List of Unit is not a retained
-		// kind, so the list is typed as one of Int, the representation of an
-		// element the program never holds.
+		// is built or observed. The list crosses as one of Int, the type
+		// the checker closes such an element as (analysis's closed_vars.go);
+		// a piped operand has no argument node here to read it from.
 		lk = bl.g.listKind(kindInt)
 	}
 	// A list of any other element with a stored type crosses too: none of

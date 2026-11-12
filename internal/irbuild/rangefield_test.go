@@ -11,30 +11,30 @@ func TestRangeStructField_Runs(t *testing.T) {
 	}
 	verifyLambdaProgram(t, `import std::io
 
-struct Hold {
+struct Hold
     v: Range<Int>
-}
+end
 
-struct Gbox<A> {
+struct Gbox<A>
     v: A
-}
+end
 
-struct D {
+struct D
     v: Range<Int> = 2..=5
     n: Int = 0
-}
+end
 
-struct Spans {
+struct Spans
     f: Range<Float>
     s: Range<String>
-}
+end
 
-enum E {
+enum E
     A Spans
     B
-}
+end
 
-fn main() {
+fn main()
     h = Hold{v: 1..4}
     io.inspect(h.v)
     io.inspect(h)
@@ -47,11 +47,11 @@ fn main() {
     Hold{v: r} = h
     io.inspect(r)
     sp = Spans{f: 1.0..2.0, s: "a"..="c"}
-    io.inspect(%[sp] |> Set.size())
-    io.print(case E.A(sp) {
-        E.A(Spans{f, s}) -> "${Debug.inspect(f)} ${Debug.inspect(s)}"
+    io.inspect(Set[sp] |> Set.size())
+    io.print(case E.A(sp)
+        E.A(Spans{f:, s:}) -> "${Debug.inspect(f)} ${Debug.inspect(s)}"
         E.B -> "b"
-    })
-}
+    end)
+end
 `, "1..4\nHold{v: 1..4}\nTrue\n[1, 2, 3]\nGbox{v: 1..3}\nD{v: 2..=5, n: 0}\n0..1\n1..4\n1\n1.0..2.0 \"a\"..=\"c\"\n")
 }

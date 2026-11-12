@@ -6,11 +6,11 @@ import (
 )
 
 func TestParseDefer(t *testing.T) {
-	src := `fn main() {
+	src := `fn main()
   db = sqlite.temp()
   defer sqlite.close(db)
   run(db)
-}`
+end`
 	nodes := parse(t, src)
 	fn := nodes[0].(*ast.FuncDef)
 	if len(fn.Body.Stmts) != 3 {
@@ -33,9 +33,9 @@ func TestParseDefer(t *testing.T) {
 }
 
 func TestParseDefer_AllowsNamedArgs(t *testing.T) {
-	src := `fn main() {
+	src := `fn main()
   defer Timer.stop(timer: t)
-}`
+end`
 	nodes := parse(t, src)
 	fn := nodes[0].(*ast.FuncDef)
 	deferStmt := fn.Body.Stmts[0].(*ast.Defer)

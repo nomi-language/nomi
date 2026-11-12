@@ -23,14 +23,14 @@
 // pinned in calendar_civil_test.go, beside the representation-level pins in
 // rt/calendar_test.go (TestCalendarEndOfMonthClamping,
 // TestCalendarCivilAndPhysicalDivergeAcrossSpringForward).
-import {
+import
     std::calendar.{Error, NaiveDateTime}
     std::duration.Duration
     std::instant.Instant
     std::io
-}
+end
 
-fn run() -> Result<Unit, Error> {
+fn run() -> Result<Unit, Error>
     // --- `NaiveDateTime.add`: eleven declarations, one spelling ---------------
     //
     // The 31st of January is the discriminating start. `+ Duration.hours(24)`
@@ -69,14 +69,14 @@ fn run() -> Result<Unit, Error> {
     // Divide<NonZeroInt, Int> for Int` is an ordinary Nomi body. Both answered to
     // `int.Int.divide`, so BOTH were refused and the total one was unreachable.
     // Rounding is toward zero, which is the line that separates it from a floor.
-    case Int.to_non_zero(3) {
-        Some(nz) -> {
+    case Int.to_non_zero(3)
+        Some(nz) ->
             io.print("div = " + Int.to_string(Int.divide(10, nz)))
             io.print("div_neg = " + Int.to_string(Int.divide(-10, nz)))
-        }
 
-        None -> io.print("div = unreachable: 3 is not zero")
-    }
+        None ->
+            io.print("div = unreachable: 3 is not zero")
+    end
 
     // --- the operator impls that carry their instantiation ------------------
     //
@@ -113,11 +113,11 @@ fn run() -> Result<Unit, Error> {
     // clash one layer up, it is not this slice's, and writing the line anyway
     // would refuse the whole fixture rather than one row.
     Ok(Unit)
-}
+end
 
-fn main() {
-    case run() {
+fn main()
+    case run()
         Ok(_u) -> Unit
         Err(_e) -> io.print("FAILED")
-    }
-}
+    end
+end

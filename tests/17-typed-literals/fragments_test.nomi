@@ -5,40 +5,40 @@ import std::literals.{Fragment, Literal}
 // side have an empty Static between them (spec §18 *Typed literals*).
 type Count
 
-impl Literal for Count {
-    fn from_fragments(fragments: List<Fragment<Int>>) -> Int {
+impl Literal for Count
+    fn from_fragments(fragments: List<Fragment<Int>>) -> Int
         Iter.count(fragments)
-    }
-}
+    end
+end
 
 type Shape
 
-impl Literal for Shape {
-    fn from_fragments(fragments: List<Fragment<Int>>) -> String {
+impl Literal for Shape
+    fn from_fragments(fragments: List<Fragment<Int>>) -> String
         fragments
-        |> Iter.map(fn f -> {
-            case f {
+        |> Iter.map(fn f ->
+            case f
                 .Static(s) -> "S(${s})"
                 .Dynamic(n) -> "D(${n})"
-            }
-        })
+            end
+        end)
         |> String.join(" ")
-    }
-}
+    end
+end
 
-test "fragments alternate, with empty statics kept" {
+test "fragments alternate, with empty statics kept"
     x = 7
     assert Count"${x}" == 3
     assert Count"a${x}" == 3
     assert Count"${x}${x}" == 5
     assert Count"" == 1
     assert Count"plain" == 1
-}
+end
 
-test "the empty statics sit where the spec puts them" {
+test "the empty statics sit where the spec puts them"
     x = 7
     assert Shape"${x}${x}" == "S() D(7) S() D(7) S()"
     assert Shape"a${x}b" == "S(a) D(7) S(b)"
     assert Shape"" == "S()"
     assert Shape`raw` == "S(raw)"
-}
+end

@@ -64,15 +64,15 @@ func TestStdIterBareOwnCallIsTheQualifiedCall(t *testing.T) {
 		t.Fatal("std/iter is not embedded")
 	}
 	_, body, _ := strings.Cut(string(src), "pub fn chunk_equal<")
-	body, _, _ = strings.Cut(body, "\n    }\n")
+	body, _, _ = strings.Cut(body, "\n    end\n")
 	if !strings.Contains(body, "\n        chunk_by(source,") {
 		t.Fatalf("Iter.chunk_equal no longer calls chunk_by bare, so this test checks nothing; its body:\n%s", body)
 	}
 	verifyLambdaProgram(t, `import std::io
 
-fn main() {
+fn main()
     io.inspect([1, 1, 2, 2, 1] |> Iter.chunk_equal() |> Iter.to_list())
     io.inspect("aab" |> Iter.chunk_equal() |> Iter.map(Iter.count) |> Iter.to_list())
-}
+end
 `, "[[1, 1], [2, 2], [1]]\n[2, 1]\n")
 }

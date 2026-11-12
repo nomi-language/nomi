@@ -10,83 +10,83 @@ func TestRedeclaration_FileScope_DuplicateOnce_Rejected(t *testing.T) {
 once x = 1
 once x = 2
 
-fn main() {}
+fn main() end
 `)
 	expectError(t, errs, "'x' is already defined in this scope")
 }
 
 func TestRedeclaration_FileScope_DuplicateFn_Rejected(t *testing.T) {
 	_, errs := checkSource(`
-fn helper() -> Int {
+fn helper() -> Int
   1
-}
+end
 
-fn helper() -> Int {
+fn helper() -> Int
   2
-}
+end
 
-fn main() {}
+fn main() end
 `)
 	expectError(t, errs, "'helper' is already defined in this scope")
 }
 
 func TestRedeclaration_FileScope_DuplicateStruct_Rejected(t *testing.T) {
 	_, errs := checkSource(`
-struct User {
+struct User
   name: String
-}
+end
 
-struct User {
+struct User
   email: String
-}
+end
 
-fn main() {}
+fn main() end
 `)
 	expectError(t, errs, "'User' is already defined in this scope")
 }
 
 func TestOnce_NestedInFunctionBody_Rejected(t *testing.T) {
 	_, errs := checkSource(`
-fn main() {
+fn main()
   once x = 1
   x
-}
+end
 `)
 	expectError(t, errs, "once")
 }
 
 func TestShadowing_SameScopeBinding_Allowed(t *testing.T) {
 	_, errs := checkSource(`
-fn demo() -> Int {
+fn demo() -> Int
   x = 1
   x = 2
   x
-}
+end
 `)
 	expectNoErrors(t, errs)
 }
 
 func TestShadowing_Parameter_Allowed(t *testing.T) {
 	_, errs := checkSource(`
-fn double(x: Int) -> Int {
+fn double(x: Int) -> Int
   x = x + x
   x
-}
+end
 `)
 	expectNoErrors(t, errs)
 }
 
 func TestShadowing_TypeChanging_Allowed(t *testing.T) {
 	_, errs := checkSource(`
-fn need_string(s: String) -> String {
+fn need_string(s: String) -> String
   s
-}
+end
 
-fn use_it() -> String {
+fn use_it() -> String
   x = 5
   x = "hi"
   need_string(x)
-}
+end
 `)
 	expectNoErrors(t, errs)
 }
@@ -95,53 +95,53 @@ func TestShadowing_ModuleOnce_Allowed(t *testing.T) {
 	_, errs := checkSource(`
 once x = 1
 
-fn demo() -> Int {
+fn demo() -> Int
   x = 2
   x
-}
+end
 `)
 	expectNoErrors(t, errs)
 }
 
 func TestShadowing_LambdaParameter_Allowed(t *testing.T) {
 	_, errs := checkSource(`
-fn apply() -> Int {
-  f = fn x: Int -> {
+fn apply() -> Int
+  f = fn x: Int ->
     x = x + 1
     x
-  }
+  end
   f(5)
-}
+end
 `)
 	expectNoErrors(t, errs)
 }
 
 func TestShadowing_NestedFunctionBinding_Allowed(t *testing.T) {
 	_, errs := checkSource(`
-fn demo() -> Int {
+fn demo() -> Int
   x = 1
 
-  fn helper() -> Int {
+  fn helper() -> Int
     x = 2
     x
-  }
+  end
 
   helper()
-}
+end
 `)
 	expectNoErrors(t, errs)
 }
 
 func TestShadowing_DoesNotHideRealTypeErrors(t *testing.T) {
 	_, errs := checkSource(`
-fn need_string(s: String) -> String {
+fn need_string(s: String) -> String
   s
-}
+end
 
-fn use_it() -> String {
+fn use_it() -> String
   x = 5
   need_string(x)
-}
+end
 `)
 	if !hasErrorContaining(errs, "expected String", "got Int") {
 		t.Fatalf("expected String/Int type mismatch, got %v", errs)

@@ -22,7 +22,7 @@ func TestFuncValueShape_MismatchIsRejected(t *testing.T) {
 		{"x = Maybe.map(Some(1), 5)",
 			"argument 2: expected (Int) -> U, got Int"},
 	} {
-		src := "fn main() {\n  " + tc.stmt + "\n  _ = x\n}\n"
+		src := "fn main()\n  " + tc.stmt + "\n  _ = x\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		found := false
 		for _, e := range errs {
@@ -43,12 +43,12 @@ func TestFuncValueShape_MismatchIsRejected(t *testing.T) {
 func TestFuncValueShape_MatchingShapesAreAccepted(t *testing.T) {
 	for _, stmt := range []string{
 		"x: List<Int> = [\"1\"] |> Iter.map(fn s -> String.to_int(s) |> Maybe.with_default(0)) |> Iter.to_list()",
-		"x: List<Int> = [\"1\"] |> Iter.map(fn s -> { String.to_int(s) |> Maybe.with_default(0) }) |> Iter.to_list()",
+		"x: List<Int> = [\"1\"] |> Iter.map(fn s -> String.to_int(s) |> Maybe.with_default(0)) |> Iter.to_list()",
 		"x = Maybe.map(Some(1), fn n -> n + 1)",
 		"f = fn n: Int -> n + 1\n  x = Maybe.map(Some(1), f)",
 		"x = Maybe.with_default(Some(fn n: Int -> n), fn n: Int -> n + 1)",
 	} {
-		src := "fn main() {\n  " + stmt + "\n  _ = x\n}\n"
+		src := "fn main()\n  " + stmt + "\n  _ = x\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectNoStdlibErrors(t, errs)
 	}

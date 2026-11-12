@@ -12,12 +12,12 @@
 /// ```nomi
 /// pub type Minutes Int
 ///
-/// impl Remainder<Minutes, Minutes> for Minutes {
-///     fn remainder(lhs: Minutes, rhs: Minutes) -> Minutes {
+/// impl Remainder<Minutes, Minutes> for Minutes
+///     fn remainder(lhs: Minutes, rhs: Minutes) -> Minutes
 ///         ...
-///     }
-/// }
+///     end
+/// end
 /// ```
-pub interface Remainder<Rhs, Out> {
+pub interface Remainder<Rhs, Out>
     fn remainder(lhs: self, rhs: Rhs) -> Out
-}
+end

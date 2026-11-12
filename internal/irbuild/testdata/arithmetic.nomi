@@ -1,14 +1,14 @@
 import std::io
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn describe(n: Int) -> String {
-    if n > 10 { "big" } else { "small" }
-}
+fn describe(n: Int) -> String
+    if n > 10 then "big" else "small"
+end
 
-fn main() {
+fn main()
     a = 6
     b = 7
     n = double(a) + b % 4
@@ -24,11 +24,11 @@ fn main() {
     io.print("eq = ${a == b}")
     io.print("not = ${not flag}")
 
-    if flag {
+    if flag then
         io.print("branch taken")
-    } else {
+    else
         io.print("branch missed")
-    }
+    end
 
     io.print("joined: ${a} ${b} ${describe(b)}")
-}
+end

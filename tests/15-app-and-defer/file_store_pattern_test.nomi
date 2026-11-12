@@ -3,141 +3,143 @@
 // easy to read end to end.
 //
 // The test writes an empty file at the start so re-runs are deterministic.
-import {
+import
     std::fs
     std::instant.Instant
     std::io
-}
+end
 
 once test_path: String = "${fs.temp_dir()}/nomi-file-store-pattern.tsv"
 
 // --- Domain types ------------------------------------------------
-enum Status {
+enum Status
     Open
     InProgress
     Done
-}
+end
 
 derive Equatable for Status
 
-impl Display for Status {
-    fn to_string(value: Status) -> String {
-        case value {
+impl Display for Status
+    fn to_string(value: Status) -> String
+        case value
             Status.Open -> "open"
             Status.InProgress -> "in-progress"
             Status.Done -> "done"
-        }
-    }
-}
+        end
+    end
+end
 
-enum Priority {
+enum Priority
     Low
     Medium
     High
-}
+end
 
 derive Equatable for Priority
 
-impl Display for Priority {
-    fn to_string(value: Priority) -> String {
-        case value {
+impl Display for Priority
+    fn to_string(value: Priority) -> String
+        case value
             Priority.Low -> "low"
             Priority.Medium -> "medium"
             Priority.High -> "high"
-        }
-    }
-}
+        end
+    end
+end
 
-struct TodoTask {
+struct TodoTask
     id: Int
     title: String
     created: Instant
     status: Status = Status.Open
     priority: Priority = Priority.Medium
-}
+end
 
-fn parse_status(s: String) -> Maybe<Status> {
-    case s {
+fn parse_status(s: String) -> Maybe<Status>
+    case s
         "open" -> Some(Status.Open)
         "in-progress" -> Some(Status.InProgress)
         "done" -> Some(Status.Done)
         _ -> None
-    }
-}
+    end
+end
 
-fn parse_priority(s: String) -> Maybe<Priority> {
-    case s {
+fn parse_priority(s: String) -> Maybe<Priority>
+    case s
         "high" -> Some(Priority.High)
         "medium" -> Some(Priority.Medium)
         "low" -> Some(Priority.Low)
         _ -> None
-    }
-}
+    end
+end
 
 // --- Store interface + FileStore impl ----------------------------
-interface Store {
+interface Store
     fn save(value: self, task: TodoTask) -> Result<TodoTask, String>
     fn delete(value: self, id: Int) -> Result<Unit, String>
     fn load(value: self) -> Result<Map<Int, TodoTask>, String>
-}
+end
 
-struct FileStore {
+struct FileStore
     path: String
-}
+end
 
-impl Store for FileStore {
-    fn load(value: FileStore) -> Result<Map<Int, TodoTask>, String> {
+impl Store for FileStore
+    fn load(value: FileStore) -> Result<Map<Int, TodoTask>, String>
         load_map(value.path)
-    }
+    end
 
-    fn save(value: FileStore, task: TodoTask) -> Result<TodoTask, String> {
-        case load_map(value.path) {
-            Err(e) -> Err(e)
+    fn save(value: FileStore, task: TodoTask) -> Result<TodoTask, String>
+        case load_map(value.path)
+            Err(e) ->
+                Err(e)
 
             Ok(tasks) ->
-                case write_all(value.path, Map.put(tasks, task.id, task)) {
+                case write_all(value.path, Map.put(tasks, task.id, task))
                     Err(e) -> Err(e)
                     Ok(_) -> Ok(task)
-                }
-        }
-    }
+                end
+        end
+    end
 
-    fn delete(value: FileStore, id: Int) -> Result<Unit, String> {
-        case load_map(value.path) {
+    fn delete(value: FileStore, id: Int) -> Result<Unit, String>
+        case load_map(value.path)
             Err(e) -> Err(e)
             Ok(tasks) -> write_all(value.path, Map.remove(tasks, id))
-        }
-    }
-}
+        end
+    end
+end
 
-fn load_map(path: String) -> Result<Map<Int, TodoTask>, String> {
-    case fs.read_text(path) {
-        Ok(content) -> deserialize(content)
+fn load_map(path: String) -> Result<Map<Int, TodoTask>, String>
+    case fs.read_text(path)
+        Ok(content) ->
+            deserialize(content)
 
         Err(e) ->
-            case e {
-                io.Error.NotFound{path: _} -> Ok(%{})
+            case e
+                io.Error.NotFound{path: _} -> Ok({})
                 other -> Err(Display.to_string(other))
-            }
-    }
-}
+            end
+    end
+end
 
-fn write_all(path: String, tasks: Map<Int, TodoTask>) -> Result<Unit, String> {
-    case fs.write_text(path, serialize(tasks)) {
+fn write_all(path: String, tasks: Map<Int, TodoTask>) -> Result<Unit, String>
+    case fs.write_text(path, serialize(tasks))
         Ok(_) -> Ok(Unit)
         Err(e) -> Err(Display.to_string(e))
-    }
-}
+    end
+end
 
-fn serialize(tasks: Map<Int, TodoTask>) -> String {
+fn serialize(tasks: Map<Int, TodoTask>) -> String
     Map.values(tasks)
     |> Iter.sort_by(.id)
     |> Iter.map(serialize_one)
     |> Iter.to_list()
     |> String.join("\n")
-}
+end
 
-fn serialize_one(t: TodoTask) -> String {
+fn serialize_one(t: TodoTask) -> String
     [
         Display.to_string(t.id),
         t.title,
@@ -146,51 +148,52 @@ fn serialize_one(t: TodoTask) -> String {
         Display.to_string(t.priority),
     ]
     |> String.join("\t")
-}
+end
 
-fn deserialize(content: String) -> Result<Map<Int, TodoTask>, String> {
+fn deserialize(content: String) -> Result<Map<Int, TodoTask>, String>
     trimmed = String.trim(content)
 
-    if String.length(trimmed) == 0 {
-        Ok(%{})
-    } else {
+    if String.length(trimmed) == 0 then
+        Ok({})
+    else
         String.split(trimmed, "\n")
-        |> Iter.try_reduce(%{}, fn tasks, line -> {
+        |> Iter.try_reduce({}, fn tasks, line ->
             t = deserialize_one(line)?
             Ok(Map.put(tasks, t.id, t))
-        })
-    }
-}
+        end)
+    end
+end
 
-fn deserialize_one(line: String) -> Result<TodoTask, String> {
-    case String.split(line, "\t") {
+fn deserialize_one(line: String) -> Result<TodoTask, String>
+    case String.split(line, "\t")
         [id_str, title, secs_str, status_str, pri_str] ->
             case (
                 String.to_int(id_str),
                 String.to_int(secs_str),
                 parse_status(status_str),
                 parse_priority(pri_str),
-            ) {
+            )
                 (Some(id), Some(secs), Some(status), Some(priority)) -> Ok(TodoTask{
-                    id,
-                    title,
+                    id:,
+                    title:,
                     created: Instant.from_seconds(secs),
-                    status,
-                    priority,
+                    status:,
+                    priority:,
                 })
                 _ -> Err("malformed task line: '${line}'")
-            }
+            end
 
-        _ -> Err("expected 5 tab-separated fields, got: '${line}'")
-    }
-}
+        _ ->
+            Err("expected 5 tab-separated fields, got: '${line}'")
+    end
+end
 
 // --- Tests -------------------------------------------------------
-test "file store pattern saves reloads and deletes tasks" {
+test "file store pattern saves reloads and deletes tasks"
     // Start from an empty file.
-    case fs.write_text(test_path, "") {
+    case fs.write_text(test_path, "")
         _ -> Unit
-    }
+    end
 
     store = FileStore{path: test_path}
 
@@ -234,4 +237,4 @@ test "file store pattern saves reloads and deletes tasks" {
     assert Map.get(after, 1) == None
     assert Some(remaining) = Map.get(after, 2)
     assert remaining.title == "write tests"
-}
+end

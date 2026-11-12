@@ -5,9 +5,9 @@ Shebang first line
 #!/usr/bin/env nomi
 import std::io
 
-fn main() {
+fn main()
   io.print("hi")
-}
+end
 
 ---
 
@@ -43,9 +43,9 @@ Shebang alone
 Shebang after the first line is an error
 ==========
 
-fn main() {
+fn main()
   1
-}
+end
 #!/usr/bin/env nomi
 
 ---

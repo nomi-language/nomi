@@ -16,40 +16,40 @@ type Mark
 derive Equatable for Mark
 derive Hashable for Mark
 
-enum Kind {
+enum Kind
     Plain
     Marked(Mark)
     Tagged {m: Mark, n: Int}
     Pinged(Unit)
-}
+end
 
 derive Equatable for Kind
 derive Hashable for Kind
 
-fn describe(k: Kind) -> String {
-    case k {
+fn describe(k: Kind) -> String
+    case k
         Kind.Plain -> "plain"
         Kind.Marked(m) -> "marked ${Debug.inspect(m)}"
-        Kind.Tagged{m, n} -> "tagged ${Debug.inspect(m)} ${n}"
+        Kind.Tagged{m:, n:} -> "tagged ${Debug.inspect(m)} ${n}"
         Kind.Pinged(u) -> "pinged ${Debug.inspect(u)}"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     ks = [Kind.Plain, Kind.Marked(Mark), Kind.Tagged{m: Mark, n: 3}, Kind.Pinged(Unit)]
     io.inspect(ks)
     ks |> Iter.each(fn k -> io.print(describe(k)))
     io.inspect(Kind.Marked(Mark) == Kind.Marked(Mark))
     io.inspect(Kind.Tagged{m: Mark, n: 3} == Kind.Tagged{m: Mark, n: 4})
     io.inspect(Hashable.hash(Kind.Pinged(Unit)) == Hashable.hash(Kind.Pinged(Unit)))
-    io.inspect(Set.size(%[Kind.Marked(Mark), Kind.Marked(Mark), Kind.Pinged(Unit)]))
+    io.inspect(Set.size(Set[Kind.Marked(Mark), Kind.Marked(Mark), Kind.Pinged(Unit)]))
     pairs = [(Kind.Pinged(Unit), "a"), (Kind.Plain, "b")]
     io.inspect(pairs)
     f = Kind.Pinged
     io.inspect(f(Unit))
     k: Kind = .Marked(Mark)
     io.inspect(k)
-}
+end
 `
 	irRunSource(t, src, "[Plain, Marked(Mark), Tagged{m: Mark, n: 3}, Pinged(Unit)]\n"+
 		"plain\nmarked Mark\ntagged Mark 3\npinged Unit\n"+

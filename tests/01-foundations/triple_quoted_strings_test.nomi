@@ -1,13 +1,13 @@
-test "triple-quoted strings strip shared indentation" {
+test "triple-quoted strings strip shared indentation"
     sql = """
           SELECT *
         FROM users
         """
 
     assert sql == "  SELECT *\nFROM users"
-}
+end
 
-test "triple-quoted strings interpolate expressions" {
+test "triple-quoted strings interpolate expressions"
     name = "Alice"
 
     greeting = """
@@ -16,17 +16,17 @@ test "triple-quoted strings interpolate expressions" {
         """
 
     assert greeting == "Hello, Alice!\nWelcome."
-}
+end
 
-test "triple-quoted strings can include literal interpolation syntax" {
+test "triple-quoted strings can include literal interpolation syntax"
     shell = """
         echo \${HOME}
         """
 
     assert shell == "echo \${HOME}"
-}
+end
 
-test "triple-quoted strings preserve bare braces" {
+test "triple-quoted strings preserve bare braces"
     json = """
         {
             "key": "value"
@@ -34,17 +34,17 @@ test "triple-quoted strings preserve bare braces" {
         """
 
     assert json == "{\n    \"key\": \"value\"\n}"
-}
+end
 
-test "triple-quoted strings preserve backslashes" {
+test "triple-quoted strings preserve backslashes"
     regex = """
         \d{3,4}
         """
 
     assert regex == "\\d{3,4}"
-}
+end
 
-test "triple-quoted strings mix interpolation and literal interpolation syntax" {
+test "triple-quoted strings mix interpolation and literal interpolation syntax"
     name = "Alice"
 
     mixed = """
@@ -52,20 +52,20 @@ test "triple-quoted strings mix interpolation and literal interpolation syntax" 
         """
 
     assert mixed == "Hello, Alice! Use \${HOME}."
-}
+end
 
-test "triple-quoted strings can be empty" {
+test "triple-quoted strings can be empty"
     empty = """
 
         """
 
     assert empty == ""
-}
+end
 
-test "single-line triple-quoted bodies produce their body text" {
+test "single-line triple-quoted bodies produce their body text"
     compact = """
         body
         """
 
     assert compact == "body"
-}
+end

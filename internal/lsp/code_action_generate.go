@@ -84,7 +84,7 @@ func (r *refactorRequest) generateFunction(line, col int, msg string) (string, s
 				return "", "", false
 			}
 			// The function is declared at the file's top level.
-			text := "\n\n" + sig + " {\n" + strings.Repeat(" ", format.IndentWidth) + r.placeholderAt(0, 0, sig) + "\n}"
+			text := "\n\n" + sig + "\n" + strings.Repeat(" ", format.IndentWidth) + r.placeholderAt(0, 0, sig) + "\nend"
 			return fmt.Sprintf("Generate function '%s'", m[1]), r.replace(at, at, text), true
 		}
 		return "", "", false
@@ -214,8 +214,8 @@ func (r *refactorRequest) discarded(n ast.Node) bool {
 	return block.Stmts[len(block.Stmts)-1] != stmt
 }
 
-// declEnd is the offset just past the closing `}` of the top-level
-// declaration under the range.
+// declEnd is the offset just past the `end` of the top-level declaration
+// under the range.
 func (r *refactorRequest) declEnd() (int, bool) {
 	line, col := 0, 0
 	switch d := r.decl.(type) {
@@ -230,10 +230,10 @@ func (r *refactorRequest) declEnd() (int, bool) {
 		return 0, false
 	}
 	off := posToOffset(r.offs, line, col)
-	if off >= len(r.content) || r.content[off] != '}' {
+	if !strings.HasPrefix(r.content[off:], "end") {
 		return 0, false
 	}
-	return off + 1, true
+	return off + len("end"), true
 }
 
 // declaresPlainType reports whether the file declares a struct or enum
@@ -255,28 +255,28 @@ func (r *refactorRequest) declaresPlainType(name string) bool {
 }
 
 // addToInherentImpl writes sig with a placeholder body at the end of the
-// file's `impl typeName { ... }` block, or in a new block after the
-// declaration under the range.
+// file's `impl typeName` block, or in a new block after the declaration
+// under the range.
 func (r *refactorRequest) addToInherentImpl(typeName, sig string) (string, bool) {
 	indent := strings.Repeat(" ", format.IndentWidth)
-	fn := indent + sig + " {\n" + indent + indent + r.placeholderAt(0, 0, sig) + "\n" + indent + "}"
+	fn := indent + sig + "\n" + indent + indent + r.placeholderAt(0, 0, sig) + "\n" + indent + "end"
 	for _, n := range r.nodes {
 		impl, ok := n.(*ast.ImplBlock)
 		if !ok || impl.Interface != nil || receiverBaseName(impl.Receiver) != typeName || impl.EndLine <= 0 {
 			continue
 		}
 		closeOff := posToOffset(r.offs, impl.EndLine, impl.EndCol)
-		if closeOff >= len(r.content) || r.content[closeOff] != '}' {
+		if !strings.HasPrefix(r.content[closeOff:], "end") {
 			return "", false
 		}
 		lineStart := r.lineStart(closeOff)
 		if strings.TrimSpace(r.content[lineStart:closeOff]) != "" {
-			// `impl T {}` on one line.
-			open := strings.LastIndexByte(r.content[:closeOff], '{')
-			if open < 0 || strings.TrimSpace(r.content[open+1:closeOff]) != "" {
-				return "", false
+			// `impl T end` on one line.
+			at := closeOff
+			for at > 0 && (r.content[at-1] == ' ' || r.content[at-1] == '\t') {
+				at--
 			}
-			return r.replace(open+1, closeOff, "\n"+fn+"\n"), true
+			return r.replace(at, closeOff, "\n"+fn+"\n"), true
 		}
 		sep := ""
 		if len(impl.Items) > 0 {
@@ -288,7 +288,7 @@ func (r *refactorRequest) addToInherentImpl(typeName, sig string) (string, bool)
 	if !ok {
 		return "", false
 	}
-	return r.replace(at, at, "\n\nimpl "+typeName+" {\n"+fn+"\n}"), true
+	return r.replace(at, at, "\n\nimpl "+typeName+"\n"+fn+"\nend"), true
 }
 
 // typeText is t as source, or "" when t is unknown or not fully solved.

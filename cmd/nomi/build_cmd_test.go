@@ -80,67 +80,67 @@ func TestBuildCommand_TheBinaryRunsAsNomiRunDoes(t *testing.T) {
 		// std/uuid is lowered with the program, so its bodies are in the
 		// image.
 		"uuid.nomi": imagePrograms["uuid.nomi"],
-		"startup.nomi": `import {
+		"startup.nomi": `import
  std::io
-}
+end
 
-struct Settings {
+struct Settings
   context: Context
-}
+end
 
-fn boot(startup: Startup) -> Result<Settings, String> {
+fn boot(startup: Startup) -> Result<Settings, String>
   io.print(Map.get(startup.env, "NOMI_BUILD_TEST"))
   io.print(startup.args)
   Ok(Settings{context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
   io.print("main ran")
-}
+end
 `,
-		"assertion.nomi": `import {
+		"assertion.nomi": `import
   std::assertions.AssertionFailure
   std::io
-}
+end
 
-fn main() -> Result<Unit, AssertionFailure> {
+fn main() -> Result<Unit, AssertionFailure>
   io.print("before")
   x = 2
   assert x + 1 == 4
   Ok(Unit)
-}
+end
 `,
 		"fault.nomi": `import std::io
 
-fn divide(a: Int, b: Int) -> Int {
+fn divide(a: Int, b: Int) -> Int
   a / b
-}
+end
 
-fn main() {
+fn main()
   io.print("before")
   io.print(divide(1, 0))
-}
+end
 `,
 		// std/compiler's hosts link the front end, so this program's runner
 		// is the nomi_compiler variant.
-		"compiler.nomi": `import {
+		"compiler.nomi": `import
   std::compiler
   std::io
-}
+end
 
-fn main() {
-  io.print(Debug.inspect(compiler.run("import std::io\n\nfn main() {\n  io.print(\"nested\")\n}\n")))
-  io.print(Debug.inspect(compiler.check("fn main() {\n  missing\n}\n")))
-}
+fn main()
+  io.print(Debug.inspect(compiler.run("import std::io\n\nfn main()\n  io.print(\"nested\")\nend\n")))
+  io.print(Debug.inspect(compiler.check("fn main()\n  missing\nend\n")))
+end
 `,
 		"stdin.nomi": `import std::io
 
-fn main() {
-  case io.read_line() {
+fn main()
+  case io.read_line()
     Ok(Some(line)) -> io.print("read: ${line}")
     _ -> io.print("no line")
-  }
-}
+  end
+end
 `,
 	}
 	for name, src := range programs {
@@ -188,7 +188,7 @@ func TestBuildCommand_AnEntryThatDeclaresAGoBindingRuns(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"entry_ffi\"\nentry_points = [\"app\"]\n")
 	mustWrite(t, filepath.Join(dir, "binding.go"), "package entryffi\n\nfunc Answer() int64 {\n\treturn 42\n}\n")
 	entry := filepath.Join(dir, "app.nomi")
-	mustWrite(t, entry, "import std::io\n\ngopkg \"entryffi\" as ffi\n\nfn answer() -> Int go ffi.Answer\n\nfn main() {\n  io.print(answer())\n}\n")
+	mustWrite(t, entry, "import std::io\n\ngopkg \"entryffi\" as ffi\n\nfn answer() -> Int go ffi.Answer\n\nfn main()\n  io.print(answer())\nend\n")
 	bin := exe(filepath.Join(t.TempDir(), "app"))
 	if b := runProcess(t, env, dir, "", nomiBin, "build", entry, "-o", bin); b.exit != 0 {
 		t.Fatalf("nomi build: exit %d\n%s", b.exit, b.transcript())
@@ -206,7 +206,7 @@ func TestBuildCommand_DefaultOutputIsTheEntryName(t *testing.T) {
 	}
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "greet.nomi")
-	mustWrite(t, entry, "import std::io\n\nfn main() {\n  io.print(\"hi\")\n}\n")
+	mustWrite(t, entry, "import std::io\n\nfn main()\n  io.print(\"hi\")\nend\n")
 	env := buildEnv(t.TempDir())
 	if b := runProcess(t, env, dir, "", nomiBin, "build", entry); b.exit != 0 {
 		t.Fatalf("nomi build: exit %d\n%s", b.exit, b.transcript())
@@ -226,11 +226,11 @@ func TestBuildCommand_RefusesWhatRunRefuses(t *testing.T) {
 	env := buildEnv(t.TempDir())
 	dir := t.TempDir()
 	broken := filepath.Join(dir, "broken.nomi")
-	mustWrite(t, broken, "import std::io\n\nfn main() {\n  io.print(undefined_name)\n}\n")
+	mustWrite(t, broken, "import std::io\n\nfn main()\n  io.print(undefined_name)\nend\n")
 	library := filepath.Join(dir, "library.nomi")
-	mustWrite(t, library, "pub fn double(x: Int) -> Int {\n  x * 2\n}\n")
+	mustWrite(t, library, "pub fn double(x: Int) -> Int\n  x * 2\nend\n")
 	testFile := filepath.Join(dir, "thing_test.nomi")
-	mustWrite(t, testFile, "test \"t\" {\n  assert 1 == 1\n}\n")
+	mustWrite(t, testFile, "test \"t\"\n  assert 1 == 1\nend\n")
 
 	bin := exe(filepath.Join(t.TempDir(), "app"))
 	run := runProcess(t, env, dir, "", nomiBin, "run", broken)
@@ -261,7 +261,7 @@ func TestBuildCommand_NoGoToolchainSaysSo(t *testing.T) {
 	}
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "hello.nomi")
-	mustWrite(t, entry, "import std::io\n\nfn main() {\n  io.print(\"hi\")\n}\n")
+	mustWrite(t, entry, "import std::io\n\nfn main()\n  io.print(\"hi\")\nend\n")
 	env := append(withoutEnv(buildEnv(t.TempDir()), "PATH"), "PATH="+t.TempDir())
 	bin := exe(filepath.Join(t.TempDir(), "hello"))
 	b := runProcess(t, env, dir, "", nomiBin, "build", entry, "-o", bin)
@@ -282,7 +282,7 @@ func TestBuildCommand_CrossCompiles(t *testing.T) {
 	}
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "hello.nomi")
-	mustWrite(t, entry, "import std::io\n\nfn main() {\n  io.print(\"hi\")\n}\n")
+	mustWrite(t, entry, "import std::io\n\nfn main()\n  io.print(\"hi\")\nend\n")
 	bin := filepath.Join(t.TempDir(), "hello-linux")
 	if b := runProcess(t, buildEnv(t.TempDir()), dir, "", nomiBin, "build", "--target", "linux/amd64", entry, "-o", bin); b.exit != 0 {
 		t.Fatalf("nomi build --target linux/amd64: exit %d\n%s", b.exit, b.transcript())

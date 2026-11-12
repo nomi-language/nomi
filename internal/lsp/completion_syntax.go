@@ -30,10 +30,10 @@ const completionSentinelUpper = "Zq9cursor"
 // sentinelSuffixes are tried in order after the sentinel until the reparse
 // keeps it. Most positions need nothing; the others complete the construct
 // the cursor sits in, so its shape survives the parse: a case arm needs its
-// `-> body`, a `with` needs its `= value`, an `if` condition its block, a
+// `-> body`, a `with` needs its `= value`, an `if` condition its `then`, a
 // pipe stage or an unclosed call its parentheses, and an unclosed struct
 // pattern in a case arm its brace (and a variant payload's parenthesis).
-var sentinelSuffixes = []string{"", "()", ")", " {}", " -> 0", " = 0", "} -> 0", "}) -> 0"}
+var sentinelSuffixes = []string{"", "()", ")", " then 0", " -> 0", " = 0", "} -> 0", "}) -> 0"}
 
 // ctxKind classifies the cursor position.
 type ctxKind int
@@ -56,7 +56,6 @@ const (
 	ctxTestBoot                   // the call after a group's `boot`
 	ctxParamName                  // a typed parameter name in a `fn` signature
 	ctxImplItem                   // a declaration in an `impl Iface for T` body
-	ctxShapeHead                  // the type name right after a literal's `#` or `%`
 	ctxPathSegment                // a segment of a path at a use, after `admin::`
 )
 
@@ -120,10 +119,6 @@ type completionContext struct {
 	// path at a use (ctxPathSegment): `admin` and `reports` in
 	// `admin::reports::da‸`.
 	pathSegs []string
-	// shapeSigil is the `#` or `%` a literal's type name follows
-	// (ctxShapeHead); typeQualifier then holds its module, if any
-	// (`#geo.Po`).
-	shapeSigil byte
 }
 
 // pathStep is one hop from the root of the reparsed tree toward the value
@@ -292,12 +287,22 @@ func isWordByte(c byte) bool {
 // and returns what the position is. Each reparse is walked only at the
 // cursor's declarations (sentinelRoots).
 func classifyCompletion(content string, off int) completionContext {
-	return classifyCompletionWalking(content, off, true)
+	return classifyCompletionWalking(content, off, true, true)
+}
+
+// classifyAsBlock is classifyCompletion reading a field-start position that
+// a bare `{` opens as a block's first statement rather than as a struct's
+// first field.
+func classifyAsBlock(content string, off int) completionContext {
+	return classifyCompletionWalking(content, off, true, false)
 }
 
 // classifyCompletionWalking is classifyCompletion, walking each reparse
-// whole when atCursor is false.
-func classifyCompletionWalking(content string, off int, atCursor bool) completionContext {
+// whole when atCursor is false. With fields, a word where a struct's field
+// starts, after a `{` that may open a literal or after a `,`, is first read
+// as a punned field, `zq9cursor:`, which is what tells a struct's `{` from a
+// block's (braceOpensStruct).
+func classifyCompletionWalking(content string, off int, atCursor, fields bool) completionContext {
 	start, end := wordBounds(content, off)
 	ctx := completionContext{start: start, end: end, prefix: content[start:off]}
 	rest := strings.TrimLeft(content[end:], " \t")
@@ -317,9 +322,24 @@ func classifyCompletionWalking(content string, off int, atCursor bool) completio
 		line = strings.Count(content[:at], "\n") + 1
 	}
 	var lastTokens []token.Token
-	suffixes := sentinelSuffixes
-	if c := lineClosers(content, at); c != "" {
-		suffixes = append(suffixes[:len(suffixes):len(suffixes)], c)
+	closers := lineClosers(content, at)
+	suffixes := append([]string(nil), sentinelSuffixes...)
+	if fields && fieldStartMayOpenStruct(content, start) {
+		// A brace the cursor's line leaves open, with nothing after the
+		// cursor to close it, is closed first, as an auto-pair plugin would
+		// have.
+		// An unclosed struct pattern in a case arm also needs its brace
+		// and the arm's `->`, as sentinelSuffixes gives the other words.
+		first := []string{":", ":} -> 0", ":}) -> 0"}
+		if closers != "" && !strings.HasPrefix(strings.TrimLeft(content[end:], " \t"), closers[:1]) {
+			first = append([]string{":" + closers}, first...)
+		}
+		suffixes = append(first, suffixes...)
+	} else {
+		suffixes = append(suffixes, ":")
+	}
+	if closers != "" {
+		suffixes = append(suffixes, closers, ":"+closers)
 	}
 	for _, suffix := range suffixes {
 		for _, sentinel := range sentinels {
@@ -337,13 +357,12 @@ func classifyCompletionWalking(content string, off int, atCursor bool) completio
 				ctx.hit = &h
 				classifyHit(&ctx)
 				if ctx.kind == ctxStructField && !startsField(content, start) {
-					// `.{..p, address: {}‸}`: the reparse reads the word
+					// `{..p, address: {}‸}`: the reparse reads the word
 					// as a field, but no `,` or line break separates it
 					// from the value before.
 					ctx.kind = ctxNone
 				}
 				classifyParamSlot(&ctx, lastTokens)
-				classifyShapeHead(&ctx, content)
 				return ctx
 			}
 		}
@@ -355,7 +374,6 @@ func classifyCompletionWalking(content string, off int, atCursor bool) completio
 	}
 	classifyTokens(&ctx, lastTokens)
 	classifyParamSlot(&ctx, lastTokens)
-	classifyShapeHead(&ctx, content)
 	return ctx
 }
 
@@ -388,79 +406,43 @@ func pathBeforeWord(content string, start int) ([]string, bool) {
 	return segs, true
 }
 
-// classifyShapeHead makes a name written right after the `#` or `%` that
-// starts a literal a literal's head (`#Po‸`, `%Ta‸`, `#geo.Po‸`), where only
-// the names of types built on that symbol's shapes fit. A `%` after an
-// operand is the remainder operator, and a `#.` starts a variant, which
-// ctxDotVariant answers.
-func classifyShapeHead(ctx *completionContext, content string) {
-	switch ctx.kind {
-	case ctxExpr, ctxStatement, ctxType, ctxMember:
-	default:
-		return
-	}
-	i := ctx.start
-	qualifier := ""
-	if i > 0 && content[i-1] == '.' {
-		j := i - 1
-		for j > 0 && isWordByte(content[j-1]) {
-			j--
-		}
-		qualifier = content[j : i-1]
-		if qualifier == "" || !(qualifier[0] >= 'a' && qualifier[0] <= 'z') {
-			return
-		}
-		i = j
-	}
-	if i == 0 {
-		return
-	}
-	sigil := content[i-1]
-	switch sigil {
-	case '#':
-	case '%':
-		if !percentStartsOperand(content, i-1) {
-			return
-		}
-	default:
-		return
-	}
-	ctx.kind = ctxShapeHead
-	ctx.shapeSigil = sigil
-	ctx.typeQualifier = qualifier
-	ctx.object = nil
-}
-
-// percentStartsOperand reports whether the `%` at pct stands where an
-// operand begins, so it starts a map or set literal rather than taking a
-// remainder: no value ends right before it.
-func percentStartsOperand(content string, pct int) bool {
-	j := pct
-	for j > 0 && (content[j-1] == ' ' || content[j-1] == '\t') {
-		j--
-	}
-	if j == 0 {
-		return true
-	}
-	switch c := content[j-1]; {
-	case isWordByte(c):
-		k := j
-		for k > 0 && isWordByte(content[k-1]) {
-			k--
-		}
-		switch content[k:j] {
-		case "return", "in", "then", "else", "and", "or", "not", "assert":
-			return true
-		}
-		return false
-	case c == ')' || c == ']' || c == '}' || c == '"' || c == '`' || c == '\'' || c == '?':
-		return false
-	}
-	return true
-}
-
 // startsField reports whether a word at start can begin a struct literal's
 // field: it follows the literal's `{`, a `,` or a line break.
+// fieldStartMayOpenStruct reports whether the word at start begins a
+// struct literal's or pattern's field: right after a `,`, or after a `{`
+// that may open a literal (braceMayOpenLiteral).
+func fieldStartMayOpenStruct(content string, start int) bool {
+	i := start
+	for i > 0 && (content[i-1] == ' ' || content[i-1] == '\t' || content[i-1] == '\n' || content[i-1] == '\r') {
+		i--
+	}
+	switch {
+	case i > 0 && content[i-1] == ',':
+		// The `,` is a struct's when the bracket it is inside is a `{`.
+		depth := 0
+		for j := i - 2; j >= 0; j-- {
+			switch content[j] {
+			case ')', ']', '}':
+				depth++
+			case '(', '[':
+				if depth == 0 {
+					return false
+				}
+				depth--
+			case '{':
+				if depth == 0 {
+					return braceMayOpenLiteral(content, j)
+				}
+				depth--
+			}
+		}
+		return false
+	case i > 0 && content[i-1] == '{':
+		return braceMayOpenLiteral(content, i-1)
+	}
+	return false
+}
+
 func startsField(content string, start int) bool {
 	i := start
 	for i > 0 && (content[i-1] == ' ' || content[i-1] == '\t') {
@@ -470,7 +452,7 @@ func startsField(content string, start int) bool {
 }
 
 // lineClosers closes, innermost first, the brackets the cursor's line opens
-// before the cursor and does not close: `Person{address: .{‸` gets `}}` and
+// before the cursor and does not close: `Person{address: {‸` gets `}}` and
 // `[{‸` gets `}]`, what an auto-pair plugin would have typed. It is the last
 // suffix tried, for a client typing with no such plugin. A string's
 // brackets do not count.
@@ -753,38 +735,27 @@ func nameNode(t token.Token) ast.Node {
 }
 
 // enclosingTestGroup reports whether token i sits directly in the body of a
-// `group "name" { ... }`, and which of the group's keyword lines
-// (clock, boot, setup, test) come before it.
+// `group "name"`, and which of the group's keyword lines (clock, boot,
+// setup, test) come before its `end`.
 func enclosingTestGroup(tokens []token.Token, i int) (map[string]bool, bool) {
 	// The sentinel must start its line: `boot |` is the boot call, not a
 	// new line of the group.
 	if prevToken(tokens, i) >= 0 {
 		return nil, false
 	}
-	depth := 0
-	open := -1
-	for j := i - 1; j >= 0; j-- {
-		switch tokens[j].Type {
-		case token.RBRACE:
-			depth++
-		case token.LBRACE:
-			if depth == 0 {
-				open = j
-			} else {
-				depth--
-			}
-		}
-		if open >= 0 {
-			break
-		}
-	}
-	if open < 2 || tokens[open-2].Type != token.IDENT || tokens[open-2].Lexeme != "group" || tokens[open-1].Type != token.STRING_LITERAL {
+	spans := bodySpans(tokens)
+	open := innermostBody(spans, i)
+	if open < 0 || open+1 >= len(tokens) || tokens[open].Type != token.IDENT || tokens[open].Lexeme != "group" || tokens[open+1].Type != token.STRING_LITERAL {
 		return nil, false
 	}
+	end := spans[open]
+	if end < 0 {
+		end = len(tokens)
+	}
 	has := map[string]bool{}
-	depth = 0
+	depth := 0
 	lineStart := true
-	for j := open + 1; j < len(tokens); j++ {
+	for j := open + 2; j < end; j++ {
 		if j == i {
 			lineStart = false
 			continue
@@ -795,19 +766,14 @@ func enclosingTestGroup(tokens []token.Token, i int) (map[string]bool, bool) {
 			lineStart = depth == 0
 			continue
 		case token.LBRACE, token.LPAREN, token.LBRACKET:
-			if depth == 0 && lineStart {
-				lineStart = false
-			}
+			lineStart = false
 			depth++
 			continue
 		case token.RBRACE, token.RPAREN, token.RBRACKET:
-			if depth == 0 {
-				return has, true
-			}
 			depth--
 			continue
 		}
-		if depth == 0 && lineStart {
+		if depth == 0 && lineStart && innermostBody(spans, j) == open {
 			switch {
 			case t.Type == token.TEST:
 				has["test"] = true

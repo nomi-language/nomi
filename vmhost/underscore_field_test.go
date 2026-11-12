@@ -13,16 +13,16 @@ func TestUnderscoreField_VariantAndStructFieldsRun(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 import std::json.{ToJson, FromJson}
 
-enum Plain {
+enum Plain
     Trim {_w: Int}
     Other
-}
+end
 
-enum E {
+enum E
     Trim {_w: Int, __x: String, y: Int}
     Pair (Int, String)
     Other
-}
+end
 
 derive Equatable for E
 derive Hashable for E
@@ -31,10 +31,10 @@ derive Display for E
 derive Debug for E
 derive ToJson for E
 
-struct S {
+struct S
     _a: Int
     b: Int
-}
+end
 
 derive Equatable for S
 derive Hashable for S
@@ -49,23 +49,23 @@ type W (Int, String)
 derive Equatable for W
 derive Debug for W
 
-enum G<T> {
+enum G<T>
     Hold {_v: T}
     Empty
-}
+end
 
 derive Equatable for G<T>
 derive Debug for G<T>
 derive Display for G<T> where T: Display
 
-fn main() {
+fn main()
     io.inspect(Plain.Trim{_w: 1})
     e = E.Trim{_w: 3, __x: "x", y: 4}
-    case e {
-        E.Trim{_w: n, __x: s, y} -> io.print("${n} ${s} ${y}")
+    case e
+        E.Trim{_w: n, __x: s, y:} -> io.print("${n} ${s} ${y}")
         E.Pair((a, b)) -> io.print("${a}${b}")
         E.Other -> io.print("0")
-    }
+    end
     io.inspect(e)
     io.print(e)
     io.print(e == E.Trim{_w: 3, __x: "x", y: 4})
@@ -83,11 +83,11 @@ fn main() {
     io.inspect(g)
     io.print(g)
     io.print(g == G.Hold{_v: 5})
-    case g {
+    case g
         G.Hold{_v: v} -> io.print(v)
         G.Empty -> io.print("empty")
-    }
-}
+    end
+end
 `)
 	want := `Trim{_w: 1}
 3 x 4

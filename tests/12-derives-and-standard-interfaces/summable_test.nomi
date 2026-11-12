@@ -1,29 +1,29 @@
-import {
+import
     std::compiler
     std::duration.Duration
-}
+end
 
 // A user type that sums: its own `+` and the value that `+` leaves alone.
 type Cents Int
 
-impl Add<Cents, Cents> for Cents {
-    fn add(Cents(a), Cents(b)) -> Cents {
+impl Add<Cents, Cents> for Cents
+    fn add(Cents(a), Cents(b)) -> Cents
         Cents(a + b)
-    }
-}
+    end
+end
 
-impl Summable for Cents {
-    fn empty_sum() -> Cents {
+impl Summable for Cents
+    fn empty_sum() -> Cents
         Cents(0)
-    }
-}
+    end
+end
 
 // Generic over the bound, so each law below is one call per type.
-fn adds_nothing<T>(x: T) -> Bool where T: Add<T, T> and Summable {
+fn adds_nothing<T>(x: T) -> Bool where T: Add<T, T> and Summable
     x + T.empty_sum() == x and T.empty_sum() + x == x
-}
+end
 
-test "each std implementor's empty_sum" {
+test "each std implementor's empty_sum"
     assert Int.empty_sum() == 0
     assert Float.empty_sum() == 0.0
     assert Decimal.empty_sum() == 0d
@@ -38,9 +38,9 @@ test "each std implementor's empty_sum" {
     map: Map<String, Int> = Map.empty_sum()
     assert Map.size(map) == 0
     assert Bytes.length(Bytes.empty_sum()) == 0
-}
+end
 
-test "adding empty_sum changes nothing" {
+test "adding empty_sum changes nothing"
     assert adds_nothing(42)
     assert adds_nothing(-7)
     assert adds_nothing(2.5)
@@ -48,21 +48,21 @@ test "adding empty_sum changes nothing" {
     assert adds_nothing(Duration.milliseconds(1500))
     assert adds_nothing("nomi")
     assert adds_nothing([1, 2])
-    assert adds_nothing(#[1, 2])
-    assert adds_nothing(%[1, 2])
-    assert adds_nothing(%{"a" => 1})
+    assert adds_nothing(Vector[1, 2])
+    assert adds_nothing(Set[1, 2])
+    assert adds_nothing({"a" => 1})
     a: Byte = 97
     assert adds_nothing(Bytes.from_list([a]))
     assert adds_nothing(Cents(5))
-}
+end
 
-test "a Decimal sum keeps the widest scale" {
+test "a Decimal sum keeps the widest scale"
     assert Decimal.to_string(1.50d + Decimal.empty_sum()) == "1.50"
     assert Decimal.scale(Decimal.empty_sum()) == 0
     assert Decimal.to_string(Iter.sum([19.99d, 5.00d, 2.50d, 0.99d])) == "28.48"
-}
+end
 
-test "Iter.sum over each kind of value" {
+test "Iter.sum over each kind of value"
     assert Iter.sum([1, 2, 3, 4]) == 10
     assert Iter.sum([0.1, 0.2, 0.3]) == Iter.reduce([0.1, 0.2, 0.3], 0.0, fn total, x -> total + x)
     assert Iter.sum([1.5d, 2.25d]) == 3.75d
@@ -72,21 +72,21 @@ test "Iter.sum over each kind of value" {
 
     assert Iter.sum(["a", "b", "c"]) == "abc"
     assert Iter.sum([[1], [], [2, 3]]) == [1, 2, 3]
-    assert Iter.sum([%[1, 2], %[2, 3]]) == %[1, 2, 3]
-    assert Iter.sum([#[1], #[2]]) == #[1, 2]
+    assert Iter.sum([[1, 2], [2, 3]]) == Set[1, 2, 3]
+    assert Iter.sum([[1], [2]]) == Vector[1, 2]
     assert Iter.sum([Cents(3), Cents(4)]) == Cents(7)
-}
+end
 
-test "summing maps lets a later map win on a shared key" {
-    assert Iter.sum([%{"a" => 1, "b" => 2}, %{"a" => 9}]) == %{"a" => 9, "b" => 2}
-}
+test "summing maps lets a later map win on a shared key"
+    assert Iter.sum([{"a" => 1, "b" => 2}, {"a" => 9}]) == {"a" => 9, "b" => 2}
+end
 
-test "Iter.sum over a Range and a lazy chain" {
+test "Iter.sum over a Range and a lazy chain"
     assert Iter.sum(1..=100) == 5050
     assert 1..=10 |> Iter.filter(fn n -> n % 2 == 0) |> Iter.sum() == 30
-}
+end
 
-test "an empty source sums to empty_sum" {
+test "an empty source sums to empty_sum"
     none: List<Int> = []
     assert Iter.sum(none) == 0
     words: List<String> = []
@@ -96,23 +96,23 @@ test "an empty source sums to empty_sum" {
     cents: List<Cents> = []
     assert Iter.sum(cents) == Cents(0)
     assert Iter.sum(1..0) == 0
-}
+end
 
-test "a sum past 64 bits is exact as + is" {
+test "a sum past 64 bits is exact as + is"
     assert Iter.sum([9_223_372_036_854_775_807, 1]) == 9_223_372_036_854_775_808
     assert Iter.product(1..=25) == 15_511_210_043_330_985_984_000_000
-}
+end
 
-test "summing a type that is not Summable is a compile error" {
+test "summing a type that is not Summable is a compile error"
     diagnostics =
         """
-        fn main() {
+        fn main()
             _ = Iter.sum([True, False])
-        }
+        end
         """
         |> compiler.check()
 
-    assert Iter.any_match(diagnostics, fn d -> {
+    assert Iter.any_match(diagnostics, fn d ->
         "Bool does not implement Summable" in d.message
-    })
-}
+    end)
+end

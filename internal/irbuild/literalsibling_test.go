@@ -24,13 +24,13 @@ import (
 // different resolutions in the front end (per-file table vs project index),
 // and one of them passing proves nothing about the other.
 func TestLiteralSibling_TwoProvidersOfOneHandlerAreRejectedByTheFrontEnd(t *testing.T) {
-	const handler = "impl Literal for Pick {\n" +
-		"  fn from_fragments(fragments: List<Fragment<String>>) -> String { _ = fragments;\n    \"iface\"\n  }\n}\n\n"
-	const inherentRival = "impl Pick {\n" +
-		"  pub fn from_fragments(_fragments: List<Fragment<String>>) -> String {\n    \"inherent\"\n  }\n}\n"
-	const ifaceRival = "interface Other {\n  fn from_fragments(fragments: List<Fragment<String>>) -> Int\n}\n\n" +
-		"impl Other for Pick {\n" +
-		"  fn from_fragments(fragments: List<Fragment<String>>) -> Int { _ = fragments;\n    7\n  }\n}\n"
+	const handler = "impl Literal for Pick\n" +
+		"  fn from_fragments(fragments: List<Fragment<String>>) -> String\n    _ = fragments\n    \"iface\"\n  end\nend\n\n"
+	const inherentRival = "impl Pick\n" +
+		"  pub fn from_fragments(_fragments: List<Fragment<String>>) -> String\n    \"inherent\"\n  end\nend\n"
+	const ifaceRival = "interface Other\n  fn from_fragments(fragments: List<Fragment<String>>) -> Int\nend\n\n" +
+		"impl Other for Pick\n" +
+		"  fn from_fragments(fragments: List<Fragment<String>>) -> Int\n    _ = fragments\n    7\n  end\nend\n"
 	for _, spelling := range []struct {
 		name  string
 		decls string
@@ -44,11 +44,11 @@ func TestLiteralSibling_TwoProvidersOfOneHandlerAreRejectedByTheFrontEnd(t *test
 			entry   string
 		}{{
 			name:  "declared in the entry file",
-			entry: "import std::literals.{Fragment, Literal}\n\n" + spelling.decls + "\nfn main() {\n  _ = Pick`x`\n}\n",
+			entry: "import std::literals.{Fragment, Literal}\n\n" + spelling.decls + "\nfn main()\n  _ = Pick`x`\nend\n",
 		}, {
 			name:    "declared in a sibling file",
 			sibling: "import std::literals.{Fragment, Literal}\n\n" + spelling.decls,
-			entry:   "import pick.Pick\n\nfn main() {\n  _ = Pick`x`\n}\n",
+			entry:   "import pick.Pick\n\nfn main()\n  _ = Pick`x`\nend\n",
 		}} {
 			t.Run(spelling.name+", "+tc.name, func(t *testing.T) {
 				dir := t.TempDir()

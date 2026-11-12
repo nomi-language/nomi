@@ -83,11 +83,11 @@ func TestExampleChaptersComeFromTheCode(t *testing.T) {
 		src  string
 		want string
 	}{
-		{"pub fn two_fer(name: String = \"you\") -> String {\n    \"One for ${name}, one for me.\"\n}\n",
+		{"pub fn two_fer(name: String = \"you\") -> String\n    \"One for ${name}, one for me.\"\nend\n",
 			"Functions & Lambdas, Scalars & Strings"},
-		{"pub fn total(xs: List<Int>) -> Int {\n    xs |> Iter.map(&(&1 * 2)) |> Iter.sum()\n}\n",
+		{"pub fn total(xs: List<Int>) -> Int\n    xs |> Iter.map(&(&1 * 2)) |> Iter.sum()\nend\n",
 			"Functions & Lambdas, Pipes, Iteration & Loops"},
-		{"pub enum Size {\n    Small\n    Large\n}\n\nimpl Display for Size {\n    fn to_string(size: self) -> String {\n        case size {\n            .Small -> \"S\"\n            .Large -> \"L\"\n        }\n    }\n}\n",
+		{"pub enum Size\n    Small\n    Large\nend\n\nimpl Display for Size\n    fn to_string(size: self) -> String\n        case size\n            .Small -> \"S\"\n            .Large -> \"L\"\n        end\n    end\nend\n",
 			"Structs, Enums, Distinct Types, Pattern Matching, Interfaces & Dispatch"},
 	} {
 		var titles []string

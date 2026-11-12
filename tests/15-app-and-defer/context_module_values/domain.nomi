@@ -13,11 +13,11 @@ pub type Token Int
 /// constructor, so it reaches the witness resolver by a different route.
 pub type Marker
 
-pub struct Tag {
+pub struct Tag
     name: String
-}
+end
 
-pub enum Mode {
+pub enum Mode
     Fast
     Slow
-}
+end

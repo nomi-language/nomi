@@ -14,19 +14,19 @@ import (
 // and the non-generic pipe did not check its explicit arguments at all.
 
 const namedArgDecls = `
-fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False) -> List<T> {
+fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False) -> List<T>
   base = [x, ..xs]
-  if twice { [x, ..base] } else { base }
-}
+  if twice then [x, ..base] else base
+end
 
-fn g(x: Int, y: Int = 0) -> Int {
+fn g(x: Int, y: Int = 0) -> Int
   x + y
-}
+end
 `
 
 func TestNamedArgRouting_Accepted(t *testing.T) {
 	_, errs := checkSourceWithStdlib(namedArgDecls + `
-fn main() {
+fn main()
   a: List<Int> = spread(1, twice: True)
   b: List<Int> = 1 |> spread(twice: True)
   c: List<Int> = spread(1, twice: True, xs: [2, 3])
@@ -34,7 +34,7 @@ fn main() {
   e: Int = g(1, y: 2)
   f: Int = 1 |> g(y: 2)
   _ = (a, b, c, d, e, f)
-}
+end
 `)
 	expectNoStdlibErrors(t, errs)
 }
@@ -74,7 +74,7 @@ func TestNamedArgRouting_Rejected(t *testing.T) {
 		{`g(1, yy: 2)`, "no parameter named 'yy'\nhelp: did you mean 'y'?", 12},
 	} {
 		t.Run(tc.call, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib(namedArgDecls + "\nfn main() {\n  _ = " + tc.call + "\n}\n")
+			_, errs := checkSourceWithStdlib(namedArgDecls + "\nfn main()\n  _ = " + tc.call + "\nend\n")
 			// The call is on line 12, after `  _ = `; the error sits on the
 			// argument's value, or on the name of an unknown one.
 			expectOneErrorAt(t, errs, tc.want, 12, tc.col)

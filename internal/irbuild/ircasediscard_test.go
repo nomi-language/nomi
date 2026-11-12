@@ -4,64 +4,69 @@ import "testing"
 
 func TestIRCaseDiscard_EffectsWithoutResultStorage(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn source() -> Int { io.print("subject") 2 }
-fn main() {
-  case source() {
+fn source() -> Int
+    io.print("subject")
+    2
+end
+fn main()
+  case source()
     1 -> io.print("one")
     _ -> io.print("other")
-  }
+  end
   io.print("after")
-}
+end
 `, "subject\nother\nafter\n")
 }
 
 func TestIRCaseDiscard_NestedGuardedScopes(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
+fn main()
   name = "outer"
-  case 2 {
-    n when n > 1 -> {
+  case 2
+    n when n > 1 ->
       name = "inner"
-      case n {
+      case n
         2 -> io.print(name)
         _ -> io.print("missing")
-      }
-    }
+      end
     _ -> io.print("fallback")
-  }
+  end
   io.print(name)
-  case {
+  case
     False -> io.print("no")
     _ -> io.print("done")
-  }
+  end
   io.print("after")
-}
+end
 `, "inner\nouter\ndone\nafter\n")
 }
 
 func TestIRCaseDiscard_OperandKeepsResultBeforeSubject(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn source() -> Int { io.print("subject") 2 }
-fn main() {
-  _ = case source() {
+fn source() -> Int
+    io.print("subject")
+    2
+end
+fn main()
+  _ = case source()
     1 -> "one"
     _ -> "other"
-  }
+  end
   io.print("after")
-}
+end
 `, "subject\nafter\n")
 }
 
 func TestIRCaseDiscard_ListPayloadThenClosure(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
+fn main()
   nested = [[1, 2], [3]]
-  case List.head(nested) {
+  case List.head(nested)
     Some(xs) -> io.inspect(List.tail(xs))
     None -> io.print("missing")
-  }
+  end
   read = fn -> List.head(nested)
   io.inspect(read())
-}
+end
 `, "Some([2])\nSome([1, 2])\n")
 }

@@ -306,13 +306,13 @@ func literalProbes(content string, lits []staticLiteral) (string, []string) {
 		seen[lit.key] = true
 		name := fmt.Sprintf("nomi_literal_probe_%d", len(keys))
 		keys = append(keys, lit.key)
-		fmt.Fprintf(&b, "\nfn %s() -> Result<String, String> {\n", name)
+		fmt.Fprintf(&b, "\nfn %s() -> Result<String, String>\n", name)
 		if lit.result {
-			fmt.Fprintf(&b, "    case %s {\n        Ok(v) -> Ok(Debug.inspect(v))\n        Err(e) -> Err(Debug.inspect(e))\n    }\n", lit.text)
+			fmt.Fprintf(&b, "    case %s\n        Ok(v) -> Ok(Debug.inspect(v))\n        Err(e) -> Err(Debug.inspect(e))\n    end\n", lit.text)
 		} else {
 			fmt.Fprintf(&b, "    Ok(Debug.inspect(%s))\n", lit.text)
 		}
-		b.WriteString("}\n")
+		b.WriteString("end\n")
 	}
 	return b.String(), keys
 }

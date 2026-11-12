@@ -11,28 +11,28 @@ func TestIRGenericStructCallForm_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Box<T> {
+struct Box<T>
     v: T
-}
+end
 
-struct Pair<A, B> {
+struct Pair<A, B>
     a: A
     b: B
     note: String = "none"
-}
+end
 
-fn defaults() -> .{a: Int, b: String} {
-    .{a: 1, b: "x"}
-}
+fn defaults() -> {a: Int, b: String}
+    {a: 1, b: "x"}
+end
 
-fn main() {
-    io.inspect(Box(.{v: 1}))
-    io.inspect(Box(.{v: Some("a")}).v)
-    io.inspect(Pair(.{a: 1.5, b: [True]}))
+fn main()
+    io.inspect(Box({v: 1}))
+    io.inspect(Box({v: Some("a")}).v)
+    io.inspect(Pair({a: 1.5, b: [True]}))
     io.inspect(Pair(defaults()))
-    rec = .{v: (1, "z")}
+    rec = {v: (1, "z")}
     io.inspect(Box(rec))
-}
+end
 `
 	const want = "Box{v: 1}\n" +
 		"Some(\"a\")\n" +

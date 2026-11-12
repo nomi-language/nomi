@@ -184,7 +184,8 @@ func (t tailWalk) reportBranching(line, col int, keyword string) {
 }
 
 // ifDoesNothing reports whether every branch of an `if` chain, a missing
-// `else` included, is empty or a bare `return`, and at least one returns.
+// `else` included, is empty, `Unit` or a bare `return`, and at least one
+// returns.
 func ifDoesNothing(n *ast.If) bool {
 	returns := false
 	for {
@@ -223,12 +224,15 @@ func caseDoesNothing(n *ast.Case) bool {
 	return returns
 }
 
-// branchDoesNothing reports whether a branch body is empty or a bare
+// branchDoesNothing reports whether a branch body is empty, a bare `Unit`
+// (an arm's way to do nothing, since every arm has a body) or a bare
 // `return` (ok), and whether it is the return (returns).
 func branchDoesNothing(n ast.Node) (returns, ok bool) {
 	switch v := n.(type) {
 	case nil:
 		return false, true
+	case *ast.TypeIdent:
+		return false, v.Name == "Unit"
 	case *ast.Return:
 		return true, v.Value == nil
 	case *ast.Block:

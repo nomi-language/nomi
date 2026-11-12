@@ -23,20 +23,20 @@ host fn counter_value(c: Counter) -> Int
 
 host fn counter_bump(c: Counter) -> Counter
 
-struct Held {
+struct Held
   counter: Counter
-}
+end
 
-fn bump_twice(c: Counter) -> Counter {
+fn bump_twice(c: Counter) -> Counter
   counter_bump(counter_bump(c))
-}
+end
 
-pub fn run(start: Int) -> Int {
+pub fn run(start: Int) -> Int
   c = counter_new(start)
   held = Held{counter: bump_twice(c)}
   all = [c, held.counter]
   Iter.reduce(all, 0, fn acc, x -> acc * 100 + counter_value(x))
-}
+end
 `
 
 type counter struct{ n int64 }

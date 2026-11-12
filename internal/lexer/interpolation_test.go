@@ -7,7 +7,7 @@ import (
 )
 
 // Only `${` is special in a string: it opens an interpolation, and `\${`
-// writes it as text. `#`, `#{`, `##`, `$` and `$$` are ordinary text.
+// writes it as text. `#`, `{`, `##`, `$` and `$$` are ordinary text.
 func TestInterpolationOpenerIsTheOnlySpecialPair(t *testing.T) {
 	body := `# ## #{x} $ $$ \${old} $logger`
 	want := `# ## #{x} $ $$ ${old} $logger`
@@ -40,8 +40,8 @@ func TestInterpolationAfterDollar(t *testing.T) {
 
 // A struct literal inside an interpolation is code.
 func TestInterpolationHoldsAStructLiteral(t *testing.T) {
-	tokens := Lex(`"${.{x: 1}}"`)
-	if tokens[0].Type != token.STRING_START || tokens[1].Type != token.DOT || tokens[2].Type != token.LBRACE {
+	tokens := Lex(`"${{x: 1}}"`)
+	if tokens[0].Type != token.STRING_START || tokens[1].Type != token.LBRACE || tokens[2].Type != token.IDENT {
 		t.Fatalf("tokens: %#v", tokens)
 	}
 }

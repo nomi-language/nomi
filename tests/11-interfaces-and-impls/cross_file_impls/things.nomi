@@ -2,35 +2,35 @@
 // declares.
 import protocols.{Gets, Holds}
 
-pub struct Bag {
+pub struct Bag
     s: String
-}
+end
 
-pub struct Crate {
+pub struct Crate
     count: Int
-}
+end
 
-pub struct Wrap<T> {
+pub struct Wrap<T>
     item: T
-}
+end
 
-pub struct Pair<T> {
+pub struct Pair<T>
     a: T
     b: T
-}
+end
 
-pub struct Num {
+pub struct Num
     n: Int
-}
+end
 
-impl Gets<String> for Bag {
-    fn got(b: Bag) -> String {
+impl Gets<String> for Bag
+    fn got(b: Bag) -> String
         b.s
-    }
-}
+    end
+end
 
-impl Holds for Pair<T> {
-    fn held(p: Pair<T>) -> String {
+impl Holds for Pair<T>
+    fn held(p: Pair<T>) -> String
         "pair ${Debug.inspect(p.a)} ${Debug.inspect(p.b)}"
-    }
-}
+    end
+end

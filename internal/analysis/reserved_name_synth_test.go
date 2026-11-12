@@ -31,30 +31,30 @@ func frontEndErrors(t *testing.T, src string, mode frontend.Mode) []string {
 // line in the synthesized band (`main.nomi:1073872896:1`).
 func TestReservedName_OneErrorWordedForTheDeclaration(t *testing.T) {
 	cases := []struct{ name, src, want string }{
-		{"enum Unit", "pub enum Unit {\n  Ohms\n}\n",
-			"1:10: type name 'Unit' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyUnit { ... }`)"},
-		{"enum Maybe", "enum Maybe {\n  Nope\n}\n",
-			"1:6: type name 'Maybe' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyMaybe { ... }`)"},
-		{"enum Ordering", "enum Ordering {\n  Less\n}\n",
-			"1:6: type name 'Ordering' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyOrdering { ... }`)"},
-		{"struct Int", "struct Int {\n  x: Float\n}\n",
-			"1:8: type name 'Int' is reserved by the language and cannot be redeclared as a struct; pick a different name (e.g. `struct MyInt { ... }`)"},
-		{"struct List", "struct List {\n  y: Float\n}\n",
-			"1:8: type name 'List' is reserved by the language and cannot be redeclared as a struct; pick a different name (e.g. `struct MyList { ... }`)"},
-		{"struct Bytes", "struct Bytes {\n  y: Float\n}\n",
-			"1:8: type name 'Bytes' is reserved by the language and cannot be redeclared as a struct; pick a different name (e.g. `struct MyBytes { ... }`)"},
+		{"enum Unit", "pub enum Unit\n  Ohms\nend\n",
+			"1:10: type name 'Unit' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyUnit`)"},
+		{"enum Maybe", "enum Maybe\n  Nope\nend\n",
+			"1:6: type name 'Maybe' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyMaybe`)"},
+		{"enum Ordering", "enum Ordering\n  Less\nend\n",
+			"1:6: type name 'Ordering' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyOrdering`)"},
+		{"struct Int", "struct Int\n  x: Float\nend\n",
+			"1:8: type name 'Int' is reserved by the language and cannot be redeclared as a struct; pick a different name (e.g. `struct MyInt`)"},
+		{"struct List", "struct List\n  y: Float\nend\n",
+			"1:8: type name 'List' is reserved by the language and cannot be redeclared as a struct; pick a different name (e.g. `struct MyList`)"},
+		{"struct Bytes", "struct Bytes\n  y: Float\nend\n",
+			"1:8: type name 'Bytes' is reserved by the language and cannot be redeclared as a struct; pick a different name (e.g. `struct MyBytes`)"},
 		{"distinct type", "type String Float\n",
 			"1:6: type name 'String' is reserved by the language and cannot be redeclared as a distinct type; pick a different name (e.g. `type MyString ...`)"},
 		{"typealias", "typealias Unit Int\n",
 			"1:11: type name 'Unit' is reserved by the language and cannot be redeclared as a typealias; pick a different name (e.g. `typealias MyUnit ...`)"},
-		{"interface", "interface Display {\n  fn show(value: self) -> String\n}\n",
-			"1:11: type name 'Display' is reserved by the language and cannot be redeclared as an interface; pick a different name (e.g. `interface MyDisplay { ... }`)"},
-		{"enum with a derive", "enum Unit {\n  Ohms\n}\n\nderive Equatable for Unit\n",
-			"1:6: type name 'Unit' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyUnit { ... }`)"},
+		{"interface", "interface Display\n  fn show(value: self) -> String\nend\n",
+			"1:11: type name 'Display' is reserved by the language and cannot be redeclared as an interface; pick a different name (e.g. `interface MyDisplay`)"},
+		{"enum with a derive", "enum Unit\n  Ohms\nend\n\nderive Equatable for Unit\n",
+			"1:6: type name 'Unit' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyUnit`)"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			errs := frontEndErrors(t, tc.src+"\nfn main() {\n}\n", frontend.Mode{})
+			errs := frontEndErrors(t, tc.src+"\nfn main() end\n", frontend.Mode{})
 			if len(errs) == 0 {
 				t.Fatalf("the front end accepts a declaration of a reserved name:\n%s", tc.src)
 			}

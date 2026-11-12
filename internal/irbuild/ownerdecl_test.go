@@ -12,49 +12,49 @@ import (
 func TestOwnerDecl_BlockImportRebindsAStdType(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Duration {
+struct Duration
     ms: Int
-}
+end
 
-impl Duration {
-    fn seconds(n: Int) -> Duration {
+impl Duration
+    fn seconds(n: Int) -> Duration
         Duration{ms: n * 7}
-    }
-}
+    end
+end
 
-fn std_total() -> Int {
+fn std_total() -> Int
     import std::duration.Duration
     d: Duration = Duration.seconds(2) + Duration.milliseconds(500)
     twice = fn x: Duration -> x + x
     Duration.as_millis(twice(d))
-}
+end
 
-fn main() {
+fn main()
     io.inspect(std_total())
     io.inspect(Duration.seconds(2).ms)
     io.inspect(Duration{ms: 1})
-}
+end
 `, "5000\n14\nDuration{ms: 1}\n")
-	out := irTestBodyVM(t, `struct Duration {
+	out := irTestBodyVM(t, `struct Duration
     ms: Int
-}
+end
 
-impl Duration {
-    fn seconds(n: Int) -> Duration {
+impl Duration
+    fn seconds(n: Int) -> Duration
         Duration{ms: n * 7}
-    }
-}
+    end
+end
 
-test "a block import that rebinds a module-level name" {
+test "a block import that rebinds a module-level name"
     import std::duration.Duration
     d: Duration = Duration.seconds(1)
     assert d == Duration.milliseconds(1000)
     assert Duration.as_millis(d) == 999
-}
+end
 
-test "the module-level name outside the block" {
+test "the module-level name outside the block"
     assert Duration.seconds(1).ms == 7
-}
+end
 `, 2)
 	blocks := irTestReportBlocks(out)
 	if b := blocks["a block import that rebinds a module-level name"]; !strings.HasPrefix(b, "FAIL ") || !strings.Contains(b, "= 1000") {
@@ -69,20 +69,20 @@ test "the module-level name outside the block" {
 // file declares too: the call is std's `Date.parse`, as the checker resolved
 // it, not a lookup of `Date` in this file.
 func TestOwnerDecl_BareStdMethodBesideALocalOwner(t *testing.T) {
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
     std::io
     std::calendar.Date.parse
-}
+end
 
-struct Date {
+struct Date
     day: Int
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Result.is_ok(parse("2024-01-02")))
     io.inspect(Result.is_ok(parse("not a date")))
     io.inspect(Date{day: 1})
-}
+end
 `, "True\nFalse\nDate{day: 1}\n")
 }
 
@@ -91,13 +91,13 @@ fn main() {
 // operand is typed by the checker's solution for this call, and inside an
 // assertion the call's rows are recorded.
 func TestOwnerDecl_BareImportedPreludeMethods(t *testing.T) {
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
     std::io
     std::maybe.Maybe.{with_default, to_result, is_some, map}
     std::results.Result.{map_err}
-}
+end
 
-fn main() {
+fn main()
     io.inspect(with_default(Some(1), 2))
     io.inspect(with_default(None, 2))
     io.inspect(to_result(Some(3), "missing"))
@@ -105,14 +105,14 @@ fn main() {
     io.inspect(map(Some(5), fn x -> x * 2))
     r: Result<Int, Int> = Err(6)
     io.inspect(map_err(r, fn e -> "error ${e}"))
-}
+end
 `, "1\n2\nOk(3)\nTrue\nSome(10)\nErr(\"error 6\")\n")
 	out := irTestBodyVM(t, `import std::maybe.Maybe.{with_default}
 
-test "bare prelude methods in an assertion" {
+test "bare prelude methods in an assertion"
     assert with_default(Some(1), 2) == 1
     assert with_default(None, 2) == 3
-}
+end
 `, 1)
 	if b := irTestReportBlocks(out)["bare prelude methods in an assertion"]; !strings.HasPrefix(b, "FAIL ") ||
 		!strings.Contains(b, "with_default(None, 2)") || !strings.Contains(b, "= 2") {

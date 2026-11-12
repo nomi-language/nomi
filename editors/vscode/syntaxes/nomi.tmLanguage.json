@@ -356,7 +356,7 @@
         },
         {
           "comment": "As a pipe stage `subtests` is a keyword when a pattern follows it; `|> subtests(x)` stays a name.",
-          "match": "(?<=\\|>)[ \\t]*(subtests)\\b(?=[ \\t]+(?:[A-Za-z0-9_\\[(#%\"'`]|\\.\\{))",
+          "match": "(?<=\\|>)[ \\t]*(subtests)\\b(?=[ \\t]+[A-Za-z0-9_\\[(#%\"'`{])",
           "captures": {
             "1": {
               "name": "keyword.control.nomi"
@@ -364,8 +364,8 @@
           }
         },
         {
-          "comment": "`group` is a keyword only where a top-level line starts with it and the group's name string, or its `{` with the name missing, follows.",
-          "match": "^(group)\\b(?=[ \\t]*[\"{])",
+          "comment": "`group` is a keyword only where a top-level line starts with it and the group's name string follows, or where it stands alone on its line, a group with the name missing.",
+          "match": "^(group)\\b(?=[ \\t]*(?:\"|$))",
           "captures": {
             "1": {
               "name": "keyword.declaration.nomi"
@@ -374,7 +374,7 @@
         },
         {
           "name": "keyword.control.nomi",
-          "match": "\\b(?:if|else|case|when|break|continue|return|concurrent|then|tap|assert|refute|dbg|todo|unreachable)\\b"
+          "match": "\\b(?:if|then|else|begin|end|case|when|break|continue|return|concurrent|tap|assert|refute|dbg|todo|unreachable)\\b"
         },
         {
           "comment": "A postfix `!`, written right after an operand (`Map.get(m, k)!`), can stop the program as `unreachable` does. `!=` stays an operator.",
@@ -398,11 +398,7 @@
     },
     "operators": {
       "patterns": [
-        {
-          "comment": "A map or set literal starts with `%` written right before its bracket or its type name: `%{`, `%[`, `%Kvs{`, `%.Obj{`, `%geo.Tags[`, `%db::geo.Tags[`. A `%` with a space after it is the remainder operator.",
-          "name": "punctuation.section.nomi",
-          "match": "%(?=[{\\[.A-Z]|[a-z_][A-Za-z0-9_]*(?:::[a-z_][A-Za-z0-9_]*)*\\.[A-Z])"
-        },
+
         {
           "comment": "The bitwise operators, three characters each.",
           "name": "keyword.operator.bitwise.nomi",
@@ -490,7 +486,7 @@
         },
         {
           "name": "keyword.other.capture.nomi",
-          "match": "&(?=[(\\[#%.!A-Za-z\"`])"
+          "match": "&(?=[(\\[{.!A-Za-z\"`])"
         },
         {
           "name": "comment.discard.nomi",
@@ -508,16 +504,7 @@
     },
     "punctuation": {
       "patterns": [
-        {
-          "comment": "`.{` starts a struct whose name the position gives, or an anonymous one, as `.Circle{` elides a variant's owner.",
-          "name": "punctuation.section.nomi",
-          "match": "\\.(?=\\{)"
-        },
-        {
-          "comment": "`#` starts a vector literal: `#[`, or a named vector with its type right after it, `#Path[`, `#.Items[`. A tuple, `(1, \"x\")`, and a named struct or tuple have no symbol: `Point{x: 1}`, `Pair(1, \"x\")`.",
-          "name": "punctuation.section.nomi",
-          "match": "#(?=[\\[.A-Z]|[a-z_][A-Za-z0-9_]*(?:::[a-z_][A-Za-z0-9_]*)*\\.[A-Z])"
-        },
+
         {
           "name": "punctuation.separator.nomi",
           "match": "[,:;]"

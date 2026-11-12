@@ -61,9 +61,9 @@ func TestExtractBlocksReadsHiddenExpect(t *testing.T) {
 	md := `Before.
 
 ` + "```nomi" + `
-fn main() {
+fn main()
   io.print("hi")
-}
+end
 ` + "```" + `
 <!-- expect
 hi

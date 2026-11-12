@@ -1,14 +1,14 @@
 // The entry file the tests boot: the app's config struct, its boot, and the
 // background work the groups run.
-import {
+import
     std::channels.{Channel, Receiver, Sender}
     std::duration.Duration
     std::io
     std::supervisors.Supervisor
     std::timer
-}
+end
 
-pub struct Config {
+pub struct Config
     context: Context
 
     // One group per shutdown policy, not per feature. `notify` owns every
@@ -21,42 +21,42 @@ pub struct Config {
     // Where background work reports failures nobody is awaiting. Grouped
     // work has no caller to return an Err to, so it needs a destination.
     alerts: Channel<String>
-}
+end
 
-fn send_email(to: String) -> Result<Unit, String> {
-    case to == "" {
+fn send_email(to: String) -> Result<Unit, String>
+    case to == ""
         True -> Err("no address")
         False -> Ok(Unit)
-    }
-}
+    end
+end
 
 // The group-owned body must return Unit, so the `Result` has to be
 // handled *here* — which is the point of the rule. This wrapper is where
 // the "what does failure mean?" decision belongs.
-pub fn send_welcome(to: String) -> Unit {
-    case send_email(to) {
+pub fn send_welcome(to: String) -> Unit
+    case send_email(to)
         Ok(_) -> Unit
         Err(e) -> report("welcome to '" + to + "' failed: " + e)
-    }
-}
+    end
+end
 
 // A full alerts queue at shutdown is not worth crashing over.
-fn report(message: String) -> Unit {
-    case Sender.send(Config.alerts.sender, message) {
+fn report(message: String) -> Unit
+    case Sender.send(Config.alerts.sender, message)
         Ok(_) -> Unit
         Err(_) -> Unit
-    }
-}
+    end
+end
 
-pub fn record_audit(id: Int) -> Unit {
+pub fn record_audit(id: Int) -> Unit
     timer.sleep(Duration.milliseconds(10))
     report("audited " + Display.to_string(id))
-}
+end
 
-pub fn slow_work() -> Unit {
+pub fn slow_work() -> Unit
     timer.sleep(Duration.seconds(30))
     report("SHOULD NOT ARRIVE")
-}
+end
 
 // Collect everything queued on the alerts channel.
 //
@@ -64,28 +64,28 @@ pub fn slow_work() -> Unit {
 // a channel is open and empty, and returns `None` only once the channel
 // is closed and drained. Each test gets a fresh app value from `boot`,
 // so closing here does not affect the others.
-pub fn drain_alerts() -> List<String> {
+pub fn drain_alerts() -> List<String>
     Sender.close(Config.alerts.sender)
 
-    Iter.loop([], fn seen -> {
-        case Receiver.receive(Config.alerts.receiver) {
+    Iter.loop([], fn seen ->
+        case Receiver.receive(Config.alerts.receiver)
             Some(message) -> [message, ..seen]
             None -> break seen
-        }
-    })
-}
+        end
+    end)
+end
 
-pub fn boot() -> Result<Config, String> {
+pub fn boot() -> Result<Config, String>
     Ok(Config{
         context: Context.root(),
         notify: Supervisor.new(shutdown_timeout: Duration.milliseconds(200), max_running: 4),
         audit: Supervisor.new(shutdown_timeout: Duration.seconds(5), max_running: 2),
         alerts: Channel.buffered<String>(16),
     })
-}
+end
 
-fn main() {
+fn main()
     _ = Supervisor.spawn(Config.audit, fn -> record_audit(7))
     _ = Supervisor.flush(Config.audit)
     drain_alerts() |> Iter.each(&io.print(&1))
-}
+end

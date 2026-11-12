@@ -14,46 +14,46 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Where a game of tic-tac-toe stands, and whether its board is valid.
 
 /// Where a valid game stands.
-pub enum State {
+pub enum State
     Win
     Draw
     Ongoing
-}
+end
 
 /// Why a board cannot come from a game played by the rules.
-pub enum Error {
+pub enum Error
     XWentTwice
     OStarted
     PlayedAfterWin
-}
+end
 
-impl Display for Error {
-    fn to_string(error: Error) -> String {
-        case error {
+impl Display for Error
+    fn to_string(error: Error) -> String
+        case error
             .XWentTwice -> "Wrong turn order: X went twice"
             .OStarted -> "Wrong turn order: O started"
             .PlayedAfterWin -> "Impossible board: game should have ended after the game was won"
-        }
-    }
-}
+        end
+    end
+end
 
 /// The positions of the eight lines that win, in a board read row by row:
 /// three rows, three columns and two diagonals.
 once lines = [
-    #[0, 1, 2],
-    #[3, 4, 5],
-    #[6, 7, 8],
-    #[0, 3, 6],
-    #[1, 4, 7],
-    #[2, 5, 8],
-    #[0, 4, 8],
-    #[2, 4, 6],
+    Vector[0, 1, 2],
+    Vector[3, 4, 5],
+    Vector[6, 7, 8],
+    Vector[0, 3, 6],
+    Vector[1, 4, 7],
+    Vector[2, 5, 8],
+    Vector[0, 4, 8],
+    Vector[2, 4, 6],
 ]
 
 /// The state of the game on `board`, three rows of three cells, each `X`,
 /// `O` or a space. X plays first, and the game stops at the first line of
 /// three.
-pub fn gamestate(board: List<String>) -> Result<State, Error> {
+pub fn gamestate(board: List<String>) -> Result<State, Error>
     cells =
         board
         |> Iter.flat_map(String.to_codepoints)
@@ -64,30 +64,30 @@ pub fn gamestate(board: List<String>) -> Result<State, Error> {
     x_won = has_won(cells, 'X')
     o_won = has_won(cells, 'O')
 
-    case {
+    case
         os > xs -> Err(.OStarted)
         xs > os + 1 -> Err(.XWentTwice)
         x_won and (o_won or xs == os) or o_won and xs > os -> Err(.PlayedAfterWin)
         x_won or o_won -> Ok(.Win)
         xs + os == 9 -> Ok(.Draw)
         _ -> Ok(.Ongoing)
-    }
-}
+    end
+end
 
 /// How many cells hold `mark`.
-fn marks(cells: Vector<Codepoint>, mark: Codepoint) -> Int {
+fn marks(cells: Vector<Codepoint>, mark: Codepoint) -> Int
     Iter.count_by(cells, &(&1 == mark))
-}
+end
 
 /// Whether `mark` fills one of the lines.
-fn has_won(cells: Vector<Codepoint>, mark: Codepoint) -> Bool {
+fn has_won(cells: Vector<Codepoint>, mark: Codepoint) -> Bool
     Iter.any_match(lines, fn line -> Iter.all_match(line, &(Vector.get(cells, &1)! == mark)))
-}
+end
 
 // FILE: state_of_tic_tac_toe_test.nomi
 import state_of_tic_tac_toe
 
-test "won games" {
+test "won games"
     [
         ("Finished game where X won via left column victory", ["XOO", "X  ", "X  "]),
         ("Finished game where X won via middle column victory", ["OXO", " X ", " X "]),
@@ -108,33 +108,33 @@ test "won games" {
         ("Finished game where X won via a row and a column victory", ["XXX", "XOO", "XOO"]),
         ("Finished game where X won via two diagonal victories", ["XOX", "OXO", "XOX"]),
     ]
-    |> subtests (description, board), description {
+    |> subtests (description, board), description
         assert state_of_tic_tac_toe.gamestate(board) == Ok(.Win)
-    }
-}
+    end
+end
 
-test "drawn games" {
+test "drawn games"
     [
         ("Draw", ["XOX", "XXO", "OXO"]),
         ("Another draw", ["XXO", "OXX", "XOO"]),
     ]
-    |> subtests (description, board), description {
+    |> subtests (description, board), description
         assert state_of_tic_tac_toe.gamestate(board) == Ok(.Draw)
-    }
-}
+    end
+end
 
-test "ongoing games" {
+test "ongoing games"
     [
         ("Ongoing game: one move in", ["   ", "X  ", "   "]),
         ("Ongoing game: two moves in", ["O  ", " X ", "   "]),
         ("Ongoing game: five moves in", ["X  ", " XO", "OX "]),
     ]
-    |> subtests (description, board), description {
+    |> subtests (description, board), description
         assert state_of_tic_tac_toe.gamestate(board) == Ok(.Ongoing)
-    }
-}
+    end
+end
 
-test "invalid boards" {
+test "invalid boards"
     [
         (
             "Invalid board: X went twice",
@@ -163,11 +163,11 @@ test "invalid boards" {
             "Impossible board: game should have ended after the game was won",
         ),
     ]
-    |> subtests (description, board, message), description {
+    |> subtests (description, board, message), description
         assert Err(error) = state_of_tic_tac_toe.gamestate(board)
         assert "${error}" == message
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok won games (18 cases)

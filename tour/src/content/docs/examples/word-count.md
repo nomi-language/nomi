@@ -18,38 +18,38 @@ import std::regex.Regex
 /// How many times each word occurs in `sentence`, lower-cased. A word is a
 /// run of letters and digits, and may hold an apostrophe between two of them,
 /// as in "can't"; quotes around a word are not part of it.
-pub fn count_words(sentence: String) -> Map<String, Int> {
+pub fn count_words(sentence: String) -> Map<String, Int>
     sentence
     |> String.lowercase()
     |> String.find_all(Regex`[a-z0-9]+('[a-z0-9]+)*`)
     |> Iter.frequencies()
-}
+end
 
 // FILE: word_count_test.nomi
 import word_count.count_words
 
-test "counts words" {
+test "counts words"
     [
-        ("count one word", "word", %{"word" => 1}),
-        ("count one of each word", "one of each", %{"one" => 1, "of" => 1, "each" => 1}),
+        ("count one word", "word", {"word" => 1}),
+        ("count one of each word", "one of each", {"one" => 1, "of" => 1, "each" => 1}),
         (
             "multiple occurrences of a word",
             "one fish two fish red fish blue fish",
-            %{"one" => 1, "fish" => 4, "two" => 1, "red" => 1, "blue" => 1},
+            {"one" => 1, "fish" => 4, "two" => 1, "red" => 1, "blue" => 1},
         ),
-        ("handles cramped lists", "one,two,three", %{"one" => 1, "two" => 1, "three" => 1}),
-        ("handles expanded lists", "one,\ntwo,\nthree", %{"one" => 1, "two" => 1, "three" => 1}),
+        ("handles cramped lists", "one,two,three", {"one" => 1, "two" => 1, "three" => 1}),
+        ("handles expanded lists", "one,\ntwo,\nthree", {"one" => 1, "two" => 1, "three" => 1}),
         (
             "ignore punctuation",
             "car: carpet as java: javascript!!&@$%^&",
-            %{"car" => 1, "carpet" => 1, "as" => 1, "java" => 1, "javascript" => 1},
+            {"car" => 1, "carpet" => 1, "as" => 1, "java" => 1, "javascript" => 1},
         ),
-        ("include numbers", "testing, 1, 2 testing", %{"testing" => 2, "1" => 1, "2" => 1}),
-        ("normalize case", "go Go GO Stop stop", %{"go" => 3, "stop" => 2}),
+        ("include numbers", "testing, 1, 2 testing", {"testing" => 2, "1" => 1, "2" => 1}),
+        ("normalize case", "go Go GO Stop stop", {"go" => 3, "stop" => 2}),
         (
             "with apostrophes",
             "'First: don't laugh. Then: don't cry. You're getting it.'",
-            %{
+            {
                 "first" => 1,
                 "don't" => 2,
                 "laugh" => 1,
@@ -63,12 +63,12 @@ test "counts words" {
         (
             "with quotations",
             "Joe can't tell between 'large' and large.",
-            %{"joe" => 1, "can't" => 1, "tell" => 1, "between" => 1, "large" => 2, "and" => 1},
+            {"joe" => 1, "can't" => 1, "tell" => 1, "between" => 1, "large" => 2, "and" => 1},
         ),
         (
             "substrings from the beginning",
             "Joe can't tell between app, apple and a.",
-            %{
+            {
                 "joe" => 1,
                 "can't" => 1,
                 "tell" => 1,
@@ -82,23 +82,23 @@ test "counts words" {
         (
             "multiple spaces not detected as a word",
             " multiple   whitespaces",
-            %{"multiple" => 1, "whitespaces" => 1},
+            {"multiple" => 1, "whitespaces" => 1},
         ),
         (
             "alternating word separators not detected as a word",
             ",\n,one,\n ,two \n 'three'",
-            %{"one" => 1, "two" => 1, "three" => 1},
+            {"one" => 1, "two" => 1, "three" => 1},
         ),
         (
             "quotation for word with apostrophe",
             "can, can't, 'can't'",
-            %{"can" => 1, "can't" => 2},
+            {"can" => 1, "can't" => 2},
         ),
     ]
-    |> subtests (description, sentence, expected), description {
+    |> subtests (description, sentence, expected), description
         assert count_words(sentence) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok counts words (14 cases)

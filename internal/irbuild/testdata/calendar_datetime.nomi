@@ -17,18 +17,18 @@
 // the 16th where New York's is the 15th, and the offsets differ. A fixture that
 // only round-tripped one formatted string could not catch a re-zoning that lost
 // the instant.
-import {
+import
     std::calendar.{DateTime, Error}
     std::duration.Duration
     std::instant.Instant
     std::io
-}
+end
 
 // `?` inside `fn main()` is refused by the builder (`try boundary mismatch`,
 // a Unit-returning body cannot propagate), so the fallible half lives in a
 // Result-returning function and main discharges it with a `case`. That is a
 // property of `main`, not of these types.
-fn run() -> Result<Unit, Error> {
+fn run() -> Result<Unit, Error>
     ny = DateTime"2026-06-15T12:00:00-04:00[America/New_York]"?
     tokyo = DateTime.with_zone(ny, "Asia/Tokyo")?
 
@@ -70,19 +70,19 @@ fn run() -> Result<Unit, Error> {
     // gap (`rendering a non-scalar value`), and matching the variant is the
     // stronger claim anyway — it pins WHICH error, where a rendered string could
     // come from any of the five.
-    case DateTime.with_zone(ny, "Not/A_Zone") {
+    case DateTime.with_zone(ny, "Not/A_Zone")
         Ok(_d) -> io.print("bad_zone = unexpectedly ok")
         Err(Error.UnknownZone(z)) -> io.print("bad_zone = unknown zone: " + z)
         Err(_other) -> io.print("bad_zone = wrong variant")
-    }
+    end
 
     // The bracket suffix is required: a bare-offset string is an OffsetDateTime
     // and inventing a zone for it would be a silent wrong answer.
-    case DateTime.parse("2026-06-15T12:00:00-04:00") {
+    case DateTime.parse("2026-06-15T12:00:00-04:00")
         Ok(_d) -> io.print("bare_offset = unexpectedly ok")
         Err(Error.InvalidFormat(m)) -> io.print("bare_offset = invalid format: " + m)
         Err(_other) -> io.print("bare_offset = wrong variant")
-    }
+    end
 
     // `from_instant_in` is total once the zone is known, and the epoch renders
     // in UTC as itself.
@@ -106,11 +106,11 @@ fn run() -> Result<Unit, Error> {
     io.print("earlier_ne = " + Bool.to_string(earlier != ny))
     io.print("tokyo_ne = " + Bool.to_string(tokyo != ny))
     Ok(Unit)
-}
+end
 
-fn main() {
-    case run() {
+fn main()
+    case run()
         Ok(_u) -> Unit
         Err(_e) -> io.print("FAILED")
-    }
-}
+    end
+end

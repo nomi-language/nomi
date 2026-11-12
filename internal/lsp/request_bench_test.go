@@ -14,19 +14,19 @@ import (
 // attached test and a three-stage pipeline: 2,705 lines for n = 300.
 func generatedFile(n int) string {
 	var b strings.Builder
-	b.WriteString("pub struct User {\n    name: String\n    age: Int\n    is_active: Bool\n}\n")
+	b.WriteString("pub struct User\n    name: String\n    age: Int\n    is_active: Bool\nend\n")
 	for i := range n {
 		fmt.Fprintf(&b, "\n/// Function %d.\n", i)
 		fmt.Fprintf(&b, "//! assert f%d([User{name: \"a\", age: %d, is_active: True}]) == [\"a\"]\n", i, i)
-		fmt.Fprintf(&b, "pub fn f%d(users: List<User>) -> List<String> {\n", i)
-		b.WriteString("    users\n    |> Iter.filter(.is_active)\n    |> Iter.map(.name)\n    |> Iter.to_list()\n}\n")
+		fmt.Fprintf(&b, "pub fn f%d(users: List<User>) -> List<String>\n", i)
+		b.WriteString("    users\n    |> Iter.filter(.is_active)\n    |> Iter.map(.name)\n    |> Iter.to_list()\nend\n")
 	}
 	return b.String()
 }
 
 // lspProbe is appended to each benchmarked file: completion runs after
 // `it`, and one documentHighlight on the local `items`.
-const lspProbe = "\nfn lsp_probe(items: List<Int>) -> Int {\n    n = List.length(items)\n    it" + cursorMark + "\n}\n"
+const lspProbe = "\nfn lsp_probe(items: List<Int>) -> Int\n    n = List.length(items)\n    it" + cursorMark + "\nend\n"
 
 // requestBenchFile is one file the request benchmarks open, with the
 // cursor of the position requests.

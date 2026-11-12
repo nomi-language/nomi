@@ -13,12 +13,12 @@ import (
 func TestTruncatedStringIsADiagnostic(t *testing.T) {
 	cases := []struct{ src, want string }{
 		{`"\$`, `invalid escape \$`},
-		{"fn main() {\n  x = \"abc", `unterminated string; close it with "`},
-		{"fn main() {\n  x = \"a\\", `unterminated string; close it with "`},
-		{"fn main() {\n  x = \"a${", `unterminated ${...} in a string; close it with }`},
-		{"fn main() {\n  x = `abc", "unterminated raw string; close it with `"},
-		{"fn main() {\n  x = \"\"\"\n  a ${b", `unterminated ${...} in a triple-quoted string; close it with }`},
-		{"fn main() {\n  x = \"\"\"\n  abc", `unterminated triple-quoted string; close it with """`},
+		{"fn main()\n  x = \"abc", `unterminated string; close it with "`},
+		{"fn main()\n  x = \"a\\", `unterminated string; close it with "`},
+		{"fn main()\n  x = \"a${", `unterminated ${...} in a string; close it with }`},
+		{"fn main()\n  x = `abc", "unterminated raw string; close it with `"},
+		{"fn main()\n  x = \"\"\"\n  a ${b", `unterminated ${...} in a triple-quoted string; close it with }`},
+		{"fn main()\n  x = \"\"\"\n  abc", `unterminated triple-quoted string; close it with """`},
 	}
 	for _, c := range cases {
 		t.Run(c.want, func(t *testing.T) {

@@ -16,12 +16,12 @@
 // the rule it was built to break.
 import parts.Box
 
-impl Debug for Box {
-    fn inspect(x: Box) -> String {
+impl Debug for Box
+    fn inspect(x: Box) -> String
         "written<" + Int.to_string(x.w) + ">"
-    }
-}
+    end
+end
 
-pub fn boxed(w: Int) -> Box {
-    Box{w}
-}
+pub fn boxed(w: Int) -> Box
+    Box{w:}
+end

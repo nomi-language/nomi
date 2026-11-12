@@ -15,23 +15,23 @@ once prime: Int = 1_099_511_628_211
 //! assert checksum.of("a") == "af63dc4c8601ec8c"
 //! assert checksum.of("foobar") == "85944171f73967e8"
 //
-pub fn of(text: String) -> String {
-    hash = Iter.reduce(String.to_bytes(text), offset_basis, fn h, b -> {
+pub fn of(text: String) -> String
+    hash = Iter.reduce(String.to_bytes(text), offset_basis, fn h, b ->
         Int.wrapping_mul(Int.bitwise_xor(h, Byte.to_int(b)), prime)
-    })
+    end)
 
     hex(hash)
-}
+end
 
 // The 16 hex digits of n's 64 bits, most significant first.
-fn hex(n: Int) -> String {
+fn hex(n: Int) -> String
     digits = "0123456789abcdef"
 
     Iter.from(0)
     |> Iter.take(16)
-    |> Iter.map(fn k -> {
+    |> Iter.map(fn k ->
         nibble = Int.bitwise_and(Int.shift_right(n, 60 - 4 * k), 15)
         String.slice(digits, nibble, nibble + 1)
-    })
+    end)
     |> String.join()
-}
+end

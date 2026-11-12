@@ -23,10 +23,10 @@ fn upper(s: String) -> String go strings.ToUpper
 
 fn sqrt(x: Float) -> Float go math.Sqrt
 
-fn main() {
+fn main()
   io.print(upper("hello"))
   io.print(sqrt(2.0))
-}
+end
 `
 
 // A file binding Go standard library packages, with no go.mod above it, gets

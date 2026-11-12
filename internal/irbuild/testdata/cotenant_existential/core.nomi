@@ -33,14 +33,14 @@
 // answers differ in every character. A collapsed identity prints one of them
 // where the other belongs, which the recorded golden catches; a table that
 // was never bound prints neither.
-import {
+import
     extra
     wire.{self, Tagger}
-}
+end
 
-pub interface Logger {
+pub interface Logger
     fn log(value: self, message: String) -> String
-}
+end
 
 // TWO interface-typed fields, and the second one is not redundancy — it is the
 // CROSSING-BACK arm.
@@ -54,23 +54,23 @@ pub interface Logger {
 //	                  symptom is a dispatch table nothing bound. importNamed
 //	                  carries the same arm for a type; without it in
 //	                  importIfaceKind a mutation is invisible from output.
-pub struct App {
+pub struct App
     name: String
     logger: Logger
     tag: Tagger
-}
+end
 
 // Dispatch on TWO erased receivers, one per interface. `Logger`'s table is this
 // package's own variable; `Tagger`'s belongs to wire, which shares this
 // builder package after the merge — so it must be spelled BARE.
-pub fn banner(a: App) -> String {
+pub fn banner(a: App) -> String
     "${a.name}[${Tagger.tag(a.tag)}]: ${Logger.log(a.logger, "ready")}"
-}
+end
 
 // Closes the cycle in this direction: core names both siblings, and each names
 // core back. Without an edge FROM core the three files are not one strongly
 // connected component and the package would not merge — which would make this
 // fixture a slower copy of testdata/existential.
-pub fn origin() -> String {
+pub fn origin() -> String
     "${wire.tag}|${extra.tag}"
-}
+end

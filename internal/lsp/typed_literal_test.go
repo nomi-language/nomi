@@ -21,31 +21,32 @@ type typedLiteralProject struct {
 
 func newTypedLiteralProject() typedLiteralProject {
 	return typedLiteralProject{
-		mainSrc: `import {
+		mainSrc: `import
   std::io
   joiner: Joiner
-}
+end
 
-fn main() {
+fn main()
   name = "Alice"
   msg = Joiner"hi ${name}"
   io.print(msg)
-}
+end
 `,
 		joinerSrc: `import std::literals.{Fragment, Literal}
 
 pub type Joiner
 
-impl Literal for Joiner {
-  fn from_fragments(fragments: List<Fragment<Display>>) -> String {
+impl Literal for Joiner
+  fn from_fragments(fragments: List<Fragment<Display>>) -> String
     Iter.reduce(fragments, "", fn acc, frag ->
-      case frag {
+      case frag
         .Static(s) -> acc + s
         .Dynamic(v) -> acc + Display.to_string(v)
-      }
+      end
+    end
     )
-  }
-}
+  end
+end
 
 `,
 	}
@@ -215,9 +216,9 @@ func TestTypedLiteral_GotoDefinitionOnTag(t *testing.T) {
 // Diagnostic for tag-not-in-scope fires at the tag identifier position
 // (so editors highlight just the tag, not the entire literal).
 func TestTypedLiteral_DiagnosticTagNotInScope(t *testing.T) {
-	src := `fn main() {
+	src := `fn main()
   q = Nope"hi"
-}
+end
 `
 	dm := analysis.NewDocumentManager()
 	doc := dm.Open("file:///p/main.nomi", src)
@@ -246,21 +247,23 @@ func TestTypedLiteral_DiagnosticSlotMismatch(t *testing.T) {
 	// Display impl, so this is a slot-type mismatch.
 	mainSrc := `import joiner.{Joiner}
 
-fn helper(x: Int) -> Int { x + 1 }
+fn helper(x: Int) -> Int
+    x + 1
+end
 
-fn main() {
+fn main()
   msg = Joiner"x = ${helper}"
-}
+end
 `
 	joinerSrc := `import std::literals.{Fragment, Literal}
 
 pub type Joiner
 
-impl Literal for Joiner {
-  fn from_fragments(fragments: List<Fragment<Display>>) -> String {
+impl Literal for Joiner
+  fn from_fragments(fragments: List<Fragment<Display>>) -> String
     Iter.reduce(fragments, "", fn acc, _frag -> acc)
-  }
-}
+  end
+end
 
 `
 	lib := loadStd()
@@ -285,10 +288,10 @@ impl Literal for Joiner {
 	for _, e := range all {
 		if strings.Contains(strings.ToLower(e.Message), "display") {
 			found = true
-			// The slot `${helper}` has `helper` starting on line 6 of
+			// The slot `${helper}` has `helper` starting on line 8 of
 			// mainSrc. Diagnostic should land at the slot.
-			if e.Line != 6 {
-				t.Errorf("expected slot-mismatch diagnostic on line 6, got line %d (msg: %s)", e.Line, e.Message)
+			if e.Line != 8 {
+				t.Errorf("expected slot-mismatch diagnostic on line 8, got line %d (msg: %s)", e.Line, e.Message)
 			}
 		}
 	}
@@ -304,21 +307,23 @@ impl Literal for Joiner {
 func TestTypedLiteral_InlayHintsWalkSlots(t *testing.T) {
 	mainSrc := `import joiner.{Joiner}
 
-fn add(x: Int, y: Int) -> Int { x + y }
+fn add(x: Int, y: Int) -> Int
+    x + y
+end
 
-fn main() {
+fn main()
   msg = Joiner"sum: ${add(1, 2)}"
-}
+end
 `
 	joinerSrc := `import std::literals.{Fragment, Literal}
 
 pub type Joiner
 
-impl Literal for Joiner {
-  fn from_fragments(fragments: List<Fragment<Display>>) -> String {
+impl Literal for Joiner
+  fn from_fragments(fragments: List<Fragment<Display>>) -> String
     Iter.reduce(fragments, "", fn acc, _frag -> acc)
-  }
-}
+  end
+end
 
 `
 	lib := loadStd()

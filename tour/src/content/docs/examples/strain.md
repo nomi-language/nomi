@@ -15,23 +15,23 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# library's filter, so `keep` walks the list with a pattern.
 
 /// The items of `list` that `predicate` holds for, in order.
-pub fn keep<T>(list: List<T>, predicate: (T) -> Bool) -> List<T> {
-    case list {
+pub fn keep<T>(list: List<T>, predicate: (T) -> Bool) -> List<T>
+    case list
         [] -> []
         [head, ..tail] when predicate(head) -> [head, ..keep(tail, predicate)]
         [_head, ..tail] -> keep(tail, predicate)
-    }
-}
+    end
+end
 
 /// The items of `list` that `predicate` does not hold for, in order.
-pub fn discard<T>(list: List<T>, predicate: (T) -> Bool) -> List<T> {
+pub fn discard<T>(list: List<T>, predicate: (T) -> Bool) -> List<T>
     keep(list, &(not predicate(&1)))
-}
+end
 
 // FILE: strain_test.nomi
 import strain
 
-test "keep integers" {
+test "keep integers"
     cases: List<(String, List<Int>, (Int) -> Bool, List<Int>)> = [
         ("keep on empty list returns empty list", [], fn _x -> True, []),
         ("keeps everything", [1, 3, 5], fn _x -> True, [1, 3, 5]),
@@ -40,18 +40,18 @@ test "keep integers" {
         ("keeps neither first nor last", [1, 2, 3], &(&1 % 2 == 0), [2]),
     ]
 
-    subtests cases, (description, list, predicate, expected), description {
+    subtests cases, (description, list, predicate, expected), description
         assert strain.keep(list, predicate) == expected
-    }
-}
+    end
+end
 
-test "keeps strings" {
+test "keeps strings"
     words = ["apple", "zebra", "banana", "zombies", "cherimoya", "zealot"]
 
     assert strain.keep(words, &String.starts_with(&1, "z")) == ["zebra", "zombies", "zealot"]
-}
+end
 
-test "keeps lists" {
+test "keeps lists"
     lists = [[1, 2, 3], [5, 5, 5], [5, 1, 2], [2, 1, 2], [1, 5, 2], [2, 2, 1], [1, 2, 5]]
 
     assert strain.keep(lists, &(5 in &1)) == [
@@ -60,9 +60,9 @@ test "keeps lists" {
         [1, 5, 2],
         [1, 2, 5],
     ]
-}
+end
 
-test "discard integers" {
+test "discard integers"
     cases: List<(String, List<Int>, (Int) -> Bool, List<Int>)> = [
         ("discard on empty list returns empty list", [], fn _x -> True, []),
         ("discards everything", [1, 3, 5], fn _x -> True, []),
@@ -71,22 +71,22 @@ test "discard integers" {
         ("discards neither first nor last", [1, 2, 3], &(&1 % 2 == 0), [1, 3]),
     ]
 
-    subtests cases, (description, list, predicate, expected), description {
+    subtests cases, (description, list, predicate, expected), description
         assert strain.discard(list, predicate) == expected
-    }
-}
+    end
+end
 
-test "discards strings" {
+test "discards strings"
     words = ["apple", "zebra", "banana", "zombies", "cherimoya", "zealot"]
 
     assert strain.discard(words, &String.starts_with(&1, "z")) == ["apple", "banana", "cherimoya"]
-}
+end
 
-test "discards lists" {
+test "discards lists"
     lists = [[1, 2, 3], [5, 5, 5], [5, 1, 2], [2, 1, 2], [1, 5, 2], [2, 2, 1], [1, 2, 5]]
 
     assert strain.discard(lists, &(5 in &1)) == [[1, 2, 3], [2, 1, 2], [2, 2, 1]]
-}
+end
 ```
 <!-- expect
 ok keep integers (5 cases)

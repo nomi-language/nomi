@@ -36,10 +36,10 @@ func Describe(h *Handle) []Table { return []Table{{Name: %q, %s: h.n}} }
 `, goField, name, goField),
 		name + "/describe.nomi": fmt.Sprintf(`gopkg "example.com/sql/%s/goside"
 
-pub struct Table {
+pub struct Table
     name: String
     %s: Int
-}
+end
 
 pub opaque type Handle go goside.Handle
 
@@ -76,19 +76,19 @@ replace example.com/sql/lite => ./lite
 replace example.com/sql/pg => ./pg
 `, repoRoot(t)),
 		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-		"main.nomi": `import {
+		"main.nomi": `import
     std::io
     lite::describe as ld
     pg::describe as pd
-}
+end
 
-fn main() {
+fn main()
     a = ld.open(2)
     b = pd.open(3)
     io.inspect(ld.describe(a))
     io.inspect(pd.describe(b))
     io.print("${ld.count(a)} ${pd.count(b)}")
-}
+end
 `,
 	}
 	for path, text := range twoModulesFiles("lite", "columns", "Columns") {

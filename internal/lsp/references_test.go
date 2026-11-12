@@ -17,12 +17,12 @@ import (
 func TestFindNomiFiles(t *testing.T) {
 	dir := t.TempDir()
 	// Create files
-	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("fn main() {}"), 0644)
-	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("fn double(n: Int) -> Int { n + n }"), 0644)
+	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("fn main() end"), 0644)
+	os.WriteFile(filepath.Join(dir, "math.nomi"), []byte("fn double(n: Int) -> Int\n    n + n\nend"), 0644)
 	os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("not nomi"), 0644)
 	// Create subdirectory with a .nomi file
 	os.MkdirAll(filepath.Join(dir, "utils"), 0755)
-	os.WriteFile(filepath.Join(dir, "utils", "helpers.nomi"), []byte("fn helper() -> Int { 1 }"), 0644)
+	os.WriteFile(filepath.Join(dir, "utils", "helpers.nomi"), []byte("fn helper() -> Int\n    1\nend"), 0644)
 	// Create hidden directory that should be skipped
 	os.MkdirAll(filepath.Join(dir, ".git"), 0755)
 	os.WriteFile(filepath.Join(dir, ".git", "config.nomi"), []byte("ignored"), 0644)
@@ -48,13 +48,13 @@ func TestFindNomiFiles(t *testing.T) {
 }
 
 func TestFindReferences_SameFile(t *testing.T) {
-	src := "fn double(n: Int) -> Int { n + n }\nfn main() { double(1) }"
+	src := "fn double(n: Int) -> Int\n    n + n\nend\nfn main()\n    double(1)\nend"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
 
-	// "double" at line 2, col 17 is a reference to the function
-	sym := fa.SymbolAt(analysis.Pos{Line: 2, Col: 17})
+	// "double" at line 5, col 5 is a reference to the function
+	sym := fa.SymbolAt(analysis.Pos{Line: 5, Col: 5})
 	if sym == nil {
 		t.Fatal("expected symbol at reference site")
 	}
@@ -87,17 +87,17 @@ func TestFindReferences_CrossFile(t *testing.T) {
 	mathFile := filepath.Join(dir, "math.nomi")
 	mainFile := filepath.Join(dir, "main.nomi")
 
-	os.WriteFile(mathFile, []byte("/// Doubles it.\npub fn double(n: Int) -> Int { n + n }"), 0644)
-	os.WriteFile(mainFile, []byte("import math\nfn main() { math.double(21) }"), 0644)
+	os.WriteFile(mathFile, []byte("/// Doubles it.\npub fn double(n: Int) -> Int\n    n + n\nend"), 0644)
+	os.WriteFile(mainFile, []byte("import math\nfn main()\n    math.double(21)\nend"), 0644)
 
 	dm := analysis.NewDocumentManager()
 	mainURI := fileuri.FromPath(mainFile)
 
 	// Open main file
-	doc := dm.Open(mainURI, "import math\nfn main() { math.double(21) }")
+	doc := dm.Open(mainURI, "import math\nfn main()\n    math.double(21)\nend")
 
 	// Find "double" reference in main.nomi.
-	sym := doc.Analysis.SymbolAt(analysis.Pos{Line: 2, Col: 18})
+	sym := doc.Analysis.SymbolAt(analysis.Pos{Line: 3, Col: 10})
 	if sym == nil {
 		t.Fatal("expected double symbol")
 	}
@@ -128,7 +128,7 @@ func TestFindReferences_CrossFile(t *testing.T) {
 }
 
 func TestFindReferences_IncludeDeclaration(t *testing.T) {
-	src := "fn greet() -> String { \"hi\" }\nfn main() { greet() }"
+	src := "fn greet() -> String\n    \"hi\"\nend\nfn main()\n    greet()\nend"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
@@ -172,19 +172,19 @@ func TestFindReferences_DeriveSkipsSynthBand(t *testing.T) {
 	mainFile := filepath.Join(dir, "main.nomi")
 	src := `import std::equatable.{Equatable}
 
-pub struct Point {
+pub struct Point
   x: Int
   y: Int
-}
+end
 
 derive Equatable for Point
 
-fn main() {
+fn main()
   p1 = Point{x: 1, y: 2}
   p2 = Point{x: 1, y: 2}
   result = Equatable.equal(p1, p2)
   result
-}
+end
 `
 	os.WriteFile(mainFile, []byte(src), 0644)
 
@@ -226,12 +226,12 @@ func TestFindReferences_SelectiveImportFollowsResolved(t *testing.T) {
 	modelsFile := filepath.Join(dir, "models.nomi")
 	mainFile := filepath.Join(dir, "main.nomi")
 
-	os.WriteFile(modelsFile, []byte("struct User { name: String }"), 0644)
-	os.WriteFile(mainFile, []byte("import models.{User}\nfn main() { User{name: \"Alice\"} }"), 0644)
+	os.WriteFile(modelsFile, []byte("struct User\n    name: String\nend"), 0644)
+	os.WriteFile(mainFile, []byte("import models.{User}\nfn main()\n    User{name: \"Alice\"}\nend"), 0644)
 
 	dm := analysis.NewDocumentManager()
 	mainURI := fileuri.FromPath(mainFile)
-	doc := dm.Open(mainURI, "import models.{User}\nfn main() { User{name: \"Alice\"} }")
+	doc := dm.Open(mainURI, "import models.{User}\nfn main()\n    User{name: \"Alice\"}\nend")
 
 	// Find User on the import line — should have Resolved pointing to real symbol
 	sym := doc.Analysis.SymbolAt(analysis.Pos{Line: 1, Col: 17})
@@ -254,25 +254,25 @@ func TestFindReferences_SelectiveImportFollowsResolved(t *testing.T) {
 func TestFindReferences_InterfaceMethodIncludesImplDeclarations(t *testing.T) {
 	dir := t.TempDir()
 	mainFile := filepath.Join(dir, "main.nomi")
-	src := "interface Stepper {\n" +
+	src := "interface Stepper\n" +
 		"  fn next(value: self) -> Int\n" +
-		"  open fn steps_between(start: self, end: self) -> Int {\n" +
+		"  open fn steps_between(start: self, stop: self) -> Int\n" +
 		"    0\n" +
-		"  }\n" +
-		"}\n" +
+		"  end\n" +
+		"end\n" +
 		"\n" +
-		"struct counter { n: Int }\n" +
-		"struct Code { n: Int }\n" +
+		"struct counter\n    n: Int\nend\n" +
+		"struct Code\n    n: Int\nend\n" +
 		"\n" +
-		"impl Stepper for counter {\n" +
-		"  fn next(value: self) -> Int { value.n + 1 }\n" +
-		"  fn steps_between(start: self, end: self) -> Int { end.n - start.n }\n" +
-		"}\n" +
+		"impl Stepper for counter\n" +
+		"  fn next(value: self) -> Int\n      value.n + 1\n  end\n" +
+		"  fn steps_between(start: self, stop: self) -> Int\n      stop.n - start.n\n  end\n" +
+		"end\n" +
 		"\n" +
-		"impl Stepper for Code {\n" +
-		"  fn next(value: self) -> Int { value.n + 1 }\n" +
-		"  fn steps_between(start: self, end: self) -> Int { end.n - start.n }\n" +
-		"}\n"
+		"impl Stepper for Code\n" +
+		"  fn next(value: self) -> Int\n      value.n + 1\n  end\n" +
+		"  fn steps_between(start: self, stop: self) -> Int\n      stop.n - start.n\n  end\n" +
+		"end\n"
 	if err := os.WriteFile(mainFile, []byte(src), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -296,8 +296,8 @@ func TestFindReferences_InterfaceMethodIncludesImplDeclarations(t *testing.T) {
 	}
 	wantLines := map[uint32]bool{
 		2:  false, // interface declaration
-		12: false, // counter impl
-		17: false, // Code impl
+		18: false, // counter impl
+		27: false, // Code impl
 	}
 	for _, loc := range locs {
 		if _, ok := wantLines[loc.Range.Start.Line]; ok {

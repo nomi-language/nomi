@@ -13,20 +13,20 @@ func TestQualifiedTypeName_StdInterfaceThroughItsModule(t *testing.T) {
 import std::sql
 import std::sql_testing.Fake
 
-struct Holder {
+struct Holder
     db: sql.Conn
-}
+end
 
-fn pass(c: sql.Conn) -> sql.Conn {
+fn pass(c: sql.Conn) -> sql.Conn
     c
-}
+end
 
-fn main() {
+fn main()
     h = Holder{db: Fake.new()}
     held: List<sql.Conn> = [pass(h.db)]
     io.print("${Iter.count(held)}")
     sql.close_quietly(h.db)
-}
+end
 `, "1\n")
 }
 
@@ -40,18 +40,18 @@ func TestQualifiedTypeName_AppFieldThroughItsModule(t *testing.T) {
 import std::sql
 import std::sql_testing.Fake
 
-struct App {
+struct App
     db: sql.Conn
-}
+end
 
-fn boot(_startup: Startup) -> Result<App, String> {
+fn boot(_startup: Startup) -> Result<App, String>
     Ok(App{db: Fake.new()})
-}
+end
 
-fn main() {
+fn main()
     sql.close_quietly(App.db)
     io.print("closed")
-}
+end
 `, "closed\n")
 }
 
@@ -66,37 +66,37 @@ func TestQualifiedTypeName_ProgramInterfaceThroughItsModule(t *testing.T) {
 		"main.nomi": `import shapes
 import std::io
 
-struct Holder {
+struct Holder
     s: shapes.Shape
-}
+end
 
-fn pass(s: shapes.Shape) -> shapes.Shape {
+fn pass(s: shapes.Shape) -> shapes.Shape
     s
-}
+end
 
-fn main() {
+fn main()
     h = Holder{s: shapes.Square{side: 3}}
     all: List<shapes.Shape> = [pass(h.s), shapes.Square{side: 2}]
     io.print("${shapes.total(all)}")
-}
+end
 `,
-		"shapes.nomi": `pub interface Shape {
+		"shapes.nomi": `pub interface Shape
     fn area(s: self) -> Int
-}
+end
 
-pub struct Square {
+pub struct Square
     side: Int
-}
+end
 
-impl Shape for Square {
-    fn area(s: Square) -> Int {
+impl Shape for Square
+    fn area(s: Square) -> Int
         s.side * s.side
-    }
-}
+    end
+end
 
-pub fn total(all: List<Shape>) -> Int {
+pub fn total(all: List<Shape>) -> Int
     Iter.sum_by(all, &Shape.area(&1))
-}
+end
 `,
 	}, "13\n")
 }

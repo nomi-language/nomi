@@ -10,7 +10,7 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-const paramTypeDecls = "struct Game {\n    turn: Int\n}\n\nenum Command {\n    Look\n    Quit\n}\n\nstruct UserId {\n    n: Int\n}\n\nstruct Box<T> {\n    v: T\n}\n\ninterface Describe {\n    fn describe(self) -> String\n}\n\n"
+const paramTypeDecls = "struct Game\n    turn: Int\nend\n\nenum Command\n    Look\n    Quit\nend\n\nstruct UserId\n    n: Int\nend\n\nstruct Box<T>\n    v: T\nend\n\ninterface Describe\n    fn describe(self) -> String\nend\n\n"
 
 // wantParamItem asserts the completion at src offers exactly one item,
 // labeled label, whose edit inserts text.
@@ -34,12 +34,12 @@ func TestCompletion_ParamTypeFromName(t *testing.T) {
 		{"module function, unclosed", "fn slay(game" + cursorMark, "game: Game", "game: Game"},
 		{"second parameter, unclosed", "fn slay(game: Game, command" + cursorMark + "\n", "command: Command", "command: Command"},
 		{"after a typed parameter", "fn slay(x: Map<Int, String>, game" + cursorMark + "\n", "game: Game", "game: Game"},
-		{"multiword name", "fn find(user_id" + cursorMark + ") {}\n", "user_id: UserId", "user_id: UserId"},
+		{"multiword name", "fn find(user_id" + cursorMark + ") end\n", "user_id: UserId", "user_id: UserId"},
 		{"generic function", "fn run<T>(game" + cursorMark + "\n", "game: Game", "game: Game"},
-		{"inherent impl", "impl Game {\n    fn next(game" + cursorMark + "\n}\n", "game: Game", "game: Game"},
-		{"interface impl", "impl Describe for Command {\n    fn describe(command" + cursorMark + ") -> String {\n        \"\"\n    }\n}\n", "command: Command", "command: Command"},
-		{"interface declaration", "interface Play {\n    fn play(self, game" + cursorMark + ") -> Int\n}\n", "game: Game", "game: Game"},
-		{"interface declaration, unclosed", "interface Play {\n    fn play(game" + cursorMark + "\n}\n", "game: Game", "game: Game"},
+		{"inherent impl", "impl Game\n    fn next(game" + cursorMark + "\nend\n", "game: Game", "game: Game"},
+		{"interface impl", "impl Describe for Command\n    fn describe(command" + cursorMark + ") -> String\n        \"\"\n    end\nend\n", "command: Command", "command: Command"},
+		{"interface declaration", "interface Play\n    fn play(self, game" + cursorMark + ") -> Int\nend\n", "game: Game", "game: Game"},
+		{"interface declaration, unclosed", "interface Play\n    fn play(game" + cursorMark + "\nend\n", "game: Game", "game: Game"},
 		{"prelude type", "fn total(string" + cursorMark + ") {}\n", "string: String", "string: String"},
 		{"parameter on its own line", "fn slay(\n    game: Game,\n    command" + cursorMark + "\n", "command: Command", "command: Command"},
 	}
@@ -59,13 +59,13 @@ func TestCompletion_ParamTypeFromName(t *testing.T) {
 // snake_case spelling it starts, and the type the whole name spells ranks
 // first.
 func TestCompletion_ParamTypeFromAPrefix(t *testing.T) {
-	decls := paramTypeDecls + "struct GameState {\n    game: Game\n}\n\n"
+	decls := paramTypeDecls + "struct GameState\n    game: Game\nend\n\n"
 	tests := []struct {
 		name, src string
 		want      []string // in order, at the front of the list
 	}{
 		{"first letter", "fn slay(g" + cursorMark + ") {}\n", []string{"game: Game", "game_state: GameState"}},
-		{"part of a word", "impl Game {\n    fn next(gam" + cursorMark + "\n}\n", []string{"game: Game", "game_state: GameState"}},
+		{"part of a word", "impl Game\n    fn next(gam" + cursorMark + "\nend\n", []string{"game: Game", "game_state: GameState"}},
 		{"the whole name ranks its type first", "fn slay(game" + cursorMark + ") {}\n", []string{"game: Game"}},
 		{"a later word", "fn find(user_i" + cursorMark + ") {}\n", []string{"user_id: UserId"}},
 	}
@@ -103,19 +103,19 @@ func TestSnakeCase(t *testing.T) {
 
 func TestCompletion_ParamTypeImported(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"world.nomi": "pub struct Monster {\n    name: String\n}\n",
-		"main.nomi":  "fn main() {\n}\n",
+		"world.nomi": "pub struct Monster\n    name: String\nend\n",
+		"main.nomi":  "fn main() end\n",
 	})
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
 	s.docs.IndexWorkspace(context.Background())
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
-	items := completeIn(t, s, uri, "import world.Monster\n\nfn slay(monster"+cursorMark+") {}\n\nfn main() {\n}\n").Items
+	items := completeIn(t, s, uri, "import world.Monster\n\nfn slay(monster"+cursorMark+") {}\n\nfn main()\nend\n").Items
 	wantParamItem(t, items, "monster: Monster", "monster: Monster")
 
 	// Not imported: the name names nothing in scope, and nothing is offered.
-	items = completeIn(t, s, uri, "fn slay(monster"+cursorMark+") {}\n\nfn main() {\n}\n").Items
+	items = completeIn(t, s, uri, "fn slay(monster"+cursorMark+") {}\n\nfn main()\nend\n").Items
 	if len(items) != 0 {
 		t.Fatalf("an unimported type is offered: %v", itemLabels(items))
 	}
@@ -160,7 +160,7 @@ func TestCompletion_ParamTypeAfterColon(t *testing.T) {
 		{"colon alone", "fn slay(game:" + cursorMark + ") {}\n", " Game"},
 		{"colon alone, unclosed", "fn slay(game:" + cursorMark, " Game"},
 		{"typed prefix", "fn slay(game: G" + cursorMark + ") {}\n", "Game"},
-		{"interface declaration", "interface Play {\n    fn play(user_id: " + cursorMark + ") -> Int\n}\n", "UserId"},
+		{"interface declaration", "interface Play\n    fn play(user_id: " + cursorMark + ") -> Int\nend\n", "UserId"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -194,9 +194,9 @@ func TestCompletion_ParamTypeNothing(t *testing.T) {
 		{"type already written", "fn slay(game" + cursorMark + ": Game) {}\n", true},
 		{"cursor inside the name", "fn slay(ga" + cursorMark + "me) {}\n", true},
 		{"no name yet", "fn slay(" + cursorMark + ") {}\n", true},
-		{"lambda", "fn f() -> Int {\n    g = fn game" + cursorMark + " -> 1\n    1\n}\n", false},
-		{"lambda, unclosed", "fn f() -> Int {\n    g = |game" + cursorMark + "\n}\n", false},
-		{"lambda argument", "fn f(xs: List<Game>) -> Int {\n    xs |> Iter.map(|game" + cursorMark + "| 1)\n    1\n}\n", false},
+		{"lambda", "fn f() -> Int\n    g = fn game" + cursorMark + " -> 1\n    1\nend\n", false},
+		{"lambda, unclosed", "fn f() -> Int\n    g = |game" + cursorMark + "\nend\n", false},
+		{"lambda argument", "fn f(xs: List<Game>) -> Int\n    xs |> Iter.map(|game" + cursorMark + "| 1)\n    1\nend\n", false},
 		{"destructuring parameter", "fn f((game" + cursorMark + ", b)) {}\n", false},
 		{"function type", "fn f(g: fn(game" + cursorMark + "\n", false},
 	}
@@ -218,13 +218,13 @@ func TestCompletion_ParamTypeNothing(t *testing.T) {
 // A pattern and a struct field keep their own completion: the name's type is
 // not offered there.
 func TestCompletion_ParamTypeNotInPatternsOrFields(t *testing.T) {
-	items := complete(t, paramTypeDecls+"fn f(c: Command) -> Int {\n    case c {\n        command"+cursorMark+" -> 1\n    }\n}\n")
+	items := complete(t, paramTypeDecls+"fn f(c: Command) -> Int\n    case c\n        command"+cursorMark+" -> 1\n    end\nend\n")
 	labelsExclude(t, items, "command: Command")
-	items = complete(t, paramTypeDecls+"struct Turn {\n    game: "+cursorMark+"\n}\n")
+	items = complete(t, paramTypeDecls+"struct Turn\n    game: "+cursorMark+"\nend\n")
 	if len(items) > 0 && items[0].Label == "Game" {
 		t.Fatalf("a struct field's type ranks the name's type first: %v", itemLabels(items))
 	}
-	items = complete(t, paramTypeDecls+"fn f() -> Int {\n    g = fn game: "+cursorMark+" -> 1\n    1\n}\n")
+	items = complete(t, paramTypeDecls+"fn f() -> Int\n    g = fn game: "+cursorMark+" -> 1\n    1\nend\n")
 	if len(items) > 0 && items[0].Label == "Game" {
 		t.Fatalf("a lambda parameter's type ranks the name's type first: %v", itemLabels(items))
 	}
@@ -236,10 +236,10 @@ func TestCompletion_ParamTypeNotInPatternsOrFields(t *testing.T) {
 func TestCompletion_ParamTypeRunsNoAnalysis(t *testing.T) {
 	s := NewServer()
 	uri := "file:///param_type_stale.nomi"
-	s.docs.Open(uri, paramTypeDecls+"fn main() {\n}\n")
+	s.docs.Open(uri, paramTypeDecls+"fn main() end\n")
 	before := s.docs.Snapshot(uri).AnalyzedVersion
 
-	content, pos := splitCursor(t, paramTypeDecls+"fn main() {\n}\n\nfn slay(game, command"+cursorMark)
+	content, pos := splitCursor(t, paramTypeDecls+"fn main()\nend\n\nfn slay(game, command"+cursorMark)
 	s.docs.SetText(uri, content)
 	res, err := s.textDocumentCompletion(nil, &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -262,7 +262,7 @@ func TestCompletion_ParamTypeRunsNoAnalysis(t *testing.T) {
 // `main.Place` and `prelude.Int` name no type.
 func TestCompletion_TypePositionOffersOnlyImportedModules(t *testing.T) {
 	s := NewServer()
-	items := completeIn(t, s, "file:///main.nomi", "import std::calendar\n\nenum Place {\n    Cave\n}\n\nfn f(x: "+cursorMark+") {}\n").Items
+	items := completeIn(t, s, "file:///main.nomi", "import std::calendar\n\nenum Place\n    Cave\nend\n\nfn f(x: "+cursorMark+") {}\n").Items
 	mustItem(t, items, "calendar")
 	mustItem(t, items, "Place")
 	for _, it := range items {

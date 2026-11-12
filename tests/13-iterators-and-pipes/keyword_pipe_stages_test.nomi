@@ -1,22 +1,22 @@
-import {
+import
     std::compiler
     std::testing
-}
+end
 
-fn parse_id(s: String) -> Result<Int, String> {
-    case String.to_int(s) {
+fn parse_id(s: String) -> Result<Int, String>
+    case String.to_int(s)
         Some(id) -> Ok(id)
         None -> Err("expected numeric id")
-    }
-}
+    end
+end
 
-fn parsed_id(s: String) -> Result<Int, String> {
+fn parsed_id(s: String) -> Result<Int, String>
     id = s |> parse_id()?
 
     Ok(id)
-}
+end
 
-test "head assertions can validate pipeline results" {
+test "head assertions can validate pipeline results"
     assert "Ada Lovelace"
         |> String.contains("Ada")
 
@@ -29,79 +29,79 @@ test "head assertions can validate pipeline results" {
     )
 
     assert result == Ok(True)
-}
+end
 
-test "keyword-prefixed `?` unwraps the decorated stage result" {
+test "keyword-prefixed `?` unwraps the decorated stage result"
     assert parsed_id("42") == Ok(42)
     assert parsed_id("wat") == Err("expected numeric id")
-}
+end
 
-test "keyword-prefixed if branches on the decorated Bool stage" {
+test "keyword-prefixed if branches on the decorated Bool stage"
     label =
         42
-        |> if Int.equal(42) { "answer" } else { "other" }
+        |> if Int.equal(42) then "answer" else "other"
 
     assert label == "answer"
-}
+end
 
-test "keyword-prefixed if can use multiline branches" {
+test "keyword-prefixed if can use multiline branches"
     label =
         "Ada"
-        |> if String.contains("A") {
+        |> if String.contains("A") then
             "initialed"
-        } else {
+        else
             "plain"
-        }
+        end
 
     assert label == "initialed"
-}
+end
 
-test "bare if pipe stages branch on the previous Bool" {
+test "bare if pipe stages branch on the previous Bool"
     label =
         True
-        |> if { "yes" } else { "no" }
+        |> if then "yes" else "no"
 
     assert label == "yes"
-}
+end
 
-test "keyword-prefixed case matches the decorated stage result" {
+test "keyword-prefixed case matches the decorated stage result"
     value =
         "42"
-        |> case parse_id() {
+        |> case parse_id()
             Ok(id) -> id
             Err(_) -> 0
-        }
+        end
 
     assert value == 42
-}
+end
 
-test "bare case pipe stages match the previous value" {
+test "bare case pipe stages match the previous value"
     value =
         Some(3)
-        |> case {
+        |> case
             Some(n) -> n
             None -> 0
-        }
+        end
 
     assert value == 3
-}
+end
 
-test "dbg can inspect a pipeline stage" {
+test "dbg can inspect a pipeline stage"
     result = compiler.run(
         """
         import std::io
 
-        fn double(n: Int) -> Int {
+        fn double(n: Int) -> Int
           n * 2
-        }
+        end
 
-        fn main() {
+        fn main()
           value =
             21
             |> double()
             |> dbg
           io.print(value)
-        }
+        end
         """
     )
 
@@ -115,4 +115,4 @@ test "dbg can inspect a pipeline stage" {
 
         """
     )
-}
+end

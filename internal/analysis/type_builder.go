@@ -552,9 +552,23 @@ func buildBodyTypes(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node) []Typ
 	for _, node := range nodes {
 		switch n := node.(type) {
 		case *ast.FuncDef:
+			errs = append(errs, buildDeclNestedFuncTypes(fa, reg, n.Params, n.Body)...)
 			if n.Body != nil {
-				errs = append(errs, buildNestedFuncTypes(fa, reg, n.Body)...)
 				errs = append(errs, validateNoIllegalNestedDecls(n.Body)...)
+			}
+		case *ast.ImplBlock:
+			// An impl's functions, as a module-level one: without their
+			// nested fns' signatures, those bodies went unchecked and their
+			// calls had no type.
+			for _, item := range n.Items {
+				if fn, ok := item.(*ast.FuncDef); ok {
+					errs = append(errs, buildDeclNestedFuncTypes(fa, reg, fn.Params, fn.Body)...)
+				}
+			}
+		case *ast.InterfaceDef:
+			for i := range n.Methods {
+				m := &n.Methods[i]
+				errs = append(errs, buildDeclNestedFuncTypes(fa, reg, m.Params, m.Body)...)
 			}
 		case *ast.TestDecl:
 			errs = append(errs, buildTestDeclFuncTypes(fa, reg, n)...)
@@ -577,6 +591,22 @@ func buildBodyTypes(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node) []Typ
 			}
 		}
 		errs = append(errs, buildAttachedTestTypes(fa, reg, node)...)
+	}
+	return errs
+}
+
+// buildDeclNestedFuncTypes resolves the signatures of the `fn`s declared in
+// a declared function's parameter defaults and body: a module-level fn's,
+// an impl's or an interface's default.
+func buildDeclNestedFuncTypes(fa *FileAnalysis, reg *TypeRegistry, params []ast.Param, body ast.Node) []TypeError {
+	var errs []TypeError
+	for _, p := range params {
+		if p.Default != nil {
+			errs = append(errs, buildNestedFuncTypes(fa, reg, p.Default)...)
+		}
+	}
+	if body != nil {
+		errs = append(errs, buildNestedFuncTypes(fa, reg, body)...)
 	}
 	return errs
 }
@@ -1437,7 +1467,7 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 			// Struct variant: a struct has no positional form, so neither
 			// does the variant (variant_construction.go). Its constructor as
 			// a value takes the record call form's one argument, the record
-			// of its fields: `f = Shape.Rect` then `f(.{w: 1.0, h: 2.0})`.
+			// of its fields: `f = Shape.Rect` then `f({w: 1.0, h: 2.0})`.
 			vsym.Type = &FuncType{Params: []Type{&AnonStructType{Fields: vd.Fields}}, Return: enumReturnTy}
 		} else {
 			// Bare variant: the enum type itself, e.g. True: Bool

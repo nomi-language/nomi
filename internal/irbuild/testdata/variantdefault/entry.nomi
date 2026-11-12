@@ -5,21 +5,21 @@
 // declares one too. `lib.origin()` reads lib's own `label` through an ordinary
 // cross-file call and must still answer "lib". A default that names one of
 // lib's own declarations is testdata/sibling_field_defaults.
-import {
+import
     std::io
     lib.{Backoff, Limits, origin}
-}
+end
 
 once label = "entry"
 
-fn describe(b: Backoff) -> String {
-    case b {
-        Backoff.Exponential{max_restarts, max_elapsed} -> "${max_restarts}/${max_elapsed}"
+fn describe(b: Backoff) -> String
+    case b
+        Backoff.Exponential{max_restarts:, max_elapsed:} -> "${max_restarts}/${max_elapsed}"
         Backoff.Off -> "off"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(describe(Backoff.Exponential{max_restarts: 3}))
     io.print(describe(Backoff.Exponential{}))
     io.print(describe(Backoff.Off))
@@ -33,4 +33,4 @@ fn main() {
 
     io.print(origin())
     io.print(label)
-}
+end

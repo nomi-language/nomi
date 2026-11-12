@@ -163,13 +163,13 @@ func TestIterAnchor_Rule2HasNoSubjectRule1DoesNotAlreadyHold(t *testing.T) {
 	}
 	// (1) A file declaring its OWN Iter and no impl block. Rule 1 alone must
 	// decline it, and rule 2 must have nothing to say.
-	const ownIter = `interface Iter<T> {
+	const ownIter = `interface Iter<T>
   fn each_while(collection: self, yield: (T) -> Bool) -> Bool
-}
+end
 
-fn main() {
+fn main()
   Unit
-}
+end
 `
 	if prog, err := AnalyzeSource("own_iter", ownIter); err != nil {
 		t.Logf("(1) a file declaring its own `interface Iter<T>` is a FRONT-END error, so neither rule "+
@@ -187,15 +187,15 @@ fn main() {
 
 	// (2) `impl Iter<T>` over std's imported Iter — rule 2's stated subject.
 	const ownerBlock = `
-impl Iter<T> {
-  pub fn mine(_source: Iter<T>) -> Int {
+impl Iter<T>
+  pub fn mine(_source: Iter<T>) -> Int
     0
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   Unit
-}
+end
 `
 	prog, err := AnalyzeSource("iter_owner_block", ownerBlock)
 	if err != nil {

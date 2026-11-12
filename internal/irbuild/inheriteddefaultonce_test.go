@@ -12,37 +12,37 @@ func TestInheritedDefault_ReadsTheDeclaringFilesOnce(t *testing.T) {
 
 once mark = "!"
 
-pub interface Powered {
+pub interface Powered
     fn label(w: self) -> String
 
-    fn tagged(w: self, suffix: String = tag) -> String {
+    fn tagged(w: self, suffix: String = tag) -> String
         Powered.label(w) + ":" + suffix + mark
-    }
-}
+    end
+end
 `
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
     std::io
     lib.Powered
-}
+end
 
 once tag = "entry"
 
-struct Widget {
+struct Widget
     name: String
-}
+end
 
-impl Powered for Widget {
-    fn label(w: Widget) -> String {
+impl Powered for Widget
+    fn label(w: Widget) -> String
         w.name
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Powered.tagged(Widget{name: "w"}))
     io.print(Powered.tagged(Widget{name: "v"}, "given"))
     ps: List<Powered> = [Widget{name: "a"}]
     io.inspect(Iter.map(ps, fn p -> Powered.tagged(p)) |> Iter.to_list())
     io.print(tag)
-}
+end
 `, "w:sibling!\nv:given!\n[\"a:sibling!\"]\nentry\n", map[string]string{"lib.nomi": lib})
 }

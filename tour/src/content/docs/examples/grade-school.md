@@ -15,64 +15,64 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// A school's roster: each student's grade, keyed by name. A name is
 /// enrolled at most once, in one grade.
-pub opaque struct School {
+pub opaque struct School
     grades: Map<String, Int>
-}
+end
 
 /// Why a student cannot be added.
-pub enum Error {
+pub enum Error
     AlreadyEnrolled
-}
+end
 
-impl School {
+impl School
     /// A school with no students.
-    pub fn new() -> School {
-        .{grades: %{}}
-    }
+    pub fn new() -> School
+        {grades: {}}
+    end
 
     /// `school` with `name` enrolled in `grade`, or `AlreadyEnrolled` when
     /// the name is on the roster already, in this grade or another.
-    pub fn add(school: School, name: String, grade: Int) -> Result<School, Error> {
-        if name in school.grades {
+    pub fn add(school: School, name: String, grade: Int) -> Result<School, Error>
+        if name in school.grades then
             Err(.AlreadyEnrolled)
-        } else {
-            Ok(.{grades: Map.put(school.grades, name, grade)})
-        }
-    }
+        else
+            Ok({grades: Map.put(school.grades, name, grade)})
+        end
+    end
 
     /// Every student, by grade and then by name.
-    pub fn roster(school: School) -> List<String> {
+    pub fn roster(school: School) -> List<String>
         school.grades
         |> Iter.sort_by(fn (name, grade) -> (grade, name))
         |> Iter.map(.first)
         |> Iter.to_list()
-    }
+    end
 
     /// The students in `grade`, by name.
-    pub fn grade(school: School, grade: Int) -> List<String> {
+    pub fn grade(school: School, grade: Int) -> List<String>
         school.grades
         |> Iter.filter(fn (_name, in_grade) -> in_grade == grade)
         |> Iter.map(.first)
         |> Iter.sort()
-    }
-}
+    end
+end
 
 // FILE: grade_school_test.nomi
 import grade_school.School
 
 /// Adds each `(name, grade)` in turn, answering the school after all of
 /// them and whether each was added.
-fn enroll(students: List<(String, Int)>) -> (School, List<Bool>) {
+fn enroll(students: List<(String, Int)>) -> (School, List<Bool>)
     students
-    |> Iter.map_reduce(School.new(), fn school, (name, grade) -> {
-        case School.add(school, name, grade) {
+    |> Iter.map_reduce(School.new(), fn school, (name, grade) ->
+        case School.add(school, name, grade)
             Ok(added) -> (added, True)
             Err(_) -> (school, False)
-        }
-    })
-}
+        end
+    end)
+end
 
-test "adding students" {
+test "adding students"
     [
         ("Add a student", [("Aimee", 2)], [True]),
         (
@@ -92,13 +92,13 @@ test "adding students" {
             [True, True, False, True],
         ),
     ]
-    |> subtests (description, students, expected), description {
+    |> subtests (description, students, expected), description
         (_school, added) = enroll(students)
         assert added == expected
-    }
-}
+    end
+end
 
-test "the roster" {
+test "the roster"
     [
         ("Roster is empty when no student is added", [], []),
         ("Student is added to the roster", [("Aimee", 2)], ["Aimee"]),
@@ -146,13 +146,13 @@ test "the roster" {
             ["Anna", "Barb", "Charlie", "Alex", "Peter", "Zoe", "Jim"],
         ),
     ]
-    |> subtests (description, students, expected), description {
+    |> subtests (description, students, expected), description
         (school, _added) = enroll(students)
         assert School.roster(school) == expected
-    }
-}
+    end
+end
 
-test "one grade" {
+test "one grade"
     [
         ("Grade is empty if no students in the roster", [], 1, []),
         (
@@ -186,11 +186,11 @@ test "one grade" {
             ["Bradley", "Franklin"],
         ),
     ]
-    |> subtests (description, students, grade, expected), description {
+    |> subtests (description, students, grade, expected), description
         (school, _added) = enroll(students)
         assert School.grade(school, grade) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok adding students (5 cases)

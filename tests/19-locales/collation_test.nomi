@@ -1,10 +1,10 @@
 import std::collation.{CaseFirst, Collator, Strength}
 
-fn sorted(words: List<String>, collator: Collator) -> List<String> {
+fn sorted(words: List<String>, collator: Collator) -> List<String>
     Iter.sort_with(words, &Collator.compare(collator, &1, &2))
-}
+end
 
-test "each language puts its letters in its own order" {
+test "each language puts its letters in its own order"
     names = ["Öberg", "Zorn", "Ärlig", "Åberg", "Abel"]
 
     assert sorted(names, Collator.new(Locale`de`)) == ["Abel", "Åberg", "Ärlig", "Öberg", "Zorn"]
@@ -23,9 +23,9 @@ test "each language puts its letters in its own order" {
         "Zając",
         "Żak",
     ]
-}
+end
 
-test "letters made of two characters" {
+test "letters made of two characters"
     czech = ["ihned", "chata", "hrad", "cesta"]
     assert sorted(czech, Collator.new(Locale`cs`)) == ["cesta", "hrad", "chata", "ihned"]
 
@@ -33,9 +33,9 @@ test "letters made of two characters" {
     assert sorted(spanish, Collator.new(Locale`es`)) == ["chico", "cuna", "dama"]
     assert sorted(spanish, Collator.new(Locale`es-u-co-trad`)) == ["cuna", "chico", "dama"]
     assert sorted(["ñu", "nube", "oso"], Collator.new(Locale`es`)) == ["nube", "ñu", "oso"]
-}
+end
 
-test "a locale's alternate orders" {
+test "a locale's alternate orders"
     phonebook = Collator.new(Locale`de-u-co-phonebk`)
     assert sorted(["Muller", "Müller", "Mueller"], phonebook) == ["Mueller", "Müller", "Muller"]
 
@@ -44,9 +44,9 @@ test "a locale's alternate orders" {
         "Muller",
         "Müller",
     ]
-}
+end
 
-test "strength" {
+test "strength"
     primary = Collator.new(Locale`en`, strength: Strength.Primary)
     assert Collator.compare(primary, "resume", "Résumé") == Ordering.Equal
 
@@ -57,9 +57,9 @@ test "strength" {
     tertiary = Collator.new(Locale`en`)
     assert Collator.compare(tertiary, "resume", "Resume") == Ordering.Less
     assert Collator.compare(Collator.new(Locale`en-u-ks-level1`), "a", "Á") == Ordering.Equal
-}
+end
 
-test "digits, case and punctuation" {
+test "digits, case and punctuation"
     files = ["file10.txt", "file9.txt", "file100.txt"]
     assert sorted(files, Collator.new(Locale`en`)) == ["file10.txt", "file100.txt", "file9.txt"]
 
@@ -103,18 +103,18 @@ test "digits, case and punctuation" {
     ) == Ordering.Greater
 
     assert Collator.compare(Collator.new(Locale`en`), "de luge", "delta") == Ordering.Less
-}
+end
 
-test "sort keys order as the collator does" {
+test "sort keys order as the collator does"
     sv = Collator.new(Locale`sv`)
     names = ["Öberg", "Zorn", "Åberg"]
     by_key = Iter.sort_by(names, &Collator.sort_key(sv, &1))
     assert by_key == sorted(names, sv)
     assert Collator.sort_key(sv, "Zorn") < Collator.sort_key(sv, "Åberg")
     assert Collator.new(Locale`sv`) == sv
-}
+end
 
-test "case in a language" {
+test "case in a language"
     assert String.uppercase_in("istanbul", Locale`tr`) == "İSTANBUL"
     assert String.lowercase_in("İSTANBUL", Locale`tr`) == "istanbul"
     assert String.lowercase_in("KIRMIZI", Locale`tr`) == "kırmızı"
@@ -122,4 +122,4 @@ test "case in a language" {
     assert String.uppercase_in("Straße", Locale`de`) == "STRASSE"
     assert String.lowercase_in("ΟΔΥΣΣΕΥΣ", Locale`el`) == "οδυσσευς"
     assert String.fold_case("Straße") == String.fold_case("STRASSE")
-}
+end

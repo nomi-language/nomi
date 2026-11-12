@@ -9,21 +9,21 @@ import "testing"
 func TestIRDottedDistinct_APatternHeadNamesTheNamespacedType(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Civil {}
+struct Civil end
 
 type Civil.Days Int
 
-fn days_value(Civil.Days(n)) -> Int {
+fn days_value(Civil.Days(n)) -> Int
     n
-}
+end
 
-fn main() {
+fn main()
     io.print("${days_value(Civil.Days(3))}")
     f = fn Civil.Days(n) -> n + 1
     io.print("${f(Civil.Days(4))}")
-    case Civil.Days(5) {
+    case Civil.Days(5)
         Civil.Days(n) -> io.print("${n}")
-    }
-}
+    end
+end
 `, "3\n5\n5\n")
 }

@@ -17,18 +17,18 @@ func TestFieldAccessOnBareVariant_Rejected(t *testing.T) {
 		src  string
 		want string
 	}{
-		{"nullary prelude variant", `fn f() {
+		{"nullary prelude variant", `fn f()
   x = None.foo
   x
-}`, "enum 'Maybe' has no field 'foo' (match on its variants instead)"},
-		{"dot at a line end continues onto the next line", `fn f() {
+end`, "enum 'Maybe' has no field 'foo' (match on its variants instead)"},
+		{"dot at a line end continues onto the next line", `fn f()
   None.
     Task
-}`, "enum 'Maybe' has no field 'Task' (match on its variants instead)"},
-		{"variant constructor", `fn f() {
+end`, "enum 'Maybe' has no field 'Task' (match on its variants instead)"},
+		{"variant constructor", `fn f()
   x = Some.foo
   x
-}`, "has no field 'foo'"},
+end`, "has no field 'foo'"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -50,23 +50,23 @@ func TestFieldAccessOnBareVariant_Rejected(t *testing.T) {
 // field gives it. Variants that disagree leave the read no one type, so it
 // is rejected at the field; variants that agree read as that type.
 func TestEnumFieldRead_VariantsMustAgreeOnItsType(t *testing.T) {
-	const decl = `enum Shape {
+	const decl = `enum Shape
     Rect {w: Int, label: String}
     Circle {w: Float, label: String}
     Dot
-}
+end
 
 `
-	errs := checkWithStdlib(decl + `fn f(s: Shape) -> String {
+	errs := checkWithStdlib(decl + `fn f(s: Shape) -> String
     s.label
-}
+end
 `)
 	if len(errs) != 0 {
 		t.Fatalf("the front end rejects a field every variant types alike: %v", errs)
 	}
-	errs = checkWithStdlib(decl + `fn f(s: Shape) -> Int {
+	errs = checkWithStdlib(decl + `fn f(s: Shape) -> Int
     s.w
-}
+end
 `)
 	want := "field 'w' is Int in Shape.Rect and Float in Shape.Circle, so reading it off a Shape has no one type"
 	for _, e := range errs {

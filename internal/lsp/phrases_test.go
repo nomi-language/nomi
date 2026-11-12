@@ -15,7 +15,7 @@ import (
 func phraseProject() map[string]string {
 	return map[string]string{
 		"nomi.toml":            "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
-		"main.nomi":            "import {\n    std::io\n    cart\n}\n\nfn main() {\n    io.print(Phrase.format(cart.greeting(\"Anna\"), Locale`pl`))\n}\n",
+		"main.nomi":            "import\n    std::io\n    cart\nend\n\nfn main()\n    io.print(Phrase.format(cart.greeting(\"Anna\"), Locale`pl`))\nend\n",
 		"cart.nomi":            "/// Greets a customer.\npub phrase greeting(name: String) `Hello, {$name}!`\n",
 		"locales/pl/cart.toml": "[greeting]\nsource = '''Hi, {$name}!'''\ntext = '''Cześć, {$name}!'''\n",
 	}

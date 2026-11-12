@@ -4,7 +4,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// `Vector<T>` as `rt.Vector[T]` — the `#[…]` literal, the `impl Vector<T>` method
+// `Vector<T>` as `rt.Vector[T]` — the `[…]` literal, the `impl Vector<T>` method
 // surface, the five interface impls, and the `Iter` source.
 //
 // # The kind, and the comparator
@@ -25,11 +25,11 @@ import (
 // `cmp` must be as narrow as the reference answer, not as wide as the builder
 // could make it:
 //
-//	Vector.compare(#["a", "z"], #["b"])   FAULT: Comparable.compare: no implementation for type 'String'
-//	Vector.compare(#[#[1]], #[#[2]])      FAULT: Comparable.compare: no implementation for type 'Vector'
-//	Vector.compare(#[1], #[2])            Less
-//	Vector.compare(#[1.0], #[2.0])        Less
-//	Iter.sort(#["c", "a", "b"])           [a, b, c]
+//	Vector.compare(["a", "z"], ["b"])   FAULT: Comparable.compare: no implementation for type 'String'
+//	Vector.compare([[1]], [[2]])      FAULT: Comparable.compare: no implementation for type 'Vector'
+//	Vector.compare([1], [2])            Less
+//	Vector.compare([1.0], [2.0])        Less
+//	Iter.sort(["c", "a", "b"])           [a, b, c]
 
 //
 // Int and Float answer and nothing else does, because `Vector.compare` raises
@@ -41,7 +41,7 @@ import (
 // So `vectorCmp` routes through `orderingOf` and NOT `sortComparator`, and the
 // two are deliberately different widths for a reason the type system cannot
 // express. The wide resolution would print `Less` for
-// `Vector.compare(#["a"], #["b"])` where the recorded answer FAULTS, which an
+// `Vector.compare(["a"], ["b"])` where the recorded answer FAULTS, which an
 // output comparison only sees if the fixture contains the row.
 //
 // # Why this is an owner-keyed arm and not the stdlib path
@@ -79,11 +79,11 @@ import (
 //     31), …)` from a seed of 19. Both operations WRAP; a checked `*` would trap
 //     where the right answer is a number.
 //   - `impl Comparable for Vector<T>` is lexicographic with a proper prefix Less,
-//     and length must NOT be consulted first — `#[2]` is Greater than `#[1, 9]`.
+//     and length must NOT be consulted first — `[2]` is Greater than `[1, 9]`.
 //
 // # What is NOT here
 //
-// There is no empty constructor: the empty vector is the literal `#[]`
+// There is no empty constructor: the empty vector is the literal `[]`
 // (irvector.go). `Vector.next_item` DOES have one, because std
 // declares it as the driver for the `Iter` impl and `vectors_test.nomi`'s doctest
 // reads it — where `Set.next_item` does not exist at all.

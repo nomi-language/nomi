@@ -34,16 +34,16 @@ func wantOneTypeParamError(t *testing.T, errs []analysis.TypeError, line, col in
 // rule as a file-level function's. This is the fuzzer's program: the
 // function's own `t` is unused, and its `T` is the impl's.
 func TestFunctionTypeParams_LowercaseInImplIsRejected(t *testing.T) {
-	src := `struct Span<T> {
+	src := `struct Span<T>
     start: T
     stop: T
-}
+end
 
-impl Span<T> {
-    fn is_longer<t>(span: Span<T>, other: Span<T>) -> Bool where T: Comparable {
+impl Span<T>
+    fn is_longer<t>(span: Span<T>, other: Span<T>) -> Bool where T: Comparable
         span.stop > other.stop
-    }
-}
+    end
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	wantOneTypeParamError(t, errs, 7, 18,
@@ -61,9 +61,9 @@ func TestFunctionTypeParams_LowercaseOnHostFnIsRejected(t *testing.T) {
 }
 
 func TestFunctionTypeParams_UnusedInFileFunctionIsRejected(t *testing.T) {
-	src := `fn unused<U>(x: Int) -> Int {
+	src := `fn unused<U>(x: Int) -> Int
     x
-}
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	wantOneTypeParamError(t, errs, 1, 11,
@@ -73,15 +73,15 @@ func TestFunctionTypeParams_UnusedInFileFunctionIsRejected(t *testing.T) {
 
 // The impl's `T` is in the signature; the function's own `U` is not.
 func TestFunctionTypeParams_UnusedInImplFunctionIsRejected(t *testing.T) {
-	src := `struct Box<T> {
+	src := `struct Box<T>
     v: T
-}
+end
 
-impl Box<T> {
-    fn odd<U>(b: Box<T>) -> T {
+impl Box<T>
+    fn odd<U>(b: Box<T>) -> T
         b.v
-    }
-}
+    end
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	wantOneTypeParamError(t, errs, 6, 12,
@@ -91,9 +91,9 @@ impl Box<T> {
 
 // A `where` bound alone does not determine a type parameter.
 func TestFunctionTypeParams_OnlyBoundedIsRejected(t *testing.T) {
-	src := `fn shown<T>(x: Int) -> Int where T: Display {
+	src := `fn shown<T>(x: Int) -> Int where T: Display
     x
-}
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	wantOneTypeParamError(t, errs, 1, 10,
@@ -102,13 +102,13 @@ func TestFunctionTypeParams_OnlyBoundedIsRejected(t *testing.T) {
 }
 
 func TestFunctionTypeParams_UnusedInInterfaceFunctionIsRejected(t *testing.T) {
-	src := `interface Sized {
+	src := `interface Sized
     fn size(value: self) -> Int
 
-    fn twice<K>(value: self) -> Int {
+    fn twice<K>(value: self) -> Int
         size(value) * 2
-    }
-}
+    end
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	wantOneTypeParamError(t, errs, 4, 14,
@@ -117,12 +117,12 @@ func TestFunctionTypeParams_UnusedInInterfaceFunctionIsRejected(t *testing.T) {
 }
 
 func TestFunctionTypeParams_UnusedInNestedFunctionIsRejected(t *testing.T) {
-	src := `fn outer(x: Int) -> Int {
-    fn inner<Q>(y: Int) -> Int {
+	src := `fn outer(x: Int) -> Int
+    fn inner<Q>(y: Int) -> Int
         y
-    }
+    end
     inner(x)
-}
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	wantOneTypeParamError(t, errs, 2, 14,
@@ -134,32 +134,32 @@ func TestFunctionTypeParams_UnusedInNestedFunctionIsRejected(t *testing.T) {
 // only the return type names, an impl function that redeclares the impl's
 // own `T`, and one that adds its own parameter beside the impl's.
 func TestFunctionTypeParams_DeterminedParametersAreAccepted(t *testing.T) {
-	src := `struct Span<T> {
+	src := `struct Span<T>
     start: T
     stop: T
-}
+end
 
-impl Span<T> {
-    fn first<T>(span: Span<T>) -> T {
+impl Span<T>
+    fn first<T>(span: Span<T>) -> T
         span.start
-    }
+    end
 
-    fn pair<U>(span: Span<T>, u: U) -> (T, U) {
+    fn pair<U>(span: Span<T>, u: U) -> (T, U)
         (span.start, u)
-    }
+    end
 
-    fn is_longer(span: Span<T>, other: Span<T>) -> Bool where T: Comparable {
+    fn is_longer(span: Span<T>, other: Span<T>) -> Bool where T: Comparable
         span.stop > other.stop
-    }
-}
+    end
+end
 
-fn has_any_items<I, T>(items: I) -> Bool where I: Iter<T> {
+fn has_any_items<I, T>(items: I) -> Bool where I: Iter<T>
     Iter.count(items) > 0
-}
+end
 
-fn none<T>() -> Maybe<T> {
+fn none<T>() -> Maybe<T>
     None
-}
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	expectNoErrorsT(t, errs)

@@ -14,14 +14,14 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Reverses a string.
 
 /// Reverses `text` by grapheme, so a combining mark stays on its letter.
-pub fn reverse(text: String) -> String {
+pub fn reverse(text: String) -> String
     String.reverse(text)
-}
+end
 
 // FILE: reverse_string_test.nomi
 import reverse_string.reverse
 
-test "reverses strings" {
+test "reverses strings"
     [
         ("an empty string", "", ""),
         ("a word", "robot", "tobor"),
@@ -33,10 +33,10 @@ test "reverses strings" {
         ("grapheme cluster with pre-combined form", "Würstchenstand", "dnatsnehctsrüW"),
         ("grapheme clusters", "ผู้เขียนโปรแกรม", "มรกแรปโนยขีเผู้"),
     ]
-    |> subtests (description, text, expected), description {
+    |> subtests (description, text, expected), description
         assert reverse(text) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok reverses strings (9 cases)

@@ -18,41 +18,41 @@ func TestIRBacklogCalls_ThreeSegmentQualifier(t *testing.T) {
 	const src = `import std::calendar
 import std::json.Json
 
-pub enum Probe.Reading {
+pub enum Probe.Reading
   Steady
   Spike Int
-}
+end
 
-fn severity(r: Probe.Reading) -> Int {
-  case r {
+fn severity(r: Probe.Reading) -> Int
+  case r
     Probe.Reading.Steady -> 0
     Probe.Reading.Spike(n) -> n
-  }
-}
+  end
+end
 
-fn decode_error(src: String) -> String {
-  case Json.decode(src) {
+fn decode_error(src: String) -> String
+  case Json.decode(src)
     Ok(_) -> "parsed"
     Err(e) -> Json.DecodeError.to_string(e)
-  }
-}
+  end
+end
 
-test "a namespaced variant, bare and with a payload" {
+test "a namespaced variant, bare and with a payload"
   assert severity(Probe.Reading.Steady) == 0
   assert severity(Probe.Reading.Spike(3)) == 3
-}
+end
 
-test "a namespaced type's impl function" {
+test "a namespaced type's impl function"
   assert decode_error("not json") == "json decode error at line 1, col 2: unexpected character 'o'"
-}
+end
 
-test "a stdlib module's type-owned function" {
-  got = case calendar.Date.parse("05/04/2026") {
+test "a stdlib module's type-owned function"
+  got = case calendar.Date.parse("05/04/2026")
     Ok(_) -> "parsed"
     Err(_) -> "rejected"
-  }
+  end
   assert got == "rejected"
-}
+end
 `
 	irTestBodyVM(t, src, 3)
 }
@@ -63,40 +63,40 @@ test "a stdlib module's type-owned function" {
 // position's slot, then named ones, and a slot the callee defaulted records
 // nothing (recordCallSlots).
 func TestIRBacklogCalls_DefaultsAndNamedArgumentsInATestBody(t *testing.T) {
-	const src = `fn greet(name: String, greeting: String = "Hello", mark: String = "!") -> String {
+	const src = `fn greet(name: String, greeting: String = "Hello", mark: String = "!") -> String
   greeting + ", " + name + mark
-}
+end
 
-fn skip(req: Int, opt: String = "a", scale: Int = 2, cb: (Int) -> Int) -> Int {
+fn skip(req: Int, opt: String = "a", scale: Int = 2, cb: (Int) -> Int) -> Int
   cb(req) * scale + String.length(opt)
-}
+end
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
   n * 2
-}
+end
 
-test "an omitted default" {
+test "an omitted default"
   assert greet("World") == "Hello, World!"
   assert greet("World", "Hi") == "Hi, World!"
-}
+end
 
-test "named arguments and a trailing function" {
+test "named arguments and a trailing function"
   assert greet("Ada", mark: "?") == "Hello, Ada?"
   assert skip(5, double) == 21
   assert skip(5, scale: 3, double) == 31
   assert skip(req: 5, fn n -> n + 1) == 13
-}
+end
 
-test "a failing short call reports its written arguments" {
+test "a failing short call reports its written arguments"
   who = "World"
   assert greet(who) == "Hi, World!"
-}
+end
 
-test "a failing named call reports positional rows then named rows" {
+test "a failing named call reports positional rows then named rows"
   n = 5
   s = 3
   assert skip(n, scale: s, double) == 0
-}
+end
 `
 	irTestBodyVM(t, src, 4)
 }
@@ -148,39 +148,39 @@ func irBacklogProgramVM(t *testing.T, files map[string]string, entry string, wan
 // the declaring file's body; a bare `loop` imported from std/iter is Iter.loop.
 func TestIRBacklogCalls_BareImportedCallees(t *testing.T) {
 	irBacklogProgramVM(t, map[string]string{
-		"api.nomi": `pub fn make(name: String) -> String {
+		"api.nomi": `pub fn make(name: String) -> String
   "widget:" + name
-}
+end
 
-pub fn twice(n: Int) -> Int {
+pub fn twice(n: Int) -> Int
   n * 2
-}
+end
 `,
-		"main_test.nomi": `import {
+		"main_test.nomi": `import
   api.{make, twice as double}
   std::iter.Iter.loop
-}
+end
 
-fn countdown(from: Int) -> Int {
-  loop(from, fn n -> {
-    if n == 0 { break n }
+fn countdown(from: Int) -> Int
+  loop(from, fn n ->
+    if n == 0 then break n
     n - 1
-  })
-}
+  end)
+end
 
-test "a selectively imported sibling fn" {
+test "a selectively imported sibling fn"
   assert make("Ada") == "widget:Ada"
   assert double(21) == 42
-}
+end
 
-test "a bare loop" {
+test "a bare loop"
   assert countdown(5) == 0
-}
+end
 
-test "a failing bare sibling call reports its argument" {
+test "a failing bare sibling call reports its argument"
   who = "Bo"
   assert make(who) == "widget:Ada"
-}
+end
 `,
 	}, "main_test.nomi", 3)
 }
@@ -189,46 +189,46 @@ test "a failing bare sibling call reports its argument" {
 // monomorphic instance on the VM (irMonoTemplate), from a named function or a
 // test body; a failing assertion records the call's argument row.
 func TestIRBacklogCalls_ErasedGenericCallees(t *testing.T) {
-	const src = `interface Showable {
+	const src = `interface Showable
   fn show(value: self) -> String
-}
+end
 
-struct User {
+struct User
   name: String
-}
+end
 
-impl Showable for User {
-  fn show(u: User) -> String {
+impl Showable for User
+  fn show(u: User) -> String
     "user:" + u.name
-  }
-}
+  end
+end
 
-fn announce<T>(value: T) -> String where T: Showable {
+fn announce<T>(value: T) -> String where T: Showable
   "announce(" + Showable.show(value) + ")"
-}
+end
 
-fn same<T>(value: T) -> T {
+fn same<T>(value: T) -> T
   value
-}
+end
 
-fn via() -> String {
+fn via() -> String
   announce(User{name: "Alice"})
-}
+end
 
-test "from a named function" {
+test "from a named function"
   assert via() == "announce(user:Alice)"
-}
+end
 
-test "from a test body" {
+test "from a test body"
   assert announce(User{name: "Bob"}) == "announce(user:Bob)"
   assert same(3) == 3
   assert same("x") == "x"
-}
+end
 
-test "a failing generic call reports its argument" {
+test "a failing generic call reports its argument"
   n = 4
   assert same(n) == 5
-}
+end
 `
 	irTestBodyVM(t, src, 3)
 }
@@ -236,18 +236,18 @@ test "a failing generic call reports its argument" {
 // The struct call form with a literal argument builds the brace literal:
 // written fields in order, then the omitted fields' defaults.
 func TestIRBacklogCalls_StructCallFormWithALiteral(t *testing.T) {
-	const src = `struct Defaulted {
+	const src = `struct Defaulted
   a: Int
   b: String = "default"
-}
+end
 
-test "a literal argument" {
-  d = Defaulted(.{a: 7})
-  e = Defaulted(.{a: 1, b: "x"})
+test "a literal argument"
+  d = Defaulted({a: 7})
+  e = Defaulted({a: 1, b: "x"})
   assert d.a == 7
   assert d.b == "default"
   assert e.b == "x"
-}
+end
 `
 	irTestBodyVM(t, src, 1)
 }

@@ -25,15 +25,17 @@ func TestIRDecline_ConcurrentLoweringsKeepTheirOwnCensus(t *testing.T) {
 		at       []*Decline
 	}
 	lowerOne := func(name string) (heard, map[string][]string, error) {
-		src := fmt.Sprintf(`fn planted_decline(n: Int) -> Int { n }
+		src := fmt.Sprintf(`fn planted_decline(n: Int) -> Int
+  n
+end
 
-fn %s(n: Int) -> Int {
+fn %s(n: Int) -> Int
   planted_decline(n) + 1
-}
+end
 
-fn main() {
+fn main()
   _ = %s(1)
-}
+end
 `, name, name)
 		p, err := AnalyzeSource(name+".nomi", src)
 		if err != nil {
@@ -67,12 +69,12 @@ fn main() {
 				if len(h.observed) != 1 || h.observed[name] != "a planted decline" {
 					errs[i] = append(errs[i], fmt.Sprintf("the hooks heard %v; want only %s's planted decline", h.observed, name))
 				}
-				if len(h.at) != 1 || h.at[0].Fn != name || h.at[0].Line != 4 {
+				if len(h.at) != 1 || h.at[0].Fn != name || h.at[0].Line != 6 {
 					var got []string
 					for _, d := range h.at {
 						got = append(got, fmt.Sprintf("%s at line %d", d.Fn, d.Line))
 					}
-					errs[i] = append(errs[i], fmt.Sprintf("the At hook heard %v; want only %s at line 4", got, name))
+					errs[i] = append(errs[i], fmt.Sprintf("the At hook heard %v; want only %s at line 6", got, name))
 				}
 				var recorded []string
 				for path, list := range declines {

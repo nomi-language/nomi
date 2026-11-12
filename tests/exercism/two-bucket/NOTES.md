@@ -15,7 +15,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/two-bucket.
 - A frontier that adds no new state means the goal cannot be reached, which is `Error.Impossible`; that covers a goal larger than both buckets with no case of its own.
 - The answer reads the bucket from the state that reaches the goal, with a guard, `Some((one, two)) when one == goal`, and a second arm for bucket two.
 - `Iter.loop` would not do here: a loop breaks with a value of its state's type, and the search ends with a `Result`.
-- The 11 canonical cases are one `subtests` table, annotated so each expected `Ok(.{...})` is an `Outcome`; the bucket sizes are one `(one, two)` column, taken apart in the row pattern.
+- The 11 canonical cases are one `subtests` table, annotated so each expected `Ok({...})` is an `Outcome`; the bucket sizes are one `(one, two)` column, taken apart in the row pattern.
 
 ## Friction
 

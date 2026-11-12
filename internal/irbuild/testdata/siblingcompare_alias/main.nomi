@@ -4,12 +4,12 @@
 //
 // TestSiblingCompare_AnAliasedTypeImportOrdersARange runs it. The range rows
 // are the ones siblingCompareAt answers.
-import {
+import
     std::io
     widget.{Gadget as Doodad, Meters as Span, Rank as Tier}
-}
+end
 
-fn main() {
+fn main()
     a = Doodad{n: 1}
     b = Doodad{n: 2}
     io.print(a < b)
@@ -65,4 +65,4 @@ fn main() {
         |> Iter.map(fn x -> x.n)
         |> Iter.to_list()
     )
-}
+end

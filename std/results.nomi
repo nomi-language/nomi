@@ -1,4 +1,4 @@
-import {
+import
     bool.Bool.{self, False, True}
     display.Display
     equatable.Equatable
@@ -6,7 +6,7 @@ import {
     iter.Iter
     lists.List
     maybe.Maybe.{self, None, Some}
-}
+end
 
 //# `Result<T, E>`: the outcome of something that can fail, `Ok(value)` or
 //# `Err(error)`. Its owner functions are called `Result.map(r, f)` and so
@@ -30,111 +30,111 @@ pub host type Infallible
 //! assert "${ok}" == "Ok(1)"
 //! assert "${failed}" == "Err(no)"
 //!
-//! parse = fn s: String -> {
-//!     if s == "" {
+//! parse = fn s: String ->
+//!     if s == "" then
 //!         Result.Err("empty")
-//!     } else {
+//!     else
 //!         Result.Ok(s)
-//!     }
-//! }
+//!     end
+//! end
 //!
-//! value = case parse("hi") {
+//! value = case parse("hi")
 //!     .Ok(v) -> v
 //!     .Err(_) -> "?"
-//! }
+//! end
 //!
 //! assert value == "hi"
 //
-pub enum Result<T, E> {
+pub enum Result<T, E>
     Ok T
     Err E
-}
+end
 
-impl Result<T, E> {
+impl Result<T, E>
     /// Returns True when the value is Ok.
     //! assert Result.is_ok(Result.Ok(3))
     //! refute Result.is_ok(Result.Err("bad"))
     //
-    pub fn is_ok<T, E>(result: Result<T, E>) -> Bool {
-        case result {
+    pub fn is_ok<T, E>(result: Result<T, E>) -> Bool
+        case result
             Ok(_) -> True
             Err(_) -> False
-        }
-    }
+        end
+    end
 
     /// Returns True when the value is Err.
     //! refute Result.is_err(Result.Ok(3))
     //! assert Result.is_err(Result.Err("bad"))
     //
-    pub fn is_err<T, E>(result: Result<T, E>) -> Bool {
-        case result {
+    pub fn is_err<T, E>(result: Result<T, E>) -> Bool
+        case result
             Ok(_) -> False
             Err(_) -> True
-        }
-    }
+        end
+    end
 
     /// Transforms the Ok value, passes Err through.
     //! assert Result.map(Result.Ok(3), &(&1 * 2)) == Result.Ok(6)
     //! assert Result.map(Result.Err("bad"), &(&1 * 2)) == Result.Err("bad")
     //
-    pub fn map<T, E, U>(result: Result<T, E>, f: (T) -> U) -> Result<U, E> {
-        case result {
+    pub fn map<T, E, U>(result: Result<T, E>, f: (T) -> U) -> Result<U, E>
+        case result
             Ok(v) -> Result.Ok(f(v))
             Err(e) -> Result.Err(e)
-        }
-    }
+        end
+    end
 
     /// Returns the Ok value, or the default if Err.
     //! assert Result.with_default(Result.Ok(5), 0) == 5
     //! assert Result.with_default(Result.Err("bad"), 0) == 0
     //
-    pub fn with_default<T, E>(result: Result<T, E>, default: T) -> T {
-        case result {
+    pub fn with_default<T, E>(result: Result<T, E>, default: T) -> T
+        case result
             Ok(v) -> v
             Err(_) -> default
-        }
-    }
+        end
+    end
 
     /// Like map, but the function returns a Result. Flattens the result.
-    //! parse_int = fn s: String -> {
-    //!     if s == "1" {
+    //! parse_int = fn s: String ->
+    //!     if s == "1" then
     //!         Result.Ok(1)
-    //!     } else {
+    //!     else
     //!         Result.Err("nope")
-    //!     }
-    //! }
+    //!     end
+    //! end
     //!
     //! assert Result.flat_map(Result.Ok("1"), &parse_int(&1)) == Result.Ok(1)
     //! assert Result.flat_map(Result.Ok("x"), &parse_int(&1)) == Result.Err("nope")
     //
-    pub fn flat_map<T, E, U>(result: Result<T, E>, f: (T) -> Result<U, E>) -> Result<U, E> {
-        case result {
+    pub fn flat_map<T, E, U>(result: Result<T, E>, f: (T) -> Result<U, E>) -> Result<U, E>
+        case result
             Ok(v) -> f(v)
             Err(e) -> Result.Err(e)
-        }
-    }
+        end
+    end
 
     /// Transforms the Err value, passes Ok through.
     //! assert Result.map_err(Result.Err("bad"), &("error: " + &1)) == Result.Err("error: bad")
     //! assert Result.map_err(Result.Ok(3), &("error: " + &1)) == Result.Ok(3)
     //
-    pub fn map_err<T, E, F>(result: Result<T, E>, f: (E) -> F) -> Result<T, F> {
-        case result {
+    pub fn map_err<T, E, F>(result: Result<T, E>, f: (E) -> F) -> Result<T, F>
+        case result
             Ok(v) -> Result.Ok(v)
             Err(e) -> Result.Err(f(e))
-        }
-    }
+        end
+    end
 
     /// Converts Result to Maybe. Err becomes None; the error value is discarded.
     //! assert Result.to_maybe(Result.Ok(3)) == Some(3)
     //! assert Result.to_maybe(Result.Err("bad")) == None
     //
-    pub fn to_maybe<T, E>(result: Result<T, E>) -> Maybe<T> {
-        case result {
+    pub fn to_maybe<T, E>(result: Result<T, E>) -> Maybe<T>
+        case result
             Ok(v) -> Maybe.Some(v)
             Err(_) -> Maybe.None
-        }
-    }
+        end
+    end
 
     /// Returns Ok of every value in order when every result is Ok, and otherwise
     /// the first Err. It stops consuming the iterator at that Err.
@@ -147,13 +147,9 @@ impl Result<T, E> {
     //!
     //! checked =
     //!     [3, 1, 2]
-    //!     |> Iter.map(fn n -> {
-    //!         if n > 0 {
-    //!             Result.Ok(n * 10)
-    //!         } else {
-    //!             Result.Err(n)
-    //!         }
-    //!     })
+    //!     |> Iter.map(fn n ->
+    //!         if n > 0 then Result.Ok(n * 10) else Result.Err(n)
+    //!     end)
     //!     |> Result.collect()
     //!
     //! assert checked == Result.Ok([30, 10, 20])
@@ -161,21 +157,21 @@ impl Result<T, E> {
     //! // An infinite source ends: collect stops pulling at the first Err.
     //! stopped =
     //!     Range.naturals()
-    //!     |> Iter.map(fn n -> if n < 3 { Result.Ok(n) } else { Result.Err(n) })
+    //!     |> Iter.map(fn n -> if n < 3 then Result.Ok(n) else Result.Err(n))
     //!     |> Result.collect()
     //!
     //! assert stopped == Result.Err(3)
     //
-    pub fn collect<T, E>(results: Iter<Result<T, E>>) -> Result<List<T>, E> {
-        reversed = Iter.reduce(results, Result.Ok([]), fn acc: Result<List<T>, E>, item -> {
-            case item {
+    pub fn collect<T, E>(results: Iter<Result<T, E>>) -> Result<List<T>, E>
+        reversed = Iter.reduce(results, Result.Ok([]), fn acc: Result<List<T>, E>, item ->
+            case item
                 Ok(v) -> Result.map(acc, fn vs -> [v, ..vs])
                 Err(e) -> break Result.Err(e)
-            }
-        })
+            end
+        end)
 
         Result.map(reversed, fn vs -> Iter.reverse(vs))
-    }
+    end
 
     /// Splits results into every Ok value and every Err value, each list in
     /// input order. It consumes the whole iterator.
@@ -193,25 +189,25 @@ impl Result<T, E> {
     //!
     //! split =
     //!     [1, -2, 3, -4]
-    //!     |> Iter.map(fn n -> if n > 0 { Result.Ok(n) } else { Result.Err(n) })
+    //!     |> Iter.map(fn n -> if n > 0 then Result.Ok(n) else Result.Err(n))
     //!     |> Result.partition()
     //!
     //! assert split == ([1, 3], [-2, -4])
     //
-    pub fn partition<T, E>(results: Iter<Result<T, E>>) -> (List<T>, List<E>) {
-        state = Iter.reduce(results, ([], []), fn state: (List<T>, List<E>), item -> {
+    pub fn partition<T, E>(results: Iter<Result<T, E>>) -> (List<T>, List<E>)
+        state = Iter.reduce(results, ([], []), fn state: (List<T>, List<E>), item ->
             (oks, errs) = state
 
-            case item {
+            case item
                 Ok(v) -> ([v, ..oks], errs)
                 Err(e) -> (oks, [e, ..errs])
-            }
-        })
+            end
+        end)
 
         (oks, errs) = state
         (Iter.reverse(oks), Iter.reverse(errs))
-    }
-}
+    end
+end
 
 derive Display for Result<T, E>
 derive Equatable for Result<T, E>
@@ -221,20 +217,20 @@ derive Hashable for Result<T, E>
 // returns its argument: a value of Infallible stands for any type, and the
 // impls let a type that contains Infallible (`Result<Int, Infallible>`)
 // render, compare and hash through its derived impls.
-impl Display for Infallible {
-    fn to_string(value: Infallible) -> String {
+impl Display for Infallible
+    fn to_string(value: Infallible) -> String
         value
-    }
-}
+    end
+end
 
-impl Equatable for Infallible {
-    fn equal(a: Infallible, _b: Infallible) -> Bool {
+impl Equatable for Infallible
+    fn equal(a: Infallible, _b: Infallible) -> Bool
         a
-    }
-}
+    end
+end
 
-impl Hashable for Infallible {
-    fn hash(value: Infallible) -> Int {
+impl Hashable for Infallible
+    fn hash(value: Infallible) -> Int
         value
-    }
-}
+    end
+end

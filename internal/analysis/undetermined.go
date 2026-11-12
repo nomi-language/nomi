@@ -17,7 +17,7 @@ import (
 // element of an empty collection (`[]`, `Iter.to_list([])`,
 // `List.head([])`), the variant a value is not (`Ok(1)`'s error type,
 // `Result.map(Ok(3), f)`'s E), or a collection a call returns empty
-// (`#[]`). A callee makes values of a type argument when its
+// (`[]`). A callee makes values of a type argument when its
 // signature mentions it
 //
 //   - inside a function type: the callee calls a function with, or receives
@@ -39,11 +39,11 @@ import (
 // A call's own result is a value too. A callee whose result is the type
 // argument itself makes a value of it (`fn pick<T>(xs: List<T>) -> T`, so
 // `pick([])` does), and so does a `!` or `?` over a call whose result
-// holds it as the payload: `Vector.get(#[], 0)!` is a value of the vector's
-// element type, where `Vector.get(#[], 0)` alone is a `Maybe` that can only
+// holds it as the payload: `Vector.get([], 0)!` is a value of the vector's
+// element type, where `Vector.get([], 0)` alone is a `Maybe` that can only
 // be None. A discarded or `dbg`'d value counts as much as a bound one: the
 // builder has no representation for a value of no type, so `_ =
-// Vector.get(#[], 0)!` is refused as `dbg Iter.sum([])` is. A `!` or `?`
+// Vector.get([], 0)!` is refused as `dbg Iter.sum([])` is. A `!` or `?`
 // whose unsolved payload no queued call carries (`dbg None!`) is reported
 // at the `!` or `?`.
 //
@@ -485,20 +485,19 @@ func mentionsTypeParam(t Type, tp *TypeParam_) bool {
 func emptyLiteralText(n ast.Node) (string, bool) {
 	switch v := n.(type) {
 	case *ast.ListLit:
-		if len(v.Items) == 0 && v.TypeName == nil {
+		if len(v.Items) == 0 && len(v.Spreads) == 0 && (v.TypeName == nil || v.ShapeHead) {
+			if v.ShapeHead {
+				return v.TypeName.TypeString() + "[]", true
+			}
 			return "[]", true
-		}
-	case *ast.VectorLit:
-		if len(v.Items) == 0 && len(v.Spreads) == 0 && v.TypeName == nil {
-			return "#[]", true
-		}
-	case *ast.SetLit:
-		if len(v.Items) == 0 && len(v.Spreads) == 0 && v.TypeName == nil {
-			return "%[]", true
 		}
 	case *ast.MapLit:
 		if len(v.Entries) == 0 && v.TypeName == nil {
-			return "%{}", true
+			return "{}", true
+		}
+	case *ast.StructLit:
+		if v.EmptyMap && v.TypeName != nil && v.TypeName.TypeString() == "Map" {
+			return "Map{}", true
 		}
 	}
 	return "", false

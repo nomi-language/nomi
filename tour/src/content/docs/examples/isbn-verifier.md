@@ -16,7 +16,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// Reports whether `isbn` is a valid ISBN-10: nine digits and a check
 /// character, a digit or `X` for 10, with dashes allowed anywhere, whose
 /// digits weighted 10 down to 1 sum to a multiple of 11.
-pub fn is_valid(isbn: String) -> Bool {
+pub fn is_valid(isbn: String) -> Bool
     values =
         isbn
         |> String.replace("-", "")
@@ -24,32 +24,32 @@ pub fn is_valid(isbn: String) -> Bool {
         |> Iter.map(fn (i, character) -> value(character, is_check: i == 9))
         |> Maybe.collect()
 
-    case values {
+    case values
         Some(values) when Iter.count(values) == 10 -> checksum(values) % 11 == 0
         _ -> False
-    }
-}
+    end
+end
 
 /// The value of one ISBN character: a digit, or `X` for 10 in the check
 /// position.
-fn value(character: String, is_check: Bool) -> Maybe<Int> {
-    case character {
+fn value(character: String, is_check: Bool) -> Maybe<Int>
+    case character
         "X" when is_check -> Some(10)
         _ -> String.to_int(character)
-    }
-}
+    end
+end
 
-fn checksum(values: List<Int>) -> Int {
+fn checksum(values: List<Int>) -> Int
     values
     |> Iter.with_index()
     |> Iter.map(fn (i, v) -> v * (10 - i))
     |> Iter.sum()
-}
+end
 
 // FILE: isbn_verifier_test.nomi
 import isbn_verifier
 
-test "verifies ISBN-10 numbers" {
+test "verifies ISBN-10 numbers"
     [
         ("valid isbn", "3-598-21508-8", True),
         ("invalid isbn check digit", "3-598-21508-9", False),
@@ -73,10 +73,10 @@ test "verifies ISBN-10 numbers" {
         ("invalid characters are not ignored before checking length", "3598P215088", False),
         ("input is too long but contains a valid isbn", "98245726788", False),
     ]
-    |> subtests (description, isbn, expected), description {
+    |> subtests (description, isbn, expected), description
         assert isbn_verifier.is_valid(isbn) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok verifies ISBN-10 numbers (21 cases)

@@ -599,10 +599,6 @@ func (r *selfRecursion) mustRecurse(n ast.Node, tail, clean bool) bool {
 		}
 		return r.mustRecurseSeq(parts, clean)
 	case *ast.ListLit:
-		return r.mustRecurseSeq(x.Items, clean)
-	case *ast.VectorLit:
-		return r.mustRecurseSeq(x.Operands(), clean)
-	case *ast.SetLit:
 		return r.mustRecurseSeq(x.Operands(), clean)
 	case *ast.TupleLit:
 		return r.mustRecurseSeq(x.Items, clean)
@@ -707,7 +703,7 @@ func (r *selfRecursion) mayCallUncached(n ast.Node) bool {
 		}
 		return r.mayCall(x.Left) || r.mayCall(x.Right)
 	case *ast.ListLit:
-		return r.anyMayCall(x.Items)
+		return r.anyMayCall(x.Operands())
 	case *ast.TupleLit:
 		return r.anyMayCall(x.Items)
 	case *ast.Block:
@@ -820,7 +816,7 @@ func (r *selfRecursion) mayExitUncached(n ast.Node) bool {
 		}
 		return false
 	case *ast.ListLit:
-		return r.anyMayExit(x.Items)
+		return r.anyMayExit(x.Operands())
 	case *ast.TupleLit:
 		return r.anyMayExit(x.Items)
 	case *ast.Block:

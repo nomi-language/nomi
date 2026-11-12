@@ -25,22 +25,22 @@
 // and not the mirror of the same one: it fails exactly when the answer was
 // `None`, so its failure carries no details at all and says `refute failed` in
 // its own words.
-import {
+import
     std::assertions.Assertable
     std::assertions.AssertionDetail
     std::assertions.AssertionDetails
-}
+end
 
-struct Equals {
+struct Equals
     actual: Int
     expected: Int
-}
+end
 
-impl Assertable for Equals {
-    fn failure(e: Equals) -> Maybe<AssertionDetails> {
-        if e.actual == e.expected {
+impl Assertable for Equals
+    fn failure(e: Equals) -> Maybe<AssertionDetails>
+        if e.actual == e.expected then
             None
-        } else {
+        else
             Some(AssertionDetails{
                 reason: "values were not equal",
                 actual: Some(Debug.inspect(e.actual)),
@@ -49,28 +49,28 @@ impl Assertable for Equals {
                     AssertionDetail{label: "expected", value: Debug.inspect(e.expected)},
                 ],
             })
-        }
-    }
-}
+        end
+    end
+end
 
-fn equals(actual: Int, expected: Int) -> Equals {
-    Equals{actual, expected}
-}
+fn equals(actual: Int, expected: Int) -> Equals
+    Equals{actual:, expected:}
+end
 
-test "an Assertable that holds keeps the whole file honest" {
+test "an Assertable that holds keeps the whole file honest"
     assert equals(7, 7)
     refute equals(1, 2)
-}
+end
 
-test "a failing Assertable assertion renders the rows it authored" {
+test "a failing Assertable assertion renders the rows it authored"
     left = 41
     right = 42
     assert equals(left, right)
-}
+end
 
-test "a failing refutation of an Assertable says so in its own words" {
+test "a failing refutation of an Assertable says so in its own words"
     refute equals(9, 9)
-}
+end
 
 // A BOUND subject at an `assert`, which is the position no other case here or in
 // assertable_subject.nomi reaches: that file's bound case goes through
@@ -81,7 +81,7 @@ test "a failing refutation of an Assertable says so in its own words" {
 //
 // APPENDED BELOW every pinned line above on purpose: the two cases before this
 // one carry absolute line numbers in assertable_test.go.
-test "a failing Assertable assertion on a bound name shows where it came from" {
+test "a failing Assertable assertion on a bound name shows where it came from"
     comparison = equals(5, 6)
     assert comparison
-}
+end

@@ -17,27 +17,27 @@ failing 55
 C anon_struct.nomi
 E 1
 N 1
-H cf1e2f6a7172ca8805c845fe72327a85abd11307c96cd2676f63958c718ff53f
+H 1764b3d76a0f29bf6baa0da553100100b895da3d793dd038c42145e05caa4bba
 T FAIL <root>/internal/irbuild/testdata/anon_struct.nomi :: records are structural, ordered by nothing the programmer wrote
 T   30
 T   Hi Bob, you are 42
 T   Hi Carol, you are 30
-T   .{n: 1, name: Ada}
-T   .{count: 3, outer: .{inner: 1, label: hi}}
+T   {n: 1, name: Ada}
+T   {count: 3, outer: {inner: 1, label: hi}}
 T   1
 T   x is ten, y is 20
 T   30
 T   line 65: assertion failed
-T     assert no(.{a: 1, a0: 2})
+T     assert no({a: 1, a0: 2})
 T     values:
-T       .{a: 1, a0: 2}
-T         = .{a: 1, a0: 2}
+T       {a: 1, a0: 2}
+T         = {a: 1, a0: 2}
 T test result: FAILED. 0 passed, 1 failed
 T
 C anon_vs_nominal.nomi
 E 1
 N 2
-H 02ac90acdeeaeebc7fba4606d39376030fdf837330461b985c21d8499df33def
+H d3b4d82a396cd263d850ce74bbfefaf787330a6015309414de69a9f50b7c2a6a
 T FAIL <root>/internal/irbuild/testdata/anon_vs_nominal.nomi :: a record and a same-shaped nominal struct stay apart
 T   3
 T   3
@@ -51,7 +51,7 @@ T   line 43: assertion failed
 T     assert no_record(rec)
 T     values:
 T       rec
-T         = .{x: 1, y: 2}
+T         = {x: 1, y: 2}
 T test result: FAILED. 0 passed, 2 failed
 T
 C assert_boundary.nomi
@@ -80,28 +80,28 @@ T
 C assert_shape.nomi
 E 1
 N 8
-H e09541f06e03a78df09295aaafe3af8d8d7c300d6ff669da1d63edcbfb39c858
+H 6b68e71ea9f402bad23bd413787168296fb87a9ca860e77ce53f7741da890835
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: a Maybe subject that is None fails
-T   line 41: assertion failed
+T   line 37: assertion failed
 T     assert find(2)
 T     actual: None
 T ok <root>/internal/irbuild/testdata/assert_shape.nomi :: a Maybe subject that is Some passes and carries the variant through
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: refuting a Some fails in its own words
-T   line 51: refute failed
+T   line 47: refute failed
 T     refute find(1)
 T     actual: Some("Ada")
 T ok <root>/internal/irbuild/testdata/assert_shape.nomi :: refuting a None passes and carries the None through
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: a Result subject that is Err fails
-T   line 68: assertion failed
+T   line 64: assertion failed
 T     assert parse("wat")
 T     actual: Err("not a number")
 T ok <root>/internal/irbuild/testdata/assert_shape.nomi :: a Result subject that is Ok passes and carries the variant through
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: refuting an Ok fails in its own words
-T   line 78: refute failed
+T   line 74: refute failed
 T     refute parse("42")
 T     actual: Ok(42)
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: a bound shape subject shows its defining expression above its value
-T   line 84: assertion failed
+T   line 80: assertion failed
 T     assert looked_up
 T     defined as:
 T       find(2)
@@ -193,7 +193,7 @@ T
 C dbg_surfaces.nomi
 E 1
 N 9
-H 143ca3e2bd4836bdfc548735d902c43035bbaeac2084f3af27475cf9cb8d1d59
+H 379c697fa766da2735a48a7d3ec41746fda031b80f1e686503d98b1b5f7a0eed
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg renders a struct in declaration order
 T   dbg line 76: Rev{zeta: 1, alpha: 2} = Rev{zeta: 1, alpha: 2}
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: the values row for the same struct sorts it
@@ -223,7 +223,7 @@ T   dbg line 106: [Rev{zeta: 1, alpha: 2}] = [Rev{zeta: 1, alpha: 2}]
 T   dbg line 107: (1, "two") = (1, "two")
 T   dbg line 108: Some(42) = Some(42)
 T   dbg line 109: None = None
-T   dbg line 110: .{a: 1, a0: 2} = .{a: 1, a0: 2}
+T   dbg line 110: {a: 1, a0: 2} = {a: 1, a0: 2}
 T   dbg line 111: double = <function>
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: a dbg in a test body prints above its own result line
 T   dbg line 116: 7 = 7
@@ -857,13 +857,13 @@ T
 C pipe_stage_keyword_report.nomi
 E 1
 N 5
-H 6439cc685d5b2566d275ded229c54367628a83901e9df24d4c96b053c23d08c4
+H bc0beebc97af7b9e7489bb1d38b9302b07bcafbd89eddfd3bcd909a11717c958
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a keyword-prefixed if stage reports three pipeline rows
 T   line 48: assertion failed
 T     assert flag
 T     defined as:
 T       12
-T       |> if Int.equal(12) { False } else { True }
+T       |> if Int.equal(12) then False else True
 T     pipeline values:
 T       12
 T         = 12
@@ -871,25 +871,25 @@ T       12
 T       |> Int.equal(12)
 T         = True
 T       12
-T       |> if Int.equal(12) { False } else { True }
+T       |> if Int.equal(12) then False else True
 T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a bare case stage reports two pipeline rows
 T   line 59: assertion failed
 T     assert flag
 T     defined as:
 T       Some(3)
-T       |> case {
+T       |> case
 T           Some(_) -> False
 T           None -> True
-T       }
+T       end
 T     pipeline values:
 T       Some(3)
 T         = Some(3)
 T       Some(3)
-T       |> case {
+T       |> case
 T           Some(_) -> False
 T           None -> True
-T       }
+T       end
 T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a call stage before a keyword stage reports cumulative prefixes
 T   line 68: assertion failed
@@ -897,7 +897,7 @@ T     assert flag
 T     defined as:
 T       [1, 2, 3]
 T       |> Iter.count()
-T       |> if Int.equal(3) { False } else { True }
+T       |> if Int.equal(3) then False else True
 T     pipeline values:
 T       [1, 2, 3]
 T         = [1, 2, 3]
@@ -910,33 +910,33 @@ T       |> Int.equal(3)
 T         = True
 T       [1, 2, 3]
 T       |> Iter.count()
-T       |> if Int.equal(3) { False } else { True }
+T       |> if Int.equal(3) then False else True
 T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a piped case scrutinee contributes no values row
 T   line 72: assertion failed
-T     assert (wrap(3) |> case {
+T     assert (wrap(3) |> case
 T         Some(n) -> n
 T         None -> 0
-T     }) == 99
+T     end) == 99
 T     values:
-T       (wrap(3) |> case {
+T       (wrap(3) |> case
 T           Some(n) -> n
 T           None -> 0
-T       })
+T       end)
 T         = 3
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a directly written case scrutinee does contribute one
 T   line 79: assertion failed
-T     assert (case wrap(3) {
+T     assert (case wrap(3)
 T         Some(n) -> n
 T         None -> 0
-T     }) == 99
+T     end) == 99
 T     values:
 T       wrap(3)
 T         = Some(3)
-T       (case wrap(3) {
+T       (case wrap(3)
 T           Some(n) -> n
 T           None -> 0
-T       })
+T       end)
 T         = 3
 T test result: FAILED. 0 passed, 5 failed
 T
@@ -1225,22 +1225,22 @@ T
 C tests_case_subject.nomi
 E 1
 N 3
-H 5fb8c508d234324c04833de26d5ad231085f40ceec0258d1309ea10325ae046b
+H b1fe3e2a2c14f047756205ffd58f5ee8563b3627e60d9150d7f1f87eb6189be6
 T FAIL <root>/internal/irbuild/testdata/tests_case_subject.nomi :: a case in a subject shows its scrutinee
 T   line 19: assertion failed
-T     assert case n {
+T     assert case n
 T         1 -> True
 T         _ -> False
-T     }
+T     end
 T     values:
 T       n
 T         = 2
 T FAIL <root>/internal/irbuild/testdata/tests_case_subject.nomi :: an arm's own comparison is part of the same activation
 T   line 28: assertion failed
-T     assert case n {
+T     assert case n
 T         1 -> False
 T         _ -> n > 90
-T     }
+T     end
 T     values:
 T       n
 T         = 3
@@ -1343,7 +1343,7 @@ T
 C tests_lambda_boundary.nomi
 E 1
 N 5
-H b13449f375ed01f4c109aec54b16da6340b5e89f2bc1a8808891f2015750c015
+H 418e0e9cafea540201c3e14035605ca1a5bdbd85105c6665bb972eacac02f566
 T FAIL <root>/internal/irbuild/testdata/tests_lambda_boundary.nomi :: a lambda body's comparison stays out of the report
 T   line 22: assertion failed
 T     assert applies(2, fn x -> x * 5 > 90)
@@ -1364,12 +1364,12 @@ T       2 > 3
 T         = False
 T FAIL <root>/internal/irbuild/testdata/tests_lambda_boundary.nomi :: a case scrutinee inside a lambda body stays out too
 T   line 39: assertion failed
-T     assert applies(2, fn v -> {
-T         case v {
+T     assert applies(2, fn v ->
+T         case v
 T             1 -> True
 T             _ -> v > 90
-T         }
-T     })
+T         end
+T     end)
 T     values:
 T       2
 T         = 2
@@ -1396,7 +1396,7 @@ T
 C tests_operands.nomi
 E 1
 N 21
-H 4542d91d7cd54f85ae048a385249ada3fb311fe55811aa38853ed4d637c0d261
+H c78652923dd87851ba8949f6a5a54fba64297ed887a2ace69a0d79d6e91d44e7
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a list of Int
 T   line 103: assertion failed
 T     assert no_list(xs)
@@ -1432,13 +1432,13 @@ T   line 128: assertion failed
 T     assert no_map(m)
 T     values:
 T       m
-T         = %{"a" => 1, "b" => 2}
+T         = {"a" => 1, "b" => 2}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: an empty map
 T   line 133: assertion failed
 T     assert no_map(m)
 T     values:
 T       m
-T         = %{}
+T         = {}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a struct renders every field
 T   line 148: assertion failed
 T     assert no_point(p)
@@ -1580,19 +1580,19 @@ T
 C try_check_in_test.nomi
 E 1
 N 5
-H 421c38264d016c93fb3dc7c21f14b0a52abbc6e5ab2e8c85ff5460a5f197ce21
+H 35323745ace5d8e2f9177d7b4937bfcfe7b7a5e7e5eff891d86dc58ee2898bc5
 T ok <root>/internal/irbuild/testdata/try_check_in_test.nomi :: a passing check unwraps and the case runs on
 T   after the passing check
 T FAIL <root>/internal/irbuild/testdata/try_check_in_test.nomi :: a failing check reports the check and not an early return
 T   before the failing check
-T   line 64: check failed
+T   line 60: check failed
 T     check 1 == 2
 T FAIL <root>/internal/irbuild/testdata/try_check_in_test.nomi :: a failing check over a shape subject reports the check
-T   line 72: check failed
+T   line 68: check failed
 T     check shape(-3)
 T     actual: Err("bad -3")
 T FAIL <root>/internal/irbuild/testdata/try_check_in_test.nomi :: an ordinary `?` still reports test returned early
-T   line 80: test returned early
+T   line 76: test returned early
 T     parse(-1)?
 T     returned:
 T       Err("negative -1")
@@ -1602,26 +1602,26 @@ T
 C try_in_test.nomi
 E 1
 N 7
-H ef59cae28faae4715a2b4d523a2b014997cf9608f0ce271cfd1a91a0e538b895
+H a6acb59b69be284e3ea80a5708e2022576e8ef1c761d008d531f22d8dd5445a5
 T ok <root>/internal/irbuild/testdata/try_in_test.nomi :: succeeds?
 T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: propagates?
 T   before the ?
-T   line 50: test returned early
+T   line 46: test returned early
 T     parse(-1)?
 T     returned:
 T       Err("negative -1")
 T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: propagates? None
-T   line 57: test returned early
+T   line 53: test returned early
 T     find(4)?
 T     returned:
 T       None
 T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: `?` inside a nested construct
-T   line 66: test returned early
+T   line 62: test returned early
 T     parse(-7)?
 T     returned:
 T       Err("negative -7")
 T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: `?` in pipe position
-T   line 75: test returned early
+T   line 71: test returned early
 T     -1 |> parse()?
 T     returned:
 T       Err("negative -1")

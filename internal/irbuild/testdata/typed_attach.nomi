@@ -1,13 +1,13 @@
 import std::io
 
-// The literal-ATTACH forms: `%JV.Obj{"k" => v}`, `JV.Arr[a, b]`, `%Kvs{"k" => v}`,
+// The literal-ATTACH forms: `JV.Obj{"k" => v}`, `JV.Arr[a, b]`, `Kvs{"k" => v}`,
 // `Items[1, 2]` — where a brace or bracket body is the payload of a Map- or
 // List-payload variant, or the inner value of a map- or list-distinct.
 //
 // # Why every attach below is written BESIDE its call form
 //
 // Attach is sugar, and what sugar gets wrong is disagreeing with the form it
-// abbreviates. `%JV.Obj{"a" => v}` and `JV.Obj(%{"a" => v})` must be the same
+// abbreviates. `JV.Obj{"a" => v}` and `JV.Obj({"a" => v})` must be the same
 // value, so each is written next to the other and both are put through the same
 // destructuring, then the RESULTS are compared. A lowering that built the
 // payload correctly but tagged it as the wrong variant, or that dropped a
@@ -25,7 +25,7 @@ import std::io
 //
 // Each container has a producing side and a consuming side:
 //
-//   - map literal `%JV.Obj{...}` and map pattern `%.Obj{...}`, the pattern
+//   - map literal `JV.Obj{...}` and map pattern `.Obj{...}`, the pattern
 //     taking all three head spellings.
 //   - list literal `JV.Arr[...]` and list pattern `.Arr[...]`.
 //
@@ -64,71 +64,71 @@ type Items List<Int>
 // falls through to the same answer it would have reached honestly. MEASURED —
 // this fixture was written without them, the tag test was deliberately disarmed
 // with `if true || …`, and every assertion still passed.
-enum JV {
+enum JV
     Str String
     Num Int
     Obj Map<String, JV>
     Meta Map<String, JV>
     Arr List<JV>
     Tail List<JV>
-}
+end
 
 // tag proves the variant TAG, which a payload comparison alone would not see.
-fn tag(v: JV) -> String {
-    case v {
+fn tag(v: JV) -> String
+    case v
         .Str(_) -> "Str"
         .Num(_) -> "Num"
         .Obj(_) -> "Obj"
         .Meta(_) -> "Meta"
         .Arr(_) -> "Arr"
         .Tail(_) -> "Tail"
-    }
-}
+    end
+end
 
 // obj_sig destructures an Obj through a map pattern whose key is a PARAMETER,
 // so the pattern is probed with an expression rather than a literal.
-fn obj_sig(v: JV, k: String) -> String {
-    case v {
-        %.Obj{k => .Num(n)} -> "${k}=${n}"
-        %.Obj{k => .Obj(_)} -> "${k}=obj"
+fn obj_sig(v: JV, k: String) -> String
+    case v
+        .Obj{k => .Num(n)} -> "${k}=${n}"
+        .Obj{k => .Obj(_)} -> "${k}=obj"
         _ -> "no ${k}"
-    }
-}
+    end
+end
 
 // arr_sig destructures an Arr through the FLAT list pattern at a fixed arity,
 // falling back to a length so a non-three-element Arr still reports.
-fn arr_sig(v: JV) -> String {
-    case v {
+fn arr_sig(v: JV) -> String
+    case v
         .Arr[.Num(a), .Num(b), .Num(c)] -> "${a},${b},${c}"
         .Arr[.Num(a), .Num(b)] -> "${a},${b}"
         .Arr(xs) -> "len ${Iter.count(xs)}"
         _ -> "not arr"
-    }
-}
+    end
+end
 
 // expect_jv exists to give a BARE dot head an expected type to resolve against.
-fn expect_jv(v: JV) -> String {
+fn expect_jv(v: JV) -> String
     tag(v)
-}
+end
 
-fn kvs_sig(m: Kvs) -> Int {
-    case m {
-        %Kvs{"x" => v} -> v
+fn kvs_sig(m: Kvs) -> Int
+    case m
+        Kvs{"x" => v} -> v
         _ -> -1
-    }
-}
+    end
+end
 
-fn items_sig(xs: Items) -> String {
-    case xs {
+fn items_sig(xs: Items) -> String
+    case xs
         Items[a, b, c] -> "${a},${b},${c}"
         _ -> "no match"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     // --- map attach, qualified head: flat against its call form --------------
-    obj_flat = %JV.Obj{"a" => JV.Num(1)}
-    obj_call = JV.Obj(%{"a" => JV.Num(1)})
+    obj_flat = JV.Obj{"a" => JV.Num(1)}
+    obj_call = JV.Obj({"a" => JV.Num(1)})
     io.print("obj tag = ${tag(obj_flat)}")
     io.print("obj sig = ${obj_sig(obj_flat, "a")}")
     obj_agree = tag(obj_flat) == tag(obj_call) and obj_sig(obj_flat, "a") == obj_sig(obj_call, "a")
@@ -143,20 +143,20 @@ fn main() {
     io.print("arr agree = ${arr_agree}")
 
     // --- the BARE dot head, in expression position ---------------------------
-    io.print("dot obj = ${expect_jv(%.Obj{"b" => .Num(7)})}")
+    io.print("dot obj = ${expect_jv(.Obj{"b" => .Num(7)})}")
     io.print("dot arr = ${expect_jv(.Arr[.Num(8), .Num(9)])}")
 
     // An ANNOTATED binding is the other way a bare dot gets an expected type,
     // and it is what lets the two head spellings be compared: an argument to a
     // generic comparison would resolve the dot against nothing.
-    dot_obj: JV = %.Obj{"b" => .Num(7)}
+    dot_obj: JV = .Obj{"b" => .Num(7)}
     dot_arr: JV = .Arr[.Num(8), .Num(9)]
-    io.print("dot obj agree = ${obj_sig(dot_obj, "b") == obj_sig(%JV.Obj{"b" => JV.Num(7)}, "b")}")
+    io.print("dot obj agree = ${obj_sig(dot_obj, "b") == obj_sig(JV.Obj{"b" => JV.Num(7)}, "b")}")
     io.print("dot arr agree = ${arr_sig(dot_arr) == arr_sig(JV.Arr[JV.Num(8), JV.Num(9)])}")
 
     // --- distinct heads, map and list ----------------------------------------
-    kvs = %Kvs{"x" => 10}
-    kvs_call = Kvs(%{"x" => 10})
+    kvs = Kvs{"x" => 10}
+    kvs_call = Kvs({"x" => 10})
     items = Items[4, 5, 6]
     items_call = Items([4, 5, 6])
     io.print("kvs sig = ${kvs_sig(kvs)}")
@@ -165,16 +165,16 @@ fn main() {
     io.print("items agree = ${items_sig(items) == items_sig(items_call)}")
 
     // --- nesting, where the recursive structural kind shows up ---------------
-    nested = %JV.Obj{
-        "a" => %JV.Obj{"b" => JV.Arr[JV.Num(99)]},
+    nested = JV.Obj{
+        "a" => JV.Obj{"b" => JV.Arr[JV.Num(99)]},
     }
 
-    inner = case nested {
-        %.Obj{
-            "a" => %.Obj{"b" => .Arr[.Num(n)]},
+    inner = case nested
+        .Obj{
+            "a" => .Obj{"b" => .Arr[.Num(n)]},
         } -> n
         _ -> -1
-    }
+    end
 
     io.print("nested inner = ${inner}")
     io.print("nested outer = ${obj_sig(nested, "a")}")
@@ -182,74 +182,74 @@ fn main() {
     // --- the CONSUMING side: a spread tail -----------------------------------
     // The list pattern is exercised at a length it does NOT fix as well as at
     // one it does, because those are two different emitted length tests.
-    from_arr_spread = case arr_flat {
+    from_arr_spread = case arr_flat
         .Arr[.Num(a), ..rest] -> "head=${a} rest=${Iter.count(rest)}"
         _ -> "miss"
-    }
+    end
 
     io.print("from_arr_spread = ${from_arr_spread}")
 
     // The CALL-form pattern, which must agree with the flat one.
-    from_arr_call = case arr_flat {
+    from_arr_call = case arr_flat
         .Arr([.Num(a), .Num(b), .Num(c)]) -> "${a},${b},${c}"
         _ -> "miss"
-    }
+    end
 
     io.print("flat and call patterns agree = ${arr_sig(arr_flat) == from_arr_call}")
 
     // --- the cases that make the variant TAG TEST load-bearing ---------------
     // These are the discriminating ones. `Meta` has the SAME payload type as
     // `Obj` and holds the SAME key, so a lowering that read the payload without
-    // first testing the tag matches `%.Obj{"a" => …}` against a Meta and answers
+    // first testing the tag matches `.Obj{"a" => …}` against a Meta and answers
     // "obj". Every other arm in this fixture is blind to that: reading the wrong
     // variant's payload normally finds no key, or a shorter list, and falls
     // through to the honest answer.
-    meta = %JV.Meta{"a" => JV.Num(5)}
+    meta = JV.Meta{"a" => JV.Num(5)}
 
-    map_tag_matters = case meta {
-        %.Obj{"a" => .Num(n)} -> "wrongly matched Obj ${n}"
-        %.Meta{"a" => .Num(n)} -> "meta ${n}"
+    map_tag_matters = case meta
+        .Obj{"a" => .Num(n)} -> "wrongly matched Obj ${n}"
+        .Meta{"a" => .Num(n)} -> "meta ${n}"
         _ -> "fell through"
-    }
+    end
 
     io.print("map_tag_matters = ${map_tag_matters}")
 
     // Same construction for the list half, whose tag test is a different call.
     tail = JV.Tail[JV.Num(6), JV.Num(7), JV.Num(8)]
 
-    list_tag_matters = case tail {
+    list_tag_matters = case tail
         .Arr[.Num(a), .Num(b), .Num(c)] -> "wrongly matched Arr ${a},${b},${c}"
         .Tail[.Num(a), .Num(b), .Num(c)] -> "tail ${a},${b},${c}"
         _ -> "fell through"
-    }
+    end
 
     io.print("list_tag_matters = ${list_tag_matters}")
 
     // And the plain non-match, kept because it covers the ordinary case where
     // the two payload TYPES differ as well.
-    wrong_tag = case arr_flat {
-        %.Obj{"a" => .Num(n)} -> "wrongly matched ${n}"
+    wrong_tag = case arr_flat
+        .Obj{"a" => .Num(n)} -> "wrongly matched ${n}"
         _ -> "fell through"
-    }
+    end
 
     io.print("wrong_tag = ${wrong_tag}")
 
     // And a list pattern at the WRONG ARITY, so the length test is a test too.
     // A two-element pattern against three elements must NOT match, which is the
     // rule that separates an exact-length match from a spread.
-    wrong_arity = case arr_flat {
+    wrong_arity = case arr_flat
         .Arr[.Num(a), .Num(b)] -> "wrongly matched ${a},${b}"
         _ -> "fell through"
-    }
+    end
 
     io.print("wrong_arity = ${wrong_arity}")
 
     // And a distinct list pattern at the wrong arity, which unwraps by
     // conversion rather than by tag and so tests a different code path.
-    wrong_items = case items {
+    wrong_items = case items
         Items[a, b] -> "wrongly matched ${a},${b}"
         _ -> "fell through"
-    }
+    end
 
     io.print("wrong_items = ${wrong_items}")
-}
+end

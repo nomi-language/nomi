@@ -10,52 +10,56 @@ func TestFormat_CommentOnlyLambdaBodyKeepsItsComments(t *testing.T) {
 	cases := []struct{ name, src, want string }{
 		{
 			name: "last argument",
-			src:  "    r = f(a, fn x -> {\n        // c\n    })\n",
+			src:  "    r = f(a, fn x ->\n        // c\n    end)\n",
 		},
 		{
 			name: "comment after the opening brace",
-			src:  "    r = f(a, fn -> { // c\n    })\n",
-			want: "    r = f(a, fn -> {\n        // c\n    })\n",
+			src:  "    r = f(a, fn -> // c\n    end)\n",
+			want: "    r = f(a, fn ->\n        // c\n    end)\n",
 		},
 		{
 			name: "earlier argument",
-			src:  "    r = f(\n        fn x -> {\n            // c\n        },\n        b,\n    )\n",
+			src:  "    r = f(\n        fn x ->\n            // c\n        end,\n        b,\n    )\n",
 		},
 		{
 			name: "named argument",
-			src:  "    r = f(\n        a,\n        by: fn x -> {\n            // c\n        },\n    )\n",
+			src:  "    r = f(\n        a,\n        by: fn x ->\n            // c\n        end,\n    )\n",
 		},
 		{
 			name: "pipe stage argument",
-			src:  "    r =\n        xs\n        |> Iter.map(fn x -> {\n            // c\n        })\n",
+			src:  "    r =\n        xs\n        |> Iter.map(fn x ->\n            // c\n        end)\n",
 		},
 		{
 			name: "nested",
-			src:  "    r = f(fn x -> {\n        g(x, fn y -> {\n            // c\n        })\n    })\n",
+			src:  "    r = f(fn x ->\n        g(x, fn y ->\n            // c\n        end)\n    end)\n",
 		},
 		{
 			name: "then stage",
-			src:  "    r =\n        xs\n        |> then fn x -> {\n            // c\n        }\n",
+			src:  "    r =\n        xs\n        |> then fn x ->\n            // c\n        end\n",
 		},
 		{
 			name: "tap stage",
-			src:  "    r =\n        xs\n        |> tap fn _ -> {\n            // c\n        }\n",
+			src:  "    r =\n        xs\n        |> tap fn _ ->\n            // c\n        end\n",
 		},
 		{
 			name: "binding",
-			src:  "    g = fn x -> {\n        // a\n        // b\n    }\n",
+			src:  "    g = fn x ->\n        // a\n        // b\n    end\n",
 		},
 		{
 			name: "comment after the call too",
-			src:  "    r = f(a, fn x -> {\n        // c\n    }) // d\n",
+			src:  "    r = f(a, fn x ->\n        // c\n    end) // d\n",
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			src := "fn main() {\n" + c.src + "}\n"
+			src := "fn main()\n" +
+				c.src +
+				"end\n"
 			want := src
 			if c.want != "" {
-				want = "fn main() {\n" + c.want + "}\n"
+				want = "fn main()\n" +
+					c.want +
+					"end\n"
 			}
 			got, err := Format(src)
 			if err != nil {
@@ -77,20 +81,22 @@ func TestFormat_CommentOnlyLambdaBodyKeepsItsComments(t *testing.T) {
 // braces, and after the call's `)`.
 func TestFormat_CommentsAroundACallsLambdaArgument(t *testing.T) {
 	cases := []string{
-		"    r = f(a, fn x -> {\n        // c\n        x + 1\n    })\n",
-		"    r = f(a, fn x -> {\n        x + 1\n        // c\n    })\n",
-		"    r = f(a, fn x -> {\n        x + 1 // c\n    })\n",
-		"    r = f(a, fn x -> {\n        x + 1\n    }) // c\n",
+		"    r = f(a, fn x ->\n        // c\n        x + 1\n    end)\n",
+		"    r = f(a, fn x ->\n        x + 1\n        // c\n    end)\n",
+		"    r = f(a, fn x ->\n        x + 1 // c\n    end)\n",
+		"    r = f(a, fn x ->\n        x + 1\n    end) // c\n",
 		"    r = f(a, fn x -> x + 1) // c\n",
-		"    r = Mod.f<Int>(a, fn x -> {\n        // c\n        x\n    })\n",
-		"    r = f(a, by: fn x -> {\n        // c\n        x + 1\n    })\n",
-		"    r = f(\n        a,\n        fn x -> {\n            // c\n            x + 1\n        },\n        b,\n    )\n",
-		"    r =\n        xs\n        |> Iter.map(fn x -> {\n            x + 1 // c\n        })\n        |> Iter.filter(fn x -> {\n            // d\n            x > 1\n        }) // e\n        |> Iter.to_list() // f\n",
-		"    r = f(fn x -> {\n        // a\n        g(x, fn y -> {\n            // b\n            h(y, fn z -> {\n                // c\n                z\n            }) // d\n        }) // e\n    }) // f\n",
-		"    r = f(a, fn x -> case x {\n        1 -> 2 // c\n        _ -> 3\n    })\n",
+		"    r = Mod.f<Int>(a, fn x ->\n        // c\n        x\n    end)\n",
+		"    r = f(a, by: fn x ->\n        // c\n        x + 1\n    end)\n",
+		"    r = f(\n        a,\n        fn x ->\n            // c\n            x + 1\n        end,\n        b,\n    )\n",
+		"    r =\n        xs\n        |> Iter.map(fn x ->\n            x + 1 // c\n        end)\n        |> Iter.filter(fn x ->\n            // d\n            x > 1\n        end) // e\n        |> Iter.to_list() // f\n",
+		"    r = f(fn x ->\n        // a\n        g(x, fn y ->\n            // b\n            h(y, fn z ->\n                // c\n                z\n            end) // d\n        end) // e\n    end) // f\n",
+		"    r = f(a, fn x -> case x\n        1 -> 2 // c\n        _ -> 3\n    end)\n",
 	}
 	for _, body := range cases {
-		src := "fn main() {\n" + body + "}\n"
+		src := "fn main()\n" +
+			body +
+			"end\n"
 		got, err := Format(src)
 		if err != nil {
 			t.Fatal(err)

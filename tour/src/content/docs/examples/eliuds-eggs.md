@@ -15,27 +15,27 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// Counts the 1 bits in the binary form of a non-negative `number`: the
 /// eggs in Eliud's coop, one bit per nest.
-pub fn egg_count(number: Int) -> Int {
+pub fn egg_count(number: Int) -> Int
     Iter.iterate(number, &(&1 >>> 1))
     |> Iter.take_while(&(&1 > 0))
     |> Iter.map(&(&1 &&& 1))
     |> Iter.sum()
-}
+end
 
 // FILE: eliuds_eggs_test.nomi
 import eliuds_eggs
 
-test "counts the eggs" {
+test "counts the eggs"
     [
         ("0 eggs", 0, 0),
         ("1 egg", 16, 1),
         ("4 eggs", 89, 4),
         ("13 eggs", 2000000000, 13),
     ]
-    |> subtests (description, number, expected), description {
+    |> subtests (description, number, expected), description
         assert eliuds_eggs.egg_count(number) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok counts the eggs (4 cases)

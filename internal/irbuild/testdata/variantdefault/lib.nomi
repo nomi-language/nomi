@@ -6,16 +6,16 @@
 // different value.
 once label = "lib"
 
-pub enum Backoff {
+pub enum Backoff
     Exponential {max_restarts: Int = 10, max_elapsed: Int = 900}
     Off
-}
+end
 
-pub struct Limits {
+pub struct Limits
     soft: Int = 2 + 3
     hard: Int = 50
-}
+end
 
-pub fn origin() -> String {
+pub fn origin() -> String
     label
-}
+end

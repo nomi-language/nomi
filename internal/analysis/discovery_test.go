@@ -19,9 +19,9 @@ func TestDiscoverProject_FindsTransitiveImports(t *testing.T) {
 		return full
 	}
 
-	mainPath := mustWrite("main.nomi", "import a\n\nfn main() { Unit }\n")
-	mustWrite("a.nomi", "import b\n\npub fn run() -> Int { 1 }\n")
-	mustWrite("b.nomi", "pub fn helper() -> Int { 2 }\n")
+	mainPath := mustWrite("main.nomi", "import a\n\nfn main()\n    Unit\nend\n")
+	mustWrite("a.nomi", "import b\n\npub fn run() -> Int\n    1\nend\n")
+	mustWrite("b.nomi", "pub fn helper() -> Int\n    2\nend\n")
 
 	entryNodes := parseFileForDiscoveryTest(t, mainPath)
 
@@ -58,9 +58,9 @@ func TestDiscoverProject_FollowsBlockImports(t *testing.T) {
 		_ = os.WriteFile(full, []byte(content), 0644)
 		return full
 	}
-	mainPath := mustWrite("main.nomi", "fn main() {\n    import shapes\n    Unit\n}\n")
-	mustWrite("shapes.nomi", "pub fn area() -> Int {\n    f = fn x: Int -> {\n        import geo::units\n        x\n    }\n    f(1)\n}\n")
-	mustWrite("geo/units.nomi", "pub fn scale() -> Int { 2 }\n")
+	mainPath := mustWrite("main.nomi", "fn main()\n    import shapes\n    Unit\nend\n")
+	mustWrite("shapes.nomi", "pub fn area() -> Int\n    f = fn x: Int ->\n        import geo::units\n        x\n    end\n    f(1)\nend\n")
+	mustWrite("geo/units.nomi", "pub fn scale() -> Int\n    2\nend\n")
 
 	entryNodes := parseFileForDiscoveryTest(t, mainPath)
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
@@ -95,7 +95,7 @@ func TestDiscoverProject_LoadsManifest(t *testing.T) {
 name = "todo"
 entry_points = ["main"]
 `)
-	mainPath := mustWrite("main.nomi", "fn main() { Unit }\n")
+	mainPath := mustWrite("main.nomi", "fn main()\n    Unit\nend\n")
 
 	entryNodes := parseFileForDiscoveryTest(t, mainPath)
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
@@ -133,7 +133,7 @@ func TestDiscoverProject_NoManifestStaysNil(t *testing.T) {
 		return full
 	}
 
-	mainPath := mustWrite("main.nomi", "fn main() { Unit }\n")
+	mainPath := mustWrite("main.nomi", "fn main()\n    Unit\nend\n")
 	entryNodes := parseFileForDiscoveryTest(t, mainPath)
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		filePath := filepath.Join(projectRoot, filepath.Join(modulePath...)) + ".nomi"
@@ -165,7 +165,7 @@ func TestDiscoverProject_MalformedManifestReturnsError(t *testing.T) {
 	}
 
 	mustWrite("nomi.toml", "[module\nname = \"todo\"\n")
-	mainPath := mustWrite("main.nomi", "fn main() { Unit }\n")
+	mainPath := mustWrite("main.nomi", "fn main()\n    Unit\nend\n")
 
 	entryNodes := parseFileForDiscoveryTest(t, mainPath)
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
@@ -194,9 +194,9 @@ func TestDiscoverProject_HandlesCycle(t *testing.T) {
 		return full
 	}
 
-	mainPath := mustWrite("main.nomi", "import a.a\n\nfn main() { Unit }\n")
-	mustWrite("a.nomi", "import b.b\n\npub struct A { partner: Maybe<Int> }\n")
-	mustWrite("b.nomi", "import a.a\n\npub struct B { partner: Maybe<Int> }\n")
+	mainPath := mustWrite("main.nomi", "import a.a\n\nfn main()\n    Unit\nend\n")
+	mustWrite("a.nomi", "import b.b\n\npub struct A\n    partner: Maybe<Int>\nend\n")
+	mustWrite("b.nomi", "import a.a\n\npub struct B\n    partner: Maybe<Int>\nend\n")
 
 	entryNodes := parseFileForDiscoveryTest(t, mainPath)
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {

@@ -14,39 +14,39 @@ import "testing"
 // take the bound.
 func TestDeclarationOrder_DeclarationsReadOtherFilesShapes(t *testing.T) {
 	checkEveryOrder(t, map[string]string{
-		"%s": `pub interface Greets {
+		"%s": `pub interface Greets
     fn name(value: self) -> String
 
-    fn greet(value: self) -> String {
+    fn greet(value: self) -> String
         "hi " + name(value)
-    }
+    end
 
-    open fn loud(value: self, mark: String = "!") -> String {
+    open fn loud(value: self, mark: String = "!") -> String
         name(value) + mark
-    }
-}
+    end
+end
 
-pub struct Wrap<T> {
+pub struct Wrap<T>
     item: T
     count: Int = 1
-}
+end
 
-pub struct Shown<T> where T: Display {
+pub struct Shown<T> where T: Display
     item: T
-}
+end
 
-pub enum Tree<T> {
+pub enum Tree<T>
     Leaf(T)
     Empty
-}
+end
 
 pub type Meters Int
 
 pub type Tag Wrap<String>
 
-pub struct Circle {
+pub struct Circle
     radius: Int
-}
+end
 
 derive Equatable for Circle
 
@@ -60,70 +60,70 @@ derive Equatable for Meters
 
 pub typealias Pair Wrap<Int>
 
-pub struct Holder {
+pub struct Holder
     w: Wrap<Int>
     t: Tree<String>
     m: Meters
     c: Circle
-}
+end
 
 derive Equatable for Holder
 
-pub enum Shape {
+pub enum Shape
     embeds Circle
     embeds Meters
     Dot
     Boxed(Wrap<Bool>)
-}
+end
 
-pub struct Person {
+pub struct Person
     first: String
-}
+end
 
-impl Greets for Person {
-    fn name(value: Person) -> String {
+impl Greets for Person
+    fn name(value: Person) -> String
         value.first
-    }
-}
+    end
+end
 
-impl Greets for Wrap<T> {
-    fn name(value: Wrap<T>) -> String {
+impl Greets for Wrap<T>
+    fn name(value: Wrap<T>) -> String
         "wrap ${value.count}"
-    }
-}
+    end
+end
 
-impl Greets for Shown<T> {
-    fn name(value: Shown<T>) -> String {
+impl Greets for Shown<T>
+    fn name(value: Shown<T>) -> String
         "shown ${value.item}"
-    }
-}
+    end
+end
 
-pub fn tag_item(t: Tag) -> String {
+pub fn tag_item(t: Tag) -> String
     Tag(w) = t
     w.item
-}
+end
 `,
-		"main": `import {
+		"main": `import
     uses.{Pair, Holder, Shape, Person, tag_item}
     %s.{Greets, Wrap, Shown, Tree, Meters, Tag, Circle}
-}
+end
 
-fn size(s: Shape) -> Int {
-    case s {
+fn size(s: Shape) -> Int
+    case s
         Shape.Circle(c) -> c.radius
         Shape.Meters(m) -> m
         Shape.Dot -> 0
         Shape.Boxed(w) -> w.count
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     h = Holder{w: Wrap{item: 1}, t: Tree.Leaf("x"), m: Meters(3), c: Circle{radius: 2}}
     dbg h.w.item + h.w.count
-    dbg case h.t {
+    dbg case h.t
         .Leaf(s) -> s
         .Empty -> ""
-    }
+    end
     dbg h == h
     p: Pair = Wrap{item: 4}
     dbg p.item + 1
@@ -133,7 +133,7 @@ fn main() {
     dbg Greets.greet(Wrap{item: 1.5})
     dbg Greets.greet(Shown{item: 7})
     dbg tag_item(Tag(Wrap{item: "t"}))
-}
+end
 `,
 	})
 }
@@ -141,35 +141,35 @@ fn main() {
 // The same impls over a generic struct declared below them in one file:
 // the impl was typed before the struct was built.
 func TestDeclarationOrder_ImplAboveTheGenericStructItIsFor(t *testing.T) {
-	impls := `interface Greets {
+	impls := `interface Greets
     fn name(value: self) -> String
-}
+end
 
-impl Greets for Wrap<T> {
-    fn name(value: Wrap<T>) -> String {
+impl Greets for Wrap<T>
+    fn name(value: Wrap<T>) -> String
         "wrap ${value.count}"
-    }
-}
+    end
+end
 
-impl Greets for Shown<T> {
-    fn name(value: Shown<T>) -> String {
+impl Greets for Shown<T>
+    fn name(value: Shown<T>) -> String
         "shown ${value.item}"
-    }
-}
+    end
+end
 `
-	structs := `struct Wrap<T> {
+	structs := `struct Wrap<T>
     item: T
     count: Int = 1
-}
+end
 
-struct Shown<T> where T: Display {
+struct Shown<T> where T: Display
     item: T
-}
+end
 `
-	use := `fn main() {
+	use := `fn main()
     dbg Greets.name(Wrap{item: 1.5})
     dbg Greets.name(Shown{item: 7})
-}
+end
 `
 	for name, src := range map[string]string{
 		"structs first": structs + "\n" + impls + "\n" + use,

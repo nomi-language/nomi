@@ -9,16 +9,16 @@ import (
 // A backtick Uuid literal is the UUID its handler parses, checked when the
 // program loads.
 func TestUuidLiteral_IsTheParsedUuid(t *testing.T) {
-	const src = "import {\n" +
+	const src = "import\n" +
 		"    std::io\n" +
 		"    std::uuid.Uuid\n" +
-		"}\n\n" +
+		"end\n\n" +
 		"once dns = Uuid`6BA7B810-9DAD-11D1-80B4-00C04FD430C8`\n\n" +
-		"fn main() {\n" +
+		"fn main()\n" +
 		"    io.print(dns)\n" +
 		"    io.print(Debug.inspect(Uuid`00000000-0000-0000-0000-000000000000`))\n" +
 		"    io.print(dns == Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`)\n" +
-		"}\n"
+		"end\n"
 	p, err := LoadSource("main", src)
 	if err != nil {
 		t.Fatalf("the front end rejects a valid Uuid literal: %v", err)
@@ -40,7 +40,7 @@ func TestUuidLiteral_InvalidTextIsACompileError(t *testing.T) {
 		{"Uuid`6ba7b810+9dad-11d1-80b4-00c04fd430c8`", "typed literal Uuid`6ba7b810+9dad-11d1-80b4-00c04fd430c8` is invalid: expected `-` at index 8 of a UUID, found `+`"},
 		{"Uuid`6ba7b81g-9dad-11d1-80b4-00c04fd430c8`", "typed literal Uuid`6ba7b81g-9dad-11d1-80b4-00c04fd430c8` is invalid: expected a hexadecimal digit at index 7 of a UUID, found `g`"},
 	} {
-		src := "import std::uuid.Uuid\n\nfn main() {\n    _ = " + c.literal + "\n}\n"
+		src := "import std::uuid.Uuid\n\nfn main()\n    _ = " + c.literal + "\nend\n"
 		ds := literalDiagnostics(t, src)
 		if len(ds) != 1 {
 			t.Fatalf("%s: %d diagnostics, want 1: %v", c.literal, len(ds), ds)

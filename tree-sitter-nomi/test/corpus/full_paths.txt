@@ -2,10 +2,10 @@
 Full path as a call's file
 ================================================================================
 
-fn main() {
+fn main()
   p = db::posts.post_by_id(1)
   views::admin::users.render(p)
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -36,9 +36,9 @@ fn main() {
 Full path in types
 ================================================================================
 
-fn show(d: views::admin::users.UserDetail) -> std::http.Response<Int> {
+fn show(d: views::admin::users.UserDetail) -> std::http.Response<Int>
   d
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -68,13 +68,13 @@ fn show(d: views::admin::users.UserDetail) -> std::http.Response<Int> {
 Full path in a struct literal, an owner function, a variant and a with
 ================================================================================
 
-fn main() {
+fn main()
   s = db::schema.Post{id: 1}
   o = db::schema.Post.new(1)
   k = db::schema.Kind.Active
-  m = %db::schema.Kvs{"a" => 1}
+  m = db::schema.Kvs{"a" => 1}
   with db::schema.Post.id = 2
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -137,14 +137,14 @@ fn main() {
 Full path in patterns
 ================================================================================
 
-fn kind(k: db::schema.Kind) -> Int {
-  case k {
+fn kind(k: db::schema.Kind) -> Int
+  case k
     db::schema.Kind.Active -> 1
     db::schema.Shape.Circle(r) -> 2
-    db::schema.Post{id, title: t} -> 3
+    db::schema.Post{id:, title: t} -> 3
     _ -> 4
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -162,7 +162,7 @@ fn kind(k: db::schema.Kind) -> Int {
     return_type: (type_identifier)
     (body
       (case_expression
-        (identifier)
+        value: (identifier)
         (case_branch
           (qualified_variant
             module: (module_path

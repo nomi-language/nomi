@@ -11,42 +11,42 @@ import (
 
 const irValTypeSource = `import std::io
 
-struct Tag {
+struct Tag
   name: String
-}
+end
 
-struct Node {
+struct Node
   value: Int
   tag: Tag
-}
+end
 
-enum Shape {
+enum Shape
   Dot
   Circle Float
   Rect {w: Float, h: Float}
-}
+end
 
-fn area(s: Shape) -> Float {
-  case s {
+fn area(s: Shape) -> Float
+  case s
     .Dot -> 0.0
     .Circle(r) -> r * r
-    .Rect{w, h} -> w * h
-  }
-}
+    .Rect{w:, h:} -> w * h
+  end
+end
 
-fn total(n: Node) -> Int {
+fn total(n: Node) -> Int
   n.value + 1
-}
+end
 
-fn describe(s: Shape) -> String {
+fn describe(s: Shape) -> String
   a = area(s)
   "area ${a}"
-}
+end
 
-fn main() {
+fn main()
   io.print(describe(Shape.Circle(2.0)))
   io.print(total(Node{value: 1, tag: Tag{name: "a"}}))
-}
+end
 `
 
 // irRetainedFuncs lowers src as main.nomi and answers its retained functions

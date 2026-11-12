@@ -21,7 +21,7 @@ import (
 //     inference checks it, checks and has exactly the written type
 //     (analysis.DefaultTypeAlone, analysis.SameDefaultType), written as
 //     the file spells that type (not an alias of it): not for
-//     `since: Maybe<Date> = None`, `[]`, `%[]` or a `.Variant`, which need
+//     `since: Maybe<Date> = None`, `[]`, `[]` or a `.Variant`, which need
 //     the annotation, nor for `x: Display = 5` or a checked literal whose
 //     written type is not the default's own.
 //   - "Add type annotation" turns `limit = 10` into `limit: Int = 10`,

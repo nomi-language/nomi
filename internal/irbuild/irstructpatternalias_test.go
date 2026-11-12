@@ -4,7 +4,7 @@ import "testing"
 
 // A struct pattern written with an alias of the value's struct runs, in a
 // binding and in a case arm. The builder compared the written name with the
-// struct's own and declined `Human{age} = person`; the checker now holds the
+// struct's own and declined `Human{age:} = person`; the checker now holds the
 // name to the value's struct, so the builder reads only the fields.
 func TestIRStructPatternThroughAnAlias_Runs(t *testing.T) {
 	if testing.Short() {
@@ -12,23 +12,23 @@ func TestIRStructPatternThroughAnAlias_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Person {
+struct Person
     name: String
     age: Int
-}
+end
 
 typealias Human Person
 
-fn main() {
+fn main()
     p = Person{name: "Lin", age: 3}
-    Human{age} = p
+    Human{age:} = p
     io.print(age)
-    r = case p {
-        Human{name, age: 3} -> name
+    r = case p
+        Human{name:, age: 3} -> name
         _ -> "other"
-    }
+    end
     io.print(r)
-}
+end
 `
 	irRunSource(t, src, "3\nLin\n")
 }

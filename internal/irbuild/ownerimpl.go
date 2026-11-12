@@ -292,7 +292,7 @@ func (bl *irScalarBuilder) siblingOwnerPlanFor(t *ast.Call, args irQualArgs, dec
 		if namedArgNode(t.Args) != nil {
 			return nil
 		}
-		full, ok := bl.siblingDefaultArgs(t, args, site, params, owning)
+		full, ok := bl.filledOperands(t, args, params, site.fn.params0, site.defaultHome(owning))
 		if !ok {
 			return nil
 		}

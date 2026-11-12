@@ -14,38 +14,38 @@ import (
 func TestEmbedsCallback_AFunctionOverTheEnumTakesTheEmbeddedValues(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-struct Circle {
+struct Circle
   r: Int
-}
+end
 
-enum Shape {
+enum Shape
   embeds Circle
   Dot
-}
+end
 
-fn area(s: Shape) -> Int {
-  case s {
+fn area(s: Shape) -> Int
+  case s
     .Circle{r: r} -> r
     .Dot -> 0
-  }
-}
+  end
+end
 
-fn take(c: Circle) -> Int {
+fn take(c: Circle) -> Int
   c.r
-}
+end
 
-fn main() {
+fn main()
   circles = [Circle{r: 2}, Circle{r: 3}]
   io.inspect(Iter.map(circles, area) |> Iter.to_list())
   io.inspect(circles |> Iter.map(area) |> Iter.to_list())
   io.inspect(Maybe.map(Some(Circle{r: 4}), area))
   shapes: List<Shape> = [.Dot, Circle{r: 5}]
-  matched = Iter.map(shapes, fn value -> case value {
+  matched = Iter.map(shapes, fn value -> case value
     .Circle{} -> take(value)
     .Dot -> 0
-  })
+  end)
   io.inspect(Iter.to_list(matched))
-}
+end
 `)
 	want := strings.Join([]string{
 		"[2, 3]",

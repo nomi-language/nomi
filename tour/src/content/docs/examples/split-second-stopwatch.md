@@ -16,120 +16,120 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 import std::duration.Duration
 
 /// What a stopwatch is doing.
-pub enum State {
+pub enum State
     Ready
     Running
     Stopped
-}
+end
 
 /// A command the stopwatch's state does not allow.
-pub enum Error {
+pub enum Error
     AlreadyRunning
     StopWhenNotRunning
     LapWhenNotRunning
     ResetWhenNotStopped
-}
+end
 
-impl Display for Error {
-    fn to_string(error: Error) -> String {
-        case error {
+impl Display for Error
+    fn to_string(error: Error) -> String
+        case error
             .AlreadyRunning -> "cannot start an already running stopwatch"
             .StopWhenNotRunning -> "cannot stop a stopwatch that is not running"
             .LapWhenNotRunning -> "cannot lap a stopwatch that is not running"
             .ResetWhenNotStopped -> "cannot reset a stopwatch that is not stopped"
-        }
-    }
-}
+        end
+    end
+end
 
 once no_time = Duration.seconds(0)
 
 /// A stopwatch that times laps. It is a value: each command answers the
 /// stopwatch after it, and time passes when `advance` says so.
-pub opaque struct Stopwatch {
+pub opaque struct Stopwatch
     state: State
     current: Duration
     laps: List<Duration>
-}
+end
 
-impl Stopwatch {
+impl Stopwatch
     /// A stopwatch in the ready state, with no time and no laps.
-    pub fn new() -> Stopwatch {
-        .{state: .Ready, current: no_time, laps: []}
-    }
+    pub fn new() -> Stopwatch
+        {state: .Ready, current: no_time, laps: []}
+    end
 
     /// Starts timing from the ready state, or resumes it from the stopped one.
-    pub fn start(watch: Stopwatch) -> Result<Stopwatch, Error> {
-        case watch.state {
+    pub fn start(watch: Stopwatch) -> Result<Stopwatch, Error>
+        case watch.state
             .Running -> Err(.AlreadyRunning)
-            .Ready or .Stopped -> Ok(.{..watch, state: .Running})
-        }
-    }
+            .Ready or .Stopped -> Ok({..watch, state: .Running})
+        end
+    end
 
     /// Pauses a running stopwatch.
-    pub fn stop(watch: Stopwatch) -> Result<Stopwatch, Error> {
-        case watch.state {
-            .Running -> Ok(.{..watch, state: .Stopped})
+    pub fn stop(watch: Stopwatch) -> Result<Stopwatch, Error>
+        case watch.state
+            .Running -> Ok({..watch, state: .Stopped})
             .Ready or .Stopped -> Err(.StopWhenNotRunning)
-        }
-    }
+        end
+    end
 
     /// Ends the current lap of a running stopwatch, adding it to the previous
     /// laps, and starts the next from no time.
-    pub fn lap(watch: Stopwatch) -> Result<Stopwatch, Error> {
-        case watch.state {
-            .Running -> Ok(.{..watch, current: no_time, laps: watch.laps + [watch.current]})
+    pub fn lap(watch: Stopwatch) -> Result<Stopwatch, Error>
+        case watch.state
+            .Running -> Ok({..watch, current: no_time, laps: watch.laps + [watch.current]})
             .Ready or .Stopped -> Err(.LapWhenNotRunning)
-        }
-    }
+        end
+    end
 
     /// Clears a stopped stopwatch back to a new one.
-    pub fn reset(watch: Stopwatch) -> Result<Stopwatch, Error> {
-        case watch.state {
+    pub fn reset(watch: Stopwatch) -> Result<Stopwatch, Error>
+        case watch.state
             .Stopped -> Ok(Stopwatch.new())
             .Ready or .Running -> Err(.ResetWhenNotStopped)
-        }
-    }
+        end
+    end
 
     /// The stopwatch after `by` has passed: the current lap grows while it
     /// runs, and nothing changes otherwise.
-    pub fn advance(watch: Stopwatch, by: Duration) -> Stopwatch {
-        case watch.state {
-            .Running -> .{..watch, current: watch.current + by}
+    pub fn advance(watch: Stopwatch, by: Duration) -> Stopwatch
+        case watch.state
+            .Running -> {..watch, current: watch.current + by}
             .Ready or .Stopped -> watch
-        }
-    }
+        end
+    end
 
     /// What the stopwatch is doing.
-    pub fn state(watch: Stopwatch) -> State {
+    pub fn state(watch: Stopwatch) -> State
         watch.state
-    }
+    end
 
     /// The time on the current lap.
-    pub fn current_lap(watch: Stopwatch) -> Duration {
+    pub fn current_lap(watch: Stopwatch) -> Duration
         watch.current
-    }
+    end
 
     /// The times of the finished laps, first first.
-    pub fn previous_laps(watch: Stopwatch) -> List<Duration> {
+    pub fn previous_laps(watch: Stopwatch) -> List<Duration>
         watch.laps
-    }
+    end
 
     /// The time on every lap, the current one included.
-    pub fn total(watch: Stopwatch) -> Duration {
+    pub fn total(watch: Stopwatch) -> Duration
         Iter.sum(watch.laps) + watch.current
-    }
-}
+    end
+end
 
 // FILE: split_second_stopwatch_test.nomi
-import {
+import
     std::duration.Duration
     split_second_stopwatch.{State, Stopwatch}
-}
+end
 
 /// One canonical command and what it should do: a command that is allowed,
 /// a command refused with a message, time passing, or a reading of the
 /// state, the current lap, the total or the previous laps.
-enum Step {
+enum Step
     Start
     Stop
     Lap
@@ -140,16 +140,16 @@ enum Step {
     CurrentLap Duration
     Total Duration
     PreviousLaps List<Duration>
-}
+end
 
 /// Runs each step on a new stopwatch, in turn, and answers the steps as
 /// they happened. A run that does what every step says answers the steps it
 /// was given.
-fn replay(steps: List<Step>) -> List<Step> {
+fn replay(steps: List<Step>) -> List<Step>
     (_watch, happened) =
         steps
-        |> Iter.map_reduce(Stopwatch.new(), fn watch, step -> {
-            case step {
+        |> Iter.map_reduce(Stopwatch.new(), fn watch, step ->
+            case step
                 .Start or .Stop or .Lap or .Reset -> command(watch, step)
                 .Refused(tried, _message) -> command(watch, tried)
                 .Advance(by) -> (Stopwatch.advance(watch, by), step)
@@ -157,30 +157,30 @@ fn replay(steps: List<Step>) -> List<Step> {
                 .CurrentLap(_) -> (watch, .CurrentLap(Stopwatch.current_lap(watch)))
                 .Total(_) -> (watch, .Total(Stopwatch.total(watch)))
                 .PreviousLaps(_) -> (watch, .PreviousLaps(Stopwatch.previous_laps(watch)))
-            }
-        })
+            end
+        end)
 
     happened
-}
+end
 
 /// Runs the command `step` names, answering the step and the stopwatch
 /// after it, or the refusal and the stopwatch unchanged.
-fn command(watch: Stopwatch, step: Step) -> (Stopwatch, Step) {
-    result = case step {
+fn command(watch: Stopwatch, step: Step) -> (Stopwatch, Step)
+    result = case step
         .Start -> Stopwatch.start(watch)
         .Stop -> Stopwatch.stop(watch)
         .Lap -> Stopwatch.lap(watch)
         .Reset -> Stopwatch.reset(watch)
         _ -> unreachable "replay passes only the four commands"
-    }
+    end
 
-    case result {
+    case result
         Ok(next) -> (next, step)
         Err(error) -> (watch, .Refused(step, "${error}"))
-    }
-}
+    end
+end
 
-test "split second stopwatch" {
+test "split second stopwatch"
     [
         ("new stopwatch starts in ready state", [Step.IsIn(.Ready)]),
         ("new stopwatch's current lap has no elapsed time", [.CurrentLap(Duration`0s`)]),
@@ -354,10 +354,10 @@ test "split second stopwatch" {
             ],
         ),
     ]
-    |> subtests (description, steps), description {
+    |> subtests (description, steps), description
         assert replay(steps) == steps
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok split second stopwatch (29 cases)

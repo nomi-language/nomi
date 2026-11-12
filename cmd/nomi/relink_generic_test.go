@@ -21,76 +21,76 @@ func TestRelinkAfterABodyEditOfAGenericUsedAcrossFiles(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs nomi several times per edit; -short")
 	}
-	named := `pub fn label<T>(x: T) -> String where T: Display {
+	named := `pub fn label<T>(x: T) -> String where T: Display
     "<${x}>"
-}
+end
 
-pub struct Tag<T> {
+pub struct Tag<T>
     value: T
-}
+end
 
-impl Tag<T> {
-    pub fn show<T>(t: Tag<T>) -> String where T: Display {
+impl Tag<T>
+    pub fn show<T>(t: Tag<T>) -> String where T: Display
         "tag ${t.value}"
-    }
-}
+    end
+end
 
-impl Display for Tag<T> where T: Display {
-    fn to_string(t: Tag<T>) -> String {
+impl Display for Tag<T> where T: Display
+    fn to_string(t: Tag<T>) -> String
         "#${t.value}"
-    }
-}
+    end
+end
 `
 	p := cacheProject{name: "generic-across", entry: "main.nomi", files: map[string]string{
 		"nomi.toml":  "[module]\nname = \"genericacross\"\nentry_points = [\"main\"]\n",
 		"named.nomi": named,
-		"box.nomi": `pub struct Coin {
+		"box.nomi": `pub struct Coin
     cents: Int
-}
+end
 
-impl Display for Coin {
-    fn to_string(c: Coin) -> String {
+impl Display for Coin
+    fn to_string(c: Coin) -> String
         "${c.cents}c"
-    }
-}
+    end
+end
 `,
-		"a.nomi": `import {
+		"a.nomi": `import
     named.Tag
     named.label
-}
+end
 
-pub fn a_line(n: Int) -> String {
+pub fn a_line(n: Int) -> String
     "${label(n)} ${Tag.show(Tag{value: n})} ${Tag{value: n}}"
-}
+end
 `,
-		"b.nomi": `import {
+		"b.nomi": `import
     box.Coin
     named.Tag
     named.label
-}
+end
 
-pub fn b_line(s: String) -> String {
+pub fn b_line(s: String) -> String
     "${label(s)} ${label(Coin{cents: 5})} ${Tag.show(Tag{value: Coin{cents: 7}})} ${Tag{value: Coin{cents: 8}}}"
-}
+end
 `,
 		"c.nomi": `import named.label
 
-pub fn c_line(n: Int) -> String {
+pub fn c_line(n: Int) -> String
     label(n * 2)
-}
+end
 `,
-		"main.nomi": `import {
+		"main.nomi": `import
     std::io
     a.a_line
     b.b_line
     c.c_line
-}
+end
 
-fn main() {
+fn main()
     io.print(a_line(3))
     io.print(b_line("hi"))
     io.print(c_line(4))
-}
+end
 `,
 	}}
 	edits := []cacheEdit{

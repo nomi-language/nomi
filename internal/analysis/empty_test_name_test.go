@@ -10,23 +10,23 @@ import (
 // the name: a report could not say which case it means.
 func TestEmptyTestName_IsAnErrorAtTheName(t *testing.T) {
 	errs := checkWithStdlib(`
-test "" {
+test ""
   assert 1 == 1
-}
+end
 
-group "  " {
-  test "\t" {
+group "  "
+  test "\t"
     assert True
-  }
+  end
 
-  test "named" {
+  test "named"
     assert True
-  }
-}
+  end
+end
 
-test "fine" {
+test "fine"
   assert True
-}
+end
 `)
 	var got []string
 	for _, e := range errs {

@@ -14,25 +14,25 @@ func TestIRTodoArmBesideAnyArm_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn main() {
-    io.inspect(case [Unit] {
+fn main()
+    io.inspect(case [Unit]
         [p] -> p
         _ -> todo
-    })
-    io.inspect(case [[]] {
+    end)
+    io.inspect(case [[]]
         [p] -> p
         _ -> todo
-    })
-    io.inspect(if 1 == 1 {
+    end)
+    io.inspect(if 1 == 1 then
         Unit
-    } else {
+    else
         todo
-    })
-    io.inspect(case [1] {
+    end)
+    io.inspect(case [1]
         [] -> todo
         _ -> Unit
-    })
-}
+    end)
+end
 `
 	irRunSource(t, src, "Unit\n[]\nUnit\nUnit\n")
 }
@@ -53,7 +53,7 @@ func TestIRAnnotatedTodoBinding_Traps(t *testing.T) {
 		{"bare last", "todo", "", "\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "import std::io\n\nfn main() {\n    io.print(\"before\")\n    _n: Int = " + tc.value + "\n" + tc.after + "}\n"
+			src := "import std::io\n\nfn main()\n    io.print(\"before\")\n    _n: Int = " + tc.value + "\n" + tc.after + "end\n"
 			if _, err := AnalyzeSource("entry.nomi", src); err != nil {
 				t.Fatalf("the front end rejects this, so nothing below is tested: %v", err)
 			}
@@ -63,5 +63,5 @@ func TestIRAnnotatedTodoBinding_Traps(t *testing.T) {
 			}
 		})
 	}
-	irRunSource(t, "import std::io\n\nfn main() {\n    io.print(\"ran\")\n    _n: Int = 1\n}\n", "ran\n")
+	irRunSource(t, "import std::io\n\nfn main()\n    io.print(\"ran\")\n    _n: Int = 1\nend\n", "ran\n")
 }

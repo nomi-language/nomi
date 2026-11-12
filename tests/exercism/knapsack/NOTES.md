@@ -8,7 +8,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/knapsack.
 
 ## Choices
 
-- An item is a struct, `Item`, with the canonical data's `weight` and `value` fields, and the test rows write each as `.{weight: 2, value: 5}` under an annotated table.
+- An item is a struct, `Item`, with the canonical data's `weight` and `value` fields, and the test rows write each as `{weight: 2, value: 5}` under an annotated table.
 - The answer is the 0/1 knapsack's dynamic programming: a `Vector` of the best value for every capacity from 0 to the limit, rebuilt once per item by `consider`. The capacity is the index, so `Iter.with_index` reads it beside the value. Trying every subset would be 2^15 subsets for the largest case; the table is 15 rows of 751 entries.
 - Each row is a new `Vector` built from the one before it, read through `best`, so no entry is overwritten before a later capacity reads it, the trap an in-place version must avoid by running the capacities downwards.
 - The fold names its step, `items |> Iter.reduce(nothing, consider)` (style §33), and the answer is the final row's entry for the limit, read in the same pipe. The empty row is `Iter.repeat(0)` cut to the limit plus one.

@@ -17,20 +17,20 @@ once sounds = [(3, "Pling"), (5, "Plang"), (7, "Plong")]
 
 /// The raindrop sounds for `number`'s factors 3, 5 and 7, or the number
 /// itself when it has none of them.
-pub fn convert(number: Int) -> String {
+pub fn convert(number: Int) -> String
     drops =
         sounds
         |> Iter.filter(fn (factor, _sound) -> number % factor == 0)
         |> Iter.map(fn (_factor, sound) -> sound)
         |> String.join()
 
-    if drops == "" { "${number}" } else { drops }
-}
+    if drops == "" then "${number}" else drops
+end
 
 // FILE: raindrops_test.nomi
 import raindrops.convert
 
-test "raindrop sounds" {
+test "raindrop sounds"
     [
         ("the sound for 1 is 1", 1, "1"),
         ("the sound for 3 is Pling", 3, "Pling"),
@@ -59,10 +59,10 @@ test "raindrop sounds" {
         ),
         ("the sound for 3125 is Plang as it has a factor 5", 3125, "Plang"),
     ]
-    |> subtests (description, number, expected), description {
+    |> subtests (description, number, expected), description
         assert convert(number) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok raindrop sounds (18 cases)

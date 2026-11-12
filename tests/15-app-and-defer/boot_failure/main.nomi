@@ -3,36 +3,36 @@
 // error's Display text on stderr and exits 1.
 import std::io
 
-struct App {
+struct App
     port: Int
     context: Context
-}
+end
 
-struct ConfigError {
+struct ConfigError
     key: String
-}
+end
 
-impl Display for ConfigError {
-    fn to_string(error: ConfigError) -> String {
+impl Display for ConfigError
+    fn to_string(error: ConfigError) -> String
         "missing setting ${error.key}"
-    }
-}
+    end
+end
 
-fn setting(startup: Startup, key: String) -> Result<String, ConfigError> {
-    case Map.get(startup.env, key) {
+fn setting(startup: Startup, key: String) -> Result<String, ConfigError>
+    case Map.get(startup.env, key)
         Some(value) -> Ok(value)
-        None -> Err(ConfigError{key})
-    }
-}
+        None -> Err(ConfigError{key:})
+    end
+end
 
-fn boot(startup: Startup) -> Result<App, ConfigError> {
+fn boot(startup: Startup) -> Result<App, ConfigError>
     defer io.print("closed the log")
     io.print("opened the log")
     defer io.print("released the port")
     port = setting(startup, "NOMI_BOOT_FAILURE_FIXTURE_PORT")?
     Ok(App{port: String.length(port), context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
     io.print("main runs on port ${App.port}")
-}
+end

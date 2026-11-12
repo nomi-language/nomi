@@ -9,20 +9,20 @@ import "testing"
 func TestFormat_TapStageStacksThePipeline(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
 		"binding": {
-			"fn main() -> Int {\n    x = 5 |> tap fn n -> io.print(\"${n}\") |> then fn n -> n * 2\n    x\n}\n",
-			"fn main() -> Int {\n    x =\n        5\n        |> tap fn n -> io.print(\"${n}\")\n        |> then fn n -> n * 2\n\n    x\n}\n",
+			"fn main() -> Int\n    x = 5 |> tap fn n -> io.print(\"${n}\") |> then fn n -> n * 2\n    x\nend\n",
+			"fn main() -> Int\n    x =\n        5\n        |> tap fn n -> io.print(\"${n}\")\n        |> then fn n -> n * 2\n\n    x\nend\n",
 		},
 		"statement": {
-			"fn main() {\n    1 |> tap fn n -> io.print(\"${n}\")\n}\n",
-			"fn main() {\n    1\n    |> tap fn n -> io.print(\"${n}\")\n}\n",
+			"fn main()\n    1 |> tap fn n -> io.print(\"${n}\")\nend\n",
+			"fn main()\n    1\n    |> tap fn n -> io.print(\"${n}\")\nend\n",
 		},
 		"braces kept around a pipe body": {
-			"fn main() -> Int {\n    3 |> tap fn n -> { n |> Int.to_string() |> io.print() }\n}\n",
-			"fn main() -> Int {\n    3\n    |> tap fn n -> { n |> Int.to_string() |> io.print() }\n}\n",
+			"fn main() -> Int\n    3 |> tap fn n ->\n        n |> Int.to_string() |> io.print()\n    end\nend\n",
+			"fn main() -> Int\n    3\n    |> tap fn n ->\n        n |> Int.to_string() |> io.print()\n    end\nend\n",
 		},
 		"braces kept around a non-pipe body": {
-			"fn main() -> Int {\n    3 |> tap fn n -> { io.print(\"${n}\") }\n}\n",
-			"fn main() -> Int {\n    3\n    |> tap fn n -> { io.print(\"${n}\") }\n}\n",
+			"fn main() -> Int\n    3 |> tap fn n -> io.print(\"${n}\")\nend\n",
+			"fn main() -> Int\n    3\n    |> tap fn n -> io.print(\"${n}\")\nend\n",
 		},
 	}
 	for name, tc := range cases {

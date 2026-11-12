@@ -18,17 +18,17 @@ import (
 // embedsProgram embeds a small text file and a big binary one. It prints
 // the big file's size, which is metadata and reads none of it, then the
 // small file.
-const embedsProgram = `import {
+const embedsProgram = `import
   std::embed.Files
   std::io
-}
+end
 
 embed site ` + "`small.txt big.bin`" + `
 
-fn main() {
+fn main()
   io.print(Files.metadata(site, "big.bin")!.size)
   io.print(Files.read_text(site, "small.txt")!)
-}
+end
 `
 
 const smallText = "hello from a small file\n"
@@ -156,19 +156,19 @@ func TestOpenImageAt_StartingReadsTheCodeAndAFileOnlyWhenRead(t *testing.T) {
 
 // readsBigProgram reads the big file whole and prints its length and the
 // bytes at its ends and around the first page boundaries.
-const readsBigProgram = `import {
+const readsBigProgram = `import
   std::embed.Files
   std::io
-}
+end
 
 embed site ` + "`small.txt big.bin`" + `
 
-fn main() {
+fn main()
   data = Files.read(site, "big.bin")!
   io.print(Bytes.length(data))
   io.print([0, 4095, 4096, 16383, 16384, 65536, Bytes.length(data) - 1] |> Iter.map(fn i -> Bytes.get(data, i)) |> Iter.to_list())
   io.print(Files.read_text(site, "small.txt")!)
-}
+end
 `
 
 // A runner holding its own image maps the files region where it can, and

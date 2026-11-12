@@ -15,47 +15,46 @@ func TestTest_ReturnEndsTheCase(t *testing.T) {
 	p, err := vmhost.Load(writeProgram(t, `import std::io
 import std::testing
 
-fn note(s: String) {
+fn note(s: String)
   io.print(s)
-}
+end
 
-test "bare return from an arm" {
+test "bare return from an arm"
   defer note("deferred")
   x = 1
-  if x == 1 {
+  if x == 1 then
     io.print("arm")
     return
-  }
+  end
   io.print("unreached")
   assert x == 2
-}
+end
 
-test "return from a case arm" {
-  case [1, 2] {
-    [a, ..] -> {
+test "return from a case arm"
+  case [1, 2]
+    [a, ..] ->
       io.print("head ${a}")
       return
-    }
     [] -> io.print("empty")
-  }
+  end
   assert False
-}
+end
 
-test "return a passing check" {
+test "return a passing check"
   assert 2 == 2
   return testing.check(1 == 1)
-}
+end
 
-test "return a failing check" {
+test "return a failing check"
   total = 3
   assert total == 3
   return testing.check(total == 10)
-}
+end
 
-test "return a discarded value" {
+test "return a discarded value"
   assert 2 == 2
   return 5
-}
+end
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +73,7 @@ test "return a discarded value" {
 			t.Fatalf("case %q: err %v, want failing=%v", c.Name, c.Err, fails)
 		}
 	}
-	if !strings.Contains(cases[3].Err.Error(), "line 38: check failed") {
+	if !strings.Contains(cases[3].Err.Error(), "line 37: check failed") {
 		t.Fatalf("the failing check reports %q", cases[3].Err)
 	}
 	if out.Len() != 0 {
@@ -93,50 +92,50 @@ func TestTest_ReturnFromAValueArmEndsTheCase(t *testing.T) {
 	p, err := vmhost.Load(writeProgram(t, `import std::io
 import std::testing
 
-fn note(s: String) {
+fn note(s: String)
   io.print(s)
-}
+end
 
-fn get(ok: Bool) -> Result<String, String> {
-  if ok { Ok("x") } else { Err("no") }
-}
+fn get(ok: Bool) -> Result<String, String>
+  if ok then Ok("x") else Err("no")
+end
 
-test "an Err arm returns before a defer" {
-  dir = case get(False) {
+test "an Err arm returns before a defer"
+  dir = case get(False)
     Ok(d) -> d
     Err(e) -> return Err(e)
-  }
+  end
 
   defer note(dir)
   assert False
-}
+end
 
-test "an Ok arm binds and the defer runs" {
+test "an Ok arm binds and the defer runs"
   defer note("first")
-  dir = case get(True) {
+  dir = case get(True)
     Ok(d) -> d
     Err(e) -> return Err(e)
-  }
+  end
 
   defer note(dir)
   assert dir == "x"
-}
+end
 
-test "a bare return arm after a defer" {
+test "a bare return arm after a defer"
   defer note("pending")
-  n = case get(False) {
+  n = case get(False)
     Ok(_) -> 1
     Err(_) -> return
-  }
+  end
 
   assert n == 2
-}
+end
 
-test "an if arm returns a failing check" {
+test "an if arm returns a failing check"
   total = 3
-  n = if total > 5 { total } else { return testing.check(total == 10) }
+  n = if total > 5 then total else return testing.check(total == 10)
   assert n == 0
-}
+end
 `))
 	if err != nil {
 		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)

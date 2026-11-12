@@ -1,8 +1,8 @@
-fn double(x: Int) -> Int {
+fn double(x: Int) -> Int
     x * 2
-}
+end
 
-test "maybe and result values render their variant shapes" {
+test "maybe and result values render their variant shapes"
     assert Some(42)
         |> Debug.inspect()
         |> String.equal("Some(42)")
@@ -18,9 +18,9 @@ test "maybe and result values render their variant shapes" {
     assert Err("fail")
         |> Debug.inspect()
         |> String.equal("Err(\"fail\")")
-}
+end
 
-test "maybe helpers map and default values" {
+test "maybe helpers map and default values"
     some =
         Some(5)
         |> Maybe.map(double)
@@ -32,9 +32,9 @@ test "maybe helpers map and default values" {
 
     assert some == 10
     assert none == 99
-}
+end
 
-test "result helpers map and default values" {
+test "result helpers map and default values"
     ok =
         Ok(7)
         |> Result.map(double)
@@ -46,4 +46,4 @@ test "result helpers map and default values" {
 
     assert ok == 14
     assert err == 0
-}
+end

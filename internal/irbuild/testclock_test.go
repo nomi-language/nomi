@@ -46,10 +46,12 @@ func TestClock_UnreadableSpellingRefuses(t *testing.T) {
 	// declines should be unreachable from legal source. If that ever stops
 	// being true, the refusal is what a corpus file gets and this row is where
 	// the reason is written down.
-	src := `group "g" {
+	src := `group "g"
   clock 1
-  test "a" { assert 1 == 1 }
-}
+  test "a"
+      assert 1 == 1
+  end
+end
 `
 	if _, err := AnalyzeSource("m", src); err == nil {
 		t.Fatal("the front end now ACCEPTS `clock 1`. That makes the refusal arm in " +

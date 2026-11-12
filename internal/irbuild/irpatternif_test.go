@@ -4,20 +4,20 @@ import "testing"
 
 func TestIRPatternIf_CompleteProgram(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn lookup(id: Int) -> Maybe<String> {
+fn lookup(id: Int) -> Maybe<String>
   io.print(id)
-  case id {
+  case id
     1 -> Some("Alice")
     _ -> None
-  }
-}
-fn label_for(id: Int) -> String {
+  end
+end
+fn label_for(id: Int) -> String
   name = "unknown"
-  if Some(name) = lookup(id) { name } else { name }
-}
-fn main() {
+  if Some(name) = lookup(id) then name else name
+end
+fn main()
   io.print(label_for(1))
   io.print(label_for(9))
-}
+end
 `, "1\nAlice\n9\nunknown\n")
 }

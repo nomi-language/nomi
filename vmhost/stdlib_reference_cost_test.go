@@ -81,7 +81,7 @@ func TestStdlibReference_ReportsTheTestsErrorAsAFreshCheckDoes(t *testing.T) {
 // another, is checked with the whole module, as `nomi test` checks an edited
 // stdlib file.
 func TestStdlibReference_AnEditBeyondTheTestChecksTheModule(t *testing.T) {
-	body := "assert Date.days_between(Date`2026-05-04`, Date`2026-05-07`) == 3\n}\n\ntest \"second\" {\nassert 1 == 1"
+	body := "assert Date.days_between(Date`2026-05-04`, Date`2026-05-07`) == 3\nend\n\ntest \"second\"\nassert 1 == 1"
 	parsed := frontend.FilesParsed()
 	cases, err := vmhost.StdlibReference("calendar", body, "", io.Discard)
 	if err != nil {

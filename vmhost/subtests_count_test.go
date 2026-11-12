@@ -29,11 +29,11 @@ func subtestsCountReport(t *testing.T, src string) ([]vmhost.CaseResult, string)
 // A table of nine rows of which one fails counts as nine cases, eight passed
 // and one failed, and the FAIL block still names the failing row.
 func TestSubtestRowsCountAsCases_OneFailingRow(t *testing.T) {
-	cases, out := subtestsCountReport(t, `test "squares" {
-    subtests 1..=9, n {
+	cases, out := subtestsCountReport(t, `test "squares"
+    subtests 1..=9, n
         assert n * n != 49
-    }
-}
+    end
+end
 `)
 	if len(cases) != 1 || cases[0].Cases != 9 || cases[0].FailedCases != 1 || !cases[0].Subtests {
 		t.Fatalf("want one test of 9 cases with 1 failed, got %+v", cases)
@@ -50,24 +50,24 @@ func TestSubtestRowsCountAsCases_OneFailingRow(t *testing.T) {
 // Two tables in one test count their rows summed, and a passing test names
 // its count on its ok line, beside a test with no table, which is one case.
 func TestSubtestRowsCountAsCases_TwoTablesInOneTest(t *testing.T) {
-	cases, out := subtestsCountReport(t, `test "two tables" {
-    subtests [1, 2, 3], n {
+	cases, out := subtestsCountReport(t, `test "two tables"
+    subtests [1, 2, 3], n
         assert n > 0
-    }
-    subtests ["a", "b"], s {
+    end
+    subtests ["a", "b"], s
         assert s != ""
-    }
-}
+    end
+end
 
-test "one row" {
-    subtests [1], n {
+test "one row"
+    subtests [1], n
         assert n == 1
-    }
-}
+    end
+end
 
-test "plain" {
+test "plain"
     assert 1 + 1 == 2
-}
+end
 `)
 	if len(cases) != 3 || cases[0].Cases != 5 || cases[1].Cases != 1 || cases[2].Cases != 1 || cases[2].Subtests {
 		t.Fatalf("want 5, 1 and 1 cases, got %+v", cases)
@@ -83,12 +83,12 @@ test "plain" {
 
 // A failure after a table's rows passed is one more case, and it failed.
 func TestSubtestRowsCountAsCases_AFailureAfterTheRows(t *testing.T) {
-	cases, out := subtestsCountReport(t, `test "rows then assert" {
-    subtests [1, 2, 3], n {
+	cases, out := subtestsCountReport(t, `test "rows then assert"
+    subtests [1, 2, 3], n
         assert n > 0
-    }
+    end
     assert 1 == 2
-}
+end
 `)
 	if len(cases) != 1 || cases[0].Cases != 4 || cases[0].FailedCases != 1 {
 		t.Fatalf("want 4 cases with 1 failed, got %+v", cases)

@@ -9,9 +9,9 @@ import (
 // rejected form below passed the checker and was BLOCKED at run time with
 // "a type name in value position".
 
-const typeNameDecls = `struct Point {
+const typeNameDecls = `struct Point
   x: Int
-}
+end
 
 type Id Int
 
@@ -19,14 +19,14 @@ type Label String
 
 type Expired
 
-enum Dir {
+enum Dir
   North
   South
-}
+end
 
-interface Named {
+interface Named
   fn name(n: self) -> String
-}
+end
 
 `
 
@@ -47,7 +47,7 @@ func TestTypeName_CalledAsAFunctionIsRejected(t *testing.T) {
 		{`Maybe(3)`, "`Maybe` is a type, not a function"},
 		{`Named(3)`, "`Named` is an interface, not a function"},
 	} {
-		src := typeNameDecls + "fn main() {\n  _ = " + tc.expr + "\n}\n"
+		src := typeNameDecls + "fn main()\n  _ = " + tc.expr + "\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		found := false
 		for _, e := range errs {
@@ -78,7 +78,7 @@ func TestTypeName_AsAValueIsRejected(t *testing.T) {
 		{`x = Bytes`, "`Bytes` is a type, not a value"},
 		{`x: List<String> = Iter.map([1], String) |> Iter.to_list()`, "`String` is a type, not a value"},
 		{`x: List<Int> = Iter.map([Id(1)], Int) |> Iter.to_list()`, "`Int` is a type, not a value"},
-		{`x = Iter.map([.{x: 1}], Point) |> Iter.to_list()`, "`Point` is a type, not a value"},
+		{`x = Iter.map([{x: 1}], Point) |> Iter.to_list()`, "`Point` is a type, not a value"},
 		{`x = Iter.map([1], Named) |> Iter.to_list()`, "`Named` is an interface, not a value"},
 		// A generic constructor with nothing to solve its type parameter
 		// from is rejected as a generic function is.
@@ -86,7 +86,7 @@ func TestTypeName_AsAValueIsRejected(t *testing.T) {
 		{`x = Iter.map([1], Ok) |> Iter.to_list()`, "cannot infer type parameter E of generic constructor 'Ok' used as a value"},
 		{`x = Maybe.Some`, "cannot infer type parameter T of generic constructor 'Maybe.Some' used as a value"},
 	} {
-		src := typeNameDecls + "fn main() {\n  " + tc.stmt + "\n  _ = x\n}\n"
+		src := typeNameDecls + "fn main()\n  " + tc.stmt + "\n  _ = x\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		found := false
 		for _, e := range errs {
@@ -104,7 +104,7 @@ func TestTypeName_AsAValueIsRejected(t *testing.T) {
 // return type rejects a type name there; the type-name rule does.
 func TestTypeName_AsATestBodysLastStatementIsRejected(t *testing.T) {
 	for _, name := range []string{"Map", "Point"} {
-		src := typeNameDecls + "test \"x\" {\n  assert True\n  " + name + "\n}\n"
+		src := typeNameDecls + "test \"x\"\n  assert True\n  " + name + "\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectStdlibError(t, errs, "`"+name+"` is a type, not a value")
 	}
@@ -126,7 +126,7 @@ func TestTypeName_CalledOnADistinctIsRejected(t *testing.T) {
 		// A binding named like the suggested one is not reused.
 		{"n = Id(4)\n  x = Int(n)", "`Int` is a type, not a function\nhelp: to get the Int inside, destructure the Id: `Id(inner) = n`"},
 	} {
-		src := typeNameDecls + "fn main() {\n  " + tc.stmt + "\n  _ = x\n}\n"
+		src := typeNameDecls + "fn main()\n  " + tc.stmt + "\n  _ = x\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		found := false
 		for _, e := range errs {
@@ -145,13 +145,13 @@ func TestTypeName_CalledOnADistinctIsRejected(t *testing.T) {
 func TestTypeName_DistinctDestructuringIsAccepted(t *testing.T) {
 	for _, stmt := range []string{
 		"Id(x) = Id(4)",
-		"x = case Id(4) { Id(n) -> n }",
-		"x = if Some(Id(n)) = Some(Id(4)) { n } else { 0 }",
-		"Some(Id(x)) = Some(Id(4)) else { return }",
+		"x = case Id(4)\n    Id(n) -> n\nend",
+		"x = if Some(Id(n)) = Some(Id(4)) then n else 0",
+		"Some(Id(x)) = Some(Id(4)) else\n    return\nend",
 		"f = fn Id(n) -> n\n  x = f(Id(4))",
 		"Label(x) = Label(\"a\")",
 	} {
-		src := typeNameDecls + "fn main() {\n  " + stmt + "\n  _ = x\n}\n"
+		src := typeNameDecls + "fn main()\n  " + stmt + "\n  _ = x\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		if len(errs) > 0 {
 			t.Errorf("%s: want no error, got %v", stmt, errs)
@@ -163,7 +163,7 @@ func TestTypeName_DistinctDestructuringIsAccepted(t *testing.T) {
 // values stay accepted.
 func TestTypeName_ConstructionAndValuesAreAccepted(t *testing.T) {
 	for _, stmt := range []string{
-		`x = Point(.{x: 1})`,
+		`x = Point({x: 1})`,
 		`x = Point{x: 1}`,
 		`x = Id(4)`,
 		`x = 4 |> Id()`,
@@ -195,7 +195,7 @@ func TestTypeName_ConstructionAndValuesAreAccepted(t *testing.T) {
 		"f: (Int) -> Maybe<Int> = Some\n  x = f(3)",
 		"f: (String) -> Result<Int, String> = Err\n  x = f(\"e\")",
 	} {
-		src := typeNameDecls + "fn main() {\n  " + stmt + "\n  _ = x\n}\n"
+		src := typeNameDecls + "fn main()\n  " + stmt + "\n  _ = x\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectNoStdlibErrors(t, errs)
 	}
@@ -205,17 +205,17 @@ func TestTypeName_ConstructionAndValuesAreAccepted(t *testing.T) {
 // the one tuple they take: the flat call `Pair(1, "x")` is a call form, not a
 // second parameter list.
 func TestConstructorValue_TupleTakesTheTuple(t *testing.T) {
-	decls := "type Pair (Int, String)\n\nenum Shape {\n  Seg (Int, Int)\n}\n\n"
+	decls := "type Pair (Int, String)\n\nenum Shape\n  Seg (Int, Int)\nend\n\n"
 	for _, stmt := range []string{
 		`x = Iter.map([(1, "a")], Pair) |> Iter.to_list()`,
 		`x = Iter.map([(1, 2)], Shape.Seg) |> Iter.to_list()`,
 		"f: ((Int, String)) -> Pair = Pair\n  x = f((1, \"a\"))",
 	} {
-		src := decls + "fn main() {\n  " + stmt + "\n  _ = x\n}\n"
+		src := decls + "fn main()\n  " + stmt + "\n  _ = x\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectNoStdlibErrors(t, errs)
 	}
-	src := decls + "fn main() {\n  f = Pair\n  x = f(1, \"a\")\n  _ = x\n}\n"
+	src := decls + "fn main()\n  f = Pair\n  x = f(1, \"a\")\n  _ = x\nend\n"
 	_, errs := checkSourceWithStdlib(src)
 	expectStdlibError(t, errs, "expected 1 arguments, got 2")
 }
@@ -223,15 +223,15 @@ func TestConstructorValue_TupleTakesTheTuple(t *testing.T) {
 // The names that stay errors keep their messages: a struct-shaped variant,
 // and `.Variant`, which resolves only against an expected enum.
 func TestConstructorValue_RejectedForms(t *testing.T) {
-	decls := "enum Shape {\n  Circle Float\n  Rect {w: Int}\n}\n\n"
+	decls := "enum Shape\n  Circle Float\n  Rect {w: Int}\nend\n\n"
 	for _, tc := range []struct {
 		stmt string
 		want string
 	}{
-		{`x = Iter.map([.{w: 1}], Shape.Rect) |> Iter.to_list()`, "Shape.Rect is a struct-shaped variant and is not a function value"},
+		{`x = Iter.map([{w: 1}], Shape.Rect) |> Iter.to_list()`, "Shape.Rect is a struct-shaped variant and is not a function value"},
 		{`x: (Float) -> Shape = .Circle`, ".Circle resolves only to enum variants, but the expected type at this position is (Float) -> Shape\nhelp: a constructor as a function value is written qualified, `Shape.Circle`"},
 	} {
-		src := decls + "fn main() {\n  " + tc.stmt + "\n  _ = x\n}\n"
+		src := decls + "fn main()\n  " + tc.stmt + "\n  _ = x\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		found := false
 		for _, e := range errs {
@@ -249,8 +249,8 @@ func TestConstructorValue_RejectedForms(t *testing.T) {
 // called or named as a value; inside its file the value is accepted.
 func TestConstructorValue_OpaqueDistinctOutsideItsFile(t *testing.T) {
 	files := map[string]string{
-		"secret.nomi": "pub opaque type Secret String\n\npub fn all(xs: List<String>) -> List<Secret> {\n  Iter.map(xs, Secret) |> Iter.to_list()\n}\n",
-		"main.nomi":   "import secret\n\nfn main() {\n  xs = Iter.map([\"a\"], secret.Secret) |> Iter.to_list()\n  _ = xs\n  _ = secret.all([\"b\"])\n}\n",
+		"secret.nomi": "pub opaque type Secret String\n\npub fn all(xs: List<String>) -> List<Secret>\n  Iter.map(xs, Secret) |> Iter.to_list()\nend\n",
+		"main.nomi":   "import secret\n\nfn main()\n  xs = Iter.map([\"a\"], secret.Secret) |> Iter.to_list()\n  _ = xs\n  _ = secret.all([\"b\"])\nend\n",
 	}
 	_, errs := opaqueProject(t, files)
 	if len(errs) != 1 || !strings.Contains(errs[0].Message, "constructor of opaque type 'Secret' is private to its defining module") {
@@ -271,13 +271,13 @@ func TestTypeName_PipedIntoAStructIsTheCallForm(t *testing.T) {
 		want    string
 	}{
 		{"", `00 |> Range()`, "constructor of opaque type 'Range' is private to its defining module"},
-		{"", `00 |> Range()`, "Range expects an anonymous struct literal .{...} matching its fields, got Int"},
-		{"", `1 |> Point()`, "Point expects an anonymous struct literal .{...} matching its fields, got Int"},
-		{"", `.{x: 1} |> Point(2)`, "Point takes the piped record as its only argument, got 1 more"},
-		{"", `.{y: 1} |> Point()`, "Point has no field 'y'"},
+		{"", `00 |> Range()`, "Range expects an anonymous struct literal {...} matching its fields, got Int"},
+		{"", `1 |> Point()`, "Point expects an anonymous struct literal {...} matching its fields, got Int"},
+		{"", `{x: 1} |> Point(2)`, "Point takes the piped record as its only argument, got 1 more"},
+		{"", `{y: 1} |> Point()`, "Point has no field 'y'"},
 		{"import std::instant.Instant\n\n", `1 |> Instant()`, "constructor of opaque type 'Instant' is private to its defining module"},
 	} {
-		src := tc.imports + typeNameDecls + "fn main() {\n  _ = " + tc.expr + "\n}\n"
+		src := tc.imports + typeNameDecls + "fn main()\n  _ = " + tc.expr + "\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		found := false
 		for _, e := range errs {
@@ -290,10 +290,10 @@ func TestTypeName_PipedIntoAStructIsTheCallForm(t *testing.T) {
 		}
 	}
 	for _, stmt := range []string{
-		`x = .{x: 1} |> Point()`,
-		"r = .{x: 1}\n  x = r |> Point()",
+		`x = {x: 1} |> Point()`,
+		"r = {x: 1}\n  x = r |> Point()",
 	} {
-		src := typeNameDecls + "fn main() {\n  " + stmt + "\n  _ = x.x\n}\n"
+		src := typeNameDecls + "fn main()\n  " + stmt + "\n  _ = x.x\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectNoStdlibErrors(t, errs)
 	}

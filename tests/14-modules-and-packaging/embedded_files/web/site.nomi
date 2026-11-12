@@ -1,7 +1,7 @@
-import {
+import
     std::embed.Files
     std::http.{self, Request, Response}
-}
+end
 
 /// The site's static files and its page templates, read when the program
 /// is compiled. Patterns name files from the module root, as import paths
@@ -12,6 +12,6 @@ pub embed assets `
     `
 
 /// The static files, served at the root.
-pub fn static_files() -> (Request) -> Response {
+pub fn static_files() -> (Request) -> Response
     http.file_server_embedded(Files.sub(assets, "web/public")!)
-}
+end

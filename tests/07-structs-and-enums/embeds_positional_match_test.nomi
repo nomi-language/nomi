@@ -18,63 +18,63 @@
 // Both spellings and both representations are asserted here, so a failure in
 // either spelling, for either representation, shows up in this file rather
 // than somewhere downstream.
-struct Circle {
+struct Circle
     r: Int
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Line
-}
+end
 
-fn positional(s: Shape) -> Int {
-    case s {
+fn positional(s: Shape) -> Int
+    case s
         Shape.Circle(c) -> c.r
         Shape.Line -> 0
-    }
-}
+    end
+end
 
-fn struct_form(s: Shape) -> Int {
-    case s {
-        Shape.Circle{r} -> r
+fn struct_form(s: Shape) -> Int
+    case s
+        Shape.Circle{r:} -> r
         Shape.Line -> 0
-    }
-}
+    end
+end
 
-group "a bare struct reaching an embeds enum" {
-    test "the positional pattern matches the bare spelling" {
+group "a bare struct reaching an embeds enum"
+    test "the positional pattern matches the bare spelling"
         coerced: Shape = Circle{r: 1}
 
         assert positional(coerced) == 1
-    }
+    end
 
-    test "the positional pattern matches the enum spelling" {
+    test "the positional pattern matches the enum spelling"
         spelled = Shape.Circle{r: 2}
 
         assert positional(spelled) == 2
-    }
+    end
 
-    test "the struct-field pattern matches the bare spelling" {
+    test "the struct-field pattern matches the bare spelling"
         coerced: Shape = Circle{r: 3}
 
         assert struct_form(coerced) == 3
-    }
+    end
 
-    test "the struct-field pattern matches the enum spelling" {
+    test "the struct-field pattern matches the enum spelling"
         spelled = Shape.Circle{r: 4}
 
         assert struct_form(spelled) == 4
-    }
+    end
 
-    test "a destructure of the bare spelling binds its payload" {
+    test "a destructure of the bare spelling binds its payload"
         coerced: Shape = Circle{r: 5}
 
         assert Shape.Circle(c) = coerced
         assert c.r == 5
-    }
+    end
 
-    test "the other variant still selects its own arm" {
+    test "the other variant still selects its own arm"
         assert positional(Shape.Line) == 0
         assert struct_form(Shape.Line) == 0
-    }
-}
+    end
+end

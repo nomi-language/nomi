@@ -9,7 +9,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/tree-building.
 ## Choices
 
 - The exercise is a refactoring of slow code that each track supplies; there is no slow version here, only the tree built directly.
-- `Record` and `Node` are structs. `Node`'s `children` defaults to `[]`, so a leaf is `.{id}`, and the tests compare whole trees with `==`, which compares a struct field by field with no `derive Equatable`.
+- `Record` and `Node` are structs. `Node`'s `children` defaults to `[]`, so a leaf is `{id:}`, and the tests compare whole trees with `==`, which compares a struct field by field with no `derive Equatable`.
 - `build_tree` returns `Result<Maybe<Node>, Error>`: no records is `Ok(None)`, the canonical empty answer, not an error. `Error` has two variants for the canonical two messages, given by its `Display`.
 - The records are sorted by id once. They are valid ids exactly when the sorted record at each index has that index as its id, which `Iter.with_index` and `Iter.all_match` check in one pass; that catches a missing root, a duplicate and a gap alike.
 - The canonical data splits the remaining rules oddly, and the solution follows it: a root whose parent is not 0 is the "parent_id should be smaller" error, but any other record whose parent is not lower than its id, a cycle included, is "record id is invalid or out of order". These are three arms of one `case` on the sorted list, two with `when` guards.

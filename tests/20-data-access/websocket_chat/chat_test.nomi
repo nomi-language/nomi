@@ -1,26 +1,26 @@
 // std::websocket: a chat room whose actor holds the connections and
 // broadcasts to them, each member an in-memory connection.
-import {
+import
     std::http_testing
     std::websocket.{Message, WebSocket}
     chat
-}
+end
 
-group "a chat room" {
+group "a chat room"
     boot chat.boot()
 
-    test "a message reaches every member" {
-        heard = http_testing.open_websocket(chat.join, "/chat", fn ann -> {
+    test "a message reaches every member"
+        heard = http_testing.open_websocket(chat.join, "/chat", fn ann ->
             ann_joined = WebSocket.receive(ann)
 
-            bob_heard = http_testing.open_websocket(chat.join, "/chat", fn bob -> {
+            bob_heard = http_testing.open_websocket(chat.join, "/chat", fn bob ->
                 bob_joined = WebSocket.receive(bob)
                 _ = WebSocket.send_text(bob, "hello, room")
                 (bob_joined, WebSocket.receive(bob))
-            })
+            end)
 
             (ann_joined, bob_heard, WebSocket.receive(ann))
-        })
+        end)
 
         joined = Ok(Some(Message.Text("joined")))
         said = Ok(Some(Message.Text("hello, room")))
@@ -28,15 +28,15 @@ group "a chat room" {
         assert ann_joined == joined
         assert bob_heard == (joined, said)
         assert ann_heard == said
-    }
+    end
 
-    test "a member alone hears their own message" {
-        second = http_testing.open_websocket(chat.join, "/chat", fn ws -> {
+    test "a member alone hears their own message"
+        second = http_testing.open_websocket(chat.join, "/chat", fn ws ->
             _ = WebSocket.receive(ws)
             _ = WebSocket.send_text(ws, "alone")
             WebSocket.receive(ws)
-        })
+        end)
 
         assert Ok(Ok(Some(Message.Text("alone")))) = second
-    }
-}
+    end
+end

@@ -25,36 +25,36 @@
 //	         and its runtime type identity collide too
 //	`Show`   one interface declared here, impl'd for BOTH `Slot`s, so the two
 //	         impl functions and the dispatch-table binding collide
-import {
+import
     prod
     test as t
-}
+end
 
-pub interface Show {
+pub interface Show
     fn show(value: self) -> String
-}
+end
 
-pub struct Config {
+pub struct Config
     name: String
     level: Int
-}
+end
 
 pub once tag: String = "app"
 
-pub fn stamp(c: Config) -> String {
+pub fn stamp(c: Config) -> String
     "${c.name}/${c.level}"
-}
+end
 
 // Calls both `build`s, the two declarations that share one name,
 // from inside the package they share. A collapsed resolution prints prod's
 // Config where test's belongs.
-pub fn load(which: String) -> Config {
-    if which == "prod" {
+pub fn load(which: String) -> Config
+    if which == "prod" then
         prod.build()
-    } else {
+    else
         t.build()
-    }
-}
+    end
+end
 
 // Both `badge`s, each of which dispatches `Show.show` onto its OWN `Slot`. Two
 // declarations of `impl Show for Slot` share one name for their impl
@@ -68,17 +68,17 @@ pub fn load(which: String) -> Config {
 // call onto a CO-TENANT's type is still `call to an unlowered impl`, which is a
 // sibling-function plumbing gap this change does not touch and which would make
 // the fixture refuse for somebody else's reason.
-pub fn badges() -> String {
+pub fn badges() -> String
     "${prod.badge()}|${t.badge()}"
-}
+end
 
 // This file's own `once` and then BOTH siblings' — three getters that all
 // wanted the identifier `NomiOnce_tag`, resolved from inside the one package
 // that holds all three.
-pub fn origin() -> String {
+pub fn origin() -> String
     "${tag}+${prod.tag}+${t.tag}"
-}
+end
 
-pub fn label() -> String {
+pub fn label() -> String
     "app-label"
-}
+end

@@ -8,9 +8,9 @@ import "testing"
 // not parse. Found by FuzzFormatKeepsMeaning on `interface A{fn A(0)}`.
 func TestFormat_InterfaceRequirementPatternParam(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
-		{"interface A {fn a(0)}\n", "interface A {\n    fn a(0)\n}\n"},
-		{"interface A {\n    fn a((x, y): (Int, Int)) -> Int\n}\n", "interface A {\n    fn a((x, y): (Int, Int)) -> Int\n}\n"},
-		{"interface A {\n    fn a(x: Int, y: Int = 1) -> Int\n}\n", "interface A {\n    fn a(x: Int, y: Int = 1) -> Int\n}\n"},
+		{"interface A\n    fn a(0)\nend\n", "interface A\n    fn a(0)\nend\n"},
+		{"interface A\n    fn a((x, y): (Int, Int)) -> Int\nend\n", "interface A\n    fn a((x, y): (Int, Int)) -> Int\nend\n"},
+		{"interface A\n    fn a(x: Int, y: Int = 1) -> Int\nend\n", "interface A\n    fn a(x: Int, y: Int = 1) -> Int\nend\n"},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)
 	}

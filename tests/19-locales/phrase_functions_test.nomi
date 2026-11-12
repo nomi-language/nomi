@@ -1,9 +1,9 @@
-import {
+import
     std::calendar.{Date, DateTime, Time}
     std::compiler
     std::currency.Currency
     std::money.Money
-}
+end
 
 /// A payment's receipt line: the amount by its code, the day at length.
 phrase paid(
@@ -23,11 +23,11 @@ phrase plain(total: Money, day: Date) `{$total}, {$day}`
 /// The weekday and day from `:datetime`'s fields.
 phrase weekday_and_day(day: Date) `{$day :datetime weekday=short day=numeric}`
 
-fn phrases(source: String) -> List<String> {
+fn phrases(source: String) -> List<String>
     compiler.check(source) |> Iter.map(&(&1.message)) |> Iter.to_list()
-}
+end
 
-test "the money and date functions write in the reader's locale" {
+test "the money and date functions write in the reader's locale"
     total = Money{amount: 49.9d, currency: Currency`EUR`}
     day = Date`2026-10-20`
 
@@ -51,9 +51,9 @@ test "the money and date functions write in the reader's locale" {
     assert plain(total, day) |> Phrase.format(Locale`en`) == "€49.90, Oct 20, 2026"
     assert weekday_and_day(day) |> Phrase.format(Locale`en`) == "20 Tue"
     assert weekday_and_day(day) |> Phrase.format(Locale`de`) == "Di., 20."
-}
+end
 
-test "each function takes the type it writes" {
+test "each function takes the type it writes"
     assert phrases(
         """
           phrase total(amount: Decimal) `Total: {$amount :currency}`
@@ -89,9 +89,9 @@ test "each function takes the type it writes" {
     ) == [
         "en: `hour` names a time of day, and `$day` is a `Date`, which has none",
     ]
-}
+end
 
-test "options are checked by name and value" {
+test "options are checked by name and value"
     assert phrases(
         """
           import std::calendar.Date
@@ -121,9 +121,9 @@ test "options are checked by name and value" {
     ) == [
         "en: `:datetime` takes `dateStyle` and `timeStyle`, or the fields it writes (`month=long day=numeric`), not both",
     ]
-}
+end
 
-test "a date or an amount does not select" {
+test "a date or an amount does not select"
     assert phrases(
         """
           import std::calendar.Date
@@ -137,4 +137,4 @@ test "a date or an amount does not select" {
     ) == [
         "en: `:date` writes a calendar value and selects nothing\nhelp: select by the day of the week with `.input {$day :nomi:weekday}`",
     ]
-}
+end

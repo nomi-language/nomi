@@ -8,7 +8,9 @@ import (
 // element as a record over the marker's descriptor.
 func TestIRMarker_ContainerRetains(t *testing.T) {
 	p, err := AnalyzeSource("main.nomi", `type Ready
-fn main() { _ = [Ready] }
+fn main()
+    _ = [Ready]
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
@@ -39,31 +41,31 @@ func TestIRMarker_ZeroSizedEnumPayloadRuns(t *testing.T) {
 
 type Ready
 
-enum State {
+enum State
     Present(Ready)
     Missing
-}
+end
 
-enum Box<T> {
+enum Box<T>
     Full(T)
     Empty
-}
+end
 
-fn describe(s: State) -> String {
-    case s {
+fn describe(s: State) -> String
+    case s
         State.Present(r) -> "present ${Debug.inspect(r)}"
         State.Missing -> "missing"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     s = State.Present(Ready)
     io.inspect(s)
     [s, State.Missing] |> Iter.each(fn x -> io.print(describe(x)))
     b: Box<Ready> = Box.Full(Ready)
     u: Box<Unit> = Box.Full(Unit)
     io.inspect((b, u))
-}
+end
 `
 	irRunSource(t, src, "Present(Ready)\npresent Ready\nmissing\n(Full(Ready), Full(Unit))\n")
 }

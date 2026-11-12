@@ -1,8 +1,6 @@
 package irbuild
 
 import (
-	"slices"
-
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -13,11 +11,11 @@ import (
 // The instance is built where the declaration lives, by the declaring file's
 // gen, as an instance of another file's generic TYPE is (foreigngeneric.go):
 // the body resolves its names in its own file's scope, so only that file's gen
-// can lower it. The call site reads the checker's instantiated signature in
-// its own kinds, where a type parameter of an enclosing instance still
-// resolves, and hands those kinds to the owner through importKind. The owner
-// solves its template's type arguments against its own annotations and
-// interns the instance in its own table (resolveMonoInstance), and the call
+// can lower it. The call site reads the type arguments the checker
+// instantiated the call at (calleeTypeArgs) in its own kinds, where a type
+// parameter of an enclosing instance still resolves, and hands them to the
+// owner through importKind. The owner interns the instance at them in its
+// own table (resolveMonoInstance), and the call
 // site translates the instance's signature back, as siblingSignature does for
 // a monomorphic `fn`. The call names the instance's symbol in the owner's
 // table, which is how a cross-file call links (irSiblingCalleeSym).
@@ -26,48 +24,13 @@ import (
 // for an instance, so GenerateIR builds late instances once every walk is
 // done (irFlushLateInstances).
 
-// siblingGenericInstance resolves the call t to unit `to`'s generic `fn` f:
+// siblingGenericInstance resolves ref, a call's callee or a function used
+// as a value (`Iter.map(xs, span.ident)`), to unit `to`'s generic `fn` f:
 // the instance's parameter and result kinds in this gen, and its callee
-// symbol. ok is false when the owner cannot build the instance.
-func (g *gen) siblingGenericInstance(t *ast.Call, to int, f *fileFunc) ([]kind, kind, *ir.Symbol, bool) {
-	no := func() ([]kind, kind, *ir.Symbol, bool) { return nil, kindInvalid, nil, false }
-	if f == nil || !f.generic || f.decl == nil || g.reg == nil || to < 0 || to >= len(g.reg.gens) {
-		return no()
-	}
-	owner := g.reg.gens[to]
-	if owner == nil || owner == g {
-		return no()
-	}
-	sig := owner.funcs[f.decl.Name]
-	if sig == nil || sig.decl != f.decl {
-		return no()
-	}
-	tpl := owner.irMonoTemplate(sig)
-	if tpl == nil || len(t.Args) > len(tpl.decl.Params) {
-		return no()
-	}
-	// A call may omit defaulted parameters or name its arguments: the
-	// checker's instantiated signature has every parameter either way.
-	here, result, ok := g.checkedMonoCallKinds(t, len(tpl.decl.Params))
-	if ok {
-		return g.siblingInstanceAt(owner, tpl, f, here, result)
-	}
-	// A hole the checker left open (`cnt([])`): filled here, as a call to
-	// this file's own generic is (checkedMonoTypeArgsFilled), and solved
-	// in the owner.
-	args, ok := g.solveFilled(t, tpl, func(tpl *monoTemplate, here []kind, result kind) ([]kind, bool) {
-		return g.siblingSolve(owner, tpl, here, result)
-	})
-	if !ok {
-		return no()
-	}
-	return g.siblingResolve(owner, tpl, f, args)
-}
-
-// siblingGenericRef is siblingGenericInstance for a REFERENCE to unit `to`'s
-// generic `fn` f (`Iter.map(xs, span.ident)`): the instance the checker
-// instantiated the reference at (funcref.go's checkedRefKinds).
-func (g *gen) siblingGenericRef(ref ast.Node, to int, f *fileFunc) ([]kind, kind, *ir.Symbol, bool) {
+// symbol. The type arguments are the ones the checker instantiated ref at
+// (calleeTypeArgs), read in this gen's kinds and imported into the
+// owner's. ok is false when the owner cannot build the instance.
+func (g *gen) siblingGenericInstance(ref ast.Node, to int, f *fileFunc) ([]kind, kind, *ir.Symbol, bool) {
 	no := func() ([]kind, kind, *ir.Symbol, bool) { return nil, kindInvalid, nil, false }
 	if f == nil || !f.generic || f.decl == nil || g.reg == nil || to < 0 || to >= len(g.reg.gens) {
 		return no()
@@ -84,43 +47,28 @@ func (g *gen) siblingGenericRef(ref ast.Node, to int, f *fileFunc) ([]kind, kind
 	if tpl == nil {
 		return no()
 	}
-	here, result, ok := g.checkedRefKinds(ref, len(tpl.decl.Params))
+	here, ok := g.calleeTypeArgs(ref, tpl.params)
 	if !ok {
 		return no()
 	}
-	return g.siblingInstanceAt(owner, tpl, f, here, result)
-}
-
-// siblingInstanceAt asks owner for the instance of tpl at the parameter and
-// result kinds here, which are this gen's, and translates its signature back.
-func (g *gen) siblingInstanceAt(owner *gen, tpl *monoTemplate, f *fileFunc, here []kind, result kind) ([]kind, kind, *ir.Symbol, bool) {
-	args, ok := g.siblingSolve(owner, tpl, here, result)
+	args, ok := owner.importKinds(here)
 	if !ok {
-		return nil, kindInvalid, nil, false
+		return no()
 	}
 	return g.siblingResolve(owner, tpl, f, args)
 }
 
-// siblingSolve solves owner's template tpl at the parameter and result
-// kinds here, which are this gen's: the type arguments, in owner's kinds.
-func (g *gen) siblingSolve(owner *gen, tpl *monoTemplate, here []kind, result kind) ([]kind, bool) {
-	there := make([]kind, len(here))
-	for i, k := range here {
-		ik, ok := owner.importKind(k)
+// importKinds is importKind over ks.
+func (g *gen) importKinds(ks []kind) ([]kind, bool) {
+	out := make([]kind, len(ks))
+	for i, k := range ks {
+		ik, ok := g.importKind(k)
 		if !ok {
 			return nil, false
 		}
-		there[i] = ik
+		out[i] = ik
 	}
-	// kindInvalid: sentinel — an open result solves nothing on either side.
-	if result != kindInvalid {
-		ik, ok := owner.importKind(result)
-		if !ok {
-			return nil, false
-		}
-		result = ik
-	}
-	return owner.monoSolve(tpl, there, result)
+	return out, true
 }
 
 // siblingResolve is owner's instance of tpl at args, its signature
@@ -204,42 +152,13 @@ func (bl *irScalarBuilder) siblingInstanceImplPlan(t *ast.Call, args irQualArgs,
 		if erased, changed := bl.qualEraseSlotted(t, args, params, fd.Params); changed {
 			args = erased
 		}
-		temps, slots, mobile, ok := slottedOperands(t, args, params, fd.Params)
+		full, ok := bl.filledOperands(t, args, params, fd.Params, owner.instImplHome(impl, it))
 		if !ok {
 			return nil
 		}
-		// An interface default the block inherits: callDefaults fills its
-		// parameter defaults under the interface's file's names, whichever
-		// file declares the block (ifaceslotdefault.go).
-		inherited := false
-		if len(slots) > 0 {
-			_, inherited = g.ifaceParamDefault(fd.Params[slots[0]].Default)
-		}
-		if !inherited && !bl.siblingDefaultsAgree(&fileFunc{name: method, params0: fd.Params}, owner, slots) {
-			// A default naming what this file cannot: the declaring gen
-			// builds an accessor for each, at this instance's type
-			// arguments (instimplaccessor.go).
-			name := impl.recv.nomi() + "." + it.name
-			callee := owner.instImplAccessorsFor(impl, it, name)
-			if callee == nil || !bl.siblingFill(t, owner, callee, instImplDecl(fd, name), params, temps, mobile) {
-				return nil
-			}
-			full := irQualArgs{temps: temps, kinds: append([]kind(nil), params...), mobile: make([]bool, len(temps)), ok: true}
-			if !bl.qualSignature(&ast.Call{Func: t.Func, Args: make([]ast.Node, len(temps)), Line: t.Line, Col: t.Col}, full, params, result) {
-				return nil
-			}
-			return &irQualPlan{token: it, name: name, result: result, sym: owner.irCalleeSym(it, name), args: &full}
-		}
-		if unit := slices.Index(g.reg.gens, owner); unit >= 0 && owner != g && !inherited {
-			defer g.lowerNamesFrom(unit)()
-		}
-		if !bl.callDefaults(&fnSig{decl: fd, params: params}, temps) {
-			return nil
-		}
-		full := irQualArgs{temps: temps, kinds: append([]kind(nil), params...), mobile: make([]bool, len(temps)), ok: true}
 		filled = &full
 		args = full
-		t = &ast.Call{Func: t.Func, Args: make([]ast.Node, len(temps)), Line: t.Line, Col: t.Col}
+		t = &ast.Call{Func: t.Func, Args: make([]ast.Node, len(full.temps)), Line: t.Line, Col: t.Col}
 	}
 	if !bl.qualSignature(t, args, params, result) {
 		return nil
@@ -248,14 +167,29 @@ func (bl *irScalarBuilder) siblingInstanceImplPlan(t *ast.Call, args irQualArgs,
 	return &irQualPlan{token: it, name: name, result: result, sym: owner.irCalleeSym(it, name), args: filled}
 }
 
+// siblingMethodInstance is the instance owner builds of block d's withheld
+// member w for the call t, at the type arguments the checker instantiated
+// t at, read in this gen's kinds and imported into the owner's.
+func (g *gen) siblingMethodInstance(t *ast.Call, owner *gen, d *implDef, method string, w withheldMember) *implItem {
+	here, ok := g.calleeTypeArgs(t.Func, w.typeParamNames())
+	if !ok {
+		return nil
+	}
+	there, ok := owner.importKinds(here)
+	if !ok {
+		return nil
+	}
+	return owner.methodInstance(d, method, w, there)
+}
+
 // siblingMethodPlan resolves a call to a generic impl function another file
 // declares (`leaf.Box.ident(6)`, `Wrap.map(w, f)` over another file's
 // `Wrap<Int>`): block d of owner withheld it (implDef.withheldMember), so the
 // owner builds the instance, as siblingGenericInstance has it build a generic
-// `fn`. The call site reads the checker's instantiated signature in its own
-// kinds and hands them to the owner through importKind; the owner solves the
-// member's type parameters against its own annotations (methodInstance),
-// interns the instance in its own table and queues its body, which
+// `fn`. The call site reads the type arguments the checker instantiated the
+// call at in its own kinds and hands them to the owner through importKind;
+// the owner interns the instance in its own table (methodInstance) and
+// queues its body, which
 // irFlushLateInstances builds if the owner's walk is already done. The call
 // names the instance's symbol in the owner's table.
 func (bl *irScalarBuilder) siblingMethodPlan(t *ast.Call, args irQualArgs, owner *gen, d *implDef, method string) *irQualPlan {
@@ -267,32 +201,7 @@ func (bl *irScalarBuilder) siblingMethodPlan(t *ast.Call, args irQualArgs, owner
 	if !ok {
 		return nil
 	}
-	var there []kind
-	// kindInvalid: sentinel — a result the checker left open solves nothing.
-	result := kindInvalid
-	if len(w.tps) > 0 {
-		here, res, ok := g.checkedMonoCallKinds(t, len(w.params))
-		if !ok {
-			return nil
-		}
-		there = make([]kind, len(here))
-		for i, k := range here {
-			ik, ok := owner.importKind(k)
-			if !ok {
-				return nil
-			}
-			there[i] = ik
-		}
-		// kindInvalid: sentinel — checkedMonoCallKinds' open result.
-		if res != kindInvalid {
-			ik, ok := owner.importKind(res)
-			if !ok {
-				return nil
-			}
-			result = ik
-		}
-	}
-	it := owner.methodInstance(d, method, w, there, result)
+	it := g.siblingMethodInstance(t, owner, d, method, w)
 	if it == nil || !it.lowerable {
 		return nil
 	}
@@ -318,7 +227,7 @@ func (bl *irScalarBuilder) siblingMethodPlan(t *ast.Call, args irQualArgs, owner
 		f := &fileFunc{name: method, params0: w.params, defaults: true}
 		name := d.recv.nomi() + "." + it.name
 		site := &implMemberSite{fn: f, symName: name, instAccessors: func() *ir.Symbol { return owner.methodInstAccessors(it, name) }}
-		full, ok := bl.siblingDefaultArgs(t, args, site, params, owner)
+		full, ok := bl.filledOperands(t, args, params, site.fn.params0, site.defaultHome(owner))
 		if !ok {
 			return nil
 		}

@@ -14,24 +14,30 @@ import (
 // `leaf` file qualifier.
 const qualifiedValueLeaf = `pub type UserId Int
 
-pub struct Box {
+pub struct Box
     value: Int
-}
+end
 
-impl Box {
-    pub fn twice(b: Box) -> Int { b.value * 2 }
-    pub fn add(b: Box, n: Int) -> Int { b.value + n }
-}
+impl Box
+    pub fn twice(b: Box) -> Int
+        b.value * 2
+    end
+    pub fn add(b: Box, n: Int) -> Int
+        b.value + n
+    end
+end
 
-impl Display for Box {
-    fn to_string(b: Box) -> String { "box ${b.value}" }
-}
+impl Display for Box
+    fn to_string(b: Box) -> String
+        "box ${b.value}"
+    end
+end
 
-pub enum Shape {
+pub enum Shape
     Line(Int)
     embeds UserId
     Dot
-}
+end
 `
 
 // An owner's function or positional constructor named through a file
@@ -100,7 +106,7 @@ func TestQualifiedOwnerFuncValue_Runs(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			main := "import {\n    std::io\n    " + tc.imp + "\n}\n\nfn main() {\n" + tc.body + "}\n"
+			main := "import\n    std::io\n    " + tc.imp + "\nend\n\nfn main()\n" + tc.body + "end\n"
 			for name, src := range map[string]string{
 				"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 				"leaf.nomi": qualifiedValueLeaf,

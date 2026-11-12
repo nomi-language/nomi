@@ -7,41 +7,41 @@ import "testing"
 // lowers as the qualified loop does: a statement ending main, an Int
 // function's tail, and a binding with code after it that never runs.
 func TestIRLoopEndless_BareAndAliasedLoop(t *testing.T) {
-	verifyEndlessTrap(t, `import {
+	verifyEndlessTrap(t, `import
     std::io
     std::iter.Iter.{loop, loop as forever}
-}
+end
 
-fn spin() -> Int {
-    forever(0, fn n -> {
+fn spin() -> Int
+    forever(0, fn n ->
         io.print("spin ${n}")
         n + 1
-    })
-}
+    end)
+end
 
-fn main() {
-    x = loop(0, fn n -> {
-        if n == 2 { return 10 }
-        if n == 11 { io.print(1 / (n - 11)) }
+fn main()
+    x = loop(0, fn n ->
+        if n == 2 then return 10
+        if n == 11 then io.print(1 / (n - 11))
         io.print("bound ${n}")
         n + 1
-    })
+    end)
     io.inspect(x)
     io.inspect(spin())
-}
+end
 `, "line 16: division by zero", "bound 0\nbound 1\nbound 10\n")
-	verifyEndlessTrap(t, `import {
+	verifyEndlessTrap(t, `import
     std::io
     std::iter.Iter.{loop as forever}
-}
+end
 
-fn main() {
+fn main()
     io.print("start")
-    forever(fn -> {
+    forever(fn ->
         io.print("again")
         io.print(1 / 0)
-    })
-}
+    end)
+end
 `, "line 10: division by zero", "start\nagain\n")
 }
 
@@ -50,16 +50,16 @@ fn main() {
 func TestIRLoop_LocalFunctionNamedLoopIsACall(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn loop(f: () -> Unit) {
+fn loop(f: () -> Unit)
     f()
     f()
-}
+end
 
-fn main() {
-    loop(fn -> {
+fn main()
+    loop(fn ->
         io.print("called")
-    })
+    end)
     io.print("after")
-}
+end
 `, "called\ncalled\nafter\n")
 }

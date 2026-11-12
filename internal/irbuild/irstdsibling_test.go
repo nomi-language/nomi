@@ -18,7 +18,7 @@ import (
 // qualification: `step_by`, `next` and `inspect` all call `Codepoint.to_int`,
 // and the first two call std/int's host function `Int.to_codepoint`.
 func TestIRStdSibling_TypeQualifiedSameModuleCalls(t *testing.T) {
-	verifyLambdaProgram(t, `fn run() -> Maybe<Int> {
+	verifyLambdaProgram(t, `fn run() -> Maybe<Int>
   a = Int.to_codepoint(65)?
   b = Codepoint.step_by(a, 2)?
   c = Codepoint.next(b)?
@@ -27,11 +27,11 @@ func TestIRStdSibling_TypeQualifiedSameModuleCalls(t *testing.T) {
   gap = Int.to_codepoint(55_295)?
   dbg Codepoint.to_int(Codepoint.next(gap)?)
   Some(0)
-}
+end
 
-fn main() {
+fn main()
   _ = run()
-}
+end
 `, "dbg line 5: Codepoint.to_int(c) = 68\n"+
 		"dbg line 6: Codepoint.inspect(c) = \"Codepoint(68)\"\n"+
 		"dbg line 8: Codepoint.to_int(Codepoint.next(gap)?) = 57344\n")
@@ -65,21 +65,21 @@ func lowerStdSource(t *testing.T, src string) *ir.Module {
 // the native walk. No std module retains a body through a bare Nomi sibling
 // call yet: every current caller declines on an operand first.
 func TestIRStdSibling_BareCallsLinkToEarlierBodies(t *testing.T) {
-	const src = `fn helper(n: Int) -> Int {
+	const src = `fn helper(n: Int) -> Int
   n + 1
-}
+end
 
-pub fn bare(n: Int) -> Int {
+pub fn bare(n: Int) -> Int
   helper(n) * 2
-}
+end
 
-pub fn forward(n: Int) -> Int {
+pub fn forward(n: Int) -> Int
   later(n)
-}
+end
 
-fn later(n: Int) -> Int {
+fn later(n: Int) -> Int
   n - 1
-}
+end
 `
 	mod := lowerStdSource(t, src)
 	if mod == nil {

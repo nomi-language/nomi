@@ -11,8 +11,8 @@ import (
 // top of `fn main`'s block and at file level. The body starts on line 3 in
 // both, so a diagnostic in it has the same position either way.
 func blockAndFileImport(imp, body string) (block, file string) {
-	block = "fn main() {\n  import " + imp + "\n" + body + "\n  Unit\n}\n"
-	file = "import " + imp + "\nfn main() {\n" + body + "\n  Unit\n}\n"
+	block = "fn main()\n  import " + imp + "\n" + body + "\n  Unit\nend\n"
+	file = "import " + imp + "\nfn main()\n" + body + "\n  Unit\nend\n"
 	return block, file
 }
 
@@ -53,8 +53,8 @@ func TestBlockImport_UnknownMemberRejectedAsAtFileLevel(t *testing.T) {
 		{"interface", "std::json.ToJson", "  dbg ToJson.nope(1)", "type 'ToJson' has no member 'nope'"},
 		{"owner function of Duration", "std::duration.Duration", "  dbg Duration.nope(1)", "type 'Duration' has no member 'nope'"},
 		{"record variant field", "std::json.Json", "  x = Json.ShapeError{path: [], nope: 1}\n  dbg x", "Json.ShapeError has no field 'nope'"},
-		{"variant pattern", "std::json.Json", "  x = Json.Null\n  y = case x {\n    Json.Number(n) -> n\n    _ -> 2.0\n  }\n  dbg y", "variant Number not found in enum Json"},
-		{"dot variant pattern", "std::json.Json", "  x = Json.Null\n  y = case x {\n    .Nope -> 1\n    _ -> 2\n  }\n  dbg y", "variant Nope not found in enum Json"},
+		{"variant pattern", "std::json.Json", "  x = Json.Null\n  y = case x\n    Json.Number(n) -> n\n    _ -> 2.0\n  end\n  dbg y", "variant Number not found in enum Json"},
+		{"dot variant pattern", "std::json.Json", "  x = Json.Null\n  y = case x\n    .Nope -> 1\n    _ -> 2\n  end\n  dbg y", "variant Nope not found in enum Json"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestBlockImport_ValidMembersAccepted(t *testing.T) {
 		{"annotation", "std::json.Json", "  x: Json = Json.Float(1.5)\n  dbg x"},
 		{"generic annotation", "std::json.Json", "  x: List<Json> = [Json.Null]\n  dbg x"},
 		{"owner function", "std::json.Json", "  dbg Json.decode(\"[1]\")"},
-		{"pattern", "std::json.Json", "  x = Json.Null\n  y = case x {\n    Json.Float(n) -> n\n    .Null -> 0.0\n    _ -> 2.0\n  }\n  dbg y"},
+		{"pattern", "std::json.Json", "  x = Json.Null\n  y = case x\n    Json.Float(n) -> n\n    .Null -> 0.0\n    _ -> 2.0\n  end\n  dbg y"},
 		{"file-qualified type", "std::json", "  x: json.Json = json.Json.Null\n  dbg x"},
 		{"aliased type", "std::json.Json as J", "  x: J = J.Null\n  dbg x"},
 		{"interface", "std::json.ToJson", "  dbg ToJson.to_json(1)"},
@@ -109,17 +109,17 @@ func TestBlockImport_ValidMembersAccepted(t *testing.T) {
 // A block import binds only inside its block: another function of the file
 // does not see the type.
 func TestBlockImport_TypeStaysInsideItsBlock(t *testing.T) {
-	src := `fn f() -> Unit {
+	src := `fn f() -> Unit
   import std::json.Json
   dbg Json.Null
   Unit
-}
+end
 
-fn main() {
+fn main()
   x: Json = Json.Null
   dbg x
   f()
-}
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	if _, ok := memberError(errs, `unknown type "Json"`); !ok {

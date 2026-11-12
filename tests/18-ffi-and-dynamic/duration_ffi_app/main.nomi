@@ -1,12 +1,12 @@
-import {
+import
     std::duration.Duration
     std::io
     ffi
-}
+end
 
-fn main() {
+fn main()
     ffi.timeout()
     |> ffi.double()
     |> Duration.as_millis()
     |> io.print()
-}
+end

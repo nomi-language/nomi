@@ -5,43 +5,72 @@ import "testing"
 func TestIRCaseComputed_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"effectful selector evaluated once", `import std::io
-fn source(n: Int) -> Int { io.print(n) n }
-fn classify(n: Int) -> String {
- case source(n) { 0 -> "zero" 1 -> "one" _ -> "other" }
-}
-fn main() {
+fn source(n: Int) -> Int
+    io.print(n)
+    n
+end
+fn classify(n: Int) -> String
+ case source(n)
+     0 -> "zero"
+     1 -> "one"
+     _ -> "other"
+ end
+end
+fn main()
  io.print(classify(0))
  io.print(classify(1))
  io.print(classify(3))
- label = case source(2) { 2 -> "two" _ -> "other" }
+ label = case source(2)
+     2 -> "two"
+     _ -> "other"
+ end
  io.print(label)
-}`, "0\nzero\n1\none\n3\nother\n2\ntwo\n"},
+end`, "0\nzero\n1\none\n3\nother\n2\ntwo\n"},
 		{"arithmetic and text selectors", `import std::io
-fn number(n: Int) -> String {
+fn number(n: Int) -> String
  case (
   n +
   1
- ) { 0 -> "zero" 2 -> "two" _ -> "other" }
-}
-fn text(s: String) -> Int { case "p" + s { "prefix" -> 1 "post" -> 2 _ -> 3 } }
-fn main() {
+ )
+     0 -> "zero"
+     2 -> "two"
+     _ -> "other"
+ end
+end
+fn text(s: String) -> Int
+    case "p" + s
+        "prefix" -> 1
+        "post" -> 2
+        _ -> 3
+    end
+end
+fn main()
  io.print(number(-1))
  io.print(number(1))
  io.print(number(3))
  io.print(text("refix"))
  io.print(text("ost"))
  io.print(text("lain"))
-}`, "zero\ntwo\nother\n1\n2\n3\n"},
+end`, "zero\ntwo\nother\n1\n2\n3\n"},
 		{"lambda capture and defaulted selector", `import std::io
-fn source(n: Int = 4) -> Int { io.print(n) n }
-fn main() {
+fn source(n: Int = 4) -> Int
+    io.print(n)
+    n
+end
+fn main()
  base = 1
- choose = fn n: Int -> case source(n + base) { 5 -> "five" _ -> "other" }
+ choose = fn n: Int -> case source(n + base)
+     5 -> "five"
+     _ -> "other"
+ end
  io.print(choose(4))
  io.print(choose(1))
- label = case source() { 4 -> "four" _ -> "other" }
+ label = case source()
+     4 -> "four"
+     _ -> "other"
+ end
  io.print(label)
-}`, "5\nfive\n2\nother\n4\nfour\n"},
+end`, "5\nfive\n2\nother\n4\nfour\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}

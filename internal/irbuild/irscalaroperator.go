@@ -122,8 +122,8 @@ func (bl *irScalarBuilder) existentialHashCall(t *ast.Call, args irQualArgs, own
 	return c.Dst(), true
 }
 
-// structuralEqualCall lowers `Equatable.equal(a, b)` over two tuples or two
-// records of one kind as `a == b` lowers them: a tuple or a record is
+// structuralEqualCall lowers `Equatable.equal(a, b)` over two tuples, two
+// records or two Ranges of one kind as `a == b` lowers them: each is
 // Equatable structurally and has no impl to select, so the call and the
 // operator are one comparison (valueEquality). owned is false for any other
 // call, which the caller lowers as before.
@@ -148,9 +148,10 @@ func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs, own
 		return ir.NoTemp, false, false
 	}
 	at := &ast.Binary{Op: "==", Left: t.Args[0], Right: t.Args[1], Line: t.Line, Col: t.Col}
-	if bl.g.meetsByEquality("Equatable", k) {
+	if irScalarRangeKind(k) || bl.g.meetsByEquality("Equatable", k) {
 		// A declared type with no Equatable of its own meets the bound by
-		// its equality, so the call is `a == b` over it.
+		// its equality, and so does std's Range, which declares none; the
+		// call is `a == b` over it.
 		v, _, _, ok := bl.compareOperands(at, ir.OpEq, args.temps[0], k, args.temps[1], k, args.mobile[1])
 		return v, ok, true
 	}
@@ -182,9 +183,9 @@ func (g *gen) meetsByEquality(iface string, k kind) bool {
 }
 
 // structuralHashCall lowers `Hashable.hash(x)` over a declared type that
-// meets Hashable by its equality to the irHashValueHost call: the hash a Map
-// key of the type takes, so it agrees with `==`. owned is false for any
-// other call.
+// meets Hashable by its equality, or over std's Range, which declares no
+// Hashable, to the irHashValueHost call: the hash a Map key of the type
+// takes, so it agrees with `==`. owned is false for any other call.
 func (bl *irScalarBuilder) structuralHashCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, bool) {
 	if owner != "Hashable" || method != "hash" || len(t.Args) != 1 || !args.ok || len(args.kinds) != 1 {
 		return ir.NoTemp, false
@@ -193,7 +194,7 @@ func (bl *irScalarBuilder) structuralHashCall(t *ast.Call, args irQualArgs, owne
 		// A program's own Hashable.
 		return ir.NoTemp, false
 	}
-	if !bl.g.meetsByEquality("Hashable", args.kinds[0]) {
+	if !irScalarRangeKind(args.kinds[0]) && !bl.g.meetsByEquality("Hashable", args.kinds[0]) {
 		return ir.NoTemp, false
 	}
 	pos := bl.g.irNodePos(t)
@@ -201,4 +202,13 @@ func (bl *irScalarBuilder) structuralHashCall(t *ast.Call, args irQualArgs, owne
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: kindInt})
 	return c.Dst(), true
+}
+
+// irScalarRangeKind reports a Range over an Int, a Float or a String: its
+// fields are scalars and a Maybe of one, so the VM compares and hashes it as
+// a container by content (compareOperands), which is what std's Range,
+// declaring no Equatable or Hashable impl, means by either.
+func irScalarRangeKind(k kind) bool {
+	elem, isRange := rangeElem(k)
+	return isRange && irRetainedRangeKind(k) && (elem == kindInt || elem == kindFloat || elem == kindString)
 }

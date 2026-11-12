@@ -132,3 +132,23 @@ func StdModuleImports(module string, nodes []ast.Node) []string {
 	sort.Strings(out)
 	return out
 }
+
+// isSharedStdFile reports whether fa, a build's analysis of the stdlib
+// module key, is the shared stdlib's own rather than a copy the build made:
+// have's analysis of it, or, since a build extends the stdlib it was handed
+// with the modules it reaches (StdSource.Extend), the installed source's.
+// A caller's have is the snapshot it held before the build, which lacks a
+// module the build was the first to reach.
+func isSharedStdFile(key string, fa *FileAnalysis, have map[string]*FileAnalysis) bool {
+	name, ok := strings.CutPrefix(key, "std/")
+	if !ok || fa == nil {
+		return false
+	}
+	if have[name] == fa {
+		return true
+	}
+	if src := currentStdSource(); src != nil && len(have) > 0 {
+		return src.Built(name) == fa
+	}
+	return false
+}

@@ -1,11 +1,11 @@
-test "floats convert to ints by truncating toward zero" {
+test "floats convert to ints by truncating toward zero"
     assert Float.to_int(3.7) == Some(3)
     assert Float.to_int(-3.7) == Some(-3)
     assert Float.to_int(42.0) == Some(42)
     assert Float.to_int(0.0) == Some(0)
-}
+end
 
-test "float to int is exact at any size and rejects special values" {
+test "float to int is exact at any size and rejects special values"
     assert Float.to_int(1000000000000000000000000000000.0)
         == Some(1_000_000_000_000_000_019_884_624_838_656)
 
@@ -15,9 +15,9 @@ test "float to int is exact at any size and rejects special values" {
     assert Float.to_int(Float.nan()) == None
     assert Float.to_int(Float.positive_infinity()) == None
     assert Float.to_int(Float.negative_infinity()) == None
-}
+end
 
-test "float rounding helpers return integer-valued floats" {
+test "float rounding helpers return integer-valued floats"
     assert Float.round(3.5) == 4.0
     assert Float.round(2.5) == 2.0
     assert Float.round(3.7) == 4.0
@@ -27,9 +27,9 @@ test "float rounding helpers return integer-valued floats" {
     assert Float.ceil(-3.7) == -3.0
     assert Float.trunc(3.7) == 3.0
     assert Float.trunc(-3.7) == -3.0
-}
+end
 
-test "float rounding can feed int conversion through pipes" {
+test "float rounding can feed int conversion through pipes"
     assert 3.7
         |> Float.round()
         |> Float.to_int()
@@ -44,9 +44,9 @@ test "float rounding can feed int conversion through pipes" {
         |> Float.ceil()
         |> Float.to_int()
         |> Maybe.equal(Some(4))
-}
+end
 
-test "float special values can be produced and classified" {
+test "float special values can be produced and classified"
     assert Float.is_nan(0.0 / 0.0)
     assert 1.0 / 0.0 == Float.positive_infinity()
     assert -(1.0 / 0.0) == Float.negative_infinity()
@@ -59,15 +59,15 @@ test "float special values can be produced and classified" {
     assert Float.is_finite(3.14)
     refute Float.is_finite(Float.nan())
     refute Float.is_finite(Float.positive_infinity())
-}
+end
 
-test "float equality treats NaN reflexively" {
+test "float equality treats NaN reflexively"
     assert Float.nan() == Float.nan()
     assert Float.positive_infinity() == 1.0 / 0.0
     refute Float.nan() == 3.14
-}
+end
 
-test "float special values propagate through arithmetic and rounding" {
+test "float special values propagate through arithmetic and rounding"
     assert Float.is_nan(5.0 + Float.nan())
     assert Float.is_infinite(1.0 + Float.positive_infinity())
 
@@ -78,15 +78,15 @@ test "float special values propagate through arithmetic and rounding" {
     assert Float.positive_infinity()
         |> Float.floor()
         |> Float.is_infinite()
-}
+end
 
 // True for -0.0 alone: `==` cannot tell the zeros apart, but dividing by them
 // gives infinities of opposite signs.
-fn is_negative_zero(x: Float) -> Bool {
+fn is_negative_zero(x: Float) -> Bool
     x == 0.0 and 1.0 / x < 0.0
-}
+end
 
-test "float abs clears the sign" {
+test "float abs clears the sign"
     assert Float.abs(-2.5) == 2.5
     assert Float.abs(2.5) == 2.5
     assert Float.abs(0.0) == 0.0
@@ -96,9 +96,9 @@ test "float abs clears the sign" {
     assert Float.abs(Float.positive_infinity()) == Float.positive_infinity()
     assert Float.is_nan(Float.abs(Float.nan()))
     assert Float.is_nan(Float.abs(-Float.nan()))
-}
+end
 
-test "float sign is -1, 0 or 1, and 0 for both zeros and NaN" {
+test "float sign is -1, 0 or 1, and 0 for both zeros and NaN"
     assert Float.sign(-2.5) == -1
     assert Float.sign(2.5) == 1
     assert Float.sign(0.0) == 0
@@ -106,9 +106,9 @@ test "float sign is -1, 0 or 1, and 0 for both zeros and NaN" {
     assert Float.sign(Float.negative_infinity()) == -1
     assert Float.sign(Float.positive_infinity()) == 1
     assert Float.sign(Float.nan()) == 0
-}
+end
 
-test "float min and max order the two zeros and propagate NaN" {
+test "float min and max order the two zeros and propagate NaN"
     assert Float.min(1.5, -2.0) == -2.0
     assert Float.max(1.5, -2.0) == 1.5
     assert Float.min(-2.0, 1.5) == -2.0
@@ -132,4 +132,4 @@ test "float min and max order the two zeros and propagate NaN" {
     assert Float.is_nan(Float.max(1.0, Float.nan()))
     assert Float.is_nan(Float.min(Float.nan(), Float.negative_infinity()))
     assert Float.is_nan(Float.max(Float.positive_infinity(), Float.nan()))
-}
+end

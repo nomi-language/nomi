@@ -102,55 +102,55 @@ func TestIRAssertSubject_AssertableCarriesItsAnswer(t *testing.T) {
 }
 
 const irAssertSubjectSource = `
-import {
+import
   std::assertions.AssertionFailure
   std::testing
-}
+end
 
-fn find(n: Int) -> Maybe<String> {
-  if n == 1 { Some("Ada") } else { None }
-}
+fn find(n: Int) -> Maybe<String>
+  if n == 1 then Some("Ada") else None
+end
 
-fn ensure_small(n: Int) -> Result<Int, AssertionFailure> {
+fn ensure_small(n: Int) -> Result<Int, AssertionFailure>
   limit = 10
   assert n < limit
   assert find(1)
   Ok(n)
-}
+end
 
-fn checked(xs: List<Int>) -> Result<Bool, AssertionFailure> {
+fn checked(xs: List<Int>) -> Result<Bool, AssertionFailure>
   held = testing.check(xs |> Iter.any_match(fn x -> x > 2))?
   Ok(held)
-}
+end
 
-test "an assert in an ordinary fn is its Err" {
+test "an assert in an ordinary fn is its Err"
   assert Ok(3) = ensure_small(3)
   assert Err(failure) = ensure_small(12)
   assert failure.reason == "assertion failed"
   assert failure.expression == "n < limit"
-}
+end
 
-test "a failing assert in an ordinary fn reports through the caller" {
+test "a failing assert in an ordinary fn reports through the caller"
   assert Ok(12) = ensure_small(12)
-}
+end
 
-test "a check over a pipe inside an ordinary fn" {
+test "a check over a pipe inside an ordinary fn"
   assert checked([1, 2, 3]) == Ok(True)
   assert Err(failure) = checked([1, 2])
   assert failure.keyword == "check"
-}
+end
 
-test "a failing piped check reports its pipeline" {
+test "a failing piped check reports its pipeline"
   result = testing.check(
     [1, 2]
     |> Iter.any_match(fn x -> x > 2)
   )
   assert result == Ok(True)
-}
+end
 
-test "a failing shape assertion shows the value" {
+test "a failing shape assertion shows the value"
   refute find(1)
-}
+end
 `
 
 // TestIRAssertSubject_FnBoundaryAndPipedCheck runs assertions inside an

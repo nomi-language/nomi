@@ -15,41 +15,41 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// How many Collatz steps take `number` to 1: halve an even number, and
 /// triple an odd one and add 1.
-pub fn steps(number: Int) -> Result<Int, String> {
-    if number < 1 { return Err("Only positive integers are allowed") }
+pub fn steps(number: Int) -> Result<Int, String>
+    if number < 1 then return Err("Only positive integers are allowed")
 
     Iter.iterate(number, next)
     |> Iter.take_while(&(&1 != 1))
     |> Iter.count()
     |> Ok()
-}
+end
 
-fn next(n: Int) -> Int {
-    if n % 2 == 0 { n / 2 } else { 3 * n + 1 }
-}
+fn next(n: Int) -> Int
+    if n % 2 == 0 then n / 2 else 3 * n + 1
+end
 
 // FILE: collatz_conjecture_test.nomi
 import collatz_conjecture
 
-test "counts the steps" {
+test "counts the steps"
     [
         ("zero steps for one", 1, 0),
         ("divide if even", 16, 4),
         ("even and odd steps", 12, 9),
         ("large number of even and odd steps", 1000000, 152),
     ]
-    |> subtests (description, number, expected), description {
+    |> subtests (description, number, expected), description
         assert collatz_conjecture.steps(number) == Ok(expected)
-    }
-}
+    end
+end
 
-test "zero is an error" {
+test "zero is an error"
     assert collatz_conjecture.steps(0) == Err("Only positive integers are allowed")
-}
+end
 
-test "negative value is an error" {
+test "negative value is an error"
     assert collatz_conjecture.steps(-15) == Err("Only positive integers are allowed")
-}
+end
 ```
 <!-- expect
 ok counts the steps (4 cases)

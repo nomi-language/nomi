@@ -16,7 +16,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// A band color: the ten digit colors in value order, black 0 to white 9,
 /// and the two that only mark a tolerance.
-pub enum Color {
+pub enum Color
     Black
     Brown
     Red
@@ -29,61 +29,65 @@ pub enum Color {
     White
     Gold
     Silver
-}
+end
 
 /// The unit a resistance is written in, each a thousand times the one before.
-pub enum Magnitude {
+pub enum Magnitude
     Ohms
     Kiloohms
     Megaohms
     Gigaohms
-}
+end
 
-impl Display for Magnitude {
-    fn to_string(unit: Magnitude) -> String {
-        case unit {
+impl Display for Magnitude
+    fn to_string(unit: Magnitude) -> String
+        case unit
             .Ohms -> "ohms"
             .Kiloohms -> "kiloohms"
             .Megaohms -> "megaohms"
             .Gigaohms -> "gigaohms"
-        }
-    }
-}
+        end
+    end
+end
 
 /// A resistor's label: `33 ohms ±2%`. A one-band resistor has no tolerance.
-pub struct Label {
+pub struct Label
     value: Decimal
     unit: Magnitude
     tolerance: Maybe<Decimal>
-}
+end
 
-impl Display for Label {
-    fn to_string(label: Label) -> String {
-        case label.tolerance {
+impl Display for Label
+    fn to_string(label: Label) -> String
+        case label.tolerance
             Some(percent) -> "${label.value} ${label.unit} ±${percent}%"
             None -> "${label.value} ${label.unit}"
-        }
-    }
-}
+        end
+    end
+end
 
 /// The label `bands` give: a single black band, two digits, a multiplier
 /// and a tolerance, or three digits, a multiplier and a tolerance. `None`
 /// for any other count of bands, or a band whose color cannot stand there.
-pub fn label(bands: List<Color>) -> Maybe<Label> {
-    case bands {
-        [.Black] -> Some(.{value: 0d, unit: .Ohms, tolerance: None})
-        [first, second, multiplier, tolerance] -> make([first, second], multiplier, tolerance)
+pub fn label(bands: List<Color>) -> Maybe<Label>
+    case bands
+        [.Black] ->
+            Some({value: 0d, unit: .Ohms, tolerance: None})
+
+        [first, second, multiplier, tolerance] ->
+            make([first, second], multiplier, tolerance)
 
         [first, second, third, multiplier, tolerance] ->
             make([first, second, third], multiplier, tolerance)
 
-        _ -> None
-    }
-}
+        _ ->
+            None
+    end
+end
 
 /// The label of the digit bands `digits`, then `multiplier`, the number of
 /// zeros after them, and `tolerance`.
-fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Maybe<Label> {
+fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Maybe<Label>
     number =
         digits
         |> Iter.map(digit)
@@ -94,24 +98,24 @@ fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Maybe<Label
     percent = tolerance_of(tolerance)?
     ohms = number * Int.pow(10, zeros)
     (value, unit) = in_largest_unit(ohms)
-    Some(.{value, unit, tolerance: Some(percent)})
-}
+    Some({value:, unit:, tolerance: Some(percent)})
+end
 
 /// The units above ohms, largest first, with how many ohms each is.
 once units = [(1_000_000_000, Magnitude.Gigaohms), (1_000_000, .Megaohms), (1000, .Kiloohms)]
 
 /// `ohms` in the largest unit it reaches at least one of.
-fn in_largest_unit(ohms: Int) -> (Decimal, Magnitude) {
+fn in_largest_unit(ohms: Int) -> (Decimal, Magnitude)
     (size, unit) =
         units
         |> Iter.find(fn (size, _unit) -> ohms >= size)
         |> Maybe.with_default((1, .Ohms))
 
     (Int.to_decimal(ohms) / Int.to_decimal(size), unit)
-}
+end
 
-fn digit(color: Color) -> Maybe<Int> {
-    case color {
+fn digit(color: Color) -> Maybe<Int>
+    case color
         .Black -> Some(0)
         .Brown -> Some(1)
         .Red -> Some(2)
@@ -123,12 +127,12 @@ fn digit(color: Color) -> Maybe<Int> {
         .Grey -> Some(8)
         .White -> Some(9)
         .Gold or .Silver -> None
-    }
-}
+    end
+end
 
 /// The tolerance in percent a band of `color` marks, if it marks one.
-fn tolerance_of(color: Color) -> Maybe<Decimal> {
-    case color {
+fn tolerance_of(color: Color) -> Maybe<Decimal>
+    case color
         .Grey -> Some(0.05d)
         .Violet -> Some(0.1d)
         .Blue -> Some(0.25d)
@@ -138,78 +142,78 @@ fn tolerance_of(color: Color) -> Maybe<Decimal> {
         .Gold -> Some(5d)
         .Silver -> Some(10d)
         .Black or .Orange or .Yellow or .White -> None
-    }
-}
+    end
+end
 
 // FILE: resistor_color_tolerance_test.nomi
 import resistor_color_tolerance.{self, Color, Label}
 
-test "label decoder" {
+test "label decoder"
     cases: List<(String, List<Color>, Label)> = [
         (
             "Orange, orange, black and red",
             [.Orange, .Orange, .Black, .Red],
-            .{value: 33d, unit: .Ohms, tolerance: Some(2d)},
+            {value: 33d, unit: .Ohms, tolerance: Some(2d)},
         ),
         (
             "Blue, gray, brown and violet",
             [.Blue, .Grey, .Brown, .Violet],
-            .{value: 680d, unit: .Ohms, tolerance: Some(0.1d)},
+            {value: 680d, unit: .Ohms, tolerance: Some(0.1d)},
         ),
         (
             "Red, black, red and green",
             [.Red, .Black, .Red, .Green],
-            .{value: 2d, unit: .Kiloohms, tolerance: Some(0.5d)},
+            {value: 2d, unit: .Kiloohms, tolerance: Some(0.5d)},
         ),
         (
             "Green, brownm orange and grey",
             [.Green, .Brown, .Orange, .Grey],
-            .{value: 51d, unit: .Kiloohms, tolerance: Some(0.05d)},
+            {value: 51d, unit: .Kiloohms, tolerance: Some(0.05d)},
         ),
-        ("Only one band", [.Black], .{value: 0d, unit: .Ohms, tolerance: None}),
+        ("Only one band", [.Black], {value: 0d, unit: .Ohms, tolerance: None}),
         (
             "Orange, orange, yellow, black and brown",
             [.Orange, .Orange, .Yellow, .Black, .Brown],
-            .{value: 334d, unit: .Ohms, tolerance: Some(1d)},
+            {value: 334d, unit: .Ohms, tolerance: Some(1d)},
         ),
         (
             "Red, green, yellow, yellow and brown",
             [.Red, .Green, .Yellow, .Yellow, .Brown],
-            .{value: 2.54d, unit: .Megaohms, tolerance: Some(1d)},
+            {value: 2.54d, unit: .Megaohms, tolerance: Some(1d)},
         ),
         (
             "Blue, gray, white, brown and brown",
             [.Blue, .Grey, .White, .Brown, .Brown],
-            .{value: 6.89d, unit: .Kiloohms, tolerance: Some(1d)},
+            {value: 6.89d, unit: .Kiloohms, tolerance: Some(1d)},
         ),
         (
             "Violet, orange, red and gray",
             [.Violet, .Orange, .Red, .Grey],
-            .{value: 7.3d, unit: .Kiloohms, tolerance: Some(0.05d)},
+            {value: 7.3d, unit: .Kiloohms, tolerance: Some(0.05d)},
         ),
         (
             "Brown, red, orange, green and blue",
             [.Brown, .Red, .Orange, .Green, .Blue],
-            .{value: 12.3d, unit: .Megaohms, tolerance: Some(0.25d)},
+            {value: 12.3d, unit: .Megaohms, tolerance: Some(0.25d)},
         ),
         (
             "Brown, black, brown, yellow and violet",
             [.Brown, .Black, .Brown, .Yellow, .Violet],
-            .{value: 1.01d, unit: .Megaohms, tolerance: Some(0.1d)},
+            {value: 1.01d, unit: .Megaohms, tolerance: Some(0.1d)},
         ),
         (
             "Brown, black, red and red",
             [.Brown, .Black, .Red, .Red],
-            .{value: 1d, unit: .Kiloohms, tolerance: Some(2d)},
+            {value: 1d, unit: .Kiloohms, tolerance: Some(2d)},
         ),
     ]
 
-    subtests cases, (description, bands, expected), description {
+    subtests cases, (description, bands, expected), description
         assert resistor_color_tolerance.label(bands) == Some(expected)
-    }
-}
+    end
+end
 
-test "labels read as the description writes them" {
+test "labels read as the description writes them"
     [
         ([Color.Orange, .Orange, .Black, .Green], "33 ohms ±0.5%"),
         ([.Orange, .Orange, .Orange, .Grey], "33 kiloohms ±0.05%"),
@@ -217,13 +221,13 @@ test "labels read as the description writes them" {
         ([.Red, .Green, .Yellow, .Yellow, .Brown], "2.54 megaohms ±1%"),
         ([.Black], "0 ohms"),
     ]
-    |> subtests (bands, expected) {
+    |> subtests (bands, expected)
         assert Some(label) = resistor_color_tolerance.label(bands)
         assert "${label}" == expected
-    }
-}
+    end
+end
 
-test "bands that make no label" {
+test "bands that make no label"
     [
         ("no bands", []),
         ("one band that is not black", [Color.Brown]),
@@ -231,10 +235,10 @@ test "bands that make no label" {
         ("a tolerance color as a digit", [.Gold, .Black, .Red, .Red]),
         ("a digit color as a tolerance", [.Brown, .Black, .Red, .Orange]),
     ]
-    |> subtests (description, bands), description {
+    |> subtests (description, bands), description
         assert resistor_color_tolerance.label(bands) == None
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok label decoder (12 cases)

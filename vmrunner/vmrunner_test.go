@@ -45,7 +45,7 @@ func executable(t *testing.T, runner, img []byte) string {
 }
 
 func TestRun_RunsTheImageAsNomiRunDoes(t *testing.T) {
-	img := image(t, "import std::io\n\nfn main() {\n  io.print(\"hi\")\n  case io.read_line() {\n    Ok(Some(l)) -> io.print(l)\n    _ -> io.print(\"none\")\n  }\n}\n")
+	img := image(t, "import std::io\n\nfn main()\n  io.print(\"hi\")\n  case io.read_line()\n    Ok(Some(l)) -> io.print(l)\n    _ -> io.print(\"none\")\n  end\nend\n")
 	var out, errOut bytes.Buffer
 	code := vmrunner.Run(img, &out, &errOut, strings.NewReader("typed\n"), nil, false)
 	if code != 0 || out.String() != "hi\ntyped\n" || errOut.Len() != 0 {
@@ -73,12 +73,12 @@ func (p *promptReader) Read(b []byte) (int, error) {
 func TestRun_WriteAddsNoNewlineAndPrecedesTheRead(t *testing.T) {
 	img := image(t, `import std::io
 
-fn main() {
+fn main()
   io.write("> ")
-  case io.read_line() {
+  case io.read_line()
     Ok(Some(l)) -> io.print("got ${l}")
     _ -> io.print("none")
-  }
+  end
   io.write(1)
   io.write([2, 3])
   io.print("|")
@@ -86,7 +86,7 @@ fn main() {
   w: (Int) -> Unit = io.write
   w(4)
   io.print("")
-}
+end
 `)
 	var out, errOut bytes.Buffer
 	in := &promptReader{out: &out, r: strings.NewReader("typed\n")}
@@ -101,7 +101,7 @@ fn main() {
 }
 
 func TestRun_WriteBySelectiveImport(t *testing.T) {
-	img := image(t, "import std::io.write\nimport std::io.print\n\nfn main() {\n  write(\"a\")\n  write(2)\n  print(\"b\")\n}\n")
+	img := image(t, "import std::io.write\nimport std::io.print\n\nfn main()\n  write(\"a\")\n  write(2)\n  print(\"b\")\nend\n")
 	var out, errOut bytes.Buffer
 	code := vmrunner.Run(img, &out, &errOut, nil, nil, false)
 	if code != 0 || out.String() != "a2b\n" || errOut.Len() != 0 {
@@ -110,7 +110,7 @@ func TestRun_WriteBySelectiveImport(t *testing.T) {
 }
 
 func TestRun_AFaultExitsOneWithItsText(t *testing.T) {
-	img := image(t, "import std::io\n\nfn d(a: Int, b: Int) -> Int {\n  a / b\n}\n\nfn main() {\n  io.print(d(1, 0))\n}\n")
+	img := image(t, "import std::io\n\nfn d(a: Int, b: Int) -> Int\n  a / b\nend\n\nfn main()\n  io.print(d(1, 0))\nend\n")
 	var out, errOut bytes.Buffer
 	if code := vmrunner.Run(img, &out, &errOut, nil, nil, false); code != 1 || !strings.Contains(errOut.String(), "division by zero") {
 		t.Fatalf("exit %d, stderr %q", code, errOut.String())
@@ -118,7 +118,7 @@ func TestRun_AFaultExitsOneWithItsText(t *testing.T) {
 }
 
 func TestRun_ADamagedImageIsAnErrorNotAPanic(t *testing.T) {
-	img := image(t, "fn main() {\n  Unit\n}\n")
+	img := image(t, "fn main()\n  Unit\nend\n")
 	img[len(img)-1] ^= 0xff
 	var errOut bytes.Buffer
 	if code := vmrunner.Run(img, &bytes.Buffer{}, &errOut, nil, nil, false); code != 1 ||
@@ -128,7 +128,7 @@ func TestRun_ADamagedImageIsAnErrorNotAPanic(t *testing.T) {
 }
 
 func TestReadImage_ReadsWhatWasAppended(t *testing.T) {
-	img := image(t, "fn main() {\n  Unit\n}\n")
+	img := image(t, "fn main()\n  Unit\nend\n")
 	path := executable(t, []byte("not really a runner"), img)
 	got, err := vmrunner.ReadImage(path)
 	if err != nil || !bytes.Equal(got, img) {
@@ -147,7 +147,7 @@ func TestReadImage_TheBareRunnerHasNoImage(t *testing.T) {
 }
 
 func TestReadImage_ADamagedTrailerIsAnError(t *testing.T) {
-	img := image(t, "fn main() {\n  Unit\n}\n")
+	img := image(t, "fn main()\n  Unit\nend\n")
 	// A trailer whose length does not reach the image's start.
 	data := append(append([]byte("runner"), img...), vmrunner.Trailer(0, int64(len(img)))...)
 	path := filepath.Join(t.TempDir(), "app")
@@ -163,8 +163,8 @@ func TestReadImage_ADamagedTrailerIsAnError(t *testing.T) {
 // reported by a built executable as an internal compiler error with a request
 // to report it, not as a Go crash or a BLOCKED machine limit.
 func TestRun_ACompilePanicIsAnInternalCompilerError(t *testing.T) {
-	img := image(t, "import std::io\n\nfn planted_compile_panic_target() -> Int {\n  1\n}\n\n"+
-		"fn main() {\n  io.print(\"before\")\n  io.print(planted_compile_panic_target())\n}\n")
+	img := image(t, "import std::io\n\nfn planted_compile_panic_target() -> Int\n  1\nend\n\n"+
+		"fn main()\n  io.print(\"before\")\n  io.print(planted_compile_panic_target())\nend\n")
 	vm.CompileHook = func(f *ir.Func) {
 		if f.Name() == "planted_compile_panic_target" {
 			panic("planted compile panic")
@@ -199,7 +199,7 @@ func wasmModule(extra []byte) []byte {
 }
 
 func TestReadImage_ReadsAWasmModulesImageSection(t *testing.T) {
-	img := image(t, "fn main() {\n  Unit\n}\n")
+	img := image(t, "fn main()\n  Unit\nend\n")
 	path := filepath.Join(t.TempDir(), "app.wasm")
 	if err := os.WriteFile(path, wasmModule(vmrunner.WasmImageSection(img)), 0o644); err != nil {
 		t.Fatal(err)
@@ -221,7 +221,7 @@ func TestReadImage_AWasmRunnerWithoutTheSectionHasNoImage(t *testing.T) {
 }
 
 func TestReadImage_ATruncatedWasmSectionIsAnError(t *testing.T) {
-	img := image(t, "fn main() {\n  Unit\n}\n")
+	img := image(t, "fn main()\n  Unit\nend\n")
 	section := vmrunner.WasmImageSection(img)
 	path := filepath.Join(t.TempDir(), "app.wasm")
 	if err := os.WriteFile(path, wasmModule(section[:len(section)-1]), 0o644); err != nil {

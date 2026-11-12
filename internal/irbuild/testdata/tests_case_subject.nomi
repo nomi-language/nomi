@@ -6,34 +6,34 @@
 // assertion, so an arm's own comparison IS part of the report; only a lambda
 // body is excluded. Both facts are pinned here, and both assertions fail so the
 // report text is what gets compared.
-fn classify(n: Int) -> Int {
-    case n {
+fn classify(n: Int) -> Int
+    case n
         1 -> 10
         _ -> 20
-    }
-}
+    end
+end
 
-test "a case in a subject shows its scrutinee" {
+test "a case in a subject shows its scrutinee"
     n = 2
 
-    assert case n {
+    assert case n
         1 -> True
         _ -> False
-    }
-}
+    end
+end
 
-test "an arm's own comparison is part of the same activation" {
+test "an arm's own comparison is part of the same activation"
     n = 3
 
-    assert case n {
+    assert case n
         1 -> False
         _ -> n > 90
-    }
-}
+    end
+end
 
 // A `case` inside a CALLEE is behind the per-call trace boundary and is
 // a separate declaration for the builder, so `classify`'s scrutinee never
 // appears — only the call's own argument does.
-test "a callee's case scrutinee stays inside it" {
+test "a callee's case scrutinee stays inside it"
     assert classify(4) == 10
-}
+end

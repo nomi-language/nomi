@@ -48,7 +48,7 @@ func (bl *irScalarBuilder) fnAssertion(line, col int) bool {
 
 // assertionExpr lowers an assertion the checker admits in a value position:
 // a binding's value (`ok = assert x`, `ok: Bool = assert x`, `_ = assert x`,
-// `Some(n) = assert m else { ... }`), a block's final statement, or an `if`
+// `Some(n) = assert m else ... end`), a block's final statement, or an `if`
 // or `case` arm whose value is used. Its value is the judged subject (spec
 // §17): True for `assert` of a Bool, False for `refute`, and the subject
 // itself for a Maybe, Result or Assertable. A failure leaves through the

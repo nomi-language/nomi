@@ -70,17 +70,17 @@ func expectLowerErr(t *testing.T, errs []analysis.TypeError, substr string) {
 // --- Lowering: source impl blocks and derive declarations ---
 
 func TestHeaderLower_ConformanceAndTagsRouteToBlocks(t *testing.T) {
-	src := `struct Point {
+	src := `struct Point
   x: Int
   y: Int
-}
+end
 
 
-impl Display for Point {
-  fn to_string(_p: Point) -> String {
+impl Display for Point
+  fn to_string(_p: Point) -> String
     "p"
-  }
-}
+  end
+end
 
 `
 	out, errs := lowerNewform(t, src)
@@ -105,11 +105,11 @@ impl Display for Point {
 func TestHeaderLower_EmptyConformanceIsFieldOnly(t *testing.T) {
 	// A field-only/default-only interface implementation can be a bodyless
 	// source impl declaration.
-	src := `struct Widget {
+	src := `struct Widget
   n: Int
-}
+end
 
-impl Drawable for Widget
+impl Drawable for Widget end
 `
 	out, errs := lowerNewform(t, src)
 	expectLowerClean(t, errs)
@@ -125,11 +125,11 @@ impl Drawable for Widget
 // --- Lowering: derives ---
 
 func TestHeaderLower_DeriveImplSynthesizes(t *testing.T) {
-	src := `struct Point {
+	src := `struct Point
   x: Int
   y: Int
 
-}
+end
 derive Equatable for Point`
 	out, errs := lowerNewform(t, src)
 	expectLowerClean(t, errs)
@@ -146,27 +146,27 @@ derive Equatable for Point`
 }
 
 func TestHeaderLower_DeriveNonDerivableErrors(t *testing.T) {
-	src := `struct Point {
+	src := `struct Point
   x: Int
 
-}
+end
 derive Speech for Point`
 	_, errs := lowerNewform(t, src)
 	expectLowerErr(t, errs, "unknown derivable protocol")
 }
 
 func TestHeaderLower_DeriveAndManualImplConflict(t *testing.T) {
-	src := `struct Point {
+	src := `struct Point
   x: Int
 
-}
+end
 derive Equatable for Point
 
-impl Equatable for Point {
-  fn equal(_a: self, _b: self) -> Bool {
+impl Equatable for Point
+  fn equal(_a: self, _b: self) -> Bool
     True
-  }
-}
+  end
+end
 `
 	out, errs := lowerNewform(t, src)
 	expectLowerErr(t, errs, "conflicts with a hand-written `impl Equatable for Point")
@@ -178,9 +178,11 @@ impl Equatable for Point {
 // --- Lowering: foreign-type `impl Iface for Type` blocks ---
 
 func TestHeaderLower_ImplBlockRoutesMethods(t *testing.T) {
-	src := `impl Display for Money {
-  fn to_string(_m: self) -> String { "money" }
-}`
+	src := `impl Display for Money
+  fn to_string(_m: self) -> String
+      "money"
+  end
+end`
 	out, errs := lowerNewform(t, src)
 	expectLowerClean(t, errs)
 	// A foreign `impl Iface for Type` block parses straight into an
@@ -203,13 +205,17 @@ func TestHeaderLower_ImplBlockRoutesMethods(t *testing.T) {
 func TestHeaderLower_ImplBlockMultiInterface(t *testing.T) {
 	// A foreign type implementing two interfaces is two separate
 	// `impl Iface for Type` blocks, each carrying the receiver's generics.
-	src := `impl iter for Box<T> {
-  fn next(_b: self) -> Maybe<(T, self)> { None }
-}
+	src := `impl iter for Box<T>
+  fn next(_b: self) -> Maybe<(T, self)>
+      None
+  end
+end
 
-impl Display for Box<T> {
-  fn to_string(_b: Box<T>) -> String { "box" }
-}`
+impl Display for Box<T>
+  fn to_string(_b: Box<T>) -> String
+      "box"
+  end
+end`
 	out, errs := lowerNewform(t, src)
 	expectLowerClean(t, errs)
 	iter := findImplBlock(out, "iter", "Box")
@@ -225,15 +231,15 @@ impl Display for Box<T> {
 // --- Lowering: duplicate conformance consistency ---
 
 func TestHeaderLower_NestedImplWithoutBodylessConformanceIsValid(t *testing.T) {
-	src := `struct Point {
+	src := `struct Point
   x: Int
-}
+end
 
-impl Display for Point {
-  fn to_string(_p: self) -> String {
+impl Display for Point
+  fn to_string(_p: self) -> String
     "p"
-  }
-}
+  end
+end
 
 `
 	out, errs := lowerNewform(t, src)
@@ -244,10 +250,10 @@ impl Display for Point {
 }
 
 func TestHeaderLower_DuplicateConformanceErrors(t *testing.T) {
-	src := `struct Point {
+	src := `struct Point
   x: Int
 
-}
+end
 derive Equatable for Point
 derive Equatable for Point`
 	_, errs := lowerNewform(t, src)
@@ -255,17 +261,17 @@ derive Equatable for Point`
 }
 
 func TestHeaderLower_TypeBodyImplIsParseError(t *testing.T) {
-	src := `struct Point {
+	src := `struct Point
   x: Int
 
   impl Equatable
-}
+end
 derive Equatable for Point`
 	_, perr := parser.Parse(lexer.Lex(src))
 	if perr == nil {
 		t.Fatal("expected parse error")
 	}
-	if !strings.Contains(perr.Error(), "interface implementations are written as `impl Iface for Type { ... }` blocks outside the type body") {
+	if !strings.Contains(perr.Error(), "interface implementations are written as `impl Iface for Type` blocks outside the type body") {
 		t.Fatalf("unexpected parse error: %v", perr)
 	}
 }
@@ -277,32 +283,32 @@ func TestHeaderProject_TypeBodiesAndImplBlocks(t *testing.T) {
 	// `impl Iface for Type` block on a second type — all the surface forms
 	// in one file, analyzed clean.
 	src := `
-pub struct Point {
+pub struct Point
   x: Int
   y: Int
-}
+end
 
-pub fn manhattan(p: Point) -> Int {
+pub fn manhattan(p: Point) -> Int
   p.x + p.y
-}
+end
 
 derive Equatable for Point
 
-impl Display for Point {
-  fn to_string(_p: Point) -> String {
+impl Display for Point
+  fn to_string(_p: Point) -> String
     "(point)"
-  }
-}
+  end
+end
 
-pub struct Money {
+pub struct Money
   cents: Int
-}
+end
 
-impl Display for Money {
-  fn to_string(_m: Money) -> String {
+impl Display for Money
+  fn to_string(_m: Money) -> String
     "money"
-  }
-}
+  end
+end
 
 `
 	expectNoErrs(t, checkUniversalDebugProject(t, src))
@@ -312,29 +318,29 @@ func TestHeaderProject_DupNameTwoInterfacesClean(t *testing.T) {
 	// Two interfaces declaring the same method name, satisfied by one type via
 	// distinct impl blocks — each block scopes its own implementation, so
 	// the redeclaration and collision checks see no duplicate.
-	src := `interface Greeter {
+	src := `interface Greeter
   fn hello(g: self) -> String
-}
+end
 
-interface Farewell {
+interface Farewell
   fn hello(f: self) -> String
-}
+end
 
-struct Person {
+struct Person
   name: String
-}
+end
 
-impl Greeter for Person {
-  fn hello(p: Person) -> String {
+impl Greeter for Person
+  fn hello(p: Person) -> String
     p.name
-  }
-}
+  end
+end
 
-impl Farewell for Person {
-  fn hello(p: Person) -> String {
+impl Farewell for Person
+  fn hello(p: Person) -> String
     p.name
-  }
-}
+  end
+end
 
 `
 	expectNoErrs(t, checkUniversalDebugProject(t, src))
@@ -343,23 +349,23 @@ impl Farewell for Person {
 func TestHeaderProject_DupNameModuleFunctionAndInterfaceClean(t *testing.T) {
 	// A module `fn foo` coexists with an impl method of the same name; the impl
 	// method belongs to interface dispatch rather than the module scope.
-	src := `interface A {
+	src := `interface A
   fn foo(x: self) -> Int
-}
+end
 
-pub struct T {
+pub struct T
   n: Int
-}
+end
 
-pub fn foo(x: T) -> Int {
+pub fn foo(x: T) -> Int
   x.n
-}
+end
 
-impl A for T {
-  fn foo(x: T) -> Int {
+impl A for T
+  fn foo(x: T) -> Int
     x.n
-  }
-}
+  end
+end
 
 `
 	expectNoErrs(t, checkUniversalDebugProject(t, src))
@@ -368,36 +374,40 @@ impl A for T {
 func TestHeaderProject_SameInterfaceSameMethodCollides(t *testing.T) {
 	// Two functions for the same interface implementation collide on the
 	// (Iface, method, receiver) dispatch slot.
-	src := `interface A {
+	src := `interface A
   fn foo(x: self) -> Int
-}
+end
 
-struct T {
+struct T
   n: Int
-}
+end
 
-impl A for T {
-  fn foo(_x: T) -> Int {
+impl A for T
+  fn foo(_x: T) -> Int
     1
-  }
+  end
 
-  fn foo(_x: T) -> Int {
+  fn foo(_x: T) -> Int
     2
-  }
-}
+  end
+end
 
 `
 	expectErrContaining(t, checkUniversalDebugProject(t, src), "duplicate impl")
 }
 
 func TestHeaderProject_TwoModuleFunctionsCollide(t *testing.T) {
-	src := `struct T {
+	src := `struct T
   n: Int
-}
+end
 
-pub fn foo(_x: T) -> Int { 1 }
+pub fn foo(_x: T) -> Int
+    1
+end
 
-pub fn foo(_x: T) -> Int { 2 }
+pub fn foo(_x: T) -> Int
+    2
+end
 `
 	expectErrContaining(t, checkUniversalDebugProject(t, src), "'foo' is already defined")
 }

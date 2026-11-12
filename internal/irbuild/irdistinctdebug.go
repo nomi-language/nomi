@@ -19,6 +19,21 @@ func (bl *irScalarBuilder) distinctDebugPlan(k kind) (*irQualPlan, bool) {
 		return nil, false
 	}
 	d := bl.g.implsByIface["Debug"][k]
+	if d == nil && k.def.instOrigin == nil {
+		// Another unit's type (a program file's, or a std module lowered
+		// with the program, `Status`, `Toml`): the Debug impl its declaring
+		// unit holds, written or synthesized, as debugImplSym finds it.
+		site, params, result, owning := bl.g.siblingImplMember(k.def, "inspect", "Debug")
+		if site == nil || len(params) != 1 || params[0] != k || result != kindString {
+			return nil, false
+		}
+		if site.synth {
+			if decl, ok := k.def.decl.(*ast.TypeDef); ok && !decl.Opaque {
+				return nil, true
+			}
+		}
+		return &irQualPlan{token: site.item, name: site.symName, result: kindString, sym: owning.irCalleeSym(site.item, site.symName)}, true
+	}
 	if d == nil || !d.lowerable {
 		return nil, false
 	}
@@ -79,7 +94,7 @@ func (bl *irScalarBuilder) stdDebugPlan(k kind) *irQualPlan {
 		// template (Regex's Debug calls `String.contains`): built per
 		// program like an instance with no arguments, as a call to it is
 		// (stdInstCallAt).
-		inst, _ := s.instantiate(f, nil, nil, nil, bl.g)
+		inst, _ := s.instantiate(f, nil, nil, bl.g)
 		if inst == nil || len(inst.view.params) != 1 || inst.view.params[0] != k || inst.view.result != kindString ||
 			!bl.g.debugScalarInspects(k) {
 			return nil

@@ -12,16 +12,16 @@ import (
 // type there.
 func TestTurbofishChecker_UnknownTypeArgument_Rejected(t *testing.T) {
 	errs := checkWithStdlib(`
-fn ident<T>(x: T) -> T {
+fn ident<T>(x: T) -> T
   x
-}
+end
 
-fn main() {
-  _ = Map.size(Map.put<String, Nope>(%{}, "a", 1))
+fn main()
+  _ = Map.size(Map.put<String, Nope>({}, "a", 1))
   _ = ident<Nope>(1)
   type Meters Int
   _ = ident<Meters>(Meters(2))
-}
+end
 `)
 	var got []string
 	for _, e := range errs {
@@ -41,34 +41,34 @@ fn main() {
 // conflicts. (Distinguishing test: without turbofish the RHS is `Channel<?>`
 // and would unify `? = String` with no error.)
 func TestTurbofishChecker_PinsReturnParam_ConflictRejected(t *testing.T) {
-	src := `import {
+	src := `import
   std::channels.{Channel, Sender}
-}
-fn main() -> Unit {
+end
+fn main() -> Unit
   ch: Channel<String> = Channel.buffered<Int>(4)
-}`
+end`
 	expectErrorContaining(t, checkWithStdlib(src), "type mismatch")
 }
 
 // Turbofish consistent with the binding annotation is clean (guard).
 func TestTurbofishChecker_ConsistentUsage_Clean(t *testing.T) {
-	src := `import {
+	src := `import
   std::channels.{Channel, Sender}
-}
-fn main() -> Unit {
+end
+fn main() -> Unit
   ch: Channel<Int> = Channel.buffered<Int>(4)
-}`
+end`
 	expectClean(t, checkWithStdlib(src))
 }
 
 // Too many type args for the callee's declared params is rejected.
 func TestTurbofishChecker_ArityMismatch_Rejected(t *testing.T) {
-	src := `import {
+	src := `import
   std::channels.{Channel, Sender}
-}
-fn main() -> Unit {
+end
+fn main() -> Unit
   ch = Channel.buffered<Int, String>(4)
   r = Sender.send(ch.sender, 5)
-}`
+end`
 	expectErrorContaining(t, checkWithStdlib(src), "type argument")
 }

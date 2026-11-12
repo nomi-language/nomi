@@ -1,7 +1,7 @@
-import {
+import
     std::calendar.{Error, Time}
     std::io
-}
+end
 
 // ARGUMENT EVALUATION ORDER FOR A NAMED ARGUMENT TO A STDLIB CALLEE.
 //
@@ -22,21 +22,21 @@ import {
 // The builder hoists each argument's statements as it walks, so walking slot
 // order would print these in a different sequence from the rule above. Nothing
 // about the returned Time would change.
-fn tick(n: Int, tag: String) -> Int {
+fn tick(n: Int, tag: String) -> Int
     io.print("eval ${tag}")
     n
-}
+end
 
-fn render(label: String, r: Result<Time, Error>) -> Unit {
-    case r {
+fn render(label: String, r: Result<Time, Error>) -> Unit
+    case r
         Ok(t) -> io.print("${label}=${Time.hour(t)}:${Time.minute(t)}:${Time.second(t)}")
         Err(_) -> io.print("${label}=err")
-    }
+    end
 
     Unit
-}
+end
 
-fn main() {
+fn main()
     // ALL NAMED, WRITTEN BACKWARDS. Written and evaluation order are both
     // minute-then-hour; slot order is hour-then-minute. So this prints
     // `eval B` before `eval A`, and a slot-order walk prints the reverse.
@@ -53,4 +53,4 @@ fn main() {
     // shape the partition makes counter-intuitive: the positional is
     // evaluated FIRST despite being written second.
     render("named-first", Time.new(minute: tick(59, "Y"), tick(23, "X")))
-}
+end

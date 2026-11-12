@@ -15,49 +15,49 @@ import (
 func TestIRBootStartup_AZeroParameterBootRunsMain(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-struct App {
+struct App
   port: Int
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{port: 8080})
-}
+end
 
-fn main() {
+fn main()
   io.print("listening on :${App.port}")
-}
+end
 `, "listening on :8080\n", "boot", "main")
 }
 
 // The entry file a group's `boot` line calls: a boot with no parameter.
 const irBootStartupZeroServer = `import std::io
 
-pub struct App {
+pub struct App
   label: String
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
   io.print("boot")
   Ok(App{label: "zero"})
-}
+end
 
-fn main() {}
+fn main() end
 `
 
 // A group calls a boot that takes no parameter with no argument; the case
 // records no startup function and the runner calls the boot with none.
 func TestIRBootStartup_AGroupBootsAZeroParameterBoot(t *testing.T) {
-	run := irTestGroupVMFiles(t, `import {
+	run := irTestGroupVMFiles(t, `import
   server.{self, App}
-}
+end
 
-group "group" {
+group "group"
   boot server.boot()
 
-  test "reads the app" {
+  test "reads the app"
     assert App.label == "zero"
-  }
-}
+  end
+end
 `, map[string]string{"server.nomi": irBootStartupZeroServer}, 1)
 	group := run.module.Tests()[0].Group()
 	if group.Boot == nil || group.Startup != nil {
@@ -74,44 +74,44 @@ group "group" {
 // the entry's unit must lower it.
 const irBootStartupDefaultServer = `import std::io
 
-pub struct App {
+pub struct App
   first: String
-}
+end
 
-fn default_startup() -> Startup {
+fn default_startup() -> Startup
   Startup{args: ["default"]}
-}
+end
 
-pub fn boot(startup: Startup = default_startup()) -> Result<App, String> {
+pub fn boot(startup: Startup = default_startup()) -> Result<App, String>
   io.print("boot ${startup.args}")
   Ok(App{first: Iter.first(startup.args) |> Maybe.with_default("none")})
-}
+end
 
-fn main() {}
+fn main() end
 `
 
 // A group that writes `boot server.boot()` boots with the parameter's
 // default; one that passes a Startup boots with it.
 func TestIRBootStartup_AGroupReliesOnTheBootsDefault(t *testing.T) {
-	run := irTestGroupVMFiles(t, `import {
+	run := irTestGroupVMFiles(t, `import
   server.{self, App}
-}
+end
 
-group "defaulted" {
+group "defaulted"
   boot server.boot()
 
-  test "reads the default" {
+  test "reads the default"
     assert App.first == "default"
-  }
-}
+  end
+end
 
-group "given" {
+group "given"
   boot server.boot(Startup{args: ["given"]})
 
-  test "reads the argument" {
+  test "reads the argument"
     assert App.first == "given"
-  }
-}
+  end
+end
 `, map[string]string{"server.nomi": irBootStartupDefaultServer}, 2)
 	for _, c := range run.module.Tests() {
 		if c.Group().Boot == nil || c.Group().Startup == nil {

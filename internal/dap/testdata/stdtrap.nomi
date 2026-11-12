@@ -1,7 +1,7 @@
 import std::io
 
-fn main() {
+fn main()
     io.print("start")
     share = Int.floor_div(7, 0)
     io.print(share)
-}
+end

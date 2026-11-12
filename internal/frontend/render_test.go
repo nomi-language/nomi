@@ -16,7 +16,7 @@ func renderOf(t *testing.T, src string, errs []analysis.TypeError) string {
 	return b.String()
 }
 
-const renderSrc = "fn main() {\n  count = 1\n  total: Int = name\n\tx = \"héllo\" + cuont\n  y = [\n    1,\n  ]\n}\n"
+const renderSrc = "fn main()\n  count = 1\n  total: Int = name\n\tx = \"héllo\" + cuont\n  y = [\n    1,\n  ]\nend\n"
 
 func TestRender_SourceLineSpanHintAndNote(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")

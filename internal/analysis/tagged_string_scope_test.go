@@ -17,7 +17,7 @@ func TestTaggedStringOutOfScopeNamesTheLiteralAsWritten(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, errs := checkSource("fn main() {\n    x = " + tc.literal + "\n}\n")
+			_, errs := checkSource("fn main()\n    x = " + tc.literal + "\nend\n")
 			var got []string
 			for _, e := range errs {
 				if strings.Contains(e.Message, "is not in scope") {

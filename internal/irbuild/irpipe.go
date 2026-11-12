@@ -179,7 +179,15 @@ func (bl *irScalarBuilder) pipeTap(t *ast.Binary, r *ast.Tap) (ir.Temp, kind, bo
 	if r.Name != nil {
 		// `x |> tap io.print`: the name is the function value the checker
 		// typed against `(T) -> Unit`, instantiated or with its defaults
-		// filled, and the call goes through it.
+		// filled, and the call goes through it. The held value is a placed
+		// argument: the checker recorded no view for it, so where the
+		// function takes an `Iter<T>` it is viewed by its kind
+		// (viewSourceAt), as `tap fn xs -> total(xs)` views `xs`.
+		if bl.placed == nil {
+			bl.placed = map[ast.Node]irPlacedArg{}
+		}
+		bl.placed[held] = irPlacedArg{temp: src, k: k}
+		defer delete(bl.placed, held)
 		prev := bl.pipedCall
 		bl.pipedCall = call
 		res, resK, _, ok = bl.indirectCall(call)

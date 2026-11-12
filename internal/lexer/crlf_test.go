@@ -11,7 +11,7 @@ import (
 // same file with LF: the same tokens, the same lexemes, multi-line strings
 // included, at the same lines and columns.
 func TestCRLFLexesAsLF(t *testing.T) {
-	src := "import std::io\n\n// a comment\n/// a doc\nfn main() {\n  s = \"\"\"\n    a\n      b ${1 + 2}\n    \"\"\"\n  r = \"\"\"\n    raw\n    \"\"\"\n  b = `\n    one\n    two\n    `\n  io.print(s)\n}\n"
+	src := "import std::io\n\n// a comment\n/// a doc\nfn main()\n  s = \"\"\"\n    a\n      b ${1 + 2}\n    \"\"\"\n  r = \"\"\"\n    raw\n    \"\"\"\n  b = `\n    one\n    two\n    `\n  io.print(s)\nend\n"
 	lf := Lex(src)
 	crlf := Lex(strings.ReplaceAll(src, "\n", "\r\n"))
 	if len(lf) != len(crlf) {

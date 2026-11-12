@@ -198,10 +198,6 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfListPattern(n, fn)
 		}
-	case *ListSpreadLit:
-		if n != nil {
-			childrenOfListSpreadLit(n, fn)
-		}
 	case *MapLit:
 		if n != nil {
 			childrenOfMapLit(n, fn)
@@ -246,14 +242,6 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		}
 	case *SelfExpr:
 	case *SelfType:
-	case *SetLit:
-		if n != nil {
-			childrenOfSetLit(n, fn)
-		}
-	case *SetPattern:
-		if n != nil {
-			childrenOfSetPattern(n, fn)
-		}
 	case *SimpleType:
 	case *StringInterp:
 		if n != nil {
@@ -336,14 +324,6 @@ func generatedChildren(n Node, fn func(Node)) bool {
 	case *Unwrap:
 		if n != nil {
 			childrenOfUnwrap(n, fn)
-		}
-	case *VectorLit:
-		if n != nil {
-			childrenOfVectorLit(n, fn)
-		}
-	case *VectorPattern:
-		if n != nil {
-			childrenOfVectorPattern(n, fn)
 		}
 	case *WildcardPattern:
 	case *With:
@@ -476,8 +456,6 @@ func absent(n Node) bool {
 		return n == nil
 	case *ListPattern:
 		return n == nil
-	case *ListSpreadLit:
-		return n == nil
 	case *MapLit:
 		return n == nil
 	case *MapPattern:
@@ -505,10 +483,6 @@ func absent(n Node) bool {
 	case *SelfExpr:
 		return n == nil
 	case *SelfType:
-		return n == nil
-	case *SetLit:
-		return n == nil
-	case *SetPattern:
 		return n == nil
 	case *SimpleType:
 		return n == nil
@@ -555,10 +529,6 @@ func absent(n Node) bool {
 	case *Unreachable:
 		return n == nil
 	case *Unwrap:
-		return n == nil
-	case *VectorLit:
-		return n == nil
-	case *VectorPattern:
 		return n == nil
 	case *WildcardPattern:
 		return n == nil
@@ -617,6 +587,8 @@ func childrenOfDynamic(v any, fn func(Node)) {
 		}
 	case PathSegment:
 	case *PathSegment:
+	case SeqKind:
+	case *SeqKind:
 	case Span:
 	case *Span:
 	case SpanCarrier:
@@ -1211,6 +1183,9 @@ func childrenOfListLit(x *ListLit, fn func(Node)) {
 			fn(e1)
 		}
 	}
+	for i2 := range x.Spreads {
+		childrenOfSpread(&x.Spreads[i2], fn)
+	}
 }
 
 func childrenOfListPattern(x *ListPattern, fn func(Node)) {
@@ -1229,17 +1204,6 @@ func childrenOfListPattern(x *ListPattern, fn func(Node)) {
 		if !absent(e2) {
 			fn(e2)
 		}
-	}
-}
-
-func childrenOfListSpreadLit(x *ListSpreadLit, fn func(Node)) {
-	for _, e1 := range x.Items {
-		if !absent(e1) {
-			fn(e1)
-		}
-	}
-	for i2 := range x.Spreads {
-		childrenOfSpread(&x.Spreads[i2], fn)
 	}
 }
 
@@ -1389,34 +1353,6 @@ func childrenOfRangeLit(x *RangeLit, fn func(Node)) {
 func childrenOfReturn(x *Return, fn func(Node)) {
 	if !absent(x.Value) {
 		fn(x.Value)
-	}
-}
-
-func childrenOfSetLit(x *SetLit, fn func(Node)) {
-	if !absent(x.TypeName) {
-		fn(x.TypeName)
-	}
-	for _, e1 := range x.Items {
-		if !absent(e1) {
-			fn(e1)
-		}
-	}
-	for i2 := range x.Spreads {
-		childrenOfSpread(&x.Spreads[i2], fn)
-	}
-}
-
-func childrenOfSetPattern(x *SetPattern, fn func(Node)) {
-	if !absent(x.TypeName) {
-		fn(x.TypeName)
-	}
-	for _, e1 := range x.Elems {
-		if !absent(e1) {
-			fn(e1)
-		}
-	}
-	if !absent(x.Rest) {
-		fn(x.Rest)
 	}
 }
 
@@ -1729,39 +1665,6 @@ func childrenOfUnwrap(x *Unwrap, fn func(Node)) {
 	}
 }
 
-func childrenOfVectorLit(x *VectorLit, fn func(Node)) {
-	if !absent(x.TypeName) {
-		fn(x.TypeName)
-	}
-	for _, e1 := range x.Items {
-		if !absent(e1) {
-			fn(e1)
-		}
-	}
-	for i2 := range x.Spreads {
-		childrenOfSpread(&x.Spreads[i2], fn)
-	}
-}
-
-func childrenOfVectorPattern(x *VectorPattern, fn func(Node)) {
-	if !absent(x.TypeName) {
-		fn(x.TypeName)
-	}
-	for _, e1 := range x.Heads {
-		if !absent(e1) {
-			fn(e1)
-		}
-	}
-	if !absent(x.Rest) {
-		fn(x.Rest)
-	}
-	for _, e2 := range x.Tails {
-		if !absent(e2) {
-			fn(e2)
-		}
-	}
-}
-
 func childrenOfWhereConstraint(x *WhereConstraint, fn func(Node)) {
 	for _, e1 := range x.Bounds {
 		if !absent(e1) {
@@ -1848,7 +1751,6 @@ var generatedTypes = []any{
 	(*Lambda)(nil),
 	(*ListLit)(nil),
 	(*ListPattern)(nil),
-	(*ListSpreadLit)(nil),
 	(*MapLit)(nil),
 	(*MapPattern)(nil),
 	(*NamedArg)(nil),
@@ -1863,8 +1765,6 @@ var generatedTypes = []any{
 	(*Return)(nil),
 	(*SelfExpr)(nil),
 	(*SelfType)(nil),
-	(*SetLit)(nil),
-	(*SetPattern)(nil),
 	(*SimpleType)(nil),
 	(*StringInterp)(nil),
 	(*StringLit)(nil),
@@ -1888,8 +1788,6 @@ var generatedTypes = []any{
 	(*Unary)(nil),
 	(*Unreachable)(nil),
 	(*Unwrap)(nil),
-	(*VectorLit)(nil),
-	(*VectorPattern)(nil),
 	(*WildcardPattern)(nil),
 	(*With)(nil),
 	*new(AttachedTestAfter), (*AttachedTestAfter)(nil),
@@ -1903,6 +1801,7 @@ var generatedTypes = []any{
 	*new(MapPatternEntry), (*MapPatternEntry)(nil),
 	*new(Param), (*Param)(nil),
 	*new(PathSegment), (*PathSegment)(nil),
+	*new(SeqKind), (*SeqKind)(nil),
 	*new(Span), (*Span)(nil),
 	*new(SpanCarrier), (*SpanCarrier)(nil),
 	*new(Spread), (*Spread)(nil),

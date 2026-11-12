@@ -9,12 +9,12 @@ import (
 // nothing, and "nothing" is exactly what a refused construct produces.
 
 func TestLambda_ConflictingReturnTypesAreRejected(t *testing.T) {
-	_, err := AnalyzeSource("main", `fn main() {
-  _ = fn x: Int -> {
-    if x > 0 { return "positive" }
+	_, err := AnalyzeSource("main", `fn main()
+  _ = fn x: Int ->
+    if x > 0 then return "positive"
     1
-  }
-}`)
+  end
+end`)
 	requireFrontEndRejection(t, err, "lambda return and fallthrough disagree", "return type mismatch")
 }
 

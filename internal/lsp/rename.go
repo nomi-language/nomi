@@ -12,9 +12,10 @@ import (
 // buildRenameEdits returns TextEdits for every occurrence (definition + reference)
 // of the target symbol within a single file analysis.
 //
-// A punned struct-literal field (`.{context}`) is one token that is both the
+// A punned struct-literal field (`{context:}`) is one name that is both the
 // field's label and a read of the variable, so renaming either one unpuns
-// it: the field to `sink: context`, the variable to `context: sink`.
+// it: the field to `sink: context`, the variable to `context: sink`. The
+// edit covers the name and the `:` written against it.
 //
 // An occurrence in a synthesized body (a derive or the universal Debug
 // impl, analysis.IsSynthesizedLine) is not in the text and is not edited.
@@ -23,7 +24,7 @@ func buildRenameEdits(fa *analysis.FileAnalysis, target *analysis.Symbol, id sym
 	for pos, sym := range fa.References {
 		if !analysis.IsSynthesizedLine(pos.Line) && !fa.StandInReference(pos) && matchesSymbol(sym, target, id) {
 			if _, punned := fa.PunnedFieldLabels[pos]; punned {
-				edits = append(edits, makeTextEdit(pos, sym.Name, sym.Name+": "+newName))
+				edits = append(edits, makeTextEdit(pos, sym.Name+":", sym.Name+": "+newName))
 				continue
 			}
 			edits = append(edits, makeTextEdit(pos, sym.Name, newName))
@@ -31,15 +32,15 @@ func buildRenameEdits(fa *analysis.FileAnalysis, target *analysis.Symbol, id sym
 	}
 	for pos, field := range fa.PunnedFieldLabels {
 		if !analysis.IsSynthesizedLine(pos.Line) && matchesSymbol(field, target, id) {
-			edits = append(edits, makeTextEdit(pos, field.Name, newName+": "+field.Name))
+			edits = append(edits, makeTextEdit(pos, field.Name+":", newName+": "+field.Name))
 		}
 	}
 	for pos, sym := range fa.Definitions {
 		if !analysis.IsSynthesizedLine(pos.Line) && matchesSymbol(sym, target, id) {
 			if _, punned := fa.PunnedFieldLabels[pos]; punned {
-				// A punned pattern field (`.{home} = routes.public`) binds
+				// A punned pattern field (`{home:} = routes.public`) binds
 				// the name it reads: the binding renames to `home: sink`.
-				edits = append(edits, makeTextEdit(pos, sym.Name, sym.Name+": "+newName))
+				edits = append(edits, makeTextEdit(pos, sym.Name+":", sym.Name+": "+newName))
 				continue
 			}
 			edits = append(edits, makeTextEdit(pos, sym.Name, newName))

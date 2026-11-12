@@ -12,13 +12,13 @@
 // lock.
 import std::io
 
-fn read_seed() -> Int {
+fn read_seed() -> Int
     seed
-}
+end
 
 once seed: Int = read_seed() + 1
 
-fn main() {
+fn main()
     io.print("start")
     io.print("seed ${seed}")
-}
+end

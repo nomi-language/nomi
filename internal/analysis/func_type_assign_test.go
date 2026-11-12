@@ -12,79 +12,79 @@ import (
 // unified symmetrically, so a function taking a Float passed where one taking
 // any Display was expected, and the same sound widening was refused at a
 // plain argument, a list element or a field.
-const funcAssignDecls = `struct Holder {
+const funcAssignDecls = `struct Holder
   f: (Iter<Int>) -> Int
-}
+end
 
-struct Box<T> {
+struct Box<T>
   v: T
-}
+end
 
-struct Circle {
+struct Circle
   r: Int
-}
+end
 
-enum Shape {
+enum Shape
   embeds Circle
   Dot
-}
+end
 
-fn sum_list(xs: List<Int>) -> Int {
+fn sum_list(xs: List<Int>) -> Int
   Iter.count(xs)
-}
+end
 
-fn cnt(xs: Iter<Int>) -> Int {
+fn cnt(xs: Iter<Int>) -> Int
   Iter.count(xs)
-}
+end
 
-fn shown(x: Display) -> String {
+fn shown(x: Display) -> String
   Display.to_string(x)
-}
+end
 
-fn float_str(f: Float) -> String {
+fn float_str(f: Float) -> String
   Float.to_string(f)
-}
+end
 
-fn r_of(c: Circle) -> Int {
+fn r_of(c: Circle) -> Int
   c.r
-}
+end
 
-fn pick<T>(c: Bool, a: T, b: T) -> T {
-  if c { a } else { b }
-}
+fn pick<T>(c: Bool, a: T, b: T) -> T
+  if c then a else b
+end
 
-fn use_iter(f: (Iter<Int>) -> Int) -> Int {
+fn use_iter(f: (Iter<Int>) -> Int) -> Int
   f([1, 2])
-}
+end
 
-fn use_display(f: (Display) -> String) -> String {
+fn use_display(f: (Display) -> String) -> String
   f("hi")
-}
+end
 
-fn use_shape(f: (Shape) -> Int) -> Int {
+fn use_shape(f: (Shape) -> Int) -> Int
   f(Shape.Dot)
-}
+end
 
-fn give_iter(f: (Iter<Int>) -> Int) -> Int {
+fn give_iter(f: (Iter<Int>) -> Int) -> Int
   f([5, 6])
-}
+end
 
-fn higher(g: ((List<Int>) -> Int) -> Int) -> Int {
+fn higher(g: ((List<Int>) -> Int) -> Int) -> Int
   g(sum_list)
-}
+end
 
 `
 
-const funcAssignReturns = `fn ret_bad() -> (Iter<Int>) -> Int {
+const funcAssignReturns = `fn ret_bad() -> (Iter<Int>) -> Int
   sum_list
-}
+end
 
-fn ret_bad_early(b: Bool) -> (Iter<Int>) -> Int {
-  if b {
+fn ret_bad_early(b: Bool) -> (Iter<Int>) -> Int
+  if b then
     return sum_list
-  }
+  end
   cnt
-}
+end
 
 `
 
@@ -120,15 +120,15 @@ func TestFuncTypeAssign_UnsoundIsRejected(t *testing.T) {
 			"argument 3: expected (Display) -> String, got (Float) -> String"},
 		{"a generic join, narrower first", "", "  c = pick(True, float_str, shown)\n  _ = c(1.5)\n",
 			"argument 3: expected (Float) -> String, got (Display) -> String\nhelp: T is already (Float) -> String from an earlier argument, and a type parameter joins two function types only when they are the same; pass a lambda of that type instead"},
-		{"an if join", "", "  g = if True { shown } else { float_str }\n  _ = g(1.5)\n",
+		{"an if join", "", "  g = if True then shown else float_str\n  _ = g(1.5)\n",
 			"if/else branch type mismatch: then is (Display) -> String, else is (Float) -> String"},
-		{"a case join", "", "  k = case 1 {\n    1 -> shown\n    _ -> float_str\n  }\n  _ = k(1.5)\n",
+		{"a case join", "", "  k = case 1\n    1 -> shown\n    _ -> float_str\n  end\n  _ = k(1.5)\n",
 			"case branch type mismatch: expected (Display) -> String, got (Float) -> String"},
 		{"an unannotated list", "", "  l = [shown, float_str]\n  _ = Iter.count(l)\n",
 			"list element type mismatch: expected (Display) -> String, got (Float) -> String"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := funcAssignDecls + tc.decls + "fn main() {\n" + tc.body + "}\n"
+			src := funcAssignDecls + tc.decls + "fn main()\n" + tc.body + "end\n"
 			_, errs := checkSourceWithStdlib(src)
 			expectStdlibError(t, errs, tc.want)
 		})
@@ -146,13 +146,13 @@ func TestFuncTypeAssign_SoundIsAccepted(t *testing.T) {
 		"  f: (List<Int>) -> Int = cnt\n  _ = f([1])\n",
 		"  fs: List<(List<Int>) -> Int> = [cnt, sum_list]\n  _ = Iter.count(fs)\n",
 		"  m: (Int) -> Iter<Int> = fn n: Int -> [n]\n  _ = m(1)\n",
-		"  s: (Circle) -> Int = fn sh: Shape -> case sh {\n    .Circle{r} -> r\n    .Dot -> 0\n  }\n  _ = s(Circle{r: 1})\n",
+		"  s: (Circle) -> Int = fn sh: Shape -> case sh\n    .Circle{r:} -> r\n    .Dot -> 0\n  end\n  _ = s(Circle{r: 1})\n",
 		"  _ = Iter.map([1, 2], shown) |> Iter.to_list()\n",
-		"  _ = Map.map_values(%{\"a\" => [1]}, cnt)\n",
+		"  _ = Map.map_values({\"a\" => [1]}, cnt)\n",
 		"  c = pick(True, shown, shown)\n  _ = c(1)\n",
 		"  c = pick(True, float_str, fn x -> shown(x))\n  _ = c(1.5)\n",
 	} {
-		src := funcAssignDecls + "fn main() {\n" + body + "}\n"
+		src := funcAssignDecls + "fn main()\n" + body + "end\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectNoStdlibErrors(t, errs)
 	}

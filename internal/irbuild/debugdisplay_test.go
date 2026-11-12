@@ -15,9 +15,9 @@ import (
 // # The two inputs that make the four renderings distinguishable
 //
 // A non-alphabetical struct and a hand-written `impl Debug`. With
-// `Point{x, y}`, declaration order and sorted order are the same string, so
+// `Point{x:, y:}`, declaration order and sorted order are the same string, so
 // wiring `Debug.inspect` to the structural inspector, or the `values:` row to
-// the Display renderer, would pass. With `Rev{zeta, alpha}` they are
+// the Display renderer, would pass. With `Rev{zeta:, alpha:}` they are
 // `Rev{zeta: 1, alpha: 2}` and `Rev{alpha: 2, zeta: 1}` and only one wiring
 // passes.
 //
@@ -169,13 +169,13 @@ func mustReadFixture(t *testing.T, name string) string {
 func structFieldOrder(src, name string) []string {
 	lines := strings.Split(src, "\n")
 	for i, ln := range lines {
-		if strings.TrimSpace(ln) != "struct "+name+" {" {
+		if strings.TrimSpace(ln) != "struct "+name {
 			continue
 		}
 		var out []string
 		for _, f := range lines[i+1:] {
 			f = strings.TrimSpace(f)
-			if f == "}" {
+			if f == "end" {
 				return out
 			}
 			if fld, _, ok := strings.Cut(f, ":"); ok && fld != "" {

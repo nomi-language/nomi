@@ -14,14 +14,14 @@ import (
 	"testing"
 )
 
-const fixture = `fn double(n: Int) -> Int {
+const fixture = `fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn main() {
+fn main()
     answer = double(21)
     dbg answer
-}
+end
 `
 
 // client drives a Server over in-memory pipes, as an MCP client does over
@@ -202,8 +202,8 @@ func TestMCP_SearchStd(t *testing.T) {
 func TestMCP_FormatAndExplain(t *testing.T) {
 	dir := project(t)
 	c := start(t, Options{Root: dir})
-	got := c.tool("format", map[string]any{"source": "fn main() {\n  dbg   1\n}\n"})
-	if got["formatted"] != "fn main() {\n    dbg 1\n}\n" || got["changed"] != true {
+	got := c.tool("format", map[string]any{"source": "fn main()\n  dbg   1\nend\n"})
+	if got["formatted"] != "fn main()\n    dbg 1\nend\n" || got["changed"] != true {
 		t.Errorf("format = %v", got)
 	}
 	if got := c.tool("format", map[string]any{"file": "main.nomi"}); got["changed"] != false {

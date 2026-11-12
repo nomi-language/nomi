@@ -79,23 +79,23 @@ func CountIf(cells []Cell, keep core.Check) ID {
 
 gopkg "example.com/app/adapter"
 
-struct Cell {
+struct Cell
   text: String
   n: Int
-}
+end
 
 derive Display for Cell
 
-struct Address {
+struct Address
   city: String
-}
+end
 
-struct User {
+struct User
   name: String
   address: Address
   cells: List<Cell>
   best: Maybe<Cell>
-}
+end
 
 fn make_cell(text: String, n: Int) -> Cell go adapter.MakeCell
 
@@ -103,17 +103,17 @@ fn greet(u: User) -> User go adapter.Greet
 
 fn count_if(cells: List<Cell>, keep: (String) -> Bool) -> Int go adapter.CountIf
 
-fn main() {
+fn main()
   cell = make_cell("a", 3)
   io.print("${cell}")
   user = greet(User{name: "Ada", address: Address{city: "Oslo"}, cells: [cell], best: None})
   io.print("${user.name} ${user.address.city} ${user.cells}")
-  case user.best {
+  case user.best
     Some(best) -> io.print("best ${best}")
     None -> io.print("no best")
-  }
+  end
   io.print("${count_if(user.cells, fn(text) -> text == "Oslo")}")
-}
+end
 `,
 	}
 	for path, content := range files {

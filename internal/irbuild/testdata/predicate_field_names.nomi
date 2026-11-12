@@ -5,31 +5,31 @@ import std::io
 // Go-spelled identifier, so both reads resolved to the first field. No corpus
 // program writes this shape, which is why the builder
 // shipped it.
-struct Flags {
+struct Flags
     is_ok: Int
     ok_: Int
-}
+end
 
 // The same collision one level out: a predicate function beside its twin.
-fn is_ready() -> Int {
+fn is_ready() -> Int
     10
-}
+end
 
-fn ready_() -> Int {
+fn ready_() -> Int
     20
-}
+end
 
-impl Flags {
-    fn score_of(f: Flags) -> Int {
+impl Flags
+    fn score_of(f: Flags) -> Int
         f.is_ok
-    }
+    end
 
-    fn score_(f: Flags) -> Int {
+    fn score_(f: Flags) -> Int
         f.ok_
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     f = Flags{is_ok: 1, ok_: 2}
     io.print("is_ok = " + Int.to_string(f.is_ok))
     io.print("ok_ = " + Int.to_string(f.ok_))
@@ -37,4 +37,4 @@ fn main() {
     io.print("fns = " + Int.to_string(is_ready() + ready_()))
     io.print("impl = " + Int.to_string(Flags.score_of(f) + Flags.score_(f)))
     io.print("debug = " + Debug.inspect(f))
-}
+end

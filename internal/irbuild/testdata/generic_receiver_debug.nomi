@@ -1,7 +1,7 @@
-import {
+import
     std::io
     std::tasks.{Failure, Outcome}
-}
+end
 
 // `Debug.inspect` over three receivers that each need their own rendering, and
 // an INTRA-FILE IDENTITY-COLLAPSE check that no corpus file can carry.
@@ -55,66 +55,66 @@ import {
 // rendered its elements the way the assertion row does fails HERE, and still
 // passes every fixture whose elements are scalars, since a scalar renders the
 // same way in both.
-struct Pt {
+struct Pt
     zz: Int
     a: Int
-}
+end
 
 derive Debug for Pt
 
 // A generic struct holding a FUNCTION, which is `std/random.Generator<T>`'s
 // shape with the seed replaced by an Int. Present at two instantiations for the
 // collapse pin.
-struct Gen<T> {
+struct Gen<T>
     run: (Int) -> (T, Int)
-}
+end
 
 // The MONOMORPHIC twin. A call through a function-valued field is the same
 // operation with genericity removed, so a fixture carrying only the generic
 // form would leave the general half unpinned.
-struct Mono {
+struct Mono
     run: (Int) -> (Int, Int)
-}
+end
 
-fn int_gen() -> Gen<Int> {
+fn int_gen() -> Gen<Int>
     Gen{run: fn s -> (s + 1, s)}
-}
+end
 
-fn text_gen() -> Gen<String> {
+fn text_gen() -> Gen<String>
     Gen{run: fn s -> ("v${s}", s)}
-}
+end
 
-fn mono() -> Mono {
+fn mono() -> Mono
     Mono{run: fn s -> (s * 2, s)}
-}
+end
 
-fn cancelled_int() -> Outcome<Int> {
+fn cancelled_int() -> Outcome<Int>
     Outcome.Cancelled
-}
+end
 
-fn cancelled_text() -> Outcome<String> {
+fn cancelled_text() -> Outcome<String>
     Outcome.Cancelled
-}
+end
 
-fn main() {
+fn main()
     // --- Vector, at two instantiations ------------------------------------
-    io.print(Debug.inspect(#[1, 2, 3]))
-    io.print(Debug.inspect(#["Ada", "Grace"]))
+    io.print(Debug.inspect(Vector[1, 2, 3]))
+    io.print(Debug.inspect(Vector["Ada", "Grace"]))
 
     // Display beside Debug on ONE value, which is the pin that the element leaf
     // is Debug's: these two strings differ only in the quoting.
-    io.print(Display.to_string(#["Ada", "Grace"]))
+    io.print(Display.to_string(Vector["Ada", "Grace"]))
 
     // The permuted struct as an element, and a nested Vector so the element
     // renderer is applied to its own output.
-    io.print(Debug.inspect(#[Pt{zz: 1, a: 2}]))
-    io.print(Debug.inspect(#[#["a"], #["b"]]))
-    io.print(Debug.inspect([#[1], #[2]]))
-    io.print(Debug.inspect(#[Some(1), Some(2)]))
+    io.print(Debug.inspect(Vector[Pt{zz: 1, a: 2}]))
+    io.print(Debug.inspect(Vector[Vector["a"], Vector["b"]]))
+    io.print(Debug.inspect([Vector[1], Vector[2]]))
+    io.print(Debug.inspect(Vector[Some(1), Some(2)]))
 
     // The tour's own shape: a pushed Vector, rendered through `dbg`.
     names =
-        #["Ada", "Grace"]
+        Vector["Ada", "Grace"]
         |> Vector.push("Katherine")
 
     dbg names
@@ -134,7 +134,7 @@ fn main() {
     // A std generic enum inside a container, and a Vector of one, so the two
     // arms compose with each other in both directions.
     io.print(Debug.inspect([Outcome.Completed(1), Outcome.Completed(2)]))
-    io.print(Debug.inspect(#[cancelled_int()]))
+    io.print(Debug.inspect(Vector[cancelled_int()]))
 
     // --- a function-valued field, called ---------------------------------
     ig = int_gen()
@@ -154,16 +154,16 @@ fn main() {
     // `Vector.inspect(v)` and `Debug.inspect(v)` are two spellings of the SAME
     // operation: `inspect` is the method name of std's `impl Debug for
     // Vector<T>`, so both must answer through that one body and give the same
-    // string: `#[Pt{zz: 1, a: 2}]`, in declaration order, as the golden record
+    // string: `Vector[Pt{zz: 1, a: 2}]`, in declaration order, as the golden record
     // holds.
     //
     // They are pinned side by side because the builder reaches them by different
     // routes and could give them different ELEMENT leaves, which for the permuted
-    // struct is a different string (`#[Pt{a: 2, zz: 1}]`) and therefore a live
+    // struct is a different string (`Vector[Pt{a: 2, zz: 1}]`) and therefore a live
     // DIFF rather than a refusal. Nothing in the corpus renders a Vector of a
     // permuted struct by either spelling, so this pair is the only thing that
     // holds the two routes together.
-    pv = #[Pt{zz: 1, a: 2}]
+    pv = Vector[Pt{zz: 1, a: 2}]
     io.print(Debug.inspect(pv))
     io.print(Vector.inspect(pv))
-}
+end

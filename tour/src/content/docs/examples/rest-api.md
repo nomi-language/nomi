@@ -17,49 +17,49 @@ import std::json.{FromJson, Json, ToJson}
 
 /// A roommate: who they owe and how much, who owes them, and the
 /// difference, what they are owed less what they owe.
-pub struct User {
+pub struct User
     name: String
-    owes: Map<String, Float> = %{}
-    owed_by: Map<String, Float> = %{}
+    owes: Map<String, Float> = {}
+    owed_by: Map<String, Float> = {}
     balance: Float = 0.0
-}
+end
 
 derive ToJson for User
 derive FromJson for User
 
 /// The body of a `/users` response and of the database: users by name.
-pub struct Users {
+pub struct Users
     users: List<User>
-}
+end
 
 derive ToJson for Users
 derive FromJson for Users
 
 /// The payload of `GET /users`: the users to list.
-struct UserNames {
+struct UserNames
     users: List<String>
-}
+end
 
 derive FromJson for UserNames
 
 /// The payload of `POST /add`.
-struct NewUser {
+struct NewUser
     user: String
-}
+end
 
 derive FromJson for NewUser
 
 /// The payload of `POST /iou`: `borrower` owes `lender` `amount` more.
-struct Iou {
+struct Iou
     lender: String
     borrower: String
     amount: Float
-}
+end
 
 derive FromJson for Iou
 
 /// Why a request has no response.
-pub enum Error {
+pub enum Error
     /// The payload or the database is not JSON of the expected shape; the
     /// error says where.
     InvalidJson Json.Error
@@ -67,55 +67,54 @@ pub enum Error {
     NotFound String
     UnknownUser String
     UserExists String
-}
+end
 
 /// The IOU tracker: every user by name. Each request returns JSON text, and
 /// a `POST` returns the tracker after it too.
-pub opaque struct RestApi {
+pub opaque struct RestApi
     users: Map<String, User>
-}
+end
 
-impl RestApi {
+impl RestApi
     /// The tracker over `database`, a JSON object `{"users": [...]}`.
-    pub fn new(database: String) -> Result<RestApi, Error> {
+    pub fn new(database: String) -> Result<RestApi, Error>
         database: Users = Json.decode_as(database) |> Result.map_err(Error.InvalidJson)?
 
-        Ok(.{users: database.users |> Iter.map(&(&1.name, &1)) |> Iter.to_map()})
-    }
+        Ok({users: database.users |> Iter.map(&(&1.name, &1)) |> Iter.to_map()})
+    end
 
     /// Returns a `GET` of `url`: `/users` lists every user, or the users
     /// `payload` names, by name.
-    pub fn get(api: RestApi, url: String, payload: Maybe<String> = None) -> Result<String, Error> {
-        if url != "/users" { return Err(.NotFound(url)) }
+    pub fn get(api: RestApi, url: String, payload: Maybe<String> = None) -> Result<String, Error>
+        if url != "/users" then return Err(.NotFound(url))
 
-        names = case payload {
-            Some(text) -> {
+        names = case payload
+            Some(text) ->
                 query: UserNames = Json.decode_as(text) |> Result.map_err(Error.InvalidJson)?
                 query.users
-            }
 
-            None -> Map.keys(api.users)
-        }
+            None ->
+                Map.keys(api.users)
+        end
 
         users = names |> Iter.map(&find(api, &1)) |> Result.collect()?
         Ok(Json.encode_as(Users{users: Iter.sort_by(users, .name)}))
-    }
+    end
 
     /// Returns a `POST` of `payload` to `url`, and the tracker after it.
     /// `/add` adds a user and returns it; `/iou` records a loan and returns
     /// the lender and the borrower, by name.
-    pub fn post(api: RestApi, url: String, payload: String) -> Result<(String, RestApi), Error> {
-        case url {
-            "/add" -> {
+    pub fn post(api: RestApi, url: String, payload: String) -> Result<(String, RestApi), Error>
+        case url
+            "/add" ->
                 request: NewUser = Json.decode_as(payload) |> Result.map_err(Error.InvalidJson)?
 
-                if request.user in api.users { return Err(.UserExists(request.user)) }
+                if request.user in api.users then return Err(.UserExists(request.user))
 
                 user = User{name: request.user}
                 Ok((Json.encode_as(user), RestApi{users: Map.put(api.users, user.name, user)}))
-            }
 
-            "/iou" -> {
+            "/iou" ->
                 iou: Iou = Json.decode_as(payload) |> Result.map_err(Error.InvalidJson)?
                 lender = find(api, iou.lender)?
                 borrower = find(api, iou.borrower)?
@@ -127,53 +126,53 @@ impl RestApi {
                     api.users |> Map.put(lender.name, lender) |> Map.put(borrower.name, borrower)
 
                 answer = Users{users: Iter.sort_by([lender, borrower], .name)}
-                Ok((Json.encode_as(answer), RestApi{users}))
-            }
+                Ok((Json.encode_as(answer), RestApi{users:}))
 
-            _ -> Err(.NotFound(url))
-        }
-    }
-}
+            _ ->
+                Err(.NotFound(url))
+        end
+    end
+end
 
-fn find(api: RestApi, name: String) -> Result<User, Error> {
+fn find(api: RestApi, name: String) -> Result<User, Error>
     Map.get(api.users, name) |> Maybe.to_result(.UnknownUser(name))
-}
+end
 
 /// What `other` owes `user`, less what `user` owes `other`.
-fn net_owed(user: User, other: String) -> Float {
+fn net_owed(user: User, other: String) -> Float
     owed = Map.get(user.owed_by, other) |> Maybe.with_default(0.0)
     owing = Map.get(user.owes, other) |> Maybe.with_default(0.0)
     owed - owing
-}
+end
 
 /// `user` with `other` owing them `net`, or owed `-net` by them when `net`
 /// is negative, and nothing either way at zero.
-fn with_net(user: User, other: String, net: Float) -> User {
+fn with_net(user: User, other: String, net: Float) -> User
     owes = Map.remove(user.owes, other)
     owed_by = Map.remove(user.owed_by, other)
 
-    owes = if net < 0.0 {
+    owes = if net < 0.0 then
         Map.put(owes, other, -net)
-    } else {
+    else
         owes
-    }
+    end
 
-    owed_by = if net > 0.0 {
+    owed_by = if net > 0.0 then
         Map.put(owed_by, other, net)
-    } else {
+    else
         owed_by
-    }
+    end
 
     owed = owed_by |> Map.values() |> Iter.sum()
     owing = owes |> Map.values() |> Iter.sum()
-    .{..user, owes, owed_by, balance: owed - owing}
-}
+    {..user, owes:, owed_by:, balance: owed - owing}
+end
 
 // FILE: rest_api_test.nomi
-import {
+import
     std::json.Json
     rest_api.{RestApi, User, Users}
-}
+end
 
 once adam_and_bob = `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance":0.0},{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`
 
@@ -181,22 +180,22 @@ once bob_owes_chuck = `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance"
 
 once adam_owes_bob = `{"users":[{"name":"Adam","owes":{"Bob":3.0},"owed_by":{},"balance":-3.0},{"name":"Bob","owes":{},"owed_by":{"Adam":3.0},"balance":3.0}]}`
 
-group "user management" {
-    test "no users" {
+group "user management"
+    test "no users"
         api = RestApi.new(`{"users":[]}`)?
         answer = RestApi.get(api, "/users")?
-        assert Json.decode_as<Users>(answer) == Ok(.{users: []})
-    }
+        assert Json.decode_as<Users>(answer) == Ok({users: []})
+    end
 
-    test "add user" {
+    test "add user"
         api = RestApi.new(`{"users":[]}`)?
         (answer, _api) = RestApi.post(api, "/add", `{"user":"Adam"}`)?
         user: User = Json.decode_as(answer)?
 
-        assert user == .{name: "Adam", owes: %{}, owed_by: %{}, balance: 0.0}
-    }
+        assert user == {name: "Adam", owes: {}, owed_by: {}, balance: 0.0}
+    end
 
-    test "get single user" {
+    test "get single user"
         api = RestApi.new(adam_and_bob)?
         answer = RestApi.get(api, "/users", Some(`{"users":["Bob"]}`))?
         users: Users = Json.decode_as(answer)?
@@ -206,10 +205,10 @@ group "user management" {
         )?
 
         assert users == expected
-    }
-}
+    end
+end
 
-test "iou" {
+test "iou"
     [
         (
             "both users have 0 balance",
@@ -248,13 +247,13 @@ test "iou" {
             `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance":0.0},{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`,
         ),
     ]
-    |> subtests (description, database, payload, expected), description {
+    |> subtests (description, database, payload, expected), description
         assert Ok(api) = RestApi.new(database)
         assert Ok((answer, _api)) = RestApi.post(api, "/iou", payload)
         assert Ok(wanted) = Json.decode_as<Users>(expected)
         assert Json.decode_as<Users>(answer) == Ok(wanted)
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok user management / no users

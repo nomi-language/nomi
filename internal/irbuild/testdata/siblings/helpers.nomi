@@ -2,30 +2,30 @@
 // makes each of these reachable from main.nomi; `scaled` below is not `pub`
 // and is file-private, so main.nomi cannot name it and the compiled program
 // must not be able to either.
-import {
+import
     std::io
     deeper
-}
+end
 
-pub fn double(x: Int) -> Int {
+pub fn double(x: Int) -> Int
     scaled(x, 2)
-}
+end
 
-pub fn shout(name: String) -> String {
+pub fn shout(name: String) -> String
     name + "!"
-}
+end
 
-pub fn announce() {
+pub fn announce()
     io.print("announced from a sibling file")
-}
+end
 
 // A cross-file call whose callee is itself in a third file: the reference
 // graph is main -> helpers -> deeper, and the builder's unit import graph has
 // to be the same shape.
-pub fn tripled(x: Int) -> Int {
+pub fn tripled(x: Int) -> Int
     deeper.times(x, 3)
-}
+end
 
-fn scaled(x: Int, by: Int) -> Int {
+fn scaled(x: Int, by: Int) -> Int
     x * by
-}
+end

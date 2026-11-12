@@ -1,16 +1,16 @@
 //# Finds words in a grid of letters, in any of eight directions.
 
 /// A letter's place in the puzzle, counted from 1 at the top left.
-pub struct Position {
+pub struct Position
     column: Int
     row: Int
-}
+end
 
 /// Where a word lies: its first letter and its last.
-pub struct Span {
+pub struct Span
     start: Position
-    end: Position
-}
+    stop: Position
+end
 
 /// The eight directions a word may run in, as a step in rows and a step in
 /// columns.
@@ -18,7 +18,7 @@ once directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, -1), (1, -1), 
 
 /// Where each of `words` lies in the rows of `grid`, or `None` for a word
 /// that is not there.
-pub fn search(grid: List<String>, words: List<String>) -> Map<String, Maybe<Span>> {
+pub fn search(grid: List<String>, words: List<String>) -> Map<String, Maybe<Span>>
     letters =
         grid
         |> Iter.map(Iter.to_vector)
@@ -27,11 +27,11 @@ pub fn search(grid: List<String>, words: List<String>) -> Map<String, Maybe<Span
     words
     |> Iter.map(fn word -> (word, find(letters, word)))
     |> Iter.to_map()
-}
+end
 
 /// Where `word` lies in `letters`: the first cell and direction from which
 /// its letters read in order.
-fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span> {
+fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span>
     spelling = Iter.to_list(word)
     last = Iter.count(spelling) - 1
 
@@ -43,10 +43,10 @@ fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span> {
         |> Iter.find(fn (cell, step) -> reads(letters, spelling, cell, step))?
 
     Some(Span{
-        start: .{column: column + 1, row: row + 1},
-        end: .{column: column + 1 + across * last, row: row + 1 + down * last},
+        start: {column: column + 1, row: row + 1},
+        stop: {column: column + 1 + across * last, row: row + 1 + down * last},
     })
-}
+end
 
 /// Whether `spelling` reads from the cell at `row` and `column`, stepping
 /// `down` rows and `across` columns between letters, without leaving the
@@ -56,14 +56,14 @@ fn reads(
     spelling: List<String>,
     (row, column): (Int, Int),
     (down, across): (Int, Int),
-) -> Bool {
+) -> Bool
     spelling
     |> Iter.with_index()
-    |> Iter.all_match(fn (i, letter) -> {
+    |> Iter.all_match(fn (i, letter) ->
         letter_at(letters, row + down * i, column + across * i) == Some(letter)
-    })
-}
+    end)
+end
 
-fn letter_at(letters: Vector<Vector<String>>, row: Int, column: Int) -> Maybe<String> {
+fn letter_at(letters: Vector<Vector<String>>, row: Int, column: Int) -> Maybe<String>
     letters |> Vector.get(row)? |> Vector.get(column)
-}
+end

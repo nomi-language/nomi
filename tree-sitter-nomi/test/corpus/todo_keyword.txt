@@ -2,9 +2,9 @@
 Bare todo is an identifier, which the compiler resolves
 ================================================================================
 
-fn parse(text: String) -> Int {
+fn parse(text: String) -> Int
     todo
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -39,10 +39,10 @@ once a: Int = todo "parse the header"
 Todo names a parameter, a binding and a field
 ================================================================================
 
-fn apply(todo: Todo) -> String {
+fn apply(todo: Todo) -> String
     todo = Box{todo: todo}
     todo.todo.title
-}
+end
 
 --------------------------------------------------------------------------------
 

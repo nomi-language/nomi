@@ -1,20 +1,20 @@
-import {
+import
     std::duration.Duration
     std::io
     ffi
-}
+end
 
-pub struct Config {
+pub struct Config
     context: Context
-}
+end
 
-pub fn boot() -> Result<Config, String> {
+pub fn boot() -> Result<Config, String>
     Ok(Config{context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
     io.print(ffi.has_deadline())
     with Config.context = Context.with_timeout(Config.context, Duration.milliseconds(50))
     io.print(ffi.has_deadline())
     io.print(ffi.wait_for_cancel(10000))
-}
+end

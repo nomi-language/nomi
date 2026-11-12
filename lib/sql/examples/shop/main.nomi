@@ -1,16 +1,16 @@
 // The shop on a fresh in-memory database: build the schema from the
 // migrations, add a user, place an order, mark it paid, read the user back
 // and count each user's orders with the checked queries.
-import {
+import
     std::io
     std::sql.{self, Error}
     queries
     schema
     sqlite
     sqlkit
-}
+end
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     db = sqlite.memory()?
     defer sql.close_quietly(db)
 
@@ -21,12 +21,11 @@ fn main() -> Result<Unit, Error> {
     changed = queries.set_status(db, order_id, .Paid)?
     io.print("order ${order_id} is paid (${changed.rows} row changed)")
 
-    Some(user) = queries.user_by_email(db, "ada@example.com")? else {
-        None -> {
+    Some(user) = queries.user_by_email(db, "ada@example.com")? else
+        None ->
             io.print("no user with that email")
             return Ok(Unit)
-        }
-    }
+    end
 
     name = user.name |> Maybe.with_default("no name")
     io.print("user ${user.id}: ${user.email} (${name})")
@@ -34,10 +33,10 @@ fn main() -> Result<Unit, Error> {
     _ = queries.insert_user(db, "grace@example.com", None)?
     counts = queries.order_counts(db)?
 
-    Iter.each(counts, fn c -> {
+    Iter.each(counts, fn c ->
         last = c.last_order |> Maybe.map(fn id -> "${id}") |> Maybe.with_default("none")
         io.print("${c.email}: orders ${c.orders}, last order ${last}")
-    })
+    end)
 
     Ok(Unit)
-}
+end

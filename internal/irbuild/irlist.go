@@ -280,23 +280,18 @@ func irNestedEmbeds(k kind) bool {
 // projected, when one of its type arguments holds, below its top, an
 // embedded type's enum (`[(1, c), (2, shape)]` is a `List<(Int, Shape)>`)
 // or a collection (`[(1, []), (2, [3])]` is a `List<(Int, List<Int>)>`), or
-// is a fully typed collection (`[%[]]` is a `List<Set<Int>>` where a later
+// is a fully typed collection (`[[]]` is a `List<Set<Int>>` where a later
 // use fixes the set's element): its items are then lowered against those
 // parts, so each embedded value is widened, and each empty collection
 // typed, where it sits. It answers nil otherwise; a top-level join of
 // embedded values (`[c, shape]`) is found from the lowered items
 // (irEmbedsJoin, literalItemsCoerced).
 //
-// A type argument the checker left unsolved (`io.inspect([%[]])`, where
-// nothing fixes the set's element) is one no value has, filled as a generic
-// call's is (spec, "Determined type arguments"), so the empty literal in
-// the item is typed at the filled part.
+// A type argument inference left open (`io.inspect([[]])`, where nothing
+// fixes the set's element) is one no value has, and the empty literal in
+// the item is typed at the type the checker closed it as.
 func (bl *irScalarBuilder) literalParts(at ast.Node, of tag) []kind {
-	ty := bl.g.checkedExprType(at)
-	if ty != nil && irUnsolvedType(ty) {
-		ty = irFillHolesByPosition(ty, false)
-	}
-	parts := bl.literalPartsOf(ty, of)
+	parts := bl.literalPartsOf(bl.g.checkedExprType(at), of)
 	for _, p := range parts {
 		if irNestedEmbeds(p) || ((irIsCollection(p) || irNestedCollection(p)) && irFullyTyped(p)) || irHoldsExistential(p) {
 			return parts
@@ -423,7 +418,7 @@ func (bl *irScalarBuilder) literalPartsOf(ty analysis.Type, of tag) []kind {
 // (checkedLiteralParts), with each lowered item coerced to it in place
 // (coerceEmpty). It is the element kind of a set or vector literal, or a map
 // literal's key or value kind, whose lowered items do not join because one
-// is still an empty collection (`%[[], [1]]`, `%{1 => [], 2 => [1]}`), as a
+// is still an empty collection (`[[], [1]]`, `{1 => [], 2 => [1]}`), as a
 // list literal's items take theirs. ok is false when the checked type is not
 // that collection, is itself an untyped literal's, or an item does not
 // coerce; values and kinds are then left as they were.
@@ -503,17 +498,16 @@ func (bl *irScalarBuilder) coerceEmpty(at ast.Node, v ir.Temp, have, want kind) 
 		d, variant, _ := embedsVariant(want, have)
 		return bl.embedWiden(at, v, d, variant)
 	}
-	if bl.g.irBoxedErasure(want, have) {
-		// A value whose runtime type does not name its impl enters boxed
-		// with the type it has here (irboxed.go).
-		return bl.eraseBoxed(at, v, want, have), want, true
-	}
-	if bl.g.irErases(want, have) {
-		// A concrete value passed where its interface is expected: the VM's
-		// existential is the concrete value itself, as a struct literal's
-		// interface-typed field holds it (irstruct.go), so the operand is
-		// passed unchanged.
-		return v, want, true
+	if irExistentialKind(want) {
+		// A concrete value passed where its interface is expected: the
+		// expression's recorded coercion, or one inside a conversion the
+		// checker recorded as a whole (a function's result through an
+		// adapter, an element's), by the impl the record names. The VM's
+		// existential is the concrete value itself, boxed where its runtime
+		// type does not name its impl (irboxed.go).
+		if out, how := bl.intoExistential(at, v, want, have, bl.g.recordedImpl(at, want)); how != irNotCoerced {
+			return out, want, true
+		}
 	}
 	if bl.g.irErasesFields(want, have) {
 		// A record literal whose interface-typed fields hold concrete
@@ -559,10 +553,10 @@ func (bl *irScalarBuilder) coerceEmpty(at ast.Node, v ir.Temp, have, want kind) 
 
 // erasesUnboxed reports whether a value of kind have is, unchanged, a value
 // of the existential want: it erases into want (irErases) and enters it
-// without a box (irBoxedErasure), so a source of such values is viewed as
-// a source of want's.
+// without a box (irBoxPlanFor), so a source of such values is viewed as a
+// source of want's.
 func (bl *irScalarBuilder) erasesUnboxed(want, have kind) bool {
-	return irExistentialKind(want) && bl.g.irErases(want, have) && !bl.g.irBoxedErasure(want, have)
+	return irExistentialKind(want) && bl.g.irErases(want, have) && bl.g.irBoxPlanFor(want, have, nil) == nil
 }
 
 // emptyRetypes reports whether a value of kind have is a value of kind want
@@ -629,6 +623,16 @@ func (bl *irScalarBuilder) lowerWant(at ast.Node, want kind) (ir.Temp, kind, boo
 // ahead of the caller's effect-ordering and operand-forcing decisions.
 func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, kind, bool, bool) {
 	at = bl.g.holeRead(at)
+	// Parentheses are grammar: `describe((if up then c else s))` and
+	// `(if up then c else s) |> describe()` want the parameter's type of the
+	// `if` inside them, as the bare `if` does.
+	for {
+		g, grouped := at.(*ast.GroupedExpr)
+		if !grouped {
+			break
+		}
+		at = bl.g.holeRead(g.Expr)
+	}
 	// The routes below that try a shape and fall through: one that declined
 	// an operand abandons at, as lowerExact abandons a node.
 	defer bl.g.dc.frame()()
@@ -710,12 +714,12 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		return bl.tupleMakeWant(tl, want)
 	}
 	if sl, isRecord := at.(*ast.StructLit); isRecord && sl.TypeName == nil && sl.Spread == nil && want.tag == tagAnonStruct && bl.g.targetStruct(sl) == nil {
-		// `.{a: []}` where a `.{a: List<Int>}` is expected: each field's value
+		// `{a: []}` where a `{a: List<Int>}` is expected: each field's value
 		// is lowered against its field type, as a tuple's items are.
 		return bl.recordMakeOf(sl, want)
 	}
-	if ll, isList := at.(*ast.ListLit); isList && want.tag == tagList && want.comp != nil && len(want.comp.parts) == 1 &&
-		(want.comp.parts[0].tag == tagSeq || want.comp.parts[0].tag == tagFunc || irExistentialKind(want.comp.parts[0]) || irTypedWithin(want.comp.parts[0])) && ll.TypeName == nil && len(ll.Items) != 0 {
+	if ll, isList := at.(*ast.ListLit); isList && ll.Kind == ast.SeqList && len(ll.Spreads) == 0 && want.tag == tagList && want.comp != nil && len(want.comp.parts) == 1 &&
+		(want.comp.parts[0].tag == tagSeq || want.comp.parts[0].tag == tagFunc || irExistentialKind(want.comp.parts[0]) || irTypedWithin(want.comp.parts[0])) && (ll.TypeName == nil || ll.ShapeHead) && len(ll.Items) != 0 {
 		// `[xs, [1, 2]]` where a `List<Iter<Int>>` is expected: each element
 		// enters the declared `Iter<T>`. `[cnt]` where a
 		// `List<(List<Int>) -> Int>` is: each function value enters the
@@ -726,17 +730,17 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		// empty collection is typed where it sits.
 		return bl.listMakeOf(ll, ll.Items, nil, want.comp.parts[0])
 	}
-	// `%[c]`, `#[c]` or `%{1 => c}` where a collection holding an embedded
+	// `[c]` where a Set or a Vector, or `{1 => c}` where a collection holding an embedded
 	// type's enum is expected: each embedded value widens where it sits.
-	// `%[(1, [])]` where a `Set<(Int, List<Int>)>` is: each empty
+	// `[(1, [])]` where a `Set<(Int, List<Int>)>` is: each empty
 	// collection is typed where it sits.
-	if sl, isSet := at.(*ast.SetLit); isSet && len(sl.Items) != 0 {
+	if sl, isSet := at.(*ast.ListLit); isSet && sl.Kind == ast.SeqSet && (sl.TypeName == nil || sl.ShapeHead) && len(sl.Items) != 0 {
 		if elem, set := setElem(want); set && want != kindEmptySet && irTypedWithin(elem) {
 			return bl.setMakeOf(sl, elem)
 		}
 	}
-	if vl, isVector := at.(*ast.VectorLit); isVector && len(vl.Items) != 0 {
-		// `#[[1]]` where a `Vector<Iter<Int>>` is expected: each element
+	if vl, isVector := at.(*ast.ListLit); isVector && vl.Kind == ast.SeqVector && (vl.TypeName == nil || vl.ShapeHead) && len(vl.Items) != 0 {
+		// `[[1]]` where a `Vector<Iter<Int>>` is expected: each element
 		// enters the declared `Iter<T>`, as a list literal's does.
 		if elem, vector := vectorElem(want); vector && want != kindEmptyVector && (irTypedWithin(elem) || elem.tag == tagSeq || irExistentialKind(elem)) {
 			return bl.vectorMakeOf(vl, elem)
@@ -772,4 +776,45 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		}
 	}
 	return v, k, mobile, ok
+}
+
+// bracketLit lowers a bracket literal as the collection the checker decided
+// it is (ast.ListLit.Kind): a type it names over the collection, built from
+// the literal without its name; an unnamed literal that builds the distinct
+// type its position expects, the same; or the List, Vector or Set itself.
+func (bl *irScalarBuilder) bracketLit(t *ast.ListLit) (ir.Temp, kind, bool, bool) {
+	if t.TypeName != nil && !t.ShapeHead {
+		anon := *t
+		anon.TypeName = nil
+		return bl.attachedVariant(t, t.TypeName, &anon)
+	}
+	if d := bl.g.literalDistinct(t); d != nil && t.TypeName == nil {
+		anon := *t
+		return bl.compositeDistinctMake(&ast.Call{Args: []ast.Node{&anon}, Line: t.Line, Col: t.Col}, d)
+	}
+	switch t.Kind {
+	case ast.SeqVector:
+		return bl.vectorMake(t)
+	case ast.SeqSet:
+		return bl.setMake(t)
+	}
+	switch {
+	case len(t.Spreads) == 0:
+		return bl.listMake(t, t.Items, nil)
+	case len(t.Spreads) == 1 && t.Spreads[0].At == len(t.Items):
+		// `[x, ..xs]`: the elements consed onto the spread.
+		return bl.listMake(t, t.Items, t.Spreads[0].Head)
+	}
+	return bl.listSpreadLit(t)
+}
+
+// literalDistinct is the distinct type an unnamed collection literal builds
+// when its position expects one over the collection (`p: Path = [1, 2]`),
+// as the checker typed it, or nil.
+func (g *gen) literalDistinct(n ast.Node) *typeDef {
+	k := g.checkedKind(n)
+	if k.tag != tagNamed || k.def == nil || !irCompositeDistinct(k.def) {
+		return nil
+	}
+	return k.def
 }

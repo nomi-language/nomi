@@ -75,9 +75,9 @@ diagnostics, test reports and the editor. `#!` anywhere else is the error
 #!/usr/bin/env nomi
 import std::io
 
-fn main() {
+fn main()
     io.print("hi")
-}
+end
 ```
 
 ### Comments
@@ -112,11 +112,11 @@ bracket or after the last item, or at the end of a line after an item's
 comma.
 
 ```nomi
-fn add(a: Int, b: Int) -> Int {
+fn add(a: Int, b: Int) -> Int
     a + b
-}
+end
 
-fn main() {
+fn main()
     total = add(
         // the base
         1,
@@ -124,7 +124,7 @@ fn main() {
     )
 
     dbg total // 3
-}
+end
 ```
 
 ### Naming Conventions
@@ -178,10 +178,10 @@ binding.
 
 These words are reserved and cannot name anything:
 
-`and`, `as`, `assert`, `break`, `case`, `continue`, `dbg`, `defer`, `else`,
-`enum`, `export`, `extern`, `fn`, `for`, `if`, `impl`, `import`, `in`,
-`interface`, `is`, `not`, `once`, `opaque`, `or`, `pub`, `refute`,
-`return`, `self`, `struct`, `tap`, `test`, `then`, `type`,
+`and`, `as`, `assert`, `begin`, `break`, `case`, `continue`, `dbg`, `defer`,
+`else`, `end`, `enum`, `export`, `extern`, `fn`, `for`, `if`, `impl`,
+`import`, `in`, `interface`, `is`, `not`, `once`, `opaque`, `or`, `pub`,
+`refute`, `return`, `self`, `struct`, `tap`, `test`, `then`, `type`,
 `typealias`, `unreachable`, `when`, `where`, `with`.
 
 One written as a parameter, a binding, a field or a function's name is the
@@ -206,9 +206,9 @@ the placeholder unless a binding named `todo` is in scope, and then it reads
 that binding:
 
 ```nomi
-fn apply(todo: Todo) -> Todo {
+fn apply(todo: Todo) -> Todo
     todo
-}
+end
 ```
 
 returns its argument. Inside that scope the placeholder is written with a
@@ -227,7 +227,7 @@ even inside `fn f(derive: Int)`.
 
 | Token | Use |
 |---|---|
-| `+` `-` `*` `/` `%` | arithmetic (§8); `%` also starts a map or set literal |
+| `+` `-` `*` `/` `%` | arithmetic (§8) |
 | `==` `!=` `<` `<=` `>` `>=` | comparison (§8) |
 | `and` `or` `not` | logic (§8) |
 | `is` `in` | pattern test and membership (§8) |
@@ -238,9 +238,9 @@ even inside `fn f(derive: Int)`.
 | `=>` | map entry |
 | `=` | binding and declaration punctuation (below) |
 | `..` `..=` | ranges (§3); `..` is also a spread and a rest pattern |
-| `.` | field access, `.Variant`, field accessor; `.{` starts a struct literal, type or pattern with no name (§3) |
+| `.` | field access, `.Variant`, field accessor |
 | `::` | joins the segments of a file's path, with no space around it (§14) |
-| `#` | starts a vector literal (§3) |
+
 | `&` | a capture, and `&1`, `&2`, ... its parameters (§7) |
 | `,` `:` `;` | separators |
 | `(` `)` `[` `]` `{` `}` | brackets |
@@ -252,7 +252,7 @@ The C-family spellings are errors that name Nomi's: `a && b` is
 
 `=` matches a pattern only where its left side is a pattern: a local binding,
 a destructure, a parameter pattern, `if Pattern = expr`, a binding with
-`else` (`Pattern = expr else { ... }`) and `assert Pattern = expr`. Its
+`else` (`Pattern = expr else return 0`) and `assert Pattern = expr`. Its
 other uses are punctuation that names or configures a value and matches
 nothing: a parameter's or a field's default (`port: Int = 8080`), a `once`
 initializer, and `with App.logger = logger`. `=` is never assignment.
@@ -260,25 +260,25 @@ initializer, and `with App.logger = logger`. `=` is never assignment.
 ### Statement ends
 
 A newline ends a statement where the statement could end. After a token that
-cannot end one, such as an operator, `,`, `=`, `->` or an opening bracket,
-the statement continues on the next line.
+cannot end one, such as an operator, `,`, `=` or an opening bracket, the
+statement continues on the next line.
 
 A line that starts with a token no expression can start with continues the
 line above: `|>`, `)`, `]`, a comparison (`==`, `!=`, `<`, `<=`, `>`, `>=`),
-a bitwise operator other than `~~~`, `and`, `or`, `is` and `in`. So a long
-condition breaks before its operator:
+a bitwise operator other than `~~~`, `and`, `or`, `is`, `in` and `where`. So
+a long condition breaks before its operator:
 
 ```nomi
-fn in_grid(rows: Int, columns: Int, top: Int, left: Int, bottom: Int, right: Int) -> Bool {
+fn in_grid(rows: Int, columns: Int, top: Int, left: Int, bottom: Int, right: Int) -> Bool
     bottom > top
         and right > left
         and Int.max(bottom, right) < Int.min(rows, columns)
         and Int.min(top, left) >= 0
-}
+end
 
-fn main() {
+fn main()
     dbg in_grid(5, 5, 0, 0, 3, 3) // True
-}
+end
 ```
 
 A line that starts with an arithmetic operator does not continue, since `-`
@@ -287,12 +287,56 @@ also starts an expression: `+ 2` alone on a line is the error
 The operator goes at the end of the line above.
 
 `;` ends a statement explicitly, so several fit on one line:
-`{ database.save(db, page)?; count + 1 }`.
+`database.save(db, page)?; count + 1`.
 
 A statement that starts right after the end of another, with no space,
-newline or `;` between them, is an error at its first token: `p = Point{}`
-is `` unexpected `{` right after the end of a statement ``, not a binding
-followed by an empty block.
+newline or `;` between them, is an error at its first token: `[1][2]` is a
+literal followed by a literal, `` unexpected `[` right after the end of a statement ``.
+
+### Bodies
+
+Code is never written in braces. Every construct that holds statements, a
+function, an `if` branch, a `case`'s arms, a lambda, a declaration's body,
+is a header line, the body on the lines below it, and `end`:
+
+```nomi
+struct Point
+    x: Int
+    y: Int
+end
+
+fn norm(p: Point) -> Int
+    if p.x > p.y then p.x else p.y
+end
+
+fn main()
+    dbg norm(Point{x: 3, y: 4}) // 4
+end
+```
+
+- A header ends at the end of its line. Brackets carry it across lines, and
+  a line that starts with `where` continues it with long bounds, as a line
+  that starts with `|>` or a binary operator continues an expression.
+- The body starts on the line after its header. Anything but a comment after
+  the header on its line is the error
+  `` unexpected ...: a function's body starts on the line after its header and ends at `end` ``,
+  which names the construct.
+- A `{` that ends a header line, where a brace-bodied body would open
+  (`fn f() -> Int {`, `if c {`, `case x {`, `struct P {`, `import {`), is
+  `` a body is written on the lines after its header and closed by `end`, not in braces ``,
+  whose fix removes the `{`. When a file does not parse, this error at its
+  first such `{` comes before any other, since the brace is what the
+  later errors stem from.
+- An empty body is one line: `fn noop() end`, `struct Empty end`,
+  `impl Marker for P end`.
+- `begin` and `end` around statements are a block expression
+  (§8 *Block expressions*).
+- An `if` whose `then` has more on its line, an arm whose `->` has more on
+  its line and a lambda whose `->` has more on its line are one-line forms
+  with no `end` (§8 *`if`/`else`*, §8 *`case`*, §7 *Lambdas*).
+
+Braces and brackets hold data only: struct and map literals, lists, sets,
+vectors and their patterns and types (§3). A `{` always begins data.
 
 ## 3. Literals
 
@@ -306,12 +350,12 @@ type is `Int`, except where a `Byte` is expected (below). It may have any
 number of digits, since an `Int` has no largest value (§4).
 
 ```nomi
-fn main() {
+fn main()
     dbg 1_000_000 // 1000000
     dbg 0xFF // 255
     dbg 0b1010 // 10
     dbg 0o77 // 63
-}
+end
 ```
 
 <!-- OPEN: a leading zero reads the literal as octal: `077` is 63, though octal is written `0o77` and the old text called the C-style form not Nomi's. Decide whether `077` is decimal 77, an error, or octal. -->
@@ -334,26 +378,26 @@ is expected in:
   pattern over a `Byte` (`0x80 -> ...`, `Some(0x80) -> ...`).
 
 With no expected type, a literal element or branch after a `Byte` one is a
-`Byte` too (`[b, 0x42]`, `if keep { b } else { 0x00 }`). In a comparison and
+`Byte` too (`[b, 0x42]`, `if keep then b else 0x00`). In a comparison and
 in `&&&`, `|||` and `^^^`, a literal operand takes `Byte` from the other
 operand (`b == 0x80`, `bytes == [0x81, 0x00]`, `b &&& 0x7F`). A generic call
 is checked left to right, so in `Iter.map(bytes, fn b -> b &&& 0x7F)` the
 literal follows the `Byte` that `bytes` gives `b`.
 
 ```nomi
-fn tag(b: Byte) -> String {
-    case b {
+fn tag(b: Byte) -> String
+    case b
         0x00 -> "nul"
         0x7F -> "del"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     bytes: List<Byte> = [0x81, 0x00, 0b0111_1111]
     dbg tag(0x7F) // "del"
     dbg bytes // [129, 0, 127]
-}
+end
 ```
 
 Only the literal itself, or the literal under a unary minus, takes its type
@@ -374,12 +418,12 @@ A float literal is digits, a `.` and digits, with an optional exponent
 are a float too. A `_` may stand between two digits. Its type is `Float`.
 
 ```nomi
-fn main() {
+fn main()
     dbg 3.14 // 3.14
     dbg 2.5e-3 // 0.0025
     dbg 1e10 // 10000000000.0
     dbg 1_000.123_456 // 1000.123456
-}
+end
 ```
 
 Both sides of the `.` need a digit: `.5` and `1.` are not float literals.
@@ -426,12 +470,12 @@ followed by `{` is text (`$5`, `$$`), and `$${n}` is a `$` followed by an
 interpolation. `#`, `#{` and braces are text.
 
 ```nomi
-fn main() {
+fn main()
     name = "Ada"
     dbg "Hello, ${name}!" // "Hello, Ada!"
     dbg "\${HOME}" == "$" + "{HOME}" // True
     dbg "costs $5" // "costs $5"
-}
+end
 ```
 
 #### Triple-quoted strings
@@ -448,14 +492,14 @@ quoted string does. Its body is cut by three rules, in order:
 3. The newline right before the closing `"""` is removed.
 
 ```nomi
-fn main() {
+fn main()
     sql = """
         SELECT *
           FROM users
         """
 
     dbg sql // "SELECT *\n  FROM users"
-}
+end
 ```
 
 A line indented less than the closing `"""` lowers the baseline rather than
@@ -472,12 +516,12 @@ three rules of a triple-quoted string. The body ends at the first backtick,
 so a raw string cannot hold one.
 
 ```nomi
-fn main() {
+fn main()
     regex = `\d{3,4}`
     template = `price: ${PRICE}`
     dbg regex // "\\d{3,4}"
     dbg template == "price: \${PRICE}" // True
-}
+end
 ```
 
 A backtick literal with a type prefix is a typed literal (*Typed literal
@@ -493,12 +537,12 @@ A single-quoted literal holding one ASCII character (U+0000 to U+007F) is a
 prelude.
 
 ```nomi
-fn main() {
+fn main()
     dbg Codepoint.to_int('a') // 97
     dbg Codepoint.to_int('\n') // 10
     dbg Codepoint.to_int('\'') // 39
     dbg Iter.count('a'..='z') // 26
-}
+end
 ```
 
 A codepoint literal is ASCII only because above U+007F one character can be
@@ -533,25 +577,53 @@ A named struct is built by its name, with the `{` against it: `Point{x: 1}`,
 as a variant (`Some(1)`) or a distinct type (`UserId(5)`) is built by its
 name. A named tuple, a distinct type over a tuple, is built by its name
 with the elements as arguments: `Pair(1, "x")`. A tuple is its parentheses
-with a comma inside, `(1, "x")` (§4 *Tuples*). Every other literal of a
-built-in shape except a list starts with that shape's symbol: `.` for a
-struct with no name, `#` for a vector and `%` for the hashed shapes (map,
-set). A struct's `.{x: 1}` leaves its name out with a dot, as `.Circle{radius:
-1.0}` leaves out its enum: the struct is the one the position expects, or an
-anonymous struct where none is expected. The `.` and the `{` are written
-together; `x.{` is no field access. A type built on a vector or a hashed
-shape writes its name right after the symbol. The shape comes
-from the tokens, never from what the name declares: a name with a `{` on its
-line opens a struct literal, `%Name{` a map literal.
+with a comma inside, `(1, "x")` (§4 *Tuples*). A `{` always begins data
+(§2 *Bodies*).
+
+Collection literals have no symbol. Brackets, `[...]`, are a list, a vector
+or a set; braces, `{...}`, are a map or a struct. A type built on a
+collection writes its name in front of the bracket or brace, and so may the
+std collections themselves: `Vector[1, 2]`, `Set["a"]`.
 
 | Shape | Unnamed | Named | Pattern |
 |---|---|---|---|
-| struct | `.{x: 1}` | `Point{x: 1}`, `geo.Point{x: 1}`, `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}` | `.{x, y}`, `Point{x, y}`, `.Circle{radius}` |
+| struct | `{x: 1}`, `{x:}` | `Point{x: 1}`, `geo.Point{x: 1}`, `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}` | `{x:, y:}`, `Point{x:, y:}`, `.Circle{radius:}` |
 | tuple | `(a, b)` | `Pair(1, "x")` | `(a, b)`, `Pair(a, b)` |
-| vector | `#[1, 2]`, `#[]` | `#Path[1, 2]`, `#.Items[1, 2]` | `#[first, ..rest]`, `#[.., last]`, `#Path[a, ..]` |
 | list | `[1, 2]`, `[]` | `Ids[1, 2]`, `.Items[1, 2]` | `[first, ..rest]`, `[a, b]` |
-| map | `%{"k" => v}`, `%{}` | `%Kvs{"k" => 1}`, `%Json.Obj{"k" => v}`, `%.Obj{"k" => v}` | `%{"k" => v}`, `%Kvs{"k" => v}` |
-| set | `%[1, 2]`, `%[]` | `%Tags["a"]` | `%["admin", ..rest]`, `%[1, 2]` |
+| vector | `[1, 2]`, `[]` where one is expected | `Vector[1, 2]`, `Path[1, 2]`, `.Steps[1, 2]` | `[first, ..rest]`, `[.., last]`, `Path[a, ..]` |
+| set | `[1, 2]`, `[]` where one is expected | `Set[1, 2]`, `Tags["a"]`, `.Tagged["a"]` | `["admin", ..rest]`, `[1, 2]` |
+| map | `{"k" => v}`, `{}` | `Kvs{"k" => 1}`, `Json.Obj{"k" => v}`, `.Obj{"k" => v}` | `{"k" => v}`, `{}`, `Kvs{"k" => v}` |
+
+Which collection an unnamed bracket literal is comes from its position, as
+the struct a brace literal with no name builds does:
+
+- Where the expected type is a `Vector<T>` or a `Set<T>`, `[...]` is that
+  collection, its elements checked against `T`. Where it is a distinct type
+  over a list, vector or set (`type Path Vector<Int>`), `[...]` builds that
+  type, its elements checked against the collection it wraps; an opaque
+  distinct type is built so only in its own file. Anywhere else, a `List<T>`
+  or an `Iter<T>` expected or no type at all, it is a list.
+- With no collection expected, a literal with spreads is the collection its
+  first spread with a type of its own is, when that is a vector or a set:
+  with `v: Vector<Int>`, `[..v, 4]` is a `Vector<Int>`. A spread that is
+  any other `Iter` leaves it a list.
+- An expected type reaches a literal wherever one reaches a dot-leading
+  variant (§4 *Variant Resolution*): an annotated binding, an argument (a
+  generic one included: `Vector.length([1, 2])` takes a vector), a field, a
+  return value, an element of an enclosing literal, and the other operand
+  of `==`, `!=`, `+` and `-`.
+- `Vector[...]` and `Set[...]` name the collection where no position fixes
+  it. `List[...]` and `Map{...}` are allowed and never needed (`[...]` and
+  `{...}` are those already).
+
+The first entry of a brace literal says which it is: `name:` opens a struct,
+`key =>` a map, and the entries that follow must agree. `{}` is the empty
+map, or the empty value of the map type expected; an anonymous struct has at
+least one field, so `{}` is never one. A struct update's spread comes first
+and its fields after (`{..base, x: 1}`); a brace holding one spread and
+nothing else is a struct update, and one holding two or more spreads a map.
+`Name{}` is what the name declares: `Point{}` a struct built from its field
+defaults, `Kvs{}` the empty map of a type over one.
 
 - A struct literal names every value it gives. A value with no name is an
   error, never a field by position, so reordering a struct's fields cannot
@@ -561,31 +633,34 @@ line opens a struct literal, `%Name{` a map literal.
   fit the fields, the error counts them and names the fields instead.
 - A named literal always builds the type it names, never the underlying
   shape: `Ids[1, 2]` is an `Ids` even where a `List<Int>` is expected, where
-  it is a type mismatch. A name that names no type is an error.
-- The std collections have only the unnamed forms. `Vector[1]` and `Set[1]`
-  are list literals naming a type that is not a list type, and so errors.
-- `%{` and `%Name{` always open a map literal, and `.{` and `Name{` a struct
-  literal, so `%Kvs{}` is always the empty map and `Point{}` always a
-  struct built from its field defaults. Where an operand begins, `%{`, `%[`
-  and `%Name` start a literal, with no space after the `%`; after an operand,
-  `%` is the remainder operator.
-- A plain `{` only opens a block. A name followed by a `{` on its line opens
-  a struct literal or pattern, except at the top of a condition head: the
-  expression after `if` (and the `is` pattern in it) or `case`, up to the `{`
-  of the body. There `Name {` is the name and the body, and a literal is
-  written in parentheses: `case (Point{x: 1}) { ... }`, `if p == (Point{x:
-  1}) { ... }`. A literal written bare there, its `}` followed by the body's
-  `{` on the same line, is
-  `` a struct literal in an `if` or `case` head is written in parentheses ``,
-  whose fix adds them. Inside brackets in a head (`if f(Point{x: 1}) {`) and
-  in the pattern of `if P = e` the name opens the literal as anywhere else.
-  `Map{"a" => 1}` is a parse error that names the map literal `%{...}`.
+  it is a type mismatch. A name that names no type is an error, and so is a
+  name of a type over no list, vector or set before a bracket:
+  `` Point is not a type over a list, vector or set; `Point[...]` requires `type Point List<T>`, `Vector<T>` or `Set<T>` ``.
+- A capitalized name is always a type or a variant (§2 *Naming
+  Conventions*), so `Name[` always opens a literal; Nomi has no indexing
+  syntax.
+- A field is written `name: value`. A field whose value is a binding of its
+  own name is punned, `name:`, which is `name: name`; the name alone is no
+  field. `P{a}` is `` a field is written `a: value`, or `a:` for `a: a` ``,
+  with the help `` write `P{a:}` ``.
+- A name followed by a `{` on its line opens a struct or map literal or
+  pattern, in an `if` or `case` head as anywhere else: `case Point{x: 1}`,
+  `if p == Point{x: 1} then`.
 - A payload variant and a distinct type over a scalar are calls, not
   literals: `Some(1)`, `.Circle(2.0)`, `UserId(5)`.
-- Map keys are expressions: `%{key => 1}` reads the binding `key`, and a
+- Map keys are expressions: `{key => 1}` reads the binding `key`, and a
   string key is quoted.
+- `#` and `%` write no literal. `#[1, 2]` is
+  `` a vector is written without `#`: `[1, 2]` where a Vector is expected, else `Vector[1, 2]` ``,
+  `%[1, 2]` the same for a set, `%{"k" => 1}` is
+  `` a map is written without `%`: `{key => value}` ``, and `#Path[1]` or
+  `%Kvs{...}` is
+  `` a literal or pattern naming its type is written without `#`: `Name[...]`, `Name{...}` ``
+  (or `%`); each fix drops the symbol, or writes `Vector` or `Set` for it.
+  After an operand, `%` is the remainder operator.
 - Types are written without a symbol, except a tuple's and an anonymous
-  struct's: `Vector<T>`, `Set<T>`, `Map<K, V>`, `(Int, Int)`, `.{x: Int}`.
+  struct's: `Vector<T>`, `Set<T>`, `Map<K, V>`, `(Int, Int)`, `{x: Int}`. A
+  `{` where a type is expected always opens an anonymous struct type.
 
 An empty literal takes its element types from the expected type. With none,
 its binding needs an annotation (§5 *Locally-determined bindings and
@@ -603,18 +678,19 @@ its elements, and is its parts joined in the order written:
 
 - A list's and a vector's parts are concatenated, and a set's are unioned.
 - A map's parts apply left to right: a later key replaces an earlier key's
-  value and keeps the earlier key's position. So `%{"a" => 0, ..m}` is `m`
-  with a default for `"a"`, and `%{..m, "a" => 0}` is `m` with `"a"`
+  value and keeps the earlier key's position. So `{"a" => 0, ..m}` is `m`
+  with a default for `"a"`, and `{..m, "a" => 0}` is `m` with `"a"`
   replaced.
 
 ```nomi
-fn main() {
+fn main()
     xs = [2, 3]
     dbg [1, ..xs, 4] // [1, 2, 3, 4]
-    dbg %[..%[1, 2], 3] // %[1, 2, 3]
-    defaults = %{"theme" => "light", "font" => "mono"}
-    dbg %{..defaults, "theme" => "dark"} // %{"theme" => "dark", "font" => "mono"}
-}
+    s: Set<Int> = [1, 2]
+    dbg [..s, 3] // Set[1, 2, 3]
+    defaults = {"theme" => "light", "font" => "mono"}
+    dbg {..defaults, "theme" => "dark"} // {"theme" => "dark", "font" => "mono"}
+end
 ```
 
 A spread in a list, vector or set literal is any `Iter` of the literal's
@@ -625,12 +701,15 @@ it hands them out. A spread that is no `Iter` is
 `vector`, `set`), and one of other elements is
 `list spread element type mismatch: Int vs String`.
 
-A list literal with no expected type takes its element type from its first
-spread whose value has a type of its own (not a literal, and not a form that
-takes its type from its position), and its elements are built as that type,
-as they are under an annotation (§5 *Type argument conversion*): with
-`routes: List<(Route, Handler)>`, ``[(Route`GET /`, home), ..routes]`` is a
-`List<(Route, Handler)>` though `home` is a `(Request) -> Response`.
+A bracket literal with no expected type is the collection its first spread
+with a type of its own is, when that is a vector or a set (§3 *Literal
+forms*). A list literal with no expected type takes its element type from
+its first spread whose value has a type of its own (not a literal, and not
+a form that takes its type from its position), and its elements are built
+as that type, as they are under an annotation (§5 *Type argument
+conversion*): with `routes: List<(Route, Handler)>`,
+``[(Route`GET /`, home), ..routes]`` is a `List<(Route, Handler)>` though
+`home` is a `(Request) -> Response`.
 
 A map spread is a map. Each spread must be a `Map<K, V>`
 (``map spread `..` requires a map, got Point``), all of one type
@@ -638,23 +717,26 @@ A map spread is a map. Each spread must be a `Map<K, V>`
 and the first spread's type is the literal's. Each entry's key must be a `K`
 and its value a `V`, with the coercions any map literal's entries get from
 an expected type: `map spread key type mismatch: expected String, got Int`
-(or `value`). A base whose types are still open, such as `%{}`, takes them
+(or `value`). A base whose types are still open, such as `{}`, takes them
 from the entries. An entry may repeat a key of a spread; two equal constant
 keys among the literal's own entries are the error of *Repeated keys*.
 
 A vector, set or map literal of one spread of its own type and nothing else
-is that spread: `%[..s]` is
+is that spread: `[..s]` with `s` a set is
 `` a set spread with no elements is its base value; write `s` `` (or
 `vector`, `map ... with no entries`). A lone spread of another `Iter`,
-`%[..maybe]` or `#[..iter]`, builds the collection from it.
+`Set[..maybe]` or `Vector[..iter]`, builds the collection from it.
 
 The spreads are evaluated first, from left to right, then the elements from
 left to right. Each expression runs once.
 
 A spread has no named form, since the base already carries the type:
-`%Kvs{..base, "a" => 1}` is
-`` map spread `..` has no named form; write `%{..base, key => value}` — the spread head carries the type ``,
-and so for the other shapes.
+`Kvs{..base, "a" => 1}` is
+`` map spread `..` has no named form; write `{..base, key => value}` — the spread head carries the type ``,
+and `Path[..base, 1]` is
+`` spread `..` has no named form; write `[..base, item]` — the spread head carries the type ``.
+The std collections' own names are the exception, since a spread of
+another `Iter` fixes no collection: `Vector[..iter, 1]`, `Set[..maybe]`.
 
 A struct literal takes one spread, first: that is a struct update (§4
 *Struct Updates*). At a field or key of an update a spread may be a bare
@@ -667,11 +749,11 @@ equal keys. The map holds that key once: the later entry's value wins, and
 the key keeps the earlier entry's position.
 
 ```nomi
-fn main() {
+fn main()
     x = 1
     y = 1
-    dbg %{x => "a", 2 => "c", y => "b"} // %{1 => "b", 2 => "c"}
-}
+    dbg {x => "a", 2 => "c", y => "b"} // {1 => "b", 2 => "c"}
+end
 ```
 
 When two keys are the same constant, the earlier entry can never be read, so
@@ -692,18 +774,18 @@ compile time:
 
 Any other key, a variable, a call, a struct or a value of a type with its own
 `impl Equatable`, is never compared at compile time. The same rule holds for
-a set literal (`%[1, 2, 1]` is
+a set literal (`Set[1, 2, 1]`, or `[1, 2, 1]` where a set is expected, is
 `` element `1` is given twice in this set literal; a set holds it once ``)
 and for a map pattern
 (`` key `"k"` is given twice in this map pattern; match its value once ``).
 Set elements equal only at run time make one element:
 
 ```nomi
-fn main() {
+fn main()
     x = 1
     y = 1
-    dbg %[x, y] // %[1]
-}
+    dbg Set[x, y] // Set[1]
+end
 ```
 
 ### Range literals
@@ -729,14 +811,14 @@ a range of a `Steppable` type by a step the caller gives, as
 [std::steppable](/reference/steppable/) list their implementors.
 
 ```nomi
-fn main() {
+fn main()
     dbg Iter.to_list(1..5) // [1, 2, 3, 4]
     dbg Iter.to_list(1..=5) // [1, 2, 3, 4, 5]
     dbg 3 in 1..5 // True
     dbg "h" in "a".."m" // True
     dbg 1.50d in 1.25d..=2.50d // True
     dbg Iter.to_list(5..1) // []
-}
+end
 ```
 
 Reversed bounds give an empty range. An unbounded range comes from
@@ -780,8 +862,8 @@ Every declared type is named. Four keywords declare types:
 - `typealias` declares another name for an existing type (*Type Aliases*).
 
 A type body holds only its fields or variants. Functions and `once` values a
-type owns go in an inherent `impl Type { ... }` block, interface
-implementations in `impl Iface for Type { ... }` blocks, and derived ones in
+type owns go in an inherent `impl Type` block, interface implementations in
+`impl Iface for Type` blocks, and derived ones in
 `derive Iface for Type` declarations, all at top level beside the type
 (§12).
 
@@ -792,18 +874,18 @@ scope. Construction, destructuring, derives, owner calls and impls all use
 the full name, which is the type's identity.
 
 ```nomi
-struct Civil {}
+struct Civil end
 
 type Civil.Days Int
 
-fn days_value(days: Civil.Days) -> Int {
+fn days_value(days: Civil.Days) -> Int
     Civil.Days(n) = days
     n
-}
+end
 
-fn main() {
+fn main()
     dbg days_value(Civil.Days(3)) // 3
-}
+end
 ```
 
 ### Primitive Types
@@ -876,12 +958,12 @@ iterates by grapheme. Its bytes and codepoints are reached through
 `String.to_bytes` and `String.to_codepoints`.
 
 ```nomi
-fn main() {
+fn main()
     dbg String.length("café") // 4
     dbg Iter.to_list("café") // ["c", "a", "f", "é"]
     dbg String.length("👨‍👩‍👧") // 1
     dbg Iter.count(String.to_bytes("café")) // 5
-}
+end
 ```
 
 Equality, hashing and ordering compare the UTF-8 bytes, with no
@@ -901,11 +983,11 @@ division by zero traps (`line 3: division by zero`), since every `Int` is a
 number and none can stand for the missing result.
 
 ```nomi
-fn main() {
+fn main()
     dbg 1.0 / 0.0 // +Inf
     dbg -1.0 / 0.0 // -Inf
     dbg Float.is_nan(0.0 / 0.0) // True
-}
+end
 ```
 
 NaN and the infinities pass through arithmetic and rounding as IEEE 754
@@ -929,7 +1011,7 @@ value.
   (§3 *Range literals*). It is opaque: its parts are reached through
   [std::ranges](/reference/ranges/). It implements `Iter<T>` when `T`
   implements `Discrete`.
-- `(A, B, ...)` is a tuple and `.{name: A, ...}` an anonymous struct
+- `(A, B, ...)` is a tuple and `{name: A, ...}` an anonymous struct
   (below).
 - `(A, B) -> C` is a function type (§7).
 
@@ -950,15 +1032,15 @@ one as captures do: `t.first`, `t.second`, `t.third`, ... up to
 have the same type.
 
 ```nomi
-fn divide(x: Int, y: Int) -> (Int, Int) {
+fn divide(x: Int, y: Int) -> (Int, Int)
     (x / y, x % y)
-}
+end
 
-fn main() {
+fn main()
     (q, r) = divide(10, 3)
     dbg (q, r) // (3, 1)
     dbg divide(7, 2).second // 1
-}
+end
 ```
 
 A named tuple, a distinct type over a tuple (§4 *Distinct Types Over
@@ -989,33 +1071,32 @@ function that takes one tuple is `((A, B)) -> C`: a `->` after the `)` makes
 the parentheses a parameter list. `() -> C` takes no parameters; there is no
 empty tuple.
 
-A tuple has no `#`, which a vector `#[...]` starts with: `#(1, 2)`, as a
-value, a pattern or a type, is
+A tuple has no `#`: `#(1, 2)`, as a value, a pattern or a type, is
 `` a tuple is written without `#`: `(a, b)` ``, whose fix drops the `#`.
 
 #### Anonymous Structs
 
 Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#anonymous-structs).
 
-An anonymous struct is written `.{...}` with named fields and no type name.
-A lone field may be punned: `.{name}` is `.{name: name}`. Its type is its
-shape, written as the value is (`.{morning: String, night: String}`), and
+An anonymous struct is written `{...}` with named fields and no type name.
+A field may be punned: `{name:}` is `{name: name}`. Its type is its
+shape, written as the value is (`{morning: String, night: String}`), and
 may stand in any type position: a parameter, a field, a type argument, a
 tuple item, a `typealias`.
 
 Two anonymous struct types are the same when their fields have the same
 names and types, in any order. There is no width subtyping: a parameter of
-type `.{x: Int}` takes exactly that shape, not one with more fields
-(`argument 1: expected .{x: Int}, got .{x: Int, y: Int}`) and not a nominal
+type `{x: Int}` takes exactly that shape, not one with more fields
+(`argument 1: expected {x: Int}, got {x: Int, y: Int}`) and not a nominal
 struct with those fields. A field name shared by two types is not a shared
 meaning, so code that works across shapes declares an interface, builds an
 anonymous struct at the call, or converts explicitly.
 
-`type Foo .{...}` is the error
-``a type over an anonymous struct is a struct: write `struct Foo { ... }` with one field per line``.
-An empty `.{}` is a struct only where a struct type is expected (*Target-typed
-construction*); elsewhere it is
-`` an anonymous struct has at least one field; `.{}` builds only a struct its position expects ``.
+`type Foo {...}` is an error whose message says a type over an anonymous
+struct is a struct, declared with `struct Foo`, one field per line, and
+`end`. An anonymous struct has at least one field: `{}` as a literal, a type
+or a pattern is `an anonymous struct has at least one field`.
+A struct whose fields all have defaults is built by its name, `Settings{}`.
 
 #### List
 
@@ -1024,23 +1105,27 @@ front of `xs`. A list pattern takes a list apart from the front (§10).
 
 #### Vector
 
-`Vector<T>` is a random-access sequence, literal `#[1, 2, 3]`, indexed from
-0. A vector pattern takes a vector apart from either end (§10).
+`Vector<T>` is a random-access sequence, indexed from 0. Its literal is
+`[1, 2, 3]` where a vector is expected and `Vector[1, 2, 3]` anywhere (§3
+*Literal forms*). A bracket pattern takes a vector apart from either end
+(§10).
 
 #### Map
 
-`Map<K, V>` maps keys to values, literal `%{key => value}`. Any value with
+`Map<K, V>` maps keys to values, literal `{key => value}`. Any value with
 equality can be a key (§5 *Equality and Ordering Semantics*). A map iterates
 in insertion order: putting a new key appends it, and putting an existing
 key keeps its position. Maps combine with `+` (§8 *Arithmetic operators*).
 
 #### Set
 
-`Set<T>` is a collection of unique values, literal `%[1, 2, 3]`. Any value
-with equality can be an element, unique under `==`. A set iterates in
+`Set<T>` is a collection of unique values. Its literal is `[1, 2, 3]` where
+a set is expected and `Set[1, 2, 3]` anywhere (§3 *Literal forms*). Any
+value with equality can be an element, unique under `==`. A set iterates in
 first-insertion order, and sets combine with `+` and `-` (§8 *Arithmetic
-operators*). A set implements `Equatable` and `Hashable`, not `Comparable`. A set pattern
-tests membership and never covers every set (§10).
+operators*). A set implements `Equatable` and `Hashable`, not `Comparable`.
+A bracket pattern over a set tests membership and never covers every set
+(§10).
 
 ### Structs
 
@@ -1050,16 +1135,16 @@ A `struct` body is a list of fields, one `name: Type` per line (or separated
 by `;`), with an optional default. Field names are snake_case.
 
 ```nomi
-struct User {
+struct User
     name: String
     age: Int
     role: String = "member"
-}
+end
 
-fn main() {
+fn main()
     user = User{name: "Ada", age: 36}
     dbg user.role // "member"
-}
+end
 ```
 
 Two fields on one line are the error
@@ -1090,23 +1175,23 @@ non-empty collection literal, an operator over such values, or a read of a
 is a `String`, even where the field is meant to hold a checked literal.
 
 ```nomi
-struct Game {
+struct Game
     word: String
     misses = 0
-    guessed: Set<String> = %[]
-}
+    guessed: Set<String> = []
+end
 
-fn main() {
+fn main()
     game = Game{word: "nomi"}
     dbg game.misses + 1 // 1
-}
+end
 ```
 
-A default whose type only an expected type tells (`[]`, `%[]`, `%{}`, `#[]`,
+A default whose type only an expected type tells (`[]`, `Set[]`, `{}`, `Vector[]`,
 `None`, a `.Variant`, or a generic call nothing fixes the type arguments of)
 is an error at the field, with help that writes the annotation:
-`` can't tell this field's type from `%[]` ``, with
-``write `guessed: Set<_> = %[]`, with the type for each `_` ``. A default
+`` can't tell this field's type from `Set[]` ``, with
+``write `guessed: Set<_> = Set[]`, with the type for each `_` ``. A default
 that reads its own field's type, directly or through other such fields, is
 `` can't tell this field's type from `Bad{}.loop`: it depends on a type that comes from this default ``.
 
@@ -1132,7 +1217,7 @@ of a default, which only spares the caller from writing a value:
 #### Construction
 
 A struct literal names each field: `User{name: "Ada", age: 36}`. A field
-whose value is a binding of the same name may be punned: `User{name, age}`
+whose value is a binding of the same name may be punned: `User{name:, age:}`
 is `User{name: name, age: age}`, and punned and named fields mix. A struct
 has no positional construction. The name must be a struct's (or a
 struct-shaped variant's, `Shape.Rect{...}`): `Context{}` is `` `Context` is
@@ -1152,24 +1237,23 @@ value whose fields match, with defaulted fields optional. A generic struct
 infers its type arguments from it.
 
 ```nomi
-struct Box<T> {
+struct Box<T>
     v: T
     label: String = "box"
-}
+end
 
-fn main() {
-    b = Box(.{v: 1}) // a Box<Int>
+fn main()
+    b = Box({v: 1}) // a Box<Int>
     dbg b == Box{v: 1, label: "box"} // True
-    dbg .{v: 2} |> Box() // Box{v: 2, label: "box"}
-}
+    dbg {v: 2} |> Box() // Box{v: 2, label: "box"}
+end
 ```
 
 #### Target-typed construction
 
-`.{...}`, a struct literal with no type name and no spread, builds the
-nominal struct its position expects. The dot stands for the name, as the dot
-of `.Circle{radius}` stands for `Shape`: `Point{x: 0}` is `.{x: 0}` where a
-`Point` is expected. The positions that supply a struct are the ones that
+`{...}`, a struct literal with no type name and no spread, builds the
+nominal struct its position expects, as the dot of `.Circle{radius:}`
+stands for `Shape`: `Point{x: 0}` is `{x: 0}` where a `Point` is expected. The positions that supply a struct are the ones that
 supply an enum to a `.Variant` (*Variant Resolution*):
 
 - an annotated binding or `once`;
@@ -1180,31 +1264,31 @@ supply an enum to a `.Variant` (*Variant Resolution*):
 - an operand of `==`, `!=`, `<`, `>`, `<=` or `>=`, against the other
   operand's type;
 - a generic position once its type argument is known
-  (`b: Box<Int> = .{v: 3}`, `Some(.{...})` under `Maybe<Address>`), the
-  enclosing function's own type parameters among them (`Some((x, .{...}))`
+  (`b: Box<Int> = {v: 3}`, `Some({...})` under `Maybe<Address>`), the
+  enclosing function's own type parameters among them (`Some((x, {...}))`
   under `Maybe<(T, Box<T>)>` builds a `Box<T>`).
 
 ```nomi
-struct Address {
+struct Address
     street: String
     city: String
     zip: String = "00000"
-}
+end
 
-struct Person {
+struct Person
     name: String
     address: Address
-}
+end
 
-fn home() -> Address {
-    .{street: "1 Main", city: "Bath"}
-}
+fn home() -> Address
+    {street: "1 Main", city: "Bath"}
+end
 
-fn main() {
-    ada = Person{name: "Ada", address: .{street: "3 Main", city: "York"}}
+fn main()
+    ada = Person{name: "Ada", address: {street: "3 Main", city: "York"}}
     dbg home().zip // "00000"
     dbg ada.address.city // "York"
-}
+end
 ```
 
 The literal follows the ordinary construction rules and builds exactly what
@@ -1213,47 +1297,47 @@ The literal follows the ordinary construction rules and builds exactly what
 `Address has no field 'zip'`. An opaque struct is built this way only in its
 defining file.
 
-Where no struct type is expected, `.{...}` is an anonymous struct. It stays
+Where no struct type is expected, `{...}` is an anonymous struct. It stays
 anonymous where the expected type is an anonymous struct type, an interface,
 a type parameter or an enum, since none names one struct to build:
-`a: Display = .{street: "x", city: "y"}` is
-`type mismatch: expected Display, got .{street: String, city: String}`.
+`a: Display = {street: "x", city: "y"}` is
+`type mismatch: expected Display, got {street: String, city: String}`.
 
 #### Struct Updates
 
 Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#updating-a-struct).
 
 A struct update builds a new struct from an old one with some fields
-replaced. It is written as a literal, `.{..base, field: value}`, or as a
-call, `Struct.update(base, .{field: value})`. The two admit the same fields
+replaced. It is written as a literal, `{..base, field: value}`, or as a
+call, `Struct.update(base, {field: value})`. The two admit the same fields
 and the same nested `..` literals, and mean the same thing.
 
 ```nomi
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-fn main() {
+fn main()
     p = Point{x: 1, y: 2}
-    dbg .{..p, x: 9} // Point{x: 9, y: 2}
-    dbg Struct.update(p, .{y: 0}) // Point{x: 1, y: 0}
-}
+    dbg {..p, x: 9} // Point{x: 9, y: 2}
+    dbg Struct.update(p, {y: 0}) // Point{x: 1, y: 0}
+end
 ```
 
 The literal form takes exactly one spread, written first, and at least one
 field:
 
-- `.{..p}` is `` a struct spread with no fields is its base value; write `p` ``.
+- `{..p}` is `` a struct spread with no fields is its base value; write `p` ``.
 - Two spreads, or a spread after a field, is
   `` struct spread `..` must be the first element ``.
 - A named form, `Point{..p, x: 1}`, is
-  `` struct spread `..` has no named form; write `.{..base, field: value}` — the spread head carries the type ``.
+  `` struct spread `..` has no named form; write `{..base, field: value}` — the spread head carries the type ``.
 
 The result has the base's type: a nominal struct gives that struct, an
 anonymous struct an anonymous struct. The fields are checked as a struct
 literal's are, against the base's field types, except that a missing field
-is not an error. A punned field works after a spread: `.{..base, name}`.
+is not an error. A punned field works after a spread: `{..base, name:}`.
 
 `Struct.update(original: self, updates: Partial<self>) -> self` is the one
 function of `Struct`, the interface every struct, named or anonymous,
@@ -1270,69 +1354,70 @@ that value with the changes written. A literal without one is a whole new
 value that replaces the field.
 
 ```nomi
-struct Address {
+struct Address
     street: String
     city: String
-}
+end
 
-struct Person {
+struct Person
     name: String
     address: Address
-}
+end
 
-fn main() {
+fn main()
     ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
-    moved = .{..ada, address: .{.., city: "York"}}
+    moved = {..ada, address: {.., city: "York"}}
     dbg moved.address // Address{street: "1 Main", city: "York"}
-}
+end
 ```
 
-`.{..ada, address: .{city: "York"}}` is therefore a whole `Address` with no
+`{..ada, address: {city: "York"}}` is therefore a whole `Address` with no
 `street`, the error `missing field 'street' of Address`, whose help suggests
-`.{.., city: "York"}`. A diagnostic names the type the mistake is in:
-`.{..ada, address: .{.., zip: 1}}` is `Address has no field 'zip'`.
+`{.., city: "York"}`. A diagnostic names the type the mistake is in:
+`{..ada, address: {.., zip: 1}}` is `Address has no field 'zip'`.
 
 The `..` is the one way to write the value already there. A nested struct
 update whose spread names that value as a path, the enclosing update's base
 followed by the field it is written at, is
 `` `..ada.address` is the value `address` already holds here: write `..` ``:
-`.{..ada, address: .{..ada.address, city: "York"}}` is an error, and so is
-`.{..ada, address: .{.., geo: .{..ada.address.geo, lat: 1}}}`, where the
+`{..ada, address: {..ada.address, city: "York"}}` is an error, and so is
+`{..ada, address: {.., geo: {..ada.address.geo, lat: 1}}}`, where the
 enclosing `..` is `ada.address`. The same holds in the literal patch of
-`Struct.update(ada, .{...})`. Paths compare by the bindings they name, not
-their text. A spread naming another value (`.{..bob.address, city: "York"}`)
+`Struct.update(ada, {...})`. Paths compare by the bindings they name, not
+their text. A spread naming another value (`{..bob.address, city: "York"}`)
 is a value like any other. A base that is not a binding or a chain of field
-reads of one, such as a call (`.{..load(), address: .{..load().address, ...}}`),
+reads of one, such as a call (`{..load(), address: {..load().address, ...}}`),
 has no such path, since a `..` would not run the call again.
 
 | At a field or key holding | Write | Means |
 |---|---|---|
-| a struct | `.{.., f: v}` | the struct with `f` replaced |
-| a map | `%{.., k => v}` | `Map.merge(old, %{k => v})` |
+| a struct | `{.., f: v}` | the struct with `f` replaced |
+| a map | `{.., k => v}` | `Map.merge(old, {k => v})` |
 | a list | `[x, ..]` or `[.., x]` | `[x, ..old]` or `[..old, x]` |
-| a set | `%[.., x]` | `Set.union(old, %[x])` |
-| a vector | `#[.., x]` or `#[x, ..]` | `old` with `x` after, or before |
+| a set | `[.., x]` | `Set.union(old, Set[x])` |
+| a vector | `[.., x]` or `[x, ..]` | `old` with `x` after, or before |
 
-A bare `..` may stand anywhere a spread may, beside other spreads, and a
-literal takes one: a second is ``list literal takes one bare `..` `` (or
-`vector`, `set`, `map`). A literal whose `..` is followed by nothing
+The literal is the collection the field or key holds, as any bracket
+literal is the one its position expects. A bare `..` may stand anywhere a
+spread may, beside other spreads, and a literal takes one: a second is
+``list literal takes one bare `..` `` (or `map`). A literal whose `..` is followed by nothing
 (`[..]`) is
 `` an update with nothing after `..` changes nothing; leave this field or key out ``.
 
 A bare `..` is legal only as the spread of a literal written at a field or
 key of a literal that is itself an update: one with a named spread
-(`.{..base, ...}`, `%{..base, ...}`), one with a bare `..`, or the literal
+(`{..base, ...}`, `{..base, ...}`), one with a bare `..`, or the literal
 patch of a `Struct.update` call. Anywhere else, at the top of a plain
 literal, in a list element, in an operand of `+` or `Map.merge`, in a call
-argument (`Some(.{.., ...})` included) or in a patch passed to another
+argument (`Some({.., ...})` included) or in a patch passed to another
 function, it is `` a bare `..` has no value to update here ``.
 
-A `..` must stand for a value of its literal's kind: `.{.., f: v}` at a list
+A `..` must stand for a value of its literal's kind: `{.., f: v}` at a list
 field is `` struct spread `..` requires a struct, got List<Int> ``. A
 `Maybe` field has no `..` form, since it may hold no value; it takes a whole
-value: `.{..p, a: .{.., city: "x"}}` with `a: Maybe<A>` is
+value: `{..p, a: {.., city: "x"}}` with `a: Maybe<A>` is
 `` struct spread `..` requires a struct, got Maybe<A> ``. A field of interface type takes values only:
-`.{..stage, who: .{.., n: 2}}` is
+`{..stage, who: {.., n: 2}}` is
 `` struct spread `..` requires a struct, got Speaker ``. A field whose type
 is a type parameter takes a `..` literal once the argument is known.
 
@@ -1344,14 +1429,14 @@ field has no default is a compile error, never a trap:
 `` a missing key leaves `..` no Geo to update, and field 'city' has no default ``.
 
 ```nomi
-fn main() {
-    team = %{"home" => %{"city" => "Atlanta"}}
-    moved = %{..team, "home" => %{.., "arena" => "State Farm"}, "away" => %{.., "city" => "Leeds"}}
-    dbg moved // %{"home" => %{"city" => "Atlanta", "arena" => "State Farm"}, "away" => %{"city" => "Leeds"}}
-}
+fn main()
+    team = {"home" => {"city" => "Atlanta"}}
+    moved = {..team, "home" => {.., "arena" => "State Farm"}, "away" => {.., "city" => "Leeds"}}
+    dbg moved // {"home" => {"city" => "Atlanta", "arena" => "State Farm"}, "away" => {"city" => "Leeds"}}
+end
 ```
 
-`m + %{k => v}` and `Map.merge` stay shallow: a bare `..` in their operands
+`m + {k => v}` and `Map.merge` stay shallow: a bare `..` in their operands
 has no value to update.
 
 Every struct satisfies `Struct` by its shape, and no other type does.
@@ -1375,16 +1460,16 @@ An `enum` body lists its variants, one per line. There is no `|` and no
 single-line form. Variant names are PascalCase and unique within the enum.
 
 ```nomi
-struct Circle {
+struct Circle
     radius: Float
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Rectangle {width: Float, height: Float}
     Segment (Int, Int)
     Point
-}
+end
 ```
 
 #### Variant Kinds
@@ -1420,19 +1505,19 @@ bare scope (`import shape.Shape.{Circle, Point}`, §14).
 Each kind builds as its shape does:
 
 ```nomi
-enum Shape {
+enum Shape
     Circle Float
     Rectangle {width: Float = 2.0, height: Float}
     Point
-}
+end
 
-fn main() {
+fn main()
     a = Shape.Circle(1.0)
     b = Shape.Rectangle{height: 3.0}
-    c = Shape.Rectangle(.{width: 1.0, height: 1.0})
+    c = Shape.Rectangle({width: 1.0, height: 1.0})
     d: Shape = .Point
     dbg [a, b, c, d] // [Circle(1.0), Rectangle{width: 2.0, height: 3.0}, Rectangle{width: 1.0, height: 1.0}, Point]
-}
+end
 ```
 
 A single-payload variant over a tuple also has a flat call:
@@ -1440,12 +1525,12 @@ A single-payload variant over a tuple also has a flat call:
 (`2 |> Shape.Segment(3)`), and a generic variant's type arguments are
 solved from them. A struct variant has no positional form:
 `Shape.Rectangle(4.0, 5.0)` is
-`` Shape.Rectangle is a struct-shaped variant and has no positional form; construct it with Shape.Rectangle{...} or Shape.Rectangle(.{...}) ``.
+`` Shape.Rectangle is a struct-shaped variant and has no positional form; construct it with Shape.Rectangle{...} or Shape.Rectangle({...}) ``.
 A struct variant's paren pattern matches the anonymous struct of its fields,
 so `.Rectangle(r)` binds that record.
 
 A list-, map-, vector- or set-payload variant written as a literal
-(`Bag.Items[1, 2]`, `%Named{"a" => 4}`) infers a generic enum's type
+(`Bag.Items[1, 2]`, `Named{"a" => 4}`) infers a generic enum's type
 arguments from its elements, as an empty one takes them from the expected
 type. A variant lifted into bare scope by an owner selector infers them as
 the qualified spelling does: after `import shapes.Holder.{Items, Of}`,
@@ -1461,14 +1546,15 @@ bare spelling means that other name. The variant stays reachable as
 
 Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#dot-leading-shorthand).
 
-A `.Variant` expression, in any spelling (`.V`, `.V(x)`, `.V{...}`,
-`.V[...]`, `#.V[...]`, `%.V{...}`), resolves to variant `V` of enum `E` when
+A `.Variant` expression, in any spelling (`.V`, `.V(x)`, `.V{...}` for a
+struct-shaped variant or a map payload, `.V[...]` for a list, vector or set
+payload), resolves to variant `V` of enum `E` when
 the expected type at its position is `E`. The expected type is the one the
 checker's outside-in walk finds, from the position up to the enclosing
 declaration. The walk passes through:
 
 - `case` and `if` arm results, block tails and `return` values;
-- list, tuple and map literal elements, including the heads before a list
+- bracket, tuple and map literal elements, including the heads before a
   spread;
 - an argument of a generic function or constructor whose type parameter the
   call's return type pins against an outer expected type, the head of a pipe
@@ -1482,11 +1568,11 @@ declaration. The walk passes through:
   parameter;
 - a pattern, whose expected type is the scrutinee's (§10).
 
-A list, vector or set literal checked against `Iter<T>` checks each item
+A bracket literal checked against `Iter<T>` checks each item
 against `T`. The expected type may name the enclosing function's own type
 parameters: in `fn write<T>(b: Buffer<T>, item: T) -> Result<Buffer<T>, Error>`,
 `Err(.Full)` takes `E` as `Error`, and in `fn pop<T>(...) -> Maybe<(T, Stack<T>)>`,
-`Some((x, .{items: []}))` takes its payload as `(T, Stack<T>)`, so the literal
+`Some((x, {items: []}))` takes its payload as `(T, Stack<T>)`, so the literal
 builds a `Stack<T>`. A callee parameter is not pinned to a type that names the
 callee's own parameters, as a recursive call's expected type would.
 
@@ -1494,12 +1580,15 @@ The walk does not look at later uses, at unannotated bindings, or at a bare
 `.Variant` written as a pipe stage, which would need the type of the stage
 after it. A comparison's own expected type is never its operands'.
 
-With no expected type, a list, vector, set or map literal checks its elements
+With no expected type, a bracket or map literal checks its elements
 left to right, and each element after the first is checked against the type
-the earlier ones give, when that type holds an enum or a named struct. A
-map's keys and values are two positions. So `[Color.Red, .Green]` is a
-`List<Color>`, `%{Nucleotide.A => 0, .C => 0}` a `Map<Nucleotide, Int>`, and
-`[Point{x: 0, y: 0}, .{x: 1, y: 2}]` a `List<Point>`. The earlier element's
+the earlier ones give, when that type holds an enum, a named struct, or a
+vector, a set or a distinct type over a collection that an unnamed literal
+in the element takes (§3 *Literal forms*). A map's keys and values are two
+positions. So `[Color.Red, .Green]` is a `List<Color>`,
+`{Nucleotide.A => 0, .C => 0}` a `Map<Nucleotide, Int>`,
+`[Point{x: 0, y: 0}, {x: 1, y: 2}]` a `List<Point>`, and
+`[Set[1], [2]]` a `List<Set<Int>>`. The earlier element's
 whole type is what a later one is checked against, so the rule reaches into
 nested literals: `[Some(Color.Red), Some(.Green)]` resolves. An element whose
 type is still open sets nothing and blocks nothing. A tuple's items are separate
@@ -1564,31 +1653,31 @@ argument, tuple item or record field of any of those (`List<Circle>` where
 construction in such a position builds the expected type.
 
 ```nomi
-struct Circle {
+struct Circle
     radius: Float
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Point
-}
+end
 
-fn area(c: Circle) -> Float {
+fn area(c: Circle) -> Float
     3.0 * c.radius * c.radius
-}
+end
 
-fn total(s: Shape) -> Float {
-    case s {
+fn total(s: Shape) -> Float
+    case s
         .Circle{} -> area(s) // s is a Circle in this arm
         _ -> 0.0
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     c = Circle{radius: 1.0}
     shapes: List<Shape> = [c, Shape.Point]
     dbg Iter.map(shapes, total) |> Iter.to_list() // [3.0, 0.0]
-}
+end
 ```
 
 The enum is never accepted where an embedded type is expected, at any of
@@ -1617,7 +1706,7 @@ accepted.
 takes the forms `V`'s own shape takes and widens the result into the enum:
 
 - A struct, inline or embedded: `Shape.Circle{radius: 2.0}` and
-  `Shape.Circle(.{radius: 2.0})`, prefix or piped, with defaults filling
+  `Shape.Circle({radius: 2.0})`, prefix or piped, with defaults filling
   omitted fields.
 - An embedded distinct that wraps a value: the distinct's call form,
   `Session.UserId("alice")`, from the wrapped value.
@@ -1640,7 +1729,7 @@ impls hand an embedded variant to the embedded type's impl.
 
 **Payload shape.** Matching an embedded variant binds:
 
-- for an embedded struct, the struct (`Shape.Circle{radius}`
+- for an embedded struct, the struct (`Shape.Circle{radius:}`
   destructures its fields);
 - for an embedded distinct that wraps a value, the wrapped value
   (`Identifier.UserId(name)` binds the `String`);
@@ -1707,16 +1796,16 @@ default it lets the body take `self` apart and build one (§12).
 ```nomi
 type Id Int
 
-fn raw(Id(n)) -> Int {
+fn raw(Id(n)) -> Int
     n
-}
+end
 
-fn main() {
+fn main()
     id = Id(42)
     dbg raw(id) // 42
     dbg 7 |> Id() // Id(7)
     dbg Iter.map([1, 2], Id) |> Iter.to_list() // [Id(1), Id(2)]
-}
+end
 ```
 
 The call form takes the one value the type wraps, prefix or piped, checked
@@ -1750,7 +1839,7 @@ A type name is not a conversion, a function or a value:
 - Calling any other type name is that error too (`Dir(1)`, `Maybe(3)`). The
   type names with a call form are a struct and a distinct type. A pipe into a
   type name is the same call: `1 |> Point()` is
-  `Point expects an anonymous struct literal .{...} matching its fields, got Int`.
+  `Point expects an anonymous struct literal {...} matching its fields, got Int`.
 - A type name standing as a value, `f = Int` or `Iter.map(xs, String)`, is
   `` `Int` is a type, not a value ``. The names that are values are a
   variant, a distinct constructor, a zero-sized type, `True`, `False`,
@@ -1773,11 +1862,15 @@ none.
 | `type Id Int` | none | `Id(42)` |
 | `type Pair (Int, String)` | `Pair(1, "x")` | `Pair((1, "x"))` |
 | `type Ids List<Int>` | `Ids[1, 2]` | `Ids(xs)` |
-| `type Path Vector<Int>` | `#Path[1, 2]` | `Path(v)` |
-| `type Tags Set<String>` | `%Tags["a", "b"]` | `Tags(s)` |
-| `type Kvs Map<String, Int>` | `%Kvs{"a" => 1}` | `Kvs(m)` |
-| `struct User` | `User{name: "Ada"}` | `User(.{name: "Ada"})` |
+| `type Path Vector<Int>` | `Path[1, 2]` | `Path(v)` |
+| `type Tags Set<String>` | `Tags["a", "b"]` | `Tags(s)` |
+| `type Kvs Map<String, Int>` | `Kvs{"a" => 1}` | `Kvs(m)` |
+| `struct User` | `User{name: "Ada"}` | `User({name: "Ada"})` |
 | `type Expired` | `Expired` | `Expired` |
+
+Where a distinct type over a list, vector, set or map is expected, the
+unnamed literal builds it as the named one does: `p: Path = [1, 2]` and
+`k: Kvs = {"a" => 1}` (§3 *Literal forms*). `Kvs{}` is the empty `Kvs`.
 
 The named literal checks each element: `Pair("x", 1)` is
 `element 1 of Pair: expected Int, got String`, and `Pair(1)` is
@@ -1803,7 +1896,7 @@ functions. These are rejected:
 | `PositiveInt(5)`, `Date{...}`, `Status.Active` (construction) | rejected |
 | `PositiveInt(n) = p`, a `case` on its variants (destructuring) | rejected |
 | `d.year`, a named tuple's `p.first` (field and item access) | rejected |
-| `Struct.update(d, .{year: 1})`, `.{..d, year: 1}` (a patch naming a field) | rejected |
+| `Struct.update(d, {year: 1})`, `{..d, year: 1}` (a patch naming a field) | rejected |
 
 Inside the defining file every form works. An opaque enum's variants are
 unreachable outside it for construction, matching and payload access alike.
@@ -1812,13 +1905,13 @@ unreachable outside it for construction, matching and payload access alike.
 // positive.nomi
 pub opaque type PositiveInt Int
 
-pub fn positive(n: Int) -> Maybe<PositiveInt> {
-    if n > 0 { Some(PositiveInt(n)) } else { None }
-}
+pub fn positive(n: Int) -> Maybe<PositiveInt>
+    if n > 0 then Some(PositiveInt(n)) else None
+end
 
-pub fn to_int(PositiveInt(n)) -> Int {
+pub fn to_int(PositiveInt(n)) -> Int
     n
-}
+end
 ```
 
 Opacity restricts these operations and nothing else. An opaque type
@@ -1843,15 +1936,15 @@ Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#type-aliase
 positions. The two are one type.
 
 ```nomi
-typealias Point .{x: Int, y: Int}
+typealias Point {x: Int, y: Int}
 
-fn shift(p: Point) -> Point {
-    .{x: p.x + 1, y: p.y}
-}
+fn shift(p: Point) -> Point
+    {x: p.x + 1, y: p.y}
+end
 
-fn main() {
-    dbg shift(.{x: 1, y: 2}) // .{x: 2, y: 2}
-}
+fn main()
+    dbg shift({x: 1, y: 2}) // {x: 2, y: 2}
+end
 ```
 
 An alias may name any type the file sees, including an alias declared below
@@ -1886,18 +1979,18 @@ A use that leaves the argument out takes the default, so `Route` is
 `struct Pair<A, B = String>`.
 
 ```nomi
-struct Tagged<T, Tag = String> {
+struct Tagged<T, Tag = String>
     value: T
     tag: Tag
-}
+end
 
-fn label(t: Tagged<Int>) -> String {
+fn label(t: Tagged<Int>) -> String
     "${t.tag}: ${t.value}"
-}
+end
 
-fn main() {
+fn main()
     dbg label(Tagged{value: 1, tag: "n"}) // "n: 1"
-}
+end
 ```
 
 The rules:
@@ -1947,7 +2040,7 @@ declare its own, which shadows it. A function whose signature does not name
 the block's `T` does not depend on it, and a call to it names no instance
 (`Span.seven()`). Its body may not name that `T` either:
 `` `T` is `Span`'s type parameter, and `seven`'s signature does not determine it ``.
-The same holds in an inherent block on an interface (`impl Iter<T> { ... }`).
+The same holds in an inherent block on an interface (`impl Iter<T>`).
 
 A generic function is instantiated for each tuple of type arguments it is
 called with. A generic function that reaches itself, directly or through
@@ -1955,17 +2048,17 @@ others, at a type built from its own type parameter needs infinitely many
 instances, and is an error at the call that grows the type:
 
 ```nomi
-struct Box<T> {
+struct Box<T>
     inner: T
-}
+end
 
-fn grow<T>(x: T, n: Int) -> Int {
-    if n == 0 {
+fn grow<T>(x: T, n: Int) -> Int
+    if n == 0 then
         0
-    } else {
+    else
         grow(Box{inner: x}, n - 1) // T = Box<T>: an error
-    }
-}
+    end
+end
 ```
 
 The error is
@@ -1983,13 +2076,13 @@ expected, as a function lets a caller pass a type rather than a value of it:
 ```nomi
 type TraceId String
 
-fn first_of<T>(xs: List<T>, _type: Type<T>) -> Maybe<T> {
+fn first_of<T>(xs: List<T>, _type: Type<T>) -> Maybe<T>
     Iter.first(xs)
-}
+end
 
-fn main() {
+fn main()
     dbg first_of([TraceId("a")], TraceId) // Some(TraceId("a"))
-}
+end
 ```
 
 Anywhere else a type name is a value only in the forms §4 *Distinct Types*
@@ -2046,20 +2139,20 @@ a tuple's element and a record's field among them: `("a", f)` is a
 `(String, (Int) -> Display)` when `f` is an `(Int) -> Int`.
 
 ```nomi
-fn shown(x: Display) -> String {
+fn shown(x: Display) -> String
     Display.to_string(x)
-}
+end
 
-fn pair(n: Int) -> List<Int> {
+fn pair(n: Int) -> List<Int>
     [n, n]
-}
+end
 
-fn main() {
+fn main()
     f: (Int) -> String = shown // Int fits Display
     h: (Int) -> Iter<Int> = pair // List<Int> fits Iter<Int>
     dbg f(1) // "1"
     dbg Iter.to_list(h(2)) // [2, 2]
-}
+end
 ```
 
 The reverse is an error, since the function would receive a value it does
@@ -2108,24 +2201,24 @@ So a `List<Int>` is a `List<Display>`, a `Map<String, Pt>` a
 run time: the value is the one it was, whatever its length.
 
 ```nomi
-fn number(n: Int) -> Int {
+fn number(n: Int) -> Int
     n + 1
-}
+end
 
-fn joined(xs: List<Display>) -> String {
+fn joined(xs: List<Display>) -> String
     String.join(Iter.map(xs, Display.to_string), ", ")
-}
+end
 
-fn applied(fs: List<(Int) -> Display>) -> List<String> {
+fn applied(fs: List<(Int) -> Display>) -> List<String>
     Iter.map(fs, fn f -> Display.to_string(f(1))) |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
     ints = [1, 2]
     fs = [number]
     dbg joined(ints) // "1, 2"
     dbg applied(fs) // ["2"]
-}
+end
 ```
 
 Any other change of type argument would take work for each element, and
@@ -2188,18 +2281,18 @@ a body, types are inferred. An annotation is optional on a binding
 always has one. A destructuring pattern takes none.
 
 An annotation on a binding drives inference into the value and is checked
-against it: `m: Map<String, Int> = %{}` gives the empty literal its types,
+against it: `m: Map<String, Int> = {}` gives the empty literal its types,
 `f: (Int) -> Int = fn x -> x + 1` gives the lambda its parameter type, and a
 value that cannot have the annotated type is an error. A function type is
 written `(Args) -> Result`.
 
 ```nomi
-fn main() {
-    m: Map<String, Int> = %{}
+fn main()
+    m: Map<String, Int> = {}
     f: (Int) -> Int = fn x -> x + 1
     dbg Map.size(m) // 0
     dbg f(1) // 2
-}
+end
 ```
 
 #### Locally-determined bindings and turbofish
@@ -2214,7 +2307,7 @@ no concrete type because its only type parameters are unsolved, is an error:
 ```nomi
 xs = [] // error: List<?>
 
-m = %{} // error: Map<?, ?>
+m = {} // error: Map<?, ?>
 
 x = None // error: Maybe<?>
 
@@ -2250,7 +2343,7 @@ position. A block's expected type reaches only its tail: in
 
 A name a pattern binds, in a `case` arm, an `if Pattern = value`, a
 destructure or a binding with `else`, must not have a wholly unknown type
-once the file is checked. `Ok(z) = Maybe.to_result(None, "none") else { return }`
+once the file is checked. `Ok(z) = Maybe.to_result(None, "none") else return`
 is
 ``the type of 'z' is not determined: nothing fixes the type the pattern binds it to — annotate the matched value (`v: T = …`) or give a call a type argument (`f<T>(…)`)``,
 unless the `else` fallback or a later use of `z` fixes it.
@@ -2296,12 +2389,12 @@ dbg Maybe.values([None]) // error: the type argument T of `Maybe.values` is not 
 
 dbg Iter.sum([]) // error: the element type of `[]` is not determined
 
-_ = Vector.get(#[], 0)! // error: the element type of `#[]` is not determined
+_ = Vector.get([], 0)! // error: the element type of `[]` is not determined
 ```
 
 An unsolved type argument that no value has is not an error: the element of
 an empty collection (`dbg []`, `Iter.to_list([])`, `List.head([])`,
-`dbg #[]`, and `Iter.sum([[]])`, whose `T` is a `List` and whose sum is
+`dbg Vector[]`, and `Iter.sum([[]])`, whose `T` is a `List` and whose sum is
 `[]`) or the variant a value is not (`Ok(1)`'s error type). The fix is an annotation on the empty value or
 explicit type arguments (`Result.collect<Int, String>([])`).
 
@@ -2354,21 +2447,21 @@ a list element. An untagged literal takes the type its position gives it
 `None`:
 
 ```nomi
-import {
+import
     std::http.Route
     std::uuid.Uuid
-}
+end
 
-once admin = .{
+once admin = {
     home: Route`GET /admin/{$}`,
-    user: `GET /admin/users/{id}` as Route<.{id: Uuid}>,
+    user: `GET /admin/users/{id}` as Route<{id: Uuid}>,
     tags: [] as List<String>,
 }
 
-fn main() {
+fn main()
     dbg admin.tags + ["new"] // ["new"]
     dbg None as Maybe<Int> // None
-}
+end
 ```
 
 `as` converts nothing (*No Implicit Conversion*). It admits what
@@ -2412,16 +2505,16 @@ variant and payload, a tuple by position, a collection by its elements (and
 a map by entries).
 
 ```nomi
-struct User {
+struct User
     name: String
     age: Int
-}
+end
 
-fn main() {
+fn main()
     dbg User{name: "Ada", age: 36} == User{name: "Ada", age: 36} // True
     dbg [1, 2] == [1, 2] // True
     dbg Some(1) == None // False
-}
+end
 ```
 
 `==` on `Float` is reflexive: `nan == nan` is `True`, so pattern matching,
@@ -2457,21 +2550,21 @@ Equatable`) `` with the help `` `Op` holds `(Int) -> Int`, and a function
 value has no equality ``).
 
 ```nomi
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-fn same<T>(a: T, b: T) -> Bool where T: Equatable {
+fn same<T>(a: T, b: T) -> Bool where T: Equatable
     a == b
-}
+end
 
-fn main() {
+fn main()
     p = Point{x: 1, y: 2}
     dbg same(p, Point{x: 1, y: 2}) // True
     dbg p in [p] // True
     dbg List.starts_with([p, p], [p]) // True
-}
+end
 ```
 
 So `p in [q]`, `List.contains`, `Iter.contains`, `List.starts_with` and
@@ -2486,7 +2579,7 @@ A hand-written `impl Equatable` replaces the structural comparison for its
 type. It holds wherever the value sits: `==` on a container, a tuple, or a
 struct or enum without its own `Equatable` compares each nested value of
 that type through its impl, so `[a] == [b]`, `Some(a) == Some(b)` and
-`Map.get(%{a => 1}, b)` agree with `a == b`. Primitives compare directly.
+`Map.get({a => 1}, b)` agree with `a == b`. Primitives compare directly.
 
 #### Hashing and keys
 
@@ -2504,10 +2597,10 @@ whose `Hashable` is not hashes by its type alone, so all its keys share a
 bucket. Every other value hashes structurally, as a derived `Hashable` does
 (§12 *Derive*): a tuple mixes its slots in order, so
 `Hashable.hash((1, 2)) == 33`, and an anonymous record its fields in name
-order, so `.{b: 2, a: 1}` hashes as `(1, 2)` does. Map equality and hashing
+order, so `{b: 2, a: 1}` hashes as `(1, 2)` does. Map equality and hashing
 ignore order. An `impl Hashable` must give equal values equal hashes.
 
-A key or element needs equality, not an impl: `%{p => 1}`, `%[p]`,
+A key or element needs equality, not an impl: `{p => 1}`, `Set[p]`,
 `Iter.to_set` and `Iter.group_by` take a struct `P` with no `Equatable` or
 `Hashable` of its own, as `p == p` does. A `where T: Hashable` bound accepts
 what a key accepts: a type with an `impl Hashable` hashes through it, and any
@@ -2553,7 +2646,7 @@ unless they are `Equal`, then the second, and so on, and an element after
 the deciding one is never compared. `(1, "b") < (2, "a")`. Ordering a
 tuple with a non-`Comparable` element is a compile error naming the element
 type. An anonymous struct is never `Comparable`, since nothing declares it:
-``no impl of `Comparable` for `.{x: Int}` (required via ordering operator `<`); anonymous struct types cannot implement `Comparable` ``.
+``no impl of `Comparable` for `{x: Int}` (required via ordering operator `<`); anonymous struct types cannot implement `Comparable` ``.
 Its equality is unaffected.
 
 #### NaN and the three comparison behaviours
@@ -2593,11 +2686,11 @@ there is no assignment. A pattern that can fail takes an `else` (§10). An
 optional annotation follows a plain name: `count: Int = parse(s)?` (§5).
 
 ```nomi
-fn main() {
+fn main()
     x = 5
     (a, b) = (1, 2)
     dbg x + a + b // 8
-}
+end
 ```
 
 Every name a binding, a parameter or a pattern introduces must be read. That
@@ -2607,7 +2700,7 @@ parameters in every body (`boot` and interface defaults included). An
 unread one is an error: `fn f((word, count): ...)` that reads only `count`
 is `parameter 'word' is never read`. A value kept on purpose is bound to a
 discard name (§2 *Discard names*). A struct pattern leaves out a field it
-does not need (`.Suspended{reason}`). An impl function that must keep a
+does not need (`.Suspended{reason:}`). An impl function that must keep a
 parameter's name may discard it in its body with `_ = name`. A bodyless
 declaration has nothing to check.
 
@@ -2619,15 +2712,15 @@ is the one later code reads, and it may have another type. A closure made
 before the shadow keeps the value it captured (§7 *Closures*).
 
 ```nomi
-fn normalize(name: String) -> String {
+fn normalize(name: String) -> String
     name = String.trim(name)
     name = String.lowercase(name)
     name
-}
+end
 
-fn main() {
+fn main()
     dbg normalize("  Ada ") // "ada"
-}
+end
 ```
 
 Bindings in nested scopes (bodies, lambdas, `case` arms) may shadow outer
@@ -2654,18 +2747,18 @@ files read when the program is compiled.
 ```nomi
 once max_retries = 3
 
-struct Money {
+struct Money
     cents: Int
-}
+end
 
-impl Money {
+impl Money
     pub once zero = Money{cents: 0}
-}
+end
 
-fn main() {
+fn main()
     dbg max_retries // 3
     dbg Money.zero.cents // 0
-}
+end
 ```
 
 - **Annotation.** `once name: T = expression` is optional; the type is
@@ -2728,18 +2821,20 @@ binding exists. The same order holds for a pipe stage.
 
 Taught in [Functions & Lambdas](/functions-and-lambdas/#defining-a-function).
 
-`fn name(parameters) -> Result { body }` declares a function. A generic
-function writes its type parameters after the name, and a `where` clause
-after the result: `fn shown<T>(x: T) -> String where T: Display { ... }`.
+`fn name(parameters) -> Result`, the body on the lines below and `end`,
+declares a function (§2 *Bodies*). A generic function writes its type
+parameters after the name, and a `where` clause after the result:
+`fn shown<T>(x: T) -> String where T: Display`. A long `where` clause goes on
+the next line, which the `where` continues.
 
 ```nomi
-fn add(x: Int, y: Int) -> Int {
+fn add(x: Int, y: Int) -> Int
     x + y
-}
+end
 
-fn main() {
+fn main()
     dbg add(1, 2) // 3
-}
+end
 ```
 
 - Every parameter has a type. A missing type is
@@ -2778,15 +2873,15 @@ and a `go` binding's default is Nomi code like a `fn`'s, evaluated before
 the call leaves Nomi.
 
 ```nomi
-fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String {
+fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String
     "${host}:${port}/${timeout}"
-}
+end
 
-fn main() {
+fn main()
     dbg connect("x") // "x:8080/30"
     dbg connect("x", 80) // "x:80/30"
     dbg connect("x", timeout: 5) // "x:8080/5"
-}
+end
 ```
 
 Positional arguments fill parameters in order, so leaving out a default
@@ -2815,15 +2910,15 @@ does. A local copy is not the function's name, so after `g = parse`,
 whose help suggests the capture `&g(&1)`.
 
 ```nomi
-fn parse(s: String, strict: Bool = False) -> Maybe<Int> {
-    if strict { None } else { String.to_int(s) }
-}
+fn parse(s: String, strict: Bool = False) -> Maybe<Int>
+    if strict then None else String.to_int(s)
+end
 
-fn main() {
+fn main()
     f: (String) -> Maybe<Int> = parse
     dbg f("12") // Some(12)
     dbg Iter.map(["1", "x"], parse) |> Iter.to_list() // [Some(1), None]
-}
+end
 ```
 
 A `fn` declaration and a lambda bound to a name are two ways to name a
@@ -2854,14 +2949,14 @@ earlier parameter takes its type from it (`fn window(page: Page, offset =
 page.size * 2)`).
 
 ```nomi
-fn search(query: String, limit = 10, offset = 0) -> String {
+fn search(query: String, limit = 10, offset = 0) -> String
     "${query} ${limit} ${offset}"
-}
+end
 
-fn main() {
+fn main()
     dbg search("nomi") // "nomi 10 0"
     dbg search("nomi", offset: 20) // "nomi 10 20"
-}
+end
 ```
 
 A default whose type only an expected type tells is the field rule's
@@ -2880,30 +2975,30 @@ A parameter of a function or lambda may be an irrefutable pattern instead
 of a name. The body sees the names it binds.
 
 ```nomi
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-fn sum(Point{x, y}) -> Int {
+fn sum(Point{x:, y:}) -> Int
     x + y
-}
+end
 
-fn add_pair((a, b): (Int, Int)) -> Int {
+fn add_pair((a, b): (Int, Int)) -> Int
     a + b
-}
+end
 
-fn main() {
+fn main()
     dbg sum(Point{x: 1, y: 2}) // 3
     dbg add_pair((3, 4)) // 7
-}
+end
 ```
 
 A pattern whose head names a type gives the parameter that type, and needs
 no annotation, though one is allowed: a distinct `Duration(x)`, a named tuple
-`Pair(a, b)`, a named struct `Point{x, y}`, a single-variant enum's
+`Pair(a, b)`, a named struct `Point{x:, y:}`, a single-variant enum's
 `E.V(x)`. A pattern with no
-type head needs one: a tuple, an anonymous struct pattern (`.{x, y}: Point`),
+type head needs one: a tuple, an anonymous struct pattern (`{x:, y:}: Point`),
 a dot-leading variant (`.V(x): E`), and a generic distinct without type
 arguments.
 
@@ -2924,23 +3019,23 @@ such an argument, and an impl's parameter matches an interface's written so
 whatever its name.
 
 ```nomi
-struct Request {
+struct Request
     path: String
-}
+end
 
-fn stats(Request) -> String {
+fn stats(Request) -> String
     "ok"
-}
+end
 
-fn main() {
+fn main()
     dbg stats(Request{path: "/"}) // "ok"
-}
+end
 ```
 
 The pattern must match every value of the parameter's type. A refutable one
 is ``refutable pattern in parameter; bind the parameter and use a `case` in the body``:
-a literal, a variant of an enum with more than one, a map, list, vector or
-set pattern (a vector pattern even when it matches every vector), and any
+a literal, a variant of an enum with more than one, a map or bracket
+pattern (even one that matches every vector), and any
 pattern holding one. A single-variant enum's variant is irrefutable.
 `Duration(x)` and `Some(x)` look alike; only the parameter's type tells the
 distinct from the variant.
@@ -2955,8 +3050,10 @@ calling a tuple, a list or a struct. How a callee is qualified is §8.
 
 #### Named Arguments
 
-An argument may name its parameter: `connect(host: "x", port: 80)`.
-Positional arguments come first. One positional argument may follow named
+An argument may name its parameter: `connect(host: "x", port: 80)`. A
+named argument whose value is a binding of the parameter's name is punned,
+as a struct's field is: `Response.json(body, status:)` is
+`Response.json(body, status: status)`. Positional arguments come first. One positional argument may follow named
 ones, and fills the first slot they left empty; two are
 `positional argument after named argument`.
 
@@ -2981,7 +3078,7 @@ A variant's
 payload, a distinct's wrapped value and a struct's record call are
 positional: `Some(value: 1)` is `no parameter named 'value'`. An
 interface-qualified call takes the interface function's own parameter names
-(`Display.to_string(value: 1)`, `Struct.update(updates: .{x: 2}, original: p)`).
+(`Display.to_string(value: 1)`, `Struct.update(updates: {x: 2}, original: p)`).
 
 #### Lambdas at Call Sites
 
@@ -2994,14 +3091,14 @@ parameters between it and the earlier positional arguments. So a trailing
 callback stays unnamed when a middle default is skipped.
 
 ```nomi
-fn apply(x: Int, scale: Int = 1, f: (Int) -> Int) -> Int {
+fn apply(x: Int, scale: Int = 1, f: (Int) -> Int) -> Int
     f(x * scale)
-}
+end
 
-fn main() {
+fn main()
     dbg apply(5, fn x -> x + 1) // 6
     dbg apply(5, scale: 2, fn x -> x + 1) // 11
-}
+end
 ```
 
 The parameter list decides the routing, not how the argument is written. A
@@ -3040,13 +3137,13 @@ takes one tuple apart writes the tuple pattern as its parameter,
 `fn (name, score) -> ...`. There is no implicit parameter.
 
 ```nomi
-fn main() {
+fn main()
     double = fn x: Int -> x * 2
     dbg double(4) // 8
     dbg Iter.reduce([1, 2, 3], 0, fn total, x -> total + x) // 6
     dbg Iter.map([("a", 1)], fn (_, n) -> n) |> Iter.to_list() // [1]
     dbg (fn -> 7)() // 7
-}
+end
 ```
 
 A lambda takes the parameters of the function type its position expects
@@ -3060,10 +3157,27 @@ for a parameter is a stateless `Iter.loop(fn -> ...)` (§13 *`loop`*).
 anything else after `fn` starts a lambda. `|x| x + 1` is not a lambda
 (`` unexpected `|` ``).
 
-The body is one expression; several statements go in a block,
-`fn x -> { ... }`. In a call's arguments, a line below an unbraced lambda
-body, indented deeper than the line the lambda starts on, is
-``this lambda's body continues on the next line; a lambda body with more than one statement needs braces``.
+A body on the `->`'s line is one expression, and runs to the end of the
+enclosing expression. A `->` that ends its line takes the lines below as the
+body, closed by `end`, and `fn -> end` is the empty body:
+
+```nomi
+fn main()
+    shout = fn s: String ->
+        loud = String.uppercase(s)
+        "${loud}!"
+    end
+
+    dbg [1, 2]
+    |> Iter.map(fn n ->
+        doubled = n * 2
+        doubled + 1
+    end)
+    |> Iter.to_list() // [3, 5]
+
+    dbg shout("hi") // "HI!"
+end
+```
 
 A block body's result type comes from its last expression and its `return`
 values, which must agree; a bare `return` gives `Unit`. A lambda parameter's
@@ -3083,13 +3197,13 @@ type with no values, since the body made no value of it. Passed as a
 anywhere.
 
 ```nomi
-fn show(f: (Int) -> Display) -> String {
+fn show(f: (Int) -> Display) -> String
     "${f(1)}"
-}
+end
 
-fn main() {
+fn main()
     dbg show(fn x -> Ok(x + 1)) // "Ok(2)"
-}
+end
 ```
 
 With no expected function type, the open type stays open, which is harmless
@@ -3114,13 +3228,13 @@ body, which is one of:
   `fn x -> Sql"id = ${x}"`.
 
 ```nomi
-fn main() {
+fn main()
     dbg Iter.filter([1, 3], &(&1 > 2)) |> Iter.to_list() // [3]
     dbg Iter.map(["ab"], &String.length(&1)) |> Iter.to_list() // [2]
     add: (Int, Int) -> Int = &(&1 + &2)
     dbg add(1, 2) // 3
     dbg Iter.map([7], &"id ${&1}") |> Iter.to_list() // ["id 7"]
-}
+end
 ```
 
 The body is one postfix-level operand, so `&f(&1) + 1` adds 1 to a capture;
@@ -3173,15 +3287,15 @@ parameters gives the extra ones, which it ignores. A call whose `&N`s repeat,
 come out of order or stand deeper than its own arguments is not a partial.
 
 ```nomi
-fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String {
+fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String
     "${host}:${port}/${timeout}"
-}
+end
 
-fn main() {
+fn main()
     c = &connect(&1, port: &2)
     dbg c(port: 80, host: "x") // "x:80/30"
     dbg c("y") // "y:8080/30"
-}
+end
 ```
 
 A partial of an operator's function (`&Int.divide(12, &1)`) takes each open
@@ -3219,18 +3333,18 @@ then on. A later binding of the same name, a same-scope shadow included, is
 a new binding that does not reach it.
 
 ```nomi
-fn make_greeter(greeting: String) -> (String) -> String {
+fn make_greeter(greeting: String) -> (String) -> String
     fn name -> "${greeting}, ${name}!"
-}
+end
 
-fn main() {
+fn main()
     x = 1
     f = fn -> x
     x = 2
     dbg f() // 1
     dbg x // 2
     dbg make_greeter("Hello")("Ada") // "Hello, Ada!"
-}
+end
 ```
 
 A nested `fn` that calls itself refers to itself through its own closure.
@@ -3257,17 +3371,17 @@ a distinct type that wraps a value: `Id` for `type Id Int` is an
 builds.
 
 ```nomi
-enum Shape {
+enum Shape
     Circle Float
     Segment (Int, Int)
-}
+end
 
-fn main() {
+fn main()
     dbg Iter.map([1.0], Shape.Circle) |> Iter.to_list() // [Circle(1.0)]
     dbg Iter.map([(1, 2)], Shape.Segment) |> Iter.to_list() // [Segment(1, 2)]
     somes: List<Maybe<Int>> = Iter.map([1, 2], Some) |> Iter.to_list()
     dbg somes // [Some(1), Some(2)]
-}
+end
 ```
 
 - A generic constructor is instantiated as a generic function value is.
@@ -3301,17 +3415,17 @@ tuple's item (`.first`, `.second.first`, §4 *Tuples*). A lowercase name
 after the dot is a field; a capitalized one is a `.Variant`.
 
 ```nomi
-struct User {
+struct User
     name: String
     age: Int
-}
+end
 
-fn main() {
+fn main()
     users = [User{name: "Ada", age: 36}, User{name: "Alan", age: 41}]
     dbg users |> Iter.map(.name) |> Iter.to_list() // ["Ada", "Alan"]
     age: (User) -> Int = .age
     dbg Iter.map(users, age) |> Iter.to_list() // [36, 41]
-}
+end
 ```
 
 An accessor stands only where a function type `(S) -> R` of one parameter is
@@ -3409,18 +3523,18 @@ A call in tail position while a `defer` registered in a block around it is
 pending is an ordinary call, since the deferred call runs after it returns:
 
 ```nomi
-fn leave(n: Int) {
+fn leave(n: Int)
     dbg n
-}
+end
 
-fn down(n: Int) -> Int {
+fn down(n: Int) -> Int
     defer leave(n)
-    if n == 0 { 0 } else { down(n - 1) }
-}
+    if n == 0 then 0 else down(n - 1)
+end
 
-fn main() {
+fn main()
     dbg down(1) // 0
-}
+end
 ```
 
 `leave(0)` runs before `leave(1)`, and each `down` keeps its frame until its
@@ -3451,13 +3565,14 @@ its interface (`Display.to_string(value)`), passing each parameter, or a
 plain binding of it, in its own position or by its own name. A call outside
 tail position always counts. A call in tail position counts only when
 nothing before it on its path calls a function, since an effect there can
-make the loop deliberate (`fn serve(l: Listener) { handle(l); serve(l) }`).
+make the loop deliberate (a `fn serve(l: Listener)` whose body is
+`handle(l); serve(l)`).
 
 ```nomi
-fn grow(x: Int) -> Int {
+fn grow(x: Int) -> Int
     y = grow(x) // error at `grow` above
     y + 1
-}
+end
 ```
 
 The error is
@@ -3478,21 +3593,21 @@ reference](/tooling/building/#calling-exported-functions).
 ```nomi
 import std::json.{FromJson, ToJson}
 
-struct Game {
+struct Game
     word: String
     guesses: List<String>
-}
+end
 
 derive ToJson for Game
 derive FromJson for Game
 
-export fn new_game(word: String) -> Game {
-    Game{word, guesses: []}
-}
+export fn new_game(word: String) -> Game
+    Game{word:, guesses: []}
+end
 
-export fn guess(game: Game, letter: String) -> Game {
-    .{..game, guesses: [letter, ..game.guesses]}
-}
+export fn guess(game: Game, letter: String) -> Game
+    {..game, guesses: [letter, ..game.guesses]}
+end
 ```
 
 - **Top level only.** `export` is the only modifier and comes first.
@@ -3572,14 +3687,14 @@ and `or` evaluate their right operand only when the left does not decide the
 return (*Logical operators*).
 
 ```nomi
-fn add(a: Int, b: Int) -> Int {
+fn add(a: Int, b: Int) -> Int
     a + b
-}
+end
 
-fn main() {
+fn main()
     _ = add(b: dbg 1, a: dbg 2) // prints 1, then 2
     _ = (dbg 3) |> add(dbg 4) // prints 3, then 4
-}
+end
 ```
 
 ### Operators and precedence
@@ -3643,8 +3758,8 @@ Taught in [Scalars and Strings](/scalars-and-strings/#numbers-booleans-operators
   List<T>` and `Vector<T> + Vector<T>` concatenate. `Set<T> + Set<T>` is the
   union and `Set<T> - Set<T>` the difference. `Map<K, V> + Map<K, V>` is
   `Map.merge`: on a shared key the right-hand value wins. `Map` has no `-`.
-  There is no collection-plus-element form: write `s + %[x]`, `list + [x]` or
-  `m + %{k => v}`.
+  There is no collection-plus-element form: write `s + Set[x]`, `list + [x]` or
+  `m + {k => v}`.
 - A collection literal operand beside an operand of the same collection is
   built as that operand's type, on either side, as a literal is under an
   annotation (§5 *Type argument conversion*): with `routes: List<(Route,
@@ -3660,11 +3775,11 @@ An `Int` holds a whole number of any size. `+`, `-`, `*`, prefix `-`, `/` and
 a machine integer costs; a larger one grows as it needs to.
 
 ```nomi
-fn main() {
+fn main()
     dbg 9_223_372_036_854_775_807 + 1 // 9223372036854775808
     dbg -(-9_223_372_036_854_775_808) // 9223372036854775808
     dbg Int.wrapping_add(9_223_372_036_854_775_807, 1) // -9223372036854775808
-}
+end
 ```
 
 `Int.wrapping_add`, `Int.wrapping_sub` and `Int.wrapping_mul` return the low
@@ -3763,26 +3878,25 @@ operand is the implementing type. The type arguments name the right operand's
 type and the result's:
 
 ```nomi
-interface Add<Rhs, Out> {
+interface Add<Rhs, Out>
     fn add(lhs: self, rhs: Rhs) -> Out
-}
+end
 ```
-
 ```nomi
 type Day Int
 type Days Int
 
-impl Add<Days, Day> for Day {
-    fn add(lhs: Day, rhs: Days) -> Day {
+impl Add<Days, Day> for Day
+    fn add(lhs: Day, rhs: Days) -> Day
         Day(d) = lhs
         Days(n) = rhs
         Day(d + n)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg Day(3) + Days(4) // Day(7)
-}
+end
 ```
 
 - One receiver may implement an operator several times, told apart by the
@@ -3796,8 +3910,8 @@ fn main() {
   Out>`.
 - An operator impl may be generic over the receiver's type parameters. Its
   interface arguments are read at the left operand's type, so `impl Add<Set<T>,
-  Set<T>> for Set<T>` makes `%[1, 2] + %[2, 3]` a `Set<Int>`. A right operand
-  no impl takes is an error: `%[1] + 2` is `binary + right operand mismatch: Add
+  Set<T>> for Set<T>` makes `Set[1, 2] + Set[2, 3]` a `Set<Int>`. A right operand
+  no impl takes is an error: `Set[1] + 2` is `binary + right operand mismatch: Add
   expects Set<Int>, got Int`.
 - An operand type with no impl is an error at the operator that names the
   interface: ``no impl of `BitwiseAnd` for `Float` (required via bitwise and
@@ -3809,9 +3923,9 @@ implement the prelude interface `Summable`. `empty_sum()` is the sum of no
 values, the value `+` leaves alone: `T.add(x, T.empty_sum()) == x`.
 
 ```nomi
-interface Summable {
+interface Summable
     fn empty_sum() -> self
-}
+end
 ```
 
 Interfaces do not extend one another (§12), so code that sums names both
@@ -3824,9 +3938,9 @@ Productable`, and [std::productable](/reference/productable/) lists the std
 types that implement it.
 
 ```nomi
-interface Productable {
+interface Productable
     fn empty_product() -> self
-}
+end
 ```
 
 ### Bitwise operators
@@ -3835,12 +3949,12 @@ interface Productable {
 (shift left) and `>>>` (arithmetic shift right).
 
 ```nomi
-fn main() {
+fn main()
     byte = 0b1010_0000
     dbg byte >>> 7 &&& 1 // (byte >>> 7) &&& 1 == 1
     dbg 1 <<< 64 // 18446744073709551616
     dbg -1 &&& Int.pow(2, 80) == Int.pow(2, 80) // True
-}
+end
 ```
 
 - On `Int` the operators read the value as two's complement with as many bits
@@ -3871,13 +3985,13 @@ opts in with an impl:
 ```nomi
 type Flags Int
 
-impl BitwiseOr<Flags, Flags> for Flags {
-    fn bitwise_or(lhs: Flags, rhs: Flags) -> Flags {
+impl BitwiseOr<Flags, Flags> for Flags
+    fn bitwise_or(lhs: Flags, rhs: Flags) -> Flags
         Flags(a) = lhs
         Flags(b) = rhs
         Flags(a ||| b)
-    }
-}
+    end
+end
 ```
 
 `Int.bitwise_and(a, b)` and the other five are the `Int` impls' functions, for
@@ -3913,7 +4027,7 @@ passing as values (`Iter.reduce(flags, 0, Int.bitwise_or)`).
   looser than comparisons and arithmetic, so it cannot be their operand ``,
   whose help shows `a == (not b)`. The same holds for `-not x` and a capture
   body `&not f(&1)` (write `&(not f(&1))`).
-- `a and b` is `if a { b } else { False }`, and `a or b` is `if a { True } else
+- `a and b` is `if a then b else False`, and `a or b` is `if a { True } else
   { b }`: the right operand runs only when the left does not decide the
   result. The right operand may leave instead of returning (a block ending in
   `return`, `break` or `continue`, an `if` or `case` every arm of which
@@ -3921,15 +4035,19 @@ passing as values (`Iter.reduce(flags, 0, Int.bitwise_or)`).
   on the other its value is the left operand's.
 
 ```nomi
-fn ready(flag: Bool) -> Result<Bool, String> {
-    ok = flag or { return Err("not ready") }
-    Ok(ok)
-}
+fn ready(flag: Bool) -> Result<Bool, String>
+    ok = flag
+        or begin
+            return Err("not ready")
+        end
 
-fn main() {
+    Ok(ok)
+end
+
+fn main()
     dbg ready(False) // Err("not ready")
     dbg ready(True) // Ok(True)
-}
+end
 ```
 
 - A pipe stage may start with `not`, which negates the stage's result: `name
@@ -3953,17 +4071,17 @@ returns what a `case` with a `True` arm for the pattern and a `_ -> False` arm
 returns.
 
 ```nomi
-enum Block {
+enum Block
     Item String
     Text String
-}
+end
 
-fn main() {
+fn main()
     blocks = [Block.Item("milk"), Block.Text("note"), Block.Item("eggs")]
     dbg blocks |> Iter.filter(&(&1 is .Item(_))) |> Iter.count() // 2
     dbg 3 is (1 or 2) // False
     dbg not [1, 2] |> List.head() is None // True
-}
+end
 ```
 
 - **Precedence.** `is` binds as `==` does: looser than `|>`, ranges and
@@ -3983,13 +4101,13 @@ fn main() {
   are evaluated where the test is.
 - **It binds nothing.** A name in the pattern is the error `` an `is` test
   binds nothing, so its pattern cannot name `n` ``, whose help names the
-  binding form, `if Some(n) = m { ... }`. When the whole pattern is the name,
+  binding form, `if Some(n) = m then ...`. When the whole pattern is the name,
   the help is ``to compare the value with `n`, write `m == n` ``. An `as` name
   is the same error. A discard name (`_rest`) is allowed.
 - **An `or` pattern goes in parentheses:** `kind is (.Circle or .Square)`. A
   bare `or` after the pattern is the Boolean `or`, so `x is .A or y > 0` is `(x
   is .A) or (y > 0)`. When the right side can only be a pattern (`_`, a
-  `.Variant`, `.B{...}` or `%.B{...}`), it is the parse error `` this `or`
+  `.Variant`, `.B{...}` or `.B{...}`), it is the parse error `` this `or`
   joins two Bool values, and a pattern cannot be its right operand: `is` takes
   one pattern ``. When the right side is read as a Bool and is not one, the
   `'or' operands must be Bool` error's help names the parenthesized form.
@@ -4006,9 +4124,9 @@ fn main() {
 `Contains.contains(c, x)` written as an operator, and calls the same impl.
 
 ```nomi
-interface Contains<T> {
+interface Contains<T>
     fn contains(c: self, x: T) -> Bool
-}
+end
 ```
 
 The std collections implement it: a `Set` holds its members, a `Map` its
@@ -4018,13 +4136,13 @@ its elements, and a `String` a substring, a `Regex` match or a `Codepoint`.
 costs.
 
 ```nomi
-fn main() {
+fn main()
     dbg 2 in [1, 2, 3] // True
-    dbg "a" in %{"a" => 1} // True: a map holds its keys
+    dbg "a" in {"a" => 1} // True: a map holds its keys
     dbg 10 in 1..10 // False: the end is excluded
     dbg '-' in "a-b" // True
     dbg not 7 in [1, 2] // True
-}
+end
 ```
 
 - **Precedence.** `in` binds as `==` does: looser than `|>`, ranges,
@@ -4043,12 +4161,12 @@ fn main() {
 - A collection with no impl is an error that names the operand: `` the
   collection `in` looks in: Bag does not implement Contains ``. A value the
   impl does not take is `` the value `in` looks for: expected Int, got String
-  `` for `"a" in [1, 2]`, and `1 in %{"a" => 1}` is `` the value `in` looks
+  `` for `"a" in [1, 2]`, and `1 in {"a" => 1}` is `` the value `in` looks
   for: expected String, got Int ``.
 - `List` and `Vector` implement `Contains` where their element is
   `Equatable`, which every type with equality is (§5 *Equality bounds*):
-  `p in [p]` and `p in #[p]` take a struct `P` with no impl of its own, as
-  `p in %[p]` and `p in %{p => 1}` do. An element type with no equality is
+  `p in [p]` and `p in Vector[p]` take a struct `P` with no impl of its own, as
+  `p in Set[p]` and `p in {p => 1}` do. An element type with no equality is
   one error, the element's, at the collection: `o in [o]` for a struct `Op`
   holding a function is ``no impl of `Equatable` for `Op` (required via
   membership test `in`)``. A program's impl with a bound on its element is
@@ -4057,14 +4175,14 @@ fn main() {
   *Equality*): a `NaN` element is found by `NaN`.
 
 ```nomi
-fn all_present<C, T>(c: C, wanted: List<T>) -> Bool where C: Contains<T> {
+fn all_present<C, T>(c: C, wanted: List<T>) -> Bool where C: Contains<T>
     Iter.all_match(wanted, &(&1 in c))
-}
+end
 
-fn main() {
+fn main()
     dbg all_present("a word", ["a", "word"]) // True: String's impl at String
     dbg all_present("a-b", ['-']) // True: its impl at Codepoint
-}
+end
 ```
 
 ### Field access
@@ -4095,7 +4213,7 @@ names a file, a type, an interface or a bounded type parameter:
 
 - A file-level function is qualified by its file: `io.print(x)`,
   `users.create(name, age)`.
-- An inherent function (in an `impl Type { ... }` block) is qualified by its
+- An inherent function (in an `impl Type` block) is qualified by its
   type: `String.trim(s)`, `Duration.seconds(1)`.
 - An interface impl's function is qualified by the implementing type
   (`User.to_string(u)`), by the interface (`Display.to_string(u)`) or by a type
@@ -4142,7 +4260,7 @@ stage's.
   first.
 - **A `?` after a stage** propagates that stage's `Err` or `None` and passes
   the value inside to the next stage (`id |> User.get()? |> User.profile()`).
-  It may follow a call stage or the closing brace of an `if` or `case` stage. A
+  It may follow a call stage or the `end` of an `if` or `case` stage. A
   `?` inside a stage's parentheses is an error: `t |> (String.to_int()?)` is
   `` a `?` inside a stage's parentheses applies before the pipe passes its
   value: write the `?` after the stage, as in `|> f()?` ``.
@@ -4157,7 +4275,8 @@ stage's.
   2` is `` a lambda is not a pipe stage: write `then fn n -> ...` ``, and `x |>
   &f(&1)` is `` a capture is not a pipe stage: write `then &f(&1)` ``.
 
-`then` and `tap` are reserved words and stand only after `|>`.
+`then` and `tap` are reserved words. `tap` stands only after `|>`, and
+`then` after `|>` or as an `if`'s (§8 *`if`/`else`*).
 
 #### The `then` stage
 
@@ -4168,21 +4287,21 @@ body)(x)` would. `x |> then &f(a, &1)` applies the capture, as `(&f(a,
 &1))(x)` would, and `x` is checked as `f`'s argument at the `&1`.
 
 ```nomi
-fn divide(a: Int, b: Int) -> Int {
+fn divide(a: Int, b: Int) -> Int
     a / b
-}
+end
 
-fn add(a: Int, b: Int) -> Int {
+fn add(a: Int, b: Int) -> Int
     a + b
-}
+end
 
-fn main() {
+fn main()
     dbg 10 |> then &divide(100, &1) // 10
     dbg 3 |> then &add(&1, b: &1) // 6
 
     dbg (1, 2)
     |> then fn (a, b) -> a + b // 3
-}
+end
 ```
 
 - `then` is followed by a lambda or a capture. Anything else is the parse
@@ -4224,7 +4343,7 @@ computed once and the function runs once, at that point in the pipeline.
 ```nomi
 import std::io
 
-fn main() {
+fn main()
     shout =
         "go north now"
         |> String.words()
@@ -4234,7 +4353,7 @@ fn main() {
         |> tap io.print
 
     io.print(String.length(shout))
-}
+end
 ```
 
 This prints `got 3 words`, then `GO NORTH NOW`, then `12`.
@@ -4275,16 +4394,17 @@ scrutinee:
 
 ```nomi
 status
-|> if Status.is_ready() { "go" } else { "wait" }
+|> if Status.is_ready() then "go" else "wait"
 
 input
-|> case parse_id() {
+|> case parse_id()
     Ok(id) -> id
     Err(_) -> 0
-}
+end
 ```
 
-`input |> case parse_id() {` and `input |> parse_id() |> case {` are the same
+`input |> case parse_id()` and `input |> parse_id() |> case`, each above the
+same arms, are the same
 program. An assertion wraps a pipeline from
 its head (`assert message |> String.contains("ready")`, §17).
 
@@ -4292,25 +4412,26 @@ its head (`assert message |> String.contains("ready")`, §17).
 
 Taught in [Bindings and Expressions](/bindings-and-expressions/#blocks-are-expressions).
 
-`{ statements }` is an expression whose value is its last statement's. A block
-stands anywhere an expression does: a function argument, a pipe's head, a
-binding's value.
+`begin`, statements on the lines below, and `end` is an expression whose
+value is its last statement's. A block stands anywhere an expression does: a
+function argument, a pipe's head, a binding's value. `begin end` is the
+empty block, whose value is `Unit`.
 
 ```nomi
-fn main() {
-    total = {
+fn main()
+    total = begin
         x = 2
         y = 3
         x + y
-    }
+    end
 
     dbg total // 5
-}
+end
 ```
 
-- Bindings inside a block are scoped to it. This holds for every block: an `if`
-  or `else` branch, a `case` arm, a bare `{ }`, a lambda body, a `concurrent {
-  }` body.
+- Bindings inside a block are scoped to it. This holds for every body: an
+  `if` or `else` branch, a `case` arm, a `begin` block, a lambda body, a
+  `concurrent` body. A `defer` inside a `begin` block runs at its `end`.
 - A binding that shadows an outer name hides it until the block ends; a read
   after the block reads the outer binding. So an inner binding nothing in its
   block reads is the error `binding 'total' is never read`.
@@ -4321,61 +4442,79 @@ fn main() {
 
 Taught in [Bindings and Expressions](/bindings-and-expressions/#ifelse-and-case-are-expressions).
 
-`if condition { ... } else { ... }` is an expression. The condition is a
-`Bool`, written without parentheses. `else if` chains further branches.
+`if condition then ... else ...` is an expression. The condition is a
+`Bool`, written without parentheses. It has two forms, told apart by what
+follows `then` on its line:
+
+- **Block form.** A `then` that ends its line takes the lines below as the
+  branch, up to `else` or `end`. An `else` that ends its line takes the lines
+  below to `end`. `else if c then` chains further branches, and the chain
+  shares the one `end` that closes its last branch.
+- **Inline form.** Anything after `then` on its line makes the `if` one
+  expression on that line, with no `end`: `sign = if n < 0 then "-" else "+"`.
+  Each branch is one expression, or `break`, `continue` or `return`. The
+  `else` stands on the same line, and its branch extends as far right as an
+  expression does, as a lambda's body does: `if c then a else b |> f` pipes
+  `b` alone, and `(if c then a else b) |> f` pipes the `if`. A `,`, `)`, `]`
+  or the end of the line ends it. `else if` chains work inline, and an `if`
+  with no `else` is inline too: `if verbose then log("x")`.
+
+An inline `if` is single-line only: an `else` on the next line is an error,
+and `nomi fmt` writes an inline `if` too wide for its line in block form.
 
 ```nomi
-fn sign(x: Int) -> String {
-    if x > 0 {
+fn sign(x: Int) -> String
+    if x > 0 then
         "positive"
-    } else if x == 0 {
+    else if x == 0 then
         "zero"
-    } else {
+    else
         "negative"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg sign(-3) // "negative"
-}
+end
 ```
 
 - An `if` without `else` whose branch has a value of a type `T` other than
   `Unit` is a `Maybe<T>`: `Some` of the branch's value when the condition
   holds, `None` when it does not. An `else if` chain with no final `else` is
-  the same: `if a { "a" } else if b { "b" }` is a `Maybe<String>`, `None`
+  the same: `if a then "a" else if b then "b"` is a `Maybe<String>`, `None`
   when no branch runs, and its branches have one type as any `if`'s do.
 - An `if` without `else` is `Unit` when its branch is `Unit`, or when the
   branch leaves (`return`, `break`, a `?` that propagates, a call that never
-  returns), so `if debug { log.debug("x") }` and `if n < 0 { return Err(e) }`
+  returns), so `if debug then log.debug("x")` and `if n < 0 then return Err(e)`
   are statements.
 - Nothing flattens: a branch that is a `Maybe<U>` makes the `if` a
-  `Maybe<Maybe<U>>`, as `if c { Map.get(m, k) }` and `if a { if b { x } }`
-  are.
+  `Maybe<Maybe<U>>`, as `if c then Map.get(m, k)` and
+  `if a then (if b then x)` are.
 - The position's expected type reaches the branch: where a `Maybe<T>` is
   expected, the branch is checked against `T`, so
-  `shape: Maybe<Shape> = if round { .Circle(1.0) }` resolves `.Circle`.
-- A forgotten `else` shows as a Maybe where the value is used. `fn label(n:
-  Int) -> String { if n > 0 { "positive" } }` is the error `return type
+  `shape: Maybe<Shape> = if round then .Circle(1.0)` resolves `.Circle`.
+- A forgotten `else` shows as a Maybe where the value is used. A
+  `fn label(n: Int) -> String` whose body is `if n > 0 then "positive"` is
+  the error `return type
   mismatch: expected String, got Maybe<String>`, with the help ``an `if`
   without `else` is a `Maybe`, `None` when no branch runs; add an `else` to
-  return a String``. Before a block's end, `if c { 5 }` is the error
+  return a String``. Before a block's end, `if c then 5` is the error
   `non-final expression has type Maybe<Int>, but only Unit results can be
   ignored`, whose help says so too.
 
 ```nomi
-fn sign(n: Int) -> Maybe<String> {
-    if n > 0 {
+fn sign(n: Int) -> Maybe<String>
+    if n > 0 then
         "positive"
-    } else if n < 0 {
+    else if n < 0 then
         "negative"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg sign(3) // Some("positive")
     dbg sign(0) // None
-}
+end
 ```
 
 - The branches have one type. Two types are the error `if/else branch type
@@ -4386,13 +4525,13 @@ fn main() {
   where the value's type is written as it: a binding's annotation, a
   parameter's type or a function's declared result. Any interface joins
   this way, std's or the program's, generic or not:
-  `s: Shape = if round { Circle{r: 1.0} } else { Square{side: 2.0} }` is a
-  `Shape`, `d: Display = if n > 0 { n } else { "none" }` is a `Display`,
+  `s: Shape = if round then Circle{r: 1.0} else Square{side: 2.0}` is a
+  `Shape`, `d: Display = if n > 0 then n else "none"` is a `Display`,
   and a `Range` beside a `List` under a written `Iter<Int>` is an
   `Iter<Int>`. Each branch's value enters the interface as any value
   assigned to it does. The same holds for every arm of a `case`. A pipe's
   head is its first stage's first argument, so
-  `if up { 1..4 } else { [3, 2, 1] } |> Iter.count()` joins at
+  `(if up then 1..4 else [3, 2, 1]) |> Iter.count()` joins at
   `Iter.count`'s `Iter<T>` parameter.
 - Without a written interface the mismatch stands, and its help may name
   the annotation. When both branches are an `Iter` of one element type, the
@@ -4405,32 +4544,30 @@ fn main() {
   declare the function's result as `Shape` ``. No std interface but `Iter`
   is named, since nearly any two types share `Display`, `Debug` and
   `Equatable`, and two candidate interfaces give no help.
-- `else` and `else if` may start a fresh line after the previous block's `}`.
-
 ```nomi
-fn in_order(values: Range<Int>, descending: Bool) -> Iter<Int> {
-    if descending {
+fn in_order(values: Range<Int>, descending: Bool) -> Iter<Int>
+    if descending then
         Iter.reverse(values)
-    } else {
+    else
         values
-    }
-}
+    end
+end
 ```
 
-**Pattern `if`.** `if Pattern = value { ... } else { ... }` runs the first
+**Pattern `if`.** `if Pattern = value then ... else ...` runs the first
 branch when the value matches the pattern, with the pattern's names bound
 there only, and the `else` branch otherwise. Without `else` it is a `Maybe` of
 the branch's value, or `Unit`, as an `if` without `else` is:
-`if Some(n) = m { n + 1 }` is a `Maybe<Int>`.
+`if Some(n) = m then n + 1` is a `Maybe<Int>`.
 
 ```nomi
-fn label(maybe_name: Maybe<String>) -> String {
-    if Some(name) = maybe_name {
+fn label(maybe_name: Maybe<String>) -> String
+    if Some(name) = maybe_name then
         name
-    } else {
+    else
         "unknown"
-    }
-}
+    end
+end
 ```
 
 The pattern must be able to fail. One that matches every value of the type (a
@@ -4444,37 +4581,61 @@ says to write `if x == 0`.
 
 Taught in [Pattern Matching](/pattern-matching/#binding-patterns-and-guards).
 
-`case value { arms }` matches the value against each arm's pattern in order
-and has the value of the first arm that matches. An arm is `Pattern -> body`
-or `Pattern when guard -> body` (§10 *Guards*). The arms must be exhaustive
-(§10 *Exhaustiveness checking*).
+`case value`, its arms on the lines below and `end`, matches the value
+against each arm's pattern in order and has the value of the first arm that
+matches. An arm is `Pattern -> body` or `Pattern when guard -> body` (§10
+*Guards*). The arms must be exhaustive (§10 *Exhaustiveness checking*).
 
-`case { arms }`, with no value, is a conditional. Each arm is `condition ->
+`case` alone on its line, with no value, is a conditional. Each arm is `condition ->
 body`, and the first arm whose condition is `True` runs. A condition is a
 `Bool`: `x + 1 -> ...` is `case condition must be Bool, got Int`. The arms must
 end with `_ -> body`, since conditions cannot be shown exhaustive: without one
 the error is ``non-exhaustive case: add a `_` arm``.
 
 ```nomi
-fn size(x: Int) -> String {
-    case {
+fn size(x: Int) -> String
+    case
         x > 10 -> "big"
         x > 0 -> "positive"
         _ -> "not positive"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg size(4) // "positive"
-}
+end
 ```
 
 - The arms have one type, by the rules for `if` branches.
-- An arm's body is one expression. A body of several statements is a block in
-  braces. Indentation never ends an arm: a line below an unbraced body,
-  indented deeper than its arm and not itself an arm, is the error ``this
-  `case` arm continues on the next line; an arm with more than one statement
-  needs braces`` (``this `else` arm ...`` in a binding's `else` arms).
+- Each arm starts its own line. A body on the `->`'s line is one
+  expression. A `->` that ends its line takes the lines below as the body, up
+  to the next line that starts an arm or the `case`'s `end`, as Elixir reads
+  an arm. A line starts an arm when what stands before its first `->`
+  outside brackets is a pattern with an optional `when` guard; a statement is
+  never one, since a pattern holds no `=` and a lambda's `->` stands inside
+  a call's parentheses. Indentation decides nothing.
+
+```nomi
+fn describe(n: Maybe<Int>) -> String
+    case n
+        Some(x) when x > 9 ->
+            digits = Int.to_string(x)
+            "big: ${digits}"
+
+        Some(x) ->
+            "small: ${x}"
+
+        None ->
+            "none"
+    end
+end
+
+fn main()
+    dbg describe(Some(42)) // "big: 42"
+end
+```
+
+- `case e end` on one line has no arms, for a value of a type with none.
 - `break`, `continue` and `return` may be an arm's body (§9).
 - `case` is a pipe stage (*Keyword stages*).
 
@@ -4485,7 +4646,7 @@ text, and has the value of `expr`. `|> dbg` is the same as a pipe stage, and
 passes the value on.
 
 ```nomi
-fn main() {
+fn main()
     total =
         [1, 2, 3]
         |> Iter.map(&(&1 * 2))
@@ -4494,7 +4655,7 @@ fn main() {
         |> Iter.sum()
 
     dbg total + 1 // prints `dbg line 9: total + 1 = 13`
-}
+end
 ```
 
 - The rendering is `Debug.inspect`'s, as `io.inspect` prints it (§12 *Display
@@ -4531,7 +4692,7 @@ or `continue`. Statements end at a newline (§2).
 ```nomi
 import std::io
 
-fn main() {
+fn main()
     total = 2 + 3
     io.print("computed")
 
@@ -4539,7 +4700,7 @@ fn main() {
     |> Iter.map(&(&1 * total))
     |> Iter.to_list()
     |> dbg
-}
+end
 ```
 
 ### `defer`
@@ -4558,7 +4719,8 @@ Taught in [App Fields, Defer and Context](/app-fields/#defer-runs-block-scoped-c
   values.
 - **It runs when its block ends,** the most recently registered first. A block
   is a function, lambda or test body, an `if` branch, a `case` arm, a binding's
-  `else` block, a `concurrent { }` body or a bare `{ }`. A `defer` in a lambda runs when that call of the lambda ends, so one in an
+  `else` body, a `concurrent` body or a `begin` block. A `defer` in a lambda
+  runs when that call of the lambda ends, so one in an
   `Iter.loop` or other iteration callback runs at the end of each iteration,
   before the next starts.
 - **Every way out of the block runs it:** reaching its end, `return`, a
@@ -4610,41 +4772,40 @@ among them, most recent first.
 ```nomi
 import std::io
 
-fn note(label: String) {
+fn note(label: String)
     io.print(label)
-}
+end
 
-fn half(n: Int) -> Result<Int, String> {
+fn half(n: Int) -> Result<Int, String>
     defer note("done")
     defer on error note("failed ${n}")
-    if n % 2 != 0 { return Err("odd") }
+    if n % 2 != 0 then return Err("odd")
     Ok(n / 2)
-}
+end
 
-fn main() {
+fn main()
     _ = half(4) // done
     _ = half(3) // failed 3, done
-}
+end
 ```
-
 ```nomi
 import std::io
 
-fn work(n: Int) -> Int {
+fn work(n: Int) -> Int
     defer io.print("a ${n}")
     defer io.print("b ${n}")
     io.print("work ${n}")
     n + 1
-}
+end
 
-fn main() {
+fn main()
     _ = work(1) // work 1, b 1, a 1
 
-    Iter.each([1, 2], fn i -> {
+    Iter.each([1, 2], fn i ->
         defer io.print("end ${i}")
         io.print("body ${i}")
-    }) // body 1, end 1, body 2, end 2
-}
+    end) // body 1, end 1, body 2, end 2
+end
 ```
 
 ### Releasing resources
@@ -4656,13 +4817,13 @@ connection) implements the prelude interface `Release`, and a type whose
 release throws away work done with the value also implements `Commit<E>`:
 
 ```nomi
-pub interface Release {
+pub interface Release
     fn release(value: self) -> Unit
-}
+end
 
-pub interface Commit<E> {
+pub interface Commit<E>
     fn commit(value: self) -> Result<Unit, E>
-}
+end
 ```
 
 The body of an impl's `release` or `commit` is one call, which names the
@@ -4680,7 +4841,7 @@ names no value of a Release type outside a lambda. Opening can fail
 (`fs.open`, `fs.create`, `process.spawn`, `http.stream`, a database
 driver's `open`) or not (`postgres.pool`, a program's `fn lock() -> Lock`).
 A call given a Release value returns a view of it that its own release
-covers: a transaction's `Conn` from `Conn.begin(conn)`, a child's
+covers: a transaction's `Conn` from `Conn.begin_transaction(conn)`, a child's
 `Child.stdout(child)`. Two calls that return a Release value directly are
 no acquisition:
 
@@ -4695,7 +4856,7 @@ A Release value that is not a call's, such as `io.stdout`, a parameter or a
 struct literal, is no acquisition either.
 
 A name a body binds to an acquired value (`w = fs.create(path)?`, an
-`Ok(r)` arm of a `case` over one, `Ok(r) = fs.open(path) else { ... }`) is
+`Ok(r)` arm of a `case` over one, `Ok(r) = fs.open(path) else return`) is
 released or handed on in that body:
 
 - **released**: a `defer` among the statements after the binding, in the
@@ -4729,17 +4890,17 @@ return. A plain `defer` is no fix when another path hands the value on: it
 would release that value too (*A released value stays in its block*, below).
 
 ```nomi
-fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, io.Error> {
+fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, io.Error>
     r = fs.open(path)?
     defer on error Reader.close_quietly(r)
 
-    if not want {
+    if not want then
         Reader.close_quietly(r) // without it, `r` leaks here
         return Ok(None)
-    }
+    end
 
     Ok(Some(r))
-}
+end
 ```
 
 An acquisition whose value is dropped is the error `` the `Reader` this
@@ -4791,28 +4952,27 @@ error exit after the value is stored in a struct that is later returned is
 not seen.
 
 ```nomi
-pub fn open(path: String) -> Result<SqliteStore, sql.Error> {
+pub fn open(path: String) -> Result<SqliteStore, sql.Error>
     conn = sqlite.open(path)?
     defer on error sql.close_quietly(conn) // released if a later `?` fails
     _ = Conn.exec(conn, Sql"CREATE TABLE IF NOT EXISTS notes (body TEXT)")?
-    Ok(SqliteStore{conn})
-}
+    Ok(SqliteStore{conn:})
+end
 ```
-
 ```nomi
-fn open_app(kind: String, path: String) -> Result<App, sql.Error> {
-    store = case kind {
-        "sqlite" -> {
+fn open_app(kind: String, path: String) -> Result<App, sql.Error>
+    store = case kind
+        "sqlite" ->
             db = sqlite_store.open(path)?
             defer sql.close_quietly(db.conn) // error: `db` leaves the block as its value
             db
-        }
 
-        _ -> memory_store()
-    }
+        _ ->
+            memory_store()
+    end
 
-    Ok(App{store})
-}
+    Ok(App{store:})
+end
 ```
 
 **A deferred discard needs a commit on every normal return.** When the
@@ -4833,19 +4993,19 @@ failed close is then dropped, so the success path writes `Writer.close(w)?`
 when it must report one.
 
 ```nomi
-fn save(path: String, rows: List<String>) -> Result<Unit, io.Error> {
+fn save(path: String, rows: List<String>) -> Result<Unit, io.Error>
     w = fs.create(path, mode: .ReplaceAtomically)?
     defer Writer.discard(w)
 
     Writer.write_lines(w, rows)?
 
-    if rows == [] {
+    if rows == [] then
         return Ok(Unit) // `w` is discarded here: this path returns without `Writer.close(w)?`
-    }
+    end
 
     Writer.close(w)?
     Ok(Unit)
-}
+end
 ```
 
 The editor's quick fix for an unreleased name writes the `defer` after the
@@ -4882,16 +5042,16 @@ callback (§13 *Named Functions as Callbacks*).
   iter-callback (Iter.map/Iter.filter/Iter.loop/etc.) can catch them`.
 
 ```nomi
-fn main() {
-    total = Iter.loop(0, fn n -> {
-        case n {
+fn main()
+    total = Iter.loop(0, fn n ->
+        case n
             3 -> break n
             _ -> n + 1
-        }
-    })
+        end
+    end)
 
     dbg total // 3
-}
+end
 ```
 
 ### `with`
@@ -4910,15 +5070,15 @@ the function when it fails (§17). The function must return a
 ```nomi
 import std::assertions.AssertionFailure
 
-fn checked(n: Int) -> Result<Int, AssertionFailure> {
+fn checked(n: Int) -> Result<Int, AssertionFailure>
     assert n > 2
     Ok(n)
-}
+end
 
-fn main() {
+fn main()
     dbg Result.is_ok(checked(3)) // True
     dbg Result.is_ok(checked(1)) // False
-}
+end
 ```
 
 ## 10. Patterns
@@ -4941,7 +5101,7 @@ A pattern is *refutable* when some value of its type does not match it, and
 - A plain binding, a parameter, a lambda parameter, a test's setup binding and
   a `subtests` row take an irrefutable pattern. A refutable one in a binding is
   the error `` this pattern can fail to match a value of type Maybe<Int>; add
-  `else { ... }` to handle a value it does not match, or match it with `case`
+  `else` to handle a value it does not match, or match it with `case`
   or `if Pattern = expr` ``, and in a parameter `` refutable pattern in
   parameter; bind the parameter and use a `case` in the body ``.
 - Irrefutable patterns are names, `_`, tuple, struct and distinct patterns
@@ -4957,7 +5117,8 @@ A name never compares, even when it names a value in scope. In a pattern that
 may fail to match (a `case` arm, a pattern `if`, a binding with `else`, an
 `else` arm and an `assert`), a name that names a `once` visible there, declared
 in the file or imported, is an error at the name, since it would match every
-value: with `once not_found = 404`, `case code { not_found -> ... }` is
+value: with `once not_found = 404`, an arm `not_found -> ...` of
+`case code` is
 `` this binds a new `not_found`, which matches every value; `not_found` is a
 `once` ``, with the help ``to compare with it, write `code when code ==
 not_found` ``. A local binding of the same name hides the `once` and the rule
@@ -4969,7 +5130,7 @@ name may hide a `once` as it may any other name.
 
 A literal pattern (`3`, `-1`, `2.5`, `1.50d`, `"a"`, `'a'`, `True`) matches a
 value equal to the literal. The value must have the literal's type, at any
-depth. A literal never converts: `case n { "a" -> ... }` over an `Int` is the
+depth. A literal never converts: an arm `"a" -> ...` over an `Int` is the
 error `pattern "a" is a String, but the value is an Int`, and `3` does not
 match a `Float` (write `3.0`).
 
@@ -4982,28 +5143,28 @@ Unit, so it covers its type: `Ok(Unit)` and `Err(e)` are exhaustive over a
 ### Variant patterns
 
 A variant pattern names the variant in the dot-leading form (`.Circle`,
-`.Circle{r}`, `.Some(x)`) or qualified by its enum (`Shape.Circle`,
-`Shape.Circle{r}`). Its payload pattern is written as the variant is built
+`.Circle{r:}`, `.Some(x)`) or qualified by its enum (`Shape.Circle`,
+`Shape.Circle{r:}`). Its payload pattern is written as the variant is built
 (§4 *Enums (Algebraic Data Types)*).
 
 ```nomi
-enum Shape {
+enum Shape
     Circle {r: Float}
     Rect {w: Float, h: Float}
     Point
-}
+end
 
-fn area(shape: Shape) -> Float {
-    case shape {
-        .Circle{r} -> 3.14 * r * r
-        .Rect{w, h} -> w * h
+fn area(shape: Shape) -> Float
+    case shape
+        .Circle{r:} -> 3.14 * r * r
+        .Rect{w:, h:} -> w * h
         .Point -> 0.0
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg area(Shape.Rect{w: 2.0, h: 3.0}) // 6.0
-}
+end
 ```
 
 - A `.Variant` resolves against the scrutinee's enum, by the outside-in walk of
@@ -5011,7 +5172,7 @@ fn main() {
 - A qualifier must name the scrutinee's enum, or a module-qualified or imported
   spelling of it. An unknown name is an error (`C6lor.Blue` is `unknown type
   "C6lor"`), and so is another enum, even one with a variant of that name.
-- A bare variant name (`Circle`, `Circle{r}`, `Items[x, y]`, `%Named{"k" =>
+- A bare variant name (`Circle`, `Circle{r:}`, `Items[x, y]`, `Named{"k" =>
   v}`) is accepted only for a prelude variant (`Ok`, `Err`, `Some`, `None`,
   `True`, `False`) or one an owner selector imports (`import
   shape.Shape.{Circle}`). Otherwise it is the error `bare variant 'Blue' in
@@ -5025,38 +5186,38 @@ fn main() {
 
 ### Struct Destructuring
 
-`Type{field: pattern, ...}` matches a struct. `.{field: pattern, ...}`
+`Type{field: pattern, ...}` matches a struct. `{field: pattern, ...}`
 matches a struct or an anonymous struct.
 
 ```nomi
-struct User {
+struct User
     name: String
     age: Int
-}
+end
 
-fn describe(user: User) -> String {
-    case user {
+fn describe(user: User) -> String
+    case user
         User{name: "Alice"} -> "found Alice"
-        User{name, age} when age > 18 -> "adult: ${name}"
-        .{age: years} -> "minor of ${years}"
-    }
-}
+        User{name:, age:} when age > 18 -> "adult: ${name}"
+        {age: years} -> "minor of ${years}"
+    end
+end
 
-fn main() {
+fn main()
     dbg describe(User{name: "Bo", age: 9}) // "minor of 9"
-}
+end
 ```
 
 - Matching is partial: fields left out are not tested.
-- `field` alone binds the field to a name of the same name, and `field:
+- `field:` alone binds the field to a name of the same name, and `field:
   pattern` matches it against the pattern.
 - A written type name must name the value's struct, directly or through a
-  `typealias`. A typed pattern does not match an anonymous struct: `User{name}
-  = .{name: "Ada"}` is the error `struct pattern names User, but the value is
-  the anonymous struct .{name: String}`.
+  `typealias`. A typed pattern does not match an anonymous struct: `User{name:}
+  = {name: "Ada"}` is the error `struct pattern names User, but the value is
+  the anonymous struct {name: String}`.
 - A pattern names each field once: `User{age: 1, age: a}` is `field 'age' is
   given twice in this User pattern`, and an anonymous one says `this struct
-  pattern`. A punned repeat (`User{age, age}`) also binds `age` twice: ``
+  pattern`. A punned repeat (`User{age:, age:}`) also binds `age` twice: ``
   `age` is bound twice in one pattern; give each binding its own name ``.
 
 ### Tuple patterns
@@ -5068,27 +5229,27 @@ pattern.
 
 A distinct type's value is matched in the form it is built: `Id(n)` for a
 distinct over a scalar, and for one over a tuple, map, vector or set either the
-named literal pattern (`Pair(a, b)`, `%Kvs{...}`, `#Path[...]`, `%Tags[...]`)
-or the call form (`Pair((a, b))`, `Kvs(%{...})`).
+named literal pattern (`Pair(a, b)`, `Kvs{...}`, `Path[...]`, `Tags[...]`)
+or the call form (`Pair((a, b))`, `Kvs({...})`).
 
 ```nomi
 type Pair (Int, String)
 
-fn show(p: Pair) -> String {
-    case p {
+fn show(p: Pair) -> String
+    case p
         Pair(a, b) -> "${a}, ${b}"
-    }
-}
+    end
+end
 
-fn first(p: Pair) -> Int {
+fn first(p: Pair) -> Int
     Pair((a, _)) = p
     a
-}
+end
 
-fn main() {
+fn main()
     dbg show(Pair(1, "hello")) // "1, hello"
     dbg first(Pair(1, "hello")) // 1
-}
+end
 ```
 
 The call form takes one value. For a tuple distinct, `Pair(a)` binds the whole
@@ -5099,23 +5260,28 @@ with it.
 
 Taught in [Pattern Matching](/pattern-matching/#lists-vectors-and-sets).
 
+A bracket pattern takes apart the collection its subject is: a list or a
+vector by position (this section and *Vector Destructuring*), a set by
+membership (*Set Destructuring*). The pattern has no symbol of its own, as
+a bracket literal has none (§3 *Literal forms*).
+
 `[p1, p2]` matches a list of exactly that many elements. `..` among the
 elements matches any number of elements between those before it and those
 after it.
 
 ```nomi
-fn describe(lines: List<String>) -> String {
-    case lines {
+fn describe(lines: List<String>) -> String
+    case lines
         [] -> "empty"
         [only] -> "just ${only}"
         ["graph {", ..body, "}"] -> "a graph of ${Iter.count(body)} lines"
         [first, ..rest] -> "${first} and ${Iter.count(rest)} more"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg describe(["graph {", "a", "b", "}"]) // "a graph of 2 lines"
-}
+end
 ```
 
 - **One `..`.** Elements before it match from the front and elements after it
@@ -5126,8 +5292,8 @@ fn main() {
   nothing (`[first, ..mid, last]`, `[1, .., 9]`); anything else is the parse
   error ``a list pattern's `..` takes a name or nothing when elements follow it``.
 - A bare `..` ignores the rest. `.._` is the parse error ``write `..` to ignore
-  the rest of a list pattern, not `.._` ``. A labeled discard (`.._rest`) is
-  allowed.
+  the rest of a list pattern, not `.._` ``, over a list, a vector or a set. A
+  labeled discard (`.._rest`) is allowed.
 - **Cost.** A rest at the end shares the list's cells, so `[x, ..rest]` takes
   no copy and a recursive walk over it is linear. Elements after the `..` take
   one walk to the list's end, and a name for the middle (`..mid`) is a copy of
@@ -5135,126 +5301,130 @@ fn main() {
 - A list pattern is refutable. Coverage is by length (*Exhaustiveness
   checking*): `[1, .., 3]` can fail, so as a binding it takes an `else`, and
   alone in a `case` it is ``non-exhaustive case on List<Int>: missing []``.
+- Over a value that is no list, vector or set it is the error `list pattern
+  requires a list, vector or set, got Int`.
 - `+` patterns are for strings only (*String Prefix Patterns*).
 
 ### Vector Destructuring
 
-`#[...]` matches a vector as a list pattern matches a list, from either end.
+Over a vector, `[...]` matches as it matches a list, from either end.
 
 ```nomi
-fn ends(v: Vector<Int>) -> Int {
-    case v {
-        #[] -> 0
-        #[only] -> only
-        #[first, .., last] -> first + last
-    }
-}
+fn ends(v: Vector<Int>) -> Int
+    case v
+        [] -> 0
+        [only] -> only
+        [first, .., last] -> first + last
+    end
+end
 
-fn main() {
-    dbg ends(#[1, 2, 3]) // 4
-}
+fn main()
+    dbg ends([1, 2, 3]) // 4
+end
 ```
 
 - **One `..`, anywhere among the elements,** followed by a name, which binds
-  the elements between as a `Vector`, or by nothing. A second `..` is the parse
-  error ``a vector pattern takes one `..` ``, `.._` is ``write `..` to ignore
-  the rest of a vector pattern, not `.._` ``, and anything else after it is
-  ``the rest of a vector pattern is a name or nothing: `..rest` or `..` ``.
-- Without a `..`, the pattern matches only vectors of its length: `#[a, b]`
-  matches a two-element vector and `#[]` the empty one.
+  the elements between as a `Vector`, or by nothing. Anything else after it
+  is ``the rest of a vector pattern is a name or nothing: `..rest` or `..` ``.
+- Without a `..`, the pattern matches only vectors of its length: `[a, b]`
+  matches a two-element vector and `[]` the empty one.
 - The rest shares the vector's storage, so binding it takes no copy.
 - A vector pattern is refutable, so as a parameter pattern it is the error
   `refutable pattern in parameter`. Coverage is by length, as a list's is:
-  `#[]` with `#[x]` is ``non-exhaustive case on Vector<Int>: missing #[_, _,
-  ..]``, and `#[1, .., 3]` alone is ``non-exhaustive case on Vector<Int>:
-  missing #[]``.
-- A type built on a vector names itself after the `#`, as its literal does:
-  `#Path[a, .., z]` for a `type Path Vector<Int>`, and `#.Items[x, ..]` for a
-  vector-payload variant.
-- Over a value that is not a vector it is the error `vector pattern requires a
-  vector, got Set<String>`.
+  `[]` with `[x]` is ``non-exhaustive case on Vector<Int>: missing [_, _,
+  ..]``, and `[1, .., 3]` alone is ``non-exhaustive case on Vector<Int>:
+  missing []``.
+- A type built on a vector names itself before the bracket, as its literal
+  does: `Path[a, .., z]` for a `type Path Vector<Int>`, and `.Items[x, ..]`
+  for a vector-payload variant. Over the type itself, `[a, .., z]` takes it
+  apart too.
 
 ### Map Destructuring
 
-`%{key => pattern, ...}` matches a map that holds every key, each value
-matching its pattern. Other keys are ignored.
+`{key => pattern, ...}` matches a map that holds every key, each value
+matching its pattern. Other keys are ignored. `{}` holds no key and matches
+every map.
 
 ```nomi
-fn port(config: Map<String, Int>) -> String {
-    case config {
-        %{"debug" => 1, "port" => p} -> "debug on ${p}"
-        %{"port" => p} -> "port ${p}"
+fn port(config: Map<String, Int>) -> String
+    case config
+        {"debug" => 1, "port" => p} -> "debug on ${p}"
+        {"port" => p} -> "port ${p}"
         _ -> "no port"
-    }
-}
+    end
+end
 
-fn main() {
-    dbg port(%{"port" => 8080}) // "port 8080"
-}
+fn main()
+    dbg port({"port" => 8080}) // "port 8080"
+end
 ```
 
 - A key is an expression, evaluated in the scope before the pattern, as a map
   literal's key is. Any keyable value works (variants, tuples, structs), and a
-  key may be computed: `%{target => v}` matches the entry whose key equals
+  key may be computed: `{target => v}` matches the entry whose key equals
   `target`'s value. A key never sees a name the pattern itself binds: after `a =
-  "host"`, `%{"mode" => a, a => b}` looks up `"host"` for `b` and binds the
+  "host"`, `{"mode" => a, a => b}` looks up `"host"` for `b` and binds the
   mode's value to `a`.
+- The first entry's `=>` makes the braces a map pattern, as `name:` makes
+  them a struct pattern (§3 *Literal forms*).
 - A missing key is a pattern that does not match, never a trap, since whether
   a key is present is data the program does not control (§11 *Traps, `Maybe`
   and `Result`*).
-- A map pattern never covers every map. A `case` over a map needs a `_` arm
+- A map pattern never covers every map for the coverage check, `{}` included,
+  though `{}` matches every map. A `case` over a map needs a `_` arm
   (``non-exhaustive case: add a `_` arm``).
 - A binding with a map pattern takes an `else`, every path of which leaves
-  (*Bindings with `else`*). Without one, `%{"port" => port} = config` is the
+  (*Bindings with `else`*). Without one, `{"port" => port} = config` is the
   error `` this pattern can fail to match a value of type Map<String, Int>; add
-  `else { ... }` ... ``, whose help is `` a map pattern does not match a map
-  that lacks one of its keys. Handle a missing key with `else { ... }`, or read
+  `else` ... ``, whose help is `` a map pattern does not match a map
+  that lacks one of its keys. Handle a missing key with `else`, or read
   one key with `Map.get`, which returns a `Maybe` ``. In a test, `assert
-  %{"port" => port} = config` fails when a key is missing.
-- The same constant key twice (`%{"k" => a, "k" => b}`) is a compile error at
+  {"port" => port} = config` fails when a key is missing.
+- The same constant key twice (`{"k" => a, "k" => b}`) is a compile error at
   the second, `` key `"k"` is given twice in this map pattern; match its value
   once `` (§3 *Repeated keys*). Keys equal only at run time both look up the one
   entry, and both patterns must match its value.
 
 ### Set Destructuring
 
-`%[e1, e2, ...]` matches a set that holds exactly those elements. With a `..`
-at the end, the set may hold others too, and a name after the `..` binds them.
+Over a set, `[e1, e2, ...]` matches a set that holds exactly those
+elements. With a `..` at the end, the set may hold others too, and a name
+after the `..` binds them.
 
 ```nomi
-fn role(s: Set<String>) -> String {
-    case s {
-        %["admin", ..rest] -> "admin and ${Set.size(rest)} more"
-        %["user", ..] -> "user"
-        %[] -> "nobody"
+fn role(s: Set<String>) -> String
+    case s
+        ["admin", ..rest] -> "admin and ${Set.size(rest)} more"
+        ["user", ..] -> "user"
+        [] -> "nobody"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn main() {
-    dbg role(%["admin", "dev"]) // "admin and 1 more"
-}
+fn main()
+    dbg role(["admin", "dev"]) // "admin and 1 more"
+end
 ```
 
-- **An element is a value to look up, never a place to bind.** It is an
-  expression evaluated in the scope before the pattern. `%[_, ..]` is the error
-  ``an element of a set pattern is a value to look up, not a place to bind: `_`
-  names no value; `..` matches the other elements``, and `%[role, ..]` with no
-  `role` in scope is ``an element of a set pattern is a value to look up, not a
-  place to bind: `role` is not in scope, and `..role` binds the other
-  elements``.
-- The `..` comes last: `%[..rest, 1]` is the parse error ``set pattern `..` must
+- **An element is a constant to look up, never a place to bind:** a number,
+  string or codepoint literal, the value the set must contain. `[_, ..]` is
+  the error ``an element of a set pattern is a constant the set contains, not
+  a place to bind: `_` names no value; `..` matches the other elements``, and
+  `[role, ..]` is the same error, which says `role` would bind a name and
+  that a guard tests a value in scope: `[..] when Set.contains(s, role)`.
+  Another pattern there, a variant or a tuple, is the same error, which says
+  to write a number, string or codepoint.
+- The `..` comes last: `[..rest, 1]` over a set is ``set pattern `..` must
   be the last element``.
-- A constant element is named once: `%["a", "a", ..]` is ``element `"a"` is
+- A constant element is named once: `["a", "a", ..]` is ``element `"a"` is
   given twice in this set pattern; test it once``.
 - Each element is checked against the element type (`set pattern element type
-  mismatch: expected String, got Int`), and the value must be a set (`set
-  pattern requires a set, got Vector<Int>`).
+  mismatch: expected String, got Int`).
 - A set pattern never covers every set. A `case` needs a `_` arm, and a binding
   takes an `else`, every path of which leaves. Without one, the binding's help
   is `` a set pattern does not match a set that lacks one of its elements.
-  Handle that with `else { ... }`, or test one element with `Set.contains` ``.
-- A type built on a set names itself after the `%`: `%Tags["a", ..others]`.
+  Handle that with `else`, or test one element with `Set.contains` ``.
+- A type built on a set names itself before the bracket: `Tags["a", ..others]`.
 
 ### String Prefix Patterns
 
@@ -5262,17 +5432,17 @@ fn main() {
 binds `rest` to the remainder, so the string is `"prefix" + rest`.
 
 ```nomi
-fn route(path: String) -> String {
-    case path {
+fn route(path: String) -> String
+    case path
         "/users/" + id -> "user ${id}"
         "/health" -> "ok"
         _ -> "not found"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg route("/users/7") // "user 7"
-}
+end
 ```
 
 - The left side is a string literal without interpolation, and the right side a
@@ -5302,23 +5472,23 @@ Taught in [Pattern Matching](/pattern-matching/#matching-alternatives-with-or).
 `A or B` matches a value that `A` or `B` matches.
 
 ```nomi
-enum Shape {
+enum Shape
     Circle {r: Float}
     Square {side: Float}
     Point
-}
+end
 
-fn describe(shape: Shape) -> String {
-    case shape {
-        .Circle{r} or .Square{side: r} when r > 10.0 -> "big, ${r} across"
-        .Circle{r} or .Square{side: r} -> "${r} across"
+fn describe(shape: Shape) -> String
+    case shape
+        .Circle{r:} or .Square{side: r} when r > 10.0 -> "big, ${r} across"
+        .Circle{r:} or .Square{side: r} -> "${r} across"
         .Point -> "a point"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg describe(Shape.Square{side: 2.0}) // "2.0 across"
-}
+end
 ```
 
 - **Every alternative binds the same names, each at one type.** A name one
@@ -5347,8 +5517,8 @@ fn main() {
   .Green: Color)` over a three-variant `Color` is ``refutable pattern in
   parameter; bind the parameter and use a `case` in the body``.
 - In a binding with `else`, a fallback stands in for one variant's payload, so
-  `Ok(.L(n) or .R(n)) = r else { Side.L(0) }` takes a fallback and `.A(n) or
-  .B(n) = e else { return 0 }` must leave.
+  `Ok(.L(n) or .R(n)) = r else Side.L(0)` takes a fallback and `.A(n) or
+  .B(n) = e else return 0` must leave.
 
 ### Naming the Whole Match: `as`
 
@@ -5357,17 +5527,17 @@ Taught in [Pattern Matching](/pattern-matching/#naming-the-whole-match-with-as).
 `P as name` matches `P` and binds the whole value `P` matched to `name`.
 
 ```nomi
-fn describe(result: Result<Int, String>) -> String {
-    case result {
+fn describe(result: Result<Int, String>) -> String
+    case result
         Ok(n) as r when n > 9 -> "big: ${r}"
         Ok(_) -> "small"
         Err(msg) -> msg
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg describe(Ok(12)) // "big: Ok(12)"
-}
+end
 ```
 
 - **Scope.** `as` binds looser than every other pattern construct, `or`
@@ -5397,7 +5567,7 @@ fn main() {
 - In a binding with `else`, an `as` around the whole pattern rules out a
   fallback, since there is no value to bind it to: `Some(n) as m = find() else
   { 0 }` is the no-single-payload error. An `as` inside the payload is allowed:
-  `Ok((w, h) as size) = r else { (80, 24) }`.
+  `Ok((w, h) as size) = r else (80, 24)`.
 
 ### Exhaustiveness checking
 
@@ -5414,8 +5584,8 @@ component by component:
 - A list or vector is covered by length. `[]` and `[head, ..tail]` cover every
   list; `[]` and `[x]` miss lists of two or more. Elements after the `..` are
   tested against the last elements, so `[]`, `[_]` and `[_, .., _]` cover every
-  list, and `[1, .., 3]` covers nothing on its own. `#[..all]` covers every
-  vector.
+  list, and `[1, .., 3]` covers nothing on its own. `[..all]` covers every
+  list or vector.
 - A literal, a string prefix, a map pattern and a set pattern never cover their
   type: the compiler does not enumerate `Int`, `Float`, `Decimal`, `String`,
   `Byte`, `Codepoint`, `Map` or `Set`. Where one of those decides the match,
@@ -5427,7 +5597,7 @@ component by component:
 When the compiler can name a missing value it does: `non-exhaustive case on
 Shape: missing Rect`, `non-exhaustive case on (Maybe<Int>, Maybe<Int>):
 missing (None, None)`, `non-exhaustive case on List<Int>: missing [_, _,
-..]`, `non-exhaustive case on Vector<Int>: missing #[_, _, ..]`. When only a
+..]`, `non-exhaustive case on Vector<Int>: missing [_, _, ..]`. When only a
 value no list of literals can cover is missing, as in `case (n, n) { (0, 0)
 -> "zero" }`, the error is ``non-exhaustive case: add a `_` arm``.
 
@@ -5437,29 +5607,29 @@ In a `case` arm whose pattern matches one `embeds` variant, the scrutinee's
 name has the embedded type.
 
 ```nomi
-struct Circle {
+struct Circle
     radius: Float
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Point
-}
+end
 
-fn area(c: Circle) -> Float {
+fn area(c: Circle) -> Float
     3.14 * c.radius * c.radius
-}
+end
 
-fn describe(value: Shape) -> Float {
-    case value {
+fn describe(value: Shape) -> Float
+    case value
         .Circle{radius: _} -> area(value) // value is a Circle here
         .Point -> 0.0
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg describe(Circle{radius: 1.0}) // 3.14
-}
+end
 ```
 
 - **What narrows is a name.** The scrutinee must be a parameter or a local
@@ -5468,7 +5638,7 @@ fn main() {
   value, lambdas created there included. A name the arm rebinds is a new
   binding.
 - **Where.** A `case` arm, and the first branch of `if Pattern = name`, whose
-  pattern matches one `embeds` variant: `.Circle{radius}`,
+  pattern matches one `embeds` variant: `.Circle{radius:}`,
   `Shape.Circle{radius: r}`, and `.Id(n)` for an embedded distinct `Id`. An
   `as` around the pattern narrows the name as it would without the `as`; the
   `as` name keeps the type of its position.
@@ -5481,38 +5651,45 @@ fn main() {
 
 Taught in [Pattern Matching](/pattern-matching/#binding-with-else).
 
-`Pattern = value else { ... }` binds the pattern's names for the rest of the
-enclosing block when the value matches, and runs the `else` block when it does
-not. The braces are required.
+`Pattern = value else ...` binds the pattern's names for the rest of the
+enclosing block when the value matches, and runs the `else` when it does
+not. The `else` takes one of two forms:
+
+- **Inline.** Anything after `else` on its line is one expression, or
+  `break`, `continue` or `return`: `Some(address) = user else "none"`.
+- **Below.** An `else` that ends its line takes the lines below, closed by
+  `end`: case arms when the first line is `pattern ->` or `pattern when`, and
+  an ordinary body otherwise.
+
+The `else` stands on the binding's line, or for a pattern that can fail it
+may start the line after a value written over several lines.
 
 ```nomi
-fn first_word(words: List<String>) -> String {
-    [first, .._rest] = words else { return "(none)" }
+fn first_word(words: List<String>) -> String
+    [first, .._rest] = words else return "(none)"
     first
-}
+end
 
-fn email(user: Maybe<String>) -> String {
-    Some(address) = user else { "none" }
+fn email(user: Maybe<String>) -> String
+    Some(address) = user else "none"
     address
-}
+end
 
-fn port(text: String) -> Result<Int, String> {
-    Ok(n) = String.to_int(text) |> Maybe.to_result("empty") else {
+fn port(text: String) -> Result<Int, String>
+    Ok(n) = String.to_int(text) |> Maybe.to_result("empty") else
         Err(e) -> return Err("bad port: ${e}")
-    }
+    end
 
     Ok(n)
-}
+end
 
-fn main() {
+fn main()
     dbg first_word([]) // "(none)"
     dbg email(None) // "none"
     dbg port("80") // Ok(80)
-}
+end
 ```
 
-- The braces hold case arms when their first item is `pattern ->` or `pattern
-  when`, and an ordinary block otherwise.
 - The value is evaluated once. The pattern's names are not in scope inside the
   `else`.
 - Arms match the value that did not match, of the value's type. The binding's
@@ -5523,21 +5700,21 @@ fn main() {
   "reason"` or `todo`; a branch every path of which leaves) or produces a
   fallback. A path that traps binds none of the names.
 - **A fallback** is allowed only when the pattern names one variant with a
-  payload, `Variant(inner)` or `.Variant{fields}`, whose inner pattern always
+  payload, `Variant(inner)` or `.Variant{fields:}`, whose inner pattern always
   matches. The fallback has the payload's type (for a struct-shaped variant,
   the anonymous struct of its fields), and the inner pattern binds from it as
-  it would from a match: `Ok((w, h)) = r else { (80, 24) }` binds `w` to 80.
+  it would from a match: `Ok((w, h)) = r else (80, 24)` binds `w` to 80.
   A fallback of another type is `the fallback stands in for Some's payload of
   type String, got Int`.
-- A pattern with no single payload (a list, vector, map or set pattern, a
+- A pattern with no single payload (a bracket or map pattern, a
   nested refutable pattern such as `Ok(Some(x))`, a literal, a tuple with a
   refutable part) requires every path to leave. A path that produces a value is
   the error ``this pattern has no single payload a fallback could stand in for;
   every path through `else` must return, break or continue``.
-- A pattern that always matches takes no `else`: `(x, y) = pair else { ... }`
+- A pattern that always matches takes no `else`: `(x, y) = pair else return`
   is `this pattern always matches; remove the else`. A single-variant enum's
-  pattern always matches: for `enum Only { One Int }`, `Only.One(p) = only`
-  needs no `else`, and over a struct-shaped variant, `Rec.Fields(r) = rec` binds
+  pattern always matches: for an `enum Only` whose one variant is `One Int`,
+  `Only.One(p) = only` needs no `else`, and over a struct-shaped variant, `Rec.Fields(r) = rec` binds
   `r` to the anonymous struct of its fields.
 - A pattern that can fail requires one (*Where patterns appear*). On `Ok(x)`
   over a `Result` or `Some(x)` over a `Maybe`, the help points at `?`: write `x
@@ -5556,21 +5733,29 @@ operation that may fail. Both are prelude enums, and their variants are
 written bare (§10 *Variant patterns*):
 
 ```nomi
-enum Maybe<T> {
+enum Maybe<T>
     Some T
     None
-}
+end
 
-enum Result<T, E> {
+enum Result<T, E>
     Ok T
     Err E
-}
+end
 ```
 
 A program handles one with `case`, a pattern `if`, a binding with `else` (§10
 *Bindings with `else`*), `?` (*Propagating with `?`*) or `!` (*Unwrapping with
 `!`*). The functions over them are in [std::maybe](/reference/maybe/) and
 [std::results](/reference/results/).
+
+std::presence's `Presence<T>`, `Present(value)` or `Absent`, says whether an
+input gave a value at all, so `Presence<Maybe<T>>` tells a JSON key left out
+(`Absent`) from one set to `null` (`Present(None)`). It is not in the
+prelude, and its functions are in [std::presence](/reference/presence/).
+`Absent` is no failure, so `?` and `!` do not take a `Presence`: `p?` is the
+error `` `?` requires a Result or Maybe, got Presence<Int> ``, and where
+absence is a failure the program writes `Presence.to_maybe(p)?`.
 
 ### Propagating with `?`
 
@@ -5586,16 +5771,16 @@ x?  ≡  case x { Some(v) -> v, None -> return None }
 ```
 
 ```nomi
-fn total(a: String, b: String) -> Maybe<Int> {
+fn total(a: String, b: String) -> Maybe<Int>
     x = String.to_int(a)?
     y = String.to_int(b)?
     Some(x + y)
-}
+end
 
-fn main() {
+fn main()
     dbg total("2", "3") // Some(5)
     dbg total("2", "x") // None
-}
+end
 ```
 
 - **It binds as tightly as a call.** `f(x)?`, `load()?.name` (the loaded
@@ -5627,34 +5812,86 @@ each checked at the `?`:
    on a `Maybe` a `Maybe` boundary: `` `?` on a Maybe cannot propagate out of a
    function returning Result<Int, String>: the enclosing function must return a
    Maybe ``. In a lambda this is the lambda's result.
-3. **The error types are the same type.** `` `?` error type mismatch: expected
-   String, got Json.DecodeError (the enclosing function returns Result<Int,
-   String>); convert the error before the `?`, for example with
-   Result.map_err ``. Its help writes the stage when one is plain: the
-   boundary enum's one variant whose payload is the error
-   (`` |> Result.map_err(AppError.Io)? ``), or, for a `String` boundary and
-   an error with a `Display` impl, `` |> Result.map_err(&"...: ${&1}")? ``.
+3. **The error type fits the boundary's, or converts to it.** For a `?` on a
+   `Result<T, E>` in a function declared `Result<_, F>`, in this order:
+   - E is F, or F is an interface E implements, and the `Err(e)` propagates
+     as it is, as an interface-typed parameter takes an implementor;
+   - else F has an `impl From<E>` (std's `From`, in the prelude), and the
+     function returns `Err(F.from(e))`;
+   - else the `?` is an error naming both fixes: `` `?` error type
+     mismatch: expected ApiError, got DbError (the enclosing function
+     returns Result<Int, ApiError>); write `impl From<DbError> for ApiError`
+     and the `?` converts the error, or convert it before the `?` with
+     Result.map_err ``. It names the impl only when one of the two types is
+     not std's, since an impl between two std types is an orphan (§12
+     *Foreign Types*). Its help writes the `map_err` stage when one is
+     plain: the boundary enum's one variant whose payload is the error
+     (`` |> Result.map_err(AppError.Io)? ``), or, for a `String` boundary
+     and an error with a `Display` impl, `` |> Result.map_err(&"...: ${&1}")? ``.
 
-There is no conversion at the `?`. `Result.map_err` converts, written where the
-types differ:
+A domain error type writes one `From` impl for each error it wraps, and each
+`?` converts:
 
 ```nomi
-fn status(text: String) -> Result<Int, Int> {
-    String.to_int(text) |> Maybe.to_result(400)
-}
+enum DbError
+    Closed
+end
 
-fn port(text: String) -> Result<Int, String> {
-    n = status(text) |> Result.map_err(&"error ${&1}")?
-    Ok(n)
-}
+enum ApiError
+    Database DbError
+    NotFound String
+end
 
-fn main() {
-    dbg port("x") // Err("error 400")
-}
+impl From<DbError> for ApiError
+    fn from(e: DbError) -> ApiError
+        ApiError.Database(e)
+    end
+end
+
+fn count(open: Bool) -> Result<Int, DbError>
+    if open then Ok(3) else Err(.Closed)
+end
+
+fn total(open: Bool) -> Result<Int, ApiError>
+    n = count(open)?
+    Ok(n + 1)
+end
+
+fn main()
+    dbg total(True) // Ok(4)
+    dbg total(False) // Err(Database(Closed))
+end
 ```
 
-The one relaxation is assignability: a declared error type that is an
-interface takes a concrete implementor, as an interface-typed parameter does.
+- **The impl is on the target.** `From<E>` is implemented for F, not for E:
+  `impl From<sql.Error> for ApiError`. E is an input of `From` (§12 *Foreign
+  Types*), so a module may also write `impl From<MyError> for String`.
+- **One conversion.** The `?` looks up F's impl at E only. It does not
+  follow `impl From<IoError> for DbError` and then `impl From<DbError> for
+  ApiError`; a `?` on an `IoError` there is the mismatch.
+- **No identity impl.** Equal types need none, and std declares none.
+- **Only a declared boundary converts.** An inferred boundary (below) has no
+  declared error type to convert to.
+- **The impl is an ordinary function.** `ApiError.from(e)` and `|>
+  ApiError.from()` call it.
+
+`Result.map_err` converts at one site, for a conversion that is that
+function's own:
+
+```nomi
+fn status(text: String) -> Result<Int, Int>
+    String.to_int(text) |> Maybe.to_result(400)
+end
+
+fn port(text: String) -> Result<Int, String>
+    n = status(text) |> Result.map_err(&"error ${&1}")?
+    Ok(n)
+end
+
+fn main()
+    dbg port("x") // Err("error 400")
+end
+```
 
 **Inferred boundaries.** At a boundary with no declared result (a `concurrent`
 block, an unannotated lambda) the error type is inferred from the `?` sites in
@@ -5662,10 +5899,10 @@ it. A body whose last expression is `Ok(...)` fixes only the success type.
 
 ```nomi
 // outcome: Result<Int, String>; String comes from `Task.await(t)?`
-outcome = concurrent {
+outcome = concurrent
     t = Task.spawn(fn -> fetch()) // fetch(): Result<Int, String>
     Ok(Task.await(t)?)
-}
+end
 ```
 
 - `?` sites with different error types in one boundary are the error ``
@@ -5685,20 +5922,20 @@ or `Some`. An `Err` or a `None` traps at the `!`'s line. It states that the
 value is there, so a failure is a bug in the program.
 
 ```nomi
-fn half(n: Int) -> Result<Int, String> {
-    if n % 2 == 0 {
+fn half(n: Int) -> Result<Int, String>
+    if n % 2 == 0 then
         Ok(n / 2)
-    } else {
+    else
         Err("${n} is odd")
-    }
-}
+    end
+end
 
-fn main() {
-    ages = %{"Ada" => 36}
+fn main()
+    ages = {"Ada" => 36}
     dbg Map.get(ages, "Ada")! // 36
     dbg half(10)! // 5
     dbg "42" |> String.to_int()! // 42
-}
+end
 ```
 
 - **Any expression takes it**: a call of any form, a field (`user.nickname!`),
@@ -5781,9 +6018,9 @@ Taught in [Functions and Lambdas](/functions-and-lambdas/#unwritten-code).
 with a reason: `todo` or `todo "parse the header"`.
 
 ```nomi
-fn parse(text: String) -> Int {
+fn parse(text: String) -> Int
     todo "parse the header"
-}
+end
 ```
 
 - **Type.** `todo` never produces a value, so it has the type its position
@@ -5818,17 +6055,17 @@ Taught in [Functions and Lambdas](/functions-and-lambdas/#code-that-cannot-be-re
 Reaching it traps.
 
 ```nomi
-fn encode_run(run: List<String>) -> String {
-    case run {
+fn encode_run(run: List<String>) -> String
+    case run
         [letter] -> letter
         [letter, ..] -> "${Iter.count(run)}${letter}"
         [] -> unreachable "chunk_by never yields an empty run"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg encode_run(["a", "a"]) // "2a"
-}
+end
 ```
 
 - **Type.** As `todo`'s. An unannotated binding of one is ``cannot infer a type
@@ -5851,23 +6088,23 @@ that implements `Display` renders where a message is needed: `io.print(e)`,
 `"${e}"`, and the text a failing `main` prints (§15).
 
 ```nomi
-enum UserError {
+enum UserError
     NotFound Int
     InvalidName String
-}
+end
 
-impl Display for UserError {
-    fn to_string(e: UserError) -> String {
-        case e {
+impl Display for UserError
+    fn to_string(e: UserError) -> String
+        case e
             .NotFound(id) -> "user not found: ${id}"
             .InvalidName(name) -> "invalid name: ${name}"
-        }
-    }
-}
+        end
+    end
+end
 
-fn main() {
+fn main()
     dbg "${UserError.NotFound(3)}" // "user not found: 3"
-}
+end
 ```
 
 ## 12. Interfaces, implementations and derive
@@ -5878,23 +6115,24 @@ Taught in [Interfaces and Dispatch](/interfaces-and-dispatch/).
 
 Taught in [Interfaces and Dispatch](/interfaces-and-dispatch/#defining-and-implementing-an-interface).
 
-`interface Name { items }` declares a contract. Every item is a function.
+`interface Name`, its items on the lines below and `end`, declares a
+contract. Every item is a function.
 `self` in an item's signature stands for the implementing type. It is a type,
 valid only in an interface's signatures: not a value, not an implicit
 parameter, not a qualifier. Every `self` in one signature denotes the same
 type for a given impl.
 
 ```nomi
-interface Display {
+interface Display
     fn to_string(value: self) -> String
-}
+end
 ```
 
 #### Item kinds
 
 | Item form | Role |
 |---|---|
-| `fn` signature, no body | Required function: every impl writes it. |
+| `fn` signature, no body | Required function: every impl writes it. The next line is another item or the interface's `end`. |
 | `fn` with a body | Final default: every implementor gets it, and an impl may not write it. |
 | `open fn` with a body | Open default: every implementor gets it, and an impl may write its own. |
 | `host fn`, no body | Host-backed default, supplied by the runtime; final. |
@@ -5915,24 +6153,24 @@ interface Display {
   `Shape.describe(sq)` names the interface and needs it in scope.
 - A default's body calls the interface's other functions bare.
 - A Nomi-bodied default may give its trailing parameters default values
-  (`fn announce(value: self, loud: Bool = False) -> String { ... }`). A required
+  (`fn announce(value: self, loud: Bool = False) -> String`). A required
   or host-backed function may not.
 - An operation with no `self` that belongs with the interface goes in an
-  inherent `impl Iface { ... }` block beside it and is called owner-qualified
+  inherent `impl Iface` block beside it and is called owner-qualified
   (`Iter.from(0)`).
 
 ```nomi
-interface Formatted {
+interface Formatted
     fn format(value: self, style: String) -> String
 
-    fn format_pretty(value: self) -> String {
+    fn format_pretty(value: self) -> String
         format(value, "pretty")
-    }
+    end
 
-    open fn format_brief(value: self) -> String {
+    open fn format_brief(value: self) -> String
         format(value, "brief")
-    }
-}
+    end
+end
 ```
 
 `Iter`'s `known_count` is an `open` Nomi default returning `None`. `List`
@@ -5947,17 +6185,17 @@ required signature writes it after the result; a default writes it between the
 result and the body. The bound is checked at each call.
 
 ```nomi
-interface Ranked<T> {
+interface Ranked<T>
     fn entries(collection: self) -> List<T>
 
-    fn best(collection: self) -> Maybe<T> where T: Comparable {
+    fn best(collection: self) -> Maybe<T> where T: Comparable
         Iter.sort(entries(collection), .Descending) |> Iter.first()
-    }
+    end
 
-    fn prefer<K>(_value: self, lhs: K, rhs: K) -> Bool where K: Comparable {
+    fn prefer<K>(_value: self, lhs: K, rhs: K) -> Bool where K: Comparable
         Comparable.compare(lhs, rhs) != .Less
-    }
-}
+    end
+end
 ```
 
 A type name that the function neither declares nor the interface has (a bare
@@ -5977,13 +6215,13 @@ require Display of its implementors ``, with a hint that shows the clause. The
 default states what it needs with `where self: Display`:
 
 ```nomi
-interface Scale {
+interface Scale
     fn unit(scale: self) -> String
 
-    fn format(scale: self) -> String where self: Display {
+    fn format(scale: self) -> String where self: Display
         "${scale} ${unit(scale)}"
-    }
-}
+    end
+end
 ```
 
 - In the body, a `self` value may enter a position typed with a bound
@@ -6020,28 +6258,28 @@ its constructor.
 ```nomi
 type Celsius Decimal
 
-interface Temperature {
+interface Temperature
     fn unit(t: self) -> String
 
-    fn label(self(n) as t) -> String where self: Distinct<Decimal> {
+    fn label(self(n) as t) -> String where self: Distinct<Decimal>
         "${Decimal.round(n, 1, .HalfUp)} ${Temperature.unit(t)}"
-    }
+    end
 
-    fn scale(self(n), by: Decimal) -> self where self: Distinct<Decimal> {
+    fn scale(self(n), by: Decimal) -> self where self: Distinct<Decimal>
         self(n * by)
-    }
-}
+    end
+end
 
-impl Temperature for Celsius {
-    fn unit(_t: Celsius) -> String {
+impl Temperature for Celsius
+    fn unit(_t: Celsius) -> String
         "C"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg Temperature.label(Celsius(21.456d)) // "21.5 C"
     dbg Celsius.scale(Celsius(10d), 2d) // Celsius(20d)
-}
+end
 ```
 
 - A parameter written `self(p)` has type `self` and needs no annotation.
@@ -6075,28 +6313,28 @@ An interface declares functions only. A value every implementor must supply is
 a function requirement, read with a qualified call:
 
 ```nomi
-interface Tagged {
+interface Tagged
     fn tag(value: self) -> Int
-}
+end
 
-struct Event {
+struct Event
     tag: Int
     name: String
-}
+end
 
-impl Tagged for Event {
-    fn tag(value: Event) -> Int {
+impl Tagged for Event
+    fn tag(value: Event) -> Int
         value.tag
-    }
-}
+    end
+end
 
-fn tag_of(x: Tagged) -> Int {
+fn tag_of(x: Tagged) -> Int
     Tagged.tag(x)
-}
+end
 
-fn main() {
+fn main()
     dbg tag_of(Event{tag: 7, name: "start"}) // 7
-}
+end
 ```
 
 A value of interface type or of type-parameter type has no fields, so `x.tag`
@@ -6106,32 +6344,34 @@ on one is an error (§14 *Member access is fail-loud*).
 
 Taught in [Interfaces and Dispatch](/interfaces-and-dispatch/#defining-and-implementing-an-interface).
 
-`impl Iface for Type { functions }` implements one interface for one type. Its
-body holds that interface's functions as plain `fn` or `host fn` items, with
-the implementing type written where the interface writes `self`. `impl Type {
-functions }` is an inherent impl: functions owned by the type, called
-`Type.f(...)` (§8 *Calls and qualification*).
+`impl Iface for Type`, its functions below and `end`, implements one
+interface for one type. Its body holds that interface's functions as plain
+`fn` or `host fn` items, with the implementing type written where the
+interface writes `self`. An impl with nothing to write, for a marker or a
+default-only interface, is one line: `impl Marker for P end`. `impl Type`
+with its functions below is an inherent impl: functions owned by the type,
+called `Type.f(...)` (§8 *Calls and qualification*).
 
 ```nomi
-interface Formatted {
+interface Formatted
     fn format(value: self, style: String) -> String
-}
+end
 
-struct User {
+struct User
     name: String
-}
+end
 
-impl Formatted for User {
-    fn format(value: User, style: String) -> String {
+impl Formatted for User
+    fn format(value: User, style: String) -> String
         "User: ${value.name} (${style})"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     user = User{name: "Alice"}
     dbg User.format(user, "pretty") // "User: Alice (pretty)"
     dbg Formatted.format(user, "brief") // "User: Alice (brief)"
-}
+end
 ```
 
 - Impls, derives and the type are sibling top-level declarations. An impl block
@@ -6146,7 +6386,7 @@ fn main() {
 - Constraints on the type's declaration apply to its impls. An impl's `where`
   only adds constraints: `impl Iter for Range<T> where T: Discrete`.
 - An interface whose functions all have defaults, or that declares none, is
-  implemented by `impl Iface for Type` with no body.
+  implemented by the one-line `impl Iface for Type end`.
 - One impl per interface, type and type arguments, program-wide. A duplicate is
   an error (*Several instantiations for one type*), and so is an impl beside a
   `derive` of the same interface (*Derive*).
@@ -6209,35 +6449,35 @@ When a type implements two interfaces that declare the same function name, a
 type-qualified call is ambiguous and must be interface-qualified:
 
 ```nomi
-interface Speaker {
+interface Speaker
     fn speak(value: self) -> String
-}
+end
 
-interface Performer {
+interface Performer
     fn speak(value: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
     name: String
-}
+end
 
-impl Speaker for Dog {
-    fn speak(value: Dog) -> String {
+impl Speaker for Dog
+    fn speak(value: Dog) -> String
         "${value.name}: woof"
-    }
-}
+    end
+end
 
-impl Performer for Dog {
-    fn speak(value: Dog) -> String {
+impl Performer for Dog
+    fn speak(value: Dog) -> String
         "${value.name} takes a bow"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     rex = Dog{name: "Rex"}
     dbg Speaker.speak(rex) // "Rex: woof"
     dbg Performer.speak(rex) // "Rex takes a bow"
-}
+end
 ```
 
 - `Dog.speak(rex)` is the error `type 'Dog' impl 'Performer' and 'Speaker',
@@ -6274,9 +6514,9 @@ bound. A `typealias` may name the conjunction:
 ```nomi
 typealias SortableValue Sortable and Comparable
 
-fn sort<T>(list: List<T>) -> List<T> where T: SortableValue {
+fn sort<T>(list: List<T>) -> List<T> where T: SortableValue
     list
-}
+end
 ```
 
 An interface-bound alias (`typealias Name A and B`) stands only in a `where`
@@ -6302,14 +6542,14 @@ after a function's result or after a type declaration's parameter list. Every
 type parameter is in scope in the whole header and the `where` clause.
 
 ```nomi
-fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S> {
-    StepByRange{range: r, by}
-}
+fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S>
+    StepByRange{range: r, by:}
+end
 
-opaque struct StepByRange<T, S> where T: Comparable {
+opaque struct StepByRange<T, S> where T: Comparable
     range: Range<T>
     by: S
-}
+end
 ```
 
 **What a body may use.** A generic body runs for every type argument its
@@ -6326,13 +6566,13 @@ arguments must be the position's: `where T: Conv<String>` does not make a
 `T` a `Conv<Int>`.
 
 ```nomi
-fn take(x: Display) -> String {
+fn take(x: Display) -> String
     "${x}"
-}
+end
 
-fn wrap<T>(v: T) -> String where T: Display {
+fn wrap<T>(v: T) -> String where T: Display
     take(v)
-}
+end
 ```
 
 Without the bound it is the position's ordinary mismatch, with a hint
@@ -6350,7 +6590,7 @@ it in the signature: `fn wrap<T>(v: T) -> String where T: Display` ``.
   `==`.
 
 **At the call.** A type argument that does not satisfy a bound is an error:
-`sort([.{x: 1}])` is ``no impl of `Comparable` for `.{x: Int}`; anonymous
+`sort([{x: 1}])` is ``no impl of `Comparable` for `{x: Int}`; anonymous
 struct types cannot implement `Comparable` ``. The help offers what the program
 can write:
 
@@ -6378,11 +6618,10 @@ an interface the program declares. What each implements of std's:
   back, when every field implements `Parse` and `Display`. It implements
   std::json's `ToJson` and `FromJson` when every field does, as a struct
   that derives them with no options: an object keyed by its field names as
-  written, a `None` field written as `null` and a missing `Maybe` field read
-  as `None`, keys it has no field for ignored, and a missing key of any
-  other field the error `title: expected String, got missing`. So
-  `Response.json(.{error: "no todo 99"})` sends `{"error":"no todo 99"}`
-  and `Json.decode_as<.{title: String, order: Maybe<Int>}>(text)` reads a
+  written, keys it has no field for ignored, and a missing key read as the
+  field type's `from_missing` (*Derive*). So
+  `Response.json({error: "no todo 99"})` sends `{"error":"no todo 99"}`
+  and `Json.decode_as<{title: String, order: Maybe<Int>}>(text)` reads a
   request body. A tuple implements neither.
 - A function implements only `Debug`.
 
@@ -6443,37 +6682,37 @@ Contains<Codepoint> for String` are three impls (the second's `<C>` declares
 the parameter its argument names, since the receiver names none).
 
 ```nomi
-interface Holds<T> {
+interface Holds<T>
     fn holds(b: self, x: T) -> Bool
-}
+end
 
-struct Box {
+struct Box
     n: Int
     s: String
-}
+end
 
-impl Holds<Int> for Box {
-    fn holds(b: Box, x: Int) -> Bool {
+impl Holds<Int> for Box
+    fn holds(b: Box, x: Int) -> Bool
         b.n == x
-    }
-}
+    end
+end
 
-impl Holds<String> for Box {
-    fn holds(b: Box, x: String) -> Bool {
+impl Holds<String> for Box
+    fn holds(b: Box, x: String) -> Bool
         b.s == x
-    }
-}
+    end
+end
 
-fn held_by<C, T>(c: C, x: T) -> Bool where C: Holds<T> {
+fn held_by<C, T>(c: C, x: T) -> Bool where C: Holds<T>
     C.holds(c, x)
-}
+end
 
-fn main() {
+fn main()
     b = Box{n: 1, s: "a"}
     dbg Box.holds(b, 1) // True: Holds<Int>
     dbg Holds.holds(b, "b") // False: Holds<String>
     dbg held_by(b, "a") // True: the bound at String
-}
+end
 ```
 
 - **Each impl writes its type arguments.** An impl that leaves them to be
@@ -6550,21 +6789,21 @@ its type parameter in a parameter type of one of its functions (`Rhs` in
 is not.
 
 ```nomi
-struct Rate {
+struct Rate
     per_unit: Decimal
-}
+end
 
-impl Multiply<Rate, Decimal> for Decimal {
-    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal {
+impl Multiply<Rate, Decimal> for Decimal
+    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal
         lhs * rhs.per_unit
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     rate = Rate{per_unit: 4.25d}
     dbg 12.5d * rate // 53.125d
     dbg 2d * 3d // 6d: std's impl
-}
+end
 ```
 
 The impl must also meet three conditions (Rust's RFC 2451, narrowed to
@@ -6654,13 +6893,13 @@ Taught in [Interfaces and Dispatch](/interfaces-and-dispatch/#universal-debug).
 `Display` renders a value for users and `Debug` for developers:
 
 ```nomi
-interface Display {
+interface Display
     fn to_string(value: self) -> String
-}
+end
 
-interface Debug {
+interface Debug
     fn inspect(value: self) -> String
-}
+end
 ```
 
 Interpolation (`"${x}"`) and `io.print` call `Display.to_string`. `io.inspect`
@@ -6743,18 +6982,18 @@ synthesized impl is the one a program would write by hand, and dispatches like
 any other.
 
 ```nomi
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
 derive Equatable for Point
 derive Hashable for Point
 
-fn main() {
+fn main()
     dbg Point{x: 1, y: 2} == Point{x: 1, y: 2} // True
     dbg Hashable.hash(Point{x: 1, y: 2}) // 33
-}
+end
 ```
 
 - **Targets.** A `struct`, `enum`, distinct `type` or `host type`.
@@ -6803,7 +7042,7 @@ fn main() {
   to write an impl that leaves the field out.
 - **With a hand-written impl.** A derive beside an impl of the same interface
   for the same type is the error `` `derive Equatable for P` conflicts with a
-  hand-written `impl Equatable for P { ... }` block — a derived impl is
+  hand-written `impl Equatable for P` block — a derived impl is
   synthesized whole, so it cannot coexist with a manual impl; drop one ``.
 - **Options.** Only the per-declaration `with` options. There is no per-field
   exclude or rename, and no user-defined derive.
@@ -6821,8 +7060,8 @@ fn main() {
 | `Comparable` | Lexicographic in field declaration order. An earlier-declared variant is less than a later one, and ties compare the payloads. |
 | `Debug` | The literal shape: `Point{x: 3, y: 4}`, `Circle(5.0)` (the variant, with no enum prefix). |
 | `Display` | `Debug`'s shape with nested strings unquoted: `C{name: bob}` where `Debug` gives `C{name: "bob"}`. |
-| `ToJson` | Fields as object keys; a distinct type through its inner value; a bare variant as its name, a payload variant as an object keyed by its name. `ToJson.Options{rename_all: ...}` sets the key case. |
-| `FromJson` | The inverse of derived `ToJson`. A missing `Maybe<T>` field is `None` and a missing defaulted field takes its default. A mismatch names the variant and field. `FromJson.Options{rename_all: ...}` sets the key case. |
+| `ToJson` | Fields as object keys, each written as its type's `ToJson.to_json_field` answers: `Some(json)` writes the key, `None` leaves it out. The default is `Some(to_json(v))`, so a `None` field is `null`; `Presence<T>`'s leaves an `Absent` field out. A distinct type through its inner value; a bare variant as its name, a payload variant as an object keyed by its name. `ToJson.Options{rename_all: ...}` sets the key case. |
+| `FromJson` | The inverse of derived `ToJson`. A missing key reads as its field type's `FromJson.from_missing()`: `Some(v)` is the field's value, as `Maybe<T>`'s `None` and `Presence<T>`'s `Absent` are. The default answers `None`, and then a defaulted field takes its default and any other is the error `title: expected String, got missing`. A mismatch names the variant and field. Every shape error names the Nomi type it expected and the JSON kind it got (`Json.kind`): `title: expected String, got null`, `expected Todo, got array`. `FromJson.Options{rename_all: ...}` sets the key case. |
 | `Variants` | Only for an enum without type parameters whose variants carry no data. `variants()` lists every variant in declaration order: `Coin.variants() == [Coin.Penny, Coin.Nickel]`. |
 
 - The `Hashable` mix collides easily: `Hashable.hash(Point{x: 0, y: 31}) ==
@@ -6837,18 +7076,24 @@ fn main() {
   struct-payload variant as `V{f: D(v), ...}`; an `embeds` variant as the
   embedded value's rendering; a distinct primitive as `T(D(inner))`; a distinct
   tuple as `T(D(a), D(b))`; a distinct map, vector or set in the call form
-  (`Kvs(%{"a" => 1})`, `Path(#[1, 2])`, `Tags(%["a"])`); a zero-sized distinct
+  (`Kvs({"a" => 1})`, `Path(Vector[1, 2])`, `Tags(Set["a"])`); a zero-sized distinct
   as its name.
 - `Variants` on anything else is an error at the derive that names the reason:
   `` `derive Variants for Shape`: variant `Shape.Circle` carries data, and
   `Variants` lists only variants that carry none; remove its data, or write
-  `impl Variants for Shape { ... }` by hand ``. Generic code calls it through a
+  `impl Variants for Shape` by hand ``. Generic code calls it through a
   bound: `T.variants()` with `where T: Variants`.
 - A `FromJson` target is named by the implementing type
   (`User.from_json(value)`), an explicit type argument
   (`FromJson.from_json<User>(value)`) or an expected type. `Json.encode_as` and
   `Json.decode_as` convert and encode or decode in one call
   ([std::json](/reference/json/)).
+- std implements `ToJson` and `FromJson` for `Map<String, V>` alone, since a
+  JSON object's keys are strings, and a tuple implements neither (*Tuples,
+  anonymous structs and functions*). A derive over a field that holds either,
+  directly or inside a `List`, `Vector`, `Set`, `Maybe` or `Map` value, is an
+  error at the field: ``no impl of `ToJson` for `Map<Int, Int>` (required via
+  `derive ToJson for W`, field `m`)``.
 
 `derive Debug` on a type that is neither opaque nor a host type is redundant,
 since the synthesized `Debug` is the same. It is accepted.
@@ -6856,7 +7101,10 @@ since the synthesized `Debug` is the same. It is accepted.
 #### Generic types
 
 `derive Equatable for Box<T>` implies the bound `T: Equatable`, checked at each
-use. The implied bound for `Debug` is always met.
+use. The implied bound for `Debug` is always met. The type may be named bare,
+`derive FromJson for Box`, and the derive applies it to the declaration's own
+parameters: decoding a `Box<Int>` needs `Int: FromJson`, as a hand-written
+`impl FromJson for Box<T> where T: FromJson` does.
 
 #### Distinct types
 
@@ -6888,17 +7136,17 @@ Taught in [Collections](/collections/#iter).
 `Iter<T>` in `std::iter` is the one iteration protocol. It is a push iterator:
 
 ```nomi
-interface Iter<T> {
+interface Iter<T>
     fn each_while(collection: self, yield: (T) -> Bool) -> Bool
 
-    open fn known_count(_collection: self) -> Maybe<Int> {
+    open fn known_count(_collection: self) -> Maybe<Int>
         None
-    }
+    end
 
-    open fn is_infinite(_collection: self) -> Bool {
+    open fn is_infinite(_collection: self) -> Bool
         False
-    }
-}
+    end
+end
 ```
 
 - `each_while` walks the source and passes each element to `yield`, which
@@ -6965,11 +7213,11 @@ the trap as a compile error, with the same text, at the terminal, and a note at
 the source:
 
 ```nomi
-fn coins(coin: Int) -> List<Int> {
+fn coins(coin: Int) -> List<Int>
     coin
     |> Iter.repeat()
     |> Iter.to_list() // error: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; ...
-}
+end
 ```
 
 - The check follows pipes, nested calls (`Iter.to_list(Iter.map(Iter.from(0),
@@ -7020,26 +7268,26 @@ each element to `yield`, and stop as soon as `yield` returns `False`. Every
 `Iter` owner function then works on it.
 
 ```nomi
-struct Countdown {
+struct Countdown
     remaining: Int
-}
+end
 
-impl Iter for Countdown {
-    fn each_while(collection: Countdown, yield: (Int) -> Bool) -> Bool {
-        if collection.remaining <= 0 {
+impl Iter for Countdown
+    fn each_while(collection: Countdown, yield: (Int) -> Bool) -> Bool
+        if collection.remaining <= 0 then
             True
-        } else if yield(collection.remaining) {
+        else if yield(collection.remaining) then
             each_while(Countdown{remaining: collection.remaining - 1}, yield)
-        } else {
+        else
             False
-        }
-    }
-}
+        end
+    end
+end
 
-fn main() {
+fn main()
     dbg Countdown{remaining: 3} |> Iter.map(&(&1 * 10)) |> Iter.to_list() // [30, 20, 10]
     dbg Countdown{remaining: 3} |> Iter.sum() // 6
-}
+end
 ```
 
 ### `loop`
@@ -7050,14 +7298,14 @@ Taught in [Iteration and Loops](/iteration-and-loops/#loops-with-iterloop).
 its result as the next state, until a `break`. `import std::iter.Iter.{loop}` allows the bare `loop`.
 
 ```nomi
-fn main() {
-    countdown = Iter.loop(5, fn n -> {
-        if n == 0 { break n }
+fn main()
+    countdown = Iter.loop(5, fn n ->
+        if n == 0 then break n
         n - 1
-    })
+    end)
 
     dbg countdown // 0
-}
+end
 ```
 
 - **The callback's type is `(S) -> S`.** Its result is the next state.
@@ -7089,14 +7337,14 @@ fn main() {
 ```nomi
 import std::io
 
-fn main() {
+fn main()
     // stateless: echo lines until "quit" or the end of the input
-    Iter.loop(fn -> {
-        Ok(Some(line)) = io.read_line() else { break }
-        if line == "quit" { break }
+    Iter.loop(fn ->
+        Ok(Some(line)) = io.read_line() else break
+        if line == "quit" then break
         io.print(line)
-    })
-}
+    end)
+end
 ```
 
 ### Callbacks that take `break` and `continue`
@@ -7129,17 +7377,17 @@ it.
 | `Iter.loop` | the loop's value | the same state again | the state this round started with |
 
 ```nomi
-fn main() {
+fn main()
     names =
-        Iter.map(["ann", "", "bo", "end", "cy"], fn name -> {
-            if name == "" { continue }
-            if name == "end" { break }
+        Iter.map(["ann", "", "bo", "end", "cy"], fn name ->
+            if name == "" then continue
+            if name == "end" then break
             name
-        })
+        end)
         |> Iter.to_list()
 
     dbg names // ["ann", "bo"]
-}
+end
 ```
 
 ### Named Functions as Callbacks
@@ -7151,15 +7399,15 @@ A named function passes as a callback wherever a function type fits:
 in its body; its result type stays the plain value type.
 
 ```nomi
-fn sum_valid(total: Int, value: Int) -> Int {
-    if value < 0 { continue }
-    if total > 1000 { break total }
+fn sum_valid(total: Int, value: Int) -> Int
+    if value < 0 then continue
+    if total > 1000 then break total
     total + value
-}
+end
 
-fn main() {
+fn main()
     dbg Iter.reduce([1, -2, 3], 0, sum_valid) // 4
-}
+end
 ```
 
 Using `break` or `continue` makes a function *iter-sensitive*. It is then used
@@ -7235,11 +7483,11 @@ Import paths separate segments with `::`, written with no space around it. An im
 Several imports may be written as one block, one entry per line, with no commas:
 
 ```nomi
-import {
+import
     std::io.{self, print}
     std::maybe.Maybe.{None as Nothing, Some as Just}
     http::request
-}
+end
 ```
 
 The rules:
@@ -7280,12 +7528,12 @@ A path-only import whose path names a directory and no file binds the directory 
 ```nomi
 import views::admin
 
-fn page(rows: List<admin::users.Row>) -> String {
+fn page(rows: List<admin::users.Row>) -> String
     "${admin::users.index(rows)}${admin::reports::daily.show()}"
-}
+end
 ```
 
-- **Every position.** A path at a use stands wherever a file's short name does: a call (`admin::users.index(rows)`), a type (`admin::users.Row`, `std::http.Response<Int>`), a pattern (`db::schema.Kind.Draft`, `db::schema.Post{id, title}`), a struct literal (`db::schema.Post{id: 1, title: "x"}`), an owner function (`db::schema.Post.blank()`) and a variant (`db::schema.Kind.Published(4)`). Its last segment names a file and the segments between name directories. Like a short name, a path alone is not a value: `` `admin::users` is a file, not a value; name one of its members, as in `admin::users.name` ``.
+- **Every position.** A path at a use stands wherever a file's short name does: a call (`admin::users.index(rows)`), a type (`admin::users.Row`, `std::http.Response<Int>`), a pattern (`db::schema.Kind.Draft`, `db::schema.Post{id:, title:}`), a struct literal (`db::schema.Post{id: 1, title: "x"}`), an owner function (`db::schema.Post.blank()`) and a variant (`db::schema.Kind.Published(4)`). Its last segment names a file and the segments between name directories. Like a short name, a path alone is not a value: `` `admin::users` is a file, not a value; name one of its members, as in `admin::users.name` ``.
 - **The directory's name is not a file.** `admin.users` is the error `` `admin` is a directory, not a file ``, with the hint `` reach a file in it with `::`, as in `admin::users.name` ``, and `admin` alone is `` `admin` is a directory, not a value ``.
 - **A path that names no file** is an error at the use that says what is there: `admin::user.render(u)` is `` `admin::user` names no file: views::admin has no user.nomi ``, with the hint `` did you mean `admin::users`? ``, or a list of the directory's files and directories when no name is close. A path that names a directory, `admin::reports.total()`, is `` `admin::reports` is a directory, not a file ``, whose hint names a file in it.
 - **Only the files a path reaches are part of the program.** Importing a directory loads no file under it. Each path the import's scope writes below the name loads the file it names, as an import of that file would, and the file's impls come with it. A directory import through which no path reaches a file is unused: `imported directory 'admin' is unused — remove the import`.
@@ -7301,12 +7549,12 @@ An import inside a function body binds its names in that block only, and shadows
 ```nomi
 import std::io
 
-fn main() {
+fn main()
     import std::io.print
 
     print("bare")
     io.print("qualified")
-}
+end
 ```
 
 ### Prelude
@@ -7315,7 +7563,7 @@ Every file outside the standard library starts with the imports in `std/prelude.
 
 - the primitive and collection types `Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set` and `Range`, and `Bool` with its variants `True` and `False`;
 - `Maybe` with `Some` and `None`, and `Result` with `Ok` and `Err`;
-- the interfaces `Add`, `Subtract`, `Multiply`, `Divide`, `BitwiseAnd`, `BitwiseOr`, `BitwiseXor`, `BitwiseNot`, `ShiftLeft`, `ShiftRight`, `Comparable`, `Contains`, `Debug`, `Discrete`, `Display`, `Distinct`, `Equatable`, `Hashable`, `Iter`, `Productable`, `Steppable`, `Struct`, `Summable` and `Variants`;
+- the interfaces `Add`, `Subtract`, `Multiply`, `Divide`, `BitwiseAnd`, `BitwiseOr`, `BitwiseXor`, `BitwiseNot`, `ShiftLeft`, `ShiftRight`, `Comparable`, `Contains`, `Debug`, `Discrete`, `Display`, `Distinct`, `Equatable`, `Hashable`, `Iter`, `Productable`, `Steppable`, `Struct`, `Summable` and `Variants`, and `From` (§11 *Propagating with `?`*);
 - `Ordering`, `Type`, `Startup` and `Context`;
 - `Locale` (std::locale), and `Phrase` and `Noun` (§18 *Phrases*), so formatting a phrase needs no import.
 
@@ -7399,18 +7647,18 @@ Taught in [Modules & Imports](/modules-and-imports/#visibility).
 A top-level declaration is private to its file unless it carries `pub`. Other files reach a `pub` declaration through the file's qualifier (`io.print(...)`, `io.Error.NotFound{...}`) or by importing it by name. Inside the declaring file, its declarations are bare.
 
 ```nomi
-pub struct Config {
+pub struct Config
     host: String
     port: Int
-}
+end
 
-pub fn parse(s: String) -> Result<Config, String> {
+pub fn parse(s: String) -> Result<Config, String>
     ...
-}
+end
 
-fn validate(c: Config) -> Bool {
+fn validate(c: Config) -> Bool
     ...
-} // private to this file
+end // private to this file
 ```
 
 - **Placement.** `pub` is the first modifier: `pub [opaque] <keyword> <name> ...`.
@@ -7423,20 +7671,20 @@ fn validate(c: Config) -> Bool {
 
 ```nomi
 // shapes.nomi
-struct Shape {
+struct Shape
     size: Int
-}
+end
 
-fn area(shape: Shape) -> Int {
+fn area(shape: Shape) -> Int
     shape.size * shape.size
-}
+end
 
 // shapes_test.nomi
 import shapes.{Shape, area}
 
-test "area" {
+test "area"
     assert area(Shape{size: 3}) == 9
-}
+end
 ```
 
 - **A private type may still be a type argument.** A file may pass its own private type to another file's public generic (`other.ident(Point{x: 1})`). Only the declaring file names the type.
@@ -7461,13 +7709,13 @@ A `pub` declaration may not expose a private type. Each of these is an error:
 | A `pub once` whose type is declared in a body | `public once binding exposes private type Box, which is declared inside a body` |
 
 ```nomi
-struct Secret {
+struct Secret
     value: String
-}
+end
 
-pub fn leak() -> Secret {
+pub fn leak() -> Secret
     Secret{value: "x"}
-} // error: function return exposes private type Secret
+end // error: function return exposes private type Secret
 ```
 
 A `pub opaque` type is the exception: its representation (the inner type, its fields or its variants' payloads) may be private, since no other file can reach the representation (§4 *Opaque distinct types*).
@@ -7479,11 +7727,11 @@ Taught in [Modules & Imports](/modules-and-imports/#re-exports).
 `pub import` makes every item the statement selects part of the file's public surface, under its local name: the alias when there is one, the imported name otherwise. In a block, every entry is re-exported. A file that re-exports some items and imports others privately writes an `import` and a `pub import`.
 
 ```nomi
-pub import {
+pub import
     std::bool.Bool.{self, False, True} // the type and its variants
     std::io.{print, write}
     other.{Helper as Helpr, Thing}
-}
+end
 ```
 
 - **Items only, never a file.** `pub import leaf`, `pub import leaf as lf` and a brace list whose `self` is the file (`pub import std::io.{self, Error}`) are each the error `` `leaf` is a file, and a file cannot be re-exported ``, with a hint to list the items or have importers import the file. A `self` after an owner type (`Bool.{self, False, True}`) is the type, and is re-exported like any item.
@@ -7499,7 +7747,7 @@ pub import {
 - **A tuple** and a named tuple read their items by ordinal name: `pair.first`, `pair.second`. Reads chain left to right, so `nested.second.first` is `(nested.second).first`. An ordinal past the last item is an error that names the last (§4 *Tuples*), and `pair.0` is the error that writes `pair.first`.
 - **A value of interface type** has no fields, since an interface declares functions only: `interface 'Struct' has no field 'x'`. A required value is read through a function requirement (§12 *Requiring a Value*), qualified by the interface: `n.name` is `interface 'HasName' has no field 'name'` even when `HasName` declares `fn name`.
 - **A value of type-parameter type** has no fields, bounded or not: ``type parameter `T` has no field 'name'``. Call the bound's function, `T.name(x)`.
-- **A type qualifier** must name a real member: an inherent or interface function, a `once`, or a variant. `List.empty()` is `type 'List' has no member 'empty'`, and `Maybe.Bogus` is `type 'Maybe' has no member 'Bogus'`. `empty` or `new` on `Map`, `Set` or `Vector` adds a hint naming the empty literal (`write the empty map as %{}`). Members of imported types are checked the same way.
+- **A type qualifier** must name a real member: an inherent or interface function, a `once`, or a variant. `List.empty()` is `type 'List' has no member 'empty'`, and `Maybe.Bogus` is `type 'Maybe' has no member 'Bogus'`. `empty` or `new` on `Map`, `Set` or `Vector` adds a hint naming the empty literal (`write the empty map as {}`). Members of imported types are checked the same way.
 
 How `X.Y` resolves:
 
@@ -7528,9 +7776,9 @@ A `main` that returns `Unit` or `Ok(Unit)` exits with status 0.
 A `main` that returns `Err(e)` prints `error: ` and `e`'s text to standard error and exits with status 1. The text is `Display.to_string(e)` when `e`'s type implements `Display`, so a `String` prints without quotes, and `Debug.inspect(e)` otherwise. An `Err` that holds an `AssertionFailure`, which a failed `assert` in `main` returns, prints the assertion's report.
 
 ```nomi
-fn run() -> Result<Unit, String> {
+fn run() -> Result<Unit, String>
     Err("config file not found")
-} // as `main`: prints `error: config file not found` and exits 1
+end // as `main`: prints `error: config file not found` and exits 1
 ```
 
 To choose the status, `main` returns std::process's `Exit` in its `Err`. `Exit` is a struct with the fields `code: Int = 1` and `message: String = ""`. A `main` declared `-> Result<Unit, Exit>` that returns `Err(e)` prints `e.message` and a newline to standard error, with no `error: ` before it, when the message is not empty, and exits with `e.code`. A code of 0 exits 0, and its message still prints. A code outside 0 to 255 is the trap `exit code 300 is outside 0 to 255`, and exits 1.
@@ -7538,9 +7786,9 @@ To choose the status, `main` returns std::process's `Exit` in its `Err`. `Exit` 
 ```nomi
 import std::process.Exit
 
-fn run() -> Result<Unit, Exit> {
+fn run() -> Result<Unit, Exit>
     Err(Exit{code: 2, message: "usage: count <file>"})
-} // as `main`: prints `usage: count <file>` and exits 2
+end // as `main`: prints `usage: count <file>` and exits 2
 ```
 
 Only std's `Exit` does this. A program's own type named `Exit` is an ordinary error and prints after `error: `. No function exits on the spot: an `Exit` returned through `?` ends the program from anywhere `main` calls. A test checks an exit as a value: `assert main() == Err(Exit{code: 2, message: "usage"})`.
@@ -7553,17 +7801,17 @@ Taught in [App Fields, Defer & Context](/app-fields/#the-basic-shape).
 
 #### Boot and `Startup`
 
-An entry file may declare a boot, `fn boot() -> Result<App, E>` or `fn boot(startup: Startup) -> Result<App, E>`, for any struct `App` and any error type `E`. Boot builds the application value and returns it in `Ok`, or returns `Err` when the program cannot start. A boot that cannot fail still returns a `Result`, so adding a step that can fail does not change its signature. The struct in the `Ok` of an entry boot is an **application type**. Its name is not reserved and it needs no impl. A boot may also return an anonymous record (`fn boot() -> Result<.{n: Int}, String>`); its fields are published, but no read can name them.
+An entry file may declare a boot, `fn boot() -> Result<App, E>` or `fn boot(startup: Startup) -> Result<App, E>`, for any struct `App` and any error type `E`. Boot builds the application value and returns it in `Ok`, or returns `Err` when the program cannot start. A boot that cannot fail still returns a `Result`, so adding a step that can fail does not change its signature. The struct in the `Ok` of an entry boot is an **application type**. Its name is not reserved and it needs no impl. A boot may also return an anonymous record (`fn boot() -> Result<{n: Int}, String>`); its fields are published, but no read can name them.
 
 An application type has at most one field of type `Context`, under any name. Boot receives no context; one that wants a `Context` field builds it with `Context.root()` or a deriver such as `Context.with_timeout(Context.root(), d)`. An application with no `Context` field runs under the root context.
 
 `Startup`, in the prelude, holds snapshots of the process's environment and arguments:
 
 ```nomi
-pub struct Startup {
-    env: Map<String, String> = %{}
+pub struct Startup
+    env: Map<String, String> = {}
     args: List<String> = []
-}
+end
 ```
 
 Startup is not ambient. Boot passes what helpers need as ordinary arguments, and a test builds one as an ordinary struct (`Startup{args: ["-v"]}`). The runtime calls a boot that takes no parameter with no arguments, and passes the process's `Startup` to one that takes it. The parameter may have a default, `startup: Startup = Startup{}`; the runtime always passes the real one, so the default serves only a `group`'s `boot` line that passes none (§17 *Groups*).
@@ -7571,17 +7819,17 @@ Startup is not ambient. Boot passes what helpers need as ordinary arguments, and
 ```nomi
 import std::io
 
-struct App {
+struct App
     name: String
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
     Ok(App{name: List.head(startup.args) |> Maybe.with_default("world")})
-}
+end
 
-fn main() {
+fn main()
     io.print("Hello, ${App.name}!") // Hello, world!
-}
+end
 ```
 
 The boot's signature is checked:
@@ -7609,14 +7857,14 @@ Taught in [App Fields, Defer & Context](/app-fields/#with-replaces-a-field-for-t
 Several fields take several lines. Each value is evaluated when its line runs, so a later line reads what an earlier one replaced:
 
 ```nomi
-fn in_region() {
+fn in_region()
     with App.region = "eu"
     with App.endpoint = "https://${App.region}.example.com"
     sync()
-}
+end
 ```
 
-`with` works in any block: a function body, an `if` or `case` arm, a block statement, a lambda body, a test body, a group's `setup`. It has no value and takes no block. To limit an override to part of a function, put the line in a block statement or a helper function. There is no override of the whole application value or of a nested field; replace a structured field with an update, `with App.database = .{..App.database, host: "localhost"}`.
+`with` works in any block: a function body, an `if` or `case` arm, a `begin` block, a lambda body, a test body, a group's `setup`. It has no value and takes no block. To limit an override to part of a function, put the line in a `begin` block or a helper function. There is no override of the whole application value or of a nested field; replace a structured field with an update, `with App.database = {..App.database, host: "localhost"}`.
 
 | Violation | Error |
 |---|---|
@@ -7630,28 +7878,28 @@ An override changes the fields in force; it does not change values already compu
 ```nomi
 import std::io
 
-struct App {
+struct App
     greeting: String
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{greeting: "hello"})
-}
+end
 
-fn greet() -> String {
+fn greet() -> String
     "${App.greeting}, world"
-}
+end
 
-fn quiet_greeter() -> () -> String {
+fn quiet_greeter() -> () -> String
     with App.greeting = "psst"
     io.print(greet()) // psst, world
     fn -> greet()
-}
+end
 
-fn main() {
+fn main()
     later = quiet_greeter()
     io.print(later()) // hello, world
-}
+end
 ```
 
 #### Which boot code runs under
@@ -7679,15 +7927,15 @@ A boot that returns `Err(e)` fails the program: `main` does not run, work boot s
 ```nomi
 import std::io
 
-struct App {
+struct App
     name: String
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
     defer io.print("boot cleanup")
     name = List.head(startup.args) |> Maybe.to_result("pass a name")?
-    Ok(App{name})
-}
+    Ok(App{name:})
+end
 ```
 
 Run with no arguments, a program with this boot prints `boot cleanup`, then `error: pass a name` on standard error, and exits 1.
@@ -7701,14 +7949,14 @@ A `Context` is an opaque value that carries a deadline and execution-scoped valu
 A program holds its context in the application type's `Context` field and replaces it with `with`:
 
 ```nomi
-struct Config {
+struct Config
     context: Context
-}
+end
 
-fn handle(req: Request) -> Response {
+fn handle(req: Request) -> Response
     with Config.context = Context.with_timeout(Config.context, Duration.seconds(30))
     do_expensive_work(req)
-}
+end
 ```
 
 The context is a field rather than an ambient value so that each `with` line is the one place a deadline is fixed: the runtime derives one wait context there for every blocking operation in its extent, not one per read. An embedder's cancellation and an inherited deadline stay in force when a program replaces its context field.
@@ -7724,22 +7972,22 @@ import std::io
 
 type TraceId String
 
-struct App {
+struct App
     context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
     with App.context = Context.with_value(App.context, TraceId("trace-123"))
 
-    case Context.value(App.context, TraceId) {
+    case Context.value(App.context, TraceId)
         Some(TraceId(id)) -> io.print("trace ${id}") // trace trace-123
         None -> io.print("no trace")
-    }
-}
+    end
+end
 ```
 
 The functions of `Context` are in [std::context](/reference/context/).
@@ -7752,31 +8000,31 @@ Every task has an owner: a `concurrent` block or a supervisor. There is no fire-
 
 Taught in [Concurrency](/concurrency/#concurrent-taskspawn-taskawait).
 
-`concurrent { ... }` is a block expression that opens a task scope. Its value is its last expression. Every task started in it has finished or been cancelled before the block's value is produced.
+`concurrent` alone on its line, a body below it and `end`, is a block expression that opens a task scope. Its value is its last expression. `concurrent` is an ordinary name anywhere else, so a binding named `concurrent` read at the end of a line goes in parentheses. Every task started in it has finished or been cancelled before the block's value is produced.
 
 Control flow in the block is scoped to the block, as in a lambda: `return`, `?`, `break` and `continue` leave the block, not the enclosing function. Any exit other than reaching the end cancels every task still running in the block before the exit continues outward.
 
 `Task<T>`, from `std::tasks`, is the handle of a running task; `T` is its body's result. `Task.spawn(body)` starts `body`, a function of no parameters, as a task of the enclosing block, and returns its `Task<T>` at once. The body runs alongside the code that started it, and the values it captures are shared, immutably. `Task.await(task)` waits for the task and returns its `T`. The other task operations (`Task.spawn_all`, `Task.await_all`, `Task.outcome`, `Task.cancel`) are in [std::tasks](/reference/tasks/).
 
 ```nomi
-import {
+import
     std::io
     std::tasks.Task
-}
+end
 
-fn square(n: Int) -> Int {
+fn square(n: Int) -> Int
     n * n
-}
+end
 
-fn main() {
-    total = concurrent {
+fn main()
+    total = concurrent
         a = Task.spawn(fn -> square(3))
         b = Task.spawn(fn -> square(4))
         Task.await(a) + Task.await(b)
-    }
+    end
 
     io.print("${total}") // 25
-}
+end
 ```
 
 A failed `assert` or `refute` in the block's own body leaves the block as `Err(AssertionFailure)`, so the block's value must be a `Result<_, AssertionFailure>`. Any other value is the error `` an assertion inside a concurrent block exits the block with Err(AssertionFailure), but the block's value is Int: end the block with a Result<_, AssertionFailure> (`Ok(...)`), or move the assertion out of the block `` at the assertion. In a test, such a block as the body's final value fails the case with the assertion's report.
@@ -7798,19 +8046,19 @@ Taught in [Concurrency](/concurrency/#errors-cancel-siblings).
 A task's error is a value. A fallible body returns `Result<T, E>`, and the code that awaits it decides what to do:
 
 ```nomi
-concurrent {
+concurrent
     a = Task.spawn(fn -> fetch_user(42))
     b = Task.spawn(fn -> fetch_order(101))
 
     u = Task.await(a)? // an Err leaves the block and cancels b
 
-    o = case Task.await(b) {
+    o = case Task.await(b)
         Ok(order) -> order
         Err(_) -> default_order // handled here; nothing is cancelled
-    }
+    end
 
     Ok((u, o))
-}
+end
 ```
 
 Cancellation has two sources. Both stop the work at its next safe point (*Safe points* below), and the stop unwinds the task, running its deferred calls on the way out.
@@ -7821,16 +8069,16 @@ Cancellation has two sources. Both stop the work at its next safe point (*Safe p
 A deadline is set with `with App.context = Context.with_timeout(App.context, d)` before the work, in the block that holds it. There is no handle that cancels a context. Exceeding the deadline is not a value the block returns: the rest of the region the `with` line governs is skipped, so code after the `concurrent` block in that same region cannot report the timeout. To observe it, put the deadline inside a spawned task and read `Task.outcome` from outside that region.
 
 ```nomi
-fn fetch_both() {
+fn fetch_both()
     with App.context = Context.with_timeout(App.context, Duration.milliseconds(50))
 
-    concurrent {
+    concurrent
         a = Task.spawn(fn -> slow_call())
         b = Task.spawn(fn -> slow_call())
         _ = Task.await(a)
         _ = Task.await(b)
-    }
-}
+    end
+end
 ```
 
 ### Safe points
@@ -7850,32 +8098,32 @@ A channel is a typed FIFO queue between tasks, held as two halves. `std::channel
 - A channel belongs to no block. It may be made in one block, returned, and used in a later one, and its memory is reclaimed when nothing refers to it.
 
 ```nomi
-import {
+import
     std::channels.{Channel, Receiver, Sender}
     std::io
     std::tasks.Task
-}
+end
 
-fn produce(out: Sender<Int>, n: Int) -> Unit {
-    case Sender.send(out, n) {
+fn produce(out: Sender<Int>, n: Int) -> Unit
+    case Sender.send(out, n)
         Ok(u) -> u
         Err(_) -> io.print("send failed")
-    }
-}
+    end
+end
 
-fn consume(inbox: Receiver<Int>) -> Int {
-    Iter.loop(0, fn sum: Int -> {
-        case Receiver.receive(inbox) {
+fn consume(inbox: Receiver<Int>) -> Int
+    Iter.loop(0, fn sum: Int ->
+        case Receiver.receive(inbox)
             Some(v) -> sum + v
             None -> break sum
-        }
-    })
-}
+        end
+    end)
+end
 
-fn main() -> Unit {
+fn main() -> Unit
     ch: Channel<Int> = Channel.buffered(4)
 
-    total = concurrent {
+    total = concurrent
         p1 = Task.spawn(fn -> produce(ch.sender, 10))
         p2 = Task.spawn(fn -> produce(ch.sender, 20))
         cons = Task.spawn(fn -> consume(ch.receiver))
@@ -7883,10 +8131,10 @@ fn main() -> Unit {
         Task.await(p2)
         Sender.close(ch.sender)
         Task.await(cons)
-    }
+    end
 
     io.print("total=${total}") // total=30
-}
+end
 ```
 
 #### Waiting on several channels
@@ -7894,12 +8142,12 @@ fn main() -> Unit {
 `Channel.select(arms)` waits until one of a list of arms can finish, runs that arm's handler and returns its result. An arm is an `Arm<R>`: `Arm.receive(receiver, handle)` passes `handle` the received `Maybe<T>`, `Arm.send(sender, value, handle)` passes it the send's `Result<Unit, ChannelClosed>`, and `Arm.after(wait, handle)` calls it with nothing once `wait` has passed. The arms may be on channels of different element types; every handler returns the one type `R`.
 
 ```nomi
-import {
+import
     std::channels.{Arm, Channel}
     std::duration.Duration
-}
+end
 
-fn main() {
+fn main()
     inbox = Channel.buffered<String>(1)
 
     reply = Channel.select([
@@ -7908,7 +8156,7 @@ fn main() {
     ])
 
     dbg reply // "nothing yet"
-}
+end
 ```
 
 - **The first listed ready arm wins.** When several arms can finish as the `select` starts, the first one in the list finishes and the others take and send nothing, so a run repeats exactly. An arm that is always ready therefore starves the arms listed after it; a loop that serves several channels fairly rotates its arms. While the `select` waits, the first arm to become ready wins.
@@ -7932,22 +8180,22 @@ A supervisor is created only while `boot` builds the application value, in boot 
 The checker follows this across the whole program, std included. A function is *boot-only* when it calls `Supervisor.new` or another boot-only function, directly or through any chain of calls in any module: std::jobs's `Worker.new` is one, and so is an app's function that calls it. Code starts running outside boot in `fn main`, in a test body, in a lambda or capture (wherever it is written, since it runs whenever it is called), and in a private function nothing calls. Each call such code makes to a boot-only function is an error at that call, naming the chain down to `Supervisor.new`: `` `make_worker` creates a supervisor (through `Worker.new` at workers.nomi:4, then `Supervisor.new` at jobs.nomi:483), so it can only be called while `boot` builds the app value ``. A call inside a boot-only function is not itself an error; the call into that function is. A `pub` function nothing calls is not checked from inside: it is another module's to call. `boot`, and a function a test group's `boot` calls, runs inside boot, and so does an entry boot a test calls. A boot-only function named as a value (`f = Worker.new`) is an error where it is named, in boot too, since a function value may be called anywhere. The runtime traps with the same message as a backstop.
 
 ```nomi
-import {
+import
     std::duration.Duration
     std::supervisors.Supervisor
-}
+end
 
-struct App {
+struct App
     context: Context
     audit: Supervisor
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4, shutdown_timeout: Duration.seconds(30)),
     })
-}
+end
 ```
 
 #### Spawning under a supervisor
@@ -7955,11 +8203,11 @@ fn boot() -> Result<App, String> {
 `Supervisor.spawn(supervisor, body)` starts a task under the supervisor and returns a `Task<Unit>` at once. The body must return `Unit`, since nobody is required to await it: `argument 2: expected () -> Unit, got () -> Int`. The handle is the one task handle that may be discarded with `_ =`; it may also be cancelled, inspected with `Task.outcome` or awaited.
 
 ```nomi
-fn handle_order(id: Int) -> Response {
+fn handle_order(id: Int) -> Response
     response = build_response(id)
     _ = Supervisor.spawn(App.audit, fn -> record_audit(id, response))
     response
-}
+end
 ```
 
 A supervised task may open its own `concurrent` block; the block owns the tasks it starts, and the supervisor owns the task.
@@ -7973,11 +8221,11 @@ The program drains every supervisor when `main` returns or the process receives 
 `Task.outcome(task)` reports how a task ended, as std::tasks's `Outcome<T>`:
 
 ```nomi
-enum Outcome<T> {
+enum Outcome<T>
     Completed T
     Cancelled
     Failed Failure
-}
+end
 ```
 
 A body that returns `Err(e)` produced a value, so its outcome is `Completed(Err(e))`. `Failed` is a trap (§11 *Traps, `Maybe` and `Result`*). A supervisor may restart failed work, and never restarts a cancelled task, since cancellation is not a failure. [std::supervisors](/reference/supervisors/) has the restart policies and `Supervisor.flush`.
@@ -7988,13 +8236,13 @@ A body that returns `Err(e)` produced a value, so its outcome is `Completed(Err(
 
 Taught in [Testing](/testing/).
 
-`test "name" { ... }` declares one test. Tests may be declared in any `.nomi` file. They are checked with the program but run only under `nomi test`; an ordinary run ignores them. How `nomi test` finds, selects, times and reports tests is in the [tooling reference](/tooling/running-tests/).
+`test "name"`, its body below and `end`, declares one test. Tests may be declared in any `.nomi` file. They are checked with the program but run only under `nomi test`; an ordinary run ignores them. How `nomi test` finds, selects, times and reports tests is in the [tooling reference](/tooling/running-tests/).
 
 ```nomi
-test "new user" {
+test "new user"
     user = users.new("Alice", 30)
     assert user.name == "Alice"
-}
+end
 ```
 
 - A `test` is declared at the top level of a file or in a `group`. One inside a body (a function's, a lambda's, a test's or a `once` initializer's) is the error `` a `test` is declared at the top level of a file or in a `group`; it cannot be nested inside a body ``.
@@ -8007,31 +8255,31 @@ test "new user" {
 
 Taught in [Testing](/testing/#groups-and-setup).
 
-`group "name" { ... }` holds tests that share a clock, a boot or a setup. It holds at most one `clock` line, at most one `boot` line, at most one `setup`, and its `test` blocks, or a `subtests` block that holds them all and runs them once per row (§17 *Subtests in a group*). Each part is optional and may stand anywhere among the tests; they run in a fixed order whatever their position.
+`group "name"`, its lines and tests below and `end`, holds tests that share a clock, a boot or a setup. It holds at most one `clock` line, at most one `boot` line, at most one `setup`, and its `test` blocks, or a `subtests` block that holds them all and runs them once per row (§17 *Subtests in a group*). Each part is optional and may stand anywhere among the tests; they run in a fixed order whatever their position.
 
 ```nomi
-group "defaults" {
-    setup .{name: "No Name"}
+group "defaults"
+    setup {name: "No Name"}
 
-    test "default user", .{name} {
+    test "default user", {name:}
         user = users.default()
         assert user.name == name
-    }
-}
+    end
+end
 ```
 
 | Violation | Error |
 |---|---|
 | A `group` inside a body | `` a `group` is declared at the top level of a file; it cannot be nested inside a body `` |
 | A `group` inside a `group` | `` a `group` cannot contain another `group`; write a sibling group instead `` |
-| A `group` with no name | `` a `group` needs a name; name the group for what its tests share, such as `group "dates" { ... }` `` |
+| A `group` with no name | `` a `group` needs a name; name the group for what its tests share, such as `group "dates"` `` |
 | An empty name | `` a `group` name must not be empty; name the group for what its tests share, such as `group "dates"` `` |
 | A second `clock`, `boot` or `setup` | `` a `group` has at most one `setup` line `` (and the same for `clock` and `boot`) |
 | `fn boot` in a group | `` a `group` does not define `fn boot`; it names an entry's boot on a `boot` line, such as `boot server.boot(startup)` `` |
 | Anything else in a group body | `` a group body may contain only clock, boot, setup, subtests and test declarations `` |
 | A `boot` line that calls anything but an entry's boot | `` `boot` in a `group` calls an entry's boot, the `fn boot` of a file that defines `fn main`, such as `boot server.boot(startup)`; `helpers.make_app` is not one `` |
 
-`group` is a keyword only at the top level of a file, before a name string or a `{`. Anywhere else it is an ordinary name, so `group = Iter.group_by(...)` works.
+`group` is a keyword only at the top level of a file, before a name string or alone on its line. Anywhere else it is an ordinary name, so `group = Iter.group_by(...)` works.
 
 **Each test starts fresh.** For each test of a group: its clock is selected, the `boot` line's call runs and publishes the application value, `setup` runs, then the test's body. Nothing carries from one test to the next. A `defer` in the boot or the setup runs when that test finishes, after its body and its work.
 
@@ -8040,18 +8288,18 @@ group "defaults" {
 **`boot`.** The `boot` line calls an entry's boot (§15 *Scoped application fields*) as an ordinary call checked against the boot's signature: `boot server.boot()` calls a boot that takes no parameter or whose parameter has a default, and `boot server.boot(startup)` passes a `Startup`. The test file imports the entry file. A test outside a group, or in a group with no `boot` line, runs with no boot and cannot read application fields. A boot that returns `Err` fails each test it serves before the body runs, with the report of an early `?`: the `boot` line, and the `Err` it returned.
 
 ```nomi
-import {
+import
     server
     server.App
-}
+end
 
-group "configured sender" {
-    boot server.boot(Startup{env: %{"SENDER" => "ada"}})
+group "configured sender"
+    boot server.boot(Startup{env: {"SENDER" => "ada"}})
 
-    test "reads the booted sender" {
+    test "reads the booted sender"
         assert App.sender == "ada"
-    }
-}
+    end
+end
 ```
 
 **Calling boot in a test.** A test may also call an entry's boot as an ordinary function, to check what it returns: the `Err` that stops the program, or the fields of the app in `Ok`. The call may stand in a `test` body, a group's `setup` or an attached test, lambdas inside them included; anywhere else, and as a function value anywhere, it is the error in §15 *Scoped application fields*. The call runs boot as the program does, so boot may create supervisors, but it publishes nothing: the test reads the app's fields from the value it got, and `App.field` still reads only what the group's `boot` line published. What the boot starts belongs to the test that called it: its supervised work is stopped and the calls it registered with `defer` run when that test finishes, after its body, whether boot returned `Ok` or `Err`.
@@ -8059,28 +8307,28 @@ group "configured sender" {
 ```nomi
 import server
 
-test "postgres needs a database URL" {
-    startup = Startup{env: %{"STORE" => "postgres"}}
+test "postgres needs a database URL"
+    startup = Startup{env: {"STORE" => "postgres"}}
     assert server.boot(startup) is Err("STORE=postgres needs DATABASE_URL")
-}
+end
 ```
 
-**`setup`.** `setup expr`, or `setup { ... }` with statements before its final value, produces the value the group's tests receive. A setup whose last line is a statement, such as a `with` line, produces `Unit`; one whose last line is `assert x` produces what `ok = assert x` binds. `return value` in a setup ends the setup with that value, and the setup's type is the type its final value and every `return` agree on. A `with` line in `setup` stays in force for the body of the test it serves, so `setup` is where a group installs fakes. A `?` or a failed assertion in `setup` fails the test it serves with the same report it would give in the body, and the body does not run.
+**`setup`.** `setup expr`, or `setup begin` with statements before its final value and `end`, produces the value the group's tests receive. A setup whose last line is a statement, such as a `with` line, produces `Unit`; one whose last line is `assert x` produces what `ok = assert x` binds. `return value` in a setup ends the setup with that value, and the setup's type is the type its final value and every `return` agree on. A `with` line in `setup` stays in force for the body of the test it serves, so `setup` is where a group installs fakes. A `?` or a failed assertion in `setup` fails the test it serves with the same report it would give in the body, and the body does not run.
 
-A test binds the setup's value with a pattern after its name: a name (`test "loads rows", db`), a tuple (`(left, right)`) or a record (`.{name}`). A test with no pattern ignores the value. The pattern must match every value of the setup's type: `a test's pattern must match every setup value; bind it with a name or an irrefutable pattern and match it in the body`. Bindings inside `setup` do not reach the tests.
+A test binds the setup's value with a pattern after its name: a name (`test "loads rows", db`), a tuple (`(left, right)`) or a record (`{name:}`). A test with no pattern ignores the value. The pattern must match every value of the setup's type: `a test's pattern must match every setup value; bind it with a name or an irrefutable pattern and match it in the body`. Bindings inside `setup` do not reach the tests.
 
 ```nomi
-group "store" {
-    setup {
+group "store"
+    setup begin
         db = sqlite.open("tasks.tsv")?
         defer sqlite.close(db)
         db
-    }
+    end
 
-    test "loads rows", db {
+    test "loads rows", db
         assert Store.count(db) == 0
-    }
-}
+    end
+end
 ```
 
 A test's standard input and output are captured with `io.capture` and `io.replay` ([std::io](/reference/io/)), and its files with [std::fs_testing](/reference/fs_testing/).
@@ -8101,9 +8349,9 @@ Contiguous `//!` lines are one attached test; a blank line starts another. A `//
 ```nomi
 //! assert answer() == 42
 //
-fn answer() -> Int {
+fn answer() -> Int
     42
-}
+end
 ```
 
 ### Assertions
@@ -8129,7 +8377,7 @@ assert [left, right] = pair
 assert Err(Error.InvalidFormat(reason)) = Date"not-a-date"
 ```
 
-**Where an assertion stands.** An assertion is a statement, or a binding's value (`ok = assert x`). Its value is the same wherever it stands: `ok = { assert x }`, an `if` or `case` arm ending in `assert x` whose value is bound, `ok: Bool = assert x` and `Some(n) = assert m else { ... }` all bind what `ok = assert x` binds, and `_ = assert x` checks `x` and discards it. A case arm's body may be an assertion. It is not an operand: `not assert x` is the error `` `assert` cannot be an operand of `not` ``, whose help suggests `refute x` or `assert not x`, and so is an assertion beside any binary operator but `|>`. Anywhere else it is the error `` `assert` cannot be used as a value here: an assertion stands as its own statement or as a binding's value ``: as another assertion's subject, an argument, a collection element, inside parentheses, a condition or scrutinee, a returned value, or the head of a pipe. To assert a pipeline, put the keyword before the whole of it:
+**Where an assertion stands.** An assertion is a statement, or a binding's value (`ok = assert x`). Its value is the same wherever it stands: `ok = begin` above `assert x` and `end`, an `if` or `case` arm ending in `assert x` whose value is bound, `ok: Bool = assert x` and `Some(n) = assert m else return` all bind what `ok = assert x` binds, and `_ = assert x` checks `x` and discards it. A case arm's body may be an assertion. It is not an operand: `not assert x` is the error `` `assert` cannot be an operand of `not` ``, whose help suggests `refute x` or `assert not x`, and so is an assertion beside any binary operator but `|>`. Anywhere else it is the error `` `assert` cannot be used as a value here: an assertion stands as its own statement or as a binding's value ``: as another assertion's subject, an argument, a collection element, inside parentheses, a condition or scrutinee, a returned value, or the head of a pipe. To assert a pipeline, put the keyword before the whole of it:
 
 ```nomi
 assert "Ada Lovelace"
@@ -8143,11 +8391,11 @@ assert "Ada Lovelace"
 ```nomi
 import std::testing
 
-test "total" {
+test "total"
     total = 10
     assert total > 0
     testing.check(total == 10)
-}
+end
 ```
 
 When a `?` exits a test early, the report shows the `?`'s source and the value it returned.
@@ -8162,27 +8410,27 @@ A failed assertion's report shows the assertion and, under `values:`, each opera
 
 Taught in [Testing](/testing/#subtests).
 
-`subtests rows, pattern { body }` runs a test's body once per row of a table, in order, with `pattern` bound to the row. `rows` is anything `Iter` accepts: a `List`, `Vector`, `Set`, `Range` or `Iter`, or a `Map`, whose rows are its `(key, value)` pairs.
+`subtests rows, pattern`, its body below and `end`, runs the body once per row of a table, in order, with `pattern` bound to the row. `rows` is anything `Iter` accepts: a `List`, `Vector`, `Set`, `Range` or `Iter`, or a `Map`, whose rows are its `(key, value)` pairs.
 
 ```nomi
-test "determines palindromes" {
+test "determines palindromes"
     cases = [("abba", True), ("abc", False), ("x", True)]
 
-    subtests cases, (line, known_palindrome) {
+    subtests cases, (line, known_palindrome)
         assert is_palindrome(line) == known_palindrome
-    }
-}
+    end
+end
 ```
 
-The rows may also be piped into the statement: `rows |> subtests pattern, name { body }` is `subtests rows, pattern, name { body }`. The `|> subtests` stage has no value, so it must be the last stage of a pipeline that stands as a statement of its own. A stage after it is the error `` `|> subtests` must be the last stage of its pipeline: it has no value to pass on ``, and a pipeline used as a value is `` a `|> subtests` stage has no value, so its pipeline must be a statement of its own ``.
+The rows may also be piped into the statement: `rows |> subtests pattern, name` is `subtests rows, pattern, name`, each with the same body and `end`. The `|> subtests` stage has no value, so it must be the last stage of a pipeline that stands as a statement of its own. A stage after it is the error `` `|> subtests` must be the last stage of its pipeline: it has no value to pass on ``, and a pipeline used as a value is `` a `|> subtests` stage has no value, so its pipeline must be a statement of its own ``.
 
 ```nomi
-test "doubles" {
+test "doubles"
     [(1, 2), (2, 4), (3, 6)]
-    |> subtests (n, doubled) {
+    |> subtests (n, doubled)
         assert n * 2 == doubled
-    }
-}
+    end
+end
 ```
 
 The rules:
@@ -8194,23 +8442,23 @@ The rules:
 - `subtests` is a statement whose value is `Unit`, and it fails as an assertion does. In a function that returns `Result<_, AssertionFailure>`, a failure returns `Err(failure)`, whose `keyword` is `"subtests"`, whose `reason` is the count line (`2 of 3 subtests failed`), and whose `subtests` field lists each failed row as a `SubtestFailure` with its `row` and its `failure`. Where an assertion cannot stand, neither can `subtests`: in a function with another result (`` `subtests` can return AssertionFailure, but the enclosing function returns Int ``), in a lambda, in a `once` initializer (`` `subtests` cannot be used in the initializer of `once v`: a `once` has no function to return from ``) or in a default. It cannot be written in a `setup` (`` `subtests` cannot be used in a `setup`: a setup builds the value each test binds ``) or inside another `subtests` body (`` `subtests` cannot be written inside another `subtests` body: each row of the outer statement is one case ``).
 - `subtests` is a keyword only where a statement starts with it, an expression starts on its line, and a comma follows that expression, or after `|>`. Anywhere else it is an ordinary name: `subtests = rows` and a function named `subtests` work.
 
-**Row names.** `subtests rows, pattern, name { body }` names each row. `name` is an expression of type `String`, written after the pattern and a comma, and evaluated once per row after the pattern binds and before the body runs, in the scope of the pattern's bindings. A binding only the name reads counts as used. The name ends where the body's `{` begins, and a struct literal, which starts with its name or `.`, may stand in it (`Point{x, y} |> Point.describe()`). A `_` or `_`-prefixed name in the pattern discards a column either way.
+**Row names.** `subtests rows, pattern, name` names each row. `name` is an expression of type `String`, written after the pattern and a comma, and evaluated once per row after the pattern binds and before the body runs, in the scope of the pattern's bindings. A binding only the name reads counts as used. The name ends with the header's line, and a struct literal may stand in it (`Point{x:, y:} |> Point.describe()`). A `_` or `_`-prefixed name in the pattern discards a column either way.
 
 - A name of another type is `` the name of a `subtests` row must be a String, got Int ``.
 - The name is evaluated on its own, so `return`, `break`, `continue`, `?` and an assertion directly in it are errors, such as `` `?` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs ``.
 - A name that traps fails its row, and the row's body does not run (below).
 
 ```nomi
-test "leap years" {
+test "leap years"
     cases = [
         ("year divisible by 400 is leap year", 2000, True),
         ("year divisible by 100, not divisible by 400 in common year", 1900, False),
     ]
 
-    subtests cases, (description, year, expected), description {
+    subtests cases, (description, year, expected), description
         assert is_leap_year(year) == expected
-    }
-}
+    end
+end
 ```
 
 **Reports.** After the last row, when any row failed, the statement fails with a report that lists each failed row: the row rendered as a `values:` row renders a value, or its name as a String literal, then that row's assertion report, then the count. Passing rows are not listed. Two rows may share a name.
@@ -8242,26 +8490,26 @@ A row whose name trapped is listed under the rendered row with `its name trapped
 
 Taught in [Testing](/testing/#subtests-in-a-group).
 
-`subtests rows, pattern { ... }` written in a `group` holds the group's `clock`, `boot` and `setup` lines and its tests, and runs all of them once per row, with `pattern` bound to the row in the `boot` line, the `setup` and every test. Each row's tests are cases of their own, and each starts fresh as any test of a group does: for each row and each test, the clock is selected, the `boot` line runs with that row, then the `setup`, then the test's body. The boot is the entry's `fn boot`, run once for each case.
+`subtests rows, pattern`, written in a `group` with its items below and `end`, holds the group's `clock`, `boot` and `setup` lines and its tests, and runs all of them once per row, with `pattern` bound to the row in the `boot` line, the `setup` and every test. Each row's tests are cases of their own, and each starts fresh as any test of a group does: for each row and each test, the clock is selected, the `boot` line runs with that row, then the `setup`, then the test's body. The boot is the entry's `fn boot`, run once for each case.
 
 ```nomi
-import {
+import
     server
     server.App
-}
+end
 
-group "todo api" {
-    subtests ["memory", "sqlite"], store {
-        boot server.boot(Startup{env: %{"STORE" => store}})
+group "todo api"
+    subtests ["memory", "sqlite"], store
+        boot server.boot(Startup{env: {"STORE" => store}})
 
-        test "boots the row's store" {
+        test "boots the row's store"
             assert App.store == store
-        }
-    }
-}
+        end
+    end
+end
 ```
 
-A case is named with its row after the group's name, in brackets: `todo api [memory] / boots the row's store`, then `todo api [sqlite] / boots the row's store`, rows in order and, within a row, the tests in order. A row that is a String is named by its text. `subtests rows, pattern, name { ... }` names a row by a column: `name` is a name the pattern binds to a String in every row, as in `subtests [("memory", 1), ("sqlite", 4)], (store, workers), store`. Any other row is named as a `values:` row renders it: `[2]`, `[("memory", 1)]`. A test inside may run a `subtests` statement of its own, whose rows count as that case's cases (*Cases* above), so the group's cases are its rows times its tests, each counted as its own statements' rows. `nomi test --line` at the `subtests` line, as at the group's, runs the whole group, and at a test, that test for every row. `nomi test --run` matches a case by this name, so a pattern naming a row, `--run '\[sqlite\]'`, runs that row alone.
+A case is named with its row after the group's name, in brackets: `todo api [memory] / boots the row's store`, then `todo api [sqlite] / boots the row's store`, rows in order and, within a row, the tests in order. A row that is a String is named by its text. `subtests rows, pattern, name` names a row by a column: `name` is a name the pattern binds to a String in every row, as in `subtests [("memory", 1), ("sqlite", 4)], (store, workers), store`. Any other row is named as a `values:` row renders it: `[2]`, `[("memory", 1)]`. A test inside may run a `subtests` statement of its own, whose rows count as that case's cases (*Cases* above), so the group's cases are its rows times its tests, each counted as its own statements' rows. `nomi test --line` at the `subtests` line, as at the group's, runs the whole group, and at a test, that test for every row. `nomi test --run` matches a case by this name, so a pattern naming a row, `--run '\[sqlite\]'`, runs that row alone.
 
 The rows are read when the tests are collected, before anything runs, because each row's cases are named and counted then. So:
 
@@ -8270,7 +8518,7 @@ The rows are read when the tests are collected, before anything runs, because ea
 - The pattern must match every row, as a statement's must: `` a `subtests` pattern must match every row; bind it with a name or an irrefutable pattern and match it in the body ``.
 - A name is a String column of the pattern: `` the name of a row of a `subtests` block in a `group` is a String column its pattern binds, such as `subtests [("memory", 1)], (store, workers), store` ``, and a column of another type is `` the name of a `subtests` row must be a String, got Int ``.
 - The block is the group's only item, so every item runs once per row and none runs without one: `` a `group` with a `subtests` block holds nothing else: its clock, boot, setup and tests go inside the block, which runs them once per row ``.
-- Rows have two dimensions at most: a group's row, and a statement's row in one of its tests. A block inside the block is `` `subtests` in a group cannot hold another `subtests`: each row of the outer one boots the group once ``; write the rows as tuples instead, as in `subtests [("memory", 1), ("sqlite", 2)], (store, workers) { ... }`.
+- Rows have two dimensions at most: a group's row, and a statement's row in one of its tests. A block inside the block is `` `subtests` in a group cannot hold another `subtests`: each row of the outer one boots the group once ``; write the rows as tuples instead, as in `subtests [("memory", 1), ("sqlite", 2)], (store, workers)`.
 - In a group, `subtests` is a keyword where an item starts with it and an expression follows on its line.
 
 ## 18. Typed literals and keyword declarations
@@ -8286,46 +8534,46 @@ A typed literal is a type name written directly against a string literal: `Date"
 A type backs its literals by implementing `Literal`, from `std::literals`:
 
 ```nomi
-pub interface Literal<I, R> {
+pub interface Literal<I, R>
     fn from_fragments(fragments: List<Fragment<I>>) -> R
-}
+end
 
-pub enum Fragment<T> {
+pub enum Fragment<T>
     Static String
     Dynamic T
-}
+end
 ```
 
 The impl chooses `I`, what each `${...}` slot's value must be, and `R`, the literal's result. `I` may be an interface, such as `Display`, whose slot values each implement it in their own way, or a concrete type: `Fragment<String>` accepts only `String` slots. `from_fragments` is an ordinary function body.
 
 ```nomi
-import {
+import
     std::io
     std::literals.{Fragment, Literal}
-}
+end
 
-pub struct Box {
+pub struct Box
     contents: String
-}
+end
 
-impl Literal for Box {
-    fn from_fragments(fragments: List<Fragment<String>>) -> Box {
-        body = Iter.reduce(fragments, "", fn acc, frag -> {
-            case frag {
+impl Literal for Box
+    fn from_fragments(fragments: List<Fragment<String>>) -> Box
+        body = Iter.reduce(fragments, "", fn acc, frag ->
+            case frag
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
-            }
-        })
+            end
+        end)
 
         Box{contents: body}
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     name = "world"
     b = Box"hello ${name}"
     io.print(b.contents) // hello world
-}
+end
 ```
 
 Neither `Literal`, `Fragment` nor `Fragment`'s variants are in the prelude. Only a handler's author names them, so they are not reserved names.
@@ -8382,18 +8630,18 @@ A raw body never interpolates, so the handler's input is fixed. When the handler
 A `?` on such a literal is the ordinary error `` `?` requires a Result or Maybe, got Regex<Unit> ``, whose hint says to remove the `?`. A handler that returns `T` itself gives the type `T` in both quote styles.
 
 ```nomi
-import {
+import
     std::io
     std::regex.Regex
-}
+end
 
 once letters = Regex`[A-Za-z]+`
 
-fn main() {
+fn main()
     digits: Regex<Unit> = Regex`\d+`
     io.print(String.find_all("order 66, aisle 7", digits)) // [66, 7]
     io.print(String.find_all("ab 12 cd", letters)) // [ab, cd]
-}
+end
 ```
 
 When the program runs, a raw literal still calls its handler, once per literal site: the first evaluation builds the value and later ones reuse it. The handler is pure and its input fixed, so the run gets the value the compiler got.
@@ -8403,27 +8651,24 @@ When the program runs, a raw literal still calls its handler, once per literal s
 A type may implement `CheckedLiteral<I, T>` from std::literals instead of `Literal`:
 
 ```nomi
-pub interface CheckedLiteral<I, T> {
+pub interface CheckedLiteral<I, T>
     fn check(statics: List<String>) -> Result<Unit, LiteralError>
 
-    open fn check_type(
-        statics: List<String>,
-        arguments: List<String>,
-    ) -> Result<Unit, LiteralError> {
+    open fn check_type(statics: List<String>, arguments: List<String>) -> Result<Unit, LiteralError>
         _ = arguments
         check(statics)
-    }
+    end
     fn build(fragments: List<Fragment<I>>) -> T
-}
+end
 ```
 
 Its literals are checked literals. A checked literal's type is `T` in every quote style, with or without slots; it is never a `Result`:
 
 - `check` runs while the program is checked, once per literal, on the literal's static text: the `n + 1` pieces around its `n` slots, in order, empty ones included. It follows the rules of a raw literal's handler: a `check` that reaches an effect is one error at the check, ``Url.check has effects (...); a checked literal's check runs when the program is checked``, and one that does not finish within the step limit is an error at the literal.
-- What the compiler runs is `check_type`, whose default is `check`. It gets the statics and a description of the literal's type: each of its type arguments as Nomi spells it, in order, after the expected type solved them (§18 *Literals typed by their position*). A `Route<.{id: Uuid}>` literal gets `[".{id: Uuid}"]`, a `Url` literal `[]`. The description is text, not the types; nothing in it is a value of the type. A type whose text must agree with its type arguments, as a route's wildcards agree with its parameters, writes `check_type`; it follows `check`'s rules, and an effect in it is reported as `Route.check_type has effects (...)`.
+- What the compiler runs is `check_type`, whose default is `check`. It gets the statics and a description of the literal's type: each of its type arguments as Nomi spells it, in order, after the expected type solved them (§18 *Literals typed by their position*). A `Route<{id: Uuid}>` literal gets `["{id: Uuid}"]`, a `Url` literal `[]`. The description is text, not the types; nothing in it is a value of the type. A type whose text must agree with its type arguments, as a route's wildcards agree with its parameters, writes `check_type`; it follows `check`'s rules, and an effect in it is reported as `Route.check_type has effects (...)`.
 - A generic type's impl, `impl CheckedLiteral<String, Route<P>> for Route<P>`, gives each literal fresh type arguments, which the expected type solves as it solves a generic call's.
-- std::http's `Route<P>` is the one checked literal whose type follows from its text when nothing else gives it, as a `Regex` literal's captures do: with no expected type, or one that leaves `P` open once the arguments that solve it on their own are checked (§18 *Literals typed by their position*), ``Route`GET /users/{id}` `` is a `Route<.{id: String}>`, a `String` field per wildcard (`{rest...}` included), and a route with none is a `Route<Unit>`. Its `check_type` holds the wildcards to `P`'s fields, ``the pattern has `{id}`, but `.{post_id: Uuid}` has no field `id` `` at the wildcard, and the checker holds each field's type to `Parse` and `Display`: ``a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse` ``.
-- An `Err(LiteralError{fragment, offset, message})` is a compile error carrying `message` at the character `offset` code points into static `fragment`, counted in the text as `check` received it. An offset at a static's end points at the `${` of the slot after it; fragment 0 and offset 0 point at the literal.
+- std::http's `Route<P>` is the one checked literal whose type follows from its text when nothing else gives it, as a `Regex` literal's captures do: with no expected type, or one that leaves `P` open once the arguments that solve it on their own are checked (§18 *Literals typed by their position*), ``Route`GET /users/{id}` `` is a `Route<{id: String}>`, a `String` field per wildcard (`{rest...}` included), and a route with none is a `Route<Unit>`. Its `check_type` holds the wildcards to `P`'s fields, ``the pattern has `{id}`, but `{post_id: Uuid}` has no field `id` `` at the wildcard, and the checker holds each field's type to `Parse` and `Display`: ``a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse` ``.
+- An `Err(LiteralError{fragment:, offset:, message:})` is a compile error carrying `message` at the character `offset` code points into static `fragment`, counted in the text as `check` received it. An offset at a static's end points at the `${` of the slot after it; fragment 0 and offset 0 point at the literal.
 - `build` runs when the program runs, gets the fragments `from_fragments` would get, and cannot fail: once `check` accepts the text, every slot value must build. A `build` that traps anyway traps where it runs.
 
 A type implements `Literal` or `CheckedLiteral`, not both: ``type `Twice` implements both `Literal` and `CheckedLiteral`; a typed literal has one handler``. The orphan rule below applies to both.
@@ -8431,30 +8676,30 @@ A type implements `Literal` or `CheckedLiteral`, not both: ``type `Twice` implem
 std::url's `Url` is a checked literal, and its slot interface is `Display`: a slot's value is its `Display` text, escaped for where it stands, as one segment in the path, one key or value in the query, or the fragment. A `.` or `..` in the path is escaped too. A `Query` or a `Url` in a slot is its text like any other value, one segment or one value; `Url.with_query` and `Url.join_path` add pairs and segments. A slot in its scheme, user or host is a compile error at the slot, whatever its type: ``typed literal Url"https://${host}/greet" is invalid: a slot in the scheme, user or host cannot be escaped``.
 
 ```nomi
-import {
+import
     std::io
     std::url.Url
-}
+end
 
-fn main() {
+fn main()
     name = "ann b"
     u = Url"https://api.example.com/greet/${name}"
     io.print(u) // https://api.example.com/greet/ann%20b
-}
+end
 ```
 
 std::toml's `Toml` is a checked literal too. Its text, with a stand-in for each slot, must be TOML. A slot in value position (after `=`, or as an array item) is its value's TOML. The slot interface `ToToml` turns the value into a `Toml.Value` (a string, number, boolean, date or time, an array, or an inline table), and the literal writes that itself: a `String` quoted and escaped, a `List` as an array, a `Map<String, V>` as an inline table with quoted keys. No impl writes TOML text, so no slot can add a key. A slot in key position (at the start of a line, after a `.` in a dotted key, in a table header, or as an inline table's key) is one quoted key. A slot anywhere else is a compile error at the slot: ``typed literal Toml"user = \"${name}\"" is invalid: a slot cannot go inside a TOML string; write it where the whole value goes, as in `key = ${value}` ``.
 
 ```nomi
-import {
+import
     std::io
     std::toml.Toml
-}
+end
 
-fn main() {
+fn main()
     user = "x\"\nadmin = true"
     io.print(Toml.text(Toml"user = ${user}")) // user = "x\"\nadmin = true"
-}
+end
 ```
 
 A `?` or `!` on a checked literal is the ordinary error for a value that is not a `Result`, and a `?`'s hint says the literal is already its type: `` a `Url` literal is checked when the program is checked, so this one is already a Url: remove the `?` ``. std::literals_testing's `build_each` runs a type's `check` and then its `build` over test values, so a library's tests can hold `build` to its contract.
@@ -8464,21 +8709,21 @@ A `?` or `!` on a checked literal is the ordinary error for a value that is not 
 A string literal with no tag, written where the expected type is a type with a `CheckedLiteral` impl, is that type's checked literal, as if the type's name were written before it. It is the rule a dot-variant follows (§4 *Variant Resolution*): the expected type the checker's outside-in walk finds names the type, and the literal is read as that type's. So an annotated binding, an argument, a struct field, a returned value, a list element and a `case` or `if` arm in one of those all give it.
 
 ```nomi
-import {
+import
     std::io
     std::url.Url
-}
+end
 
-struct Link {
+struct Link
     label: String
     to: Url
-}
+end
 
-fn home() -> Url {
+fn home() -> Url
     "https://example.com/"
-}
+end
 
-fn main() {
+fn main()
     name = "ann b"
     profile: Url = "https://example.com/users/${name}"
     links = [Link{label: "home", to: home()}, Link{label: "me", to: profile}]
@@ -8488,12 +8733,12 @@ fn main() {
         |> Iter.map(fn l -> "${l.label}: ${l.to}")
         |> Iter.to_list()
     )
-}
+end
 ```
 
 - The literal is checked as the tagged one is: its slots take the impl's slot type, `check` runs when the program is checked, and a refusal is an error at the place it names, labelled with the type: ``a `Url` literal "https://${host}/a" is invalid: a slot in the scheme, user or host cannot be escaped``.
 - Only a literal converts. A `String` value where a `Url` is expected is the ordinary mismatch, `` argument 1: expected Url, got String ``.
-- A checked literal, tagged or not, passed to a generic function where its parameter's type holds a type parameter that another argument solves on its own is checked after that argument, against the solved type. An argument solves it on its own when its type does not depend on its slot: a name of a value or function that is not generic, or a lambda whose parameters are all annotated. With `fn update(r: Request, p: .{id: Int}) -> Response`, `Route.to_with("PATCH /todos/{id}", update)` checks the route as a `Route<.{id: Int}>`. A lambda that leaves a parameter's type to the call, `fn r, p -> ...`, takes it from the literal, which is checked first, as written. The arguments still run in the order they are written. A literal piped into such a stage, `"PATCH /todos/{id}" |> Route.to_with(update)`, is typed the same way, though there only an argument that names a value counts, since the head is checked before the stage.
+- A checked literal, tagged or not, passed to a generic function where its parameter's type holds a type parameter that another argument solves on its own is checked after that argument, against the solved type. An argument solves it on its own when its type does not depend on its slot: a name of a value or function that is not generic, a lambda whose parameters are all annotated, or a call of a named function on such arguments whose result names no type parameter its parameters leave out. With `fn update(r: Request, p: {id: Int}) -> Response`, `Route.to_with("PATCH /todos/{id}", update)` checks the route as a `Route<{id: Int}>`, and so does `Route.to_with("PATCH /todos/{id}", auth(update))` with a middleware `fn auth<P>(handler: (Request, P) -> Response) -> (Request, P) -> Response`, through any number of layers. A lambda that leaves a parameter's type to the call, `fn r, p -> ...`, takes it from the literal, which is checked first, as written. The arguments still run in the order they are written. A literal piped into such a stage, `"PATCH /todos/{id}" |> Route.to_with(update)`, is typed the same way, though there only a name of a value or a call on such names counts, since the head is checked before the stage.
 - With no expected type, or one with no `CheckedLiteral` impl, the literal is a `String`, as always. A `Literal` impl does not make a literal typed by its position, since such a literal is its handler's result, usually a `Result` built when the program runs.
 - The literal keeps the form it was written in; `nomi fmt` does not add or remove a tag.
 
@@ -8508,27 +8753,27 @@ An `Html` literal, with std::html's `Html` as its prefix, is a fragment of HTML 
 A small fragment is usually written on one line with double quotes, its attributes quoted with `'`, since a `"` ends the literal. Markup of several lines is triple-quoted:
 
 ```nomi
-import {
+import
     std::html.Html
     std::io
-}
+end
 
-fn badge(count: Int) -> Html {
+fn badge(count: Int) -> Html
     Html"<span class='badge'>${count}</span>"
-}
+end
 
-fn comment(author: String, body: String, likes: Int) -> Html {
+fn comment(author: String, body: String, likes: Int) -> Html
     Html"""
     <article class="comment">
       <p>${author} ${badge(likes)}</p>
       <p>${body}</p>
     </article>
     """
-}
+end
 
-fn main() {
+fn main()
     io.print(Html.to_string(comment("Bo & Co", "<b>hi</b>", 2)))
-}
+end
 ```
 
 The program prints the comment with its text escaped:
@@ -8568,27 +8813,26 @@ In element content, a type that implements `ToHtml` renders itself, even when it
 An `if` without `else` is a `Maybe` (§8 *`if`/`else`*), so a slot shows a part of the page only when a condition holds. In a whole unquoted value a `Maybe` writes the attribute or leaves it out. In every other context it writes its value as that context writes one, or nothing for `None`, so a `Maybe`'s text, `Some(...)`, is never written:
 
 ```nomi
-import {
+import
     std::html.Html
     std::io
-}
+end
 
-fn inbox(unread: Int, active: Bool) -> Html {
-    Html"<a class=${if active { "active" }}>Inbox${if unread > 0 { Html" <b>${unread}</b>" }}</a>"
-}
+fn inbox(unread: Int, active: Bool) -> Html
+    Html"<a class=${if active then "active"}>Inbox${if unread > 0 then Html" <b>${unread}</b>"}</a>"
+end
 
-fn badge(label: String, urgent: Bool, count: Maybe<Int>) -> Html {
-    Html"<span class='badge ${if urgent { "urgent" }}' data-count='${count}'>${label}</span>"
-}
+fn badge(label: String, urgent: Bool, count: Maybe<Int>) -> Html
+    Html"<span class='badge ${if urgent then "urgent"}' data-count='${count}'>${label}</span>"
+end
 
-fn main() {
+fn main()
     io.print(Html.to_string(inbox(2, True)))
     io.print(Html.to_string(inbox(0, False)))
     io.print(Html.to_string(badge("new", True, Some(3))))
     io.print(Html.to_string(badge("old", False, None)))
-}
+end
 ```
-
 ```text
 <a class="active">Inbox <b>2</b></a>
 <a>Inbox</a>
@@ -8763,9 +9007,9 @@ pub embed site `
     templates/*.html
     `
 
-fn home() -> String {
+fn home() -> String
     Files.read_text(site, "static/index.html")!
-}
+end
 ```
 
 The body is one or more patterns, separated by white space; a pattern that holds a space is written in double quotes (`"my notes.txt"`). A pattern is Go's `path.Match` pattern (`*`, `?`, `[a-z]`), slash-separated, and names files from the module root, as an import path names a file (§14 *Files and modules*), whatever directory the declaring file is in, so moving the file never changes what its patterns name. It never reaches outside the module. The other rules are Go's `//go:embed`'s:

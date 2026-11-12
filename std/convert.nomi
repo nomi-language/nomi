@@ -1,0 +1,35 @@
+//# The `From` interface: a value of one type made from a value of another.
+//# A `?` applies it when the error it propagates is not the function's
+//# declared error type.
+
+/// A type made from an `E`: `ApiError.from(e)`. A `?` on a `Result<T, E>`
+/// in a function that returns `Result<_, F>` applies `F`'s `From<E>` impl
+/// to the error it propagates, so a domain error type that wraps the errors
+/// of the libraries it calls writes one impl per wrapped type, and each `?`
+/// converts:
+///
+/// ```nomi
+/// enum ApiError
+///     Database sql.Error
+///     NotFound String
+/// end
+///
+/// impl From<sql.Error> for ApiError
+///     fn from(e: sql.Error) -> ApiError
+///         ApiError.Database(e)
+///     end
+/// end
+///
+/// fn count(conn: Conn) -> Result<Int, ApiError>
+///     n = db.count(conn)?
+///     Ok(n)
+/// end
+/// ```
+///
+/// The impl sits on the target type. `E` is an input, so a module may
+/// write `impl From<MyError> for TheirError` as well as `impl
+/// From<TheirError> for MyError`. A `?` applies one impl, never a chain of
+/// them, and a type needs no impl to convert to itself.
+pub interface From<E>
+    fn from(e: E) -> self
+end

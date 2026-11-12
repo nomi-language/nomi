@@ -15,13 +15,13 @@ Both fields are public, so when the amount comes from a variable, build the
 value from its fields with `Money{...}`:
 
 ```nomi-run
-import {
+import
     std::currency.Currency
     std::io
     std::money.Money
-}
+end
 
-fn main() {
+fn main()
     price = Money`19.99 USD`
     io.print(price)
     dbg price.amount
@@ -29,15 +29,14 @@ fn main() {
 
     cents = 1999
     amount = Int.to_decimal(cents) / 100d
-    dbg Money{amount, currency: Currency`USD`} == price
-}
-
+    dbg Money{amount:, currency: Currency`USD`} == price
+end
 ```
 <!-- expect
 19.99 USD
 dbg line 10: price.amount = 19.99d
 dbg line 11: price.currency = Currency`USD`
-dbg line 15: Money{amount, currency: Currency`USD`} == price = True
+dbg line 15: Money{amount:, currency: Currency`USD`} == price = True
 -->
 
 The compiler checks a `Money` literal, so a missing currency, an unknown
@@ -46,11 +45,10 @@ code or a malformed amount is an error before the program runs:
 ```nomi-run error
 import std::money.Money
 
-fn main() {
+fn main()
     price = Money`19.99`
     dbg price
-}
-
+end
 ```
 <!-- expect
 main.nomi:4:13: typed literal Money`19.99` is invalid: `19.99` has no currency: write the amount, one space and the currency, as Money`19.99 EUR`
@@ -67,12 +65,12 @@ by an `Int`, and `Iter.sum` adds a list of them. Nothing is lost to
 rounding:
 
 ```nomi-run
-import {
+import
     std::io
     std::money.Money
-}
+end
 
-fn main() {
+fn main()
     book = Money`12.50 USD`
     pen = Money`2.35 USD`
 
@@ -83,8 +81,7 @@ fn main() {
 
     empty: List<Money> = []
     io.print(Iter.sum(empty))
-}
-
+end
 ```
 <!-- expect
 14.85 USD
@@ -104,18 +101,17 @@ Adding dollars to euros gives a number with no meaning, so it stops the
 program, as a division by zero does. The message names both currencies:
 
 ```nomi-run error
-import {
+import
     std::io
     std::money.Money
-}
+end
 
-fn main() {
+fn main()
     price = Money`12.50 USD`
     fee = Money`2.00 EUR`
     total = price + fee
     io.print(total)
-}
-
+end
 ```
 <!-- expect
 line 9: Money.add: the amounts are in two currencies, USD and EUR
@@ -132,14 +128,14 @@ $3.333333 to six places, and it stays that way through more arithmetic.
 dollar, none for the yen.
 
 ```nomi-run
-import {
+import
     std::io
     std::money.Money
-}
+end
 
-fn main() {
+fn main()
     total = Money`10.00 USD`
-    third = .{..total, amount: total.amount |> Decimal.divide(3d, 6, .HalfEven)}
+    third = {..total, amount: total.amount |> Decimal.divide(3d, 6, .HalfEven)}
     io.print(third)
     io.print(Money.round(third))
 
@@ -147,8 +143,7 @@ fn main() {
     io.print(Money.round(Money`0.135 USD`))
     io.print(Money.round(Money`0.125 USD`, mode: .HalfUp))
     io.print(Money.round(Money`1234.5 JPY`))
-}
-
+end
 ```
 <!-- expect
 3.333333 USD
@@ -171,16 +166,15 @@ cent. `Money.split` gives parts that sum to the amount exactly, the leftover
 cent going to the first part, and `Money.allocate` splits by ratios:
 
 ```nomi-run
-import {
+import
     std::io
     std::money.Money
-}
+end
 
-fn main() {
+fn main()
     io.print(Money.split(Money`10.00 USD`, 3))
     io.print(Money.allocate(Money`10.00 USD`, [70, 30]))
-}
-
+end
 ```
 <!-- expect
 [3.34 USD, 3.33 USD, 3.33 USD]
@@ -206,18 +200,18 @@ This example is a small project of two files; each tab is one file:
 
 ```nomi-run
 // FILE: main.nomi
-import {
+import
     std::currency.Currency
     std::io
     std::money.Money
-}
+end
 
-fn main() {
+fn main()
     points = Money`1200 PTS:0` + Money`300 PTS:0`
     io.print(points)
     io.print(Money.format(points, Locale`en-US`))
     dbg Currency.parse("PTS:0") == Ok(points.currency)
-}
+end
 
 // FILE: nomi.toml
 [module]
@@ -274,12 +268,12 @@ currency's symbol in the right place. How a locale writes numbers is in
 [Locales & Formatting](/locales-and-formatting/).
 
 ```nomi-run
-import {
+import
     std::io
     std::money.Money
-}
+end
 
-fn main() {
+fn main()
     price = Money`1299.5 USD`
 
     [Locale`en-US`, Locale`de`, Locale`fr`]
@@ -288,8 +282,7 @@ fn main() {
     dbg "${price}"
     dbg Money.format(Money`1500 JPY`, Locale`ja`)
     Unit
-}
-
+end
 ```
 <!-- expect
 en-US: $1,299.50
@@ -317,13 +310,12 @@ narrow symbol, its code, or its name.
 ```nomi-run
 import std::money.Money
 
-fn main() {
+fn main()
     usd = Money`5 USD`
     dbg Money.format(usd, Locale`en-US`, display: .Code)
     dbg Money.format(usd, Locale`en-CA`)
     Unit
-}
-
+end
 ```
 <!-- expect
 dbg line 5: Money.format(usd, Locale`en-US`, display: .Code) = "USD\u{a0}5.00"
@@ -345,19 +337,18 @@ currency's symbol or code where the locale puts it. `lenient: True` also
 takes the amount alone.
 
 ```nomi-run
-import {
+import
     std::currency.Currency
     std::money.Money
-}
+end
 
-fn main() {
+fn main()
     usd = Currency`USD`
     dbg Money.parse_in("$1,299.50", Locale`en-US`, usd)
     dbg Money.parse_in("1299.50", Locale`en-US`, usd, lenient: True)
     dbg Money.parse_in("€12.50", Locale`en-US`, usd)
     Unit
-}
-
+end
 ```
 <!-- expect
 dbg line 8: Money.parse_in("$1,299.50", Locale`en-US`, usd) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})

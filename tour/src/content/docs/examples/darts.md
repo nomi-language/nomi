@@ -16,21 +16,21 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// The points a dart landing at `x`, `y` scores on a target centred on the
 /// origin: 10 inside radius 1, 5 inside radius 5, 1 inside radius 10, and
 /// nothing outside. A dart on a circle's edge counts as inside it.
-pub fn score(x: Float, y: Float) -> Int {
+pub fn score(x: Float, y: Float) -> Int
     distance_squared = x * x + y * y
 
-    case {
+    case
         distance_squared <= 1.0 -> 10
         distance_squared <= 25.0 -> 5
         distance_squared <= 100.0 -> 1
         _ -> 0
-    }
-}
+    end
+end
 
 // FILE: darts_test.nomi
 import darts
 
-test "scores a toss" {
+test "scores a toss"
     [
         ("Missed target", (-9.0, 9.0), 0),
         ("On the outer circle", (0.0, 10.0), 1),
@@ -46,10 +46,10 @@ test "scores a toss" {
         ("Just outside the outer circle", (7.1, -7.1), 0),
         ("Asymmetric position between the inner and middle circles", (0.5, -4.0), 5),
     ]
-    |> subtests (description, (x, y), expected), description {
+    |> subtests (description, (x, y), expected), description
         assert darts.score(x, y) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok scores a toss (13 cases)

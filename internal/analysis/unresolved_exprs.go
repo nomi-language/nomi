@@ -80,10 +80,16 @@ type unresolvedWalk struct {
 	// where is the position each node holds in its parent, for the report.
 	where map[ast.Node]string
 	out   []UnresolvedExpr
+	// each, when set, is called for every node the walk reaches, after its
+	// parent marked what it is, with whether it is a value expression; and
+	// synthesized makes the walk enter derive-synthesized lines. The
+	// elaboration verifier (elaboration.go) walks with both.
+	each        func(n ast.Node, value bool)
+	synthesized bool
 }
 
 func (w *unresolvedWalk) visit(n ast.Node) bool {
-	if w.skip[n] || IsSynthesizedLine(n.LineNum()) {
+	if w.skip[n] || (IsSynthesizedLine(n.LineNum()) && !w.synthesized) {
 		return false
 	}
 	ast.Children(n, func(c ast.Node) {
@@ -194,6 +200,9 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 	case *ast.InterfaceMethod:
 		w.skipParamPatterns(n.Params)
 	}
+	if w.each != nil {
+		w.each(n, !w.notValue[n] && isValueExpr(n))
+	}
 	if w.notValue[n] || !isValueExpr(n) {
 		return true
 	}
@@ -213,8 +222,9 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 	line, col := nodePos(n)
 	w.out = append(w.out, UnresolvedExpr{Node: n, Line: line, Col: col, Where: w.where[n], Missing: missing})
 	// A node with no type was most likely never checked, and neither was
-	// anything under it: its root is the one report.
-	return ok
+	// anything under it: its root is the one report. The verifier walks
+	// on, to see each call and expression under it.
+	return ok || w.each != nil
 }
 
 // skipParamPatterns marks each destructuring parameter's pattern. A
@@ -292,6 +302,9 @@ func exprLabel(n ast.Node) string {
 	if b, ok := n.(*ast.Binary); ok && b.Op == "|>" {
 		return "Pipe"
 	}
+	if id, ok := n.(*ast.Ident); ok {
+		return "Ident " + id.Name
+	}
 	return n.NodeType()
 }
 
@@ -309,8 +322,7 @@ func nodePos(n ast.Node) (int, int) {
 func isValueExpr(n ast.Node) bool {
 	switch n.(type) {
 	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.StringLit,
-		*ast.StringInterp, *ast.TaggedString, *ast.ListLit, *ast.VectorLit, *ast.SetLit,
-		*ast.ListSpreadLit, *ast.MapLit, *ast.TupleLit, *ast.Ident, *ast.TypeIdent, *ast.Unary, *ast.Is,
+		*ast.StringInterp, *ast.TaggedString, *ast.ListLit, *ast.MapLit, *ast.TupleLit, *ast.Ident, *ast.TypeIdent, *ast.Unary, *ast.Is,
 		*ast.Binary, *ast.GroupedExpr, *ast.If, *ast.Call, *ast.DotVariant,
 		*ast.FieldAccess, *ast.StructLit, *ast.RangeLit, *ast.Lambda, *ast.TryOp, *ast.Then, *ast.Tap,
 		*ast.Case, *ast.ConcurrentBlock, *ast.Dbg, *ast.Unwrap, *ast.Return, *ast.Break, *ast.Continue,

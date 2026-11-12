@@ -34,16 +34,16 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | Ruby | Nomi |
 |---|---|
 | `xs.select { \|x\| x.paid? }.map(&:total)` | `xs \|> Iter.filter(fn x -> x.paid) \|> Iter.map(.total)` |
-| `{a: 1}`, `{"k" => v}` | `.{a: 1}`, `%{"k" => v}` |
+| `{a: 1}`, `{"k" => v}` | `{a: 1}`, `{"k" => v}` |
 | `"#{name} has #{n}"` | `"${name} has ${n}"` |
 | `Order = Data.define(:customer, :total)` | `struct Order` with `customer: String` and `total: Int`, one field per line |
-| `case x in {status: :paid, total:}` | `case x { .{status: .Paid, total} -> .. }` |
-| `do .. end` | Braces: `fn x -> { .. }`, `if c { .. }` |
+| `case x in {status: :paid, total:}` | `case x`, an arm `{status: .Paid, total:} -> ..`, `end` |
+| `do .. end` | `end` without `do`: `fn x ->` .. `end`, `if c then` .. `end` |
 | `empty?`, `key?` | `is_empty`, `has_key` |
 | `fetch`, `save!` that raise | A postfix `!` on a `Maybe` or `Result`, which traps on `None` or `Err` |
 | `BigDecimal("1.50")` | `1.50d`, a `Decimal` literal. `+`, `-` and `*` are exact. `/` returns an exact quotient when it ends and otherwise rounds to 34 significant digits, half-even. `Decimal.divide(a, b, 2, RoundingMode.HalfEven)` rounds to a scale you name. See [Money](/money/). |
-| RSpec, Minitest | `test "name" { assert .. }` beside the code |
-| `get "/users/:id", to: "users#show"` in Rails, with `params[:id]` a string | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: .{id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
+| RSpec, Minitest | `test "name"` ... `end` beside the code |
+| `get "/users/:id", to: "users#show"` in Rails, with `params[:id]` a string | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 
 Parentheses are required on calls, and statements end at a newline.
 
@@ -74,50 +74,50 @@ end
 
 ```nomi-run
 // FILE: orders.nomi
-enum Status {
+enum Status
     Paid
     Refunded
-}
+end
 
-struct Order {
+struct Order
     customer: String
     total: Int
     status: Status
-}
+end
 
-fn revenue_by_customer(orders: List<Order>) -> Map<String, Int> {
+fn revenue_by_customer(orders: List<Order>) -> Map<String, Int>
     orders
     |> Iter.filter(fn order -> order.status == .Paid)
     |> Iter.group_by(.customer)
     |> Map.map_values(fn paid -> Iter.sum_by(paid, .total))
-}
+end
 
-fn describe(order: Order) -> String {
-    case order {
-        .{status: .Paid, total} when total > 100 -> "big order"
-        .{status: .Paid} -> "paid"
-        .{status: .Refunded} -> "refunded"
-    }
-}
+fn describe(order: Order) -> String
+    case order
+        {status: .Paid, total:} when total > 100 -> "big order"
+        {status: .Paid} -> "paid"
+        {status: .Refunded} -> "refunded"
+    end
+end
 
-fn find_order(orders: List<Order>, customer: String) -> Maybe<Order> {
+fn find_order(orders: List<Order>, customer: String) -> Maybe<Order>
     Iter.find(orders, fn order -> order.customer == customer)
-}
+end
 
 // FILE: orders_test.nomi
 import orders.{Order, describe, find_order, revenue_by_customer}
 
-test "the same program" {
+test "the same program"
     orders = [
         Order{customer: "ada", total: 150, status: .Paid},
         Order{customer: "bo", total: 20, status: .Refunded},
         Order{customer: "ada", total: 30, status: .Paid},
     ]
 
-    assert revenue_by_customer(orders) == %{"ada" => 180}
+    assert revenue_by_customer(orders) == {"ada" => 180}
     assert orders |> Iter.map(describe) |> Iter.to_list() == ["big order", "refunded", "paid"]
     assert find_order(orders, "cy") == None
-}
+end
 ```
 <!-- expect
 ok the same program

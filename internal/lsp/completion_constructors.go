@@ -24,8 +24,9 @@ import (
 //     `Result<Date, Error>` is expected). A function returning `Result<T, _>`
 //     is not offered where a plain T is expected: it does not fit there
 //     without a `?` or a match.
-//   - Where T is std's Map, Set or Vector, its empty literal (`%{}`, `%[]`,
-//     `#[]`): the collections have no empty constructor.
+//   - Where T is std's Map, Set or Vector, its empty literal (`{}`, or `[]`,
+//     which the expected type makes a set or a vector): the collections have
+//     no empty constructor.
 //   - When T implements `Literal`, one typed literal written from the first
 //     example its docs give (`Date"${1:2026}-${2:05}-${3:04}"`), as
 //     completion inside a literal's body offers them.
@@ -63,14 +64,14 @@ func emptyCollectionLiteral(t analysis.Type) (candidate, bool) {
 	var text, name string
 	switch v := t.(type) {
 	case *analysis.MapType:
-		text, name = "%{}", "Map"
+		text, name = "{}", "Map"
 	case *analysis.StructType:
 		if v.Name == "Set" && analysis.IsStdlibKey(v.Origin) {
-			text, name = "%[]", "Set"
+			text, name = "[]", "Set"
 		}
 	case *analysis.DistinctType:
 		if v.Name == "Vector" && analysis.IsStdlibKey(v.Origin) {
-			text, name = "#[]", "Vector"
+			text, name = "[]", "Vector"
 		}
 	}
 	if text == "" {

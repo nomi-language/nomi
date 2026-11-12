@@ -10,26 +10,26 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-const filesTasksSrc = `import {
+const filesTasksSrc = `import
     std::fs
     std::fs_testing.{self, Sandbox}
     std::io
     std::tasks.Task
-}
+end
 
-fn write_all(prefix: String) -> List<Result<Unit, io.Error>> {
-    concurrent {
+fn write_all(prefix: String) -> List<Result<Unit, io.Error>>
+    concurrent
         tasks = 1..=8 |> Iter.map(fn i -> Task.spawn(fn -> fs.write_text("${prefix}${i}.txt", "${i}"))) |> Iter.to_list()
         tasks |> Iter.map(fn t -> Task.await(t)) |> Iter.to_list()
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     ran = fs_testing.run(Sandbox{}, fn -> write_all("sandbox-"))
     io.print(Iter.count(Map.keys(ran.files)))
     io.print(Iter.all_match(write_all("page-"), fn r -> r == Ok(Unit)))
     io.print(fs.read_text("page-3.txt"))
-}
+end
 `
 
 // Tasks share the file system of the frame they were spawned on: eight tasks

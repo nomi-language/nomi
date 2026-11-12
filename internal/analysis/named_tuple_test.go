@@ -9,15 +9,15 @@ import "testing"
 func TestNamedTuple_BuiltAndMatchedByItsName(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`type Pair (Int, String)
 
-fn run() -> Int {
+fn run() -> Int
     p = Pair(1, "x")
     q = Pair((2, "y"))
     Pair(a, _) = q
-    case p {
+    case p
         Pair(n, "x") -> n + a
         Pair(n, _) -> n
-    }
-}
+    end
+end
 `)
 	if len(errs) != 0 {
 		t.Fatalf("the front end rejects the named tuple forms: %v", errs)
@@ -26,7 +26,7 @@ fn run() -> Int {
 
 // Each element is checked against its element type.
 func TestNamedTuple_ChecksEachElement(t *testing.T) {
-	_, errs := checkSourceWithStdlib("type Pair (Int, String)\n\nfn run() -> Pair {\n    Pair(\"x\", 1)\n}\n")
+	_, errs := checkSourceWithStdlib("type Pair (Int, String)\n\nfn run() -> Pair\n    Pair(\"x\", 1)\nend\n")
 	if len(errs) == 0 {
 		t.Fatal("the front end accepts `Pair(\"x\", 1)`")
 	}

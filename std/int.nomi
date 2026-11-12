@@ -1,4 +1,4 @@
-import {
+import
     add.Add
     bitwise.{BitwiseAnd, BitwiseNot, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight}
     bool.Bool.{self, False, True}
@@ -26,7 +26,7 @@ import {
     strings.String
     subtract.Subtract
     summable.Summable
-}
+end
 
 //# Operations on `Int`, the one integer type, exact at any size: total
 //# division gated on the refinement types `NonZeroInt`/`PositiveInt`, floored
@@ -104,15 +104,15 @@ import {
 //
 pub host type Int
 
-impl Int {
+impl Int
     /// Validates that `n` is non-zero and wraps it. Returns None when n == 0.
     //! assert Int.to_non_zero(5) == Some(NonZeroInt(5))
     //! assert Int.to_non_zero(-3) == Some(NonZeroInt(-3))
     //! assert Int.to_non_zero(0) == None
     //
-    pub fn to_non_zero(n: Int) -> Maybe<NonZeroInt> {
-        if n == 0 { None } else { Some(NonZeroInt(n)) }
-    }
+    pub fn to_non_zero(n: Int) -> Maybe<NonZeroInt>
+        if n == 0 then None else Some(NonZeroInt(n))
+    end
 
     /// Validates that `n` is positive (> 0) and wraps it. Returns None for
     /// zero or negative values.
@@ -120,9 +120,9 @@ impl Int {
     //! assert Int.to_positive(0) == None
     //! assert Int.to_positive(-3) == None
     //
-    pub fn to_positive(n: Int) -> Maybe<PositiveInt> {
-        if n > 0 { Some(PositiveInt(n)) } else { None }
-    }
+    pub fn to_positive(n: Int) -> Maybe<PositiveInt>
+        if n > 0 then Some(PositiveInt(n)) else None
+    end
 
     /// Converts an Int to the nearest Float, ties to even. Total. Precision
     /// loss is possible for |x| > 2^53 (a Float has a 52-bit mantissa), and an
@@ -220,15 +220,11 @@ impl Int {
     //! assert Int.modulo(-1, 1440) == 1439
     //! assert -1 % 1440 == -1
     //
-    pub fn modulo(x: Int, y: Int) -> Int {
+    pub fn modulo(x: Int, y: Int) -> Int
         r = x % y
 
-        if r != 0 and (r < 0) != (y < 0) {
-            r + y
-        } else {
-            r
-        }
-    }
+        if r != 0 and (r < 0) != (y < 0) then r + y else r
+    end
 
     /// Floored division: `x / y` rounded toward negative infinity, as
     /// Python's `//`, Elixir's `Integer.floor_div/2` and Gleam's
@@ -244,37 +240,37 @@ impl Int {
     //! assert -7 / 2 == -3
     //! assert 2 * Int.floor_div(-7, 2) + Int.modulo(-7, 2) == -7
     //
-    pub fn floor_div(x: Int, y: Int) -> Int {
+    pub fn floor_div(x: Int, y: Int) -> Int
         q = x / y
 
-        if x % y != 0 and (x < 0) != (y < 0) {
+        if x % y != 0 and (x < 0) != (y < 0) then
             q - 1
-        } else {
+        else
             q
-        }
-    }
+        end
+    end
 
     /// Returns |n|.
     //! assert Int.abs(-5) == 5
     //! assert Int.abs(0) == 0
     //! assert Int.abs(-9_223_372_036_854_775_808) == 9_223_372_036_854_775_808
     //
-    pub fn abs(n: Int) -> Int {
-        if n < 0 { -n } else { n }
-    }
+    pub fn abs(n: Int) -> Int
+        if n < 0 then -n else n
+    end
 
     /// Returns the sign of `n` as -1, 0, or +1.
     //! assert Int.sign(-7) == -1
     //! assert Int.sign(0) == 0
     //! assert Int.sign(7) == 1
     //
-    pub fn sign(n: Int) -> Int {
-        case {
+    pub fn sign(n: Int) -> Int
+        case
             n < 0 -> -1
             n > 0 -> 1
             _ -> 0
-        }
-    }
+        end
+    end
 
     /// `n` multiplied by itself `exp` times, exact; `Int.pow(n, 0)` is `1`
     /// for every `n`, `0` included. A negative `exp` traps: its result is a
@@ -328,9 +324,9 @@ impl Int {
     //! assert Int.to_digits(255, 16) == [15, 15]
     //! assert Int.to_digits(Int.pow(2, 64), 16) == [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     //
-    pub fn to_digits(n: Int, base: Int = 10) -> List<Int> {
+    pub fn to_digits(n: Int, base: Int = 10) -> List<Int>
         int_to_digits(n, base)
-    }
+    end
 
     /// The Int whose digits in `base`, most significant first, are `digits`,
     /// as `Int.to_digits` writes them, and `Some(0)` for no digits. `None`
@@ -344,9 +340,9 @@ impl Int {
     //! assert Int.from_digits([9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9])
     //!     == Some(99_999_999_999_999_999_999)
     //
-    pub fn from_digits(digits: List<Int>, base: Int = 10) -> Maybe<Int> {
+    pub fn from_digits(digits: List<Int>, base: Int = 10) -> Maybe<Int>
         int_from_digits(digits, base)
-    }
+    end
 
     /// `n` as a reader of `locale` writes it: the locale's digits, minus
     /// sign and group separator, grouped as the locale groups (`hi` writes
@@ -367,9 +363,9 @@ impl Int {
     //! assert Int.format(7, Locale`en`, True, 3) == "007"
     //! assert Int.format(Int.pow(10, 21), Locale`de`) == "1.000.000.000.000.000.000.000"
     //
-    pub fn format(n: Int, locale: Locale, grouping = True, min_digits: Int = 1) -> String {
+    pub fn format(n: Int, locale: Locale, grouping = True, min_digits: Int = 1) -> String
         int_format(locale, n, grouping, min_digits)
-    }
+    end
 
     /// Read text a reader of `locale` wrote as an `Int`. Strict by default:
     /// the text must be what `Int.format` writes, except that the group
@@ -396,10 +392,10 @@ impl Int {
         text: String,
         locale: Locale,
         lenient: Bool = False,
-    ) -> Result<Int, NumberParseError> {
+    ) -> Result<Int, NumberParseError>
         int_parse_in(text, locale, lenient)
-    }
-}
+    end
+end
 
 host fn int_to_digits(n: Int, base: Int) -> List<Int>
 
@@ -409,7 +405,7 @@ host fn int_format(locale: Locale, n: Int, grouping: Bool, min_digits: Int) -> S
 
 host fn int_parse_in(text: String, locale: Locale, lenient: Bool) -> Result<Int, NumberParseError>
 
-impl Display for Int {
+impl Display for Int
     /// Returns the canonical decimal string form of `n`, matching the runtime
     /// stringifier used by `io.print` and string interpolation.
     //! assert Int.to_string(42) == "42"
@@ -417,45 +413,45 @@ impl Display for Int {
     //! assert Int.to_string(Int.pow(2, 70)) == "1180591620717411303424"
     //
     host fn to_string(n: Int) -> String
-}
+end
 
-impl Add<Int, Int> for Int {
+impl Add<Int, Int> for Int
     host fn add(lhs: Int, rhs: Int) -> Int
-}
+end
 
-impl Summable for Int {
+impl Summable for Int
     /// The sum of no Ints: `0`.
     //! assert Int.empty_sum() == 0
     //! assert 7 + Int.empty_sum() == 7
     //
-    fn empty_sum() -> Int {
+    fn empty_sum() -> Int
         0
-    }
-}
+    end
+end
 
-impl Subtract<Int, Int> for Int {
+impl Subtract<Int, Int> for Int
     host fn subtract(lhs: Int, rhs: Int) -> Int
-}
+end
 
-impl Multiply<Int, Int> for Int {
+impl Multiply<Int, Int> for Int
     host fn multiply(lhs: Int, rhs: Int) -> Int
-}
+end
 
-impl Productable for Int {
+impl Productable for Int
     /// The product of no Ints: `1`.
     //! assert Int.empty_product() == 1
     //! assert 7 * Int.empty_product() == 7
     //
-    fn empty_product() -> Int {
+    fn empty_product() -> Int
         1
-    }
-}
+    end
+end
 
-impl Divide<Int, Int> for Int {
+impl Divide<Int, Int> for Int
     host fn divide(lhs: Int, rhs: Int) -> Int
-}
+end
 
-impl Divide<NonZeroInt, Int> for Int {
+impl Divide<NonZeroInt, Int> for Int
     /// Integer division. Total — the type system rules out a zero divisor at
     /// the call site by requiring `rhs: NonZeroInt`. Rounds toward zero
     /// (matches the `/` operator). Callers who have an unvalidated Int use
@@ -464,13 +460,13 @@ impl Divide<NonZeroInt, Int> for Int {
     //! nz = Int.to_non_zero(3)?
     //! assert Int.divide(10, nz) == 3
     //
-    fn divide(lhs: Int, rhs: NonZeroInt) -> Int {
+    fn divide(lhs: Int, rhs: NonZeroInt) -> Int
         NonZeroInt(n) = rhs
         lhs / n
-    }
-}
+    end
+end
 
-impl Remainder<Int, Int> for Int {
+impl Remainder<Int, Int> for Int
     /// `lhs % rhs`: the remainder of `/`'s division, which truncates toward
     /// zero, so it takes the sign of `lhs`. `(a / b) * b + a % b == a`.
     /// `Int.modulo` takes the divisor's sign instead. Traps on a zero `rhs`.
@@ -480,26 +476,26 @@ impl Remainder<Int, Int> for Int {
     //! assert Int.remainder(-7, -3) == -1
     //
     host fn remainder(lhs: Int, rhs: Int) -> Int
-}
+end
 
-impl Remainder<NonZeroInt, Int> for Int {
+impl Remainder<NonZeroInt, Int> for Int
     /// The remainder by a divisor that cannot be zero, so it cannot trap.
     /// Takes the sign of `lhs`, as `%` does.
     //! nz = Int.to_non_zero(3)?
     //! assert Int.remainder(-10, nz) == -1
     //! assert 10 % nz == 1
     //
-    fn remainder(lhs: Int, rhs: NonZeroInt) -> Int {
+    fn remainder(lhs: Int, rhs: NonZeroInt) -> Int
         NonZeroInt(n) = rhs
         lhs % n
-    }
-}
+    end
+end
 
 // The bitwise operators read an Int as two's complement with as many bits as
 // it needs, a negative one with endless leading ones, so `&&&`, `|||`, `^^^`
 // and `~~~` give exact results at any size, and `<<<` and `>>>` shift without losing a
 // bit to a width.
-impl BitwiseAnd<Int, Int> for Int {
+impl BitwiseAnd<Int, Int> for Int
     /// Bitwise and, `a &&& b`: each bit set in both. An Int reads as two's
     /// complement with as many bits as it needs, a negative one with endless
     /// leading ones, so the result holds at any size.
@@ -509,18 +505,18 @@ impl BitwiseAnd<Int, Int> for Int {
     //! assert -1 &&& Int.pow(2, 80) == Int.pow(2, 80)
     //
     host fn bitwise_and(lhs: Int, rhs: Int) -> Int
-}
+end
 
-impl BitwiseOr<Int, Int> for Int {
+impl BitwiseOr<Int, Int> for Int
     /// Bitwise or, `a ||| b`: each bit set in either. See `Int.bitwise_and`.
     //! assert Int.bitwise_or(12, 10) == 14
     //! assert 12 ||| 10 == 14
     //! assert -8 ||| 3 == -5
     //
     host fn bitwise_or(lhs: Int, rhs: Int) -> Int
-}
+end
 
-impl BitwiseXor<Int, Int> for Int {
+impl BitwiseXor<Int, Int> for Int
     /// Bitwise exclusive or, `a ^^^ b`: each bit set in one but not both.
     /// See `Int.bitwise_and`.
     //! assert Int.bitwise_xor(12, 10) == 6
@@ -528,9 +524,9 @@ impl BitwiseXor<Int, Int> for Int {
     //! assert -1 ^^^ 5 == -6
     //
     host fn bitwise_xor(lhs: Int, rhs: Int) -> Int
-}
+end
 
-impl BitwiseNot<Int> for Int {
+impl BitwiseNot<Int> for Int
     /// Bitwise not, `~~~n`: every bit flipped, the one's complement, which
     /// is `-n - 1`. See `Int.bitwise_and`.
     //! assert Int.bitwise_not(0) == -1
@@ -538,9 +534,9 @@ impl BitwiseNot<Int> for Int {
     //! assert ~~~Int.pow(2, 70) == -Int.pow(2, 70) - 1
     //
     host fn bitwise_not(value: Int) -> Int
-}
+end
 
-impl ShiftLeft<Int, Int> for Int {
+impl ShiftLeft<Int, Int> for Int
     /// Shift left, `a <<< n`: `a` times 2 to the `n`, exact, so no bit is
     /// ever shifted out. A negative `n` is a runtime error.
     //! assert Int.shift_left(1, 4) == 16
@@ -548,9 +544,9 @@ impl ShiftLeft<Int, Int> for Int {
     //! assert -3 <<< 2 == -12
     //
     host fn shift_left(lhs: Int, rhs: Int) -> Int
-}
+end
 
-impl ShiftRight<Int, Int> for Int {
+impl ShiftRight<Int, Int> for Int
     /// Arithmetic shift right, `a >>> n`: `a` divided by 2 to the `n`,
     /// rounded toward negative infinity. A count past `a`'s bits yields 0
     /// for a non-negative `a` and -1 for a negative one. A negative `n` is
@@ -561,59 +557,59 @@ impl ShiftRight<Int, Int> for Int {
     //! assert 7 >>> 200 == 0
     //
     host fn shift_right(lhs: Int, rhs: Int) -> Int
-}
+end
 
-impl Debug for Int {
+impl Debug for Int
     /// The same text as `Display` (`42`): an Int's literal is its
     /// user-facing form.
     //! assert Debug.inspect(42) == Display.to_string(42)
     //
-    fn inspect(n: Int) -> String {
+    fn inspect(n: Int) -> String
         to_string(n)
-    }
-}
+    end
+end
 
-impl Equatable for Int {
-    fn equal(a: Int, b: Int) -> Bool {
+impl Equatable for Int
+    fn equal(a: Int, b: Int) -> Bool
         a == b
-    }
-}
+    end
+end
 
-impl Hashable for Int {
-    fn hash(n: Int) -> Int {
+impl Hashable for Int
+    fn hash(n: Int) -> Int
         n
-    }
-}
+    end
+end
 
-impl Comparable for Int {
-    fn compare(a: Int, b: Int) -> Ordering {
-        case {
+impl Comparable for Int
+    fn compare(a: Int, b: Int) -> Ordering
+        case
             a < b -> Less
             a == b -> Equal
             _ -> Greater
-        }
-    }
-}
+        end
+    end
+end
 
-impl Discrete for Int {
-    fn next(n: Int) -> Maybe<Int> {
+impl Discrete for Int
+    fn next(n: Int) -> Maybe<Int>
         Some(n + 1)
-    }
+    end
 
-    fn steps_between(start: Int, end: Int) -> Maybe<Int> {
-        if start > end {
+    fn steps_between(start: Int, stop: Int) -> Maybe<Int>
+        if start > stop then
             Some(0)
-        } else {
-            Some(end - start)
-        }
-    }
-}
+        else
+            Some(stop - start)
+        end
+    end
+end
 
-impl Steppable for Int {
-    fn step_by(n: Int, by: Int) -> Maybe<Int> {
+impl Steppable for Int
+    fn step_by(n: Int, by: Int) -> Maybe<Int>
         Some(n + by)
-    }
-}
+    end
+end
 
 /// An Int proven to be non-zero. The smart constructor `Int.to_non_zero` is
 /// the only way to obtain a value; once you have one, `Int.divide` by it
@@ -628,7 +624,7 @@ derive Display for NonZeroInt
 /// `NonZeroInt` is expected via `PositiveInt.to_non_zero`.
 pub opaque type PositiveInt Int
 
-impl PositiveInt {
+impl PositiveInt
     /// Widens a `PositiveInt` to a `NonZeroInt` — every positive Int is non-zero,
     /// so this is total (never fails). Lets a `PositiveInt` flow into a position
     /// that requires `NonZeroInt`, such as `Int.divide`'s divisor.
@@ -636,11 +632,11 @@ impl PositiveInt {
     //! NonZeroInt(n) = PositiveInt.to_non_zero(p)
     //! assert n == 5
     //
-    pub fn to_non_zero(p: PositiveInt) -> NonZeroInt {
+    pub fn to_non_zero(p: PositiveInt) -> NonZeroInt
         PositiveInt(n) = p
         NonZeroInt(n)
-    }
-}
+    end
+end
 
 derive Debug for PositiveInt
 derive Display for PositiveInt

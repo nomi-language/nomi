@@ -25,7 +25,7 @@ once hostile = [
 // Whether the escaped path has a bare dot segment, which would let data
 // climb the path. A leading `/.` is the literal's own, written to keep a path
 // that starts with `//` from naming a host, not a segment a slot wrote.
-fn climbs(u: Url) -> Bool {
+fn climbs(u: Url) -> Bool
     path = Maybe.with_default(u.raw_path, u.path)
 
     String.strip_prefix(path, "/./")
@@ -33,64 +33,64 @@ fn climbs(u: Url) -> Bool {
     |> Maybe.with_default(path)
     |> String.split("/")
     |> Iter.any_match(fn segment -> segment == "." or segment == "..")
-}
+end
 
-fn breaks(rule: (String) -> Bool) -> List<String> {
+fn breaks(rule: (String) -> Bool) -> List<String>
     hostile |> Iter.filter(fn v -> not rule(v)) |> Iter.to_list()
-}
+end
 
-test "a slot in an absolute URL's path keeps its host and cannot climb" {
-    bad = breaks(fn v -> {
+test "a slot in an absolute URL's path keeps its host and cannot climb"
+    bad = breaks(fn v ->
         u = Url"https://api.example.com/greet/${v}/end"
         u.host == "api.example.com" and u.scheme == "https" and not climbs(u)
-    })
+    end)
 
     assert bad == []
-}
+end
 
-test "a slot in a relative URL's path cannot make it name a host" {
-    bad = breaks(fn v -> {
+test "a slot in a relative URL's path cannot make it name a host"
+    bad = breaks(fn v ->
         u = Url"/${v}/b"
         u.host == "" and not String.starts_with("${u}", "//") and not climbs(u)
-    })
+    end)
 
     assert bad == []
-}
+end
 
-test "a slot in a query keeps its host and path" {
-    bad = breaks(fn v -> {
+test "a slot in a query keeps its host and path"
+    bad = breaks(fn v ->
         u = Url"https://example.com/search?q=${v}&page=2"
         u.host == "example.com" and u.path == "/search"
-    })
+    end)
 
     assert bad == []
-}
+end
 
 // A slot takes any Display value, and its text is escaped as a String of
 // that text is, so a type of the program's own cannot change the shape.
-struct Slug {
+struct Slug
     text: String
-}
+end
 
-impl Display for Slug {
-    fn to_string(slug: Slug) -> String {
+impl Display for Slug
+    fn to_string(slug: Slug) -> String
         slug.text
-    }
-}
+    end
+end
 
-test "a Display slot is escaped as its text is" {
-    bad = breaks(fn v -> {
+test "a Display slot is escaped as its text is"
+    bad = breaks(fn v ->
         slug = Slug{text: v}
         u = Url"https://api.example.com/p/${slug}/end?q=${slug}#${slug}"
         s = Url"https://api.example.com/p/${v}/end?q=${v}#${v}"
         u == s and u.host == "api.example.com" and not climbs(u)
-    })
+    end)
 
     assert bad == []
-}
+end
 
-test "an Int slot is its digits in each place" {
+test "an Int slot is its digits in each place"
     id = -42
     u = Url"/items/${id}?id=${id}#${id}"
     assert "${u}" == "/items/-42?id=-42#-42"
-}
+end

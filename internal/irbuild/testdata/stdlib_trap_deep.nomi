@@ -2,12 +2,12 @@
 // whose `+` is Duration's `Add` impl, and the sum is past what a Duration
 // holds, which std/duration.nomi faults on. The report names the program's
 // call to `Iter.sum`.
-import {
+import
     std::duration.Duration
     std::io
-}
+end
 
-fn main() {
+fn main()
     io.print("before")
 
     total =
@@ -15,4 +15,4 @@ fn main() {
         |> Iter.sum()
 
     io.print(Duration.as_nanos(total))
-}
+end

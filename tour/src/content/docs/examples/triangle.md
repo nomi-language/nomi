@@ -14,46 +14,46 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Whether a triangle is equilateral, isosceles or scalene.
 
 /// What a triangle's sides say about its shape.
-pub enum Kind {
+pub enum Kind
     Equilateral
     Isosceles
     Scalene
-}
+end
 
 /// Classifies three side lengths, or answers `None` when they do not make a
 /// triangle: a side is not positive, or one side is longer than the other two
 /// together.
-pub fn kind((a, b, c): (Float, Float, Float)) -> Maybe<Kind> {
+pub fn kind((a, b, c): (Float, Float, Float)) -> Maybe<Kind>
     positive = a > 0.0 and b > 0.0 and c > 0.0
     inequality = a + b >= c and b + c >= a and a + c >= b
-    if not (positive and inequality) { return None }
+    if not (positive and inequality) then return None
 
-    case [a, b, c] |> Iter.to_set() |> Set.size() {
+    case [a, b, c] |> Iter.to_set() |> Set.size()
         1 -> Some(.Equilateral)
         2 -> Some(.Isosceles)
         _ -> Some(.Scalene)
-    }
-}
+    end
+end
 
 /// All three sides are equal.
-pub fn is_equilateral(sides: (Float, Float, Float)) -> Bool {
+pub fn is_equilateral(sides: (Float, Float, Float)) -> Bool
     kind(sides) == Some(.Equilateral)
-}
+end
 
 /// At least two sides are equal, so every equilateral triangle is isosceles.
-pub fn is_isosceles(sides: (Float, Float, Float)) -> Bool {
+pub fn is_isosceles(sides: (Float, Float, Float)) -> Bool
     kind(sides) is Some(.Equilateral or .Isosceles)
-}
+end
 
 /// No two sides are equal.
-pub fn is_scalene(sides: (Float, Float, Float)) -> Bool {
+pub fn is_scalene(sides: (Float, Float, Float)) -> Bool
     kind(sides) == Some(.Scalene)
-}
+end
 
 // FILE: triangle_test.nomi
 import triangle
 
-test "equilateral triangle" {
+test "equilateral triangle"
     [
         ("all sides are equal", (2.0, 2.0, 2.0), True),
         ("any side is unequal", (2.0, 3.0, 2.0), False),
@@ -61,12 +61,12 @@ test "equilateral triangle" {
         ("all zero sides is not a triangle", (0.0, 0.0, 0.0), False),
         ("sides may be floats", (0.5, 0.5, 0.5), True),
     ]
-    |> subtests (description, sides, expected), description {
+    |> subtests (description, sides, expected), description
         assert triangle.is_equilateral(sides) == expected
-    }
-}
+    end
+end
 
-test "isosceles triangle" {
+test "isosceles triangle"
     [
         ("last two sides are equal", (3.0, 4.0, 4.0), True),
         ("first two sides are equal", (4.0, 4.0, 3.0), True),
@@ -78,12 +78,12 @@ test "isosceles triangle" {
         ("third triangle inequality violation", (3.0, 1.0, 1.0), False),
         ("sides may be floats", (0.5, 0.4, 0.5), True),
     ]
-    |> subtests (description, sides, expected), description {
+    |> subtests (description, sides, expected), description
         assert triangle.is_isosceles(sides) == expected
-    }
-}
+    end
+end
 
-test "scalene triangle" {
+test "scalene triangle"
     [
         ("no sides are equal", (5.0, 4.0, 6.0), True),
         ("all sides are equal", (4.0, 4.0, 4.0), False),
@@ -93,10 +93,10 @@ test "scalene triangle" {
         ("may not violate triangle inequality", (7.0, 3.0, 2.0), False),
         ("sides may be floats", (0.5, 0.4, 0.6), True),
     ]
-    |> subtests (description, sides, expected), description {
+    |> subtests (description, sides, expected), description
         assert triangle.is_scalene(sides) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok equilateral triangle (5 cases)

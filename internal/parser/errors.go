@@ -48,8 +48,6 @@ func (p *Parser) errorOnLine(line int, format string, args ...any) error {
 // to offer and for `nomi check --format json` to report. Each field is one
 // kind of edit; at most one is set.
 type Fix struct {
-	// Wrap puts braces around a body that runs on below its first line.
-	Wrap *BodyWrap
 	// Markers are comment markers (`///` or `//!`) that become `//`, each
 	// at the position of its first slash.
 	Markers []Pos
@@ -79,20 +77,16 @@ type Pos struct {
 	Line, Col int
 }
 
-// BodyWrap is a body written without braces over several lines. The body
-// runs from just after After (the end of a case arm's `->` or a lambda's
-// closing `|`) to End (the end of its last token). The braces go around
-// it: `{` after After, `}` on a line of its own at the indentation of
-// After's line.
-type BodyWrap struct {
-	After, End Pos
-}
-
 // softError records e and lets the parse go on as if the source were
 // written as e's fix says. A strict parse reports it as it would a returned
 // error. The same error recorded twice, as when a speculative parse that
 // rewound and the real parse both read it, is kept once.
 func (p *Parser) softError(e ParseError) {
+	key := errorKey{e.Line, e.Col, e.Message}
+	if p.soft == nil {
+		p.soft = map[errorKey]bool{}
+	}
+	p.soft[key] = true
 	for _, old := range p.errors {
 		if old.Line == e.Line && old.Col == e.Col && old.Message == e.Message {
 			return
@@ -100,6 +94,12 @@ func (p *Parser) softError(e ParseError) {
 	}
 	p.errors = append(p.errors, e)
 	p.softErrors = true
+}
+
+// errorKey is an error's place and message.
+type errorKey struct {
+	line, col int
+	message   string
 }
 
 // firstError is the earliest of the parse's soft errors and err, the error
@@ -143,4 +143,22 @@ func ApplyEdits(src string, edits []Edit) string {
 		src = src[:start] + e.Text + src[end:]
 	}
 	return src
+}
+
+// parseMark is the parser's state a speculative parse rewinds to: the
+// cursor, and the soft errors and recoveries recorded since. A soft error
+// read by a parse that is then discarded (the `True {x}` of `if True {x}`,
+// tried as a pattern) is no error of the source, and the parse that reads
+// those tokens again records any that is.
+type parseMark struct {
+	pos, errors, recoveries int
+	softErrors              bool
+}
+
+func (p *Parser) mark() parseMark {
+	return parseMark{pos: p.pos, errors: len(p.errors), recoveries: p.recoveries, softErrors: p.softErrors}
+}
+
+func (p *Parser) rewind(m parseMark) {
+	p.pos, p.errors, p.recoveries, p.softErrors = m.pos, p.errors[:m.errors], m.recoveries, m.softErrors
 }

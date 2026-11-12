@@ -18,7 +18,7 @@ import (
 // stdlib's scopes are shared, and an edit must leave them as they were.
 func TestEdits_LeaveTheSharedStdlibScopesAlone(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
-	src := "import std::calendar.Date\n\nfn main() {\n    d = Date.parse(\"2026-05-04\")\n}\n"
+	src := "import std::calendar.Date\n\nfn main()\n    d = Date.parse(\"2026-05-04\")\nend\n"
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}

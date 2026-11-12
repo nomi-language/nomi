@@ -1,67 +1,67 @@
-import {
+import
     std::compiler
     test_helpers
-}
+end
 
-struct Counter {
+struct Counter
     value: Int
-}
+end
 
-fn bump(c: Counter) -> Counter {
+fn bump(c: Counter) -> Counter
     Counter{value: c.value + 1}
-}
+end
 
-fn bump_twice(c: Counter) -> Counter {
+fn bump_twice(c: Counter) -> Counter
     bump(bump(c))
-}
+end
 
-interface Label {
+interface Label
     fn label(value: self) -> String
-}
+end
 
-struct Tagged {
+struct Tagged
     name: String
-}
+end
 
-fn display(t: Tagged) -> String {
+fn display(t: Tagged) -> String
     Label.label(t)
-}
+end
 
-fn bracket(t: Tagged) -> String {
+fn bracket(t: Tagged) -> String
     "[" + t.name + "]"
-}
+end
 
-impl Label for Tagged {
-    fn label(t: Tagged) -> String {
+impl Label for Tagged
+    fn label(t: Tagged) -> String
         bracket(t)
-    }
-}
+    end
+end
 
-test "same-owner calls are bare inside impl blocks" {
+test "same-owner calls are bare inside impl blocks"
     c = bump_twice(Counter{value: 1})
 
     assert c.value == 3
     assert display(Tagged{name: "ready"}) == "[ready]"
-}
+end
 
-test "self is not an expression qualifier" {
+test "self is not an expression qualifier"
     diagnostics = compiler.check(
         """
-          struct Box {
+          struct Box
             value: Int
-          }
+          end
 
-          fn get(b: Box) -> Int {
+          fn get(b: Box) -> Int
             b.value
-          }
+          end
 
-          fn read(b: Box) -> Int {
+          fn read(b: Box) -> Int
             self.get(b)
-          }
+          end
 
-          fn main() {
+          fn main()
             _ = read(Box{value: 1})
-          }
+          end
         """
     )
 
@@ -71,53 +71,53 @@ test "self is not an expression qualifier" {
         diagnostics,
         "`self` is an interface type placeholder, not an expression qualifier",
     )
-}
+end
 
-test "ambiguous same-owner interface functions require qualification" {
+test "ambiguous same-owner interface functions require qualification"
     diagnostics = compiler.check(
         """
-        interface Greeter {
+        interface Greeter
           fn greet(value: self) -> String
-        }
+        end
 
-        interface Farewell {
+        interface Farewell
           fn greet(value: self) -> String
-        }
+        end
 
-        interface Message {
+        interface Message
           fn message(value: self) -> String
-        }
+        end
 
-        struct Person {
+        struct Person
           name: String
-        }
+        end
 
-        impl Greeter for Person {
+        impl Greeter for Person
 
-          fn greet(p: Person) -> String {
+          fn greet(p: Person) -> String
             "Hello, " + p.name
-          }
-        }
+          end
+        end
 
-        impl Farewell for Person {
+        impl Farewell for Person
 
-          fn greet(p: Person) -> String {
+          fn greet(p: Person) -> String
             "Goodbye, " + p.name
-          }
-        }
+          end
+        end
 
-        impl Message for Person {
-          fn message(p: Person) -> String {
+        impl Message for Person
+          fn message(p: Person) -> String
             greet(p)
-          }
-        }
+          end
+        end
 
-        fn main() {
+        fn main()
           _ = Message.message(Person{name: "Ada"})
-        }
+        end
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "ambiguous")
-}
+end

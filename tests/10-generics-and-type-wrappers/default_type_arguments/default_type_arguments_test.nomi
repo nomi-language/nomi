@@ -3,76 +3,76 @@
 // `Tagged<Int>` is `Tagged<Int, String>` and `Outcome` is
 // `Outcome<String>`. A bare name there means the default, not a type to
 // infer.
-import {
+import
     std::compiler.{self, Diagnostic}
     std::http.Route
     shapes.{Labelled, Outcome, Tagged}
-}
+end
 
-fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
+fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool
     Iter.any_match(diagnostics, fn diagnostic -> text in diagnostic.message)
-}
+end
 
-fn label(t: Tagged<Int>) -> String {
+fn label(t: Tagged<Int>) -> String
     "${t.tag}: ${t.value}"
-}
+end
 
-fn reason(o: Outcome) -> String {
-    case o {
+fn reason(o: Outcome) -> String
+    case o
         .Done -> "done"
         .Failed(e) -> e
-    }
-}
+    end
+end
 
-fn first(l: Labelled) -> Int {
+fn first(l: Labelled) -> Int
     Labelled(n, _) = l
     n
-}
+end
 
-struct Admin {
+struct Admin
     home: Route = "GET /admin/{$}"
-}
+end
 
-test "a left-out type argument takes its default" {
+test "a left-out type argument takes its default"
     assert label(Tagged{value: 1, tag: "n"}) == "n: 1"
     assert reason(.Failed("boom")) == "boom"
     assert reason(.Done) == "done"
     assert first(Labelled((3, "x"))) == 3
     full: Tagged<Int, String> = Tagged{value: 2, tag: "t"}
     assert label(full) == "t: 2"
-}
+end
 
-test "a bare Route is a Route<Unit>" {
+test "a bare Route is a Route<Unit>"
     admin = Admin{}
     assert "${admin.home}" == "GET /admin/{$}"
-}
+end
 
-test "a bare name means the default, not a type to infer" {
+test "a bare name means the default, not a type to infer"
     diagnostics = compiler.check(
         """
-        struct Tagged<T, Tag = String> {
+        struct Tagged<T, Tag = String>
             value: T
             tag: Tag
-        }
+        end
 
-        fn label(t: Tagged<Int>) -> String {
+        fn label(t: Tagged<Int>) -> String
             t.tag
-        }
+        end
 
-        fn main() {
+        fn main()
             _ = label(Tagged{value: 1, tag: 2})
-        }
+        end
         """
     )
 
     assert has_diagnostic(diagnostics, "expected Tagged<Int>, got Tagged<Int, Int>")
-}
+end
 
-test "a default must follow the parameters without one" {
-    diagnostics = compiler.check("struct Pair<A = Int, B> {\n    a: A\n    b: B\n}\n")
+test "a default must follow the parameters without one"
+    diagnostics = compiler.check("struct Pair<A = Int, B>\n    a: A\n    b: B\nend\n")
 
     assert has_diagnostic(
         diagnostics,
         "type parameter `B` has no default, so it can't follow `A`, which has one",
     )
-}
+end

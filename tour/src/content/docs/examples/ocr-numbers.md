@@ -15,10 +15,10 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# each.
 
 /// Why rows cannot be read.
-pub enum Error {
+pub enum Error
     LinesNotMultipleOfFour
     ColumnsNotMultipleOfThree
-}
+end
 
 /// The ten digits as the scanner draws them, 0 to 9, three columns and four
 /// rows each.
@@ -36,42 +36,42 @@ once digits = font |> glyphs() |> Iter.zip("0123456789") |> Iter.to_map()
 /// The number `rows` draw: each four rows are a line of digits, each three
 /// columns a digit, and the lines are joined by commas. A drawing that is
 /// no digit reads as `?`.
-pub fn convert(rows: List<String>) -> Result<String, Error> {
-    if Iter.count(rows) % 4 != 0 { return Err(.LinesNotMultipleOfFour) }
+pub fn convert(rows: List<String>) -> Result<String, Error>
+    if Iter.count(rows) % 4 != 0 then return Err(.LinesNotMultipleOfFour)
 
-    if Iter.any_match(rows, &(String.length(&1) % 3 != 0)) {
+    if Iter.any_match(rows, &(String.length(&1) % 3 != 0)) then
         return Err(.ColumnsNotMultipleOfThree)
-    }
+    end
 
     rows
     |> Iter.chunks(4)
     |> Iter.map(read_line)
     |> String.join(",")
     |> Ok()
-}
+end
 
 /// The digits one line of four rows draws.
-fn read_line(line: List<String>) -> String {
+fn read_line(line: List<String>) -> String
     line
     |> glyphs()
     |> Iter.map(&(Map.get(digits, &1) |> Maybe.with_default("?")))
     |> String.join()
-}
+end
 
 /// Each digit's drawing in four `rows`, left to right: the rows cut into
 /// three-column cells, read down each column of cells.
-fn glyphs(rows: List<String>) -> List<String> {
+fn glyphs(rows: List<String>) -> List<String>
     rows
     |> Iter.map(fn row -> row |> Iter.chunks(3) |> Iter.map(String.join))
     |> Iter.transpose()
     |> Iter.map(String.join)
     |> Iter.to_list()
-}
+end
 
 // FILE: ocr_numbers_test.nomi
 import ocr_numbers.{self, Error}
 
-test "convert" {
+test "convert"
     [
         (
             "Recognizes 0",
@@ -251,10 +251,10 @@ test "convert" {
             Ok("123,456,789"),
         ),
     ]
-    |> subtests (description, rows, expected), description {
+    |> subtests (description, rows, expected), description
         assert ocr_numbers.convert(rows) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok convert (17 cases)

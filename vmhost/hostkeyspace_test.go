@@ -17,20 +17,20 @@ import (
 // so the machine binds the project's table beside std's and neither answers
 // the other's calls.
 func TestHosts_AProjectFileNamedLikeAStdModuleRunsBesideIt(t *testing.T) {
-	const main = `import {
+	const main = `import
     std::hash as digest
     std::io
     std::regex.Regex
     hash
     regex
-}
+end
 
-fn main() {
+fn main()
     io.print(Bytes.to_string(hash.sha256(String.to_bytes("x"))) == Ok("the project's"))
     io.print(digest.sha256_hex(String.to_bytes("abc")))
     io.print(regex.compile("a+"))
     io.print(Result.is_ok(Regex.compile("a+")))
-}
+end
 `
 	files := map[string]string{
 		"hash":  "pub host fn sha256(data: Bytes) -> Bytes\n",

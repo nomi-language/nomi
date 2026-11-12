@@ -37,7 +37,7 @@
 //# `presign` are the signer itself, for an S3 call this module does not
 //# make. Multipart uploads and streaming are not built.
 
-import {
+import
     std::calendar.{Anchored, DateTime, DateTimePattern, OffsetDateTime}
     std::duration.Duration
     std::hash
@@ -49,10 +49,10 @@ import {
     std::timer
     std::url.{Query, Url}
     std::xml.{self, Element}
-}
+end
 
 /// How requests name the bucket.
-pub enum Addressing {
+pub enum Addressing
     /// `https://<endpoint>/<bucket>/<key>`. Every S3-protocol server
     /// accepts it, it needs no wildcard DNS, and a bucket name with a dot
     /// does not break TLS.
@@ -60,12 +60,12 @@ pub enum Addressing {
 
     /// `https://<bucket>.<endpoint>/<key>`.
     VirtualHost
-}
+end
 
 derive Equatable for Addressing
 
 /// Whether a request signs a hash of its body.
-pub enum Payload {
+pub enum Payload
     /// `x-amz-content-sha256` is the body's SHA-256: the server refuses a
     /// body changed in transit.
     Signed
@@ -73,18 +73,18 @@ pub enum Payload {
     /// `x-amz-content-sha256: UNSIGNED-PAYLOAD`: no hash, so no pass over
     /// the body. Only TLS protects it.
     Unsigned
-}
+end
 
 derive Equatable for Payload
 
 /// A static key pair.
-pub struct Credentials {
+pub struct Credentials
     access_key: String
     secret_key: String
-}
+end
 
 /// A bucket on an S3-protocol server.
-pub struct Config {
+pub struct Config
     /// The server: `https://nyc3.digitaloceanspaces.com`,
     /// `http://localhost:9000`, `https://<account>.r2.cloudflarestorage.com`.
     /// A scheme and a host, an optional port, no path.
@@ -108,7 +108,7 @@ pub struct Config {
     timeout: Duration = Duration.seconds(30)
     /// How many times a call that failed with `Unavailable` is tried again.
     retries: Int = 2
-}
+end
 
 /// A store over the bucket `config` names. It sends nothing yet. A config
 /// that cannot work is `Err(.Backend{code: "InvalidConfig", ...})`: an
@@ -123,17 +123,17 @@ pub struct Config {
 //! }
 //!
 //! assert Result.is_ok(store(config))
-//! assert store(.{..config, bucket: "No"}) is Err(.Backend{code: "InvalidConfig"})
-pub fn store(config: Config) -> Result<Store, storage.Error> {
+//! assert store({..config, bucket: "No"}) is Err(.Backend{code: "InvalidConfig"})
+pub fn store(config: Config) -> Result<Store, storage.Error>
     check_config(config)?
     client = Client.new(ClientOptions{timeout: Some(config.timeout)})
-    Ok(Bucket{config, client})
-}
+    Ok(Bucket{config:, client:})
+end
 
 /// A URL that lets whoever holds it `GET` the object under `key` for
 /// `expires`, from 1 second to 7 days, with no credentials. It is on the
 /// endpoint, never `public_base`.
-pub fn presign_get(config: Config, key: String, expires: Duration) -> Result<Url, storage.Error> {
+pub fn presign_get(config: Config, key: String, expires: Duration) -> Result<Url, storage.Error>
     check_config(config)?
     storage.check_key(key)?
     check_expires(expires)?
@@ -149,7 +149,7 @@ pub fn presign_get(config: Config, key: String, expires: Duration) -> Result<Url
             expires,
         )
     )
-}
+end
 
 /// A URL that lets whoever holds it `PUT` an object under `key` for
 /// `expires`, from 1 second to 7 days. The upload must send `Content-Type:
@@ -160,7 +160,7 @@ pub fn presign_put(
     key: String,
     content_type: String,
     expires: Duration,
-) -> Result<Url, storage.Error> {
+) -> Result<Url, storage.Error>
     check_config(config)?
     storage.check_key(key)?
     storage.check_content_type(content_type)?
@@ -177,7 +177,7 @@ pub fn presign_put(
             expires,
         )
     )
-}
+end
 
 /// `request` signed with SigV4 for S3 at `at`: it gains `x-amz-date`,
 /// `x-amz-content-sha256` and `Authorization`, replacing any it had. Every
@@ -190,7 +190,7 @@ pub fn sign(
     region: String,
     at: Instant,
     payload: Payload = Payload.Signed,
-) -> Request {
+) -> Request
     stamp = timestamp(at)
     hashed = payload_hash(request.body, payload)
 
@@ -200,7 +200,7 @@ pub fn sign(
         |> Headers.set("x-amz-date", stamp)
         |> Headers.set("x-amz-content-sha256", hashed)
 
-    signing = .{..request, headers}
+    signing = {..request, headers:}
     (names, canonical) = canonical_request(signing, Url.query_values(request.url), hashed)
     signature = signature_of(credentials.secret_key, region, stamp, canonical)
 
@@ -209,8 +209,8 @@ pub fn sign(
         region,
     )}, " + "SignedHeaders=${names}, Signature=${signature}"
 
-    .{..signing, headers: Headers.set(headers, "Authorization", authorization)}
-}
+    {..signing, headers: Headers.set(headers, "Authorization", authorization)}
+end
 
 /// The query-string form of `sign`: `url` with the `X-Amz-*` parameters
 /// that let whoever holds it make `method`'s request until `expires` after
@@ -224,9 +224,9 @@ pub fn presign(
     region: String,
     at: Instant,
     expires: Duration,
-) -> Url {
+) -> Url
     stamp = timestamp(at)
-    request = Request{method, url, headers: signed_headers}
+    request = Request{method:, url:, headers: signed_headers}
     names = signed_names(request)
     Query(given) = Url.query_values(url)
 
@@ -240,22 +240,22 @@ pub fn presign(
 
     (_, canonical) = canonical_request(request, Query(query), "UNSIGNED-PAYLOAD")
     signature = signature_of(credentials.secret_key, region, stamp, canonical)
-    .{..url, query: Some("${canonical_query(Query(query))}&X-Amz-Signature=${signature}")}
-}
+    {..url, query: Some("${canonical_query(Query(query))}&X-Amz-Signature=${signature}")}
+end
 
 // A store over one bucket.
-struct Bucket {
+struct Bucket
     config: Config
     client: Client
-}
+end
 
-impl Store for Bucket {
+impl Store for Bucket
     fn put(
         bucket: Bucket,
         key: String,
         data: Bytes,
         content_type: String,
-    ) -> Result<Unit, storage.Error> {
+    ) -> Result<Unit, storage.Error>
         storage.check_key(key)?
         storage.check_content_type(content_type)?
         config = bucket.config
@@ -270,9 +270,9 @@ impl Store for Bucket {
 
         _ = send(bucket, Method.Put, key, Headers(headers), Body.Bytes(data))?
         Ok(Unit)
-    }
+    end
 
-    fn get(bucket: Bucket, key: String) -> Result<Object, storage.Error> {
+    fn get(bucket: Bucket, key: String) -> Result<Object, storage.Error>
         storage.check_key(key)?
         response = send(bucket, Method.Get, key)?
 
@@ -280,51 +280,54 @@ impl Store for Bucket {
             Response.bytes(response)
             |> Result.map_err(fn e -> from_http(e))?
 
-        Ok(Object{data, info: info_of(response, Bytes.length(data))})
-    }
+        Ok(Object{data:, info: info_of(response, Bytes.length(data))})
+    end
 
-    fn info(bucket: Bucket, key: String) -> Result<Maybe<Info>, storage.Error> {
+    fn info(bucket: Bucket, key: String) -> Result<Maybe<Info>, storage.Error>
         storage.check_key(key)?
 
-        case send(bucket, Method.Head, key) {
-            Ok(response) -> {
-                size = case response.content_length {
-                    Some(n) -> n
+        case send(bucket, Method.Head, key)
+            Ok(response) ->
+                size = case response.content_length
+                    Some(n) ->
+                        n
 
                     None ->
                         Headers.get(response.headers, "Content-Length")
                         |> Maybe.flat_map(String.to_int)
                         |> Maybe.with_default(0)
-                }
+                end
 
                 Ok(Some(info_of(response, size)))
-            }
 
-            Err(.NotFound{}) -> Ok(None)
-            Err(e) -> Err(e)
-        }
-    }
+            Err(.NotFound{}) ->
+                Ok(None)
 
-    fn delete(bucket: Bucket, key: String) -> Result<Unit, storage.Error> {
+            Err(e) ->
+                Err(e)
+        end
+    end
+
+    fn delete(bucket: Bucket, key: String) -> Result<Unit, storage.Error>
         storage.check_key(key)?
 
-        case send(bucket, Method.Delete, key) {
+        case send(bucket, Method.Delete, key)
             Ok(_) -> Ok(Unit)
             Err(.NotFound{}) -> Ok(Unit)
             Err(e) -> Err(e)
-        }
-    }
+        end
+    end
 
-    fn url(bucket: Bucket, key: String) -> Result<Url, storage.Error> {
+    fn url(bucket: Bucket, key: String) -> Result<Url, storage.Error>
         storage.check_key(key)?
 
-        case bucket.config.public_base {
+        case bucket.config.public_base
             Some(base) -> Ok(storage.join_key(base, key))
             None -> Ok(object_url(bucket.config, key))
-        }
-    }
+        end
+    end
 
-    fn list(bucket: Bucket, options: ListOptions) -> Result<storage.Listing, storage.Error> {
+    fn list(bucket: Bucket, options: ListOptions) -> Result<storage.Listing, storage.Error>
         storage.check_prefix(options.prefix)?
         config = bucket.config
         limit = Int.clamp(options.limit, 1, 1000)
@@ -333,35 +336,35 @@ impl Store for Bucket {
             [
                 Some(("list-type", "2")),
                 Some(("max-keys", "${limit}")),
-                if options.prefix == "" {
+                if options.prefix == "" then
                     None
-                } else {
+                else
                     Some(("prefix", options.prefix))
-                },
-                if options.delimiter == "" {
+                end,
+                if options.delimiter == "" then
                     None
-                } else {
+                else
                     Some(("delimiter", options.delimiter))
-                },
+                end,
                 options.continuation |> Maybe.map(fn token -> ("continuation-token", token)),
             ]
             |> Maybe.values()
 
-        url = .{..bucket_url(config), query: Some(canonical_query(Query(pairs)))}
-        response = attempt(bucket, Request{method: Method.Get, url}, options.prefix, 0)?
+        url = {..bucket_url(config), query: Some(canonical_query(Query(pairs)))}
+        response = attempt(bucket, Request{method: Method.Get, url:}, options.prefix, 0)?
         body = Response.text(response) |> Result.map_err(fn e -> from_http(e))?
         listing_of(body)
-    }
-}
+    end
+end
 
 // The listing a `ListObjectsV2` response's XML describes.
-fn listing_of(body: String) -> Result<Listing, storage.Error> {
-    bad = fn message: String -> storage.Error.Backend{code: "InvalidResponse", message}
+fn listing_of(body: String) -> Result<Listing, storage.Error>
+    bad = fn message: String -> storage.Error.Backend{code: "InvalidResponse", message:}
     doc = xml.decode(body) |> Result.map_err(fn e -> bad("the listing is not XML: ${e}"))?
 
     objects =
         Element.children_named(doc, "Contents")
-        |> Iter.map(fn contents -> {
+        |> Iter.map(fn contents ->
             key =
                 Element.child_text(contents, "Key")
                 |> Maybe.to_result(bad("a listed object has no Key"))?
@@ -377,8 +380,8 @@ fn listing_of(body: String) -> Result<Listing, storage.Error> {
                 |> Maybe.map(&Anchored.to_instant(&1))
                 |> Maybe.to_result(bad("the listed object ${key} has no LastModified time"))?
 
-            Ok(Entry{key, size, modified})
-        })
+            Ok(Entry{key:, size:, modified:})
+        end)
         |> Result.collect()?
 
     prefixes =
@@ -386,17 +389,17 @@ fn listing_of(body: String) -> Result<Listing, storage.Error> {
         |> Iter.map(fn common -> Element.child_text(common, "Prefix"))
         |> Maybe.values()
 
-    next = if Element.child_text(doc, "IsTruncated") == Some("true") {
+    next = if Element.child_text(doc, "IsTruncated") == Some("true") then
         Some(
             Element.child_text(doc, "NextContinuationToken")
             |> Maybe.to_result(bad("a truncated listing has no NextContinuationToken"))?
         )
-    } else {
+    else
         None
-    }
+    end
 
-    Ok(Listing{objects, prefixes, next})
-}
+    Ok(Listing{objects:, prefixes:, next:})
+end
 
 // Send one call's request, signed afresh for each attempt, and return the
 // response of the first attempt that succeeds, or the last failure.
@@ -406,18 +409,18 @@ fn send(
     key: String,
     headers: Headers = Headers[],
     body: Body = Body.Empty,
-) -> Result<Response, storage.Error> {
+) -> Result<Response, storage.Error>
     config = bucket.config
-    request = Request{method, url: object_url(config, key), headers, body}
+    request = Request{method:, url: object_url(config, key), headers:, body:}
     attempt(bucket, request, key, 0)
-}
+end
 
 fn attempt(
     bucket: Bucket,
     request: Request,
     key: String,
     tried: Int,
-) -> Result<Response, storage.Error> {
+) -> Result<Response, storage.Error>
     config = bucket.config
 
     signed = sign(
@@ -428,32 +431,32 @@ fn attempt(
         payload: config.payload,
     )
 
-    outcome = case Client.fetch(bucket.client, signed) {
+    outcome = case Client.fetch(bucket.client, signed)
         Ok(response) when Status.is_success(response.status) -> Ok(response)
         Ok(response) -> Err(failure(key, response))
         Err(error) -> Err(from_http(error))
-    }
+    end
 
-    case outcome {
-        Err(.Unavailable{}) when tried < config.retries -> {
+    case outcome
+        Err(.Unavailable{}) when tried < config.retries ->
             timer.sleep(backoff(tried))
             attempt(bucket, request, key, tried + 1)
-        }
 
-        _ -> outcome
-    }
-}
+        _ ->
+            outcome
+    end
+end
 
 // The wait before retry `tried` + 1: 100 ms, then four times the last,
 // each with up to half again taken from the clock.
-fn backoff(tried: Int) -> Duration {
+fn backoff(tried: Int) -> Duration
     base = Iter.reduce(0..tried, 100, fn wait, _ -> wait * 4)
     jitter = Instant.as_nanos(Instant.now()) % 1000 * base / 2000
     Duration.milliseconds(base + jitter)
-}
+end
 
 // What a successful GET or HEAD says about the object.
-fn info_of(response: Response, size: Int) -> Info {
+fn info_of(response: Response, size: Int) -> Info
     content_type =
         Headers.get(response.headers, "Content-Type")
         |> Maybe.with_default("application/octet-stream")
@@ -463,66 +466,71 @@ fn info_of(response: Response, size: Int) -> Info {
         |> Maybe.flat_map(fn text -> http.parse_time(text) |> Result.to_maybe())
         |> Maybe.with_default(Instant.now())
 
-    Info{size, content_type, modified}
-}
+    Info{size:, content_type:, modified:}
+end
 
 // The storage error for a response S3 returned with a status other than a
 // success.
-fn failure(key: String, response: Response) -> storage.Error {
+fn failure(key: String, response: Response) -> storage.Error
     status = Status.code(response.status)
     body = Response.text(response) |> Result.with_default("")
     parsed = parse_error(body)
     code = parsed |> Maybe.map(fn e -> e.code) |> Maybe.with_default("HTTP ${status}")
 
-    message = case parsed {
+    message = case parsed
         Some(e) -> e.message
         None -> String.take(String.trim(body), 200)
-    }
+    end
 
-    case status {
-        404 when code != "NoSuchBucket" -> storage.Error.NotFound{key}
-        403 -> storage.Error.Denied{message: joined(code, message)}
+    case status
+        404 when code != "NoSuchBucket" ->
+            storage.Error.NotFound{key:}
 
-        400 when code == "AuthorizationHeaderMalformed" -> {
-            wanted = case parsed |> Maybe.flat_map(fn e -> e.region) {
+        403 ->
+            storage.Error.Denied{message: joined(code, message)}
+
+        400 when code == "AuthorizationHeaderMalformed" ->
+            wanted = case parsed |> Maybe.flat_map(fn e -> e.region)
                 Some(region) -> " (the server wants the region ${region})"
                 None -> ""
-            }
+            end
 
-            storage.Error.Backend{code, message: "${message}${wanted}"}
-        }
+            storage.Error.Backend{code:, message: "${message}${wanted}"}
 
-        429 or 500 or 502 or 503 or 504 -> storage.Error.Unavailable{message: joined(code, message)}
-        _ -> storage.Error.Backend{code, message}
-    }
-}
+        429 or 500 or 502 or 503 or 504 ->
+            storage.Error.Unavailable{message: joined(code, message)}
 
-fn joined(code: String, message: String) -> String {
-    if message == "" {
+        _ ->
+            storage.Error.Backend{code:, message:}
+    end
+end
+
+fn joined(code: String, message: String) -> String
+    if message == "" then
         code
-    } else {
+    else
         "${code}: ${message}"
-    }
-}
+    end
+end
 
 // The fields of S3's XML error document that this module reads.
-struct ErrorDocument {
+struct ErrorDocument
     code: String
     message: String
     region: Maybe<String>
-}
+end
 
 // S3's error document: `<Error><Code>..</Code><Message>..</Message>
 // ...</Error>`, of which this reads `Code`, `Message` and `Region`.
-fn parse_error(body: String) -> Maybe<ErrorDocument> {
+fn parse_error(body: String) -> Maybe<ErrorDocument>
     doc = xml.decode(body) |> Result.to_maybe()?
     code = Element.child_text(doc, "Code")?
     message = Element.child_text(doc, "Message") |> Maybe.with_default("")
-    Some(ErrorDocument{code, message, region: Element.child_text(doc, "Region")})
-}
+    Some(ErrorDocument{code:, message:, region: Element.child_text(doc, "Region")})
+end
 
-fn from_http(error: http.Error) -> storage.Error {
-    case error {
+fn from_http(error: http.Error) -> storage.Error
+    case error
         .Dns{} -> storage.Error.Unavailable{message: "${error}"}
         .Connect{} -> storage.Error.Unavailable{message: "${error}"}
         .Timeout{} -> storage.Error.Unavailable{message: "${error}"}
@@ -530,11 +538,11 @@ fn from_http(error: http.Error) -> storage.Error {
         .Tls{} -> storage.Error.Backend{code: "Tls", message: "${error}"}
         .BodyTooLarge{} -> storage.Error.Backend{code: "TooLarge", message: "${error}"}
         _ -> storage.Error.Backend{code: http_code(error), message: "${error}"}
-    }
-}
+    end
+end
 
-fn http_code(error: http.Error) -> String {
-    case error {
+fn http_code(error: http.Error) -> String
+    case error
         .InvalidUrl{} -> "InvalidUrl"
         .InvalidRequest{} -> "InvalidRequest"
         .TooManyRedirects{} -> "TooManyRedirects"
@@ -542,127 +550,128 @@ fn http_code(error: http.Error) -> String {
         .Body{} -> "Body"
         .Unsupported{} -> "Unsupported"
         _ -> "Http"
-    }
-}
+    end
+end
 
-fn invalid(message: String) -> Result<Unit, storage.Error> {
-    Err(storage.Error.Backend{code: "InvalidConfig", message})
-}
+fn invalid(message: String) -> Result<Unit, storage.Error>
+    Err(storage.Error.Backend{code: "InvalidConfig", message:})
+end
 
-fn check_config(config: Config) -> Result<Unit, storage.Error> {
+fn check_config(config: Config) -> Result<Unit, storage.Error>
     endpoint = config.endpoint
 
-    if endpoint.scheme != "http" and endpoint.scheme != "https" {
+    if endpoint.scheme != "http" and endpoint.scheme != "https" then
         return invalid("the endpoint ${endpoint} is not http or https")
-    }
+    end
 
-    if endpoint.host == "" { return invalid("the endpoint ${endpoint} has no host") }
+    if endpoint.host == "" then return invalid("the endpoint ${endpoint} has no host")
 
     if (endpoint.path != "" and endpoint.path != "/")
         or endpoint.query != None
-        or endpoint.fragment != None {
+        or endpoint.fragment != None then
         return invalid("the endpoint ${endpoint} has a path, a query or a fragment")
-    }
+    end
 
     check_bucket(config.bucket)?
-    if config.region == "" { return invalid("the region is empty") }
+    if config.region == "" then return invalid("the region is empty")
 
-    if config.credentials.access_key == "" or config.credentials.secret_key == "" {
+    if config.credentials.access_key == "" or config.credentials.secret_key == "" then
         return invalid("the access key or the secret key is empty")
-    }
+    end
 
-    if config.timeout <= Duration.seconds(0) {
+    if config.timeout <= Duration.seconds(0) then
         return invalid("the timeout ${config.timeout} is not positive")
-    }
+    end
 
-    if config.retries < 0 { return invalid("retries is ${config.retries}, below 0") }
+    if config.retries < 0 then return invalid("retries is ${config.retries}, below 0")
 
     if config.addressing == Addressing.VirtualHost
         and endpoint.scheme == "https"
-        and String.contains(config.bucket, ".") {
+        and String.contains(config.bucket, ".") then
         return invalid(
             "the bucket ${config.bucket} has a dot, so as a virtual host over https no certificate matches it"
         )
-    }
+    end
 
     Ok(Unit)
-}
+end
 
 // S3's rules for a bucket name: 3 to 63 lowercase letters, digits, `.` and
 // `-`, starting and ending with a letter or a digit.
-fn check_bucket(name: String) -> Result<Unit, storage.Error> {
-    if String.contains(name, Regex`^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$`) {
+fn check_bucket(name: String) -> Result<Unit, storage.Error>
+    if String.contains(name, Regex`^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$`) then
         Ok(Unit)
-    } else {
+    else
         invalid("the bucket name \"${name}\" is not 3 to 63 lowercase letters, digits, . and -")
-    }
-}
+    end
+end
 
-fn check_expires(expires: Duration) -> Result<Unit, storage.Error> {
+fn check_expires(expires: Duration) -> Result<Unit, storage.Error>
     seconds = Duration.as_seconds(expires)
 
-    if seconds < 1 or seconds > 604_800 {
+    if seconds < 1 or seconds > 604_800 then
         invalid("a presigned URL expires after 1 second to 7 days, not ${expires}")
-    } else {
+    else
         Ok(Unit)
-    }
-}
+    end
+end
 
 // The bucket's URL on the endpoint, in the configured addressing style.
-fn bucket_url(config: Config) -> Url {
+fn bucket_url(config: Config) -> Url
     endpoint = config.endpoint
 
-    case config.addressing {
-        .Path -> Url{scheme: endpoint.scheme, host: endpoint.host, path: "/${config.bucket}"}
+    case config.addressing
+        .Path ->
+            Url{scheme: endpoint.scheme, host: endpoint.host, path: "/${config.bucket}"}
 
         .VirtualHost ->
             Url{scheme: endpoint.scheme, host: "${config.bucket}.${endpoint.host}", path: "/"}
-    }
-}
+    end
+end
 
 // The object's URL on the endpoint, in the configured addressing style.
-fn object_url(config: Config, key: String) -> Url {
+fn object_url(config: Config, key: String) -> Url
     endpoint = config.endpoint
 
-    (host, path) = case config.addressing {
+    (host, path) = case config.addressing
         .Path -> (endpoint.host, "/${config.bucket}/${key}")
         .VirtualHost -> ("${config.bucket}.${endpoint.host}", "/${key}")
-    }
+    end
 
     encoded = uri_encode(path, keep_slash: True)
-    raw_path = if encoded == path { None } else { Some(encoded) }
-    Url{scheme: endpoint.scheme, host, path, raw_path}
-}
+    raw_path = if encoded == path then None else Some(encoded)
+    Url{scheme: endpoint.scheme, host:, path:, raw_path:}
+end
 
 // SigV4's `x-amz-date`: the instant in UTC as `yyyyMMdd'T'HHmmss'Z'`.
-fn timestamp(at: Instant) -> String {
+fn timestamp(at: Instant) -> String
     DateTime.from_instant_in(at, "UTC")!
     |> DateTime.to_string_with(DateTimePattern`yyyyMMdd'T'HHmmss'Z'`)
-}
+end
 
-fn scope(stamp: String, region: String) -> String {
+fn scope(stamp: String, region: String) -> String
     "${String.take(stamp, 8)}/${region}/s3/aws4_request"
-}
+end
 
-fn payload_hash(body: Body, payload: Payload) -> String {
-    case (payload, body) {
+fn payload_hash(body: Body, payload: Payload) -> String
+    case (payload, body)
         (.Unsigned, _) -> "UNSIGNED-PAYLOAD"
         (.Signed, .Empty) -> hash.sha256_hex(String.to_bytes(""))
         (.Signed, .Text(text)) -> hash.sha256_hex(String.to_bytes(text))
         (.Signed, .Bytes(data)) -> hash.sha256_hex(data)
         _ -> "UNSIGNED-PAYLOAD"
-    }
-}
+    end
+end
 
 // The signed header names, lowercase, sorted and joined with `;`: `host`
 // and each header the request carries.
-fn signed_names(request: Request) -> String {
+fn signed_names(request: Request) -> String
     canonical_headers(request) |> Iter.map(fn (name, _) -> name) |> String.join(";")
-}
+end
 
 // Each signed header as its lowercase name and its values, trimmed, with
 // runs of spaces made one, and joined with `,`, sorted by name.
-fn canonical_headers(request: Request) -> List<(String, String)> {
+fn canonical_headers(request: Request) -> List<(String, String)>
     host = Maybe.with_default(request.host, request.url.host)
     Headers(given) = request.headers
 
@@ -674,7 +683,7 @@ fn canonical_headers(request: Request) -> List<(String, String)> {
     |> Iter.map(fn (name, _) -> name)
     |> Iter.to_set()
     |> Iter.sort()
-    |> Iter.map(fn name -> {
+    |> Iter.map(fn name ->
         values =
             pairs
             |> Iter.filter(fn (n, _) -> n == name)
@@ -682,25 +691,25 @@ fn canonical_headers(request: Request) -> List<(String, String)> {
             |> String.join(",")
 
         (name, values)
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
-fn collapse(value: String) -> String {
+fn collapse(value: String) -> String
     String.split(String.trim(value), " ") |> Iter.filter(fn part -> part != "") |> String.join(" ")
-}
+end
 
 // The canonical request for `request` with the query `query` and the
 // payload hash `hashed`, and the signed header names it lists.
-fn canonical_request(request: Request, query: Query, hashed: String) -> (String, String) {
+fn canonical_request(request: Request, query: Query, hashed: String) -> (String, String)
     headers = canonical_headers(request)
     names = headers |> Iter.map(fn (name, _) -> name) |> String.join(";")
 
-    path = if request.url.path == "" {
+    path = if request.url.path == "" then
         "/"
-    } else {
+    else
         request.url.path
-    }
+    end
 
     canonical = String.join(
         [
@@ -715,11 +724,11 @@ fn canonical_request(request: Request, query: Query, hashed: String) -> (String,
     )
 
     (names, canonical)
-}
+end
 
 // Each query name and value URI-encoded, sorted by name then value, joined
 // with `&`.
-fn canonical_query(query: Query) -> String {
+fn canonical_query(query: Query) -> String
     Query(pairs) = query
 
     pairs
@@ -727,9 +736,9 @@ fn canonical_query(query: Query) -> String {
     |> Iter.sort()
     |> Iter.map(fn (name, value) -> "${name}=${value}")
     |> String.join("&")
-}
+end
 
-fn string_to_sign(stamp: String, region: String, canonical: String) -> String {
+fn string_to_sign(stamp: String, region: String, canonical: String) -> String
     String.join(
         [
             "AWS4-HMAC-SHA256",
@@ -739,34 +748,34 @@ fn string_to_sign(stamp: String, region: String, canonical: String) -> String {
         ],
         "\n",
     )
-}
+end
 
-fn signature_of(secret: String, region: String, stamp: String, canonical: String) -> String {
+fn signature_of(secret: String, region: String, stamp: String, canonical: String) -> String
     key =
         [String.take(stamp, 8), region, "s3", "aws4_request"]
-        |> Iter.reduce(String.to_bytes("AWS4${secret}"), fn key, part -> {
+        |> Iter.reduce(String.to_bytes("AWS4${secret}"), fn key, part ->
             hash.hmac_sha256(key, String.to_bytes(part))
-        })
+        end)
 
     hex.encode(hash.hmac_sha256(key, String.to_bytes(string_to_sign(stamp, region, canonical))))
-}
+end
 
 // SigV4's URI encoding: `A-Z a-z 0-9 - _ . ~` stay, `/` stays when
 // `keep_slash`, and every other byte of the UTF-8 is `%` and two uppercase
 // hexadecimal digits. std/url's escapers leave `$`, `!` and others alone or
 // write a space as `+`, so neither matches it.
-fn uri_encode(text: String, keep_slash: Bool = False) -> String {
+fn uri_encode(text: String, keep_slash: Bool = False) -> String
     unreserved = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~"
 
     text
-    |> Iter.map(fn c -> {
-        if String.length(c) == 1 and String.contains(unreserved, c) or keep_slash and c == "/" {
+    |> Iter.map(fn c ->
+        if String.length(c) == 1 and String.contains(unreserved, c) or keep_slash and c == "/" then
             c
-        } else {
+        else
             String.to_bytes(c)
             |> Iter.map(fn b -> "%${String.uppercase(hex.encode(Bytes.from_list([b])))}")
             |> String.join("")
-        }
-    })
+        end
+    end)
     |> String.join("")
-}
+end

@@ -32,8 +32,8 @@ import (
 //   - A generic function is not a wall. The checker instantiates the
 //     reference against the function type its position expects and records
 //     the instantiated signature on it (analysis/generic_func_ref.go); the
-//     value is that instance, built by resolveMonoInstance as a call's is
-//     (funcRefInstance below).
+//     value is that instance, at the type arguments the checker recorded,
+//     as a call's is (monoInstanceAt).
 //
 // # What DOES lower, and why it costs nothing
 //
@@ -73,14 +73,11 @@ func (g *gen) checkedRefKinds(ref ast.Node, arity int) ([]kind, kind, bool) {
 // funcTypeKinds is a checked function type's parameter and result kinds, ok
 // false unless it has arity parameters and every kind is in the value domain.
 func (g *gen) funcTypeKinds(ft *analysis.FuncType, arity int) ([]kind, kind, bool) {
-	if ft == nil || len(ft.Params) != arity || irUnsolvedType(ft.Return) {
+	if ft == nil || len(ft.Params) != arity {
 		return nil, kindInvalid, false
 	}
 	params := make([]kind, arity)
 	for i, pt := range ft.Params {
-		if irUnsolvedType(pt) {
-			return nil, kindInvalid, false
-		}
 		params[i] = g.project(pt)
 		// A Unit parameter (`Iter.each(units, io.inspect)`) is in the
 		// domain, as irCallableValueKind admits it in a function kind.
@@ -93,23 +90,4 @@ func (g *gen) funcTypeKinds(ft *analysis.FuncType, arity int) ([]kind, kind, boo
 		return nil, kindInvalid, false
 	}
 	return params, result, true
-}
-
-// funcRefInstance is the instance of this gen's generic template tpl that the
-// reference ref names, solved by monoSolve from the checker's instantiation
-// exactly as a direct call's is.
-func (g *gen) funcRefInstance(ref ast.Node, tpl *monoTemplate, name string) (*monoInst, bool) {
-	params, result, ok := g.checkedRefKinds(ref, len(tpl.decl.Params))
-	if !ok {
-		return nil, false
-	}
-	args, ok := g.monoSolve(tpl, params, result)
-	if !ok {
-		return nil, false
-	}
-	inst, why, _ := g.resolveMonoInstance(tpl, args, name)
-	if why != "" || inst == nil {
-		return nil, false
-	}
-	return inst, true
 }

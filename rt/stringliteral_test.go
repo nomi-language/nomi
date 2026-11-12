@@ -104,10 +104,10 @@ func TestStringLiteral_InsideContainers(t *testing.T) {
 		t.Errorf("list row %s", got)
 	}
 	m := MapOf(Hash, Equal, []MapEntry[any, any]{{Key: "k\n", Val: "v\t"}})
-	if got, err := DebugText(m, nil); err != nil || got != `%{"k\n" => "v\t"}` {
+	if got, err := DebugText(m, nil); err != nil || got != `{"k\n" => "v\t"}` {
 		t.Errorf("map debug %s %v", got, err)
 	}
-	if got := RowText(m); got != `%{"k\n" => "v\t"}` {
+	if got := RowText(m); got != `{"k\n" => "v\t"}` {
 		t.Errorf("map row %s", got)
 	}
 	tuple := TupleDesc(SlotString, SlotString).Make("a\nb", `${c}`)

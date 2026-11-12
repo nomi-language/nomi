@@ -12,26 +12,26 @@ func TestCheck_CollectionSpreads_Accepts(t *testing.T) {
 		"list, spread between":         "  xs = [1]\n  _a: List<Int> = [0, ..xs, 2]\n",
 		"list, two spreads":            "  xs = [1]\n  _a: List<Int> = [..xs, ..xs]\n",
 		"list, empty spread":           "  _a: List<Int> = [..[], 1, ..[2]]\n",
-		"vector, between":              "  v = #[1]\n  _a: Vector<Int> = #[0, ..v, 2]\n",
-		"vector, two spreads":          "  v = #[1]\n  _a: Vector<Int> = #[..v, 2, ..v]\n",
-		"set, spread last":             "  s = %[1]\n  _a: Set<Int> = %[0, ..s]\n",
-		"set, two spreads":             "  s = %[1]\n  _a: Set<Int> = %[..s, ..%[2]]\n",
+		"vector, between":              "  v = Vector[1]\n  _a: Vector<Int> = Vector[0, ..v, 2]\n",
+		"vector, two spreads":          "  v = Vector[1]\n  _a: Vector<Int> = Vector[..v, 2, ..v]\n",
+		"set, spread last":             "  s = Set[1]\n  _a: Set<Int> = Set[0, ..s]\n",
+		"set, two spreads":             "  s = Set[1]\n  _a: Set<Int> = Set[..s, ..Set[2]]\n",
 		"list, spread of a Maybe":      "  m = Some(1)\n  _a: List<Int> = [0, ..m, ..None]\n",
 		"list, spread of an Iter":      "  _a: List<Int> = [0, ..[1, 2] |> Iter.map(fn x -> x * 2)]\n",
-		"list, spread of a set":        "  _a = [0, ..%[1]]\n",
-		"vector, spread of a list":     "  _a: Vector<Int> = #[1, ..[2], 3]\n",
-		"vector, only an Iter spread":  "  _a = #[..Some(1)]\n",
-		"set, spread of a list":        "  _a: Set<Int> = %[1, ..[2]]\n",
-		"set, an Iter spread then set": "  _a = %[..Some(1), ..%[2]]\n",
-		"map, spread last":             "  m = %{\"a\" => 1}\n  _a: Map<String, Int> = %{\"a\" => 0, ..m}\n",
-		"map, two spreads":             "  m = %{\"a\" => 1}\n  _a: Map<String, Int> = %{..m, ..%{\"b\" => 2}}\n",
-		"map, open first":              "  m = %{\"a\" => 1}\n  _a: Map<String, Int> = %{..%{}, ..m}\n",
-		"map, update after spreads": "  m = %{\"a\" => %{\"x\" => 1}}\n" +
-			"  _a: Map<String, Map<String, Int>> = %{\"b\" => %{}, ..m, \"a\" => %{.., \"y\" => 2}}\n",
+		"list, spread of a set":        "  _a = [0, ..Set[1]]\n",
+		"vector, spread of a list":     "  _a: Vector<Int> = Vector[1, ..[2], 3]\n",
+		"vector, only an Iter spread":  "  _a = Vector[..Some(1)]\n",
+		"set, spread of a list":        "  _a: Set<Int> = Set[1, ..[2]]\n",
+		"set, an Iter spread then set": "  _a = Set[..Some(1), ..Set[2]]\n",
+		"map, spread last":             "  m = {\"a\" => 1}\n  _a: Map<String, Int> = {\"a\" => 0, ..m}\n",
+		"map, two spreads":             "  m = {\"a\" => 1}\n  _a: Map<String, Int> = {..m, ..{\"b\" => 2}}\n",
+		"map, open first":              "  m = {\"a\" => 1}\n  _a: Map<String, Int> = {..{}, ..m}\n",
+		"map, update after spreads": "  m = {\"a\" => {\"x\" => 1}}\n" +
+			"  _a: Map<String, Map<String, Int>> = {\"b\" => {}, ..m, \"a\" => {.., \"y\" => 2}}\n",
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib("fn main() {\n" + body + "}\n")
+			_, errs := checkSourceWithStdlib("fn main()\n" + body + "end\n")
 			if len(errs) != 0 {
 				t.Fatalf("errors = %v, want none", errs)
 			}
@@ -52,22 +52,24 @@ func TestCheck_CollectionSpreads_Refuses(t *testing.T) {
 			"list spread `..` requires an Iter of the list's elements, got Int", 3, 14},
 		"a list spread of an Iter of another element": {"  _a = [0, ..Some(\"b\")]\n",
 			"list spread element type mismatch: Int vs String", 2, 14},
-		"a vector spread that is no Iter": {"  v = #[1]\n  _a = #[1, ..v, ..2]\n",
-			"vector spread `..` requires an Iter of the vector's elements, got Int", 3, 18},
-		"a vector spread of a list of another element": {"  v = #[1]\n  _a = #[1, ..v, ..[\"b\"]]\n",
-			"vector spread element type mismatch: expected Int, got String", 3, 18},
-		"a set spread after an element, that is no Iter": {"  n = 1\n  _a = %[1, ..n]\n",
-			"set spread `..` requires an Iter of the set's elements, got Int", 3, 13},
-		"two map spreads of different types": {"  m = %{\"a\" => 1}\n  o = %{1 => 2}\n  _a = %{..m, ..o}\n",
-			"map spread type mismatch: expected Map<String, Int>, got Map<Int, Int>", 4, 15},
-		"a map entry before every spread has no current value": {"  m = %{\"a\" => %{\"x\" => 1}}\n  _a = %{\"a\" => %{.., \"y\" => 2}, ..m}\n",
-			"a bare `..` has no value to update here", 3, 19},
-		"one set spread and no element": {"  s = %[1]\n  _a = %[..s]\n",
-			"a set spread with no elements is its base value; write `s`", 3, 10},
+		"a vector spread that is no Iter": {"  v = Vector[1]\n  _a = Vector[1, ..v, ..2]\n",
+			"vector spread `..` requires an Iter of the vector's elements, got Int", 3, 23},
+		"a vector spread of a literal of another element": {"  v = Vector[1]\n  _a = Vector[1, ..v, ..[\"b\"]]\n",
+			"vector element type mismatch: expected Int, got String", 3, 26},
+		"a vector spread of a list of another element": {"  v = Vector[1]\n  xs = [\"b\"]\n  _a = Vector[1, ..v, ..xs]\n",
+			"vector spread element type mismatch: expected Int, got String", 4, 23},
+		"a set spread after an element, that is no Iter": {"  n = 1\n  _a = Set[1, ..n]\n",
+			"set spread `..` requires an Iter of the set's elements, got Int", 3, 15},
+		"two map spreads of different types": {"  m = {\"a\" => 1}\n  o = {1 => 2}\n  _a = {..m, ..o}\n",
+			"map spread type mismatch: expected Map<String, Int>, got Map<Int, Int>", 4, 14},
+		"a map entry before every spread has no current value": {"  m = {\"a\" => {\"x\" => 1}}\n  _a = {\"a\" => {.., \"y\" => 2}, ..m}\n",
+			"a bare `..` has no value to update here", 3, 17},
+		"one set spread and no element": {"  s = Set[1]\n  _a = Set[..s]\n",
+			"a set spread with no elements is its base value; write `s`", 3, 12},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib("fn main() {\n" + c.body + "}\n")
+			_, errs := checkSourceWithStdlib("fn main()\n" + c.body + "end\n")
 			if len(errs) != 1 {
 				t.Fatalf("errors = %v, want exactly %q", errs, c.want)
 			}

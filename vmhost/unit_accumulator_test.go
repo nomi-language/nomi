@@ -9,30 +9,32 @@ import "testing"
 func TestRun_IterFunctionsTakeUnitAsTheirValue(t *testing.T) {
 	out := runOutput(t, `import std::io
 
-fn check(n: Int) -> Result<Unit, String> {
-    if n > 5 {
+fn check(n: Int) -> Result<Unit, String>
+    if n > 5 then
         Err("big ${n}")
-    } else {
+    else
         Ok(Unit)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.inspect(Iter.try_reduce([1, 2], Unit, fn _, n -> check(n)))
     io.inspect(Iter.try_reduce([1, 9, 3], Unit, fn _, n -> check(n)))
-    io.inspect(Iter.reduce([1, 2], Unit, fn u, n -> {
+    io.inspect(Iter.reduce([1, 2], Unit, fn u, n ->
         io.print("saw ${n}")
         u
-    }))
-    io.inspect(Iter.reduce([1, 2, 3], Unit, fn u, n -> if n == 2 { break } else { u }))
+    end))
+    io.inspect(Iter.reduce([1, 2, 3], Unit, fn u, n -> if n == 2 then break else u))
     io.inspect(Iter.scan([1, 2], Unit, fn u, _ -> u) |> Iter.to_list())
     io.inspect(Iter.map_reduce([1, 2], Unit, fn u, n -> (u, n * 10)))
-    io.inspect(Iter.loop(Unit, fn u -> { break u }))
+    io.inspect(Iter.loop(Unit, fn u ->
+        break u
+    end))
     io.inspect(Iter.repeat(Unit) |> Iter.take(2) |> Iter.to_list())
     io.inspect(Iter.iterate(Unit, fn u -> u) |> Iter.take(3) |> Iter.to_list())
     io.inspect(Iter.intersperse([Unit, Unit], Unit) |> Iter.to_list())
     io.inspect(Iter.contains([Unit], Unit))
-}
+end
 `)
 	const want = `Ok(Unit)
 Err("big 9")

@@ -61,6 +61,7 @@ var programStdModules = map[string]bool{
 	"mail":             true,
 	"mail_testing":     true,
 	"phrase":           true,
+	"presence":         true,
 	"money":            true,
 	"net":              true,
 	"passwords":        true,

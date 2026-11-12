@@ -8,7 +8,7 @@ import (
 )
 
 // attachedVariant lowers a literal-attach form whose prefix names an enum
-// variant (`%Json.Obj{"k" => v}`, `.Arr[1, 2]`, `JArr[...]`) as the variant's
+// variant (`Json.Obj{"k" => v}`, `.Arr[1, 2]`, `JArr[...]`) as the variant's
 // positional call over the anonymous literal. A prefix that names a distinct type, or a
 // variant the builder does not retain, declines.
 func (bl *irScalarBuilder) attachedVariant(at ast.Node, prefix ast.TypeExpr, anon ast.Node) (ir.Temp, kind, bool, bool) {
@@ -57,7 +57,7 @@ func (bl *irScalarBuilder) attachedVariant(at ast.Node, prefix ast.TypeExpr, ano
 		ti := &ast.TypeIdent{Name: tn.Name, Line: tn.Line, Col: tn.Col}
 		call.Func = ti
 		if d, found := bl.g.namedType(tn.Name); found {
-			// `%Kvs{"a" => 1}`: the distinct's constructor over the literal.
+			// `Kvs{"a" => 1}`: the distinct's constructor over the literal.
 			if d = bl.g.distinctInstanceAt(d, tn.Name, at); d != nil && irCompositeDistinct(d) {
 				return bl.compositeDistinctMake(call, d)
 			}

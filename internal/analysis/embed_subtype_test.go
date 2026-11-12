@@ -7,57 +7,82 @@ import "testing"
 
 func TestEmbed_SubtypeCoercion_DistinctType_Assignment(t *testing.T) {
 	src := `type UserId String
-enum Identifier { embeds UserId; Anonymous }
-fn demo() -> Identifier {
+enum Identifier
+    embeds UserId
+    Anonymous
+end
+fn demo() -> Identifier
   uid: UserId = UserId("alice")
   uid
-}`
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestEmbed_SubtypeCoercion_DistinctType_FunctionArg(t *testing.T) {
 	src := `type UserId String
-enum Identifier { embeds UserId; Anonymous }
-fn render(_id: Identifier) -> String { "x" }
-fn demo() -> String {
+enum Identifier
+    embeds UserId
+    Anonymous
+end
+fn render(_id: Identifier) -> String
+    "x"
+end
+fn demo() -> String
   uid: UserId = UserId("alice")
   render(uid)
-}`
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestEmbed_SubtypeCoercion_DistinctType_ListElement(t *testing.T) {
 	src := `type UserId String
-enum Identifier { embeds UserId; Anonymous }
-fn demo() -> List<Identifier> {
+enum Identifier
+    embeds UserId
+    Anonymous
+end
+fn demo() -> List<Identifier>
   uid: UserId = UserId("alice")
   [uid, UserId("bob"), Identifier.Anonymous]
-}`
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestEmbed_SubtypeCoercion_StructEmbed_Assignment(t *testing.T) {
-	src := `struct Circle { radius: Float }
-enum Shape { embeds Circle; Point }
-fn demo() -> Shape {
+	src := `struct Circle
+    radius: Float
+end
+enum Shape
+    embeds Circle
+    Point
+end
+fn demo() -> Shape
   c: Circle = Circle{radius: 5.0}
   c
-}`
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestEmbed_SubtypeCoercion_StructEmbed_ListElement(t *testing.T) {
-	src := `struct Circle { radius: Float }
-struct Rectangle { width: Float; height: Float }
-enum Shape { embeds Circle; embeds Rectangle; Point }
-fn demo() -> List<Shape> {
+	src := `struct Circle
+    radius: Float
+end
+struct Rectangle
+    width: Float
+    height: Float
+end
+enum Shape
+    embeds Circle
+    embeds Rectangle
+    Point
+end
+fn demo() -> List<Shape>
   c: Circle = Circle{radius: 5.0}
   [c, Rectangle{width: 3.0, height: 4.0}, Shape.Point]
-}`
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -69,13 +94,16 @@ fn demo() -> List<Shape> {
 // a layer of nesting just because the type now lives inside a variant.
 func TestEmbed_WrappingDistinct_PatternBindsInner(t *testing.T) {
 	src := `type UserId String
-enum Identifier { embeds UserId; Anonymous }
-fn label(id: Identifier) -> String {
-  case id {
+enum Identifier
+    embeds UserId
+    Anonymous
+end
+fn label(id: Identifier) -> String
+  case id
     Identifier.UserId(name) -> name
     Identifier.Anonymous -> "anonymous"
-  }
-}`
+  end
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -86,10 +114,13 @@ fn label(id: Identifier) -> String {
 // no longer valid (it would pass UserId where String is expected).
 func TestEmbed_WrappingDistinct_QualifiedConstructionTakesInner(t *testing.T) {
 	src := `type UserId String
-enum Identifier { embeds UserId; Anonymous }
-fn make() -> Identifier {
+enum Identifier
+    embeds UserId
+    Anonymous
+end
+fn make() -> Identifier
   Identifier.UserId("alice")
-}`
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -100,11 +131,14 @@ fn make() -> Identifier {
 // (UserId ≤ Identifier), not on the variant's payload type.
 func TestEmbed_WrappingDistinct_SubtypeCoercionStillWorks(t *testing.T) {
 	src := `type UserId String
-enum Identifier { embeds UserId; Anonymous }
-fn make() -> Identifier {
+enum Identifier
+    embeds UserId
+    Anonymous
+end
+fn make() -> Identifier
   uid: UserId = UserId("alice")
   uid
-}`
+end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -117,8 +151,13 @@ fn make() -> Identifier {
 // single-payload variant form, which is the right shape for an
 // interface-typed payload.
 func TestEmbed_InterfaceTypeRejected(t *testing.T) {
-	src := `interface Renderable { fn render(value: self) -> String }
-enum Wrapper { embeds Renderable; Empty }`
+	src := `interface Renderable
+    fn render(value: self) -> String
+end
+enum Wrapper
+    embeds Renderable
+    Empty
+end`
 	_, errs := checkSource(src)
 	expectError(t, errs, "embeds requires a struct or distinct type, got interface Renderable")
 }

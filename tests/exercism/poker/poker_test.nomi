@@ -1,6 +1,6 @@
 import poker
 
-test "best hands" {
+test "best hands"
     [
         ("single hand always wins", ["4S 5S 7H 8D JC"], ["4S 5S 7H 8D JC"]),
         (
@@ -164,14 +164,14 @@ test "best hands" {
             ["2H 3H 4H 5H 6H"],
         ),
     ]
-    |> subtests (description, hands, expected), description {
+    |> subtests (description, hands, expected), description
         assert poker.best_hands(hands) == Ok(expected)
-    }
-}
+    end
+end
 
 // Not a canonical case: the canonical hands are all well formed.
-test "a hand with a card that is not a card is refused" {
+test "a hand with a card that is not a card is refused"
     assert poker.best_hands(["4S 5S 7H 8D 1C"]) == Err(.InvalidHand("4S 5S 7H 8D 1C"))
     assert poker.best_hands(["4S 5S 7H 8D JX"]) == Err(.InvalidHand("4S 5S 7H 8D JX"))
     assert poker.best_hands(["4S 5S 7H 8D"]) == Err(.InvalidHand("4S 5S 7H 8D"))
-}
+end

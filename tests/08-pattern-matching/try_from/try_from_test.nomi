@@ -1,0 +1,75 @@
+// A `?` whose error type differs from the function's declared one applies
+// the declared type's `From` impl to the error (spec §11 *Propagating with
+// `?`*): the function returns `Err(ApiError.from(e))`. The impls are in
+// another file, and each `?` takes the one its error type chooses.
+import errors.{ApiError, DiskError, NetError, Noted}
+
+fn read(name: String) -> Result<Int, DiskError>
+    case name
+        "full" -> Err(.Full(name))
+        "missing" -> Err(.Missing(name))
+        _ -> Ok(String.length(name))
+    end
+end
+
+fn fetch(code: Int) -> Result<Int, NetError>
+    if code == 200 then Ok(1) else Err(.Down(code))
+end
+
+fn handle(name: String, code: Int) -> Result<Int, ApiError>
+    size = read(name)?
+    sent = code |> fetch()?
+
+    Ok(size + sent)
+end
+
+enum LocalError
+    Bad Int
+end
+
+// `From`'s `E` is an input, so a module's own type there admits an impl for
+// a foreign target.
+impl From<LocalError> for String
+    fn from(e: LocalError) -> String
+        case e
+            .Bad(n) -> "bad ${n}"
+        end
+    end
+end
+
+fn local(n: Int) -> Result<Int, LocalError>
+    if n > 0 then Ok(n) else Err(.Bad(n))
+end
+
+fn as_text(n: Int) -> Result<Int, String>
+    m = local(n)?
+
+    Ok(m * 2)
+end
+
+fn noted(name: String) -> Result<Int, Noted<DiskError>>
+    size = read(name)?
+
+    Ok(size)
+end
+
+test "a `?` converts the error through the declared type's impl"
+    assert handle("abc", 200) == Ok(4)
+    assert handle("full", 200) == Err(ApiError.Disk(.Full("full")))
+    assert handle("abc", 503) == Err(ApiError.Net(.Down(503)))
+end
+
+test "an impl for a foreign target converts"
+    assert as_text(2) == Ok(4)
+    assert as_text(-1) == Err("bad -1")
+end
+
+test "a generic impl converts"
+    assert noted("missing") == Err(Noted{inner: DiskError.Missing("missing"), note: "noted"})
+    assert noted("ab") == Ok(2)
+end
+
+test "the impl is an ordinary function"
+    assert ApiError.from(NetError.Down(1)) == ApiError.Net(.Down(1))
+    assert (DiskError.Full("x") |> ApiError.from()) == ApiError.Disk(.Full("x"))
+end

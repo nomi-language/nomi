@@ -9,7 +9,7 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-const pointDecl = "struct Point {\n    x: Int\n    y: Int\n}\n\n"
+const pointDecl = "struct Point\n    x: Int\n    y: Int\nend\n\n"
 
 // captureMain is decls, then body in `fn main() { ... }`.
 func captureMain(decls, body string) string {
@@ -23,14 +23,14 @@ func TestUseCapture_RewritesAOneStepLambda(t *testing.T) {
 		name, decls, body, want string
 	}{
 		{"comparison", "", "big = Iter.filter([1, 60], ‸fn s -> s > 50) |> Iter.to_list()\ndbg big", "big = Iter.filter([1, 60], &(&1 > 50)) |> Iter.to_list()"},
-		{"call", "", "letters = %[\"a\"]\nhit = Iter.filter([\"a\", \"b\"], fn l -> ‸Set.contains(letters, l)) |> Iter.to_list()\ndbg hit", "hit = Iter.filter([\"a\", \"b\"], &Set.contains(letters, &1)) |> Iter.to_list()"},
+		{"call", "", "letters = Set[\"a\"]\nhit = Iter.filter([\"a\", \"b\"], fn l -> ‸Set.contains(letters, l)) |> Iter.to_list()\ndbg hit", "hit = Iter.filter([\"a\", \"b\"], &Set.contains(letters, &1)) |> Iter.to_list()"},
 		{"struct", pointDecl, "ps = Iter.map([1, 2], ‸fn x -> Point{x: x, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &Point{x: &1, y: 0}) |> Iter.to_list()"},
-		{"punned field", pointDecl, "ps = Iter.map([1, 2], ‸fn x -> Point{x, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &Point{x: &1, y: 0}) |> Iter.to_list()"},
+		{"punned field", pointDecl, "ps = Iter.map([1, 2], ‸fn x -> Point{x:, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &Point{x: &1, y: 0}) |> Iter.to_list()"},
 		{"tuple", "", "ps = Iter.map([1, 2], ‸fn x -> (x, 0)) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &(&1, 0)) |> Iter.to_list()"},
 		{"negation", "", "ns = Iter.map([1, 2], ‸fn x -> -x) |> Iter.to_list()\ndbg ns", "ns = Iter.map([1, 2], &(-&1)) |> Iter.to_list()"},
 		{"two parameters", "", "add: (Int, Int) -> Int = ‸fn a, b -> a + b\ndbg add(1, 2)", "add: (Int, Int) -> Int = &(&1 + &2)"},
 		{"named argument", "", "s = Iter.map([1, 2], ‸fn n -> Int.to_string(n)) |> String.join(\",\")\ndbg s", "s = Iter.map([1, 2], &Int.to_string(&1)) |> String.join(\",\")"},
-		{"a then stage", "fn divide(x: Int, y: Int) -> Int {\n    x / y\n}\n\n", "dbg 10 |> then ‸fn n -> divide(100, n)", "dbg 10 |> then &divide(100, &1)"},
+		{"a then stage", "fn divide(x: Int, y: Int) -> Int\n    x / y\nend\n\n", "dbg 10 |> then ‸fn n -> divide(100, n)", "dbg 10 |> then &divide(100, &1)"},
 		{"a call in another argument", "", "xs = Iter.map([1], ‸fn x -> Int.max(x, Int.abs(-3))) |> Iter.to_list()\ndbg xs", "xs = Iter.map([1], &Int.max(&1, Int.abs(-3))) |> Iter.to_list()"},
 		{"string", "", "ids = Iter.map([1, 2], ‸fn x -> \"id ${x}\") |> Iter.to_list()\ndbg ids", "ids = Iter.map([1, 2], &\"id ${&1}\") |> Iter.to_list()"},
 		{"two steps", "", "xs = Iter.map([1], ‸fn x -> x * 2 + 1) |> Iter.to_list()\ndbg xs", "xs = Iter.map([1], &(&1 * 2 + 1)) |> Iter.to_list()"},
@@ -51,23 +51,23 @@ func TestUseCapture_RewritesAOneStepLambda(t *testing.T) {
 	}
 }
 
-const studentDecls = `struct Address {
+const studentDecls = `struct Address
     city: String
-}
+end
 
-struct Student {
+struct Student
     score: Int
     address: Address
     marks: List<Int>
-}
+end
 
-fn grade(score: Int) -> Int {
+fn grade(score: Int) -> Int
     score / 10
-}
+end
 
-fn compare(a: Int, b: Int) -> Int {
+fn compare(a: Int, b: Int) -> Int
     a - b
-}
+end
 
 `
 
@@ -162,7 +162,7 @@ func TestUseCapture_KeepsALambdaTheRuleKeeps(t *testing.T) {
 		{"a use in a lambda of its own", "", "xs = Iter.map([1], ‸fn x -> Iter.map([2], fn y -> y + x)) |> Iter.to_list()\ndbg xs", nil},
 		{"a capture inside", "", "xs = Iter.map([[1]], ‸fn x -> Iter.map(x, &(&1 + 1))) |> Iter.to_list()\ndbg xs", nil},
 		{"the second parameter read first", "", "f: (Int, Int) -> Int = ‸fn a, b -> b * a + a\ndbg f(1, 2)", nil},
-		{"block body", "", "xs = Iter.map([1], ‸fn x -> {\n    x + 1\n}) |> Iter.to_list()\ndbg xs", nil},
+		{"block body", "", "xs = Iter.map([1], ‸fn x ->\n    x + 1\nend) |> Iter.to_list()\ndbg xs", nil},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			refuseRefactor(t, captureMain(c.decls, c.body), "Use a capture", c.allowed...)
@@ -177,12 +177,12 @@ func TestWriteAsLambda_RewritesACapture(t *testing.T) {
 		name, decls, body, want string
 	}{
 		{"operator", "", "big = Iter.filter([1, 60], &(&1 ‸> 50)) |> Iter.to_list()\ndbg big", "big = Iter.filter([1, 60], fn x -> x > 50) |> Iter.to_list()"},
-		{"partial call", "fn scale(value: Int, by: Int) -> Int {\n    value * by\n}\n\n", "xs = Iter.map([1, 2], ‸&scale(&1, 10)) |> Iter.to_list()\ndbg xs", "xs = Iter.map([1, 2], fn value -> scale(value, 10)) |> Iter.to_list()"},
-		{"named slot", "fn scale(value: Int, by: Int) -> Int {\n    value * by\n}\n\n", "xs = Iter.map([1, 2], ‸&scale(10, by: &1)) |> Iter.to_list()\ndbg xs", "xs = Iter.map([1, 2], fn by -> scale(10, by: by)) |> Iter.to_list()"},
-		{"struct", pointDecl, "ps = Iter.map([1, 2], &Point{x: ‸&1, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], fn x -> Point{x, y: 0}) |> Iter.to_list()"},
+		{"partial call", "fn scale(value: Int, by: Int) -> Int\n    value * by\nend\n\n", "xs = Iter.map([1, 2], ‸&scale(&1, 10)) |> Iter.to_list()\ndbg xs", "xs = Iter.map([1, 2], fn value -> scale(value, 10)) |> Iter.to_list()"},
+		{"named slot", "fn scale(value: Int, by: Int) -> Int\n    value * by\nend\n\n", "xs = Iter.map([1, 2], ‸&scale(10, by: &1)) |> Iter.to_list()\ndbg xs", "xs = Iter.map([1, 2], fn by -> scale(10, by:)) |> Iter.to_list()"},
+		{"struct", pointDecl, "ps = Iter.map([1, 2], &Point{x: ‸&1, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], fn x -> Point{x:, y: 0}) |> Iter.to_list()"},
 		{"two parameters", "", "add: (Int, Int) -> Int = &(&1 ‸+ &2)\ndbg add(1, 2)", "add: (Int, Int) -> Int = fn x, y -> x + y"},
 		{"a name in scope", "", "x = 50\nbig = Iter.filter([1, 60], &(&1 ‸> x)) |> Iter.to_list()\ndbg big", "big = Iter.filter([1, 60], fn x2 -> x2 > x) |> Iter.to_list()"},
-		{"a then stage", "fn divide(x: Int, y: Int) -> Int {\n    x / y\n}\n\n", "dbg 10 |> then ‸&divide(100, &1)", "|> then fn y -> divide(100, y)"},
+		{"a then stage", "fn divide(x: Int, y: Int) -> Int\n    x / y\nend\n\n", "dbg 10 |> then ‸&divide(100, &1)", "|> then fn y -> divide(100, y)"},
 		{"a field read", studentDecls, studentsLine + "by_grade = ss |> Iter.group_by(‸&grade(&1.score))\ndbg by_grade", "by_grade = ss |> Iter.group_by(fn x -> grade(x.score))"},
 		{"two field reads", studentDecls, "by: (Student, Student) -> Int = ‸&compare(&1.score, &2.score)\ndbg by", "by: (Student, Student) -> Int = fn x, y -> compare(x.score, y.score)"},
 		{"string", "", "ids = Iter.map([1, 2], ‸&\"id ${&1}\") |> Iter.to_list()\ndbg ids", "ids = Iter.map([1, 2], fn x -> \"id ${x}\") |> Iter.to_list()"},
@@ -199,7 +199,7 @@ func TestWriteAsLambda_RewritesACapture(t *testing.T) {
 // A partial capture bound with no expected type has no lambda that types
 // without an annotation, so it is offered none.
 func TestWriteAsLambda_RefusesWhatIsNoFunctionOfItsPosition(t *testing.T) {
-	decls := "fn divide(x: Int, y: Int) -> Int {\n    x / y\n}\n\n"
+	decls := "fn divide(x: Int, y: Int) -> Int\n    x / y\nend\n\n"
 	for _, body := range []string{
 		"halve = ‸&divide(&1, 2)\ndbg halve(10)",
 	} {
@@ -212,8 +212,8 @@ func TestWriteAsLambda_RefusesWhatIsNoFunctionOfItsPosition(t *testing.T) {
 func TestCaptureRoundTrip_KeepsTheProgram(t *testing.T) {
 	for _, c := range []struct{ decls, body, lambda string }{
 		{"", "big = Iter.filter([1, 60], ‸fn x -> x > 50) |> Iter.to_list()\ndbg big", "fn x -> x > 50"},
-		{pointDecl, "ps = Iter.map([1, 2], ‸fn x -> Point{x, y: 0}) |> Iter.to_list()\ndbg ps", "fn x -> Point{x, y: 0}"},
-		{"fn scale(value: Int, by: Int) -> Int {\n    value * by\n}\n\n", "xs = Iter.map([1, 2], ‸fn value -> scale(value, 10)) |> Iter.to_list()\ndbg xs", "fn value -> scale(value, 10)"},
+		{pointDecl, "ps = Iter.map([1, 2], ‸fn x -> Point{x:, y: 0}) |> Iter.to_list()\ndbg ps", "fn x -> Point{x:, y: 0}"},
+		{"fn scale(value: Int, by: Int) -> Int\n    value * by\nend\n\n", "xs = Iter.map([1, 2], ‸fn value -> scale(value, 10)) |> Iter.to_list()\ndbg xs", "fn value -> scale(value, 10)"},
 		{"", "add: (Int, Int) -> Int = ‸fn x, y -> x + y\ndbg add(1, 2)", "fn x, y -> x + y"},
 		{studentDecls, studentsLine + "by_grade = ss |> Iter.group_by(‸fn x -> grade(x.score))\ndbg by_grade", "fn x -> grade(x.score)"},
 		{"", "ids = Iter.map([1, 2], ‸fn x -> \"id ${x}\") |> Iter.to_list()\ndbg ids", "fn x -> \"id ${x}\""},
@@ -236,7 +236,7 @@ func TestCaptureRoundTrip_KeepsTheProgram(t *testing.T) {
 // A `tap` capture that only passes the piped value on becomes the function
 // by name.
 func TestTapByName_RewritesAPassingCapture(t *testing.T) {
-	decls := "fn log_it(n: Int) {\n    io.print(n)\n}\n\n"
+	decls := "fn log_it(n: Int)\n    io.print(n)\nend\n\n"
 	for _, c := range []struct{ name, body, title, want string }{
 		{"plain", "dbg 1 |> tap ‸&log_it(&1)", "Pass `log_it` by name", "dbg 1 |> tap log_it\n"},
 		{"qualified", "dbg 1 |> tap &io.‸print(&1)", "Pass `io.print` by name", "dbg 1 |> tap io.print\n"},
@@ -253,7 +253,7 @@ func TestTapByName_RewritesAPassingCapture(t *testing.T) {
 // A capture that does more than pass the value on keeps its form, and so
 // does one outside a `tap` stage.
 func TestTapByName_RefusesACaptureThatDoesMore(t *testing.T) {
-	decls := "fn show(label: String, n: Int) {\n    io.print(\"${label} ${n}\")\n}\n\n"
+	decls := "fn show(label: String, n: Int)\n    io.print(\"${label} ${n}\")\nend\n\n"
 	for _, body := range []string{
 		"dbg 1 |> tap ‸&show(\"n\", &1)",
 		"dbg 1 |> tap ‸&io.print(&1 + 1)",

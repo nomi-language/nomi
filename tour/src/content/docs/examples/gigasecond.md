@@ -19,17 +19,17 @@ import std::calendar.{NaiveDateTime, Seconds}
 once gigasecond = Seconds(1_000_000_000)
 
 /// The moment one gigasecond after `moment`.
-pub fn add(moment: NaiveDateTime) -> NaiveDateTime {
+pub fn add(moment: NaiveDateTime) -> NaiveDateTime
     moment + gigasecond
-}
+end
 
 // FILE: gigasecond_test.nomi
-import {
+import
     std::calendar.{Date, NaiveDateTime}
     gigasecond
-}
+end
 
-test "date only specification of time" {
+test "date only specification of time"
     [
         ("date only specification of time", Date`2011-04-25`, NaiveDateTime`2043-01-01T01:46:40`),
         (
@@ -43,12 +43,12 @@ test "date only specification of time" {
             NaiveDateTime`1991-03-27T01:46:40`,
         ),
     ]
-    |> subtests (description, day, expected), description {
+    |> subtests (description, day, expected), description
         assert NaiveDateTime.at_midnight(day) |> gigasecond.add() == expected
-    }
-}
+    end
+end
 
-test "full time specified" {
+test "full time specified"
     [
         (
             "full time specified",
@@ -61,17 +61,17 @@ test "full time specified" {
             NaiveDateTime`2046-10-03T01:46:39`,
         ),
     ]
-    |> subtests (description, moment, expected), description {
+    |> subtests (description, moment, expected), description
         assert gigasecond.add(moment) == expected
-    }
-}
+    end
+end
 
-test "does not mutate the input" {
+test "does not mutate the input"
     moment = NaiveDateTime`2015-01-24T23:59:59`
     _later = gigasecond.add(moment)
 
     assert moment == NaiveDateTime`2015-01-24T23:59:59`
-}
+end
 ```
 <!-- expect
 ok date only specification of time (3 cases)

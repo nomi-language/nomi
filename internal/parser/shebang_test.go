@@ -11,7 +11,7 @@ import (
 // A `#!` first line is not part of the program: the file parses as if the
 // line were blank, and declarations after it keep their source lines.
 func TestParse_ShebangFirstLineIsIgnored(t *testing.T) {
-	nodes, err := Parse(lexer.Lex("#!/usr/bin/env nomi\nimport std::io\n\nfn main() {\n    io.print(1)\n}\n"))
+	nodes, err := Parse(lexer.Lex("#!/usr/bin/env nomi\nimport std::io\n\nfn main()\n    io.print(1)\nend\n"))
 	if err != nil {
 		t.Fatalf("Parse rejected a file with a shebang: %v", err)
 	}
@@ -30,7 +30,7 @@ func TestParse_ShebangAfterFirstByteIsRejected(t *testing.T) {
 		"second line":    {"import std::io\n#!/usr/bin/env nomi\n", 2, 1},
 		"after a blank":  {"\n#!/usr/bin/env nomi\n", 2, 1},
 		"leading space":  {" #!/usr/bin/env nomi\n", 1, 2},
-		"inside a block": {"fn main() {\n    #!/usr/bin/env nomi\n}\n", 2, 5},
+		"inside a block": {"fn main()\n    #!/usr/bin/env nomi\nend\n", 2, 5},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

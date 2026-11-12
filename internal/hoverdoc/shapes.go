@@ -15,11 +15,11 @@ import (
 // (operators.go), and a discard `_` (discards.go).
 //
 // An editor asks for the hover of the character under the cursor, which on
-// `Point{`, `%[`, `.Circle{` or the `]` that ends a long literal is
+// `Point{`, `[`, `.Circle{` or the `]` that ends a long literal is
 // punctuation no symbol covers. SyntaxAt answers there: every position of a
 // literal's head (the symbol, the name and the opening bracket) and its
 // closing bracket, the `..` of a pattern's `..rest` and of a literal's
-// spread (`.{..alice, age: 31}`, `[..xs, 1]`), the `.` and `(` of a
+// spread (`{..alice, age: 31}`, `[..xs, 1]`), the `.` and `(` of a
 // variant, and both characters of a pipe's `|>`. An element, key, field or
 // value inside, and a spread's head, answers as it always did, since none
 // of those positions is one SyntaxAt claims.
@@ -80,6 +80,9 @@ type shapeSearch struct {
 	// conditionArms the `_` arms of a `case` with no subject (discards.go).
 	refutable     map[*ast.WildcardPattern]bool
 	conditionArms map[*ast.WildcardPattern]bool
+	// bareRests are the `_`s the parser stands at a bare `..` of a bracket
+	// pattern (`[a, ..]`), which ignore the rest and have no hover.
+	bareRests map[*ast.WildcardPattern]bool
 }
 
 // claim offers the text at (line, col) of length n for the node n of extent
@@ -103,7 +106,7 @@ func spanOf(n ast.Node) ast.Span {
 }
 
 // extentOf is a node's extent on one line: its span, or, for a type name
-// the parser records no span for (the name of `Point{`, of `%Tags[`, of a
+// the parser records no span for (the name of `Point{`, of `Tags[`, of a
 // pattern's `Some(`), the extent its position and spelling give.
 func extentOf(n ast.Node) ast.Span {
 	if sp := spanOf(n); !sp.IsZero() {
@@ -136,21 +139,19 @@ func spanSize(sp ast.Span) int {
 func (s *shapeSearch) visit(n ast.Node) {
 	switch n := n.(type) {
 	case *ast.StructLit:
-		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.structLit(n) })
+		s.shape(n, n.Line, n.Col, n.TypeName, n.TypeName == nil, func() string { return s.structLit(n) })
 		s.structSpread(n)
 	case *ast.ListLit:
-		s.shape(n, n.Line, n.Col, n.TypeName, true, func() string { return s.collectionLit(n, n.TypeName) })
-	case *ast.ListSpreadLit:
-		s.shape(n, n.Line, n.Col, nil, true, func() string { return s.collectionLit(n, nil) })
-		s.collectionSpreads(n, "list", n.Spreads)
-	case *ast.VectorLit:
-		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.collectionLit(n, n.TypeName) })
-		s.collectionSpreads(n, "vector", n.Spreads)
-	case *ast.SetLit:
-		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.collectionLit(n, n.TypeName) })
-		s.collectionSpreads(n, "set", n.Spreads)
+		name := n.TypeName
+		if n.ShapeHead {
+			name = nil
+		}
+		s.shape(n, n.Line, n.Col, n.TypeName, n.TypeName == nil, func() string { return s.collectionLit(n, name) })
+		if len(n.Spreads) > 0 {
+			s.collectionSpreads(n, n.Kind.String(), n.Spreads)
+		}
 	case *ast.MapLit:
-		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.collectionLit(n, n.TypeName) })
+		s.shape(n, n.Line, n.Col, n.TypeName, n.TypeName == nil, func() string { return s.collectionLit(n, n.TypeName) })
 		s.collectionSpreads(n, "map", n.Spreads)
 	case *ast.TupleLit:
 		s.shape(n, n.Line, n.Col, nil, true, func() string { return s.collectionLit(n, nil) })
@@ -159,20 +160,16 @@ func (s *shapeSearch) visit(n ast.Node) {
 		if rest, ok := n.TailSpread.(*ast.IdentPattern); ok {
 			s.restDots(rest.Line, rest.Col-2, rest, n)
 		}
-	case *ast.VectorPattern:
-		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.pattern(n) })
-		if rest, ok := n.Rest.(*ast.IdentPattern); ok && n.Spread {
-			s.restDots(n.SpreadLine, n.SpreadCol, rest, n)
-		}
-	case *ast.SetPattern:
-		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.pattern(n) })
-		if rest, ok := n.Rest.(*ast.IdentPattern); ok && n.Spread {
-			s.restDots(n.SpreadLine, n.SpreadCol, rest, n)
+		if w, ok := n.TailSpread.(*ast.WildcardPattern); ok && n.BareRest {
+			if s.bareRests == nil {
+				s.bareRests = map[*ast.WildcardPattern]bool{}
+			}
+			s.bareRests[w] = true
 		}
 	case *ast.MapPattern:
-		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.pattern(n) })
+		s.shape(n, n.Line, n.Col, n.TypeName, n.TypeName == nil, func() string { return s.pattern(n) })
 	case *ast.StructPattern:
-		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.pattern(n) })
+		s.shape(n, n.Line, n.Col, n.TypeName, n.TypeName == nil, func() string { return s.pattern(n) })
 	case *ast.TuplePattern:
 		if !n.Flat {
 			s.shape(n, n.Line, n.Col, nil, true, func() string { return s.pattern(n) })
@@ -214,7 +211,9 @@ func (s *shapeSearch) visit(n ast.Node) {
 		s.funcKeyword(n)
 		s.discardParams(n.Params, func() *analysis.FuncType { return s.funcDefType(n) })
 	case *ast.WildcardPattern:
-		s.discard(n)
+		if !s.bareRests[n] {
+			s.discard(n)
+		}
 	case *ast.Binding:
 		s.discardBinding(n)
 	case *ast.Case, *ast.If, *ast.PatternBinding, *ast.PatternDestructure:
@@ -224,8 +223,9 @@ func (s *shapeSearch) visit(n ast.Node) {
 
 // shape claims a literal's or pattern's head and closing bracket. The head
 // runs from the symbol at (line, col) through the opening bracket: right
-// after the type name when there is one, at col for a list (whose bracket is
-// its first character), and after the one-character symbol otherwise.
+// after the type name when there is one, at col for a list or an anonymous
+// struct (whose bracket is its first character), and after the
+// one-character symbol otherwise.
 func (s *shapeSearch) shape(n ast.Node, line, col int, name ast.TypeExpr, bracketFirst bool, render func() string) {
 	sp := spanOf(n)
 	if sp.IsZero() {
@@ -372,7 +372,7 @@ func shapeWord(t string) string {
 	switch {
 	case isTupleType(t):
 		return "tuple " + t
-	case strings.HasPrefix(t, ".{"):
+	case strings.HasPrefix(t, "{"):
 		return "anonymous struct " + t
 	}
 	return t
@@ -442,7 +442,7 @@ func (s *shapeSearch) structLit(n *ast.StructLit) string {
 	return fence(shapeWord(displayValueType(ty)))
 }
 
-// targetStruct is the hover of a `.{` that builds the struct st because the
+// targetStruct is the hover of a `{` that builds the struct st because the
 // position expected it: the struct, said to come from the expected type,
 // and its doc. A generic struct leads with its instantiation.
 func targetStruct(fa *analysis.FileAnalysis, st *analysis.StructType, pos analysis.Pos) string {
@@ -526,27 +526,26 @@ func (s *shapeSearch) pattern(n ast.Node) string {
 	var binds []ast.Node
 	switch p := n.(type) {
 	case *ast.ListPattern:
-		kind = "list pattern"
+		if p.Kind == ast.SeqSet {
+			kind = "set pattern"
+			elems := valueList(p.Heads)
+			spread := p.TailSpread != nil
+			switch {
+			case !spread && len(p.Heads) == 0:
+				matches = "matches the empty " + strings.TrimPrefix(what, "a ")
+			case !spread:
+				matches = "matches " + what + " holding exactly " + elems
+			case len(p.Heads) == 0:
+				matches = "matches any " + strings.TrimPrefix(what, "a ")
+			default:
+				matches = "matches " + what + " containing " + elems
+			}
+			binds = append(binds, p.Rest())
+			break
+		}
+		kind = p.Kind.String() + " pattern"
 		matches = lengthPhrase(what, len(p.Heads)+len(p.Tails), p.TailSpread != nil)
 		binds = append(append(append(binds, p.Heads...), p.TailSpread), p.Tails...)
-	case *ast.VectorPattern:
-		kind = "vector pattern"
-		matches = lengthPhrase(what, len(p.Heads)+len(p.Tails), p.Spread)
-		binds = append(append(append(binds, p.Heads...), p.Rest), p.Tails...)
-	case *ast.SetPattern:
-		kind = "set pattern"
-		elems := valueList(p.Elems)
-		switch {
-		case !p.Spread && len(p.Elems) == 0:
-			matches = "matches the empty " + strings.TrimPrefix(what, "a ")
-		case !p.Spread:
-			matches = "matches " + what + " holding exactly " + elems
-		case len(p.Elems) == 0:
-			matches = "matches any " + strings.TrimPrefix(what, "a ")
-		default:
-			matches = "matches " + what + " containing " + elems
-		}
-		binds = append(binds, p.Rest)
 	case *ast.MapPattern:
 		kind = "map pattern"
 		keys := make([]ast.Node, len(p.Entries))

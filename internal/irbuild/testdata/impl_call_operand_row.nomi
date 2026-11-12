@@ -32,72 +32,72 @@
 // declared return type, so it has to read the SELECTED implementation's
 // result. `bump` returns Int and `has_even_sum` returns Bool, so the `3` is
 // dropped in one report and printed in the other, a few lines apart.
-interface Bumper {
+interface Bumper
     fn bump(c: self, by: Int) -> Int
     fn has_even_sum(c: self, by: Int) -> Bool
-}
+end
 
-struct Counter {
+struct Counter
     n: Int
-}
+end
 
-impl Bumper for Counter {
-    fn bump(c: Counter, by: Int) -> Int {
+impl Bumper for Counter
+    fn bump(c: Counter, by: Int) -> Int
         c.n + by
-    }
+    end
 
-    fn has_even_sum(c: Counter, by: Int) -> Bool {
+    fn has_even_sum(c: Counter, by: Int) -> Bool
         (c.n + by) % 2 == 0
-    }
-}
+    end
+end
 
-interface Wrapper {
+interface Wrapper
     fn wrap(b: self, by: Int) -> Int
-}
+end
 
-struct Boxer<T> {
+struct Boxer<T>
     item: T
     seed: Int
-}
+end
 
-impl Wrapper for Boxer<T> {
-    fn wrap(b: Boxer<T>, by: Int) -> Int {
+impl Wrapper for Boxer<T>
+    fn wrap(b: Boxer<T>, by: Int) -> Int
         b.seed * by
-    }
-}
+    end
+end
 
 // A NON-LITERAL second argument, so the row appears under the Int-returning
 // callee too — where the literal rule would have dropped a literal. Without
 // this the Int rows could only ever show the receiver, and a fix that recorded
 // the receiver alone would look complete.
-fn step() -> Int {
+fn step() -> Int
     2
-}
+end
 
-test "a type-qualified impl call records its arguments" {
+test "a type-qualified impl call records its arguments"
     c = Counter{n: 5}
     assert Counter.bump(c, step()) == 99
-}
+end
 
-test "an interface-qualified impl call records its arguments" {
+test "an interface-qualified impl call records its arguments"
     c = Counter{n: 5}
     assert Bumper.bump(c, step()) == 99
-}
+end
 
-test "a Bool-returning impl call records its LITERAL arguments too" {
+test "a Bool-returning impl call records its LITERAL arguments too"
     c = Counter{n: 5}
     assert Bumper.has_even_sum(c, 2)
-}
+end
 
-test "an Int-returning impl call drops its literal argument" {
+test "an Int-returning impl call drops its literal argument"
     c = Counter{n: 5}
     assert Counter.bump(c, 3) == 99
-}
+end
 
-test "a generic impl template's call records its arguments" {
+test "a generic impl template's call records its arguments"
     b = Boxer{item: "x", seed: 4}
     assert Boxer.wrap(b, step()) == 99
-}
+end
 
 // The OPERATOR interface written out as a CALL. It reaches
 // `directImplCallAt` through operCall / operTypeQualifiedCall, which are the
@@ -115,33 +115,33 @@ type Day Int
 
 type Days Int
 
-fn day_value(day: Day) -> Int {
+fn day_value(day: Day) -> Int
     Day(n) = day
     n
-}
+end
 
-fn days_value(days: Days) -> Int {
+fn days_value(days: Days) -> Int
     Days(n) = days
     n
-}
+end
 
-impl Add<Days, Day> for Day {
-    fn add(lhs: Day, rhs: Days) -> Day {
+impl Add<Days, Day> for Day
+    fn add(lhs: Day, rhs: Days) -> Day
         Day(day_value(lhs) + days_value(rhs))
-    }
-}
+    end
+end
 
 // Both arguments are BOUND rather than written as constructor calls, so the
 // rows here come from the impl call alone and not from constructor argument
 // recording, which is a separate path.
-test "the operator interface written as a call records its arguments" {
+test "the operator interface written as a call records its arguments"
     ten = Day(10)
     four = Days(4)
     assert day_value(Add.add(ten, four)) == 99
-}
+end
 
-test "the operator impl named by its type records its arguments" {
+test "the operator impl named by its type records its arguments"
     ten = Day(10)
     four = Days(4)
     assert day_value(Day.add(ten, four)) == 99
-}
+end

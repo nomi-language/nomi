@@ -156,7 +156,7 @@ func irDistinctOverValue(d *typeDef) bool {
 
 // irDistinctOverKind reports whether k is a composite distinct whose inner
 // is a map or a list (inner), which a map or list pattern matches through the
-// distinct (`%Kvs{"a" => v}`, `Stack[a, ..]`, or the bare `[a, ..]`).
+// distinct (`Kvs{"a" => v}`, `Stack[a, ..]`, or the bare `[a, ..]`).
 func irDistinctOverKind(k kind, inner tag) bool {
 	return k.tag == tagNamed && irCompositeDistinct(k.def) && k.def.inner.tag == inner
 }
@@ -216,7 +216,7 @@ func (g *gen) distinctInstanceAt(d *typeDef, name string, n ast.Node) *typeDef {
 	if d.genericOf != nil {
 		return d
 	}
-	if dt, ok := analysis.ResolveTypeVar(g.checkedExprType(n)).(*analysis.DistinctType); !ok || len(dt.TypeArgs) == 0 {
+	if dt, ok := analysis.ResolveClosed(g.checkedExprType(n)).(*analysis.DistinctType); !ok || len(dt.TypeArgs) == 0 {
 		return d
 	}
 	k := g.checkedKind(n)
@@ -275,9 +275,9 @@ func (bl *irScalarBuilder) distinctMakeOf(t *ast.Call, d *typeDef) (ir.Temp, kin
 }
 
 // compositeDistinctMake lowers `Coord((3, 4))` and `Coord(3, 4)` over a
-// tuple inner, and `Headers(%{...})` over a map inner: the inner value,
+// tuple inner, and `Headers({...})` over a map inner: the inner value,
 // built at the declared inner type, wrapped by MakeDistinct. The named
-// literals `%Headers{...}` and `#Path[...]` reach it through attachedVariant
+// literals `Headers{...}` and `Path[...]` reach it through attachedVariant
 // as the call of the constructor on the anonymous literal.
 func (bl *irScalarBuilder) compositeDistinctMake(t *ast.Call, d *typeDef) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }

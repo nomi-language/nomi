@@ -15,29 +15,29 @@
 //
 // Two implementors are stored into each field, which is what makes the answers
 // below evidence of dispatch rather than of a fixed call.
-import {
+import
     std::io
     effects.{Clock, Logger}
     handlers.{Fixed, Prod, Tagged, Zero}
-}
+end
 
-struct App {
+struct App
     name: String
     logger: Logger
     clock: Clock
-}
+end
 
-fn banner(a: App) -> String {
+fn banner(a: App) -> String
     "${a.name}/${Clock.now(a.clock)}: ${Logger.log(a.logger, "ready")}"
-}
+end
 
 // The field read back out and passed on WITHOUT being re-boxed: the identity
 // travels with the value.
-fn relay(l: Logger, message: String) -> String {
+fn relay(l: Logger, message: String) -> String
     Logger.log(l, message)
-}
+end
 
-fn main() {
+fn main()
     prod = App{name: "prod", logger: Prod{prefix: "P"}, clock: Fixed{at: 7}}
     staging = App{name: "staging", logger: Tagged{tag: "T"}, clock: Zero}
     io.print(banner(prod))
@@ -48,4 +48,4 @@ fn main() {
     // dispatched here through the table the first file declared.
     io.print(Logger.twice(prod.logger, "twice"))
     io.print(Logger.twice(staging.logger, "twice"))
-}
+end

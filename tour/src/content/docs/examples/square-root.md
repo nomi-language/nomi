@@ -16,27 +16,27 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# `Int.sqrt`.
 
 /// The square root of `radicand`, a perfect square of a positive integer.
-pub fn square_root(radicand: Int) -> Int {
+pub fn square_root(radicand: Int) -> Int
     newton(radicand, radicand)
-}
+end
 
 /// Newton's step for the root of `radicand` from `guess`, an integer at or
 /// above the root. Each step lowers the guess, and the first step that
 /// would not lower it leaves the root.
-fn newton(radicand: Int, guess: Int) -> Int {
+fn newton(radicand: Int, guess: Int) -> Int
     next = (guess + radicand / guess) / 2
 
-    if next >= guess {
+    if next >= guess then
         guess
-    } else {
+    else
         newton(radicand, next)
-    }
-}
+    end
+end
 
 // FILE: square_root_test.nomi
 import square_root
 
-test "square root" {
+test "square root"
     [
         ("root of 1", 1, 1),
         ("root of 4", 4, 2),
@@ -45,10 +45,10 @@ test "square root" {
         ("root of 196", 196, 14),
         ("root of 65025", 65025, 255),
     ]
-    |> subtests (description, radicand, expected), description {
+    |> subtests (description, radicand, expected), description
         assert square_root.square_root(radicand) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok square root (6 cases)

@@ -141,16 +141,16 @@ func (s *debugSession) at(st vm.Stop, reason vm.StopReason, stack, locals string
 
 const stepSrc = `import std::io
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
   m = n * 2
   m
-}
+end
 
-fn main() {
+fn main()
   x = 1
   y = double(x)
   io.print("${y}")
-}
+end
 `
 
 func TestDebug_ABreakpointInMainAndStepsOverInAndOut(t *testing.T) {
@@ -198,17 +198,17 @@ func TestDebug_ABreakpointLandsOnTheNextStatement(t *testing.T) {
 
 const lambdaSrc = `import std::io
 
-fn main() {
+fn main()
   xs = [1, 2, 3]
   k = 10
   ys = xs
-    |> Iter.map(fn v -> {
+    |> Iter.map(fn v ->
       w = v + k
       w
-    })
+    end)
     |> Iter.to_list()
   io.print("${ys}")
-}
+end
 `
 
 func TestDebug_ABreakpointInAnIterCallback(t *testing.T) {
@@ -275,18 +275,18 @@ func TestDebug_StepInEntersTheStagesAndTheirCallbacks(t *testing.T) {
 
 const tailSrc = `import std::io
 
-fn count(n: Int, acc: Int) -> Int {
-  if n == 0 {
+fn count(n: Int, acc: Int) -> Int
+  if n == 0 then
     acc
-  } else {
+  else
     count(n - 1, acc + n)
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   total = count(3, 0)
   io.print("${total}")
-}
+end
 `
 
 func TestDebug_ATailCallReplacesItsCaller(t *testing.T) {
@@ -303,15 +303,15 @@ func TestDebug_ATailCallReplacesItsCaller(t *testing.T) {
 
 const shadowSrc = `import std::io
 
-fn main() {
+fn main()
   x = 1
   x = x + 1
-  if x > 1 {
+  if x > 1 then
     x = x * 10
     io.print("${x}")
-  }
+  end
   io.print("${x}")
-}
+end
 `
 
 func TestDebug_AShadowedNameShowsTheBindingInForce(t *testing.T) {
@@ -334,22 +334,22 @@ func TestDebug_AShadowedNameShowsTheBindingInForce(t *testing.T) {
 
 const boxedSrc = `import std::io
 
-interface Show {
+interface Show
   fn show(value: self) -> String
-}
+end
 
-impl Show for List<T> {
-  fn show(xs: List<T>) -> String {
+impl Show for List<T>
+  fn show(xs: List<T>) -> String
     "n${Iter.count(xs)}"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   a: Show = [1, 2]
   xs: List<Show> = [a, ["s"]]
   io.print(Show.show(a))
   io.print("${Iter.count(xs)}")
-}
+end
 `
 
 // A container held as an interface is boxed with its static type
@@ -371,15 +371,15 @@ func TestDebug_ABoxedExistentialShowsItsValue(t *testing.T) {
 
 const trapSrc = `import std::io
 
-fn ratio(a: Int, b: Int) -> Int {
+fn ratio(a: Int, b: Int) -> Int
   q = a / b
   q
-}
+end
 
-fn main() {
+fn main()
   n = 0
   io.print("${ratio(10, n)}")
-}
+end
 `
 
 func TestDebug_ATrapStopsWhereItHappens(t *testing.T) {
@@ -406,14 +406,14 @@ func TestDebug_TrapsAreNotStopsWithoutTheFilter(t *testing.T) {
 	}
 }
 
-const assertSrc = `fn half(n: Int) -> Int {
+const assertSrc = `fn half(n: Int) -> Int
   n / 2
-}
+end
 
-test "half of ten" {
+test "half of ten"
   got = half(10)
   assert got == 6
-}
+end
 `
 
 func TestDebug_AFailedAssertionStops(t *testing.T) {
@@ -430,10 +430,10 @@ func TestDebug_AFailedAssertionStops(t *testing.T) {
 	}
 }
 
-const mainErrSrc = `fn main() -> Result<Unit, String> {
+const mainErrSrc = `fn main() -> Result<Unit, String>
   reason = "boom"
   Err(reason)
-}
+end
 `
 
 func TestDebug_AnErrFromMainStopsBeforeMainEnds(t *testing.T) {
@@ -453,18 +453,18 @@ func TestDebug_AnErrFromMainStopsBeforeMainEnds(t *testing.T) {
 const taskSrc = `import std::io
 import std::tasks.Task
 
-fn work(n: Int) -> Int {
+fn work(n: Int) -> Int
   r = n * 2
   r
-}
+end
 
-fn main() {
-  v = concurrent {
+fn main()
+  v = concurrent
     t = Task.spawn(fn -> work(21))
     Task.await(t)
-  }
+  end
   io.print("${v}")
-}
+end
 `
 
 func TestDebug_ABreakpointInATask(t *testing.T) {
@@ -492,16 +492,17 @@ func TestDebug_ABreakpointInATask(t *testing.T) {
 
 const loopSrc = `import std::io
 
-fn main() {
+fn main()
   n = Iter.loop(0, fn i ->
-    if i == 1000000 {
+    if i == 1000000 then
       break i
-    } else {
+    else
       i + 1
-    }
+    end
+  end
   )
   io.print("${n}")
-}
+end
 `
 
 func TestDebug_PauseStopsARunningProgram(t *testing.T) {

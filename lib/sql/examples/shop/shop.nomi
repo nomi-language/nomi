@@ -1,40 +1,40 @@
 // The shop's operations, over any `Conn`: a connection, a transaction, or
 // a test's.
-import {
+import
     std::sql.{self, Conn, Error}
     queries
     sqlkit.Rows
-}
+end
 
 /// Register a user and place their first order, in one transaction: if
 /// the order fails, the user is not registered either.
-pub fn sign_up_with_order(conn: Conn, email: String, total: Decimal) -> Result<Int, Error> {
-    sql.transaction(conn, fn tx -> {
+pub fn sign_up_with_order(conn: Conn, email: String, total: Decimal) -> Result<Int, Error>
+    sql.transaction(conn, fn tx ->
         user_id = queries.insert_user(tx, email, None)?
         queries.insert_order(tx, user_id, total)
-    })
-}
+    end)
+end
 
 /// Place an order and mark it paid, in one transaction.
-pub fn place_paid_order(conn: Conn, user_id: Int, total: Decimal) -> Result<Int, Error> {
-    sql.transaction(conn, fn tx -> {
+pub fn place_paid_order(conn: Conn, user_id: Int, total: Decimal) -> Result<Int, Error>
+    sql.transaction(conn, fn tx ->
         order_id = queries.insert_order(tx, user_id, total)?
         _ = queries.set_status(tx, order_id, .Paid)?
         Ok(order_id)
-    })
-}
+    end)
+end
 
 /// The total of every order, read one row at a time.
-pub fn total_of_all_orders(conn: Conn) -> Result<Decimal, Error> {
+pub fn total_of_all_orders(conn: Conn) -> Result<Decimal, Error>
     queries.all_orders(conn) |> Rows.fold(0d, fn sum, order -> sum + order.total)
-}
+end
 
 /// A customer's revenue: a row of `queries.revenue_since`.
-pub struct CustomerRevenue {
+pub struct CustomerRevenue
     user_id: Int
     email: String
     order_count: Int
     revenue: Decimal
-}
+end
 
 derive Equatable for CustomerRevenue

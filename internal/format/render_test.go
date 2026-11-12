@@ -77,7 +77,7 @@ func TestRenderImports_Idempotent(t *testing.T) {
 }
 
 func TestRenderImports_NonImportNode(t *testing.T) {
-	tokens := lexer.Lex("fn main() {\n  42\n}\n")
+	tokens := lexer.Lex("fn main()\n  42\nend\n")
 	nodes, _, err := parser.ParseFile(tokens)
 	if err != nil {
 		t.Fatalf("parse: %v", err)

@@ -20,25 +20,24 @@ the next. Here are two loops, a countdown and a search through Fibonacci
 numbers:
 
 ```nomi-run
-fn main() {
+fn main()
     // Countdown: break when n reaches 0.
-    countdown = Iter.loop(5, fn n -> {
-        if n == 0 { break }
+    countdown = Iter.loop(5, fn n ->
+        if n == 0 then break
         n - 1
-    })
+    end)
 
     dbg countdown
 
     // Tuple state: the first Fibonacci pair whose second number is over 100.
-    (a, b) = Iter.loop((0, 1), fn (x, y) -> {
-        if y > 100 { break (x, y) }
+    (a, b) = Iter.loop((0, 1), fn (x, y) ->
+        if y > 100 then break (x, y)
         (y, x + y)
-    })
+    end)
 
     dbg a
     dbg b
-}
-
+end
 ```
 <!-- expect
 dbg line 8: countdown = 0
@@ -75,18 +74,18 @@ input. `continue` skips a blank line and goes on to read the next one:
 ```nomi-run no-run
 import std::io
 
-fn main() {
-    Iter.loop(fn -> {
-        Ok(Some(line)) = io.read_line() else { break }
-        if line == "" { continue }
-        if line == "quit" { break }
+fn main()
+    Iter.loop(fn ->
+        Ok(Some(line)) = io.read_line() else break
+        if line == "" then continue
+        if line == "quit" then break
         io.print(line)
-    })
-}
+    end)
+end
 ```
 
-`Ok(Some(line)) = io.read_line() else { break }` binds `line` when the read
-gives a line, and runs the `else` block otherwise
+`Ok(Some(line)) = io.read_line() else break` binds `line` when the read
+gives a line, and runs the `else` otherwise
 ([Binding with `else`](/pattern-matching/#binding-with-else)).
 
 The loop's body can also be a named function: `Iter.loop(5, step)` calls
@@ -101,15 +100,14 @@ something asks for it. Its starting value comes before the function, as a
 loop's does:
 
 ```nomi-run
-fn main() {
+fn main()
     running =
         [3, 1, 4, 1, 5]
         |> Iter.scan(0, fn total, x -> total + x)
         |> Iter.to_list()
 
     dbg running
-}
-
+end
 ```
 <!-- expect
 dbg line 7: running = [3, 4, 8, 9, 14]
@@ -128,29 +126,28 @@ pass to `Iter.map`. Inside a callback you pass to an `Iter` function, you can
 use `break` to stop early and `continue` to skip an element:
 
 ```nomi-run
-fn main() {
+fn main()
     // break in reduce: stop adding once the total would pass 60.
     partial_sum =
         [10, 20, 30, 40, 50]
-        |> Iter.reduce(0, fn acc, x -> {
-            if acc + x > 60 { break }
+        |> Iter.reduce(0, fn acc, x ->
+            if acc + x > 60 then break
             acc + x
-        })
+        end)
 
     dbg partial_sum
 
     // continue in map: leave odd numbers out of the output.
     evens_doubled =
         [1, 2, 3, 4, 5]
-        |> Iter.map(fn x -> {
-            if x % 2 != 0 { continue }
+        |> Iter.map(fn x ->
+            if x % 2 != 0 then continue
             x * 2
-        })
+        end)
         |> Iter.to_list()
 
     dbg evens_doubled
-}
-
+end
 ```
 <!-- expect
 dbg line 10: partial_sum = 60
@@ -212,17 +209,17 @@ A named function passed to a fold comes after the starting value, as with
 `Iter.loop`:
 
 ```nomi-run
-fn keep_small(x: Int) -> Int {
-    if x > 100 { continue }
+fn keep_small(x: Int) -> Int
+    if x > 100 then continue
     x
-}
+end
 
-fn add_until_zero(total: Int, x: Int) -> Int {
-    if x == 0 { break }
+fn add_until_zero(total: Int, x: Int) -> Int
+    if x == 0 then break
     total + x
-}
+end
 
-fn main() {
+fn main()
     small =
         [5, 500, 7]
         |> Iter.map(keep_small)
@@ -235,8 +232,7 @@ fn main() {
         |> Iter.reduce(0, add_until_zero)
 
     dbg total
-}
-
+end
 ```
 <!-- expect
 dbg line 17: small = [5, 7]
@@ -253,18 +249,18 @@ a signal leaves only one function. This holds even when the call is the whole
 body of a lambda, so this is a compile error:
 
 ```nomi-run error
-fn add_until_zero(total: Int, x: Int) -> Int {
-    if x == 0 { break }
+fn add_until_zero(total: Int, x: Int) -> Int
+    if x == 0 then break
     total + x
-}
+end
 
-fn main() {
+fn main()
     total =
         [1, 2, 0, 4]
         |> Iter.reduce(0, fn total, x -> add_until_zero(total, x))
 
     dbg total
-}
+end
 ```
 <!-- expect
 main.nomi:9:42: `add_until_zero` uses `break`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.reduce(xs, <start>, add_until_zero)`
@@ -275,22 +271,21 @@ When you want a helper to decide and the callback to act, have the helper
 return a `Maybe` (or an enum), and write the `continue` in the callback:
 
 ```nomi-run
-fn small(x: Int) -> Maybe<Int> {
-    if x > 100 { None } else { Some(x) }
-}
+fn small(x: Int) -> Maybe<Int>
+    if x > 100 then None else Some(x)
+end
 
-fn main() {
+fn main()
     doubled =
         [5, 500, 7]
-        |> Iter.map(fn x -> {
-            Some(n) = small(x) else { continue }
+        |> Iter.map(fn x ->
+            Some(n) = small(x) else continue
             n * 2
-        })
+        end)
         |> Iter.to_list()
 
     dbg doubled
-}
-
+end
 ```
 <!-- expect
 dbg line 14: doubled = [10, 14]
@@ -305,18 +300,17 @@ dbg line 14: doubled = [10, 14]
 written in:
 
 ```nomi-run
-fn main() {
+fn main()
     mapped =
         [1, 2, 3, 4, 5]
-        |> Iter.map(fn x -> {
-            if x == 3 { return 300 }
+        |> Iter.map(fn x ->
+            if x == 3 then return 300
             x * 10
-        })
+        end)
         |> Iter.to_list()
 
     dbg mapped
-}
-
+end
 ```
 <!-- expect
 dbg line 10: mapped = [10, 20, 300, 40, 50]
@@ -354,26 +348,22 @@ A function may call itself. Recursion fits a problem that breaks into a
 smaller copy of itself, such as counting the digits of a number:
 
 ```nomi-run
-fn digits(n: Int) -> Int {
-    if n < 10 { 1 } else { 1 + digits(n / 10) }
-}
+fn digits(n: Int) -> Int
+    if n < 10 then 1 else 1 + digits(n / 10)
+end
 
-fn sum_to(n: Int, total: Int) -> Int {
-    if n == 0 {
-        total
-    } else {
-        sum_to(n - 1, total + n)
-    }
-}
+fn sum_to(n: Int, total: Int) -> Int
+    if n == 0 then total else sum_to(n - 1, total + n)
+end
 
-fn main() {
+fn main()
     dbg digits(2026)
     dbg sum_to(200_000, 0)
-}
+end
 ```
 <!-- expect
-dbg line 14: digits(2026) = 4
-dbg line 15: sum_to(200_000, 0) = 20000100000
+dbg line 10: digits(2026) = 4
+dbg line 11: sum_to(200_000, 0) = 20000100000
 -->
 
 A call is a tail call when its result is the function's result, with

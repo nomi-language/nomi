@@ -32,7 +32,7 @@ import (
 // evaluates first is of Infallible: a call whose first argument is one
 // (`Debug.inspect(e)` in the `Err(e)` arm of `Result<Int, Infallible>`'s
 // derived Debug, `Some(todo)`), a unary or binary operator over one (`e ==
-// f`), and a `case` on one (`case todo { ... }`). It lowers that operand and
+// f`), and a `case` on one (`case todo ... end`). It lowers that operand and
 // answers it retyped to the construct's checked type. Nothing after the
 // operand runs, so nothing else is lowered: there is no impl to dispatch on a
 // receiver no value has, and none is needed.
@@ -158,8 +158,7 @@ func (bl *irScalarBuilder) localKindOf(name string) kind {
 	return kindInvalid
 }
 
-// neverResultKind is the checker's type for n, or kindInvalid where it
-// recorded none (a derived impl's body is not recorded).
+// neverResultKind is the checker's type for n.
 func (bl *irScalarBuilder) neverResultKind(n ast.Node) kind {
 	if bl.g.fa == nil {
 		return kindInvalid

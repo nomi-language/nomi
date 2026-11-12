@@ -1,4 +1,4 @@
-import {
+import
     add.Add
     bool.Bool
     comparable.Comparable
@@ -13,7 +13,7 @@ import {
     maybe.Maybe.{self, None, Some}
     strings.String
     summable.Summable
-}
+end
 
 //# Operations on the immutable random-access `Vector<T>` type. Use `List<T>`
 //# for cons-style recursion and cheap prepends; use `Vector<T>` when indexed
@@ -23,9 +23,9 @@ import {
 /// Immutable random-access sequence of elements.
 pub host type Vector<T>
 
-impl Vector<T> {
+impl Vector<T>
     /// Returns the number of elements. O(1).
-    //! assert Vector.length(#["a", "b"]) == 2
+    //! assert Vector.length(["a", "b"]) == 2
     //
     pub host fn length<T>(vector: Vector<T>) -> Int
 
@@ -33,15 +33,15 @@ impl Vector<T> {
     /// outside the vector. Use it when the index comes from data and may miss;
     /// for an index that must exist, `Vector.get(vector, index)!` returns the
     /// element and traps on any other index.
-    //! assert Vector.get(#["a", "b"], 1) == Some("b")
-    //! assert Vector.get(#["a", "b"], 9) == None
-    //! assert Vector.get(#["a", "b"], -1) == None
-    //! assert Vector.get(#["a", "b"], 1)! == "b"
+    //! assert Vector.get(["a", "b"], 1) == Some("b")
+    //! assert Vector.get(["a", "b"], 9) == None
+    //! assert Vector.get(["a", "b"], -1) == None
+    //! assert Vector.get(["a", "b"], 1)! == "b"
     //
     pub host fn get<T>(vector: Vector<T>, index: Int) -> Maybe<T>
 
     /// Returns a new vector with `item` appended to the end.
-    //! assert Vector.push(#[1, 2], 3) == #[1, 2, 3]
+    //! assert Vector.push([1, 2], 3) == [1, 2, 3]
     //
     pub host fn push<T>(vector: Vector<T>, item: T) -> Vector<T>
 
@@ -49,123 +49,124 @@ impl Vector<T> {
     /// must be in `0 <= index < length`. Any other index traps: `index 7 is out
     /// of range for a Vector of length 5`. Check the index against
     /// `Vector.length` first when it may be out.
-    //! assert Vector.set(#["a", "b"], 1, "z") == #["a", "z"]
+    //! assert Vector.set(["a", "b"], 1, "z") == ["a", "z"]
     //
     pub host fn set<T>(vector: Vector<T>, index: Int, item: T) -> Vector<T>
 
     /// Concatenates two vectors.
-    //! assert Vector.concat(#[1, 2], #[3]) == #[1, 2, 3]
+    //! assert Vector.concat([1, 2], [3]) == [1, 2, 3]
     //
     pub host fn concat<T>(a: Vector<T>, b: Vector<T>) -> Vector<T>
 
     /// Returns the next element and remaining vector, or None if empty. Drives the
     /// `Iter` implementation for `Vector`.
-    //! assert Vector.next_item(#[1, 2]) == Some((1, #[2]))
-    //! assert Vector.next_item(#[]) == None
+    //! assert Vector.next_item([1, 2]) == Some((1, [2]))
+    //! assert Vector.next_item([]) == None
     //
     pub host fn next_item<T>(vector: Vector<T>) -> Maybe<(T, Vector<T>)>
-}
+end
 
-impl Iter for Vector<T> {
+impl Iter for Vector<T>
     // Host-side: a Vector is a windowed slice, so the push loop is an index
     // walk with no per-element view to rebuild.
     host fn each_while(vector: Vector<T>, yield: (T) -> Bool) -> Bool
 
-    fn known_count(vector: Vector<T>) -> Maybe<Int> {
+    fn known_count(vector: Vector<T>) -> Maybe<Int>
         Some(length(vector))
-    }
-}
+    end
+end
 
-impl Contains for Vector<T> where T: Equatable {
+impl Contains for Vector<T> where T: Equatable
     /// True if an element of the vector is `==` to `x`. A linear scan that
     /// the runtime runs, comparing each element as `==` does; convert to a
     /// `Set` for repeated lookups.
-    //! assert Vector.contains(#[1, 2, 3], 2)
-    //! refute Vector.contains(#[1, 2, 3], 9)
-    //! empty: Vector<Int> = #[]
+    //! assert Vector.contains(Vector[1, 2, 3], 2)
+    //! refute Vector.contains(Vector[1, 2, 3], 9)
+    //! empty: Vector<Int> = []
     //! refute Vector.contains(empty, 1)
     //
     host fn contains(c: Vector<T>, x: T) -> Bool
-}
+end
 
-impl Add<Vector<T>, Vector<T>> for Vector<T> {
+impl Add<Vector<T>, Vector<T>> for Vector<T>
     /// `a + b` is `Vector.concat(a, b)`.
-    //! assert #[1, 2] + #[3] == #[1, 2, 3]
-    //! assert #["a"] + #[] == #["a"]
+    //! assert Vector[1, 2] + Vector[3] == [1, 2, 3]
+    //! assert Vector["a"] + Vector[] == ["a"]
     //
-    fn add(lhs: Vector<T>, rhs: Vector<T>) -> Vector<T> {
+    fn add(lhs: Vector<T>, rhs: Vector<T>) -> Vector<T>
         concat(lhs, rhs)
-    }
-}
+    end
+end
 
-impl Summable for Vector<T> {
+impl Summable for Vector<T>
     /// The sum of no Vectors: the empty Vector. Summing Vectors concatenates
     /// them in order.
     //! none: Vector<Int> = Vector.empty_sum()
     //! assert Vector.length(none) == 0
-    //! assert #[1, 2] + Vector.empty_sum() == #[1, 2]
-    //! assert Iter.sum([#[1], #[2, 3]]) == #[1, 2, 3]
+    //! assert Vector[1, 2] + Vector.empty_sum() == [1, 2]
+    //! assert Iter.sum([Vector[1], Vector[2, 3]]) == [1, 2, 3]
     //
-    fn empty_sum() -> Vector<T> {
-        #[]
-    }
-}
+    fn empty_sum() -> Vector<T>
+        []
+    end
+end
 
-impl Display for Vector<T> where T: Display {
-    fn to_string(vector: Vector<T>) -> String {
+impl Display for Vector<T> where T: Display
+    fn to_string(vector: Vector<T>) -> String
         body =
             vector
             |> Iter.map(fn item -> "${item}")
             |> String.join(", ")
 
-        "#[" + body + "]"
-    }
-}
+        "Vector[" + body + "]"
+    end
+end
 
-impl Debug for Vector<T> {
-    fn inspect(vector: Vector<T>) -> String {
+impl Debug for Vector<T>
+    fn inspect(vector: Vector<T>) -> String
         body =
             vector
             |> Iter.map(&Debug.inspect(&1))
             |> String.join(", ")
 
-        "#[" + body + "]"
-    }
-}
+        "Vector[" + body + "]"
+    end
+end
 
-impl Equatable for Vector<T> {
-    fn equal(a: Vector<T>, b: Vector<T>) -> Bool {
+impl Equatable for Vector<T>
+    fn equal(a: Vector<T>, b: Vector<T>) -> Bool
         a == b
-    }
-}
+    end
+end
 
-impl Hashable for Vector<T> where T: Hashable {
-    fn hash(vector: Vector<T>) -> Int {
-        Iter.reduce(vector, 19, fn acc, x -> {
+impl Hashable for Vector<T> where T: Hashable
+    fn hash(vector: Vector<T>) -> Int
+        Iter.reduce(vector, 19, fn acc, x ->
             Int.wrapping_add(Int.wrapping_mul(acc, 31), Hashable.hash(x))
-        })
-    }
-}
+        end)
+    end
+end
 
-impl Comparable for Vector<T> where T: Comparable {
-    fn compare(a: Vector<T>, b: Vector<T>) -> Ordering {
-        case Vector.next_item(a) {
+impl Comparable for Vector<T> where T: Comparable
+    fn compare(a: Vector<T>, b: Vector<T>) -> Ordering
+        case Vector.next_item(a)
             None ->
-                case Vector.next_item(b) {
+                case Vector.next_item(b)
                     None -> Equal
                     _ -> Less
-                }
+                end
 
             Some((ha, ta)) ->
-                case Vector.next_item(b) {
-                    None -> Greater
+                case Vector.next_item(b)
+                    None ->
+                        Greater
 
                     Some((hb, tb)) ->
-                        case Comparable.compare(ha, hb) {
+                        case Comparable.compare(ha, hb)
                             Equal -> compare(ta, tb)
                             other -> other
-                        }
-                }
-        }
-    }
-}
+                        end
+                end
+        end
+    end
+end

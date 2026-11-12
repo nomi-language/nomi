@@ -15,55 +15,55 @@ import (
 func TestTest_TryInSetupEndsTheCase(t *testing.T) {
 	p, err := vmhost.Load(writeProgram(t, `import std::io
 
-fn parse(s: String) -> Result<Int, String> {
-  case s {
+fn parse(s: String) -> Result<Int, String>
+  case s
     "" -> Err("empty")
     _ -> Ok(String.length(s))
-  }
-}
+  end
+end
 
-fn find(s: String) -> Maybe<Int> {
-  case s {
+fn find(s: String) -> Maybe<Int>
+  case s
     "" -> None
     _ -> Some(String.length(s))
-  }
-}
+  end
+end
 
-group "an Err in setup" {
-  setup {
+group "an Err in setup"
+  setup begin
     n = parse("")?
-    .{n: n}
-  }
+    {n:}
+  end
 
-  test "fails", .{n} {
+  test "fails", {n:}
     io.print("unreached ${n}")
     assert n > 0
-  }
-}
+  end
+end
 
-group "a None in setup" {
-  setup {
+group "a None in setup"
+  setup begin
     n = find("")?
-    .{n: n}
-  }
+    {n:}
+  end
 
-  test "fails", .{n} {
+  test "fails", {n:}
     io.print("unreached ${n}")
     assert n > 0
-  }
-}
+  end
+end
 
-group "an Ok in setup" {
-  setup {
+group "an Ok in setup"
+  setup begin
     n = parse("abc")?
-    .{n: n}
-  }
+    {n:}
+  end
 
-  test "passes", .{n} {
+  test "passes", {n:}
     io.print("n ${n}")
     assert n == 3
-  }
-}
+  end
+end
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -103,18 +103,18 @@ func TestTest_GroupLinesAfterTheTestsRunFirst(t *testing.T) {
 
 import std::testing.Clock
 
-group "lines after the tests" {
-  test "reads setup", n {
+group "lines after the tests"
+  test "reads setup", n
     io.print("test ${n}")
     assert n == 2
-  }
+  end
 
-  setup {
+  setup begin
     io.print("setup")
     2
-  }
+  end
   clock Clock.Virtual
-}
+end
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -140,22 +140,22 @@ group "lines after the tests" {
 func TestRun_TryInANestedFnLeavesTheNestedFn(t *testing.T) {
 	p, err := vmhost.Load(writeProgram(t, `import std::io
 
-fn parse(s: String) -> Result<Int, String> {
-  case s {
+fn parse(s: String) -> Result<Int, String>
+  case s
     "" -> Err("empty")
     _ -> Ok(String.length(s))
-  }
-}
+  end
+end
 
-fn main() {
-  fn doubled(s: String) -> Result<Int, String> {
+fn main()
+  fn doubled(s: String) -> Result<Int, String>
     n = parse(s)?
     Ok(n * 2)
-  }
+  end
 
   doubled("ab") |> io.inspect()
   doubled("") |> io.inspect()
-}
+end
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -175,13 +175,13 @@ func TestRun_SortByTakesEveryOrderedKey(t *testing.T) {
 	p, err := vmhost.Load(writeProgram(t, `import std::io
 import std::duration.Duration
 
-fn main() {
+fn main()
   Iter.sort_by([3, 1, 2], fn n -> [n]) |> io.inspect()
   Iter.sort_by([3, 1, 2], fn n -> Int.to_float(0 - n)) |> io.inspect()
   Iter.sort_by([1, 2, 3], fn n -> n != 2) |> io.inspect()
   Iter.sort_by([2, 1], fn n -> Duration.seconds(n)) |> io.inspect()
   Iter.sort([Duration.seconds(2), Duration.seconds(1)]) |> io.inspect()
-}
+end
 `))
 	if err != nil {
 		t.Fatal(err)

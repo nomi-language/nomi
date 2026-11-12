@@ -15,16 +15,16 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# words, and words the program defines.
 
 /// Why a program cannot run.
-pub enum Error {
+pub enum Error
     EmptyStack
     OnlyOneValue
     DivideByZero
     IllegalOperation
     UndefinedOperation
-}
+end
 
 /// One step a word runs: push a number, or one of the built-in words.
-enum Op {
+enum Op
     Push Int
     Add
     Subtract
@@ -34,11 +34,11 @@ enum Op {
     Drop
     Swap
     Over
-}
+end
 
 /// The words every program starts with, each the steps it runs. A program's
 /// own definitions are added to these, and may replace them.
-once builtins: Map<String, List<Op>> = %{
+once builtins: Map<String, List<Op>> = {
     "+" => [.Add],
     "-" => [.Subtract],
     "*" => [.Multiply],
@@ -51,7 +51,7 @@ once builtins: Map<String, List<Op>> = %{
 
 /// The stack, bottom first, after running each line of `instructions` in
 /// turn.
-pub fn evaluate(instructions: List<String>) -> Result<List<Int>, Error> {
+pub fn evaluate(instructions: List<String>) -> Result<List<Int>, Error>
     tokens =
         instructions
         |> Iter.flat_map(String.words)
@@ -63,19 +63,20 @@ pub fn evaluate(instructions: List<String>) -> Result<List<Int>, Error> {
     stack
     |> Iter.reverse()
     |> Ok()
-}
+end
 
 /// Runs `tokens` on `stack`, top first, with the words defined so far.
 fn run(
     stack: List<Int>,
     words: Map<String, List<Op>>,
     tokens: List<String>,
-) -> Result<List<Int>, Error> {
-    case tokens {
-        [] -> Ok(stack)
+) -> Result<List<Int>, Error>
+    case tokens
+        [] ->
+            Ok(stack)
 
-        [":", name, ..rest] -> {
-            if String.to_int(name) |> Maybe.is_some() { return Err(.IllegalOperation) }
+        [":", name, ..rest] ->
+            if String.to_int(name) |> Maybe.is_some() then return Err(.IllegalOperation)
 
             body = rest |> Iter.take_while(&(&1 != ";")) |> Iter.to_list()
             after = rest |> Iter.drop(Iter.count(body) + 1) |> Iter.to_list()
@@ -86,34 +87,32 @@ fn run(
                 |> Result.collect()?
 
             run(stack, Map.put(words, name, Iter.flatten(ops)), after)
-        }
 
-        [word, ..rest] -> {
+        [word, ..rest] ->
             ops = resolve(words, word)?
             stack = execute(stack, ops)?
             run(stack, words, rest)
-        }
-    }
-}
+    end
+end
 
 /// The steps `word` runs: a number pushes itself, and any other word runs
 /// the steps it was defined with when it was defined.
-fn resolve(words: Map<String, List<Op>>, word: String) -> Result<List<Op>, Error> {
-    if Some(n) = String.to_int(word) { return Ok([.Push(n)]) }
+fn resolve(words: Map<String, List<Op>>, word: String) -> Result<List<Op>, Error>
+    if Some(n) = String.to_int(word) then return Ok([.Push(n)])
 
     Map.get(words, word) |> Maybe.to_result(.UndefinedOperation)
-}
+end
 
-fn execute(stack: List<Int>, ops: List<Op>) -> Result<List<Int>, Error> {
-    case ops {
+fn execute(stack: List<Int>, ops: List<Op>) -> Result<List<Int>, Error>
+    case ops
         [] -> Ok(stack)
         [op, ..rest] -> execute(apply(stack, op)?, rest)
-    }
-}
+    end
+end
 
 /// `stack`, top first, after one step.
-fn apply(stack: List<Int>, op: Op) -> Result<List<Int>, Error> {
-    case (op, stack) {
+fn apply(stack: List<Int>, op: Op) -> Result<List<Int>, Error>
+    case (op, stack)
         (.Push(n), _) -> Ok([n, ..stack])
         (_, []) -> Err(.EmptyStack)
         (.Dup, [a, ..rest]) -> Ok([a, a, ..rest])
@@ -126,60 +125,60 @@ fn apply(stack: List<Int>, op: Op) -> Result<List<Int>, Error> {
         (.Multiply, [b, a, ..rest]) -> Ok([a * b, ..rest])
         (.Divide, [0, _, ..]) -> Err(.DivideByZero)
         (.Divide, [b, a, ..rest]) -> Ok([a / b, ..rest])
-    }
-}
+    end
+end
 
 // FILE: forth_test.nomi
 import forth.{self, Error}
 
-test "parsing and numbers" {
+test "parsing and numbers"
     cases: List<(String, List<String>, Result<List<Int>, Error>)> = [
         ("numbers just get pushed onto the stack", ["1 2 3 4 5"], Ok([1, 2, 3, 4, 5])),
         ("pushes negative numbers onto the stack", ["-1 -2 -3 -4 -5"], Ok([-1, -2, -3, -4, -5])),
     ]
 
-    subtests cases, (description, instructions, expected), description {
+    subtests cases, (description, instructions, expected), description
         assert forth.evaluate(instructions) == expected
-    }
-}
+    end
+end
 
-test "addition" {
+test "addition"
     [
         ("can add two numbers", ["1 2 +"], Ok([3])),
         ("errors if there is nothing on the stack", ["+"], Err(Error.EmptyStack)),
         ("errors if there is only one value on the stack", ["1 +"], Err(.OnlyOneValue)),
         ("more than two values on the stack", ["1 2 3 +"], Ok([1, 5])),
     ]
-    |> subtests (description, instructions, expected), description {
+    |> subtests (description, instructions, expected), description
         assert forth.evaluate(instructions) == expected
-    }
-}
+    end
+end
 
-test "subtraction" {
+test "subtraction"
     [
         ("can subtract two numbers", ["3 4 -"], Ok([-1])),
         ("errors if there is nothing on the stack", ["-"], Err(Error.EmptyStack)),
         ("errors if there is only one value on the stack", ["1 -"], Err(.OnlyOneValue)),
         ("more than two values on the stack", ["1 12 3 -"], Ok([1, 9])),
     ]
-    |> subtests (description, instructions, expected), description {
+    |> subtests (description, instructions, expected), description
         assert forth.evaluate(instructions) == expected
-    }
-}
+    end
+end
 
-test "multiplication" {
+test "multiplication"
     [
         ("can multiply two numbers", ["2 4 *"], Ok([8])),
         ("errors if there is nothing on the stack", ["*"], Err(Error.EmptyStack)),
         ("errors if there is only one value on the stack", ["1 *"], Err(.OnlyOneValue)),
         ("more than two values on the stack", ["1 2 3 *"], Ok([1, 6])),
     ]
-    |> subtests (description, instructions, expected), description {
+    |> subtests (description, instructions, expected), description
         assert forth.evaluate(instructions) == expected
-    }
-}
+    end
+end
 
-test "division" {
+test "division"
     [
         ("can divide two numbers", ["12 3 /"], Ok([4])),
         ("performs integer division", ["8 3 /"], Ok([2])),
@@ -188,12 +187,12 @@ test "division" {
         ("errors if there is only one value on the stack", ["1 /"], Err(.OnlyOneValue)),
         ("more than two values on the stack", ["1 12 3 /"], Ok([1, 4])),
     ]
-    |> subtests (description, instructions, expected), description {
+    |> subtests (description, instructions, expected), description
         assert forth.evaluate(instructions) == expected
-    }
-}
+    end
+end
 
-test "combined arithmetic" {
+test "combined arithmetic"
     cases: List<(String, List<String>, Result<List<Int>, Error>)> = [
         ("addition and subtraction", ["1 2 + 4 -"], Ok([-1])),
         ("multiplication and division", ["2 4 * 3 /"], Ok([2])),
@@ -201,34 +200,34 @@ test "combined arithmetic" {
         ("addition and multiplication", ["1 3 4 + *"], Ok([7])),
     ]
 
-    subtests cases, (description, instructions, expected), description {
+    subtests cases, (description, instructions, expected), description
         assert forth.evaluate(instructions) == expected
-    }
-}
+    end
+end
 
-test "dup" {
+test "dup"
     [
         ("copies a value on the stack", ["1 dup"], Ok([1, 1])),
         ("copies the top value on the stack", ["1 2 dup"], Ok([1, 2, 2])),
         ("errors if there is nothing on the stack", ["dup"], Err(Error.EmptyStack)),
     ]
-    |> subtests (description, instructions, expected), description {
+    |> subtests (description, instructions, expected), description
         assert forth.evaluate(instructions) == expected
-    }
-}
+    end
+end
 
-test "drop" {
+test "drop"
     [
         ("removes the top value on the stack if it is the only one", ["1 drop"], Ok([])),
         ("removes the top value on the stack if it is not the only one", ["1 2 drop"], Ok([1])),
         ("errors if there is nothing on the stack", ["drop"], Err(Error.EmptyStack)),
     ]
-    |> subtests (description, instructions, expected), description {
+    |> subtests (description, instructions, expected), description
         assert forth.evaluate(instructions) == expected
-    }
-}
+    end
+end
 
-test "swap" {
+test "swap"
     [
         (
             "swaps the top two values on the stack if they are the only ones",
@@ -243,24 +242,24 @@ test "swap" {
         ("errors if there is nothing on the stack", ["swap"], Err(Error.EmptyStack)),
         ("errors if there is only one value on the stack", ["1 swap"], Err(.OnlyOneValue)),
     ]
-    |> subtests (description, instructions, expected), description {
+    |> subtests (description, instructions, expected), description
         assert forth.evaluate(instructions) == expected
-    }
-}
+    end
+end
 
-test "over" {
+test "over"
     [
         ("copies the second element if there are only two", ["1 2 over"], Ok([1, 2, 1])),
         ("copies the second element if there are more than two", ["1 2 3 over"], Ok([1, 2, 3, 2])),
         ("errors if there is nothing on the stack", ["over"], Err(Error.EmptyStack)),
         ("errors if there is only one value on the stack", ["1 over"], Err(.OnlyOneValue)),
     ]
-    |> subtests (description, instructions, expected), description {
+    |> subtests (description, instructions, expected), description
         assert forth.evaluate(instructions) == expected
-    }
-}
+    end
+end
 
-test "user-defined words" {
+test "user-defined words"
     [
         ("can consist of built-in words", [": dup-twice dup dup ;", "1 dup-twice"], Ok([1, 1, 1])),
         ("execute in the right order", [": countup 1 2 3 ;", "countup"], Ok([1, 2, 3])),
@@ -285,17 +284,17 @@ test "user-defined words" {
         ("cannot redefine negative numbers", [": -1 2 ;"], Err(.IllegalOperation)),
         ("errors if executing a non-existent word", ["foo"], Err(.UndefinedOperation)),
     ]
-    |> subtests (description, instructions, expected), description {
+    |> subtests (description, instructions, expected), description
         assert forth.evaluate(instructions) == expected
-    }
-}
+    end
+end
 
-test "user-defined words: only defines locally" {
+test "user-defined words: only defines locally"
     assert forth.evaluate([": + - ;", "1 1 +"]) == Ok([0])
     assert forth.evaluate(["1 1 +"]) == Ok([2])
-}
+end
 
-test "case-insensitivity" {
+test "case-insensitivity"
     cases: List<(String, List<String>, Result<List<Int>, Error>)> = [
         ("DUP is case-insensitive", ["1 DUP Dup dup"], Ok([1, 1, 1, 1])),
         ("DROP is case-insensitive", ["1 2 3 4 DROP Drop drop"], Ok([1])),
@@ -309,10 +308,10 @@ test "case-insensitivity" {
         ("definitions are case-insensitive", [": SWAP DUP Dup dup ;", "1 swap"], Ok([1, 1, 1, 1])),
     ]
 
-    subtests cases, (description, instructions, expected), description {
+    subtests cases, (description, instructions, expected), description
         assert forth.evaluate(instructions) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok parsing and numbers (2 cases)

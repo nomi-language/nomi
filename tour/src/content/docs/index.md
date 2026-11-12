@@ -33,14 +33,14 @@ parses, and hovering shows the same information your editor does.
 - **Plain control flow.** `return`, `break`, `continue` and a postfix `?` are
   there when they make a function easier to read.
 - **Explicit interfaces.** A type implements an interface with
-  `impl Interface for Type { ... }`, or gets a generated implementation with
+  `impl Interface for Type`, or gets a generated implementation with
   `derive`.
 - **Qualified calls.** A function is called through the type, interface or
   file that owns it: `User.rename(user)`, `String.length(name)`,
   `Display.to_string(value)`. There is no `user.rename()`.
 - **Pipes.** `x |> f()` lets data flow read from top to bottom.
 - **Structured concurrency.** Tasks are started inside a
-  [`concurrent { ... }` block](/concurrency/), which keeps them scoped to it.
+  [`concurrent` block](/concurrency/), which keeps them scoped to it.
   Channels and context-style cancellation are built in.
 - **App fields.** Configuration and dependencies live on one
   [app value](/app-fields/). A test can swap one with a line
@@ -111,7 +111,7 @@ tooling, and dependencies. The language itself is different from Go.
 transform data will feel familiar. What is different: types are static,
 variants are declared types rather than atoms or tagged tuples, `Iter`
 pipelines replace `Enum` and `Stream`, and concurrency uses
-`concurrent { }` blocks and supervisors rather than mailboxes.
+`concurrent` blocks and supervisors rather than mailboxes.
 
 **Gleam.** Sum types, `Result` and `Maybe`, no null, local type inference and
 expression-oriented code will feel familiar. Nomi adds bindings without
@@ -119,7 +119,7 @@ expression-oriented code will feel familiar. Nomi adds bindings without
 literals, and early `return`, `break` and `continue`.
 
 **Rust.** Traits become interfaces, and an implementation is
-`impl Interface for Type { ... }`. `where` bounds are checked at each call.
+`impl Interface for Type`. `where` bounds are checked at each call.
 `Result` and `Maybe` propagate with `?`, as Rust's do. Distinct types do the job of
 newtypes. There is no ownership, no `mut`, no `value.method()` calls and no
 macros: a library [generates code](/generating-code/) into ordinary files

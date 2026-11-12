@@ -3,20 +3,20 @@
 gopkg "nomihandler"
 
 /// A request Go hands the handler.
-pub struct Request {
+pub struct Request
     method: String
     path: String
     query: Map<String, String>
     headers: Map<String, String>
     body: Bytes
-}
+end
 
 /// What the handler gives back to Go.
-pub struct Response {
+pub struct Response
     status: Int
     headers: Map<String, String>
     body: Bytes
-}
+end
 
 /// Calls `handler` once per path, each call from its own goroutine, and
 /// answers one line per path describing what came back.

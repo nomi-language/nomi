@@ -18,7 +18,7 @@
 //     its own rt.ListEqual, not an address test one level down.
 import std::io
 
-fn main() {
+fn main()
     xs = [1, 2, 3]
     ys = [1, 2, 3]
     built = List.concat([1], [2, 3])
@@ -66,18 +66,18 @@ fn main() {
     io.print("tail      ${tail_text(xs)}")
     io.print("tail-1    ${tail_text([9])}")
     io.print("tail-0    ${tail_text([])}")
-}
+end
 
-fn head_text(xs: List<Int>) -> String {
-    case List.head(xs) {
+fn head_text(xs: List<Int>) -> String
+    case List.head(xs)
         .Some(h) -> "Some(${h})"
         .None -> "None"
-    }
-}
+    end
+end
 
-fn tail_text(xs: List<Int>) -> String {
-    case List.tail(xs) {
+fn tail_text(xs: List<Int>) -> String
+    case List.tail(xs)
         .Some(t) -> "Some(${t})"
         .None -> "None"
-    }
-}
+    end
+end

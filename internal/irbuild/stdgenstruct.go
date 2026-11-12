@@ -206,7 +206,7 @@ var stdGenStructSpecs = []stdGenStructSpec{
 			nomi: "start", decl: "T",
 			kindOf: func(_ *gen, args []kind) kind { return args[0] },
 		}, {
-			nomi: "end", decl: "Maybe<T>",
+			nomi: "stop", decl: "Maybe<T>",
 			kindOf: func(g *gen, args []kind) kind {
 				spec := preludeSpecFor("std/maybe", "Maybe")
 				if g == nil {

@@ -78,17 +78,17 @@ entry_points = ["main"]
 
 `)
 
-	entrySrc := `import {
+	entrySrc := `import
   std::io
-}
+end
 
 gopkg "echobinding" as ffi
 
 fn echo_upper(s: String) -> String go ffi.EchoUpper
 
-fn main() {
+fn main()
   io.print(echo_upper("hello"))
-}
+end
 	`
 	entryPath := filepath.Join(projectRoot, "main.nomi")
 	if err := os.WriteFile(entryPath, []byte(entrySrc), 0o644); err != nil {
@@ -192,9 +192,9 @@ entry_points = ["main"]
 `)
 
 	entryPath := filepath.Join(projectRoot, "main.nomi")
-	mustWriteHelper(t, entryPath, `import {
+	mustWriteHelper(t, entryPath, `import
   std::io
-}
+end
 
 gopkg "taggedbinding" as box
 
@@ -204,9 +204,9 @@ fn make_box(label: String) -> RawBox go box.MakeBox
 
 fn box_label(raw: RawBox) -> String go box.BoxLabel
 
-fn main() {
+fn main()
   io.print(box_label(make_box("hello")))
-}
+end
 `)
 
 	res, err := Prepare(entryPath)
@@ -300,9 +300,9 @@ entry_points = ["main"]
 `)
 
 	entryPath := filepath.Join(projectRoot, "main.nomi")
-	mustWriteHelper(t, entryPath, `import {
+	mustWriteHelper(t, entryPath, `import
   std::io
-}
+end
 
 gopkg "taggedbinding" as tup
 
@@ -310,18 +310,18 @@ fn divmod(a: Int, b: Int) -> (Int, Int) go tup.DivMod
 
 fn split_once(s: String, sep: String) -> Result<(String, String), String> go tup.SplitOnce
 
-fn main() {
+fn main()
   (q, r) = divmod(17, 5)
   io.print("${q},${r}")
-  case split_once("a=b", "=") {
+  case split_once("a=b", "=")
     Ok(pair) -> io.print("${pair.first}|${pair.second}")
     Err(msg) -> io.print("err: ${msg}")
-  }
-  case split_once("ab", "=") {
+  end
+  case split_once("ab", "=")
     Ok(pair) -> io.print("${pair.first}|${pair.second}")
     Err(msg) -> io.print("err: ${msg}")
-  }
-}
+  end
+end
 `)
 
 	res, err := Prepare(entryPath)
@@ -379,17 +379,17 @@ func EchoUpper(s string) string {
 }
 `)
 	entryPath := filepath.Join(projectRoot, "main.nomi")
-	mustWriteHelper(t, entryPath, `import {
+	mustWriteHelper(t, entryPath, `import
   std::io
-}
+end
 
 gopkg "localbindingtest" as ffi
 
 fn echo_upper(s: String) -> String go ffi.EchoUpper
 
-fn main() {
+fn main()
   io.print(echo_upper("hello"))
-}
+end
 `)
 
 	res, err := Prepare(entryPath)
@@ -527,20 +527,20 @@ entry_points = ["main"]
 `)
 
 	entryPath := filepath.Join(projectRoot, "main.nomi")
-	mustWriteHelper(t, entryPath, `import {
+	mustWriteHelper(t, entryPath, `import
   std::io
-}
+end
 
 gopkg "callbackbinding" as callback
 
 fn apply_twice(s: String, f: (String) -> Result<String, String>) -> Result<String, String> go callback.ApplyTwice
 
-fn main() {
-  case apply_twice("ha", fn s -> Ok("${s}!")) {
+fn main()
+  case apply_twice("ha", fn s -> Ok("${s}!"))
     Err(e) -> io.print("error: ${e}")
     Ok(v) -> io.print(v)
-  }
-}
+  end
+end
 `)
 
 	res, err := Prepare(entryPath)
@@ -633,30 +633,30 @@ entry_points = ["main"]
 `)
 
 	entryPath := filepath.Join(projectRoot, "main.nomi")
-	mustWriteHelper(t, entryPath, `import {
+	mustWriteHelper(t, entryPath, `import
   std::io
-}
+end
 
 gopkg "rowbinding" as rows
 
-struct RawRow {
+struct RawRow
   name: String
   count: Int
-}
+end
 
 fn each_row(names: List<String>, f: (RawRow) -> Bool) -> Int go rows.EachRow
 
 fn bump(r: RawRow) -> RawRow go rows.Bump
 
-fn main() {
-  seen = each_row(["a", "b", "c"], fn r -> {
+fn main()
+  seen = each_row(["a", "b", "c"], fn r ->
     io.print("${r.name} ${r.count}")
     r.name != "b"
-  })
+  end)
   io.print("seen ${seen}")
   bumped = bump(RawRow{name: "z", count: 1})
   io.print("${bumped.name} ${bumped.count}")
-}
+end
 `)
 
 	res, err := Prepare(entryPath)
@@ -727,10 +727,10 @@ name = "durationtest"
 entry_points = ["main"]
 `)
 	entryPath := filepath.Join(projectRoot, "main.nomi")
-	mustWriteHelper(t, entryPath, `import {
+	mustWriteHelper(t, entryPath, `import
   std::duration.Duration
   std::io
-}
+end
 
 gopkg "durationbinding" as duration
 
@@ -738,12 +738,12 @@ fn timeout() -> Duration go duration.Timeout
 
 fn double(d: Duration) -> Duration go duration.Double
 
-fn main() {
+fn main()
   timeout()
     |> double()
     |> Duration.as_millis()
     |> io.print()
-}
+end
 `)
 
 	res, err := Prepare(entryPath)
@@ -833,7 +833,7 @@ fn bump(x: Int) -> Int go bigs.Bump
 fn new_int(x: Int) -> Int go big.NewInt
 fn jacobi(x: Int, y: Int) -> Int go big.Jacobi
 
-fn main() {
+fn main()
   io.print(square(-98765432109876543210))
   io.print(square(3))
   x = 123456789012345678901234567890
@@ -841,7 +841,7 @@ fn main() {
   io.print(x)
   io.print(new_int(-7))
   io.print(jacobi(x, 987654321098765432109876543211))
-}
+end
 `)
 
 	res, err := Prepare(entryPath)
@@ -926,9 +926,9 @@ gopkg "results" as results
 fn nothing() -> Int go results.Nothing
 fn far() -> Instant go results.Far
 
-fn main() {
+fn main()
   io.print(`+c.call+`)
-}
+end
 `)
 		res, err := Prepare(entryPath)
 		if err != nil {
@@ -999,10 +999,10 @@ name = "timetest"
 entry_points = ["main"]
 `)
 	entryPath := filepath.Join(projectRoot, "main.nomi")
-	mustWriteHelper(t, entryPath, `import {
+	mustWriteHelper(t, entryPath, `import
   std::instant.Instant
   std::io
-}
+end
 
 gopkg "timebinding" as go_time
 
@@ -1010,12 +1010,12 @@ fn created_at() -> Instant go go_time.CreatedAt
 
 fn plus_second(t: Instant) -> Instant go go_time.PlusSecond
 
-fn main() {
+fn main()
   created_at()
     |> plus_second()
     |> Instant.to_seconds()
     |> io.print()
-}
+end
 `)
 
 	res, err := Prepare(entryPath)
@@ -1079,25 +1079,24 @@ entry_points = ["main"]
 `)
 
 	entryPath := filepath.Join(projectRoot, "main.nomi")
-	mustWriteHelper(t, entryPath, `import {
+	mustWriteHelper(t, entryPath, `import
   std::io
   sqlite::sqlite
-}
+end
 
-fn main() {
-  case sqlite.open(":memory:") {
+fn main()
+  case sqlite.open(":memory:")
     Err(e) -> io.print("open error: ${e}")
-    Ok(conn) -> {
+    Ok(conn) ->
       defer sqlite.close(conn)
       _ = sqlite.exec(conn, "CREATE TABLE people (name TEXT)", [])
       _ = sqlite.exec(conn, "INSERT INTO people VALUES (?)", ["Ada"])
-      case sqlite.query_all(conn, "SELECT name FROM people", []) {
+      case sqlite.query_all(conn, "SELECT name FROM people", [])
         Err(e) -> io.print("query error: ${e}")
         Ok(rows) -> io.inspect(rows)
-      }
-    }
-  }
-}
+      end
+  end
+end
 `)
 
 	res, err := Prepare(entryPath)
@@ -1185,17 +1184,17 @@ entry_points = ["main"]
 
 `)
 	entryPath := filepath.Join(projectRoot, "main.nomi")
-	mustWriteHelper(t, entryPath, `import {
+	mustWriteHelper(t, entryPath, `import
   std::io
-}
+end
 
 gopkg "cwdbinding" as cwd
 
 fn get_cwd() -> String go cwd.GetCWD
 
-fn main() {
+fn main()
   io.print(get_cwd())
-}
+end
 	`)
 
 	res, err := Prepare(entryPath)
@@ -1277,7 +1276,7 @@ func TestFFIRun_FastPathNoGoMod(t *testing.T) {
 	// is created by t.TempDir and inherits no parent module.
 	dir := t.TempDir()
 	entryPath := filepath.Join(dir, "main.nomi")
-	if err := os.WriteFile(entryPath, []byte("fn main() {}\n"), 0o644); err != nil {
+	if err := os.WriteFile(entryPath, []byte("fn main() end\n"), 0o644); err != nil {
 		t.Fatalf("write main.nomi: %v", err)
 	}
 	res, err := Prepare(entryPath)
@@ -1308,7 +1307,7 @@ func TestFFIRun_FastPathNoFFIDeps(t *testing.T) {
 		t.Fatalf("write go.mod: %v", err)
 	}
 	entryPath := filepath.Join(projectRoot, "main.nomi")
-	if err := os.WriteFile(entryPath, []byte("fn main() {}\n"), 0o644); err != nil {
+	if err := os.WriteFile(entryPath, []byte("fn main() end\n"), 0o644); err != nil {
 		t.Fatalf("write main.nomi: %v", err)
 	}
 	res, err := Prepare(entryPath)
@@ -1389,21 +1388,20 @@ fn gunzip(r: Reader) -> Result<Reader, String> go st.Gunzip
 fn shout(w: Writer, s: String) -> Result<Unit, String> go st.Shout
 fn tee(r: Reader, w: Writer) -> Reader go goio.TeeReader
 
-fn main() {
-    (closed, packed) = Writer.collect(fn w -> {
+fn main()
+    (closed, packed) = Writer.collect(fn w ->
         z = gzip(w)
         _ = Writer.write_text(z, "hello, gzip")
         Writer.close(z)
-    })
+    end)
     io.inspect(closed)
 
-    case gunzip(Reader.from_bytes(packed)) {
-        Ok(r) -> {
+    case gunzip(Reader.from_bytes(packed))
+        Ok(r) ->
             defer Reader.close_quietly(r)
             io.inspect(Reader.read_all_text(r))
-        }
         Err(e) -> io.print("gunzip: ${e}")
-    }
+    end
 
     io.print("before")
     io.inspect(shout(io.stdout, "from go"))
@@ -1411,7 +1409,7 @@ fn main() {
 
     (_, copied) = Writer.collect(fn w -> Reader.read_all_text(tee(Reader.from_text("teed"), w)))
     io.inspect(copied == String.to_bytes("teed"))
-}
+end
 `)
 
 	res, err := Prepare(entryPath)

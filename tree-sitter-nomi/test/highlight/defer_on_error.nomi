@@ -1,12 +1,12 @@
 // `on error` after `defer` reads as keywords; the caret lines below each
 // line name the highlight of the token they point at.
-pub fn release(n: Int) {
+pub fn release(n: Int)
     _ = n
-}
+end
 
-pub fn open(n: Int) -> Result<Int, String> {
+pub fn open(n: Int) -> Result<Int, String>
     defer on error release(n)
     // <- keyword
     //    ^^^^^^^^ keyword
     Ok(n)
-}
+end

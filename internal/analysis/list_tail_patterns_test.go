@@ -10,7 +10,7 @@ import (
 // messages.
 func listPatternErrors(t *testing.T, body string) []string {
 	t.Helper()
-	src := "type Items List<Int>\n\nfn run(xs: List<Int>, lines: List<String>, items: Items) -> Int {\n    _ = (xs, lines, items)\n" + body + "\n}\n"
+	src := "type Items List<Int>\n\nfn run(xs: List<Int>, lines: List<String>, items: Items) -> Int\n    _ = (xs, lines, items)\n" + body + "\nend\n"
 	_, errs := checkSourceWithStdlib(src)
 	var out []string
 	for _, e := range errs {
@@ -41,76 +41,76 @@ func wantNoListPatternError(t *testing.T, body string) {
 // last elements, so it can fail: it needs an else as a binding, takes one,
 // and does not cover a case on its own.
 func TestListPatternsWithTailsCanFail(t *testing.T) {
-	wantNoListPatternError(t, `    [1, .., 3] = xs else {
+	wantNoListPatternError(t, `    [1, .., 3] = xs else
         return 0
-    }
+    end
     1`)
-	wantNoListPatternError(t, `    [first, ..mid, last] = xs else {
+	wantNoListPatternError(t, `    [first, ..mid, last] = xs else
         return 0
-    }
+    end
     first + Iter.count(mid) + last`)
-	wantNoListPatternError(t, `    ["graph {", ..body, "}"] = lines else {
+	wantNoListPatternError(t, `    ["graph {", ..body, "}"] = lines else
         return 0
-    }
+    end
     Iter.count(body)`)
 	wantListPatternError(t, `    [first, .., last] = xs
     first + last`, "this pattern can fail to match a value of type List<Int>")
-	wantListPatternError(t, `    case xs {
+	wantListPatternError(t, `    case xs
         [1, .., 3] -> 1
-    }`, "non-exhaustive case on List<Int>: missing []")
-	wantListPatternError(t, `    case xs {
+    end`, "non-exhaustive case on List<Int>: missing []")
+	wantListPatternError(t, `    case xs
         [1, .., 3] -> 1
         [] -> 0
         [_] -> 0
-    }`, "non-exhaustive case on List<Int>: missing [_, .., _]")
-	wantListPatternError(t, `    case xs {
+    end`, "non-exhaustive case on List<Int>: missing [_, .., _]")
+	wantListPatternError(t, `    case xs
         [] -> 0
         [_] -> 0
         [_, _, _] -> 0
         [_, .., 3] -> 1
-    }`, "non-exhaustive case on List<Int>: missing [_, _]")
+    end`, "non-exhaustive case on List<Int>: missing [_, _]")
 }
 
 // Patterns with tails still cover what they match: every length from their
 // element count on, with the tails at the end.
 func TestListPatternsWithTailsCover(t *testing.T) {
-	wantNoListPatternError(t, `    case xs {
+	wantNoListPatternError(t, `    case xs
         [] -> 0
         [_] -> 1
         [_, .., _] -> 2
-    }`)
-	wantNoListPatternError(t, `    case xs {
+    end`)
+	wantNoListPatternError(t, `    case xs
         [] -> 0
         [.., last] -> last
-    }`)
-	wantNoListPatternError(t, `    case xs {
+    end`)
+	wantNoListPatternError(t, `    case xs
         [1, .., 3] -> 0
         [..] -> 1
-    }`)
-	wantNoListPatternError(t, `    case xs {
+    end`)
+	wantNoListPatternError(t, `    case xs
         [a, _, _] -> a
         [x, .., _] -> x
         [] -> 0
         [_] -> 1
-    }`)
-	wantNoListPatternError(t, `    [..all, last] = xs else {
+    end`)
+	wantNoListPatternError(t, `    [..all, last] = xs else
         return 0
-    }
+    end
     Iter.count(all) + last`)
-	wantNoListPatternError(t, `    case items {
+	wantNoListPatternError(t, `    case items
         Items[] -> 0
         Items[.., last] -> last
-    }`)
+    end`)
 }
 
 // A tail's type is the element type, and the middle rest is a List.
 func TestListPatternTailsAreTyped(t *testing.T) {
-	wantListPatternError(t, `    [.., "x"] = xs else {
+	wantListPatternError(t, `    [.., "x"] = xs else
         return 0
-    }
+    end
     1`, `pattern "x" is a String, but the value is an Int`)
-	wantListPatternError(t, `    [_, ..mid, _] = xs else {
+	wantListPatternError(t, `    [_, ..mid, _] = xs else
         return 0
-    }
+    end
     mid`, "List<Int>")
 }

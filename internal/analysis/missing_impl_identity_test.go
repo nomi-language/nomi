@@ -83,16 +83,18 @@ func hasMissingImpl(msgs []string, iface, typeName string) bool {
 func TestMissingImpl_TheOnlyVariableIsTheTypesName(t *testing.T) {
 	const tmpl = `import { std::io }
 
-pub enum %[1]s {
+pub enum %[1]s
   Bad String
   Run (Int) -> Int
-}
+end
 
-fn mk(s: String) -> Result<Int, %[1]s> { Err(%[1]s.Bad(s)) }
+fn mk(s: String) -> Result<Int, %[1]s>
+  Err(%[1]s.Bad(s))
+end
 
-fn main() {
+fn main()
   io.print("equal: ${Equatable.equal(mk("a"), mk("b"))}")
-}
+end
 `
 	for _, name := range []string{"Error", "Zonk"} {
 		src := strings.ReplaceAll(tmpl, "%[1]s", name)
@@ -109,19 +111,23 @@ fn main() {
 // std/calendar also declares an `Error` would turn a correct program into an
 // error, which is strictly worse than the bug being fixed.
 func TestMissingImpl_AnEntryImplIsNotMistakenForAnotherModules(t *testing.T) {
-	const src = `import { std::io }
+	const src = `import
+    std::io
+end
 
-pub enum Error {
+pub enum Error
   Bad String
-}
+end
 
-impl Equatable for Error {
-  fn equal(_a: Error, _b: Error) -> Bool { True }
-}
+impl Equatable for Error
+  fn equal(_a: Error, _b: Error) -> Bool
+      True
+  end
+end
 
-fn main() {
+fn main()
   io.print("equal: ${Equatable.equal(Error.Bad("a"), Error.Bad("b"))}")
-}
+end
 `
 	for _, m := range implIdentityErrs(t, src) {
 		if strings.Contains(m, "no impl of `Equatable`") {
@@ -140,23 +146,25 @@ fn main() {
 // correct demands against the user. The diagnostic must name
 // the user's position and nothing in std.
 func TestMissingImpl_StdlibsOwnDemandsAreNotBlamedOnTheUser(t *testing.T) {
-	const src = `import {
+	const src = `import
   std::io
   std::calendar.{DateTime}
-}
+end
 
-pub enum Error {
+pub enum Error
   Bad String
   Run (Int) -> Int
-}
+end
 
-fn mk(s: String) -> Result<Int, Error> { Err(Error.Bad(s)) }
+fn mk(s: String) -> Result<Int, Error>
+    Err(Error.Bad(s))
+end
 
-fn main() {
+fn main()
   d = DateTime"2026-01-01T12:00:00[America/New_York]"
   io.print("x: ${d}")
   io.print("equal: ${Equatable.equal(mk("a"), mk("b"))}")
-}
+end
 `
 	msgs := implIdentityErrs(t, src)
 	if !hasMissingImpl(msgs, "Equatable", "Error") {
@@ -175,7 +183,7 @@ fn main() {
 // behaviour while every behavioural test above still passed, because those
 // tests also pass under a build that never populated the index at all.
 func TestImplIdentity_EveryKeyCarriesAnOrigin(t *testing.T) {
-	fa, _ := implIdentityFA(t, "fn main() {}\n")
+	fa, _ := implIdentityFA(t, "fn main() end\n")
 	idx := fa.Program().ImplIndex
 	if idx == nil {
 		t.Fatal("nil ProjectImpls")
@@ -198,7 +206,7 @@ func TestImplIdentity_EveryKeyCarriesAnOrigin(t *testing.T) {
 // types called `Error` share one `Equatable` slot, and under an identity key
 // each is its own entry.
 func TestImplIdentity_TheStdlibErrorsAreSeparateConformances(t *testing.T) {
-	fa, _ := implIdentityFA(t, "fn main() {}\n")
+	fa, _ := implIdentityFA(t, "fn main() end\n")
 	idx := fa.Program().ImplIndex
 	if idx == nil {
 		t.Fatal("nil ProjectImpls")
@@ -234,7 +242,7 @@ func TestImplIdentity_TheStdlibErrorsAreSeparateConformances(t *testing.T) {
 // ImplFiles entry — or a real type that stopped resolving, and only an exact
 // assertion tells those apart. Growth in this set silently shrinks the check.
 func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
-	fa, _ := implIdentityFA(t, "fn main() {}\n")
+	fa, _ := implIdentityFA(t, "fn main() end\n")
 	idx := fa.Program().ImplIndex
 	if idx == nil {
 		t.Fatal("nil ProjectImpls")
@@ -296,20 +304,20 @@ const implIdentityFallbackPopulation = "Byte/BitwiseAnd Byte/BitwiseNot Byte/Bit
 // interface keeps its own inherent function of the operator's name:
 // `Duration.add` here is the struct's own `add`, not std/duration's `Add`.
 func TestImplIdentity_AnInherentOperatorNameIsNotStdsImpl(t *testing.T) {
-	src := `pub struct Duration {
+	src := `pub struct Duration
     seconds: Int
-}
+end
 
-impl Duration {
-    pub fn add(a: Duration, b: Duration) -> Duration {
+impl Duration
+    pub fn add(a: Duration, b: Duration) -> Duration
         Duration{seconds: a.seconds + b.seconds}
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     total = Duration.add(Duration{seconds: 1}, Duration{seconds: 2})
     _ = total.seconds
-}
+end
 `
 	if msgs := implIdentityErrs(t, src); len(msgs) != 0 {
 		t.Fatalf("the user's own Duration.add should check, got %q", msgs)
@@ -363,29 +371,35 @@ func implIdentityProjectErrs(t *testing.T, src string, files map[string]string) 
 // impl for each `User` the program checks, and neither impl collides with
 // the other.
 func TestMissingImpl_AQualifiedReceiverIsTheOtherFilesType(t *testing.T) {
-	users := map[string]string{"users.nomi": "pub struct User {\n  name: String\n}\n"}
-	const both = `import { std::io  users }
+	users := map[string]string{"users.nomi": "pub struct User\n  name: String\nend\n"}
+	const both = `import
+    std::io  users
+end
 
-interface Html {
+interface Html
   fn to_html(value: self) -> String
-}
+end
 
-struct User {
+struct User
   id: Int
-}
+end
 
-impl Html for users.User {
-  fn to_html(u: users.User) -> String { u.name }
-}
+impl Html for users.User
+  fn to_html(u: users.User) -> String
+      u.name
+  end
+end
 
-impl Html for User {
-  fn to_html(u: User) -> String { "${u.id}" }
-}
+impl Html for User
+  fn to_html(u: User) -> String
+      "${u.id}"
+  end
+end
 
-fn main() {
+fn main()
   io.print(Html.to_html(users.User{name: "ann"}))
   io.print(Html.to_html(User{id: 1}))
-}
+end
 `
 	if msgs := implIdentityProjectErrs(t, both, users); len(msgs) != 0 {
 		t.Fatalf("an impl for each User was rejected: %v", msgs)
@@ -394,23 +408,27 @@ fn main() {
 	// Only the entry's User has the impl: the missing one names the other
 	// file's type by its module, since a bare `User` would name the type
 	// that has it.
-	const one = `import { std::io  users }
+	const one = `import
+    std::io  users
+end
 
-interface Html {
+interface Html
   fn to_html(value: self) -> String
-}
+end
 
-struct User {
+struct User
   id: Int
-}
+end
 
-impl Html for User {
-  fn to_html(u: User) -> String { "${u.id}" }
-}
+impl Html for User
+  fn to_html(u: User) -> String
+      "${u.id}"
+  end
+end
 
-fn main() {
+fn main()
   io.print(Html.to_html(users.User{name: "ann"}))
-}
+end
 `
 	msgs := implIdentityProjectErrs(t, one, users)
 	found := false

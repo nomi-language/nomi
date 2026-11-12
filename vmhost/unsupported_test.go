@@ -20,21 +20,21 @@ import (
 func TestCheck_ReportsWhatTheCompilerCannotLower(t *testing.T) {
 	path := writeProgram(t, `import std::io
 
-fn planted_decline(n: Int) -> Int {
+fn planted_decline(n: Int) -> Int
   n
-}
+end
 
-fn evens(xs: List<Int>) -> Int {
+fn evens(xs: List<Int>) -> Int
   planted_decline(Iter.count(xs))
-}
+end
 
-fn unused() -> Int {
+fn unused() -> Int
   planted_decline(0)
-}
+end
 
-fn main() {
+fn main()
   io.print(evens([1, 2]))
-}
+end
 `)
 	cases := []struct {
 		reason string
@@ -75,13 +75,13 @@ fn main() {
 func TestCheck_ALoweredProgramChecksClean(t *testing.T) {
 	path := writeProgram(t, `import std::io
 
-fn add(a: Int, b: Int) -> Int {
+fn add(a: Int, b: Int) -> Int
   a + b
-}
+end
 
-fn main() {
+fn main()
   io.print(Iter.reduce([1, 2, 3], 0, fn acc, n -> add(acc, n)))
-}
+end
 `)
 	if err := vmhost.Check(path); err != nil {
 		t.Fatalf("Check rejected a program that runs: %v", err)
@@ -94,14 +94,14 @@ func TestCheck_ReportsADeclinedMainAtTheExpression(t *testing.T) {
 	plantDecline(t)
 	path := writeProgram(t, `import std::io
 
-fn planted_decline(a: Int) -> Int {
+fn planted_decline(a: Int) -> Int
     a
-}
+end
 
-fn main() {
+fn main()
     u = planted_decline(1)
     io.inspect(u)
-}
+end
 `)
 	err := vmhost.Check(path)
 	var ds frontend.Diagnostics

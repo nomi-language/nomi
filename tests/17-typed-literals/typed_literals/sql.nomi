@@ -5,10 +5,10 @@ import std::literals.{Fragment, Literal}
 /// parameter values to bind. Real drivers would take the two halves
 /// and pass them to a prepared statement; this example stops at the
 /// shaping step.
-pub struct Query {
+pub struct Query
     sql: String
     params: List<Display>
-}
+end
 
 /// Zero-sized tag carrier. `SQL"..."` resolves the tag to this type and
 /// dispatches its `Literal` impl — Static fragments become SQL
@@ -16,22 +16,22 @@ pub struct Query {
 /// slot value pushed onto the params list in source order.
 pub type SQL
 
-impl Literal for SQL {
-    fn from_fragments(fragments: List<Fragment<Display>>) -> Query {
+impl Literal for SQL
+    fn from_fragments(fragments: List<Fragment<Display>>) -> Query
         Query{
-            sql: Iter.reduce(fragments, "", fn acc, frag -> {
-                case frag {
+            sql: Iter.reduce(fragments, "", fn acc, frag ->
+                case frag
                     .Static(s) -> acc + s
                     .Dynamic(_) -> acc + "?"
-                }
-            }),
-            params: Iter.flat_map(fragments, fn frag -> {
-                case frag {
+                end
+            end),
+            params: Iter.flat_map(fragments, fn frag ->
+                case frag
                     .Static(_) -> []
                     .Dynamic(v) -> [v]
-                }
-            })
+                end
+            end)
             |> Iter.to_list(),
         }
-    }
-}
+    end
+end

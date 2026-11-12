@@ -427,7 +427,7 @@ func (bl *irScalarBuilder) stdUnretainedShortCall(t *ast.Call, owner, method, mo
 // cached lowering builds a retained function's (stdInstances.build), and the
 // call is planned against them as stdShortCallPlan plans a retained one.
 func (bl *irScalarBuilder) stdUnretainedDefaultedCall(t *ast.Call, f *stdFunc) (ir.Temp, kind, bool, bool, bool) {
-	inst, why := bl.g.stdInsts.instantiate(f, nil, nil, nil, bl.g)
+	inst, why := bl.g.stdInsts.instantiate(f, nil, nil, bl.g)
 	if inst == nil {
 		bl.g.dc.note(why)
 		return ir.NoTemp, kindInvalid, false, false, true

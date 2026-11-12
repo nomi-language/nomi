@@ -33,7 +33,7 @@ func TestStdlibHasNoImplCollisions(t *testing.T) {
 	// Minimal valid program. Its own impl index is empty, so any
 	// `duplicate impl` error that surfaces comes purely from stdlib's
 	// per-FA IfaceMethodImpls (folded into filesByKey via stdlibFAs).
-	src := "fn main() {}"
+	src := "fn main() end"
 	tokens := lexer.Lex(src)
 	entryNodes, _ := parser.ParseWithRecovery(tokens)
 
@@ -72,7 +72,7 @@ func TestStdlibHasNoImplCollisions(t *testing.T) {
 func TestProjectImplIndex_PopulatedAfterBuild(t *testing.T) {
 	lib := loadStd()
 
-	src := "fn main() {}"
+	src := "fn main() end"
 	tokens := lexer.Lex(src)
 	entryNodes, _ := parser.ParseWithRecovery(tokens)
 

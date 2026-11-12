@@ -7,27 +7,27 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-const bareBraceDecls = `struct Address {
+const bareBraceDecls = `struct Address
     street: String
     city: String
-}
+end
 
-struct Person {
+struct Person
     name: String = "x"
     address: Address
-}
+end
 
-struct Team {
+struct Team
     lead: Person
-}
+end
 
-fn greet(a: Address) -> String {
+fn greet(a: Address) -> String
     a.city
-}
+end
 
-fn show(d: Display) -> String {
+fn show(d: Display) -> String
     Display.to_string(d)
-}
+end
 
 `
 
@@ -55,7 +55,7 @@ func completeTriggered(t *testing.T, src, trigger string) []protocol.CompletionI
 	return completionItemsOf(t, res)
 }
 
-// bareBraceModes are the ways a request reaches `.{‸}`: invoked, the `{`
+// bareBraceModes are the ways a request reaches `{‸}`: invoked, the `{`
 // trigger with the `}` an auto-pair plugin added, that `}` reported as the
 // trigger (blink.cmp), and the `{` trigger with no closing brace typed.
 var bareBraceModes = []struct{ name, trigger, unpaired string }{
@@ -73,7 +73,7 @@ func unpaired(src string) string {
 	return src[:at] + src[at+end:]
 }
 
-// A `.{` where the position expects a nominal struct offers that struct's
+// A `{` where the position expects a nominal struct offers that struct's
 // unwritten fields, however the request comes.
 func TestCompletion_BareBraceOffersTheExpectedStructsFields(t *testing.T) {
 	tests := []struct {
@@ -81,17 +81,17 @@ func TestCompletion_BareBraceOffersTheExpectedStructsFields(t *testing.T) {
 		src  string
 		want []string // in order
 	}{
-		{"struct literal field", "fn f() -> Person {\n    Person{address: .{‸}}\n}\n", []string{"street", "city"}},
-		{"named literal", "fn f() -> Address {\n    Address{‸}\n}\n", []string{"street", "city"}},
-		{"named variant literal", "fn f() -> Team {\n    Team{lead: Person{‸}}\n}\n", []string{"address", "name"}},
-		{"annotated binding", "fn f() -> Address {\n    a: Address = .{‸}\n    a\n}\n", []string{"street", "city"}},
-		{"spread patch", "fn f(p: Person) -> Person {\n    .{..p, address: .{‸}}\n}\n", []string{"street", "city"}},
-		{"patch fields keep declaration order", "fn f(t: Team) -> Team {\n    .{..t, lead: .{‸}}\n}\n", []string{"name", "address"}},
-		{"function argument", "fn f() -> String {\n    greet(.{‸})\n}\n", []string{"street", "city"}},
-		{"block tail", "fn f() -> Address {\n    .{‸}\n}\n", []string{"street", "city"}},
-		{"return", "fn f() -> Address {\n    return .{‸}\n}\n", []string{"street", "city"}},
-		{"typed list item", "fn f() -> List<Person> {\n    people: List<Person> = [.{‸}]\n    people\n}\n", []string{"address", "name"}},
-		{"case arm", "fn f(n: Int) -> Address {\n    case n {\n        0 -> .{‸}\n        _ -> Address{street: \"a\", city: \"b\"}\n    }\n}\n", []string{"street", "city"}},
+		{"struct literal field", "fn f() -> Person\n    Person{address: {‸}}\nend\n", []string{"street", "city"}},
+		{"named literal", "fn f() -> Address\n    Address{‸}\nend\n", []string{"street", "city"}},
+		{"named variant literal", "fn f() -> Team\n    Team{lead: Person{‸}}\nend\n", []string{"address", "name"}},
+		{"annotated binding", "fn f() -> Address\n    a: Address = {‸}\n    a\nend\n", []string{"street", "city"}},
+		{"spread patch", "fn f(p: Person) -> Person\n    {..p, address: {‸}}\nend\n", []string{"street", "city"}},
+		{"patch fields keep declaration order", "fn f(t: Team) -> Team\n    {..t, lead: {‸}}\nend\n", []string{"name", "address"}},
+		{"function argument", "fn f() -> String\n    greet({‸})\nend\n", []string{"street", "city"}},
+		{"block tail", "fn f() -> Address\n    {‸}\nend\n", []string{"street", "city"}},
+		{"return", "fn f() -> Address\n    return {‸}\nend\n", []string{"street", "city"}},
+		{"typed list item", "fn f() -> List<Person>\n    people: List<Person> = [{‸}]\n    people\nend\n", []string{"address", "name"}},
+		{"case arm", "fn f(n: Int) -> Address\n    case n\n        0 -> {‸}\n        _ -> Address{street: \"a\", city: \"b\"}\n    end\nend\n", []string{"street", "city"}},
 	}
 	for _, tt := range tests {
 		for _, m := range bareBraceModes {
@@ -112,7 +112,7 @@ func TestCompletion_BareBraceOffersTheExpectedStructsFields(t *testing.T) {
 	}
 }
 
-// What follows a `.{` is still a field: a typed prefix filters the
+// What follows a `{` is still a field: a typed prefix filters the
 // fields, and a field already written is not offered again.
 func TestCompletion_BareBraceAfterAField(t *testing.T) {
 	tests := []struct {
@@ -120,12 +120,12 @@ func TestCompletion_BareBraceAfterAField(t *testing.T) {
 		src  string
 		want []string
 	}{
-		{"typed prefix", "fn f() -> Address {\n    a: Address = .{ci‸}\n    a\n}\n", []string{"city"}},
-		{"nested, one field written", "fn f() -> Person {\n    Person{address: .{street: \"x\", ‸}}\n}\n", []string{"city"}},
-		{"patch, one field written", "fn f(p: Person) -> Person {\n    .{..p, address: .{city: \"x\", ‸}}\n}\n", []string{"street"}},
-		{"bare `..` update", "fn f(p: Person) -> Person {\n    .{..p, address: .{.., ‸}}\n}\n", []string{"street", "city"}},
-		{"bare `..` update in Struct.update", "fn f(p: Person) -> Person {\n    Struct.update(p, .{address: .{.., ‸}})\n}\n", []string{"street", "city"}},
-		{"bare `..` update, one field written", "fn f(p: Person) -> Person {\n    .{..p, address: .{.., city: \"x\", ‸}}\n}\n", []string{"street"}},
+		{"typed prefix", "fn f() -> Address\n    a: Address = {ci‸}\n    a\nend\n", []string{"city"}},
+		{"nested, one field written", "fn f() -> Person\n    Person{address: {street: \"x\", ‸}}\nend\n", []string{"city"}},
+		{"patch, one field written", "fn f(p: Person) -> Person\n    {..p, address: {city: \"x\", ‸}}\nend\n", []string{"street"}},
+		{"bare `..` update", "fn f(p: Person) -> Person\n    {..p, address: {.., ‸}}\nend\n", []string{"street", "city"}},
+		{"bare `..` update in Struct.update", "fn f(p: Person) -> Person\n    Struct.update(p, {address: {.., ‸}})\nend\n", []string{"street", "city"}},
+		{"bare `..` update, one field written", "fn f(p: Person) -> Person\n    {..p, address: {.., city: \"x\", ‸}}\nend\n", []string{"street"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -137,22 +137,19 @@ func TestCompletion_BareBraceAfterAField(t *testing.T) {
 	}
 }
 
-// A `{` is a block, and a `.{` where no nominal struct is expected is an
-// anonymous struct: neither offers fields and a trigger opens nothing. An
-// invoked request in a block still offers the names in scope.
+// A `{` where no nominal struct is expected opens an anonymous struct: it
+// offers no fields and a trigger opens nothing. An invoked request there
+// offers the names in scope, as a field's value can use.
 func TestCompletion_BareBraceWithoutAStructOffersNoFields(t *testing.T) {
 	tests := []struct {
 		name string
 		src  string
 	}{
-		{"function body", "fn f() -> Address {‸}\n"},
-		{"if body", "fn f(c: Bool, a: Address) -> Address {\n    if c {‸} else {\n        a\n    }\n}\n"},
-		{"a block where a struct is expected", "fn f() -> Address {\n    a: Address = {‸}\n    a\n}\n"},
-		{"Int binding", "fn f() -> Int {\n    n: Int = .{‸}\n    n\n}\n"},
-		{"map binding", "fn f() -> Int {\n    m: Map<String, Int> = .{‸}\n    0\n}\n"},
-		{"unannotated binding", "fn f() -> Int {\n    a = .{‸}\n    0\n}\n"},
-		{"interface argument", "fn f() -> String {\n    show(.{‸})\n}\n"},
-		{"a later line of a block", "fn f() -> Address {\n    a: Address = {\n        Address{street: \"a\", city: \"b\"}\n        st‸\n    }\n    a\n}\n"},
+		{"Int binding", "fn f() -> Int\n    n: Int = {‸}\n    n\nend\n"},
+		{"map binding", "fn f() -> Int\n    m: Map<String, Int> = {‸}\n    0\nend\n"},
+		{"unannotated binding", "fn f() -> Int\n    a = {‸}\n    0\nend\n"},
+		{"interface argument", "fn f() -> String\n    show({‸})\nend\n"},
+		{"a later line of a block", "fn f() -> Address\n    a: Address = begin\n        Address{street: \"a\", city: \"b\"}\n        st‸\n    end\n    a\nend\n"},
 	}
 	for _, tt := range tests {
 		for _, m := range bareBraceModes {
@@ -169,7 +166,7 @@ func TestCompletion_BareBraceWithoutAStructOffersNoFields(t *testing.T) {
 				if m.trigger != "" && len(items) > 0 {
 					t.Fatalf("a %s trigger opened %v", m.trigger, itemLabels(items))
 				}
-				if m.trigger == "" && m.unpaired == "" && !strings.Contains(tt.src, ".{") && findItem(items, "greet") == nil && !strings.HasPrefix(tt.name, "a later line") {
+				if m.trigger == "" && m.unpaired == "" && !strings.Contains(tt.src, "{") && findItem(items, "greet") == nil && !strings.HasPrefix(tt.name, "a later line") {
 					t.Fatalf("an invoked request lost the names in scope: %v", itemLabels(items))
 				}
 			})
@@ -178,16 +175,16 @@ func TestCompletion_BareBraceWithoutAStructOffersNoFields(t *testing.T) {
 }
 
 // Right after a field's value, with no `,` yet, the outer literal's fields
-// are not offered: `.{..p, address: .{}‸}` once offered Person's `name`.
+// are not offered: `{..p, address: {}‸}` once offered Person's `name`.
 // After the comma they are, on the same line or the next.
 func TestCompletion_NoFieldRightAfterAValue(t *testing.T) {
 	for _, src := range []string{
-		"fn f(p: Person) -> Person {\n    .{..p, address: .{}‸}\n}\n",
-		"fn f(a: Address) -> Person {\n    Person{address: a‸}\n}\n",
+		"fn f(p: Person) -> Person\n    {..p, address: {}‸}\nend\n",
+		"fn f(a: Address) -> Person\n    Person{address: a‸}\nend\n",
 	} {
 		labelsExclude(t, complete(t, bareBraceDecls+src), "name")
 	}
-	labelsInclude(t, complete(t, bareBraceDecls+"fn f(a: Address) -> Person {\n    Person{\n        address: a,\n        ‸\n    }\n}\n"), "name")
+	labelsInclude(t, complete(t, bareBraceDecls+"fn f(a: Address) -> Person\n    Person{\n        address: a,\n        ‸\n    }\nend\n"), "name")
 }
 
 func TestBraceMayOpenLiteral(t *testing.T) {
@@ -196,23 +193,21 @@ func TestBraceMayOpenLiteral(t *testing.T) {
 		want bool
 	}{
 		{"Point{", true},
-		{"a: Address = .{", true},
-		{"Person{address: .{", true},
-		{"greet(.{", true},
-		{"[.{", true},
-		{"%{", false},
+		{"a: Address = {", true},
+		{"Person{address: {", true},
+		{"greet({", true},
+		{"[{", true},
 		{".Circle{", true},
-		{"a: Address = {", false},
-		{"greet({", false},
-		{"0 -> {", false},
-		{"return {", false},
-		{"x\n    {", false},
+		{"0 -> {", true},
+		{"return {", true},
+		{"x\n    {", true},
+		{"xs |> then fn x -> {", true},
+		{"{", true},
 		{"fn f() {", false},
 		{"fn f() -> Address {", false},
 		{"if c {", false},
+		{"else {", false},
 		{"case n {", false},
-		{"xs |> then fn x -> {", false},
-		{"{", false},
 	}
 	for _, tt := range tests {
 		if got := braceMayOpenLiteral(tt.text, len(tt.text)-1); got != tt.want {

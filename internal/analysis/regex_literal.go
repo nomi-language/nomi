@@ -20,7 +20,7 @@ import (
 //
 //   - no group: `Unit`;
 //   - every group named, by a name a field can have: the anonymous struct
-//     of the groups, `.{year: String, month: Maybe<String>}`, one field or
+//     of the groups, `{year: String, month: Maybe<String>}`, one field or
 //     several;
 //   - one unnamed group: that group's type, `String` or `Maybe<String>`,
 //     since Nomi has no one-element tuple;

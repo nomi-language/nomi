@@ -20,17 +20,17 @@ import (
 // (loweringBlocked). The test reaches it, and makes the file a test file.
 const loweringProbe = `
 
-fn planted_decline(n: Int) -> Int {
+fn planted_decline(n: Int) -> Int
   n
-}
+end
 
-fn lowering_probe(xs: List<Int>) -> List<Int> {
+fn lowering_probe(xs: List<Int>) -> List<Int>
   Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
-}
+end
 
-test "lowering probe" {
+test "lowering probe"
   assert lowering_probe([1, 2]) == [1, 2]
-}
+end
 `
 
 // loweringCaptureProbe is appended to a corpus file to give its lowering
@@ -39,13 +39,13 @@ test "lowering probe" {
 // which the lowering check reports (vmhost.Program.checkLiterals).
 const loweringCaptureProbe = `
 
-test "lowering capture probe" {
+test "lowering capture probe"
   import std::io
   import std::regex.Regex
   run = io.capture("", fn -> io.print("x"))
   assert run.output == "x\n"
   _ = Regex` + "`[`" + `
-}
+end
 `
 
 // loweringVariants are the texts of a corpus file the equivalence test
@@ -221,10 +221,10 @@ func TestLoweringRun_ProgramOfSeveralFilesLowersTheAnalysis(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	src := "import std::io\nimport shapes\n\nfn main() {\n    io.inspect(shapes.area(2))\n}\n"
+	src := "import std::io\nimport shapes\n\nfn main()\n    io.inspect(shapes.area(2))\nend\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi":   src,
-		"shapes.nomi": "pub fn area(r: Int) -> Int {\n    r * 3\n}\n",
+		"shapes.nomi": "pub fn area(r: Int) -> Int\n    r * 3\nend\n",
 		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	s := NewServer()

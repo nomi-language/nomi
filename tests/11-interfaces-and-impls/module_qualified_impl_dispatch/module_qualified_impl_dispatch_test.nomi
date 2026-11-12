@@ -1,28 +1,28 @@
-import {
+import
     std::json.Json
     users.{self, Admin, User}
     users::teams.{self, Member}
-}
+end
 
-test "type-qualified impl methods dispatch by receiver" {
+test "type-qualified impl methods dispatch by receiver"
     assert User.inspect(users.user("Ada")) == "user:Ada"
     assert Admin.inspect(users.admin("Grace")) == "admin:Grace"
-}
+end
 
-test "type-qualified impl methods pipe through dispatch" {
+test "type-qualified impl methods pipe through dispatch"
     assert users.user("Lin") |> User.inspect() == "user:Lin"
     assert users.admin("Margaret") |> Admin.inspect() == "admin:Margaret"
-}
+end
 
-test "type-qualified generic impl methods can use explicit targets" {
+test "type-qualified generic impl methods can use explicit targets"
     encoded = User.to_json(users.user("Ada"))
     decoded: User = User.from_json(encoded)?
 
     assert Json.encode(encoded) == "{\"name\":\"Ada\"}"
     assert decoded == users.user("Ada")
-    assert User.from_json(%Json.Obj{"name" => Json.String("Ada")}) == Ok(users.user("Ada"))
-}
+    assert User.from_json(Json.Obj{"name" => Json.String("Ada")}) == Ok(users.user("Ada"))
+end
 
-test "nested type-qualified impl methods dispatch by receiver" {
+test "nested type-qualified impl methods dispatch by receiver"
     assert Member.inspect(teams.member("Katherine")) == "member:Katherine"
-}
+end

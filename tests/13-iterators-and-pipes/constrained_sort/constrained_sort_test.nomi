@@ -1,23 +1,23 @@
-import {
+import
     std::comparable.Direction
     named_widget.{self, NamedWidget}
     sort_widget.{self, SortWidget}
-}
+end
 
-fn sort_widget_weights(ws: List<SortWidget>) -> List<Int> {
+fn sort_widget_weights(ws: List<SortWidget>) -> List<Int>
     ws
     |> Iter.sort()
     |> Iter.map(.weight)
     |> Iter.to_list()
-}
+end
 
-fn named_widget_names(ws: List<NamedWidget>) -> List<String> {
+fn named_widget_names(ws: List<NamedWidget>) -> List<String>
     ws
     |> Iter.map(.name)
     |> Iter.to_list()
-}
+end
 
-test "sort records Comparable demands for imported element impls" {
+test "sort records Comparable demands for imported element impls"
     ws = [sort_widget.make(3), sort_widget.make(1), sort_widget.make(2)]
 
     assert sort_widget_weights(ws) == [1, 2, 3]
@@ -27,9 +27,9 @@ test "sort records Comparable demands for imported element impls" {
         |> Iter.map(.weight)
         |> Iter.to_list()
         |> List.equal([1, 2, 3])
-}
+end
 
-test "sort_by records Comparable demands for imported key impls" {
+test "sort_by records Comparable demands for imported key impls"
     ws = [named_widget.make("c", 3), named_widget.make("a", 1), named_widget.make("b", 2)]
 
     direct =
@@ -48,4 +48,4 @@ test "sort_by records Comparable demands for imported key impls" {
     assert direct == ["a", "b", "c"]
     assert piped == ["a", "b", "c"]
     assert explicit_desc == ["c", "b", "a"]
-}
+end

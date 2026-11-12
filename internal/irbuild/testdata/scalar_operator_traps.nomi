@@ -34,19 +34,19 @@
 // THE PAIRED NEGATIVE: the impl case's OPERATOR twin must blame a DIFFERENT
 // line, so a lowering that took the position from the wrong node would make
 // the pair agree, and only the pair sees it.
-fn zero_divide_via_impl() -> Int {
+fn zero_divide_via_impl() -> Int
     Divide.divide(20, 0)
-}
+end
 
-fn zero_divide_via_operator() -> Int {
+fn zero_divide_via_operator() -> Int
     20 / 0
-}
+end
 
-fn zero_remainder_via_operator() -> Int {
+fn zero_remainder_via_operator() -> Int
     20 % 0
-}
+end
 
-test "the written-out impls agree on every non-trapping answer" {
+test "the written-out impls agree on every non-trapping answer"
     assert Add.add(9, 4) == 13
     assert Subtract.subtract(9, 4) == 5
     assert Multiply.multiply(3, 7) == 21
@@ -63,18 +63,18 @@ test "the written-out impls agree on every non-trapping answer" {
 
     assert Add.add("ab", "cd") == "abcd"
     assert String.add("ab", "cd") == "abcd"
-}
+end
 
-test "the written-out impls are exact past 64 bits, as the operators are" {
+test "the written-out impls are exact past 64 bits, as the operators are"
     big = 9223372036854775807
     assert Add.add(big, 1) == big + 1
     assert Add.add(big, 1) == 9_223_372_036_854_775_808
     assert Subtract.subtract(-big, 2) == -9_223_372_036_854_775_809
     assert Multiply.multiply(big, 2) == 18_446_744_073_709_551_614
     assert Divide.divide(Multiply.multiply(big, 2), 2) == big
-}
+end
 
-test "a Float divide by zero is IEEE and does not trap" {
+test "a Float divide by zero is IEEE and does not trap"
     // Not an oversight and not symmetric with Int: a Float `/` is IEEE
     // division, so a zero divisor is +/-Infinity and 0.0/0.0 is NaN. The
     // builder must therefore NOT reach for a trapping helper here.
@@ -89,16 +89,16 @@ test "a Float divide by zero is IEEE and does not trap" {
     // observes 0.0/0.0 without depending on IEEE's answer to `nan == nan`.
     nan = Divide.divide(zero, zero)
     assert nan == nan
-}
+end
 
-test "an impl-form Divide by zero blames the call's own line" {
+test "an impl-form Divide by zero blames the call's own line"
     assert zero_divide_via_impl() == 0
-}
+end
 
-test "an operator divide by zero blames the operator's own line" {
+test "an operator divide by zero blames the operator's own line"
     assert zero_divide_via_operator() == 0
-}
+end
 
-test "an operator remainder by zero blames the operator's own line" {
+test "an operator remainder by zero blames the operator's own line"
     assert zero_remainder_via_operator() == 0
-}
+end

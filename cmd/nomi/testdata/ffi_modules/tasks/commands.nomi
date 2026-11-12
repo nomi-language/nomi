@@ -1,11 +1,11 @@
 //# The commands a user types, how a line becomes a `Command`, and what each
 //# command does to the task list.
 
-import {
+import
     store.Store
     system.Clock
     task.{Status, Task}
-}
+end
 
 once help = [
     "add <title>     add a task",
@@ -16,7 +16,7 @@ once help = [
     "quit            leave",
 ]
 
-pub enum Command {
+pub enum Command
     Help
     Add {title: String}
     List {status: Maybe<Status>}
@@ -24,7 +24,7 @@ pub enum Command {
     Delete {id: Int}
     Quit
     Blank
-}
+end
 
 /// Reads one input line as a command by matching its words against list
 /// patterns.
@@ -32,19 +32,28 @@ pub enum Command {
 //! assert parse("done 2") == Ok(Command.Mark{id: 2, status: Status.Done})
 //! assert parse("done two") == Err("expected a task id, got 'two'")
 //
-pub fn parse(line: String) -> Result<Command, String> {
+pub fn parse(line: String) -> Result<Command, String>
     words =
         line
         |> String.split(" ")
         |> Iter.filter(&(&1 != ""))
         |> Iter.to_list()
 
-    case words {
-        [] -> Ok(Command.Blank)
-        ["help"] -> Ok(Command.Help)
-        ["quit"] -> Ok(Command.Quit)
-        ["add", first, ..rest] -> Ok(Command.Add{title: String.join([first, ..rest], " ")})
-        ["list"] -> Ok(Command.List{status: None})
+    case words
+        [] ->
+            Ok(Command.Blank)
+
+        ["help"] ->
+            Ok(Command.Help)
+
+        ["quit"] ->
+            Ok(Command.Quit)
+
+        ["add", first, ..rest] ->
+            Ok(Command.Add{title: String.join([first, ..rest], " ")})
+
+        ["list"] ->
+            Ok(Command.List{status: None})
 
         ["list", status] ->
             status
@@ -52,12 +61,19 @@ pub fn parse(line: String) -> Result<Command, String> {
             |> Maybe.map(fn status -> Command.List{status: Some(status)})
             |> Maybe.to_result("unknown status '${status}'")
 
-        ["start", id] -> parse_id(id) |> Result.map(&Command.Mark{id: &1, status: Status.Started})
-        ["done", id] -> parse_id(id) |> Result.map(&Command.Mark{id: &1, status: Status.Done})
-        ["delete", id] -> parse_id(id) |> Result.map(&Command.Delete{id: &1})
-        _ -> Err("unknown command '${line}', try 'help'")
-    }
-}
+        ["start", id] ->
+            parse_id(id) |> Result.map(&Command.Mark{id: &1, status: Status.Started})
+
+        ["done", id] ->
+            parse_id(id) |> Result.map(&Command.Mark{id: &1, status: Status.Done})
+
+        ["delete", id] ->
+            parse_id(id) |> Result.map(&Command.Delete{id: &1})
+
+        _ ->
+            Err("unknown command '${line}', try 'help'")
+    end
+end
 
 /// Runs a command against the current tasks and returns the tasks afterwards
 /// with the lines to show. A change is saved to `store` before it is made,
@@ -67,36 +83,38 @@ pub fn run(
     tasks: Map<Int, Task>,
     store: Store,
     clock: Clock,
-) -> Result<(Map<Int, Task>, List<String>), String> {
-    case command {
-        Command.Help -> Ok((tasks, help))
+) -> Result<(Map<Int, Task>, List<String>), String>
+    case command
+        Command.Help ->
+            Ok((tasks, help))
 
-        Command.Add{title} -> {
-            task = Task{id: next_id(tasks), title, created: Clock.now(clock)}
+        Command.Add{title:} ->
+            task = Task{id: next_id(tasks), title:, created: Clock.now(clock)}
             Store.save(store, task)?
             Ok((Map.put(tasks, task.id, task), ["added ${Task.render(task)}"]))
-        }
 
-        Command.List{status} -> Ok((tasks, list(tasks, status)))
+        Command.List{status:} ->
+            Ok((tasks, list(tasks, status)))
 
-        Command.Mark{id, status} -> {
-            task = .{..find(tasks, id)?, status}
+        Command.Mark{id:, status:} ->
+            task = {..find(tasks, id)?, status:}
             Store.save(store, task)?
             Ok((Map.put(tasks, id, task), [Task.render(task)]))
-        }
 
-        Command.Delete{id} -> {
+        Command.Delete{id:} ->
             task = find(tasks, id)?
             Store.delete(store, id)?
             Ok((Map.remove(tasks, id), ["deleted ${Task.render(task)}"]))
-        }
 
-        Command.Quit -> Ok((tasks, []))
-        Command.Blank -> Ok((tasks, []))
-    }
-}
+        Command.Quit ->
+            Ok((tasks, []))
 
-fn list(tasks: Map<Int, Task>, status: Maybe<Status>) -> List<String> {
+        Command.Blank ->
+            Ok((tasks, []))
+    end
+end
+
+fn list(tasks: Map<Int, Task>, status: Maybe<Status>) -> List<String>
     lines =
         tasks
         |> Map.values()
@@ -105,29 +123,29 @@ fn list(tasks: Map<Int, Task>, status: Maybe<Status>) -> List<String> {
         |> Iter.map(&Task.render(&1))
         |> Iter.to_list()
 
-    if lines == [] { ["no tasks"] } else { lines }
-}
+    if lines == [] then ["no tasks"] else lines
+end
 
-fn is_shown(task: Task, status: Maybe<Status>) -> Bool {
-    case status {
+fn is_shown(task: Task, status: Maybe<Status>) -> Bool
+    case status
         None -> True
         Some(status) -> task.status == status
-    }
-}
+    end
+end
 
-fn find(tasks: Map<Int, Task>, id: Int) -> Result<Task, String> {
+fn find(tasks: Map<Int, Task>, id: Int) -> Result<Task, String>
     Map.get(tasks, id) |> Maybe.to_result("no task with id ${id}")
-}
+end
 
-fn next_id(tasks: Map<Int, Task>) -> Int {
+fn next_id(tasks: Map<Int, Task>) -> Int
     highest =
         tasks
         |> Map.keys()
-        |> Iter.reduce(0, fn highest, id -> if id > highest { id } else { highest })
+        |> Iter.reduce(0, fn highest, id -> if id > highest then id else highest)
 
     highest + 1
-}
+end
 
-fn parse_id(text: String) -> Result<Int, String> {
+fn parse_id(text: String) -> Result<Int, String>
     String.to_int(text) |> Maybe.to_result("expected a task id, got '${text}'")
-}
+end

@@ -14,14 +14,14 @@ func variantsDeriveError(decl ast.Node) string {
 	name, _ := typeDeclName(decl)
 	e, ok := decl.(*ast.EnumDef)
 	if !ok {
-		return fmt.Sprintf("`derive Variants for %s`: `Variants` lists an enum's variants, and `%s` is %s, not an enum; write `impl Variants for %s { ... }` to list its values by hand", name, name, typeDeclKindPhrase(decl), name)
+		return fmt.Sprintf("`derive Variants for %s`: `Variants` lists an enum's variants, and `%s` is %s, not an enum; write `impl Variants for %s` to list its values by hand", name, name, typeDeclKindPhrase(decl), name)
 	}
 	if len(e.TypeParams) > 0 {
 		return fmt.Sprintf("`derive Variants for %s`: `%s` has type parameters, and `Variants` lists the variants of an enum without them", name, name)
 	}
 	for _, v := range e.Variants {
 		if v.Kind != "bare" {
-			return fmt.Sprintf("`derive Variants for %s`: variant `%s.%s` carries data, and `Variants` lists only variants that carry none; remove its data, or write `impl Variants for %s { ... }` by hand", name, name, v.Name, name)
+			return fmt.Sprintf("`derive Variants for %s`: variant `%s.%s` carries data, and `Variants` lists only variants that carry none; remove its data, or write `impl Variants for %s` by hand", name, name, v.Name, name)
 		}
 	}
 	return ""

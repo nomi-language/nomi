@@ -9,14 +9,14 @@ import "testing"
 // became `//`, and SameMeaning compared the comment's raw text.
 func TestFormat_AttachedTestCommentTrailingSpace(t *testing.T) {
 	for _, src := range []string{
-		"//!assert\n// \nfn A(){}",
-		"//! assert\n// \t\nfn A() {}\n",
-		"//! assert\n// note \nfn A() {}\n",
-		"//! assert\n/// doc \nfn A() {}\n",
-		"// \n//! assert\nfn A() {}\n",
-		"// note \n//! assert\nfn A() {}\n",
-		"//! assert\n// \n//! assert\nfn A() {}\n",
-		"//! assert\n// note \n//! assert\nfn A() {}\n",
+		"//!assert\n// \nfn A() end",
+		"//! assert\n// \t\nfn A() end\n",
+		"//! assert\n// note \nfn A() end\n",
+		"//! assert\n/// doc \nfn A() end\n",
+		"// \n//! assert\nfn A() end\n",
+		"// note \n//! assert\nfn A() end\n",
+		"//! assert\n// \n//! assert\nfn A() end\n",
+		"//! assert\n// note \n//! assert\nfn A() end\n",
 	} {
 		got, err := Format(src)
 		if err != nil {
@@ -30,7 +30,7 @@ func TestFormat_AttachedTestCommentTrailingSpace(t *testing.T) {
 		}
 	}
 	// Its text is still compared.
-	if err := SameMeaning("//! assert\n// a\nfn A() {}\n", "//! assert\n// b\nfn A() {}\n"); err == nil {
+	if err := SameMeaning("//! assert\n// a\nfn A() end\n", "//! assert\n// b\nfn A() end\n"); err == nil {
 		t.Error("SameMeaning accepts a comment among the prompts with other text")
 	}
 }

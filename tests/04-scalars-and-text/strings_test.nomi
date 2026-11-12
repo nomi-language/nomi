@@ -1,16 +1,16 @@
-import {
+import
     std::regex.Regex
     std::strings.NormalForm.{NFC, NFD}
-}
+end
 
-test "strings report length containment and slices" {
+test "strings report length containment and slices"
     assert String.length("hello") == 5
     assert String.contains("hello world", "world")
     refute String.contains("hello world", "nomi")
     assert String.slice("hello world", 0, 5) == "hello"
-}
+end
 
-test "strings join and split text" {
+test "strings join and split text"
     assert String.join(["a", "b", "c"], "-") == "a-b-c"
     assert String.join([], "-") == ""
 
@@ -18,9 +18,9 @@ test "strings join and split text" {
     assert String.split("a, b, c", ", ") == ["a", "b", "c"]
     assert String.split("hello", "") == ["h", "e", "l", "l", "o"]
     assert String.split(",a,", ",") == ["", "a", ""]
-}
+end
 
-test "strings expose bytes, graphemes, and codepoints" {
+test "strings expose bytes, graphemes, and codepoints"
     assert String.to_bytes("hello")
     |> Iter.map(Byte.to_int)
     |> Iter.to_list() == [104, 101, 108, 108, 111]
@@ -36,30 +36,30 @@ test "strings expose bytes, graphemes, and codepoints" {
         |> Iter.map(Codepoint.to_int)
         |> Iter.to_list()
         |> List.equal([97, 98, 99])
-}
+end
 
-test "prefixes and suffixes can be stripped when present" {
+test "prefixes and suffixes can be stripped when present"
     assert String.strip_prefix("hello world", "hello ") == Some("world")
     assert String.strip_prefix("hello", "xyz") == None
     assert String.strip_suffix("file.txt", ".txt") == Some("file")
     assert String.strip_suffix("file.txt", ".md") == None
-}
+end
 
-test "trim removes outer whitespace and preserves inner whitespace" {
+test "trim removes outer whitespace and preserves inner whitespace"
     assert String.trim("  hello  ") == "hello"
     assert String.trim("\n\tworld\n") == "world"
     assert String.trim("a  b") == "a  b"
-}
+end
 
-test "strings parse signed integers or return none" {
+test "strings parse signed integers or return none"
     assert String.to_int("42") == Some(42)
     assert String.to_int("-7") == Some(-7)
     assert String.to_int("  3  ") == Some(3)
     assert String.to_int("abc") == None
     assert String.to_int("") == None
-}
+end
 
-test "grapheme transforms materialize back to strings" {
+test "grapheme transforms materialize back to strings"
     assert "abc"
         |> Iter.map(fn g -> g + g)
         |> String.join()
@@ -69,25 +69,25 @@ test "grapheme transforms materialize back to strings" {
         |> Iter.filter(fn g -> g == "1" or g == "2" or g == "3")
         |> String.join()
         |> String.equal("123")
-}
+end
 
-test "normalization is explicit before byte-based equality" {
+test "normalization is explicit before byte-based equality"
     nfc = "é"
     nfd = "é"
 
     refute nfc == nfd
     assert String.normalize(nfc, NFC) == String.normalize(nfd, NFC)
     assert String.normalize(nfc, NFD) == nfd
-}
+end
 
-fn slash_joined(parts: Iter<String>) -> String {
+fn slash_joined(parts: Iter<String>) -> String
     String.join(parts, "/")
-}
+end
 
-test "join reads any iterator of strings and defaults to no separator" {
+test "join reads any iterator of strings and defaults to no separator"
     assert String.join(["he", "llo"]) == "hello"
-    assert %["solo"] |> String.join(", ") == "solo"
-    assert #["x", "y", "z"] |> String.join("+") == "x+y+z"
+    assert Set["solo"] |> String.join(", ") == "solo"
+    assert Vector["x", "y", "z"] |> String.join("+") == "x+y+z"
     assert "héllo" |> String.join(".") == "h.é.l.l.o"
     assert "héllo" |> Iter.map(String.uppercase) |> String.join() == "HÉLLO"
     assert 1..=3 |> Iter.map(Int.to_string) |> String.join("-") == "1-2-3"
@@ -99,70 +99,70 @@ test "join reads any iterator of strings and defaults to no separator" {
         |> String.join(" ")
         |> String.equal("2 4 6")
 
-    assert %{"k" => 1}
+    assert {"k" => 1}
     |> Iter.map(fn (k, v) -> k + "=" + Int.to_string(v))
     |> String.join("&") == "k=1"
 
     assert slash_joined(["p", "q"]) == "p/q"
-    assert slash_joined(%["r"]) == "r"
-}
+    assert slash_joined(Set["r"]) == "r"
+end
 
-test "captures gives the groups of the first match as a tuple, without the whole match" {
+test "captures gives the groups of the first match as a tuple, without the whole match"
     pair = Regex`(\w+)@(\w+)`
 
     assert String.captures("mail ann@home now", pair) == Some(("ann", "home"))
     assert String.captures("no address", pair) == None
-}
+end
 
-test "a group a match can leave out is a Maybe, and an empty one is Some(\"\")" {
+test "a group a match can leave out is a Maybe, and an empty one is Some(\"\")"
     assert String.captures("b", Regex`(a)|(b)`) == Some((None, Some("b")))
     assert String.captures("y", Regex`(x*)(y)`) == Some(("", "y"))
     assert String.captures("ac", Regex`a(b)?c`) == Some(None)
     assert String.captures("abc", Regex`a(b)?c`) == Some(Some("b"))
     assert String.captures("aaa", Regex`(a)+`) == Some("a")
     assert String.captures("ab", Regex`((a)?)b`) == Some(("a", Some("a")))
-}
+end
 
-test "one group is its text, and a pattern with none answers Unit" {
+test "one group is its text, and a pattern with none answers Unit"
     assert String.captures("v12", Regex`v(\d+)`) == Some("12")
     assert String.captures("x", Regex`x`) == Some(Unit)
     assert String.captures("y", Regex`x`) == None
-}
+end
 
-test "a pattern whose every group is named gives a struct" {
+test "a pattern whose every group is named gives a struct"
     date = Regex`(?P<year>\d{4})-(?P<month>\d\d)(?:-(?P<day>\d\d))?`
 
-    assert String.captures("on 2024-05", date) == Some(.{year: "2024", month: "05", day: None})
+    assert String.captures("on 2024-05", date) == Some({year: "2024", month: "05", day: None})
 
-    .{year, month, day} = String.captures("2024-05-17", date)!
+    {year:, month:, day:} = String.captures("2024-05-17", date)!
     assert year == "2024"
     assert month == "05"
     assert day == Some("17")
 
     mixed = Regex`(?P<key>\w+)=(\w+)`
     assert String.captures("a=1", mixed) == Some(("a", "1"))
-}
+end
 
-test "a regex compiled while the program runs lists its groups" {
+test "a regex compiled while the program runs lists its groups"
     re = Regex.compile("(\\d)(\\d)?")!
     assert String.captures("7", re) == Some([Some("7"), None])
     assert String.captures_all("1 23", re) == [[Some("1"), None], [Some("2"), Some("3")]]
-}
+end
 
-fn first_groups<C>(re: Regex<C>, texts: List<String>) -> List<C> {
+fn first_groups<C>(re: Regex<C>, texts: List<String>) -> List<C>
     texts |> Iter.flat_map(fn text -> String.captures(text, re)) |> Iter.to_list()
-}
+end
 
-fn match_count<C>(re: Regex<C>, text: String) -> Int {
+fn match_count<C>(re: Regex<C>, text: String) -> Int
     Iter.count(String.captures_all(text, re))
-}
+end
 
-struct Rule<C> {
+struct Rule<C>
     name: String
     re: Regex<C>
-}
+end
 
-test "a typed regex passes through a generic function" {
+test "a typed regex passes through a generic function"
     assert first_groups(Regex`(\w)=(\d)`, ["a=1", "none", "b=2"]) == [("a", "1"), ("b", "2")]
     assert first_groups(Regex`(\d)`, ["x", "7"]) == ["7"]
     assert match_count(Regex`\d`, "1 2 3") == 3
@@ -179,9 +179,9 @@ test "a typed regex passes through a generic function" {
         Some("12"),
         Some("12"),
     ]
-}
+end
 
-test "captures_all gives the groups of every match, left to right" {
+test "captures_all gives the groups of every match, left to right"
     assert String.captures_all("a=1, b=22", Regex`(\w)=(\d+)`) == [("a", "1"), ("b", "22")]
 
     assert "ab b" |> String.captures_all(Regex`(a)|(b)`) == [
@@ -195,19 +195,19 @@ test "captures_all gives the groups of every match, left to right" {
     pairs =
         "x=1 y=2"
         |> String.captures_all(Regex`(?P<name>\w)=(?P<value>\d)`)
-        |> Iter.map(fn .{name, value} -> name + value)
+        |> Iter.map(fn {name:, value:} -> name + value)
         |> Iter.to_list()
 
     assert pairs == ["x1", "y2"]
-}
+end
 
-test "captures work over Unicode text" {
+test "captures work over Unicode text"
     assert String.captures("café crème", Regex`(\p{L}+) (\p{L}+)`) == Some(("café", "crème"))
 
     assert String.captures_all("🙂=1 é=2", Regex`(\S)=(\d)`) == [("🙂", "1"), ("é", "2")]
-}
+end
 
-test "captures_all finds the matches find_all finds" {
+test "captures_all finds the matches find_all finds"
     re = Regex`(\d)(\d)?`
     text = "1 23 456"
 
@@ -219,9 +219,9 @@ test "captures_all finds the matches find_all finds" {
         ("4", Some("5")),
         ("6", None),
     ]
-}
+end
 
-test "a carriage return is written \\r in a string and in its Debug" {
+test "a carriage return is written \\r in a string and in its Debug"
     assert String.to_codepoints("a\rb") == ['a', '\r', 'b']
 
     assert String.to_codepoints("x${1}\r") |> Iter.map(Codepoint.to_int) |> Iter.to_list() == [
@@ -230,4 +230,4 @@ test "a carriage return is written \\r in a string and in its Debug" {
 
     assert String.lines("one\r\ntwo") == ["one", "two"]
     assert Debug.inspect("a\rb") == "\"a\\rb\""
-}
+end

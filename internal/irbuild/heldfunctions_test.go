@@ -14,14 +14,14 @@ func TestIRHeldFunctionValues_Run(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn size(xs: List<(Int) -> Int>) -> Int {
-    case xs {
+fn size(xs: List<(Int) -> Int>) -> Int
+    case xs
         [] -> 0
         [_, ..rest] -> 1 + size(rest)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     fs = [fn x: Int -> x + 1, fn x: Int -> x * 2]
     io.inspect(fs)
     io.inspect(size([fn x: Int -> x, ..fs]))
@@ -33,28 +33,28 @@ fn main() {
     v = Iter.to_vector(fs)
     io.inspect(v)
     io.inspect(Vector.length(v))
-    case Vector.get(v, 1) {
+    case Vector.get(v, 1)
         Some(f) -> io.inspect(f(7))
         None -> io.inspect(0)
-    }
+    end
     m = Iter.to_map([(1, fn x: Int -> x), (2, fn x: Int -> x * 3)])
     io.inspect(m)
-    case Map.get(m, 2) {
+    case Map.get(m, 2)
         Some(f) -> io.inspect(f(7))
         None -> io.inspect(0)
-    }
-    ops = %{"inc" => fn x: Int -> x + 1}
-    case Map.get(ops, "inc") {
+    end
+    ops = {"inc" => fn x: Int -> x + 1}
+    case Map.get(ops, "inc")
         Some(f) -> io.inspect(f(1))
         None -> io.inspect(0)
-    }
+    end
     g = Iter.group_by(fs, fn f -> f(2))
     io.inspect(Map.keys(g))
     io.inspect(Iter.repeat(fn x: Int -> x + 1) |> Iter.take(3) |> Iter.map(fn f -> f(1)) |> Iter.to_list())
     io.inspect(Iter.iterate(fn x: Int -> x, fn f -> fn x: Int -> f(x) + 1) |> Iter.take(3) |> Iter.map(fn f -> f(0)) |> Iter.to_list())
-    vv = #[fn x: Int -> x + 1, fn x: Int -> x * 2]
+    vv = Vector[fn x: Int -> x + 1, fn x: Int -> x * 2]
     io.inspect(vv |> Iter.map(fn f -> f(4)) |> Iter.to_list())
-}
+end
 `
 	const want = "[<function>, <function>]\n" +
 		"3\n" +
@@ -63,10 +63,10 @@ fn main() {
 		"[1, 1]\n" +
 		"[4, 6, 4, 6]\n" +
 		"[11, 12]\n" +
-		"#[<function>, <function>]\n" +
+		"Vector[<function>, <function>]\n" +
 		"2\n" +
 		"14\n" +
-		"%{1 => <function>, 2 => <function>}\n" +
+		"{1 => <function>, 2 => <function>}\n" +
 		"21\n" +
 		"2\n" +
 		"[3, 4]\n" +

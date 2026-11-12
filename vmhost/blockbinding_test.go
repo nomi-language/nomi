@@ -9,38 +9,38 @@ import (
 
 // blockBindingTests binds blocks whose values branch inside test bodies,
 // which the test-body builder lowers.
-const blockBindingTests = `test "an if tail" {
-    v = {
+const blockBindingTests = `test "an if tail"
+    v = begin
         a = 1
-        if a > 0 { 1 } else { 2 }
-    }
+        if a > 0 then 1 else 2
+    end
     assert v == 1
-}
+end
 
-test "a case tail" {
-    v = {
+test "a case tail"
+    v = begin
         a = Some(3)
-        case a {
+        case a
             Some(n) -> n * 2
             None -> 0
-        }
-    }
+        end
+    end
     assert v == 6
-}
+end
 
-test "a block tail whose own tail branches" {
-    v = {
+test "a block tail whose own tail branches"
+    v = begin
         a = 2
-        {
-            w = {
+        begin
+            w = begin
                 b = a + 1
-                if b > 2 { "big" } else { "small" }
-            }
+                if b > 2 then "big" else "small"
+            end
             w + "!"
-        }
-    }
+        end
+    end
     assert v == "big!"
-}
+end
 `
 
 func TestBlockBindingBranches_RunInTests(t *testing.T) {
@@ -67,21 +67,21 @@ func TestBlockBindingDecline_IsReportedAtTheStatement(t *testing.T) {
 	plantDecline(t)
 	src := `import std::io
 
-fn planted_decline(a: Int) -> Int {
+fn planted_decline(a: Int) -> Int
     a
-}
+end
 
-fn main() {
-    v = {
-        w = {
+fn main()
+    v = begin
+        w = begin
             u = planted_decline(1)
             u
-        }
+        end
         io.inspect(w)
-        if True { 1 } else { 2 }
-    }
+        if True then 1 else 2
+    end
     io.inspect(v)
-}
+end
 `
 	o := checkLowers(t.TempDir(), src)
 	if !o.accepted {
@@ -107,13 +107,13 @@ fn main() {
 func TestBlockBinding_UnreadShadowAtTheEndIsNeverRead(t *testing.T) {
 	_, err := LoadSource("main.nomi", `import std::io
 
-fn main() {
+fn main()
     total = 1
-    if True {
+    if True then
         total = total + 1
-    }
+    end
     io.print("${total}")
-}
+end
 `)
 	if err == nil {
 		t.Fatal("the front end admits an inner binding nothing reads")
@@ -134,39 +134,38 @@ fn main() {
 func TestBlockBinding_ABlockEndingInABindingRuns(t *testing.T) {
 	p, err := LoadSource("main.nomi", `import std::io
 
-fn helper(n: Int) {
-    if n > 0 {
+fn helper(n: Int)
+    if n > 0 then
         _x = n + 1
-    } else {
+    else
         _y = n
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     total = 1
-    if True {
+    if True then
         total = total + 1
         io.print("inner ${total}")
-    }
-    _w = {
+    end
+    _w = begin
         _z = 3
-    }
+    end
     helper(1)
-    f = fn -> {
+    f = fn ->
         _q = 4
-    }
+    end
     f()
-    case total {
-        1 -> {
+    case total
+        1 ->
             _r = 1
-        }
         _ -> Unit
-    }
-    concurrent {
+    end
+    concurrent
         _c = 1
-    }
+    end
     io.print("${total}")
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the program, or it does not lower: %v", err)

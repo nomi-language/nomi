@@ -20,7 +20,7 @@ func TestSiblingIter_OwnerCallsOverAnotherFilesImplRun(t *testing.T) {
 import chains.Chain
 import stacks.Stack
 
-fn main() {
+fn main()
     chain = Chain.Link{value: 1, next: Chain.Link{value: 2, next: Chain.End}}
     io.inspect(Iter.count(chain))
     io.inspect(Iter.known_count(chain))
@@ -30,39 +30,39 @@ fn main() {
     stack: Stack<String> = Stack.Push{top: "a", rest: Stack.Push{top: "b", rest: Stack.Bottom}}
     io.inspect(Iter.count(stack))
     io.inspect(stack |> Iter.map(String.uppercase) |> Iter.to_list())
-}
+end
 `,
-		"chains.nomi": `pub enum Chain {
+		"chains.nomi": `pub enum Chain
     End
     Link {value: Int, next: Chain}
-}
+end
 
-impl Iter<Int> for Chain {
-    fn each_while(chain: Chain, yield: (Int) -> Bool) -> Bool {
-        case chain {
+impl Iter<Int> for Chain
+    fn each_while(chain: Chain, yield: (Int) -> Bool) -> Bool
+        case chain
             .End -> True
-            .Link{value, next} -> yield(value) and each_while(next, yield)
-        }
-    }
+            .Link{value:, next:} -> yield(value) and each_while(next, yield)
+        end
+    end
 
-    fn known_count(_chain: Chain) -> Maybe<Int> {
+    fn known_count(_chain: Chain) -> Maybe<Int>
         Some(7)
-    }
-}
+    end
+end
 `,
-		"stacks.nomi": `pub enum Stack<T> {
+		"stacks.nomi": `pub enum Stack<T>
     Bottom
     Push {top: T, rest: Stack<T>}
-}
+end
 
-impl Iter<T> for Stack<T> {
-    fn each_while(stack: Stack<T>, yield: (T) -> Bool) -> Bool {
-        case stack {
+impl Iter<T> for Stack<T>
+    fn each_while(stack: Stack<T>, yield: (T) -> Bool) -> Bool
+        case stack
             .Bottom -> True
-            .Push{top, rest} -> yield(top) and each_while(rest, yield)
-        }
-    }
-}
+            .Push{top:, rest:} -> yield(top) and each_while(rest, yield)
+        end
+    end
+end
 `,
 	}
 	for name, src := range files {

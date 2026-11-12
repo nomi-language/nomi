@@ -17,41 +17,41 @@ import (
 
 // holdsBox is a user interface with three instantiations for one user type.
 const holdsBox = `
-pub interface Holds<T> {
+pub interface Holds<T>
     fn holds(b: self, x: T) -> Bool
-}
+end
 
-pub enum Color {
+pub enum Color
     Red
     Green
-}
+end
 
-pub struct Box {
+pub struct Box
     n: Int
     s: String
-}
+end
 
-impl Holds<Int> for Box {
-    fn holds(b: Box, x: Int) -> Bool {
+impl Holds<Int> for Box
+    fn holds(b: Box, x: Int) -> Bool
         b.n == x
-    }
-}
+    end
+end
 
-impl Holds<String> for Box {
-    fn holds(b: Box, x: String) -> Bool {
+impl Holds<String> for Box
+    fn holds(b: Box, x: String) -> Bool
         b.s == x
-    }
-}
+    end
+end
 
-impl Holds<Color> for Box {
-    fn holds(b: Box, x: Color) -> Bool {
+impl Holds<Color> for Box
+    fn holds(b: Box, x: Color) -> Bool
         b.n == 0 and x == .Red
-    }
-}
+    end
+end
 
-fn via<C, T>(c: C, x: T) -> Bool where C: Holds<T> {
+fn via<C, T>(c: C, x: T) -> Bool where C: Holds<T>
     C.holds(c, x)
-}
+end
 `
 
 // errorsBesidesUnused drops the unused-binding diagnostics a fixture's
@@ -88,7 +88,7 @@ func expectRejected(t *testing.T, errs []analysis.TypeError, want ...string) {
 
 func TestImplSelection_EveryCallFormChoosesByTheArgument(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, holdsBox+`
-fn main() {
+fn main()
     b = Box{n: 1, s: "a"}
     direct: Bool = Box.holds(b, 1)
     qualified: Bool = Holds.holds(b, "a")
@@ -97,7 +97,7 @@ fn main() {
     bounded: Bool = via(b, 2)
     partial: (String) -> Bool = &Holds.holds(b, &1)
     _ok = direct and qualified and not variant and not piped and not bounded and not partial("z")
-}
+end
 `, nil)
 	expectSelectionClean(t, errs)
 }
@@ -107,30 +107,30 @@ func TestImplSelection_TwoInstantiationsAndAnOperator(t *testing.T) {
 pub type Meters Int
 pub type Feet Int
 
-fn meters(m: Meters) -> Int {
+fn meters(m: Meters) -> Int
     Meters(n) = m
     n
-}
+end
 
-impl Add<Meters, Meters> for Meters {
-    fn add(lhs: Meters, rhs: Meters) -> Meters {
+impl Add<Meters, Meters> for Meters
+    fn add(lhs: Meters, rhs: Meters) -> Meters
         Meters(meters(lhs) + meters(rhs))
-    }
-}
+    end
+end
 
-impl Add<Feet, Meters> for Meters {
-    fn add(lhs: Meters, rhs: Feet) -> Meters {
+impl Add<Feet, Meters> for Meters
+    fn add(lhs: Meters, rhs: Feet) -> Meters
         Feet(f) = rhs
         Meters(meters(lhs) + f)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     a = Meters(1) + Meters(2)
     b = Meters(1) + Feet(3)
     c = Add.add(Meters(1), Feet(3))
     _ok = meters(a) + meters(b) + meters(c) == 11
-}
+end
 `, nil)
 	expectSelectionClean(t, errs)
 }
@@ -142,10 +142,10 @@ func TestImplSelection_AnUndeterminedArgumentIsAnError(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			errs := buildProjectExpectingErrors(t, holdsBox+`
-fn main() {
+fn main()
     b = Box{n: 1, s: "a"}
     _x = `+call+`
-}
+end
 `, nil)
 			expectRejected(t, errs, "`Holds.holds` for `Box` has impls at `Int`, `String` and `Color`; the argument's type does not choose one: annotate it")
 		})
@@ -154,20 +154,20 @@ fn main() {
 
 func TestImplSelection_NoImplTakesTheArgument(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, holdsBox+`
-fn main() {
+fn main()
     b = Box{n: 1, s: "a"}
     _x = Box.holds(b, 1.5)
-}
+end
 `, nil)
 	expectRejected(t, errs, "`Holds.holds` for `Box` has impls at `Int`, `String` and `Color`, and none takes `Float`")
 }
 
 func TestImplSelection_ABoundTheCallLeavesOpenIsAnError(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, holdsBox+`
-fn main() {
+fn main()
     b = Box{n: 1, s: "a"}
     _x = via(b, .Red)
-}
+end
 `, nil)
 	expectRejected(t, errs, "`Box` implements `Holds` at `Int`, `String` and `Color`, and the call's arguments do not choose one")
 }
@@ -176,47 +176,47 @@ fn main() {
 // generic call's result-only type parameter is.
 func TestImplSelection_TheExpectedTypeChoosesAResultOnlyArgument(t *testing.T) {
 	const factory = `
-pub interface Make<T> {
+pub interface Make<T>
     fn make(seed: self) -> T
-}
+end
 
-pub struct Factory {
+pub struct Factory
     n: Int
-}
+end
 
-impl Make<Int> for Factory {
-    fn make(seed: Factory) -> Int {
+impl Make<Int> for Factory
+    fn make(seed: Factory) -> Int
         seed.n
-    }
-}
+    end
+end
 
-impl Make<String> for Factory {
-    fn make(seed: Factory) -> String {
+impl Make<String> for Factory
+    fn make(seed: Factory) -> String
         Int.to_string(seed.n)
-    }
-}
+    end
+end
 
-fn made<C, T>(c: C) -> T where C: Make<T> {
+fn made<C, T>(c: C) -> T where C: Make<T>
     C.make(c)
-}
+end
 `
 	t.Run("annotated", func(t *testing.T) {
 		errs := buildProjectExpectingErrors(t, factory+`
-fn main() {
+fn main()
     f = Factory{n: 7}
     i: Int = Factory.make(f)
     s: String = Make.make(f)
     j: Int = made(f)
     _ok = i + j == 14 and s == "7"
-}
+end
 `, nil)
 		expectSelectionClean(t, errs)
 	})
 	t.Run("unannotated", func(t *testing.T) {
 		errs := buildProjectExpectingErrors(t, factory+`
-fn main() {
+fn main()
     _x = Factory.make(Factory{n: 7})
-}
+end
 `, nil)
 		expectRejected(t, errs, "`Make.make` for `Factory` has impls at `Int` and `String`; only the result's type tells them apart, and nothing here expects one: annotate the result")
 	})
@@ -225,30 +225,30 @@ fn main() {
 pub type Day Int
 pub type Days Int
 
-fn day(d: Day) -> Int {
+fn day(d: Day) -> Int
     Day(n) = d
     n
-}
+end
 
-impl Add<Days, Day> for Day {
-    fn add(lhs: Day, rhs: Days) -> Day {
+impl Add<Days, Day> for Day
+    fn add(lhs: Day, rhs: Days) -> Day
         Days(n) = rhs
         Day(day(lhs) + n)
-    }
-}
+    end
+end
 
-impl Add<Days, Days> for Day {
-    fn add(lhs: Day, rhs: Days) -> Days {
+impl Add<Days, Days> for Day
+    fn add(lhs: Day, rhs: Days) -> Days
         Days(n) = rhs
         Days(day(lhs) + n)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     later: Day = Day(1) + Days(2)
     gap: Days = Day(1) + Days(2)
     _x = Day(1) + Days(2)
-}
+end
 `, nil)
 		expectRejected(t, errs, "`Add.add` for `Day` has impls at `Days, Day` and `Days, Days`; only the result's type tells them apart")
 		if n := len(errorsBesidesUnused(errs)); n != 1 {
@@ -259,84 +259,81 @@ fn main() {
 
 func TestImplSelection_AGenericImplBesideAConcreteOneOverlaps(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, `
-pub interface Holds<T> {
+pub interface Holds<T>
     fn holds(b: self, x: T) -> Bool
-}
+end
 
-pub struct Wrap<T> {
+pub struct Wrap<T>
     v: T
-}
+end
 
-impl Holds<T> for Wrap<T> where T: Equatable {
-    fn holds(b: Wrap<T>, x: T) -> Bool {
+impl Holds<T> for Wrap<T> where T: Equatable
+    fn holds(b: Wrap<T>, x: T) -> Bool
         b.v == x
-    }
-}
+    end
+end
 
-impl Holds<Int> for Wrap<T> {
-    fn holds(b: Wrap<T>, x: Int) -> Bool {
+impl Holds<Int> for Wrap<T>
+    fn holds(b: Wrap<T>, x: Int) -> Bool
         x == 0
-    }
-}
+    end
+end
 
-fn main() {
-}
+fn main() end
 `, nil)
 	expectRejected(t, errs, "overlapping impls: `Holds<T>` for `Wrap` is generic in its type arguments, so it covers `Holds<Int>`, which `Wrap` also implements")
 }
 
 func TestImplSelection_TheSameArgumentsTwiceAreADuplicate(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, `
-pub interface Holds<T> {
+pub interface Holds<T>
     fn holds(b: self, x: T) -> Bool
-}
+end
 
-pub struct Box {
+pub struct Box
     n: Int
-}
+end
 
-impl Holds<Int> for Box {
-    fn holds(b: Box, x: Int) -> Bool {
+impl Holds<Int> for Box
+    fn holds(b: Box, x: Int) -> Bool
         b.n == x
-    }
-}
+    end
+end
 
-impl Holds<Int> for Box {
-    fn holds(b: Box, x: Int) -> Bool {
+impl Holds<Int> for Box
+    fn holds(b: Box, x: Int) -> Bool
         b.n != x
-    }
-}
+    end
+end
 
-fn main() {
-}
+fn main() end
 `, nil)
 	expectRejected(t, errs, "duplicate impl: `Holds<Int>` is implemented for `Box`", "once at each set of type arguments")
 }
 
 func TestImplSelection_SeveralImplsEachWriteTheirArguments(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, `
-pub interface Holds<T> {
+pub interface Holds<T>
     fn holds(b: self, x: T) -> Bool
-}
+end
 
-pub struct Box {
+pub struct Box
     n: Int
-}
+end
 
-impl Holds for Box {
-    fn holds(b: Box, x: Int) -> Bool {
+impl Holds for Box
+    fn holds(b: Box, x: Int) -> Bool
         b.n == x
-    }
-}
+    end
+end
 
-impl Holds<String> for Box {
-    fn holds(b: Box, x: String) -> Bool {
+impl Holds<String> for Box
+    fn holds(b: Box, x: String) -> Bool
         x == ""
-    }
-}
+    end
+end
 
-fn main() {
-}
+fn main() end
 `, nil)
 	expectRejected(t, errs, "`Box` implements `Holds` more than once, so each impl writes its type arguments in its header", "write `impl Holds<Int> for Box`")
 }
@@ -347,25 +344,25 @@ fn main() {
 func TestImplSelection_OrphanRulePerInstantiation(t *testing.T) {
 	t.Run("own interface at a std receiver", func(t *testing.T) {
 		errs := buildProjectExpectingErrors(t, `
-pub interface Holds<T> {
+pub interface Holds<T>
     fn holds(b: self, x: T) -> Bool
-}
+end
 
-impl Holds<Int> for String {
-    fn holds(b: String, x: Int) -> Bool {
+impl Holds<Int> for String
+    fn holds(b: String, x: Int) -> Bool
         String.length(b) == x
-    }
-}
+    end
+end
 
-impl Holds<Bool> for String {
-    fn holds(b: String, x: Bool) -> Bool {
+impl Holds<Bool> for String
+    fn holds(b: String, x: Bool) -> Bool
         x
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     _ok = String.holds("ab", 2) and Holds.holds("", True)
-}
+end
 `, nil)
 		expectSelectionClean(t, errs)
 	})
@@ -378,14 +375,13 @@ fn main() {
 			"nomi.toml": "[module]\nname = \"tags\"\nentry_points = [\"main\"]\n",
 			"go.mod":    "module tags\n\ngo 1.27.0\n",
 			"main.nomi": `
-impl Contains<Int> for String {
-    fn contains(c: String, x: Int) -> Bool {
+impl Contains<Int> for String
+    fn contains(c: String, x: Int) -> Bool
         String.contains(c, Int.to_string(x))
-    }
-}
+    end
+end
 
-fn main() {
-}
+fn main() end
 `,
 		}
 		for name, text := range files {
@@ -415,38 +411,38 @@ func TestImplSelection_AnArgumentFromAnotherFile(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, `
 import shapes.{Circle, Square}
 
-pub interface Fits<T> {
+pub interface Fits<T>
     fn fits(b: self, x: T) -> Bool
-}
+end
 
-pub struct Hole {
+pub struct Hole
     size: Int
-}
+end
 
-impl Fits<Circle> for Hole {
-    fn fits(b: Hole, x: Circle) -> Bool {
+impl Fits<Circle> for Hole
+    fn fits(b: Hole, x: Circle) -> Bool
         x.r * 2 <= b.size
-    }
-}
+    end
+end
 
-impl Fits<Square> for Hole {
-    fn fits(b: Hole, x: Square) -> Bool {
+impl Fits<Square> for Hole
+    fn fits(b: Hole, x: Square) -> Bool
         x.side <= b.size
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     h = Hole{size: 4}
     _ok = Hole.fits(h, Circle{r: 2}) and not Fits.fits(h, Square{side: 5})
-}
+end
 `, map[string]string{"shapes": `
-pub struct Circle {
+pub struct Circle
     r: Int
-}
+end
 
-pub struct Square {
+pub struct Square
     side: Int
-}
+end
 `})
 	expectSelectionClean(t, errs)
 }
@@ -455,36 +451,36 @@ pub struct Square {
 // implementing that instantiation, and a type implementing two takes either.
 func TestImplSelection_AValueHeldAsAnInstantiation(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, `
-pub interface Gets<T> {
+pub interface Gets<T>
     fn got(h: self) -> T
-}
+end
 
-pub struct Bag {
+pub struct Bag
     s: String
     n: Int
-}
+end
 
-impl Gets<String> for Bag {
-    fn got(h: Bag) -> String {
+impl Gets<String> for Bag
+    fn got(h: Bag) -> String
         h.s
-    }
-}
+    end
+end
 
-impl Gets<Int> for Bag {
-    fn got(h: Bag) -> Int {
+impl Gets<Int> for Bag
+    fn got(h: Bag) -> Int
         h.n
-    }
-}
+    end
+end
 
-fn text(h: Gets<String>) -> String {
+fn text(h: Gets<String>) -> String
     Gets.got(h)
-}
+end
 
-fn main() {
+fn main()
     b = Bag{s: "a", n: 1}
     numbers: List<Gets<Int>> = [b]
     _ok = text(b) == "a" and Iter.count(numbers) == 1
-}
+end
 `, nil)
 	expectSelectionClean(t, errs)
 }

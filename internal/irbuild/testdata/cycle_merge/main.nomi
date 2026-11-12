@@ -9,18 +9,18 @@
 // with only one direction would leave the other's mangling unverified, and the
 // asymmetry is real: the bare spelling is minted by callSibling's same-package
 // arm and the qualified one by its other arm.
-import {
+import
     std::io
     app
     prod
     test as t
-}
+end
 
-fn main() {
+fn main()
     io.print(app.stamp(app.load("prod")))
     io.print(app.stamp(app.load("dev")))
     io.print(app.badges())
     io.print(app.origin())
     io.print("${app.label()}|${prod.label()}|${t.label()}")
     io.print("${app.tag}|${prod.tag}|${t.tag}")
-}
+end

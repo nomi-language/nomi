@@ -1,13 +1,13 @@
-import {
+import
     std::calendar.Date
     std::io
     fetch
-}
+end
 
 // Each lambda parameter below is inferred as a std type this file never
 // imports: std/random's and std/calendar's `Error` enums and std/duration's
 // `Duration`.
-fn main() {
+fn main()
     io.print(
         fetch.fetch(False)
         |> Result.map_err(fn e -> "${e}")
@@ -29,4 +29,4 @@ fn main() {
         |> Iter.map(fn d -> "${d}")
         |> Iter.to_list()
     )
-}
+end

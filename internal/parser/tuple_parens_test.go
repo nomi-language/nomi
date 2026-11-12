@@ -26,7 +26,7 @@ func lambdaOf(t *testing.T, src string) *ast.Lambda {
 func TestLambdaParamTupleOrFunctionAnnotation(t *testing.T) {
 	for _, tc := range []struct{ src, param, body string }{
 		{"f = fn p: (Int, Int) -> p.first", "(Int, Int)", "FieldAccess"},
-		{"f = fn p: (Int, Int) -> { p.first }", "(Int, Int)", "FieldAccess"},
+		{"f = fn p: (Int, Int) -> p.first", "(Int, Int)", "FieldAccess"},
 		{"f = fn p: (Int, Int), q: Int -> q", "(Int, Int)", "Ident"},
 		{"f = fn g: (Int) -> Int -> g(1)", "(Int) -> Int", "Call"},
 		{"f = fn g: (Int, Int) -> Int, x -> g(x, x)", "(Int, Int) -> Int", "Call"},
@@ -70,7 +70,7 @@ func TestLambdaTupleParameterAtTheTopLevel(t *testing.T) {
 // A call's `(` is on the line its callee ends on: a `(` that starts the next
 // line starts a statement, here a tuple destructure after a `!`.
 func TestParenOnTheNextLineIsNotACall(t *testing.T) {
-	nodes := parse(t, "fn main() {\n    x = f()!\n    (a, b) = x\n}\n")
+	nodes := parse(t, "fn main()\n    x = f()!\n    (a, b) = x\nend\n")
 	body := nodes[0].(*ast.FuncDef).Body.Stmts
 	if len(body) != 2 {
 		t.Fatalf("got %d statements, want 2", len(body))

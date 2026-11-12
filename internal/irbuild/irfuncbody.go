@@ -101,11 +101,17 @@ type irScalarBuilder struct {
 	// and rebuildCaps the enclosing enum adapters it reaches as captures.
 	rebuildBody bool
 	rebuildCaps []irRebuildCap
-	g           *gen
-	sh          *irFuncShell
-	f           *ir.Func
-	b           *ir.Block
-	sides       []irScalarSide
+	// unwritten marks the body of an adapter the builder makes (a function
+	// widened, an element rebuilt, a function value forwarding its
+	// parameters, an inner source viewed): its operands are values the
+	// machine holds, with no expression the checker typed, so a source it
+	// views is read from its kind (viewSourceAt).
+	unwritten bool
+	g         *gen
+	sh        *irFuncShell
+	f         *ir.Func
+	b         *ir.Block
+	sides     []irScalarSide
 	// bound is the temporary each name this body BINDS already lives in, and
 	// boundK its kind. A read of a bound name is not a fresh `ir.Ref`: after
 	// `y := v` the value IS temporary tN, which is exactly what `irbind.go`'s
@@ -150,6 +156,17 @@ type irScalarBuilder struct {
 	// than lowering them a second time.
 	stdInstPreCall *ast.Call
 	stdInstPreArgs irQualArgs
+	// instCall is a call stdKindQualCall spelled by a generic template's
+	// name for the instance instKind, which a type argument named
+	// (`Field<String>.from_json(json)`, or `T.from_json(json)` at
+	// `T = Field<String>`). qualImplPlan takes that instance when no
+	// operand is one, since an owner function takes no receiver.
+	instCall *ast.Call
+	instKind kind
+	// defaultRecv is the receiver of a std interface default with no
+	// `self` operand that stdIfaceDefaultAtKind is lowering
+	// (`T.from_missing()` at T's binding), else kindInvalid.
+	defaultRecv kind
 	// foldCallbacks are the callback lambdas of the `Iter.reduce`,
 	// `Iter.scan` and `Iter.map_reduce` calls being lowered. The value says
 	// whether the callback answers its accumulator, as a reduce's and a
@@ -520,21 +537,6 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return bl.currentValue(t)
 	case *ast.MapLit:
 		return bl.mapMake(t)
-	case *ast.VectorLit:
-		if t.TypeName != nil {
-			// `#Path[1, 2]`, `#.Items[1]`: the type it names over the vector.
-			anon := *t
-			anon.TypeName = nil
-			return bl.attachedVariant(t, t.TypeName, &anon)
-		}
-		return bl.vectorMake(t)
-	case *ast.SetLit:
-		if t.TypeName != nil {
-			anon := *t
-			anon.TypeName = nil
-			return bl.attachedVariant(t, t.TypeName, &anon)
-		}
-		return bl.setMake(t)
 	case *ast.RangeLit:
 		return bl.rangeMake(t)
 	case *ast.TaggedString:
@@ -545,18 +547,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		}
 		return bl.taggedLiteral(t)
 	case *ast.ListLit:
-		if t.TypeName != nil {
-			anon := *t
-			anon.TypeName = nil
-			return bl.attachedVariant(t, t.TypeName, &anon)
-		}
-		return bl.listMake(t, t.Items, nil)
-	case *ast.ListSpreadLit:
-		if len(t.Spreads) == 1 && t.Spreads[0].At == len(t.Items) {
-			// `[x, ..xs]`: the elements consed onto the spread.
-			return bl.listMake(t, t.Items, t.Spreads[0].Head)
-		}
-		return bl.listSpreadLit(t)
+		return bl.bracketLit(t)
 	case *ast.TupleLit:
 		return bl.tupleMake(t)
 
@@ -868,7 +859,8 @@ func (bl *irScalarBuilder) interp(t *ast.StringInterp) (ir.Temp, kind, bool, boo
 			if !ok {
 				return ir.NoTemp, kindInvalid, false, false
 			}
-			if never, isNever := bl.neverAs(part.Expr, src, k, kindString); isNever {
+			never, isNever := bl.neverAs(part.Expr, src, k, kindString)
+			if isNever {
 				// A hole of Infallible (`Debug.inspect(e)` in an arm no
 				// value reaches) renders nothing; it never completes.
 				src, k = never, kindString
@@ -884,20 +876,17 @@ func (bl *irScalarBuilder) interp(t *ast.StringInterp) (ir.Temp, kind, bool, boo
 				bl.side(cp.Dst(), irScalarSide{k: k, copy: irCopyForce})
 				src = cp.Dst()
 			}
-			if k == kindString {
-				// The Display discipline is the IDENTITY on a String, which
-				// render.go names as "the one discipline whose answer for
-				// some kind is the operand unchanged", so a Render here would
-				// be a node whose consumer must recognise as a no-op.
+			if isNever {
 				parts = append(parts, src)
 				continue
 			}
-			if !irScalarLeafKind(k) && !isDecimalKind(k) {
-				if r, ok := bl.displayHole(part.Expr, src, k, mobile); ok {
-					parts = append(parts, r)
-					continue
-				}
-				// A hole displayHole cannot render declines here, naming
+			// The hole renders as the checker recorded (irdisplayhole.go).
+			// On a String that is the IDENTITY, which render.go names as
+			// "the one discipline whose answer for some kind is the operand
+			// unchanged", so no Render is built for it.
+			r, ok := bl.renderDisplay(part.Expr, src, k, bl.holeDisplay(part.Expr, k))
+			if !ok {
+				// A hole the record does not render declines here, naming
 				// the operand and its kind, rather than rendering it
 				// structurally, which would print a wrong string for a
 				// part with its own impl.
@@ -905,10 +894,7 @@ func (bl *irScalarBuilder) interp(t *ast.StringInterp) (ir.Temp, kind, bool, boo
 					", which no Display rendering reaches")
 				return ir.NoTemp, kindInvalid, false, false
 			}
-			r := ir.NewRenderDisplay(bl.g.irNodePos(part.Expr), bl.f.NewTemp(), src)
-			bl.b.Append(r)
-			bl.side(r.Dst(), irScalarSide{k: kindString})
-			parts = append(parts, r.Dst())
+			parts = append(parts, r)
 		default:
 			bl.g.dc.note("an interpolation part of an unknown form")
 			return ir.NoTemp, kindInvalid, false, false
@@ -1243,6 +1229,9 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// A Nomi-bodied sibling links to its retained declaration in this
 		// module, and stdFuncPlan answers only when that body already exists;
 		// an extern-backed host sibling is a crossing by binding name.
+		if qualified, own := bl.ownSiblingCall(t, callee, f, hasNamed); own {
+			return bl.call(qualified)
+		}
 		// A stdlib module's own test body calls a sibling the cached lowering
 		// retained, outside an assertion subject or piped (a piped call
 		// records no rows).
@@ -1251,6 +1240,15 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			args := bl.irQualLowerArgs(t)
 			if p := bl.stdFuncPlan(t, args, f); p != nil {
 				return bl.qualEmit(t, args, p)
+			}
+			// `add3(1, 2)` against `c: Int = 100`, in a body of the module
+			// that declares add3: the defaults are filled at the call, in
+			// this gen, which is the declaring module's, as
+			// `Type.method(...)` written short in its own module is.
+			if len(t.Args) < len(f.params) {
+				if p := bl.stdSiblingShortPlan(t, args, f); p != nil {
+					return bl.qualEmit(t, args, p)
+				}
 			}
 		}
 		// A stdlib sibling resolves before `g.funcs`, so any other sibling
@@ -1327,15 +1325,8 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		if len(t.Args) > len(tpl.decl.Params) {
 			return no()
 		}
-		typeArgs, ok := bl.g.checkedMonoTypeArgs(t, tpl)
+		inst, ok := bl.g.monoInstanceAt(t.Func, tpl, callee.Name)
 		if !ok {
-			typeArgs, ok = bl.g.checkedMonoTypeArgsFilled(t, tpl)
-		}
-		if !ok {
-			return no()
-		}
-		inst, why, _ := bl.g.resolveMonoInstance(tpl, typeArgs, callee.Name)
-		if why != "" || inst == nil {
 			return no()
 		}
 		sig = inst.sig
@@ -1380,10 +1371,8 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 		args[slot] = src
 	}
-	if len(t.Args) != len(sig.params) {
-		if !bl.callDefaults(sig, args) {
-			return no()
-		}
+	if !bl.fillCallDefaults(t, sig.params, args, nil, defaultHome{inst: sig.instance}) {
+		return no()
 	}
 	// A call inside an assertion subject shows its arguments. The rows are
 	// recorded after every operand is lowered and before the call. A no-op
@@ -1431,7 +1420,7 @@ func (g *gen) irMonoTemplate(sig *fnSig) *monoTemplate {
 	return sig.irMono
 }
 
-// structCallForm builds the struct call form `Foo(.{a: 1})` as the brace
+// structCallForm builds the struct call form `Foo({a: 1})` as the brace
 // literal `Foo{a: 1}`: the argument's fields in written order, then the
 // omitted fields' defaults. A record VALUE argument is read field by field
 // (structFromRecord). A generic struct's call form is built at the instance
@@ -1442,10 +1431,10 @@ func (bl *irScalarBuilder) structCallForm(t *ast.Call, ti *ast.TypeIdent) (ir.Te
 	}
 	if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(ti.Name); isTemplate && tpl.structDecl() != nil {
 		if lit, isLit := anonArgAsLiteral(t.Args[0]); isLit {
-			return bl.genericStructMake(lit, tpl, instantiate)
+			return bl.genericStructMake(lit, bl.checkedCallNode(t), tpl, instantiate)
 		}
-		return bl.structFromRecord(t, func(rec kind) *typeDef {
-			return bl.g.recordInstance(tpl, instantiate, rec)
+		return bl.structFromRecord(t, func(kind) *typeDef {
+			return bl.g.recordInstance(bl.checkedCallNode(t), tpl, instantiate)
 		})
 	}
 	d, found := bl.g.namedType(ti.Name)
@@ -1459,21 +1448,11 @@ func (bl *irScalarBuilder) structCallForm(t *ast.Call, ti *ast.TypeIdent) (ir.Te
 	return bl.structMakeOf(lit, d)
 }
 
-// recordInstance is the instance of the generic struct template tpl that a
-// record of kind rec fills: each declared field's annotation unified with
-// the record's field of that name. A type parameter only an omitted field
-// names is unsolved, and the answer is nil.
-func (g *gen) recordInstance(tpl *genericTemplate, instantiate func([]kind) (kind, bool), rec kind) *typeDef {
-	params := templateParamSet(tpl)
-	solved := map[string]kind{}
-	for _, f := range tpl.structDecl().Fields {
-		for i, name := range rec.comp.names {
-			if name == f.Name {
-				g.unifyTypeParams(f.TypeAnnotation, rec.comp.parts[i], params, solved)
-			}
-		}
-	}
-	args, ok := templateArgs(tpl, solved)
+// recordInstance is the instance of the generic struct template tpl the
+// struct call form over a record value builds: the one the checker typed
+// n, the call or the pipe it came from, as (literalTypeArgs).
+func (g *gen) recordInstance(n ast.Node, tpl *genericTemplate, instantiate func([]kind) (kind, bool)) *typeDef {
+	args, ok := g.literalTypeArgs(n, len(tpl.params))
 	if !ok {
 		return nil
 	}
@@ -1609,14 +1588,14 @@ func (bl *irScalarBuilder) hostOutputKey(t *ast.Call, key string) (ir.Temp, kind
 	if len(t.Args) != 1 {
 		return no()
 	}
-	src, k, mobile, ok := bl.lower(t.Args[0])
+	src, k, _, ok := bl.lower(t.Args[0])
 	if ok {
 		src, k, ok = bl.typeOpenEmpty(t.Args[0], src, k)
 	}
 	debug := key == inspectKey
-	if ok && k.tag == tagNamed {
-		plan := bl.namedRenderPlan(k, debug)
-		if plan == nil && debug {
+	if ok && debug && k.tag == tagNamed {
+		plan := bl.namedDebugPlan(k)
+		if plan == nil {
 			// A std type whose Debug impl is a `host fn` (Dynamic).
 			plan = bl.stdHostDebugPlan(t.Args[0], src, k)
 		}
@@ -1644,7 +1623,7 @@ func (bl *irScalarBuilder) hostOutputKey(t *ast.Call, key string) (ir.Temp, kind
 	if ok && !debug && !irScalarLeafKind(k) && !isDecimalKind(k) {
 		// `io.print(xs)` over a container, a record or a tuple renders as
 		// its interpolation `"${xs}"` does.
-		if r, rendered := bl.displayHole(t.Args[0], src, k, mobile); rendered {
+		if r, rendered := bl.displayValue(t.Args[0], src, k); rendered {
 			c := ir.NewHostCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), bl.g.irCalleeSym(key, key), r)
 			bl.b.Append(c)
 			bl.side(c.Dst(), irScalarSide{k: kindUnit, deferrable: true})
@@ -1666,7 +1645,7 @@ func (bl *irScalarBuilder) hostOutputKey(t *ast.Call, key string) (ir.Temp, kind
 		if debug {
 			text, rendered = bl.debugOver(t.Args[0], src, k)
 		} else {
-			text, rendered = bl.displayHole(t.Args[0], src, k, true)
+			text, rendered = bl.displayValue(t.Args[0], src, k)
 		}
 		if !rendered {
 			return no()
@@ -1731,29 +1710,17 @@ func (bl *irScalarBuilder) debugOver(at ast.Node, src ir.Temp, k kind) (ir.Temp,
 	return v, ok
 }
 
-// namedRenderPlan calls a named value's local Display impl, as displayText
-// does, or a retained struct's or enum's Debug impl through the native named
-// inspector.
-func (bl *irScalarBuilder) namedRenderPlan(k kind, debug bool) *irQualPlan {
-	if debug {
-		if p := bl.stdDebugPlan(k); p != nil {
-			return p
-		}
-		if !irRetainedStructKind(k.def) && !irRetainedEnumKind(k.def) && !irCompositeDistinct(k.def) && !irWrappingDistinct(k.def) {
-			return nil
-		}
-		plan, _ := bl.structDebugPlan(k)
-		return plan
+// namedDebugPlan calls a retained struct's or enum's Debug impl through the
+// native named inspector, or std's.
+func (bl *irScalarBuilder) namedDebugPlan(k kind) *irQualPlan {
+	if p := bl.stdDebugPlan(k); p != nil {
+		return p
 	}
-	impl := bl.g.implsByIface["Display"][k]
-	if impl == nil || !impl.lowerable {
+	if !irRetainedStructKind(k.def) && !irRetainedEnumKind(k.def) && !irCompositeDistinct(k.def) && !irWrappingDistinct(k.def) {
 		return nil
 	}
-	it := impl.items["to_string"]
-	if it == nil || !it.lowerable || irImplSource(it) == nil || len(it.params) != 1 || it.params[0] != k || it.result != kindString {
-		return nil
-	}
-	return &irQualPlan{token: it, name: k.nomi() + ".to_string", result: kindString}
+	plan, _ := bl.structDebugPlan(k)
+	return plan
 }
 
 // irScalarLeafKind is the scalar domain this shape admits: Int, Float, Bool
@@ -3206,27 +3173,35 @@ func (bl *irScalarBuilder) annotatedValue(value ast.Node, te ast.TypeExpr) (ir.T
 		return ir.NoTemp, kindInvalid, false
 	}
 	if list, isList := value.(*ast.ListLit); isList && irAnnotatedNominalList(list, want) {
-		v, k, _, ok := bl.listMakeOf(list, list.Items, nil, want.comp.parts[0])
-		return v, k, ok
+		// `[.Red, ..rest]`: the elements consed onto a trailing spread, as
+		// bracketLit builds it. A spread elsewhere takes the route below.
+		switch {
+		case len(list.Spreads) == 0:
+			v, k, _, ok := bl.listMakeOf(list, list.Items, nil, want.comp.parts[0])
+			return v, k, ok
+		case len(list.Spreads) == 1 && list.Spreads[0].At == len(list.Items):
+			v, k, _, ok := bl.listMakeOf(list, list.Items, list.Spreads[0].Head, want.comp.parts[0])
+			return v, k, ok
+		}
 	}
 	if existential {
-		// The VM's existential is the concrete value, so the binding holds
-		// it unchanged at the interface's kind, the checker's type for the
-		// name: a record or tuple built from it (`.{d: d}`) then has the
-		// kind the checker gives it.
+		// The binding holds the interface value the checker recorded the
+		// initializer as (irboxed.go): the concrete value itself at the
+		// interface's kind, the checker's type for the name, so a record or
+		// tuple built from it (`{d:}`) has the kind the checker gives
+		// it; boxed where its runtime type does not name its impl.
 		v, k, _, ok := bl.lowerTypedOperand(value, want)
-		if ok && k != want && bl.g.irBoxedErasure(want, k) {
-			// A value whose runtime type does not name its impl enters
-			// boxed with the type it has here (irboxed.go).
-			return bl.eraseBoxed(value, v, want, k), want, true
-		}
-		if ok && k != want && !bl.g.irErases(want, k) {
-			bl.g.dc.note("a value of kind " + k.nomi() + " held as the existential " + want.nomi())
-		}
-		if !ok || (k != want && !bl.g.irErases(want, k)) {
+		if !ok {
 			return ir.NoTemp, kindInvalid, false
 		}
-		return v, want, true
+		if k == want {
+			return v, want, true
+		}
+		if v, _, how := bl.coerceRecorded(value, v, k, want); how != irNotCoerced {
+			return v, want, true
+		}
+		bl.g.dc.note("a value of kind " + k.nomi() + " held as the existential " + want.nomi())
+		return ir.NoTemp, kindInvalid, false
 	}
 	v, k, _, ok := bl.lowerWant(value, want)
 	return v, k, ok
@@ -3278,7 +3253,7 @@ func (g *gen) lambdaResultWant(lam *ast.Lambda, line, col int) func() {
 		ty = tv.Resolved
 	}
 	ft, isFunc := ty.(*analysis.FuncType)
-	if !isFunc || ft.Return == nil || irUnsolvedType(ft.Return) {
+	if !isFunc || ft.Return == nil {
 		return func() {}
 	}
 	k := g.project(ft.Return)

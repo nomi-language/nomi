@@ -1,9 +1,9 @@
-import {
+import
     dot_dsl
     dot_dsl.Graph
-}
+end
 
-test "parse" {
+test "parse"
     [
         (
             "empty graph",
@@ -11,7 +11,7 @@ test "parse" {
             graph {
             }
             """,
-            Graph{nodes: %{}, edges: %{}, attrs: %{}},
+            Graph{nodes: {}, edges: {}, attrs: {}},
         ),
         (
             "graph with one node",
@@ -20,10 +20,10 @@ test "parse" {
                 a;
             }
             """,
-            .{
-                nodes: %{"a" => %{}},
-                edges: %{},
-                attrs: %{},
+            {
+                nodes: {"a" => {}},
+                edges: {},
+                attrs: {},
             },
         ),
         (
@@ -33,10 +33,10 @@ test "parse" {
                 a [color=green];
             }
             """,
-            .{
-                nodes: %{"a" => %{"color" => .Text("green")}},
-                edges: %{},
-                attrs: %{},
+            {
+                nodes: {"a" => {"color" => .Text("green")}},
+                edges: {},
+                attrs: {},
             },
         ),
         (
@@ -46,10 +46,10 @@ test "parse" {
                 a -- b;
             }
             """,
-            .{
-                nodes: %{"a" => %{}, "b" => %{}},
-                edges: %{("a", "b") => %{}},
-                attrs: %{},
+            {
+                nodes: {"a" => {}, "b" => {}},
+                edges: {("a", "b") => {}},
+                attrs: {},
             },
         ),
         (
@@ -59,7 +59,7 @@ test "parse" {
                 [foo=1];
             }
             """,
-            .{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
+            {nodes: {}, edges: {}, attrs: {"foo" => .Number(1)}},
         ),
         (
             "graph with comments",
@@ -70,7 +70,7 @@ test "parse" {
                 [foo=1];
             }
             """,
-            .{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
+            {nodes: {}, edges: {}, attrs: {"foo" => .Number(1)}},
         ),
         (
             "graph with nodes, edges, and attributes",
@@ -85,14 +85,14 @@ test "parse" {
                 [bar=true];
             }
             """,
-            .{
-                nodes: %{
-                    "a" => %{"color" => .Text("green")},
-                    "b" => %{"label" => .Text("Beta!")},
-                    "c" => %{},
+            {
+                nodes: {
+                    "a" => {"color" => .Text("green")},
+                    "b" => {"label" => .Text("Beta!")},
+                    "c" => {},
                 },
-                edges: %{("a", "b") => %{"color" => .Text("blue")}, ("b", "c") => %{}},
-                attrs: %{
+                edges: {("a", "b") => {"color" => .Text("blue")}, ("b", "c") => {}},
+                attrs: {
                     "foo" => .Number(1),
                     "title" => .Text("Testing Attrs"),
                     "bar" => .Flag(True),
@@ -106,14 +106,14 @@ test "parse" {
                 a -- b -- c -- d [style=dotted];
             }
             """,
-            .{
-                nodes: %{"a" => %{}, "b" => %{}, "c" => %{}, "d" => %{}},
-                edges: %{
-                    ("a", "b") => %{"style" => .Text("dotted")},
-                    ("b", "c") => %{"style" => .Text("dotted")},
-                    ("c", "d") => %{"style" => .Text("dotted")},
+            {
+                nodes: {"a" => {}, "b" => {}, "c" => {}, "d" => {}},
+                edges: {
+                    ("a", "b") => {"style" => .Text("dotted")},
+                    ("b", "c") => {"style" => .Text("dotted")},
+                    ("c", "d") => {"style" => .Text("dotted")},
                 },
-                attrs: %{},
+                attrs: {},
             },
         ),
         (
@@ -125,19 +125,19 @@ test "parse" {
                 b -- a [color=blue];
             }
             """,
-            .{
-                nodes: %{"a" => %{}, "b" => %{}},
-                edges: %{("a", "b") => %{"color" => .Text("blue")}},
-                attrs: %{},
+            {
+                nodes: {"a" => {}, "b" => {}},
+                edges: {("a", "b") => {"color" => .Text("blue")}},
+                attrs: {},
             },
         ),
     ]
-    |> subtests (description, text, expected), description {
+    |> subtests (description, text, expected), description
         assert dot_dsl.parse(text) == Ok(expected)
-    }
-}
+    end
+end
 
-test "parse errors" {
+test "parse errors"
     [
         (
             "malformed input",
@@ -221,8 +221,8 @@ test "parse errors" {
             "node name must be alphanumeric",
         ),
     ]
-    |> subtests (description, text, expected), description {
+    |> subtests (description, text, expected), description
         assert Err(error) = dot_dsl.parse(text)
         assert "${error}" == expected
-    }
-}
+    end
+end

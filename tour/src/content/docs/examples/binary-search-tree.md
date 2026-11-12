@@ -15,45 +15,46 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// A binary search tree: every value in a node's left subtree is at most
 /// its value, and every value in its right subtree is greater.
-pub enum Tree<T> {
+pub enum Tree<T>
     Leaf
     Node {left: Tree<T>, value: T, right: Tree<T>}
-}
+end
 
-impl Tree<T> {
+impl Tree<T>
     /// The tree that inserting `values` one after another into an empty
     /// tree builds.
-    pub fn from(values: List<T>) -> Tree<T> where T: Comparable {
+    pub fn from(values: List<T>) -> Tree<T> where T: Comparable
         Iter.reduce(values, Tree.Leaf, Tree.insert)
-    }
+    end
 
     /// `tree` with `value` added: to the left of a node at least as large,
     /// to the right of a smaller one.
-    pub fn insert(tree: Tree<T>, value: T) -> Tree<T> where T: Comparable {
-        case tree {
-            .Leaf -> .Node{left: .Leaf, value, right: .Leaf}
+    pub fn insert(tree: Tree<T>, value: T) -> Tree<T> where T: Comparable
+        case tree
+            .Leaf ->
+                .Node{left: .Leaf, value:, right: .Leaf}
 
-            .Node{left, value: here, right} when value <= here ->
-                .Node{left: Tree.insert(left, value), value: here, right}
+            .Node{left:, value: here, right:} when value <= here ->
+                .Node{left: Tree.insert(left, value), value: here, right:}
 
-            .Node{left, value: here, right} ->
-                .Node{left, value: here, right: Tree.insert(right, value)}
-        }
-    }
+            .Node{left:, value: here, right:} ->
+                .Node{left:, value: here, right: Tree.insert(right, value)}
+        end
+    end
 
     /// Every value in `tree`, smallest first.
-    pub fn sorted(tree: Tree<T>) -> List<T> {
-        case tree {
+    pub fn sorted(tree: Tree<T>) -> List<T>
+        case tree
             .Leaf -> []
-            .Node{left, value, right} -> [..Tree.sorted(left), value, ..Tree.sorted(right)]
-        }
-    }
-}
+            .Node{left:, value:, right:} -> [..Tree.sorted(left), value, ..Tree.sorted(right)]
+        end
+    end
+end
 
 // FILE: binary_search_tree_test.nomi
 import binary_search_tree.Tree
 
-test "data is inserted" {
+test "data is inserted"
     [
         ("data is retained", [4], Tree.Node{left: .Leaf, value: 4, right: .Leaf}),
         (
@@ -97,12 +98,12 @@ test "data is inserted" {
             },
         }),
     ]
-    |> subtests (description, values, expected), description {
+    |> subtests (description, values, expected), description
         assert Tree.from(values) == expected
-    }
-}
+    end
+end
 
-test "can sort data" {
+test "can sort data"
     [
         ("can sort single number", [2], [2]),
         ("can sort if second number is smaller than first", [2, 1], [1, 2]),
@@ -110,10 +111,10 @@ test "can sort data" {
         ("can sort if second number is greater than first", [2, 3], [2, 3]),
         ("can sort complex tree", [2, 1, 3, 6, 7, 5], [1, 2, 3, 5, 6, 7]),
     ]
-    |> subtests (description, values, expected), description {
+    |> subtests (description, values, expected), description
         assert Tree.from(values) |> Tree.sorted() == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok data is inserted (5 cases)

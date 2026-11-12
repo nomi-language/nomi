@@ -10,7 +10,7 @@ import (
 // deriveFieldDefaults are struct field defaults of each expression kind a
 // default can be. A derived FromJson used to place the default expression
 // itself into its body, where the position walker refused any node kind it
-// did not list (`%[]` crashed `nomi check`) and restamped the declaration's
+// did not list (`[]` crashed `nomi check`) and restamped the declaration's
 // own positions into the synthesized band. The derived body now leaves a
 // missing field out of the struct literal it builds, so the default is
 // evaluated where struct literals evaluate it.
@@ -24,68 +24,68 @@ var deriveFieldDefaults = []struct {
 	{"interpolation", `v: String = "n=${1 + 2}"`, `"n=3"`},
 	{"list", "v: List<Int> = [1, 2]", "[1, 2]"},
 	{"list spread", "v: List<Int> = [0, ..[1, 2]]", "[0, 1, 2]"},
-	{"empty set", "v: Set<String> = %[]", "%[]"},
-	{"set", `v: Set<String> = %["a"]`, `%["a"]`},
-	{"set spread", `v: Set<String> = %[..%["a"], "b"]`, `%["a", "b"]`},
-	{"vector", "v: Vector<Int> = #[1, 2]", "#[1, 2]"},
-	{"vector spread", "v: Vector<Int> = #[..#[1], 2]", "#[1, 2]"},
-	{"map", `v: Map<String, Int> = %{"a" => 1}`, `%{"a" => 1}`},
+	{"empty set", "v: Set<String> = Set[]", "Set[]"},
+	{"set", `v: Set<String> = Set["a"]`, `Set["a"]`},
+	{"set spread", `v: Set<String> = Set[..Set["a"], "b"]`, `Set["a", "b"]`},
+	{"vector", "v: Vector<Int> = Vector[1, 2]", "Vector[1, 2]"},
+	{"vector spread", "v: Vector<Int> = Vector[..Vector[1], 2]", "Vector[1, 2]"},
+	{"map", `v: Map<String, Int> = {"a" => 1}`, `{"a" => 1}`},
 	{"binary", "v: Int = 2 * 3 + 1", "7"},
-	{"if", "v: Int = if 1 > 2 { 1 } else { 2 }", "2"},
-	{"case", "v: Int = case 2 { 1 -> 10\n _ -> 20 }", "20"},
-	{"block", "v: Int = {\n        x = 4\n        x + 1\n    }", "5"},
+	{"if", "v: Int = if 1 > 2 then 1 else 2", "2"},
+	{"case", "v: Int = case 2\n    1 -> 10\n _ -> 20\nend", "20"},
+	{"block", "v: Int = begin\n        x = 4\n        x + 1\n    end", "5"},
 	{"pipe and lambda", "v: List<Int> = [1, 2] |> Iter.map(fn x -> x * 10) |> Iter.to_list()", "[10, 20]"},
 	{"range", "v: List<Int> = 1..=3 |> Iter.to_list()", "[1, 2, 3]"},
-	{"call", "v: Map<String, Int> = Map.put(%{}, \"a\", 1)", "%{\"a\" => 1}"},
+	{"call", "v: Map<String, Int> = Map.put({}, \"a\", 1)", "{\"a\" => 1}"},
 	{"struct literal", "v: Inner = Inner{a: 1}", "Inner{a: 1}"},
-	{"struct update", "v: Inner = .{..Inner{a: 1}, a: 2}", "Inner{a: 2}"},
+	{"struct update", "v: Inner = {..Inner{a: 1}, a: 2}", "Inner{a: 2}"},
 	{"dot variant", "v: Color = .Red", "Red"},
 }
 
 func deriveFieldDefaultProgram(field string) string {
-	return `import {
+	return `import
     std::io
     std::json.{FromJson, ToJson}
     std::json.Json
-}
+end
 
-struct Inner {
+struct Inner
     a: Int
-}
+end
 
 derive ToJson for Inner
 derive FromJson for Inner
 
-enum Color {
+enum Color
     Red
     Blue
-}
+end
 
 derive ToJson for Color
 derive FromJson for Color
 
-struct S {
+struct S
     ` + field + `
-}
+end
 
 derive ToJson for S
 derive FromJson for S
 
-enum E {
+enum E
     Rec {
         ` + strings.ReplaceAll(field, "\n", "\n    ") + `
     }
-}
+end
 
 derive ToJson for E
 derive FromJson for E
 
-fn main() {
-    io.print(Debug.inspect(S.from_json(Json.Obj(%{}))))
-    io.print(Debug.inspect(E.from_json(%Json.Obj{"Rec" => Json.Obj(%{})})))
+fn main()
+    io.print(Debug.inspect(S.from_json(Json.Obj({}))))
+    io.print(Debug.inspect(E.from_json(Json.Obj{"Rec" => Json.Obj({})})))
     s = S{}
     io.print(Debug.inspect(S.from_json(ToJson.to_json(s)) == Ok(s)))
-}
+end
 `
 }
 
@@ -128,14 +128,14 @@ func TestDerivedJsonFillsEveryKindOfFieldDefault(t *testing.T) {
 func TestDerivedFromJsonReportsABadDefaultAtItsSource(t *testing.T) {
 	src := `import std::json.FromJson
 
-struct Game {
+struct Game
     word: String
     misses: Int = "x"
-}
+end
 
 derive FromJson for Game
 
-fn main() {}
+fn main() end
 `
 	o := checkLowers(t.TempDir(), src)
 	if o.accepted {

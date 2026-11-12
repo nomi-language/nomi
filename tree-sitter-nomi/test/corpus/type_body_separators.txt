@@ -2,21 +2,26 @@
 type body items separated by line breaks, semicolons and trailing comments
 ================================================================================
 
-struct Point {
-  x: Int; y: Int;
+struct Point
+  x: Int
+    y: Int
   z: Int // trailing
   w: Int
-}
+end
 
-enum Shape {
-  Dot; Circle Float
+enum Shape
+  Dot
+    Circle Float
   Rect {w: Float, h: Float}
-}
+end
 
-interface Named {
-  fn name(value: self) -> String; fn tag(value: self) -> String { "" }
+interface Named
+  fn name(value: self) -> String
+    fn tag(value: self) -> String
+        ""
+    end
   fn other(value: self) -> String
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -71,7 +76,7 @@ interface Named {
           name: (identifier)
           (self_type)))
       return_type: (type_identifier)
-      (body
+      body: (body
         (string)))
     (interface_method
       name: (identifier)
@@ -85,9 +90,9 @@ interface Named {
 two struct fields on one line are an error
 ================================================================================
 
-struct Point {
+struct Point
   x: Int y: Int
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -107,9 +112,9 @@ struct Point {
 two interface functions on one line are an error
 ================================================================================
 
-interface Named {
+interface Named
   fn name(value: self) -> String fn other(value: self) -> String
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -136,9 +141,9 @@ interface Named {
 two enum variants on one line are an error
 ================================================================================
 
-enum Shape {
+enum Shape
   Circle Float Dot
-}
+end
 
 --------------------------------------------------------------------------------
 

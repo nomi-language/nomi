@@ -1,18 +1,18 @@
-import {
+import
     std::io
     std::tasks.Task
-}
+end
 
-fn main() {
+fn main()
     io.print("waiting")
 
-    line = concurrent {
+    line = concurrent
         t = Task.spawn(fn -> io.read_line())
         Task.await(t)
-    }
+    end
 
-    case line {
+    case line
         Ok(Some(text)) -> io.print("read ${text}")
         _ -> io.print("no input")
-    }
-}
+    end
+end

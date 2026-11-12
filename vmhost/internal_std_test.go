@@ -25,28 +25,28 @@ func TestInternalStd_AProgramCannotNameIt(t *testing.T) {
 		fn := call[:strings.IndexByte(call, '(')]
 		cases = append(cases, rejected{
 			name: "phrase." + fn,
-			src:  "import std::phrase\n\nfn main() {\n    _ = phrase." + call + "\n}\n",
+			src:  "import std::phrase\n\nfn main()\n    _ = phrase." + call + "\nend\n",
 			want: "`phrase." + fn + "` is internal to std::phrase",
 		})
 	}
 	cases = append(cases,
-		rejected{"selective", "import std::phrase.compiled\n\nfn main() {\n    _ = compiled(\"x\", \"t\", [])\n}\n",
+		rejected{"selective", "import std::phrase.compiled\n\nfn main()\n    _ = compiled(\"x\", \"t\", [])\nend\n",
 			"`compiled` is internal to std::phrase"},
-		rejected{"grouped selective", "import {\n    std::phrase.integer\n}\n\nfn main() {\n    _ = integer(1)\n}\n",
+		rejected{"grouped selective", "import\n    std::phrase.integer\nend\n\nfn main()\n    _ = integer(1)\nend\n",
 			"`integer` is internal to std::phrase"},
-		rejected{"private type", "import std::phrase\n\nfn f(a: phrase.Argument) -> Int {\n    1\n}\n\nfn main() {\n}\n",
+		rejected{"private type", "import std::phrase\n\nfn f(a: phrase.Argument) -> Int\n    1\nend\n\nfn main() end\n",
 			"`phrase.Argument` is internal to std::phrase"},
-		rejected{"money_format", "import std::money_format\n\nfn main() {\n}\n",
+		rejected{"money_format", "import std::money_format\n\nfn main() end\n",
 			"`std::money_format` is internal to std::money"},
-		rejected{"phrase_format", "import {\n    std::phrase_format.variant_name\n}\n\nfn main() {\n}\n",
+		rejected{"phrase_format", "import\n    std::phrase_format.variant_name\nend\n\nfn main() end\n",
 			"`std::phrase_format` is internal to std::phrase"},
 		// Removed: `Currency.parse` reads an ISO code, and a language's
 		// genders and cases are the compiler's and the language server's.
-		rejected{"Currency.iso", "import std::currency.Currency\n\nfn main() {\n    _ = Currency.iso(\"EUR\")\n}\n",
+		rejected{"Currency.iso", "import std::currency.Currency\n\nfn main()\n    _ = Currency.iso(\"EUR\")\nend\n",
 			"type 'Currency' has no member 'iso'"},
-		rejected{"Locale.genders", "fn main() {\n    _ = Locale.genders(Locale`pl`)\n}\n",
+		rejected{"Locale.genders", "fn main()\n    _ = Locale.genders(Locale`pl`)\nend\n",
 			"type 'Locale' has no member 'genders'"},
-		rejected{"Locale.cases", "fn main() {\n    _ = Locale.cases(Locale`pl`)\n}\n",
+		rejected{"Locale.cases", "fn main()\n    _ = Locale.cases(Locale`pl`)\nend\n",
 			"type 'Locale' has no member 'cases'"},
 	)
 	for _, c := range cases {

@@ -17,147 +17,147 @@ import (
 // compiler's stack overflowed; the Maybe, struct-shaped Maybe and Iter
 // payloads declined.
 var genericSelfShapes = map[string]string{
-	"list": `enum Tree<T> {
+	"list": `enum Tree<T>
   Leaf(T)
   Node(List<Tree<T>>)
-}
+end
 
-fn main() {
+fn main()
   io.inspect(Tree.Node([Tree.Leaf(1), Tree.Node([])]))
-}
+end
 `,
-	"maybe": `enum Tree<T> {
+	"maybe": `enum Tree<T>
   Leaf(T)
   Node(Maybe<Tree<T>>)
-}
+end
 
-fn main() {
+fn main()
   io.inspect(Tree.Node(Some(Tree.Leaf(1))))
-}
+end
 `,
-	"tuple": `enum Tree<T> {
+	"tuple": `enum Tree<T>
   Leaf(T)
   Node((Tree<T>, Tree<T>))
-}
+end
 
-fn main() {
+fn main()
   io.inspect(Tree.Node((Tree.Leaf(1), Tree.Leaf(2))))
-}
+end
 `,
-	"map": `enum Tree<T> {
+	"map": `enum Tree<T>
   Leaf(T)
   Node(Map<String, Tree<T>>)
-}
+end
 
-fn main() {
-  io.inspect(Tree.Node(%{"a" => Tree.Leaf(1)}))
-}
+fn main()
+  io.inspect(Tree.Node({"a" => Tree.Leaf(1)}))
+end
 `,
-	"set": `enum Tree<T> {
+	"set": `enum Tree<T>
   Leaf(T)
   Node(Set<Tree<T>>)
-}
+end
 
-fn main() {
-  io.inspect(Tree.Node(%[Tree.Leaf(1)]))
-}
+fn main()
+  io.inspect(Tree.Node(Set[Tree.Leaf(1)]))
+end
 `,
-	"struct-shaped variant": `enum Tree<T> {
+	"struct-shaped variant": `enum Tree<T>
   Leaf(T)
   Node {kids: List<Tree<T>>, label: String}
-}
+end
 
-fn main() {
+fn main()
   io.inspect(Tree.Node{kids: [Tree.Leaf(1)], label: "x"})
-}
+end
 `,
-	"struct-shaped maybe": `enum Tree<T> {
+	"struct-shaped maybe": `enum Tree<T>
   Leaf(T)
   Node {next: Maybe<Tree<T>>}
-}
+end
 
-fn main() {
+fn main()
   io.inspect(Tree.Node{next: Some(Tree.Leaf(1))})
-}
+end
 `,
-	"iter": `enum Tree<T> {
+	"iter": `enum Tree<T>
   Leaf(T)
   Node(Iter<Tree<T>>)
-}
+end
 
-fn count(t: Tree<Int>) -> Int {
-  case t {
+fn count(t: Tree<Int>) -> Int
+  case t
     Tree.Leaf(_) -> 1
     Tree.Node(xs) -> xs |> Iter.map(fn k -> count(k)) |> Iter.reduce(0, fn acc, n -> acc + n)
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print("${count(Tree.Node([Tree.Leaf(1), Tree.Leaf(2)] |> Iter.map(fn x -> x)))}")
-}
+end
 `,
-	"generic struct list": `struct Rose<T> {
+	"generic struct list": `struct Rose<T>
   value: T
   kids: List<Rose<T>>
-}
+end
 
-fn main() {
+fn main()
   io.inspect(Rose{value: 1, kids: [Rose{value: 2, kids: []}]})
-}
+end
 `,
-	"generic struct maybe": `struct Link<T> {
+	"generic struct maybe": `struct Link<T>
   value: T
   next: Maybe<Link<T>>
-}
+end
 
-fn main() {
+fn main()
   io.inspect(Link{value: 1, next: Some(Link{value: 2, next: None})})
-}
+end
 `,
-	"generic struct and enum": `struct Node<T> {
+	"generic struct and enum": `struct Node<T>
   value: T
   kids: List<Tree<T>>
-}
+end
 
-enum Tree<T> {
+enum Tree<T>
   N(Node<T>)
   Leaf
-}
+end
 
-fn main() {
+fn main()
   io.inspect(Tree.N(Node{value: 1, kids: [Tree.Leaf]}))
-}
+end
 `,
-	"mutual": `enum Even<T> {
+	"mutual": `enum Even<T>
   Zero(T)
   E(List<Odd<T>>)
-}
+end
 
-enum Odd<T> {
+enum Odd<T>
   O(Even<T>)
-}
+end
 
-fn main() {
+fn main()
   io.inspect(Even.E([Odd.O(Even.Zero(1))]))
-}
+end
 `,
-	"non-generic set": `enum Tree {
+	"non-generic set": `enum Tree
   Leaf(Int)
   Node(Set<Tree>)
-}
+end
 
-fn main() {
-  io.inspect(Tree.Node(%[Tree.Leaf(1)]))
-}
+fn main()
+  io.inspect(Tree.Node(Set[Tree.Leaf(1)]))
+end
 `,
-	"non-generic maybe": `enum Tree {
+	"non-generic maybe": `enum Tree
   Leaf(Int)
   Node(Maybe<Tree>)
-}
+end
 
-fn main() {
+fn main()
   io.inspect(Tree.Node(Some(Tree.Leaf(1))))
-}
+end
 `,
 }
 
@@ -168,8 +168,8 @@ func TestCheck_GenericTypeHoldingItsOwnInstanceLowers(t *testing.T) {
 		"list":                    "Node([Leaf(1), Node([])])\n",
 		"maybe":                   "Node(Some(Leaf(1)))\n",
 		"tuple":                   "Node(Leaf(1), Leaf(2))\n",
-		"map":                     "Node(%{\"a\" => Leaf(1)})\n",
-		"set":                     "Node(%[Leaf(1)])\n",
+		"map":                     "Node({\"a\" => Leaf(1)})\n",
+		"set":                     "Node(Set[Leaf(1)])\n",
 		"struct-shaped variant":   "Node{kids: [Leaf(1)], label: \"x\"}\n",
 		"struct-shaped maybe":     "Node{next: Some(Leaf(1))}\n",
 		"iter":                    "2\n",
@@ -177,7 +177,7 @@ func TestCheck_GenericTypeHoldingItsOwnInstanceLowers(t *testing.T) {
 		"generic struct maybe":    "Link{value: 1, next: Some(Link{value: 2, next: None})}\n",
 		"generic struct and enum": "N(Node{value: 1, kids: [Leaf]})\n",
 		"mutual":                  "E([O(Zero(1))])\n",
-		"non-generic set":         "Node(%[Leaf(1)])\n",
+		"non-generic set":         "Node(Set[Leaf(1)])\n",
 		"non-generic maybe":       "Node(Some(Leaf(1)))\n",
 	}
 	for name, body := range genericSelfShapes {
@@ -202,68 +202,68 @@ func TestCheck_GenericTypeHoldingItsOwnInstanceLowers(t *testing.T) {
 func TestRun_GenericTreeOfItsOwnInstances(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
 derive Equatable for Point
 derive Hashable for Point
 derive Display for Point
 
-enum Tree<T> {
+enum Tree<T>
     Leaf T
     Node List<Tree<T>>
-}
+end
 
 derive Equatable for Tree<T>
 derive Hashable for Tree<T>
 derive Display for Tree<T>
 
-fn size(t: Tree<Int>) -> Int {
-    case t {
+fn size(t: Tree<Int>) -> Int
+    case t
         Tree.Leaf(_) -> 1
         Tree.Node(kids) -> kids |> Iter.map(fn k -> size(k)) |> Iter.reduce(0, fn acc, n -> acc + n)
-    }
-}
+    end
+end
 
-fn first_leaf(t: Tree<Int>) -> String {
-    case t {
+fn first_leaf(t: Tree<Int>) -> String
+    case t
         Tree.Node([Tree.Leaf(n), ..]) -> "first ${n}"
         Tree.Node([Tree.Node(_), ..]) -> "nested"
         Tree.Node([]) -> "empty"
         Tree.Leaf(n) -> "leaf ${n}"
-    }
-}
+    end
+end
 
-fn depth(t: Tree<String>) -> Int {
-    case t {
+fn depth(t: Tree<String>) -> Int
+    case t
         Tree.Leaf(_) -> 0
         Tree.Node([]) -> 1
         Tree.Node([k, ..]) -> 1 + depth(k)
-    }
-}
+    end
+end
 
-fn build(n: Int, acc: Tree<String>) -> Tree<String> {
-    if n == 0 { acc } else { build(n - 1, nest(acc)) }
-}
+fn build(n: Int, acc: Tree<String>) -> Tree<String>
+    if n == 0 then acc else build(n - 1, nest(acc))
+end
 
-fn nest<T>(t: Tree<T>) -> Tree<T> {
+fn nest<T>(t: Tree<T>) -> Tree<T>
     Tree.Node([t])
-}
+end
 
-fn same<T>(a: Tree<T>, b: Tree<T>) -> Bool where T: Equatable {
+fn same<T>(a: Tree<T>, b: Tree<T>) -> Bool where T: Equatable
     a == b
-}
+end
 
-fn kids<T>(t: Tree<T>) -> List<Tree<T>> {
-    case t {
+fn kids<T>(t: Tree<T>) -> List<Tree<T>>
+    case t
         Tree.Leaf(_) -> []
         Tree.Node(ks) -> ks
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     a = Tree.Node([Tree.Leaf(1), Tree.Node([Tree.Leaf(2), Tree.Leaf(3)])])
     b = Tree.Node([Tree.Leaf(1), Tree.Node([Tree.Leaf(2), Tree.Leaf(3)])])
     s = Tree.Node([Tree.Leaf("x"), Tree.Leaf("y")])
@@ -285,7 +285,7 @@ fn main() {
 
     io.print("size ${size(a)}")
 
-    io.print("set ${Set.size(%[a, b, Tree.Leaf(1)])} ${Set.size(%[s, s])} ${Set.size(%[
+    io.print("set ${Set.size(Set[a, b, Tree.Leaf(1)])} ${Set.size(Set[s, s])} ${Set.size(Set[
             p,
             Tree.Node([
                 Tree.Leaf(Point{
@@ -295,7 +295,7 @@ fn main() {
             ]),
         ])}")
 
-    m = %{a => "a", Tree.Leaf(9) => "nine"}
+    m = {a => "a", Tree.Leaf(9) => "nine"}
     io.inspect(Map.get(m, b))
     io.inspect(Map.get(m, Tree.Leaf(8)))
     deep = build(1000, Tree.Leaf("s"))
@@ -305,7 +305,7 @@ fn main() {
         "deep equal ${deep == build(1000, Tree.Leaf("s"))} ${deep == build(999, Tree.Leaf("s"))}"
     )
 
-    io.print("deep set ${Set.size(%[deep, build(1000, Tree.Leaf("s")), s])}")
+    io.print("deep set ${Set.size(Set[deep, build(1000, Tree.Leaf("s")), s])}")
 
     io.print(
         "generic ${same(p, Tree.Node([Tree.Leaf(Point{x: 1, y: 2})]))} ${same(a, b)} ${same(
@@ -316,7 +316,7 @@ fn main() {
 
     io.inspect(kids(p))
     io.inspect(nest(nest(Tree.Leaf(Point{x: 3, y: 4}))))
-}
+end
 `)
 	want := strings.Join([]string{
 		"Node([Leaf(1), Node([Leaf(2), Leaf(3)])])",
@@ -350,59 +350,59 @@ fn main() {
 func TestRun_GenericSelfInstanceForms(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
 derive Equatable for Point
 derive Hashable for Point
 derive Display for Point
 
-enum Chain<T> {
+enum Chain<T>
     End T
     Next Maybe<Chain<T>>
-}
+end
 
 derive Equatable for Chain<T>
 derive Hashable for Chain<T>
 derive Display for Chain<T>
 
-enum Pair<T> {
+enum Pair<T>
     One T
     Both (Pair<T>, Pair<T>)
-}
+end
 
 derive Equatable for Pair<T>
 derive Hashable for Pair<T>
 derive Display for Pair<T>
 
-enum Dict<T> {
+enum Dict<T>
     Val T
     Obj Map<String, Dict<T>>
-}
+end
 
 derive Equatable for Dict<T>
 derive Hashable for Dict<T>
 derive Display for Dict<T>
 
-struct Rose<T> {
+struct Rose<T>
     value: T
     kids: List<Rose<T>>
-}
+end
 
 derive Equatable for Rose<T>
 derive Hashable for Rose<T>
 derive Display for Rose<T>
 
-enum Even<T> {
+enum Even<T>
     Zero T
     E List<Odd<T>>
-}
+end
 
-enum Odd<T> {
+enum Odd<T>
     O Even<T>
-}
+end
 
 derive Equatable for Even<T>
 derive Hashable for Even<T>
@@ -412,93 +412,93 @@ derive Equatable for Odd<T>
 derive Hashable for Odd<T>
 derive Display for Odd<T>
 
-fn chain_len(c: Chain<Int>) -> Int {
-    case c {
+fn chain_len(c: Chain<Int>) -> Int
+    case c
         Chain.End(_) -> 0
         Chain.Next(None) -> 1
         Chain.Next(Some(rest)) -> 1 + chain_len(rest)
-    }
-}
+    end
+end
 
-fn build_chain(n: Int, acc: Chain<Int>) -> Chain<Int> {
-    if n == 0 {
+fn build_chain(n: Int, acc: Chain<Int>) -> Chain<Int>
+    if n == 0 then
         acc
-    } else {
+    else
         build_chain(n - 1, Chain.Next(Some(acc)))
-    }
-}
+    end
+end
 
-fn left(p: Pair<String>) -> String {
-    case p {
+fn left(p: Pair<String>) -> String
+    case p
         Pair.One(s) -> s
         Pair.Both((Pair.One(s), _)) -> "left ${s}"
         Pair.Both((l, _)) -> left(l)
-    }
-}
+    end
+end
 
-fn build_pair(n: Int, acc: Pair<String>) -> Pair<String> {
-    if n == 0 {
+fn build_pair(n: Int, acc: Pair<String>) -> Pair<String>
+    if n == 0 then
         acc
-    } else {
+    else
         build_pair(n - 1, Pair.Both((acc, Pair.One("r"))))
-    }
-}
+    end
+end
 
-fn lookup(d: Dict<Point>, k: String) -> Maybe<Dict<Point>> {
-    case d {
+fn lookup(d: Dict<Point>, k: String) -> Maybe<Dict<Point>>
+    case d
         Dict.Obj(m) -> Map.get(m, k)
         Dict.Val(_) -> None
-    }
-}
+    end
+end
 
-fn build_dict(n: Int, acc: Dict<Point>) -> Dict<Point> {
-    if n == 0 {
+fn build_dict(n: Int, acc: Dict<Point>) -> Dict<Point>
+    if n == 0 then
         acc
-    } else {
-        build_dict(n - 1, Dict.Obj(%{"k" => acc}))
-    }
-}
+    else
+        build_dict(n - 1, Dict.Obj({"k" => acc}))
+    end
+end
 
-fn dict_depth(d: Dict<Point>) -> Int {
-    case lookup(d, "k") {
+fn dict_depth(d: Dict<Point>) -> Int
+    case lookup(d, "k")
         Some(inner) -> 1 + dict_depth(inner)
         None -> 0
-    }
-}
+    end
+end
 
-fn rose_total(r: Rose<Int>) -> Int {
+fn rose_total(r: Rose<Int>) -> Int
     r.kids |> Iter.map(fn k -> rose_total(k)) |> Iter.reduce(r.value, fn acc, n -> acc + n)
-}
+end
 
-fn build_rose(n: Int, acc: Rose<Int>) -> Rose<Int> {
-    if n == 0 {
+fn build_rose(n: Int, acc: Rose<Int>) -> Rose<Int>
+    if n == 0 then
         acc
-    } else {
+    else
         build_rose(n - 1, Rose{value: 1, kids: [acc]})
-    }
-}
+    end
+end
 
-fn evens(e: Even<String>) -> Int {
-    case e {
+fn evens(e: Even<String>) -> Int
+    case e
         Even.Zero(_) -> 0
         Even.E([Odd.O(inner), ..]) -> 2 + evens(inner)
         Even.E([]) -> 1
-    }
-}
+    end
+end
 
-fn build_even(n: Int, acc: Even<String>) -> Even<String> {
-    if n == 0 {
+fn build_even(n: Int, acc: Even<String>) -> Even<String>
+    if n == 0 then
         acc
-    } else {
+    else
         build_even(n - 1, Even.E([Odd.O(acc)]))
-    }
-}
+    end
+end
 
-fn twice<T>(x: T) -> (T, T) {
+fn twice<T>(x: T) -> (T, T)
     (x, x)
-}
+end
 
-fn main() {
+fn main()
     c = Chain.Next(Some(Chain.Next(Some(Chain.End(1)))))
     io.inspect(c)
 
@@ -509,8 +509,8 @@ fn main() {
     )
 
     io.print(
-        "set ${Set.size(%[c, c, Chain.Next(None)])} ${Map.get(
-            %{c => 1},
+        "set ${Set.size(Set[c, c, Chain.Next(None)])} ${Map.get(
+            {c => 1},
             Chain.Next(Some(Chain.Next(Some(Chain.End(1))))),
         )}"
     )
@@ -524,7 +524,7 @@ fn main() {
 
     p = Pair.Both((Pair.One("a"), Pair.Both((Pair.One("b"), Pair.One("c")))))
     io.inspect(p)
-    io.print("${p} ${left(p)} ${p == p} ${Set.size(%[p, Pair.One("a"), p])}")
+    io.print("${p} ${left(p)} ${p == p} ${Set.size(Set[p, Pair.One("a"), p])}")
 
     io.print(
         "deep ${left(build_pair(1000, Pair.One("bottom")))} ${build_pair(
@@ -533,15 +533,15 @@ fn main() {
         ) == build_pair(1000, Pair.One("z"))}"
     )
 
-    d = Dict.Obj(%{"a" => Dict.Val(Point{x: 1, y: 2}), "b" => Dict.Val(Point{x: 0, y: 0})})
+    d = Dict.Obj({"a" => Dict.Val(Point{x: 1, y: 2}), "b" => Dict.Val(Point{x: 0, y: 0})})
     io.inspect(d)
     io.print("${d}")
     io.inspect(lookup(d, "a"))
 
     io.print(
         "${d == Dict.Obj(
-            %{"b" => Dict.Val(Point{x: 0, y: 0}), "a" => Dict.Val(Point{x: 1, y: 2})}
-        )} ${Set.size(%[d, d])} ${Map.get(%{d => "d"}, d)}"
+            {"b" => Dict.Val(Point{x: 0, y: 0}), "a" => Dict.Val(Point{x: 1, y: 2})}
+        )} ${Set.size(Set[d, d])} ${Map.get({d => "d"}, d)}"
     )
 
     io.print("deep ${dict_depth(build_dict(1000, Dict.Val(Point{x: 0, y: 0})))}")
@@ -567,7 +567,7 @@ fn main() {
 
     io.inspect(r)
 
-    io.print("${r} ${rose_total(r)} ${r == r} ${Set.size(%[
+    io.print("${r} ${rose_total(r)} ${r == r} ${Set.size(Set[
             r,
             r,
             Rose{
@@ -580,13 +580,13 @@ fn main() {
 
     e = Even.E([Odd.O(Even.E([Odd.O(Even.Zero("z"))]))])
     io.inspect(e)
-    io.print("${e} ${evens(e)} ${e == e} ${Set.size(%[e, Even.Zero("z"), e])}")
+    io.print("${e} ${evens(e)} ${e == e} ${Set.size(Set[e, Even.Zero("z"), e])}")
     io.print("deep ${evens(build_even(1000, Even.Zero("z")))}")
 
     io.inspect(twice(c))
     io.inspect(twice(p))
     io.inspect(twice(r))
-}
+end
 `)
 	want := strings.Join([]string{
 		"Next(Some(Next(Some(End(1)))))",
@@ -596,8 +596,8 @@ fn main() {
 		"Both(One(\"a\"), Both(One(\"b\"), One(\"c\")))",
 		"Both(One(a), Both(One(b), One(c))) left a True 2",
 		"deep left bottom True",
-		"Obj(%{\"a\" => Val(Point{x: 1, y: 2}), \"b\" => Val(Point{x: 0, y: 0})})",
-		"Obj(%{a => Val(Point{x: 1, y: 2}), b => Val(Point{x: 0, y: 0})})",
+		"Obj({\"a\" => Val(Point{x: 1, y: 2}), \"b\" => Val(Point{x: 0, y: 0})})",
+		"Obj({a => Val(Point{x: 1, y: 2}), b => Val(Point{x: 0, y: 0})})",
 		"Some(Val(Point{x: 1, y: 2}))",
 		"True 1 Some(d)",
 		"deep 1000",
@@ -624,29 +624,29 @@ fn main() {
 func TestRun_WideningAGenericEnumThatHoldsItselfInACollection(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-struct Circle {
+struct Circle
     r: Int
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Dot
-}
+end
 
-enum Tree<T> {
+enum Tree<T>
     Leaf T
     Node List<Tree<T>>
-}
+end
 
-enum Dict<T> {
+enum Dict<T>
     Val T
     Obj Map<String, Dict<T>>
-}
+end
 
-enum Bag<T> {
+enum Bag<T>
     Item T
     Many Set<Bag<T>>
-}
+end
 
 derive Equatable for Circle
 derive Hashable for Circle
@@ -657,16 +657,16 @@ derive Hashable for Shape
 derive Equatable for Bag<T>
 derive Hashable for Bag<T>
 
-enum Even<T> {
+enum Even<T>
     Zero T
     E List<Odd<T>>
-}
+end
 
-enum Odd<T> {
+enum Odd<T>
     O Even<T>
-}
+end
 
-fn main() {
+fn main()
     t: Tree<Circle> = Tree.Node([
         Tree.Leaf(Circle{
             r: 1,
@@ -681,11 +681,11 @@ fn main() {
     wt: Tree<Shape> = t
     io.inspect(wt)
 
-    d: Dict<Circle> = Dict.Obj(%{
+    d: Dict<Circle> = Dict.Obj({
         "a" => Dict.Val(Circle{
             r: 1,
         }),
-        "b" => Dict.Obj(%{
+        "b" => Dict.Obj({
             "c" => Dict.Val(Circle{
                 r: 2,
             }),
@@ -695,11 +695,11 @@ fn main() {
     wd: Dict<Shape> = d
     io.inspect(wd)
 
-    b: Bag<Circle> = Bag.Many(%[
+    b: Bag<Circle> = Bag.Many(Set[
         Bag.Item(Circle{
             r: 1,
         }),
-        Bag.Many(%[
+        Bag.Many(Set[
             Bag.Item(Circle{
                 r: 2,
             }),
@@ -708,8 +708,8 @@ fn main() {
 
     wb: Bag<Shape> = b
 
-    io.print("${wb == Bag.Many(%[
-            Bag.Many(%[
+    io.print("${wb == Bag.Many(Set[
+            Bag.Many(Set[
                 Bag.Item(Circle{
                     r: 2,
                 }),
@@ -732,11 +732,11 @@ fn main() {
     m: Maybe<Tree<Circle>> = Some(t)
     wm: Maybe<Tree<Shape>> = m
     io.inspect(wm)
-}
+end
 `)
 	want := strings.Join([]string{
 		"Node([Leaf(Circle{r: 1}), Node([Leaf(Circle{r: 2})])])",
-		"Obj(%{\"a\" => Val(Circle{r: 1}), \"b\" => Obj(%{\"c\" => Val(Circle{r: 2})})})",
+		"Obj({\"a\" => Val(Circle{r: 1}), \"b\" => Obj({\"c\" => Val(Circle{r: 2})})})",
 		"True",
 		"E([O(E([O(Zero(Circle{r: 3}))]))])",
 		"Some(Node([Leaf(Circle{r: 1}), Node([Leaf(Circle{r: 2})])]))",

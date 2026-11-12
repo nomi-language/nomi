@@ -1,6 +1,6 @@
 import roman_numerals
 
-test "converts to Roman numerals" {
+test "converts to Roman numerals"
     [
         ("1 is I", 1, "I"),
         ("2 is II", 2, "II"),
@@ -30,7 +30,7 @@ test "converts to Roman numerals" {
         ("3888 is MMMDCCCLXXXVIII", 3888, "MMMDCCCLXXXVIII"),
         ("3999 is MMMCMXCIX", 3999, "MMMCMXCIX"),
     ]
-    |> subtests (description, number, expected), description {
+    |> subtests (description, number, expected), description
         assert roman_numerals.roman(number) == expected
-    }
-}
+    end
+end

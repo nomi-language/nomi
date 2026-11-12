@@ -4,7 +4,7 @@
 //# std::process, which builds its values from these and gives them their
 //# documentation.
 
-import {
+import
     bool.Bool
     bytes.Bytes
     int.Int
@@ -14,7 +14,7 @@ import {
     results.Result
     strings.String
     unit.Unit
-}
+end
 
 /// A program `start` started, or the fake's stand-in for one.
 pub host type Child
@@ -101,9 +101,9 @@ pub host fn fake_input(fake: Fake, i: Int) -> Bytes
 
 /// Runs `body` with `fake` responding to every std::process call in it, its
 /// tasks' included, and returns what it returned.
-pub fn run_in<T>(fake: Fake, body: () -> T) -> T {
+pub fn run_in<T>(fake: Fake, body: () -> T) -> T
     run_on(fake, body, fn value -> value)
-}
+end
 
 /// Calls `body` on a frame whose processes are `fake` and hands its value
 /// to `finish` on the caller's. Implemented by the VM.

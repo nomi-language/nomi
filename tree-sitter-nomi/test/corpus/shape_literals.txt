@@ -5,7 +5,7 @@ Struct literals that name a module type, a variant and a dot variant
 once p = geo.Point{x: 1}
 once c = Shape.Circle{radius: 1.0}
 once d: Shape = .Circle{radius: 1.0}
-once e = geo.Shape.Circle{radius}
+once e = geo.Shape.Circle{radius:}
 
 --------------------------------------------------------------------------------
 
@@ -41,13 +41,13 @@ once e = geo.Shape.Circle{radius}
       (identifier))))
 
 ================================================================================
-Named tuple, vector and set literals
+Named tuple and bracket literals
 ================================================================================
 
 once t = Pair(1, "x")
-once v = #Path[1, 2]
-once w: Bag = #.Items[1]
-once s = %Tags["a", "b"]
+once v = Path[1, 2]
+once w: Bag = .Items[1]
+once s = Tags["a", "b"]
 
 --------------------------------------------------------------------------------
 
@@ -61,35 +61,38 @@ once s = %Tags["a", "b"]
         (string_content))))
   (once_binding
     (identifier)
-    (vector
+    (typed_list
       (type_identifier)
-      (integer)
-      (integer)))
+      (list
+        (integer)
+        (integer))))
   (once_binding
     (identifier)
     (type_identifier)
-    (vector
+    (typed_list
       (dot_variant
         (type_identifier))
-      (integer)))
+      (list
+        (integer))))
   (once_binding
     (identifier)
-    (set
+    (typed_list
       (type_identifier)
-      (string
-        (string_content))
-      (string
-        (string_content)))))
+      (list
+        (string
+          (string_content))
+        (string
+          (string_content))))))
 
 ================================================================================
 Named map literals
 ================================================================================
 
-once k = %Kvs{"a" => 1}
-once e = %Kvs{}
-once j: Json = %.Obj{"k" => v}
-once q = %Json.Obj{}
-once b = %shapes.Bag.Named{"a" => 4}
+once k = Kvs{"a" => 1}
+once e = Kvs{}
+once j: Json = .Obj{"k" => v}
+once q = Json.Obj{}
+once b = shapes.Bag.Named{"a" => 4}
 
 --------------------------------------------------------------------------------
 
@@ -104,7 +107,7 @@ once b = %shapes.Bag.Named{"a" => 4}
         (integer))))
   (once_binding
     (identifier)
-    (map_construction
+    (struct_construction
       (type_identifier)))
   (once_binding
     (identifier)
@@ -118,7 +121,7 @@ once b = %shapes.Bag.Named{"a" => 4}
         (identifier))))
   (once_binding
     (identifier)
-    (map_construction
+    (struct_construction
       (type_identifier)
       (type_identifier)))
   (once_binding
@@ -158,22 +161,22 @@ once m = .Items[1]
         (integer)))))
 
 ================================================================================
-Vector patterns from either end
+Bracket patterns from either end
 ================================================================================
 
-fn f(v: Vector<Int>) -> Int {
-    case v {
-        #[] -> 0
-        #[a, b] -> a
-        #[first, ..rest] -> first
-        #[.., last] -> last
-        #[a, b, ..] -> a
-        #[a, ..mid, z] -> a
-        #[..] -> 0
-        #Path[a, ..] -> a
-        #.Items[x] -> x
-    }
-}
+fn f(v: Vector<Int>) -> Int
+    case v
+        [] -> 0
+        [a, b] -> a
+        [first, ..rest] -> first
+        [.., last] -> last
+        [a, b, ..] -> a
+        [a, ..mid, z] -> a
+        [..] -> 0
+        Path[a, ..] -> a
+        .Items[x] -> x
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -191,67 +194,62 @@ fn f(v: Vector<Int>) -> Int {
       (case_expression
         (identifier)
         (case_branch
-          (vector_pattern)
+          (list_pattern)
           (integer))
         (case_branch
-          (vector_pattern
+          (list_pattern
             (identifier)
             (identifier))
           (identifier))
         (case_branch
-          (vector_pattern
+          (list_pattern
             (identifier)
-            (pattern_spread
+            (identifier))
+          (identifier))
+        (case_branch
+          (list_pattern
+            (identifier))
+          (identifier))
+        (case_branch
+          (list_pattern
+            (identifier)
+            (identifier))
+          (identifier))
+        (case_branch
+          (list_pattern
+            (identifier)
+            (identifier)
+            (identifier))
+          (identifier))
+        (case_branch
+          (list_pattern)
+          (integer))
+        (case_branch
+          (typed_list
+            (type_identifier)
+            (list
               (identifier)))
           (identifier))
         (case_branch
-          (vector_pattern
-            (pattern_spread)
-            (identifier))
-          (identifier))
-        (case_branch
-          (vector_pattern
-            (identifier)
-            (identifier)
-            (pattern_spread))
-          (identifier))
-        (case_branch
-          (vector_pattern
-            (identifier)
-            (pattern_spread
-              (identifier))
-            (identifier))
-          (identifier))
-        (case_branch
-          (vector_pattern
-            (pattern_spread))
-          (integer))
-        (case_branch
-          (vector_pattern
-            (type_identifier)
-            (identifier)
-            (pattern_spread))
-          (identifier))
-        (case_branch
-          (vector_pattern
+          (list_pattern
             (dot_variant
               (type_identifier))
             (identifier))
           (identifier))))))
 
 ================================================================================
-Set patterns test membership
+Bracket patterns of constants and a rest
 ================================================================================
 
-fn f(s: Set<String>) -> Int {
-    case s {
-        %["admin", ..rest] -> 1
-        %["guest", ..] -> 2
-        %[] -> 3
-        %Tags["a", ..] -> 4
+fn f(s: Set<String>) -> Int
+    case s
+        ["admin", ..rest] -> 1
+        ["guest", ..] -> 2
+        [] -> 3
+        Tags["a", ..] -> 4
         _ -> 5
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -269,24 +267,25 @@ fn f(s: Set<String>) -> Int {
       (case_expression
         (identifier)
         (case_branch
-          (set_pattern
+          (list_pattern
             (string
               (string_content))
             (identifier))
           (integer))
         (case_branch
-          (set_pattern
+          (list_pattern
             (string
               (string_content)))
           (integer))
         (case_branch
-          (set_pattern)
+          (list_pattern)
           (integer))
         (case_branch
-          (set_pattern
+          (typed_list
             (type_identifier)
-            (string
-              (string_content)))
+            (list
+              (string
+                (string_content))))
           (integer))
         (case_branch
           (integer))))))
@@ -295,16 +294,16 @@ fn f(s: Set<String>) -> Int {
 Struct, map and tuple patterns that name their type
 ================================================================================
 
-fn f(s: Shape) -> Int {
-    case s {
-        .Circle{radius} -> radius
+fn f(s: Shape) -> Int
+    case s
+        .Circle{radius:} -> radius
         Shape.Square{side: 0} -> 0
-        geo.Point{x} -> x
-        %Kvs{"k" => v} -> v
-        %.Obj{"k" => v} -> v
+        geo.Point{x:} -> x
+        Kvs{"k" => v} -> v
+        .Obj{"k" => v} -> v
         Pair(a, b) -> a
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -367,15 +366,21 @@ fn f(s: Shape) -> Int {
 Bindings and parameters take the named patterns apart
 ================================================================================
 
-fn f(Point{x, y}, #[a, ..], %{"k" => v}) -> Int {
+fn f(Point{x:, y:}, [a, ..], {"k" => v}) -> Int
     Pair(n, m) = pair
-    Point{x, y} = p
-    #[first, ..rest] = v else { return 0 }
-    %["a", ..others] = s else { return 0 }
-    %Kvs{"k" => w} = kvs else { return 0 }
-    g = fn #[x, ..] -> x
+    Point{x:, y:} = p
+    [first, ..rest] = v else
+        return 0
+    end
+    ["a", ..others] = s else
+        return 0
+    end
+    Kvs{"k" => w} = kvs else
+        return 0
+    end
+    g = fn [x, ..] -> x
     x
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -391,9 +396,8 @@ fn f(Point{x, y}, #[a, ..], %{"k" => v}) -> Int {
           (pattern_field
             (identifier))))
       (parameter
-        (vector_pattern
-          (identifier)
-          (pattern_spread)))
+        (list_pattern
+          (identifier)))
       (parameter
         (map_pattern
           (string
@@ -414,7 +418,7 @@ fn f(Point{x, y}, #[a, ..], %{"k" => v}) -> Int {
           (identifier))
         (identifier))
       (else_binding
-        (vector
+        (list
           (identifier)
           (identifier))
         (identifier)
@@ -422,7 +426,7 @@ fn f(Point{x, y}, #[a, ..], %{"k" => v}) -> Int {
           (return_statement
             (integer))))
       (else_binding
-        (set
+        (list
           (string
             (string_content))
           (identifier))
@@ -444,27 +448,26 @@ fn f(Point{x, y}, #[a, ..], %{"k" => v}) -> Int {
         (identifier)
         (lambda
           (lambda_parameter
-            (vector_pattern
-              (identifier)
-              (pattern_spread)))
+            (list_pattern
+              (identifier)))
           (identifier)))
       (identifier))))
 
 ================================================================================
-Pattern conditions with vectors and sets
+Pattern conditions with brackets
 ================================================================================
 
-fn f(v: Vector<Int>, s: Set<Int>) -> Int {
-    if #[a, ..] = v {
+fn f(v: Vector<Int>, s: Set<Int>) -> Int
+    if [a, ..] = v then
         a
-    } else if %[1, ..] = s {
+    else if [1, ..] = s then
         1
-    } else if #[.., z] == v {
+    else if Vector[.., z] == v then
         z
-    } else {
+    else
         0
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -486,39 +489,41 @@ fn f(v: Vector<Int>, s: Set<Int>) -> Int {
     (body
       (if_expression
         (if_match_condition
-          (vector_pattern
-            (identifier)
-            (pattern_spread))
+          (list_pattern
+            (identifier))
           (identifier))
-        (body
+        (block
           (identifier))
-        (if_expression
+        (else_if_clause
           (if_match_condition
-            (set_pattern
+            (list_pattern
               (integer))
             (identifier))
-          (body
-            (integer))
-          (if_expression
-            (binary_expression
-              (vector
-                (identifier))
-              (identifier))
-            (body
-              (identifier))
-            (body
-              (integer))))))))
+          (block
+            (integer)))
+        (else_if_clause
+          (binary_expression
+            (typed_list
+              (type_identifier)
+              (list
+                (identifier)))
+            (identifier))
+          (block
+            (identifier)))
+        (else_clause
+          (block
+            (integer)))))))
 
 ================================================================================
 A struct literal in an if condition and a case subject
 ================================================================================
 
-fn f(p: Point) -> Int {
-    x = if p == Point{x: 1} { 1 } else { 2 }
-    case Point{x: 1} {
-        Point{x} -> x
-    }
-}
+fn f(p: Point) -> Int
+    x = if p == Point{x: 1} then 1 else 2
+    case Point{x: 1}
+        Point{x:} -> x
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -540,10 +545,8 @@ fn f(p: Point) -> Int {
               (type_identifier)
               (identifier)
               (integer)))
-          (body
-            (integer))
-          (body
-            (integer))))
+          (integer)
+          (integer)))
       (case_expression
         (struct_construction
           (type_identifier)
@@ -557,14 +560,14 @@ fn f(p: Point) -> Int {
           (identifier))))))
 
 ================================================================================
-Remainder and the hashed literals
+Remainder and the map and set literals
 ================================================================================
 
 once a = n % m
 once b = n % (m)
-once c = n % .{m: 1}.m
-once d = %{1 => 2}
-once e = %[1]
+once c = n % {m: 1}.m
+once d = {1 => 2}
+once e = Set[1]
 
 --------------------------------------------------------------------------------
 
@@ -598,16 +601,19 @@ once e = %[1]
         (integer))))
   (once_binding
     (identifier)
-    (set
-      (integer))))
+    (typed_list
+      (type_identifier)
+      (list
+        (integer)))))
 
 ================================================================================
 Two statements on one line are an error
 ================================================================================
 
-fn f() {
-    x = 1 2
-}
+fn f()
+    x = 1
+    2
+end
 
 --------------------------------------------------------------------------------
 
@@ -619,16 +625,16 @@ fn f() {
       (binding
         (identifier)
         (integer))
-      (ERROR
-        (integer)))))
+      (integer))))
 
 ================================================================================
 Statements separated by a semicolon
 ================================================================================
 
-fn f() {
-    x = 1; y = 2
-}
+fn f()
+    x = 1
+    y = 2
+end
 
 --------------------------------------------------------------------------------
 
@@ -648,13 +654,13 @@ fn f() {
 A name before a brace is not a literal
 ================================================================================
 
-fn f() {
+fn f()
     p = Point{x: 1}
-}
+end
 
-fn g() {
+fn g()
     m = Map{}
-}
+end
 
 --------------------------------------------------------------------------------
 

@@ -44,12 +44,12 @@ func j6KeyErrors(src string) string {
 // key has always been an error, so the check exists and this position was
 // simply not wired to it.
 func TestMapPatternKeyIsTypeChecked(t *testing.T) {
-	got := j6KeyErrors(`fn f(m: Map<Int, String>) -> String {
-  case m {
-    %{Int.to_string(1, 2, 3) => v} -> v
+	got := j6KeyErrors(`fn f(m: Map<Int, String>) -> String
+  case m
+    {Int.to_string(1, 2, 3) => v} -> v
     _ -> "?"
-  }
-}
+  end
+end
 `)
 	if !strings.Contains(got, "arguments") {
 		t.Errorf("an arity error inside a map PATTERN key went unreported.\n"+
@@ -64,10 +64,12 @@ func TestMapPatternKeyIsTypeChecked(t *testing.T) {
 // TestMapDestructureKeyIsTypeChecked is the same firing at a map pattern bound
 // with `else`.
 func TestMapDestructureKeyIsTypeChecked(t *testing.T) {
-	got := j6KeyErrors(`fn f(m: Map<Int, String>) -> String {
-  %{Int.to_string(1, 2, 3) => v} = m else { return "" }
+	got := j6KeyErrors(`fn f(m: Map<Int, String>) -> String
+  {Int.to_string(1, 2, 3) => v} = m else
+      return ""
+  end
   v
-}
+end
 `)
 	if !strings.Contains(got, "arguments") {
 		t.Errorf("an arity error inside a map DESTRUCTURE key went unreported.\n"+
@@ -87,9 +89,9 @@ func TestMapDestructureKeyIsTypeChecked(t *testing.T) {
 // while the two above pass, the divergence has been re-introduced from the
 // other side.
 func TestMapLiteralKeyIsTypeChecked(t *testing.T) {
-	got := j6KeyErrors(`fn f() -> Map<Int, String> {
-  %{Int.to_string(1, 2, 3) => "x"}
-}
+	got := j6KeyErrors(`fn f() -> Map<Int, String>
+  {Int.to_string(1, 2, 3) => "x"}
+end
 `)
 	if !strings.Contains(got, "arguments") {
 		t.Errorf("a map LITERAL key stopped being type-checked: %q\n"+
@@ -105,7 +107,7 @@ func TestMapLiteralKeyIsTypeChecked(t *testing.T) {
 // map_patterns_test.nomi` writes, and asserts the answer of:
 //
 //	fallthrough = case flags {        // flags: Map<Bool, String>
-//	  %{Color.Blue => v} -> v
+//	  {Color.Blue => v} -> v
 //	  _ -> "fallthrough"
 //	}
 //	assert fallthrough == "fallthrough"
@@ -121,17 +123,17 @@ func TestMapLiteralKeyIsTypeChecked(t *testing.T) {
 // This cannot expire the way an implementation note can: it is two measured
 // answers to one program.
 func TestMapPatternKeyOfAnUnrelatedTypeStaysLegal(t *testing.T) {
-	got := j6KeyErrors(`enum Color {
+	got := j6KeyErrors(`enum Color
   Red
   Blue
-}
+end
 
-fn f(m: Map<Bool, String>) -> String {
-  case m {
-    %{Color.Blue => v} -> v
+fn f(m: Map<Bool, String>) -> String
+  case m
+    {Color.Blue => v} -> v
     _ -> "fallthrough"
-  }
-}
+  end
+end
 `)
 	if got != "" {
 		t.Errorf("a map pattern key of an unrelated type was rejected: %q\n"+
@@ -145,15 +147,17 @@ fn f(m: Map<Bool, String>) -> String {
 // a map pattern binding: a mismatched key there runs the `else`. That is a
 // RUN-TIME outcome and not a type error, as it is in a `case`.
 func TestMapDestructureKeyOfAnUnrelatedTypeStaysLegal(t *testing.T) {
-	got := j6KeyErrors(`enum Color {
+	got := j6KeyErrors(`enum Color
   Red
   Blue
-}
+end
 
-fn f(m: Map<Bool, String>) -> String {
-  %{Color.Blue => v} = m else { return "" }
+fn f(m: Map<Bool, String>) -> String
+  {Color.Blue => v} = m else
+      return ""
+  end
   v
-}
+end
 `)
 	if got != "" {
 		t.Errorf("a map destructure key of an unrelated type was rejected: %q", got)
@@ -173,12 +177,12 @@ fn f(m: Map<Bool, String>) -> String {
 // records references from it. A witness that reads the same before and after
 // measures nothing.
 func TestMapPatternKeyPreludeConstructorIsAccepted(t *testing.T) {
-	got := j6KeyErrors(`fn f(m: Map<Maybe<Int>, String>) -> String {
-  case m {
-    %{Some(2) => v} -> v
+	got := j6KeyErrors(`fn f(m: Map<Maybe<Int>, String>) -> String
+  case m
+    {Some(2) => v} -> v
     _ -> "?"
-  }
-}
+  end
+end
 `)
 	if got != "" {
 		t.Errorf("a prelude constructor in map pattern key position was rejected: %q", got)

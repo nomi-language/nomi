@@ -7,11 +7,11 @@
 // Dispatch keys on a `*rt.TypeID` address with no name in the path, so the
 // alias at the import site cannot change which impl answers. A dispatch keyed
 // on the runtime type name would see the alias there and find no impl.
-import {
+import
     std::io
     gadget.{Gadget as Doodad, Shout}
-}
+end
 
-fn main() {
+fn main()
     io.print(Shout.shout(Doodad{n: 3}))
-}
+end

@@ -8,16 +8,16 @@ import (
 // iterSensitiveValueError is the error at a value use of stop.
 var iterSensitiveValueError = iterSensitiveUseError("stop", "`break`", "Iter.map(xs, stop)")
 
-const iterSensitiveStop = `fn stop(x: Int) -> Int {
-    if x > 2 {
+const iterSensitiveStop = `fn stop(x: Int) -> Int
+    if x > 2 then
         break
-    }
+    end
     x
-}
+end
 
-fn apply(f: (Int) -> Int, x: Int) -> Int {
+fn apply(f: (Int) -> Int, x: Int) -> Int
     f(x)
-}
+end
 `
 
 // An iter-sensitive function named as a value anywhere but directly as an
@@ -31,7 +31,7 @@ func TestIterSensitiveValue_IsRejectedOutsideACallbackSlot(t *testing.T) {
 		"_ = [1] |> Iter.map(stop) |> Iter.to_list()\n    _ = apply(stop, 1)",
 		"_ = [1] |> Iter.map(stop) |> Iter.to_list()\n    fs = [stop]\n    _ = fs",
 	} {
-		src := iterSensitiveStop + "\nfn main() {\n    " + body + "\n}\n"
+		src := iterSensitiveStop + "\nfn main()\n    " + body + "\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		var got []string
 		found := false
@@ -49,14 +49,14 @@ func TestIterSensitiveValue_IsRejectedOutsideACallbackSlot(t *testing.T) {
 // does passing it in parentheses, which `nomi fmt` drops.
 func TestIterSensitiveValue_AdmitsADirectCallback(t *testing.T) {
 	src := iterSensitiveStop + `
-fn main() {
+fn main()
     _ = [1, 2, 3] |> Iter.map(stop) |> Iter.to_list()
     _ = Iter.map([1], stop) |> Iter.to_list()
     _ = Iter.map([1], f: stop) |> Iter.to_list()
     _ = [1, 2, 3] |> Iter.map((stop)) |> Iter.to_list()
     _ = Iter.map([1], f: ((stop))) |> Iter.to_list()
     _ = apply(fn x -> x, 1)
-}
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	for _, e := range errs {

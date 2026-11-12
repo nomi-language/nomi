@@ -1,12 +1,12 @@
 import std::compiler.{self, Diagnostic}
 
-pub fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
+pub fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool
     Iter.any_match(diagnostics, fn diagnostic -> text in diagnostic.message)
-}
+end
 
-pub fn hover_signature(source: String) -> String {
-    case compiler.hover(source) {
+pub fn hover_signature(source: String) -> String
+    case compiler.hover(source)
         Ok(hover) -> hover.signature
         Err(message) -> message
-    }
-}
+    end
+end

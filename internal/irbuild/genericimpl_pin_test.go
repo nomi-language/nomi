@@ -24,9 +24,9 @@ import "testing"
 // The fixture contains exactly two instantiations of one template and nothing
 // else, so if they coincide the assertion cannot pass by accident.
 func TestGenericInstanceKindsAreDistinctMapKeys(t *testing.T) {
-	src := "pub struct Box<T> {\n  item: T\n}\n\n" +
-		"fn a(b: Box<Int>) -> Int {\n  b.item\n}\n\n" +
-		"fn c(d: Box<String>) -> String {\n  d.item\n}\n"
+	src := "pub struct Box<T>\n  item: T\nend\n\n" +
+		"fn a(b: Box<Int>) -> Int\n  b.item\nend\n\n" +
+		"fn c(d: Box<String>) -> String\n  d.item\nend\n"
 	g := lowerableGen(t, src)
 	if n := len(g.genericInstOrder); n != 2 {
 		t.Fatalf("built %d instances, want exactly 2: the claim is about TWO instantiations of one "+
@@ -66,9 +66,9 @@ func TestGenericInstanceKindsAreDistinctMapKeys(t *testing.T) {
 //     Anything that reconstructs `NomiI_<Iface>_<nomi>_<method>` instead of
 //     reading the minted name picks whichever instance came first.
 func TestGenericInstanceNomiNamesCollideOnPurpose(t *testing.T) {
-	src := "pub struct Box<T> {\n  item: T\n}\n\n" +
-		"fn a(b: Box<Int>) -> Int {\n  b.item\n}\n\n" +
-		"fn c(d: Box<String>) -> String {\n  d.item\n}\n"
+	src := "pub struct Box<T>\n  item: T\nend\n\n" +
+		"fn a(b: Box<Int>) -> Int\n  b.item\nend\n\n" +
+		"fn c(d: Box<String>) -> String\n  d.item\nend\n"
 	g := lowerableGen(t, src)
 	if len(g.genericInstOrder) != 2 {
 		t.Fatalf("built %d instances, want 2", len(g.genericInstOrder))
@@ -93,13 +93,13 @@ func TestGenericInstanceNomiNamesCollideOnPurpose(t *testing.T) {
 // neither mints an instance of Box. The function over the block's `T` stays
 // with the instances, of which this source builds none.
 func TestOwnerFunctionsAreBuiltWithoutAnInstance(t *testing.T) {
-	src := "struct Box<T> {\n  v: T\n}\n\n" +
-		"impl Box<T> {\n" +
-		"  fn get(b: Box<T>) -> T {\n    b.v\n  }\n\n" +
-		"  fn seven() -> Int {\n    7\n  }\n\n" +
-		"  fn twice<T>(x: T) -> (T, T) {\n    (x, x)\n  }\n" +
-		"}\n\n" +
-		"fn f() -> Int {\n  Box.seven() + Box.twice(1).first\n}\n"
+	src := "struct Box<T>\n  v: T\nend\n\n" +
+		"impl Box<T>\n" +
+		"  fn get(b: Box<T>) -> T\n    b.v\n  end\n\n" +
+		"  fn seven() -> Int\n    7\n  end\n\n" +
+		"  fn twice<T>(x: T) -> (T, T)\n    (x, x)\n  end\n" +
+		"end\n\n" +
+		"fn f() -> Int\n  Box.seven() + Box.twice(1).first\nend\n"
 	g := lowerableGen(t, src)
 	if n := len(g.genericInstOrder); n != 0 {
 		t.Fatalf("built %d instances of Box, want none: no call names one", n)
@@ -128,12 +128,12 @@ func TestOwnerFunctionsAreBuiltWithoutAnInstance(t *testing.T) {
 // finished lowering. Withheld, the one instance the source names is the only
 // one built, and the block records why `gather` is absent.
 func TestExpansiveImplMemberIsWithheldFromEachInstance(t *testing.T) {
-	src := "enum Box<T> {\n  Full T\n  Empty\n}\n\n" +
-		"impl Box<T> {\n" +
-		"  fn gather(_boxes: List<Box<T>>) -> Box<List<T>> {\n    Box.Empty\n  }\n\n" +
-		"  fn is_full(b: Box<T>) -> Bool {\n    case b {\n      .Full(_) -> True\n      .Empty -> False\n    }\n  }\n" +
-		"}\n\n" +
-		"fn f(b: Box<Int>) -> Bool {\n  Box.is_full(b)\n}\n"
+	src := "enum Box<T>\n  Full T\n  Empty\nend\n\n" +
+		"impl Box<T>\n" +
+		"  fn gather(_boxes: List<Box<T>>) -> Box<List<T>>\n    Box.Empty\n  end\n\n" +
+		"  fn is_full(b: Box<T>) -> Bool\n    case b\n      .Full(_) -> True\n      .Empty -> False\n    end\n  end\n" +
+		"end\n\n" +
+		"fn f(b: Box<Int>) -> Bool\n  Box.is_full(b)\nend\n"
 	g := lowerableGen(t, src)
 	if n := len(g.genericInstOrder); n != 1 {
 		t.Fatalf("built %d instances, want exactly 1 (Box<Int>): gather's Box<List<T>> must not mint a "+

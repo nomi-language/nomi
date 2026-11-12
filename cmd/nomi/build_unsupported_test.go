@@ -16,21 +16,21 @@ import (
 // does, unless --allow-unsupported processes. The report's text is held by
 // vmhost's TestCheckTarget_*.
 
-const filesProgram = `import {
+const filesProgram = `import
     std::fs
     std::io
-}
+end
 
-fn save(text: String) -> Result<Unit, io.Error> {
+fn save(text: String) -> Result<Unit, io.Error>
     fs.write_text("notes.txt", text)
-}
+end
 
-fn main() -> Result<Unit, io.Error> {
+fn main() -> Result<Unit, io.Error>
     text = fs.read_text("notes.txt")?
     save(text + "!")?
     io.print("saved")
     Ok(Unit)
-}
+end
 `
 
 func TestBuildCommand_JsWasmBuildsAProgramThatReachesFiles(t *testing.T) {
@@ -87,15 +87,15 @@ func TestBuildCommand_WebAssemblyRefusesAProgramThatStartsOne(t *testing.T) {
 	env := buildEnv(t.TempDir())
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "make.nomi")
-	mustWrite(t, entry, `import {
+	mustWrite(t, entry, `import
     std::io
     std::process.{self, Command}
-}
+end
 
-fn main() -> Result<Unit, io.Error> {
+fn main() -> Result<Unit, io.Error>
     _ = process.run(Command{program: "make"})?
     Ok(Unit)
-}
+end
 `)
 	out := filepath.Join(t.TempDir(), "make.wasm")
 	got := runProcess(t, env, dir, "", nomiBin, "build", entry, "--target", "wasip1/wasm", "-o", out)

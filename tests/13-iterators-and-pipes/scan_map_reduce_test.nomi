@@ -1,4 +1,4 @@
-test "scan yields each state after the seed" {
+test "scan yields each state after the seed"
     running = [3, 1, 4] |> Iter.scan(0, fn total, x -> total + x) |> Iter.to_list()
     peaks = [2, 5, 3, 7] |> Iter.scan(0, fn peak, x -> Int.max(peak, x)) |> Iter.to_list()
     words = ["a", "b", "c"] |> Iter.scan("", fn text, s -> text + s) |> Iter.to_list()
@@ -6,15 +6,15 @@ test "scan yields each state after the seed" {
     assert running == [3, 4, 8]
     assert peaks == [2, 5, 5, 7]
     assert words == ["a", "ab", "abc"]
-}
+end
 
-test "scan over an empty source yields nothing" {
+test "scan over an empty source yields nothing"
     none: List<Int> = []
 
     assert none |> Iter.scan(100, fn total, x -> total + x) |> Iter.to_list() == []
-}
+end
 
-test "scan is lazy" {
+test "scan is lazy"
     // An unbounded source ends because `take` stops the scan after three.
     triangular =
         Iter.from(1)
@@ -25,102 +25,102 @@ test "scan is lazy" {
     // A stop in the callback past the third element is never reached.
     first_three =
         [1, 2, 3, 4, 5]
-        |> Iter.scan(0, fn total, x -> {
-            if x > 3 { break -1 }
+        |> Iter.scan(0, fn total, x ->
+            if x > 3 then break -1
             total + x
-        })
+        end)
         |> Iter.take(3)
         |> Iter.to_list()
 
     assert triangular == [1, 3, 6]
     assert first_three == [1, 3, 6]
-}
+end
 
-test "a scan replays from its seed" {
+test "a scan replays from its seed"
     running = [1, 2, 3] |> Iter.scan(0, fn total, x -> total + x)
 
     assert Iter.to_list(running) == [1, 3, 6]
     assert Iter.to_list(running) == [1, 3, 6]
-}
+end
 
-test "scan supports break and continue" {
+test "scan supports break and continue"
     skipped =
         [1, -2, 3, -4, 5]
-        |> Iter.scan(0, fn total, x -> {
-            if x < 0 { continue }
+        |> Iter.scan(0, fn total, x ->
+            if x < 0 then continue
             total + x
-        })
+        end)
         |> Iter.to_list()
 
     last_value =
         [10, 20, 30, 40]
-        |> Iter.scan(0, fn total, x -> {
-            if total + x > 50 { break total * 100 }
+        |> Iter.scan(0, fn total, x ->
+            if total + x > 50 then break total * 100
             total + x
-        })
+        end)
         |> Iter.to_list()
 
     stopped =
         [10, 20, 30, 40]
-        |> Iter.scan(0, fn total, x -> {
-            if total + x > 50 { break }
+        |> Iter.scan(0, fn total, x ->
+            if total + x > 50 then break
             total + x
-        })
+        end)
         |> Iter.to_list()
 
     assert skipped == [1, 4, 9]
     assert last_value == [10, 30, 3000]
     assert stopped == [10, 30]
-}
+end
 
-test "map_reduce answers the final state and the outputs" {
+test "map_reduce answers the final state and the outputs"
     (total, labels) =
         ["a", "bb", "c"]
-        |> Iter.map_reduce(0, fn offset, word -> {
+        |> Iter.map_reduce(0, fn offset, word ->
             (offset + String.length(word), "${offset}:${word}")
-        })
+        end)
 
     (width, rows) =
         ["a", "abc", "ab"]
         |> Iter.reverse()
-        |> Iter.map_reduce(0, fn width, line -> {
+        |> Iter.map_reduce(0, fn width, line ->
             width = Int.max(width, String.length(line))
             (width, String.pad_end(line, width))
-        })
+        end)
 
     assert labels == ["0:a", "1:bb", "3:c"]
     assert total == 4
     assert rows == ["ab", "abc", "a  "]
     assert width == 3
-}
+end
 
-test "map_reduce over an empty source answers the seed and no outputs" {
+test "map_reduce over an empty source answers the seed and no outputs"
     none: List<String> = []
 
     assert Iter.map_reduce(none, 7, fn count, s -> (count + 1, s)) == (7, [])
-}
+end
 
-test "map_reduce supports break and continue" {
+test "map_reduce supports break and continue"
     (sum, kept) =
         [1, -2, 3, -4, 5]
-        |> Iter.map_reduce(0, fn total, x -> {
-            if x < 0 { continue }
+        |> Iter.map_reduce(0, fn total, x ->
+            if x < 0 then continue
             (total + x, x * 10)
-        })
+        end)
 
     (last, until_big) =
         [10, 20, 30, 40]
-        |> Iter.map_reduce(0, fn total, x -> {
-            if total + x > 50 { break (-1, x) }
+        |> Iter.map_reduce(0, fn total, x ->
+            if total + x > 50 then break (-1, x)
             (total + x, x)
-        })
+        end)
 
     (so_far, before) =
         [10, 20, 30, 40]
-        |> Iter.map_reduce(0, fn total, x -> {
-            if total + x > 50 { break }
+        |> Iter.map_reduce(0, fn total, x ->
+            if total + x > 50 then break
             (total + x, x)
-        })
+        end)
 
     assert kept == [10, 30, 50]
     assert sum == 9
@@ -128,4 +128,4 @@ test "map_reduce supports break and continue" {
     assert last == -1
     assert before == [10, 20]
     assert so_far == 30
-}
+end

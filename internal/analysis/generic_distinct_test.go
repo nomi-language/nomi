@@ -11,13 +11,13 @@ import (
 func TestGenericDistinctChecksItsTypeArgument(t *testing.T) {
 	accepted := `type Tagged<T> (String, T)
 
-fn value<T>(Tagged((_, v)): Tagged<T>) -> T {
+fn value<T>(Tagged((_, v)): Tagged<T>) -> T
   v
-}
+end
 
-fn f() -> Int {
+fn f() -> Int
   value(Tagged(("n", 1))) + 1
-}
+end
 `
 	if _, errs := checkSourceWithStdlib(accepted); len(errs) != 0 {
 		t.Fatalf("the front end rejects a generic distinct: %v", errs)
@@ -25,22 +25,22 @@ fn f() -> Int {
 	for name, c := range map[string]struct{ src, want string }{
 		"construction": {`type Tagged<T> (String, T)
 
-fn f() -> Tagged<String> {
+fn f() -> Tagged<String>
   Tagged(("s", 1))
-}
+end
 `, "expected Tagged<String>, got Tagged<Int>"},
 		"arity": {`type Tagged<T> (String, T)
 
-fn f(t: Tagged<Int, Int>) -> Int {
+fn f(t: Tagged<Int, Int>) -> Int
   1
-}
+end
 `, "`Tagged` expects 1 type argument, got 2"},
 		"destructuring": {`type Tagged<T> (String, T)
 
-fn f() -> String {
+fn f() -> String
   Tagged((_, v)) = Tagged(("s", 1))
   v
-}
+end
 `, "expected String, got Int"},
 	} {
 		t.Run(name, func(t *testing.T) {

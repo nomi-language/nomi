@@ -1,25 +1,25 @@
-test "raw single-line strings preserve interpolation-looking text" {
+test "raw single-line strings preserve interpolation-looking text"
     assert `price: ${VAR}` == "price: \${VAR}"
-}
+end
 
-test "raw single-line strings preserve backslashes" {
+test "raw single-line strings preserve backslashes"
     assert `\d{3,4}` == "\\d{3,4}"
-}
+end
 
-test "raw single-line strings preserve doubled dollar signs" {
+test "raw single-line strings preserve doubled dollar signs"
     assert `$${already}` == "$\${already}"
-}
+end
 
-test "multi-line raw strings preserve multiline regex text" {
+test "multi-line raw strings preserve multiline regex text"
     pattern = `
         \d{3,4}
         [a-zA-Z_]+
         `
 
     assert pattern == "\\d{3,4}\n[a-zA-Z_]+"
-}
+end
 
-test "multi-line raw strings preserve shell interpolation syntax" {
+test "multi-line raw strings preserve shell interpolation syntax"
     script = `
         for f in *.sh; do
             echo "${f%.sh}"
@@ -27,12 +27,12 @@ test "multi-line raw strings preserve shell interpolation syntax" {
         `
 
     assert script == "for f in *.sh; do\n    echo \"\${f%.sh}\"\ndone"
-}
+end
 
-test "multi-line raw strings preserve doubled dollar signs" {
+test "multi-line raw strings preserve doubled dollar signs"
     literal_dollars = `
         cost: $${price}
         `
 
     assert literal_dollars == "cost: $\${price}"
-}
+end

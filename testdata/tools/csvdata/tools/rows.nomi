@@ -1,32 +1,33 @@
 // `nomi tool csvdata rows <file.csv>...`: how many rows each table has. A
 // tool has the same access to files, the network and output that `nomi run`
 // gives a program: this one reads files.
-import {
+import
     std::fs
     std::io
-}
+end
 
-struct App {
+struct App
     files: List<String>
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
     Ok(App{files: startup.args})
-}
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     report(App.files)
-}
+end
 
-fn report(paths: List<String>) -> Result<Unit, String> {
-    case paths {
-        [] -> Ok(Unit)
+fn report(paths: List<String>) -> Result<Unit, String>
+    case paths
+        [] ->
+            Ok(Unit)
 
-        [path, ..rest] -> {
-            text = case fs.read_text(path) {
+        [path, ..rest] ->
+            text = case fs.read_text(path)
                 Ok(t) -> t
                 Err(e) -> return Err("${path}: ${e}")
-            }
+            end
 
             rows =
                 text
@@ -37,6 +38,5 @@ fn report(paths: List<String>) -> Result<Unit, String> {
 
             io.print("${path}: ${rows} rows")
             report(rest)
-        }
-    }
-}
+    end
+end

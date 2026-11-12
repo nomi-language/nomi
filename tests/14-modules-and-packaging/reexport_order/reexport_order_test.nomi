@@ -1,20 +1,20 @@
 // A name a file re-exports with `pub import` is importable from a file that
 // comes before it in the order of their paths, and so is a re-export of
 // that re-export.
-import {
+import
     domain::aliases.Kind
     domain::fundraising.{self, Form}
-}
+end
 
-test "a struct field typed with a re-exported enum" {
+test "a struct field typed with a re-exported enum"
     form = Form{kind: Some(.Heart)}
 
     assert fundraising.kind_of(form) == Some(.Heart)
-}
+end
 
-test "a re-export of a re-export is the same enum" {
+test "a re-export of a re-export is the same enum"
     kind: Kind = .Pray
     form = Form{kind: Some(kind)}
 
     assert form.kind == Some(Kind.Pray)
-}
+end

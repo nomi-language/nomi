@@ -17,69 +17,69 @@ import (
 func TestRun_AnAssertionAsAValueInAFunction(t *testing.T) {
 	out := runSourceOutput(t, `import std::assertions.AssertionFailure
 
-fn stmt(x: Bool) -> Result<Int, AssertionFailure> {
+fn stmt(x: Bool) -> Result<Int, AssertionFailure>
   assert x
   Ok(1)
-}
+end
 
-fn bind(x: Bool) -> Result<Bool, AssertionFailure> {
+fn bind(x: Bool) -> Result<Bool, AssertionFailure>
   ok = assert x
   Ok(ok)
-}
+end
 
-fn typed(x: Bool) -> Result<Bool, AssertionFailure> {
+fn typed(x: Bool) -> Result<Bool, AssertionFailure>
   ok: Bool = refute x
   Ok(ok)
-}
+end
 
-fn wild(x: Bool) -> Result<Int, AssertionFailure> {
+fn wild(x: Bool) -> Result<Int, AssertionFailure>
   _ = assert x
   Ok(2)
-}
+end
 
-fn some(m: Maybe<Int>) -> Result<Int, AssertionFailure> {
-  Some(n) = assert m else {
+fn some(m: Maybe<Int>) -> Result<Int, AssertionFailure>
+  Some(n) = assert m else
     return Ok(0)
-  }
+  end
   Ok(n)
-}
+end
 
-fn blk(x: Bool) -> Result<Bool, AssertionFailure> {
-  ok = {
+fn blk(x: Bool) -> Result<Bool, AssertionFailure>
+  ok = begin
     assert x
-  }
+  end
   Ok(ok)
-}
+end
 
-fn iff(c: Bool, x: Bool) -> Result<Bool, AssertionFailure> {
-  ok = if c {
+fn iff(c: Bool, x: Bool) -> Result<Bool, AssertionFailure>
+  ok = if c then
     assert x
-  } else {
+  else
     False
-  }
+  end
   Ok(ok)
-}
+end
 
-fn cas(c: Bool, x: Bool) -> Result<Bool, AssertionFailure> {
-  ok = case c {
+fn cas(c: Bool, x: Bool) -> Result<Bool, AssertionFailure>
+  ok = case c
     True -> assert x
     False -> False
-  }
+  end
   Ok(ok)
-}
+end
 
-fn tail(r: Result<Int, AssertionFailure>) -> Result<Int, AssertionFailure> {
+fn tail(r: Result<Int, AssertionFailure>) -> Result<Int, AssertionFailure>
   assert r
-}
+end
 
-fn show<T>(r: Result<T, AssertionFailure>) -> String {
-  case r {
+fn show<T>(r: Result<T, AssertionFailure>) -> String
+  case r
     Ok(_) -> "Ok"
     Err(f) -> "Err(line ${Int.to_string(f.line)})"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   dbg(stmt(True))
   dbg(show(stmt(False)))
   dbg(bind(True))
@@ -98,7 +98,7 @@ fn main() {
   dbg(cas(True, True))
   dbg(show(cas(True, False)))
   dbg(tail(Ok(4)))
-}
+end
 `)
 	want := `dbg line 66: stmt(True) = Ok(1)
 dbg line 67: show(stmt(False)) = "Err(line 4)"
@@ -128,12 +128,12 @@ dbg line 83: tail(Ok(4)) = Ok(4)
 func TestRun_AFailedAssertionBoundInMainEndsTheProgram(t *testing.T) {
 	p, err := vmhost.LoadSource("main.nomi", `import std::assertions.AssertionFailure
 
-fn main() -> Result<Unit, AssertionFailure> {
+fn main() -> Result<Unit, AssertionFailure>
   n = 0
   ok = assert n > 1
   dbg(ok)
   Ok(Unit)
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the program: %v", err)
@@ -156,72 +156,72 @@ fn main() -> Result<Unit, AssertionFailure> {
 // The same forms in a test body: each passing one binds the subject, and
 // each failing one fails its case with the assertion's report.
 func TestTest_AnAssertionAsAValueInATestBody(t *testing.T) {
-	p, err := vmhost.Load(writeProgram(t, `fn flag(b: Bool) -> Bool {
+	p, err := vmhost.Load(writeProgram(t, `fn flag(b: Bool) -> Bool
   b
-}
+end
 
 once ready = flag(True)
 
-test "discarded" {
+test "discarded"
   _ = assert flag(True)
   _ = assert flag(False)
-}
+end
 
-test "annotated" {
+test "annotated"
   o: Bool = refute flag(False)
   r: Result<Int, String> = assert Ok(2)
   assert o == False
   assert r == Ok(2)
-}
+end
 
-test "destructured" {
-  Some(n) = assert Some(1) else {
+test "destructured"
+  Some(n) = assert Some(1) else
     return
-  }
+  end
   assert n == 1
   none: Maybe<Int> = None
-  Some(_m) = assert none else {
+  Some(_m) = assert none else
     return
-  }
-}
+  end
+end
 
-test "block tail" {
-  v = {
+test "block tail"
+  v = begin
     assert flag(True)
-  }
+  end
   assert v
-}
+end
 
-test "if arm" {
-  w = if flag(True) {
+test "if arm"
+  w = if flag(True) then
     assert flag(False)
-  } else {
+  else
     False
-  }
+  end
   assert w
-}
+end
 
-test "case arm" {
-  w = case flag(True) {
+test "case arm"
+  w = case flag(True)
     True -> refute flag(True)
     False -> False
-  }
+  end
   refute w
-}
+end
 
-test "leading in an arm" {
-  w = if flag(True) {
+test "leading in an arm"
+  w = if flag(True) then
     assert flag(True)
     7
-  } else {
+  else
     0
-  }
+  end
   assert w == 7
-}
+end
 
-test "bare once" {
+test "bare once"
   assert ready
-}
+end
 `))
 	if err != nil {
 		t.Fatalf("the front end rejects the program: %v", err)

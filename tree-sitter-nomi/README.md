@@ -75,8 +75,10 @@ formatted and type-check
 `internal/lsp` analyzes them). A caret can only point at a column three or
 more past the comment's indentation, `// <-` points at the indentation
 itself, and an assertion separated from its line by a blank line checks the
-blank line. `nomi fmt` indents a comment after a line ending in `{` into the
-block.
+blank line. `nomi fmt` indents a comment after a header line (`fn f()`,
+`if c then`, `case x`) into the body below it, so a caret under a header
+points at a column the body's indentation allows; `// <-` under an `end`
+points at it from the body's end.
 
 ## License
 

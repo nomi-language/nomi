@@ -10,14 +10,14 @@ import "testing"
 func TestRangeStepBy_RunsForEverySteppableElement(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-fn main() {
+fn main()
     1..=10 |> Range.step_by(3) |> Iter.to_list() |> Debug.inspect() |> io.print()
     1..10 |> Range.step_by(3) |> Iter.to_list() |> Debug.inspect() |> io.print()
     1.0d..=1.3d |> Range.step_by(0.1d) |> Iter.to_list() |> Debug.inspect() |> io.print()
     1.0d..1.3d |> Range.step_by(0.1d) |> Iter.to_list() |> Debug.inspect() |> io.print()
     'a'..='e' |> Range.step_by(2) |> Iter.to_list() |> Debug.inspect() |> io.print()
     'a'..'e' |> Range.step_by(2) |> Iter.to_list() |> Debug.inspect() |> io.print()
-}
+end
 `)
 	want := `[1, 4, 7, 10]
 [1, 4, 7]

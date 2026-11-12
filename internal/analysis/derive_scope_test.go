@@ -49,10 +49,10 @@ func expectNoErrorContaining(t *testing.T, errs []TypeError, substr string) {
 // through the compiler-known route, so no fabricated-position errors pile on
 // top of the actionable one.
 func TestDeriveArgScope_NotInScopeErrors(t *testing.T) {
-	fa, errs := checkSourceSynth(`struct Point {
+	fa, errs := checkSourceSynth(`struct Point
   x: Int
   y: Int
-}
+end
 derive Comparable for Point
 derive Display for Point
 derive Equatable for Point
@@ -88,9 +88,9 @@ derive Hashable for Point
 // compiler-known universally (auto-synthesis, universal conformance, eager
 // registration), so naming it as a derive arg carries no scope requirement.
 func TestDeriveArgScope_DebugExempt(t *testing.T) {
-	_, errs := checkSourceSynth(`struct Point {
+	_, errs := checkSourceSynth(`struct Point
   x: Int
-}
+end
 derive Debug for Point
 `)
 	expectNoErrors(t, errs)
@@ -103,19 +103,19 @@ derive Debug for Point
 // scope) but Ordering/True/False nowhere, the bodies still check clean:
 // every support name resolves through the compiler-known route.
 func TestDeriveArgScope_EnumBodySupportNamesCompilerKnown(t *testing.T) {
-	fa, errs := checkSourceSynth(`interface Equatable {
+	fa, errs := checkSourceSynth(`interface Equatable
   fn equal(a: self, b: self) -> Bool
-}
+end
 
-interface Hashable {
+interface Hashable
   fn hash(value: self) -> Int
-}
+end
 
-enum Color {
+enum Color
   Red
   Green
   Blue
-}
+end
 derive Equatable for Color
 derive Hashable for Color
 `)
@@ -134,15 +134,15 @@ derive Hashable for Color
 // errors, proving the synth-band discriminator doesn't leak to hand-written
 // code that merely passed through lowering.
 func TestHandWrittenNestedImplHeaderStillRequiresScope(t *testing.T) {
-	_, errs := checkSourceSynth(`struct P {
+	_, errs := checkSourceSynth(`struct P
   x: Int
-}
+end
 
-impl Display for P {
-  fn to_string(_value: self) -> String {
+impl Display for P
+  fn to_string(_value: self) -> String
     "p"
-  }
-}
+  end
+end
 
 `)
 	expectError(t, errs, "undefined interface 'Display'")

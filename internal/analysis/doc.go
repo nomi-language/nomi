@@ -223,6 +223,126 @@
 // text. From a program checked whole, the first such run first encodes the
 // held lowering as objects.
 //
+// # Elaboration
+//
+// The IR builder lowers what the checker decided: each expression's type,
+// each call's callee and, for a generic callee, the type arguments it is
+// instantiated at. [VerifyElaboration] checks a checked file against that
+// invariant, reading only the checker's records (ExprTypes, ExpectedTypes,
+// References with each reference's CallType and DispatchImpl,
+// Operators, CallDefaults, HoleDisplays, Coercions, the `?` markers), and returns each place a record is
+// missing or open, by construct (call, expression, implicit operation) and
+// category. Its doc comment defines "closed": no unsolved inference
+// variable at any depth and no type parameter but the enclosing
+// declaration's own. Derive-synthesized bodies and the functions a
+// `phrase` or `noun` expands into are reported apart, by the declaration
+// around them.
+//
+// Those bodies sit in the synthesized band (derive_synthesis.go,
+// [IsSynthesizedLine]) so that no position of theirs aliases source, and
+// the checker records them in the same maps as written code: ExprTypes,
+// ExpectedTypes, PatternTypes, References and CallType. Their synthesized
+// code names the protocol interfaces, `Ordering` and the prelude variants
+// whatever the file binds; where the file binds none of them (a std
+// module), the checker records the std declaration as the file's own
+// reference would be (synthSupportType, synthPreludeVariant). The
+// language server never shows a band record: a request's position is
+// never in the band, and each reader that walks a whole map (references,
+// rename, highlights, the completion index, a served file's stored
+// references) skips the band.
+//
+// The language lets an inference variable stay unsolved where no value of
+// its type is made (undetermined.go: `[]`'s element, `Ok(1)`'s error
+// type). Once every body in the file is checked, the checker closes each
+// such variable (closed_vars.go): it records one closed type in the
+// variable's Closed field, which every record mentioning the variable
+// shares, so an argument and the callee it is passed to are built at one
+// instance. The rule is Int, or Unit when Int does not meet an interface
+// bound the variable was checked against and Unit does. Closed is
+// for lowering alone: checking and every display read Resolved, so the
+// variable still prints as `?N`, and a later unification that solves it
+// wins. The IR builder reads it through [ResolveClosed] and [Elaborate],
+// and through its own projection of a variable; it fills no hole itself.
+// The verifier counts a closed variable as closed.
+//
+// A call that leaves defaulted parameters out has a record of what fills
+// them (call_defaults.go, CallDefaults): the declaration whose defaults
+// they are, its file and the slots, made where the checker routes the
+// call's arguments to their slots, so a pipe's subject and a trailing
+// callback count as it counts them. A call through a local copy of a
+// declared function names the function the copy was made from, and a call
+// of an interface function the checker resolved to an impl takes the impl
+// function's defaults (settleCallDefaults). A declared function named as
+// a value where fewer parameters are expected records the slots its
+// call fills (DefaultedRefs). The IR builder fills omitted parameters
+// from these records alone.
+//
+// Each interpolation hole has a record of how its value renders by
+// Display (hole_display.go, HoleDisplays), made once the file's variables
+// are closed: a String is its own text; an Int, Float, Bool or Decimal and
+// a value with no part that has an impl (a tuple, anonymous struct, List,
+// Map or Vector of those scalars and Strings, or an empty collection) are
+// the machine's rendering; a tuple or anonymous struct with another part
+// renders each part by its own record; a declared type or a std container
+// renders through its `impl Display`, which the record names with its
+// file; an interface value renders through the impl of the value it
+// holds. A hole of a type parameter, or of the `self` of an interface
+// default (an InterfaceType marked DefaultSelf, which is the implementor
+// and not an interface value), records only that: the IR builder renders
+// it at each instance by the same rule over the instance's kind.
+//
+// Each binary operator over a value that is not a primitive has a record
+// of what it means (operator_uses.go, Operators), made once the file's
+// variables are closed: the impl it calls (its OperatorImpls record, or for
+// a derive-synthesized body the same record made for it there), a
+// comparison by shape (a tuple, anonymous struct or collection, or a
+// declared type no file writes or derives an Equatable for), a comparison
+// of two interface values by their run-time types, or, over a type
+// parameter, the interface of its bound, which the IR builder resolves at
+// each instance. A declared type whose impls the index cannot narrow to
+// one is left unrecorded, and the verifier reports it.
+//
+// An expression of a concrete type checked against an interface type
+// becomes an interface value, and has a record of it (coercions.go,
+// Coercions): the interface with its type arguments, the value's type and
+// the impl block the checker selects for the pair (implCandidates). The
+// records are made once the file's bodies are checked and its variables
+// closed, from the types the checker settled. Two such expressions are no
+// coercion and have none: the receiver of a call of an interface function
+// (`Hashable.hash(1.5)`, a pipe's subject in that slot, the collection of
+// `x in c`), which the call passes to the impl it reaches, and a source at
+// an `Iter<T>` position, which the callee receives as a view over the
+// source (`ir.IterView`), not as an interface value. The IR builder makes
+// a written expression's interface value from its record alone
+// (internal/irbuild, irboxed.go).
+//
+// A source at an `Iter<T>` position has a record of the view instead
+// (iter_views.go, IterViews), made in the same pass: the source's type,
+// the element it pushes, and which walk the view is: std's List, String,
+// Bytes, Range, Vector, Set, Map or Maybe, the type's own `impl Iter`,
+// whose block the record names (implCandidates, or the type's one impl
+// of Iter where a where clause bounds it inside a generic body), or a
+// type parameter bounded by Iter, which each instance resolves. A
+// receiver of `Iter.each_while` or `Iter.known_count` has one too. A value
+// of type `Iter<T>` is a sequence already and has none. The IR builder
+// builds each view from its record (internal/irbuild, iterview.go).
+//
+// vmhost's TestElaborationGate runs the verifier over the corpus, the
+// stdlib, the tour, the spec and internal/irbuild's fixtures and fails on
+// any call or expression without a closed record, derived bodies included,
+// and on each implicit operation the checker records (gatedImplicit: a
+// call leaving defaulted parameters out, an interpolation hole, an
+// operator, a value entering an interface, a source entering an `Iter<T>`).
+// TestElaborationCensus runs it over the same programs, or over one project
+// directory read in place, and prints counts by category and construct
+// with examples, the implicit operations included, which nothing gates
+// yet:
+//
+//	NOMI_ELAB_CENSUS=1 go test ./vmhost -run TestElaborationCensus -count=1 -v
+//	NOMI_ELAB_DIR=<project> go test ./vmhost -run TestElaborationCensus -count=1 -v
+//
+// NOMI_ELAB_OUT=<file> writes every violation, one per line.
+//
 // # References from a record
 //
 // A closed file is served from its stored references (stored_refs.go: each

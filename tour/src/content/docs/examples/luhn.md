@@ -15,36 +15,36 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// Reports whether `number` passes the Luhn checksum. Spaces are ignored;
 /// any other non-digit, or fewer than two digits, makes it invalid.
-pub fn is_valid(number: String) -> Bool {
+pub fn is_valid(number: String) -> Bool
     digits =
         number
         |> String.replace(" ", "")
         |> Iter.map(String.to_int)
         |> Maybe.collect()
 
-    case digits {
+    case digits
         Some(digits) when Iter.count(digits) > 1 -> checksum(digits) % 10 == 0
         _ -> False
-    }
-}
+    end
+end
 
-fn checksum(digits: List<Int>) -> Int {
+fn checksum(digits: List<Int>) -> Int
     digits
     |> Iter.reverse()
     |> Iter.with_index()
-    |> Iter.map(fn (i, d) -> if i % 2 == 1 { double(d) } else { d })
+    |> Iter.map(fn (i, d) -> if i % 2 == 1 then double(d) else d)
     |> Iter.sum()
-}
+end
 
-fn double(digit: Int) -> Int {
+fn double(digit: Int) -> Int
     doubled = digit * 2
-    if doubled > 9 { doubled - 9 } else { doubled }
-}
+    if doubled > 9 then doubled - 9 else doubled
+end
 
 // FILE: luhn_test.nomi
 import luhn
 
-test "validates numbers with the Luhn checksum" {
+test "validates numbers with the Luhn checksum"
     [
         ("single digit strings can not be valid", "1", False),
         ("a single zero is invalid", "0", False),
@@ -77,10 +77,10 @@ test "validates numbers with the Luhn checksum" {
             False,
         ),
     ]
-    |> subtests (description, number, expected), description {
+    |> subtests (description, number, expected), description
         assert luhn.is_valid(number) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok validates numbers with the Luhn checksum (22 cases)

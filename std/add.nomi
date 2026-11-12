@@ -9,12 +9,12 @@
 /// pub type DateDay Int
 /// pub type Days Int
 ///
-/// impl Add<Days, DateDay> for DateDay {
-///     fn add(lhs: DateDay, rhs: Days) -> DateDay {
+/// impl Add<Days, DateDay> for DateDay
+///     fn add(lhs: DateDay, rhs: Days) -> DateDay
 ///         ...
-///     }
-/// }
+///     end
+/// end
 /// ```
-pub interface Add<Rhs, Out> {
+pub interface Add<Rhs, Out>
     fn add(lhs: self, rhs: Rhs) -> Out
-}
+end

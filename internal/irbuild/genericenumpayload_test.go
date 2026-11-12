@@ -13,36 +13,36 @@ func TestIRVariantDeepPayload_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-enum Opt<T> {
+enum Opt<T>
     Has T
     Nothing
-}
+end
 
 derive Equatable for Opt<T>
 
-enum Holder<T> {
+enum Holder<T>
     Of {value: T}
     Empty
-}
+end
 
-enum Shape {
+enum Shape
     Dot
     Circle Int
-}
+end
 
-enum Plain {
+enum Plain
     Deep Maybe<Maybe<Int>>
     Pair (Shape, String)
     Polygon {sides: (Int, (Int) -> Int)}
-}
+end
 
-fn main() {
+fn main()
     a = Opt.Has(Some(Some(1)))
-    case a {
+    case a
         .Has(Some(Some(n))) -> io.inspect(n)
         .Has(_) -> io.inspect(0)
         .Nothing -> io.inspect(-1)
-    }
+    end
     io.inspect(a == Opt.Has(Some(Some(1))))
     io.inspect(a == Opt.Has(Some(None)))
     io.inspect(Opt.Has((Shape.Dot, "")))
@@ -50,17 +50,17 @@ fn main() {
     io.inspect(Opt.Has(Some(r)))
     io.inspect(Opt.Has(Opt.Has(Some(2))))
     io.inspect(Holder.Of{value: Some(Some(1))})
-    case (Holder.Of{value: (Shape.Circle(4), [Some("a")])}) {
-        .Of{value} -> io.inspect(value)
+    case (Holder.Of{value: (Shape.Circle(4), [Some("a")])})
+        .Of{value:} -> io.inspect(value)
         .Empty -> io.inspect(0)
-    }
+    end
     io.inspect(Plain.Deep(Some(None)))
     io.inspect(Plain.Pair((Shape.Dot, "p")))
-    case (Plain.Polygon{sides: (3, fn x: Int -> x * 2)}) {
+    case (Plain.Polygon{sides: (3, fn x: Int -> x * 2)})
         .Polygon{sides: (n, f)} -> io.inspect(f(n))
         _ -> io.inspect(0)
-    }
-}
+    end
+end
 `
 	const want = "1\n" +
 		"True\n" +

@@ -4,8 +4,8 @@
 // line below.
 import std::io
 
-fn main() {
+fn main()
     io.print("before")
     digits = Int.to_digits(0 - 5)
     io.print(digits)
-}
+end

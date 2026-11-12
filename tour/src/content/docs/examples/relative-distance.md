@@ -20,9 +20,9 @@ pub fn degree_of_separation(
     family: Map<String, List<String>>,
     from: String,
     to: String,
-) -> Maybe<Int> {
-    search(%[from], %[from], 0, relatives(family), to)
-}
+) -> Maybe<Int>
+    search([from], [from], 0, relatives(family), to)
+end
 
 /// A breadth-first search: `frontier` is every person `distance` steps
 /// reach that no fewer steps do, and `seen` every person reached so far.
@@ -32,41 +32,41 @@ fn search(
     distance: Int,
     relatives: Map<String, Set<String>>,
     to: String,
-) -> Maybe<Int> {
-    if to in frontier { return Some(distance) }
+) -> Maybe<Int>
+    if to in frontier then return Some(distance)
 
     next =
         frontier
-        |> Iter.flat_map(&(Map.get(relatives, &1) |> Maybe.with_default(%[])))
+        |> Iter.flat_map(&(Map.get(relatives, &1) |> Maybe.with_default([])))
         |> Iter.reject(&(&1 in seen))
         |> Iter.to_set()
 
-    if Iter.is_empty(next) {
+    if Iter.is_empty(next) then
         None
-    } else {
+    else
         search(next, Set.union(seen, next), distance + 1, relatives, to)
-    }
-}
+    end
+end
 
 /// Each person's relatives one step away: their parents, their children
 /// and their siblings.
-fn relatives(family: Map<String, List<String>>) -> Map<String, Set<String>> {
+fn relatives(family: Map<String, List<String>>) -> Map<String, Set<String>>
     family
-    |> Iter.flat_map(fn (parent, children) -> {
-        Iter.flat_map(children, fn child -> {
+    |> Iter.flat_map(fn (parent, children) ->
+        Iter.flat_map(children, fn child ->
             siblings = children |> Iter.filter(&(&1 != child)) |> Iter.map(&(child, &1))
             [(parent, child), (child, parent), ..siblings]
-        })
-    })
+        end)
+    end)
     |> Iter.group_by(.first)
     |> Map.map_values(fn links -> links |> Iter.map(.second) |> Iter.to_set())
-}
+end
 
 // FILE: relative_distance_test.nomi
 import relative_distance
 
 /// The family the canonical data's first two complex cases share.
-once family = %{
+once family = {
     "Aiko" => ["Bao", "Carlos"],
     "Bao" => ["Dalia", "Elias"],
     "Carlos" => ["Fatima", "Gustavo"],
@@ -123,7 +123,7 @@ once family = %{
 
 /// The family of the last complex case: `family` with Elias left out, so
 /// Javier's line is a tree of its own.
-once split_family = %{
+once split_family = {
     "Aiko" => ["Bao", "Carlos"],
     "Bao" => ["Dalia"],
     "Carlos" => ["Fatima", "Gustavo"],
@@ -177,26 +177,26 @@ once split_family = %{
     "Zara" => ["Mohammed"],
 }
 
-test "degree of separation" {
+test "degree of separation"
     [
         (
             "Direct parent-child relation",
-            %{"Vera" => ["Tomoko"], "Tomoko" => ["Aditi"]},
+            {"Vera" => ["Tomoko"], "Tomoko" => ["Aditi"]},
             "Vera",
             "Tomoko",
             Some(1),
         ),
-        ("Sibling relationship", %{"Dalia" => ["Olga", "Yassin"]}, "Olga", "Yassin", Some(1)),
+        ("Sibling relationship", {"Dalia" => ["Olga", "Yassin"]}, "Olga", "Yassin", Some(1)),
         (
             "Two degrees of separation, grandchild",
-            %{"Khadija" => ["Mateo"], "Mateo" => ["Rami"]},
+            {"Khadija" => ["Mateo"], "Mateo" => ["Rami"]},
             "Khadija",
             "Rami",
             Some(2),
         ),
         (
             "Unrelated individuals",
-            %{"Priya" => ["Rami"], "Kaito" => ["Elif"]},
+            {"Priya" => ["Rami"], "Kaito" => ["Elif"]},
             "Priya",
             "Kaito",
             None,
@@ -211,10 +211,10 @@ test "degree of separation" {
             Some(12),
         ),
     ]
-    |> subtests (description, tree, from, to, expected), description {
+    |> subtests (description, tree, from, to, expected), description
         assert relative_distance.degree_of_separation(tree, from, to) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok degree of separation (7 cases)

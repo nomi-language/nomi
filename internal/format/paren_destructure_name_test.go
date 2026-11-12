@@ -20,7 +20,7 @@ func formatsKeepingMeaning(t *testing.T, src, want string) {
 
 // A parenthesized name in a destructuring's slot is that name: the parser
 // builds the same destructure with or without the parentheses, so the
-// formatter dropping them keeps the meaning. `%{"host" => (host)} = config`
+// formatter dropping them keeps the meaning. `{"host" => (host)} = config`
 // used to be a pattern binding with a map pattern (rejected without `else`)
 // and became a map destructure once formatted.
 func TestFormat_ParenthesizedDestructureNameIsTheName(t *testing.T) {
@@ -29,33 +29,33 @@ func TestFormat_ParenthesizedDestructureNameIsTheName(t *testing.T) {
 		node      ast.Node
 	}{
 		{
-			"fn main() {\n    %{\"host\" => (host)} = config\n}\n",
-			"fn main() {\n    %{\"host\" => host} = config\n}\n",
+			"fn main()\n    {\"host\" => (host)} = config\nend\n",
+			"fn main()\n    {\"host\" => host} = config\nend\n",
 			&ast.PatternBinding{},
 		},
 		{
-			"fn main() {\n    %{\"host\" => ((_))} = config\n}\n",
-			"fn main() {\n    %{\"host\" => _} = config\n}\n",
+			"fn main()\n    {\"host\" => ((_))} = config\nend\n",
+			"fn main()\n    {\"host\" => _} = config\nend\n",
 			&ast.PatternBinding{},
 		},
 		{
-			"fn main() {\n    .{x: (a), y} = p\n}\n",
-			"fn main() {\n    .{x: a, y} = p\n}\n",
+			"fn main()\n    {x: (a), y:} = p\nend\n",
+			"fn main()\n    {x: a, y:} = p\nend\n",
 			&ast.StructDestructure{},
 		},
 		{
-			"fn main() {\n    ((a), _) = t\n}\n",
-			"fn main() {\n    (a, _) = t\n}\n",
+			"fn main()\n    ((a), _) = t\nend\n",
+			"fn main()\n    (a, _) = t\nend\n",
 			&ast.TupleDestructure{},
 		},
 		{
-			"fn main() {\n    Day((n)) = d\n}\n",
-			"fn main() {\n    Day(n) = d\n}\n",
+			"fn main()\n    Day((n)) = d\nend\n",
+			"fn main()\n    Day(n) = d\nend\n",
 			&ast.DistinctDestructure{},
 		},
 		{
-			"fn main() {\n    Day.Hours((n)) = h\n}\n",
-			"fn main() {\n    Day.Hours(n) = h\n}\n",
+			"fn main()\n    Day.Hours((n)) = h\nend\n",
+			"fn main()\n    Day.Hours(n) = h\nend\n",
 			&ast.DistinctDestructure{},
 		},
 	}

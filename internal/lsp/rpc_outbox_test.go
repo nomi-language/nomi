@@ -22,7 +22,7 @@ import (
 func TestRPC_AClientThatStopsReadingBlocksNoLock(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "main.nomi")
-	text := "fn main() {\n}\n"
+	text := "fn main() end\n"
 	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestRPC_AClientThatStopsReadingBlocksNoLock(t *testing.T) {
 	// The edit's analysis publishes into a pipe nobody reads.
 	notify("textDocument/didChange", map[string]any{
 		"textDocument":   map[string]any{"uri": uri, "version": 2},
-		"contentChanges": []map[string]any{{"text": "fn main() {\n    x\n}\n"}},
+		"contentChanges": []map[string]any{{"text": "fn main()\n    x\nend\n"}},
 	})
 	deadline := time.Now().Add(10 * time.Second)
 	for {

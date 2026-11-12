@@ -14,42 +14,42 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# The fewest coins that make a given amount of change.
 
 /// Why no change can be given.
-pub enum Error {
+pub enum Error
     NegativeTarget
     CannotMakeTarget
-}
+end
 
 /// The fewest `coins` that add up to `target`, smallest first. Each value in
 /// `coins` may be used any number of times.
-pub fn find_fewest_coins(coins: List<Int>, target: Int) -> Result<List<Int>, Error> {
-    if target < 0 { return Err(.NegativeTarget) }
+pub fn find_fewest_coins(coins: List<Int>, target: Int) -> Result<List<Int>, Error>
+    if target < 0 then return Err(.NegativeTarget)
 
     fewest =
         1..=target
-        |> Iter.reduce(#[Some([])], fn table, amount -> {
+        |> Iter.reduce(Vector[Some([])], fn table, amount ->
             Vector.push(table, best(table, coins, amount))
-        })
+        end)
 
     Vector.get(fewest, target)!
     |> Maybe.map(Iter.sort)
     |> Maybe.to_result(.CannotMakeTarget)
-}
+end
 
 /// The fewest coins that make `amount`, given `table`, which holds the
 /// fewest coins for every smaller amount, or `None` where none make it.
-fn best(table: Vector<Maybe<List<Int>>>, coins: List<Int>, amount: Int) -> Maybe<List<Int>> {
+fn best(table: Vector<Maybe<List<Int>>>, coins: List<Int>, amount: Int) -> Maybe<List<Int>>
     coins
     |> Iter.filter(&(&1 <= amount))
-    |> Iter.flat_map(fn coin -> {
+    |> Iter.flat_map(fn coin ->
         Vector.get(table, amount - coin)! |> Maybe.map(fn rest -> [coin, ..rest])
-    })
+    end)
     |> Iter.min_by(Iter.count)
-}
+end
 
 // FILE: change_test.nomi
 import change.{self, Error}
 
-test "find fewest coins" {
+test "find fewest coins"
     [
         ("change for 1 cent", [1, 5, 10, 25], 1, Ok([1])),
         ("single coin change", [1, 5, 10, 25, 100], 25, Ok([25])),
@@ -85,10 +85,10 @@ test "find fewest coins" {
         ("error if no combination can add up to target", [5, 10], 94, Err(.CannotMakeTarget)),
         ("cannot find negative change values", [1, 2, 5], -5, Err(.NegativeTarget)),
     ]
-    |> subtests (description, coins, target, expected), description {
+    |> subtests (description, coins, target, expected), description
         assert change.find_fewest_coins(coins, target) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok find fewest coins (13 cases)

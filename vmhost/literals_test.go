@@ -28,12 +28,12 @@ func literalDiagnostics(t *testing.T, src string) Diagnostics {
 // `once`, passed to String.find_all. Double-quoted ones, with and without
 // interpolation, are still Results.
 func TestBacktickLiteral_IsItsHandlersOkValue(t *testing.T) {
-	const src = "import {\n" +
+	const src = "import\n" +
 		"    std::io\n" +
 		"    std::regex.Regex\n" +
-		"}\n\n" +
+		"end\n\n" +
 		"once letters = Regex`[A-Za-z]+`\n\n" +
-		"fn main() {\n" +
+		"fn main()\n" +
 		"    digits: Regex<Unit> = Regex`\\d+`\n" +
 		"    io.print(String.find_all(\"order 66, aisle 7\", digits))\n" +
 		"    io.print(String.find_all(\"order 66, aisle 7\", letters))\n" +
@@ -45,7 +45,7 @@ func TestBacktickLiteral_IsItsHandlersOkValue(t *testing.T) {
 		"    io.print(Debug.inspect(plain))\n" +
 		"    io.print(Debug.inspect(spliced))\n" +
 		"    io.print(Result.with_default(Result.map(bad, Regex.pattern), \"invalid at run time\"))\n" +
-		"}\n"
+		"end\n"
 	var out strings.Builder
 	p, err := LoadSource("main", src)
 	if err != nil {
@@ -63,7 +63,7 @@ func TestBacktickLiteral_IsItsHandlersOkValue(t *testing.T) {
 // An invalid backtick pattern is a compile error at the literal carrying the
 // regex error, from `nomi run`'s load and from `nomi check` alike.
 func TestBacktickLiteral_InvalidPatternIsACompileError(t *testing.T) {
-	const src = "import std::regex.Regex\n\nfn main() {\n    _ = Regex`a(`\n}\n"
+	const src = "import std::regex.Regex\n\nfn main()\n    _ = Regex`a(`\nend\n"
 	ds := literalDiagnostics(t, src)
 	if len(ds) != 1 {
 		t.Fatalf("%d diagnostics, want 1: %v", len(ds), ds)
@@ -91,7 +91,7 @@ func TestBacktickLiteral_InvalidPatternIsACompileError(t *testing.T) {
 // An Err that is not a String is shown through its Display impl, as a
 // failed main's error is.
 func TestBacktickLiteral_ErrorIsShownThroughDisplay(t *testing.T) {
-	ds := literalDiagnostics(t, "import std::calendar.Date\n\nfn main() {\n    _ = Date`2026-13-04`\n}\n")
+	ds := literalDiagnostics(t, "import std::calendar.Date\n\nfn main()\n    _ = Date`2026-13-04`\nend\n")
 	if len(ds) != 1 || ds[0].Message != "typed literal Date`2026-13-04` is invalid: invalid value: month out of range: 13" {
 		t.Fatalf("diagnostics = %v", ds)
 	}
@@ -101,15 +101,15 @@ func TestBacktickLiteral_ErrorIsShownThroughDisplay(t *testing.T) {
 // backtick literal of it is an error saying so, pointing at double quotes.
 // The double-quoted literal of the same handler loads.
 func TestBacktickLiteral_EffectfulHandlerIsACompileError(t *testing.T) {
-	const decls = "import {\n    std::io\n    std::literals.{Fragment, Literal}\n}\n\n" +
-		"struct Loud {\n    n: Int\n}\n\n" +
-		"impl Literal for Loud {\n" +
-		"    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Loud, String> {\n" +
+	const decls = "import\n    std::io\n    std::literals.{Fragment, Literal}\nend\n\n" +
+		"struct Loud\n    n: Int\nend\n\n" +
+		"impl Literal for Loud\n" +
+		"    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Loud, String>\n" +
 		"        io.print(\"building\")\n" +
 		"        Ok(Loud{n: Iter.count(fragments)})\n" +
-		"    }\n" +
-		"}\n\n"
-	ds := literalDiagnostics(t, decls+"fn main() {\n    _ = Loud`x`\n}\n")
+		"    end\n" +
+		"end\n\n"
+	ds := literalDiagnostics(t, decls+"fn main()\n    _ = Loud`x`\nend\n")
 	if len(ds) != 1 {
 		t.Fatalf("%d diagnostics, want 1: %v", len(ds), ds)
 	}
@@ -119,7 +119,7 @@ func TestBacktickLiteral_EffectfulHandlerIsACompileError(t *testing.T) {
 	if len(ds[0].Hints) != 1 || !strings.Contains(ds[0].Hints[0], "write it with double quotes") {
 		t.Errorf("hints = %q", ds[0].Hints)
 	}
-	if _, err := LoadSource("main", decls+"fn main() {\n    _ = Loud\"x\"\n}\n"); err != nil {
+	if _, err := LoadSource("main", decls+"fn main()\n    _ = Loud\"x\"\nend\n"); err != nil {
 		t.Fatalf("the double-quoted literal does not load: %v", err)
 	}
 }
@@ -127,7 +127,7 @@ func TestBacktickLiteral_EffectfulHandlerIsACompileError(t *testing.T) {
 // `?` on a backtick literal is the checker's "try requires a Result or
 // Maybe" error, with the hint.
 func TestBacktickLiteral_TryIsRejected(t *testing.T) {
-	ds := literalDiagnostics(t, "import std::regex.Regex\n\nfn main() -> Result<Unit, String> {\n    _ = Regex`\\d+`?\n    Ok(Unit)\n}\n")
+	ds := literalDiagnostics(t, "import std::regex.Regex\n\nfn main() -> Result<Unit, String>\n    _ = Regex`\\d+`?\n    Ok(Unit)\nend\n")
 	if len(ds) != 1 || ds[0].Message != "`?` requires a Result or Maybe, got Regex<Unit>" {
 		t.Fatalf("diagnostics = %v", ds)
 	}
@@ -144,20 +144,20 @@ func TestBacktickLiteral_TryIsRejected(t *testing.T) {
 // two apart.
 func TestBacktickLiteral_InALoopIsBuiltOnce(t *testing.T) {
 	const src = "import std::literals.{Fragment, Literal}\n\n" +
-		"struct Slow {\n    n: Int\n}\n\n" +
-		"impl Literal for Slow {\n" +
-		"    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Slow, String> {\n" +
+		"struct Slow\n    n: Int\nend\n\n" +
+		"impl Literal for Slow\n" +
+		"    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Slow, String>\n" +
 		"        n = Iter.reduce(1..=1000, 0, fn acc, i -> acc + i)\n" +
 		"        Ok(Slow{n: n + Iter.count(fragments)})\n" +
-		"    }\n" +
-		"}\n\n" +
-		"fn raw() -> Int {\n" +
+		"    end\n" +
+		"end\n\n" +
+		"fn raw() -> Int\n" +
 		"    Iter.reduce(1..=100, 0, fn acc, _i -> acc + Slow`x`.n)\n" +
-		"}\n\n" +
-		"fn quoted() -> Int {\n" +
+		"end\n\n" +
+		"fn quoted() -> Int\n" +
 		"    Iter.reduce(1..=100, 0, fn acc, _i -> acc + Result.with_default(Result.map(Slow\"x\", fn s -> s.n), 0))\n" +
-		"}\n\n" +
-		"fn main() {\n    _ = raw() + quoted()\n}\n"
+		"end\n\n" +
+		"fn main()\n    _ = raw() + quoted()\nend\n"
 	p, err := LoadSource("main", src)
 	if err != nil {
 		t.Fatal(err)

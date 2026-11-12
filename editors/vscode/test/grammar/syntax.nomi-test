@@ -12,16 +12,21 @@
 // <~~~~~~~~~~~------ meta.embedded.line.nomi entity.name.function.nomi
 // <~~~~~~~~~~~~~~~~~~~~~-- meta.embedded.line.nomi keyword.operator.comparison.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~- meta.embedded.line.nomi constant.numeric.integer.nomi
-pub fn doubled(n: Int) -> Int { todo }
+pub fn doubled(n: Int) -> Int
 // <--- keyword.declaration.nomi
 // <~~~~-- keyword.declaration.nomi
 // <~~~~~~~------- entity.name.function.nomi
 // <~~~~~~~~~~~~~~~- variable.other.nomi
 // <~~~~~~~~~~~~~~~~~~--- entity.name.type.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.arrow.nomi
-// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~---- keyword.control.nomi
-pub fn first(xs: List<Int>) -> Int { unreachable "callers pass a non-empty list" }
-// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~----------- keyword.control.nomi
+    todo
+// <~~~~---- keyword.control.nomi
+end
+// <--- keyword.control.nomi
+pub fn first(xs: List<Int>) -> Int
+    unreachable "callers pass a non-empty list"
+// <~~~~----------- keyword.control.nomi
+end
 pub phrase cart_items(count: Int) `{$count} items`
 // <--- keyword.declaration.nomi
 // <~~~~------ keyword.declaration.nomi
@@ -52,12 +57,12 @@ greeting = "hi ${name}!\n \u{1F600} \${ \q"
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--- string.quoted.double.nomi constant.character.escape.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-- string.quoted.double.nomi invalid.illegal.escape.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- string.quoted.double.nomi punctuation.definition.string.end.nomi
-m = "${Map.get(ages, .{"a": 1})}"
+m = "${Map.get(ages, (("a", 1)))}"
 // <~~~~~~~--- meta.embedded.line.nomi entity.name.type.nomi
 // <~~~~~~~~~~~--- meta.embedded.line.nomi entity.name.function.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~--- meta.embedded.line.nomi string.quoted.double.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~- meta.embedded.line.nomi constant.numeric.integer.nomi
-// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- meta.interpolation.nomi punctuation.section.interpolation.end.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- meta.interpolation.nomi punctuation.section.interpolation.end.nomi
 day = Date"2026-05-04"
 // <~~~~~~---- string.quoted.double.nomi entity.name.type.literal.nomi
 // <~~~~~~~~~~~---------- string.quoted.double.nomi
@@ -113,19 +118,18 @@ adults = Iter.filter(people, fn p -> p.age >= 18)
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.comparison.nomi
 pair = (1, 2)
 // <~~~~~~~- punctuation.section.bracket.nomi
-ages = %{"ada" => 36}
-// <~~~~~~~- punctuation.section.nomi
-point = .{x: 1}
-// <~~~~~~~~- punctuation.section.nomi
-digits = #[1, 2]
-// <~~~~~~~~~- punctuation.section.nomi
-tags = %["a"]
-// <~~~~~~~- punctuation.section.nomi
+ages = {"ada" => 36}
+// <~~~~~~~- punctuation.section.bracket.nomi
+point = {x: 1}
+// <~~~~~~~~- punctuation.section.bracket.nomi
+digits = [1, 2]
+// <~~~~~~~~~- punctuation.section.bracket.nomi
+tags = Set["a"]
+// <~~~~~~~--- entity.name.type.nomi
 origin = Point{x: 0}
 // <~~~~~~~~~----- entity.name.type.nomi
-kvs = %Kvs{"a" => 1}
-// <~~~~~~- punctuation.section.nomi
-// <~~~~~~~--- entity.name.type.nomi
+kvs = Kvs{"a" => 1}
+// <~~~~~~--- entity.name.type.nomi
 rest = n % 2
 // <~~~~~~~~~- keyword.operator.nomi
 low = n &&& 255
@@ -140,11 +144,14 @@ shape = .Circle(1.0)
 color = Color.Red
 // <~~~~~~~~----- entity.name.type.nomi
 // <~~~~~~~~~~~~~~--- entity.name.type.nomi
-case shape { .Circle(r) => r, _ => 0.0 }
+case shape
 // <---- keyword.control.nomi
-// <~~~~~~~~~~~~~~------ variable.other.enummember.nomi
-// <~~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.arrow.nomi
-// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- comment.discard.nomi
+    .Circle(r) => r
+// <~~~~~------ variable.other.enummember.nomi
+// <~~~~~~~~~~~~~~~-- keyword.operator.arrow.nomi
+    _ => 0.0
+// <~~~~- comment.discard.nomi
+end
 span = 0..=10
 // <~~~~~~~~--- keyword.operator.range.nomi
 big = Iter.filter(xs, &(&1 > 2))
@@ -168,7 +175,7 @@ post = db::posts.post_by_id(1)
 // <~~~~~~~~~-- punctuation.separator.namespace.nomi
 // <~~~~~~~~~~~----- entity.name.namespace.nomi
 // <~~~~~~~~~~~~~~~~~---------- entity.name.function.nomi
-fn show(d: views::admin::users.UserDetail) -> std::http.Response<Int> { todo }
+fn show(d: views::admin::users.UserDetail) -> std::http.Response<Int> end
 // <~~~~~~~~~~~----- entity.name.namespace.nomi
 // <~~~~~~~~~~~~~~~~~~----- entity.name.namespace.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~~----- entity.name.namespace.nomi
@@ -177,12 +184,12 @@ fn show(d: views::admin::users.UserDetail) -> std::http.Response<Int> { todo }
 host fn now() -> Int
 // <---- keyword.declaration.nomi
 // <~~~~~~~~--- entity.name.function.nomi
-group "group" {
+group "group"
 // <----- keyword.declaration.nomi
 // <~~~~~~------- string.quoted.double.nomi
     clock Clock.Virtual
 // <~~~~----- keyword.declaration.nomi
-    test "adds", db {
+    test "adds", db
 // <~~~~---- keyword.declaration.nomi
 // <~~~~~~~~~~~~~~~~~-- variable.other.nomi
         assert true and is_undone or false
@@ -199,23 +206,23 @@ group "group" {
         assert 1 in seen
 // <~~~~~~~~------ keyword.control.nomi
 // <~~~~~~~~~~~~~~~~~-- keyword.operator.word.nomi
-        subtests cases, (a, b) {
+        subtests cases, (a, b)
 // <~~~~~~~~-------- keyword.control.nomi
             assert a == b
-        }
+        end
         [(1, 1)]
-        |> subtests (a, b) {
+        |> subtests (a, b)
 // <~~~~~~~~~~~-------- keyword.control.nomi
             assert a == b
-        }
+        end
         subtests = 3
 // <~~~~~~~~-------- variable.other.nomi
         group = subtests
 // <~~~~~~~~----- variable.other.nomi
-    }
-}
-group {
+    end
+end
+group
 // <----- keyword.declaration.nomi
-}
+end
 cr = "a\rb"
 // <~~~~~~~-- string.quoted.double.nomi constant.character.escape.nomi

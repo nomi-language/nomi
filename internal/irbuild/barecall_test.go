@@ -14,12 +14,12 @@ import (
 // reject it — which is itself the assertion. If the front end ever admits it,
 // the builder's own key is the fallback and the test says which it got.
 func TestBareCall_ABareNameThatIsNotARequirementIsUnaffected(t *testing.T) {
-	const src = "interface Formatted {\n" +
+	const src = "interface Formatted\n" +
 		"  fn label(value: self) -> String\n" +
-		"}\n\n" +
-		"struct U {\n  name: String\n}\n\n" +
-		"impl Formatted for U {\n  fn label(u: U) -> String {\n    missing(u)\n  }\n}\n\n" +
-		"fn main() {\n  _ = Formatted.label(U{name: \"a\"})\n}\n"
+		"end\n\n" +
+		"struct U\n  name: String\nend\n\n" +
+		"impl Formatted for U\n  fn label(u: U) -> String\n    missing(u)\n  end\nend\n\n" +
+		"fn main()\n  _ = Formatted.label(U{name: \"a\"})\nend\n"
 	if _, err := AnalyzeSource("probe.nomi", src); err == nil {
 		t.Fatal("the front end accepted a bare call to an undeclared name inside an impl " +
 			"body; the builder's requirement resolver must then be the thing that " +

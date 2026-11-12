@@ -16,7 +16,7 @@ func TestPartialApplication_ArgumentCountIsChecked(t *testing.T) {
 	cases := []struct {
 		name, call, want string
 	}{
-		{"generic callee, too many", "&pick(False, &1, case Some(1) {\n        .Some(o) -> o\n        .None -> 0\n    }, 0)", "expected 3 arguments, got 4"},
+		{"generic callee, too many", "&pick(False, &1, case Some(1)\n        .Some(o) -> o\n        .None -> 0\n    end, 0)", "expected 3 arguments, got 4"},
 		{"plain callee, too many", "&add(&1, 1, 2)", "expected 2 arguments, got 3"},
 		{"plain callee, too few", "&add(&1)", "expected 2 arguments, got 1"},
 		{"generic callee, too few", "&pick(False, &1)", "expected 3 arguments, got 2"},
@@ -27,30 +27,30 @@ func TestPartialApplication_ArgumentCountIsChecked(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			src := `import std::io
 
-fn pick<T>(c: Bool, a: T, b: T) -> T {
-    if c { a } else { b }
-}
+fn pick<T>(c: Bool, a: T, b: T) -> T
+    if c then a else b
+end
 
-fn add(a: Int, b: Int) -> Int {
+fn add(a: Int, b: Int) -> Int
     a + b
-}
+end
 
-fn connect(host: Int, port: Int = 80, timeout: Int = 30) -> Int {
+fn connect(host: Int, port: Int = 80, timeout: Int = 30) -> Int
     host + port + timeout
-}
+end
 
-fn middle(a: Int, b: Int = 10, c: Int) -> Int {
+fn middle(a: Int, b: Int = 10, c: Int) -> Int
     a + b + c
-}
+end
 
-fn main() {
+fn main()
     io.inspect(pick(True, 1, 2))
     io.inspect(add(1, 2))
     io.inspect(connect(1))
     io.inspect(middle(1, c: 2))
     p = ` + tc.call + `
     io.inspect(p(5))
-}
+end
 `
 			o := checkLowers(t.TempDir(), src)
 			if o.accepted {
@@ -70,27 +70,27 @@ fn main() {
 func TestPartialCapture_WrittenArgumentsRunOnEachCall(t *testing.T) {
 	src := `import std::io
 
-fn pick<T>(c: Bool, a: T, b: T) -> T {
-    if c { a } else { b }
-}
+fn pick<T>(c: Bool, a: T, b: T) -> T
+    if c then a else b
+end
 
-fn noisy(label: String, n: Int) -> Int {
+fn noisy(label: String, n: Int) -> Int
     io.print(label)
     n
-}
+end
 
-fn connect(host: String, port: Int = 80, timeout: Int = 30) -> String {
+fn connect(host: String, port: Int = 80, timeout: Int = 30) -> String
     "${host}:${port}/${timeout}"
-}
+end
 
-fn main() {
+fn main()
     p = &pick(
         noisy("c", 0) == 1,
         &1,
-        case Some(noisy("b", 7)) {
+        case Some(noisy("b", 7))
             .Some(o) -> o
             .None -> 0
-        },
+        end,
     )
     io.print("made")
     io.inspect(p(1))
@@ -98,7 +98,7 @@ fn main() {
     f = &connect(&1, port: &2)
     io.print(f("h", 8080))
     io.print(f("h"))
-}
+end
 `
 	o := checkLowers(t.TempDir(), src)
 	if !o.accepted {

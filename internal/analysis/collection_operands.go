@@ -3,25 +3,20 @@ package analysis
 import "github.com/nomi-language/nomi/internal/ast"
 
 // collectionLitKind names the std collection an untyped collection literal
-// builds: "List" for `[...]`, "Vector" for `#[...]`, "Set" for `%[...]` and
-// "Map" for `%{...}`, spreads included. It is "" for any other expression,
-// a literal with a type name (`Tags[...]`) among them, since that one has
-// the type it names.
+// builds: "Seq" for `[...]`, spreads included, which is the List, Vector or
+// Set its position expects, "Map" for `{k => v}` and `{}`, and the
+// collection a std head names, `Vector[...]` or `Set[...]`. It is "" for
+// any other expression, a literal naming another type (`Tags[...]`) among
+// them, since that one has the type it names.
 func collectionLitKind(n ast.Node) string {
 	switch v := ungroupExpr(n).(type) {
 	case *ast.ListLit:
 		if v.TypeName == nil {
-			return "List"
+			return "Seq"
 		}
-	case *ast.ListSpreadLit:
-		return "List"
-	case *ast.VectorLit:
-		if v.TypeName == nil {
-			return "Vector"
-		}
-	case *ast.SetLit:
-		if v.TypeName == nil {
-			return "Set"
+		switch name := v.TypeName.TypeString(); name {
+		case "List", "Vector", "Set":
+			return name
 		}
 	case *ast.MapLit:
 		if v.TypeName == nil {
@@ -86,7 +81,14 @@ func (c *checker) checkCollectionOperands(n *ast.Binary) (left, right Type, ok b
 // operator reports the mismatch of the two types it always has.
 func (c *checker) checkCollectionLitAgainst(lit ast.Node, kind string, other Type) Type {
 	other = resolveTypeVar(other)
-	if other == nil || collectionKind(other) != kind || !concreteExpected(other) {
+	ok := collectionKind(other) == kind
+	if kind == "Seq" {
+		switch collectionKind(other) {
+		case "List", "Vector", "Set":
+			ok = true
+		}
+	}
+	if other == nil || !ok || !concreteExpected(other) {
 		return c.checkNode(lit)
 	}
 	mark, undeterminedMark := len(c.errors), len(c.undetermined)
@@ -105,7 +107,7 @@ func (c *checker) checkCollectionLitAgainst(lit ast.Node, kind string, other Typ
 // checkListSpread to use in place of checking them again. built is the
 // element type of the first of them with no open part, which the literal's
 // elements are built as (checkSpreadLitElem), or nil.
-func (c *checker) checkTypedListSpreads(n *ast.ListSpreadLit) (pre map[ast.Node]Type, built Type) {
+func (c *checker) checkTypedListSpreads(n *ast.ListLit) (pre map[ast.Node]Type, built Type) {
 	if len(n.Items) == 0 || ast.UpdateHole(n) != nil {
 		return nil, nil
 	}

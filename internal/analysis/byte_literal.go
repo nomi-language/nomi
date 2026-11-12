@@ -50,10 +50,6 @@ func holdsIntLiteral(n ast.Node) bool {
 		return holdsIntLiteral(v.Value)
 	case *ast.ListLit:
 		return v.TypeName == nil && anyHoldsIntLiteral(v.Items)
-	case *ast.VectorLit:
-		return v.TypeName == nil && anyHoldsIntLiteral(v.Items)
-	case *ast.SetLit:
-		return v.TypeName == nil && anyHoldsIntLiteral(v.Items)
 	case *ast.TupleLit:
 		return anyHoldsIntLiteral(v.Items)
 	case *ast.MapLit:

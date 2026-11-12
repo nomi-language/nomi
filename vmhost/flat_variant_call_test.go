@@ -9,21 +9,21 @@ import "testing"
 // Each builds the value the tupled form builds.
 func TestFlatVariantCall_Runs(t *testing.T) {
 	out := runSiblingProgram(t, map[string]string{
-		"two.nomi": `pub enum Two<A, B> {
+		"two.nomi": `pub enum Two<A, B>
     Both (A, B)
-}
+end
 
-pub enum Three<A, B, C> {
+pub enum Three<A, B, C>
     All (A, B, C)
-}
+end
 
-pub enum Tagged<T> {
+pub enum Tagged<T>
     Tag (T, String)
-}
+end
 
-pub enum Seg {
+pub enum Seg
     Pair (Int, String)
-}
+end
 `,
 		"main.nomi": `import std::io
 import two.Two
@@ -33,11 +33,11 @@ import two.Three
 import two.Tagged
 import two.Seg
 
-fn pick() -> Two<Int, Int> {
+fn pick() -> Two<Int, Int>
     .Both(3, 4)
-}
+end
 
-fn main() {
+fn main()
     a: Two<Int, Int> = Two.Both(1, 2)
     io.inspect(a)
     io.inspect(a == Two.Both((1, 2)))
@@ -61,7 +61,7 @@ fn main() {
     io.inspect(2 |> Seg.Pair("b"))
     h = &Seg.Pair(&1, "c")
     io.inspect(h(3))
-}
+end
 `,
 	})
 	want := `Both(1, 2)

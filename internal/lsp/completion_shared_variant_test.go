@@ -6,17 +6,17 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-const sharedVariantDecls = `enum Paint {
+const sharedVariantDecls = `enum Paint
     /// A red tin.
     Red Int
     Blue
-}
+end
 
-enum Light {
+enum Light
     /// Stop.
     Red
     Amber
-}
+end
 
 `
 
@@ -27,7 +27,7 @@ enum Light {
 // declaration and doc under that enum's name. It used to show the
 // declaration and doc of whichever enum the scope's map yielded first.
 func TestCompletion_DotVariantSharedByTwoEnumsNamesBoth(t *testing.T) {
-	src := sharedVariantDecls + "fn f() -> Int {\n    x = ." + cursorMark + "\n    1\n}\n"
+	src := sharedVariantDecls + "fn f() -> Int\n    x = ." + cursorMark + "\n    1\nend\n"
 	const wantDetail = "variant of Light, Paint"
 	const wantDoc = "**Light**: `Light.Red`\n\nStop.\n\n**Paint**: `Paint.Red(Int)`\n\nA red tin."
 	for i := 0; i < 30; i++ {

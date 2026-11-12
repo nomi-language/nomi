@@ -37,9 +37,9 @@ func TestStdlibPrompt_LambdaOmitsADefaultedArgument(t *testing.T) {
 //! rows = [["a", "bc"]] |> Iter.map(fn row -> row |> Iter.map(fn c -> String.pad_end(c, 2)) |> String.join("|"))
 //! assert Iter.to_list(rows) == ["a |bc"]
 //
-pub fn lambda_default_probe() -> Int {
+pub fn lambda_default_probe() -> Int
     0
-}
+end
 `
 	p, err := vmhost.LoadStdlibSource("strings", probe)
 	if err != nil {

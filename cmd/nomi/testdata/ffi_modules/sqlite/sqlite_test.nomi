@@ -2,16 +2,16 @@
 // it.
 import sqlite
 
-test "a NULL column reads as an empty string" {
+test "a NULL column reads as an empty string"
     conn = sqlite.open(":memory:")?
     defer sqlite.close(conn)
     sqlite.exec(conn, "CREATE TABLE notes (title TEXT, body TEXT)", [])?
     sqlite.exec(conn, "INSERT INTO notes VALUES (?, NULL)", ["todo"])?
     rows = sqlite.query_all(conn, "SELECT title, body FROM notes", [])
     assert rows == Ok([["todo", ""]])
-}
+end
 
-test "updates and deletes change the rows a query returns" {
+test "updates and deletes change the rows a query returns"
     conn = sqlite.open(":memory:")?
     defer sqlite.close(conn)
     sqlite.exec(conn, "CREATE TABLE tasks (id INTEGER, done INTEGER)", [])?
@@ -20,18 +20,18 @@ test "updates and deletes change the rows a query returns" {
     sqlite.exec(conn, "DELETE FROM tasks WHERE done = 0", [])?
     rows = sqlite.query_all(conn, "SELECT id, done FROM tasks", [])
     assert rows == Ok([["1", "1"]])
-}
+end
 
-test "a statement the driver rejects is an error" {
+test "a statement the driver rejects is an error"
     conn = sqlite.open(":memory:")?
     defer sqlite.close(conn)
     assert Result.is_err(sqlite.exec(conn, "INSERT INTO missing VALUES (1)", []))
     assert Result.is_err(sqlite.query_all(conn, "SELECT * FROM missing", []))
-}
+end
 
-test "closing twice is harmless, and a closed database answers errors" {
+test "closing twice is harmless, and a closed database answers errors"
     conn = sqlite.open(":memory:")?
     sqlite.close(conn)
     sqlite.close(conn)
     assert Result.is_err(sqlite.query_all(conn, "SELECT 1", []))
-}
+end

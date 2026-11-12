@@ -15,102 +15,102 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# between two nodes.
 
 /// A tree of labelled nodes. The labels are unique within a tree.
-pub struct Tree {
+pub struct Tree
     label: String
     children: List<Tree> = []
-}
+end
 
-impl Tree {
+impl Tree
     /// `tree` seen from the node labelled `from`: that node is the root, and
     /// each node on the way from it to the old root is a child of the node
     /// below it, keeping its other children. `None` when no node has the
     /// label.
-    pub fn from_pov(tree: Tree, from: String) -> Maybe<Tree> {
+    pub fn from_pov(tree: Tree, from: String) -> Maybe<Tree>
         reroot(tree, from, [])
-    }
+    end
 
     /// The labels on the way from the node labelled `from` to the node
     /// labelled `to`, both included. `None` when either label is missing.
-    pub fn path_to(tree: Tree, from: String, to: String) -> Maybe<List<String>> {
+    pub fn path_to(tree: Tree, from: String, to: String) -> Maybe<List<String>>
         tree
         |> Tree.from_pov(from)?
         |> labels_to(to)
-    }
-}
+    end
+end
 
 /// `tree`, whose old parent is `above` re-hung as a tree (none at the old
 /// root), rerooted at the node labelled `label`.
-fn reroot(tree: Tree, label: String, above: List<Tree>) -> Maybe<Tree> {
-    if tree.label == label { return Some(.{..tree, children: [..tree.children, ..above]}) }
+fn reroot(tree: Tree, label: String, above: List<Tree>) -> Maybe<Tree>
+    if tree.label == label then return Some({..tree, children: [..tree.children, ..above]})
 
-    Iter.find_map(tree.children, fn child -> {
+    Iter.find_map(tree.children, fn child ->
         siblings =
             tree.children
             |> Iter.filter(&(&1.label != child.label))
 
-        reroot(child, label, [.{..tree, children: [..siblings, ..above]}])
-    })
-}
+        reroot(child, label, [{..tree, children: [..siblings, ..above]}])
+    end)
+end
 
 /// The labels from the root of `tree` down to the node labelled `label`,
 /// both included, or `None` when no node has the label.
-fn labels_to(tree: Tree, label: String) -> Maybe<List<String>> {
-    if tree.label == label { return Some([label]) }
+fn labels_to(tree: Tree, label: String) -> Maybe<List<String>>
+    if tree.label == label then return Some([label])
 
     below = Iter.find_map(tree.children, &labels_to(&1, label))?
     Some([tree.label, ..below])
-}
+end
 
 // FILE: pov_test.nomi
 import pov.Tree
 
 /// `tree` with every node's children in label order. The canonical data
 /// leaves the order of children open, so the tests compare trees this way.
-fn in_label_order(tree: Tree) -> Tree {
-    .{..tree, children: tree.children |> Iter.map(in_label_order) |> Iter.sort_by(.label)}
-}
+fn in_label_order(tree: Tree) -> Tree
+    {..tree, children: tree.children |> Iter.map(in_label_order) |> Iter.sort_by(.label)}
+end
 
 once singleton = Tree{label: "x"}
 
 once parent_and_siblings = Tree{
     label: "parent",
-    children: [.{label: "a"}, .{label: "x"}, .{label: "b"}, .{label: "c"}],
+    children: [{label: "a"}, {label: "x"}, {label: "b"}, {label: "c"}],
 }
 
 once parent_with_kids = Tree{
     label: "parent",
     children: [
-        .{
+        {
             label: "x",
-            children: [.{label: "kid-0"}, .{label: "kid-1"}],
+            children: [{label: "kid-0"}, {label: "kid-1"}],
         },
-        .{label: "sibling-0"},
-        .{label: "sibling-1"},
+        {label: "sibling-0"},
+        {label: "sibling-1"},
     ],
 }
 
 once cousins = Tree{
     label: "grandparent",
     children: [
-        .{
+        {
             label: "parent",
             children: [
-                .{
+                {
                     label: "x",
-                    children: [.{label: "kid-0"}, .{label: "kid-1"}],
+                    children: [{label: "kid-0"}, {label: "kid-1"}],
                 },
-                .{label: "sibling-0"},
-                .{label: "sibling-1"},
+                {label: "sibling-0"},
+                {label: "sibling-1"},
             ],
         },
-        .{
+        {
             label: "uncle",
-            children: [.{label: "cousin-0"}, .{label: "cousin-1"}],
+            children: [{label: "cousin-0"}, {label: "cousin-1"}],
         },
     ],
 }
 
-test "Reroot a tree so that its root is the specified node." {
+test "Reroot a tree so that its root is the specified node."
     [
         (
             "Results in the same tree if the input tree is a singleton",
@@ -120,17 +120,17 @@ test "Reroot a tree so that its root is the specified node." {
         ),
         (
             "Can reroot a tree with a parent and one sibling",
-            .{
+            {
                 label: "parent",
-                children: [.{label: "x"}, .{label: "sibling"}],
+                children: [{label: "x"}, {label: "sibling"}],
             },
             "x",
-            Some(.{
+            Some({
                 label: "x",
                 children: [
-                    .{
+                    {
                         label: "parent",
-                        children: [.{label: "sibling"}],
+                        children: [{label: "sibling"}],
                     },
                 ],
             }),
@@ -139,30 +139,30 @@ test "Reroot a tree so that its root is the specified node." {
             "Can reroot a tree with a parent and many siblings",
             parent_and_siblings,
             "x",
-            Some(.{
+            Some({
                 label: "x",
                 children: [
-                    .{
+                    {
                         label: "parent",
-                        children: [.{label: "a"}, .{label: "b"}, .{label: "c"}],
+                        children: [{label: "a"}, {label: "b"}, {label: "c"}],
                     },
                 ],
             }),
         ),
         (
             "Can reroot a tree with new root deeply nested in tree",
-            .{
+            {
                 label: "level-0",
                 children: [
-                    .{
+                    {
                         label: "level-1",
                         children: [
-                            .{
+                            {
                                 label: "level-2",
                                 children: [
-                                    .{
+                                    {
                                         label: "level-3",
-                                        children: [.{label: "x"}],
+                                        children: [{label: "x"}],
                                     },
                                 ],
                             },
@@ -171,18 +171,18 @@ test "Reroot a tree so that its root is the specified node." {
                 ],
             },
             "x",
-            Some(.{
+            Some({
                 label: "x",
                 children: [
-                    .{
+                    {
                         label: "level-3",
                         children: [
-                            .{
+                            {
                                 label: "level-2",
                                 children: [
-                                    .{
+                                    {
                                         label: "level-1",
-                                        children: [.{label: "level-0"}],
+                                        children: [{label: "level-0"}],
                                     },
                                 ],
                             },
@@ -193,41 +193,41 @@ test "Reroot a tree so that its root is the specified node." {
         ),
         (
             "Moves children of the new root to same level as former parent",
-            .{
+            {
                 label: "parent",
                 children: [
-                    .{
+                    {
                         label: "x",
-                        children: [.{label: "kid-0"}, .{label: "kid-1"}],
+                        children: [{label: "kid-0"}, {label: "kid-1"}],
                     },
                 ],
             },
             "x",
-            Some(.{
+            Some({
                 label: "x",
-                children: [.{label: "kid-0"}, .{label: "kid-1"}, .{label: "parent"}],
+                children: [{label: "kid-0"}, {label: "kid-1"}, {label: "parent"}],
             }),
         ),
         (
             "Can reroot a complex tree with cousins",
             cousins,
             "x",
-            Some(.{
+            Some({
                 label: "x",
                 children: [
-                    .{label: "kid-1"},
-                    .{label: "kid-0"},
-                    .{
+                    {label: "kid-1"},
+                    {label: "kid-0"},
+                    {
                         label: "parent",
                         children: [
-                            .{label: "sibling-0"},
-                            .{label: "sibling-1"},
-                            .{
+                            {label: "sibling-0"},
+                            {label: "sibling-1"},
+                            {
                                 label: "grandparent",
                                 children: [
-                                    .{
+                                    {
                                         label: "uncle",
-                                        children: [.{label: "cousin-0"}, .{label: "cousin-1"}],
+                                        children: [{label: "cousin-0"}, {label: "cousin-1"}],
                                     },
                                 ],
                             },
@@ -239,19 +239,19 @@ test "Reroot a tree so that its root is the specified node." {
         ("Errors if target does not exist in a singleton tree", singleton, "nonexistent", None),
         ("Errors if target does not exist in a large tree", parent_with_kids, "nonexistent", None),
     ]
-    |> subtests (description, tree, from, expected), description {
+    |> subtests (description, tree, from, expected), description
         rerooted = Tree.from_pov(tree, from) |> Maybe.map(in_label_order)
         assert rerooted == Maybe.map(expected, in_label_order)
-    }
-}
+    end
+end
 
-test "Given two nodes, find the path between them" {
+test "Given two nodes, find the path between them"
     [
         (
             "Can find path to parent",
             Tree{
                 label: "parent",
-                children: [.{label: "x"}, .{label: "sibling"}],
+                children: [{label: "x"}, {label: "sibling"}],
             },
             "x",
             "parent",
@@ -267,12 +267,12 @@ test "Given two nodes, find the path between them" {
         ),
         (
             "Can find path not involving root",
-            .{
+            {
                 label: "grandparent",
                 children: [
-                    .{
+                    {
                         label: "parent",
-                        children: [.{label: "x"}, .{label: "sibling-0"}, .{label: "sibling-1"}],
+                        children: [{label: "x"}, {label: "sibling-0"}, {label: "sibling-1"}],
                     },
                 ],
             },
@@ -290,10 +290,10 @@ test "Given two nodes, find the path between them" {
         ("Errors if destination does not exist", parent_with_kids, "x", "nonexistent", None),
         ("Errors if source does not exist", parent_with_kids, "nonexistent", "x", None),
     ]
-    |> subtests (description, tree, from, to, expected), description {
+    |> subtests (description, tree, from, to, expected), description
         assert Tree.path_to(tree, from, to) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok Reroot a tree so that its root is the specified node. (8 cases)
@@ -303,7 +303,7 @@ test result: ok. 15 passed, 0 failed
 
 ## How it's written
 
-- `Tree` is a struct of a `String` label and a `List<Tree>` of children, which default to none, so a leaf is `.{label: "x"}` and the tests write each canonical tree as nested literals.
+- `Tree` is a struct of a `String` label and a `List<Tree>` of children, which default to none, so a leaf is `{label: "x"}` and the tests write each canonical tree as nested literals.
 - `Tree.from_pov` is one recursion, `reroot`, that carries the old parent re-hung as a tree: at each node it tries every child, handing it the node without that child and with the node's own old parent added as a child. At the target the carried tree becomes the last child. Nothing is changed in place; each attempt builds its own nodes, and the attempts that do not reach the target are dropped.
 - The carried parent is a `List<Tree>` of none or one rather than a `Maybe<Tree>`, so it joins the children with a spread, `[..tree.children, ..above]`, and needs no case at the old root.
 - A missing label is `None`, from `from_pov` and `path_to` alike. The canonical data's `null` names no error to report, and both lookups are of data the caller passes in.

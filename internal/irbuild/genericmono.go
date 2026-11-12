@@ -130,8 +130,6 @@ type monoTemplate struct {
 	// params are the type-parameter names in declaration order. Positional,
 	// because a turbofish is positional.
 	params []string
-	// paramSet is `params` as a set, built once for unifyTypeParams' leaf arm.
-	paramSet map[string]bool
 }
 
 // monoInst is one instantiation: the concrete signature a call site calls.
@@ -194,10 +192,10 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 		return nil
 	}
 	tpl := &monoTemplate{decl: fd, params: make([]string, 0, len(fd.TypeParams))}
-	tpl.paramSet = make(map[string]bool, len(fd.TypeParams))
+	paramSet := make(map[string]bool, len(fd.TypeParams))
 	for _, tp := range fd.TypeParams {
 		tpl.params = append(tpl.params, tp.Name)
-		tpl.paramSet[tp.Name] = true
+		paramSet[tp.Name] = true
 	}
 	// Every parameter must be annotated: an unannotated one reports at
 	// funcDecl's own clause, so claiming the declaration here would lower
@@ -216,7 +214,7 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 		if p.TypeAnnotation == nil {
 			return nil
 		}
-		markMentionedParams(p.TypeAnnotation, tpl.paramSet, mentioned)
+		markMentionedParams(p.TypeAnnotation, paramSet, mentioned)
 	}
 	// And every type parameter must be NAMED somewhere in the SIGNATURE — a
 	// parameter annotation or the RETURN annotation.
@@ -224,7 +222,7 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 	// Erasure (generic.go) requires a PARAMETER to mention every type
 	// parameter, because it has no other source to bind `T` from.
 	// Monomorphization has a third source: the analyzer's own solved return
-	// type at the call (see monoTypeArgs). A return-position parameter such as
+	// type at the call (calleeTypeArgs). A return-position parameter such as
 	// `fn decode<T>(json: Json) -> Result<T, ShapeError> where T: FromJson`
 	// produces a value of `T` by dispatching on it, and `fn plus<L, R,
 	// Out>(lhs: L, rhs: R): Out where L: Add<R, Out>`
@@ -235,69 +233,15 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 	// boundMentionedParams, which adds only the `where`-bound positions a
 	// READ-BACK can close and gates each on its subject being solvable.
 	if fd.ReturnTypeExpr != nil {
-		markMentionedParams(fd.ReturnTypeExpr, tpl.paramSet, mentioned)
+		markMentionedParams(fd.ReturnTypeExpr, paramSet, mentioned)
 	}
-	boundMentionedParams(fd, tpl.paramSet, mentioned)
+	boundMentionedParams(fd, paramSet, mentioned)
 	for _, name := range tpl.params {
 		if !mentioned[name] {
 			return nil
 		}
 	}
 	return tpl
-}
-
-// solvePhantomParams binds each type parameter of params that te names as a
-// phantom host type's argument (`C` in `Regex<C>`) and solved does not hold
-// yet, by walking te beside ty, the checker's type at that position.
-func (g *gen) solvePhantomParams(te ast.TypeExpr, ty analysis.Type, params map[string]bool, solved map[string]kind) {
-	ty = analysis.ResolveTypeVar(ty)
-	switch t := te.(type) {
-	case *ast.GenericType:
-		var args []analysis.Type
-		switch at := ty.(type) {
-		case *analysis.DistinctType:
-			if phantomHostSpec(at.Origin, at.Name) >= 0 {
-				for i, a := range t.Params {
-					if st, isSimple := a.(*ast.SimpleType); isSimple && params[st.Name] && i < len(at.TypeArgs) {
-						if _, done := solved[st.Name]; !done {
-							// kindInvalid: lookup — an argument with no kind solves nothing, and monoSolve refuses the unsolved parameter.
-							if k := g.project(at.TypeArgs[i]); k != kindInvalid {
-								solved[st.Name] = k
-							}
-						}
-					}
-				}
-				return
-			}
-			args = at.TypeArgs
-		case *analysis.StructType:
-			args = at.TypeArgs
-		case *analysis.EnumType:
-			args = at.TypeArgs
-		case *analysis.ListType:
-			args = []analysis.Type{at.Elem}
-		case *analysis.MapType:
-			args = []analysis.Type{at.Key, at.Val}
-		}
-		for i, a := range t.Params {
-			if i < len(args) {
-				g.solvePhantomParams(a, args[i], params, solved)
-			}
-		}
-	case *ast.FuncType:
-		ft, isFunc := ty.(*analysis.FuncType)
-		if !isFunc {
-			return
-		}
-		for i, p := range t.Params {
-			if i < len(ft.Params) {
-				g.solvePhantomParams(p, ft.Params[i], params, solved)
-			}
-		}
-		if t.Return != nil && ft.Return != nil {
-			g.solvePhantomParams(t.Return, ft.Return, params, solved)
-		}
-	}
 }
 
 // markMentionedParams records every member of `params` that te names, at any
@@ -367,10 +311,8 @@ func (g *gen) checkedCallSignature(t *ast.Call) *analysis.FuncType {
 
 // checkedArgSignature is a signature for a call the builder synthesized,
 // which the checker recorded none for: the checker's type of each argument,
-// with no result. `"${c}"` lowers to `Display.to_string(c)` with c's own
-// node as the argument, so a hole in c's type (`Result<Int, ?E>` for
-// `c = Ok(3)`) is still the checker's and irCheckerHoles finds it. nil when
-// an argument has no recorded type.
+// with no result: `"${c}"` lowers to `Display.to_string(c)` with c's own
+// node as the argument. nil when an argument has no recorded type.
 func (g *gen) checkedArgSignature(t *ast.Call) *analysis.FuncType {
 	if g.fa == nil || len(t.Args) == 0 {
 		return nil
@@ -384,262 +326,6 @@ func (g *gen) checkedArgSignature(t *ast.Call) *analysis.FuncType {
 		params[i] = ty
 	}
 	return &analysis.FuncType{Params: params}
-}
-
-// checkedMonoTypeArgs reads a fully concrete retained signature from the
-// checker. It evaluates no argument expression. Other signatures, including
-// bounds whose result is still unresolved, answer false.
-func (g *gen) checkedMonoTypeArgs(t *ast.Call, tpl *monoTemplate) ([]kind, bool) {
-	params, result, ok := g.checkedMonoCallKinds(t, len(tpl.decl.Params))
-	if !ok {
-		return nil, false
-	}
-	return g.monoSolveChecked(tpl, params, result, g.checkedCallSignature(t))
-}
-
-// checkedMonoCallKinds is the checker's instantiated signature at the call t
-// in this gen's kinds: one kind per parameter, and the result's, which is
-// kindInvalid when the checker left it open. It solves nothing, so the kinds
-// can be handed to the gen that declares the callee (siblinggeneric.go).
-func (g *gen) checkedMonoCallKinds(t *ast.Call, arity int) ([]kind, kind, bool) {
-	ft := g.checkedCallSignature(t)
-	if ft == nil || len(ft.Params) != arity {
-		return nil, kindInvalid, false
-	}
-	params := make([]kind, arity)
-	for i, pt := range ft.Params {
-		// kindInvalid: sentinel — no kind read yet for this parameter.
-		k := kindInvalid
-		if irUnsolvedType(pt) {
-			// The checker left this parameter's instantiation open at the
-			// call (`label(p, first(xs))`, where `first`'s own type argument
-			// is solved only through its bound): the argument's own
-			// instance answers it.
-			if i >= len(t.Args) {
-				return nil, kindInvalid, false
-			}
-			if namedArgNode(t.Args[:i+1]) != nil || (len(t.Args) < arity && i == len(t.Args)-1) {
-				// Only a positional argument written before any named one
-				// fills the slot it is written at, and a short call's last
-				// positional may move to the last slot (argSlotPlan).
-				return nil, kindInvalid, false
-			}
-			k = g.monoArgKind(t.Args[i])
-		} else {
-			k = g.project(pt)
-			if i < len(t.Args) && namedArgNode(t.Args[:i+1]) == nil {
-				k = g.defaultSelfArg(t.Args[i], k)
-			}
-		}
-		if k != kindUnit && !irCallableValueKind(k) {
-			return nil, kindInvalid, false
-		}
-		params[i] = k
-	}
-	// kindInvalid: sentinel — a result the checker left open solves nothing.
-	result := kindInvalid
-	if !irUnsolvedType(ft.Return) {
-		result = g.project(ft.Return)
-		if result != kindUnit && !irCallableValueKind(result) {
-			return nil, kindInvalid, false
-		}
-	}
-	return params, result, true
-}
-
-// monoSolve binds tpl's type parameters by unifying its declared annotations
-// against the call's parameter and result kinds, which are this gen's.
-func (g *gen) monoSolve(tpl *monoTemplate, params []kind, result kind) ([]kind, bool) {
-	return g.monoSolveChecked(tpl, params, result, nil)
-}
-
-// monoSolveChecked is monoSolve that also reads checked, the checker's
-// instantiated signature at the call, when it has one: a type parameter that
-// stands only as a phantom host type's argument (`fn pattern_of<C>(re:
-// Regex<C>)`) has no trace in the kinds, since `Regex<X>` is one kind for
-// every X (stdhost.go's phantom row), and is solved from the checker's types.
-func (g *gen) monoSolveChecked(tpl *monoTemplate, params []kind, result kind, checked *analysis.FuncType) ([]kind, bool) {
-	if len(params) != len(tpl.decl.Params) {
-		return nil, false
-	}
-	solved := map[string]kind{}
-	for i, param := range tpl.decl.Params {
-		g.unifyTypeParams(param.TypeAnnotation, params[i], tpl.paramSet, solved)
-	}
-	// kindInvalid: sentinel — checkedMonoCallKinds' open result.
-	if result != kindInvalid && tpl.decl.ReturnTypeExpr != nil {
-		g.unifyTypeParams(tpl.decl.ReturnTypeExpr, result, tpl.paramSet, solved)
-	}
-	g.monoSolveFromBounds(tpl, solved)
-	if checked != nil && len(checked.Params) == len(tpl.decl.Params) {
-		for i, param := range tpl.decl.Params {
-			g.solvePhantomParams(param.TypeAnnotation, checked.Params[i], tpl.paramSet, solved)
-		}
-	}
-	args := make([]kind, len(tpl.params))
-	for i, name := range tpl.params {
-		k, found := solved[name]
-		if !found || (k != kindUnit && !irCallableValueKind(k)) {
-			return nil, false
-		}
-		args[i] = k
-	}
-	return args, true
-}
-
-// checkedMonoTypeArgsFilled is checkedMonoTypeArgs for a call whose checked
-// signature holds an inference variable nothing solved: a type argument the
-// checker admits undetermined because no value of it is made (spec,
-// "Determined type arguments"), as in `is_some(None)` or `ident(Ok(1))`,
-// whose error type is open. No value of the hole's type exists, so any
-// representable type serves; each hole is filled by its position
-// (irFillHolesByPosition), as a std call's and a generic literal's are, so
-// the instance agrees with the values passed to it. A type parameter with a
-// bound cannot be Unit, which implements no interface, so when Unit lands on
-// one every hole is read as Int, which implements the std interfaces a bound
-// names (`shown(None)` with `T: Display`). It reports false for a signature
-// with no hole.
-func (g *gen) checkedMonoTypeArgsFilled(t *ast.Call, tpl *monoTemplate) ([]kind, bool) {
-	return g.solveFilled(t, tpl, g.monoSolve)
-}
-
-// solveFilled is checkedMonoTypeArgsFilled with the solving step given:
-// solve binds tpl's parameters from the call's parameter and result kinds,
-// which are this gen's (a sibling file's template solves in its own gen).
-func (g *gen) solveFilled(t *ast.Call, tpl *monoTemplate, solve func(*monoTemplate, []kind, kind) ([]kind, bool)) ([]kind, bool) {
-	ft := g.checkedCallSignature(t)
-	if ft == nil || len(ft.Params) != len(tpl.decl.Params) || !irUnsolvedType(ft) {
-		return nil, false
-	}
-	fills := []func(analysis.Type) analysis.Type{
-		func(ty analysis.Type) analysis.Type { return irFillHolesByPosition(ty, false) },
-		func(ty analysis.Type) analysis.Type { return irFillHoles(ty, analysis.TypeInt) },
-	}
-	var fallback []kind
-	for _, fill := range fills {
-		params := make([]kind, len(ft.Params))
-		for i, p := range ft.Params {
-			params[i] = g.project(fill(p))
-		}
-		args, ok := solve(tpl, params, g.project(fill(ft.Return)))
-		if !ok {
-			continue
-		}
-		if !monoBoundedAtUnit(tpl, args) {
-			return args, true
-		}
-		if fallback == nil {
-			fallback = args
-		}
-	}
-	return fallback, fallback != nil
-}
-
-// monoBoundedAtUnit reports whether a type parameter of tpl that carries a
-// bound is solved to Unit in args.
-func monoBoundedAtUnit(tpl *monoTemplate, args []kind) bool {
-	bounded := map[string]bool{}
-	for _, tp := range tpl.decl.TypeParams {
-		if len(tp.Bounds) > 0 {
-			bounded[tp.Name] = true
-		}
-	}
-	for _, wc := range tpl.decl.WhereClauses {
-		if len(wc.Bounds) > 0 {
-			bounded[wc.Name] = true
-		}
-	}
-	for i, name := range tpl.params {
-		if args[i] == kindUnit && bounded[name] {
-			return true
-		}
-	}
-	return false
-}
-
-// monoArgKind is the kind an argument expression the checker left open
-// produces: a call to a generic function is its instance's result, and a
-// name is its binding's type. Anything else answers kindInvalid.
-func (g *gen) monoArgKind(n ast.Node) kind {
-	if c, isCall := n.(*ast.Call); isCall && len(c.TypeArgs) == 0 {
-		if id, direct := c.Func.(*ast.Ident); direct {
-			if _, shadowed := g.lookup(id.Name); !shadowed {
-				if tpl := g.irMonoTemplate(g.funcs[id.Name]); tpl != nil && len(c.Args) == len(tpl.decl.Params) {
-					if args, ok := g.checkedMonoTypeArgs(c, tpl); ok {
-						if inst, why, _ := g.resolveMonoInstance(tpl, args, id.Name); why == "" && inst != nil {
-							return inst.sig.result
-						}
-					}
-				}
-			}
-		}
-	}
-	if at := g.checkedNodeType(n); at != nil && !irUnsolvedType(at) {
-		return g.project(at)
-	}
-	return kindInvalid
-}
-
-// monoSolveFromBounds solves a type parameter named only inside a `where`
-// bound (`fn first<T, I>(it: I) -> Maybe<T> where I: Iter<T>`) from the bound
-// subject's solved kind: the interface arguments the subject implements the
-// bound at, read back rather than inferred. A parameter something else
-// already solved keeps its answer, and a bound this cannot read back
-// contributes nothing. Iterated so a solved parameter can in turn be a
-// subject.
-func (g *gen) monoSolveFromBounds(tpl *monoTemplate, solved map[string]kind) {
-	for range len(tpl.params) {
-		before := len(solved)
-		for _, wc := range tpl.decl.WhereClauses {
-			subject, known := solved[wc.Name]
-			if !known {
-				continue
-			}
-			for _, b := range wc.Bounds {
-				gt, generic := b.(*ast.GenericType)
-				if !generic {
-					continue
-				}
-				args, ok := g.boundTypeArgs(gt.Name, subject)
-				if !ok || len(args) != len(gt.Params) {
-					continue
-				}
-				for i, p := range gt.Params {
-					g.unifyTypeParams(p, args[i], tpl.paramSet, solved)
-				}
-			}
-		}
-		if len(solved) == before {
-			return
-		}
-	}
-}
-
-// boundTypeArgs is the type arguments at which k implements the generic
-// interface iface: `Iter`'s element for a std collection, or the arguments a
-// local impl block wrote for its receiver.
-func (g *gen) boundTypeArgs(iface string, k kind) ([]kind, bool) {
-	if iface == "Iter" {
-		if _, local := g.ifaceNamed(iface); !local {
-			if e, ok := irStdIterElem(g, k); ok {
-				return []kind{e}, true
-			}
-		}
-	}
-	if d := g.implsByIface[iface][k]; d != nil && d.ifaceSubst != nil && d.iface != nil {
-		if tpl := g.ifaceTemplate(iface); tpl != nil {
-			args := make([]kind, 0, len(tpl.TypeParams))
-			for _, p := range tpl.TypeParams {
-				a, bound := d.ifaceSubst[p.Name]
-				if !bound {
-					return nil, false
-				}
-				args = append(args, a)
-			}
-			return args, true
-		}
-	}
-	return nil, false
 }
 
 // calleeRefPos is the position `g.fa.References` keys a callee's symbol at.
@@ -834,7 +520,7 @@ func (g *gen) checkedNodeType(n ast.Node) analysis.Type {
 
 // checkedExprType is the type the checker gave n: checkedNodeType's answer,
 // or else the one it recorded for the node (FileAnalysis.ExprTypes), which
-// covers a call with no instantiated signature (`%{}`).
+// covers a call with no instantiated signature (`{}`).
 func (g *gen) checkedExprType(n ast.Node) analysis.Type {
 	if t := g.checkedNodeType(n); t != nil {
 		return t
@@ -848,83 +534,8 @@ func (g *gen) checkedExprType(n ast.Node) analysis.Type {
 // checkedKind is the kind of the type the checker gave n, or kindInvalid.
 func (g *gen) checkedKind(n ast.Node) kind {
 	t := g.checkedExprType(n)
-	if t == nil || irUnsolvedType(t) {
+	if t == nil {
 		return kindInvalid
 	}
 	return g.project(t)
-}
-
-// irUnsolvedType reports whether an inference variable the checker never
-// solved appears anywhere in t.
-func irUnsolvedType(t analysis.Type) bool {
-	switch ty := t.(type) {
-	case nil:
-		return false
-	case *analysis.TypeVar:
-		return ty.Resolved == nil || irUnsolvedType(ty.Resolved)
-	case *analysis.ListType:
-		return irUnsolvedType(ty.Elem)
-	case *analysis.MapType:
-		return irUnsolvedType(ty.Key) || irUnsolvedType(ty.Val)
-	case *analysis.TupleType:
-		for _, e := range ty.Elems {
-			if irUnsolvedType(e) {
-				return true
-			}
-		}
-	case *analysis.AnonStructType:
-		for _, f := range ty.Fields {
-			if irUnsolvedType(f.Type) {
-				return true
-			}
-		}
-	case *analysis.FuncType:
-		for _, p := range ty.Params {
-			if irUnsolvedType(p) {
-				return true
-			}
-		}
-		return irUnsolvedType(ty.Return)
-	case *analysis.EnumType:
-		for _, a := range ty.TypeArgs {
-			if irUnsolvedType(a) {
-				return true
-			}
-		}
-	case *analysis.StructType:
-		for _, a := range ty.TypeArgs {
-			if irUnsolvedType(a) {
-				return true
-			}
-		}
-	case *analysis.DistinctType:
-		for _, a := range ty.TypeArgs {
-			if irUnsolvedType(a) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// irStdIterElem is the element a std collection implements `Iter` at: a
-// List's, Vector's or Set's element, a Map's `(key, value)` pair, and a
-// Range's element.
-func irStdIterElem(g *gen, k kind) (kind, bool) {
-	switch {
-	case k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1:
-		return k.comp.parts[0], true
-	case k.tag == tagMap && k.comp != nil && len(k.comp.parts) == 2:
-		return g.tupleKind([]kind{k.comp.parts[0], k.comp.parts[1]}), true
-	}
-	if e, ok := vectorElem(k); ok {
-		return e, true
-	}
-	if e, ok := setElem(k); ok {
-		return e, true
-	}
-	if e, ok := rangeElem(k); ok {
-		return e, true
-	}
-	return kindInvalid, false
 }

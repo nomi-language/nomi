@@ -499,7 +499,7 @@ func CheckForeignDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *Project
 			set[tp.Name] = true
 		}
 		name, _ := typeDeclName(sym.Node)
-		errs = append(errs, checkDeriveComponentTypes(declFA, fa, impls, sym.Node, name, iface.Name, derivePos, set)...)
+		errs = append(errs, checkDeriveComponentTypes(declFA, fa, impls, fileOf, sym.Node, name, iface.Name, derivePos, set)...)
 	}
 	return errs
 }

@@ -3,7 +3,7 @@
 //# CLDR data the program carries. The module is internal to std::money: a
 //# program cannot import it, and uses `Money`.
 
-import {
+import
     bool.Bool
     currency.Currency
     decimal.Decimal
@@ -15,7 +15,7 @@ import {
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
-}
+end
 
 /// `amount` in `currency` as a reader of `locale` writes it, with the
 /// currency shown as `display` says: 0 its symbol, 1 its narrow symbol, 2
@@ -27,7 +27,7 @@ pub fn format(
     locale: Locale,
     display: Int,
     accounting: Bool,
-) -> String {
+) -> String
     money_format_raw(
         locale,
         Display.to_string(amount),
@@ -37,7 +37,7 @@ pub fn format(
         display,
         accounting,
     )
-}
+end
 
 /// The amount in `currency` a reader of `locale` wrote in `text`, strictly
 /// unless `lenient`. What `Money.parse_in` calls.
@@ -46,7 +46,7 @@ pub fn parse(
     locale: Locale,
     currency: Currency,
     lenient: Bool,
-) -> Result<Decimal, NumberParseError> {
+) -> Result<Decimal, NumberParseError>
     read = money_parse_raw(
         text,
         locale,
@@ -56,42 +56,42 @@ pub fn parse(
         lenient,
     )
 
-    case read {
-        Err(e) -> Err(e)
+    case read
+        Err(e) ->
+            Err(e)
 
-        Ok(digits) -> {
-            case String.to_decimal(digits) {
+        Ok(digits) ->
+            case String.to_decimal(digits)
                 Some(d) -> Ok(d)
                 None -> Err(NumberParseError.OutOfRange)
-            }
-        }
-    }
-}
+            end
+    end
+end
 
 /// Traps unless `a` and `b` are one currency, naming both: amounts in two
 /// currencies do not add. `operation` is the function that was asked
 /// (`Money.add`).
-pub fn require_same(operation: String, a: Currency, b: Currency) -> Unit {
-    if a == b {
+pub fn require_same(operation: String, a: Currency, b: Currency) -> Unit
+    if a == b then
         Unit
-    } else {
+    else
         money_mixed(operation, label(a), label(b))
-    }
-}
+    end
+end
 
 /// Traps with `operation`, a colon and `reason`: an argument the caller
 /// chose and could have checked, such as `Money.split` into no parts.
-pub fn refuse(operation: String, reason: String) -> Unit {
+pub fn refuse(operation: String, reason: String) -> Unit
     money_refused(operation, reason)
-}
+end
 
-fn label(c: Currency) -> String {
-    if Currency.is_iso(c) {
+fn label(c: Currency) -> String
+    if Currency.is_iso(c) then
         Currency.code(c)
-    } else {
+    else
         "${Currency.code(c)}:${Currency.minor_digits(c)}"
-    }
-}
+    end
+end
 
 host fn money_format_raw(
     locale: Locale,

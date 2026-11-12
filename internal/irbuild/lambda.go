@@ -139,7 +139,7 @@ func funcResult(k kind) kind   { return k.comp.parts[len(k.comp.parts)-1] }
 //
 // The annotation wins when there is one. When there is not, the self-typing
 // rule applies: a pattern whose head NAMES a type is its own annotation
-// (`Duration(x)`, `Point{x, y}`, `E.V(x)`). A head-less pattern — a tuple, an
+// (`Duration(x)`, `Point{x:, y:}`, `E.V(x)`). A head-less pattern — a tuple, an
 // anonymous struct, a dotted variant, a bare identifier — has nothing to read a
 // type off, and Nomi requires an annotation there, so its absence here means
 // the annotation named a type outside the subset.
@@ -188,7 +188,7 @@ func (g *gen) patternParamKind(p ast.Param, at ast.Node) (kind, bool) {
 		return kindInvalid, false
 	}
 	// `E.V(x)` names the ENUM through one of its variants; `Duration(x)` and
-	// `Point{x, y}` name the type directly.
+	// `Point{x:, y:}` name the type directly.
 	name := owner
 	if name == "" {
 		name = member
@@ -249,7 +249,7 @@ func (g *gen) destructure(pat ast.Node, src expr, at ast.Node) bool {
 		// checker rejects both in a parameter with "refutable pattern in
 		// parameter; bind the parameter and use a `case` in the body", and this
 		// arm has no source that reaches it: `|[a, b]: List<Int>|` and
-		// `|%{"a" => v}: Map<String, Int>|` are both front-end errors.
+		// `|{"a" => v}: Map<String, Int>|` are both front-end errors.
 		//
 		// It refuses rather than being omitted, because the alternative for a switch
 		// default is falling through to `return true` and binding nothing,
@@ -276,10 +276,10 @@ func (g *gen) bindDestructured(nomi string, src expr, at ast.Node) {
 func (g *gen) destructureStruct(p *ast.StructPattern, src expr, at ast.Node) bool {
 	if p.TypeName == nil {
 		if src.k.tag == tagAnonStruct {
-			// `.{x, y} = point` over a RECORD. See anonstruct.go.
+			// `{x:, y:} = point` over a RECORD. See anonstruct.go.
 			return g.destructureAnonStruct(p, src, at)
 		}
-		// `fn .{x, y}: Point ->` — an anonymous struct pattern over a NAMED struct.
+		// `fn {x, y}: Point ->` — an anonymous struct pattern over a NAMED struct.
 		// A different feature from the record above: the pattern's field set is
 		// a SUBSET of a DECLARATION's rather than the whole of a record's type,
 		// so the field list comes from the def and the match is against a type
@@ -296,7 +296,7 @@ func (g *gen) destructureStruct(p *ast.StructPattern, src expr, at ast.Node) boo
 	if d.isEnum {
 		return g.destructureVariantBraces(p, d, src, at)
 	}
-	// A generic struct's pattern head is the bare template name (`Box{value}`
+	// A generic struct's pattern head is the bare template name (`Box{value:}`
 	// over a `Box<Int>`), which names no instance, so it cannot be compared
 	// with src's kind. The checker has already required the head to name
 	// this struct (structPatternNames), as nominalCaseTest relies on for a
@@ -444,7 +444,7 @@ func (g *gen) destructureFields(d *typeDef, src expr, p *ast.StructPattern, at a
 // variantFieldArms, again without the block-opening.
 //
 // The slot is found by NAME rather than by the pattern's position, so
-// `Cell.Span{hi, lo}` and `Cell.Span{lo, hi}` bind the same two values. That is
+// `Cell.Span{hi:, lo:}` and `Cell.Span{lo:, hi:}` bind the same two values. That is
 // the field-identity reading; reading by position would be the slot reading,
 // and testdata/fn_destructure_variant.nomi lets the two disagree.
 func (g *gen) destructureVariantFields(d *typeDef, v *variantDef, src expr, p *ast.StructPattern, at ast.Node) bool {
@@ -479,13 +479,13 @@ func (g *gen) destructureField(f ast.StructPatternField, fe expr, at ast.Node) b
 	case f.Binding != "":
 		g.bindDestructured(f.Binding, fe, at)
 	default:
-		// Punning: `Point{x, y}` binds each field to its own name.
+		// Punning: `Point{x:, y:}` binds each field to its own name.
 		g.bindDestructured(f.Name, fe, at)
 	}
 	return true
 }
 
-// destructureAnonStruct binds `.{x, y: p} = record` — destructureStruct with the
+// destructureAnonStruct binds `{x:, y: p} = record` — destructureStruct with the
 // field list read from the interned record kind rather than from a declaration.
 func (g *gen) destructureAnonStruct(p *ast.StructPattern, src expr, at ast.Node) bool {
 	ok := true

@@ -1,63 +1,63 @@
 import std::compiler
 
-fn add(x: Int, y: Int) -> Int {
+fn add(x: Int, y: Int) -> Int
     x + y
-}
+end
 
-fn double(x: Int) -> Int {
+fn double(x: Int) -> Int
     x * 2
-}
+end
 
-fn greet(name: String, greeting: String = "Hello", punctuation: String = "!") -> String {
+fn greet(name: String, greeting: String = "Hello", punctuation: String = "!") -> String
     greeting + ", " + name + punctuation
-}
+end
 
-fn abs(x: Int) -> Int {
-    if x < 0 { return -x }
+fn abs(x: Int) -> Int
+    if x < 0 then return -x
     x
-}
+end
 
-fn fib(n: Int) -> Int {
-    if n < 2 { n } else { fib(n - 1) + fib(n - 2) }
-}
+fn fib(n: Int) -> Int
+    if n < 2 then n else fib(n - 1) + fib(n - 2)
+end
 
-fn trailing(host: String, port: Int = 8080, timeout: Int = 30) -> String {
+fn trailing(host: String, port: Int = 8080, timeout: Int = 30) -> String
     "${host}:${port}:${timeout}"
-}
+end
 
-fn middle_default(a: Int, b: Int = 10, c: Int) -> Int {
+fn middle_default(a: Int, b: Int = 10, c: Int) -> Int
     a * 100 + b * 10 + c
-}
+end
 
-fn many_defaults(a: Int = 1, b: Int = 2, c: Int = 3, d: Int = 4) -> Int {
+fn many_defaults(a: Int = 1, b: Int = 2, c: Int = 3, d: Int = 4) -> Int
     a * 1000 + b * 100 + c * 10 + d
-}
+end
 
-fn transform(x: Int, factor: Int = 1, f: (Int) -> Int) -> Int {
+fn transform(x: Int, factor: Int = 1, f: (Int) -> Int) -> Int
     f(x * factor)
-}
+end
 
-fn divide(a: Int, b: Int) -> Int {
+fn divide(a: Int, b: Int) -> Int
     a / b
-}
+end
 
-fn add3(a: Int, b: Int, c: Int) -> Int {
+fn add3(a: Int, b: Int, c: Int) -> Int
     a + b + c
-}
+end
 
-fn one_skip(_opt: String = "x", cb: (Int) -> Int) -> Int {
+fn one_skip(_opt: String = "x", cb: (Int) -> Int) -> Int
     cb(1)
-}
+end
 
-fn two_skip(req: Int, _opt_a: String = "a", opt_b: Int = 2, cb: (Int) -> Int) -> Int {
+fn two_skip(req: Int, _opt_a: String = "a", opt_b: Int = 2, cb: (Int) -> Int) -> Int
     cb(req + opt_b)
-}
+end
 
-fn no_skip(req: Int, cb: (Int) -> Int) -> Int {
+fn no_skip(req: Int, cb: (Int) -> Int) -> Int
     cb(req)
-}
+end
 
-test "functions call return recurse and pass as values" {
+test "functions call return recurse and pass as values"
     f = double
 
     assert add(3, 4) == 7
@@ -66,9 +66,9 @@ test "functions call return recurse and pass as values" {
     assert abs(-42) == 42
     assert abs(10) == 10
     assert fib(10) == 55
-}
+end
 
-test "default arguments fill omitted slots" {
+test "default arguments fill omitted slots"
     assert greet("World") == "Hello, World!"
     assert greet("World", "Hi") == "Hi, World!"
     assert trailing("h") == "h:8080:30"
@@ -85,9 +85,9 @@ test "default arguments fill omitted slots" {
     assert many_defaults(d: 7) == 1237
     assert many_defaults(b: 5, d: 7) == 1537
     assert many_defaults(9, 8, 7, 6) == 9876
-}
+end
 
-test "named arguments reorder skip and pipe into calls" {
+test "named arguments reorder skip and pipe into calls"
     result =
         "localhost"
         |> trailing(timeout: 10)
@@ -100,9 +100,9 @@ test "named arguments reorder skip and pipe into calls" {
     assert transform(5, factor: 3, f: fn x -> x + 1) == 16
     assert result == "localhost:8080:10"
     assert divide(b: 5, a: 100) == 20
-}
+end
 
-test "partial application preserves open argument names and defaults" {
+test "partial application preserves open argument names and defaults"
     half = &divide(&1, 2)
     divide_from_10 = &divide(10, &1)
     ab = &add3(&1, &2, 100)
@@ -126,9 +126,9 @@ test "partial application preserves open argument names and defaults" {
     assert hp("localhost") == "localhost:8080:30"
     assert hp(port: 80, host: "x") == "x:80:30"
     assert (&hp(port: &1, host: "x"))(9) == "x:9:30"
-}
+end
 
-test "lambdas as callees support defaults names partials and trailing callbacks" {
+test "lambdas as callees support defaults names partials and trailing callbacks"
     f1 = fn x: Int -> x + 1
     f2 = fn x = 100, y: Int -> x + y
     f3 = fn x: Int, y = 10 -> x + y
@@ -157,13 +157,13 @@ test "lambdas as callees support defaults names partials and trailing callbacks"
     assert port_only() == 101
     assert caller(7, fn x -> x * 2) == 14
     assert caller(7, _label: "tag", fn x -> x + 100) == 107
-}
+end
 
 // A trailing *function* routes like a trailing lambda. The rule is about
 // which parameter slot is still open, not about which syntax the argument
 // was written in — so a named function passed by reference lands where an
 // inline lambda would.
-test "a trailing named function routes like a trailing lambda" {
+test "a trailing named function routes like a trailing lambda"
     assert one_skip(double) == 2
     assert two_skip(5, double) == 14
     assert no_skip(9, double) == 18
@@ -176,29 +176,31 @@ test "a trailing named function routes like a trailing lambda" {
         |> two_skip(opt_b: 100, double)
 
     assert piped == 210
-}
+end
 
 // A positional written *before* a named argument still means the slot it
 // sits in, so naming that same slot is the duplicate it reads as — the skip
 // that makes `two_skip(5, opt_b: 100, double)` work must not reinterpret
 // this one as `sum(b: 1, a: 2)`.
-test "a positional before a named argument does not skip its slot" {
+test "a positional before a named argument does not skip its slot"
     result =
         """
         import std::io
-        fn sum(a: Int, b: Int) -> Int { a + b }
+        fn sum(a: Int, b: Int) -> Int
+            a + b
+        end
 
-        fn main() {
+        fn main()
           io.print(Display.to_string(sum(1, a: 2)))
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert "already has a value" in message
-}
+end
 
-test "trailing lambdas route across defaulted parameters and pipes" {
+test "trailing lambdas route across defaulted parameters and pipes"
     no_skip_result =
         9
         |> no_skip(fn x -> x * 2)
@@ -227,4 +229,4 @@ test "trailing lambdas route across defaulted parameters and pipes" {
     assert two_skip_result == 70
     assert with_opt_b == 105
     assert with_opt_a == 7
-}
+end

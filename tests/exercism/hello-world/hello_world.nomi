@@ -1,6 +1,6 @@
 //# The classic first program.
 
 /// The greeting every program starts with.
-pub fn hello() -> String {
+pub fn hello() -> String
     "Hello, World!"
-}
+end

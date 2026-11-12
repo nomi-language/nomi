@@ -12,18 +12,18 @@ import (
 const shebangScript = `#!/usr/bin/env nomi
 import std::io
 
-struct App {
+struct App
     context: Context
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
     io.print(startup.args)
     Ok(App{context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
     io.print("hi")
-}
+end
 `
 
 // `nomi <file>.nomi args...` is `nomi run <file>.nomi args...`: the program
@@ -91,8 +91,8 @@ func TestScriptMode_ExtensionlessScript(t *testing.T) {
 	bin := t.TempDir()
 	script := filepath.Join(bin, "hi")
 	mustWrite(t, script, strings.Replace(shebangScript, "import std::io\n", "import std::io\nimport greet\n", 1)+
-		"\ntest \"greets\" {\n    assert greet.hello() == \"hello\"\n}\n")
-	mustWrite(t, filepath.Join(bin, "greet.nomi"), "pub fn hello() -> String {\n    \"hello\"\n}\n")
+		"\ntest \"greets\"\n    assert greet.hello() == \"hello\"\nend\n")
+	mustWrite(t, filepath.Join(bin, "greet.nomi"), "pub fn hello() -> String\n    \"hello\"\nend\n")
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestScriptMode_ExtensionlessScript(t *testing.T) {
 	}
 
 	plain := filepath.Join(bin, "notes")
-	mustWrite(t, plain, "fn main() {}\n")
+	mustWrite(t, plain, "fn main() end\n")
 	if out, err := exec.Command(nomiBin, plain).CombinedOutput(); err == nil || !strings.Contains(string(out), "unknown command") {
 		t.Errorf("nomi <file without #!>: want unknown command, got %v:\n%s", err, out)
 	}
@@ -153,9 +153,9 @@ func Exclaim(s string) string { return s + "!" }
 
 fn exclaim(s: String) -> String go shout.Exclaim
 
-pub fn loud(s: String) -> String {
+pub fn loud(s: String) -> String
     exclaim(s)
-}
+end
 `)
 	script := filepath.Join(bin, "up")
 	mustWrite(t, script, `#!/usr/bin/env nomi
@@ -166,16 +166,16 @@ gopkg "upscript/shout" as shout
 
 fn upper(s: String) -> String go shout.Upper
 
-fn main() {
+fn main()
     io.print(upper("hi") |> loud.loud())
-}
+end
 `)
 	mustWrite(t, filepath.Join(bin, "other"), `#!/usr/bin/env nomi
 gopkg "upscript/shout" as shout
 
 fn missing(s: String) -> String go shout.Missing
 
-fn main() {}
+fn main() end
 `)
 
 	want := "HI!\n"
@@ -211,9 +211,9 @@ gopkg "hiproj/shout" as shout
 
 fn upper(s: String) -> String go shout.Upper
 
-fn main() {
+fn main()
     io.print(upper("hi"))
-}
+end
 `
 	project := func(files ...string) string {
 		dir := t.TempDir()
@@ -267,8 +267,8 @@ func TestScriptMode_ExtensionlessScriptIsRootedAtItsDirectory(t *testing.T) {
 	}
 	mod := t.TempDir()
 	mustWrite(t, filepath.Join(mod, "nomi.toml"), "[module]\nname = \"m\"\nentry_points = [\"main\"]\n")
-	mustWrite(t, filepath.Join(mod, "main.nomi"), "fn main() {}\n")
-	body := "#!/usr/bin/env nomi\nimport std::io\n\nfn main() {\n    io.print(\"deploy\")\n}\n"
+	mustWrite(t, filepath.Join(mod, "main.nomi"), "fn main() end\n")
+	body := "#!/usr/bin/env nomi\nimport std::io\n\nfn main()\n    io.print(\"deploy\")\nend\n"
 	mustWrite(t, filepath.Join(mod, "scripts", "deploy"), body)
 	mustWrite(t, filepath.Join(mod, "scripts", "deploy2.nomi"), body)
 
@@ -298,7 +298,7 @@ func TestScriptMode_Precedence(t *testing.T) {
 	}
 
 	bad := filepath.Join(dir, "bad.nomi")
-	mustWrite(t, bad, "#!/usr/bin/env nomi\nimport std::io\n\nfn main() {\n    io.print(1 + \"x\")\n}\n")
+	mustWrite(t, bad, "#!/usr/bin/env nomi\nimport std::io\n\nfn main()\n    io.print(1 + \"x\")\nend\n")
 	out, err = exec.Command(nomiBin, bad).CombinedOutput()
 	if err == nil || !strings.Contains(string(out), bad+":5:") {
 		t.Errorf("nomi bad.nomi: want a diagnostic at line 5, got %v:\n%s", err, out)

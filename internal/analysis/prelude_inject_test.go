@@ -63,7 +63,7 @@ func TestPreludeAutoprepend_SuppressedInStdlibFiles(t *testing.T) {
 	// point of the test — would resolve via auto-prepend if stdlib
 	// files weren't suppressed. The `pub fn use_probe() -> OrphanProbe`
 	// signature carries the bare reference (no `import std::probe`).
-	mustWrite("consumer.nomi", "pub fn use_probe() -> OrphanProbe { OrphanProbe }\n")
+	mustWrite("consumer.nomi", "pub fn use_probe() -> OrphanProbe\n    OrphanProbe\nend\n")
 	t.Setenv("NOMI_STD_PATH", stdRoot)
 
 	// Project setup. main.nomi imports std/consumer.{use_probe} so
@@ -73,10 +73,10 @@ func TestPreludeAutoprepend_SuppressedInStdlibFiles(t *testing.T) {
 	mainPath := filepath.Join(projRoot, "main.nomi")
 	mainSrc := `import std::consumer.{use_probe}
 
-fn main() {
+fn main()
   x: OrphanProbe = OrphanProbe
   Unit
-}
+end
 `
 	if err := os.WriteFile(mainPath, []byte(mainSrc), 0644); err != nil {
 		t.Fatalf("write main.nomi: %v", err)
@@ -156,7 +156,7 @@ func TestPreludeAutoprepend_NoPhantomPositionsInUserFile(t *testing.T) {
 	// Minimal single-line-of-real-content user file. The auto-prepend
 	// fires at BuildProjectWithCache time with the real bundled
 	// prelude.nomi, so the test exercises the production code path.
-	mainSrc := "fn main() { Unit }\n"
+	mainSrc := "fn main()\n    Unit\nend\n"
 	if err := os.WriteFile(filepath.Join(projRoot, "main.nomi"), []byte(mainSrc), 0644); err != nil {
 		t.Fatalf("write main.nomi: %v", err)
 	}

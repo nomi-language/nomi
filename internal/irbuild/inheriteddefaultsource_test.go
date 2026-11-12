@@ -11,72 +11,72 @@ import "testing"
 // block. Read from the implementing file's analysis, each missed and the
 // implementor's copy of the default declined.
 func TestInheritedDefault_ReadsTheDeclaringFilesFacts(t *testing.T) {
-	widget := `struct Widget {
+	widget := `struct Widget
     name: String
-}
+end
 
-impl Powered for Widget {
-    fn label(w: Widget) -> String {
+impl Powered for Widget
+    fn label(w: Widget) -> String
         w.name
-    }
-}
+    end
+end
 `
 	for _, tc := range []struct {
 		name, lib, main, want string
 	}{
 		{
 			name: "a brace literal typed by the default's result",
-			lib: `pub struct Point {
+			lib: `pub struct Point
     x: Int
     y: Int
-}
+end
 
-pub interface Powered {
+pub interface Powered
     fn label(w: self) -> String
 
-    fn origin(w: self) -> Point {
-        .{x: 7, y: String.length(Powered.label(w))}
-    }
-}
+    fn origin(w: self) -> Point
+        {x: 7, y: String.length(Powered.label(w))}
+    end
+end
 `,
-			main: `import {
+			main: `import
     std::io
     lib.{Powered, Point}
-}
+end
 
 ` + widget + `
-fn main() {
+fn main()
     p: Point = Powered.origin(Widget{name: "abc"})
     io.print("${p.x},${p.y}")
-}
+end
 `,
 			want: "7,3\n",
 		},
 		{
 			name: "a field accessor",
-			lib: `pub struct Point {
+			lib: `pub struct Point
     x: Int
     y: Int
-}
+end
 
-pub interface Powered {
+pub interface Powered
     fn label(w: self) -> String
 
-    fn xs(w: self) -> String {
+    fn xs(w: self) -> String
         [Point{x: 3, y: 4}] |> Iter.map(.x) |> Iter.map(fn n -> Powered.label(w) + "${n}") |> String.join(",")
-    }
-}
+    end
+end
 `,
-			main: `import {
+			main: `import
     std::io
     lib.{Powered, Point}
-}
+end
 
 ` + widget + `
-fn main() {
+fn main()
     io.print(Powered.xs(Widget{name: "w"}))
     io.print(Point{x: 1, y: 1}.x)
-}
+end
 `,
 			want: "w3\n1\n",
 		},
@@ -84,52 +84,52 @@ fn main() {
 			name: "an application-field read",
 			lib: `import main.App
 
-pub interface Powered {
+pub interface Powered
     fn label(w: self) -> String
 
-    fn greet(w: self) -> String {
+    fn greet(w: self) -> String
         App.greeting + " " + Powered.label(w)
-    }
-}
+    end
+end
 `,
-			main: `import {
+			main: `import
     std::io
     lib.Powered
-}
+end
 
-pub struct App {
+pub struct App
     context: Context
     greeting: String
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{context: Context.root(), greeting: "hello"})
-}
+end
 
 ` + widget + `
-fn main() {
+fn main()
     io.print(Powered.greet(Widget{name: "w"}))
-}
+end
 `,
 			want: "hello w\n",
 		},
 		{
 			name: "a bare call bound by a block import",
-			lib: `pub interface Powered {
+			lib: `pub interface Powered
     fn label(w: self) -> String
 
-    fn shout(w: self) {
+    fn shout(w: self)
         import std::io.print
         print(Powered.label(w) + "!")
-    }
-}
+    end
+end
 `,
 			main: `import lib.Powered
 
 ` + widget + `
-fn main() {
+fn main()
     Powered.shout(Widget{name: "w"})
-}
+end
 `,
 			want: "w!\n",
 		},

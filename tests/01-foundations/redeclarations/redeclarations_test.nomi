@@ -1,24 +1,24 @@
-import {
+import
     std::compiler
     test_helpers
-}
+end
 
-test "duplicate same-scope top-level declarations are rejected" {
+test "duplicate same-scope top-level declarations are rejected"
     diagnostics = compiler.check(
         """
-          fn helper() -> Int {
+          fn helper() -> Int
             1
-          }
+          end
 
-          fn helper() -> Int {
+          fn helper() -> Int
             2
-          }
+          end
 
-          fn main() {
+          fn main()
             Unit
-          }
+          end
         """
     )
 
     assert test_helpers.has_diagnostic(diagnostics, "'helper' is already defined in this scope")
-}
+end

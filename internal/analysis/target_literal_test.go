@@ -7,27 +7,27 @@ import (
 
 const targetTag = `import std::literals.{CheckedLiteral, Fragment, LiteralError}
 
-struct Word {
+struct Word
     text: String
-}
+end
 
-impl CheckedLiteral<Int, Word> for Word {
-    fn check(statics: List<String>) -> Result<Unit, LiteralError> {
+impl CheckedLiteral<Int, Word> for Word
+    fn check(statics: List<String>) -> Result<Unit, LiteralError>
         Ok(Unit)
-    }
+    end
 
-    fn build(fragments: List<Fragment<Int>>) -> Word {
+    fn build(fragments: List<Fragment<Int>>) -> Word
         Word{text: "${Iter.count(fragments)}"}
-    }
-}
+    end
+end
 
-struct Box {
+struct Box
     word: Word
-}
+end
 
-fn take(w: Word) -> Word {
+fn take(w: Word) -> Word
     w
-}
+end
 `
 
 // typeErrorsOf is the errors of src that are about types or literals, as
@@ -55,7 +55,7 @@ func TestTargetLiteral_EachPositionTakesTheType(t *testing.T) {
 		"    \"plain\"\n",
 		"    ws: List<Word> = [\"a\", \"b\"]\n    List.head(ws)!\n",
 	} {
-		src := targetTag + "\nfn f() -> Word {\n" + body + "}\n"
+		src := targetTag + "\nfn f() -> Word\n" + body + "end\n"
 		if errs := typeErrorsOf(t, src); len(errs) > 0 {
 			t.Errorf("the front end rejects an untagged Word literal:\n%s\n%v", body, errs)
 		}
@@ -71,7 +71,7 @@ func TestTargetLiteral_OnlyALiteralConverts(t *testing.T) {
 		{"    s = \"plain\"\n    w: Word = s\n    w\n", "type mismatch: expected Word, got String"},
 		{"    t = \"x\"\n    w: Word = \"a ${t}\"\n    w\n", "slot expression of type 'String' does not match required type 'Int' (required by tag 'Word')"},
 	} {
-		src := targetTag + "\nfn f() -> Word {\n" + c.body + "}\n"
+		src := targetTag + "\nfn f() -> Word\n" + c.body + "end\n"
 		errs := typeErrorsOf(t, src)
 		found := false
 		for _, e := range errs {

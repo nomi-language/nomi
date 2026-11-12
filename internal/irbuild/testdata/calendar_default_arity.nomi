@@ -18,23 +18,23 @@
 // that file has to import `Disambiguation` to name the other three modes — so
 // it cannot be this witness, and a fixture that could not fail for the reason
 // it exists is worse than no fixture.
-import {
+import
     std::calendar.{DateTime, Error, NaiveDateTime}
     std::io
-}
+end
 
-fn run() -> Result<Unit, Error> {
+fn run() -> Result<Unit, Error>
     // The fold again, so the answer here is comparable with calendar_fold.nomi's
     // `fold_default` line by eye: 01:30-04:00, the pre-transition occurrence.
     fold = NaiveDateTime"2026-11-01T01:30:00"?
     zoned = DateTime.in_zone(fold, "America/New_York")?
     io.print("defaulted = " + DateTime.to_string(zoned))
     Ok(Unit)
-}
+end
 
-fn main() {
-    case run() {
+fn main()
+    case run()
         Ok(_u) -> Unit
         Err(_e) -> io.print("FAILED")
-    }
-}
+    end
+end

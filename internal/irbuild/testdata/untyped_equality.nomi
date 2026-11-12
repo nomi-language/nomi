@@ -1,4 +1,4 @@
-// `==` against an UNTYPED literal — `x == None`, `xs == []`, `m == %{}`.
+// `==` against an UNTYPED literal — `x == None`, `xs == []`, `m == {}`.
 //
 // # What this fixture is about
 //
@@ -34,7 +34,7 @@
 //     `*rt.List` values by address would answer False.
 //   - `Some(1) == None` compares a constructor call directly, with no binding
 //     in between, so the operand is not a local the builder already typed.
-//   - `%{}`, the THIRD untyped literal, which has ZERO corpus sites at
+//   - `{}`, the THIRD untyped literal, which has ZERO corpus sites at
 //     this position and reached exactly the same refusal. It is here because a
 //     fix aimed only at the two shapes the corpus happens to contain would
 //     leave a hole with no principle behind it, and nothing would have failed.
@@ -44,15 +44,15 @@
 // builder's business.
 import std::io
 
-fn to_maybe(n: Int) -> Maybe<Int> {
-    if n > 0 { Some(n) } else { None }
-}
+fn to_maybe(n: Int) -> Maybe<Int>
+    if n > 0 then Some(n) else None
+end
 
-fn name_of(id: Int) -> Maybe<String> {
-    if id == 1 { Some("Ada") } else { None }
-}
+fn name_of(id: Int) -> Maybe<String>
+    if id == 1 then Some("Ada") else None
+end
 
-fn main() {
+fn main()
     present = to_maybe(3)
     absent = to_maybe(0)
     named = name_of(1)
@@ -62,8 +62,8 @@ fn main() {
     empty: List<Int> = []
     built = List.concat([1], [2, 3])
     drained = List.concat(empty, empty)
-    empty_m: Map<String, Int> = %{}
-    filled_m = %{"a" => 1}
+    empty_m: Map<String, Int> = {}
+    filled_m = {"a" => 1}
 
     io.print("absent-eq    ${absent == None} ${None == absent}")
     io.print("present-eq   ${present == None} ${None == present}")
@@ -82,7 +82,7 @@ fn main() {
     io.print("drained-eq   ${drained == []} ${[] == drained}")
     io.print("xs-ne        ${xs != []} ${empty != []}")
 
-    io.print("map-empty-eq ${empty_m == %{}} ${%{} == empty_m}")
-    io.print("map-full-eq  ${filled_m == %{}} ${%{} == filled_m}")
-    io.print("map-ne       ${filled_m != %{}} ${%{} != empty_m}")
-}
+    io.print("map-empty-eq ${empty_m == {}} ${{} == empty_m}")
+    io.print("map-full-eq  ${filled_m == {}} ${{} == filled_m}")
+    io.print("map-ne       ${filled_m != {}} ${{} != empty_m}")
+end

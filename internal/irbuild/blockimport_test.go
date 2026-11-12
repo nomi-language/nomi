@@ -13,19 +13,19 @@ import (
 func TestBlockImport_TypesThroughTheQualifier(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn encoded() -> String {
+fn encoded() -> String
     import std::json
     v: json.Json = json.Json.Int(3)
     Debug.inspect(v)
-}
+end
 
-fn main() {
+fn main()
     import std::json
     io.inspect(json.Json.Null)
     io.print(encoded())
     io.inspect(json.Json.decode("[1]"))
     io.inspect(json.Json.Arr([json.Json.Bool(True)]))
-}
+end
 `, "null\n3\nOk([1])\n[true]\n")
 }
 
@@ -35,31 +35,31 @@ fn main() {
 func TestBlockImport_OneQualifierOfTwoFiles(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn a() -> Int {
+fn a() -> Int
     import std::duration as d
     d.Duration.as_micros(d.Duration.seconds(1))
-}
+end
 
-fn b() -> String {
+fn b() -> String
     import std::json as d
     d.Json.encode(d.Json.Null)
-}
+end
 
-fn c() -> List<String> {
+fn c() -> List<String>
     import std::json as d
     [1, 2] |> Iter.map(fn _ -> d.Json.encode(d.Json.Bool(True))) |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
     io.print(Int.to_string(a()))
     io.print(b())
     io.inspect(c())
-    w = {
+    w = begin
         import std::duration as d
         d.Duration.as_millis(d.Duration.seconds(2))
-    }
+    end
     io.print(Int.to_string(w))
-}
+end
 `, "1000000\nnull\n[\"true\", \"true\"]\n2000\n")
 }
 
@@ -75,19 +75,19 @@ func TestBlockImport_ProjectFileRuns(t *testing.T) {
 	files := map[string]string{
 		"main.nomi": `import std::io
 
-fn main() {
+fn main()
     import shapes
     io.inspect(shapes.area(2))
-}
+end
 `,
-		"shapes.nomi": `pub fn area(r: Int) -> Int {
+		"shapes.nomi": `pub fn area(r: Int) -> Int
     import units
     units.scale(r * 3)
-}
+end
 `,
-		"units.nomi": `pub fn scale(n: Int) -> Int {
+		"units.nomi": `pub fn scale(n: Int) -> Int
     n * 10
-}
+end
 `,
 	}
 	for name, src := range files {
@@ -110,16 +110,16 @@ fn main() {
 func TestBlockImport_ABlockLocalTypeNamesIt(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn main() {
+fn main()
     import b.B
-    struct Local {
+    struct Local
         x: B
-    }
+    end
     io.inspect(Local{x: B{v: 3}})
-}
-`, "Local{x: B{v: 3}}\n", map[string]string{"b.nomi": `pub struct B {
+end
+`, "Local{x: B{v: 3}}\n", map[string]string{"b.nomi": `pub struct B
     v: Int
-}
+end
 `})
 }
 
@@ -130,22 +130,22 @@ fn main() {
 func TestBlockImport_ClosesATypeCycle(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-pub struct A {
+pub struct A
     n: Int
-}
+end
 
-fn main() {
+fn main()
     import b.B
-    struct Local {
+    struct Local
         x: B
-    }
+    end
     io.inspect(Local{x: B{a: A{n: 1}}})
-}
+end
 `, "Local{x: B{a: A{n: 1}}}\n", map[string]string{"b.nomi": `import main.A
 
-pub struct B {
+pub struct B
     a: A
-}
+end
 `})
 }
 
@@ -173,15 +173,15 @@ func TestBlockImport_AnInterfaceOnlyATestImports(t *testing.T) {
 //! h: ToHtml = "<b>"
 //! assert Html.to_string(ToHtml.to_html(h)) == "&lt;b&gt;"
 //
-pub fn double(n: Int) -> Int {
+pub fn double(n: Int) -> Int
     n * 2
-}
+end
 
-pub fn held<I>(values: List<I>) -> List<I> {
+pub fn held<I>(values: List<I>) -> List<I>
     values
-}
+end
 
-test "an interface the test imports" {
+test "an interface the test imports"
     import shapes.{Shape, Square}
     import std::html.{Html, ToHtml}
 
@@ -190,21 +190,21 @@ test "an interface the test imports" {
     assert Iter.map(held<Shape>([Square{side: 2}]), Shape.area) |> Iter.to_list() == [4]
     h: ToHtml = 7
     assert Html.to_string(ToHtml.to_html(h)) == "7"
-}
+end
 `,
-		"shapes.nomi": `pub interface Shape {
+		"shapes.nomi": `pub interface Shape
     fn area(shape: self) -> Int
-}
+end
 
-pub struct Square {
+pub struct Square
     side: Int
-}
+end
 
-impl Shape for Square {
-    fn area(s: Square) -> Int {
+impl Shape for Square
+    fn area(s: Square) -> Int
         s.side * s.side
-    }
-}
+    end
+end
 `,
 	}
 	for name, src := range files {

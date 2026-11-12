@@ -2,7 +2,7 @@
 // the program's call, with the words `%` gives.
 import std::io
 
-fn main() {
+fn main()
     io.print("before")
     io.print(Int.modulo(5, 0))
-}
+end

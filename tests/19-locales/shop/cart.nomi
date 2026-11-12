@@ -1,9 +1,9 @@
 /// Where an order is.
-pub enum Status {
+pub enum Status
     Pending
     Shipped
     Delivered
-}
+end
 
 /// How many items the cart holds.
 pub phrase cart_items(count: Int) `

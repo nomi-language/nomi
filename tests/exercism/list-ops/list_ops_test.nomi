@@ -1,33 +1,33 @@
 import list_ops
 
-group "append entries to a list and return the new list" {
-    test "empty lists" {
+group "append entries to a list and return the new list"
+    test "empty lists"
         assert list_ops.append([], []) == []
-    }
+    end
 
-    test "list to empty list" {
+    test "list to empty list"
         assert list_ops.append([], [1, 2, 3, 4]) == [1, 2, 3, 4]
-    }
+    end
 
-    test "empty list to list" {
+    test "empty list to list"
         assert list_ops.append([1, 2, 3, 4], []) == [1, 2, 3, 4]
-    }
+    end
 
-    test "non-empty lists" {
+    test "non-empty lists"
         assert list_ops.append([1, 2], [2, 3, 4, 5]) == [1, 2, 2, 3, 4, 5]
-    }
-}
+    end
+end
 
-group "concatenate a list of lists" {
-    test "empty list" {
+group "concatenate a list of lists"
+    test "empty list"
         assert list_ops.concat([] as List<List<Int>>) == []
-    }
+    end
 
-    test "list of lists" {
+    test "list of lists"
         assert list_ops.concat([[1, 2], [3], [], [4, 5, 6]]) == [1, 2, 3, 4, 5, 6]
-    }
+    end
 
-    test "list of nested lists" {
+    test "list of nested lists"
         lists = [
             [[1], [2]],
             [[3]],
@@ -36,81 +36,81 @@ group "concatenate a list of lists" {
         ]
 
         assert list_ops.concat(lists) == [[1], [2], [3], [], [4, 5, 6]]
-    }
-}
+    end
+end
 
-group "filter list returning only values that satisfy the filter function" {
-    test "empty list" {
+group "filter list returning only values that satisfy the filter function"
+    test "empty list"
         assert list_ops.filter([], fn x -> x % 2 == 1) == []
-    }
+    end
 
-    test "non-empty list" {
+    test "non-empty list"
         assert list_ops.filter([1, 2, 3, 5], fn x -> x % 2 == 1) == [1, 3, 5]
-    }
-}
+    end
+end
 
-group "returns the length of a list" {
-    test "empty list" {
+group "returns the length of a list"
+    test "empty list"
         assert list_ops.length([]) == 0
-    }
+    end
 
-    test "non-empty list" {
+    test "non-empty list"
         assert list_ops.length([1, 2, 3, 4]) == 4
-    }
-}
+    end
+end
 
-group "return a list of elements whose values equal the list value transformed by the mapping function" {
-    test "empty list" {
+group "return a list of elements whose values equal the list value transformed by the mapping function"
+    test "empty list"
         assert list_ops.map([], &(&1 + 1)) == []
-    }
+    end
 
-    test "non-empty list" {
+    test "non-empty list"
         assert list_ops.map([1, 3, 5, 7], &(&1 + 1)) == [2, 4, 6, 8]
-    }
-}
+    end
+end
 
-group "folds (reduces) the given list from the left with a function" {
-    test "empty list" {
+group "folds (reduces) the given list from the left with a function"
+    test "empty list"
         assert list_ops.foldl([], 2, fn acc, el -> el * acc) == 2
-    }
+    end
 
-    test "direction independent function applied to non-empty list" {
+    test "direction independent function applied to non-empty list"
         assert list_ops.foldl([1, 2, 3, 4], 5, fn acc, el -> el + acc) == 15
-    }
+    end
 
-    test "direction dependent function applied to non-empty list" {
+    test "direction dependent function applied to non-empty list"
         assert list_ops.foldl([1.0, 2.0, 3.0, 4.0], 24.0, fn acc, el -> el / acc) == 64.0
-    }
-}
+    end
+end
 
-group "folds (reduces) the given list from the right with a function" {
-    test "empty list" {
+group "folds (reduces) the given list from the right with a function"
+    test "empty list"
         assert list_ops.foldr([], 2, fn acc, el -> el * acc) == 2
-    }
+    end
 
-    test "direction independent function applied to non-empty list" {
+    test "direction independent function applied to non-empty list"
         assert list_ops.foldr([1, 2, 3, 4], 5, fn acc, el -> el + acc) == 15
-    }
+    end
 
-    test "direction dependent function applied to non-empty list" {
+    test "direction dependent function applied to non-empty list"
         assert list_ops.foldr([1.0, 2.0, 3.0, 4.0], 24.0, fn acc, el -> el / acc) == 9.0
-    }
-}
+    end
+end
 
-group "reverse the elements of the list" {
-    test "empty list" {
+group "reverse the elements of the list"
+    test "empty list"
         assert list_ops.reverse([]) == []
-    }
+    end
 
-    test "non-empty even-length list" {
+    test "non-empty even-length list"
         assert list_ops.reverse([1, 3, 5, 7]) == [7, 5, 3, 1]
-    }
+    end
 
-    test "non-empty odd-length list" {
+    test "non-empty odd-length list"
         assert list_ops.reverse([1, 3, 5, 7, 9, 11, 13]) == [13, 11, 9, 7, 5, 3, 1]
-    }
+    end
 
-    test "list of lists is not flattened" {
+    test "list of lists is not flattened"
         assert list_ops.reverse([[1, 2], [3], [], [4, 5, 6]]) == [[4, 5, 6], [], [3], [1, 2]]
-    }
-}
+    end
+end

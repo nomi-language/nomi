@@ -7,7 +7,7 @@ import (
 // CheckConcurrentScope enforces Rule 1 of structured concurrency (spec §16):
 //
 //	A `Task.spawn(...)` call is legal only inside the dynamic extent of a
-//	`concurrent { }` block. Reaches transitively — `Task.spawn(fn -> helper())`
+//	`concurrent` block. Reaches transitively — `Task.spawn(fn -> helper())`
 //	where `helper` itself calls `Task.spawn` is legal as long as every chain
 //	from `Task.spawn` up through the call graph bottoms out inside a
 //	`concurrent` block.
@@ -78,7 +78,7 @@ type concurrentScope struct {
 
 	// directCalls[sym] = the set of in-file function symbols that sym's
 	// body calls from a position that is NOT inside sym's own
-	// `concurrent { }` block. Drives the transitive-closure propagation
+	// `concurrent` block. Drives the transitive-closure propagation
 	// of needsConcurrent: if a callee at such a site needs concurrent
 	// context, sym does too (the call would propagate the requirement
 	// outward).
@@ -89,7 +89,7 @@ type concurrentScope struct {
 	needsConcurrent map[*Symbol]bool
 
 	// spawnCallSites[sym] records every `Task.spawn(...)` call inside sym's
-	// body that sits OUTSIDE any local `concurrent { }` block — these
+	// body that sits OUTSIDE any local `concurrent` block — these
 	// are the diagnostic anchors when sym ends up reachable from a
 	// non-concurrent call site.
 	spawnCallSites map[*Symbol][]*ast.Call
@@ -232,7 +232,7 @@ func (s *concurrentScope) collectFunc(fn *ast.FuncDef) {
 }
 
 // walkBody descends an AST subtree, tracking `inConcurrent` — the depth
-// of `concurrent { }` blocks nested around the current position.
+// of `concurrent` blocks nested around the current position.
 // `spawn` calls at depth > 0 are "covered" (legal here); at depth == 0
 // they're recorded as directlyNeeds + spawnCallSites entries. Calls to
 // other in-file functions at depth == 0 contribute to directCalls so
@@ -310,14 +310,6 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 	case *ast.Break:
 		s.walkBody(owner, node.Value, inConcurrent)
 	case *ast.ListLit:
-		for _, item := range node.Items {
-			s.walkBody(owner, item, inConcurrent)
-		}
-	case *ast.VectorLit:
-		for _, item := range node.Operands() {
-			s.walkBody(owner, item, inConcurrent)
-		}
-	case *ast.SetLit:
 		for _, item := range node.Operands() {
 			s.walkBody(owner, item, inConcurrent)
 		}
@@ -470,7 +462,7 @@ func (s *concurrentScope) computeClosure() {
 // each owner with recorded spawn calls as either:
 //
 //   - "covered": every observed in-file call site of the owner is
-//     either lexically inside a `concurrent { }` block OR lexically
+//     either lexically inside a `concurrent` block OR lexically
 //     inside another needsConcurrent function's body (the chain
 //     bottoms out further up); AND at least one such call site exists.
 //   - "uncovered": at least one call site is in plain function-body
@@ -510,7 +502,7 @@ func (s *concurrentScope) validate(nodes []ast.Node) {
 //
 //   - A needsConcurrent function `g` is "covered" iff at least one
 //     in-file call site of `g` exists AND every in-file call site is
-//     either (a) lexically inside a `concurrent { }` block, OR (b)
+//     either (a) lexically inside a `concurrent` block, OR (b)
 //     lexically inside the body of another covered needsConcurrent
 //     function.
 //
@@ -532,7 +524,7 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 	// fixed-point time.
 	type callSite struct {
 		enclosing    *Symbol // owner of the call site's enclosing FuncDef body
-		inConcurrent bool    // true if lexically inside a `concurrent { }` block
+		inConcurrent bool    // true if lexically inside a `concurrent` block
 	}
 	callSites := make(map[*Symbol][]callSite, len(s.needsConcurrent))
 	for sym := range s.needsConcurrent {
@@ -624,14 +616,6 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 		case *ast.Break:
 			walk(node.Value, enclosing, inConcurrent)
 		case *ast.ListLit:
-			for _, item := range node.Items {
-				walk(item, enclosing, inConcurrent)
-			}
-		case *ast.VectorLit:
-			for _, item := range node.Operands() {
-				walk(item, enclosing, inConcurrent)
-			}
-		case *ast.SetLit:
 			for _, item := range node.Operands() {
 				walk(item, enclosing, inConcurrent)
 			}

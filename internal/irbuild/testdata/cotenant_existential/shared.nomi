@@ -15,10 +15,10 @@
 //
 // This file must NOT import a cycle member, or it joins the component and there
 // is no cross-package alias left to collide.
-pub struct Stamp {
+pub struct Stamp
     s: String
-}
+end
 
-pub fn stamp(s: String) -> Stamp {
-    Stamp{s}
-}
+pub fn stamp(s: String) -> Stamp
+    Stamp{s:}
+end

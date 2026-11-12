@@ -3,69 +3,68 @@ package format
 import "testing"
 
 // A body whose one statement is a block flattenBodyBlocks leaves alone (an
-// empty one, or one holding a `defer`) keeps the body's braces around it.
-// Written bare after `setup` or a lambda's parameters, the inner block's
-// braces read back as the body's, and the inner block is gone. Each case
+// empty one, or one holding a `defer`) keeps it as a `begin ... end` inside
+// the body. Written as the body itself, the inner block would be gone. Each case
 // formats to its want, a second format leaves it unchanged, and the program
 // means the same. The other block-bodied forms never wrote the inner block
 // bare; their cases pin that.
 func TestFormat_BodyThatIsOneBlockKeepsItsBraces(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
 		"setup, empty block": {
-			"group \"0\" { setup{{}}test \"\"{assert} }\n",
-			"group \"0\" {\n    setup {\n        {}\n    }\n\n    test \"\" {\n        assert\n    }\n}\n",
+			"group \"0\"\n    setup begin\n        begin end\n    end\n    test \"\"\n            assert\n        end\nend\n",
+			"group \"0\"\n    setup begin\n        begin end\n    end\n\n    test \"\"\n        assert\n    end\nend\n",
 		},
 		"setup, nested empty blocks": {
-			"group \"0\" { setup {{{}}} test \"\" { assert } }\n",
-			"group \"0\" {\n    setup {\n        {}\n    }\n\n    test \"\" {\n        assert\n    }\n}\n",
+			"group \"0\"\n    setup begin\n        begin\n            begin end\n        end\n    end test \"\"\n                assert\n            end\nend\n",
+			"group \"0\"\n    setup begin\n        begin end\n    end\n\n    test \"\"\n        assert\n    end\nend\n",
 		},
 		"setup, block holding a defer": {
-			"group \"0\" { setup { { defer f()\n 1 } } test \"\" { assert } }\n",
-			"group \"0\" {\n    setup {\n        {\n            defer f()\n            1\n        }\n    }\n\n    test \"\" {\n        assert\n    }\n}\n",
+			"group \"0\"\n    setup begin\n        begin\n            defer f()\n 1\n        end\n    end test \"\"\n     assert\n end\nend\n",
+			"group \"0\"\n    setup begin\n        begin\n            defer f()\n            1\n        end\n    end\n\n    test \"\"\n        assert\n    end\nend\n",
 		},
 		"lambda, empty block": {
-			"fn f() { x = fn -> {{}} }\n",
-			"fn f() {\n    x = fn -> { {} }\n}\n",
+			"fn f()\n    x = fn ->\n        begin end\n    end\nend\n",
+			"fn f()\n    x = fn ->\n        begin end\n    end\nend\n",
 		},
 		"lambda with a parameter, empty block": {
-			"fn f() { x = fn a -> {{}} }\n",
-			"fn f() {\n    x = fn a -> { {} }\n}\n",
+			"fn f()\n    x = fn a ->\n        begin end\n    end\nend\n",
+			"fn f()\n    x = fn a ->\n        begin end\n    end\nend\n",
 		},
 		"tail lambda, empty block": {
-			"fn f() { g(1, fn -> {{}}) }\n",
-			"fn f() {\n    g(1, fn -> { {} })\n}\n",
+			"fn f()\n    g(1, fn ->\n        begin end\n    end)\nend\n",
+			"fn f()\n    g(1, fn ->\n        begin end\n    end)\nend\n",
 		},
 		"lambda, block holding a defer": {
-			"fn f() { x = fn -> { { defer g()\n 1 } } }\n",
-			"fn f() {\n    x = fn -> {\n        {\n            defer g()\n            1\n        }\n    }\n}\n",
+			"fn f()\n    x = fn ->\n        begin\n            defer g()\n 1\n        end\n    end\nend\n",
+			"fn f()\n    x = fn ->\n        begin\n            defer g()\n            1\n        end\n    end\nend\n",
 		},
 		"clock": {
-			"group \"g\" { clock {{}} test \"\" { assert } }\n",
-			"group \"g\" {\n    clock { {} }\n\n    test \"\" {\n        assert\n    }\n}\n",
+			"group \"g\"\n    clock begin\n        begin end\n    end test \"\"\n            assert\n        end\nend\n",
+			"group \"g\"\n    clock begin\n        begin end\n    end\n\n    test \"\"\n        assert\n    end\nend\n",
 		},
 		"boot": {
-			"group \"g\" { boot {{}} test \"\" { assert } }\n",
-			"group \"g\" {\n    boot { {} }\n\n    test \"\" {\n        assert\n    }\n}\n",
+			"group \"g\"\n    boot begin\n        begin end\n    end test \"\"\n            assert\n        end\nend\n",
+			"group \"g\"\n    boot begin\n        begin end\n    end\n\n    test \"\"\n        assert\n    end\nend\n",
 		},
 		"test body": {
-			"test \"\" {{} assert}\n",
-			"test \"\" {\n    {}\n    assert\n}\n",
+			"test \"\"\n    begin end\n    assert\nend\n",
+			"test \"\"\n    begin end\n    assert\nend\n",
 		},
 		"fn body": {
-			"fn f() {{}}\n",
-			"fn f() {\n    {}\n}\n",
+			"fn f()\n    begin end\nend\n",
+			"fn f()\n    begin end\nend\n",
 		},
 		"if branches": {
-			"fn f() { y = if true {{}} else {{}} }\n",
-			"fn f() {\n    y = if true { {} } else { {} }\n}\n",
+			"fn f()\n    y = if true then\n        begin end\n    else\n        begin end\n    end\nend\n",
+			"fn f()\n    y = if true then\n        begin end\n    else\n        begin end\n    end\nend\n",
 		},
 		"case arm": {
-			"fn f(x: Int) { case x { _ -> {{}} } }\n",
-			"fn f(x: Int) {\n    case x {\n        _ -> {\n            {}\n        }\n    }\n}\n",
+			"fn f(x: Int)\n    case x\n        _ ->\n            begin end\n    end\nend\n",
+			"fn f(x: Int)\n    case x\n        _ ->\n            begin end\n    end\nend\n",
 		},
 		"concurrent": {
-			"fn f() { concurrent {{}} }\n",
-			"fn f() {\n    concurrent {\n        {}\n    }\n}\n",
+			"fn f()\n    concurrent\n        begin end\n    end\nend\n",
+			"fn f()\n    concurrent\n        begin end\n    end\nend\n",
 		},
 	}
 	for name, c := range cases {

@@ -2,16 +2,26 @@
 A binding else takes a block
 ================================================================================
 
-fn main() {
-  Some(email) = user.email else {
+fn main()
+  Some(email) = user.email else
     return Err("none")
-  }
-  Some(e) = m else { "none" }
-  Ok((w, h)) = parse(text) else { (80, 24) }
-  [first, ..rest] = xs else { return 0 }
-  .Valid(r) = c else { .{addr: "none", score: 0} }
-  %{"a" => a} = m else { return 0 }
-}
+  end
+  Some(e) = m else
+      "none"
+  end
+  Ok((w, h)) = parse(text) else
+      (80, 24)
+  end
+  [first, ..rest] = xs else
+      return 0
+  end
+  .Valid(r) = c else
+      {addr: "none", score: 0}
+  end
+  {"a" => a} = m else
+      return 0
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -91,15 +101,15 @@ fn main() {
 A binding else takes case arms, and an if keeps its own else
 ================================================================================
 
-fn main() {
-  Ok(user) = load(id) else {
+fn main()
+  Ok(user) = load(id) else
     Err(.NotFound) -> return Err("no user")
     Err(e) when e == "x" -> 8080
-    .Invalid{reason} -> continue
+    .Invalid{reason:} -> continue
     _ -> break
-  }
-  label = if ok { "a" } else { "b" }
-}
+  end
+  label = if ok then "a" else "b"
+end
 
 --------------------------------------------------------------------------------
 
@@ -147,37 +157,35 @@ fn main() {
       (binding
         (identifier)
         (if_expression
-          (identifier)
-          (body
-            (string
-              (string_content)))
-          (body
-            (string
-              (string_content))))))))
+          condition: (identifier)
+          consequence: (string
+            (string_content))
+          alternative: (string
+            (string_content)))))))
 
 ================================================================================
 Map, struct, list and or patterns in a binding with else
 ================================================================================
 
-fn f(m: Map<String, Int>, p: Point, xs: List<Int>) -> Int {
-    %{"port" => port} = m else {
-        %{"fallback" => fallback} -> return fallback
+fn f(m: Map<String, Int>, p: Point, xs: List<Int>) -> Int
+    {"port" => port} = m else
+        {"fallback" => fallback} -> return fallback
         _ -> return 80
-    }
-    .{x: 0, y} = p else {
+    end
+    {x: 0, y:} = p else
         return 0
-    }
-    .{done: True, n} = p else {
+    end
+    {done: True, n:} = p else
         return 0
-    }
-    [first, ..rest] = xs else {
+    end
+    [first, ..rest] = xs else
         return 0
-    }
-    %{"a" => v} or %{"b" => v} = m else {
+    end
+    {"a" => v} or {"b" => v} = m else
         return 0
-    }
+    end
     port + y + n + first + v
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -221,18 +229,22 @@ fn f(m: Map<String, Int>, p: Point, xs: List<Int>) -> Int {
               (integer)))))
       (else_binding
         (destructuring_binding
-          (identifier)
-          (integer)
-          (identifier)
+          (anon_struct_field
+            (identifier)
+            (integer))
+          (anon_struct_field
+            (identifier))
           (identifier))
         (body
           (return_statement
             (integer))))
       (else_binding
         (destructuring_binding
-          (identifier)
-          (type_identifier)
-          (identifier)
+          (anon_struct_field
+            (identifier)
+            (type_identifier))
+          (anon_struct_field
+            (identifier))
           (identifier))
         (body
           (return_statement
@@ -275,20 +287,20 @@ fn f(m: Map<String, Int>, p: Point, xs: List<Int>) -> Int {
 A binding, parameter and field named host
 ================================================================================
 
-struct Server {
+struct Server
     host: String
-}
+end
 
 host fn now() -> Int
 
-fn address(host: String) -> Server {
+fn address(host: String) -> Server
     host = String.trim(host)
-    %{"host" => h} = config() else {
-        return Server{host}
-    }
+    {"host" => h} = config() else
+        return Server{host:}
+    end
     host
     Server{host: "${host}:${h}"}
-}
+end
 
 --------------------------------------------------------------------------------
 

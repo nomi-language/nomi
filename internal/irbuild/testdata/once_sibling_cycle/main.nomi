@@ -1,8 +1,8 @@
-import {
+import
     std::io
     left
-}
+end
 
-fn main() {
+fn main()
     io.print("${left.from_left()}")
-}
+end

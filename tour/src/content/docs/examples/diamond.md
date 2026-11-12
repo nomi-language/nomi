@@ -16,7 +16,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// The rows of a diamond of letters from `A` to `widest` and back, each
 /// padded with spaces to the diamond's width. `widest` is an uppercase
 /// ASCII letter.
-pub fn rows(widest: Codepoint) -> List<String> {
+pub fn rows(widest: Codepoint) -> List<String>
     letters = Iter.to_list('A'..=widest)
     size = Iter.count(letters)
 
@@ -28,38 +28,38 @@ pub fn rows(widest: Codepoint) -> List<String> {
 
     bottom = top |> Iter.reverse() |> Iter.drop(1)
     [..top, ..bottom]
-}
+end
 
 /// Row `i` of a diamond `size` letters tall to its middle, holding `letter`.
-fn row(letter: Codepoint, i: Int, size: Int) -> String {
+fn row(letter: Codepoint, i: Int, size: Int) -> String
     outside = String.repeat(" ", size - 1 - i)
 
-    if i == 0 {
+    if i == 0 then
         "${outside}${letter}${outside}"
-    } else {
+    else
         inside = String.repeat(" ", 2 * i - 1)
         "${outside}${letter}${inside}${letter}${outside}"
-    }
-}
+    end
+end
 
 // FILE: diamond_test.nomi
 import diamond
 
-test "Degenerate case with a single 'A' row" {
+test "Degenerate case with a single 'A' row"
     assert diamond.rows('A') == [
         "A",
     ]
-}
+end
 
-test "Degenerate case with no row containing 3 distinct groups of spaces" {
+test "Degenerate case with no row containing 3 distinct groups of spaces"
     assert diamond.rows('B') == [
         " A ",
         "B B",
         " A ",
     ]
-}
+end
 
-test "Smallest non-degenerate case with odd diamond side length" {
+test "Smallest non-degenerate case with odd diamond side length"
     assert diamond.rows('C') == [
         "  A  ",
         " B B ",
@@ -67,9 +67,9 @@ test "Smallest non-degenerate case with odd diamond side length" {
         " B B ",
         "  A  ",
     ]
-}
+end
 
-test "Smallest non-degenerate case with even diamond side length" {
+test "Smallest non-degenerate case with even diamond side length"
     assert diamond.rows('D') == [
         "   A   ",
         "  B B  ",
@@ -79,9 +79,9 @@ test "Smallest non-degenerate case with even diamond side length" {
         "  B B  ",
         "   A   ",
     ]
-}
+end
 
-test "Largest possible diamond" {
+test "Largest possible diamond"
     assert diamond.rows('Z') == [
         "                         A                         ",
         "                        B B                        ",
@@ -135,7 +135,7 @@ test "Largest possible diamond" {
         "                        B B                        ",
         "                         A                         ",
     ]
-}
+end
 ```
 <!-- expect
 ok Degenerate case with a single 'A' row

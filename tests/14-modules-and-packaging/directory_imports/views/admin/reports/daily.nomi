@@ -1,3 +1,3 @@
-pub fn show() -> String {
+pub fn show() -> String
     "daily"
-}
+end

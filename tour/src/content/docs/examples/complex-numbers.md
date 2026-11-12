@@ -14,136 +14,136 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Complex numbers and their arithmetic.
 
 /// A complex number `real + imaginary * i`.
-pub opaque struct Complex {
+pub opaque struct Complex
     real: Float
     imaginary: Float
-}
+end
 
-impl Complex {
+impl Complex
     /// `real + imaginary * i`.
-    pub fn new(real: Float, imaginary: Float) -> Complex {
-        .{real, imaginary}
-    }
+    pub fn new(real: Float, imaginary: Float) -> Complex
+        {real:, imaginary:}
+    end
 
     /// The real part of `z`.
-    pub fn real(z: Complex) -> Float {
+    pub fn real(z: Complex) -> Float
         z.real
-    }
+    end
 
     /// The imaginary part of `z`.
-    pub fn imaginary(z: Complex) -> Float {
+    pub fn imaginary(z: Complex) -> Float
         z.imaginary
-    }
+    end
 
     /// The distance of `z` from zero, `sqrt(a^2 + b^2)`.
-    pub fn abs(z: Complex) -> Float {
+    pub fn abs(z: Complex) -> Float
         Float.sqrt(z.real * z.real + z.imaginary * z.imaginary)
-    }
+    end
 
     /// `z` with its imaginary part negated.
-    pub fn conjugate(z: Complex) -> Complex {
-        .{..z, imaginary: -z.imaginary}
-    }
+    pub fn conjugate(z: Complex) -> Complex
+        {..z, imaginary: -z.imaginary}
+    end
 
     /// `e` to the power `z`: `e^a * (cos(b) + i * sin(b))`.
-    pub fn exp(z: Complex) -> Complex {
+    pub fn exp(z: Complex) -> Complex
         scale = Float.exp(z.real)
-        .{real: scale * Float.cos(z.imaginary), imaginary: scale * Float.sin(z.imaginary)}
-    }
+        {real: scale * Float.cos(z.imaginary), imaginary: scale * Float.sin(z.imaginary)}
+    end
 
     /// Whether each part of `a` is within `tolerance` of the same part of
     /// `b`.
-    pub fn equal_within(a: Complex, b: Complex, tolerance: Float) -> Bool {
+    pub fn equal_within(a: Complex, b: Complex, tolerance: Float) -> Bool
         Float.equal_within(a.real, b.real, tolerance)
             and Float.equal_within(a.imaginary, b.imaginary, tolerance)
-    }
+    end
 
     /// `x` as a complex number with no imaginary part.
-    pub fn from_real(x: Float) -> Complex {
-        .{real: x, imaginary: 0.0}
-    }
-}
+    pub fn from_real(x: Float) -> Complex
+        {real: x, imaginary: 0.0}
+    end
+end
 
-impl Add<Complex, Complex> for Complex {
-    fn add(lhs: Complex, rhs: Complex) -> Complex {
-        .{real: lhs.real + rhs.real, imaginary: lhs.imaginary + rhs.imaginary}
-    }
-}
+impl Add<Complex, Complex> for Complex
+    fn add(lhs: Complex, rhs: Complex) -> Complex
+        {real: lhs.real + rhs.real, imaginary: lhs.imaginary + rhs.imaginary}
+    end
+end
 
-impl Subtract<Complex, Complex> for Complex {
-    fn subtract(lhs: Complex, rhs: Complex) -> Complex {
-        .{real: lhs.real - rhs.real, imaginary: lhs.imaginary - rhs.imaginary}
-    }
-}
+impl Subtract<Complex, Complex> for Complex
+    fn subtract(lhs: Complex, rhs: Complex) -> Complex
+        {real: lhs.real - rhs.real, imaginary: lhs.imaginary - rhs.imaginary}
+    end
+end
 
-impl Multiply<Complex, Complex> for Complex {
-    fn multiply(lhs: Complex, rhs: Complex) -> Complex {
-        .{
+impl Multiply<Complex, Complex> for Complex
+    fn multiply(lhs: Complex, rhs: Complex) -> Complex
+        {
             real: lhs.real * rhs.real - lhs.imaginary * rhs.imaginary,
             imaginary: lhs.imaginary * rhs.real + lhs.real * rhs.imaginary,
         }
-    }
-}
+    end
+end
 
-impl Divide<Complex, Complex> for Complex {
+impl Divide<Complex, Complex> for Complex
     /// Dividing by zero gives infinities and NaNs, as `/` on `Float` does.
-    fn divide(lhs: Complex, rhs: Complex) -> Complex {
+    fn divide(lhs: Complex, rhs: Complex) -> Complex
         denominator = rhs.real * rhs.real + rhs.imaginary * rhs.imaginary
 
-        .{
+        {
             real: (lhs.real * rhs.real + lhs.imaginary * rhs.imaginary) / denominator,
             imaginary: (lhs.imaginary * rhs.real - lhs.real * rhs.imaginary) / denominator,
         }
-    }
-}
+    end
+end
 
-impl Add<Float, Complex> for Complex {
-    fn add(lhs: Complex, rhs: Float) -> Complex {
+impl Add<Float, Complex> for Complex
+    fn add(lhs: Complex, rhs: Float) -> Complex
         lhs + Complex.from_real(rhs)
-    }
-}
+    end
+end
 
-impl Subtract<Float, Complex> for Complex {
-    fn subtract(lhs: Complex, rhs: Float) -> Complex {
+impl Subtract<Float, Complex> for Complex
+    fn subtract(lhs: Complex, rhs: Float) -> Complex
         lhs - Complex.from_real(rhs)
-    }
-}
+    end
+end
 
-impl Multiply<Float, Complex> for Complex {
-    fn multiply(lhs: Complex, rhs: Float) -> Complex {
+impl Multiply<Float, Complex> for Complex
+    fn multiply(lhs: Complex, rhs: Float) -> Complex
         lhs * Complex.from_real(rhs)
-    }
-}
+    end
+end
 
-impl Divide<Float, Complex> for Complex {
-    fn divide(lhs: Complex, rhs: Float) -> Complex {
+impl Divide<Float, Complex> for Complex
+    fn divide(lhs: Complex, rhs: Float) -> Complex
         lhs / Complex.from_real(rhs)
-    }
-}
+    end
+end
 
-impl Add<Complex, Complex> for Float {
-    fn add(lhs: Float, rhs: Complex) -> Complex {
+impl Add<Complex, Complex> for Float
+    fn add(lhs: Float, rhs: Complex) -> Complex
         Complex.from_real(lhs) + rhs
-    }
-}
+    end
+end
 
-impl Subtract<Complex, Complex> for Float {
-    fn subtract(lhs: Float, rhs: Complex) -> Complex {
+impl Subtract<Complex, Complex> for Float
+    fn subtract(lhs: Float, rhs: Complex) -> Complex
         Complex.from_real(lhs) - rhs
-    }
-}
+    end
+end
 
-impl Multiply<Complex, Complex> for Float {
-    fn multiply(lhs: Float, rhs: Complex) -> Complex {
+impl Multiply<Complex, Complex> for Float
+    fn multiply(lhs: Float, rhs: Complex) -> Complex
         Complex.from_real(lhs) * rhs
-    }
-}
+    end
+end
 
-impl Divide<Complex, Complex> for Float {
-    fn divide(lhs: Float, rhs: Complex) -> Complex {
+impl Divide<Complex, Complex> for Float
+    fn divide(lhs: Float, rhs: Complex) -> Complex
         Complex.from_real(lhs) / rhs
-    }
-}
+    end
+end
 
 // FILE: complex_numbers_test.nomi
 import complex_numbers.Complex
@@ -152,34 +152,34 @@ import complex_numbers.Complex
 // numbers.
 once tolerance = 1e-12
 
-test "Real part" {
+test "Real part"
     [
         ("Real part of a purely real number", Complex.new(1.0, 0.0), 1.0),
         ("Real part of a purely imaginary number", Complex.new(0.0, 1.0), 0.0),
         ("Real part of a number with real and imaginary part", Complex.new(1.0, 2.0), 1.0),
     ]
-    |> subtests (description, z, expected), description {
+    |> subtests (description, z, expected), description
         assert Complex.real(z) == expected
-    }
-}
+    end
+end
 
-test "Imaginary part" {
+test "Imaginary part"
     [
         ("Imaginary part of a purely real number", Complex.new(1.0, 0.0), 0.0),
         ("Imaginary part of a purely imaginary number", Complex.new(0.0, 1.0), 1.0),
         ("Imaginary part of a number with real and imaginary part", Complex.new(1.0, 2.0), 2.0),
     ]
-    |> subtests (description, z, expected), description {
+    |> subtests (description, z, expected), description
         assert Complex.imaginary(z) == expected
-    }
-}
+    end
+end
 
-test "Imaginary unit" {
+test "Imaginary unit"
     assert Complex.new(0.0, 1.0) * Complex.new(0.0, 1.0) == Complex.new(-1.0, 0.0)
-}
+end
 
-group "Arithmetic" {
-    test "Addition" {
+group "Arithmetic"
+    test "Addition"
         [
             (
                 "Add purely real numbers",
@@ -200,12 +200,12 @@ group "Arithmetic" {
                 Complex.new(4.0, 6.0),
             ),
         ]
-        |> subtests (description, z1, z2, expected), description {
+        |> subtests (description, z1, z2, expected), description
             assert z1 + z2 == expected
-        }
-    }
+        end
+    end
 
-    test "Subtraction" {
+    test "Subtraction"
         [
             (
                 "Subtract purely real numbers",
@@ -226,12 +226,12 @@ group "Arithmetic" {
                 Complex.new(-2.0, -2.0),
             ),
         ]
-        |> subtests (description, z1, z2, expected), description {
+        |> subtests (description, z1, z2, expected), description
             assert z1 - z2 == expected
-        }
-    }
+        end
+    end
 
-    test "Multiplication" {
+    test "Multiplication"
         [
             (
                 "Multiply purely real numbers",
@@ -252,12 +252,12 @@ group "Arithmetic" {
                 Complex.new(-5.0, 10.0),
             ),
         ]
-        |> subtests (description, z1, z2, expected), description {
+        |> subtests (description, z1, z2, expected), description
             assert z1 * z2 == expected
-        }
-    }
+        end
+    end
 
-    test "Division" {
+    test "Division"
         [
             (
                 "Divide purely real numbers",
@@ -278,13 +278,13 @@ group "Arithmetic" {
                 Complex.new(0.44, 0.08),
             ),
         ]
-        |> subtests (description, z1, z2, expected), description {
+        |> subtests (description, z1, z2, expected), description
             assert Complex.equal_within(z1 / z2, expected, tolerance)
-        }
-    }
-}
+        end
+    end
+end
 
-test "Absolute value" {
+test "Absolute value"
     [
         ("Absolute value of a positive purely real number", Complex.new(5.0, 0.0), 5.0),
         ("Absolute value of a negative purely real number", Complex.new(-5.0, 0.0), 5.0),
@@ -300,12 +300,12 @@ test "Absolute value" {
         ),
         ("Absolute value of a number with real and imaginary part", Complex.new(3.0, 4.0), 5.0),
     ]
-    |> subtests (description, z, expected), description {
+    |> subtests (description, z, expected), description
         assert Complex.abs(z) == expected
-    }
-}
+    end
+end
 
-test "Complex conjugate" {
+test "Complex conjugate"
     [
         ("Conjugate a purely real number", Complex.new(5.0, 0.0), Complex.new(5.0, 0.0)),
         ("Conjugate a purely imaginary number", Complex.new(0.0, 5.0), Complex.new(0.0, -5.0)),
@@ -315,12 +315,12 @@ test "Complex conjugate" {
             Complex.new(1.0, -1.0),
         ),
     ]
-    |> subtests (description, z, expected), description {
+    |> subtests (description, z, expected), description
         assert Complex.conjugate(z) == expected
-    }
-}
+    end
+end
 
-test "Complex exponential function" {
+test "Complex exponential function"
     [
         ("Euler's identity/formula", Complex.new(0.0, Float.pi), Complex.new(-1.0, 0.0)),
         ("Exponential of 0", Complex.new(0.0, 0.0), Complex.new(1.0, 0.0)),
@@ -336,12 +336,12 @@ test "Complex exponential function" {
             Complex.new(1.0, 1.0),
         ),
     ]
-    |> subtests (description, z, expected), description {
+    |> subtests (description, z, expected), description
         assert z |> Complex.exp() |> Complex.equal_within(expected, tolerance)
-    }
-}
+    end
+end
 
-test "Operations between real numbers and complex numbers" {
+test "Operations between real numbers and complex numbers"
     [
         ("Add real number to complex number", Complex.new(1.0, 2.0) + 5.0, Complex.new(6.0, 2.0)),
         ("Add complex number to real number", 5.0 + Complex.new(1.0, 2.0), Complex.new(6.0, 2.0)),
@@ -376,10 +376,10 @@ test "Operations between real numbers and complex numbers" {
             Complex.new(2.5, -2.5),
         ),
     ]
-    |> subtests (description, actual, expected), description {
+    |> subtests (description, actual, expected), description
         assert Complex.equal_within(actual, expected, tolerance)
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok Real part (3 cases)

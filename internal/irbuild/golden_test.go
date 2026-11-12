@@ -87,8 +87,11 @@ func goldenMismatchText(want expectation.Case, text string, exit int) string {
 //
 // A changed program is a new key with no record, and the test fails naming the
 // regeneration command. Regenerating upserts the records the run touched, and
-// drops a repository record whose files have since changed. Temp records no
-// test asks for any more are harmless. Do not delete irbuild.expect to prune
+// drops a repository record whose files have since changed. A temp record no
+// test asks for any more stays, and TestIRGolden_RecordsMatchTheVM re-runs its
+// stored text, so a syntax change that stops that text from compiling fails
+// it there: remove such records by hand (a test's rewritten program records
+// under its new key). Do not delete irbuild.expect to prune
 // them: TestIRGolden_RecordsMatchTheVM re-records every existing record, and
 // most repository fixtures have no other test that records them, so a run
 // from an empty file keeps only the programs a test compares directly, a small
@@ -519,8 +522,8 @@ func corpusGoldenRoot(t *testing.T) string {
 
 // A golden key survives a layout change and moves with a change to the code.
 func TestGoldenTokenKey_IgnoresLayoutOnly(t *testing.T) {
-	base := "fn main() {\n    x = 1\n    case x {\n        1 -> io.print(\"one\")\n        _ -> io.print(\"other\")\n    }\n}\n"
-	relaid := "fn main() {\n  x = 1\n\n  case x {\n    1 ->\n      io.print(\"one\")\n\n    _ ->\n      io.print(\"other\")\n  }\n}\n"
+	base := "fn main()\n    x = 1\n    case x\n        1 -> io.print(\"one\")\n        _ -> io.print(\"other\")\n    end\nend\n"
+	relaid := "fn main()\n  x = 1\n\n  case x\n    1 ->\n      io.print(\"one\")\n\n    _ ->\n      io.print(\"other\")\n  end\nend\n"
 	changed := strings.Replace(base, "\"one\"", "\"uno\"", 1)
 	if goldenTokenKey(base) != goldenTokenKey(relaid) {
 		t.Errorf("a layout-only change moved the key")

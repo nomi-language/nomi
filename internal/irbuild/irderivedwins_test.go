@@ -13,35 +13,35 @@ import (
 // compare equal when their last digits agree. Each type's derived hash is
 // its formula over 7, so a site that takes the structural fallback (the
 // hash a Map key takes) prints an unrelated number.
-const derivedOverLoose = `struct Loose {
+const derivedOverLoose = `struct Loose
     n: Int
-}
+end
 
-impl Equatable for Loose {
-    fn equal(a: Loose, b: Loose) -> Bool {
+impl Equatable for Loose
+    fn equal(a: Loose, b: Loose) -> Bool
         a.n % 10 == b.n % 10
-    }
-}
+    end
+end
 
-impl Hashable for Loose {
-    fn hash(v: Loose) -> Int {
+impl Hashable for Loose
+    fn hash(v: Loose) -> Int
         _ = v
         7
-    }
-}
+    end
+end
 
-struct SPair {
+struct SPair
     a: Loose
     b: Int
-}
+end
 
 derive Equatable for SPair
 derive Hashable for SPair
 
-enum EBox {
+enum EBox
     Two Int
     One Loose
-}
+end
 
 derive Equatable for EBox
 derive Hashable for EBox
@@ -56,9 +56,9 @@ type TPair (Loose, Int)
 derive Equatable for TPair
 derive Hashable for TPair
 
-struct GBox<T> {
+struct GBox<T>
     v: T
-}
+end
 
 derive Equatable for GBox<T>
 derive Hashable for GBox<T>
@@ -68,15 +68,15 @@ derive Hashable for GBox<T>
 // directly, through a bound, as Maybe's Some, as Result's Err and as a
 // one-element list's, then whether it equals the value one Loose digit away
 // by `==`, `Equatable.equal`, a bound, `Maybe.equal` and `List.contains`.
-const derivedOverLooseMain = `fn h<T>(x: T) -> Int where T: Hashable {
+const derivedOverLooseMain = `fn h<T>(x: T) -> Int where T: Hashable
     Hashable.hash(x)
-}
+end
 
-fn same<T>(a: T, b: T) -> Bool where T: Equatable {
+fn same<T>(a: T, b: T) -> Bool where T: Equatable
     Equatable.equal(a, b)
-}
+end
 
-fn main() {
+fn main()
     s = SPair{a: Loose{n: 1}, b: 2}
     e = EBox.One(Loose{n: 1})
     d = DLoose(Loose{n: 1})
@@ -97,7 +97,7 @@ fn main() {
     io.print("${d == d2} ${Equatable.equal(d, d2)} ${same(d, d2)} ${Maybe.equal(Some(d), Some(d2))} ${List.contains([d], d2)}")
     io.print("${t == t2} ${Equatable.equal(t, t2)} ${same(t, t2)} ${Maybe.equal(Some(t), Some(t2))} ${List.contains([t], t2)}")
     io.print("${g == g2} ${Equatable.equal(g, g2)} ${same(g, g2)} ${Maybe.equal(Some(g), Some(g2))} ${List.contains([g], g2)}")
-}
+end
 `
 
 // derivedOverLooseWant is derivedOverLooseMain's output. SPair and TPair
@@ -132,7 +132,7 @@ func TestIRDerivedImplWinsOverStructural_AnotherFile(t *testing.T) {
 	}
 	dir := t.TempDir()
 	pub := strings.NewReplacer("\nstruct ", "\npub struct ", "\nenum ", "\npub enum ", "\ntype ", "\npub type ")
-	main := strings.Replace(derivedOverLooseMain, "fn main() {\n", `fn main() {
+	main := strings.Replace(derivedOverLooseMain, "fn main()\n", `fn main()
     f = Far{a: Loose{n: 1}}
     f2 = Far{a: Loose{n: 11}}
     io.print("${Hashable.hash(f)} ${h(f)} ${Maybe.hash(Some(f))} ${Result.hash(Err(f))} ${Hashable.hash([f])}")
@@ -143,9 +143,9 @@ func TestIRDerivedImplWinsOverStructural_AnotherFile(t *testing.T) {
 		"shapes.nomi": "pub " + pub.Replace(derivedOverLoose),
 		"far.nomi": `import shapes.{Loose}
 
-pub struct Far {
+pub struct Far
     a: Loose
-}
+end
 
 derive Equatable for Far
 derive Hashable for Far

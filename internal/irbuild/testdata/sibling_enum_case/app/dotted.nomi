@@ -1,8 +1,8 @@
 // Only the dot shorthand: the qualifier is inferred from the subject.
 import ticket
 
-pub fn flags(n: Int) -> String {
-    case ticket.make(n) {
+pub fn flags(n: Int) -> String
+    case ticket.make(n)
         .Open -> "open"
         .Assigned(_) -> "assigned"
         .Blocked(k) when k > 3 -> "blocked!"
@@ -11,5 +11,5 @@ pub fn flags(n: Int) -> String {
         .Noted(_) -> "noted"
         .Closed{reason: "stale"} -> "stale"
         .Closed{} -> "closed"
-    }
-}
+    end
+end

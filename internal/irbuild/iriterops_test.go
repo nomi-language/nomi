@@ -9,7 +9,7 @@ func TestIRIterOps_ProgramsRunOnTheVM(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"find, first and last answer a Maybe", `import std::io
 
-fn main() {
+fn main()
   xs = [3, 8, 5, 12]
   Iter.find(xs, fn x -> x > 4) |> io.inspect()
   Iter.find(xs, fn x -> x > 40) |> io.inspect()
@@ -18,11 +18,11 @@ fn main() {
   [5] |> Iter.filter(fn x -> x > 10) |> Iter.first() |> io.inspect()
   Iter.last("héllo") |> io.inspect()
   Iter.from(0) |> Iter.find(fn x -> x * x > 50) |> io.inspect()
-}
+end
 `, "Some(8)\nNone\nSome(6)\nSome(12)\nNone\nSome(\"o\")\nSome(8)\n"},
 		{"reverse, with_index and zip", `import std::io
 
-fn main() {
+fn main()
   xs = [1, 2, 3]
   Iter.reverse(xs) |> io.inspect()
   xs |> Iter.map(fn x -> x * 10) |> Iter.reverse() |> io.inspect()
@@ -30,22 +30,22 @@ fn main() {
   Iter.zip(xs, ["a", "b"]) |> Iter.map(fn p -> "${p.second}${p.first}") |> Iter.to_list() |> io.inspect()
   Iter.zip(Iter.from(10), xs) |> Iter.map(fn p -> p.first + p.second) |> Iter.to_list() |> io.inspect()
   Iter.from(5) |> Iter.take(3) |> Iter.with_index() |> Iter.map(fn p -> p.first * p.second) |> Iter.to_list() |> io.inspect()
-}
+end
 `, "[3, 2, 1]\n[30, 20, 10]\n[\"0:a\", \"1:b\", \"2:c\"]\n[\"a1\", \"b2\"]\n[11, 13, 15]\n[0, 6, 14]\n"},
 		{"known_count per source family", `import std::io
 
-fn main() {
+fn main()
   Iter.known_count([1, 2, 3]) |> io.inspect()
   Iter.known_count("abc") |> io.inspect()
   Iter.known_count([1, 2] |> Iter.map(fn x -> x)) |> io.inspect()
-  Iter.known_count(#[4, 5]) |> io.inspect()
+  Iter.known_count(Vector[4, 5]) |> io.inspect()
   Iter.known_count(String.to_bytes("ab")) |> io.inspect()
   Iter.known_count(Iter.from(1)) |> io.inspect()
-}
+end
 `, "Some(3)\nNone\nNone\nSome(2)\nNone\nNone\n"},
 		{"at and partition", `import std::io
 
-fn main() {
+fn main()
   xs = [4, 7, 9, 10]
   Iter.get(xs, 2) |> io.inspect()
   Iter.get(xs, 9) |> io.inspect()
@@ -56,26 +56,26 @@ fn main() {
   none = xs |> Iter.partition(fn x -> x > 100)
   none.first |> io.inspect()
   none.second |> Iter.count() |> io.print()
-}
+end
 `, "Some(9)\nNone\nNone\n[4, 10]\n[7, 9]\n[]\n4\n"},
 		{"map and set sources", `import std::io
 
-fn main() {
-  ages = %{"ann" => 31, "bo" => 22, "cy" => 40}
+fn main()
+  ages = {"ann" => 31, "bo" => 22, "cy" => 40}
   ages |> Iter.map(fn p -> "${p.first}=${p.second}") |> Iter.to_list() |> io.inspect()
   Iter.count(ages) |> io.print()
   Iter.known_count(ages) |> io.inspect()
   ages |> Iter.filter(fn p -> p.second > 30) |> Iter.count() |> io.print()
   Iter.any_match(ages, fn p -> p.first == "bo") |> io.print()
   five = 5
-  s = %[five, 3, five, 9]
+  s = Set[five, 3, five, 9]
   s |> Iter.to_list() |> io.inspect()
   Iter.count(s) |> io.print()
   Iter.known_count(s) |> io.inspect()
   Iter.zip(s, ["x", "y"]) |> Iter.map(fn p -> "${p.second}${p.first}") |> Iter.to_list() |> io.inspect()
   s |> Iter.reduce(0, fn a, x -> a + x) |> io.print()
   Iter.sort(s) |> io.inspect()
-}
+end
 `, "[\"ann=31\", \"bo=22\", \"cy=40\"]\n3\nSome(3)\n2\nTrue\n[5, 3, 9]\n3\nSome(3)\n[\"x5\", \"y3\"]\n17\n[3, 5, 9]\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })

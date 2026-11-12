@@ -6,38 +6,38 @@ import "testing"
 // a struct whose signatures and fields hold a record, `Infallible` and
 // `Iter<Int>`. A caller re-derives each of those kinds in its own unit
 // (importKind).
-const crossFileShapes = `pub struct Box {
-  at: .{x: Int, y: Int}
+const crossFileShapes = `pub struct Box
+  at: {x: Int, y: Int}
   size: Int = 1
-}
+end
 
-pub fn make(x: Int) -> Box {
-  Box{at: .{x, y: x * 2}}
-}
+pub fn make(x: Int) -> Box
+  Box{at: {x:, y: x * 2}}
+end
 
-pub fn width(b: Box) -> Int {
+pub fn width(b: Box) -> Int
   b.at.x + b.size
-}
+end
 
-pub fn corner(b: Box) -> .{x: Int, y: Int} {
+pub fn corner(b: Box) -> {x: Int, y: Int}
   b.at
-}
+end
 
-pub fn px(p: .{x: Int, y: Int}) -> Int {
+pub fn px(p: {x: Int, y: Int}) -> Int
   p.x * 10 + p.y
-}
+end
 
-pub fn ok_only(n: Int) -> Result<Int, Infallible> {
+pub fn ok_only(n: Int) -> Result<Int, Infallible>
   Ok(n)
-}
+end
 
-pub fn evens(n: Int) -> Iter<Int> {
+pub fn evens(n: Int) -> Iter<Int>
   0..n |> Iter.map(fn x -> x * 2)
-}
+end
 
-pub fn sum_of(xs: Iter<Int>) -> Int {
+pub fn sum_of(xs: Iter<Int>) -> Int
   Iter.reduce(xs, 0, fn acc, x -> acc + x)
-}
+end
 `
 
 // A struct with a record field, and a record or `Infallible` in a
@@ -47,26 +47,26 @@ func TestCrossFileSignature_RecordsAndInfallible(t *testing.T) {
 		"shapes.nomi": crossFileShapes,
 		"main_test.nomi": `import shapes.{self, Box}
 
-test "a struct with a record field from another file" {
+test "a struct with a record field from another file"
   b = shapes.make(3)
   assert shapes.width(b) == 4
   assert b.at.y == 6
-  assert shapes.width(Box{at: .{x: 1, y: 0}, size: 5}) == 6
-}
+  assert shapes.width(Box{at: {x: 1, y: 0}, size: 5}) == 6
+end
 
-test "records in another file's signatures" {
-  assert shapes.corner(shapes.make(2)) == .{x: 2, y: 4}
-  assert shapes.px(.{x: 1, y: 2}) == 12
+test "records in another file's signatures"
+  assert shapes.corner(shapes.make(2)) == {x: 2, y: 4}
+  assert shapes.px({x: 1, y: 2}) == 12
   assert shapes.px(shapes.corner(shapes.make(1))) == 12
-}
+end
 
-test "Infallible in another file's signature" {
-  v = case shapes.ok_only(3) {
+test "Infallible in another file's signature"
+  v = case shapes.ok_only(3)
     Ok(n) -> n
     Err(_) -> 0
-  }
+  end
   assert v == 3
-}
+end
 `,
 	}, "main_test.nomi", 3)
 }
@@ -79,16 +79,16 @@ func TestCrossFileSignature_IterParameters(t *testing.T) {
 		"shapes.nomi": crossFileShapes,
 		"main_test.nomi": `import shapes.{self, sum_of}
 
-test "a list into another file's Iter parameter" {
+test "a list into another file's Iter parameter"
   assert shapes.sum_of([1, 2, 3]) == 6
   assert sum_of([4, 5]) == 9
   assert [1, 2] |> shapes.sum_of() == 3
-}
+end
 
-test "an Iter from another file" {
+test "an Iter from another file"
   assert shapes.sum_of(shapes.evens(4)) == 12
   assert shapes.evens(3) |> Iter.to_list() == [0, 2, 4]
-}
+end
 `,
 	}, "main_test.nomi", 2)
 }
@@ -98,30 +98,30 @@ test "an Iter from another file" {
 // is, so another file calls the function and reads its result.
 func TestCrossFileSignature_QualifiedPreludeTypes(t *testing.T) {
 	irBacklogProgramVM(t, map[string]string{
-		"other.nomi": `import {
+		"other.nomi": `import
   std::maybe
   std::results
-}
+end
 
-pub fn first(xs: List<Int>) -> maybe.Maybe<Int> {
+pub fn first(xs: List<Int>) -> maybe.Maybe<Int>
   List.head(xs)
-}
+end
 
-pub fn checked(n: Int) -> results.Result<Int, String> {
-  if n > 0 { Ok(n) } else { Err("negative") }
-}
+pub fn checked(n: Int) -> results.Result<Int, String>
+  if n > 0 then Ok(n) else Err("negative")
+end
 `,
 		"main_test.nomi": `import other
 
-test "a qualified Maybe in another file's signature" {
+test "a qualified Maybe in another file's signature"
   assert other.first([4, 5]) == Some(4)
   assert other.first([]) == None
-}
+end
 
-test "a qualified Result in another file's signature" {
+test "a qualified Result in another file's signature"
   assert other.checked(2) == Ok(2)
   assert other.checked(-1) == Err("negative")
-}
+end
 `,
 	}, "main_test.nomi", 2)
 }

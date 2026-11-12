@@ -17,56 +17,56 @@
 // dispatches on argument zero, so without this row a route that hardcoded the
 // receiver's position would be indistinguishable from one that read it off the
 // signature.
-pub struct Point {
+pub struct Point
     x: Int
     y: Int
-}
+end
 
-impl Display for Point {
-    fn to_string(p: Point) -> String {
+impl Display for Point
+    fn to_string(p: Point) -> String
         "things(${Int.to_string(p.x)}, ${Int.to_string(p.y)})"
-    }
-}
+    end
+end
 
-pub struct Quiet {
+pub struct Quiet
     n: Int
-}
+end
 
-impl Display for Quiet {
-    fn to_string(q: Quiet) -> String {
+impl Display for Quiet
+    fn to_string(q: Quiet) -> String
         "quiet#${Int.to_string(q.n)}"
-    }
-}
+    end
+end
 
-pub interface Loud {
+pub interface Loud
     fn say(x: self) -> String
-}
+end
 
-pub interface Soft {
+pub interface Soft
     fn say(x: self) -> String
-}
+end
 
-impl Loud for Quiet {
-    fn say(q: Quiet) -> String {
+impl Loud for Quiet
+    fn say(q: Quiet) -> String
         "LOUD${Int.to_string(q.n)}"
-    }
-}
+    end
+end
 
-impl Soft for Quiet {
-    fn say(q: Quiet) -> String {
+impl Soft for Quiet
+    fn say(q: Quiet) -> String
         "soft${Int.to_string(q.n)}"
-    }
-}
+    end
+end
 
-pub interface Tagger {
+pub interface Tagger
     fn tag(label: String, target: self) -> String
-}
+end
 
-impl Tagger for Point {
-    fn tag(label: String, target: Point) -> String {
+impl Tagger for Point
+    fn tag(label: String, target: Point) -> String
         label + ":" + Int.to_string(target.x)
-    }
-}
+    end
+end
 
 /// `Bare` carries a WRITTEN `impl Debug`, and `Point` above carries none — so
 /// `Debug.inspect(bare())` reaches the block below across the file boundary
@@ -79,15 +79,15 @@ impl Tagger for Point {
 /// shapes never meet under one key in this fixture. testdata/sibiface_rival
 /// puts them in three files, which is the only arrangement in which
 /// `writtenImplMembers` has anything to choose.
-pub struct Bare {
+pub struct Bare
     tag: String
-}
+end
 
-impl Debug for Bare {
-    fn inspect(b: Bare) -> String {
+impl Debug for Bare
+    fn inspect(b: Bare) -> String
         "bare<" + b.tag + ">"
-    }
-}
+    end
+end
 
 /// An OPAQUE type, whose synthesized universal Debug is the degenerate
 /// NAME-ONLY form — a structural default would leak the hidden Int that
@@ -100,18 +100,18 @@ impl Debug for Bare {
 /// spellings of one body are pinned against each other rather than separately.
 pub opaque type Hidden Int
 
-pub fn hide(n: Int) -> Hidden {
+pub fn hide(n: Int) -> Hidden
     Hidden(n)
-}
+end
 
-pub fn origin() -> Point {
+pub fn origin() -> Point
     Point{x: 0, y: 7}
-}
+end
 
-pub fn quiet(n: Int) -> Quiet {
-    Quiet{n}
-}
+pub fn quiet(n: Int) -> Quiet
+    Quiet{n:}
+end
 
-pub fn bare(t: String) -> Bare {
+pub fn bare(t: String) -> Bare
     Bare{tag: t}
-}
+end

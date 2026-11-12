@@ -36,24 +36,24 @@
 // The whole rendered report is `assertable_subject_report.nomi`'s subject, plus
 // the non-zero exit a failing case produces.
 // `Some` comes from the prelude, so only std/assertions and std/testing are imported.
-import {
+import
     std::assertions.Assertable
     std::assertions.AssertionDetail
     std::assertions.AssertionDetails
     std::assertions.AssertionFailure
     std::testing
-}
+end
 
-struct Equals {
+struct Equals
     actual: Int
     expected: Int
-}
+end
 
-impl Assertable for Equals {
-    fn failure(e: Equals) -> Maybe<AssertionDetails> {
-        if e.actual == e.expected {
+impl Assertable for Equals
+    fn failure(e: Equals) -> Maybe<AssertionDetails>
+        if e.actual == e.expected then
             None
-        } else {
+        else
             Some(AssertionDetails{
                 reason: "values were not equal",
                 actual: Some(Debug.inspect(e.actual)),
@@ -62,66 +62,66 @@ impl Assertable for Equals {
                     AssertionDetail{label: "expected", value: Debug.inspect(e.expected)},
                 ],
             })
-        }
-    }
-}
+        end
+    end
+end
 
 // Every field left to the default std DECLARES, which is the half of the
 // representation that landed before this one: `reason` is a non-empty string,
 // `actual` is `None` whose tag is not zero, and `details` is empty.
-struct Defaulted {
+struct Defaulted
     ok: Bool
-}
+end
 
-impl Assertable for Defaulted {
-    fn failure(d: Defaulted) -> Maybe<AssertionDetails> {
-        if d.ok { None } else { Some(AssertionDetails{}) }
-    }
-}
+impl Assertable for Defaulted
+    fn failure(d: Defaulted) -> Maybe<AssertionDetails>
+        if d.ok then None else Some(AssertionDetails{})
+    end
+end
 
-struct Silent {
+struct Silent
     ok: Bool
-}
+end
 
-impl Assertable for Silent {
-    fn failure(s: Silent) -> Maybe<AssertionDetails> {
-        if s.ok {
+impl Assertable for Silent
+    fn failure(s: Silent) -> Maybe<AssertionDetails>
+        if s.ok then
             None
-        } else {
+        else
             Some(AssertionDetails{reason: ""})
-        }
-    }
-}
+        end
+    end
+end
 
-fn equals(actual: Int, expected: Int) -> Equals {
-    Equals{actual, expected}
-}
+fn equals(actual: Int, expected: Int) -> Equals
+    Equals{actual:, expected:}
+end
 
 // `assert` and `refute` over an Assertable, reached as VALUES so the failure can
 // be read rather than ending the case. The keyword is what changes the reason,
 // and a `check` cannot produce either of these two.
-fn fails_silently() -> Result<Unit, AssertionFailure> {
+fn fails_silently() -> Result<Unit, AssertionFailure>
     assert Silent{ok: False}
     Ok(Unit)
-}
+end
 
-fn fails_refutation() -> Result<Unit, AssertionFailure> {
+fn fails_refutation() -> Result<Unit, AssertionFailure>
     refute equals(3, 3)
     Ok(Unit)
-}
+end
 
-test "a passing Assertable holds and its value is the subject" {
+test "a passing Assertable holds and its value is the subject"
     held = assert equals(7, 7)
     assert held.actual == 7
     assert held.expected == 7
-}
+end
 
-test "a refutation holds when the Assertable reports a failure" {
+test "a refutation holds when the Assertable reports a failure"
     refuted = refute equals(1, 2)
     assert refuted.expected == 2
-}
+end
 
-test "a failing check carries the reason, actual and detail rows it answered" {
+test "a failing check carries the reason, actual and detail rows it answered"
     x = 41
     y = 42
     assert Err(failure) = testing.check(equals(x, y))
@@ -136,9 +136,9 @@ test "a failing check carries the reason, actual and detail rows it answered" {
     // subject, which is what separates this row from a shape subject's.
     assert Some(rendered) = observed.actual
     assert rendered == "41"
-}
+end
 
-test "the report shows the authored details, in the order they were answered" {
+test "the report shows the authored details, in the order they were answered"
     x = 41
     y = 42
     assert Err(failure) = testing.check(equals(x, y))
@@ -158,9 +158,9 @@ test "the report shows the authored details, in the order they were answered" {
               = 42
           actual: 41
         """
-}
+end
 
-test "an Assertable answering the declared defaults reports them" {
+test "an Assertable answering the declared defaults reports them"
     assert Err(failure) = testing.check(Defaulted{ok: False})
     // std's field default, NOT the site's `check failed`.
     assert failure.reason == "assertion failed"
@@ -171,21 +171,21 @@ test "an Assertable answering the declared defaults reports them" {
         line 160: assertion failed
           check Defaulted{ok: False}
         """
-}
+end
 
-test "an explicitly empty reason falls back to the site's own words" {
+test "an explicitly empty reason falls back to the site's own words"
     assert Err(failure) = testing.check(Silent{ok: False})
     assert failure.reason == "check failed"
 
     assert Err(asserted) = fails_silently()
     assert asserted.keyword == "assert"
     assert asserted.reason == "assertion failed"
-}
+end
 
 // A failing refutation carries no `details:` block, and that is structural
 // rather than a choice: `refute` fails exactly when the answer was `None`, so
 // there are no details in existence to print.
-test "a failed refutation says so in its own words" {
+test "a failed refutation says so in its own words"
     assert Err(failure) = fails_refutation()
     assert failure.keyword == "refute"
     assert failure.reason == "refute failed"
@@ -195,9 +195,9 @@ test "a failed refutation says so in its own words" {
         line 105: refute failed
           refute equals(3, 3)
         """
-}
+end
 
-test "a bound Assertable subject carries its defining expression" {
+test "a bound Assertable subject carries its defining expression"
     comparison = equals(5, 6)
     assert Err(failure) = testing.check(comparison)
     assert Some(context) = failure.binding
@@ -207,4 +207,4 @@ test "a bound Assertable subject carries its defining expression" {
     // their composed `name: value` text — where `actual` above was the
     // Assertable's own string. Two different values in one report.
     assert context.value == "Equals{actual: 5, expected: 6}"
-}
+end

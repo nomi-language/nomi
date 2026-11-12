@@ -14,14 +14,14 @@ import (
 // bootOnlyApp is an app's imports, with the module %s imports beside std's,
 // and its app type.
 func bootOnlyApp(module string) string {
-	return "import {\n    std::jobs.{Queue, Worker}\n    std::jobs_testing.Inline\n    " + module + "\n}\n\n" + bootOnlyAppType
+	return "import\n    std::jobs.{Queue, Worker}\n    std::jobs_testing.Inline\n    " + module + "\nend\n\n" + bootOnlyAppType
 }
 
-const bootOnlyAppType = `pub struct App {
+const bootOnlyAppType = `pub struct App
     context: Context
     queue: Queue
     worker: Worker
-}
+end
 
 `
 
@@ -29,24 +29,24 @@ const bootOnlyAppType = `pub struct App {
 // after boot, creating a worker: rejected at its call to Worker.new.
 func TestBootOnly_WorkerNewInAnotherModulesHandlerIsRejectedAtTheCall(t *testing.T) {
 	got := checkShop(t, map[string]string{
-		"main.nomi": bootOnlyApp("handlers") + `fn boot() -> Result<App, String> {
+		"main.nomi": bootOnlyApp("handlers") + `fn boot() -> Result<App, String>
     queue: Queue = Inline.new()
-    Ok(App{context: Context.root(), queue, worker: Worker.new(queue, 1)})
-}
+    Ok(App{context: Context.root(), queue:, worker: Worker.new(queue, 1)})
+end
 
-fn main() {
+fn main()
     handle = handlers.routes(App.queue)
     dbg handle(1)
-}
+end
 `,
 		"handlers.nomi": `import std::jobs.{Queue, Worker}
 
-pub fn routes(queue: Queue) -> (Int) -> Int {
-    fn n -> {
+pub fn routes(queue: Queue) -> (Int) -> Int
+    fn n ->
         _ = Worker.new(queue, 1)
         n
-    }
-}
+    end
+end
 `,
 	})
 	want := regexp.MustCompile("^handlers.nomi:5:23: `Worker.new` creates a supervisor \\(`Supervisor.new` at jobs.nomi:\\d+\\), " +
@@ -60,21 +60,21 @@ pub fn routes(queue: Queue) -> (Int) -> Int {
 // main's call, naming the chain through Worker.new.
 func TestBootOnly_AFunctionReachingWorkerNewIsRejectedWhereMainCallsIt(t *testing.T) {
 	got := checkShop(t, map[string]string{
-		"main.nomi": bootOnlyApp("handlers") + `fn boot() -> Result<App, String> {
+		"main.nomi": bootOnlyApp("handlers") + `fn boot() -> Result<App, String>
     queue: Queue = Inline.new()
-    Ok(App{context: Context.root(), queue, worker: Worker.new(queue, 1)})
-}
+    Ok(App{context: Context.root(), queue:, worker: Worker.new(queue, 1)})
+end
 
-fn main() {
+fn main()
     dbg handlers.handle(App.queue)
-}
+end
 `,
 		"handlers.nomi": `import std::jobs.{Queue, Worker}
 
-pub fn handle(queue: Queue) -> Int {
+pub fn handle(queue: Queue) -> Int
     _ = Worker.new(queue, 1)
     1
-}
+end
 `,
 	})
 	want := regexp.MustCompile("^main.nomi:\\d+:\\d+: `handle` creates a supervisor \\(through `Worker.new` at handlers.nomi:4, " +
@@ -88,20 +88,20 @@ pub fn handle(queue: Queue) -> Int {
 // function, is accepted.
 func TestBootOnly_WorkerNewInBootIsAccepted(t *testing.T) {
 	got := checkShop(t, map[string]string{
-		"main.nomi": bootOnlyApp("workers") + `fn boot() -> Result<App, String> {
+		"main.nomi": bootOnlyApp("workers") + `fn boot() -> Result<App, String>
     queue: Queue = Inline.new()
-    Ok(App{context: Context.root(), queue, worker: workers.make(queue)})
-}
+    Ok(App{context: Context.root(), queue:, worker: workers.make(queue)})
+end
 
-fn main() {
+fn main()
     Worker.start(App.worker, [])
-}
+end
 `,
 		"workers.nomi": `import std::jobs.{Queue, Worker}
 
-pub fn make(queue: Queue) -> Worker {
+pub fn make(queue: Queue) -> Worker
     Worker.new(queue, max_running: 2)
-}
+end
 `,
 	})
 	if len(got) != 0 {
@@ -115,22 +115,22 @@ func TestBootOnly_ATwoHopChainAcrossModules(t *testing.T) {
 	a := `import b
 import std::supervisors.Supervisor
 
-pub fn outer() -> Supervisor {
+pub fn outer() -> Supervisor
     b.inner()
-}
+end
 `
 	bFile := `import std::supervisors.Supervisor
 
-pub fn inner() -> Supervisor {
+pub fn inner() -> Supervisor
     Supervisor.new(max_running: 1)
-}
+end
 `
 	rejected := checkShop(t, map[string]string{
 		"main.nomi": `import a
 
-fn main() {
+fn main()
     _ = a.outer()
-}
+end
 `,
 		"a.nomi": a,
 		"b.nomi": bFile,
@@ -145,18 +145,18 @@ fn main() {
 		"main.nomi": `import a
 import std::supervisors.Supervisor
 
-pub struct App {
+pub struct App
     context: Context
     group: Supervisor
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{context: Context.root(), group: a.outer()})
-}
+end
 
-fn main() {
+fn main()
     Unit
-}
+end
 `,
 		"a.nomi": a,
 		"b.nomi": bFile,
@@ -173,24 +173,24 @@ func TestBootOnly_ABootOnlyFunctionAsAValueIsRejected(t *testing.T) {
 		"main.nomi": `import a
 import std::supervisors.Supervisor
 
-pub struct App {
+pub struct App
     context: Context
     make: () -> Supervisor
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{context: Context.root(), make: a.outer})
-}
+end
 
-fn main() {
+fn main()
     Unit
-}
+end
 `,
 		"a.nomi": `import std::supervisors.Supervisor
 
-pub fn outer() -> Supervisor {
+pub fn outer() -> Supervisor
     Supervisor.new(max_running: 1)
-}
+end
 `,
 	})
 	want := "main.nomi:10:45: `outer` creates a supervisor (`Supervisor.new` at a.nomi:4), so it cannot be passed as a value"

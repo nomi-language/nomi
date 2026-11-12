@@ -1,126 +1,126 @@
 import zipper.{Tree, Zipper}
 
 /// One canonical operation on a zipper.
-enum Operation {
+enum Operation
     Left
     Right
     Up
     SetValue Int
     SetLeft Maybe<Tree<Int>>
     SetRight Maybe<Tree<Int>>
-}
+end
 
 /// A node with no subtrees.
-fn leaf(value: Int) -> Tree<Int> {
-    .{value, left: None, right: None}
-}
+fn leaf(value: Int) -> Tree<Int>
+    {value:, left: None, right: None}
+end
 
 /// The tree every canonical case starts from.
-fn initial_tree() -> Tree<Int> {
-    .{value: 1, left: Some(.{value: 2, left: None, right: Some(leaf(3))}), right: Some(leaf(4))}
-}
+fn initial_tree() -> Tree<Int>
+    {value: 1, left: Some({value: 2, left: None, right: Some(leaf(3))}), right: Some(leaf(4))}
+end
 
 /// The zipper on the initial tree after each operation in turn, or `None`
 /// once a move finds no node.
-fn follow(operations: List<Operation>) -> Maybe<Zipper<Int>> {
+fn follow(operations: List<Operation>) -> Maybe<Zipper<Int>>
     start = initial_tree() |> Zipper.from_tree() |> Some()
 
     Iter.reduce(operations, start, fn zipper, operation -> apply(zipper?, operation))
-}
+end
 
-fn apply(zipper: Zipper<Int>, operation: Operation) -> Maybe<Zipper<Int>> {
-    case operation {
+fn apply(zipper: Zipper<Int>, operation: Operation) -> Maybe<Zipper<Int>>
+    case operation
         .Left -> Zipper.left(zipper)
         .Right -> Zipper.right(zipper)
         .Up -> Zipper.up(zipper)
         .SetValue(value) -> Some(Zipper.set_value(zipper, value))
         .SetLeft(left) -> Some(Zipper.set_left(zipper, left))
         .SetRight(right) -> Some(Zipper.set_right(zipper, right))
-    }
-}
+    end
+end
 
-test "the tree after the operations" {
+test "the tree after the operations"
     cases: List<(String, List<Operation>, Tree<Int>)> = [
         ("data is retained", [], initial_tree()),
         ("tree from deep focus", [.Left, .Right], initial_tree()),
         (
             "set_value",
             [.Left, .SetValue(5)],
-            .{
+            {
                 value: 1,
-                left: Some(.{value: 5, left: None, right: Some(leaf(3))}),
+                left: Some({value: 5, left: None, right: Some(leaf(3))}),
                 right: Some(leaf(4)),
             },
         ),
         (
             "set_value after traversing up",
             [.Left, .Right, .Up, .SetValue(5)],
-            .{
+            {
                 value: 1,
-                left: Some(.{value: 5, left: None, right: Some(leaf(3))}),
+                left: Some({value: 5, left: None, right: Some(leaf(3))}),
                 right: Some(leaf(4)),
             },
         ),
         (
             "set_left with leaf",
             [.Left, .SetLeft(Some(leaf(5)))],
-            .{
+            {
                 value: 1,
-                left: Some(.{value: 2, left: Some(leaf(5)), right: Some(leaf(3))}),
+                left: Some({value: 2, left: Some(leaf(5)), right: Some(leaf(3))}),
                 right: Some(leaf(4)),
             },
         ),
         (
             "set_right with null",
             [.Left, .SetRight(None)],
-            .{value: 1, left: Some(leaf(2)), right: Some(leaf(4))},
+            {value: 1, left: Some(leaf(2)), right: Some(leaf(4))},
         ),
         (
             "set_right with subtree",
-            [.SetRight(Some(.{value: 6, left: Some(leaf(7)), right: Some(leaf(8))}))],
-            .{
+            [.SetRight(Some({value: 6, left: Some(leaf(7)), right: Some(leaf(8))}))],
+            {
                 value: 1,
-                left: Some(.{value: 2, left: None, right: Some(leaf(3))}),
-                right: Some(.{value: 6, left: Some(leaf(7)), right: Some(leaf(8))}),
+                left: Some({value: 2, left: None, right: Some(leaf(3))}),
+                right: Some({value: 6, left: Some(leaf(7)), right: Some(leaf(8))}),
             },
         ),
         (
             "set_value on deep focus",
             [.Left, .Right, .SetValue(5)],
-            .{
+            {
                 value: 1,
-                left: Some(.{value: 2, left: None, right: Some(leaf(5))}),
+                left: Some({value: 2, left: None, right: Some(leaf(5))}),
                 right: Some(leaf(4)),
             },
         ),
     ]
 
-    subtests cases, (description, operations, expected), description {
+    subtests cases, (description, operations, expected), description
         assert follow(operations) |> Maybe.map(Zipper.to_tree) == Some(expected)
-    }
-}
+    end
+end
 
-test "the value at the focus" {
+test "the value at the focus"
     [
         ("left, right and value", [Operation.Left, .Right], 3),
         ("left, right, and up", [.Left, .Up, .Right, .Up, .Left, .Right], 3),
         ("test ability to descend multiple levels and return", [.Left, .Right, .Up, .Up], 1),
     ]
-    |> subtests (description, operations, expected), description {
+    |> subtests (description, operations, expected), description
         assert follow(operations) |> Maybe.map(Zipper.value) == Some(expected)
-    }
-}
+    end
+end
 
-test "no node to move to" {
+test "no node to move to"
     [
         ("dead end", [Operation.Left, .Left]),
         ("traversing up from top", [.Up]),
     ]
-    |> subtests (description, operations), description {
+    |> subtests (description, operations), description
         assert follow(operations) == None
-    }
-}
+    end
+end
 
-test "different paths to same zipper" {
+test "different paths to same zipper"
     assert follow([.Left, .Up, .Right]) == follow([.Right])
-}
+end

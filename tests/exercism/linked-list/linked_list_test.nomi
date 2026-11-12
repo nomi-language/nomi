@@ -3,7 +3,7 @@ import linked_list.LinkedList
 /// One canonical operation and what it should answer: a push or an unshift,
 /// a pop or a shift of a given value or one that finds the list empty, a
 /// count, a delete.
-enum Step {
+enum Step
     Push Int
     Pop Int
     PopFails
@@ -12,42 +12,46 @@ enum Step {
     Unshift Int
     Count Int
     Delete Int
-}
+end
 
 /// Runs each step's operation on an empty list, in turn, and answers the
 /// steps as they happened. A list that does what every step says answers the
 /// steps it was given.
-fn replay(steps: List<Step>) -> List<Step> {
+fn replay(steps: List<Step>) -> List<Step>
     (_list, happened) =
         steps
-        |> Iter.map_reduce(LinkedList.new(), fn list, step -> {
-            case step {
-                .Push(value) -> (LinkedList.push(list, value), Step.Push(value))
-                .Unshift(value) -> (LinkedList.unshift(list, value), .Unshift(value))
+        |> Iter.map_reduce(LinkedList.new(), fn list, step ->
+            case step
+                .Push(value) ->
+                    (LinkedList.push(list, value), Step.Push(value))
 
-                .Pop(_) or .PopFails -> {
-                    case LinkedList.pop(list) {
+                .Unshift(value) ->
+                    (LinkedList.unshift(list, value), .Unshift(value))
+
+                .Pop(_) or .PopFails ->
+                    case LinkedList.pop(list)
                         Some((value, rest)) -> (rest, .Pop(value))
                         None -> (list, .PopFails)
-                    }
-                }
+                    end
 
-                .Shift(_) or .ShiftFails -> {
-                    case LinkedList.shift(list) {
+                .Shift(_) or .ShiftFails ->
+                    case LinkedList.shift(list)
                         Some((value, rest)) -> (rest, .Shift(value))
                         None -> (list, .ShiftFails)
-                    }
-                }
+                    end
 
-                .Count(_) -> (list, .Count(Iter.count(list)))
-                .Delete(value) -> (LinkedList.delete(list, value), .Delete(value))
-            }
-        })
+                .Count(_) ->
+                    (list, .Count(Iter.count(list)))
+
+                .Delete(value) ->
+                    (LinkedList.delete(list, value), .Delete(value))
+            end
+        end)
 
     happened
-}
+end
 
-test "linked list" {
+test "linked list"
     [
         ("pop gets element from the list", [Step.Push(7), .Pop(7)]),
         (
@@ -138,14 +142,14 @@ test "linked list" {
             ],
         ),
     ]
-    |> subtests (description, steps), description {
+    |> subtests (description, steps), description
         assert replay(steps) == steps
-    }
-}
+    end
+end
 
 // Not canonical: the canonical cases never pop or shift an empty list.
-test "pop and shift on an empty list find nothing" {
+test "pop and shift on an empty list find nothing"
     steps = [Step.PopFails, .ShiftFails, .Push(1), .Shift(1), .PopFails]
 
     assert replay(steps) == steps
-}
+end

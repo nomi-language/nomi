@@ -647,7 +647,7 @@ func (g *gen) blockLocalAlias(name string) (kind, bool) {
 // # AN INSTANCE'S QUALIFIER NAMES ITS TEMPLATE, NOT ITSELF
 //
 // `g.types[owner] == d` is also always false for a MONOMORPHIZED instance, and
-// for a sharper reason: `Holder.Of{value}` over a `Holder<Int>` value has a
+// for a sharper reason: `Holder.Of{value:}` over a `Holder<Int>` value has a
 // qualifier naming the TEMPLATE, while `d` is the instance — a fresh def per
 // argument tuple, deliberately not in `g.types` at all (generictype.go's
 // "the def in `g.types` is left exactly as it was"). So the identity question

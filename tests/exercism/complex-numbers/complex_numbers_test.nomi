@@ -4,34 +4,34 @@ import complex_numbers.Complex
 // numbers.
 once tolerance = 1e-12
 
-test "Real part" {
+test "Real part"
     [
         ("Real part of a purely real number", Complex.new(1.0, 0.0), 1.0),
         ("Real part of a purely imaginary number", Complex.new(0.0, 1.0), 0.0),
         ("Real part of a number with real and imaginary part", Complex.new(1.0, 2.0), 1.0),
     ]
-    |> subtests (description, z, expected), description {
+    |> subtests (description, z, expected), description
         assert Complex.real(z) == expected
-    }
-}
+    end
+end
 
-test "Imaginary part" {
+test "Imaginary part"
     [
         ("Imaginary part of a purely real number", Complex.new(1.0, 0.0), 0.0),
         ("Imaginary part of a purely imaginary number", Complex.new(0.0, 1.0), 1.0),
         ("Imaginary part of a number with real and imaginary part", Complex.new(1.0, 2.0), 2.0),
     ]
-    |> subtests (description, z, expected), description {
+    |> subtests (description, z, expected), description
         assert Complex.imaginary(z) == expected
-    }
-}
+    end
+end
 
-test "Imaginary unit" {
+test "Imaginary unit"
     assert Complex.new(0.0, 1.0) * Complex.new(0.0, 1.0) == Complex.new(-1.0, 0.0)
-}
+end
 
-group "Arithmetic" {
-    test "Addition" {
+group "Arithmetic"
+    test "Addition"
         [
             (
                 "Add purely real numbers",
@@ -52,12 +52,12 @@ group "Arithmetic" {
                 Complex.new(4.0, 6.0),
             ),
         ]
-        |> subtests (description, z1, z2, expected), description {
+        |> subtests (description, z1, z2, expected), description
             assert z1 + z2 == expected
-        }
-    }
+        end
+    end
 
-    test "Subtraction" {
+    test "Subtraction"
         [
             (
                 "Subtract purely real numbers",
@@ -78,12 +78,12 @@ group "Arithmetic" {
                 Complex.new(-2.0, -2.0),
             ),
         ]
-        |> subtests (description, z1, z2, expected), description {
+        |> subtests (description, z1, z2, expected), description
             assert z1 - z2 == expected
-        }
-    }
+        end
+    end
 
-    test "Multiplication" {
+    test "Multiplication"
         [
             (
                 "Multiply purely real numbers",
@@ -104,12 +104,12 @@ group "Arithmetic" {
                 Complex.new(-5.0, 10.0),
             ),
         ]
-        |> subtests (description, z1, z2, expected), description {
+        |> subtests (description, z1, z2, expected), description
             assert z1 * z2 == expected
-        }
-    }
+        end
+    end
 
-    test "Division" {
+    test "Division"
         [
             (
                 "Divide purely real numbers",
@@ -130,13 +130,13 @@ group "Arithmetic" {
                 Complex.new(0.44, 0.08),
             ),
         ]
-        |> subtests (description, z1, z2, expected), description {
+        |> subtests (description, z1, z2, expected), description
             assert Complex.equal_within(z1 / z2, expected, tolerance)
-        }
-    }
-}
+        end
+    end
+end
 
-test "Absolute value" {
+test "Absolute value"
     [
         ("Absolute value of a positive purely real number", Complex.new(5.0, 0.0), 5.0),
         ("Absolute value of a negative purely real number", Complex.new(-5.0, 0.0), 5.0),
@@ -152,12 +152,12 @@ test "Absolute value" {
         ),
         ("Absolute value of a number with real and imaginary part", Complex.new(3.0, 4.0), 5.0),
     ]
-    |> subtests (description, z, expected), description {
+    |> subtests (description, z, expected), description
         assert Complex.abs(z) == expected
-    }
-}
+    end
+end
 
-test "Complex conjugate" {
+test "Complex conjugate"
     [
         ("Conjugate a purely real number", Complex.new(5.0, 0.0), Complex.new(5.0, 0.0)),
         ("Conjugate a purely imaginary number", Complex.new(0.0, 5.0), Complex.new(0.0, -5.0)),
@@ -167,12 +167,12 @@ test "Complex conjugate" {
             Complex.new(1.0, -1.0),
         ),
     ]
-    |> subtests (description, z, expected), description {
+    |> subtests (description, z, expected), description
         assert Complex.conjugate(z) == expected
-    }
-}
+    end
+end
 
-test "Complex exponential function" {
+test "Complex exponential function"
     [
         ("Euler's identity/formula", Complex.new(0.0, Float.pi), Complex.new(-1.0, 0.0)),
         ("Exponential of 0", Complex.new(0.0, 0.0), Complex.new(1.0, 0.0)),
@@ -188,12 +188,12 @@ test "Complex exponential function" {
             Complex.new(1.0, 1.0),
         ),
     ]
-    |> subtests (description, z, expected), description {
+    |> subtests (description, z, expected), description
         assert z |> Complex.exp() |> Complex.equal_within(expected, tolerance)
-    }
-}
+    end
+end
 
-test "Operations between real numbers and complex numbers" {
+test "Operations between real numbers and complex numbers"
     [
         ("Add real number to complex number", Complex.new(1.0, 2.0) + 5.0, Complex.new(6.0, 2.0)),
         ("Add complex number to real number", 5.0 + Complex.new(1.0, 2.0), Complex.new(6.0, 2.0)),
@@ -228,7 +228,7 @@ test "Operations between real numbers and complex numbers" {
             Complex.new(2.5, -2.5),
         ),
     ]
-    |> subtests (description, actual, expected), description {
+    |> subtests (description, actual, expected), description
         assert Complex.equal_within(actual, expected, tolerance)
-    }
-}
+    end
+end

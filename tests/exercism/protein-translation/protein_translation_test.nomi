@@ -1,9 +1,9 @@
-import {
+import
     protein_translation
     protein_translation.{AminoAcid, Error}
-}
+end
 
-test "proteins" {
+test "proteins"
     [
         ("Empty RNA sequence results in no proteins", "", []),
         ("Methionine RNA sequence", "AUG", [AminoAcid.Methionine]),
@@ -66,12 +66,12 @@ test "proteins" {
             [.Phenylalanine, .Phenylalanine],
         ),
     ]
-    |> subtests (description, strand, expected), description {
+    |> subtests (description, strand, expected), description
         assert protein_translation.proteins(strand) == Ok(expected)
-    }
-}
+    end
+end
 
-test "invalid codons" {
+test "invalid codons"
     [
         (
             "Unknown amino acids, not part of a codon, can't translate",
@@ -80,7 +80,7 @@ test "invalid codons" {
         ),
         ("Incomplete RNA sequence can't translate", "AUGU", .InvalidCodon("U")),
     ]
-    |> subtests (description, strand, expected), description {
+    |> subtests (description, strand, expected), description
         assert protein_translation.proteins(strand) == Err(expected)
-    }
-}
+    end
+end

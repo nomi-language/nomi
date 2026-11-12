@@ -1,0 +1,129 @@
+================================================================================
+A brace always opens a struct, and begin opens a block
+================================================================================
+
+fn main()
+    a = {x: 1, y:}
+    b = {x:}
+    c = {..a, x: 2}
+    d = begin
+        x: Int = 1
+        x
+    end
+    h = {f: if Some(n) = m then n else 0, g: 0}
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (anon_struct
+          (anon_struct_field
+            (identifier)
+            (integer))
+          (anon_struct_field
+            (identifier))))
+      (binding
+        (identifier)
+        (anon_struct
+          (anon_struct_field
+            (identifier))))
+      (binding
+        (identifier)
+        (struct_update
+          (struct_update_spread
+            (identifier))
+          (struct_update_field
+            (identifier)
+            (integer))))
+      (binding
+        (identifier)
+        (begin_block
+          (body
+            (binding
+              (identifier)
+              (type_identifier)
+              (integer))
+            (identifier))))
+      (binding
+        (identifier)
+        (anon_struct
+          (anon_struct_field
+            (identifier)
+            (if_expression
+              (if_match_condition
+                (enum_pattern
+                  (type_identifier)
+                  (identifier))
+                (identifier))
+              (identifier)
+              (integer)))
+          (anon_struct_field
+            (identifier)
+            (integer)))))))
+
+================================================================================
+A punned field, pattern field and named argument
+================================================================================
+
+fn main()
+    p = Point{x:, y:}
+    {x:, y: b} = p
+    r = case p
+        Point{x:, y: 0} -> x
+        {x:} -> x
+    end
+    io.print(show(p, label:))
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (struct_construction
+          (type_identifier)
+          (identifier)
+          (identifier)))
+      (destructuring_binding
+        (anon_struct_field
+          (identifier))
+        (anon_struct_field
+          (identifier)
+          (identifier))
+        (identifier))
+      (binding
+        (identifier)
+        (case_expression
+          (identifier)
+          (case_branch
+            (struct_pattern
+              (type_identifier)
+              (pattern_field
+                (identifier))
+              (pattern_field
+                (identifier)
+                (integer)))
+            (identifier))
+          (case_branch
+            (struct_pattern
+              (pattern_field
+                (identifier)))
+            (identifier))))
+      (call_expression
+        (field_access
+          (identifier)
+          (identifier))
+        (call_expression
+          (identifier)
+          (identifier)
+          (identifier))))))

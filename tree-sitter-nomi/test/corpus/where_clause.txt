@@ -2,11 +2,11 @@
 Where clause with single constraint
 ================================================================================
 
-interface Sortable<T> {
-  fn sort<K>(source: self, key: (T) -> K) -> List<T> where T: Comparable, K: Hashable {
+interface Sortable<T>
+  fn sort<K>(source: self, key: (T) -> K) -> List<T> where T: Comparable, K: Hashable
     source
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -44,18 +44,18 @@ interface Sortable<T> {
           name: (type_parameter_identifier
             (type_identifier))
           (type_identifier)))
-      (body
+      body: (body
         (identifier)))))
 
 ================================================================================
 Where clause on impl block
 ================================================================================
 
-impl Iter for Range<T> where T: Discrete {
-  fn next(r: Range<T>) -> Maybe<(T, Range<T>)> {
+impl Iter for Range<T> where T: Discrete
+  fn next(r: Range<T>) -> Maybe<(T, Range<T>)>
     None
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -92,9 +92,9 @@ impl Iter for Range<T> where T: Discrete {
 Where clause on ordinary function
 ================================================================================
 
-fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S> {
+fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S>
   r
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -135,18 +135,18 @@ fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppabl
 Where clause on type declarations
 ================================================================================
 
-struct Box<T> where T: Display {
+struct Box<T> where T: Display
   value: T
-}
+end
 
-enum MaybeBox<T> where T: Display {
+enum MaybeBox<T> where T: Display
   Empty
   Full Box<T>
-}
+end
 
-interface Renderable<T> where T: Display {
+interface Renderable<T> where T: Display
   fn render(value: self) -> String
-}
+end
 
 host type Handle<T> where T: Display
 
@@ -224,9 +224,9 @@ host type Handle<T> where T: Display
 Where clause on required interface method
 ================================================================================
 
-interface Sortable<T> {
+interface Sortable<T>
   fn sort<K>(source: self, key: (T) -> K) -> List<T> where T: Comparable, K: Hashable
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -289,11 +289,11 @@ derive Display for Box<T> where T: Display
 Where clause with multiple constraints and and-joined bounds
 ================================================================================
 
-interface Keyed<T> {
-  fn group<K>(source: self, key: (T) -> K) -> List<T> where T: Comparable, K: Hashable and Equatable {
+interface Keyed<T>
+  fn group<K>(source: self, key: (T) -> K) -> List<T> where T: Comparable, K: Hashable and Equatable
     source
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -332,18 +332,18 @@ interface Keyed<T> {
             (type_identifier))
           (type_identifier)
           (type_identifier)))
-      (body
+      body: (body
         (identifier)))))
 
 ================================================================================
 Where self on an interface default
 ================================================================================
 
-interface Scale<T> {
-  fn format(scale: self) -> String where self: Display and Hashable, T: Display {
+interface Scale<T>
+  fn format(scale: self) -> String where self: Display and Hashable, T: Display
     scale
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -370,5 +370,5 @@ interface Scale<T> {
           name: (type_parameter_identifier
             (type_identifier))
           (type_identifier)))
-      (body
+      body: (body
         (identifier)))))

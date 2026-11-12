@@ -339,10 +339,10 @@ func TestPreludeInstancesAreDistinctTypes(t *testing.T) {
 // silently stops anchoring cannot pass as "nothing to check".
 func preludeGenForTest(t *testing.T) *gen {
 	t.Helper()
-	const src = "import {\n  std::literals.Fragment\n  std::tasks.Outcome\n}\n\n" +
-		"fn tag(_f: Fragment<String>) -> Int {\n  0\n}\n\n" +
-		"fn ended(_o: Outcome<Int>) -> Int {\n  0\n}\n\n" +
-		"fn main() -> Unit {\n  if True { } \n}\n"
+	const src = "import\n  std::literals.Fragment\n  std::tasks.Outcome\nend\n\n" +
+		"fn tag(_f: Fragment<String>) -> Int\n  0\nend\n\n" +
+		"fn ended(_o: Outcome<Int>) -> Int\n  0\nend\n\n" +
+		"fn main() -> Unit\n  if True then \n  end \nend\n"
 	p, err := AnalyzeSource("prelude_probe", src)
 	if err != nil {
 		t.Fatalf("analyzing the prelude program: %v", err)
@@ -362,14 +362,15 @@ func preludeGenForTest(t *testing.T) *gen {
 // the refusal is about the user's type rather than a silent redirection to the
 // prelude one — so the anchor must not resolve at all.
 func TestPreludeIdentityIsNotAName(t *testing.T) {
-	src := `enum Maybe<T> {
+	src := `enum Maybe<T>
   Some T
   None
-}
+end
 
-fn main() -> Unit {
-  if True { }
-}
+fn main() -> Unit
+  if True then 
+  end
+end
 `
 	p, err := AnalyzeSource("shadow_probe", src)
 	if err != nil {

@@ -12,14 +12,14 @@ func TestTurbofishCall_RunsAtTheCheckedSignature(t *testing.T) {
 
 type TraceId String
 
-fn ident<T>(x: T) -> T {
+fn ident<T>(x: T) -> T
     x
-}
+end
 
-fn main() {
-    fn twice<T>(x: T) -> List<T> {
+fn main()
+    fn twice<T>(x: T) -> List<T>
         [x, x]
-    }
+    end
     c = io.capture<Int>("", fn -> 1)
     io.inspect(c.value)
     io.inspect(Maybe.collect<Int>([None, None]))
@@ -30,7 +30,7 @@ fn main() {
     io.inspect(ident<Int>(3))
     io.inspect(ident<Maybe<Int>>(None))
     io.inspect(twice<String>("a"))
-}
+end
 `, "1\nNone\nSome([1])\nSome(\"1\")\nSome(TraceId(\"t\"))\n3\nNone\n[\"a\", \"a\"]\n")
 }
 
@@ -40,12 +40,12 @@ fn main() {
 func TestTurbofishCall_OnAnInterfaceOwnerFunction(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn main() {
+fn main()
     io.print(Iter.sum<Int>([]))
     io.print(Iter.sum<List<Int>>([[1], [2]]))
     io.print(Iter.count<Int>([]))
     io.print(Iter.max<Int>([]) == None)
     io.print(Iter.map<Int, Int>([1], fn x -> x + 1) |> Iter.to_list())
-}
+end
 `, "0\n[1, 2]\n0\nTrue\n[2]\n")
 }

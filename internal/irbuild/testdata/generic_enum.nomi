@@ -21,39 +21,39 @@
 // TestGenericEnum_BareVariantConstructionIsRefused pins it WITH its firing.
 import std::io
 
-enum Wrapper<T> {
+enum Wrapper<T>
     Wrapped T
     Empty
-}
+end
 
-fn unwrap_int(w: Wrapper<Int>) -> Int {
-    case w {
+fn unwrap_int(w: Wrapper<Int>) -> Int
+    case w
         .Wrapped(v) -> v
         .Empty -> 0
-    }
-}
+    end
+end
 
-fn unwrap_text(w: Wrapper<String>) -> String {
-    case w {
+fn unwrap_text(w: Wrapper<String>) -> String
+    case w
         .Wrapped(v) -> v
         .Empty -> "none"
-    }
-}
+    end
+end
 
 // A NESTED instantiation: the argument is itself an instance of the same
 // template. It exercises the intern table's recursion — `Wrapper<Wrapper<Int>>`
 // pushes a second substitution frame over the first while the inner def is
 // built — which is `pushGenericSubst`'s stated stack discipline, and which a
 // flat two-instance program does not reach.
-fn depth(w: Wrapper<Wrapper<Int>>) -> Int {
-    case w {
+fn depth(w: Wrapper<Wrapper<Int>>) -> Int
+    case w
         .Wrapped(inner) -> unwrap_int(inner)
         .Empty -> -1
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Int.to_string(unwrap_int(Wrapper.Wrapped(42))))
     io.print(unwrap_text(Wrapper.Wrapped("forty-two")))
     io.print(Int.to_string(depth(Wrapper.Wrapped(Wrapper.Wrapped(7)))))
-}
+end

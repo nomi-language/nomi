@@ -7,33 +7,33 @@ import "testing"
 // Comparable and Display only through its parts (spec: Bounds and dispatch
 // in generic code). Each rejection is at the call and says why.
 func TestStructuralTypesAtABoundRejectWhatTheyDoNotImplement(t *testing.T) {
-	const decls = `interface Shape {
+	const decls = `interface Shape
   fn area(value: self) -> Int
-}
+end
 
-struct Q {
+struct Q
   a: Int
-}
+end
 
-struct F {
+struct F
   f: (Int) -> Int
-}
+end
 
-fn total<T>(x: T) -> Int where T: Shape {
+fn total<T>(x: T) -> Int where T: Shape
   Shape.area(x)
-}
+end
 
-fn h<T>(_x: T) -> Int where T: Hashable {
+fn h<T>(_x: T) -> Int where T: Hashable
   1
-}
+end
 
-fn e<T>(_x: T) -> Int where T: Equatable {
+fn e<T>(_x: T) -> Int where T: Equatable
   1
-}
+end
 
-fn inc(x: Int) -> Int {
+fn inc(x: Int) -> Int
   x + 1
-}
+end
 `
 	cases := []struct {
 		name, body, want string
@@ -41,8 +41,8 @@ fn inc(x: Int) -> Int {
 		{"a tuple at a program interface", `total((1, 2))`,
 			"(Int, Int) does not implement Shape (required by `where T: Shape`)\n" +
 				"help: no impl can be written for a tuple, which implements only Equatable, Hashable, Comparable and Display, each when every element does; declare a struct of your own that implements `Shape`"},
-		{"an anonymous struct at a program interface", `total(.{a: 1})`,
-			".{a: Int} does not implement Shape (required by `where T: Shape`)\n" +
+		{"an anonymous struct at a program interface", `total({a: 1})`,
+			"{a: Int} does not implement Shape (required by `where T: Shape`)\n" +
 				"help: no impl can be written for an anonymous struct"},
 		{"a function at a program interface", `total(inc)`,
 			"(Int) -> Int does not implement Shape (required by `where T: Shape`)\n" +
@@ -57,15 +57,15 @@ fn inc(x: Int) -> Int {
 				"help: `(F, Int)` holds `(Int) -> Int`, and a function value has no equality"},
 		{"a nested tuple with a struct without Hashable", `h((1, ("a", F{f: inc})))`,
 			"(Int, (String, F)) does not implement Hashable (required by `where T: Hashable`)"},
-		{"an anonymous struct with a struct without Hashable", `h(.{q: F{f: inc}})`,
-			".{q: F} does not implement Hashable (required by `where T: Hashable`)\n" +
-				"help: `.{q: F}` holds `(Int) -> Int`, and a function value has no equality"},
+		{"an anonymous struct with a struct without Hashable", `h({q: F{f: inc}})`,
+			"{q: F} does not implement Hashable (required by `where T: Hashable`)\n" +
+				"help: `{q: F}` holds `(Int) -> Int`, and a function value has no equality"},
 		{"a tuple with a function", `h((1, inc))`,
 			"(Int, (Int) -> Int) does not implement Hashable (required by `where T: Hashable`)"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := decls + "\nfn run() -> Int {\n  " + tc.body + "\n}\n"
+			src := decls + "\nfn run() -> Int\n  " + tc.body + "\nend\n"
 			fa := buildWithStdlibForDerive(src)
 			if !hasErrSubstring(fa.TypeErrors, tc.want) {
 				t.Fatalf("the checker admits %s, or rejects it with another message; want %q, got:\n%s",
@@ -79,28 +79,28 @@ fn inc(x: Int) -> Int {
 // it, at a bound and nested in a std type whose impl bounds its argument,
 // and so does an anonymous struct for Equatable, Hashable and Display.
 func TestStructuralTypesAtABoundAdmitWhatTheirPartsImplement(t *testing.T) {
-	const decls = `struct P {
+	const decls = `struct P
   a: Int
-}
+end
 
 derive Equatable for P
 derive Hashable for P
 
-fn h<T>(_x: T) -> Int where T: Hashable {
+fn h<T>(_x: T) -> Int where T: Hashable
   1
-}
+end
 
-fn e<T>(_x: T) -> Int where T: Equatable {
+fn e<T>(_x: T) -> Int where T: Equatable
   1
-}
+end
 
-fn c<T>(_x: T) -> Int where T: Comparable {
+fn c<T>(_x: T) -> Int where T: Comparable
   1
-}
+end
 
-fn d<T>(_x: T) -> Int where T: Display {
+fn d<T>(_x: T) -> Int where T: Display
   1
-}
+end
 `
 	for _, body := range []string{
 		`h((1, "a"))`,
@@ -108,16 +108,16 @@ fn d<T>(_x: T) -> Int where T: Display {
 		`h((P{a: 1}, 2))`,
 		`h(Some((1, 2)))`,
 		`h([(1, 2)])`,
-		`h(.{a: 1, b: "x"})`,
+		`h({a: 1, b: "x"})`,
 		`e((1, [P{a: 1}]))`,
 		`e([(1, 2)])`,
 		`c((1, "a"))`,
 		`c([(1, "a")])`,
 		`d((1, "a"))`,
-		`d(.{a: 1})`,
+		`d({a: 1})`,
 	} {
 		t.Run(body, func(t *testing.T) {
-			src := decls + "\nfn run() -> Int {\n  " + body + "\n}\n"
+			src := decls + "\nfn run() -> Int\n  " + body + "\nend\n"
 			fa := buildWithStdlibForDerive(src)
 			if len(fa.TypeErrors) != 0 {
 				t.Fatalf("the checker rejects %s:\n%s", body, errorsText(fa.TypeErrors))
@@ -130,29 +130,29 @@ fn d<T>(_x: T) -> Int where T: Display {
 // struct or a function by the rule a bound does, with the help a bound
 // gives when it refuses one.
 func TestStructuralTypesAsInterfaceValuesRejectWhatTheyDoNotImplement(t *testing.T) {
-	const decls = `interface Shape {
+	const decls = `interface Shape
   fn area(value: self) -> Int
-}
+end
 
-struct Q {
+struct Q
   a: Int
-}
+end
 
-fn hh(h: Hashable) -> Int {
+fn hh(h: Hashable) -> Int
   Hashable.hash(h)
-}
+end
 
-fn sh(s: Shape) -> Int {
+fn sh(s: Shape) -> Int
   Shape.area(s)
-}
+end
 
-fn show(d: Display) -> String {
+fn show(d: Display) -> String
   "${d}"
-}
+end
 
-fn inc(x: Int) -> Int {
+fn inc(x: Int) -> Int
   x + 1
-}
+end
 `
 	cases := []struct {
 		name, stmt, want string
@@ -163,8 +163,8 @@ fn inc(x: Int) -> Int {
 		{"a tuple at a program interface", `_ = sh((1, 2))`,
 			"argument 1: expected Shape, got (Int, Int)\n" +
 				"help: no impl can be written for a tuple, which implements only Equatable, Hashable, Comparable and Display, each when every element does; declare a struct of your own that implements `Shape`"},
-		{"an anonymous struct at a program interface", `_ = sh(.{a: 1})`,
-			"argument 1: expected Shape, got .{a: Int}\n" +
+		{"an anonymous struct at a program interface", `_ = sh({a: 1})`,
+			"argument 1: expected Shape, got {a: Int}\n" +
 				"help: no impl can be written for an anonymous struct"},
 		{"a tuple with a function at Display", `_ = show((1, inc))`,
 			"help: `(Int, (Int) -> Int)` is Display when each part is, and `(Int) -> Int` is not: a function value has no `Display`"},
@@ -175,7 +175,7 @@ fn inc(x: Int) -> Int {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := decls + "\nfn run() -> Unit {\n  " + tc.stmt + "\n}\n"
+			src := decls + "\nfn run() -> Unit\n  " + tc.stmt + "\nend\n"
 			fa := buildWithStdlibForDerive(src)
 			if !hasErrSubstring(fa.TypeErrors, tc.want) {
 				t.Fatalf("the checker admits %s, or rejects it with another message; want %q, got:\n%s",
@@ -189,40 +189,40 @@ fn inc(x: Int) -> Int {
 // interfaces is a value of that interface: an argument, a list element, a
 // map key, a binding.
 func TestStructuralTypesAsInterfaceValuesAdmitWhatTheirPartsImplement(t *testing.T) {
-	const decls = `struct P {
+	const decls = `struct P
   a: Int
-}
+end
 
 derive Equatable for P
 derive Hashable for P
 
-fn hh(h: Hashable) -> Int {
+fn hh(h: Hashable) -> Int
   Hashable.hash(h)
-}
+end
 
-fn eq(a: Equatable, b: Equatable) -> Bool {
+fn eq(a: Equatable, b: Equatable) -> Bool
   a == b
-}
+end
 
-fn show(d: Display) -> String {
+fn show(d: Display) -> String
   "${d}"
-}
+end
 `
 	for _, stmt := range []string{
 		`_ = hh((1, 2))`,
 		`_ = hh((P{a: 1}, "x"))`,
-		`_ = hh(.{a: 1, b: (2, 3)})`,
+		`_ = hh({a: 1, b: (2, 3)})`,
 		`_ = eq((1, 2), (1, 2))`,
-		`_ = eq(.{a: 1}, 3)`,
+		`_ = eq({a: 1}, 3)`,
 		`_ = show((1, "a"))`,
-		`_ = show(.{a: 1})`,
+		`_ = show({a: 1})`,
 		"xs: List<Hashable> = [(1, 2), 3]\n  _ = xs",
-		"ds: List<Display> = [(1, \"x\"), .{b: 2.5}]\n  _ = ds",
-		"m: Map<Hashable, Int> = %{(1, 2) => 1, 3 => 4}\n  _ = m",
+		"ds: List<Display> = [(1, \"x\"), {b: 2.5}]\n  _ = ds",
+		"m: Map<Hashable, Int> = {(1, 2) => 1, 3 => 4}\n  _ = m",
 		"e: Equatable = (P{a: 1}, [1])\n  _ = e",
 	} {
 		t.Run(stmt, func(t *testing.T) {
-			src := decls + "\nfn run() -> Unit {\n  " + stmt + "\n}\n"
+			src := decls + "\nfn run() -> Unit\n  " + stmt + "\nend\n"
 			fa := buildWithStdlibForDerive(src)
 			if len(fa.TypeErrors) != 0 {
 				t.Fatalf("the checker rejects %s:\n%s", stmt, errorsText(fa.TypeErrors))

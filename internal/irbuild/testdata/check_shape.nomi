@@ -24,62 +24,62 @@
 // name rather than on the whole instantiation would hand one entry back for two
 // of them, and a compiled `check` would then read the wrong payload out of its
 // own result.
-import {
+import
     std::assertions.AssertionFailure
     std::testing
-}
+end
 
-fn find_name(id: Int) -> Maybe<String> {
-    if id == 1 { Some("Ada") } else { None }
-}
+fn find_name(id: Int) -> Maybe<String>
+    if id == 1 then Some("Ada") else None
+end
 
-fn score(id: Int) -> Maybe<Int> {
-    if id == 1 { Some(41) } else { None }
-}
+fn score(id: Int) -> Maybe<Int>
+    if id == 1 then Some(41) else None
+end
 
-fn parse_id(s: String) -> Result<Int, String> {
-    case String.to_int(s) {
+fn parse_id(s: String) -> Result<Int, String>
+    case String.to_int(s)
         Some(id) -> Ok(id)
         None -> Err("expected a numeric id")
-    }
-}
+    end
+end
 
 // This file's OWN type, so `Maybe<Marker>` and `Result<Marker, Marker>` cannot
 // live in the process-wide prelude table. Two fields on purpose: the `actual:`
 // row sorts the composed `name: value` strings, which one field cannot witness.
-struct Marker {
+struct Marker
     label: String
     count: Int
-}
+end
 
-fn marker(id: Int) -> Maybe<Marker> {
-    if id == 1 {
+fn marker(id: Int) -> Maybe<Marker>
+    if id == 1 then
         Some(Marker{label: "one", count: 1})
-    } else {
+    else
         None
-    }
-}
+    end
+end
 
-fn missing_marker() -> Result<Int, Marker> {
+fn missing_marker() -> Result<Int, Marker>
     Err(Marker{label: "two", count: 2})
-}
+end
 
-test "a passing Maybe check is Ok carrying the Some, not Ok(True)" {
+test "a passing Maybe check is Ok carrying the Some, not Ok(True)"
     assert Ok(found) = testing.check(find_name(1))
     assert Some(name) = found
     assert name == "Ada"
-}
+end
 
-test "a passing Result check is Ok carrying the Ok" {
+test "a passing Result check is Ok carrying the Ok"
     assert Ok(parsed) = testing.check(parse_id("42"))
     assert Ok(id) = parsed
     assert id == 42
-}
+end
 
 // A `None` subject does not hold, and the failure it produces is the same one
 // `assert find_name(2)` would build: same reason words, same `actual:`
 // rendering, because both reach rt.AssertionSite.ShapeFailure.
-test "a failing Maybe check renders the whole subject as actual" {
+test "a failing Maybe check renders the whole subject as actual"
     assert Err(failure) = testing.check(find_name(2))
     observed: AssertionFailure = failure
 
@@ -93,11 +93,11 @@ test "a failing Maybe check renders the whole subject as actual" {
     // the whole difference between the two arms.
     assert Some(rendered) = observed.actual
     assert rendered == "None"
-}
+end
 
 // The other prelude shape, at a payload the Maybe cases do not use, so the two
 // `Result<…, AssertionFailure>` instantiations in this file are distinct.
-test "a failing Result check renders the Err payload with its quotes" {
+test "a failing Result check renders the Err payload with its quotes"
     assert Err(failure) = testing.check(parse_id("wat"))
     assert failure.expression == "parse_id(\"wat\")"
     assert failure.reason == "check failed"
@@ -105,19 +105,19 @@ test "a failing Result check renders the Err payload with its quotes" {
     // for the Display renderer would print Err(expected a numeric id) here.
     assert Some(rendered) = failure.actual
     assert rendered == "Err(\"expected a numeric id\")"
-}
+end
 
 // A THIRD element type through the same machinery. `Maybe<Int>` and
 // `Maybe<String>` are two kinds; if the intern table collapsed
 // them, the `actual:` row below would render through the wrong inspector.
-test "a failing Maybe check at a second payload type does not collapse" {
+test "a failing Maybe check at a second payload type does not collapse"
     assert Err(failure) = testing.check(score(2))
     assert Some(rendered) = failure.actual
     assert rendered == "None"
     assert Ok(held) = testing.check(score(1))
     assert Some(n) = held
     assert n == 41
-}
+end
 
 // A subject carrying THIS FILE's own type, which the process-wide prelude table
 // cannot hold: a Maybe of this file's own type is a different instance in
@@ -127,7 +127,7 @@ test "a failing Maybe check at a second payload type does not collapse" {
 //
 // The `actual:` row also exercises the struct rendering: `InspectStruct` sorts
 // the composed `name: value` strings.
-test "a shape check over a package-local payload uses the per-package instance" {
+test "a shape check over a package-local payload uses the per-package instance"
     assert Ok(found) = testing.check(marker(1))
     assert Some(m) = found
     assert m.label == "one"
@@ -139,35 +139,35 @@ test "a shape check over a package-local payload uses the per-package instance" 
     assert Err(nested) = testing.check(missing_marker())
     assert Some(shown) = nested.actual
     assert shown == "Err(Marker{count: 2, label: \"two\"})"
-}
+end
 
 // A bound NAME as the subject: the `defined as:` context, which a shape subject
 // carries exactly as a Bool one does. The binding's own `value` is the same
 // Inspect rendering as `actual`, computed at a different place, so a lowering
 // that used Display for one and Inspect for the other disagrees here.
-test "a bound shape subject carries its defining expression" {
+test "a bound shape subject carries its defining expression"
     looked_up = find_name(3)
     assert Err(failure) = testing.check(looked_up)
     assert Some(context) = failure.binding
     assert context.name == "looked_up"
     assert context.expression == "find_name(3)"
     assert context.value == "None"
-}
+end
 
 // A check is an ordinary VALUE, so a shape check composes: the subject flows out
 // through `Ok` and the `assert` beside it judges the same thing.
-test "a shape check result is an ordinary value" {
+test "a shape check result is an ordinary value"
     assert Ok(inner) = testing.check(find_name(1))
     assert inner
-}
+end
 
 // The `assert` and the `check` must agree, which is the whole reason
 // shapeSubjectFailed is one function reached by both. A corpus that never fails
 // an assertion cannot notice an inverted tag comparison on the failing side, so
 // both directions of the judgement are stated here.
-test "check and assert agree about which shapes hold" {
+test "check and assert agree about which shapes hold"
     assert Ok(_) = testing.check(find_name(1))
     assert Err(_) = testing.check(find_name(2))
     assert Ok(_) = testing.check(parse_id("42"))
     assert Err(_) = testing.check(parse_id("wat"))
-}
+end

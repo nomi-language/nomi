@@ -16,35 +16,35 @@ import (
 func TestCaptureFunc_Runs(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-struct Box<T> {
+struct Box<T>
     v: T
-}
+end
 
-struct Rule {
+struct Rule
     name: String
     keep: (Int) -> Bool
-}
+end
 
-enum Shape {
+enum Shape
     Circle {radius: Float}
     Dot
-}
+end
 
-fn above<T>(xs: List<T>, min: T) -> List<T> where T: Comparable {
+fn above<T>(xs: List<T>, min: T) -> List<T> where T: Comparable
     xs |> Iter.filter(&(&1 > min)) |> Iter.to_list()
-}
+end
 
-fn apply(xs: List<Int>, label: String = "applied", f: (Int) -> Int) -> List<Int> {
+fn apply(xs: List<Int>, label: String = "applied", f: (Int) -> Int) -> List<Int>
     io.print(label)
     xs |> Iter.map(f) |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
     io.inspect([1, 2, 3] |> Iter.filter(&(&1 > 2)) |> Iter.to_list())
     io.inspect([-1, 2] |> Iter.filter(&(0 < &1)) |> Iter.to_list())
     io.inspect([1, 2, 3] |> Iter.map(&(&1 * 2)) |> Iter.to_list())
@@ -60,7 +60,7 @@ fn main() {
     io.inspect([1, 2] |> Iter.filter(&(&1 == 2)) |> Iter.count())
     io.inspect(["a", "b"] |> Iter.map(&(&1 + "!")) |> String.join(","))
     io.inspect([[1], [2]] |> Iter.map(&(&1 + [0])) |> Iter.to_list())
-    io.inspect([%[1]] |> Iter.map(&(&1 + %[9])) |> Iter.to_list())
+    io.inspect([Set[1]] |> Iter.map(&(&1 + Set[9])) |> Iter.to_list())
     upto: (Int) -> Range<Int> = &(0..&1)
     io.inspect(upto(3) |> Iter.to_list())
     io.inspect([2, 3] |> Iter.map(&(1..=&1)) |> Iter.map(Iter.count) |> Iter.to_list())
@@ -71,7 +71,7 @@ fn main() {
     io.inspect(mk(x: 6))
     swap: (Int, Int) -> Point = &Point{y: &1, x: &2}
     io.inspect(swap(1, 2))
-    anon: (Int) -> Point = &.{x: &1, y: 7}
+    anon: (Int) -> Point = &{x: &1, y: 7}
     io.inspect(anon(3))
     box: (String) -> Box<String> = &Box{v: &1}
     io.inspect(box("b"))
@@ -88,7 +88,7 @@ fn main() {
     io.inspect(apply([1, 2], &(&1 * 10)))
     wrapped: Maybe<(Int) -> Int> = Some(&(&1 + 1))
     io.inspect(Maybe.map(wrapped, fn f -> f(1)))
-}
+end
 `)
 	want := `[3]
 [2]
@@ -103,7 +103,7 @@ fn main() {
 1
 "a!,b!"
 [[1, 0], [2, 0]]
-[%[1, 9]]
+[Set[1, 9]]
 [0, 1, 2]
 [2, 3]
 [-1, 2]
@@ -135,21 +135,21 @@ Some(2)
 func TestCaptureFunc_APartialRunsItsArgumentsInCallOrder(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-fn g(s: String) -> String {
+fn g(s: String) -> String
     io.print("eval ${s}")
     s
-}
+end
 
-fn f(a: String, b: String, c: String) -> String {
+fn f(a: String, b: String, c: String) -> String
     a + b + c
-}
+end
 
-fn main() {
+fn main()
     p = &f(b: g("b"), a: g("a"), c: &1)
     io.print(p("c"))
     q = &f(g("a"), c: g("c"), b: &1)
     io.print(q("b"))
-}
+end
 `)
 	want := "eval b\neval a\nabc\neval a\neval c\nabc\n"
 	if got != want {
@@ -162,17 +162,17 @@ fn main() {
 func TestCaptureFunc_EvaluatesItsBodyOnEachCall(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-fn noisy(n: Int) -> Int {
+fn noisy(n: Int) -> Int
     io.print("noisy ${n}")
     n
-}
+end
 
-fn main() {
+fn main()
     big: (Int) -> Bool = &(&1 > noisy(2))
     mk: (Int) -> Point = &Point{y: noisy(4), x: &1}
     io.print("made")
@@ -180,7 +180,7 @@ fn main() {
     io.inspect(big(3))
     io.inspect(mk(1))
     io.inspect(mk(2))
-}
+end
 `)
 	want := "made\nnoisy 2\nFalse\nnoisy 2\nTrue\nnoisy 4\nPoint{x: 1, y: 4}\nnoisy 4\nPoint{x: 2, y: 4}\n"
 	if got != want {
@@ -196,28 +196,28 @@ fn main() {
 func TestCaptureFunc_TheBodyIsWhatTheAmpersandMarks(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-struct Order {
+struct Order
     total: Int
-}
+end
 
-fn f(a: Int, b: Int) -> Int {
+fn f(a: Int, b: Int) -> Int
     a * 10 + b
-}
+end
 
-fn divide(x: Int, y: Int) -> Int {
+fn divide(x: Int, y: Int) -> Int
     x / y
-}
+end
 
-fn g(h: (Int) -> Int) -> Int {
+fn g(h: (Int) -> Int) -> Int
     h(-5)
-}
+end
 
-fn main() {
+fn main()
     xs = [-1, 2, 3]
     io.inspect(Iter.map(xs, &(&1 * 2 + 1)) |> Iter.to_list())
     io.inspect(Iter.filter(xs, &(&1 % 2 == 0)) |> Iter.to_list())
@@ -240,7 +240,7 @@ fn main() {
     io.inspect(Maybe.map(held, fn h -> h(1)))
     wrap: (Int) -> Maybe<Int> = &Some(&1 + 1)
     io.inspect(wrap(1))
-}
+end
 `)
 	want := `[-1, 5, 7]
 [2]
@@ -269,32 +269,32 @@ Some(2)
 func TestCaptureFunc_Numbering(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-struct Order {
+struct Order
     total: Int
-}
+end
 
-fn f(a: Int, b: Int) -> Int {
+fn f(a: Int, b: Int) -> Int
     a * 10 + b
-}
+end
 
-fn divide(x: Int, y: Int) -> Int {
+fn divide(x: Int, y: Int) -> Int
     x / y
-}
+end
 
-fn g(h: (Int) -> Int) -> Int {
+fn g(h: (Int) -> Int) -> Int
     h(-5)
-}
+end
 
-fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String {
+fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String
     "${host}:${port}/${timeout}"
-}
+end
 
-fn main() {
+fn main()
     xs = [-1, 2, 3]
     io.inspect(Iter.map(xs, &(&1 * 2 + 1)) |> Iter.to_list())
     io.inspect(Iter.filter(xs, &(&1 % 2 == 0)) |> Iter.to_list())
@@ -328,7 +328,7 @@ fn main() {
     io.print(c(port: 80, host: "x"))
     mk: (Int) -> Point = &Point{x: &1, y: 0}
     io.inspect(mk(x: 7))
-}
+end
 `)
 	want := `[-1, 5, 7]
 [2]
@@ -394,18 +394,18 @@ func TestCaptureFunc_AnOperatorFunctionsPartialIsAFunctionOfItsOpenOperands(t *t
 		t.Run(c.expr, func(t *testing.T) {
 			src := `import std::io
 
-fn ok() -> Result<Int, String> {
+fn ok() -> Result<Int, String>
     Ok(2)
-}
+end
 
-fn err() -> Result<Int, Int> {
+fn err() -> Result<Int, Int>
     Err(4)
-}
+end
 
-fn main() {
+fn main()
     _ = (ok(), err())
     io.inspect(` + c.expr + `)
-}
+end
 `
 			p, err := vmhost.LoadSource("main.nomi", src)
 			if err != nil {

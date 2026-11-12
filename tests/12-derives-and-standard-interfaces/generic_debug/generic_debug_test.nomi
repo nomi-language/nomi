@@ -1,38 +1,38 @@
 import std::compiler.{self, RunFile}
 
-struct Pair<A, B> {
+struct Pair<A, B>
     first: A
     second: B
-}
+end
 
-struct Box<T> {
+struct Box<T>
     value: T
-}
+end
 
 derive Display for Box<T>
 
-enum Tree<T> {
+enum Tree<T>
     Leaf
     Node {left: Tree<T>, value: T, right: Tree<T>}
-}
+end
 
-enum Opt<T> {
+enum Opt<T>
     Nothing
     Just T
-}
+end
 
-struct Labeled<T> {
+struct Labeled<T>
     label: String
     item: T
-}
+end
 
-impl Debug for Labeled<T> {
-    fn inspect(labeled: Labeled<T>) -> String {
+impl Debug for Labeled<T>
+    fn inspect(labeled: Labeled<T>) -> String
         "<${labeled.label}>"
-    }
-}
+    end
+end
 
-test "io.inspect, io.print and dbg of generic types in a program" {
+test "io.inspect, io.print and dbg of generic types in a program"
     result = compiler.run_file(RunFile{entry_point: "main"})
 
     assert result == Ok(
@@ -45,32 +45,32 @@ test "io.inspect, io.print and dbg of generic types in a program" {
 
         """
     )
-}
+end
 
-test "Debug.inspect of a generic struct at each instance" {
+test "Debug.inspect of a generic struct at each instance"
     pair = Pair{first: 1, second: "two"}
     nested = Box{value: Box{value: 1.5}}
     boxes = [Box{value: 1}, Box{value: 2}]
     assert Debug.inspect(pair) == "Pair{first: 1, second: \"two\"}"
     assert Debug.inspect(nested) == "Box{value: Box{value: 1.5}}"
     assert Debug.inspect(boxes) == "[Box{value: 1}, Box{value: 2}]"
-}
+end
 
-test "Debug.inspect of a generic enum" {
+test "Debug.inspect of a generic enum"
     leaf: Tree<String> = Tree.Leaf
     tree: Tree<String> = Tree.Node{left: leaf, value: "x", right: leaf}
     assert Debug.inspect(tree) == "Node{left: Leaf, value: \"x\", right: Leaf}"
     just: Opt<Int> = Opt.Just(3)
     assert Debug.inspect(just) == "Just(3)"
-}
+end
 
-test "a hand-written Debug on a generic type wins" {
+test "a hand-written Debug on a generic type wins"
     assert Debug.inspect(Labeled{label: "x", item: 1}) == "<x>"
-}
+end
 
-test "a derived Display on a generic struct" {
+test "a derived Display on a generic struct"
     box = Box{value: "hi"}
     assert Display.to_string(box) == "Box{value: hi}"
     assert Box.to_string(Box{value: 7}) == "Box{value: 7}"
     assert "${box}" == "Box{value: hi}"
-}
+end

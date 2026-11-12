@@ -31,8 +31,8 @@ func TestSignatureHelp_NamedTupleLiteral(t *testing.T) {
 		}
 		return res
 	}
-	decls := "type Pair (Int, String)\n\nfn main() {\n    "
-	res := help(decls + "_p = Pair(1, ‸)\n}\n")
+	decls := "type Pair (Int, String)\n\nfn main()\n    "
+	res := help(decls + "_p = Pair(1, ‸)\nend\n")
 	if res == nil || len(res.Signatures) != 1 {
 		t.Fatalf("signature help = %#v, want one signature", res)
 	}
@@ -102,7 +102,7 @@ func TestFindCallContext(t *testing.T) {
 		},
 		{
 			name:      "multiline",
-			content:   "fn main() {\n    add(1,\n        ",
+			content:   "fn main()\n    add(1,\n        ",
 			line:      2,
 			char:      8,
 			wantFunc:  "add",

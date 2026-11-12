@@ -13,18 +13,19 @@ A collection never changes. An operation that adds, removes or replaces
 something gives you a new collection, and the original stays as it was.
 Collections that work this way are called persistent.
 
-A collection literal starts with a symbol that says its shape. `#` marks a
-vector, `#[1, 2]`, as `.` marks a struct with no name, `.{x: 1}` ([Structs,
-Enums and Distinct Types](/structs-enums-distinct/)). `%` marks the shapes that
-find a value by hashing it: a map `%{"a" => 1}` and a set `%[1, 2]`. A list,
-the commonest collection, has no symbol: `[1, 2]`, and a tuple is its
-parentheses with a comma inside, `(1, "a")`.
+Brackets hold a list, a vector or a set: `[1, 2]` is the one the place it
+stands in expects, as `{x: 1}` builds the struct its place expects
+([Structs, Enums and Distinct Types](/structs-enums-distinct/)). Where
+nothing expects a collection it is a list, the commonest one. To make a
+vector or a set where nothing says which, name it: `Vector[1, 2]`,
+`Set[1, 2]`. Braces hold a map, `{"a" => 1}`, and a tuple is its parentheses
+with a comma inside, `(1, "a")`.
 
-A type you build on a collection writes its name right after the symbol:
-`#Path[1, 2]` for `type Path Vector<Int>`, `%Tags["a"]` for
-`type Tags Set<String>` and `%Scores{"ada" => 3}` for
-`type Scores Map<String, Int>`. A list type writes its name before the
-brackets, `Ids[1, 2]`. [Distinct types](/structs-enums-distinct/) covers these.
+A type you build on a collection writes its name before the brackets or
+braces: `Ids[1, 2]` for `type Ids List<Int>`, `Path[1, 2]` for
+`type Path Vector<Int>`, `Tags["a"]` for `type Tags Set<String>` and
+`Scores{"ada" => 3}` for `type Scores Map<String, Int>`.
+[Distinct types](/structs-enums-distinct/) covers these.
 
 A function that works on a collection takes it as its first argument. That is
 what lets you chain calls with pipes.
@@ -43,20 +44,19 @@ it, such as `Map.get` or `List.head`.
 ```nomi-run
 import std::io
 
-fn main() {
+fn main()
     result =
         Range.naturals()
-        |> Iter.map(fn n -> {
+        |> Iter.map(fn n ->
             io.print("squaring ${n}")
             n * n
-        })
+        end)
         |> Iter.filter(&(&1 > 10))
         |> Iter.take(2)
         |> Iter.to_list()
 
     dbg result
-}
-
+end
 ```
 <!-- expect
 squaring 0
@@ -100,7 +100,7 @@ that it never ends through
 ## Lists
 
 ```nomi-run
-fn main() {
+fn main()
     xs = [1, 2, 3, 4, 5]
 
     xs
@@ -108,8 +108,7 @@ fn main() {
     |> Iter.map(fn n -> n * n)
     |> Iter.sum()
     |> dbg
-}
-
+end
 ```
 <!-- expect
 dbg line 8:
@@ -132,9 +131,9 @@ this.
 ## Vectors
 
 ```nomi-run
-fn main() {
+fn main()
     names =
-        #["Ada", "Grace"]
+        Vector["Ada", "Grace"]
         |> Vector.push("Katherine")
 
     dbg names
@@ -142,20 +141,21 @@ fn main() {
     dbg Vector.get(names, 1)
     dbg Vector.get(names, 5)
     dbg Vector.get(names, 1)!
-    dbg names + #["Dorothy"]
-}
-
+    dbg names + ["Dorothy"]
+end
 ```
 <!-- expect
-dbg line 6: names = #["Ada", "Grace", "Katherine"]
+dbg line 6: names = Vector["Ada", "Grace", "Katherine"]
 dbg line 7: Vector.length(names) = 3
 dbg line 8: Vector.get(names, 1) = Some("Grace")
 dbg line 9: Vector.get(names, 5) = None
 dbg line 10: Vector.get(names, 1)! = "Grace"
-dbg line 11: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
+dbg line 11: names + ["Dorothy"] = Vector["Ada", "Grace", "Katherine", "Dorothy"]
 -->
 
-You write a vector as `#[a, b, c]`.
+You write a vector as `[a, b, c]` wherever one is expected: beside another
+vector, as in `names + ["Dorothy"]`, or for a binding, parameter or field of
+type `Vector<String>`. Where nothing expects one, `Vector[a, b, c]` names it.
 [`Iter.to_vector`](/reference/iter/#iterto_vector) builds one from any `Iter`.
 
 A vector is a sequence you can read by position. Use a vector when you look
@@ -183,14 +183,13 @@ A `case` can take a vector apart from either end, as
 ## Maps
 
 ```nomi-run
-fn main() {
-    config = %{"host" => "localhost", "port" => "8080"}
+fn main()
+    config = {"host" => "localhost", "port" => "8080"}
 
     dbg Map.size(config)
     dbg Map.get(config, "host")
     dbg Map.get(config, "user")
-}
-
+end
 ```
 <!-- expect
 dbg line 4: Map.size(config) = 2
@@ -198,7 +197,7 @@ dbg line 5: Map.get(config, "host") = Some("localhost")
 dbg line 6: Map.get(config, "user") = None
 -->
 
-You write a map as `%{"key" => value, ...}`, and the empty map as `%{}`.
+You write a map as `{"key" => value, ...}`, and the empty map as `{}`.
 
 [`Map.get`](/reference/maps/#mapget) also returns a `Maybe`: `Some(value)`
 when the key is there and `None` when it is not.
@@ -216,7 +215,7 @@ replace a few entries, use a spread, shown [below](#spreads).
 - A function, an `Iter` and a handle to running state (a `Task`, a
   `Sender`) have no equality, so they can't be keys or set elements:
   `` `Iter<Int>` cannot be a Map key: an Iter has no equality or hashing ``.
-- Map keys in a literal are expressions: `%{key => 1}` reads the binding
+- Map keys in a literal are expressions: `{key => 1}` reads the binding
   `key`. A string key is quoted.
 - A key of a type with its own `impl Equatable` matches through it. Write a
   matching `impl Hashable` too, or all its keys share one bucket.
@@ -229,26 +228,27 @@ Spec: [Hashing and keys](/spec/type-relations/#hashing-and-keys),
 ## Sets
 
 ```nomi-run
-fn main() {
+fn main()
     s = Iter.to_set([1, 2, 3, 2, 1])
 
     dbg Set.size(s)
     dbg 2 in s
     dbg not 9 in s
-    dbg s + %[4, 5]
-    dbg s - %[1]
-}
-
+    dbg s + [4, 5]
+    dbg s - [1]
+end
 ```
 <!-- expect
 dbg line 4: Set.size(s) = 3
 dbg line 5: 2 in s = True
 dbg line 6: not 9 in s = True
-dbg line 7: s + %[4, 5] = %[1, 2, 3, 4, 5]
-dbg line 8: s - %[1] = %[2, 3]
+dbg line 7: s + [4, 5] = Set[1, 2, 3, 4, 5]
+dbg line 8: s - [1] = Set[2, 3]
 -->
 
-You write a set as `%[a, b, c]`. A set holds each value once, so the set built
+You write a set as `[a, b, c]` wherever one is expected, as beside `s`
+above, and as `Set[a, b, c]` where nothing expects one. A set holds each
+value once, so the set built
 from `[1, 2, 3, 2, 1]` has three values. It keeps them in the order each one
 first appeared.
 
@@ -256,12 +256,12 @@ first appeared.
 range, string and map alike (a map holds its keys): it is
 `Contains.contains(c, x)` written as an operator.
 
-If you write the same value twice in a set literal, as in `%[1, 2, 1]`, the
+If you write the same value twice in a set literal, as in `Set[1, 2, 1]`, the
 compiler reports an error. It does the same for a key written twice in a map
 literal.
 
 An empty set takes its element type from where it is used. On a binding with no
-other use to go by, write the type: `empty: Set<Int> = %[]`.
+other use to go by, write the type: `empty: Set<Int> = []`.
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
@@ -271,9 +271,9 @@ other use to go by, write the type: `empty: Set<Int> = %[]`.
   same key, and so are `0.0` and `-0.0`.
 - Keys equal only at run time are allowed. The later value wins and the key
   keeps the earlier position: with `x = 1` and `y = 1`,
-  `%{x => "a", 2 => "c", y => "b"}` is `%{1 => "b", 2 => "c"}`.
-- The std collections have only the unnamed forms: `Vector[1]` is a list
-  literal naming a type that is not a list, so it is an error.
+  `{x => "a", 2 => "c", y => "b"}` is `{1 => "b", 2 => "c"}`.
+- `[1, 2]` is a list wherever nothing expects a vector or a set.
+  `List[1, 2]` and `Map{"a" => 1}` are allowed too, and never needed.
 
 Spec: [Repeated keys](/spec/literals/#repeated-keys),
 [Literal forms](/spec/literals/#literal-forms).
@@ -294,45 +294,45 @@ A `case` can ask whether a set holds certain values, as
 A spread, written `..`, builds a new collection from an existing one:
 
 ```nomi-run
-fn main() {
+fn main()
     xs = ["Bo"]
-    v = #["Bo"]
-    s = %["red"]
-    m = %{"host" => "localhost", "port" => "8080"}
+    v = Vector["Bo"]
+    s = Set["red"]
+    m = {"host" => "localhost", "port" => "8080"}
 
     dbg ["Ada", ..xs]
-    dbg #[..v, "Cy"]
-    dbg #["Ada", ..v]
-    dbg %[..s, "blue"]
-    dbg %{..m, "port" => "9090", "user" => "ada"}
-}
-
+    dbg [..v, "Cy"]
+    dbg ["Ada", ..v]
+    dbg [..s, "blue"]
+    dbg {..m, "port" => "9090", "user" => "ada"}
+end
 ```
 <!-- expect
 dbg line 7: ["Ada", ..xs] = ["Ada", "Bo"]
-dbg line 8: #[..v, "Cy"] = #["Bo", "Cy"]
-dbg line 9: #["Ada", ..v] = #["Ada", "Bo"]
-dbg line 10: %[..s, "blue"] = %["red", "blue"]
-dbg line 11: %{..m, "port" => "9090", "user" => "ada"} = %{"host" => "localhost", "port" => "9090", "user" => "ada"}
+dbg line 8: [..v, "Cy"] = Vector["Bo", "Cy"]
+dbg line 9: ["Ada", ..v] = Vector["Ada", "Bo"]
+dbg line 10: [..s, "blue"] = Set["red", "blue"]
+dbg line 11: {..m, "port" => "9090", "user" => "ada"} = {"host" => "localhost", "port" => "9090", "user" => "ada"}
 -->
 
-A spread can go anywhere in the literal, and a literal can have several:
-`[..xs, "Cy", ..ys]`. In a map a later key wins, so `%{..m, "port" => "9090"}`
-replaces `m`'s port, and `%{"port" => "9090", ..m}` keeps it. In a list,
+Where nothing expects a collection, a literal with a spread is the
+collection its spread is, so `[..v, "Cy"]` is a vector and `[..s, "blue"]`
+a set. A spread can go anywhere in the literal, and a literal can have several:
+`[..xs, "Cy", ..ys]`. In a map a later key wins, so `{..m, "port" => "9090"}`
+replaces `m`'s port, and `{"port" => "9090", ..m}` keeps it. In a list,
 vector or set, a spread can be any `Iter`, such as `[0, ..xs |> Iter.map(f)]`.
 
 In a map you are updating, a `..` with nothing after it means the value
 already under that key:
 
 ```nomi-run
-fn main() {
-    scores = %{"ada" => [3]}
-    dbg %{..scores, "ada" => [5, ..], "bob" => [1, ..]}
-}
-
+fn main()
+    scores = {"ada" => [3]}
+    dbg {..scores, "ada" => [5, ..], "bob" => [1, ..]}
+end
 ```
 <!-- expect
-dbg line 3: %{..scores, "ada" => [5, ..], "bob" => [1, ..]} = %{"ada" => [5, 3], "bob" => [1]}
+dbg line 3: {..scores, "ada" => [5, ..], "bob" => [1, ..]} = {"ada" => [5, 3], "bob" => [1]}
 -->
 
 `"ada" => [5, ..]` puts 5 in front of Ada's scores. Without the `..`, the new
@@ -348,10 +348,10 @@ the same way ([Updating a struct](/structs-enums-distinct/#updating-a-struct)).
 - A map spread must be a map of the literal's type. A later key replaces an
   earlier one's value and keeps its position.
 - A literal holding one spread of its own type and nothing else is an
-  error: `%[..s]` asks you to write `s`.
+  error: `[..s]` asks you to write `s`.
 - A struct literal takes one spread, and it comes first. That is a struct
   update.
-- A spread has no named form: `%Kvs{..base, "a" => 1}` is an error, since
+- A spread has no named form: `Kvs{..base, "a" => 1}` is an error, since
   the base already carries the type.
 
 Spec: [Spreads](/spec/literals/#spreads).
@@ -370,11 +370,10 @@ walked through one value at a time, like a list. A range of whole numbers can,
 because each number has a next one:
 
 ```nomi-run
-fn main() {
+fn main()
     dbg Iter.to_list(1..5)
     dbg Iter.to_list(1..=5)
-}
-
+end
 ```
 <!-- expect
 dbg line 2: Iter.to_list(1..5) = [1, 2, 3, 4]
@@ -385,13 +384,12 @@ So does a range of [`Codepoint`](/reference/code_points/) values, written
 with [codepoint literals](/scalars-and-strings/#text-model) such as `'a'`:
 
 ```nomi-run
-fn main() {
+fn main()
     'a'..='d'
     |> Iter.map(Codepoint.to_string)
     |> Iter.to_list()
     |> dbg
-}
-
+end
 ```
 <!-- expect
 dbg line 5:
@@ -406,11 +404,10 @@ single next value. There is no obvious string that comes right after `"a"`.
 You can still ask whether a value is inside it:
 
 ```nomi-run
-fn main() {
+fn main()
     dbg Range.contains("a".."m", "h")
     dbg Range.contains(0.0..=1.0, 1.0)
-}
-
+end
 ```
 <!-- expect
 dbg line 2: Range.contains("a".."m", "h") = True
@@ -423,13 +420,12 @@ steps of the size you give. It works on a range of any
 written with a `d` suffix. Like `Iter.map`, `Range.step_by` is lazy:
 
 ```nomi-run
-fn main() {
+fn main()
     1.0d..=1.3d
     |> Range.step_by(0.1d)
     |> Iter.to_list()
     |> dbg
-}
-
+end
 ```
 <!-- expect
 dbg line 5:

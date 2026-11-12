@@ -1,30 +1,30 @@
 // A generic type whose functions take a defaulted parameter before a
 // trailing callback, for main.nomi.
-import {
+import
     std::duration.Duration
     std::io
-}
+end
 
-pub struct Box<T> {
+pub struct Box<T>
     v: T
-}
+end
 
-fn pause() -> Duration {
+fn pause() -> Duration
     io.print("default pause")
     Duration.seconds(5)
-}
+end
 
-impl Box<T> {
+impl Box<T>
     /// A generic member: `wait` defaults to a call of this file's private
     /// `pause`, which names a type the caller never imports.
-    pub fn apply<R>(b: Box<T>, wait: Duration = pause(), f: (T) -> R) -> R {
+    pub fn apply<R>(b: Box<T>, wait: Duration = pause(), f: (T) -> R) -> R
         io.print("wait ${Duration.as_nanos(wait) / 1_000_000_000}s")
         f(b.v)
-    }
+    end
 
     /// A member that is not generic itself: `by` defaults to a literal,
     /// and `step` to an expression over the earlier `by`.
-    pub fn grow(b: Box<T>, by: Int = 1, step: Int = by * 10, f: (T, Int) -> T) -> Box<T> {
+    pub fn grow(b: Box<T>, by: Int = 1, step: Int = by * 10, f: (T, Int) -> T) -> Box<T>
         Box{v: f(b.v, by + step)}
-    }
-}
+    end
+end

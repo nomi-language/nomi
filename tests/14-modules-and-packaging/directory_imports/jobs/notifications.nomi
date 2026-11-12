@@ -1,7 +1,7 @@
-pub struct EmailArgs {
+pub struct EmailArgs
     to: String
-}
+end
 
-pub fn pending() -> Int {
+pub fn pending() -> Int
     7
-}
+end

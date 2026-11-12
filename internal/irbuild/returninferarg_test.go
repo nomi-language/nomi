@@ -10,31 +10,31 @@ import "testing"
 func TestReturnInfer_AnArgumentTakesItsCallsType(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn ok<T>(x: T) -> Result<T, String> {
+fn ok<T>(x: T) -> Result<T, String>
     Ok(x)
-}
+end
 
-fn under_try() -> Result<Int, String> {
-    t = ok({
+fn under_try() -> Result<Int, String>
+    t = ok(begin
         f: ((String, Bool)) -> Int = fn x -> x.first |> String.length()
         f(Result.with_default(Err("no"), ("bc", True)))
-    })?
+    end)?
     Ok(t)
-}
+end
 
-fn bound() -> Result<Int, String> {
+fn bound() -> Result<Int, String>
     v = Result.with_default(Err("no"), ("abc", True))
     Ok(String.length(v.first))
-}
+end
 
-fn tail() -> Result<Int, String> {
+fn tail() -> Result<Int, String>
     Ok(5)
-}
+end
 
-fn main() {
+fn main()
     io.inspect(under_try())
     io.inspect(bound())
     io.inspect(tail())
-}
+end
 `, "Ok(2)\nOk(3)\nOk(5)\n")
 }

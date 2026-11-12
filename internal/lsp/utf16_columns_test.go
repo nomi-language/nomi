@@ -55,7 +55,7 @@ func TestSignatureHelp_CursorAfterNonASCII(t *testing.T) {
 	for _, s := range []string{"°°°°", "éééé", "éé", "👍🏽", "日本語"} {
 		line := `  f(1, "` + s + `", 3)`
 		char := utf16Col(line, strings.Index(line, "3"))
-		name, param := findCallContext("fn main() {\n"+line+"\n}\n", 1, char)
+		name, param := findCallContext("fn main()\n"+line+"\nend\n", 1, char)
 		if name != "f" || param != 2 {
 			t.Errorf("%q: findCallContext = %q, %d; want f, 2", line, name, param)
 		}
@@ -103,7 +103,7 @@ func TestLoweringDiagnostics_RelatedInAnotherFileIsUTF16(t *testing.T) {
 		return frontend.Diagnostics{{Path: other, Line: 1, Col: b + 1, EndLine: 1, EndCol: b + 2, Message: "m"}}, nil
 	}
 	t.Cleanup(func() { checkLoweringFn = saved })
-	diags := loweringDiagnostics(filepath.Join(dir, "main.nomi"), "fn main() {}\n", nil)
+	diags := loweringDiagnostics(filepath.Join(dir, "main.nomi"), "fn main() end\n", nil)
 	if len(diags) != 1 || len(diags[0].RelatedInformation) != 1 {
 		t.Fatalf("diagnostics %+v, want one with one related location", diags)
 	}
@@ -127,9 +127,9 @@ func utf16Col(line string, off int) int {
 // two tokens so the same-line deltas cross it. Counted in bytes, `unit`
 // after `°` lit up one column right, its `u` uncoloured.
 func TestSemanticTokens_ColumnsAreUTF16(t *testing.T) {
-	src := "fn label(n: Int, unit: String) -> String {\n" +
+	src := "fn label(n: Int, unit: String) -> String\n" +
 		"  \"${n} °${unit} é${n} é${unit} 👍🏽${n} 日本${unit} 語\"\n" +
-		"}\n"
+		"end\n"
 	s := NewServer()
 	uri := pathToURI(filepath.Join(t.TempDir(), "main.nomi"))
 	doc := s.docs.Open(uri, src)

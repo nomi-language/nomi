@@ -1,76 +1,76 @@
-import {
+import
     std::io
     std::regex.Regex
-}
+end
 
 // A shelf answers `in` through its own Contains impl.
-struct Shelf {
+struct Shelf
     names: List<String>
-}
+end
 
-impl Contains<String> for Shelf {
-    fn contains(c: Shelf, x: String) -> Bool {
+impl Contains<String> for Shelf
+    fn contains(c: Shelf, x: String) -> Bool
         x in c.names
-    }
-}
+    end
+end
 
 // Every value in `wanted` is in `c`, for any collection that implements
 // `Contains`.
-fn all_in<C, T>(c: C, wanted: List<T>) -> Bool where C: Contains<T> {
+fn all_in<C, T>(c: C, wanted: List<T>) -> Bool where C: Contains<T>
     Iter.all_match(wanted, &(&1 in c))
-}
+end
 
 // `label` printed, then `value`.
-fn noisy<T>(label: String, value: T) -> T {
+fn noisy<T>(label: String, value: T) -> T
     io.print(label)
     value
-}
+end
 
-test "in tests membership in each std collection" {
+test "in tests membership in each std collection"
     a: Byte = 97
     z: Byte = 122
 
     assert 2 in [1, 2, 3]
     refute 4 in [1, 2, 3]
-    assert "a" in #["a", "b"]
-    assert 1 in %[1, 2]
-    refute 3 in %[1, 2]
+    assert "a" in Vector["a", "b"]
+    assert 1 in Set[1, 2]
+    refute 3 in Set[1, 2]
     assert 3 in 1..5
     refute 5 in 1..5
     assert 5 in 1..=5
     assert a in Bytes.from_list([a])
     refute z in Bytes.from_list([a])
-}
+end
 
-test "a map holds its keys, not its values" {
-    m = %{"a" => "b"}
+test "a map holds its keys, not its values"
+    m = {"a" => "b"}
 
     assert "a" in m
     refute "b" in m
-}
+end
 
-test "a string holds substrings, regex matches and codepoints" {
+test "a string holds substrings, regex matches and codepoints"
     assert "o w" in "hello world"
     refute "xyz" in "hello"
     assert Regex`\d+` in "order 66"
     assert '-' in "a-b"
-}
+end
 
-test "a program's own Contains impl answers in" {
+test "a program's own Contains impl answers in"
     shelf = Shelf{names: ["ada", "grace"]}
 
     assert "ada" in shelf
     refute "linus" in shelf
-}
+end
 
-test "a type parameter bounded by Contains answers in" {
-    assert all_in(%["a", "b", "c"], ["a", "c"])
+test "a type parameter bounded by Contains answers in"
+    assert all_in(Set["a", "b", "c"], ["a", "c"])
     refute all_in(1..10, [10])
     assert all_in(Shelf{names: ["x"]}, ["x"])
-}
+end
 
-test "in binds like ==, under not, and, or and a pipe's result" {
-    seen = %[2, 4]
+test "in binds like ==, under not, and, or and a pipe's result"
+    seen = Set[2, 4]
 
     refute 1 + 1 in [1, 3]
     assert not 3 in seen
@@ -79,11 +79,11 @@ test "in binds like ==, under not, and, or and a pipe's result" {
     assert 3 in [3, 1] |> Iter.to_set()
     assert [1, 2, 3, 4] |> Iter.reject(&(&1 in seen)) |> Iter.to_list() == [1, 3]
     assert (2 in seen) == True
-}
+end
 
-test "the value is evaluated before the collection" {
-    run = io.capture("", fn -> noisy("value ", 1) in noisy("collection", %[1]))
+test "the value is evaluated before the collection"
+    run = io.capture("", fn -> noisy("value ", 1) in noisy("collection", Set[1]))
 
     assert run.value
     assert run.output == "value \ncollection\n"
-}
+end

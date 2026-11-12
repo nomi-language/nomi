@@ -62,29 +62,29 @@ func verifyEndlessTrap(t *testing.T, src, fault, output string) {
 func TestIRLoopEndless_WorkerLoopEndsByATrap(t *testing.T) {
 	// The tour's worker shape: a stateless loop that takes the next job and
 	// goes round, as `fn main`'s last statement.
-	verifyEndlessTrap(t, `import {
+	verifyEndlessTrap(t, `import
     std::channels.{Channel, Receiver, Sender}
     std::io
-}
+end
 
-fn work(n: Int) {
+fn work(n: Int)
     io.print("job ${n}")
     io.print(10 / (3 - n))
-}
+end
 
-fn main() {
+fn main()
     jobs: Channel<Int> = Channel.buffered(4)
-    Iter.each([0, 1, 2, 3], fn n -> {
+    Iter.each([0, 1, 2, 3], fn n ->
         _ = Sender.send(jobs.sender, n)
-    })
+    end)
     io.print("start")
-    Iter.loop(fn -> {
-        case Receiver.receive(jobs.receiver) {
+    Iter.loop(fn ->
+        case Receiver.receive(jobs.receiver)
             Some(n) -> work(n)
             None -> Unit
-        }
-    })
-}
+        end
+    end)
+end
 `, "line 8: division by zero", "start\njob 0\n3\njob 1\n5\njob 2\n10\njob 3\n")
 }
 
@@ -93,18 +93,18 @@ func TestIRLoopEndless_ReturnAndContinueGoRound(t *testing.T) {
 	// so neither leaves the loop.
 	verifyEndlessTrap(t, `import std::io
 
-fn main() {
-    _ = Iter.loop(0, fn n -> {
+fn main()
+    _ = Iter.loop(0, fn n ->
         io.print("n ${n}")
-        if n < 2 { return n + 1 }
-        if n == 2 {
+        if n < 2 then return n + 1
+        if n == 2 then
             io.print("two")
             return 5
-        }
+        end
         io.print(10 / (n - 5))
         continue
-    })
-}
+    end)
+end
 `, "line 11: division by zero", "n 0\nn 1\nn 2\ntwo\nn 5\n")
 }
 
@@ -134,82 +134,82 @@ func TestIRLoopEndless_ValuePositions(t *testing.T) {
 func endlessPositions(body string) string {
 	return `import std::io
 
-fn count(limit: Int) -> Int {
-    Iter.loop(0, fn n -> {
+fn count(limit: Int) -> Int
+    Iter.loop(0, fn n ->
         io.print("count ${n}")
         io.print(10 / (limit - n))
         n + 1
-    })
-}
+    end)
+end
 
-fn bound() -> Int {
-    x = Iter.loop(1, fn n -> {
+fn bound() -> Int
+    x = Iter.loop(1, fn n ->
         io.print("bound ${n}")
         io.print(10 / (2 - n))
         n + 1
-    })
+    end)
     io.print("never")
     x + 1
-}
+end
 
-fn noisy(label: String) -> Int {
+fn noisy(label: String) -> Int
     io.print(label)
     1
-}
+end
 
-fn operand() -> Int {
-    noisy("first") + Iter.loop(0, fn n -> {
+fn operand() -> Int
+    noisy("first") + Iter.loop(0, fn n ->
         io.print(10 / n)
         n
-    })
-}
+    end)
+end
 
-fn arm(x: Int) -> Int {
-    case x {
-        0 -> Iter.loop(0, fn n -> {
+fn arm(x: Int) -> Int
+    case x
+        0 -> Iter.loop(0, fn n ->
             io.print(10 / n)
             n
-        })
+        end)
         _ -> x * 10
-    }
-}
+    end
+end
 
-fn branch(flag: Bool) -> Int {
-    if flag {
+fn branch(flag: Bool) -> Int
+    if flag then
         return 7
-    } else {
-        Iter.loop(0, fn n -> {
+    else
+        Iter.loop(0, fn n ->
             io.print(10 / n)
             n
-        })
-    }
-}
+        end)
+    end
+end
 
-fn nested() {
-    _ = Iter.loop(0, fn i -> {
+fn nested()
+    _ = Iter.loop(0, fn i ->
         io.print("outer ${i}")
-        if i < 1 { return i + 1 }
-        Iter.loop(i, fn j -> {
+        if i < 1 then return i + 1
+        Iter.loop(i, fn j ->
             io.print("inner ${j}")
             io.print(10 / (3 - j))
             j + 1
-        })
-    })
-}
+        end)
+    end)
+end
 
-fn conc() -> Int {
-    concurrent {
+fn conc() -> Int
+    concurrent
         io.print("conc")
-        Iter.loop(2, fn n -> {
+        Iter.loop(2, fn n ->
             io.print(10 / n)
             n - 1
-        })
-    }
-}
+        end)
+    end
+end
 
-fn main() {
+fn main()
     ` + body + `
-}
+end
 `
 }
 
@@ -218,28 +218,31 @@ func TestIRLoopEndless_InALambda(t *testing.T) {
 	// whose earlier `return` settles its result.
 	verifyEndlessTrap(t, `import std::io
 
-fn main() {
-    spin = fn limit: Int -> Iter.loop(0, fn n -> {
+fn main()
+    spin = fn limit: Int -> Iter.loop(0, fn n ->
         io.print("spin ${n}")
-        if n == limit { io.print(1 / 0) }
+        if n == limit then io.print(1 / 0)
         n + 1
-    })
-    drop = fn label: String -> {
+    end)
+    drop = fn label: String ->
         io.print(label)
-        _ = Iter.loop(0, fn n -> {
+        _ = Iter.loop(0, fn n ->
             io.print(10 / (1 - n))
             n + 1
-        })
-    }
-    early = fn x: Int -> {
-        if x > 0 { return x * 2 }
-        Iter.loop(0, fn n -> { io.print(1 / n)  n })
-    }
+        end)
+    end
+    early = fn x: Int ->
+        if x > 0 then return x * 2
+        Iter.loop(0, fn n ->
+            io.print(1 / n)
+            n
+        end)
+    end
     io.print(early(4))
     f: (String) -> Unit = drop
     _ = f
     io.print(spin(2))
-}
+end
 `, "line 6: division by zero", "8\nspin 0\nspin 1\nspin 2\n")
 }
 
@@ -250,37 +253,37 @@ func TestIRLoopEndless_TestBodies(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "endless_test.nomi")
 	src := `import std::io
 
-test "a worker loop" {
+test "a worker loop"
     assert 1 == 1
-    Iter.loop(0, fn n -> {
+    Iter.loop(0, fn n ->
         io.print("worker ${n}")
-        if n < 2 { return n + 1 }
+        if n < 2 then return n + 1
         io.print(10 / (2 - n))
         n
-    })
-}
+    end)
+end
 
-test "a bound loop" {
+test "a bound loop"
     assert 2 == 2
-    x = Iter.loop(fn -> {
+    x = Iter.loop(fn ->
         io.print("bound")
         io.print(1 / 0)
-    })
+    end)
     io.print("never")
     io.inspect(x)
-}
+end
 
-test "a loop in an arm" {
+test "a loop in an arm"
     assert 3 == 3
-    case 1 {
-        1 -> Iter.loop(fn -> {
+    case 1
+        1 -> Iter.loop(fn ->
             io.print("arm")
             io.print(1 / 0)
-        })
+        end)
         _ -> io.print("other")
-    }
+    end
     io.print("never")
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)

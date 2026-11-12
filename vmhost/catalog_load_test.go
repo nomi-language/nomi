@@ -19,7 +19,7 @@ import (
 // with an enum arm missing.
 var catalogProject = map[string]string{
 	"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
-	"text.nomi": "pub enum Status {\n    Open\n    Closed\n}\n\n" +
+	"text.nomi": "pub enum Status\n    Open\n    Closed\nend\n\n" +
 		"pub phrase items(count: Int) `\n    .input {$count :integer}\n    .match $count\n    one {{{$count} item}}\n    * {{{$count} items}}\n    `\n\n" +
 		"pub phrase status(status: Status) `\n    .input {$status :string}\n    .match $status\n    Open {{open}}\n    Closed {{closed}}\n    * {{open}}\n    `\n\n" +
 		"pub phrase unused(name: String) `{$name} is never shown`\n",
@@ -28,8 +28,8 @@ var catalogProject = map[string]string{
 		"[status]\nsource = '''\n.input {$status :string}\n.match $status\nOpen {{open}}\nClosed {{closed}}\n* {{open}}\n'''\n" +
 		"text = '''\n.input {$status :string}\n.match $status\nOpen {{otwarte}}\nClosed {{zamknięte}}\n* {{otwarte}}\n'''\n\n" +
 		"[unused]\nsource = '''{$name} is never shown'''\ntext = '''{$name} nie jest pokazywane'''\n",
-	"main.nomi": "import {\n    std::io\n    std::phrase.Catalog\n    text\n}\n\n" +
-		"fn main() {\n    loaded = \"\"\"\n" +
+	"main.nomi": "import\n    std::io\n    std::phrase.Catalog\n    text\nend\n\n" +
+		"fn main()\n    loaded = \"\"\"\n" +
 		"    [text.items]\n    source = '''\n    .input {$count :integer}\n    .match $count\n    one {{{$count} item}}\n    * {{{$count} items}}\n    '''\n" +
 		"    text = '''\n    .input {$count :integer}\n    .match $count\n    one {{{$count} sztuka}}\n    few {{{$count} sztuki}}\n    many {{{$count} sztuk}}\n    * {{{$count} sztuki}}\n    '''\n\n" +
 		"    [text.status]\n    source = '''\n    .input {$status :string}\n    .match $status\n    Open {{open}}\n    Closed {{closed}}\n    * {{open}}\n    '''\n" +
@@ -40,7 +40,7 @@ var catalogProject = map[string]string{
 		"    Iter.each(rejected, fn r -> io.print(\"${r.key}: ${r.reason}\"))\n" +
 		"    io.print(text.items(3) |> Phrase.format(Locale`pl`, catalogs: [catalog]))\n" +
 		"    io.print(text.status(text.Status.Closed) |> Phrase.format(Locale`pl`, catalogs: [catalog]))\n" +
-		"}\n",
+		"end\n",
 }
 
 // A catalog loaded at run time is checked against the signatures the

@@ -10,11 +10,11 @@ import (
 // Asserts position info, body wiring, and node type — not just absence
 // of error.
 func TestParseConcurrentBlock_LiteralBody(t *testing.T) {
-	src := `fn main() -> Int {
-  concurrent {
+	src := `fn main() -> Int
+  concurrent
     42
-  }
-}`
+  end
+end`
 	nodes := parse(t, src)
 	fn := nodes[0].(*ast.FuncDef)
 	if len(fn.Body.Stmts) != 1 {
@@ -52,12 +52,12 @@ func TestParseConcurrentBlock_LiteralBody(t *testing.T) {
 // the parser produces a well-formed AST the analyzer and checker can
 // walk.
 func TestParseConcurrentBlock_SpawnAwait(t *testing.T) {
-	src := `fn main() -> Int {
-  concurrent {
+	src := `fn main() -> Int
+  concurrent
     x = Task.spawn(fn -> 42)
     Task.await(x)
-  }
-}`
+  end
+end`
 	nodes := parse(t, src)
 	fn := nodes[0].(*ast.FuncDef)
 	exprStmt := fn.Body.Stmts[0].(*ast.ExprStmt)

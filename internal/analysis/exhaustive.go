@@ -219,7 +219,7 @@ func isUnenumerableConstraint(t Type, p ast.Node) bool {
 	case *ast.MapPattern:
 		_, isMap := t.(*MapType)
 		return isMap && v.TypeName == nil
-	case *ast.SetPattern:
+	case *ast.ListPattern:
 		return v.TypeName == nil && isSetType(t)
 	}
 	return false
@@ -236,7 +236,7 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 		return nil
 	}
 	if elem, ok := vectorElemType(t); ok {
-		return seqCtors(elem, column, "#[")
+		return seqCtors(elem, column, "[")
 	}
 	if isSetType(t) {
 		// A set pattern tests membership, so no set of them covers every
@@ -339,10 +339,6 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 // its tails and whether it has a `..`. ok is false for any other pattern.
 func seqPattern(p ast.Node) (heads, tails []ast.Node, spread, ok bool) {
 	switch v := p.(type) {
-	case *ast.VectorPattern:
-		if v.TypeName == nil {
-			return v.Heads, v.Tails, v.Spread, true
-		}
 	case *ast.ListPattern:
 		if v.TypeName == nil {
 			return v.Heads, v.Tails, v.TailSpread != nil, true
@@ -358,7 +354,7 @@ func seqPattern(p ast.Node) (heads, tails []ast.Node, spread, ok bool) {
 // the M-T before them at the front. Every length from M on has those M
 // distinct positions, so `[1, .., 3]` is tested against them as `[1, 3]` is
 // against length 2. open is the bracket a missing pattern is written with,
-// `[` or `#[`.
+// `[`.
 func seqCtors(elem Type, column []ast.Node, open string) []patCtor {
 	seen := false
 	exact, heads, tails := -1, 0, 0
@@ -544,14 +540,6 @@ func (c *checker) specializePattern(t Type, ctor patCtor, p ast.Node) ([]ast.Nod
 			stripped.TypeName = nil
 			inner = &stripped
 		case *ast.MapPattern:
-			stripped := *v
-			stripped.TypeName = nil
-			inner = &stripped
-		case *ast.VectorPattern:
-			stripped := *v
-			stripped.TypeName = nil
-			inner = &stripped
-		case *ast.SetPattern:
 			stripped := *v
 			stripped.TypeName = nil
 			inner = &stripped

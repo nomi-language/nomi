@@ -13,14 +13,17 @@ import (
 
 func TestAppFieldHoverAndDefinition(t *testing.T) {
 	src := `
-struct Services {
+struct Services
   context: Context
- port: Int }
-fn boot() -> Result<Services, String> { Ok(Services{context: Context.root(), port: 3}) }
-fn main() {
+ port: Int
+end
+fn boot() -> Result<Services, String>
+    Ok(Services{context: Context.root(), port: 3})
+end
+fn main()
  with Services.port = 4
  _ = Services.context
-}
+end
 `
 	uri := "file:///app_field.nomi"
 	server := NewServer()
@@ -74,19 +77,19 @@ func TestAppFieldHoverAndDefinition_InInterpolation(t *testing.T) {
 	src := `import std::io
 
 /// The running application.
-struct App {
+struct App
   /// The port the server listens on.
   port: Int
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{port: 8080, context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
   io.print("listening on :${App.port}")
-}
+end
 `
 	uri := "file:///app_named.nomi"
 	server := NewServer()
@@ -103,7 +106,7 @@ fn main() {
 	// The type name hovers exactly as the `App` in boot's return type does.
 	typeName := protocol.Position{Line: 9, Character: uint32(strings.Index(strings.Split(src, "\n")[9], "Result<App") + 7)}
 	wantApp := appFieldHover(t, server, uri, typeName)
-	if !strings.HasPrefix(wantApp, "```nomi\nstruct App {") || !strings.HasSuffix(wantApp, "The running application.") {
+	if !strings.HasPrefix(wantApp, "```nomi\nstruct App") || !strings.HasSuffix(wantApp, "The running application.") {
 		t.Fatalf("CONTROL: hover on the type name `App` = %q, want the struct and its doc", wantApp)
 	}
 	if got := appFieldHover(t, server, uri, owner); got != wantApp {
@@ -119,29 +122,29 @@ fn main() {
 func TestAppFieldHoverAndDefinition_WithTargetAndCallArgument(t *testing.T) {
 	src := `import std::io
 
-struct Logger {
+struct Logger
   prefix: String
-}
+end
 
-impl Logger {
-  pub fn log(logger: Logger, m: String) {
+impl Logger
+  pub fn log(logger: Logger, m: String)
     io.print(logger.prefix ++ m)
-  }
-}
+  end
+end
 
-struct App {
+struct App
   logger: Logger
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{logger: Logger{prefix: "a"}, context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
   with App.logger = Logger{prefix: "b"}
   Logger.log(App.logger, "m")
-}
+end
 `
 	uri := "file:///app_replace.nomi"
 	server := NewServer()
@@ -154,7 +157,7 @@ fn main() {
 		}
 		wantDefinitionAt(t, site+" `logger`", appFieldDefinition(t, server, uri, name), uri, 13, 2, "logger")
 		owner := appOwnerCursor(t, src, "App.logger", idx+1)
-		if got := appFieldHover(t, server, uri, owner); !strings.HasPrefix(got, "```nomi\nstruct App {") {
+		if got := appFieldHover(t, server, uri, owner); !strings.HasPrefix(got, "```nomi\nstruct App") {
 			t.Errorf("hover on `App` of the %s = %q, want the `App` struct", site, got)
 		}
 		wantDefinitionAt(t, site+" `App`", appFieldDefinition(t, server, uri, owner), uri, 12, 7, "App")
@@ -194,18 +197,18 @@ fn main() {
 
 // Rename from the field name renames the field; from the type name, the type.
 func TestAppFieldRename_FieldAndType(t *testing.T) {
-	src := `struct App {
+	src := `struct App
   port: Int
   context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{port: 8080, context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
   _ = App.port
-}
+end
 `
 	// A real project directory: rename scans the project root for files,
 	// and main.nomi marks this one as the root.

@@ -1,9 +1,9 @@
 import zebra_puzzle
 
-test "resident who drinks water" {
+test "resident who drinks water"
     assert zebra_puzzle.drinks_water() == .Norwegian
-}
+end
 
-test "resident who owns zebra" {
+test "resident who owns zebra"
     assert zebra_puzzle.owns_zebra() == .Japanese
-}
+end

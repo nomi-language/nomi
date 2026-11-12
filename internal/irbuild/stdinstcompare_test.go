@@ -13,27 +13,27 @@ import "testing"
 // operator `<`"); rankedCompare now asks callerImplPlan, as an interface call
 // `Comparable.compare(a, b)` in the same body does.
 func TestStdInstCompare_OrderingOperatorsReachTheProgramsImpl(t *testing.T) {
-	ranks := map[string]string{"ranks.nomi": `pub enum Suit {
+	ranks := map[string]string{"ranks.nomi": `pub enum Suit
     Clubs
     Spades
-}
+end
 
 derive Comparable for Suit
 
-pub struct Hand {
+pub struct Hand
     size: Int
-}
+end
 
-impl Comparable for Hand {
-    fn compare(x: Hand, y: Hand) -> Ordering {
+impl Comparable for Hand
+    fn compare(x: Hand, y: Hand) -> Ordering
         Int.compare(x.size, y.size)
-    }
-}
+    end
+end
 
-pub struct Pair<T> {
+pub struct Pair<T>
     a: T
     b: T
-}
+end
 
 derive Comparable for Pair
 `}
@@ -42,42 +42,42 @@ import ranks.Suit
 import ranks.Hand
 import ranks.Pair
 
-enum Level {
+enum Level
     Low
     Mid
     High
-}
+end
 
 derive Comparable for Level
 
-struct Card {
+struct Card
     rank: Int
     label: String
-}
+end
 
-impl Comparable for Card {
-    fn compare(a: Card, b: Card) -> Ordering {
+impl Comparable for Card
+    fn compare(a: Card, b: Card) -> Ordering
         Int.compare(a.rank, b.rank)
-    }
-}
+    end
+end
 
-fn lesser<T>(a: T, b: T) -> T where T: Comparable {
-    if a <= b { a } else { b }
-}
+fn lesser<T>(a: T, b: T) -> T where T: Comparable
+    if a <= b then a else b
+end
 
-fn main() {
+fn main()
     io.inspect(Iter.min([Level.Mid, Level.Low, Level.High]))
     io.inspect(Iter.max([Level.Mid, Level.Low, Level.High]))
     io.inspect(Iter.min([Card{rank: 2, label: "a"}, Card{rank: 1, label: "b"}, Card{rank: 1, label: "c"}]))
     io.inspect(Iter.max([Card{rank: 2, label: "a"}, Card{rank: 1, label: "b"}, Card{rank: 2, label: "c"}]))
-    io.inspect(Iter.min_by([Card{rank: 1, label: "x"}, Card{rank: 0, label: "y"}], fn c -> if c.rank == 0 { Level.High } else { Level.Low }))
-    io.inspect(Iter.max_by(["b", "a"], fn s -> if s == "a" { Level.High } else { Level.Low }))
+    io.inspect(Iter.min_by([Card{rank: 1, label: "x"}, Card{rank: 0, label: "y"}], fn c -> if c.rank == 0 then Level.High else Level.Low))
+    io.inspect(Iter.max_by(["b", "a"], fn s -> if s == "a" then Level.High else Level.Low))
     io.inspect(Iter.min([Suit.Spades, Suit.Clubs]))
     io.inspect(Iter.max([Hand{size: 3}, Hand{size: 5}]))
     io.inspect(Iter.min([Pair{a: 2, b: 1}, Pair{a: 1, b: 9}]))
     io.inspect(lesser(Suit.Spades, Suit.Clubs))
     io.inspect(lesser(Level.High, Level.Mid))
-}
+end
 `
 	verifyLambdaProgram(t, src, "Some(Low)\nSome(High)\n"+
 		"Some(Card{rank: 1, label: \"b\"})\nSome(Card{rank: 2, label: \"a\"})\n"+

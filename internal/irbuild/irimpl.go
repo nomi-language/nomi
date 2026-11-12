@@ -174,24 +174,3 @@ func (g *gen) projectDefaultSelf(ty *analysis.InterfaceType) (kind, bool) {
 	}
 	return ds.recv, true
 }
-
-// defaultSelfArg is the implementor's kind when arg is a `self` value of the
-// default being lowered and k, the kind the checker's signature gives its
-// parameter, is the default's interface: the checker types `self` as the
-// interface, and the body is lowered with every `self` position bound to the
-// implementor. Any other argument keeps k, so an existential value of the same
-// interface stays one.
-func (g *gen) defaultSelfArg(arg ast.Node, k kind) kind {
-	ds := g.defaultSelf
-	if ds == nil || k.tag != tagIface || k.iface != ds.iface {
-		return k
-	}
-	id, ok := argExpr(arg).(*ast.Ident)
-	if !ok {
-		return k
-	}
-	if l, bound := g.lookup(id.Name); bound && l.k == ds.recv {
-		return ds.recv
-	}
-	return k
-}

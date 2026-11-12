@@ -25,7 +25,7 @@
 //# `step` makes hand-threading the natural move, and `flat_map` and `map`
 //# express any composite generator when one is needed.
 
-import {
+import
     bool.Bool.{self, False, True}
     bytes.Bytes
     display.Display
@@ -38,34 +38,34 @@ import {
     strings.String
     unit.Unit
     vectors.Vector
-}
+end
 
 /// Errors returned when weights cannot make a generator, or when OS entropy is
 /// unavailable.
-pub enum Error {
+pub enum Error
     InvalidWeight {weight: Float}
     ZeroWeightTotal
     OsEntropy {reason: String}
-}
+end
 
 derive Equatable for Error
 
-impl Display for Error {
-    fn to_string(e: Error) -> String {
-        case e {
-            Error.InvalidWeight{weight} -> "invalid random weight: ${weight}"
+impl Display for Error
+    fn to_string(e: Error) -> String
+        case e
+            Error.InvalidWeight{weight:} -> "invalid random weight: ${weight}"
             Error.ZeroWeightTotal -> "random weights must include at least one positive weight"
-            Error.OsEntropy{reason} -> "OS entropy unavailable: ${reason}"
-        }
-    }
-}
+            Error.OsEntropy{reason:} -> "OS entropy unavailable: ${reason}"
+        end
+    end
+end
 
 /// Opaque PRNG state (a splitmix64 register). Thread it explicitly through
 /// `Generator.step`; never mutated. Seed reproducibly with `Seed.from_int`, or
 /// pull a non-deterministic one with `Seed.from_os`.
 pub opaque type Seed Int
 
-impl Seed {
+impl Seed
     /// A reproducible seed from an integer. Same `n` -> same sequence,
     /// forever: splitmix64 is fully specified, so this holds across
     /// platforms and releases.
@@ -73,21 +73,21 @@ impl Seed {
     //! (roll, _) = Generator.step(Generator.int(1, 6), seed)
     //! assert roll == 2
     //
-    pub fn from_int(n: Int) -> Seed {
+    pub fn from_int(n: Int) -> Seed
         Seed(n)
-    }
+    end
 
     /// A non-deterministic seed from OS entropy. The one impure call on `Seed`
     /// -- the entry point when you want real randomness. A program seeded
     /// with `from_os` is no longer reproducible (so it cannot be doctested);
     /// reach for `from_int` in tests.
-    pub fn from_os() -> Result<Seed, Error> {
-        case os_state() {
+    pub fn from_os() -> Result<Seed, Error>
+        case os_state()
             Ok(state) -> Ok(Seed(state))
-            Err(reason) -> Err(Error.OsEntropy{reason})
-        }
-    }
-}
+            Err(reason) -> Err(Error.OsEntropy{reason:})
+        end
+    end
+end
 
 /// Unbiased integer in the inclusive range `[from, to]` plus the advanced
 /// state (host rejection sampling over the span, so a range of any width
@@ -120,27 +120,27 @@ host fn require_float_range(from: Float, to: Float) -> Unit
 
 /// Unbiased integer in `[from, to]` plus the next seed. Module-private -- the
 /// building block the public integer generators draw on.
-fn between(Seed(state), from: Int, to: Int) -> (Int, Seed) {
+fn between(Seed(state), from: Int, to: Int) -> (Int, Seed)
     (value, next) = between_state(state, from, to)
     (value, Seed(next))
-}
+end
 
 /// Float in `[0.0, 1.0)` plus the next seed. Module-private.
-fn unit_float(Seed(state)) -> (Float, Seed) {
+fn unit_float(Seed(state)) -> (Float, Seed)
     (value, next) = unit_float_state(state)
     (value, Seed(next))
-}
+end
 
 /// An immutable recipe for producing a `T`: not a value, but a description
 /// of how to produce one from a seed. Build one with a constructor
 /// (`Generator.int`, ...), reshape it with `map` / `flat_map`, then run it with
 /// `Generator.step`. `Generator.weighted` returns a `Result`, since its weights
 /// may come from data; unwrap it with `?` or `case` before composing.
-pub opaque struct Generator<T> {
+pub opaque struct Generator<T>
     run: (Seed) -> (T, Seed)
-}
+end
 
-impl Generator<T> {
+impl Generator<T>
     /// Produce a value and the next seed. The pure core of `Generator`.
     ///
     /// ```nomi
@@ -152,9 +152,9 @@ impl Generator<T> {
     //! (value, _) = Generator.step(gen, Seed.from_int(1))
     //! assert value == "heads"
     //
-    pub fn step<T>(gen: Generator<T>, seed: Seed) -> (T, Seed) {
+    pub fn step<T>(gen: Generator<T>, seed: Seed) -> (T, Seed)
         gen.run(seed)
-    }
+    end
 
     /// Uniform integer in the inclusive range `[from, to]`, which must hold
     /// `from <= to`. A reversed range traps: `Generator.int: from 6 is greater
@@ -171,10 +171,10 @@ impl Generator<T> {
     //! (big, _) = Generator.step(Generator.int(huge, huge * 2), Seed.from_int(7))
     //! assert big >= huge and big <= huge * 2
     //
-    pub fn int(from: Int, to: Int) -> Generator<Int> {
+    pub fn int(from: Int, to: Int) -> Generator<Int>
         require_int_range(from, to)
         unsafe_int(from, to)
-    }
+    end
 
     /// Uniform float in the half-open range `[from, to)`, which must hold
     /// `from < to`, with both bounds finite. Any other pair, a NaN bound
@@ -187,26 +187,26 @@ impl Generator<T> {
     //! (wide, _) = Generator.step(Generator.float(-1.0e308, 1.0e308), Seed.from_int(7))
     //! assert Float.is_finite(wide)
     //
-    pub fn float(from: Float, to: Float) -> Generator<Float> {
+    pub fn float(from: Float, to: Float) -> Generator<Float>
         require_float_range(from, to)
         unsafe_float(from, to)
-    }
+    end
 
     /// `True` or `False` with equal probability.
     //! (value, _) = Generator.step(Generator.bool(), Seed.from_int(123))
     //! assert value == True or value == False
     //
-    pub fn bool() -> Generator<Bool> {
+    pub fn bool() -> Generator<Bool>
         unsafe_int(0, 1) |> map(&(&1 == 1))
-    }
+    end
 
     /// Always produces `value` (consuming no randomness, seed unchanged).
     //! (value, _) = Generator.step(Generator.constant("fixed"), Seed.from_int(123))
     //! assert value == "fixed"
     //
-    pub fn constant<T>(value: T) -> Generator<T> {
+    pub fn constant<T>(value: T) -> Generator<T>
         Generator{run: fn seed -> (value, seed)}
-    }
+    end
 
     /// Uniform choice among `first` and `rest` -- non-empty by construction.
     ///
@@ -219,11 +219,11 @@ impl Generator<T> {
     //!
     //! assert choice == "paper" or choice == "rock" or choice == "scissors"
     //
-    pub fn uniform<T>(first: T, rest: List<T>) -> Generator<T> {
+    pub fn uniform<T>(first: T, rest: List<T>) -> Generator<T>
         all = [first, ..rest] |> Iter.to_vector()
 
         unsafe_int(0, Iter.count(rest)) |> map(&Vector.get(all, &1)!)
-    }
+    end
 
     /// Weighted choice; each option carries a relative weight. Non-empty.
     /// Weights must be non-negative, and at least one weight must be positive;
@@ -233,14 +233,14 @@ impl Generator<T> {
     //! assert choice == "always"
     //! assert Err(Error.ZeroWeightTotal) = Generator.weighted((0.0, "never"), [])
     //
-    pub fn weighted<T>(first: (Float, T), rest: List<(Float, T)>) -> Result<Generator<T>, Error> {
+    pub fn weighted<T>(first: (Float, T), rest: List<(Float, T)>) -> Result<Generator<T>, Error>
         total = total_weight([first, ..rest], 0.0)?
 
         Ok(
             unsafe_float(0.0, total)
             |> map(&pick_weighted(first, rest, &1))
         )
-    }
+    end
 
     /// Transform the produced value.
     //! gen = Generator.constant(21) |> Generator.map(&(&1 * 2))
@@ -248,14 +248,14 @@ impl Generator<T> {
     //! (value, _) = Generator.step(gen, Seed.from_int(123))
     //! assert value == 42
     //
-    pub fn map<T, U>(gen: Generator<T>, f: (T) -> U) -> Generator<U> {
+    pub fn map<T, U>(gen: Generator<T>, f: (T) -> U) -> Generator<U>
         Generator{
-            run: fn seed -> {
+            run: fn seed ->
                 (value, seed) = Generator.step(gen, seed)
                 (f(value), seed)
-            },
+            end,
         }
-    }
+    end
 
     /// Sequence a dependent generator (the next draw depends on the previous
     /// value) -- the bind operation, and the way to build a composite
@@ -273,14 +273,14 @@ impl Generator<T> {
     //! (value, _) = Generator.step(gen, Seed.from_int(123))
     //! assert value == 30
     //
-    pub fn flat_map<T, U>(gen: Generator<T>, f: (T) -> Generator<U>) -> Generator<U> {
+    pub fn flat_map<T, U>(gen: Generator<T>, f: (T) -> Generator<U>) -> Generator<U>
         Generator{
-            run: fn seed -> {
+            run: fn seed ->
                 (value, seed) = Generator.step(gen, seed)
                 Generator.step(f(value), seed)
-            },
+            end,
         }
-    }
+    end
 
     /// A list of `length` independent draws from `gen`. A non-positive length
     /// produces an empty list.
@@ -296,79 +296,79 @@ impl Generator<T> {
     //! (values, _) = Generator.step(gen, Seed.from_int(123))
     //! assert values == ["ha", "ha", "ha"]
     //
-    pub fn list<T>(gen: Generator<T>, length: Int) -> Generator<List<T>> {
+    pub fn list<T>(gen: Generator<T>, length: Int) -> Generator<List<T>>
         Generator{run: &draw_list(gen, length, &1, [])}
-    }
-}
+    end
+end
 
-fn unsafe_int(from: Int, to: Int) -> Generator<Int> {
+fn unsafe_int(from: Int, to: Int) -> Generator<Int>
     Generator{
-        run: fn seed -> {
+        run: fn seed ->
             between(seed, from, to)
-        },
+        end,
     }
-}
+end
 
-fn unsafe_float(from: Float, to: Float) -> Generator<Float> {
+fn unsafe_float(from: Float, to: Float) -> Generator<Float>
     Generator{
-        run: fn seed -> {
+        run: fn seed ->
             (f, seed) = unit_float(seed)
             span = to - from
 
             // Finite bounds whose difference overflows (`-1.0e308` to
             // `1.0e308`) interpolate instead, where no term exceeds a bound.
-            if Float.is_finite(span) {
+            if Float.is_finite(span) then
                 (from + f * span, seed)
-            } else {
+            else
                 (from * (1.0 - f) + to * f, seed)
-            }
-        },
+            end
+        end,
     }
-}
+end
 
 /// Tail-recursive accumulator for `Generator.list`.
-fn draw_list<T>(gen: Generator<T>, remaining: Int, seed: Seed, acc: List<T>) -> (List<T>, Seed) {
-    if remaining <= 0 {
+fn draw_list<T>(gen: Generator<T>, remaining: Int, seed: Seed, acc: List<T>) -> (List<T>, Seed)
+    if remaining <= 0 then
         (Iter.reverse(acc), seed)
-    } else {
+    else
         (x, seed) = Generator.step(gen, seed)
         draw_list(gen, remaining - 1, seed, [x, ..acc])
-    }
-}
+    end
+end
 
 /// Walk cumulative weights to land `target` on an option. Total by construction
 /// (the first option is always present, so the last arm returns a real `T`).
-fn pick_weighted<T>(first: (Float, T), rest: List<(Float, T)>, target: Float) -> T {
+fn pick_weighted<T>(first: (Float, T), rest: List<(Float, T)>, target: Float) -> T
     (w, x) = first
 
-    if target < w {
+    if target < w then
         x
-    } else {
-        case rest {
+    else
+        case rest
             [] -> x
             [next, ..tail] -> pick_weighted(next, tail, target - w)
-        }
-    }
-}
+        end
+    end
+end
 
-fn total_weight<T>(items: List<(Float, T)>, acc: Float) -> Result<Float, Error> {
-    case items {
+fn total_weight<T>(items: List<(Float, T)>, acc: Float) -> Result<Float, Error>
+    case items
         [] ->
-            if Float.is_finite(acc) == False {
+            if Float.is_finite(acc) == False then
                 Err(Error.InvalidWeight{weight: acc})
-            } else if acc > 0.0 {
+            else if acc > 0.0 then
                 Ok(acc)
-            } else {
+            else
                 Err(Error.ZeroWeightTotal)
-            }
+            end
 
         [(w, _), ..tail] ->
-            if Float.is_finite(w) == False {
+            if Float.is_finite(w) == False then
                 Err(Error.InvalidWeight{weight: w})
-            } else if w < 0.0 {
+            else if w < 0.0 then
                 Err(Error.InvalidWeight{weight: w})
-            } else {
+            else
                 total_weight(tail, acc + w)
-            }
-    }
-}
+            end
+    end
+end

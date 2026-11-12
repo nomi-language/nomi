@@ -1,9 +1,9 @@
-import {
+import
     bool.Bool.{self, True}
     equatable.Equatable
     hashable.Hashable
     int.Int
-}
+end
 
 //# The `Unit` type — "no meaningful value."
 //#
@@ -26,14 +26,14 @@ import {
 //
 pub host type Unit
 
-impl Equatable for Unit {
-    fn equal(_a: Unit, _b: Unit) -> Bool {
+impl Equatable for Unit
+    fn equal(_a: Unit, _b: Unit) -> Bool
         True
-    }
-}
+    end
+end
 
-impl Hashable for Unit {
-    fn hash(_value: Unit) -> Int {
+impl Hashable for Unit
+    fn hash(_value: Unit) -> Int
         0
-    }
-}
+    end
+end

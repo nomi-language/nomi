@@ -9,6 +9,14 @@ compiler checks. The full rules are in the
 
 ## Bindings and functions
 
+- Code is never in braces. A function, an `if` branch, a `case`, a lambda, a
+  struct or a test is a header line, the body on the lines below, and `end`.
+  An empty body is one line: `fn noop() end`, `impl Marker for P end`.
+  Braces and brackets hold data only: `{x: 1}`, `Point{x: 1}`, `[1, 2]`.
+- A header ends with its line. Brackets carry it on, and a line that starts
+  with `where` or `|>` continues it.
+- `begin`, statements and `end` is a block expression. `end`, `begin` and
+  `then` are reserved words.
 - There is no `let`, `var`, `const` or `:=`. A binding is `name = expr`, with
   an optional type: `total: Int = 0`. A later `name = ...` binds the name again.
 - Values are immutable. A struct or collection is "changed" by building a new
@@ -21,7 +29,8 @@ compiler checks. The full rules are in the
   it: `fn search(query: String, limit = 10)`.
 - A parameter the body never reads may be written as its type alone:
   `fn health(Request) -> Response` takes a `Request` and binds nothing.
-- A lambda is `fn x -> ...` or `fn x, y -> { ... }`. Its parameters are
+- A lambda is `fn x -> expr` on one line, or `fn x, y ->` with the body on
+  the lines below and `end`. Its parameters are
   inferred from where it is passed. A lambda bound to a name needs annotated
   parameters: `fn n: Int -> n * 2`. In a collection literal, one element's
   annotation types the same parameter in the others:
@@ -35,13 +44,13 @@ compiler checks. The full rules are in the
   its bytes are read then, not at startup.
 
 ```nomi-run
-fn area(width: Int, height: Int = 1) -> Int {
+fn area(width: Int, height: Int = 1) -> Int
     width * height
-}
+end
 
 once limit = 3
 
-test "bindings and functions" {
+test "bindings and functions"
     x = 2
     x = x + 1
     double = fn n: Int -> n * 2
@@ -49,7 +58,7 @@ test "bindings and functions" {
     assert area(x, height: 4) == 12
     assert area(5) == 5
     assert double(limit) == 6
-}
+end
 ```
 <!-- expect
 ok bindings and functions
@@ -59,9 +68,9 @@ test result: ok. 1 passed, 0 failed
 ## Literals
 
 - A named struct is its name and its fields: `Point{x: 1}`,
-  `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}`. In the head of an `if`
-  or `case` it goes in parentheses: `case (Point{x: 1}) { ... }`. A named
-  tuple is its name and its elements: `Pair(1, "x")`.
+  `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}`, in an `if` or `case`
+  head as anywhere else. A named tuple is its name and its elements:
+  `Pair(1, "x")`.
 - A tuple's items are read by ordinal, counting from one as `&1` does:
   `t.first`, `t.second`, ... `t.twentieth`, never `t.0`. A named tuple reads
   them the same way, and so do accessors and captures: `Iter.map(.second)`,
@@ -69,15 +78,26 @@ test result: ok. 1 passed, 0 failed
 - A tuple is its parentheses with a comma inside: `(a, b)`; `(x)` only
   groups. Passed as a call's one argument it keeps its own parentheses,
   `f((a, b))`, and a function type taking one tuple is `((A, B)) -> C`.
-- Every other literal but a list starts with its shape's symbol: `.` for a
-  struct with no name (`.{x: 1}`), `#` for a vector (`#[1, 2]`), `%` for a
-  map or a set. `.{x: 1}` drops the struct's name as `.Circle{radius: 1.0}`
-  drops the enum's: it builds the struct its position expects, or an
-  anonymous one. A plain `{` is always a block.
-- Patterns use the same forms as literals.
+- A struct with no name is its brace alone, `{x: 1}`: it builds the struct
+  its position expects, or an anonymous one, as `.Circle{radius: 1.0}`
+  drops the enum's name.
+- Collection literals have no symbol. `[1, 2]` is the List, Vector or Set
+  its position expects, and a List where nothing fixes it: with `v:
+  Vector<Int>`, `v = [1, 2]` is a vector. `Vector[1, 2]` and `Set[1, 2]`
+  name the collection where nothing expects one. Write a list and a map
+  bare, never `List[...]` or `Map{...}`.
+- A `{` always opens data, never code. Its first entry decides: `name:` is
+  a struct, `key =>` a map. `{}` is the empty map, since an anonymous struct
+  has at least one field.
+- A field or a named argument whose value is a binding of its own name is
+  punned with its colon: `Point{x:, y:}`, `{name:}`, `Response.json(body,
+  status:)`. The name alone is no field: `Point{x}` is an error.
+- Patterns use the same forms as literals. `[first, ..rest]` takes apart the
+  list, vector or set its subject is; over a set its elements are constants
+  the set must hold: `["admin", ..rest]`.
 - Types are written without a symbol, except anonymous structs:
   `List<Int>`, `Vector<T>`, `Map<K, V>`, `Set<T>`, `(Int, String)`,
-  `.{x: Int}`.
+  `{x: Int}`.
 - Strings interpolate with `${...}`. A backtick string is raw: no escapes and
   no interpolation. A type name before a backtick string is a typed literal,
   checked at compile time: ``Regex`\d+` ``, ``Url`https://nomi-lang.org` ``.
@@ -104,26 +124,26 @@ test result: ok. 1 passed, 0 failed
 | Shape | Literal | Named form |
 |---|---|---|
 | list | `[1, 2]` | `Ids[1, 2]` |
-| vector | `#[1, 2]` | `#Path[1, 2]` |
+| vector | `[1, 2]` where expected, `Vector[1, 2]` | `Path[1, 2]` |
 | tuple | `(1, "x")` | `Pair(1, "x")` |
-| struct | `Point{x: 1}`, `.{x: 1}` | `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}` |
-| map | `%{"a" => 1}` | `%Kvs{"a" => 1}` |
-| set | `%[1, 2]` | `%Tags["a"]` |
+| struct | `Point{x: 1}`, `{x: 1}` | `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}` |
+| map | `{"a" => 1}` | `Kvs{"a" => 1}` |
+| set | `[1, 2]` where expected, `Set[1, 2]` | `Tags["a"]` |
 
 ```nomi-run
-struct Point {
+struct Point
     x: Int
     y: Int = 0
-}
+end
 
-test "literals" {
+test "literals"
     point = Point{x: 1}
-    moved = .{..point, y: 5}
+    moved = {..point, y: 5}
     (count, name) = (2, "Ada")
     pair = (2, "Ada")
 
     assert moved == Point{x: 1, y: 5}
-    assert %{"a" => 1, "b" => 2} == %{"b" => 2, "a" => 1}
+    assert {"a" => 1, "b" => 2} == {"b" => 2, "a" => 1}
     assert "${name} has ${count}" == "Ada has 2"
     assert pair.second == name
     assert Int.to_decimal(1999) / 100d == 19.99d
@@ -131,7 +151,12 @@ test "literals" {
     assert `a\n` == "a\\n"
     assert [first, ..rest] = [1, 2, 3]
     assert first == 1 and rest == [2, 3]
-}
+
+    tags: Set<String> = ["a", "b"]
+    assert tags == Set["b", "a"]
+    assert ["a", ..others] = tags
+    assert others == Set["b"]
+end
 ```
 <!-- expect
 ok literals
@@ -146,7 +171,7 @@ test result: ok. 1 passed, 0 failed
   `fn name(value: self) -> String`.
 - A field with a default may leave out its type when the default alone
   tells it: `misses = 0` is an `Int` field. An empty collection, `None` or a
-  `.Variant` needs the type written: `guessed: Set<String> = %[]`.
+  `.Variant` needs the type written: `guessed: Set<String> = []`.
 - `value as Type` checks the value with the type expected, as
   `x: Type = value` does, where no annotation can stand: `[] as
   List<String>` inside an anonymous struct literal. It converts nothing:
@@ -154,8 +179,8 @@ test result: ok. 1 passed, 0 failed
 - A type parameter may have a default, `Route<P = Unit>`. In a type
   position a left-out argument is the default, so `route: Route` takes only
   a `Route<Unit>`; it is never a type to infer.
-- Behavior goes in top-level `impl Type { ... }`, `impl Interface for Type
-  { ... }` and `derive Interface for Type` declarations.
+- Behavior goes in top-level `impl Type`, `impl Interface for Type` and
+  `derive Interface for Type` declarations.
 - `type UserId Int` is a distinct type: `UserId(5)` builds one, and the pattern
   `UserId(n)` opens it.
 - A std collection converts where each element already is a value of the
@@ -175,48 +200,54 @@ test result: ok. 1 passed, 0 failed
   errors. A file's name reaches only its file-level functions, never one
   declared in an `impl`: `duration.seconds(1)` is an error, and
   `Duration.seconds(1)` is the call.
+- An owner is a name, never a type with arguments:
+  `List<String>.from_json(json)` reads as comparisons, and is an error. The
+  type argument goes on the call, `FromJson.from_json<List<String>>(json)`,
+  or the result is annotated.
 - A parameter used only through one interface, whose type appears nowhere
   else in the signature, takes the interface: `fn label(value: Named)`. A
   type parameter is for a type that comes back, in another parameter, the
   result or another type: `fn larger<T>(a: T, b: T) -> T where T: Comparable`.
 
 ```nomi-run
-enum Shape {
+import std::json.{FromJson, Json}
+
+enum Shape
     Circle {radius: Float}
     Square {side: Float}
-}
+end
 
-impl Shape {
-    fn area(shape: Shape) -> Float {
-        case shape {
-            .Circle{radius} -> 3.0 * radius * radius
-            .Square{side} -> side * side
-        }
-    }
-}
+impl Shape
+    fn area(shape: Shape) -> Float
+        case shape
+            .Circle{radius:} -> 3.0 * radius * radius
+            .Square{side:} -> side * side
+        end
+    end
+end
 
 derive Equatable for Shape
 
-interface Named {
+interface Named
     fn name(value: self) -> String
-}
+end
 
-impl Named for Shape {
-    fn name(shape: Shape) -> String {
-        case shape {
+impl Named for Shape
+    fn name(shape: Shape) -> String
+        case shape
             .Circle{} -> "circle"
             .Square{} -> "square"
-        }
-    }
-}
+        end
+    end
+end
 
 type UserId Int
 
-fn label(value: Named) -> String {
+fn label(value: Named) -> String
     "a ${Named.name(value)}"
-}
+end
 
-test "types and calls" {
+test "types and calls"
     shape = Shape.Square{side: 2.0}
     UserId(id) = UserId(7)
 
@@ -227,7 +258,10 @@ test "types and calls" {
     assert id == 7
     assert String.length("héllo") == 5
     assert Int.to_string(42) == "42"
-}
+
+    assert Ok(json) = Json.decode("[\"a\", \"b\"]")
+    assert FromJson.from_json<List<String>>(json) == Ok(["a", "b"])
+end
 ```
 <!-- expect
 ok types and calls
@@ -236,28 +270,47 @@ test result: ok. 1 passed, 0 failed
 
 ## Branching and errors
 
-- `if` and `case` are expressions. `case` must cover every shape the value can
-  take. A guard is written `when`: `Some(n) when n > 0 -> ...`.
+- `if` and `case` are expressions. `if c then` at a line's end takes the
+  lines below to `else` or `end`, and an `else if c then` chain shares one
+  `end`. Anything after `then` on its line makes an inline `if` with no
+  `end`: `sign = if n < 0 then "-" else "+"`. Its `else` branch runs as far
+  right as it can, so `(if c then a else b) |> f` pipes the whole `if`.
+- `case x`, one arm per line, then `end`. An arm is `pattern -> expr`, or
+  `pattern ->` at the line's end with its statements below, up to the next
+  arm or `end`. `case` must cover every shape the value can take. A guard is
+  written `when`: `Some(n) when n > 0 -> ...`.
 - A name in a pattern binds a new variable; it never compares. A pattern
   name that names a `once` is an error, so write the comparison as a guard:
   `c when c == not_found -> ...`.
 - The branches of an `if` or `case` have one type. Branches of different
   types that implement one interface join as it only where the value's type
   is written as that interface, by an annotation, a parameter or a declared
-  result: `shape: Shape = if round { Circle{r: 1.0} } else { Square{side: 2.0} }`.
+  result: `shape: Shape = if round then Circle{r: 1.0} else Square{side: 2.0}`.
 - An `if` without `else` whose branch has a value is a `Maybe`:
-  `if n > 0 { "positive" }` is `Some("positive")` or `None`, and so is an
+  `if n > 0 then "positive"` is `Some("positive")` or `None`, and so is an
   `else if` chain with no final `else`. A branch that is `Unit` or leaves
   (`return`, `?`) keeps the `if` a `Unit` statement. A forgotten `else`
   shows as `expected String, got Maybe<String>`. In an `Html` literal,
-  `${if c { Html"..." }}` shows the part or nothing, and so does
-  `class='badge ${if c { "on" }}'` inside a quoted value; an unquoted
-  `class=${if c { "on" }}` writes the attribute or leaves it out.
+  `${if c then Html"..."}` shows the part or nothing, and so does
+  `class='badge ${if c then "on"}'` inside a quoted value; an unquoted
+  `class=${if c then "on"}` writes the attribute or leaves it out.
 - There are no exceptions. A function that can fail returns `Maybe<T>`
   (`Some(v)` or `None`) or `Result<T, E>` (`Ok(v)` or `Err(e)`).
 - A postfix `?` returns an `Err` or `None` from the enclosing function, lambda
   or test. A postfix `!` traps on one. A program's `main` may return a
   `Result`.
+- When the `Err`'s type is not the function's declared error type, `?`
+  applies the declared type's `From` impl: with `impl From<DbError> for
+  ApiError`, `count()?` in a function returning `Result<_, ApiError>`
+  returns `Err(ApiError.from(e))`. The impl is written on the target type,
+  one per wrapped error; there is no `Into` and no chaining. A lambda with no
+  declared result does not convert. Without an impl, convert at the site
+  with `|> Result.map_err(...)?`.
+- A field that must tell a JSON key left out from one set to `null`, as in a
+  PATCH body, is std::presence's `Presence<Maybe<T>>`: `Absent`,
+  `Present(None)` or `Present(Some(v))`. A `Maybe<T>` field reads both as
+  `None`. `Presence.with_default(p, current)` merges it, and `?` and `!` do
+  not take a `Presence`.
 - Inside a lambda, `return` and `?` leave the lambda.
 - In a pipe, `text |> parse()?` passes up a failure of that stage, and
   `|> then? fn v -> ...` does the same for a lambda's result.
@@ -279,32 +332,65 @@ test result: ok. 1 passed, 0 failed
   (`sql.close_quietly(conn)`) first.
 
 ```nomi-run
-fn parse_age(text: String) -> Result<Int, String> {
+import
+    std::json.Json
+    std::presence.Presence
+end
+
+fn parse_age(text: String) -> Result<Int, String>
     age = String.to_int(text) |> Maybe.to_result("not a number: ${text}")?
 
-    if age < 0 {
+    if age < 0 then
         Err("negative: ${age}")
-    } else {
+    else
         Ok(age)
-    }
-}
+    end
+end
 
-fn describe(age: Maybe<Int>) -> String {
-    case age {
+enum DbError
+    Closed
+end
+
+enum ApiError
+    Database DbError
+end
+
+impl From<DbError> for ApiError
+    fn from(e: DbError) -> ApiError
+        ApiError.Database(e)
+    end
+end
+
+fn count() -> Result<Int, DbError>
+    Err(.Closed)
+end
+
+fn handler() -> Result<Int, ApiError>
+    n = count()?
+    Ok(n)
+end
+
+fn describe(age: Maybe<Int>) -> String
+    case age
         Some(n) when n >= 18 -> "adult"
         Some(_) -> "minor"
         None -> "unknown"
-    }
-}
+    end
+end
 
-test "branching and errors" {
+test "branching and errors"
     assert parse_age("41") == Ok(41)
     assert parse_age("x") == Err("not a number: x")
+    assert handler() == Err(ApiError.Database(.Closed))
     assert describe(Some(12)) == "minor"
-    assert (if 41 > 18 { "adult" }) == Some("adult")
+    assert (if 41 > 18 then "adult") == Some("adult")
     assert String.to_int("7")! == 7
     assert Some(1) is Some(_)
-}
+
+    patch = Json.decode_as<{due: Presence<Maybe<Int>>}>(`{"due": null}`)!
+    assert patch.due == Presence.Present(None)
+    assert Presence.with_default(patch.due, Some(5)) == None
+end
 ```
 <!-- expect
 ok branching and errors
@@ -333,7 +419,7 @@ test result: ok. 1 passed, 0 failed
   `each_while` hands out its elements.
 
 ```nomi-run
-test "iteration and pipes" {
+test "iteration and pipes"
     evens =
         1..=10
         |> Iter.filter(fn n -> n % 2 == 0)
@@ -345,7 +431,7 @@ test "iteration and pipes" {
     assert List.head(evens) == Some(20)
     assert ["b", "a"] |> Iter.sort() |> String.join(", ") == "a, b"
     assert Iter.map_reduce([1, 2], 0, fn total, n -> (total + n, total)) == (3, [0, 1])
-}
+end
 ```
 <!-- expect
 ok iteration and pipes
@@ -362,8 +448,9 @@ test result: ok. 1 passed, 0 failed
   the type or both to be the module's own.
 - Imports name files by path, segments joined by `::` (never `/`):
   `import std::io`, then `io.print(x)`. Braces bring in names:
-  `import std::io.{self, Writer}`. Several imports group under one
-  `import { ... }`. Unused imports are errors.
+  `import std::io.{self, Writer}`. Several imports group under `import`
+  alone on its line, one per line below, then `end`. Unused imports are
+  errors.
 - A file import binds the file's short name, the path's last segment (`io`,
   `posts`), and nothing else: `db::posts.find(1)` after `import db::posts`
   is an error. Importing a directory (`import db`) binds its name, and a
@@ -375,32 +462,32 @@ test result: ok. 1 passed, 0 failed
 
 ```nomi-run
 // FILE: shapes.nomi
-pub struct Box {
+pub struct Box
     side: Int
-}
+end
 
-pub fn area(box: Box) -> Int {
+pub fn area(box: Box) -> Int
     box.side * box.side
-}
+end
 
 // FILE: geo/shapes.nomi
-pub fn area(radius: Int) -> Int {
+pub fn area(radius: Int) -> Int
     3 * radius * radius
-}
+end
 
 // FILE: main.nomi
-import {
+import
     std::io
     demo
     geo
-}
+end
 
-fn main() {
+fn main()
     // Two files are `shapes`, so each is reached through its directory.
     // The module's own name is its root directory.
     io.print(demo::shapes.area(demo::shapes.Box{side: 3}))
     io.print(geo::shapes.area(2))
-}
+end
 
 // FILE: nomi.toml
 [module]
@@ -422,61 +509,62 @@ entry_points = ["main"]
 - Code reads a field as `App.field`. The statement `with App.field = value`
   replaces it from that line to the end of the block. Several fields take
   several lines.
-- `test "name" { ... }` blocks sit beside the code. `assert` checks a `Bool`,
+- `test "name"` blocks, closed by `end`, sit beside the code. `assert` checks a `Bool`,
   `Some` or `Ok`, or a pattern; `refute` the opposite. `nomi test` runs them.
 - A `group` holds at most one `clock`, `boot` and `setup`, in that order, then
   its tests. Groups do not nest. `boot server.boot(startup)` calls an entry's
   boot; a test may also call `server.boot(startup)` itself to assert on the
   `Result`. A test binds the setup value with a pattern:
-  `test "loads rows", db { ... }`. Each test runs clock, boot, setup and body
+  `test "loads rows", db`. Each test runs clock, boot, setup and body
   afresh. `clock Clock.Virtual` makes waits instant.
-- Tasks start only inside `concurrent { ... }`, which waits for them:
+- Tasks start only inside a `concurrent` block, `concurrent` alone on its
+  line and `end`, which waits for them:
   `Task.spawn(fn -> ...)` and `Task.await(task)`, from `std::tasks`. Every task
   is awaited. `std::channels` splits a channel into a `Sender` and a
   `Receiver`. A `Supervisor` is created only while `boot` builds the app
   struct.
 
 ```nomi-run
-import {
+import
     std::io
     std::tasks.Task
-}
+end
 
-struct App {
+struct App
     greeting: String
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
     Ok(App{greeting: Map.get(startup.env, "GREETING") |> Maybe.with_default("hello")})
-}
+end
 
-fn greet(name: String) -> String {
+fn greet(name: String) -> String
     "${App.greeting}, ${name}"
-}
+end
 
-fn main() {
+fn main()
     io.print(greet("Ada"))
-}
+end
 
-group "greetings" {
-    boot boot(Startup{env: %{"GREETING" => "hi"}})
+group "greetings"
+    boot boot(Startup{env: {"GREETING" => "hi"}})
 
-    test "app fields" {
+    test "app fields"
         assert greet("Ada") == "hi, Ada"
         with App.greeting = "hey"
         assert greet("Ada") == "hey, Ada"
-    }
+    end
 
-    test "tasks" {
-        total = concurrent {
+    test "tasks"
+        total = concurrent
             a = Task.spawn(fn -> 20)
             b = Task.spawn(fn -> 22)
             Task.await(a) + Task.await(b)
-        }
+        end
 
         assert total == 42
-    }
-}
+    end
+end
 ```
 <!-- expect
 hello, Ada
@@ -503,7 +591,7 @@ test result: ok. 2 passed, 0 failed
 ```nomi-run
 import std::calendar.{DateTime, DateTimeFields, DateTimePattern}
 
-test "dates" {
+test "dates"
     at = DateTime`2026-01-05T15:04:00-05:00[America/New_York]`
     en = Locale`en-US`
 
@@ -512,7 +600,7 @@ test "dates" {
     assert DateTime.format_fields(at, en, DateTimeFields`yMMMdjmm`) == "Jan 5, 2026, 3:04\u{202f}PM"
     assert DateTime.format(at, en, date: .Long, time: .Short) == "January 5, 2026, 3:04\u{202f}PM"
     assert DateTime.to_string_with(at, DateTimePattern`yyyy-MM-dd HH:mm`) == "2026-01-05 15:04"
-}
+end
 ```
 <!-- expect
 ok dates

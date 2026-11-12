@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 714
-declared-cases 4032
+records 716
+declared-cases 4038
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -502,14 +502,16 @@ T nomi run: <root>/tests/03-tooling-and-diagnostics/try_error_type/test_helpers.
 T
 C 03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi
 E 0
-N 5
-H d58ce995a1689c2420a3325fc8ce1b4d619cd0eeec525fe17894b9ca0438c286
+N 7
+H c0b6f8038e0b84442a7f206eaee799cea64447f17fc5cd64ecc47375553d5105
 T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: `?` may not launder the error type
 T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: a matching `?` error type is clean
 T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: converting the error at the `?` site is clean
 T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: `?` on a Maybe may not propagate out of a Result boundary
 T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: `?` needs a Result or Maybe boundary to propagate into
-T test result: ok. 5 passed, 0 failed
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: a `?` with no From impl names the impl and Result.map_err
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: a `?` applies one From impl, never a chain
+T test result: ok. 7 passed, 0 failed
 T
 C 03-tooling-and-diagnostics/type_qualified_missing_member/test_helpers.nomi
 E 1
@@ -1056,13 +1058,13 @@ T
 C 06-collections/named_literals_test.nomi
 E 0
 N 8
-H d7f6601407043260ea6b181e0b67ccdd1e296b51b43ee1e8fd00ec57925e2548
+H 50e9773b52b29b35aa5c606af1d41e84baaa2d1e5848d53fad62a3031c832f3f
 T ok <root>/tests/06-collections/named_literals_test.nomi :: each collection literal builds its named type
 T ok <root>/tests/06-collections/named_literals_test.nomi :: an empty literal takes its element type from the expected type
 T ok <root>/tests/06-collections/named_literals_test.nomi :: each collection renders as it is written
 T ok <root>/tests/06-collections/named_literals_test.nomi :: a punned field alone is a struct
 T ok <root>/tests/06-collections/named_literals_test.nomi :: a brace after a map-shaped name attaches a map, and an empty one is the empty map
-T ok <root>/tests/06-collections/named_literals_test.nomi :: an empty brace builds the struct its position expects from the defaults
+T ok <root>/tests/06-collections/named_literals_test.nomi :: a struct with every field defaulted is built with no fields
 T ok <root>/tests/06-collections/named_literals_test.nomi :: the spreads take the new heads
 T ok <root>/tests/06-collections/named_literals_test.nomi :: map and struct patterns
 T test result: ok. 8 passed, 0 failed
@@ -1225,14 +1227,14 @@ T
 C 07-structs-and-enums/nested_update/nested_update_test.nomi
 E 0
 N 23
-H 43ffde58b24744fcbfa475d669f841832ba0f302fb00e03d0eb5aea8cdf7dc0a
+H 4eadafcd59cb604803c7da5363acac2e24864e020708a6dac5735cc51a11458e
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a `..` literal at a struct field changes only the fields it writes
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a brace without `..` replaces the field whole
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: updates nest three deep
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a list field takes `[x, ..]`, the new element then the old list
-T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a set field takes `.{.., x}`, the old set then the new element
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a set field takes `{.., x}`, the old set then the new element
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a vector field takes `..` at either end
-T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a map field takes `%{.., k => v}`, merged over the old map
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a map field takes `{.., k => v}`, merged over the old map
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a `..` literal at a present key updates the value there
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a missing key starts from an empty collection
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a missing key builds a struct from the fields written and the defaults
@@ -1499,6 +1501,23 @@ T ok <root>/tests/08-pattern-matching/try_error_conversion_test.nomi :: a conver
 T ok <root>/tests/08-pattern-matching/try_error_conversion_test.nomi :: a matching `?` needs no conversion
 T test result: ok. 2 passed, 0 failed
 T
+C 08-pattern-matching/try_from/errors.nomi
+E 1
+N 0
+H a2a57a0a690c4839cd3a939d4826411ec191af9be6ad7f3c39d6ac937ecdf16e
+T --- stderr ---
+T nomi run: <root>/tests/08-pattern-matching/try_from/errors.nomi declares no `fn main`, so there is no program to run
+T
+C 08-pattern-matching/try_from/try_from_test.nomi
+E 0
+N 4
+H b63c065523ad7ef2f4c45b628e93f22ca1de40df2ef8581260f5f7015eb28204
+T ok <root>/tests/08-pattern-matching/try_from/try_from_test.nomi :: a `?` converts the error through the declared type's impl
+T ok <root>/tests/08-pattern-matching/try_from/try_from_test.nomi :: an impl for a foreign target converts
+T ok <root>/tests/08-pattern-matching/try_from/try_from_test.nomi :: a generic impl converts
+T ok <root>/tests/08-pattern-matching/try_from/try_from_test.nomi :: the impl is an ordinary function
+T test result: ok. 4 passed, 0 failed
+T
 C 08-pattern-matching/try_test.nomi
 E 0
 N 4
@@ -1558,7 +1577,7 @@ T
 C 08-pattern-matching/vector_set_patterns_test.nomi
 E 0
 N 9
-H 7afe524b92c7c222296aa8ff5bc06560638ff528acaa96508db7bcac6792e669
+H ee03f78519bc24085815395ce1ebab6374920f40f6afe85bee181a2959239ddf
 T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a vector pattern takes a vector apart from either end
 T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a vector pattern's rest is the elements between its heads and tails
 T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: an exact vector pattern matches only its own length
@@ -1566,7 +1585,7 @@ T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: vector pa
 T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a vector pattern names a type over a vector
 T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a set pattern tests membership
 T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a set pattern without a rest matches exactly its elements
-T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a set pattern's elements are values in scope
+T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a set pattern's elements are constants, and a guard tests a value in scope
 T ok <root>/tests/08-pattern-matching/vector_set_patterns_test.nomi :: a set pattern names a type over a set
 T test result: ok. 9 passed, 0 failed
 T
@@ -2040,7 +2059,7 @@ T
 C 11-interfaces-and-impls/existential_equality/existential_equality_test.nomi
 E 0
 N 12
-H 5993c9d2e0355212cf76ffe98188cf47ce1041e3f933c0976a54df4cfb91d270
+H fcff5210076dca592ebedb0c87bec6ae77f5ec7920c56ca645ce35516c65ac38
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: two values of one struct type compare by its fields
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: values of two concrete types are unequal
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a hand-written Equatable decides
@@ -2053,7 +2072,7 @@ T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equal
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a Map keyed by lists of interface values
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: Debug renders each concrete value through its own impl
 T   [Point(1, 2), 3, [4]]
-T   %[Point(1, 2), Name{text: "Ada"}]
+T   Set[Point(1, 2), Name{text: "Ada"}]
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: std's generic functions over interface values
 T test result: ok. 12 passed, 0 failed
 T
@@ -3741,14 +3760,14 @@ T
 C 16-concurrency/message_loop/message_loop_test.nomi
 E 0
 N 4
-H 897de3aa3251024f2ea4cdbfee28b5c6e17c12ed3892a91e440820873cb757b3
+H 486a09cc2a4ecf5d5f8e7960ca09e98e70babd50b1b2df9f579bdc227cfc9252
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / messages accumulate into state a caller can read back
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / each caller gets its own reply
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / a handler that breaks restarts the worker with fresh state
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / a call observes every cast queued before it
 T test result: ok. 4 passed, 0 failed
 T --- stderr ---
-T nomi: background task errored (attempt 1): line 102: division by zero — retrying in <jitter>
+T nomi: background task errored (attempt 1): line 103: division by zero — retrying in <jitter>
 T
 C 16-concurrency/select_test.nomi
 E 0

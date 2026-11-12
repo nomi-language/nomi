@@ -12,34 +12,34 @@ func TestIRBlockLocalTypeInAnnotations_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn ident<T>(x: T) -> T {
+fn ident<T>(x: T) -> T
     x
-}
+end
 
-fn main() {
+fn main()
     type Meters Int
-    struct Box<T> {
+    struct Box<T>
         v: T
-    }
-    f = Some(fn x: Meters -> {
+    end
+    f = Some(fn x: Meters ->
         Meters(n) = x
         n + 1
-    })
+    end)
     io.inspect(Maybe.is_some(f))
-    case f {
+    case f
         Some(g) -> io.inspect(g(Meters(4)))
         None -> io.inspect(0)
-    }
-    fn len(m: Meters) -> Int {
+    end
+    fn len(m: Meters) -> Int
         Meters(n) = m
         n
-    }
+    end
     h = ident(len)
     io.inspect(h(Meters(3)))
     m: Meters = Meters(7)
     b: Box<Meters> = Box{v: m}
     io.inspect(b)
-}
+end
 `
 	const want = "True\n" +
 		"5\n" +

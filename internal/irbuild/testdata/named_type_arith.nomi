@@ -1,8 +1,8 @@
-import {
+import
     std::duration.Duration
     std::instant.Instant
     std::io
-}
+end
 
 // Probe: ARITHMETIC ON A NAMED TYPE, across two stdlib modules.
 //
@@ -28,11 +28,11 @@ import {
 // Every number below is checked against a whole-second Int, so an off-by-a-
 // factor-of-1e9 lowering of either module's constructor fails rather than
 // agreeing.
-fn seconds_between(a: Instant, b: Instant) -> Int {
+fn seconds_between(a: Instant, b: Instant) -> Int
     Duration.as_seconds(Instant.between(a, b))
-}
+end
 
-test "an Instant plus a Duration is an Instant" {
+test "an Instant plus a Duration is an Instant"
     start = Instant.from_seconds(100)
 
     io.print("plus 5s = ${Int.to_string(Instant.to_seconds(start + Duration.seconds(5)))}")
@@ -41,9 +41,9 @@ test "an Instant plus a Duration is an Instant" {
     assert Instant.to_seconds(start + Duration.seconds(5)) == 105
     assert Instant.to_seconds(start + Duration.seconds(-5)) == 95
     assert Instant.to_seconds(start + Duration.minutes(2)) == 220
-}
+end
 
-test "the rhs type selects the impl, and the impl decides the result type" {
+test "the rhs type selects the impl, and the impl decides the result type"
     d = Duration.seconds(2)
 
     // Duration + Duration -> Duration; Duration * Int -> Duration.
@@ -54,9 +54,9 @@ test "the rhs type selects the impl, and the impl decides the result type" {
 
     // Instant + Duration -> Instant, which is a different type entirely.
     assert Instant.to_seconds(Instant.from_seconds(7) + d) == 9
-}
+end
 
-test "Instant.between returns a Duration across the module boundary" {
+test "Instant.between returns a Duration across the module boundary"
     a = Instant.from_seconds(10)
     b = Instant.from_seconds(15)
 
@@ -66,17 +66,17 @@ test "Instant.between returns a Duration across the module boundary" {
     assert seconds_between(b, a) == -5
     assert seconds_between(a, a) == 0
     assert Duration.as_nanos(Instant.between(a, b)) == 5_000_000_000
-}
+end
 
-test "adding a Duration is associative with building one" {
+test "adding a Duration is associative with building one"
     start = Instant.from_seconds(0)
 
     assert Instant.to_seconds(start + Duration.seconds(1) + Duration.seconds(2)) == 3
 
     assert Instant.to_seconds(start + (Duration.seconds(1) + Duration.seconds(2))) == 3
-}
+end
 
-test "std/duration's package is pulled in transitively, with no Duration call here" {
+test "std/duration's package is pulled in transitively, with no Duration call here"
     base = Instant.from_seconds(100)
     a = Instant.from_seconds(10)
     b = Instant.from_seconds(15)
@@ -93,4 +93,4 @@ test "std/duration's package is pulled in transitively, with no Duration call he
 
     assert Instant.to_seconds(base + Instant.between(a, b)) == 105
     assert Instant.to_seconds(base + Instant.between(b, a)) == 95
-}
+end

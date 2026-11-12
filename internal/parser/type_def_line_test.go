@@ -21,7 +21,7 @@ func TestParse_TypeDefInnerTypeOnTheNamesLine(t *testing.T) {
 	}
 
 	// An inner type on a later line than the name is not one.
-	nodes = parse(t, "type Meters\nfn f() {}\n")
+	nodes = parse(t, "type Meters\nfn f() end\n")
 	if def, ok := nodes[0].(*ast.TypeDef); !ok || def.InnerTypeExpr != nil {
 		t.Fatalf("got %#v, want the zero-sized `type Meters`", nodes[0])
 	}

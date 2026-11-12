@@ -138,7 +138,7 @@ func parsesAsTypeLines(code string) bool {
 
 // parsesAsEnumBody reports whether the block is a list of bare enum variants.
 func parsesAsEnumBody(code string) bool {
-	return parses("enum _E {\n" + code + "\n}")
+	return parses("enum _E\n" + code + "\nend")
 }
 
 type specBlock struct {
@@ -259,7 +259,7 @@ func TestSpecExamples_PinnedDivergencesStillFail(t *testing.T) {
 // meant. Named literals are not flagged: `User{a: 1}` alone is a legitimate
 // "here is the expression" demonstration.
 //
-// The braces are caught in both shapes they can take. `.{status: 404}` parses
+// The braces are caught in both shapes they can take. `{status: 404}` parses
 // as an anonymous *ast.StructLit; `{}` — the detached form of `Response{}`,
 // a struct built entirely from field defaults — is ambiguous with a block and
 // the parser resolves it to an empty *ast.Block. A bare block at file scope is

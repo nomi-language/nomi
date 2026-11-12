@@ -13,8 +13,8 @@ func TestStdHostContextShadowDoesNotAnchor(t *testing.T) {
 		name string
 		src  string
 	}{
-		{"a struct", "pub struct Context {\n  n: Int\n}\n\nfn main() -> Unit {\n  _ = Context{n: 1}\n}\n"},
-		{"a distinct newtype", "pub type Context Int\n\nfn main() -> Unit {\n  _ = Context(1)\n}\n"},
+		{"a struct", "pub struct Context\n  n: Int\nend\n\nfn main() -> Unit\n  _ = Context{n: 1}\nend\n"},
+		{"a distinct newtype", "pub type Context Int\n\nfn main() -> Unit\n  _ = Context(1)\nend\n"},
 	} {
 		t.Run(shadow.name, func(t *testing.T) {
 			_, err := AnalyzeSource("m", shadow.src)
@@ -37,7 +37,7 @@ func TestStdHostContextShadowDoesNotAnchor(t *testing.T) {
 func TestStdHostContextAnchorsInStdAndInAnImporter(t *testing.T) {
 	// The IMPORTER door, through an ordinary user program.
 	p, err := AnalyzeSource("m", "\n\n"+
-		"fn main() -> Unit {\n  _ = Context.root()\n}\n")
+		"fn main() -> Unit\n  _ = Context.root()\nend\n")
 	if err != nil {
 		t.Fatalf("front end rejected the fixture: %v", err)
 	}

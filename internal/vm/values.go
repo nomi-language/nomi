@@ -306,7 +306,7 @@ var (
 		{Name: "env", Type: rt.SlotRef}, {Name: "args", Type: rt.SlotRef}})
 	setDesc   = structDesc("sets.Set", []rt.FieldSpec{{Name: "items", Type: rt.SlotRef}})
 	rangeDesc = structDesc("ranges.Range", []rt.FieldSpec{
-		{Name: "start", Type: rt.SlotRef}, {Name: "end", Type: rt.SlotRef}, {Name: "inclusive", Type: rt.SlotBool}})
+		{Name: "start", Type: rt.SlotRef}, {Name: "stop", Type: rt.SlotRef}, {Name: "inclusive", Type: rt.SlotBool}})
 )
 
 // The prelude's carrying enums, as values a host answers.

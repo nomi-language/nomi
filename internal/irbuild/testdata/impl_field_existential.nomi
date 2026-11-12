@@ -14,75 +14,75 @@ import std::io
 //
 // `Int` is stored into one as well, because a boxed builtin is the case where
 // the box holds a scalar rather than a record.
-interface Speech {
+interface Speech
     fn speak(animal: self) -> String
-}
+end
 
-interface Numberish {
+interface Numberish
     fn label(value: self, prefix: String) -> String
-}
+end
 
-struct Dog {
+struct Dog
     name: String
-}
+end
 
-struct Cat {
+struct Cat
     name: String
-}
+end
 
-impl Speech for Dog {
-    fn speak(d: Dog) -> String {
+impl Speech for Dog
+    fn speak(d: Dog) -> String
         "${d.name} says woof"
-    }
-}
+    end
+end
 
-impl Speech for Cat {
-    fn speak(c: Cat) -> String {
+impl Speech for Cat
+    fn speak(c: Cat) -> String
         "${c.name} says meow"
-    }
-}
+    end
+end
 
-impl Numberish for Int {
-    fn label(value: Int, prefix: String) -> String {
+impl Numberish for Int
+    fn label(value: Int, prefix: String) -> String
         "${prefix}=${value}"
-    }
-}
+    end
+end
 
-struct Pen {
+struct Pen
     label: String
     occupant: Speech
-}
+end
 
-struct Tally {
+struct Tally
     counted: Numberish
-}
+end
 
-fn describe(p: Pen) -> String {
+fn describe(p: Pen) -> String
     "${p.label}: ${Speech.speak(p.occupant)}"
-}
+end
 
-fn read_tally(t: Tally) -> String {
+fn read_tally(t: Tally) -> String
     Numberish.label(t.counted, "n")
-}
+end
 
 // The other half of the same rule, and the reason the output below can tell
 // the two apart: `rex` is statically a Dog, so the qualifier plus the
 // receiver's static type name exactly one function and this is a DIRECT call
 // with nothing boxed. Boxing here would be the silent answer the existential
 // decision warns about — a performance regression, never a wrong one.
-fn statically_known() -> String {
+fn statically_known() -> String
     rex = Dog{name: "Rex"}
     Speech.speak(rex)
-}
+end
 
 // A field is READ back into an interface-typed position without being
 // re-boxed: the identity travels with the value, so passing `p.occupant`
 // along costs nothing beyond the copy.
-fn relay(s: Speech) -> String {
+fn relay(s: Speech) -> String
     Speech.speak(s)
-}
+end
 
-fn main() {
+fn main()
     kennel = Pen{label: "kennel", occupant: Dog{name: "Rex"}}
     basket = Pen{label: "basket", occupant: Cat{name: "Whiskers"}}
     io.print(describe(kennel))
@@ -91,4 +91,4 @@ fn main() {
     io.print(relay(basket.occupant))
     io.print(statically_known())
     io.print(read_tally(Tally{counted: 42}))
-}
+end

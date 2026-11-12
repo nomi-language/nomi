@@ -1,29 +1,29 @@
 import std::io
 
-struct Circle {
+struct Circle
     radius: Int
-}
+end
 
-struct Rect {
+struct Rect
     width: Int
     height: Int
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     embeds Rect
     Point
-}
+end
 
-fn area(s: Shape) -> Int {
-    case s {
-        Shape.Circle{radius} -> radius * radius * 3
-        Shape.Rect{width, height} -> width * height
+fn area(s: Shape) -> Int
+    case s
+        Shape.Circle{radius:} -> radius * radius * 3
+        Shape.Rect{width:, height:} -> width * height
         Shape.Point -> 0
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     // Qualified construction: the payload is built and wrapped at the same site.
     io.print("${area(Shape.Circle{radius: 2})}")
     // SUBTYPE COERCION, argument position. `embeds Circle` makes Circle a
@@ -35,4 +35,4 @@ fn main() {
     s: Shape = Rect{width: 4, height: 5}
     io.print("${area(s)}")
     io.print("${area(Shape.Point)}")
-}
+end

@@ -12,41 +12,41 @@ func TestTypeQualifiedInheritedGenericDefault_Runs(t *testing.T) {
 	t.Run("same file", func(t *testing.T) {
 		got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
-struct Box {
+struct Box
     value: Int
-}
+end
 
-interface Pairs {
+interface Pairs
     fn pair<U>(b: self, u: U) -> (self, U)
 
-    fn second<U>(_b: self, u: U) -> U {
+    fn second<U>(_b: self, u: U) -> U
         u
-    }
-}
+    end
+end
 
-impl Pairs for Box {
-    fn pair<U>(b: Box, u: U) -> (Box, U) {
+impl Pairs for Box
+    fn pair<U>(b: Box, u: U) -> (Box, U)
         (b, u)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     b = Box{ value: 1 }
     io.inspect(Pairs.second(b, 2.5))
     io.inspect(Box.second(b, "x"))
     io.inspect(Box.second(b, [1, 2]))
     f = &Box.second(b, &1)
     io.inspect(f(True))
-}
+end
 `})
 		if want := "2.5\n\"x\"\n[1, 2]\nTrue\n"; got != want {
 			t.Fatalf("output %q, want %q", got, want)
 		}
 	})
 	t.Run("another file", func(t *testing.T) {
-		main := "import {\n    std::io\n    leaf\n    leaf.{Box, Pairs}\n}\n\n" +
-			"fn main() {\n    b = Box{ value: 1 }\n    io.inspect(Pairs.second(b, 0))\n" +
-			"    io.inspect(Box.second(b, \"y\"))\n    io.inspect(leaf.Box.second(b, 3))\n}\n"
+		main := "import\n    std::io\n    leaf\n    leaf.{Box, Pairs}\nend\n\n" +
+			"fn main()\n    b = Box{ value: 1 }\n    io.inspect(Pairs.second(b, 0))\n" +
+			"    io.inspect(Box.second(b, \"y\"))\n    io.inspect(leaf.Box.second(b, 3))\nend\n"
 		got := runSiblingProgram(t, map[string]string{"leaf.nomi": siblingGenericLeaf, "main.nomi": main})
 		if want := "0\n\"y\"\n3\n"; got != want {
 			t.Fatalf("output %q, want %q", got, want)

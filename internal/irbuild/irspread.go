@@ -1,12 +1,12 @@
 package irbuild
 
 // A list, vector, set or map literal with spreads that is not one of the
-// forms with a lowering of their own: `[..xs, y]`, `#[x, ..v, y]`,
-// `%[..s, ..t]`, `%{"a" => 1, ..m}`. The forms with one spread where it
+// forms with a lowering of their own: `[..xs, y]`, `[x, ..v, y]`,
+// `[..s, ..t]`, `{"a" => 1, ..m}`. The forms with one spread where it
 // shares the existing collection keep theirs: a list's spread written last
 // (`[x, ..xs]`, the elements consed onto it, listMake), a vector's at
 // either end (vectorUpdate), and a set's or map's written first
-// (`%[..s, x]`, setUpdate; `%{..m, k => v}`, mapUpdate).
+// (`[..s, x]`, setUpdate; `{..m, k => v}`, mapUpdate).
 //
 // A spread in a list, vector or set literal may be any Iter of the
 // literal's elements (a Maybe, a Set in a list, an Iter chain): it is
@@ -124,7 +124,7 @@ func (bl *irScalarBuilder) spreadHeads(spreads []ast.Spread, join spreadJoin) ([
 // collection of that shape: a spread of the shape as it is, and any other
 // Iter (a Maybe, a Range, a Set in a list, an Iter chain) materialized with
 // join's `Iter` function, `Iter.to_list(p)`, as the checker allows
-// (spreadElemType). An empty literal of another shape (`%[]` in a list)
+// (spreadElemType). An empty literal of another shape (`[]` in a list)
 // spreads nothing, so it is the shape's empty literal.
 func (bl *irScalarBuilder) collectSpread(p spreadPart, join spreadJoin) (spreadPart, bool) {
 	if join.collect == "" || join.typed(p.k) || p.k == join.empty {
@@ -152,7 +152,7 @@ func (bl *irScalarBuilder) collectSpread(p spreadPart, join spreadJoin) (spreadP
 	line, col := nodePos(p.at)
 	call := &ast.Call{Line: line, Col: col, Args: []ast.Node{p.at}}
 	args := irQualArgs{temps: []ir.Temp{p.v}, kinds: []kind{p.k}, mobile: []bool{true}, ok: true}
-	v, k, _, ok := bl.iterCall(call, args, join.collect)
+	v, k, _, ok := bl.iterCall(call, args, join.collect, nil)
 	if !ok || !join.typed(k) {
 		bl.g.dc.note("a spread of kind " + p.k.nomi() + " that Iter." + join.collect + " does not make a collection")
 		return spreadPart{}, false
@@ -168,11 +168,7 @@ func (bl *irScalarBuilder) spreadKind(at ast.Node, heads []spreadPart, join spre
 			return h.k, true
 		}
 	}
-	ty := bl.g.checkedExprType(at)
-	if ty != nil && irUnsolvedType(ty) {
-		ty = irFillHolesByPosition(ty, false)
-	}
-	parts := bl.literalPartsOf(ty, join.of)
+	parts := bl.literalPartsOf(bl.g.checkedExprType(at), join.of)
 	if parts == nil {
 		bl.g.dc.note("a collection literal with spreads whose kind is open")
 		return kindInvalid, false
@@ -187,7 +183,7 @@ func (bl *irScalarBuilder) spreadKind(at ast.Node, heads []spreadPart, join spre
 }
 
 // joinSpreadParts joins two parts of a literal of kind k with join, each
-// coerced to k first (an empty spread, `%{}`, takes the literal's kind).
+// coerced to k first (an empty spread, `{}`, takes the literal's kind).
 func (bl *irScalarBuilder) joinSpreadParts(at ast.Node, a, b spreadPart, k kind, join spreadJoin) (spreadPart, bool) {
 	var ok bool
 	if a.v, a.k, ok = bl.coerceEmpty(a.at, a.v, a.k, k); !ok || a.k != k {
@@ -306,7 +302,7 @@ func (bl *irScalarBuilder) seqSpreadLit(at ast.Node, items []ast.Node, spreads [
 
 // listSpreadLit lowers a list literal with spreads other than one written
 // last.
-func (bl *irScalarBuilder) listSpreadLit(t *ast.ListSpreadLit) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) listSpreadLit(t *ast.ListLit) (ir.Temp, kind, bool, bool) {
 	return bl.seqSpreadLit(t, t.Items, t.Spreads, listSpreadJoin, func(items []ast.Node, elem kind) (ir.Temp, kind, bool, bool) {
 		return bl.listMakeOf(t, items, nil, elem)
 	})
@@ -314,7 +310,7 @@ func (bl *irScalarBuilder) listSpreadLit(t *ast.ListSpreadLit) (ir.Temp, kind, b
 
 // vectorSpreadLit lowers a vector literal with spreads other than one at
 // either end.
-func (bl *irScalarBuilder) vectorSpreadLit(t *ast.VectorLit) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) vectorSpreadLit(t *ast.ListLit) (ir.Temp, kind, bool, bool) {
 	return bl.seqSpreadLit(t, t.Items, t.Spreads, vectorSpreadJoin, func(items []ast.Node, elem kind) (ir.Temp, kind, bool, bool) {
 		run := *t
 		run.Items, run.Spreads = items, nil
@@ -324,7 +320,7 @@ func (bl *irScalarBuilder) vectorSpreadLit(t *ast.VectorLit) (ir.Temp, kind, boo
 
 // setSpreadLit lowers a set literal with spreads other than one written
 // first.
-func (bl *irScalarBuilder) setSpreadLit(t *ast.SetLit) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) setSpreadLit(t *ast.ListLit) (ir.Temp, kind, bool, bool) {
 	return bl.seqSpreadLit(t, t.Items, t.Spreads, setSpreadJoin, func(items []ast.Node, elem kind) (ir.Temp, kind, bool, bool) {
 		run := *t
 		run.Items, run.Spreads = items, nil
@@ -334,7 +330,7 @@ func (bl *irScalarBuilder) setSpreadLit(t *ast.SetLit) (ir.Temp, kind, bool, boo
 
 // mapSpreadLit lowers a map literal with spreads other than one written
 // first. The parts are joined from the left, and a run of entries after a
-// spread whose value is an update literal (`"k" => %{.., "a" => 1}`) reads
+// spread whose value is an update literal (`"k" => {.., "a" => 1}`) reads
 // the value at its key from the map the parts before it make.
 func (bl *irScalarBuilder) mapSpreadLit(t *ast.MapLit) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }

@@ -1,7 +1,7 @@
-pub struct Banner {
+pub struct Banner
     text: String
-}
+end
 
-pub fn shout(b: Banner) -> String {
+pub fn shout(b: Banner) -> String
     b.text
-}
+end

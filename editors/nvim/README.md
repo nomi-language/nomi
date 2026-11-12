@@ -264,7 +264,7 @@ setting:
 |---|---|---|
 | `inlayHints.pipeTypes` | on | the type a stage line of a multi-line pipeline produces, at the end of the line, where it changes |
 | `inlayHints.parameterNames` | on | `x:` before a positional argument |
-| `inlayHints.bindingTypes` | on | `: Int` after an unannotated binding or lambda parameter |
+| `inlayHints.bindingTypes` | on | `: Int` after an unannotated binding or lambda parameter, and `From<E>` after a `?` that converts its error |
 
 Neovim shows inlay hints only where they are enabled
 (`vim.lsp.inlay_hint.enable(true)`; LazyVim enables them for every buffer

@@ -14,26 +14,26 @@ func TestIRLambdaAtIterResult_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn main() {
-    fn cb1(xs: List<Int>) -> List<Int> {
+fn main()
+    fn cb1(xs: List<Int>) -> List<Int>
         xs
-    }
+    end
     io.inspect(cb1(Iter.filter(Maybe.map(Some(Some(0.5)), fn _ -> [20]) |> Maybe.with_default([4]), fn y -> y == y) |> Iter.to_list()))
     io.inspect(cb1(Iter.to_list(Maybe.with_default(Maybe.map(Some(1), fn n -> [n, n]), [4]))))
     io.inspect(cb1(Iter.to_list(Maybe.with_default(Maybe.map(None, fn n: Int -> [n]), [4]))))
     f: (Int) -> Iter<Int> = fn _ -> [20]
     io.inspect(Iter.to_list(f(1)))
-    g: (Int) -> Iter<Int> = fn n -> if n > 0 { [n] } else { [] }
+    g: (Int) -> Iter<Int> = fn n -> if n > 0 then [n] else []
     io.inspect(Iter.to_list(g(0)))
-    h: (Int) -> Iter<Int> = fn n -> {
-        if n > 5 {
+    h: (Int) -> Iter<Int> = fn n ->
+        if n > 5 then
             return [5]
-        }
+        end
         [n, n]
-    }
+    end
     io.inspect(Iter.to_list(h(9)))
     io.inspect(Iter.to_list(h(1)))
-}
+end
 `
 	const want = "[20]\n" +
 		"[1, 1]\n" +

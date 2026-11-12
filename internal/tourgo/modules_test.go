@@ -10,13 +10,13 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
-const firstQuery = `import {
+const firstQuery = `import
     std::io
     std::sql.{self, Conn, Error, Row, Sql}
     sqlite
-}
+end
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     db = sqlite.memory()?
     defer sql.close_quietly(db)
 
@@ -26,13 +26,13 @@ fn main() -> Result<Unit, Error> {
     lines = (rows |> Iter.map(note_line) |> Result.collect())?
     Iter.each(lines, io.print)
     Ok(Unit)
-}
+end
 
-fn note_line(row: Row) -> Result<String, Error> {
+fn note_line(row: Row) -> Result<String, Error>
     id = Row.get<Int>(row, "id")?
     body = Row.get<String>(row, "body")?
     Ok("${id}: ${body}")
-}
+end
 `
 
 // A block that imports a tour module gets the module's files attached,
@@ -54,7 +54,7 @@ func TestSourceAttachesTheModulesABlockImports(t *testing.T) {
 	if got := tourgo.Unlinked(firstQuery); strings.Join(got, ",") != "sqlite" {
 		t.Fatalf("Unlinked outside the browser: %q", got)
 	}
-	plain := "import std::io\n\nfn main() {\n    io.print(\"sqlite\")\n}\n"
+	plain := "import std::io\n\nfn main()\n    io.print(\"sqlite\")\nend\n"
 	if got := tourgo.Source(plain); got != plain || len(tourgo.Unlinked(plain)) != 0 {
 		t.Fatalf("a block that imports no tour module changed:\n%s", got)
 	}

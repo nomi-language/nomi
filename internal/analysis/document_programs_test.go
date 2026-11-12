@@ -188,7 +188,7 @@ func TestOpenDocumentAfterSeveralFilesChange(t *testing.T) {
 			"palette": strings.Replace(p.texts["palette"], `"red"`, `"blue"`, 1),
 		}, "bodies"},
 		{"a signature and a body", map[string]string{
-			"view": strings.Replace(p.texts["view"], "pub fn show(item: Item) -> String {", "pub fn show(item: Item, prefix: String = \"\") -> String {", 1),
+			"view": strings.Replace(p.texts["view"], "pub fn show(item: Item) -> String", "pub fn show(item: Item, prefix: String = \"\") -> String", 1),
 		}, "dependents"},
 		{"back", map[string]string{"view": p.texts["view"], "palette": p.texts["palette"]}, "dependents"},
 	} {

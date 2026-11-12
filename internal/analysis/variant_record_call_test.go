@@ -10,29 +10,29 @@ import (
 // one: the record of an inline variant's fields, or the embedded struct. It
 // had no type recorded, though the call had the enum's.
 func TestVariantCtor_RecordCallFormTypesItsLiteral(t *testing.T) {
-	src := `struct Circle {
+	src := `struct Circle
     radius: Float
-}
+end
 
-enum Pay {
+enum Pay
     Has {a: Int, b: String}
     embeds Circle
     Gone
-}
+end
 
-fn has() -> Pay {
-    Pay.Has(.{a: 1, b: "x"})
-}
+fn has() -> Pay
+    Pay.Has({a: 1, b: "x"})
+end
 
-fn circle() -> Pay {
-    Pay.Circle(.{radius: 1.0})
-}
+fn circle() -> Pay
+    Pay.Circle({radius: 1.0})
+end
 `
 	fa, nodes := checkNodes(t, src)
 	for _, u := range UnresolvedExprs(fa, nodes) {
 		t.Errorf("%d:%d: %s %s has %s", u.Line, u.Col, u.Node.NodeType(), u.Where, u.Missing)
 	}
-	want := map[int]string{12: ".{a: Int, b: String}", 16: "Circle"}
+	want := map[int]string{12: "{a: Int, b: String}", 16: "Circle"}
 	for _, node := range nodes {
 		ast.Inspect(node, func(n ast.Node) bool {
 			lit, ok := n.(*ast.StructLit)

@@ -22,7 +22,7 @@ func parsePatternBinding(t *testing.T, source string) *ast.PatternBinding {
 }
 
 func TestPatternBindingElse_Block(t *testing.T) {
-	pb := parsePatternBinding(t, "Some(email) = user.email else {\n    return Err(\"none\")\n}")
+	pb := parsePatternBinding(t, "Some(email) = user.email else\n    return Err(\"none\")\nend")
 	ep, ok := pb.Pattern.(*ast.EnumPattern)
 	if !ok || ep.Binding != "email" {
 		t.Fatalf("pattern: got %#v", pb.Pattern)
@@ -42,7 +42,7 @@ func TestPatternBindingElse_Block(t *testing.T) {
 }
 
 func TestPatternBindingElse_Arms(t *testing.T) {
-	pb := parsePatternBinding(t, "Ok(user) = load(id) else {\n    Err(NotFound) -> return 1\n    Err(e) when e == 2 -> 8080\n}")
+	pb := parsePatternBinding(t, "Ok(user) = load(id) else\n    Err(NotFound) -> return 1\n    Err(e) when e == 2 -> 8080\nend")
 	if pb.Else == nil || pb.Else.Block != nil || len(pb.Else.Arms) != 2 {
 		t.Fatalf("else: want two arms, got %#v", pb.Else)
 	}
@@ -52,8 +52,8 @@ func TestPatternBindingElse_Arms(t *testing.T) {
 	if pb.Else.Arms[1].Guard == nil {
 		t.Fatalf("second arm: want a guard")
 	}
-	if pb.Else.LBraceLine != 1 || pb.Else.LBraceCol != 26 || pb.Else.EndLine != 4 || pb.Else.EndCol != 1 {
-		t.Fatalf("braces: { at %d:%d, } at %d:%d", pb.Else.LBraceLine, pb.Else.LBraceCol, pb.Else.EndLine, pb.Else.EndCol)
+	if pb.Else.Line != 1 || pb.Else.Col != 21 || pb.Else.EndLine != 4 || pb.Else.EndCol != 1 {
+		t.Fatalf("positions: else at %d:%d, end at %d:%d", pb.Else.Line, pb.Else.Col, pb.Else.EndLine, pb.Else.EndCol)
 	}
 }
 
@@ -61,10 +61,10 @@ func TestPatternBindingElse_Arms(t *testing.T) {
 // the item looks like.
 func TestPatternBindingElse_BlockStartingWithAPatternShape(t *testing.T) {
 	for _, src := range []string{
-		"Ok((w, h)) = parse(text) else { (80, 24) }",
-		"Some(e) = m else { \"none\" }",
-		"Some(e) = m else {\n    x = 1\n    \"${x}\"\n}",
-		"Some(e) = m else { continue }",
+		"Ok((w, h)) = parse(text) else\n    (80, 24)\nend",
+		"Some(e) = m else\n    \"none\"\nend",
+		"Some(e) = m else\n    x = 1\n    \"${x}\"\nend",
+		"Some(e) = m else\n    continue\nend",
 	} {
 		pb := parsePatternBinding(t, src)
 		if pb.Else == nil || pb.Else.Block == nil {
@@ -77,14 +77,14 @@ func TestPatternBindingElse_BlockStartingWithAPatternShape(t *testing.T) {
 // without else; the checker decides whether the pattern can fail.
 func TestPatternBindingElse_GeneralPatterns(t *testing.T) {
 	for src, pattern := range map[string]string{
-		"Ok((w, h)) = parse(text) else { (80, 24) }":       "*ast.EnumPattern",
-		"[first, ..rest] = xs else { return 0 }":           "*ast.ListPattern",
-		".Valid{addr, score} = check(x) else { return 0 }": "*ast.StructPattern",
-		"Ok(Some(n)) = r":                     "*ast.EnumPattern",
-		"(Some(a), b) = p else { return 0 }":  "*ast.TuplePattern",
-		"%{\"k\" => v} = m else { return 0 }": "*ast.MapPattern",
-		"x = 5 else { return 0 }":             "*ast.IdentPattern",
-		"(a, b) = p else { return 0 }":        "*ast.TuplePattern",
+		"Ok((w, h)) = parse(text) else\n    (80, 24)\nend":         "*ast.EnumPattern",
+		"[first, ..rest] = xs else\n    return 0\nend":             "*ast.ListPattern",
+		".Valid{addr:, score:} = check(x) else\n    return 0\nend": "*ast.StructPattern",
+		"Ok(Some(n)) = r":                          "*ast.EnumPattern",
+		"(Some(a), b) = p else\n    return 0\nend": "*ast.TuplePattern",
+		"{\"k\" => v} = m else\n    return 0\nend": "*ast.MapPattern",
+		"x = 5 else\n    return 0\nend":            "*ast.IdentPattern",
+		"(a, b) = p else\n    return 0\nend":       "*ast.TuplePattern",
 	} {
 		pb := parsePatternBinding(t, src)
 		if got := typeName(pb.Pattern); got != pattern {
@@ -113,7 +113,7 @@ func typeName(n ast.Node) string {
 
 // `else` may sit on the line after the value, as an if's may.
 func TestPatternBindingElse_ElseOnNextLine(t *testing.T) {
-	pb := parsePatternBinding(t, "Some(e) = m\nelse { return 0 }")
+	pb := parsePatternBinding(t, "Some(e) = m\nelse\n    return 0\nend")
 	if pb.Else == nil || pb.Else.Line != 2 {
 		t.Fatalf("else: got %#v", pb.Else)
 	}
@@ -122,16 +122,16 @@ func TestPatternBindingElse_ElseOnNextLine(t *testing.T) {
 // Without else, the destructure statements keep their own nodes.
 func TestPatternBindingElse_DestructuresWithoutElseUnchanged(t *testing.T) {
 	for src, want := range map[string]string{
-		"Some(x) = m":  "*ast.DistinctDestructure",
-		"(a, b) = p":   "*ast.TupleDestructure",
-		".{a, b} = p":  "*ast.StructDestructure",
-		"x = 5":        "*ast.Binding",
-		"io.print(x)":  "*ast.ExprStmt",
-		"[1, 2] |> f":  "*ast.ExprStmt",
-		"{ x }":        "*ast.ExprStmt",
-		"Foo{a: 1}":    "*ast.ExprStmt",
-		"a == b":       "*ast.ExprStmt",
-		"\"s\" |> f()": "*ast.ExprStmt",
+		"Some(x) = m":           "*ast.DistinctDestructure",
+		"(a, b) = p":            "*ast.TupleDestructure",
+		"{a:, b:} = p":          "*ast.StructDestructure",
+		"x = 5":                 "*ast.Binding",
+		"io.print(x)":           "*ast.ExprStmt",
+		"[1, 2] |> f":           "*ast.ExprStmt",
+		"begin\n    x + 1\nend": "*ast.ExprStmt",
+		"Foo{a: 1}":             "*ast.ExprStmt",
+		"a == b":                "*ast.ExprStmt",
+		"\"s\" |> f()":          "*ast.ExprStmt",
 	} {
 		nodes := parse(t, src)
 		if len(nodes) != 1 {
@@ -160,9 +160,9 @@ func TestPatternBindingElse_DestructuresWithoutElseUnchanged(t *testing.T) {
 
 func TestPatternBindingElse_ParseErrors(t *testing.T) {
 	for src, want := range map[string]string{
-		"x: Int = 5 else { return 0 }":          "this pattern always matches; remove the else",
-		"Some(x) = m else return 0":             "expected '{' after else: a binding's else is a braced block",
-		"Some(x) = m else {\n    Err(e) -> 1\n": "expected '}' to close else",
+		"x: Int = 5 else return 0":            "this pattern always matches; remove the else",
+		"Some(x) = m else\n    return 0\n":    "expected `end` to close a binding's `else`",
+		"Some(x) = m else\n    Err(e) -> 1\n": "expected `end` to close the `else`",
 	} {
 		_, err := Parse(lexer.Lex(src))
 		if err == nil || !strings.Contains(err.Error(), want) {
@@ -175,13 +175,13 @@ func TestPatternBindingElse_ParseErrors(t *testing.T) {
 // is a case arm's, with or without a name for the rest, and the else is kept.
 func TestPatternBindingElse_VectorPatternWithTails(t *testing.T) {
 	for src, rest := range map[string]bool{
-		"#[1, .., 3] = v else {\n    return False\n}":      false,
-		"#[a, ..mid, z] = v else {\n    return False\n}":   true,
-		"#[Some(a), .., (b, _)] = v else { return False }": false,
+		"[1, .., 3] = v else\n    return False\nend":            false,
+		"[a, ..mid, z] = v else\n    return False\nend":         true,
+		"[Some(a), .., (b, _)] = v else\n    return False\nend": false,
 	} {
 		pb := parsePatternBinding(t, src)
-		vp, ok := pb.Pattern.(*ast.VectorPattern)
-		if !ok || !vp.Spread || len(vp.Heads) != 1 || len(vp.Tails) != 1 || (vp.Rest != nil) != rest {
+		vp, ok := pb.Pattern.(*ast.ListPattern)
+		if !ok || vp.TailSpread == nil || len(vp.Heads) != 1 || len(vp.Tails) != 1 || (vp.Rest() != nil) != rest {
 			t.Errorf("%q: pattern %#v", src, pb.Pattern)
 		}
 		if pb.Else == nil || pb.Else.Block == nil {
@@ -194,9 +194,9 @@ func TestPatternBindingElse_VectorPatternWithTails(t *testing.T) {
 // is a case arm's, with or without a name for the rest, and the else is kept.
 func TestPatternBindingElse_ListPatternWithTails(t *testing.T) {
 	for src, rest := range map[string]bool{
-		"[first, .., last] = xs else {\n    return 0\n}":               false,
-		"[\"graph {\", ..body, \"}\"] = lines else {\n    return 0\n}": true,
-		"[Some(a), .., (b, _)] = xs else { return 0 }":                 false,
+		"[first, .., last] = xs else\n    return 0\nend":               false,
+		"[\"graph {\", ..body, \"}\"] = lines else\n    return 0\nend": true,
+		"[Some(a), .., (b, _)] = xs else\n    return 0\nend":           false,
 	} {
 		pb := parsePatternBinding(t, src)
 		lp, ok := pb.Pattern.(*ast.ListPattern)

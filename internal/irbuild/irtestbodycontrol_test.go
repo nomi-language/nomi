@@ -84,41 +84,41 @@ func irTestBodyVM(t *testing.T, src string, wantCases int) string {
 // Debug `1..4`. The Debug form equals the operand text, so rt.RecordOperand
 // would drop the row altogether. Debug.inspect of a Range keeps `1..4`.
 func TestIRTestBody_RangeRowsAreStructural(t *testing.T) {
-	const retained = `test "a range literal argument" {
+	const retained = `test "a range literal argument"
   assert Iter.count(1..4) == 4
-}
+end
 
-test "a bound range" {
+test "a bound range"
   r = 1..=5
   assert Iter.count(r) == 4
-}
+end
 `
 	const native = `import std::io
 
-test "two ranges compared" {
+test "two ranges compared"
   assert 1..4 == 1..5
-}
+end
 
-test "an unbounded range" {
+test "an unbounded range"
   assert Iter.known_count(Range.from(3)) == Some(1)
-}
+end
 
-test "a float interval" {
+test "a float interval"
   assert Range.contains(0.5..1.5, 2.0)
-}
+end
 
-test "debug keeps the range syntax" {
+test "debug keeps the range syntax"
   io.inspect(1..4)
   io.inspect([1..=2, 3..4])
   assert Debug.inspect(1..=3) == "1..=3"
-}
+end
 `
 	out := irTestBodyVM(t, retained, 2) + irTestBodyVM(t, native, 0)
 	for _, want := range []string{
-		"= Range{end: Some(4), inclusive: False, start: 1}",
-		"= Range{end: Some(5), inclusive: True, start: 1}",
-		"= Range{end: None, inclusive: False, start: 3}",
-		"= Range{end: Some(1.5), inclusive: False, start: 0.5}",
+		"= Range{inclusive: False, start: 1, stop: Some(4)}",
+		"= Range{inclusive: True, start: 1, stop: Some(5)}",
+		"= Range{inclusive: False, start: 3, stop: None}",
+		"= Range{inclusive: False, start: 0.5, stop: Some(1.5)}",
 		"  1..4\n  [1..=2, 3..4]\n",
 	} {
 		if !strings.Contains(out, want) {
@@ -134,149 +134,144 @@ test "debug keeps the range syntax" {
 // differed inside a branch would show.
 const irTestBodyControlSource = `import std::io
 
-enum Code {
+enum Code
   Num(Int)
   Word(String)
   Blank
-}
+end
 
-fn parse(s: String) -> Result<Int, String> {
-  case s {
+fn parse(s: String) -> Result<Int, String>
+  case s
     "one" -> Ok(1)
     _ -> Err("not a number: " + s)
-  }
-}
+  end
+end
 
-fn found(n: Int) -> Maybe<Int> {
-  if n > 0 { Some(n) } else { None }
-}
+fn found(n: Int) -> Maybe<Int>
+  if n > 0 then Some(n) else None
+end
 
-fn three() -> Code {
+fn three() -> Code
   Code.Num(3)
-}
+end
 
-test "an if statement asserts in its taken arm" {
+test "an if statement asserts in its taken arm"
   n = 4
-  if n > 3 {
+  if n > 3 then
     assert n * 2 == 8
     io.print("then")
-  } else {
+  else
     assert n == 0
     io.print("else")
-  }
+  end
   io.print("after if")
-}
+end
 
-test "a failing assertion inside an else arm" {
+test "a failing assertion inside an else arm"
   n = 1
-  if n > 3 {
+  if n > 3 then
     assert n == 4
-  } else {
+  else
     doubled = n * 2
     matches = doubled == 3
     assert matches
-  }
-}
+  end
+end
 
-test "an if without else and an else-if chain" {
+test "an if without else and an else-if chain"
   n = 7
-  if n == 7 {
+  if n == 7 then
     io.print("seven")
-  }
-  if n < 5 {
+  end
+  if n < 5 then
     io.print("small")
-  } else if n < 10 {
+  else if n < 10 then
     io.print("medium")
     assert n < 9
     io.print("checked")
-  } else {
+  else
     io.print("large")
-  }
-}
+  end
+end
 
-test "a case statement over an Int" {
+test "a case statement over an Int"
   n = 2
-  case n {
+  case n
     1 -> False
-    2 -> {
+    2 ->
       label = "two"
       assert label == "three"
-    }
     _ -> True
-  }
-}
+  end
+end
 
-test "a case statement over a user enum" {
+test "a case statement over a user enum"
   c = Code.Word("hi")
-  case c {
-    Code.Num(n) -> {
+  case c
+    Code.Num(n) ->
       assert n == 3
       io.print("num")
-    }
-    Code.Word(w) -> {
+    Code.Word(w) ->
       io.print(w)
       assert String.length(w) == 2
       io.print("word")
-    }
     Code.Blank -> io.print("blank")
-  }
+  end
   io.print("after case")
-}
+end
 
-test "a case statement over Maybe and Result constructors" {
-  case found(5) {
-    Some(v) -> {
+test "a case statement over Maybe and Result constructors"
+  case found(5)
+    Some(v) ->
       assert v == 5
       io.print("some")
-    }
     None -> io.print("none")
-  }
-  case parse("x") {
+  end
+  case parse("x")
     Ok(v) -> assert v == 1
     Err(e) -> assert e == "not a number: y"
-  }
-}
+  end
+end
 
-test "constructors compared in assertions" {
+test "constructors compared in assertions"
   assert found(2) == Some(2)
   assert parse("one") == Ok(1)
   assert Code.Word(_) = three()
-}
+end
 
-test "a pattern if statement and a pattern if value" {
+test "a pattern if statement and a pattern if value"
   c = three()
-  if Code.Num(n) = c {
+  if Code.Num(n) = c then
     io.print(n)
-  }
-  got = if Code.Num(n) = c {
+  end
+  got = if Code.Num(n) = c then
     n
-  } else {
+  else
     0
-  }
+  end
   assert got == 4
-}
+end
 
-test "a case statement over a list" {
+test "a case statement over a list"
   xs = [1, 2, 3]
-  case xs {
+  case xs
     [] -> io.print("empty")
-    [h, ..t] -> {
+    [h, ..t] ->
       assert h == 1
       assert t == [3]
       io.print("unreached")
-    }
-  }
-}
+  end
+end
 
-test "a case value binding" {
+test "a case value binding"
   n = 3
-  word = case n {
+  word = case n
     1 -> "one"
     3 -> "three"
     _ -> "many"
-  }
+  end
   assert word == "tree"
-}
+end
 `
 
 func TestIRTestBody_ControlFlowAndConstructorsAgree(t *testing.T) {
@@ -395,13 +390,13 @@ func TestIRTestBody_WalkOnlyBoundaries(t *testing.T) {
 	// lists of a user distinct, whose literal backlog-types builds.
 	const src = `type Id Int
 
-test "two vectors compared with ==" {
-  assert #[1, 2] == #[1, 2]
-}
+test "two vectors compared with =="
+  assert Vector[1, 2] == Vector[1, 2]
+end
 
-test "two lists of a distinct compared with ==" {
+test "two lists of a distinct compared with =="
   assert [Id(1)] == [Id(1)]
-}
+end
 `
 	path := filepath.Join(t.TempDir(), "boundary_test.nomi")
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
@@ -431,34 +426,38 @@ test "two lists of a distinct compared with ==" {
 // declared at its own place in the module's test table: between read-back
 // cases, after a grouped case, and before a later walk-only one.
 func TestIRTestBody_WalkOnlyCasesKeepDeclarationOrder(t *testing.T) {
-	const src = `test "first, read back" {
+	const src = `test "first, read back"
   assert 1 + 1 == 2
-}
+end
 
-test "second, walk-only" {
+test "second, walk-only"
   x = 3
-  if x > 2 { assert x == 3 } else { assert x == 0 }
-}
+  if x > 2 then
+      assert x == 3
+  else
+      assert x == 0
+  end
+end
 
-group "grouped" {
-  setup .{n: 5}
+group "grouped"
+  setup {n: 5}
 
-  test "third, grouped", .{n} {
+  test "third, grouped", {n:}
     assert n == 5
-  }
-}
+  end
+end
 
-test "fourth, read back" {
+test "fourth, read back"
   assert "a" + "b" == "ab"
-}
+end
 
-test "fifth, walk-only and failing" {
+test "fifth, walk-only and failing"
   y = 1
-  case y {
+  case y
     1 -> assert y == 2
     _ -> assert False
-  }
-}
+  end
+end
 `
 	out := irTestBodyVM(t, src, 5)
 	var order []string
@@ -482,53 +481,52 @@ test "fifth, walk-only and failing" {
 func TestIRTestBody_ReturnArmInAssertionSubject(t *testing.T) {
 	out := irTestBodyVM(t, `import std::io
 
-fn get(ok: Bool) -> Result<String, String> {
-  if ok {
+fn get(ok: Bool) -> Result<String, String>
+  if ok then
     Ok("x")
-  } else {
+  else
     Err("no")
-  }
-}
+  end
+end
 
-fn bye() {
+fn bye()
   io.print("deferred")
-}
+end
 
-test "a return arm ends the case" {
+test "a return arm ends the case"
   defer bye()
-  assert case get(False) {
+  assert case get(False)
     Ok(d) -> d
     Err(_) -> return
-  } == "y"
+  end == "y"
   io.print("not reached")
-}
+end
 
-test "the other arm is the subject" {
-  assert case get(True) {
+test "the other arm is the subject"
+  assert case get(True)
     Ok(d) -> d
     Err(_) -> return
-  } == "y"
-}
+  end == "y"
+end
 
-test "an arm's block that leaves" {
-  assert case get(False) {
+test "an arm's block that leaves"
+  assert case get(False)
     Ok(d) -> d
-    Err(e) -> {
-      {
+    Err(e) ->
+      begin
         io.print("left with ${e}")
         return
-      }
-    }
-  } == "y"
-}
+      end
+  end == "y"
+end
 
-test "a subject's operand that leaves" {
-  assert "x" == {
+test "a subject's operand that leaves"
+  assert "x" == begin
     io.print("operand left")
     return
-  }
+  end
   io.print("not reached")
-}
+end
 `, 4)
 	for _, want := range []string{"deferred", "= \"x\"", "left with no", "operand left"} {
 		if !strings.Contains(out, want) {
@@ -543,18 +541,18 @@ test "a subject's operand that leaves" {
 // An assertion in a function whose subject has an operand that leaves
 // returns there, judging nothing, as a binding of the same value does.
 func TestIRTestBody_AssertionOperandLeavesAFunction(t *testing.T) {
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
   std::assertions.AssertionFailure
   std::io
-}
-fn f(n: Int) -> Result<Int, AssertionFailure> {
-  assert n == {
+end
+fn f(n: Int) -> Result<Int, AssertionFailure>
+  assert n == begin
     io.print("leaving")
     return Ok(7)
-  }
+  end
   Ok(1)
-}
-fn main() {
+end
+fn main()
   io.inspect(f(1))
-}`, "leaving\nOk(7)\n")
+end`, "leaving\nOk(7)\n")
 }

@@ -164,7 +164,7 @@ func waitText(t *testing.T, s *Server, uri, text string) {
 const entryToml = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
 
 func lowerOnEditSource(marker string) string {
-	return "// " + marker + "\nfn main() {}\n"
+	return "// " + marker + "\nfn main() end\n"
 }
 
 // A burst of edits is lowered once, after it, as its last text.

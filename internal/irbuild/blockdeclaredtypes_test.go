@@ -12,82 +12,81 @@ func TestIRBlockDeclaredTypes_RunAnywhere(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn pick(c: Bool) -> Int {
-    if c {
-        struct A {
+fn pick(c: Bool) -> Int
+    if c then
+        struct A
             n: Int
-        }
+        end
         A{n: 1}.n
-    } else {
-        enum B {
+    else
+        enum B
             One
             Two Int
-        }
-        case B.Two(5) {
+        end
+        case B.Two(5)
             .One -> 0
             .Two(n) -> n
-        }
-    }
-}
+        end
+    end
+end
 
-fn main() {
-    {
-        struct P<T> {
+fn main()
+    begin
+        struct P<T>
             a: T
-        }
+        end
         type Meters Int
         io.inspect(P{a: Meters(3)})
-        {
-            struct Inner {
+        begin
+            struct Inner
                 p: P<Int>
-            }
-            fn get(i: Inner) -> Int {
+            end
+            fn get(i: Inner) -> Int
                 i.p.a
-            }
+            end
             io.inspect(get(Inner{p: P{a: 4}}))
-        }
-    }
-    x = {
-        struct C {
+        end
+    end
+    x = begin
+        struct C
             c: Int
-        }
+        end
         C{c: 6}.c
-    }
+    end
     io.inspect(x)
-    io.inspect({
-        struct D {
+    io.inspect(begin
+        struct D
             d: Int
-        }
+        end
         D{d: 7}
-    })
+    end)
     io.inspect(pick(True))
     io.inspect(pick(False))
-    f = fn x: Int -> {
-        struct W {
+    f = fn x: Int ->
+        struct W
             w: Int
-        }
+        end
         W{w: x}.w * 2
-    }
+    end
     io.inspect(f(21))
     xs = [1, 2]
-    |> Iter.map(fn x -> {
-        struct V {
+    |> Iter.map(fn x ->
+        struct V
             v: Int
-        }
+        end
         V{v: x + 1}.v
-    })
+    end)
     |> Iter.to_list()
     io.inspect(xs)
-    io.inspect(case Some(8) {
-        Some(n) -> {
-            struct S {
+    io.inspect(case Some(8)
+        Some(n) ->
+            struct S
                 s: Int
-            }
+            end
             S{s: n}.s
-        }
         None -> 0
-    })
-}
+    end)
+end
 `
 	const want = "P{a: Meters(3)}\n4\n6\nD{d: 7}\n1\n5\n42\n[2, 3]\n8\n"
 	irRunSource(t, src, want)
@@ -99,40 +98,39 @@ func TestIRBlockDeclaredTypes_InATestBody(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `test "statement blocks declare types" {
-    {
-        struct P {
+	const src = `test "statement blocks declare types"
+    begin
+        struct P
             a: Int
-        }
+        end
         assert P{a: 1}.a == 1
-        {
-            enum E {
+        begin
+            enum E
                 X Int
-            }
-            assert case E.X(P{a: 2}.a) {
+            end
+            assert case E.X(P{a: 2}.a)
                 .X(n) -> n
-            } == 2
+            end == 2
             Unit
-        }
-    }
-    if True {
-        struct Q {
+        end
+    end
+    if True then
+        struct Q
             q: Int
-        }
+        end
         assert Q{q: 3}.q == 3
         Unit
-    }
-    case Some(4) {
-        Some(n) -> {
-            struct R {
+    end
+    case Some(4)
+        Some(n) ->
+            struct R
                 r: Int
-            }
+            end
             assert R{r: n}.r == 4
             Unit
-        }
         None -> Unit
-    }
-}
+    end
+end
 `
 	irTestBodyVM(t, src, 1)
 }

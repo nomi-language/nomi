@@ -28,7 +28,7 @@
 //# `clock Clock.Virtual` a test's records carry stable times. A failed write
 //# is dropped: logging never fails the program.
 
-import {
+import
     bool.Bool.False
     bytes.Bytes
     calendar.OffsetDateTime
@@ -46,119 +46,119 @@ import {
     maps.Map
     strings.String
     unit.Unit
-}
+end
 
 /// How severe a record is. A logger drops records below its minimum.
-pub enum Level {
+pub enum Level
     Debug
     Info
     Warn
     Error
-}
+end
 
 derive Equatable for Level
 
-impl Level {
+impl Level
     /// The level's position from lowest, for comparing two levels.
     //! assert Level.rank(Level.Debug) < Level.rank(Level.Error)
     //
-    pub fn rank(level: Level) -> Int {
-        case level {
+    pub fn rank(level: Level) -> Int
+        case level
             .Debug -> 0
             .Info -> 1
             .Warn -> 2
             .Error -> 3
-        }
-    }
+        end
+    end
 
     /// Whether `level` is `min` or above it.
     //! assert Level.is_at_least(Level.Warn, Level.Info)
     //! assert not Level.is_at_least(Level.Debug, Level.Info)
     //
-    pub fn is_at_least(level: Level, min: Level) -> Bool {
+    pub fn is_at_least(level: Level, min: Level) -> Bool
         Level.rank(level) >= Level.rank(min)
-    }
-}
+    end
+end
 
-impl Display for Level {
+impl Display for Level
     //! assert "${Level.Warn}" == "WARN"
     //
-    fn to_string(level: Level) -> String {
-        case level {
+    fn to_string(level: Level) -> String
+        case level
             .Debug -> "DEBUG"
             .Info -> "INFO"
             .Warn -> "WARN"
             .Error -> "ERROR"
-        }
-    }
-}
+        end
+    end
+end
 
 /// A field's value, which the JSON logger writes as its JSON type.
-pub enum Value {
+pub enum Value
     Text String
     Int Int
     Float Float
     Bool Bool
-}
+end
 
 derive Equatable for Value
 
 /// One key and its value on a record.
-pub struct Field {
+pub struct Field
     key: String
     value: Value
-}
+end
 
 derive Equatable for Field
 
 /// A text field.
 //! assert string("user", "Ada") == Field{key: "user", value: .Text("Ada")}
 //
-pub fn string(key: String, value: String) -> Field {
-    Field{key, value: Value.Text(value)}
-}
+pub fn string(key: String, value: String) -> Field
+    Field{key:, value: Value.Text(value)}
+end
 
 /// An integer field.
-pub fn int(key: String, value: Int) -> Field {
-    Field{key, value: Value.Int(value)}
-}
+pub fn int(key: String, value: Int) -> Field
+    Field{key:, value: Value.Int(value)}
+end
 
 /// A floating-point field.
-pub fn float(key: String, value: Float) -> Field {
-    Field{key, value: Value.Float(value)}
-}
+pub fn float(key: String, value: Float) -> Field
+    Field{key:, value: Value.Float(value)}
+end
 
 /// A boolean field.
-pub fn bool(key: String, value: Bool) -> Field {
-    Field{key, value: Value.Bool(value)}
-}
+pub fn bool(key: String, value: Bool) -> Field
+    Field{key:, value: Value.Bool(value)}
+end
 
 /// A field holding any `Display` value as its text.
 //! assert any("retries", 3) == string("retries", "3")
 //
-pub fn any(key: String, value: Display) -> Field {
-    Field{key, value: Value.Text("${value}")}
-}
+pub fn any(key: String, value: Display) -> Field
+    Field{key:, value: Value.Text("${value}")}
+end
 
 // Where a logger's records go. Records is log_testing's: one JSON array
 // per record, which keeps the fields' order, since a JSON object's keys
 // come back sorted.
-enum Sink {
+enum Sink
     Text Writer
     Json Writer
     Records Writer
     Discard
-}
+end
 
 /// Where records go and which of them are written: build one with
 /// `Logger.text`, `Logger.json` or `Logger.discard`.
-pub opaque struct Logger {
+pub opaque struct Logger
     sink: Sink
     min: Level
     fields: List<Field>
-}
+end
 
-impl Logger {
+impl Logger
     /// A logger that writes each record as `key=value` pairs on one line,
     /// as slog's text handler does: `time=… level=INFO msg="order placed"
     /// order=42`. A value with a space, `=`, `"` or a control character, or
@@ -169,9 +169,9 @@ impl Logger {
     //! line = Bytes.to_string(out)!
     //! assert String.ends_with(line, " level=INFO msg=hi n=2\n")
     //
-    pub fn text(writer: Writer = io.stderr, min = Level.Info) -> Logger {
-        Logger{sink: Sink.Text(writer), min, fields: []}
-    }
+    pub fn text(writer: Writer = io.stderr, min = Level.Info) -> Logger
+        Logger{sink: Sink.Text(writer), min:, fields: []}
+    end
 
     /// A logger that writes each record as one JSON object on one line,
     /// as slog's JSON handler does: `{"time":…,"level":"INFO","msg":"order
@@ -182,95 +182,95 @@ impl Logger {
     //! line = Bytes.to_string(out)!
     //! assert String.ends_with(line, "\"level\":\"WARN\",\"msg\":\"slow\",\"cached\":false}\n")
     //
-    pub fn json(writer: Writer = io.stderr, min = Level.Info) -> Logger {
-        Logger{sink: Sink.Json(writer), min, fields: []}
-    }
+    pub fn json(writer: Writer = io.stderr, min = Level.Info) -> Logger
+        Logger{sink: Sink.Json(writer), min:, fields: []}
+    end
 
     /// A logger that writes nothing.
-    pub fn discard() -> Logger {
+    pub fn discard() -> Logger
         Logger{sink: Sink.Discard, min: Level.Error, fields: []}
-    }
+    end
 
     /// The logger for log_testing's recorder: one JSON array per record.
     /// Not for programs; `log_testing.run` builds it.
-    pub fn records(writer: Writer, min: Level) -> Logger {
-        Logger{sink: Sink.Records(writer), min, fields: []}
-    }
+    pub fn records(writer: Writer, min: Level) -> Logger
+        Logger{sink: Sink.Records(writer), min:, fields: []}
+    end
 
     /// The same logger, adding `fields` to every record it writes, after
     /// the fields it already adds and before the record's own.
     //
-    pub fn with_fields(logger: Logger, fields: List<Field>) -> Logger {
+    pub fn with_fields(logger: Logger, fields: List<Field>) -> Logger
         Logger{sink: logger.sink, min: logger.min, fields: logger.fields + fields}
-    }
+    end
 
     /// The same logger with minimum level `min`.
-    pub fn with_min(logger: Logger, min: Level) -> Logger {
-        Logger{sink: logger.sink, min, fields: logger.fields}
-    }
+    pub fn with_min(logger: Logger, min: Level) -> Logger
+        Logger{sink: logger.sink, min:, fields: logger.fields}
+    end
 
     /// The logger's minimum level.
-    pub fn min(logger: Logger) -> Level {
+    pub fn min(logger: Logger) -> Level
         logger.min
-    }
+    end
 
     /// Whether the logger writes a record at `level`, for skipping work that
     /// only builds fields for a record it would drop.
     //! assert not Logger.is_enabled(Logger.text(), Level.Debug)
     //
-    pub fn is_enabled(logger: Logger, level: Level) -> Bool {
-        case logger.sink {
+    pub fn is_enabled(logger: Logger, level: Level) -> Bool
+        case logger.sink
             .Discard -> False
             _ -> Level.is_at_least(level, logger.min)
-        }
-    }
-}
+        end
+    end
+end
 
 /// Writes a record at `level`, when the logger's minimum lets it through.
-pub fn log(logger: Logger, level: Level, message: String, fields: List<Field> = []) -> Unit {
-    if Logger.is_enabled(logger, level) {
+pub fn log(logger: Logger, level: Level, message: String, fields: List<Field> = []) -> Unit
+    if Logger.is_enabled(logger, level) then
         write(logger, Instant.now(), level, message, logger.fields + fields)
-    }
-}
+    end
+end
 
 /// Writes a `Debug` record.
-pub fn debug(logger: Logger, message: String, fields: List<Field> = []) -> Unit {
+pub fn debug(logger: Logger, message: String, fields: List<Field> = []) -> Unit
     log(logger, Level.Debug, message, fields)
-}
+end
 
 /// Writes an `Info` record.
-pub fn info(logger: Logger, message: String, fields: List<Field> = []) -> Unit {
+pub fn info(logger: Logger, message: String, fields: List<Field> = []) -> Unit
     log(logger, Level.Info, message, fields)
-}
+end
 
 /// Writes a `Warn` record.
-pub fn warn(logger: Logger, message: String, fields: List<Field> = []) -> Unit {
+pub fn warn(logger: Logger, message: String, fields: List<Field> = []) -> Unit
     log(logger, Level.Warn, message, fields)
-}
+end
 
 /// Writes an `Error` record.
-pub fn error(logger: Logger, message: String, fields: List<Field> = []) -> Unit {
+pub fn error(logger: Logger, message: String, fields: List<Field> = []) -> Unit
     log(logger, Level.Error, message, fields)
-}
+end
 
-fn write(logger: Logger, at: Instant, level: Level, message: String, fields: List<Field>) -> Unit {
-    case logger.sink {
+fn write(logger: Logger, at: Instant, level: Level, message: String, fields: List<Field>) -> Unit
+    case logger.sink
         .Text(w) -> emit(w, text_line(at, level, message, fields))
         .Json(w) -> emit(w, json_line(at, level, message, fields))
         .Records(w) -> emit(w, record_line(at, level, message, fields))
         .Discard -> Unit
-    }
-}
+    end
+end
 
-fn emit(w: Writer, line: String) -> Unit {
+fn emit(w: Writer, line: String) -> Unit
     _ = Writer.write_text(w, line + "\n")
-}
+end
 
-fn timestamp(at: Instant) -> String {
+fn timestamp(at: Instant) -> String
     "${OffsetDateTime.from_instant(at, Duration.hours(0))}"
-}
+end
 
-fn text_line(at: Instant, level: Level, message: String, fields: List<Field>) -> String {
+fn text_line(at: Instant, level: Level, message: String, fields: List<Field>) -> String
     head = "time=${timestamp(at)} level=${level} msg=${quoted(message)}"
 
     rest =
@@ -279,21 +279,21 @@ fn text_line(at: Instant, level: Level, message: String, fields: List<Field>) ->
         |> String.join()
 
     head + rest
-}
+end
 
-fn text_value(value: Value) -> String {
-    case value {
+fn text_value(value: Value) -> String
+    case value
         .Text(s) -> quoted(s)
         .Int(n) -> "${n}"
         .Float(x) -> "${x}"
-        .Bool(b) -> if b { "true" } else { "false" }
-    }
-}
+        .Bool(b) -> if b then "true" else "false"
+    end
+end
 
 // quoted is s as slog's text handler writes a value: as it is, unless it is
 // empty or holds a space, `=`, `"` or a control character, when it is
 // quoted with JSON's escapes.
-fn quoted(s: String) -> String {
+fn quoted(s: String) -> String
     plain = s != ""
         and not String.contains(s, " ")
         and not String.contains(s, "=")
@@ -302,51 +302,47 @@ fn quoted(s: String) -> String {
         and not String.contains(s, "\t")
         and not String.contains(s, "\r")
 
-    if plain {
-        s
-    } else {
-        Json.encode(Json.String(s))
-    }
-}
+    if plain then s else Json.encode(Json.String(s))
+end
 
-fn json_value(value: Value) -> Json {
-    case value {
+fn json_value(value: Value) -> Json
+    case value
         .Text(s) -> Json.String(s)
         .Int(n) -> Json.Int(n)
         .Float(x) -> Json.Float(x)
         .Bool(b) -> Json.Bool(b)
-    }
-}
+    end
+end
 
-fn json_line(at: Instant, level: Level, message: String, fields: List<Field>) -> String {
-    head = %{
+fn json_line(at: Instant, level: Level, message: String, fields: List<Field>) -> String
+    head = {
         "time" => Json.String(timestamp(at)),
         "level" => Json.String("${level}"),
         "msg" => Json.String(message),
     }
 
-    entries = Iter.reduce(fields, head, fn m: Map<String, Json>, f -> {
-        %{..m, f.key => json_value(f.value)}
-    })
+    entries = Iter.reduce(fields, head, fn m: Map<String, Json>, f ->
+        {..m, f.key => json_value(f.value)}
+    end)
 
     Json.encode(Json.Obj(entries))
-}
+end
 
-fn value_kind(value: Value) -> String {
-    case value {
+fn value_kind(value: Value) -> String
+    case value
         .Text(_) -> "text"
         .Int(_) -> "int"
         .Float(_) -> "float"
         .Bool(_) -> "bool"
-    }
-}
+    end
+end
 
-fn record_line(at: Instant, level: Level, message: String, fields: List<Field>) -> String {
+fn record_line(at: Instant, level: Level, message: String, fields: List<Field>) -> String
     encoded =
         fields
-        |> Iter.map(fn f -> {
+        |> Iter.map(fn f ->
             Json.Arr([Json.String(f.key), Json.String(value_kind(f.value)), json_value(f.value)])
-        })
+        end)
         |> Iter.to_list()
 
     Json.encode(
@@ -359,4 +355,4 @@ fn record_line(at: Instant, level: Level, message: String, fields: List<Field>) 
             ]
         )
     )
-}
+end

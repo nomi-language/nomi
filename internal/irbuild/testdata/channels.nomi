@@ -1,7 +1,7 @@
-import {
+import
     std::channels.{Channel, ChannelClosed, Receiver, Sender}
     std::io
-}
+end
 
 // `std/channels` — a buffered channel driven SYNCHRONOUSLY, which is what makes
 // this fixture possible at all.
@@ -57,45 +57,45 @@ import {
 // MARKER, so there is nothing inside one to render and the only observable is
 // that binding one and passing it works at all — which is exactly what a def
 // with the wrong shape breaks.
-fn describe(_c: ChannelClosed) -> String {
+fn describe(_c: ChannelClosed) -> String
     "channel-closed"
-}
+end
 
-fn feed(s: Sender<Int>, n: Int) -> String {
-    case Sender.send(s, n) {
+fn feed(s: Sender<Int>, n: Int) -> String
+    case Sender.send(s, n)
         Ok(_) -> "ok"
         Err(c) -> describe(c)
-    }
-}
+    end
+end
 
-fn take_one(r: Receiver<Int>) -> Int {
-    case Receiver.receive(r) {
+fn take_one(r: Receiver<Int>) -> Int
+    case Receiver.receive(r)
         Some(v) -> v
         None -> 0
-    }
-}
+    end
+end
 
-fn both(ch: Channel<Int>) -> String {
+fn both(ch: Channel<Int>) -> String
     _ = Sender.send(ch.sender, 41)
     "both = ${take_one(ch.receiver)}"
-}
+end
 
-fn fifo() {
+fn fifo()
     ch = Channel.buffered<Int>(4)
     _ = Sender.send(ch.sender, 1)
     _ = Sender.send(ch.sender, 2)
     _ = Sender.send(ch.sender, 3)
     io.print("fifo = ${take_one(ch.receiver)} ${take_one(ch.receiver)} ${take_one(ch.receiver)}")
-}
+end
 
-fn send_result() {
+fn send_result()
     ch = Channel.buffered<Int>(2)
     io.print("send_open = ${feed(ch.sender, 7)}")
     Sender.close(ch.sender)
     io.print("send_closed = ${feed(ch.sender, 8)}")
-}
+end
 
-fn drain_after_close() {
+fn drain_after_close()
     ch = Channel.buffered<Int>(4)
     _ = Sender.send(ch.sender, 10)
     _ = Sender.send(ch.sender, 20)
@@ -105,39 +105,39 @@ fn drain_after_close() {
     c = take_one(ch.receiver)
     d = take_one(ch.receiver)
     io.print("drain = ${a} ${b} ${c} ${d}")
-}
+end
 
-fn err_is_channel_closed() {
+fn err_is_channel_closed()
     ch = Channel.buffered<Int>(1)
     Sender.close(ch.sender)
 
-    shape = case Sender.send(ch.sender, 1) {
+    shape = case Sender.send(ch.sender, 1)
         Ok(_) -> "ok"
         Err(_) -> "err"
-    }
+    end
 
     io.print("closed_shape = ${shape}")
-}
+end
 
-fn strings_too() {
+fn strings_too()
     ch = Channel.buffered<String>(2)
     _ = Sender.send(ch.sender, "a")
     _ = Sender.send(ch.sender, "b")
 
-    first = case Receiver.receive(ch.receiver) {
+    first = case Receiver.receive(ch.receiver)
         Some(v) -> v
         None -> "none"
-    }
+    end
 
-    second = case Receiver.receive(ch.receiver) {
+    second = case Receiver.receive(ch.receiver)
         Some(v) -> v
         None -> "none"
-    }
+    end
 
     io.print("strings = ${first}${second}")
-}
+end
 
-fn unbuffered_annotated() {
+fn unbuffered_annotated()
     // `Channel.unbuffered()` under an ANNOTATION records no instantiation, so it
     // is refused rather than lowered — see channels.go. The turbofish spelling
     // below is what a program writes instead, and it is here so the fixture
@@ -145,9 +145,9 @@ fn unbuffered_annotated() {
     ch = Channel.buffered<Int>(1)
     _ = Sender.send(ch.sender, 99)
     io.print("second_ctor = ${take_one(ch.receiver)}")
-}
+end
 
-fn main() {
+fn main()
     fifo()
     send_result()
     drain_after_close()
@@ -155,4 +155,4 @@ fn main() {
     strings_too()
     unbuffered_annotated()
     io.print(both(Channel.buffered<Int>(1)))
-}
+end

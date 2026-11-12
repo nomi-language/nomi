@@ -7,7 +7,9 @@ import (
 )
 
 func TestInterpolationNestedCodeAndAppFieldRead(t *testing.T) {
-	nodes := parse(t, `fn main() { _ = "outer ${.{label: "inner ${MyApp.port}"}.label}" }`)
+	nodes := parse(t, `fn main()
+    _ = "outer ${{label: "inner ${MyApp.port}"}.label}"
+end`)
 	fn := nodes[0].(*ast.FuncDef)
 	binding := fn.Body.Stmts[0].(*ast.Binding)
 	outer := binding.Value.(*ast.StringInterp)
@@ -21,17 +23,17 @@ func TestInterpolationNestedCodeAndAppFieldRead(t *testing.T) {
 }
 
 func TestInterpolationContainsSetLiteral(t *testing.T) {
-	expression := parseExpr(t, `"set ${%[1, 2]}"`)
+	expression := parseExpr(t, `"set ${Set[1, 2]}"`)
 	interp := expression.(*ast.StringInterp)
-	if _, ok := interp.Parts[1].(ast.StringExpr).Expr.(*ast.SetLit); !ok {
+	if _, ok := interp.Parts[1].(ast.StringExpr).Expr.(*ast.ListLit); !ok {
 		t.Fatalf("interpolation expression: %#v", interp.Parts[1])
 	}
 }
 
-// `#{` in a string is text.
+// `{` in a string is text.
 func TestInterpolationHashBraceIsText(t *testing.T) {
-	expression := parseExpr(t, `"set %[1, 2]"`)
-	if lit, ok := expression.(*ast.StringLit); !ok || lit.Value != "set %[1, 2]" {
+	expression := parseExpr(t, `"set Set[1, 2]"`)
+	if lit, ok := expression.(*ast.StringLit); !ok || lit.Value != "set Set[1, 2]" {
 		t.Fatalf("expected the plain text, got %#v", expression)
 	}
 }

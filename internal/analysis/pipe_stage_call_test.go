@@ -10,23 +10,23 @@ import (
 // "the pipe operator". The error names the call to write and sits on the
 // stage.
 
-const pipeStageDecls = `enum Dir {
+const pipeStageDecls = `enum Dir
   North
-}
+end
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
   n * 2
-}
+end
 
-struct Box {
+struct Box
   n: Int
-}
+end
 
-impl Box {
-  fn make(n: Int) -> Box {
-    Box{n: n}
-  }
-}
+impl Box
+  fn make(n: Int) -> Box
+    Box{n:}
+  end
+end
 
 `
 
@@ -46,7 +46,7 @@ func TestPipeStage_BareNameIsRejected(t *testing.T) {
 		{"x: Dir = 3 |> .North", "a pipe stage is a call: write the variant through its enum, as in `Enum.North()`", 17},
 		{"x = 3 |> 4", "a pipe stage is a call, such as `f()`, or a keyword stage", 12},
 	} {
-		src := pipeStageDecls + "fn main() {\n  " + tc.stmt + "\n  _ = x\n}\n"
+		src := pipeStageDecls + "fn main()\n  " + tc.stmt + "\n  _ = x\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		found := false
 		for _, e := range errs {
@@ -75,15 +75,15 @@ func TestPipeStage_CallsLambdasAndKeywordsAreAccepted(t *testing.T) {
 		"x: Result<Int, String> = 3 |> Ok()",
 		"x = 3 |> Box.make()",
 		"x = 3 |> then fn n -> n + 1",
-		"x = 3 |> then fn n -> { n |> double() }",
+		"x = 3 |> then fn n ->\n    n |> double()\nend",
 		"x = (3, 4) |> then fn (a, b) -> a + b",
 		"x = 3 |> dbg",
-		"x = True |> if { 1 } else { 0 }",
-		"x = 3 |> case {\n    3 -> True\n    _ -> False\n  }",
+		"x = True |> if then 1 else 0",
+		"x = 3 |> case\n    3 -> True\n    _ -> False\n  end",
 		"x = Some(3) |> Maybe.map(fn v -> v)?",
 		"x = [1, 2] |> Iter.map(double) |> Iter.to_list()",
 	} {
-		src := pipeStageDecls + "fn demo() -> Maybe<Unit> {\n  " + stmt + "\n  _ = x\n  Some(Unit)\n}\n"
+		src := pipeStageDecls + "fn demo() -> Maybe<Unit>\n  " + stmt + "\n  _ = x\n  Some(Unit)\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectNoStdlibErrors(t, errs)
 	}
@@ -103,7 +103,7 @@ func TestPipeStage_LambdaIsRejected(t *testing.T) {
 		{"x = (3, 4) |> fn (a, b) -> a + b", "a lambda is not a pipe stage: write `then fn v -> ...`"},
 		{"x = 3 |> fn n -> n + 1 |> double()", "a lambda is not a pipe stage: write `then fn n -> ...`"},
 	} {
-		src := pipeStageDecls + "fn main() {\n  " + tc.stmt + "\n  _ = x\n}\n"
+		src := pipeStageDecls + "fn main()\n  " + tc.stmt + "\n  _ = x\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		if len(errs) != 1 || errs[0].Message != tc.want {
 			t.Fatalf("%s: errors = %v, want exactly %q", tc.stmt, errs, tc.want)
@@ -122,7 +122,7 @@ func TestPipeStage_GroupedDbgIsRejected(t *testing.T) {
 		"x = 5 |> (dbg 1)",
 		"x = 5 |> ((dbg double))",
 	} {
-		src := pipeStageDecls + "fn main() {\n  " + stmt + "\n  _ = x\n}\n"
+		src := pipeStageDecls + "fn main()\n  " + stmt + "\n  _ = x\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		want := "a parenthesized `dbg expr` is not a pipe stage"
 		if len(errs) != 1 || !strings.HasPrefix(errs[0].Message, want) {

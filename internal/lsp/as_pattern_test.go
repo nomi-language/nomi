@@ -10,21 +10,21 @@ import (
 
 // asPatternSource binds `t` with `as` in a case arm: line 12, column 28 is
 // the name, and line 12, column 34 its first use.
-const asPatternSource = `struct Tx {
+const asPatternSource = `struct Tx
   start: Int
-}
+end
 
-enum Outcome {
+enum Outcome
   Done Tx
   Failed
-}
+end
 
-fn start_of(r: Outcome) -> Int {
-  case r {
+fn start_of(r: Outcome) -> Int
+  case r
     .Done(Tx{start: _} as t) -> t.start
     .Failed -> 0
-  }
-}
+  end
+end
 `
 
 func TestAsPattern_HoverOnTheNameShowsTheWholeValuesType(t *testing.T) {
@@ -34,7 +34,7 @@ func TestAsPattern_HoverOnTheNameShowsTheWholeValuesType(t *testing.T) {
 		if sym == nil {
 			t.Fatalf("no symbol at %v", pos)
 		}
-		if got, want := renderHover(sym), "```nomi\nt: Tx\n\nstruct Tx {\n    start: Int\n}\n```"; got != want {
+		if got, want := renderHover(sym), "```nomi\nt: Tx\n\nstruct Tx\n    start: Int\nend\n```"; got != want {
 			t.Errorf("hover at %v:\ngot  %q\nwant %q", pos, got, want)
 		}
 	}

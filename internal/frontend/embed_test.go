@@ -15,14 +15,14 @@ const embedManifest = "[module]\nname = \"site\"\nentry_points = [\"main\"]\n"
 func embedFiles(decl string) map[string]string {
 	return map[string]string{
 		"nomi.toml":           embedManifest,
-		"main.nomi":           "import std::embed.Files\n\n" + decl + "\n\nfn main() {\n    _ = Files.paths(site)\n}\n",
+		"main.nomi":           "import std::embed.Files\n\n" + decl + "\n\nfn main()\n    _ = Files.paths(site)\nend\n",
 		"static/index.html":   "<h1>hi</h1>\n",
 		"static/css/site.css": "body {}\n",
 		"static/.keep":        "",
 		"static/_draft.html":  "draft\n",
 		"empty/.keep":         "",
 		"tools/nomi.toml":     "[module]\nname = \"tools\"\n",
-		"tools/gen.nomi":      "fn main() {}\n",
+		"tools/gen.nomi":      "fn main() end\n",
 		"page.html":           "<p>page</p>\n",
 	}
 }
@@ -138,7 +138,7 @@ func TestEmbed_PatternsAreFromTheModuleRoot(t *testing.T) {
 		}
 		files := map[string]string{
 			"nomi.toml":     embedManifest,
-			"main.nomi":     "import {\n    std::embed.Files\n    " + module + "\n}\n\nfn main() {\n    _ = Files.paths(pages.site)\n}\n",
+			"main.nomi":     "import\n    std::embed.Files\n    " + module + "\nend\n\nfn main()\n    _ = Files.paths(pages.site)\nend\n",
 			"assets/x.css":  "body {}\n",
 			"static/a.html": "a\n",
 		}

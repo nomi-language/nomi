@@ -29,7 +29,7 @@ func TestImportFileSegments(t *testing.T) {
 		{"import foo.Bar.baz.Q", 3, 3},
 		{"import a::b.C.d", 3, 2},
 		{"import calc: add, Shape.{Circle}", 1, 1},
-		{"fn main() {\n    {\n        import std.a.B\n    }\n}", 2, 2},
+		{"fn main()\n    begin\n        import std.a.B\n    end\nend", 2, 2},
 	}
 	for _, tc := range cases {
 		nodes, err := Parse(lexer.Lex(tc.src))

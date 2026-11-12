@@ -13,17 +13,17 @@ import (
 func TestLambdaOpenResult_OkOnlyHandlerChecks(t *testing.T) {
 	src := `import std::http.{Body, Response, Route, Router, Status}
 
-fn page(params: .{id: Int}) -> Response {
+fn page(params: {id: Int}) -> Response
   Response{body: Body.Text("edit ${params.id}")}
-}
+end
 
-fn main() {
-  admin_post_edit: Route<.{id: Int}> = "POST /admin/posts/{id}/edit"
+fn main()
+  admin_post_edit: Route<{id: Int}> = "POST /admin/posts/{id}/edit"
   _router = Router.new([
     Route.to_with(admin_post_edit, fn _request, params -> Ok(page(params))),
     Route.to("GET /gone", fn _ -> Err(Response.error(Status.not_found, "gone"))),
   ])
-}
+end
 `
 	expectClean(t, checkWithStdlib(src))
 }
@@ -32,20 +32,20 @@ fn main() {
 // the lambda's result is Result<Int, MyError>, which a later Err match
 // reads as one.
 func TestLambdaOpenResult_ExpectedResultNamesTheError(t *testing.T) {
-	src := `enum MyError {
+	src := `enum MyError
   Bad
-}
+end
 
-fn apply(f: (Int) -> Result<Int, MyError>, x: Int) -> Result<Int, MyError> {
+fn apply(f: (Int) -> Result<Int, MyError>, x: Int) -> Result<Int, MyError>
   f(x)
-}
+end
 
-fn main() {
-  _r = case apply(fn x -> Ok(x + 1), 1) {
+fn main()
+  _r = case apply(fn x -> Ok(x + 1), 1)
     Ok(n) -> n
     Err(.Bad) -> 0
-  }
-}
+  end
+end
 `
 	expectClean(t, checkWithStdlib(src))
 }
@@ -56,15 +56,15 @@ fn main() {
 func TestLambdaOpenResult_ErrNamesTheErrorType(t *testing.T) {
 	src := `import std::http.{Body, Response, Route}
 
-fn main() {
-  _entry = Route.to("GET /n", fn r -> {
-    if r.path == "/n" {
+fn main()
+  _entry = Route.to("GET /n", fn r ->
+    if r.path == "/n" then
       Ok(Response{body: Body.Text("n")})
-    } else {
+    else
       Err(404)
-    }
-  })
-}
+    end
+  end)
+end
 `
 	errs := checkWithStdlib(src)
 	found := false
@@ -87,10 +87,10 @@ fn main() {
 func TestLambdaOpenResult_NoExpectedTypeIsAnError(t *testing.T) {
 	src := `import std::io
 
-fn main() {
+fn main()
   f = fn x: Int -> Ok(x)
   io.print(f(1))
-}
+end
 `
 	expectOneDiagnostic(t, src,
 		"Result<Int, _> needs Display (required by `where T: Display`), and nothing names the type its `_` stands for\n"+
@@ -101,10 +101,10 @@ fn main() {
 func TestLambdaOpenResult_TheAnnotationChecks(t *testing.T) {
 	src := `import std::io
 
-fn main() {
+fn main()
   f: (Int) -> Result<Int, String> = fn x -> Ok(x)
   io.print(f(1))
-}
+end
 `
 	expectClean(t, checkWithStdlib(src))
 }

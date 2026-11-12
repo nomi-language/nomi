@@ -2,25 +2,25 @@
 // the program never annotates: lambda parameters over a list of them, the
 // argument of a generic function, a Maybe's payload. Tree and Span are also
 // instantiated at this file's own Point.
-import {
+import
     std::io
     tree
     tree.Tree
     zz
-}
+end
 
-pub struct Point {
+pub struct Point
     x: Int
-}
+end
 
-fn label(t: Tree<String>) -> String {
-    case t {
+fn label(t: Tree<String>) -> String
+    case t
         Tree.Node(s) -> s
         Tree.Leaf -> "-"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     names =
         [Tree.Node("a"), Tree.Leaf, Tree.Node("b")]
         |> Iter.map(&label(&1))
@@ -34,16 +34,16 @@ fn main() {
 
     xs =
         [Tree.Node(Point{x: 1}), Tree.Leaf, Tree.Node(Point{x: 4})]
-        |> Iter.map(fn t -> {
-            case t {
+        |> Iter.map(fn t ->
+            case t
                 Tree.Node(p) -> p.x
                 Tree.Leaf -> 0
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
 
     io.print("points ${xs}")
     corner = tree.Span{start: Point{x: 2}, stop: Point{x: 3}}
     io.print("corner ${tree.first(corner).x}")
     io.print(zz.floats())
-}
+end

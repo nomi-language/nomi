@@ -11,36 +11,36 @@ import "testing"
 func TestNullaryGenericCall_InAnOperatorOperandRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-interface Blank {
+interface Blank
     fn blank() -> self
-}
+end
 
-struct Box<T> {
+struct Box<T>
     items: List<T>
-}
+end
 
-impl Blank for Box<T> {
-    fn blank() -> Box<T> {
+impl Blank for Box<T>
+    fn blank() -> Box<T>
         Box{items: []}
-    }
-}
+    end
+end
 
-impl Add<Box<T>, Box<T>> for Box<T> {
-    fn add(lhs: Box<T>, rhs: Box<T>) -> Box<T> {
+impl Add<Box<T>, Box<T>> for Box<T>
+    fn add(lhs: Box<T>, rhs: Box<T>) -> Box<T>
         Box{items: lhs.items + rhs.items}
-    }
-}
+    end
+end
 
-fn none<T>() -> List<T> {
+fn none<T>() -> List<T>
     []
-}
+end
 
-fn main() {
+fn main()
     io.print([1, 2] + none())
     io.print(none() + ["a"])
     io.print([1] == none())
     io.print((Box{items: [3]} + Box.blank()).items)
     io.print((Box.blank() + Box{items: ["b"]}).items)
-}
+end
 `, "[1, 2]\n[a]\nFalse\n[3]\n[b]\n")
 }

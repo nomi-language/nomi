@@ -308,11 +308,11 @@ func debugFunc(params []DebugParam, result, body string) string {
 	if result != "" {
 		b.WriteString(" -> " + result)
 	}
-	b.WriteString(" {\n")
+	b.WriteString("\n")
 	for _, v := range params {
 		b.WriteString("    _ = " + v.Name + "\n")
 	}
-	b.WriteString("    " + body + "\n}\n")
+	b.WriteString("    " + body + "\nend\n")
 	return b.String()
 }
 

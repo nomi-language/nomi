@@ -20,8 +20,8 @@ func TestFormat_QuestionStaysGlued(t *testing.T) {
 		},
 		{"a = x |> then? &parse(&1)\n", "a = x |> then? &parse(&1)\n"},
 		{
-			"a = x |> case { _ -> f() }?\n",
-			"a = x |> case {\n    _ -> f()\n}?\n",
+			"a = x |> case\n    _ -> f()\nend?\n",
+			"a = x |> case\n    _ -> f()\nend?\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

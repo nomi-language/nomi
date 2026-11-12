@@ -19,100 +19,100 @@ import (
 // checked against f's names and `g(port: 1)` was admitted.
 
 const namelessDecls = `
-struct Holder {
+struct Holder
   f: (String, Int) -> String
-}
+end
 
-fn connect(host: String, port: Int) -> String {
-  if port > 0 { host } else { "" }
-}
+fn connect(host: String, port: Int) -> String
+  if port > 0 then host else ""
+end
 
-fn make() -> (String, Int) -> String {
+fn make() -> (String, Int) -> String
   connect
-}
+end
 `
 
 const namelessHint = "a function type's parameters have no names; pass the arguments by position"
 
 func TestNamedArgThroughFunctionValue_IsAnError(t *testing.T) {
 	for _, tc := range []struct{ name, src, at string }{
-		{"struct field, full call", `fn main() {
+		{"struct field, full call", `fn main()
   holder = Holder{f: connect}
   x = holder.f(port: 1, host: "h")
   _ = x
-}`, "port: 1"},
-		{"struct field, named placeholder", `fn main() {
+end`, "port: 1"},
+		{"struct field, named placeholder", `fn main()
   holder = Holder{f: connect}
   x = &holder.f(port: &1, host: "h")
   _ = x
-}`, "port: &1"},
-		{"struct field, pipe", `fn main() {
+end`, "port: &1"},
+		{"struct field, pipe", `fn main()
   holder = Holder{f: connect}
   x = "h" |> holder.f(port: 1)
   _ = x
-}`, "port: 1"},
-		{"parameter, full call", `fn through(g: (String, Int) -> String) -> String {
+end`, "port: 1"},
+		{"parameter, full call", `fn through(g: (String, Int) -> String) -> String
   g(port: 1, host: "h")
-}
-fn main() {
+end
+fn main()
   _ = through(connect)
-}`, "port: 1"},
-		{"parameter, named placeholder", `fn through(g: (String, Int) -> String) -> (String) -> String {
+end`, "port: 1"},
+		{"parameter, named placeholder", `fn through(g: (String, Int) -> String) -> (String) -> String
   &g(port: 1, host: &1)
-}
-fn main() {
+end
+fn main()
   _ = through(connect)
-}`, "port: 1"},
-		{"parameter named like the enclosing function's parameter", `fn through(port: Int, g: (Int) -> Int) -> Int {
-  g(port: port)
-}
-fn main() {
+end`, "port: 1"},
+		{"parameter named like the enclosing function's parameter", `fn through(port: Int, g: (Int) -> Int) -> Int
+  g(port:)
+end
+fn main()
   _ = through(1, fn n -> n)
-}`, "port: port"},
-		{"lambda parameter", `fn main() {
+end`, "port:)"},
+		{"lambda parameter", `fn main()
   f = fn g: (String, Int) -> String -> g(port: 1, host: "h")
   _ = f(connect)
-}`, "port: 1"},
-		{"generic parameter", `fn apply<T>(g: (T) -> T, v: T) -> T {
+end`, "port: 1"},
+		{"generic parameter", `fn apply<T>(g: (T) -> T, v: T) -> T
   g(value: v)
-}
-fn main() {
+end
+fn main()
   _ = apply(fn n: Int -> n, 1)
-}`, "value: v"},
-		{"call result", `fn main() {
+end`, "value: v"},
+		{"call result", `fn main()
   x = make()(port: 1, host: "h")
   _ = x
-}`, "port: 1"},
-		{"Maybe element", `fn main() {
-  x = case Some(connect) {
+end`, "port: 1"},
+		{"Maybe element", `fn main()
+  x = case Some(connect)
     Some(g) -> g(port: 1, host: "h")
     None -> ""
-  }
+  end
   _ = x
-}`, "port: 1"},
-		{"list element", `fn main() {
-  x = case [connect] {
+end`, "port: 1"},
+		{"list element", `fn main()
+  x = case [connect]
     [g] -> g(port: 1, host: "h")
     _ -> ""
-  }
+  end
   _ = x
-}`, "port: 1"},
-		{"alias of a function", `fn main() {
+end`, "port: 1"},
+		{"alias of a function", `fn main()
   g = connect
   x = g(port: 1, host: "h")
   _ = x
-}`, "port: 1"},
-		{"alias of a lambda", `fn main() {
-  f = fn host: String, port: Int -> if port > 0 { host } else { "" }
+end`, "port: 1"},
+		{"alias of a lambda", `fn main()
+  f = fn host: String, port: Int -> if port > 0 then host else ""
   g = f
   x = g(port: 1, host: "h")
   _ = x
-}`, "port: 1"},
-		{"binding typed by a function type", `fn main() {
+end`, "port: 1"},
+		{"binding typed by a function type", `fn main()
   g: (String, Int) -> String = connect
   x = g(port: 1, host: "h")
   _ = x
-}`, "port: 1"},
+end`, "port: 1"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := namelessDecls + tc.src + "\n"
@@ -142,9 +142,9 @@ fn main() {
 // The callees that have names keep them: a declared function, a lambda bound
 // to a name, a partial bound to a name, and a partial of a partial.
 func TestNamedArgThroughFunctionValue_DeclaredCalleesKeepNames(t *testing.T) {
-	_, errs := checkSourceWithStdlib(namelessDecls + `fn main() {
+	_, errs := checkSourceWithStdlib(namelessDecls + `fn main()
   a: String = connect(port: 1, host: "h")
-  f = fn host: String, port: Int -> if port > 0 { host } else { "" }
+  f = fn host: String, port: Int -> if port > 0 then host else ""
   b: String = f(port: 1, host: "h")
   c = &connect(&1, port: &2)
   d: String = c(port: 1, host: "h")
@@ -152,7 +152,7 @@ func TestNamedArgThroughFunctionValue_DeclaredCalleesKeepNames(t *testing.T) {
   holder = Holder{f: connect}
   g: String = holder.f("h", 1)
   _ = (a, b, d, e, g)
-}
+end
 `)
 	expectNoStdlibErrors(t, errs)
 }

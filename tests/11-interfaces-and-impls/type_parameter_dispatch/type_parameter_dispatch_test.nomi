@@ -1,175 +1,175 @@
-import {
+import
     std::compiler
     test_helpers
-}
+end
 
-interface Greet {
+interface Greet
     fn hello(value: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
     name: String
-}
+end
 
-struct Wrapper<T> where T: Greet {
+struct Wrapper<T> where T: Greet
     value: T
-}
+end
 
-impl Display for Dog {
-    fn to_string(value: Dog) -> String {
+impl Display for Dog
+    fn to_string(value: Dog) -> String
         "Dog(" + value.name + ")"
-    }
-}
+    end
+end
 
-impl Greet for Dog {
-    fn hello(value: Dog) -> String {
+impl Greet for Dog
+    fn hello(value: Dog) -> String
         "woof, I am " + value.name
-    }
-}
+    end
+end
 
-impl Greet for Wrapper<T> {
-    fn hello(value: Wrapper<T>) -> String {
+impl Greet for Wrapper<T>
+    fn hello(value: Wrapper<T>) -> String
         "wrapped " + T.hello(value.value)
-    }
-}
+    end
+end
 
-fn shout<T>(x: T) -> String where T: Display {
+fn shout<T>(x: T) -> String where T: Display
     T.to_string(x) + "!"
-}
+end
 
-fn greet<T>(x: T) -> String where T: Greet {
+fn greet<T>(x: T) -> String where T: Greet
     T.hello(x)
-}
+end
 
-fn full<T>(x: T) -> String where T: Display and Greet {
+fn full<T>(x: T) -> String where T: Display and Greet
     T.hello(x) + " - " + T.to_string(x)
-}
+end
 
-fn full_where<T>(x: T) -> String where T: Display and Greet {
+fn full_where<T>(x: T) -> String where T: Display and Greet
     T.hello(x) + " - " + T.to_string(x)
-}
+end
 
-test "type-parameter-qualified dispatch resolves through bounds" {
+test "type-parameter-qualified dispatch resolves through bounds"
     assert shout(42) == "42!"
     assert shout("hi") == "hi!"
     assert greet(Dog{name: "Rex"}) == "woof, I am Rex"
     assert full(Dog{name: "Rex"}) == "woof, I am Rex - Dog(Rex)"
     assert full_where(Dog{name: "Rex"}) == "woof, I am Rex - Dog(Rex)"
     assert greet(Wrapper{value: Dog{name: "Rex"}}) == "wrapped woof, I am Rex"
-}
+end
 
-test "impl block where clauses constrain generic receiver impls" {
+test "impl block where clauses constrain generic receiver impls"
     diagnostics = compiler.check(
         """
-          interface Render {
+          interface Render
             fn render(value: self) -> String
-          }
+          end
 
-          struct Wrapped<T> where T: Display {
+          struct Wrapped<T> where T: Display
             value: T
-          }
+          end
 
-          struct Plain {}
+          struct Plain end
 
-          impl Render for Wrapped<T> {
-            fn render(value: Wrapped<T>) -> String {
+          impl Render for Wrapped<T>
+            fn render(value: Wrapped<T>) -> String
               T.to_string(value.value)
-            }
-          }
+            end
+          end
 
-          fn main() {
+          fn main()
             _ = Render.render(Wrapped{value: Plain{}})
-          }
+          end
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "no impl of `Display` for `Plain`")
-}
+end
 
-test "type-parameter-qualified dispatch is ambiguous across duplicate function names" {
+test "type-parameter-qualified dispatch is ambiguous across duplicate function names"
     diagnostics = compiler.check(
         """
-          interface A {
+          interface A
             fn tag(value: self) -> String
-          }
+          end
 
-          interface B {
+          interface B
             fn tag(value: self) -> String
-          }
+          end
 
-          fn f<T>(x: T) -> String where T: A and B {
+          fn f<T>(x: T) -> String where T: A and B
             T.tag(x)
-          }
+          end
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "is ambiguous")
-}
+end
 
-test "type-parameter-qualified dispatch requires the function on the bound" {
+test "type-parameter-qualified dispatch requires the function on the bound"
     diagnostics = compiler.check(
         """
-          fn f<T>(x: T) -> String where T: Display {
+          fn f<T>(x: T) -> String where T: Display
             T.nope(x)
-          }
+          end
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "declares function 'nope'")
-}
+end
 
-test "type-parameter-qualified dispatch requires an interface bound" {
+test "type-parameter-qualified dispatch requires an interface bound"
     diagnostics = compiler.check(
         """
-          fn f<T>(x: T) -> String {
+          fn f<T>(x: T) -> String
             T.to_string(x)
-          }
+          end
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "has no interface bound")
-}
+end
 
-test "type-qualified dispatch is ambiguous when multiple interfaces declare the function" {
+test "type-qualified dispatch is ambiguous when multiple interfaces declare the function"
     diagnostics = compiler.check(
         """
-        interface Greeter {
+        interface Greeter
           fn greet(value: self) -> String
-        }
+        end
 
-        interface Farewell {
+        interface Farewell
           fn greet(value: self) -> String
-        }
+        end
 
-        struct Person {
+        struct Person
           name: String
-        }
+        end
 
-        impl Greeter for Person {
+        impl Greeter for Person
 
-          fn greet(p: Person) -> String {
+          fn greet(p: Person) -> String
             "Hello, " + p.name
-          }
-        }
+          end
+        end
 
-        impl Farewell for Person {
+        impl Farewell for Person
 
-          fn greet(p: Person) -> String {
+          fn greet(p: Person) -> String
             "Goodbye, " + p.name
-          }
-        }
+          end
+        end
 
-        fn main() {
+        fn main()
           p = Person{name: "Alice"}
           _ = Person.greet(p)
-        }
+        end
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "ambiguous")
-}
+end

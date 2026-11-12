@@ -22,17 +22,17 @@ import (
 func TestStructIface_TheStdDeclarationStillHasTheShapeThisFileAssumes(t *testing.T) {
 	p, err := AnalyzeSource("j3struct", `
 
-struct Point {
+struct Point
   x: Int
-}
+end
 
-fn one(_s: Struct) -> Int {
+fn one(_s: Struct) -> Int
   1
-}
+end
 
-test "anchored" {
+test "anchored"
   assert one(Point{x: 1}) == 1
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("the fixture does not analyze, so no anchor was measured: %v", err)
@@ -95,7 +95,7 @@ func TestStructIface_ANonStructIsNotErasedIntoTheMarker(t *testing.T) {
 	rec := g.anonStructKind([]string{"tag"}, []kind{kindString})
 	if !structIfaceSatisfiedBy(rec) {
 		t.Errorf("structIfaceSatisfiedBy(an anonymous struct) = false, want true: the spec says "+
-			"\"a named `struct` type or an anonymous `.{...}`\" satisfies Struct, and "+
+			"\"a named `struct` type or an anonymous `{...}`\" satisfies Struct, and "+
 			"11/structural_interfaces writes `.{tag: \"anon\"}` into a `List<Struct>` (kind %v)", rec.tag)
 	}
 }

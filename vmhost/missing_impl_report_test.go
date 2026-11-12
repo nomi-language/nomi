@@ -11,8 +11,8 @@ import (
 // to report the same missing impl a second time. Point holds a function, so
 // it has no equality to meet the bound with.
 func TestMissingImpl_AFailedBoundReportsOnce(t *testing.T) {
-	src := "struct Point {\n    x: Int\n    f: (Int) -> Int\n}\n\nfn main() {\n" +
-		"    dbg List.contains([Point{x: 1, f: fn v -> v}], Point{x: 1, f: fn v -> v})\n}\n"
+	src := "struct Point\n    x: Int\n    f: (Int) -> Int\nend\n\nfn main()\n" +
+		"    dbg List.contains([Point{x: 1, f: fn v -> v}], Point{x: 1, f: fn v -> v})\nend\n"
 	rejects(t, src,
 		"main.nomi:7:9: Point does not implement Equatable (required by `where T: Equatable`)",
 		"`Point` holds `(Int) -> Int`, and a function value has no equality")
@@ -37,10 +37,10 @@ func TestMissingImpl_AMembershipTestNamesIn(t *testing.T) {
 	for _, tc := range []struct {
 		src, want, help string
 	}{
-		{"struct Bag {\n    items: List<Int>\n}\n\nfn main() {\n    dbg 1 in Bag{items: [1]}\n}\n",
+		{"struct Bag\n    items: List<Int>\nend\n\nfn main()\n    dbg 1 in Bag{items: [1]}\nend\n",
 			"main.nomi:6:14: the collection `in` looks in: Bag does not implement Contains",
 			"write an `impl Contains<T> for Bag` block"},
-		{"struct P {\n    f: (Int) -> Int\n}\n\nfn main() {\n    p = P{f: fn v -> v}\n    dbg p in [p]\n}\n",
+		{"struct P\n    f: (Int) -> Int\nend\n\nfn main()\n    p = P{f: fn v -> v}\n    dbg p in [p]\nend\n",
 			"main.nomi:7:14: no impl of `Equatable` for `P` (required via membership test `in`)",
 			"`P` holds a function, an Iter or a handle to running state, which has no equality"},
 	} {
@@ -62,7 +62,7 @@ func TestMissingImpl_AMembershipTestNamesIn(t *testing.T) {
 // missing impl, and its message names how the impl is required, not where:
 // the diagnostic's own position says where.
 func TestMissingImpl_ADemandWithoutABoundStillReports(t *testing.T) {
-	src := "struct Point {\n    x: Int\n}\n\nfn main() {\n    dbg Point{x: 1} < Point{x: 2}\n}\n"
+	src := "struct Point\n    x: Int\nend\n\nfn main()\n    dbg Point{x: 1} < Point{x: 2}\nend\n"
 	rejects(t, src,
 		"main.nomi:6:21: no impl of `Comparable` for `Point` (required via ordering operator `<`)",
 		"add `derive Comparable` to `Point`")

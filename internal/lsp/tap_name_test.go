@@ -8,16 +8,16 @@ import (
 	"github.com/nomi-language/nomi/internal/parser"
 )
 
-const tapNameSrc = `fn log_it(n: Int) {
+const tapNameSrc = `fn log_it(n: Int)
   log_it_too(n)
-}
+end
 
-fn log_it_too(n: Int) {}
+fn log_it_too(n: Int) end
 
-fn main() {
+fn main()
   n = 3 |> tap log_it
   log_it(n)
-}
+end
 `
 
 // The function a `tap` stage names resolves to its declaration and hovers

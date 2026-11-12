@@ -16,12 +16,12 @@ func TestExpectedTypeSeed_RunsOnTheVM(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	path := fixture("expected_type_seed.nomi")
-	const want = "Room{exits: %{North => Cave, East => Hall}}\n" +
-		"Index{words: %{}}\n" +
-		"%{}\n" +
-		"%{North => Cave}\n" +
-		"%{North => Cave}\n" +
-		"%{}\n"
+	const want = "Room{exits: {North => Cave, East => Hall}}\n" +
+		"Index{words: {}}\n" +
+		"{}\n" +
+		"{North => Cave}\n" +
+		"{North => Cave}\n" +
+		"{}\n"
 	got := vmReference(path)
 	if got.stdout != want || got.stderr != "" || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",

@@ -8,20 +8,20 @@ import "testing"
 func TestDottedGenericStruct_LiteralRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Tree.Node<T> {
+struct Tree.Node<T>
     v: T
-}
+end
 
-fn val<T>(n: Tree.Node<T>) -> T {
+fn val<T>(n: Tree.Node<T>) -> T
     n.v
-}
+end
 
-fn main() {
+fn main()
     n = Tree.Node{v: 1}
     io.print(n.v)
     io.inspect(Tree.Node{v: "a"})
     m: Tree.Node<String> = Tree.Node{v: "b"}
     io.print(val(m))
-}
+end
 `, "1\nTree.Node{v: \"a\"}\nb\n")
 }

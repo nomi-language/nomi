@@ -15,21 +15,21 @@ import (
 func TestTypeNarrowing_ABoolArmLeavesTheNameABool(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	const name = "bool_arm_test.nomi"
-	p, err := vmhost.LoadSource(name, `test "t" {
+	p, err := vmhost.LoadSource(name, `test "t"
     x = 1 == 1
-    case x {
+    case x
         True -> assert x
         False -> assert True
-    }
-}
+    end
+end
 
-test "f" {
+test "f"
     x = 1 == 2
-    case x {
+    case x
         True -> assert False
         False -> refute x
-    }
-}
+    end
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the tests: %v", err)
@@ -50,68 +50,68 @@ test "f" {
 func TestTypeNarrowing_APlainVariantArmKeepsTheEnum(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-struct Circle {
+struct Circle
     radius: Float
-}
+end
 
-enum Shape {
+enum Shape
     Dot
     Round Float
     Rect { w: Int }
     Wrapped Circle
-}
+end
 
-fn bool_text(b: Bool) -> String {
-    if b { "yes" } else { "no" }
-}
+fn bool_text(b: Bool) -> String
+    if b then "yes" else "no"
+end
 
-fn shape_text(s: Shape) -> String {
-    case s {
+fn shape_text(s: Shape) -> String
+    case s
         .Dot -> "dot"
         .Round(r) -> "round ${r}"
-        .Rect{w} -> "rect ${w}"
+        .Rect{w:} -> "rect ${w}"
         .Wrapped(c) -> "wrapped ${c.radius}"
-    }
-}
+    end
+end
 
-fn result_text(r: Result<Int, String>) -> String {
-    case r {
+fn result_text(r: Result<Int, String>) -> String
+    case r
         Ok(n) -> "ok ${n}"
         Err(e) -> "err ${e}"
-    }
-}
+    end
+end
 
-fn bools(x: Bool) -> String {
-    case x {
+fn bools(x: Bool) -> String
+    case x
         True -> bool_text(x)
         False -> bool_text(x)
-    }
-}
+    end
+end
 
-fn maybes(m: Maybe<Int>) -> String {
-    case m {
+fn maybes(m: Maybe<Int>) -> String
+    case m
         Some(_) -> Maybe.with_default(m, 0) |> Int.to_string()
         None -> Maybe.with_default(m, -1) |> Int.to_string()
-    }
-}
+    end
+end
 
-fn results(r: Result<Int, String>) -> String {
-    case r {
+fn results(r: Result<Int, String>) -> String
+    case r
         Ok(_) -> result_text(r)
         Err(_) -> result_text(r)
-    }
-}
+    end
+end
 
-fn shapes(s: Shape) -> String {
-    case s {
+fn shapes(s: Shape) -> String
+    case s
         .Dot -> shape_text(s)
         .Round(_) -> shape_text(s)
         .Rect{w: _} -> shape_text(s)
         .Wrapped(_) -> shape_text(s)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print("${bools(True)} ${bools(False)}")
     io.print("${maybes(Some(4))} ${maybes(None)}")
     io.print("${results(Ok(1))} ${results(Err("e"))}")
@@ -119,7 +119,7 @@ fn main() {
     io.print(shapes(Shape.Round(1.5)))
     io.print(shapes(Shape.Rect{w: 3}))
     io.print(shapes(Shape.Wrapped(Circle{radius: 2.0})))
-}
+end
 `)
 	want := `yes no
 4 -1

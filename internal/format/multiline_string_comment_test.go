@@ -8,8 +8,8 @@ import "testing"
 // with a blank line after it, which the next format dropped.
 func TestFormat_CommentAfterMultilineStringTrails(t *testing.T) {
 	for _, src := range []string{
-		"fn main() {\n    pattern = `\n        a\n        ` // why\n\n    assert pattern == \"a\"\n}\n",
-		"fn main() {\n    text = \"\"\"\n        a\n        \"\"\" // why\n\n    assert text == \"a\"\n}\n",
+		"fn main()\n    pattern = `\n        a\n        ` // why\n\n    assert pattern == \"a\"\nend\n",
+		"fn main()\n    text = \"\"\"\n        a\n        \"\"\" // why\n\n    assert text == \"a\"\nend\n",
 	} {
 		formatsKeepingMeaning(t, src, src)
 	}

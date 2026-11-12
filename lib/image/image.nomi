@@ -22,19 +22,19 @@ opaque type Handle go goside.Image
 
 // Why a call failed, as Go reports it: kind 0 none, 1 an unsupported
 // format, 2 a corrupt image, 3 too many pixels.
-struct Failure {
+struct Failure
     kind: Int
     message: String
     width: Int
     height: Int
-}
+end
 
-struct Info {
+struct Info
     format: String
     width: Int
     height: Int
     failure: Failure
-}
+end
 
 fn probe_raw(data: Bytes) -> Info go goside.Probe
 
@@ -57,17 +57,17 @@ fn encode_jpeg_raw(h: Handle, quality: Int) -> Bytes go goside.EncodeJPEG
 fn encode_png_raw(h: Handle) -> Bytes go goside.EncodePNG
 
 /// The file format an image was decoded from.
-pub enum Format {
+pub enum Format
     Jpeg
     Png
     Webp
-}
+end
 
 derive Equatable for Format
 derive Debug for Format
 
 /// Why an image could not be read.
-pub enum Error {
+pub enum Error
     /// The bytes are not a JPEG, PNG or WebP file.
     UnsupportedFormat
 
@@ -78,128 +78,134 @@ pub enum Error {
     /// The image's header declares `width` by `height` pixels, more than
     /// the decode allows.
     TooLarge {width: Int, height: Int}
-}
+end
 
 derive Equatable for Error
 derive Debug for Error
 
-impl Display for Error {
+impl Display for Error
     //! assert "${Error.UnsupportedFormat}" == "not a JPEG, PNG or WebP image"
     //!
     //! assert "${Error.TooLarge{width: 9000, height: 9000}}"
     //!     == "the image is 9000 by 9000 pixels, more than allowed"
     //
-    fn to_string(error: Error) -> String {
-        case error {
-            .UnsupportedFormat -> "not a JPEG, PNG or WebP image"
-            .Corrupt{message} -> "the image is corrupt: ${message}"
+    fn to_string(error: Error) -> String
+        case error
+            .UnsupportedFormat ->
+                "not a JPEG, PNG or WebP image"
 
-            .TooLarge{width, height} ->
+            .Corrupt{message:} ->
+                "the image is corrupt: ${message}"
+
+            .TooLarge{width:, height:} ->
                 "the image is ${width} by ${height} pixels, more than allowed"
-        }
-    }
-}
+        end
+    end
+end
 
 /// An image's format and size, read from its header.
-pub struct Dimensions {
+pub struct Dimensions
     format: Format
     width: Int
     height: Int
-}
+end
 
 derive Equatable for Dimensions
 derive Debug for Dimensions
 
-fn format_of(name: String) -> Maybe<Format> {
-    case name {
+fn format_of(name: String) -> Maybe<Format>
+    case name
         "jpeg" -> Some(.Jpeg)
         "png" -> Some(.Png)
         "webp" -> Some(.Webp)
         _ -> None
-    }
-}
+    end
+end
 
 // The Error a failure reports.
-fn error_of(failure: Failure) -> Error {
-    case failure.kind {
+fn error_of(failure: Failure) -> Error
+    case failure.kind
         1 -> .UnsupportedFormat
         2 -> .Corrupt{message: failure.message}
         3 -> .TooLarge{width: failure.width, height: failure.height}
         _ -> unreachable "an image call answered a failure kind image.nomi does not know"
-    }
-}
+    end
+end
 
 /// `data`'s format and size, read from its header without decoding its
 /// pixels: what a check of an upload needs before it decides to decode.
-pub fn dimensions(data: Bytes) -> Result<Dimensions, Error> {
+pub fn dimensions(data: Bytes) -> Result<Dimensions, Error>
     info = probe_raw(data)
-    if info.failure.kind != 0 { return Err(error_of(info.failure)) }
+    if info.failure.kind != 0 then return Err(error_of(info.failure))
     Ok(Dimensions{format: format_of(info.format)!, width: info.width, height: info.height})
-}
+end
 
 /// `data` decoded: a JPEG, PNG or WebP file. An image whose header declares
 /// more than `max_pixels` pixels is `Err(.TooLarge)`, refused before any
 /// pixel is decoded. The default, 50 million, is an 8,660 by 5,773 photo,
 /// which decodes into about 200 MB.
-pub fn decode(data: Bytes, max_pixels: Int = 50_000_000) -> Result<Image, Error> {
+pub fn decode(data: Bytes, max_pixels: Int = 50_000_000) -> Result<Image, Error>
     (handle, failure) = decode_raw(data, max_pixels)
-    if failure.kind != 0 { return Err(error_of(failure)) }
-    Ok(Image{handle, format: format_of(format_raw(handle))})
-}
+    if failure.kind != 0 then return Err(error_of(failure))
+    Ok(Image{handle:, format: format_of(format_raw(handle))})
+end
 
 /// A decoded image. Every operation returns a new `Image`; none changes
 /// the one it is given.
-pub opaque struct Image {
+pub opaque struct Image
     handle: Handle
 
     /// The format it was decoded from; `None` for an image a resize or a
     /// crop made.
     format: Maybe<Format>
-}
+end
 
-impl Image {
+impl Image
     /// The width in pixels.
-    pub fn width(image: Image) -> Int {
+    pub fn width(image: Image) -> Int
         width_raw(image.handle)
-    }
+    end
 
     /// The height in pixels.
-    pub fn height(image: Image) -> Int {
+    pub fn height(image: Image) -> Int
         height_raw(image.handle)
-    }
+    end
 
     /// The format the image was decoded from, or `None` for one a resize
     /// or a crop made.
-    pub fn format(image: Image) -> Maybe<Format> {
+    pub fn format(image: Image) -> Maybe<Format>
         image.format
-    }
+    end
 
     /// `image` scaled down to fit inside `max_width` by `max_height`,
     /// keeping its shape. An image that already fits is returned as it is:
     /// `fit` never scales up. The bounds must be positive.
-    pub fn fit(image: Image, max_width: Int, max_height: Int) -> Image {
-        if max_width < 1 or max_height < 1 { unreachable "Image.fit's box must be at least 1 by 1" }
+    pub fn fit(image: Image, max_width: Int, max_height: Int) -> Image
+        if max_width < 1 or max_height < 1 then
+            unreachable "Image.fit's box must be at least 1 by 1"
+        end
+
         fitted = Image{handle: fit_raw(image.handle, max_width, max_height), format: None}
 
         if Image.width(fitted) == Image.width(image)
-            and Image.height(fitted) == Image.height(image) {
+            and Image.height(fitted) == Image.height(image) then
             image
-        } else {
+        else
             fitted
-        }
-    }
+        end
+    end
 
     /// `image` scaled and cropped to exactly `width` by `height`: scaled
     /// until it covers the box, keeping its shape, then cut to the box
     /// around its center. The sizes must be positive.
-    pub fn fill(image: Image, width: Int, height: Int) -> Image {
-        if width < 1 or height < 1 { unreachable "Image.fill's size must be at least 1 by 1" }
+    pub fn fill(image: Image, width: Int, height: Int) -> Image
+        if width < 1 or height < 1 then unreachable "Image.fill's size must be at least 1 by 1"
         Image{handle: fill_raw(image.handle, width, height), format: None}
-    }
+    end
 
     /// The part of `image` whose top left corner is at `x`, `y` and that is
     /// `width` by `height`, which must lie inside the image.
-    pub fn crop(image: Image, x: Int, y: Int, width: Int, height: Int) -> Image {
+    pub fn crop(image: Image, x: Int, y: Int, width: Int, height: Int) -> Image
         inside = x >= 0
             and y >= 0
             and width >= 1
@@ -207,19 +213,19 @@ impl Image {
             and x + width <= Image.width(image)
             and y + height <= Image.height(image)
 
-        if not inside { unreachable "Image.crop's rectangle must lie inside the image" }
+        if not inside then unreachable "Image.crop's rectangle must lie inside the image"
         Image{handle: crop_raw(image.handle, x, y, width, height), format: None}
-    }
+    end
 
     /// `image` as a JPEG file at `quality`, 1 to 100. JPEG has no
     /// transparency, so a transparent pixel is written as its color.
-    pub fn encode_jpeg(image: Image, quality: Int = 90) -> Bytes {
-        if quality < 1 or quality > 100 { unreachable "Image.encode_jpeg's quality is 1 to 100" }
+    pub fn encode_jpeg(image: Image, quality: Int = 90) -> Bytes
+        if quality < 1 or quality > 100 then unreachable "Image.encode_jpeg's quality is 1 to 100"
         encode_jpeg_raw(image.handle, quality)
-    }
+    end
 
     /// `image` as a PNG file.
-    pub fn encode_png(image: Image) -> Bytes {
+    pub fn encode_png(image: Image) -> Bytes
         encode_png_raw(image.handle)
-    }
-}
+    end
+end

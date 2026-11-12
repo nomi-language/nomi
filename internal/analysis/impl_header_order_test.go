@@ -38,68 +38,68 @@ func checkEveryOrder(t *testing.T, texts map[string]string) map[string]*analysis
 // unifier to bind Holds's T from.
 func TestDeclarationOrder_ImplHeaderOfAnInterfaceFromAnotherFile(t *testing.T) {
 	programs := checkEveryOrder(t, map[string]string{
-		"%s": `pub interface Holds<T> {
+		"%s": `pub interface Holds<T>
     fn held(value: self) -> T
-}
+end
 
-pub interface Combine<Rhs, Out> {
+pub interface Combine<Rhs, Out>
     fn combine(lhs: self, rhs: Rhs) -> Out
-}
+end
 `,
 		"impls": `import %s.{Holds, Combine}
 
-pub struct Box {
+pub struct Box
     n: Int
-}
+end
 
-pub struct Bag {
+pub struct Bag
     s: String
-}
+end
 
-impl Holds<Int> for Box {
-    fn held(value: Box) -> Int {
+impl Holds<Int> for Box
+    fn held(value: Box) -> Int
         value.n
-    }
-}
+    end
+end
 
-impl Holds for Bag {
-    fn held(value: Bag) -> String {
+impl Holds for Bag
+    fn held(value: Bag) -> String
         value.s
-    }
-}
+    end
+end
 
-impl Combine<Int, Box> for Box {
-    fn combine(lhs: Box, rhs: Int) -> Box {
+impl Combine<Int, Box> for Box
+    fn combine(lhs: Box, rhs: Int) -> Box
         Box{n: lhs.n + rhs}
-    }
-}
+    end
+end
 
-impl Add<Int, Box> for Box {
-    fn add(lhs: Box, rhs: Int) -> Box {
+impl Add<Int, Box> for Box
+    fn add(lhs: Box, rhs: Int) -> Box
         Box{n: lhs.n + rhs}
-    }
-}
+    end
+end
 `,
-		"main": `import {
+		"main": `import
     impls.{Box, Bag}
     %s.{Holds, Combine}
-}
+end
 
-fn first<H>(h: H) -> Int where H: Holds<Int> {
+fn first<H>(h: H) -> Int where H: Holds<Int>
     H.held(h)
-}
+end
 
-fn second<H>(h: H) -> String where H: Holds<String> {
+fn second<H>(h: H) -> String where H: Holds<String>
     H.held(h)
-}
+end
 
-fn main() {
+fn main()
     b = Box{n: 2}
     dbg first(b)
     dbg second(Bag{s: "x"}) + "y"
     dbg Combine.combine(b, 3).n
     dbg (b + 4).n
-}
+end
 `,
 	})
 	for name, p := range programs {

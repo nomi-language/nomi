@@ -9,19 +9,19 @@ nomi add github.com/nomi-language/nomi/lib/markdown
 ```
 
 ```nomi
-import {
+import
     std::html.Html
     markdown
-}
+end
 
-fn post(title: String, body: String) -> Html {
+fn post(title: String, body: String) -> Html
     Html"""
         <article>
           <h1>${title}</h1>
           ${markdown.render(body)}
         </article>
         """
-}
+end
 ```
 
 A release `nomi` carries the module's Go code prebuilt, so a program that

@@ -9,45 +9,45 @@ import "testing"
 func TestRun_ComparisonOperandTakesTheOtherOperandsType(t *testing.T) {
 	out := runOutput(t, `import std::io
 
-enum Kind {
+enum Kind
     Deposit
     Withdrawal
-}
+end
 
 derive Comparable for Kind
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-struct Txn {
+struct Txn
     kind: Kind
     amount: Int
-}
+end
 
-fn describe(r: Result<Txn, String>) -> String {
-    case r {
+fn describe(r: Result<Txn, String>) -> String
+    case r
         Ok(t) when t.kind == .Deposit -> "in ${t.amount}"
         Ok(t) when .Withdrawal == t.kind -> "out ${t.amount}"
         _ -> "none"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     k = Kind.Withdrawal
     a = k == .Deposit
     b: Bool = k != .Deposit
     io.print("${a} ${b}")
-    if .Withdrawal == k and k > .Deposit {
+    if .Withdrawal == k and k > .Deposit then
         io.print("withdrawal after deposit")
-    }
+    end
     p = Point{x: 1, y: 2}
-    io.print("${p == .{x: 1, y: 2}} ${.{x: 2, y: 1} == p}")
+    io.print("${p == {x: 1, y: 2}} ${{x: 2, y: 1} == p}")
     io.print(describe(Ok(Txn{kind: .Deposit, amount: 5})))
     io.print(describe(Ok(Txn{kind: .Withdrawal, amount: 3})))
     io.print(describe(Err("x")))
-}
+end
 `)
 	want := "False True\nwithdrawal after deposit\nTrue False\nin 5\nout 3\nnone\n"
 	if out != want {

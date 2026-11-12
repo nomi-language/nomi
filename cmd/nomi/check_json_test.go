@@ -16,8 +16,8 @@ import (
 func TestCheckCommand_JSONLines(t *testing.T) {
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	mustWrite(t, filepath.Join(dir, "main.nomi"), "import helper\n\nfn main() {\n    xs = [1, 2]\n    dbg xs.len()\n    dbg helper.twice(nil)\n}\n")
-	mustWrite(t, filepath.Join(dir, "helper.nomi"), "pub fn twice(n: Int) -> Int {\n    n * 2\n}\n")
+	mustWrite(t, filepath.Join(dir, "main.nomi"), "import helper\n\nfn main()\n    xs = [1, 2]\n    dbg xs.len()\n    dbg helper.twice(nil)\nend\n")
+	mustWrite(t, filepath.Join(dir, "helper.nomi"), "pub fn twice(n: Int) -> Int\n    n * 2\nend\n")
 	out, err := runNomi(t, t.TempDir(), "check", "--format", "json", dir)
 	if err == nil {
 		t.Fatalf("nomi check passed a broken program:\n%s", out)
@@ -49,7 +49,7 @@ func TestCheckCommand_JSONLines(t *testing.T) {
 // program with no error left at that place.
 func TestCheckCommand_JSONFixesApply(t *testing.T) {
 	dir := t.TempDir()
-	src := "fn main() {\n    xs = [1, 2]\n    dbg xs.len()\n    v: Vector<Int> = [1]\n    dbg v\n}\n"
+	src := "fn main()\n    xs = [1, 2]\n    dbg xs.len()\n    v: Vector<Int> = [1]\n    dbg v\nend\n"
 	path := filepath.Join(dir, "main.nomi")
 	mustWrite(t, path, src)
 	out, _ := runNomi(t, t.TempDir(), "check", "--format", "json", path)
@@ -90,7 +90,7 @@ func TestCheckCommand_JSONFixesApply(t *testing.T) {
 func TestCheckCommand_ReportsEverySyntaxError(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "main.nomi")
-	mustWrite(t, path, "fn main() {\n    let a = 1\n    b := 2\n    dbg a\n}\n\nfn other() -> Int {\n    x = 1 +\n}\n")
+	mustWrite(t, path, "fn main()\n    let a = 1\n    b := 2\n    dbg a\nend\n\nfn other() -> Int\n    x = 1 +\nend\n")
 	out, err := runNomi(t, t.TempDir(), "check", "--format", "short", path)
 	if err == nil {
 		t.Fatalf("nomi check passed:\n%s", out)

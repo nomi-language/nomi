@@ -15,15 +15,15 @@ func TestFormat_DanglingComments(t *testing.T) {
 		},
 		{
 			"after a with statement's =",
-			"fn publish_quietly() {\n    with App.logger = // why\n        Silent\n    publish()\n}\n",
-			"fn publish_quietly() {\n    with App.logger = Silent // why\n    publish()\n}\n",
+			"fn publish_quietly()\n    with App.logger = // why\n        Silent\n    publish()\nend\n",
+			"fn publish_quietly()\n    with App.logger = Silent // why\n    publish()\nend\n",
 		},
 		{
 			// The line already ends in a comment, so the dangling one takes
 			// a line of its own, above the next line with code.
 			"on a line that has a comment",
-			"list = [1, .. // c1\n          [2]] // t\n\ncase list {\n    _ -> 0\n}\n",
-			"list = [1, ..[2]] // t\n\n// c1\ncase list {\n    _ -> 0\n}\n",
+			"list = [1, .. // c1\n          [2]] // t\n\ncase list\n    _ -> 0\nend\n",
+			"list = [1, ..[2]] // t\n\n// c1\ncase list\n    _ -> 0\nend\n",
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -35,6 +35,6 @@ func TestFormat_DanglingComments(t *testing.T) {
 // A comment the parse keeps in a Trivia is no dangling comment: each is
 // written once.
 func TestFormat_ClaimedCommentsAreNotDangling(t *testing.T) {
-	src := "// lead\nfn f() {\n    x = 1 // t\n    // end\n}\n\n// file end\n"
+	src := "// lead\nfn f()\n    x = 1 // t\n    // end\nend\n\n// file end\n"
 	formatsKeepingMeaning(t, src, src)
 }

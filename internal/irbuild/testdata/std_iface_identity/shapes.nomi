@@ -12,27 +12,27 @@
 // two packages binding one name into it was already impossible by construction.
 // rt's table is shared by every package, so it is possible here for the first
 // time — and the only thing keeping the two apart is that the key is an ADDRESS.
-pub struct Point {
+pub struct Point
     tag: String
     weight: Int
-}
+end
 
-impl Display for Point {
-    fn to_string(p: Point) -> String {
+impl Display for Point
+    fn to_string(p: Point) -> String
         "${p.tag}(${p.weight})"
-    }
-}
+    end
+end
 
-impl Comparable for Point {
-    fn compare(a: Point, b: Point) -> Ordering {
+impl Comparable for Point
+    fn compare(a: Point, b: Point) -> Ordering
         Int.compare(a.weight, b.weight)
-    }
-}
+    end
+end
 
-pub fn theirs() -> Display {
+pub fn theirs() -> Display
     Point{tag: "theirs", weight: 7}
-}
+end
 
-pub fn theirs_ordered() -> Comparable {
+pub fn theirs_ordered() -> Comparable
     Point{tag: "theirs", weight: 7}
-}
+end

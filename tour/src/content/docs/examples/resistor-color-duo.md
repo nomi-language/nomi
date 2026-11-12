@@ -14,7 +14,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# The two-digit value a resistor's first two color bands give.
 
 /// A band color, in value order: black is 0 and white is 9.
-pub enum Color {
+pub enum Color
     Black
     Brown
     Red
@@ -25,19 +25,19 @@ pub enum Color {
     Violet
     Grey
     White
-}
+end
 
 /// The value the first two bands read as digits give, ignoring any band
 /// after them, or `None` when there are fewer than two bands.
-pub fn value(bands: List<Color>) -> Maybe<Int> {
-    case bands {
+pub fn value(bands: List<Color>) -> Maybe<Int>
+    case bands
         [first, second, ..] -> Some(digit(first) * 10 + digit(second))
         _ -> None
-    }
-}
+    end
+end
 
-fn digit(color: Color) -> Int {
-    case color {
+fn digit(color: Color) -> Int
+    case color
         .Black -> 0
         .Brown -> 1
         .Red -> 2
@@ -48,16 +48,16 @@ fn digit(color: Color) -> Int {
         .Violet -> 7
         .Grey -> 8
         .White -> 9
-    }
-}
+    end
+end
 
 // FILE: resistor_color_duo_test.nomi
-import {
+import
     resistor_color_duo
     resistor_color_duo.Color
-}
+end
 
-test "value" {
+test "value"
     [
         ("Brown and black", [Color.Brown, .Black], 10),
         ("Blue and grey", [.Blue, .Grey], 68),
@@ -67,15 +67,15 @@ test "value" {
         ("Ignore additional colors", [.Green, .Brown, .Orange], 51),
         ("Black and brown, one-digit", [.Black, .Brown], 1),
     ]
-    |> subtests (description, bands, expected), description {
+    |> subtests (description, bands, expected), description
         assert resistor_color_duo.value(bands) == Some(expected)
-    }
-}
+    end
+end
 
 // Not a canonical case: the exercise always gives at least two bands.
-test "fewer than two bands have no value" {
+test "fewer than two bands have no value"
     assert resistor_color_duo.value([.Brown]) == None
-}
+end
 ```
 <!-- expect
 ok value (7 cases)

@@ -1,4 +1,4 @@
-import {
+import
     std::fs_testing.{self, Sandbox}
     std::json.Json
     std::sql.{self, Conn, Row, Sql, Value}
@@ -12,30 +12,30 @@ import {
     sqlite
     sqlkit.{self, Migration, Rows}
     sqltext
-}
+end
 
 gopkg "github.com/nomi-language/nomi/lib/sql/sqlkit/testside"
 
 // --- query files ---------------------------------------------------------
-fn parsed(text: String) -> Result<File, List<Problem>> {
+fn parsed(text: String) -> Result<File, List<Problem>>
     queryfile.parse("db/queries/q.sql", text)
-}
+end
 
-fn messages(problems: List<Problem>) -> List<String> {
+fn messages(problems: List<Problem>) -> List<String>
     problems |> Iter.map(fn p -> p.message) |> Iter.to_list()
-}
+end
 
-fn places(problems: List<Problem>) -> List<(Int, Int)> {
+fn places(problems: List<Problem>) -> List<(Int, Int)>
     problems |> Iter.map(fn p -> (p.line, p.col)) |> Iter.to_list()
-}
+end
 
-test "a query file reads each query's annotation, doc lines and SQL" {
+test "a query file reads each query's annotation, doc lines and SQL"
     text = "-- The shop's queries.\n-- import: shop.Report\n\n-- query: user_by_email(email: String) -> Maybe<User>\n-- The user with this email,\n--\n-- if any.\nSELECT id\nFROM users\nWHERE email = @email;\n\n-- query: all_users()\nSELECT id FROM users;\n"
 
-    file = case parsed(text) {
+    file = case parsed(text)
         Ok(f) -> f
         Err(ps) -> return Err("${messages(ps)}")
-    }
+    end
 
     assert file.imports == ["shop.Report"]
 
@@ -63,31 +63,32 @@ test "a query file reads each query's annotation, doc lines and SQL" {
             sql_line: 13,
         },
     ]
-}
+end
 
-test "a parameter's type may hold commas inside brackets" {
+test "a parameter's type may hold commas inside brackets"
     text = "-- query: q(a: Map<String, Int>, b: (Int, Int)) -> Int\nSELECT @a, @b;\n"
 
-    params = case parsed(text) {
+    params = case parsed(text)
         Ok(f) ->
             f.queries
             |> Iter.flat_map(fn q -> q.params)
             |> Iter.map(fn p -> p.type_text)
             |> Iter.to_list()
 
-        Err(ps) -> return Err("${messages(ps)}")
-    }
+        Err(ps) ->
+            return Err("${messages(ps)}")
+    end
 
     assert params == ["Map<String, Int>", "(Int, Int)"]
-}
+end
 
-test "a query file's mistakes are problems at their line and column" {
+test "a query file's mistakes are problems at their line and column"
     text = "SELECT 1;\n-- query: Bad()\nSELECT 1;\n-- query: no_parens -> Int\nSELECT 1;\n-- query: twice(a: Int, a: Int)\nSELECT @a;\n-- query: no_end() -> Int\nSELECT 1\n-- query: two() -> Int\nSELECT 1; SELECT 2;\n-- query: empty()\n"
 
-    problems = case parsed(text) {
+    problems = case parsed(text)
         Ok(_) -> return Err("no problems")
         Err(ps) -> ps
-    }
+    end
 
     assert messages(problems) == [
         "SQL before the first `-- query:` belongs to no query",
@@ -100,9 +101,9 @@ test "a query file's mistakes are problems at their line and column" {
     ]
 
     assert places(problems) == [(1, 1), (2, 11), (4, 20), (6, 25), (8, 1), (11, 11), (12, 1)]
-}
+end
 
-test "a problem prints as the compiler prints a diagnostic" {
+test "a problem prints as the compiler prints a diagnostic"
     p = Problem{
         file: "db/queries/q.sql",
         line: 3,
@@ -112,53 +113,53 @@ test "a problem prints as the compiler prints a diagnostic" {
     }
 
     assert "${p}" == "db/queries/q.sql:3:7: no such column: x\ndb/queries/q.sql:3:7: help: a hint"
-    assert "${.{..p, line: 0, hints: []}}" == "db/queries/q.sql: no such column: x"
-}
+    assert "${{..p, line: 0, hints: []}}" == "db/queries/q.sql: no such column: x"
+end
 
 // --- parameters in SQL ---------------------------------------------------
-fn params_of(text: String) -> List<String> {
+fn params_of(text: String) -> List<String>
     sqltext.markers(sqltext.tokens(text)) |> Iter.map(fn t -> t.text) |> Iter.to_list()
-}
+end
 
-test "an `@` and an identifier start a parameter: letters, digits and `_`" {
+test "an `@` and an identifier start a parameter: letters, digits and `_`"
     assert params_of("WHERE a = @user_id2 AND b=@_x AND c = (@C)") == ["@user_id2", "@_x", "@C"]
 
     // A digit does not start a name.
     assert params_of("SELECT @1, @") == []
-}
+end
 
-test "Postgres's `@` operators are SQL text" {
+test "Postgres's `@` operators are SQL text"
     assert params_of("WHERE tags @> @t AND x <@ y AND d @@ q AND @ x AND v @@name") == ["@t"]
-}
+end
 
-test "an `@` in a string, a quoted name or a comment is SQL text" {
+test "an `@` in a string, a quoted name or a comment is SQL text"
     assert params_of("WHERE email = 'a@b.c' AND 'it''s @x' = @y") == ["@y"]
     assert params_of("SELECT \"@x\" FROM t WHERE \"a\"\"@b\" = @y") == ["@y"]
     assert params_of("SELECT 1 -- @x\nFROM t /* @z\n @w */ WHERE a = @y") == ["@y"]
-}
+end
 
-test "each `@name` is sent as the next positional parameter" {
+test "each `@name` is sent as the next positional parameter"
     tokens = sqltext.tokens("SELECT a FROM t WHERE a = @x OR b = @y OR c = @x")
 
     assert sqltext.sqlite_sql(sqltext.parts(tokens))
         == "SELECT a FROM t WHERE a = ?1 OR b = ?2 OR c = ?3"
-}
+end
 
 // --- the generated functions ---------------------------------------------
-fn column(name: String, type_name: String, nullable: Bool, values: List<String>) -> TableColumn {
+fn column(name: String, type_name: String, nullable: Bool, values: List<String>) -> TableColumn
     TableColumn{
-        name,
-        type_name,
-        nullable,
+        name:,
+        type_name:,
+        nullable:,
         primary_key: name == "id",
         has_default: False,
-        values,
+        values:,
         migration: "db/migrations/1.sql",
         line: 2,
     }
-}
+end
 
-fn users_table() -> Table {
+fn users_table() -> Table
     Table{
         name: "users",
         migration: "db/migrations/1.sql",
@@ -169,64 +170,64 @@ fn users_table() -> Table {
             column("status", "TEXT", False, ["active", "gone"]),
         ],
     }
-}
+end
 
-fn schema_with(db: Database, tables: List<Table>) -> Result<Schema, List<Problem>> {
+fn schema_with(db: Database, tables: List<Table>) -> Result<Schema, List<Problem>>
     codegen.schema(db, tables, "schema")
-}
+end
 
-fn users_schema() -> Schema {
-    case schema_with(databases.defaults("main"), [users_table()]) {
+fn users_schema() -> Schema
+    case schema_with(databases.defaults("main"), [users_table()])
         Ok(s) -> s
-        Err(_) -> Schema{db: databases.defaults("main"), tables: [], rows: %{}, module: "schema"}
-    }
-}
+        Err(_) -> Schema{db: databases.defaults("main"), tables: [], rows: {}, module: "schema"}
+    end
+end
 
-fn id_column() -> Column {
+fn id_column() -> Column
     Column{name: "id", type_name: "INTEGER", table: "users", column: "id", nullable: False}
-}
+end
 
-fn name_column() -> Column {
+fn name_column() -> Column
     Column{name: "name", type_name: "TEXT", table: "users", column: "name", nullable: True}
-}
+end
 
 // The file q.sql of `text` generates, each query described by `described`.
 fn generate(
     text: String,
     described: List<Result<List<Column>, QueryError>>,
-) -> Result<String, List<Problem>> {
+) -> Result<String, List<Problem>>
     file = parsed(text)?
     codegen.queries_file(users_schema(), file, described, "ab12")
-}
+end
 
-fn source_of(text: String, columns: List<Column>) -> String {
-    case generate(text, [Ok(columns)]) {
+fn source_of(text: String, columns: List<Column>) -> String
+    case generate(text, [Ok(columns)])
         Ok(source) -> source
         Err(ps) -> "${messages(ps)}"
-    }
-}
+    end
+end
 
-fn problems_of(text: String, described: List<Result<List<Column>, QueryError>>) -> List<Problem> {
-    case generate(text, described) {
+fn problems_of(text: String, described: List<Result<List<Column>, QueryError>>) -> List<Problem>
+    case generate(text, described)
         Ok(_) -> []
         Err(ps) -> ps
-    }
-}
+    end
+end
 
-test "a described query generates a function reading its columns" {
+test "a described query generates a function reading its columns"
     text = "-- query: user_by_email(email: String) -> Maybe<User>\n-- The user.\nSELECT id, name\nFROM users\nWHERE email = @email;\n"
     source = source_of(text, [id_column(), name_column()])
 
-    assert source == "// Generated by `nomi tool sqlkit generate` from db/queries/q.sql and\n// db/migrations. Do not edit: change the SQL and generate again.\n// inputs sha256: ab12\nimport {\n    std::sql\n    schema.User\n    sqlkit::runtime\n}\n\n/// The user.\npub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {\n    statement = runtime.statement(\n        [`SELECT id, name FROM users WHERE email = `, ``],\n        [runtime.bind(email)],\n    )\n\n    runtime.optional(conn, \"user_by_email\", statement, fn row -> Ok(User{\n            id: runtime.int(\"user_by_email\", row, 0)?,\n            name: runtime.text_null(\"user_by_email\", row, 1)?,\n        }))\n}\n"
-}
+    assert source == "// Generated by `nomi tool sqlkit generate` from db/queries/q.sql and\n// db/migrations. Do not edit: change the SQL and generate again.\n// inputs sha256: ab12\nimport\n    std::sql\n    schema.User\n    sqlkit::runtime\nend\n\n/// The user.\npub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error>\n    statement = runtime.statement(\n        [`SELECT id, name FROM users WHERE email = `, ``],\n        [runtime.bind(email)],\n    )\n\n    runtime.optional(conn, \"user_by_email\", statement, fn row -> Ok(User{\n            id: runtime.int(\"user_by_email\", row, 0)?,\n            name: runtime.text_null(\"user_by_email\", row, 1)?,\n        }))\nend\n"
+end
 
-test "a parameter used twice is bound twice" {
+test "a parameter used twice is bound twice"
     text = "-- query: q(email: String) -> Maybe<User>\nSELECT id, name FROM users WHERE email = @email OR name = @email;\n"
     source = source_of(text, [id_column(), name_column()])
     assert "[runtime.bind(email), runtime.bind(email)]" in source
-}
+end
 
-test "a parameter the SQL does not use, and an `@name` no parameter names, are problems" {
+test "a parameter the SQL does not use, and an `@name` no parameter names, are problems"
     problems = problems_of(
         "-- query: user_by_email(email: String)\nSELECT id FROM users WHERE email = @mail;\n",
         [Ok([id_column()])],
@@ -243,9 +244,9 @@ test "a parameter the SQL does not use, and an `@name` no parameter names, are p
         ["its parameters are `email`"],
         ["write `@email` where it is bound, or remove it"],
     ]
-}
+end
 
-test "a `\${...}` in a query's SQL is a problem that suggests `@name`" {
+test "a `\${...}` in a query's SQL is a problem that suggests `@name`"
     problems = problems_of(
         "-- query: q(email: String)\nSELECT id FROM users WHERE email = \${email};\n",
         [Ok([id_column()])],
@@ -260,9 +261,9 @@ test "a `\${...}` in a query's SQL is a problem that suggests `@name`" {
 
     // In a string literal it is SQL text.
     assert sqltext.interpolations(sqltext.tokens("SELECT '\${x}' -- \${y}")) == []
-}
+end
 
-test "SQLite's error is a problem at the token it names" {
+test "SQLite's error is a problem at the token it names"
     rejected = Err(QueryError{message: "no such column: nmae", offset: 11})
 
     problems = problems_of(
@@ -272,9 +273,9 @@ test "SQLite's error is a problem at the token it names" {
 
     assert messages(problems) == ["no such column: nmae"]
     assert places(problems) == [(3, 8)]
-}
+end
 
-test "a query with no result type answers anonymous rows, its enums and std types imported" {
+test "a query with no result type answers anonymous rows, its enums and std types imported"
     status = Column{
         name: "status",
         type_name: "TEXT",
@@ -292,12 +293,12 @@ test "a query with no result type answers anonymous rows, its enums and std type
 
     assert String.contains(
         source,
-        "import {\n    std::instant.Instant\n    std::sql\n    schema.UserStatus\n    sqlkit::runtime\n}\n",
+        "import\n    std::instant.Instant\n    std::sql\n    schema.UserStatus\n    sqlkit::runtime\nend\n",
     )
 
     assert String.contains(
         source,
-        "pub fn q(conn: sql.Conn) -> Result<List<.{\n    id: Int,\n    status: UserStatus,\n    at: Maybe<Instant>,\n}>, sql.Error> {",
+        "pub fn q(conn: sql.Conn) -> Result<List<{\n    id: Int,\n    status: UserStatus,\n    at: Maybe<Instant>,\n}>, sql.Error>",
     )
 
     assert "            id: runtime.int<Int>(\"q\", row, 0)?,\n" in source
@@ -306,40 +307,40 @@ test "a query with no result type answers anonymous rows, its enums and std type
         source,
         "            at: runtime.timestamptz_null<Instant>(\"q\", row, 2)?,\n",
     )
-}
+end
 
-test "SQL that returns no rows answers the rows it changed with `-> Changed`, or nothing with `-> Unit`" {
+test "SQL that returns no rows answers the rows it changed with `-> Changed`, or nothing with `-> Unit`"
     changed = source_of("-- query: q(id: Int) -> Changed\nDELETE FROM users WHERE id = @id;\n", [])
 
     assert String.contains(
         changed,
-        "pub fn q(conn: sql.Conn, id: Int) -> Result<sqlkit.Changed, sql.Error> {",
+        "pub fn q(conn: sql.Conn, id: Int) -> Result<sqlkit.Changed, sql.Error>",
     )
 
     assert "    runtime.exec(conn, statement)\n" in changed
     assert "\n    sqlkit\n" in changed
 
     ignored = source_of("-- query: q(id: Int) -> Unit\nDELETE FROM users WHERE id = @id;\n", [])
-    assert "-> Result<Unit, sql.Error> {" in ignored
+    assert "-> Result<Unit, sql.Error>" in ignored
     assert "    runtime.run(conn, statement)\n" in ignored
     refute "\n    sqlkit\n" in ignored
-}
+end
 
-test "a query's result must fit whether its SQL returns rows" {
-    none = fn result: String -> {
+test "a query's result must fit whether its SQL returns rows"
+    none = fn result: String ->
         messages(
             problems_of(
                 "-- query: q(id: Int)${result}\nDELETE FROM users WHERE id = @id;\n",
                 [Ok([])],
             )
         )
-    }
+    end
 
-    rows = fn result: String -> {
+    rows = fn result: String ->
         messages(
             problems_of("-- query: q()${result}\nSELECT id FROM users;\n", [Ok([id_column()])])
         )
-    }
+    end
 
     assert none("") == [
         "`q` returns no rows, so its result is the number of rows it changed: write `-> Changed`",
@@ -353,17 +354,17 @@ test "a query's result must fit whether its SQL returns rows" {
 
     assert rows(" -> Unit") == ["`q` returns rows, so its result cannot be `Unit`"]
     assert rows(" -> Changed") == ["`q` returns rows, so its result cannot be `Changed`"]
-}
+end
 
-test "a result that names no row type is a problem at the annotation" {
-    refused = fn result: String -> {
+test "a result that names no row type is a problem at the annotation"
+    refused = fn result: String ->
         problems = problems_of(
             "-- query: q() -> ${result}\nSELECT id, name FROM users;\n",
             [Ok([id_column(), name_column()])],
         )
 
         (messages(problems), places(problems))
-    }
+    end
 
     assert refused("List") == (
         ["`-> List` names no row type: write `-> List<MyRow>`"],
@@ -385,11 +386,11 @@ test "a result that names no row type is a problem at the annotation" {
         [(1, 18)],
     )
 
-    not_a_row = fn t: String -> {
+    not_a_row = fn t: String ->
         [
             "`${t}` is not a row type: a row type names a struct, or for a query of one column one of std's value types or one of the schema's enums",
         ]
-    }
+    end
 
     assert refused("Result<User, String>").first == not_a_row("Result<User, String>")
     assert refused("Result").first == not_a_row("Result")
@@ -425,31 +426,31 @@ test "a result that names no row type is a problem at the annotation" {
         ["`q` returns 2 columns, so its row type cannot be `Int`"],
         [(1, 18)],
     )
-}
+end
 
-test "a one-column query reads a scalar row type as the column" {
+test "a one-column query reads a scalar row type as the column"
     source = source_of("-- query: q() -> Int\nSELECT id FROM users;\n", [id_column()])
 
     assert String.contains(
         source,
         "    runtime.one(conn, \"q\", statement, fn row -> runtime.int(\"q\", row, 0))\n",
     )
-}
+end
 
-fn status_column() -> Column {
+fn status_column() -> Column
     Column{name: "status", type_name: "TEXT", table: "users", column: "status", nullable: False}
-}
+end
 
-test "a one-column query reads one of the schema's enums as the column, in every shape" {
-    read = fn result: String -> {
+test "a one-column query reads one of the schema's enums as the column, in every shape"
+    read = fn result: String ->
         source_of("-- query: q() -> ${result}\nSELECT status FROM users;\n", [status_column()])
-    }
+    end
 
     assert "    runtime.one(conn, \"q\", statement, fn row -> runtime.text(\"q\", row, 0))\n" in read(
         "UserStatus"
     )
 
-    assert "pub fn q(conn: sql.Conn) -> Result<Maybe<UserStatus>, sql.Error> {" in read(
+    assert "pub fn q(conn: sql.Conn) -> Result<Maybe<UserStatus>, sql.Error>" in read(
         "Maybe<UserStatus>"
     )
 
@@ -466,7 +467,7 @@ test "a one-column query reads one of the schema's enums as the column, in every
     )
 
     // A nullable column reads as a `Maybe` of the enum.
-    maybe_status = .{..status_column(), nullable: True}
+    maybe_status = {..status_column(), nullable: True}
 
     assert "fn row -> runtime.text_null(\"q\", row, 0))\n" in source_of(
         "-- query: q() -> List<Maybe<UserStatus>>\nSELECT status FROM users;\n",
@@ -474,7 +475,7 @@ test "a one-column query reads one of the schema's enums as the column, in every
     )
 
     qualified = read("Maybe<schema.UserStatus>")
-    assert "-> Result<Maybe<schema.UserStatus>, sql.Error> {" in qualified
+    assert "-> Result<Maybe<schema.UserStatus>, sql.Error>" in qualified
     assert "fn row -> runtime.text(\"q\", row, 0))\n" in qualified
     refute "UserStatus{" in qualified
 
@@ -500,24 +501,24 @@ test "a one-column query reads one of the schema's enums as the column, in every
     )
 
     assert "fn row -> Ok(UserStatus{\n" in imported
-}
+end
 
-test "a one-column query's row type is a `Maybe` exactly when the column may be NULL" {
-    maybe_status = .{..status_column(), nullable: True}
+test "a one-column query's row type is a `Maybe` exactly when the column may be NULL"
+    maybe_status = {..status_column(), nullable: True}
     token = Column{name: "token", type_name: "UUID", table: "", column: "", nullable: True}
 
-    refused = fn result: String, column: Column -> {
+    refused = fn result: String, column: Column ->
         problems = problems_of(
             "-- query: q() -> ${result}\nSELECT ${column.name} FROM users;\n",
             [Ok([column])],
         )
 
         messages(problems)
-    }
+    end
 
-    nullable = fn column: String, t: String -> {
+    nullable = fn column: String, t: String ->
         ["the column `${column}` of `q` may be NULL, so its row type cannot be `${t}`"]
-    }
+    end
 
     assert refused("UserStatus", maybe_status) == nullable("status", "UserStatus")
     assert refused("Maybe<UserStatus>", maybe_status) == nullable("status", "UserStatus")
@@ -525,17 +526,17 @@ test "a one-column query's row type is a `Maybe` exactly when the column may be 
     assert refused("Rows<UserStatus>", maybe_status) == nullable("status", "UserStatus")
     assert refused("Maybe<String>", name_column()) == nullable("name", "String")
     assert refused("Maybe<Uuid>", token) == nullable("token", "Uuid")
-    assert refused("List<Int>", .{..id_column(), nullable: True}) == nullable("id", "Int")
+    assert refused("List<Int>", {..id_column(), nullable: True}) == nullable("id", "Int")
 
     assert refused("Maybe<Maybe<UserStatus>>", status_column()) == [
         "the column `status` of `q` is never NULL, so its row type cannot be `Maybe<UserStatus>`",
     ]
 
-    hints = fn result: String -> {
+    hints = fn result: String ->
         problems_of("-- query: q() -> ${result}\nSELECT status FROM users;\n", [Ok([maybe_status])])
         |> Iter.flat_map(fn p -> p.hints)
         |> Iter.to_list()
-    }
+    end
 
     assert hints("Maybe<UserStatus>") == [
         "write `-> Maybe<Maybe<UserStatus>>` to read the NULL as `None`",
@@ -546,11 +547,11 @@ test "a one-column query's row type is a `Maybe` exactly when the column may be 
         "write `-> Rows<Maybe<UserStatus>>` to read the NULL as `None`"
     )
 
-    accepted = fn result: String, column: Column -> {
+    accepted = fn result: String, column: Column ->
         source_of("-- query: q() -> ${result}\nSELECT ${column.name} FROM users;\n", [column])
-    }
+    end
 
-    assert "-> Result<Maybe<Maybe<UserStatus>>, sql.Error> {" in accepted(
+    assert "-> Result<Maybe<Maybe<UserStatus>>, sql.Error>" in accepted(
         "Maybe<Maybe<UserStatus>>",
         maybe_status,
     )
@@ -565,10 +566,10 @@ test "a one-column query's row type is a `Maybe` exactly when the column may be 
         name_column(),
     )
 
-    assert "-> Result<Maybe<Maybe<Uuid>>, sql.Error> {" in accepted("Maybe<Maybe<Uuid>>", token)
-}
+    assert "-> Result<Maybe<Maybe<Uuid>>, sql.Error>" in accepted("Maybe<Maybe<Uuid>>", token)
+end
 
-test "an expression's column needs a type in an anonymous row" {
+test "an expression's column needs a type in an anonymous row"
     n = Column{name: "n", type_name: "", table: "", column: "", nullable: True}
 
     assert messages(
@@ -579,9 +580,9 @@ test "an expression's column needs a type in an anonymous row" {
 
     typed = source_of("-- query: q()\nSELECT count(*) AS \"n!: Int\" FROM users;\n", [n])
     assert "n: runtime.value<Int>(\"q\", row, 0)?," in typed
-}
+end
 
-test "a CAST to DECIMAL(p, s) reads the expression at its scale" {
+test "a CAST to DECIMAL(p, s) reads the expression at its scale"
     sum = Column{name: "n", type_name: "DECIMAL(12, 2)", table: "", column: "", nullable: False}
 
     source = source_of(
@@ -590,9 +591,9 @@ test "a CAST to DECIMAL(p, s) reads the expression at its scale" {
     )
 
     assert "n: runtime.numeric_scaled<Decimal>(\"q\", row, 0, 2)?," in source
-}
+end
 
-test "a type no import gives is a problem, and `-- import:` gives one" {
+test "a type no import gives is a problem, and `-- import:` gives one"
     problems = problems_of(
         "-- query: q(r: Report) -> Int\nSELECT id FROM users WHERE id = @r;\n",
         [Ok([id_column()])],
@@ -607,36 +608,36 @@ test "a type no import gives is a problem, and `-- import:` gives one" {
     )
 
     assert "\n    shop.Report\n" in source
-}
+end
 
-test "an imported type shadows the row of its name, and `schema.User` is the row with no import line" {
+test "an imported type shadows the row of its name, and `schema.User` is the row with no import line"
     text = "-- import: models.{User}\n\n-- query: account(id: Int) -> Maybe<User>\nSELECT id, name FROM users WHERE id = @id;\n\n-- query: row(id: Int) -> Maybe<schema.User>\nSELECT id, name FROM users WHERE id = @id;\n"
 
     source = case generate(
         text,
         [Ok([id_column(), name_column()]), Ok([id_column(), name_column()])],
-    ) {
+    )
         Ok(s) -> s
         Err(ps) -> "${messages(ps)}"
-    }
+    end
 
-    assert "import {\n    std::sql\n    models.User\n    schema\n    sqlkit::runtime\n}\n" in source
-    assert "pub fn account(conn: sql.Conn, id: Int) -> Result<Maybe<User>, sql.Error> {" in source
+    assert "import\n    std::sql\n    models.User\n    schema\n    sqlkit::runtime\nend\n" in source
+    assert "pub fn account(conn: sql.Conn, id: Int) -> Result<Maybe<User>, sql.Error>" in source
     assert "runtime.optional(conn, \"account\", statement, fn row -> Ok(User{" in source
 
-    assert "pub fn row(conn: sql.Conn, id: Int) -> Result<Maybe<schema.User>, sql.Error> {" in source
+    assert "pub fn row(conn: sql.Conn, id: Int) -> Result<Maybe<schema.User>, sql.Error>" in source
     assert "runtime.optional(conn, \"row\", statement, fn row -> Ok(schema.User{" in source
 
     // Where `User` is the import, a comment above the row it builds names
     // the table's row, for a type error there.
     assert "    // `User` is models.User, which db/queries/q.sql imports. The row of the table\n    // `users` is `schema.User`.\n    runtime.optional(conn, \"account\"" in source
     refute "    // `User` is models.User, which db/queries/q.sql imports. The row of the table\n    // `users` is `schema.User`.\n    runtime.optional(conn, \"row\"" in source
-}
+end
 
-test "only a qualified name imports the schema module, and an unused `-- import:` is left out" {
+test "only a qualified name imports the schema module, and an unused `-- import:` is left out"
     text = "-- import: models.{User}\n-- query: q(id: Int) -> Maybe<schema.User>\nSELECT id, name FROM users WHERE id = @id;\n"
     source = source_of(text, [id_column(), name_column()])
-    assert "import {\n    std::sql\n    schema\n    sqlkit::runtime\n}\n" in source
+    assert "import\n    std::sql\n    schema\n    sqlkit::runtime\nend\n" in source
 
     bare = source_of(
         "-- query: q(id: Int) -> Maybe<User>\nSELECT id, name FROM users WHERE id = @id;\n",
@@ -645,9 +646,9 @@ test "only a qualified name imports the schema module, and an unused `-- import:
 
     assert "    schema.User\n" in bare
     refute "    schema\n" in bare
-}
+end
 
-test "an enum an import shadows is written qualified in an anonymous row" {
+test "an enum an import shadows is written qualified in an anonymous row"
     status = Column{
         name: "status",
         type_name: "TEXT",
@@ -661,17 +662,17 @@ test "an enum an import shadows is written qualified in an anonymous row" {
         [Ok([]), Ok([status])],
     )
 
-    source = case generated {
+    source = case generated
         Ok(text) -> text
         Err(ps) -> "${messages(ps)}"
-    }
+    end
 
     assert "pub fn q(conn: sql.Conn, s: UserStatus)" in source
     assert "status: schema.UserStatus" in source
     assert "    models.UserStatus\n    schema\n" in source
-}
+end
 
-test "a qualified name the schema does not declare is a problem that lists its types" {
+test "a qualified name the schema does not declare is a problem that lists its types"
     problems = problems_of(
         "-- query: q() -> List<schema.Usr>\nSELECT id FROM users;\n",
         [Ok([id_column()])],
@@ -682,24 +683,24 @@ test "a qualified name the schema does not declare is a problem that lists its t
     assert problems |> Iter.flat_map(fn p -> p.hints) |> Iter.to_list() == [
         "the schema's types are each table's row struct and each `CHECK (column IN (...))` enum: `schema.User`, `schema.UserStatus`",
     ]
-}
+end
 
-test "a long signature and long SQL are laid out as the formatter lays them out" {
+test "a long signature and long SQL are laid out as the formatter lays them out"
     text = "-- query: a_query_with_a_long_name(first_parameter: String, second_parameter: Int) -> Int\nSELECT id FROM users WHERE name = @first_parameter AND id = @second_parameter AND id > 0;\n"
     source = source_of(text, [id_column()])
 
     assert String.contains(
         source,
-        "pub fn a_query_with_a_long_name(\n    conn: sql.Conn,\n    first_parameter: String,\n    second_parameter: Int,\n) -> Result<Int, sql.Error> {\n    statement = runtime.statement(\n        [`SELECT id FROM users WHERE name = `, ` AND id = `, ` AND id > 0`],\n        [runtime.bind(first_parameter), runtime.bind(second_parameter)],\n    )\n",
+        "pub fn a_query_with_a_long_name(\n    conn: sql.Conn,\n    first_parameter: String,\n    second_parameter: Int,\n) -> Result<Int, sql.Error>\n    statement = runtime.statement(\n        [`SELECT id FROM users WHERE name = `, ` AND id = `, ` AND id > 0`],\n        [runtime.bind(first_parameter), runtime.bind(second_parameter)],\n    )\n",
     )
 
     assert String.contains(
         source,
-        "    runtime.one(conn, \"a_query_with_a_long_name\", statement, fn row -> {\n        runtime.int(\"a_query_with_a_long_name\", row, 0)\n    })\n",
+        "    runtime.one(conn, \"a_query_with_a_long_name\", statement, fn row ->\n        runtime.int(\"a_query_with_a_long_name\", row, 0)\n    end)\n",
     )
-}
+end
 
-test "SQL is written raw where a raw string holds it exactly, and quoted where not" {
+test "SQL is written raw where a raw string holds it exactly, and quoted where not"
     [
         ("plain", "SELECT id FROM users WHERE a = ", "`"),
         ("an empty part", "", "`"),
@@ -717,21 +718,21 @@ test "SQL is written raw where a raw string holds it exactly, and quoted where n
         ("only line breaks", "\n\n", "`"),
         ("a line of spaces", "a\n  \nb", "\""),
     ]
-    |> subtests (description, sql, opens), description {
+    |> subtests (description, sql, opens), description
         literal = codegen.sql_literal(sql, "            ")
         assert String.starts_with(literal, opens)
 
-        if opens == "`" {
+        if opens == "`" then
             assert codegen.raw_value(literal) == Some(sql)
-        } else {
+        else
             assert literal == codegen.quote(sql)
-        }
-    }
-}
+        end
+    end
+end
 
 // Each right-hand side is a raw literal the compiler reads, so raw_value,
 // which the test above trusts, is held to the compiler's cut.
-test "raw_value reads a literal as the compiler does" {
+test "raw_value reads a literal as the compiler does"
     assert codegen.raw_value("`a \"b\" \\ \${c}`") == Some(`a "b" \ ${c}`)
 
     assert codegen.raw_value("`\n    a\n      b\n    `") == Some(
@@ -761,9 +762,9 @@ test "raw_value reads a literal as the compiler does" {
         	a
         `
     )
-}
+end
 
-test "a part that spans lines puts the statement's parts one a line" {
+test "a part that spans lines puts the statement's parts one a line"
     text = "-- query: q(a: Int) -> Int\nSELECT id FROM users WHERE id = @a AND name = 'a\nb';\n"
     source = source_of(text, [id_column()])
 
@@ -771,90 +772,91 @@ test "a part that spans lines puts the statement's parts one a line" {
         source,
         "    statement = runtime.statement(\n        [\n            `SELECT id FROM users WHERE id = `,\n            `\n             AND name = 'a\n            b'\n            `,\n        ],\n",
     )
-}
+end
 
-test "an import entry names its module and what it imports" {
+test "an import entry names its module and what it imports"
     assert codegen.entry("shop.Report") == ("shop", ["Report"])
     assert codegen.entry("std::calendar.{Date, Time}") == ("std::calendar", ["Date", "Time"])
     assert codegen.entry("reports::monthly") == ("reports::monthly", ["self"])
-}
+end
 
 // --- the schema ----------------------------------------------------------
-fn many_tables() -> List<Table> {
-    table = fn name: String, columns: List<TableColumn> -> {
-        Table{name, migration: "db/migrations/1.sql", line: 1, columns}
-    }
+fn many_tables() -> List<Table>
+    table = fn name: String, columns: List<TableColumn> ->
+        Table{name:, migration: "db/migrations/1.sql", line: 1, columns:}
+    end
 
     [
         table("categories", [column("id", "INTEGER", False, [])]),
         table("order_items", [column("kind", "TEXT", False, ["gift", "sale"])]),
         table("people", [column("status", "TEXT", False, ["active", "gone"])]),
     ]
-}
+end
 
-fn named(tables: Map<String, String>) -> Database {
-    .{..databases.defaults("main"), tables}
-}
+fn named(tables: Map<String, String>) -> Database
+    {..databases.defaults("main"), tables:}
+end
 
-fn schema_source(db: Database) -> String {
-    case schema_with(db, many_tables()) {
+fn schema_source(db: Database) -> String
+    case schema_with(db, many_tables())
         Ok(s) ->
             codegen.schema_file(s, [("db/migrations/1.sql", "CREATE TABLE t (n INT);\n")], "ab12")
 
-        Err(ps) -> "${messages(ps)}"
-    }
-}
+        Err(ps) ->
+            "${messages(ps)}"
+    end
+end
 
-test "a table's row struct is its name in the singular, and its enums take that name" {
+test "a table's row struct is its name in the singular, and its enums take that name"
     source = schema_source(databases.defaults("main"))
-    assert "pub struct Category {" in source
-    assert "pub struct OrderItem {" in source
-    assert "pub struct People {" in source
-    assert "pub enum OrderItemKind {" in source
-    assert "pub enum PeopleStatus {" in source
+    assert "pub struct Category" in source
+    assert "pub struct OrderItem" in source
+    assert "pub struct People" in source
+    assert "pub enum OrderItemKind" in source
+    assert "pub enum PeopleStatus" in source
     refute "struct Categories" in source
 
     assert String.contains(
         source,
         "pub once migrations: List<sqlkit.Migration> = [\n    sqlkit.Migration{\n        path: \"db/migrations/1.sql\",\n        sql: `\n            CREATE TABLE t (n INT);\n\n            `,\n    },\n]\n",
     )
-}
+end
 
-test "nomi.toml names a table's row struct, and its enums follow" {
-    source = schema_source(named(%{"people" => "Person"}))
-    assert "pub struct Person {" in source
-    assert "pub enum PersonStatus {" in source
+test "nomi.toml names a table's row struct, and its enums follow"
+    source = schema_source(named({"people" => "Person"}))
+    assert "pub struct Person" in source
+    assert "pub enum PersonStatus" in source
     refute "People" in source
-}
+end
 
-test "row names in nomi.toml that are not type names, name no table or clash are problems" {
-    problems = fn tables: Map<String, String> -> {
-        case schema_with(named(tables), many_tables()) {
+test "row names in nomi.toml that are not type names, name no table or clash are problems"
+    problems = fn tables: Map<String, String> ->
+        case schema_with(named(tables), many_tables())
             Ok(_) -> []
             Err(ps) -> messages(ps)
-        }
-    }
+        end
+    end
 
-    assert problems(%{"people" => "person"}) == [
+    assert problems({"people" => "person"}) == [
         "`[sqlkit.database.main.tables]` names the row of `people` `person`, which is not a type's name",
     ]
 
-    assert problems(%{"people" => "Category"}) == [
+    assert problems({"people" => "Category"}) == [
         "the tables `categories` and `people` both have the row struct `Category`",
     ]
 
-    assert problems(%{"peple" => "Person"}) == [
+    assert problems({"peple" => "Person"}) == [
         "`[sqlkit.database.main.tables]` names the table `peple`, which the migrations do not create",
     ]
-}
+end
 
-test "with no database table, the module has `main` with the defaults" {
+test "with no database table, the module has `main` with the defaults"
     assert databases.read(Json.Null) == [databases.defaults("main")]
     assert databases.out_file(databases.defaults("main"), "schema") == "schema.nomi"
-}
+end
 
 // --- the inputs and the freshness test -----------------------------------
-test "the digest of the inputs is SHA-256 over each path and text" {
+test "the digest of the inputs is SHA-256 over each path and text"
     one = [Input{path: "db/migrations/1.sql", text: "CREATE TABLE t (n INTEGER);\n"}]
 
     // `printf 'db/migrations/1.sql\0CREATE TABLE t (n INTEGER);\n\0' | sha256sum`
@@ -863,17 +865,17 @@ test "the digest of the inputs is SHA-256 over each path and text" {
     assert inputs.digest(one) != inputs.digest(
         [Input{path: "db/migrations/2.sql", text: "CREATE TABLE t (n INTEGER);\n"}]
     )
-}
+end
 
-test "the inputs are the `.sql` files of the two directories, in name order" {
-    files = %{
+test "the inputs are the `.sql` files of the two directories, in name order"
+    files = {
         "db/migrations/2_b.sql" => "B",
         "db/migrations/1_a.sql" => "A",
         "db/migrations/notes.txt" => "not SQL",
         "db/queries/users.sql" => "Q",
     }
 
-    ran = fs_testing.run(Sandbox{files}, fn -> {
+    ran = fs_testing.run(Sandbox{files:}, fn ->
         m = inputs.read("db/migrations")?
         q = inputs.read("db/queries")?
 
@@ -884,19 +886,19 @@ test "the inputs are the `.sql` files of the two directories, in name order" {
                 inputs.digest(m + q),
             )
         )
-    })
+    end)
 
-    case ran.value {
-        Ok((paths, current, digest)) -> {
+    case ran.value
+        Ok((paths, current, digest)) ->
             assert paths == ["db/migrations/1_a.sql", "db/migrations/2_b.sql"]
             assert current == digest
-        }
 
-        Err(e) -> return Err(e)
-    }
-}
+        Err(e) ->
+            return Err(e)
+    end
+end
 
-test "a generated file's header records the digest, and the test compares it" {
+test "a generated file's header records the digest, and the test compares it"
     db = databases.defaults("main")
     test_source = codegen.test_file(db, "ab12")
     assert codegen.recorded(test_source) == Some("ab12")
@@ -907,13 +909,13 @@ test "a generated file's header records the digest, and the test compares it" {
     )
 
     assert codegen.recorded("import sqlkit\n") == None
-}
+end
 
 // --- the runtime ---------------------------------------------------------
 // A fake connection whose every query returns rows of one column `n`.
-fn numbers(values: List<Value>) -> Fake {
+fn numbers(values: List<Value>) -> Fake
     Fake.new(
-        answer: fn statement, _ -> {
+        answer: fn statement, _ ->
             query = "${statement}"
 
             Ok(
@@ -921,73 +923,73 @@ fn numbers(values: List<Value>) -> Fake {
                 |> Iter.map(fn v -> Row.new(query, [("n", v)]))
                 |> Iter.to_list()
             )
-        }
+        end
     )
-}
+end
 
-fn n_rows(conn: Conn) -> Rows<Int> {
+fn n_rows(conn: Conn) -> Rows<Int>
     runtime.rows(conn, "n_rows", Sql"SELECT n FROM t", fn row -> runtime.int("n_rows", row, 0))
-}
+end
 
-test "Rows.fold folds each row in order" {
+test "Rows.fold folds each row in order"
     rows = n_rows(numbers([Value.Int(1), Value.Int(2), Value.Int(3)]))
     assert Rows.fold(rows, [], fn acc, n -> acc + [n]) == Ok([1, 2, 3])
     assert Rows.to_list(rows) == Ok([1, 2, 3])
-}
+end
 
-test "a row that does not decode stops Rows.fold with its error" {
+test "a row that does not decode stops Rows.fold with its error"
     rows = n_rows(numbers([Value.Int(1), Value.Text("two"), Value.Int(3)]))
 
     assert Rows.fold(rows, 0, fn acc, n -> acc + n)
         == Err(sql.Error.Decode{query: "n_rows", column: "n", expected: "Int", found: "Text"})
-}
+end
 
-test "a NULL in a column asserted never NULL names the query and the column" {
+test "a NULL in a column asserted never NULL names the query and the column"
     conn = numbers([Value.Null])
 
-    rows = runtime.list(conn, "totals", Sql"SELECT n FROM t", fn row -> {
+    rows = runtime.list(conn, "totals", Sql"SELECT n FROM t", fn row ->
         runtime.int<Int>("totals", row, 0)
-    })
+    end)
 
     assert rows == Err(sql.Error.UnexpectedNull{query: "totals", column: "n"})
-}
+end
 
-test "an expression's number reads as a wider number type" {
+test "an expression's number reads as a wider number type"
     conn = numbers([Value.Int(30), Value.Float(2.5)])
 
-    rows = runtime.list(conn, "sums", Sql"SELECT n FROM t", fn row -> {
+    rows = runtime.list(conn, "sums", Sql"SELECT n FROM t", fn row ->
         runtime.value<Decimal>("sums", row, 0)
-    })
+    end)
 
     assert rows == Ok([30d, 2.5d])
-}
+end
 
-test "a float that is not exactly a short decimal is not read as one" {
+test "a float that is not exactly a short decimal is not read as one"
     conn = numbers([Value.Float(0.1 + 0.2)])
 
-    rows = runtime.list(conn, "sums", Sql"SELECT n FROM t", fn row -> {
+    rows = runtime.list(conn, "sums", Sql"SELECT n FROM t", fn row ->
         runtime.value<Decimal>("sums", row, 0)
-    })
+    end)
 
     assert Result.is_err(rows)
-}
+end
 
 // The text of each Decimal read at scale 2, or the error's message.
-fn at_scale_2(values: List<Value>) -> List<String> {
+fn at_scale_2(values: List<Value>) -> List<String>
     values
-    |> Iter.map(fn v -> {
+    |> Iter.map(fn v ->
         row = Row.new("SELECT n", [("n", v)])
 
-        case runtime.numeric_scaled<Decimal>("sums", row, 0, 2) {
+        case runtime.numeric_scaled<Decimal>("sums", row, 0, 2)
             Ok(d) -> "${d}"
-            Err(sql.Error.Database{code: "sqlkit", message}) -> message
+            Err(sql.Error.Database{code: "sqlkit", message:}) -> message
             Err(e) -> "${e}"
-        }
-    })
+        end
+    end)
     |> Iter.to_list()
-}
+end
 
-test "a DECIMAL(p, s) column reads at its scale, exactly or not at all" {
+test "a DECIMAL(p, s) column reads at its scale, exactly or not at all"
     assert at_scale_2(
         [Value.Float(12.5), Value.Int(7), Value.Decimal(0.1d), Value.Float(-3.05)]
     ) == [
@@ -1007,15 +1009,15 @@ test "a DECIMAL(p, s) column reads at its scale, exactly or not at all" {
     ]
 
     assert at_scale_2([Value.Float(90_071_992_547_409.94)])
-        |> Iter.all_match(fn m -> {
+        |> Iter.all_match(fn m ->
             "not exactly a decimal" in m
-        })
+        end)
 
     null_row = Row.new("SELECT n", [("n", Value.Null)])
     assert runtime.numeric_scaled_null<Decimal>("sums", null_row, 0, 2) == Ok(None)
-}
+end
 
-test "one and optional count the rows" {
+test "one and optional count the rows"
     two = numbers([Value.Int(1), Value.Int(2)])
     none = numbers([])
     read = fn row: Row -> runtime.int<Int>("q", row, 0)
@@ -1027,35 +1029,35 @@ test "one and optional count the rows" {
 
     assert runtime.optional(two, "q", Sql"SELECT n", read)
         == Err(sql.Error.RowCount{query: "q", expected: "at most one", found: 2})
-}
+end
 
 // --- migrations ----------------------------------------------------------
 fn temp_dir() -> Result<String, String> go testside.TempDir
 
 fn remove_all(path: String) -> Result<Unit, String> go testside.RemoveAll
 
-fn remove_quietly(path: String) {
+fn remove_quietly(path: String)
     _ = remove_all(path)
-}
+end
 
 // Opens the database file at path, migrates it, and closes it.
-fn migrate_file(path: String, migrations: List<Migration>) -> Result<Unit, sql.Error> {
+fn migrate_file(path: String, migrations: List<Migration>) -> Result<Unit, sql.Error>
     db = sqlite.open(path)?
     defer sql.close_quietly(db)
 
     sqlkit.migrate(db, migrations)?
     Conn.close(db)
-}
+end
 
-fn applied(path: String) -> Result<List<String>, sql.Error> {
+fn applied(path: String) -> Result<List<String>, sql.Error>
     db = sqlite.open(path)?
     defer sql.close_quietly(db)
 
     rows = Conn.query(db, Sql"SELECT version FROM nomi_migrations ORDER BY version")?
     rows |> Iter.map(fn row -> Row.get<String>(row, "version")) |> Result.collect()
-}
+end
 
-test "migrate runs only the migrations a database file has not run, and refuses a changed one" {
+test "migrate runs only the migrations a database file has not run, and refuses a changed one"
     dir = temp_dir() |> Result.map_err(fn e -> sql.Error.Connection{message: e})?
     defer remove_quietly(dir)
     path = "${dir}/shop.db"
@@ -1079,7 +1081,7 @@ test "migrate runs only the migrations a database file has not run, and refuses 
     assert migrate_file(path, [users, orders]) == Ok(Unit)
     assert applied(path) == Ok(["1_users.sql", "2_orders.sql"])
 
-    renamed = .{..users, sql: "CREATE TABLE users (id INTEGER PRIMARY KEY, mail TEXT)"}
+    renamed = {..users, sql: "CREATE TABLE users (id INTEGER PRIMARY KEY, mail TEXT)"}
     later = Migration{path: "db/migrations/3_later.sql", sql: "CREATE TABLE later (n INTEGER)"}
 
     assert migrate_file(path, [renamed, orders, later]) == Err(
@@ -1091,4 +1093,4 @@ test "migrate runs only the migrations a database file has not run, and refuses 
 
     // Nothing ran: the refusal comes before every migration.
     assert applied(path) == Ok(["1_users.sql", "2_orders.sql"])
-}
+end

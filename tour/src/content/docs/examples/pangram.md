@@ -15,7 +15,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// Whether `sentence` uses every letter of the English alphabet at least
 /// once, ignoring case.
-pub fn is_pangram(sentence: String) -> Bool {
+pub fn is_pangram(sentence: String) -> Bool
     letters =
         sentence
         |> String.fold_case()
@@ -23,12 +23,12 @@ pub fn is_pangram(sentence: String) -> Bool {
         |> Iter.to_set()
 
     Iter.all_match('a'..='z', &(&1 in letters))
-}
+end
 
 // FILE: pangram_test.nomi
 import pangram.is_pangram
 
-test "pangrams" {
+test "pangrams"
     [
         ("empty sentence", "", False),
         ("perfect lower case", "abcdefghijklmnopqrstuvwxyz", True),
@@ -53,10 +53,10 @@ test "pangrams" {
             False,
         ),
     ]
-    |> subtests (description, sentence, expected), description {
+    |> subtests (description, sentence, expected), description
         assert is_pangram(sentence) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok pangrams (10 cases)

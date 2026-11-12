@@ -13,16 +13,16 @@
 // `Loose.equal(a, b)` written out beside it is the control: the interface
 // qualifier IS the thing that says "run this one", so that spelling must reach
 // the body the operator must not.
-import {
+import
     std::io
     shapes.{self, Loose, Point}
-}
+end
 
-fn tag(p: Point) -> String {
+fn tag(p: Point) -> String
     Int.to_string(p.x)
-}
+end
 
-fn main() {
+fn main()
     a = shapes.point(1, 2)
     b = shapes.point(1, 9)
 
@@ -35,4 +35,4 @@ fn main() {
     // the first field.
     io.print("loose ${Bool.to_string(Loose.equal(a, b))}")
     io.print("tag ${tag(a)}")
-}
+end

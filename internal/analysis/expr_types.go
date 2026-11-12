@@ -5,7 +5,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 // recordExprType notes the type the checker gave node (FileAnalysis.ExprTypes).
 // A node checked twice keeps the later type.
 func (fa *FileAnalysis) recordExprType(node ast.Node, t Type) {
-	if fa == nil || node == nil || t == nil || IsSynthesizedLine(node.LineNum()) {
+	if fa == nil || node == nil || t == nil {
 		return
 	}
 	if fa.ExprTypes == nil {
@@ -17,7 +17,7 @@ func (fa *FileAnalysis) recordExprType(node ast.Node, t Type) {
 // recordExpectedType notes the type node was checked against
 // (FileAnalysis.ExpectedTypes).
 func (fa *FileAnalysis) recordExpectedType(node ast.Node, t Type) {
-	if fa == nil || node == nil || t == nil || IsSynthesizedLine(node.LineNum()) {
+	if fa == nil || node == nil || t == nil {
 		return
 	}
 	if fa.ExpectedTypes == nil {
@@ -29,11 +29,11 @@ func (fa *FileAnalysis) recordExpectedType(node ast.Node, t Type) {
 // recordPatternType notes the type of the value a shape pattern or a `_`
 // matches (FileAnalysis.PatternTypes).
 func (fa *FileAnalysis) recordPatternType(node ast.Node, t Type) {
-	if fa == nil || node == nil || t == nil || IsSynthesizedLine(node.LineNum()) {
+	if fa == nil || node == nil || t == nil {
 		return
 	}
 	switch node.(type) {
-	case *ast.ListPattern, *ast.VectorPattern, *ast.SetPattern, *ast.MapPattern, *ast.StructPattern, *ast.TuplePattern, *ast.WildcardPattern:
+	case *ast.ListPattern, *ast.MapPattern, *ast.StructPattern, *ast.TuplePattern, *ast.WildcardPattern:
 	default:
 		return
 	}

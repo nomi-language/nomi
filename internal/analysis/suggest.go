@@ -306,11 +306,11 @@ func emptyCollectionLiteralHint(ty Type, member string) string {
 	}
 	switch name {
 	case "Map":
-		return "write the empty map as %{}"
+		return "write the empty map as {}"
 	case "Set":
-		return "write the empty set as %[]"
+		return "write the empty set as Set[]"
 	case "Vector":
-		return "write the empty vector as #[]"
+		return "write the empty vector as Vector[]"
 	}
 	return ""
 }

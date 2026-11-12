@@ -1,39 +1,39 @@
-struct Pair<A, B> {
+struct Pair<A, B>
     first: A
     second: B
-}
+end
 
-enum Wrapper<T> {
+enum Wrapper<T>
     Wrapped T
     Empty
-}
+end
 
-interface Mappable<T> {
+interface Mappable<T>
     fn get(key: String) -> T
-}
+end
 
-fn identity<T>(x: T) -> T {
+fn identity<T>(x: T) -> T
     x
-}
+end
 
-fn make_pair<A, B>(a: A, b: B) -> Pair<A, B> {
+fn make_pair<A, B>(a: A, b: B) -> Pair<A, B>
     Pair{first: a, second: b}
-}
+end
 
-fn wrap_list<T>(items: List<T>) -> List<List<T>> {
+fn wrap_list<T>(items: List<T>) -> List<List<T>>
     [items]
-}
+end
 
-test "generic structs enums interfaces and functions preserve types" {
+test "generic structs enums interfaces and functions preserve types"
     p = Pair{first: 1, second: "hello"}
     w = Wrapper.Wrapped(42)
     p2 = make_pair(10, 20)
     nested = wrap_list([1, 2, 3])
 
-    wrapped = case w {
+    wrapped = case w
         .Wrapped(v) -> v
         .Empty -> 0
-    }
+    end
 
     assert p.first == 1
     assert p.second == "hello"
@@ -43,4 +43,4 @@ test "generic structs enums interfaces and functions preserve types" {
     assert p2.first == 10
     assert p2.second == 20
     assert nested == [[1, 2, 3]]
-}
+end

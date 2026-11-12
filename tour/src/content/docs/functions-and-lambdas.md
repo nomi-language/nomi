@@ -10,20 +10,19 @@ one can go into a pipe or be passed to another function.
 ## Defining a function
 
 ```nomi-run
-fn add(x: Int, y: Int) -> Int {
+fn add(x: Int, y: Int) -> Int
     x + y
-}
+end
 
-fn abs(x: Int) -> Int {
-    if x < 0 { return -x }
+fn abs(x: Int) -> Int
+    if x < 0 then return -x
     x
-}
+end
 
-fn main() {
+fn main()
     dbg add(3, 4)
     dbg abs(-9)
-}
-
+end
 ```
 <!-- expect
 dbg line 11: add(3, 4) = 7
@@ -35,23 +34,22 @@ as `abs` does for a negative number.
 
 Every parameter must be read in the body. If a parameter is unused on
 purpose, name it `_` or start its name with `_`, as in
-`fn constant(_input: Int) -> Int { 42 }`.
+`fn constant(_input: Int) -> Int`.
 
 ## Lambdas
 
 ```nomi-run
-fn main() {
+fn main()
     inc = fn x: Int -> x + 1
     dbg inc(41)
 
-    describe = fn name: String, count: Int -> {
-        noun = if count == 1 { "item" } else { "items" }
+    describe = fn name: String, count: Int ->
+        noun = if count == 1 then "item" else "items"
         "${name}: ${count} ${noun}"
-    }
+    end
 
     dbg describe("cart", 3)
-}
-
+end
 ```
 <!-- expect
 dbg line 3: inc(41) = 42
@@ -59,7 +57,8 @@ dbg line 10: describe("cart", 3) = "cart: 3 items"
 -->
 
 A lambda is written `fn params -> body`. Several parameters are separated by
-commas, and a body of more than one line goes in a `{ ... }` block. Write a
+commas. A body of more than one line goes on the lines below the `->`, closed
+by `end`, as `describe`'s does. Write a
 parameter's type when nothing else tells the compiler what it is. When the
 lambda is passed to a function that expects a certain type, the type is
 inferred. In a list of lambdas, writing the type in one element is enough:
@@ -74,20 +73,19 @@ the same as `add(3, 4)`.
 ## Captures
 
 ```nomi-run
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-fn main() {
+fn main()
     xs = [1, 2, 3]
     dbg xs |> Iter.filter(&(&1 > 1)) |> Iter.to_list()
     dbg xs |> Iter.map(&(&1 * 2 + 1)) |> Iter.to_list()
     dbg xs |> Iter.map(&Point{x: &1, y: 0}) |> Iter.to_list()
     dbg xs |> Iter.map(&Int.max(&1, 2)) |> Iter.to_list()
     dbg xs |> Iter.map(&"id ${&1}") |> Iter.to_list()
-}
-
+end
 ```
 <!-- expect
 dbg line 8: xs |> Iter.filter(&(&1 > 1)) |> Iter.to_list() = [2, 3]
@@ -100,7 +98,7 @@ dbg line 12: xs |> Iter.map(&"id ${&1}") |> Iter.to_list() = ["id 1", "id 2", "i
 A capture writes a small function in place: `&`, then the function's body.
 `&1` is its first parameter, `&2` its second. `&(&1 > 1)` is `fn x -> x >
 1`, `&(&1 * 2 + 1)` is `fn x -> x * 2 + 1`, `&Point{x: &1, y: 0}` is
-`fn x -> Point{x: x, y: 0}`, and `&"id ${&1}"` is `fn x -> "id ${x}"`.
+`fn x -> Point{x:, y: 0}`, and `&"id ${&1}"` is `fn x -> "id ${x}"`.
 
 `Iter.filter` and `Iter.map` work on any collection, and `Iter.to_list`
 collects the result into a list. [Collections](/collections/) covers them.
@@ -127,15 +125,15 @@ the body takes more than one step or needs names.
   `&add(1, &1)`.
 
 ```nomi
-fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String {
+fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String
     "${host}:${port}/${timeout}"
-}
+end
 
-fn main() {
+fn main()
     c = &connect(&1, port: &2)
     dbg c(port: 80, host: "x") // "x:80/30"
     dbg c("y") // "y:8080/30"
-}
+end
 ```
 
 Spec: [Captures](/spec/functions-and-closures/#captures),
@@ -154,17 +152,17 @@ covers.)
 ```nomi-run error
 type UserId String
 
-fn parse(_text: String) -> Int {
+fn parse(_text: String) -> Int
     0
-}
+end
 
-fn parse(_id: UserId) -> Int {
+fn parse(_id: UserId) -> Int
     0
-}
+end
 
-fn main() {
+fn main()
     Unit
-}
+end
 ```
 <!-- expect
 main.nomi:7:4: 'parse' is already defined in this scope as a function
@@ -185,11 +183,11 @@ runs.
 ## Default parameter values
 
 ```nomi-run
-fn greet(name: String, greeting = "Hello") -> String {
+fn greet(name: String, greeting = "Hello") -> String
     "${greeting}, ${name}!"
-}
+end
 
-fn main() {
+fn main()
     dbg greet("World")
     dbg greet("World", "Hi")
 
@@ -197,8 +195,7 @@ fn main() {
     add = fn x: Int, y = 10 -> x + y
     dbg add(5)
     dbg add(5, 2)
-}
-
+end
 ```
 <!-- expect
 dbg line 6: greet("World") = "Hello, World!"
@@ -242,16 +239,15 @@ Spec: [Default Arguments](/spec/functions-and-closures/#default-arguments).
 ## Named arguments
 
 ```nomi-run
-fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String {
+fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String
     "${host}:${port}:${timeout}"
-}
+end
 
-fn main() {
+fn main()
     dbg connect("localhost")
     dbg connect("localhost", timeout: 10)
     dbg connect(host: "api", port: 443, timeout: 5)
-}
-
+end
 ```
 <!-- expect
 dbg line 6: connect("localhost") = "localhost:8080:30"
@@ -284,30 +280,29 @@ Spec: [Named Arguments](/spec/functions-and-closures/#named-arguments).
 ```nomi-run
 type Dur Int
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-fn subtract(Dur(a), Dur(b)) -> Dur {
+fn subtract(Dur(a), Dur(b)) -> Dur
     Dur(a - b)
-}
+end
 
-fn sum_point(Point{x, y}) -> Int {
+fn sum_point(Point{x:, y:}) -> Int
     x + y
-}
+end
 
-fn add_pair((a, b): (Int, Int)) -> Int {
+fn add_pair((a, b): (Int, Int)) -> Int
     a + b
-}
+end
 
-fn main() {
+fn main()
     Dur(diff) = subtract(Dur(10), Dur(3))
     dbg diff
     dbg sum_point(Point{x: 4, y: 5})
     dbg add_pair((20, 22))
-}
-
+end
 ```
 <!-- expect
 dbg line 22: diff = 7
@@ -323,7 +318,7 @@ The pattern must match every possible value of its type. Patterns like that
 are called irrefutable. Tuples, structs, distinct types such as `Dur`, and
 enums with one variant all qualify.
 
-When the pattern names a type, as `Dur(a)` and `Point{x, y}` do, you don't
+When the pattern names a type, as `Dur(a)` and `Point{x:, y:}` do, you don't
 write the type again. A tuple or an anonymous struct pattern names no type,
 so it needs one, as in `(a, b): (Int, Int)`.
 
@@ -349,20 +344,19 @@ Spec: [Parameter Destructuring](/spec/functions-and-closures/#parameter-destruct
 ## Trailing callbacks
 
 ```nomi-run
-fn transform(x: Int, factor: Int = 1, f: (Int) -> Int) -> Int {
+fn transform(x: Int, factor: Int = 1, f: (Int) -> Int) -> Int
     f(x * factor)
-}
+end
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn main() {
+fn main()
     dbg transform(5, fn x -> x + 1)
     dbg transform(5, factor: 3, fn x -> x + 1)
     dbg transform(5, factor: 3, double)
-}
-
+end
 ```
 <!-- expect
 dbg line 10: transform(5, fn x -> x + 1) = 6
@@ -386,17 +380,17 @@ order.
 ## Unwritten code
 
 ```nomi-run error
-struct Header {
+struct Header
     title: String
-}
+end
 
-fn parse(text: String) -> Header {
+fn parse(text: String) -> Header
     todo "parse the header"
-}
+end
 
-fn main() {
+fn main()
     dbg parse("# Notes")
-}
+end
 ```
 <!-- expect
 todo reached at main.nomi:6: parse the header
@@ -415,17 +409,17 @@ a bare `todo` reads the parameter. Write the placeholder with a reason there.
 ## Code that cannot be reached
 
 ```nomi-run
-fn first_field(line: String) -> String {
-    case String.split(line, ",") |> Iter.first() {
+fn first_field(line: String) -> String
+    case String.split(line, ",") |> Iter.first()
         Some(field) -> field
         None -> unreachable "split always returns at least one part"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg first_field("a,b")
     dbg first_field("")
-}
+end
 ```
 <!-- expect
 dbg line 9: first_field("a,b") = "a"

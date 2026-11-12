@@ -11,7 +11,7 @@ import (
 // caseArmPattern parses `case v { <arm> -> 0 }` and returns the arm's pattern.
 func caseArmPattern(t *testing.T, arm string) ast.Node {
 	t.Helper()
-	c, ok := parseExpr(t, "case v {\n    "+arm+" -> 0\n}").(*ast.Case)
+	c, ok := parseExpr(t, "case v\n    "+arm+" -> 0\nend").(*ast.Case)
 	if !ok || len(c.Branches) != 1 {
 		t.Fatalf("%q: want one case arm", arm)
 	}
@@ -66,12 +66,12 @@ func TestAsPattern_EveryNestedPosition(t *testing.T) {
 		t.Fatal("want a list pattern")
 	}
 	asPatternOf(t, lp.Heads[0], "first")
-	mp, ok := caseArmPattern(t, `%{"k" => Ok(v) as found}`).(*ast.MapPattern)
+	mp, ok := caseArmPattern(t, `{"k" => Ok(v) as found}`).(*ast.MapPattern)
 	if !ok {
 		t.Fatal("want a map pattern")
 	}
 	asPatternOf(t, mp.Entries[0].Pattern, "found")
-	sp, ok := caseArmPattern(t, "Line{from: Point{x, y} as start}").(*ast.StructPattern)
+	sp, ok := caseArmPattern(t, "Line{from: Point{x:, y:} as start}").(*ast.StructPattern)
 	if !ok {
 		t.Fatal("want a struct pattern")
 	}
@@ -87,13 +87,13 @@ func TestAsPattern_StatementAndParameterPositions(t *testing.T) {
 	pb := parsePatternBinding(t, "(a, b) as pair = make()")
 	asPatternOf(t, pb.Pattern, "pair")
 
-	pb = parsePatternBinding(t, "Some(n) as m = find() else { return 0 }")
+	pb = parsePatternBinding(t, "Some(n) as m = find() else\n    return 0\nend")
 	asPatternOf(t, pb.Pattern, "m")
 	if pb.Else == nil {
 		t.Fatal("want the else")
 	}
 
-	f, ok := parse(t, "fn f(Point{x, y} as p: Point) -> Int { x }")[0].(*ast.FuncDef)
+	f, ok := parse(t, "fn f(Point{x:, y:} as p: Point) -> Int\n    x\nend")[0].(*ast.FuncDef)
 	if !ok || len(f.Params) != 1 {
 		t.Fatal("want a function with one parameter")
 	}
@@ -102,13 +102,13 @@ func TestAsPattern_StatementAndParameterPositions(t *testing.T) {
 		t.Fatal("want the parameter's annotation")
 	}
 
-	ifNode, ok := parseExpr(t, "if Ok(v) as r = load() { v } else { 0 }").(*ast.If)
+	ifNode, ok := parseExpr(t, "if Ok(v) as r = load() then v else 0").(*ast.If)
 	if !ok {
 		t.Fatal("want an if")
 	}
 	asPatternOf(t, ifNode.CondPattern, "r")
 
-	pd, ok := parse(t, "test \"t\" {\n    assert Some(n) as m = find()\n}")[0].(*ast.TestDecl).Body.Stmts[0].(*ast.PatternDestructure)
+	pd, ok := parse(t, "test \"t\"\n    assert Some(n) as m = find()\nend")[0].(*ast.TestDecl).Body.Stmts[0].(*ast.PatternDestructure)
 	if !ok {
 		t.Fatal("want an assert pattern")
 	}
@@ -117,10 +117,10 @@ func TestAsPattern_StatementAndParameterPositions(t *testing.T) {
 
 func TestAsPattern_NameMustBeABindingName(t *testing.T) {
 	for _, src := range []string{
-		"case v {\n    Ok(x) as Big -> 0\n}",
-		"case v {\n    Ok(x) as _ -> 0\n}",
-		"case v {\n    Ok(x) as -> 0\n}",
-		"case v {\n    Ok(x) as (r) -> 0\n}",
+		"case v\n    Ok(x) as Big -> 0\nend",
+		"case v\n    Ok(x) as _ -> 0\nend",
+		"case v\n    Ok(x) as -> 0\nend",
+		"case v\n    Ok(x) as (r) -> 0\nend",
 	} {
 		_, err := Parse(lexer.Lex(src))
 		if err == nil {

@@ -9,32 +9,32 @@ import (
 
 // groupSubtestsSource is a group whose `subtests` block boots an app per
 // row: line 13 is the block, line 16 its first test and line 20 its second.
-const groupSubtestsSource = `struct Config {
+const groupSubtestsSource = `struct Config
   store: String
-}
+end
 
-fn boot(startup: Startup) -> Result<Config, String> {
+fn boot(startup: Startup) -> Result<Config, String>
   Ok(Config{store: Map.get(startup.env, "STORE") |> Maybe.with_default("none")})
-}
+end
 
-fn main() {}
+fn main() end
 
-group "todo api" {
+group "todo api"
   // one row per store
-  subtests ["memory", "sqlite"], store {
-    boot boot(Startup{env: %{"STORE" => store}})
+  subtests ["memory", "sqlite"], store
+    boot boot(Startup{env: {"STORE" => store}})
 
-    test "boots the row's store" {
+    test "boots the row's store"
       assert Config.store == "memory"
-    }
+    end
 
-    test "counts" {
-      subtests [1, 2], n {
+    test "counts"
+      subtests [1, 2], n
         assert n > 0
-      }
-    }
-  }
-}
+      end
+    end
+  end
+end
 `
 
 // Each row's tests are cases named `group [row] / test`, a failing row fails
@@ -114,29 +114,29 @@ func TestCheckCommand_GroupSubtestsRefusals(t *testing.T) {
 	for _, c := range []struct {
 		name, body, want string
 	}{
-		{"computed rows", "subtests rows(), n {\n    test \"t\" {\n      assert n > 0\n    }\n  }",
+		{"computed rows", "subtests rows(), n\n    test \"t\"\n      assert n > 0\n    end\n  end",
 			"the rows of a `subtests` block in a `group` are a list literal, such as `[\"memory\", \"sqlite\"]`: each row's tests are named and counted when the tests are collected, before anything runs"},
-		{"a row that is not a literal", "subtests [1, 1 + 1], n {\n    test \"t\" {\n      assert n > 0\n    }\n  }",
+		{"a row that is not a literal", "subtests [1, 1 + 1], n\n    test \"t\"\n      assert n > 0\n    end\n  end",
 			"a row of a `subtests` block in a `group` is a literal value, read when the tests are collected: a String, a number, True or False, or a tuple of them"},
-		{"a ? in a row", "subtests [1, parse(\"2\")?], n {\n    test \"t\" {\n      assert n > 0\n    }\n  }",
+		{"a ? in a row", "subtests [1, parse(\"2\")?], n\n    test \"t\"\n      assert n > 0\n    end\n  end",
 			"`?` cannot be used in a row of a `subtests` block in a `group`: the rows are literal values, read when the tests are collected"},
-		{"a refutable pattern", "subtests [(1, 2)], (1, n) {\n    test \"t\" {\n      assert n > 0\n    }\n  }",
+		{"a refutable pattern", "subtests [(1, 2)], (1, n)\n    test \"t\"\n      assert n > 0\n    end\n  end",
 			"a `subtests` pattern must match every row; bind it with a name or an irrefutable pattern and match it in the body"},
-		{"a name that is no column", "subtests [(1, \"a\")], (n, s), \"x\" {\n    test \"t\" {\n      assert n > 0 and s != \"\"\n    }\n  }",
+		{"a name that is no column", "subtests [(1, \"a\")], (n, s), \"x\"\n    test \"t\"\n      assert n > 0 and s != \"\"\n    end\n  end",
 			"the name of a row of a `subtests` block in a `group` is a String column its pattern binds, such as `subtests [(\"memory\", 1)], (store, workers), store`"},
-		{"a name column that is no String", "subtests [(1, \"a\")], (n, s), n {\n    test \"t\" {\n      assert n > 0 and s != \"\"\n    }\n  }",
+		{"a name column that is no String", "subtests [(1, \"a\")], (n, s), n\n    test \"t\"\n      assert n > 0 and s != \"\"\n    end\n  end",
 			"the name of a `subtests` row must be a String, got Int"},
-		{"a setup beside the block", "setup 1\n\n  subtests [1, 2], n {\n    test \"t\" {\n      assert n > 0\n    }\n  }",
+		{"a setup beside the block", "setup 1\n\n  subtests [1, 2], n\n    test \"t\"\n      assert n > 0\n    end\n  end",
 			"a `group` with a `subtests` block holds nothing else: its clock, boot, setup and tests go inside the block, which runs them once per row"},
-		{"a test after the block", "subtests [1, 2], n {\n    test \"t\" {\n      assert n > 0\n    }\n  }\n\n  test \"u\" {\n    assert True\n  }",
+		{"a test after the block", "subtests [1, 2], n\n    test \"t\"\n      assert n > 0\n    end\n  end\n\n  test \"u\"\n    assert True\n  end",
 			"a `group` with a `subtests` block holds nothing else: its clock, boot, setup and tests go inside the block, which runs them once per row"},
-		{"a block inside the block", "subtests [1, 2], n {\n    subtests [3], m {\n      test \"t\" {\n        assert n < m\n      }\n    }\n  }",
+		{"a block inside the block", "subtests [1, 2], n\n    subtests [3], m\n      test \"t\"\n        assert n < m\n      end\n    end\n  end",
 			"`subtests` in a group cannot hold another `subtests`: each row of the outer one boots the group once"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			path := filepath.Join(dir, strings.ReplaceAll(c.name, " ", "_")+"_test.nomi")
-			src := "fn rows() -> List<Int> {\n  [1]\n}\n\nfn parse(s: String) -> Result<Int, String> {\n  Int.parse(s) |> Result.map_err(fn _ -> s)\n}\n\n" +
-				"group \"g\" {\n  " + c.body + "\n}\n"
+			src := "fn rows() -> List<Int>\n  [1]\nend\n\nfn parse(s: String) -> Result<Int, String>\n  Int.parse(s) |> Result.map_err(fn _ -> s)\nend\n\n" +
+				"group \"g\"\n  " + c.body + "\nend\n"
 			mustWrite(t, path, src)
 			out, err := runNomi(t, cacheRoot, "check", path)
 			if err == nil {

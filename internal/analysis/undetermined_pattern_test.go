@@ -16,19 +16,19 @@ func TestUndeterminedPatternBinding_Rejected(t *testing.T) {
 		line, col  int
 		binding    string
 	}{
-		{"a binding with else", "Ok(z) = Maybe.to_result(None, \"x\") else { return }\n  dbg z", 2, 6, "z"},
-		{"a binding with else arms", "Ok(z) = Maybe.to_result(None, \"x\") else {\n    Err(_) -> return\n  }\n  dbg z", 2, 6, "z"},
-		{"a variant of a bare None", "Some(z) = None else { return }\n  dbg z", 2, 8, "z"},
-		{"an if pattern", "if Ok(z) = Maybe.to_result(None, \"x\") {\n    dbg z\n  }", 2, 9, "z"},
-		{"a case arm", "case Maybe.to_result(None, \"x\") {\n    Ok(z) -> {\n      dbg z\n      Unit\n    }\n    Err(_) -> Unit\n  }", 3, 8, "z"},
-		{"a case arm over a piped value", "Maybe.to_result(None, \"x\") |> case {\n    Ok(z) -> {\n      dbg z\n      Unit\n    }\n    Err(_) -> Unit\n  }", 3, 8, "z"},
-		{"the variant a value is not", "x = Ok(42)\n  case x {\n    Ok(_) -> Unit\n    Err(e) -> {\n      dbg e\n      Unit\n    }\n  }", 5, 9, "e"},
-		{"inside a tuple pattern", "case (Maybe.to_result(None, \"x\"), 1) {\n    (Ok(z), _) -> {\n      dbg z\n      Unit\n    }\n    _ -> Unit\n  }", 3, 9, "z"},
-		{"interpolated", "Ok(z) = Maybe.to_result(None, \"x\") else { return }\n  dbg \"${z}\"", 2, 6, "z"},
+		{"a binding with else", "Ok(z) = Maybe.to_result(None, \"x\") else\n    return\nend\n  dbg z", 2, 6, "z"},
+		{"a binding with else arms", "Ok(z) = Maybe.to_result(None, \"x\") else\n    Err(_) -> return\n  end\n  dbg z", 2, 6, "z"},
+		{"a variant of a bare None", "Some(z) = None else\n    return\nend\n  dbg z", 2, 8, "z"},
+		{"an if pattern", "if Ok(z) = Maybe.to_result(None, \"x\") then\n    dbg z\n  end", 2, 9, "z"},
+		{"a case arm", "case Maybe.to_result(None, \"x\")\n    Ok(z) ->\n      dbg z\n      Unit\n    Err(_) -> Unit\n  end", 3, 8, "z"},
+		{"a case arm over a piped value", "Maybe.to_result(None, \"x\") |> case\n    Ok(z) ->\n      dbg z\n      Unit\n    Err(_) -> Unit\n  end", 3, 8, "z"},
+		{"the variant a value is not", "x = Ok(42)\n  case x\n    Ok(_) -> Unit\n    Err(e) ->\n      dbg e\n      Unit\n  end", 5, 9, "e"},
+		{"inside a tuple pattern", "case (Maybe.to_result(None, \"x\"), 1)\n    (Ok(z), _) ->\n      dbg z\n      Unit\n    _ -> Unit\n  end", 3, 9, "z"},
+		{"interpolated", "Ok(z) = Maybe.to_result(None, \"x\") else\n    return\nend\n  dbg \"${z}\"", 2, 6, "z"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "fn main() {\n  " + tc.body + "\n  Unit\n}\n"
+			src := "fn main()\n  " + tc.body + "\n  Unit\nend\n"
 			errs := checkWithStdlib(src)
 			got := undeterminedErrors(errs)
 			if len(got) != 1 {
@@ -52,25 +52,25 @@ func TestUndeterminedPatternBinding_Rejected(t *testing.T) {
 func TestUndeterminedPatternBinding_Accepted(t *testing.T) {
 	bodies := []string{
 		// The fallback is part of the binding and fixes the payload.
-		"Some(z) = None else { 5 }\n  dbg z",
+		"Some(z) = None else\n    5\nend\n  dbg z",
 		// A later use fixes it.
-		"Ok(z) = Maybe.to_result(None, \"x\") else { return }\n  dbg z + 1",
-		"case Maybe.to_result(None, \"x\") {\n    Ok(z) -> {\n      dbg Int.to_string(z)\n      Unit\n    }\n    Err(_) -> Unit\n  }",
+		"Ok(z) = Maybe.to_result(None, \"x\") else\n    return\nend\n  dbg z + 1",
+		"case Maybe.to_result(None, \"x\")\n    Ok(z) ->\n      dbg Int.to_string(z)\n      Unit\n    Err(_) -> Unit\n  end",
 		// The matched value is typed.
-		"none: Maybe<Int> = None\n  Ok(z) = Maybe.to_result(none, \"x\") else { return }\n  dbg z",
-		"Ok(z) = Maybe.to_result<Int, String>(None, \"x\") else { return }\n  dbg z",
+		"none: Maybe<Int> = None\n  Ok(z) = Maybe.to_result(none, \"x\") else\n      return\n  end\n  dbg z",
+		"Ok(z) = Maybe.to_result<Int, String>(None, \"x\") else\n    return\nend\n  dbg z",
 		// A destructured name whose wholly unresolved type a later use fixes.
 		"(a, b) = (None, 1)\n  dbg a == Some(2)\n  dbg b",
 		// A case arm's name whose type holds a free variable, a value like `None`.
-		"case Some(None) {\n    Some(a) -> {\n      dbg a\n      Unit\n    }\n    None -> Unit\n  }",
+		"case Some(None)\n    Some(a) ->\n      dbg a\n      Unit\n    None -> Unit\n  end",
 		// Nothing is bound.
-		"case Maybe.to_result(None, \"x\") {\n    Ok(_) -> Unit\n    Err(e) -> {\n      dbg e\n      Unit\n    }\n  }",
+		"case Maybe.to_result(None, \"x\")\n    Ok(_) -> Unit\n    Err(e) ->\n      dbg e\n      Unit\n  end",
 		// A lambda parameter whose later lines fix what a destructure bound.
-		"pairs = Iter.reduce([1, 2], ([], []), fn state, item -> {\n    (ts, fs) = state\n    ([item, ..ts], [Int.to_string(item), ..fs])\n  })\n  dbg pairs",
+		"pairs = Iter.reduce([1, 2], ([], []), fn state, item ->\n    (ts, fs) = state\n    ([item, ..ts], [Int.to_string(item), ..fs])\n  end)\n  dbg pairs",
 	}
 	for _, body := range bodies {
 		t.Run(body, func(t *testing.T) {
-			src := "fn main() {\n  " + body + "\n  Unit\n}\n"
+			src := "fn main()\n  " + body + "\n  Unit\nend\n"
 			expectNoErrorsT(t, checkWithStdlib(src))
 		})
 	}
@@ -79,7 +79,7 @@ func TestUndeterminedPatternBinding_Accepted(t *testing.T) {
 // A matched value whose own call is undetermined is reported once, at the
 // pattern's name.
 func TestUndeterminedPatternBinding_CallIsNotRepeated(t *testing.T) {
-	src := "fn main() {\n  Some(z) = Iter.first(Iter.map([], fn x -> x)) else { return }\n  dbg z\n  Unit\n}\n"
+	src := "fn main()\n  Some(z) = Iter.first(Iter.map([], fn x -> x)) else\n      return\n  end\n  dbg z\n  Unit\nend\n"
 	errs := checkWithStdlib(src)
 	got := undeterminedErrors(errs)
 	if len(got) != 1 || !strings.HasPrefix(got[0].Message, "the type of 'z' is not determined") {
@@ -93,25 +93,25 @@ func TestUndeterminedPatternBinding_CallIsNotRepeated(t *testing.T) {
 // to a `Box<?>` when only read's result names its T; the builder could not
 // lower the call that takes it.
 func TestUndeterminedDestructure_Rejected(t *testing.T) {
-	decls := `struct Box<T> {
+	decls := `struct Box<T>
   value: Maybe<T>
-}
+end
 
 type Wrap<T> Box<T>
 
-fn read<T>() -> (Box<T>, Bool) {
+fn read<T>() -> (Box<T>, Bool)
   (Box{value: None}, True)
-}
+end
 
-fn pair<T>() -> .{box: Box<T>, n: Int} {
-  .{box: Box{value: None}, n: 1}
-}
+fn pair<T>() -> {box: Box<T>, n: Int}
+  {box: Box{value: None}, n: 1}
+end
 
-fn wrapped<T>() -> Wrap<T> {
+fn wrapped<T>() -> Wrap<T>
   Wrap(Box{value: None})
-}
+end
 
-fn show<T>(handler: (Box<T>) -> String) -> String {
+fn show<T>(handler: (Box<T>) -> String) -> String
 `
 	cases := []struct {
 		name, body string
@@ -119,15 +119,15 @@ fn show<T>(handler: (Box<T>) -> String) -> String {
 		binding    string
 	}{
 		{"a tuple destructure of a generic result", "  (box, _) = read()\n  handler(box)", 20, 4, "box"},
-		{"a struct destructure of a generic result", "  .{box, n} = pair()\n  dbg n\n  handler(box)", 20, 5, "box"},
+		{"a struct destructure of a generic result", "  {box:, n:} = pair()\n  dbg n\n  handler(box)", 20, 4, "box"},
 		{"a distinct destructure of a generic result", "  Wrap(box) = wrapped()\n  handler(box)", 20, 8, "box"},
 		{"a tuple of None", "  (a, b) = (None, 1)\n  dbg a\n  dbg b\n  handler(Box{value: None})", 20, 4, "a"},
-		{"a binding with else", "  Some(a) = Some(None) else { return \"\" }\n  dbg a\n  handler(Box{value: None})", 20, 8, "a"},
-		{"an empty list", "  Ok(xs) = Ok([]) else { return \"\" }\n  dbg xs\n  handler(Box{value: None})", 20, 6, "xs"},
+		{"a binding with else", "  Some(a) = Some(None) else\n      return \"\"\n  end\n  dbg a\n  handler(Box{value: None})", 20, 8, "a"},
+		{"an empty list", "  Ok(xs) = Ok([]) else\n      return \"\"\n  end\n  dbg xs\n  handler(Box{value: None})", 20, 6, "xs"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := decls + tc.body + "\n}\n"
+			src := decls + tc.body + "\nend\n"
 			errs := checkWithStdlib(src)
 			var got []analysis.TypeError
 			for _, e := range errs {
@@ -153,18 +153,18 @@ fn show<T>(handler: (Box<T>) -> String) -> String {
 
 // Naming the type argument, as the error says, determines the binding.
 func TestUndeterminedDestructure_TypeArgumentDetermines(t *testing.T) {
-	src := `struct Box<T> {
+	src := `struct Box<T>
   value: Maybe<T>
-}
+end
 
-fn read<T>() -> (Box<T>, Bool) {
+fn read<T>() -> (Box<T>, Bool)
   (Box{value: None}, True)
-}
+end
 
-fn show<T>(handler: (Box<T>) -> String) -> String {
+fn show<T>(handler: (Box<T>) -> String) -> String
   (box, _) = read<T>()
   handler(box)
-}
+end
 `
 	expectNoErrorsT(t, checkWithStdlib(src))
 }

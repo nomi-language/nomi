@@ -19,8 +19,8 @@ func TestDiagnostics_NameTheirFile(t *testing.T) {
 	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "main.nomi"),
-		"import std::io\nimport other\n\nfn main() {\n  x: Int = \"s\"\n  io.print(other.f())\n}\n")
-	mustWrite(t, filepath.Join(dir, "other.nomi"), "pub fn f() -> String {\n  1\n}\n")
+		"import std::io\nimport other\n\nfn main()\n  x: Int = \"s\"\n  io.print(other.f())\nend\n")
+	mustWrite(t, filepath.Join(dir, "other.nomi"), "pub fn f() -> String\n  1\nend\n")
 
 	want := `error: binding 'x' is never read
  --> main.nomi:5:3
@@ -79,7 +79,7 @@ error: return type mismatch: expected String, got Int
 	}
 
 	// `nomi test` names the file that failed to load, then its diagnostics.
-	mustWrite(t, filepath.Join(dir, "main_test.nomi"), "import other\n\ntest \"f\" {\n  assert other.f() == \"x\"\n}\n")
+	mustWrite(t, filepath.Join(dir, "main_test.nomi"), "import other\n\ntest \"f\"\n  assert other.f() == \"x\"\nend\n")
 	o = runProcess(t, env, dir, "", nomiBin, "test", "main_test.nomi")
 	wantTest := "FAIL main_test.nomi\n" + `error: return type mismatch: expected String, got Int
  --> other.nomi:2:3
@@ -100,8 +100,8 @@ func TestDiagnostics_ImportedFileBuildErrors(t *testing.T) {
 	// The short form, which names each file on each line.
 	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_DIAGNOSTICS=short")
 	const manifest = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
-	const main = "import std::io\nimport helper\n\nfn main() {\n  io.print(helper.greet())\n}\n"
-	const test = "import helper\n\ntest \"greet\" {\n  assert helper.greet() == \"hi\"\n}\n"
+	const main = "import std::io\nimport helper\n\nfn main()\n  io.print(helper.greet())\nend\n"
+	const test = "import helper\n\ntest \"greet\"\n  assert helper.greet() == \"hi\"\nend\n"
 	for _, tc := range []struct {
 		name  string
 		files map[string]string
@@ -110,14 +110,14 @@ func TestDiagnostics_ImportedFileBuildErrors(t *testing.T) {
 		{
 			name: "unused import",
 			files: map[string]string{
-				"helper.nomi": "import std::regex\n\npub fn greet() -> String {\n  \"hi\"\n}\n",
+				"helper.nomi": "import std::regex\n\npub fn greet() -> String\n  \"hi\"\nend\n",
 			},
 			want: "helper.nomi:1:13: imported module 'regex' is unused — remove the import\n",
 		},
 		{
 			name: "struct and enum of one name",
 			files: map[string]string{
-				"helper.nomi": "struct A {\n  x: Int\n}\n\nenum A {\n  One\n}\n\npub fn greet() -> String {\n  \"hi\"\n}\n",
+				"helper.nomi": "struct A\n  x: Int\nend\n\nenum A\n  One\nend\n\npub fn greet() -> String\n  \"hi\"\nend\n",
 			},
 			want: "helper.nomi:5:6: 'A' is already defined in this scope as a type\n" +
 				"helper.nomi:5:6: help: pick a different name\n" +
@@ -126,10 +126,10 @@ func TestDiagnostics_ImportedFileBuildErrors(t *testing.T) {
 		{
 			name: "a file two files import",
 			files: map[string]string{
-				"helper.nomi": "import left\nimport right\n\npub fn greet() -> String {\n  \"${left.f()}${right.f()}\"\n}\n",
-				"left.nomi":   "import shared\n\npub fn f() -> String {\n  shared.s()\n}\n",
-				"right.nomi":  "import shared\n\npub fn f() -> String {\n  shared.s()\n}\n",
-				"shared.nomi": "import std::regex\n\npub fn s() -> String {\n  \"h\"\n}\n",
+				"helper.nomi": "import left\nimport right\n\npub fn greet() -> String\n  \"${left.f()}${right.f()}\"\nend\n",
+				"left.nomi":   "import shared\n\npub fn f() -> String\n  shared.s()\nend\n",
+				"right.nomi":  "import shared\n\npub fn f() -> String\n  shared.s()\nend\n",
+				"shared.nomi": "import std::regex\n\npub fn s() -> String\n  \"h\"\nend\n",
 			},
 			want: "shared.nomi:1:13: imported module 'regex' is unused — remove the import\n",
 		},
@@ -178,16 +178,16 @@ func TestDiagnostics_MissingImportIsAnErrorAtTheImport(t *testing.T) {
 	}{
 		{
 			name:  "entry",
-			files: map[string]string{"main.nomi": "import lib\n\nfn main() {\n  lib.greet()\n}\n"},
+			files: map[string]string{"main.nomi": "import lib\n\nfn main()\n  lib.greet()\nend\n"},
 			want:  lib,
 		},
 		{
 			name: "project, imported file, misspelled",
 			files: map[string]string{
 				"nomi.toml":          "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-				"main.nomi":          "import std::io\nimport shared::helper\n\nfn main() {\n  io.print(helper.greet())\n}\n",
-				"shared/helper.nomi": "import app::utlis\n\npub fn greet() -> String {\n  utlis.name()\n}\n",
-				"utils.nomi":         "pub fn name() -> String {\n  \"hi\"\n}\n",
+				"main.nomi":          "import std::io\nimport shared::helper\n\nfn main()\n  io.print(helper.greet())\nend\n",
+				"shared/helper.nomi": "import app::utlis\n\npub fn greet() -> String\n  utlis.name()\nend\n",
+				"utils.nomi":         "pub fn name() -> String\n  \"hi\"\nend\n",
 			},
 			want: `error: no module ` + "`app::utlis`" + `: no file utlis.nomi in ../
  --> shared/helper.nomi:1:8
@@ -216,7 +216,7 @@ func TestDiagnostics_MissingImportIsAnErrorAtTheImport(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "main_test.nomi"), "import lib\n\ntest \"greet\" {\n  assert lib.greet() == 1\n}\n")
+	mustWrite(t, filepath.Join(dir, "main_test.nomi"), "import lib\n\ntest \"greet\"\n  assert lib.greet() == 1\nend\n")
 	o := runProcess(t, env, dir, "", nomiBin, "test", "main_test.nomi")
 	want := "FAIL main_test.nomi\n" + strings.ReplaceAll(lib, "main.nomi", "main_test.nomi") + "test result: FAILED. 0 passed, 1 failed\n"
 	if o.exit != 1 || o.stdout != want {
@@ -232,17 +232,17 @@ func TestDiagnostics_GroupedImportPath(t *testing.T) {
 	}
 	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "main.nomi"), "import std::{io, regex.Regex}\n\nfn main() {\n  io.print(\"x\")\n}\n")
+	mustWrite(t, filepath.Join(dir, "main.nomi"), "import std::{io, regex.Regex}\n\nfn main()\n  io.print(\"x\")\nend\n")
 	want := "error: braces select names from one file, as in `std::regex.{Regex, Match}`\n" +
 		" --> main.nomi:1:13\n" +
 		"  |\n" +
 		"1 | import std::{io, regex.Regex}\n" +
 		"  |             ^\n" +
 		"  = help: to import several files, list each in an import block:\n" +
-		"          import {\n" +
+		"          import\n" +
 		"              std::io\n" +
 		"              std::regex.Regex\n" +
-		"          }\n"
+		"          end\n"
 	for _, cmd := range []string{"run", "check"} {
 		o := runProcess(t, env, dir, "", nomiBin, cmd, "main.nomi")
 		if o.exit != 1 || o.stdout != "" || o.stderr != want {
@@ -253,7 +253,7 @@ func TestDiagnostics_GroupedImportPath(t *testing.T) {
 	// The short form keeps one line per diagnostic and per hint: the
 	// block collapses inline.
 	wantShort := "main.nomi:1:13: braces select names from one file, as in `std::regex.{Regex, Match}`\n" +
-		"main.nomi:1:13: help: to import several files, list each in an import block: import { std::io; std::regex.Regex }\n"
+		"main.nomi:1:13: help: to import several files, list each in an import block: import; std::io; std::regex.Regex; end\n"
 	shortEnv := append(append([]string(nil), env...), "NOMI_DIAGNOSTICS=short")
 	for _, run := range []struct {
 		env  []string
@@ -297,7 +297,7 @@ func TestCommands_ReportAnUnusablePathPlainly(t *testing.T) {
 		{[]string{"test", "empty"}, 0, "no test files found in empty\n"},
 		{[]string{"fmt", "missing.nomi"}, 1, "nomi fmt: missing.nomi: no such file or directory\n"},
 		// A file fmt cannot parse is reported once, as a diagnostic.
-		{[]string{"fmt", "bad.nomi"}, 1, "bad.nomi:1:7: unexpected `{` in pattern\n"},
+		{[]string{"fmt", "bad.nomi"}, 1, "bad.nomi:1:1: expected '}' in struct pattern\n"},
 	} {
 		o := runProcess(t, env, dir, "", nomiBin, tc.args...)
 		if got := o.stdout + o.stderr; o.exit != tc.exit || got != tc.out {
@@ -316,10 +316,10 @@ func TestDiagnostics_ASyntaxErrorInAnImportedFileNamesIt(t *testing.T) {
 	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_DIAGNOSTICS=short")
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "main.nomi"),
-		"import std::io\nimport other\n\nfn main() {\n  io.print(other.f())\n}\n")
-	mustWrite(t, filepath.Join(dir, "other.nomi"), "pub fn f() -> String -> {\n  \"x\"\n}\n")
+		"import std::io\nimport other\n\nfn main()\n  io.print(other.f())\nend\n")
+	mustWrite(t, filepath.Join(dir, "other.nomi"), "pub fn f() -> String ->\n  \"x\"\n")
 
-	want := "other.nomi:1:5: expected '{' for function body\n"
+	want := "other.nomi:1:22: unexpected `->`: a function's body starts on the line after its header and ends at `end`\n"
 	for _, cmd := range []string{"run", "check"} {
 		o := runProcess(t, env, dir, "", nomiBin, cmd, "main.nomi")
 		if o.exit != 1 || o.stderr != want {
@@ -340,93 +340,93 @@ func TestDiagnostics_ProgramErrorsNameTheirFile(t *testing.T) {
 	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"shop\"\n")
-	mustWrite(t, filepath.Join(dir, "main.nomi"), `import {
+	mustWrite(t, filepath.Join(dir, "main.nomi"), `import
     std::io
     child.Box
     other.Thing
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Box{n: 1})
     io.inspect(Thing{n: 1})
-}
+end
 
-test "boxes" {
+test "boxes"
     assert Box{n: 1} == Box{n: 1}
-}
+end
 `)
 	mustWrite(t, filepath.Join(dir, "child.nomi"), `import other.Thing
 
-pub struct Box {
+pub struct Box
     n: Int
-}
+end
 
-impl Display for Bool {
-    fn to_string(_b: Bool) -> String {
+impl Display for Bool
+    fn to_string(_b: Bool) -> String
         "b"
-    }
-}
+    end
+end
 
-impl Box {
-    pub fn a(b: Box) -> Int {
+impl Box
+    pub fn a(b: Box) -> Int
         b.n
-    }
+    end
 
-    pub fn a(b: Box) -> Int {
+    pub fn a(b: Box) -> Int
         b.n
-    }
-}
+    end
+end
 
-impl Box {
-    pub fn c(b: Box) -> Int {
+impl Box
+    pub fn c(b: Box) -> Int
         b.n
-    }
-}
+    end
+end
 
-impl Thing {
-    pub fn zz(t: Thing) -> Int {
+impl Thing
+    pub fn zz(t: Thing) -> Int
         t.n
-    }
-}
+    end
+end
 
-pub interface Shout {
+pub interface Shout
     fn shout(v: self) -> String
-}
+end
 
-impl Shout for Box {
-    fn shout(_v: Box) -> String {
+impl Shout for Box
+    fn shout(_v: Box) -> String
         "a"
-    }
-}
+    end
+end
 `)
 	mustWrite(t, filepath.Join(dir, "other.nomi"), `import child.{Box, Shout}
 
-pub struct Thing {
+pub struct Thing
     n: Int
-}
+end
 
-impl Shout for Box {
-    fn shout(_v: Box) -> String {
+impl Shout for Box
+    fn shout(_v: Box) -> String
         "b"
-    }
-}
+    end
+end
 `)
 	wantShort := "child.nomi:8:8: duplicate impl: `Display` is implemented for `bool.Bool` by modules child, std/bool (function `to_string`); a type implements an interface once at each set of type arguments\n" +
 		"child.nomi:40:8: duplicate impl: `Shout` is implemented for `child.Box` by modules child, other (function `shout`); a type implements an interface once at each set of type arguments\n" +
 		"child.nomi:14:12: duplicate type-owned function: `Box.a` is defined 2 times — a type may define each function at most once\n" +
-		"child.nomi:13:1: duplicate type-owned impl: `impl Box { ... }` appears 2 times in file \"child\" — merge its functions into one block\n" +
+		"child.nomi:13:1: duplicate type-owned impl: `impl Box` appears 2 times in file \"child\" — merge its functions into one block\n" +
 		"child.nomi:8:8: orphan impl: `Display` (declared in module \"std\") for `Bool` (declared in module \"std\") cannot be implemented in module \"shop\" (function `to_string`): the interface, the implementing type, or a type heading a type argument the interface's functions take must be declared in the implementing module\n" +
-		"child.nomi:29:1: orphan impl: inherent `impl Thing { ... }` in file \"child\" cannot extend `Thing` — inherent impls must be declared in the same file as their receiver type\n"
+		"child.nomi:29:1: orphan impl: inherent `impl Thing` in file \"child\" cannot extend `Thing` — inherent impls must be declared in the same file as their receiver type\n"
 	if o := runProcess(t, env, dir, "", nomiBin, "check", "--format", "short", "main.nomi"); o.exit != 1 || o.stderr != wantShort {
 		t.Errorf("nomi check --format short: exit %d\nstderr:\n%s\nwant stderr:\n%s", o.exit, o.stderr, wantShort)
 	}
 	// Each long diagnostic shows child.nomi's own source line.
 	excerpts := []string{
-		" --> child.nomi:8:8\n  |\n8 |     fn to_string(_b: Bool) -> String {\n",
-		"  --> child.nomi:40:8\n   |\n40 |     fn shout(_v: Box) -> String {\n",
-		"  --> child.nomi:14:12\n   |\n14 |     pub fn a(b: Box) -> Int {\n",
-		"  --> child.nomi:13:1\n   |\n13 | impl Box {\n",
-		"  --> child.nomi:29:1\n   |\n29 | impl Thing {\n",
+		" --> child.nomi:8:8\n  |\n8 |     fn to_string(_b: Bool) -> String\n",
+		"  --> child.nomi:40:8\n   |\n40 |     fn shout(_v: Box) -> String\n",
+		"  --> child.nomi:14:12\n   |\n14 |     pub fn a(b: Box) -> Int\n",
+		"  --> child.nomi:13:1\n   |\n13 | impl Box\n",
+		"  --> child.nomi:29:1\n   |\n29 | impl Thing\n",
 	}
 	for _, cmd := range []string{"run", "check", "test"} {
 		o := runProcess(t, env, dir, "", nomiBin, cmd, "main.nomi")
@@ -452,10 +452,10 @@ func TestDiagnostics_AnOrphanImplInAnotherModuleNamesItsFile(t *testing.T) {
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "app", "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
 	mustWrite(t, filepath.Join(dir, "app", "go.mod"), "module app\n\ngo 1.27.0\n\nrequire fx v0.0.0\n\nreplace fx => ../fx\n")
-	mustWrite(t, filepath.Join(dir, "app", "main.nomi"), "import {\n    std::io\n    fx::rate.Rate\n}\n\nfn main() {\n    io.inspect(Rate{per_unit: 4})\n}\n")
+	mustWrite(t, filepath.Join(dir, "app", "main.nomi"), "import\n    std::io\n    fx::rate.Rate\nend\n\nfn main()\n    io.inspect(Rate{per_unit: 4})\nend\n")
 	mustWrite(t, filepath.Join(dir, "fx", "nomi.toml"), "[module]\nname = \"fx\"\n")
 	mustWrite(t, filepath.Join(dir, "fx", "go.mod"), "module fx\n\ngo 1.27.0\n")
-	mustWrite(t, filepath.Join(dir, "fx", "rate.nomi"), "pub struct Rate {\n    per_unit: Int\n}\n\nimpl Display for Bool {\n    fn to_string(_b: Bool) -> String {\n        \"b\"\n    }\n}\n")
+	mustWrite(t, filepath.Join(dir, "fx", "rate.nomi"), "pub struct Rate\n    per_unit: Int\nend\n\nimpl Display for Bool\n    fn to_string(_b: Bool) -> String\n        \"b\"\n    end\nend\n")
 
 	// The file is printed as a path of the system, the module by its name.
 	file := filepath.Join("fx", "rate.nomi")

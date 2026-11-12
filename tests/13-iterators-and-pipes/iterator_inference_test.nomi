@@ -1,4 +1,4 @@
-test "generic iterator adapters infer element types from concrete sources" {
+test "generic iterator adapters infer element types from concrete sources"
     xs = [1, 2, 3]
 
     assert xs
@@ -8,16 +8,16 @@ test "generic iterator adapters infer element types from concrete sources" {
 
     assert Iter.find(xs, &(&1 > 1)) == Some(2)
     assert Iter.find(xs, &(&1 > 1)) == Some(2)
-}
+end
 
-test "custom iterable-backed adapters infer inline lambda parameter types" {
+test "custom iterable-backed adapters infer inline lambda parameter types"
     from_lazy =
         Iter.from(0)
         |> Iter.take(4)
         |> Iter.map(&(&1 * 10))
         |> Iter.to_list()
 
-    s = %[1, 2, 3, 4]
+    s = Set[1, 2, 3, 4]
 
     from_set =
         s
@@ -37,4 +37,4 @@ test "custom iterable-backed adapters infer inline lambda parameter types" {
     assert from_set == [2, 4, 6, 8]
     assert filtered_set == [2, 4]
     assert set_sum == 10
-}
+end

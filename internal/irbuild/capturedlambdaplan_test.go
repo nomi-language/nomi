@@ -13,12 +13,12 @@ func TestCapturedLambdaPlan_Run(t *testing.T) {
 	}
 	irRunSource(t, `import std::io
 
-fn noisy(n: Int) -> Int {
+fn noisy(n: Int) -> Int
     io.print("default ${n}")
     n
-}
+end
 
-fn main() {
+fn main()
     base = 10
     f = fn x: Int, y: Int = noisy(base) + x -> x + y
     g = fn -> f(1)
@@ -30,15 +30,15 @@ fn main() {
     p = fn -> &m(2, &1)
     q = p()
     io.print(q(3))
-    deep = fn -> {
+    deep = fn ->
         inner = fn -> f(4)
         inner()
-    }
+    end
     io.print(deep())
     k = fn a: Int, b: Int = 7 -> a * b
     named = fn n: Int -> k(b: n, a: 2)
     io.inspect([1, 2] |> Iter.map(named) |> Iter.to_list())
     io.inspect([1, 2] |> Iter.map(fn n: Int -> k(n)) |> Iter.to_list())
-}
+end
 `, "default 10\n12\ndefault 10\n12\n6\n-1\ndefault 10\n18\n[2, 4]\n[7, 14]\n")
 }

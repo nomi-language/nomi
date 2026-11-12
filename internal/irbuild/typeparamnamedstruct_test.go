@@ -8,27 +8,27 @@ import "testing"
 func TestTypeParamNamedStruct_CallsTheInstancesImpl(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-interface Up {
-    fn update(a: self, b: .{x: Int}) -> self
-}
+interface Up
+    fn update(a: self, b: {x: Int}) -> self
+end
 
-struct P {
+struct P
     x: Int
-}
+end
 
-impl Up for P {
-    fn update(_a: P, b: .{x: Int}) -> P {
+impl Up for P
+    fn update(_a: P, b: {x: Int}) -> P
         P{x: b.x + 10}
-    }
-}
+    end
+end
 
-fn bump<Struct>(p: Struct) -> Struct where Struct: Up {
-    Struct.update(p, .{x: 2})
-}
+fn bump<Struct>(p: Struct) -> Struct where Struct: Up
+    Struct.update(p, {x: 2})
+end
 
-fn main() {
+fn main()
     io.print(bump(P{x: 1}).x)
-    io.print(Struct.update(P{x: 1}, .{x: 5}).x)
-}
+    io.print(Struct.update(P{x: 1}, {x: 5}).x)
+end
 `, "12\n5\n")
 }

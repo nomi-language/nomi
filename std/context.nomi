@@ -16,12 +16,12 @@
 //# cancellation at every safe point and unwinds the task there, ahead of
 //# any check the body could run.
 
-import {
+import
     duration.Duration
     instant.Instant
     maybe.Maybe
     type.Type
-}
+end
 
 /// Per-life execution context, threaded by the runtime through every
 /// call stack. An application that wants one builds it in `boot` with
@@ -35,7 +35,7 @@ import {
 /// runtime, and the `Context.with_*` derivers produce them.
 pub host type Context
 
-impl Context {
+impl Context
     /// Construct a fresh root Context — no deadline, not canceled, no parent.
     /// A boot that wants a context field builds it with this, or with a child
     /// derived from it (`Context.with_timeout(Context.root(), d)`).
@@ -92,4 +92,4 @@ impl Context {
     //! assert Context.value(root, TraceId) == Maybe.None
     //
     pub host fn value<T>(c: Context, value_type: Type<T>) -> Maybe<T>
-}
+end

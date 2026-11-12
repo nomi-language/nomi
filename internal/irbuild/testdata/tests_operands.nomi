@@ -6,132 +6,132 @@
 // a structural rendering. The List<String> case is the one that
 // makes that visible from the outside — `["a", "b"]` here against `[a, b]` for
 // the same list in `${...}`, which is std/lists.nomi's Display impl.
-struct Point {
+struct Point
     x: Int
     y: String
-}
+end
 
-struct Outer {
+struct Outer
     p: Point
     tag: Int
-}
+end
 
-struct Nothing {}
+struct Nothing end
 
 // Embedded rather than Point, and that is not arbitrary: a struct that is BOTH
 // a field of another struct AND embedded in an enum would send the
 // synthesized `impl Debug for Outer` through its `Shape` widening, which is
 // derive behaviour and not operand rendering. Keeping the shapes apart
 // keeps this fixture about the report.
-struct Wrapped {
+struct Wrapped
     n: Int
-}
+end
 
 type UserId Int
 type Expired
 
-enum Shape {
+enum Shape
     Dot
     Sized Int
     Box {w: Int, h: String}
     embeds Wrapped
     embeds Expired
-}
+end
 
-fn no_int(_v: Int) -> Bool {
+fn no_int(_v: Int) -> Bool
     False
-}
+end
 
-fn no_str(_v: String) -> Bool {
+fn no_str(_v: String) -> Bool
     False
-}
+end
 
-fn no_list(_v: List<Int>) -> Bool {
+fn no_list(_v: List<Int>) -> Bool
     False
-}
+end
 
-fn no_strings(_v: List<String>) -> Bool {
+fn no_strings(_v: List<String>) -> Bool
     False
-}
+end
 
-fn no_nested(_v: List<List<Int>>) -> Bool {
+fn no_nested(_v: List<List<Int>>) -> Bool
     False
-}
+end
 
-fn no_pair(_v: (Int, String)) -> Bool {
+fn no_pair(_v: (Int, String)) -> Bool
     False
-}
+end
 
-fn no_map(_v: Map<String, Int>) -> Bool {
+fn no_map(_v: Map<String, Int>) -> Bool
     False
-}
+end
 
-fn no_point(_v: Point) -> Bool {
+fn no_point(_v: Point) -> Bool
     False
-}
+end
 
-fn no_outer(_v: Outer) -> Bool {
+fn no_outer(_v: Outer) -> Bool
     False
-}
+end
 
-fn no_nothing(_v: Nothing) -> Bool {
+fn no_nothing(_v: Nothing) -> Bool
     False
-}
+end
 
-fn no_user(_v: UserId) -> Bool {
+fn no_user(_v: UserId) -> Bool
     False
-}
+end
 
-fn no_shape(_v: Shape) -> Bool {
+fn no_shape(_v: Shape) -> Bool
     False
-}
+end
 
-fn no_maybe(_v: Maybe<Int>) -> Bool {
+fn no_maybe(_v: Maybe<Int>) -> Bool
     False
-}
+end
 
-fn no_result(_v: Result<Int, String>) -> Bool {
+fn no_result(_v: Result<Int, String>) -> Bool
     False
-}
+end
 
-fn no_maybe_point(_v: Maybe<Point>) -> Bool {
+fn no_maybe_point(_v: Maybe<Point>) -> Bool
     False
-}
+end
 
-test "a list of Int" {
+test "a list of Int"
     xs = [1, 2, 3]
     assert no_list(xs)
-}
+end
 
-test "a list of String keeps its quotes" {
+test "a list of String keeps its quotes"
     xs = ["a", "b"]
     assert no_strings(xs)
-}
+end
 
-test "an empty list" {
+test "an empty list"
     xs: List<Int> = []
     assert no_list(xs)
-}
+end
 
-test "a nested list" {
+test "a nested list"
     xs = [[1, 2], [3]]
     assert no_nested(xs)
-}
+end
 
-test "a tuple" {
+test "a tuple"
     p = (1, "two")
     assert no_pair(p)
-}
+end
 
-test "a map" {
-    m = %{"a" => 1, "b" => 2}
+test "a map"
+    m = {"a" => 1, "b" => 2}
     assert no_map(m)
-}
+end
 
-test "an empty map" {
-    m: Map<String, Int> = %{}
+test "an empty map"
+    m: Map<String, Int> = {}
     assert no_map(m)
-}
+end
 
 // NOT named "sorts its fields", because that is what it cannot show:
 // `Point{x, y}` is ALPHABETICAL, so sorted order and
@@ -143,72 +143,72 @@ test "an empty map" {
 // four other pinned rows here, and the ordering property now has a dedicated
 // home in testdata/debug_display_surfaces.nomi, where `zeta` before `alpha`
 // distinguishes all four renderings at once.
-test "a struct renders every field" {
+test "a struct renders every field"
     p = Point{x: 1, y: "two"}
     assert no_point(p)
-}
+end
 
-test "a struct with no fields" {
+test "a struct with no fields"
     n = Nothing{}
     assert no_nothing(n)
-}
+end
 
-test "a nested struct" {
+test "a nested struct"
     o = Outer{p: Point{x: 1, y: "two"}, tag: 9}
     assert no_outer(o)
-}
+end
 
-test "a distinct type" {
+test "a distinct type"
     u = UserId(42)
     assert no_user(u)
-}
+end
 
-test "a bare enum variant" {
+test "a bare enum variant"
     s = Shape.Dot
     assert no_shape(s)
-}
+end
 
-test "a positional enum variant" {
+test "a positional enum variant"
     s = Shape.Sized(7)
     assert no_shape(s)
-}
+end
 
-test "a struct-shaped enum variant" {
+test "a struct-shaped enum variant"
     s = Shape.Box{w: 1, h: "tall"}
     assert no_shape(s)
-}
+end
 
-test "an embedded struct variant" {
+test "an embedded struct variant"
     s = Shape.Wrapped{n: 4}
     assert no_shape(s)
-}
+end
 
-test "an embedded marker variant carries nothing" {
+test "an embedded marker variant carries nothing"
     s = Shape.Expired
     assert no_shape(s)
-}
+end
 
-test "Some" {
+test "Some"
     m = Some(5)
     assert no_maybe(m)
-}
+end
 
-test "None" {
+test "None"
     m: Maybe<Int> = None
     assert no_maybe(m)
-}
+end
 
-test "Ok" {
+test "Ok"
     r: Result<Int, String> = Ok(3)
     assert no_result(r)
-}
+end
 
-test "Err" {
+test "Err"
     r: Result<Int, String> = Err("bad")
     assert no_result(r)
-}
+end
 
-test "a prelude enum over a struct" {
+test "a prelude enum over a struct"
     m = Some(Point{x: 1, y: "two"})
     assert no_maybe_point(m)
-}
+end

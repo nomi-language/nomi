@@ -1,6 +1,6 @@
 import transpose.transpose
 
-test "transpose" {
+test "transpose"
     [
         ("empty string", [], []),
         ("two characters in a row", ["A1"], ["A", "1"]),
@@ -99,7 +99,7 @@ test "transpose" {
             ["123456", "1 3456", "  3456", "  3 56", "    56", "    5"],
         ),
     ]
-    |> subtests (description, lines, expected), description {
+    |> subtests (description, lines, expected), description
         assert transpose(lines) == expected
-    }
-}
+    end
+end

@@ -1,15 +1,15 @@
 // A type with a UNIQUE name, implementing an interface. The entry imports it
 // under an ALIAS, which is the only variable in this fixture.
-pub interface Shout {
+pub interface Shout
     fn shout(v: self) -> String
-}
+end
 
-pub struct Gadget {
+pub struct Gadget
     n: Int
-}
+end
 
-impl Shout for Gadget {
-    fn shout(g: Gadget) -> String {
+impl Shout for Gadget
+    fn shout(g: Gadget) -> String
         "gadget ${g.n}"
-    }
-}
+    end
+end

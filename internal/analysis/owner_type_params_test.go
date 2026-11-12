@@ -13,37 +13,37 @@ import (
 // function, with the help that fixes it.
 func TestOwnerTypeParam_UseInBodyOfFunctionThatDoesNotDetermineIt_Rejected(t *testing.T) {
 	errs := checkWithStdlib(`
-struct Box<T> {
+struct Box<T>
   v: T
-}
+end
 
-impl Box<T> {
-  fn ann() -> Int {
+impl Box<T>
+  fn ann() -> Int
     xs: List<T> = []
     Iter.count(xs)
-  }
-  fn lam() -> Int {
+  end
+  fn lam() -> Int
     f = fn x: T -> x
     Iter.count([f])
-  }
-  fn turbo() -> Int {
+  end
+  fn turbo() -> Int
     Iter.repeat<T>(todo) |> Iter.take(0) |> Iter.count()
-  }
-  fn qual() -> String {
+  end
+  fn qual() -> String
     T.to_string(todo)
-  }
-}
+  end
+end
 
-pub interface Src<T> {
+pub interface Src<T>
   fn get(s: self) -> T
-}
+end
 
-impl Src<T> {
-  pub fn seven() -> Int {
+impl Src<T>
+  pub fn seven() -> Int
     _f = fn x: T -> x
     7
-  }
-}
+  end
+end
 `)
 	var got []string
 	for _, e := range errs {
@@ -74,39 +74,41 @@ impl Src<T> {
 // parameter at all, and one with its own differently named parameters.
 func TestOwnerTypeParam_IterShapes_Accepted(t *testing.T) {
 	errs := checkWithStdlib(`
-pub interface Seq<T> {
+pub interface Seq<T>
   fn each_while(collection: self, yield: (T) -> Bool) -> Bool
-}
+end
 
-impl Seq<T> {
-  pub fn find<T>(source: List<T>, f: (T) -> Bool) -> Maybe<T> {
+impl Seq<T>
+  pub fn find<T>(source: List<T>, f: (T) -> Bool) -> Maybe<T>
     out: List<T> = Iter.filter(source, f) |> Iter.to_list()
     List.head(out)
-  }
-  pub fn from(start: Int) -> List<Int> {
+  end
+  pub fn from(start: Int) -> List<Int>
     [start, start + 1]
-  }
-  pub fn to_map<K, V>(pairs: List<(K, V)>) -> Map<K, V> {
+  end
+  pub fn to_map<K, V>(pairs: List<(K, V)>) -> Map<K, V>
     Iter.to_map(pairs)
-  }
-  pub fn flatten<U>(source: List<List<U>>) -> List<U> {
+  end
+  pub fn flatten<U>(source: List<List<U>>) -> List<U>
     Iter.flat_map(source, fn inner: List<U> -> inner) |> Iter.to_list()
-  }
-}
+  end
+end
 
-struct Box<T> {
+struct Box<T>
   v: T
-}
+end
 
-impl Box<T> {
-  fn get(b: Box<T>) -> T {
+impl Box<T>
+  fn get(b: Box<T>) -> T
     v: T = b.v
     v
-  }
-  fn seven() -> Int { 7 }
-}
+  end
+  fn seven() -> Int
+      7
+  end
+end
 
-fn main() {
+fn main()
   _ = Seq.find([1, 2], fn x -> x > 1)
   _ = Seq.from(3)
   _ = Seq.to_map([("a", 1)])
@@ -115,7 +117,7 @@ fn main() {
   _ = Box.seven()
   _ = Iter.from(3)
   _ = Iter.repeat(1)
-}
+end
 `)
 	if len(errs) != 0 {
 		var got []string
@@ -131,22 +133,26 @@ fn main() {
 // write instead, for an inherent block and an interface's alike.
 func TestImplReceiver_GenericTypeWithoutItsParameters_Rejected(t *testing.T) {
 	errs := checkWithStdlib(`
-struct Box<T> {
+struct Box<T>
   v: T
-}
+end
 
-struct Pair<A, B> {
+struct Pair<A, B>
   a: A
   b: B
-}
+end
 
-impl Box {
-  fn f(x: Int) -> Int { x }
-}
+impl Box
+  fn f(x: Int) -> Int
+      x
+  end
+end
 
-impl Display for Pair {
-  fn to_string(_p: Pair<Int, Int>) -> String { "pair" }
-}
+impl Display for Pair
+  fn to_string(_p: Pair<Int, Int>) -> String
+      "pair"
+  end
+end
 `)
 	var got []string
 	for _, e := range errs {
@@ -154,7 +160,7 @@ impl Display for Pair {
 	}
 	want := []string{
 		"11:6 `Box` expects 1 type argument, got 0 | an impl block of a generic type names its type parameters: write `impl Box<T>`",
-		"15:18 `Pair` expects 2 type arguments, got 0 | an impl block of a generic type names its type parameters: write `impl Display for Pair<A, B>`",
+		"17:18 `Pair` expects 2 type arguments, got 0 | an impl block of a generic type names its type parameters: write `impl Display for Pair<A, B>`",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("errors:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

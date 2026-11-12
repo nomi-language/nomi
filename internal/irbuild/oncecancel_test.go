@@ -24,94 +24,94 @@ func TestOnceCancellation_RunsOnTheVM(t *testing.T) {
 		name, src, stdout, stderr string
 		exit                      int
 	}{
-		{"task cancelled while forcing", `import {
+		{"task cancelled while forcing", `import
   std::duration.Duration
   std::tasks.Task
   std::timer
-}
+end
 
-once slow: Int = {
+once slow: Int = begin
   timer.sleep(Duration.minutes(5))
   1
-}
+end
 
-fn main() {
-  outcome = concurrent {
+fn main()
+  outcome = concurrent
     t = Task.spawn(fn -> slow)
     timer.sleep(Duration.milliseconds(20))
     Task.cancel(t)
     Task.outcome(t)
-  }
+  end
   dbg outcome
   Unit
-}
+end
 `, "dbg line 19: outcome = Cancelled\n", "", 0},
-		{"deadline runs out while main forces", `import {
+		{"deadline runs out while main forces", `import
   std::duration.Duration
   std::io
   std::timer
-}
+end
 
-once slow: Int = {
+once slow: Int = begin
   timer.sleep(Duration.minutes(5))
   1
-}
+end
 
-fn main() {
+fn main()
   with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(50))
   io.print("entered")
   dbg slow
   Unit
-}
-struct Run {
+end
+struct Run
   context: Context
-}
+end
 
-fn boot() -> Result<Run, String> {
+fn boot() -> Result<Run, String>
   Ok(Run{context: Context.root()})
-}
+end
 `, "entered\n", deadline, 1},
-		{"a later force re-runs the RHS", `import {
+		{"a later force re-runs the RHS", `import
   std::channels.{Channel, Receiver, Sender}
   std::io
   std::tasks.Task
-}
+end
 
 once started: Channel<Int> = Channel.buffered(2)
 
 once gate: Channel<Int> = Channel.buffered(1)
 
-once slow: Int = {
+once slow: Int = begin
   io.print("forcing")
   _ = Sender.send(started.sender, 1)
   _ = Receiver.receive(gate.receiver)
   1
-}
+end
 
-fn main() {
-  outcome = concurrent {
+fn main()
+  outcome = concurrent
     t = Task.spawn(fn -> slow)
     _ = Receiver.receive(started.receiver)
     Task.cancel(t)
     Task.outcome(t)
-  }
+  end
   dbg outcome
   _ = Sender.send(gate.sender, 1)
   dbg slow
   dbg slow
   Unit
-}
+end
 `, "forcing\ndbg line 25: outcome = Cancelled\nforcing\ndbg line 27: slow = 1\ndbg line 28: slow = 1\n", "", 0},
-		{"a field read off a once", `struct P {
+		{"a field read off a once", `struct P
   x: Int
-}
+end
 
 once p: P = P{x: 1}
 
-fn main() {
+fn main()
   dbg p.x
   Unit
-}
+end
 `, "dbg line 8: p.x = 1\n", "", 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

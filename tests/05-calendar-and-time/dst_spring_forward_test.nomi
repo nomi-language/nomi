@@ -1,19 +1,19 @@
-import {
+import
     std::calendar.Error
     std::calendar.{DateTime, Days, Disambiguation, Hours}
     std::calendar.NaiveDateTime
     std::duration.Duration
-}
+end
 
-test "DST gap compatible disambiguation advances to the next valid instant" {
+test "DST gap compatible disambiguation advances to the next valid instant"
     naive = NaiveDateTime`2026-03-08T02:30:00`
     adjusted = DateTime.in_zone(naive, "America/New_York", Disambiguation.Compatible)?
     adjusted_text = DateTime.to_string(adjusted)
 
     assert adjusted_text == "2026-03-08T03:30:00-04:00[America/New_York]"
-}
+end
 
-test "DST gap reject disambiguation reports a nonexistent wall reading" {
+test "DST gap reject disambiguation reports a nonexistent wall reading"
     naive = NaiveDateTime`2026-03-08T02:30:00`
 
     assert Err(Error.Nonexistent(_)) = DateTime.in_zone(
@@ -21,9 +21,9 @@ test "DST gap reject disambiguation reports a nonexistent wall reading" {
         "America/New_York",
         Disambiguation.Reject,
     )
-}
+end
 
-test "DST spring-forward civil day shifts preserve wall time" {
+test "DST spring-forward civil day shifts preserve wall time"
     start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
     civil = start + Days(1)
     start_text = DateTime.to_string(start)
@@ -31,9 +31,9 @@ test "DST spring-forward civil day shifts preserve wall time" {
 
     assert start_text == "2026-03-07T12:00:00-05:00[America/New_York]"
     assert civil_text == "2026-03-08T12:00:00-04:00[America/New_York]"
-}
+end
 
-test "DST spring-forward civil day shifts may cover less than twenty-four hours" {
+test "DST spring-forward civil day shifts may cover less than twenty-four hours"
     start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
     civil = start + Days(1)
 
@@ -43,9 +43,9 @@ test "DST spring-forward civil day shifts may cover less than twenty-four hours"
         |> Duration.as_hours()
 
     assert civil_hours == 23
-}
+end
 
-test "DST spring-forward physical duration shifts preserve elapsed time" {
+test "DST spring-forward physical duration shifts preserve elapsed time"
     start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
     physical = start + Duration.hours(24)
     physical_text = DateTime.to_string(physical)
@@ -57,9 +57,9 @@ test "DST spring-forward physical duration shifts preserve elapsed time" {
 
     assert physical_text == "2026-03-08T13:00:00-04:00[America/New_York]"
     assert physical_hours == 24
-}
+end
 
-test "DST spring-forward civil hour shifts preserve wall time" {
+test "DST spring-forward civil hour shifts preserve wall time"
     start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
     civil = start + Hours(24)
     civil_text = DateTime.to_string(civil)
@@ -71,4 +71,4 @@ test "DST spring-forward civil hour shifts preserve wall time" {
 
     assert civil_text == "2026-03-08T12:00:00-04:00[America/New_York]"
     assert civil_hours == 23
-}
+end

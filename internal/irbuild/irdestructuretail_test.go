@@ -13,61 +13,61 @@ import (
 func TestIRDestructureTail_EndsABodyWithUnit(t *testing.T) {
 	const src = `import std::io
 
-struct Point {
+struct Point
   x: Int
   y: Int
-}
+end
 
-fn make(n: Int) -> (Int, Int) {
+fn make(n: Int) -> (Int, Int)
   io.print("make ${n}")
   (n, n + 1)
-}
+end
 
-fn point() -> Point {
+fn point() -> Point
   io.print("point")
   Point{x: 1, y: 2}
-}
+end
 
-fn tuple_tail() {
+fn tuple_tail()
   (_, _) = make(20)
-}
+end
 
-fn struct_tail() {
-  .{x: _, y: _} = point()
-}
+fn struct_tail()
+  {x: _, y: _} = point()
+end
 
-fn named_struct_tail() {
+fn named_struct_tail()
   Point{x: _, y: _} = point()
-}
+end
 
-fn arm_tail(flag: Bool) {
-  if flag {
+fn arm_tail(flag: Bool)
+  if flag then
     (_, _) = make(1)
-  } else {
+  else
     (_, _) = make(2)
-  }
-}
+  end
+end
 
-fn block_tail() {
-  {
+fn block_tail()
+  begin
     io.print("in block")
     (_, _) = make(3)
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   tuple_tail()
   struct_tail()
   named_struct_tail()
   arm_tail(True)
   arm_tail(False)
   block_tail()
-  f = fn -> {
+  f = fn ->
     (_, _) = make(4)
-  }
+  end
   f()
   (_, _) = make(5)
-}
+end
 `
 	names, _ := irRetainedNames(t, src)
 	for _, name := range []string{"main", "tuple_tail", "struct_tail", "named_struct_tail", "arm_tail", "block_tail"} {
@@ -82,15 +82,15 @@ fn main() {
 func TestIRDestructureTail_EndsATestBody(t *testing.T) {
 	const src = `import std::io
 
-fn make(n: Int) -> (Int, Int) {
+fn make(n: Int) -> (Int, Int)
   io.print("make ${n}")
   (n, n + 1)
-}
+end
 
-test "a test body ending in a destructure" {
+test "a test body ending in a destructure"
   assert True
   (_, _) = make(6)
-}
+end
 `
 	out, exit := irShapesRun(t, src, []string{"a test body ending in a destructure"})
 	if exit != 0 || !strings.Contains(out, ":: a test body ending in a destructure\n  make 6\n") || !strings.Contains(out, "1 passed, 0 failed") {

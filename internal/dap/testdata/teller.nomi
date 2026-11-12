@@ -1,6 +1,6 @@
 import std::io
 
-fn teller() {
+fn teller()
     io.print("Welcome to the bank")
     io.write("Name: ")
     name = io.read_line() |> Result.with_default(None) |> Maybe.with_default("nobody")
@@ -11,22 +11,22 @@ fn teller() {
     amount = io.read_line() |> Result.with_default(None) |> Maybe.with_default("0")
 
     io.print("Deposited ${amount}")
-}
+end
 
-fn receipt() -> String {
-    io.capture("", fn -> {
+fn receipt() -> String
+    io.capture("", fn ->
         io.print("receipt for one deposit")
         "printed"
-    }).output
-}
+    end).output
+end
 
-fn teller_with_receipt() {
+fn teller_with_receipt()
     io.print("Receipt next")
     _ = receipt()
     io.print("Goodbye")
-}
+end
 
-test "the teller greets and takes a deposit" {
+test "the teller greets and takes a deposit"
     io.print("before the replay")
 
     assert io.replay(
@@ -41,9 +41,9 @@ test "the teller greets and takes a deposit" {
         """,
         teller,
     )
-}
+end
 
-test "the teller prints a receipt" {
+test "the teller prints a receipt"
     assert io.replay(
         """
         Receipt next
@@ -51,9 +51,9 @@ test "the teller prints a receipt" {
         """,
         teller_with_receipt,
     )
-}
+end
 
-test "the teller has diverged" {
+test "the teller has diverged"
     assert io.replay(
         """
         Welcome to the bank
@@ -63,4 +63,4 @@ test "the teller has diverged" {
         """,
         teller,
     )
-}
+end

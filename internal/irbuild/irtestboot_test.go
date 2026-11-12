@@ -18,29 +18,29 @@ import (
 // boot publishes; the case's printed line is the comparison.
 const irTestBootSource = `import std::io
 
-pub struct App {
+pub struct App
   context: Context
   label: String
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), label: "booted"})
-}
+end
 
-fn main() {}
+fn main() end
 
-fn show(suffix: String) -> String {
+fn show(suffix: String) -> String
   App.label + suffix
-}
+end
 
-group "group" {
+group "group"
   boot boot()
 
-  test "reads the group's app" {
+  test "reads the group's app"
     io.print(show("!"))
     assert show("") == "booted"
-  }
-}
+  end
+end
 `
 
 func TestIRTestBoot_AGroupBootPublishesTheAppItsCasesRead(t *testing.T) {

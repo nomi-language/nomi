@@ -15,29 +15,33 @@ import (
 // loaded on first use, so the arm declined unless something earlier in the
 // same program (a `Map.size` before the `Map.get`) had loaded them.
 var preludeOrderPrograms = []struct{ name, src, want string }{
-	{"Map.get", `fn main() {
-    config = %{"host" => "localhost"}
+	{"Map.get", `fn main()
+    config = {"host" => "localhost"}
     dbg Map.get(config, "host")
-}
+end
 `, "dbg line 3: Map.get(config, \"host\") = Some(\"localhost\")\n"},
-	{"Map.get of a list", `fn main() { m = %{"a" => [1, 2]} dbg Map.get(m, "a") return }
-`, "dbg line 1: Map.get(m, \"a\") = Some([1, 2])\n"},
-	{"Vector.get", `fn main() {
-    v = #[1, 2, 3]
+	{"Map.get of a list", `fn main()
+    m = {"a" => [1, 2]}
+    dbg Map.get(m, "a")
+    return
+end
+`, "dbg line 3: Map.get(m, \"a\") = Some([1, 2])\n"},
+	{"Vector.get", `fn main()
+    v = Vector[1, 2, 3]
     dbg Vector.get(v, 1)
-}
+end
 `, "dbg line 3: Vector.get(v, 1) = Some(2)\n"},
 }
 
 // preludeOrderWarmup is loaded and run first in the warm process, so its
 // std instances, caches and prelude uses exist before the programs above.
-const preludeOrderWarmup = `fn main() {
-    m = %{"a" => 1}
+const preludeOrderWarmup = `fn main()
+    m = {"a" => 1}
     dbg Map.size(m)
     dbg Map.get(m, "a")
     dbg List.head([Some(1)])
-    dbg Iter.get(#["x"], 0)
-}
+    dbg Iter.get(Vector["x"], 0)
+end
 `
 
 func runPreludeOrderProgram(t *testing.T, src string) string {

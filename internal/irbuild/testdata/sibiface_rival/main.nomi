@@ -6,13 +6,13 @@
 // Here each call has TWO candidates in the index and the builder has to pick
 // one. Getting it wrong is not a wrong string — it is an `ambiguous interface
 // call` refusal, so both rows fail LOUDLY rather than drifting.
-import {
+import
     std::io
     extra.{self}
     parts.{self, Combine}
-}
+end
 
-fn main() {
+fn main()
     // namedPositionsFit. `Combine.combine` is provided for A and for B, same
     // arity, and BOTH arguments are named types with an entry under this
     // method — so the loop produces a candidate from each. Only the declared
@@ -27,4 +27,4 @@ fn main() {
     // written block is what callers observe; treating the synthesized one as a
     // rival makes the call ambiguous instead.
     io.print(Debug.inspect(extra.boxed(5)))
-}
+end

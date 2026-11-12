@@ -1,35 +1,35 @@
 import std::io
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
 /// A bound-free generic function whose every type-parameter mention is a bare
 /// type parameter. ONE declaration, and the program below instantiates it at
 /// eight different types — a fixture with a single instantiation would pass
 /// under a representation that collapsed them all into one.
-fn first<T>(x: T) -> T {
+fn first<T>(x: T) -> T
     x
-}
+end
 
 /// Two type parameters, so the two identities have to stay apart: the result is
 /// `A` and never `B`, and a call binding them to different types must not be
 /// able to confuse the slots.
-fn pick<A, B>(a: A, _b: B) -> A {
+fn pick<A, B>(a: A, _b: B) -> A
     a
-}
+end
 
 /// A generic function whose RESULT mentions no type parameter, so the call site
 /// has nothing to assert back. The type parameter is still carried.
-fn tally<T>(_value: T, n: Int) -> Int {
+fn tally<T>(_value: T, n: Int) -> Int
     n + 1
-}
+end
 
-fn main() {
+fn main()
     io.print("${first(7)}")
     io.print("${first("value")}")
-    io.print(if first(True) { "yes" } else { "no" })
+    io.print(if first(True) then "yes" else "no")
     io.print("${first(2.5)}")
     io.print("${first([1, 2, 3])}")
     io.print("${first((4, "five"))}")
@@ -46,4 +46,4 @@ fn main() {
     io.print("${first<Int>(13)}")
     io.print("${first<String>("turbofish")}")
     io.print("${pick<Int, String>(14, "unused")}")
-}
+end

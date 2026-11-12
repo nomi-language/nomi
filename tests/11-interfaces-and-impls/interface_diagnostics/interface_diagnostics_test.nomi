@@ -1,26 +1,26 @@
-import {
+import
     std::compiler.{self, Project}
     test_helpers
-}
+end
 
-test "duplicate impl blocks report coherence diagnostics" {
+test "duplicate impl blocks report coherence diagnostics"
     diagnostics = compiler.check(
         """
-        struct Dog {
+        struct Dog
           name: String
-        }
+        end
 
-        impl Display for Dog {
-          fn to_string(d: Dog) -> String {
+        impl Display for Dog
+          fn to_string(d: Dog) -> String
             d.name
-          }
-        }
+          end
+        end
 
-        impl Display for Dog {
-          fn to_string(d: Dog) -> String {
+        impl Display for Dog
+          fn to_string(d: Dog) -> String
             "duplicate " + d.name
-          }
-        }
+          end
+        end
         """
     )
 
@@ -30,9 +30,9 @@ test "duplicate impl blocks report coherence diagnostics" {
         diagnostics,
         "duplicate impl: `Display` is implemented for `Dog`",
     )
-}
+end
 
-test "package-local types can use impl blocks" {
+test "package-local types can use impl blocks"
     diagnostics = compiler.check_project(Project{
         entry_point: "main",
         manifest: Some(
@@ -42,29 +42,31 @@ test "package-local types can use impl blocks" {
             entry_points = ["main"]
             """
         ),
-        files: %{
+        files: {
             "main" => """
-                interface Label {
+                interface Label
                   fn label(value: self) -> String
-                }
+                end
 
-                struct Thing {
+                struct Thing
                   name: String
-                }
+                end
 
-                impl Label for Thing {
-                  fn label(value: Thing) -> String { value.name }
-                }
+                impl Label for Thing
+                  fn label(value: Thing) -> String
+                      value.name
+                  end
+                end
 
-                fn main() {
+                fn main()
                   Unit
-                }
+                end
                 """,
         },
     })
 
     assert Iter.count(diagnostics) == 0
-}
+end
 
 // The NEGATIVE CONTROL for nominal identity in the inherent-impl manifest.
 // Keying that manifest by `(declaring file, name)` rather than by bare name
@@ -72,28 +74,28 @@ test "package-local types can use impl blocks" {
 // direction, pinned by same_named_stdlib_type/) — and it must NOT have
 // disabled this: two type-owned functions of one name on ONE type are still
 // one ambiguous slot, and are still rejected.
-test "duplicate type-owned functions report coherence diagnostics" {
+test "duplicate type-owned functions report coherence diagnostics"
     diagnostics = compiler.check_project(Project{
         entry_point: "main",
-        files: %{
+        files: {
             "main" => """
-                struct Cookie {
+                struct Cookie
                   flavor: String
-                }
+                end
 
-                impl Cookie {
-                  pub fn new(flavor: String) -> Cookie {
-                    Cookie{flavor: flavor}
-                  }
+                impl Cookie
+                  pub fn new(flavor: String) -> Cookie
+                    Cookie{flavor:}
+                  end
 
-                  pub fn new(other: String) -> Cookie {
+                  pub fn new(other: String) -> Cookie
                     Cookie{flavor: other}
-                  }
-                }
+                  end
+                end
 
-                fn main() {
+                fn main()
                   Unit
-                }
+                end
                 """,
         },
     })
@@ -102,4 +104,4 @@ test "duplicate type-owned functions report coherence diagnostics" {
         diagnostics,
         "duplicate type-owned function: `Cookie.new` is defined 2 times",
     )
-}
+end

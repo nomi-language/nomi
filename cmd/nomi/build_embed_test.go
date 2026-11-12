@@ -11,19 +11,19 @@ import (
 
 // embedProgram embeds a folder of text and a binary file, and prints what
 // it holds: the files' paths, a text file, and the binary file's bytes.
-const embedProgram = `import {
+const embedProgram = `import
   std::embed.Files
   std::io
-}
+end
 
 embed site ` + "`static logo.bin`" + `
 
-fn main() {
+fn main()
   io.print(Files.paths(site))
   io.print(Files.read_text(site, "static/index.html")!)
   io.print(Files.read(site, "logo.bin")! |> Bytes.to_list() |> Iter.map(Byte.to_int) |> Iter.to_list())
   io.print(Files.metadata(site, "static/css/site.css")!.size)
-}
+end
 `
 
 const embedProgramOutput = "[logo.bin, static/css/site.css, static/index.html]\n<h1>hi</h1>\n\n[0, 137, 80, 255]\n8\n"
@@ -136,16 +136,16 @@ func TestRunCommand_ANestedEmbedReadsFromTheModuleRoot(t *testing.T) {
 	}
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"site\"\nentry_points = [\"main\"]\n")
-	mustWrite(t, filepath.Join(dir, "main.nomi"), `import {
+	mustWrite(t, filepath.Join(dir, "main.nomi"), `import
   std::embed.Files
   std::io
   web::pages
-}
+end
 
-fn main() {
+fn main()
   io.print(Files.paths(pages.site))
   io.print(Files.read_text(pages.site, "assets/x.css")!)
-}
+end
 `)
 	mustWrite(t, filepath.Join(dir, "web", "pages.nomi"), "pub embed site `assets`\n")
 	mustWrite(t, filepath.Join(dir, "assets", "x.css"), "body {}\n")

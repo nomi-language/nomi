@@ -36,50 +36,50 @@ import std::io
 
 once base: Int = 7
 
-fn helper(x: Int) -> Int {
+fn helper(x: Int) -> Int
     x + 1
-}
+end
 
-fn shadows_a_module_fn() -> Int {
-    fn helper(x: Int) -> Int {
+fn shadows_a_module_fn() -> Int
+    fn helper(x: Int) -> Int
         x + 100
-    }
+    end
 
     helper(1)
-}
+end
 
-fn shadows_a_module_once() -> Int {
-    fn base(x: Int) -> Int {
+fn shadows_a_module_once() -> Int
+    fn base(x: Int) -> Int
         x * 3
-    }
+    end
 
     base(2)
-}
+end
 
-fn captures_a_rebound_local() -> String {
+fn captures_a_rebound_local() -> String
     offset = 30
 
-    fn adjust(x: Int) -> Int {
+    fn adjust(x: Int) -> Int
         x + offset
-    }
+    end
 
     offset = 40
     "adjust(100) = ${adjust(100)}, offset = ${offset}"
-}
+end
 
-fn factorial(n: Int) -> Int {
-    fn fact(k: Int) -> Int {
-        if k <= 1 { 1 } else { k * fact(k - 1) }
-    }
+fn factorial(n: Int) -> Int
+    fn fact(k: Int) -> Int
+        if k <= 1 then 1 else k * fact(k - 1)
+    end
 
     fact(n)
-}
+end
 
-fn main() {
+fn main()
     io.print("module helper(1) = ${helper(1)}")
     io.print("nested helper wins = ${shadows_a_module_fn()}")
     io.print("module once base = ${base}")
     io.print("nested base wins = ${shadows_a_module_once()}")
     io.print(captures_a_rebound_local())
     io.print("factorial(5) = ${factorial(5)}")
-}
+end

@@ -12,11 +12,11 @@ import (
 func TestReaderSources_RunWhenReadAndInsideTheReadsCapture(t *testing.T) {
 	src := `import std::io
 
-fn main() {
-    made = io.Reader.from_chunks(["a", "", "b\nc"] |> Iter.map(fn s -> {
+fn main()
+    made = io.Reader.from_chunks(["a", "", "b\nc"] |> Iter.map(fn s ->
         io.print("making ${s}")
         String.to_bytes(s)
-    }))
+    end))
     io.print("before")
     run = io.capture("", fn -> io.Reader.read_line(made))
     io.print("captured [${run.output}] ${run.value}")
@@ -26,7 +26,7 @@ fn main() {
     inner = io.Reader.from_text("x\ny\n")
     pulled = io.Reader.from_fn(fn -> io.Reader.read(inner, max: 1))
     io.print(io.Reader.read_all_text(pulled))
-}
+end
 `
 	got, err := runCaptureProgram(t, src, "")
 	if err != nil {
@@ -46,20 +46,20 @@ func TestReaderSources_ATrapInTheSourceIsTheProgramsTrap(t *testing.T) {
 	for name, src := range map[string]string{
 		"from_fn": `import std::io
 
-fn main() {
-    r = io.Reader.from_fn(fn -> {
+fn main()
+    r = io.Reader.from_fn(fn ->
         n = 1 / 0
         Ok(Some(String.to_bytes("${n}")))
-    })
+    end)
     io.print(io.Reader.read_line(r))
-}
+end
 `,
 		"from_chunks": `import std::io
 
-fn main() {
+fn main()
     r = io.Reader.from_chunks(Iter.from(0) |> Iter.map(fn n -> String.to_bytes("${1 / n}")))
     io.print(io.Reader.read_line(r))
-}
+end
 `,
 	} {
 		t.Run(name, func(t *testing.T) {

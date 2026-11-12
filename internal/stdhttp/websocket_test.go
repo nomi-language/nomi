@@ -17,31 +17,31 @@ import std::tls.{Certificate, ClientConfig, Roots, ServerConfig}
 import std::url.Url
 import std::websocket.{self, AcceptOptions, ConnectOptions, Message, WebSocket}
 
-struct App {
+struct App
     web: Supervisor
-}
+end
 
-fn boot(_startup: Startup) -> Result<App, String> {
+fn boot(_startup: Startup) -> Result<App, String>
     Ok(App{web: Supervisor.new(max_running: 8)})
-}
+end
 
 // Each message comes back twice, sent by two tasks at once.
-fn chat(request: Request) -> Response {
+fn chat(request: Request) -> Response
     options = AcceptOptions{protocols: ["chat"], ping_interval: Some(Duration.milliseconds(5))}
 
-    websocket.accept(request, options, fn ws -> {
-        _ = WebSocket.each(ws, fn message -> {
-            concurrent {
+    websocket.accept(request, options, fn ws ->
+        _ = WebSocket.each(ws, fn message ->
+            concurrent
                 a = Task.spawn(fn -> WebSocket.send(ws, message))
                 b = Task.spawn(fn -> WebSocket.send(ws, message))
                 _ = Task.await(a)
                 _ = Task.await(b)
-            }
-        })
-    })
-}
+            end
+        end)
+    end)
+end
 
-fn main() {
+fn main()
     certificate = Certificate.load("CERT", "KEY")!
 
     app =
@@ -76,7 +76,7 @@ fn main() {
     plain = websocket.connect(Url.parse("ws://${Listener.address(listener)}/chat")!)
     io.print("plain to a TLS server ${plain |> Result.is_err()}")
     Listener.shutdown(listener)
-}
+end
 `
 
 // A WebSocket over TLS through every middleware that could break an

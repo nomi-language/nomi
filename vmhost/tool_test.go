@@ -15,31 +15,31 @@ import (
 // process's working directory is as it was.
 func TestToolMarked_WritesTheProjectsFiles(t *testing.T) {
 	src := `// FILE: main.nomi
-import {
+import
     std::fs
     std::io
-}
+end
 
-fn main() {
+fn main()
     io.print(fs.read_text("count.txt") |> Result.with_default("none"))
-}
+end
 
 // FILE: count.txt
 1
 
 // FILE: tools/bump.nomi
-import {
+import
     std::fs
     std::io
-}
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     text = fs.read_text("count.txt") |> Result.map_err(fn e -> "${e}")
     n = String.to_int(String.trim(text?)) |> Maybe.with_default(0)
     _ = fs.write_text("count.txt", "${n + 1}\n") |> Result.map_err(fn e -> "${e}")
     io.print("bumped to ${n + 1}")
     Ok(Unit)
-}
+end
 
 // FILE: nomi.toml
 [module]

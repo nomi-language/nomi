@@ -36,10 +36,10 @@ func greetModule(t *testing.T, dir string, withRootFile bool) {
 	t.Helper()
 	writeTestFile(t, filepath.Join(dir, "go.mod"), "module example.com/greet\n\ngo 1.22\n")
 	writeTestFile(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"greet\"\n")
-	writeTestFile(t, filepath.Join(dir, "words.nomi"), "pub fn word() -> String {\n    \"hello\"\n}\n")
+	writeTestFile(t, filepath.Join(dir, "words.nomi"), "pub fn word() -> String\n    \"hello\"\nend\n")
 	if withRootFile {
 		writeTestFile(t, filepath.Join(dir, "greet.nomi"),
-			"import greet::words\n\npub fn hello(name: String) -> String {\n    \"${words.word()}, ${name}\"\n}\n")
+			"import greet::words\n\npub fn hello(name: String) -> String\n    \"${words.word()}, ${name}\"\nend\n")
 	}
 }
 
@@ -79,11 +79,11 @@ func TestShortNameImport_NamesTheModulesRootFile(t *testing.T) {
 	dep := filepath.Join(t.TempDir(), "greet")
 	greetModule(t, dep, true)
 	for _, src := range []string{
-		"import {\n    greet\n    std::io\n}\n\nfn main() {\n    io.print(greet.hello(\"you\"))\n}\n",
-		"import {\n    greet.hello\n    std::io\n}\n\nfn main() {\n    io.print(hello(\"you\"))\n}\n",
-		"import {\n    greet.{self, hello}\n    std::io\n}\n\nfn main() {\n    io.print(greet.hello(hello(\"you\")))\n}\n",
-		"import {\n    greet::greet\n    std::io\n}\n\nfn main() {\n    io.print(greet.hello(\"you\"))\n}\n",
-		"import {\n    greet as g\n    greet::words\n    std::io\n}\n\nfn main() {\n    io.print(g.hello(words.word()))\n}\n",
+		"import\n    greet\n    std::io\nend\n\nfn main()\n    io.print(greet.hello(\"you\"))\nend\n",
+		"import\n    greet.hello\n    std::io\nend\n\nfn main()\n    io.print(hello(\"you\"))\nend\n",
+		"import\n    greet.{self, hello}\n    std::io\nend\n\nfn main()\n    io.print(greet.hello(hello(\"you\")))\nend\n",
+		"import\n    greet::greet\n    std::io\nend\n\nfn main()\n    io.print(greet.hello(\"you\"))\nend\n",
+		"import\n    greet as g\n    greet::words\n    std::io\nend\n\nfn main()\n    io.print(g.hello(words.word()))\nend\n",
 	} {
 		root, entry := shortNameProject(t, src, dep)
 		if errs := projectErrors(t, root, entry); len(errs) != 0 {
@@ -101,11 +101,11 @@ func TestShortNameImport_NamesTheModulesRootFile(t *testing.T) {
 func TestShortNameImport_AModuleWithoutARootFileIsItsRootDirectory(t *testing.T) {
 	dep := filepath.Join(t.TempDir(), "greet")
 	greetModule(t, dep, false)
-	root, entry := shortNameProject(t, "import greet\n\nfn main() {\n    _ = greet::words.word()\n}\n", dep)
+	root, entry := shortNameProject(t, "import greet\n\nfn main()\n    _ = greet::words.word()\nend\n", dep)
 	if errs := projectErrors(t, root, entry); len(errs) != 0 {
 		t.Errorf("the front end rejects `import greet` of a module with no greet.nomi:\n  %s", strings.Join(errs, "\n  "))
 	}
-	root, entry = shortNameProject(t, "import greet\n\nfn main() {\n    _ = greet::nosuch.word()\n}\n", dep)
+	root, entry = shortNameProject(t, "import greet\n\nfn main()\n    _ = greet::nosuch.word()\nend\n", dep)
 	errs := projectErrors(t, root, entry)
 	want := "4:9: `greet::nosuch` names no file: greet has no nosuch.nomi; greet holds `greet::words`"
 	if len(errs) == 0 {
@@ -123,7 +123,7 @@ func TestShortNameImport_FromTheModuleCacheAndMissingFromIt(t *testing.T) {
 	cache := filepath.Join(t.TempDir(), "modcache")
 	t.Setenv("GOMODCACHE", cache)
 	t.Setenv("GOPROXY", "off")
-	src := "import {\n    greet\n    std::io\n}\n\nfn main() {\n    io.print(greet.hello(\"you\"))\n}\n"
+	src := "import\n    greet\n    std::io\nend\n\nfn main()\n    io.print(greet.hello(\"you\"))\nend\n"
 
 	root, entry := shortNameProject(t, src, "")
 	errs := projectErrors(t, root, entry)

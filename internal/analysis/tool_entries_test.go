@@ -94,19 +94,19 @@ func TestToolEntry_DocumentsSeeAnUnlistedTool(t *testing.T) {
 	root := t.TempDir()
 	writeToolEntryFile(t, root, "go.mod", "module cafe\n\ngo 1.26.3\n")
 	writeToolEntryFile(t, root, "nomi.toml", "[module]\nname = \"cafe\"\nentry_points = [\"main\"]\n")
-	writeToolEntryFile(t, root, "main.nomi", "import std::io\n\nfn main() {\n    io.print(\"cafe\")\n}\n")
-	tool := writeToolEntryFile(t, root, "tools/greet.nomi", `import {
+	writeToolEntryFile(t, root, "main.nomi", "import std::io\n\nfn main()\n    io.print(\"cafe\")\nend\n")
+	tool := writeToolEntryFile(t, root, "tools/greet.nomi", `import
     std::io
     tools::internal::words
-}
+end
 
-fn main() {
+fn main()
     io.print(words.greeting())
-}
+end
 `)
-	helper := writeToolEntryFile(t, root, "tools/internal/words.nomi", `pub fn greeting() -> String {
+	helper := writeToolEntryFile(t, root, "tools/internal/words.nomi", `pub fn greeting() -> String
     "hello"
-}
+end
 `)
 	lib := loadStd()
 	dm := analysis.NewDocumentManager()

@@ -13,25 +13,25 @@ import (
 func TestRun_TypePrefixedListLiterals(t *testing.T) {
 	out := runOutput(t, `import std::io
 
-enum JV {
+enum JV
   Num Int
   Arr List<JV>
-}
+end
 
 type Ids List<Int>
 
-fn total(ids: Ids) -> Int {
-  case ids {
+fn total(ids: Ids) -> Int
+  case ids
     Ids[a, b] -> a + b
     _ -> 0
-  }
-}
+  end
+end
 
-fn arr() -> JV {
+fn arr() -> JV
   .Arr[.Num(1), .Arr[.Num(2)]]
-}
+end
 
-fn main() {
+fn main()
   a: JV = JV.Arr[.Num(1), .Num(2)]
   b: JV = .Arr[.Num(3)]
   ids: Ids = Ids[4, 5]
@@ -43,7 +43,7 @@ fn main() {
   io.print(total(Ids[7, 8]))
   io.print(total(Ids([9, 10])))
   io.print(Debug.inspect(vs))
-}
+end
 `)
 	want := `Arr([Num(1), Num(2)])
 Arr([Num(3)])
@@ -62,13 +62,13 @@ Arr([Num(1), Arr([Num(2)])])
 // named X: the checker typed the literal from the field's List<Int> and the
 // IR builder declined it. The front end rejects it now.
 func TestLoad_UnknownListPrefixIsRejected(t *testing.T) {
-	_, err := vmhost.Load(writeProgram(t, `struct Holder {
+	_, err := vmhost.Load(writeProgram(t, `struct Holder
   items: List<Int>
-}
+end
 
-fn main() {
+fn main()
   _c = Holder{items: X[1, 2]}
-}
+end
 `))
 	if err == nil {
 		t.Fatal("the front end accepts `X[1, 2]` with nothing named X")

@@ -12,25 +12,25 @@ import (
 
 const entriesSource = `import std::io
 
-fn count_down(n: Int) -> Int {
-  if n <= 0 {
+fn count_down(n: Int) -> Int
+  if n <= 0 then
     0
-  } else {
+  else
     count_down(n - 1)
-  }
-}
+  end
+end
 
-fn twice(n: Int) -> Int {
+fn twice(n: Int) -> Int
   count_down(n) + count_down(n)
-}
+end
 
-fn same(d: Decimal) -> Decimal {
+fn same(d: Decimal) -> Decimal
   d
-}
+end
 
-fn main() {
+fn main()
   io.print(Int.to_string(twice(2)))
-}
+end
 `
 
 func entriesFunc(t *testing.T, mod *ir.Module, name string) *ir.Func {

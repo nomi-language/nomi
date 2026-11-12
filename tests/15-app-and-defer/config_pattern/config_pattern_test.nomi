@@ -1,6 +1,6 @@
 import app
 
-test "config pattern overlays deployment-specific values" {
+test "config pattern overlays deployment-specific values"
     prod = app.load("prod")
     test_deployment = app.load("test")
     dev = app.load("dev")
@@ -17,4 +17,4 @@ test "config pattern overlays deployment-specific values" {
     assert dev.deployment == "dev"
     assert dev.database_url == "postgres://localhost/myapp_dev"
     assert dev.max_connections == 5
-}
+end

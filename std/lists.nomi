@@ -1,4 +1,4 @@
-import {
+import
     add.Add
     bool.Bool.{self, False, True}
     comparable.Comparable
@@ -13,7 +13,7 @@ import {
     maybe.Maybe.{self, None, Some}
     strings.String
     summable.Summable
-}
+end
 
 //# Operations on the persistent linked `List<T>` type. Container-specific ops
 //# (`concat`, `head`, `tail`, `remove_at`, `remove`) live here;
@@ -97,22 +97,22 @@ import {
 //
 pub host type List<T>
 
-fn list_next<T>(list: List<T>) -> Maybe<(T, List<T>)> {
-    case list {
+fn list_next<T>(list: List<T>) -> Maybe<(T, List<T>)>
+    case list
         [h, ..t] -> Some((h, t))
         [] -> None
-    }
-}
+    end
+end
 
-impl List<T> {
+impl List<T>
     /// Returns the next element and remaining list, or None if empty. Drives the
     /// `Iter` implementation for `List`.
     //! assert List.next_item([1, 2, 3]) == Some((1, [2, 3]))
     //! assert List.next_item([]) == None
     //
-    pub fn next_item<T>(list: List<T>) -> Maybe<(T, List<T>)> {
+    pub fn next_item<T>(list: List<T>) -> Maybe<(T, List<T>)>
         list_next(list)
-    }
+    end
 
     /// Concatenates two lists, yielding all elements of `a` followed by all of `b`.
     //! assert List.concat([1, 2], [3, 4]) == [1, 2, 3, 4]
@@ -125,23 +125,23 @@ impl List<T> {
     //! assert List.head([1, 2, 3]) == Some(1)
     //! assert List.head([]) == None
     //
-    pub fn head<T>(list: List<T>) -> Maybe<T> {
-        case list {
+    pub fn head<T>(list: List<T>) -> Maybe<T>
+        case list
             [head, ..] -> Some(head)
             [] -> None
-        }
-    }
+        end
+    end
 
     /// Returns all elements except the first, or None if the list is empty.
     //! assert List.tail([1, 2, 3]) == Some([2, 3])
     //! assert List.tail([]) == None
     //
-    pub fn tail<T>(list: List<T>) -> Maybe<List<T>> {
-        case list {
+    pub fn tail<T>(list: List<T>) -> Maybe<List<T>>
+        case list
             [_, ..tail] -> Some(tail)
             [] -> None
-        }
-    }
+        end
+    end
 
     /// The list without the element at zero-based `index`, which must be in
     /// `0 <= index < length`. Any other index traps:
@@ -157,12 +157,12 @@ impl List<T> {
     //! assert List.remove([1, 2, 3, 2], 2) == [1, 3, 2]
     //! assert List.remove([1, 2, 3], 9) == [1, 2, 3]
     //
-    pub fn remove<T>(list: List<T>, value: T) -> List<T> where T: Equatable {
-        case Iter.find_index(list, fn item -> item == value) {
+    pub fn remove<T>(list: List<T>, value: T) -> List<T> where T: Equatable
+        case Iter.find_index(list, fn item -> item == value)
             Some(index) -> List.remove_at(list, index)
             None -> list
-        }
-    }
+        end
+    end
 
     /// True if `list` begins with the elements of `prefix`, in order, each
     /// `==` to its counterpart. Every list starts with `[]`. The list form of
@@ -172,17 +172,18 @@ impl List<T> {
     //! assert List.starts_with([1, 2], [])
     //! refute List.starts_with([1], [1, 2])
     //
-    pub fn starts_with<T>(list: List<T>, prefix: List<T>) -> Bool where T: Equatable {
-        case prefix {
-            [] -> True
+    pub fn starts_with<T>(list: List<T>, prefix: List<T>) -> Bool where T: Equatable
+        case prefix
+            [] ->
+                True
 
             [p, ..ps] ->
-                case list {
-                    [x, ..xs] -> if x == p { starts_with(xs, ps) } else { False }
+                case list
+                    [x, ..xs] -> if x == p then starts_with(xs, ps) else False
                     [] -> False
-                }
-        }
-    }
+                end
+        end
+    end
 
     /// True if `list` ends with the elements of `suffix`, in order, each `==`
     /// to its counterpart. Every list ends with `[]`. The list form of
@@ -192,26 +193,26 @@ impl List<T> {
     //! assert List.ends_with([1, 2], [])
     //! refute List.ends_with([3], [2, 3])
     //
-    pub fn ends_with<T>(list: List<T>, suffix: List<T>) -> Bool where T: Equatable {
+    pub fn ends_with<T>(list: List<T>, suffix: List<T>) -> Bool where T: Equatable
         extra = Iter.count(list) - Iter.count(suffix)
 
-        if extra < 0 {
+        if extra < 0 then
             False
-        } else {
+        else
             starts_with(drop_front(list, extra), suffix)
-        }
-    }
-}
+        end
+    end
+end
 
 // `list` after its first `n` elements.
-fn drop_front<T>(list: List<T>, n: Int) -> List<T> {
-    case list {
-        [_, ..rest] -> if n > 0 { drop_front(rest, n - 1) } else { list }
+fn drop_front<T>(list: List<T>, n: Int) -> List<T>
+    case list
+        [_, ..rest] -> if n > 0 then drop_front(rest, n - 1) else list
         [] -> list
-    }
-}
+    end
+end
 
-impl Iter for List<T> {
+impl Iter for List<T>
     // Host-side because walking the cons chain in Go beats one Nomi frame per
     // element, and a List is the single most-iterated source in the language.
     host fn each_while(list: List<T>, yield: (T) -> Bool) -> Bool
@@ -219,9 +220,9 @@ impl Iter for List<T> {
     // A List tracks its element count, so report it directly (O(1)) instead of
     // folding through the generic default.
     host fn known_count(list: List<T>) -> Maybe<Int>
-}
+end
 
-impl Contains for List<T> where T: Equatable {
+impl Contains for List<T> where T: Equatable
     /// True if an element of the list is `==` to `x`. A linear scan that the
     /// runtime runs, comparing each element as `==` does; convert to a `Set`
     /// for repeated lookups.
@@ -230,28 +231,28 @@ impl Contains for List<T> where T: Equatable {
     //! refute List.contains([], 1)
     //
     host fn contains(c: List<T>, x: T) -> Bool
-}
+end
 
-impl Add<List<T>, List<T>> for List<T> {
-    fn add(lhs: List<T>, rhs: List<T>) -> List<T> {
+impl Add<List<T>, List<T>> for List<T>
+    fn add(lhs: List<T>, rhs: List<T>) -> List<T>
         concat(lhs, rhs)
-    }
-}
+    end
+end
 
-impl Summable for List<T> {
+impl Summable for List<T>
     /// The sum of no Lists: `[]`. Summing Lists concatenates them in order.
     //! none: List<Int> = List.empty_sum()
     //! assert none == []
     //! assert [1, 2] + List.empty_sum() == [1, 2]
     //! assert Iter.sum([[1], [2, 3], []]) == [1, 2, 3]
     //
-    fn empty_sum() -> List<T> {
+    fn empty_sum() -> List<T>
         []
-    }
-}
+    end
+end
 
-impl Display for List<T> where T: Display {
-    fn to_string(value: List<T>) -> String {
+impl Display for List<T> where T: Display
+    fn to_string(value: List<T>) -> String
         // Render `[v1, v2, v3]`, or `[]` when empty.
         body =
             value
@@ -259,59 +260,60 @@ impl Display for List<T> where T: Display {
             |> String.join(", ")
 
         "[" + body + "]"
-    }
-}
+    end
+end
 
-impl Debug for List<T> {
-    fn inspect(value: List<T>) -> String {
+impl Debug for List<T>
+    fn inspect(value: List<T>) -> String
         body =
             value
             |> Iter.map(&Debug.inspect(&1))
             |> String.join(", ")
 
         "[" + body + "]"
-    }
-}
+    end
+end
 
-impl Equatable for List<T> {
+impl Equatable for List<T>
     // Structural equality via the built-in `==` (recursive, element-wise). Lets a
     // record with a List field `derive Equatable`.
-    fn equal(a: List<T>, b: List<T>) -> Bool {
+    fn equal(a: List<T>, b: List<T>) -> Bool
         a == b
-    }
-}
+    end
+end
 
-impl Hashable for List<T> where T: Hashable {
+impl Hashable for List<T> where T: Hashable
     // FNV-style fold; agrees with `==` (equal lists hash equally) and requires the
     // element type to be Hashable. Wrapping arithmetic — hashes are modular.
-    fn hash(list: List<T>) -> Int {
-        Iter.reduce(list, 17, fn acc, x -> {
+    fn hash(list: List<T>) -> Int
+        Iter.reduce(list, 17, fn acc, x ->
             Int.wrapping_add(Int.wrapping_mul(acc, 31), Hashable.hash(x))
-        })
-    }
-}
+        end)
+    end
+end
 
-impl Comparable for List<T> where T: Comparable {
+impl Comparable for List<T> where T: Comparable
     // Lexicographic order: the first differing element decides; a proper prefix is
     // Less. Requires the element type to be Comparable.
-    fn compare(a: List<T>, b: List<T>) -> Ordering {
-        case list_next(a) {
+    fn compare(a: List<T>, b: List<T>) -> Ordering
+        case list_next(a)
             .None ->
-                case list_next(b) {
+                case list_next(b)
                     .None -> Equal
                     _ -> Less
-                }
+                end
 
             .Some((ha, ta)) ->
-                case list_next(b) {
-                    .None -> Greater
+                case list_next(b)
+                    .None ->
+                        Greater
 
                     .Some((hb, tb)) ->
-                        case Comparable.compare(ha, hb) {
+                        case Comparable.compare(ha, hb)
                             .Equal -> compare(ta, tb)
                             other -> other
-                        }
-                }
-        }
-    }
-}
+                        end
+                end
+        end
+    end
+end

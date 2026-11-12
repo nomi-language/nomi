@@ -12,32 +12,32 @@ func TestIRNestedFnExistentialResult_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn apply(f: (Int) -> Display, n: Int) -> String {
+fn apply(f: (Int) -> Display, n: Int) -> String
     Display.to_string(f(n))
-}
+end
 
-fn main() {
-    fn plain() -> Display {
+fn main()
+    fn plain() -> Display
         5
-    }
+    end
 
-    fn arms(c: Bool) -> Display {
-        if c { "yes" } else { "no" }
-    }
+    fn arms(c: Bool) -> Display
+        if c then "yes" else "no"
+    end
 
-    fn cased(n: Int) -> Display {
-        case n {
+    fn cased(n: Int) -> Display
+        case n
             0 -> 1.5
             _ -> 2.5
-        }
-    }
+        end
+    end
 
-    fn early(n: Int) -> Display {
-        if n > 0 {
+    fn early(n: Int) -> Display
+        if n > 0 then
             return n
-        }
+        end
         "negative"
-    }
+    end
 
     io.print(Display.to_string(plain()))
     io.print(Display.to_string(arms(True)))
@@ -46,11 +46,11 @@ fn main() {
     io.print(Display.to_string(cased(1)))
     io.print(Display.to_string(early(4)))
     io.print(Display.to_string(early(-4)))
-    f: (Bool) -> Display = fn c -> if c { 1 } else { 2 }
+    f: (Bool) -> Display = fn c -> if c then 1 else 2
     io.print(Display.to_string(f(False)))
     io.print(apply(fn n -> n * 3, 5))
-    io.print(apply(fn n -> if n > 0 { "pos" } else { "neg" }, 1))
-}
+    io.print(apply(fn n -> if n > 0 then "pos" else "neg", 1))
+end
 `
 	const want = "5\n" +
 		"yes\n" +

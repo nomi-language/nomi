@@ -13,84 +13,84 @@ func TestIRDynamic_NavigationAndExtractionRunOnTheVM(t *testing.T) {
 import std::json.Json
 import std::dynamic.{self, Dynamic}
 
-fn show_error(e: dynamic.Error) -> String {
+fn show_error(e: dynamic.Error) -> String
   "expected " + e.expected + ", got " + e.got
-}
+end
 
-fn string_at(d: Dynamic, name: String) -> String {
-  case Dynamic.field(d, name) {
+fn string_at(d: Dynamic, name: String) -> String
+  case Dynamic.field(d, name)
     Err(e) -> show_error(e)
     Ok(v) ->
-      case Dynamic.as_string(v) {
+      case Dynamic.as_string(v)
         Ok(s) -> s
         Err(e) -> show_error(e)
-      }
-  }
-}
+      end
+  end
+end
 
-fn int_at(d: Dynamic, dotted: String) -> String {
-  case Dynamic.path(d, dotted) {
+fn int_at(d: Dynamic, dotted: String) -> String
+  case Dynamic.path(d, dotted)
     Err(e) -> show_error(e)
     Ok(v) ->
-      case Dynamic.as_int(v) {
+      case Dynamic.as_int(v)
         Ok(n) -> Int.to_string(n)
         Err(e) -> show_error(e)
-      }
-  }
-}
+      end
+  end
+end
 
-fn tag_at(d: Dynamic, i: Int) -> String {
-  case Dynamic.field(d, "tags") {
+fn tag_at(d: Dynamic, i: Int) -> String
+  case Dynamic.field(d, "tags")
     Err(e) -> show_error(e)
     Ok(tags) ->
-      case Dynamic.index(tags, i) {
+      case Dynamic.index(tags, i)
         Err(e) -> show_error(e)
         Ok(v) ->
-          case Dynamic.as_string(v) {
+          case Dynamic.as_string(v)
             Ok(s) -> s
             Err(e) -> show_error(e)
-          }
-      }
-  }
-}
+          end
+      end
+  end
+end
 
-fn kinds(d: Dynamic) -> String {
-  pi = case Dynamic.path(d, "pi") {
+fn kinds(d: Dynamic) -> String
+  pi = case Dynamic.path(d, "pi")
     Ok(v) ->
-      case Dynamic.as_float(v) {
+      case Dynamic.as_float(v)
         Ok(x) -> Float.to_string(x)
         Err(e) -> show_error(e)
-      }
+      end
     Err(e) -> show_error(e)
-  }
-  on = case Dynamic.field(d, "on") {
+  end
+  on = case Dynamic.field(d, "on")
     Ok(v) ->
-      case Dynamic.as_bool(v) {
+      case Dynamic.as_bool(v)
         Ok(b) -> Bool.to_string(b)
         Err(e) -> show_error(e)
-      }
+      end
     Err(e) -> show_error(e)
-  }
-  tags = case Dynamic.field(d, "tags") {
+  end
+  tags = case Dynamic.field(d, "tags")
     Ok(v) ->
-      case Dynamic.as_list(v) {
+      case Dynamic.as_list(v)
         Ok(xs) -> Int.to_string(Iter.count(xs))
         Err(e) -> show_error(e)
-      }
+      end
     Err(e) -> show_error(e)
-  }
-  keys = case Dynamic.as_dict(d) {
+  end
+  keys = case Dynamic.as_dict(d)
     Ok(m) -> Int.to_string(Map.size(m))
     Err(e) -> show_error(e)
-  }
-  nothing = case Dynamic.field(d, "nothing") {
+  end
+  nothing = case Dynamic.field(d, "nothing")
     Ok(v) -> Bool.to_string(Dynamic.is_null(v))
     Err(e) -> show_error(e)
-  }
+  end
   pi + " " + on + " " + tags + " " + keys + " " + nothing
-}
+end
 
-fn run(d: Dynamic) {
+fn run(d: Dynamic)
   io.print(kinds(d))
   io.print(string_at(d, "name"))
   io.print(string_at(d, "age"))
@@ -102,15 +102,15 @@ fn run(d: Dynamic) {
   io.print(Dynamic.has(d, "missing"))
   io.print(Dynamic.is_null(d))
   io.print(Dynamic.inspect(d))
-}
+end
 
-fn main() {
+fn main()
   source = "{\"name\": \"ada\", \"age\": 36, \"tags\": [\"x\", \"y\"], \"inner\": {\"n\": 7}, \"pi\": 3.5, \"on\": true, \"nothing\": null}"
-  case Json.decode(source) {
+  case Json.decode(source)
     Err(_) -> io.print("bad json")
     Ok(j) -> run(Json.to_dynamic(j))
-  }
-}
+  end
+end
 `, `3.5 True 2 7 True
 ada
 expected String, got Int

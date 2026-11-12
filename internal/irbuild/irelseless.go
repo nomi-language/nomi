@@ -63,7 +63,7 @@ func (bl *irScalarBuilder) enterElseless(t *ast.If, sig irFuncSig) (irFuncSig, i
 	}
 	maybe := sig.result
 	if sig.inferResult {
-		if analysis.ResolveTypeVar(ty) == nil || irUnsolvedType(ty) {
+		if analysis.ResolveClosed(ty) == nil {
 			bl.g.dc.note("an `if` without `else` whose Maybe the checker left open")
 			return sig, elselessDeclined
 		}

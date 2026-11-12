@@ -11,15 +11,19 @@ import "testing"
 // TestImplBlock_TopLevel_InterfaceDeclaredLater: a hand-written top-level
 // impl whose interface is declared later in the same file resolves cleanly.
 func TestImplBlock_TopLevel_InterfaceDeclaredLater(t *testing.T) {
-	src := `pub struct Dog { name: String }
+	src := `pub struct Dog
+    name: String
+end
 
-impl Speech for Dog {
-    fn speak(d: Dog) -> String { d.name }
-}
+impl Speech for Dog
+    fn speak(d: Dog) -> String
+        d.name
+    end
+end
 
-pub interface Speech {
+pub interface Speech
     fn speak(value: self) -> String
-}`
+end`
 	fa, errs := buildTypesFromSource(src)
 	all := append([]TypeError{}, fa.TypeErrors...)
 	all = append(all, errs...)
@@ -34,19 +38,19 @@ pub interface Speech {
 // TestImplBlock_InterfaceDeclaredLater: an `impl Speech for Dog { }` whose
 // interface is declared later in the file resolves cleanly.
 func TestImplBlock_InterfaceDeclaredLater(t *testing.T) {
-	src := `pub struct Dog {
+	src := `pub struct Dog
   name: String
-}
+end
 
-impl Speech for Dog {
-  fn speak(d: Dog) -> String {
+impl Speech for Dog
+  fn speak(d: Dog) -> String
     d.name
-  }
-}
+  end
+end
 
-pub interface Speech {
+pub interface Speech
   fn speak(value: self) -> String
-}
+end
 
 `
 	fa, errs := buildTypesFromSource(src)

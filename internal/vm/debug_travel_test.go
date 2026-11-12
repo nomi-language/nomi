@@ -84,19 +84,19 @@ func (s *travelSession) topLocals(thread int) string {
 const travelSrc = `import std::io
 import std::instant.Instant
 
-fn twice(n: Int) -> Int {
+fn twice(n: Int) -> Int
     m = n * 2
     m
-}
+end
 
-fn main() {
+fn main()
     t = Instant.as_nanos(Instant.now())
     line = Result.with_default(io.read_line(), None) |> Maybe.with_default("none")
     x = twice(3)
     io.print("${line} ${x}")
     y = x + 1
     io.print("y ${y} ${t}")
-}
+end
 `
 
 // Step back replays from the start: the clock and the input answer as they
@@ -171,17 +171,17 @@ func TestTravel_StepBackReplaysWithRecordedEffects(t *testing.T) {
 
 const addSrc = `import std::io
 
-fn add(acc: Int, n: Int) -> Int {
+fn add(acc: Int, n: Int) -> Int
     s = acc + n
     s
-}
+end
 
-fn main() {
+fn main()
     a = add(0, 1)
     b = add(a, 2)
     c = add(b, 3)
     io.print("${c}")
-}
+end
 `
 
 // Reverse continue goes to the latest earlier pass a breakpoint stopped at,
@@ -310,24 +310,24 @@ func TestTravel_StepBackAfterARestart(t *testing.T) {
 
 // A program that starts a task turns step back off from the spawn on.
 func TestTravel_ATaskTurnsStepBackOff(t *testing.T) {
-	s := travelProgram(t, `import {
+	s := travelProgram(t, `import
     std::io
     std::tasks.Task
-}
+end
 
-fn work(n: Int) -> Int {
+fn work(n: Int) -> Int
     r = n * 2
     r
-}
+end
 
-fn main() {
-    v = concurrent {
+fn main()
+    v = concurrent
         t = Task.spawn(fn -> work(21))
         Task.await(t)
-    }
+    end
 
     io.print("${v}")
-}
+end
 `, "")
 	s.breakAt(17)
 	s.runPasses()

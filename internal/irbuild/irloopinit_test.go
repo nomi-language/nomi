@@ -20,14 +20,14 @@ import (
 func TestIRLoopInInitializer_OnceSpecProgram(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-once total = Iter.loop(0, fn i -> {
-    if i > 3 { break i * 10 }
+once total = Iter.loop(0, fn i ->
+    if i > 3 then break i * 10
     i + 1
-})
+end)
 
-fn main() {
+fn main()
     io.inspect(total)
-}
+end
 `, "40\n")
 }
 
@@ -40,44 +40,44 @@ func TestIRLoopInInitializer_OnceRunsOnceUnderTasks(t *testing.T) {
 import std::io
 import std::tasks.Task
 
-once total = {
+once total = begin
     io.print("forcing total")
     ch = Channel.buffered<Int>(10)
-    Iter.each([1, 0, 2, 7, 4, 9, 6], fn n -> {
+    Iter.each([1, 0, 2, 7, 4, 9, 6], fn n ->
         _ = Sender.send(ch.sender, n)
-    })
+    end)
     Sender.close(ch.sender)
-    Iter.loop(0, fn acc -> {
-        n = case Receiver.receive(ch.receiver) {
+    Iter.loop(0, fn acc ->
+        n = case Receiver.receive(ch.receiver)
             Some(n) -> n
             None -> break acc
-        }
-        if n == 0 { continue }
-        if n == 7 { return acc + 100 }
-        case n {
+        end
+        if n == 0 then continue
+        if n == 7 then return acc + 100
+        case n
             9 -> break acc * 2
             _ -> acc + n
-        }
-    })
-}
+        end
+    end)
+end
 
-once scale = fn k: Int -> Iter.loop(1, fn n -> {
-    if n == 2 { return 5 }
-    if n >= k { break n }
+once scale = fn k: Int -> Iter.loop(1, fn n ->
+    if n == 2 then return 5
+    if n >= k then break n
     n * 2
-})
+end)
 
-fn main() {
+fn main()
     io.print("before")
-    got = concurrent {
+    got = concurrent
         tasks = Iter.map([1, 2, 3, 4], fn i -> Task.spawn(fn -> total + i)) |> Iter.to_list()
         Iter.map(tasks, fn t -> Task.await(t)) |> Iter.to_list()
-    }
+    end
     io.inspect(got)
     io.inspect(total)
     io.inspect(scale(10))
     io.inspect(scale(50))
-}
+end
 `, "before\nforcing total\n[215, 216, 217, 218]\n214\n10\n80\n")
 }
 
@@ -89,56 +89,56 @@ func TestIRLoopInInitializer_BootAndOtherFileDefaults(t *testing.T) {
 import std::io
 import lib
 
-pub struct App {
+pub struct App
     context: Context
     total: Int
     stepped: Int
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     ch = Channel.buffered<Int>(10)
-    Iter.each([1, 0, 2, 7, 4, 9, 6], fn n -> {
+    Iter.each([1, 0, 2, 7, 4, 9, 6], fn n ->
         _ = Sender.send(ch.sender, n)
-    })
+    end)
     Sender.close(ch.sender)
-    total = Iter.loop(0, fn acc -> {
-        n = case Receiver.receive(ch.receiver) {
+    total = Iter.loop(0, fn acc ->
+        n = case Receiver.receive(ch.receiver)
             Some(n) -> n
             None -> break acc
-        }
-        if n == 0 { continue }
-        if n == 7 { return acc + 100 }
-        if n == 9 { break acc * 2 }
+        end
+        if n == 0 then continue
+        if n == 7 then return acc + 100
+        if n == 9 then break acc * 2
         acc + n
-    })
-    steps = fn k: Int -> Iter.loop(0, fn n -> {
-        if n == 3 { return 4 }
-        if n >= k { break n }
+    end)
+    steps = fn k: Int -> Iter.loop(0, fn n ->
+        if n == 3 then return 4
+        if n >= k then break n
         n + 3
-    })
-    Ok(App{context: Context.root(), total: total, stepped: steps(10)})
-}
+    end)
+    Ok(App{context: Context.root(), total:, stepped: steps(10)})
+end
 
-fn main() {
+fn main()
     io.inspect(App.total)
     io.inspect(App.stepped)
     io.inspect(lib.pick())
     io.inspect(lib.pick(3))
     io.inspect(lib.Cfg{}.n)
-}
-`, "214\n10\n32\n24\n12\n", map[string]string{"lib.nomi": `pub struct Cfg {
-    n: Int = Iter.loop(0, fn i -> {
-        if i >= 4 { break i * 3 }
+end
+`, "214\n10\n32\n24\n12\n", map[string]string{"lib.nomi": `pub struct Cfg
+    n: Int = Iter.loop(0, fn i ->
+        if i >= 4 then break i * 3
         i + 1
-    })
-}
+    end)
+end
 
-pub fn pick(a: Int = 1, k: Int = Iter.loop(a, fn i -> {
-    if i > 20 { break i }
+pub fn pick(a: Int = 1, k: Int = Iter.loop(a, fn i ->
+    if i > 20 then break i
     i * 2
-})) -> Int {
+end)) -> Int
     k
-}
+end
 `})
 }
 
@@ -146,25 +146,25 @@ pub fn pick(a: Int = 1, k: Int = Iter.loop(a, fn i -> {
 func TestIRLoopInInitializer_SameFileDefaults(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Cfg {
-    n: Int = Iter.loop(0, fn i -> {
-        if i == 1 { return 3 }
-        if i >= 4 { break i }
+struct Cfg
+    n: Int = Iter.loop(0, fn i ->
+        if i == 1 then return 3
+        if i >= 4 then break i
         i + 1
-    })
-}
+    end)
+end
 
-fn pick(k: Int = Iter.loop(1, fn i -> {
-    if i > 20 { break i }
+fn pick(k: Int = Iter.loop(1, fn i ->
+    if i > 20 then break i
     i * 2
-})) -> Int {
+end)) -> Int
     k
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Cfg{}.n)
     io.inspect(pick())
-}
+end
 `, "4\n32\n")
 }
 
@@ -174,49 +174,49 @@ func TestIRLoopInInitializer_GroupBootAndSetup(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "loop_test.nomi")
 	src := `import std::io
 
-pub struct App {
+pub struct App
     context: Context
     base: Int
-}
+end
 
-pub fn boot() -> Result<App, String> {
-    base = Iter.loop(0, fn i -> {
-        if i == 1 { return 6 }
-        if i > 5 { break i * 10 }
+pub fn boot() -> Result<App, String>
+    base = Iter.loop(0, fn i ->
+        if i == 1 then return 6
+        if i > 5 then break i * 10
         i + 1
-    })
-    Ok(App{context: Context.root(), base: base})
-}
+    end)
+    Ok(App{context: Context.root(), base:})
+end
 
-fn main() {}
+fn main() end
 
-struct Fix {
+struct Fix
     n: Int
     f: (Int) -> Int
-}
+end
 
-group "loops in boot and setup" {
+group "loops in boot and setup"
     boot boot()
-    setup {
-        n = Iter.loop(0, fn i -> {
-            if i == 2 { return 7 }
-            if i > 10 { break i }
+    setup begin
+        n = Iter.loop(0, fn i ->
+            if i == 2 then return 7
+            if i > 10 then break i
             i + 1
-        })
+        end)
         io.print("setup ${n}")
-        Fix{n: n, f: fn k: Int -> Iter.loop(0, fn m -> {
-            if m == 4 { return 6 }
-            if m >= k { break m }
+        Fix{n:, f: fn k: Int -> Iter.loop(0, fn m ->
+            if m == 4 then return 6
+            if m >= k then break m
             m + 4
-        })}
-    }
+        end)}
+    end
 
-    test "reads both", fix {
+    test "reads both", fix
         assert App.base == 60
         assert fix.n == 11
         assert fix.f(9) == 10
-    }
-}
+    end
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)

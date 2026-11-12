@@ -51,7 +51,7 @@ func (bl *irScalarBuilder) funcWiden(at ast.Node, fn ir.Temp, have, want kind) (
 	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
 	sh.frame = newIRFuncFrame(f)
 	sh.entry = f.NewBlock(pos, "entry")
-	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}, unwritten: true}
 	in := make([]ir.Temp, len(wp))
 	for i, k := range wp {
 		in[i] = bl.g.irAddParam(f, ir.NewSymbol("_"), k)

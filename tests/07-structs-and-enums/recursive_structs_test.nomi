@@ -1,53 +1,53 @@
-struct Node {
+struct Node
     name: String
     children: List<Node>
-}
+end
 
 derive Equatable for Node
 
-struct Link {
+struct Link
     value: Int
     next: Maybe<Link>
-}
+end
 
-struct Dir {
+struct Dir
     name: String
     entries: Map<String, Dir>
-}
+end
 
-struct Stream {
+struct Stream
     head: Int
     rest: Iter<Stream>
-}
+end
 
-struct Team {
+struct Team
     name: String
     members: List<Member>
-}
+end
 
-struct Member {
+struct Member
     name: String
     teams: List<Team>
-}
+end
 
-fn size(node: Node) -> Int {
+fn size(node: Node) -> Int
     node.children
     |> Iter.map(&size(&1))
     |> Iter.reduce(1, fn total, n -> total + n)
-}
+end
 
-fn length(link: Link) -> Int {
-    case link.next {
+fn length(link: Link) -> Int
+    case link.next
         Some(rest) -> 1 + length(rest)
         None -> 1
-    }
-}
+    end
+end
 
-fn leaf(head: Int) -> Stream {
-    Stream{head, rest: Iter.repeat(head) |> Iter.take(0) |> Iter.map(&leaf(&1))}
-}
+fn leaf(head: Int) -> Stream
+    Stream{head:, rest: Iter.repeat(head) |> Iter.take(0) |> Iter.map(&leaf(&1))}
+end
 
-test "a struct holds itself through a List" {
+test "a struct holds itself through a List"
     tree = Node{
         name: "root",
         children: [
@@ -66,35 +66,35 @@ test "a struct holds itself through a List" {
     assert List.head(tree.children) == Some(Node{name: "a", children: []})
     text = Debug.inspect(tree)
     assert text == "Node{name: \"root\", children: [Node{name: \"a\", children: []}, Node{name: \"b\", children: [Node{name: \"c\", children: []}]}]}"
-}
+end
 
-test "a struct holds itself through a Maybe" {
+test "a struct holds itself through a Maybe"
     chain = Link{value: 1, next: Some(Link{value: 2, next: None})}
     assert length(chain) == 2
     text = Debug.inspect(chain)
     assert text == "Link{value: 1, next: Some(Link{value: 2, next: None})}"
-}
+end
 
-test "a struct holds itself through a Map" {
+test "a struct holds itself through a Map"
     root = Dir{
         name: "/",
-        entries: %{
-            "usr" => Dir{name: "usr", entries: %{}},
+        entries: {
+            "usr" => Dir{name: "usr", entries: {}},
         },
     }
 
     assert Map.size(root.entries) == 1
     text = Debug.inspect(root)
-    assert text == "Dir{name: \"/\", entries: %{\"usr\" => Dir{name: \"usr\", entries: %{}}}}"
-}
+    assert text == "Dir{name: \"/\", entries: {\"usr\" => Dir{name: \"usr\", entries: {}}}}"
+end
 
-test "a struct holds itself through an Iter" {
+test "a struct holds itself through an Iter"
     stream = Stream{head: 1, rest: Iter.repeat(leaf(2)) |> Iter.take(2)}
     assert Iter.count(stream.rest) == 2
     assert stream.rest |> Iter.map(.head) |> Iter.to_list() == [2, 2]
-}
+end
 
-test "two structs hold each other through lists" {
+test "two structs hold each other through lists"
     team = Team{
         name: "core",
         members: [
@@ -104,4 +104,4 @@ test "two structs hold each other through lists" {
 
     text = Debug.inspect(team)
     assert text == "Team{name: \"core\", members: [Member{name: \"ada\", teams: []}]}"
-}
+end

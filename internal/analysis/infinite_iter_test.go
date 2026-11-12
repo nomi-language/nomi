@@ -58,9 +58,9 @@ func TestInfiniteIter_Rejected(t *testing.T) {
 		{"Range.step_by down from a negative start", "_ = Range.from(-5) |> Range.step_by(-2) |> Iter.to_list()", "Iter.to_list", "Range.step_by"},
 		{"Range.step_by up from a negative start", "_ = Range.from(-5) |> Range.step_by(2) |> Iter.to_list()", "Iter.to_list", "Range.step_by"},
 		{"cycle of a list literal", "_ = [1, 2] |> Iter.cycle() |> Iter.to_list()", "Iter.to_list", "Iter.cycle"},
-		{"cycle of a vector literal", "_ = #[1] |> Iter.cycle() |> Iter.to_list()", "Iter.to_list", "Iter.cycle"},
-		{"cycle of a set literal", "_ = %[1] |> Iter.cycle() |> Iter.to_list()", "Iter.to_list", "Iter.cycle"},
-		{"cycle of a map literal", "_ = %{1 => 2} |> Iter.cycle() |> Iter.to_list()", "Iter.to_list", "Iter.cycle"},
+		{"cycle of a vector literal", "_ = Vector[1] |> Iter.cycle() |> Iter.to_list()", "Iter.to_list", "Iter.cycle"},
+		{"cycle of a set literal", "_ = Set[1] |> Iter.cycle() |> Iter.to_list()", "Iter.to_list", "Iter.cycle"},
+		{"cycle of a map literal", "_ = {1 => 2} |> Iter.cycle() |> Iter.to_list()", "Iter.to_list", "Iter.cycle"},
 		{"cycle of an infinite source", "_ = Iter.from(0) |> Iter.cycle() |> Iter.to_list()", "Iter.to_list", "Iter.from"},
 		// Each keeping adapter.
 		{"map", "_ = Iter.from(0) |> Iter.map(&(&1 * 2)) |> Iter.to_list()", "Iter.to_list", "Iter.from"},
@@ -109,11 +109,11 @@ func TestInfiniteIter_Rejected(t *testing.T) {
 		// Local bindings.
 		{"one binding", "xs = Iter.repeat(5)\n    _ = xs |> Iter.to_list()", "Iter.to_list", "Iter.repeat"},
 		{"two bindings", "xs = Iter.from(0)\n    ys = xs |> Iter.map(&(&1 * 2))\n    _ = ys |> Iter.sum()", "Iter.sum", "Iter.from"},
-		{"a binding inside a lambda's body", "_ = [1]\n    |> Iter.map(fn n -> {\n        xs = Iter.repeat(n)\n        xs |> Iter.to_list()\n    })\n    |> Iter.to_list()", "Iter.to_list", "Iter.repeat"},
+		{"a binding inside a lambda's body", "_ = [1]\n    |> Iter.map(fn n ->\n        xs = Iter.repeat(n)\n        xs |> Iter.to_list()\n    end)\n    |> Iter.to_list()", "Iter.to_list", "Iter.repeat"},
 		{"a shadowed binding", "xs = [1, 2]\n    xs = Iter.cycle(xs)\n    xs = Iter.cycle([1])\n    _ = Iter.to_list(xs)", "Iter.to_list", "Iter.cycle"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "fn main() {\n    " + tc.body + "\n}\n"
+			src := "fn main()\n    " + tc.body + "\nend\n"
 			got := infiniteIterErrors(t, src)
 			want := infiniteMessage(tc.terminal, tc.source)
 			if len(got) != 1 || got[0] != want {
@@ -125,7 +125,7 @@ func TestInfiniteIter_Rejected(t *testing.T) {
 
 // The error is at the terminal, with the source as related information.
 func TestInfiniteIter_Positions(t *testing.T) {
-	src := "fn main() {\n    xs = Iter.repeat(5)\n    _ = xs\n    |> Iter.map(&(&1 + 1))\n    |> Iter.to_list()\n}\n"
+	src := "fn main()\n    xs = Iter.repeat(5)\n    _ = xs\n    |> Iter.map(&(&1 + 1))\n    |> Iter.to_list()\nend\n"
 	_, errs := checkSourceWithStdlib(src)
 	var found *analysis.TypeError
 	for i := range errs {
@@ -148,43 +148,43 @@ func TestInfiniteIter_Positions(t *testing.T) {
 // runtime still traps where it can tell.
 func TestInfiniteIter_Accepted(t *testing.T) {
 	for name, src := range map[string]string{
-		"take":                          "fn main() {\n    _ = Iter.repeat(1) |> Iter.take(3) |> Iter.to_list()\n}\n",
-		"take_while":                    "fn main() {\n    _ = Iter.from(0) |> Iter.take_while(&(&1 < 3)) |> Iter.sum()\n}\n",
-		"take then map":                 "fn main() {\n    _ = Iter.from(0) |> Iter.take(3) |> Iter.map(&(&1 * 2)) |> Iter.to_list()\n}\n",
-		"map that can break":            "fn main() {\n    _ = Iter.from(0)\n    |> Iter.map(fn x -> {\n        if x > 2 {\n            break x\n        } else {\n            x\n        }\n    })\n    |> Iter.to_list()\n}\n",
-		"filter that continues":         "fn main() {\n    _ = Iter.from(0)\n    |> Iter.filter(fn x -> {\n        if x > 2 {\n            continue\n        } else {\n            True\n        }\n    })\n    |> Iter.to_list()\n}\n",
-		"iterate that can break":        "fn main() {\n    _ = Iter.iterate(0, fn n -> {\n        if n > 2 {\n            break n\n        } else {\n            n + 1\n        }\n    })\n    |> Iter.to_list()\n}\n",
-		"reduce that can break":         "fn main() {\n    _ = Iter.reduce(Iter.from(0), 0, fn total, x -> {\n        if x > 4 {\n            break total\n        } else {\n            total + x\n        }\n    })\n}\n",
-		"each that can break":           "fn main() {\n    Iter.from(0)\n    |> Iter.each(fn x -> {\n        if x > 4 {\n            break\n        } else {\n            Unit\n        }\n    })\n}\n",
-		"a sensitive callback":          "fn stop(x: Int) -> Int {\n    if x > 2 {\n        break x\n    } else {\n        x\n    }\n}\n\nfn main() {\n    _ = Iter.from(0) |> Iter.map(stop) |> Iter.to_list()\n}\n",
-		"find":                          "fn main() {\n    _ = Iter.find(Iter.from(0), &(&1 > 3))\n}\n",
-		"first":                         "fn main() {\n    _ = Iter.repeat(1) |> Iter.first()\n}\n",
-		"any_match":                     "fn main() {\n    _ = Iter.from(0) |> Iter.any_match(&(&1 == 7))\n}\n",
-		"all_match":                     "fn main() {\n    _ = Iter.from(0) |> Iter.all_match(&(&1 < 7))\n}\n",
-		"contains":                      "fn main() {\n    _ = Iter.from(0) |> Iter.contains(1_000)\n}\n",
-		"get":                           "fn main() {\n    _ = Iter.from(0) |> Iter.get(4)\n}\n",
-		"is_empty":                      "fn main() {\n    _ = Iter.from(0) |> Iter.is_empty()\n}\n",
-		"each_while":                    "fn main() {\n    _ = Iter.each_while(Iter.from(0), &(&1 < 3))\n}\n",
-		"is_infinite":                   "fn main() {\n    _ = Iter.from(0) |> Iter.is_infinite()\n}\n",
-		"Maybe.collect":                 "fn main() {\n    _ = Range.naturals() |> Iter.map(fn n -> if n < 3 { Maybe.Some(n) } else { Maybe.None }) |> Maybe.collect()\n}\n",
-		"a parameter":                   "fn drain(xs: Iter<Int>) -> List<Int> {\n    xs |> Iter.to_list()\n}\n\nfn main() {\n    _ = drain(Iter.repeat(1))\n}\n",
-		"a function result":             "fn ones() -> Iter<Int> {\n    Iter.repeat(1)\n}\n\nfn main() {\n    _ = ones() |> Iter.to_list()\n}\n",
-		"a once":                        "once ones = Iter.repeat(1)\n\nfn main() {\n    _ = ones |> Iter.to_list()\n}\n",
-		"a field":                       "struct Holder {\n    xs: Iter<Int>\n}\n\nfn main() {\n    h = Holder{xs: Iter.repeat(1)}\n    _ = h.xs |> Iter.to_list()\n}\n",
-		"a Range from a variable":       "fn main() {\n    n = 3\n    _ = Range.from(n) |> Iter.take(2) |> Iter.to_list()\n}\n",
-		"a Range from a negative":       "fn main() {\n    _ = Range.from(-1) |> Iter.take(2) |> Iter.to_list()\n}\n",
-		"step_by that does not move":    "fn main() {\n    _ = Range.from(1) |> Range.step_by(0) |> Iter.to_list()\n}\n",
-		"step_by of a bounded range":    "fn main() {\n    _ = 1..10 |> Range.step_by(2) |> Iter.to_list()\n}\n",
-		"chunks of zero":                "fn main() {\n    _ = Iter.from(0) |> Iter.chunks(0) |> Iter.to_list()\n}\n",
-		"chunks of a variable":          "fn main() {\n    n = 2\n    _ = Iter.from(0) |> Iter.chunks(n) |> Iter.take(1) |> Iter.to_list()\n}\n",
-		"cycle of an empty list":        "fn main() {\n    xs: List<Int> = []\n    _ = [] |> Iter.cycle() |> Iter.to_list()\n    _ = xs\n}\n",
-		"cycle of a filter":             "fn main() {\n    _ = [1, 2] |> Iter.filter(&(&1 > 1)) |> Iter.cycle() |> Iter.take(2) |> Iter.to_list()\n}\n",
-		"cycle of a string":             "fn main() {\n    _ = \"ab\" |> Iter.cycle() |> Iter.take(2) |> Iter.to_list()\n}\n",
-		"zip with a finite side":        "fn main() {\n    _ = Iter.zip(Iter.from(0), [\"a\", \"b\"]) |> Iter.to_list()\n}\n",
-		"concat of two finite":          "fn main() {\n    _ = Iter.concat([1], [2]) |> Iter.to_list()\n}\n",
-		"flat_map of an infinite inner": "fn main() {\n    _ = [1, 2] |> Iter.flat_map(fn x -> Iter.repeat(x)) |> Iter.take(3) |> Iter.to_list()\n}\n",
-		"a binding later rebound":       "fn main() {\n    xs = Iter.repeat(1)\n    xs = xs |> Iter.take(2)\n    _ = xs |> Iter.to_list()\n}\n",
-		"a user Iter owner":             "struct Box {\n    n: Int\n}\n\nimpl Box {\n    fn repeat(n: Int) -> List<Int> {\n        [n]\n    }\n}\n\nfn main() {\n    _ = Box.repeat(1) |> Iter.to_list()\n}\n",
+		"take":                          "fn main()\n    _ = Iter.repeat(1) |> Iter.take(3) |> Iter.to_list()\nend\n",
+		"take_while":                    "fn main()\n    _ = Iter.from(0) |> Iter.take_while(&(&1 < 3)) |> Iter.sum()\nend\n",
+		"take then map":                 "fn main()\n    _ = Iter.from(0) |> Iter.take(3) |> Iter.map(&(&1 * 2)) |> Iter.to_list()\nend\n",
+		"map that can break":            "fn main()\n    _ = Iter.from(0)\n    |> Iter.map(fn x ->\n        if x > 2 then\n            break x\n        else\n            x\n        end\n    end)\n    |> Iter.to_list()\nend\n",
+		"filter that continues":         "fn main()\n    _ = Iter.from(0)\n    |> Iter.filter(fn x ->\n        if x > 2 then\n            continue\n        else\n            True\n        end\n    end)\n    |> Iter.to_list()\nend\n",
+		"iterate that can break":        "fn main()\n    _ = Iter.iterate(0, fn n ->\n        if n > 2 then\n            break n\n        else\n            n + 1\n        end\n    end)\n    |> Iter.to_list()\nend\n",
+		"reduce that can break":         "fn main()\n    _ = Iter.reduce(Iter.from(0), 0, fn total, x ->\n        if x > 4 then\n            break total\n        else\n            total + x\n        end\n    end)\nend\n",
+		"each that can break":           "fn main()\n    Iter.from(0)\n    |> Iter.each(fn x ->\n        if x > 4 then\n            break\n        else\n            Unit\n        end\n    end)\nend\n",
+		"a sensitive callback":          "fn stop(x: Int) -> Int\n    if x > 2 then\n        break x\n    else\n        x\n    end\nend\n\nfn main()\n    _ = Iter.from(0) |> Iter.map(stop) |> Iter.to_list()\nend\n",
+		"find":                          "fn main()\n    _ = Iter.find(Iter.from(0), &(&1 > 3))\nend\n",
+		"first":                         "fn main()\n    _ = Iter.repeat(1) |> Iter.first()\nend\n",
+		"any_match":                     "fn main()\n    _ = Iter.from(0) |> Iter.any_match(&(&1 == 7))\nend\n",
+		"all_match":                     "fn main()\n    _ = Iter.from(0) |> Iter.all_match(&(&1 < 7))\nend\n",
+		"contains":                      "fn main()\n    _ = Iter.from(0) |> Iter.contains(1_000)\nend\n",
+		"get":                           "fn main()\n    _ = Iter.from(0) |> Iter.get(4)\nend\n",
+		"is_empty":                      "fn main()\n    _ = Iter.from(0) |> Iter.is_empty()\nend\n",
+		"each_while":                    "fn main()\n    _ = Iter.each_while(Iter.from(0), &(&1 < 3))\nend\n",
+		"is_infinite":                   "fn main()\n    _ = Iter.from(0) |> Iter.is_infinite()\nend\n",
+		"Maybe.collect":                 "fn main()\n    _ = Range.naturals() |> Iter.map(fn n -> if n < 3 then Maybe.Some(n) else Maybe.None) |> Maybe.collect()\nend\n",
+		"a parameter":                   "fn drain(xs: Iter<Int>) -> List<Int>\n    xs |> Iter.to_list()\nend\n\nfn main()\n    _ = drain(Iter.repeat(1))\nend\n",
+		"a function result":             "fn ones() -> Iter<Int>\n    Iter.repeat(1)\nend\n\nfn main()\n    _ = ones() |> Iter.to_list()\nend\n",
+		"a once":                        "once ones = Iter.repeat(1)\n\nfn main()\n    _ = ones |> Iter.to_list()\nend\n",
+		"a field":                       "struct Holder\n    xs: Iter<Int>\nend\n\nfn main()\n    h = Holder{xs: Iter.repeat(1)}\n    _ = h.xs |> Iter.to_list()\nend\n",
+		"a Range from a variable":       "fn main()\n    n = 3\n    _ = Range.from(n) |> Iter.take(2) |> Iter.to_list()\nend\n",
+		"a Range from a negative":       "fn main()\n    _ = Range.from(-1) |> Iter.take(2) |> Iter.to_list()\nend\n",
+		"step_by that does not move":    "fn main()\n    _ = Range.from(1) |> Range.step_by(0) |> Iter.to_list()\nend\n",
+		"step_by of a bounded range":    "fn main()\n    _ = 1..10 |> Range.step_by(2) |> Iter.to_list()\nend\n",
+		"chunks of zero":                "fn main()\n    _ = Iter.from(0) |> Iter.chunks(0) |> Iter.to_list()\nend\n",
+		"chunks of a variable":          "fn main()\n    n = 2\n    _ = Iter.from(0) |> Iter.chunks(n) |> Iter.take(1) |> Iter.to_list()\nend\n",
+		"cycle of an empty list":        "fn main()\n    xs: List<Int> = []\n    _ = [] |> Iter.cycle() |> Iter.to_list()\n    _ = xs\nend\n",
+		"cycle of a filter":             "fn main()\n    _ = [1, 2] |> Iter.filter(&(&1 > 1)) |> Iter.cycle() |> Iter.take(2) |> Iter.to_list()\nend\n",
+		"cycle of a string":             "fn main()\n    _ = \"ab\" |> Iter.cycle() |> Iter.take(2) |> Iter.to_list()\nend\n",
+		"zip with a finite side":        "fn main()\n    _ = Iter.zip(Iter.from(0), [\"a\", \"b\"]) |> Iter.to_list()\nend\n",
+		"concat of two finite":          "fn main()\n    _ = Iter.concat([1], [2]) |> Iter.to_list()\nend\n",
+		"flat_map of an infinite inner": "fn main()\n    _ = [1, 2] |> Iter.flat_map(fn x -> Iter.repeat(x)) |> Iter.take(3) |> Iter.to_list()\nend\n",
+		"a binding later rebound":       "fn main()\n    xs = Iter.repeat(1)\n    xs = xs |> Iter.take(2)\n    _ = xs |> Iter.to_list()\nend\n",
+		"a user Iter owner":             "struct Box\n    n: Int\nend\n\nimpl Box\n    fn repeat(n: Int) -> List<Int>\n        [n]\n    end\nend\n\nfn main()\n    _ = Box.repeat(1) |> Iter.to_list()\nend\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := infiniteIterErrors(t, src); len(got) > 0 {
@@ -201,22 +201,22 @@ func TestInfiniteIter_OtherSpellings(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{
 			"Supervisor.spawn_all",
-			"import std::supervisors.Supervisor\n\nfn start(sup: Supervisor) {\n    _ = Supervisor.spawn_all(sup, Iter.repeat(1), fn _x -> Unit)\n}\n",
+			"import std::supervisors.Supervisor\n\nfn start(sup: Supervisor)\n    _ = Supervisor.spawn_all(sup, Iter.repeat(1), fn _x -> Unit)\nend\n",
 			infiniteMessage("Supervisor.spawn_all", "Iter.repeat"),
 		},
 		{
 			"Supervisor.spawn_all piped",
-			"import std::supervisors.Supervisor\n\nfn start(sup: Supervisor) {\n    _ = sup |> Supervisor.spawn_all(Iter.from(0), fn _x -> Unit)\n}\n",
+			"import std::supervisors.Supervisor\n\nfn start(sup: Supervisor)\n    _ = sup |> Supervisor.spawn_all(Iter.from(0), fn _x -> Unit)\nend\n",
 			infiniteMessage("Supervisor.spawn_all", "Iter.from"),
 		},
 		{
 			"Task.spawn_all",
-			"import std::tasks.Task\n\nfn main() {\n    _ = concurrent {\n        Iter.repeat(1) |> Task.spawn_all(&(&1 * 2), max_running: 2) |> Task.await_all()\n    }\n}\n",
+			"import std::tasks.Task\n\nfn main()\n    _ = concurrent\n        Iter.repeat(1) |> Task.spawn_all(&(&1 * 2), max_running: 2) |> Task.await_all()\n    end\nend\n",
 			infiniteMessage("Task.spawn_all", "Iter.repeat"),
 		},
 		{
 			"selective import",
-			"import std::iter.Iter.{repeat, to_list}\n\nfn main() {\n    _ = repeat(1) |> to_list()\n}\n",
+			"import std::iter.Iter.{repeat, to_list}\n\nfn main()\n    _ = repeat(1) |> to_list()\nend\n",
 			infiniteMessage("Iter.to_list", "Iter.repeat"),
 		},
 	} {
@@ -231,7 +231,7 @@ func TestInfiniteIter_OtherSpellings(t *testing.T) {
 
 // The error reaches `nomi check`'s diagnostics from a test body too.
 func TestInfiniteIter_InATest(t *testing.T) {
-	got := infiniteIterErrors(t, "test \"t\" {\n    assert Iter.repeat(1) |> Iter.to_list() == []\n}\n")
+	got := infiniteIterErrors(t, "test \"t\"\n    assert Iter.repeat(1) |> Iter.to_list() == []\nend\n")
 	if len(got) != 1 || !strings.Contains(got[0], "`Iter.to_list` of an infinite iterator") {
 		t.Fatalf("errors = %q", got)
 	}

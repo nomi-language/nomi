@@ -17,7 +17,7 @@ func TestOnceCrossFile_InferredTypesReachEveryRead(t *testing.T) {
 		"Box{items: [\"a\", \"b\"]}\n" +
 		"2\n" +
 		"(0, [\"a\", \"b\"])\n" +
-		"%{\"k\" => [\"a\", \"b\"]}\n" +
+		"{\"k\" => [\"a\", \"b\"]}\n" +
 		"[\"n\", \"s\"]\n" +
 		"([\"aa\", \"bb\"], Some(1), 11, ([\"a\", \"b\"], 10))\n"
 	got := vmReference(fixture("once_crossfile/main.nomi"))

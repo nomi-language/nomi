@@ -519,7 +519,7 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 		if fa == nil {
 			continue
 		}
-		if IsStdlibKey(key) && stdlibFAs[strings.TrimPrefix(key, "std/")] == fa {
+		if isSharedStdFile(key, fa, stdlibFAs) {
 			// The shared stdlib's analysis, which std.Load checked once.
 			c.program = append(c.program, ProgramFile{FA: fa, Nodes: siblingNodes[key]})
 			continue

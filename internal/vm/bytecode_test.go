@@ -64,13 +64,13 @@ func TestBytecode_BenchmarkHotPathsAreTyped(t *testing.T) {
 func TestBytecode_TailCallsCompileToTail(t *testing.T) {
 	p, err := vmhost.LoadSource("main", `import std::io
 
-fn count(n: Int, acc: Int) -> Int {
-  if n == 0 { acc } else { count(n - 1, acc + 1) }
-}
+fn count(n: Int, acc: Int) -> Int
+  if n == 0 then acc else count(n - 1, acc + 1)
+end
 
-fn main() {
+fn main()
   count(10, 0) |> io.print()
-}
+end
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -92,21 +92,21 @@ fn main() {
 // and no activation. A Regex needle forwards to the regex adapter the same
 // way.
 func TestBytecode_AHostForwarderRunsAsItsCrossing(t *testing.T) {
-	p, err := vmhost.LoadSource("main", `import {
+	p, err := vmhost.LoadSource("main", `import
     std::io
     std::regex.Regex
-}
+end
 
-fn probe<C>(s: String, re: Regex<C>) -> Bool {
+fn probe<C>(s: String, re: Regex<C>) -> Bool
     parts = String.split(s, ",")
     words = String.split(s, re)
     String.contains(s, "b") and Iter.count(parts) == Iter.count(words)
-}
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     probe("a,b", Regex.compile(",")?) |> io.print()
     Ok(Unit)
-}
+end
 `)
 	if err != nil {
 		t.Fatal(err)

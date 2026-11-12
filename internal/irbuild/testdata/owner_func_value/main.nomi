@@ -3,30 +3,30 @@
 // scalars, over a local type and over another file's type, a two-parameter
 // interface function, and another file's plain function through a `self`
 // import.
-import {
+import
     std::io
     shapes.{self, Square}
-}
+end
 
-struct Todo {
+struct Todo
     title: String
     done: Bool
-}
+end
 
-impl Todo {
-    fn render(t: Todo) -> String {
-        mark = if t.done { "x" } else { " " }
+impl Todo
+    fn render(t: Todo) -> String
+        mark = if t.done then "x" else " "
         "[${mark}] ${t.title}"
-    }
-}
+    end
+end
 
-impl Display for Todo {
-    fn to_string(t: Todo) -> String {
+impl Display for Todo
+    fn to_string(t: Todo) -> String
         t.title
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     todos = [Todo{title: "milk", done: True}, Todo{title: "eggs", done: False}]
     todos |> Iter.map(Todo.render) |> Iter.each(io.print)
 
@@ -64,4 +64,4 @@ fn main() {
         Some("hi")
         |> Maybe.map(shapes.shout)
     )
-}
+end

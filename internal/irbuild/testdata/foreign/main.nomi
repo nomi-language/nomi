@@ -5,22 +5,22 @@
 // the two are two Nomi types that happen to share a spelling — which is what
 // makes the cross-file one a real identity question rather than a naming one.
 // A confusion between them would print the wrong type's fields or name.
-import {
+import
     std::io
     geometry.{self, Meters, Point, Reading}
-}
+end
 
 /// The entry file's own `Point`, unrelated to `geometry.Point` beyond the
 /// spelling.
-struct Local {
+struct Local
     note: String
-}
+end
 
-fn note_of(l: Local) -> String {
+fn note_of(l: Local) -> String
     l.note
-}
+end
 
-fn main() {
+fn main()
     // Constructed HERE, from another file's declaration.
     here = Point{x: 3, y: 4, tag: "here"}
     io.print("here = ${here.x},${here.y},${here.tag}")
@@ -49,12 +49,12 @@ fn main() {
     _bounced = geometry.bounce(Meters(200))
 
     io.print("local = ${note_of(Local{note: "mine"})}")
-}
+end
 
-fn tell(r: Reading) -> String {
-    case r {
+fn tell(r: Reading) -> String
+    case r
         Reading.Empty -> "e"
         Reading.Whole(n) -> "w${n}"
-        Reading.Labelled{name, at} -> "l${name}${at.tag}"
-    }
-}
+        Reading.Labelled{name:, at:} -> "l${name}${at.tag}"
+    end
+end

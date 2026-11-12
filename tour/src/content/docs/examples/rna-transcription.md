@@ -15,28 +15,28 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The RNA complement of a DNA strand: G to C, C to G, T to A and A to U.
 /// A strand holding anything but those four nucleotides is an error.
-pub fn to_rna(dna: String) -> Result<String, String> {
+pub fn to_rna(dna: String) -> Result<String, String>
     dna
     |> Iter.map(complement)
     |> Result.collect()?
     |> String.join()
     |> Ok()
-}
+end
 
-fn complement(nucleotide: String) -> Result<String, String> {
-    case nucleotide {
+fn complement(nucleotide: String) -> Result<String, String>
+    case nucleotide
         "G" -> Ok("C")
         "C" -> Ok("G")
         "T" -> Ok("A")
         "A" -> Ok("U")
         _ -> Err("invalid nucleotide '${nucleotide}'")
-    }
-}
+    end
+end
 
 // FILE: rna_transcription_test.nomi
 import rna_transcription.to_rna
 
-test "transcribes DNA to RNA" {
+test "transcribes DNA to RNA"
     [
         ("Empty RNA sequence", "", ""),
         ("RNA complement of cytosine is guanine", "C", "G"),
@@ -45,10 +45,10 @@ test "transcribes DNA to RNA" {
         ("RNA complement of adenine is uracil", "A", "U"),
         ("RNA complement", "ACGTGGTCTTAA", "UGCACCAGAAUU"),
     ]
-    |> subtests (description, dna, expected), description {
+    |> subtests (description, dna, expected), description
         assert to_rna(dna) == Ok(expected)
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok transcribes DNA to RNA (6 cases)

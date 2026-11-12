@@ -1,133 +1,133 @@
 // Writers made by the program: `Writer.from_fn` hands what is written to a
 // function, `Writer.collect` writes into memory, and `Writer.write_all` and
 // `Writer.write_lines` write a sequence into any writer.
-import {
+import
     std::channels.{Channel, Receiver, Sender}
     std::io.{self, Error, Writer}
-}
+end
 
-fn text(data: Bytes) -> String {
+fn text(data: Bytes) -> String
     Bytes.to_string(data) |> Result.with_default("<not text>")
-}
+end
 
-test "a buffered from_fn writer hands on what accumulated, on flush" {
-    (_, sent) = Writer.collect(fn log -> {
+test "a buffered from_fn writer hands on what accumulated, on flush"
+    (_, sent) = Writer.collect(fn log ->
         w = Writer.from_fn(fn chunk -> Writer.print(log, "chunk ${text(chunk)}"))
         _ = Writer.write_text(w, "a")
         _ = Writer.write_text(w, "b")
         _ = Writer.flush(w)
         _ = Writer.write_text(w, "c")
         Writer.close(w)
-    })
+    end)
 
     assert text(sent) == "chunk ab\nchunk c\n"
-}
+end
 
-test "an unbuffered from_fn writer hands on each write" {
+test "an unbuffered from_fn writer hands on each write"
     ch = Channel.buffered<Bytes>(4)
 
-    w = Writer.from_fn(unbuffered: True, fn chunk -> {
+    w = Writer.from_fn(unbuffered: True, fn chunk ->
         Sender.send(ch.sender, chunk) |> Result.map_err(fn _ -> Error.BrokenPipe)
-    })
+    end)
 
     _ = Writer.write_text(w, "one")
     _ = Writer.write_text(w, "two")
 
     assert Receiver.receive(ch.receiver) == Some(String.to_bytes("one"))
     assert Receiver.receive(ch.receiver) == Some(String.to_bytes("two"))
-}
+end
 
-test "close runs after the last bytes, and its error is close's" {
-    (closed, log) = Writer.collect(fn log -> {
-        w = Writer.from_fn(close: fn -> {
+test "close runs after the last bytes, and its error is close's"
+    (closed, log) = Writer.collect(fn log ->
+        w = Writer.from_fn(close: fn ->
             _ = Writer.write_text(log, "|closed")
             Err(Error.TimedOut)
-        }, fn chunk -> {
+        end, fn chunk ->
             Writer.write(log, chunk)
-        })
+        end)
 
         _ = Writer.write_text(w, "data")
         Writer.close(w)
-    })
+    end)
 
     assert closed == Err(Error.TimedOut)
     assert text(log) == "data|closed"
-}
+end
 
-test "a failing write is the error of the operation that sends the bytes" {
+test "a failing write is the error of the operation that sends the bytes"
     failing = Writer.from_fn(fn _ -> Err(Error.BrokenPipe))
 
     // Buffered: the write is held, and the flush fails.
     assert Writer.write_text(failing, "x") == Ok(Unit)
     assert Writer.flush(failing) == Err(Error.BrokenPipe)
-}
+end
 
-test "a from_fn writer feeds another writer it holds" {
-    (_, outer) = Writer.collect(fn sink -> {
-        (_, inner) = Writer.collect(fn mid -> {
-            relay = Writer.from_fn(unbuffered: True, fn chunk -> {
+test "a from_fn writer feeds another writer it holds"
+    (_, outer) = Writer.collect(fn sink ->
+        (_, inner) = Writer.collect(fn mid ->
+            relay = Writer.from_fn(unbuffered: True, fn chunk ->
                 _ = Writer.write(mid, chunk)
                 Writer.write(sink, chunk)
-            })
+            end)
 
             Writer.write_text(relay, "both")
-        })
+        end)
 
         Writer.write(sink, inner)
-    })
+    end)
 
     assert text(outer) == "bothboth"
-}
+end
 
-test "a from_fn writer inside io.capture prints into the capture" {
-    run = io.capture("", fn -> {
-        w = Writer.from_fn(fn chunk -> {
+test "a from_fn writer inside io.capture prints into the capture"
+    run = io.capture("", fn ->
+        w = Writer.from_fn(fn chunk ->
             io.write(text(chunk))
             Ok(Unit)
-        })
+        end)
 
         _ = Writer.print(w, "through the writer")
         Writer.close(w)
-    })
+    end)
 
     assert run.output == "through the writer\n"
-}
+end
 
-test "collect answers the body's value and the bytes, and closes the writer" {
-    ((count, kept), data) = Writer.collect(fn w -> {
+test "collect answers the body's value and the bytes, and closes the writer"
+    ((count, kept), data) = Writer.collect(fn w ->
         _ = Writer.write_lines(w, ["pear", "apple"])
         (2, w)
-    })
+    end)
 
     assert count == 2
     assert text(data) == "pear\napple\n"
     assert Writer.write_text(kept, "late") == Err(Error.Closed)
-}
+end
 
-test "write_all writes a sequence of chunks" {
-    (copied, data) = Writer.collect(fn w -> {
+test "write_all writes a sequence of chunks"
+    (copied, data) = Writer.collect(fn w ->
         Writer.write_all(
             w,
             ["abc", "defg"]
             |> Iter.map(String.to_bytes),
         )
-    })
+    end)
 
     assert copied == Ok(Unit)
     assert text(data) == "abcdefg"
-}
+end
 
-test "write_all and write_lines stop at the first failure" {
-    ((written, lines), sizes) = Writer.collect(fn log -> {
-        limited = Writer.from_fn(unbuffered: True, fn chunk -> {
+test "write_all and write_lines stop at the first failure"
+    ((written, lines), sizes) = Writer.collect(fn log ->
+        limited = Writer.from_fn(unbuffered: True, fn chunk ->
             _ = Writer.write_text(log, "${Bytes.length(chunk)} ")
 
-            if Bytes.length(chunk) > 2 {
+            if Bytes.length(chunk) > 2 then
                 Err(Error.NoSpace{path: "<fn>"})
-            } else {
+            else
                 Ok(Unit)
-            }
-        })
+            end
+        end)
 
         (
             Writer.write_all(
@@ -136,9 +136,9 @@ test "write_all and write_lines stop at the first failure" {
             ),
             Writer.write_lines(limited, Iter.from(8)),
         )
-    })
+    end)
 
     assert written == Err(Error.NoSpace{path: "<fn>"})
     assert lines == Err(Error.NoSpace{path: "<fn>"})
     assert text(sizes) == "2 3 2 2 3 "
-}
+end

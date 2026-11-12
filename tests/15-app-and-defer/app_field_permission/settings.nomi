@@ -1,5 +1,5 @@
-pub struct Settings {
+pub struct Settings
     context: Context
 
     tag: String
-}
+end

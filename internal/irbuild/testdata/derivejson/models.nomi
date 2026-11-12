@@ -2,17 +2,17 @@
 // `derive Equatable` are declared here and reached from main.nomi.
 import std::json.{FromJson, Json, ToJson}
 
-pub struct Away {
+pub struct Away
     name: String
-}
+end
 
-pub fn away(name: String) -> Away {
-    Away{name}
-}
+pub fn away(name: String) -> Away
+    Away{name:}
+end
 
-pub fn name_of(a: Away) -> String {
+pub fn name_of(a: Away) -> String
     a.name
-}
+end
 
 // `Json` has to be USED here and not merely imported, and the reason is a real
 // constraint rather than tidiness: the builder needs `Json` resolvable in THIS
@@ -21,12 +21,12 @@ pub fn name_of(a: Away) -> String {
 // under the tree to publish no diagnostics, and an imported-but-unused name is
 // one. Dropping the import satisfies the LSP and makes the derive refuse; this
 // function satisfies both.
-pub fn is_null(j: Json) -> Bool {
-    case j {
+pub fn is_null(j: Json) -> Bool
+    case j
         Json.Null -> True
         _ -> False
-    }
-}
+    end
+end
 
 derive Equatable for Away
 derive ToJson for Away

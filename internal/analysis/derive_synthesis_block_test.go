@@ -29,13 +29,15 @@ func countSynthDebugImpls(nodes []ast.Node, recv string) int {
 // synthesized; for an enum, that body references unbound payload vars
 // (`v0`) and traps at runtime.
 func TestUniversalDebug_BlockImplSuppressesSynth(t *testing.T) {
-	src := `struct E { x: Int }
+	src := `struct E
+    x: Int
+end
 
-impl Debug for E {
-  fn inspect(_e: E) -> String {
+impl Debug for E
+  fn inspect(_e: E) -> String
     "E"
-  }
-}`
+  end
+end`
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
 	// Lower the `impl Debug for E` block into the top-level `impl Debug for E`
 	// block that universal-Debug synthesis scans to suppress auto-synthesis.

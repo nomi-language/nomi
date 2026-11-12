@@ -8,26 +8,26 @@ import (
 // A field with a default may leave out its type, which is its default's
 // (default_type.go).
 
-const fieldDefaultsLib = `pub struct Settings {
+const fieldDefaultsLib = `pub struct Settings
     retries = 3
     name = "app"
     origin = Point{x: 0, y: 0}
     limit = default_limit()
     tags: List<String> = []
-}
+end
 
-pub struct Point {
+pub struct Point
     x: Int
     y: Int
-}
+end
 
-pub enum Shape {
+pub enum Shape
     Circle{radius = 1.0}
-}
+end
 
-fn default_limit() -> Int {
+fn default_limit() -> Int
     100
-}
+end
 `
 
 // Another file reads each inferred field type, whichever file is checked
@@ -35,23 +35,23 @@ fn default_limit() -> Int {
 func TestDefaultType_FieldTypeIsReadFromAnotherFile(t *testing.T) {
 	src := `import lib.{Settings, Shape}
 
-fn retries(s: Settings) -> Int {
+fn retries(s: Settings) -> Int
     s.retries + s.limit + s.origin.x
-}
+end
 
-fn label(s: Settings) -> String {
+fn label(s: Settings) -> String
     s.name + "!"
-}
+end
 
-fn radius(s: Shape) -> Float {
-    case s {
-        .Circle{radius} -> radius
-    }
-}
+fn radius(s: Shape) -> Float
+    case s
+        .Circle{radius:} -> radius
+    end
+end
 
-fn main() {
+fn main()
     _ = (retries(Settings{}), label(Settings{retries: 1}), radius(Shape.Circle{}))
-}
+end
 `
 	files := map[string]string{"main.nomi": src, "lib.nomi": fieldDefaultsLib}
 	for _, order := range [][]string{{"", "lib"}, {"lib", ""}} {
@@ -69,13 +69,13 @@ fn main() {
 func TestDefaultType_WrongUseOfInferredFieldIsRejected(t *testing.T) {
 	src := `import lib.Settings
 
-fn wrong(s: Settings) -> String {
+fn wrong(s: Settings) -> String
     s.retries
-}
+end
 
-fn main() {
+fn main()
     _ = wrong(Settings{name: 1})
-}
+end
 `
 	got := checkOnceProject(t, map[string]string{"main.nomi": src, "lib.nomi": fieldDefaultsLib}, []string{"", "lib"})
 	msgs := strings.Join(messages(got["main.nomi"]), "\n")
@@ -89,26 +89,25 @@ fn main() {
 // A default whose type only an expected type tells is an error at the
 // field, with help that writes the annotation.
 func TestDefaultType_UndeterminedFieldIsRejected(t *testing.T) {
-	src := `enum Restart {
+	src := `enum Restart
     Temporary
     Permanent
-}
+end
 
-struct Bad {
-    guessed = %[]
+struct Bad
+    guessed = Set[]
     items = []
     later = None
     restart = .Temporary
     loop = Bad{}.loop
-}
+end
 
-fn main() {
-}
+fn main() end
 `
 	got := checkOnceProject(t, map[string]string{"main.nomi": src}, []string{""})
 	errs := got["main.nomi"]
 	want := []struct{ msg, hint string }{
-		{"can't tell this field's type from `%[]`", "write `guessed: Set<_> = %[]`, with the type for each `_`"},
+		{"can't tell this field's type from `Set[]`", "write `guessed: Set<_> = Set[]`, with the type for each `_`"},
 		{"can't tell this field's type from `[]`", "write `items: List<_> = []`, with the type for each `_`"},
 		{"can't tell this field's type from `None`", "write `later: Maybe<_> = None`, with the type for each `_`"},
 		{"can't tell this field's type from `.Temporary`", "write `restart: T = .Temporary`, with its type for `T`"},
@@ -127,16 +126,15 @@ fn main() {
 // A public struct's field whose inferred type is private is the error a
 // written private type is.
 func TestDefaultType_PublicFieldExposingPrivateTypeIsRejected(t *testing.T) {
-	src := `struct Secret {
+	src := `struct Secret
     v: Int
-}
+end
 
-pub struct Leaky {
+pub struct Leaky
     s = Secret{v: 1}
-}
+end
 
-fn main() {
-}
+fn main() end
 `
 	got := checkOnceProject(t, map[string]string{"main.nomi": src}, []string{""})
 	msgs := messages(got["main.nomi"])
@@ -150,14 +148,13 @@ fn main() {
 func TestDefaultType_DeriveFromJsonNeedsWrittenType(t *testing.T) {
 	src := `import std::json.FromJson
 
-struct Cfg {
+struct Cfg
     port = 8080
-}
+end
 
 derive FromJson for Cfg
 
-fn main() {
-}
+fn main() end
 `
 	got := checkOnceProject(t, map[string]string{"main.nomi": src}, []string{""})
 	errs := got["main.nomi"]
@@ -170,13 +167,13 @@ fn main() {
 // A struct declared in a block takes its field types when the block is
 // checked.
 func TestDefaultType_BlockLocalStructField(t *testing.T) {
-	src := `fn main() {
-    struct Local {
+	src := `fn main()
+    struct Local
         n = 5
-    }
+    end
     l = Local{}
     _ = l.n + 1
-}
+end
 `
 	got := checkOnceProject(t, map[string]string{"main.nomi": src}, []string{""})
 	if errs := got["main.nomi"]; len(errs) > 0 {
@@ -184,28 +181,28 @@ func TestDefaultType_BlockLocalStructField(t *testing.T) {
 	}
 }
 
-const paramDefaultsLib = `pub enum Mode {
+const paramDefaultsLib = `pub enum Mode
     Replace
     Append
-}
+end
 
-pub fn search(query: String, limit = 10, offset = 0) -> String {
+pub fn search(query: String, limit = 10, offset = 0) -> String
     "${query}${limit}${offset}"
-}
+end
 
-pub fn write(path: String, mode = Mode.Replace) -> Mode {
+pub fn write(path: String, mode = Mode.Replace) -> Mode
     mode
-}
+end
 
-pub struct Page {
+pub struct Page
     size: Int
-}
+end
 
-impl Page {
-    pub fn window(page: Page, offset = page.size * 2) -> Int {
+impl Page
+    pub fn window(page: Page, offset = page.size * 2) -> Int
         offset
-    }
-}
+    end
+end
 `
 
 // A parameter with a default may leave out its type, which another file's
@@ -213,12 +210,12 @@ impl Page {
 func TestDefaultType_ParamTypeIsReadFromAnotherFile(t *testing.T) {
 	src := `import lib.{Mode, Page, search, write}
 
-fn main() {
+fn main()
     a: String = search("q", limit: 5)
     b: Mode = write("p", mode: .Append)
     c: Int = Page.window(Page{size: 1}, offset: 3)
     _ = (a, b, c)
-}
+end
 `
 	files := map[string]string{"main.nomi": src, "lib.nomi": paramDefaultsLib}
 	for _, order := range [][]string{{"", "lib"}, {"lib", ""}} {
@@ -229,7 +226,7 @@ fn main() {
 			}
 		}
 	}
-	bad := "import lib.search\n\nfn main() {\n    _ = search(\"q\", limit: \"many\")\n}\n"
+	bad := "import lib.search\n\nfn main()\n    _ = search(\"q\", limit: \"many\")\nend\n"
 	got := checkOnceProject(t, map[string]string{"main.nomi": bad, "lib.nomi": paramDefaultsLib}, []string{"", "lib"})
 	if msgs := strings.Join(messages(got["main.nomi"]), "\n"); !strings.Contains(msgs, "expected Int, got String") {
 		t.Errorf("want the argument mismatch against the inferred Int, got:\n%s", msgs)
@@ -240,21 +237,21 @@ fn main() {
 // with the field rule's error, and a public function may not take a private
 // type from a default.
 func TestDefaultType_UndeterminedParamIsRefused(t *testing.T) {
-	src := `struct Secret {
+	src := `struct Secret
     v: Int
-}
+end
 
-fn f(since = None, items = []) -> Int {
+fn f(since = None, items = []) -> Int
     1
-}
+end
 
-pub fn leak(s = Secret{v: 1}) -> Int {
+pub fn leak(s = Secret{v: 1}) -> Int
     s.v
-}
+end
 
-fn main() {
+fn main()
     _ = (f(), leak())
-}
+end
 `
 	got := checkOnceProject(t, map[string]string{"main.nomi": src}, []string{""})
 	errs := got["main.nomi"]
@@ -281,15 +278,15 @@ fn main() {
 // A lambda's parameter takes its default's type, and where the lambda's
 // position expects a function type the two must agree.
 func TestDefaultType_LambdaParamDefault(t *testing.T) {
-	src := `fn apply(f: (Int) -> Int) -> Int {
+	src := `fn apply(f: (Int) -> Int) -> Int
     f(1)
-}
+end
 
-fn main() {
+fn main()
     add = fn a: Int, b = 1 -> a + b
     _ = add(1)
     _ = apply(fn x = "a" -> 1)
-}
+end
 `
 	got := checkOnceProject(t, map[string]string{"main.nomi": src}, []string{""})
 	msgs := messages(got["main.nomi"])

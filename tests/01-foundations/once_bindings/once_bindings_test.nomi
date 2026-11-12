@@ -1,7 +1,7 @@
-import {
+import
     std::compiler
     test_helpers
-}
+end
 
 pub once max_retries = 3
 once default_port = 8080
@@ -11,13 +11,13 @@ once doubled = 21 * 2
 once greeting = "Hello, " + "World"
 once seq = [1, 2, 3]
 
-pub struct Box {
+pub struct Box
     value: Int
-}
+end
 
-pub enum Status {
+pub enum Status
     Ready
-}
+end
 
 pub type UserId Int
 
@@ -25,7 +25,7 @@ once default_box: Box = Box{value: 7}
 once fallback_status: Status = Status.Ready
 once root_user_id: UserId = UserId(1)
 
-test "once bindings are available across the file" {
+test "once bindings are available across the file"
     assert max_retries == 3
     assert default_port == 8080
     assert timeout == 30000
@@ -37,45 +37,45 @@ test "once bindings are available across the file" {
     assert retry_message(max_retries) == "Attempt 3 of 3"
 
     assert uses_later_value() == 100
-}
+end
 
-test "once bindings can hold declared values" {
+test "once bindings can hold declared values"
     assert fallback_status == Status.Ready
     assert root_user_id == UserId(1)
-}
+end
 
-test "ordinary local bindings can shadow file once bindings" {
+test "ordinary local bindings can shadow file once bindings"
     max_retries = 5
     assert max_retries == 5
-}
+end
 
-test "duplicate same-scope once bindings are rejected" {
+test "duplicate same-scope once bindings are rejected"
     diagnostics = compiler.check(
         """
           once dup = 1
           once dup = 2
 
-          fn main() {
+          fn main()
             Unit
-          }
+          end
         """
     )
 
     assert test_helpers.has_diagnostic(diagnostics, "'dup' is already defined in this scope")
-}
+end
 
-test "type body once bindings are rejected" {
+test "type body once bindings are rejected"
     diagnostics = compiler.check(
         """
-          struct Box<T> {
+          struct Box<T>
             value: T
 
             pub once nope: Int = 1
-          }
+          end
 
-          fn main() {
+          fn main()
             Unit
-          }
+          end
         """
     )
 
@@ -83,22 +83,22 @@ test "type body once bindings are rejected" {
         diagnostics,
         "once bindings are declarations outside type bodies",
     )
-}
+end
 
-test "impl block once bindings are rejected" {
+test "impl block once bindings are rejected"
     diagnostics = compiler.check(
         """
-          struct Box {
+          struct Box
             value: Int
-          }
+          end
 
-          impl Debug for Box {
+          impl Debug for Box
             once nope: Int = 1
-          }
+          end
 
-          fn main() {
+          fn main()
             Unit
-          }
+          end
         """
     )
 
@@ -106,26 +106,26 @@ test "impl block once bindings are rejected" {
         diagnostics,
         "interface impl blocks hold only `fn` / `host fn` implementation items",
     )
-}
+end
 
-test "compiler hover can assert once signatures with a marker" {
+test "compiler hover can assert once signatures with a marker"
     signature = test_helpers.hover_signature(
         """
           once defaultˇ_port = 8080
 
-          fn main() {
+          fn main()
             Unit
-          }
+          end
         """
     )
 
     assert signature == "once default_port: Int = 8080"
-}
+end
 
-fn retry_message(attempt: Int) -> String {
+fn retry_message(attempt: Int) -> String
     "Attempt ${attempt} of ${max_retries}"
-}
+end
 
-fn uses_later_value() -> Int {
+fn uses_later_value() -> Int
     later_value + 1
-}
+end

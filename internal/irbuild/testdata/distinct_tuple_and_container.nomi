@@ -25,12 +25,12 @@ type Triple (Int, Int, Int)
 type Items List<Int>
 type Kvs Map<String, Int>
 
-enum Shape {
+enum Shape
     Pos (Int, Int)
     Tagged Coord
-}
+end
 
-fn main() {
+fn main()
     // FLAT construction, and the explicit one-tuple spelling beside it. Nomi has
     // no 1-tuple, so the two arities can never collide.
     flat = Coord(3, 4)
@@ -52,15 +52,15 @@ fn main() {
     // `Map` is a value struct (`rt.Map`), so the two exercise different
     // conversion paths.
     items = Items([4, 5, 6])
-    kvs = %Kvs{"a" => 1, "b" => 2}
+    kvs = Kvs{"a" => 1, "b" => 2}
 
     io.print("items=${Debug.inspect(items)}")
     io.print("kvs=${Debug.inspect(kvs)}")
 
     // The `case` unwrap route.
-    n = case items {
+    n = case items
         Items(xs) -> Iter.count(xs)
-    }
+    end
 
     io.print("case-unwrap=${n}")
 
@@ -68,25 +68,25 @@ fn main() {
     Items(bound) = items
     io.print("bind-unwrap=${Iter.count(bound)}")
 
-    parts = case flat {
+    parts = case flat
         Coord(cx, cy) -> "${cx},${cy}"
-    }
+    end
 
     io.print("coord-parts=${parts}")
 
-    nested = case flat {
+    nested = case flat
         Coord((cx, cy)) -> "${cx}/${cy}"
-    }
+    end
 
     io.print("coord-nested=${nested}")
 
     // A distinct over a container used as a MAP KEY, which reaches the hash and
     // the equality unwrap — two more sites that spelled the conversion bare.
-    keyed = %{Items([1, 2]) => "one-two"}
+    keyed = {Items([1, 2]) => "one-two"}
     hit = Map.get(keyed, Items([1, 2])) |> Maybe.with_default("?")
 
     miss = Map.get(keyed, Items([9])) |> Maybe.with_default("?")
 
     io.print("keyed=${hit}")
     io.print("keyed-miss=${miss}")
-}
+end

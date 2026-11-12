@@ -2,7 +2,7 @@
 // through PEM and DER without printing their bytes, and bad keys are an Err.
 import std::signatures.{self, KeyKind, PrivateKey, PublicKey, Scheme}
 
-test "a signature verifies only its message under its key" {
+test "a signature verifies only its message under its key"
     keys = [
         PrivateKey.generate_ed25519(),
         PrivateKey.generate_ecdsa_p256(),
@@ -14,7 +14,7 @@ test "a signature verifies only its message under its key" {
 
     results =
         keys
-        |> Iter.map(fn key -> {
+        |> Iter.map(fn key ->
             public = PrivateKey.public_key(key)
             signature = signatures.sign(key, message)
 
@@ -22,13 +22,13 @@ test "a signature verifies only its message under its key" {
                 signatures.is_valid(public, message, signature),
                 signatures.is_valid(public, tampered, signature),
             )
-        })
+        end)
         |> Iter.to_list()
 
     assert results == [(True, False), (True, False), (True, False)]
-}
+end
 
-test "keys round trip through PEM and DER, and never print their bytes" {
+test "keys round trip through PEM and DER, and never print their bytes"
     key = PrivateKey.generate_rsa()!
     assert PrivateKey.kind(key) == KeyKind.Rsa
     assert "${key}" == "PrivateKey(RSA)"
@@ -48,9 +48,9 @@ test "keys round trip through PEM and DER, and never print their bytes" {
     assert a != b
     assert signatures.is_valid_with(public, Scheme.RsaPssSha256, message, a)
     refute signatures.is_valid(public, message, a)
-}
+end
 
-test "a key of another algorithm or a broken PEM is an Err" {
+test "a key of another algorithm or a broken PEM is an Err"
     assert PublicKey.from_pem("-----BEGIN PUBLIC KEY-----\nAAAA\n-----END PUBLIC KEY-----\n")
         |> Result.is_err()
 
@@ -59,4 +59,4 @@ test "a key of another algorithm or a broken PEM is an Err" {
 
     assert PublicKey.from_ed25519_bytes(Bytes.from_list([1, 2, 3]))
         == Err("an Ed25519 public key is 32 bytes, got 3")
-}
+end

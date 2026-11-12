@@ -9,12 +9,12 @@
 // makes this program LOWER instead of refuse.
 import money.Money
 
-impl Equatable for Money {
-    fn equal(a: Money, b: Money) -> Bool {
+impl Equatable for Money
+    fn equal(a: Money, b: Money) -> Bool
         a.cents == b.cents
-    }
-}
+    end
+end
 
-pub fn ping() -> Int {
+pub fn ping() -> Int
     1
-}
+end

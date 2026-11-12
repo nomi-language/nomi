@@ -17,33 +17,33 @@
 //# no `[sqlkit.database]` table has one database, `main`, with the
 //# defaults.
 
-import {
+import
     std::json.Json
     sqltext
-}
+end
 
 /// The engine a database's SQL is checked against.
-pub enum Dialect {
+pub enum Dialect
     /// A scratch in-memory SQLite database the tool makes itself.
     Sqlite
 
     /// A scratch database the tool makes on a development Postgres server.
     Postgres
-}
+end
 
 derive Equatable for Dialect
 
-impl Display for Dialect {
-    fn to_string(dialect: Dialect) -> String {
-        case dialect {
+impl Display for Dialect
+    fn to_string(dialect: Dialect) -> String
+        case dialect
             .Sqlite -> "SQLite"
             .Postgres -> "Postgres"
-        }
-    }
-}
+        end
+    end
+end
 
 /// One database of the module.
-pub struct Database {
+pub struct Database
     name: String
     dialect: Dialect = Dialect.Sqlite
     migrations: String
@@ -58,7 +58,7 @@ pub struct Database {
     /// The row struct of each table whose name the `tables` table gives,
     /// by table.
     tables: Map<String, String>
-}
+end
 
 derive Equatable for Database
 
@@ -77,29 +77,29 @@ derive Equatable for Database
 //!         queries: "sql",
 //!         out: ".",
 //!         schema: "schema",
-//!         tables: %{"people" => "Person"},
+//!         tables: {"people" => "Person"},
 //!     },
 //! ]
 //!
 //! assert databases.read(Json.Null) == [databases.defaults("main")]
 //
-pub fn read(config: Json) -> List<Database> {
-    tables = case field(config, "database") {
+pub fn read(config: Json) -> List<Database>
+    tables = case field(config, "database")
         Some(Json.Obj(tables)) -> tables
-        _ -> %{}
-    }
+        _ -> {}
+    end
 
-    if Map.size(tables) == 0 { return [defaults("main")] }
+    if Map.size(tables) == 0 then return [defaults("main")]
 
     tables
     |> Map.keys()
     |> Iter.sort()
-    |> Iter.map(fn name -> {
+    |> Iter.map(fn name ->
         table = Map.get(tables, name) |> Maybe.with_default(Json.Null)
         d = defaults(name)
 
         Database{
-            name,
+            name:,
             dialect: dialect_of(text(table, "dialect")),
             migrations: text(table, "migrations") |> Maybe.with_default(d.migrations),
             queries: text(table, "queries") |> Maybe.with_default(d.queries),
@@ -108,23 +108,23 @@ pub fn read(config: Json) -> List<Database> {
             dev_url_env: text(table, "dev_url_env") |> Maybe.with_default(d.dev_url_env),
             tables: text_map(table, "tables"),
         }
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
 /// The dialects a `dialect` key names, and what each is called there.
-pub fn dialects() -> List<(String, Dialect)> {
+pub fn dialects() -> List<(String, Dialect)>
     [("sqlite", Dialect.Sqlite), ("postgres", Dialect.Postgres)]
-}
+end
 
 // The dialect a `dialect` key names; one it does not name is reported by
 // `problems`, and read as SQLite meanwhile.
-fn dialect_of(given: Maybe<String>) -> Dialect {
+fn dialect_of(given: Maybe<String>) -> Dialect
     given
     |> Maybe.flat_map(fn g -> dialects() |> Iter.find(fn (name, _) -> name == g))
     |> Maybe.map(fn (_, d) -> d)
     |> Maybe.with_default(Dialect.Sqlite)
-}
+end
 
 /// What is wrong with a `[sqlkit]` table: a `dialect` that names no
 /// dialect.
@@ -136,19 +136,19 @@ fn dialect_of(given: Maybe<String>) -> Dialect {
 //!     "nomi.toml: `[sqlkit.database.main]` names the dialect \"mysql\"; sqlkit knows \"sqlite\" and \"postgres\"",
 //! ]
 //
-pub fn problems(config: Json) -> List<String> {
-    tables = case field(config, "database") {
+pub fn problems(config: Json) -> List<String>
+    tables = case field(config, "database")
         Some(Json.Obj(tables)) -> tables
-        _ -> %{}
-    }
+        _ -> {}
+    end
 
     tables
     |> Map.keys()
     |> Iter.sort()
-    |> Iter.flat_map(fn name -> {
+    |> Iter.flat_map(fn name ->
         table = Map.get(tables, name) |> Maybe.with_default(Json.Null)
 
-        case text(table, "dialect") {
+        case text(table, "dialect")
             Some(g) when not Iter.any_match(dialects(), fn (n, _) -> n == g) ->
                 [
                     "nomi.toml: `[sqlkit.database.${name}]` names the dialect ${Debug.inspect(
@@ -156,76 +156,78 @@ pub fn problems(config: Json) -> List<String> {
                     )}; sqlkit knows \"sqlite\" and \"postgres\"",
                 ]
 
-            _ -> []
-        }
-    })
+            _ ->
+                []
+        end
+    end)
     |> Iter.to_list()
-}
+end
 
 /// The database `name` with every key left out.
 //! assert databases.defaults("main").queries == "db/queries"
 //
-pub fn defaults(name: String) -> Database {
+pub fn defaults(name: String) -> Database
     Database{
-        name,
+        name:,
         migrations: "db/migrations",
         queries: "db/queries",
         out: ".",
         schema: "schema",
-        tables: %{},
+        tables: {},
     }
-}
+end
 
 /// The path from the module root of the generated file `name` (without
 /// `.nomi`) of db.
 //! assert databases.out_file(databases.defaults("main"), "schema") == "schema.nomi"
-//! assert databases.out_file(.{..databases.defaults("main"), out: "src/db/"}, "q") == "src/db/q.nomi"
+//! assert databases.out_file({..databases.defaults("main"), out: "src/db/"}, "q") == "src/db/q.nomi"
 //
-pub fn out_file(db: Database, name: String) -> String {
+pub fn out_file(db: Database, name: String) -> String
     "${String.replace(module_of(db, name), "::", "/")}.nomi"
-}
+end
 
 /// The import path, from the module root, of the generated file `name`:
 /// its directories and its name joined by `::`.
-//! assert databases.module_of(.{..databases.defaults("main"), out: "src/db/"}, "q") == "src::db::q"
+//! assert databases.module_of({..databases.defaults("main"), out: "src/db/"}, "q") == "src::db::q"
 //
-pub fn module_of(db: Database, name: String) -> String {
+pub fn module_of(db: Database, name: String) -> String
     dir = sqltext.cut_suffix(db.out, "/")
 
-    if dir == "" or dir == "." {
+    if dir == "" or dir == "." then
         name
-    } else {
+    else
         "${String.replace(sqltext.cut_prefix(dir, "./"), "/", "::")}::${name}"
-    }
-}
+    end
+end
 
-fn field(json: Json, key: String) -> Maybe<Json> {
-    case json {
+fn field(json: Json, key: String) -> Maybe<Json>
+    case json
         Json.Obj(fields) -> Map.get(fields, key)
         _ -> None
-    }
-}
+    end
+end
 
-fn text(json: Json, key: String) -> Maybe<String> {
-    case field(json, key) {
+fn text(json: Json, key: String) -> Maybe<String>
+    case field(json, key)
         Some(Json.String(s)) -> Some(s)
         _ -> None
-    }
-}
+    end
+end
 
-fn text_map(json: Json, key: String) -> Map<String, String> {
-    case field(json, key) {
+fn text_map(json: Json, key: String) -> Map<String, String>
+    case field(json, key)
         Some(Json.Obj(entries)) ->
             entries
             |> Map.keys()
-            |> Iter.flat_map(fn k -> {
-                case Map.get(entries, k) {
+            |> Iter.flat_map(fn k ->
+                case Map.get(entries, k)
                     Some(Json.String(s)) -> [(k, s)]
                     _ -> []
-                }
-            })
+                end
+            end)
             |> Iter.to_map()
 
-        _ -> %{}
-    }
-}
+        _ ->
+            {}
+    end
+end

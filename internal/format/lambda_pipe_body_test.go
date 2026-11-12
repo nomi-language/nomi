@@ -8,22 +8,22 @@ import "testing"
 // program means.
 func TestFormat_LambdaPipeBodyKeepsItsBraces(t *testing.T) {
 	cases := map[string]string{
-		"one line": "fn main() {\n" +
-			"    r = [1, 2] |> Iter.map(fn y -> { [y] |> Iter.to_list() }) |> Iter.to_list()\n" +
-			"}\n",
-		"across lines, as a call's last argument": "fn main() {\n" +
+		"one line": "fn main()\n" +
+			"    r = [1, 2] |> Iter.map(fn y -> [y] |> Iter.to_list()) |> Iter.to_list()\n" +
+			"end\n",
+		"across lines, as a call's last argument": "fn main()\n" +
 			"    rows =\n" +
 			"        1..=2\n" +
-			"        |> Iter.map(fn y -> {\n" +
+			"        |> Iter.map(fn y ->\n" +
 			"            1..=3\n" +
 			"            |> Iter.map(fn x -> x * y)\n" +
 			"            |> Iter.to_list()\n" +
-			"        })\n" +
+			"        end)\n" +
 			"        |> Iter.to_list()\n" +
-			"}\n",
-		"bound to a name": "fn main() {\n" +
-			"    f = fn xs: List<Int> -> { xs |> Iter.to_list() }\n" +
-			"}\n",
+			"end\n",
+		"bound to a name": "fn main()\n" +
+			"    f = fn xs: List<Int> -> xs |> Iter.to_list()\n" +
+			"end\n",
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {

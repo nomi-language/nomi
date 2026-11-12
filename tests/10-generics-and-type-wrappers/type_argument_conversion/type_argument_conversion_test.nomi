@@ -4,97 +4,97 @@
 // the value as it is (spec §5 *Type argument conversion*).
 import routes.{self, Reply, Request, Route}
 
-struct Page {
+struct Page
     body: String
-}
+end
 
-impl Reply for Page {
-    fn text(p: Page) -> String {
+impl Reply for Page
+    fn text(p: Page) -> String
         p.body
-    }
-}
+    end
+end
 
-struct Pt {
+struct Pt
     x: Int
-}
+end
 
-interface Named {
+interface Named
     fn name(v: self) -> String
-}
+end
 
-impl Named for Pt {
-    fn name(p: Pt) -> String {
+impl Named for Pt
+    fn name(p: Pt) -> String
         "pt${p.x}"
-    }
-}
+    end
+end
 
 derive Equatable for Pt
 derive Hashable for Pt
 
-struct Gallery {
+struct Gallery
     items: List<Named>
-}
+end
 
-fn home(r: Request) -> Page {
+fn home(r: Request) -> Page
     Page{body: "home ${r.path}"}
-}
+end
 
-fn about(r: Request) -> Page {
+fn about(r: Request) -> Page
     Page{body: "about ${r.path}"}
-}
+end
 
-fn shown(xs: List<Display>) -> String {
+fn shown(xs: List<Display>) -> String
     String.join(Iter.map(xs, Display.to_string), ",")
-}
+end
 
-fn names(xs: List<Named>) -> String {
+fn names(xs: List<Named>) -> String
     String.join(Iter.map(xs, Named.name), ",")
-}
+end
 
-fn first_shown(m: Maybe<Display>) -> String {
+fn first_shown(m: Maybe<Display>) -> String
     Maybe.map(m, Display.to_string) |> Maybe.with_default("none")
-}
+end
 
-fn ok_shown(r: Result<Display, String>) -> String {
-    case r {
+fn ok_shown(r: Result<Display, String>) -> String
+    case r
         Ok(d) -> Display.to_string(d)
         Err(e) -> e
-    }
-}
+    end
+end
 
-fn apply_all(fs: List<(Int) -> Display>, n: Int) -> List<String> {
+fn apply_all(fs: List<(Int) -> Display>, n: Int) -> List<String>
     Iter.map(fs, fn f -> Display.to_string(f(n))) |> Iter.to_list()
-}
+end
 
-fn on_ints(fs: List<(Int) -> String>) -> List<String> {
+fn on_ints(fs: List<(Int) -> String>) -> List<String>
     Iter.map(fs, fn f -> f(7)) |> Iter.to_list()
-}
+end
 
-fn describe(d: Display) -> String {
+fn describe(d: Display) -> String
     "<${Display.to_string(d)}>"
-}
+end
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn widened(xs: List<Int>) -> List<Display> {
+fn widened(xs: List<Int>) -> List<Display>
     xs
-}
+end
 
-fn total<T>(rows: List<List<T>>) -> Int {
+fn total<T>(rows: List<List<T>>) -> Int
     Iter.map(rows, Iter.count) |> Iter.sum()
-}
+end
 
-test "the route list of an app" {
+test "the route list of an app"
     table = [(Route{path: "/"}, home), (Route{path: "/about"}, about)]
 
     assert routes.serve(table, "/") == "home /"
     assert routes.serve(table, "/about") == "about /about"
     assert routes.serve(table, "/x") == "not found"
-}
+end
 
-test "List" {
+test "List"
     ints = [1, 2, 3]
     pts = [Pt{x: 1}, Pt{x: 2}]
     piped = ints |> shown()
@@ -104,26 +104,26 @@ test "List" {
     assert piped == "1,2,3"
     assert shown(xs: [True, False]) == "True,False"
     assert shown(widened(ints)) == "1,2,3"
-}
+end
 
-test "branches and generic calls" {
+test "branches and generic calls"
     ints = [1, 2]
     words = ["a"]
-    either: List<Display> = if Iter.count(ints) > 1 { ints } else { words }
+    either: List<Display> = if Iter.count(ints) > 1 then ints else words
     rows: List<List<Display>> = [ints, words]
 
     assert shown(either) == "1,2"
     assert total(rows) == 3
-}
+end
 
-test "nested collections" {
+test "nested collections"
     rows = [[1, 2], [3]]
     wide: List<List<Display>> = rows
 
     assert Iter.map(wide, shown) |> Iter.to_list() == ["1,2", "3"]
-}
+end
 
-test "Maybe and Result" {
+test "Maybe and Result"
     m: Maybe<Int> = Some(4)
     none: Maybe<Int> = None
     r: Result<Int, String> = Ok(5)
@@ -133,9 +133,9 @@ test "Maybe and Result" {
     assert first_shown(none) == "none"
     assert ok_shown(r) == "5"
     assert ok_shown(e) == "bad"
-}
+end
 
-test "functions" {
+test "functions"
     fs = [double]
     gs = [describe]
     piped = fs |> apply_all(4)
@@ -143,27 +143,27 @@ test "functions" {
     assert apply_all(fs, 3) == ["6"]
     assert on_ints(gs) == ["<7>"]
     assert piped == ["8"]
-}
+end
 
-test "tuples, records and fields" {
+test "tuples, records and fields"
     pairs = [("a", Pt{x: 5})]
     named: List<(String, Named)> = pairs
-    records = [.{n: 1}]
-    shown_records: List<.{n: Display}> = records
+    records = [{n: 1}]
+    shown_records: List<{n: Display}> = records
     pts = [Pt{x: 8}]
     gallery = Gallery{items: pts}
 
     assert Iter.map(named, fn (k, v) -> k + Named.name(v)) |> Iter.to_list() == ["apt5"]
     assert Iter.map(shown_records, fn r -> Display.to_string(r.n)) |> Iter.to_list() == ["1"]
     assert names(gallery.items) == "pt8"
-}
+end
 
-test "Map and Set" {
-    by_name = %{"a" => Pt{x: 1}}
+test "Map and Set"
+    by_name = {"a" => Pt{x: 1}}
     wide: Map<String, Named> = by_name
-    keyed = %{Pt{x: 2} => 1}
+    keyed = {Pt{x: 2} => 1}
     wide_keys: Map<Hashable, Int> = keyed
-    set = %[1, 2]
+    set = Set[1, 2]
     wide_set: Set<Hashable> = set
 
     assert Iter.map(Map.values(wide), Named.name) |> Iter.to_list() == ["pt1"]
@@ -171,4 +171,4 @@ test "Map and Set" {
     assert Map.size(wide_keys) == 1
     assert Set.contains(wide_set, 2)
     assert not Set.contains(wide_set, 3)
-}
+end

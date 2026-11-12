@@ -24,19 +24,19 @@ once letter_count = Vector.length(alphabet)
 once random_key_length = 100
 
 /// A cipher with its key, a non-empty string of lowercase letters.
-pub opaque struct Cipher {
+pub opaque struct Cipher
     key: String
-}
+end
 
-impl Cipher {
+impl Cipher
     /// The cipher with `key`, a non-empty string of lowercase letters.
-    pub fn new(key: String) -> Cipher {
-        .{key}
-    }
+    pub fn new(key: String) -> Cipher
+        {key:}
+    end
 
     /// A cipher with a random key of 100 lowercase letters drawn from
     /// `seed`, and the seed to draw from next.
-    pub fn random(seed: Seed) -> (Cipher, Seed) {
+    pub fn random(seed: Seed) -> (Cipher, Seed)
         (letters, next) =
             Generator.int(0, letter_count - 1)
             |> Generator.map(&Vector.get(alphabet, &1)!)
@@ -44,29 +44,29 @@ impl Cipher {
             |> Generator.step(seed)
 
         (Cipher{key: String.from_codepoints(letters)}, next)
-    }
+    end
 
     /// The cipher's key.
-    pub fn key(cipher: Cipher) -> String {
+    pub fn key(cipher: Cipher) -> String
         cipher.key
-    }
+    end
 
     /// `plaintext`, lowercase letters, with each letter moved forward by its
     /// key letter.
-    pub fn encode(cipher: Cipher, plaintext: String) -> String {
+    pub fn encode(cipher: Cipher, plaintext: String) -> String
         shift(cipher, plaintext, 1)
-    }
+    end
 
     /// `ciphertext`, lowercase letters, with each letter moved back by its
     /// key letter: the inverse of `encode`.
-    pub fn decode(cipher: Cipher, ciphertext: String) -> String {
+    pub fn decode(cipher: Cipher, ciphertext: String) -> String
         shift(cipher, ciphertext, -1)
-    }
-}
+    end
+end
 
 /// `text` with each letter moved by its key letter's number, forward for a
 /// `direction` of 1 and back for -1, wrapping around the alphabet.
-fn shift(cipher: Cipher, text: String, direction: Int) -> String {
+fn shift(cipher: Cipher, text: String, direction: Int) -> String
     key =
         cipher.key
         |> String.to_codepoints()
@@ -75,86 +75,86 @@ fn shift(cipher: Cipher, text: String, direction: Int) -> String {
     text
     |> String.to_codepoints()
     |> Iter.zip(key)
-    |> Iter.map(fn (letter, by) -> {
+    |> Iter.map(fn (letter, by) ->
         moved = number(letter) + direction * number(by)
         Vector.get(alphabet, Int.modulo(moved, letter_count))!
-    })
+    end)
     |> Iter.to_list()
     |> String.from_codepoints()
-}
+end
 
 /// A lowercase letter's place in the alphabet, from 0 for `a`.
-fn number(letter: Codepoint) -> Int {
+fn number(letter: Codepoint) -> Int
     Codepoint.to_int(letter) - Codepoint.to_int('a')
-}
+end
 
 // FILE: simple_cipher_test.nomi
-import {
+import
     std::random.Seed
     simple_cipher.Cipher
-}
+end
 
-group "random key cipher" {
-    setup {
+group "random key cipher"
+    setup begin
         (cipher, _seed) = Seed.from_int(2026) |> Cipher.random()
         cipher
-    }
+    end
 
-    test "Can encode", cipher {
+    test "Can encode", cipher
         plaintext = "aaaaaaaaaa"
         key_start = Cipher.key(cipher) |> String.take(10)
 
         assert Cipher.encode(cipher, plaintext) == key_start
-    }
+    end
 
-    test "Can decode", cipher {
+    test "Can decode", cipher
         ciphertext = Cipher.key(cipher) |> String.take(10)
 
         assert Cipher.decode(cipher, ciphertext) == "aaaaaaaaaa"
-    }
+    end
 
-    test "Is reversible", cipher {
+    test "Is reversible", cipher
         plaintext = "abcdefghij"
 
         assert Cipher.decode(cipher, Cipher.encode(cipher, plaintext)) == plaintext
-    }
+    end
 
-    test "Key is made only of lowercase letters", cipher {
+    test "Key is made only of lowercase letters", cipher
         letters = Cipher.key(cipher) |> String.to_codepoints()
 
         refute Iter.is_empty(letters)
         assert Iter.all_match(letters, &(&1 in 'a'..='z'))
-    }
-}
+    end
+end
 
-test "substitution cipher encodes" {
+test "substitution cipher encodes"
     [
         ("Can encode", "abcdefghij", "aaaaaaaaaa", "abcdefghij"),
         ("Can double shift encode", "iamapandabear", "iamapandabear", "qayaeaagaciai"),
         ("Can wrap on encode", "abcdefghij", "zzzzzzzzzz", "zabcdefghi"),
         ("Can encode messages longer than the key", "abc", "iamapandabear", "iboaqcnecbfcr"),
     ]
-    |> subtests (description, key, plaintext, expected), description {
+    |> subtests (description, key, plaintext, expected), description
         assert Cipher.new(key) |> Cipher.encode(plaintext) == expected
-    }
-}
+    end
+end
 
-test "substitution cipher decodes" {
+test "substitution cipher decodes"
     [
         ("Can decode", "abcdefghij", "abcdefghij", "aaaaaaaaaa"),
         ("Can wrap on decode", "abcdefghij", "zabcdefghi", "zzzzzzzzzz"),
         ("Can decode messages longer than the key", "abc", "iboaqcnecbfcr", "iamapandabear"),
     ]
-    |> subtests (description, key, ciphertext, expected), description {
+    |> subtests (description, key, ciphertext, expected), description
         assert Cipher.new(key) |> Cipher.decode(ciphertext) == expected
-    }
-}
+    end
+end
 
-test "substitution cipher is reversible" {
+test "substitution cipher is reversible"
     cipher = Cipher.new("abcdefghij")
 
     assert Cipher.decode(cipher, Cipher.encode(cipher, "abcdefghij")) == "abcdefghij"
-}
+end
 ```
 <!-- expect
 ok random key cipher / Can encode

@@ -1,65 +1,65 @@
 import std::testing
 
-fn find_name(id: Int) -> Maybe<String> {
-    if id == 1 { Some("Ada") } else { None }
-}
+fn find_name(id: Int) -> Maybe<String>
+    if id == 1 then Some("Ada") else None
+end
 
-fn parse_id(s: String) -> Result<Int, String> {
-    case String.to_int(s) {
+fn parse_id(s: String) -> Result<Int, String>
+    case String.to_int(s)
         Some(id) -> Ok(id)
         None -> Err("expected a numeric id")
-    }
-}
+    end
+end
 
-test "maybe values can be asserted directly" {
+test "maybe values can be asserted directly"
     assert find_name(1) == Some("Ada")
     assert find_name(2) == None
-}
+end
 
-test "maybe shape can be asserted with predicates" {
+test "maybe shape can be asserted with predicates"
     assert Maybe.is_some(find_name(1))
     assert Maybe.is_none(find_name(2))
-}
+end
 
-test "assert checks maybe success shape" {
+test "assert checks maybe success shape"
     assert find_name(1)
 
     assert Some(name) = find_name(1)
     assert name == "Ada"
-}
+end
 
-test "refute checks maybe empty shape" {
+test "refute checks maybe empty shape"
     none = refute find_name(2)
     assert none == None
-}
+end
 
-test "result values can be asserted directly" {
+test "result values can be asserted directly"
     assert parse_id("42") == Ok(42)
     assert parse_id("wat") == Err("expected a numeric id")
-}
+end
 
-test "result shape can be asserted with predicates" {
+test "result shape can be asserted with predicates"
     assert Result.is_ok(parse_id("42"))
     assert Result.is_err(parse_id("wat"))
-}
+end
 
-test "assert checks result ok shape" {
+test "assert checks result ok shape"
     assert parse_id("42")
 
     assert Ok(id) = parse_id("42")
     assert id == 42
-}
+end
 
-test "refute checks result err shape" {
+test "refute checks result err shape"
     error = refute parse_id("wat")
     assert Err(message) = error
     assert message == "expected a numeric id"
-}
+end
 
-test "check returns assertion results with original subject values" {
+test "check returns assertion results with original subject values"
     parsed = testing.check(parse_id("42"))
     found = testing.check(find_name(1))
 
     assert parsed == Ok(Ok(42))
     assert found == Ok(Some("Ada"))
-}
+end

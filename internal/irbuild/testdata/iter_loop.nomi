@@ -33,70 +33,73 @@ import std::io
 // tail outright (`expected (Int) -> Int, got (Int) -> Unit`), and a loop that
 // takes `continue` cannot terminate at all, because `continue` retries with the
 // same state and nothing an immutable language can observe has changed.
-fn outer() -> Int {
+fn outer() -> Int
     7
-}
+end
 
-fn main() {
-    first = Iter.loop(0, fn n -> {
-        if n >= 3 {
+fn main()
+    first = Iter.loop(0, fn n ->
+        if n >= 3 then
             break n
-        } else {
+        else
             n + 1
-        }
-    })
+        end
+    end)
 
     io.print("break value: ${first}")
 
-    via_return = Iter.loop(1, fn n -> {
-        if n % 3 != 0 { return n + 1 }
+    via_return = Iter.loop(1, fn n ->
+        if n % 3 != 0 then return n + 1
         break n
-    })
+    end)
 
     io.print("return advances: ${via_return}")
 
-    _bare = Iter.loop(fn -> { break })
+    _bare = Iter.loop(fn ->
+        break
+    end)
+
     io.print("bare break terminated")
 
-    Iter.loop(fn -> {
+    Iter.loop(fn ->
         io.print("stateless loop ran")
         break
-    })
+    end)
 
-    seeded = Iter.loop(outer(), fn n -> {
-        if n >= 9 {
+    seeded = Iter.loop(outer(), fn n ->
+        if n >= 9 then
             break n
-        } else {
+        else
             n + 1
-        }
-    })
+        end
+    end)
 
     io.print("seed from closure scope: ${seeded}")
 
-    pair = Iter.loop((0, 1), fn state -> {
+    pair = Iter.loop((0, 1), fn state ->
         (a, b) = state
-        if b > 50 { break (a, b) }
+        if b > 50 then break (a, b)
         (b, a + b)
-    })
+    end)
 
     io.print("fib pair: ${pair}")
 
-    captured = Iter.loop(0, fn n -> {
+    captured = Iter.loop(0, fn n ->
         peek = fn -> n * 10
-        if n == 4 { break peek() }
+        if n == 4 then break peek()
         n + 1
-    })
+    end)
 
     io.print("captured per iteration: ${captured}")
 
     count = 0
 
-    shadowed = Iter.loop(0, fn n -> {
+    shadowed = Iter.loop(0, fn n ->
         count = count + 1
         io.print("count ${count}")
-        if n == 2 { break count }
+        if n == 2 then break count
         n + 1
-    })
+    end)
 
     io.print("shadowed rebinding: ${shadowed} (outer count still ${count})")
-}
+end

@@ -48,26 +48,26 @@ func TestReleaseFix_DefersTheReleaseAndCommits(t *testing.T) {
 		{
 			"reader",
 			"Release `r`",
-			"import std::fs\nimport std::io.{Error, Reader}\n\nfn all(path: String) -> Result<String, Error> {\n    r = fs.open(path)?\n    Reader.read_all_text(r)\n}\n\nfn main() {\n    _ = all(\"a\")\n}\n",
-			"import std::fs\nimport std::io.{Error, Reader}\n\nfn all(path: String) -> Result<String, Error> {\n    r = fs.open(path)?\n    defer Reader.close_quietly(r)\n    Reader.read_all_text(r)\n}\n\nfn main() {\n    _ = all(\"a\")\n}\n",
+			"import std::fs\nimport std::io.{Error, Reader}\n\nfn all(path: String) -> Result<String, Error>\n    r = fs.open(path)?\n    Reader.read_all_text(r)\nend\n\nfn main()\n    _ = all(\"a\")\nend\n",
+			"import std::fs\nimport std::io.{Error, Reader}\n\nfn all(path: String) -> Result<String, Error>\n    r = fs.open(path)?\n    defer Reader.close_quietly(r)\n    Reader.read_all_text(r)\nend\n\nfn main()\n    _ = all(\"a\")\nend\n",
 		},
 		{
 			"writer",
 			"Release `w`",
-			"import std::fs\nimport std::io.{Error, Writer}\n\nfn save(path: String) -> Result<Unit, Error> {\n    w = fs.create(path)?\n    Writer.write_text(w, \"x\")?\n    Ok(Unit)\n}\n\nfn main() {\n    _ = save(\"a\")\n}\n",
-			"import std::fs\nimport std::io.{Error, Writer}\n\nfn save(path: String) -> Result<Unit, Error> {\n    w = fs.create(path)?\n    defer Writer.discard(w)\n    Writer.write_text(w, \"x\")?\n    Writer.close(w)?\n    Ok(Unit)\n}\n\nfn main() {\n    _ = save(\"a\")\n}\n",
+			"import std::fs\nimport std::io.{Error, Writer}\n\nfn save(path: String) -> Result<Unit, Error>\n    w = fs.create(path)?\n    Writer.write_text(w, \"x\")?\n    Ok(Unit)\nend\n\nfn main()\n    _ = save(\"a\")\nend\n",
+			"import std::fs\nimport std::io.{Error, Writer}\n\nfn save(path: String) -> Result<Unit, Error>\n    w = fs.create(path)?\n    defer Writer.discard(w)\n    Writer.write_text(w, \"x\")?\n    Writer.close(w)?\n    Ok(Unit)\nend\n\nfn main()\n    _ = save(\"a\")\nend\n",
 		},
 		{
 			"dropped reader",
 			"Release the `Reader`",
-			"import std::fs\nimport std::io.{Error, Reader}\n\nfn touch(path: String) -> Result<Unit, Error> {\n    _ = fs.open(path)?\n    Ok(Unit)\n}\n\nfn main() {\n    _ = touch(\"a\")\n}\n",
-			"import std::fs\nimport std::io.{Error, Reader}\n\nfn touch(path: String) -> Result<Unit, Error> {\n    reader = fs.open(path)?\n    defer Reader.close_quietly(reader)\n    Ok(Unit)\n}\n\nfn main() {\n    _ = touch(\"a\")\n}\n",
+			"import std::fs\nimport std::io.{Error, Reader}\n\nfn touch(path: String) -> Result<Unit, Error>\n    _ = fs.open(path)?\n    Ok(Unit)\nend\n\nfn main()\n    _ = touch(\"a\")\nend\n",
+			"import std::fs\nimport std::io.{Error, Reader}\n\nfn touch(path: String) -> Result<Unit, Error>\n    reader = fs.open(path)?\n    defer Reader.close_quietly(reader)\n    Ok(Unit)\nend\n\nfn main()\n    _ = touch(\"a\")\nend\n",
 		},
 		{
 			"missing close",
 			"Commit `w`",
-			"import std::fs\nimport std::io.{Error, Writer}\n\nfn save(path: String) -> Result<Unit, Error> {\n    w = fs.create(path)?\n    defer Writer.discard(w)\n    Writer.write_text(w, \"x\")?\n    Ok(Unit)\n}\n\nfn main() {\n    _ = save(\"a\")\n}\n",
-			"import std::fs\nimport std::io.{Error, Writer}\n\nfn save(path: String) -> Result<Unit, Error> {\n    w = fs.create(path)?\n    defer Writer.discard(w)\n    Writer.write_text(w, \"x\")?\n    Writer.close(w)?\n    Ok(Unit)\n}\n\nfn main() {\n    _ = save(\"a\")\n}\n",
+			"import std::fs\nimport std::io.{Error, Writer}\n\nfn save(path: String) -> Result<Unit, Error>\n    w = fs.create(path)?\n    defer Writer.discard(w)\n    Writer.write_text(w, \"x\")?\n    Ok(Unit)\nend\n\nfn main()\n    _ = save(\"a\")\nend\n",
+			"import std::fs\nimport std::io.{Error, Writer}\n\nfn save(path: String) -> Result<Unit, Error>\n    w = fs.create(path)?\n    defer Writer.discard(w)\n    Writer.write_text(w, \"x\")?\n    Writer.close(w)?\n    Ok(Unit)\nend\n\nfn main()\n    _ = save(\"a\")\nend\n",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -1,9 +1,9 @@
-import {
+import
     std::io.{Reader, Writer}
     std::xml.{self, Attribute, Element, Error, Name, Namespace, Node, Token, WriteOptions}
-}
+end
 
-test "a document reads into a tree and writes back as the same tree" {
+test "a document reads into a tree and writes back as the same tree"
     text = """
         <?xml version="1.0" encoding="UTF-8"?>
         <!-- before the root -->
@@ -35,14 +35,14 @@ test "a document reads into a tree and writes back as the same tree" {
     assert thumb.name == Name{local: "thumb", space: "urn:media", prefix: "m"}
     assert Element.child(entry, "thumb", space: Some(atom)) == None
 
-    assert Iter.any_match(doc.children, fn node -> {
+    assert Iter.any_match(doc.children, fn node ->
         node == Node.Instruction{target: "render", data: "fast"}
-    })
+    end)
 
     assert xml.decode(xml.encode(doc)!) == Ok(doc)
-}
+end
 
-test "namespaces a hand-built tree names are declared where they are not in scope" {
+test "namespaces a hand-built tree names are declared where they are not in scope"
     tree = Element{
         name: Name{local: "a", space: "urn:a"},
         children: [
@@ -72,9 +72,9 @@ test "namespaces a hand-built tree names are declared where they are not in scop
         "",
         "urn:a",
     ]
-}
+end
 
-test "text and attributes are escaped so they read back as written" {
+test "text and attributes are escaped so they read back as written"
     awkward = "a < b && c > d \"q\" 'a' ]]> \r\n\ttab"
 
     tree = Element{
@@ -88,16 +88,16 @@ test "text and attributes are escaped so they read back as written" {
     back = xml.decode(xml.encode(tree)!)!
     assert Element.attribute(back, "v") == Some(awkward)
     assert Element.text(back) == awkward
-}
+end
 
-test "entities and character references are read, and others refused" {
+test "entities and character references are read, and others refused"
     assert Element.text(xml.decode("<a>&lt;&gt;&amp;&apos;&quot;&#233;&#x1F642;</a>")!)
         == "<>&'\"é🙂"
 
     assert xml.decode("<a>&nbsp;</a>") is Err(.Syntax{message: "invalid character entity &nbsp;"})
-}
+end
 
-test "an XXE document is refused before it expands anything" {
+test "an XXE document is refused before it expands anything"
     xxe = """
         <?xml version="1.0"?>
         <!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
@@ -114,9 +114,9 @@ test "an XXE document is refused before it expands anything" {
     assert xml.decode(xxe, allow_doctype: True) is Err(.Syntax{
         message: "invalid character entity &xxe;",
     })
-}
+end
 
-test "a billion laughs document is refused, and inert even with its DOCTYPE skipped" {
+test "a billion laughs document is refused, and inert even with its DOCTYPE skipped"
     laughs = """
         <!DOCTYPE lolz [
           <!ENTITY lol "lol">
@@ -132,9 +132,9 @@ test "a billion laughs document is refused, and inert even with its DOCTYPE skip
     })
 
     assert xml.decode("<!DOCTYPE html><html/>", allow_doctype: True) == Ok(Element.new("html"))
-}
+end
 
-test "malformed documents name their line and column" {
+test "malformed documents name their line and column"
     assert xml.decode("<a>\n  <b></c>\n</a>") == Err(Error.Syntax{
             message: "<b> is closed by </c>",
             line: 2,
@@ -155,31 +155,32 @@ test "malformed documents name their line and column" {
     assert xml.decode("<a/><?xml version='1.0'?>") is Err(.Syntax{})
     assert xml.decode("<?xml version='1.0' encoding='ISO-8859-1'?><a/>") is Err(.Syntax{})
     assert xml.decode_bytes(Bytes.from_list([60, 97, 62, 255, 60, 47, 97, 62])) is Err(.Syntax{})
-}
+end
 
-test "a byte order mark before the document is dropped" {
+test "a byte order mark before the document is dropped"
     assert xml.decode("\u{feff}<a/>") == Ok(Element.new("a"))
-}
+end
 
-test "a stream is read a token at a time" {
+test "a stream is read a token at a time"
     r = Reader.from_text_chunks(["<list><it", "em n='1'/>", "<item n='2'/></list>"])
 
     numbers =
         xml.tokens(r)
-        |> Iter.flat_map(fn token -> {
-            case token {
-                Ok(.Start{name, attributes}) when name.local == "item" ->
+        |> Iter.flat_map(fn token ->
+            case token
+                Ok(.Start{name:, attributes:}) when name.local == "item" ->
                     attributes |> Iter.map(fn a -> a.value) |> Iter.to_list()
 
-                _ -> []
-            }
-        })
+                _ ->
+                    []
+            end
+        end)
         |> Iter.to_list()
 
     assert numbers == ["1", "2"]
-}
+end
 
-test "a stream's failure is its last token" {
+test "a stream's failure is its last token"
     tokens = Iter.to_list(xml.tokens(Reader.from_text("<a>x</b>")))
 
     assert tokens == [
@@ -191,9 +192,9 @@ test "a stream's failure is its last token" {
     closed = Reader.from_text("<a/>")
     _ = Reader.close(closed)
     assert Iter.to_list(xml.tokens(closed)) is [Err(.Io{})]
-}
+end
 
-test "indentation lays out element-only content and leaves mixed content alone" {
+test "indentation lays out element-only content and leaves mixed content alone"
     doc = xml.decode("<a> <b>1</b>\n<c><d/></c><p>mixed <i>text</i></p></a>")!
 
     assert xml.encode(doc, WriteOptions{indent: "  "}) == Ok(
@@ -207,9 +208,9 @@ test "indentation lays out element-only content and leaves mixed content alone" 
         </a>
         """
     )
-}
+end
 
-test "a tree that cannot be written is refused" {
+test "a tree that cannot be written is refused"
     assert xml.encode(Element.new("1a")) is Err(.Invalid{})
     assert xml.encode(Element.new("a", [Node.Comment("a -- b")])) is Err(.Invalid{})
 
@@ -218,13 +219,13 @@ test "a tree that cannot be written is refused" {
     ) is Err(.Invalid{})
 
     assert xml.encode(Element{name: Name{local: "a", prefix: "p"}}) is Err(.Invalid{})
-}
+end
 
-test "writing goes to a writer with a declaration" {
-    (written, data) = Writer.collect(fn w -> {
+test "writing goes to a writer with a declaration"
+    (written, data) = Writer.collect(fn w ->
         xml.write(w, Element.new("a", [Node.Text("é")]), WriteOptions{declaration: True})
-    })
+    end)
 
     assert written == Ok(Unit)
     assert Bytes.to_string(data) == Ok("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<a>é</a>")
-}
+end

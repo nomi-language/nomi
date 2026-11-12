@@ -17,20 +17,20 @@
 // them exactly as one would.
 import shout.Shout
 
-pub struct Widget {
+pub struct Widget
     n: Int
-}
+end
 
-impl Shout for Widget {
-    fn shout(w: Widget) -> String {
+impl Shout for Widget
+    fn shout(w: Widget) -> String
         "other widget ${w.n}"
-    }
-}
+    end
+end
 
-fn announce<T>(x: T) -> String where T: Shout {
+fn announce<T>(x: T) -> String where T: Shout
     T.shout(x)
-}
+end
 
-pub fn other_announced() -> String {
+pub fn other_announced() -> String
     announce(Widget{n: 7})
-}
+end

@@ -34,7 +34,7 @@ func TestVectorHostsValidateOperands(t *testing.T) {
 func TestVectorDebugPropagatesUnsupportedElement(t *testing.T) {
 	v := rt.VectorOf([]any{"a\nb\t\"\\z"})
 	got, err := debugText(v)
-	if err != nil || got != "#[\"a\\nb\\t\\\"\\\\z\"]" {
+	if err != nil || got != "Vector[\"a\\nb\\t\\\"\\\\z\"]" {
 		t.Fatalf("Debug: %q, %v", got, err)
 	}
 	v = rt.VectorOf([]any{rtStruct("Point", "x", int64(1))})
@@ -48,7 +48,7 @@ func TestVectorDebugPropagatesUnsupportedElement(t *testing.T) {
 func TestVectorSet(t *testing.T) {
 	v := rt.VectorOf([]any{int64(1), int64(2), int64(3)})
 	set, err := vectorHost("Vector.set")(nil, ir.Pos{}, []any{v, int64(1), int64(20)})
-	if err != nil || rt.RowText(set) != "#[1, 20, 3]" || rt.RowText(v) != "#[1, 2, 3]" {
+	if err != nil || rt.RowText(set) != "Vector[1, 20, 3]" || rt.RowText(v) != "Vector[1, 2, 3]" {
 		t.Fatalf("set(v, 1, 20) = %v, v = %v, %v", rt.RowText(set), rt.RowText(v), err)
 	}
 	for key, args := range map[string][]any{

@@ -2,28 +2,28 @@
 // DEFAULT PARAMETER, plus an implementor. Deliberately shaped after
 // tests/11-interfaces-and-impls/interface_defaults/engine.nomi, which is
 // the corpus site this fixture exists for.
-pub enum Mode {
+pub enum Mode
     Fast
     Slow
-}
+end
 
-pub struct Engine {
+pub struct Engine
     name: String
-}
+end
 
-impl Powered for Engine {
-    fn label(e: Engine) -> String {
+impl Powered for Engine
+    fn label(e: Engine) -> String
         e.name
-    }
-}
+    end
+end
 
-pub interface Powered {
+pub interface Powered
     fn label(e: self) -> String
 
-    fn describe(e: self, mode: Mode = .Fast) -> String {
-        case mode {
+    fn describe(e: self, mode: Mode = .Fast) -> String
+        case mode
             .Fast -> Powered.label(e) + " (fast)"
             .Slow -> Powered.label(e) + " (slow)"
-        }
-    }
-}
+        end
+    end
+end

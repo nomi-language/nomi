@@ -30,51 +30,51 @@
 // spells out `pipeline: [...]` with every stage's expression and value in
 // order, and the recorded golden pins it byte for
 // byte.
-import {
+import
     std::assertions.AssertionFailure
     std::testing
-}
+end
 
-fn shout(s: String) -> String {
+fn shout(s: String) -> String
     String.uppercase(s)
-}
+end
 
-fn piped_check() -> Result<Bool, AssertionFailure> {
+fn piped_check() -> Result<Bool, AssertionFailure>
     found = testing.check(
         "Ada Lovelace"
         |> String.contains("Grace")
     )?
 
     Ok(found)
-}
+end
 
-fn unpiped_check() -> Result<Bool, AssertionFailure> {
+fn unpiped_check() -> Result<Bool, AssertionFailure>
     found = testing.check(String.contains("Ada Lovelace", "Grace"))?
 
     Ok(found)
-}
+end
 
-test "a pipeline-bound name prints its stages uncompacted" {
+test "a pipeline-bound name prints its stages uncompacted"
     found =
         "Ada Lovelace"
         |> String.contains("Grace")
 
     assert found
-}
+end
 
-test "a three-stage binding prints one row per cumulative prefix" {
+test "a three-stage binding prints one row per cumulative prefix"
     shouted =
         "ada"
         |> shout()
         |> String.contains("GRACE")
 
     assert shouted
-}
+end
 
-test "a piped check carries its stages on the whole-subject row" {
+test "a piped check carries its stages on the whole-subject row"
     assert Ok(True) = piped_check()
-}
+end
 
-test "an unpiped check beside it carries no pipeline at all" {
+test "an unpiped check beside it carries no pipeline at all"
     assert Ok(True) = unpiped_check()
-}
+end

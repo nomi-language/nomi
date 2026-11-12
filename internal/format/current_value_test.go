@@ -2,67 +2,67 @@ package format
 
 import "testing"
 
-// A bare `..` (`.{.., city: "NYC"}`, `[t, ..]`, `%[.., x]`, `#[.., x]`) lays
+// A bare `..` (`{.., city: "NYC"}`, `[t, ..]`, `[.., x]`, `[.., x]`) lays
 // out as the spread it is, with nothing after the `..`: flat when it fits,
 // one element per line when it does not or when it holds a comment.
 
 func TestFormat_CurrentValueInline(t *testing.T) {
-	roundTrip(t, `fn main() {
-    a = .{..user, address: .{.., city: "NYC"}}
-    b = %{..team, "home" => %{.., "city" => "Atlanta"}}
-    c = .{..account, log: [t, ..], seen: %[.., 3]}
-    d = .{..account, recent: #[.., 9], first: #[0, ..]}
-    e = Struct.update(user, .{address: .{.., zip: "1"}})
-    f = %[..s, 3, 4]
-}
+	roundTrip(t, `fn main()
+    a = {..user, address: {.., city: "NYC"}}
+    b = {..team, "home" => {.., "city" => "Atlanta"}}
+    c = {..account, log: [t, ..], seen: Set[.., 3]}
+    d = {..account, recent: Vector[.., 9], first: Vector[0, ..]}
+    e = Struct.update(user, {address: {.., zip: "1"}})
+    f = Set[..s, 3, 4]
+end
 `)
 }
 
 func TestFormat_CurrentValueSpacing(t *testing.T) {
-	migrates(t, `fn main() {
-    a = .{..user, address: .{ .. , city : "NYC" }}
-    b = .{..account, log: [t,..], seen: %[ ..,3], recent: #[ .. ,9]}
-}
-`, `fn main() {
-    a = .{..user, address: .{.., city: "NYC"}}
-    b = .{..account, log: [t, ..], seen: %[.., 3], recent: #[.., 9]}
-}
+	migrates(t, `fn main()
+    a = {..user, address: { .. , city : "NYC" }}
+    b = {..account, log: [t,..], seen: Set[ ..,3], recent: Vector[ .. ,9]}
+end
+`, `fn main()
+    a = {..user, address: {.., city: "NYC"}}
+    b = {..account, log: [t, ..], seen: Set[.., 3], recent: Vector[.., 9]}
+end
 `)
 }
 
 func TestFormat_CurrentValueBreaksByWidth(t *testing.T) {
-	migrates(t, `fn main() {
-    a = .{..user, address: .{.., street: "a fairly long street name here", city: "a fairly long city name too, longer"}}
-}
-`, `fn main() {
-    a = .{
+	migrates(t, `fn main()
+    a = {..user, address: {.., street: "a fairly long street name here", city: "a fairly long city name too, longer"}}
+end
+`, `fn main()
+    a = {
         ..user,
-        address: .{
+        address: {
             ..,
             street: "a fairly long street name here",
             city: "a fairly long city name too, longer",
         },
     }
-}
+end
 `)
 }
 
 func TestFormat_CurrentValueKeepsComments(t *testing.T) {
-	roundTrip(t, `fn main() {
-    a = .{
+	roundTrip(t, `fn main()
+    a = {
         ..user,
-        address: .{
+        address: {
             .., // the current address
             // only the city moves
             city: "NYC",
         },
     }
 
-    b = %[
+    b = Set[
         // the old set first
         ..,
         3,
     ]
-}
+end
 `)
 }

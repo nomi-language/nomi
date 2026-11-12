@@ -23,7 +23,7 @@ func (r *refactorRequest) patternMatches() []offer {
 			start, end, ok := r.span(b)
 			if ok {
 				indent := r.lineIndentOf(start)
-				text := "\n" + indent + "case " + b.Name + " {\n" + r.enumArms(et, indent+strings.Repeat(" ", format.IndentWidth), b) + indent + "}"
+				text := "\n" + indent + "case " + b.Name + "\n" + r.enumArms(et, indent+strings.Repeat(" ", format.IndentWidth), b) + indent + "end"
 				out = append(out, offer{title: "Pattern match on '" + b.Name + "'", edited: r.replace(end, end, text)})
 			}
 		}
@@ -36,7 +36,7 @@ func (r *refactorRequest) patternMatches() []offer {
 			start, end, ok := r.span(call)
 			if ok {
 				indent := r.lineIndentOf(start)
-				text := "case " + r.content[start:end] + " {\n" + r.enumArms(et, indent+strings.Repeat(" ", format.IndentWidth), call) + indent + "}"
+				text := "case " + r.content[start:end] + "\n" + r.enumArms(et, indent+strings.Repeat(" ", format.IndentWidth), call) + indent + "end"
 				out = append(out, offer{title: "Pattern match on the result of " + calleeName(call.(*ast.Call)), edited: r.replace(start, end, text)})
 			}
 		}

@@ -10,11 +10,11 @@ import "testing"
 func TestNamedArgConstructor_PositionalFormsAndInterfaceNamesRun(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-enum Shape {
+enum Shape
     Sq Int
     Pair (Int, Int)
     embeds Id
-}
+end
 
 derive Debug for Shape
 
@@ -26,26 +26,26 @@ type Two (Int, String)
 
 derive Debug for Two
 
-struct P {
+struct P
     x: Int
     y: Int
-}
+end
 
-fn say(n: Int) -> Int {
+fn say(n: Int) -> Int
     io.print("say ${n}")
     n
-}
+end
 
-fn mk() -> P {
+fn mk() -> P
     io.print("mk")
     P{x: 1, y: 1}
-}
+end
 
-fn show<T>(x: T) -> String where T: Display {
+fn show<T>(x: T) -> String where T: Display
     T.to_string(value: x)
-}
+end
 
-fn main() {
+fn main()
     a: Maybe<Int> = Some(1)
     b: Result<Int, String> = Ok(2)
     c: Shape = .Sq(3)
@@ -55,15 +55,15 @@ fn main() {
     g: Maybe<Int> = 7 |> Some()
     h = Two(8, "x")
     io.print(Debug.inspect((a, b, c, d, e, f(9), g, h)))
-    p = Struct.update(updates: .{x: say(10)}, original: mk())
+    p = Struct.update(updates: {x: say(10)}, original: mk())
     io.print("${p.x} ${p.y}")
-    q = Struct.update(updates: .{y: say(11)}, mk())
+    q = Struct.update(updates: {y: say(11)}, mk())
     io.print("${q.x} ${q.y}")
-    r = Struct.update(mk(), updates: .{y: say(12)})
+    r = Struct.update(mk(), updates: {y: say(12)})
     io.print("${r.x} ${r.y}")
     io.print(Display.to_string(value: 13))
     io.print(show(14))
-}
+end
 `)
 	want := `(Some(1), Ok(2), Sq(3), Pair(4, 5), Id(6), Some(9), Some(7), Two(8, "x"))
 say 10

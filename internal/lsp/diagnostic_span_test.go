@@ -44,7 +44,7 @@ func rangeText(r protocol.Range) string {
 // A diagnostic spans what it is about, its hints are `help:` lines of its
 // message, and its related locations are relatedInformation.
 func TestPublishedDiagnostics_RangeHintsAndRelated(t *testing.T) {
-	src := "fn dup() -> Int {\n    1\n}\n\nfn dup() -> Int {\n    2\n}\n\nfn f() -> Int {\n    count = 1\n    x: Int = \"é\"\n    count + cuont + x\n}\n"
+	src := "fn dup() -> Int\n    1\nend\n\nfn dup() -> Int\n    2\nend\n\nfn f() -> Int\n    count = 1\n    x: Int = \"é\"\n    count + cuont + x\nend\n"
 	diags := publishedFor(t, NewServer(), src, true)
 
 	dup := findDiag(t, diags, "'dup' is already defined in this scope as a function")
@@ -87,9 +87,9 @@ func TestPublishedDiagnostics_RangeHintsAndRelated(t *testing.T) {
 // the server survives a body that constructs and matches the rejected
 // variant.
 func TestPublishedDiagnostics_EmbedsEnum(t *testing.T) {
-	src := "enum Shape {\n    Square Int\n    Dot\n}\n\nenum Drawable {\n    embeds Shape\n    Line\n}\n\n" +
-		"fn side(d: Drawable) -> Int {\n    case d {\n        Drawable.Shape(Shape.Square(n)) -> n\n        _ -> 0\n    }\n}\n\n" +
-		"fn main() {\n    side(Drawable.Shape(Shape.Dot))\n}\n"
+	src := "enum Shape\n    Square Int\n    Dot\nend\n\nenum Drawable\n    embeds Shape\n    Line\nend\n\n" +
+		"fn side(d: Drawable) -> Int\n    case d\n        Drawable.Shape(Shape.Square(n)) -> n\n        _ -> 0\n    end\nend\n\n" +
+		"fn main()\n    side(Drawable.Shape(Shape.Dot))\nend\n"
 	diags := publishedFor(t, NewServer(), src, true)
 	d := findDiag(t, diags, "`Shape` is an enum, and an enum cannot be embedded in another enum")
 	if got := rangeText(d.Range); got != "6:11-6:16" {
@@ -103,7 +103,7 @@ func TestPublishedDiagnostics_EmbedsEnum(t *testing.T) {
 // A wrong argument count is published over the call when it is short, and
 // over the extra arguments when it passes too many.
 func TestPublishedDiagnostics_ArityIsAtTheCall(t *testing.T) {
-	src := "fn main() {\n    _ = Decimal.round(1d)\n    _ = String.trim(\"a\", \"b\")\n}\n"
+	src := "fn main()\n    _ = Decimal.round(1d)\n    _ = String.trim(\"a\", \"b\")\nend\n"
 	diags := publishedFor(t, NewServer(), src, true)
 	if got := rangeText(findDiag(t, diags, "expected 3 arguments, got 1").Range); got != "1:8-1:25" {
 		t.Errorf("too-few range %s, want 1:8-1:25", got)
@@ -129,7 +129,7 @@ func TestClientRelatedInformation(t *testing.T) {
 
 // A parse error spans the token it is reported at.
 func TestPublishedDiagnostics_ParseErrorSpansItsToken(t *testing.T) {
-	diags := publishedFor(t, NewServer(), "fn f() -> Int {\n    1 +\n}\n", true)
+	diags := publishedFor(t, NewServer(), "fn f() -> Int\n    1 +\nend\n", true)
 	if len(diags) == 0 {
 		t.Fatal("no diagnostics")
 	}
@@ -172,10 +172,10 @@ func fillAt(t *testing.T, marked string) []protocol.CodeAction {
 // not only on the span's first character.
 func TestQuickFixes_OfferedAnywhereInTheSpan(t *testing.T) {
 	for _, tc := range []struct{ name, src, title string }{
-		{"missing function", fillShapeDecls + "impl Shape for Squ‸are {\n}\n", "Implement missing functions"},
-		{"missing field", "struct Point {\n    x: Int\n    y: Int\n}\n\nfn f() -> Point {\n    Poi‸nt{x: 1}\n}\n", "Add missing field 'y'"},
-		{"missing arm", "enum Color {\n    Red\n    Green\n}\n\nfn f(c: Color) -> Int {\n    case ‸c {\n        Color.Red -> 1\n    }\n}\n", "Add missing arm .Green"},
-		{"undefined call", "fn f() -> Int {\n    sho‸ut(1)\n}\n", "Generate function 'shout'"},
+		{"missing function", fillShapeDecls + "impl Shape for Squ‸are\nend\n", "Implement missing functions"},
+		{"missing field", "struct Point\n    x: Int\n    y: Int\nend\n\nfn f() -> Point\n    Poi‸nt{x: 1}\nend\n", "Add missing field 'y'"},
+		{"missing arm", "enum Color\n    Red\n    Green\nend\n\nfn f(c: Color) -> Int\n    case ‸c\n        Color.Red -> 1\n    end\nend\n", "Add missing arm .Green"},
+		{"undefined call", "fn f() -> Int\n    sho‸ut(1)\nend\n", "Generate function 'shout'"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			actions := fillAt(t, tc.src)
@@ -195,7 +195,7 @@ func TestQuickFixes_OfferedAnywhereInTheSpan(t *testing.T) {
 // A fix finds its node by the diagnostic's range, so a range that starts
 // before the node's own position still reaches it.
 func TestFill_FindsTheNodeInsideTheRange(t *testing.T) {
-	src := "struct Point {\n    x: Int\n    y: Int\n}\n\nfn f() -> Point {\n    Point{x: 1}\n}\n"
+	src := "struct Point\n    x: Int\n    y: Int\nend\n\nfn f() -> Point\n    Point{x: 1}\nend\n"
 	s := NewServer()
 	all := publishedFor(t, s, src, true)
 	d := findDiag(t, all, "missing field 'y' of Point")

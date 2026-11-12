@@ -35,7 +35,7 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		return no()
 	}
 	if ti, isType := fa.Object.(*ast.TypeIdent); isType && ti.Name == "Struct" && fa.Field.Name == "update" && !bl.g.isBoundTypeParam("Struct") {
-		// `Struct.update(updates: .{x: 1}, original: p)`: the patch must stay
+		// `Struct.update(updates: {x: 1}, original: p)`: the patch must stay
 		// a literal the merge reads, which a stand-in for an evaluated
 		// temporary is not, so the update places its own arguments.
 		if bl.recording > 0 {
@@ -50,18 +50,16 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	// names its parameters as a Nomi-bodied one does, and its defaults are
 	// written the same way, so it takes the same path.
 	var params []ast.Param
-	var fd *ast.FuncDef
 	switch def := sym.Node.(type) {
 	case *ast.FuncDef:
-		params, fd = def.Params, def
+		params = def.Params
 	case *ast.ExternFunc:
-		params, fd = def.Params, &ast.FuncDef{Name: def.Name, Params: def.Params, ReturnTypeExpr: def.ReturnTypeExpr}
+		params = def.Params
 	case *ast.InterfaceMethod:
 		params = def.Params
 	default:
 		return no()
 	}
-	isFunc := fd != nil
 	// A destructuring parameter's name is the parser's synthesized one,
 	// which no named argument can spell, so only a positional fills it.
 	names := make([]string, len(params))
@@ -131,76 +129,69 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	for i := 0; i < last; i++ {
 		gap = gap || !filled[i]
 	}
-	if gap && !isFunc {
-		// `Shape.scale(c, by: 2)` leaving a defaulted slot of an interface
-		// function empty: the declaration the call reaches gives the
-		// default, as for a call omitting trailing slots.
-		sig, found := bl.ifaceGapDefaults(t, sym.Node.(*ast.InterfaceMethod), kinds, temps)
-		if !found {
-			return no()
-		}
-		for i, k := range sig.params {
-			if temps[i] == ir.NoTemp {
-				kinds[i] = k
-			}
-		}
-		if !bl.callDefaults(sig, temps) {
-			return no()
-		}
-		last = len(temps) - 1
-	}
-	if gap && isFunc {
-		if filledHere, handled := bl.namedSiblingImplFill(t, fa, fd, kinds, temps); handled {
-			// `Fake.new(answer: f)`, whose skipped default names what only
-			// the declaring file can: that file's accessors fill every
-			// omitted slot.
-			if !filledHere {
-				return no()
-			}
-			gap = false
-			last = len(temps) - 1
-		}
-	}
-	if gap && isFunc {
-		if filledHere, handled := bl.namedInstanceImplFill(t, fd, kinds, temps); handled {
-			// `Job.new("k", max_attempts: 3, send)` against another file's
-			// generic impl, whose skipped default names what only the
-			// declaring file can: that file's accessors for the instance
-			// fill every omitted slot.
-			if !filledHere {
-				return no()
-			}
-			gap = false
-			last = len(temps) - 1
-		}
-	}
-	if gap && isFunc {
+	if gap {
 		// `Date.new(2026, day: 5)`: a slot omitted before a supplied one
-		// takes its default here, evaluated in the callee's scope after the
-		// written operands, as a direct call's is (callDefaults). The
-		// planners then see every slot up to the last supplied one. A
-		// generic callee's slot (`other: Maybe<T> = None`) is read at the
-		// call's instantiation, which the checker recorded.
+		// takes its default before the call is planned, after the written
+		// operands, as every omitted slot does (fillCallDefaults). The
+		// planners then see every slot. An omitted slot's kind is the
+		// function's the call reaches, when another file declares it, else
+		// the checker's: the call's instantiated signature when it
+		// recorded one (`other: Maybe<T> = None`), or the parameter's
+		// declared type.
+		rec := bl.g.callDefaultsOf(t)
+		if rec == nil || len(rec.Params) != len(temps) {
+			return no()
+		}
+		home, params := bl.namedCallHome(t, fa, rec, kinds, temps)
+		if params != nil && len(params) != len(temps) {
+			return no()
+		}
 		checked := bl.g.checkedCallSignature(t)
-		if checked != nil && len(checked.Params) != len(fd.Params) {
+		if checked != nil && len(checked.Params) != len(temps) {
 			checked = nil
 		}
-		for i, p := range fd.Params {
-			if temps[i] == ir.NoTemp {
-				if p.TypeAnnotation == nil && p.Default == nil {
-					return no()
-				}
-				if checked != nil {
-					kinds[i] = bl.g.projectFilledHoles(checked.Params[i])
-				} else {
-					kinds[i] = bl.g.paramKind(p)
-				}
-				if !irCallOperandKind(kinds[i]) {
+		for i := range temps {
+			if temps[i] != ir.NoTemp {
+				continue
+			}
+			switch {
+			case params != nil:
+				kinds[i] = params[i]
+			case checked != nil:
+				kinds[i] = bl.g.project(checked.Params[i])
+			default:
+				kinds[i] = bl.g.paramKind(rec.Params[i])
+			}
+			if !irCallOperandKind(kinds[i]) {
+				return no()
+			}
+		}
+		var omitted []int
+		for i, tmp := range temps {
+			if tmp == ir.NoTemp {
+				omitted = append(omitted, i)
+			}
+		}
+		if byAccessor(defaultParams(rec, home, omitted), home, omitted) {
+			// The declaring file's accessors take its parameter kinds: a
+			// written operand of an interface-typed slot enters it by
+			// erasure first, as a positional call's does
+			// (qualEraseSlotted).
+			for i, tmp := range temps {
+				switch {
+				case tmp == ir.NoTemp || kinds[i] == params[i]:
+				case irExistentialKind(params[i]):
+					v, got, erased := bl.coerceEmpty(t, tmp, kinds[i], params[i])
+					if !erased {
+						return no()
+					}
+					temps[i], kinds[i] = v, got
+				default:
 					return no()
 				}
 			}
 		}
-		if !bl.callDefaults(&fnSig{decl: fd, params: kinds}, temps) {
+		if !bl.fillCallDefaults(t, kinds, temps, nil, home) {
 			return no()
 		}
 		last = len(temps) - 1
@@ -251,122 +242,6 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	return v, k, mobile, ok
 }
 
-// ifaceGapDefaults is the declaration whose defaults fill the slots an
-// interface function's named call leaves empty before a supplied one, with
-// its parameter kinds. A concrete receiver's is the implementation the call
-// reaches, whose defaults a call omitting trailing slots takes
-// (implDefaultArgs): an override's own, or the interface's default copied
-// into the impl. An erased receiver's is the interface's declaration, as in
-// erasedInterfacePlan.
-func (bl *irScalarBuilder) ifaceGapDefaults(t *ast.Call, im *ast.InterfaceMethod, kinds []kind, temps []ir.Temp) (*fnSig, bool) {
-	recvAt := selfShapeOf(im.Params, im.ReturnTypeExpr).recvAt()
-	if recvAt < 0 || recvAt >= len(temps) || temps[recvAt] == ir.NoTemp {
-		return nil, false
-	}
-	recv := kinds[recvAt]
-	if recv.tag == tagIface {
-		m := recv.iface.methods[im.Name]
-		if m == nil || m.decl != im || len(m.params) != len(temps) {
-			return nil, false
-		}
-		params := make([]kind, len(m.params))
-		for i := range params {
-			if m.shape.selfTyped(i) {
-				params[i] = recv
-				continue
-			}
-			params[i] = m.params[i]
-		}
-		return &fnSig{decl: &ast.FuncDef{Name: m.name, Params: im.Params}, params: params}, true
-	}
-	for _, d := range bl.g.ifaces {
-		if m := d.methods[im.Name]; m == nil || m.decl != im {
-			continue
-		}
-		impl := bl.g.implsByIface[bl.g.implsKey(d)][recv]
-		if impl == nil {
-			// The impl is another file's (`impl Shape for Sq` beside
-			// `Sq`).
-			break
-		}
-		if !impl.lowerable {
-			return nil, false
-		}
-		it := impl.items[im.Name]
-		if it == nil {
-			it = bl.genericMethodItem(t, impl, im.Name)
-		}
-		if it == nil || !it.lowerable {
-			return nil, false
-		}
-		fd := irImplSource(it)
-		if fd == nil || len(fd.Params) != len(temps) || len(it.params) != len(temps) {
-			return nil, false
-		}
-		return &fnSig{decl: fd, params: append([]kind(nil), it.params...)}, true
-	}
-	return bl.siblingIfaceGapDefaults(t, im, recv, len(temps))
-}
-
-// siblingIfaceGapDefaults is ifaceGapDefaults for an impl another file
-// declares, of an interface declared in this file or another: the
-// declaring file's impl function, whose defaults are lowered here when
-// every name they mention resolves to the same declaration in both files
-// (siblingDefaultsAgree), as siblingDefaultArgs fills trailing ones.
-func (bl *irScalarBuilder) siblingIfaceGapDefaults(t *ast.Call, im *ast.InterfaceMethod, recv kind, arity int) (*fnSig, bool) {
-	fa, isField := t.Func.(*ast.FieldAccess)
-	if !isField || recv.tag != tagNamed || recv.def == nil {
-		return nil, false
-	}
-	owner, isType := fa.Object.(*ast.TypeIdent)
-	if !isType {
-		return nil, false
-	}
-	sym := resolvedTypeSymbol(bl.g.fa, owner.Name)
-	if sym == nil {
-		return nil, false
-	}
-	decl, isIface := sym.Node.(*ast.InterfaceDef)
-	if !isIface {
-		// `Square.describe(sq, times: 2)`, a default Square's block in
-		// another file inherits: the interface is the one declaring im.
-		for _, p := range im.Params {
-			if o, found := bl.g.ifaceParamDefault(p.Default); found && o.im == im {
-				decl, isIface = o.iface, true
-				break
-			}
-		}
-		if !isIface {
-			return nil, false
-		}
-	}
-	declares := false
-	for i := range decl.Methods {
-		declares = declares || &decl.Methods[i] == im
-	}
-	if !declares {
-		return nil, false
-	}
-	chosen, params, _, owning := bl.g.siblingImplMember(recv.def, im.Name, decl.Name)
-	if chosen == nil || len(chosen.fn.params0) != arity || len(params) != arity {
-		return nil, false
-	}
-	var slots []int
-	for i, p := range chosen.fn.params0 {
-		if p.Default != nil {
-			slots = append(slots, i)
-		}
-	}
-	// An inherited default's parameter defaults are the interface's, which
-	// callDefaults fills under their declaring file's names
-	// (ifaceslotdefault.go); an impl function's own lower here when their
-	// names agree.
-	if _, inherited := bl.g.ifaceParamDefault(chosen.fn.params0[slots[0]].Default); !inherited && !bl.siblingDefaultsAgree(chosen.fn, owning, slots) {
-		return nil, false
-	}
-	return &fnSig{decl: &ast.FuncDef{Name: im.Name, Params: chosen.fn.params0}, params: params}, true
-}
-
 // hasNamedArg reports whether any argument is written by name.
 func hasNamedArg(args []ast.Node) bool {
 	for _, a := range args {
@@ -375,4 +250,121 @@ func hasNamedArg(args []ast.Node) bool {
 		}
 	}
 	return false
+}
+
+// namedCallHome is where the callee of t, a named-argument call
+// `Owner.f(...)` leaving a slot out, is declared, for fillCallDefaults, with
+// its parameter kinds when the builder reaches it as another file's
+// function: a sibling file's inherent impl member, whose file builds
+// accessors for its defaults (irImplSlotDefaults), an impl function of
+// another file's generic type's instance (instImplAccessorsFor), or, for
+// an interface function the call dispatches on a type parameter, the impl
+// function this instance reaches, whose own defaults it takes.
+func (bl *irScalarBuilder) namedCallHome(t *ast.Call, fa *ast.FieldAccess, rec *analysis.DefaultedCall, kinds []kind, temps []ir.Temp) (defaultHome, []kind) {
+	g := bl.g
+	switch d := rec.Decl.(type) {
+	case *ast.FuncDef:
+		if g.reg != nil && g.files != nil {
+			if params, home, found := bl.siblingMemberHome(fa, d); found {
+				return home, params
+			}
+			if params, home, found := bl.instanceMemberHome(t, d); found {
+				return home, params
+			}
+		}
+	case *ast.InterfaceMethod:
+		if it := bl.reachedImplItem(d, kinds, temps); it != nil {
+			fd := irImplSource(it)
+			return defaultHome{params: fd.Params}, it.params
+		}
+	}
+	return defaultHome{owner: g.fileGen(rec.File)}, nil
+}
+
+// reachedImplItem is the impl function of this file's impl block that a
+// call of interface function im reaches at this instance's receiver, the
+// operand at im's self slot, or nil when the receiver is an interface value
+// or the impl is another file's.
+func (bl *irScalarBuilder) reachedImplItem(im *ast.InterfaceMethod, kinds []kind, temps []ir.Temp) *implItem {
+	recvAt := selfShapeOf(im.Params, im.ReturnTypeExpr).recvAt()
+	if recvAt < 0 || recvAt >= len(temps) || temps[recvAt] == ir.NoTemp {
+		return nil
+	}
+	recv := kinds[recvAt]
+	if recv.tag == tagIface {
+		return nil
+	}
+	for _, d := range bl.g.ifaces {
+		if m := d.methods[im.Name]; m == nil || m.decl != im {
+			continue
+		}
+		impl := bl.g.implsByIface[bl.g.implsKey(d)][recv]
+		if impl == nil || !impl.lowerable {
+			return nil
+		}
+		it := impl.items[im.Name]
+		if it == nil || !it.lowerable || irImplSource(it) == nil || len(it.params) != len(temps) {
+			return nil
+		}
+		return it
+	}
+	return nil
+}
+
+// siblingMemberHome is the parameter kinds and default home of fd when it
+// is a sibling file's inherent impl function `Type.f` names through fa.
+func (bl *irScalarBuilder) siblingMemberHome(fa *ast.FieldAccess, fd *ast.FuncDef) ([]kind, defaultHome, bool) {
+	g := bl.g
+	ti, isType := fa.Object.(*ast.TypeIdent)
+	if !isType || fa.Field == nil {
+		return nil, defaultHome{}, false
+	}
+	d, found := g.namedType(ti.Name)
+	if !found || d == nil || d.decl == nil || d.instOrigin != nil || d.genericOf != nil {
+		return nil, defaultHome{}, false
+	}
+	site, params, _, owning := g.siblingImplMemberBy(d, fa.Field.Name, "", nil)
+	if site == nil || site.item.decl != fd || !site.accessorDefaults() {
+		return nil, defaultHome{}, false
+	}
+	return params, site.defaultHome(owning), true
+}
+
+// instanceMemberHome is the parameter kinds and default home of fd when it
+// is another file's impl function of a generic type's instance, the one
+// the checker's signature for the call t names.
+func (bl *irScalarBuilder) instanceMemberHome(t *ast.Call, fd *ast.FuncDef) ([]kind, defaultHome, bool) {
+	g := bl.g
+	ft := g.checkedCallSignature(t)
+	if ft == nil {
+		return nil, defaultHome{}, false
+	}
+	for _, ty := range append(append([]analysis.Type(nil), ft.Params...), ft.Return) {
+		k := g.project(ty)
+		if k.tag != tagNamed || k.def == nil {
+			continue
+		}
+		src := k.def.instOrigin
+		if src == nil {
+			src = k.def
+		}
+		owner, d := g.instanceImplAnywhere(src, "", fd.Name)
+		if d == nil || d.items[fd.Name] == nil || irImplSource(d.items[fd.Name]) != fd {
+			continue
+		}
+		if owner == nil || owner == g {
+			return nil, defaultHome{}, false
+		}
+		it := d.items[fd.Name]
+		params := make([]kind, len(it.params))
+		for i, p := range it.params {
+			ip, imported := g.importKind(p)
+			if !imported {
+				return nil, defaultHome{}, false
+			}
+			params[i] = ip
+		}
+		return params, owner.instImplHome(d, it), true
+	}
+	return nil, defaultHome{}, false
 }

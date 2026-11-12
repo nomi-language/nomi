@@ -16,16 +16,16 @@ func checkSource(t *testing.T, src string) error {
 // An iter-sensitive function whose only callback use is in a test block is
 // accepted: test bodies and assertion operands are call sites.
 func TestIterCallback_ATestBodyIsACallSite(t *testing.T) {
-	const src = `fn skip_odd(n: Int) -> Int {
-  if n % 2 == 1 {
+	const src = `fn skip_odd(n: Int) -> Int
+  if n % 2 == 1 then
     continue
-  }
+  end
   n
-}
+end
 
-test "evens" {
+test "evens"
   assert Iter.map([1, 2, 3, 4], skip_odd) |> Iter.to_list() == [2, 4]
-}
+end
 `
 	if err := checkSource(t, src); err != nil {
 		t.Fatalf("the front end rejects a callback use inside a test: %v", err)
@@ -34,12 +34,12 @@ test "evens" {
 
 // A `break` written straight in a test body has no iteration to stop.
 func TestIterCallback_AStrayBreakInATestBodyIsReported(t *testing.T) {
-	const src = `test "stray" {
-  if True {
+	const src = `test "stray"
+  if True then
     break
-  }
+  end
   assert True
-}
+end
 `
 	err := checkSource(t, src)
 	if err == nil || !strings.Contains(err.Error(), "break") {
@@ -52,16 +52,16 @@ func TestIterCallback_AStrayBreakInATestBodyIsReported(t *testing.T) {
 // ordinary arity error, and a default on the callback lambda's accumulator
 // is a lambda default like any other, which the fold never reads.
 func TestIterCallback_AFoldTakesItsStartingValueAsAnArgument(t *testing.T) {
-	const prelude = `fn add(a: Int, b: Int) -> Int {
+	const prelude = `fn add(a: Int, b: Int) -> Int
   a + b
-}
+end
 
-fn step(n: Int) -> Int {
-  if n > 3 { break n }
+fn step(n: Int) -> Int
+  if n > 3 then break n
   n + 1
-}
+end
 
-fn main() {
+fn main()
   xs = [1, 2]
   _ = xs
   _ = Iter.loop(0, step)
@@ -75,9 +75,11 @@ fn main() {
 		{`_ = Iter.map_reduce(xs, fn n, x -> (n + 1, x))`, "expected 3 arguments, got 2"},
 		{`_ = Iter.loop(step)`, "expected 2 arguments, got 1"},
 		{`_ = Iter.loop(fn n: Int -> n + 1)`, "expected 2 arguments, got 1"},
-		{`_ = Iter.loop(1, fn -> { break })`, "a stateless `Iter.loop` takes no starting state"},
+		{`_ = Iter.loop(1, fn ->
+    break
+end)`, "a stateless `Iter.loop` takes no starting state"},
 	} {
-		err := checkSource(t, prelude+c.src+"\n}\n")
+		err := checkSource(t, prelude+c.src+"\nend\n")
 		if err == nil {
 			t.Errorf("%s: admitted", c.src)
 			continue
@@ -98,10 +100,10 @@ fn main() {
 		`_ = Iter.map_reduce(xs, (0, 0), fn (a, b), x -> ((a + x, b), x))`,
 		`_ = Iter.loop(0, step)`,
 		`_ = Iter.loop(step, from: 0)`,
-		"_ = Iter.loop(0, fn n -> {\n    if n > 3 { break n }\n    n + 1\n  })",
-		"Iter.loop(fn -> { break })",
+		"_ = Iter.loop(0, fn n ->\n    if n > 3 then break n\n    n + 1\n  end)",
+		"Iter.loop(fn ->\n    break\nend)",
 	} {
-		if err := checkSource(t, prelude+good+"\n}\n"); err != nil {
+		if err := checkSource(t, prelude+good+"\nend\n"); err != nil {
 			t.Errorf("%s: the front end rejects it: %v", good, err)
 		}
 	}

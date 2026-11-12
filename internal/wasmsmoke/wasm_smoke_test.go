@@ -55,47 +55,47 @@ process.exit(0);
 // sleep inside a synchronous nomiRun call is exactly the shape that
 // could deadlock.
 const program = `
-import {
+import
   std::supervisors.Supervisor
   std::tasks.Task
   std::duration.Duration
   std::timer
-}
+end
 
-struct Config {
+struct Config
   context: Context
   work: Supervisor
-}
+end
 
-fn boot() -> Result<Config, String> {
+fn boot() -> Result<Config, String>
   Ok(Config{context: Context.root(),
       work: Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 2),
     })
-}
+end
 
-fn slow() -> Int {
+fn slow() -> Int
   timer.sleep(Duration.seconds(30))
   1
-}
+end
 
-fn quick(n: Int) -> Int {
+fn quick(n: Int) -> Int
   timer.sleep(Duration.milliseconds(10))
   n * 2
-}
+end
 
-fn main() {
-  total = concurrent {
+fn main()
+  total = concurrent
     a = Task.spawn(fn -> quick(10))
     b = Task.spawn(fn -> quick(20))
     doomed = Task.spawn(fn -> slow())
     Task.cancel(doomed)
     _ = Task.outcome(doomed)
     Task.await(a) + Task.await(b)
-  }
+  end
   _ = Supervisor.spawn(Config.work, fn -> timer.sleep(Duration.milliseconds(10)))
   _ = Supervisor.flush(Config.work)
   dbg total
-}
+end
 `
 
 func TestWasmBuildRunsAConcurrentProgram(t *testing.T) {

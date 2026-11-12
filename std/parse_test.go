@@ -65,7 +65,7 @@ func TestLoadRecordsAStdSyntaxError(t *testing.T) {
 		t.Fatalf("std/io parses, but the loader reported %v", got)
 	}
 
-	_, errs := parser.ParseWithRecovery(lexer.Lex("fn f() -> Bool {\n  True\n    ) False\n}\n"))
+	_, errs := parser.ParseWithRecovery(lexer.Lex("fn f() -> Bool\n  True\n    ) False\nend\n"))
 	if len(errs) == 0 {
 		t.Fatal("the parser accepts a line that starts with `)`; pick another syntax error")
 	}

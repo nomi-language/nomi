@@ -92,7 +92,7 @@ func (bl *irScalarBuilder) compare(t *ast.Binary, op ir.CompareOp) (ir.Temp, kin
 	if widenL {
 		lhs, lk, mobile, ok = bl.lowerWant(t.Left, wantL)
 	} else {
-		lhs, lk, mobile, ok = bl.lower(t.Left)
+		lhs, lk, mobile, ok = bl.lowerComparisonOperand(t.Left)
 	}
 	if !ok {
 		return no()
@@ -130,12 +130,27 @@ func (bl *irScalarBuilder) compare(t *ast.Binary, op ir.CompareOp) (ir.Temp, kin
 			rhs, rk, rmobile, ok = bl.lower(t.Right)
 		}
 	} else {
-		rhs, rk, rmobile, ok = bl.lower(t.Right)
+		rhs, rk, rmobile, ok = bl.lowerComparisonOperand(t.Right)
 	}
 	if !ok {
 		return no()
 	}
 	return bl.compareOperands(t, op, lhs, lk, rhs, rk, rmobile)
+}
+
+// lowerComparisonOperand lowers a comparison operand. An unnamed bracket
+// literal is the collection its position expects, and the checker types it
+// against the other operand (analysis.checkComparisonOperands): in
+// `[s, Shape.Dot] == [c, c]`, with `c: Circle` and `s: Shape`, the right
+// literal is a List<Shape>. It is lowered at that type, so its items widen
+// where they sit, as they do under an annotation.
+func (bl *irScalarBuilder) lowerComparisonOperand(n ast.Node) (ir.Temp, kind, bool, bool) {
+	if lit, isList := n.(*ast.ListLit); isList && lit.TypeName == nil {
+		if k := bl.g.checkedKind(n); k.tag != tagInvalid {
+			return bl.lowerWant(n, k)
+		}
+	}
+	return bl.lower(n)
 }
 
 // embedsWidenedOperand says which operand of an equality is lowered at the
@@ -265,13 +280,13 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 		} else if rk.tag == tagList && lk.tag == tagEmptyList {
 			lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, rk)
 		} else if irEmptyCollectionKind(lk) && lk == rk {
-			// `%{} == %{}`: as `[] == []`, no element is read, so both
+			// `{} == {}`: as `[] == []`, no element is read, so both
 			// take the fill an open element takes (typeOpenEmpty).
 			if lhs, lk, ok = bl.typeOpenEmpty(t.Left, lhs, lk); ok {
 				rhs, rk, ok = bl.typeOpenEmpty(t.Right, rhs, rk)
 			}
 		} else if irEmptyCollectionKind(rk) && !irEmptyCollectionKind(lk) {
-			// `v == #[]`: the empty Vector, Set or Map takes the other
+			// `v == []`: the empty Vector, Set or Map takes the other
 			// operand's element types.
 			rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, lk)
 		} else if irEmptyCollectionKind(lk) && !irEmptyCollectionKind(rk) {
@@ -334,11 +349,6 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 		// A tuple compares lexicographically (irtuplecompare.go).
 		return bl.tupleRankedCompare(t, op, lhs, rhs, lk)
 	}
-	if v, ok := bl.holeCompare(t, op, lk); ok {
-		// `item < m` over a type parameter the call left unsolved; see
-		// irholecall.go.
-		return v, kindBool, false, true
-	}
 	if lk == kindUnit && !op.Ordering() {
 		// Unit has one value, so `==` is True and `!=` False once both
 		// operands have run, as rt.Equal answers.
@@ -379,14 +389,13 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 	if _, isVector := vectorElem(lk); op.Ordering() && isVector {
 		return bl.comparableRankedCompare(t, op, lhs, rhs, lk, rmobile)
 	}
-	structural := bl.g.irStructEqualityKind(lk)
+	structural := bl.structEqualityAt(t, lk)
 	// std's Byte and Bytes are rt leaves rt.Equal compares by content,
 	// which is also the body of std's own `impl Equatable` for each
 	// (`a == b`); the VM compares them as it does a container.
 	bytes := !op.Ordering() && irByteValueKind(lk)
 	list = list || bytes
-	if elem, isRange := rangeElem(lk); isRange && !op.Ordering() && irRetainedRangeKind(lk) &&
-		(elem == kindInt || elem == kindFloat || elem == kindString) {
+	if !op.Ordering() && irScalarRangeKind(lk) {
 		// A Range over a scalar: its fields are scalars and a Maybe of one,
 		// so Range's Equatable and rt.Equal answer alike; the VM holds
 		// it as a container rt.Equal compares.
@@ -459,6 +468,24 @@ func (g *gen) irPreludeEqualityKind(k kind) bool {
 // impl route and outside this producer.
 func (g *gen) irStructEqualityKind(k kind) bool {
 	if k.tag != tagNamed || irParamShape(k) != ir.ValStruct || k.def.foreign != "" || !g.noEquatableImpl(k) {
+		return false
+	}
+	for _, f := range k.def.fields {
+		if !irScalarLeafKind(f.k) || f.k.def != nil {
+			return false
+		}
+	}
+	return true
+}
+
+// structEqualityAt is irStructEqualityKind for the operator t: a struct
+// with scalar fields that `==` compares by shape, as the checker recorded
+// (equatableVerdict).
+func (bl *irScalarBuilder) structEqualityAt(t *ast.Binary, k kind) bool {
+	if k.tag != tagNamed || irParamShape(k) != ir.ValStruct || k.def.foreign != "" {
+		return false
+	}
+	if _, _, has, known := bl.equatableVerdict(t, k); has || !known {
 		return false
 	}
 	for _, f := range k.def.fields {
@@ -663,7 +690,7 @@ func (bl *irScalarBuilder) stdRankedCompare(t *ast.Binary, op ir.CompareOp, lhs,
 // `impl Equatable`: a call to its retained `equal` body or approved host.
 // `!=` does not take this route.
 func (bl *irScalarBuilder) stdEquality(t *ast.Binary, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, bool) {
-	if k.tag != tagNamed || k.def == nil || bl.g.implsByIface["Equatable"][k] != nil || bl.g.irStructEqualityKind(k) {
+	if k.tag != tagNamed || k.def == nil || bl.g.implsByIface["Equatable"][k] != nil || bl.structEqualityAt(t, k) {
 		return ir.NoTemp, false
 	}
 	f := bl.g.stdlibImplOf("Equatable.equal", k, k, k)

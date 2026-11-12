@@ -27,7 +27,7 @@ func TestSites_DenominatorDeficitIsReported(t *testing.T) {
 	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "deficit_test.nomi")
-	src := "test \"one\" {\n  assert True\n}\n\ntest \"two\" {\n  assert 1 == 1\n}\n"
+	src := "test \"one\"\n  assert True\nend\n\ntest \"two\"\n  assert 1 == 1\nend\n"
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 		t.Fatalf("staging the plant: %v", err)
 	}
@@ -68,11 +68,11 @@ func TestSites_TheDenominatorPopulationIsTheRunnersOwn(t *testing.T) {
 		return p
 	}
 	// Clause 1: the suffix, with no test in the file at all.
-	bySuffix := write("empty_test.nomi", "fn helper() -> Int {\n  1\n}\n")
+	bySuffix := write("empty_test.nomi", "fn helper() -> Int\n  1\nend\n")
 	// Clause 2: no suffix, but the file declares a test.
-	byContent := write("declares.nomi", "test \"t\" {\n  assert True\n}\n")
+	byContent := write("declares.nomi", "test \"t\"\n  assert True\nend\n")
 	// Neither: an ordinary module.
-	neither := write("helper.nomi", "fn helper() -> Int {\n  1\n}\n")
+	neither := write("helper.nomi", "fn helper() -> Int\n  1\nend\n")
 
 	if !runnerWouldDiscover(bySuffix) {
 		t.Errorf("`nomi test` discovers every *_test.nomi regardless of content; this says otherwise")

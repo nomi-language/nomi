@@ -2,7 +2,7 @@
 //# settles each way a handler can answer, holds to its timeout and its
 //# start rate. Virtual time makes the waits free.
 
-import {
+import
     std::duration.Duration
     std::instant.Instant
     std::jobs.{self, Handler, Worker}
@@ -11,50 +11,50 @@ import {
     std::testing.Clock
     std::timer
     app.{self, App, Greeting, greet_job, next_report, slow_job}
-}
+end
 
-fn handlers() -> List<Handler> {
+fn handlers() -> List<Handler>
     [greet_job, slow_job]
-}
+end
 
 // Whether `holds` comes true within 500 checks 10 ms of virtual time
 // apart.
-fn eventually(checks: Int = 500, holds: () -> Bool) -> Bool {
-    if holds() { return True }
-    if checks == 0 { return False }
+fn eventually(checks: Int = 500, holds: () -> Bool) -> Bool
+    if holds() then return True
+    if checks == 0 then return False
     timer.sleep(Duration.milliseconds(10))
     eventually(checks: checks - 1, holds)
-}
+end
 
-fn states() -> List<(JobState, Int)> {
+fn states() -> List<(JobState, Int)>
     Inline.jobs(App.queue) |> Iter.map(fn job -> (job.state, job.attempt)) |> Iter.to_list()
-}
+end
 
-group "a worker over an in-memory queue" {
+group "a worker over an in-memory queue"
     clock Clock.Virtual
 
     boot app.boot()
 
-    test "it runs a job enqueued after it starts" {
+    test "it runs a job enqueued after it starts"
         Worker.start(App.worker, handlers())
         _ = jobs.enqueue(App.queue, Fake.new(), greet_job, Greeting{name: "Ada"})?
         assert next_report() == "hello, Ada"
-    }
+    end
 
-    test "it runs a job enqueued before it starts" {
+    test "it runs a job enqueued before it starts"
         _ = jobs.enqueue(App.queue, Fake.new(), greet_job, Greeting{name: "Grace"})?
         Worker.start(App.worker, handlers())
         assert next_report() == "hello, Grace"
-    }
+    end
 
-    test "a completed job is marked completed" {
+    test "a completed job is marked completed"
         Worker.start(App.worker, handlers())
         _ = jobs.enqueue(App.queue, Fake.new(), greet_job, Greeting{name: "Ada"})?
         _ = next_report()
         assert eventually(fn -> states() == [(JobState.Completed, 1)])
-    }
+    end
 
-    test "a retry waits its backoff with the attempt counted" {
+    test "a retry waits its backoff with the attempt counted"
         Worker.start(App.worker, handlers())
 
         _ = jobs.enqueue(App.queue, Fake.new(), greet_job, Greeting{name: "Oscar", mood: "grumpy"})?
@@ -64,9 +64,9 @@ group "a worker over an in-memory queue" {
         job = Iter.first(Inline.jobs(App.queue))!
         assert Iter.map(job.errors, &(&1.error)) |> Iter.to_list() == ["not today"]
         assert Instant.is_before(Instant.now() + jobs.backoff(1) - Duration.seconds(1), job.run_at)
-    }
+    end
 
-    test "a discard is final" {
+    test "a discard is final"
         Worker.start(App.worker, handlers())
 
         _ = jobs.enqueue(
@@ -78,9 +78,9 @@ group "a worker over an in-memory queue" {
 
         assert next_report() == "gave up on Eeyore"
         assert eventually(fn -> states() == [(JobState.Discarded, 1)])
-    }
+    end
 
-    test "a trap is a retry that names the trap" {
+    test "a trap is a retry that names the trap"
         Worker.start(App.worker, handlers())
 
         _ = jobs.enqueue(
@@ -96,36 +96,36 @@ group "a worker over an in-memory queue" {
 
         assert Iter.map(job.errors, &String.starts_with(&1.error, "trapped: "))
         |> Iter.to_list() == [True]
-    }
+    end
 
-    test "a job past its timeout is cancelled and retried" {
+    test "a job past its timeout is cancelled and retried"
         Worker.start(App.worker, handlers())
         _ = jobs.enqueue(App.queue, Fake.new(), slow_job, Greeting{name: "Sloth"})?
         assert next_report() == "started Sloth"
         assert eventually(fn -> states() == [(JobState.Available, 1)])
         job = Iter.first(Inline.jobs(App.queue))!
         assert Iter.map(job.errors, &(&1.error)) |> Iter.to_list() == ["timed out"]
-    }
-}
+    end
+end
 
-group "a worker with a start rate" {
+group "a worker with a start rate"
     clock Clock.Virtual
 
     boot app.boot()
 
-    test "it starts no more jobs a second than its rate" {
-        Iter.each(1..=4, fn n -> {
+    test "it starts no more jobs a second than its rate"
+        Iter.each(1..=4, fn n ->
             _ = jobs.enqueue(App.rated_queue, Fake.new(), greet_job, Greeting{name: "n${n}"})
-        })
+        end)
 
         started = Instant.now()
         Worker.start(App.rated, handlers())
 
-        Iter.each(1..=4, fn _ -> {
+        Iter.each(1..=4, fn _ ->
             _ = next_report()
-        })
+        end)
 
         // Two a second, one at once: the fourth starts 1.5 s after the first.
         assert not Instant.is_before(Instant.now(), started + Duration.milliseconds(1500))
-    }
-}
+    end
+end

@@ -10,18 +10,18 @@ once letter_numbers =
     |> Iter.to_map()
 
 /// An encryption key. `a` must be coprime with 26, or no key decrypts it.
-pub struct Key {
+pub struct Key
     a: Int
     b: Int
-}
+end
 
 /// Why a phrase cannot be encrypted or decrypted.
-pub enum Error {
+pub enum Error
     NotCoprime
-}
+end
 
 /// The ciphertext of `phrase` under `key`, in lowercase groups of five.
-pub fn encode(phrase: String, key: Key) -> Result<String, Error> {
+pub fn encode(phrase: String, key: Key) -> Result<String, Error>
     _ = inverse(key.a)?
 
     phrase
@@ -30,40 +30,40 @@ pub fn encode(phrase: String, key: Key) -> Result<String, Error> {
     |> Iter.map(String.join)
     |> String.join(" ")
     |> Ok()
-}
+end
 
 /// The plaintext of `phrase` under `key`, with no spaces.
-pub fn decode(phrase: String, key: Key) -> Result<String, Error> {
+pub fn decode(phrase: String, key: Key) -> Result<String, Error>
     a_inverse = inverse(key.a)?
 
     phrase
     |> translate(fn y -> a_inverse * (y - key.b))
     |> String.join()
     |> Ok()
-}
+end
 
 /// The `x` with `a * x` one more than a multiple of 26, which exists only
 /// when `a` and 26 are coprime.
-fn inverse(a: Int) -> Result<Int, Error> {
+fn inverse(a: Int) -> Result<Int, Error>
     0..letter_count
     |> Iter.find(fn x -> Int.modulo(a * x, letter_count) == 1)
     |> Maybe.to_result(.NotCoprime)
-}
+end
 
 /// Each letter and digit of `text`, a letter moved to the letter `step`
 /// gives for its number, and a digit kept.
-fn translate(text: String, step: (Int) -> Int) -> List<String> {
+fn translate(text: String, step: (Int) -> Int) -> List<String>
     text
     |> String.lowercase()
     |> String.to_codepoints()
     |> Iter.flat_map(&shift(&1, step))
     |> Iter.map(Codepoint.to_string)
     |> Iter.to_list()
-}
+end
 
-fn shift(cp: Codepoint, step: (Int) -> Int) -> Maybe<Codepoint> {
-    if Codepoint.is_digit(cp) { return Some(cp) }
+fn shift(cp: Codepoint, step: (Int) -> Int) -> Maybe<Codepoint>
+    if Codepoint.is_digit(cp) then return Some(cp)
 
     Map.get(letter_numbers, cp)
     |> Maybe.map(fn i -> Vector.get(alphabet, Int.modulo(step(i), letter_count))!)
-}
+end

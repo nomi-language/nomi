@@ -29,17 +29,17 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 
 | Kotlin | Nomi |
 |---|---|
-| `data class Account(val owner: String)` | `struct Account { owner: String }`, one field per line. `==` compares the fields, as a data class's `equals` does. |
-| `account.copy(balance = 5)` | `.{..account, balance: 5}` |
+| `data class Account(val owner: String)` | `struct Account`, its fields one per line (`owner: String`), then `end`. `==` compares the fields, as a data class's `equals` does. |
+| `account.copy(balance = 5)` | `{..account, balance: 5}` |
 | `sealed class Event` with subclasses | `enum Event`, one variant per line: `Deposit Int` |
-| `when (e) { is Deposit -> .. }` | `case e { .Deposit(amount) -> .. }`, which must cover every variant |
+| `when (e) { is Deposit -> .. }` | `case e` with arms such as `.Deposit(amount) -> ..`, then `end`; it must cover every variant |
 | `Pair(a, b)`, `a to b` | `(a, b)`, read as `.first` and `.second` as a `Pair` is |
-| `listOf(1, 2)`, `mapOf("a" to 1)` | `[1, 2]`, `%{"a" => 1}` |
-| `interface` with default methods | `interface`, where a default an impl may replace is an `open fn`; each implementation goes in `impl Interface for Type { .. }` |
+| `listOf(1, 2)`, `mapOf("a" to 1)` | `[1, 2]`, `{"a" => 1}` |
+| `interface` with default methods | `interface`, where a default an impl may replace is an `open fn`; each implementation goes in `impl Interface for Type` |
 | `TODO("parse")` | `todo "parse"` |
-| `coroutineScope { launch { .. } }` | `concurrent { Task.spawn(fn -> ..) }` |
-| `@Test fun t()` | `test "name" { assert .. }` |
-| Ktor's `get("/users/{id}") { call.parameters["id"] }`, Spring's `@GetMapping("/users/{id}")` with `@PathVariable id: Long` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: .{id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
+| `coroutineScope { launch { .. } }` | `Task.spawn(fn -> ..)` inside `concurrent` .. `end` |
+| `@Test fun t()` | `test "name"` ... `end` |
+| Ktor's `get("/users/{id}") { call.parameters["id"] }`, Spring's `@GetMapping("/users/{id}")` with `@PathVariable id: Long` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 
 Named arguments and defaults work as in Kotlin: `area(5, height: 4)`.
 
@@ -71,47 +71,47 @@ fun findOwner(accounts: List<Account>, owner: String): Account? =
 
 ```nomi-run
 // FILE: accounts.nomi
-struct Account {
+struct Account
     owner: String
     balance: Int = 0
-}
+end
 
-enum Event {
+enum Event
     Deposit Int
     Withdraw Int
-}
+end
 
-fn apply(account: Account, event: Event) -> Result<Account, String> {
-    balance = case event {
+fn apply(account: Account, event: Event) -> Result<Account, String>
+    balance = case event
         .Deposit(amount) -> account.balance + amount
         .Withdraw(amount) -> account.balance - amount
-    }
+    end
 
-    if balance < 0 {
+    if balance < 0 then
         Err("short by ${-balance}")
-    } else {
-        Ok(.{..account, balance})
-    }
-}
+    else
+        Ok({..account, balance:})
+    end
+end
 
-fn replay(account: Account, events: List<Event>) -> Result<Account, String> {
+fn replay(account: Account, events: List<Event>) -> Result<Account, String>
     Iter.try_reduce(events, account, apply)
-}
+end
 
-fn find_owner(accounts: List<Account>, owner: String) -> Maybe<Account> {
+fn find_owner(accounts: List<Account>, owner: String) -> Maybe<Account>
     Iter.find(accounts, fn account -> account.owner == owner)
-}
+end
 
 // FILE: accounts_test.nomi
 import accounts.{Account, find_owner, replay}
 
-test "the same program" {
+test "the same program"
     ada = Account{owner: "Ada"}
 
     assert replay(ada, [.Deposit(10), .Withdraw(4)]) == Ok(Account{owner: "Ada", balance: 6})
     assert replay(ada, [.Withdraw(3)]) == Err("short by 3")
     assert find_owner([ada], "Bo") == None
-}
+end
 ```
 <!-- expect
 ok the same program
@@ -119,5 +119,5 @@ test result: ok. 1 passed, 0 failed
 -->
 
 `Iter.try_reduce` is the fold that stops at the first `Err`, which Kotlin
-spells with `mapCatching`. `.{..account, balance}` is `copy`: a new value
+spells with `mapCatching`. `{..account, balance:}` is `copy`: a new value
 with one field replaced.

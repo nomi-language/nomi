@@ -17,77 +17,77 @@
 import std::io
 
 // A free predicate: goFuncName, which strips the `?` to `_PRED`.
-fn is_positive(n: Int) -> Bool {
+fn is_positive(n: Int) -> Bool
     n > 0
-}
+end
 
 // A self-recursive predicate: the loop rewrite, no driver, no wrapper.
-fn is_zero_after(n: Int) -> Bool {
-    if n == 0 { True } else { is_zero_after(n - 1) }
-}
+fn is_zero_after(n: Int) -> Bool
+    if n == 0 then True else is_zero_after(n - 1)
+end
 
 // A mutual pair: one shared driver named from a member, plus two wrappers.
-fn is_even(n: Int) -> Bool {
-    if n == 0 { True } else { is_odd(n - 1) }
-}
+fn is_even(n: Int) -> Bool
+    if n == 0 then True else is_odd(n - 1)
+end
 
-fn is_odd(n: Int) -> Bool {
-    if n == 0 { False } else { is_even(n - 1) }
-}
+fn is_odd(n: Int) -> Bool
+    if n == 0 then False else is_even(n - 1)
+end
 
 // An interface method and an impl item: the rt.Method table variable and the
 // impl function's own name.
-interface Gate {
+interface Gate
     fn is_open(value: self) -> Bool
-}
+end
 
-struct Door {
+struct Door
     latched: Bool
-}
+end
 
-impl Gate for Door {
-    fn is_open(value: Door) -> Bool {
-        if value.latched { False } else { True }
-    }
-}
+impl Gate for Door
+    fn is_open(value: Door) -> Bool
+        if value.latched then False else True
+    end
+end
 
 // An inherent impl item, whose name has no interface component.
-impl Door {
-    fn is_shut(value: Door) -> Bool {
-        if Gate.is_open(value) { False } else { True }
-    }
-}
+impl Door
+    fn is_shut(value: Door) -> Bool
+        if Gate.is_open(value) then False else True
+    end
+end
 
 // A local binding and a lambda parameter carrying `?`: goLocal.
-fn describe(d: Door) -> String {
+fn describe(d: Door) -> String
     is_ready = Gate.is_open(d)
-    check = fn is_flag: Bool -> if is_flag { "open" } else { "shut" }
+    check = fn is_flag: Bool -> if is_flag then "open" else "shut"
 
     check(is_ready)
-}
+end
 
 // A `once` binding: goOnceName through sanitizeIdent.
 once is_ready: Bool = True
 
 // An impl item in a MUTUAL cycle across the impl/free boundary, with `?` on
 // both members — the driver name and both wrapper names at once.
-struct Tick {}
+struct Tick end
 
-interface Beat {
+interface Beat
     fn is_tick(value: self, n: Int) -> Bool
-}
+end
 
-impl Beat for Tick {
-    fn is_tick(value: Tick, n: Int) -> Bool {
-        if n == 0 { True } else { is_tock(value, n - 1) }
-    }
-}
+impl Beat for Tick
+    fn is_tick(value: Tick, n: Int) -> Bool
+        if n == 0 then True else is_tock(value, n - 1)
+    end
+end
 
-fn is_tock(value: Tick, n: Int) -> Bool {
+fn is_tock(value: Tick, n: Int) -> Bool
     Beat.is_tick(value, n)
-}
+end
 
-fn main() {
+fn main()
     io.print("positive = ${is_positive(3)}")
     io.print("zero after = ${is_zero_after(5)}")
     io.print("even = ${is_even(10)}")
@@ -97,4 +97,4 @@ fn main() {
     io.print("describe = ${describe(Door{latched: False})}")
     io.print("once = ${is_ready}")
     io.print("beat = ${is_tock(Tick{}, 7)}")
-}
+end

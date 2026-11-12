@@ -15,11 +15,11 @@ import (
 // FuzzFormatKeepsMeaning.
 func TestImportOfModuleNamedGo(t *testing.T) {
 	for _, tc := range []struct{ flat, block string }{
-		{"import go\n", "import {\n  go\n}\n"},
-		{"import go.hi\n", "import {\n  go.hi\n}\n"},
-		{"import go as g\n", "import {\n  go as g\n}\n"},
-		{"import go.{hi, Lo}\n", "import {\n  go.{hi, Lo}\n}\n"},
-		{"import a::go\n", "import {\n  a::go\n}\n"},
+		{"import go\n", "import\n  go\nend\n"},
+		{"import go.hi\n", "import\n  go.hi\nend\n"},
+		{"import go as g\n", "import\n  go as g\nend\n"},
+		{"import go.{hi, Lo}\n", "import\n  go.{hi, Lo}\nend\n"},
+		{"import a::go\n", "import\n  a::go\nend\n"},
 	} {
 		flat, err := Parse(lexer.Lex(tc.flat))
 		if err != nil {
@@ -66,7 +66,7 @@ func importShape(s *ast.ImportStmt) string {
 // both forms.
 func TestImportGoPackageHandleIsTheGopkgError(t *testing.T) {
 	for _, entry := range []string{`go "net/http"`, `go http "net/http"`, `go _ "net/http"`} {
-		for _, src := range []string{"import " + entry + "\n", "import {\n  " + entry + "\n}\n"} {
+		for _, src := range []string{"import " + entry + "\n", "import\n  " + entry + "\n}\n"} {
 			_, err := Parse(lexer.Lex(src))
 			if err == nil || !strings.Contains(err.Error(), "gopkg") {
 				t.Errorf("Parse(%q) error = %v, want the `gopkg` error", src, err)

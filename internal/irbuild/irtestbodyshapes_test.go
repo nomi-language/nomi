@@ -64,52 +64,52 @@ func irShapesRun(t *testing.T, src string, want []string) (string, int) {
 // follows the latest binding, a block-valued binding and a single-branch
 // `case`. The failing reports match the recorded ones, byte for byte.
 func TestIRTestBody_StatementShapes(t *testing.T) {
-	const src = `enum Shape {
+	const src = `enum Shape
   Circle(Int)
-}
+end
 
-test "a rebound name's report follows the latest binding" {
+test "a rebound name's report follows the latest binding"
   flag = True
   assert flag
   flag = 1 > 2
   assert flag
-}
+end
 
-test "an assertion's value is its subject" {
+test "an assertion's value is its subject"
   truth = assert True
   falsity = refute False
   refute truth == falsity
   wrong = refute 3 > 2
   assert wrong
-}
+end
 
-test "tuple destructuring in a test body" {
+test "tuple destructuring in a test body"
   (a, b) = (3, 4)
   assert a * b == 12
-}
+end
 
-test "a rebinding may change the kind" {
+test "a rebinding may change the kind"
   v = 1
   assert v == 1
   v = "one"
   assert v == "one"
-}
+end
 
-test "a block-valued binding" {
-  total = {
+test "a block-valued binding"
+  total = begin
     x = 2
     y = x * 10
     x + y
-  }
+  end
   assert total == 22
-}
+end
 
-test "a single-branch case" {
-  n = case Shape.Circle(3) {
+test "a single-branch case"
+  n = case Shape.Circle(3)
     Shape.Circle(r) -> r * 2
-  }
+  end
   assert n == 6
-}
+end
 `
 	got, exit := irShapesRun(t, src, []string{
 		"a rebound name's report follows the latest binding",
@@ -140,14 +140,14 @@ ok <path> :: a single-branch case
 // A rebinding beside a lambda runs: a closure captures the value a name held
 // when it was made, so a later rebinding is a fresh binding it never sees.
 func TestIRTestBody_RebindingBesideALambdaRuns(t *testing.T) {
-	const src = `test "a rebinding after a lambda" {
+	const src = `test "a rebinding after a lambda"
   x = 1
   seen = fn -> x
   f = fn y: Int -> y + 1
   x = f(x)
   assert x == 2
   assert seen() == 1
-}
+end
 `
 	got, exit := irShapesRun(t, src, []string{"a rebinding after a lambda"})
 	if want := "ok <path> :: a rebinding after a lambda\n"; !strings.HasPrefix(got, want) || exit != 0 {
@@ -160,12 +160,12 @@ func TestIRTestBody_RebindingBesideALambdaRuns(t *testing.T) {
 func TestIRIterSort_StdElementTakesStdComparator(t *testing.T) {
 	const src = `import std::calendar.Time
 
-test "std elements sort by std's comparator" {
+test "std elements sort by std's comparator"
   assert Ok(a) = Time"09:30:00"
   assert Ok(b) = Time"08:15:00"
   sorted = Iter.sort([a, b])
   assert Debug.inspect(sorted) == "[08:15:00, 09:30:00]"
-}
+end
 `
 	got, exit := irShapesRun(t, src, []string{"std elements sort by std's comparator"})
 	if want := "ok <path> :: std elements sort by std's comparator\n"; !strings.HasPrefix(got, want) || exit != 0 {
@@ -177,35 +177,35 @@ test "std elements sort by std's comparator" {
 // for the statements after it; its own body may rebind its parameters, and a
 // `return` leaves the nested function only.
 func TestIRNestedFn_IsAClosureBoundByName(t *testing.T) {
-	const src = `fn outer(n: Int) -> Int {
-  fn clamp(x: Int) -> Int {
-    if x > n { return n }
+	const src = `fn outer(n: Int) -> Int
+  fn clamp(x: Int) -> Int
+    if x > n then return n
     x
-  }
+  end
 
   clamp(3) + clamp(100)
-}
+end
 
-test "a nested fn rebinds its parameter" {
-  fn double_then_inc(x: Int) -> Int {
+test "a nested fn rebinds its parameter"
+  fn double_then_inc(x: Int) -> Int
     x = x + x
     x = x + 1
     x
-  }
+  end
 
   assert double_then_inc(10) == 21
-}
+end
 
-test "a nested fn captures and returns early" {
+test "a nested fn captures and returns early"
   limit = 5
-  fn clamp(x: Int) -> Int {
-    if x > limit { return limit }
+  fn clamp(x: Int) -> Int
+    if x > limit then return limit
     x
-  }
+  end
 
   assert clamp(2) + clamp(9) == 7
   assert outer(10) == 13
-}
+end
 `
 	got, exit := irShapesRun(t, src, []string{
 		"a nested fn rebinds its parameter",
@@ -224,24 +224,24 @@ ok <path> :: a nested fn captures and returns early
 // the body captures that name like any other.
 func TestIRNestedFn_RecursionRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
-  fn fact(n: Int) -> Int {
-    if n <= 1 { return 1 }
+fn main()
+  fn fact(n: Int) -> Int
+    if n <= 1 then return 1
     n * fact(n - 1)
-  }
+  end
 
   step = 2
-  fn down(n: Int) -> Int {
-    if n <= 0 { return 0 }
+  fn down(n: Int) -> Int
+    if n <= 0 then return 0
     again = fn m: Int -> down(m)
     1 + again(n - step)
-  }
+  end
 
   step = 100
   io.print(fact(5))
   io.print(down(7))
   io.print(step)
-}
+end
 `, "120\n4\n100\n")
 }
 
@@ -249,7 +249,7 @@ fn main() {
 // filled with the closure itself; its body builds no second closure over
 // itself.
 func TestIRNestedFn_RecursionIsASelfCapture(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", "import std::io\nfn main() {\n  fn fact(n: Int) -> Int {\n    if n <= 1 { return 1 }\n    n * fact(n - 1)\n  }\n\n  io.print(fact(5))\n}\n")
+	p, err := AnalyzeSource("main.nomi", "import std::io\nfn main()\n  fn fact(n: Int) -> Int\n    if n <= 1 then return 1\n    n * fact(n - 1)\n  end\n\n  io.print(fact(5))\nend\n")
 	if err != nil {
 		t.Fatalf("the front end now rejects this, so nothing below is tested: %v", err)
 	}
@@ -293,21 +293,21 @@ func TestIRNestedFn_RecursionIsASelfCapture(t *testing.T) {
 // after both operands run; List.head over struct elements is a cell
 // operation.
 func TestIRTestBody_UnitIfAndStructListHead(t *testing.T) {
-	const src = `struct P {
+	const src = `struct P
   x: Int
-}
+end
 
-test "an if without else is Unit" {
-  a = if True { Unit }
-  b = if False { Unit }
+test "an if without else is Unit"
+  a = if True then Unit
+  b = if False then Unit
   assert a == Unit
   assert b == Unit
   refute a != b
-}
+end
 
-test "List.head over struct elements" {
+test "List.head over struct elements"
   assert List.head([P{x: 1}, P{x: 2}]) == Some(P{x: 1})
-}
+end
 `
 	got, exit := irShapesRun(t, src, []string{"an if without else is Unit", "List.head over struct elements"})
 	const want = `ok <path> :: an if without else is Unit

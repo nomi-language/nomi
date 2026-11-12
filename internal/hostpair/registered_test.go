@@ -255,10 +255,10 @@ func unregisteredModule(entry string) string {
 func TestTheRegistrationCheckCanFail(t *testing.T) {
 	const source = `pub host type Regex
 
-impl Regex {
+impl Regex
   pub host fn compile(pattern: String) -> Result<Regex, String>
   pub host fn pattern(re: Regex) -> String
-}
+end
 
 pub host fn escape(value: String) -> String
 `

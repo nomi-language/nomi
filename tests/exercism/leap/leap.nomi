@@ -3,6 +3,6 @@
 import std::calendar.Date
 
 /// Whether `year` is a leap year in the Gregorian calendar.
-pub fn is_leap_year(year: Int) -> Bool {
+pub fn is_leap_year(year: Int) -> Bool
     Date.is_leap_year(year)
-}
+end

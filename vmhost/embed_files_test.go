@@ -135,13 +135,13 @@ func (l *loggedFiles) MakeTempDir() (string, error) {
 	return dir, err
 }
 
-const embedFilesSrc = `import {
+const embedFilesSrc = `import
     std::fs
     std::io.{self, File}
     std::path
-}
+end
 
-fn main() -> Result<Unit, io.Error> {
+fn main() -> Result<Unit, io.Error>
     io.print(fs.read_text("seed.txt"))
     w = fs.create("out.txt", mode: .ReplaceAtomically)?
     defer io.Writer.discard(w)
@@ -164,7 +164,7 @@ fn main() -> Result<Unit, io.Error> {
     defer fs.remove_all_quietly(dir)
     io.print(fs.write_text(path.join(dir, "t.txt"), "t") == Ok(Unit))
     Ok(Unit)
-}
+end
 `
 
 // An embedder's own FileSystem, here one that logs each call and refuses a
@@ -213,18 +213,18 @@ func TestEmbedFiles_DiskFilesWrapped(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "in.txt"), []byte("disk"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	src := `import {
+	src := `import
     std::fs
     std::io
-}
+end
 
-fn main() -> Result<Unit, io.Error> {
+fn main() -> Result<Unit, io.Error>
     text = fs.read_text("` + filepath.ToSlash(filepath.Join(dir, "in.txt")) + `")?
     fs.write_text("` + filepath.ToSlash(filepath.Join(dir, "out.txt")) + `", text + "!")?
     m = fs.metadata("` + filepath.ToSlash(filepath.Join(dir, "out.txt")) + `")?
     io.print(m.size)
     Ok(Unit)
-}
+end
 `
 	logged := &loggedFiles{inner: vmhost.DiskFiles()}
 	p, err := vmhost.LoadSource("main", src, vmhost.WithFileSystem(logged))

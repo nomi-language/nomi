@@ -17,17 +17,17 @@ import (
 // costs a step per element it collects.
 func TestContains_AListOrVectorScanMakesNoNomiCallPerElement(t *testing.T) {
 	prelude := `
-fn words() -> List<String> {
+fn words() -> List<String>
     String.split(String.repeat("a,", 20_000), ",")
-}
+end
 
-fn vector_words() -> Vector<String> {
-    #[` + strings.Repeat(`"a", `, 3_000) + `]
-}
+fn vector_words() -> Vector<String>
+    Vector[` + strings.Repeat(`"a", `, 3_000) + `]
+end
 `
 	run := func(t *testing.T, body string) []string {
 		t.Helper()
-		src := prelude + "\ntest \"scan\" {\n" + body + "\n}\n"
+		src := prelude + "\ntest \"scan\"\n" + body + "\nend\n"
 		p, err := LoadSource("main_test.nomi", src)
 		if err != nil {
 			t.Fatalf("the front end or the builder rejects this: %v", err)

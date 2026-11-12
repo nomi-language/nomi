@@ -20,71 +20,71 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// The values are two lists, the front ones in order and the back ones
 /// newest first, so each end is the head of one of them. An end that runs
 /// out takes the other list's values, reversed.
-pub opaque struct LinkedList<T> {
+pub opaque struct LinkedList<T>
     front: List<T>
     back: List<T>
-}
+end
 
-impl LinkedList<T> {
+impl LinkedList<T>
     /// A list with no values.
-    pub fn new() -> LinkedList<T> {
-        .{front: [], back: []}
-    }
+    pub fn new() -> LinkedList<T>
+        {front: [], back: []}
+    end
 
     /// `list` with `value` after its last value.
-    pub fn push(list: LinkedList<T>, value: T) -> LinkedList<T> {
-        .{..list, back: [value, ..list.back]}
-    }
+    pub fn push(list: LinkedList<T>, value: T) -> LinkedList<T>
+        {..list, back: [value, ..list.back]}
+    end
 
     /// `list` with `value` before its first value.
-    pub fn unshift(list: LinkedList<T>, value: T) -> LinkedList<T> {
-        .{..list, front: [value, ..list.front]}
-    }
+    pub fn unshift(list: LinkedList<T>, value: T) -> LinkedList<T>
+        {..list, front: [value, ..list.front]}
+    end
 
     /// The last value of `list` and the list without it, or `None` when it is
     /// empty.
-    pub fn pop(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)> {
-        case list.back {
-            [last, ..back] -> Some((last, .{..list, back}))
+    pub fn pop(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)>
+        case list.back
+            [last, ..back] ->
+                Some((last, {..list, back:}))
 
-            [] -> {
-                case Iter.reverse(list.front) {
-                    [last, ..back] -> Some((last, .{front: [], back}))
+            [] ->
+                case Iter.reverse(list.front)
+                    [last, ..back] -> Some((last, {front: [], back:}))
                     [] -> None
-                }
-            }
-        }
-    }
+                end
+        end
+    end
 
     /// The first value of `list` and the list without it, or `None` when it
     /// is empty.
-    pub fn shift(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)> {
-        case list.front {
-            [first, ..front] -> Some((first, .{..list, front}))
+    pub fn shift(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)>
+        case list.front
+            [first, ..front] ->
+                Some((first, {..list, front:}))
 
-            [] -> {
-                case Iter.reverse(list.back) {
-                    [first, ..front] -> Some((first, .{front, back: []}))
+            [] ->
+                case Iter.reverse(list.back)
+                    [first, ..front] -> Some((first, {front:, back: []}))
                     [] -> None
-                }
-            }
-        }
-    }
+                end
+        end
+    end
 
     /// `list` without the first value equal to `value`; the same values when
     /// there is none.
-    pub fn delete(list: LinkedList<T>, value: T) -> LinkedList<T> where T: Equatable {
-        .{front: list |> Iter.to_list() |> List.remove(value), back: []}
-    }
-}
+    pub fn delete(list: LinkedList<T>, value: T) -> LinkedList<T> where T: Equatable
+        {front: list |> Iter.to_list() |> List.remove(value), back: []}
+    end
+end
 
-impl Iter<T> for LinkedList<T> {
+impl Iter<T> for LinkedList<T>
     /// Walks the list from its first value to its last.
-    fn each_while(list: LinkedList<T>, yield: (T) -> Bool) -> Bool {
+    fn each_while(list: LinkedList<T>, yield: (T) -> Bool) -> Bool
         Iter.each_while(list.front, yield)
             and (list.back |> Iter.reverse() |> Iter.each_while(yield))
-    }
-}
+    end
+end
 
 // FILE: linked_list_test.nomi
 import linked_list.LinkedList
@@ -92,7 +92,7 @@ import linked_list.LinkedList
 /// One canonical operation and what it should answer: a push or an unshift,
 /// a pop or a shift of a given value or one that finds the list empty, a
 /// count, a delete.
-enum Step {
+enum Step
     Push Int
     Pop Int
     PopFails
@@ -101,42 +101,46 @@ enum Step {
     Unshift Int
     Count Int
     Delete Int
-}
+end
 
 /// Runs each step's operation on an empty list, in turn, and answers the
 /// steps as they happened. A list that does what every step says answers the
 /// steps it was given.
-fn replay(steps: List<Step>) -> List<Step> {
+fn replay(steps: List<Step>) -> List<Step>
     (_list, happened) =
         steps
-        |> Iter.map_reduce(LinkedList.new(), fn list, step -> {
-            case step {
-                .Push(value) -> (LinkedList.push(list, value), Step.Push(value))
-                .Unshift(value) -> (LinkedList.unshift(list, value), .Unshift(value))
+        |> Iter.map_reduce(LinkedList.new(), fn list, step ->
+            case step
+                .Push(value) ->
+                    (LinkedList.push(list, value), Step.Push(value))
 
-                .Pop(_) or .PopFails -> {
-                    case LinkedList.pop(list) {
+                .Unshift(value) ->
+                    (LinkedList.unshift(list, value), .Unshift(value))
+
+                .Pop(_) or .PopFails ->
+                    case LinkedList.pop(list)
                         Some((value, rest)) -> (rest, .Pop(value))
                         None -> (list, .PopFails)
-                    }
-                }
+                    end
 
-                .Shift(_) or .ShiftFails -> {
-                    case LinkedList.shift(list) {
+                .Shift(_) or .ShiftFails ->
+                    case LinkedList.shift(list)
                         Some((value, rest)) -> (rest, .Shift(value))
                         None -> (list, .ShiftFails)
-                    }
-                }
+                    end
 
-                .Count(_) -> (list, .Count(Iter.count(list)))
-                .Delete(value) -> (LinkedList.delete(list, value), .Delete(value))
-            }
-        })
+                .Count(_) ->
+                    (list, .Count(Iter.count(list)))
+
+                .Delete(value) ->
+                    (LinkedList.delete(list, value), .Delete(value))
+            end
+        end)
 
     happened
-}
+end
 
-test "linked list" {
+test "linked list"
     [
         ("pop gets element from the list", [Step.Push(7), .Pop(7)]),
         (
@@ -227,17 +231,17 @@ test "linked list" {
             ],
         ),
     ]
-    |> subtests (description, steps), description {
+    |> subtests (description, steps), description
         assert replay(steps) == steps
-    }
-}
+    end
+end
 
 // Not canonical: the canonical cases never pop or shift an empty list.
-test "pop and shift on an empty list find nothing" {
+test "pop and shift on an empty list find nothing"
     steps = [Step.PopFails, .ShiftFails, .Push(1), .Shift(1), .PopFails]
 
     assert replay(steps) == steps
-}
+end
 ```
 <!-- expect
 ok linked list (19 cases)

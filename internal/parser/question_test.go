@@ -83,7 +83,7 @@ func TestQuestion_PipeStages(t *testing.T) {
 		t.Errorf("a `?` stage has no operand")
 	}
 	// A `?` after a `case` stage.
-	_, stages = pipeStages(t, parseExpr(t, "x |> case { _ -> f() }?"))
+	_, stages = pipeStages(t, parseExpr(t, "x |> case\n    _ -> f()\nend?"))
 	if len(stages) != 2 || stages[1].NodeType() != "TryOp" {
 		t.Fatalf("stages %v", stages)
 	}
@@ -131,7 +131,7 @@ func TestQuestion_AfterAName(t *testing.T) {
 
 // A `?` that starts a line is not written against the line above.
 func TestQuestion_OnTheExpressionsLine(t *testing.T) {
-	if _, err := Parse(lexer.Lex("fn f() -> Maybe<Int> {\n    x = g()\n    ?\n}")); err == nil {
+	if _, err := Parse(lexer.Lex("fn f() -> Maybe<Int>\n    x = g()\n    ?\nend")); err == nil {
 		t.Errorf("a `?` alone on a line parsed")
 	}
 }

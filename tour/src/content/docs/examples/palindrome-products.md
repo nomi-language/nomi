@@ -16,77 +16,77 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// A palindrome and every pair of factors in the range that makes it, the
 /// smaller factor first in each pair.
-pub struct Product {
+pub struct Product
     value: Int
     factors: List<(Int, Int)>
-}
+end
 
 /// Why a range has no products to search.
-pub enum Error {
+pub enum Error
     MinAboveMax
-}
+end
 
 /// Which end of the products a search starts from.
-enum Direction {
+enum Direction
     Ascending
     Descending
-}
+end
 
 /// The smallest palindrome that is a product of two factors from `min` to
 /// `max`, or `None` when no product in the range is a palindrome.
-pub fn smallest(min: Int, max: Int) -> Result<Maybe<Product>, Error> {
+pub fn smallest(min: Int, max: Int) -> Result<Maybe<Product>, Error>
     search(min, max, .Ascending)
-}
+end
 
 /// The largest palindrome that is a product of two factors from `min` to
 /// `max`, or `None` when no product in the range is a palindrome.
-pub fn largest(min: Int, max: Int) -> Result<Maybe<Product>, Error> {
+pub fn largest(min: Int, max: Int) -> Result<Maybe<Product>, Error>
     search(min, max, .Descending)
-}
+end
 
 /// The first palindrome from the `direction` end with a pair of factors
 /// from `min` to `max`. The palindromes come in order, so the ones outside
 /// the products' range are dropped from the near end and the walk stops at
 /// the far one.
-fn search(min: Int, max: Int, direction: Direction) -> Result<Maybe<Product>, Error> {
-    if min > max { return Err(.MinAboveMax) }
+fn search(min: Int, max: Int, direction: Direction) -> Result<Maybe<Product>, Error>
+    if min > max then return Err(.MinAboveMax)
 
     low = min * min
     high = max * max
     outside = fn p: Int -> not p in low..=high
 
     in_order(digit_count(low), digit_count(high), direction)
-    |> Iter.flat_map(fn length -> {
+    |> Iter.flat_map(fn length ->
         (first, last) = halves(length)
         in_order(first, last, direction) |> Iter.map(&mirror(&1, length))
-    })
+    end)
     |> Iter.drop_while(outside)
     |> Iter.take_while(&(not outside(&1)))
     |> first_product(min, max)
     |> Ok()
-}
+end
 
 /// The numbers from `first` to `last`, both included, from the `direction`
 /// end: the range itself, or the range stepped down from `last`. The two
 /// are different Iters, which the declared result joins.
-fn in_order(first: Int, last: Int, direction: Direction) -> Iter<Int> {
-    case direction {
+fn in_order(first: Int, last: Int, direction: Direction) -> Iter<Int>
+    case direction
         .Ascending -> first..=last
         .Descending -> Range.step_by(last..=first, -1)
-    }
-}
+    end
+end
 
 /// The first of `candidates` with a pair of factors from `min` to `max`.
-fn first_product(candidates: Iter<Int>, min: Int, max: Int) -> Maybe<Product> {
+fn first_product(candidates: Iter<Int>, min: Int, max: Int) -> Maybe<Product>
     candidates
-    |> Iter.map(fn value -> Product{value, factors: factors(value, min, max)})
+    |> Iter.map(fn value -> Product{value:, factors: factors(value, min, max)})
     |> Iter.find(fn product -> product.factors != [])
-}
+end
 
 /// Each pair `(a, b)` with `a <= b`, both from `min` to `max`, whose product
 /// is `value`. `b = value / a` is at most `max` once `a` is at least
 /// `value / max`, and at least `a` while `a` is at most the square root.
-fn factors(value: Int, min: Int, max: Int) -> List<(Int, Int)> {
+fn factors(value: Int, min: Int, max: Int) -> List<(Int, Int)>
     from = Int.max(min, (value + max - 1) / max)
     to = Int.min(max, Int.sqrt(value))
 
@@ -94,35 +94,35 @@ fn factors(value: Int, min: Int, max: Int) -> List<(Int, Int)> {
     |> Iter.filter(&(value % &1 == 0))
     |> Iter.map(fn a -> (a, value / a))
     |> Iter.to_list()
-}
+end
 
 /// The first and last of the first halves of the palindromes of `length`
 /// digits: `100` and `999` for five or six digits.
-fn halves(length: Int) -> (Int, Int) {
+fn halves(length: Int) -> (Int, Int)
     half_length = (length + 1) / 2
     (Int.pow(10, half_length - 1), Int.pow(10, half_length) - 1)
-}
+end
 
 /// The palindrome of `length` digits whose first half is `half`: `half`
 /// followed by its own digits reversed, without its last digit when
 /// `length` is odd. `123` makes `12321` for five digits and `123321` for six.
-fn mirror(half: Int, length: Int) -> Int {
-    rest = if length % 2 == 1 { half / 10 } else { half }
+fn mirror(half: Int, length: Int) -> Int
+    rest = if length % 2 == 1 then half / 10 else half
 
     rest
     |> Iter.iterate(&(&1 / 10))
     |> Iter.take_while(&(&1 > 0))
     |> Iter.reduce(half, fn palindrome, r -> palindrome * 10 + r % 10)
-}
+end
 
-fn digit_count(n: Int) -> Int {
+fn digit_count(n: Int) -> Int
     n |> Int.to_digits() |> Iter.count()
-}
+end
 
 // FILE: palindrome_products_test.nomi
 import palindrome_products.{self, Error, Product}
 
-test "smallest" {
+test "smallest"
     [
         (
             "find the smallest palindrome from single digit factors",
@@ -157,12 +157,12 @@ test "smallest" {
             Ok(Some(Product{value: 10988901, factors: [(3297, 3333)]})),
         ),
     ]
-    |> subtests (description, min, max, expected), description {
+    |> subtests (description, min, max, expected), description
         assert palindrome_products.smallest(min, max) == expected
-    }
-}
+    end
+end
 
-test "largest" {
+test "largest"
     [
         (
             "find the largest palindrome from single digit factors",
@@ -191,10 +191,10 @@ test "largest" {
         ("empty result for largest if no palindrome in the range", 15, 15, Ok(None)),
         ("error result for largest if min is more than max", 2, 1, Err(Error.MinAboveMax)),
     ]
-    |> subtests (description, min, max, expected), description {
+    |> subtests (description, min, max, expected), description
         assert palindrome_products.largest(min, max) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok smallest (7 cases)

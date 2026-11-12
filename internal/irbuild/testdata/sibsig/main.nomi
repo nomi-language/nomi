@@ -15,23 +15,23 @@
 // structural answer is right in the first case and a silent wrong answer in the
 // second. testdata/sibsig_impl and testdata/sibsig_orphan are the two negative
 // halves. See foreign.go's foreignNoEquatableImpl.
-import {
+import
     std::io
     alpha.{self, Point}
     beta.{self, Point as Coord}
-}
+end
 
 /// `==` on a MIRROR, in this file's own function rather than in the declaring
 /// file's: the comparator is emitted HERE, against this package's alias.
-fn same_point(a: Point, b: Point) -> Bool {
+fn same_point(a: Point, b: Point) -> Bool
     a == b
-}
+end
 
-fn same_coord(a: Coord, b: Coord) -> Bool {
+fn same_coord(a: Coord, b: Coord) -> Bool
     a == b
-}
+end
 
-fn main() {
+fn main()
     p = alpha.at(1, 2)
     q = alpha.at(4, 6)
 
@@ -57,4 +57,4 @@ fn main() {
 
     t = beta.pair(beta.at(1.5, 2.5))
     io.print("tuple  = ${t.second}")
-}
+end

@@ -22,7 +22,10 @@ func TestFormat_LineWidthCountsDisplayColumns(t *testing.T) {
 		{"wide letters", wide, true},
 	} {
 		line := "    pair = (\"" + c.text + "\", \"" + c.text + "\")"
-		src := "fn main() {\n" + line + "\n    dbg pair\n}\n"
+		src := "fn main()\n" +
+			line + "\n" +
+			"    dbg pair\n" +
+			"end\n"
 		got, err := Format(src)
 		if err != nil {
 			t.Fatalf("%s: %v", c.name, err)

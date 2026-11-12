@@ -10,29 +10,29 @@ func TestUnitAppField_Runs(t *testing.T) {
 	}
 	verifyLambdaProgram(t, `import std::io
 
-struct App {
+struct App
     v: Unit
     n: Int
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{v: Unit, n: 1})
-}
+end
 
-fn show() -> String {
+fn show() -> String
     "${Debug.inspect(App.v)} ${App.n}"
-}
+end
 
-fn main() {
+fn main()
     io.print(show())
-    {
+    begin
         with App.v = Unit
         with App.n = 2
         io.print(show())
-    }
+    end
     io.print(show())
     f = fn -> App.v
     io.inspect(f())
-}
+end
 `, "Unit 1\nUnit 2\nUnit 1\nUnit\n")
 }

@@ -8,60 +8,62 @@ import "testing"
 // The front end filed the qualified impl as one of the local interface and
 // refused the bound and the parameter.
 func TestIRModuleQualifiedIface_StdBesideALocalInterfaceOfItsName(t *testing.T) {
-	verifyLambdaProgram(t, `import { std::calendar std::io }
+	verifyLambdaProgram(t, `import
+    std::calendar std::io
+end
 
-interface DateParts {
+interface DateParts
     fn stamp(value: self) -> String
-}
+end
 
-struct Q {
+struct Q
     n: Int
-}
+end
 
-impl calendar.DateParts for Q {
-    fn year(value: Q) -> Int {
+impl calendar.DateParts for Q
+    fn year(value: Q) -> Int
         value.n
-    }
+    end
 
-    fn month(_: Q) -> Int {
+    fn month(_: Q) -> Int
         1
-    }
+    end
 
-    fn day(_: Q) -> Int {
+    fn day(_: Q) -> Int
         2
-    }
-}
+    end
+end
 
-impl DateParts for Q {
-    fn stamp(_: Q) -> String {
+impl DateParts for Q
+    fn stamp(_: Q) -> String
         "local"
-    }
-}
+    end
+end
 
-fn total<T>(x: T, y: T) -> Int where T: calendar.DateParts {
+fn total<T>(x: T, y: T) -> Int where T: calendar.DateParts
     calendar.DateParts.year(x) + calendar.DateParts.month(y)
-}
+end
 
-fn as_value(x: calendar.DateParts) -> Int {
+fn as_value(x: calendar.DateParts) -> Int
     calendar.DateParts.day(x)
-}
+end
 
-fn local<T>(x: T, y: T) -> String where T: DateParts {
+fn local<T>(x: T, y: T) -> String where T: DateParts
     DateParts.stamp(x) + DateParts.stamp(y)
-}
+end
 
-fn main() {
+fn main()
     q = Q{n: 7}
     io.print(total(q, q))
     io.print(as_value(q))
     io.print(local(q, q))
-}
+end
 `, "8\n2\nlocallocal\n")
 }
 
-const moduleQualifiedOther = `pub interface Shape {
+const moduleQualifiedOther = `pub interface Shape
     fn area(value: self) -> Int
-}
+end
 `
 
 // `impl other.Shape for Sq` for another file's interface. Beside a local
@@ -71,41 +73,43 @@ const moduleQualifiedOther = `pub interface Shape {
 // implementation for Sq.
 func TestIRModuleQualifiedIface_ProgramModule(t *testing.T) {
 	t.Run("beside a local interface of its name", func(t *testing.T) {
-		verifyLambdaProgram(t, `import { other std::io }
+		verifyLambdaProgram(t, `import
+    other std::io
+end
 
-interface Shape {
+interface Shape
     fn label(value: self) -> String
-}
+end
 
-struct Sq {
+struct Sq
     side: Int
-}
+end
 
-impl other.Shape for Sq {
-    fn area(value: Sq) -> Int {
+impl other.Shape for Sq
+    fn area(value: Sq) -> Int
         value.side * value.side
-    }
-}
+    end
+end
 
-impl Shape for Sq {
-    fn label(_: Sq) -> String {
+impl Shape for Sq
+    fn label(_: Sq) -> String
         "square"
-    }
-}
+    end
+end
 
-fn double<T>(x: T, y: T) -> Int where T: other.Shape {
+fn double<T>(x: T, y: T) -> Int where T: other.Shape
     other.Shape.area(x) + other.Shape.area(y)
-}
+end
 
-fn area_of(x: other.Shape) -> Int {
+fn area_of(x: other.Shape) -> Int
     other.Shape.area(x)
-}
+end
 
-fn labels<T>(x: T, y: T) -> String where T: Shape {
+fn labels<T>(x: T, y: T) -> String where T: Shape
     Shape.label(x) + Shape.label(y)
-}
+end
 
-fn main() {
+fn main()
     s = Sq{side: 3}
     io.print(double(s, s))
     io.print(area_of(s))
@@ -114,35 +118,37 @@ fn main() {
     io.print(Shape.label(s))
     shapes: List<other.Shape> = [s, Sq{side: 2}]
     io.print(shapes |> Iter.map(fn x -> other.Shape.area(x)) |> Iter.sum())
-}
+end
 `, "18\n9\nsquaresquare\n9\nsquare\n13\n", map[string]string{"other.nomi": moduleQualifiedOther})
 	})
 	t.Run("alone", func(t *testing.T) {
-		verifyLambdaProgram(t, `import { other std::io }
+		verifyLambdaProgram(t, `import
+    other std::io
+end
 
-struct Sq {
+struct Sq
     side: Int
-}
+end
 
-impl other.Shape for Sq {
-    fn area(value: Sq) -> Int {
+impl other.Shape for Sq
+    fn area(value: Sq) -> Int
         value.side * value.side
-    }
-}
+    end
+end
 
-fn double<T>(x: T, y: T) -> Int where T: other.Shape {
+fn double<T>(x: T, y: T) -> Int where T: other.Shape
     other.Shape.area(x) + other.Shape.area(y)
-}
+end
 
-fn area_of(x: other.Shape) -> Int {
+fn area_of(x: other.Shape) -> Int
     other.Shape.area(x)
-}
+end
 
-fn main() {
+fn main()
     s = Sq{side: 3}
     io.print(double(s, s))
     io.print(area_of(s))
-}
+end
 `, "18\n9\n", map[string]string{"other.nomi": moduleQualifiedOther})
 	})
 }

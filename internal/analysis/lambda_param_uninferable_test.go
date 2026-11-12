@@ -14,12 +14,12 @@ import (
 // parameters are annotated or defaulted, is fine.
 func TestLambdaParamUninferable_WhereNoTypeIsExpected(t *testing.T) {
 	errs := checkWithStdlib(`
-fn main() {
+fn main()
   f = fn x -> 1
-  v = (fn y -> {
+  v = (fn y ->
     _ = y
     1
-  }, 2).second
+  end, 2).second
   fs = [fn z -> 1]
   ok1 = (fn a: Int -> a + 1, 2).second
   ok2: (Int) -> Int = fn b -> b + 1
@@ -30,7 +30,7 @@ fn main() {
   _ = ok1
   _ = ok2
   _ = ok3
-}
+end
 `)
 	var got []string
 	for _, e := range errs {
@@ -51,10 +51,10 @@ fn main() {
 // its body or a later call (spec, "A later use never types a parameter").
 func TestLambdaParamUninferable_HintShowsTheAnnotation(t *testing.T) {
 	errs := checkWithStdlib(`
-fn is_leap(year: Int) -> Bool {
+fn is_leap(year: Int) -> Bool
   is_divisible = fn n -> year % n == 0
   is_divisible(4) and (not is_divisible(100) or is_divisible(400))
-}
+end
 `)
 	if len(errs) == 0 {
 		t.Fatal("the checker admits `fn n -> year % n == 0` bound to a name")
@@ -74,35 +74,35 @@ fn is_leap(year: Int) -> Bool {
 // cannot hide another.
 func TestLambdaParamUninferable_NoMismatchOverACall(t *testing.T) {
 	errs := checkWithStdlib(`
-fn in_list(n: Int) -> List<(String, Int)> {
+fn in_list(n: Int) -> List<(String, Int)>
   twice = fn x -> x * 2
   [("a", twice(n))]
-}
+end
 
-fn in_tuple(n: Int) -> (String, Int) {
+fn in_tuple(n: Int) -> (String, Int)
   twice = fn x -> x * 2
   ("a", twice(n))
-}
+end
 
-fn in_record(n: Int) -> .{v: Int} {
+fn in_record(n: Int) -> {v: Int}
   twice = fn x -> x * 2
-  .{v: twice(n)}
-}
+  {v: twice(n)}
+end
 
-fn in_map(n: Int) -> Map<String, Int> {
+fn in_map(n: Int) -> Map<String, Int>
   twice = fn x -> x * 2
-  %{"a" => twice(n)}
-}
+  {"a" => twice(n)}
+end
 
-fn in_argument(n: Int) -> Maybe<Int> {
+fn in_argument(n: Int) -> Maybe<Int>
   twice = fn x -> x * 2
   Some(twice(n))
-}
+end
 
-fn returned(n: Int) -> Int {
+fn returned(n: Int) -> Int
   twice = fn x -> x * 2
   twice(n)
-}
+end
 `)
 	var got []string
 	for _, e := range errs {
@@ -125,19 +125,19 @@ fn returned(n: Int) -> Int {
 // a tuple of known items is still reported.
 func TestLambdaParamUninferable_AnnotatedCallsCheck(t *testing.T) {
 	errs := checkWithStdlib(`
-fn in_list(n: Int) -> List<(String, Int)> {
+fn in_list(n: Int) -> List<(String, Int)>
   twice = fn x: Int -> x * 2
   [("a", twice(n))]
-}
+end
 
-fn in_record(n: Int) -> .{v: Int} {
+fn in_record(n: Int) -> {v: Int}
   twice = fn x: Int -> x * 2
-  .{v: twice(n)}
-}
+  {v: twice(n)}
+end
 
-fn wrong(_n: Int) -> (String, Int) {
+fn wrong(_n: Int) -> (String, Int)
   ("a", "b")
-}
+end
 `)
 	var got []string
 	for _, e := range errs {

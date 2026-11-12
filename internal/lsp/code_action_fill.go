@@ -278,77 +278,54 @@ func (f *fillRequest) fillFunctions(t *fillTarget) (string, string, bool) {
 	if len(required) == 1 {
 		title = fmt.Sprintf("Implement missing function '%s'", required[0].Name)
 	}
-	if impl.EndLine == 0 {
-		// A bodyless `impl Iface for T`, which is how `nomi fmt` writes an
-		// empty block: the header gains the block.
-		end, ok := f.headerEnd(impl)
-		if !ok {
-			return "", "", false
-		}
-		return title, f.content[:end] + " {\n" + strings.Join(stubs, "\n\n") + "\n}" + f.content[end:], true
-	}
-	closeOff := posToOffset(f.offs, impl.EndLine, impl.EndCol)
-	if closeOff >= len(f.content) || f.content[closeOff] != '}' {
+	endOff := posToOffset(f.offs, impl.EndLine, impl.EndCol)
+	if impl.EndLine == 0 || !f.endAt(endOff) {
 		return "", "", false
 	}
-	var edited string
-	if lineStart := f.lineStart(closeOff); strings.TrimSpace(f.content[lineStart:closeOff]) == "" {
-		// The `}` opens its line: the functions go on the lines above it,
-		// a blank line before each one that follows another item.
-		var b strings.Builder
-		for i, s := range stubs {
-			if i > 0 || len(impl.Items) > 0 || len(impl.EndTrivia) > 0 {
-				b.WriteString("\n")
-			}
-			b.WriteString(s + "\n")
+	// The functions go on the lines above the impl's `end`, a blank line
+	// before each one that follows another item. `impl X for T end` opens
+	// onto its own lines.
+	var b strings.Builder
+	for i, s := range stubs {
+		if i > 0 || len(impl.Items) > 0 || len(impl.EndTrivia) > 0 {
+			b.WriteString("\n")
 		}
-		edited = f.content[:lineStart] + b.String() + f.content[lineStart:]
-	} else {
-		// `impl X for T {}`: the block opens onto its own lines.
-		open := closeOff - 1
-		for open >= 0 && (f.content[open] == ' ' || f.content[open] == '\t') {
-			open--
-		}
-		if open < 0 || f.content[open] != '{' {
-			return "", "", false
-		}
-		edited = f.content[:open+1] + "\n" + strings.Join(stubs, "\n\n") + "\n" + f.content[closeOff:]
+		b.WriteString(s + "\n")
 	}
-	return title, edited, true
+	lines := b.String()
+	if f.endOnHeaderLine(endOff) {
+		lines = strings.Join(stubs, "\n\n") + "\n"
+	}
+	return title, f.insertBeforeEnd(endOff, posToOffset(f.offs, impl.Line, impl.Col), lines), true
 }
 
-// headerEnd is the offset just past a bodyless impl header's last token:
-// before the line break, `;` or comment that ends it (the parser's
-// implBodylessBoundary).
-func (f *fillRequest) headerEnd(impl *ast.ImplBlock) (int, bool) {
-	depth := 0
-	for i := f.tokenAt(posToOffset(f.offs, impl.Line, impl.Col)) + 1; i < len(f.tokens); i++ {
-		t := f.tokens[i]
-		switch t.Type {
-		case token.LBRACE, token.LPAREN, token.LBRACKET:
-			depth++
-			continue
-		case token.RBRACE, token.RPAREN, token.RBRACKET:
-			depth--
-			continue
-		case token.EOF:
-		case token.NEWLINE, token.SEMICOLON, token.BLANK_LINE, token.COMMENT:
-			if depth > 0 {
-				continue
-			}
-		default:
-			continue
-		}
-		end := len(f.content)
-		if t.Type != token.EOF {
-			end = f.offOf(t)
-		}
-		for end > 0 && (f.content[end-1] == ' ' || f.content[end-1] == '\t' || f.content[end-1] == '\n') {
-			end--
-		}
-		return end, true
+// endAt reports whether the `end` keyword starts at off.
+func (f *fillRequest) endAt(off int) bool {
+	if off < 0 || off+3 > len(f.content) || f.content[off:off+3] != "end" {
+		return false
 	}
-	return 0, false
+	return off+3 == len(f.content) || !isIdentByte(f.content[off+3])
+}
+
+// endOnHeaderLine reports whether something precedes the `end` at endOff on
+// its line: an empty body written on its header's line.
+func (f *fillRequest) endOnHeaderLine(endOff int) bool {
+	return strings.TrimSpace(f.content[f.lineStart(endOff):endOff]) != ""
+}
+
+// insertBeforeEnd inserts lines (each ending in a newline) before the `end`
+// at endOff, which closes the body whose header starts at headerOff. An
+// `end` on its header's line moves to a line of its own.
+func (f *fillRequest) insertBeforeEnd(endOff, headerOff int, lines string) string {
+	at := f.lineStart(endOff)
+	if f.endOnHeaderLine(endOff) {
+		lines = "\n" + lines + f.lineIndentAt(headerOff)
+		at = endOff
+		for at > 0 && (f.content[at-1] == ' ' || f.content[at-1] == '\t') {
+			at--
+		}
+	}
+	return f.content[:at] + lines + f.content[at:]
 }
 
 // --- add missing fields -----------------------------------------------------
@@ -494,11 +471,15 @@ func (f *fillRequest) fillArms(t *fillTarget) (string, string, bool) {
 	if len(arms) == 0 {
 		return "", "", false
 	}
-	open, close, ok := f.caseBraces(c)
-	if !ok {
+	if c.Span.IsZero() {
 		return "", "", false
 	}
-	indent := f.lineIndentAt(f.offOf(f.tokens[open])) + strings.Repeat(" ", format.IndentWidth)
+	endOff := posToOffset(f.offs, c.Span.EndLine, c.Span.EndCol) - len("end")
+	if !f.endAt(endOff) {
+		return "", "", false
+	}
+	headerOff := posToOffset(f.offs, c.Line, c.Col)
+	indent := f.lineIndentAt(headerOff) + strings.Repeat(" ", format.IndentWidth)
 	if len(c.Branches) > 0 {
 		indent = strings.Repeat(" ", c.Branches[0].Col-1)
 	}
@@ -506,48 +487,12 @@ func (f *fillRequest) fillArms(t *fillTarget) (string, string, bool) {
 	for _, a := range arms {
 		b.WriteString(indent + a + "\n")
 	}
-	edited := f.insertBeforeClose(open, close, b.String(), false)
+	edited := f.insertBeforeEnd(endOff, headerOff, b.String())
 	title := "Add missing arms"
 	if len(arms) == 1 {
 		title = "Add missing arm " + strings.Fields(arms[0])[0]
 	}
 	return title, edited, true
-}
-
-// caseBraces finds the token indexes of the `{` and `}` around c's arms.
-// With arms, the `{` is the one open at the first arm; without, it is the
-// first `{` after the subject that is closed by the next token.
-func (f *fillRequest) caseBraces(c *ast.Case) (int, int, bool) {
-	if len(c.Branches) > 0 {
-		at := f.tokenAt(posToOffset(f.offs, c.Branches[0].Line, c.Branches[0].Col))
-		depth := 0
-		for i := at - 1; i >= 0; i-- {
-			switch f.tokens[i].Type {
-			case token.RBRACE, token.RPAREN, token.RBRACKET:
-				depth++
-			case token.LBRACE, token.LPAREN, token.LBRACKET:
-				if depth > 0 {
-					depth--
-					continue
-				}
-				if f.tokens[i].Type != token.LBRACE {
-					return 0, 0, false
-				}
-				return f.closeOf(i)
-			}
-		}
-		return 0, 0, false
-	}
-	for i := f.tokenAt(posToOffset(f.offs, c.Line, c.Col)); i < len(f.tokens); i++ {
-		if f.tokens[i].Type != token.LBRACE {
-			continue
-		}
-		open, close, ok := f.closeOf(i)
-		if ok && f.nextSignificant(open) == close {
-			return open, close, true
-		}
-	}
-	return 0, 0, false
 }
 
 // --- text helpers -----------------------------------------------------------

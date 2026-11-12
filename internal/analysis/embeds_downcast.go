@@ -112,7 +112,7 @@ func embedsDowncastHint(want, have Type) string {
 	if _, distinct := emb.(*DistinctType); distinct {
 		pattern = "." + name + "(_)"
 	}
-	return fmt.Sprintf("%s may hold a variant other than %s, and only a match narrows it: `case value { %s -> ... }`",
+	return fmt.Sprintf("%s may hold a variant other than %s, and only a match narrows it: `case value` with the arm `%s -> ...`",
 		et.Name, name, pattern)
 }
 
@@ -177,7 +177,7 @@ func (c *checker) callbackDowncast(callee, arg ast.Node, want, have Type, label 
 			if fn != "" {
 				body = fn + "(value) ..."
 			}
-			hint = fmt.Sprintf("pass a function that takes %s %s and matches it first: `fn value -> case value { %s -> %s }`",
+			hint = fmt.Sprintf("pass a function that takes %s %s and matches it first, with `case value` and the arm `%s -> %s`",
 				articleFor(et.Name), et.Name, pattern, body)
 		}
 		return TypeError{Line: line, Col: col, Message: msg}.Spanning(arg).WithHint(hint), true
@@ -193,5 +193,5 @@ func (c *checker) addMismatch(line, col int, want, have Type, msg string) {
 
 // addMismatchAt is addMismatch over n's extent: the value that does not fit.
 func (c *checker) addMismatchAt(n ast.Node, want, have Type, msg string) {
-	c.report(shapeLiteralConfusion(errAt(n, msg).WithHint(c.unwrappedOneShortHint(want, have, n)).WithHint(c.mismatchHint(want, have)), want, n))
+	c.report(errAt(n, msg).WithHint(c.unwrappedOneShortHint(want, have, n)).WithHint(c.mismatchHint(want, have)))
 }

@@ -14,38 +14,38 @@
 // tail_self_deep.nomi, tail_mutual_deep.nomi and tail_impl_deep.nomi.
 import std::io
 
-fn count(n: Int) -> Int {
-    if n == 0 { 0 } else { count(n - 1) }
-}
+fn count(n: Int) -> Int
+    if n == 0 then 0 else count(n - 1)
+end
 
-fn fact(n: Int, acc: Int) -> Int {
-    if n <= 1 {
+fn fact(n: Int, acc: Int) -> Int
+    if n <= 1 then
         acc
-    } else {
+    else
         fact(n - 1, Int.wrapping_mul(acc, n))
-    }
-}
+    end
+end
 
-fn is_even(n: Int) -> Bool {
-    if n == 0 { True } else { is_odd(n - 1) }
-}
+fn is_even(n: Int) -> Bool
+    if n == 0 then True else is_odd(n - 1)
+end
 
-fn is_odd(n: Int) -> Bool {
-    if n == 0 { False } else { is_even(n - 1) }
-}
+fn is_odd(n: Int) -> Bool
+    if n == 0 then False else is_even(n - 1)
+end
 
-fn sum_up_to(n: Int) -> Int {
-    if n == 0 { 0 } else { 1 + sum_up_to(n - 1) }
-}
+fn sum_up_to(n: Int) -> Int
+    if n == 0 then 0 else 1 + sum_up_to(n - 1)
+end
 
 // Every argument reads a parameter the hop is about to overwrite, in both
 // directions, so a rebind that skipped the temporaries would corrupt one of
 // them. `swap(3, 8, 4)` must answer 3-8 unchanged after an even number of hops.
-fn swap(a: Int, b: Int, n: Int) -> Int {
-    if n == 0 { a - b } else { swap(b, a, n - 1) }
-}
+fn swap(a: Int, b: Int, n: Int) -> Int
+    if n == 0 then a - b else swap(b, a, n - 1)
+end
 
-fn main() {
+fn main()
     io.print("count = ${count(1000000)}")
     io.print("fact = ${fact(20, 1)}")
     io.print("even = ${is_even(1000001)}")
@@ -53,4 +53,4 @@ fn main() {
     io.print("sum = ${sum_up_to(1000)}")
     io.print("swap even = ${swap(3, 8, 4)}")
     io.print("swap odd = ${swap(3, 8, 5)}")
-}
+end

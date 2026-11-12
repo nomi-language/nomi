@@ -1,9 +1,9 @@
-import {
+import
     std::instant.Instant
     std::io
-}
+end
 
-fn main() -> Unit {
+fn main() -> Unit
     epoch = Instant.from_seconds(0)
     a = Instant.from_seconds(10)
     b = Instant.from_seconds(15)
@@ -24,4 +24,4 @@ fn main() -> Unit {
             Instant.is_before(Instant.from_seconds(1577836800), now)
         )}"
     )
-}
+end

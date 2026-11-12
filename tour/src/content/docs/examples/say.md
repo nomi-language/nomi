@@ -14,15 +14,15 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Spells out a number in English.
 
 /// Why a number cannot be said.
-pub enum Error {
+pub enum Error
     OutOfRange
-}
+end
 
 /// The largest number `say` spells.
 once largest = 999_999_999_999
 
 /// The words for 0 to 19.
-once small = #[
+once small = Vector[
     "zero",
     "one",
     "two",
@@ -46,7 +46,18 @@ once small = #[
 ]
 
 /// The words for each multiple of ten, by its tens digit; 0 and 1 have none.
-once tens = #["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
+once tens = Vector[
+    "",
+    "",
+    "twenty",
+    "thirty",
+    "forty",
+    "fifty",
+    "sixty",
+    "seventy",
+    "eighty",
+    "ninety",
+]
 
 /// Each scale word with the number it counts, largest first.
 once scales = [
@@ -58,45 +69,45 @@ once scales = [
 
 /// `number` in English words, from "zero" to the largest number below a
 /// trillion.
-pub fn say(number: Int) -> Result<String, Error> {
-    if not number in 0..=largest {
+pub fn say(number: Int) -> Result<String, Error>
+    if not number in 0..=largest then
         Err(.OutOfRange)
-    } else {
+    else
         Ok(words(number))
-    }
-}
+    end
+end
 
 /// `n` in words: the largest scale it reaches, said as a count of that
 /// scale and then the rest, or below a hundred the words for its tens and
 /// ones.
-fn words(n: Int) -> String {
-    case Iter.find(scales, fn (size, _name) -> n >= size) {
-        Some((size, name)) -> {
+fn words(n: Int) -> String
+    case Iter.find(scales, fn (size, _name) -> n >= size)
+        Some((size, name)) ->
             head = "${words(n / size)} ${name}"
 
-            if n % size == 0 {
+            if n % size == 0 then
                 head
-            } else {
+            else
                 "${head} ${words(n % size)}"
-            }
-        }
+            end
 
-        None -> below_hundred(n)
-    }
-}
+        None ->
+            below_hundred(n)
+    end
+end
 
-fn below_hundred(n: Int) -> String {
-    case {
+fn below_hundred(n: Int) -> String
+    case
         n < 20 -> Vector.get(small, n)!
         n % 10 == 0 -> Vector.get(tens, n / 10)!
         _ -> "${Vector.get(tens, n / 10)!}-${Vector.get(small, n % 10)!}"
-    }
-}
+    end
+end
 
 // FILE: say_test.nomi
 import say.{self, Error}
 
-test "say" {
+test "say"
     [
         ("zero", 0, Ok("zero")),
         ("one", 1, Ok("one")),
@@ -128,10 +139,10 @@ test "say" {
         ("numbers below zero are out of range", -1, Err(Error.OutOfRange)),
         ("numbers above 999,999,999,999 are out of range", 1_000_000_000_000, Err(.OutOfRange)),
     ]
-    |> subtests (description, number, expected), description {
+    |> subtests (description, number, expected), description
         assert say.say(number) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok say (19 cases)

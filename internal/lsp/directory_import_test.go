@@ -20,9 +20,9 @@ func directoryImportProject(t *testing.T, main string) (*Server, string, string)
 	t.Helper()
 	dir := writeProject(t, map[string]string{
 		"nomi.toml":                      "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-		"views/admin/users.nomi":         "pub fn count() -> Int {\n    1\n}\n",
-		"views/admin/reports/daily.nomi": "pub fn total() -> Int {\n    2\n}\n",
-		"db/posts.nomi":                  "pub fn count() -> Int {\n    3\n}\n",
+		"views/admin/users.nomi":         "pub fn count() -> Int\n    1\nend\n",
+		"views/admin/reports/daily.nomi": "pub fn total() -> Int\n    2\nend\n",
+		"db/posts.nomi":                  "pub fn count() -> Int\n    3\nend\n",
 		"main.nomi":                      main,
 	})
 	s := NewServer()
@@ -31,7 +31,7 @@ func directoryImportProject(t *testing.T, main string) (*Server, string, string)
 	return s, uri, dir
 }
 
-const directoryImportMain = "import views::admin\n\nfn main() {\n    _ = admin::users.count() + admin::reports::daily.total()\n}\n"
+const directoryImportMain = "import views::admin\n\nfn main()\n    _ = admin::users.count() + admin::reports::daily.total()\nend\n"
 
 // Go-to-definition on a path's member reaches the declaration, and on the
 // path's segments reaches the file.
@@ -77,7 +77,7 @@ func TestDirectoryImport_Rename(t *testing.T) {
 // Completion after a directory import's name and `::` offers the files and
 // directories under the directory, and one level down after a subdirectory.
 func TestDirectoryImport_CompletesPathSegments(t *testing.T) {
-	main := "import views::admin\n\nfn main() {\n    _ = admin::users.count()\n    _ = admin::\n    _ = admin::reports::\n}\n"
+	main := "import views::admin\n\nfn main()\n    _ = admin::users.count()\n    _ = admin::\n    _ = admin::reports::\nend\n"
 	s, uri, _ := directoryImportProject(t, main)
 	got := completionLabels(t, s, uri, 4, 15)
 	if !got["users"] || !got["reports"] || got["daily"] {
@@ -92,7 +92,7 @@ func TestDirectoryImport_CompletesPathSegments(t *testing.T) {
 // A file import's full path at a use is an error whose quick fix, and
 // source.fixAll, write the file's short name.
 func TestDirectoryImport_FixAllWritesTheShortName(t *testing.T) {
-	main := "import db::posts\n\nfn main() {\n    _ = db::posts.count() + posts.count()\n}\n"
+	main := "import db::posts\n\nfn main()\n    _ = db::posts.count() + posts.count()\nend\n"
 	s, uri, _ := directoryImportProject(t, main)
 	only := []protocol.CodeActionKind{codeActionKindSourceFixAll}
 	result, err := s.textDocumentCodeAction(nil, &protocol.CodeActionParams{
@@ -106,7 +106,7 @@ func TestDirectoryImport_FixAllWritesTheShortName(t *testing.T) {
 	if len(actions) != 1 {
 		t.Fatalf("want one fixAll action, got %+v", result)
 	}
-	want := "import db::posts\n\nfn main() {\n    _ = posts.count() + posts.count()\n}\n"
+	want := "import db::posts\n\nfn main()\n    _ = posts.count() + posts.count()\nend\n"
 	if got := applyWorkspaceEdit(t, main, actions[0], uri); got != want {
 		t.Errorf("after fixAll:\n%s\nwant\n%s", got, want)
 	}

@@ -15,42 +15,42 @@ import (
 // `gen.iterCall` records them, and a call through a function value records its
 // arguments too. Some cases fail on purpose, so the report text itself is
 // compared between the VM and the golden record.
-const irIterTestBodySource = `fn double(n: Int) -> Int {
+const irIterTestBodySource = `fn double(n: Int) -> Int
   n * 2
-}
+end
 
-test "a count in a subject" {
+test "a count in a subject"
   xs = [1, 2, 3]
   assert Iter.count(xs) == 3
-}
+end
 
-test "a pipeline bound before the assertion" {
+test "a pipeline bound before the assertion"
   total = [1, 2, 3, 4] |> Iter.filter(fn x -> x % 2 == 0) |> Iter.reduce(0, fn a, x -> a + x)
   assert total == 6
-}
+end
 
-test "a predicate call records its source" {
+test "a predicate call records its source"
   xs = [2, 4, 5]
   assert Iter.all_match(xs, fn x -> x % 2 == 0)
-}
+end
 
-test "a multi-line call leaves the cursor on its last line" {
+test "a multi-line call leaves the cursor on its last line"
   assert double(
     3
   ) == 7
-}
+end
 
-test "a call through a function value shows its argument" {
+test "a call through a function value shows its argument"
   is_small = fn n: Int -> n > 90
   w = 5
   assert is_small(w)
-}
+end
 
-test "a folded count in a subject" {
+test "a folded count in a subject"
   assert Iter.count(
     [1, 2] |> Iter.map(fn x -> x + 1)
   ) == 2
-}
+end
 `
 
 func TestIRIterTestBody_MatchesItsGoldenRecord(t *testing.T) {

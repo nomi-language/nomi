@@ -2,11 +2,11 @@
 Subtests over a list with a tuple pattern
 ================================================================================
 
-test "palindromes" {
-  subtests cases, (line, known) {
+test "palindromes"
+  subtests cases, (line, known)
     assert is_palindrome(line) == known
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -32,14 +32,14 @@ test "palindromes" {
 Subtests rows spanning lines, with a struct pattern
 ================================================================================
 
-test "points" {
+test "points"
   subtests [
     Point{x: 1, y: 2},
     Point{x: 3, y: 4},
-  ], Point{x, y} {
+  ], Point{x:, y:}
     assert x < y
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -78,12 +78,12 @@ test "points" {
 Subtests as an ordinary name
 ================================================================================
 
-fn f() {
+fn f()
   subtests = 3
   subtests(2)
   g(subtests, 1)
   subtests
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -108,23 +108,23 @@ fn f() {
 Subtests with a name for each row
 ================================================================================
 
-test "leap" {
-  subtests cases, (description, year), description {
+test "leap"
+  subtests cases, (description, year), description
     assert year > 0
-  }
-  subtests cases, (a, b), "${a} + ${b}" {
+  end
+  subtests cases, (a, b), "${a} + ${b}"
     assert a < b
-  }
-  subtests rows, Ok(n) or Err(n), label(n) {
+  end
+  subtests rows, Ok(n) or Err(n), label(n)
     assert n > 0
-  }
+  end
   subtests cases, (
     _description,
     year
-  ), if year > 0 { "after" } else { "before" } {
+  ), if year > 0 then "after" else "before"
     assert year != 0
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -186,12 +186,10 @@ test "leap" {
           (binary_expression
             (identifier)
             (integer))
-          (body
-            (string
-              (string_content)))
-          (body
-            (string
-              (string_content))))
+          (string
+            (string_content))
+          (string
+            (string_content)))
         (body
           (assertion
             (binary_expression
@@ -202,20 +200,20 @@ test "leap" {
 Subtests as a pipe stage
 ================================================================================
 
-test "abbreviates" {
+test "abbreviates"
   [
     ("basic", "PNG"),
   ]
-  |> subtests (description, expected), description {
+  |> subtests (description, expected), description
     assert expected == "PNG"
-  }
+  end
   rows
   |> Iter.map(f)
-  |> subtests row {
+  |> subtests row
     assert row
-  }
+  end
   x |> subtests(y)
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -263,16 +261,16 @@ test "abbreviates" {
 Subtests in a group, with a boot line, a setup and a named row
 ================================================================================
 
-group "todo api" {
-  subtests [("memory", 1), ("sqlite", 2)], (store, workers), store {
-    boot server.boot(Startup{env: %{"STORE" => store}})
+group "todo api"
+  subtests [("memory", 1), ("sqlite", 2)], (store, workers), store
+    boot server.boot(Startup{env: {"STORE" => store}})
     setup workers
 
-    test "creates a todo", n {
+    test "creates a todo", n
       assert n > 0
-    }
-  }
-}
+    end
+  end
+end
 
 --------------------------------------------------------------------------------
 

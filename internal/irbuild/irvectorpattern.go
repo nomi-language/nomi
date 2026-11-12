@@ -7,14 +7,14 @@ import (
 
 // VECTOR AND SET PATTERNS.
 //
-// A vector pattern, `#[first, ..rest, last]`, is a list pattern over a
+// A vector pattern, `[first, ..rest, last]` over a vector, is a list pattern over a
 // vector: a length test (MatchVectorLen without a `..`, MatchVectorMin with
 // one), then each head read from the front and each tail from the end
 // (ProjVectorElem), and the rest a window over the elements between them
 // (ProjVectorSlice), which shares the vector's storage. An element's own
 // pattern is tested as a nested pattern is (patternValueTest).
 //
-// A set pattern, `%["admin", ..rest]`, tests membership as a map pattern
+// A set pattern, `["admin", ..rest]` over a set, tests membership as a map pattern
 // tests keys: each element is an expression, evaluated in pattern order, and
 // `Set.contains` asks for it. Without a `..` the set holds exactly those
 // elements: the rest, the set without them, must be empty. A named rest is
@@ -26,13 +26,13 @@ func irVectorCaseKind(k kind) bool {
 	return ok || k == kindEmptyVector
 }
 
-// irDistinctOverVector is a distinct type over a vector, which `#Path[...]`
-// or a bare `#[...]` takes apart through its inner vector.
+// irDistinctOverVector is a distinct type over a vector, which `Path[...]`
+// or a bare `[...]` takes apart through its inner vector.
 func irDistinctOverVector(k kind) bool {
 	return k.tag == tagNamed && irCompositeDistinct(k.def) && irVectorCaseKind(k.def.inner)
 }
 
-// irDistinctOverSet is a distinct type over a set, `%Tags[...]`'s.
+// irDistinctOverSet is a distinct type over a set, `Tags[...]`'s.
 func irDistinctOverSet(k kind) bool {
 	return k.tag == tagNamed && irCompositeDistinct(k.def) && irSetCaseKind(k.def.inner)
 }
@@ -45,13 +45,13 @@ func irSetCaseKind(k kind) bool {
 // vectorCaseTest tests a vector pattern over subj, ending in arm with the
 // pattern's names bound and branching to next on any failed test.
 func (bl *irScalarBuilder) vectorCaseTest(pattern ast.Node, subj ir.Temp, k kind, arm, next *ir.Block) bool {
-	pat, ok := pattern.(*ast.VectorPattern)
-	if !ok || pat.TypeName != nil {
+	pat, ok := pattern.(*ast.ListPattern)
+	if !ok || pat.TypeName != nil || pat.Kind != ast.SeqVector {
 		return false
 	}
 	fixed := len(pat.Heads) + len(pat.Tails)
 	if k == kindEmptyVector {
-		// The untyped `#[]` as the subject: no element pattern matches it,
+		// The untyped `[]` as the subject: no element pattern matches it,
 		// so no element is read at the kind it is coerced to.
 		v, vk, ok := bl.coerceEmpty(pattern, subj, k, bl.g.vectorKindOf(kindInt))
 		if !ok {
@@ -66,7 +66,7 @@ func (bl *irScalarBuilder) vectorCaseTest(pattern ast.Node, subj ir.Temp, k kind
 	pos := bl.g.irNodePos(pat)
 	var match *ir.Match
 	switch {
-	case !pat.Spread:
+	case pat.TailSpread == nil:
 		match = ir.NewMatchVectorLenInto(pos, bl.f.NewTemp(), subj, fixed)
 	case fixed > 0:
 		match = ir.NewMatchVectorMinInto(pos, bl.f.NewTemp(), subj, fixed)
@@ -77,7 +77,7 @@ func (bl *irScalarBuilder) vectorCaseTest(pattern ast.Node, subj ir.Temp, k kind
 		bl.side(match.Dst(), irScalarSide{k: kindBool})
 		bl.b.SetTerm(ir.NewBranch(pos, match.Dst(), body.ID(), next.ID()))
 	} else {
-		// `#[..rest]` matches every vector. The branch is on a constant so
+		// `[..rest]` matches every vector. The branch is on a constant so
 		// the arms after it keep the edge they are lowered under, as a
 		// list's `[..rest]` does.
 		always := ir.NewBool(pos, bl.f.NewTemp(), true)
@@ -103,7 +103,7 @@ func (bl *irScalarBuilder) vectorCaseTest(pattern ast.Node, subj ir.Temp, k kind
 			return false
 		}
 	}
-	if id, named := pat.Rest.(*ast.IdentPattern); named {
+	if id, named := pat.Rest().(*ast.IdentPattern); named {
 		rest := ir.NewProjVectorSlice(pos, bl.f.NewTemp(), subj, len(pat.Heads), len(pat.Tails), irParamShape(k))
 		bl.b.Append(rest)
 		bl.side(rest.Dst(), irScalarSide{k: k})
@@ -118,13 +118,13 @@ func (bl *irScalarBuilder) vectorCaseTest(pattern ast.Node, subj ir.Temp, k kind
 // bound and branching to next when the set lacks an element, or, without a
 // `..`, holds another.
 func (bl *irScalarBuilder) setCaseTest(pattern ast.Node, subj ir.Temp, k kind, arm, next *ir.Block) bool {
-	pat, ok := pattern.(*ast.SetPattern)
-	if !ok || pat.TypeName != nil {
+	pat, ok := pattern.(*ast.ListPattern)
+	if !ok || pat.TypeName != nil || pat.Kind != ast.SeqSet {
 		return false
 	}
 	if k == kindEmptySet {
-		if len(pat.Elems) == 0 {
-			// `%[]` against the untyped `%[]`, which it matches whatever
+		if len(pat.Heads) == 0 {
+			// `[]` against the untyped `[]`, which it matches whatever
 			// the element type.
 			bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(pat), arm.ID()))
 			bl.b = arm
@@ -148,10 +148,10 @@ func (bl *irScalarBuilder) setCaseTest(pattern ast.Node, subj ir.Temp, k kind, a
 		bl.side(c.Dst(), irScalarSide{k: result})
 		return c.Dst()
 	}
-	_, namedRest := pat.Rest.(*ast.IdentPattern)
-	keepRest := !pat.Spread || namedRest
+	_, namedRest := pat.Rest().(*ast.IdentPattern)
+	keepRest := pat.TailSpread == nil || namedRest
 	rest := subj
-	for _, e := range pat.Elems {
+	for _, e := range pat.Heads {
 		v, vk, _, ok := bl.lower(e)
 		if !ok {
 			return false
@@ -171,7 +171,7 @@ func (bl *irScalarBuilder) setCaseTest(pattern ast.Node, subj ir.Temp, k kind, a
 			rest = host(e, "Set.remove", k, rest, held)
 		}
 	}
-	if !pat.Spread {
+	if pat.TailSpread == nil {
 		size := host(pat, "Set.size", kindInt, rest)
 		zero := ir.NewInt(pos, bl.f.NewTemp(), 0)
 		bl.b.Append(zero)
@@ -183,7 +183,7 @@ func (bl *irScalarBuilder) setCaseTest(pattern ast.Node, subj ir.Temp, k kind, a
 		bl.b = arm
 		return true
 	}
-	if id, named := pat.Rest.(*ast.IdentPattern); named {
+	if id, named := pat.Rest().(*ast.IdentPattern); named {
 		bl.patternBinding(id, id.Name, rest, k)
 	}
 	bl.b.SetTerm(ir.NewJump(pos, arm.ID()))

@@ -11,9 +11,9 @@ import (
 // fixed program checks clean and has no hint.
 func TestInterfaceValueHint_HintAndQuickFix(t *testing.T) {
 	s := NewServer()
-	decls := "pub interface Named {\n    fn name(value: self) -> String\n}\n\n"
-	src := decls + "pub fn label<T>(value: T) -> String where T: Named {\n    \"a ${T.name(value)}\"\n}\n"
-	want := decls + "pub fn label(value: Named) -> String {\n    \"a ${Named.name(value)}\"\n}\n"
+	decls := "pub interface Named\n    fn name(value: self) -> String\nend\n\n"
+	src := decls + "pub fn label<T>(value: T) -> String where T: Named\n    \"a ${T.name(value)}\"\nend\n"
+	want := decls + "pub fn label(value: Named) -> String\n    \"a ${Named.name(value)}\"\nend\n"
 	s.docs.Open(parseFixURI, src)
 	snap := s.docs.Snapshot(parseFixURI)
 	if snap == nil || snap.Analysis == nil {

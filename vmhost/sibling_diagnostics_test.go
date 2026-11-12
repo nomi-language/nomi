@@ -32,17 +32,17 @@ func TestAnalyze_SiblingFileTypeErrorFailsTheProgram(t *testing.T) {
 	}{
 		{
 			name:    "an ordinary return-type mismatch",
-			sibling: "pub fn report() -> String {\n  42\n}\n",
+			sibling: "pub fn report() -> String\n  42\nend\n",
 			want:    "return type mismatch",
 		},
 		{
 			name:    "an app read naming no app field",
-			sibling: "import svc.Svc\n\npub fn report() -> String {\n  Svc.missing\n}\n",
+			sibling: "import svc.Svc\n\npub fn report() -> String\n  Svc.missing\nend\n",
 			want:    "type 'Svc' has no member 'missing'",
 		},
 		{
 			name:    "a qualifier that names nothing at all",
-			sibling: "\npub fn report() -> String {\n  case Context.deadline_remaining(Nowhere.context) {\n    Some(_) -> \"bounded\"\n    None -> \"unbounded\"\n  }\n}\n",
+			sibling: "\npub fn report() -> String\n  case Context.deadline_remaining(Nowhere.context)\n    Some(_) -> \"bounded\"\n    None -> \"unbounded\"\n  end\nend\n",
 			want:    "undefined type or variant 'Nowhere'",
 		},
 	} {
@@ -65,7 +65,7 @@ func TestAnalyze_SiblingFileTypeErrorFailsTheProgram(t *testing.T) {
 // The positive for the case above: a sibling reading the app's context
 // through the imported type.
 func TestAnalyze_SiblingAppFieldReadLoads(t *testing.T) {
-	if err := loadAppProjectWithLeaf(t, "import svc.Svc\n\npub fn report() -> String {\n  case Context.deadline_remaining(Svc.context) {\n    Some(_) -> \"bounded\"\n    None -> \"unbounded\"\n  }\n}\n"); err != nil {
+	if err := loadAppProjectWithLeaf(t, "import svc.Svc\n\npub fn report() -> String\n  case Context.deadline_remaining(Svc.context)\n    Some(_) -> \"bounded\"\n    None -> \"unbounded\"\n  end\nend\n"); err != nil {
 		t.Fatalf("a correct sibling app-field read was rejected: %v", err)
 	}
 }
@@ -78,29 +78,28 @@ func loadAppProjectWithLeaf(t *testing.T, leaf string) error {
 	t.Helper()
 	src := strings.Join([]string{
 		"// FILE: svc.nomi",
-		"pub struct Svc {",
+		"pub struct Svc",
 		"  context: Context",
 		"  label: String = \"svc\"",
-		"}",
+		"end",
 		"",
 		"// FILE: leaf.nomi",
 		strings.TrimRight(leaf, "\n"),
 		"",
 		"// FILE: main.nomi",
-		"import {",
-		"",
+		"import",
 		"  std::io",
 		"  svc.Svc",
 		"  leaf",
-		"}",
+		"end",
 		"",
-		"fn boot() -> Result<Svc, String> {",
+		"fn boot() -> Result<Svc, String>",
 		"  Ok(Svc{context: Context.root(), })",
-		"}",
+		"end",
 		"",
-		"fn main() {",
+		"fn main()",
 		"  io.print(leaf.report())",
-		"}",
+		"end",
 		"",
 		"// FILE: nomi.toml",
 		"[module]",

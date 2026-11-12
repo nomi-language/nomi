@@ -26,19 +26,19 @@
 //
 // `Tag.inspect` is the contrast: an EXPLICIT `impl Debug for Tag` overrides the
 // derive, so the same spelling reaches a hand-written body in the sibling.
-import {
+import
     std::io
     shapes.{self, Status, Tag}
-}
+end
 
-fn describe(s: Status) -> String {
-    case Status.reason(s) {
+fn describe(s: Status) -> String
+    case Status.reason(s)
         Some(r) -> "reason: " + r
         None -> "no reason"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     active = Status.active()
     off = Status.inactive("holiday")
     susp = Status.suspend(100, "maintenance")
@@ -50,4 +50,4 @@ fn main() {
     io.print(describe(susp))
     io.print(Tag.inspect(shapes.tag("x")))
     io.print(Status.inspect(off))
-}
+end

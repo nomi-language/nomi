@@ -105,7 +105,7 @@ func FormatAttachedTestBody(body string) (string, error) {
 			src.WriteString("//! " + line + "\n")
 		}
 	}
-	src.WriteString("fn reference() {}\n")
+	src.WriteString("fn reference() end\n")
 	nodes, _, err := parser.ParseFile(lexer.Lex(src.String()))
 	if err != nil {
 		return body, err
@@ -128,7 +128,7 @@ func renderBlockBody(block *ast.Block) string {
 	if block == nil || len(block.Stmts) == 0 {
 		return ""
 	}
-	return strings.TrimSuffix(Render(Concat(emitStatementDocs(block.Stmts)...), defaultWidth), "\n")
+	return strings.TrimSuffix(Render(Concat(emitStatementDocsTop(block.Stmts, false)...), defaultWidth), "\n")
 }
 
 // cloneImportStmt copies an import statement and its parallel slices so the

@@ -448,7 +448,7 @@ func (c *checker) patternAcquisitions(pattern ast.Node) []*acquisition {
 // Release type, or a Result holding one, that names no value of a Release
 // type outside a lambda. A call given one returns a view of it that the
 // argument's release covers: a transaction's `Conn` from
-// `Conn.begin(conn)`. A `Reader` or `Writer` returned outside a Result is
+// `Conn.begin_transaction(conn)`. A `Reader` or `Writer` returned outside a Result is
 // no acquisition (isStreamType), nor is a constructor's value.
 func (c *checker) isAcquisition(e ast.Node) bool {
 	_, ok := c.acquired(e)
@@ -800,13 +800,7 @@ func (c *checker) handsOnAt(m ast.Node, sym *Symbol) bool {
 	case *ast.Call:
 		return isConstructorCall(v) && c.callTakes(v, sym)
 	case *ast.ListLit:
-		return c.anyRefers(v.Items, sym)
-	case *ast.VectorLit:
-		return c.anyRefers(v.Items, sym)
-	case *ast.SetLit:
-		return c.anyRefers(v.Items, sym)
-	case *ast.ListSpreadLit:
-		return c.anyRefers(v.Items, sym)
+		return c.anyRefers(v.Operands(), sym)
 	case *ast.TupleLit:
 		return c.anyRefers(v.Items, sym)
 	case *ast.MapLit:

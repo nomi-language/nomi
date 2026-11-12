@@ -14,32 +14,32 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Flattens a nested array into one list of its values, dropping nulls.
 
 /// One element of a nested array: a value, an array of elements, or null.
-pub enum Nested {
+pub enum Nested
     Value Int
     Array List<Nested>
     Null
-}
+end
 
 /// Every value in `array`, at any depth, in order; nulls are left out.
-pub fn flatten(array: List<Nested>) -> List<Int> {
+pub fn flatten(array: List<Nested>) -> List<Int>
     array
     |> Iter.flat_map(values)
     |> Iter.to_list()
-}
+end
 
 /// The values one element holds.
-fn values(element: Nested) -> List<Int> {
-    case element {
+fn values(element: Nested) -> List<Int>
+    case element
         .Value(n) -> [n]
         .Array(elements) -> flatten(elements)
         .Null -> []
-    }
-}
+    end
+end
 
 // FILE: flatten_array_test.nomi
 import flatten_array.{self, Nested}
 
-test "flatten" {
+test "flatten"
     [
         ("empty", [], []),
         ("no nesting", [Nested.Value(0), .Value(1), .Value(2)], [0, 1, 2]),
@@ -117,10 +117,10 @@ test "flatten" {
             .Null,
         ], []),
     ]
-    |> subtests (description, array, expected), description {
+    |> subtests (description, array, expected), description
         assert flatten_array.flatten(array) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok flatten (11 cases)

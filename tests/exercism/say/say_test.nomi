@@ -1,6 +1,6 @@
 import say.{self, Error}
 
-test "say" {
+test "say"
     [
         ("zero", 0, Ok("zero")),
         ("one", 1, Ok("one")),
@@ -32,7 +32,7 @@ test "say" {
         ("numbers below zero are out of range", -1, Err(Error.OutOfRange)),
         ("numbers above 999,999,999,999 are out of range", 1_000_000_000_000, Err(.OutOfRange)),
     ]
-    |> subtests (description, number, expected), description {
+    |> subtests (description, number, expected), description
         assert say.say(number) == expected
-    }
-}
+    end
+end

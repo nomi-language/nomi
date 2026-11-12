@@ -79,78 +79,78 @@ func TestIRFunc_TheShapeAdmitsAndDeclines(t *testing.T) {
 		retained bool
 		why      string
 	}{
-		{"int literal and local", "fn f(x: Int) -> Int {\n  x * 2\n}\n", true, ""},
-		{"a tree with a hoisted left operand", "fn f(a: Int) -> Int {\n  a + (a % 7) + 1\n}\n", true, ""},
-		{"float division", "fn f(x: Float) -> Float {\n  x / 2.0\n}\n", true, ""},
-		{"unary minus", "fn f(x: Int) -> Int {\n  -x\n}\n", true, ""},
-		{"parenthesised", "fn f(a: Int, b: Int) -> Int {\n  (a + b) * 2\n}\n", true, ""},
-		{"a binding and then the expression", "fn f(x: Int) -> Int {\n  y = x * 2\n  y + 1\n}\n", true, ""},
-		{"two bindings", "fn f(a: Int, b: Int) -> Int {\n  p = a + 1\n  q = b * 2\n  p + q\n}\n", true, ""},
-		{"a binding read twice", "fn f(a: Int) -> Int {\n  h = a % 3\n  h * h\n}\n", true, ""},
-		{"a binding of a literal", "fn f(a: Int) -> Int {\n  k = 7\n  a + k\n}\n", true, ""},
-		{"a binding whose value reads an earlier binding", "fn f(a: Int) -> Int {\n  p = a + 1\n  q = p * 2\n  p + q\n}\n", true, ""},
+		{"int literal and local", "fn f(x: Int) -> Int\n  x * 2\nend\n", true, ""},
+		{"a tree with a hoisted left operand", "fn f(a: Int) -> Int\n  a + (a % 7) + 1\nend\n", true, ""},
+		{"float division", "fn f(x: Float) -> Float\n  x / 2.0\nend\n", true, ""},
+		{"unary minus", "fn f(x: Int) -> Int\n  -x\nend\n", true, ""},
+		{"parenthesised", "fn f(a: Int, b: Int) -> Int\n  (a + b) * 2\nend\n", true, ""},
+		{"a binding and then the expression", "fn f(x: Int) -> Int\n  y = x * 2\n  y + 1\nend\n", true, ""},
+		{"two bindings", "fn f(a: Int, b: Int) -> Int\n  p = a + 1\n  q = b * 2\n  p + q\nend\n", true, ""},
+		{"a binding read twice", "fn f(a: Int) -> Int\n  h = a % 3\n  h * h\nend\n", true, ""},
+		{"a binding of a literal", "fn f(a: Int) -> Int\n  k = 7\n  a + k\nend\n", true, ""},
+		{"a binding whose value reads an earlier binding", "fn f(a: Int) -> Int\n  p = a + 1\n  q = p * 2\n  p + q\nend\n", true, ""},
 
-		{"a block-valued binding", "fn f(x: Int) -> Int { y = { a = x + 1 a * 2 } y + 1 }", true,
+		{"a block-valued binding", "fn f(x: Int) -> Int\n    y = begin\n        a = x + 1\n        a * 2\n    end\n    y + 1\nend", true,
 			"a typed result slot outlives the block's fresh local bindings"},
-		{"a block binding with a conditional tail", "fn f(x: Int) -> Int { y = { if x < 0 { 0 } else { x } } y }", true,
+		{"a block binding with a conditional tail", "fn f(x: Int) -> Int\n    y = begin\n        if x < 0 then 0 else x\n    end\n    y\nend", true,
 			"the tail `if` is a region whose arms write the binding's result slot"},
-		{"an ad-hoc case", "fn f(x: Int) -> Int { case { x < 0 -> 0 _ -> x } }", true,
+		{"an ad-hoc case", "fn f(x: Int) -> Int\n    case\n        x < 0 -> 0\n        _ -> x\n    end\nend", true,
 			"ordinary Bool selectors share the case chain"},
-		{"an ad-hoc case with branching condition", "fn f(a: Bool, b: Bool) -> Int { case { a and b -> 1 _ -> 0 } }", true,
+		{"an ad-hoc case with branching condition", "fn f(a: Bool, b: Bool) -> Int\n    case\n        a and b -> 1\n        _ -> 0\n    end\nend", true,
 			"a short-circuit condition ends in its own join block, whose terminator is the arm's branch"},
-		{"an annotated binding", "fn f(x: Int) -> Int {\n  y: Int = x * 2\n  y + 1\n}\n", true,
+		{"an annotated binding", "fn f(x: Int) -> Int\n  y: Int = x * 2\n  y + 1\nend\n", true,
 			"the annotated initializer uses the same retained value and coercion path"},
-		{"a block result requiring empty-list coercion", "fn f() -> List<Int> { xs: List<Int> = { [] } xs }", true,
+		{"a block result requiring empty-list coercion", "fn f() -> List<Int>\n    xs: List<Int> = begin\n        []\n    end\n    xs\nend", true,
 			"the block's tail is lowered with the binding's type as its expected type"},
-		{"a branch default requiring result coercion", "fn f(flag: Bool) -> String { make = fn x: Display = if flag { 1 } else { 2 } -> Display.to_string(x) make() }", false,
+		{"a branch default requiring result coercion", "fn f(flag: Bool) -> String\n    make = fn x: Display = if flag then 1 else 2 -> Display.to_string(x)\n    make()\nend", false,
 			"the supplier's inferred branch slot (Int) differs from its parameter kind (Display)"},
-		{"a discarded binding", "fn f(x: Int) -> Int {\n  _ = x * 2\n  x + 1\n}\n", true,
+		{"a discarded binding", "fn f(x: Int) -> Int\n  _ = x * 2\n  x + 1\nend\n", true,
 			"a discard declares nothing, so it is the value plus two drops, the value's and the statement's own Unit. See irdiscard.go"},
-		{"an ANNOTATED discarded binding", "fn f(x: Int) -> Int {\n  _y: Int = x * 2\n  x + 1\n}\n", true,
+		{"an ANNOTATED discarded binding", "fn f(x: Int) -> Int\n  _y: Int = x * 2\n  x + 1\nend\n", true,
 			"an annotated discard checks its value without declaring a local"},
-		{"a tail Unit", "fn f() -> Unit {\n  Unit\n}\n", true,
+		{"a tail Unit", "fn f() -> Unit\n  Unit\nend\n", true,
 			"`ir.ConstUnit`, one of the names `lower`'s TypeIdent arm answers"},
-		{"a binding shadowing a parameter", "fn f(x: Int) -> Int {\n  x = x * 2\n  x + 1\n}\n", true,
+		{"a binding shadowing a parameter", "fn f(x: Int) -> Int\n  x = x * 2\n  x + 1\nend\n", true,
 			"the body scope shadows the parameter with a fresh IR identity"},
-		{"a binding rebound in the body", "fn f(a: Int) -> Int {\n  y = a * 2\n  y = y + 1\n  y\n}\n", true,
+		{"a binding rebound in the body", "fn f(a: Int) -> Int\n  y = a * 2\n  y = y + 1\n  y\nend\n", true,
 			"each local binding has a fresh IR identity and native storage delivery"},
-		{"a binding of a field access", "struct P {\n  x: Int\n}\n\nfn f(p: P) -> Int {\n  y = p.x\n  y + 1\n}\n", true,
+		{"a binding of a field access", "struct P\n  x: Int\nend\n\nfn f(p: P) -> Int\n  y = p.x\n  y + 1\nend\n", true,
 			"`proj` at a binding's value; the arm is `lower`'s and a binding's value goes through it"},
-		{"a leading non-binding statement", "fn f(x: Int) -> Int {\n  io.print(\"hi\")\n  x + 1\n}\n", true,
+		{"a leading non-binding statement", "fn f(x: Int) -> Int\n  io.print(\"hi\")\n  x + 1\nend\n", true,
 			"a Unit-valued expression statement, which is what a program that prints several lines is"},
-		{"a call at a leaf in a binding", "fn g(n: Int) -> Int {\n  n\n}\nfn f(x: Int) -> Int {\n  y = g(x)\n  y + 1\n}\n", true,
+		{"a call at a leaf in a binding", "fn g(n: Int) -> Int\n  n\nend\nfn f(x: Int) -> Int\n  y = g(x)\n  y + 1\nend\n", true,
 			"`call`, direct, all operands positional"},
-		{"a call at a leaf", "fn g(n: Int) -> Int {\n  n\n}\nfn f(x: Int) -> Int {\n  g(x) + 1\n}\n", true,
+		{"a call at a leaf", "fn g(n: Int) -> Int\n  n\nend\nfn f(x: Int) -> Int\n  g(x) + 1\nend\n", true,
 			"the same call in an operand position, hoisted by the ir.Copy gen.operand's rule builds"},
-		{"a named argument", "fn g(n: Int) -> Int {\n  n\n}\nfn f(x: Int) -> Int {\n  g(n: x) + 1\n}\n", true,
+		{"a named argument", "fn g(n: Int) -> Int\n  n\nend\nfn f(x: Int) -> Int\n  g(n: x) + 1\nend\n", true,
 			"argSlotPlan places named operands before constructing the call"},
-		{"an if body", "fn f(a: Int, b: Int) -> Int {\n  if a > b { a } else { b }\n}\n", true,
+		{"an if body", "fn f(a: Int, b: Int) -> Int\n  if a > b then a else b\nend\n", true,
 			"the condition is a comparison, an `ir.Compare`"},
-		{"a tail if over a Bool", "fn f(c: Bool, a: Int, b: Int) -> Int {\n  if c { a } else { b }\n}\n", true,
+		{"a tail if over a Bool", "fn f(c: Bool, a: Int, b: Int) -> Int\n  if c then a else b\nend\n", true,
 			"a Branch over two arms, each writing the function's result slot and jumping to one exit"},
-		{"a tail if with no else", "fn f(c: Bool) -> Unit {\n  if c { Unit }\n}\n", true,
+		{"a tail if with no else", "fn f(c: Bool) -> Unit\n  if c then Unit\nend\n", true,
 			"admitted when the region is Unit-valued. An `if` with no `else` is Unit whichever way it goes, so the else edge writes Unit to the result slot and the arms agree"},
-		{"a comparison", "fn f(a: Int, b: Int) -> Bool {\n  a > b\n}\n", true,
+		{"a comparison", "fn f(a: Int, b: Int) -> Bool\n  a > b\nend\n", true,
 			"`ir.Compare`, a separate node from arithmetic whose destination is always a Bool"},
-		{"string concatenation", "fn f(s: String) -> String {\n  s + \"!\"\n}\n", true,
+		{"string concatenation", "fn f(s: String) -> String\n  s + \"!\"\nend\n", true,
 			"`ir.Concat`, N-ary"},
-		{"a tail case over Int literals", "fn f(n: Int) -> String {\n  case n {\n    0 -> \"z\"\n    _ -> \"m\"\n  }\n}\n", true,
+		{"a tail case over Int literals", "fn f(n: Int) -> String\n  case n\n    0 -> \"z\"\n    _ -> \"m\"\n  end\nend\n", true,
 			"ir.NewMatchLitInto, whose answer a Branch reads"},
-		{"a tail case with no wildcard", "fn f(c: Bool) -> String {\n  case c {\n    True -> \"t\"\n    False -> \"f\"\n  }\n}\n", true,
+		{"a tail case with no wildcard", "fn f(c: Bool) -> String\n  case c\n    True -> \"t\"\n    False -> \"f\"\n  end\nend\n", true,
 			"Boolean variants share answering MatchVariant tests and the native predicate reader"},
-		{"a tail case over an impure scrutinee", "fn f(n: Int) -> String {\n  case n + 1 {\n    0 -> \"z\"\n    _ -> \"m\"\n  }\n}\n", true,
+		{"a tail case over an impure scrutinee", "fn f(n: Int) -> String\n  case n + 1\n    0 -> \"z\"\n    _ -> \"m\"\n  end\nend\n", true,
 			"the shared hold delivery evaluates a computed subject once"},
-		{"decimal", "fn f(d: Decimal) -> Decimal {\n  d + 1.5d\n}\n", true,
+		{"decimal", "fn f(d: Decimal) -> Decimal\n  d + 1.5d\nend\n", true,
 			"exact-text constants and shared Decimal arithmetic"},
-		{"a field access at a leaf", "struct P {\n  x: Int\n}\n\nfn f(p: P) -> Int {\n  p.x * 2\n}\n", true,
+		{"a field access at a leaf", "struct P\n  x: Int\nend\n\nfn f(p: P) -> Int\n  p.x * 2\nend\n", true,
 			"`ir.ProjField` at a leaf"},
-		{"a named type", "type M Int\n\nimpl Add<M, M> for M {\n  fn add(lhs: M, rhs: M) -> M { _ = rhs;\n    lhs\n  }\n}\n\nfn f(m: M) -> M {\n  m + m\n}\n", true,
+		{"a named type", "type M Int\n\nimpl Add<M, M> for M\n  fn add(lhs: M, rhs: M) -> M\n      _ = rhs\n    lhs\n  end\nend\n\nfn f(m: M) -> M\n  m + m\nend\n", true,
 			"local Add impl dispatch names its retained declaration"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "import std::io\n\n" + tc.body + "\nfn main() {\n  io.print(\"go\")\n}\n"
+			src := "import std::io\n\n" + tc.body + "\nfn main()\n  io.print(\"go\")\nend\n"
 			var c irFuncRetentionCount
 			restore := c.observe(t, irFromModule)
 			defer restore()
@@ -195,17 +195,17 @@ func TestIRFunc_TheShapeAdmitsAndDeclines(t *testing.T) {
 func TestIRFunc_ARetainedFunctionAnswersForItsOwnTemporaries(t *testing.T) {
 	src := `import std::io
 
-fn step(acc: Int) -> Int {
+fn step(acc: Int) -> Int
   acc + (acc % 7) + 1
-}
+end
 
-fn many(a: Int, b: Int, c: Int, d: Int) -> Int {
+fn many(a: Int, b: Int, c: Int, d: Int) -> Int
   a * 1000 + b * 100 + c * 10 + d
-}
+end
 
-fn main() {
+fn main()
   io.print("v = ${step(3)} ${many(1, 2, 3, 4)}")
-}
+end
 `
 	var funcs []*ir.Func
 	prev := irFuncObserved

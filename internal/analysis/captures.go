@@ -332,7 +332,7 @@ climb:
 				cur = v
 				continue
 			}
-		case *ast.StructLit, *ast.TupleLit, *ast.ListLit, *ast.VectorLit, *ast.SetLit, *ast.MapLit, *ast.StringInterp, *ast.TaggedString:
+		case *ast.StructLit, *ast.TupleLit, *ast.ListLit, *ast.MapLit, *ast.StringInterp, *ast.TaggedString:
 			return &strayPlaceholder{at: v, hint: fmt.Sprintf("write `&%s`", format.RenderNode(v))}
 		}
 		break climb
@@ -645,16 +645,12 @@ func (c *checker) argumentHolder(n ast.Node) ast.Node {
 				}
 			}
 			return nil
-		case *ast.TupleLit, *ast.ListLit, *ast.VectorLit, *ast.SetLit:
+		case *ast.TupleLit, *ast.ListLit:
 			var items []ast.Node
 			switch l := p.(type) {
 			case *ast.TupleLit:
 				items = l.Items
 			case *ast.ListLit:
-				items = l.Items
-			case *ast.VectorLit:
-				items = l.Items
-			case *ast.SetLit:
 				items = l.Items
 			}
 			for _, item := range items {
@@ -799,7 +795,7 @@ func replaceHoles(n ast.Node, names map[ast.Node]string) ast.Node {
 	case *ast.ListLit:
 		cp := *v
 		cp.Items = make([]ast.Node, len(v.Items))
-		for i, item := range v.Items {
+		for i, item := range v.Operands() {
 			cp.Items[i] = replaceHoles(item, names)
 		}
 		return &cp

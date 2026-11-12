@@ -15,14 +15,13 @@ parameters. You don't usually write the types at the call. Nomi works them out
 from the arguments:
 
 ```nomi-run
-fn pair<T, U>(first: T, second: U) -> (T, U) {
+fn pair<T, U>(first: T, second: U) -> (T, U)
     (first, second)
-}
+end
 
-fn main() {
+fn main()
     dbg pair("age", 30)
-}
-
+end
 ```
 <!-- expect
 dbg line 6: pair("age", 30) = ("age", 30)
@@ -37,15 +36,14 @@ Structs, enums, interfaces and distinct types (`type Tagged<T> (String, T)`)
 can have type parameters. A type alias can't.
 
 ```nomi-run
-struct Box<T> {
+struct Box<T>
     value: T
-}
+end
 
-fn main() {
+fn main()
     box = Box{value: 42}
     dbg box.value
-}
-
+end
 ```
 <!-- expect
 dbg line 7: box.value = 42
@@ -69,21 +67,20 @@ compared." `Comparable` is an interface. The
 [next chapter](/interfaces-and-dispatch/) explains interfaces.
 
 ```nomi-run
-fn first_two_sorted<T>(xs: List<T>) -> List<T> where T: Comparable {
+fn first_two_sorted<T>(xs: List<T>) -> List<T> where T: Comparable
     xs
     |> Iter.sort()
     |> Iter.take(2)
     |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
     first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6])
     |> dbg
 
     first_two_sorted(["banana", "apple", "cherry"])
     |> dbg
-}
-
+end
 ```
 <!-- expect
 dbg line 10: first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6]) = [1, 1]
@@ -115,10 +112,10 @@ shows.
 Types and derives can have a `where` clause too:
 
 ```nomi ignore
-struct Span<T> where T: Comparable {
+struct Span<T> where T: Comparable
     start: T
-    end: T
-}
+    stop: T
+end
 
 derive Display for Box<T> where T: Display
 ```

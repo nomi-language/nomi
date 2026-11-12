@@ -1,12 +1,12 @@
 import std::io
 
-fn main() {
+fn main()
     m = Some(2)
 
-    r = Maybe.map(m, fn v -> {
+    r = Maybe.map(m, fn v ->
         w = v * 3
         w
-    })
+    end)
 
     io.print("${r}")
-}
+end

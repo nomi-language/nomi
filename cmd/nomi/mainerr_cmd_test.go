@@ -17,54 +17,54 @@ var mainErrPrograms = []struct {
 }{
 	{"string error prints without quotes", `import std::io
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
   io.print("before")
   Err("config file not found")
-}
+end
 `, "before\n", "error: config file not found\n", 1},
-	{"an error type with Display prints through it", `struct Missing {
+	{"an error type with Display prints through it", `struct Missing
   path: String
   line: Int
-}
+end
 
-impl Display for Missing {
-  fn to_string(m: Missing) -> String {
+impl Display for Missing
+  fn to_string(m: Missing) -> String
     "${m.path} is missing (line ${m.line})"
-  }
-}
+  end
+end
 
-fn main() -> Result<Unit, Missing> {
+fn main() -> Result<Unit, Missing>
   Err(Missing{path: "app.toml", line: 3})
-}
+end
 `, "", "error: app.toml is missing (line 3)\n", 1},
-	{"an error type without Display prints its Debug text", `struct Missing {
+	{"an error type without Display prints its Debug text", `struct Missing
   path: String
   line: Int
-}
+end
 
-fn main() -> Result<Unit, Missing> {
+fn main() -> Result<Unit, Missing>
   Err(Missing{path: "app.toml", line: 3})
-}
+end
 `, "", "error: Missing{path: \"app.toml\", line: 3}\n", 1},
-	{"a try in main leaves with the error", `fn port(text: String) -> Result<Int, String> {
-  if text == "" {
+	{"a try in main leaves with the error", `fn port(text: String) -> Result<Int, String>
+  if text == "" then
     Err("no port given")
-  } else {
+  else
     Ok(8080)
-  }
-}
+  end
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
   _ = port("")?
   Ok(Unit)
-}
+end
 `, "", "error: no port given\n", 1},
 	{"Ok exits 0", `import std::io
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
   io.print("fine")
   Ok(Unit)
-}
+end
 `, "fine\n", "", 0},
 }
 
@@ -78,7 +78,7 @@ func TestRunCommand_MainReturningAValueIsACheckError(t *testing.T) {
 	env := buildEnv(t.TempDir())
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, "fn main() -> Result<String, String> {\n    Ok(\"hello\")\n}\n")
+	mustWrite(t, entry, "fn main() -> Result<String, String>\n    Ok(\"hello\")\nend\n")
 	for _, command := range []string{"check", "run"} {
 		got := runProcess(t, env, dir, "", nomiBin, command, entry)
 		if got.exit != 1 || got.stdout != "" {
@@ -149,66 +149,66 @@ var bootErrPrograms = []struct {
 }{
 	{"a String error, after boot's cleanup", `import std::io
 
-struct App {
+struct App
   port: Int
-}
+end
 
-fn port(text: String) -> Result<Int, String> {
-  if text == "" {
+fn port(text: String) -> Result<Int, String>
+  if text == "" then
     Err("no port given")
-  } else {
+  else
     Ok(8080)
-  }
-}
+  end
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   defer io.print("first registered, last run")
   defer io.print("last registered, first run")
   p = port("")?
   Ok(App{port: p})
-}
+end
 
-fn main() {
+fn main()
   io.print("main ran on ${App.port}")
-}
+end
 `, "last registered, first run\nfirst registered, last run\n", "error: no port given\n"},
-	{"an error type with Display prints through it", `struct App {
+	{"an error type with Display prints through it", `struct App
   port: Int
-}
+end
 
-struct Missing {
+struct Missing
   key: String
-}
+end
 
-impl Display for Missing {
-  fn to_string(m: Missing) -> String {
+impl Display for Missing
+  fn to_string(m: Missing) -> String
     "${m.key} is not set"
-  }
-}
+  end
+end
 
-fn boot() -> Result<App, Missing> {
+fn boot() -> Result<App, Missing>
   Err(Missing{key: "PORT"})
-}
+end
 
-fn main() {
+fn main()
   _ = App.port
-}
+end
 `, "", "error: PORT is not set\n"},
-	{"an error type without Display prints its Debug text", `struct App {
+	{"an error type without Display prints its Debug text", `struct App
   port: Int
-}
+end
 
-struct Missing {
+struct Missing
   key: String
-}
+end
 
-fn boot() -> Result<App, Missing> {
+fn boot() -> Result<App, Missing>
   Err(Missing{key: "PORT"})
-}
+end
 
-fn main() {
+fn main()
   _ = App.port
-}
+end
 `, "", "error: Missing{key: \"PORT\"}\n"},
 }
 

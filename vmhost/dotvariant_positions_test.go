@@ -20,60 +20,63 @@ import (
 func TestDotVariant_PreludeVariantsWhereNoKindIsExpected(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-enum Shape {
+enum Shape
     Circle(Float)
     Dot
-}
+end
 
-fn parse(s: String) -> Result<Int, String> {
-    case s {
+fn parse(s: String) -> Result<Int, String>
+    case s
         "" -> Err("empty")
         _ -> Ok(String.length(s))
-    }
-}
+    end
+end
 
-fn main() {
-    fn none() -> Maybe<Int> {
+fn main()
+    fn none() -> Maybe<Int>
         .None
-    }
+    end
 
-    fn total(xs: List<String>) -> Result<Int, String> {
-        case xs {
+    fn total(xs: List<String>) -> Result<Int, String>
+        case xs
             [] -> . Ok(0)
-            [x, ..rest] -> {
+            [x, ..rest] ->
                 n = parse(x)?
                 rest_total = total(rest)?
                 .Ok(n + rest_total)
-            }
-        }
-    }
+        end
+    end
 
-    fn first(xs: List<Int>) -> Maybe<Int> {
-        Some(x) = List.head(xs) else { return .None }
+    fn first(xs: List<Int>) -> Maybe<Int>
+        Some(x) = List.head(xs) else
+            return .None
+        end
         .Some(x * 10)
-    }
+    end
 
-    fn checked(s: String) -> Result<Int, String> {
-        Ok(n) = parse(s) else { return .Err("bad") }
+    fn checked(s: String) -> Result<Int, String>
+        Ok(n) = parse(s) else
+            return .Err("bad")
+        end
         .Ok(n)
-    }
+    end
 
-    fn pick<T>(x: T, keep: Bool) -> Maybe<T> {
-        if keep { .Some(x) } else { .None }
-    }
+    fn pick<T>(x: T, keep: Bool) -> Maybe<T>
+        if keep then .Some(x) else .None
+    end
 
-    fn shape(n: Int) -> Shape {
-        case n {
+    fn shape(n: Int) -> Shape
+        case n
             0 -> .Dot
             _ -> .Circle(2.0)
-        }
-    }
+        end
+    end
 
-    positive: (Int) -> Maybe<Int> = fn n -> if n > 0 { .Some(n) } else { .None }
-    length: (String) -> Result<Int, String> = fn s -> case s {
+    positive: (Int) -> Maybe<Int> = fn n -> if n > 0 then .Some(n) else .None
+    length: (String) -> Result<Int, String> = fn s -> case s
         "" -> .Err("empty")
         _ -> .Ok(String.length(s))
-    }
+    end
 
     io.inspect(none())
     io.inspect(total(["a", "bb"]))
@@ -90,7 +93,7 @@ fn main() {
     io.inspect(positive(0))
     io.inspect(length(""))
     io.inspect(length("ab"))
-}
+end
 `)
 	const want = `None
 Ok(3)
@@ -117,29 +120,28 @@ Ok(2)
 func TestDotVariant_PreludeVariantInANestedFnOfATestBody(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	const name = "dot_test.nomi"
-	p, err := vmhost.LoadSource(name, `fn parse(s: String) -> Result<Int, String> {
-    case s {
+	p, err := vmhost.LoadSource(name, `fn parse(s: String) -> Result<Int, String>
+    case s
         "" -> Err("empty")
         _ -> Ok(String.length(s))
-    }
-}
+    end
+end
 
-test "a recursive nested fn with try" {
-    fn total(xs: List<String>) -> Result<Int, String> {
-        case xs {
+test "a recursive nested fn with try"
+    fn total(xs: List<String>) -> Result<Int, String>
+        case xs
             [] ->
                 .Ok(0)
-            [x, ..rest] -> {
+            [x, ..rest] ->
                 n = parse(x)?
                 rest_total = total(rest)?
                 Ok(n + rest_total)
-            }
-        }
-    }
+        end
+    end
 
     assert total(["a", "bb"]) == Ok(3)
     assert total(["a", ""]) == Err("empty")
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the program: %v", err)

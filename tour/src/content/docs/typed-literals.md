@@ -22,41 +22,41 @@ ordinary interface call, so the usual rules about who may implement an
 interface for a type apply:
 
 ```nomi-run
-import {
+import
     std::io
     std::literals.{Fragment, Literal}
-}
+end
 
 type Html String
 
 // The text with HTML's special characters written as entities.
-fn escape(text: String) -> String {
+fn escape(text: String) -> String
     text
     |> String.replace("&", "&amp;")
     |> String.replace("<", "&lt;")
     |> String.replace(">", "&gt;")
     |> String.replace("\"", "&quot;")
-}
+end
 
-impl Literal for Html {
-    fn from_fragments(fragments: List<Fragment<String>>) -> Html {
+impl Literal for Html
+    fn from_fragments(fragments: List<Fragment<String>>) -> Html
         fragments
-        |> Iter.map(fn frag -> {
-            case frag {
+        |> Iter.map(fn frag ->
+            case frag
                 .Static(s) -> s
                 .Dynamic(v) -> escape(v)
-            }
-        })
+            end
+        end)
         |> String.join()
         |> Html()
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     name = "Tom & <Jerry>"
     Html(text) = Html"<p>Hello, ${name}</p>"
     io.print(text)
-}
+end
 ```
 <!-- expect
 <p>Hello, Tom &amp; &lt;Jerry&gt;</p>
@@ -107,30 +107,30 @@ The prefix can be any type, so you have two choices:
 ```nomi-run
 import std::literals.{Fragment, Literal}
 
-struct Box {
+struct Box
     contents: String
-}
+end
 
-impl Literal for Box {
-    fn from_fragments(fragments: List<Fragment<String>>) -> Box {
+impl Literal for Box
+    fn from_fragments(fragments: List<Fragment<String>>) -> Box
         contents =
             fragments
-            |> Iter.map(fn frag -> {
-                case frag {
+            |> Iter.map(fn frag ->
+                case frag
                     .Static(s) -> s
                     .Dynamic(v) -> v
-                }
-            })
+                end
+            end)
             |> String.join()
 
-        Box{contents}
-    }
-}
+        Box{contents:}
+    end
+end
 
-fn main() {
+fn main()
     dbg Box"hello"
     dbg Box{contents: "world"}
-}
+end
 ```
 <!-- expect
 dbg line 24: Box"hello" = Box{contents: "hello"}
@@ -163,7 +163,7 @@ import std::regex.Regex
 
 once digits = Regex`\d+`
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     word = "floor"
     floor = Regex"${word} \\d+"?
     text = "room 42, floor 7"
@@ -172,7 +172,7 @@ fn main() -> Result<Unit, String> {
     dbg String.find(text, floor)
 
     Ok(Unit)
-}
+end
 ```
 <!-- expect
 dbg line 10: String.find_all(text, digits) = ["42", "7"]

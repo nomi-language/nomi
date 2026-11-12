@@ -15,12 +15,12 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The `size` by `size` grid holding 1 to `size * size`, starting at the top
 /// left corner and spiralling clockwise inwards.
-pub fn spiral_matrix(size: Int) -> Vector<Vector<Int>> {
+pub fn spiral_matrix(size: Int) -> Vector<Vector<Int>>
     empty_row = Iter.repeat(0) |> Iter.take(size) |> Iter.to_vector()
     grid = Iter.repeat(empty_row) |> Iter.take(size) |> Iter.to_vector()
 
     fill(grid, (0, 0), (0, 1), 1, size * size)
-}
+end
 
 /// Writes `value` at `position`, then moves on along `heading`, turning
 /// clockwise when the next square is off the grid or already written, until
@@ -31,84 +31,80 @@ fn fill(
     heading: (Int, Int),
     value: Int,
     last: Int,
-) -> Vector<Vector<Int>> {
-    if value > last { return grid }
+) -> Vector<Vector<Int>>
+    if value > last then return grid
 
     grid = set_cell(grid, position, value)
 
-    heading = if is_empty(grid, step(position, heading)) {
+    heading = if is_empty(grid, step(position, heading)) then
         heading
-    } else {
+    else
         turn(heading)
-    }
+    end
 
     fill(grid, step(position, heading), heading, value + 1, last)
-}
+end
 
-fn step((row, column): (Int, Int), (dr, dc): (Int, Int)) -> (Int, Int) {
+fn step((row, column): (Int, Int), (dr, dc): (Int, Int)) -> (Int, Int)
     (row + dr, column + dc)
-}
+end
 
-fn turn((dr, dc): (Int, Int)) -> (Int, Int) {
+fn turn((dr, dc): (Int, Int)) -> (Int, Int)
     (dc, -dr)
-}
+end
 
 /// Whether `position` is on the grid and not written yet.
-fn is_empty(grid: Vector<Vector<Int>>, position: (Int, Int)) -> Bool {
+fn is_empty(grid: Vector<Vector<Int>>, position: (Int, Int)) -> Bool
     cell_at(grid, position) == Some(0)
-}
+end
 
-fn cell_at(grid: Vector<Vector<Int>>, (row, column): (Int, Int)) -> Maybe<Int> {
+fn cell_at(grid: Vector<Vector<Int>>, (row, column): (Int, Int)) -> Maybe<Int>
     cells = Vector.get(grid, row)?
     Vector.get(cells, column)
-}
+end
 
 /// `grid` with `value` at `position`, which is on the grid: `fill` only
 /// steps onto a square `is_empty` accepted.
-fn set_cell(
-    grid: Vector<Vector<Int>>,
-    (row, column): (Int, Int),
-    value: Int,
-) -> Vector<Vector<Int>> {
+fn set_cell(grid: Vector<Vector<Int>>, (row, column): (Int, Int), value: Int) -> Vector<Vector<Int>>
     cells = Vector.get(grid, row)! |> Vector.set(column, value)
     Vector.set(grid, row, cells)
-}
+end
 
 // FILE: spiral_matrix_test.nomi
 import spiral_matrix.spiral_matrix
 
-test "spiral_matrix" {
+test "spiral_matrix"
     [
-        ("empty spiral", 0, #[]),
-        ("trivial spiral", 1, #[#[1]]),
-        ("spiral of size 2", 2, #[#[1, 2], #[4, 3]]),
-        ("spiral of size 3", 3, #[#[1, 2, 3], #[8, 9, 4], #[7, 6, 5]]),
+        ("empty spiral", 0, Vector[]),
+        ("trivial spiral", 1, Vector[Vector[1]]),
+        ("spiral of size 2", 2, Vector[Vector[1, 2], Vector[4, 3]]),
+        ("spiral of size 3", 3, Vector[Vector[1, 2, 3], Vector[8, 9, 4], Vector[7, 6, 5]]),
         (
             "spiral of size 4",
             4,
-            #[
-                #[1, 2, 3, 4],
-                #[12, 13, 14, 5],
-                #[11, 16, 15, 6],
-                #[10, 9, 8, 7],
+            Vector[
+                Vector[1, 2, 3, 4],
+                Vector[12, 13, 14, 5],
+                Vector[11, 16, 15, 6],
+                Vector[10, 9, 8, 7],
             ],
         ),
         (
             "spiral of size 5",
             5,
-            #[
-                #[1, 2, 3, 4, 5],
-                #[16, 17, 18, 19, 6],
-                #[15, 24, 25, 20, 7],
-                #[14, 23, 22, 21, 8],
-                #[13, 12, 11, 10, 9],
+            Vector[
+                Vector[1, 2, 3, 4, 5],
+                Vector[16, 17, 18, 19, 6],
+                Vector[15, 24, 25, 20, 7],
+                Vector[14, 23, 22, 21, 8],
+                Vector[13, 12, 11, 10, 9],
             ],
         ),
     ]
-    |> subtests (description, size, expected), description {
+    |> subtests (description, size, expected), description
         assert spiral_matrix(size) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok spiral_matrix (6 cases)
@@ -122,4 +118,4 @@ test result: ok. 6 passed, 0 failed
 - `0` marks an unwritten square, so "free" is `cell_at(grid, position) == Some(0)`, which is `False` both off the grid and on a written square. One comparison does both checks.
 - The walk is a tail-recursive `fn fill` with the position and heading as tuples; turning clockwise is `(dr, dc) -> (dc, -dr)`. It stops after writing `size * size`, so size 0 needs no special case.
 - `set_cell` returns the new grid. It reads the row with `Vector.get(...)!` and writes with `Vector.set`, both of which trap on an index outside the vector; `fill` only steps onto a square `is_empty` accepted, so the position is always on the grid.
-- The cases are one `subtests` table of `(description, size, expected)` rows. The 4x4 and 5x5 grids are written one grid row per line, which `nomi fmt` keeps because each breaks after its `#[`.
+- The cases are one `subtests` table of `(description, size, expected)` rows. The 4x4 and 5x5 grids are written one grid row per line, which `nomi fmt` keeps because each breaks after its `Vector[`.

@@ -86,25 +86,25 @@ func TestProjectionChecksNominalIdentity(t *testing.T) {
 // `List<Int>`'s Nomi name differently from typeOf's would abort the build
 // rather than quietly produce a second kind.
 func TestProjectionAgreesWithTheAnnotationPath(t *testing.T) {
-	src := `struct Point {
+	src := `struct Point
   x: Int
   y: Int
-}
+end
 
 type Meters Int
 
-enum Shape {
+enum Shape
   Dot
   Square Int
-}
+end
 
-fn scalars(a: Int, _b: Float, _c: String, _d: Bool, _e: Unit) -> Int {
+fn scalars(a: Int, _b: Float, _c: String, _d: Bool, _e: Unit) -> Int
   a
-}
+end
 
-fn composites(_xs: List<Int>, _p: (Int, String), _f: (Int) -> String, _pt: Point, _m: Meters, _s: Shape) -> Int {
+fn composites(_xs: List<Int>, _p: (Int, String), _f: (Int) -> String, _pt: Point, _m: Meters, _s: Shape) -> Int
   0
-}
+end
 `
 	p, err := AnalyzeSource("main", src)
 	if err != nil {

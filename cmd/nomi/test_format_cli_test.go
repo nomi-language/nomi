@@ -18,34 +18,34 @@ const formatFixture = `import std::io
 
 /// Doubles.
 //! assert double(2) == 4
-fn double(x: Int) -> Int {
+fn double(x: Int) -> Int
   x * 2
-}
+end
 
-test "passes" {
+test "passes"
   io.print("hello from a test")
   assert 1 + 1 == 2
-}
+end
 
-test "fails" {
+test "fails"
   xs = [1, 2, 3]
   assert Iter.count(xs) == 4
-}
+end
 
-test "traps" {
+test "traps"
   n = 0
   assert 10 / n == 1
-}
+end
 
-group "group" {
-  test "inner ok" {
+group "group"
+  test "inner ok"
     assert True
-  }
+  end
 
-  test "inner bad" {
+  test "inner bad"
     assert False
-  }
-}
+  end
+end
 `
 
 // The text report for formatFixture. A test's own output is indented under
@@ -252,14 +252,14 @@ func TestTestCommand_JSONFormatMessageHasNoColour(t *testing.T) {
 	}
 }
 
-const reportFixture = `test "ok" {
+const reportFixture = `test "ok"
     assert 1 == 1
-}
+end
 
-test "bad" {
+test "bad"
     x = 2
     assert x == 3
-}
+end
 `
 
 // runReportFixture runs `nomi test a_test.nomi` over reportFixture with env
@@ -344,7 +344,7 @@ func TestTestCommand_JSONFormatFileReport(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "a_test.nomi"), "test \"bad\" {\n    assert undefined_name == 1\n}\n")
+	mustWrite(t, filepath.Join(dir, "a_test.nomi"), "test \"bad\"\n    assert undefined_name == 1\nend\n")
 	for _, c := range []struct {
 		env    string
 		colour bool
@@ -453,9 +453,9 @@ func TestTestCommand_JSONFormatFileFailure(t *testing.T) {
 		dir = resolved
 	}
 	path := filepath.Join(dir, "broken_test.nomi")
-	mustWrite(t, path, `test "bad" {
+	mustWrite(t, path, `test "bad"
   assert undefined_name == 1
-}
+end
 `)
 	stdout, _, err := runNomiSplit(t, t.TempDir(), dir, "test", path, "--format", "json")
 	if err == nil {
@@ -500,14 +500,14 @@ gopkg "echobinding" as ffi
 
 fn echo_upper(s: String) -> String go ffi.EchoUpper
 
-test "ffi passes" {
+test "ffi passes"
   io.print("printed by an ffi test")
   assert echo_upper("hello") == "HELLO"
-}
+end
 
-test "ffi fails" {
+test "ffi fails"
   assert echo_upper("a") == "b"
-}
+end
 `)
 	stdout, stderr, err := runNomiSplit(t, cacheRoot, projectRoot, "test", testPath, "--format", "json")
 	if err == nil {
@@ -539,16 +539,16 @@ test "ffi fails" {
 
 const outputFixture = `import std::io
 
-test "passes" {
+test "passes"
     dbg 5
     io.print("printed")
     assert True
-}
+end
 
-test "fails" {
+test "fails"
     dbg 6
     assert False
-}
+end
 `
 
 // What a test writes, `dbg` and `io.print` alike, is reported under its own

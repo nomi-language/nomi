@@ -6,13 +6,13 @@
 //# 2 for RS256, 3 for PS256 and 4 for ECDSA P-256 with SHA-256 in ASN.1.
 //# It is internal; a program imports std::signatures.
 
-import {
+import
     bool.Bool
     bytes.Bytes
     int.Int
     results.Result
     strings.String
-}
+end
 
 /// A new Ed25519 private key.
 pub host fn generate_ed25519() -> Bytes

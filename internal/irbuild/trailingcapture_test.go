@@ -14,24 +14,24 @@ func TestVM_CaptureRoutesAsATrailingCallback(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-fn do_thing(required: Int, option_a: String = "default", f: (Int) -> Int) -> Int {
+fn do_thing(required: Int, option_a: String = "default", f: (Int) -> Int) -> Int
     f(required) + String.length(option_a)
-}
+end
 
-fn make(required: Int, _option_a: String = "default", f: (Int) -> Point) -> Point {
+fn make(required: Int, _option_a: String = "default", f: (Int) -> Point) -> Point
     f(required)
-}
+end
 
-fn twice(n: Int, by: Int) -> Int {
+fn twice(n: Int, by: Int) -> Int
     n * by
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Iter.sort_by(["ccc", "a", "bb"], &String.length(&1)) |> Iter.to_list())
     io.inspect(Iter.sort_by([2, 3, 1], &(0 - &1)) |> Iter.to_list())
     io.inspect(do_thing(5, &(&1 * 2)))
@@ -42,7 +42,7 @@ fn main() {
     io.inspect(do_thing(5, &(Int.max(&1, 70) + 1)))
     io.inspect(5 |> do_thing(&Int.max(&1, 70)))
     io.inspect(make(5, &Point{x: &1, y: 0}))
-}
+end
 `
 	irRunSource(t, src, `["a", "bb", "ccc"]
 [3, 2, 1]
@@ -64,19 +64,19 @@ func TestVM_TrailingCaptureInATestBody(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `fn do_thing(required: Int, option_a: String = "default", f: (Int) -> Int) -> Int {
+	const src = `fn do_thing(required: Int, option_a: String = "default", f: (Int) -> Int) -> Int
     f(required) + String.length(option_a)
-}
+end
 
-test "a trailing partial routes past the default" {
+test "a trailing partial routes past the default"
     assert do_thing(5, &Int.max(&1, 70)) == 77
     assert Iter.sort_by(["ccc", "a"], &String.length(&1)) == ["a", "ccc"]
-}
+end
 
-test "a failing assertion records the routed partial" {
+test "a failing assertion records the routed partial"
     n = 5
     assert do_thing(n, &Int.max(&1, 70)) == 0
-}
+end
 `
 	irTestBodyVM(t, src, 2)
 }

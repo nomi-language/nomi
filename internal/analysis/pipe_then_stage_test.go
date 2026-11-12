@@ -16,15 +16,15 @@ func TestPipeThenStage_BoundaryError(t *testing.T) {
 	}{
 		{
 			"inside a later stage's lambda",
-			"fn f() -> Int {\n    limit = 2\n    [1, 2, 3]\n    |> then fn xs -> xs |> Iter.filter(fn x -> x > Iter.count(xs) - limit)\n    |> Iter.count()\n}\n",
+			"fn f() -> Int\n    limit = 2\n    [1, 2, 3]\n    |> then fn xs -> xs |> Iter.filter(fn x -> x > Iter.count(xs) - limit)\n    |> Iter.count()\nend\n",
 			4, 63,
-			"'xs' is the parameter of the `then` stage on line 4, whose body ends at the next `|>`\nhelp: write `then fn xs -> { ... }` to keep the pipe inside it",
+			"'xs' is the parameter of the `then` stage on line 4, whose body ends at the next `|>`\nhelp: write the body below `then fn xs ->`, closed by `end`, to keep the pipe inside it",
 		},
 		{
 			"two stages later, on its own line",
-			"fn f() -> Int {\n    [1, 2, 3]\n    |> then fn xs -> xs\n    |> Iter.to_list()\n    |> Iter.filter(fn x -> x > Iter.count(xs))\n    |> Iter.count()\n}\n",
+			"fn f() -> Int\n    [1, 2, 3]\n    |> then fn xs -> xs\n    |> Iter.to_list()\n    |> Iter.filter(fn x -> x > Iter.count(xs))\n    |> Iter.count()\nend\n",
 			5, 43,
-			"'xs' is the parameter of the `then` stage on line 3, whose body ends at the next `|>`\nhelp: write `then fn xs -> { ... }` to keep the pipe inside it",
+			"'xs' is the parameter of the `then` stage on line 3, whose body ends at the next `|>`\nhelp: write the body below `then fn xs ->`, closed by `end`, to keep the pipe inside it",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -49,13 +49,13 @@ func TestPipeThenStage_OtherNamesKeepTheUndefinedError(t *testing.T) {
 	}{
 		{
 			"another name",
-			"fn f() -> Int {\n    [1, 2, 3]\n    |> then fn xs -> xs\n    |> Iter.filter(fn x -> x > nope)\n    |> Iter.count()\n}\n",
+			"fn f() -> Int\n    [1, 2, 3]\n    |> then fn xs -> xs\n    |> Iter.filter(fn x -> x > nope)\n    |> Iter.count()\nend\n",
 			4, 32, "undefined variable 'nope'",
 		},
 		{
 			"after a block-bodied stage",
-			"fn f() -> Int {\n    [1, 2, 3]\n    |> then fn xs -> { xs }\n    |> Iter.filter(fn x -> x > Iter.count(xs))\n    |> Iter.count()\n}\n",
-			4, 43, "undefined variable 'xs'\nhelp: did you mean 'x'?",
+			"fn f() -> Int\n    [1, 2, 3]\n    |> then fn xs ->\n        [..xs]\n    end\n    |> Iter.filter(fn x -> x > Iter.count(xs))\n    |> Iter.count()\nend\n",
+			6, 43, "undefined variable 'xs'\nhelp: did you mean 'x'?",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -72,6 +72,6 @@ func TestPipeThenStage_OtherNamesKeepTheUndefinedError(t *testing.T) {
 // with a block body the inner pipe stays inside the `then` lambda and `xs`
 // is bound.
 func TestPipeThenStage_BlockBodyKeepsThePipeInside(t *testing.T) {
-	_, errs := checkSourceWithStdlib("fn f() -> Int {\n    limit = 2\n    [1, 2, 3]\n    |> then fn xs -> { xs |> Iter.filter(fn x -> x > Iter.count(xs) - limit) }\n    |> Iter.count()\n}\n")
+	_, errs := checkSourceWithStdlib("fn f() -> Int\n    limit = 2\n    [1, 2, 3]\n    |> then fn xs ->\n        xs |> Iter.filter(fn x -> x > Iter.count(xs) - limit)\n    end\n    |> Iter.count()\nend\n")
 	expectNoStdlibErrors(t, errs)
 }

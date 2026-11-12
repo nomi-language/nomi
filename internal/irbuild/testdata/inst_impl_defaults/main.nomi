@@ -5,21 +5,21 @@
 // value entering an interface-typed parameter, with defaults left out.
 import lib.{Box, Greeter, Named}
 
-struct Cat {
+struct Cat
     nick: String
-}
+end
 
-impl Named for Cat {
-    fn name(cat: Cat) -> String {
+impl Named for Cat
+    fn name(cat: Cat) -> String
         cat.nick
-    }
-}
+    end
+end
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn main() {
+fn main()
     a = Box.new("a", double)
     dbg (a.size, Box.wait_seconds(a), a.handler(4))
     b = Box.new("b", size: 3, double)
@@ -28,4 +28,4 @@ fn main() {
     dbg (c.size, Box.wait_seconds(c), c.handler("four"))
     dbg Greeter.new(Cat{nick: "Tom"}).greeting
     dbg Greeter.new(Cat{nick: "Tom"}, punct: "?").greeting
-}
+end

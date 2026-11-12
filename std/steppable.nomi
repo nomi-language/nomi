@@ -5,7 +5,7 @@ import maybe.Maybe
 /// `Discrete.next` is for types with a canonical next value. `Steppable` is
 /// for types where the caller supplies the step, such as Decimal values
 /// stepping by `0.1d` or Codepoints stepping by an Int count.
-pub interface Steppable<S> {
+pub interface Steppable<S>
     /// Returns `value` moved by `by`, or None when that step leaves the type's
     /// valid domain.
     ///
@@ -15,4 +15,4 @@ pub interface Steppable<S> {
     /// Steppable.step_by(1.0d, 0.1d) // → Some(1.1d)
     /// ```
     fn step_by(value: self, by: S) -> Maybe<self>
-}
+end

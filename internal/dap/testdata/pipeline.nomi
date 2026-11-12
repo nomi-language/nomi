@@ -1,14 +1,14 @@
 import std::io
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn add(n: Int, m: Int) -> Int {
+fn add(n: Int, m: Int) -> Int
     n + m
-}
+end
 
-fn main() {
+fn main()
     xs = [1, 2, 3, 4]
 
     total =
@@ -23,4 +23,4 @@ fn main() {
         |> Iter.to_list()
 
     io.print("${total} ${big}")
-}
+end

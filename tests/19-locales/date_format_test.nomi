@@ -1,10 +1,10 @@
-import {
+import
     std::calendar.{self, Date, DateFields, DatePattern, DateStyle, DateTime, DateTimeFields, DateTimePattern, NaiveDateTime, Time, TimeFields, TimePattern, TimeStyle, TimeUnit, Weekday}
     std::duration.{Duration, DurationWidth}
     std::localize.Localize
-}
+end
 
-test "a date is written at a style's length as the locale writes it" {
+test "a date is written at a style's length as the locale writes it"
     d = Date`2026-10-20`
     assert Date.format(d, Locale`en`, style: .Full) == "Tuesday, October 20, 2026"
     assert Date.format(d, Locale`en`, style: .Long) == "October 20, 2026"
@@ -19,9 +19,9 @@ test "a date is written at a style's length as the locale writes it" {
     assert Localize.localize(d, Locale`pl`) == "20 paź 2026"
     // Display stays ISO 8601, the same everywhere.
     assert "${d}" == "2026-10-20"
-}
+end
 
-test "a time is written on the locale's clock" {
+test "a time is written on the locale's clock"
     t = Time`21:05:30`
     assert Time.format(t, Locale`en`) == "9:05\u{202f}PM"
     assert Time.format(t, Locale`en`, style: .Medium) == "9:05:30\u{202f}PM"
@@ -29,9 +29,9 @@ test "a time is written on the locale's clock" {
     assert Time.format(t, Locale`ja`, style: .Medium) == "21:05:30"
     // A Time has no zone, so the full style writes what the medium one does.
     assert Time.format(t, Locale`fr`, style: .Full) == "21:05:30"
-}
+end
 
-test "a date and time join as the locale joins them, with the zone's offset" {
+test "a date and time join as the locale joins them, with the zone's offset"
     naive = NaiveDateTime`2026-10-20T09:30:00`
     assert NaiveDateTime.format(naive, Locale`en`) == "Oct 20, 2026, 9:30\u{202f}AM"
     assert NaiveDateTime.format(naive, Locale`pl`, date: .Long) == "20 października 2026 09:30"
@@ -42,9 +42,9 @@ test "a date and time join as the locale joins them, with the zone's offset" {
 
     assert DateTime.format(moment, Locale`fr`, time: .Long) == "20 oct. 2026, 09:30:00 UTC+2"
     assert Localize.localize(moment, Locale`ja`) == "2026/10/20 9:30"
-}
+end
 
-test "a skeleton names the fields, and each locale orders and words them" {
+test "a skeleton names the fields, and each locale orders and words them"
     d = Date`2026-10-20`
     month_day = DateFields`MMMMd`
     assert Date.format_fields(d, Locale`en`, month_day) == "October 20"
@@ -66,9 +66,9 @@ test "a skeleton names the fields, and each locale orders and words them" {
     assert Date.format_fields(d, Locale`pl`, DateFields`LLLL`) == "październik"
     assert Date.format_fields(d, Locale`en`, DateFields`yMd`) == "10/20/2026"
     assert Date.format_fields(d, Locale`en`, DateFields`GyMMMd`) == "Oct 20, 2026 AD"
-}
+end
 
-test "a time skeleton takes the locale's clock, or the one it names" {
+test "a time skeleton takes the locale's clock, or the one it names"
     t = Time`21:05:00`
     assert Time.format_fields(t, Locale`en`, TimeFields`jm`) == "9:05\u{202f}PM"
     assert Time.format_fields(t, Locale`de`, TimeFields`jm`) == "21:05"
@@ -83,9 +83,9 @@ test "a time skeleton takes the locale's clock, or the one it names" {
 
     assert NaiveDateTime.format_fields(moment, Locale`pl`, DateTimeFields`MMMMEEEEdjm`)
         == "wtorek, 20 października 21:05"
-}
+end
 
-test "a fixed pattern writes the same text everywhere and reads it back" {
+test "a fixed pattern writes the same text everywhere and reads it back"
     d = Date`2026-05-04`
     iso = DatePattern`yyyy-MM-dd`
     assert Date.to_string_with(d, iso) == "2026-05-04"
@@ -110,16 +110,16 @@ test "a fixed pattern writes the same text everywhere and reads it back" {
 
     assert Date.parse_with("31/02/2026", DatePattern`dd/MM/yyyy`)
         == Err(calendar.Error.InvalidValue("month 2 of 2026 has no day 31"))
-}
+end
 
-test "a pattern made while the program runs is checked then" {
+test "a pattern made while the program runs is checked then"
     assert Err(calendar.Error.InvalidFormat(why)) = DatePattern.parse("dd MMMM yyyy")
     assert "`MMMM` writes the month's name" in why
     assert Err(calendar.Error.InvalidFormat(_hour)) = DateFields.parse("yMMMdH")
     assert DateFields.parse("yMMMd") == Ok(DateFields`yMMMd`)
-}
+end
 
-test "a date a reader typed is read by the locale's short style, strictly" {
+test "a date a reader typed is read by the locale's short style, strictly"
     assert Date.parse_in("4.5.26", Locale`de`) == Ok(Date`2026-05-04`)
     assert Date.parse_in("04.05.26", Locale`de`) == Ok(Date`2026-05-04`)
     assert Date.parse_in("10/20/26", Locale`en`) == Ok(Date`2026-10-20`)
@@ -139,9 +139,9 @@ test "a date a reader typed is read by the locale's short style, strictly" {
         == Err(calendar.Error.InvalidValue("month 2 of 2026 has no day 31"))
 
     assert Time.parse_in("9:05 PM", Locale`en`) == Ok(Time`21:05:00`)
-}
+end
 
-test "lenient reading takes any case, width and punctuation" {
+test "lenient reading takes any case, width and punctuation"
     assert Date.parse_in("4.5.2026", Locale`de`, lenient: True) == Ok(Date`2026-05-04`)
 
     assert Date.parse_in("oct 20 2026", Locale`en`, style: .Medium, lenient: True)
@@ -154,15 +154,15 @@ test "lenient reading takes any case, width and punctuation" {
         == Ok(Date`2026-10-20`)
 
     assert Time.parse_in("9:05 pm", Locale`en`, lenient: True) == Ok(Time`21:05:00`)
-}
+end
 
-test "a date's day of the week" {
+test "a date's day of the week"
     assert Date.weekday(Date`2026-10-20`) == Weekday.Tuesday
     assert Date.weekday(Date`2000-01-01`) == Weekday.Saturday
     assert "${Weekday.Sunday}" == "Sunday"
-}
+end
 
-test "relative time counts in a civil unit, in the count's plural form" {
+test "relative time counts in a civil unit, in the count's plural form"
     en = Locale`en`
     pl = Locale`pl`
     assert TimeUnit.format_relative(3, en, TimeUnit.Day) == "in 3 days"
@@ -181,9 +181,9 @@ test "relative time counts in a civil unit, in the count's plural form" {
     assert TimeUnit.format_relative(22, pl, TimeUnit.Week) == "za 22 tygodnie"
     assert TimeUnit.format_relative(-12, pl, TimeUnit.Year) == "12 lat temu"
     assert TimeUnit.format_relative(3, Locale`ja`, TimeUnit.Day) == "3 日後"
-}
+end
 
-test "a duration is the units it has, joined as one measure" {
+test "a duration is the units it has, joined as one measure"
     assert Duration.format(Duration.minutes(90), Locale`en`) == "1 hour, 30 minutes"
     assert Duration.format(Duration.minutes(90), Locale`de`) == "1 Stunde, 30 Minuten"
     assert Duration.format(Duration.minutes(90), Locale`pl`) == "1 godzina i 30 minut"
@@ -195,24 +195,24 @@ test "a duration is the units it has, joined as one measure" {
 
     assert Duration.format(Duration.hours(26), Locale`en`, width: .Narrow) == "26h"
     assert Localize.localize(Duration.seconds(0), Locale`en`) == "0 seconds"
-}
+end
 
-test "a style is a value a program passes along" {
+test "a style is a value a program passes along"
     d = Date`2026-10-20`
 
     lengths =
         [DateStyle.Short, DateStyle.Long]
-        |> Iter.map(fn style -> Date.format(d, Locale`en`, style: style))
+        |> Iter.map(fn style -> Date.format(d, Locale`en`, style:))
         |> Iter.to_list()
 
     assert lengths == ["10/20/26", "October 20, 2026"]
     clock = TimeStyle.Medium
     assert Time.format(Time`07:05:00`, Locale`en-GB`, style: clock) == "07:05:00"
-}
+end
 
-test "a duration's words are long, short or narrow" {
+test "a duration's words are long, short or narrow"
     ninety = Duration.minutes(90)
     assert Duration.format(ninety, Locale`en`, width: DurationWidth.Long) == "1 hour, 30 minutes"
     assert Duration.format(ninety, Locale`en`, width: DurationWidth.Short) == "1 hr, 30 min"
     assert Duration.format(ninety, Locale`en`, width: DurationWidth.Narrow) == "1h 30m"
-}
+end

@@ -16,7 +16,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 once earth_year_seconds = 31_557_600.0
 
 /// A planet of the Solar System.
-pub enum Planet {
+pub enum Planet
     Mercury
     Venus
     Earth
@@ -25,18 +25,18 @@ pub enum Planet {
     Saturn
     Uranus
     Neptune
-}
+end
 
-impl Planet {
+impl Planet
     /// The planet named `name`, such as `"Mars"`, or `None` for a name that
     /// is not one of the eight.
-    pub fn parse(name: String) -> Maybe<Planet> {
+    pub fn parse(name: String) -> Maybe<Planet>
         Planet.variants() |> Iter.find(&("${&1}" == name))
-    }
+    end
 
     /// How long the planet takes to orbit the Sun, in Earth years.
-    pub fn orbital_period(planet: Planet) -> Float {
-        case planet {
+    pub fn orbital_period(planet: Planet) -> Float
+        case planet
             .Mercury -> 0.2408467
             .Venus -> 0.61519726
             .Earth -> 1.0
@@ -45,23 +45,23 @@ impl Planet {
             .Saturn -> 29.447498
             .Uranus -> 84.016846
             .Neptune -> 164.79132
-        }
-    }
-}
+        end
+    end
+end
 
 derive Display for Planet
 derive Variants for Planet
 
 /// The age, in the planet's years, of someone `seconds` old.
-pub fn age(planet: Planet, seconds: Int) -> Float {
+pub fn age(planet: Planet, seconds: Int) -> Float
     earth_years = Int.to_float(seconds) / earth_year_seconds
     earth_years / Planet.orbital_period(planet)
-}
+end
 
 // FILE: space_age_test.nomi
 import space_age.{self, Planet}
 
-test "age" {
+test "age"
     [
         ("age on Earth", Planet.Earth, 1000000000, 31.69),
         ("age on Mercury", .Mercury, 2134835688, 280.88),
@@ -72,19 +72,19 @@ test "age" {
         ("age on Uranus", .Uranus, 1210123456, 0.46),
         ("age on Neptune", .Neptune, 1821023456, 0.35),
     ]
-    |> subtests (description, planet, seconds, expected), description {
+    |> subtests (description, planet, seconds, expected), description
         assert space_age.age(planet, seconds) |> Float.round(2) == expected
-    }
-}
+    end
+end
 
 // Not canonical: the canonical data names planets only as inputs to `age`.
-test "planet names" {
+test "planet names"
     assert Planet.parse("Neptune") == Some(.Neptune)
-}
+end
 
-test "invalid planet causes error" {
+test "invalid planet causes error"
     assert Planet.parse("Sun") == None
-}
+end
 ```
 <!-- expect
 ok age (8 cases)

@@ -13,27 +13,27 @@ status is not an error: a 404 is a `Response` like a 200, and
 such as a refused connection or a timeout:
 
 ```nomi-run
-import {
+import
     std::http.{self, Response, Status}
     std::http_testing
     std::url.Url
-}
+end
 
-fn greeting(name: String) -> Result<String, http.Error> {
+fn greeting(name: String) -> Result<String, http.Error>
     response = http.get(Url"https://api.example.com/greet/${name}")?
-    if not Status.is_success(response.status) { return Ok("no greeting: ${response.status}") }
+    if not Status.is_success(response.status) then return Ok("no greeting: ${response.status}")
     Response.text(response)
-}
+end
 
-fn main() {
-    ran = http_testing.run(fn request -> {
+fn main()
+    ran = http_testing.run(fn request ->
         Ok(Response{body: .Text("hello from ${request.url.path}")})
-    }, fn -> {
+    end, fn ->
         greeting("ann b")
-    })
+    end)
 
     dbg ran.value
-}
+end
 ```
 <!-- expect
 dbg line 20: ran.value = Ok("hello from /greet/ann b")
@@ -53,7 +53,7 @@ cancelled task stops it.
 A handler is a plain function from a `Request` to a `Response`. A
 [`Router`](/reference/http/#struct-router) picks the handler for each
 request by a `Route`, a method and a path pattern. A route's type says
-what its wildcards hold: `Route<.{id: Uuid}>` for `GET /posts/{id}`, and
+what its wildcards hold: `Route<{id: Uuid}>` for `GET /posts/{id}`, and
 a plain `Route` (`Route<Unit>`) for a route with none. `Route.to_with`
 hands the handler the parameters, each wildcard parsed into its field's
 type, and `Route.to` takes a route with none. A request whose wildcard does not parse gets a
@@ -63,37 +63,37 @@ handler is a function, a test calls it, or the router, with a request and
 no network:
 
 ```nomi-run
-import {
+import
     std::http.{Request, Response, Route, Router}
     std::http_testing
-}
+end
 
-fn show(Request, user: .{id: Int}) -> Response {
+fn show(Request, user: {id: Int}) -> Response
     Response{body: .Text("user ${user.id}")}
-}
+end
 
-fn main() {
-    user: Route<.{id: Int}> = "GET /users/{id}"
+fn main()
+    user: Route<{id: Int}> = "GET /users/{id}"
     router = Router.new([Route.to_with(user, show)])!
     found = Router.serve(router, http_testing.request(.Get, "/users/7"))
     dbg Response.text(found)
     dbg Router.serve(router, http_testing.request(.Get, "/users/ann")).status
-    dbg "${Route.path_with(user, .{id: 8})}"
-}
+    dbg "${Route.path_with(user, {id: 8})}"
+end
 ```
 <!-- expect
 dbg line 14: Response.text(found) = Ok("user 7")
 dbg line 15: Router.serve(router, http_testing.request(.Get, "/users/ann")).status = Status(404)
-dbg line 16: "${Route.path_with(user, .{id: 8})}" = "/users/8"
+dbg line 16: "${Route.path_with(user, {id: 8})}" = "/users/8"
 -->
 
 A route literal written as an argument takes its parameters from the
 handler beside it: with the `show` above, `Route.to_with("GET
-/users/{id}", show)` is a `Route<.{id: Int}>`, and so is `"GET
+/users/{id}", show)` is a `Route<{id: Int}>`, and so is `"GET
 /users/{id}" |> Route.to_with(show)`. With nothing to say what its
 parameters are, such as a lambda handler that states no types, a route
 literal has a `String` field per wildcard: ``Route`GET /users/{id}` `` is
-a `Route<.{id: String}>`.
+a `Route<{id: String}>`.
 `Request.path_value` reads a wildcard's text from the request too. A
 query parameter is not part of the route:
 `Url.query_values(request.url) |> Query.get("page")` returns the first
@@ -116,13 +116,13 @@ segment, such as `/token}`:
 ```nomi-run error
 import std::http.Route
 
-fn main() {
-    post: Route<.{post_id: Int}> = "GET /posts/{id}"
+fn main()
+    post: Route<{post_id: Int}> = "GET /posts/{id}"
     dbg post
-}
+end
 ```
 <!-- expect
-main.nomi:4:48: `Route` literal "GET /posts/{id}" is invalid: the pattern has `{id}`, but `.{post_id: Int}` has no field `id`
+main.nomi:4:47: `Route` literal "GET /posts/{id}" is invalid: the pattern has `{id}`, but `{post_id: Int}` has no field `id`
 -->
 
 `Router.new` still returns an `Err` for two routes that match the same
@@ -138,17 +138,17 @@ with `'`, since a `"` would end the literal. Markup of several lines goes in
 triple quotes:
 
 ```nomi-run
-import {
+import
     std::html.Html
     std::http.{Request, Response}
     std::http_testing
-}
+end
 
-fn badge(count: Int) -> Html {
+fn badge(count: Int) -> Html
     Html"<span class='badge'>${count}</span>"
-}
+end
 
-fn profile(request: Request) -> Response {
+fn profile(request: Request) -> Response
     name = Request.path_value(request, "name") |> Maybe.with_default("<nobody>")
 
     page = Html"""
@@ -158,21 +158,21 @@ fn profile(request: Request) -> Response {
         """
 
     Response.html(page)
-}
+end
 
-fn main() {
+fn main()
     dbg Response.text(profile(http_testing.request(.Get, "/")))
-}
+end
 ```
 <!-- expect
 dbg line 24: Response.text(profile(http_testing.request(.Get, "/"))) = Ok("<main>\n  <h1>&lt;nobody&gt; <span class='badge'>3</span></h1>\n</main>")
 -->
 
 An `if` without `else` is a `Maybe`, and a slot shows a `Maybe`'s value or
-nothing, so `${if unread > 0 { Html"<b>${unread} new</b>" }}` shows its part
+nothing, so `${if unread > 0 then Html"<b>${unread} new</b>"}` shows its part
 only when the condition holds. Inside a quoted attribute value it adds its
-text or nothing, as in `class='tab ${if active { "active" }}'`; an unquoted
-`class=${if active { "active" }}` writes the attribute or leaves it out.
+text or nothing, as in `class='tab ${if active then "active"}'`; an unquoted
+`class=${if active then "active"}` writes the attribute or leaves it out.
 What a slot in an attribute, a URL or a
 `style` takes is in the spec's
 [HTML templates](/spec/typed-literals-and-keyword-declarations/#html-templates).
@@ -190,49 +190,51 @@ failure up with `?`, and the app's error enum says what response each
 failure gets. One route list holds both kinds of handler:
 
 ```nomi-run
-import {
+import
     std::html.Html
     std::http.{Request, Response, Route, Router, Status, ToResponse}
     std::http_testing
     std::log.{self, Logger}
-}
+end
 
 once logger = Logger.text()
 
-enum AppError {
+enum AppError
     NotFound
     BadInput {reason: String}
     Internal {reason: String}
-}
+end
 
-impl ToResponse for AppError {
-    fn to_response(error: AppError) -> Response {
-        case error {
-            .NotFound -> Response.not_found()
-            .BadInput{reason} -> Response.error(Status.bad_request, reason)
+impl ToResponse for AppError
+    fn to_response(error: AppError) -> Response
+        case error
+            .NotFound ->
+                Response.not_found()
 
-            .Internal{reason} -> {
+            .BadInput{reason:} ->
+                Response.error(Status.bad_request, reason)
+
+            .Internal{reason:} ->
                 log.error(logger, reason)
                 Response.error(Status.internal_server_error, "something went wrong")
-            }
-        }
-    }
-}
+        end
+    end
+end
 
-fn find_user(id: Int) -> Result<String, AppError> {
-    if id == 7 {
+fn find_user(id: Int) -> Result<String, AppError>
+    if id == 7 then
         Ok("Ada")
-    } else {
+    else
         Err(AppError.NotFound)
-    }
-}
+    end
+end
 
-fn show(Request, user: .{id: Int}) -> Result<Html, AppError> {
+fn show(Request, user: {id: Int}) -> Result<Html, AppError>
     name = find_user(user.id)?
     Ok(Html"<h1>${name}</h1>")
-}
+end
 
-fn rename(request: Request, user: .{id: Int}) -> Result<Html, AppError> {
+fn rename(request: Request, user: {id: Int}) -> Result<Html, AppError>
     name = find_user(user.id)?
 
     renamed =
@@ -240,13 +242,13 @@ fn rename(request: Request, user: .{id: Int}) -> Result<Html, AppError> {
         |> Maybe.to_result(AppError.BadInput{reason: "the form has no name"})?
 
     Ok(Html"<h1>${name} is now ${renamed}</h1>")
-}
+end
 
-fn health(Request) -> Response {
+fn health(Request) -> Response
     Response{body: .Text("ok")}
-}
+end
 
-fn main() {
+fn main()
     router = Router.new([
         Route.to("GET /health", health),
         Route.to_with("GET /users/{id}", show),
@@ -257,12 +259,12 @@ fn main() {
     dbg Response.text(get("/users/7"))
     dbg get("/users/8").status
     dbg Response.text(Router.serve(router, http_testing.form_request(.Post, "/users/7", [])))
-}
+end
 ```
 <!-- expect
-dbg line 65: Response.text(get("/users/7")) = Ok("<h1>Ada</h1>")
-dbg line 66: get("/users/8").status = Status(404)
-dbg line 67: Response.text(Router.serve(router, http_testing.form_request(.Post, "/users/7", []))) = Ok("the form has no name\n")
+dbg line 67: Response.text(get("/users/7")) = Ok("<h1>Ada</h1>")
+dbg line 68: get("/users/8").status = Status(404)
+dbg line 69: Response.text(Router.serve(router, http_testing.form_request(.Post, "/users/7", []))) = Ok("the form has no name\n")
 -->
 
 ## Serving
@@ -276,29 +278,29 @@ server stops accepting at once, and the requests it already took finish
 within its `shutdown_timeout`:
 
 ```nomi-run compile-only
-import {
+import
     std::http.{self, Request, Response, Route, Router, Server}
     std::supervisors.Supervisor
-}
+end
 
-struct App {
+struct App
     web: Supervisor
-}
+end
 
-fn boot(Startup) -> Result<App, String> {
+fn boot(Startup) -> Result<App, String>
     Ok(App{web: Supervisor.new(max_running: 256)})
-}
+end
 
-fn show(Request, user: .{id: String}) -> Response {
+fn show(Request, user: {id: String}) -> Response
     Response{body: .Text("user ${user.id}")}
-}
+end
 
-fn main() -> Result<Unit, http.Error> {
+fn main() -> Result<Unit, http.Error>
     router = Router.new([Route.to_with("GET /users/{id}", show)])?
     listener = http.listen(Server{address: ":8080"})?
     http.serve(listener, Router.handler(router), App.web)
     Ok(Unit)
-}
+end
 ```
 
 The page cannot listen on a port, so this one does not run here.
@@ -327,33 +329,33 @@ A JSON API handler decodes the body into a type that derives `FromJson`,
 and a body without a `title` gets a 400:
 
 ```nomi-run
-import {
+import
     std::http.{self, Request, Response, Status, ToResponse}
     std::http_testing
     std::json.{FromJson, ToJson}
-}
+end
 
-struct NewTodo {
+struct NewTodo
     title: String
-}
+end
 
 derive FromJson for NewTodo
 
-struct Todo {
+struct Todo
     id: Int
     title: String
-}
+end
 
 derive ToJson for Todo
 
-fn create_todo(request: Request) -> Result<Response, http.Error> {
+fn create_todo(request: Request) -> Result<Response, http.Error>
     input: NewTodo = Request.json_as(request)?
     todo = Todo{id: 1, title: input.title}
     Ok(Response.json(todo, status: Status.created))
-}
+end
 
-test "a todo is created from its JSON" {
-    post = fn text: String -> .{..http_testing.request(.Post, "/todos"), body: .Text(text)}
+test "a todo is created from its JSON"
+    post = fn text: String -> {..http_testing.request(.Post, "/todos"), body: .Text(text)}
 
     created = ToResponse.to_response(create_todo(post(`{"title": "milk"}`)))
     assert created.status == Status.created
@@ -361,7 +363,7 @@ test "a todo is created from its JSON" {
 
     refused = ToResponse.to_response(create_todo(post(`{"name": "milk"}`)))
     assert refused.status == Status.bad_request
-}
+end
 ```
 <!-- expect
 ok a todo is created from its JSON
@@ -391,52 +393,52 @@ needs, so the compiler rejects a route that needs a user and is not
 wrapped by the middleware that finds one:
 
 ```nomi-run
-import {
+import
     std::http.{self, Cors, Handler, Headers, Origin, Request, Response, Route, Router, Status, ToResponse}
     std::http_testing
-}
+end
 
-struct User {
+struct User
     name: String
     admin: Bool
-}
+end
 
-fn signed_in(request: Request) -> Maybe<User> {
-    case Headers.get(request.headers, "Authorization") {
+fn signed_in(request: Request) -> Maybe<User>
+    case Headers.get(request.headers, "Authorization")
         Some("Bearer ada") -> Some(User{name: "Ada", admin: True})
         Some("Bearer bob") -> Some(User{name: "Bob", admin: False})
         _ -> None
-    }
-}
+    end
+end
 
-fn require_user(handler: (Request, User) -> ToResponse) -> (Request) -> Response {
-    fn request -> {
-        case signed_in(request) {
+fn require_user(handler: (Request, User) -> ToResponse) -> (Request) -> Response
+    fn request ->
+        case signed_in(request)
             Some(user) -> ToResponse.to_response(handler(request, user))
             None -> Response.error(Status.unauthorized, "sign in first")
-        }
-    }
-}
+        end
+    end
+end
 
-fn require_admin(handler: Handler) -> (Request) -> Response {
-    require_user(fn request, user -> {
-        if user.admin {
+fn require_admin(handler: Handler) -> (Request) -> Response
+    require_user(fn request, user ->
+        if user.admin then
             ToResponse.to_response(handler(request))
-        } else {
+        else
             Response.error(Status.forbidden, "admins only")
-        }
-    })
-}
+        end
+    end)
+end
 
-fn dashboard(Request, user: User) -> Response {
+fn dashboard(Request, user: User) -> Response
     Response{body: .Text("hello, ${user.name}")}
-}
+end
 
-fn stats(Request) -> Response {
+fn stats(Request) -> Response
     Response{body: .Text("42 users")}
-}
+end
 
-fn main() {
+fn main()
     admin = [Route.to("GET /admin/stats", stats)] |> http.wrap_routes(require_admin)
     routes = [Route.to("GET /dashboard", require_user(dashboard))] + admin
     router = Router.new(routes)!
@@ -447,17 +449,17 @@ fn main() {
         |> http.security_headers()
         |> http.request_id()
 
-    get = fn token: String, path: String -> {
+    get = fn token: String, path: String ->
         request = http_testing.request(.Get, path)
-        app(.{..request, headers: Headers[("Authorization", "Bearer ${token}")]})
-    }
+        app({..request, headers: Headers[("Authorization", "Bearer ${token}")]})
+    end
 
     dbg Response.text(get("bob", "/dashboard"))
     dbg get("bob", "/admin/stats").status
     dbg Response.text(get("ada", "/admin/stats"))
     dbg app(http_testing.request(.Get, "/dashboard")).status
     dbg Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options")
-}
+end
 ```
 <!-- expect
 dbg line 62: Response.text(get("bob", "/dashboard")) = Ok("hello, Bob")
@@ -485,17 +487,17 @@ leaves a message the next request reads once, in `session.flash`. A cookie
 that was changed or has expired reads as no session:
 
 ```nomi-run
-import {
+import
     std::html.Html
     std::http.{self, CrossOrigin, Headers, Request, Response, Route, Router, Status, ToResponse}
     std::http_testing
     std::json.{FromJson, ToJson}
     std::sessions.{self, CookieStore, Session, SessionKey}
-}
+end
 
-struct Visit {
+struct Visit
     user: String
-}
+end
 
 derive ToJson for Visit
 derive FromJson for Visit
@@ -503,33 +505,33 @@ derive FromJson for Visit
 // A real app derives the key in boot, from a secret in its environment.
 once store = CookieStore{key: SessionKey.derive("a secret of 32 bytes or more, kept out of git")!}
 
-fn sign_in(request: Request, session: Session<Visit>) -> Response {
+fn sign_in(request: Request, session: Session<Visit>) -> Response
     user = Request.form_value(request, "user") |> Maybe.with_default("")
 
     Response.redirect(request, "/dashboard", Status.see_other)
-    |> sessions.write(Session.set(session, Visit{user}))
-}
+    |> sessions.write(Session.set(session, Visit{user:}))
+end
 
-fn sign_out(request: Request, session: Session<Visit>) -> Response {
+fn sign_out(request: Request, session: Session<Visit>) -> Response
     Response.redirect(request, "/", Status.see_other) |> sessions.write(Session.clear(session))
-}
+end
 
-fn require_user(handler: (Request, Visit) -> ToResponse) -> (Request) -> Response {
-    check = fn request: Request, session: Session<Visit> -> {
-        case session.value {
+fn require_user(handler: (Request, Visit) -> ToResponse) -> (Request) -> Response
+    check = fn request: Request, session: Session<Visit> ->
+        case session.value
             Some(visit) -> ToResponse.to_response(handler(request, visit))
             None -> Response.redirect(request, "/sign-in", Status.see_other)
-        }
-    }
+        end
+    end
 
     check |> sessions.with_session(store)
-}
+end
 
-fn dashboard(Request, visit: Visit) -> Html {
+fn dashboard(Request, visit: Visit) -> Html
     Html"<h1>Hello, ${visit.user}</h1>"
-}
+end
 
-fn main() {
+fn main()
     routes = [
         Route.to(
             "POST /sign-in",
@@ -550,13 +552,13 @@ fn main() {
     dbg Response.text(app(Request.add_cookie(http_testing.request(.Get, "/dashboard"), cookie)))
     dbg app(http_testing.request(.Get, "/dashboard")).status
 
-    forged = .{
+    forged = {
         ..http_testing.form_request(.Post, "/sign-out", []),
         headers: Headers[("Sec-Fetch-Site", "cross-site")],
     }
 
     dbg app(Request.add_cookie(forged, cookie)).status
-}
+end
 ```
 <!-- expect
 dbg line 63: Response.text(app(Request.add_cookie(http_testing.request(.Get, "/dashboard"), cookie))) = Ok("<h1>Hello, Ada</h1>")
@@ -580,7 +582,7 @@ constant time; the stored string records how it was made, so
 stored = passwords.hash(form.password)?
 
 // at sign-in:
-if passwords.verify(form.password, user.password_hash) == Ok(True) { ... }
+if passwords.verify(form.password, user.password_hash) == Ok(True) then ...
 ```
 
 Argon2id and bcrypt are in the `lib/password_hashers` module. For an
@@ -599,21 +601,21 @@ change. `Store.url` returns where a file can be fetched, and
 content type:
 
 ```nomi-run
-import {
+import
     std::http.{Headers, Route, Router}
     std::http_testing
     std::storage.{self, Store}
     std::storage_testing.Memory
     std::url.Url
-}
+end
 
-fn save_avatar(store: Store, user: Int, image: Bytes) -> Result<Url, storage.Error> {
+fn save_avatar(store: Store, user: Int, image: Bytes) -> Result<Url, storage.Error>
     key = "avatars/${user}.png"
     Store.put(store, key, image, "image/png")?
     Store.url(store, key)
-}
+end
 
-fn main() {
+fn main()
     store = Memory.new(public_base: Url`/files/`)
     dbg "${save_avatar(store, 7, String.to_bytes("png"))!}"
 
@@ -621,7 +623,7 @@ fn main() {
     router = Router.new([Route.to_with("GET /files/{key...}", fn r, _ -> files(r))])!
     response = Router.serve(router, http_testing.request(.Get, "/files/avatars/7.png"))
     dbg Headers.get(response.headers, "Content-Type")
-}
+end
 ```
 <!-- expect
 dbg line 17: "${save_avatar(store, 7, String.to_bytes("png"))!}" = "/files/avatars/7.png"
@@ -649,62 +651,66 @@ task may call `WebSocket.send`, so an actor can hold a room's connections
 and broadcast to them:
 
 ```nomi-run compile-only
-import {
+import
     std::actors.Actor
     std::http.{self, Request, Response, Server}
     std::supervisors.Supervisor
     std::websocket.{self, WebSocket}
-}
+end
 
-enum Room {
+enum Room
     Join WebSocket
     Leave Int
     Say String
-}
+end
 
-struct App {
+struct App
     web: Supervisor
     room: Actor<Room>
-}
+end
 
-fn boot(Startup) -> Result<App, String> {
+fn boot(Startup) -> Result<App, String>
     web = Supervisor.new(max_running: 256)
 
-    room = Actor.start(web, %{}, fn members: Map<Int, WebSocket>, message: Room -> {
-        case message {
-            .Join(ws) -> Map.put(members, WebSocket.id(ws), ws)
-            .Leave(id) -> Map.remove(members, id)
+    room = Actor.start(web, {}, fn members: Map<Int, WebSocket>, message: Room ->
+        case message
+            .Join(ws) ->
+                Map.put(members, WebSocket.id(ws), ws)
 
-            .Say(text) -> {
-                Iter.each(Map.values(members), fn ws -> {
+            .Leave(id) ->
+                Map.remove(members, id)
+
+            .Say(text) ->
+                Iter.each(Map.values(members), fn ws ->
                     _ = WebSocket.send_text(ws, text)
-                })
+                end)
 
                 members
-            }
-        }
-    })
+        end
+    end)
 
-    Ok(App{web, room})
-}
+    Ok(App{web:, room:})
+end
 
-fn chat(request: Request) -> Response {
-    websocket.accept(request, fn ws -> {
+fn chat(request: Request) -> Response
+    websocket.accept(request, fn ws ->
         _ = Actor.cast(App.room, .Join(ws))
 
-        _ = WebSocket.each(ws, fn message -> {
-            if .Text(text) = message { _ = Actor.cast(App.room, .Say(text)) }
-        })
+        _ = WebSocket.each(ws, fn message ->
+            if .Text(text) = message then
+                _ = Actor.cast(App.room, .Say(text))
+            end
+        end)
 
         _ = Actor.cast(App.room, .Leave(WebSocket.id(ws)))
-    })
-}
+    end)
+end
 
-fn main() -> Result<Unit, http.Error> {
+fn main() -> Result<Unit, http.Error>
     listener = http.listen(Server{address: ":8080"})?
     http.serve(listener, chat, App.web)
     Ok(Unit)
-}
+end
 ```
 
 `accept` refuses a page from another origin with `403` unless
@@ -714,29 +720,31 @@ with `websocket.connect(Url`wss://example.com/chat`)`. A test hands a
 handler a connection in memory with `http_testing.open_websocket`:
 
 ```nomi-run
-import {
+import
     std::http.{Request, Response}
     std::http_testing
     std::websocket.{self, Message, WebSocket}
-}
+end
 
-fn shout(request: Request) -> Response {
-    websocket.accept(request, fn ws -> {
-        _ = WebSocket.each(ws, fn message -> {
-            if .Text(text) = message { _ = WebSocket.send_text(ws, String.uppercase(text)) }
-        })
-    })
-}
+fn shout(request: Request) -> Response
+    websocket.accept(request, fn ws ->
+        _ = WebSocket.each(ws, fn message ->
+            if .Text(text) = message then
+                _ = WebSocket.send_text(ws, String.uppercase(text))
+            end
+        end)
+    end)
+end
 
-test "the server shouts back" {
-    heard = http_testing.open_websocket(shout, "/", fn ws -> {
+test "the server shouts back"
+    heard = http_testing.open_websocket(shout, "/", fn ws ->
         _ = WebSocket.send_text(ws, "hello")
         WebSocket.receive(ws)
-    })
+    end)
 
     assert Ok(reply) = heard
     assert reply == Ok(Some(Message.Text("HELLO")))
-}
+end
 ```
 <!-- expect
 ok the server shouts back
@@ -756,22 +764,22 @@ timeouts, runs a server with `http_testing.with_server`. It serves a
 handler on a free port of 127.0.0.1 while its body runs, then shuts down:
 
 ```nomi-run compile-only
-import {
+import
     std::http.{Client, Request, Response}
     std::http_testing
-}
+end
 
-fn hello(Request) -> Response {
+fn hello(Request) -> Response
     Response{body: .Text("hi")}
-}
+end
 
-test "a client reaches the server" {
-    said = http_testing.with_server(hello, fn server -> {
+test "a client reaches the server"
+    said = http_testing.with_server(hello, fn server ->
         Client.get(server.client, server.url) |> Result.map(Response.text)
-    })
+    end)
 
     assert said == Ok(Ok("hi"))
-}
+end
 ```
 
 ## HTTPS

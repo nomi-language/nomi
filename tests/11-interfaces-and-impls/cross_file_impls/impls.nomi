@@ -1,35 +1,35 @@
 // Impls in a third file, apart from both the interface and the type.
-import {
+import
     protocols.{Gets, Holds}
     things.{Bag, Num, Wrap}
-}
+end
 
-impl Holds for Bag {
-    fn held(b: Bag) -> String {
+impl Holds for Bag
+    fn held(b: Bag) -> String
         "bag of ${b.s}"
-    }
-}
+    end
+end
 
-impl Holds for Wrap<T> {
-    fn held(w: Wrap<T>) -> String {
+impl Holds for Wrap<T>
+    fn held(w: Wrap<T>) -> String
         "wrap ${Debug.inspect(w.item)}"
-    }
-}
+    end
+end
 
-impl Gets<T> for Wrap<T> {
-    fn got(w: Wrap<T>) -> T {
+impl Gets<T> for Wrap<T>
+    fn got(w: Wrap<T>) -> T
         w.item
-    }
-}
+    end
+end
 
-impl Add<Int, Int> for Num {
-    fn add(lhs: Num, rhs: Int) -> Int {
+impl Add<Int, Int> for Num
+    fn add(lhs: Num, rhs: Int) -> Int
         lhs.n + rhs
-    }
-}
+    end
+end
 
-impl Add<Num, Num> for Num {
-    fn add(lhs: Num, rhs: Num) -> Num {
+impl Add<Num, Num> for Num
+    fn add(lhs: Num, rhs: Num) -> Num
         Num{n: lhs.n + rhs.n}
-    }
-}
+    end
+end

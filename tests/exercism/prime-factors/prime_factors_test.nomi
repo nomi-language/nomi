@@ -1,6 +1,6 @@
 import prime_factors
 
-test "factors" {
+test "factors"
     [
         ("no factors", 1, []),
         ("prime number", 2, [2]),
@@ -15,7 +15,7 @@ test "factors" {
         ("product of primes", 901255, [5, 17, 23, 461]),
         ("factors include a large prime", 93819012551, [11, 9539, 894119]),
     ]
-    |> subtests (description, value, expected), description {
+    |> subtests (description, value, expected), description
         assert prime_factors.factors(value) == expected
-    }
-}
+    end
+end

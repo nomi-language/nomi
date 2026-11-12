@@ -26,90 +26,90 @@ import (
 // missing impl a derive demands, a test reading an application field with no
 // boot).
 var orderProject = map[string]string{
-	"main.nomi": `import {
+	"main.nomi": `import
     std::io
     shapes.{Shape, Circle}
     report
     settings.Settings
-}
+end
 
-pub fn greeting() -> String {
+pub fn greeting() -> String
     "hello"
-}
+end
 
-pub fn boot() -> Result<Settings, String> {
+pub fn boot() -> Result<Settings, String>
     Ok(Settings{context: Context.root(), tag: "root"})
-}
+end
 
-fn main() {
+fn main()
     io.print(report.describe(Circle{radius: shapes.unit}))
     io.print(report.title())
-}
+end
 `,
-	"shapes.nomi": `import {
+	"shapes.nomi": `import
     report
     settings.Settings
-}
+end
 
-pub interface Shape {
+pub interface Shape
     fn area(value: self) -> Int
-}
+end
 
-pub struct Circle {
+pub struct Circle
     radius: Int
-}
+end
 
-impl Shape for Circle {
-    fn area(value: Circle) -> Int {
+impl Shape for Circle
+    fn area(value: Circle) -> Int
         value.radius + Iter.count(Settings.tag)
-    }
-}
+    end
+end
 
 pub once unit = report.base * 2
 `,
-	"report.nomi": `import {
+	"report.nomi": `import
     main
     shapes.{Shape, Circle}
     settings.Settings
-}
+end
 
 pub once base = Iter.count(main.greeting())
 
-pub struct Labelled {
+pub struct Labelled
     circle: Circle
-}
+end
 
 derive Display for Labelled
 
-impl Shape for Circle {
-    fn area(value: Circle) -> Int {
+impl Shape for Circle
+    fn area(value: Circle) -> Int
         value.radius
-    }
-}
+    end
+end
 
-pub fn describe(shape: Shape) -> String {
+pub fn describe(shape: Shape) -> String
     "area ${Shape.area(shape)}"
-}
+end
 
-pub fn title() -> String {
+pub fn title() -> String
     Settings.tag
-}
+end
 
-test "area" {
+test "area"
     assert Shape.area(Circle{radius: 1}) > 0
-}
+end
 `,
 	"settings.nomi": `import main
 
-pub struct Settings {
+pub struct Settings
     context: Context
 
     tag: String
-}
+end
 
-pub fn default_tag() -> String {
+pub fn default_tag() -> String
     main.greeting()
-}
+end
 `,
 }
 

@@ -23,26 +23,26 @@ func TestCompilerRun_NestedProgramIsNoFileOfTheProject(t *testing.T) {
 		}
 	}
 	write("nomi.toml", "[module]\nname = \"demo\"\nentry_points = [\"app\"]\n")
-	write("app.nomi", "fn main() {\n  _ = 1\n}\n")
-	write("helper.nomi", "pub fn greet() -> String {\n  \"hi\"\n}\n")
-	write("stray.nomi", "pub fn x() -> Int {\n  1\n}\n\nfn main() {\n  _ = x()\n}\n")
+	write("app.nomi", "fn main()\n  _ = 1\nend\n")
+	write("helper.nomi", "pub fn greet() -> String\n  \"hi\"\nend\n")
+	write("stray.nomi", "pub fn x() -> Int\n  1\nend\n\nfn main()\n  _ = x()\nend\n")
 
 	t.Run("a source with fn main runs", func(t *testing.T) {
-		src := "import std::io\n\nfn main() {\n  io.print(\"nested\")\n}\n"
+		src := "import std::io\n\nfn main()\n  io.print(\"nested\")\nend\n"
 		got, err := stdcompilerrun.RunSource(src, root, nil, nil)
 		if err != nil || got != "nested\n" {
 			t.Fatalf("compiler.run answers %q, %v; want \"nested\\n\"", got, err)
 		}
 	})
 	t.Run("its project imports resolve against the root", func(t *testing.T) {
-		src := "import helper\nimport std::io\n\nfn main() {\n  io.print(helper.greet())\n}\n"
+		src := "import helper\nimport std::io\n\nfn main()\n  io.print(helper.greet())\nend\n"
 		got, err := stdcompilerrun.RunSource(src, root, nil, nil)
 		if err != nil || got != "hi\n" {
 			t.Fatalf("compiler.run answers %q, %v; want \"hi\\n\"", got, err)
 		}
 	})
 	t.Run("a project file it imports is still placed", func(t *testing.T) {
-		src := "import stray\nimport std::io\n\nfn main() {\n  io.print(Debug.inspect(stray.x()))\n}\n"
+		src := "import stray\nimport std::io\n\nfn main()\n  io.print(Debug.inspect(stray.x()))\nend\n"
 		got, err := stdcompilerrun.RunSource(src, root, nil, nil)
 		if err == nil {
 			t.Fatalf("compiler.run ran %q; stray.nomi's fn main is not in entry_points", got)

@@ -9,16 +9,16 @@ import (
 // A backtick Bits literal is the pattern its handler parses, checked when
 // the program loads.
 func TestBitsLiteral_IsTheParsedPattern(t *testing.T) {
-	const src = "import {\n" +
+	const src = "import\n" +
 		"    std::bits.Bits\n" +
 		"    std::io\n" +
-		"}\n\n" +
+		"end\n\n" +
 		"once lead = Bits`110a_aaaa`\n\n" +
-		"fn main() {\n" +
+		"fn main()\n" +
 		"    io.print(Bits.matches(lead, 0b1100_0011))\n" +
 		"    io.print(Debug.inspect(Bits.field(lead, 0b1100_0011)))\n" +
 		"    io.print(Debug.inspect(lead))\n" +
-		"}\n"
+		"end\n"
 	p, err := LoadSource("main", src)
 	if err != nil {
 		t.Fatalf("the front end rejects a valid Bits literal: %v", err)
@@ -43,7 +43,7 @@ func TestBitsLiteral_InvalidTextIsACompileError(t *testing.T) {
 		{"Bits`aa_bb`", "typed literal Bits`aa_bb` is invalid: `b` at index 3 names a second field: this pattern's field is `a`, and a pattern has one"},
 		{"Bits`aa0a`", "typed literal Bits`aa0a` is invalid: `a` at index 3 splits field `a`: write its bits together"},
 	} {
-		src := "import std::bits.Bits\n\nfn main() {\n    _ = " + c.literal + "\n}\n"
+		src := "import std::bits.Bits\n\nfn main()\n    _ = " + c.literal + "\nend\n"
 		ds := literalDiagnostics(t, src)
 		if len(ds) != 1 {
 			t.Fatalf("%s: %d diagnostics, want 1: %v", c.literal, len(ds), ds)

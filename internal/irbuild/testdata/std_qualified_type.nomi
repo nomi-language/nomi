@@ -1,23 +1,23 @@
-import {
+import
     std::duration
     std::io
     std::random.{self, Error}
-}
+end
 
 // Std types named through their module's qualifier in signatures.
-fn fetch(ok: Bool) -> Result<Int, random.Error> {
-    if ok {
+fn fetch(ok: Bool) -> Result<Int, random.Error>
+    if ok then
         Ok(1)
-    } else {
+    else
         Err(Error.OsEntropy{reason: "refused"})
-    }
-}
+    end
+end
 
-fn twice(d: duration.Duration) -> duration.Duration {
+fn twice(d: duration.Duration) -> duration.Duration
     d + d
-}
+end
 
-fn main() {
+fn main()
     io.print(
         fetch(False)
         |> Result.map_err(fn e -> "${e}")
@@ -25,4 +25,4 @@ fn main() {
 
     io.print(fetch(True))
     io.print(twice(duration.Duration.seconds(3)))
-}
+end

@@ -10,13 +10,13 @@ func TestTestingCheckRef_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import {
+	irRunSource(t, `import
     std::io
     std::testing
     std::testing.{check as verify}
-}
+end
 
-fn main() {
+fn main()
     c: (Bool) -> Result<Bool, testing.AssertionFailure> = testing.check
     io.print(Result.is_ok(c(True)))
     io.print(Result.is_ok(c(False)))
@@ -24,6 +24,6 @@ fn main() {
     io.inspect(rs)
     v: (Bool) -> Result<Bool, testing.AssertionFailure> = verify
     io.print(Result.is_ok(v(False)))
-}
+end
 `, "True\nFalse\n[True, False]\nFalse\n")
 }

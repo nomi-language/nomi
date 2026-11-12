@@ -418,20 +418,20 @@ func (p *Project) Edit(kind EditKind, n int) (key, text string) {
 		u := p.units[key]
 		text := orig
 		if !u.usesUtil {
-			text = strings.Replace(text, "import {\n", "import {\n    core::util\n", 1)
+			text = strings.Replace(text, "import\n", "import\n    core::util\n", 1)
 		}
 		return key, strings.Replace(text, "    n + 1\n", fmt.Sprintf("    n + %d * (util.keep([Kind%d.Plain], fn _ -> True) |> Iter.count())\n", 1+n%2, u.i), 1)
 	case SignatureLeaf, SignatureHub:
 		if n%2 == 1 {
 			return key, orig
 		}
-		return key, strings.Replace(orig, "(n: Int) -> Int {\n    n + 1\n", "(n: Int, extra: Int = 0) -> Int {\n    n + extra + 1\n", 1)
+		return key, strings.Replace(orig, "(n: Int) -> Int\n    n + 1\n", "(n: Int, extra: Int = 0) -> Int\n    n + extra + 1\n", 1)
 	case ImplLeaf:
 		if n%2 == 1 {
 			return key, orig
 		}
 		u := p.units[key]
-		return key, orig + fmt.Sprintf("\nimpl Display for Kind%d {\n    fn to_string(kind: Kind%d) -> String {\n        case kind {\n            .Plain -> \"plain\"\n            .Sized(n) -> \"sized ${n}\"\n            .Tagged(t) -> t\n        }\n    }\n}\n", u.i, u.i)
+		return key, orig + fmt.Sprintf("\nimpl Display for Kind%d\n    fn to_string(kind: Kind%d) -> String\n        case kind\n            .Plain -> \"plain\"\n            .Sized(n) -> \"sized ${n}\"\n            .Tagged(t) -> t\n        end\n    end\nend\n", u.i, u.i)
 	case BodyEntry:
 		return key, strings.Replace(orig, "total = 0\n", fmt.Sprintf("total = %d\n", 1+n%2), 1)
 	case TypoLeaf:
@@ -448,11 +448,11 @@ func (p *Project) Edit(kind EditKind, n int) (key, text string) {
 func (p *Project) FileAdded(n int) map[string]string {
 	key := p.Leaf()
 	extra := fmt.Sprintf("core/extra%d", n)
-	leaf := strings.Replace(p.Files[key], "import {\n", fmt.Sprintf("import {\n    core::extra%d\n", n), 1)
+	leaf := strings.Replace(p.Files[key], "import\n", fmt.Sprintf("import\n    core::extra%d\n", n), 1)
 	leaf = strings.Replace(leaf, "    n + 1\n", fmt.Sprintf("    n + extra%d.bonus(n)\n", n), 1)
 	return map[string]string{
 		key:   leaf,
-		extra: fmt.Sprintf("/// What an added file adds.\npub fn bonus(n: Int) -> Int {\n    n * %d\n}\n", n+2),
+		extra: fmt.Sprintf("/// What an added file adds.\npub fn bonus(n: Int) -> Int\n    n * %d\nend\n", n+2),
 	}
 }
 
@@ -467,71 +467,71 @@ derive Equatable for Id
 derive Hashable for Id
 derive Comparable for Id
 
-impl Display for Id {
-    fn to_string(id: Id) -> String {
+impl Display for Id
+    fn to_string(id: Id) -> String
         Id(n) = id
         "#${n}"
-    }
-}
+    end
+end
 
 /// An amount of money in one currency.
-pub struct Money {
+pub struct Money
     cents: Int
     currency: String = "EUR"
-}
+end
 
 derive Equatable for Money
 derive Hashable for Money
 derive ToJson for Money
 
-impl Money {
+impl Money
     /// Euros, from cents.
-    pub fn of(cents: Int) -> Money {
-        Money{cents}
-    }
+    pub fn of(cents: Int) -> Money
+        Money{cents:}
+    end
 
     /// The sum of two amounts, in the first one's currency.
-    pub fn add(a: Money, b: Money) -> Money {
+    pub fn add(a: Money, b: Money) -> Money
         Money{cents: a.cents + b.cents, currency: a.currency}
-    }
+    end
 
     /// Whether the amount is zero.
-    pub fn is_zero(m: Money) -> Bool {
+    pub fn is_zero(m: Money) -> Bool
         m.cents == 0
-    }
-}
+    end
+end
 
-impl Display for Money {
-    fn to_string(m: Money) -> String {
+impl Display for Money
+    fn to_string(m: Money) -> String
         "${m.cents} ${m.currency}"
-    }
-}
+    end
+end
 
 /// How large something is.
-pub enum Level {
+pub enum Level
     Low
     Mid
     High Int
-}
+end
 
 derive Equatable for Level
 derive Hashable for Level
 
-impl Display for Level {
-    fn to_string(level: Level) -> String {
-        case level {
+impl Display for Level
+    fn to_string(level: Level) -> String
+        case level
             .Low -> "low"
             .Mid -> "mid"
             .High(n) -> "high ${n}"
-        }
-    }
-}
+        end
+    end
+end
 
 /// Something that can say what it is and how much it weighs.
-pub interface Describe {
+pub interface Describe
     fn describe(value: self) -> String
     fn weight(value: self) -> Int
-}
+end
 
 /// The scale every weight is measured against.
 pub once scale = 100
@@ -542,83 +542,83 @@ const utilHub = `//# Generic helpers every module uses.
 import core::ids.{Level, Money}
 
 /// A page of results and how many there were.
-pub struct Page<T> {
+pub struct Page<T>
     items: List<T>
     total: Int
-}
+end
 
 /// The whole of items as one page.
-pub fn page<T>(items: List<T>) -> Page<T> {
-    Page{items, total: Iter.count(items)}
-}
+pub fn page<T>(items: List<T>) -> Page<T>
+    Page{items:, total: Iter.count(items)}
+end
 
 /// The first item, or fallback when there is none.
-pub fn first_or<T>(items: List<T>, fallback: T) -> T {
-    case List.head(items) {
+pub fn first_or<T>(items: List<T>, fallback: T) -> T
+    case List.head(items)
         Some(x) -> x
         None -> fallback
-    }
-}
+    end
+end
 
 /// The items for which keep holds, as a list.
-pub fn keep<T>(items: List<T>, keep: (T) -> Bool) -> List<T> {
+pub fn keep<T>(items: List<T>, keep: (T) -> Bool) -> List<T>
     items
     |> Iter.filter(keep)
     |> Iter.to_list()
-}
+end
 
 /// n, moved into lo..=hi.
-pub fn clamp(n: Int, lo: Int, hi: Int) -> Int {
-    case {
+pub fn clamp(n: Int, lo: Int, hi: Int) -> Int
+    case
         n < lo -> lo
         n > hi -> hi
         _ -> n
-    }
-}
+    end
+end
 
 /// The sum of xs.
-pub fn total(xs: List<Int>) -> Int {
+pub fn total(xs: List<Int>) -> Int
     Iter.reduce(xs, 0, fn acc, x -> acc + x)
-}
+end
 
 /// The level n falls in.
-pub fn level_of(n: Int) -> Level {
-    case {
+pub fn level_of(n: Int) -> Level
+    case
         n < 10 -> .Low
         n < 100 -> .Mid
         _ -> .High(n)
-    }
-}
+    end
+end
 
 /// The sum of amounts.
-pub fn sum_money(amounts: List<Money>) -> Money {
+pub fn sum_money(amounts: List<Money>) -> Money
     Iter.reduce(amounts, Money.of(0), fn acc, m -> Money.add(acc, m))
-}
+end
 
 /// A place on a page, held as a record.
-pub struct Spot {
-    at: .{x: Int, y: Int}
-}
+pub struct Spot
+    at: {x: Int, y: Int}
+end
 
 /// The spot at n.
-pub fn spot(n: Int) -> Spot {
-    Spot{at: .{x: n, y: n + 1}}
-}
+pub fn spot(n: Int) -> Spot
+    Spot{at: {x: n, y: n + 1}}
+end
 
 /// Where a spot is.
-pub fn place(s: Spot) -> .{x: Int, y: Int} {
+pub fn place(s: Spot) -> {x: Int, y: Int}
     s.at
-}
+end
 
 /// The sum of any numbers.
-pub fn sum_all(xs: Iter<Int>) -> Int {
+pub fn sum_all(xs: Iter<Int>) -> Int
     Iter.reduce(xs, 0, fn acc, x -> acc + x)
-}
+end
 
 /// What a change to the util hub changes.
-pub fn probe(n: Int) -> Int {
+pub fn probe(n: Int) -> Int
     n + 1
-}
+end
 
 /// The ratio the hub settles on.
 pub once ratio = clamp(probe(41), 0, 100)
@@ -629,26 +629,26 @@ const textHub = `//# Text helpers.
 import core::util
 
 /// words joined by sep, each trimmed.
-pub fn joined(words: List<String>, sep: String) -> String {
+pub fn joined(words: List<String>, sep: String) -> String
     words
     |> Iter.map(String.trim)
     |> String.join(sep)
-}
+end
 
 /// s repeated n times, at most ten.
-pub fn repeated(s: String, n: Int) -> String {
+pub fn repeated(s: String, n: Int) -> String
     1..=util.clamp(n, 0, 10)
     |> Iter.map(fn _ -> s)
     |> String.join()
-}
+end
 
 /// How many characters the words hold together.
-pub fn width(words: List<String>) -> Int {
+pub fn width(words: List<String>) -> Int
     words
     |> Iter.map(String.length)
     |> Iter.to_list()
     |> util.total()
-}
+end
 `
 
 // renderUnit writes u's file and answers its imports of project files.
@@ -658,7 +658,7 @@ func renderUnit(u *unit) (string, []string) {
 	w := func(format string, args ...any) { fmt.Fprintf(&b, format, args...) }
 	imports := []string{"core/ids"}
 	w("//# Unit %d of the generated project.\n\n", i)
-	w("import {\n")
+	w("import\n")
 	if !u.light {
 		w("    std::json.ToJson\n")
 	}
@@ -697,31 +697,31 @@ func renderUnit(u *unit) (string, []string) {
 		}
 		imports = append(imports, m)
 	}
-	w("}\n\n")
+	w("end\n\n")
 
 	if u.head == u.key {
 		w("/// Something with a rank, implemented across cluster %d.\n", i)
-		w("pub interface Rank%d {\n    fn rank(value: self) -> Int\n}\n\n", i)
+		w("pub interface Rank%d\n    fn rank(value: self) -> Int\nend\n\n", i)
 	}
 
 	w(`/// A record of unit %[1]d.
-pub struct Rec%[1]d {
+pub struct Rec%[1]d
     id: Id
     name: String
     amount: Money
     tags: List<String> = []
-}
+end
 
 derive Equatable for Rec%[1]d
 derive Hashable for Rec%[1]d
 derive Display for Rec%[1]d
 
 /// The kinds unit %[1]d tells apart.
-pub enum Kind%[1]d {
+pub enum Kind%[1]d
     Plain
     Sized Int
     Tagged String
-}
+end
 
 derive Equatable for Kind%[1]d
 derive Hashable for Kind%[1]d
@@ -734,11 +734,11 @@ derive Hashable for Score%[1]d
 derive Comparable for Score%[1]d
 
 /// An entry of unit %[1]d: a kind and its score.
-pub struct Entry%[1]d {
+pub struct Entry%[1]d
     kind: Kind%[1]d
     score: Score%[1]d
     label: String
-}
+end
 
 derive Equatable for Entry%[1]d
 derive Hashable for Entry%[1]d
@@ -746,32 +746,32 @@ derive Hashable for Entry%[1]d
 `, i)
 	if !u.light {
 		w(`/// A summary of unit %[1]d's records.
-pub struct Summary%[1]d {
+pub struct Summary%[1]d
     name: String
     count: Int
-}
+end
 
 derive Equatable for Summary%[1]d
 derive Display for Summary%[1]d
 derive ToJson for Summary%[1]d
 
 /// Two values of any types.
-pub struct Pair%[1]d<A, B> {
+pub struct Pair%[1]d<A, B>
     left: A
     right: B
-}
+end
 
 /// The pair the other way round.
-pub fn swap%[1]d<A, B>(pair: Pair%[1]d<A, B>) -> Pair%[1]d<B, A> {
+pub fn swap%[1]d<A, B>(pair: Pair%[1]d<A, B>) -> Pair%[1]d<B, A>
     Pair%[1]d{left: pair.right, right: pair.left}
-}
+end
 
 /// The item at k, if there is one.
-pub fn pick%[1]d<T>(items: List<T>, k: Int) -> Maybe<T> {
+pub fn pick%[1]d<T>(items: List<T>, k: Int) -> Maybe<T>
     items
     |> Iter.drop(k)
     |> Iter.first()
-}
+end
 
 `, i)
 	}
@@ -780,21 +780,21 @@ pub fn pick%[1]d<T>(items: List<T>, k: Int) -> Maybe<T> {
 	if u.back != nil {
 		backRead = fmt.Sprintf(" + %s.base%d", u.back.name, u.back.i)
 	}
-	w(`impl Describe for Rec%[1]d {
-    fn describe(value: Rec%[1]d) -> String {
+	w(`impl Describe for Rec%[1]d
+    fn describe(value: Rec%[1]d) -> String
         "${value.id} ${value.name}"
-    }
+    end
 
-    fn weight(value: Rec%[1]d) -> Int {
+    fn weight(value: Rec%[1]d) -> Int
         value.amount.cents + base%[1]d%[2]s
-    }
-}
+    end
+end
 
-impl Rank%[3]d for Rec%[1]d {
-    fn rank(value: Rec%[1]d) -> Int {
+impl Rank%[3]d for Rec%[1]d
+    fn rank(value: Rec%[1]d) -> Int
         Iter.count(value.tags) + %[1]d
-    }
-}
+    end
+end
 
 `, i, backRead, u.headIndex)
 
@@ -804,43 +804,43 @@ impl Rank%[3]d for Rec%[1]d {
 		w("/// The unit's base value, read by the files that import it.\npub once base%d = %d * 3 + 1\n\n", i, i%500)
 	}
 
-	w(`impl Rec%[1]d {
+	w(`impl Rec%[1]d
     /// A record numbered n.
-    pub fn new(n: Int) -> Rec%[1]d {
+    pub fn new(n: Int) -> Rec%[1]d
         Rec%[1]d{id: Id(n), name: "r${n}", amount: Money.of(n * 10), tags: ["a", "bb"]}
-    }
+    end
 
     /// The record's score: its cents and the length of its tags.
-    pub fn score(r: Rec%[1]d) -> Int {
+    pub fn score(r: Rec%[1]d) -> Int
         r.tags
         |> Iter.map(String.length)
         |> Iter.filter(fn n -> n > 0)
         |> Iter.reduce(r.amount.cents, fn acc, n -> acc + n)
-    }
-}
+    end
+end
 
 /// The kind n stands for.
-pub fn kind%[1]d(n: Int) -> Kind%[1]d {
-    case n %% 3 {
+pub fn kind%[1]d(n: Int) -> Kind%[1]d
+    case n %% 3
         0 -> .Plain
         1 -> .Sized(n)
         _ -> .Tagged("t${n}")
-    }
-}
+    end
+end
 
 `, i)
 	if !u.light {
 		w(`/// n doubled, or why not.
-pub fn checked%[1]d(n: Int) -> Result<Int, String> {
-    if n < 0 { Err("negative: ${n}") } else { Ok(n * 2) }
-}
+pub fn checked%[1]d(n: Int) -> Result<Int, String>
+    if n < 0 then Err("negative: ${n}") else Ok(n * 2)
+end
 
 /// n doubled twice over.
-pub fn doubled%[1]d(n: Int) -> Result<Int, String> {
+pub fn doubled%[1]d(n: Int) -> Result<Int, String>
     a = checked%[1]d(n)?
     b = checked%[1]d(a)?
     Ok(a + b)
-}
+end
 
 `, i)
 	}
@@ -848,10 +848,10 @@ pub fn doubled%[1]d(n: Int) -> Result<Int, String> {
 	// u.back: u's Link holds back's Nodes and a Node's parent is a Link.
 	if u.back != nil && u.back.hasDep(u) {
 		w(`/// A link of unit %[1]d, whose nodes unit %[2]d declares.
-pub struct Link%[1]d {
+pub struct Link%[1]d
     label: String
     nodes: List<%[3]s.Node%[2]d>
-}
+end
 
 derive Equatable for Link%[1]d
 
@@ -859,31 +859,31 @@ derive Equatable for Link%[1]d
 	}
 	if front := u.cycleFront(); front != nil {
 		w(`/// A node of unit %[1]d, whose parent unit %[2]d declares.
-pub struct Node%[1]d {
+pub struct Node%[1]d
     rec: Rec%[1]d
     parent: Maybe<%[3]s.Link%[2]d>
-}
+end
 
 derive Equatable for Node%[1]d
 
 /// A link of unit %[2]d over nodes of this unit, read back.
-pub fn linked%[1]d(n: Int) -> Int {
+pub fn linked%[1]d(n: Int) -> Int
     leaf = Node%[1]d{rec: Rec%[1]d.new(n), parent: None}
     link = %[3]s.Link%[2]d{label: "l${n}", nodes: [leaf, leaf]}
     top = Node%[1]d{rec: Rec%[1]d.new(n + 1), parent: Some(link)}
     same = top == leaf
-    case top.parent {
-        Some(l) -> if same { 0 } else { Iter.count(l.nodes) + String.length(l.label) }
+    case top.parent
+        Some(l) -> if same then 0 else Iter.count(l.nodes) + String.length(l.label)
         None -> 1
-    }
-}
+    end
+end
 
 `, i, front.i, front.name)
 	}
 	w(`/// What a change to this unit changes.
-pub fn probe%[1]d(n: Int) -> Int {
+pub fn probe%[1]d(n: Int) -> Int
     n + 1
-}
+end
 
 `, i)
 
@@ -912,11 +912,11 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
 	switch shape {
 	case 0:
 		body = fmt.Sprintf(`    kind = kind%[1]d(n + %[2]d)
-    case kind {
+    case kind
         .Plain -> n + base%[1]d
         .Sized(s) -> s * 2 + %[3]s
         .Tagged(t) -> String.length(t)
-    }`, i, c, prev)
+    end`, i, c, prev)
 	case 1:
 		body = fmt.Sprintf(`    start = %[3]s
     m = n %% %[2]d + 1
@@ -927,28 +927,28 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
 	case 2:
 		body = fmt.Sprintf(`    r = Rec%[1]d.new(n)
     s = Rec%[1]d.score(r)
-    if r == Rec%[1]d.new(n + %[2]d) {
+    if r == Rec%[1]d.new(n + %[2]d) then
         s + String.length(Display.to_string(r)) + Hashable.hash(r) - Hashable.hash(Rec%[1]d.new(n + %[2]d))
-    } else {
+    else
         s + Describe.weight(r) + Rank%[4]d.rank(r) + %[3]s
-    }`, i, c, prev, u.headIndex)
+    end`, i, c, prev, u.headIndex)
 	case 3:
 		fallback := "(items |> Iter.first() |> Maybe.with_default(0))"
 		if u.usesUtil {
 			fallback = "util.first_or(items, 0)"
 		}
 		body = fmt.Sprintf(`    items = [n, n + %[2]d, n * 2, %[3]s]
-    case pick%[1]d(items, n %% 3) {
+    case pick%[1]d(items, n %% 3)
         Some(x) -> x + %[4]s
         None -> 0
-    }`, i, c, prev, fallback)
+    end`, i, c, prev, fallback)
 	case 4:
-		body = fmt.Sprintf(`    case doubled%[1]d(n - %[2]d) {
+		body = fmt.Sprintf(`    case doubled%[1]d(n - %[2]d)
         Ok(v) -> v + %[3]s
         Err(message) -> String.length(message)
-    }`, i, c, prev)
+    end`, i, c, prev)
 	case 5:
-		body = fmt.Sprintf(`    table = %%{"a" => n, "b" => n + %[2]d, "c" => %[3]s}
+		body = fmt.Sprintf(`    table = {"a" => n, "b" => n + %[2]d, "c" => %[3]s}
     Map.get(table, "b")
     |> Maybe.with_default(0)`, i, c, prev)
 	case 6:
@@ -970,11 +970,11 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
     b = Score%[1]d(n + %[2]d)
     entry = Entry%[1]d{kind: kind%[1]d(n), score: a, label: "x"}
     same = entry == Entry%[1]d{kind: kind%[1]d(n), score: b, label: "x"}
-    case Comparable.compare(a, b) {
+    case Comparable.compare(a, b)
         .Less -> 1 + %[3]s
-        .Equal -> if same { 0 } else { 3 }
+        .Equal -> if same then 0 else 3
         .Greater -> 2
-    }`, i, c, prev)
+    end`, i, c, prev)
 	default:
 		body = fmt.Sprintf(`    pair = swap%[1]d(Pair%[1]d{left: n, right: "p%[2]d"})
     String.length(pair.left) + pair.right + %[3]s`, i, c, prev)
@@ -1002,11 +1002,11 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
 			calls += fmt.Sprintf(" + linked%d(n)", i)
 		}
 		if calls != "" {
-			return fmt.Sprintf("/// Step 0 of unit %d.\npub fn f%d_0(n: Int) -> Int {\n    value = {\n%s\n    }\n    value%s\n}\n\n",
+			return fmt.Sprintf("/// Step 0 of unit %d.\npub fn f%d_0(n: Int) -> Int\n    value = begin\n%s\n    end\n    value%s\nend\n\n",
 				i, i, indent(body), calls)
 		}
 	}
-	return fmt.Sprintf("/// Step %d of unit %d.\npub fn f%d_%d(n: Int) -> Int {\n%s\n}\n\n", k, i, i, k, body)
+	return fmt.Sprintf("/// Step %d of unit %d.\npub fn f%d_%d(n: Int) -> Int\n%s\nend\n\n", k, i, i, k, body)
 }
 
 func indent(s string) string {
@@ -1016,7 +1016,7 @@ func indent(s string) string {
 // renderMain writes the entry, which imports every root unit.
 func renderMain(roots []*unit) (string, []string) {
 	var b strings.Builder
-	b.WriteString("//# The generated project's entry: it runs every unit no other unit imports.\n\nimport {\n    std::io\n")
+	b.WriteString("//# The generated project's entry: it runs every unit no other unit imports.\n\nimport\n    std::io\n")
 	var imports []string
 	sorted := append([]*unit(nil), roots...)
 	sort.Slice(sorted, func(a, c int) bool { return sorted[a].key < sorted[c].key })
@@ -1024,11 +1024,11 @@ func renderMain(roots []*unit) (string, []string) {
 		fmt.Fprintf(&b, "    %s\n", importPath(u.key))
 		imports = append(imports, u.key)
 	}
-	b.WriteString("}\n\nfn main() {\n    total = 0\n")
+	b.WriteString("end\n\nfn main()\n    total = 0\n")
 	for _, u := range roots {
 		fmt.Fprintf(&b, "    total = total + %s.f%d_%d(%d)\n", u.name, u.i, u.fns-1, 3+u.i%7)
 	}
-	b.WriteString("    io.print(\"checksum ${total}\")\n}\n")
+	b.WriteString("    io.print(\"checksum ${total}\")\nend\n")
 	return b.String(), imports
 }
 
@@ -1037,44 +1037,44 @@ func renderTest(u *unit) string {
 	doubling := ""
 	if !u.light {
 		doubling = fmt.Sprintf(`
-    test "doubling" {
+    test "doubling"
         assert %[1]s.doubled%[2]d(2) == Ok(12)
         assert Err(_) = %[1]s.doubled%[2]d(-1)
-    }
+    end
 `, u.name, u.i)
 	}
 	return fmt.Sprintf(`import %[1]s.{self, Entry%[2]d, Kind%[2]d, Rec%[2]d, Score%[2]d}
 
-group "unit %[2]d" {
-    test "steps give the same answer twice" {
-        subtests [0, 1, 2, 5, 9], n {
+group "unit %[2]d"
+    test "steps give the same answer twice"
+        subtests [0, 1, 2, 5, 9], n
             assert %[3]s.f%[2]d_%[4]d(n) == %[3]s.f%[2]d_%[4]d(n)
-        }
-    }
+        end
+    end
 
-    test "records compare by value" {
+    test "records compare by value"
         entry = Entry%[2]d{kind: Kind%[2]d.Sized(3), score: Score%[2]d(3), label: "e"}
         assert entry == Entry%[2]d{kind: .Sized(3), score: Score%[2]d(3), label: "e"}
         refute entry == Entry%[2]d{kind: .Plain, score: Score%[2]d(3), label: "e"}
         assert Hashable.hash(entry) == Hashable.hash(entry)
-    }
+    end
 
-    test "records derive over another file's types" {
+    test "records derive over another file's types"
         assert Rec%[2]d.new(2) == Rec%[2]d.new(2)
         refute Rec%[2]d.new(2) == Rec%[2]d.new(3)
         assert Hashable.hash(Rec%[2]d.new(2)) == Hashable.hash(Rec%[2]d.new(2))
         assert Display.to_string(Rec%[2]d.new(2)) == "Rec%[2]d{id: #2, name: r2, amount: 20 EUR, tags: [a, bb]}"
-    }
+    end
 
-    test "kinds" {
+    test "kinds"
         assert %[3]s.kind%[2]d(0) == Kind%[2]d.Plain
         assert %[3]s.kind%[2]d(4) == Kind%[2]d.Sized(4)
-    }
+    end
 
-    test "scores order" {
+    test "scores order"
         assert Comparable.compare(Score%[2]d(1), Score%[2]d(2)) == .Less
-    }
-%[5]s}
+    end
+%[5]send
 `, importPath(u.key), u.i, u.name, u.fns-1, doubling)
 }
 

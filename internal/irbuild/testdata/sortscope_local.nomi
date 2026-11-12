@@ -1,7 +1,7 @@
-import {
+import
     std::comparable.Direction
     std::io
-}
+end
 
 // The CONTROL for testdata/sortscope/, differing in exactly ONE thing: the
 // `impl Comparable` is written in THIS file rather than in a sibling.
@@ -17,35 +17,35 @@ import {
 // in sortscope/main.nomi, because the scalar gate has nothing to do with where an
 // impl is written and duplicating it here would make a scalar regression fail two
 // tests and locate neither.
-pub struct Widget {
+pub struct Widget
     weight: Int
-}
+end
 
-pub fn make(weight: Int) -> Widget {
-    Widget{weight}
-}
+pub fn make(weight: Int) -> Widget
+    Widget{weight:}
+end
 
-impl Comparable for Widget {
-    fn compare(a: Widget, b: Widget) -> Ordering {
+impl Comparable for Widget
+    fn compare(a: Widget, b: Widget) -> Ordering
         Int.compare(a.weight, b.weight)
-    }
-}
+    end
+end
 
-pub struct Backwards {
+pub struct Backwards
     n: Int
-}
+end
 
-pub fn back(n: Int) -> Backwards {
-    Backwards{n}
-}
+pub fn back(n: Int) -> Backwards
+    Backwards{n:}
+end
 
-impl Comparable for Backwards {
-    fn compare(a: Backwards, b: Backwards) -> Ordering {
+impl Comparable for Backwards
+    fn compare(a: Backwards, b: Backwards) -> Ordering
         Int.compare(b.n, a.n)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     ws = [make(3), make(1), make(2)]
     bs = [back(3), back(1), back(2)]
 
@@ -69,4 +69,4 @@ fn main() {
     io.print("lt ${a < b}")
     io.print("ge ${a >= b}")
     io.print("compare ${Comparable.compare(a, b)}")
-}
+end

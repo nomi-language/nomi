@@ -92,12 +92,12 @@ func TestPatternNameThatNamesAOnceIsRefused(t *testing.T) {
 			name: "a case arm that is the name",
 			src: `once not_found: Int = 404
 
-pub fn describe(code: Int) -> String {
-  case code {
+pub fn describe(code: Int) -> String
+  case code
     not_found -> "missing"
     _ -> "other"
-  }
-}
+  end
+end
 `,
 			line: 5, col: 5,
 			help: "to compare with it, write `code when code == not_found`",
@@ -106,12 +106,12 @@ pub fn describe(code: Int) -> String {
 			name: "a name inside a case arm's variant",
 			src: `once not_found: Int = 404
 
-pub fn describe(r: Result<Int, Int>) -> String {
-  case r {
+pub fn describe(r: Result<Int, Int>) -> String
+  case r
     Err(not_found) -> "missing"
     _ -> "fine"
-  }
-}
+  end
+end
 `,
 			line: 5, col: 9,
 			help: "to compare with it, bind `value` here and add `when value == not_found`",
@@ -120,12 +120,12 @@ pub fn describe(r: Result<Int, Int>) -> String {
 			name: "a case on a value that is not a name",
 			src: `once not_found: Int = 404
 
-pub fn describe(code: Int) -> String {
-  case code + 1 {
+pub fn describe(code: Int) -> String
+  case code + 1
     not_found -> "missing"
     _ -> "other"
-  }
-}
+  end
+end
 `,
 			line: 5, col: 5,
 			help: "to compare with it, write `value when value == not_found`",
@@ -134,13 +134,13 @@ pub fn describe(code: Int) -> String {
 			name: "a pattern if",
 			src: `once not_found: Int = 404
 
-pub fn describe(m: Maybe<Int>) -> Int {
-  if Some(not_found) = m {
+pub fn describe(m: Maybe<Int>) -> Int
+  if Some(not_found) = m then
     not_found
-  } else {
+  else
     0
-  }
-}
+  end
+end
 `,
 			line: 4, col: 11,
 			help: "to compare with it, bind `value` here and compare `value == not_found`",
@@ -149,10 +149,12 @@ pub fn describe(m: Maybe<Int>) -> Int {
 			name: "a binding with else",
 			src: `once not_found: Int = 404
 
-pub fn describe(m: Maybe<Int>) -> Int {
-  Some(not_found) = m else { return 0 }
+pub fn describe(m: Maybe<Int>) -> Int
+  Some(not_found) = m else
+      return 0
+  end
   not_found
-}
+end
 `,
 			line: 4, col: 8,
 			help: "to compare with it, bind `value` here and compare `value == not_found`",
@@ -161,12 +163,12 @@ pub fn describe(m: Maybe<Int>) -> Int {
 			name: "an else arm",
 			src: `once not_found: Int = 404
 
-pub fn describe(r: Result<Int, Int>) -> Int {
-  Ok(n) = r else {
+pub fn describe(r: Result<Int, Int>) -> Int
+  Ok(n) = r else
     Err(not_found) -> return 0
-  }
+  end
   n
-}
+end
 `,
 			line: 5, col: 9,
 			help: "to compare with it, bind `value` here and add `when value == not_found`",
@@ -175,11 +177,11 @@ pub fn describe(r: Result<Int, Int>) -> Int {
 			name: "an assert",
 			src: `once not_found: Int = 404
 
-test "assert" {
+test "assert"
   r: Result<Int, Int> = Err(404)
   assert Err(not_found) = r
   assert not_found == 404
-}
+end
 `,
 			line: 5, col: 14,
 			help: "to compare with it, bind `value` here and compare `value == not_found`",
@@ -188,12 +190,12 @@ test "assert" {
 			name: "an or alternative",
 			src: `once not_found: Int = 404
 
-pub fn describe(code: Int) -> String {
-  case code {
+pub fn describe(code: Int) -> String
+  case code
     400 or not_found -> "client"
     _ -> "other"
-  }
-}
+  end
+end
 `,
 			line: 5, col: 12,
 			help: "to compare with it, bind `value` here and add `when value == not_found`",
@@ -210,12 +212,12 @@ pub fn describe(code: Int) -> String {
 func TestPatternNameThatNamesAnImportedOnceIsRefused(t *testing.T) {
 	entry := `import codes.not_found
 
-pub fn describe(code: Int) -> String {
-  case code {
+pub fn describe(code: Int) -> String
+  case code
     not_found -> "missing"
     _ -> "other"
-  }
-}
+  end
+end
 `
 	siblings := map[string]string{"codes": "pub once not_found: Int = 404\n"}
 	wantOnceShadow(t, checkOnceShadowProject(t, entry, siblings), 5, 5, "to compare with it, write `code when code == not_found`")
@@ -231,32 +233,32 @@ func TestPatternNameWithNoOnceVisibleIsAccepted(t *testing.T) {
 			name: "a discard name",
 			src: `once _not_found: Int = 404
 
-pub fn describe(code: Int) -> String {
+pub fn describe(code: Int) -> String
   _ = _not_found
-  case code {
+  case code
     _not_found -> "any"
-  }
-}
+  end
+end
 `,
 		},
 		{
 			name: "no once of the name",
-			src: `pub fn describe(code: Int) -> Int {
-  case code {
+			src: `pub fn describe(code: Int) -> Int
+  case code
     not_found -> not_found
-  }
-}
+  end
+end
 `,
 		},
 		{
 			name: "a once of another module, not imported",
 			src: `import codes
 
-pub fn describe(code: Int) -> Int {
-  case code {
+pub fn describe(code: Int) -> Int
+  case code
     not_found -> not_found + codes.not_found
-  }
-}
+  end
+end
 `,
 			siblings: map[string]string{"codes": "pub once not_found: Int = 404\n"},
 		},
@@ -264,43 +266,43 @@ pub fn describe(code: Int) -> Int {
 			name: "a local binding hides the once",
 			src: `once not_found: Int = 404
 
-pub fn describe(code: Int) -> Int {
+pub fn describe(code: Int) -> Int
   not_found = 3
-  case code + not_found {
+  case code + not_found
     not_found -> not_found
-  }
-}
+  end
+end
 `,
 		},
 		{
 			name: "a plain binding, a parameter and a destructure",
 			src: `once not_found: Int = 404
 
-pub fn plain() -> Int {
+pub fn plain() -> Int
   not_found = 3
   not_found
-}
+end
 
-pub fn param(not_found: Int) -> Int {
+pub fn param(not_found: Int) -> Int
   not_found
-}
+end
 
-pub fn destructure(pair: (Int, Int)) -> Int {
+pub fn destructure(pair: (Int, Int)) -> Int
   (not_found, other) = pair
   not_found + other
-}
+end
 `,
 		},
 		{
 			name: "a guard that compares with the once",
 			src: `once not_found: Int = 404
 
-pub fn describe(code: Int) -> String {
-  case code {
+pub fn describe(code: Int) -> String
+  case code
     code when code == not_found -> "missing"
     _ -> "other"
-  }
-}
+  end
+end
 `,
 		},
 	}

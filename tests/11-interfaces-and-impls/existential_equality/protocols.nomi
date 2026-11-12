@@ -2,159 +2,159 @@
 // as it: two structs with the same fields, one struct with a hand-written
 // Equatable and Hashable, one with a hand-written Equatable alone, a
 // container's impl and an `embeds` enum's.
-pub interface Show {
+pub interface Show
     fn show(value: self) -> String
-}
+end
 
-pub struct Point {
+pub struct Point
     x: Int
     y: Int
-}
+end
 
-pub struct Spot {
+pub struct Spot
     x: Int
     y: Int
-}
+end
 
 // Names compare and hash without regard to case.
-pub struct Name {
+pub struct Name
     text: String
-}
+end
 
 // Tags compare without regard to case and declare no hash of their own.
-pub struct Tag {
+pub struct Tag
     text: String
-}
+end
 
-pub struct Circle {
+pub struct Circle
     r: Int
-}
+end
 
-pub enum Shape {
+pub enum Shape
     embeds Circle
     Dot
-}
+end
 
-impl Show for Point {
-    fn show(p: Point) -> String {
+impl Show for Point
+    fn show(p: Point) -> String
         "point ${p.x} ${p.y}"
-    }
-}
+    end
+end
 
-impl Debug for Point {
-    fn inspect(p: Point) -> String {
+impl Debug for Point
+    fn inspect(p: Point) -> String
         "Point(${p.x}, ${p.y})"
-    }
-}
+    end
+end
 
-impl Show for Spot {
-    fn show(s: Spot) -> String {
+impl Show for Spot
+    fn show(s: Spot) -> String
         "spot ${s.x} ${s.y}"
-    }
-}
+    end
+end
 
-impl Show for Name {
-    fn show(n: Name) -> String {
+impl Show for Name
+    fn show(n: Name) -> String
         n.text
-    }
-}
+    end
+end
 
-impl Equatable for Name {
-    fn equal(a: Name, b: Name) -> Bool {
+impl Equatable for Name
+    fn equal(a: Name, b: Name) -> Bool
         String.lowercase(a.text) == String.lowercase(b.text)
-    }
-}
+    end
+end
 
-impl Hashable for Name {
-    fn hash(n: Name) -> Int {
+impl Hashable for Name
+    fn hash(n: Name) -> Int
         Hashable.hash(String.lowercase(n.text))
-    }
-}
+    end
+end
 
-impl Show for Tag {
-    fn show(t: Tag) -> String {
+impl Show for Tag
+    fn show(t: Tag) -> String
         "#${t.text}"
-    }
-}
+    end
+end
 
-impl Equatable for Tag {
-    fn equal(a: Tag, b: Tag) -> Bool {
+impl Equatable for Tag
+    fn equal(a: Tag, b: Tag) -> Bool
         String.lowercase(a.text) == String.lowercase(b.text)
-    }
-}
+    end
+end
 
-impl Show for Int {
-    fn show(n: Int) -> String {
+impl Show for Int
+    fn show(n: Int) -> String
         "i${n}"
-    }
-}
+    end
+end
 
-impl Show for String {
-    fn show(s: String) -> String {
+impl Show for String
+    fn show(s: String) -> String
         "'${s}'"
-    }
-}
+    end
+end
 
-impl Show for List<T> where T: Show {
-    fn show(xs: List<T>) -> String {
+impl Show for List<T> where T: Show
+    fn show(xs: List<T>) -> String
         "[" + (xs |> Iter.map(&T.show(&1)) |> String.join(" ")) + "]"
-    }
-}
+    end
+end
 
-impl Show for Circle {
-    fn show(c: Circle) -> String {
+impl Show for Circle
+    fn show(c: Circle) -> String
         "circle ${c.r}"
-    }
-}
+    end
+end
 
-impl Show for Shape {
-    fn show(s: Shape) -> String {
-        case s {
-            .Circle{r} -> "shape circle ${r}"
+impl Show for Shape
+    fn show(s: Shape) -> String
+        case s
+            .Circle{r:} -> "shape circle ${r}"
             .Dot -> "shape dot"
-        }
-    }
-}
+        end
+    end
+end
 
 // Every circle is one glyph, whatever its radius.
-pub enum Glyph {
+pub enum Glyph
     embeds Circle
     Blank
-}
+end
 
-impl Show for Glyph {
-    fn show(g: Glyph) -> String {
-        case g {
-            .Circle{r} -> "glyph circle ${r}"
+impl Show for Glyph
+    fn show(g: Glyph) -> String
+        case g
+            .Circle{r:} -> "glyph circle ${r}"
             .Blank -> "glyph blank"
-        }
-    }
-}
+        end
+    end
+end
 
-impl Equatable for Glyph {
-    fn equal(a: Glyph, b: Glyph) -> Bool {
-        case a {
+impl Equatable for Glyph
+    fn equal(a: Glyph, b: Glyph) -> Bool
+        case a
             .Circle{r: _} ->
-                case b {
+                case b
                     .Circle{r: _} -> True
                     .Blank -> False
-                }
+                end
 
             .Blank ->
-                case b {
+                case b
                     .Circle{r: _} -> False
                     .Blank -> True
-                }
-        }
-    }
-}
+                end
+        end
+    end
+end
 
 // A struct with an interface-typed field, whose derived impls compare and
 // hash the field by the value it holds.
-pub struct Labeled {
+pub struct Labeled
     label: Show
     count: Int
-}
+end
 
 derive Equatable for Labeled
 derive Hashable for Labeled

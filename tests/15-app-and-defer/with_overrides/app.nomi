@@ -2,27 +2,27 @@
 // the end of its block.
 import std::io
 
-pub enum Level {
+pub enum Level
     Info
     Debug
-}
+end
 
-pub struct App {
+pub struct App
     context: Context
     level: Level
     label: String
     n: Int
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
     Ok(App{context: Context.root(), level: .Info, label: "base", n: 1})
-}
+end
 
-fn main() {
-    {
+fn main()
+    begin
         with App.label = "inner"
         io.print(App.label)
-    }
+    end
 
     io.print(App.label)
-}
+end

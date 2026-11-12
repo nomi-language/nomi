@@ -28,35 +28,35 @@ func TestEnumSlotsDedupByGoTypeNotLayout(t *testing.T) {
 	}{
 		{
 			name:  "identical layout different type gets two slots",
-			src:   "enum Mixed {\n  Whole Int\n  Fraction Float\n}\n",
+			src:   "enum Mixed\n  Whole Int\n  Fraction Float\nend\n",
 			enum:  "Mixed",
 			slots: []string{"Int", "Float"},
 			why:   "Int and Float are both 8 bytes; merging them truncates",
 		},
 		{
 			name:  "same type across variants shares one slot",
-			src:   "enum Reading {\n  Absent\n  Celsius Int\n  Fahrenheit Int\n}\n",
+			src:   "enum Reading\n  Absent\n  Celsius Int\n  Fahrenheit Int\nend\n",
 			enum:  "Reading",
 			slots: []string{"Int"},
 			why:   "only one variant is live at a time",
 		},
 		{
 			name:  "same type within one variant needs two slots",
-			src:   "enum Box {\n  Rect {w: Int, h: Int}\n}\n",
+			src:   "enum Box\n  Rect {w: Int, h: Int}\nend\n",
 			enum:  "Box",
 			slots: []string{"Int", "Int"},
 			why:   "a struct-shaped variant's fields are live together",
 		},
 		{
 			name:  "a bare enum has no storage at all",
-			src:   "enum Mode {\n  Up\n  Down\n}\n",
+			src:   "enum Mode\n  Up\n  Down\nend\n",
 			enum:  "Mode",
 			slots: nil,
 			why:   "no payload, so nothing but the tag",
 		},
 		{
 			name:  "a zero-sized payload gets no slot",
-			src:   "struct Nothing {\n}\n\nenum Maybe0 {\n  Absent\n  embeds Nothing\n}\n",
+			src:   "struct Nothing end\n\nenum Maybe0\n  Absent\n  embeds Nothing\nend\n",
 			enum:  "Maybe0",
 			slots: nil,
 			why:   "a zero-sized value carries no information to store",
@@ -76,14 +76,14 @@ func TestEnumSlotsDedupByGoTypeNotLayout(t *testing.T) {
 		// exercises the same slot rule.
 		{
 			name:  "two function types get two slots",
-			src:   "enum Handler {\n  Num {f: (Int) -> Int}\n  Text {g: (String) -> Bool}\n}\n",
+			src:   "enum Handler\n  Num {f: (Int) -> Int}\n  Text {g: (String) -> Bool}\nend\n",
 			enum:  "Handler",
 			slots: []string{"(Int) -> Int", "(String) -> Bool"},
 			why:   "one tag, two Go types; merging them recovers the wrong signature",
 		},
 		{
 			name:  "the same function type shares one slot",
-			src:   "enum Either {\n  Left {f: (Int) -> Int}\n  Right {g: (Int) -> Int}\n}\n",
+			src:   "enum Either\n  Left {f: (Int) -> Int}\n  Right {g: (Int) -> Int}\nend\n",
 			enum:  "Either",
 			slots: []string{"(Int) -> Int"},
 			why:   "identical Go type, and only one variant is live at a time",
@@ -99,17 +99,17 @@ func TestEnumSlotsDedupByGoTypeNotLayout(t *testing.T) {
 		// truncation. See impl.go.
 		{
 			name: "two interface types get two slots",
-			src: "interface Speech {\n  fn speak(v: self) -> String\n}\n\n" +
-				"interface Greeter {\n  fn greet(v: self) -> String\n}\n\n" +
-				"enum Either {\n  Talks {s: Speech}\n  Greets {g: Greeter}\n}\n",
+			src: "interface Speech\n  fn speak(v: self) -> String\nend\n\n" +
+				"interface Greeter\n  fn greet(v: self) -> String\nend\n\n" +
+				"enum Either\n  Talks {s: Speech}\n  Greets {g: Greeter}\nend\n",
 			enum:  "Either",
 			slots: []string{"Speech", "Greeter"},
 			why:   "two Nomi types sharing one Go type must still be two identities",
 		},
 		{
 			name: "the same interface shares one slot",
-			src: "interface Speech {\n  fn speak(v: self) -> String\n}\n\n" +
-				"enum Pair {\n  First {s: Speech}\n  Second {t: Speech}\n}\n",
+			src: "interface Speech\n  fn speak(v: self) -> String\nend\n\n" +
+				"enum Pair\n  First {s: Speech}\n  Second {t: Speech}\nend\n",
 			enum:  "Pair",
 			slots: []string{"Speech"},
 			why:   "identical Nomi type, and only one variant is live at a time",
@@ -123,35 +123,35 @@ func TestEnumSlotsDedupByGoTypeNotLayout(t *testing.T) {
 		// identity is Go's own struct-type identity over the rendered text.
 		{
 			name:  "two list element types get two slots",
-			src:   "enum Holder {\n  Nums {xs: List<Int>}\n  Words {ys: List<String>}\n}\n",
+			src:   "enum Holder\n  Nums {xs: List<Int>}\n  Words {ys: List<String>}\nend\n",
 			enum:  "Holder",
 			slots: []string{"List<Int>", "List<String>"},
 			why:   "one tag, two Go types; merging them recovers the wrong element",
 		},
 		{
 			name:  "the same list type shares one slot",
-			src:   "enum Pairs {\n  Left {xs: List<Int>}\n  Right {ys: List<Int>}\n}\n",
+			src:   "enum Pairs\n  Left {xs: List<Int>}\n  Right {ys: List<Int>}\nend\n",
 			enum:  "Pairs",
 			slots: []string{"List<Int>"},
 			why:   "identical Go type, and only one variant is live at a time",
 		},
 		{
 			name:  "list nesting depth is part of the identity",
-			src:   "enum Depth {\n  Flat {xs: List<Int>}\n  Deep {ys: List<List<Int>>}\n}\n",
+			src:   "enum Depth\n  Flat {xs: List<Int>}\n  Deep {ys: List<List<Int>>}\nend\n",
 			enum:  "Depth",
 			slots: []string{"List<Int>", "List<List<Int>>"},
 			why:   "the key must recurse; a bare tag or a one-level key merges these",
 		},
 		{
 			name:  "two tuple shapes get two slots",
-			src:   "enum Shapes {\n  Named {p: (Int, String)}\n  Point {q: (Int, Int)}\n}\n",
+			src:   "enum Shapes\n  Named {p: (Int, String)}\n  Point {q: (Int, Int)}\nend\n",
 			enum:  "Shapes",
 			slots: []string{"(Int, String)", "(Int, Int)"},
 			why:   "a structural type with no declaration still needs one identity per Go type",
 		},
 		{
 			name:  "the same tuple shape shares one slot",
-			src:   "enum Points {\n  Start {p: (Int, Int)}\n  End {q: (Int, Int)}\n}\n",
+			src:   "enum Points\n  Start {p: (Int, Int)}\n  End {q: (Int, Int)}\nend\n",
 			enum:  "Points",
 			slots: []string{"(Int, Int)"},
 			why:   "Go's struct identity is structural, so one shape is one type",
@@ -178,7 +178,7 @@ func TestEnumSlotsDedupByGoTypeNotLayout(t *testing.T) {
 // TestEnumTagsStartAtOne pins the reservation in the builder's type
 // declarations.
 func TestEnumTagsStartAtOne(t *testing.T) {
-	d := lookupTypeDef(t, "enum Step {\n  First\n  Second\n  Third\n}\n", "Step")
+	d := lookupTypeDef(t, "enum Step\n  First\n  Second\n  Third\nend\n", "Step")
 	for i, v := range d.variants {
 		if v.tag != i+1 {
 			t.Fatalf("%s.%s has tag %d, want %d — tag 0 is reserved invalid", d.nomi, v.nomi, v.tag, i+1)

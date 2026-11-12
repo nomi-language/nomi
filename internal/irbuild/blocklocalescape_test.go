@@ -13,75 +13,75 @@ func TestIRBlockLocalTypeEscapesItsBlock_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn main() {
-    a = {
-        struct Loc {
+fn main()
+    a = begin
+        struct Loc
             n: Int
-        }
+        end
         Loc{n: 1}
-    }
-    b = {
-        struct Loc {
+    end
+    b = begin
+        struct Loc
             s: String
             m: Int
-        }
+        end
         Loc{s: "x", m: 2}
-    }
+    end
     io.inspect(a)
     io.inspect(b)
     io.inspect(a.n + b.m)
     io.inspect(a == a)
-    e = {
-        enum Mode {
+    e = begin
+        enum Mode
             Fast
             Slow(Int)
-        }
+        end
         [Mode.Fast, Mode.Slow(3)]
-    }
+    end
     io.inspect(e)
-    d = {
+    d = begin
         type Meters Int
         Meters(4)
-    }
+    end
     io.inspect(d)
-    make = fn -> {
-        struct P {
+    make = fn ->
+        struct P
             x: Int
-        }
+        end
         P{x: 9}
-    }
+    end
     io.inspect(make().x)
-    xs = Iter.map([1, 2], fn i -> {
-        struct Q {
+    xs = Iter.map([1, 2], fn i ->
+        struct Q
             i: Int
-        }
-        Q{i: i}
-    }) |> Iter.to_list()
+        end
+        Q{i:}
+    end) |> Iter.to_list()
     io.inspect(xs)
-    w = {
-        struct Box<T> {
+    w = begin
+        struct Box<T>
             v: T
-        }
+        end
         Box{v: 1}
-    }
+    end
     io.inspect(w.v + 1)
-    u = {
-        struct Box<T> {
+    u = begin
+        struct Box<T>
             first: T
             second: T
-        }
+        end
         Box{first: "a", second: "b"}
-    }
+    end
     io.inspect(u)
-    o = {
-        enum Opt<T> {
+    o = begin
+        enum Opt<T>
             Has(T)
             Empty
-        }
+        end
         [Opt.Has(2.5), Opt.Empty]
-    }
+    end
     io.inspect(o)
-}
+end
 `
 	const want = "Loc{n: 1}\n" +
 		"Loc{s: \"x\", m: 2}\n" +

@@ -49,16 +49,16 @@ func TestDeriveOverAStdComponentWithoutTheImplIsRefused(t *testing.T) {
 		}
 		t.Run(iface, func(t *testing.T) {
 			byEquality := iface == "Equatable" || iface == "Hashable"
-			src := deriveImports(iface) + fmt.Sprintf(`enum E {
+			src := deriveImports(iface) + fmt.Sprintf(`enum E
   Shape Json.ShapeError
   Empty
-}
+end
 
 derive %[1]s for E
 
-struct S {
+struct S
   shape: Json.ShapeError
-}
+end
 
 derive %[1]s for S
 `, iface)
@@ -108,20 +108,20 @@ func hasRelated(errs []analysis.TypeError, msg string) bool {
 func TestDeriveOverAnOwnComponentWithoutTheImplSaysToDeriveIt(t *testing.T) {
 	for _, iface := range componentCheckedDerives {
 		t.Run(iface, func(t *testing.T) {
-			src := deriveImports(iface) + fmt.Sprintf(`struct Inner {
+			src := deriveImports(iface) + fmt.Sprintf(`struct Inner
   n: Int
-}
+end
 
-enum E {
+enum E
   A Inner
   Empty
-}
+end
 
 derive %s for E
 
-fn shape() -> Maybe<Json> {
+fn shape() -> Maybe<Json>
   None
-}
+end
 `, iface)
 			fa := buildWithStdlibForDerive(src)
 			if iface == "Equatable" || iface == "Hashable" {
@@ -158,7 +158,7 @@ func buildStdFileForDerive(t *testing.T, name, src string) []analysis.TypeError 
 	lib := loadStdlibOnce()
 	fa := analysis.BuildFileWithStdlibAtPath(nodes, lib.Primitives, lib.Modules, "", nil, "std/"+name+".nomi")
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
-	return analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex)
+	return analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex, nil)
 }
 
 // A derive in std over a component with no impl of the interface is an
@@ -171,14 +171,14 @@ func buildStdFileForDerive(t *testing.T, name, src string) []analysis.TypeError 
 func TestStdDeriveOverAComponentWithoutTheImplIsRefused(t *testing.T) {
 	for _, iface := range componentCheckedDerives {
 		t.Run(iface, func(t *testing.T) {
-			src := fmt.Sprintf(`pub struct Shape {
+			src := fmt.Sprintf(`pub struct Shape
   path: List<String>
-}
+end
 
-pub enum JwtError {
+pub enum JwtError
   Expired
   Claims Shape
-}
+end
 
 derive %s for JwtError
 `, iface)
@@ -208,11 +208,11 @@ derive %s for JwtError
 // The mirror: a std derive whose components all have the impl, through a
 // container's type argument too, is accepted.
 func TestStdDeriveOverComponentsWithTheImplIsAccepted(t *testing.T) {
-	src := `pub enum JwtError {
+	src := `pub enum JwtError
   Expired
   Claims String
   Missing List<String>
-}
+end
 
 derive Equatable for JwtError
 `
@@ -226,9 +226,9 @@ derive Equatable for JwtError
 func TestStdDeriveOverAContainerOfAComponentWithoutTheImplIsRefused(t *testing.T) {
 	src := `import json.Json
 
-pub struct Report {
+pub struct Report
   shapes: List<Json.ShapeError>
-}
+end
 
 derive Comparable for Report
 `

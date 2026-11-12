@@ -549,7 +549,7 @@ func irRetainedPreludePayload(k kind) bool {
 	}
 	if (k != kindEmptySet && irRetainedSetKind(k)) || irRetainedRecordKind(k) {
 		// A set (`Maybe<Set<Int>>`) or an anonymous record
-		// (`Maybe<.{x: Int}>`), held as its record.
+		// (`Maybe<{x: Int}>`), held as its record.
 		return true
 	}
 	if k.tag == tagNamed && k.def != nil && !k.def.isEnum && irRetainedStructKind(k.def) {
@@ -625,11 +625,13 @@ func (bl *irScalarBuilder) retainedVariant(field *ast.FieldAccess) (*typeDef, *v
 		return nil, nil, false
 	}
 	d, found := bl.g.namedType(name)
-	if !found && name == "Ordering" && isSynthesized(field) {
-		// A derived `compare` names `Ordering.Less` qualified whatever the
-		// file imports (the front end resolves it the compiler-known way),
-		// so std/bool's `derive Comparable for True` needs no import.
-		d, found = stdEnumDefs()[stdEnumOrdering], true
+	if owner, ok := field.Object.(*ast.TypeIdent); ok && !found && name == "Ordering" {
+		// A derived `compare` names `Ordering.Less` in a file that binds
+		// no `Ordering` (std/bool's `derive Comparable for True`): the
+		// checker recorded std/comparable's declaration at the qualifier.
+		if mod, std := stdTypeModule(bl.g.checkedTypeRef(owner.Line, owner.Col)); std && mod == "comparable" {
+			d, found = stdEnumDefs()[stdEnumOrdering], true
+		}
 	}
 	if !found || !irRetainedEnumKind(d) {
 		return nil, nil, false
@@ -755,7 +757,7 @@ func (bl *irScalarBuilder) genericVariant(field *ast.FieldAccess, call *ast.Call
 			k = bl.g.templateInstanceOf(instantiate, ft.Return)
 		} else if ty := bl.g.checkedExprType(bl.checkedCallNode(call)); ty != nil {
 			// A struct-shaped or embedded variant's construction
-			// (`Shape.UserId(3)`, `Shape.Circle(.{r: 1})`) is checked as
+			// (`Shape.UserId(3)`, `Shape.Circle({r: 1})`) is checked as
 			// the embedded type's own construction and records no
 			// signature; its type is the instance.
 			k = bl.g.templateInstanceOf(instantiate, ty)
@@ -846,7 +848,7 @@ func (bl *irScalarBuilder) genericLitWant(t *ast.StructLit, want kind) (ir.Temp,
 		if !isTemplate || tpl.structDecl() == nil || want.def.genericOf != tpl {
 			return no()
 		}
-		if args, ok := bl.g.checkedStructTypeArgs(t, tpl); ok {
+		if args, ok := bl.g.literalTypeArgs(t, len(tpl.params)); ok {
 			if k, ok := instantiate(args); ok && k == want {
 				return no()
 			}
@@ -861,7 +863,7 @@ func (bl *irScalarBuilder) genericLitWant(t *ast.StructLit, want kind) (ir.Temp,
 			return no()
 		}
 		variant := tn.Member.TypeString()
-		if args, ok := bl.g.checkedVariantTypeArgs(t, tpl, variant); ok {
+		if args, ok := bl.g.literalTypeArgs(t, len(tpl.params)); ok {
 			if k, ok := instantiate(args); ok && k == want {
 				return no()
 			}
@@ -921,8 +923,8 @@ func irStructShapedVariant(v *variantDef) bool {
 	return v.kind == "struct" || (v.kind == "embedded" && v.embeds != nil && !v.embeds.isDistinct && !v.embeds.isEnum)
 }
 
-// variantCallForm builds the record call form `Shape.Rect(.{...})` or
-// `Shape.Circle(.{...})`, piped or not: a literal argument is the brace form's
+// variantCallForm builds the record call form `Shape.Rect({...})` or
+// `Shape.Circle({...})`, piped or not: a literal argument is the brace form's
 // fields, positioned at the call. A record value is declined.
 func (bl *irScalarBuilder) variantCallForm(call *ast.Call, d *typeDef, v *variantDef) (ir.Temp, kind, bool, bool) {
 	if len(call.Args) != 1 {
@@ -959,7 +961,7 @@ func (bl *irScalarBuilder) variantStructLit(t *ast.StructLit, enum, variant stri
 	if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(enum); isTemplate {
 		// A generic enum's struct variant: the instance its field values
 		// solve (`shapes.Holder.Of{value: 5}` is a `Holder<Int>`).
-		args, ok := bl.g.checkedVariantTypeArgs(t, tpl, variant)
+		args, ok := bl.g.literalTypeArgs(t, len(tpl.params))
 		if !ok {
 			return no()
 		}

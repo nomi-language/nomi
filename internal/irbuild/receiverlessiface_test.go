@@ -15,41 +15,41 @@ func TestVM_ReceiverlessInterfaceFunctionAtAGenericInstance(t *testing.T) {
 	}
 	const src = `import std::io
 
-interface Zero {
+interface Zero
     fn zero(n: Int) -> self
-}
+end
 
-impl Zero for Int {
-    fn zero(n: Int) -> Int {
+impl Zero for Int
+    fn zero(n: Int) -> Int
         n
-    }
-}
+    end
+end
 
-impl Zero for String {
-    fn zero(n: Int) -> String {
+impl Zero for String
+    fn zero(n: Int) -> String
         "s${Int.to_string(n)}"
-    }
-}
+    end
+end
 
-struct Box<T> {
+struct Box<T>
     v: T
-}
+end
 
-impl Zero for Box<T> where T: Zero {
-    fn zero(n: Int) -> Box<T> {
+impl Zero for Box<T> where T: Zero
+    fn zero(n: Int) -> Box<T>
         Box{v: T.zero(n)}
-    }
-}
+    end
+end
 
-fn make_all<T>(ns: List<Int>) -> List<T> where T: Zero {
+fn make_all<T>(ns: List<Int>) -> List<T> where T: Zero
     Iter.map(ns, &T.zero(&1)) |> Iter.to_list()
-}
+end
 
-fn make_all_lambda<T>(ns: List<Int>) -> List<T> where T: Zero {
+fn make_all_lambda<T>(ns: List<Int>) -> List<T> where T: Zero
     Iter.map(ns, fn n -> T.zero(n)) |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Zero.zero<Box<Int>>(1))
     io.inspect(Zero.zero<Box<Box<String>>>(2))
     nested: Box<Box<Int>> = Zero.zero(3)
@@ -60,7 +60,7 @@ fn main() {
     io.inspect(boxes)
     deep: List<Box<Box<Int>>> = make_all_lambda([9])
     io.inspect(deep)
-}
+end
 `
 	irRunSource(t, src, `Box{v: 1}
 Box{v: Box{v: "s2"}}

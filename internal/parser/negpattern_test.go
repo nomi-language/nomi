@@ -12,7 +12,7 @@ import (
 // leading MINUS with "unexpected `-` in (case) pattern".
 
 func TestCaseTopLevelNegativeInt(t *testing.T) {
-	expr := parseExpr(t, "case n {\n -2 -> \"neg\"\n _ -> \"other\"\n}")
+	expr := parseExpr(t, "case n\n -2 -> \"neg\"\n _ -> \"other\"\nend")
 	c := expr.(*ast.Case)
 	il, ok := c.Branches[0].Pattern.(*ast.IntLit)
 	if !ok || il.Value != -2 {
@@ -21,7 +21,7 @@ func TestCaseTopLevelNegativeInt(t *testing.T) {
 }
 
 func TestCaseTopLevelNegativeFloat(t *testing.T) {
-	expr := parseExpr(t, "case f {\n -2.5 -> \"neg\"\n _ -> \"other\"\n}")
+	expr := parseExpr(t, "case f\n -2.5 -> \"neg\"\n _ -> \"other\"\nend")
 	c := expr.(*ast.Case)
 	fl, ok := c.Branches[0].Pattern.(*ast.FloatLit)
 	if !ok || fl.Value != -2.5 {
@@ -30,7 +30,7 @@ func TestCaseTopLevelNegativeFloat(t *testing.T) {
 }
 
 func TestCaseTopLevelNegativeDecimal(t *testing.T) {
-	expr := parseExpr(t, "case d {\n -2.5d -> \"neg\"\n _ -> \"other\"\n}")
+	expr := parseExpr(t, "case d\n -2.5d -> \"neg\"\n _ -> \"other\"\nend")
 	c := expr.(*ast.Case)
 	dl, ok := c.Branches[0].Pattern.(*ast.DecimalLit)
 	if !ok || dl.Lexeme != "-2.5d" {
@@ -39,7 +39,7 @@ func TestCaseTopLevelNegativeDecimal(t *testing.T) {
 }
 
 func TestCaseTupleNegative(t *testing.T) {
-	expr := parseExpr(t, "case t {\n (-2, 3) -> \"found\"\n _ -> \"other\"\n}")
+	expr := parseExpr(t, "case t\n (-2, 3) -> \"found\"\n _ -> \"other\"\nend")
 	c := expr.(*ast.Case)
 	tp, ok := c.Branches[0].Pattern.(*ast.TuplePattern)
 	if !ok {
@@ -52,7 +52,7 @@ func TestCaseTupleNegative(t *testing.T) {
 }
 
 func TestCaseListNegative(t *testing.T) {
-	expr := parseExpr(t, "case xs {\n [-2, 3] -> \"found\"\n _ -> \"other\"\n}")
+	expr := parseExpr(t, "case xs\n [-2, 3] -> \"found\"\n _ -> \"other\"\nend")
 	c := expr.(*ast.Case)
 	lp, ok := c.Branches[0].Pattern.(*ast.ListPattern)
 	if !ok {
@@ -65,7 +65,7 @@ func TestCaseListNegative(t *testing.T) {
 }
 
 func TestCaseMapValueNegative(t *testing.T) {
-	expr := parseExpr(t, "case m {\n %{\"k\" => -2} -> \"found\"\n _ -> \"other\"\n}")
+	expr := parseExpr(t, "case m\n {\"k\" => -2} -> \"found\"\n _ -> \"other\"\nend")
 	c := expr.(*ast.Case)
 	mp, ok := c.Branches[0].Pattern.(*ast.MapPattern)
 	if !ok {

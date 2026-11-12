@@ -11,8 +11,8 @@ import (
 // with `fn main`, never a file of the module under csvdata/, and Write lays
 // the files out as the block marks them.
 func TestFromMarkedSourceKeepsAProjectOfModulesAsItsFiles(t *testing.T) {
-	src := "// FILE: tables.nomi\nimport csvdata\n\n// FILE: csvdata/main.nomi\nfn main() {}\n\n" +
-		"// FILE: csvdata/nomi.toml\n[module]\nname = \"csvdata\"\n\n// FILE: main.nomi\nfn main() {}\n\n" +
+	src := "// FILE: tables.nomi\nimport csvdata\n\n// FILE: csvdata/main.nomi\nfn main() end\n\n" +
+		"// FILE: csvdata/nomi.toml\n[module]\nname = \"csvdata\"\n\n// FILE: main.nomi\nfn main() end\n\n" +
 		"// FILE: data/prices.csv\nsku,cents\n\n\n// FILE: go.mod\nmodule shop\n"
 	p, err := FromMarkedSource(src)
 	if err != nil {
@@ -34,7 +34,7 @@ func TestFromMarkedSourceKeepsAProjectOfModulesAsItsFiles(t *testing.T) {
 	}
 	// With no `fn main`, the entry is the first root file the block marks,
 	// the tab it opens on, not the first by name.
-	tests, err := FromMarkedSource("// FILE: shop_test.nomi\ntest \"x\" {}\n\n// FILE: queries.nomi\n\n// FILE: go.mod\nmodule shop\n")
+	tests, err := FromMarkedSource("// FILE: shop_test.nomi\ntest \"x\" end\n\n// FILE: queries.nomi\n\n// FILE: go.mod\nmodule shop\n")
 	if err != nil || tests.EntryName != "shop_test.nomi" {
 		t.Errorf("a block of tests enters at %q (%v)", tests.EntryName, err)
 	}
@@ -45,16 +45,16 @@ func TestFromMarkedSourceKeepsAProjectOfModulesAsItsFiles(t *testing.T) {
 
 func TestFromMarkedSourceSplitsFilesAndManifest(t *testing.T) {
 	project, err := FromMarkedSource(`// FILE: math.nomi
-pub fn double(n: Int) -> Int {
+pub fn double(n: Int) -> Int
   n * 2
-}
+end
 
 // FILE: main.nomi
 import math
 
-fn main() {
+fn main()
   math.double(7)
-}
+end
 
 // FILE: nomi.toml
 [module]
@@ -77,8 +77,8 @@ entry_points = ["main"]
 
 func TestFromSourcesNormalizesEntryAndFileNames(t *testing.T) {
 	project, err := FromSources("./main.nomi", map[string]string{
-		"main.nomi": "fn main() {}",
-		"api.nomi":  "pub fn ping() -> Int { 1 }",
+		"main.nomi": "fn main() end",
+		"api.nomi":  "pub fn ping() -> Int\n    1\nend",
 	}, nil)
 	if err != nil {
 		t.Fatalf("FromSources: %v", err)
@@ -86,7 +86,7 @@ func TestFromSourcesNormalizesEntryAndFileNames(t *testing.T) {
 	if project.EntryName != "main" {
 		t.Fatalf("EntryName = %q, want main", project.EntryName)
 	}
-	if project.EntrySource != "fn main() {}" {
+	if project.EntrySource != "fn main() end" {
 		t.Fatalf("EntrySource = %q", project.EntrySource)
 	}
 	if _, ok := project.VirtualFiles["api"]; !ok {
@@ -98,16 +98,16 @@ func TestFromSourcesNormalizesEntryAndFileNames(t *testing.T) {
 // entered at the test file, so a run runs its tests.
 func TestFromMarkedSourceEntersATestFileWhenThereIsNoMain(t *testing.T) {
 	project, err := FromMarkedSource(`// FILE: two_fer.nomi
-pub fn two_fer(name: String = "you") -> String {
+pub fn two_fer(name: String = "you") -> String
     "One for ${name}, one for me."
-}
+end
 
 // FILE: two_fer_test.nomi
 import two_fer.two_fer
 
-test "no name given" {
+test "no name given"
     assert two_fer() == "One for you, one for me."
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("FromMarkedSource: %v", err)
@@ -127,7 +127,7 @@ test "no name given" {
 // included; any other kind of file is a data file the program reads at run
 // time.
 func TestFromMarkedSourceKeepsCatalogsByPath(t *testing.T) {
-	src := "// FILE: main.nomi\nfn main() {}\n\n// FILE: locales/pl/cart.toml\n[cart_count]\n\n// FILE: nomi.toml\n[module]\nname = \"shop\"\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n"
+	src := "// FILE: main.nomi\nfn main() end\n\n// FILE: locales/pl/cart.toml\n[cart_count]\n\n// FILE: nomi.toml\n[module]\nname = \"shop\"\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n"
 	p, err := FromMarkedSource(src)
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +135,7 @@ func TestFromMarkedSourceKeepsCatalogsByPath(t *testing.T) {
 	if got := p.VirtualFiles["locales/pl/cart.toml"]; got != "[cart_count]\n\n" {
 		t.Errorf("the catalog's virtual file is %q", got)
 	}
-	data, err := FromMarkedSource("// FILE: data/notes.txt\nhi\n\n// FILE: main.nomi\nfn main() {}\n// FILE: empty.txt\n")
+	data, err := FromMarkedSource("// FILE: data/notes.txt\nhi\n\n// FILE: main.nomi\nfn main() end\n// FILE: empty.txt\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,12 +149,12 @@ func TestFromMarkedSourceKeepsCatalogsByPath(t *testing.T) {
 // when another project holds the only `fn main`, and its entry and test
 // files are that project's alone.
 func TestFromMarkedSourcePicksTheFirstFilesProjectOfSiblings(t *testing.T) {
-	src := "// FILE: app/app_test.nomi\nimport shared\n\ntest \"t\" {\n    assert shared.one() == 1\n}\n\n" +
-		"// FILE: app/more_test.nomi\ntest \"u\" {\n    assert True\n}\n\n" +
+	src := "// FILE: app/app_test.nomi\nimport shared\n\ntest \"t\"\n    assert shared.one() == 1\nend\n\n" +
+		"// FILE: app/more_test.nomi\ntest \"u\"\n    assert True\nend\n\n" +
 		"// FILE: app/go.mod\nmodule app\n\n// FILE: app/nomi.toml\n[module]\nname = \"app\"\n\n" +
-		"// FILE: shared/shared.nomi\npub fn one() -> Int {\n    1\n}\n\n" +
-		"// FILE: shared/tools/gen.nomi\nfn main() {}\n\n" +
-		"// FILE: shared/shared_test.nomi\ntest \"v\" {\n    assert True\n}\n\n" +
+		"// FILE: shared/shared.nomi\npub fn one() -> Int\n    1\nend\n\n" +
+		"// FILE: shared/tools/gen.nomi\nfn main() end\n\n" +
+		"// FILE: shared/shared_test.nomi\ntest \"v\"\n    assert True\nend\n\n" +
 		"// FILE: shared/go.mod\nmodule shared\n\n// FILE: shared/nomi.toml\n[module]\nname = \"shared\"\n"
 	p, err := FromMarkedSource(src)
 	if err != nil {
@@ -171,7 +171,7 @@ func TestFromMarkedSourcePicksTheFirstFilesProjectOfSiblings(t *testing.T) {
 	}
 
 	// One go.mod under the root is a module of the root's, not a sibling.
-	nested, err := FromMarkedSource("// FILE: main.nomi\nfn main() {}\n\n// FILE: lib/go.mod\nmodule lib\n")
+	nested, err := FromMarkedSource("// FILE: main.nomi\nfn main() end\n\n// FILE: lib/go.mod\nmodule lib\n")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -9,7 +9,7 @@
 
 import std::io
 
-fn main() {
+fn main()
     xs = 1..=300000 |> Iter.to_list()
 
     total =
@@ -19,4 +19,4 @@ fn main() {
         |> Iter.reduce(0, fn acc, x -> acc + x)
 
     io.print(total)
-}
+end

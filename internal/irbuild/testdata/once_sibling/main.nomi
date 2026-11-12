@@ -1,13 +1,13 @@
-import {
+import
     std::io
     config.{limit, tag}
     config as cfg
-}
+end
 
-fn main() {
+fn main()
     io.print("before any force")
     io.print(tag)
     io.print(tag)
     io.print(cfg.tag)
     io.print("${limit}")
-}
+end

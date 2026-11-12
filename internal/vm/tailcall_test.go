@@ -27,13 +27,13 @@ func TestTailCall_DeepSelfRecursionRunsInConstantStack(t *testing.T) {
 	defer debug.SetMaxStack(debug.SetMaxStack(64 << 20))
 	out, err := runDepth(t, `import std::io
 
-fn count(n: Int, acc: Int) -> Int {
-  if n == 0 { acc } else { count(n - 1, acc + 1) }
-}
+fn count(n: Int, acc: Int) -> Int
+  if n == 0 then acc else count(n - 1, acc + 1)
+end
 
-fn main() {
+fn main()
   io.print(count(10000000, 0))
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("a tail-recursive loop failed: %v", err)
@@ -50,20 +50,20 @@ fn main() {
 func TestTailCall_NestedFnSelfRecursionRunsInConstantStack(t *testing.T) {
 	out, err := runDepth(t, `import std::io
 
-once total: Int = {
-  fn down(n: Int, acc: Int) -> Int {
-    if n == 0 { acc } else { down(n - 1, acc + 2) }
-  }
+once total: Int = begin
+  fn down(n: Int, acc: Int) -> Int
+    if n == 0 then acc else down(n - 1, acc + 2)
+  end
   down(300000, 0)
-}
+end
 
-fn main() {
-  fn count(n: Int, acc: Int) -> Int {
-    if n == 0 { acc } else { count(n - 1, acc + 1) }
-  }
+fn main()
+  fn count(n: Int, acc: Int) -> Int
+    if n == 0 then acc else count(n - 1, acc + 1)
+  end
   io.print(count(300000, 0))
   io.print(total)
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("a tail-recursive nested fn failed: %v", err)
@@ -79,52 +79,52 @@ fn main() {
 func TestTailCall_MutualIndirectAndDispatchedCallsRunInConstantStack(t *testing.T) {
 	out, err := runDepth(t, `import std::io
 
-fn is_even(n: Int) -> Bool {
-  case n {
+fn is_even(n: Int) -> Bool
+  case n
     0 -> True
     _ -> is_odd(n - 1)
-  }
-}
+  end
+end
 
-fn is_odd(n: Int) -> Bool {
-  case n {
+fn is_odd(n: Int) -> Bool
+  case n
     0 -> False
     _ -> is_even(n - 1)
-  }
-}
+  end
+end
 
-fn apply(f: (Int, Int) -> Int, n: Int, acc: Int) -> Int {
+fn apply(f: (Int, Int) -> Int, n: Int, acc: Int) -> Int
   f(n, acc)
-}
+end
 
-fn bounce(n: Int, acc: Int) -> Int {
-  if n == 0 { acc } else { apply(bounce, n - 1, acc + 1) }
-}
+fn bounce(n: Int, acc: Int) -> Int
+  if n == 0 then acc else apply(bounce, n - 1, acc + 1)
+end
 
-fn via(step: (Int) -> Int, n: Int) -> Int {
-  if n == 0 { 0 } else { via(step, step(n)) }
-}
+fn via(step: (Int) -> Int, n: Int) -> Int
+  if n == 0 then 0 else via(step, step(n))
+end
 
-interface Stepper {
+interface Stepper
   fn step(value: self, n: Int) -> Int
-}
+end
 
-struct Down {
+struct Down
   by: Int
-}
+end
 
-impl Stepper for Down {
-  fn step(value: Down, n: Int) -> Int {
-    if n <= 0 { n } else { Stepper.step(value, n - value.by) }
-  }
-}
+impl Stepper for Down
+  fn step(value: Down, n: Int) -> Int
+    if n <= 0 then n else Stepper.step(value, n - value.by)
+  end
+end
 
-fn main() {
+fn main()
   io.print(is_even(1000001))
   io.print(bounce(1000000, 0))
   io.print(via(fn x -> x - 1, 1000000))
   io.print(Stepper.step(Down{by: 1}, 1000000))
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("a tail-recursive loop failed: %v", err)
@@ -139,13 +139,13 @@ fn main() {
 func TestTailCall_ANonTailCallStillReachesTheDepthLimit(t *testing.T) {
 	_, err := runDepth(t, `import std::io
 
-fn count(n: Int) -> Int {
-  if n == 0 { 0 } else { 1 + count(n - 1) }
-}
+fn count(n: Int) -> Int
+  if n == 0 then 0 else 1 + count(n - 1)
+end
 
-fn main() {
+fn main()
   io.print(count(1000000))
-}
+end
 `)
 	requireDepthFault(t, err, 4)
 }
@@ -155,18 +155,18 @@ fn main() {
 func TestTailCall_AFaultInADeepLoopReportsItsLine(t *testing.T) {
 	out, err := runDepth(t, `import std::io
 
-fn spin(n: Int) -> Int {
-  if n == 0 {
+fn spin(n: Int) -> Int
+  if n == 0 then
     10 / n
-  } else {
+  else
     spin(n - 1)
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print("start")
   io.print(spin(1000000))
-}
+end
 `)
 	if err == nil {
 		t.Fatalf("the division by zero did not fault; output %q", out)
@@ -190,28 +190,28 @@ fn main() {
 func TestTailCall_DeferredCallsRunAfterACallInTailPosition(t *testing.T) {
 	out, err := runDepth(t, `import std::io
 
-fn note(label: String, n: Int) {
+fn note(label: String, n: Int)
   io.print("${label} ${n}")
-}
+end
 
-fn arg(n: Int) -> Int {
+fn arg(n: Int) -> Int
   io.print("operand ${n}")
   n
-}
+end
 
-fn down(n: Int) -> Int {
+fn down(n: Int) -> Int
   defer note("leave", n)
   io.print("enter ${n}")
   step(arg(n))
-}
+end
 
-fn step(n: Int) -> Int {
-  if n == 0 { 0 } else { down(n - 1) }
-}
+fn step(n: Int) -> Int
+  if n == 0 then 0 else down(n - 1)
+end
 
-fn main() {
+fn main()
   io.print(down(2))
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -234,20 +234,20 @@ func TestTailCall_ATaskBodyLoopsInConstantStack(t *testing.T) {
 	out, err := runDepth(t, `import std::io
 import std::tasks.Task
 
-fn count(n: Int, acc: Int) -> Int {
-  if n == 0 { acc } else { count(n - 1, acc + 1) }
-}
+fn count(n: Int, acc: Int) -> Int
+  if n == 0 then acc else count(n - 1, acc + 1)
+end
 
-fn main() {
-  concurrent {
+fn main()
+  concurrent
     worker = Task.spawn(fn -> count(500000, 0))
-    case Task.outcome(worker) {
+    case Task.outcome(worker)
       .Completed(v) -> io.print("done: ${v}")
       .Cancelled -> io.print("cancelled")
       .Failed(e) -> io.inspect(e)
-    }
-  }
-}
+    end
+  end
+end
 `)
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -263,13 +263,13 @@ fn main() {
 func TestTailCall_TailCallsDoNotCountTowardTheLimit(t *testing.T) {
 	src := strings.ReplaceAll(`import std::io
 
-fn count(n: Int) -> Int {
-  if n == 0 { 0 } else { count(n - 1) }
-}
+fn count(n: Int) -> Int
+  if n == 0 then 0 else count(n - 1)
+end
 
-fn main() {
+fn main()
   io.print(count(LIMIT))
-}
+end
 `, "LIMIT", strconv.Itoa(rt.MaxCallDepth+1))
 	out, err := runDepth(t, src)
 	if err != nil || out != "0\n" {

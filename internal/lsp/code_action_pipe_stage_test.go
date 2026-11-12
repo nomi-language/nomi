@@ -45,7 +45,7 @@ const pipeStageURI = "file:///pipestage/main.nomi"
 // Each bare stage gets its own fix, and applying them all leaves a program
 // that checks.
 func TestBarePipeStageFix_AppendsParentheses(t *testing.T) {
-	src := "import std::io\n\nfn double(n: Int) -> Int {\n    n * 2\n}\n\nfn main() {\n    3 |> double |> io.print\n}\n"
+	src := "import std::io\n\nfn double(n: Int) -> Int\n    n * 2\nend\n\nfn main()\n    3 |> double |> io.print\nend\n"
 	s := NewServer()
 	actions := pipeStageActions(t, s, pipeStageURI, src)
 	var titles []string
@@ -63,7 +63,7 @@ func TestBarePipeStageFix_AppendsParentheses(t *testing.T) {
 	}
 	edited := applyWorkspaceEdit(t, src, actions[0], pipeStageURI)
 	edited = applyWorkspaceEdit(t, edited, pipeStageActions(t, s, pipeStageURI, edited)[0], pipeStageURI)
-	want := "import std::io\n\nfn double(n: Int) -> Int {\n    n * 2\n}\n\nfn main() {\n    3 |> double() |> io.print()\n}\n"
+	want := "import std::io\n\nfn double(n: Int) -> Int\n    n * 2\nend\n\nfn main()\n    3 |> double() |> io.print()\nend\n"
 	if edited != want {
 		t.Fatalf("got\n%s\nwant\n%s", edited, want)
 	}
@@ -76,7 +76,7 @@ func TestBarePipeStageFix_AppendsParentheses(t *testing.T) {
 // A `.Variant` stage needs its enum named, which appending `()` does not
 // do, so it gets no fix.
 func TestBarePipeStageFix_NotOfferedForADotVariant(t *testing.T) {
-	src := "enum Dir {\n    North\n}\n\nfn main() {\n    d: Dir = 1 |> .North\n    _ = d\n}\n"
+	src := "enum Dir\n    North\nend\n\nfn main()\n    d: Dir = 1 |> .North\n    _ = d\nend\n"
 	s := NewServer()
 	s.docs.Open(pipeStageURI, src)
 	found := false
@@ -123,14 +123,14 @@ func thenActions(t *testing.T, s *Server, uri, src string) []protocol.CodeAction
 // A lambda stage gets the fix that inserts `then `, and the fixed program
 // checks.
 func TestLambdaPipeStageFix_InsertsThen(t *testing.T) {
-	src := "fn demo() -> String {\n    3\n    |> fn n -> n + 1\n    |> Int.to_string()\n}\n"
+	src := "fn demo() -> String\n    3\n    |> fn n -> n + 1\n    |> Int.to_string()\nend\n"
 	s := NewServer()
 	actions := thenActions(t, s, pipeStageURI, src)
 	if len(actions) != 1 {
 		t.Fatalf("got %d fixes, want 1", len(actions))
 	}
 	edited := applyWorkspaceEdit(t, src, actions[0], pipeStageURI)
-	want := "fn demo() -> String {\n    3\n    |> then fn n -> n + 1\n    |> Int.to_string()\n}\n"
+	want := "fn demo() -> String\n    3\n    |> then fn n -> n + 1\n    |> Int.to_string()\nend\n"
 	if edited != want {
 		t.Fatalf("got\n%s\nwant\n%s", edited, want)
 	}
@@ -142,7 +142,7 @@ func TestLambdaPipeStageFix_InsertsThen(t *testing.T) {
 
 // A lambda in parentheses would need them removed too, so it gets no fix.
 func TestLambdaPipeStageFix_NotOfferedInParentheses(t *testing.T) {
-	src := "fn demo() -> Int {\n    3 |> (fn n -> n + 1)\n}\n"
+	src := "fn demo() -> Int\n    3 |> (fn n -> n + 1)\nend\n"
 	s := NewServer()
 	s.docs.Open(pipeStageURI, src)
 	found := false

@@ -11,9 +11,9 @@ import (
 // the reference renders it: the `//! ` prefix gone and the blank `//!` line
 // between the import and the asserts kept.
 func TestHover_StdFunctionShowsItsExamples(t *testing.T) {
-	got := hoverText(t, "examples_std", `fn main() {
+	got := hoverText(t, "examples_std", `fn main()
   _ = String.▮split("a,b", ",")
-}
+end
 `)
 	want := "Inverse of `String.join`.\n\n**Examples**\n\n```nomi\n" +
 		"import std::regex.Regex\n\n" +
@@ -46,13 +46,13 @@ const manyExamplesSource = `/// Adds one.
 //
 //! assert inc(6) == 7
 //
-fn inc(n: Int) -> Int {
+fn inc(n: Int) -> Int
   n + 1
-}
+end
 
-fn main() {
+fn main()
   _ = inc(1)
-}
+end
 `
 
 // A user function's `//!` blocks are separate examples; the hover shows the
@@ -117,31 +117,31 @@ func TestHover_ImplFunctionsAndTypesShowTheirExamples(t *testing.T) {
 	const source = `/// A point.
 //! assert Point{x: 1}.x == 1
 //
-struct Point {
+struct Point
   x: Int
-}
+end
 
-impl Point {
+impl Point
   /// The origin.
   //! assert Point.origin().x == 0
   //
-  fn origin() -> Point {
+  fn origin() -> Point
     Point{x: 0}
-  }
-}
+  end
+end
 
-impl Display for Point {
+impl Display for Point
   //! assert Display.to_string(Point{x: 2}) == "P2"
   //
-  fn to_string(p: Point) -> String {
+  fn to_string(p: Point) -> String
     "P${p.x}"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   p = Point.origin()
   _ = Display.to_string(p)
-}
+end
 `
 	cases := []struct {
 		name, at, marked, want string
@@ -152,7 +152,7 @@ fn main() {
 			"**Examples**\n\n```nomi\nassert Display.to_string(Point{x: 2}) == \"P2\"\n```"},
 		{"interface impl function declaration", "fn to_string(p: Point)", "fn ▮to_string(p: Point)",
 			"**Examples**\n\n```nomi\nassert Display.to_string(Point{x: 2}) == \"P2\"\n```"},
-		{"struct", "struct Point {", "struct ▮Point {",
+		{"struct", "struct Point", "struct ▮Point",
 			"A point.\n\n**Examples**\n\n```nomi\nassert Point{x: 1}.x == 1\n```"},
 	}
 	for _, c := range cases {

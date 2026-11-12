@@ -20,22 +20,22 @@ func TestToResponse_AResponseHandlerCostsOneAllocationPerCall(t *testing.T) {
 			src := fmt.Sprintf(`import std::http.{Body, Method, Request, Response, ToResponse}
 import std::http_testing
 
-fn hello(_request: Request) -> Response {
+fn hello(_request: Request) -> Response
     Response{body: Body.Text("hi")}
-}
+end
 
-fn loop(request: Request, n: Int, wide: (Request) -> ToResponse, narrow: (Request) -> Response) -> Int {
-    if n == 0 {
+fn loop(request: Request, n: Int, wide: (Request) -> ToResponse, narrow: (Request) -> Response) -> Int
+    if n == 0 then
         0
-    } else {
+    else
         _ = %s
         loop(request, n - 1, wide, narrow)
-    }
-}
+    end
+end
 
-test "answers" {
+test "answers"
     assert loop(http_testing.request(Method.Get, "/"), %d, hello, hello) == 0
-}
+end
 `, call, n)
 			p, err := vmhost.Load(writeProgram(t, src))
 			if err != nil {

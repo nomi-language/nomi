@@ -24,24 +24,23 @@ func loadFiles(t *testing.T, files map[string]string) (*vmhost.Program, string, 
 	return p, dir, err
 }
 
-const exportGame = `struct Game {
+const exportGame = `struct Game
     word: String
     guesses: List<String>
-}
+end
 
 derive ToJson for Game
 derive FromJson for Game
 
-export fn new_game(word: String) -> Game {
-    Game{word, guesses: []}
-}
+export fn new_game(word: String) -> Game
+    Game{word:, guesses: []}
+end
 
-export fn guess(game: Game, letter: String) -> Game {
-    .{..game, guesses: [letter, ..game.guesses]}
-}
+export fn guess(game: Game, letter: String) -> Game
+    {..game, guesses: [letter, ..game.guesses]}
+end
 
-export fn reset(_: Game) -> Unit {
-}
+export fn reset(_: Game) -> Unit end
 `
 
 // A program whose only entry points are exported functions checks and
@@ -77,17 +76,17 @@ func TestExport_AnUnreachedExportedFunctionIsChecked(t *testing.T) {
 	plantDecline(t)
 	src := `import std::io
 
-fn main() {
+fn main()
     io.print("hi")
-}
+end
 
-export fn short(x: Int) -> Bool {
+export fn short(x: Int) -> Bool
     planted_decline(x) > 0
-}
+end
 
-fn planted_decline(x: Int) -> Int {
+fn planted_decline(x: Int) -> Int
     x
-}
+end
 `
 	p, _, err := loadFiles(t, map[string]string{"main.nomi": src})
 	if err != nil {
@@ -108,16 +107,16 @@ fn planted_decline(x: Int) -> Int {
 
 func TestExport_SignatureRefusals(t *testing.T) {
 	header := "import std::json.{ToJson, FromJson}\n\n" + exportGame + `
-enum Outcome {
+enum Outcome
     Won
     Lost
-}
+end
 
 derive ToJson for Outcome
 
-struct Plain {
+struct Plain
     x: Int
-}
+end
 
 `
 	base := strings.Count(header, "\n") + 1
@@ -125,28 +124,28 @@ struct Plain {
 		name, decl, want, hint string
 		col                    int
 	}{
-		{"generic", "export fn ident<T>(x: T) -> T {\n    x\n}\n",
+		{"generic", "export fn ident<T>(x: T) -> T\n    x\nend\n",
 			"exported function `ident` cannot be generic: a host calls it with JSON values of one known type",
 			"declare it with concrete types, as a wrapper over the generic function", 17},
-		{"interface parameter", "export fn shown(d: Display) -> String {\n    Display.to_string(d)\n}\n",
+		{"interface parameter", "export fn shown(d: Display) -> String\n    Display.to_string(d)\nend\n",
 			"parameter `d` of exported function `shown` has type `Display`, which is not concrete: a host passes JSON values of one known type",
 			"", 20},
-		{"struct without FromJson", "export fn sum(p: Plain) -> Int {\n    p.x\n}\n",
+		{"struct without FromJson", "export fn sum(p: Plain) -> Int\n    p.x\nend\n",
 			"parameter `p` of exported function `sum` cannot cross as JSON: `Plain` does not implement `FromJson`",
 			"add `derive FromJson for Plain`", 18},
-		{"struct in a list", "export fn count(ps: List<Plain>) -> Int {\n    List.count(ps)\n}\n",
+		{"struct in a list", "export fn count(ps: List<Plain>) -> Int\n    List.count(ps)\nend\n",
 			"parameter `ps` of exported function `count` cannot cross as JSON: `Plain`, in `List<Plain>`, does not implement `FromJson`",
 			"add `derive FromJson for Plain`", 21},
-		{"result without ToJson", "export fn make(x: Int) -> Plain {\n    Plain{x}\n}\n",
+		{"result without ToJson", "export fn make(x: Int) -> Plain\n    Plain{x:}\nend\n",
 			"the result of exported function `make` cannot cross as JSON: `Plain` does not implement `ToJson`",
 			"add `derive ToJson for Plain`", 27},
-		{"enum parameter", "export fn won(o: Outcome) -> Bool {\n    o == Won\n}\n",
+		{"enum parameter", "export fn won(o: Outcome) -> Bool\n    o == Won\nend\n",
 			"parameter `o` of exported function `won` cannot cross as JSON: `Outcome` does not implement `FromJson`",
 			"add `derive FromJson for Outcome`", 18},
-		{"tuple", "export fn add(p: (Int, Int)) -> Int {\n    p.first + p.second\n}\n",
+		{"tuple", "export fn add(p: (Int, Int)) -> Int\n    p.first + p.second\nend\n",
 			"parameter `p` of exported function `add` cannot cross as JSON: `(Int, Int)` does not implement `FromJson`",
 			"a parameter's type must implement `FromJson` and a result's `ToJson`: std implements both for Int, Float, String, Bool, List, Vector, Set, Maybe and Map with String keys, and a struct or enum the program declares can derive them", 18},
-		{"map with Int keys", "export fn size(m: Map<Int, String>) -> Int {\n    Map.size(m)\n}\n",
+		{"map with Int keys", "export fn size(m: Map<Int, String>) -> Int\n    Map.size(m)\nend\n",
 			"parameter `m` of exported function `size` cannot cross as JSON: `Map<Int, String>` does not implement `FromJson`",
 			"a parameter's type must implement `FromJson` and a result's `ToJson`: std implements both for Int, Float, String, Bool, List, Vector, Set, Maybe and Map with String keys, and a struct or enum the program declares can derive them", 19},
 	}
@@ -181,8 +180,8 @@ struct Plain {
 // naming the first.
 func TestExport_NamesAreUniqueAcrossTheProgram(t *testing.T) {
 	_, dir, err := loadFiles(t, map[string]string{
-		"main.nomi":  "import other.{helper}\n\nexport fn guess(n: Int) -> Int {\n    helper(n)\n}\n",
-		"other.nomi": "pub fn helper(n: Int) -> Int {\n    n\n}\n\nexport fn guess(n: Int) -> Int {\n    n\n}\n",
+		"main.nomi":  "import other.{helper}\n\nexport fn guess(n: Int) -> Int\n    helper(n)\nend\n",
+		"other.nomi": "pub fn helper(n: Int) -> Int\n    n\nend\n\nexport fn guess(n: Int) -> Int\n    n\nend\n",
 	})
 	if err == nil {
 		t.Fatal("the front end accepts two files exporting `guess`")
@@ -214,52 +213,51 @@ func TestExport_NamesAreUniqueAcrossTheProgram(t *testing.T) {
 func TestExport_WebDeclarations(t *testing.T) {
 	src := `import std::json.{Json, ToJson, FromJson}
 
-struct Point {
+struct Point
     x_pos: Int
     label: Maybe<String>
-}
+end
 
 derive ToJson for Point with ToJson.Options{rename_all: Json.Case.Camel}
 derive FromJson for Point with FromJson.Options{rename_all: Json.Case.Camel}
 
-enum Shape {
+enum Shape
     Dot
     Circle {radius: Float}
     Pair (Int, String)
     Tagged Point
-}
+end
 
 derive ToJson for Shape
 derive FromJson for Shape
 
-struct Opaque {
+struct Opaque
     n: Int
-}
+end
 
-impl ToJson for Opaque {
-    fn to_json(value: Opaque) -> Json {
+impl ToJson for Opaque
+    fn to_json(value: Opaque) -> Json
         Json.Int(value.n)
-    }
-}
+    end
+end
 
-export fn shapes(points: List<Point>, scale: Float) -> Vector<Shape> {
-    Iter.map(points, fn p -> if scale > 0.0 { Shape.Tagged(p) } else { Shape.Dot }) |> Iter.to_vector()
-}
+export fn shapes(points: List<Point>, scale: Float) -> Vector<Shape>
+    Iter.map(points, fn p -> if scale > 0.0 then Shape.Tagged(p) else Shape.Dot) |> Iter.to_vector()
+end
 
-export fn counts(new: Map<String, Int>, seen: Set<String>) -> Maybe<Bool> {
+export fn counts(new: Map<String, Int>, seen: Set<String>) -> Maybe<Bool>
     Some(Map.size(new) > Set.size(seen))
-}
+end
 
-export fn hidden() -> Opaque {
+export fn hidden() -> Opaque
     Opaque{n: 1}
-}
+end
 
-export fn reset() {
-}
+export fn reset() end
 
-export fn moved(Point{x_pos}, Point, by: Int) -> Int {
+export fn moved(Point{x_pos:}, Point, by: Int) -> Int
     x_pos + by
-}
+end
 `
 	p, _, err := loadFiles(t, map[string]string{"main.nomi": src})
 	if err != nil {

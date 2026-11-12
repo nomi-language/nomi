@@ -16,4 +16,4 @@ Adapted from Exercism problem-specifications (MIT), exercises/series.
 
 ## Friction
 
-None.
+- [verbose] The `Ok` arm is a four-stage pipeline, which reads best one stage per line, but stacking it, bare or inside `Ok(...)`, makes `nomi fmt` break every arm of the `case` onto two lines. It stays on one line.

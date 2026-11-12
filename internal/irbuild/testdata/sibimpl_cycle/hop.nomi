@@ -3,12 +3,12 @@
 // strength of a spelling that names no file.
 import decls.{self, Alpha, Other, Thing}
 
-impl Alpha for Thing {
-    fn go(x: Thing) -> Int {
-        if x.n <= 0 {
+impl Alpha for Thing
+    fn go(x: Thing) -> Int
+        if x.n <= 0 then
             0
-        } else {
+        else
             Other.beta(decls.other(x.n - 1))
-        }
-    }
-}
+        end
+    end
+end

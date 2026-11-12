@@ -16,47 +16,47 @@ import (
 func TestIRDefer_OnErrorRunsOnlyOnAnErrorExit(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-fn note(label: String) -> Unit {
+fn note(label: String) -> Unit
   io.print("cleanup ${label}")
-}
+end
 
-fn check(ok: Bool) -> Result<Int, String> {
-  if ok { Ok(1) } else { Err("no") }
-}
+fn check(ok: Bool) -> Result<Int, String>
+  if ok then Ok(1) else Err("no")
+end
 
-fn by_try(ok: Bool) -> Result<Int, String> {
+fn by_try(ok: Bool) -> Result<Int, String>
   defer note("plain first")
   defer on error note("on error")
   defer note("plain last")
   v = check(ok)?
   Ok(v + 1)
-}
+end
 
-fn by_return(ok: Bool) -> Result<Int, String> {
+fn by_return(ok: Bool) -> Result<Int, String>
   defer on error note("returned")
-  if not ok {
+  if not ok then
     return Err("returned")
-  }
+  end
   Ok(2)
-}
+end
 
-fn in_a_block(ok: Bool) -> Result<Int, String> {
-  {
+fn in_a_block(ok: Bool) -> Result<Int, String>
+  begin
     defer on error note("block")
     io.print("in the block")
-  }
+  end
   v = check(ok)?
   Ok(v)
-}
+end
 
-fn maybe(some: Bool) -> Maybe<Int> {
+fn maybe(some: Bool) -> Maybe<Int>
   defer on error note("none")
-  m = if some { Some(1) } else { None }
+  m = if some then Some(1) else None
   v = m?
   Some(v)
-}
+end
 
-fn main() {
+fn main()
   io.inspect(by_try(True))
   io.inspect(by_try(False))
   io.inspect(by_return(True))
@@ -64,7 +64,7 @@ fn main() {
   io.inspect(in_a_block(False))
   io.inspect(maybe(True))
   io.inspect(maybe(False))
-}
+end
 `, "cleanup plain last\ncleanup plain first\nOk(2)\n"+
 		"cleanup plain last\ncleanup on error\ncleanup plain first\nErr(\"no\")\n"+
 		"Ok(2)\ncleanup returned\nErr(\"returned\")\n"+
@@ -77,20 +77,20 @@ fn main() {
 func TestIRDefer_OnErrorRunsOnAFault(t *testing.T) {
 	src := `import std::io
 
-fn note(label: String) -> Unit {
+fn note(label: String) -> Unit
   io.print("cleanup ${label}")
-}
+end
 
-fn divide(a: Int, b: Int) -> Result<Int, String> {
+fn divide(a: Int, b: Int) -> Result<Int, String>
   defer note("plain")
   defer on error note("on error")
   Ok(a / b)
-}
+end
 
-fn main() {
+fn main()
   io.inspect(divide(4, 2))
   io.inspect(divide(1, 0))
-}
+end
 `
 	const stdout = "cleanup plain\nOk(2)\ncleanup on error\ncleanup plain\n"
 	const fault = "line 10: division by zero"
@@ -119,51 +119,50 @@ fn main() {
 func TestIRDefer_OnErrorReleasesAResourceAFailedOpenAcquired(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-struct Conn {
+struct Conn
   name: String
-}
+end
 
-impl Release for Conn {
-  fn release(conn: Conn) {
+impl Release for Conn
+  fn release(conn: Conn)
     close(conn)
-  }
-}
+  end
+end
 
-fn close(conn: Conn) {
+fn close(conn: Conn)
   io.print("close ${conn.name}")
-}
+end
 
-struct Store {
+struct Store
   conn: Conn
-}
+end
 
-fn connect(name: String) -> Result<Conn, String> {
-  Ok(Conn{name})
-}
+fn connect(name: String) -> Result<Conn, String>
+  Ok(Conn{name:})
+end
 
-fn migrate(conn: Conn, ok: Bool) -> Result<Unit, String> {
-  if ok { Ok(Unit) } else { Err("migrate ${conn.name} failed") }
-}
+fn migrate(conn: Conn, ok: Bool) -> Result<Unit, String>
+  if ok then Ok(Unit) else Err("migrate ${conn.name} failed")
+end
 
-fn open(name: String, ok: Bool) -> Result<Store, String> {
+fn open(name: String, ok: Bool) -> Result<Store, String>
   conn = connect(name)?
   defer on error close(conn)
   _ = migrate(conn, ok)?
-  Ok(Store{conn})
-}
+  Ok(Store{conn:})
+end
 
-fn main() {
-  case open("a", True) {
-    Ok(store) -> {
+fn main()
+  case open("a", True)
+    Ok(store) ->
       io.print("opened ${store.conn.name}")
       close(store.conn)
-    }
     Err(e) -> io.print(e)
-  }
-  case open("b", False) {
+  end
+  case open("b", False)
     Ok(store) -> close(store.conn)
     Err(e) -> io.print(e)
-  }
-}
+  end
+end
 `, "opened a\nclose a\nclose b\nmigrate b failed\n", "open")
 }

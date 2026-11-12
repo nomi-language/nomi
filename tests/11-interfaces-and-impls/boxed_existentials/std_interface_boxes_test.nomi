@@ -5,15 +5,15 @@
 // it embeds.
 import protocols.{Circle, Shape}
 
-fn circle_shape(r: Int) -> Shape {
-    Circle{r}
-}
+fn circle_shape(r: Int) -> Shape
+    Circle{r:}
+end
 
-fn shown(d: Display) -> String {
+fn shown(d: Display) -> String
     Display.to_string(d)
-}
+end
 
-test "empty lists of different element types held as Display are unequal" {
+test "empty lists of different element types held as Display are unequal"
     ints: List<Int> = []
     strings: List<String> = []
     a: Display = ints
@@ -21,23 +21,23 @@ test "empty lists of different element types held as Display are unequal" {
     again: Display = ints
     assert a != b
     assert a == again
-    s: Set<Display> = %[a, b, again]
+    s: Set<Display> = [a, b, again]
     assert Set.size(s) == 2
-}
+end
 
-test "a container held as Display renders and compares by its value" {
+test "a container held as Display renders and compares by its value"
     a: Display = [1, 2]
     b: Display = [1, 2]
     c: Display = Iter.to_vector([1, 2])
     assert a == b
     assert a != c
-    assert "${a} ${c}" == "[1, 2] #[1, 2]"
-    assert shown(%{"k" => 1}) == "%{k => 1}"
+    assert "${a} ${c}" == "[1, 2] Vector[1, 2]"
+    assert shown({"k" => 1}) == "{k => 1}"
     xs: List<Display> = [[1], Iter.to_vector([1]), 1, "x"]
     assert Set.size(Iter.to_set(xs)) == 4
-}
+end
 
-test "an embeds enum's value held as Display renders through the enum's impl" {
+test "an embeds enum's value held as Display renders through the enum's impl"
     shape: Display = circle_shape(1)
     circle: Display = Circle{r: 1}
     assert "${shape}" == "shape circle 1"
@@ -45,9 +45,9 @@ test "an embeds enum's value held as Display renders through the enum's impl" {
     assert "${circle}" == "circle 1"
     assert shape != circle
     assert Display.to_string(shape) == "shape circle 1"
-}
+end
 
-test "containers held as Debug are boxed too" {
+test "containers held as Debug are boxed too"
     ints: List<Int> = []
     strings: List<String> = []
     xs: List<Debug> = [ints, strings, Some(2), [1]]
@@ -56,4 +56,4 @@ test "containers held as Debug are boxed too" {
     one: Debug = [1]
     other: Debug = [1]
     assert one == other
-}
+end

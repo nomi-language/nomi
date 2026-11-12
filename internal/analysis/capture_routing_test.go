@@ -11,22 +11,22 @@ import "testing"
 // `direction` is defaulted before `key`.
 func TestCaptureRoutesAsATrailingCallback(t *testing.T) {
 	const decls = `
-struct Point {
+struct Point
   x: Int
   y: Int
-}
+end
 
-fn do_thing(required: Int, option_a: String = "default", f: (Int) -> Int) -> Int {
+fn do_thing(required: Int, option_a: String = "default", f: (Int) -> Int) -> Int
   f(required) + String.length(option_a)
-}
+end
 
-fn make(required: Int, _option_a: String = "default", f: (Int) -> Point) -> Point {
+fn make(required: Int, _option_a: String = "default", f: (Int) -> Point) -> Point
   f(required)
-}
+end
 
-fn twice(n: Int, by: Int) -> Int {
+fn twice(n: Int, by: Int) -> Int
   n * by
-}
+end
 `
 	for _, tc := range []struct{ name, body string }{
 		{"operator", "do_thing(5, &(&1 * 2))"},
@@ -41,7 +41,7 @@ fn twice(n: Int, by: Int) -> Int {
 		{"sort_by operator", `Iter.sort_by([3, 1], &(0 - &1)) |> Iter.count()`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib(decls + "\nfn demo() -> Int {\n  " + tc.body + "\n}\n")
+			_, errs := checkSourceWithStdlib(decls + "\nfn demo() -> Int\n  " + tc.body + "\nend\n")
 			for _, e := range errs {
 				t.Errorf("%s: %s", tc.body, e.Message)
 			}

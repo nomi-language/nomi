@@ -20,29 +20,29 @@ func TestIRInspectChannel_Runs(t *testing.T) {
 import std::io
 import std::tasks.Task
 
-struct Counter {
+struct Counter
     inbox: Channel<Int>
-}
+end
 
-struct Config {
+struct Config
     counter: Counter
-}
+end
 
-enum Slot {
+enum Slot
     Empty
     Full Channel<Int>
-}
+end
 
-fn main() {
+fn main()
     c = Channel.buffered<Int>(1)
     io.print(Debug.inspect(c.sender))
     dbg c.receiver
     io.print(Debug.inspect(c))
     io.inspect(Config{counter: Counter{inbox: c}})
     io.print(Debug.inspect([c]))
-    io.print(Debug.inspect(#[c]))
+    io.print(Debug.inspect(Vector[c]))
     io.print(Debug.inspect((c, 1)))
-    io.print(Debug.inspect(%{"a" => c}))
+    io.print(Debug.inspect({"a" => c}))
     m: Maybe<Channel<Int>> = Some(c)
     io.print(Debug.inspect(m))
     r: Result<Channel<Int>, String> = Ok(c)
@@ -50,12 +50,12 @@ fn main() {
     io.inspect(Slot.Full(c))
     io.inspect([Counter{inbox: c}])
     io.inspect([c.sender])
-    concurrent {
+    concurrent
         t = Task.spawn(fn -> 1)
         io.print(Debug.inspect(t))
         _ = Task.await(t)
-    }
-}
+    end
+end
 `
 	const ch = "Channel{sender: <channel>, receiver: <channel>}"
 	irRunSource(t, src, "<channel>\n"+
@@ -63,9 +63,9 @@ fn main() {
 		ch+"\n"+
 		"Config{counter: Counter{inbox: "+ch+"}}\n"+
 		"["+ch+"]\n"+
-		"#["+ch+"]\n"+
+		"Vector["+ch+"]\n"+
 		"("+ch+", 1)\n"+
-		"%{\"a\" => "+ch+"}\n"+
+		"{\"a\" => "+ch+"}\n"+
 		"Some("+ch+")\n"+
 		"dbg line 31: r = Ok("+ch+")\n"+
 		"Full("+ch+")\n"+

@@ -13,7 +13,7 @@ func TestImportedFnPartial_Runs(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 import lib.{add3, conn, pair, plain}
 
-fn main() {
+fn main()
     f = &add3(&1, 10)
     io.inspect(f(2))
     g = &add3(1, &1, &2)
@@ -31,25 +31,25 @@ fn main() {
     k = 3
     w = fn -> q(k)
     io.print(w())
-}
-`, "112\n103\n6\n13\nh:42\nh:1\n(1, 1)\n(1, 4)\n3z\n", map[string]string{"lib.nomi": `fn base() -> Int {
+end
+`, "112\n103\n6\n13\nh:42\nh:1\n(1, 1)\n(1, 4)\n3z\n", map[string]string{"lib.nomi": `fn base() -> Int
     40
-}
+end
 
-pub fn add3(a: Int, b: Int, c: Int = 100) -> Int {
+pub fn add3(a: Int, b: Int, c: Int = 100) -> Int
     a + b + c
-}
+end
 
-pub fn conn(host: String, port: Int = base() + 2) -> String {
+pub fn conn(host: String, port: Int = base() + 2) -> String
     "${host}:${port}"
-}
+end
 
-pub fn pair<A>(x: A, y: A = x) -> (A, A) {
+pub fn pair<A>(x: A, y: A = x) -> (A, A)
     (x, y)
-}
+end
 
-pub fn plain(n: Int, s: String) -> String {
+pub fn plain(n: Int, s: String) -> String
     "${n}${s}"
-}
+end
 `})
 }

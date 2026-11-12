@@ -100,8 +100,8 @@ func TestClassifyCompletion_WalkAtCursorAgrees(t *testing.T) {
 				{content, end},
 				{content[:word] + content[end:], word},
 			} {
-				whole := describeContext(classifyCompletionWalking(text.content, text.off, false))
-				atCursor := describeContext(classifyCompletionWalking(text.content, text.off, true))
+				whole := describeContext(classifyCompletionWalking(text.content, text.off, false, true))
+				atCursor := describeContext(classifyCompletionWalking(text.content, text.off, true, true))
 				if whole != atCursor {
 					t.Errorf("%s offset %d:\nwhole:     %s\nat cursor: %s", path, text.off, whole, atCursor)
 				}

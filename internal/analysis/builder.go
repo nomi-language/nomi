@@ -717,18 +717,18 @@ func ReservedNameRefusals(errs []TypeError) []TypeError {
 
 // reservedNameRemedy picks the article and the advice for a reserved-name
 // diagnostic: a new name, shown in the declaration the author wrote
-// (`enum MyUnit { ... }`). A declaration named after a built-in declares a
+// (`enum MyUnit`). A declaration named after a built-in declares a
 // new type, so the advice never wraps the built-in in a distinct type
 // (`type MyUnit Unit`), which would not be the enum or struct written.
 func reservedNameRemedy(kind, name string) (article, remedy string) {
 	renamed := "My" + name
 	switch kind {
 	case "struct":
-		return "a", fmt.Sprintf("pick a different name (e.g. `struct %s { ... }`)", renamed)
+		return "a", fmt.Sprintf("pick a different name (e.g. `struct %s`)", renamed)
 	case "enum":
-		return "an", fmt.Sprintf("pick a different name (e.g. `enum %s { ... }`)", renamed)
+		return "an", fmt.Sprintf("pick a different name (e.g. `enum %s`)", renamed)
 	case "interface":
-		return "an", fmt.Sprintf("pick a different name (e.g. `interface %s { ... }`)", renamed)
+		return "an", fmt.Sprintf("pick a different name (e.g. `interface %s`)", renamed)
 	case "typealias":
 		return "a", fmt.Sprintf("pick a different name (e.g. `typealias %s ...`)", renamed)
 	}
@@ -1631,17 +1631,6 @@ func qualifiedTypeMember(t *ast.QualifiedType) string {
 
 func (b *builder) walkTypeExpr(te ast.TypeExpr, scope *Scope) {
 	if te == nil {
-		return
-	}
-	// Synthesized impls (explicit @derive and universal-default Debug) carry
-	// positions in the synthLineBase band. Their type references — e.g. the
-	// `User` receiver in a synthesized `impl Debug for User { fn inspect(value: User) }` —
-	// are not navigable source, so they must not enter the LSP
-	// References/Definitions maps; otherwise rename / find-references emit
-	// bogus edits at fabricated positions (and every type gets such an impl
-	// under universal Debug). Type-checking of synth bodies happens via the
-	// checker, not this LSP-facing walk, so skipping the whole subtree is safe.
-	if IsSynthesizedLine(te.LineNum()) {
 		return
 	}
 	switch t := te.(type) {
@@ -3771,8 +3760,8 @@ func (b *builder) registerImplDefaults(scope *Scope) {
 	}
 }
 
-// IsPunnedField reports whether a struct-literal field is punned, `.{x}` for
-// `.{x: x}`: the parser gives the label and the variable read one position.
+// IsPunnedField reports whether a struct-literal field is punned, `{x:}` for
+// `{x: x}`: the parser gives the label and the variable read one position.
 func IsPunnedField(f ast.StructFieldVal) bool {
 	id, ok := f.Value.(*ast.Ident)
 	return ok && f.Line > 0 && id.Line == f.Line && id.Col == f.Col
@@ -4995,7 +4984,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		b.registerStructLitFieldRefs(n, scope)
 		// The struct-update spread's head is an ordinary expression, so
 		// it binds and resolves like any other — this is what makes
-		// `.{..p, x: 9}` count as a read of `p`, and what gives hover on
+		// `{..p, x: 9}` count as a read of `p`, and what gives hover on
 		// the head.
 		if n.Spread != nil {
 			b.walkNode(n.Spread, scope)
@@ -5008,24 +4997,6 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		// A type-prefixed list literal (`Items[1, 2]`, `Arr[...]`) resolves
 		// its prefix as MapLit does, so a selectively imported variant
 		// written that way counts as a use of its import.
-		if n.TypeName != nil {
-			b.walkTypeExpr(n.TypeName, scope)
-		}
-		for _, item := range n.Items {
-			b.walkNode(item, scope)
-		}
-
-	case *ast.VectorLit:
-		// A literal that names a type built on a vector (`#Path[1, 2]`,
-		// `#.Items[1]`) resolves the name as a list literal's prefix.
-		if n.TypeName != nil {
-			b.walkTypeExpr(n.TypeName, scope)
-		}
-		for _, item := range n.Operands() {
-			b.walkNode(item, scope)
-		}
-
-	case *ast.SetLit:
 		if n.TypeName != nil {
 			b.walkTypeExpr(n.TypeName, scope)
 		}
@@ -5047,7 +5018,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		}
 
 	case *ast.MapLit:
-		// A map literal that names a type built on a map (`%Kvs{"a" => 1}`)
+		// A map literal that names a type built on a map (`Kvs{"a" => 1}`)
 		// resolves the name like StructLit does, so hover and goto-definition
 		// work on it.
 		if n.TypeName != nil {
@@ -5095,11 +5066,6 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 			}
 		}
 
-	case *ast.ListSpreadLit:
-		for _, item := range n.Operands() {
-			b.walkNode(item, scope)
-		}
-
 	case *ast.ImportStmt:
 		// Nested import (inside a function body): nested=true to avoid
 		// re-keying b.modules globally. The alias is only visible via the
@@ -5120,8 +5086,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.StringLit, *ast.Placeholder, *ast.PlaceholderParam,
 		*ast.WildcardPattern,
 		*ast.IdentPattern, *ast.AsPattern, *ast.OrPattern, *ast.EnumPattern, *ast.StructPattern,
-		*ast.TuplePattern, *ast.ListPattern, *ast.MapPattern, *ast.VectorPattern, *ast.SetPattern,
-		*ast.ExternPackage:
+		*ast.TuplePattern, *ast.ListPattern, *ast.MapPattern, *ast.ExternPackage:
 		// nothing to walk
 	}
 }
@@ -5160,7 +5125,7 @@ func (b *builder) resolveTaggedStringTag(n *ast.TaggedString, scope *Scope) {
 			Line:    tagLine,
 			Col:     tagCol,
 			Message: fmt.Sprintf("tag '%s' is not in scope — a typed literal %s requires `%s` to be a type with an `impl Literal for %s` block", n.Tag, taggedStringShape(n), n.Tag, n.Tag),
-		})
+		}.WithHint(stdTypeImportHint(n.Tag)))
 		return
 	}
 	real := sym
@@ -5805,33 +5770,6 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 			b.definePatternOwned(p, scope, owner)
 		}
 
-	case *ast.VectorPattern:
-		if n.TypeName != nil {
-			b.walkTypeExpr(n.TypeName, scope)
-		}
-		for _, h := range n.Heads {
-			b.definePatternOwned(h, scope, owner)
-		}
-		if n.Rest != nil {
-			b.definePatternOwned(n.Rest, scope, owner)
-		}
-		for _, t := range n.Tails {
-			b.definePatternOwned(t, scope, owner)
-		}
-
-	case *ast.SetPattern:
-		// An element is a value to look up, resolved in the scope before
-		// the pattern as a map pattern's keys are; only the rest binds.
-		if n.TypeName != nil {
-			b.walkTypeExpr(n.TypeName, scope)
-		}
-		for _, e := range n.Elems {
-			b.walkNode(e, scope)
-		}
-		if n.Rest != nil {
-			b.definePatternOwned(n.Rest, scope, owner)
-		}
-
 	case *ast.ListPattern:
 		// A type-prefixed list pattern (`Items[a, b]`) resolves its prefix
 		// as MapPattern does.
@@ -5849,7 +5787,7 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 		}
 
 	case *ast.MapPattern:
-		// A map pattern that names its type (`%Kvs{"a" => v}`) resolves
+		// A map pattern that names its type (`Kvs{"a" => v}`) resolves
 		// the name like StructPattern does — supports hover/goto on it.
 		if n.TypeName != nil {
 			b.walkTypeExpr(n.TypeName, scope)

@@ -566,13 +566,13 @@ func firstNonSynthImportBlock(nodes []ast.Node) *ast.ImportBlock {
 	return nil
 }
 
-// blockEntryInsertEdit inserts a new `import { ... }` entry line just before
-// the block's closing `}`, indented as the block's existing entries are, or
+// blockEntryInsertEdit inserts a new import block entry line just before
+// the block's `end`, indented as the block's existing entries are, or
 // by the formatter's indent when it has none. The entry lands at the end
 // unsorted; `nomi fmt` / organize sort it into place, which is the point — a
 // block entry is fmt-mergeable where a flat statement after the block is not.
 func blockEntryInsertEdit(content string, lineOffs []int, block *ast.ImportBlock, modulePath string) protocol.TextEdit {
-	closeOff := matchBraceEnd(content, posToOffset(lineOffs, block.Line, block.Col))
+	closeOff := importBlockEnd(content, lineOffs, block)
 	braceLine := lineIndexOf(lineOffs, closeOff)
 	insertAt := lineOffs[braceLine]
 	indent := strings.Repeat(" ", format.IndentWidth)
@@ -626,8 +626,7 @@ func lastImportLine(content string, lineOffs []int, nodes []ast.Node) int {
 			if analysis.IsSynthesizedLine(v.Line) {
 				continue
 			}
-			startOff := posToOffset(lineOffs, v.Line, v.Col)
-			closeOff := matchBraceEnd(content, startOff)
+			closeOff := importBlockEnd(content, lineOffs, v)
 			if l := lineIndexOf(lineOffs, closeOff); l > endLine {
 				endLine = l
 			}
@@ -636,22 +635,19 @@ func lastImportLine(content string, lineOffs []int, nodes []ast.Node) int {
 	return endLine
 }
 
-// matchBraceEnd returns the offset of the `}` that closes the first `{` at or
-// after startOff, honoring nesting (an import block's entries may carry their
-// own `{...}` selective lists). Falls back to the last byte if unbalanced.
-func matchBraceEnd(content string, startOff int) int {
-	depth := 0
-	seen := false
-	for i := startOff; i < len(content); i++ {
-		switch content[i] {
-		case '{':
-			depth++
-			seen = true
-		case '}':
-			depth--
-			if seen && depth == 0 {
-				return i
-			}
+// importBlockEnd returns the offset of the `end` that closes an import
+// block: the first line after the block's `import` that is `end` alone, or
+// the end of the content when the block is unclosed.
+func importBlockEnd(content string, lineOffs []int, block *ast.ImportBlock) int {
+	for l := block.Line; l < len(lineOffs); l++ {
+		start := lineOffs[l]
+		stop := len(content)
+		if l+1 < len(lineOffs) {
+			stop = lineOffs[l+1]
+		}
+		line := content[start:stop]
+		if strings.TrimSpace(line) == "end" {
+			return start + strings.Index(line, "end")
 		}
 	}
 	return len(content) - 1

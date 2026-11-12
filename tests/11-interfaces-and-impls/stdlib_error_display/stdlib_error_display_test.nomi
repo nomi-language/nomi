@@ -12,62 +12,64 @@
 // read the declared enum's qualified name, would give one enum two
 // identities depending on which variant you built, and only one could
 // dispatch. Both shapes are pinned below for that reason.
-import {
+import
     std::calendar
     std::random.Generator
-}
+end
 
-test "a struct-shaped stdlib error variant renders" {
-    case Generator.weighted((-1.0, "bad"), []) {
+test "a struct-shaped stdlib error variant renders"
+    case Generator.weighted((-1.0, "bad"), [])
         Ok(_) -> assert False
         Err(e) -> assert Display.to_string(e) == "invalid random weight: -1.0"
-    }
-}
+    end
+end
 
-test "a bare stdlib error variant renders" {
-    case Generator.weighted((0.0, "never"), []) {
-        Ok(_) -> assert False
+test "a bare stdlib error variant renders"
+    case Generator.weighted((0.0, "never"), [])
+        Ok(_) ->
+            assert False
 
         Err(e) ->
             assert Display.to_string(e)
                 == "random weights must include at least one positive weight"
-    }
-}
+    end
+end
 
 // The shape a caller writes first. Interpolation goes through Display, so it
 // trapped for exactly the same reason.
-test "interpolation renders a stdlib error" {
-    case Generator.weighted((-1.0, "bad"), []) {
+test "interpolation renders a stdlib error"
+    case Generator.weighted((-1.0, "bad"), [])
         Ok(_) -> assert False
         Err(e) -> assert "${e}" == "invalid random weight: -1.0"
-    }
-}
+    end
+end
 
-test "Debug.inspect renders a stdlib error" {
-    case Generator.weighted((-1.0, "bad"), []) {
+test "Debug.inspect renders a stdlib error"
+    case Generator.weighted((-1.0, "bad"), [])
         Ok(_) -> assert False
         Err(e) -> assert Debug.inspect(e) != ""
-    }
-}
+    end
+end
 
 // A second module's same-named Error keeps its OWN impl. Both resolve, and
 // they resolve to different text — which is what shows the two identities are
 // being told apart rather than one of them winning.
-test "two modules' same-named errors each get their own impl" {
-    case calendar.Date.parse("05/04/2026") {
-        Ok(_) -> assert False
+test "two modules' same-named errors each get their own impl"
+    case calendar.Date.parse("05/04/2026")
+        Ok(_) ->
+            assert False
 
         Err(calendar_error) ->
-            case Generator.weighted((-1.0, "bad"), []) {
-                Ok(_) -> assert False
+            case Generator.weighted((-1.0, "bad"), [])
+                Ok(_) ->
+                    assert False
 
-                Err(random_error) -> {
+                Err(random_error) ->
                     assert Display.to_string(calendar_error)
                         == "invalid format: expected YYYY-MM-DD, got \"05/04/2026\""
 
                     assert Display.to_string(random_error) == "invalid random weight: -1.0"
                     refute Display.to_string(calendar_error) == Display.to_string(random_error)
-                }
-            }
-    }
-}
+            end
+    end
+end

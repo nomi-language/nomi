@@ -1,6 +1,6 @@
 import rectangles
 
-test "rectangles" {
+test "rectangles"
     [
         ("no rows", [], 0),
         ("no columns", [""], 0),
@@ -122,7 +122,7 @@ test "rectangles" {
             5,
         ),
     ]
-    |> subtests (description, lines, expected), description {
+    |> subtests (description, lines, expected), description
         assert rectangles.count(lines) == expected
-    }
-}
+    end
+end

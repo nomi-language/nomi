@@ -16,7 +16,7 @@ func TestRelinkChecksTheImportersOfAOnceWhoseTypeChanged(t *testing.T) {
 	p := cacheProject{name: "once-type", entry: "main.nomi", files: map[string]string{
 		"nomi.toml": "[module]\nname = \"oncetype\"\nentry_points = [\"main\"]\n",
 		"lib.nomi":  lib,
-		"main.nomi": "import {\n    std::io\n    lib\n}\n\nfn twice(n: Int) -> Int {\n    n * 2\n}\n\nfn main() {\n    io.print(\"${twice(lib.size)}\")\n}\n",
+		"main.nomi": "import\n    std::io\n    lib\nend\n\nfn twice(n: Int) -> Int\n    n * 2\nend\n\nfn main()\n    io.print(\"${twice(lib.size)}\")\nend\n",
 	}}
 	_, relinked := runCacheEdits(t, p, []cacheEdit{
 		{what: "the once takes a string", rel: "lib.nomi", text: "pub once size = \"three\"\n"},

@@ -1,58 +1,58 @@
 // `Unit` is a constant pattern, as `True`, `False` and `None` are: it
 // matches the one value of type Unit, at any depth.
-struct Job {
+struct Job
     name: String
     done: Unit
-}
+end
 
-fn save(fail: Bool) -> Result<Unit, String> {
-    if fail { Err("disk full") } else { Ok(Unit) }
-}
+fn save(fail: Bool) -> Result<Unit, String>
+    if fail then Err("disk full") else Ok(Unit)
+end
 
-fn describe(r: Result<Unit, String>) -> String {
-    case r {
+fn describe(r: Result<Unit, String>) -> String
+    case r
         Ok(Unit) -> "saved"
         Err(e) -> e
-    }
-}
+    end
+end
 
-fn first_saved(r: Result<Unit, String>) -> String {
-    Ok(Unit) = r else { return "not saved" }
+fn first_saved(r: Result<Unit, String>) -> String
+    Ok(Unit) = r else return "not saved"
     "saved"
-}
+end
 
-test "Ok(Unit) matches a Result<Unit, E>" {
+test "Ok(Unit) matches a Result<Unit, E>"
     assert describe(save(False)) == "saved"
     assert describe(save(True)) == "disk full"
-}
+end
 
-test "Unit alone covers a Unit scrutinee" {
-    n = case (Unit) {
+test "Unit alone covers a Unit scrutinee"
+    n = case Unit
         Unit -> 1
-    }
+    end
 
     assert n == 1
-}
+end
 
-test "Unit in tuples, struct fields and Maybe" {
+test "Unit in tuples, struct fields and Maybe"
     assert (1, Unit) is (1, Unit)
     job = Job{name: "a", done: Unit}
 
-    assert case job {
-        Job{name, done: Unit} -> name
-    } == "a"
+    assert case job
+        Job{name:, done: Unit} -> name
+    end == "a"
 
     assert Some(Unit) is Some(Unit)
     assert not (None is Some(Unit))
-}
+end
 
-test "Unit in binding else, is and or patterns" {
+test "Unit in binding else, is and or patterns"
     assert first_saved(save(False)) == "saved"
     assert first_saved(save(True)) == "not saved"
     assert save(False) is Ok(Unit)
 
-    assert case save(True) {
+    assert case save(True)
         Ok(Unit) or Err("disk full") -> True
         Err(_) -> False
-    }
-}
+    end
+end

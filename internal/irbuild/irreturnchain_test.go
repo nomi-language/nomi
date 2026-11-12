@@ -16,132 +16,122 @@ import (
 func TestIRReturnChain_EveryArmReturnsInTailPosition(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"else if chain", `import std::io
-fn sign(x: Int) -> Int {
- if x < 0 {
+fn sign(x: Int) -> Int
+ if x < 0 then
   return -1
- } else if x == 0 {
+ else if x == 0 then
   return 0
- } else {
+ else
   return 1
- }
-}
-fn main() {
+ end
+end
+fn main()
  io.print(sign(-5))
  io.print(sign(0))
  io.print(sign(5))
-}`, "-1\n0\n1\n"},
+end`, "-1\n0\n1\n"},
 		{"case", `import std::io
-enum Shape {
+enum Shape
  Circle(Int)
  Square(Int)
  Dot
-}
-fn area(s: Shape) -> Int {
- case s {
-  .Circle(r) -> {
+end
+fn area(s: Shape) -> Int
+ case s
+  .Circle(r) ->
    return 3 * r * r
-  }
-  .Square(w) -> {
+  .Square(w) ->
    return w * w
-  }
-  .Dot -> {
+  .Dot ->
    return 0
-  }
- }
-}
-fn main() {
+ end
+end
+fn main()
  io.print(area(Shape.Circle(2)))
  io.print(area(Shape.Square(3)))
  io.print(area(Shape.Dot))
-}`, "12\n9\n0\n"},
+end`, "12\n9\n0\n"},
 		{"subjectless case", `import std::io
-fn size(x: Int) -> String {
- case {
-  x > 10 -> {
+fn size(x: Int) -> String
+ case
+  x > 10 ->
    return "big"
-  }
-  x > 0 -> {
+  x > 0 ->
    return "positive"
-  }
-  _ -> {
+  _ ->
    return "other"
-  }
- }
-}
-fn main() {
+ end
+end
+fn main()
  io.print(size(11))
  io.print(size(1))
  io.print(size(0))
-}`, "big\npositive\nother\n"},
+end`, "big\npositive\nother\n"},
 		{"nested if and case", `import std::io
-fn which(x: Int, y: Int) -> String {
- if x > 0 {
-  if y > 0 {
+fn which(x: Int, y: Int) -> String
+ if x > 0 then
+  if y > 0 then
    return "both"
-  } else {
+  else
    return "x only"
-  }
- } else if y > 0 {
+  end
+ else if y > 0 then
   return "y only"
- } else {
-  case x {
-   0 -> {
+ else
+  case x
+   0 ->
     return "zero"
-   }
-   _ -> {
+   _ ->
     return "neither"
-   }
-  }
- }
-}
-fn main() {
+  end
+ end
+end
+fn main()
  io.print(which(1, 1))
  io.print(which(1, 0))
  io.print(which(0, 1))
  io.print(which(0, 0))
  io.print(which(-1, 0))
-}`, "both\nx only\ny only\nzero\nneither\n"},
+end`, "both\nx only\ny only\nzero\nneither\n"},
 		{"pattern if chain", `import std::io
-fn pick(m: Maybe<Int>, loud: Bool) -> String {
- if Some(n) = m {
+fn pick(m: Maybe<Int>, loud: Bool) -> String
+ if Some(n) = m then
   return "some ${n}"
- } else if loud {
+ else if loud then
   return "NONE"
- } else {
+ else
   return "none"
- }
-}
-fn main() {
+ end
+end
+fn main()
  io.print(pick(Some(4), False))
  io.print(pick(None, True))
  io.print(pick(None, False))
-}`, "some 4\nNONE\nnone\n"},
+end`, "some 4\nNONE\nnone\n"},
 		{"some arms return and others fall through", `import std::io
-fn mixed(x: Int) -> Int {
- if x < 0 {
+fn mixed(x: Int) -> Int
+ if x < 0 then
   return -1
- } else if x == 0 {
+ else if x == 0 then
   0
- } else {
+ else
   x * 2
- }
-}
-fn named(x: Int) -> String {
- case x {
-  1 -> {
+ end
+end
+fn named(x: Int) -> String
+ case x
+  1 ->
    return "one"
-  }
   2 -> "two"
-  _ -> {
-   if x > 100 {
+  _ ->
+   if x > 100 then
     return "huge"
-   } else {
+   else
     return "many"
-   }
-  }
- }
-}
-fn main() {
+   end
+ end
+end
+fn main()
  io.print(mixed(-3))
  io.print(mixed(0))
  io.print(mixed(4))
@@ -149,68 +139,64 @@ fn main() {
  io.print(named(2))
  io.print(named(200))
  io.print(named(3))
-}`, "-1\n0\n8\none\ntwo\nhuge\nmany\n"},
+end`, "-1\n0\n8\none\ntwo\nhuge\nmany\n"},
 		{"lambda", `import std::io
-fn main() {
- sign: (Int) -> Int = fn x -> {
-  if x < 0 {
+fn main()
+ sign: (Int) -> Int = fn x ->
+  if x < 0 then
    return -1
-  } else if x == 0 {
+  else if x == 0 then
    return 0
-  } else {
+  else
    return 1
-  }
- }
- name = fn x: Int -> {
-  case x {
-   0 -> {
+  end
+ end
+ name = fn x: Int ->
+  case x
+   0 ->
     return "lz"
-   }
-   _ -> {
+   _ ->
     return "lo"
-   }
-  }
- }
+  end
+ end
  io.print(sign(-2))
  io.print(sign(0))
  io.print(sign(2))
  io.print(name(0))
  io.print(name(9))
-}`, "-1\n0\n1\nlz\nlo\n"},
-		{"bare returns after dbg", `fn report(x: Int) {
- if x < 0 {
+end`, "-1\n0\n1\nlz\nlo\n"},
+		{"bare returns after dbg", `fn report(x: Int)
+ if x < 0 then
   dbg "neg"
   return
- } else if x == 0 {
+ else if x == 0 then
   dbg "zero"
   return
- } else {
+ else
   dbg "pos"
   return
- }
-}
-fn report_case(x: Int) {
- case x {
-  0 -> {
+ end
+end
+fn report_case(x: Int)
+ case x
+  0 ->
    dbg "case zero"
    return
-  }
-  _ -> {
+  _ ->
    dbg "case other"
    return
-  }
- }
-}
-fn main() {
- say = fn x: Int -> {
-  if x > 0 {
+ end
+end
+fn main()
+ say = fn x: Int ->
+  if x > 0 then
    dbg "h pos"
    return
-  } else {
+  else
    dbg "h other"
    return
-  }
- }
+  end
+ end
  report(-1)
  report(0)
  report(1)
@@ -218,9 +204,9 @@ fn main() {
  report_case(5)
  say(1)
  say(-1)
-}`, "dbg line 3: \"neg\" = \"neg\"\ndbg line 6: \"zero\" = \"zero\"\ndbg line 9: \"pos\" = \"pos\"\n" +
-			"dbg line 16: \"case zero\" = \"case zero\"\ndbg line 20: \"case other\" = \"case other\"\n" +
-			"dbg line 28: \"h pos\" = \"h pos\"\ndbg line 31: \"h other\" = \"h other\"\n"},
+end`, "dbg line 3: \"neg\" = \"neg\"\ndbg line 6: \"zero\" = \"zero\"\ndbg line 9: \"pos\" = \"pos\"\n" +
+			"dbg line 16: \"case zero\" = \"case zero\"\ndbg line 19: \"case other\" = \"case other\"\n" +
+			"dbg line 26: \"h pos\" = \"h pos\"\ndbg line 29: \"h other\" = \"h other\"\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}

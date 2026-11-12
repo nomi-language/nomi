@@ -8,10 +8,10 @@ import "testing"
 // FuzzFormatKeepsMeaning on `0{a:0\n\n}`.
 func TestFormat_BlankLinesBeforeClosingBracketDoNotStack(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
-		{"fn main() {\n    p = .{a: 0\n\n    }\n}\n", "fn main() {\n    p = .{a: 0}\n}\n"},
-		{"fn main() {\n    xs = [1, 2,\n\n    ]\n}\n", "fn main() {\n    xs = [1, 2]\n}\n"},
-		{"fn main() {\n    m = %{\"a\" => 1\n\n    }\n}\n", "fn main() {\n    m = %{\"a\" => 1}\n}\n"},
-		{"fn main() {\n    xs = [1, 2, // two\n    ]\n}\n", "fn main() {\n    xs = [\n        1,\n        2, // two\n    ]\n}\n"},
+		{"fn main()\n    p = {a: 0\n\n    }\nend\n", "fn main()\n    p = {a: 0}\nend\n"},
+		{"fn main()\n    xs = [1, 2,\n\n    ]\nend\n", "fn main()\n    xs = [1, 2]\nend\n"},
+		{"fn main()\n    m = {\"a\" => 1\n\n    }\nend\n", "fn main()\n    m = {\"a\" => 1}\nend\n"},
+		{"fn main()\n    xs = [1, 2, // two\n    ]\nend\n", "fn main()\n    xs = [\n        1,\n        2, // two\n    ]\nend\n"},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)
 	}

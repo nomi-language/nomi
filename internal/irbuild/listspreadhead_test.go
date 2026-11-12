@@ -11,26 +11,26 @@ func TestIRListSpreadDotVariantHead_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-enum Color {
+enum Color
     Red
     Blue
-}
+end
 
-enum Crumb<T> {
+enum Crumb<T>
     Left T
     Right T
-}
+end
 
-fn push<T>(x: T, rest: List<Crumb<T>>) -> List<Crumb<T>> {
+fn push<T>(x: T, rest: List<Crumb<T>>) -> List<Crumb<T>>
     [.Right(x), ..rest]
-}
+end
 
-fn main() {
+fn main()
     rest: List<Color> = [.Blue]
     a: List<Color> = [.Red, ..rest]
     io.inspect(a)
     io.inspect(push(1, [.Left(2)]))
-}
+end
 `
 	irRunSource(t, src, "[Red, Blue]\n[Right(1), Left(2)]\n")
 }

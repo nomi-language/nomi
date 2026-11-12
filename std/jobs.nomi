@@ -5,26 +5,26 @@
 //# from a `Queue` and runs them.
 //#
 //# ```nomi
-//# struct EmailArgs {
+//# struct EmailArgs
 //#     post_id: Int
-//# }
+//# end
 //#
 //# derive ToJson for EmailArgs
 //# derive FromJson for EmailArgs
 //#
-//# fn send_email(args: EmailArgs) -> Result<Unit, Failure> {
+//# fn send_email(args: EmailArgs) -> Result<Unit, Failure>
 //#     ...
-//# }
+//# end
 //#
 //# once email_job = Job.new("email", send_email, max_attempts: 25)
 //#
-//# fn publish(post_id: Int) -> Result<Unit, sql.Error> {
-//#     sql.transaction(App.db, fn tx -> {
+//# fn publish(post_id: Int) -> Result<Unit, sql.Error>
+//#     sql.transaction(App.db, fn tx ->
 //#         _ = Conn.exec(tx, Sql"UPDATE posts SET published = true WHERE id = ${post_id}")?
-//#         _ = jobs.enqueue(App.queue, tx, email_job, EmailArgs{post_id})?
+//#         _ = jobs.enqueue(App.queue, tx, email_job, EmailArgs{post_id:})?
 //#         Ok(Unit)
-//#     })
-//# }
+//#     end)
+//# end
 //# ```
 //#
 //# `Queue` is the interface a backend implements: `lib/jobs/postgres`
@@ -44,15 +44,15 @@
 //# two supervisors, and is started in `main` with the handlers it runs:
 //#
 //# ```nomi
-//# fn boot() -> Result<App, String> {
+//# fn boot() -> Result<App, String>
 //#     queue = pgjobs.queue(db, url) |> Result.map_err(fn e -> "${e}")?
-//#     Ok(App{..., queue, worker: Worker.new(queue, max_running: 4)})
-//# }
+//#     Ok(App{..., queue:, worker: Worker.new(queue, max_running: 4)})
+//# end
 //#
-//# fn main() {
+//# fn main()
 //#     Worker.start(App.worker, [email_job, batch_job])
 //#     ...
-//# }
+//# end
 //# ```
 //#
 //# A handler returns `Ok(Unit)`, or a `Failure`: `Retry` after a backoff of
@@ -76,7 +76,7 @@
 //# ```nomi
 //# unique = Unique{key: "post:${post_id}", period: Some(Duration.minutes(10))}
 //#
-//# enqueued = jobs.enqueue(App.queue, tx, email_job, EmailArgs{post_id}, unique: Some(unique))?
+//# enqueued = jobs.enqueue(App.queue, tx, email_job, EmailArgs{post_id:}, unique: Some(unique))?
 //# ```
 //#
 //# A worker claims the due job of the highest `priority` first, then the
@@ -98,10 +98,10 @@
 //#     zone: "America/New_York",
 //# )
 //#
-//# fn main() {
+//# fn main()
 //#     Worker.start(App.worker, [report_job], schedules: [nightly])
 //#     ...
-//# }
+//# end
 //# ```
 //#
 //# Each tick's job carries a unique key of the schedule's name and the
@@ -137,7 +137,7 @@
 //# worker is built from (`run_one`, `settle_for`, `backoff`,
 //# `handlers_by_kind`, `wake`, `enqueue_due`).
 
-import {
+import
     bool.Bool.{self, False, True}
     calendar.{self, Anchored, DateParts, DateTime, Disambiguation, NaiveDateTime, TimeParts}
     channels.{Arm, Channel, Receiver, Sender}
@@ -163,21 +163,21 @@ import {
     tasks.{Outcome, Task}
     unit.Unit
     uuid.Uuid
-}
+end
 
 /// One kind of job: the name it is stored under, the queue it goes to,
 /// how often it may run and for how long, its priority, and its handler,
 /// typed by its arguments `A`.
-pub struct Job<A> {
+pub struct Job<A>
     kind: String
     queue: String
     max_attempts: Int
     timeout: Duration
     priority: Int
     handler: (A) -> Result<Unit, Failure>
-}
+end
 
-impl Job<A> {
+impl Job<A>
     /// A job of `kind`, handled by `handler`. A program declares each kind
     /// once, as a file-level `once`, and enqueues and starts that value.
     /// The handler comes last, so it goes in its slot whichever options a
@@ -200,9 +200,9 @@ impl Job<A> {
         timeout: Duration = Duration.minutes(5),
         priority: Int = 0,
         handler: (A) -> Result<Unit, Failure>,
-    ) -> Job<A> {
-        Job{kind, queue, max_attempts, timeout, priority, handler}
-    }
+    ) -> Job<A>
+        Job{kind:, queue:, max_attempts:, timeout:, priority:, handler:}
+    end
 
     /// The same job under a kind it was stored under before a rename. Start
     /// a worker with both until no job of the old kind is left.
@@ -211,7 +211,7 @@ impl Job<A> {
     //! assert old.kind == "email"
     //! assert old.queue == job.queue
     //
-    pub fn renamed_from(job: Job<A>, old_kind: String) -> Job<A> {
+    pub fn renamed_from(job: Job<A>, old_kind: String) -> Job<A>
         Job{
             kind: old_kind,
             queue: job.queue,
@@ -220,13 +220,13 @@ impl Job<A> {
             priority: job.priority,
             handler: job.handler,
         }
-    }
-}
+    end
+end
 
 /// Why a job did not complete: the handler's `Err`.
 //! assert "${Failure.Retry("timed out")}" == "retry: timed out"
 //
-pub enum Failure {
+pub enum Failure
     /// Runs the job again after the backoff. The run counts as an attempt.
     Retry String
 
@@ -236,20 +236,20 @@ pub enum Failure {
 
     /// Never runs the job again.
     Discard String
-}
+end
 
 derive Equatable for Failure
 derive Debug for Failure
 
-impl Display for Failure {
-    fn to_string(failure: Failure) -> String {
-        case failure {
+impl Display for Failure
+    fn to_string(failure: Failure) -> String
+        case failure
             .Retry(message) -> "retry: ${message}"
-            .Snooze{message, after} -> "snooze ${after}: ${message}"
+            .Snooze{message:, after:} -> "snooze ${after}: ${message}"
             .Discard(message) -> "discard: ${message}"
-        }
-    }
-}
+        end
+    end
+end
 
 /// A stored job's id, as its queue numbers it.
 pub type JobId Int
@@ -257,11 +257,11 @@ pub type JobId Int
 derive Equatable for JobId
 derive Debug for JobId
 
-impl Display for JobId {
-    fn to_string(JobId(n)) -> String {
+impl Display for JobId
+    fn to_string(JobId(n)) -> String
         "${n}"
-    }
-}
+    end
+end
 
 /// Enqueues a job of `job`'s kind for `args` on `conn`, due at once or at
 /// `run_at`, at `job`'s priority or `priority`, and returns its id. `conn`
@@ -287,12 +287,12 @@ pub fn enqueue<A>(
     run_at: Maybe<Instant> = None,
     priority: Maybe<Int> = None,
     unique: Maybe<Unique> = None,
-) -> Result<Enqueued, sql.Error> where A: ToJson {
+) -> Result<Enqueued, sql.Error> where A: ToJson
     new_job = NewJob{
         queue: job.queue,
         kind: job.kind,
         args: ToJson.to_json(args),
-        run_at,
+        run_at:,
         max_attempts: job.max_attempts,
         priority: Maybe.with_default(priority, job.priority),
         unique_key: Maybe.map(unique, fn u -> Unique.key_for(u, job.kind, Instant.now())),
@@ -300,14 +300,14 @@ pub fn enqueue<A>(
     }
 
     Queue.insert(queue, conn, new_job)
-}
+end
 
 /// What an enqueue stored, or found: the job's id, and whether a stored
 /// job already held the enqueue's unique key, so nothing new was stored.
-pub struct Enqueued {
+pub struct Enqueued
     id: JobId
     duplicate: Bool
-}
+end
 
 derive Equatable for Enqueued
 derive Debug for Enqueued
@@ -315,16 +315,16 @@ derive Debug for Enqueued
 /// What makes an enqueue unique: a `key`, which names the job among those
 /// of its kind, the states in which a stored job holds it, and an optional
 /// `period`, which makes the key one per period.
-pub struct Unique {
+pub struct Unique
     key: String
     across: UniqueStates = UniqueStates.Live
     period: Maybe<Duration> = None
-}
+end
 
 derive Equatable for Unique
 derive Debug for Unique
 
-impl Unique {
+impl Unique
     /// The key a job of `kind` stores for `unique` when enqueued at `now`:
     /// the kind, the key, and with a period the start of the period `now`
     /// falls in, counted from the Unix epoch.
@@ -333,29 +333,29 @@ impl Unique {
     //! assert Unique.key_for(u, "email", at) == "[\"email\",\"post:7\",\"1970-01-02T00:00:00Z\"]"
     //! assert Unique.key_for(Unique{key: "post:7"}, "email", at) == "[\"email\",\"post:7\"]"
     //
-    pub fn key_for(unique: Unique, kind: String, now: Instant) -> String {
-        bucket = case unique.period {
-            Some(period) -> {
+    pub fn key_for(unique: Unique, kind: String, now: Instant) -> String
+        bucket = case unique.period
+            Some(period) ->
                 n = Duration.as_nanos(period)
                 [rfc3339(Instant.from_nanos(Int.floor_div(Instant.as_nanos(now), n) * n))]
-            }
 
-            None -> []
-        }
+            None ->
+                []
+        end
 
         key_of([kind, unique.key] + bucket)
-    }
-}
+    end
+end
 
 /// The states in which a stored job holds its unique key.
-pub enum UniqueStates {
+pub enum UniqueStates
     /// While the job is available or running: once it completes or is
     /// discarded, the key is free.
     Live
 
     /// In every state, for as long as the queue keeps the job.
     Kept
-}
+end
 
 derive Equatable for UniqueStates
 derive Debug for UniqueStates
@@ -364,33 +364,33 @@ derive Debug for UniqueStates
 /// expression names. Its `name` keys its ticks in the queue, so every
 /// process that runs a schedule gives it the same name, and two schedules
 /// never share one.
-pub opaque struct Schedule {
+pub opaque struct Schedule
     name: String
     timing: Timing
     job: NewJob
     missed: Missed
-}
+end
 
 // When a schedule ticks.
-enum Timing {
+enum Timing
     Every Duration
     Cron {cron: Cron, zone: String}
-}
+end
 
 /// What a scheduler does when it finds that it missed several of a
 /// schedule's ticks, as after a restart.
-pub enum Missed {
+pub enum Missed
     /// Enqueue one job, for the latest tick missed.
     RunLatest
 
     /// Enqueue nothing for the ticks missed, and wait for the next one.
     Skip
-}
+end
 
 derive Equatable for Missed
 derive Debug for Missed
 
-impl Schedule {
+impl Schedule
     /// A schedule that enqueues `job` for `args` every `interval`, at the
     /// whole multiples of it since the Unix epoch, so every process
     /// agrees on the ticks. An interval of zero or less traps.
@@ -406,10 +406,10 @@ impl Schedule {
         job: Job<A>,
         args: A,
         missed: Missed = Missed.RunLatest,
-    ) -> Schedule where A: ToJson {
+    ) -> Schedule where A: ToJson
         every = positive(interval)!
-        Schedule{name, timing: Timing.Every(every), job: template(job, args), missed}
-    }
+        Schedule{name:, timing: Timing.Every(every), job: template(job, args), missed:}
+    end
 
     /// A schedule that enqueues `job` for `args` at the times `cron`
     /// names on a wall clock in `zone`, an IANA zone name. A zone the
@@ -431,39 +431,39 @@ impl Schedule {
         args: A,
         zone: String = "UTC",
         missed: Missed = Missed.RunLatest,
-    ) -> Schedule where A: ToJson {
+    ) -> Schedule where A: ToJson
         _ = DateTime.from_instant_in(Instant.from_seconds(0), zone)!
-        Schedule{name, timing: Timing.Cron{cron, zone}, job: template(job, args), missed}
-    }
+        Schedule{name:, timing: Timing.Cron{cron:, zone:}, job: template(job, args), missed:}
+    end
 
     /// The name the schedule's ticks are recorded under.
-    pub fn name(schedule: Schedule) -> String {
+    pub fn name(schedule: Schedule) -> String
         schedule.name
-    }
+    end
 
     /// The schedule's first tick after `at`.
-    pub fn next_after(schedule: Schedule, at: Instant) -> Instant {
-        case schedule.timing {
-            .Every(interval) -> {
+    pub fn next_after(schedule: Schedule, at: Instant) -> Instant
+        case schedule.timing
+            .Every(interval) ->
                 n = Duration.as_nanos(interval)
                 Instant.from_nanos((Int.floor_div(Instant.as_nanos(at), n) + 1) * n)
-            }
 
-            .Cron{cron, zone} -> cron_next(cron, zone, at)
-        }
-    }
-}
+            .Cron{cron:, zone:} ->
+                cron_next(cron, zone, at)
+        end
+    end
+end
 
-fn positive(interval: Duration) -> Result<Duration, String> {
-    if Duration.as_nanos(interval) > 0 {
+fn positive(interval: Duration) -> Result<Duration, String>
+    if Duration.as_nanos(interval) > 0 then
         Ok(interval)
-    } else {
+    else
         Err("a schedule's interval must be above zero, not ${interval}")
-    }
-}
+    end
+end
 
 // The job a schedule enqueues, before its tick gives it a time and a key.
-fn template<A>(job: Job<A>, args: A) -> NewJob where A: ToJson {
+fn template<A>(job: Job<A>, args: A) -> NewJob where A: ToJson
     NewJob{
         queue: job.queue,
         kind: job.kind,
@@ -472,7 +472,7 @@ fn template<A>(job: Job<A>, args: A) -> NewJob where A: ToJson {
         max_attempts: job.max_attempts,
         priority: job.priority,
     }
-}
+end
 
 /// A cron expression: five fields, separated by spaces, for the minute
 /// (0 to 59), the hour (0 to 23), the day of the month (1 to 31), the
@@ -492,7 +492,7 @@ fn template<A>(job: Job<A>, args: A) -> NewJob where A: ToJson {
 //! assert "${Cron`*/15 9-17 * * MON-FRI`}" == "*/15 9-17 * * MON-FRI"
 //! assert Cron.parse("0 3 * * *") == Ok(Cron`0 3 * * *`)
 //
-pub opaque struct Cron {
+pub opaque struct Cron
     text: String
     minutes: Set<Int>
     hours: Set<Int>
@@ -501,39 +501,39 @@ pub opaque struct Cron {
     weekdays: Set<Int>
     any_day: Bool
     any_weekday: Bool
-}
+end
 
 derive Equatable for Cron
 
-impl Display for Cron {
-    fn to_string(cron: Cron) -> String {
+impl Display for Cron
+    fn to_string(cron: Cron) -> String
         cron.text
-    }
-}
+    end
+end
 
-impl Debug for Cron {
-    fn inspect(cron: Cron) -> String {
+impl Debug for Cron
+    fn inspect(cron: Cron) -> String
         "Cron`${cron.text}`"
-    }
-}
+    end
+end
 
 /// Why `Cron.parse` refused an expression: `message`, about the text
 /// `offset` code points in.
-pub struct CronError {
+pub struct CronError
     offset: Int
     message: String
-}
+end
 
 derive Equatable for CronError
 derive Debug for CronError
 
-impl Display for CronError {
-    fn to_string(error: CronError) -> String {
+impl Display for CronError
+    fn to_string(error: CronError) -> String
         error.message
-    }
-}
+    end
+end
 
-impl Cron {
+impl Cron
     /// Reads a cron expression, or returns what is wrong with it and
     /// where.
     //! assert Result.is_ok(Cron.parse("@hourly"))
@@ -551,8 +551,8 @@ impl Cron {
     //!         message: "no month chosen has the days of the month chosen",
     //!     })
     //
-    pub fn parse(text: String) -> Result<Cron, CronError> {
-        expanded = case String.trim(text) {
+    pub fn parse(text: String) -> Result<Cron, CronError>
+        expanded = case String.trim(text)
             "@yearly" -> "0 0 1 1 *"
             "@annually" -> "0 0 1 1 *"
             "@monthly" -> "0 0 1 * *"
@@ -561,18 +561,18 @@ impl Cron {
             "@midnight" -> "0 0 * * *"
             "@hourly" -> "0 * * * *"
             _ -> text
-        }
+        end
 
-        if String.starts_with(expanded, "@") {
+        if String.starts_with(expanded, "@") then
             return Err(
                 CronError{offset: 0, message: "${String.trim(text)} is not a cron shorthand"}
             )
-        }
+        end
 
         fields = pieces(expanded, " ", 0)
 
-        case fields {
-            [minute, hour, day, month, weekday] -> {
+        case fields
+            [minute, hour, day, month, weekday] ->
                 minutes = field(minute, minute_field())?
                 hours = field(hour, hour_field())?
                 days = field(day, day_field())?
@@ -586,35 +586,33 @@ impl Cron {
                 any_day = day.text == "*"
                 any_weekday = weekday.text == "*"
 
-                if any_weekday and not any_day and not falls_in(days, months) {
+                if any_weekday and not any_day and not falls_in(days, months) then
                     return Err(CronError{
                         offset: day.offset,
                         message: "no month chosen has the days of the month chosen",
                     })
-                }
+                end
 
                 Ok(Cron{
-                    text,
-                    minutes,
-                    hours,
-                    days,
-                    months,
-                    weekdays,
-                    any_day,
-                    any_weekday,
+                    text:,
+                    minutes:,
+                    hours:,
+                    days:,
+                    months:,
+                    weekdays:,
+                    any_day:,
+                    any_weekday:,
                 })
-            }
 
-            _ -> {
+            _ ->
                 count = Iter.count(fields)
 
                 Err(CronError{
                     offset: 0,
                     message: "a cron expression has five fields (minute, hour, day of month, month, day of week), not ${count}",
                 })
-            }
-        }
-    }
+        end
+    end
 
     /// The first time after `at` that `cron` names on a wall clock in
     /// `zone`, or the zone's error when the time zone database does not
@@ -622,32 +620,33 @@ impl Cron {
     //! zone = "America/New_York"
     //! at = Anchored.to_instant(DateTime`2026-11-01T00:30:00-04:00[America/New_York]`)
     //! first = Anchored.to_instant(DateTime`2026-11-01T01:30:00-04:00[America/New_York]`)
-    //! assert Cron.next_after(Cron`30 1 * * *`, at, zone: zone) == Ok(first)
+    //! assert Cron.next_after(Cron`30 1 * * *`, at, zone:) == Ok(first)
     //! assert Result.is_err(Cron.next_after(Cron`30 1 * * *`, at, zone: "Mars/Base"))
     //
     pub fn next_after(
         cron: Cron,
         at: Instant,
         zone: String = "UTC",
-    ) -> Result<Instant, calendar.Error> {
+    ) -> Result<Instant, calendar.Error>
         _ = DateTime.from_instant_in(at, zone)?
         Ok(cron_next(cron, zone, at))
-    }
-}
+    end
+end
 
-impl CheckedLiteral<String, Cron> for Cron {
+impl CheckedLiteral<String, Cron> for Cron
     /// A `Cron` literal is a `Cron`, checked when the program is checked:
     /// an expression `Cron.parse` refuses is a compile error, and so is a
     /// slot.
-    fn check(statics: List<String>) -> Result<Unit, LiteralError> {
-        case statics {
+    fn check(statics: List<String>) -> Result<Unit, LiteralError>
+        case statics
             [text] ->
-                case Cron.parse(text) {
-                    Ok(_) -> Ok(Unit)
+                case Cron.parse(text)
+                    Ok(_) ->
+                        Ok(Unit)
 
                     Err(error) ->
                         Err(LiteralError{fragment: 0, offset: error.offset, message: error.message})
-                }
+                end
 
             [first, ..] ->
                 Err(LiteralError{
@@ -656,70 +655,71 @@ impl CheckedLiteral<String, Cron> for Cron {
                     message: "a cron expression takes no slots",
                 })
 
-            [] -> Err(LiteralError{fragment: 0, offset: 0, message: "a cron expression is empty"})
-        }
-    }
+            [] ->
+                Err(LiteralError{fragment: 0, offset: 0, message: "a cron expression is empty"})
+        end
+    end
 
-    fn build(fragments: List<Fragment<String>>) -> Cron {
+    fn build(fragments: List<Fragment<String>>) -> Cron
         text =
             fragments
-            |> Iter.map(fn fragment -> {
-                case fragment {
+            |> Iter.map(fn fragment ->
+                case fragment
                     .Static(s) -> s
                     .Dynamic(s) -> s
-                }
-            })
+                end
+            end)
             |> String.join()
 
         Cron.parse(text)!
-    }
-}
+    end
+end
 
 // One piece of a cron expression's text and where it starts.
-struct Piece {
+struct Piece
     text: String
     offset: Int
-}
+end
 
 // The non-empty pieces of `text` between `separator`s, each with its
 // offset, `base` code points into the expression.
-fn pieces(text: String, separator: String, base: Int) -> List<Piece> {
-    (found, _) = Iter.reduce(String.split(text, separator), ([], base), fn (acc, at), part -> {
+fn pieces(text: String, separator: String, base: Int) -> List<Piece>
+    (found, _) = Iter.reduce(String.split(text, separator), ([], base), fn (acc, at), part ->
         next = at + String.length(part) + String.length(separator)
 
-        if part == "" {
+        if part == "" then
             (acc, next)
-        } else {
+        else
             (acc + [Piece{text: part, offset: at}], next)
-        }
-    })
+        end
+    end)
 
     found
-}
+end
 
 // What one field of a cron expression may hold.
-struct Field {
+struct Field
     name: String
     low: Int
     high: Int
     star_high: Int
     names: List<String>
     first_name: Int
-}
+end
 
-fn minute_field() -> Field {
+fn minute_field() -> Field
     Field{name: "minute", low: 0, high: 59, star_high: 59, names: [], first_name: 0}
-}
+end
 
-fn hour_field() -> Field {
+fn hour_field() -> Field
     Field{name: "hour", low: 0, high: 23, star_high: 23, names: [], first_name: 0}
-}
+end
 
-fn day_field() -> Field {
+fn day_field() -> Field
     Field{name: "day of month", low: 1, high: 31, star_high: 31, names: [], first_name: 0}
-}
+end
 
-fn month_field() -> Field {
+fn month_field() -> Field
     Field{
         name: "month",
         low: 1,
@@ -728,9 +728,9 @@ fn month_field() -> Field {
         names: ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"],
         first_name: 1,
     }
-}
+end
 
-fn weekday_field() -> Field {
+fn weekday_field() -> Field
     Field{
         name: "day of week",
         low: 0,
@@ -739,27 +739,29 @@ fn weekday_field() -> Field {
         names: ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"],
         first_name: 0,
     }
-}
+end
 
 // The values a field's text names.
-fn field(piece: Piece, f: Field) -> Result<Set<Int>, CronError> {
-    Iter.reduce(pieces(piece.text, ",", piece.offset), Ok(%[]), fn acc, item -> {
+fn field(piece: Piece, f: Field) -> Result<Set<Int>, CronError>
+    Iter.reduce(pieces(piece.text, ",", piece.offset), Ok([]), fn acc, item ->
         found = acc?
         Ok(Set.union(found, item_values(item, f)?))
-    })
-}
+    end)
+end
 
 // The values one item of a field's list names: `*`, `a`, `a-b`, each with
 // an optional `/step`.
-fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError> {
-    (range, step) = case String.split(item.text, "/") {
-        [range] -> (range, None)
+fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError>
+    (range, step) = case String.split(item.text, "/")
+        [range] ->
+            (range, None)
 
-        [range, step_text] -> {
+        [range, step_text] ->
             at = item.offset + String.length(range) + 1
 
-            case digits(step_text) {
-                Some(n) when n >= 1 -> (range, Some(n))
+            case digits(step_text)
+                Some(n) when n >= 1 ->
+                    (range, Some(n))
 
                 _ ->
                     return Err(
@@ -768,42 +770,41 @@ fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError> {
                             message: "a step is a whole number from 1, not ${step_text}",
                         }
                     )
-            }
-        }
+            end
 
-        _ -> return Err(CronError{offset: item.offset, message: "${item.text} has more than one /"})
-    }
+        _ ->
+            return Err(CronError{offset: item.offset, message: "${item.text} has more than one /"})
+    end
 
-    (low, high) = if range == "*" {
+    (low, high) = if range == "*" then
         (f.low, f.star_high)
-    } else {
-        case String.split(range, "-") {
-            [one] -> {
+    else
+        case String.split(range, "-")
+            [one] ->
                 n = value(one, item.offset, f)?
 
-                if Maybe.is_some(step) {
+                if Maybe.is_some(step) then
                     (n, f.star_high)
-                } else {
+                else
                     (n, n)
-                }
-            }
+                end
 
-            [from, to] -> {
+            [from, to] ->
                 a = value(from, item.offset, f)?
                 b = value(to, item.offset + String.length(from) + 1, f)?
 
-                if a > b {
+                if a > b then
                     return Err(
                         CronError{offset: item.offset, message: "the range ${range} runs backwards"}
                     )
-                }
+                end
 
                 (a, b)
-            }
 
-            _ -> return Err(CronError{offset: item.offset, message: "${range} is not a range"})
-        }
-    }
+            _ ->
+                return Err(CronError{offset: item.offset, message: "${range} is not a range"})
+        end
+    end
 
     by = Maybe.with_default(step, 1)
 
@@ -812,155 +813,164 @@ fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError> {
         |> Iter.filter(fn n -> (n - low) % by == 0)
         |> Iter.to_set()
     )
-}
+end
 
 // A field's value: digits in its range, or one of its names.
-fn value(text: String, offset: Int, f: Field) -> Result<Int, CronError> {
-    case digits(text) {
-        Some(n) -> {
-            if n < f.low or n > f.high {
-                Err(CronError{offset, message: "${f.name} ${n} is out of range ${f.low}-${f.high}"})
-            } else {
+fn value(text: String, offset: Int, f: Field) -> Result<Int, CronError>
+    case digits(text)
+        Some(n) ->
+            if n < f.low or n > f.high then
+                Err(
+                    CronError{offset:, message: "${f.name} ${n} is out of range ${f.low}-${f.high}"}
+                )
+            else
                 Ok(n)
-            }
-        }
+            end
 
-        None -> {
+        None ->
             upper = String.uppercase(text)
 
-            case Iter.find_index(f.names, fn name -> name == upper) {
+            case Iter.find_index(f.names, fn name -> name == upper)
                 Some(i) -> Ok(f.first_name + i)
-                None -> Err(CronError{offset, message: "${text} is not a ${f.name}"})
-            }
-        }
-    }
-}
+                None -> Err(CronError{offset:, message: "${text} is not a ${f.name}"})
+            end
+    end
+end
 
 // The number `text` writes in decimal digits alone, or None.
-fn digits(text: String) -> Maybe<Int> {
+fn digits(text: String) -> Maybe<Int>
     points = String.to_codepoints(text)
 
-    if points != [] and Iter.all_match(points, &Codepoint.is_digit(&1)) {
+    if points != [] and Iter.all_match(points, &Codepoint.is_digit(&1)) then
         String.to_int(text)
-    } else {
+    else
         None
-    }
-}
+    end
+end
 
 // Whether some day of `days` falls in some month of `months`, in a leap
 // year.
-fn falls_in(days: Set<Int>, months: Set<Int>) -> Bool {
+fn falls_in(days: Set<Int>, months: Set<Int>) -> Bool
     Iter.any_match(months, fn month -> Iter.any_match(days, fn day -> day <= days_in(2000, month)))
-}
+end
 
 // A wall-clock reading to the minute, as plain numbers, for the cron
 // search.
-struct Wall {
+struct Wall
     year: Int
     month: Int
     day: Int
     hour: Int
     minute: Int
-}
+end
 
 // The first instant after `at` that `cron` names in `zone`, which is
 // known. A wall time in a fall-back fold resolves to its first
 // occurrence, and the search goes on past one that is not after `at`, so
 // the second occurrence never runs. A wall time in a spring-forward gap
 // resolves to the instant the clocks jump.
-fn cron_next(cron: Cron, zone: String, at: Instant) -> Instant {
+fn cron_next(cron: Cron, zone: String, at: Instant) -> Instant
     from = next_minute(wall_of(at, zone))
     cron_search(cron, zone, at, from, from.year + 10)
-}
+end
 
-fn cron_search(cron: Cron, zone: String, at: Instant, from: Wall, limit: Int) -> Instant {
+fn cron_search(cron: Cron, zone: String, at: Instant, from: Wall, limit: Int) -> Instant
     wall = next_wall(cron, from, limit)
     tick = resolve(wall, zone)
 
-    if Instant.is_before(at, tick) {
+    if Instant.is_before(at, tick) then
         tick
-    } else {
+    else
         cron_search(cron, zone, at, next_minute(wall), limit)
-    }
-}
+    end
+end
 
 // The first wall time at or after `w` that `cron` names. Each step moves
 // to the start of the next month, day, hour or minute that could match.
-fn next_wall(cron: Cron, w: Wall, limit: Int) -> Wall {
-    case {
+fn next_wall(cron: Cron, w: Wall, limit: Int) -> Wall
+    case
         w.year > limit -> unreachable "Cron.parse refuses an expression no time matches"
         not Set.contains(cron.months, w.month) -> next_wall(cron, next_month(w), limit)
         not day_matches(cron, w) -> next_wall(cron, next_day(w), limit)
         not Set.contains(cron.hours, w.hour) -> next_wall(cron, next_hour(w), limit)
         not Set.contains(cron.minutes, w.minute) -> next_wall(cron, next_minute(w), limit)
         _ -> w
-    }
-}
+    end
+end
 
-fn day_matches(cron: Cron, w: Wall) -> Bool {
+fn day_matches(cron: Cron, w: Wall) -> Bool
     by_day = Set.contains(cron.days, w.day)
     by_weekday = Set.contains(cron.weekdays, weekday_of(w.year, w.month, w.day))
 
-    if cron.any_day or cron.any_weekday {
+    if cron.any_day or cron.any_weekday then
         by_day and by_weekday
-    } else {
+    else
         by_day or by_weekday
-    }
-}
+    end
+end
 
-fn next_month(w: Wall) -> Wall {
-    if w.month == 12 {
+fn next_month(w: Wall) -> Wall
+    if w.month == 12 then
         Wall{year: w.year + 1, month: 1, day: 1, hour: 0, minute: 0}
-    } else {
+    else
         Wall{year: w.year, month: w.month + 1, day: 1, hour: 0, minute: 0}
-    }
-}
+    end
+end
 
-fn next_day(w: Wall) -> Wall {
-    if w.day >= days_in(w.year, w.month) {
+fn next_day(w: Wall) -> Wall
+    if w.day >= days_in(w.year, w.month) then
         next_month(w)
-    } else {
-        .{..w, day: w.day + 1, hour: 0, minute: 0}
-    }
-}
+    else
+        {..w, day: w.day + 1, hour: 0, minute: 0}
+    end
+end
 
-fn next_hour(w: Wall) -> Wall {
-    if w.hour == 23 {
+fn next_hour(w: Wall) -> Wall
+    if w.hour == 23 then
         next_day(w)
-    } else {
-        .{..w, hour: w.hour + 1, minute: 0}
-    }
-}
+    else
+        {..w, hour: w.hour + 1, minute: 0}
+    end
+end
 
-fn next_minute(w: Wall) -> Wall {
-    if w.minute == 59 {
+fn next_minute(w: Wall) -> Wall
+    if w.minute == 59 then
         next_hour(w)
-    } else {
-        .{..w, minute: w.minute + 1}
-    }
-}
+    else
+        {..w, minute: w.minute + 1}
+    end
+end
 
-fn days_in(year: Int, month: Int) -> Int {
-    case month {
+fn days_in(year: Int, month: Int) -> Int
+    case month
         2 ->
-            if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) {
+            if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) then
                 29
-            } else {
+            else
                 28
-            }
+            end
 
-        4 -> 30
-        6 -> 30
-        9 -> 30
-        11 -> 30
-        _ -> 31
-    }
-}
+        4 ->
+            30
+
+        6 ->
+            30
+
+        9 ->
+            30
+
+        11 ->
+            30
+
+        _ ->
+            31
+    end
+end
 
 // The day of the week, 0 for Sunday, from the days since 1970-01-01, a
 // Thursday.
-fn weekday_of(year: Int, month: Int, day: Int) -> Int {
-    y = if month <= 2 { year - 1 } else { year }
+fn weekday_of(year: Int, month: Int, day: Int) -> Int
+    y = if month <= 2 then year - 1 else year
     era = Int.floor_div(y, 400)
     of_era = y - era * 400
     shifted = (month + 9) % 12
@@ -968,9 +978,9 @@ fn weekday_of(year: Int, month: Int, day: Int) -> Int {
     of_cycle = of_era * 365 + of_era / 4 - of_era / 100 + of_year
     days = era * 146_097 + of_cycle - 719_468
     ((days + 4) % 7 + 7) % 7
-}
+end
 
-fn wall_of(at: Instant, zone: String) -> Wall {
+fn wall_of(at: Instant, zone: String) -> Wall
     reading = DateTime.from_instant_in(at, zone)!
 
     Wall{
@@ -980,20 +990,21 @@ fn wall_of(at: Instant, zone: String) -> Wall {
         hour: TimeParts.hour(reading),
         minute: TimeParts.minute(reading),
     }
-}
+end
 
 // The instant a wall time names in `zone`: in a fold its first
 // occurrence, and in a gap the instant the clocks jump.
-fn resolve(w: Wall, zone: String) -> Instant {
+fn resolve(w: Wall, zone: String) -> Instant
     naive = NaiveDateTime.new(w.year, w.month, w.day, w.hour, w.minute)!
 
-    case DateTime.in_zone(naive, zone, Disambiguation.Reject) {
-        Ok(reading) -> Anchored.to_instant(reading)
+    case DateTime.in_zone(naive, zone, Disambiguation.Reject)
+        Ok(reading) ->
+            Anchored.to_instant(reading)
 
         Err(.Ambiguous(_)) ->
             Anchored.to_instant(DateTime.in_zone(naive, zone, Disambiguation.Earlier)!)
 
-        Err(_) -> {
+        Err(_) ->
             before = Anchored.to_instant(DateTime.in_zone(naive, zone, Disambiguation.Earlier)!)
             after = Anchored.to_instant(DateTime.in_zone(naive, zone, Disambiguation.Later)!)
 
@@ -1003,35 +1014,34 @@ fn resolve(w: Wall, zone: String) -> Instant {
                 Instant.to_seconds(before),
                 Instant.to_seconds(after),
             )
-        }
-    }
-}
+    end
+end
 
 // The first second in (low, high] whose offset in `zone` is not `from`,
 // where `high`'s is not.
-fn jump(zone: String, from: Duration, low: Int, high: Int) -> Instant {
-    if high - low <= 1 { return Instant.from_seconds(high) }
+fn jump(zone: String, from: Duration, low: Int, high: Int) -> Instant
+    if high - low <= 1 then return Instant.from_seconds(high)
     middle = low + (high - low) / 2
 
-    if offset_at(Instant.from_seconds(middle), zone) == from {
+    if offset_at(Instant.from_seconds(middle), zone) == from then
         jump(zone, from, middle, high)
-    } else {
+    else
         jump(zone, from, low, middle)
-    }
-}
+    end
+end
 
-fn offset_at(at: Instant, zone: String) -> Duration {
+fn offset_at(at: Instant, zone: String) -> Duration
     Anchored.offset(DateTime.from_instant_in(at, zone)!)
-}
+end
 
 /// A start rate: at most `count` jobs start per `per`, with up to `burst`
 /// started at once after a quiet spell. It holds back claims in one worker
 /// process; several processes each get the whole rate.
-pub struct Rate {
+pub struct Rate
     count: Int
     per: Duration
     burst: Int = 1
-}
+end
 
 derive Equatable for Rate
 derive Debug for Rate
@@ -1039,7 +1049,7 @@ derive Debug for Rate
 /// Claims due jobs from a queue and runs them, up to `max_running` at
 /// once. Build one with `Worker.new` while boot builds the app value, and
 /// start it in `main` with `Worker.start`.
-pub opaque struct Worker {
+pub opaque struct Worker
     queue: Queue
     id: String
     queues: List<String>
@@ -1052,16 +1062,16 @@ pub opaque struct Worker {
     runs: Supervisor
     wake: Channel<Unit>
     slots: Channel<Unit>
-}
+end
 
 // What the claim loop does next.
-enum Next {
+enum Next
     Claim
     Wait
     Stop
-}
+end
 
-impl Worker {
+impl Worker
     /// A worker for `queue`'s queues `queues`, running up to `max_running`
     /// jobs at once. Call it while boot builds the app value, since it
     /// creates the worker's two supervisors: one for its claim loop and
@@ -1086,69 +1096,69 @@ impl Worker {
         lease: Duration = Duration.seconds(30),
         shutdown_timeout: Duration = Duration.seconds(10),
         logger: Logger = Logger.discard(),
-    ) -> Worker {
+    ) -> Worker
         slots: Channel<Unit> = Channel.buffered(max_running)
 
-        Iter.each(1..=max_running, fn _ -> {
+        Iter.each(1..=max_running, fn _ ->
             _ = Sender.send(slots.sender, Unit)
-        })
+        end)
 
-        id = case Uuid.v4() {
+        id = case Uuid.v4()
             Ok(uuid) -> "${uuid}"
             Err(_) -> "worker-${Instant.as_nanos(Instant.now())}"
-        }
+        end
 
         Worker{
-            queue,
-            id,
-            queues,
-            rate,
-            poll,
-            lease,
+            queue:,
+            id:,
+            queues:,
+            rate:,
+            poll:,
+            lease:,
             grace: shutdown_timeout,
-            logger,
+            logger:,
             loops: Supervisor.new(
                 max_running: 4,
                 shutdown_timeout: shutdown_timeout + Duration.seconds(2),
                 restart: .Transient,
             ),
-            runs: Supervisor.new(max_running: max_running, shutdown_timeout: shutdown_timeout),
+            runs: Supervisor.new(max_running:, shutdown_timeout:),
             wake: Channel.buffered(1),
-            slots,
+            slots:,
         }
-    }
+    end
 
     /// The name this worker claims jobs under.
-    pub fn id(worker: Worker) -> String {
+    pub fn id(worker: Worker) -> String
         worker.id
-    }
+    end
 
     /// Starts claiming jobs of the kinds `handlers` handle, and enqueuing
     /// the jobs of `schedules` as their ticks come, and returns at once;
     /// the worker runs until the program drains. A schedule's job need not
     /// be one of `handlers`: another worker may run it. Two handlers of one
     /// kind trap, naming the kind, and so do two schedules of one name.
-    pub fn start(worker: Worker, handlers: List<Handler>, schedules: List<Schedule> = []) {
+    pub fn start(worker: Worker, handlers: List<Handler>, schedules: List<Schedule> = [])
         by_kind = handlers_by_kind(handlers)!
         _ = schedules_by_name(schedules)!
         kinds = Map.keys(by_kind) |> Iter.to_list()
         Sender.close_on_drain(worker.wake.sender)
         Queue.watch(worker.queue, worker.loops, worker.wake.sender)
 
-        _ = Supervisor.spawn(worker.loops, fn -> {
+        _ = Supervisor.spawn(worker.loops, fn ->
             claim_loop(worker, by_kind, kinds, Instant.from_seconds(0))
-        })
+        end)
 
-        if not Iter.is_empty(schedules) {
+        if not Iter.is_empty(schedules) then
             stop: Channel<Unit> = Channel.buffered(1)
             Sender.close_on_drain(stop.sender)
 
-            _ = Supervisor.spawn(worker.loops, fn -> {
+            _ = Supervisor.spawn(worker.loops, fn ->
                 schedule_loop(worker, schedules, stop.receiver)
-            })
-        }
-    }
-}
+            end)
+        end
+    end
+end
 
 /// Where jobs are stored. `lib/jobs/postgres` and `jobs_testing.Inline`
 /// implement it, and std::jobs_testing's `conformance` suite checks each
@@ -1162,7 +1172,7 @@ impl Worker {
 /// A stored job with a `unique_key` holds it while it is available or
 /// running, or, when its `unique_across` is `Kept`, while the queue keeps
 /// it. No two stored jobs hold one key.
-pub interface Queue {
+pub interface Queue
     /// Stores `job` on `conn`, which may be a transaction: the job exists
     /// only if `conn`'s writes commit. When a stored job holds `job`'s
     /// unique key, stores nothing and returns that job's id with
@@ -1211,11 +1221,11 @@ pub interface Queue {
         tick: Instant,
         job: Maybe<NewJob>,
     ) -> Result<Maybe<Enqueued>, sql.Error>
-}
+end
 
 /// A job as `enqueue` hands it to a queue to store. `unique_key` is the
 /// whole key, as `Unique.key_for` writes it.
-pub struct NewJob {
+pub struct NewJob
     queue: String
     kind: String
     args: Json
@@ -1224,26 +1234,26 @@ pub struct NewJob {
     priority: Int = 0
     unique_key: Maybe<String> = None
     unique_across: UniqueStates = UniqueStates.Live
-}
+end
 
 derive Equatable for NewJob
 derive Debug for NewJob
 
 /// A job a worker claimed: `attempt` counts this run, from 1.
-pub struct Claimed {
+pub struct Claimed
     id: JobId
     queue: String
     kind: String
     args: Json
     attempt: Int
     max_attempts: Int
-}
+end
 
 derive Equatable for Claimed
 derive Debug for Claimed
 
 /// How a claimed job ended, as a worker hands it to its queue.
-pub enum Settle {
+pub enum Settle
     /// The handler returned `Ok`.
     Completed
 
@@ -1255,7 +1265,7 @@ pub enum Settle {
 
     /// Never runs again.
     Discarded String
-}
+end
 
 derive Equatable for Settle
 derive Debug for Settle
@@ -1263,39 +1273,40 @@ derive Debug for Settle
 /// A job with its argument type erased: what a worker runs. Every
 /// `Job<A>` whose `A` is `FromJson` is one, and its `run` discards
 /// arguments that do not decode as `A`.
-pub interface Handler {
+pub interface Handler
     fn kind(handler: self) -> String
     fn timeout(handler: self) -> Duration
     fn run(handler: self, args: Json) -> Result<Unit, Failure>
-}
+end
 
-impl Handler for Job<A> where A: FromJson {
-    fn kind(handler: Job<A>) -> String {
+impl Handler for Job<A> where A: FromJson
+    fn kind(handler: Job<A>) -> String
         handler.kind
-    }
+    end
 
-    fn timeout(handler: Job<A>) -> Duration {
+    fn timeout(handler: Job<A>) -> Duration
         handler.timeout
-    }
+    end
 
-    fn run(handler: Job<A>, args: Json) -> Result<Unit, Failure> {
-        case FromJson.from_json<A>(args) {
-            Ok(value) -> handler.handler(value)
+    fn run(handler: Job<A>, args: Json) -> Result<Unit, Failure>
+        case FromJson.from_json<A>(args)
+            Ok(value) ->
+                handler.handler(value)
 
             Err(error) ->
                 Err(Failure.Discard("arguments do not decode as ${handler.kind}: ${error}"))
-        }
-    }
-}
+        end
+    end
+end
 
 /// Wakes a worker whose wake channel is `wake` without waiting: a wake
 /// already pending absorbs this one. A queue's `watch` calls it.
-pub fn wake(wake: Sender<Unit>) {
+pub fn wake(wake: Sender<Unit>)
     Channel.select([
         Arm.send(wake, Unit, fn _ -> Unit),
         Arm.after(Duration.seconds(0), fn -> Unit),
     ])
-}
+end
 
 /// Runs `handler` on `args` under the handler's timeout. The handler runs
 /// in a task of its own: a trap returns `Retry` with the trap's message at
@@ -1305,42 +1316,42 @@ pub fn wake(wake: Sender<Unit>) {
 //! assert run_one(ok, Json.Int(1)) == Ok(Unit)
 //! assert run_one(ok, Json.String("x")) is Err(.Discard(_))
 //
-pub fn run_one(handler: Handler, args: Json) -> Result<Unit, Failure> {
-    concurrent {
+pub fn run_one(handler: Handler, args: Json) -> Result<Unit, Failure>
+    concurrent
         done = Channel.buffered<Outcome<Result<Unit, Failure>>>(1)
         task = Task.spawn(fn -> Handler.run(handler, args))
 
-        watcher = Task.spawn(fn -> {
+        watcher = Task.spawn(fn ->
             _ = Sender.send(done.sender, Task.outcome(task))
-        })
+        end)
 
         answer = Channel.select([
-            Arm.receive(done.receiver, fn got -> {
-                case got {
+            Arm.receive(done.receiver, fn got ->
+                case got
                     Some(.Completed(result)) -> result
                     Some(.Failed(.Panicked(message))) -> Err(Failure.Retry("trapped: ${message}"))
                     Some(.Failed(.Errored(message))) -> Err(Failure.Retry("trapped: ${message}"))
                     Some(.Cancelled) -> Err(Failure.Retry("cancelled"))
                     None -> Err(Failure.Retry("cancelled"))
-                }
-            }),
+                end
+            end),
             Arm.after(Handler.timeout(handler), fn -> Err(Failure.Retry("timed out"))),
         ])
 
         Task.cancel(task)
         _ = Task.outcome(watcher)
         answer
-    }
-}
+    end
+end
 
 /// The delay before a job that failed attempt `attempt` runs again:
 /// `attempt^4 + 15` seconds. `settle_for` adds up to a tenth more.
 //! assert backoff(1) == Duration.seconds(16)
 //! assert backoff(3) == Duration.seconds(96)
 //
-pub fn backoff(attempt: Int) -> Duration {
+pub fn backoff(attempt: Int) -> Duration
     Duration.seconds(attempt * attempt * attempt * attempt + 15)
-}
+end
 
 /// How `claimed` settles when its handler returned `answer` at `now`. A
 /// retry waits the backoff plus a share of it, up to a tenth, taken from
@@ -1358,7 +1369,7 @@ pub fn backoff(attempt: Int) -> Duration {
 //! now = Instant.from_seconds(0)
 //! assert settle_for(claimed, Ok(Unit), now) == Settle.Completed
 //! assert settle_for(claimed, Err(.Retry("x")), now) == Settle.Retry{at: now + backoff(2), error: "x"}
-//! assert settle_for(.{..claimed, attempt: 3}, Err(.Retry("x")), now) == Settle.Discarded("x")
+//! assert settle_for({..claimed, attempt: 3}, Err(.Retry("x")), now) == Settle.Discarded("x")
 //! assert settle_for(claimed, Err(.Discard("bad")), now) == Settle.Discarded("bad")
 //! snooze = Failure.Snooze{message: "busy", after: Duration.seconds(60)}
 //!
@@ -1367,22 +1378,27 @@ pub fn backoff(attempt: Int) -> Duration {
 //!     error: "busy",
 //! }
 //
-pub fn settle_for(claimed: Claimed, answer: Result<Unit, Failure>, now: Instant) -> Settle {
-    case answer {
-        Ok(_) -> Settle.Completed
-        Err(.Discard(message)) -> Settle.Discarded(message)
-        Err(.Snooze{message, after}) -> Settle.Snoozed{at: now + after, error: message}
+pub fn settle_for(claimed: Claimed, answer: Result<Unit, Failure>, now: Instant) -> Settle
+    case answer
+        Ok(_) ->
+            Settle.Completed
+
+        Err(.Discard(message)) ->
+            Settle.Discarded(message)
+
+        Err(.Snooze{message:, after:}) ->
+            Settle.Snoozed{at: now + after, error: message}
 
         Err(.Retry(message)) ->
-            if claimed.attempt >= claimed.max_attempts {
+            if claimed.attempt >= claimed.max_attempts then
                 Settle.Discarded(message)
-            } else {
+            else
                 delay = backoff(claimed.attempt)
                 jitter = delay * (Instant.as_nanos(now) % 101) / 1000
                 Settle.Retry{at: now + delay + jitter, error: message}
-            }
-    }
-}
+            end
+    end
+end
 
 /// The handlers keyed by kind, or an `Err` naming a kind two of them
 /// share.
@@ -1391,18 +1407,18 @@ pub fn settle_for(claimed: Claimed, answer: Result<Unit, Failure>, now: Instant)
 //! assert Result.map(handlers_by_kind([a, b]), &Map.size(&1)) == Ok(2)
 //! assert handlers_by_kind([a, b, a]) == Err("two handlers for job kind a")
 //
-pub fn handlers_by_kind(handlers: List<Handler>) -> Result<Map<String, Handler>, String> {
-    Iter.reduce(handlers, Ok(%{}), fn acc, handler -> {
+pub fn handlers_by_kind(handlers: List<Handler>) -> Result<Map<String, Handler>, String>
+    Iter.reduce(handlers, Ok({}), fn acc, handler ->
         by_kind = acc?
         kind = Handler.kind(handler)
 
-        if Map.contains(by_kind, kind) {
+        if Map.contains(by_kind, kind) then
             Err("two handlers for job kind ${kind}")
-        } else {
+        else
             Ok(Map.put(by_kind, kind, handler))
-        }
-    })
-}
+        end
+    end)
+end
 
 /// Enqueues `schedule`'s job for its latest tick at or before `now`, when
 /// that tick is after the latest one the queue recorded for it, and
@@ -1432,43 +1448,43 @@ pub fn enqueue_due(
     queue: Queue,
     schedule: Schedule,
     now: Instant,
-) -> Result<Maybe<Enqueued>, sql.Error> {
-    case Queue.last_tick(queue, schedule.name)? {
-        None -> Queue.record_tick(queue, schedule.name, now, None)
+) -> Result<Maybe<Enqueued>, sql.Error>
+    case Queue.last_tick(queue, schedule.name)?
+        None ->
+            Queue.record_tick(queue, schedule.name, now, None)
 
-        Some(last) -> {
-            case latest_tick(schedule, last, now) {
-                None -> Ok(None)
+        Some(last) ->
+            case latest_tick(schedule, last, now)
+                None ->
+                    Ok(None)
 
-                Some(tick) -> {
+                Some(tick) ->
                     on_time = Schedule.next_after(schedule, last) == tick
 
-                    job = if on_time or schedule.missed == Missed.RunLatest {
+                    job = if on_time or schedule.missed == Missed.RunLatest then
                         Some(tick_job(schedule, tick))
-                    } else {
+                    else
                         None
-                    }
+                    end
 
                     Queue.record_tick(queue, schedule.name, tick, job)
-                }
-            }
-        }
-    }
-}
+            end
+    end
+end
 
 // The job for `schedule`'s tick at `tick`.
-fn tick_job(schedule: Schedule, tick: Instant) -> NewJob {
-    .{
+fn tick_job(schedule: Schedule, tick: Instant) -> NewJob
+    {
         ..schedule.job,
         run_at: Some(tick),
         unique_key: Some(key_of([schedule.job.kind, "schedule:${schedule.name}", rfc3339(tick)])),
         unique_across: UniqueStates.Kept,
     }
-}
+end
 
 // A unique key from its parts, as a JSON array, so no two lists of parts
 // write one key.
-fn key_of(parts: List<String>) -> String {
+fn key_of(parts: List<String>) -> String
     Json.encode(
         Json.Arr(
             parts
@@ -1476,20 +1492,20 @@ fn key_of(parts: List<String>) -> String {
             |> Iter.to_list()
         )
     )
-}
+end
 
 // The latest tick of `schedule` in (after, now].
-fn latest_tick(schedule: Schedule, after: Instant, now: Instant) -> Maybe<Instant> {
-    case schedule.timing {
-        .Every(interval) -> {
+fn latest_tick(schedule: Schedule, after: Instant, now: Instant) -> Maybe<Instant>
+    case schedule.timing
+        .Every(interval) ->
             n = Duration.as_nanos(interval)
             tick = Instant.from_nanos(Int.floor_div(Instant.as_nanos(now), n) * n)
-            if Instant.is_before(after, tick) { tick }
-        }
+            if Instant.is_before(after, tick) then tick
 
-        .Cron{} -> latest_within(schedule, after, now, Duration.minutes(1))
-    }
-}
+        .Cron{} ->
+            latest_within(schedule, after, now, Duration.minutes(1))
+    end
+end
 
 // Look for a tick in a window before `now` that doubles until it holds
 // one or reaches back to `after`, then walk forward to the latest.
@@ -1498,50 +1514,50 @@ fn latest_within(
     after: Instant,
     now: Instant,
     window: Duration,
-) -> Maybe<Instant> {
+) -> Maybe<Instant>
     from = now - window
 
-    start = if Instant.is_before(from, after) {
+    start = if Instant.is_before(from, after) then
         after
-    } else {
+    else
         from
-    }
+    end
 
     first = Schedule.next_after(schedule, start)
 
-    case {
+    case
         not Instant.is_before(now, first) -> Some(walk_to(schedule, first, now))
         start == after -> None
         _ -> latest_within(schedule, after, now, window * 2)
-    }
-}
+    end
+end
 
-fn walk_to(schedule: Schedule, tick: Instant, now: Instant) -> Instant {
+fn walk_to(schedule: Schedule, tick: Instant, now: Instant) -> Instant
     next = Schedule.next_after(schedule, tick)
 
-    if Instant.is_before(now, next) {
+    if Instant.is_before(now, next) then
         tick
-    } else {
+    else
         walk_to(schedule, next, now)
-    }
-}
+    end
+end
 
 // An `Err` naming a schedule name two schedules share.
-fn schedules_by_name(schedules: List<Schedule>) -> Result<Set<String>, String> {
-    Iter.reduce(schedules, Ok(%[]), fn acc, schedule -> {
+fn schedules_by_name(schedules: List<Schedule>) -> Result<Set<String>, String>
+    Iter.reduce(schedules, Ok([]), fn acc, schedule ->
         names = acc?
 
-        if Set.contains(names, schedule.name) {
+        if Set.contains(names, schedule.name) then
             Err("two schedules named ${schedule.name}")
-        } else {
+        else
             Ok(Set.insert(names, schedule.name))
-        }
-    })
-}
+        end
+    end)
+end
 
 // Enqueue each schedule's due tick, then wait for the next tick of any of
 // them, until the drain closes `stop`.
-fn schedule_loop(worker: Worker, schedules: List<Schedule>, stop: Receiver<Unit>) {
+fn schedule_loop(worker: Worker, schedules: List<Schedule>, stop: Receiver<Unit>)
     now = Instant.now()
     Iter.each(schedules, fn schedule -> schedule_one(worker, schedule, now))
 
@@ -1556,11 +1572,11 @@ fn schedule_loop(worker: Worker, schedules: List<Schedule>, stop: Receiver<Unit>
         Arm.after(Instant.between(Instant.now(), next), fn -> True),
     ])
 
-    if go_on { schedule_loop(worker, schedules, stop) }
-}
+    if go_on then schedule_loop(worker, schedules, stop)
+end
 
-fn schedule_one(worker: Worker, schedule: Schedule, now: Instant) {
-    case enqueue_due(worker.queue, schedule, now) {
+fn schedule_one(worker: Worker, schedule: Schedule, now: Instant)
+    case enqueue_due(worker.queue, schedule, now)
         Ok(Some(enqueued)) when not enqueued.duplicate ->
             log.info(
                 worker.logger,
@@ -1568,7 +1584,8 @@ fn schedule_one(worker: Worker, schedule: Schedule, now: Instant) {
                 [log.string("schedule", schedule.name), log.any("id", enqueued.id)],
             )
 
-        Ok(_) -> Unit
+        Ok(_) ->
+            Unit
 
         Err(error) ->
             log.warn(
@@ -1576,163 +1593,163 @@ fn schedule_one(worker: Worker, schedule: Schedule, now: Instant) {
                 "jobs: schedule failed",
                 [log.string("schedule", schedule.name), log.string("error", "${error}")],
             )
-    }
-}
+    end
+end
 
 // Claim and start one job at a time while slots are free, and wait for a
 // wake or the poll when none is due. `tat` is the rate's theoretical
 // arrival time: the next claim may go at `tat` less the burst's slack.
-fn claim_loop(worker: Worker, handlers: Map<String, Handler>, kinds: List<String>, tat: Instant) {
+fn claim_loop(worker: Worker, handlers: Map<String, Handler>, kinds: List<String>, tat: Instant)
     next = Channel.select([
-        Arm.receive(worker.slots.receiver, fn got -> {
-            if Maybe.is_some(got) {
+        Arm.receive(worker.slots.receiver, fn got ->
+            if Maybe.is_some(got) then
                 Next.Claim
-            } else {
+            else
                 Next.Stop
-            }
-        }),
-        Arm.receive(worker.wake.receiver, fn got -> {
-            if Maybe.is_some(got) {
+            end
+        end),
+        Arm.receive(worker.wake.receiver, fn got ->
+            if Maybe.is_some(got) then
                 Next.Wait
-            } else {
+            else
                 Next.Stop
-            }
-        }),
+            end
+        end),
     ])
 
-    case next {
-        .Stop -> shut_down(worker)
-        .Wait -> claim_loop(worker, handlers, kinds, tat)
+    case next
+        .Stop ->
+            shut_down(worker)
 
-        .Claim -> {
-            if not hold_for_rate(worker, tat) {
+        .Wait ->
+            claim_loop(worker, handlers, kinds, tat)
+
+        .Claim ->
+            if not hold_for_rate(worker, tat) then
                 free_slot(worker)
                 return shut_down(worker)
-            }
+            end
 
-            case Queue.claim(worker.queue, worker.id, worker.queues, kinds, 1, worker.lease) {
-                Ok([claimed, ..]) -> {
+            case Queue.claim(worker.queue, worker.id, worker.queues, kinds, 1, worker.lease)
+                Ok([claimed, ..]) ->
                     log.debug(worker.logger, "jobs: claimed", fields(claimed))
                     _ = Supervisor.spawn(worker.runs, fn -> run_claimed(worker, handlers, claimed))
                     claim_loop(worker, handlers, kinds, charge(worker.rate, tat))
-                }
 
-                Ok([]) -> {
+                Ok([]) ->
                     free_slot(worker)
                     tidy(worker)
 
-                    if idle(worker) {
+                    if idle(worker) then
                         claim_loop(worker, handlers, kinds, tat)
-                    } else {
+                    else
                         shut_down(worker)
-                    }
-                }
+                    end
 
-                Err(error) -> {
+                Err(error) ->
                     free_slot(worker)
                     log.warn(worker.logger, "jobs: claim failed", [log.string("error", "${error}")])
 
-                    if idle(worker) {
+                    if idle(worker) then
                         claim_loop(worker, handlers, kinds, tat)
-                    } else {
+                    else
                         shut_down(worker)
-                    }
-                }
-            }
-        }
-    }
-}
+                    end
+            end
+    end
+end
 
 // Wait for a wake or the poll interval. False when the drain closed the
 // wake channel.
-fn idle(worker: Worker) -> Bool {
+fn idle(worker: Worker) -> Bool
     Channel.select([
         Arm.receive(worker.wake.receiver, fn got -> Maybe.is_some(got)),
         Arm.after(worker.poll, fn -> True),
     ])
-}
+end
 
 // Hold the next claim until the rate allows it. False when the drain
 // closed the wake channel meanwhile.
-fn hold_for_rate(worker: Worker, tat: Instant) -> Bool {
-    case worker.rate {
-        None -> True
+fn hold_for_rate(worker: Worker, tat: Instant) -> Bool
+    case worker.rate
+        None ->
+            True
 
-        Some(rate) -> {
+        Some(rate) ->
             allowed = tat - interval(rate) * (rate.burst - 1)
             now = Instant.now()
 
-            if not Instant.is_before(now, allowed) { return True }
+            if not Instant.is_before(now, allowed) then return True
 
             keep_waiting = Channel.select([
-                Arm.receive(worker.wake.receiver, fn got -> {
-                    if Maybe.is_some(got) {
+                Arm.receive(worker.wake.receiver, fn got ->
+                    if Maybe.is_some(got) then
                         Next.Wait
-                    } else {
+                    else
                         Next.Stop
-                    }
-                }),
+                    end
+                end),
                 Arm.after(Instant.between(now, allowed), fn -> Next.Claim),
             ])
 
-            case keep_waiting {
+            case keep_waiting
                 .Claim -> True
                 .Wait -> hold_for_rate(worker, tat)
                 .Stop -> False
-            }
-        }
-    }
-}
+            end
+    end
+end
 
 // The rate's next theoretical arrival time once a job has started.
-fn charge(rate: Maybe<Rate>, tat: Instant) -> Instant {
-    case rate {
-        None -> tat
+fn charge(rate: Maybe<Rate>, tat: Instant) -> Instant
+    case rate
+        None ->
+            tat
 
-        Some(r) -> {
+        Some(r) ->
             now = Instant.now()
 
-            from = if Instant.is_before(tat, now) {
-                now
-            } else {
-                tat
-            }
+            from = if Instant.is_before(tat, now) then now else tat
 
             from + interval(r)
-        }
-    }
-}
+    end
+end
 
-fn interval(rate: Rate) -> Duration {
+fn interval(rate: Rate) -> Duration
     rate.per / rate.count
-}
+end
 
 // Rescue jobs whose lease ran out and prune old finished ones, after a
 // claim found nothing due.
-fn tidy(worker: Worker) {
-    case Queue.rescue(worker.queue) {
-        Ok(0) -> Unit
-        Ok(n) -> log.info(worker.logger, "jobs: rescued", [log.int("count", n)])
+fn tidy(worker: Worker)
+    case Queue.rescue(worker.queue)
+        Ok(0) ->
+            Unit
+
+        Ok(n) ->
+            log.info(worker.logger, "jobs: rescued", [log.int("count", n)])
 
         Err(error) ->
             log.warn(worker.logger, "jobs: rescue failed", [log.string("error", "${error}")])
-    }
+    end
 
-    case Queue.prune(worker.queue) {
-        Ok(_) -> Unit
+    case Queue.prune(worker.queue)
+        Ok(_) ->
+            Unit
 
         Err(error) ->
             log.warn(worker.logger, "jobs: prune failed", [log.string("error", "${error}")])
-    }
-}
+    end
+end
 
 // Run one claimed job with its lease renewed, then settle it.
-fn run_claimed(worker: Worker, handlers: Map<String, Handler>, claimed: Claimed) {
+fn run_claimed(worker: Worker, handlers: Map<String, Handler>, claimed: Claimed)
     defer free_slot(worker)
     started = Instant.now()
 
-    answer = case Map.get(handlers, claimed.kind) {
-        Some(handler) -> renewing(worker, claimed, fn -> run_one(handler, claimed.args))
+    answer = case Map.get(handlers, claimed.kind)
+        Some(handler) ->
+            renewing(worker, claimed, fn -> run_one(handler, claimed.args))
 
         None ->
             Err(
@@ -1741,14 +1758,15 @@ fn run_claimed(worker: Worker, handlers: Map<String, Handler>, claimed: Claimed)
                     after: Duration.minutes(1),
                 }
             )
-    }
+    end
 
     how = settle_for(claimed, answer, Instant.now())
     took = Instant.between(started, Instant.now())
     report(worker, claimed, how, took)
 
-    case Queue.settle(worker.queue, worker.id, claimed, how) {
-        Ok(True) -> Unit
+    case Queue.settle(worker.queue, worker.id, claimed, how)
+        Ok(True) ->
+            Unit
 
         Ok(False) ->
             log.warn(worker.logger, "jobs: settle found the job taken over", fields(claimed))
@@ -1759,8 +1777,8 @@ fn run_claimed(worker: Worker, handlers: Map<String, Handler>, claimed: Claimed)
                 "jobs: settle failed",
                 fields(claimed) + [log.string("error", "${error}")],
             )
-    }
-}
+    end
+end
 
 // Run `body` while a second task renews the job's lease every third of
 // it, until the body returns.
@@ -1768,26 +1786,27 @@ fn renewing(
     worker: Worker,
     claimed: Claimed,
     body: () -> Result<Unit, Failure>,
-) -> Result<Unit, Failure> {
-    concurrent {
+) -> Result<Unit, Failure>
+    concurrent
         stop: Channel<Unit> = Channel.buffered(1)
         renewer = Task.spawn(fn -> renew_until(worker, claimed, stop.receiver))
         answer = body()
         Sender.close(stop.sender)
         _ = Task.outcome(renewer)
         answer
-    }
-}
+    end
+end
 
-fn renew_until(worker: Worker, claimed: Claimed, stop: Receiver<Unit>) {
+fn renew_until(worker: Worker, claimed: Claimed, stop: Receiver<Unit>)
     go_on = Channel.select([
         Arm.receive(stop, fn _ -> False),
         Arm.after(worker.lease / 3, fn -> True),
     ])
 
-    if go_on {
-        case Queue.renew(worker.queue, worker.id, claimed, worker.lease) {
-            Ok(_) -> Unit
+    if go_on then
+        case Queue.renew(worker.queue, worker.id, claimed, worker.lease)
+            Ok(_) ->
+                Unit
 
             Err(error) ->
                 log.warn(
@@ -1795,14 +1814,14 @@ fn renew_until(worker: Worker, claimed: Claimed, stop: Receiver<Unit>) {
                     "jobs: renew failed",
                     fields(claimed) + [log.string("error", "${error}")],
                 )
-        }
+        end
 
         renew_until(worker, claimed, stop)
-    }
-}
+    end
+end
 
-fn report(worker: Worker, claimed: Claimed, how: Settle, took: Duration) {
-    case how {
+fn report(worker: Worker, claimed: Claimed, how: Settle, took: Duration)
+    case how
         .Completed ->
             log.info(
                 worker.logger,
@@ -1810,14 +1829,14 @@ fn report(worker: Worker, claimed: Claimed, how: Settle, took: Duration) {
                 fields(claimed) + [log.int("ms", Duration.as_millis(took))],
             )
 
-        .Retry{at, error} ->
+        .Retry{at:, error:} ->
             log.warn(
                 worker.logger,
                 "jobs: retry",
                 fields(claimed) + [log.string("run_at", rfc3339(at)), log.string("error", error)],
             )
 
-        .Snoozed{at, error} ->
+        .Snoozed{at:, error:} ->
             log.info(
                 worker.logger,
                 "jobs: snoozed",
@@ -1830,41 +1849,42 @@ fn report(worker: Worker, claimed: Claimed, how: Settle, took: Duration) {
                 "jobs: discarded",
                 fields(claimed) + [log.string("error", error)],
             )
-    }
-}
+    end
+end
 
-fn fields(claimed: Claimed) -> List<log.Field> {
+fn fields(claimed: Claimed) -> List<log.Field>
     [
         log.string("kind", claimed.kind),
         log.any("id", claimed.id),
         log.string("queue", claimed.queue),
         log.int("attempt", claimed.attempt),
     ]
-}
+end
 
 // An instant as RFC 3339 text in UTC, as its JSON writes it.
-fn rfc3339(at: Instant) -> String {
-    case ToJson.to_json(at) {
+fn rfc3339(at: Instant) -> String
+    case ToJson.to_json(at)
         .String(text) -> text
         _ -> "${Instant.as_nanos(at)}"
-    }
-}
+    end
+end
 
-fn free_slot(worker: Worker) {
+fn free_slot(worker: Worker)
     _ = Sender.send(worker.slots.sender, Unit)
-}
+end
 
 // At the drain: give running jobs the grace period, then hand back what
 // is still running, so another worker takes it at once. The jobs' own
 // supervisor cancels them after the same grace period; this loop's
 // supervisor waits longer, so the release runs after the cancel.
-fn shut_down(worker: Worker) {
+fn shut_down(worker: Worker)
     _ = Supervisor.flush(worker.runs, Wait.UpTo(worker.grace))
 
-    case Queue.release(worker.queue, worker.id) {
-        Ok(n) -> log.info(worker.logger, "jobs: released", [log.int("count", n)])
+    case Queue.release(worker.queue, worker.id)
+        Ok(n) ->
+            log.info(worker.logger, "jobs: released", [log.int("count", n)])
 
         Err(error) ->
             log.warn(worker.logger, "jobs: release failed", [log.string("error", "${error}")])
-    }
-}
+    end
+end

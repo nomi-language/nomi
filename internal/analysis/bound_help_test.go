@@ -14,37 +14,37 @@ import (
 func TestBoundErrorHelp(t *testing.T) {
 	const decls = `import std::matcher.Matcher
 
-struct Point {
+struct Point
     x: Int
-}
+end
 
-struct Op {
+struct Op
     f: (Int) -> Int
-}
+end
 
-interface Shape {
+interface Shape
     fn area(s: self) -> Float
     fn scale(s: self, by: Float) -> self
-    fn name(s: self) -> String {
+    fn name(s: self) -> String
         "shape"
-    }
-}
+    end
+end
 
-fn has<M>(text: String, m: M) -> Bool where M: Matcher {
+fn has<M>(text: String, m: M) -> Bool where M: Matcher
     Matcher.is_contained_in(m, text)
-}
+end
 
-fn total<S>(s: S) -> Float where S: Shape {
+fn total<S>(s: S) -> Float where S: Shape
     Shape.area(s)
-}
+end
 
-fn key<H>(h: H) -> Int where H: Hashable {
+fn key<H>(h: H) -> Int where H: Hashable
     Hashable.hash(h)
-}
+end
 
-fn rank<C>(a: C, b: C) -> Ordering where C: Comparable {
+fn rank<C>(a: C, b: C) -> Ordering where C: Comparable
     Comparable.compare(a, b)
-}
+end
 
 `
 	for _, tc := range []struct {
@@ -88,7 +88,7 @@ fn rank<C>(a: C, b: C) -> Ordering where C: Comparable {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := decls + "fn main() {\n    _ = " + tc.call + "\n}\n"
+			src := decls + "fn main()\n    _ = " + tc.call + "\nend\n"
 			line := strings.Count(decls, "\n") + 2
 			errs := checkWithStdlib(src)
 			for _, e := range errs {

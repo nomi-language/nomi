@@ -10,7 +10,7 @@ import std::http.{Body, FormPart, Headers, Method, Part, Request, Response, Stat
 import std::io.{self, Reader, Writer}
 import std::url.Url
 
-fn main() {
+fn main()
     request = Request{method: Method.Post, url: Url.parse("http://example.com/a?b=1")!, body: Body.Text("hello")}
     (_, wire) = Writer.collect(fn w -> Request.write_to(request, w))
     back = Request.read(Reader.from_bytes(wire))!
@@ -25,11 +25,11 @@ fn main() {
     io.print("response ${Status.code(rback.status)} ${Headers.get(rback.headers, "X-A")} ${Response.text(rback)}")
     io.print("response dump ${Response.dump(response) |> Result.map(fn d -> String.contains(d, "made"))}")
 
-    (_, chunked) = Writer.collect(fn w -> {
+    (_, chunked) = Writer.collect(fn w ->
         cw = http.chunked_writer(w)
         _ = Writer.write_text(cw, "abc")
         Writer.close(cw)
-    })
+    end)
     io.print("chunked ${Reader.read_all_text(http.chunked_reader(Reader.from_bytes(chunked)))}")
 
     parts = [FormPart.Field{name: "a", value: "one"}, FormPart.File{field: "f", filename: "x.txt", content: String.to_bytes("data")}]
@@ -41,13 +41,13 @@ fn main() {
         body: Body.Bytes(form),
     }
 
-    seen = Request.parts(upload) |> Result.map(fn each -> {
+    seen = Request.parts(upload) |> Result.map(fn each ->
         each |> Iter.map(fn p -> p |> Result.map(fn part -> "${Part.form_name(part)} ${Part.file_name(part)} ${Reader.read_all_text(part.body)}")) |> Iter.to_list()
-    })
+    end)
 
     io.print("parts ${seen}")
     io.print("form ${http.read_multipart_form(Reader.from_bytes(form), "XYZ") |> Result.map(fn f -> f.values)}")
-}
+end
 `
 
 // HTTP on the wire: a request and a response written and read back, a

@@ -12,12 +12,16 @@ import (
 // turbofish; without the builder walking TypeArgs only the construction
 // would be registered, so we require at least two references.
 func TestFindDefinition_TurbofishTypeArgResolves(t *testing.T) {
-	input := `struct Item { id: Int }
-fn id<T>(x: T) -> T { x }
-fn main() -> Unit {
+	input := `struct Item
+    id: Int
+end
+fn id<T>(x: T) -> T
+    x
+end
+fn main() -> Unit
   it = Item{id: 1}
   y = id<Item>(it)
-}`
+end`
 	tokens := lexer.Lex(input)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := buildFile(nodes)

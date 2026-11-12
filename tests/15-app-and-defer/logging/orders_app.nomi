@@ -2,21 +2,21 @@
 
 import std::log.{self, Logger}
 
-pub struct App {
+pub struct App
     context: Context
     logger: Logger
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
     Ok(App{context: Context.root(), logger: Logger.text(min: .Warn)})
-}
+end
 
-pub fn place_order(id: Int) -> Unit {
+pub fn place_order(id: Int) -> Unit
     orders = Logger.with_fields(App.logger, [log.string("module", "orders")])
     log.debug(orders, "checking stock")
     log.info(orders, "order placed", [log.int("order", id), log.bool("rush", False)])
-}
+end
 
-fn main() {
+fn main()
     place_order(1)
-}
+end

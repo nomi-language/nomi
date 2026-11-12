@@ -27,18 +27,18 @@
 /// A family: the reader `runtime` names it by, its interface (`bound`), and the
 /// Nomi type it reads by default, with the std module that type is
 /// imported from, if any (`Date` is `std::calendar`'s).
-pub struct Family {
+pub struct Family
     reader: String
     bound: String
     nomi: String
     module: Maybe<String>
-}
+end
 
 derive Equatable for Family
 
-fn family(reader: String, bound: String, nomi: String, module: Maybe<String>) -> Family {
-    Family{reader, bound, nomi, module}
-}
+fn family(reader: String, bound: String, nomi: String, module: Maybe<String>) -> Family
+    Family{reader:, bound:, nomi:, module:}
+end
 
 /// The family of a declared type, or `None` when it names none (an
 /// expression's column has no declared type). An array, `T[]`, reads as a
@@ -53,10 +53,10 @@ fn family(reader: String, bound: String, nomi: String, module: Maybe<String>) ->
 //!
 //! assert types.of("") == None
 //
-pub fn of(declared: String) -> Maybe<Family> {
+pub fn of(declared: String) -> Maybe<Family>
     upper = declared |> String.uppercase() |> String.trim()
 
-    case String.strip_suffix(upper, "[]") {
+    case String.strip_suffix(upper, "[]")
         Some(element) ->
             return of(element)
             |> Maybe.map(fn f -> Family{
@@ -66,37 +66,64 @@ pub fn of(declared: String) -> Maybe<Family> {
                 module: f.module,
             })
 
-        None -> {}
-    }
+        None ->
+            Unit
+    end
 
-    name = case String.split(upper, "(") {
+    name = case String.split(upper, "(")
         [first, ..] -> String.trim(first)
         _ -> upper
-    }
+    end
 
     calendar = Some("std::calendar")
 
-    case name {
-        "" -> None
-        "BOOLEAN" -> Some(family("bool", "SqlBool", "Bool", None))
-        "BOOL" -> Some(family("bool", "SqlBool", "Bool", None))
-        "DECIMAL" -> Some(family("numeric", "SqlNumeric", "Decimal", None))
-        "NUMERIC" -> Some(family("numeric", "SqlNumeric", "Decimal", None))
-        "DATE" -> Some(family("date", "SqlDate", "Date", calendar))
-        "TIME" -> Some(family("time", "SqlTime", "Time", calendar))
-        "DATETIME" -> Some(family("timestamp", "SqlTimestamp", "NaiveDateTime", calendar))
-        "TIMESTAMP" -> Some(family("timestamp", "SqlTimestamp", "NaiveDateTime", calendar))
+    case name
+        "" ->
+            None
+
+        "BOOLEAN" ->
+            Some(family("bool", "SqlBool", "Bool", None))
+
+        "BOOL" ->
+            Some(family("bool", "SqlBool", "Bool", None))
+
+        "DECIMAL" ->
+            Some(family("numeric", "SqlNumeric", "Decimal", None))
+
+        "NUMERIC" ->
+            Some(family("numeric", "SqlNumeric", "Decimal", None))
+
+        "DATE" ->
+            Some(family("date", "SqlDate", "Date", calendar))
+
+        "TIME" ->
+            Some(family("time", "SqlTime", "Time", calendar))
+
+        "DATETIME" ->
+            Some(family("timestamp", "SqlTimestamp", "NaiveDateTime", calendar))
+
+        "TIMESTAMP" ->
+            Some(family("timestamp", "SqlTimestamp", "NaiveDateTime", calendar))
 
         "TIMESTAMPTZ" ->
             Some(family("timestamptz", "SqlTimestamptz", "Instant", Some("std::instant")))
 
-        "UUID" -> Some(family("uuid", "SqlUuid", "Uuid", Some("std::uuid")))
-        "JSON" -> Some(family("json", "SqlJson", "Json", Some("std::json")))
-        "JSONB" -> Some(family("json", "SqlJson", "Json", Some("std::json")))
-        "BLOB" -> Some(family("bytes", "SqlBytes", "Bytes", None))
-        _ -> by_affinity(name)
-    }
-}
+        "UUID" ->
+            Some(family("uuid", "SqlUuid", "Uuid", Some("std::uuid")))
+
+        "JSON" ->
+            Some(family("json", "SqlJson", "Json", Some("std::json")))
+
+        "JSONB" ->
+            Some(family("json", "SqlJson", "Json", Some("std::json")))
+
+        "BLOB" ->
+            Some(family("bytes", "SqlBytes", "Bytes", None))
+
+        _ ->
+            by_affinity(name)
+    end
+end
 
 /// The scale of a declared `DECIMAL` or `NUMERIC` type: `s` of
 /// `DECIMAL(p, s)`, 0 of `DECIMAL(p)`, and `None` for one that declares no
@@ -106,20 +133,20 @@ pub fn of(declared: String) -> Maybe<Family> {
 //! assert types.scale("DECIMAL") == None
 //! assert types.scale("INTEGER") == None
 //
-pub fn scale(declared: String) -> Maybe<Int> {
+pub fn scale(declared: String) -> Maybe<Int>
     precision_and_scale(declared) |> Maybe.map(fn (_, s) -> s)
-}
+end
 
 /// The precision and scale of a declared `DECIMAL(p, s)` or `NUMERIC(p, s)`
 /// type (`DECIMAL(p)` has scale 0), or `None`.
 //! assert types.precision_and_scale("DECIMAL(12, 2)") == Some((12, 2))
 //! assert types.precision_and_scale("NUMERIC") == None
 //
-pub fn precision_and_scale(declared: String) -> Maybe<(Int, Int)> {
+pub fn precision_and_scale(declared: String) -> Maybe<(Int, Int)>
     upper = declared |> String.uppercase() |> String.trim()
 
-    case String.split(upper, "(") {
-        [name, args] when Iter.contains(["DECIMAL", "NUMERIC"], String.trim(name)) -> {
+    case String.split(upper, "(")
+        [name, args] when Iter.contains(["DECIMAL", "NUMERIC"], String.trim(name)) ->
             numbers =
                 args
                 |> String.replace(")", "")
@@ -127,29 +154,29 @@ pub fn precision_and_scale(declared: String) -> Maybe<(Int, Int)> {
                 |> Iter.map(String.to_int)
                 |> Iter.to_list()
 
-            case numbers {
+            case numbers
                 [Some(p)] -> Some((p, 0))
                 [Some(p), Some(s)] -> Some((p, s))
                 _ -> None
-            }
-        }
+            end
 
-        _ -> None
-    }
-}
+        _ ->
+            None
+    end
+end
 
 // SQLite's affinity rules, in its order.
-fn by_affinity(name: String) -> Maybe<Family> {
-    if "INT" in name {
+fn by_affinity(name: String) -> Maybe<Family>
+    if "INT" in name then
         Some(family("int", "SqlInt", "Int", None))
-    } else if "CHAR" in name or "CLOB" in name or "TEXT" in name {
+    else if "CHAR" in name or "CLOB" in name or "TEXT" in name then
         Some(family("text", "SqlText", "String", None))
-    } else if "REAL" in name or "FLOA" in name or "DOUB" in name {
+    else if "REAL" in name or "FLOA" in name or "DOUB" in name then
         Some(family("float", "SqlFloat", "Float", None))
-    } else {
+    else
         None
-    }
-}
+    end
+end
 
 /// The declared type a Postgres type, as `format_type` writes it, reads
 /// as, or `None` for a type sqlkit has no family for (`interval`, `inet`,
@@ -164,31 +191,30 @@ fn by_affinity(name: String) -> Maybe<Family> {
 //! assert types.postgres("interval") == None
 //! assert types.postgres("citext") == None
 //
-pub fn postgres(type_name: String) -> Maybe<String> {
+pub fn postgres(type_name: String) -> Maybe<String>
     name = String.trim(type_name)
 
-    case String.strip_suffix(name, "[]") {
+    case String.strip_suffix(name, "[]")
         Some(element) -> return postgres(element) |> Maybe.map(fn e -> "${e}[]")
-
-        None -> {}
-    }
+        None -> Unit
+    end
 
     // A precision (`timestamp(3)`, `time(0)`) does not change the family;
     // a numeric's does, as its scale.
-    base = case String.split(name, "(") {
-        [head, ..rest] -> {
-            tail = case rest {
+    base = case String.split(name, "(")
+        [head, ..rest] ->
+            tail = case rest
                 [args] -> String.split(args, ")") |> Iter.drop(1) |> String.join(")")
                 _ -> ""
-            }
+            end
 
             String.trim(head + tail)
-        }
 
-        _ -> name
-    }
+        _ ->
+            name
+    end
 
-    case base {
+    case base
         "smallint" or "integer" or "bigint" -> Some(String.uppercase(base))
         "real" -> Some("REAL")
         "double precision" -> Some("DOUBLE")
@@ -204,10 +230,10 @@ pub fn postgres(type_name: String) -> Maybe<String> {
         "json" -> Some("JSON")
         "jsonb" -> Some("JSONB")
         _ -> None
-    }
-}
+    end
+end
 
 /// The text family, which an enum column reads through.
-pub fn text_family() -> Family {
+pub fn text_family() -> Family
     family("text", "SqlText", "String", None)
-}
+end

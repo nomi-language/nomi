@@ -30,31 +30,31 @@ func writeCycleProject(t *testing.T, files map[string]string) string {
 const (
 	cycleWrap = `import b.Tag
 
-pub enum Wrap<T> {
+pub enum Wrap<T>
     Hit(T)
     Miss
-}
+end
 
-pub fn tag_of(w: Wrap<Int>) -> Tag<Int> {
-    case w {
+pub fn tag_of(w: Wrap<Int>) -> Tag<Int>
+    case w
         .Hit(n) -> Tag.Big(n)
         .Miss -> Tag.Small
-    }
-}
+    end
+end
 `
 	cycleTag = `import a.Wrap
 
-pub enum Tag<T> {
+pub enum Tag<T>
     Big(T)
     Small
-}
+end
 
-pub fn wrap_of(t: Tag<Int>) -> Wrap<Int> {
-    case t {
+pub fn wrap_of(t: Tag<Int>) -> Wrap<Int>
+    case t
         .Big(n) -> Wrap.Hit(n)
         .Small -> Wrap.Miss
-    }
-}
+    end
+end
 `
 )
 
@@ -63,39 +63,39 @@ pub fn wrap_of(t: Tag<Int>) -> Wrap<Int> {
 // file-qualified.
 func TestImportCycle_GenericSignaturesAcrossTheCycleRun(t *testing.T) {
 	for _, tc := range []struct{ name, main string }{
-		{"selective import", `import {
+		{"selective import", `import
     std::io
     a.{Wrap, tag_of}
     b.{Tag, wrap_of}
-}
+end
 
-fn main() {
-    case tag_of(Wrap.Hit(4)) {
+fn main()
+    case tag_of(Wrap.Hit(4))
         .Big(n) -> io.print("big ${n}")
         .Small -> io.print("small")
-    }
-    case wrap_of(Tag.Small) {
+    end
+    case wrap_of(Tag.Small)
         .Hit(n) -> io.print("hit ${n}")
         .Miss -> io.print("miss")
-    }
-}
+    end
+end
 `},
-		{"file-qualified", `import {
+		{"file-qualified", `import
     std::io
     a
     b
-}
+end
 
-fn main() {
-    case a.tag_of(a.Wrap.Hit(4)) {
+fn main()
+    case a.tag_of(a.Wrap.Hit(4))
         .Big(n) -> io.print("big ${n}")
         .Small -> io.print("small")
-    }
-    case b.wrap_of(b.Tag.Small) {
+    end
+    case b.wrap_of(b.Tag.Small)
         .Hit(n) -> io.print("hit ${n}")
         .Miss -> io.print("miss")
-    }
-}
+    end
+end
 `},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -125,27 +125,27 @@ func TestImportCycle_TestFileInTheCycleRuns(t *testing.T) {
 		"main.nomi": `import std::io
 import ring
 
-pub fn base(n: Int) -> Int {
+pub fn base(n: Int) -> Int
     n + 1
-}
+end
 
-fn main() {
+fn main()
     io.inspect(ring.twice(2))
-}
+end
 
-test "base" {
+test "base"
     assert base(1) == 2
-}
+end
 
-test "twice" {
+test "twice"
     assert ring.twice(2) == 6
-}
+end
 `,
 		"ring.nomi": `import main
 
-pub fn twice(n: Int) -> Int {
+pub fn twice(n: Int) -> Int
     main.base(n) * 2
-}
+end
 `,
 	})
 	if err := vmhost.Check(path); err != nil {

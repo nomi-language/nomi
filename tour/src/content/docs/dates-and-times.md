@@ -37,7 +37,7 @@ zone name in square brackets at the end, a format from RFC 9557:
 ```nomi-run
 import std::calendar.{Date, DateTime}
 
-fn main() {
+fn main()
     d = Date`2026-06-15`
     dbg d
 
@@ -47,8 +47,7 @@ fn main() {
     dbg DateTime.year(dt)
     dbg DateTime.month(dt)
     dbg DateTime.hour(dt)
-}
-
+end
 ```
 <!-- expect
 dbg line 5: d = 2026-06-15
@@ -67,7 +66,7 @@ day, you get the month's last day. January 31 plus one month is February 28:
 ```nomi-run
 import std::calendar.{Date, Days, Months, Weeks, Years}
 
-fn main() {
+fn main()
     start = Date`2026-05-04`
     jan31 = Date`2026-01-31`
     leap = Date`2024-02-29`
@@ -78,8 +77,7 @@ fn main() {
     dbg jan31 + Months(1)
     dbg jan31 - Months(1)
     dbg leap + Years(1)
-}
-
+end
 ```
 <!-- expect
 dbg line 8: start + Days(10) = 2026-05-14
@@ -106,12 +104,12 @@ Make one with a unit function such as
 durations with `+`, `-`, `*` and `/`:
 
 ```nomi-run
-import {
+import
     std::duration.Duration
     std::instant.Instant
-}
+end
 
-fn main() {
+fn main()
     start = Instant.from_seconds(1_700_000_000)
     five_minutes = Duration.minutes(5)
 
@@ -120,8 +118,7 @@ fn main() {
     later = start + five_minutes
     dbg Instant.to_seconds(later)
     dbg later - start
-}
-
+end
 ```
 <!-- expect
 dbg line 10: Duration.as_minutes(five_minutes) = 5
@@ -142,15 +139,14 @@ New York and 6 PM in Paris on the same day are equal:
 ```nomi-run
 import std::calendar.DateTime
 
-fn main() {
+fn main()
     ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
     paris = DateTime`2026-06-15T18:00:00+02:00[Europe/Paris]`
 
     dbg ny == paris
     dbg ny
     dbg paris
-}
-
+end
 ```
 <!-- expect
 dbg line 7: ny == paris = True
@@ -165,12 +161,12 @@ on March 7. Adding one calendar day gives noon on March 8. Adding
 exactly 24 hours gives 1 PM, because that night was one hour short:
 
 ```nomi-run
-import {
+import
     std::calendar.{DateTime, Days}
     std::duration.Duration
-}
+end
 
-fn main() {
+fn main()
     start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
     civil = start + Days(1)
     physical = start + Duration.hours(24)
@@ -178,8 +174,7 @@ fn main() {
     dbg start
     dbg civil
     dbg physical
-}
-
+end
 ```
 <!-- expect
 dbg line 11: start = 2026-03-07T12:00:00-05:00[America/New_York]
@@ -200,12 +195,11 @@ takes a locale:
 ```nomi-run
 import std::calendar.Date
 
-fn main() {
+fn main()
     ships = Date`2026-10-20`
     dbg Date.format(ships, Locale`en-US`, style: .Long)
     dbg Date.format(ships, Locale`de`, style: .Long)
-}
-
+end
 ```
 <!-- expect
 dbg line 5: Date.format(ships, Locale`en-US`, style: .Long) = "October 20, 2026"
@@ -224,14 +218,13 @@ keeps the same moment and shows it in another zone. Noon in New York is
 ```nomi-run
 import std::calendar.{DateTime, Error}
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
     tokyo = DateTime.with_zone(ny, "Asia/Tokyo")?
     dbg tokyo
     dbg ny == tokyo
     Ok(Unit)
-}
-
+end
 ```
 <!-- expect
 dbg line 6: tokyo = 2026-06-16T01:00:00+09:00[Asia/Tokyo]
@@ -251,7 +244,7 @@ The `Disambiguation` argument says which moment to pick:
 ```nomi-run
 import std::calendar.{DateTime, Error, NaiveDateTime}
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     // 2026-11-01 01:30 NY happens twice (2am EDT rolls back to 1am EST).
     naive = NaiveDateTime`2026-11-01T01:30:00`
 
@@ -268,8 +261,7 @@ fn main() -> Result<Unit, Error> {
     // Different moments, so not equal.
     dbg earlier == later
     Ok(Unit)
-}
-
+end
 ```
 <!-- expect
 dbg line 11: earlier = 2026-11-01T01:30:00-04:00[America/New_York]
@@ -295,12 +287,11 @@ system clock and gives the time in that zone. It is short for
 ```nomi-run no-run
 import std::calendar.{DateTime, Error}
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     now = DateTime.now_in("America/New_York")?
     dbg now // example: dbg line 5: now = 2026-05-26T17:42:00-04:00[America/New_York]
     Ok(Unit)
-}
-
+end
 ```
 
 The output changes each time, because it reads the real clock.

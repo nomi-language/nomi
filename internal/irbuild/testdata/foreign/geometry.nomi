@@ -8,64 +8,64 @@
 //
 // `tag` is deliberately a field name here: a struct field named `tag` must not
 // collide with an enum's variant tag, however the Nomi program is spelled.
-pub struct Point {
+pub struct Point
     x: Int
     y: Int
     tag: String
-}
+end
 
 // An enum crossing the boundary: `case` on one of these in main.nomi reads
 // this package's `Tag` field and its payload slots.
-pub enum Reading {
+pub enum Reading
     Empty
     Whole Int
     Labelled {name: String, at: Point}
-}
+end
 
 // A distinct type crosses as itself.
 pub type Meters Int
 
-pub fn origin() -> Point {
+pub fn origin() -> Point
     Point{x: 0, y: 0, tag: "origin"}
-}
+end
 
-pub fn shift(p: Point, by: Int) -> Point {
+pub fn shift(p: Point, by: Int) -> Point
     Point{x: p.x + by, y: p.y + by, tag: p.tag}
-}
+end
 
-pub fn describe(r: Reading) -> String {
-    case r {
+pub fn describe(r: Reading) -> String
+    case r
         Reading.Empty -> "empty"
         Reading.Whole(n) -> "whole ${n}"
-        Reading.Labelled{name, at} -> "labelled ${name} at ${at.x}"
-    }
-}
+        Reading.Labelled{name:, at:} -> "labelled ${name} at ${at.x}"
+    end
+end
 
 // A distinct type crosses as itself. It is only passed here; the fixture
 // unwraps it in the entry.
-pub fn bounce(m: Meters) -> Meters {
+pub fn bounce(m: Meters) -> Meters
     m
-}
+end
 
 // A field DEFAULT naming this file's private `seed`. A literal in another file
 // that omits `n` calls this file's accessor for it; see
 // foreignfielddefault.go.
-pub struct Defaulted {
+pub struct Defaulted
     n: Int = seed()
-}
+end
 
-fn seed() -> Int {
+fn seed() -> Int
     7
-}
+end
 
 // Not `pub`: file-private, and a reference from another file is an analyzer
 // error. The builder refuses it by name anyway, so a reference that got past
 // the analyzer would still not reach this type.
 // See foreign.go's `private sibling file type`.
-struct Hidden {
+struct Hidden
     n: Int
-}
+end
 
-pub fn hidden_count() -> Int {
+pub fn hidden_count() -> Int
     Hidden{n: 3}.n
-}
+end

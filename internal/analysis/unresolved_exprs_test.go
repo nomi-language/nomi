@@ -25,39 +25,39 @@ func checkNodes(t *testing.T, src string) (*FileAnalysis, []ast.Node) {
 	return fa, nodes
 }
 
-const unresolvedSrc = `struct Point {
+const unresolvedSrc = `struct Point
     x: Int
     y: Int
-}
+end
 
-struct Foo {
+struct Foo
     a: Int
-}
+end
 
-interface Counter {
+interface Counter
     fn count(c: self, n: Int) -> Int
-}
+end
 
-impl Counter for Point {
-    fn count(p: Point, n: Int) -> Int {
-        if n <= 0 { p.x } else { count(p, n - 1) }
-    }
-}
+impl Counter for Point
+    fn count(p: Point, n: Int) -> Int
+        if n <= 0 then p.x else count(p, n - 1)
+    end
+end
 
-fn twice(f: (Int) -> Int, n: Int) -> Int {
+fn twice(f: (Int) -> Int, n: Int) -> Int
     f(f(n))
-}
+end
 
-fn main_like(p: Point) -> Int {
-    q = .{..p, y: 2}
-    Point{x, y} = q
-    foo = Foo(.{a: x})
+fn main_like(p: Point) -> Int
+    q = {..p, y: 2}
+    Point{x:, y:} = q
+    foo = Foo({a: x})
     shifted = twice(fn n -> n + y, foo.a)
-    case shifted {
+    case shifted
         0 -> 1
         n -> n * 2
-    }
-}
+    end
+end
 `
 
 // TestUnresolvedExprs_AWellTypedFileReportsNothing walks a file holding
@@ -105,25 +105,25 @@ func TestUnresolvedExprs_ReportsAMissingAndAnUnsolvedType(t *testing.T) {
 	}
 	want := []string{
 		"28:15: Call in Binding has no type recorded",
-		"29:10: Ident in Case has an unsolved type variable in ?99",
+		"29:10: Ident shifted in Case has an unsolved type variable in ?99",
 	}
 	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("got\n%s\nwant\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
 	}
 }
 
-// TestUnresolvedExprs_APipedStructCallFormIsTyped: `.{a: 1} |> Foo()` is the
+// TestUnresolvedExprs_APipedStructCallFormIsTyped: `{a: 1} |> Foo()` is the
 // struct call form with the piped value as its record, and the pipe has the
 // struct's type. The checker once returned no type for it.
 func TestUnresolvedExprs_APipedStructCallFormIsTyped(t *testing.T) {
-	fa, nodes := checkNodes(t, `struct Foo {
+	fa, nodes := checkNodes(t, `struct Foo
     a: Int
-}
+end
 
-fn f() -> Int {
-    foo = .{a: 1} |> Foo()
+fn f() -> Int
+    foo = {a: 1} |> Foo()
     foo.a
-}
+end
 `)
 	if got := UnresolvedExprs(fa, nodes); len(got) > 0 {
 		t.Fatalf("want nothing reported, got %v", got)
@@ -137,22 +137,22 @@ fn f() -> Int {
 // calling it has the function's result type. The checker once read only a
 // bare function type there and recorded nothing.
 func TestUnresolvedExprs_APipeIntoALocalFunctionValueIsTyped(t *testing.T) {
-	fa, nodes := checkNodes(t, `enum Opt<T> {
+	fa, nodes := checkNodes(t, `enum Opt<T>
     Has T
     Empty
-}
+end
 
-fn pick<T>(o: Opt<T>, fallback: T) -> T {
-    case o {
+fn pick<T>(o: Opt<T>, fallback: T) -> T
+    case o
         .Has(v) -> v
         .Empty -> fallback
-    }
-}
+    end
+end
 
-fn f() -> Int {
+fn f() -> Int
     bump = pick(Opt.Empty, fn x: Int -> x + 1)
     1 |> bump()
-}
+end
 `)
 	if got := UnresolvedExprs(fa, nodes); len(got) > 0 {
 		t.Fatalf("want nothing reported, got %v", got)

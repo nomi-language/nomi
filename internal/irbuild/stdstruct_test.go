@@ -158,24 +158,24 @@ func TestStdStructShapeCheckRejectsADriftedDeclaration(t *testing.T) {
 		name string
 		src  string
 	}{
-		{"renamed field", "pub opaque struct DateTime {\n  instant_nanos: Int\n  tz: String\n}\n"},
-		{"reordered fields", "pub opaque struct DateTime {\n  zone: String\n  instant_nanos: Int\n}\n"},
-		{"widened field", "pub opaque struct DateTime {\n  instant_nanos: Float\n  zone: String\n}\n"},
-		{"extra field", "pub opaque struct DateTime {\n  instant_nanos: Int\n  zone: String\n  cached: String\n}\n"},
-		{"missing field", "pub opaque struct DateTime {\n  instant_nanos: Int\n}\n"},
-		{"not opaque", "pub struct DateTime {\n  instant_nanos: Int\n  zone: String\n}\n"},
+		{"renamed field", "pub opaque struct DateTime\n  instant_nanos: Int\n  tz: String\nend\n"},
+		{"reordered fields", "pub opaque struct DateTime\n  zone: String\n  instant_nanos: Int\nend\n"},
+		{"widened field", "pub opaque struct DateTime\n  instant_nanos: Float\n  zone: String\nend\n"},
+		{"extra field", "pub opaque struct DateTime\n  instant_nanos: Int\n  zone: String\n  cached: String\nend\n"},
+		{"missing field", "pub opaque struct DateTime\n  instant_nanos: Int\nend\n"},
+		{"not opaque", "pub struct DateTime\n  instant_nanos: Int\n  zone: String\nend\n"},
 		// `not public` is NOT a drift row. Publicity is a VISIBILITY fact, not
 		// a LAYOUT fact: a private declaration cannot be named by another
 		// module, which makes its anchor unreachable from elsewhere rather than
 		// wrong, and std/calendar's boundary carriers are private (see
 		// stdStructSpec.matches). Every row here is a change that would make
 		// the builder lower against the WRONG LAYOUT.
-		{"generic", "pub opaque struct DateTime<T> {\n  instant_nanos: Int\n  zone: String\n}\n"},
-		{"field default", "pub opaque struct DateTime {\n  instant_nanos: Int\n  zone: String = \"UTC\"\n}\n"},
+		{"generic", "pub opaque struct DateTime<T>\n  instant_nanos: Int\n  zone: String\nend\n"},
+		{"field default", "pub opaque struct DateTime\n  instant_nanos: Int\n  zone: String = \"UTC\"\nend\n"},
 	}
 	// The control first, so a `matches` that rejected everything would fail here
 	// rather than making every drift case pass vacuously.
-	if !anchorsDateTime(t, spec, "pub opaque struct DateTime {\n  instant_nanos: Int\n  zone: String\n}\n") {
+	if !anchorsDateTime(t, spec, "pub opaque struct DateTime\n  instant_nanos: Int\n  zone: String\nend\n") {
 		t.Fatal("the spec's own shape does not anchor, so every case below would pass vacuously")
 	}
 	for _, c := range cases {
@@ -193,7 +193,7 @@ func TestStdStructShapeCheckRejectsADriftedDeclaration(t *testing.T) {
 // hand-building a StructDef would let a case pass by mis-modelling the node.
 func anchorsDateTime(t *testing.T, spec *stdStructSpec, src string) bool {
 	t.Helper()
-	p, err := AnalyzeSource("main", src+"\nfn main() {\n  _ = 1\n}\n")
+	p, err := AnalyzeSource("main", src+"\nfn main()\n  _ = 1\nend\n")
 	if err != nil {
 		// A shape the front end rejects outright cannot reach the builder, so it
 		// is not anchored either. Reported rather than failed: `pub opaque struct

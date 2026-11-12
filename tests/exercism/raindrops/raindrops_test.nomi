@@ -1,6 +1,6 @@
 import raindrops.convert
 
-test "raindrop sounds" {
+test "raindrop sounds"
     [
         ("the sound for 1 is 1", 1, "1"),
         ("the sound for 3 is Pling", 3, "Pling"),
@@ -29,7 +29,7 @@ test "raindrop sounds" {
         ),
         ("the sound for 3125 is Plang as it has a factor 5", 3125, "Plang"),
     ]
-    |> subtests (description, number, expected), description {
+    |> subtests (description, number, expected), description
         assert convert(number) == expected
-    }
-}
+    end
+end

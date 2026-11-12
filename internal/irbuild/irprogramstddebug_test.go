@@ -19,17 +19,17 @@ import std::sql.Dialect
 import std::tls
 import std::toml.Toml
 
-fn show(d: Debug) -> String {
+fn show(d: Debug) -> String
     Debug.inspect(d)
-}
+end
 
-fn main() {
+fn main()
     u = Url` + "`https://e.com/a`" + `
     d: Debug = u
     io.print(Debug.inspect(d))
     io.print(show(Money` + "`12.50 EUR`" + `))
     up = False
-    m: Debug = if up { Method.Get } else { Status.ok }
+    m: Debug = if up then Method.Get else Status.ok
     io.print(Debug.inspect(m))
     xs: List<Debug> = [Method.Get, Dialect.Sqlite, tls.Version.Tls12, Toml` + "`a = 1`" + `]
     io.print(Debug.inspect(xs))
@@ -38,7 +38,7 @@ fn main() {
     h: Hashable = u
     io.inspect(Hashable.hash(h) == Hashable.hash(u))
     dbg d
-}
+end
 `
 	irRunSource(t, src, `Url{scheme: "https", user: None, host: "e.com", path: "/a", raw_path: None, query: None, fragment: None, raw_fragment: None, opaque_part: None, omit_host: False}
 Money{amount: 12.50d, currency: Currency`+"`EUR`"+`}

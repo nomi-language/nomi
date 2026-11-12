@@ -80,7 +80,7 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 			if _, ok = child.endlessLoop(body); ok {
 				// kindInvalid: sentinel — no `return v` settled it.
 				if k = child.returnKind; k == kindInvalid && bl.g.fa != nil {
-					if ty := bl.g.srcFA().ExprTypes[block]; ty != nil && !irUnsolvedType(ty) {
+					if ty := bl.g.srcFA().ExprTypes[block]; ty != nil {
 						k = bl.g.project(ty)
 					}
 				}

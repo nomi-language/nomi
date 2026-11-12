@@ -16,7 +16,7 @@ import (
 
 func htmlDiagnostics(t *testing.T, body string) frontend.Diagnostics {
 	t.Helper()
-	src := "import std::html.Html\n\nfn page(name: String, n: Int, h: Html) -> Html {\n" + body + "\n}\n"
+	src := "import std::html.Html\n\nfn page(name: String, n: Int, h: Html) -> Html\n" + body + "\nend\n"
 	err := checkSource(t, src)
 	if err == nil {
 		return nil
@@ -44,8 +44,8 @@ func TestHtmlTemplate_Accepted(t *testing.T) {
 		`    Html"<div style='width: ${n}%'>${[h, h]}</div>"`,
 		"    Html\"\"\"\n        <!DOCTYPE html>\n        <html><title>${name}</title></html>\n        \"\"\"",
 		"    Html`<p>${name}</p>`",
-		`    Html"<p class='a ${if n > 0 { name }} ${Some(n)}'><title>${if n > 0 { name }}</title></p>"`,
-		`    Html"<a href='/u/${Some(name)}?q=${if n > 0 { n }}#${Some(n)}'>x</a>"`,
+		`    Html"<p class='a ${if n > 0 then name} ${Some(n)}'><title>${if n > 0 then name}</title></p>"`,
+		`    Html"<a href='/u/${Some(name)}?q=${if n > 0 then n}#${Some(n)}'>x</a>"`,
 		`    Html"<b style='width: ${Some(n)}%'></b>"`,
 	} {
 		if ds := htmlDiagnostics(t, body); len(ds) > 0 {
@@ -125,15 +125,15 @@ func TestHtmlTemplate_AProgramsOwnHtmlIsAnOrdinaryPrefix(t *testing.T) {
 
 type Html String
 
-impl Literal<String, Html> for Html {
-    fn from_fragments(fragments: List<Fragment<String>>) -> Html {
+impl Literal<String, Html> for Html
+    fn from_fragments(fragments: List<Fragment<String>>) -> Html
         Html("${Iter.count(fragments)}")
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     _ = Html"<p>${"x"}"
-}
+end
 `
 	if err := checkSource(t, src); err != nil {
 		t.Fatalf("the front end rejects a program's own Html prefix: %v", err)

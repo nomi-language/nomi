@@ -40,7 +40,7 @@ var infiniteIterCases = []infiniteIterCase{
 	{"repeat", []string{"Iter.repeat"}, pipe("Iter.repeat(1)", " |> Iter.to_list()"), true},
 	{"from", []string{"Iter.from"}, pipe("Iter.from(0)", " |> Iter.to_list()"), true},
 	{"iterate", []string{"Iter.iterate"}, pipe("Iter.iterate(1, &(&1 + 1))", " |> Iter.to_list()"), true},
-	{"iterate that can break", []string{"Iter.iterate"}, pipe("Iter.iterate(0, fn n -> {\n        if n > 2 {\n            break n\n        } else {\n            n + 1\n        }\n    })", " |> Iter.to_list()"), false},
+	{"iterate that can break", []string{"Iter.iterate"}, pipe("Iter.iterate(0, fn n ->\n        if n > 2 then\n            break n\n        else\n            n + 1\n        end\n    end)", " |> Iter.to_list()"), false},
 	{"Range.from", []string{"Range.from"}, pipe("Range.from(1)", " |> Iter.to_list()"), true},
 	{"Range.from at the bound", []string{"Range.from"}, pipe("Range.from(9_223_090_561_878_065_151)", " |> Iter.to_list()"), true},
 	{"Range.from near 2^63", []string{"Range.from"}, pipe("Range.from(9_223_372_036_854_775_800)", " |> Iter.to_list()"), true},
@@ -56,10 +56,10 @@ var infiniteIterCases = []infiniteIterCase{
 	{"Range.step_by that does not move", []string{"Range.step_by"}, pipe("Range.from(1) |> Range.step_by(0)", " |> Iter.to_list()"), false},
 	// Adapters, each between a hidden infinite source and a terminal.
 	{"map", []string{"Iter.map"}, pipe("Iter.from(0)", " |> Iter.map(&(&1 * 2)) |> Iter.to_list()"), true},
-	{"map that can break", []string{"Iter.map"}, pipe("Iter.from(0)", " |> Iter.map(fn x -> {\n        if x > 2 {\n            break x\n        } else {\n            x\n        }\n    }) |> Iter.to_list()"), false},
+	{"map that can break", []string{"Iter.map"}, pipe("Iter.from(0)", " |> Iter.map(fn x ->\n        if x > 2 then\n            break x\n        else\n            x\n        end\n    end) |> Iter.to_list()"), false},
 	{"filter", []string{"Iter.filter"}, pipe("Iter.from(0)", " |> Iter.filter(&(&1 > 3)) |> Iter.to_list()"), true},
 	{"reject", []string{"Iter.reject"}, pipe("Iter.from(0)", " |> Iter.reject(&(&1 > 3)) |> Iter.to_list()"), true},
-	{"filter that can break", []string{"Iter.filter"}, pipe("Iter.from(0)", " |> Iter.filter(fn x -> {\n        if x > 2 {\n            break False\n        } else {\n            True\n        }\n    }) |> Iter.to_list()"), false},
+	{"filter that can break", []string{"Iter.filter"}, pipe("Iter.from(0)", " |> Iter.filter(fn x ->\n        if x > 2 then\n            break False\n        else\n            True\n        end\n    end) |> Iter.to_list()"), false},
 	{"drop", []string{"Iter.drop"}, pipe("Iter.from(0)", " |> Iter.drop(2) |> Iter.to_list()"), true},
 	{"drop_while", []string{"Iter.drop_while"}, pipe("Iter.from(0)", " |> Iter.drop_while(&(&1 < 10)) |> Iter.to_list()"), true},
 	{"with_index", []string{"Iter.with_index"}, pipe("Iter.from(0)", " |> Iter.with_index() |> Iter.to_list()"), true},
@@ -74,9 +74,9 @@ var infiniteIterCases = []infiniteIterCase{
 	{"windows of zero", []string{"Iter.windows"}, pipe("Iter.from(0)", " |> Iter.windows(0) |> Iter.to_list()"), false},
 	{"cycle of an infinite source", []string{"Iter.cycle"}, pipe("Iter.from(0)", " |> Iter.cycle() |> Iter.to_list()"), true},
 	{"cycle of a list", []string{"Iter.cycle"}, pipe("[1, 2] |> Iter.cycle()", " |> Iter.to_list()"), true},
-	{"cycle of a vector", []string{"Iter.cycle"}, pipe("#[1] |> Iter.cycle()", " |> Iter.to_list()"), true},
-	{"cycle of a set", []string{"Iter.cycle"}, pipe("%[1] |> Iter.cycle()", " |> Iter.to_list()"), true},
-	{"cycle of a map", []string{"Iter.cycle"}, pipe("%{1 => 2} |> Iter.cycle()", " |> Iter.to_list()"), true},
+	{"cycle of a vector", []string{"Iter.cycle"}, pipe("Vector[1] |> Iter.cycle()", " |> Iter.to_list()"), true},
+	{"cycle of a set", []string{"Iter.cycle"}, pipe("Set[1] |> Iter.cycle()", " |> Iter.to_list()"), true},
+	{"cycle of a map", []string{"Iter.cycle"}, pipe("{1 => 2} |> Iter.cycle()", " |> Iter.to_list()"), true},
 	{"cycle of an empty list", []string{"Iter.cycle"}, pipe("Iter.take([1], 0) |> Iter.to_list() |> Iter.cycle()", " |> Iter.to_list()"), false},
 	{"concat", []string{"Iter.concat"}, func(src func(string) string) string {
 		return "Iter.concat([1], " + src("Iter.from(0)") + ") |> Iter.to_list()"
@@ -123,20 +123,20 @@ var infiniteIterCases = []infiniteIterCase{
 	{"sum_by", []string{"Iter.sum_by"}, pipe("Iter.from(0)", " |> Iter.sum_by(&(&1 + 1))"), true},
 	{"product_by", []string{"Iter.product_by"}, pipe("Iter.repeat(0)", " |> Iter.product_by(&(&1 + 1))"), true},
 	{"reduce", []string{"Iter.reduce"}, pipe("Iter.repeat(1)", " |> Iter.reduce(0, fn total, x -> total + x)"), true},
-	{"reduce that can break", []string{"Iter.reduce"}, pipe("Iter.from(0)", " |> Iter.reduce(0, fn total, x -> {\n        if x > 4 {\n            break total\n        } else {\n            total + x\n        }\n    })"), false},
+	{"reduce that can break", []string{"Iter.reduce"}, pipe("Iter.from(0)", " |> Iter.reduce(0, fn total, x ->\n        if x > 4 then\n            break total\n        else\n            total + x\n        end\n    end)"), false},
 	{"each", []string{"Iter.each"}, pipe("Iter.repeat(1)", " |> Iter.each(fn _x -> Unit)"), true},
-	{"each that can break", []string{"Iter.each"}, pipe("Iter.from(0)", " |> Iter.each(fn x -> {\n        if x > 4 {\n            break\n        } else {\n            Unit\n        }\n    })"), false},
+	{"each that can break", []string{"Iter.each"}, pipe("Iter.from(0)", " |> Iter.each(fn x ->\n        if x > 4 then\n            break\n        else\n            Unit\n        end\n    end)"), false},
 	{"map_reduce", []string{"Iter.map_reduce"}, pipe("Iter.from(0)", " |> Iter.map_reduce(0, fn s, x -> (s + x, x))"), true},
 	{"String.join", []string{"String.join"}, pipe("Iter.repeat(\"a\")", " |> String.join(\", \")"), true},
 	{"Maybe.values", []string{"Maybe.values"}, pipe("Iter.repeat(Maybe.Some(1))", " |> Maybe.values()"), true},
 	{"Result.partition", []string{"Result.partition"}, pipe("Iter.repeat(ok)", " |> Result.partition()"), true},
 	{"Task.spawn_all", []string{"Task.spawn_all"}, func(src func(string) string) string {
-		return "concurrent {\n        " + src("Iter.repeat(1)") + " |> Task.spawn_all(&(&1 * 2), max_running: 2) |> Task.await_all()\n    }"
+		return "concurrent\n        " + src("Iter.repeat(1)") + " |> Task.spawn_all(&(&1 * 2), max_running: 2) |> Task.await_all()\n    end"
 	}, true},
 	// Terminals that may stop early.
 	{"find", []string{"Iter.find"}, pipe("Iter.from(0)", " |> Iter.find(&(&1 > 3))"), false},
-	{"try_reduce", []string{"Iter.try_reduce"}, pipe("Iter.from(0)", " |> Iter.try_reduce(0, fn total, x -> if x > 4 { Err(total) } else { Ok(total + x) })"), false},
-	{"find_map", []string{"Iter.find_map"}, pipe("Iter.from(0)", " |> Iter.find_map(fn x -> if x > 3 { Some(x) } else { None })"), false},
+	{"try_reduce", []string{"Iter.try_reduce"}, pipe("Iter.from(0)", " |> Iter.try_reduce(0, fn total, x -> if x > 4 then Err(total) else Ok(total + x))"), false},
+	{"find_map", []string{"Iter.find_map"}, pipe("Iter.from(0)", " |> Iter.find_map(fn x -> if x > 3 then Some(x) else None)"), false},
 	{"find_index", []string{"Iter.find_index"}, pipe("Iter.from(0)", " |> Iter.find_index(&(&1 > 3))"), false},
 	{"first", []string{"Iter.first"}, pipe("Iter.repeat(1)", " |> Iter.first()"), false},
 	{"get", []string{"Iter.get"}, pipe("Iter.from(0)", " |> Iter.get(4)"), false},
@@ -147,8 +147,8 @@ var infiniteIterCases = []infiniteIterCase{
 	{"each_while", []string{"Iter.each_while"}, pipe("Iter.from(0)", " |> Iter.each_while(&(&1 < 3))"), false},
 	{"known_count", []string{"Iter.known_count"}, pipe("Iter.from(0)", " |> Iter.known_count()"), false},
 	{"is_infinite", []string{"Iter.is_infinite"}, pipe("Iter.from(0)", " |> Iter.is_infinite()"), false},
-	{"Maybe.collect", []string{"Maybe.collect"}, pipe("Range.naturals() |> Iter.map(fn n -> if n < 3 { Maybe.Some(n) } else { Maybe.None })", " |> Maybe.collect()"), false},
-	{"Result.collect", []string{"Result.collect"}, pipe("Iter.from(0) |> Iter.map(fn n -> if n < 3 { Result.Ok(n) } else { Result.Err(\"x\") })", " |> Result.collect()"), false},
+	{"Maybe.collect", []string{"Maybe.collect"}, pipe("Range.naturals() |> Iter.map(fn n -> if n < 3 then Maybe.Some(n) else Maybe.None)", " |> Maybe.collect()"), false},
+	{"Result.collect", []string{"Result.collect"}, pipe("Iter.from(0) |> Iter.map(fn n -> if n < 3 then Result.Ok(n) else Result.Err(\"x\"))", " |> Result.collect()"), false},
 }
 
 // infiniteIterRuntimeNames is each case whose trap names a terminal other
@@ -185,16 +185,16 @@ func infiniteIterProgram(expr string) string {
 	return src
 }
 
-const infiniteIterMain = `fn hide<T>(xs: Iter<T>) -> Iter<T> {
+const infiniteIterMain = `fn hide<T>(xs: Iter<T>) -> Iter<T>
     xs
-}
+end
 
-fn main() {
+fn main()
     ok: Result<Int, String> = Result.Ok(1)
     _ = ok
     _ = hide([1])
     _ = EXPR
-}
+end
 `
 
 // The checker reports an infinite iterator exactly where the runtime traps

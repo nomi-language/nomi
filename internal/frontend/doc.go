@@ -237,7 +237,7 @@
 //     a size; only a reached `once` is lowered, so pruning drops an unread
 //     `embed`. std/embed is a program std module written in Nomi over a
 //     `Map` of files and one of directories. A file's `Contents` is
-//     `Stored{handle, size}` (or `Held(Bytes)` for trees its examples
+//     `Stored{handle:, size:}` (or `Held(Bytes)` for trees its examples
 //     build), so `paths`, `list`, `walk`, `metadata`, `exists` and `sub`
 //     read no contents.
 //   - Reading contents. An ir.ConstEmbedded carries an ir.EmbeddedRef

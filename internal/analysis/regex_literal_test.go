@@ -9,7 +9,7 @@ import (
 // reports when expr is bound to an Int.
 func literalTypeOf(t *testing.T, expr string) string {
 	t.Helper()
-	src := "import std::regex.Regex\n\nfn f(w: String) -> Unit {\n  a: Int = " + expr + "\n  _ = a\n}\n"
+	src := "import std::regex.Regex\n\nfn f(w: String) -> Unit\n  a: Int = " + expr + "\n  _ = a\nend\n"
 	for _, e := range checkTypedLiteralSource(src) {
 		if _, got, found := strings.Cut(e.Message, ", got "); found {
 			return got
@@ -31,8 +31,8 @@ func TestRegexLiteral_TypeNamesItsCaptureGroups(t *testing.T) {
 		{"Regex`(a)+(b)*`", "Regex<(String, Maybe<String>)>"},
 		{"Regex`(?:(a))?(b)`", "Regex<(Maybe<String>, String)>"},
 		{"Regex`((a)?)`", "Regex<(String, Maybe<String>)>"},
-		{"Regex`(?P<year>\\d{4})-(?P<month>\\d\\d)?`", "Regex<.{year: String, month: Maybe<String>}>"},
-		{"Regex`(?P<year>\\d{4})`", "Regex<.{year: String}>"},
+		{"Regex`(?P<year>\\d{4})-(?P<month>\\d\\d)?`", "Regex<{year: String, month: Maybe<String>}>"},
+		{"Regex`(?P<year>\\d{4})`", "Regex<{year: String}>"},
 		{"Regex`(?P<key>\\w+)=(\\w+)`", "Regex<(String, String)>"},
 		// A name a field cannot have, or a keyword, makes a tuple.
 		{"Regex`(?P<Key>\\w+)=(?P<value>\\w+)`", "Regex<(String, String)>"},
@@ -57,18 +57,18 @@ func TestRegexLiteral_TypeNamesItsCaptureGroups(t *testing.T) {
 // function that does not read groups takes a Regex of any capture type.
 func TestRegexLiteral_CapturesAnswerTheCaptureType(t *testing.T) {
 	src := "import std::regex.Regex\n\n" +
-		"fn first<C>(re: Regex<C>, text: String) -> Maybe<C> {\n" +
+		"fn first<C>(re: Regex<C>, text: String) -> Maybe<C>\n" +
 		"  String.captures(text, re)\n" +
-		"}\n\n" +
-		"fn f() -> Unit {\n" +
+		"end\n\n" +
+		"fn f() -> Unit\n" +
 		"  a: Maybe<(String, Maybe<String>)> = String.captures(\"x\", Regex`(\\w)(\\d)?`)\n" +
-		"  b: List<.{key: String, value: String}> = String.captures_all(\"a=1\", Regex`(?P<key>\\w)=(?P<value>\\d)`)\n" +
+		"  b: List<{key: String, value: String}> = String.captures_all(\"a=1\", Regex`(?P<key>\\w)=(?P<value>\\d)`)\n" +
 		"  c: Maybe<String> = first(Regex`(\\d)`, \"1\")\n" +
 		"  d: Maybe<List<Maybe<String>>> = String.captures(\"x\", Regex.compile(\"(x)\")!)\n" +
 		"  e: Bool = String.contains(\"x\", Regex`(x)`) and String.contains(\"x\", Regex.compile(\"x\")!)\n" +
 		"  g: String = Regex.pattern(Regex`(?P<n>x)`)\n" +
 		"  _ = (a, b, c, d, e, g)\n" +
-		"}\n"
+		"end\n"
 	if errs := checkTypedLiteralSource(src); len(errs) != 0 {
 		t.Fatalf("the capture types are rejected: %v", errs)
 	}
@@ -77,7 +77,7 @@ func TestRegexLiteral_CapturesAnswerTheCaptureType(t *testing.T) {
 		"  a: Maybe<List<Maybe<String>>> = String.captures(\"x\", Regex`(\\w)`)\n",
 		"  a: Maybe<String> = String.captures(\"x\", Regex.compile(\"(x)\")!)\n",
 	} {
-		src := "import std::regex.Regex\n\nfn f() -> Unit {\n" + mistyped + "  _ = a\n}\n"
+		src := "import std::regex.Regex\n\nfn f() -> Unit\n" + mistyped + "  _ = a\nend\n"
 		if errs := checkTypedLiteralSource(src); len(errs) == 0 {
 			t.Errorf("%q is admitted", strings.TrimSpace(mistyped))
 		}
@@ -87,9 +87,9 @@ func TestRegexLiteral_CapturesAnswerTheCaptureType(t *testing.T) {
 // A Regex's capture type is phantom, so asking for Display or Debug of a
 // Regex<C> does not ask for them of C (a struct or Unit has no Display).
 func TestRegexLiteral_DisplayDoesNotDemandTheCaptureType(t *testing.T) {
-	src := "import std::regex.Regex\n\nfn f() -> String {\n" +
+	src := "import std::regex.Regex\n\nfn f() -> String\n" +
 		"  Regex.to_string(Regex`x`) + Display.to_string(Regex`(?P<a>x)`) + \"${Regex`(?P<b>y)`}\"\n" +
-		"}\n"
+		"end\n"
 	if errs := checkTypedLiteralSource(src); len(errs) != 0 {
 		t.Fatalf("displaying a regex is rejected: %v", errs)
 	}

@@ -16,25 +16,28 @@ program runs.
 ## Binding patterns and guards
 
 ```nomi-run
-fn label(text: String) -> String {
-    case String.length(text) {
+fn label(text: String) -> String
+    case String.length(text)
         0 -> "empty"
         n when n > 10 -> "long, ${n} characters"
         n -> "${n} characters"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg label("")
     dbg label("hello")
     dbg label("hello there, world")
-}
+end
 ```
 <!-- expect
 dbg line 10: label("") = "empty"
 dbg line 11: label("hello") = "5 characters"
 dbg line 12: label("hello there, world") = "long, 18 characters"
 -->
+
+Each arm starts its own line. An arm whose `->` ends its line takes the lines
+below as its body, up to the next arm or the `case`'s `end`.
 
 A plain name in a pattern, like `n`, matches any value and gives it that name,
 here the length. `when` adds a condition, called a guard. The arm runs only if
@@ -64,22 +67,22 @@ Patterns can also take a value apart. This is the `Shape` enum from
 [Structs, Enums, Distinct Types](/structs-enums-distinct/):
 
 ```nomi-run
-enum Shape {
+enum Shape
     Circle Float
     Rectangle {width: Float, height: Float}
-}
+end
 
-fn area(s: Shape) -> Float {
-    case s {
+fn area(s: Shape) -> Float
+    case s
         .Circle(r) -> r * r * 3.14159
-        .Rectangle{width, height} -> width * height
-    }
-}
+        .Rectangle{width:, height:} -> width * height
+    end
+end
 
-fn main() {
+fn main()
     dbg area(.Circle(3.0))
     dbg area(.Rectangle{width: 4.0, height: 5.0})
-}
+end
 ```
 <!-- expect
 dbg line 14: area(.Circle(3.0)) = 28.27431
@@ -87,66 +90,68 @@ dbg line 15: area(.Rectangle{width: 4.0, height: 5.0}) = 20.0
 -->
 
 `.Circle(r)` matches a circle and names its radius `r`.
-`.Rectangle{width, height}` matches a rectangle and names both fields.
+`.Rectangle{width:, height:}` matches a rectangle and names both fields.
 
 Tuples and structs work the same way: `(a, b) -> ...` and
-`Point{x, y} -> ...`. A pattern is written the way the value is built.
+`Point{x:, y:} -> ...`. A pattern is written the way the value is built.
 
 ### Lists, vectors and sets
 
-A list or vector pattern names items from the front, `..` stands for the
-rest, and items after the `..` are named from the end. A vector pattern is
-`#[...]`. A set pattern, `%[...]`, checks which values the set holds:
+A bracket pattern takes apart the list, vector or set it matches. Over a
+list or a vector it names items from the front, `..` stands for the rest,
+and items after the `..` are named from the end. Over a set it checks which
+values the set holds:
 
 ```nomi-run
-fn first_two(words: List<String>) -> String {
-    case words {
+fn first_two(words: List<String>) -> String
+    case words
         [] -> "no words"
         [only] -> only
         [a, b, ..] -> "${a} ${b}"
-    }
-}
+    end
+end
 
-fn last(v: Vector<Int>) -> Maybe<Int> {
-    case v {
-        #[] -> None
-        #[.., z] -> Some(z)
-    }
-}
+fn last(v: Vector<Int>) -> Maybe<Int>
+    case v
+        [] -> None
+        [.., z] -> Some(z)
+    end
+end
 
-fn access(roles: Set<String>) -> String {
-    case roles {
-        %["admin", ..] -> "everything"
-        %["editor", "viewer", ..] -> "write and read"
+fn access(roles: Set<String>) -> String
+    case roles
+        ["admin", ..] -> "everything"
+        ["editor", "viewer", ..] -> "write and read"
         _ -> "read only"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg first_two(["hello", "big", "world"])
-    dbg last(#[1, 2, 3])
-    dbg access(%["viewer", "editor"])
-    dbg access(%["viewer"])
-}
+    dbg last([1, 2, 3])
+    dbg access(["viewer", "editor"])
+    dbg access(["viewer"])
+end
 ```
 <!-- expect
 dbg line 25: first_two(["hello", "big", "world"]) = "hello big"
-dbg line 26: last(#[1, 2, 3]) = Some(3)
-dbg line 27: access(%["viewer", "editor"]) = "write and read"
-dbg line 28: access(%["viewer"]) = "read only"
+dbg line 26: last([1, 2, 3]) = Some(3)
+dbg line 27: access(["viewer", "editor"]) = "write and read"
+dbg line 28: access(["viewer"]) = "read only"
 -->
 
 `[a, b, ..]` matches a list of two or more items and ignores the rest;
-`..rest` would name it. `#[.., z]` matches a vector of at least one item and
+`..rest` would name it. `[.., z]` matches a vector of at least one item and
 names the last, and `["graph {", ..body, "}"]` names the lines between two
 others. Reaching a list's last items walks the list once. The compiler checks
 list and vector arms by length, so `first_two` and `last` need no `_` arm.
 
-A set pattern matches when the set holds every value it lists, in any order.
-`..others` names the values it did not list, and without a `..` the set must
-hold exactly the values written. The values are expressions, looked up rather
-than bound, so a set pattern can never cover every set, and `access` needs its
-`_` arm.
+Over a set, the pattern matches when the set holds every value it lists, in
+any order. `..others` names the values it did not list, and without a `..`
+the set must hold exactly the values written. The values are constants,
+looked up rather than bound, so a set pattern can never cover every set, and
+`access` needs its `_` arm. The arguments need no `Vector` or `Set`: each
+parameter's type says which collection `[...]` is.
 
 A string pattern can match a prefix: the arm `"/users/" + id -> ...` matches
 a string that starts with `/users/` and names the rest `id`.
@@ -154,11 +159,12 @@ a string that starts with `/users/` and names the rest `id`.
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- A map pattern, `%{"port" => p}`, matches a map that holds every key it
+- A map pattern, `{"port" => p}`, matches a map that holds every key it
   names; other keys are ignored. A missing key just fails to match. Like a
   set pattern, it needs a `_` arm.
 - Map keys and set elements are values to look up, never names to bind:
-  `%[_, ..]` is an error.
+  `[_, ..]` over a set is an error. A set's elements are constants, and a
+  guard tests a value in scope: `[..] when Set.contains(roles, role)`.
 - In a string prefix pattern the left side is a plain string literal and
   the right side a name. The rest may be empty, and the pattern can nest:
   `Some("/users/" + id)`.
@@ -166,13 +172,13 @@ a string that starts with `/users/` and names the rest `id`.
   items after it from the end.
 
 ```nomi
-fn route(path: String) -> String {
-    case path {
+fn route(path: String) -> String
+    case path
         "/users/" + id -> "user ${id}"
         "/health" -> "ok"
         _ -> "not found"
-    }
-}
+    end
+end
 ```
 
 Spec: [Map Destructuring](/spec/patterns/#map-destructuring),
@@ -188,29 +194,29 @@ Sometimes an arm needs both the parts and the whole value. `pattern as name`
 matches the pattern and also gives the whole value a name:
 
 ```nomi-run
-enum Shape {
+enum Shape
     Circle Float
     Rectangle {width: Float, height: Float}
-}
+end
 
-fn area(s: Shape) -> Float {
-    case s {
+fn area(s: Shape) -> Float
+    case s
         .Circle(r) -> r * r * 3.0
-        .Rectangle{width, height} -> width * height
-    }
-}
+        .Rectangle{width:, height:} -> width * height
+    end
+end
 
-fn describe(s: Shape) -> String {
-    case s {
-        .Rectangle{width, height} as sq when width == height -> "a square of area ${area(sq)}"
+fn describe(s: Shape) -> String
+    case s
+        .Rectangle{width:, height:} as sq when width == height -> "a square of area ${area(sq)}"
         other -> "a shape of area ${area(other)}"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg describe(.Rectangle{width: 2.0, height: 2.0})
     dbg describe(.Circle(1.0))
-}
+end
 ```
 <!-- expect
 dbg line 21: describe(.Rectangle{width: 2.0, height: 2.0}) = "a square of area 4.0"
@@ -221,7 +227,7 @@ The first arm reads `width` and `height`, and passes the whole rectangle to
 `area` as `sq`. Without `as`, it would have to build the rectangle again.
 
 `as` names the whole pattern to its left. `Ok(x) as r` names the whole `Result`.
-`Ok(Point{x, y} as p)` names only the `Point` inside. The name has the type of
+`Ok(Point{x:, y:} as p)` names only the `Point` inside. The name has the type of
 the value it names, so `sq` is a `Shape`.
 
 `as` works anywhere a pattern does, including `if`, bindings, parameters and
@@ -251,24 +257,24 @@ Spec: [Naming the Whole Match](/spec/patterns/#naming-the-whole-match-as),
 several shapes:
 
 ```nomi-run
-enum Shape {
+enum Shape
     Circle Float
     Square Float
     Rectangle {width: Float, height: Float}
-}
+end
 
-fn size(s: Shape) -> String {
-    case s {
+fn size(s: Shape) -> String
+    case s
         .Circle(r) or .Square(r) when r > 10.0 -> "big, ${r} across"
         .Circle(r) or .Square(r) -> "${r} across"
-        .Rectangle{width, height} -> "${width} by ${height}"
-    }
-}
+        .Rectangle{width:, height:} -> "${width} by ${height}"
+    end
+end
 
-fn main() {
+fn main()
     dbg size(.Square(12.0))
     dbg size(.Circle(2.0))
-}
+end
 ```
 <!-- expect
 dbg line 16: size(.Square(12.0)) = "big, 12.0 across"
@@ -293,21 +299,21 @@ and binds nothing, so it fits wherever a condition does, in place of a
 `case` with a `True` arm and a `_ -> False` arm:
 
 ```nomi-run
-enum Block {
+enum Block
     Item String
     Text String
-}
+end
 
-fn closes(c: Codepoint) -> Bool {
+fn closes(c: Codepoint) -> Bool
     c is (')' or ']' or '}')
-}
+end
 
-fn main() {
+fn main()
     blocks = [Block.Item("milk"), .Text("note"), .Item("eggs")]
     dbg blocks |> Iter.count_by(&(&1 is .Item(_)))
     dbg closes(']')
     dbg not Some(3) is None
-}
+end
 ```
 <!-- expect
 dbg line 12: blocks |> Iter.count_by(&(&1 is .Item(_))) = 2
@@ -332,25 +338,25 @@ Nomi uses two enums for operations that might not have a result:
 Both types and their variants are always available. You do not import them.
 
 ```nomi-run
-fn lookup(id: Int) -> Maybe<String> {
-    case id {
+fn lookup(id: Int) -> Maybe<String>
+    case id
         1 -> Some("Alice")
         2 -> Some("Bob")
         _ -> None
-    }
-}
+    end
+end
 
-fn name_for(id: Int) -> String {
-    case lookup(id) {
+fn name_for(id: Int) -> String
+    case lookup(id)
         Some(name) -> name
         None -> "unknown"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg name_for(1)
     dbg name_for(99)
-}
+end
 ```
 <!-- expect
 dbg line 17: name_for(1) = "Alice"
@@ -361,25 +367,25 @@ For a quick check of a single pattern, `if` can match it directly. The names
 the pattern binds exist only in the first branch:
 
 ```nomi-run
-fn lookup(id: Int) -> Maybe<String> {
-    case id {
+fn lookup(id: Int) -> Maybe<String>
+    case id
         1 -> Some("Alice")
         _ -> None
-    }
-}
+    end
+end
 
-fn label_for(id: Int) -> String {
-    if Some(name) = lookup(id) {
+fn label_for(id: Int) -> String
+    if Some(name) = lookup(id) then
         name
-    } else {
+    else
         "unknown"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     dbg label_for(1)
     dbg label_for(9)
-}
+end
 ```
 <!-- expect
 dbg line 17: label_for(1) = "Alice"
@@ -389,35 +395,32 @@ dbg line 18: label_for(9) = "unknown"
 ## Passing failures up
 
 ```nomi-run
-fn safe_div(a: Int, b: Int) -> Result<Int, String> {
-    if b == 0 {
-        Err("div by zero")
-    } else {
-        Ok(a / b)
-    }
-}
+fn safe_div(a: Int, b: Int) -> Result<Int, String>
+    if b == 0 then Err("div by zero") else Ok(a / b)
+end
 
-fn calculate(x: Int, y: Int) -> Result<Int, String> {
+fn calculate(x: Int, y: Int) -> Result<Int, String>
     half = safe_div(x, 2)?
     ratio = safe_div(half, y)?
     Ok(ratio + 1)
-}
+end
 
-fn main() {
+fn main()
     dbg calculate(100, 5)
     dbg calculate(100, 0)
-}
-
+end
 ```
 <!-- expect
-dbg line 16: calculate(100, 5) = Ok(11)
-dbg line 17: calculate(100, 0) = Err("div by zero")
+dbg line 12: calculate(100, 5) = Ok(11)
+dbg line 13: calculate(100, 0) = Err("div by zero")
 -->
 
 A `?` after a `Maybe` or `Result` value gives you the value inside, or returns
 the `None` or `Err` from the whole function at once. The function must return
 the same kind: a `Maybe`'s `?` needs a function that returns a `Maybe`. To turn
-one into the other, use `Maybe.to_result`, as below.
+one into the other, use `Maybe.to_result`, as below. When the `Err`'s type is
+not the function's error type, `?` applies that type's `From` impl
+([spec](/spec/failure/#propagating-with-)).
 
 In `calculate(100, 0)`, the second `safe_div` fails, so `calculate` returns
 `Err("div by zero")` and never reaches `Ok(ratio + 1)`.
@@ -425,25 +428,21 @@ In `calculate(100, 0)`, the second `safe_div` fails, so `calculate` returns
 `main` can return `Result<Unit, E>`, and then you can use `?` in it:
 
 ```nomi-run error
-fn safe_div(a: Int, b: Int) -> Result<Int, String> {
-    if b == 0 {
-        Err("div by zero")
-    } else {
-        Ok(a / b)
-    }
-}
+fn safe_div(a: Int, b: Int) -> Result<Int, String>
+    if b == 0 then Err("div by zero") else Ok(a / b)
+end
 
-fn calculate(x: Int, y: Int) -> Result<Int, String> {
+fn calculate(x: Int, y: Int) -> Result<Int, String>
     half = safe_div(x, 2)?
     ratio = safe_div(half, y)?
     Ok(ratio + 1)
-}
+end
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     ratio = calculate(100, 0)?
     dbg ratio
     Ok(Unit)
-}
+end
 ```
 <!-- expect
 error: div by zero
@@ -469,17 +468,17 @@ To parse a list of inputs, map each one to a `Result` and end the pipe with
 `Result.collect()?`:
 
 ```nomi-run
-fn parse(text: String) -> Result<Int, String> {
+fn parse(text: String) -> Result<Int, String>
     Maybe.to_result(String.to_int(text), "not a number: ${text}")
-}
+end
 
-fn total(inputs: List<String>) -> Result<Int, String> {
+fn total(inputs: List<String>) -> Result<Int, String>
     numbers = inputs |> Iter.map(parse) |> Result.collect()?
 
     Ok(Iter.sum(numbers))
-}
+end
 
-fn main() {
+fn main()
     dbg total(["1", "2", "3"])
     dbg total(["1", "x", "y"])
 
@@ -490,7 +489,7 @@ fn main() {
 
     dbg numbers
     dbg errors
-}
+end
 ```
 <!-- expect
 dbg line 12: total(["1", "2", "3"]) = Ok(6)
@@ -533,21 +532,21 @@ Spec: [Propagating with `?`](/spec/failure/#propagating-with-).
 A `!` written right after an expression unwraps its `Maybe` or `Result`:
 
 ```nomi-run error
-fn half(n: Int) -> Result<Int, String> {
-    if n % 2 == 0 {
+fn half(n: Int) -> Result<Int, String>
+    if n % 2 == 0 then
         Ok(n / 2)
-    } else {
+    else
         Err("${n} is odd")
-    }
-}
+    end
+end
 
-fn main() {
-    ages = %{"Ada" => 36, "Grace" => 45}
+fn main()
+    ages = {"Ada" => 36, "Grace" => 45}
     dbg Map.get(ages, "Ada")!
     dbg half(10)!
     dbg "8" |> String.to_int()!
     dbg Map.get(ages, "Alan")!
-}
+end
 ```
 <!-- expect
 dbg line 11: Map.get(ages, "Ada")! = 36
@@ -575,33 +574,33 @@ right where it happens instead. Write the pattern you expect, then `else` and
 what to do when the value does not match:
 
 ```nomi-run
-enum PortError {
+enum PortError
     Missing
     Invalid String
-}
+end
 
-fn parse_port(text: Maybe<String>) -> Result<Int, PortError> {
-    Some(raw) = text else { return Err(.Missing) }
+fn parse_port(text: Maybe<String>) -> Result<Int, PortError>
+    Some(raw) = text else return Err(.Missing)
 
-    Some(n) = String.to_int(raw) else { return Err(.Invalid(raw)) }
+    Some(n) = String.to_int(raw) else return Err(.Invalid(raw))
 
     Ok(n)
-}
+end
 
-fn port(text: Maybe<String>) -> Result<Int, String> {
-    Ok(n) = parse_port(text) else {
+fn port(text: Maybe<String>) -> Result<Int, String>
+    Ok(n) = parse_port(text) else
         Err(.Missing) -> 8080
         Err(.Invalid(raw)) -> return Err("bad port: ${raw}")
-    }
+    end
 
     Ok(n)
-}
+end
 
-fn main() {
+fn main()
     dbg port(Some("3000"))
     dbg port(Some("eighty"))
     dbg port(None)
-}
+end
 ```
 <!-- expect
 dbg line 24: port(Some("3000")) = Ok(3000)
@@ -610,10 +609,11 @@ dbg line 26: port(None) = Ok(8080)
 -->
 
 When the value matches, the names in the pattern can be used for the rest of
-the block. When it does not, the `else` part runs. It is either a block or a
-set of `case` arms over the value that did not match.
+the block. When it does not, the `else` part runs. It is a value or a jump on
+the `else`'s line, or on the lines below, closed by `end`, statements or a set
+of `case` arms over the value that did not match.
 
-`parse_port` uses blocks. Each one returns an error.
+`parse_port` writes it on the `else`'s line. Each one returns an error.
 
 `port` uses `case` arms over the error that came back. A missing port gives
 `8080`, which takes the place of the `Ok` value, so `n` is `8080`. An invalid
@@ -622,7 +622,7 @@ port returns an error naming the bad text.
 Each path through the `else` must do one of two things. It can leave, with
 `return` (or `break` or `continue` inside a loop callback). Or it can give a
 value to use in place of the matched one, as `8080` does for `n`. That works
-only when the pattern binds a single value. `[first, ..rest] = xs else { ... }`
+only when the pattern binds a single value. `[first, ..rest] = xs else ...`
 binds two, so its `else` must leave.
 
 <div class="tour-details">
@@ -633,7 +633,7 @@ binds two, so its `else` must leave.
 - A fallback stands in for one variant's payload. A nested pattern such as
   `Ok(Some(x))` has no single payload, so its `else` must leave.
 - A pattern that always matches takes no `else`:
-  `(x, y) = pair else { ... }` is `this pattern always matches; remove the else`.
+  `(x, y) = pair else return` is `this pattern always matches; remove the else`.
 
 Spec: [Bindings with `else`](/spec/patterns/#bindings-with-else).
 

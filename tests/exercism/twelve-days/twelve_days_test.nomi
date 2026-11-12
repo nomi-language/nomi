@@ -64,26 +64,26 @@ once verses = [
     ),
 ]
 
-test "verse" {
-    subtests verses, (description, number, expected), description {
+test "verse"
+    subtests verses, (description, number, expected), description
         assert twelve_days.recite(number, number) == [expected]
-    }
-}
+    end
+end
 
-test "lyrics" {
+test "lyrics"
     [
         ("recites first three verses of the song", 1, 3),
         ("recites three verses from the middle of the song", 4, 6),
         ("recites the whole song", 1, 12),
     ]
-    |> subtests (description, start, end), description {
+    |> subtests (description, start, stop), description
         expected =
             verses
             |> Iter.drop(start - 1)
-            |> Iter.take(end - start + 1)
+            |> Iter.take(stop - start + 1)
             |> Iter.map(fn (_description, _number, verse) -> verse)
             |> Iter.to_list()
 
-        assert twelve_days.recite(start, end) == expected
-    }
-}
+        assert twelve_days.recite(start, stop) == expected
+    end
+end

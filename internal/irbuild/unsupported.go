@@ -394,8 +394,7 @@ var constructNames = map[string]string{
 	// NodeType.
 	"InterfaceMethod":    "interface method requirement",
 	"Lambda":             "lambda",
-	"ListLit":            "list literal",
-	"ListSpreadLit":      "list spread literal",
+	"ListLit":            "bracket literal",
 	"MapLit":             "map literal",
 	"NamedArg":           "named argument",
 	"OnceBinding":        "once binding",
@@ -405,7 +404,6 @@ var constructNames = map[string]string{
 	"Placeholder":        "capture parameter",
 	"Capture":            "capture",
 	"RangeLit":           "range literal",
-	"SetLit":             "set literal",
 	"StructDef":          "struct declaration",
 	"StructDestructure":  "struct destructuring",
 	"StructLit":          "struct literal",
@@ -417,7 +415,6 @@ var constructNames = map[string]string{
 	"TupleLit":           "tuple literal",
 	"TypeAlias":          "type alias",
 	"TypeDef":            "type declaration",
-	"VectorLit":          "vector literal",
 }
 
 func constructName(n ast.Node) string {

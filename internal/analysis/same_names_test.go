@@ -12,33 +12,33 @@ import (
 // call opens the function that uses them.
 func sameNamesText(imports, call string) string {
 	return imports + `
-interface Announcer<T> {
+interface Announcer<T>
     fn item(s: self) -> T
 
-    fn announce(_s: self, loud: Bool = False) -> String {
-        if loud { "item!" } else { "item" }
-    }
-}
+    fn announce(_s: self, loud: Bool = False) -> String
+        if loud then "item!" else "item"
+    end
+end
 
-struct Box {
+struct Box
     value: Int
-}
+end
 
-impl Announcer for Box {
-    fn item(s: Box) -> Int {
+impl Announcer for Box
+    fn item(s: Box) -> Int
         s.value
-    }
-}
+    end
+end
 
-interface Labeled {
+interface Labeled
     fn label(v: self) -> String
-}
+end
 
-impl Labeled for Box {
-    fn label(v: Box) -> String {
+impl Labeled for Box
+    fn label(v: Box) -> String
         "box ${v.value}"
-    }
-}
+    end
+end
 
 derive Equatable for Box
 
@@ -48,7 +48,7 @@ derive Equatable for Box
     io.inspect(Announcer.item(b))
     io.print(Labeled.label(b))
     io.inspect(b == Box{value: 7})
-}
+end
 `
 }
 
@@ -57,8 +57,8 @@ derive Equatable for Box
 // tables, keyed by name, must still tell apart.
 func sameNamesProject() incrementalProject {
 	return incrementalProject{name: "same names", entry: "main", texts: map[string]string{
-		"main":  sameNamesText("import {\n    std::io\n    other\n}\n", "fn main() {\n    other.run()"),
-		"other": sameNamesText("import std::io\n", "pub fn run() {"),
+		"main":  sameNamesText("import\n    std::io\n    other\nend\n", "fn main()\n    other.run()"),
+		"other": sameNamesText("import std::io\n", "pub fn run()"),
 	}}
 }
 
@@ -100,31 +100,31 @@ func TestSameNamedDeclarationsInTwoFilesStayApart(t *testing.T) {
 // see the entry's impl, named none.
 func TestOnlyOneFileDerivesForASameNamedType(t *testing.T) {
 	p := incrementalProject{name: "one derive", entry: "main", texts: map[string]string{
-		"main": `import {
+		"main": `import
     std::io
     other
-}
+end
 
-struct Box {
+struct Box
     value: Int
-}
+end
 
 derive Equatable for Box
 
-fn main() {
+fn main()
     io.inspect(Box{value: 1} == Box{value: 1})
     other.run()
-}
+end
 `,
 		"other": `import std::io
 
-struct Box {
+struct Box
     value: Int
-}
+end
 
-pub fn run() {
+pub fn run()
     io.inspect(Box{value: 2} == Box{value: 2})
-}
+end
 `,
 	}}
 	full := fullCheck(p, p.texts)

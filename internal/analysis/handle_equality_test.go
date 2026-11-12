@@ -18,16 +18,16 @@ func TestHandleEquality_IsRejected(t *testing.T) {
 			"`!=` cannot compare `Receiver<Int>`: a handle to running state has no equality"},
 		{"context", "c = Context.root()\n    _ = c == c",
 			"`==` cannot compare `Context`: a handle to running state has no equality"},
-		{"task", "_ = concurrent {\n        t = Task.spawn(fn -> 1)\n        t == t\n    }",
+		{"task", "_ = concurrent\n        t = Task.spawn(fn -> 1)\n        t == t\n    end",
 			"`==` cannot compare `Task<Int>`: a handle to running state has no equality"},
 		{"held in a Maybe", "c = Some(Context.root())\n    _ = c == c",
 			"`==` cannot compare `Maybe<Context>`: it holds `Context`, and a handle to running state has no equality"},
-		{"map key", "m = %{Context.root() => 1}\n    _ = m",
+		{"map key", "m = {Context.root() => 1}\n    _ = m",
 			"`Context` cannot be a Map key: a handle to running state has no equality or hashing"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "import {\n    std::channels.Channel\n    std::tasks.Task\n}\n\nfn main() {\n    " + tc.body + "\n}\n"
+			src := "import\n    std::channels.Channel\n    std::tasks.Task\nend\n\nfn main()\n    " + tc.body + "\nend\n"
 			_, errs := checkSourceWithStdlib(src)
 			var got []string
 			for _, e := range errs {
@@ -45,21 +45,21 @@ func TestHandleEquality_IsRejected(t *testing.T) {
 // A struct with its own `impl Equatable` compares through that impl, so a
 // handle among its fields is no error.
 func TestHandleEquality_AdmitsATypeWithItsOwnImpl(t *testing.T) {
-	src := `struct Job {
+	src := `struct Job
     id: Int
     ctx: Context
-}
+end
 
-impl Equatable for Job {
-    fn equal(a: Job, b: Job) -> Bool {
+impl Equatable for Job
+    fn equal(a: Job, b: Job) -> Bool
         a.id == b.id
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     j = Job{id: 1, ctx: Context.root()}
     _ = j == j
-}
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	for _, e := range errs {

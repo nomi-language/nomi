@@ -13,9 +13,9 @@ import (
 
 func TestParseListSpreadSingleHead(t *testing.T) {
 	expr := parseExpr(t, "[1, ..xs]")
-	sl, ok := expr.(*ast.ListSpreadLit)
+	sl, ok := expr.(*ast.ListLit)
 	if !ok {
-		t.Fatalf("expected *ast.ListSpreadLit, got %T", expr)
+		t.Fatalf("expected got %T", expr)
 	}
 	if len(sl.Items) != 1 {
 		t.Fatalf("expected 1 element, got %d", len(sl.Items))
@@ -73,25 +73,21 @@ func TestParseCollectionSpreadsAnywhere(t *testing.T) {
 		{"[1, ..xs, 2, ..ys, 3]", "1 ..xs 2 ..ys 3"},
 		{"[..xs, 3,]", "..xs 3"},
 		{"[1, ..xs,]", "1 ..xs"},
-		{"#[1, ..v, 2]", "1 ..v 2"},
-		{"#[..a, ..b]", "..a ..b"},
-		{"#[..a, 1, ..b]", "..a 1 ..b"},
-		{"%[3, ..s]", "3 ..s"},
-		{"%[..s, ..t]", "..s ..t"},
-		{"%[1, ..s, 2, ..t]", "1 ..s 2 ..t"},
-		{`%{"c" => 3, ..m}`, "c ..m"},
-		{`%{..m, ..n}`, "..m ..n"},
-		{`%{..m, "a" => 1, ..n, "b" => 2}`, "..m a ..n b"},
-		{"%{\n  \"a\" => 1,\n  ..m,\n  ..n,\n}", "a ..m ..n"},
+		{"Vector[1, ..v, 2]", "1 ..v 2"},
+		{"Vector[..a, ..b]", "..a ..b"},
+		{"Vector[..a, 1, ..b]", "..a 1 ..b"},
+		{"Set[3, ..s]", "3 ..s"},
+		{"Set[..s, ..t]", "..s ..t"},
+		{"Set[1, ..s, 2, ..t]", "1 ..s 2 ..t"},
+		{`{"c" => 3, ..m}`, "c ..m"},
+		{`{..m, ..n}`, "..m ..n"},
+		{`{..m, "a" => 1, ..n, "b" => 2}`, "..m a ..n b"},
+		{"{\n  \"a\" => 1,\n  ..m,\n  ..n,\n}", "a ..m ..n"},
 	} {
 		t.Run(tc.src, func(t *testing.T) {
 			var got string
 			switch v := parseExpr(t, tc.src).(type) {
-			case *ast.ListSpreadLit:
-				got = spreadText(v.Items, v.Spreads)
-			case *ast.VectorLit:
-				got = spreadText(v.Items, v.Spreads)
-			case *ast.SetLit:
+			case *ast.ListLit:
 				got = spreadText(v.Items, v.Spreads)
 			case *ast.MapLit:
 				keys := make([]ast.Node, len(v.Entries))
@@ -113,10 +109,10 @@ func TestParseCollectionSpreadsAnywhere(t *testing.T) {
 // no spread anywhere; the spread's head carries the type.
 func TestParseNamedLiteralsRefuseSpreads(t *testing.T) {
 	for _, tc := range []struct{ src, want string }{
-		{`%Kvs{"a" => 1, ..m}`, "map spread `..` has no named form"},
-		{`%Kvs{..m, "a" => 1}`, "map spread `..` has no named form"},
-		{`%Tags["a", ..s]`, "set spread `..` has no named form"},
-		{`#Path[1, ..v]`, "vector spread `..` has no named form"},
+		{`Kvs{"a" => 1, ..m}`, "map spread `..` has no named form"},
+		{`Kvs{..m, "a" => 1}`, "map spread `..` has no named form"},
+		{`Tags["a", ..s]`, "spread `..` has no named form; write `[..base, item]`"},
+		{`Path[1, ..v]`, "spread `..` has no named form; write `[..base, item]`"},
 	} {
 		err := parseError(t, tc.src)
 		if !strings.Contains(err.Error(), tc.want) {
@@ -160,7 +156,7 @@ func parseFirstCasePattern(t *testing.T, src string) ast.Node {
 }
 
 func TestParsePatternListSpreadSingleHead(t *testing.T) {
-	pat := parseFirstCasePattern(t, "case xs { [h, ..t] -> 1 }")
+	pat := parseFirstCasePattern(t, "case xs\n    [h, ..t] -> 1\nend")
 	lp, ok := pat.(*ast.ListPattern)
 	if !ok {
 		t.Fatalf("expected *ast.ListPattern, got %T", pat)
@@ -178,7 +174,7 @@ func TestParsePatternListSpreadSingleHead(t *testing.T) {
 }
 
 func TestParsePatternListSpreadMultipleHeads(t *testing.T) {
-	pat := parseFirstCasePattern(t, "case xs { [a, b, ..rest] -> 1 }")
+	pat := parseFirstCasePattern(t, "case xs\n    [a, b, ..rest] -> 1\nend")
 	lp, ok := pat.(*ast.ListPattern)
 	if !ok {
 		t.Fatalf("expected *ast.ListPattern, got %T", pat)
@@ -193,7 +189,7 @@ func TestParsePatternListSpreadMultipleHeads(t *testing.T) {
 }
 
 func TestParsePatternListSpreadNoHeads(t *testing.T) {
-	pat := parseFirstCasePattern(t, "case xs { [..t] -> 1 }")
+	pat := parseFirstCasePattern(t, "case xs\n    [..t] -> 1\nend")
 	lp, ok := pat.(*ast.ListPattern)
 	if !ok {
 		t.Fatalf("expected *ast.ListPattern, got %T", pat)
@@ -208,7 +204,7 @@ func TestParsePatternListSpreadNoHeads(t *testing.T) {
 }
 
 func TestParsePatternListSpreadWildcardTail(t *testing.T) {
-	pat := parseFirstCasePattern(t, "case xs { [h, ..] -> 1 }")
+	pat := parseFirstCasePattern(t, "case xs\n    [h, ..] -> 1\nend")
 	lp, ok := pat.(*ast.ListPattern)
 	if !ok {
 		t.Fatalf("expected *ast.ListPattern, got %T", pat)
@@ -219,7 +215,7 @@ func TestParsePatternListSpreadWildcardTail(t *testing.T) {
 }
 
 func TestParsePatternListSpreadTakesTrailingElements(t *testing.T) {
-	pat := parseFirstCasePattern(t, "case xs { [a, ..rest, b] -> 1 }")
+	pat := parseFirstCasePattern(t, "case xs\n    [a, ..rest, b] -> 1\nend")
 	lp, ok := pat.(*ast.ListPattern)
 	if !ok || len(lp.Heads) != 1 || len(lp.Tails) != 1 {
 		t.Fatalf("expected one head and one tail, got %#v", pat)

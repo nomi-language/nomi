@@ -954,15 +954,40 @@ func TestUnderscore(t *testing.T) {
 }
 
 func TestFuncDeclaration(t *testing.T) {
-	assertTokens(t, "fn add(x) { x }", []token.Token{
+	assertTokens(t, "fn add(x)\n    x\nend", []token.Token{
 		tok(token.FN, "fn"),
 		tok(token.IDENT, "add"),
 		tok(token.LPAREN, "("),
 		tok(token.IDENT, "x"),
 		tok(token.RPAREN, ")"),
-		tok(token.LBRACE, "{"),
+		tok(token.NEWLINE, "\n"),
 		tok(token.IDENT, "x"),
-		tok(token.RBRACE, "}"),
+		tok(token.NEWLINE, "\n"),
+		tok(token.END, "end"),
+		tok(token.EOF, ""),
+	})
+}
+
+// `begin`, `end` and `then` are keywords, and a line that starts with
+// `where` continues the header above it.
+func TestBodyKeywords(t *testing.T) {
+	assertTokens(t, "begin then end", []token.Token{
+		tok(token.BEGIN, "begin"),
+		tok(token.THEN, "then"),
+		tok(token.END, "end"),
+		tok(token.EOF, ""),
+	})
+	assertTokens(t, "f(x: T)\nwhere T: Show", []token.Token{
+		tok(token.IDENT, "f"),
+		tok(token.LPAREN, "("),
+		tok(token.IDENT, "x"),
+		tok(token.COLON, ":"),
+		tok(token.TYPE_IDENT, "T"),
+		tok(token.RPAREN, ")"),
+		tok(token.WHERE, "where"),
+		tok(token.TYPE_IDENT, "T"),
+		tok(token.COLON, ":"),
+		tok(token.TYPE_IDENT, "Show"),
 		tok(token.EOF, ""),
 	})
 }
@@ -1335,7 +1360,7 @@ func TestIsCompleteUnclosedParen(t *testing.T) {
 }
 
 func TestIsCompleteUnclosedBrace(t *testing.T) {
-	if IsComplete("if x > 0 {") {
+	if IsComplete("if x > 0 then") {
 		t.Error("expected incomplete for unclosed brace")
 	}
 }
@@ -1371,8 +1396,42 @@ func TestIsCompleteTrailingComma(t *testing.T) {
 }
 
 func TestIsCompleteBalancedBraces(t *testing.T) {
-	if !IsComplete("if x > 0 { 1 } else { 2 }") {
+	if !IsComplete("if x > 0 then 1 else 2") {
 		t.Error("expected complete for balanced braces")
+	}
+}
+
+// A body a header line opens keeps the input open until its `end`.
+func TestIsCompleteBodies(t *testing.T) {
+	for src, want := range map[string]bool{
+		"fn f() -> Int":                              false,
+		"fn f() -> Int\n    1":                       false,
+		"fn f() -> Int\n    1\nend":                  true,
+		"fn noop() end":                              true,
+		"struct P\n    x: Int":                       false,
+		"struct P\n    x: Int\nend":                  true,
+		"impl Marker for P end":                      true,
+		"interface I\n    fn f(s: self) -> Int":      false,
+		"interface I\n    fn f(s: self) -> Int\nend": true,
+		"x = case y\n    1 -> 2":                     false,
+		"x = case y\n    1 -> 2\n    _ -> 3\nend":    true,
+		"if c then\n    a\nelse":                     false,
+		"if c then\n    a\nelse\n    b\nend":         true,
+		"f(fn x ->\n    x + 1":                       false,
+		"f(fn x ->\n    x + 1\nend)":                 true,
+		"f(fn x -> x + 1)":                           true,
+		"y = begin\n    1":                           false,
+		"y = begin\n    1\nend":                      true,
+		"Some(n) = m else\n    return 0":             false,
+		"Some(n) = m else\n    return 0\nend":        true,
+		"Some(n) = m else return 0":                  true,
+		"x |> then fn v -> v":                        true,
+		"import\n    std::io":                        false,
+		"import\n    std::io\nend":                   true,
+	} {
+		if got := IsComplete(src); got != want {
+			t.Errorf("IsComplete(%q) = %v, want %v", src, got, want)
+		}
 	}
 }
 

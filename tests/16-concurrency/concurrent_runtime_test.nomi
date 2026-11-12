@@ -1,4 +1,4 @@
-import {
+import
     std::channels.{Channel, Receiver, Sender}
     std::compiler
     std::duration.Duration
@@ -6,87 +6,87 @@ import {
     std::tasks.Task
     std::testing.Clock
     std::timer
-}
+end
 
-fn produce(ch: Channel<Int>, n: Int) -> Unit {
-    case Sender.send(ch.sender, n) {
+fn produce(ch: Channel<Int>, n: Int) -> Unit
+    case Sender.send(ch.sender, n)
         Ok(u) -> u
         Err(_) -> Unit
-    }
-}
+    end
+end
 
-fn consume(ch: Channel<Int>) -> Int {
-    Iter.loop(0, fn sum -> {
-        case Receiver.receive(ch.receiver) {
+fn consume(ch: Channel<Int>) -> Int
+    Iter.loop(0, fn sum ->
+        case Receiver.receive(ch.receiver)
             Some(v) -> sum + v
             None -> break sum
-        }
-    })
-}
+        end
+    end)
+end
 
-fn long_sleep() -> Result<Int, String> {
+fn long_sleep() -> Result<Int, String>
     timer.sleep(Duration.seconds(5))
     Ok(0)
-}
+end
 
-fn short_fail() -> Result<Int, String> {
+fn short_fail() -> Result<Int, String>
     timer.sleep(Duration.milliseconds(10))
     Err("boom")
-}
+end
 
-fn nested_outer_body() -> Result<Int, String> {
-    concurrent {
+fn nested_outer_body() -> Result<Int, String>
+    concurrent
         inner_a = Task.spawn(fn -> timer.sleep(Duration.seconds(5)))
         inner_b = Task.spawn(fn -> timer.sleep(Duration.seconds(5)))
         _ia = inner_a
         _ib = inner_b
         Ok(42)
-    }
-}
+    end
+end
 
 // A channel is buffered or it is a rendezvous, and 0 is not a spelling of
 // the second one — `Channel.buffered(0)` is a name contradicting its own
 // argument, so it is rejected rather than aliased. Aliasing would let a
 // computed capacity slide silently from hand-off to rendezvous.
-test "buffered rejects a capacity that is not a buffer" {
+test "buffered rejects a capacity that is not a buffer"
     case compiler.run(
         """
         import std::channels.{Channel, Sender}
 
-        fn main() {
+        fn main()
           ch = Channel.buffered<Int>(0)
           _ = Sender.send(ch.sender, 1)
-        }
+        end
         """
-    ) {
-        Ok(_) -> assert False
+    )
+        Ok(_) ->
+            assert False
 
-        Err(message) -> {
+        Err(message) ->
             assert "capacity must be at least 1" in message
             assert "Channel.unbuffered()" in message
-        }
-    }
-}
+    end
+end
 
 // An unbuffered send does not return until somebody receives, so this
 // round-trips only because the two halves are in different tasks.
-test "unbuffered send and receive meet across two tasks" {
+test "unbuffered send and receive meet across two tasks"
     ch: Channel<Int> = Channel.unbuffered()
 
-    got = concurrent {
+    got = concurrent
         w = Task.spawn(fn -> Sender.send(ch.sender, 7))
         v = Receiver.receive(ch.receiver)
         _ = Task.await(w)
         v
-    }
+    end
 
     assert got == Some(7)
-}
+end
 
-test "producer consumer pipeline drains after channel close" {
+test "producer consumer pipeline drains after channel close"
     ch = Channel.buffered<Int>(4)
 
-    total = concurrent {
+    total = concurrent
         p1 = Task.spawn(fn -> produce(ch, 10))
         p2 = Task.spawn(fn -> produce(ch, 20))
         p3 = Task.spawn(fn -> produce(ch, 30))
@@ -97,26 +97,26 @@ test "producer consumer pipeline drains after channel close" {
         Task.await(p3)
         Sender.close(ch.sender)
         Task.await(cons)
-    }
+    end
 
     assert total == 60
-}
+end
 
-test "parallel sleepers complete inside concurrent block" {
-    concurrent {
+test "parallel sleepers complete inside concurrent block"
+    concurrent
         a = Task.spawn(fn -> timer.sleep(Duration.milliseconds(100)))
         b = Task.spawn(fn -> timer.sleep(Duration.milliseconds(100)))
         c = Task.spawn(fn -> timer.sleep(Duration.milliseconds(100)))
         Task.await(a)
         Task.await(b)
         Task.await(c)
-    }
+    end
 
     assert True
-}
+end
 
-test "failed task cancels long sibling tasks" {
-    outcome = concurrent {
+test "failed task cancels long sibling tasks"
+    outcome = concurrent
         short = Task.spawn(fn -> short_fail())
         long1 = Task.spawn(fn -> long_sleep())
         long2 = Task.spawn(fn -> long_sleep())
@@ -124,71 +124,71 @@ test "failed task cancels long sibling tasks" {
         _ = Task.await(long1)?
         _ = Task.await(long2)?
         Ok(result)
-    }
+    end
 
     assert Err(e) = outcome
     assert e == "boom"
-}
+end
 
-test "nested concurrent blocks observe parent cancellation" {
-    outcome = concurrent {
+test "nested concurrent blocks observe parent cancellation"
+    outcome = concurrent
         short = Task.spawn(fn -> short_fail())
         outer = Task.spawn(fn -> nested_outer_body())
         _o = outer
         Ok(Task.await(short)?)
-    }
+    end
 
     assert Err(e) = outcome
     assert e == "boom"
-}
+end
 
 // The deadline unblocks both receives, and it is not a value the block
 // hands back: the rest of its region unwinds with the work, so the print
 // after the block never runs (spec §16, "Exceeding that deadline is not a
 // value the block hands back"). `compiler.run` answers the fault `nomi run`
 // reports, as in 15-app-and-defer/deadline_floor/deadline_floor_test.
-test "env context timeout cancels blocked channel receives" {
+test "env context timeout cancels blocked channel receives"
     result = compiler.run(
         """
-        import {
+        import
           std::channels.{Channel, Receiver}
           std::duration.Duration
           std::io
           std::tasks.Task
-        }
+        end
 
-        struct Config {
+        struct Config
           context: Context
-        }
+        end
 
-        fn load(context: Context) -> Config {
-          Config{context}
-        }
+        fn load(context: Context) -> Config
+          Config{context:}
+        end
 
-        fn boot() -> Result<Config, String> {
+        fn boot() -> Result<Config, String>
           Ok(load(Context.root()))
-        }
+        end
 
-        fn main() {
+        fn main()
           ch: Channel<Int> = Channel.unbuffered()
 
           with Config.context = Context.with_timeout(Config.context, Duration.milliseconds(50))
           io.print("entered")
-          concurrent {
+          concurrent
             r1 = Task.spawn(fn -> Receiver.receive(ch.receiver))
             r2 = Task.spawn(fn -> Receiver.receive(ch.receiver))
             _v1 = Task.await(r1)
             _v2 = Task.await(r2)
-          }
+          end
 
           io.print("unreachable: this sits inside the deadline's region")
-        }
+        end
         """
     )
 
     assert Err(fault) = result
     assert "the context in force when `main` blocked" in fault
-}
+end
 
 // A `concurrent` block's signature behaviour is cancelling siblings when
 // one task short-circuits, and until virtual time there was no way to
@@ -203,20 +203,20 @@ test "env context timeout cancels blocked channel receives" {
 // These assertions discriminate: replacing the `?` with an
 // `outcome` — so nothing short-circuits and the siblings run to
 // completion — turns the 0 into the sleep's full duration.
-group "sibling cancellation is observable under a virtual clock" {
+group "sibling cancellation is observable under a virtual clock"
     clock Clock.Virtual
 
-    test "a short-circuit cancels its siblings instead of waiting for them" {
+    test "a short-circuit cancels its siblings instead of waiting for them"
         before = Instant.now()
 
-        outcome = concurrent {
+        outcome = concurrent
             short = Task.spawn(fn -> short_fail())
             long1 = Task.spawn(fn -> long_sleep())
             long2 = Task.spawn(fn -> long_sleep())
             _l1 = long1
             _l2 = long2
             Ok(Task.await(short)?)
-        }
+        end
 
         elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
 
@@ -224,17 +224,17 @@ group "sibling cancellation is observable under a virtual clock" {
         assert e == "boom"
         // 5 if either sibling ran to completion.
         assert elapsed == 0
-    }
+    end
 
-    test "cancellation reaches tasks nested inside a cancelled sibling" {
+    test "cancellation reaches tasks nested inside a cancelled sibling"
         before = Instant.now()
 
-        outcome = concurrent {
+        outcome = concurrent
             short = Task.spawn(fn -> short_fail())
             outer = Task.spawn(fn -> nested_outer_body())
             _o = outer
             Ok(Task.await(short)?)
-        }
+        end
 
         elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
 
@@ -243,5 +243,5 @@ group "sibling cancellation is observable under a virtual clock" {
         // The nested block's own tasks sleep 5 seconds; reaching them is the
         // property under test.
         assert elapsed == 0
-    }
-}
+    end
+end

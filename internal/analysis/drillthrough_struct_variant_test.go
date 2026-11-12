@@ -13,11 +13,11 @@ func TestDrillThroughStructVariantLit_TypesAsTheEnum(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`import std::supervisors.Backoff
 import std::supervisors.Backoff.Exponential
 
-fn main() {
+fn main()
   a: Backoff = Exponential{}
   b: Backoff = Exponential{max_restarts: 3}
   _pair = (a, b)
-}
+end
 `)
 	if len(errs) != 0 {
 		t.Fatalf("a bare imported struct variant literal must type as Backoff; got %v", errs)
@@ -27,10 +27,10 @@ fn main() {
 func TestDrillThroughStructVariantLit_ChecksFields(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`import std::supervisors.Backoff.Exponential
 
-fn main() {
+fn main()
   _a = Exponential{max_restarts: "three"}
   _b = Exponential{bogus: 1}
-}
+end
 `)
 	var mismatch, unknown bool
 	for _, e := range errs {

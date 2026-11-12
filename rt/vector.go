@@ -26,7 +26,7 @@ type Vector[T any] struct {
 
 // --- construction -----------------------------------------------------------
 
-// VectorOf builds `#[a, b, c]`, copying the elements so the literal's slice
+// VectorOf builds `[a, b, c]`, copying the elements so the literal's slice
 // cannot be aliased by a later push into the same backing array.
 func VectorOf[T any](elems []T) Vector[T] {
 	if len(elems) == 0 {
@@ -156,8 +156,8 @@ func VectorTail[T any](v Vector[T]) Vector[T] {
 
 // VectorSlice is the window of v from position from up to drop elements
 // before its end, in O(1): the `..rest` of a vector pattern
-// `#[a, ..rest, z]`, with from the heads and drop the tails. Like
-// VectorTail it shares v's storage, so a recursive `#[x, ..rest]` walk
+// `[a, ..rest, z]`, with from the heads and drop the tails. Like
+// VectorTail it shares v's storage, so a recursive `[x, ..rest]` walk
 // reads each element once instead of copying the rest at every step. A
 // window that would be empty or negative is the empty vector.
 func VectorSlice[T any](v Vector[T], from, drop int) Vector[T] {
@@ -238,7 +238,7 @@ func VectorContains[T any](v Vector[T], x T, eq func(T, T) bool) bool {
 
 // --- rendering --------------------------------------------------------------
 
-// FormatVector renders a Vector as `#[a, b]`, and `#[]` when empty.
+// FormatVector renders a Vector as `[a, b]`, and `[]` when empty.
 //
 // The brackets and the separator are all it decides; which of Nomi's renderings
 // you get is decided by `render`, exactly as in FormatListCells, FormatMap and
@@ -249,11 +249,11 @@ func VectorContains[T any](v Vector[T], x T, eq func(T, T) bool) bool {
 // are this function with a different `render`.
 func FormatVector[T any](v Vector[T], render func(T) string) string {
 	if v.Len == 0 {
-		return "#[]"
+		return "Vector[]"
 	}
 	parts := make([]string, v.Len)
 	for i := range v.Len {
 		parts[i] = render(v.Items[v.Start+i])
 	}
-	return "#[" + strings.Join(parts, ", ") + "]"
+	return "Vector[" + strings.Join(parts, ", ") + "]"
 }

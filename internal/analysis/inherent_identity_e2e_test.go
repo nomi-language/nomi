@@ -72,19 +72,19 @@ func TestInherentIdentity_LocalTypeOwnedFnBesideAStdlibOne(t *testing.T) {
 	fa := buildInherentFixture(t, map[string]string{
 		"main.nomi": `import std::calendar
 
-struct Date {
+struct Date
   flavor: String
-}
+end
 
-impl Date {
-  pub fn new(a: String, b: String) -> Date {
+impl Date
+  pub fn new(a: String, b: String) -> Date
     Date{flavor: a + b}
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   c = Date.new("a", "b")
-}
+end
 `,
 	})
 	if got := duplicateTypeOwnedDiagnostics(fa); len(got) != 0 {
@@ -99,23 +99,23 @@ func TestInherentIdentity_TwoFunctionsOnOneTypeStillRejected(t *testing.T) {
 	fa := buildInherentFixture(t, map[string]string{
 		"main.nomi": `import std::calendar
 
-struct Date {
+struct Date
   flavor: String
-}
+end
 
-impl Date {
-  pub fn new(a: String, b: String) -> Date {
+impl Date
+  pub fn new(a: String, b: String) -> Date
     Date{flavor: a + b}
-  }
+  end
 
-  pub fn new(a: String) -> Date {
+  pub fn new(a: String) -> Date
     Date{flavor: a}
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   Unit
-}
+end
 `,
 	})
 	got := duplicateTypeOwnedDiagnostics(fa)
@@ -135,27 +135,27 @@ fn main() {
 // counts only the duplicate-type-owned messages.)
 func TestInherentIdentity_CrossFileDuplicateOnOneTypeStillRejected(t *testing.T) {
 	fa := buildInherentFixture(t, map[string]string{
-		"shapes.nomi": `pub struct Date {
+		"shapes.nomi": `pub struct Date
   flavor: String
-}
+end
 
-impl Date {
-  pub fn new(a: String) -> Date {
+impl Date
+  pub fn new(a: String) -> Date
     Date{flavor: a}
-  }
-}
+  end
+end
 `,
 		"main.nomi": `import shapes: Date
 
-impl Date {
-  pub fn new(a: String) -> Date {
+impl Date
+  pub fn new(a: String) -> Date
     Date{flavor: a}
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   Unit
-}
+end
 `,
 	})
 	if got := duplicateTypeOwnedDiagnostics(fa); len(got) != 1 {

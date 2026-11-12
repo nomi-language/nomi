@@ -4,77 +4,77 @@ import std::io
 // parameter, plus a DEFAULT whose body mentions neither. `announce`'s default
 // parameter is what makes the short call `Announcer.announce(b)` a distinct
 // route from `Announcer.announce(b, True)`.
-interface Announcer<T> {
+interface Announcer<T>
     fn item(s: self) -> T
 
-    fn announce(_s: self, loud: Bool = False) -> String {
+    fn announce(_s: self, loud: Bool = False) -> String
         base = "item"
-        if loud { base + "!" } else { base }
-    }
-}
+        if loud then base + "!" else base
+    end
+end
 
-struct Box {
+struct Box
     value: Int
-}
+end
 
-struct Tag {
+struct Tag
     label: String
-}
+end
 
 // TWO instantiations of ONE template, at two different type arguments, so an
 // implementation hard-wired to one argument fails here rather than passing.
-impl Announcer for Box {
-    fn item(s: Box) -> Int {
+impl Announcer for Box
+    fn item(s: Box) -> Int
         s.value
-    }
-}
+    end
+end
 
-impl Announcer for Tag {
-    fn item(s: Tag) -> String {
+impl Announcer for Tag
+    fn item(s: Tag) -> String
         s.label
-    }
-}
+    end
+end
 
 // A generic interface whose DEFAULT body dispatches back through the interface,
 // so the monomorphized copy has to resolve `Picker.first` for each implementor —
 // plus a default carrying a `where` clause on the INTERFACE's own type
 // parameter, which is ground inside an instantiation and is therefore a
 // constraint the front end has already discharged.
-interface Picker<T> {
+interface Picker<T>
     fn first(p: self) -> T
     fn second(p: self) -> T
 
-    fn pick(p: self) -> T {
+    fn pick(p: self) -> T
         Picker.first(p)
-    }
+    end
 
-    fn top(p: self) -> T where T: Comparable {
+    fn top(p: self) -> T where T: Comparable
         a = Picker.first(p)
         b = Picker.second(p)
 
-        case Comparable.compare(a, b) {
+        case Comparable.compare(a, b)
             Ordering.Less -> b
             _ -> a
-        }
-    }
-}
+        end
+    end
+end
 
-struct Pair {
+struct Pair
     a: Int
     b: Int
-}
+end
 
-impl Picker for Pair {
-    fn first(p: Pair) -> Int {
+impl Picker for Pair
+    fn first(p: Pair) -> Int
         p.a
-    }
+    end
 
-    fn second(p: Pair) -> Int {
+    fn second(p: Pair) -> Int
         p.b
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     b = Box{value: 7}
     t = Tag{label: "hi"}
     p = Pair{a: 3, b: 9}
@@ -93,4 +93,4 @@ fn main() {
     io.print(Int.to_string(Picker.second(p)))
     io.print(Int.to_string(Pair.pick(p)))
     io.print(Int.to_string(Picker.top(p)))
-}
+end

@@ -19,58 +19,58 @@ import (
 const reactorProgram = `import std::io
 import std::json.{ToJson, FromJson}
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
 derive ToJson for Point
 derive FromJson for Point
 
-enum Shape {
+enum Shape
     Circle {radius: Int}
     Dot
-}
+end
 
 derive ToJson for Shape
 derive FromJson for Shape
 
-export fn moved(p: Point, dx: Int) -> Point {
-    .{..p, x: p.x + dx}
-}
+export fn moved(p: Point, dx: Int) -> Point
+    {..p, x: p.x + dx}
+end
 
-export fn grow(s: Shape) -> Shape {
-    case s {
-        Shape.Circle{radius} -> Shape.Circle{radius: radius * 2}
+export fn grow(s: Shape) -> Shape
+    case s
+        Shape.Circle{radius:} -> Shape.Circle{radius: radius * 2}
         Shape.Dot -> Shape.Dot
-    }
-}
+    end
+end
 
-export fn divide(a: Int, b: Int) -> Int {
+export fn divide(a: Int, b: Int) -> Int
     a / b
-}
+end
 
-export fn shout(text: String) {
+export fn shout(text: String)
     io.print(String.uppercase(text))
-}
+end
 `
 
 const reactorWithMain = `import std::io
 
-fn main() {
+fn main()
     io.print("main ran")
-}
+end
 
-export fn twice(n: Int) -> Int {
+export fn twice(n: Int) -> Int
     n * 2
-}
+end
 `
 
 const commandOnly = `import std::io
 
-fn main() {
+fn main()
     io.print("command")
-}
+end
 `
 
 // wasmExports lists the names a module's export section exports.

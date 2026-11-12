@@ -49,11 +49,11 @@ func migrates(t *testing.T, src, want string) {
 
 // Struct field doc comments stay immediately above their field line.
 func TestFormat_StructFieldDocRoundTrips(t *testing.T) {
-	src := `struct User {
+	src := `struct User
     /// The user's name.
     name: String
     age: Int
-}
+end
 `
 	roundTrip(t, src)
 }
@@ -71,31 +71,31 @@ fn echo_upper(s: String) -> String go ffi.EchoUpper
 // Every variant payload shape round-trips (positional, tuple, struct,
 // embeds).
 func TestFormat_EnumPayloadShapesRoundTrip(t *testing.T) {
-	src := `enum Shape {
+	src := `enum Shape
     Circle Float
     Position (Int, Int)
     Rect {width: Float, height: Float}
     embeds Click
-}
+end
 `
 	roundTrip(t, src)
 }
 
 // A `//` leading comment on a variant stays above its variant line.
 func TestFormat_EnumVariantLeadingCommentRoundTrips(t *testing.T) {
-	src := `enum Status {
+	src := `enum Status
     // still waiting
     Pending
     Active
-}
+end
 `
 	roundTrip(t, src)
 }
 
 func TestFormat_ImplOnceRoundTrips(t *testing.T) {
-	src := `struct cache {
+	src := `struct cache
     seed: Int
-}
+end
 
 pub once Default: Int = 1
 
@@ -105,12 +105,12 @@ pub once Default: Int = 1
 
 // Variant doc comments round-trip.
 func TestFormat_EnumVariantDocPreserved(t *testing.T) {
-	src := `enum Status {
+	src := `enum Status
     /// Still waiting.
     Pending
 
     Active
-}
+end
 `
 	roundTrip(t, src)
 }
@@ -118,42 +118,42 @@ func TestFormat_EnumVariantDocPreserved(t *testing.T) {
 // The reference example (struct/enum shape plus file helpers and interface impls)
 // is a fixed point.
 func TestFormat_ReferenceExampleRoundTrips(t *testing.T) {
-	src := `pub interface Speech {
+	src := `pub interface Speech
     fn speak(animal: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
     name: String
     breed: String
-}
+end
 
-fn rename(d: Dog, new_name: String) -> Dog {
+fn rename(d: Dog, new_name: String) -> Dog
     Dog{name: new_name, breed: d.breed}
-}
+end
 
-impl Speech for Dog {
-    fn speak(d: Dog) -> String {
+impl Speech for Dog
+    fn speak(d: Dog) -> String
         "${d.name} says woof"
-    }
-}
+    end
+end
 
-enum Status {
+enum Status
     Active
     Pending Int
-}
+end
 
-pub fn is_active(s: Status) -> Bool {
-    case s {
+pub fn is_active(s: Status) -> Bool
+    case s
         .Active -> True
         _ -> False
-    }
-}
+    end
+end
 
-impl Speech for Status {
-    fn speak(_s: Status) -> String {
+impl Speech for Status
+    fn speak(_s: Status) -> String
         "status"
-    }
-}
+    end
+end
 
 `
 	roundTrip(t, src)
@@ -161,34 +161,34 @@ impl Speech for Status {
 
 // Items written tight against the fields gain a separating blank line.
 func TestFormat_StructBodyItems_BlankLineSeparation(t *testing.T) {
-	src := `struct Dog {
+	src := `struct Dog
     name: String
-}
+end
 
-fn bark(_d: Dog) -> String {
+fn bark(_d: Dog) -> String
     "woof"
-}
+end
 
-impl Speech for Dog {
-    fn speak(_d: Dog) -> String {
+impl Speech for Dog
+    fn speak(_d: Dog) -> String
         "woof"
-    }
-}
+    end
+end
 
 `
-	want := `struct Dog {
+	want := `struct Dog
     name: String
-}
+end
 
-fn bark(_d: Dog) -> String {
+fn bark(_d: Dog) -> String
     "woof"
-}
+end
 
-impl Speech for Dog {
-    fn speak(_d: Dog) -> String {
+impl Speech for Dog
+    fn speak(_d: Dog) -> String
         "woof"
-    }
-}
+    end
+end
 
 `
 	migrates(t, src, want)
@@ -196,11 +196,11 @@ impl Speech for Dog {
 
 // A field-only interface conformance is bodyless.
 func TestFormat_EmptyNestedImpl(t *testing.T) {
-	src := `struct Watcher {
+	src := `struct Watcher
     name: String
-}
+end
 
-impl HasName for Watcher
+impl HasName for Watcher end
 
 `
 	roundTrip(t, src)
@@ -210,13 +210,13 @@ impl HasName for Watcher
 func TestFormat_ExternTypeBody(t *testing.T) {
 	src := `pub host type Channel<T>
 
-pub fn label<T>(_c: Channel<T>) -> String {
+pub fn label<T>(_c: Channel<T>) -> String
     "channel"
-}
+end
 
 host fn next<T>(s: Channel<T>) -> Maybe<(T, Channel<T>)>
 
-impl iter for Channel<T>
+impl iter for Channel<T> end
 
 `
 	roundTrip(t, src)
@@ -240,15 +240,15 @@ pub host type Handle
 func TestFormat_TypeDefBody_ZeroSizedWithImpl(t *testing.T) {
 	src := `type Sql
 
-fn from_fragments(_fragments: List<Fragment<String>>) -> String {
+fn from_fragments(_fragments: List<Fragment<String>>) -> String
     "q"
-}
+end
 
-impl Literal for Sql {
-    fn from_fragments(fragments: List<Fragment<String>>) -> String {
+impl Literal for Sql
+    fn from_fragments(fragments: List<Fragment<String>>) -> String
         from_fragments(fragments)
-    }
-}
+    end
+end
 
 `
 	roundTrip(t, src)
@@ -258,9 +258,9 @@ impl Literal for Sql {
 func TestFormat_TypeDefBody_OpaqueDistinct(t *testing.T) {
 	src := `pub opaque type Id Int
 
-pub fn zero() -> Id {
+pub fn zero() -> Id
     Id(0)
-}
+end
 `
 	roundTrip(t, src)
 }
@@ -269,22 +269,22 @@ pub fn zero() -> Id {
 // final default, host-backed default (host fn), each carrying a doc comment,
 // blank-line separated.
 func TestFormat_InterfaceAllMemberKindsWithDocs(t *testing.T) {
-	src := `pub interface Greeter {
+	src := `pub interface Greeter
     /// Required.
     fn greet(g: self) -> String
 
     /// Overridable default.
-    open fn hello(_g: self) -> String {
+    open fn hello(_g: self) -> String
         "hello"
-    }
+    end
 
     /// Final default.
-    fn sealed(_g: self) -> String {
+    fn sealed(_g: self) -> String
         "sealed"
-    }
+    end
     /// Host-backed default.
     host fn fast_path(g: self) -> String
-}
+end
 `
 	roundTrip(t, src)
 }
@@ -292,10 +292,10 @@ func TestFormat_InterfaceAllMemberKindsWithDocs(t *testing.T) {
 // `open host fn` (overridable host-backed default) round-trips with both
 // modifiers preserved.
 func TestFormat_InterfaceOpenExternDefault(t *testing.T) {
-	src := `interface Seq {
+	src := `interface Seq
     fn next(s: self) -> Int
     open host fn sort(s: self) -> Int
-}
+end
 `
 	roundTrip(t, src)
 }
@@ -303,25 +303,25 @@ func TestFormat_InterfaceOpenExternDefault(t *testing.T) {
 // A method-level `where` clause on an interface default method round-trips —
 // emitted inline after the return type, before the body brace.
 func TestFormat_InterfaceMethodWhereClause(t *testing.T) {
-	src := `interface Sortable<T> {
+	src := `interface Sortable<T>
     fn sort_by_key<K>(
         source: self,
         _key_of_each_element: (T) -> K,
-    ) -> List<T> where T: Comparable, K: Hashable {
+    ) -> List<T> where T: Comparable, K: Hashable
         source
-    }
-}
+    end
+end
 `
 	roundTrip(t, src)
 }
 
 func TestFormat_InterfaceRequiredMethodWhereClause(t *testing.T) {
-	src := `interface Sortable<T> {
+	src := `interface Sortable<T>
     fn sort_by_key<K>(
         source: self,
         key_of_each_element: (T) -> K,
     ) -> List<T> where T: Comparable, K: Hashable
-}
+end
 `
 	roundTrip(t, src)
 }
@@ -330,9 +330,9 @@ func TestFormat_FuncWhereClause(t *testing.T) {
 	src := `fn step_by<T, S>(
     range_to_step_through: Range<T>,
     _by: S,
-) -> Iter<T> where T: Comparable and Steppable<S> {
+) -> Iter<T> where T: Comparable and Steppable<S>
     r
-}
+end
 `
 	roundTrip(t, src)
 }
@@ -346,18 +346,18 @@ func TestFormat_ExternFuncWhereClause(t *testing.T) {
 // A derived struct keeps each derive entry as its own line, alongside the
 // method block for the hand-written conformance.
 func TestFormat_DerivedStructWithBody(t *testing.T) {
-	src := `pub struct Tag {
+	src := `pub struct Tag
     name: String
-}
+end
 
 derive Equatable for Tag
 derive Hashable for Tag
 
-impl Speech for Tag {
-    fn speak(t: Tag) -> String {
+impl Speech for Tag
+    fn speak(t: Tag) -> String
         t.name
-    }
-}
+    end
+end
 
 `
 	roundTrip(t, src)
@@ -365,11 +365,11 @@ impl Speech for Tag {
 
 func TestFormat_ConformanceCommentsPreserveGroupingBoundaries(t *testing.T) {
 	cases := []string{
-		`pub opaque struct Date {
+		`pub opaque struct Date
     year: Int
     month: Int
     day: Int
-}
+end
 
 derive Equatable for Date
 
@@ -377,37 +377,37 @@ derive Equatable for Date
 derive Hashable for Date
 derive Comparable for Date
 
-impl Literal for Date
+impl Literal for Date end
 
-impl Display for Date
+impl Display for Date end
 
-impl Debug for Date
+impl Debug for Date end
 
-impl DateParts for Date
+impl DateParts for Date end
 
-impl Shift for Date
+impl Shift for Date end
 
 `,
-		`pub opaque struct Date {
+		`pub opaque struct Date
     year: Int
     month: Int
     day: Int
-}
+end
 
 // a comment
 derive Equatable for Date
 derive Hashable for Date
 derive Comparable for Date
 
-impl Literal for Date
+impl Literal for Date end
 
-impl Display for Date
+impl Display for Date end
 
-impl Debug for Date
+impl Debug for Date end
 
-impl DateParts for Date
+impl DateParts for Date end
 
-impl Shift for Date
+impl Shift for Date end
 
 `,
 	}
@@ -433,15 +433,15 @@ impl Shift for Date
 // default) round-trip through the formatter. Before the InterfaceMethod Doc
 // slot existed, `nomi fmt -w` deleted these lines outright.
 func TestFormat_InterfaceContractMemberDocsPreserved(t *testing.T) {
-	src := `interface Speech {
+	src := `interface Speech
     /// The required noise.
     fn speak(s: self) -> String
 
     /// Overridable politeness.
-    open fn greet(_s: self) -> String {
+    open fn greet(_s: self) -> String
         "hi"
-    }
-}
+    end
+end
 `
 	got, err := Format(src)
 	if err != nil {
@@ -467,10 +467,10 @@ func TestFormat_InterfaceContractMemberDocsPreserved(t *testing.T) {
 
 // Doc comments on struct fields survive formatting.
 func TestFormat_StructFieldDocPreserved(t *testing.T) {
-	src := `struct Dog {
+	src := `struct Dog
   /// The dog's name.
   name: String
-}
+end
 `
 	got, err := Format(src)
 	if err != nil {

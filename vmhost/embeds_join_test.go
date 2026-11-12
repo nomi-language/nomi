@@ -15,67 +15,67 @@ import (
 func TestEmbedsJoin_CollectionLiteralsWidenTheEmbeddedValues(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-struct Circle {
+struct Circle
   r: Int
-}
+end
 
-enum Shape {
+enum Shape
   embeds Circle
   Dot
-}
+end
 
 derive Equatable for Circle
 derive Hashable for Circle
 derive Equatable for Shape
 derive Hashable for Shape
 
-fn radius(s: Shape) -> Int {
-  case s {
+fn radius(s: Shape) -> Int
+  case s
     .Circle{r: r} -> r
     .Dot -> 0
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   c = Circle{r: 1}
   s: Shape = .Dot
-  m = %{1 => c, 2 => s}
+  m = {1 => c, 2 => s}
   io.inspect(m)
-  io.inspect(%{1 => s, 2 => c})
-  io.inspect(%{c => 1, s => 2})
+  io.inspect({1 => s, 2 => c})
+  io.inspect({c => 1, s => 2})
   io.inspect([c, s])
-  io.inspect(#[c, s])
-  io.inspect(%[c, s])
+  io.inspect(Vector[c, s])
+  io.inspect(Set[c, s])
   io.inspect([(1, c), (2, s)])
   io.inspect([[c], [s]])
-  io.inspect([%[c], %[s]])
-  io.inspect([#[c], #[s]])
-  io.inspect([%{1 => c}, %{2 => s}])
-  io.inspect(%{1 => (1, c), 2 => (2, s)})
-  io.inspect(#[(1, c), (2, s)])
-  io.inspect(%[(1, c), (2, s)])
+  io.inspect([Set[c], Set[s]])
+  io.inspect([Vector[c], Vector[s]])
+  io.inspect([{1 => c}, {2 => s}])
+  io.inspect({1 => (1, c), 2 => (2, s)})
+  io.inspect(Vector[(1, c), (2, s)])
+  io.inspect(Set[(1, c), (2, s)])
   ta: List<(Int, Shape)> = [(1, c), (2, s)]
   io.inspect(ta)
   na: List<List<Shape>> = [[c], [s]]
   io.inspect(na)
   io.inspect(Map.values(m) |> Iter.map(radius) |> Iter.to_list())
-}
+end
 `)
 	want := strings.Join([]string{
-		"%{1 => Circle{r: 1}, 2 => Dot}",
-		"%{1 => Dot, 2 => Circle{r: 1}}",
-		"%{Circle{r: 1} => 1, Dot => 2}",
+		"{1 => Circle{r: 1}, 2 => Dot}",
+		"{1 => Dot, 2 => Circle{r: 1}}",
+		"{Circle{r: 1} => 1, Dot => 2}",
 		"[Circle{r: 1}, Dot]",
-		"#[Circle{r: 1}, Dot]",
-		"%[Circle{r: 1}, Dot]",
+		"Vector[Circle{r: 1}, Dot]",
+		"Set[Circle{r: 1}, Dot]",
 		"[(1, Circle{r: 1}), (2, Dot)]",
 		"[[Circle{r: 1}], [Dot]]",
-		"[%[Circle{r: 1}], %[Dot]]",
-		"[#[Circle{r: 1}], #[Dot]]",
-		"[%{1 => Circle{r: 1}}, %{2 => Dot}]",
-		"%{1 => (1, Circle{r: 1}), 2 => (2, Dot)}",
-		"#[(1, Circle{r: 1}), (2, Dot)]",
-		"%[(1, Circle{r: 1}), (2, Dot)]",
+		"[Set[Circle{r: 1}], Set[Dot]]",
+		"[Vector[Circle{r: 1}], Vector[Dot]]",
+		"[{1 => Circle{r: 1}}, {2 => Dot}]",
+		"{1 => (1, Circle{r: 1}), 2 => (2, Dot)}",
+		"Vector[(1, Circle{r: 1}), (2, Dot)]",
+		"Set[(1, Circle{r: 1}), (2, Dot)]",
 		"[(1, Circle{r: 1}), (2, Dot)]",
 		"[[Circle{r: 1}], [Dot]]",
 		"[1, 0]",

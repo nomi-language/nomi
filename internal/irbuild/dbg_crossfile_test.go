@@ -24,7 +24,7 @@ func TestDbgCrossFile_RendersAnotherFilesTypes(t *testing.T) {
 		"dbg line 23: (n, w) = (Note{title: \"x\"}, Shown<5>)\n" +
 		"dbg line 24: (b, n) = (Box{v: 1}, Note{title: \"x\"})\n" +
 		"dbg line 25: Some(m) = Some(Loud(3))\n" +
-		"dbg line 26: %{\"k\" => w} = %{\"k\" => Shown<5>}\n" +
+		"dbg line 26: {\"k\" => w} = {\"k\" => Shown<5>}\n" +
 		"dbg line 27: n = Note{title: \"x\"}\n" +
 		"dbg line 29: n = Note{title: \"x\"}\n" +
 		"Note{title: \"x\"}\n" +

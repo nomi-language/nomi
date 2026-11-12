@@ -14,7 +14,7 @@ import (
 // variant's own collapse, which nomi fmt wrote as `Completed (T)`.
 func TestParse_GroupedTypeIsTheType(t *testing.T) {
 	for _, src := range []string{"(Int)", "((Int))", "(((Int)))"} {
-		nodes := parse(t, "fn f(x: "+src+") -> "+src+" {\n    x\n}\n")
+		nodes := parse(t, "fn f(x: "+src+") -> "+src+"\n    x\nend\n")
 		fn := nodes[0].(*ast.FuncDef)
 		for what, te := range map[string]ast.TypeExpr{"parameter": fn.Params[0].TypeAnnotation, "return": fn.ReturnTypeExpr} {
 			st, ok := te.(*ast.SimpleType)
@@ -29,7 +29,7 @@ func TestParse_GroupedTypeIsTheType(t *testing.T) {
 	}
 
 	for _, src := range []string{"Completed(T)", "Completed((T))", "Completed(((T)))", "Completed ((T))", "Completed T"} {
-		def := parse(t, "enum S<T> {\n    "+src+"\n}\n")[0].(*ast.EnumDef)
+		def := parse(t, "enum S<T>\n    "+src+"\nend\n")[0].(*ast.EnumDef)
 		if st, ok := def.Variants[0].DataTypeExpr.(*ast.SimpleType); !ok || st.Name != "T" {
 			t.Fatalf("%s: payload is %#v, want SimpleType T", src, def.Variants[0].DataTypeExpr)
 		}
@@ -50,7 +50,7 @@ func TestParse_GroupedTypeIsTheType(t *testing.T) {
 
 // `(T,)` is not a 1-tuple type; the parser rejects it.
 func TestParse_OneElementTupleTypeIsRejected(t *testing.T) {
-	err := parseError(t, "fn f(x: (Int,)) -> Int {\n    x\n}\n")
+	err := parseError(t, "fn f(x: (Int,)) -> Int\n    x\nend\n")
 	if want := "a tuple type has at least two elements"; !strings.Contains(err.Error(), want) {
 		t.Fatalf("got %q, want it to say %q", err, want)
 	}

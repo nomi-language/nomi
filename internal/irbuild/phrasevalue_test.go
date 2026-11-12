@@ -16,14 +16,14 @@ func TestPhraseParameter_FunctionValue(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	src := `import std::io
 
-fn show(_p: Phrase) -> Int {
+fn show(_p: Phrase) -> Int
     1
-}
+end
 
-fn main() {
+fn main()
     _ = show
     io.print("ok")
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)

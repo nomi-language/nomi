@@ -45,7 +45,7 @@ on it.
 ## Track 2: Irreversible semantics
 
 - [ ] **Language versioning and compatibility.** The mechanism (editions, fixers, a compatibility promise) for when the language stops breaking. Until then it breaks freely, which is correct before a first release.
-- [ ] **Exhaustive struct pattern opt-in.** Struct pattern matching is partial by default: unmentioned fields are ignored. A `!..` marker could opt into exhaustive field matching, so `User{name, age, email, !..}` would become a compile error when `User` gains a field. This is the inverse of Rust, where `..` opts *out* of exhaustive matching. It waits on real usage showing the need.
+- [ ] **Exhaustive struct pattern opt-in.** Struct pattern matching is partial by default: unmentioned fields are ignored. A `!..` marker could opt into exhaustive field matching, so `User{name:, age:, email:, !..}` would become a compile error when `User` gains a field. This is the inverse of Rust, where `..` opts *out* of exhaustive matching. It waits on real usage showing the need.
 
 ## Track 3: Architecture to leave room for
 
@@ -54,7 +54,7 @@ on it.
 
 ## Track 4: Big but additive
 
-- [ ] **Unified container type/value syntax.** Tuples (`(Int, String)` ↔ `(1, "x")`) and anonymous structs (`.{a: Int}` ↔ `.{a: 1}`) already use one outer syntax for type and value; lists and maps do not (`List<Int>` vs `[1, 2, 3]`). Proposal: also accept `[Int]` and `%{String => Int}` as type forms. Needs its own design.
+- [ ] **Unified container type/value syntax.** Tuples (`(Int, String)` ↔ `(1, "x")`) and anonymous structs (`{a: Int}` ↔ `{a: 1}`) already use one outer syntax for type and value; lists and maps do not (`List<Int>` vs `[1, 2, 3]`). Proposal: also accept `[Int]` and `{String => Int}` as type forms. Needs its own design.
 - [ ] **Field-projection derive** (`derive Getters for T`). For an interface whose functions are pure field projections (`fn hour(value: self) -> Int`), synthesize the trivial impl, which would remove boilerplate like `std::calendar`'s `DateParts`/`TimeParts` impls. `derive` covers `Equatable`, `Hashable`, `Comparable`, `Debug`, `Display`, `ToJson` and `FromJson` today.
 - [ ] **Opaque handles for exported functions.** Every argument and result of an `export fn` crosses as JSON, so a value the host passes back unchanged is encoded and decoded on each call. A handle (a value that stays in the VM, referred to by an id) would matter for large values and values with no JSON form. Wait for a program that needs it.
 - [ ] **Checked examples in stdlib `///` comments.** The generated reference renders a declaration's `//!` attached tests as runnable editors, and those are the stdlib's examples. A ` ```nomi ` block inside a `///` comment is only highlighted: nothing parses, checks or runs it, so one can go stale unnoticed. Either check those blocks or settle that `//!` is the only example form.

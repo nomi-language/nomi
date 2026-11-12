@@ -117,12 +117,16 @@ func (g *gen) project(t analysis.Type) kind {
 		return kindInvalid
 
 	case *analysis.TypeVar:
-		// An inference variable that got solved is its solution; an unsolved
-		// one is a type nobody knows, which is not a representation gap.
-		if ty.Resolved == nil {
-			return kindInvalid
+		// An inference variable that got solved is its solution, and one
+		// the checker closed (a type no value is made of, closed_vars.go)
+		// is its closed type.
+		if ty.Resolved != nil {
+			return g.project(ty.Resolved)
 		}
-		return g.project(ty.Resolved)
+		if ty.Closed != nil {
+			return g.project(ty.Closed)
+		}
+		return kindInvalid
 
 	case *analysis.TypeParam_:
 		// A type parameter has no representation OF ITS OWN, which is why
@@ -139,7 +143,7 @@ func (g *gen) project(t analysis.Type) kind {
 		// annotation and the inferred position cannot disagree. Without the
 		// frame half, `Maybe.Some(r.slot)` inside `fn recv<T>(r: Half<T>):
 		// Maybe<T>` would refuse `generic enum over a type parameter` in a
-		// monomorphized instance, because prelude.go's preludeArgKind asks
+		// monomorphized instance, because prelude.go's prelude projection asks
 		// project(): the type argument would be concrete at the annotation and
 		// abstract at the constructor. Without the dictionary half, `fn
 		// wrap<T>(x: T): Maybe<T> where T: Display { Some(x) }` would refuse at
@@ -341,7 +345,7 @@ func (g *gen) project(t analysis.Type) kind {
 
 	case *analysis.AnonStructType:
 		// A RECORD the checker solved for an unannotated position — a lambda
-		// parameter, a binding. Answered so the annotated `p: .{x: Int}` and
+		// parameter, a binding. Answered so the annotated `p: {x: Int}` and
 		// the inferred one are not two different answers about one position,
 		// which is the rule the Map arm above states.
 		names := make([]string, len(ty.Fields))

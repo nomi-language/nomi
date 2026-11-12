@@ -13,7 +13,7 @@
 //# implement them for a type of your own (`type Email String`) to read a
 //# `TEXT` column as it.
 
-import {
+import
     std::calendar.{Date, NaiveDateTime, Time}
     std::channels.{Channel, Receiver, Sender}
     std::instant.Instant
@@ -21,18 +21,18 @@ import {
     std::sql.{self, Conn, Row, Statement}
     std::uuid.Uuid
     migrate as runner
-}
+end
 
 /// The rows of a `-> Rows<T>` query, read one at a time with `Rows.fold`.
 /// The query runs each time the rows are folded.
-pub opaque struct Rows<T> {
+pub opaque struct Rows<T>
     conn: Conn
     query: String
     statement: Statement
     decode: (Row) -> Result<T, sql.Error>
-}
+end
 
-impl Rows<T> {
+impl Rows<T>
     /// The rows `statement` reads on `conn`, each read by `decode`: what a
     /// generated `-> Rows<T>` function returns. `query` is the query's
     /// name, which its errors carry.
@@ -41,66 +41,64 @@ impl Rows<T> {
         query: String,
         statement: Statement,
         decode: (Row) -> Result<T, sql.Error>,
-    ) -> Rows<T> {
-        Rows{conn, query, statement, decode}
-    }
+    ) -> Rows<T>
+        Rows{conn:, query:, statement:, decode:}
+    end
 
     /// Run the query and fold its rows into `initial` with `f`, in order,
     /// one row at a time: the rows are never all in memory. A row that does
     /// not decode stops the fold with its error, and so does the database.
-    pub fn fold<A>(rows: Rows<T>, initial: A, f: (A, T) -> A) -> Result<A, sql.Error> {
+    pub fn fold<A>(rows: Rows<T>, initial: A, f: (A, T) -> A) -> Result<A, sql.Error>
         // each_row's callback returns only whether to go on, so the
         // accumulator waits in a channel between rows.
         state: Channel<Result<A, sql.Error>> = Channel.buffered(1)
         _ = Sender.send(state.sender, Ok(initial))
 
-        ran = Conn.each_row(rows.conn, rows.statement, fn row -> {
-            case Receiver.receive(state.receiver) {
+        ran = Conn.each_row(rows.conn, rows.statement, fn row ->
+            case Receiver.receive(state.receiver)
                 Some(Ok(acc)) ->
-                    case rows.decode(row) {
-                        Ok(item) -> {
+                    case rows.decode(row)
+                        Ok(item) ->
                             _ = Sender.send(state.sender, Ok(f(acc, item)))
                             True
-                        }
 
-                        Err(e) -> {
+                        Err(e) ->
                             _ = Sender.send(state.sender, Err(e))
                             False
-                        }
-                    }
+                    end
 
-                Some(Err(e)) -> {
+                Some(Err(e)) ->
                     _ = Sender.send(state.sender, Err(e))
                     False
-                }
 
-                None -> False
-            }
-        })
+                None ->
+                    False
+            end
+        end)
 
         Sender.close(state.sender)
         ran?
 
-        case Receiver.receive(state.receiver) {
+        case Receiver.receive(state.receiver)
             Some(result) -> result
             None -> Err(sql.Error.Database{code: "", message: "Rows.fold lost its state"})
-        }
-    }
+        end
+    end
 
     /// Every row, in order: `Rows.fold` into a list.
-    pub fn to_list(rows: Rows<T>) -> Result<List<T>, sql.Error> {
+    pub fn to_list(rows: Rows<T>) -> Result<List<T>, sql.Error>
         Rows.fold(rows, [], fn acc, item -> [item, ..acc]) |> Result.map(Iter.reverse)
-    }
-}
+    end
+end
 
 /// What a query whose SQL returns no rows returns when it declares
 /// `-> Changed`: the number of rows the statement changed. It is a type of
 /// its own, not an `Int`, so SQL that stops returning rows (an `INSERT`
 /// that loses its `RETURNING id`) fails to check rather than return a count
 /// where a value was meant.
-pub struct Changed {
+pub struct Changed
     rows: Int
-}
+end
 
 derive Equatable for Changed
 
@@ -115,77 +113,77 @@ pub typealias Migration runner.Migration
 /// whose text changed after it ran is refused, before anything runs, with
 /// `Error.Database{code: "migrate"}` naming its file; a migration that fails
 /// returns its own error, and the ones before it stay applied.
-pub fn migrate(conn: Conn, migrations: List<Migration>) -> Result<Unit, sql.Error> {
+pub fn migrate(conn: Conn, migrations: List<Migration>) -> Result<Unit, sql.Error>
     runner.apply(conn, migrations)
     |> Result.map(fn _ -> Unit)
-    |> Result.map_err(fn e -> {
-        case e {
-            .Failed{path: _, error} -> error
-            .Database{error} -> error
+    |> Result.map_err(fn e ->
+        case e
+            .Failed{path: _, error:} -> error
+            .Database{error:} -> error
             _ -> sql.Error.Database{code: "migrate", message: "${e}"}
-        }
-    })
-}
+        end
+    end)
+end
 
 /// A type read from, or bound to, an integer column (`INTEGER`).
-pub interface SqlInt {}
+pub interface SqlInt end
 
 /// A type read from, or bound to, a floating-point column (`REAL`).
-pub interface SqlFloat {}
+pub interface SqlFloat end
 
 /// A type read from, or bound to, an exact decimal column (`DECIMAL`,
 /// `NUMERIC`).
-pub interface SqlNumeric {}
+pub interface SqlNumeric end
 
 /// A type read from, or bound to, a text column (`TEXT`, `VARCHAR`).
-pub interface SqlText {}
+pub interface SqlText end
 
 /// A type read from, or bound to, a boolean column (`BOOLEAN`).
-pub interface SqlBool {}
+pub interface SqlBool end
 
 /// A type read from, or bound to, a binary column (`BLOB`).
-pub interface SqlBytes {}
+pub interface SqlBytes end
 
 /// A type read from, or bound to, a date column (`DATE`).
-pub interface SqlDate {}
+pub interface SqlDate end
 
 /// A type read from, or bound to, a time-of-day column (`TIME`).
-pub interface SqlTime {}
+pub interface SqlTime end
 
 /// A type read from, or bound to, a timestamp without a zone
 /// (`DATETIME`, `TIMESTAMP`).
-pub interface SqlTimestamp {}
+pub interface SqlTimestamp end
 
 /// A type read from, or bound to, a timestamp with a zone
 /// (`TIMESTAMPTZ`).
-pub interface SqlTimestamptz {}
+pub interface SqlTimestamptz end
 
 /// A type read from, or bound to, a UUID column (`UUID`).
-pub interface SqlUuid {}
+pub interface SqlUuid end
 
 /// A type read from, or bound to, a JSON column (`JSON`).
-pub interface SqlJson {}
+pub interface SqlJson end
 
-impl SqlInt for Int
+impl SqlInt for Int end
 
-impl SqlFloat for Float
+impl SqlFloat for Float end
 
-impl SqlNumeric for Decimal
+impl SqlNumeric for Decimal end
 
-impl SqlText for String
+impl SqlText for String end
 
-impl SqlBool for Bool
+impl SqlBool for Bool end
 
-impl SqlBytes for Bytes
+impl SqlBytes for Bytes end
 
-impl SqlDate for Date
+impl SqlDate for Date end
 
-impl SqlTime for Time
+impl SqlTime for Time end
 
-impl SqlTimestamp for NaiveDateTime
+impl SqlTimestamp for NaiveDateTime end
 
-impl SqlTimestamptz for Instant
+impl SqlTimestamptz for Instant end
 
-impl SqlUuid for Uuid
+impl SqlUuid for Uuid end
 
-impl SqlJson for Json
+impl SqlJson for Json end

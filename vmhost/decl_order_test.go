@@ -18,8 +18,9 @@ var typeDeclLine = regexp.MustCompile(`(?m)^(?:pub )?(?:opaque )?(?:struct|enum|
 
 // reverseDeclarations is src with each .nomi file's top-level items after its
 // imports in reverse order, a comment directly above an item moving with it.
-// An item starts at a line that begins in column 0 with a letter or `@`; the
-// formatter puts everything inside a declaration deeper.
+// An item starts at a line that begins in column 0 with a letter or `@`,
+// other than the `end` that closes one; the formatter puts everything
+// inside a declaration deeper.
 func reverseDeclarations(src string) (string, bool) {
 	names, files, ok := splitInput(src)
 	if !ok {
@@ -50,6 +51,9 @@ func reverseFileItems(text string) string {
 		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '@') {
 			continue
 		}
+		if closesItem(l) {
+			continue
+		}
 		start := i
 		for start > 0 && strings.HasPrefix(lines[start-1], "//") && !strings.HasPrefix(lines[start-1], "//#") {
 			start--
@@ -73,6 +77,13 @@ func reverseFileItems(text string) string {
 	}
 	slices.Reverse(items)
 	return head + strings.Join(items, "\n")
+}
+
+// closesItem reports whether line is a column-0 `end`, which closes the
+// declaration above it rather than starting one.
+func closesItem(line string) bool {
+	line = strings.TrimRight(line, "\r\n")
+	return line == "end" || strings.HasPrefix(line, "end ")
 }
 
 func TestDeclarationOrderDoesNotChangeLowering(t *testing.T) {

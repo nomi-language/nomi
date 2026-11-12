@@ -16,10 +16,10 @@ func TestSelfRecursion_VisitsEachNodeOnce(t *testing.T) {
 	for _, tc := range []struct{ name, body string }{
 		{"a concatenation", `"a"` + strings.Repeat(` + "a"`, n)},
 		{"a sum", "1" + strings.Repeat(" + 1", n)},
-		{"nested ifs", strings.Repeat("if True { ", 200) + "1" + strings.Repeat(" } else { 2 }", 200)},
+		{"nested ifs", strings.Repeat("if True then ", 200) + "1" + strings.Repeat(" else 2", 200)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "fn f() -> Int {\n  _x = " + tc.body + "\n  f()\n}\n"
+			src := "fn f() -> Int\n  _x = " + tc.body + "\n  f()\nend\n"
 			fa, _ := checkSourceWithModules(t, src, nil)
 			sym := fa.ModuleScope.Lookup("f")
 			fn, ok := sym.Node.(*ast.FuncDef)

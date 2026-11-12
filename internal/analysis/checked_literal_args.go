@@ -18,7 +18,7 @@ import (
 // std/http's `Route<P>` is the one checked literal whose type follows from its
 // text when nothing else gives it, as a Regex literal's captures do
 // (regex_literal.go): a route with no expected type has a `String` field per
-// wildcard, `Route<.{id: String}>`, and `Route<Unit>` with none.
+// wildcard, `Route<{id: String}>`, and `Route<Unit>` with none.
 
 // freshHandlerSignature is ft with each type parameter it mentions replaced
 // by a fresh type variable, so two literals of one generic handler are typed
@@ -175,11 +175,12 @@ func routeCalleeHint(callee ast.Node, want, have Type) string {
 // the call that another argument solves on its own. The literal is then
 // checked against the solved type, as an annotation would give it:
 // `Route.to_with("PATCH /todos/{id}", update)` takes P from update's
-// `.{id: Int}`, and the route is a `Route<.{id: Int}>` held to it, where
+// `{id: Int}`, and the route is a `Route<{id: Int}>` held to it, where
 // checked first it would have defaulted to a String field per wildcard and
 // refused the handler. An argument solves a parameter on its own when its
 // type does not hang on the slot it fills: a name of a value whose type has
-// no type parameter, or a lambda whose parameters are all annotated. A
+// no type parameter, a lambda whose parameters are all annotated, or a
+// middleware's call on such arguments, `auth(update)` (typedOnItsOwn). A
 // lambda that leaves a parameter's type to the call (`fn _, p -> ...`)
 // takes it from the literal, which is then checked first, as written.
 func (c *checker) deferCheckedLiterals(order []int, args []ast.Node, posSlots []int, defParams []string, params []Type) []int {
@@ -274,8 +275,109 @@ func (c *checker) typedOnItsOwn(arg ast.Node) bool {
 			}
 		}
 		return true
+	case *ast.Call:
+		return c.callTypedOnItsOwn(v)
 	}
 	return false
+}
+
+// callTypedOnItsOwn is typedOnItsOwn for a call: its callee is a named
+// function given an argument for each parameter, each argument is typed on
+// its own, and every type parameter of its result appears in its
+// parameters, so the arguments alone solve the result. This is a handler
+// a middleware returns, `Route.to_with("GET /b/{id}", auth(show))`: auth's
+// P comes from show, and the route takes show's `{id: Int}`, through any
+// number of layers.
+func (c *checker) callTypedOnItsOwn(call *ast.Call) bool {
+	ft := c.solvableCallee(call)
+	if ft == nil {
+		return false
+	}
+	for _, a := range call.Args {
+		if _, named := a.(*ast.NamedArg); named || !c.typedOnItsOwn(a) {
+			return false
+		}
+	}
+	return true
+}
+
+// solvableCallee is the signature of call's callee when it is a named
+// function given an argument for each parameter and every type parameter
+// of its result appears in its parameters; nil otherwise.
+func (c *checker) solvableCallee(call *ast.Call) *FuncType {
+	var pos Pos
+	switch f := call.Func.(type) {
+	case *ast.Ident:
+		pos = Pos{Line: f.Line, Col: f.Col}
+	case *ast.FieldAccess:
+		if f.Field == nil {
+			return nil
+		}
+		pos = Pos{Line: f.Field.Line, Col: f.Field.Col}
+	default:
+		return nil
+	}
+	sym := c.fa.References[pos]
+	if sym == nil {
+		return nil
+	}
+	for sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym.Type == nil {
+		return nil
+	}
+	ft, ok := resolveTV(sym.Type).(*FuncType)
+	if !ok || containsTypeVar(ft) || len(call.Args) != len(ft.Params) {
+		return nil
+	}
+	inParams := map[*TypeParam_]bool{}
+	for _, p := range ft.Params {
+		collectTypeParamPtrs(p, inParams)
+	}
+	inResult := map[*TypeParam_]bool{}
+	collectTypeParamPtrs(ft.Return, inResult)
+	for p := range inResult {
+		if !inParams[p] {
+			return nil
+		}
+	}
+	return ft
+}
+
+// ownType is the type of arg read without checking it, for an argument
+// typedOnItsOwn says has one: a name of a value of known type, or a call
+// of such names (solvableCallee), its callee's result with its type
+// parameters solved from them. nil for anything else, a lambda among
+// them, or when the arguments do not solve the result.
+func (c *checker) ownType(arg ast.Node) Type {
+	switch v := ungroupedArg(arg).(type) {
+	case *ast.Ident:
+		return c.monomorphicValueType(Pos{Line: v.Line, Col: v.Col})
+	case *ast.FieldAccess:
+		if v.Field != nil {
+			return c.monomorphicValueType(Pos{Line: v.Field.Line, Col: v.Field.Col})
+		}
+	case *ast.Call:
+		ft := c.solvableCallee(v)
+		if ft == nil {
+			return nil
+		}
+		subs := map[*TypeParam_]Type{}
+		for i, a := range v.Args {
+			if _, named := a.(*ast.NamedArg); named {
+				return nil
+			}
+			t := c.ownType(a)
+			if t == nil || c.unifyInto(ft.Params[i], t, subs) != nil {
+				return nil
+			}
+		}
+		if ret := Substitute(ft.Return, subs); !ContainsTypeParam(ret) {
+			return ret
+		}
+	}
+	return nil
 }
 
 // namesMonomorphicValue reports whether the name at pos refers to a symbol
@@ -304,10 +406,11 @@ func (c *checker) monomorphicValueType(pos Pos) Type {
 // stage calling calleeTy, is expected to have when the stage's other
 // arguments solve its parameter's type parameters on their own: `"PATCH
 // /todos/{id}" |> Route.to_with(update)` checks the route as
-// `Route<.{id: Int}>`, as `Route.to_with("PATCH /todos/{id}", update)`
+// `Route<{id: Int}>`, as `Route.to_with("PATCH /todos/{id}", update)`
 // does (deferCheckedLiterals). The head is checked before the stage, so
-// only an argument naming a value of known type counts; its type is read
-// from its symbol, and the argument is checked with the stage. nil when
+// only an argument whose type can be read without checking it counts (a
+// name of a value of known type, or a middleware's call on such names:
+// ownType), and the argument is checked with the stage. nil when
 // head is no such literal or nothing solves its parameter.
 func (c *checker) pipedLiteralExpected(head ast.Node, call *ast.Call, calleeTy Type) Type {
 	ft, ok := resolveTypeVar(calleeTy).(*FuncType)
@@ -328,15 +431,7 @@ func (c *checker) pipedLiteralExpected(head ast.Node, call *ast.Call, calleeTy T
 		if slot < 1 || slot >= len(ft.Params) {
 			continue
 		}
-		var t Type
-		switch v := ungroupedArg(value).(type) {
-		case *ast.Ident:
-			t = c.monomorphicValueType(Pos{Line: v.Line, Col: v.Col})
-		case *ast.FieldAccess:
-			if v.Field != nil {
-				t = c.monomorphicValueType(Pos{Line: v.Field.Line, Col: v.Field.Col})
-			}
-		}
+		t := c.ownType(value)
 		if t == nil {
 			continue
 		}

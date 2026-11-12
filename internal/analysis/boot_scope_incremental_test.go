@@ -17,20 +17,20 @@ import (
 func TestBootOnly_ACalleeThatBecomesBootOnlyRechecksItsCaller(t *testing.T) {
 	main := `import lib
 
-fn main() {
+fn main()
     _ = lib.make()
-}
+end
 `
-	plain := `pub fn make() -> Int {
+	plain := `pub fn make() -> Int
     1
-}
+end
 `
 	bootOnly := `import std::supervisors.Supervisor
 
-pub fn make() -> Int {
+pub fn make() -> Int
     _ = Supervisor.new(max_running: 1)
     1
-}
+end
 `
 	dir := t.TempDir()
 	for name, text := range map[string]string{"main.nomi": main, "lib.nomi": plain} {

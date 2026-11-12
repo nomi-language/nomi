@@ -38,6 +38,7 @@ func reportFormatError(file string, err error) {
 //	nomi fmt <paths>...        # format to stdout
 //	nomi fmt -w <paths>...     # write in place
 //	nomi fmt -l <paths>...     # list files that would change
+//	nomi fmt -check <paths>... # list them and exit 1 if there are any
 //	nomi fmt -d <paths>...     # show diff, don't write
 //	nomi fmt                   # stdin -> stdout
 func runFmt(args []string) error {
@@ -45,9 +46,10 @@ func runFmt(args []string) error {
 	writeInPlace := fset.Bool("w", false, "write result to source file instead of stdout")
 	listChanged := fset.Bool("l", false, "list files that would change")
 	showDiff := fset.Bool("d", false, "show diff instead of writing")
+	check := fset.Bool("check", false, "list files that would change, and exit 1 if any would")
 	fset.SetOutput(os.Stderr)
 	fset.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: nomi fmt [-w|-l|-d] [paths...]")
+		fmt.Fprintln(os.Stderr, "usage: nomi fmt [-w|-l|-d|-check] [paths...]")
 		fset.PrintDefaults()
 	}
 	if err := fset.Parse(args); err != nil {
@@ -57,13 +59,13 @@ func runFmt(args []string) error {
 
 	// Enforce at most one mode flag.
 	modeCount := 0
-	for _, b := range []bool{*writeInPlace, *listChanged, *showDiff} {
+	for _, b := range []bool{*writeInPlace, *listChanged, *showDiff, *check} {
 		if b {
 			modeCount++
 		}
 	}
 	if modeCount > 1 {
-		return fmt.Errorf("conflicting flags: at most one of -w, -l, -d may be set")
+		return fmt.Errorf("conflicting flags: at most one of -w, -l, -d, -check may be set")
 	}
 
 	// No paths: read from stdin, write to stdout.
@@ -90,6 +92,7 @@ func runFmt(args []string) error {
 	}
 
 	var firstErr error
+	unformatted := false
 	for _, f := range files {
 		srcBytes, err := os.ReadFile(f)
 		if err != nil {
@@ -110,6 +113,9 @@ func runFmt(args []string) error {
 		switch {
 		case *listChanged:
 			fmt.Println(f)
+		case *check:
+			fmt.Println(f)
+			unformatted = true
 		case *writeInPlace:
 			if err := os.WriteFile(f, []byte(out), 0o644); err != nil {
 				reportFormatError(f, err)
@@ -123,6 +129,11 @@ func runFmt(args []string) error {
 		default:
 			fmt.Print(out)
 		}
+	}
+	if firstErr == nil && unformatted {
+		// Each file that would change is listed above, so the exit
+		// status is the whole report.
+		firstErr = errFormatFailed
 	}
 	return firstErr
 }

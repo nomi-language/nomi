@@ -78,20 +78,20 @@ is one file. Edit the Polish and run it again:
 
 ```nomi-run
 // FILE: main.nomi
-import {
+import
     std::io
     cart
-}
+end
 
-fn main() {
+fn main()
     [1, 2, 5, 22]
-    |> Iter.each(fn n -> {
+    |> Iter.each(fn n ->
         badge = cart.cart_count(n)
         en = Phrase.format(badge, Locale`en`)
         pl = Phrase.format(badge, Locale`pl`)
         io.print("${en} | ${pl}")
-    })
-}
+    end)
+end
 
 // FILE: cart.nomi
 /// The cart badge, such as "3 items in your cart".
@@ -240,12 +240,12 @@ The full cart page puts these together:
 
 ```nomi-run
 // FILE: main.nomi
-import {
+import
     std::io
     cart
-}
+end
 
-fn main() {
+fn main()
     lines = [
         cart.cart_count(3),
         cart.order_status(.Shipped),
@@ -255,18 +255,18 @@ fn main() {
     ]
 
     [Locale`en`, Locale`pl`]
-    |> Iter.each(fn locale -> {
+    |> Iter.each(fn locale ->
         lines |> Iter.each(&io.print(Phrase.format(&1, locale)))
-    })
-}
+    end)
+end
 
 // FILE: cart.nomi
 /// Where an order is.
-pub enum Status {
+pub enum Status
     Pending
     Shipped
     Delivered
-}
+end
 
 /// The cart badge, such as "3 items in your cart".
 pub phrase cart_count(count: Int) `
@@ -394,30 +394,30 @@ A phrase takes a `Money` and the calendar types like any other value.
 
 ```nomi-run
 // FILE: main.nomi
-import {
+import
     std::calendar.Date
     std::io
     std::money.Money
     order
-}
+end
 
-fn main() {
+fn main()
     lines = [
         order.order_total(Money`27.35 USD`),
         order.ships_on(Date`2026-10-20`),
     ]
 
     [Locale`en`, Locale`pl`]
-    |> Iter.each(fn locale -> {
+    |> Iter.each(fn locale ->
         lines |> Iter.each(&io.print(Phrase.format(&1, locale)))
-    })
-}
+    end)
+end
 
 // FILE: order.nomi
-import {
+import
     std::calendar.Date
     std::money.Money
-}
+end
 
 /// The order's total, in its currency.
 pub phrase order_total(total: Money) `Total: {$total :currency}`
@@ -471,20 +471,20 @@ forms, and the translation of a phrase chooses a variant by the gender with
 
 ```nomi-run
 // FILE: main.nomi
-import {
+import
     std::io
     shop
-}
+end
 
-fn main() {
+fn main()
     [shop.book, shop.laptop]
-    |> Iter.each(fn product -> {
+    |> Iter.each(fn product ->
         shipped = shop.has_shipped(product)
         en = Phrase.format(shipped, Locale`en`)
         pl = Phrase.format(shipped, Locale`pl`)
         io.print("${en} | ${pl}")
-    })
-}
+    end)
+end
 
 // FILE: shop.nomi
 pub noun book `

@@ -11,27 +11,27 @@ import (
 // std/http, std/http_testing, std/url and the program std modules they
 // import, whose lowering asks the retention predicates most of their
 // questions.
-const kindMemoHTTPProgram = `import {
+const kindMemoHTTPProgram = `import
     std::http.{self, Response, Status}
     std::http_testing
     std::url.Url
-}
+end
 
-fn greeting(name: String) -> Result<String, http.Error> {
+fn greeting(name: String) -> Result<String, http.Error>
     response = http.get(Url"https://api.example.com/greet/${name}")?
-    if not Status.is_success(response.status) { return Ok("no greeting: ${response.status}") }
+    if not Status.is_success(response.status) then return Ok("no greeting: ${response.status}")
     Response.text(response)
-}
+end
 
-fn main() {
-    ran = http_testing.run(fn request -> {
+fn main()
+    ran = http_testing.run(fn request ->
         Ok(Response{body: .Text("hello from ${request.url.path}")})
-    }, fn -> {
+    end, fn ->
         greeting("ann b")
-    })
+    end)
 
     dbg ran.value
-}
+end
 `
 
 // TestKindMemo_AnswersMostQueriesWithoutAWalk holds the retention

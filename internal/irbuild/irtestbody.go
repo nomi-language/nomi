@@ -333,7 +333,7 @@ func (g *gen) irTestBodyAttempt(c testCaseDecl, name string, group ir.TestGroup,
 		inTest: true, testApp: group.Boot != nil, testWalked: walked,
 		root: c.body,
 		// A block lowered as a value (an arm of an `if` or `case` used as a
-		// value, `x = { ... }`) opens its own defer scope, as it does in a
+		// value, `x = begin ... end`) opens its own defer scope, as it does in a
 		// function body; the body's own statements register in
 		// testDeferScope.
 		deferOK: true,
@@ -906,11 +906,16 @@ func (bl *irScalarBuilder) pipeStageValues(prefixes []ast.Node) (ir.Temp, kind, 
 			line, col := nodePos(pipe.Left)
 			hole := &ast.Ident{Name: fmt.Sprintf("|stage %d", cur), Line: line, Col: col}
 			bl.bound[hole.Name], bl.boundK[hole.Name] = cur, k
+			if bl.g.holeFor == nil {
+				bl.g.holeFor = map[ast.Node]ast.Node{}
+			}
+			bl.g.holeFor[hole] = pipe.Left
 			spliced := *pipe
 			spliced.Left = hole
 			v, k, mobile, ok = bl.pipe(&spliced)
 			delete(bl.bound, hole.Name)
 			delete(bl.boundK, hole.Name)
+			delete(bl.g.holeFor, hole)
 		}
 		if !ok {
 			return ir.NoTemp, kindInvalid, nil, false

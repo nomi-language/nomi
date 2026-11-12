@@ -13,76 +13,76 @@ import "testing"
 func TestDefaultSelf_IntoAGenericFunctionRuns(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
-fn insp<T>(x: T) -> String {
+fn insp<T>(x: T) -> String
     Debug.inspect(x)
-}
+end
 
-fn same<T>(x: T) -> T {
+fn same<T>(x: T) -> T
     x
-}
+end
 
-fn shown<T>(x: T) -> String where T: Display {
+fn shown<T>(x: T) -> String where T: Display
     Display.to_string(x)
-}
+end
 
-interface Scale {
+interface Scale
     fn label(scale: self) -> String
 
-    fn direct(scale: self) -> String {
+    fn direct(scale: self) -> String
         "${label(scale)} ${insp(scale)}"
-    }
+    end
 
-    fn piped(scale: self) -> String {
+    fn piped(scale: self) -> String
         scale |> insp()
-    }
+    end
 
-    fn round(scale: self) -> String {
+    fn round(scale: self) -> String
         label(same(scale))
-    }
+    end
 
-    fn lam(scale: self) -> String {
+    fn lam(scale: self) -> String
         [1, 2] |> Iter.map(fn n -> "${n}${insp(scale)}") |> String.join(",")
-    }
+    end
 
-    fn bounded(scale: self) -> String where self: Display {
+    fn bounded(scale: self) -> String where self: Display
         shown(scale)
-    }
-}
+    end
+end
 
 type Grams Int
 
-impl Display for Grams {
-    fn to_string(Grams(n)) -> String {
+impl Display for Grams
+    fn to_string(Grams(n)) -> String
         "${n} g"
-    }
-}
+    end
+end
 
-impl Scale for Grams {
-    fn label(_g: Grams) -> String {
+impl Scale for Grams
+    fn label(_g: Grams) -> String
         "grams"
-    }
-}
+    end
+end
 
 type Cups Int
 
-impl Scale for Cups {
-    fn label(_c: Cups) -> String {
+impl Scale for Cups
+    fn label(_c: Cups) -> String
         "cups"
-    }
+    end
 
-    fn bounded(_c: Cups) -> String {
+    fn bounded(_c: Cups) -> String
         "no display"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Scale.direct(Grams(1)))
     io.print(Scale.piped(Cups(2)))
     io.print(Scale.round(Grams(3)))
     io.print(Scale.lam(Cups(4)))
     io.print(Scale.bounded(Grams(5)))
     io.print(Scale.bounded(Cups(6)))
-}
+end
 `})
 	if want := "grams Grams(1)\nCups(2)\ngrams\n1Cups(4),2Cups(4)\n5 g\nno display\n"; got != want {
 		t.Fatalf("output %q, want %q", got, want)
@@ -95,52 +95,52 @@ fn main() {
 func TestDefaultSelf_IntoAnInterfaceTypeRuns(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
-fn shown(x: Display) -> String {
+fn shown(x: Display) -> String
     Display.to_string(x)
-}
+end
 
-interface Scale {
+interface Scale
     fn label(scale: self) -> String
 
-    fn format(scale: self) -> String where self: Display {
+    fn format(scale: self) -> String where self: Display
         "${label(scale)}=${shown(scale)}"
-    }
+    end
 
-    fn many(scale: self) -> String where self: Display {
+    fn many(scale: self) -> String where self: Display
         items: List<Display> = [scale, 1]
         items |> Iter.map(fn d -> Display.to_string(d)) |> String.join(",")
-    }
+    end
 
-    fn doubled(scale: self) -> String where self: Add<self, self> and Display {
+    fn doubled(scale: self) -> String where self: Add<self, self> and Display
         "${scale + scale}"
-    }
-}
+    end
+end
 
 type Grams Int
 
-impl Display for Grams {
-    fn to_string(Grams(n)) -> String {
+impl Display for Grams
+    fn to_string(Grams(n)) -> String
         "${n} g"
-    }
-}
+    end
+end
 
-impl Add<Grams, Grams> for Grams {
-    fn add(Grams(a), Grams(b)) -> Grams {
+impl Add<Grams, Grams> for Grams
+    fn add(Grams(a), Grams(b)) -> Grams
         Grams(a + b)
-    }
-}
+    end
+end
 
-impl Scale for Grams {
-    fn label(_g: Grams) -> String {
+impl Scale for Grams
+    fn label(_g: Grams) -> String
         "grams"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Scale.format(Grams(250)))
     io.print(Scale.many(Grams(5)))
     io.print(Scale.doubled(Grams(2)))
-}
+end
 `})
 	if want := "grams=250 g\n5 g,1\n4 g\n"; got != want {
 		t.Fatalf("output %q, want %q", got, want)
@@ -150,36 +150,36 @@ fn main() {
 // Only `self`, and only under the bound, conforms: a `self` with no bound,
 // and another value of the interface's own type, stay errors.
 func TestDefaultSelf_OnlyABoundedSelfEntersAnInterfaceType(t *testing.T) {
-	const shown = "fn shown(x: Display) -> String {\n    Display.to_string(x)\n}\n\n"
-	rejects(t, shown+`interface Scale {
-    fn format(scale: self) -> String {
+	const shown = "fn shown(x: Display) -> String\n    Display.to_string(x)\nend\n\n"
+	rejects(t, shown+`interface Scale
+    fn format(scale: self) -> String
         shown(scale)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     Unit
-}
+end
 `, "main.nomi:7:15: argument 1: expected Display, got Scale")
-	rejects(t, shown+`interface Scale {
-    fn format(scale: self, other: Scale) -> String where self: Display {
+	rejects(t, shown+`interface Scale
+    fn format(scale: self, other: Scale) -> String where self: Display
         shown(other)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     Unit
-}
+end
 `, "main.nomi:7:15: argument 1: expected Display, got Scale")
-	rejects(t, `interface Scale {
-    fn doubled(scale: self) -> String where self: Display {
+	rejects(t, `interface Scale
+    fn doubled(scale: self) -> String where self: Display
         "${scale + scale}"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     Unit
-}
+end
 `, "main.nomi:3:18: binary + operands must use a left-hand type that implements Add, got Scale")
 }
 
@@ -189,74 +189,74 @@ fn main() {
 // after its own file, `scale`, which the implementing file imports, and the
 // plain default calls its sibling `label` by its bare name.
 func TestDefaultSelf_CrossFileDefaultRuns(t *testing.T) {
-	main := `import {
+	main := `import
     std::io
     grams.Grams
     scale.Scale
-}
+end
 
-fn show<T>(x: T) -> String where T: Scale {
+fn show<T>(x: T) -> String where T: Scale
     T.format(x)
-}
+end
 
-fn main() {
+fn main()
     io.print(Scale.format(Grams(1)))
     io.print(Grams.format(Grams(2)))
     io.print(show(Grams(3)))
     all: List<Scale> = [Grams(4)]
     all |> Iter.each(fn s -> io.print(Scale.format(s)))
-}
+end
 `
 	for _, tc := range []struct {
 		name, scale, grams, want string
 	}{
 		{
 			name: "plain default",
-			scale: `pub interface Scale {
+			scale: `pub interface Scale
     fn label(scale: self) -> String
 
-    fn format(scale: self) -> String {
+    fn format(scale: self) -> String
         "[${label(scale)}]"
-    }
-}
+    end
+end
 `,
 			grams: `import scale.Scale
 
 pub type Grams Int
 
-impl Scale for Grams {
-    fn label(Grams(n)) -> String {
+impl Scale for Grams
+    fn label(Grams(n)) -> String
         "${n} g"
-    }
-}
+    end
+end
 `,
 			want: "[1 g]\n[2 g]\n[3 g]\n[4 g]\n",
 		},
 		{
 			name: "where self",
-			scale: `pub interface Scale {
+			scale: `pub interface Scale
     fn label(scale: self) -> String
 
-    fn format(scale: self) -> String where self: Display {
+    fn format(scale: self) -> String where self: Display
         "${label(scale)}=${scale}"
-    }
-}
+    end
+end
 `,
 			grams: `import scale.Scale
 
 pub type Grams Int
 
-impl Display for Grams {
-    fn to_string(Grams(n)) -> String {
+impl Display for Grams
+    fn to_string(Grams(n)) -> String
         "${n} g"
-    }
-}
+    end
+end
 
-impl Scale for Grams {
-    fn label(_g: Grams) -> String {
+impl Scale for Grams
+    fn label(_g: Grams) -> String
         "grams"
-    }
-}
+    end
+end
 `,
 			want: "grams=1 g\ngrams=2 g\ngrams=3 g\ngrams=4 g\n",
 		},

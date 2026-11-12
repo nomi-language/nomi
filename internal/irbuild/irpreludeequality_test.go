@@ -5,10 +5,16 @@ import (
 )
 
 func TestIRPreludeEquality_CompletePrograms(t *testing.T) {
-	verifyLambdaProgram(t, `import { std::io std::literals.Fragment }
-fn same(a: Maybe<String>, b: Maybe<String>) -> Bool { a == b }
-fn different(a: Result<Int, String>, b: Result<Int, String>) -> Bool { a != b }
-fn main() {
+	verifyLambdaProgram(t, `import
+    std::io std::literals.Fragment
+end
+fn same(a: Maybe<String>, b: Maybe<String>) -> Bool
+    a == b
+end
+fn different(a: Result<Int, String>, b: Result<Int, String>) -> Bool
+    a != b
+end
+fn main()
   io.print(same(Some("Ada"), Some("Ada")))
   io.print(same(Some("Ada"), Some("Grace")))
   io.print(same(Some("Ada"), None))
@@ -20,21 +26,24 @@ fn main() {
   io.print(Fragment.Dynamic(7) == Fragment.Static<Int>("seven"))
   io.print(Some(0.0 / 0.0) == Some(0.0 / 0.0))
   io.print(Some(0.0 / 0.0) != Some(0.0 / 0.0))
-}
+end
 `, "True\nFalse\nFalse\nTrue\nFalse\nTrue\nTrue\nFalse\nFalse\nTrue\nFalse\n")
 }
 
 func TestIRPreludeEquality_LambdaPipelineEffects(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn mark(s: String) -> Maybe<String> { io.print(s) Some(s) }
-fn main() {
+fn mark(s: String) -> Maybe<String>
+    io.print(s)
+    Some(s)
+end
+fn main()
   expected = Some("left")
   answer = mark("left")
     |> then fn name -> name == expected
   io.print(answer)
   io.print(mark("first") != mark("second"))
   io.print(40 |> then fn n -> n + 2)
-}
+end
 `, "left\nTrue\nfirst\nsecond\nTrue\n42\n")
 }
 
@@ -42,15 +51,17 @@ fn main() {
 // its answer.
 func TestIRPreludeEquality_NominalDispatchCallsTheImpl(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-enum Answer {
+enum Answer
   Value Int
-}
-impl Equatable for Answer {
-  fn equal(_a: Answer, _b: Answer) -> Bool { True }
-}
-fn main() {
+end
+impl Equatable for Answer
+  fn equal(_a: Answer, _b: Answer) -> Bool
+      True
+  end
+end
+fn main()
   io.print(Answer.Value(1) == Answer.Value(2))
   io.print(Answer.Value(1) != Answer.Value(2))
-}
+end
 `, "True\nFalse\n")
 }

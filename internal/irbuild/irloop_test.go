@@ -6,92 +6,96 @@ import (
 
 func TestIRLoop_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"iteration-and-loops.md:L41", `fn main() {
+		{"iteration-and-loops.md:L41", `fn main()
   // Countdown — break when n reaches 0.
-  countdown = Iter.loop(5, fn n -> {
-    if n == 0 { break n }
+  countdown = Iter.loop(5, fn n ->
+    if n == 0 then break n
     n - 1
-  })
+  end)
   dbg countdown
 
   // Tuple state — first Fibonacci pair where the second is > 100.
-  (a, b) = Iter.loop((0, 1), fn state -> {
+  (a, b) = Iter.loop((0, 1), fn state ->
     (x, y) = state
-    if y > 100 { break (x, y) }
+    if y > 100 then break (x, y)
     (y, x + y)
-  })
+  end)
   dbg a
   dbg b
-}`, "dbg line 7: countdown = 0\ndbg line 15: a = 89\ndbg line 16: b = 144\n"},
+end`, "dbg line 7: countdown = 0\ndbg line 15: a = 89\ndbg line 16: b = 144\n"},
 		{"guards, return advance and repeated calls", `import std::io
-fn count_to(limit: Int) -> Int {
-  Iter.loop(0, fn n -> {
+fn count_to(limit: Int) -> Int
+  Iter.loop(0, fn n ->
     step = n + 1
-    if n < 0 { continue }
-    if n >= limit {
+    if n < 0 then continue
+    if n >= limit then
       io.print("stop at ${n}")
       break n * 10
-    }
-    if n == 2 { return n + 2 }
+    end
+    if n == 2 then return n + 2
     step
-  })
-}
+  end)
+end
 
-fn main() {
+fn main()
   a = count_to(3)
   b = count_to(5)
-  total = a + Iter.loop(1, fn k -> {
-    if k > 50 { break k - 1 }
+  total = a + Iter.loop(1, fn k ->
+    if k > 50 then break k - 1
     k * 2
-  })
+  end)
   dbg a
   dbg b
   dbg total
-  label = Iter.loop("a", fn s -> {
-    if String.length(s) >= 3 { break "${s}!" }
+  label = Iter.loop("a", fn s ->
+    if String.length(s) >= 3 then break "${s}!"
     "${s}b"
-  })
+  end)
   io.print(label)
-}`, "stop at 4\nstop at 5\ndbg line 22: a = 40\ndbg line 23: b = 50\ndbg line 24: total = 103\nabb!\n"},
+end`, "stop at 4\nstop at 5\ndbg line 22: a = 40\ndbg line 23: b = 50\ndbg line 24: total = 103\nabb!\n"},
 		{"operand positions", `import std::io
-fn f() -> Int {
+fn f() -> Int
   io.print("f")
   3
-}
-fn g(x: Int, y: Int) -> Int { x - y }
-fn main() {
-  total = f() + Iter.loop(1, fn k -> {
+end
+fn g(x: Int, y: Int) -> Int
+    x - y
+end
+fn main()
+  total = f() + Iter.loop(1, fn k ->
     io.print("k")
-    if k > 5 { break k }
+    if k > 5 then break k
     k + 2
-  })
+  end)
   dbg total
-  dbg Iter.loop(f(), fn k -> {
-    if k > 5 { break k }
+  dbg Iter.loop(f(), fn k ->
+    if k > 5 then break k
     k + 2
-  })
-  h = g(Iter.loop(1, fn k -> {
-    if k > 5 { break k }
+  end)
+  h = g(Iter.loop(1, fn k ->
+    if k > 5 then break k
     k + 2
-  }), f())
-  io.print("${h} ${Iter.loop("x", fn s -> {
-    if s == "xxx" { break s }
+  end), f())
+  io.print("${h} ${Iter.loop("x", fn s ->
+    if s == "xxx" then break s
     "${s}x"
-  })}")
-}`, "f\nk\nk\nk\nk\ndbg line 13: total = 10\nf\ndbg line 14:\n  Iter.loop(f(), fn k -> {\n      if k > 5 { break k }\n      k + 2\n  })\n  = 7\nf\n4 xxx\n"},
+  end)}")
+end`, "f\nk\nk\nk\nk\ndbg line 15: total = 10\nf\ndbg line 16:\n  Iter.loop(f(), fn k ->\n      if k > 5 then break k\n      k + 2\n  end)\n  = 7\nf\n4 xxx\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}
 }
 
 func TestIRLoop_RetainsLoopFunctions(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", `fn count_to(limit: Int) -> Int {
-  Iter.loop(0, fn n -> {
-    if n >= limit { break n }
+	p, err := AnalyzeSource("main.nomi", `fn count_to(limit: Int) -> Int
+  Iter.loop(0, fn n ->
+    if n >= limit then break n
     n + 1
-  })
-}
-fn main() { _ = count_to(3) + count_to(4) }`)
+  end)
+end
+fn main()
+    _ = count_to(3) + count_to(4)
+end`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,22 +117,22 @@ fn main() { _ = count_to(3) + count_to(4) }`)
 func TestIRLoop_BranchingTailAndFirstBreak(t *testing.T) {
 	// A branching tail writes the tail slot from two arms, and a final `break
 	// v` leaves on the first iteration.
-	verifyLambdaProgram(t, "import std::io\nfn run() -> Int {\nIter.loop(0, fn n -> {\n if n > 3 { break n }\n if n > 1 { n + 2 } else { n + 1 }\n })\n}\n"+
-		"fn first_break() -> Int {\nIter.loop(7, fn n -> { break n })\n}\nfn main() {\n io.print(run())\n io.print(first_break())\n}\n", "4\n7\n")
+	verifyLambdaProgram(t, "import std::io\nfn run() -> Int\nIter.loop(0, fn n ->\n if n > 3 then break n\n if n > 1 then n + 2 else n + 1\n end)\nend\n"+
+		"fn first_break() -> Int\nIter.loop(7, fn n ->\n    break n\nend)\nend\nfn main()\n io.print(run())\n io.print(first_break())\nend\n", "4\n7\n")
 }
 
 // A final `return v` is the next state, as a tail value is (vm-maps-iters).
 func TestIRLoop_FinalReturnIsTheNextState(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn run() -> Int {
-  Iter.loop(0, fn n -> {
-    if n > 3 { break n }
+fn run() -> Int
+  Iter.loop(0, fn n ->
+    if n > 3 then break n
     return n + 1
-  })
-}
-fn main() {
+  end)
+end
+fn main()
   io.print(run())
-}
+end
 `, "4\n")
 }
 
@@ -136,13 +140,13 @@ fn main() {
 // it to its break.
 func TestIRLoop_LongLoopRunsToItsBreak(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
-  n = Iter.loop(0, fn i -> {
-    if i == 600000 { break i }
+fn main()
+  n = Iter.loop(0, fn i ->
+    if i == 600000 then break i
     i + 1
-  })
+  end)
   io.print(n)
-}
+end
 `, "600000\n")
 }
 
@@ -154,60 +158,60 @@ func TestIRLoop_UnitState(t *testing.T) {
 	verifyLambdaProgram(t, `import std::channels.{Channel, Receiver, Sender}
 import std::io
 
-fn feed(items: List<String>) -> Receiver<String> {
+fn feed(items: List<String>) -> Receiver<String>
     ch = Channel.buffered<String>(10)
-    Iter.each(items, fn s -> {
+    Iter.each(items, fn s ->
         _ = Sender.send(ch.sender, s)
-    })
+    end)
     Sender.close(ch.sender)
     ch.receiver
-}
+end
 
-fn break_state(input: Receiver<String>) {
-    Iter.loop(Unit, fn u: Unit -> {
-        case Receiver.receive(input) {
+fn break_state(input: Receiver<String>)
+    Iter.loop(Unit, fn u: Unit ->
+        case Receiver.receive(input)
             Some("skip") -> continue
             Some(t) -> io.print(t)
             None -> break u
-        }
-    })
-}
+        end
+    end)
+end
 
-fn bare_break(input: Receiver<String>) {
-    Iter.loop(Unit, fn _u: Unit -> {
-        case Receiver.receive(input) {
+fn bare_break(input: Receiver<String>)
+    Iter.loop(Unit, fn _u: Unit ->
+        case Receiver.receive(input)
             Some(t) -> io.print("bare ${t}")
             None -> break
-        }
-    })
-}
+        end
+    end)
+end
 
-fn guards(input: Receiver<String>) -> Unit {
-    Iter.loop(Unit, fn u -> {
+fn guards(input: Receiver<String>) -> Unit
+    Iter.loop(Unit, fn u ->
         t = Receiver.receive(input)
-        if t == None { break u }
-        if t == Some("skip") { continue }
+        if t == None then break u
+        if t == Some("skip") then continue
         io.print("guarded ${t}")
         return u
-    })
-}
+    end)
+end
 
-fn main() {
+fn main()
     break_state(feed(["a", "skip", "b"]))
     bare_break(feed(["c"]))
     r = guards(feed(["d", "skip", "e"]))
     io.inspect(r)
-    run = fn items: List<String> -> {
+    run = fn items: List<String> ->
         input = feed(items)
-        Iter.loop(Unit, fn _: Unit -> {
-            case Receiver.receive(input) {
+        Iter.loop(Unit, fn _: Unit ->
+            case Receiver.receive(input)
                 Some(t) -> io.print("lambda ${t}")
                 None -> break
-            }
-        })
-    }
+            end
+        end)
+    end
     run(["f"])
-}
+end
 `, "a\nb\nbare c\nguarded Some(d)\nguarded Some(e)\nUnit\nlambda f\n")
 }
 
@@ -216,60 +220,65 @@ fn main() {
 // a Unit tail, an `if` with no `else`. Its value is Unit, and it lowers in a
 // lambda too.
 func TestIRLoop_StatelessLoopEndings(t *testing.T) {
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
     std::channels.{Channel, Receiver, Sender}
     std::io
-}
+end
 
-fn fill(xs: List<Int>) -> Receiver<Int> {
+fn fill(xs: List<Int>) -> Receiver<Int>
     ch: Channel<Int> = Channel.buffered(10)
-    Iter.each(xs, fn x -> {
+    Iter.each(xs, fn x ->
         _ = Sender.send(ch.sender, x)
-    })
+    end)
     Sender.close(ch.sender)
     ch.receiver
-}
+end
 
-fn main() {
+fn main()
     // Ends in break: runs once.
-    Iter.loop(fn -> {
+    Iter.loop(fn ->
         io.print("once")
         break
-    })
+    end)
     // Ends in continue.
     inbox = fill([1, 2, 3])
-    Iter.loop(fn -> {
-        Some(n) = Receiver.receive(inbox) else { break }
-        if n == 3 { break Unit }
+    Iter.loop(fn ->
+        Some(n) = Receiver.receive(inbox) else
+            break
+        end
+        if n == 3 then break Unit
         io.print("continue ${n}")
         continue
-    })
+    end)
     // A case whose arms all leave.
     inbox2 = fill([4, 5, 0, 6])
-    Iter.loop(fn -> {
-        case Receiver.receive(inbox2) {
+    Iter.loop(fn ->
+        case Receiver.receive(inbox2)
             Some(0) -> break
-            Some(n) -> {
+            Some(n) ->
                 io.print("case ${n}")
                 continue
-            }
             None -> break
-        }
-    })
+        end
+    end)
     // A Unit tail, and an if with no else ending the body.
     inbox3 = fill([7, 8])
-    u = Iter.loop(fn -> {
-        Some(n) = Receiver.receive(inbox3) else { break }
+    u = Iter.loop(fn ->
+        Some(n) = Receiver.receive(inbox3) else
+            break
+        end
         io.print("tail ${n}")
-        if n == 7 { io.print("seven") }
-    })
+        if n == 7 then io.print("seven")
+    end)
     io.inspect(u)
     // In a lambda.
-    drain = fn label: String, inbox: Receiver<Int> -> Iter.loop(fn -> {
-        Some(n) = Receiver.receive(inbox) else { break }
+    drain = fn label: String, inbox: Receiver<Int> -> Iter.loop(fn ->
+        Some(n) = Receiver.receive(inbox) else
+            break
+        end
         io.print("${label} ${n}")
-    })
+    end)
     drain("lambda", fill([9, 10]))
-}
+end
 `, "once\ncontinue 1\ncontinue 2\ncase 4\ncase 5\ntail 7\nseven\ntail 8\nUnit\nlambda 9\nlambda 10\n")
 }

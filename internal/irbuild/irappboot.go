@@ -220,7 +220,7 @@ func (g *gen) irDisplayErasedContainer(want, have kind) bool {
 // irErasesFields reports whether an anonymous record of kind have enters a
 // position of record kind want field by field: the same field names, and each
 // field either the same kind or entering its position by erasure (irErases).
-// A boot answering `.{logger: Console{}}` for `.{logger: Logger}` is the case.
+// A boot answering `{logger: Console{}}` for `{logger: Logger}` is the case.
 func (g *gen) irErasesFields(want, have kind) bool {
 	if want.tag != tagAnonStruct || have.tag != tagAnonStruct || want.comp == nil || have.comp == nil ||
 		len(want.comp.names) != len(have.comp.names) || len(want.comp.parts) != len(have.comp.parts) ||
@@ -314,7 +314,7 @@ func (g *gen) irBootRetain(fd *ast.FuncDef) {
 		return
 	}
 	// A named application struct, or an anonymous record
-	// (`.{tag: String, execution: Context}`), whose fields the VM's boot
+	// (`{tag: String, execution: Context}`), whose fields the VM's boot
 	// publishes by name alike.
 	if !(app.tag == tagNamed && irBootStructKind(app.def)) && !irBootRecordKind(app) {
 		g.irDeclineOpen(fd.Name)
@@ -413,21 +413,30 @@ func (g *gen) irRecordImpls() {
 	g.irRecordKeyImpls()
 	g.irRecordBoxedImpls()
 	for _, d := range append(g.implOrder, g.irInstanceImpls()...) {
-		var typ *ir.Symbol
-		if name, scalar := irDispatchScalarName(d.recv); scalar {
-			typ = g.irTypes().Symbol(irScalarTypeToken{name}, name)
-		} else if d.recv.tag == tagNamed && d.recv.def != nil && (!d.recv.def.isEnum || irDispatchEnum(d.recv.def) ||
-			(irBoxedEnum(d.recv) && g.boxedEnumDecl(d.recv.def))) {
-			// An enum with an `embeds` variant dispatches only from a box
-			// that names it (irboxed.go).
-			typ = g.irImplTypeSym(d.recv)
-		}
+		typ := g.irImplDispatchTypeSym(d.recv)
 		iface := implIface(d)
 		if iface == nil {
 			continue
 		}
 		for _, m := range iface.order {
 			it := d.items[m.name]
+			if it == nil && d.iface == nil && typ != nil && stdProgInheritsDefault(m) {
+				// A std interface's default the block does not write
+				// (`ToJson.to_json_field`): the thunk that instantiates
+				// it at the receiver (stdProgThunk).
+				method := g.irIfaceMethodSym(iface, m)
+				if method == nil {
+					continue
+				}
+				if fn := g.stdProgThunk(iface, m, d.recv, typ.Name()); fn != nil {
+					g.irMod.Implement(method, typ, fn)
+				} else {
+					// A dispatch to it must block the program before it
+					// runs (vm.NoImplementation).
+					g.irMod.ImplementUnretained(method)
+				}
+				continue
+			}
 			if _, gap := d.gaps[m.name]; it == nil && !gap {
 				continue
 			}
@@ -455,6 +464,44 @@ func (g *gen) irRecordImpls() {
 		}
 	}
 	g.stdProgHeldImpls()
+}
+
+// irBuildStdDefaultThunks builds, for each of this unit's blocks of a std
+// interface, the thunk of each Nomi default the block does not write
+// (stdProgThunk), which irRecordImpls records as its dispatch entry. It
+// runs before the program's std instances are collected, since a thunk
+// instantiates the default.
+func (g *gen) irBuildStdDefaultThunks() {
+	if g.irMod == nil {
+		return
+	}
+	for _, d := range append(g.implOrder, g.irInstanceImpls()...) {
+		iface := implIface(d)
+		typ := g.irImplDispatchTypeSym(d.recv)
+		if iface == nil || d.iface != nil || typ == nil || !d.lowerable {
+			continue
+		}
+		for _, m := range iface.order {
+			if d.items[m.name] == nil && stdProgInheritsDefault(m) {
+				g.stdProgThunk(iface, m, d.recv, typ.Name())
+			}
+		}
+	}
+}
+
+// irImplDispatchTypeSym is the type symbol a dispatched call keys an impl
+// for recv under, or nil when no value of recv dispatches by its own type.
+func (g *gen) irImplDispatchTypeSym(recv kind) *ir.Symbol {
+	if name, scalar := irDispatchScalarName(recv); scalar {
+		return g.irTypes().Symbol(irScalarTypeToken{name}, name)
+	}
+	if recv.tag == tagNamed && recv.def != nil && (!recv.def.isEnum || irDispatchEnum(recv.def) ||
+		(irBoxedEnum(recv) && g.boxedEnumDecl(recv.def))) {
+		// An enum with an `embeds` variant dispatches only from a box
+		// that names it (irboxed.go).
+		return g.irImplTypeSym(recv)
+	}
+	return nil
 }
 
 // implIface is the interface d's methods dispatch through: the interface's
@@ -691,7 +738,7 @@ func (bl *irScalarBuilder) appFieldStore(w *ast.With) bool {
 		return false
 	}
 	if vk != k {
-		// `with App.cache = %{}`: an empty collection takes the
+		// `with App.cache = {}`: an empty collection takes the
 		// field's type, an embedded value widens and a concrete value
 		// enters its interface, as an argument enters its parameter.
 		have := vk

@@ -3,7 +3,7 @@ package rt
 import "testing"
 
 // A vector pattern's `..rest` is a window over the vector it takes apart, so
-// a recursive `#[x, ..rest]` walk over n elements reads each element once and
+// a recursive `[x, ..rest]` walk over n elements reads each element once and
 // copies none: the n slices it takes allocate nothing and share the
 // vector's backing store. Counted, not timed.
 func TestVectorSliceSharesItsStorage(t *testing.T) {

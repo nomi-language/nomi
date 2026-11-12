@@ -166,40 +166,40 @@ func TestTypeMethodIdentity_NoConflictingDuplicates(t *testing.T) {
 // that should be accepted. With exactly two candidates one of them is always
 // wrong, which is why the outcome is stable even though the winner is not.
 func TestTypeMethodIdentity_TwoModulesEachResolveTheirOwnMethod(t *testing.T) {
-	errs := buildProjectExpectingErrors(t, `import {
+	errs := buildProjectExpectingErrors(t, `import
   alpha
   beta
-}
+end
 
-fn demo() -> String {
+fn demo() -> String
   a = alpha.Error.Bad("a")
   b = beta.Error.Worse("b")
   alpha.Error.to_string(a) + beta.Error.to_string(b)
-}
+end
 `, map[string]string{
-		"alpha": `pub enum Error {
+		"alpha": `pub enum Error
   Bad String
-}
+end
 
-impl Display for Error {
-  fn to_string(e: Error) -> String {
-    case e {
+impl Display for Error
+  fn to_string(e: Error) -> String
+    case e
       Error.Bad(s) -> "alpha: " + s
-    }
-  }
-}
+    end
+  end
+end
 `,
-		"beta": `pub enum Error {
+		"beta": `pub enum Error
   Worse String
-}
+end
 
-impl Display for Error {
-  fn to_string(e: Error) -> String {
-    case e {
+impl Display for Error
+  fn to_string(e: Error) -> String
+    case e
       Error.Worse(s) -> "beta: " + s
-    }
-  }
-}
+    end
+  end
+end
 `,
 	})
 
@@ -228,39 +228,39 @@ impl Display for Error {
 // which is perfectly legible and perfectly wrong. So this test is worthless on
 // its own and is paired with that one.
 func TestTypeMethodIdentity_MismatchNamesBothDeclaringModules(t *testing.T) {
-	errs := buildProjectExpectingErrors(t, `import {
+	errs := buildProjectExpectingErrors(t, `import
   alpha
   beta
-}
+end
 
-fn demo() -> String {
+fn demo() -> String
   a = alpha.Error.Bad("a")
   beta.Error.to_string(a)
-}
+end
 `, map[string]string{
-		"alpha": `pub enum Error {
+		"alpha": `pub enum Error
   Bad String
-}
+end
 
-impl Display for Error {
-  fn to_string(e: Error) -> String {
-    case e {
+impl Display for Error
+  fn to_string(e: Error) -> String
+    case e
       Error.Bad(s) -> "alpha: " + s
-    }
-  }
-}
+    end
+  end
+end
 `,
-		"beta": `pub enum Error {
+		"beta": `pub enum Error
   Worse String
-}
+end
 
-impl Display for Error {
-  fn to_string(e: Error) -> String {
-    case e {
+impl Display for Error
+  fn to_string(e: Error) -> String
+    case e
       Error.Worse(s) -> "beta: " + s
-    }
-  }
-}
+    end
+  end
+end
 `,
 	})
 
@@ -290,12 +290,14 @@ func stdlibProjectIndex(t *testing.T) *analysis.ProjectImplIndex {
 	// Import both so nothing here depends on the entry's import closure;
 	// the index covers every analyzed file regardless, and naming them makes
 	// that independence explicit rather than incidental.
-	src := `import {
+	src := `import
   std::calendar
   std::random
-}
+end
 
-fn main() -> Unit { Unit }
+fn main() -> Unit
+    Unit
+end
 `
 	if err := os.WriteFile(entry, []byte(src), 0644); err != nil {
 		t.Fatalf("write entry: %v", err)

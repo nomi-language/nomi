@@ -11,12 +11,12 @@ func TestIRExistentialBindingHoldsTheInterface_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn main() {
+fn main()
     d: Display = 1
-    rs = [.{x: 1, d: d}, .{x: 2, d: d}]
+    rs = [{x: 1, d:}, {x: 2, d:}]
     io.inspect(rs |> Iter.map(.x) |> Iter.to_list())
     io.print(rs |> Iter.map(fn r -> Display.to_string(r.d)) |> String.join(","))
-}
+end
 `
 	irRunSource(t, src, "[1, 2]\n1,1\n")
 }
@@ -32,28 +32,28 @@ func TestIRExistentialElementPositions_Run(t *testing.T) {
 	const src = `import std::io
 import std::tasks.Task
 
-struct Holder {
+struct Holder
     ds: List<Display>
-}
+end
 
-fn all(ds: List<Display>) -> String {
+fn all(ds: List<Display>) -> String
     Iter.map(ds, Display.to_string) |> String.join(",")
-}
+end
 
-fn show(x: Display) -> String {
+fn show(x: Display) -> String
     "<" + Display.to_string(x) + ">"
-}
+end
 
-fn main() {
+fn main()
     h = Holder{ds: [1, "a"]}
     io.print(all(h.ds))
     io.print(all([True, 2.5, "b"]))
-    xs = concurrent {
+    xs = concurrent
         ts = Task.spawn_all([1, 2, 3], show, max_running: 2)
         Task.await_all(ts)
-    }
+    end
     io.inspect(xs)
-}
+end
 `
 	irRunSource(t, src, "1,a\nTrue,2.5,b\n[\"<1>\", \"<2>\", \"<3>\"]\n")
 }

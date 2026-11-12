@@ -10,21 +10,21 @@ import (
 )
 
 func TestFullPipeline(t *testing.T) {
-	input := `struct User {
+	input := `struct User
     name: String
     age: Int
-}
+end
 
-fn greet(_user: User) -> String {
+fn greet(_user: User) -> String
     greeting = "Hello, "
     greeting
-}
+end
 
-enum Color {
+enum Color
     Red
     Green
     Blue
-}`
+end`
 
 	// 1. Parse with recovery
 	tokens := lexer.Lex(input)
@@ -70,9 +70,11 @@ enum Color {
 }
 
 func TestFullPipeline_WithErrors(t *testing.T) {
-	input := `fn broken( {
+	input := `fn broken(
 
-fn valid(x: Int) -> Int { x + 1 }`
+fn valid(x: Int) -> Int
+    x + 1
+end`
 
 	tokens := lexer.Lex(input)
 	nodes, errs := parser.ParseWithRecovery(tokens)
@@ -99,29 +101,33 @@ fn valid(x: Int) -> Int { x + 1 }`
 }
 
 func TestFullPipeline_AllDefinitionTypes(t *testing.T) {
-	input := `fn add(x: Int, y: Int) -> Int { x + y }
+	input := `fn add(x: Int, y: Int) -> Int
+    x + y
+end
 
-struct Point {
+struct Point
     x: Float
     y: Float
-}
+end
 
-enum Direction {
+enum Direction
     North
     South
     East
     West
-}
+end
 
 type UserId Int
 
-interface Display {
+interface Display
     fn to_string(value: self) -> String
-}
+end
 
-impl Display for Point {
-    fn to_string(_p: Point) -> String { "point" }
-}`
+impl Display for Point
+    fn to_string(_p: Point) -> String
+        "point"
+    end
+end`
 
 	tokens := lexer.Lex(input)
 	nodes, errs := parser.ParseWithRecovery(tokens)

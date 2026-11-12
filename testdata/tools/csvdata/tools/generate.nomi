@@ -4,26 +4,26 @@
 // their types, `code: String,basis_points: Int`; every other line is a key,
 // a comma and a value. With `--check` it writes nothing and fails when a
 // file is not what it would write.
-import {
+import
     std::fs
     std::io
     csvdata
-}
+end
 
-struct App {
+struct App
     args: List<String>
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
     Ok(App{args: startup.args})
-}
+end
 
-fn main() -> Result<Unit, String> {
-    check = case App.args {
+fn main() -> Result<Unit, String>
+    check = case App.args
         [] -> False
         ["--check"] -> True
         _ -> return Err("usage: nomi tool csvdata generate [--check]")
-    }
+    end
 
     paths = fs.glob("data/*.csv") |> Result.map_err(fn e -> "data: ${e}")?
     tables = paths |> Iter.sort() |> Iter.map(table) |> Result.collect()?
@@ -44,59 +44,60 @@ fn main() -> Result<Unit, String> {
         ${header}
         import csvdata
 
-        test "generated tables are current" {
+        test "generated tables are current"
             assert csvdata.inputs_digest("data")
                 == Ok("${digest}")
-        }
+        end
         """
 
     changed = stale([("tables.nomi", tables_file), ("tables_test.nomi", test_file)])
     names = changed |> Iter.map(fn (path, _) -> path) |> String.join(", ")
 
-    if Iter.is_empty(changed) {
+    if Iter.is_empty(changed) then
         io.print("up to date")
-    } else if check {
+    else if check then
         return Err("${names} would change: run `nomi tool csvdata generate`")
-    } else {
+    else
         write_all(changed)?
         io.print("wrote ${names}")
-    }
+    end
 
     Ok(Unit)
-}
+end
 
 // The files whose text on disk differs, each with the final newline a
 // triple-quoted string leaves out.
-fn stale(files: List<(String, String)>) -> List<(String, String)> {
+fn stale(files: List<(String, String)>) -> List<(String, String)>
     files
     |> Iter.map(fn (path, text) -> (path, text + "\n"))
     |> Iter.filter(fn (path, text) -> fs.read_text(path) != Ok(text))
     |> Iter.to_list()
-}
+end
 
-fn write_all(files: List<(String, String)>) -> Result<Unit, String> {
+fn write_all(files: List<(String, String)>) -> Result<Unit, String>
     files
-    |> Iter.map(fn (path, text) -> {
+    |> Iter.map(fn (path, text) ->
         fs.write_text(path, text) |> Result.map_err(fn e -> "${path}: ${e}")
-    })
+    end)
     |> Result.collect()
     |> Result.map(fn _ -> Unit)
-}
+end
 
 // The lookup function of the CSV file at path.
-fn table(path: String) -> Result<String, String> {
+fn table(path: String) -> Result<String, String>
     text = fs.read_text(path) |> Result.map_err(fn e -> "${path}: ${e}")?
     lines = String.lines(text) |> Iter.filter(fn l -> l != "") |> Iter.to_list()
 
-    (key, value, rows) = case lines {
+    (key, value, rows) = case lines
         [first, ..rows] ->
-            case String.split(first, ",") |> Iter.map(field) |> Iter.to_list() {
+            case String.split(first, ",") |> Iter.map(field) |> Iter.to_list()
                 [Some(k), Some(v)] -> (k, v, rows)
                 _ -> return Err("${path}:1: the header is `key: Type,value: Type`")
-            }
+            end
 
-        [] -> return Err("${path}: the file is empty; its first line is `key: Type,value: Type`")
-    }
+        [] ->
+            return Err("${path}: the file is empty; its first line is `key: Type,value: Type`")
+    end
 
     (key_name, key_type) = key
     (value_name, value_type) = value
@@ -110,12 +111,12 @@ fn table(path: String) -> Result<String, String> {
     arms =
         rows
         |> Iter.with_index()
-        |> Iter.map(fn (i, row) -> {
-            case String.split(row, ",") |> Iter.to_list() {
+        |> Iter.map(fn (i, row) ->
+            case String.split(row, ",") |> Iter.to_list()
                 [k, v] -> Ok("        ${cell(k, key_type)} -> Some(${cell(v, value_type)})")
                 _ -> Err("${path}:${i + 2}: a row is a key, a comma and a value")
-            }
-        })
+            end
+        end)
         |> Result.collect()
 
     cases = String.join(arms?, "\n")
@@ -123,30 +124,30 @@ fn table(path: String) -> Result<String, String> {
     Ok(
         """
         /// The `${value_name}` of each `${key_name}` in ${path}.
-        pub fn ${name}(${key_name}: ${key_type}) -> Maybe<${value_type}> {
-            case ${key_name} {
+        pub fn ${name}(${key_name}: ${key_type}) -> Maybe<${value_type}>
+            case ${key_name}
         ${cases}
                 _ -> None
-            }
-        }
+            end
+        end
         """
     )
-}
+end
 
 // A header cell `name: Type`, as the name and the type.
-fn field(cell: String) -> Maybe<(String, String)> {
-    case String.split(cell, ":") |> Iter.map(String.trim) |> Iter.to_list() {
+fn field(cell: String) -> Maybe<(String, String)>
+    case String.split(cell, ":") |> Iter.map(String.trim) |> Iter.to_list()
         [name, type_name] when name != "" and type_name != "" -> Some((name, type_name))
         _ -> None
-    }
-}
+    end
+end
 
 // A cell as Nomi source: a string literal for a String, else the cell as it
 // is, which the checker then checks against the type.
-fn cell(text: String, type_name: String) -> String {
-    if type_name == "String" {
+fn cell(text: String, type_name: String) -> String
+    if type_name == "String" then
         String.to_literal(text)
-    } else {
+    else
         String.trim(text)
-    }
-}
+    end
+end

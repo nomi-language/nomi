@@ -12,7 +12,7 @@ import (
 // hover what it matched, go to definition on a pattern opens what it
 // matched, and a pattern that matches nothing is a diagnostic at it.
 
-const embedMain = "import std::embed.Files\n\n/// The site.\nembed site `static page.html`\n\nfn main() {\n    _ = Files.paths(site)\n}\n"
+const embedMain = "import std::embed.Files\n\n/// The site.\nembed site `static page.html`\n\nfn main()\n    _ = Files.paths(site)\nend\n"
 
 func embedProject() map[string]string {
 	return map[string]string{
@@ -128,7 +128,7 @@ func TestEmbed_APatternWhoseBaseDoesNotExistIsAWarningAtIt(t *testing.T) {
 func TestEmbed_DefinitionOnANestedFilesPatternOpensFromTheRoot(t *testing.T) {
 	pages := "pub embed site `static`\n"
 	files := embedProject()
-	files["main.nomi"] = "import {\n    std::embed.Files\n    web::pages\n}\n\nfn main() {\n    _ = Files.paths(pages.site)\n}\n"
+	files["main.nomi"] = "import\n    std::embed.Files\n    web::pages\nend\n\nfn main()\n    _ = Files.paths(pages.site)\nend\n"
 	files["web/pages.nomi"] = pages
 	s, uri := openProject(t, files, "web/pages.nomi")
 	root := filepath.Dir(filepath.Dir(uriToPath(uri)))
@@ -149,7 +149,7 @@ func TestEmbed_DefinitionOnANestedFilesPatternOpensFromTheRoot(t *testing.T) {
 // literal.
 func TestEmbed_ALiteralPathNamingNoEmbeddedFileIsADiagnosticAtIt(t *testing.T) {
 	files := embedProject()
-	main := "import std::embed.Files\n\nembed site `static page.html`\n\nfn main() {\n    _ = Files.read_text(site, \"static/indx.html\")\n}\n"
+	main := "import std::embed.Files\n\nembed site `static page.html`\n\nfn main()\n    _ = Files.read_text(site, \"static/indx.html\")\nend\n"
 	files["main.nomi"] = main
 	root := writeProject(t, files)
 	s, published := recordingServer()

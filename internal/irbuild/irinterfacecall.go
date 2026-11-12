@@ -33,7 +33,7 @@ func (bl *irScalarBuilder) erasedInterfacePlan(t *ast.Call, args irQualArgs, d *
 		for i := len(args.temps); i < len(temps); i++ {
 			temps[i] = ir.NoTemp
 		}
-		if !bl.callDefaults(&fnSig{decl: &ast.FuncDef{Name: m.name, Params: m.decl.Params}, params: kinds}, temps) {
+		if !bl.fillCallDefaults(t, kinds, temps, nil, defaultHome{}) {
 			return nil
 		}
 		mobile := make([]bool, len(temps))
@@ -149,7 +149,10 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 	var filled *irQualArgs
 	if len(args.temps) < len(it.params) {
 		// `Announcer.announce(b)` omitting a defaulted parameter.
-		full, ok := bl.implDefaultArgs(t, args, it)
+		if namedArgNode(t.Args) != nil {
+			return nil
+		}
+		full, ok := bl.filledOperands(t, args, it.params, irImplSource(it).Params, defaultHome{})
 		if !ok {
 			return nil
 		}
@@ -304,9 +307,15 @@ func mirroredImpl(gens []*gen, iface string, mirror *typeDef) (*gen, *implDef) {
 // elsewhere, `ToJson.to_json(user)` for a derived `impl ToJson for User`.
 // Only a single exact fit is planned. A non-nil decl is the interface's
 // declaration, which an impl's header must name (implsInterface).
+//
+// A call with no arguments has no operand to select an impl by:
+// `FromJson.from_missing<Uuid>()`, as a derived FromJson decodes a missing
+// field, names its type only as a type argument. Any one impl whose method
+// fits would be a guess at a type the call does not name, so none is planned
+// and the caller selects by the type argument (kindImplCall).
 func (bl *irScalarBuilder) foreignIfacePlan(t *ast.Call, args irQualArgs, owner, method string, decl ast.Node) *irQualPlan {
 	byRecv, known := bl.g.implsByIface[owner]
-	if !known || owner == "" || !args.ok || bl.g.iterOwns(owner) {
+	if !known || owner == "" || !args.ok || len(args.kinds) == 0 || bl.g.iterOwns(owner) {
 		return nil
 	}
 	for _, k := range args.kinds {

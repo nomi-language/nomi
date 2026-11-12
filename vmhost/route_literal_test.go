@@ -26,7 +26,7 @@ func TestRouteLiteral_RefusesWhatGoAccepts(t *testing.T) {
 		{"GET /files/{a}{b}", opening},
 		{"example.com{/a", opening},
 	} {
-		src := "import std::http.Route\n\nfn main() {\n    _ = Route`" + c.pattern + "`\n}\n"
+		src := "import std::http.Route\n\nfn main()\n    _ = Route`" + c.pattern + "`\nend\n"
 		ds := literalDiagnostics(t, src)
 		if len(ds) != 1 {
 			t.Fatalf("%s: %d diagnostics, want 1: %v", c.pattern, len(ds), ds)
@@ -53,7 +53,7 @@ func TestRouteLiteral_AdmitsStandardPatterns(t *testing.T) {
 	} {
 		lines = append(lines, "    _ = Route`"+p+"`")
 	}
-	src := "import std::http.Route\n\nfn main() {\n" + strings.Join(lines, "\n") + "\n}\n"
+	src := "import std::http.Route\n\nfn main()\n" + strings.Join(lines, "\n") + "\nend\n"
 	if _, err := LoadSource("main", src); err != nil {
 		t.Fatalf("the front end rejects standard Route literals: %v", err)
 	}

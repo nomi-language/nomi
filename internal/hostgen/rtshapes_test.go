@@ -76,10 +76,10 @@ func TestTaggedLayoutMatchesRtTagConstants(t *testing.T) {
 // TestTaggedLayoutRefusesDrift plants a Go tagged struct that disagrees with
 // its enum each way and requires generation to refuse.
 func TestTaggedLayoutRefusesDrift(t *testing.T) {
-	src := `pub enum Shape {
+	src := `pub enum Shape
   Dot
   Circle Float
-}
+end
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
@@ -101,10 +101,10 @@ func TestTaggedLayoutRefusesDrift(t *testing.T) {
 	}
 	// An enum whose variants all fit, against a Go struct with a field none
 	// of them claims.
-	bare := `pub enum Two {
+	bare := `pub enum Two
   A
   B
-}
+end
 `
 	nodes, _ = parser.Parse(lexer.Lex(bare))
 	res = NewResolver(&Module{Name: "u", Nodes: nodes})

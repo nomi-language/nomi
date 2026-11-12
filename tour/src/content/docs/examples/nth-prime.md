@@ -15,25 +15,25 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The `n`th prime, counting 2 as the first, or `None` when `n` is less than
 /// one, since there is no zeroth prime.
-pub fn prime(n: Int) -> Maybe<Int> {
-    if n < 1 { return None }
+pub fn prime(n: Int) -> Maybe<Int>
+    if n < 1 then return None
 
     Iter.from(2)
     |> Iter.filter(is_prime)
     |> Iter.get(n - 1)
-}
+end
 
 /// Whether `number` has no divisor between 2 and its square root.
-fn is_prime(number: Int) -> Bool {
+fn is_prime(number: Int) -> Bool
     Iter.from(2)
     |> Iter.take_while(fn d -> d * d <= number)
     |> Iter.all_match(fn d -> number % d != 0)
-}
+end
 
 // FILE: nth_prime_test.nomi
 import nth_prime
 
-test "prime" {
+test "prime"
     [
         ("first prime", 1, Some(2)),
         ("second prime", 2, Some(3)),
@@ -41,10 +41,10 @@ test "prime" {
         ("big prime", 10001, Some(104743)),
         ("there is no zeroth prime", 0, None),
     ]
-    |> subtests (description, n, expected), description {
+    |> subtests (description, n, expected), description
         assert nth_prime.prime(n) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok prime (5 cases)

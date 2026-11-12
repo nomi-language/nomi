@@ -58,29 +58,31 @@ func TestBlockLocalType_SameNamedStructsResolveFieldsToTheDeclarationInScope(t *
 // and its inner blocks, and nowhere else.
 func TestBlockLocalType_IsKnownToAnnotationsInItsBlockOnly(t *testing.T) {
 	errs := checkWithStdlib(`
-fn main() {
-  inner = {
+fn main()
+  inner = begin
     type Meters Int
     m: Meters = Meters(3)
-    f = fn d: Meters = Meters(1) -> case d { Meters(n) -> n }
+    f = fn d: Meters = Meters(1) -> case d
+        Meters(n) -> n
+    end
     g: (Meters) -> Int = fn Meters(n) -> n
-    _ = {
+    _ = begin
       n: Meters = m
       n
-    }
+    end
     f(m) + g(m)
-  }
+  end
   _ = inner
   outside: Meters = 1
   _ = outside
-}
+end
 `)
 	var got []string
 	for _, e := range errs {
 		got = append(got, fmt.Sprintf("%d:%d %s", e.Line, e.Col, e.Message))
 	}
 	want := []string{
-		`15:12 unknown type "Meters"`,
+		`17:12 unknown type "Meters"`,
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("errors:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

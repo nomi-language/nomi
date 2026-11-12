@@ -2,12 +2,12 @@
 //# reading its text as TOML, and writing its slots' values
 //# (internal/stdtoml). It is internal; a program imports std::toml.
 
-import {
+import
     float.Float
     int.Int
     lists.List
     strings.String
-}
+end
 
 /// Where the literal's slots stand and whether its text is TOML with a
 /// stand-in for each slot: fragment -1 when it is, else the static the

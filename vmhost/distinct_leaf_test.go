@@ -21,12 +21,12 @@ import (
 // position".
 func TestDistinctOverLeaf_RunsEveryShape(t *testing.T) {
 	const byteHelper = `
-fn byte(n: Int) -> Byte {
-    case Int.to_byte(n) {
+fn byte(n: Int) -> Byte
+    case Int.to_byte(n)
         Some(b) -> b
         None -> byte(0)
-    }
-}
+    end
+end
 `
 	cases := []struct {
 		name, inner, imports, decls, v1, v2 string
@@ -160,8 +160,7 @@ True False
 		{
 			name: "an empty struct", inner: "Empty", v1: "Empty{}", v2: "Empty{}",
 			decls: `
-struct Empty {
-}
+struct Empty end
 `,
 			want: `Empty{}
 Empty{}
@@ -183,39 +182,39 @@ S{w: W(Empty{})}
 				src.WriteString("derive " + d + " for W\n")
 			}
 			src.WriteString(`
-enum Holder {
+enum Holder
     embeds W
     Other
-}
+end
 
-struct S {
+struct S
     w: W
-}
+end
 
-fn unwrap(W(x)) -> ` + c.inner + ` {
+fn unwrap(W(x)) -> ` + c.inner + `
     x
-}
+end
 
-fn main() {
+fn main()
     a = W(` + c.v1 + `)
     b = ` + c.v2 + ` |> W()
     W(m) = a
     io.inspect(m)
     io.inspect(unwrap(b))
     io.inspect(
-        case a {
+        case a
             W(y) -> y
-        }
+        end
     )
     io.inspect(a)
     io.inspect([` + c.v1 + `, ` + c.v2 + `] |> Iter.map(W) |> Iter.to_list())
     io.inspect([a, b] |> Iter.map(fn W(z) -> z) |> Iter.to_list())
     io.inspect(Holder.W(` + c.v1 + `))
     io.inspect(
-        case Holder.W(` + c.v2 + `) {
+        case Holder.W(` + c.v2 + `)
             Holder.W(h) -> h
             Holder.Other -> ` + c.v1 + `
-        }
+        end
     )
     io.inspect(S{w: a})
 `)
@@ -231,8 +230,8 @@ fn main() {
 				src.WriteString("    io.print(\"${a == b} ${a == W(" + c.v1 + ")}\")\n")
 			}
 			if has("Hashable") {
-				src.WriteString("    io.inspect(Map.get(%{a => 1, b => 2}, b))\n")
-				src.WriteString("    io.print(\"${Set.contains(%[a], a)} ${Set.contains(%[a], b)}\")\n")
+				src.WriteString("    io.inspect(Map.get({a => 1, b => 2}, b))\n")
+				src.WriteString("    io.print(\"${Set.contains(Set[a], a)} ${Set.contains(Set[a], b)}\")\n")
 			}
 			if has("Comparable") {
 				src.WriteString("    io.print(\"${a < b} ${b < a}\")\n")
@@ -240,7 +239,7 @@ fn main() {
 			if has("Display") {
 				src.WriteString("    io.print(\"${m}\")\n")
 			}
-			src.WriteString("}\n")
+			src.WriteString("end\n")
 			if got := runDistinctLeaf(t, src.String()); got != c.want {
 				t.Fatalf("output\n%s\nwant\n%s\nprogram:\n%s", got, c.want, src.String())
 			}
@@ -257,24 +256,24 @@ func TestDistinctOverFunction_DestructuresAndCalls(t *testing.T) {
 
 type Rate (Decimal) -> Decimal
 
-fn apply(Rate(f), x: Decimal) -> Decimal {
+fn apply(Rate(f), x: Decimal) -> Decimal
     f(x)
-}
+end
 
-fn main() {
+fn main()
     r = Rate(fn d: Decimal -> d * 2.0d)
     io.inspect(apply(r, 1.25d))
     Rate(g) = r
     io.inspect(g(3.0d))
     io.inspect(
-        case r {
+        case r
             Rate(h) -> h(0.5d)
-        }
+        end
     )
     io.inspect([r] |> Iter.map(fn Rate(k) -> k(1.0d)) |> Iter.to_list())
     fs: List<(Decimal) -> Decimal> = [fn d: Decimal -> d + 1.0d]
     io.inspect(fs |> Iter.map(Rate) |> Iter.map(fn rr -> apply(rr, 1.0d)) |> Iter.to_list())
-}
+end
 `
 	want := "2.500d\n6.00d\n1.00d\n[2.00d]\n[2.0d]\n"
 	if got := runDistinctLeaf(t, src); got != want {
@@ -288,17 +287,17 @@ fn main() {
 func TestListOfUnit_Builds(t *testing.T) {
 	src := `import std::io
 
-fn main() {
+fn main()
     xs = [Unit, Unit]
     io.print("${Iter.count(xs)} ${xs == [Unit, Unit]} ${xs == [Unit]}")
     io.inspect([Unit, ..xs])
     io.inspect(
-        case xs {
+        case xs
             [] -> 0
             [_, ..rest] -> Iter.count(rest)
-        }
+        end
     )
-}
+end
 `
 	want := "2 True False\n[Unit, Unit, Unit]\n1\n"
 	if got := runDistinctLeaf(t, src); got != want {

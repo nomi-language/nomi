@@ -1,75 +1,75 @@
 //# A robot on a grid that turns and advances as instructed.
 
 /// A compass direction, in clockwise order.
-pub enum Direction {
+pub enum Direction
     North
     East
     South
     West
-}
+end
 
-impl Direction {
+impl Direction
     /// The direction a quarter turn clockwise.
-    pub fn right(direction: Direction) -> Direction {
-        case direction {
+    pub fn right(direction: Direction) -> Direction
+        case direction
             .North -> .East
             .East -> .South
             .South -> .West
             .West -> .North
-        }
-    }
+        end
+    end
 
     /// The direction a quarter turn counter-clockwise.
-    pub fn left(direction: Direction) -> Direction {
-        case direction {
+    pub fn left(direction: Direction) -> Direction
+        case direction
             .North -> .West
             .West -> .South
             .South -> .East
             .East -> .North
-        }
-    }
-}
+        end
+    end
+end
 
 /// A point on the grid; `x` grows to the east and `y` to the north.
-pub struct Position {
+pub struct Position
     x: Int
     y: Int
-}
+end
 
 /// A robot on the grid, facing one way.
-pub struct Robot {
+pub struct Robot
     position: Position
     direction: Direction
-}
+end
 
-impl Robot {
+impl Robot
     /// Runs a string of instructions, one letter each: `R` turns right, `L`
     /// turns left and `A` advances one step. Stops at the first letter it
     /// does not know.
-    pub fn move(robot: Robot, instructions: String) -> Result<Robot, Error> {
+    pub fn move(robot: Robot, instructions: String) -> Result<Robot, Error>
         Iter.try_reduce(instructions, robot, step)
-    }
-}
+    end
+end
 
 /// Why a string of instructions could not be run.
-pub enum Error {
+pub enum Error
     UnknownInstruction String
-}
+end
 
-fn step(robot: Robot, letter: String) -> Result<Robot, Error> {
-    case letter {
-        "R" -> Ok(.{..robot, direction: Direction.right(robot.direction)})
-        "L" -> Ok(.{..robot, direction: Direction.left(robot.direction)})
-        "A" -> Ok(.{..robot, position: advance(robot.position, robot.direction)})
+fn step(robot: Robot, letter: String) -> Result<Robot, Error>
+    case letter
+        "R" -> Ok({..robot, direction: Direction.right(robot.direction)})
+        "L" -> Ok({..robot, direction: Direction.left(robot.direction)})
+        "A" -> Ok({..robot, position: advance(robot.position, robot.direction)})
         _ -> Err(.UnknownInstruction(letter))
-    }
-}
+    end
+end
 
-fn advance(Position{x, y}, direction: Direction) -> Position {
-    case direction {
-        .North -> .{x, y: y + 1}
-        .East -> .{x: x + 1, y}
-        .South -> .{x, y: y - 1}
-        .West -> .{x: x - 1, y}
-    }
-}
+fn advance(Position{x:, y:}, direction: Direction) -> Position
+    case direction
+        .North -> {x:, y: y + 1}
+        .East -> {x: x + 1, y:}
+        .South -> {x:, y: y - 1}
+        .West -> {x: x - 1, y:}
+    end
+end

@@ -15,41 +15,41 @@ import (
 // `(Int) -> Int`; the call used to be typed Unit, and the handler was
 // refused as `(Int, _) -> Unit`.
 
-const calledOpenParamActor = `import {
+const calledOpenParamActor = `import
     std::actors.Actor
     std::supervisors.{Restart, Supervisor}
-}
+end
 
-fn main() {
+fn main()
     workers = Supervisor.new(max_running: 1, restart: Restart.Transient)
     counter = Actor.start(workers, 0, fn s, f -> f(s))
     _ = Actor.cast(counter, fn n -> n + 1)
-}
+end
 `
 
 func TestCalledOpenParam_Accepted(t *testing.T) {
 	for _, tc := range []struct{ name, src string }{
 		{"an actor of function messages", calledOpenParamActor},
-		{"a parameter solved by its argument first", `fn main() {
+		{"a parameter solved by its argument first", `fn main()
     xs: List<(Int) -> String> = [fn n -> "${n}"]
     _ys = Iter.map(xs, fn g -> g(1)) |> Iter.to_list()
-}
+end
 `},
-		{"a later argument checked against the solved type", `fn run<M>(h: (Int, M) -> Int, m: M) -> Int {
+		{"a later argument checked against the solved type", `fn run<M>(h: (Int, M) -> Int, m: M) -> Int
     h(1, m)
-}
+end
 
-fn main() {
+fn main()
     _n = run(fn s, f -> f(s), fn n -> n * 2)
-}
+end
 `},
-		{"a call of several arguments", `fn fold<S, M>(state: S, h: (S, M) -> S, m: M) -> S {
+		{"a call of several arguments", `fn fold<S, M>(state: S, h: (S, M) -> S, m: M) -> S
     h(state, m)
-}
+end
 
-fn main() {
+fn main()
     _s = fold("a", fn s, f -> f(s, 3), fn s, n -> "${s}${n}")
-}
+end
 `},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -73,34 +73,34 @@ func TestCalledOpenParam_Rejected(t *testing.T) {
 		name, src string
 		want      []string
 	}{
-		{"no type expected anywhere", `fn main() {
+		{"no type expected anywhere", `fn main()
     h = fn g -> g(1)
     _ = h
-}
+end
 `, []string{"2:12 cannot infer type for parameter g\n" +
 			"help: annotate the parameter with its type, as in `fn g: T -> ...`; a later use of the lambda does not give it one"}},
-		{"a second call with another argument type", `fn run<M>(h: (Int, M) -> Int, m: M) -> Int {
+		{"a second call with another argument type", `fn run<M>(h: (Int, M) -> Int, m: M) -> Int
     h(1, m)
-}
+end
 
-fn main() {
-    _n = run(fn s, f -> {
+fn main()
+    _n = run(fn s, f ->
         _ = f(s)
         f("x")
-    }, fn n -> n)
-}
+    end, fn n -> n)
+end
 `, []string{"8:11 argument 1: expected Int, got String"}},
-		{"a result nothing fixes", `fn keep<M>(h: (Int, M) -> Int) -> Int {
+		{"a result nothing fixes", `fn keep<M>(h: (Int, M) -> Int) -> Int
     _ = h
     0
-}
+end
 
-fn main() {
-    _b = keep(fn s, f -> {
+fn main()
+    _b = keep(fn s, f ->
         _ = f(s)
         s
-    })
-}
+    end)
+end
 `, []string{"7:15 the type argument M of `keep` is not determined: annotate the value passed in, or give the call its type arguments, as in `keep<M>(…)`\n" +
 			"help: `keep` needs to know M, and nothing in the call or in how its result is used fixes it"}},
 	} {

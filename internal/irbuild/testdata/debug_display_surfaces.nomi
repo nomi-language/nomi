@@ -22,7 +22,7 @@
 // dispatch in it (rt.InspectStruct sorts the composed `name: value` strings).
 // With `Point{x, y}` those two are the same
 // string and the difference is invisible; with `zeta` before `alpha` they are
-// `.{zeta: 1, alpha: 2}` and `.{alpha: 2, zeta: 1}` and only one wiring passes.
+// `{zeta: 1, alpha: 2}` and `{alpha: 2, zeta: 1}` and only one wiring passes.
 //
 // # A hand-written `impl Debug` is the other distinguishing input
 //
@@ -68,70 +68,70 @@ import std::io
 opaque type Meters Int
 
 // zeta before alpha, in all three structs, deliberately. See above.
-struct Rev {
+struct Rev
     zeta: Int
     alpha: Int
-}
+end
 
-impl Display for Rev {
-    fn to_string(v: Rev) -> String {
+impl Display for Rev
+    fn to_string(v: Rev) -> String
         _ = v
         "REV-DISPLAY"
-    }
-}
+    end
+end
 
 // Both impls, so `Debug.inspect` and Display can be observed disagreeing on one
 // value, and so the `values:` row can be observed ignoring both.
-struct Custom {
+struct Custom
     zeta: Int
     alpha: Int
-}
+end
 
-impl Display for Custom {
-    fn to_string(v: Custom) -> String {
+impl Display for Custom
+    fn to_string(v: Custom) -> String
         _ = v
         "CUSTOM-DISPLAY"
-    }
-}
+    end
+end
 
-impl Debug for Custom {
-    fn inspect(v: Custom) -> String {
+impl Debug for Custom
+    fn inspect(v: Custom) -> String
         _ = v
         "CUSTOM-DEBUG"
-    }
-}
+    end
+end
 
 // Neither impl: only the universal synthesized Debug.
-struct Plain {
+struct Plain
     zeta: Int
     alpha: Int
-}
+end
 
-fn no_rev(_v: Rev) -> Bool {
+fn no_rev(_v: Rev) -> Bool
     False
-}
+end
 
-fn no_custom(_v: Custom) -> Bool {
+fn no_custom(_v: Custom) -> Bool
     False
-}
+end
 
-fn no_plain(_v: Plain) -> Bool {
+fn no_plain(_v: Plain) -> Bool
     False
-}
+end
 
-fn no_meters(_v: Meters) -> Bool {
+fn no_meters(_v: Meters) -> Bool
     False
-}
+end
 
-fn no_bool(_v: Bool) -> Bool {
+fn no_bool(_v: Bool) -> Bool
     False
-}
+end
 
-fn no_bools(_v: List<Bool>) -> Bool {
+fn no_bools(_v: List<Bool>) -> Bool
     False
-}
+end
 
-test "the four renderings of one value" {
+test "the four renderings of one value"
     r = Rev{zeta: 1, alpha: 2}
     c = Custom{zeta: 1, alpha: 2}
     p = Plain{zeta: 1, alpha: 2}
@@ -155,10 +155,10 @@ test "the four renderings of one value" {
     // selected, so line 12 renders a value the builder stores nowhere.
     b: Bool = False
 
-    singleton = case b {
+    singleton = case b
         Bool.False(x) -> Debug.inspect(x)
         _ -> "UNREACHED"
-    }
+    end
 
     io.print("9 Debug.inspect(True)  = " + Debug.inspect(True))
     io.print("10 Debug.inspect(b)    = " + Debug.inspect(b))
@@ -169,36 +169,36 @@ test "the four renderings of one value" {
     // an assertion, and this one PASSES so it adds no `values:` row to the
     // transcript. `no_rev` returns False for every input.
     refute no_rev(r)
-}
+end
 
 // One failing assertion per type, because a `values:` row only exists on a
 // FAILING assertion — a passing one renders nothing and would pin nothing.
-test "values row for a struct with an impl Display" {
+test "values row for a struct with an impl Display"
     r = Rev{zeta: 1, alpha: 2}
     assert no_rev(r)
-}
+end
 
-test "values row honours a hand-written impl Debug" {
+test "values row honours a hand-written impl Debug"
     c = Custom{zeta: 1, alpha: 2}
     assert no_custom(c)
-}
+end
 
-test "values row for a struct with no impls at all" {
+test "values row for a struct with no impls at all"
     p = Plain{zeta: 1, alpha: 2}
     assert no_plain(p)
-}
+end
 
-test "values row for a Bool" {
+test "values row for a Bool"
     b: Bool = True
     assert no_bool(b)
-}
+end
 
-test "values row for a list of Bool" {
+test "values row for a list of Bool"
     bs = [True, False]
     assert no_bools(bs)
-}
+end
 
-test "values row shows an opaque payload Debug hides" {
+test "values row shows an opaque payload Debug hides"
     m = Meters(7)
     assert no_meters(m)
-}
+end

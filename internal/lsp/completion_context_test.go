@@ -23,49 +23,46 @@ func TestClassifyCompletion(t *testing.T) {
 	}{
 		{"empty file", "‸\n", ctxTopLevel},
 		{"top-level word", "pu‸\n", ctxTopLevel},
-		{"statement start", "fn f() {\n  ret‸\n}\n", ctxStatement},
-		{"statement in an unclosed body", "fn f() {\n  x = 1\n  ‸\n", ctxStatement},
-		{"binding value", "fn f() {\n  x = ‸\n}\n", ctxExpr},
-		{"call argument", "fn f() {\n  foo(1, ‸)\n}\n", ctxExpr},
-		{"call argument, unclosed", "fn f() {\n  foo(1, ‸\n}\n", ctxExpr},
-		{"owner member", "fn f() {\n  String.‸\n}\n", ctxMember},
-		{"owner member, typed", "fn f() {\n  String.tr‸\n}\n", ctxMember},
-		{"value member", "fn f() {\n  p.‸\n}\n", ctxMember},
-		{"chained member", "fn f() {\n  a.b.‸\n}\n", ctxMember},
-		{"pipe stage", "fn f() {\n  xs |> ‸\n}\n", ctxPipe},
-		{"pipe stage, typed", "fn f() {\n  xs |> ma‸\n}\n", ctxPipe},
-		{"pipe owner member", "fn f() {\n  xs |> Iter.‸\n}\n", ctxMember},
-		{"dot variant alone", "fn f() -> Color {\n  .‸\n}\n", ctxDotVariant},
-		{"dot variant argument", "fn f() {\n  paint(.‸)\n}\n", ctxDotVariant},
-		{"dot variant after ==", "fn f() {\n  if c == .‸\n}\n", ctxDotVariant},
-		{"dot variant typed", "fn f() {\n  x: Color = .Re‸\n}\n", ctxDotVariant},
+		{"statement start", "fn f()\n  ret‸\nend\n", ctxStatement},
+		{"statement in an unclosed body", "fn f()\n  x = 1\n  ‸\n", ctxStatement},
+		{"binding value", "fn f()\n  x = ‸\nend\n", ctxExpr},
+		{"call argument", "fn f()\n  foo(1, ‸)\nend\n", ctxExpr},
+		{"call argument, unclosed", "fn f()\n  foo(1, ‸\nend\n", ctxExpr},
+		{"owner member", "fn f()\n  String.‸\nend\n", ctxMember},
+		{"owner member, typed", "fn f()\n  String.tr‸\nend\n", ctxMember},
+		{"value member", "fn f()\n  p.‸\nend\n", ctxMember},
+		{"chained member", "fn f()\n  a.b.‸\nend\n", ctxMember},
+		{"pipe stage", "fn f()\n  xs |> ‸\nend\n", ctxPipe},
+		{"pipe stage, typed", "fn f()\n  xs |> ma‸\nend\n", ctxPipe},
+		{"pipe owner member", "fn f()\n  xs |> Iter.‸\nend\n", ctxMember},
+		{"dot variant alone", "fn f() -> Color\n  .‸\nend\n", ctxDotVariant},
+		{"dot variant argument", "fn f()\n  paint(.‸)\nend\n", ctxDotVariant},
+		{"dot variant after ==", "fn f()\n  if c == .‸\nend\n", ctxDotVariant},
+		{"dot variant typed", "fn f()\n  x: Color = .Re‸\nend\n", ctxDotVariant},
 		{"type annotation", "fn f(x: ‸) {}\n", ctxType},
 		{"type annotation typed", "fn f(x: Str‸) {}\n", ctxType},
-		{"return type", "fn f() -> ‸ {}\n", ctxType},
-		{"struct literal field", "fn f() {\n  p = Point{x: 1, ‸}\n}\n", ctxStructField},
-		{"struct literal field, unclosed", "fn f() {\n  p = Point{x: 1, ‸\n}\n", ctxStructField},
-		{"struct update field", "fn f() {\n  p = .{..base, ‸}\n}\n", ctxStructField},
-		{"literal head after #", "fn f() {\n  p = #Po‸\n}\n", ctxShapeHead},
-		{"literal head after %", "fn f() {\n  p = %Ta‸\n}\n", ctxShapeHead},
-		{"qualified literal head", "fn f() {\n  p = #geo.Po‸\n}\n", ctxShapeHead},
-		{"remainder", "fn f() {\n  p = a %b‸\n}\n", ctxExpr},
-		{"case arm", "fn f(c: Color) {\n  case c {\n    ‸\n  }\n}\n", ctxCaseArm},
-		{"second case arm", "fn f(c: Color) {\n  case c {\n    .Red -> 1\n    ‸\n  }\n}\n", ctxCaseArm},
+		{"return type", "fn f() -> ‸ end\n", ctxType},
+		{"struct literal field", "fn f()\n  p = Point{x: 1, ‸}\nend\n", ctxStructField},
+		{"struct literal field, unclosed", "fn f()\n  p = Point{x: 1, ‸\nend\n", ctxStructField},
+		{"struct update field", "fn f()\n  p = {..base, ‸}\nend\n", ctxStructField},
+		{"remainder", "fn f()\n  p = a %b‸\nend\n", ctxExpr},
+		{"case arm", "fn f(c: Color)\n  case c\n    ‸\n  end\nend\n", ctxCaseArm},
+		{"second case arm", "fn f(c: Color)\n  case c\n    .Red -> 1\n    ‸\n  end\nend\n", ctxCaseArm},
 		{"import path", "import ‸\n", ctxImportPath},
 		{"import path segment", "import std::‸\n", ctxImportPath},
 		{"import selector", "import std::io.{‸}\n", ctxImportName},
-		{"group line", "group \"g\" {\n  ‸\n}\n", ctxTestGroup},
-		{"group after boot", "group \"g\" {\n  boot server.boot(s)\n  se‸\n}\n", ctxTestGroup},
-		{"group boot call", "group \"g\" {\n  boot ‸\n}\n", ctxTestBoot},
-		{"with target", "fn f() {\n  with App.‸\n}\n", ctxMember},
-		{"string literal", "fn f() {\n  x = \"a‸b\"\n}\n", ctxNone},
-		{"comment", "fn f() {\n  // com‸\n}\n", ctxNone},
+		{"group line", "group \"g\"\n  ‸\nend\n", ctxTestGroup},
+		{"group after boot", "group \"g\"\n  boot server.boot(s)\n  se‸\nend\n", ctxTestGroup},
+		{"group boot call", "group \"g\"\n  boot ‸\nend\n", ctxTestBoot},
+		{"with target", "fn f()\n  with App.‸\nend\n", ctxMember},
+		{"string literal", "fn f()\n  x = \"a‸b\"\nend\n", ctxNone},
+		{"comment", "fn f()\n  // com‸\nend\n", ctxNone},
 		{"parameter name", "fn f(na‸: Int) {}\n", ctxNone},
 		{"parameter name without a type", "fn f(na‸) {}\n", ctxParamName},
 		{"parameter name, unclosed", "fn f(a: Int, na‸\n", ctxParamName},
 		{"parameter type, unclosed", "fn f(a: ‸\n", ctxType},
-		{"lambda parameter name", "fn f() {\n  g = fn na‸ -> 1\n}\n", ctxNone},
-		{"predicate name", "fn f() {\n  is_empty‸\n}\n", ctxStatement},
+		{"lambda parameter name", "fn f()\n  g = fn na‸ -> 1\nend\n", ctxNone},
+		{"predicate name", "fn f()\n  is_empty‸\nend\n", ctxStatement},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -78,7 +75,7 @@ func TestClassifyCompletion(t *testing.T) {
 }
 
 func TestClassifyCompletion_Details(t *testing.T) {
-	c := classifyAt(t, "fn f() {\n  xs |> Iter.ma‸p(g)\n}\n")
+	c := classifyAt(t, "fn f()\n  xs |> Iter.ma‸p(g)\nend\n")
 	if c.kind != ctxMember || c.pipeLHS == nil || c.prefix != "ma" {
 		t.Fatalf("pipe member: kind %d, pipe %v, prefix %q", c.kind, c.pipeLHS, c.prefix)
 	}
@@ -86,7 +83,7 @@ func TestClassifyCompletion_Details(t *testing.T) {
 		// The word runs to `map`; the `(` after it is already written.
 		t.Fatalf("nextIsParen = false for `Iter.ma‸p(g)`")
 	}
-	c = classifyAt(t, "fn f() {\n  is_empty‸\n}\n")
+	c = classifyAt(t, "fn f()\n  is_empty‸\nend\n")
 	if c.prefix != "is_empty" {
 		t.Fatalf("prefix = %q, want is_empty", c.prefix)
 	}
@@ -98,7 +95,7 @@ func TestClassifyCompletion_Details(t *testing.T) {
 	if c.importSeg != 2 {
 		t.Fatalf("import segment = %d, want 2", c.importSeg)
 	}
-	c = classifyAt(t, "group \"g\" {\n  clock .Virtual\n  boot server.boot(s)\n  ‸\n}\n")
+	c = classifyAt(t, "group \"g\"\n  clock .Virtual\n  boot server.boot(s)\n  ‸\nend\n")
 	if !c.groupHas["clock"] || !c.groupHas["boot"] || c.groupHas["setup"] {
 		t.Fatalf("group lines above the cursor = %v, want clock and boot", c.groupHas)
 	}
@@ -109,17 +106,17 @@ func TestCompletion_KeywordsByPosition(t *testing.T) {
 	labelsInclude(t, top, "fn", "struct", "enum", "impl", "import", "group", "pub")
 	labelsExclude(t, top, "return", "defer", "if")
 
-	stmt := complete(t, "fn f(n: Int) -> Int {\n  total = n * 2\n  ‸\n}\n")
+	stmt := complete(t, "fn f(n: Int) -> Int\n  total = n * 2\n  ‸\nend\n")
 	labelsInclude(t, stmt, "return", "defer", "with", "assert", "if", "case", "n", "total")
 	labelsExclude(t, stmt, "struct", "impl", "group")
 
-	operand := complete(t, "fn f(n: Int) -> Int {\n  total = ‸\n}\n")
+	operand := complete(t, "fn f(n: Int) -> Int\n  total = ‸\nend\n")
 	labelsInclude(t, operand, "if", "case", "n")
 	labelsExclude(t, operand, "return", "defer", "struct")
 }
 
 func TestCompletion_TypePositionOffersTypes(t *testing.T) {
-	src := "struct Point {\n  x: Int\n}\n\nfn helper() -> Int { 1 }\n\nfn f(p: ‸) {}\n"
+	src := "struct Point\n  x: Int\nend\n\nfn helper() -> Int\n  1\nend\n\nfn f(p: ‸) end\n"
 	items := complete(t, src)
 	labelsInclude(t, items, "Int", "String", "Point", "Maybe", "List")
 	labelsExclude(t, items, "helper", "if", "Some")
@@ -127,8 +124,8 @@ func TestCompletion_TypePositionOffersTypes(t *testing.T) {
 
 func TestCompletion_NothingInStringsCommentsAndNewNames(t *testing.T) {
 	for _, src := range []string{
-		"fn f() {\n  x = \"pre‸\"\n  x\n}\n",
-		"fn f() {\n  // pre‸\n}\n",
+		"fn f()\n  x = \"pre‸\"\n  x\nend\n",
+		"fn f()\n  // pre‸\nend\n",
 		"fn f(na‸: Int) {}\n",
 	} {
 		if items := complete(t, src); len(items) != 0 {
@@ -139,10 +136,10 @@ func TestCompletion_NothingInStringsCommentsAndNewNames(t *testing.T) {
 
 func TestCompletion_TestGroupLinesNotYetWritten(t *testing.T) {
 	cases := []struct{ name, src, want string }{
-		{"empty group", "group \"g\" {\n  ‸\n}\n", "clock,boot,setup,test"},
-		{"after boot", "group \"g\" {\n  boot server.boot(s)\n  ‸\n}\n", "clock,setup,test"},
-		{"after a test", "group \"g\" {\n  test \"t\" {\n    assert true\n  }\n  ‸\n}\n", "clock,boot,setup,test"},
-		{"setup below the cursor", "group \"g\" {\n  ‸\n  setup {\n    1\n  }\n}\n", "clock,boot,test"},
+		{"empty group", "group \"g\"\n  ‸\nend\n", "clock,boot,setup,test"},
+		{"after boot", "group \"g\"\n  boot server.boot(s)\n  ‸\nend\n", "clock,setup,test"},
+		{"after a test", "group \"g\"\n  test \"t\"\n    assert true\n  end\n  ‸\nend\n", "clock,boot,setup,test"},
+		{"setup below the cursor", "group \"g\"\n  ‸\n  setup\n    1\n  end\nend\n", "clock,boot,test"},
 	}
 	for _, c := range cases {
 		items := complete(t, c.src)
@@ -153,12 +150,12 @@ func TestCompletion_TestGroupLinesNotYetWritten(t *testing.T) {
 }
 
 func TestCompletion_PatternPositionOffersVariants(t *testing.T) {
-	items := complete(t, "fn f(m: Maybe<Int>) -> Int {\n  case m {\n    So‸\n  }\n}\n")
+	items := complete(t, "fn f(m: Maybe<Int>) -> Int\n  case m\n    So‸\n  end\nend\n")
 	labelsInclude(t, items, "Some")
 	labelsExclude(t, items, "f", "if")
 }
 
 func TestCompletion_PredicateNamePrefix(t *testing.T) {
-	src := "fn is_empty(s: String) -> Bool { s == \"\" }\n\nfn f() {\n  is_empty‸\n}\n"
+	src := "fn is_empty(s: String) -> Bool\n  s == \"\"\nend\n\nfn f()\n  is_empty‸\nend\n"
 	labelsInclude(t, complete(t, src), "is_empty")
 }

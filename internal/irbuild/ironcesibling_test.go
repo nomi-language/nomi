@@ -38,13 +38,13 @@ func TestIROnceSibling_CycleKeepsForcingLineage(t *testing.T) {
 }
 
 func TestIROnceSibling_AliasesShareOneLazyCell(t *testing.T) {
-	verifyLambdaProgram(t, `import {
+	verifyLambdaProgram(t, `import
   std::io
   config as cfg
   config.{tag as label, limit}
   decoy
-}
-fn main() {
+end
+fn main()
   io.print("created")
   io.print(label)
   io.print(cfg.tag)
@@ -54,12 +54,15 @@ fn main() {
   label = "local"
   local_read = fn -> label
   io.print(local_read())
-  cfg = .{tag: "record"}
+  cfg = {tag: "record"}
   io.print(cfg.tag)
-}
+end
 `, "created\nforcing\nservice\nservice\nservice\n3\n99\nlocal\nrecord\n", map[string]string{
 		"config.nomi": `import std::io
-fn initialize() -> String { io.print("forcing") "service" }
+fn initialize() -> String
+    io.print("forcing")
+    "service"
+end
 pub once tag: String = initialize()
 pub once limit = 3
 `,
@@ -73,14 +76,14 @@ pub once limit = 3
 func TestIROnceSibling_ACallThroughAnImportedFunctionValuedOnce(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 import ops.{double, plus}
-fn main() {
+fn main()
   io.print(double(4))
   io.print(plus(1, 2))
-}
+end
 `, "8\n3\n", map[string]string{
-		"ops.nomi": `fn twice(n: Int) -> Int {
+		"ops.nomi": `fn twice(n: Int) -> Int
   n * 2
-}
+end
 pub once double: (Int) -> Int = twice
 pub once plus: (Int, Int) -> Int = fn a, b -> a + b
 `,

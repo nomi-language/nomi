@@ -5,17 +5,17 @@
 // True for two Moneys with equal cents and different notes, while the
 // structural comparator answers False. A fixture whose impl and structural walk
 // agreed would pass under either rule and prove nothing.
-pub struct Money {
+pub struct Money
     cents: Int
     note: String
-}
+end
 
-pub fn at(cents: Int, note: String) -> Money {
-    Money{cents, note}
-}
+pub fn at(cents: Int, note: String) -> Money
+    Money{cents:, note:}
+end
 
-impl Equatable for Money {
-    fn equal(a: Money, b: Money) -> Bool {
+impl Equatable for Money
+    fn equal(a: Money, b: Money) -> Bool
         a.cents == b.cents
-    }
-}
+    end
+end

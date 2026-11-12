@@ -182,7 +182,7 @@ func (g *gen) irErrorRenderFunc(node ast.Node, name string, sym *ir.Symbol, errK
 		text = r.Dst()
 	default:
 		var rendered bool
-		if text, rendered = bl.displayHole(at, src, errK, true); !rendered {
+		if text, rendered = bl.displayValue(at, src, errK); !rendered {
 			return nil, false
 		}
 	}

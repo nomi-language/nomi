@@ -11,7 +11,7 @@ import (
 // and those sites are no note of the program's error. The program's Error
 // holds a function, so it has no equality and misses Equatable.
 func TestPublishedDiagnostics_MissingImplNotesStayInTheProgram(t *testing.T) {
-	src := "import std::io\nimport std::json.Json\n\nstruct Error {\n    run: (Int) -> Int\n}\n\nfn main() {\n    e = Error{run: fn v -> v}\n    io.inspect(e in [e])\n    io.inspect(e in [e, e])\n    io.inspect(Json.String(\"a\"))\n}\n"
+	src := "import std::io\nimport std::json.Json\n\nstruct Error\n    run: (Int) -> Int\nend\n\nfn main()\n    e = Error{run: fn v -> v}\n    io.inspect(e in [e])\n    io.inspect(e in [e, e])\n    io.inspect(Json.String(\"a\"))\nend\n"
 	d := findDiag(t, publishedFor(t, NewServer(), src, true), "no impl of `Equatable` for `main.Error` (required via membership test `in`)")
 	if got := rangeText(d.Range); got != "9:20-9:21" {
 		t.Errorf("range %s, want the first `in` at 9:20-9:21", got)
@@ -33,7 +33,7 @@ func TestPublishedDiagnostics_MissingImplNotesStayInTheProgram(t *testing.T) {
 // A built-in type has no declaration the program could derive on or
 // implement for, so its missing impl says only std can write it.
 func TestPublishedDiagnostics_MissingImplOfABuiltinTypeSaysOnlyStdCanWriteIt(t *testing.T) {
-	src := "import std::io\n\nfn main() {\n    io.print(\"${Unit}\")\n    io.inspect(\"a\" % \"b\")\n}\n"
+	src := "import std::io\n\nfn main()\n    io.print(\"${Unit}\")\n    io.inspect(\"a\" % \"b\")\nend\n"
 	diags := publishedFor(t, NewServer(), src, true)
 	for _, c := range []struct{ headline, help string }{
 		{"no impl of `Display` for `Unit` (required via call site)",

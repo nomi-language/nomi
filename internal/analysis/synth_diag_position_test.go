@@ -88,24 +88,38 @@ func TestSynthDiagnostics_NeverCarryASynthBandPosition(t *testing.T) {
 	}{
 		{
 			name: "derive FromJson of an interface-typed field",
-			src: `import { std::io; std::json.FromJson }
+			src: `import
+    std::io
+    std::json.FromJson
+end
 
-struct P { a: Display }
+struct P
+    a: Display
+end
 
 derive FromJson for P
 
-fn main() { io.print("x") }
+fn main()
+    io.print("x")
+end
 `,
 		},
 		{
 			name: "derive ToJson of an interface-typed field",
-			src: `import { std::io; std::json.ToJson }
+			src: `import
+    std::io
+    std::json.ToJson
+end
 
-struct P { a: Display }
+struct P
+    a: Display
+end
 
 derive ToJson for P
 
-fn main() { io.print("x") }
+fn main()
+    io.print("x")
+end
 `,
 		},
 	}
@@ -142,15 +156,24 @@ fn main() { io.print("x") }
 // version that stamped every impl diagnostic onto the receiver declaration
 // would pass the test above.
 func TestSynthDiagnostics_AHandWrittenImplKeepsItsOwnPosition(t *testing.T) {
-	src := `import { std::io; std::display.Display }
+	src := `import
+    std::io
+    std::display.Display
+end
 
-struct P { a: Int }
+struct P
+    a: Int
+end
 
-impl Display for P {
-  fn to_string(_value: P) -> Nope { "x" }
-}
+impl Display for P
+  fn to_string(_value: P) -> Nope
+      "x"
+  end
+end
 
-fn main() { io.print("x") }
+fn main()
+    io.print("x")
+end
 `
 	errs := buildAndCollectTypeErrors(t, src)
 	var found bool
@@ -159,8 +182,8 @@ fn main() { io.print("x") }
 			continue
 		}
 		found = true
-		if e.Line != 6 {
-			t.Errorf("hand-written impl diagnostic moved: got line %d, want 6: %v", e.Line, e)
+		if e.Line != 11 {
+			t.Errorf("hand-written impl diagnostic moved: got line %d, want 11: %v", e.Line, e)
 		}
 	}
 	if !found {
@@ -186,16 +209,15 @@ type Code Int
 
 derive Equatable for Code
 
-fn main() {}
+fn main() end
 `, 3, 6},
 		{"hand-written impl", `import equatable.Equatable
 
 type Code Int
 
-impl Equatable for Code {
-}
+impl Equatable for Code end
 
-fn main() {}
+fn main() end
 `, 5, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

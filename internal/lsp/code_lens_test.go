@@ -15,34 +15,38 @@ import (
 )
 
 const codeLensSrc = `//! assert double(2) == 4
-fn double(n: Int) -> Int { n * 2 }
+fn double(n: Int) -> Int
+    n * 2
+end
 
-struct Box {
+struct Box
     n: Int
-}
+end
 
-impl Box {
+impl Box
     //! assert Box.get(Box{n: 1}) == 1
-    fn get(b: Box) -> Int { b.n }
-}
+    fn get(b: Box) -> Int
+        b.n
+    end
+end
 
-fn main() {
+fn main()
     _ = double(1)
-}
+end
 
-test "doubles" {
+test "doubles"
     assert double(3) == 6
-}
+end
 
-group "boxes" {
-    test "get" {
+group "boxes"
+    test "get"
         assert Box.get(Box{n: 2}) == 2
-    }
+    end
 
-    test "wrong" {
+    test "wrong"
         assert Box.get(Box{n: 2}) == 3
-    }
-}
+    end
+end
 `
 
 func TestCodeLens(t *testing.T) {
@@ -68,18 +72,18 @@ func TestCodeLens(t *testing.T) {
 	want := []string{
 		"0:0-0:3 Run attached test nomi.runTest 1",
 		"0:0-0:3 Debug attached test nomi.debugTest 1",
-		"8:4-8:7 Run attached test nomi.runTest 9",
-		"8:4-8:7 Debug attached test nomi.debugTest 9",
-		"12:3-12:7 Run nomi.runMain ",
-		"12:3-12:7 Debug nomi.debugMain ",
-		"16:0-16:4 Run test nomi.runTest 17",
-		"16:0-16:4 Debug test nomi.debugTest 17",
-		"20:0-20:5 Run group nomi.runTest 21",
-		"20:0-20:5 Debug group nomi.debugTest 21",
-		"21:4-21:8 Run test nomi.runTest 22",
-		"21:4-21:8 Debug test nomi.debugTest 22",
+		"10:4-10:7 Run attached test nomi.runTest 11",
+		"10:4-10:7 Debug attached test nomi.debugTest 11",
+		"16:3-16:7 Run nomi.runMain ",
+		"16:3-16:7 Debug nomi.debugMain ",
+		"20:0-20:4 Run test nomi.runTest 21",
+		"20:0-20:4 Debug test nomi.debugTest 21",
+		"24:0-24:5 Run group nomi.runTest 25",
+		"24:0-24:5 Debug group nomi.debugTest 25",
 		"25:4-25:8 Run test nomi.runTest 26",
 		"25:4-25:8 Debug test nomi.debugTest 26",
+		"29:4-29:8 Run test nomi.runTest 30",
+		"29:4-29:8 Debug test nomi.debugTest 30",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("lenses:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -97,11 +101,11 @@ func TestCodeLens_LinesSelectTheirTests(t *testing.T) {
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(codeLensSrc))
 	want := map[int]string{
 		1:  "pass",
-		9:  "pass",
-		17: "pass",
-		21: "pass fail",
-		22: "pass",
-		26: "fail",
+		11: "pass",
+		21: "pass",
+		25: "pass fail",
+		26: "pass",
+		30: "fail",
 	}
 	for _, l := range codeLenses(pathToURI(path), nodes) {
 		if l.Command.Command != commandRunTest {

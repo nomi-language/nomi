@@ -2,32 +2,32 @@
 An or pattern matches either alternative in every pattern position
 ================================================================================
 
-fn describe(m: Maybe<Tri>, cs: List<Codepoint>) -> Int {
-    a = case m {
+fn describe(m: Maybe<Tri>, cs: List<Codepoint>) -> Int
+    a = case m
         Some(.Equilateral or .Isosceles) -> 1
         None or Some(_) -> 0
-    }
-    b = case cs {
+    end
+    b = case cs
         [')' or ']' as closer, ..rest] -> 1
         _ -> 0
-    }
-    c = case m {
+    end
+    c = case m
         Some(.A(n)) or
             Some(.B(n)) as whole when n > 0 or n < -1 -> n
         (Some(.C(n)) as x) or (Some(.D(n)) as x) -> n
         _ -> 0
-    }
+    end
     a + b + c
-}
+end
 
-fn pick(.L(n) or .R(n): Two) -> Int {
+fn pick(.L(n) or .R(n): Two) -> Int
     .L(m) or .R(m) = Two.L(n)
-    Ok(v) = parse() else {
+    Ok(v) = parse() else
         Err(.Empty) or Err(.Blank) -> return 0
         Err(_) -> return 1
-    }
-    if 1 or 2 = v { m } else { v }
-}
+    end
+    if 1 or 2 = v then m else v
+end
 
 --------------------------------------------------------------------------------
 
@@ -50,7 +50,7 @@ fn pick(.L(n) or .R(n): Two) -> Int {
       (binding
         (identifier)
         (case_expression
-          (identifier)
+          value: (identifier)
           (case_branch
             (enum_pattern
               (type_identifier)
@@ -69,7 +69,7 @@ fn pick(.L(n) or .R(n): Two) -> Int {
       (binding
         (identifier)
         (case_expression
-          (identifier)
+          value: (identifier)
           (case_branch
             (list_pattern
               (as_pattern
@@ -86,7 +86,7 @@ fn pick(.L(n) or .R(n): Two) -> Int {
       (binding
         (identifier)
         (case_expression
-          (identifier)
+          value: (identifier)
           (case_branch
             (as_pattern
               pattern: (or_pattern
@@ -194,12 +194,10 @@ fn pick(.L(n) or .R(n): Two) -> Int {
             (return_statement
               (integer)))))
       (if_expression
-        (if_match_condition
+        condition: (if_match_condition
           pattern: (or_pattern
             alternative: (integer)
             alternative: (integer))
           value: (identifier))
-        (body
-          (identifier))
-        (body
-          (identifier))))))
+        consequence: (identifier)
+        alternative: (identifier)))))

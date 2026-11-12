@@ -4,7 +4,7 @@ import "testing"
 
 // `None` in a lambda passed to a generic takes fresh inference variables
 // for its type parameters, which the other branch or the other argument
-// then solves. The checker rejected `if c { None } else { Some(2.5) }` there
+// then solves. The checker rejected `if c then None else Some(2.5)` there
 // as a branch mismatch (`Maybe<T>` against `Maybe<Float>`), and recorded
 // `pick(False, None, Some(x))` with `T` unsolved, so the builder declined it.
 // With None in the first branch, the builder takes None's type from what
@@ -12,23 +12,23 @@ import "testing"
 func TestRun_NoneInALambdaPassedToAGeneric(t *testing.T) {
 	out := runOutput(t, `import std::io
 
-fn apply<T, U>(x: T, f: (T) -> U) -> U {
+fn apply<T, U>(x: T, f: (T) -> U) -> U
   f(x)
-}
+end
 
-fn pick<T>(c: Bool, a: T, b: T) -> T {
-  if c { a } else { b }
-}
+fn pick<T>(c: Bool, a: T, b: T) -> T
+  if c then a else b
+end
 
-fn main() {
-  io.inspect(apply(1, fn x -> if x > 5 { Some(2.5) } else { None }))
-  io.inspect(apply(9, fn x -> if x > 5 { Some(2.5) } else { None }))
+fn main()
+  io.inspect(apply(1, fn x -> if x > 5 then Some(2.5) else None))
+  io.inspect(apply(9, fn x -> if x > 5 then Some(2.5) else None))
   io.inspect(Maybe.map(Some(94), fn x -> pick(False, None, Some(x))))
   io.inspect(Maybe.map(Some(94), fn x -> pick(True, None, Some(x))))
   io.inspect(apply("a", fn s -> pick(False, Err("bad"), Ok(s))))
-  io.inspect(Maybe.map(Some(1), fn x -> if x > 5 { None } else { Some(2.5) }))
-  io.inspect(Maybe.map(Some(9), fn x -> if x > 5 { None } else { Some(2.5) }))
-}
+  io.inspect(Maybe.map(Some(1), fn x -> if x > 5 then None else Some(2.5)))
+  io.inspect(Maybe.map(Some(9), fn x -> if x > 5 then None else Some(2.5)))
+end
 `)
 	want := "None\nSome(2.5)\nSome(Some(94))\nSome(None)\nOk(\"a\")\nSome(Some(2.5))\nSome(None)\n"
 	if out != want {
@@ -42,16 +42,16 @@ fn main() {
 func TestRun_LambdaTypedByTheCallsExpectedType(t *testing.T) {
 	out := runOutput(t, `import std::io
 
-fn ident<T>(x: T) -> T {
+fn ident<T>(x: T) -> T
   x
-}
+end
 
-fn main() {
+fn main()
   f: (Int) -> Int = ident(fn x -> x + 1)
   io.inspect(f(1))
   g: (String) -> Int = ident(fn s -> String.length(s))
   io.inspect(g("abc"))
-}
+end
 `)
 	want := "2\n3\n"
 	if out != want {
@@ -66,21 +66,21 @@ fn main() {
 func TestRun_PartialApplicationAgainstAFunctionType(t *testing.T) {
 	out := runOutput(t, `import std::io
 
-fn pick<T>(c: Bool, a: T, b: T) -> T {
-  if c { a } else { b }
-}
+fn pick<T>(c: Bool, a: T, b: T) -> T
+  if c then a else b
+end
 
-fn apply<T, U>(x: T, f: (T) -> U) -> U {
+fn apply<T, U>(x: T, f: (T) -> U) -> U
   f(x)
-}
+end
 
-fn main() {
+fn main()
   f: (Int) -> Int = &pick(True, &1, 4)
   io.inspect(f(1))
   g: (String) -> String = &pick(False, &1, "b")
   io.inspect(g("a"))
   io.inspect(apply(3, &pick(False, &1, 4)))
-}
+end
 `)
 	want := "1\n\"b\"\n4\n"
 	if out != want {
@@ -95,17 +95,19 @@ fn main() {
 func TestRun_BlockLocalTypeInAnnotations(t *testing.T) {
 	out := runOutput(t, `import std::io
 
-fn ident<T>(x: T) -> T {
+fn ident<T>(x: T) -> T
   x
-}
+end
 
-fn main() {
+fn main()
   type Meters Int
-  struct Pt {
+  struct Pt
     x: Int
-  }
+  end
   m: Meters = Meters(3)
-  f = fn x: Int, d: Meters = Meters(1) -> case d { Meters(n) -> x + n }
+  f = fn x: Int, d: Meters = Meters(1) -> case d
+      Meters(n) -> x + n
+  end
   g: (Meters) -> Int = fn Meters(n) -> n
   p: Pt = Pt{x: 4}
   io.inspect(m)
@@ -113,11 +115,11 @@ fn main() {
   io.inspect(g(Meters(7)))
   io.inspect(ident<Meters>(Meters(2)))
   io.inspect(p)
-  io.inspect({
+  io.inspect(begin
     n: Meters = Meters(9)
     n
-  })
-}
+  end)
+end
 `)
 	want := "Meters(3)\n2\n7\nMeters(2)\nPt{x: 4}\nMeters(9)\n"
 	if out != want {

@@ -60,36 +60,36 @@ func expectNoConcurrentError(t *testing.T, errs []analysis.TypeError, substr str
 }
 
 func TestConcurrentScope_BareSpawnIsNotPrelude_Errors(t *testing.T) {
-	src := `fn demo() -> Int {
-  concurrent {
+	src := `fn demo() -> Int
+  concurrent
     t = spawn(fn -> 42)
     t
-  }
-}`
+  end
+end`
 	errs := analyzeConcurrentRaw(src)
 	expectConcurrentError(t, errs, "undefined variable 'spawn'")
 }
 
 func TestConcurrentScope_LocalSpawnFunctionIsNotTaskSpawn_OK(t *testing.T) {
-	src := `fn spawn(n: Int) -> Int {
+	src := `fn spawn(n: Int) -> Int
   n
-}
+end
 
-fn demo() -> Int {
+fn demo() -> Int
   spawn(42)
-}`
+end`
 	errs := analyzeConcurrentRaw(src)
 	expectNoConcurrentError(t, errs, "spawn outside concurrent block")
 }
 
 // Rule 1 (positive case): `spawn` directly inside a `concurrent` block.
 func TestConcurrentScope_SpawnInsideConcurrentBlock_OK(t *testing.T) {
-	src := `fn demo() -> Int {
-  concurrent {
+	src := `fn demo() -> Int
+  concurrent
     t = Task.spawn(fn -> 42)
     Task.await(t)
-  }
-}`
+  end
+end`
 	errs := analyzeConcurrent(src)
 	expectNoConcurrentError(t, errs, "spawn outside concurrent block")
 }
@@ -97,10 +97,10 @@ func TestConcurrentScope_SpawnInsideConcurrentBlock_OK(t *testing.T) {
 // Rule 1 (negative case): bare `spawn` at fn-body top level — no
 // enclosing concurrent block, no concurrent-reachable call chain.
 func TestConcurrentScope_SpawnOutsideConcurrent_Errors(t *testing.T) {
-	src := `fn demo() -> Int {
+	src := `fn demo() -> Int
   t = Task.spawn(fn -> 42)
   Task.await(t)
-}`
+end`
 	errs := analyzeConcurrent(src)
 	expectConcurrentError(t, errs, "spawn outside concurrent block")
 }
@@ -109,15 +109,15 @@ func TestConcurrentScope_SpawnOutsideConcurrent_Errors(t *testing.T) {
 // only called from inside a `concurrent` block. The chain bottoms out
 // inside a `concurrent` ancestor, so the call is legal.
 func TestConcurrentScope_SpawnInHelperReachableFromConcurrent_OK(t *testing.T) {
-	src := `fn helper() -> Task<Int> {
+	src := `fn helper() -> Task<Int>
   Task.spawn(fn -> 99)
-}
-fn demo() -> Int {
-  concurrent {
+end
+fn demo() -> Int
+  concurrent
     t = helper()
     Task.await(t)
-  }
-}`
+  end
+end`
 	errs := analyzeConcurrent(src)
 	expectNoConcurrentError(t, errs, "spawn outside concurrent block")
 }
@@ -126,13 +126,13 @@ fn demo() -> Int {
 // from a non-concurrent site. Concurrency-reachability never bottoms
 // out in a `concurrent` block, so the call must be rejected.
 func TestConcurrentScope_SpawnInHelperWithBadCallSite_Errors(t *testing.T) {
-	src := `fn helper() -> Int {
+	src := `fn helper() -> Int
   t = Task.spawn(fn -> 99)
   Task.await(t)
-}
-fn demo() -> Int {
+end
+fn demo() -> Int
   helper()
-}`
+end`
 	errs := analyzeConcurrent(src)
 	expectConcurrentError(t, errs, "spawn outside concurrent block")
 }

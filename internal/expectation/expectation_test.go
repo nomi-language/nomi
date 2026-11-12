@@ -80,7 +80,7 @@ func TestRenderIsParseable(t *testing.T) {
 // the same trailing-newline and prefix traps the transcript has.
 func TestSourceRoundTrips(t *testing.T) {
 	c := NewCase("control_test.nomi@0123456789abcdef", 0, 1, "ok <dir>/control_test.nomi :: a\n")
-	c.Source = "test \"a\" {\n  assert 1 == 1\n}\n\nS not a prefix\n"
+	c.Source = "test \"a\"\n  assert 1 == 1\nend\n\nS not a prefix\n"
 	s := &Set{Population: "probe", What: "w", Cases: []Case{c}}
 	got, err := Parse(s.Render())
 	if err != nil {

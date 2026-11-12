@@ -4,74 +4,80 @@ type Stack List<Int>
 
 type Kvs Map<String, Int>
 
-struct Circle {
+struct Circle
     p: Pair
-}
+end
 
-enum E {
+enum E
     embeds Circle
     Rec {p: Pair}
     Dist Pair
     TP (Pair, Int)
     Other
-}
+end
 
-fn tuple_case(t: (Pair, Int)) -> Int {
-    case t {
+fn tuple_case(t: (Pair, Int)) -> Int
+    case t
         (Pair(1, _), 2) -> 1
         (Pair(n, "b"), _) -> n
         _ -> 0
-    }
-}
+    end
+end
 
-fn bind_else(t: (Pair, Int)) -> Int {
-    (Pair(x, _), 2) = t else { return 0 }
+fn bind_else(t: (Pair, Int)) -> Int
+    (Pair(x, _), 2) = t else return 0
     x
-}
+end
 
-fn fallback(m: Maybe<(Pair, Int)>) -> Int {
-    Some((Pair(x, _), y)) = m else { (Pair(-1, ""), 0) }
+fn fallback(m: Maybe<(Pair, Int)>) -> Int
+    Some((Pair(x, _), y)) = m else (Pair(-1, ""), 0)
 
     x + y
-}
+end
 
-fn variant(e: E) -> Int {
-    case e {
-        .Circle{p: Pair(a, _)} -> a
-        .Rec{p: Pair(a, "r")} -> a * 10
+fn variant(e: E) -> Int
+    case e
+        .Circle{p: Pair(a, _)} ->
+            a
+
+        .Rec{p: Pair(a, "r")} ->
+            a * 10
 
         .Dist(Pair(a, _) as whole) ->
-            case whole {
+            case whole
                 Pair(b, _) -> a + b
-            }
+            end
 
-        .TP((Pair(a, _), b)) -> a + b
-        _ -> 0
-    }
-}
+        .TP((Pair(a, _), b)) ->
+            a + b
 
-fn top(s: Stack) -> Int {
-    case s {
+        _ ->
+            0
+    end
+end
+
+fn top(s: Stack) -> Int
+    case s
         [a, ..] -> a
         _ -> -1
-    }
-}
+    end
+end
 
-fn kvs(m: Map<String, Kvs>) -> Int {
-    case m {
-        %{"k" => %Kvs{"a" => v}} -> v
+fn kvs(m: Map<String, Kvs>) -> Int
+    case m
+        {"k" => Kvs{"a" => v}} -> v
         _ -> 0
-    }
-}
+    end
+end
 
-fn record_stack(c: .{r: Int, q: Stack}) -> Int {
-    case c {
-        .{q: Stack[a, ..]} -> a
+fn record_stack(c: {r: Int, q: Stack}) -> Int
+    case c
+        {q: Stack[a, ..]} -> a
         _ -> 0
-    }
-}
+    end
+end
 
-test "tuple distinct sub-patterns" {
+test "tuple distinct sub-patterns"
     assert tuple_case((Pair(1, "a"), 2)) == 1
     assert tuple_case((Pair(5, "b"), 3)) == 5
     assert tuple_case((Pair(5, "c"), 3)) == 0
@@ -84,34 +90,34 @@ test "tuple distinct sub-patterns" {
     t = (Pair(7, "a"), 2)
     assert (Pair(z, _), 2) = t
     assert z == 7
-}
+end
 
-test "distinct sub-patterns in variants" {
+test "distinct sub-patterns in variants"
     assert variant(Circle{p: Pair(1, "a")}) == 1
     assert variant(E.Rec{p: Pair(2, "r")}) == 20
     assert variant(E.Rec{p: Pair(2, "s")}) == 0
     assert variant(E.Dist(Pair(3, "a"))) == 6
     assert variant(E.TP((Pair(4, "a"), 5))) == 9
     assert variant(E.Other) == 0
-}
+end
 
-test "list and map distinct sub-patterns" {
+test "list and map distinct sub-patterns"
     assert top(Stack([4, 5])) == 4
     assert top(Stack([])) == -1
-    assert kvs(%{"k" => Kvs(%{"a" => 6})}) == 6
-    assert kvs(%{"k" => Kvs(%{"b" => 6})}) == 0
-    assert record_stack(.{r: 1, q: Stack([8])}) == 8
-    assert record_stack(.{r: 1, q: Stack([])}) == 0
-}
+    assert kvs({"k" => Kvs({"a" => 6})}) == 6
+    assert kvs({"k" => Kvs({"b" => 6})}) == 0
+    assert record_stack({r: 1, q: Stack([8])}) == 8
+    assert record_stack({r: 1, q: Stack([])}) == 0
+end
 
-fn label(Pair(n, s)) -> String {
+fn label(Pair(n, s)) -> String
     "${s}${n}"
-}
+end
 
-test "a parameter takes a tuple distinct apart" {
+test "a parameter takes a tuple distinct apart"
     assert label(Pair(1, "a")) == "a1"
 
     double = fn Pair(n, _) -> n * 2
 
     assert double(Pair(4, "x")) == 8
-}
+end

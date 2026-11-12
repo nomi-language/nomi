@@ -1,8 +1,8 @@
 import std::json.{FromJson, ToJson}
 
-pub struct Note {
+pub struct Note
     title: String
-}
+end
 
 derive FromJson for Note
 derive ToJson for Note

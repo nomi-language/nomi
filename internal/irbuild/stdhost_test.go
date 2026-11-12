@@ -171,7 +171,7 @@ func TestStdHostKindLookupsAgree(t *testing.T) {
 // program outright with
 //
 //	type name 'Bytes' is reserved by the language and cannot be redeclared as
-//	a struct; pick a different name (e.g. `struct MyBytes { ... }`)
+//	a struct; pick a different name (e.g. `struct MyBytes ... end`)
 //
 // which is a strictly stronger guarantee than any check this builder could
 // make, and it is the reason a singleton POINTER is sufficient identity here
@@ -189,7 +189,7 @@ func TestStdHostIdentityIsGuardedByTheFrontEndFirst(t *testing.T) {
 		t.Errorf("a nil analysis produced %d anchors; it must produce none", len(got))
 	}
 	for _, name := range []string{"Byte", "Bytes"} {
-		src := "struct " + name + " {\n  n: Int\n}\n\nfn main() {\n  _ = " + name + "{n: 1}\n}\n"
+		src := "struct " + name + "\n  n: Int\nend\n\nfn main()\n  _ = " + name + "{n: 1}\nend\n"
 		if _, err := AnalyzeSource("main", src); err == nil {
 			t.Errorf("the front end ACCEPTED a user declaration of %q. This family's "+
 				"identity rests on that being impossible — see the doc comment — so "+
@@ -201,7 +201,9 @@ func TestStdHostIdentityIsGuardedByTheFrontEndFirst(t *testing.T) {
 
 func TestStdHostInferredProjectionRequiresDeclaredIdentity(t *testing.T) {
 	p, err := AnalyzeSource("main", `import std::dynamic.Dynamic
-fn identity(value:Dynamic) ->Dynamic{value}`)
+fn identity(value:Dynamic) ->Dynamic
+    value
+end`)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -11,15 +11,15 @@ import (
 // to a name keeps its callee's defaults, and so does a copy of it.
 func TestDefaultsThroughANamelessValue_AreAnError(t *testing.T) {
 	errs := checkWithStdlib(`
-fn connect(host: String, port: Int = 8080) -> String {
+fn connect(host: String, port: Int = 8080) -> String
   host
-}
+end
 
-fn id<T>(x: T) -> T {
+fn id<T>(x: T) -> T
   x
-}
+end
 
-fn main() {
+fn main()
   c = &connect(&1, port: &2)
   _ = c("a")
   r = id(c)
@@ -29,11 +29,11 @@ fn main() {
   _ = h("d")
   p = fn -> &connect(&1, port: &2)
   _ = p()("e")
-  _ = case Some(c) {
+  _ = case Some(c)
     Some(k) -> k("f")
     None -> ""
-  }
-}
+  end
+end
 `)
 	var got []string
 	for _, e := range errs {
@@ -58,19 +58,19 @@ fn main() {
 // defaults.
 func TestDefaultsThroughOtherNamelessCallees_AreAnError(t *testing.T) {
 	errs := checkWithStdlib(`
-fn connect(host: String, port: Int = 8080) -> String {
+fn connect(host: String, port: Int = 8080) -> String
   host
-}
+end
 
-fn id<T>(x: T) -> T {
+fn id<T>(x: T) -> T
   x
-}
+end
 
 once oc = &connect(&1, port: &2)
 
 once ol = fn s: String, n: Int = 5 -> s
 
-fn main() {
+fn main()
   c = &connect(&1, port: &2)
   r = id(c)
   _ = "a" |> r()
@@ -78,21 +78,23 @@ fn main() {
   _ = "a" |> oc()
   _ = (c)("b")
   b = True
-  _ = (if b { c } else { r })("c")
-  _ = case b {
+  _ = (if b then c else r)("c")
+  _ = case b
     True -> c
     False -> r
-  }("d")
-  _ = { c }("e")
+  end("d")
+  _ = begin
+    c
+  end("e")
   _ = oc("f")
   _ = ol("g")
   _ = "a" |> r(1)
-  _ = (if b { c } else { r })("c", 1)
+  _ = (if b then c else r)("c", 1)
   _ = oc("f", 1)
   _ = ol("g", 2)
   _ = "a" |> c()
   _ = (fn x: Int, y: Int = 2 -> x + y)(1)
-}
+end
 `)
 	var got []string
 	for _, e := range errs {
@@ -107,8 +109,8 @@ fn main() {
 		"22:7 expected 2 arguments, got 1 " + hint,
 		"23:7 expected 2 arguments, got 1 " + hint,
 		"27:7 expected 2 arguments, got 1 " + hint,
-		"28:7 expected 2 arguments, got 1 " + hint,
-		"29:7 expected 2 arguments, got 1 " + hint,
+		"30:7 expected 2 arguments, got 1 " + hint,
+		"31:7 expected 2 arguments, got 1 " + hint,
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("errors:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

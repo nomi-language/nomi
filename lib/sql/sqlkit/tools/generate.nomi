@@ -17,7 +17,7 @@
 // keep exactly (more than 15 digits) or at its scale (none declared) is a
 // warning, and a Postgres type sqlkit has no family for is a note: it is
 // read as text.
-import {
+import
     std::fs
     std::io
     std::json.Json
@@ -30,48 +30,47 @@ import {
     sqlkit::queryfile.{self, Problem}
     sqlkit::sqltext.{self, Kind, Token}
     sqlkit::types
-}
+end
 
 gopkg "github.com/nomi-language/nomi/lib/sql/sqlkit/toolside"
 
 fn config_text(root: String) -> Result<String, String> go toolside.Config
 
-struct App {
+struct App
     args: List<String>
     env: Map<String, String>
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
     Ok(App{args: startup.args, env: startup.env})
-}
+end
 
 /// What a database says of the schema the migrations build and of each
 /// query: its columns, or the error that stopped it from preparing.
-struct Found {
+struct Found
     tables: List<Table>
     queries: List<Result<List<Column>, QueryError>>
-}
+end
 
 /// One generated file: its path from the module root and its text.
-struct Generated {
+struct Generated
     path: String
     text: String
-}
+end
 
-fn main() -> Result<Unit, String> {
-    check = case App.args {
+fn main() -> Result<Unit, String>
+    check = case App.args
         [] -> False
         ["--check"] -> True
         _ -> return Err("usage: nomi tool sqlkit generate [--check]")
-    }
+    end
 
     config = Json.decode(config_text(".")?) |> Result.map_err(fn e -> "nomi.toml: ${e}")?
 
-    case databases.problems(config) {
-        [] -> {}
-
+    case databases.problems(config)
+        [] -> Unit
         problems -> return Err(String.join(problems, "\n"))
-    }
+    end
 
     dbs = databases.read(config)
     made = dbs |> Iter.map(generate) |> Result.collect()?
@@ -87,41 +86,42 @@ fn main() -> Result<Unit, String> {
     changed = (stale?) |> Iter.flat_map(fn s -> s) |> Iter.to_list()
     remove(old, check)?
 
-    if check and not (Iter.is_empty(changed) and Iter.is_empty(old)) {
+    if check and not (Iter.is_empty(changed) and Iter.is_empty(old)) then
         Err("the generated files are out of date: run `nomi tool sqlkit generate`")
-    } else {
+    else
         Ok(Unit)
-    }
-}
+    end
+end
 
 // Two databases that would write one file.
-fn distinct(files: List<Generated>) -> Result<Unit, String> {
+fn distinct(files: List<Generated>) -> Result<Unit, String>
     paths = files |> Iter.map(fn f -> f.path) |> Iter.to_list()
 
     twice =
         paths
         |> Iter.with_index()
-        |> Iter.find(fn (i, p) -> {
+        |> Iter.find(fn (i, p) ->
             Iter.contains(
                 paths
                 |> Iter.take(i),
                 p,
             )
-        })
+        end)
 
-    case twice {
+    case twice
         Some((_, p)) ->
             Err(
                 "two of the module's files would be generated as ${p}: give each database its own `out` or `schema` in nomi.toml, and each query file its own name"
             )
 
-        None -> Ok(Unit)
-    }
-}
+        None ->
+            Ok(Unit)
+    end
+end
 
 // Write db's generated files, or with check compare them, printing what
 // it did; returns the paths that changed.
-fn settle(db: Database, files: List<Generated>, check: Bool) -> Result<List<String>, String> {
+fn settle(db: Database, files: List<Generated>, check: Bool) -> Result<List<String>, String>
     changed =
         files
         |> Iter.filter(fn f -> (fs.read_text(f.path) |> Result.with_default("")) != f.text)
@@ -129,32 +129,32 @@ fn settle(db: Database, files: List<Generated>, check: Bool) -> Result<List<Stri
 
     paths = changed |> Iter.map(fn f -> f.path) |> String.join(", ")
 
-    if Iter.is_empty(changed) {
+    if Iter.is_empty(changed) then
         io.print("${db.name}: up to date")
-    } else if check {
+    else if check then
         io.print("${db.name}: ${paths} would change")
-    } else {
+    else
         written =
             changed
-            |> Iter.map(fn f -> {
+            |> Iter.map(fn f ->
                 fs.write_text(f.path, f.text) |> Result.map_err(fn e -> "${f.path}: ${e}")
-            })
+            end)
             |> Result.collect()
 
         _ = written?
         io.print("${db.name}: wrote ${paths}")
-    }
+    end
 
     Ok(
         changed
         |> Iter.map(fn f -> f.path)
         |> Iter.to_list()
     )
-}
+end
 
 // The files an earlier run generated in the databases' `out` directories
 // that this run does not: those of a query file since removed.
-fn leftovers(dbs: List<Database>, files: List<Generated>) -> Result<List<String>, String> {
+fn leftovers(dbs: List<Database>, files: List<Generated>) -> Result<List<String>, String>
     made = files |> Iter.map(fn f -> f.path) |> Iter.to_list()
 
     dirs =
@@ -172,57 +172,57 @@ fn leftovers(dbs: List<Database>, files: List<Generated>) -> Result<List<String>
         (found?)
         |> Iter.flat_map(fn paths -> paths)
         |> Iter.reject(&Iter.contains(made, &1))
-        |> Iter.filter(fn path -> {
+        |> Iter.filter(fn path ->
             fs.read_text(path) |> Result.map(fn text -> codegen.recorded(text) != None) == Ok(True)
-        })
+        end)
         |> Iter.sort()
     )
-}
+end
 
-fn remove(paths: List<String>, check: Bool) -> Result<Unit, String> {
-    Iter.each(paths, fn path -> {
-        if check {
+fn remove(paths: List<String>, check: Bool) -> Result<Unit, String>
+    Iter.each(paths, fn path ->
+        if check then
             io.print("${path} was generated from a query file that is gone")
-        } else {
+        else
             _ = fs.remove(path)
             io.print("removed ${path}: its query file is gone")
-        }
-    })
+        end
+    end)
 
     Ok(Unit)
-}
+end
 
 // The files db generates, or why it generates none.
-fn generate(db: Database) -> Result<List<Generated>, String> {
+fn generate(db: Database) -> Result<List<Generated>, String>
     migrations = inputs.read(db.migrations)?
     query_inputs = inputs.read(db.queries)?
 
-    if Iter.is_empty(migrations) {
+    if Iter.is_empty(migrations) then
         return Err(
             "${db.name}: there are no migrations in ${db.migrations}: write the first, ${db.migrations}/<date>_<name>.sql"
         )
-    }
+    end
 
     parsed = query_inputs |> Iter.map(fn i -> queryfile.parse(i.path, i.text)) |> Iter.to_list()
 
     syntax =
         parsed
-        |> Iter.flat_map(fn p -> {
-            case p {
+        |> Iter.flat_map(fn p ->
+            case p
                 Err(ps) -> ps
                 Ok(_) -> []
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
 
     files =
         parsed
-        |> Iter.flat_map(fn p -> {
-            case p {
+        |> Iter.flat_map(fn p ->
+            case p
                 Ok(f) -> [f]
                 Err(_) -> []
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
 
     names = file_problems(db, query_inputs)
@@ -231,8 +231,9 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
     queries = files |> Iter.flat_map(fn f -> f.queries) |> Iter.to_list()
     tokens = queries |> Iter.map(fn q -> sqltext.tokens(q.sql)) |> Iter.to_list()
 
-    found = case db.dialect {
-        .Sqlite -> sqlite_found(migrations, tokens)?
+    found = case db.dialect
+        .Sqlite ->
+            sqlite_found(migrations, tokens)?
 
         .Postgres ->
             postgres_found(
@@ -243,49 +244,49 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
                 |> Iter.to_list(),
                 tokens,
             )?
-    }
+    end
 
     tables = found.tables
 
-    schema = case codegen.schema(db, tables, databases.module_of(db, db.schema)) {
+    schema = case codegen.schema(db, tables, databases.module_of(db, db.schema))
         Ok(s) -> s
         Err(ps) -> return report(ps) |> Result.map(fn _ -> [])
-    }
+    end
 
     described = found.queries
 
     digest = inputs.digest(migrations + query_inputs)
 
-    (made, _) = Iter.reduce(files, ([], described), fn acc, file -> {
+    (made, _) = Iter.reduce(files, ([], described), fn acc, file ->
         (made, rest) = acc
         count = Iter.count(file.queries)
         mine = rest |> Iter.take(count) |> Iter.to_list()
         left = rest |> Iter.drop(count) |> Iter.to_list()
         ([(file, codegen.queries_file(schema, file, mine, digest)), ..made], left)
-    })
+    end)
 
     made = Iter.reverse(made)
 
     problems =
         made
-        |> Iter.flat_map(fn (_, r) -> {
-            case r {
+        |> Iter.flat_map(fn (_, r) ->
+            case r
                 Err(ps) -> ps
                 Ok(_) -> []
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
 
     report(problems)?
 
     query_files =
         made
-        |> Iter.flat_map(fn (file, r) -> {
-            case r {
-                Ok(text) -> [Generated{path: databases.out_file(db, stem(file.path)), text}]
+        |> Iter.flat_map(fn (file, r) ->
+            case r
+                Ok(text) -> [Generated{path: databases.out_file(db, stem(file.path)), text:}]
                 Err(_) -> []
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
 
     pairs = migrations |> Iter.map(fn m -> (m.path, m.text)) |> Iter.to_list()
@@ -302,11 +303,11 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
             },
         ] + query_files
     )
-}
+end
 
 // What a scratch in-memory SQLite database says of the migrations and
 // each query, with a warning for each DECIMAL column it cannot keep.
-fn sqlite_found(migrations: List<Input>, tokens: List<List<Token>>) -> Result<Found, String> {
+fn sqlite_found(migrations: List<Input>, tokens: List<List<Token>>) -> Result<Found, String>
     statements = tokens |> Iter.map(fn t -> sqltext.sqlite_sql(sqltext.parts(t))) |> Iter.to_list()
 
     applied =
@@ -316,29 +317,30 @@ fn sqlite_found(migrations: List<Input>, tokens: List<List<Token>>) -> Result<Fo
 
     found = describe.describe(applied, statements)
 
-    if found.error != "" {
+    if found.error != "" then
         return Err(migration_error(migrations, found.migration, found.offset, found.error))
-    }
+    end
 
     tables = found.tables |> Iter.map(fn t -> table(t, migrations)) |> Iter.to_list()
 
-    Iter.each(tables, fn t -> {
-        Iter.each(t.columns, fn c -> {
-            case decimal_warning(t.name, c) {
+    Iter.each(tables, fn t ->
+        Iter.each(t.columns, fn c ->
+            case decimal_warning(t.name, c)
                 Some(w) -> io.print("warning: ${c.migration}:${c.line}: ${w}")
+                None -> Unit
+            end
+        end)
+    end)
 
-                None -> {}
-            }
-        })
-    })
+    table_names = found.tables |> Iter.map(fn t -> t.name) |> Iter.to_list()
 
     queries =
         Iter.zip(tokens, found.statements)
-        |> Iter.map(fn (toks, s) -> columns(toks, s))
+        |> Iter.map(fn (toks, s) -> columns(toks, s, table_names))
         |> Iter.to_list()
 
-    Ok(Found{tables, queries})
-}
+    Ok(Found{tables:, queries:})
+end
 
 // What a scratch database on db's development Postgres server says of the
 // migrations and each query, with a note for each type sqlkit reads as
@@ -348,15 +350,16 @@ fn postgres_found(
     migrations: List<Input>,
     names: List<String>,
     tokens: List<List<Token>>,
-) -> Result<Found, String> {
-    url = case Map.get(App.env, db.dev_url_env) {
-        Some(u) when u != "" -> u
+) -> Result<Found, String>
+    url = case Map.get(App.env, db.dev_url_env)
+        Some(u) when u != "" ->
+            u
 
         _ ->
             return Err(
                 "${db.name}: set ${db.dev_url_env} to the URL of a Postgres server sqlkit can make a scratch database on (postgres://user@localhost:5432/postgres); `generate` applies the migrations there, describes each query and drops the database"
             )
-    }
+    end
 
     statements =
         tokens |> Iter.map(fn t -> sqltext.postgres_sql(sqltext.parts(t))) |> Iter.to_list()
@@ -368,10 +371,10 @@ fn postgres_found(
 
     found = pg.describe(url, applied, statements)
 
-    if found.error != "" {
-        if found.migration == "" { return Err("${db.name}: ${found.error}") }
+    if found.error != "" then
+        if found.migration == "" then return Err("${db.name}: ${found.error}")
         return Err(migration_error(migrations, found.migration, found.offset, found.error))
-    }
+    end
 
     tables = found.tables |> Iter.map(fn t -> postgres_table(t, migrations)) |> Iter.to_list()
 
@@ -380,40 +383,40 @@ fn postgres_found(
         |> Iter.map(fn (name, s) -> postgres_columns(name, s))
         |> Iter.to_list()
 
-    Ok(Found{tables, queries})
-}
+    Ok(Found{tables:, queries:})
+end
 
 // A migration's error at the line of the byte the database gave for it.
-fn migration_error(migrations: List<Input>, path: String, offset: Int, message: String) -> String {
+fn migration_error(migrations: List<Input>, path: String, offset: Int, message: String) -> String
     text = text_of(migrations, path)
     "${path}:${line_of_byte(text, offset)}: ${message}"
-}
+end
 
 // A Postgres table as the generated code reads it. A column of a type
 // sqlkit has no family for is read as text, with a note; an enum type's
 // column is an enum, and `citext` is text by design.
-fn postgres_table(t: pg.Table, migrations: List<Input>) -> Table {
+fn postgres_table(t: pg.Table, migrations: List<Input>) -> Table
     migration_text = text_of(migrations, t.migration)
 
     columns =
         t.columns
-        |> Iter.map(fn c -> {
+        |> Iter.map(fn c ->
             column_text = text_of(migrations, c.migration)
             line = line_of_word(column_text, c.name, t.name)
 
-            declared = case types.postgres(c.type_name) {
-                Some(d) -> d
+            declared = case types.postgres(c.type_name)
+                Some(d) ->
+                    d
 
-                None -> {
-                    if Iter.is_empty(c.values) and c.type_name != "citext" {
+                None ->
+                    if Iter.is_empty(c.values) and c.type_name != "citext" then
                         io.print(
                             "note: ${c.migration}:${line}: `${t.name}.${c.name}` is ${c.type_name}, which sqlkit has no type for: it reads as text, a `String`"
                         )
-                    }
+                    end
 
                     "TEXT"
-                }
-            }
+            end
 
             TableColumn{
                 name: c.name,
@@ -423,40 +426,40 @@ fn postgres_table(t: pg.Table, migrations: List<Input>) -> Table {
                 has_default: c.has_default,
                 values: c.values,
                 migration: c.migration,
-                line,
+                line:,
             }
-        })
+        end)
         |> Iter.to_list()
 
     Table{
         name: t.name,
         migration: t.migration,
         line: line_of_word(migration_text, t.name, ""),
-        columns,
+        columns:,
     }
-}
+end
 
 // A Postgres query's result columns as the generated code reads them, or
 // its error.
-fn postgres_columns(name: String, s: pg.Statement) -> Result<List<Column>, QueryError> {
-    if s.error != "" { return Err(QueryError{message: s.error, offset: s.offset}) }
+fn postgres_columns(name: String, s: pg.Statement) -> Result<List<Column>, QueryError>
+    if s.error != "" then return Err(QueryError{message: s.error, offset: s.offset})
 
     Ok(
         s.columns
-        |> Iter.map(fn c -> {
-            declared = case types.postgres(c.type_name) {
-                Some(d) -> d
+        |> Iter.map(fn c ->
+            declared = case types.postgres(c.type_name)
+                Some(d) ->
+                    d
 
-                None -> {
-                    if c.table == "" and c.type_name != "citext" {
+                None ->
+                    if c.table == "" and c.type_name != "citext" then
                         io.print(
                             "note: `${name}`: the column `${c.name}` is ${c.type_name}, which sqlkit has no type for: it reads as text, a `String`"
                         )
-                    }
+                    end
 
                     "TEXT"
-                }
-            }
+            end
 
             Column{
                 name: c.name,
@@ -465,34 +468,34 @@ fn postgres_columns(name: String, s: pg.Statement) -> Result<List<Column>, Query
                 column: c.column,
                 nullable: c.nullable,
             }
-        })
+        end)
         |> Iter.to_list()
     )
-}
+end
 
 // Print each problem, and fail when there is one.
-fn report(problems: List<Problem>) -> Result<Unit, String> {
-    if Iter.is_empty(problems) { return Ok(Unit) }
+fn report(problems: List<Problem>) -> Result<Unit, String>
+    if Iter.is_empty(problems) then return Ok(Unit)
     Iter.each(problems, fn p -> io.print("${p}"))
 
     count = Iter.count(problems)
-    noun = if count == 1 { "problem" } else { "problems" }
+    noun = if count == 1 then "problem" else "problems"
     Err("${count} ${noun} in the SQL; nothing was written")
-}
+end
 
 // The file name of a path without its directory and `.sql`.
-fn stem(path: String) -> String {
+fn stem(path: String) -> String
     name = String.split(path, "/") |> Iter.last() |> Maybe.with_default(path)
     sqltext.cut_suffix(name, ".sql")
-}
+end
 
 // A query file whose name cannot name a Nomi file, or names the schema's.
-fn file_problems(db: Database, files: List<Input>) -> List<Problem> {
+fn file_problems(db: Database, files: List<Input>) -> List<Problem>
     files
-    |> Iter.flat_map(fn f -> {
+    |> Iter.flat_map(fn f ->
         name = stem(f.path)
 
-        if not sqltext.is_name(name) {
+        if not sqltext.is_name(name) then
             [
                 Problem{
                     file: f.path,
@@ -502,7 +505,7 @@ fn file_problems(db: Database, files: List<Input>) -> List<Problem> {
                     hints: [],
                 },
             ]
-        } else if name == db.schema or name == db.schema + "_test" {
+        else if name == db.schema or name == db.schema + "_test" then
             [
                 Problem{
                     file: f.path,
@@ -514,22 +517,22 @@ fn file_problems(db: Database, files: List<Input>) -> List<Problem> {
                     ],
                 },
             ]
-        } else {
+        else
             []
-        }
-    })
+        end
+    end)
     |> Iter.to_list()
-}
+end
 
 /// What is wrong with a `DECIMAL` or `NUMERIC` column SQLite cannot keep
 /// exactly, or keep at its scale. SQLite has no decimal type: it stores
 /// such a column's values as 64-bit floats, exact to 15 digits, and the
 /// driver refuses a value it cannot write or read exactly.
-fn decimal_warning(table: String, c: TableColumn) -> Maybe<String> {
+fn decimal_warning(table: String, c: TableColumn) -> Maybe<String>
     is_decimal = types.of(c.type_name) |> Maybe.map(fn f -> f.reader == "numeric") == Some(True)
-    if not is_decimal { return None }
+    if not is_decimal then return None
 
-    case types.precision_and_scale(c.type_name) {
+    case types.precision_and_scale(c.type_name)
         None ->
             Some(
                 "`${table}.${c.name}` is ${c.type_name} with no scale, so a value reads back at its shortest scale (12.5, not 12.50): declare DECIMAL(p, s)"
@@ -540,13 +543,14 @@ fn decimal_warning(table: String, c: TableColumn) -> Maybe<String> {
                 "`${table}.${c.name}` is ${c.type_name}, but SQLite stores a DECIMAL as a 64-bit float, exact to 15 digits, and the driver refuses a longer value: declare at most DECIMAL(15, s), or keep the amount as INTEGER minor units (cents)"
             )
 
-        _ -> None
-    }
-}
+        _ ->
+            None
+    end
+end
 
 /// The line, from 1, of byte `offset` of text.
-fn line_of_byte(text: String, offset: Int) -> Int {
-    if offset < 0 { return 1 }
+fn line_of_byte(text: String, offset: Int) -> Int
+    if offset < 0 then return 1
     bytes = String.to_bytes(text)
 
     before =
@@ -555,22 +559,22 @@ fn line_of_byte(text: String, offset: Int) -> Int {
         |> Result.with_default("")
 
     Iter.count(String.split(before, "\n"))
-}
+end
 
 /// The line, from 1, where token `index` of tokens starts in text.
-fn line_at(text: String, index: Int) -> Int {
+fn line_at(text: String, index: Int) -> Int
     (line, _) = sqltext.position(text, index)
     line + 1
-}
+end
 
-fn table(t: describe.Table, migrations: List<Input>) -> Table {
+fn table(t: describe.Table, migrations: List<Input>) -> Table
     values = enum_values(t.sql)
     migration_text = text_of(migrations, t.migration)
     table_line = line_of_word(migration_text, t.name, "")
 
     columns =
         t.columns
-        |> Iter.map(fn c -> {
+        |> Iter.map(fn c ->
             column_text = text_of(migrations, c.migration)
 
             TableColumn{
@@ -584,83 +588,83 @@ fn table(t: describe.Table, migrations: List<Input>) -> Table {
                 migration: c.migration,
                 line: line_of_word(column_text, c.name, t.name),
             }
-        })
+        end)
         |> Iter.to_list()
 
-    Table{name: t.name, migration: t.migration, line: table_line, columns}
-}
+    Table{name: t.name, migration: t.migration, line: table_line, columns:}
+end
 
-fn text_of(migrations: List<Input>, path: String) -> String {
+fn text_of(migrations: List<Input>, path: String) -> String
     migrations
     |> Iter.find(fn m -> m.path == path)
     |> Maybe.map(fn m -> m.text)
     |> Maybe.with_default("")
-}
+end
 
 /// The line, from 1, of the first word `word` in text after the first word
 /// `after` (anywhere when `after` is ""), or 1.
-fn line_of_word(text: String, word: String, after: String) -> Int {
+fn line_of_word(text: String, word: String, after: String) -> Int
     tokens = sqltext.tokens(text)
 
-    start = if after == "" {
+    start = if after == "" then
         0
-    } else {
+    else
         tokens
         |> Iter.find(fn t -> t.kind == Kind.Word and is_same(t.text, after))
-        |> Maybe.map(fn t -> t.end)
+        |> Maybe.map(fn t -> t.stop)
         |> Maybe.with_default(0)
-    }
+    end
 
     tokens
-    |> Iter.find(fn t -> {
+    |> Iter.find(fn t ->
         t.start >= start
             and (t.kind == Kind.Word or t.kind == Kind.Quoted)
             and is_same(unquote(t.text), word)
-    })
+    end)
     |> Maybe.map(fn t -> line_at(text, t.start))
     |> Maybe.with_default(1)
-}
+end
 
-fn is_same(a: String, b: String) -> Bool {
+fn is_same(a: String, b: String) -> Bool
     String.lowercase(a) == String.lowercase(b)
-}
+end
 
-fn unquote(text: String) -> String {
+fn unquote(text: String) -> String
     text |> sqltext.cut_prefix("\"") |> sqltext.cut_suffix("\"")
-}
+end
 
 /// The values each column's `CHECK (column IN ('a', 'b'))` allows, from
 /// the table's `CREATE TABLE` statement.
-fn enum_values(create: String) -> Map<String, List<String>> {
+fn enum_values(create: String) -> Map<String, List<String>>
     words = sqltext.tokens(create) |> Iter.filter(fn t -> t.kind != Kind.Space) |> Iter.to_vector()
     count = Vector.length(words)
 
     Iter.from(0)
     |> Iter.take(count)
-    |> Iter.flat_map(fn i -> {
-        at = fn k: Int -> {
+    |> Iter.flat_map(fn i ->
+        at = fn k: Int ->
             Vector.get(words, i + k) |> Maybe.map(fn t -> t.text) |> Maybe.with_default("")
-        }
+        end
 
-        if is_same(at(0), "CHECK") and at(1) == "(" and is_same(at(3), "IN") and at(4) == "(" {
+        if is_same(at(0), "CHECK") and at(1) == "(" and is_same(at(3), "IN") and at(4) == "(" then
             values = read_values(words, i + 5, [])
 
-            case values {
+            case values
                 Some(vs) -> [(unquote(at(2)), vs)]
                 None -> []
-            }
-        } else {
+            end
+        else
             []
-        }
-    })
+        end
+    end)
     |> Iter.to_map()
-}
+end
 
 // The string literals from i to the closing parenthesis, or None when
 // something else is there.
-fn read_values(words: Vector<Token>, i: Int, acc: List<String>) -> Maybe<List<String>> {
-    case Vector.get(words, i) {
-        Some(t) when t.kind == Kind.Text -> {
+fn read_values(words: Vector<Token>, i: Int, acc: List<String>) -> Maybe<List<String>>
+    case Vector.get(words, i)
+        Some(t) when t.kind == Kind.Text ->
             value =
                 t.text
                 |> sqltext.cut_prefix("'")
@@ -668,52 +672,50 @@ fn read_values(words: Vector<Token>, i: Int, acc: List<String>) -> Maybe<List<St
                 |> String.replace("''", "'")
 
             read_values(words, i + 1, [value, ..acc])
-        }
 
-        Some(t) when t.text == "," -> read_values(words, i + 1, acc)
-        Some(t) when t.text == ")" and not Iter.is_empty(acc) -> Some(Iter.reverse(acc))
-        _ -> None
-    }
-}
+        Some(t) when t.text == "," ->
+            read_values(words, i + 1, acc)
+
+        Some(t) when t.text == ")" and not Iter.is_empty(acc) ->
+            Some(Iter.reverse(acc))
+
+        _ ->
+            None
+    end
+end
 
 /// A query's result columns as SQLite describes them, or its error.
-fn columns(tokens: List<Token>, s: describe.Statement) -> Result<List<Column>, QueryError> {
-    if s.error != "" { return Err(QueryError{message: s.error, offset: s.offset}) }
+fn columns(
+    tokens: List<Token>,
+    s: describe.Statement,
+    tables: List<String>,
+) -> Result<List<Column>, QueryError>
+    if s.error != "" then return Err(QueryError{message: s.error, offset: s.offset})
 
-    // The tables an outer join may leave out: SQLite's plan marks each
-    // `LEFT-JOIN`; a RIGHT or FULL join may leave out any of them.
-    outer =
-        s.plan
-        |> Iter.filter(fn line -> "LEFT-JOIN" in line)
-        |> Iter.map(plan_alias)
-        |> Iter.to_list()
-
-    names = sqltext.table_names(tokens)
-
-    nullable_tables =
-        names
-        |> Iter.filter(fn (_, a) -> Iter.contains(outer, a))
-        |> Iter.map(fn (t, _) -> t)
-        |> Iter.to_list()
-
-    all_outer = sqltext.is_right_or_full_join(tokens)
+    // The tables an outer join may leave out, from SQLite's plan; None
+    // when it may leave out any of them.
+    outer = sqltext.outer_joined(tokens, s.plan, tables)
     items = sqltext.select_items(tokens) |> Iter.to_vector()
     aligned = Vector.length(items) == Iter.count(s.columns)
 
     Ok(
         s.columns
         |> Iter.with_index()
-        |> Iter.map(fn (i, c) -> {
+        |> Iter.map(fn (i, c) ->
             from_table = c.table != "" and c.origin != ""
-            outer_joined = all_outer or Iter.contains(nullable_tables, c.table)
+
+            outer_joined = case outer
+                Some(ts) -> Iter.contains(ts, c.table)
+                None -> True
+            end
 
             // SQLite declares no type for an expression; one `CAST` to a type
             // declares it, which is how a sum keeps its DECIMAL scale.
-            cast = if aligned and c.declared == "" and not from_table {
+            cast = if aligned and c.declared == "" and not from_table then
                 Vector.get(items, i) |> Maybe.flat_map(sqltext.cast_type)
-            } else {
+            else
                 None
-            }
+            end
 
             Column{
                 name: c.name,
@@ -722,15 +724,7 @@ fn columns(tokens: List<Token>, s: describe.Statement) -> Result<List<Column>, Q
                 column: c.origin,
                 nullable: not from_table or not c.not_null or outer_joined,
             }
-        })
+        end)
         |> Iter.to_list()
     )
-}
-
-// The table a plan line names: `SEARCH u USING ...` names `u`.
-fn plan_alias(line: String) -> String {
-    case String.words(line) |> Iter.to_list() {
-        [_, name, ..] -> name
-        _ -> ""
-    }
-}
+end

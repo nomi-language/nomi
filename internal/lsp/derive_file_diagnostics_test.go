@@ -13,23 +13,23 @@ import (
 // diagnostics leave it out rather than mark the entry's line 7.
 func TestDeriveMissingImplIsPublishedOnTheFileWithTheDerive(t *testing.T) {
 	files := map[string]string{
-		"main.nomi": `import {
+		"main.nomi": `import
     std::io
     child.Holder
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Holder{n: 1, o: Opaque{f: fn x -> x}})
-}
+end
 `,
-		"child.nomi": `pub struct Opaque {
+		"child.nomi": `pub struct Opaque
     f: (Int) -> Int
-}
+end
 
-pub struct Holder {
+pub struct Holder
     n: Int
     o: Opaque
-}
+end
 
 derive Equatable for Holder
 `,

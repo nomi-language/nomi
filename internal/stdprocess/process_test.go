@@ -88,7 +88,7 @@ func helperPath(t *testing.T) string {
 // system runs it against the helper, and process_testing's fake against
 // answers that say what the helper would; both print the same.
 const conformanceBody = `
-fn body(helper: String) {
+fn body(helper: String)
     echoed = process.output(Command{program: helper, args: ["nomi-process-helper", "echo", "a b", "*"]})?
     io.print("echo: ${Bytes.to_string(echoed.stdout)!} ${echoed.status}")
 
@@ -101,7 +101,7 @@ fn body(helper: String) {
     upper = process.output(Command{program: helper, args: ["nomi-process-helper", "upper", "1"], stdin: Stdin.Text("hi")})?
     io.print("upper: ${Bytes.to_string(upper.stdout)!}")
 
-    env = process.output(Command{program: helper, args: ["nomi-process-helper", "env", "NOMI_X"], env: %{"NOMI_X" => "set"}})?
+    env = process.output(Command{program: helper, args: ["nomi-process-helper", "env", "NOMI_X"], env: {"NOMI_X" => "set"}})?
     io.print("env: ${Bytes.to_string(env.stdout)!}")
 
     child = process.spawn(Command{program: helper, args: ["nomi-process-helper", "upper", "2"]})?
@@ -112,16 +112,16 @@ fn body(helper: String) {
     text = Reader.read_all_text(Child.stdout(child))?
     io.print("spawned: ${text} ${status}")
 
-    case process.output(Command{program: "nomi-no-such-program"}) {
+    case process.output(Command{program: "nomi-no-such-program"})
         Ok(_) -> io.print("missing: started")
         Err(e) -> io.print("missing: ${e}")
-    }
+    end
 
     Ok(Unit)
-}
+end
 `
 
-const conformanceImports = `import {
+const conformanceImports = `import
     std::io.{self, Error, Reader, Writer}
     std::process.{self, Child, Command, Status, Stdin}
 `
@@ -144,16 +144,16 @@ missing: nomi-no-such-program: not found
 // against the fake, and both print what the helper does.
 func TestOSAndFakeAgree(t *testing.T) {
 	helper := helperPath(t)
-	osSrc := conformanceImports + "}\n" + fmt.Sprintf(`
-fn main() -> Result<Unit, Error> {
+	osSrc := conformanceImports + "end\n" + fmt.Sprintf(`
+fn main() -> Result<Unit, Error>
     body(%q)
-}
-`, helper) + strings.Replace(conformanceBody, "fn body(helper: String) {", "fn body(helper: String) -> Result<Unit, Error> {", 1)
+end
+`, helper) + strings.Replace(conformanceBody, "fn body(helper: String)", "fn body(helper: String) -> Result<Unit, Error>", 1)
 
-	fakeSrc := conformanceImports + "    std::process_testing.{self, Answer}\n}\n" + fmt.Sprintf(`
-fn main() -> Result<Unit, Error> {
+	fakeSrc := conformanceImports + "    std::process_testing.{self, Answer}\nend\n" + fmt.Sprintf(`
+fn main() -> Result<Unit, Error>
     helper = %q
-    a = fn args: List<String>, stdout: String -> Answer{program: helper, args: Some(["nomi-process-helper", ..args]), stdout}
+    a = fn args: List<String>, stdout: String -> Answer{program: helper, args: Some(["nomi-process-helper", ..args]), stdout:}
 
     answers = [
         a(["echo", "a b", "*"], "a b\n*\n"),
@@ -166,8 +166,8 @@ fn main() -> Result<Unit, Error> {
 
     ran = process_testing.run(answers, fn -> body(helper))
     ran.value
-}
-`, helper) + strings.Replace(conformanceBody, "fn body(helper: String) {", "fn body(helper: String) -> Result<Unit, Error> {", 1)
+end
+`, helper) + strings.Replace(conformanceBody, "fn body(helper: String)", "fn body(helper: String) -> Result<Unit, Error>", 1)
 
 	for name, src := range map[string]string{"os": osSrc, "fake": fakeSrc} {
 		t.Run(name, func(t *testing.T) {
@@ -182,16 +182,16 @@ fn main() -> Result<Unit, Error> {
 // TestDeferredKillKillsWhatSpawnStarted: a function that returns while its
 // program still runs does not wait for it; the deferred kill kills it.
 func TestDeferredKillKillsWhatSpawnStarted(t *testing.T) {
-	src := fmt.Sprintf(`import {
+	src := fmt.Sprintf(`import
     std::io.Error
     std::process.{self, Child, Command}
-}
+end
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     child = process.spawn(Command{program: %q, args: ["nomi-process-helper", "sleep"]})?
     defer Child.kill(child)
     Ok(Unit)
-}
+end
 `, helperPath(t))
 	start := time.Now()
 	run(t, src)
@@ -206,16 +206,16 @@ func TestDirRunsTheProgramThere(t *testing.T) {
 	if err := os.Mkdir(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	src := fmt.Sprintf(`import {
+	src := fmt.Sprintf(`import
     std::io.{self, Error}
     std::process.{self, Command}
-}
+end
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     out = process.output(Command{program: %q, args: ["nomi-process-helper", "pwd"], dir: Some(%q)})?
     io.write(Bytes.to_string(out.stdout)!)
     Ok(Unit)
-}
+end
 `, helperPath(t), filepath.ToSlash(dir))
 	if got := strings.TrimSpace(run(t, src)); got != "here" {
 		t.Fatalf("the program ran in %q, want here", got)
@@ -229,17 +229,17 @@ func TestClearEnvLeavesOnlyTheCommandsVariables(t *testing.T) {
 		t.Skip("a Windows program needs SYSTEMROOT from its environment to start, so it cannot run with an empty one")
 	}
 	t.Setenv("NOMI_INHERITED", "yes")
-	src := fmt.Sprintf(`import {
+	src := fmt.Sprintf(`import
     std::io.{self, Error}
     std::process.{self, Command}
-}
+end
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     kept = process.output(Command{program: %[1]q, args: ["nomi-process-helper", "env", "NOMI_INHERITED"]})?
     cleared = process.output(Command{program: %[1]q, args: ["nomi-process-helper", "env", "NOMI_INHERITED"], clear_env: True})?
     io.write("${Bytes.to_string(kept.stdout)!}|${Bytes.to_string(cleared.stdout)!}")
     Ok(Unit)
-}
+end
 `, helperPath(t))
 	if got := strings.ReplaceAll(run(t, src), "\r\n", "\n"); got != "yes\n|\n" {
 		t.Fatalf("printed %q, want %q", got, "yes\n|\n")
@@ -250,16 +250,16 @@ fn main() -> Result<Unit, Error> {
 // its program runs does not leave the program running; the trap is the
 // run's failure.
 func TestDeferredKillKillsWhenTheFunctionTraps(t *testing.T) {
-	src := fmt.Sprintf(`import {
+	src := fmt.Sprintf(`import
     std::io.Error
     std::process.{self, Child, Command}
-}
+end
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     child = process.spawn(Command{program: %q, args: ["nomi-process-helper", "sleep"]})?
     defer Child.kill(child)
     unreachable "stop here"
-}
+end
 `, helperPath(t))
 	p, err := vmhost.LoadSource("main.nomi", src, vmhost.WithErrorOutput(io.Discard))
 	if err != nil {

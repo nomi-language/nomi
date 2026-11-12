@@ -5,24 +5,24 @@
 // variables would normally be read here too (NOMI_ENV, PORT, DATABASE_URL,
 // etc.); this example takes the deployment name as a parameter since that
 // stdlib surface isn't available yet.
-import {
+import
     prod
     test as test_env
-}
+end
 
-pub struct ConfigApp {
+pub struct ConfigApp
     deployment: String = "dev"
     port: Int = 3000
     database_url: String = "postgres://localhost/myapp_dev"
     max_connections: Int = 5
-}
+end
 
-pub fn load(deployment: String) -> ConfigApp {
+pub fn load(deployment: String) -> ConfigApp
     base = ConfigApp{}
 
-    case deployment {
+    case deployment
         "prod" -> prod.configure(base)
         "test" -> test_env.configure(base)
         _ -> base
-    }
-}
+    end
+end

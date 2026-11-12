@@ -14,17 +14,17 @@ import (
 // an enum and a distinct type.
 func TestDerive_NeedsOnlyTheInterfaceInScope(t *testing.T) {
 	const types = `
-struct P {
+struct P
   a: Int
   b: String
-}
+end
 
-enum Shape {
+enum Shape
   Dot
   Circle(Int)
   Pair(Int, Int)
   Box{w: Int, h: Int}
-}
+end
 
 type Meters Int
 `
@@ -38,18 +38,18 @@ type Meters Int
 		{"Comparable", "", []string{"P", "Shape", "Meters"}},
 		{"Debug", "", []string{"P", "Shape", "Meters"}},
 		{"Display", "", []string{"P", "Shape", "Meters"}},
-		{"ToJson", "; std::json.ToJson", []string{"P", "Shape", "Meters"}},
-		{"FromJson", "; std::json.FromJson", []string{"P", "Shape", "Meters"}},
+		{"ToJson", "\n    std::json.ToJson", []string{"P", "Shape", "Meters"}},
+		{"FromJson", "\n    std::json.FromJson", []string{"P", "Shape", "Meters"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.iface, func(t *testing.T) {
 			var src strings.Builder
-			src.WriteString("import { std::io" + tc.imports + " }\n")
+			src.WriteString("import\n    std::io" + tc.imports + "\nend\n")
 			src.WriteString(types)
 			for _, target := range tc.targets {
 				src.WriteString("\nderive " + tc.iface + " for " + target + "\n")
 			}
-			src.WriteString("\nfn main() { io.print(\"x\") }\n")
+			src.WriteString("\nfn main()\n    io.print(\"x\")\nend\n")
 			if errs := buildAndCollectTypeErrors(t, src.String()); len(errs) != 0 {
 				t.Fatalf("derive %s with only the interface in scope is rejected:\n%v\nsource:\n%s", tc.iface, errs, src.String())
 			}
@@ -61,14 +61,21 @@ type Meters Int
 // `Json` import that nothing but derived code needs is reported unused, since
 // derived code does not reach `Json` through it.
 func TestDerive_JsonImportUsedOnlyByDerivedCodeIsUnused(t *testing.T) {
-	src := `import { std::io; std::json.{FromJson, Json, ToJson} }
+	src := `import
+    std::io
+    std::json.{FromJson, Json, ToJson}
+end
 
-struct P { a: Int }
+struct P
+    a: Int
+end
 
 derive ToJson for P
 derive FromJson for P
 
-fn main() { io.print("x") }
+fn main()
+    io.print("x")
+end
 `
 	errs := buildAndCollectTypeErrors(t, src)
 	if len(errs) != 1 || !strings.Contains(errs[0].Message, "imported name 'Json' is unused") {

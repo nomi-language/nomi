@@ -14,44 +14,44 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# The largest product of a run of adjacent digits in a string of digits.
 
 /// Why a string and span have no largest product.
-pub enum Error {
+pub enum Error
     SpanTooLong
     NotADigit
     NegativeSpan
-}
+end
 
 /// The largest product of `span` adjacent digits in `digits`. A span of zero
 /// has the empty product, 1.
-pub fn largest_product(digits: String, span: Int) -> Result<Int, Error> {
-    if span < 0 { return Err(.NegativeSpan) }
+pub fn largest_product(digits: String, span: Int) -> Result<Int, Error>
+    if span < 0 then return Err(.NegativeSpan)
 
     Some(numbers) =
         digits
         |> String.to_codepoints()
         |> Iter.map(Codepoint.to_digit)
         |> Maybe.collect()
-    else {
+    else
         return Err(.NotADigit)
-    }
+    end
 
-    if span > Iter.count(numbers) { return Err(.SpanTooLong) }
+    if span > Iter.count(numbers) then return Err(.SpanTooLong)
 
-    if span == 0 { return Ok(1) }
+    if span == 0 then return Ok(1)
 
     numbers
     |> Iter.windows(span)
     |> Iter.map(Iter.product)
     |> Iter.max()!
     |> Ok()
-}
+end
 
 // FILE: largest_series_product_test.nomi
-import {
+import
     largest_series_product
     largest_series_product.Error
-}
+end
 
-test "largest product" {
+test "largest product"
     [
         ("finds the largest product if span equals length", "29", 2, 18),
         ("can find the largest product of 2 with numbers in order", "0123456789", 2, 72),
@@ -70,22 +70,22 @@ test "largest product" {
         ("reports 1 for empty string and empty product (0 span)", "", 0, 1),
         ("reports 1 for nonempty string and empty product (0 span)", "123", 0, 1),
     ]
-    |> subtests (description, digits, span, expected), description {
+    |> subtests (description, digits, span, expected), description
         assert largest_series_product.largest_product(digits, span) == Ok(expected)
-    }
-}
+    end
+end
 
-test "rejects" {
+test "rejects"
     [
         ("rejects span longer than string length", "123", 4, Error.SpanTooLong),
         ("rejects empty string and nonzero span", "", 1, .SpanTooLong),
         ("rejects invalid character in digits", "1234a5", 2, .NotADigit),
         ("rejects negative span", "12345", -1, .NegativeSpan),
     ]
-    |> subtests (description, digits, span, expected), description {
+    |> subtests (description, digits, span, expected), description
         assert largest_series_product.largest_product(digits, span) == Err(expected)
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok largest product (11 cases)

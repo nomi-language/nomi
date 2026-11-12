@@ -1,53 +1,49 @@
-interface Named {
+interface Named
     fn name(value: self) -> String
-}
+end
 
-struct User {
+struct User
     id: Int
     name: String
-}
+end
 
-impl Named for User {
-    fn name(user: User) -> String {
+impl Named for User
+    fn name(user: User) -> String
         user.name
-    }
-}
+    end
+end
 
-enum Status {
+enum Status
     Active
     Paused String
-}
+end
 
 typealias UserId Int
 
-struct Box {
+struct Box
     value: Int
-}
+end
 
 once default_name = "Ada" // :: once default_name: String = "Ada"
 
-fn greet(user: User, greeting: String = "Hello") -> String {
+fn greet(user: User, greeting: String = "Hello") -> String
     greeting + ", " + user.name
-}
+end
 
-fn identity<T>(value: T) -> T {
+fn identity<T>(value: T) -> T
     value
-}
+end
 
-fn make_user(id: Int, name: String) -> User {
-    User{id, name}
-}
+fn make_user(id: Int, name: String) -> User
+    User{id:, name:}
+end
 
-fn demo() -> String {
+fn demo() -> String
     sample = make_user(1, default_name)
 
     message = greet(sample)
 
     wrapped = Box{value: identity(42)}
 
-    if wrapped.value == 42 {
-        message
-    } else {
-        message
-    }
-}
+    if wrapped.value == 42 then message else message
+end

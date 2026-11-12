@@ -17,38 +17,38 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// How a game ended: one player holds every card, or the game would go on
 /// for ever.
-pub enum Status {
+pub enum Status
     Finished
     Loop
-}
+end
 
 /// The end of a game: how it ended, how many cards were played and how many
 /// times a player collected the pile.
-pub struct Game {
+pub struct Game
     status: Status
     cards: Int
     tricks: Int
-}
+end
 
 /// The two players. A starts.
-enum Side {
+enum Side
     A
     B
-}
+end
 
 /// Both players' cards, each from the top of the deck down.
-struct Hands {
+struct Hands
     a: List<String>
     b: List<String>
-}
+end
 
 /// Plays a game from the decks `player_a` and `player_b`, each from the top
 /// down. Cards are `"2"` to `"10"`, `"J"`, `"Q"`, `"K"` and `"A"`.
-pub fn simulate_game(player_a: List<String>, player_b: List<String>) -> Game {
-    hands: Hands = .{a: player_a, b: player_b}
+pub fn simulate_game(player_a: List<String>, player_b: List<String>) -> Game
+    hands: Hands = {a: player_a, b: player_b}
 
-    rounds(hands, leader: .A, seen: %[shape(hands)], cards: 0, tricks: 0)
-}
+    rounds(hands, leader: .A, seen: [shape(hands)], cards: 0, tricks: 0)
+end
 
 /// Plays tricks from `hands`, `leader` playing first, until a player holds
 /// every card or the hands take a shape already in `seen`.
@@ -58,19 +58,19 @@ fn rounds(
     seen: Set<(List<String>, List<String>)>,
     cards: Int,
     tricks: Int,
-) -> Game {
+) -> Game
     (collector, pile, hands) = play(hands, turn: leader, pile: [], owed: 0, collector: leader)
     hands = with_hand(hands, collector, [..hand(hands, collector), ..Iter.reverse(pile)])
     cards = cards + Iter.count(pile)
     tricks = tricks + 1
     now = shape(hands)
 
-    case {
-        Iter.is_empty(hand(hands, other(collector))) -> .{status: .Finished, cards, tricks}
-        now in seen -> .{status: .Loop, cards, tricks}
+    case
+        Iter.is_empty(hand(hands, other(collector))) -> {status: .Finished, cards:, tricks:}
+        now in seen -> {status: .Loop, cards:, tricks:}
         _ -> rounds(hands, collector, Set.insert(seen, now), cards, tricks)
-    }
-}
+    end
+end
 
 /// Plays one trick from `turn` on, onto `pile` (newest card first), and
 /// returns who collects the pile, the pile and the hands left. `owed` is
@@ -82,82 +82,82 @@ fn play(
     pile: List<String>,
     owed: Int,
     collector: Side,
-) -> (Side, List<String>, Hands) {
-    case hand(hands, turn) {
-        [] -> (other(turn), pile, hands)
+) -> (Side, List<String>, Hands)
+    case hand(hands, turn)
+        [] ->
+            (other(turn), pile, hands)
 
-        [card, ..rest] -> {
+        [card, ..rest] ->
             hands = with_hand(hands, turn, rest)
             pile = [card, ..pile]
 
-            case {
+            case
                 penalty(card) > 0 -> play(hands, other(turn), pile, penalty(card), turn)
                 owed == 1 -> (collector, pile, hands)
                 owed > 1 -> play(hands, turn, pile, owed - 1, collector)
                 _ -> play(hands, other(turn), pile, 0, collector)
-            }
-        }
-    }
-}
+            end
+    end
+end
 
 /// The cards a payment card makes the other player pay, or 0 for a number
 /// card.
-fn penalty(card: String) -> Int {
-    case card {
+fn penalty(card: String) -> Int
+    case card
         "J" -> 1
         "Q" -> 2
         "K" -> 3
         "A" -> 4
         _ -> 0
-    }
-}
+    end
+end
 
 /// The hands with every number card alike, which is all that decides how
 /// the game goes on.
-fn shape(hands: Hands) -> (List<String>, List<String>) {
+fn shape(hands: Hands) -> (List<String>, List<String>)
     (alike(hands.a), alike(hands.b))
-}
+end
 
 /// `cards` with each number card written `-`.
-fn alike(cards: List<String>) -> List<String> {
+fn alike(cards: List<String>) -> List<String>
     cards
-    |> Iter.map(fn card -> if penalty(card) > 0 { card } else { "-" })
+    |> Iter.map(fn card -> if penalty(card) > 0 then card else "-")
     |> Iter.to_list()
-}
+end
 
-fn other(side: Side) -> Side {
-    case side {
+fn other(side: Side) -> Side
+    case side
         .A -> .B
         .B -> .A
-    }
-}
+    end
+end
 
-fn hand(hands: Hands, side: Side) -> List<String> {
-    case side {
+fn hand(hands: Hands, side: Side) -> List<String>
+    case side
         .A -> hands.a
         .B -> hands.b
-    }
-}
+    end
+end
 
-fn with_hand(hands: Hands, side: Side, cards: List<String>) -> Hands {
-    case side {
-        .A -> .{..hands, a: cards}
-        .B -> .{..hands, b: cards}
-    }
-}
+fn with_hand(hands: Hands, side: Side, cards: List<String>) -> Hands
+    case side
+        .A -> {..hands, a: cards}
+        .B -> {..hands, b: cards}
+    end
+end
 
 // FILE: camicia_test.nomi
-import {
+import
     camicia
     camicia.Game
-}
+end
 
 /// The cards written in `cards`, top first, separated by spaces or lines.
-fn deck(cards: String) -> List<String> {
+fn deck(cards: String) -> List<String>
     String.words(cards)
-}
+end
 
-test "simulate game" {
+test "simulate game"
     [
         (
             "two cards, one trick",
@@ -169,49 +169,49 @@ test "simulate game" {
             "three cards, one trick",
             deck("2 4"),
             deck("3"),
-            .{status: .Finished, cards: 3, tricks: 1},
+            {status: .Finished, cards: 3, tricks: 1},
         ),
         (
             "four cards, one trick",
             deck("2 4"),
             deck("3 5 6"),
-            .{status: .Finished, cards: 4, tricks: 1},
+            {status: .Finished, cards: 4, tricks: 1},
         ),
         (
             "the ace reigns supreme",
             deck("2 A"),
             deck("3 4 5 6 7"),
-            .{status: .Finished, cards: 7, tricks: 1},
+            {status: .Finished, cards: 7, tricks: 1},
         ),
         (
             "the king beats ace",
             deck("2 A"),
             deck("3 4 5 6 K"),
-            .{status: .Finished, cards: 7, tricks: 1},
+            {status: .Finished, cards: 7, tricks: 1},
         ),
         (
             "the queen seduces the king",
             deck("2 A 7 8 Q"),
             deck("3 4 5 6 K"),
-            .{status: .Finished, cards: 10, tricks: 1},
+            {status: .Finished, cards: 10, tricks: 1},
         ),
         (
             "the jack betrays the queen",
             deck("2 A 7 8 Q"),
             deck("3 4 5 6 K 9 J"),
-            .{status: .Finished, cards: 12, tricks: 1},
+            {status: .Finished, cards: 12, tricks: 1},
         ),
         (
             "the 10 just wants to put on a show",
             deck("2 A 7 8 Q 10"),
             deck("3 4 5 6 K 9 J"),
-            .{status: .Finished, cards: 13, tricks: 1},
+            {status: .Finished, cards: 13, tricks: 1},
         ),
         (
             "simple loop with decks of 3 cards",
             deck("J 2 3"),
             deck("4 J 5"),
-            .{status: .Loop, cards: 8, tricks: 3},
+            {status: .Loop, cards: 8, tricks: 3},
         ),
         (
             "the story is starting to get a bit complicated",
@@ -235,111 +235,111 @@ test "simulate game" {
                 5 Q 6 J K Q 8 K 4 Q Q 6 J K 4 7 J J 9 9 A Q Q K A 6 5 K
                 """
             ),
-            .{status: .Finished, cards: 361, tricks: 1},
+            {status: .Finished, cards: 361, tricks: 1},
         ),
-        ("two tricks", deck("J"), deck("3 J"), .{status: .Finished, cards: 5, tricks: 2}),
-        ("more tricks", deck("J 2 4"), deck("3 J A"), .{status: .Finished, cards: 12, tricks: 4}),
+        ("two tricks", deck("J"), deck("3 J"), {status: .Finished, cards: 5, tricks: 2}),
+        ("more tricks", deck("J 2 4"), deck("3 J A"), {status: .Finished, cards: 12, tricks: 4}),
         (
             "simple loop with decks of 4 cards",
             deck("2 3 J 6"),
             deck("K 5 J 7"),
-            .{status: .Loop, cards: 16, tricks: 4},
+            {status: .Loop, cards: 16, tricks: 4},
         ),
         (
             "easy card combination",
             deck("4 8 7 5 4 10 3 9 7 3 10 10 6 8 2 8 5 4 5 9 6 5 2 8 10 9"),
             deck("6 9 4 7 2 2 3 6 7 3 A A A A K K K K Q Q Q Q J J J J"),
-            .{status: .Finished, cards: 40, tricks: 4},
+            {status: .Finished, cards: 40, tricks: 4},
         ),
         (
             "easy card combination, inverted decks",
             deck("3 3 5 7 3 2 10 7 6 7 A A A A K K K K Q Q Q Q J J J J"),
             deck("5 10 8 2 6 7 2 4 9 2 6 10 10 5 4 8 4 8 6 9 8 5 9 3 4 9"),
-            .{status: .Finished, cards: 40, tricks: 4},
+            {status: .Finished, cards: 40, tricks: 4},
         ),
         (
             "mirrored decks",
             deck("2 A 3 A 3 K 4 K 2 Q 2 Q 10 J 5 J 6 10 2 9 10 7 3 9 6 9"),
             deck("6 A 4 A 7 K 4 K 7 Q 7 Q 5 J 8 J 4 5 8 9 10 6 8 3 8 5"),
-            .{status: .Finished, cards: 59, tricks: 4},
+            {status: .Finished, cards: 59, tricks: 4},
         ),
         (
             "opposite decks",
             deck("4 A 9 A 4 K 9 K 6 Q 8 Q 8 J 10 J 9 8 4 6 3 6 5 2 4 3"),
             deck("10 7 3 2 9 2 7 8 7 5 J 7 J 10 Q 10 Q 3 K 5 K 6 A 2 A 5"),
-            .{status: .Finished, cards: 151, tricks: 21},
+            {status: .Finished, cards: 151, tricks: 21},
         ),
         (
             "random decks #1",
             deck("K 10 9 8 J 8 6 9 7 A K 5 4 4 J 5 J 4 3 5 8 6 7 7 4 9"),
             deck("6 3 K A Q 10 A 2 Q 8 2 10 10 2 Q 3 K 9 7 A 3 Q 5 J 2 6"),
-            .{status: .Finished, cards: 542, tricks: 76},
+            {status: .Finished, cards: 542, tricks: 76},
         ),
         (
             "random decks #2",
             deck("8 A 4 8 5 Q J 2 6 2 9 7 K A 8 10 K 8 10 9 K 6 7 3 K 9"),
             deck("10 5 2 6 Q J A 9 5 5 3 7 3 J A 2 Q 3 J Q 4 10 4 7 4 6"),
-            .{status: .Finished, cards: 327, tricks: 42},
+            {status: .Finished, cards: 327, tricks: 42},
         ),
         (
             "Kleber 1999",
             deck("4 8 9 J Q 8 5 5 K 2 A 9 8 5 10 A 4 J 3 K 6 9 2 Q K 7"),
             deck("10 J 3 2 4 10 4 7 5 3 6 6 7 A J Q A 7 2 10 3 K 9 6 8 Q"),
-            .{status: .Finished, cards: 5790, tricks: 805},
+            {status: .Finished, cards: 5790, tricks: 805},
         ),
         (
             "Collins 2006",
             deck("A 8 Q K 9 10 3 7 4 2 Q 3 2 10 9 K A 8 7 7 4 5 J 9 2 10"),
             deck("4 J A K 8 5 6 6 A 6 5 Q 4 6 10 8 J 2 5 7 Q J 3 3 K 9"),
-            .{status: .Finished, cards: 6913, tricks: 960},
+            {status: .Finished, cards: 6913, tricks: 960},
         ),
         (
             "Mann and Wu 2007",
             deck("K 2 K K 3 3 6 10 K 6 A 2 5 5 7 9 J A A 3 4 Q 4 8 J 6"),
             deck("4 5 2 Q 7 9 9 Q 7 J 9 8 10 3 10 J 4 10 8 6 8 7 A Q 5 2"),
-            .{status: .Finished, cards: 7157, tricks: 1007},
+            {status: .Finished, cards: 7157, tricks: 1007},
         ),
         (
             "Nessler 2012",
             deck("10 3 6 7 Q 2 9 8 2 8 4 A 10 6 K 2 10 A 5 A 2 4 Q J K 4"),
             deck("10 Q 4 6 J 9 3 J 9 3 3 Q K 5 9 5 K 6 5 7 8 J A 7 8 7"),
-            .{status: .Finished, cards: 7207, tricks: 1015},
+            {status: .Finished, cards: 7207, tricks: 1015},
         ),
         (
             "Anderson 2013",
             deck("6 7 A 3 Q 3 5 J 3 2 J 7 4 5 Q 10 5 A J 2 K 8 9 9 K 3"),
             deck("4 J 6 9 8 5 10 7 9 Q 2 7 10 8 4 10 A 6 4 A 6 8 Q K K 2"),
-            .{status: .Finished, cards: 7225, tricks: 1016},
+            {status: .Finished, cards: 7225, tricks: 1016},
         ),
         (
             "Rucklidge 2014",
             deck("8 J 2 9 4 4 5 8 Q 3 9 3 6 2 8 A A A 9 4 7 2 5 Q Q 3"),
             deck("K 7 10 6 3 J A 7 6 5 5 8 10 9 10 4 2 7 K Q 10 K 6 J J K"),
-            .{status: .Finished, cards: 7959, tricks: 1122},
+            {status: .Finished, cards: 7959, tricks: 1122},
         ),
         (
             "Nessler 2021",
             deck("7 2 3 4 K 9 6 10 A 8 9 Q 7 A 4 8 J J A 4 3 2 5 6 6 J"),
             deck("3 10 8 9 8 K K 2 5 5 7 6 4 3 5 7 A 9 J K 2 Q 10 Q 10 Q"),
-            .{status: .Finished, cards: 7972, tricks: 1106},
+            {status: .Finished, cards: 7972, tricks: 1106},
         ),
         (
             "Nessler 2022",
             deck("2 10 10 A J 3 8 Q 2 5 5 5 9 2 4 3 10 Q A K Q J J 9 Q K"),
             deck("10 7 6 3 6 A 8 9 4 3 K J 6 K 4 9 7 8 5 7 8 2 A 7 4 6"),
-            .{status: .Finished, cards: 8344, tricks: 1164},
+            {status: .Finished, cards: 8344, tricks: 1164},
         ),
         (
             "Casella 2024, first infinite game found",
             deck("2 8 4 K 5 2 3 Q 6 K Q A J 3 5 9 8 3 A A J 4 4 J 7 5"),
             deck("7 7 8 6 10 10 6 10 7 2 Q 6 3 2 4 K Q 10 J 5 9 8 9 9 K A"),
-            .{status: .Loop, cards: 474, tricks: 66},
+            {status: .Loop, cards: 474, tricks: 66},
         ),
     ]
-    |> subtests (description, player_a, player_b, expected), description {
+    |> subtests (description, player_a, player_b, expected), description
         assert camicia.simulate_game(player_a, player_b) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok simulate game (28 cases)

@@ -16,7 +16,7 @@ import (
 // which aligns with the language's broader explicit-over-implicit posture.
 
 func TestImports_TopOfFile_RejectsImportAfterDecl(t *testing.T) {
-	src := `fn main() {}
+	src := `fn main() end
 import std::lists: List`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
@@ -41,11 +41,11 @@ import std::lists: List`
 }
 
 func TestImports_FunctionBody_RejectsImportAfterStatement(t *testing.T) {
-	src := `fn main() {
+	src := `fn main()
   x = 1
   import std::lists: List
   io.inspect(x)
-}`
+end`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -69,10 +69,10 @@ func TestImports_FunctionBody_RejectsImportAfterStatement(t *testing.T) {
 }
 
 func TestImports_FunctionBody_TopAllowed(t *testing.T) {
-	src := `fn main() {
+	src := `fn main()
   import std::lists: List
   Unit
-}`
+end`
 	_, errs := checkSource(src)
 	for _, e := range errs {
 		if strings.Contains(e.Message, "import") &&
@@ -87,14 +87,14 @@ func TestImports_FunctionBody_TopAllowed(t *testing.T) {
 // of body" rule (spec §14). Walking only top-level function bodies
 // would leave nested late-imports unchecked.
 func TestImports_NestedFunctionBody_RejectsImportAfterStatement(t *testing.T) {
-	src := `fn main() {
-  fn helper() -> Int {
+	src := `fn main()
+  fn helper() -> Int
     x = 1
     import std::lists: List
     x
-  }
+  end
   io.inspect(helper())
-}`
+end`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -119,13 +119,13 @@ func TestImports_NestedFunctionBody_RejectsImportAfterStatement(t *testing.T) {
 
 // Counterpart: nested fn with imports at top is allowed.
 func TestImports_NestedFunctionBody_TopAllowed(t *testing.T) {
-	src := `fn main() {
-  fn helper() -> Int {
+	src := `fn main()
+  fn helper() -> Int
     import std::lists: List
     3
-  }
+  end
   io.inspect(helper())
-}`
+end`
 	_, errs := checkSource(src)
 	for _, e := range errs {
 		if strings.Contains(e.Message, "import") &&
@@ -139,9 +139,9 @@ func TestImports_TopOfFile_AllImportsFirst(t *testing.T) {
 	src := `import std::lists: List
 import std::maps: Map
 
-fn main() {
+fn main()
   Unit
-}`
+end`
 	_, errs := checkSource(src)
 	for _, e := range errs {
 		if strings.Contains(e.Message, "import") &&
@@ -156,14 +156,14 @@ fn main() {
 // between) must NOT be flagged as "after another statement."
 func TestImports_BlockFormCountsAsImport(t *testing.T) {
 	src := `import std::lists: List
-import {
+import
   std::maps: Map
-}
+end
 import std::strings: String
 
-fn main() {
+fn main()
   Unit
-}`
+end`
 	_, errs := checkSource(src)
 	for _, e := range errs {
 		if strings.Contains(e.Message, "must appear at the top") {
@@ -177,9 +177,13 @@ fn main() {
 func TestImports_AfterDecl_RejectedEvenForBlockForm(t *testing.T) {
 	src := `import std::lists: List
 
-struct Foo { a: Int }
+struct Foo
+    a: Int
+end
 
-import { std::maps: Map }`
+import
+    std::maps: Map
+end`
 	_, errs := checkSource(src)
 	found := false
 	for _, e := range errs {

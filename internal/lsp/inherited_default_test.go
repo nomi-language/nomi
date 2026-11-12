@@ -18,10 +18,10 @@ func inheritedDefaultProject(t *testing.T, main string) (*Server, string, string
 	t.Helper()
 	dir := writeProject(t, map[string]string{
 		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-		"shape.nomi": "pub interface Shape {\n    fn area(s: self) -> Int\n\n" +
-			"    /// Says the shape's area.\n    fn describe(s: self) -> String {\n        \"area ${area(s)}\"\n    }\n}\n",
-		"square.nomi": "import shape.Shape\n\npub struct Square {\n    side: Int\n}\n\n" +
-			"impl Shape for Square {\n    fn area(s: Square) -> Int {\n        s.side * s.side\n    }\n}\n",
+		"shape.nomi": "pub interface Shape\n    fn area(s: self) -> Int\n\n" +
+			"    /// Says the shape's area.\n    fn describe(s: self) -> String\n        \"area ${area(s)}\"\n    end\nend\n",
+		"square.nomi": "import shape.Shape\n\npub struct Square\n    side: Int\nend\n\n" +
+			"impl Shape for Square\n    fn area(s: Square) -> Int\n        s.side * s.side\n    end\nend\n",
 		"main.nomi": main,
 	})
 	s := NewServer()
@@ -35,7 +35,7 @@ func inheritedDefaultProject(t *testing.T, main string) (*Server, string, string
 // completion after `Square.` offers it, and hover and go-to-definition on
 // `Square.describe` reach the interface's default.
 func TestInheritedDefaultThroughTheTypeInTheEditor(t *testing.T) {
-	main := "import square.Square\n\nfn main() {\n    dbg Square.describe(Square{side: 3})\n    _ = Square.\n}\n"
+	main := "import square.Square\n\nfn main()\n    dbg Square.describe(Square{side: 3})\n    _ = Square.\nend\n"
 	s, uri, dir := inheritedDefaultProject(t, main)
 
 	got := completionLabels(t, s, uri, 4, 15)
@@ -73,11 +73,11 @@ func TestInheritedDefaultThroughTheTypeInTheEditor(t *testing.T) {
 // qualified (`Shape.describe`, `Comparable.min`) and as a default a type
 // inherits (`Square.describe`, `Int.min`), a program's interface and std's.
 func TestHoverShowsAnInterfaceFunctionsDoc(t *testing.T) {
-	main := "import shape.Shape\nimport square.Square\n\nfn main() {\n" +
+	main := "import shape.Shape\nimport square.Square\n\nfn main()\n" +
 		"    dbg Square.describe(Square{side: 3})\n" +
 		"    dbg Shape.describe(Square{side: 3})\n" +
 		"    dbg Int.min(3, 4)\n" +
-		"    dbg Comparable.min(3, 4)\n}\n"
+		"    dbg Comparable.min(3, 4)\nend\n"
 	s, uri, _ := inheritedDefaultProject(t, main)
 	for _, c := range []struct {
 		name      string

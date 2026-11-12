@@ -3,10 +3,10 @@ package format
 import "testing"
 
 func TestFormat_Defer(t *testing.T) {
-	src := "fn main() { defer sqlite.close(db) }\n"
-	want := `fn main() {
+	src := "fn main()\n    defer sqlite.close(db)\nend\n"
+	want := `fn main()
     defer sqlite.close(db)
-}
+end
 `
 	got, _ := Format(src)
 	if got != want {
@@ -15,10 +15,10 @@ func TestFormat_Defer(t *testing.T) {
 }
 
 func TestFormat_DeferOnError(t *testing.T) {
-	src := "fn main() { defer  on   error sqlite.close(db) }\n"
-	want := `fn main() {
+	src := "fn main()\n    defer  on   error sqlite.close(db)\nend\n"
+	want := `fn main()
     defer on error sqlite.close(db)
-}
+end
 `
 	got, _ := Format(src)
 	if got != want {

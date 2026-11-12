@@ -1,33 +1,33 @@
 import std::json.{FromJson, Json, ToJson}
 
-pub struct User {
+pub struct User
     name: String
-}
+end
 
-pub struct Admin {
+pub struct Admin
     name: String
-}
+end
 
-pub fn user(name: String) -> User {
-    User{name}
-}
+pub fn user(name: String) -> User
+    User{name:}
+end
 
-pub fn admin(name: String) -> Admin {
-    Admin{name}
-}
+pub fn admin(name: String) -> Admin
+    Admin{name:}
+end
 
-impl Debug for User {
-    fn inspect(user: User) -> String {
+impl Debug for User
+    fn inspect(user: User) -> String
         "user:" + user.name
-    }
-}
+    end
+end
 
 derive Equatable for User
 derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}
 derive FromJson for User with FromJson.Options{rename_all: Json.Case.Camel}
 
-impl Debug for Admin {
-    fn inspect(admin: Admin) -> String {
+impl Debug for Admin
+    fn inspect(admin: Admin) -> String
         "admin:" + admin.name
-    }
-}
+    end
+end

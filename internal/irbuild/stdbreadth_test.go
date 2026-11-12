@@ -66,7 +66,7 @@ func TestIOErrorSlotsMatchRTFieldNames(t *testing.T) {
 	i := stdEnumSpecIndexForTest(t, "std/io", "Error")
 	d := stdEnumDefs()[i]
 	// The Nomi names are the ones std declares, absolutely and in order:
-	// these are what `Error.NotFound{path}` binds, and a permuted pair is a
+	// these are what `Error.NotFound{path:}` binds, and a permuted pair is a
 	// wrong answer rather than a compile error. A bare variant binds none.
 	want := map[string][]string{
 		"NotFound": {"path"}, "AlreadyExists": {"path"}, "PermissionDenied": {"path"},

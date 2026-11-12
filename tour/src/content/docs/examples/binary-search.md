@@ -15,9 +15,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The index of `value` in `items`, which must be sorted, found by halving
 /// the range it could be in.
-pub fn find<T>(items: Vector<T>, value: T) -> Result<Int, String> where T: Comparable {
+pub fn find<T>(items: Vector<T>, value: T) -> Result<Int, String> where T: Comparable
     search(items, value, 0, Vector.length(items))
-}
+end
 
 /// Searches the indices from `low` up to, not including, `high`.
 fn search<T>(
@@ -25,66 +25,66 @@ fn search<T>(
     value: T,
     low: Int,
     high: Int,
-) -> Result<Int, String> where T: Comparable {
-    if low >= high { return Err("value not in array") }
+) -> Result<Int, String> where T: Comparable
+    if low >= high then return Err("value not in array")
 
     middle = (low + high) / 2
     item = Vector.get(items, middle)!
 
-    case Comparable.compare(value, item) {
+    case Comparable.compare(value, item)
         .Less -> search(items, value, low, middle)
         .Equal -> Ok(middle)
         .Greater -> search(items, value, middle + 1, high)
-    }
-}
+    end
+end
 
 // FILE: binary_search_test.nomi
 import binary_search
 
-test "finds a value" {
+test "finds a value"
     [
-        ("finds a value in an array with one element", #[6], 6, 0),
-        ("finds a value in the middle of an array", #[1, 3, 4, 6, 8, 9, 11], 6, 3),
-        ("finds a value at the beginning of an array", #[1, 3, 4, 6, 8, 9, 11], 1, 0),
-        ("finds a value at the end of an array", #[1, 3, 4, 6, 8, 9, 11], 11, 6),
+        ("finds a value in an array with one element", Vector[6], 6, 0),
+        ("finds a value in the middle of an array", Vector[1, 3, 4, 6, 8, 9, 11], 6, 3),
+        ("finds a value at the beginning of an array", Vector[1, 3, 4, 6, 8, 9, 11], 1, 0),
+        ("finds a value at the end of an array", Vector[1, 3, 4, 6, 8, 9, 11], 11, 6),
         (
             "finds a value in an array of odd length",
-            #[1, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 634],
+            Vector[1, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 634],
             144,
             9,
         ),
         (
             "finds a value in an array of even length",
-            #[1, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377],
+            Vector[1, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377],
             21,
             5,
         ),
     ]
-    |> subtests (description, items, value, expected), description {
+    |> subtests (description, items, value, expected), description
         assert binary_search.find(items, value) == Ok(expected)
-    }
-}
+    end
+end
 
-test "reports a missing value" {
+test "reports a missing value"
     [
-        ("identifies that a value is not included in the array", #[1, 3, 4, 6, 8, 9, 11], 7),
+        ("identifies that a value is not included in the array", Vector[1, 3, 4, 6, 8, 9, 11], 7),
         (
             "a value smaller than the array's smallest value is not found",
-            #[1, 3, 4, 6, 8, 9, 11],
+            Vector[1, 3, 4, 6, 8, 9, 11],
             0,
         ),
         (
             "a value larger than the array's largest value is not found",
-            #[1, 3, 4, 6, 8, 9, 11],
+            Vector[1, 3, 4, 6, 8, 9, 11],
             13,
         ),
-        ("nothing is found in an empty array", #[], 1),
-        ("nothing is found when the left and right bounds cross", #[1, 2], 0),
+        ("nothing is found in an empty array", Vector[], 1),
+        ("nothing is found when the left and right bounds cross", Vector[1, 2], 0),
     ]
-    |> subtests (description, items, value), description {
+    |> subtests (description, items, value), description
         assert binary_search.find(items, value) == Err("value not in array")
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok finds a value (6 cases)

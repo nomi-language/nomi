@@ -4,6 +4,6 @@ import qualified_alias_dep::items
 
 pub once all: List<items.Item> = [items.Item{n: 1}, items.Item{n: 2}]
 
-pub fn total(xs: List<items.Item>) -> Int {
+pub fn total(xs: List<items.Item>) -> Int
     Iter.sum_by(xs, &(&1.n))
-}
+end

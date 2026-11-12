@@ -799,6 +799,16 @@ func wrapSynthAsImplBlocks(nodes []ast.Node, ifaceName string, site synthSite) [
 			out = append(out, n)
 			continue
 		}
+		generics := fn.TypeParams
+		if len(fn.Params) == 0 || ifaceName == "FromJson" {
+			// A function with no self-position parameter reads `self` off
+			// the header, so its `T` must be the header's: one of its own
+			// would be a second, distinct `T`, and `Result<Pair<T>, ...>`
+			// would match no `self` the header applies. The header alone
+			// declares them, as in a hand-written `impl FromJson for
+			// Pair<T> where T: FromJson`.
+			fn.TypeParams = nil
+		}
 		out = append(out, &ast.ImplBlock{
 			// Header interface from the caller's protocol name; receiver from the
 			// method's first param type. The interface node reuses the fn's
@@ -806,7 +816,7 @@ func wrapSynthAsImplBlocks(nodes []ast.Node, ifaceName string, site synthSite) [
 			// synth band is filtered by IsSynthesizedLine, so it never surfaces.
 			Interface: &ast.SimpleType{Name: ifaceName, Line: fn.Line, Col: fn.Col},
 			Receiver:  receiver,
-			Generics:  fn.TypeParams, // copy onto the header; keep on the fn too
+			Generics:  generics,
 			Items:     []ast.Node{fn},
 			Line:      fn.Line,
 			Col:       fn.Col,
@@ -1604,6 +1614,9 @@ func (s *uniquifyState) node(n ast.Node) {
 	case *ast.Call:
 		e.Line, e.Col = s.bump()
 		s.node(e.Func)
+		for _, ta := range e.TypeArgs {
+			s.typeExpr(ta)
+		}
 		for _, a := range e.Args {
 			s.node(a)
 		}
@@ -1712,6 +1725,15 @@ func (s *uniquifyState) node(n ast.Node) {
 			// reuse the bump for the field name pos.
 			f := &e.Fields[i]
 			f.NameLine, f.NameCol = s.bump()
+			if f.Binding != "" && f.Binding != f.Name {
+				// A renaming binding (`width: a_width`) is defined at its
+				// own position: left at column 0, every binding of the
+				// pattern keyed one Definitions slot and each took the
+				// type of the last.
+				f.BindingLine, f.BindingCol = s.bump()
+			} else if f.Binding != "" {
+				f.BindingLine, f.BindingCol = f.NameLine, f.NameCol
+			}
 			if f.Pattern != nil {
 				s.node(f.Pattern)
 			}
@@ -1968,7 +1990,7 @@ func receiverTypeExpr(typeName string, typeParams []ast.TypeParam, line, col int
 // the squiggle lands on the offending interface name rather than on the
 // type decl. The message names the field/variant/payload so the user
 // knows exactly which component type lacks the impl.
-func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex) []TypeError {
+func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex, fileOf func(path string) *FileAnalysis) []TypeError {
 	if fa == nil || impls == nil {
 		// Single-file path (BuildFileWithStdlib / buildTypesFromSource):
 		// no project-level impl index was built. The check would flag
@@ -2019,7 +2041,7 @@ func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplInd
 				ifaceName := st.Name
 				ifaceLine, ifaceCol := st.Line, st.Col
 				derivePos := Pos{File: fa.FilePath, Line: ifaceLine, Col: ifaceCol}
-				errs = append(errs, checkDeriveComponentTypes(fa, fa, impls, n, typeName, ifaceName, derivePos, typeParamSet)...)
+				errs = append(errs, checkDeriveComponentTypes(fa, fa, impls, fileOf, n, typeName, ifaceName, derivePos, typeParamSet)...)
 				// Synth bodies for Display/Debug emit StringInterp literals like
 				// "Some(${Iface.to_string(_v0)})". At runtime, evalStringInterp
 				// re-dispatches Display.to_string on the inner String parts
@@ -2080,11 +2102,20 @@ func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplInd
 // another file's type (CheckForeignDeriveBounds): the impl, and so what its
 // body demands, is the deriving file's, and a check that rebuilds one file
 // and keeps the other must find each demand once, in the file it rebuilt.
-func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, typeNode ast.Node, typeName, ifaceName string, derivePos Pos, typeParamSet map[string]bool) []TypeError {
+func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, fileOf func(path string) *FileAnalysis, typeNode ast.Node, typeName, ifaceName string, derivePos Pos, typeParamSet map[string]bool) []TypeError {
 	var errs []TypeError
-	var report func(componentDesc, fieldName string, fieldPos Pos, te ast.TypeExpr)
-	report = func(componentDesc, fieldName string, fieldPos Pos, te ast.TypeExpr) {
+	declFA := fa
+	var report func(fa *FileAnalysis, componentDesc, fieldName string, fieldPos Pos, te ast.TypeExpr)
+	report = func(fa *FileAnalysis, componentDesc, fieldName string, fieldPos Pos, te ast.TypeExpr) {
 		if te == nil {
+			return
+		}
+		if target, targetFA := deriveAliasTarget(fa, fileOf, te, map[*Symbol]bool{}); target != te {
+			// `m: Map<Key, Int>` under `typealias Key String`, or
+			// `m: counts.Counts` under another file's alias: the field's
+			// type is the alias's target, read in the file that declares
+			// it, whose impls the body reaches.
+			report(targetFA, componentDesc, fieldName, fieldPos, target)
 			return
 		}
 		if fn := functionTypeIn(te); fn != nil && noEqualityIface[ifaceName] {
@@ -2097,12 +2128,22 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 			}.WithHint(fmt.Sprintf("a function value has no equality; write an `impl %s for %s` that leaves the field out", ifaceName, typeName)))
 			return
 		}
+		if ifaceName == "ToJson" || ifaceName == "FromJson" {
+			if bad, help := jsonFieldGap(fa, fileOf, te, map[*Symbol]bool{}); bad != nil {
+				errs = append(errs, TypeError{
+					Line: fieldPos.Line, Col: fieldPos.Col, File: fieldPos.File,
+					Message: fmt.Sprintf("no impl of `%s` for `%s` (required via `derive %s for %s`, field `%s`)",
+						ifaceName, bad.TypeString(), ifaceName, typeName, fieldName),
+				}.WithHint(help))
+				return
+			}
+		}
 		if parts, ok := structuralDeriveParts(te, ifaceName); ok {
 			// A tuple or anonymous struct implements the interface when
 			// each part does (spec §12 *Tuples, anonymous structs and
 			// functions*), so the derived body's demand is each part's.
 			for _, p := range parts {
-				report(componentDesc, fieldName, fieldPos, p)
+				report(fa, componentDesc, fieldName, fieldPos, p)
 			}
 			return
 		}
@@ -2161,12 +2202,12 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 		// AttachStdlibProjectImpls), so no graceful-degradation branch
 		// is needed here — if we got past that guard, FinalizeCoherence
 		// is the diagnostic owner.
-		if deriveComponentHasEquality(fa, impls, baseName, ifaceName) {
+		if deriveComponentHasEquality(fa, impls, fileOf, baseName, ifaceName) {
 			// A declared type with equality and no impl of its own meets
 			// Equatable and Hashable by it, as a bound does
 			// (structural_bounds.go); its type arguments still must.
 			for _, ta := range typeArgs(te) {
-				errs = append(errs, recordDeriveTypeArg(fa, into, impls, ifaceName, ta, ctx, typeParamSet)...)
+				errs = append(errs, recordDeriveTypeArg(fa, into, impls, fileOf, ifaceName, ta, ctx, typeParamSet)...)
 			}
 			return
 		}
@@ -2186,7 +2227,7 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 			// recordings to the *current* field so the diagnostic points
 			// at the user's `w: Wrapper<C>` site, not Wrapper's synth.
 			for _, ta := range typeArgs(te) {
-				errs = append(errs, recordDeriveTypeArg(fa, into, impls, ifaceName, ta, ctx, typeParamSet)...)
+				errs = append(errs, recordDeriveTypeArg(fa, into, impls, fileOf, ifaceName, ta, ctx, typeParamSet)...)
 			}
 		}
 	}
@@ -2197,7 +2238,7 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 				errs = append(errs, untypedFieldDerive(fa, f, typeName, ifaceName)...)
 				continue
 			}
-			report(fmt.Sprintf("field '%s'", f.Name), f.Name, Pos{File: fa.FilePath, Line: f.Line, Col: f.Col}, f.TypeAnnotation)
+			report(declFA, fmt.Sprintf("field '%s'", f.Name), f.Name, Pos{File: fa.FilePath, Line: f.Line, Col: f.Col}, f.TypeAnnotation)
 		}
 	case *ast.EnumDef:
 		for _, v := range t.Variants {
@@ -2211,10 +2252,10 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 				// error message names the slot index.
 				if ft, isTuple := v.DataTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
 					for i, p := range ft.Params {
-						report(fmt.Sprintf("variant '%s' payload[%d]", v.Name, i), fmt.Sprintf("%s[%d]", v.Name, i), variantPos, p)
+						report(declFA, fmt.Sprintf("variant '%s' payload[%d]", v.Name, i), fmt.Sprintf("%s[%d]", v.Name, i), variantPos, p)
 					}
 				} else if v.DataTypeExpr != nil {
-					report(fmt.Sprintf("variant '%s' payload", v.Name), v.Name, variantPos, v.DataTypeExpr)
+					report(declFA, fmt.Sprintf("variant '%s' payload", v.Name), v.Name, variantPos, v.DataTypeExpr)
 				}
 			case "struct":
 				for _, f := range v.Fields {
@@ -2222,10 +2263,10 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 						errs = append(errs, untypedFieldDerive(fa, f, typeName, ifaceName)...)
 						continue
 					}
-					report(fmt.Sprintf("variant '%s' field '%s'", v.Name, f.Name), v.Name+"."+f.Name, Pos{File: fa.FilePath, Line: f.Line, Col: f.Col}, f.TypeAnnotation)
+					report(declFA, fmt.Sprintf("variant '%s' field '%s'", v.Name, f.Name), v.Name+"."+f.Name, Pos{File: fa.FilePath, Line: f.Line, Col: f.Col}, f.TypeAnnotation)
 				}
 			case "embedded":
-				report(fmt.Sprintf("variant '%s' embedded type", v.Name), v.Name, variantPos, v.EmbeddedTypeExpr)
+				report(declFA, fmt.Sprintf("variant '%s' embedded type", v.Name), v.Name, variantPos, v.EmbeddedTypeExpr)
 			}
 		}
 	case *ast.TypeDef:
@@ -2239,10 +2280,10 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 		// single inner type.
 		if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 1 {
 			for i, p := range ft.Params {
-				report(fmt.Sprintf("inner tuple component[%d]", i), fmt.Sprintf("inner[%d]", i), innerPos, p)
+				report(declFA, fmt.Sprintf("inner tuple component[%d]", i), fmt.Sprintf("inner[%d]", i), innerPos, p)
 			}
 		} else {
-			report("inner type", "inner", innerPos, t.InnerTypeExpr)
+			report(declFA, "inner type", "inner", innerPos, t.InnerTypeExpr)
 		}
 	}
 	return errs
@@ -2289,6 +2330,110 @@ func structuralDeriveParts(te ast.TypeExpr, ifaceName string) ([]ast.TypeExpr, b
 		}
 	}
 	return nil, false
+}
+
+// jsonFieldGap answers the part of te, a field type under a derived ToJson
+// or FromJson, that no impl of either covers, with the help for it, or nil:
+// a tuple, which implements neither (spec §12 *Tuples, anonymous structs
+// and functions*), and a Map whose key is not String, since std implements
+// both for Map<String, V> alone (a JSON object's keys are strings). It
+// looks through aliases, anonymous struct fields and std's containers,
+// whose impls need their elements to implement the interface. A function
+// is left to the other checks.
+func jsonFieldGap(fa *FileAnalysis, fileOf func(path string) *FileAnalysis, te ast.TypeExpr, seen map[*Symbol]bool) (ast.TypeExpr, string) {
+	switch t := te.(type) {
+	case nil:
+		return nil, ""
+	case *ast.FuncType:
+		if t.Return != nil {
+			return nil, ""
+		}
+		return te, "a tuple implements neither `ToJson` nor `FromJson`, since JSON has no tuple; use an anonymous struct, `{a: Int, b: String}`, or a list"
+	case *ast.AnonStructType:
+		for _, f := range t.Fields {
+			if bad, help := jsonFieldGap(fa, fileOf, f.TypeAnnotation, seen); bad != nil {
+				return bad, help
+			}
+		}
+		return nil, ""
+	case *ast.GenericType:
+		switch t.Name {
+		case "Map":
+			if len(t.Params) == 2 {
+				if key, _ := deriveAliasTarget(fa, fileOf, t.Params[0], seen); !isStringTypeExpr(key) {
+					return te, "std implements `ToJson` and `FromJson` for `Map<String, V>` alone, since a JSON object's keys are strings; key the map by String"
+				}
+				return jsonFieldGap(fa, fileOf, t.Params[1], seen)
+			}
+		case "List", "Vector", "Set", "Maybe":
+			for _, p := range t.Params {
+				if bad, help := jsonFieldGap(fa, fileOf, p, seen); bad != nil {
+					return bad, help
+				}
+			}
+		}
+		return nil, ""
+	case *ast.SimpleType, *ast.QualifiedType:
+		if target, targetFA := deriveAliasTarget(fa, fileOf, te, seen); target != te {
+			return jsonFieldGap(targetFA, fileOf, target, seen)
+		}
+	}
+	return nil, ""
+}
+
+// deriveAliasTarget answers the type a `typealias` named by te stands for,
+// through chains of aliases, with the analysis of the file that declares
+// it, or te itself and fa: a derive's component type, or a type argument of
+// one, is what the alias names, whose impls the derived body reaches. The
+// alias is the symbol the file resolved te's name to, written bare or
+// imported (`Counts`) or through its file (`counts.Counts`), and its target
+// names types in its own file's scope.
+func deriveAliasTarget(fa *FileAnalysis, fileOf func(path string) *FileAnalysis, te ast.TypeExpr, seen map[*Symbol]bool) (ast.TypeExpr, *FileAnalysis) {
+	for {
+		alias := resolvedTypeAlias(typeExprSymbol(fa, te))
+		if alias == nil || seen[alias] {
+			return te, fa
+		}
+		node, ok := alias.Node.(*ast.TypeAlias)
+		if !ok || node.TargetTypeExpr == nil {
+			return te, fa
+		}
+		seen[alias] = true
+		if alias.SourceFile != "" && fileOf != nil {
+			if decl := fileOf(alias.SourceFile); decl != nil {
+				fa = decl
+			}
+		}
+		te = node.TargetTypeExpr
+	}
+}
+
+// typeExprSymbol is the symbol fa resolved te's name to, for a type written
+// as a name, bare or through its file (`Counts`, `counts.Counts`), or nil.
+func typeExprSymbol(fa *FileAnalysis, te ast.TypeExpr) *Symbol {
+	if fa == nil {
+		return nil
+	}
+	switch t := te.(type) {
+	case *ast.SimpleType:
+		if sym := fa.References[Pos{Line: t.Line, Col: t.Col}]; sym != nil {
+			return sym
+		}
+		if fa.ModuleScope != nil {
+			return fa.ModuleScope.Lookup(t.Name)
+		}
+	case *ast.QualifiedType:
+		if m, ok := t.Member.(*ast.SimpleType); ok {
+			return fa.References[Pos{Line: m.Line, Col: m.Col}]
+		}
+	}
+	return nil
+}
+
+// isStringTypeExpr reports whether te names std's String.
+func isStringTypeExpr(te ast.TypeExpr) bool {
+	st, ok := te.(*ast.SimpleType)
+	return ok && st.Name == "String"
 }
 
 // noEqualityIface is the derivable interfaces whose derived body compares
@@ -2348,10 +2493,13 @@ func phantomTypeArgs(baseName string) bool {
 // own TypeArgs when the base type itself has an impl — same rationale as
 // the outer report closure's generic-instantiation recursion: the impl's
 // synth body will dispatch through each TypeArg slot too.
-func recordDeriveTypeArg(fa, into *FileAnalysis, impls *ProjectImplIndex, ifaceName string, te ast.TypeExpr, ctx *DeriveCtx, typeParamSet map[string]bool) []TypeError {
+func recordDeriveTypeArg(fa, into *FileAnalysis, impls *ProjectImplIndex, fileOf func(path string) *FileAnalysis, ifaceName string, te ast.TypeExpr, ctx *DeriveCtx, typeParamSet map[string]bool) []TypeError {
 	if te == nil {
 		return nil
 	}
+	// A type argument naming an alias (`Map<Key, V>` under `typealias Key
+	// String`) is the alias's target, read in the file that declares it.
+	te, fa = deriveAliasTarget(fa, fileOf, te, map[*Symbol]bool{})
 	baseName := TypeExprBaseName(te)
 	if baseName == "" {
 		return nil
@@ -2365,10 +2513,10 @@ func recordDeriveTypeArg(fa, into *FileAnalysis, impls *ProjectImplIndex, ifaceN
 		// Existential at the inner position — runtime resolves.
 		return nil
 	}
-	if deriveComponentHasEquality(fa, impls, baseName, ifaceName) {
+	if deriveComponentHasEquality(fa, impls, fileOf, baseName, ifaceName) {
 		var errs []TypeError
 		for _, ta := range typeArgs(te) {
-			errs = append(errs, recordDeriveTypeArg(fa, into, impls, ifaceName, ta, ctx, typeParamSet)...)
+			errs = append(errs, recordDeriveTypeArg(fa, into, impls, fileOf, ifaceName, ta, ctx, typeParamSet)...)
 		}
 		return errs
 	}
@@ -2384,7 +2532,7 @@ func recordDeriveTypeArg(fa, into *FileAnalysis, impls *ProjectImplIndex, ifaceN
 	// each layer of its TypeArgs in turn.
 	if hasInterfaceImpl(fa, impls, baseName, ifaceName) && !phantomTypeArgs(baseName) {
 		for _, inner := range typeArgs(te) {
-			errs = append(errs, recordDeriveTypeArg(fa, into, impls, ifaceName, inner, ctx, typeParamSet)...)
+			errs = append(errs, recordDeriveTypeArg(fa, into, impls, fileOf, ifaceName, inner, ctx, typeParamSet)...)
 		}
 	}
 	return errs
@@ -2397,16 +2545,16 @@ func recordDeriveTypeArg(fa, into *FileAnalysis, impls *ProjectImplIndex, ifaceN
 // equality. Types are not resolved when derives are checked, so this reads
 // the declarations: a component has equality when it is no function type,
 // no Iter and no host type without an `impl Equatable`, at any depth.
-func deriveComponentHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, baseName, ifaceName string) bool {
+func deriveComponentHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf func(path string) *FileAnalysis, baseName, ifaceName string) bool {
 	if ifaceName != "Equatable" && ifaceName != "Hashable" || hasInterfaceImpl(fa, impls, baseName, ifaceName) {
 		return false
 	}
-	return deriveDeclHasEquality(fa, impls, baseName, map[string]bool{})
+	return deriveDeclHasEquality(fa, impls, fileOf, baseName, map[string]bool{})
 }
 
 // deriveDeclHasEquality reports whether the declaration baseName names has
 // equality: its own `impl Equatable`, or components that all have it.
-func deriveDeclHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, baseName string, seen map[string]bool) bool {
+func deriveDeclHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf func(path string) *FileAnalysis, baseName string, seen map[string]bool) bool {
 	if hasInterfaceImpl(fa, impls, baseName, "Equatable") || seen[baseName] {
 		return true
 	}
@@ -2421,6 +2569,10 @@ func deriveDeclHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, baseName s
 	if sym.Resolved != nil {
 		sym = sym.Resolved
 	}
+	// The declaration's parts name types in the file that declares it,
+	// which the deriving file may not import: an `embeds Spot` of another
+	// file's enum is that file's Spot.
+	fa = declaringFile(fa, fileOf, sym)
 	params := map[string]bool{}
 	var parts []ast.TypeExpr
 	switch d := sym.Node.(type) {
@@ -2452,16 +2604,28 @@ func deriveDeclHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, baseName s
 		return false
 	}
 	for _, te := range parts {
-		if !deriveTypeHasEquality(fa, impls, te, params, seen) {
+		if !deriveTypeHasEquality(fa, impls, fileOf, te, params, seen) {
 			return false
 		}
 	}
 	return true
 }
 
+// declaringFile answers the analysis of the file that declares sym, a
+// type of the program's own files, which fileOf finds by path, or fa.
+func declaringFile(fa *FileAnalysis, fileOf func(path string) *FileAnalysis, sym *Symbol) *FileAnalysis {
+	if fileOf == nil || sym == nil || sym.SourceFile == "" || sym.SourceFile == fa.FilePath {
+		return fa
+	}
+	if decl := fileOf(sym.SourceFile); decl != nil && decl.ModuleScope != nil {
+		return decl
+	}
+	return fa
+}
+
 // deriveTypeHasEquality reports whether te, a component type written in a
 // declaration whose type parameters are params, has equality.
-func deriveTypeHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, te ast.TypeExpr, params map[string]bool, seen map[string]bool) bool {
+func deriveTypeHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf func(path string) *FileAnalysis, te ast.TypeExpr, params map[string]bool, seen map[string]bool) bool {
 	if te == nil {
 		return true
 	}
@@ -2470,7 +2634,7 @@ func deriveTypeHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, te ast.Typ
 	}
 	if parts, ok := structuralDeriveParts(te, "Equatable"); ok {
 		for _, p := range parts {
-			if !deriveTypeHasEquality(fa, impls, p, params, seen) {
+			if !deriveTypeHasEquality(fa, impls, fileOf, p, params, seen) {
 				return false
 			}
 		}
@@ -2481,14 +2645,14 @@ func deriveTypeHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, te ast.Typ
 		return true
 	}
 	for _, ta := range typeArgs(te) {
-		if !deriveTypeHasEquality(fa, impls, ta, params, seen) {
+		if !deriveTypeHasEquality(fa, impls, fileOf, ta, params, seen) {
 			return false
 		}
 	}
 	if isInterfaceTypeName(fa, baseName) {
 		return baseName != "Iter"
 	}
-	return deriveDeclHasEquality(fa, impls, baseName, seen)
+	return deriveDeclHasEquality(fa, impls, fileOf, baseName, seen)
 }
 
 // deriveComponentOrigin is the build key of the file that declares the
@@ -3628,10 +3792,17 @@ func toJsonStructExpr(fields []ast.StructField, opts deriveOptions, line, col in
 		key := jsonFieldName(f.Name, opts)
 		entries = append(entries, ast.MapEntry{
 			Key:   staticString(key, line, col),
-			Value: toJsonCall(fieldAccess(identExpr("value", line, col), f.Name, line, col), line, col),
+			Value: toJsonFieldCall(fieldAccess(identExpr("value", line, col), f.Name, line, col), line, col),
 		})
 	}
-	return jsonObj(entries, line, col)
+	return jsonFieldsObj(entries, line, col)
+}
+
+// jsonFieldsObj is the object of a struct's fields: entries map each key to
+// its field's `ToJson.to_json_field`, and std/json's object_of_fields
+// leaves out each key whose answer is None (an `Absent` field).
+func jsonFieldsObj(entries []ast.MapEntry, line, col int) ast.Node {
+	return jsonCall("object_of_fields", []ast.Node{&ast.MapLit{Entries: entries, Line: line, Col: col}}, line, col)
 }
 
 func toJsonEnumExpr(e *ast.EnumDef, opts deriveOptions, line, col int) ast.Node {
@@ -3672,10 +3843,10 @@ func toJsonVariantExpr(v ast.EnumVariant, opts deriveOptions, line, col int) ast
 		for _, f := range v.Fields {
 			entries = append(entries, ast.MapEntry{
 				Key:   staticString(jsonFieldName(f.Name, opts), line, col),
-				Value: toJsonCall(identExpr(fieldBindName(f.Name, "_v"), line, col), line, col),
+				Value: toJsonFieldCall(identExpr(fieldBindName(f.Name, "_v"), line, col), line, col),
 			})
 		}
-		return jsonObj([]ast.MapEntry{{Key: staticString(v.Name, line, col), Value: jsonObj(entries, line, col)}}, line, col)
+		return jsonObj([]ast.MapEntry{{Key: staticString(v.Name, line, col), Value: jsonFieldsObj(entries, line, col)}}, line, col)
 	case "embedded":
 		return jsonObj([]ast.MapEntry{{
 			Key:   staticString(v.Name, line, col),
@@ -3750,7 +3921,7 @@ func fromJsonBody(typeNode ast.Node, opts deriveOptions, line, col int) []ast.No
 	case *ast.StructDef:
 		return []ast.Node{exprStmt(fromJsonStructExpr(t, opts, line, col), line, col)}
 	case *ast.TypeDef:
-		return fromJsonDistinctStmts(t, line, col)
+		return fromJsonDistinctStmts(t, opts, line, col)
 	case *ast.ExternType:
 		return []ast.Node{exprStmt(okCall(&ast.TypeIdent{Name: t.Name, Line: line, Col: col}, line, col), line, col)}
 	case *ast.EnumDef:
@@ -3853,16 +4024,9 @@ func fromJsonEnumExpr(e *ast.EnumDef, opts deriveOptions, line, col int) ast.Nod
 			Col:  col,
 		})
 	}
-	expected := "string"
-	switch {
-	case hasBare && len(tagged) > 0:
-		expected = "string or object"
-	case len(tagged) > 0:
-		expected = "object"
-	}
 	branches = append(branches, ast.CaseBranch{
 		Pattern: &ast.WildcardPattern{Line: line, Col: col},
-		Body:    jsonShapeErr(expected, json(), line, col),
+		Body:    jsonShapeErr(e.Name, json(), line, col),
 		Line:    line,
 		Col:     col,
 	})
@@ -3941,7 +4105,7 @@ func fromJsonVariantPayloadExpr(e *ast.EnumDef, v ast.EnumVariant, opts deriveOp
 				{
 					Pattern: &ast.WildcardPattern{Line: line, Col: col},
 					Body: errCall(jsonShapePrepend(
-						jsonCall("shape_error_root", []ast.Node{staticString(fmt.Sprintf("array of %d", len(ft.Params)), line, col), payload()}, line, col),
+						jsonCall("shape_error_root", []ast.Node{staticString(ft.TypeString(), line, col), payload()}, line, col),
 						v.Name, line, col), line, col),
 					Line: line,
 					Col:  col,
@@ -3951,10 +4115,8 @@ func fromJsonVariantPayloadExpr(e *ast.EnumDef, v ast.EnumVariant, opts deriveOp
 			Col:  col,
 		}
 	case "struct":
-		build := func(decoded []ast.StructFieldVal) ast.Node {
-			return &ast.StructLit{TypeName: qualifiedTypeExpr(e.Name, v.Name, line, col), Fields: decoded, Line: line, Col: col}
-		}
-		return fromJsonObjectExpr(payload(), v.Fields, build, opts, line, col)
+		litType := func() ast.TypeExpr { return qualifiedTypeExpr(e.Name, v.Name, line, col) }
+		return fromJsonObjectExpr(payload(), e.Name+"."+v.Name, v.Fields, litType, len(e.Variants) > 1, opts, line, col)
 	case "embedded":
 		return decodeThen(v.EmbeddedTypeExpr, payload(), "__a0", "", okCall(identExpr("__a0", line, col), line, col))
 	}
@@ -3962,17 +4124,16 @@ func fromJsonVariantPayloadExpr(e *ast.EnumDef, v ast.EnumVariant, opts deriveOp
 }
 
 func fromJsonStructExpr(t *ast.StructDef, opts deriveOptions, line, col int) ast.Node {
-	build := func(decoded []ast.StructFieldVal) ast.Node {
-		return &ast.StructLit{TypeName: &ast.SimpleType{Name: t.Name, Line: line, Col: col}, Fields: decoded, Line: line, Col: col}
-	}
-	return fromJsonObjectExpr(identExpr("json", line, col), t.Fields, build, opts, line, col)
+	litType := func() ast.TypeExpr { return &ast.SimpleType{Name: t.Name, Line: line, Col: col} }
+	return fromJsonObjectExpr(identExpr("json", line, col), t.Name, t.Fields, litType, false, opts, line, col)
 }
 
 // fromJsonObjectExpr decodes subject, a Json, as an object holding fields
-// and answers `Ok(build(decoded))`, or an Err naming the field that failed.
+// and answers `Ok(litType{...})`, or an Err naming the field that failed.
 // A derived struct decodes its whole JSON this way, and an enum's struct
-// variant its payload.
-func fromJsonObjectExpr(subject ast.Node, fields []ast.StructField, build func([]ast.StructFieldVal) ast.Node, opts deriveOptions, line, col int) ast.Node {
+// variant its payload (partial: the enum has other variants, so a pattern
+// of this variant needs a wildcard beside it).
+func fromJsonObjectExpr(subject ast.Node, typeName string, fields []ast.StructField, litType func() ast.TypeExpr, partial bool, opts deriveOptions, line, col int) ast.Node {
 	objPattern := &ast.EnumPattern{
 		Variant: jsonVariant("Obj", line, col),
 		Payload: &ast.IdentPattern{Name: "fields", Line: line, Col: col},
@@ -3984,13 +4145,13 @@ func fromJsonObjectExpr(subject ast.Node, fields []ast.StructField, build func([
 		Branches: []ast.CaseBranch{
 			{
 				Pattern: objPattern,
-				Body:    fromJsonStructFieldsExpr(fields, build, opts, 0, nil, line, col),
+				Body:    fromJsonStructFieldsExpr(subject, typeName, fields, litType, partial, opts, line, col),
 				Line:    line,
 				Col:     col,
 			},
 			{
 				Pattern: &ast.WildcardPattern{Line: line, Col: col},
-				Body:    jsonShapeErr("object", subject, line, col),
+				Body:    jsonShapeErr(typeName, subject, line, col),
 				Line:    line,
 				Col:     col,
 			},
@@ -4000,98 +4161,138 @@ func fromJsonObjectExpr(subject ast.Node, fields []ast.StructField, build func([
 	}
 }
 
-func fromJsonStructFieldsExpr(fields []ast.StructField, build func([]ast.StructFieldVal) ast.Node, opts deriveOptions, idx int, decoded []ast.StructFieldVal, line, col int) ast.Node {
-	if idx >= len(fields) {
-		return okCall(build(decoded), line, col)
-	}
-	field := fields[idx]
-	if field.TypeAnnotation == nil {
-		// A field whose type comes from its default is refused at the
-		// field (untypedFieldDerive); the body leaves it to its default
-		// rather than name a type it does not have.
-		return fromJsonStructFieldsExpr(fields, build, opts, idx+1, decoded, line, col)
-	}
-	key := jsonFieldName(field.Name, opts)
-	jvName := "__json_" + field.Name
-	valueName := "__value_" + field.Name
-	nextDecoded := append(append([]ast.StructFieldVal{}, decoded...), ast.StructFieldVal{
-		Name:  field.Name,
-		Value: identExpr(valueName, line, col),
-		Line:  line,
-		Col:   col,
-	})
-	rest := fromJsonStructFieldsExpr(fields, build, opts, idx+1, nextDecoded, line, col)
-	decodePresent := &ast.Case{
-		Value: fromJsonCallForType(field.TypeAnnotation, identExpr(jvName, line, col), line, col),
-		Branches: []ast.CaseBranch{
-			{
-				Pattern: enumBindPattern("Ok", valueName, line, col),
-				Body:    rest,
-				Line:    line,
-				Col:     col,
-			},
-			{
-				Pattern: enumBindPattern("Err", "__err", line, col),
-				Body:    errCall(jsonShapePrepend(identExpr("__err", line, col), key, line, col), line, col),
-				Line:    line,
-				Col:     col,
-			},
-		},
-		Line: line,
-		Col:  col,
-	}
-	var missing ast.Node
-	switch {
-	case isMaybeType(field.TypeAnnotation):
-		missingDecoded := append(append([]ast.StructFieldVal{}, decoded...), ast.StructFieldVal{
-			Name:  field.Name,
-			Value: &ast.TypeIdent{Name: "None", Line: line, Col: col},
-			Line:  line,
-			Col:   col,
-		})
-		missing = fromJsonStructFieldsExpr(fields, build, opts, idx+1, missingDecoded, line, col)
-	case field.Default != nil:
-		// The literal leaves the field out and the struct literal's own
-		// default rule fills it. Placing field.Default here would share the
-		// declaration's node with the synthesized body: uniquifyPositions
-		// would restamp the declaration's positions into the synthesized
-		// band, and would refuse any default expression its walker does not
-		// list (`%[]`, a lambda).
-		missing = fromJsonStructFieldsExpr(fields, build, opts, idx+1, decoded, line, col)
-	default:
-		missing = errCall(&ast.StructLit{
-			TypeName: jsonVariant("ShapeError", line, col),
-			Fields: []ast.StructFieldVal{
-				{Name: "path", Value: &ast.ListLit{Items: []ast.Node{staticString(key, line, col)}, Line: line, Col: col}, Line: line, Col: col},
-				{Name: "expected", Value: staticString(field.TypeAnnotation.TypeString(), line, col), Line: line, Col: col},
-				{Name: "got", Value: staticString("missing", line, col), Line: line, Col: col},
+// fromJsonStructFieldsExpr decodes `fields`, the object's entries, one field
+// at a time and builds the value once at the end, so the body grows by one
+// step per field:
+//
+//	case json$.decode_field<A>(fields, "a", "A")
+//	    Ok(__value_a) ->
+//	        case json$.decode_defaulted_field<B>(fields, "b")
+//	            Ok(__value_b) ->
+//	                case T{a: __value_a}
+//	                    T{b: __default_b} -> Ok(T{a: __value_a, b: case __value_b { Some(v) -> v; None -> __default_b }})
+//	                end
+//	            Err(__err) -> Err(__err)
+//	        end
+//	    Err(__err) -> Err(__err)
+//	end
+//
+// A field with no default reads its key, else `from_missing`, else the error
+// naming the key (std/json's decode_field). A defaulted field reads
+// Some(value) the same way, and None where its default fills it
+// (decode_defaulted_field). The defaults come from a literal of the
+// required fields alone, which the struct literal's own default rule
+// completes. Placing field.Default in the body would share the
+// declaration's node with the synthesized body: uniquifyPositions would
+// restamp the declaration's positions into the synthesized band, and would
+// refuse any default expression its walker does not list (`[]`, a lambda).
+func fromJsonStructFieldsExpr(subject ast.Node, typeName string, fields []ast.StructField, litType func() ast.TypeExpr, partial bool, opts deriveOptions, line, col int) ast.Node {
+	value := func(name string) ast.Node { return identExpr("__value_"+name, line, col) }
+	var requiredNames []string
+	var defaulted []ast.StructFieldVal
+	var defaults []ast.StructPatternField
+	var decoded []ast.StructField
+	for _, field := range fields {
+		if field.TypeAnnotation == nil {
+			// A field whose type comes from its default is refused at the
+			// field (untypedFieldDerive); the body leaves it to its default
+			// rather than name a type it does not have.
+			continue
+		}
+		decoded = append(decoded, field)
+		if field.Default == nil {
+			requiredNames = append(requiredNames, field.Name)
+			continue
+		}
+		defaultName := "__default_" + field.Name
+		defaults = append(defaults, ast.StructPatternField{Name: field.Name, Binding: defaultName})
+		defaulted = append(defaulted, ast.StructFieldVal{
+			Name: field.Name,
+			Value: &ast.Case{
+				Value: value(field.Name),
+				Branches: []ast.CaseBranch{
+					{Pattern: enumBindPattern("Some", "__v", line, col), Body: identExpr("__v", line, col), Line: line, Col: col},
+					{Pattern: &ast.EnumPattern{Variant: &ast.SimpleType{Name: "None", Line: line, Col: col}, Line: line, Col: col}, Body: identExpr(defaultName, line, col), Line: line, Col: col},
+				},
+				Line: line,
+				Col:  col,
 			},
 			Line: line,
 			Col:  col,
-		}, line, col)
+		})
 	}
-	return &ast.Case{
-		Value: mapGetCall(identExpr("fields", line, col), staticString(key, line, col), line, col),
-		Branches: []ast.CaseBranch{
-			{
-				Pattern: enumBindPattern("Some", jvName, line, col),
-				Body:    decodePresent,
+	requiredFields := func() []ast.StructFieldVal {
+		out := make([]ast.StructFieldVal, len(requiredNames))
+		for i, name := range requiredNames {
+			out[i] = ast.StructFieldVal{Name: name, Value: value(name), Line: line, Col: col}
+		}
+		return out
+	}
+	var body ast.Node
+	if len(defaults) == 0 {
+		body = okCall(&ast.StructLit{TypeName: litType(), Fields: requiredFields(), Line: line, Col: col}, line, col)
+	} else {
+		branches := []ast.CaseBranch{{
+			Pattern: &ast.StructPattern{TypeName: litType(), Fields: defaults, Line: line, Col: col},
+			Body: okCall(&ast.StructLit{
+				TypeName: litType(),
+				Fields:   append(requiredFields(), defaulted...),
+				Line:     line,
+				Col:      col,
+			}, line, col),
+			Line: line,
+			Col:  col,
+		}}
+		if partial {
+			// Never taken: the subject is the variant the pattern names.
+			branches = append(branches, ast.CaseBranch{
+				Pattern: &ast.WildcardPattern{Line: line, Col: col},
+				Body:    jsonShapeErr(typeName, subject, line, col),
 				Line:    line,
 				Col:     col,
-			},
-			{
-				Pattern: &ast.EnumPattern{Variant: &ast.SimpleType{Name: "None", Line: line, Col: col}, Line: line, Col: col},
-				Body:    missing,
-				Line:    line,
-				Col:     col,
-			},
-		},
-		Line: line,
-		Col:  col,
+			})
+		}
+		body = &ast.Case{
+			Value:    &ast.StructLit{TypeName: litType(), Fields: requiredFields(), Line: line, Col: col},
+			Branches: branches,
+			Line:     line,
+			Col:      col,
+		}
 	}
+	for i := len(decoded) - 1; i >= 0; i-- {
+		field := decoded[i]
+		key := jsonFieldName(field.Name, opts)
+		ta, ok := cloneTypeExpr(field.TypeAnnotation, line, col)
+		if !ok {
+			ta = &ast.SimpleType{Name: field.TypeAnnotation.TypeString(), Line: line, Col: col}
+		}
+		args := []ast.Node{identExpr("fields", line, col), staticString(key, line, col)}
+		method := "decode_defaulted_field"
+		if field.Default == nil {
+			method = "decode_field"
+			args = append(args, staticString(field.TypeAnnotation.TypeString(), line, col))
+		}
+		decode := &ast.Call{
+			Func:     fieldAccess(identExpr(jsonModuleAlias, line, col), method, line, col),
+			TypeArgs: []ast.TypeExpr{ta},
+			Args:     args,
+			Line:     line,
+			Col:      col,
+		}
+		body = &ast.Case{
+			Value: decode,
+			Branches: []ast.CaseBranch{
+				{Pattern: enumBindPattern("Ok", "__value_"+field.Name, line, col), Body: body, Line: line, Col: col},
+				{Pattern: enumBindPattern("Err", "__err", line, col), Body: errCall(identExpr("__err", line, col), line, col), Line: line, Col: col},
+			},
+			Line: line,
+			Col:  col,
+		}
+	}
+	return body
 }
 
-func fromJsonDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
+func fromJsonDistinctStmts(t *ast.TypeDef, opts deriveOptions, line, col int) []ast.Node {
 	if t.InnerTypeExpr == nil {
 		return []ast.Node{exprStmt(okCall(&ast.TypeIdent{Name: t.Name, Line: line, Col: col}, line, col), line, col)}
 	}
@@ -4160,33 +4361,35 @@ func lowerFirst(s string) string {
 	return strings.ToLower(s[:1]) + s[1:]
 }
 
-func isMaybeType(te ast.TypeExpr) bool {
-	return TypeExprBaseName(te) == "Maybe"
-}
-
 func toJsonCall(arg ast.Node, line, col int) ast.Node {
 	return qualifiedCall("ToJson", "to_json", []ast.Node{arg}, line, col)
 }
 
+func toJsonFieldCall(arg ast.Node, line, col int) ast.Node {
+	return qualifiedCall("ToJson", "to_json_field", []ast.Node{arg}, line, col)
+}
+
 func fromJsonCallForType(target ast.TypeExpr, arg ast.Node, line, col int) ast.Node {
-	if typeExprHoldsAnonStruct(target) {
-		// An anonymous struct type is no expression to call through:
-		// `FromJson.from_json<.{x: Int}>(json)`.
-		if ta, ok := cloneTypeExpr(target, line, col); ok {
-			return &ast.Call{
-				Func:     fieldAccess(&ast.TypeIdent{Name: "FromJson", Line: line, Col: col}, "from_json", line, col),
-				TypeArgs: []ast.TypeExpr{ta},
-				Args:     []ast.Node{arg},
-				Line:     line,
-				Col:      col,
-			}
-		}
+	return fromJsonHookForType(target, "from_json", []ast.Node{arg}, line, col)
+}
+
+// fromJsonHookForType is `FromJson.method<Target>(args)`, a call of
+// FromJson's method at the type target, as source writes it. The type
+// argument resolves wherever target is declared: a typealias another file
+// declares (`counts.Counts`), like a type with arguments or an anonymous
+// struct, is no call's owner (`Counts.from_json`), and the checker records
+// this call as it records any other.
+func fromJsonHookForType(target ast.TypeExpr, method string, args []ast.Node, line, col int) ast.Node {
+	ta, ok := cloneTypeExpr(target, line, col)
+	if !ok {
+		ta = &ast.SimpleType{Name: target.TypeString(), Line: line, Col: col}
 	}
 	return &ast.Call{
-		Func: fieldAccess(cloneTypeExprNode(target, line, col), "from_json", line, col),
-		Args: []ast.Node{arg},
-		Line: line,
-		Col:  col,
+		Func:     fieldAccess(&ast.TypeIdent{Name: "FromJson", Line: line, Col: col}, method, line, col),
+		TypeArgs: []ast.TypeExpr{ta},
+		Args:     args,
+		Line:     line,
+		Col:      col,
 	}
 }
 
@@ -4310,61 +4513,6 @@ func enumBindPattern(variant, bind string, line, col int) ast.Node {
 		Line:    line,
 		Col:     col,
 	}
-}
-
-func cloneTypeExprNode(te ast.TypeExpr, line, col int) ast.Node {
-	if te == nil {
-		return &ast.TypeIdent{Name: "", Line: line, Col: col}
-	}
-	switch t := te.(type) {
-	case *ast.SimpleType:
-		return &ast.TypeIdent{Name: t.Name, Line: line, Col: col}
-	case *ast.GenericType:
-		params := make([]ast.TypeExpr, len(t.Params))
-		for i, p := range t.Params {
-			if cloned, ok := cloneTypeExpr(p, line, col); ok {
-				params[i] = cloned
-			}
-		}
-		return &ast.GenericType{Name: t.Name, Params: params, Line: line, Col: col}
-	case *ast.QualifiedType:
-		if m, ok := t.Member.(*ast.SimpleType); ok && !strings.Contains(m.Name, ".") {
-			// `tags.Tag` as an expression is written as the parser reads
-			// `tags.Tag.from_json`: the file, then its member.
-			return fieldAccess(identExpr(t.Module, line, col), m.Name, line, col)
-		}
-		member, _ := cloneTypeExpr(t.Member, line, col)
-		return &ast.QualifiedType{Module: t.Module, ModuleLine: line, ModuleCol: col, Member: member}
-	default:
-		if cloned, ok := cloneTypeExpr(te, line, col); ok {
-			return cloned
-		}
-		return &ast.TypeIdent{Name: te.TypeString(), Line: line, Col: col}
-	}
-}
-
-// typeExprHoldsAnonStruct reports whether te is or holds an anonymous
-// struct type.
-func typeExprHoldsAnonStruct(te ast.TypeExpr) bool {
-	switch t := te.(type) {
-	case *ast.AnonStructType:
-		return true
-	case *ast.GenericType:
-		for _, p := range t.Params {
-			if typeExprHoldsAnonStruct(p) {
-				return true
-			}
-		}
-	case *ast.QualifiedType:
-		return typeExprHoldsAnonStruct(t.Member)
-	case *ast.FuncType:
-		for _, p := range t.Params {
-			if typeExprHoldsAnonStruct(p) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func cloneTypeExpr(te ast.TypeExpr, line, col int) (ast.TypeExpr, bool) {

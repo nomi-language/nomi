@@ -7,11 +7,17 @@ func TestSameOwner_LocalCallableHasItsOwnSignature(t *testing.T) {
 		`read = fn _n: Int -> "local"; read(3)`,
 		`read = fn _n: Int -> "local"; 3 |> read()`,
 	} {
-		_, errs := checkSource(`struct Box { value: Int }
-impl Box {
- fn read(b: Box) -> Int { b.value }
- fn use(_b: Box) -> String { ` + body + ` }
-}`)
+		_, errs := checkSource(`struct Box
+ value: Int
+end
+impl Box
+ fn read(b: Box) -> Int
+  b.value
+ end
+ fn use(_b: Box) -> String
+  ` + body + `
+ end
+end`)
 		if len(errs) != 0 {
 			t.Fatalf("%s: %v", body, errs)
 		}
@@ -19,14 +25,21 @@ impl Box {
 }
 
 func TestSameOwner_LocalValueKeepsItsBinding(t *testing.T) {
-	fa, _ := checkSource(`struct Box { value: Int }
-impl Box {
- fn read(b: Box) -> Int { b.value }
- fn use(b: Box) -> Int { read = 7; read(b) }
-}`)
+	fa, _ := checkSource(`struct Box
+    value: Int
+end
+impl Box
+ fn read(b: Box) -> Int
+     b.value
+ end
+ fn use(b: Box) -> Int
+     read = 7
+     read(b)
+ end
+end`)
 	found := false
 	for pos, sym := range fa.References {
-		if pos.Line == 4 && sym.Name == "read" {
+		if pos.Line == 10 && sym.Name == "read" {
 			found = true
 			if sym.Kind != SymbolBinding {
 				t.Fatalf("local value resolved to %v", sym.Kind)

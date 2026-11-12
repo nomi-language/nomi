@@ -24,81 +24,93 @@ func elseErrors(t *testing.T, src string) []string {
 	return out
 }
 
-const elseDecls = `enum LoadError {
+const elseDecls = `enum LoadError
     NotFound
     Broken(String)
-}
+end
 
-enum Check {
+enum Check
     Valid {addr: String, score: Int}
     Invalid(String)
-}
+end
 
-fn why(e: LoadError) -> String {
-    case e {
+fn why(e: LoadError) -> String
+    case e
         .NotFound -> "missing"
         .Broken(s) -> s
-    }
-}
+    end
+end
 `
 
 func TestPatternBindingElse_EachFormChecks(t *testing.T) {
 	for name, body := range map[string]string{
-		"block that leaves": `fn f(m: Maybe<String>) -> Result<String, String> {
-    Some(e) = m else {
+		"block that leaves": `fn f(m: Maybe<String>) -> Result<String, String>
+    Some(e) = m else
         return Err("none")
-    }
+    end
     Ok(e)
-}`,
-		"arms that leave": `fn f(r: Result<String, LoadError>) -> Result<String, String> {
-    Ok(user) = r else {
+end`,
+		"arms that leave": `fn f(r: Result<String, LoadError>) -> Result<String, String>
+    Ok(user) = r else
         Err(.NotFound) -> return Err("no user")
         Err(e) -> return Err("loading: ${why(e)}")
-    }
+    end
     Ok(user)
-}`,
-		"fallback block": `fn f(m: Maybe<String>) -> String {
-    Some(e) = m else { "none" }
+end`,
+		"fallback block": `fn f(m: Maybe<String>) -> String
+    Some(e) = m else
+        "none"
+    end
     e
-}`,
-		"arms mixing fallback and leaving": `fn f(r: Result<Int, LoadError>) -> Result<Int, String> {
-    Ok(port) = r else {
+end`,
+		"arms mixing fallback and leaving": `fn f(r: Result<Int, LoadError>) -> Result<Int, String>
+    Ok(port) = r else
         Err(.NotFound) -> 8080
         Err(e) -> return Err("bad port: ${why(e)}")
-    }
+    end
     Ok(port)
-}`,
-		"list pattern that leaves": `fn f(xs: List<Int>) -> Int {
-    [first, .._rest] = xs else { return 0 }
+end`,
+		"list pattern that leaves": `fn f(xs: List<Int>) -> Int
+    [first, .._rest] = xs else
+        return 0
+    end
     first
-}`,
-		"nested refutable pattern that leaves": `fn f(r: Result<Maybe<Int>, String>) -> Int {
-    Ok(Some(n)) = r else { return 0 }
+end`,
+		"nested refutable pattern that leaves": `fn f(r: Result<Maybe<Int>, String>) -> Int
+    Ok(Some(n)) = r else
+        return 0
+    end
     n
-}`,
-		"leaving branches inside the else": `fn f(m: Maybe<Int>, loud: Bool) -> Int {
-    Some(n) = m else {
-        if loud { return -1 } else { return 0 }
-    }
+end`,
+		"leaving branches inside the else": `fn f(m: Maybe<Int>, loud: Bool) -> Int
+    Some(n) = m else
+        if loud then return -1 else return 0
+    end
     n
-}`,
-		"continue in a callback": `fn f(xs: List<Maybe<Int>>) -> Int {
-    Iter.each(xs, fn m -> {
-        Some(n) = m else { continue }
+end`,
+		"continue in a callback": `fn f(xs: List<Maybe<Int>>) -> Int
+    Iter.each(xs, fn m ->
+        Some(n) = m else
+            continue
+        end
         _ = n
-    })
+    end)
     0
-}`,
-		"return in a lambda": `fn f(xs: List<Maybe<Int>>) -> List<Int> {
-    xs |> Iter.map(fn m -> {
-        Some(n) = m else { return 0 }
+end`,
+		"return in a lambda": `fn f(xs: List<Maybe<Int>>) -> List<Int>
+    xs |> Iter.map(fn m ->
+        Some(n) = m else
+            return 0
+        end
         n
-    }) |> Iter.to_list()
-}`,
-		"try in the else": `fn f(r: Result<Int, String>, other: Result<Int, String>) -> Result<Int, String> {
-    Ok(n) = r else { other? }
+    end) |> Iter.to_list()
+end`,
+		"try in the else": `fn f(r: Result<Int, String>, other: Result<Int, String>) -> Result<Int, String>
+    Ok(n) = r else
+        other?
+    end
     Ok(n)
-}`,
+end`,
 	} {
 		if errs := elseErrors(t, elseDecls+body+"\n"); len(errs) != 0 {
 			t.Errorf("%s: unexpected errors:\n%s", name, strings.Join(errs, "\n"))
@@ -109,22 +121,26 @@ func TestPatternBindingElse_EachFormChecks(t *testing.T) {
 // The fallback stands in for the payload, and the inner pattern binds from it
 // as it does on a match: the names have the payload's component types.
 func TestPatternBindingElse_FallbackTypesTheInnerPattern(t *testing.T) {
-	src := elseDecls + `fn size(r: Result<(Int, String), String>) -> String {
-    Ok((width, unit)) = r else { (80, "cols") }
+	src := elseDecls + `fn size(r: Result<(Int, String), String>) -> String
+    Ok((width, unit)) = r else
+        (80, "cols")
+    end
     "${width}${unit}"
-}
+end
 
-fn describe(c: Check) -> String {
-    .Valid{addr, score} = c else {
-        .Invalid(_) -> .{addr: "unknown", score: 0}
-    }
+fn describe(c: Check) -> String
+    .Valid{addr:, score:} = c else
+        .Invalid(_) -> {addr: "unknown", score: 0}
+    end
     "${addr}:${score}"
-}
+end
 
-fn whole(c: Check) -> Int {
-    .Valid(r) = c else { .{addr: "none", score: -1} }
+fn whole(c: Check) -> Int
+    .Valid(r) = c else
+        {addr: "none", score: -1}
+    end
     r.score
-}
+end
 `
 	fa, errs := checkSourceWithStdlib(src)
 	if len(errs) != 0 {
@@ -146,49 +162,60 @@ fn whole(c: Check) -> Int {
 
 func TestPatternBindingElse_Errors(t *testing.T) {
 	for name, tc := range map[string]struct{ body, want string }{
-		"list pattern falling back": {`fn f(xs: List<Int>) -> Int {
-    [first, .._rest] = xs else { 0 }
+		"list pattern falling back": {`fn f(xs: List<Int>) -> Int
+    [first, .._rest] = xs else
+        0
+    end
     first
-}`, "19:34: " + elseNoPayloadMsg},
-		"nested refutable pattern falling back": {`fn f(r: Result<Maybe<Int>, String>) -> Int {
-    Ok(Some(n)) = r else { 0 }
+end`, "20:9: " + elseNoPayloadMsg},
+		"nested refutable pattern falling back": {`fn f(r: Result<Maybe<Int>, String>) -> Int
+    Ok(Some(n)) = r else
+        0
+    end
     n
-}`, "19:28: " + elseNoPayloadMsg},
-		"wrong fallback type": {`fn f(m: Maybe<String>) -> String {
-    Some(e) = m else { 5 }
+end`, "20:9: " + elseNoPayloadMsg},
+		"wrong fallback type": {`fn f(m: Maybe<String>) -> String
+    Some(e) = m else
+        5
+    end
     e
-}`, "19:24: the fallback stands in for Some's payload of type String, got Int"},
-		"a path neither leaving nor falling back": {`fn f(m: Maybe<Int>) -> Int {
-    Some(n) = m else { 0 }
-    Ok(k) = Ok(n) else {
-        Err(e) -> { _ = e }
-    }
+end`, "20:9: the fallback stands in for Some's payload of type String, got Int"},
+		"a path neither leaving nor falling back": {`fn f(m: Maybe<Int>) -> Int
+    Some(n) = m else
+        0
+    end
+    Ok(k) = Ok(n) else
+        Err(e) ->
+            _ = e
+    end
     k
-}`, "21:19: the fallback stands in for Ok's payload of type Int, got Unit"},
-		"non-exhaustive arms": {`fn f(r: Result<Int, String>) -> Int {
-    Ok(n) = r else {
+end`, "23:18: the fallback stands in for Ok's payload of type Int, got Unit"},
+		"non-exhaustive arms": {`fn f(r: Result<Int, String>) -> Int
+    Ok(n) = r else
         Err("x") -> 0
-    }
+    end
     n
-}`, "19:15: non-exhaustive `else` on Result: missing Err"},
-		"non-exhaustive struct-variant arms": {`fn f(c: Check) -> Int {
-    .Valid{score} = c else {
-        .Invalid("x") -> .{addr: "", score: 0}
-    }
+end`, "19:15: non-exhaustive `else` on Result: missing Err"},
+		"non-exhaustive struct-variant arms": {`fn f(c: Check) -> Int
+    .Valid{score:} = c else
+        .Invalid("x") -> {addr: "", score: 0}
+    end
     score
-}`, "19:23: non-exhaustive `else` on Check: missing Invalid"},
-		"irrefutable pattern with else": {`fn f(p: (Int, Int)) -> Int {
-    (x, y) = p else { return 0 }
+end`, "19:24: non-exhaustive `else` on Check: missing Invalid"},
+		"irrefutable pattern with else": {`fn f(p: (Int, Int)) -> Int
+    (x, y) = p else
+        return 0
+    end
     x + y
-}`, "19:16: this pattern always matches; remove the else"},
-		"refutable pattern without else": {`fn f(r: Result<(Int, Int), String>) -> Int {
+end`, "19:16: this pattern always matches; remove the else"},
+		"refutable pattern without else": {`fn f(r: Result<(Int, Int), String>) -> Int
     Ok((w, h)) = r
     w * h
-}`, "19:5: this pattern can fail to match a value of type Result<(Int, Int), String>; add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"},
-		"variant destructure without else": {`fn f(m: Maybe<Int>) -> Int {
+end`, "19:5: this pattern can fail to match a value of type Result<(Int, Int), String>; add `else` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"},
+		"variant destructure without else": {`fn f(m: Maybe<Int>) -> Int
     Some(n) = m
     n
-}`, "19:5: this pattern can fail to match a value of type Maybe<Int>; add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"},
+end`, "19:5: this pattern can fail to match a value of type Maybe<Int>; add `else` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"},
 	} {
 		errs := elseErrors(t, elseDecls+"\n"+tc.body+"\n")
 		found := false
@@ -207,21 +234,25 @@ func TestPatternBindingElse_Errors(t *testing.T) {
 // else, which runs because the pattern did not match.
 func TestPatternBindingElse_Scope(t *testing.T) {
 	errs := elseErrors(t, elseDecls+`
-fn f(p: (Maybe<Int>, Int)) -> Int {
-    (Some(a), b) = p else { return b }
+fn f(p: (Maybe<Int>, Int)) -> Int
+    (Some(a), b) = p else
+        return b
+    end
     a + b
-}
+end
 `)
-	want := "19:36: undefined variable 'b'"
+	want := "20:16: undefined variable 'b'"
 	if len(errs) != 1 || errs[0] != want {
 		t.Errorf("want only %q, got:\n%s", want, strings.Join(errs, "\n"))
 	}
 	if errs := elseErrors(t, elseDecls+`
-fn g(m: Maybe<Int>) -> Int {
+fn g(m: Maybe<Int>) -> Int
     n = 10
-    Some(n) = m else { return n }
+    Some(n) = m else
+        return n
+    end
     n
-}
+end
 `); len(errs) != 0 {
 		t.Errorf("the else reads the enclosing n: unexpected errors:\n%s", strings.Join(errs, "\n"))
 	}
@@ -231,11 +262,11 @@ fn g(m: Maybe<Int>) -> Int {
 // the enum (so it is refutable) nor, in a case, the other variants.
 func TestPatternBindingElse_StructVariantPatternIsNotACatchAll(t *testing.T) {
 	errs := elseErrors(t, elseDecls+`
-fn f(c: Check) -> Int {
-    case c {
-        .Valid{score} -> score
-    }
-}
+fn f(c: Check) -> Int
+    case c
+        .Valid{score:} -> score
+    end
+end
 `)
 	want := "19:5: non-exhaustive case on Check: missing Invalid"
 	if len(errs) != 1 || errs[0] != want {
@@ -251,47 +282,47 @@ fn f(c: Check) -> Int {
 func TestPatternBinding_RefutableVariantWithoutElse(t *testing.T) {
 	refutable := func(ty string) string {
 		return "this pattern can fail to match a value of type " + ty +
-			"; add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"
+			"; add `else` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"
 	}
 	for name, tc := range map[string]struct {
 		body, at, msg, hint string
 	}{
-		"Ok over a Result": {`fn f(r: Result<Int, String>) -> Result<Int, String> {
+		"Ok over a Result": {`fn f(r: Result<Int, String>) -> Result<Int, String>
     Ok(x) = r
     Ok(x)
-}`, "19:5", refutable("Result<Int, String>"),
+end`, "19:5", refutable("Result<Int, String>"),
 			"`Ok(x)` does not match an `Err`. To unwrap the `Result` and return early on `Err`, write `x = ...?`"},
-		"Some over a Maybe": {`fn f(m: Maybe<Int>) -> Maybe<Int> {
+		"Some over a Maybe": {`fn f(m: Maybe<Int>) -> Maybe<Int>
     Some(x) = m
     Some(x)
-}`, "19:5", refutable("Maybe<Int>"),
+end`, "19:5", refutable("Maybe<Int>"),
 			"`Some(x)` does not match `None`. To unwrap the `Maybe` and return early on `None`, write `x = ...?`"},
-		"dotted Some over a Maybe": {`fn f(m: Maybe<Int>) -> Maybe<Int> {
+		"dotted Some over a Maybe": {`fn f(m: Maybe<Int>) -> Maybe<Int>
     .Some(x) = m
     Some(x)
-}`, "19:5", refutable("Maybe<Int>"),
+end`, "19:5", refutable("Maybe<Int>"),
 			"`Some(x)` does not match `None`. To unwrap the `Maybe` and return early on `None`, write `x = ...?`"},
-		"Err over a Result": {`fn f(r: Result<Int, String>) -> String {
+		"Err over a Result": {`fn f(r: Result<Int, String>) -> String
     Err(e) = r
     e
-}`, "19:5", refutable("Result<Int, String>"), ""},
-		"a user enum variant": {`fn f(e: LoadError) -> String {
+end`, "19:5", refutable("Result<Int, String>"), ""},
+		"a user enum variant": {`fn f(e: LoadError) -> String
     Broken(s) = e
     s
-}`, "19:5", refutable("LoadError"), ""},
+end`, "19:5", refutable("LoadError"), ""},
 		// The program from a user's report: a pipe, whose hint is the
 		// a `?` stage stage, ending in `Maybe.to_result`, whose Result was
 		// copied before std/results.nomi filled in its variants.
 		"a pipe ending in Maybe.to_result": {`import std::io
 
-fn main() -> Result<Unit, String> {
+fn main() -> Result<Unit, String>
     Ok(balance) =
         io.read_line()?
         |> String.to_int()
         |> Maybe.to_result("is not a number!")
     io.print(Int.to_string(balance))
     Ok(Unit)
-}`, "4:5", refutable("Result<Int, String>"),
+end`, "4:5", refutable("Result<Int, String>"),
 			"`Ok(balance)` does not match an `Err`. To unwrap the `Result` and return early on `Err`, write `balance = ...` and end the pipe's last stage with `?`"},
 	} {
 		src := elseDecls + "\n" + tc.body + "\n"
@@ -324,26 +355,26 @@ fn main() -> Result<Unit, String> {
 
 // A `case` arm types a struct-shaped variant's paren payload as a binding's
 // `else` fallback does: the record of its fields. `.Valid(r)` binds r to it
-// and `.Valid(.{addr, score})` matches it, so the arm's body is checked
+// and `.Valid({addr:, score:})` matches it, so the arm's body is checked
 // against those types.
 func TestStructVariantParenPayload_IsTheRecordOfItsFields(t *testing.T) {
-	ok := elseDecls + `fn f(c: Check) -> String {
-    case c {
-        .Valid(.{addr, score: 0}) -> addr
+	ok := elseDecls + `fn f(c: Check) -> String
+    case c
+        .Valid({addr:, score: 0}) -> addr
         .Valid(r) -> "${r.addr}:${r.score}"
         .Invalid(s) -> s
-    }
-}
+    end
+end
 `
 	if errs := elseErrors(t, ok); len(errs) != 0 {
 		t.Fatalf("the front end rejects this: %v", errs)
 	}
-	bad := elseDecls + `fn f(c: Check) -> Int {
-    case c {
+	bad := elseDecls + `fn f(c: Check) -> Int
+    case c
         .Valid(r) -> r.score + r.addr
         .Invalid(_) -> 0
-    }
-}
+    end
+end
 `
 	errs := elseErrors(t, bad)
 	if len(errs) == 0 {

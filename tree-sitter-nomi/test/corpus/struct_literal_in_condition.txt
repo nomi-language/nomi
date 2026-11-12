@@ -2,13 +2,13 @@
 Type at the end of an if-condition is not grabbed as a struct literal
 ================================================================================
 
-fn m() -> Int {
-  if x != Status.Done {
+fn m() -> Int
+  if x != Status.Done then
     1
-  } else {
+  else
     0
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -24,10 +24,11 @@ fn m() -> Int {
           (type_field_access
             (type_identifier)
             (type_identifier)))
-        (body
+        (block
           (integer))
-        (body
-          (integer))))))
+        (else_clause
+          (block
+            (integer)))))))
 
 ================================================================================
 A struct literal that names its type

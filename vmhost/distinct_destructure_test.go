@@ -19,25 +19,25 @@ type Ratio Float
 type Name String
 type Pair (Int, String)
 
-fn cents(Balance(n)) -> Int {
+fn cents(Balance(n)) -> Int
     n
-}
+end
 
-fn first(maybe: Maybe<Balance>) -> Int {
-    Some(Balance(n)) = maybe else {
+fn first(maybe: Maybe<Balance>) -> Int
+    Some(Balance(n)) = maybe else
         return -1
-    }
+    end
     n
-}
+end
 
-fn main() {
+fn main()
     balance = Balance(42)
     Balance(n) = balance
     io.inspect(n)
-    io.inspect(case Ratio(1.5) {
+    io.inspect(case Ratio(1.5)
         Ratio(x) -> x
-    })
-    io.inspect(if Some(Name(s)) = Some(Name("ada")) { s } else { "" })
+    end)
+    io.inspect(if Some(Name(s)) = Some(Name("ada")) then s else "")
     io.inspect(first(Some(Balance(7))))
     io.inspect(first(None))
     io.inspect(cents(Balance(3)))
@@ -45,7 +45,7 @@ fn main() {
     io.inspect(double(balance))
     Pair(a, b) = Pair(1, "x")
     io.inspect((a, b))
-}
+end
 `)
 	want := "42\n1.5\n\"ada\"\n7\n-1\n3\nBalance(84)\n(1, \"x\")\n"
 	if got != want {
@@ -60,7 +60,7 @@ func TestDistinctDestructuring_TheInnerTypesNameDoesNotUnwrap(t *testing.T) {
 		{"Int(balance)", "to get the Int inside, destructure the Balance: `Balance(n) = balance`"},
 		{"balance |> Int()", "to get the Int inside, destructure the Balance: `Balance(n) = balance`"},
 	} {
-		src := "type Balance Int\n\nfn main() {\n    balance = Balance(42)\n    _ = " + tc.expr + "\n}\n"
+		src := "type Balance Int\n\nfn main()\n    balance = Balance(42)\n    _ = " + tc.expr + "\nend\n"
 		_, err := vmhost.LoadSource("main.nomi", src)
 		if err == nil {
 			t.Fatalf("%s: the front end accepts it", tc.expr)

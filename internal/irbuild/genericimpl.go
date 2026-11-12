@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -437,42 +438,29 @@ type genericImplInst struct {
 
 // templateCallInstance is the instance of tpl a type-qualified call
 // `Span.new(1, 5)` or `Tree.value_or(Tree.Leaf, "none")` names when no
-// operand is already one: the template's parameters solved from the item's
-// declared parameter and result annotations against the signature the checker
-// solved for the call.
+// operand is already one: the impl block that supplies method, at the type
+// arguments the checker instantiated the call at (implRecvTypeArgs).
 func (g *gen) templateCallInstance(t *ast.Call, tpl *genericTemplate, method string) (kind, bool) {
-	ft := g.checkedCallSignature(t)
-	if ft == nil {
-		return kindInvalid, false
-	}
-	var fd *ast.FuncDef
+	var args []kind
 	for _, it := range tpl.impls {
 		for _, item := range it.decl.Items {
-			if f, ok := implItemFunc(item); ok && f.Name == method {
-				if fd != nil {
-					// Two blocks supply the name: the call is not this
-					// question's to settle.
-					return kindInvalid, false
-				}
-				fd = f
+			f, ok := implItemFunc(item)
+			if !ok || f.Name != method {
+				continue
 			}
+			got, ok := g.implRecvTypeArgs(t.Func, it.decl, len(tpl.params))
+			if !ok {
+				return kindInvalid, false
+			}
+			if args != nil && kindsKey(args) != kindsKey(got) {
+				// Two blocks supply the name at different instances:
+				// the call is not this question's to settle.
+				return kindInvalid, false
+			}
+			args = got
 		}
 	}
-	if fd == nil || len(fd.Params) != len(ft.Params) {
-		return kindInvalid, false
-	}
-	params := templateParamSet(tpl)
-	solved := map[string]kind{}
-	for i, p := range fd.Params {
-		if p.TypeAnnotation != nil {
-			g.unifyTypeParams(p.TypeAnnotation, g.project(ft.Params[i]), params, solved)
-		}
-	}
-	if fd.ReturnTypeExpr != nil {
-		g.unifyTypeParams(fd.ReturnTypeExpr, g.project(ft.Return), params, solved)
-	}
-	args, ok := templateArgs(tpl, solved)
-	if !ok {
+	if args == nil {
 		return kindInvalid, false
 	}
 	for _, a := range args {
@@ -485,6 +473,37 @@ func (g *gen) templateCallInstance(t *ast.Call, tpl *genericTemplate, method str
 		return kindInvalid, false
 	}
 	return k, true
+}
+
+// implRecvTypeArgs is the type arguments of impl block ib's receiver at the
+// call whose callee is ref, n of them: a position the receiver writes as
+// one of the block's type parameters (`T` of `impl Box<T>`) is the
+// argument the checker instantiated the call at (calleeTypeArgs), and a
+// concrete one (`impl Box<Int>`) is itself.
+func (g *gen) implRecvTypeArgs(ref ast.Node, ib *ast.ImplBlock, n int) ([]kind, bool) {
+	gt, ok := ib.Receiver.(*ast.GenericType)
+	if !ok || len(gt.Params) != n {
+		return nil, false
+	}
+	names := analysis.ReceiverTypeParamNames(ib.Receiver, g.declaresTypeName)
+	out := make([]kind, n)
+	for i, p := range gt.Params {
+		if i < len(names) && names[i] != "" {
+			ks, ok := g.calleeTypeArgs(ref, names[i:i+1])
+			if !ok {
+				return nil, false
+			}
+			out[i] = ks[0]
+			continue
+		}
+		k := g.typeOf(p)
+		// kindInvalid: lookup — a concrete receiver argument with no kind names no instance, and the caller tries the next route.
+		if k == kindInvalid {
+			return nil, false
+		}
+		out[i] = k
+	}
+	return out, true
 }
 
 // implsOf is every impl block registered for the receiver k: the module's own

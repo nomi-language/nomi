@@ -34,7 +34,7 @@ stay exact. A price in a currency is a `Money`, shown below.
 ```nomi-run
 import std::io
 
-fn main() {
+fn main()
     sold = 1234567
     price = 1299.50d
     discount = 0.15d
@@ -47,14 +47,13 @@ fn main() {
         Locale`ar-EG`,
         Locale`ar-EG-u-nu-latn`,
     ]
-    |> Iter.each(fn locale -> {
+    |> Iter.each(fn locale ->
         count = Int.format(sold, locale)
         amount = Decimal.format(price, locale)
         off = Decimal.format_percent(discount, locale)
         io.print("${locale}: ${count} sold, ${amount}, ${off} off")
-    })
-}
-
+    end)
+end
 ```
 <!-- expect
 en-US: 1,234,567 sold, 1,299.50, 15% off
@@ -98,24 +97,23 @@ locale. `style:` picks how long the text is: `.Short`, `.Medium` (the
 default for a date), `.Long` or `.Full`.
 
 ```nomi-run
-import {
+import
     std::calendar.{Date, DateTime}
     std::io
-}
+end
 
-fn main() {
+fn main()
     ships = Date`2026-10-20`
     order = DateTime`2026-10-20T17:30:00-04:00[America/New_York]`
 
     [Locale`en-US`, Locale`de`]
-    |> Iter.each(fn locale -> {
+    |> Iter.each(fn locale ->
         io.print(Date.format(ships, locale, style: .Full))
         io.print(Date.format(ships, locale, style: .Short))
         io.print(DateTime.format(order, locale))
         io.print(DateTime.format(order, locale, date: .Long, time: .Long))
-    })
-}
-
+    end)
+end
 ```
 <!-- expect
 Tuesday, October 20, 2026
@@ -144,22 +142,21 @@ and `y` the year. CLDR then finds the order and punctuation each
 locale uses for those fields.
 
 ```nomi-run
-import {
+import
     std::calendar.{Date, DateFields}
     std::io
-}
+end
 
-fn main() {
+fn main()
     ships = Date`2026-10-20`
 
     [Locale`en-US`, Locale`de`]
-    |> Iter.each(fn locale -> {
+    |> Iter.each(fn locale ->
         day = Date.format_fields(ships, locale, DateFields`MMMMEEEEd`)
         month = Date.format_fields(ships, locale, DateFields`yMMM`)
         io.print("${locale}: ${day} | ${month}")
-    })
-}
-
+    end)
+end
 ```
 <!-- expect
 en-US: Tuesday, October 20 | Oct 2026
@@ -192,26 +189,25 @@ locale and the unit. `Duration.format` writes a length of time, such as how
 long delivery takes.
 
 ```nomi-run
-import {
+import
     std::calendar.TimeUnit
     std::duration.Duration
     std::io
-}
+end
 
-fn main() {
+fn main()
     [-1, 3, -3]
-    |> Iter.each(fn n -> {
+    |> Iter.each(fn n ->
         en = TimeUnit.format_relative(n, Locale`en-US`, .Day)
         pl = TimeUnit.format_relative(n, Locale`pl`, .Day)
         io.print("${n}: ${en} | ${pl}")
-    })
+    end)
 
     delivery = Duration.minutes(90)
     io.print(Duration.format(delivery, Locale`en-US`))
     io.print(Duration.format(delivery, Locale`pl`))
     io.print(Duration.format(delivery, Locale`en-US`, width: .Narrow))
-}
-
+end
 ```
 <!-- expect
 -1: yesterday | wczoraj
@@ -233,21 +229,20 @@ names the way the reader's language joins them:
 ```nomi-run
 import std::io
 
-fn main() {
+fn main()
     watching = ["Anna", "Ben", "Chloé"]
 
     [Locale`en-US`, Locale`en-GB`, Locale`pl`]
-    |> Iter.each(fn locale -> {
+    |> Iter.each(fn locale ->
         io.print("${locale}: ${String.join_list(watching, locale)}")
-    })
+    end)
 
     dbg String.join_list(["Anna", "Ben"], Locale`en-US`)
     dbg String.join_list(["S", "M", "L"], Locale`en-US`, style: .Or)
     dbg String.join_list(["S", "M", "L"], Locale`pl`, style: .Or)
     dbg String.join_list(["2 lb", "3 oz"], Locale`en-US`, style: .Unit)
     Unit
-}
-
+end
 ```
 <!-- expect
 en-US: Anna, Ben, and Chloé
@@ -276,7 +271,7 @@ and the same locale you used to show it to them. The locale matters:
 ```nomi-run
 import std::io
 
-fn main() {
+fn main()
     dbg Int.parse_in("1,200", Locale`en-US`)
     dbg Int.parse_in("1.200", Locale`de`)
     dbg Int.parse_in("1200", Locale`de`)
@@ -285,12 +280,11 @@ fn main() {
     dbg Int.parse_in(" 3 ", Locale`en-US`)
     dbg Int.parse_in(" 3 ", Locale`en-US`, lenient: True)
 
-    case Int.parse_in("2.5", Locale`en-US`) {
+    case Int.parse_in("2.5", Locale`en-US`)
         Ok(n) -> io.print("quantity ${n}")
         Err(e) -> io.print("not a quantity: ${e}")
-    }
-}
-
+    end
+end
 ```
 <!-- expect
 dbg line 4: Int.parse_in("1,200", Locale`en-US`) = Ok(1200)
@@ -321,7 +315,7 @@ reads a date written in a locale's style, `.Short` unless you pass another:
 ```nomi-run
 import std::calendar.Date
 
-fn main() {
+fn main()
     us = Locale`en-US`
 
     dbg Date.parse_in("10/20/26", us)
@@ -330,8 +324,7 @@ fn main() {
     dbg Date.parse_in("2/31/26", us)
     dbg Date.parse_in("Oct 20, 2026", us, style: .Medium)
     Unit
-}
-
+end
 ```
 <!-- expect
 dbg line 6: Date.parse_in("10/20/26", us) = Ok(2026-10-20)
@@ -358,14 +351,13 @@ When the locale comes from outside, such as a web address or a setting, use
 different spelling, such as `pl_PL.UTF-8`, which `Locale.from_posix` reads.
 
 ```nomi-run
-fn main() {
+fn main()
     dbg Locale.parse("EN-us")
     dbg Locale.parse("pt_BR")
     dbg Locale.from_posix("pl_PL.UTF-8")
     dbg Locale.fallbacks(Locale`es-MX`)
     Unit
-}
-
+end
 ```
 <!-- expect
 dbg line 2: Locale.parse("EN-us") = Ok(Locale`en-US`)
@@ -400,18 +392,17 @@ that suits the reader best, or a default when none comes close:
 ```nomi-run
 once shop = [Locale`en`, Locale`de`, Locale`pl`, Locale`pt`]
 
-fn page_locale(wanted: List<Locale>) -> Locale {
+fn page_locale(wanted: List<Locale>) -> Locale
     Locale.negotiate(wanted, shop, Locale`en`)
-}
+end
 
-fn main() {
+fn main()
     dbg page_locale([Locale`pt-BR`, Locale`en-US`])
     dbg page_locale([Locale`de-AT`])
     dbg page_locale([Locale`ja`, Locale`pl`])
     dbg page_locale([Locale`ja`])
     Unit
-}
-
+end
 ```
 <!-- expect
 dbg line 8: page_locale([Locale`pt-BR`, Locale`en-US`]) = Locale`pt`
@@ -437,41 +428,40 @@ them, as `cart_total` does:
 ```nomi-run
 import std::io
 
-struct App {
+struct App
     locale: Locale
-}
+end
 
-struct Request {
+struct Request
     path: String
     accept: List<Locale>
-}
+end
 
 once shop = [Locale`en`, Locale`de`, Locale`pl`]
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{locale: Locale`en`})
-}
+end
 
-fn main() {
+fn main()
     [
         Request{path: "/cart", accept: [Locale`de-AT`, Locale`en`]},
         Request{path: "/cart", accept: [Locale`ja`]},
     ]
     |> Iter.each(handle)
-}
+end
 
-fn handle(request: Request) {
+fn handle(request: Request)
     reader = Locale.negotiate(request.accept, shop, App.locale)
     with App.locale = reader
 
     total = cart_total(1299.50d)
     io.print("${request.path} in ${App.locale}: ${total}")
-}
+end
 
-fn cart_total(total: Decimal) -> String {
+fn cart_total(total: Decimal) -> String
     Decimal.format(total, App.locale)
-}
-
+end
 ```
 <!-- expect
 /cart in de: 1.299,50
@@ -500,24 +490,23 @@ one language order them. Make one for the locale, then sort with its
 `compare`:
 
 ```nomi-run
-import {
+import
     std::collation.Collator
     std::io
-}
+end
 
-fn main() {
+fn main()
     customers = ["Zorn", "Żak", "Śliwa", "Sowa", "Öberg", "Abel", "Åberg", "Ärlig"]
 
     [Locale`de`, Locale`sv`, Locale`pl`]
-    |> Iter.each(fn locale -> {
+    |> Iter.each(fn locale ->
         by_name = Collator.new(locale)
         sorted = Iter.sort_with(customers, &Collator.compare(by_name, &1, &2))
         io.print("${locale}: ${String.join(sorted, ", ")}")
-    })
+    end)
 
     io.print("bytes: ${String.join(Iter.sort(customers), ", ")}")
-}
-
+end
 ```
 <!-- expect
 de: Abel, Åberg, Ärlig, Öberg, Śliwa, Sowa, Żak, Zorn
@@ -541,14 +530,13 @@ take the locale. To match text without regard to case, compare the
 results of `String.fold_case`:
 
 ```nomi-run
-fn main() {
+fn main()
     dbg String.uppercase("istanbul")
     dbg String.uppercase_in("istanbul", Locale`tr`)
     dbg String.lowercase_in("KIRMIZI", Locale`tr`)
     dbg String.fold_case("Straße") == String.fold_case("STRASSE")
     Unit
-}
-
+end
 ```
 <!-- expect
 dbg line 2: String.uppercase("istanbul") = "ISTANBUL"
@@ -568,36 +556,35 @@ implement it with their `format` function, and a `String` gives itself
 back. Give your own type both when it is shown to programs and to people:
 
 ```nomi-run
-import {
+import
     std::io
     std::localize.Localize
-}
+end
 
-struct Weight {
+struct Weight
     grams: Int
-}
+end
 
-impl Display for Weight {
-    fn to_string(w: Weight) -> String {
+impl Display for Weight
+    fn to_string(w: Weight) -> String
         "${w.grams}g"
-    }
-}
+    end
+end
 
-impl Localize for Weight {
-    fn localize(w: Weight, locale: Locale) -> String {
+impl Localize for Weight
+    fn localize(w: Weight, locale: Locale) -> String
         kilograms = Int.to_float(w.grams) / 1000.0
         "${Float.format(kilograms, locale, max_fraction: 2)} kg"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     parcel = Weight{grams: 1250}
 
     io.print("order-1042,${parcel}")
     io.print("en-US: ships at ${Localize.localize(parcel, Locale`en-US`)}")
     io.print("de: ships at ${Localize.localize(parcel, Locale`de`)}")
-}
-
+end
 ```
 <!-- expect
 order-1042,1250g

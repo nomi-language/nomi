@@ -14,18 +14,18 @@ const loadable = `import std::io
 
 once greeting = make_greeting()
 
-fn make_greeting() -> String {
+fn make_greeting() -> String
     io.print("booted")
     "Hello"
-}
+end
 
-export fn greet(name: String) -> String {
+export fn greet(name: String) -> String
     "${greeting}, ${name}!"
-}
+end
 
-export fn add(a: Int, b: Int) -> Int {
+export fn add(a: Int, b: Int) -> Int
     a + b
-}
+end
 `
 
 // nomic is src lowered as `nomi build --no-vm` lowers it, in a .nomic file.
@@ -62,7 +62,7 @@ func TestLoadProgram_BootsAWholeImageFileForCalls(t *testing.T) {
 // asked.
 func TestLoadProgram_AProgramWithOnlyMainListsNoExports(t *testing.T) {
 	var out bytes.Buffer
-	in, err := vmrunner.LoadProgram(nomic(t, "import std::io\n\nfn main() {\n    io.print(\"main ran\")\n}\n"), &out, &out, nil, nil)
+	in, err := vmrunner.LoadProgram(nomic(t, "import std::io\n\nfn main()\n    io.print(\"main ran\")\nend\n"), &out, &out, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

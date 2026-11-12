@@ -111,7 +111,7 @@ func (bl *irScalarBuilder) partialApplication(capture *ast.Capture, t *ast.Call)
 		}
 		slots.names = append(slots.names, name)
 	}
-	if ft, _ := analysis.ResolveTypeVar(bl.g.srcFA().ExprTypes[capture]).(*analysis.FuncType); ft != nil && len(ft.Params) > len(open) {
+	if ft, _ := analysis.ResolveClosed(bl.g.srcFA().ExprTypes[capture]).(*analysis.FuncType); ft != nil && len(ft.Params) > len(open) {
 		// The parameters the position expects past the open arguments,
 		// which the function ignores.
 		for i := len(open); i < len(ft.Params); i++ {
@@ -513,8 +513,8 @@ func (bl *irScalarBuilder) partialStdDefault(t *ast.Call, kinds []kind, slot int
 // partialSiblingDefaults is how a partial over another file's function
 // (`&lib.conn("h", &1)`, or `conn` after `import lib.{conn}`) fills the
 // slots up to slot it omits: with the accessors the declaring file builds
-// for its defaults, as a call omitting them does (siblingFill), over a
-// declaration cut after slot so no later default runs. nil when the
+// for its defaults, as a call omitting them does (fillFromAccessors), over
+// the slots up to slot so no later default runs. nil when the
 // callee is no sibling file's function the builder can call.
 func (bl *irScalarBuilder) partialSiblingDefaults(t *ast.Call, kinds []kind, slot int) func(*irScalarBuilder, []ir.Temp) bool {
 	if bl.g.files == nil {
@@ -538,7 +538,7 @@ func (bl *irScalarBuilder) partialSiblingDefaults(t *ast.Call, kinds []kind, slo
 	ok := false
 	if f.generic {
 		var params []kind
-		params, result, sym, ok = bl.g.siblingGenericInstance(t, site.unit, f)
+		params, result, sym, ok = bl.g.siblingGenericInstance(t.Func, site.unit, f)
 		ok = ok && len(params) == len(kinds)
 	} else if f.lowerable() {
 		_, result, ok = bl.g.siblingSignature(f)
@@ -550,11 +550,18 @@ func (bl *irScalarBuilder) partialSiblingDefaults(t *ast.Call, kinds []kind, slo
 	if sym != nil {
 		plan.sym = sym
 	}
-	cut := *f.decl
-	cut.Params = f.decl.Params[:slot+1]
 	owner := bl.g.unitGen(site.unit)
+	if f.decl.Params[slot].Default == nil {
+		return nil
+	}
+	accessor := func(s int) *ir.Symbol {
+		if f.decl.Params[s].Default == nil {
+			return nil
+		}
+		return owner.irFileSlotSym(plan.sym, f.decl.Name, s)
+	}
 	return func(child *irScalarBuilder, args []ir.Temp) bool {
-		return child.siblingFill(t, owner, plan.sym, &cut, kinds[:slot+1], args, nil)
+		return child.fillFromAccessors(t, kinds[:slot+1], args, nil, accessor)
 	}
 }
 
@@ -573,15 +580,8 @@ func (bl *irScalarBuilder) partialMonoSig(t *ast.Call) *fnSig {
 	if tpl == nil {
 		return nil
 	}
-	typeArgs, ok := bl.g.checkedMonoTypeArgs(t, tpl)
-	if !ok {
-		typeArgs, ok = bl.g.checkedMonoTypeArgsFilled(t, tpl)
-	}
-	if !ok {
-		return nil
-	}
-	inst, why, _ := bl.g.resolveMonoInstance(tpl, typeArgs, callee.Name)
-	if why != "" || inst == nil || inst.sig == nil || !inst.sig.lowerable || inst.sig.decl == nil {
+	inst, ok := bl.g.monoInstanceAt(t.Func, tpl, callee.Name)
+	if !ok || inst.sig == nil || !inst.sig.lowerable || inst.sig.decl == nil {
 		return nil
 	}
 	return inst.sig
@@ -593,7 +593,7 @@ func (bl *irScalarBuilder) partialMonoSig(t *ast.Call) *fnSig {
 // symbol the callee resolves to; a callee with none in view gets unnamed
 // parameters, which only positional arguments reach.
 func (bl *irScalarBuilder) partialCalleeByType(t *ast.Call) ([]ast.Param, []kind, bool) {
-	kinds, _, ok := bl.g.checkedFuncKinds(t.Func, true)
+	kinds, _, ok := bl.g.checkedValueKinds(t.Func)
 	if !ok {
 		return nil, nil, false
 	}

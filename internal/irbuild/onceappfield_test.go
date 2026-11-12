@@ -20,15 +20,15 @@ func TestOnceAppField_RunsOnTheVM(t *testing.T) {
 	const header = `
 type Trace String
 
-struct App {
+struct App
   label: String
   context: Context
-}
+end
 
 `
-	const plainBoot = `fn boot() -> Result<App, String> {
+	const plainBoot = `fn boot() -> Result<App, String>
   Ok(App{label: "booted", context: Context.root()})
-}
+end
 
 `
 	for _, tc := range []struct {
@@ -36,61 +36,61 @@ struct App {
 	}{
 		{"main forces a once reading a field", "", plainBoot, `once seen: String = App.label
 
-fn main() {
+fn main()
   io.print(seen)
-}
+end
 `, "booted\n"},
 		{"a forcer's rebind stays hidden", "", plainBoot, `once seen: String = "saw ${App.label}"
 
-fn main() {
+fn main()
   with App.label = "rebound"
   io.print(App.label)
   io.print(seen)
-}
+end
 `, "rebound\nsaw booted\n"},
 		{"a helper's rebind stays hidden", "", plainBoot, `once seen: String = App.label
 
-fn force() -> String {
+fn force() -> String
   with App.label = "helper"
   seen
-}
+end
 
-fn main() {
+fn main()
   io.print(force())
   io.print(seen)
-}
+end
 `, "booted\nbooted\n"},
 		{"a task forces it", "\n  std::tasks.Task", plainBoot, `once seen: String = App.label
 
-fn main() {
-  got = concurrent {
-    t = Task.spawn(fn -> {
+fn main()
+  got = concurrent
+    t = Task.spawn(fn ->
       with App.label = "task"
       seen
-    })
+    end)
     Task.await(t)
-  }
+  end
   io.print(got)
-}
+end
 `, "booted\n"},
-		{"the initializer reads boot's context", "", `fn boot() -> Result<App, String> {
+		{"the initializer reads boot's context", "", `fn boot() -> Result<App, String>
   Ok(App{label: "booted", context: Context.with_value(Context.root(), Trace("boot-trace"))})
-}
+end
 
-`, `once trace: String = case Context.value(App.context, Trace) {
+`, `once trace: String = case Context.value(App.context, Trace)
   Some(Trace(id)) -> id
   None -> "none"
-}
+end
 
-fn main() {
+fn main()
   with App.context = Context.with_value(App.context, Trace("main-trace"))
   io.print(trace)
-}
+end
 `, "boot-trace\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "main.nomi")
-			if err := os.WriteFile(path, []byte("import {\n  std::io"+tc.imports+"\n}\n"+header+tc.boot+tc.body), 0600); err != nil {
+			if err := os.WriteFile(path, []byte("import\n  std::io"+tc.imports+"\nend\n"+header+tc.boot+tc.body), 0600); err != nil {
 				t.Fatal(err)
 			}
 			got := vmReference(path)

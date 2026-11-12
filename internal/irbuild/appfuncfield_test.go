@@ -16,28 +16,28 @@ import (
 func TestIRAppFuncField_EveryFormRuns(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-struct Cfg {
+struct Cfg
   f: (Int) -> Int
-}
+end
 
-struct App {
+struct App
   steps: (Int) -> Int
   add: (Int) -> Int
   scale: (Int) -> Int
   cfg: Cfg
   hook: Maybe<(Int) -> Int>
   context: Context
-}
+end
 
-fn double(x: Int) -> Int {
+fn double(x: Int) -> Int
   x * 2
-}
+end
 
-fn plus(a: Int, b: Int) -> Int {
+fn plus(a: Int, b: Int) -> Int
   a + b
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   k = 7
   Ok(App{
     steps: double,
@@ -47,14 +47,14 @@ fn boot() -> Result<App, String> {
     hook: Some(fn x -> x - 1),
     context: Context.root(),
   })
-}
+end
 
-fn tripled(n: Int) -> Int {
+fn tripled(n: Int) -> Int
   with App.steps = fn x -> x * 3
   App.steps(n) + (n |> App.steps())
-}
+end
 
-fn main() {
+fn main()
   io.print("call ${App.steps(10)}")
   f = App.steps
   io.print("value ${f(10)}")
@@ -65,11 +65,11 @@ fn main() {
   io.print("struct field ${App.cfg.f(1)}")
   io.print("with ${tripled(10)}")
   io.print("after with ${App.steps(10)}")
-  case App.hook {
+  case App.hook
     Some(h) -> io.print("maybe ${h(5)}")
     None -> io.print("none")
-  }
-}
+  end
+end
 `, "call 20\nvalue 20\nargument [2, 4, 6]\npipe 20\npartial 101\nclosure 14\nstruct field 2\nwith 60\nafter with 20\nmaybe 4\n",
 		"boot", "tripled", "main")
 }
@@ -78,29 +78,29 @@ func TestIRAppFuncField_ATestGroupCallsIt(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "steps_test.nomi")
 	src := `import std::io
 
-pub struct App {
+pub struct App
   context: Context
   steps: (Int) -> Int
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
   Ok(App{context: Context.root(), steps: fn x -> x * 2})
-}
+end
 
-fn main() {}
+fn main() end
 
-group "app steps" {
+group "app steps"
   boot boot()
 
-  test "calls the field" {
+  test "calls the field"
     io.print("${App.steps(10)}")
     f = App.steps
     assert f(4) == 8
     with App.steps = fn x -> x * 3
     assert App.steps(10) == 30
     assert 10 |> App.steps() == 30
-  }
-}
+  end
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)
@@ -142,22 +142,22 @@ func TestIRAppFuncField_ANamedArgumentIsRejected(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	src := `import std::io
 
-struct App {
+struct App
   steps: (Int) -> Int
   context: Context
-}
+end
 
-fn double(x: Int) -> Int {
+fn double(x: Int) -> Int
   x * 2
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
   Ok(App{steps: double, context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
   io.print("${App.steps(x: 10)}")
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)

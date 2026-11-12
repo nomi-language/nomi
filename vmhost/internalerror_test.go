@@ -31,7 +31,7 @@ func TestLower_PanicIsAnInternalError(t *testing.T) {
 	if len(ice.Stack) == 0 {
 		t.Error("the InternalError carries no stack")
 	}
-	if _, err := LoadSource("main.nomi", "fn main() {}\n"); err != nil {
+	if _, err := LoadSource("main.nomi", "fn main() end\n"); err != nil {
 		t.Fatalf("a load after the panic: %v", err)
 	}
 }

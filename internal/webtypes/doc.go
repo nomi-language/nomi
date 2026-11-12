@@ -38,9 +38,11 @@
 // aliases resolve as the checker resolved them. Declarations are keyed by
 // (file, name), because an origin names a file only within one program
 // (every entry's origin is `<entry>`); each Program keeps its own
-// origin-to-file map. `nomi types` checks each program root of the named
-// files as `nomi check` does (cmd/nomi's programRoots) and adds every
-// program to one Writer.
+// origin-to-file map. `nomi types` checks the named files as `nomi check`
+// checks their project: each program of the project that loads one of
+// them, so a file that reads an application field is checked under the
+// entry that boots it (cmd/nomi's typesRoots). It adds every program to
+// one Writer and writes the named files' types alone.
 //
 // # Two passes
 //

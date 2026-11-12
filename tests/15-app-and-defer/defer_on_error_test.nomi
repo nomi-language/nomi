@@ -1,64 +1,64 @@
 import std::compiler
 
-test "defer on error runs only when the function fails" {
+test "defer on error runs only when the function fails"
     result = compiler.run(
         """
         import std::io
 
-        struct Conn {
+        struct Conn
           name: String
-        }
+        end
 
-        impl Release for Conn {
-          fn release(conn: Conn) {
+        impl Release for Conn
+          fn release(conn: Conn)
             close(conn)
-          }
-        }
+          end
+        end
 
-        fn close(conn: Conn) {
+        fn close(conn: Conn)
           io.print("close " + conn.name)
-        }
+        end
 
-        fn connect(name: String) -> Result<Conn, String> {
-          Ok(Conn{name})
-        }
+        fn connect(name: String) -> Result<Conn, String>
+          Ok(Conn{name:})
+        end
 
-        struct Store {
+        struct Store
           conn: Conn
-        }
+        end
 
-        fn migrate(conn: Conn, ok: Bool) -> Result<Unit, String> {
-          if ok { Ok(Unit) } else { Err("migrate " + conn.name) }
-        }
+        fn migrate(conn: Conn, ok: Bool) -> Result<Unit, String>
+          if ok then Ok(Unit) else Err("migrate " + conn.name)
+        end
 
-        fn open(name: String, ok: Bool) -> Result<Store, String> {
+        fn open(name: String, ok: Bool) -> Result<Store, String>
           conn = connect(name)?
           defer on error close(conn)
           _ = migrate(conn, ok)?
-          Ok(Store{conn})
-        }
+          Ok(Store{conn:})
+        end
 
-        fn guarded(fail: Bool) -> Result<Int, String> {
+        fn guarded(fail: Bool) -> Result<Int, String>
           defer io.print("plain")
           defer on error io.print("on error")
-          if fail {
+          if fail then
             return Err("failed")
-          }
+          end
           Ok(1)
-        }
+        end
 
-        fn main() {
-          case open("a", True) {
+        fn main()
+          case open("a", True)
             Ok(store) -> io.print("kept " + store.conn.name)
             Err(e) -> io.print(e)
-          }
-          case open("b", False) {
+          end
+          case open("b", False)
             Ok(_) -> io.print("unexpected")
             Err(e) -> io.print("failed: " + e)
-          }
+          end
           io.inspect(guarded(False))
           io.inspect(guarded(True))
-        }
+        end
         """
     )
 
@@ -75,41 +75,41 @@ test "defer on error runs only when the function fails" {
 
         """
     )
-}
+end
 
-test "a question mark before the hand-on leaks the resource" {
+test "a question mark before the hand-on leaks the resource"
     diagnostics = compiler.check(
         """
-        struct Conn {
+        struct Conn
           name: String
-        }
+        end
 
-        impl Release for Conn {
-          fn release(conn: Conn) {
+        impl Release for Conn
+          fn release(conn: Conn)
             close(conn)
-          }
-        }
+          end
+        end
 
-        fn close(conn: Conn) {
+        fn close(conn: Conn)
           _ = conn
-        }
+        end
 
-        fn connect(name: String) -> Result<Conn, String> {
-          Ok(Conn{name})
-        }
+        fn connect(name: String) -> Result<Conn, String>
+          Ok(Conn{name:})
+        end
 
-        fn ready(conn: Conn) -> Result<Unit, String> {
-          if conn.name == "" { Err("unnamed") } else { Ok(Unit) }
-        }
+        fn ready(conn: Conn) -> Result<Unit, String>
+          if conn.name == "" then Err("unnamed") else Ok(Unit)
+        end
 
-        fn open(name: String) -> Result<Conn, String> {
+        fn open(name: String) -> Result<Conn, String>
           conn = connect(name)?
           _ = ready(conn)?
           Ok(conn)
-        }
+        end
         """
     )
 
     assert [diagnostic] = diagnostics
     assert String.contains(diagnostic.message, "`conn` leaks if this `?` returns an error")
-}
+end

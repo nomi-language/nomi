@@ -7,22 +7,22 @@ import "testing"
 // visibility error the annotation would get.
 func TestCheck_PublicOnceInferredTypeVisibility(t *testing.T) {
 	_, errs := checkSource(`
-struct Hidden {
+struct Hidden
     x: Int
-}
-pub struct Shown {
+end
+pub struct Shown
     x: Int
-}
+end
 pub once hidden = [Hidden{x: 1}]
 pub once shown = Shown{x: 1}
 once private_hidden = Hidden{x: 2}
-pub once boxes = {
-    struct Box {
+pub once boxes = begin
+    struct Box
         inner: Int
-    }
+    end
 
     [Box{inner: 1}]
-}
+end
 `)
 	expectErrorCount(t, errs, "public once binding exposes private type Hidden", 1)
 	expectErrorCount(t, errs, "public once binding exposes private type Box, which is declared inside a body", 1)

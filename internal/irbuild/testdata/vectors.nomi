@@ -29,7 +29,7 @@ import std::io
 //     compiles, answers correctly for the new value, and mutates a value another
 //     binding still holds — so `original` is re-printed AFTER both.
 //   - `Vector.compare` at a PREFIX and at a FIRST DIFFERENCE, in both directions.
-//     `#[2]` is Greater than `#[1, 9]`, so a length test before the element walk
+//     `Vector[2]` is Greater than `Vector[1, 9]`, so a length test before the element walk
 //     inverts exactly those pairs and is a wrong answer rather than a fast path.
 //     rt.ListCompare states the same rule; a Vector needs its own witness because
 //     it is a second implementation of it.
@@ -39,7 +39,7 @@ import std::io
 //     discharged at a concrete element kind rather than at a bare `T`.
 //   - `Display` against `Debug`. `impl Display for Vector<T>` joins
 //     `Display.to_string` and `impl Debug` joins `Debug.inspect`, so the String
-//     vector is the discriminating one: `#[a, b]` versus `#["a", "b"]`. A single
+//     vector is the discriminating one: `Vector[a, b]` versus `Vector["a", "b"]`. A single
 //     shared renderer prints one of them twice.
 //   - `Vector.hash` on two EQUAL vectors and on two DIFFERENT ones. std's mix is
 //     `Int.wrapping_add(Int.wrapping_mul(acc, 31), …)` from a seed of 19, and both
@@ -55,7 +55,7 @@ import std::io
 //   - a Vector CROSSING A SIGNATURE BOUNDARY, in both directions. `total` takes
 //     one and `pair_of` returns one, so a representation that is only correct at
 //     a construction site fails here.
-//   - the untyped `#[]`, which has no element type at the literal and gets one
+//   - the untyped `Vector[]`, which has no element type at the literal and gets one
 //     from an ANNOTATION, from a SIBLING ARGUMENT to `concat`, and from an `==`.
 //     Three separate discharge points, and `empty_len` is the one that would
 //     print `0` from a wrong element type just as happily.
@@ -68,41 +68,41 @@ import std::io
 //     fail to compose with an adapter.
 // The three `Maybe`-returning rows are read through these rather than
 // interpolated, for the reason stated at their call sites.
-fn at_or(v: Vector<Int>, i: Int) -> Int {
-    case Vector.get(v, i) {
+fn at_or(v: Vector<Int>, i: Int) -> Int
+    case Vector.get(v, i)
         Some(n) -> n
         None -> -1
-    }
-}
+    end
+end
 
-fn head_or(v: Vector<Int>) -> Int {
-    case Vector.next_item(v) {
+fn head_or(v: Vector<Int>) -> Int
+    case Vector.next_item(v)
         Some((n, _)) -> n
         None -> -1
-    }
-}
+    end
+end
 
-fn set_or(v: Vector<Int>, i: Int, n: Int) -> Vector<Int> {
-    if i >= 0 and i < Vector.length(v) {
+fn set_or(v: Vector<Int>, i: Int, n: Int) -> Vector<Int>
+    if i >= 0 and i < Vector.length(v) then
         Vector.set(v, i, n)
-    } else {
-        #[]
-    }
-}
+    else
+        Vector[]
+    end
+end
 
-fn total(v: Vector<Int>) -> Int {
+fn total(v: Vector<Int>) -> Int
     Iter.reduce(v, 0, fn acc, n -> acc + n)
-}
+end
 
-fn pair_of(a: String, b: String) -> Vector<String> {
-    Vector.push(Vector.push(#[], a), b)
-}
+fn pair_of(a: String, b: String) -> Vector<String>
+    Vector.push(Vector.push(Vector[], a), b)
+end
 
-fn main() {
-    none_v: Vector<Int> = #[]
+fn main()
+    none_v: Vector<Int> = Vector[]
 
     // --- construction and the two indexed operations -------------------------
-    v = #[1, 2, 3]
+    v = Vector[1, 2, 3]
     io.print("len ${Vector.length(v)}")
     io.print("count ${Iter.count(v)}")
     // A `Maybe` is read through a `case` rather than interpolated: `${Some(1)}`
@@ -120,35 +120,35 @@ fn main() {
     io.print("next head ${head_or(v)}")
     io.print("next empty ${head_or(none_v)}")
 
-    tail = case Vector.next_item(v) {
+    tail = case Vector.next_item(v)
         Some((_, rest)) -> rest
-        None -> #[]
-    }
+        None -> Vector[]
+    end
 
     io.print("after_tail len ${Vector.length(tail)}")
     io.print("after_tail count ${Iter.count(tail)}")
     io.print("after_tail at0 ${at_or(tail, 0)}")
     io.print("after_tail list ${Iter.to_list(tail)}")
     io.print("after_tail push ${Vector.push(tail, 9)}")
-    io.print("after_tail concat ${Vector.concat(tail, #[7])}")
+    io.print("after_tail concat ${Vector.concat(tail, Vector[7])}")
     io.print("after_tail show ${tail}")
-    io.print("after_tail cmp ${Vector.compare(tail, #[2, 3])}")
+    io.print("after_tail cmp ${Vector.compare(tail, Vector[2, 3])}")
 
     // --- copying, and the ORIGINAL re-read after both ------------------------
-    original = #[1, 2]
+    original = Vector[1, 2]
     pushed = Vector.push(original, 3)
     io.print("pushed ${pushed}")
     io.print("updated ${set_or(pushed, 1, 20)}")
     io.print("set over ${set_or(pushed, 9, 99)}")
     io.print("original after ${original}")
-    io.print("concat ${Vector.concat(#[1, 2], #[3, 4])}")
+    io.print("concat ${Vector.concat(Vector[1, 2], Vector[3, 4])}")
 
     // --- ordering: prefix and first-difference, both directions --------------
-    io.print("cmp eq ${Vector.compare(#[1, 2], #[1, 2])}")
-    io.print("cmp prefix ${Vector.compare(#[1], #[1, 2])}")
-    io.print("cmp prefix rev ${Vector.compare(#[1, 2], #[1])}")
-    io.print("cmp first ${Vector.compare(#[1, 9], #[2])}")
-    io.print("cmp first rev ${Vector.compare(#[2], #[1, 9])}")
+    io.print("cmp eq ${Vector.compare(Vector[1, 2], Vector[1, 2])}")
+    io.print("cmp prefix ${Vector.compare(Vector[1], Vector[1, 2])}")
+    io.print("cmp prefix rev ${Vector.compare(Vector[1, 2], Vector[1])}")
+    io.print("cmp first ${Vector.compare(Vector[1, 9], Vector[2])}")
+    io.print("cmp first rev ${Vector.compare(Vector[2], Vector[1, 9])}")
     io.print("cmp empty ${Vector.compare(none_v, none_v)}")
     // NO String or nested row here. `Vector.compare` raises the Comparable
     // demand inside std's own generic body, where `Iter.sort` raises it at a
@@ -159,19 +159,19 @@ fn main() {
     // --- Display against Debug, on the element type where they differ --------
     io.print("show int ${v}")
     io.print("to_string ${Vector.to_string(v)}")
-    io.print("inspect ${Vector.inspect(#["a", "b"])}")
-    io.print("show str ${#["a", "b"]}")
+    io.print("inspect ${Vector.inspect(Vector["a", "b"])}")
+    io.print("show str ${Vector["a", "b"]}")
     io.print("show empty ${none_v}")
 
     // --- identity ------------------------------------------------------------
-    io.print("op eq ${#[1, 2, 3] == #[1, 2, 3]}")
-    io.print("op neq ${#[1, 2, 3] == #[1, 2, 4]}")
-    io.print("op ne ${#[1, 2] != #[1, 2]}")
-    io.print("equal ${Vector.equal(#[1, 2, 3], #[1, 2, 3])}")
-    io.print("equal no ${Vector.equal(#[1, 2, 3], #[1, 2, 4])}")
-    io.print("equal len ${Vector.equal(#[1, 2], #[1, 2, 3])}")
-    io.print("hash same ${Vector.hash(#[1, 2, 3]) == Vector.hash(#[1, 2, 3])}")
-    io.print("hash diff ${Vector.hash(#[1, 2, 3]) == Vector.hash(#[1, 2, 4])}")
+    io.print("op eq ${Vector[1, 2, 3] == Vector[1, 2, 3]}")
+    io.print("op neq ${Vector[1, 2, 3] == Vector[1, 2, 4]}")
+    io.print("op ne ${Vector[1, 2] != Vector[1, 2]}")
+    io.print("equal ${Vector.equal(Vector[1, 2, 3], Vector[1, 2, 3])}")
+    io.print("equal no ${Vector.equal(Vector[1, 2, 3], Vector[1, 2, 4])}")
+    io.print("equal len ${Vector.equal(Vector[1, 2], Vector[1, 2, 3])}")
+    io.print("hash same ${Vector.hash(Vector[1, 2, 3]) == Vector.hash(Vector[1, 2, 3])}")
+    io.print("hash diff ${Vector.hash(Vector[1, 2, 3]) == Vector.hash(Vector[1, 2, 4])}")
 
     // WRAPPING. Forty large Ints, so std's `Int.wrapping_mul(acc, 31)` overflows
     // many times over. A checked `*` would TRAP here.
@@ -182,18 +182,18 @@ fn main() {
 
     io.print("wrapping ${Vector.hash(big) == Vector.hash(big)}")
 
-    // --- the untyped `#[]`, discharged three ways ----------------------------
-    empty: Vector<Int> = #[]
+    // --- the untyped `Vector[]`, discharged three ways ----------------------------
+    empty: Vector<Int> = Vector[]
     io.print("empty_len ${Vector.length(empty)}")
     io.print("empty_at ${at_or(empty, 0)}")
-    io.print("empty eq ${empty == #[]}")
-    io.print("empty concat ${Vector.concat(#[], #[1, 2])}")
-    io.print("empty concat rev ${Vector.concat(#[1, 2], #[])}")
+    io.print("empty eq ${empty == Vector[]}")
+    io.print("empty concat ${Vector.concat(Vector[], Vector[1, 2])}")
+    io.print("empty concat rev ${Vector.concat(Vector[1, 2], Vector[])}")
 
     // --- a Vector ELEMENT, so the element operations recurse -----------------
-    nested = #[#[1, 2], #[3]]
+    nested = Vector[Vector[1, 2], Vector[3]]
     io.print("nested len ${Vector.length(nested)}")
-    io.print("nested eq ${nested == #[#[1, 2], #[3]]}")
+    io.print("nested eq ${nested == Vector[Vector[1, 2], Vector[3]]}")
     io.print("nested debug ${Vector.inspect(nested)}")
     io.print("nested show ${nested}")
 
@@ -216,31 +216,31 @@ fn main() {
     // `key window` and `key tail` are the discriminating pair, and they discriminate
     // the same representation fact the `after_tail_*` rows above do. `tail` has
     // `Start == 1` and `Len == 2` over a backing slice of three, so a hash folding
-    // over `Items[i]` rather than `Items[Start+i]` buckets it as `#[1, 2, 3]` while
-    // equality still answers True against `#[2, 3]` — the lookup MISSES and every
+    // over `Items[i]` rather than `Items[Start+i]` buckets it as `Vector[1, 2, 3]` while
+    // equality still answers True against `Vector[2, 3]` — the lookup MISSES and every
     // row above passes. `key window` is the mirror: a vector built by `concat` has
     // `Start == 0` and must land in the same bucket as the literal.
-    keys = %{#[1, 2] => "a", #[3] => "b"}
-    grid = #[Vector.set(pushed, 1, 20)]
+    keys = {Vector[1, 2] => "a", Vector[3] => "b"}
+    grid = Vector[Vector.set(pushed, 1, 20)]
     io.print("maybe eq none ${Vector.get(grid, 9) == None}")
-    io.print("maybe eq some ${Vector.get(grid, 0) == Some(#[1, 20, 3])}")
-    io.print("maybe eq no ${Vector.get(grid, 0) == Some(#[9, 9, 9])}")
+    io.print("maybe eq some ${Vector.get(grid, 0) == Some(Vector[1, 20, 3])}")
+    io.print("maybe eq no ${Vector.get(grid, 0) == Some(Vector[9, 9, 9])}")
     io.print("maybe scalar ${Vector.get(v, 0) == Some(1)}")
-    io.print("key hit ${Map.get(keys, #[1, 2]) == Some("a")}")
-    io.print("key miss ${Map.get(keys, #[9]) == None}")
-    io.print("key window ${Map.get(keys, Vector.concat(#[1], #[2])) == Some("a")}")
-    io.print("key tail ${Map.get(%{tail => "t"}, #[2, 3]) == Some("t")}")
-    io.print("key nested ${Map.get(%{#[#[1]] => 5}, #[#[1]]) == Some(5)}")
+    io.print("key hit ${Map.get(keys, Vector[1, 2]) == Some("a")}")
+    io.print("key miss ${Map.get(keys, Vector[9]) == None}")
+    io.print("key window ${Map.get(keys, Vector.concat(Vector[1], Vector[2])) == Some("a")}")
+    io.print("key tail ${Map.get({tail => "t"}, Vector[2, 3]) == Some("t")}")
+    io.print("key nested ${Map.get({Vector[Vector[1]] => 5}, Vector[Vector[1]]) == Some(5)}")
 
     // --- signature boundary, both directions --------------------------------
     io.print("total ${total(v)}")
     io.print("pair ${pair_of("x", "y")}")
 
     // --- Iter over a Vector at two and three stages -------------------------
-    io.print("iter2 ${#[1, 2, 3] |> Iter.map(&(&1 * 2)) |> Iter.to_list()}")
+    io.print("iter2 ${Vector[1, 2, 3] |> Iter.map(&(&1 * 2)) |> Iter.to_list()}")
 
     io.print(
-        "iter3 ${#[1, 2, 3, 4]
+        "iter3 ${Vector[1, 2, 3, 4]
         |> Iter.map(&(&1 * 2))
         |> Iter.filter(&(&1 > 4))
         |> Iter.to_list()}"
@@ -251,10 +251,10 @@ fn main() {
     // and out of this slice's scope. Counted instead, which reads the same
     // predicate over the same Vector source through the same adapter chain.
     io.print(
-        "iter filter ${#["ada", "grace"]
+        "iter filter ${Vector["ada", "grace"]
         |> Iter.filter(&String.contains(&1, "ace"))
         |> Iter.count()}"
     )
 
-    io.print("iter sort ${Iter.sort(#[3, 1, 2]) |> Iter.to_list()}")
-}
+    io.print("iter sort ${Iter.sort(Vector[3, 1, 2]) |> Iter.to_list()}")
+end

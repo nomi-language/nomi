@@ -11,39 +11,39 @@ func TestCaseOverListOfValues_Runs(t *testing.T) {
 	}
 	verifyLambdaProgram(t, `import std::io
 
-fn main() {
+fn main()
     it = [1, 2] |> Iter.map(fn n -> n * 2)
-    got = case [it] {
+    got = case [it]
         [p] -> p
         _ -> it
-    }
+    end
     io.inspect(Iter.to_list(got))
     out = [1, 2]
-        |> Iter.map(fn n -> {
+        |> Iter.map(fn n ->
             r = 0..n
-            held = case [r] {
+            held = case [r]
                 [p] -> p
                 _ -> r
-            }
+            end
             Debug.inspect(held)
-        })
+        end)
         |> String.join(",")
     io.print(out)
     counts = [1, 2]
-        |> Iter.map(fn n -> {
+        |> Iter.map(fn n ->
             each = [n, n] |> Iter.map(fn x -> x + 1)
-            case [each, each] {
+            case [each, each]
                 [a, ..rest] -> Iter.count(a) + Iter.count(rest)
                 _ -> 0
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
     io.inspect(counts)
-    ms = [%{"a" => 1}]
-    io.inspect(case ms {
+    ms = [{"a" => 1}]
+    io.inspect(case ms
         [m] -> Map.get(m, "a")
         _ -> None
-    })
-}
+    end)
+end
 `, "[2, 4]\n0..1,0..2\n[3, 3]\nSome(1)\n")
 }

@@ -3,48 +3,49 @@ import std::io
 // A user enum whose payload is a List of a user struct, positionally and as a
 // struct-shaped variant's field, and an enum that reaches itself back through
 // such a list (Tree -> List<Grove> -> List<Tree>).
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-enum Shape {
+enum Shape
     Poly List<Point>
     Path {points: List<Point>, name: String}
     Empty
-}
+end
 
-enum Tree {
+enum Tree
     Leaf Int
     Branch List<Grove>
-}
+end
 
-struct Grove {
+struct Grove
     trees: List<Tree>
-}
+end
 
-fn width(s: Shape) -> Int {
-    case s {
+fn width(s: Shape) -> Int
+    case s
         Shape.Poly(ps) -> ps |> Iter.map(fn p: Point -> p.x) |> Iter.reduce(0, fn acc, x -> acc + x)
-        Shape.Path{points, name} -> Iter.count(points) + String.length(name)
+        Shape.Path{points:, name:} -> Iter.count(points) + String.length(name)
         Shape.Empty -> 0
-    }
-}
+    end
+end
 
-fn total(t: Tree) -> Int {
-    case t {
-        Tree.Leaf(n) -> n
+fn total(t: Tree) -> Int
+    case t
+        Tree.Leaf(n) ->
+            n
 
         Tree.Branch(groves) ->
             groves |> Iter.map(grove_total) |> Iter.reduce(0, fn acc, x -> acc + x)
-    }
-}
+    end
+end
 
-fn grove_total(g: Grove) -> Int {
+fn grove_total(g: Grove) -> Int
     g.trees |> Iter.map(total) |> Iter.reduce(0, fn acc, x -> acc + x)
-}
+end
 
-fn main() {
+fn main()
     poly = Shape.Poly([Point{x: 1, y: 2}, Point{x: 3, y: 4}])
 
     path = Shape.Path{
@@ -71,4 +72,4 @@ fn main() {
 
     io.print("${total(tree)}")
     io.print(Debug.inspect(tree))
-}
+end

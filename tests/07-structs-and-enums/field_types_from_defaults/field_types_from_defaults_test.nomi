@@ -1,53 +1,53 @@
 // A field with a default may leave out its type when the default's type
 // is known from the expression alone (spec §4 *Structs*): `misses = 0` is
-// an Int field. A default whose type only an expected type tells (`%[]`,
+// an Int field. A default whose type only an expected type tells (`Set[]`,
 // `[]`, `None`, a `.Variant`) is an error at the field, with help that
 // writes the annotation.
-import {
+import
     std::compiler.{self, Diagnostic}
     std::http.Route
     models.Settings
-}
+end
 
-fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
+fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool
     Iter.any_match(diagnostics, fn diagnostic -> text in diagnostic.message)
-}
+end
 
-struct Game {
+struct Game
     word: String
     misses = 0
-    guessed: Set<String> = %[]
+    guessed: Set<String> = []
     hint = "none"
-}
+end
 
 derive Equatable for Game
 derive Display for Game
 
-enum Shape {
+enum Shape
     Circle {radius = 1.0}
     Square {side: Float}
-}
+end
 
-test "a field takes its default's type" {
+test "a field takes its default's type"
     game = Game{word: "nomi"}
     assert game.misses == 0
     assert game.hint == "none"
-    assert game.guessed == %[]
-    more = .{..game, misses: game.misses + 1}
+    assert game.guessed == []
+    more = {..game, misses: game.misses + 1}
     assert more.misses == 1
     assert more != game
-}
+end
 
-test "a record variant's field takes its default's type" {
-    radius = case (Shape.Circle{}) {
-        .Circle{radius} -> radius
-        .Square{side} -> side
-    }
+test "a record variant's field takes its default's type"
+    radius = case (Shape.Circle{})
+        .Circle{radius:} -> radius
+        .Square{side:} -> side
+    end
 
     assert radius == 1.0
-}
+end
 
-test "another file reads a field's inferred type" {
+test "another file reads a field's inferred type"
     settings = Settings{}
     assert settings.retries + 1 == 4
     assert settings.ratio == 0.5
@@ -56,18 +56,18 @@ test "another file reads a field's inferred type" {
     assert settings.limit == 100
     home: Route = settings.home
     assert "${home}" == "GET /admin/{$}"
-}
+end
 
-test "a default whose type needs an expected type is refused" {
+test "a default whose type needs an expected type is refused"
     diagnostics = compiler.check(
         """
-        struct Bad {
-            guessed = %[]
+        struct Bad
+            guessed = Set[]
             later = None
-        }
+        end
         """
     )
 
-    assert has_diagnostic(diagnostics, "can't tell this field's type from `%[]`")
+    assert has_diagnostic(diagnostics, "can't tell this field's type from `Set[]`")
     assert has_diagnostic(diagnostics, "can't tell this field's type from `None`")
-}
+end

@@ -7,12 +7,12 @@
 //# internal to std::phrase: only std and a `phrase` declaration's
 //# expansion import it, and a program calls `Phrase.format`.
 
-import {
+import
     int.Int
     lists.List
     locale.Locale
     strings.String
-}
+end
 
 /// The name of the variant `value` is, for an enum whose variants carry
 /// nothing: what a phrase's `:string` formats and selects such a value by.
@@ -37,17 +37,17 @@ pub fn format(
     numbers: List<String>,
     keys: List<String>,
     texts: List<String>,
-) -> String {
+) -> String
     format_raw(table, locale, catalogs, kinds, numbers, keys, texts)
-}
+end
 
 /// The catalog `text` holds for `locale`, checked against the program's
 /// compiled phrases and nouns: the accepted entries, encoded as `format`
 /// reads a catalog, then each rejected entry's name and the reason, in
 /// turn. What `Catalog.load` (std::phrase) calls.
-pub fn load(text: String, locale: Locale) -> List<String> {
+pub fn load(text: String, locale: Locale) -> List<String>
     load_raw(text, locale)
-}
+end
 
 host fn load_raw(text: String, locale: Locale) -> List<String>
 
@@ -55,9 +55,9 @@ host fn load_raw(text: String, locale: Locale) -> List<String>
 /// holds) in `locale`: its nominative for one thing, in the nearest locale
 /// on `locale`'s fallback chain that translates it, else the source's. It
 /// is what a noun's `Localize` writes.
-pub fn noun_text(table: String, locale: Locale) -> String {
+pub fn noun_text(table: String, locale: Locale) -> String
     noun_raw(table, locale)
-}
+end
 
 host fn noun_raw(table: String, locale: Locale) -> String
 

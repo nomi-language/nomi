@@ -16,21 +16,21 @@ func TestIRStdLeafErasure_Runs(t *testing.T) {
 import std::duration.Duration
 import std::calendar.{Date, Time}
 
-fn show(d: Display) -> String {
+fn show(d: Display) -> String
     "<${d}>"
-}
+end
 
-fn pick(n: Int) -> Display {
-    case n {
+fn pick(n: Int) -> Display
+    case n
         0 -> 'x'
         1 -> Duration.minutes(90)
         2 -> Date` + "`2026-01-02`" + `
         3 -> 7
         _ -> 2.5d
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     b: Byte = 0x41
     c: Display = 'c'
     io.print(Display.to_string(c))
@@ -47,7 +47,7 @@ fn main() {
     io.print(Debug.inspect(dg))
     io.print(show(Date` + "`2026-05-04`" + `))
     up = True
-    d: Display = if up { 'c' } else { "s" }
+    d: Display = if up then 'c' else "s"
     io.print("${d}")
     io.print(show('q'))
     xs: List<Display> = ['a', Duration.seconds(1), Date` + "`2026-05-04`" + `, 3, Time` + "`10:30:00`" + `, b]
@@ -56,7 +56,7 @@ fn main() {
     gs: List<Debug> = ['a', Duration.seconds(1), Date` + "`2026-05-04`" + `, 3, b, 1.5d]
     io.print(Debug.inspect(gs))
     dbg d
-}
+end
 `
 	irRunSource(t, src, "c\nCodepoint(99)\nTrue\n65\n1.50d\n<5s>\n2s\n<2026-05-04>\nc\n<q>\n"+
 		"[a, 1s, 2026-05-04, 3, 10:30:00, 65]\nx, 1h30m, 2026-01-02, 7, 2.5\n"+

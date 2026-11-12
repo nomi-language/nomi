@@ -1,7 +1,7 @@
-pub struct UserDetail {
+pub struct UserDetail
     name: String
-}
+end
 
-pub fn render(user: UserDetail) -> String {
+pub fn render(user: UserDetail) -> String
     "<${user.name}>"
-}
+end

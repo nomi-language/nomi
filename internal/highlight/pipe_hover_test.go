@@ -15,12 +15,12 @@ import (
 func TestAnalyze_PipeHovers(t *testing.T) {
 	const src = `import std::io
 
-fn parse(s: String) -> Result<Int, String> {
+fn parse(s: String) -> Result<Int, String>
   n = s |> String.to_int() |> Maybe.to_result("bad")?
   Ok(n)
-}
+end
 
-fn main() {
+fn main()
   total = ["1", "x"]
   |> Iter.map(fn s -> String.to_int(s))
   |> Maybe.values()
@@ -30,12 +30,12 @@ fn main() {
   |> dbg
   xs = [1, 2] |> Iter.map(fn n -> n |> Int.to_string()) |> Iter.to_list()
   io.inspect((total, xs, parse("1"), "x" |> nope()))
-}
+end
 
-test "parses" {
+test "parses"
   n = "4" |> String.to_int() |> Maybe.to_result("no")?
   assert n == 4
-}
+end
 `
 	lib := std.Load()
 	fa, nodes := highlight.AnalyzeNodes(src, lib)

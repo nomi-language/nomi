@@ -2,7 +2,7 @@
 // declares its own `Task`, `Channel`, `Supervisor` and `Error`. The qualifier
 // is the only spelling left for std's, so each must resolve by the
 // declaration the analyzer bound it to, not by the bare name.
-import {
+import
     std::channels
     std::duration.Duration
     std::io
@@ -10,89 +10,89 @@ import {
     std::random
     std::supervisors
     std::tasks
-}
+end
 
-struct Task {
+struct Task
     name: String
-}
+end
 
-struct Channel {
+struct Channel
     id: Int
-}
+end
 
-struct Supervisor {
+struct Supervisor
     name: String
-}
+end
 
-enum Error {
+enum Error
     Mine
-}
+end
 
-impl Task {
-    fn label(t: Task) -> String {
+impl Task
+    fn label(t: Task) -> String
         "task ${t.name}"
-    }
-}
+    end
+end
 
-pub struct App {
+pub struct App
     context: Context
 
     audit: supervisors.Supervisor
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{
         context: Context.root(),
         audit: supervisors.Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 2),
     })
-}
+end
 
-fn twice(t: tasks.Task<Int>) -> Int {
+fn twice(t: tasks.Task<Int>) -> Int
     tasks.Task.await(t) * 2
-}
+end
 
-fn describe(e: random.Error) -> String {
-    case e {
-        random.Error.OsEntropy{reason} -> "entropy: ${reason}"
+fn describe(e: random.Error) -> String
+    case e
+        random.Error.OsEntropy{reason:} -> "entropy: ${reason}"
         random.Error.InvalidWeight{weight: w} -> "weight: ${w}"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn mine(e: Error) -> String {
-    case e {
+fn mine(e: Error) -> String
+    case e
         Error.Mine -> "my error"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Task.label(Task{name: "mine"}))
     io.print(Channel{id: 3}.id)
     io.print(Supervisor{name: "local"}.name)
     io.print(mine(Error.Mine))
 
-    n = concurrent {
+    n = concurrent
         t = tasks.Task.spawn(fn -> 20 + 1)
         twice(t)
-    }
+    end
 
     io.print(n)
     ch: channels.Channel<String> = channels.Channel.buffered<String>(1)
     _ = channels.Sender.send(ch.sender, "hi")
     io.print(channels.Receiver.receive(ch.receiver))
 
-    audited: tasks.Task<Unit> = supervisors.Supervisor.spawn(App.audit, fn -> {
+    audited: tasks.Task<Unit> = supervisors.Supervisor.spawn(App.audit, fn ->
         io.print("supervised")
-    })
+    end)
 
-    concurrent {
+    concurrent
         _ = tasks.Task.outcome(audited)
         Unit
-    }
+    end
 
     io.print(describe(random.Error.OsEntropy{reason: "x"}))
     io.print(describe(random.Error.InvalidWeight{weight: 0.5}))
     io.print(describe(random.Error.ZeroWeightTotal))
     io.print(Display.to_string(random.Error.OsEntropy{reason: "a"}))
     io.print(json.Json.encode(json.Json.Arr([json.Json.Int(3), json.Json.Null])))
-}
+end

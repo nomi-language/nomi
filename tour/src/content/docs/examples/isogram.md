@@ -15,7 +15,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// Whether no letter appears in `phrase` more than once, ignoring case.
 /// Spaces, hyphens and other non-letters may repeat.
-pub fn is_isogram(phrase: String) -> Bool {
+pub fn is_isogram(phrase: String) -> Bool
     letters =
         phrase
         |> String.fold_case()
@@ -24,12 +24,12 @@ pub fn is_isogram(phrase: String) -> Bool {
         |> Iter.to_list()
 
     letters |> Iter.to_set() |> Set.size() == Iter.count(letters)
-}
+end
 
 // FILE: isogram_test.nomi
 import isogram.is_isogram
 
-test "isograms" {
+test "isograms"
     [
         ("empty string", "", True),
         ("isogram with only lower case characters", "isogram", True),
@@ -50,10 +50,10 @@ test "isograms" {
         ("same first and last characters", "angola", False),
         ("word with duplicated character and with two hyphens", "up-to-date", False),
     ]
-    |> subtests (description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description
         assert is_isogram(phrase) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok isograms (14 cases)

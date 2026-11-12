@@ -21,61 +21,61 @@
 // the direct case is what `stdiface.go` declined a Debug table to protect.
 import std::io
 
-struct Rev {
+struct Rev
     zeta: Int
     alpha: Int
-}
+end
 
-struct Custom {
+struct Custom
     zeta: Int
     alpha: Int
-}
+end
 
-impl Debug for Custom {
-    fn inspect(c: Custom) -> String {
+impl Debug for Custom
+    fn inspect(c: Custom) -> String
         _ = c
         "CUSTOM-DEBUG"
-    }
-}
+    end
+end
 
 opaque type Meters Int
 
-interface Tagged {
+interface Tagged
     fn tag_of(value: self) -> String
-}
+end
 
-impl Tagged for Rev {
-    fn tag_of(r: Rev) -> String {
+impl Tagged for Rev
+    fn tag_of(r: Rev) -> String
         _ = r
         "rev"
-    }
-}
+    end
+end
 
-impl Tagged for Custom {
-    fn tag_of(c: Custom) -> String {
+impl Tagged for Custom
+    fn tag_of(c: Custom) -> String
         _ = c
         "custom"
-    }
-}
+    end
+end
 
 // The BARE type parameter: no bound written, which is the whole point. A
 // developer inspecting a value writes no ceremony, and the bound is sound to
 // infer only because every type satisfies Debug.
-fn erased_param<T>(value: T) -> String {
+fn erased_param<T>(value: T) -> String
     Debug.inspect(value)
-}
+end
 
 // The EXISTENTIAL: the concrete type is chosen by the caller and erased at the
 // boundary.
-fn erased_iface(value: Tagged) -> String {
+fn erased_iface(value: Tagged) -> String
     Debug.inspect(value)
-}
+end
 
-fn no_rev(_r: Rev) -> Bool {
+fn no_rev(_r: Rev) -> Bool
     False
-}
+end
 
-test "the four renderings of one value survive erasure" {
+test "the four renderings of one value survive erasure"
     r = Rev{zeta: 1, alpha: 2}
     c = Custom{zeta: 3, alpha: 4}
     m = Meters(7)
@@ -108,10 +108,10 @@ test "the four renderings of one value survive erasure" {
     // `Rev{alpha: 2, zeta: 1}` and is what the `values:` row below answers, so
     // this one comparison separates the two renderers on its own.
     assert erased_param(r) == "Rev{zeta: 1, alpha: 2}"
-}
+end
 
-test "the values row is a different renderer from Debug" {
+test "the values row is a different renderer from Debug"
     r = Rev{zeta: 1, alpha: 2}
 
     assert no_rev(r)
-}
+end

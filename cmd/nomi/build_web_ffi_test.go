@@ -61,11 +61,11 @@ fn upper(s: String) -> String go strings.ToUpper
 
 fn parse_int(s: String) -> Result<Int, String> go strconv.Atoi
 
-fn main() {
+fn main()
     io.print(upper("hi"))
     io.print(parse_int("42"))
     io.print(parse_int("x"))
-}
+end
 `)
 	entries := []string{
 		filepath.Join(repoRoot(t), "cmd", "nomi", "testdata", "go_bindings", "main.nomi"),
@@ -130,7 +130,7 @@ func TestBuildWeb_AGoPackageThatDoesNotBuildForTheTargetIsRefused(t *testing.T) 
 	mustWrite(t, filepath.Join(dir, "native", "native.go"), "//go:build !js && !wasip1\n\npackage native\n\n"+
 		"func Answer() int64 {\n\treturn 42\n}\n")
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, "import std::io\n\ngopkg \"nativeonly\"\n\nfn answer() -> Int go nativeonly.Answer\n\nfn main() {\n    io.print(answer())\n}\n")
+	mustWrite(t, entry, "import std::io\n\ngopkg \"nativeonly\"\n\nfn answer() -> Int go nativeonly.Answer\n\nfn main()\n    io.print(answer())\nend\n")
 	// It builds and runs natively.
 	if r := runProcess(t, env, dir, "", nomiBin, "run", entry); r.exit != 0 || r.stdout != "42\n" {
 		t.Fatalf("nomi run: exit %d\n%s", r.exit, r.transcript())

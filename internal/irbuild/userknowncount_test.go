@@ -14,31 +14,31 @@ func TestIRUserSourceKnownCount_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Pair {
+struct Pair
     a: Int
     b: Int
-}
+end
 
-impl Iter for Pair {
-    fn each_while(p: Pair, yield: (Int) -> Bool) -> Bool {
-        if yield(p.a) { yield(p.b) } else { False }
-    }
+impl Iter for Pair
+    fn each_while(p: Pair, yield: (Int) -> Bool) -> Bool
+        if yield(p.a) then yield(p.b) else False
+    end
 
-    fn known_count(_p: Pair) -> Maybe<Int> {
+    fn known_count(_p: Pair) -> Maybe<Int>
         io.print("counted")
         Some(7)
-    }
-}
+    end
+end
 
-fn total(xs: Iter<Int>) -> Int {
+fn total(xs: Iter<Int>) -> Int
     Iter.count(xs)
-}
+end
 
-fn known(xs: Iter<Int>) -> Maybe<Int> {
+fn known(xs: Iter<Int>) -> Maybe<Int>
     Iter.known_count(xs)
-}
+end
 
-fn main() {
+fn main()
     p = Pair{a: 1, b: 2}
     io.inspect(total(p))
     io.inspect(known(p))
@@ -46,7 +46,7 @@ fn main() {
     io.inspect(p |> Iter.map(fn x -> x + 1) |> Iter.to_list())
     io.inspect(p |> Iter.map(fn x -> x + 1) |> Iter.known_count())
     io.inspect(Iter.zip([5, 6], p) |> Iter.to_list())
-}
+end
 `
 	const want = "counted\n7\n" +
 		"counted\nSome(7)\n" +

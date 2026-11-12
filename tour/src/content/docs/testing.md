@@ -22,10 +22,10 @@ expression matches, as the report prints them.
 one fails, the report shows the line and the values involved.
 
 ```nomi-run
-test "arithmetic has the expected shape" {
+test "arithmetic has the expected shape"
     assert 1 + 1 == 2
     refute 2 * 2 == 5
-}
+end
 ```
 <!-- expect
 ok arithmetic has the expected shape
@@ -38,26 +38,26 @@ You can also assert a [`Maybe`](/reference/maybe/) or a
 pattern, as the second line of each test below does.
 
 ```nomi-run
-fn parse_id(text: String) -> Result<Int, String> {
-    case String.to_int(text) {
+fn parse_id(text: String) -> Result<Int, String>
+    case String.to_int(text)
         Some(id) -> Ok(id)
         None -> Err("expected a numeric id")
-    }
-}
+    end
+end
 
-test "assert checks successful results" {
+test "assert checks successful results"
     assert parse_id("42")
     assert Ok(id) = parse_id("42")
 
     assert id == 42
-}
+end
 
-test "refute checks result errors" {
+test "refute checks result errors"
     refute parse_id("wat")
     assert Err(message) = parse_id("wat")
 
     assert message == "expected a numeric id"
-}
+end
 ```
 <!-- expect
 ok assert checks successful results
@@ -70,11 +70,11 @@ work the same as in `case` arms. The names the pattern binds are available on
 the following lines.
 
 ```nomi-run
-test "assert can destructure expected shapes" {
+test "assert can destructure expected shapes"
     assert [left, right] = [10, 32]
 
     assert left + right == 42
-}
+end
 ```
 <!-- expect
 ok assert can destructure expected shapes
@@ -87,9 +87,9 @@ error:
 ```nomi-run
 import std::calendar.Date
 
-test "assert can match an error variant" {
+test "assert can match an error variant"
     assert Err(.InvalidFormat(_)) = Date.parse("not-a-date")
-}
+end
 ```
 <!-- expect
 ok assert can match an error variant
@@ -122,11 +122,11 @@ Spec: [Assertions](/spec/tests/#assertions),
 ```nomi-run
 import std::calendar.Date
 
-test "formats parsed date" {
+test "formats parsed date"
     d = Date.parse("2026-05-04")?
 
     assert Date.to_string(d) == "2026-05-04"
-}
+end
 ```
 <!-- expect
 ok formats parsed date
@@ -144,15 +144,15 @@ test apart from the function's doc comment.
 //! assert answer() == 42
 //! assert answer() + 1 == 43
 //
-fn answer() -> Int {
+fn answer() -> Int
     42
-}
+end
 
 //! assert label("ready") == "[ready]"
 //
-fn label(text: String) -> String {
+fn label(text: String) -> String
     "[" + text + "]"
-}
+end
 ```
 <!-- expect
 ok answer //! test lines 1-2
@@ -168,9 +168,9 @@ assertions:
 //! assert value == Some(42)
 //! assert parse_int("forty") == None
 //
-fn parse_int(text: String) -> Maybe<Int> {
+fn parse_int(text: String) -> Maybe<Int>
     String.to_int(text)
-}
+end
 ```
 <!-- expect
 ok parse_int //! test lines 1-3
@@ -183,7 +183,7 @@ test result: ok. 1 passed, 0 failed
 before the pipeline's first value:
 
 ```nomi-run
-test "pipeline assertions validate transformed values" {
+test "pipeline assertions validate transformed values"
     assert "  ADA LOVELACE  "
         |> String.trim()
         |> String.lowercase()
@@ -193,7 +193,7 @@ test "pipeline assertions validate transformed values" {
         |> String.trim()
         |> String.lowercase()
         |> String.contains("ada")
-}
+end
 ```
 <!-- expect
 ok pipeline assertions validate transformed values
@@ -205,16 +205,16 @@ test result: ok. 1 passed, 0 failed
 `subtests` runs the same check over a list of cases. Each case is a row.
 
 ```nomi-run
-fn is_palindrome(text: String) -> Bool {
+fn is_palindrome(text: String) -> Bool
     String.reverse(text) == text
-}
+end
 
-test "determines palindromes" {
+test "determines palindromes"
     [("abba", True), ("abc", False), ("x", True)]
-    |> subtests (line, known_palindrome) {
+    |> subtests (line, known_palindrome)
         assert is_palindrome(line) == known_palindrome
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok determines palindromes (3 cases)
@@ -224,7 +224,7 @@ test result: ok. 3 passed, 0 failed
 The body runs once for each row, in order. The pattern after `subtests` names
 the parts of the row. The rows can be a list, a range, a map's entries or any
 other `Iter`. The `|> subtests` stage ends its pipeline and stands as a
-statement; `subtests cases, (line, known_palindrome) { ... }` is the same
+statement; `subtests cases, (line, known_palindrome)` is the same
 check with rows you bound to a name.
 
 A failed assertion ends its row, and the next row still runs. After the last
@@ -258,20 +258,20 @@ use the names the pattern binds. A table often carries a description column
 for this:
 
 ```nomi-run
-fn is_leap_year(year: Int) -> Bool {
+fn is_leap_year(year: Int) -> Bool
     year % 400 == 0 or (year % 4 == 0 and year % 100 != 0)
-}
+end
 
-test "leap years" {
+test "leap years"
     [
         ("year divisible by 400 is leap year", 2000, True),
         ("year divisible by 100, not divisible by 400 in common year", 1900, False),
         ("year divisible by 4, not divisible by 100 in leap year", 1996, True),
     ]
-    |> subtests (description, year, expected), description {
+    |> subtests (description, year, expected), description
         assert is_leap_year(year) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok leap years (3 cases)
@@ -296,7 +296,7 @@ FAIL leap_test.nomi :: leap years
 ```
 
 You can also build a name from the row, as in
-`|> subtests (a, b, sum), "${a} + ${b}" { ... }`. To leave a column out,
+`|> subtests (a, b, sum), "${a} + ${b}"`. To leave a column out,
 name it `_` as usual.
 
 <div class="tour-details">
@@ -325,22 +325,22 @@ does the same with a file system in memory, as
 ```nomi-run
 import std::io
 
-fn main() {
-    case io.read_line() {
+fn main()
+    case io.read_line()
         Ok(Some(name)) -> io.print("hello, ${name}")
         _ -> io.print("hello, stranger")
-    }
-}
+    end
+end
 
-test "greets the name it reads" {
+test "greets the name it reads"
     run = io.capture("Ada\n", main)
 
     assert run.output == "hello, Ada\n"
-}
+end
 
-test "greets a stranger when there is no input" {
+test "greets a stranger when there is no input"
     assert io.capture("", main).output == "hello, stranger\n"
-}
+end
 ```
 <!-- expect
 hello, stranger
@@ -361,24 +361,24 @@ What the function writes to standard error, with `io.eprint` and
 ```nomi-run
 import std::io
 
-fn parse_count(text: String) -> Int {
-    case String.to_int(text) {
-        Some(n) -> n
+fn parse_count(text: String) -> Int
+    case String.to_int(text)
+        Some(n) ->
+            n
 
-        None -> {
+        None ->
             io.eprint("warning: ${text} is not a number, counting 0")
             0
-        }
-    }
-}
+    end
+end
 
-test "a bad count warns on stderr" {
+test "a bad count warns on stderr"
     run = io.capture("", fn -> parse_count("ten"))
 
     assert run.value == 0
     assert run.output == ""
     assert run.errors == "warning: ten is not a number, counting 0\n"
-}
+end
 ```
 <!-- expect
 ok a bad count warns on stderr
@@ -399,24 +399,24 @@ checks that the program printed each output line, at the right point.
 ```nomi-run
 import std::io
 
-fn main() {
+fn main()
     io.print("What is your name?")
 
-    case io.read_line() {
-        Ok(Some(name)) -> {
+    case io.read_line()
+        Ok(Some(name)) ->
             io.write("Hello, ${name}. Your age: ")
 
-            case io.read_line() {
+            case io.read_line()
                 Ok(Some(age)) -> io.print("${name} is ${age}")
                 _ -> io.print("no age")
-            }
-        }
+            end
 
-        _ -> io.print("hello, stranger")
-    }
-}
+        _ ->
+            io.print("hello, stranger")
+    end
+end
 
-test "asks for a name, then an age" {
+test "asks for a name, then an age"
     assert io.replay(
         """
         What is your name?
@@ -427,7 +427,7 @@ test "asks for a name, then an age" {
         """,
         main,
     )
-}
+end
 ```
 <!-- expect
 What is your name?
@@ -454,18 +454,18 @@ runs before each test in the group and produces a value. A test receives that
 value through a pattern after its name.
 
 ```nomi-run
-group "user labels" {
-    setup .{name: "Ada", role: "admin"}
+group "user labels"
+    setup {name: "Ada", role: "admin"}
 
-    test "setup value is explicit", .{name, role} {
+    test "setup value is explicit", {name:, role:}
         assert name == "Ada"
         assert role == "admin"
-    }
+    end
 
-    test "a test may ignore the setup value" {
+    test "a test may ignore the setup value"
         assert True
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok user labels / setup value is explicit
@@ -476,9 +476,9 @@ test result: ok. 2 passed, 0 failed
 A test sees only the value `setup` returns. Names bound inside the `setup`
 block don't reach the tests.
 
-The value can be anything. A test can bind a record with `.{name, role}`, a
+The value can be anything. A test can bind a record with `{name:, role:}`, a
 tuple with `(left, right)`, or the whole value with a name, as in
-`test "loads rows", db { ... }`. The pattern has to match every value setup
+`test "loads rows", db` ... `end`. The pattern has to match every value setup
 can produce, so a pattern such as `Some(n)` is an error. Bind a name instead,
 and match it in the test's body.
 
@@ -517,29 +517,29 @@ per row, with the row bound in the `boot` line, the `setup` and every test.
 Each row's tests are reported as tests of their own.
 
 ```nomi-run
-struct Config {
+struct Config
     store: String
-}
+end
 
-fn boot(startup: Startup) -> Result<Config, String> {
+fn boot(startup: Startup) -> Result<Config, String>
     Ok(Config{store: Map.get(startup.env, "STORE") |> Maybe.with_default("memory")})
-}
+end
 
-fn main() {}
+fn main() end
 
-fn describe() -> String {
+fn describe() -> String
     "a ${Config.store} store"
-}
+end
 
-group "storage" {
-    subtests ["memory", "sqlite"], store {
-        boot boot(Startup{env: %{"STORE" => store}})
+group "storage"
+    subtests ["memory", "sqlite"], store
+        boot boot(Startup{env: {"STORE" => store}})
 
-        test "describes the booted store" {
+        test "describes the booted store"
             assert describe() == "a ${store} store"
-        }
-    }
-}
+        end
+    end
+end
 ```
 <!-- expect
 ok storage [memory] / describes the booted store
@@ -564,20 +564,20 @@ clock. Whenever every task in the test is waiting, the clock jumps forward,
 so waiting takes no real time.
 
 ```nomi-run
-import {
+import
     std::duration.Duration
     std::testing.Clock
     std::timer
-}
+end
 
-group "retry policy" {
+group "retry policy"
     clock Clock.Virtual
 
-    test "gives up after backing off" {
+    test "gives up after backing off"
         timer.sleep(Duration.minutes(5))
         assert True
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok retry policy / gives up after backing off

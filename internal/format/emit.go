@@ -7,7 +7,9 @@ import (
 	"unicode"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/strlit"
+	"github.com/nomi-language/nomi/internal/token"
 )
 
 // emitFile walks top-level AST nodes and renders them to a string.
@@ -674,63 +676,9 @@ func emitNode(n ast.Node) Doc {
 	case *ast.Ascription:
 		return emitAscription(v)
 	case *ast.Block:
-		// Flat form:   "{ expr }"
-		// Broken form: "{\n  stmt1\n  stmt2\n  ...\n}"
-		//
-		// Nest wraps only the CONTENT, not the delimiters.
-		endTrivia := v.GetTrailing()
-		if len(v.Stmts) == 0 {
-			// Blank-only end trivia is stripped (emitEndTrivia), so a block
-			// holding only blank lines is empty — `{}`. Only a comment keeps
-			// the broken form below.
-			if !trailingHasComment(endTrivia) {
-				return Text("{}")
-			}
-			// Block with only trivia (e.g. comments between `{` and `}`).
-			body := emitEndTrivia(endTrivia)
-			return Concat(
-				Text("{"),
-				Nest(defaultIndent, body),
-				HardLine(),
-				Text("}"),
-			)
-		}
-		// A single statement with no end-of-block *comment* is flat-eligible —
-		// trailing blank lines are stripped, so they don't force the broken
-		// form (which would otherwise collapse only on a second pass).
-		if len(v.Stmts) == 1 && !trailingHasComment(endTrivia) {
-			inner := emitWithTrivia(v.Stmts[0])
-			// A trailing line comment on the statement consumes everything
-			// up to the next newline — flat form would swallow the closing
-			// `}`. Force the broken form by using HardLines. So does a
-			// block blockKeepsBroken keeps broken.
-			if hasTrailingLineComment(v.Stmts[0]) || blockKeepsBroken(v, inner) {
-				return Group(Concat(
-					Text("{"),
-					Nest(defaultIndent, Concat(HardLine(), inner)),
-					HardLine(),
-					Text("}"),
-				))
-			}
-			return Group(Concat(
-				Text("{"),
-				Nest(defaultIndent, Concat(Line(), inner)),
-				Line(),
-				Text("}"),
-			))
-		}
-		// Multi-stmt (or single-stmt with end-of-block trivia): HardLines between stmts
-		// force broken layout.
-		body := emitStatementDocs(v.Stmts)
-		if len(endTrivia) > 0 {
-			body = append(body, emitEndTrivia(endTrivia))
-		}
-		return Group(Concat(
-			Text("{"),
-			Nest(defaultIndent, Concat(HardLine(), Concat(body...))),
-			HardLine(),
-			Text("}"),
-		))
+		// A block expression: `begin`, its statements on the lines below,
+		// and `end`; `begin end` when it is empty.
+		return Concat(Text("begin"), emitBlockForceBroken(v))
 	case *ast.Lambda:
 		return emitLambda(v)
 	case *ast.Then:
@@ -753,6 +701,9 @@ func emitNode(n ast.Node) Doc {
 		// NamedArg only legally appears inside a Call's Args. Emitting it
 		// directly as an expression preserves "name: value" shape; the Call
 		// emitter relies on this path.
+		if argValueIsPun(v) {
+			return Text(v.Name + ":")
+		}
 		return Concat(Text(v.Name), Text(": "), emit(v.Value))
 	case *ast.Call:
 		return emitCall(v)
@@ -761,6 +712,9 @@ func emitNode(n ast.Node) Doc {
 	case *ast.StructLit:
 		return emitStructLit(v)
 	case *ast.ListLit:
+		if len(v.Spreads) > 0 {
+			return emitListSpreadLit(v)
+		}
 		open := "["
 		if v.TypeName != nil {
 			open = v.TypeName.TypeString() + "["
@@ -786,66 +740,8 @@ func emitNode(n ast.Node) Doc {
 			return forceBrokenItems(open, "]", elems, v.Items, v.EndTrivia)
 		}
 		return emitBracedList(open, "]", elems)
-	case *ast.VectorLit:
-		// A broken vector ending in a `..` spread has no trailing comma,
-		// as a list's `..tail` has none.
-		lastComma := !endsInSpread(len(v.Items), v.Spreads)
-		hasEndTrivia := trailingHasComment(v.EndTrivia)
-		items := v.Operands()
-		elems := spreadOperandDocs(v.Items, v.Spreads, emit)
-		authored := brokenAfterOpen(v.Line, firstOperandLine(v.Items, v.Spreads))
-		texts, fills := fillTexts(items)
-		fills = fills && len(v.Spreads) == 0
-		if hasEndTrivia || nodesHaveComments(items) || tooDeep(v, len(v.Items)) || authored && !fills {
-			cs, _ := nodesComments(items)
-			return commentedList(shapeOpen("#", v.TypeName, "["), "]", elems, cs, v.EndTrivia, lastComma)
-		}
-		if fills {
-			return filledList(shapeOpen("#", v.TypeName, "["), "]", texts, authored)
-		}
-		return bracedList(shapeOpen("#", v.TypeName, "["), "]", elems, lastComma)
-	case *ast.SetLit:
-		open := shapeOpen("%", v.TypeName, "[")
-		lastComma := !endsInSpread(len(v.Items), v.Spreads)
-		hasEndTrivia := trailingHasComment(v.EndTrivia)
-		items := v.Operands()
-		elems := spreadOperandDocs(v.Items, v.Spreads, emit)
-		if hasEndTrivia || nodesHaveComments(items) || tooDeep(v, len(v.Items)) {
-			cs, _ := nodesComments(items)
-			return commentedList(open, "]", elems, cs, v.EndTrivia, lastComma)
-		}
-		authored := brokenAfterOpen(v.Line, firstOperandLine(v.Items, v.Spreads))
-		if texts, ok := fillTexts(items); ok && len(v.Spreads) == 0 {
-			return filledList(open, "]", texts, authored)
-		}
-		if authored {
-			cs, _ := nodesComments(items)
-			return commentedList(open, "]", elems, cs, v.EndTrivia, lastComma)
-		}
-		return bracedList(open, "]", elems, lastComma)
-	case *ast.ListSpreadLit:
-		// `[head, ..tail]`, `[..xs, y, ..ys]`: emitted flat. Spread
-		// literals are conventionally short, and breaking around a `..`
-		// reads poorly. A comment is the exception, which no flat form can
-		// hold.
-		items := v.Operands()
-		elems := spreadOperandDocs(v.Items, v.Spreads, emit)
-		if nodesHaveComments(items) {
-			cs, _ := nodesComments(items)
-			return commentedList("[", "]", elems, cs, nil, !endsInSpread(len(v.Items), v.Spreads))
-		}
-		parts := make([]Doc, 0, len(elems)*2+1)
-		parts = append(parts, Text("["))
-		for i, e := range elems {
-			if i > 0 {
-				parts = append(parts, Text(", "))
-			}
-			parts = append(parts, e)
-		}
-		parts = append(parts, Text("]"))
-		return Concat(parts...)
 	case *ast.MapLit:
-		open := shapeOpen("%", v.TypeName, "{")
+		open := shapeOpen("", v.TypeName, "{")
 		hasEndTrivia := trailingHasComment(v.EndTrivia)
 		items, elems := mapLitParts(v, emit)
 		lastComma := !endsInSpread(len(v.Entries), v.Spreads)
@@ -978,7 +874,7 @@ func emitNode(n ast.Node) Doc {
 		}
 		return emitBindingValue(Concat(parts...), v.Value)
 	case *ast.StructDestructure:
-		// .{x, y} = expr  or  .{x: a, y: b} = expr — anonymous only.
+		// {x:, y:} = expr  or  {x: a, y: b} = expr — anonymous only.
 		// Reuse emitPattern by wrapping in a StructPattern with no TypeName.
 		pat := &ast.StructPattern{Fields: v.Fields}
 		return emitBindingValue(emitPattern(pat), v.Value)
@@ -1048,10 +944,10 @@ func emitPatternBinding(v *ast.PatternBinding) Doc {
 	head := patternBindingHead(v, target)
 	if block := v.Else.Block; block != nil {
 		broken := Concat(head, emitBlockForceBroken(block))
-		if !isInlineableBlockBody(block) {
+		if !isInlineableBlockBody(block) || !isInlineBranch(block.Stmts[0]) {
 			return broken
 		}
-		flat := Concat(head, emit(block))
+		flat := Concat(head, emitWithTrivia(block.Stmts[0]))
 		// fits rejects a flat form that holds a forced break; the Group below
 		// decides by the line, from the statement's column.
 		if blockKeepsBroken(block, flat) || !fits(flat, nil, defaultWidth) {
@@ -1059,15 +955,14 @@ func emitPatternBinding(v *ast.PatternBinding) Doc {
 		}
 		return Group(IfBroken(flat, broken))
 	}
-	return Concat(head, Text("{"),
+	return Concat(head,
 		Nest(defaultIndent, emitCaseArms(v.Else.Arms, v.Else.GetTrailing())),
 		HardLine(),
-		Text("}"),
+		Text("end"),
 	)
 }
 
-// patternBindingHead renders a binding with an else up to the else's `{`,
-// `else ` included.
+// patternBindingHead renders a binding with an else up to its `else`.
 func patternBindingHead(v *ast.PatternBinding, target Doc) Doc {
 	if pipe, ok := v.Value.(*ast.Binary); ok && pipe.Op == "|>" {
 		return Group(Concat(target, Text(" ="),
@@ -1488,14 +1383,14 @@ func escapeInterpolationOpeners(s string) string {
 
 // emitIf renders an if/else expression.
 //
-// Shape (flat): `if <cond> { <then> } else { <else> }`
-// Shape (broken):
+// Shape (inline): `if <cond> then <then> else <else>`
+// Shape (block):
 //
-//	if <cond> {
+//	if <cond> then
 //	  <then>
-//	} else {
+//	else
 //	  <else>
-//	}
+//	end
 //
 // Layout rules:
 //
@@ -1505,7 +1400,7 @@ func escapeInterpolationOpeners(s string) string {
 //   - A plain `if`/`else` renders inline iff each branch is a single-statement
 //     block with no comments AND the flat one-line form has no forced break
 //     and fits; otherwise it breaks. A guard, an if with no else
-//     (`if n < 0 { return 0 }`), fits when it fits the line at its column.
+//     (`if n < 0 then return 0`), fits when it fits the line at its column.
 //     An if/else with two branches must also be at most
 //     singleLineValueIfMaxWidth (50) columns flat.
 //     This is width-based and canonical — branch *content* doesn't matter (a
@@ -1514,10 +1409,20 @@ func escapeInterpolationOpeners(s string) string {
 //     multi-line branches (case, multi-stmt block, multi-stage pipe) carry a
 //     HardLine that the fits check rejects, so they never render inline.
 func emitIf(v *ast.If) Doc {
+	return emitIfParens(v, false)
+}
+
+// emitIfParens is emitIf, with the inline form in parentheses when parens is
+// set: an `if` that something follows on its line, a binary operator's left
+// operand or a pipe's head, whose inline `else` branch would take it in.
+func emitIfParens(v *ast.If, parens bool) Doc {
 	if hasElseIf(v) {
 		return emitIfForceBroken(v)
 	}
 	inner := emitIfInner(v)
+	if parens {
+		inner = Concat(Text("("), inner, Text(")"))
+	}
 	if ifBranchesInlineable(v) && !ifKeepsBroken(v, inner) && fits(inner, nil, oneLineIfMaxWidth(v)) {
 		// Inline-eligible: flatten when it also fits the current line, else
 		// fall back to the force-broken layout. Routing the broken case
@@ -1582,7 +1487,7 @@ func emitSubtests(v *ast.Subtests) Doc {
 	if v.Name != nil {
 		header = Concat(header, Text(", "), emit(v.Name))
 	}
-	return Concat(header, Text(" "), emitBlockForceBroken(v.Body))
+	return Concat(header, emitBlockForceBroken(v.Body))
 }
 
 func emitPipedSubtests(v *ast.Subtests) Doc {
@@ -1600,7 +1505,7 @@ func emitPipedSubtests(v *ast.Subtests) Doc {
 	if v.Name != nil {
 		stage = Concat(stage, Text(", "), emit(v.Name))
 	}
-	parts = append(parts, HardLine(), stage, Text(" "), emitBlockForceBroken(v.Body))
+	parts = append(parts, HardLine(), stage, emitBlockForceBroken(v.Body))
 	return Concat(parts...)
 }
 
@@ -1634,7 +1539,7 @@ func emitTestDecl(v *ast.TestDecl) Doc {
 		if v.ContextPattern != nil {
 			header = Concat(header, Text(", "), emitPattern(v.ContextPattern))
 		}
-		return Concat(header, Text(" "), emitBlockForceBroken(v.Body))
+		return Concat(header, emitBlockForceBroken(v.Body))
 	}
 
 	// The clock, boot and setup lines lead the group's statements, in the
@@ -1737,10 +1642,10 @@ func emitTestDecl(v *ast.TestDecl) Doc {
 		if st.Name != nil {
 			header = Concat(header, Text(", "), emit(st.Name))
 		}
-		block := Concat(header, Text(" "), emitDocsBlockForceBroken(body, st.EndTrivia))
+		block := Concat(header, emitDocsBlockForceBroken(body, st.EndTrivia))
 		body = []Doc{emitWithTriviaParts(block, withoutBlankTrivia(st.Leading), st.Trailing)}
 	}
-	return Concat(Text("group "), Text(encodeNomiString(v.Name)), Text(" "), emitDocsBlockForceBroken(body, v.Body.GetTrailing()))
+	return Concat(Text("group "), Text(encodeNomiString(v.Name)), emitDocsBlockForceBroken(body, v.Body.GetTrailing()))
 }
 
 // emitTestBoot renders a group's `boot server.boot(startup)` line.
@@ -1754,7 +1659,7 @@ func emitTestSetup(expr ast.Node) Doc {
 		if single := singlePlainExprStmt(block); single != nil && !isBlockExpr(single) {
 			return Group(Concat(header, Text(" "), emit(single)))
 		}
-		return Concat(header, Text(" "), emitBlockForceBroken(block))
+		return Concat(header, Text(" begin"), emitBlockForceBroken(block))
 	}
 	return Group(Concat(header, Text(" "), emit(expr)))
 }
@@ -1881,11 +1786,7 @@ func emitTodo(v *ast.Todo) Doc {
 // line, like `concurrent { 42 }`) stays inline; anything multi-statement breaks
 // the body onto its own lines.
 func emitConcurrentBlock(v *ast.ConcurrentBlock) Doc {
-	header := Text("concurrent ")
-	if isAtomicBlockBody(v.Body) {
-		return Group(Concat(header, emit(v.Body)))
-	}
-	return Concat(header, emitBlockForceBroken(v.Body))
+	return Concat(Text("concurrent"), emitBlockForceBroken(v.Body))
 }
 
 // hasElseIf reports whether the chain rooted at v contains at least one
@@ -1903,18 +1804,45 @@ func emitIfInner(v *ast.If) Doc {
 	if cond := emitIfCondition(v); cond != nil {
 		parts = append(parts, Text(" "), cond)
 	}
-	parts = append(parts, Text(" "), emit(v.Then))
+	parts = append(parts, Text(" then "), emitInlineBranch(v.Then))
 	if v.Else != nil {
 		parts = append(parts, Text(" else "))
 		// `else if` chain: recurse without adding a nested Group so the whole
 		// chain shares one flat-vs-broken decision.
 		if nested, ok := v.Else.(*ast.If); ok {
 			parts = append(parts, emitIfInner(nested))
+		} else if b, ok := v.Else.(*ast.Block); ok {
+			parts = append(parts, emitInlineBranch(b))
 		} else {
 			parts = append(parts, emit(v.Else))
 		}
 	}
 	return Concat(parts...)
+}
+
+// emitInlineBranch writes the one statement of an inline branch.
+func emitInlineBranch(b *ast.Block) Doc {
+	if b == nil || len(b.Stmts) != 1 {
+		return Nil()
+	}
+	return emitWithTrivia(b.Stmts[0])
+}
+
+// isInlineBranch reports whether stmt may stand as an inline branch: an
+// expression or a jump. An `if` there would take the outer `else` as its
+// own, or read back as an `else if` chain, so it keeps the block form.
+func isInlineBranch(stmt ast.Node) bool {
+	if es, ok := stmt.(*ast.ExprStmt); ok {
+		stmt = es.Expr
+	}
+	switch stmt.(type) {
+	case *ast.If, *ast.Binding, *ast.TupleDestructure, *ast.StructDestructure, *ast.PatternDestructure,
+		*ast.PatternBinding, *ast.DistinctDestructure, *ast.With, *ast.Defer, *ast.Assertion,
+		*ast.FuncDef, *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias,
+		*ast.InterfaceDef, *ast.ImplBlock, *ast.ImportStmt, *ast.ImportBlock, *ast.Subtests, *ast.Block:
+		return false
+	}
+	return true
 }
 
 func emitIfCondition(v *ast.If) Doc {
@@ -2053,10 +1981,16 @@ func isInlineableBlockBody(b *ast.Block) bool {
 	if b == nil || len(b.Stmts) != 1 {
 		return false
 	}
-	if trailingHasComment(b.GetTrailing()) {
+	if trailingHasComment(b.GetTrailing()) || nodeHasLeadingComment(b.Stmts[0]) {
 		return false
 	}
-	return !hasTrailingLineComment(b.Stmts[0])
+	return !hasTrailingLineComment(b.Stmts[0]) && isInlineBranch(b.Stmts[0])
+}
+
+// nodeHasLeadingComment reports whether n carries a comment above it.
+func nodeHasLeadingComment(n ast.Node) bool {
+	ht, ok := n.(ast.HasTrivia)
+	return ok && trailingHasComment(ht.GetLeading())
 }
 
 // ifKeepsBroken reports whether an `if` the short form could write on one
@@ -2068,7 +2002,7 @@ func ifKeepsBroken(v *ast.If, inner Doc) bool {
 // blockKeepsBroken reports whether a block the short form could write on
 // one line (`if`, a pattern binding's `else`) keeps its broken form, as
 // keepsBrokenLines says for a list: its first statement starts on a line
-// below its `{`, and short, the short form, holds an element broken
+// below its header, and short, the short form, holds an element broken
 // whatever the width.
 func blockKeepsBroken(b *ast.Block, short Doc) bool {
 	if b == nil || len(b.Stmts) == 0 {
@@ -2100,47 +2034,63 @@ func ifBranchesInlineable(v *ast.If) bool {
 // emitted via emitBlockForceBroken so HardLines force the layout regardless
 // of remaining width.
 func emitIfForceBroken(v *ast.If) Doc {
+	return Concat(emitIfBranchesBroken(v), HardLine(), Text("end"))
+}
+
+// emitIfBranchesBroken writes an if/else chain's branches in block form, each
+// branch's statements below its `then` or `else`, without the `end` that the
+// chain shares.
+func emitIfBranchesBroken(v *ast.If) Doc {
 	parts := []Doc{Text("if")}
 	if cond := emitIfCondition(v); cond != nil {
 		parts = append(parts, Text(" "), cond)
 	}
-	parts = append(parts, Text(" "), emitBlockForceBroken(v.Then))
+	parts = append(parts, Text(" then"), emitBodyLines(v.Then))
 	if v.Else != nil {
-		parts = append(parts, Text(" else "))
+		parts = append(parts, HardLine())
 		switch e := v.Else.(type) {
 		case *ast.If:
-			parts = append(parts, emitIfForceBroken(e))
+			parts = append(parts, Text("else "), emitIfBranchesBroken(e))
 		case *ast.Block:
-			parts = append(parts, emitBlockForceBroken(e))
+			parts = append(parts, Text("else"), emitBodyLines(e))
 		default:
 			// Defensive: shouldn't happen per parser invariants, but don't
 			// panic — fall back to the standard emit.
-			parts = append(parts, emit(v.Else))
+			parts = append(parts, Text("else"), Nest(defaultIndent, Concat(HardLine(), emit(v.Else))))
 		}
 	}
 	return Concat(parts...)
 }
 
-// emitBlockForceBroken renders a block body in always-broken form. Statements
-// are separated by HardLine so the layout engine cannot flatten; end-of-block
-// trivia (comments before `}`) is placed after the last stmt.
-//
-// This is deliberately separate from the Block case in `emit`: that path uses
-// `Line()` for single-stmt bodies so they can flatten when short. For the
-// broken if/else emit we want guaranteed multi-line layout regardless of
-// branch content length.
+// emitBlockForceBroken renders a body after its header in always-broken
+// form: its statements on the lines below, separated by HardLine so the
+// layout engine cannot flatten, end-of-block trivia (comments before `end`)
+// after the last statement, and `end`.
 func emitBlockForceBroken(b *ast.Block) Doc {
 	body := emitStatementDocs(b.Stmts)
 	return emitDocsBlockForceBroken(body, b.GetTrailing())
 }
 
 func emitStatementDocs(stmts []ast.Node) []Doc {
+	return emitStatementDocsTop(stmts, true)
+}
+
+// emitStatementDocsTop is emitStatementDocs; dropTop drops the blank lines
+// the source wrote above the first statement, among its comments too. A
+// blank line below a header is no blank line between statements: a body has
+// none at its top, as it had none after its `{`. The lines of a `//!` prompt
+// keep theirs, which stand for blank prompt lines.
+func emitStatementDocsTop(stmts []ast.Node, dropTop bool) []Doc {
 	if len(stmts) == 0 {
 		return nil
 	}
 	items := make([]statementItem, len(stmts))
 	for i, s := range stmts {
 		items[i] = newStatementItem(s, emit(s))
+	}
+	if ht, ok := stmts[0].(ast.HasTrivia); ok && dropTop && hasBlankTrivia(ht.GetLeading()) {
+		items[0].full = emitWithTriviaParts(items[0].doc, withoutBlankTrivia(ht.GetLeading()), outerTrailing(stmts[0], ht))
+		items[0].authorBlank = false
 	}
 	return []Doc{emitStatementSequence(items)}
 }
@@ -2285,27 +2235,53 @@ func isPipeExpr(n ast.Node) bool {
 	return ok && pipe.Op == "|>"
 }
 
+// emitDocsBlockForceBroken writes a body after its header: parts, the
+// statements, indented on the lines below, and `end` at the header's
+// indentation, with endTrivia, the comments before `end`, above it. An
+// empty body is ` end` on the header's line.
 func emitDocsBlockForceBroken(parts []Doc, endTrivia []ast.Trivia) Doc {
+	if len(parts) == 0 && !trailingHasComment(endTrivia) {
+		return Text(" end")
+	}
+	return Concat(emitBodyLinesDocs(parts, endTrivia), HardLine(), Text("end"))
+}
+
+// emitBodyLinesDocs writes a body's statements, parts, on the lines below
+// its header, one indent in, with endTrivia after them: an `if` branch and an
+// arm's body, which the next branch, arm or `end` closes.
+func emitBodyLinesDocs(parts []Doc, endTrivia []ast.Trivia) Doc {
 	if len(parts) == 0 {
 		if len(endTrivia) == 0 {
-			return Text("{}")
+			return Nil()
 		}
-		return Concat(
-			Text("{"),
-			Nest(defaultIndent, emitEndTrivia(endTrivia)),
-			HardLine(),
-			Text("}"),
-		)
+		// Only comments: emitEndTrivia starts its own line.
+		return Nest(defaultIndent, emitEndTrivia(endTrivia))
 	}
 	if len(endTrivia) > 0 {
 		parts = append(parts, emitEndTrivia(endTrivia))
 	}
-	return Concat(
-		Text("{"),
-		Nest(defaultIndent, Concat(HardLine(), Concat(parts...))),
-		HardLine(),
-		Text("}"),
-	)
+	return Nest(defaultIndent, Concat(HardLine(), Concat(parts...)))
+}
+
+// emitBodyLines is emitBodyLinesDocs for a block.
+func emitBodyLines(b *ast.Block) Doc {
+	return emitBodyLinesDocs(emitStatementDocs(b.Stmts), b.GetTrailing())
+}
+
+// emitDeclBody writes a declaration's body, its members one per line below
+// the header and `end`, or ` end` when it has none.
+func emitDeclBody(elems []Doc, endTrivia []ast.Trivia) Doc {
+	body := make([]Doc, 0, len(elems)*2)
+	for _, e := range elems {
+		body = append(body, HardLine(), e)
+	}
+	if len(endTrivia) > 0 {
+		body = append(body, emitEndTrivia(endTrivia))
+	}
+	if len(elems) == 0 && !trailingHasComment(endTrivia) {
+		return Text(" end")
+	}
+	return Concat(Nest(defaultIndent, Concat(body...)), HardLine(), Text("end"))
 }
 
 // maxCompoundDepth is the depth at which a Map/List/struct-shaped
@@ -2382,22 +2358,14 @@ func compoundDepth(n ast.Node) int {
 		}
 		return 1 + d
 	case *ast.ListLit:
-		d := 0
-		for _, it := range v.Items {
-			if c := compoundDepth(it); c > d {
-				d = c
-			}
+		if len(v.Spreads) > 0 && v.TypeName == nil {
+			// `[head, ..tail]` is cons-shaped and conventionally short, so it
+			// is no compound level and passes no depth through: a struct
+			// holding one stays on one line when it fits. It still breaks
+			// for width, and stays broken when its author broke it after
+			// `[`.
+			return 0
 		}
-		return 1 + d
-	case *ast.VectorLit:
-		d := 0
-		for _, it := range v.Operands() {
-			if c := compoundDepth(it); c > d {
-				d = c
-			}
-		}
-		return 1 + d
-	case *ast.SetLit:
 		d := 0
 		for _, it := range v.Operands() {
 			if c := compoundDepth(it); c > d {
@@ -2445,7 +2413,7 @@ func compoundDepth(n ast.Node) int {
 		// `Some(x)`, `Ok(...)`, `String(s)`, generic calls — the call
 		// itself doesn't count as compound, but the inner payload's
 		// compound depth still drives the wrapping caller's decision
-		// (e.g. `Ok(%Obj{%Obj{%Obj{v}}})` should break the Obj chain).
+		// (e.g. `Ok(Obj{Obj{Obj{v}}})` should break the Obj chain).
 		d := 0
 		for _, a := range v.Args {
 			if c := compoundDepth(a); c > d {
@@ -2454,13 +2422,13 @@ func compoundDepth(n ast.Node) int {
 		}
 		return d
 	case *ast.EnumPattern:
-		// `Some(x)` / `Ok(%Obj{...})` etc. — payload pattern is one node.
+		// `Some(x)` / `Ok(Obj{...})` etc. — payload pattern is one node.
 		return compoundDepth(v.Payload)
 	case *ast.AsPattern:
-		// `%Obj{...} as o` — the name adds no level.
+		// `Obj{...} as o` — the name adds no level.
 		return compoundDepth(v.Pattern)
 	case *ast.OrPattern:
-		// `%Obj{...} or %Obj{...}` — the deepest alternative's level.
+		// `Obj{...} or Obj{...}` — the deepest alternative's level.
 		d := 0
 		for _, alt := range v.Alternatives {
 			if c := compoundDepth(alt); c > d {
@@ -2530,8 +2498,8 @@ func bracedList(open, close string, elems []Doc, lastComma bool) Doc {
 }
 
 // emitStructLit renders a struct literal, nominal (`User{...}`) or with no
-// type name (`.{...}`). Field punning — where the parser synthesizes
-// Value=Ident{Name:FieldName} — is re-emitted as just the field name.
+// type name (`{...}`). Field punning, where the parser synthesizes
+// Value=Ident{Name:FieldName}, is re-emitted as `name:`.
 //
 // Width-based, except that a literal whose source breaks the line after
 // its `{` stays broken even when it would fit flat (brokenAfterOpen).
@@ -2568,7 +2536,7 @@ func emitStructLit(v *ast.StructLit) Doc {
 
 // emitPositionalValue writes a struct literal's value with no field name. A
 // parenthesized name, `User{(age)}`, keeps one pair of parentheses:
-// emitGroupedExpr drops them around an identifier, and `User{age}` puns
+// emitGroupedExpr drops them around an identifier, and `User{age:}` puns
 // the field `age`, a different program.
 func emitPositionalValue(n ast.Node) Doc {
 	g, ok := n.(*ast.GroupedExpr)
@@ -2654,6 +2622,13 @@ func fieldValueIsPun(f ast.StructFieldVal) bool {
 	return ok && id.Name == f.Name
 }
 
+// argValueIsPun reports whether a named argument's value is exactly its own
+// name, `status: status`, which is written `status:`, as fieldValueIsPun
+// decides for a struct field.
+func argValueIsPun(a *ast.NamedArg) bool {
+	return fieldValueIsPun(ast.StructFieldVal{Name: a.Name, Value: a.Value})
+}
+
 // patternFieldIsPun reports whether a struct pattern field's pattern is a
 // name pattern for the field's own name with no comment, as `t: (t)` parses.
 func patternFieldIsPun(f ast.StructPatternField) bool {
@@ -2669,13 +2644,13 @@ func nodeHasDangling(n ast.Node) bool {
 }
 
 // emitStructFieldValWithLeading renders one struct-literal field with
-// its leading-comment block above. Punning is preserved: a value that is
-// the field's own name is written as the name alone.
+// its leading-comment block above. A value that is the field's own name is
+// written punned, `name:`.
 func emitStructFieldValWithLeading(f ast.StructFieldVal) Doc {
 	parts := []Doc{}
 	parts = append(parts, emitLeadingComments(withoutBlankTrivia(f.LeadingComments))...)
 	if fieldValueIsPun(f) {
-		parts = append(parts, Text(f.Name))
+		parts = append(parts, Text(f.Name+":"))
 		return Concat(parts...)
 	}
 	parts = append(parts, Text(f.Name), Text(": "), emit(f.Value))
@@ -2683,35 +2658,27 @@ func emitStructFieldValWithLeading(f ast.StructFieldVal) Doc {
 }
 
 // emitCase renders a case expression. It always breaks, one arm per line,
-// and lays out each arm on its own:
+// and lays the arms out together in one of two ways:
 //
-//   - An arm that fits on its line as `<pattern> -> <body>`, and whose body
-//     is not a block or a triple-quoted literal, stays on that line.
+//   - Flat, when every arm fits on its line as `<pattern> -> <body>` and no
+//     arm is a block: the arms sit on consecutive lines with no blank line
+//     between them.
 //
-//   - Any other arm breaks: a block body keeps `-> {` on the pattern's line
-//     with the block always broken, even around one statement, and so does
-//     a triple-quoted body its `"""`; every other body goes on the next
-//     line, one indent in.
+//   - Broken, otherwise: every arm puts its body on the lines below its
+//     `->`, one indent in, and one blank line separates every two arms:
 //
-// A broken arm has a blank line before and after it, as a statement that
-// spans lines does in a block, and one-line arms sit on consecutive lines:
+//     case <scrutinee>
+//     <pattern> [when <guard>] ->
+//     <body>
 //
-//	case <scrutinee> {
-//	    <pattern> -> <body>
-//	    <pattern> -> <body>
+//     <pattern> ->
+//     <statements>
+//     end
 //
-//	    <pattern> [when <guard>] ->
-//	        <body that spans lines>
-//
-//	    <pattern> -> {
-//	        <statements>
-//	    }
-//	}
-//
-// The source's blank lines between arms are ignored, and a comment stays
-// directly above its arm. The arms start at a column known only at render
-// time, so the decision is made there (WithIndent), measuring each arm from
-// that column.
+// In both layouts the source's blank lines between arms are ignored, and a
+// comment stays directly above its arm. The arms start at a column known only
+// at render time, so the decision is made there (WithIndent), measuring each
+// arm from that column.
 func emitCase(v *ast.Case) Doc {
 	parts := []Doc{Text("case")}
 	if _, grouped := v.Value.(*ast.GroupedExpr); grouped && v.StagePrefix {
@@ -2719,56 +2686,65 @@ func emitCase(v *ast.Case) Doc {
 		// the value f() returns, and `|> case f() {` calls f.
 		parts = append(parts, Text(" "), emitStage(v.Value, false))
 	} else if v.Value != nil {
-		parts = append(parts, Text(" "), emitOperand(v.Value, 0, followsBrace))
+		parts = append(parts, Text(" "), emit(v.Value))
 	}
-	parts = append(parts, Text(" {"))
-	// Trivia sitting between the last arm and the closing `}` was attached
-	// to the Case node by the parser; it is emitted inside the braces.
+	if len(v.Branches) == 0 && !trailingHasComment(v.GetTrailing()) {
+		return Concat(append(parts, Text(" end"))...)
+	}
+	// Trivia sitting between the last arm and the `end` was attached to the
+	// Case node by the parser; it is emitted above the `end`.
 	parts = append(parts,
 		Nest(defaultIndent, emitCaseArms(v.Branches, v.GetTrailing())),
 		HardLine(),
-		Text("}"),
+		Text("end"),
 	)
 	return Concat(parts...)
 }
 
 // emitCaseArms lays out case arms, each on its own line after a HardLine,
-// followed by endTrivia, the comments between the last arm and the `}`.
-// An arm that fits on its line, with no block or triple-quoted body, stays
-// on it (caseArmFits); any other arm breaks, with a blank line between it
-// and each neighbour.
+// followed by endTrivia, the comments between the last arm and the `end`,
+// at the last arm's body's indent when that body is below its `->`.
+// When every arm fits on its line and none has a block or triple-quoted body,
+// the arms sit on consecutive lines; otherwise each arm breaks and a blank
+// line separates them.
 func emitCaseArms(branches []ast.CaseBranch, endTrivia []ast.Trivia) Doc {
 	return WithIndent(func(indent, width int) Doc {
-		oneLine := make([]bool, len(branches))
+		flat := true
 		for i := range branches {
-			oneLine[i] = caseArmFits(&branches[i], width-indent)
+			b := &branches[i]
+			// A block or triple-quoted body spans lines, as a block does:
+			// every arm breaks, and blank lines separate them.
+			if _, isBlock := b.Body.(*ast.Block); isBlock || isTripleLiteral(b.Body) || armBodyHasComments(b.Body) {
+				flat = false
+				break
+			}
+			rem := width - indent
+			line := caseArmLine(b, false)
+			if caseArmKeepsBroken(b, line) || !fitsWalk(line, &rem, false) {
+				flat = false
+				break
+			}
 		}
 		body := make([]Doc, 0, len(branches)*3)
 		for i := range branches {
-			if i > 0 && (!oneLine[i] || !oneLine[i-1]) {
+			if i > 0 && !flat {
 				body = append(body, HardLine())
 			}
 			b := &branches[i]
-			body = append(body, HardLine(), emitCaseArmTrivia(b, caseArmLine(b, !oneLine[i])))
+			body = append(body, HardLine(), emitCaseArmTrivia(b, caseArmLine(b, !flat)))
 		}
 		if len(endTrivia) > 0 {
-			body = append(body, emitEndTrivia(endTrivia))
+			if n := len(branches); n > 0 && !flat && !isTripleLiteral(branches[n-1].Body) {
+				// The last arm's body is on the lines below its `->`, and
+				// the parser reads the lines up to `end` as that body's: a
+				// comment there is the body's last line, at its indent.
+				body = append(body, Nest(defaultIndent, emitEndTrivia(endTrivia)))
+			} else {
+				body = append(body, emitEndTrivia(endTrivia))
+			}
 		}
 		return Concat(body...)
 	})
-}
-
-// caseArmFits reports whether arm b stays on one line, `<pattern> ->
-// <body>`, in rem columns. A block or triple-quoted body spans lines, as a
-// block does, and so does a body that keeps its break below the `->`
-// (caseArmKeepsBroken) or holds one that breaks whatever the width, such as
-// a stacked pipeline.
-func caseArmFits(b *ast.CaseBranch, rem int) bool {
-	if _, isBlock := b.Body.(*ast.Block); isBlock || isTripleLiteral(b.Body) {
-		return false
-	}
-	line := caseArmLine(b, false)
-	return !caseArmKeepsBroken(b, line) && fitsWalk(line, &rem, false)
 }
 
 // caseArmKeepsBroken reports whether arm b keeps its body on the line below
@@ -2784,8 +2760,8 @@ func caseArmKeepsBroken(b *ast.CaseBranch, line Doc) bool {
 }
 
 // caseArmLine renders one arm, `<pattern> [when <guard>] -> <body>`, without
-// its comments. A block body follows `-> ` on the pattern's line and is always
-// broken, its statements on the lines below. A triple-quoted or multi-line
+// its comments. A block body goes below the `->`, its statements one indent
+// in. A triple-quoted or multi-line
 // raw literal follows `-> ` on the pattern's line too, its body one level in
 // (bodyFromOpenerLine). Any other body follows on the same line, or with
 // broken on the next line one indent in.
@@ -2795,14 +2771,31 @@ func caseArmLine(b *ast.CaseBranch, broken bool) Doc {
 		prefix = Concat(prefix, Text(" when "), emit(b.Guard))
 	}
 	if block, isBlock := b.Body.(*ast.Block); isBlock {
-		// Always a full block, even around one statement, so every broken
-		// arm's body starts on the line after its pattern, one indent in.
-		return Concat(prefix, Text(" -> "), emitBlockForceBroken(block))
+		// Every broken arm's body starts on the line after its pattern, one
+		// indent in.
+		return Concat(prefix, Text(" ->"), emitBodyLines(block))
+	}
+	if armBodyHasComments(b.Body) {
+		// The body below the `->` carries its own comments (a jump the
+		// parser took as the arm's body, parser.singleBody), which stay
+		// on its lines.
+		return Concat(prefix, Text(" ->"), Nest(defaultIndent, Concat(HardLine(), emitWithTriviaNoLeadingBlank(b.Body))))
 	}
 	if broken && !isTripleLiteral(b.Body) {
 		return Concat(prefix, Text(" ->"), Nest(defaultIndent, Concat(HardLine(), emitLambdaSingleExprBody(b.Body))))
 	}
 	return Concat(prefix, Text(" -> "), emit(b.Body))
+}
+
+// armBodyHasComments reports whether an arm's body, other than a block,
+// holds comments of its own: `-> continue // why` written below the `->`,
+// which the parser makes the body itself with the comment on it.
+func armBodyHasComments(body ast.Node) bool {
+	if _, isBlock := body.(*ast.Block); isBlock {
+		return false
+	}
+	ht, ok := body.(ast.HasTrivia)
+	return ok && (trailingHasComment(ht.GetLeading()) || trailingHasComment(ht.GetTrailing()))
 }
 
 // emitCaseArmTrivia surrounds an arm with its own comments: leading comments
@@ -2876,10 +2869,9 @@ func emitCall(v *ast.Call) Doc {
 				}
 				parts = append(parts,
 					emitLambdaHeader(lam),
-					Text(" {"),
 					Nest(defaultIndent, Concat(HardLine(), emitLambdaSingleExprBody(expr))),
 					HardLine(),
-					Text("})"),
+					Text("end)"),
 				)
 				return Concat(callee, Concat(parts...))
 			}
@@ -2896,26 +2888,24 @@ func emitCall(v *ast.Call) Doc {
 			}
 
 			// Single-expression tail lambda: when the body does not fit on
-			// the parameters' line it moves below them in braces, and the
-			// call closes `})` as a block-bodied tail lambda's does. One
-			// Group governs the whole thing so the body break and the braces
-			// move together: flat stays bare, broken is a block.
+			// the parameters' line it moves below them, and the call closes
+			// `end)` as a block-bodied tail lambda's does. One Group governs
+			// the whole thing so the body break and the `end` move together:
+			// flat stays bare, broken is a block.
 			parts := []Doc{Text("(")}
 			for _, a := range leading {
 				parts = append(parts, emitCallArg(a), Text(", "))
 			}
 			parts = append(parts,
 				emitLambdaHeader(lam),
-				openBraceWhenBroken(),
 				Nest(defaultIndent, Concat(Line(), emit(expr))),
-				closeBraceWhenBroken(),
+				endWhenBroken(),
 				Text(")"),
 			)
 			return Concat(callee, Group(Concat(parts...)))
 		}
-		// Block-bodied tail lambda: hug the `)` — the `}` is the lambda's own
-		// block close, so `})` is the standard close-then-paren (matches Rust,
-		// Go, JS/Prettier).
+		// Block-bodied tail lambda: hug the `)` — the `end` is the lambda's
+		// own, so `end)` closes the body and then the call.
 		parts := []Doc{Text("(")}
 		for _, a := range leading {
 			parts = append(parts, emitCallArg(a), Text(", "))
@@ -2959,18 +2949,18 @@ func lambdaSingleExpr(lam *ast.Lambda) (ast.Node, bool) {
 	return es.Expr, true
 }
 
-// authoredLambdaBlock reports whether lam's body was written in braces. The
-// parser wraps a bare body in a Block with no closing line.
+// authoredLambdaBlock reports whether lam's body was written below its `->`,
+// closed by `end`. The parser wraps a one-line body in a Block with no
+// closing line.
 func authoredLambdaBlock(lam *ast.Lambda) bool {
 	return lam.Body != nil && lam.Body.EndLine != 0
 }
 
-// lambdaKeepsBlock reports whether lam's body was written as a braced block
-// whose first statement starts on a line below the `{`. Such a body stays a
-// block with its statements on their own lines, however short: the line
-// break after the `{` is the author's, as a break after an object
-// literal's `{` is in Prettier. A braced body that starts on the `{` line
-// (`fn x -> { x + 1 }`) is laid out as a bare body would be.
+// lambdaKeepsBlock reports whether lam's body was written as a block, below
+// its `->` and closed by `end`. Such a body stays a block with its
+// statements on their own lines, however short: the line break after the
+// `->` is the author's, as a break after an object literal's `{` is in
+// Prettier.
 func lambdaKeepsBlock(lam *ast.Lambda) bool {
 	return authoredLambdaBlock(lam) && len(lam.Body.Stmts) > 0 &&
 		nodeStartLine(lam.Body.Stmts[0]) > lam.Body.Line
@@ -3069,9 +3059,9 @@ func emitLambda(v *ast.Lambda) Doc {
 	return emitLambdaKeepingBraces(v, false)
 }
 
-// emitThen renders a `then` stage. Its lambda keeps the braces it was
-// written with: the body of a bare `then` lambda ends at the next `|>`, so
-// braces around a body that holds a pipe cannot go.
+// emitThen renders a `then` stage. Its lambda keeps the block it was
+// written with: the body of a one-line `then` lambda ends at the next `|>`,
+// so a block body that holds a pipe cannot become one line.
 func emitThen(v *ast.Then) Doc {
 	if v.Capture != nil {
 		return Concat(Text("then "), emit(v.Capture))
@@ -3094,7 +3084,7 @@ func isQuestionStage(stage ast.Node) bool {
 	return ok && try.Expr == nil
 }
 
-// emitTap renders a `tap` stage, whose lambda keeps its braces as a `then`
+// emitTap renders a `tap` stage, whose lambda keeps its block as a `then`
 // stage's does.
 func emitTap(v *ast.Tap) Doc {
 	if v.Capture != nil {
@@ -3106,43 +3096,30 @@ func emitTap(v *ast.Tap) Doc {
 	return Concat(Text("tap "), emitLambdaKeepingBraces(v.Lambda, true))
 }
 
-// emitLambdaKeepingBraces is emitLambda. With keepBraces, a one-expression
-// body written in braces keeps them; otherwise only a braced pipe body does.
-func emitLambdaKeepingBraces(v *ast.Lambda, keepBraces bool) Doc {
+// emitLambdaKeepingBraces is emitLambda. With keepBlock, a one-expression
+// body written as a block below the `->` stays one; otherwise only a block
+// body that holds a pipe does.
+func emitLambdaKeepingBraces(v *ast.Lambda, keepBlock bool) Doc {
 	header := emitLambdaHeader(v)
 
 	body := v.Body
-	if body == nil {
-		return Concat(header, Text(" {}"))
+	if body == nil || len(body.Stmts) == 0 && !trailingHasComment(body.GetTrailing()) {
+		return Concat(header, Text(" end"))
 	}
 	if len(body.Stmts) == 0 {
 		// A body holding only comments keeps them, on their own lines.
-		if trailingHasComment(body.GetTrailing()) {
-			return Concat(
-				header,
-				Text(" {"),
-				Nest(defaultIndent, emitEndTrivia(body.GetTrailing())),
-				HardLine(),
-				Text("}"),
-			)
-		}
-		return Concat(header, Text(" {}"))
+		return emitLambdaBlock(header, body)
 	}
 
-	// Single-statement body:
-	//   * ExprStmt — emit bare expression `fn params -> expr`, flat-or-break.
-	//   * Other stmt (break/return/continue) — the parser required a block
-	//     wrapper, so emit as `fn params -> { stmt }` flat-or-break.
 	if es, ok := soleExprStmt(body); ok && !statementOrBlockHasComment(body, es) && lambdaExprBodyShouldBreak(es.Expr) {
 		// An if that breaks or continues always goes below the
-		// parameters, broken, in braces; whether the author wrote the
-		// braces does not change it.
+		// parameters, broken; whether the author wrote it there does not
+		// change it.
 		return Concat(
 			header,
-			Text(" {"),
 			Nest(defaultIndent, Concat(HardLine(), emitLambdaSingleExprBody(es.Expr))),
 			HardLine(),
-			Text("}"),
+			Text("end"),
 		)
 	}
 	if lambdaKeepsBlock(v) {
@@ -3150,23 +3127,8 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBraces bool) Doc {
 	}
 	if len(body.Stmts) == 1 {
 		if es, ok := body.Stmts[0].(*ast.ExprStmt); ok {
-			if statementOrBlockHasComment(body, es) {
+			if statementOrBlockHasComment(body, es) || isBlockExpr(es.Expr) {
 				return emitLambdaBlock(header, body)
-			}
-			if isBlockExpr(es.Expr) || authoredLambdaBlock(v) && (keepBraces || isPipeExpr(es.Expr)) {
-				// Braces the author wrote around a pipe stay. A lambda body
-				// runs to the end of its expression, so they are not
-				// needed there, but removing them is not the formatter's
-				// call. A `then` lambda's braces always stay, since its bare
-				// body ends at the next `|>`. Braces around a body that is
-				// one block always stay (isBlockExpr).
-				return Group(Concat(
-					header,
-					Text(" {"),
-					Nest(defaultIndent, Concat(Line(), emit(es.Expr))),
-					Line(),
-					Text("}"),
-				))
 			}
 			if isStructLitExpr(es.Expr) || isTripleLiteral(es.Expr) {
 				// A struct literal body stays on the parameters' line and
@@ -3177,30 +3139,26 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBraces bool) Doc {
 				// its body one level in (bodyFromOpenerLine).
 				return Concat(header, Text(" "), emit(es.Expr))
 			}
-			// A body too long for the parameters' line moves below them as
-			// a braced block, as rustfmt writes a closure. Read back, that
-			// block starts below its `{`, so lambdaKeepsBlock keeps it on
-			// later runs.
+			// A body too long for the parameters' line moves below them,
+			// closed by `end`, as rustfmt writes a closure in a block. Read
+			// back, that body is a block (lambdaKeepsBlock), and stays one.
 			return Group(Concat(
 				header,
-				openBraceWhenBroken(),
 				Nest(defaultIndent, Concat(Line(), emit(es.Expr))),
-				closeBraceWhenBroken(),
+				endWhenBroken(),
 			))
 		}
-		if statementOrBlockHasComment(body, body.Stmts[0]) {
+		if !isInlineBranch(body.Stmts[0]) || statementOrBlockHasComment(body, body.Stmts[0]) {
 			return emitLambdaBlock(header, body)
 		}
 		return Group(Concat(
 			header,
-			Text(" {"),
 			Nest(defaultIndent, Concat(Line(), emitWithTrivia(body.Stmts[0]))),
-			Line(),
-			Text("}"),
+			endWhenBroken(),
 		))
 	}
 
-	// Multi-statement body: always break into `fn params -> {\n stmts \n}`.
+	// Multi-statement body: always below the parameters, closed by `end`.
 	return emitLambdaBlock(header, body)
 }
 
@@ -3214,14 +3172,11 @@ func soleExprStmt(body *ast.Block) (*ast.ExprStmt, bool) {
 	return es, ok && es.Expr != nil
 }
 
-// openBraceWhenBroken writes the ` {` that opens a lambda's one-expression
-// body when the enclosing Group breaks and the body moves below the
-// parameters, and nothing when the body stays on their line.
-func openBraceWhenBroken() Doc { return IfBroken(Nil(), Text(" {")) }
-
-// closeBraceWhenBroken closes what openBraceWhenBroken opened, on its own
-// line at the lambda's indentation.
-func closeBraceWhenBroken() Doc { return Concat(LineOrEmpty(), IfBroken(Nil(), Text("}"))) }
+// endWhenBroken closes a lambda's one-expression body with `end` on its own
+// line at the lambda's indentation when the enclosing Group breaks and the
+// body moves below the parameters, and writes nothing when the body stays
+// on their line.
+func endWhenBroken() Doc { return Concat(LineOrEmpty(), IfBroken(Nil(), Text("end"))) }
 
 // isStructLitExpr reports whether n is a struct literal, in any number of
 // parentheses.
@@ -3296,17 +3251,7 @@ func nodeContainsControlFlow(n ast.Node) bool {
 }
 
 func emitLambdaBlock(header Doc, body *ast.Block) Doc {
-	bodyStmts := emitStatementDocs(body.Stmts)
-	if len(body.GetTrailing()) > 0 {
-		bodyStmts = append(bodyStmts, emitEndTrivia(body.GetTrailing()))
-	}
-	return Concat(
-		header,
-		Text(" {"),
-		Nest(defaultIndent, Concat(HardLine(), Concat(bodyStmts...))),
-		HardLine(),
-		Text("}"),
-	)
+	return Concat(header, emitBlockForceBroken(body))
 }
 
 func statementOrBlockHasComment(body *ast.Block, stmt ast.Node) bool {
@@ -3545,7 +3490,7 @@ func emitPatternNode(n ast.Node) Doc {
 				// `name: (name)`: the parser drops the parentheses and
 				// keeps the name as a pattern, which `name: name` would
 				// read back as a binding, so pun it now.
-				elems = append(elems, Text(f.Name))
+				elems = append(elems, Text(f.Name+":"))
 			case f.Pattern != nil:
 				// Value match: `name: <pattern>`.
 				elems = append(elems, Concat(Text(f.Name), Text(": "), emitGroupedPattern(f.Pattern)))
@@ -3553,8 +3498,8 @@ func emitPatternNode(n ast.Node) Doc {
 				// Rename: `name: binding`.
 				elems = append(elems, Concat(Text(f.Name), Text(": "), Text(f.Binding)))
 			default:
-				// Field punning: just the name.
-				elems = append(elems, Text(f.Name))
+				// Field punning: the name and its colon, `name:`.
+				elems = append(elems, Text(f.Name+":"))
 			}
 		}
 		first := 0
@@ -3659,12 +3604,8 @@ func emitPatternNode(n ast.Node) Doc {
 			return emitCommentedList(open, "]", elems, cs, v.EndTrivia)
 		}
 		return emitBracedList(open, "]", elems)
-	case *ast.VectorPattern:
-		return emitVectorPattern(v)
-	case *ast.SetPattern:
-		return emitSetPattern(v)
 	case *ast.MapPattern:
-		open := shapeOpen("%", v.TypeName, "{")
+		open := shapeOpen("", v.TypeName, "{")
 		hasEndTrivia := trailingHasComment(v.EndTrivia)
 		elems := make([]Doc, 0, len(v.Entries))
 		for _, e := range v.Entries {
@@ -3787,9 +3728,6 @@ const (
 	followsOther follower = iota
 	// followsLess: a `<`, which makes a name a call with type arguments.
 	followsLess
-	// followsBrace: the `{` opening a case's arms, which makes a type name
-	// a struct literal's head.
-	followsBrace
 )
 
 // emitBinary writes a binary operation other than a pipe. next is what
@@ -3885,7 +3823,7 @@ func endsInBrokenLiteral(n ast.Node) bool {
 			n = v.Right
 		case *ast.Is:
 			n = v.Pattern
-		case *ast.StructLit, *ast.ListLit, *ast.VectorLit, *ast.SetLit, *ast.MapLit, *ast.StructPattern:
+		case *ast.StructLit, *ast.ListLit, *ast.MapLit, *ast.StructPattern:
 			return true
 		default:
 			return false
@@ -4012,11 +3950,11 @@ func hasDangling(n ast.Node) bool {
 }
 
 // opensBracket reports whether n is a literal written in brackets or braces
-// (a list, vector, set, map, tuple or struct literal), which breaks inside
+// (a bracket, map, tuple or struct literal), which breaks inside
 // them when it is too long.
 func opensBracket(n ast.Node) bool {
 	switch n.(type) {
-	case *ast.ListLit, *ast.ListSpreadLit, *ast.VectorLit, *ast.SetLit, *ast.MapLit, *ast.TupleLit, *ast.StructLit:
+	case *ast.ListLit, *ast.MapLit, *ast.TupleLit, *ast.StructLit:
 		return true
 	}
 	return false
@@ -4052,10 +3990,12 @@ func emitUnary(v *ast.Unary, next follower) Doc {
 //     followed by `<T>(` as a call with type arguments, so dropping the
 //     parentheses from `(f) < Dog > (x)`, two comparisons, writes the call
 //     `f<Dog>(x)`.
-//   - followsBrace: the parser reads a struct literal's head followed by
-//     `{` as the literal (braceAttaches), so dropping them from
-//     `case (Shape) {` writes `case Shape {`, which opens a literal.
 func emitOperand(child ast.Node, minPrec int, next follower) Doc {
+	if ifn, ok := child.(*ast.If); ok {
+		// An inline `if`'s `else` branch extends as far right as it can, so
+		// as an operand it goes in parentheses.
+		return emitIfParens(ifn, true)
+	}
 	if b, ok := child.(*ast.Binary); ok && precedence(b.Op) < minPrec {
 		return Concat(Text("("), emit(child), Text(")"))
 	}
@@ -4077,21 +4017,9 @@ func emitOperand(child ast.Node, minPrec int, next follower) Doc {
 		for g, ok := inner.(*ast.GroupedExpr); ok && g.Expr != nil; g, ok = inner.(*ast.GroupedExpr) {
 			inner = g.Expr
 		}
-		if next == followsBrace {
-			if braceAttaches(inner) {
-				return withDangling(c, Concat(Text("("), emit(inner), Text(")")))
-			}
-			break
-		}
 		switch inner.(type) {
 		case *ast.Ident, *ast.FieldAccess, *ast.TypeIdent:
 			return withDangling(c, Concat(Text("("), emit(inner), Text(")")))
-		}
-	case *ast.FieldAccess, *ast.TypeIdent, *ast.DotVariant:
-		// A path whose receiver had the parentheses, `(m).Shape`, is
-		// written bare as `m.Shape`, so they go around all of it.
-		if next == followsBrace && braceAttaches(c) {
-			return Concat(Text("("), emit(child), Text(")"))
 		}
 	case *ast.Binary:
 		if c.Op != "|>" {
@@ -4167,35 +4095,6 @@ func captureParens(g *ast.GroupedExpr) Doc {
 	return Concat(Text("("), emit(g.Expr), Text(")"))
 }
 
-// braceAttaches reports whether n, written as the formatter writes it with
-// no parentheses around it, ends in a struct literal's head, so a `{`
-// straight after it opens a literal where the parser allows one (a case's
-// subject). The heads are a type name (`Shape`), a dot variant (`.Circle`)
-// and a path of type names after a name (`Shape.Circle`, `shapes.Circle`,
-// `shapes.Shape.Circle`). `shapes.circle.Radius` and `f(x).Shape` are field
-// reads, which a `{` does not join.
-func braceAttaches(n ast.Node) bool {
-	switch v := stripDroppedParens(n).(type) {
-	case *ast.TypeIdent, *ast.DotVariant:
-		return true
-	case *ast.FieldAccess:
-		return isTypeName(v.Field) && typePathBase(v.Object)
-	}
-	return false
-}
-
-// typePathBase reports whether n, the receiver of a type-name field, starts
-// a struct literal's head: a name, or a path of type names after one.
-func typePathBase(n ast.Node) bool {
-	switch v := stripDroppedParens(n).(type) {
-	case *ast.Ident, *ast.TypeIdent:
-		return true
-	case *ast.FieldAccess:
-		return isTypeName(v.Field) && typePathBase(v.Object)
-	}
-	return false
-}
-
 // stripDroppedParens is n without the parentheses emitGroupedExpr drops
 // around it.
 func stripDroppedParens(n ast.Node) ast.Node {
@@ -4209,11 +4108,6 @@ func stripDroppedParens(n ast.Node) ast.Node {
 		}
 		n = g.Expr
 	}
-}
-
-// isTypeName reports whether a field's name lexes as a type name.
-func isTypeName(id *ast.Ident) bool {
-	return id != nil && id.Name != "" && unicode.IsUpper(rune(id.Name[0]))
 }
 
 // tryOperandPrecedence is the binding level of `?`'s operand (the
@@ -4246,7 +4140,7 @@ func emitFuncDef(v *ast.FuncDef) Doc {
 
 	parts = append(parts, emitAttachedTests(v.AttachedTests)...)
 
-	parts = append(parts, emitFuncDefHeader(v), Text(" "), emitBlockForceBroken(v.Body))
+	parts = append(parts, emitFuncDefHeader(v), emitBlockForceBroken(v.Body))
 	return Concat(parts...)
 }
 
@@ -4364,14 +4258,14 @@ func emitFuncDefParam(p ast.Param) Doc {
 
 // emitTypeExpr renders a TypeExpr as a Doc. Each type-expression node has
 // its own case so nested anon structs participate in the width budget no
-// matter how deeply they sit (`List<.{...}>`, `(String, .{...})`,
-// `(Int, .{...}) -> R`, `mod.Foo<.{...}>`).
+// matter how deeply they sit (`List<{...}>`, `(String, {...})`,
+// `(Int, {...}) -> R`, `mod.Foo<{...}>`).
 //
 // Containers (GenericType, FuncType, QualifiedType) are intentionally
 // *not* wrapped in their own Group — they render as flat text glue with
 // recursive emitTypeExpr calls. This keeps the "outer container stays
 // inline, inner anon struct flows multi-line" shape — same approach
-// Prettier takes for `Promise<.{...}>` in TypeScript. Long containers of
+// Prettier takes for `Promise<{...}>` in TypeScript. Long containers of
 // only-simple types (`(VeryLongTypeA, VeryLongTypeB, ...)`) therefore
 // don't auto-break at the container; they spill, same as before this
 // change. The escape hatch when that bites is a `typealias` for the
@@ -4410,7 +4304,7 @@ func emitTypeExprNode(t ast.TypeExpr) Doc {
 		return Concat(Text(n.Module), Text("."), emitTypeExpr(n.Member))
 	case *ast.DotVariantType:
 		// Dot-leading variant shorthand used in TypeName slots of
-		// literal-attach forms (`%.Obj{"k" => v}`, `.Arr[...]`, `.Rect{w, h}`)
+		// literal-attach forms (`.Obj{"k" => v}`, `.Arr[...]`, `.Rect{w:, h:}`)
 		// and patterns. Same round-trip-as-written semantics as DotVariant.
 		return Concat(Text("."), Text(n.Name))
 	case *ast.GenericType:
@@ -4496,11 +4390,11 @@ func emitTypeExprNode(t ast.TypeExpr) Doc {
 // shared brace-list helper since the layout is identical to a struct-
 // shaped enum variant payload.
 func emitAnonStructType(t *ast.AnonStructType) Doc {
-	return emitBracedStructFieldsWithEndTrivia(".{", t.Fields, t.EndTrivia)
+	return emitBracedStructFieldsWithEndTrivia("{", t.Fields, t.EndTrivia)
 }
 
 // emitBracedStructFieldsWithEndTrivia renders a braced list of struct
-// fields after open, `.{` for an anonymous struct type and `{` for a
+// fields after open, `{` for an anonymous struct type and `{` for a
 // struct-shaped enum variant. Width-based, with a preserve-user-multi-line escape:
 //
 //	flat:                .{a: Int, b: String}
@@ -4519,7 +4413,7 @@ func emitAnonStructType(t *ast.AnonStructType) Doc {
 // Trailing comma appears in any broken form (matches named struct
 // declarations). Empty body renders as `{}` for resilience.
 //
-// Used by both anonymous struct type expressions (`fn f(p: .{a: Int}) -> R`)
+// Used by both anonymous struct type expressions (`fn f(p: {a: Int}) -> R`)
 // and struct-shaped enum variant payloads (`HttpError {status: Int, ...}`)
 // so the brace-bounded-fields layout stays identical wherever it appears.
 //
@@ -4867,66 +4761,6 @@ func emitTypeParam(p ast.TypeParam) Doc {
 		return Text(p.Name)
 	}
 	return Concat(Text(p.Name), Text(" = "), emitTypeExpr(p.Default))
-}
-
-// emitMultilineBracedListWithEndTrivia renders a declaration body
-// (struct/enum/interface/impl/extend members) as an always-broken braced
-// block:
-//
-//	<open>{
-//	  elem1,
-//	  elem2,
-//	  ...
-//	<close>}
-//
-// Unlike emitBracedList, this never flattens: declaration bodies are
-// conventionally multi-line even when short. If `comma` is true each element
-// is followed by `,`; when false the elements stand alone (used for method
-// declarations where trailing comma would be syntactically invalid). Empty
-// body renders as `<open>{}<close>`.
-//
-// endTrivia is rendered between the last element (including the trailing
-// comma) and the closing delimiter. Used by struct / enum / interface
-// declarations to preserve trailing in-body comments captured by the
-// parser: the trivia renders on its own indented line via emitEndTrivia,
-// then the closing delimiter sits flush at the body indent.
-//
-// An empty element list with EndTrivia still renders the trivia block —
-// `pub interface Foo { // only trivia }` is well-formed and the formatter
-// must preserve it.
-func emitMultilineBracedListWithEndTrivia(open, close string, elems []Doc, comma bool, endTrivia []ast.Trivia) Doc {
-	if len(elems) == 0 {
-		if len(endTrivia) == 0 {
-			return Text(open + close)
-		}
-		return Concat(
-			Text(open),
-			Nest(defaultIndent, emitEndTrivia(endTrivia)),
-			HardLine(),
-			Text(close),
-		)
-	}
-	body := make([]Doc, 0, len(elems)*2+2)
-	for i, e := range elems {
-		body = append(body, HardLine())
-		body = append(body, e)
-		if comma && i < len(elems)-1 {
-			body = append(body, Text(","))
-		}
-	}
-	// Trailing comma on last element when requested.
-	if comma {
-		body = append(body, Text(","))
-	}
-	if len(endTrivia) > 0 {
-		body = append(body, emitEndTrivia(endTrivia))
-	}
-	return Concat(
-		Text(open),
-		Nest(defaultIndent, Concat(body...)),
-		HardLine(),
-		Text(close),
-	)
 }
 
 // emitStructField renders one struct field: `name: Type[ = default]`.
@@ -5382,14 +5216,13 @@ func emitStructDef(v *ast.StructDef) Doc {
 	}
 	parts = append(parts, Text("struct "), Text(v.Name), emitTypeParams(v.TypeParams))
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
-	parts = append(parts, Text(" "))
 
 	members := make([]Doc, 0, len(v.Fields)+len(v.Items))
 	for _, f := range v.Fields {
 		members = append(members, emitStructDeclField(f))
 	}
 	members = appendTypeBodyItems(members, v.Items)
-	parts = append(parts, emitMultilineBracedListWithEndTrivia("{", "}", members, false, v.EndTrivia))
+	parts = append(parts, emitDeclBody(members, v.EndTrivia))
 	return Concat(parts...)
 }
 
@@ -5460,14 +5293,13 @@ func emitEnumDef(v *ast.EnumDef) Doc {
 	}
 	parts = append(parts, Text("enum "), Text(v.Name), emitTypeParams(v.TypeParams))
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
-	parts = append(parts, Text(" "))
 
 	members := make([]Doc, 0, len(v.Variants)+len(v.Items))
 	for _, va := range v.Variants {
 		members = append(members, emitEnumDeclVariant(va))
 	}
 	members = appendTypeBodyItems(members, v.Items)
-	parts = append(parts, emitMultilineBracedListWithEndTrivia("{", "}", members, false, v.EndTrivia))
+	parts = append(parts, emitDeclBody(members, v.EndTrivia))
 	return Concat(parts...)
 }
 
@@ -5556,7 +5388,7 @@ func emitInterfaceMethod(m ast.InterfaceMethod) Doc {
 		return Concat(append(parts, trailing...)...)
 	}
 	if blk, ok := m.Body.(*ast.Block); ok {
-		parts = append(parts, sig, Text(" "), emitBlockForceBroken(blk))
+		parts = append(parts, sig, emitBlockForceBroken(blk))
 		return Concat(append(parts, trailing...)...)
 	}
 	parts = append(parts, sig, Text(" "), emit(m.Body))
@@ -5573,7 +5405,6 @@ func emitInterfaceDef(v *ast.InterfaceDef) Doc {
 	}
 	parts = append(parts, Text("interface "), Text(v.Name), emitTypeParams(v.TypeParams))
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
-	parts = append(parts, Text(" "))
 
 	members := make([]Doc, 0, len(v.Methods))
 	for i := range v.Methods {
@@ -5584,23 +5415,22 @@ func emitInterfaceDef(v *ast.InterfaceDef) Doc {
 		}
 		members = append(members, member)
 	}
-	parts = append(parts, emitMultilineBracedListWithEndTrivia("{", "}", members, false, v.EndTrivia))
+	parts = append(parts, emitDeclBody(members, v.EndTrivia))
 	return Concat(parts...)
 }
 
 // emitImplBlock renders an impl block. The top-level surface form is a single
 // interface and a single implementing type:
 //
-//	impl Iface for Type { ... }              // interface impl
-//	impl Iter for Box<T> where T: Bound { ... }   // constrained generic impl
+//	impl Iface for Type                      // interface impl, body, `end`
+//	impl Iter for Box<T> where T: Bound      // constrained generic impl
 //
 // The header reuses emitTypeParams for the `<...>` clause (no space before
 // `<`, matching `fn name<T>`). Items are the block's FuncDef / ExternFunc
 // declarations, each emitted with its own doc comments + decorators via
 // emit(); the multi-line braced body mirrors emitInterfaceDef so blank-line
-// separation and trailing trivia are handled identically. A truly empty
-// interface impl renders bodyless (`impl Iface for Type`); inherent impls and
-// comment-bearing empty blocks keep braces.
+// separation and trailing trivia are handled identically. An empty impl is
+// one line, `impl Iface for Type end`.
 func emitImplBlock(v *ast.ImplBlock) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
 	parts = append(parts, emitAttachedTests(v.AttachedTests)...)
@@ -5614,11 +5444,6 @@ func emitImplBlock(v *ast.ImplBlock) Doc {
 		parts = append(parts, Text("impl"), emitTypeParams(v.Generics), Text(" "), emitTypeExpr(v.Receiver))
 	}
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
-	parts = append(parts, Text(" "))
-
-	if v.Interface != nil && v.Receiver != nil && len(v.Items) == 0 && len(v.EndTrivia) == 0 {
-		return Concat(parts[:len(parts)-1]...)
-	}
 
 	members := make([]Doc, 0, len(v.Items))
 	for i, item := range v.Items {
@@ -5637,7 +5462,7 @@ func emitImplBlock(v *ast.ImplBlock) Doc {
 		}
 		members = append(members, d)
 	}
-	parts = append(parts, emitMultilineBracedListWithEndTrivia("{", "}", members, false, v.EndTrivia))
+	parts = append(parts, emitDeclBody(members, v.EndTrivia))
 	return Concat(parts...)
 }
 
@@ -5730,15 +5555,15 @@ func emitTypeDef(v *ast.TypeDef) Doc {
 	return Concat(parts...)
 }
 
-// emitOptionalTypeBody appends an optional `{ ... }` item body for internal or
-// legacy ASTs. Source `type` and `host type` declarations do not parse with
+// emitOptionalTypeBody appends an optional item body, closed by `end`, for
+// internal ASTs. Source `type` and `host type` declarations do not parse with
 // bodies anymore.
 func emitOptionalTypeBody(parts []Doc, hasBody bool, items []ast.Node, endTrivia []ast.Trivia) []Doc {
 	if !hasBody || (len(items) == 0 && len(endTrivia) == 0) {
 		return parts
 	}
 	members := appendTypeBodyItems(nil, items)
-	return append(parts, Text(" "), emitMultilineBracedListWithEndTrivia("{", "}", members, false, endTrivia))
+	return append(parts, emitDeclBody(members, endTrivia))
 }
 
 // emitOnceBinding renders `[pub ]once name: T = expr`. The value is laid
@@ -6061,27 +5886,47 @@ func importHasItemModifiers(v *ast.ImportStmt) bool {
 // Nest-indented, so a selective entry that itself overflows width still
 // breaks correctly under the block indent.
 func emitImportBlock(v *ast.ImportBlock) Doc {
+	blockHead := strings.TrimSpace(importKeyword(v.Pub))
 	if len(v.Entries) == 0 {
-		open := importKeyword(v.Pub) + "{"
 		if trailingHasComment(v.EndTrivia) {
-			// Only comments: they stay inside the braces.
-			return Concat(Text(open), Nest(defaultIndent, emitEndTrivia(v.EndTrivia)), HardLine(), Text("}"))
+			// Only comments: they stay inside the block.
+			return Concat(Text(blockHead), Nest(defaultIndent, emitEndTrivia(v.EndTrivia)), HardLine(), Text("end"))
 		}
-		return Text(open + "}")
+		return Text(blockHead + " end")
 	}
-	blockHead := importKeyword(v.Pub) + "{"
 	parts := []Doc{Text(blockHead)}
-	for _, e := range v.Entries {
+	for i, e := range v.Entries {
+		body := emitImportBody(e)
 		// emitWithTriviaDoc renders the entry's leading comments (each on its own
 		// line above it) and trailing same-line comment around the keyword-less
 		// body. emit(e) is NOT usable here — it would prepend `import `.
-		parts = append(parts, Nest(defaultIndent, Concat(HardLine(), emitWithTriviaDoc(e, emitImportBody(e)))))
+		entry := emitWithTriviaDoc(e, body)
+		if i > 0 && hasBlankTrivia(e.Leading) && !importEntryEndsLine(v.Entries[i-1]) {
+			// The entry above ends in a word after which the lexer reads a
+			// line break as a continuation (a path may end in `opaque` or
+			// `struct`), so a blank line here would not read back. Drop it
+			// as the next format would.
+			entry = emitWithTriviaParts(body, commentTrivia(e.Leading), outerTrailing(e, e))
+		}
+		parts = append(parts, Nest(defaultIndent, Concat(HardLine(), entry)))
 	}
 	if len(v.EndTrivia) > 0 {
 		parts = append(parts, Nest(defaultIndent, emitEndTrivia(v.EndTrivia)))
 	}
-	parts = append(parts, HardLine(), Text("}"))
+	parts = append(parts, HardLine(), Text("end"))
 	return Concat(parts...)
+}
+
+// importEntryEndsLine reports whether the lexer ends a statement after e's
+// line, so that a blank line written after it reads back as one. It does not
+// after a keyword, which an import path may end in.
+func importEntryEndsLine(e *ast.ImportStmt) bool {
+	for _, t := range lexer.Lex(Render(emitImportBody(e), 1<<20) + "\n\nx") {
+		if t.Type == token.BLANK_LINE {
+			return true
+		}
+	}
+	return false
 }
 
 // emitPipeChain collects a left-associative chain of `|>` operations and emits
@@ -6144,9 +5989,21 @@ func emitPipeChainWithMode(n *ast.Binary, mode pipeStackMode) Doc {
 		sep = HardLine()
 	}
 	parts := make([]Doc, 0, len(steps)+1)
-	parts = append(parts, emitWithTrivia(source))
+	if ifn, ok := source.(*ast.If); ok {
+		// An inline `if` at a pipe's head goes in parentheses: its `else`
+		// branch would take the pipe in.
+		parts = append(parts, emitWithTriviaDoc(source, emitIfParens(ifn, true)))
+	} else {
+		parts = append(parts, emitWithTrivia(source))
+	}
 	for i := 0; i < len(steps); i++ {
 		step := steps[i]
+		if ifn, ok := step.(*ast.If); ok && i+1 < len(steps) && !isQuestionStage(steps[i+1]) {
+			// An `if` stage that a stage follows is written in block form:
+			// inline, its `else` branch would take the next stage in.
+			parts = append(parts, Concat(sep, Text("|> "), emitWithTriviaDoc(ifn, emitIfForceBroken(ifn))))
+			continue
+		}
 		if isQuestionStage(step) {
 			// A `?` stage is written against the stage before it.
 			parts = append(parts, Text("?"))
@@ -6281,6 +6138,11 @@ func emitPrefixedPipeParts(prefix Doc, source ast.Node, steps []ast.Node, forceS
 	parts = append(parts, prefix)
 	for i := 0; i < len(steps); i++ {
 		step := steps[i]
+		if ifn, ok := step.(*ast.If); ok && i+1 < len(steps) && !isQuestionStage(steps[i+1]) {
+			// An `if` stage that a stage follows is written in block form.
+			parts = append(parts, Nest(defaultIndent, Concat(sep, Text("|> "), emitWithTriviaDoc(ifn, emitIfForceBroken(ifn)))))
+			continue
+		}
 		if isQuestionStage(step) {
 			// A `?` stage is written against the stage before it.
 			parts = append(parts, Text("?"))
@@ -6404,34 +6266,40 @@ func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node, more bool) (Doc, b
 		return nil, false
 	}
 	if isKeywordStage(stage) {
-		// A keyword stage is no condition or subject: `|> if { a } else
-		// { b }` then `|> case {`, or `|> dbg` then a `?` stage, stay two
-		// stages, as written.
+		// A keyword stage is no condition or subject: `|> if then a else b`
+		// then `|> case`, or `|> dbg` then a `?` stage, stay two stages, as
+		// written.
 		return nil, false
 	}
 	switch kw := keyword.(type) {
 	case *ast.If:
-		// `|> f() |> if {` and `|> if f() {` are the same stages; each
-		// stays as it was written (StagePrefix).
+		// `|> f() |> if then` and `|> if f() then` are the same stages;
+		// each stays as it was written (StagePrefix). With a stage after
+		// it, the `if` is written in block form: inline, its `else` branch
+		// would take that stage in.
 		if !kw.StagePrefix || kw.Cond != nil {
 			return nil, false
 		}
-		return emitIf(&ast.If{
+		joined := &ast.If{
 			Cond:        stage,
 			Then:        kw.Then,
 			Else:        kw.Else,
 			StagePrefix: true,
 			Line:        kw.Line,
 			Col:         kw.Col,
-		}), true
+		}
+		if more {
+			return emitIfForceBroken(joined), true
+		}
+		return emitIf(joined), true
 	case *ast.Case:
-		// `|> f() |> case {` and `|> case f() {` are the same stages; each
+		// `|> f() |> case` and `|> case f()` are the same stages; each
 		// stays as it was written (StagePrefix).
 		if !kw.StagePrefix || kw.Value != nil {
 			return nil, false
 		}
-		// The case's Trailing are the comments before its `}`, which
-		// emitCase writes inside the braces.
+		// The case's Trailing are the comments before its `end`, which
+		// emitCase writes above it.
 		return emitCase(&ast.Case{
 			TriviaCarrier: ast.TriviaCarrier{Trailing: kw.GetTrailing()},
 			Value:         stage,
@@ -6447,12 +6315,12 @@ func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node, more bool) (Doc, b
 
 // shapeOpen is the opening of a literal or pattern of a built-in shape: its
 // symbol, the name of the type built on the shape when there is one, and its
-// bracket. `.{`, `Point{`, `.Circle{`, `%Kvs{`, `#Path[`.
-// structOpen is a struct literal's or pattern's opening: `.{` for the
+// bracket. `{`, `Point{`, `.Circle{`, `Kvs{`, `Path[`.
+// structOpen is a struct literal's or pattern's opening: `{` for the
 // unnamed form, and the name alone for a named one, `Point{`.
 func structOpen(name ast.TypeExpr) string {
 	if name == nil {
-		return ".{"
+		return "{"
 	}
 	return name.TypeString() + "{"
 }
@@ -6473,10 +6341,22 @@ func spreadRestDoc(rest ast.Node) Doc {
 	return Concat(Text(".."), emitPattern(rest))
 }
 
-// emitVectorPattern writes `#[heads, ..rest, tails]`. As a list pattern with
-// a spread, one with a `..` stays on one line unless a comment breaks it.
-func emitVectorPattern(v *ast.VectorPattern) Doc {
-	return emitSeqPattern(v, shapeOpen("#", v.TypeName, "["), v.Heads, v.Spread, v.Rest, v.Tails, v.EndTrivia)
+// emitListSpreadLit writes a bracket literal with spreads, `[head, ..tail]`,
+// `[..xs, y, ..ys]`: on one line when it fits and was written so, else one
+// operand per line. A broken literal ending in a `..` spread has no
+// trailing comma.
+func emitListSpreadLit(v *ast.ListLit) Doc {
+	open := shapeOpen("", v.TypeName, "[")
+	lastComma := !endsInSpread(len(v.Items), v.Spreads)
+	hasEndTrivia := trailingHasComment(v.EndTrivia)
+	items := v.Operands()
+	elems := spreadOperandDocs(v.Items, v.Spreads, emit)
+	authored := brokenAfterOpen(v.Line, firstOperandLine(v.Items, v.Spreads))
+	if hasEndTrivia || nodesHaveComments(items) || tooDeep(v, len(v.Items)) || authored {
+		cs, _ := nodesComments(items)
+		return commentedList(open, "]", elems, cs, v.EndTrivia, lastComma)
+	}
+	return bracedList(open, "]", elems, lastComma)
 }
 
 // emitSeqPattern writes a vector pattern, or a list pattern with elements
@@ -6523,45 +6403,19 @@ func emitSeqPattern(v ast.Node, open string, heads []ast.Node, spread bool, rest
 	return emitBracedList(open, "]", elems)
 }
 
-// emitSetPattern writes `%[elems, ..rest]`. Its elements are expressions.
-func emitSetPattern(v *ast.SetPattern) Doc {
-	open := shapeOpen("%", v.TypeName, "[")
-	elems := make([]Doc, 0, len(v.Elems)+1)
-	for _, e := range v.Elems {
-		elems = append(elems, emit(e))
-	}
-	items := append([]ast.Node{}, v.Elems...)
-	if v.Spread {
-		elems = append(elems, spreadRestDoc(v.Rest))
-		if v.Rest != nil {
-			items = append(items, v.Rest)
-		}
-	}
-	if trailingHasComment(v.EndTrivia) || nodesHaveComments(items) || itemsBrokenAfterOpen(v.Line, v.Elems) {
-		cs, _ := nodesComments(items)
-		if v.Spread && v.Rest == nil && cs != nil {
-			cs = append(cs, nil)
-		}
-		return emitCommentedList(open, "]", elems, cs, v.EndTrivia)
-	}
-	if v.Spread {
-		parts := make([]Doc, 0, len(elems)*2+2)
-		parts = append(parts, Text(open))
-		for i, e := range elems {
-			if i > 0 {
-				parts = append(parts, Text(", "))
-			}
-			parts = append(parts, e)
-		}
-		parts = append(parts, Text("]"))
-		return Concat(parts...)
-	}
-	return emitBracedList(open, "]", elems)
-}
-
 // taggedOnOneLine reports whether v, a triple-quoted typed literal, was
 // written on one line: its span starts and ends on its line.
 func taggedOnOneLine(v *ast.TaggedString) bool {
 	sp := v.GetSpan()
 	return !v.Raw && !sp.IsZero() && sp.StartLine == sp.EndLine
+}
+
+// hasBlankTrivia reports whether trivia holds a blank line.
+func hasBlankTrivia(trivia []ast.Trivia) bool {
+	for _, t := range trivia {
+		if t.Kind == ast.TriviaBlankLine {
+			return true
+		}
+	}
+	return false
 }

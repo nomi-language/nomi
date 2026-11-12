@@ -12,12 +12,12 @@ import (
 // A `subtests` row's name, `subtests rows, pattern, name { ... }`, reads the
 // pattern's bindings: hover, go-to-definition, references and rename reach a
 // binding through it, and completion offers the bindings there.
-const subtestsNameSrc = `test "leap" {
+const subtestsNameSrc = `test "leap"
   cases = [("leap", 2000, True)]
-  subtests cases, (description, year, expected), "${description} ${year}" {
+  subtests cases, (description, year, expected), "${description} ${year}"
     assert (year % 400 == 0) == expected
-  }
-}
+  end
+end
 `
 
 func TestSubtestsName_HoverDefinitionReferencesAndRename(t *testing.T) {
@@ -65,6 +65,6 @@ func TestSubtestsName_HoverDefinitionReferencesAndRename(t *testing.T) {
 
 // Completion inside the name offers the pattern's bindings.
 func TestSubtestsName_CompletionOffersThePatternsBindings(t *testing.T) {
-	items := complete(t, "test \"t\" {\n  cases = [(\"a\", 1)]\n  subtests cases, (description, n), desc"+cursorMark+" {\n    assert n > 0\n  }\n}\n")
+	items := complete(t, "test \"t\"\n  cases = [(\"a\", 1)]\n  subtests cases, (description, n), desc"+cursorMark+"\n    assert n > 0\n  end\nend\n")
 	labelsInclude(t, items, "description")
 }

@@ -33,7 +33,7 @@ func TestTap_BodyEndsAtTheNextPipe(t *testing.T) {
 
 // Braces keep a pipe inside a `tap` lambda.
 func TestTap_BracedBodyHoldsAPipe(t *testing.T) {
-	_, stages := pipeStages(t, parseExpr(t, "xs |> tap fn v -> { v |> io.print() } |> dbg"))
+	_, stages := pipeStages(t, parseExpr(t, "xs |> tap fn v ->\n    v |> io.print()\nend |> dbg"))
 	if len(stages) != 2 {
 		t.Fatalf("got %d stages, want 2", len(stages))
 	}
@@ -106,18 +106,18 @@ func TestTap_CallIsNoName(t *testing.T) {
 }
 
 // A bad `tap` or `then` operand is one error: recovery skips to the end of
-// the brackets the statement opened and then the statement, so the `}`
-// that closes the function is not reported as unexpected.
+// the brackets and bodies the statement opened and then the statement, so
+// the `end` that closes the function is not reported as unexpected.
 func TestTap_BadOperandDoesNotCascade(t *testing.T) {
-	src := "fn main() {\n  x = case 5 { n -> n |> tap 1 }\n  y = [1] |> Iter.map(fn v -> { v |> then 2 })\n  io.print(x)\n}\n"
+	src := "fn main()\n  x = case 5\n    n -> n |> tap 1\n  end\n  y = [1] |> Iter.map(fn v ->\n    v |> then 2\n  end)\n  io.print(x)\nend\n"
 	_, errs := ParseAll(lexer.Lex(src))
 	if len(errs) != 2 {
 		t.Fatalf("got %d errors, want 2: %v", len(errs), errs)
 	}
-	if errs[0].Line != 2 || !strings.Contains(errs[0].Message, "`tap` takes a function") {
+	if errs[0].Line != 3 || !strings.Contains(errs[0].Message, "`tap` takes a function") {
 		t.Errorf("first error %v", errs[0])
 	}
-	if errs[1].Line != 3 || !strings.Contains(errs[1].Message, "`then` takes a lambda or a capture") {
+	if errs[1].Line != 6 || !strings.Contains(errs[1].Message, "`then` takes a lambda or a capture") {
 		t.Errorf("second error %v", errs[1])
 	}
 }

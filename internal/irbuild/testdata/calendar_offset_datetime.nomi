@@ -30,7 +30,7 @@
 // `compare`, `between`, `inspect` and `from_fragments` are lowered Nomi
 // bodies, so `- Months(1)` reaching the wrong `+ Months(-1)` prints a wrong
 // value here.
-import {
+import
     std::calendar.{
         Days,
         Error,
@@ -50,9 +50,9 @@ import {
     std::duration.Duration
     std::instant.Instant
     std::io
-}
+end
 
-fn run() -> Result<Unit, Error> {
+fn run() -> Result<Unit, Error>
     // --- CONSTRUCTION, and the three ways in ---------------------------------
     //
     // The typed literal goes through `impl Literal for OffsetDateTime`, whose
@@ -247,21 +247,21 @@ fn run() -> Result<Unit, Error> {
     io.print("inspect = " + Debug.inspect(ny))
 
     Ok(Unit)
-}
+end
 
 // describe renders either arm of a `Result<OffsetDateTime, Error>` as text, so a
 // rejection is an OBSERVABLE line rather than an early return. `Error`'s own
 // `Display` impl is a Nomi body over five variants, which this reaches.
-fn describe(r: Result<OffsetDateTime, Error>) -> String {
-    case r {
+fn describe(r: Result<OffsetDateTime, Error>) -> String
+    case r
         Ok(odt) -> OffsetDateTime.to_string(odt)
         Err(e) -> Display.to_string(e)
-    }
-}
+    end
+end
 
-fn main() {
-    case run() {
+fn main()
+    case run()
         Ok(_u) -> Unit
         Err(_e) -> io.print("FAILED")
-    }
-}
+    end
+end

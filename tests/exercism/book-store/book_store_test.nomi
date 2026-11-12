@@ -1,6 +1,6 @@
 import book_store
 
-test "total" {
+test "total"
     [
         ("Only a single book", [1], 800),
         ("Two of the same book", [2, 2], 1600),
@@ -61,7 +61,7 @@ test "total" {
             10000,
         ),
     ]
-    |> subtests (description, basket, expected), description {
+    |> subtests (description, basket, expected), description
         assert book_store.total(basket) == expected
-    }
-}
+    end
+end

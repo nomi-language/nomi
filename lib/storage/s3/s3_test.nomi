@@ -1,4 +1,4 @@
-import {
+import
     std::calendar.OffsetDateTime
     std::channels.{Channel, Receiver, Sender}
     std::duration.Duration
@@ -12,31 +12,31 @@ import {
     std::url.{Query, Url}
     std::xml.{self, Element, Name, Node}
     s3.{self, Addressing, Config, Credentials, Payload}
-}
+end
 
 // AWS's published S3 SigV4 examples sign at 2013-05-24T00:00:00Z with this
 // key pair, for the bucket examplebucket in us-east-1.
-fn example_credentials() -> Credentials {
+fn example_credentials() -> Credentials
     Credentials{
         access_key: "AKIAIOSFODNN7EXAMPLE",
         secret_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
     }
-}
+end
 
-fn example_time() -> Instant {
+fn example_time() -> Instant
     Instant.from_seconds(1369353600)
-}
+end
 
 // A signed request without its signature, as the canonical request saw it.
-fn unsigned(request: Request) -> Request {
-    .{..request, headers: Headers.remove(request.headers, "Authorization")}
-}
+fn unsigned(request: Request) -> Request
+    {..request, headers: Headers.remove(request.headers, "Authorization")}
+end
 
-fn empty_hash() -> String {
+fn empty_hash() -> String
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-}
+end
 
-test "the GET object example signs as AWS's documentation does" {
+test "the GET object example signs as AWS's documentation does"
     request = Request{
         url: Url`https://examplebucket.s3.amazonaws.com/test.txt`,
         headers: Headers[("Range", "bytes=0-9")],
@@ -84,9 +84,9 @@ test "the GET object example signs as AWS's documentation does" {
 
     assert Headers.get(signed.headers, "x-amz-date") == Some("20130524T000000Z")
     assert Headers.get(signed.headers, "x-amz-content-sha256") == Some(empty_hash())
-}
+end
 
-test "the PUT object example signs a key with a dollar and a body" {
+test "the PUT object example signs a key with a dollar and a body"
     body_hash = "44ce7dd67c959e0d3524ffac1771dfbba87d2b6b4b4e99e42034a8b803f8b072"
 
     request = Request{
@@ -134,9 +134,9 @@ test "the PUT object example signs a key with a dollar and a body" {
     assert Headers.get(signed.headers, "Authorization") == Some(
         "AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, " + "SignedHeaders=date;host;x-amz-content-sha256;x-amz-date;x-amz-storage-class, " + "Signature=98ad721746da40c64f1a55b78f14c238d841ea1380cd77a1b5971af0ece108bd"
     )
-}
+end
 
-test "the presigned GET example signs its query" {
+test "the presigned GET example signs its query"
     url = s3.presign(
         Method.Get,
         Url`https://examplebucket.s3.amazonaws.com/test.txt`,
@@ -148,42 +148,42 @@ test "the presigned GET example signs its query" {
     )
 
     assert "${url}" == "https://examplebucket.s3.amazonaws.com/test.txt" + "?X-Amz-Algorithm=AWS4-HMAC-SHA256" + "&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request" + "&X-Amz-Date=20130524T000000Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host" + "&X-Amz-Signature=aeeed9bbccd4d02ee5c0109b86d86835f995330da4c265957d157751f604d404"
-}
+end
 
-test "URI encoding keeps unreserved characters and writes the rest as uppercase escapes" {
+test "URI encoding keeps unreserved characters and writes the rest as uppercase escapes"
     assert s3.uri_encode("a-Z_0.~") == "a-Z_0.~"
     assert s3.uri_encode("a b/c$é") == "a%20b%2Fc%24%C3%A9"
     assert s3.uri_encode("/a b/c", keep_slash: True) == "/a%20b/c"
     assert s3.uri_encode("!*'()+,;=") == "%21%2A%27%28%29%2B%2C%3B%3D"
-}
+end
 
-test "the canonical query sorts by name and then value" {
+test "the canonical query sorts by name and then value"
     assert s3.canonical_query(Query[("b", "2"), ("a", "x y"), ("a", "1"), ("a-b", "")])
         == "a=1&a=x%20y&a-b=&b=2"
-}
+end
 
-fn config(endpoint: Url = Url`http://localhost:9000`) -> Config {
+fn config(endpoint: Url = Url`http://localhost:9000`) -> Config
     Config{
-        endpoint,
+        endpoint:,
         bucket: "photos",
         credentials: Credentials{access_key: "minio", secret_key: "minio123"},
     }
-}
+end
 
-fn ok_answer(_request: Request) -> Result<Response, http.Error> {
+fn ok_answer(_request: Request) -> Result<Response, http.Error>
     Ok(Response{status: Status.ok})
-}
+end
 
-fn store_of(c: Config) -> Store {
+fn store_of(c: Config) -> Store
     s3.store(c)!
-}
+end
 
-test "a put sends a signed PUT to the path-style URL with its headers" {
-    c = .{..config(), acl: Some("public-read"), cache_control: Some("max-age=60")}
+test "a put sends a signed PUT to the path-style URL with its headers"
+    c = {..config(), acl: Some("public-read"), cache_control: Some("max-age=60")}
 
-    ran = http_testing.run(ok_answer, fn -> {
+    ran = http_testing.run(ok_answer, fn ->
         Store.put(store_of(c), "posts/a.jpg", String.to_bytes("jpeg"), "image/jpeg")
-    })
+    end)
 
     assert ran.value == Ok(Unit)
     assert [request] = ran.requests
@@ -205,9 +205,9 @@ test "a put sends a signed PUT to the path-style URL with its headers" {
         authorization,
         "SignedHeaders=cache-control;content-type;host;x-amz-acl;x-amz-content-sha256;x-amz-date,",
     )
-}
+end
 
-test "the signed host keeps the endpoint's port" {
+test "the signed host keeps the endpoint's port"
     ran = http_testing.run(ok_answer, fn -> Store.delete(store_of(config()), "a.txt"))
     assert [request] = ran.requests
 
@@ -218,46 +218,46 @@ test "the signed host keeps the endpoint's port" {
     )
 
     assert String.contains(canonical, "\nhost:localhost:9000\n")
-}
+end
 
-test "virtual-host addressing puts the bucket in the host" {
-    c = .{..config(Url`https://nyc3.digitaloceanspaces.com`), addressing: Addressing.VirtualHost}
+test "virtual-host addressing puts the bucket in the host"
+    c = {..config(Url`https://nyc3.digitaloceanspaces.com`), addressing: Addressing.VirtualHost}
     ran = http_testing.run(ok_answer, fn -> Store.get(store_of(c), "a/b.txt"))
     assert [request] = ran.requests
     assert "${request.url}" == "https://photos.nyc3.digitaloceanspaces.com/a/b.txt"
 
     assert "${Store.url(store_of(c), "a/b.txt")!}"
         == "https://photos.nyc3.digitaloceanspaces.com/a/b.txt"
-}
+end
 
-test "get, info and delete send GET, HEAD and DELETE" {
-    ran = http_testing.run(ok_answer, fn -> {
+test "get, info and delete send GET, HEAD and DELETE"
+    ran = http_testing.run(ok_answer, fn ->
         store = store_of(config())
         _ = Store.get(store, "a.txt")
         _ = Store.info(store, "a.txt")
         Store.delete(store, "a.txt")
-    })
+    end)
 
     assert Iter.map(ran.requests, &(&1.method)) |> Iter.to_list() == [
         Method.Get,
         Method.Head,
         Method.Delete,
     ]
-}
+end
 
-test "an unsigned payload is not hashed" {
-    c = .{..config(), payload: Payload.Unsigned}
+test "an unsigned payload is not hashed"
+    c = {..config(), payload: Payload.Unsigned}
 
-    ran = http_testing.run(ok_answer, fn -> {
+    ran = http_testing.run(ok_answer, fn ->
         Store.put(store_of(c), "a.txt", String.to_bytes("x"), "text/plain")
-    })
+    end)
 
     assert [request] = ran.requests
     assert Headers.get(request.headers, "x-amz-content-sha256") == Some("UNSIGNED-PAYLOAD")
-}
+end
 
-test "get reads the type, size and date from the response" {
-    answer = fn _request: Request -> {
+test "get reads the type, size and date from the response"
+    answer = fn _request: Request ->
         Ok(
             Response{
                 headers: Headers[
@@ -267,42 +267,42 @@ test "get reads the type, size and date from the response" {
                 body: Body.Bytes(String.to_bytes("png!")),
             }
         )
-    }
+    end
 
     ran = http_testing.run(answer, fn -> Store.get(store_of(config()), "a.png"))
     assert Ok(object) = ran.value
     assert object.data == String.to_bytes("png!")
     assert object.info.size == 4 and object.info.content_type == "image/png"
     assert object.info.modified == example_time()
-}
+end
 
-test "a public base is where url points" {
-    c = .{..config(), public_base: Some(Url`https://cdn.example.com/`)}
+test "a public base is where url points"
+    c = {..config(), public_base: Some(Url`https://cdn.example.com/`)}
     assert "${Store.url(store_of(c), "a/b.jpg")!}" == "https://cdn.example.com/a/b.jpg"
     assert "${Store.url(store_of(config()), "a/b.jpg")!}" == "http://localhost:9000/photos/a/b.jpg"
-}
+end
 
-test "an invalid key is refused before anything is sent" {
-    ran = http_testing.run(ok_answer, fn -> {
+test "an invalid key is refused before anything is sent"
+    ran = http_testing.run(ok_answer, fn ->
         Store.put(store_of(config()), "../x", String.to_bytes(""), "text/plain")
-    })
+    end)
 
     assert ran.value is Err(.InvalidKey{})
     assert Iter.is_empty(ran.requests)
-}
+end
 
 // An S3 error document.
-fn error_body(code: String, message: String) -> Body {
+fn error_body(code: String, message: String) -> Body
     Body.Text(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Error><Code>${code}</Code><Message>${message}</Message><RequestId>1</RequestId></Error>"
     )
-}
+end
 
-fn answering(status: Int, body: Body = Body.Empty) -> (Request) -> Result<Response, http.Error> {
-    fn _request -> Ok(Response{status: Status(status), body})
-}
+fn answering(status: Int, body: Body = Body.Empty) -> (Request) -> Result<Response, http.Error>
+    fn _request -> Ok(Response{status: Status(status), body:})
+end
 
-test "S3's errors map to storage errors" {
+test "S3's errors map to storage errors"
     [
         (
             404,
@@ -342,37 +342,37 @@ test "S3's errors map to storage errors" {
             storage.Error.Backend{code: "HTTP 409", message: "not xml at all"},
         ),
     ]
-    |> subtests (status, body, want), "${status} ${want}" {
-        ran = http_testing.run(answering(status, body: body), fn -> {
+    |> subtests (status, body, want), "${status} ${want}"
+        ran = http_testing.run(answering(status, body:), fn ->
             Store.get(store_of(config()), "a.txt")
-        })
+        end)
 
         assert ran.value == Err(want)
-    }
-}
+    end
+end
 
-test "a missing object is None to info and Ok to delete" {
-    ran = http_testing.run(answering(404), fn -> {
+test "a missing object is None to info and Ok to delete"
+    ran = http_testing.run(answering(404), fn ->
         store = store_of(config())
         (Store.info(store, "a.txt"), Store.delete(store, "a.txt"))
-    })
+    end)
 
     assert ran.value == (Ok(None), Ok(Unit))
-}
+end
 
-test "a missing bucket is not a missing object to delete" {
-    ran = http_testing.run(answering(404, body: error_body("NoSuchBucket", "no bucket")), fn -> {
+test "a missing bucket is not a missing object to delete"
+    ran = http_testing.run(answering(404, body: error_body("NoSuchBucket", "no bucket")), fn ->
         Store.delete(store_of(config()), "a.txt")
-    })
+    end)
 
     assert ran.value == Err(storage.Error.Backend{code: "NoSuchBucket", message: "no bucket"})
-}
+end
 
-test "network failures are Unavailable and a bad certificate is not" {
-    failing = fn error: http.Error -> {
-        c = .{..config(), retries: 0}
+test "network failures are Unavailable and a bad certificate is not"
+    failing = fn error: http.Error ->
+        c = {..config(), retries: 0}
         http_testing.run(fn _ -> Err(error), fn -> Store.get(store_of(c), "a.txt")).value
-    }
+    end
 
     assert failing(
         http.Error.Connect{address: "localhost:9000", reason: "refused"}
@@ -381,18 +381,18 @@ test "network failures are Unavailable and a bad certificate is not" {
     assert failing(http.Error.Timeout{during: "reading"}) is Err(.Unavailable{})
     assert failing(http.Error.Tls{reason: "unknown authority"}) is Err(.Backend{code: "Tls"})
     assert failing(http.Error.BodyTooLarge{limit: 1}) is Err(.Backend{code: "TooLarge"})
-}
+end
 
 // A sender that fails with `first` for its first `failures` requests and
 // succeeds after.
-fn flaky(failures: Int, first: Int) -> (Request) -> Result<Response, http.Error> {
+fn flaky(failures: Int, first: Int) -> (Request) -> Result<Response, http.Error>
     calls: Channel<Int> = Channel.buffered(1)
     _ = Sender.send(calls.sender, 0)
 
-    fn _request -> {
+    fn _request ->
         n = Receiver.receive(calls.receiver)!
         _ = Sender.send(calls.sender, n + 1)
-        status = if n < failures { first } else { 200 }
+        status = if n < failures then first else 200
 
         Ok(
             Response{
@@ -400,69 +400,69 @@ fn flaky(failures: Int, first: Int) -> (Request) -> Result<Response, http.Error>
                 body: error_body("SlowDown", "Please reduce your request rate."),
             }
         )
-    }
-}
+    end
+end
 
-group "retries" {
+group "retries"
     clock Clock.Virtual
 
-    test "a 503 is tried again, each attempt signed afresh" {
+    test "a 503 is tried again, each attempt signed afresh"
         ran = http_testing.run(flaky(2, 503), fn -> Store.delete(store_of(config()), "a.txt"))
         assert ran.value == Ok(Unit)
         assert Iter.count(ran.requests) == 3
-    }
+    end
 
-    test "the last failure is answered once the retries run out" {
+    test "the last failure is answered once the retries run out"
         ran = http_testing.run(flaky(5, 503), fn -> Store.delete(store_of(config()), "a.txt"))
 
         assert ran.value
             == Err(storage.Error.Unavailable{message: "SlowDown: Please reduce your request rate."})
 
         assert Iter.count(ran.requests) == 3
-    }
+    end
 
-    test "a 403 is not tried again" {
+    test "a 403 is not tried again"
         ran = http_testing.run(flaky(5, 403), fn -> Store.delete(store_of(config()), "a.txt"))
         assert ran.value is Err(.Denied{})
         assert Iter.count(ran.requests) == 1
-    }
+    end
 
-    test "retries of 0 calls once" {
-        c = .{..config(), retries: 0}
+    test "retries of 0 calls once"
+        c = {..config(), retries: 0}
         ran = http_testing.run(flaky(5, 500), fn -> Store.delete(store_of(c), "a.txt"))
         assert ran.value is Err(.Unavailable{})
         assert Iter.count(ran.requests) == 1
-    }
-}
+    end
+end
 
-test "a config that cannot work is refused" {
+test "a config that cannot work is refused"
     good = config()
 
     [
-        .{..good, endpoint: Url`ftp://localhost:9000`},
-        .{..good, endpoint: Url`https://example.com/base`},
-        .{..good, endpoint: Url`https://example.com?x=1`},
-        .{..good, bucket: "ab"},
-        .{..good, bucket: "Photos"},
-        .{..good, bucket: "-photos"},
-        .{..good, region: ""},
-        .{..good, credentials: Credentials{access_key: "", secret_key: "x"}},
-        .{..good, timeout: Duration.seconds(0)},
-        .{..good, retries: -1},
-        .{
+        {..good, endpoint: Url`ftp://localhost:9000`},
+        {..good, endpoint: Url`https://example.com/base`},
+        {..good, endpoint: Url`https://example.com?x=1`},
+        {..good, bucket: "ab"},
+        {..good, bucket: "Photos"},
+        {..good, bucket: "-photos"},
+        {..good, region: ""},
+        {..good, credentials: Credentials{access_key: "", secret_key: "x"}},
+        {..good, timeout: Duration.seconds(0)},
+        {..good, retries: -1},
+        {
             ..good,
             endpoint: Url`https://s3.example.com`,
             bucket: "my.photos",
             addressing: Addressing.VirtualHost,
         },
     ]
-    |> subtests c {
+    |> subtests c
         assert s3.store(c) is Err(.Backend{code: "InvalidConfig"})
-    }
-}
+    end
+end
 
-test "presigned URLs are on the endpoint and bounded to 7 days" {
-    c = .{..config(), public_base: Some(Url`https://cdn.example.com/`)}
+test "presigned URLs are on the endpoint and bounded to 7 days"
+    c = {..config(), public_base: Some(Url`https://cdn.example.com/`)}
     assert Ok(get) = s3.presign_get(c, "a/b.jpg", Duration.minutes(5))
 
     assert String.starts_with(
@@ -479,61 +479,60 @@ test "presigned URLs are on the endpoint and bounded to 7 days" {
     })
 
     assert s3.presign_get(c, "../b", Duration.minutes(5)) is Err(.InvalidKey{})
-}
+end
 
 // A fake S3 server over a Memory store: path-style requests, one bucket
 // per key prefix, so each store the conformance suite opens starts empty.
 // It refuses a signed body whose hash is not the one it was sent with.
-fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error> {
-    fn request -> {
+fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error>
+    fn request ->
         key = String.drop(request.url.path, 1)
         data = Body.read_all(request.body) |> Result.with_default(String.to_bytes(""))
         sent_hash = Headers.get(request.headers, "x-amz-content-sha256") |> Maybe.with_default("")
 
         // S3 signs the path as it arrives, so the path sent must be the one
         // the canonical request encoded.
-        if Url.escaped_path(request.url) != s3.uri_encode(request.url.path, keep_slash: True) {
+        if Url.escaped_path(request.url) != s3.uri_encode(request.url.path, keep_slash: True) then
             return Ok(
                 Response{
                     status: Status.bad_request,
                     body: error_body("SignatureDoesNotMatch", Url.escaped_path(request.url)),
                 }
             )
-        }
+        end
 
-        if sent_hash != "UNSIGNED-PAYLOAD" and sent_hash != hash.sha256_hex(data) {
+        if sent_hash != "UNSIGNED-PAYLOAD" and sent_hash != hash.sha256_hex(data) then
             return Ok(
                 Response{
                     status: Status.bad_request,
                     body: error_body("XAmzContentSHA256Mismatch", "hash"),
                 }
             )
-        }
+        end
 
-        if Headers.get(request.headers, "Authorization") == None {
+        if Headers.get(request.headers, "Authorization") == None then
             return Ok(
                 Response{status: Status.forbidden, body: error_body("AccessDenied", "unsigned")}
             )
-        }
+        end
 
         query = Url.query_values(request.url)
 
-        if request.method == Method.Get and Query.get(query, "list-type") == Some("2") {
+        if request.method == Method.Get and Query.get(query, "list-type") == Some("2") then
             return Ok(list_response(memory, key, query))
-        }
+        end
 
-        answer = case request.method {
-            .Put -> {
+        answer = case request.method
+            .Put ->
                 content_type =
                     Headers.get(request.headers, "Content-Type") |> Maybe.with_default("")
 
                 Store.put(memory, key, data, content_type)
                 |> Result.map(fn _ -> Response{status: Status.ok})
-            }
 
             .Get ->
                 Store.get(memory, key)
-                |> Result.map(fn object -> {
+                |> Result.map(fn object ->
                     Response{
                         headers: Headers[
                             ("Content-Type", object.info.content_type),
@@ -541,27 +540,29 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error> {
                         ],
                         body: Body.Bytes(object.data),
                     }
-                })
+                end)
 
             .Head ->
                 Store.get(memory, key)
-                |> Result.map(fn object -> {
+                |> Result.map(fn object ->
                     Response{
                         headers: Headers[
                             ("Content-Type", object.info.content_type),
                             ("Content-Length", "${object.info.size}"),
                         ],
                     }
-                })
+                end)
 
             .Delete ->
                 Store.delete(memory, key) |> Result.map(fn _ -> Response{status: Status.no_content})
 
-            _ -> Ok(Response{status: Status.method_not_allowed})
-        }
+            _ ->
+                Ok(Response{status: Status.method_not_allowed})
+        end
 
-        case answer {
-            Ok(response) -> Ok(response)
+        case answer
+            Ok(response) ->
+                Ok(response)
 
             Err(.NotFound{}) ->
                 Ok(Response{status: Status.not_found, body: error_body("NoSuchKey", "no key")})
@@ -573,14 +574,14 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error> {
                         body: error_body("InternalError", "${e}"),
                     }
                 )
-        }
-    }
-}
+        end
+    end
+end
 
 // A `ListObjectsV2` response from the fake server: the bucket's objects
 // are the Memory's keys under `<bucket>/`, and its continuation token is
 // the Memory's with the bucket left off.
-fn list_response(memory: Memory, bucket: String, query: Query) -> Response {
+fn list_response(memory: Memory, bucket: String, query: Query) -> Response
     within = "${bucket}/"
     prefix = Query.get(query, "prefix") |> Maybe.with_default("")
 
@@ -600,7 +601,7 @@ fn list_response(memory: Memory, bucket: String, query: Query) -> Response {
 
     contents =
         listing.objects
-        |> Iter.map(fn e -> {
+        |> Iter.map(fn e ->
             Node.Element(
                 Element.new(
                     "Contents",
@@ -614,20 +615,20 @@ fn list_response(memory: Memory, bucket: String, query: Query) -> Response {
                     ],
                 )
             )
-        })
+        end)
         |> Iter.to_list()
 
     prefixes =
         listing.prefixes
-        |> Iter.map(fn p -> {
+        |> Iter.map(fn p ->
             Node.Element(Element.new("CommonPrefixes", [field("Prefix", inner(p))]))
-        })
+        end)
         |> Iter.to_list()
 
-    next = case listing.next {
+    next = case listing.next
         Some(token) -> [field("IsTruncated", "true"), field("NextContinuationToken", inner(token))]
         None -> [field("IsTruncated", "false")]
-    }
+    end
 
     root = Element{
         name: Name{local: "ListBucketResult", space: "http://s3.amazonaws.com/doc/2006-03-01/"},
@@ -638,9 +639,9 @@ fn list_response(memory: Memory, bucket: String, query: Query) -> Response {
         headers: Headers[("Content-Type", "application/xml")],
         body: Body.Text(xml.encode(root, xml.WriteOptions{declaration: True})!),
     }
-}
+end
 
-test "a listing sends ListObjectsV2 with its options and reads the page" {
+test "a listing sends ListObjectsV2 with its options and reads the page"
     page = """
         <?xml version="1.0" encoding="UTF-8"?>
         <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
@@ -659,12 +660,12 @@ test "a listing sends ListObjectsV2 with its options and reads the page" {
 
     answer = fn _request: Request -> Ok(Response{body: Body.Text(page)})
 
-    ran = http_testing.run(answer, fn -> {
+    ran = http_testing.run(answer, fn ->
         Store.list(
             store_of(config()),
             ListOptions{prefix: "posts/", delimiter: "/", continuation: Some("t+1/="), limit: 2},
         )
-    })
+    end)
 
     assert ran.value == Ok(
         Listing{
@@ -693,29 +694,29 @@ test "a listing sends ListObjectsV2 with its options and reads the page" {
         ])
 
     assert Headers.get(request.headers, "Authorization") is Some(_)
-}
+end
 
-test "a listing that is not S3's XML is an InvalidResponse" {
+test "a listing that is not S3's XML is an InvalidResponse"
     answer = fn _request: Request -> Ok(Response{body: Body.Text("<ListBucketResult><Contents/>")})
     ran = http_testing.run(answer, fn -> Store.list(store_of(config()), ListOptions{}))
     assert ran.value is Err(.Backend{code: "InvalidResponse"})
-}
+end
 
-test "the store passes the conformance suite against a fake server" {
+test "the store passes the conformance suite against a fake server"
     buckets: Channel<Int> = Channel.buffered(1)
     _ = Sender.send(buckets.sender, 0)
 
-    open = fn -> {
+    open = fn ->
         n = Receiver.receive(buckets.receiver)!
         _ = Sender.send(buckets.sender, n + 1)
-        s3.store(.{..config(), bucket: "bucket${n}"})
-    }
+        s3.store({..config(), bucket: "bucket${n}"})
+    end
 
     ran = http_testing.run(fake_s3(Memory.new()), fn -> storage_testing.conformance(open))
     assert ran.value == []
-}
+end
 
-test "a key is sent and signed with each byte outside A-Z a-z 0-9 - _ . ~ escaped once" {
+test "a key is sent and signed with each byte outside A-Z a-z 0-9 - _ . ~ escaped once"
     key = "posts/Noah_-_3010(1) é!*'/50%25.jpg"
     escaped = "/photos/posts/Noah_-_3010%281%29%20%C3%A9%21%2A%27/50%2525.jpg"
     data = String.to_bytes("jpeg")
@@ -733,11 +734,11 @@ test "a key is sent and signed with each byte outside A-Z a-z 0-9 - _ . ~ escape
     )
 
     assert String.starts_with(canonical, "PUT\n${escaped}\n\n")
-}
+end
 
-test "a public URL escapes each segment of the key" {
-    c = .{..config(), public_base: Some(Url`https://cdn.example.com/`)}
+test "a public URL escapes each segment of the key"
+    c = {..config(), public_base: Some(Url`https://cdn.example.com/`)}
     u = Store.url(store_of(c), "a(1) b/50%.jpg")!
     assert u.path == "/a(1) b/50%.jpg"
     assert "${u}" == "https://cdn.example.com/a%281%29%20b/50%25.jpg"
-}
+end

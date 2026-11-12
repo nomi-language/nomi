@@ -1,6 +1,6 @@
 import facade.{add, double, greet, make_box, open_box, shout}
 
-test "re-export facade exposes leaf and parser items" {
+test "re-export facade exposes leaf and parser items"
     b = make_box(7)
 
     assert double(21) == 42
@@ -9,4 +9,4 @@ test "re-export facade exposes leaf and parser items" {
     assert b.value == 7
     assert greet("Alice") == "Hello, Alice"
     assert shout("Bob") == "Bob!"
-}
+end

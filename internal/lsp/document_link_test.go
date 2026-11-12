@@ -21,9 +21,9 @@ func TestDocumentLinks(t *testing.T) {
 		}
 	}
 	write("nomi.toml", "[module]\nname = \"app\"\n")
-	write("models/users.nomi", "pub struct User {\n    name: String\n}\n")
-	write("game.nomi", "pub struct Game {\n    turn: Int\n}\n")
-	src := `import {
+	write("models/users.nomi", "pub struct User\n    name: String\nend\n")
+	write("game.nomi", "pub struct Game\n    turn: Int\nend\n")
+	src := `import
     std::iter
     std::maybe.Maybe.{None}
     models::users
@@ -31,7 +31,7 @@ func TestDocumentLinks(t *testing.T) {
     models::users.User.{self}
     game.Game
     missing::thing
-}
+end
 import std::io as console
 `
 	write("main.nomi", src)

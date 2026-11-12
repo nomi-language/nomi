@@ -18,92 +18,92 @@ import (
 func TestRun_StringPrefixPatternRunsWherePatternsAreTested(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-struct Req {
+struct Req
   path: String
   n: Int
-}
+end
 
-fn route(path: String) -> String {
-  case path {
+fn route(path: String) -> String
+  case path
     "/users/" + id -> "user [${id}]"
     "/health" -> "health"
     "" + rest -> "other [${rest}]"
     _ -> "unreachable"
-  }
-}
+  end
+end
 
-fn pattern_if(path: String) -> String {
-  if "/users/" + id = path {
+fn pattern_if(path: String) -> String
+  if "/users/" + id = path then
     "if user ${id}"
-  } else {
+  else
     "if miss"
-  }
-}
+  end
+end
 
-fn pattern_if_statement(path: String) {
-  if "/a/" + rest = path {
+fn pattern_if_statement(path: String)
+  if "/a/" + rest = path then
     io.print("statement ${rest}")
-  }
+  end
   io.print("after")
-}
+end
 
-fn else_binding(path: String) -> String {
-  "é" + rest = path else { return "else miss" }
+fn else_binding(path: String) -> String
+  "é" + rest = path else return "else miss"
   "else [${rest}]"
-}
+end
 
-fn payload(m: Maybe<String>) -> String {
-  case m {
+fn payload(m: Maybe<String>) -> String
+  case m
     Some("héllo " + who) -> "greet ${who}"
     Some(s) -> "some ${s}"
     None -> "none"
-  }
-}
+  end
+end
 
-fn tuple(t: (String, Int)) -> String {
-  case t {
+fn tuple(t: (String, Int)) -> String
+  case t
     ("k:" + key, n) -> "${key}=${n}"
     _ -> "tuple miss"
-  }
-}
+  end
+end
 
-fn map_value(m: Map<String, String>) -> String {
-  case m {
-    %{"auth" => "Bearer " + token} -> "token ${token}"
+fn map_value(m: Map<String, String>) -> String
+  case m
+    {"auth" => "Bearer " + token} -> "token ${token}"
     _ -> "map miss"
-  }
-}
+  end
+end
 
-fn field(r: Req) -> String {
-  case r {
-    Req{path: "/v1/" + rest, n} -> "v1 ${rest} ${n}"
+fn field(r: Req) -> String
+  case r
+    Req{path: "/v1/" + rest, n:} -> "v1 ${rest} ${n}"
     _ -> "field miss"
-  }
-}
+  end
+end
 
-fn list_head(xs: List<String>) -> String {
-  case xs {
+fn list_head(xs: List<String>) -> String
+  case xs
     ["-" + flag, ..rest] -> "flag ${flag} +${Iter.count(rest)}"
     _ -> "list miss"
-  }
-}
+  end
+end
 
-fn as_whole(path: String) -> String {
-  case path {
+fn as_whole(path: String) -> String
+  case path
     "x" + rest as whole -> "${rest}|${whole}"
     _ -> "as miss"
-  }
-}
+  end
+end
 
-fn escapes(s: String) -> String {
-  case s {
+fn escapes(s: String) -> String
+  case s
     "a\tb" + r -> "tab ${r}"
     `+"`c\\d`"+` + r -> "raw ${r}"
     _ -> "escape miss"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(route("/users/42"))
   io.print(route("/users/"))
   io.print(route("/health"))
@@ -120,8 +120,8 @@ fn main() {
   io.print(payload(None))
   io.print(tuple(("k:id", 3)))
   io.print(tuple(("id", 3)))
-  io.print(map_value(%{"auth" => "Bearer abc"}))
-  io.print(map_value(%{"auth" => "Basic abc"}))
+  io.print(map_value({"auth" => "Bearer abc"}))
+  io.print(map_value({"auth" => "Basic abc"}))
   io.print(field(Req{path: "/v1/items", n: 2}))
   io.print(field(Req{path: "/v2/items", n: 2}))
   io.print(list_head(["-v", "a", "b"]))
@@ -131,10 +131,10 @@ fn main() {
   io.print(escapes("a\tbZ"))
   io.print(escapes("c\\dQ"))
   io.print(escapes("ab"))
-  strip = fn s: String -> if "e" + r = s { "[${r}]" } else { "none" }
+  strip = fn s: String -> if "e" + r = s then "[${r}]" else "none"
   io.print(strip("e\u{301}"))
   io.print(strip("f"))
-}
+end
 `)
 	want := strings.Join([]string{
 		"user [42]",
@@ -179,17 +179,17 @@ func TestRun_StringPrefixPatternInATestBody(t *testing.T) {
 	const name = "main_test.nomi"
 	p, err := vmhost.LoadSource(name, `import std::io
 
-test "string prefix" {
-  r = case "/users/9" {
+test "string prefix"
+  r = case "/users/9"
     "/users/" + id -> id
     _ -> "none"
-  }
-  if "/x" + rest = "/y" {
+  end
+  if "/x" + rest = "/y" then
     io.print("unexpected ${rest}")
-  }
+  end
   io.print("id ${r}")
   assert r == "9"
-}
+end
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the test: %v", err)

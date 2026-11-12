@@ -1,8 +1,8 @@
-import {
+import
     std::duration.Duration
     std::instant.Instant
     std::io
-}
+end
 
 // `Context`'s deadline chain, end to end.
 //
@@ -56,7 +56,7 @@ import {
 // (`Some`/`None`), a rendered span at a deliberately saturated value (a deadline
 // far in the past clamps to exactly `0s`), or an ordering between two spans
 // measured in the same run.
-fn main() {
+fn main()
     root = Context.root()
     io.print("root deadline = ${present(Context.deadline(root))}")
     io.print("root remaining = ${span(Context.deadline_remaining(root))}")
@@ -109,52 +109,53 @@ fn main() {
     io.print("passed remaining = ${remaining_of(app)}")
     io.print("returned remaining = ${span(Context.deadline_remaining(fresh()))}")
     io.print("name = ${app.name}")
-}
+end
 
-struct App {
+struct App
     context: Context
     name: String
-}
+end
 
-fn remaining_of(a: App) -> String {
+fn remaining_of(a: App) -> String
     span(Context.deadline_remaining(a.context))
-}
+end
 
-fn fresh() -> Context {
+fn fresh() -> Context
     Context.with_timeout(Context.root(), Duration.seconds(-1))
-}
+end
 
 // present renders only whether a deadline EXISTS. An absolute Instant is a
 // wall-clock value, so printing one would make this fixture disagree with itself
 // between two runs.
-fn present(m: Maybe<Instant>) -> String {
-    case m {
+fn present(m: Maybe<Instant>) -> String
+    case m
         Some(_) -> "Some"
         None -> "None"
-    }
-}
+    end
+end
 
 // span renders a remaining Duration, and every call site above is arranged so
 // the value is CLAMPED to zero — the one span two independently-timed runs
 // agree on exactly.
-fn span(m: Maybe<Duration>) -> String {
-    case m {
+fn span(m: Maybe<Duration>) -> String
+    case m
         Some(d) -> "Some(${Duration.to_string(d)})"
         None -> "None"
-    }
-}
+    end
+end
 
 // further compares two remaining spans measured on ONE path, so no wall clock
 // crosses the comparison and the answer is a fact about the chain rather than
 // about scheduling.
-fn further(a: Context, b: Context) -> Bool {
-    case Context.deadline_remaining(a) {
+fn further(a: Context, b: Context) -> Bool
+    case Context.deadline_remaining(a)
         Some(da) ->
-            case Context.deadline_remaining(b) {
+            case Context.deadline_remaining(b)
                 Some(db) -> Duration.as_nanos(da) > Duration.as_nanos(db)
                 None -> False
-            }
+            end
 
-        None -> False
-    }
-}
+        None ->
+            False
+    end
+end

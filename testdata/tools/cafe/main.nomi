@@ -1,17 +1,17 @@
-import {
+import
     std::io
     enums.{Roast, Size}
-}
+end
 
-fn ounces(size: Size) -> Int {
-    case size {
+fn ounces(size: Size) -> Int
+    case size
         Size.Small -> 8
         Size.Medium -> 12
         Size.Large -> 16
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(ounces(Size.Medium))
     io.print(Roast.Dark == Roast.Dark)
-}
+end

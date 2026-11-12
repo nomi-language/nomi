@@ -2,10 +2,10 @@
 A line starting with a minus is a new statement
 ================================================================================
 
-fn main() {
+fn main()
     x = a
     -1
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -24,10 +24,10 @@ fn main() {
 A line starting with a paren is a new statement, not a call
 ================================================================================
 
-fn main() {
+fn main()
     (value, next) = step(state)
     (value, next)
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -50,10 +50,10 @@ fn main() {
 A line starting with a bracket is a new statement, not a typed list
 ================================================================================
 
-fn main() {
+fn main()
     x = Foo
     [1, 2]
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -73,10 +73,10 @@ fn main() {
 A lambda body ends at the line break
 ================================================================================
 
-fn main() {
+fn main()
     f = fn x -> x
     -1
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -114,12 +114,12 @@ once x = a
 A case arm ends at the line break before a tuple pattern
 ================================================================================
 
-fn main() {
-    case n {
+fn main()
+    case n
         1 -> f
         (x, y) -> b
-    }
-}
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -129,7 +129,7 @@ fn main() {
     (parameters)
     (body
       (case_expression
-        (identifier)
+        value: (identifier)
         (case_branch
           (integer)
           (identifier))
@@ -146,8 +146,7 @@ A statement on a prompt line ends at the line break
 //! x = a
 //! -1
 //! assert x
-fn f() {
-}
+fn f() end
 
 --------------------------------------------------------------------------------
 
@@ -175,18 +174,18 @@ A pipe, else, body brace or where clause on the next line continues
 
 fn f<T>(x: T) -> T
 where T: Display
-{
     y = x
         |> g
-    z = if c {
+    z = if c then
         a
-    }
-    else {
+    else
         b
-    }
+    end
     Some(v) = m
-    else { return 0 }
-}
+    else
+        return 0
+    end
+end
 
 --------------------------------------------------------------------------------
 
@@ -216,11 +215,12 @@ where T: Display
       (binding
         (identifier)
         (if_expression
-          (identifier)
-          (body
+          condition: (identifier)
+          consequence: (block
             (identifier))
-          (body
-            (identifier))))
+          alternative: (else_clause
+            body: (block
+              (identifier)))))
       (else_binding
         pattern: (call_expression
           function: (type_identifier)
@@ -234,10 +234,10 @@ where T: Display
 A variant pattern binding
 ================================================================================
 
-fn main() {
+fn main()
     Day(n) = d
     n
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -262,9 +262,9 @@ import std::iter.Iter.loop
 
 pub type Probe.Absent
 
-fn worst(a: Probe.Reading) -> Probe.Reading {
+fn worst(a: Probe.Reading) -> Probe.Reading
     a
-}
+end
 
 --------------------------------------------------------------------------------
 
@@ -303,8 +303,7 @@ A prompt declares a local type
 
 //! type TraceId String
 //! assert TraceId("a") == TraceId("a")
-pub fn f() {
-}
+pub fn f() end
 
 --------------------------------------------------------------------------------
 
@@ -339,10 +338,10 @@ A line starting with a struct literal is a new statement
 
 import std::io.{self, print}
 
-fn main() {
+fn main()
     x = a
-    .{y: 1}
-}
+    {y: 1}
+end
 
 --------------------------------------------------------------------------------
 

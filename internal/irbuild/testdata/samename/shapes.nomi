@@ -4,16 +4,16 @@
 // ever keyed a type's identity on the bare name `Point`, one of the two
 // declarations would answer for the other and the lowered comparator would
 // read fields the other type does not have.
-pub struct Point {
+pub struct Point
     x: Int
     y: Int
-}
+end
 
-pub fn at(x: Int, y: Int) -> Point {
-    Point{x, y}
-}
+pub fn at(x: Int, y: Int) -> Point
+    Point{x:, y:}
+end
 
 /// `==` on shapes.Point, resolved against SHAPES' declaration.
-pub fn same(a: Point, b: Point) -> Bool {
+pub fn same(a: Point, b: Point) -> Bool
     a == b
-}
+end

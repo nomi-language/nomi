@@ -1,69 +1,71 @@
-import {
+import
     std::html.Html
     std::io
-}
+end
 
-enum Shape {
+enum Shape
     Circle Float
     Square Float
-}
+end
 
 /// An `if` with no `else` whose branch has a value is a Maybe: `Some` of the
 /// value when the condition holds, `None` when it does not.
-fn positive(n: Int) -> Maybe<String> {
-    if n > 0 { "positive" }
-}
+fn positive(n: Int) -> Maybe<String>
+    if n > 0 then "positive"
+end
 
 /// An `else if` chain with no final `else`: the branch that runs gives
 /// `Some`, and none running gives `None`. A branch that returns leaves the
 /// function and gives the chain nothing.
-fn bucket(n: Int) -> Maybe<String> {
-    if n < 0 {
+fn bucket(n: Int) -> Maybe<String>
+    if n < 0 then
         return None
-    } else if n == 0 {
+    else if n == 0 then
         "zero"
-    } else if n < 10 {
+    else if n < 10 then
         "small"
-    }
-}
+    end
+end
 
 /// A branch that leaves keeps the `if` Unit, a statement.
-fn checked(n: Int) -> Result<Int, String> {
-    if n < 0 { return Err("negative") }
+fn checked(n: Int) -> Result<Int, String>
+    if n < 0 then return Err("negative")
 
     Ok(n)
-}
+end
 
 /// No flattening: a branch that is already a Maybe gives a Maybe of one.
-fn lookup(m: Map<String, Int>, k: String, on: Bool) -> Maybe<Maybe<Int>> {
-    if on { Map.get(m, k) }
-}
+fn lookup(m: Map<String, Int>, k: String, on: Bool) -> Maybe<Maybe<Int>>
+    if on then Map.get(m, k)
+end
 
-fn nested(a: Bool, b: Bool) -> Maybe<Maybe<Int>> {
-    if a { if b { 1 } }
-}
+fn nested(a: Bool, b: Bool) -> Maybe<Maybe<Int>>
+    if a then
+        if b then 1
+    end
+end
 
 /// The expected type reaches the branch: `.Circle` is the Maybe's Shape.
-fn shape(round: Bool) -> Maybe<Shape> {
-    if round { .Circle(1.0) }
-}
+fn shape(round: Bool) -> Maybe<Shape>
+    if round then .Circle(1.0)
+end
 
 /// A pattern `if` with no `else`.
-fn incremented(m: Maybe<Int>) -> Maybe<Int> {
-    if Some(n) = m { n + 1 }
-}
+fn incremented(m: Maybe<Int>) -> Maybe<Int>
+    if Some(n) = m then n + 1
+end
 
 /// A generic body.
-fn only_if<T>(on: Bool, value: T) -> Maybe<T> {
-    if on { value }
-}
+fn only_if<T>(on: Bool, value: T) -> Maybe<T>
+    if on then value
+end
 
 /// A pipe's `if` stage.
-fn doubled(n: Int) -> Maybe<Int> {
-    (n > 0) |> if { n * 2 }
-}
+fn doubled(n: Int) -> Maybe<Int>
+    (n > 0) |> if then n * 2
+end
 
-fn main() {
+fn main()
     io.inspect(positive(3))
     io.inspect(positive(-3))
     io.inspect(bucket(-1))
@@ -72,7 +74,7 @@ fn main() {
     io.inspect(bucket(50))
     io.inspect(checked(-1))
     io.inspect(checked(1))
-    m = %{"a" => 1}
+    m = {"a" => 1}
     io.inspect(lookup(m, "a", True))
     io.inspect(lookup(m, "b", True))
     io.inspect(lookup(m, "a", False))
@@ -88,15 +90,15 @@ fn main() {
     io.inspect(doubled(4))
     io.inspect(doubled(-4))
 
-    bound = if m == %{} { 1 }
+    bound = if m == {} then 1
     io.inspect(bound)
-    annotated: Maybe<Int> = if True { 2 }
+    annotated: Maybe<Int> = if True then 2
     io.inspect(annotated)
-    picked = [1, 2, 3] |> Iter.map(fn n -> if n > 1 { n }) |> Iter.to_list()
+    picked = [1, 2, 3] |> Iter.map(fn n -> if n > 1 then n) |> Iter.to_list()
     io.inspect(picked)
-    io.inspect(Maybe.with_default(if False { 3 }, 0))
+    io.inspect(Maybe.with_default(if False then 3, 0))
 
-    io.print(Html.to_string(Html"<p>${if True { 4 }}</p>"))
-    io.print(Html.to_string(Html"<p>${if False { "hidden" }}</p>"))
-    io.print(Html.to_string(Html"<p class=${if True { "on" }}>x</p>"))
-}
+    io.print(Html.to_string(Html"<p>${if True then 4}</p>"))
+    io.print(Html.to_string(Html"<p>${if False then "hidden"}</p>"))
+    io.print(Html.to_string(Html"<p class=${if True then "on"}>x</p>"))
+end

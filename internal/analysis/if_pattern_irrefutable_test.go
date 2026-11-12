@@ -13,14 +13,14 @@ import (
 
 const ifIrrefutableDecls = `type Meters Int
 
-struct Pair {
+struct Pair
     a: Int
     b: Int
-}
+end
 
-enum Only {
+enum Only
     V(Int)
-}
+end
 `
 
 func ifIrrefutableMsg(ty string) string {
@@ -32,46 +32,46 @@ func TestIfPattern_IrrefutableIsRejected(t *testing.T) {
 	for name, tc := range map[string]struct {
 		body, pos, ty, hint string
 	}{
-		"a name over a parameter of the value's type": {`fn f(x: Int) -> Int {
-    if x = 0 { return -x }
+		"a name over a parameter of the value's type": {`fn f(x: Int) -> Int
+    if x = 0 then return -x
     x
-}`, "13:8", "Int", compareHint},
-		"a name over a binding of the value's type": {`fn f() -> Int {
+end`, "13:8", "Int", compareHint},
+		"a name over a binding of the value's type": {`fn f() -> Int
     x = 3
-    if x = 0 { return 1 }
+    if x = 0 then return 1
     x
-}`, "14:8", "Int", compareHint},
-		"a fresh name": {`fn f(n: Int) -> Int {
-    if y = n { return y }
+end`, "14:8", "Int", compareHint},
+		"a fresh name": {`fn f(n: Int) -> Int
+    if y = n then return y
     0
-}`, "13:8", "Int", ""},
-		"a name over a value of another type": {`fn f(x: String) -> Int {
-    if x = 0 { return x }
+end`, "13:8", "Int", ""},
+		"a name over a value of another type": {`fn f(x: String) -> Int
+    if x = 0 then return x
     0
-}`, "13:8", "Int", ""},
-		"a wildcard": {`fn f(n: Int) -> Int {
-    if _ = n { return 1 }
+end`, "13:8", "Int", ""},
+		"a wildcard": {`fn f(n: Int) -> Int
+    if _ = n then return 1
     0
-}`, "13:8", "Int", ""},
-		"a tuple of names": {`fn f(p: (Int, Int)) -> Int {
-    if (a, b) = p { return a + b }
+end`, "13:8", "Int", ""},
+		"a tuple of names": {`fn f(p: (Int, Int)) -> Int
+    if (a, b) = p then return a + b
     0
-}`, "13:8", "(Int, Int)", ""},
-		"a distinct type": {`fn f(w: Meters) -> Int {
-    if Meters(m) = w { return m }
+end`, "13:8", "(Int, Int)", ""},
+		"a distinct type": {`fn f(w: Meters) -> Int
+    if Meters(m) = w then return m
     0
-}`, "13:8", "Meters", ""},
-		"a struct": {`fn f(p: Pair) -> Int {
-    if Pair{a, b} = p { return a + b }
+end`, "13:8", "Meters", ""},
+		"a struct": {`fn f(p: Pair) -> Int
+    if Pair{a:, b:} = p then return a + b
     0
-}`, "13:8", "Pair", ""},
-		"a single-variant enum": {`fn f(o: Only) -> Int {
-    if Only.V(n) = o { return n }
+end`, "13:8", "Pair", ""},
+		"a single-variant enum": {`fn f(o: Only) -> Int
+    if Only.V(n) = o then return n
     0
-}`, "13:8", "Only", ""},
-		"with an else, used for its value": {`fn f(n: Int) -> Int {
-    if a = n { a + 1 } else { 0 }
-}`, "13:8", "Int", ""},
+end`, "13:8", "Only", ""},
+		"with an else, used for its value": {`fn f(n: Int) -> Int
+    if a = n then a + 1 else 0
+end`, "13:8", "Int", ""},
 	} {
 		_, errs := checkSourceWithStdlib(ifIrrefutableDecls + "\n" + tc.body + "\n")
 		want := tc.pos + ": " + ifIrrefutableMsg(tc.ty)
@@ -99,18 +99,18 @@ func TestIfPattern_IrrefutableIsRejected(t *testing.T) {
 // refutable part.
 func TestIfPattern_RefutableIsAccepted(t *testing.T) {
 	for name, body := range map[string]string{
-		"a variant": `fn f(m: Maybe<Int>) -> Int {
-    if Some(v) = m { return v }
+		"a variant": `fn f(m: Maybe<Int>) -> Int
+    if Some(v) = m then return v
     0
-}`,
-		"a tuple with a variant": `fn f(p: (Int, Maybe<Int>)) -> Int {
-    if (a, Some(b)) = p { return a + b }
+end`,
+		"a tuple with a variant": `fn f(p: (Int, Maybe<Int>)) -> Int
+    if (a, Some(b)) = p then return a + b
     0
-}`,
-		"a literal": `fn f(n: Int) -> Int {
-    if 0 = n { return 1 }
+end`,
+		"a literal": `fn f(n: Int) -> Int
+    if 0 = n then return 1
     n
-}`,
+end`,
 	} {
 		_, errs := checkSourceWithStdlib(ifIrrefutableDecls + "\n" + body + "\n")
 		if len(errs) != 0 {

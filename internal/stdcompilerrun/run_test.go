@@ -48,43 +48,43 @@ func TestRunIsTheVMsPipeline(t *testing.T) {
 	}
 
 	t.Run("captured stdout, in program order", func(t *testing.T) {
-		ok(t, "import std::io\n\nfn main() {\n  io.print(\"a\")\n  io.print(\"b\")\n}\n", "a\nb\n")
+		ok(t, "import std::io\n\nfn main()\n  io.print(\"a\")\n  io.print(\"b\")\nend\n", "a\nb\n")
 	})
 	t.Run("arithmetic is EVALUATED, not merely checked", func(t *testing.T) {
-		ok(t, "import std::io\n\nfn main() {\n  io.print(Debug.inspect(6 * 7))\n}\n", "42\n")
+		ok(t, "import std::io\n\nfn main()\n  io.print(Debug.inspect(6 * 7))\nend\n", "42\n")
 	})
 	t.Run("the standard library is attached", func(t *testing.T) {
 		// String.trim is declared nowhere in the source, so this fails for a
 		// pipeline that parsed and evaluated without loading std.
-		ok(t, "import std::io\n\nfn main() {\n"+
-			"  io.print(String.trim(\"  x  \"))\n}\n", "x\n")
+		ok(t, "import std::io\n\nfn main()\n"+
+			"  io.print(String.trim(\"  x  \"))\nend\n", "x\n")
 	})
 	t.Run("derives are synthesized", func(t *testing.T) {
 		// Debug.inspect on a struct with no hand-written impl needs the
 		// synthesis passes, not just the VM.
-		ok(t, "import std::io\n\nstruct P {\n  x: Int\n}\n\nfn main() {\n"+
-			"  io.print(Debug.inspect(P{x: 1}))\n}\n", "P{x: 1}\n")
+		ok(t, "import std::io\n\nstruct P\n  x: Int\nend\n\nfn main()\n"+
+			"  io.print(Debug.inspect(P{x: 1}))\nend\n", "P{x: 1}\n")
 	})
 	t.Run("no main runs the top level and stops", func(t *testing.T) {
-		ok(t, "fn unused() -> Int {\n  1\n}\n", "")
+		ok(t, "fn unused() -> Int\n  1\nend\n", "")
 	})
 
 	t.Run("a parse error is an error", func(t *testing.T) {
-		errContains(t, "fn main() {\n", "expected '}'")
+		errContains(t, "fn main()\n", "expected `end`")
 	})
 	t.Run("an analysis error is an error", func(t *testing.T) {
-		errContains(t, "fn main() {\n  _ = missing\n}\n", "undefined variable 'missing'")
+		errContains(t, "fn main()\n  _ = missing\nend\n", "undefined variable 'missing'")
 	})
 	t.Run("a runtime trap is an error", func(t *testing.T) {
 		// Type-correct, and it faults when it RUNS. The arm no analyzer reaches.
-		errContains(t, "import std::io\n\nfn main() {\n"+
-			"  zero = 0\n  io.print(Debug.inspect(1 / zero))\n}\n", "division by zero")
+		errContains(t, "import std::io\n\nfn main()\n"+
+			"  zero = 0\n  io.print(Debug.inspect(1 / zero))\nend\n", "division by zero")
 	})
 	t.Run("partial output is DISCARDED on a fault", func(t *testing.T) {
 		// The program prints before it traps, and the answer is an error rather
 		// than the prefix — so the error is not merely "the text so far".
-		got, err := run("import std::io\n\nfn main() {\n  io.print(\"before\")\n" +
-			"  io.print(Debug.inspect(1 / 0))\n}\n")
+		got, err := run("import std::io\n\nfn main()\n  io.print(\"before\")\n" +
+			"  io.print(Debug.inspect(1 / 0))\nend\n")
 		if err == nil {
 			t.Fatalf("want an error, got output %q", got)
 		}
@@ -100,11 +100,11 @@ func TestRunIsTheVMsPipeline(t *testing.T) {
 		// names no line, so it is given the line of the program's call that
 		// was blocked when it ran out: `timer.sleep` on line 18 (spec, "Where
 		// a trap is reported").
-		src := "import {\n  std::duration.Duration\n  std::io\n  std::timer\n}\n\n" +
-			"struct Run {\n  context: Context\n}\n\n" +
-			"fn boot() -> Result<Run, String> {\n  Ok(Run{context: Context.root()})\n}\n\n" +
-			"fn main() {\n  with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(20))\n" +
-			"  io.print(\"entered\")\n  timer.sleep(Duration.seconds(5))\n  io.print(\"outlasted\")\n}\n"
+		src := "import\n  std::duration.Duration\n  std::io\n  std::timer\nend\n\n" +
+			"struct Run\n  context: Context\nend\n\n" +
+			"fn boot() -> Result<Run, String>\n  Ok(Run{context: Context.root()})\nend\n\n" +
+			"fn main()\n  with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(20))\n" +
+			"  io.print(\"entered\")\n  timer.sleep(Duration.seconds(5))\n  io.print(\"outlasted\")\nend\n"
 		got, err := run(src)
 		want := "line 18: " + rt.MainDeadlineFault
 		if err == nil || err.Error() != want {
@@ -113,16 +113,16 @@ func TestRunIsTheVMsPipeline(t *testing.T) {
 	})
 	t.Run("a failed assertion in main is an error", func(t *testing.T) {
 		src := "import std::assertions.AssertionFailure\n\n" +
-			"fn main() -> Result<Unit, AssertionFailure> {\n  assert 1 == 2\n  Ok(Unit)\n}\n"
+			"fn main() -> Result<Unit, AssertionFailure>\n  assert 1 == 2\n  Ok(Unit)\nend\n"
 		got, err := run(src)
 		if err == nil || !strings.HasPrefix(err.Error(), "line 4: assertion failed") {
 			t.Fatalf("the VM answers %q, %v; want the error \"line 4: assertion failed ...\"", got, err)
 		}
 	})
 	t.Run("the pipeline is re-entrant", func(t *testing.T) {
-		ok(t, "import std::compiler\nimport std::io\n\nfn main() {\n"+
-			"  case compiler.run(\"import std::io\\n\\nfn main() {\\n  io.print(\\\"deep\\\")\\n}\\n\") {\n"+
-			"    Ok(t) -> io.print(\"got \" + t)\n    Err(_) -> io.print(\"err\")\n  }\n}\n",
+		ok(t, "import std::compiler\nimport std::io\n\nfn main()\n"+
+			"  case compiler.run(\"import std::io\\n\\nfn main()\\n  io.print(\\\"deep\\\")\\nend\\n\")\n"+
+			"    Ok(t) -> io.print(\"got \" + t)\n    Err(_) -> io.print(\"err\")\n  end\nend\n",
 			"got deep\n\n")
 	})
 }
@@ -137,10 +137,10 @@ func TestRunIsTheVMsPipeline(t *testing.T) {
 func TestProjectRootIsThreaded(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "helper.nomi"),
-		[]byte("pub fn greet() -> String {\n  \"hi\"\n}\n"), 0o644); err != nil {
+		[]byte("pub fn greet() -> String\n  \"hi\"\nend\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	src := "import helper\nimport std::io\n\nfn main() {\n  io.print(helper.greet())\n}\n"
+	src := "import helper\nimport std::io\n\nfn main()\n  io.print(helper.greet())\nend\n"
 
 	if got, err := stdcompilerrun.RunSource(src, "", nil, nil); err == nil {
 		t.Errorf("with no project root a project-relative import resolved anyway (%q), so "+

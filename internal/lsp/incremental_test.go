@@ -19,50 +19,50 @@ import (
 // incrementalProject is a three-file project: an entry, a library it
 // imports, and a test file that imports the library.
 var incrementalProject = map[string]string{
-	"main.nomi": `import {
+	"main.nomi": `import
     std::io
     shapes.{self, Shape, Circle, Square}
-}
+end
 
-fn main() {
+fn main()
     io.print(Shape.area(Circle{radius: 2}))
     io.print(shapes.describe(Square{side: 3}))
-}
+end
 `,
-	"shapes.nomi": `pub interface Shape {
+	"shapes.nomi": `pub interface Shape
     fn area(value: self) -> Int
-}
+end
 
-pub struct Circle {
+pub struct Circle
     radius: Int
-}
+end
 
-pub struct Square {
+pub struct Square
     side: Int
-}
+end
 
-impl Shape for Circle {
-    fn area(value: Circle) -> Int {
+impl Shape for Circle
+    fn area(value: Circle) -> Int
         value.radius * value.radius * 3
-    }
-}
+    end
+end
 
-impl Shape for Square {
-    fn area(value: Square) -> Int {
+impl Shape for Square
+    fn area(value: Square) -> Int
         value.side * value.side
-    }
-}
+    end
+end
 
-pub fn describe(shape: Shape) -> String {
+pub fn describe(shape: Shape) -> String
     size = Shape.area(shape)
     "a shape of area ${size}"
-}
+end
 `,
 	"shapes_test.nomi": `import shapes.{Shape, Circle}
 
-test "a circle's area" {
+test "a circle's area"
     assert Shape.area(Circle{radius: 1}) == 3
-}
+end
 `,
 }
 

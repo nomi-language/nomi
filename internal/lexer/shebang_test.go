@@ -42,12 +42,12 @@ func TestLex_ShebangElsewhereIsNotSkipped(t *testing.T) {
 
 func TestShebang(t *testing.T) {
 	cases := map[string]string{
-		"#!/usr/bin/env nomi\nfn main() {}\n": "#!/usr/bin/env nomi",
-		"#!/usr/bin/env nomi\r\n":             "#!/usr/bin/env nomi",
-		"#!nomi":                              "#!nomi",
-		"// #!/usr/bin/env nomi\n":            "",
-		" #!/usr/bin/env nomi\n":              "",
-		"#(1, 2)\n":                           "",
+		"#!/usr/bin/env nomi\nfn main() end\n": "#!/usr/bin/env nomi",
+		"#!/usr/bin/env nomi\r\n":              "#!/usr/bin/env nomi",
+		"#!nomi":                               "#!nomi",
+		"// #!/usr/bin/env nomi\n":             "",
+		" #!/usr/bin/env nomi\n":               "",
+		"#(1, 2)\n":                            "",
 	}
 	for src, want := range cases {
 		if got := Shebang(src); got != want {

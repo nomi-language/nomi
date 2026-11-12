@@ -2,10 +2,10 @@
 //# (rt/path.go). It is internal; a program imports std::path, which builds
 //# its functions from these and gives them their documentation.
 
-import {
+import
     lists.List
     strings.String
-}
+end
 
 /// Go's `path.Clean`.
 pub host fn clean(p: String) -> String

@@ -167,8 +167,8 @@ func TestLoadMarked_AProjectOfModulesLoadsAsItsFiles(t *testing.T) {
 // test case says `app/main.nomi`, never the directory.
 func TestLoadMarked_ARunNamesFilesFromTheProjectRoot(t *testing.T) {
 	src := "// FILE: app/main.nomi\n" +
-		"import std::io\n\nfn main() {\n  io.print(\"start\")\n  todo \"finish main\"\n}\n\n" +
-		"test \"unfinished\" {\n  assert 1 == 1\n  todo\n}\n" +
+		"import std::io\n\nfn main()\n  io.print(\"start\")\n  todo \"finish main\"\nend\n\n" +
+		"test \"unfinished\"\n  assert 1 == 1\n  todo\nend\n" +
 		"// FILE: nomi.toml\n[module]\nname = \"demo\"\nentry_points = [\"app/main\"]\n" +
 		"// FILE: go.mod\nmodule demo\n\ngo 1.27.0\n"
 	dir := t.TempDir()
@@ -206,46 +206,46 @@ func TestLoadMarked_RunsEveryFilesTests(t *testing.T) {
 	const files = `// FILE: main.nomi
 import std::io
 
-pub struct App {
+pub struct App
     greeting: String
     context: Context
-}
+end
 
-pub fn boot(_startup: Startup) -> Result<App, String> {
+pub fn boot(_startup: Startup) -> Result<App, String>
     Ok(App{greeting: "hi", context: Context.root()})
-}
+end
 
-pub fn greet(name: String) -> String {
+pub fn greet(name: String) -> String
     "${App.greeting} ${name}"
-}
+end
 
-fn main() {
+fn main()
     io.print(greet("ada"))
-}
+end
 
-group "entry" {
+group "entry"
     boot boot(Startup{})
 
-    test "in the entry" {
+    test "in the entry"
         assert greet("bo") == "hi bo"
-    }
-}
+    end
+end
 
 // FILE: main_test.nomi
 import main
 
-group "greeting" {
+group "greeting"
     boot main.boot(Startup{})
 
-    test "booted from the entry" {
+    test "booted from the entry"
         assert main.greet("cy") == "hi cy"
-    }
-}
+    end
+end
 
 // FILE: more_test.nomi
-test "on its own" {
+test "on its own"
     assert 1 + 1 == 2
-}
+end
 `
 	for _, tc := range []struct{ name, src string }{
 		{"in memory", files},

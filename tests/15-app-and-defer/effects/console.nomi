@@ -1,17 +1,17 @@
 // Console implementations. The Console interface itself lives in
 // effects.nomi.
-import {
+import
     std::io
     effects.Console
-}
+end
 
 // StdConsole writes through io.print to actual stdout. EffectsApp stores it
 // behind `console: Console`; callers read the active console as
 // `EffectsApp.console`.
 pub type StdConsole
 
-impl Console for StdConsole {
-    fn writeln(_value: StdConsole, msg: String) -> Unit {
+impl Console for StdConsole
+    fn writeln(_value: StdConsole, msg: String) -> Unit
         io.print(msg)
-    }
-}
+    end
+end

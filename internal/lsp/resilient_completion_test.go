@@ -12,16 +12,16 @@ import (
 // 2 — and the caret sits after the trailing space at character 14, which
 // is where you are when you have typed the operator and want the operand
 // completed.
-const halfTypedDoc = "fn compute(n: Int) -> Int {\n" +
+const halfTypedDoc = "fn compute(n: Int) -> Int\n" +
 	"  total = n * 2\n" +
 	"  f = fn x -> n + \n" +
-	"}\n"
+	"end\n"
 
-const completedDoc = "fn compute(n: Int) -> Int {\n" +
+const completedDoc = "fn compute(n: Int) -> Int\n" +
 	"  total = n * 2\n" +
 	"  f = fn x -> n + x\n" +
 	"  total\n" +
-	"}\n"
+	"end\n"
 
 func completionLabels(t *testing.T, s *Server, uri string, line, char int) map[string]bool {
 	t.Helper()
@@ -94,10 +94,10 @@ func TestCompletion_InsideHalfTypedFunctionBody(t *testing.T) {
 // least one assert") would otherwise discard the declaration for the very
 // reason that the assertion is half typed.
 func TestCompletion_InsideHalfTypedTestBody(t *testing.T) {
-	src := "test \"arithmetic\" {\n" +
+	src := "test \"arithmetic\"\n" +
 		"  subject = 2\n" +
 		"  assert subject == \n" +
-		"}\n"
+		"end\n"
 	uri := "file:///resilient_test_body.nomi"
 	s := NewServer()
 	s.docs.Open(uri, src)
@@ -119,7 +119,7 @@ func TestDiagnostics_HalfTypedBodyReportsOnlyTheSyntaxError(t *testing.T) {
 	// `fn bad` is syntactically fine and genuinely ill-typed. Its
 	// diagnostic must survive — the suppression is scoped to the
 	// declaration that was repaired, not applied to the file.
-	src := halfTypedDoc + "\nfn bad() -> Int {\n  \"a string, not an Int\"\n}\n"
+	src := halfTypedDoc + "\nfn bad() -> Int\n  \"a string, not an Int\"\nend\n"
 	uri := "file:///resilient_diagnostics.nomi"
 	s := NewServer()
 	s.docs.Open(uri, src)
@@ -128,7 +128,7 @@ func TestDiagnostics_HalfTypedBodyReportsOnlyTheSyntaxError(t *testing.T) {
 	if len(doc.Damaged) != 1 {
 		t.Fatalf("want exactly the first declaration marked damaged, got %+v", doc.Damaged)
 	}
-	if len(doc.Errors) != 1 || !strings.Contains(doc.Errors[0].Message, "unexpected `}`") {
+	if len(doc.Errors) != 1 || !strings.Contains(doc.Errors[0].Message, "unexpected `end`") {
 		t.Fatalf("the syntax error must still be reported, got %+v", doc.Errors)
 	}
 

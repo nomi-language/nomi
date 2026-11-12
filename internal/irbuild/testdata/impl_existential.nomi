@@ -9,63 +9,63 @@ import std::io
 // `describe` reaches `Speech.speak` through the erased value and `Int.label`
 // proves the same table serves an impl for a BUILTIN receiver as well as for
 // a user struct.
-interface Speech {
+interface Speech
     fn speak(animal: self) -> String
-}
+end
 
-interface Numberish {
+interface Numberish
     fn label(value: self, prefix: String) -> String
-}
+end
 
-struct Dog {
+struct Dog
     name: String
-}
+end
 
-struct Cat {
+struct Cat
     name: String
-}
+end
 
-impl Speech for Dog {
-    fn speak(d: Dog) -> String {
+impl Speech for Dog
+    fn speak(d: Dog) -> String
         "${d.name} says woof"
-    }
-}
+    end
+end
 
-impl Speech for Cat {
-    fn speak(c: Cat) -> String {
+impl Speech for Cat
+    fn speak(c: Cat) -> String
         "${c.name} says meow"
-    }
-}
+    end
+end
 
-impl Numberish for Int {
-    fn label(value: Int, prefix: String) -> String {
+impl Numberish for Int
+    fn label(value: Int, prefix: String) -> String
         "${prefix}=${value}"
-    }
-}
+    end
+end
 
-fn announce(s: Speech) -> String {
+fn announce(s: Speech) -> String
     Speech.speak(s)
-}
+end
 
 // Erasure through a RETURN as well as through a parameter: both functions
 // widen a concrete type into one interface-typed result, and `announce` can
 // no longer see which.
-fn as_speech_dog(name: String) -> Speech {
-    Dog{name}
-}
+fn as_speech_dog(name: String) -> Speech
+    Dog{name:}
+end
 
-fn as_speech_cat(name: String) -> Speech {
-    Cat{name}
-}
+fn as_speech_cat(name: String) -> Speech
+    Cat{name:}
+end
 
-fn tag(n: Numberish) -> String {
+fn tag(n: Numberish) -> String
     Numberish.label(n, "n")
-}
+end
 
-fn main() {
+fn main()
     io.print(announce(Dog{name: "Rex"}))
     io.print(announce(Cat{name: "Whiskers"}))
     io.print(announce(as_speech_dog("Rex")))
     io.print(announce(as_speech_cat("Whiskers")))
     io.print(tag(42))
-}
+end

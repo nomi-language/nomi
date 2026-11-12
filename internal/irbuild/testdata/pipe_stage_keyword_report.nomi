@@ -36,48 +36,48 @@
 // drops a row whose operand text reads exactly like its value, so
 // `Some(3) = Some(3)` would be suppressed in both spellings and they would
 // present identically. `wrap(3) = Some(3)` is the row that distinguishes them.
-fn wrap(n: Int) -> Maybe<Int> {
+fn wrap(n: Int) -> Maybe<Int>
     Some(n)
-}
+end
 
-test "a keyword-prefixed if stage reports three pipeline rows" {
+test "a keyword-prefixed if stage reports three pipeline rows"
     flag =
         12
-        |> if Int.equal(12) { False } else { True }
+        |> if Int.equal(12) then False else True
 
     assert flag
-}
+end
 
-test "a bare case stage reports two pipeline rows" {
+test "a bare case stage reports two pipeline rows"
     flag =
         Some(3)
-        |> case {
+        |> case
             Some(_) -> False
             None -> True
-        }
+        end
 
     assert flag
-}
+end
 
-test "a call stage before a keyword stage reports cumulative prefixes" {
+test "a call stage before a keyword stage reports cumulative prefixes"
     flag =
         [1, 2, 3]
         |> Iter.count()
-        |> if Int.equal(3) { False } else { True }
+        |> if Int.equal(3) then False else True
 
     assert flag
-}
+end
 
-test "a piped case scrutinee contributes no values row" {
-    assert (wrap(3) |> case {
+test "a piped case scrutinee contributes no values row"
+    assert (wrap(3) |> case
         Some(n) -> n
         None -> 0
-    }) == 99
-}
+    end) == 99
+end
 
-test "a directly written case scrutinee does contribute one" {
-    assert (case wrap(3) {
+test "a directly written case scrutinee does contribute one"
+    assert (case wrap(3)
         Some(n) -> n
         None -> 0
-    }) == 99
-}
+    end) == 99
+end

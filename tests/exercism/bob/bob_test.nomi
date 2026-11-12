@@ -1,6 +1,6 @@
 import bob.response
 
-test "bob's responses" {
+test "bob's responses"
     [
         ("asking a question", "Does this cryogenic chamber make me look fat?", "Sure."),
         ("shouting", "WATCH OUT!", "Whoa, chill out!"),
@@ -45,7 +45,7 @@ test "bob's responses" {
             "Whatever.",
         ),
     ]
-    |> subtests (description, remark, expected), description {
+    |> subtests (description, remark, expected), description
         assert response(remark) == expected
-    }
-}
+    end
+end

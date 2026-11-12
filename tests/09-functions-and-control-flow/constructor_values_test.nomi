@@ -6,17 +6,17 @@ type Pair (Int, String)
 
 type Label String
 
-enum Shape {
+enum Shape
     Circle Float
     Seg (Int, Int)
     Dot
-}
+end
 
-fn apply(f: (Int) -> Id, n: Int) -> Id {
+fn apply(f: (Int) -> Id, n: Int) -> Id
     f(n)
-}
+end
 
-test "a distinct type named as a value is its constructor" {
+test "a distinct type named as a value is its constructor"
     ids = Iter.map([1, 2], Id) |> Iter.to_list()
 
     make = Id
@@ -25,9 +25,9 @@ test "a distinct type named as a value is its constructor" {
     assert make(3) == Id(3)
     assert apply(Id, 4) == Id(4)
     assert Iter.map([(1, "a")], Pair) |> Iter.to_list() |> Debug.inspect() == "[Pair(1, \"a\")]"
-}
+end
 
-test "a std variant named as a value is its constructor" {
+test "a std variant named as a value is its constructor"
     somes: List<Maybe<Int>> = Iter.map([1, 2], Some) |> Iter.to_list()
 
     oks: List<Result<Int, String>> = Iter.map([1], Ok) |> Iter.to_list()
@@ -41,41 +41,41 @@ test "a std variant named as a value is its constructor" {
     assert Result.map_err(failed, Label) == Err(Label("bad"))
     assert err("e") == Err("e")
     assert Debug.inspect(somes) == "[Some(1), Some(2)]"
-}
+end
 
-test "a positional variant over a tuple takes the tuple" {
+test "a positional variant over a tuple takes the tuple"
     assert Iter.map([(1, 2)], Shape.Seg) |> Iter.to_list() == [Shape.Seg(1, 2)]
     assert Maybe.map(Some(1.5), Shape.Circle) == Some(Shape.Circle(1.5))
-}
+end
 
-test "a type name and a generic constructor with nothing to solve it stay errors" {
+test "a type name and a generic constructor with nothing to solve it stay errors"
     diagnostics =
         """
-        struct Point {
+        struct Point
           x: Int
-        }
+        end
 
-        fn main() {
+        fn main()
           a = Iter.map([1], Int) |> Iter.to_list()
           b = Point
           c = Some
           _ = (a, b, c)
-        }
+        end
         """
         |> compiler.check()
 
-    assert Iter.any_match(diagnostics, fn d -> {
+    assert Iter.any_match(diagnostics, fn d ->
         String.starts_with(d.message, "`Int` is a type, not a value")
-    })
+    end)
 
-    assert Iter.any_match(diagnostics, fn d -> {
+    assert Iter.any_match(diagnostics, fn d ->
         String.starts_with(d.message, "`Point` is a type, not a value")
-    })
+    end)
 
-    assert Iter.any_match(diagnostics, fn d -> {
+    assert Iter.any_match(diagnostics, fn d ->
         String.starts_with(
             d.message,
             "cannot infer type parameter T of generic constructor 'Some' used as a value",
         )
-    })
-}
+    end)
+end

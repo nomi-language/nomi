@@ -1992,7 +1992,7 @@ func detectInherentImplBlockCollisions(blocks []InherentImplBlockRecord, pathOf 
 			Line: first.Line,
 			Col:  first.Col,
 			Message: fmt.Sprintf(
-				"duplicate type-owned impl: `impl %s { ... }` appears %d times in file %q — merge its functions into one block",
+				"duplicate type-owned impl: `impl %s` appears %d times in file %q — merge its functions into one block",
 				first.Signature, len(group), displayModuleKey(first.Module)),
 			File: fileAt(pathOf, first.Module),
 		})
@@ -2029,7 +2029,7 @@ func detectInherentImplBlockOrphans(
 				Line: rec.Line,
 				Col:  rec.Col,
 				Message: fmt.Sprintf(
-					"orphan impl: inherent `impl %s { ... }` is not allowed — a generic type variable is not a locality anchor; inherent impls require a concrete implementing type declared in this file",
+					"orphan impl: inherent `impl %s` is not allowed — a generic type variable is not a locality anchor; inherent impls require a concrete implementing type declared in this file",
 					rec.Signature),
 				File: fileAt(pathOf, rec.Module),
 			})
@@ -2042,7 +2042,7 @@ func detectInherentImplBlockOrphans(
 			Line: rec.Line,
 			Col:  rec.Col,
 			Message: fmt.Sprintf(
-				"orphan impl: inherent `impl %s { ... }` in file %q cannot extend `%s` — inherent impls must be declared in the same file as their receiver type",
+				"orphan impl: inherent `impl %s` in file %q cannot extend `%s` — inherent impls must be declared in the same file as their receiver type",
 				rec.Signature, displayModuleKey(rec.Module), recv),
 			File: fileAt(pathOf, rec.Module),
 		})

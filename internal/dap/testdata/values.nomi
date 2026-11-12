@@ -1,17 +1,17 @@
 import std::io
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-enum Shape {
+enum Shape
     Circle {radius: Int}
     Square {side: Int}
     Empty
-}
+end
 
-fn main() {
+fn main()
     big = (0..1000) |> Iter.to_list()
 
     p = Point{x: 3, y: 4}
@@ -20,9 +20,9 @@ fn main() {
     n = n + 1
     io.print("${Iter.count(big)} ${p.x} ${n}")
 
-    if n > 1 {
+    if n > 1 then
         n = n * 10
         io.print("${n}")
         io.inspect(s)
-    }
-}
+    end
+end

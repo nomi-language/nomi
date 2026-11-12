@@ -3,34 +3,34 @@ import std::io
 // A partial capture over an interface-qualified call, an
 // owner-qualified call, a generic function and a stdlib owner function. Each
 // is a function of its open slots.
-interface Console {
+interface Console
     fn write_line(c: self, line: String) -> Unit
-}
+end
 
-struct Stdout {
+struct Stdout
     prefix: String
-}
+end
 
-impl Console for Stdout {
-    fn write_line(c: Stdout, line: String) -> Unit {
+impl Console for Stdout
+    fn write_line(c: Stdout, line: String) -> Unit
         io.print("${c.prefix}${line}")
-    }
-}
+    end
+end
 
-struct App {
+struct App
     console: Console
     context: Context
-}
+end
 
-fn boot() -> Result<App, String> {
+fn boot() -> Result<App, String>
     Ok(App{console: Stdout{prefix: "app> "}, context: Context.root()})
-}
+end
 
-fn pair<T>(a: T, b: T) -> (T, T) {
+fn pair<T>(a: T, b: T) -> (T, T)
     (a, b)
-}
+end
 
-fn main() {
+fn main()
     c = Stdout{prefix: "> "}
     Iter.each(["a", "b"], &Console.write_line(c, &1))
     write: (String) -> Unit = &Console.write_line(c, &1)
@@ -52,4 +52,4 @@ fn main() {
         |> Iter.to_list()
         |> Debug.inspect()
     )
-}
+end

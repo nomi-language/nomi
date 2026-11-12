@@ -15,73 +15,73 @@
 
 import std::io
 
-pub struct Half<T> {
+pub struct Half<T>
     slot: T
-}
+end
 
-pub struct Pair<A, B> {
+pub struct Pair<A, B>
     left: A
     right: B
-}
+end
 
 /// The parameter mentions `T` inside a USER generic struct and the return
 /// mentions it inside a PRELUDE enum. Both are depth positions, and the prelude
 /// one is where the type argument has to survive a construction rather than
 /// merely a pass-through.
-fn recv<T>(r: Half<T>) -> Maybe<T> {
+fn recv<T>(r: Half<T>) -> Maybe<T>
     Maybe.Some(r.slot)
-}
+end
 
 /// Pass-through: the container arrives and leaves unchanged. This is the row an
 /// erased lowering could ALMOST do, which is why the fixture also has `wrapped`.
-fn ids<T>(xs: List<T>) -> List<T> {
+fn ids<T>(xs: List<T>) -> List<T>
     xs
-}
+end
 
 /// CONSTRUCTION: the body builds the container. This is the row erasure cannot
 /// do at all — the body would build a `*rt.List[any]` and the caller wants a
 /// `*rt.List[int64]` — so it is the direct witness for monomorphization.
-fn wrapped<T>(x: T) -> List<T> {
+fn wrapped<T>(x: T) -> List<T>
     [x]
-}
+end
 
 /// TWO type parameters, so the instantiation key is a tuple rather than a single
 /// kind. `Pair<Int, String>` and `Pair<String, Int>` are different instances of
 /// one declaration and must not collide.
-fn swap<A, B>(p: Pair<A, B>) -> Pair<B, A> {
+fn swap<A, B>(p: Pair<A, B>) -> Pair<B, A>
     Pair{left: p.right, right: p.left}
-}
+end
 
 /// A generic function calling ANOTHER generic function at its own type
 /// parameter. Inside the instance, `T` is concrete, so the inner call is
 /// instantiated at the outer instance's argument — the chain the worklist
 /// exists for.
-fn recv_twice<T>(r: Half<T>) -> Maybe<T> {
+fn recv_twice<T>(r: Half<T>) -> Maybe<T>
     recv(r)
-}
+end
 
 /// A tuple is a depth position too, and it is a STRUCTURAL kind rather than a
 /// nominal one, so it exercises kindParts rather than genericArgs.
-fn tag<T>(x: T) -> (T, Int) {
+fn tag<T>(x: T) -> (T, Int)
     (x, 1)
-}
+end
 
-test "one declaration, two concrete type arguments" {
-    as_int = case recv(Half{slot: 7}) {
+test "one declaration, two concrete type arguments"
+    as_int = case recv(Half{slot: 7})
         Some(v) -> v
         None -> 0
-    }
+    end
 
-    as_string = case recv(Half{slot: "seven"}) {
+    as_string = case recv(Half{slot: "seven"})
         Some(v) -> v
         None -> ""
-    }
+    end
 
     assert as_int == 7
     assert as_string == "seven"
-}
+end
 
-test "a container passes through at each element type" {
+test "a container passes through at each element type"
     assert Debug.inspect(ids([1, 2, 3])) == "[1, 2, 3]"
     assert Debug.inspect(ids(["a", "b"])) == "[\"a\", \"b\"]"
     // NOT a `List<Bool>` row. `Debug.inspect` over one refuses
@@ -90,14 +90,14 @@ test "a container passes through at each element type" {
     // measured while writing this fixture. Naming it here rather than leaving a
     // silent hole, because the obvious third element type is exactly the one this
     // row cannot use.
-}
+end
 
-test "a constructed container keeps the caller's element type" {
+test "a constructed container keeps the caller's element type"
     assert Debug.inspect(wrapped(9)) == "[9]"
     assert Debug.inspect(wrapped("nine")) == "[\"nine\"]"
-}
+end
 
-test "two type parameters instantiate as a tuple, in both orders" {
+test "two type parameters instantiate as a tuple, in both orders"
     a = swap(Pair{left: 1, right: "one"})
     b = swap(Pair{left: "two", right: 2})
 
@@ -105,47 +105,47 @@ test "two type parameters instantiate as a tuple, in both orders" {
     assert a.right == 1
     assert b.left == 2
     assert b.right == "two"
-}
+end
 
-test "a generic function calls a generic function at its own type parameter" {
-    n = case recv_twice(Half{slot: 11}) {
+test "a generic function calls a generic function at its own type parameter"
+    n = case recv_twice(Half{slot: 11})
         Some(v) -> v
         None -> 0
-    }
+    end
 
-    s = case recv_twice(Half{slot: "eleven"}) {
+    s = case recv_twice(Half{slot: "eleven"})
         Some(v) -> v
         None -> ""
-    }
+    end
 
     assert n == 11
     assert s == "eleven"
-}
+end
 
-test "a tuple return keeps the element type at each instantiation" {
+test "a tuple return keeps the element type at each instantiation"
     assert Debug.inspect(tag(3)) == "(3, 1)"
     assert Debug.inspect(tag("three")) == "(\"three\", 1)"
-}
+end
 
-test "the same instantiation reached twice is one function" {
+test "the same instantiation reached twice is one function"
     // Two calls at the SAME type argument. Nothing here can observe the
     // interning directly — that is TestMonoInstanceIsInternedPerInstantiation's
     // job — but this row runs both calls through whatever the table interned,
     // so a collision there shows up as a wrong or missing row.
-    one = case recv(Half{slot: 1}) {
+    one = case recv(Half{slot: 1})
         Some(v) -> v
         None -> 0
-    }
+    end
 
-    two = case recv(Half{slot: 2}) {
+    two = case recv(Half{slot: 2})
         Some(v) -> v
         None -> 0
-    }
+    end
 
     assert one == 1
     assert two == 2
-}
+end
 
-fn main() {
+fn main()
     io.print("generic_mono")
-}
+end

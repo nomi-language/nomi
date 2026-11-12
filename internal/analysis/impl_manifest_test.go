@@ -181,33 +181,34 @@ func buildProjectManifest(t *testing.T, entrySrc string, siblings map[string]str
 // register the dispatch entry.
 func TestManifestRecordedAtTypedLiteralSlot(t *testing.T) {
 	siblings := map[string]string{
-		"joiner": `import {
+		"joiner": `import
   std::display: Display
   std::iter.Iter
   std::literals: Fragment, Literal
   std::literals.Fragment.{Static, Dynamic}
-}
+end
 
 pub type Joiner
 
-impl Literal for Joiner {
-  fn from_fragments(fragments: List<Fragment<Display>>) -> String {
+impl Literal for Joiner
+  fn from_fragments(fragments: List<Fragment<Display>>) -> String
     Iter.reduce(fragments, "", fn acc, frag ->
-      case frag {
+      case frag
         Static(s) -> acc + s
         Dynamic(v) -> acc + Display.to_string(v)
-      })
-  }
-}`,
+      end
+    end)
+  end
+end`,
 	}
-	entry := `import {
+	entry := `import
   std::io
   joiner: Joiner
-}
+end
 
-fn main() {
+fn main()
   io.print(Joiner"hello-${42}")
-}`
+end`
 	fa := buildProjectManifest(t, entry, siblings)
 	if len(fa.ImplManifest["Display"]["Int"]) == 0 {
 		t.Errorf("expected (Int, Display) recorded from Joiner\"hello-${42}\" slot; got manifest=%v",
@@ -240,13 +241,13 @@ func TestImplManifestUnion(t *testing.T) {
 func TestManifestRecordedAtGenericInstantiation(t *testing.T) {
 	src := `import std::io
 
-pub fn show<T>(x: T) -> String where T: Display {
+pub fn show<T>(x: T) -> String where T: Display
   Display.to_string(x)
-}
+end
 
-fn main() {
+fn main()
   io.print(show(42))
-}`
+end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 	if len(fa.ImplManifest["Display"]["Int"]) == 0 {
@@ -261,20 +262,24 @@ fn main() {
 // only (Bag, Pusher) is a real conformance — Int does NOT implement
 // Pusher just because it appears as the T arg.
 func TestManifestSelfBindingOnly(t *testing.T) {
-	src := `pub interface Pusher<T> {
+	src := `pub interface Pusher<T>
   fn push(c: self, v: T) -> self
-}
+end
 
-pub struct Bag { count: Int }
+pub struct Bag
+    count: Int
+end
 
-impl Pusher for Bag {
-  fn push(c: Bag, v: Int) -> Bag { Bag{count: c.count + v} }
-}
+impl Pusher for Bag
+  fn push(c: Bag, v: Int) -> Bag
+      Bag{count: c.count + v}
+  end
+end
 
-fn demo() -> Pusher<Int> {
+fn demo() -> Pusher<Int>
   b = Bag{count: 0}
   Pusher.push(b, 42)
-}`
+end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 	if len(fa.ImplManifest["Pusher"]["Bag"]) == 0 {
@@ -293,20 +298,25 @@ fn demo() -> Pusher<Int> {
 // Foo<Int, String>; only (Bag, Foo) is a real conformance — Int and
 // String do NOT implement Foo just because they appear as A and B args.
 func TestManifestSelfBindingOnly_MultipleNonSelfTypeParams(t *testing.T) {
-	src := `pub interface Foo<A, B> {
+	src := `pub interface Foo<A, B>
   fn baz(x: self, a: A, b: B) -> self
-}
+end
 
-pub struct Bag { count: Int }
+pub struct Bag
+    count: Int
+end
 
-impl Foo for Bag {
-  fn baz(x: Bag, a: Int, b: String) -> Bag { _ = b; Bag{count: x.count + a} }
-}
+impl Foo for Bag
+  fn baz(x: Bag, a: Int, b: String) -> Bag
+      _ = b
+      Bag{count: x.count + a}
+  end
+end
 
-fn demo() -> Foo<Int, String> {
+fn demo() -> Foo<Int, String>
   b = Bag{count: 0}
   Foo.baz(b, 42, "hello")
-}`
+end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 	if len(fa.ImplManifest["Foo"]["Bag"]) == 0 {
@@ -327,12 +337,14 @@ fn demo() -> Foo<Int, String> {
 // by every type and records NO manifest demand, so the generic-container
 // TypeArg recursion is now exercised through Display, which is still recorded.
 func TestManifestRecursesIntoGenericContainerTypeArgs(t *testing.T) {
-	src := `import { std::io }
+	src := `import
+    std::io
+end
 
-fn main() {
-  ages = %{"alice" => 30, "bob" => 25}
+fn main()
+  ages = {"alice" => 30, "bob" => 25}
   io.print(ages)
-}`
+end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 	if len(fa.ImplManifest["Display"]["Map"]) == 0 {
@@ -351,12 +363,14 @@ fn main() {
 // the demand. Vehicle is io.print (Display);
 // universal Debug records no manifest demand (see the recursion test above).
 func TestManifestRecordsInterfaceBoundsThroughPipe(t *testing.T) {
-	src := `import { std::io }
+	src := `import
+    std::io
+end
 
-fn main() {
-  ages = %{"alice" => 30, "bob" => 25}
+fn main()
+  ages = {"alice" => 30, "bob" => 25}
   ages |> io.print()
-}`
+end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 	for _, want := range []string{"Map", "String", "Int"} {
@@ -371,22 +385,22 @@ fn main() {
 // Iface.method on those components at runtime, so each (component, iface)
 // must land in the manifest.
 func TestManifestRecordsDerivePayloadConformance(t *testing.T) {
-	src := `pub enum Shape {
+	src := `pub enum Shape
   Circle Float
   Square Int
 
-}
+end
 derive Comparable for Shape
 
-fn main() {
+fn main()
   c1 = Shape.Circle(1.0)
   c2 = Shape.Circle(2.0)
-  case Comparable.compare(c1, c2) {
-    .Less -> {}
-    .Equal -> {}
-    .Greater -> {}
-  }
-}`
+  case Comparable.compare(c1, c2)
+    .Less -> Unit
+    .Equal -> Unit
+    .Greater -> Unit
+  end
+end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 	if len(fa.ImplManifest["Comparable"]["Shape"]) == 0 {
@@ -407,20 +421,22 @@ fn main() {
 // dispatch table whenever the program uses any @derive Display/Debug
 // type — regardless of the type's payloads.
 func TestManifestRecordsStringDisplayForDeriveDebugStringInterp(t *testing.T) {
-	src := `import { std::io }
+	src := `import
+    std::io
+end
 
-pub enum Maybe2<T> {
+pub enum Maybe2<T>
   Some2 T
   None2
 
-}
+end
 derive Debug for Maybe2
 
-fn demo() -> Maybe2<Int> {
+fn demo() -> Maybe2<Int>
   m = Maybe2.Some2(42)
   io.inspect(m)
   m
-}`
+end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 	if len(fa.ImplManifest["Display"]["String"]) == 0 {
@@ -437,18 +453,18 @@ fn demo() -> Maybe2<Int> {
 // sibling's FA never records it.
 func TestManifestRecordsSiblingModuleBodyConformance(t *testing.T) {
 	siblings := map[string]string{
-		"greeter": `pub fn greet(name: String) -> String {
+		"greeter": `pub fn greet(name: String) -> String
   "hello, ${name}"
-}`,
+end`,
 	}
-	entry := `import {
+	entry := `import
   std::io
   greeter
-}
+end
 
-fn main() {
+fn main()
   io.print(greeter.greet("Alice"))
-}`
+end`
 	fa := buildProjectManifest(t, entry, siblings)
 	if len(fa.ImplManifest["Display"]["String"]) == 0 {
 		t.Errorf("expected (String, Display) recorded from sibling greeter's ${name}; got manifest=%v",
@@ -466,19 +482,23 @@ fn main() {
 func TestBareNameImplCall_Rejected(t *testing.T) {
 	src := `import std::io
 
-pub interface Speech { fn speak(s: self) -> String }
+pub interface Speech
+    fn speak(s: self) -> String
+end
 
-pub struct Dog { name: String }
+pub struct Dog
+    name: String
+end
 
-impl Speech for Dog {
-  fn speak(d: Dog) -> String {
+impl Speech for Dog
+  fn speak(d: Dog) -> String
     d.name + " says woof"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(speak(Dog{name: "Rex"}))
-}`
+end`
 	_, errs := checkSourceWithStdlib(src)
 	expectStdlibError(t, errs, "bare-name dispatch is not supported")
 }
@@ -490,20 +510,24 @@ fn main() {
 func TestBareNameImplCall_ShadowedByLocalFn_NotRecorded(t *testing.T) {
 	src := `import std::io
 
-pub interface Speech { fn speak(s: self) -> String }
+pub interface Speech
+    fn speak(s: self) -> String
+end
 
-pub struct Dog { name: String }
+pub struct Dog
+    name: String
+end
 
-impl Speech for Dog {
-  fn speak(d: Dog) -> String {
+impl Speech for Dog
+  fn speak(d: Dog) -> String
     d.name + " says woof"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   speak = fn n: Int -> "shadowed: ${n}"
   io.print(speak(42))
-}`
+end`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	lib := loadStd()
@@ -528,24 +552,26 @@ fn main() {
 func TestBareNameDefaultMethodCall_Rejected(t *testing.T) {
 	src := `import std::io
 
-pub interface Identity {
+pub interface Identity
   fn name(value: self) -> String
-  fn describe(value: self) -> String {
+  fn describe(value: self) -> String
     "I am " + Identity.name(value)
-  }
-}
+  end
+end
 
-pub struct Robot { model: String }
+pub struct Robot
+    model: String
+end
 
-impl Identity for Robot {
-  fn name(robot: Robot) -> String {
+impl Identity for Robot
+  fn name(robot: Robot) -> String
     robot.model
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(describe(Robot{model: "T-800"}))
-}`
+end`
 	_, errs := checkSourceWithStdlib(src)
 	expectStdlibError(t, errs, "bare-name dispatch is not supported")
 }
@@ -558,26 +584,32 @@ fn main() {
 func TestAmbiguousBareNameImplCall_Rejected(t *testing.T) {
 	src := `import std::io
 
-pub interface Greeter { fn greet(g: self) -> String }
-pub interface Farewell { fn greet(f: self) -> String }
+pub interface Greeter
+    fn greet(g: self) -> String
+end
+pub interface Farewell
+    fn greet(f: self) -> String
+end
 
-pub struct Person { name: String }
+pub struct Person
+    name: String
+end
 
-impl Greeter for Person {
-  fn greet(p: Person) -> String {
+impl Greeter for Person
+  fn greet(p: Person) -> String
     "hello " + p.name
-  }
-}
+  end
+end
 
-impl Farewell for Person {
-  fn greet(p: Person) -> String {
+impl Farewell for Person
+  fn greet(p: Person) -> String
     "bye " + p.name
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(greet(Person{name: "Ada"}))
-}`
+end`
 	_, errs := checkSourceWithStdlib(src)
 	expectStdlibError(t, errs, "bare-name dispatch is not supported")
 }
@@ -590,28 +622,34 @@ fn main() {
 func TestMultiReceiverSameInterfaceImplCall_NotAmbiguous(t *testing.T) {
 	src := `import std::io
 
-pub interface Speech { fn speak(s: self) -> String }
+pub interface Speech
+    fn speak(s: self) -> String
+end
 
-pub struct Dog { name: String }
+pub struct Dog
+    name: String
+end
 
-pub struct Cat { name: String }
+pub struct Cat
+    name: String
+end
 
-impl Speech for Dog {
-  fn speak(d: Dog) -> String {
+impl Speech for Dog
+  fn speak(d: Dog) -> String
     d.name + " says woof"
-  }
-}
+  end
+end
 
-impl Speech for Cat {
-  fn speak(c: Cat) -> String {
+impl Speech for Cat
+  fn speak(c: Cat) -> String
     c.name + " says meow"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print(Speech.speak(Dog{name: "Rex"}))
   io.print(Speech.speak(Cat{name: "Whiskers"}))
-}`
+end`
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 }
@@ -622,9 +660,9 @@ fn main() {
 func TestImplManifestVisibleViaBuildProject(t *testing.T) {
 	src := `import std::io
 
-fn main() {
+fn main()
   io.print(Display.to_string(42))
-}`
+end`
 	fa := buildProjectManifest(t, src, nil)
 	if len(fa.ImplManifest["Display"]["Int"]) == 0 {
 		t.Errorf("ImplManifest not propagated via BuildProject; got %v", fa.ImplManifest)
@@ -638,18 +676,20 @@ fn main() {
 // The missing-impl diagnostic renders the @derive position + field name when
 // the demand site is a derive synthesizer.
 func TestDeriveSynthRecordsDeriveCtx(t *testing.T) {
-	src := `import { std::io }
+	src := `import
+    std::io
+end
 
-pub struct Box {
+pub struct Box
   n: Int
+end
 
-}
 derive Display for Box
 
-fn main() {
+fn main()
   b = Box{n: 42}
   io.print(Display.to_string(b))
-}`
+end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 	recs := fa.ImplManifest["Display"]["Int"]
@@ -678,10 +718,10 @@ fn main() {
 	if derivedRec.Derive.FieldName != "n" {
 		t.Errorf("DeriveCtx.FieldName: got %q, want %q", derivedRec.Derive.FieldName, "n")
 	}
-	// `derive Display` is on line 7 in the source. DerivePos.Line should
+	// `derive Display` is on line 9 in the source. DerivePos.Line should
 	// match the conformance line the synthetic @derive decorator was stamped from.
-	if derivedRec.Derive.DerivePos.Line != 7 {
-		t.Errorf("DeriveCtx.DerivePos.Line: got %d, want 7 (the `derive` line)", derivedRec.Derive.DerivePos.Line)
+	if derivedRec.Derive.DerivePos.Line != 9 {
+		t.Errorf("DeriveCtx.DerivePos.Line: got %d, want 9 (the `derive` line)", derivedRec.Derive.DerivePos.Line)
 	}
 }
 
@@ -693,30 +733,36 @@ fn main() {
 // pointer ("add impl Display for C") lands on a synthesizer-band
 // position the user can't act on.
 func TestGenericInstantiationAttribution(t *testing.T) {
-	src := `import { std::io }
+	src := `import
+    std::io
+end
 
-pub struct C { x: Int }
+pub struct C
+    x: Int
+end
 
-impl Display for C {
-  fn to_string(c: C) -> String { "C(" + Display.to_string(c.x) + ")" }
-}
+impl Display for C
+  fn to_string(c: C) -> String
+      "C(" + Display.to_string(c.x) + ")"
+  end
+end
 
-pub struct Wrapper<T> {
+pub struct Wrapper<T>
   value: T
 
-}
+end
 derive Display for Wrapper
 
-pub struct Holder {
+pub struct Holder
   w: Wrapper<C>
 
-}
+end
 derive Display for Holder
 
-fn main() {
+fn main()
   h = Holder{w: Wrapper{value: C{x: 7}}}
   io.print(Display.to_string(h))
-}`
+end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 	recs := fa.ImplManifest["Display"]["C"]
@@ -756,11 +802,13 @@ fn main() {
 func TestManifestRecordedForDestructuredImport(t *testing.T) {
 	src := `import std::dynamic.{Dynamic}
 
-pub fn show(d: Dynamic) -> String {
+pub fn show(d: Dynamic) -> String
   Debug.inspect(d)
-}
+end
 
-fn main() { Unit }`
+fn main()
+    Unit
+end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 	if len(fa.ImplManifest["Debug"]["Dynamic"]) == 0 {

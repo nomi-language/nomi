@@ -16,34 +16,34 @@ type Meters Int
 type Feet Int
 type Yards Int
 
-fn meters_value(m: Meters) -> Int {
+fn meters_value(m: Meters) -> Int
   Meters(n) = m
   n
-}
+end
 
-impl Add<Meters, Meters> for Meters {
-  fn add(lhs: Meters, rhs: Meters) -> Meters {
+impl Add<Meters, Meters> for Meters
+  fn add(lhs: Meters, rhs: Meters) -> Meters
     Meters(meters_value(lhs) + meters_value(rhs))
-  }
-}
+  end
+end
 
-impl Add<Feet, Meters> for Meters {
-  fn add(lhs: Meters, rhs: Feet) -> Meters {
+impl Add<Feet, Meters> for Meters
+  fn add(lhs: Meters, rhs: Feet) -> Meters
     Feet(f) = rhs
     Meters(meters_value(lhs) + f)
-  }
-}
+  end
+end
 
-impl Add<Yards, Meters> for Meters {
-  fn add(lhs: Meters, rhs: Yards) -> Meters {
+impl Add<Yards, Meters> for Meters
+  fn add(lhs: Meters, rhs: Yards) -> Meters
     Yards(y) = rhs
     Meters(meters_value(lhs) + y)
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   Unit
-}
+end
 `, nil)
 	for _, e := range errs {
 		if e.Code == analysis.UnusedBindingCode {
@@ -82,30 +82,30 @@ func TestBuildProject_OutInBoundPositionStillSolves(t *testing.T) {
 type Day Int
 type Days Int
 
-fn day_value(d: Day) -> Int {
+fn day_value(d: Day) -> Int
   Day(n) = d
   n
-}
+end
 
-fn days_value(d: Days) -> Int {
+fn days_value(d: Days) -> Int
   Days(n) = d
   n
-}
+end
 
-impl Add<Days, Day> for Day {
-  fn add(lhs: Day, rhs: Days) -> Day {
+impl Add<Days, Day> for Day
+  fn add(lhs: Day, rhs: Days) -> Day
     Day(day_value(lhs) + days_value(rhs))
-  }
-}
+  end
+end
 
-fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out> {
+fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out>
   lhs + rhs
-}
+end
 
-test "bound position Out solves" {
+test "bound position Out solves"
   later: Day = plus(Day(20), Days(2))
   assert day_value(later) == 22
-}
+end
 `, nil)
 	for _, e := range errs {
 		if e.Code == analysis.UnusedBindingCode {

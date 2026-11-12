@@ -155,7 +155,7 @@ func TestProgramStd_ASharedModulesEditorImportsAListedModule(t *testing.T) {
 	for _, c := range []struct{ module, body, want string }{
 		{"io", "import std::path\nprint(path.join(\"data\", \"log.txt\"))\nassert path.join(\"a/\", \"/b\") == \"a/b\"\n", "data/log.txt\n"},
 		{"io", "import std::fs\nimport std::fs_testing.{self, Sandbox}\n" +
-			"ran = fs_testing.run(Sandbox{files: %{\"a.txt\" => \"x\"}}, fn -> fs.read_text(\"a.txt\"))\n" +
+			"ran = fs_testing.run(Sandbox{files: {\"a.txt\" => \"x\"}}, fn -> fs.read_text(\"a.txt\"))\n" +
 			"assert ran.value == Result.Ok(\"x\")\n" +
 			"print(fs_testing.text(ran, \"/work/a.txt\"))\n", "Some(x)\n"},
 		{"strings", "import std::io\nimport std::uuid.Uuid\nio.print(Uuid.nil())\nassert Uuid.version(Uuid.nil()) == 0\n", "00000000-0000-0000-0000-000000000000\n"},
@@ -210,39 +210,39 @@ func TestProgramStd_AStdInterfaceValueWithAProgramImplRuns(t *testing.T) {
 import std::_fixtures::conn
 import std::_fixtures::conn.{Closed, Conn, FromValue, Pool, Value}
 
-struct Memory {
+struct Memory
     label: String
     rows: List<List<Value>>
-}
+end
 
-impl Conn for Memory {
-    fn query(conn: Memory, sql: String) -> Result<List<List<Value>>, conn.Error> {
-        if sql == "refuse" {
+impl Conn for Memory
+    fn query(conn: Memory, sql: String) -> Result<List<List<Value>>, conn.Error>
+        if sql == "refuse" then
             Err(conn.Error.Refused{reason: "closed"})
-        } else {
+        else
             Ok(conn.rows)
-        }
-    }
+        end
+    end
 
-    fn name(conn: Memory) -> String {
+    fn name(conn: Memory) -> String
         conn.label
-    }
-}
+    end
+end
 
-struct Celsius {
+struct Celsius
     degrees: Int
-}
+end
 
-impl FromValue for Celsius {
-    fn from_value(value: Value, column: Int) -> Result<Celsius, conn.Error> {
-        case value {
+impl FromValue for Celsius
+    fn from_value(value: Value, column: Int) -> Result<Celsius, conn.Error>
+        case value
             Value.Number(n) -> Ok(Celsius{degrees: n})
             _ -> Err(conn.Error.Refused{reason: "column ${column} is not a temperature"})
-        }
-    }
-}
+        end
+    end
+end
 
-fn main() {
+fn main()
     memory = Memory{label: "memory", rows: [[Value.Number(1)], [Value.Number(2)]]}
     pool = Pool{conn: memory, log: &("conn " + &1)}
     io.print(Pool.describe(pool))
@@ -262,8 +262,8 @@ fn main() {
     io.print(conn.names(conns))
     io.print(conn.names(conns, " | "))
     io.print(conn.shown([1, 2, 3]))
-    io.print(conn.shown(%["x"], "/"))
-}
+    io.print(conn.shown(Set["x"], "/"))
+end
 `
 	p, err := LoadSource("main", src)
 	if err != nil {

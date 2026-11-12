@@ -2,23 +2,25 @@
 Vector literal
 ================================================================================
 
-once xs = #[1, 2, 3]
+once xs = Vector[1, 2, 3]
 
 --------------------------------------------------------------------------------
 
 (source_file
   (once_binding
     (identifier)
-    (vector
-      (integer)
-      (integer)
-      (integer))))
+    (typed_list
+      (type_identifier)
+      (list
+        (integer)
+        (integer)
+        (integer)))))
 
 ================================================================================
 Empty vector literal
 ================================================================================
 
-once xs: Vector<Int> = #[]
+once xs: Vector<Int> = Vector[]
 
 --------------------------------------------------------------------------------
 
@@ -28,29 +30,33 @@ once xs: Vector<Int> = #[]
     (generic_type
       (type_identifier)
       (type_identifier))
-    (vector)))
+    (typed_list
+      (type_identifier)
+      (list))))
 
 ================================================================================
 Set literal
 ================================================================================
 
-once xs = %[1, 2, 3]
+once xs = Set[1, 2, 3]
 
 --------------------------------------------------------------------------------
 
 (source_file
   (once_binding
     (identifier)
-    (set
-      (integer)
-      (integer)
-      (integer))))
+    (typed_list
+      (type_identifier)
+      (list
+        (integer)
+        (integer)
+        (integer)))))
 
 ================================================================================
 Empty set literal
 ================================================================================
 
-once xs: Set<Int> = %[]
+once xs: Set<Int> = Set[]
 
 --------------------------------------------------------------------------------
 
@@ -60,4 +66,6 @@ once xs: Set<Int> = %[]
     (generic_type
       (type_identifier)
       (type_identifier))
-    (set)))
+    (typed_list
+      (type_identifier)
+      (list))))

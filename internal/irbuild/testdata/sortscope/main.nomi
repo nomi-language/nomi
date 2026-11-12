@@ -1,8 +1,8 @@
-import {
+import
     std::comparable.Direction
     std::io
     widget.{self, Backwards, Ranked, Unordered, Widget}
-}
+end
 
 // ORDERING RESOLVED FROM A KIND, when the `impl Comparable` is in a SIBLING FILE
 // — and the SCALAR operators beside it, because the two are one arm's worth of
@@ -62,19 +62,19 @@ import {
 // Each imported type crosses a SIGNATURE boundary as well as appearing at a
 // construction site, because a representation that is only correct where a value
 // is built fails here — `sets.nomi`'s rule for the same reason.
-fn weights(ws: List<Widget>) -> List<Int> {
+fn weights(ws: List<Widget>) -> List<Int>
     Iter.sort(ws) |> Iter.map(fn w -> w.weight) |> Iter.to_list()
-}
+end
 
-fn backwards_ns(bs: List<Backwards>) -> List<Int> {
+fn backwards_ns(bs: List<Backwards>) -> List<Int>
     Iter.sort(bs) |> Iter.map(fn b -> b.n) |> Iter.to_list()
-}
+end
 
-fn tag_of(u: Unordered) -> String {
+fn tag_of(u: Unordered) -> String
     u.tag
-}
+end
 
-fn main() {
+fn main()
     ws = [widget.make(3), widget.make(1), widget.make(2)]
     bs = [widget.back(3), widget.back(1), widget.back(2)]
 
@@ -138,4 +138,4 @@ fn main() {
     io.print("tag ${tag_of(widget.plain("x"))}")
     io.print("eq ${widget.plain("x") == widget.plain("x")}")
     io.print("ne ${widget.plain("x") == widget.plain("y")}")
-}
+end

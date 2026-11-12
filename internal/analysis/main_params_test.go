@@ -29,7 +29,7 @@ func TestCheckMainParams_RejectsParameters(t *testing.T) {
 		{"discard", "_: Int"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib("fn main(" + tc.params + ") {\n    Unit\n}\n")
+			_, errs := checkSourceWithStdlib("fn main(" + tc.params + ")\n    Unit\nend\n")
 			got := mainParamsErrors(errs)
 			if len(got) != 1 {
 				t.Fatalf("got %d main parameter errors, want 1, among %v", len(got), errs)
@@ -51,11 +51,11 @@ func TestCheckMainParams_RejectsParameters(t *testing.T) {
 // callbacks: a boot taking Startup, an impl function named main, and a test.
 func TestCheckMainParams_AcceptsTheEntryForms(t *testing.T) {
 	for name, src := range map[string]string{
-		"no parameters": "fn main() {\n    Unit\n}\n",
-		"boot with startup": "struct App {\n    name: String\n}\n\nfn boot(startup: Startup) -> Result<App, String> {\n    Ok(App{name: List.head(startup.args) |> Maybe.with_default(\"x\")})\n}\n\n" +
-			"fn main() {\n    _ = App.name\n}\n",
-		"impl function named main": "struct Box {\n    n: Int\n}\n\nimpl Box {\n    fn main(b: Box) -> Int {\n        b.n\n    }\n}\n\nfn main() {\n    _ = Box.main(Box{n: 1})\n}\n",
-		"test":                     "fn main() {\n    Unit\n}\n\ntest \"runs\" {\n    assert 1 == 1\n}\n",
+		"no parameters": "fn main()\n    Unit\nend\n",
+		"boot with startup": "struct App\n    name: String\nend\n\nfn boot(startup: Startup) -> Result<App, String>\n    Ok(App{name: List.head(startup.args) |> Maybe.with_default(\"x\")})\nend\n\n" +
+			"fn main()\n    _ = App.name\nend\n",
+		"impl function named main": "struct Box\n    n: Int\nend\n\nimpl Box\n    fn main(b: Box) -> Int\n        b.n\n    end\nend\n\nfn main()\n    _ = Box.main(Box{n: 1})\nend\n",
+		"test":                     "fn main()\n    Unit\nend\n\ntest \"runs\"\n    assert 1 == 1\nend\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(src)

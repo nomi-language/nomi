@@ -15,22 +15,22 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The candidates that are anagrams of `subject`, in their original order.
 /// Letter case does not matter, and a word is not an anagram of itself.
-pub fn find(subject: String, candidates: List<String>) -> List<String> {
+pub fn find(subject: String, candidates: List<String>) -> List<String>
     subject = String.fold_case(subject)
     letters = Iter.sort(subject)
 
     candidates
-    |> Iter.filter(fn candidate -> {
+    |> Iter.filter(fn candidate ->
         candidate = String.fold_case(candidate)
         candidate != subject and Iter.sort(candidate) == letters
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
 // FILE: anagram_test.nomi
 import anagram
 
-test "finds anagrams" {
+test "finds anagrams"
     [
         ("no matches", "diaper", ["hello", "world", "zombies", "pants"], []),
         ("detects two anagrams", "solemn", ["lemons", "cherry", "melons"], ["lemons", "melons"]),
@@ -91,10 +91,10 @@ test "finds anagrams" {
         ("handles case of greek letters", "ΑΒΓ", ["ΒΓΑ", "ΒΓΔ", "γβα", "αβγ"], ["ΒΓΑ", "γβα"]),
         ("different characters may have the same bytes", "a⬂", ["€a"], []),
     ]
-    |> subtests (description, subject, candidates, expected), description {
+    |> subtests (description, subject, candidates, expected), description
         assert anagram.find(subject, candidates) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok finds anagrams (18 cases)

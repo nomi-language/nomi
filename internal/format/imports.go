@@ -134,18 +134,6 @@ func normalizeNestedImportLayout(node ast.Node) {
 			normalizeNestedImportLayout(n.Fields[i].Value)
 		}
 	case *ast.ListLit:
-		for _, elem := range n.Items {
-			normalizeNestedImportLayout(elem)
-		}
-	case *ast.VectorLit:
-		for _, elem := range n.Operands() {
-			normalizeNestedImportLayout(elem)
-		}
-	case *ast.SetLit:
-		for _, elem := range n.Operands() {
-			normalizeNestedImportLayout(elem)
-		}
-	case *ast.ListSpreadLit:
 		for _, elem := range n.Operands() {
 			normalizeNestedImportLayout(elem)
 		}

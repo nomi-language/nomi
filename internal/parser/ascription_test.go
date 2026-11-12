@@ -12,7 +12,7 @@ import (
 // bindingValue parses `fn main() { x = <expr> }` and answers the value.
 func bindingValue(t *testing.T, expr string) ast.Node {
 	t.Helper()
-	nodes, errs := parser.ParseWithRecovery(lexer.Lex("fn main() {\n    x = " + expr + "\n}\n"))
+	nodes, errs := parser.ParseWithRecovery(lexer.Lex("fn main()\n    x = " + expr + "\nend\n"))
 	if len(errs) > 0 {
 		t.Fatalf("parse %q: %v", expr, errs)
 	}
@@ -44,7 +44,7 @@ func TestAscriptionPrecedence(t *testing.T) {
 }
 
 func TestAscriptionChainIsRefused(t *testing.T) {
-	_, errs := parser.ParseWithRecovery(lexer.Lex("fn main() {\n    x = 1 as Int as Int\n}\n"))
+	_, errs := parser.ParseWithRecovery(lexer.Lex("fn main()\n    x = 1 as Int as Int\nend\n"))
 	if len(errs) == 0 || !strings.Contains(errs[0].Error(), "`as` can't follow another `as`: an expression has one ascribed type") {
 		t.Fatalf("want the chained-`as` error, got %v", errs)
 	}

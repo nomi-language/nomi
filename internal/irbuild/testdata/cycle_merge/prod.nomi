@@ -3,30 +3,30 @@
 // test.nomi, and the two land in one builder package.
 import app.{Config, Show}
 
-pub struct Slot {
+pub struct Slot
     id: Int
-}
+end
 
-impl Show for Slot {
-    fn show(value: Slot) -> String {
+impl Show for Slot
+    fn show(value: Slot) -> String
         "prod-slot-${value.id}"
-    }
-}
+    end
+end
 
 pub once tag: String = "prod"
 
-pub fn slot() -> Slot {
+pub fn slot() -> Slot
     Slot{id: 8080}
-}
+end
 
-pub fn badge() -> String {
+pub fn badge() -> String
     Show.show(slot())
-}
+end
 
-pub fn build() -> Config {
+pub fn build() -> Config
     Config{name: tag, level: 20}
-}
+end
 
-pub fn label() -> String {
+pub fn label() -> String
     "prod-label"
-}
+end

@@ -47,45 +47,45 @@ import std::io
 /// That is the cross-gen match made explicit: this parameter's kind is built in
 /// the entry module's own gen and the argument's kind came out of the stdlib
 /// index's, and the two must be the same kind for the call to lower at all.
-fn dump(data: Bytes) -> String {
+fn dump(data: Bytes) -> String
     dump_from(data, 0)
-}
+end
 
-fn dump_from(data: Bytes, i: Int) -> String {
-    if i >= Bytes.length(data) {
+fn dump_from(data: Bytes, i: Int) -> String
+    if i >= Bytes.length(data) then
         ""
-    } else {
-        sep = if i == 0 { "" } else { " " }
+    else
+        sep = if i == 0 then "" else " "
 
-        case Bytes.get(data, i) {
+        case Bytes.get(data, i)
             Some(b) -> "${sep}${Byte.to_int(b)}${dump_from(data, i + 1)}"
             None -> "${sep}?"
-        }
-    }
-}
+        end
+    end
+end
 
 /// A USER function whose RESULT is the stdlib primitive — the other direction,
 /// and not redundant: a projection can be right in one position and wrong in
 /// the other, which is why hostFnFor checks parameters and results separately.
-fn head_two(data: Bytes) -> Bytes {
+fn head_two(data: Bytes) -> Bytes
     Bytes.slice(data, 0, 2)
-}
+end
 
-fn byte_of(n: Int) -> String {
-    case Int.to_byte(n) {
+fn byte_of(n: Int) -> String
+    case Int.to_byte(n)
         Some(b) -> "${Byte.to_int(b)}"
         None -> "out of range"
-    }
-}
+    end
+end
 
-fn at_or(data: Bytes, i: Int) -> String {
-    case Bytes.get(data, i) {
+fn at_or(data: Bytes, i: Int) -> String
+    case Bytes.get(data, i)
         Some(b) -> "${Byte.to_int(b)}"
         None -> "none"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     data = String.to_bytes("hé")
     // THREE, not two: the whole point of the type.
     io.print("length ${Bytes.length(data)}")
@@ -106,4 +106,4 @@ fn main() {
     io.print("b255 ${byte_of(255)}")
     io.print("bneg ${byte_of(-1)}")
     io.print("b256 ${byte_of(256)}")
-}
+end

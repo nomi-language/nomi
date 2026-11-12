@@ -426,26 +426,17 @@ func chaptersOf(files []exerciseFile) []chapter {
 			case token.BIT_AND, token.BIT_OR, token.BIT_XOR, token.BIT_NOT, token.SHL:
 				uses[chapterScalars] = true // the bitwise operators
 			case token.PERCENT:
-				if adjacent(t, next) && (next.Type == token.LBRACE || next.Type == token.LBRACKET) {
-					uses[chapterCollection] = true
-				} else {
-					uses[chapterScalars] = true // the remainder operator
-				}
+				uses[chapterScalars] = true // the remainder operator
+			case token.FAT_ARROW:
+				// A map literal's or pattern's entry, `{"k" => v}`.
+				uses[chapterCollection] = true
 			case token.DOTDOT, token.DOTDOTEQ:
 				// A spread (`[x, ..rest]`) or a range (`1..10`).
 				uses[chapterCollection] = true
 			case token.IN:
 				// A membership test, `x in xs`.
 				uses[chapterCollection] = true
-			case token.HASH:
-				if adjacent(t, next) {
-					switch next.Type {
-					case token.LBRACKET:
-						uses[chapterCollection] = true
-					case token.TYPE_IDENT, token.DOT:
-						uses[chapterTypes] = true
-					}
-				}
+
 			case token.STRUCT, token.ENUM, token.TYPE:
 				uses[chapterTypes] = true
 				if next.Type == token.TYPE_IDENT && at(i+2).Type == token.LT {
@@ -468,6 +459,17 @@ func chaptersOf(files []exerciseFile) []chapter {
 					uses[chapterInterfaces] = true
 				}
 			case token.TYPE_IDENT:
+				if next.Type == token.LBRACKET && adjacent(t, next) {
+					// A literal naming its collection, `Vector[1]`, or a
+					// type built on one, `Path[1]`.
+					switch t.Lexeme {
+					case "List", "Set", "Vector":
+						uses[chapterCollection] = true
+					default:
+						uses[chapterTypes] = true
+					}
+					break
+				}
 				if next.Type != token.DOT {
 					break
 				}

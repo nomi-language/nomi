@@ -12,17 +12,17 @@
 // exactly one hop.
 import std::io
 
-fn walk(n: Int, acc: Int) -> Int {
-    if n == 0 {
+fn walk(n: Int, acc: Int) -> Int
+    if n == 0 then
         acc
-    } else if n == 1 {
+    else if n == 1 then
         Iter.count(Iter.map([1, 2], fn x: Int -> walk(0, acc + x)))
-    } else {
+    else
         walk(n - 1, acc + 1)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print("${walk(5, 0)}")
     io.print("${walk(1, 7)}")
-}
+end

@@ -65,13 +65,13 @@ import (
 func TestMonoBound_TheDictionaryStillWinsWhenItCan(t *testing.T) {
 	// `Showable` is a plain user interface with one bound on one type
 	// parameter: exactly `dictSeamFor`'s admitted shape.
-	src := "interface Showable {\n  fn show(v: self) -> String\n}\n\n" +
-		"struct User {\n  name: String\n}\n\n" +
-		"impl Showable for User {\n  fn show(v: User) -> String {\n    v.name\n  }\n}\n\n" +
-		"fn announce<T>(x: T) -> String where T: Showable {\n  Showable.show(x)\n}\n\n" +
-		"fn pair<T, U>(a: T, b: U) -> String where T: Showable, U: Showable {\n" +
-		"  Showable.show(a) + Showable.show(b)\n}\n\n" +
-		"fn main() -> Unit {\n  if True { }\n}\n"
+	src := "interface Showable\n  fn show(v: self) -> String\nend\n\n" +
+		"struct User\n  name: String\nend\n\n" +
+		"impl Showable for User\n  fn show(v: User) -> String\n    v.name\n  end\nend\n\n" +
+		"fn announce<T>(x: T) -> String where T: Showable\n  Showable.show(x)\nend\n\n" +
+		"fn pair<T, U>(a: T, b: U) -> String where T: Showable, U: Showable\n" +
+		"  Showable.show(a) + Showable.show(b)\nend\n\n" +
+		"fn main() -> Unit\n  if True then \n  end\nend\n"
 	p, err := AnalyzeSource("monobound_order", src)
 	if err != nil {
 		t.Fatalf("analyzing: %v", err)

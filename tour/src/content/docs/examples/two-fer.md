@@ -14,24 +14,24 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# "One for you, one for me."
 
 /// Says who gets the cookie: "One for Alice, one for me."
-pub fn two_fer(name: String = "you") -> String {
+pub fn two_fer(name: String = "you") -> String
     "One for ${name}, one for me."
-}
+end
 
 // FILE: two_fer_test.nomi
 import two_fer.two_fer
 
-test "no name given" {
+test "no name given"
     assert two_fer() == "One for you, one for me."
-}
+end
 
-test "a name given" {
+test "a name given"
     assert two_fer("Alice") == "One for Alice, one for me."
-}
+end
 
-test "another name given" {
+test "another name given"
     assert two_fer("Bob") == "One for Bob, one for me."
-}
+end
 ```
 <!-- expect
 ok no name given

@@ -14,126 +14,125 @@ import (
 // Maybe, Result, List or Map of functions lowers and runs, in boot, in main
 // and in a test group's boot.
 
-const funcTypeArgActorImports = `import {
+const funcTypeArgActorImports = `import
     std::actors.Actor
     std::channels.{Channel, Receiver, Sender}
     std::io
     std::supervisors.{Restart, Supervisor}
-}
+end
 `
 
-const funcTypeArgChannelImports = `import {
+const funcTypeArgChannelImports = `import
     std::channels.{Channel, Receiver, Sender}
     std::io
-}
+end
 `
 
 // funcTypeArgRead casts a message that sends the actor's state back, and
 // waits for it.
 const funcTypeArgRead = `
-fn read(actor: Actor<(Int) -> Int>) -> Maybe<Int> {
+fn read(actor: Actor<(Int) -> Int>) -> Maybe<Int>
     back = Channel.buffered<Int>(1)
-    _ = Actor.cast(actor, fn n -> {
+    _ = Actor.cast(actor, fn n ->
         _ = Sender.send(back.sender, n)
         n
-    })
+    end)
     Receiver.receive(back.receiver)
-}
+end
 `
 
 const funcTypeArgApp = `
-pub struct App {
+pub struct App
     context: Context
     workers: Supervisor
     counter: Actor<(Int) -> Int>
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
     workers = Supervisor.new(max_running: 4, restart: Restart.Transient)
     counter: Actor<(Int) -> Int> = Actor.start(workers, 0, fn s, f -> f(s))
     _ = Actor.cast(counter, fn n -> n + 1)
-    Ok(App{context: Context.root(), workers, counter})
-}
+    Ok(App{context: Context.root(), workers:, counter:})
+end
 `
 
 func TestIRFuncTypeArg_EveryHolderRuns(t *testing.T) {
 	for _, tc := range []struct{ name, body, want string }{
 		{"actor started in boot", funcTypeArgActorImports + funcTypeArgApp + funcTypeArgRead + `
-fn main() {
+fn main()
     _ = Actor.cast(App.counter, fn n -> n + 2)
     io.print("${read(App.counter)}")
-}
+end
 `, "Some(3)\n"},
 		{"actor started in main", funcTypeArgActorImports + funcTypeArgApp + funcTypeArgRead + `
-fn main() {
+fn main()
     local: Actor<(Int) -> Int> = Actor.start(App.workers, 10, fn s, f -> f(s))
     _ = Actor.cast(local, fn n -> n * 3)
     io.print("${read(local)}")
-}
+end
 `, "Some(30)\n"},
 		{"channel", funcTypeArgChannelImports + `
-fn main() {
+fn main()
     ch = Channel.buffered<(Int) -> Int>(2)
     _ = Sender.send(ch.sender, fn n -> n + 5)
     io.print("${Receiver.receive(ch.receiver) |> Maybe.map(fn f -> f(1))}")
-}
+end
 `, "Some(6)\n"},
 		{"channel in a struct field", funcTypeArgChannelImports + `
-struct Box {
+struct Box
     inbox: Channel<(Int) -> Int>
-}
+end
 
-fn main() {
+fn main()
     b = Box{inbox: Channel.buffered<(Int) -> Int>(1)}
     _ = Sender.send(b.inbox.sender, fn n -> n - 1)
     io.print("${Receiver.receive(b.inbox.receiver) |> Maybe.map(fn f -> f(10))}")
-}
+end
 `, "Some(9)\n"},
 		{"sender in a variant", funcTypeArgChannelImports + `
-enum Msg {
+enum Msg
     Run (Int) -> Int
     Back {reply: Sender<(Int) -> Int>}
-}
+end
 
-fn answer(m: Msg) -> Unit {
-    case m {
-        .Back{reply} -> {
+fn answer(m: Msg) -> Unit
+    case m
+        .Back{reply:} ->
             _ = Sender.send(reply, fn n -> n * 100)
-        }
 
-        .Run(_) -> {}
-    }
-}
+        .Run(_) -> Unit
+    end
+end
 
-fn main() {
+fn main()
     replies = Channel.buffered<(Int) -> Int>(1)
     answer(Msg.Back{reply: replies.sender})
     io.print("${Receiver.receive(replies.receiver) |> Maybe.map(fn f -> f(2))}")
-}
+end
 `, "Some(200)\n"},
-		{"task", `import {
+		{"task", `import
     std::io
     std::tasks.Task
-}
-fn main() {
-    g = concurrent {
+end
+fn main()
+    g = concurrent
         t = Task.spawn(fn -> fn n: Int -> n + 9)
         Task.await(t)
-    }
+    end
     io.print("${g(1)}")
-}
+end
 `, "10\n"},
 		{"maybe, result, list and map", `import std::io
-fn main() {
+fn main()
     mf: Maybe<(Int) -> Int> = Some(fn n -> n + 7)
     rf: Result<(Int) -> Int, String> = Ok(fn n -> n + 8)
     lf: List<(Int) -> Int> = [fn n -> n + 1, fn n -> n * 2]
-    mp: Map<String, (Int) -> Int> = %{"inc" => fn n: Int -> n + 1}
+    mp: Map<String, (Int) -> Int> = {"inc" => fn n: Int -> n + 1}
     io.print("${mf |> Maybe.map(fn f -> f(1))}")
     io.print("${rf |> Result.map(fn f -> f(1))}")
     io.print("${lf |> Iter.map(fn f -> f(5)) |> Iter.to_list()}")
     io.print("${Map.get(mp, "inc") |> Maybe.map(fn f -> f(1))}")
-}
+end
 `, "Some(8)\nOk(9)\n[6, 10]\nSome(2)\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -149,28 +148,28 @@ fn main() {
 func TestIRFuncTypeArg_ACalledParameterSolvesTheType(t *testing.T) {
 	for _, tc := range []struct{ name, body, want string }{
 		{"an actor started without an annotation", funcTypeArgActorImports + funcTypeArgApp + funcTypeArgRead + `
-fn main() {
+fn main()
     local = Actor.start(App.workers, 10, fn s, f -> f(s))
     _ = Actor.cast(local, fn n -> n * 3)
     io.print("${read(local)}")
-}
+end
 `, "Some(30)\n"},
 		{"a later argument and several arguments", `import std::io
 
-fn run<M>(h: (Int, M) -> Int, m: M) -> Int {
+fn run<M>(h: (Int, M) -> Int, m: M) -> Int
     h(1, m)
-}
+end
 
-fn fold<S, M>(state: S, h: (S, M) -> S, m: M) -> S {
+fn fold<S, M>(state: S, h: (S, M) -> S, m: M) -> S
     h(state, m)
-}
+end
 
-fn main() {
+fn main()
     xs: List<(Int) -> String> = [fn n -> "${n}", fn n -> "#${n}"]
     io.print("${Iter.map(xs, fn g -> g(1)) |> Iter.to_list()}")
     io.print("${run(fn s, f -> f(s), fn n -> n * 2)}")
     io.print(fold("a", fn s, f -> f(s, 3), fn s, n -> "${s}${n}"))
-}
+end
 `, "[1, #1]\n2\na3\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -206,22 +205,22 @@ func requireFuncTypeArgLowers(t *testing.T, src string) {
 // function messages, and its case casts to it and reads the state back.
 func TestIRFuncTypeArg_ATestGroupBootsTheActor(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "counter_test.nomi")
-	src := `import {
+	src := `import
     std::actors.Actor
     std::channels.{Channel, Receiver, Sender}
     std::supervisors.{Restart, Supervisor}
-}
+end
 ` + funcTypeArgApp + funcTypeArgRead + `
-fn main() {}
+fn main() end
 
-group "counter" {
+group "counter"
     boot boot()
 
-    test "applies each function" {
+    test "applies each function"
         _ = Actor.cast(App.counter, fn n -> n * 5)
         assert read(App.counter) == Some(5)
-    }
-}
+    end
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)

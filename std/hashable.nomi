@@ -14,21 +14,21 @@ import int.Int
 /// To implement it for a custom type:
 ///
 /// ```nomi
-/// pub struct Point {
+/// pub struct Point
 ///     x: Int
 ///     y: Int
-/// }
+/// end
 ///
-/// impl Hashable for Point {
-///     fn hash(p: Point) -> Int {
+/// impl Hashable for Point
+///     fn hash(p: Point) -> Int
 ///         Hashable.hash(p.x) + Hashable.hash(p.y) * 31
-///     }
-/// }
+///     end
+/// end
 /// ```
 ///
 /// `derive Hashable` synthesizes a structural hash for structs (mixing all
 /// field hashes), enums (mixing the variant tag and payload), and distinct
 /// types (delegating to the inner value).
-pub interface Hashable {
+pub interface Hashable
     fn hash(value: self) -> Int
-}
+end

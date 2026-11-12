@@ -21,61 +21,61 @@
 ///
 /// Inside this file — exactly as for any regular enum — variants are
 /// constructed and pattern-matched with the usual syntax.
-pub opaque enum Status {
+pub opaque enum Status
     Active
     Inactive String
     Suspended {until: Int, reason: String}
-}
+end
 
-impl Status {
+impl Status
     /// Smart constructor for the `Active` variant.
-    pub fn active() -> Status {
+    pub fn active() -> Status
         Status.Active
-    }
+    end
 
     /// Smart constructor for the `Inactive` variant — captures the reason
     /// the entity went inactive.
-    pub fn inactive(reason: String) -> Status {
+    pub fn inactive(reason: String) -> Status
         Status.Inactive(reason)
-    }
+    end
 
     /// Smart constructor for the `Suspended` variant — captures the
     /// timestamp the suspension lifts at and the reason for the suspension.
-    pub fn suspend(until: Int, reason: String) -> Status {
-        Status.Suspended{until, reason}
-    }
+    pub fn suspend(until: Int, reason: String) -> Status
+        Status.Suspended{until:, reason:}
+    end
 
     /// True iff `s` is the `Active` variant.
-    pub fn is_active(s: Status) -> Bool {
+    pub fn is_active(s: Status) -> Bool
         s is .Active
-    }
+    end
 
     /// True iff `s` is the `Suspended` variant.
-    pub fn is_suspended(s: Status) -> Bool {
+    pub fn is_suspended(s: Status) -> Bool
         s is .Suspended{}
-    }
+    end
 
     /// Returns `Some(reason)` if `s` is `Inactive`, otherwise `None`.
-    pub fn inactive_reason(s: Status) -> Maybe<String> {
-        case s {
+    pub fn inactive_reason(s: Status) -> Maybe<String>
+        case s
             .Inactive(r) -> Some(r)
             _ -> None
-        }
-    }
+        end
+    end
 
     /// Returns `Some(reason)` if `s` is `Suspended`, otherwise `None`.
-    pub fn suspended_reason(s: Status) -> Maybe<String> {
-        case s {
-            .Suspended{reason} -> Some(reason)
+    pub fn suspended_reason(s: Status) -> Maybe<String>
+        case s
+            .Suspended{reason:} -> Some(reason)
             _ -> None
-        }
-    }
+        end
+    end
 
     /// Returns `Some(until)` if `s` is `Suspended`, otherwise `None`.
-    pub fn suspended_until(s: Status) -> Maybe<Int> {
-        case s {
-            .Suspended{until} -> Some(until)
+    pub fn suspended_until(s: Status) -> Maybe<Int>
+        case s
+            .Suspended{until:} -> Some(until)
             _ -> None
-        }
-    }
-}
+        end
+    end
+end

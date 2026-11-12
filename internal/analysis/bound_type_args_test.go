@@ -45,7 +45,7 @@ func TestBoundTypeArgs_StepByRejectsAStepOfAnotherNumericType(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "fn main() {\n" + tc.line + "\n}\n"
+			src := "fn main()\n" + tc.line + "\nend\n"
 			errs := checkWithStdlib(src)
 			if len(errs) == 0 {
 				t.Fatalf("the front end accepts a step of another type")
@@ -75,7 +75,7 @@ func TestBoundTypeArgs_StepByAcceptsTheElementsOwnStep(t *testing.T) {
 		"    _ = 1..10 |> Range.step_by(3) |> Iter.to_list()",
 		"    _ = 'a'..='e' |> Range.step_by(2) |> Iter.to_list()",
 	} {
-		if errs := checkWithStdlib("fn main() {\n" + line + "\n}\n"); len(errs) > 0 {
+		if errs := checkWithStdlib("fn main()\n" + line + "\nend\n"); len(errs) > 0 {
 			t.Errorf("%s: %v", line, errs)
 		}
 	}

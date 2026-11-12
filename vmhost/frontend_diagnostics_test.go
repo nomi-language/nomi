@@ -61,7 +61,7 @@ func loadEntry(t *testing.T, src string) error {
 // the impl's position, is fixed), so the mismatch is made by editing the
 // synthesized impl's return type before the checker sees it.
 func TestSynthesizedImplDiagnosticNamesRealSource(t *testing.T) {
-	src := "enum Handler {\n  Text Int\n}\n\nfn main() {\n}\n"
+	src := "enum Handler\n  Text Int\nend\n\nfn main() end\n"
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatal(err)
@@ -109,7 +109,7 @@ func TestSynthesizedImplDiagnosticNamesRealSource(t *testing.T) {
 // A positional function-typed payload checks clean: its synthesized Debug
 // impl's payload binding does not share the impl function's position.
 func TestPositionalFunctionPayloadChecksClean(t *testing.T) {
-	if err := checkEntry(t, "enum Handler {\n  Text ((String) -> Bool)\n}\n\nfn main() {\n}\n"); err != nil {
+	if err := checkEntry(t, "enum Handler\n  Text ((String) -> Bool)\nend\n\nfn main() end\n"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -148,20 +148,20 @@ var diagLoc = regexp.MustCompile(`\.nomi:(\d+):(\d+): `)
 // still refuse a file with a syntax error, with the strict parser's
 // diagnostic, and neither may see a partially-read tree.
 func TestSyntaxErrorStillRefusedByRunAndCheck(t *testing.T) {
-	const halfTyped = "fn compute(n: Int) -> Int {\n" +
+	const halfTyped = "fn compute(n: Int) -> Int\n" +
 		"  total = n * 2\n" +
 		"  f = fn x -> n + \n" +
-		"}\n" +
+		"end\n" +
 		"\n" +
-		"fn main() {\n" +
+		"fn main()\n" +
 		"  io.print(\"hi\")\n" +
-		"}\n"
+		"end\n"
 	_, parseErr := parser.Parse(lexer.Lex(halfTyped))
 	if parseErr == nil {
 		t.Fatal("the fixture is supposed to have a syntax error; it parsed cleanly")
 	}
 	var pe parser.ParseError
-	if !errors.As(parseErr, &pe) || !strings.Contains(pe.Message, "unexpected `}`") {
+	if !errors.As(parseErr, &pe) || !strings.Contains(pe.Message, "unexpected `end`") {
 		t.Fatalf("unexpected diagnostic from the strict parser: %q", parseErr)
 	}
 	// The command line names the file, then the parser's line, column and
@@ -181,14 +181,14 @@ func TestSyntaxErrorStillRefusedByRunAndCheck(t *testing.T) {
 	// Positive control: the same shape with the operand supplied loads.
 	const control = "import std::io\n" +
 		"\n" +
-		"fn compute(n: Int) -> Int {\n" +
+		"fn compute(n: Int) -> Int\n" +
 		"  f = fn x: Int -> n + x\n" +
 		"  f(2)\n" +
-		"}\n" +
+		"end\n" +
 		"\n" +
-		"fn main() {\n" +
+		"fn main()\n" +
 		"  io.print(\"hi\")\n" +
-		"}\n"
+		"end\n"
 	if err := loadEntry(t, control); err != nil {
 		t.Fatalf("the control fixture must load: %v", err)
 	}
@@ -237,9 +237,9 @@ func TestUserImplForAPrimitiveIsADuplicateOfStdlibs(t *testing.T) {
 			if c.iface == "Hashable" {
 				params = "a: " + c.recv
 			}
-			src := "impl " + c.iface + " for " + c.recv + " {\n" +
-				"  fn " + c.method + "(" + params + ") -> " + c.ret + " { " + c.body + " }\n" +
-				"}\n\nfn main() {\n  Unit\n}\n"
+			src := "impl " + c.iface + " for " + c.recv + "\n" +
+				"  fn " + c.method + "(" + params + ") -> " + c.ret + "\n    " + c.body + "\n  end\n" +
+				"end\n\nfn main()\n  Unit\nend\n"
 			err := checkEntry(t, src)
 			if err == nil {
 				t.Fatalf("impl %s for %s was ACCEPTED; it silently takes %s's dispatch slot, so "+
@@ -265,7 +265,7 @@ func TestUserImplForAPrimitiveIsADuplicateOfStdlibs(t *testing.T) {
 // modules reachable twice, and an import-free program passes under the
 // mutant.
 func TestACleanProgramReportsNoDuplicateImpl(t *testing.T) {
-	err := checkEntry(t, "import {\n  std::io\n}\n\nfn main() {\n  io.print(\"x\")\n}\n")
+	err := checkEntry(t, "import\n  std::io\nend\n\nfn main()\n  io.print(\"x\")\nend\n")
 	if err == nil {
 		return
 	}
@@ -289,15 +289,15 @@ func TestExternStdImplsCannotBeReplaced(t *testing.T) {
 	}{
 		{
 			name: "Hashable for String, whose std impl is a host fn",
-			src: "impl Hashable for String {\n" +
-				"  fn hash(_s: String) -> Int { 0 }\n" +
-				"}\n\nfn main() {\n  Unit\n}\n",
+			src: "impl Hashable for String\n" +
+				"  fn hash(_s: String) -> Int\n      0\n  end\n" +
+				"end\n\nfn main()\n  Unit\nend\n",
 		},
 		{
 			name: "Display for Int, same shape and a silent override",
-			src: "impl Display for Int {\n" +
-				"  fn to_string(_n: Int) -> String { \"SHADOWED\" }\n" +
-				"}\n\nfn main() {\n  Unit\n}\n",
+			src: "impl Display for Int\n" +
+				"  fn to_string(_n: Int) -> String\n      \"SHADOWED\"\n  end\n" +
+				"end\n\nfn main()\n  Unit\nend\n",
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -320,11 +320,11 @@ func TestExternStdImplsCannotBeReplaced(t *testing.T) {
 func TestImplCollisionAnchorsAtAPositionTheUserCanOpen(t *testing.T) {
 	for _, recv := range []string{"Int", "Bool", "Float"} {
 		t.Run(recv, func(t *testing.T) {
-			src := "import {\n  std::io\n}\n\n" +
-				"impl Equatable for " + recv + " {\n" +
-				"  fn equal(a: " + recv + ", b: " + recv + ") -> Bool { False }\n" +
-				"}\n" +
-				"fn main() {\n  io.print(\"x\")\n}\n"
+			src := "import\n  std::io\nend\n\n" +
+				"impl Equatable for " + recv + "\n" +
+				"  fn equal(a: " + recv + ", b: " + recv + ") -> Bool\n    False\n  end\n" +
+				"end\n" +
+				"fn main()\n  io.print(\"x\")\nend\n"
 			err := checkEntry(t, src)
 			if err == nil {
 				t.Fatalf("no diagnostic to anchor; the duplicate rule regressed")

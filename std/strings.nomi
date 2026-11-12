@@ -1,4 +1,4 @@
-import {
+import
     add.Add
     bool.Bool
     bytes.{Byte, Bytes}
@@ -19,7 +19,7 @@ import {
     maybe.Maybe.{self, None, Some}
     regex.Regex
     summable.Summable
-}
+end
 
 //# String operations including text-specific ops (`split`, `replace`, `join`,
 //# `reverse`, ...) and the grapheme-cluster iterator used to drive lazy `iter`
@@ -74,40 +74,40 @@ pub host type String
 // String's membership test is `Contains` at three type arguments: a `String`
 // occurs as a substring, a `Regex` matches anywhere, and a `Codepoint` occurs
 // in the text. Each is a linear search.
-impl Contains<String> for String {
+impl Contains<String> for String
     /// True if `x` occurs in `c` as a substring. Every string holds `""`.
     //! assert String.contains("hello world", "world")
     //! refute String.contains("hello", "xyz")
     //! assert String.contains("hello", "")
     //
-    fn contains(c: String, x: String) -> Bool {
+    fn contains(c: String, x: String) -> Bool
         String.is_contained_in(x, c)
-    }
-}
+    end
+end
 
-impl<C> Contains<Regex<C>> for String {
+impl<C> Contains<Regex<C>> for String
     /// True if `x` matches anywhere in `c`.
     //! import std::regex.Regex
     //!
     //! assert String.contains("order 66", Regex`\d+`)
     //! refute String.contains("room", Regex`\d+`)
     //
-    fn contains(c: String, x: Regex<C>) -> Bool {
+    fn contains(c: String, x: Regex<C>) -> Bool
         Regex.is_contained_in(x, c)
-    }
-}
+    end
+end
 
-impl Contains<Codepoint> for String {
+impl Contains<Codepoint> for String
     /// True if `x` occurs in `c`.
     //! assert String.contains("a-b", '-')
     //! refute String.contains("ab", '-')
     //
-    fn contains(c: String, x: Codepoint) -> Bool {
+    fn contains(c: String, x: Codepoint) -> Bool
         Codepoint.is_contained_in(x, c)
-    }
-}
+    end
+end
 
-impl String {
+impl String
     /// True if `prefix` matches at the start of `s`. `prefix` is a `String` or
     /// a `Regex`.
     //! import std::regex.Regex
@@ -116,9 +116,9 @@ impl String {
     //! assert String.starts_with("42 apples", Regex`\d+`)
     //! refute String.starts_with("apples 42", Regex`\d+`)
     //
-    pub fn starts_with<M>(s: String, prefix: M) -> Bool where M: Matcher {
+    pub fn starts_with<M>(s: String, prefix: M) -> Bool where M: Matcher
         M.is_prefix_of(prefix, s)
-    }
+    end
 
     /// True if `suffix` matches at the end of `s`. `suffix` is a `String` or a
     /// `Regex`.
@@ -127,9 +127,9 @@ impl String {
     //! assert String.ends_with("hello.txt", ".txt")
     //! assert String.ends_with("report.PDF", Regex`(?i)\.pdf`)
     //
-    pub fn ends_with<M>(s: String, suffix: M) -> Bool where M: Matcher {
+    pub fn ends_with<M>(s: String, suffix: M) -> Bool where M: Matcher
         M.is_suffix_of(suffix, s)
-    }
+    end
 
     /// Upper-cases `s` (Unicode-aware, locale-independent).
     //! assert String.uppercase("café") == "CAFÉ"
@@ -284,9 +284,9 @@ impl String {
     //! assert String.replace("a  b   c", Regex`\s+`, " ") == "a b c"
     //! assert String.replace("pay $1", "$1", "$2") == "pay $2"
     //
-    pub fn replace<M>(s: String, old: M, new: String) -> String where M: Matcher {
+    pub fn replace<M>(s: String, old: M, new: String) -> String where M: Matcher
         M.replace_in(old, s, new)
-    }
+    end
 
     /// Concatenates `count` copies of `s`. A negative `count` is a runtime error.
     //! assert String.repeat("ab", 3) == "ababab"
@@ -309,7 +309,7 @@ impl String {
     /// start inclusive, end exclusive).
     //! assert String.slice("hello", 1, 4) == "ell"
     //
-    pub host fn slice(s: String, start: Int, end: Int) -> String
+    pub host fn slice(s: String, start: Int, stop: Int) -> String
 
     /// The first `n` grapheme clusters of `s`, counted as `String.slice` and
     /// `String.length` count them. An `n` past the end gives the whole
@@ -320,9 +320,9 @@ impl String {
     //! assert String.take("hi", 5) == "hi"
     //! assert String.take("hi", -1) == ""
     //
-    pub fn take(s: String, n: Int) -> String {
+    pub fn take(s: String, n: Int) -> String
         slice(s, 0, n)
-    }
+    end
 
     /// `s` after its first `n` grapheme clusters, counted as `String.slice`
     /// and `String.length` count them. An `n` past the end gives "", and an
@@ -333,9 +333,9 @@ impl String {
     //! assert String.drop("hi", 5) == ""
     //! assert String.drop("hi", -1) == "hi"
     //
-    pub fn drop(s: String, n: Int) -> String {
-        if n <= 0 { s } else { slice(s, n, length(s)) }
-    }
+    pub fn drop(s: String, n: Int) -> String
+        if n <= 0 then s else slice(s, n, length(s))
+    end
 
     /// Prepends copies of `fill` until `s` is `width` grapheme clusters long,
     /// the units `String.length` counts. A multi-character `fill` repeats and
@@ -357,9 +357,9 @@ impl String {
     //! assert String.pad_start("9.50", 7) == "   9.50"
     //! assert String.pad_start("120.00", 7) == " 120.00"
     //
-    pub fn pad_start(s: String, width: Int, fill: String = " ") -> String {
+    pub fn pad_start(s: String, width: Int, fill: String = " ") -> String
         padding(fill, width - length(s)) + s
-    }
+    end
 
     /// Appends copies of `fill` until `s` is `width` grapheme clusters long,
     /// the units `String.length` counts. A multi-character `fill` repeats and
@@ -380,9 +380,9 @@ impl String {
     //! assert row == "fig       12"
     //! assert String.length(row) == 12
     //
-    pub fn pad_end(s: String, width: Int, fill: String = " ") -> String {
+    pub fn pad_end(s: String, width: Int, fill: String = " ") -> String
         s + padding(fill, width - length(s))
-    }
+    end
 
     /// Joins the strings of any `Iter<String>` (a List, Set or Vector, a
     /// String's graphemes, or a lazy adapter chain) with `separator` between
@@ -394,8 +394,8 @@ impl String {
     //! assert String.join(["he", "llo"]) == "hello"
     //! assert "héllo" |> Iter.map(String.uppercase) |> String.join() == "HÉLLO"
     //! assert 1..=3 |> Iter.map(Int.to_string) |> String.join("-") == "1-2-3"
-    //! assert #["x", "y"] |> String.join("+") == "x+y"
-    //! assert %["solo"] |> String.join(", ") == "solo"
+    //! assert Vector["x", "y"] |> String.join("+") == "x+y"
+    //! assert Set["solo"] |> String.join(", ") == "solo"
     //
     pub host fn join(parts: Iter<String>, separator: String = "") -> String
 
@@ -432,21 +432,21 @@ impl String {
         locale: Locale,
         style: ListStyle = ListStyle.And,
         width: ListWidth = ListWidth.Wide,
-    ) -> String {
-        style_tag = case style {
+    ) -> String
+        style_tag = case style
             ListStyle.And -> 1
             ListStyle.Or -> 2
             ListStyle.Unit -> 3
-        }
+        end
 
-        width_tag = case width {
+        width_tag = case width
             ListWidth.Wide -> 1
             ListWidth.Short -> 2
             ListWidth.Narrow -> 3
-        }
+        end
 
         join_list_raw(locale, items, style_tag, width_tag)
-    }
+    end
 
     /// Splits a string into a list of substrings on every non-overlapping
     /// match of `separator`, a `String` or a `Regex`. The separator itself is
@@ -466,9 +466,9 @@ impl String {
     //! split: (String, String) -> List<String> = String.split
     //! assert split("a,b", ",") == ["a", "b"]
     //
-    pub fn split<M>(s: String, separator: M) -> List<String> where M: Matcher {
+    pub fn split<M>(s: String, separator: M) -> List<String> where M: Matcher
         M.split_in(separator, s)
-    }
+    end
 
     /// Every non-overlapping match of `needle` in `s`, left to right. With a
     /// `String` needle each match is the needle itself, so the list's length is
@@ -479,9 +479,9 @@ impl String {
     //! assert String.find_all("banana", "an") == ["an", "an"]
     //! assert String.find_all("banana", "x") == []
     //
-    pub fn find_all<M>(s: String, needle: M) -> List<String> where M: Matcher {
+    pub fn find_all<M>(s: String, needle: M) -> List<String> where M: Matcher
         M.find_all_in(needle, s)
-    }
+    end
 
     /// The first match of `needle` in `s`, the leftmost, or `None` when there is
     /// none. It is the first element `find_all` would return. With a `String`
@@ -494,9 +494,9 @@ impl String {
     //! assert String.find("banana", "x") == None
     //! assert String.find("none", Regex`\d+`) == None
     //
-    pub fn find<M>(s: String, needle: M) -> Maybe<String> where M: Matcher {
+    pub fn find<M>(s: String, needle: M) -> Maybe<String> where M: Matcher
         M.find_in(needle, s)
-    }
+    end
 
     /// The capture groups of the first match of `re` in `s`, the leftmost, or
     /// `None` when there is none, as the `C` of `re`'s type `Regex<C>`
@@ -515,16 +515,16 @@ impl String {
     //! assert String.captures("b", Regex`(a)|(b)`) == Some((None, Some("b")))
     //! assert String.captures("v12", Regex`v(\d+)`) == Some("12")
     //! date = Regex`(?P<year>\d{4})-(?P<month>\d\d)?`
-    //! assert String.captures("2024-", date) == Some(.{year: "2024", month: None})
+    //! assert String.captures("2024-", date) == Some({year: "2024", month: None})
     //! assert String.captures("no address", Regex`(\w+)@(\w+)`) == None
     //! assert String.captures("a1", Regex.compile("(\\w)(\\d)")?) == Some([Some("a"), Some("1")])
     //
-    pub fn captures<C>(s: String, re: Regex<C>) -> Maybe<C> {
-        case capture_groups(s, re) {
+    pub fn captures<C>(s: String, re: Regex<C>) -> Maybe<C>
+        case capture_groups(s, re)
             Some(groups) -> Some(capture_shape(re, groups))
             None -> None
-        }
-    }
+        end
+    end
 
     /// The capture groups of every non-overlapping match of `re` in `s`, left
     /// to right, each as `String.captures` gives them; `[]` when nothing
@@ -535,11 +535,11 @@ impl String {
     //! assert pairs == [("a", "1"), ("b", "22")]
     //! assert String.captures_all("none", Regex`(\d)`) == []
     //
-    pub fn captures_all<C>(s: String, re: Regex<C>) -> List<C> {
+    pub fn captures_all<C>(s: String, re: Regex<C>) -> List<C>
         capture_groups_all(s, re)
         |> Iter.map(fn groups -> capture_shape(re, groups))
         |> Iter.to_list()
-    }
+    end
 
     /// The words of `s`: the pieces between runs of Unicode whitespace, which
     /// includes U+00A0 NO-BREAK SPACE and U+3000. Unlike `split`, leading,
@@ -645,11 +645,11 @@ impl String {
     //!
     //! assert shifted == "bcd"
     //
-    pub fn from_codepoints(cps: List<Codepoint>) -> String {
+    pub fn from_codepoints(cps: List<Codepoint>) -> String
         cps
         |> Iter.map(&Codepoint.to_string(&1))
         |> join()
-    }
+    end
 
     /// `s` as a Nomi string literal that reads back as `s`: quoted, with
     /// `\n`, `\r`, `\t`, `\\` and `\"` escaped, `\u{...}` for any other
@@ -701,30 +701,30 @@ impl String {
     //! assert String.strip_prefix("hello world", "hello ") == Some("world")
     //! assert String.strip_prefix("hello", "xyz") == None
     //
-    pub fn strip_prefix(s: String, prefix: String) -> Maybe<String> {
-        if starts_with(s, prefix) {
+    pub fn strip_prefix(s: String, prefix: String) -> Maybe<String>
+        if starts_with(s, prefix) then
             new_start = length(prefix)
 
             slice(s, new_start, length(s)) |> Some()
-        } else {
+        else
             None
-        }
-    }
+        end
+    end
 
     /// Strips a suffix from the string. Returns Some(rest) if the suffix matches,
     /// or None otherwise.
     //! assert String.strip_suffix("hello.txt", ".txt") == Some("hello")
     //! assert String.strip_suffix("hello", "xyz") == None
     //
-    pub fn strip_suffix(s: String, suffix: String) -> Maybe<String> {
-        if ends_with(s, suffix) {
+    pub fn strip_suffix(s: String, suffix: String) -> Maybe<String>
+        if ends_with(s, suffix) then
             new_end = length(s) - length(suffix)
 
             slice(s, 0, new_end) |> Some()
-        } else {
+        else
             None
-        }
-    }
+        end
+    end
 
     /// Number of grapheme clusters in the string. Scans the text without
     /// materializing clusters. Grapheme-based, not byte-based:
@@ -734,28 +734,28 @@ impl String {
     //! assert String.length("") == 0
     //
     pub host fn length(s: String) -> Int
-}
+end
 
 /// What a list `String.join_list` writes means: CLDR's list pattern types.
-pub enum ListStyle {
+pub enum ListStyle
     /// All of the items: "a, b, and c".
     And
     /// One of the items: "a, b, or c".
     Or
     /// The parts of one measure: "3 feet, 2 inches".
     Unit
-}
+end
 
 derive Equatable for ListStyle
 
 /// How short the words `String.join_list` writes between items are. English
 /// writes "and" wide and "&" short; many locales write the same at every
 /// width.
-pub enum ListWidth {
+pub enum ListWidth
     Wide
     Short
     Narrow
-}
+end
 
 derive Equatable for ListWidth
 
@@ -785,17 +785,17 @@ host fn string_compare(a: String, b: String) -> Int
 /// `count` grapheme clusters of `fill` repeated, cut to fit; "" when `count`
 /// is not positive or `fill` is empty. Private helper behind
 /// `String.pad_start` and `String.pad_end`.
-fn padding(fill: String, count: Int) -> String {
+fn padding(fill: String, count: Int) -> String
     fill_length = String.length(fill)
 
-    if count <= 0 or fill_length == 0 {
+    if count <= 0 or fill_length == 0 then
         ""
-    } else {
+    else
         String.repeat(fill, count / fill_length + 1) |> String.slice(0, count)
-    }
-}
+    end
+end
 
-impl Matcher for String {
+impl Matcher for String
     /// True if `needle` occurs in `text`.
     host fn is_contained_in(needle: String, text: String) -> Bool
 
@@ -816,16 +816,16 @@ impl Matcher for String {
     host fn find_all_in(needle: String, text: String) -> List<String>
 
     /// `needle` itself when it occurs in `text`.
-    fn find_in(needle: String, text: String) -> Maybe<String> {
-        if String.is_contained_in(needle, text) {
+    fn find_in(needle: String, text: String) -> Maybe<String>
+        if String.is_contained_in(needle, text) then
             Some(needle)
-        } else {
+        else
             None
-        }
-    }
-}
+        end
+    end
+end
 
-impl Matcher for Codepoint {
+impl Matcher for Codepoint
     // A codepoint matches its own one-codepoint text, so each search is the
     // String matcher's over `Codepoint.to_string(cp)`. Declared here rather
     // than in std/code_points so the String host functions are this module's.
@@ -839,43 +839,43 @@ impl Matcher for Codepoint {
     //! assert String.find("x=1", '=') == Some("=")
     //! assert String.find_all("a,b,c", ',') == [",", ","]
     //
-    fn is_contained_in(cp: Codepoint, text: String) -> Bool {
+    fn is_contained_in(cp: Codepoint, text: String) -> Bool
         String.is_contained_in(Codepoint.to_string(cp), text)
-    }
+    end
 
-    fn is_prefix_of(cp: Codepoint, text: String) -> Bool {
+    fn is_prefix_of(cp: Codepoint, text: String) -> Bool
         String.is_prefix_of(Codepoint.to_string(cp), text)
-    }
+    end
 
-    fn is_suffix_of(cp: Codepoint, text: String) -> Bool {
+    fn is_suffix_of(cp: Codepoint, text: String) -> Bool
         String.is_suffix_of(Codepoint.to_string(cp), text)
-    }
+    end
 
-    fn split_in(cp: Codepoint, text: String) -> List<String> {
+    fn split_in(cp: Codepoint, text: String) -> List<String>
         String.split_in(Codepoint.to_string(cp), text)
-    }
+    end
 
-    fn replace_in(cp: Codepoint, text: String, replacement: String) -> String {
+    fn replace_in(cp: Codepoint, text: String, replacement: String) -> String
         String.replace_in(Codepoint.to_string(cp), text, replacement)
-    }
+    end
 
-    fn find_all_in(cp: Codepoint, text: String) -> List<String> {
+    fn find_all_in(cp: Codepoint, text: String) -> List<String>
         String.find_all_in(Codepoint.to_string(cp), text)
-    }
+    end
 
-    fn find_in(cp: Codepoint, text: String) -> Maybe<String> {
+    fn find_in(cp: Codepoint, text: String) -> Maybe<String>
         String.find_in(Codepoint.to_string(cp), text)
-    }
-}
+    end
+end
 
-impl Iter for String {
+impl Iter for String
     /// A String iterates by grapheme cluster, one per user-visible character:
     /// `Iter.to_list("héllo")` is `["h", "é", "l", "l", "o"]`. Pushes each
     /// cluster to `yield`, stopping when it returns False.
     host fn each_while(s: String, yield: (String) -> Bool) -> Bool
-}
+end
 
-impl Display for String {
+impl Display for String
     /// The raw text, with no quotes, so `"hello ${name}"` does not
     /// double-quote `name`. `Debug` gives the round-trippable literal
     /// instead (`String.to_literal`), so `io.inspect("a\"b")` reveals the
@@ -883,71 +883,71 @@ impl Display for String {
     //! assert Display.to_string("a\"b") == "a\"b"
     //! assert Debug.inspect("a\"b") == "\"a\\\"b\""
     //
-    fn to_string(s: String) -> String {
+    fn to_string(s: String) -> String
         s
-    }
-}
+    end
+end
 
-impl Add<String, String> for String {
+impl Add<String, String> for String
     host fn add(lhs: String, rhs: String) -> String
-}
+end
 
-impl Summable for String {
+impl Summable for String
     /// The sum of no Strings: `""`. Summing Strings concatenates them in
     /// order; to put a separator between them, use `String.join`.
     //! assert String.empty_sum() == ""
     //! assert "ab" + String.empty_sum() == "ab"
     //! assert Iter.sum(["no", "m", "i"]) == "nomi"
     //
-    fn empty_sum() -> String {
+    fn empty_sum() -> String
         ""
-    }
-}
+    end
+end
 
-impl Debug for String {
+impl Debug for String
     /// The string as a Nomi literal that reads back as it:
     /// `String.to_literal`.
     //! assert String.inspect("a\nb\tc") == "\"a\\nb\\tc\""
     //! assert Debug.inspect(["x\ny"]) == "[\"x\\ny\"]"
     //
-    fn inspect(s: String) -> String {
+    fn inspect(s: String) -> String
         String.to_literal(s)
-    }
-}
+    end
+end
 
-impl Equatable for String {
-    fn equal(a: String, b: String) -> Bool {
+impl Equatable for String
+    fn equal(a: String, b: String) -> Bool
         a == b
-    }
-}
+    end
+end
 
-impl Hashable for String {
+impl Hashable for String
     /// FNV-1a 64-bit hash of the UTF-8 bytes, reinterpreted as an Int. Stable
     /// within one runtime process; not cryptographic, not stable across runs.
     host fn hash(s: String) -> Int
-}
+end
 
-impl Comparable for String {
-    fn compare(a: String, b: String) -> Ordering {
+impl Comparable for String
+    fn compare(a: String, b: String) -> Ordering
         n = string_compare(a, b)
 
-        case {
+        case
             n < 0 -> Less
             n > 0 -> Greater
             _ -> Equal
-        }
-    }
-}
+        end
+    end
+end
 
 /// Unicode normalization forms (UAX #15). Equality and hashing are byte-based,
 /// so two visually identical strings in different forms — a precomposed "é"
 /// (U+00E9) vs a decomposed "e" + U+0301 — are *not* `==`. Normalize to a
 /// common form first when comparing text from mixed sources.
-pub enum NormalForm {
+pub enum NormalForm
     NFC
     NFD
     NFKC
     NFKD
-}
+end
 
 derive Display for NormalForm

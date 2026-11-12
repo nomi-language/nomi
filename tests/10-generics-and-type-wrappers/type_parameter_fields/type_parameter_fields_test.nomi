@@ -1,58 +1,58 @@
-import {
+import
     std::compiler
     test_helpers
-}
+end
 
-interface HasName {
+interface HasName
     fn name(value: self) -> String
-}
+end
 
-struct Tag {
+struct Tag
     name: String
-}
+end
 
-impl HasName for Tag {
-    fn name(tag: Tag) -> String {
+impl HasName for Tag
+    fn name(tag: Tag) -> String
         tag.name
-    }
-}
+    end
+end
 
-fn name_of<T>(x: T) -> String where T: HasName {
+fn name_of<T>(x: T) -> String where T: HasName
     T.name(x)
-}
+end
 
-test "a bounded type parameter reads through its bound's function requirement" {
+test "a bounded type parameter reads through its bound's function requirement"
     assert name_of(Tag{name: "Ada"}) == "Ada"
-}
+end
 
-test "a bounded type parameter exposes no fields" {
+test "a bounded type parameter exposes no fields"
     diagnostics = compiler.check(
         """
-          interface HasName {
+          interface HasName
             fn name(value: self) -> String
-          }
+          end
 
-          fn name_of<T>(x: T) -> String where T: HasName {
+          fn name_of<T>(x: T) -> String where T: HasName
             x.name
-          }
+          end
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "type parameter `T` has no field 'name'")
-}
+end
 
-test "unbounded type parameters do not expose arbitrary fields" {
+test "unbounded type parameters do not expose arbitrary fields"
     diagnostics = compiler.check(
         """
-          fn first_field<T>(x: T) -> Int {
+          fn first_field<T>(x: T) -> Int
             x.name
-          }
+          end
 
-          fn main() {}
+          fn main() end
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "type parameter `T` has no field 'name'")
-}
+end

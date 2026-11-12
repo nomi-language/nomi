@@ -32,92 +32,92 @@ import std::io
 //     `Box<Int>` both lower to a struct with one Int `item`. Two defs
 //     collapsed into one would still lower and run, and the two failing rows
 //     below then show the names apart.
-pub struct Inner {
+pub struct Inner
     value: Int
-}
+end
 
-pub struct Box<T> {
+pub struct Box<T>
     item: T
-}
+end
 
-pub struct Crate<T> {
+pub struct Crate<T>
     box: Box<T>
-}
+end
 
-pub struct Pair<A, B> {
+pub struct Pair<A, B>
     first: A
     second: B
-}
+end
 
 // The same shape as `Box<Int>`, declared monomorphically.
-pub struct Twin {
+pub struct Twin
     item: Int
-}
+end
 
-impl Display for Inner {
-    fn to_string(i: Inner) -> String {
+impl Display for Inner
+    fn to_string(i: Inner) -> String
         "inner:${Int.to_string(i.value)}"
-    }
-}
+    end
+end
 
-fn no_box(_b: Box<Int>) -> Bool {
+fn no_box(_b: Box<Int>) -> Bool
     False
-}
+end
 
-fn no_pair(_p: Pair<Int, String>) -> Bool {
+fn no_pair(_p: Pair<Int, String>) -> Bool
     False
-}
+end
 
-fn no_twin(_t: Twin) -> Bool {
+fn no_twin(_t: Twin) -> Bool
     False
-}
+end
 
-fn crate_value(c: Crate<Inner>) -> Int {
+fn crate_value(c: Crate<Inner>) -> Int
     c.box.item.value
-}
+end
 
-fn no_box_text(_b: Box<String>) -> Bool {
+fn no_box_text(_b: Box<String>) -> Bool
     False
-}
+end
 
-fn no_crate(_c: Crate<Inner>) -> Bool {
+fn no_crate(_c: Crate<Inner>) -> Bool
     False
-}
+end
 
-test "a second instantiation of one template renders as the same Nomi type" {
+test "a second instantiation of one template renders as the same Nomi type"
     assert no_box_text(Box{item: "s"})
-}
+end
 
-test "and a nested instantiation renders as its own declaration" {
+test "and a nested instantiation renders as its own declaration"
     assert no_crate(Crate{
         box: Box{item: Inner{value: 7}},
     })
-}
+end
 
-test "a nested instantiation resolves through an annotation" {
+test "a nested instantiation resolves through an annotation"
     c = Crate{
         box: Box{item: Inner{value: 41}},
     }
 
     io.print(Int.to_string(crate_value(c)))
     assert c.box.item.value == 41
-}
+end
 
-test "the argument keeps its own dispatch through the instance" {
+test "the argument keeps its own dispatch through the instance"
     b = Box{item: Inner{value: 7}}
     io.print(Display.to_string(b.item))
     assert Display.to_string(b.item) == "inner:7"
-}
+end
 
-test "type arguments come from field names and not from field order" {
+test "type arguments come from field names and not from field order"
     p = Pair{second: "s", first: 7}
     assert no_pair(p)
-}
+end
 
-test "a same-shaped monomorphic twin stays a different type" {
+test "a same-shaped monomorphic twin stays a different type"
     assert no_box(Box{item: 1})
-}
+end
 
-test "and the twin says so too" {
+test "and the twin says so too"
     assert no_twin(Twin{item: 1})
-}
+end

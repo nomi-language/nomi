@@ -14,26 +14,26 @@ func TestStdCrossModuleGeneric_NonGenericBodyCallsAnotherModulesGeneric(t *testi
 	got := runSourceOutput(t, "import std::io\n"+
 		"import std::regex.Regex\n"+
 		"\n"+
-		"struct Rule {\n"+
+		"struct Rule\n"+
 		"    name: String\n"+
 		"    re: Regex<Unit>\n"+
-		"}\n"+
+		"end\n"+
 		"\n"+
-		"fn main() {\n"+
+		"fn main()\n"+
 		"    re = Regex`\\d+`\n"+
 		"    io.inspect(re)\n"+
 		"    io.print(Debug.inspect(re))\n"+
 		"    io.print(Regex.inspect(re))\n"+
 		"    _ = dbg re\n"+
 		"    io.inspect([re])\n"+
-		"    io.inspect(Rule{name: \"n\", re: re})\n"+
+		"    io.inspect(Rule{name: \"n\", re:})\n"+
 		"    io.inspect(Some(re))\n"+
 		"    tick = Regex.compile(\"a`b\")!\n"+
 		"    io.inspect(tick)\n"+
 		"    io.inspect(String.strip_prefix(\"hello world\", \"hello \"))\n"+
 		"    io.inspect(String.strip_suffix(\"hello.txt\", \".txt\"))\n"+
 		"    io.inspect(String.strip_prefix(\"hello\", \"xyz\"))\n"+
-		"}\n")
+		"end\n")
 	want := "Regex`\\d+`\n" +
 		"Regex`\\d+`\n" +
 		"Regex`\\d+`\n" +

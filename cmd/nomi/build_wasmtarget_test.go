@@ -96,50 +96,50 @@ func TestBuildCommand_WasmTargetsWriteValidModules(t *testing.T) {
 	programs := map[string]string{
 		"mixed.nomi": `import std::io
 
-fn main() {
+fn main()
   counts =
     ["a", "b", "a", "c", "a"]
-    |> Iter.reduce(%{}, fn acc, k -> {
-      case Map.get(acc, k) {
+    |> Iter.reduce({}, fn acc, k ->
+      case Map.get(acc, k)
         Some(prev) -> Map.put(acc, k, prev + 1)
         None -> Map.put(acc, k, 1)
-      }
-    })
+      end
+    end)
   io.print("a=${Map.get(counts, "a")} c=${Map.get(counts, "c")}")
   base = 10
   add = fn x: Int -> x + base
   io.print("closure: ${add(5)}")
-  zero = case Map.get(counts, "z") {
+  zero = case Map.get(counts, "z")
     Some(n) -> n
     None -> 0
-  }
+  end
   io.print("dividing")
   io.print("${100 / zero}")
-}
+end
 `,
 		"stdin.nomi": `import std::io
 
-fn main() {
-  case io.read_line() {
+fn main()
+  case io.read_line()
     Ok(Some(line)) -> io.print("read: ${line}")
     _ -> io.print("no line")
-  }
-}
+  end
+end
 `,
 		"args.nomi": `import std::io
 
-struct App {
+struct App
   context: Context
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
   io.print(startup.args)
   Ok(App{context: Context.root()})
-}
+end
 
-fn main() {
+fn main()
   io.print("main ran")
-}
+end
 `,
 	}
 	for name, src := range programs {

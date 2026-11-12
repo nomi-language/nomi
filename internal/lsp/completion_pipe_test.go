@@ -15,31 +15,31 @@ func TestCompletion_PipeOffersFunctionsTakingTheValue(t *testing.T) {
 	}{
 		{
 			"a List is an Iter",
-			"fn f(xs: List<Int>) -> Int {\n    xs |> " + cursorMark + "\n}\n",
+			"fn f(xs: List<Int>) -> Int\n    xs |> " + cursorMark + "\nend\n",
 			[]string{"Iter.map", "Iter.filter", "Iter.count", "List.head", "List.concat", "dbg"},
 			[]string{"Iter.repeat", "Iter.iterate", "String.trim", "if_missing"},
 		},
 		{
 			"a String",
-			"fn f(s: String) -> String {\n    s |> " + cursorMark + "\n}\n",
+			"fn f(s: String) -> String\n    s |> " + cursorMark + "\nend\n",
 			[]string{"String.trim", "String.uppercase", "Display.to_string"},
 			[]string{"List.head", "Duration.seconds"},
 		},
 		{
 			"typed prefix filters on the function name",
-			"fn f(s: String) -> String {\n    s |> tri" + cursorMark + "\n}\n",
+			"fn f(s: String) -> String\n    s |> tri" + cursorMark + "\nend\n",
 			[]string{"String.trim"},
 			[]string{"String.uppercase"},
 		},
 		{
 			"the file's own functions whose first parameter fits",
-			"fn double(n: Int) -> Int {\n    n * 2\n}\n\nfn shout(s: String) -> String {\n    s\n}\n\nfn f() -> Int {\n    3 |> " + cursorMark + "\n}\n",
+			"fn double(n: Int) -> Int\n    n * 2\nend\n\nfn shout(s: String) -> String\n    s\nend\n\nfn f() -> Int\n    3 |> " + cursorMark + "\nend\n",
 			[]string{"double", "Int.to_string"},
 			[]string{"shout", "f"},
 		},
 		{
 			"a recorded value type",
-			"fn f(xs: List<Int>) -> Int {\n    ys = xs |> Iter.map(fn x -> x + 1) |> Iter.to_list()\n    ys |> " + cursorMark + "\n}\n",
+			"fn f(xs: List<Int>) -> Int\n    ys = xs |> Iter.map(fn x -> x + 1) |> Iter.to_list()\n    ys |> " + cursorMark + "\nend\n",
 			[]string{"Iter.map", "List.head"},
 			nil,
 		},
@@ -57,9 +57,9 @@ func TestCompletion_PipeInsertsTheCallWithoutItsFirstArgument(t *testing.T) {
 	tests := []struct {
 		name, src, label, text string
 	}{
-		{"bare stage", "fn f(xs: List<Int>) -> List<Int> {\n    xs |> ma" + cursorMark + "\n}\n", "Iter.map", "Iter.map(${1:f})$0"},
-		{"no argument left", "fn f(xs: List<Int>) -> Int {\n    xs |> cou" + cursorMark + "\n}\n", "Iter.count", "Iter.count()$0"},
-		{"owner already written", "fn f(xs: List<Int>) -> List<Int> {\n    xs |> Iter.ma" + cursorMark + "\n}\n", "map", "map(${1:f})$0"},
+		{"bare stage", "fn f(xs: List<Int>) -> List<Int>\n    xs |> ma" + cursorMark + "\nend\n", "Iter.map", "Iter.map(${1:f})$0"},
+		{"no argument left", "fn f(xs: List<Int>) -> Int\n    xs |> cou" + cursorMark + "\nend\n", "Iter.count", "Iter.count()$0"},
+		{"owner already written", "fn f(xs: List<Int>) -> List<Int>\n    xs |> Iter.ma" + cursorMark + "\nend\n", "map", "map(${1:f})$0"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -73,12 +73,12 @@ func TestCompletion_PipeInsertsTheCallWithoutItsFirstArgument(t *testing.T) {
 
 func TestCompletion_PipeOffersImportedFileFunctions(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"text.nomi": "pub fn shout(s: String) -> String {\n    s\n}\n\npub fn twice(n: Int) -> Int {\n    n * 2\n}\n",
-		"main.nomi": "fn main() {\n}\n",
+		"text.nomi": "pub fn shout(s: String) -> String\n    s\nend\n\npub fn twice(n: Int) -> Int\n    n * 2\nend\n",
+		"main.nomi": "fn main() end\n",
 	})
 	s := NewServer()
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
-	items := completeIn(t, s, uri, "import text\n\nfn main() {\n    \"a\" |> "+cursorMark+"\n}\n").Items
+	items := completeIn(t, s, uri, "import text\n\nfn main()\n    \"a\" |> "+cursorMark+"\nend\n").Items
 	labelsInclude(t, items, "text.shout")
 	labelsExclude(t, items, "text.twice")
 }
@@ -87,50 +87,50 @@ func TestCompletion_PipeOffersImportedFileFunctions(t *testing.T) {
 // analyzed scope; looking up an owner the document does not name reads it.
 func TestCompletion_PipeOwnerLookupReadsClosedFiles(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"lib.nomi":  "import std::duration.Duration\n\npub fn pause() -> Duration {\n    Duration.seconds(1)\n}\n",
-		"main.nomi": "fn main() {\n}\n",
+		"lib.nomi":  "import std::duration.Duration\n\npub fn pause() -> Duration\n    Duration.seconds(1)\nend\n",
+		"main.nomi": "fn main() end\n",
 	})
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
 	s.docs.IndexWorkspace(context.Background())
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
-	items := completeIn(t, s, uri, "import lib\n\nfn main() {\n    lib.pause() |> "+cursorMark+"\n}\n").Items
+	items := completeIn(t, s, uri, "import lib\n\nfn main()\n    lib.pause() |> "+cursorMark+"\nend\n").Items
 	labelsInclude(t, items, "Duration.as_seconds")
 }
 
 // `dbg` is a stage anywhere in a pipe, offered after the functions that
 // take the value; `assert` and `refute`, which a stage cannot be, are not.
 func TestCompletion_PipeKeywordStages(t *testing.T) {
-	items := complete(t, "fn f(xs: List<Int>) -> Int {\n    xs |> "+cursorMark+"\n}\n")
+	items := complete(t, "fn f(xs: List<Int>) -> Int\n    xs |> "+cursorMark+"\nend\n")
 	labelsInclude(t, items, "dbg", "if", "case", "then", "tap")
 	labelsExclude(t, items, "assert", "refute")
 	labelsBefore(t, items, "Iter.count", "dbg")
 	labelsBefore(t, items, "List.head", "dbg")
 
 	// Mid-chain, and on a new line.
-	items = complete(t, "fn f(xs: List<Int>) -> Int {\n    xs\n    |> List.tail()\n    |> "+cursorMark+"\n    |> Iter.count()\n}\n")
+	items = complete(t, "fn f(xs: List<Int>) -> Int\n    xs\n    |> List.tail()\n    |> "+cursorMark+"\n    |> Iter.count()\nend\n")
 	labelsInclude(t, items, "dbg")
 	labelsBefore(t, items, "Maybe.map", "dbg")
 
 	// Typed, it matches as any word does.
-	items = complete(t, "fn f(xs: List<Int>) -> Int {\n    xs |> db"+cursorMark+"\n}\n")
+	items = complete(t, "fn f(xs: List<Int>) -> Int\n    xs |> db"+cursorMark+"\nend\n")
 	if len(items) == 0 || items[0].Label != "dbg" {
 		t.Errorf("want dbg first after `db`, got %v", itemLabels(items))
 	}
 
 	// A function whose type fits the expected type ranks first; dbg after.
-	items = complete(t, "fn double(n: Int) -> Int {\n    n * 2\n}\n\nfn f(n: Int) -> Int {\n    n |> "+cursorMark+"\n}\n")
+	items = complete(t, "fn double(n: Int) -> Int\n    n * 2\nend\n\nfn f(n: Int) -> Int\n    n |> "+cursorMark+"\nend\n")
 	labelsBefore(t, items, "double", "dbg")
 
 	// An imported file's function, whose label sorts after `dbg`.
 	dir := writeProject(t, map[string]string{
-		"lib.nomi":  "pub fn shout(s: String) -> String {\n    s\n}\n",
-		"main.nomi": "fn main() {\n}\n",
+		"lib.nomi":  "pub fn shout(s: String) -> String\n    s\nend\n",
+		"main.nomi": "fn main() end\n",
 	})
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
 	s.docs.IndexWorkspace(context.Background())
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
-	items = completeIn(t, s, uri, "import lib\n\nfn main() {\n    _ = \"a\" |> "+cursorMark+"\n}\n").Items
+	items = completeIn(t, s, uri, "import lib\n\nfn main()\n    _ = \"a\" |> "+cursorMark+"\nend\n").Items
 	labelsBefore(t, items, "lib.shout", "dbg")
 }

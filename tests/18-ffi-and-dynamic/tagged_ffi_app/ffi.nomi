@@ -8,14 +8,14 @@ fn make_box_raw(label: String) -> RawBox go ffi.MakeBox
 
 fn box_label_raw(box: RawBox) -> String go ffi.BoxLabel
 
-pub opaque struct Box {
+pub opaque struct Box
     raw: RawBox
-}
+end
 
-pub fn make_box(label: String) -> Box {
+pub fn make_box(label: String) -> Box
     Box{raw: make_box_raw(label)}
-}
+end
 
-pub fn box_label(box: Box) -> String {
+pub fn box_label(box: Box) -> String
     box_label_raw(box.raw)
-}
+end

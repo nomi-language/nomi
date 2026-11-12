@@ -104,7 +104,7 @@ func (bl *irScalarBuilder) parseFieldTexts(t *ast.Call, k kind) (ir.Temp, kind, 
 		p := ir.NewProjRecordField(pos, bl.f.NewTemp(), subj, k.comp.names[i], irParamShape(part))
 		bl.b.Append(p)
 		bl.side(p.Dst(), irScalarSide{k: part})
-		text, ok := bl.displayPart(t, p.Dst(), part)
+		text, ok := bl.displayValue(t, p.Dst(), part)
 		if !ok {
 			return ir.NoTemp, kindInvalid, false
 		}

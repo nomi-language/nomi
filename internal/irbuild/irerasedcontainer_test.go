@@ -13,44 +13,44 @@ func TestIRErasedContainer_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Box<T> {
+struct Box<T>
     v: T
-}
+end
 
 derive Display for Box<T>
 
 type Meters Int
 
-impl Display for Meters {
-    fn to_string(Meters(n)) -> String {
+impl Display for Meters
+    fn to_string(Meters(n)) -> String
         "${Int.to_string(n)} m"
-    }
-}
+    end
+end
 
-interface Shape {
+interface Shape
     fn area(s: self) -> Int
-}
+end
 
-struct Circle {
+struct Circle
     r: Int
-}
+end
 
-impl Shape for Circle {
-    fn area(c: Circle) -> Int {
+impl Shape for Circle
+    fn area(c: Circle) -> Int
         c.r * 3
-    }
-}
+    end
+end
 
-fn show(d: Display) -> String {
+fn show(d: Display) -> String
     Display.to_string(d)
-}
+end
 
-fn main() {
+fn main()
     a: Display = [1, 2]
     io.print(Display.to_string(a))
     io.print(show(["s", "t"]))
-    io.print(show(%{"k" => [True]}))
-    io.print(show(#[1.5]))
+    io.print(show({"k" => [True]}))
+    io.print(show(Vector[1.5]))
     io.print(show([Meters(2)]))
     io.print(show([Box{v: 3}]))
     xs: List<Display> = [[1], [2, 3]]
@@ -60,12 +60,12 @@ fn main() {
     io.print(Iter.map(it, Shape.area) |> Iter.to_list())
     nested: List<Iter<Shape>> = [[circle]]
     io.print(Iter.count(nested))
-}
+end
 `
 	const want = "[1, 2]\n" +
 		"[s, t]\n" +
-		"%{k => [True]}\n" +
-		"#[1.5]\n" +
+		"{k => [True]}\n" +
+		"Vector[1.5]\n" +
 		"[2 m]\n" +
 		"[Box{v: 3}]\n" +
 		"[1];[2, 3]\n" +

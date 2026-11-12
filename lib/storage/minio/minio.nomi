@@ -3,7 +3,7 @@
 //# any server: std::storage_testing's conformance suite, presigned URLs
 //# fetched with no credentials, and a public object read with none.
 
-import {
+import
     std::duration.Duration
     std::fs
     std::http.{self, Body, Headers, Method, Request, Response, Status}
@@ -15,15 +15,15 @@ import {
     std::timer
     std::url.Url
     s3.{self, Config, Credentials}
-}
+end
 
 /// A MinIO server `start` started, and a config for its bucket.
-pub struct Minio {
+pub struct Minio
     /// A config for the bucket `nomi-test`.
     config: Config
     child: Child
     data: String
-}
+end
 
 /// Starts a MinIO server on a free port over a temporary directory, waits
 /// for it to answer, and makes the bucket `nomi-test`. Defer `stop` on the
@@ -33,13 +33,13 @@ pub struct Minio {
 /// server = minio.start()!
 /// defer minio.stop(server)
 /// ```
-pub fn start() -> Result<Minio, String> {
+pub fn start() -> Result<Minio, String>
     port = free_port()?
     address = "127.0.0.1:${port}"
     endpoint = Url.parse("http://${address}") |> Result.map_err(fn e -> "${e}")?
 
     config = Config{
-        endpoint,
+        endpoint:,
         bucket: "nomi-test",
         credentials: Credentials{access_key: "nomi-test", secret_key: "nomi-test-secret"},
     }
@@ -50,99 +50,99 @@ pub fn start() -> Result<Minio, String> {
     command = Command{
         program: "minio",
         args: ["server", data, "--address", address, "--quiet"],
-        env: %{"MINIO_ROOT_USER" => "nomi-test", "MINIO_ROOT_PASSWORD" => "nomi-test-secret"},
+        env: {"MINIO_ROOT_USER" => "nomi-test", "MINIO_ROOT_PASSWORD" => "nomi-test-secret"},
     }
 
-    child = case process.spawn(command) {
-        Ok(child) -> child
+    child = case process.spawn(command)
+        Ok(child) ->
+            child
 
-        Err(e) -> {
+        Err(e) ->
             fs.remove_all_quietly(data)
             return Err("starting minio: ${e}")
-        }
-    }
+    end
 
-    server = Minio{config, child, data}
+    server = Minio{config:, child:, data:}
 
-    case wait_live(endpoint, 100) |> Result.flat_map(fn _ -> create_bucket(config)) {
-        Ok(_) -> Ok(server)
+    case wait_live(endpoint, 100) |> Result.flat_map(fn _ -> create_bucket(config))
+        Ok(_) ->
+            Ok(server)
 
-        Err(e) -> {
+        Err(e) ->
             stop(server)
             Err(e)
-        }
-    }
-}
+    end
+end
 
 /// Kills the server and removes its directory.
-pub fn stop(server: Minio) -> Unit {
+pub fn stop(server: Minio) -> Unit
     Child.kill(server.child)
     fs.remove_all_quietly(server.data)
-}
+end
 
-impl Release for Minio {
-    fn release(server: Minio) {
+impl Release for Minio
+    fn release(server: Minio)
         stop(server)
-    }
-}
+    end
+end
 
 // A port nothing listens on: one the system picked for a listener that is
 // then closed.
-fn free_port() -> Result<String, String> {
+fn free_port() -> Result<String, String>
     listener = net.listen("127.0.0.1:0") |> Result.map_err(fn e -> "${e}")?
     address = net.Listener.address(listener)
     net.Listener.close(listener)
     (_, port) = net.split_host_port(address) |> Result.map_err(fn e -> "${e}")?
     Ok(port)
-}
+end
 
 // Poll MinIO's liveness endpoint every 100 ms, up to `tries` times.
-fn wait_live(endpoint: Url, tries: Int) -> Result<Unit, String> {
-    live = case http.get(Url.join_path(endpoint, ["minio", "health", "live"])) {
+fn wait_live(endpoint: Url, tries: Int) -> Result<Unit, String>
+    live = case http.get(Url.join_path(endpoint, ["minio", "health", "live"]))
         Ok(response) -> Status.is_success(response.status)
         Err(_) -> False
-    }
+    end
 
-    if live {
+    if live then
         Ok(Unit)
-    } else if tries <= 0 {
+    else if tries <= 0 then
         Err("minio did not answer on ${endpoint}")
-    } else {
+    else
         timer.sleep(Duration.milliseconds(100))
         wait_live(endpoint, tries - 1)
-    }
-}
+    end
+end
 
 // Send `request` signed for `config`'s server, and return its response
 // when it succeeds.
-fn signed(config: Config, request: Request) -> Result<Response, String> {
+fn signed(config: Config, request: Request) -> Result<Response, String>
     signed = s3.sign(request, config.credentials, config.region, Instant.now())
     response = http.fetch(signed) |> Result.map_err(fn e -> "${e}")?
 
-    if Status.is_success(response.status) {
+    if Status.is_success(response.status) then
         Ok(response)
-    } else {
+    else
         Err(
             "${Method.text(request.method)} ${request.url}: ${Status.code(
                 response.status
             )} ${Response.text(response) |> Result.with_default("")}"
         )
-    }
-}
+    end
+end
 
-fn create_bucket(config: Config) -> Result<Unit, String> {
+fn create_bucket(config: Config) -> Result<Unit, String>
     _ = signed(
         config,
         Request{method: Method.Put, url: Url.join_path(config.endpoint, [config.bucket])},
     )?
 
     Ok(Unit)
-}
+end
 
 /// Create `bucket` on `config`'s server and let anyone read its objects
 /// with a bucket policy, since MinIO keeps no object ACLs.
-fn public_bucket(config: Config, bucket: String) -> Result<Config, String> {
-    public = .{..config, bucket}
+fn public_bucket(config: Config, bucket: String) -> Result<Config, String>
+    public = {..config, bucket:}
     create_bucket(public)?
 
     policy = """
@@ -150,15 +150,15 @@ fn public_bucket(config: Config, bucket: String) -> Result<Config, String> {
         "Action": ["s3:GetObject"], "Resource": ["arn:aws:s3:::${bucket}/*"]}]}
         """
 
-    url = .{..Url.join_path(config.endpoint, [bucket]), query: Some("policy=")}
-    _ = signed(public, Request{method: Method.Put, url, body: Body.Text(policy)})?
+    url = {..Url.join_path(config.endpoint, [bucket]), query: Some("policy=")}
+    _ = signed(public, Request{method: Method.Put, url:, body: Body.Text(policy)})?
     Ok(public)
-}
+end
 
 /// What failed of this project's checks against `config`'s bucket: none
 /// when the server and lib/storage/s3 agree. With `public`, also make a
 /// public bucket and read an object from it with no credentials.
-pub fn checks(config: Config, public: Bool = True) -> List<String> {
+pub fn checks(config: Config, public: Bool = True) -> List<String>
     conformance =
         storage_testing.conformance(fn -> s3.store(config))
         |> Iter.map(fn broken -> "conformance: ${broken}")
@@ -170,35 +170,31 @@ pub fn checks(config: Config, public: Bool = True) -> List<String> {
             ("a presigned PUT writes with no credentials", fn -> presigned_put(config)),
             (
                 "a public object reads with no credentials",
-                fn -> {
-                    if public {
-                        public_read(config)
-                    } else {
-                        Ok(Unit)
-                    }
-                },
+                fn ->
+                    if public then public_read(config) else Ok(Unit)
+                end,
             ),
         ]
-        |> Iter.flat_map(fn (name, check) -> {
-            case check() {
+        |> Iter.flat_map(fn (name, check) ->
+            case check()
                 Ok(_) -> []
                 Err(message) -> ["${name}: ${message}"]
-            }
-        })
+            end
+        end)
         |> Iter.to_list()
 
     conformance + others
-}
+end
 
-fn store_of(config: Config) -> Result<Store, String> {
+fn store_of(config: Config) -> Result<Store, String>
     s3.store(config) |> Result.map_err(fn e -> "${e}")
-}
+end
 
-fn expect(holds: Bool, message: String) -> Result<Unit, String> {
-    if holds { Ok(Unit) } else { Err(message) }
-}
+fn expect(holds: Bool, message: String) -> Result<Unit, String>
+    if holds then Ok(Unit) else Err(message)
+end
 
-fn presigned_get(config: Config) -> Result<Unit, String> {
+fn presigned_get(config: Config) -> Result<Unit, String>
     store = store_of(config)?
 
     Store.put(store, "presigned/get.txt", String.to_bytes("shared"), "text/plain")
@@ -216,9 +212,9 @@ fn presigned_get(config: Config) -> Result<Unit, String> {
     )?
 
     expect(Response.text(response) == Ok("shared"), "GET ${url} answered other bytes")
-}
+end
 
-fn presigned_put(config: Config) -> Result<Unit, String> {
+fn presigned_put(config: Config) -> Result<Unit, String>
     url =
         s3.presign_put(config, "presigned/put.txt", "text/plain", Duration.minutes(5))
         |> Result.map_err(fn e -> "${e}")?
@@ -227,7 +223,7 @@ fn presigned_put(config: Config) -> Result<Unit, String> {
         http.fetch(
             Request{
                 method: Method.Put,
-                url,
+                url:,
                 headers: Headers[("Content-Type", "text/plain")],
                 body: Body.Text("uploaded"),
             }
@@ -246,9 +242,9 @@ fn presigned_put(config: Config) -> Result<Unit, String> {
         object.info.content_type == "text/plain",
         "the presigned PUT stored ${object.info.content_type}",
     )
-}
+end
 
-fn public_read(config: Config) -> Result<Unit, String> {
+fn public_read(config: Config) -> Result<Unit, String>
     public = public_bucket(config, "${config.bucket}-public")?
     store = store_of(public)?
 
@@ -262,4 +258,4 @@ fn public_read(config: Config) -> Result<Unit, String> {
         Response.text(response) == Ok("public"),
         "GET ${url} with no credentials answered ${Status.code(response.status)}",
     )
-}
+end

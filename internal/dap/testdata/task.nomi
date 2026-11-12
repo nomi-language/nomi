@@ -1,18 +1,18 @@
-import {
+import
     std::io
     std::tasks.Task
-}
+end
 
-fn work(n: Int) -> Int {
+fn work(n: Int) -> Int
     r = n * 2
     r
-}
+end
 
-fn main() {
-    v = concurrent {
+fn main()
+    v = concurrent
         t = Task.spawn(fn -> work(21))
         Task.await(t)
-    }
+    end
 
     io.print("${v}")
-}
+end

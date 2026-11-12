@@ -69,7 +69,7 @@ func TestParse_AttachesBlankLineAsLeadingOnNextNode(t *testing.T) {
 
 // Trivia inside blocks.
 func TestParse_AttachesLeadingCommentInsideBlock(t *testing.T) {
-	src := "fn f() {\n  // inner\n  x = 1\n  x\n}\n"
+	src := "fn f()\n  // inner\n  x = 1\n  x\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatal(err)
@@ -99,7 +99,7 @@ func TestParse_AttachesLeadingCommentInsideBlock(t *testing.T) {
 
 // Trivia inside case-arm bodies.
 func TestParse_AttachesLeadingCommentInsideCaseArms(t *testing.T) {
-	src := "fn f() {\n  case 1 {\n    // first arm\n    1 -> 1\n    // second arm\n    _ -> 0\n  }\n}\n"
+	src := "fn f()\n  case 1\n    // first arm\n    1 -> 1\n    // second arm\n    _ -> 0\n  end\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatal(err)
@@ -209,7 +209,7 @@ func TestParse_StandaloneCommentBetweenPipeStages(t *testing.T) {
 // Fix 3 pinning test: regular nonblank // comments interleaved with /// doc
 // comments are not doc comments and should not disappear silently.
 func TestParse_RegularCommentBetweenDocComments_Rejected(t *testing.T) {
-	src := "/// first\n// regular\n/// second\nfn f() {\n  1\n}\n"
+	src := "/// first\n// regular\n/// second\nfn f()\n  1\nend\n"
 	_, err := Parse(lexer.Lex(src))
 	if err == nil {
 		t.Fatal("expected parse error for nonblank comment between doc comments")
@@ -217,7 +217,7 @@ func TestParse_RegularCommentBetweenDocComments_Rejected(t *testing.T) {
 }
 
 func TestParse_BlankCommentBetweenDocAndAttachedTest(t *testing.T) {
-	src := "/// first\n//\n//! assert f() == 1\nfn f() -> Int { 1 }\n"
+	src := "/// first\n//\n//! assert f() == 1\nfn f() -> Int\n    1\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatal(err)
@@ -235,7 +235,7 @@ func TestParse_BlankCommentBetweenDocAndAttachedTest(t *testing.T) {
 }
 
 func TestParse_BlankCommentBetweenDocAndDeclaration(t *testing.T) {
-	src := "/// first\n//\nfn f() -> Int { 1 }\n"
+	src := "/// first\n//\nfn f() -> Int\n    1\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatal(err)
@@ -275,7 +275,7 @@ func TestParse_BareCommentLineIsLeadingOnNextNode(t *testing.T) {
 // test for a data-loss bug where `nomi fmt -w` silently deleted
 // trailing top-level comments.
 func TestParseFile_PreservesTrailingTopLevelComments(t *testing.T) {
-	src := "fn main() {}\n\n// trailing one\n// trailing two\n"
+	src := "fn main() end\n\n// trailing one\n// trailing two\n"
 	nodes, fileEnd, err := ParseFile(lexer.Lex(src))
 	if err != nil {
 		t.Fatal(err)
@@ -302,7 +302,7 @@ func TestParseFile_PreservesTrailingTopLevelComments(t *testing.T) {
 // pre-fix behavior. This guards the documented contract — if Parse ever
 // starts preserving it, the formatter would double-emit.
 func TestParse_DropsTrailingTopLevelComments(t *testing.T) {
-	src := "fn main() {}\n// trailing dropped\n"
+	src := "fn main() end\n// trailing dropped\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatal(err)
@@ -323,7 +323,7 @@ func TestParse_DropsTrailingTopLevelComments(t *testing.T) {
 // StructDef.EndTrivia rather than rejecting them with "expected field name",
 // as file-end trivia is captured for a whole file.
 func TestParse_StructBody_TrailingComment_Preserved(t *testing.T) {
-	src := "pub struct Point {\n  x: Int\n  y: Int\n  // trailing comment\n}\n"
+	src := "pub struct Point\n  x: Int\n  y: Int\n  // trailing comment\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -353,7 +353,7 @@ func TestParse_StructBody_TrailingComment_Preserved(t *testing.T) {
 // EnumDef.EndTrivia (previously rejected with "expected `|` between
 // enum variants").
 func TestParse_EnumBody_TrailingComment_Preserved(t *testing.T) {
-	src := "pub enum Color {\n  Red\n  Green\n  Blue\n  // trailing comment\n}\n"
+	src := "pub enum Color\n  Red\n  Green\n  Blue\n  // trailing comment\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -383,7 +383,7 @@ func TestParse_EnumBody_TrailingComment_Preserved(t *testing.T) {
 // comments on EnumVariant.EndTrivia (previously rejected with
 // "expected field name in struct variant").
 func TestParse_StructShapedVariant_TrailingComment_Preserved(t *testing.T) {
-	src := "pub enum Shape {\n  Circle Float\n  Rect {\n    width: Float,\n    height: Float,\n    // trailing comment\n  }\n}\n"
+	src := "pub enum Shape\n  Circle Float\n  Rect {\n    width: Float,\n    height: Float,\n    // trailing comment\n  }\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -417,7 +417,7 @@ func TestParse_StructShapedVariant_TrailingComment_Preserved(t *testing.T) {
 // skipNewlines (silent data loss in fmt). Now captured on
 // InterfaceDef.EndTrivia.
 func TestParse_InterfaceBody_TrailingComment_Preserved(t *testing.T) {
-	src := "pub interface Speech {\n  fn speak(s: Int) -> Int\n  // trailing comment\n}\n"
+	src := "pub interface Speech\n  fn speak(s: Int) -> Int\n  // trailing comment\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -444,7 +444,7 @@ func TestParse_InterfaceBody_TrailingComment_Preserved(t *testing.T) {
 // separator loop (silent data loss in fmt). Now captured on
 // AnonStructType.EndTrivia.
 func TestParse_AnonStructType_TrailingComment_Preserved(t *testing.T) {
-	src := "fn greet(p: .{\n  name: String,\n  age: Int,\n  // trailing comment\n}) -> String {\n  p.name\n}\n"
+	src := "fn greet(p: {\n  name: String,\n  age: Int,\n  // trailing comment\n}) -> String\n  p.name\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -478,7 +478,7 @@ func TestParse_AnonStructType_TrailingComment_Preserved(t *testing.T) {
 // comments via skipNewlines (silent data loss in fmt). Now captured on
 // StructLit.EndTrivia.
 func TestParse_StructLit_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main() {\n  p = Point{\n    x: 3,\n    y: 4,\n    // trailing comment\n  }\n  p\n}\n"
+	src := "fn main()\n  p = Point{\n    x: 3,\n    y: 4,\n    // trailing comment\n  }\n  p\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -513,7 +513,7 @@ func TestParse_StructLit_TrailingComment_Preserved(t *testing.T) {
 // with "expected field name in struct literal". Now captured on the
 // (shared) StructLit.EndTrivia field.
 func TestParse_AnonStructLit_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main() {\n  p = .{\n    name: \"alice\",\n    age: 30,\n    // trailing comment\n  }\n  p\n}\n"
+	src := "fn main()\n  p = {\n    name: \"alice\",\n    age: 30,\n    // trailing comment\n  }\n  p\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -551,7 +551,7 @@ func TestParse_AnonStructLit_TrailingComment_Preserved(t *testing.T) {
 // the last entry and the closing `}` ("expected `}` to close map
 // literal"). Now captured on MapLit.EndTrivia.
 func TestParse_MapLit_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main() {\n  m = %{\n    \"a\" => 1,\n    // trailing comment\n  }\n  m\n}\n"
+	src := "fn main()\n  m = {\n    \"a\" => 1,\n    // trailing comment\n  }\n  m\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -586,7 +586,7 @@ func TestParse_MapLit_TrailingComment_Preserved(t *testing.T) {
 // via its post-element skipNewlines (data loss in fmt). Now captured on
 // ListLit.EndTrivia.
 func TestParse_ListLit_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main() {\n  l = [\n    1,\n    2,\n    // trailing comment\n  ]\n  l\n}\n"
+	src := "fn main()\n  l = [\n    1,\n    2,\n    // trailing comment\n  ]\n  l\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -621,7 +621,7 @@ func TestParse_ListLit_TrailingComment_Preserved(t *testing.T) {
 // inside a case-branch map pattern body. Now captured on
 // MapPattern.EndTrivia.
 func TestParse_MapPattern_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main() {\n  m = %{\"a\" => 1}\n  case m {\n    %{\n      \"a\" => x,\n      // trailing comment\n    } -> x\n    _ -> 0\n  }\n}\n"
+	src := "fn main()\n  m = {\"a\" => 1}\n  case m\n    {\n      \"a\" => x,\n      // trailing comment\n    } -> x\n    _ -> 0\n  end\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -663,7 +663,7 @@ func TestParse_MapPattern_TrailingComment_Preserved(t *testing.T) {
 // parseListPatternBody previously silently dropped trailing in-body
 // comments via skipNewlines. Now captured on ListPattern.EndTrivia.
 func TestParse_ListPattern_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main() {\n  l = [1, 2]\n  case l {\n    [\n      a,\n      b,\n      // trailing comment\n    ] -> a + b\n    _ -> 0\n  }\n}\n"
+	src := "fn main()\n  l = [1, 2]\n  case l\n    [\n      a,\n      b,\n      // trailing comment\n    ] -> a + b\n    _ -> 0\n  end\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -705,7 +705,7 @@ func TestParse_ListPattern_TrailingComment_Preserved(t *testing.T) {
 // StructField.LeadingComments (previously rejected with "expected
 // field name in struct definition").
 func TestParse_StructBody_InterFieldComment_Preserved(t *testing.T) {
-	src := "pub struct Point {\n  x: Int\n  // a comment between two fields\n  y: Int\n}\n"
+	src := "pub struct Point\n  x: Int\n  // a comment between two fields\n  y: Int\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -735,7 +735,7 @@ func TestParse_StructBody_InterFieldComment_Preserved(t *testing.T) {
 // EnumVariant.LeadingComments (previously rejected with "expected `|`
 // between enum variants").
 func TestParse_EnumBody_InterVariantComment_Preserved(t *testing.T) {
-	src := "pub enum Color {\n  Red\n  // a comment between two variants\n  Green\n  Blue\n}\n"
+	src := "pub enum Color\n  Red\n  // a comment between two variants\n  Green\n  Blue\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -767,7 +767,7 @@ func TestParse_EnumBody_InterVariantComment_Preserved(t *testing.T) {
 // method's leading trivia (InterfaceMethod.GetLeading via its
 // TriviaCarrier). Previously dropped via skipNewlines.
 func TestParse_InterfaceBody_InterMemberComment_Preserved(t *testing.T) {
-	src := "pub interface Speech {\n  fn speak(s: Int) -> Int\n  // a comment between two methods\n  fn shout(s: Int) -> Int\n}\n"
+	src := "pub interface Speech\n  fn speak(s: Int) -> Int\n  // a comment between two methods\n  fn shout(s: Int) -> Int\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -799,7 +799,7 @@ func TestParse_InterfaceBody_InterMemberComment_Preserved(t *testing.T) {
 // parseAnonStructType now captures inter-field comments on
 // StructField.LeadingComments inside the anon-struct-type body.
 func TestParse_AnonStructType_InterFieldComment_Preserved(t *testing.T) {
-	src := "fn greet(p: .{\n  name: String,\n  // a comment between two anon-type fields\n  age: Int,\n}) -> String {\n  p.name\n}\n"
+	src := "fn greet(p: {\n  name: String,\n  // a comment between two anon-type fields\n  age: Int,\n}) -> String\n  p.name\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -833,7 +833,7 @@ func TestParse_AnonStructType_InterFieldComment_Preserved(t *testing.T) {
 // StructFieldVal.LeadingComments — previously rejected with "expected
 // field name in struct literal".
 func TestParse_StructLit_InterFieldComment_Preserved(t *testing.T) {
-	src := "fn main() {\n  p = Point{\n    x: 3,\n    // a comment between two literal fields\n    y: 4,\n  }\n  p\n}\n"
+	src := "fn main()\n  p = Point{\n    x: 3,\n    // a comment between two literal fields\n    y: 4,\n  }\n  p\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -871,7 +871,7 @@ func TestParse_StructLit_InterFieldComment_Preserved(t *testing.T) {
 // comments on StructField.LeadingComments — previously rejected with
 // "expected field name in struct variant".
 func TestParse_StructShapedVariant_InterFieldComment_Preserved(t *testing.T) {
-	src := "pub enum Shape {\n  Rect {\n    width: Float,\n    // a comment between fields\n    height: Float,\n  }\n}\n"
+	src := "pub enum Shape\n  Rect {\n    width: Float,\n    // a comment between fields\n    height: Float,\n  }\nend\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)

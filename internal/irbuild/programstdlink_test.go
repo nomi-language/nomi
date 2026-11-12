@@ -11,11 +11,11 @@ import (
 
 const linkedStdProgram = `import std::uuid.Uuid
 
-fn main() {
+fn main()
     id = Uuid.nil()
     dbg Uuid.version(id)
     dbg "${id}"
-}
+end
 `
 
 // lowerLinkedStdProgram lowers linkedStdProgram once and runs it, answering

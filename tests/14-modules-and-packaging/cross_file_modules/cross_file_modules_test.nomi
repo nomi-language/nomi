@@ -1,21 +1,21 @@
-import {
+import
     api.{Widget, label, make, make_token, reveal}
     api::http::header.{self, canonical_name}
     math
     models.{Greeting, Point, User}
-}
+end
 
-struct Guest {
+struct Guest
     name: String
-}
+end
 
-impl Greeting for Guest {
-    fn greet(guest: Guest) -> String {
+impl Greeting for Guest
+    fn greet(guest: Guest) -> String
         "Welcome, " + guest.name + "!"
-    }
-}
+    end
+end
 
-test "cross-file modules expose public functions types and interfaces" {
+test "cross-file modules expose public functions types and interfaces"
     user = User{name: "Alice", age: 30}
     point = Point{x: 3, y: 4}
     guest = Guest{name: "Bob"}
@@ -25,9 +25,9 @@ test "cross-file modules expose public functions types and interfaces" {
     assert user.name == "Alice"
     assert point.x == 3
     assert Greeting.greet(guest) == "Welcome, Bob!"
-}
+end
 
-test "public visibility chains allow drilled imports through modules and helpers" {
+test "public visibility chains allow drilled imports through modules and helpers"
     w = make("Ada")
     typed: Widget = w
     t = make_token("abc")
@@ -37,4 +37,4 @@ test "public visibility chains allow drilled imports through modules and helpers
     assert reveal(t) == "abc"
     assert header.default_name == "content-type"
     assert canonical_name("accept") == "accept"
-}
+end

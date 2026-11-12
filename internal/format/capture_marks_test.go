@@ -6,12 +6,12 @@ import "testing"
 // `?` marks: `&""!` does not parse, since a capture's `&` is written against
 // `(`, a call or a `#` literal.
 func TestFormat_CaptureBodyKeepsParensUnderPostfixMarks(t *testing.T) {
-	src := "fn main() {\n" +
+	src := "fn main()\n" +
 		"    a = &(\"\")!\n" +
 		"    b = &(x)?\n" +
 		"    c = &(\"\")!?\n" +
 		"    d = &f(&1)!\n" +
 		"    e = &(not x)\n" +
-		"}\n"
+		"end\n"
 	formatsKeepingMeaning(t, src, src)
 }

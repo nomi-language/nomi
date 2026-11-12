@@ -19,105 +19,105 @@ func TestIRLoopInLambda_RunsAsInANamedFunction(t *testing.T) {
 import std::io
 import std::tasks.Task
 
-fn feed(items: List<String>) -> Receiver<String> {
+fn feed(items: List<String>) -> Receiver<String>
     ch = Channel.buffered<String>(10)
-    Iter.each(items, fn s -> {
+    Iter.each(items, fn s ->
         _ = Sender.send(ch.sender, s)
-    })
+    end)
     Sender.close(ch.sender)
     ch.receiver
-}
+end
 
-fn main() {
+fn main()
     // A lambda bound to a name. Its code after the loop runs.
-    count = fn input: Receiver<String> -> {
-        n = Iter.loop(0, fn total -> {
-            t = case Receiver.receive(input) {
+    count = fn input: Receiver<String> ->
+        n = Iter.loop(0, fn total ->
+            t = case Receiver.receive(input)
                 Some(t) -> t
                 None -> break total
-            }
-            if t == "skip" { continue }
-            if t == "jump" { return total + 100 }
-            case t {
+            end
+            if t == "skip" then continue
+            if t == "jump" then return total + 100
+            case t
                 "stop" -> break total * 10
                 "again" -> continue
                 "leap" -> return total + 1000
                 _ -> total + String.length(t)
-            }
-        })
+            end
+        end)
         io.print("after the loop: ${n}")
         n + 1
-    }
+    end
     io.print(count(feed(["ab", "skip", "jump", "c", "again", "leap"])))
     io.print(count(feed(["ab", "stop", "zzz"])))
     // An Iter.map callback: its own 'continue' skips the element, and the
     // one inside the loop is the loop's.
-    lens = Iter.map(["a", "skip", "bcd"], fn w -> {
-        if w == "skip" { continue }
+    lens = Iter.map(["a", "skip", "bcd"], fn w ->
+        if w == "skip" then continue
         input = feed([w, "x", w])
-        m = Iter.loop(0, fn acc -> {
-            case Receiver.receive(input) {
+        m = Iter.loop(0, fn acc ->
+            case Receiver.receive(input)
                 Some("x") -> continue
                 Some(t) -> acc + String.length(t)
                 None -> break acc
-            }
-        })
+            end
+        end)
         m * 10
-    }) |> Iter.to_list()
+    end) |> Iter.to_list()
     io.inspect(lens)
     // A loop as the whole Iter.map callback.
-    io.inspect(Iter.map([1, 2, 3], fn k -> Iter.loop(0, fn n -> {
-        if n >= k { break n * 10 }
+    io.inspect(Iter.map([1, 2, 3], fn k -> Iter.loop(0, fn n ->
+        if n >= k then break n * 10
         n + 1
-    })) |> Iter.to_list())
+    end)) |> Iter.to_list())
     // An Iter.each callback.
-    Iter.each([3, 5], fn k -> {
-        s = Iter.loop(0, fn n -> {
-            if n == 1 { return 4 }
-            if n >= k { break n }
+    Iter.each([3, 5], fn k ->
+        s = Iter.loop(0, fn n ->
+            if n == 1 then return 4
+            if n >= k then break n
             n + 1
-        })
+        end)
         io.print("each ${k}: ${s}")
-    })
+    end)
     // A loop in a loop's callback, in a lambda: the inner exits are the
     // inner loop's, and the outer 'return' after it is the outer loop's.
-    nested = fn rows: Int -> Iter.loop((0, 0), fn outer -> {
+    nested = fn rows: Int -> Iter.loop((0, 0), fn outer ->
         (i, sum) = outer
-        if i >= rows { break outer }
-        inner = Iter.loop(0, fn j -> {
-            if j == 1 { return 5 }
-            if j > i + 5 { break j }
+        if i >= rows then break outer
+        inner = Iter.loop(0, fn j ->
+            if j == 1 then return 5
+            if j > i + 5 then break j
             j + 1
-        })
-        if inner == 7 { return (i + 1, sum) }
+        end)
+        if inner == 7 then return (i + 1, sum)
         (i + 1, sum + inner)
-    })
+    end)
     io.inspect(nested(3))
     // A lambda that captures outer bindings the loop reads.
     base = 7
     step = 2
-    f = fn -> Iter.loop(base, fn n -> {
-        if n > 12 { break n + step }
+    f = fn -> Iter.loop(base, fn n ->
+        if n > 12 then break n + step
         n + step
-    })
+    end)
     io.print(f())
     // A concurrent block's task lambda, and a loop in the block itself.
-    got = concurrent {
-        task = Task.spawn(fn -> Iter.loop(1, fn n -> {
-            if n > 50 { break n }
+    got = concurrent
+        task = Task.spawn(fn -> Iter.loop(1, fn n ->
+            if n > 50 then break n
             n * 3
-        }))
+        end))
         Task.await(task)
-    }
+    end
     io.print(got)
-    direct = concurrent {
-        Iter.loop(1, fn n -> {
-            if n > 10 { break n }
+    direct = concurrent
+        Iter.loop(1, fn n ->
+            if n > 10 then break n
             n * 2
-        })
-    }
+        end)
+    end
     io.print(direct)
-}
+end
 `, "after the loop: 1103\n1104\nafter the loop: 20\n21\n[20, 60]\n[10, 20, 30]\n"+
 		"each 3: 4\neach 5: 5\n(3, 14)\n15\n81\n16\n")
 }
@@ -128,19 +128,19 @@ func TestIRLoopInLambda_TestBody(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "loop_test.nomi")
 	src := `import std::io
 
-test "a loop in a lambda in a test" {
-    f = fn k: Int -> {
-        n = Iter.loop(0, fn i -> {
-            if i == 2 { return 10 }
-            if i > k { break i }
+test "a loop in a lambda in a test"
+    f = fn k: Int ->
+        n = Iter.loop(0, fn i ->
+            if i == 2 then return 10
+            if i > k then break i
             i + 1
-        })
+        end)
         io.print("after the loop: ${n}")
         n * 2
-    }
+    end
     assert f(3) == 20
     assert f(12) == 26
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)

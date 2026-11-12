@@ -11,11 +11,11 @@ import (
 
 const typeDefMain = `import models::users
 
-struct Point {
+struct Point
     x: Int
-}
+end
 
-fn main() {
+fn main()
     u = users.make()
     m = users.maybe()
     p = Point{x: 1}
@@ -23,9 +23,11 @@ fn main() {
     pair = (p, u)
     f = make_point
     io.inspect((u.name, p.x, xs, m, pair, f(), make_point()))
-}
+end
 
-fn make_point() -> Point { Point{x: 2} }
+fn make_point() -> Point
+    Point{x: 2}
+end
 `
 
 func TestTypeDefinition(t *testing.T) {
@@ -40,7 +42,7 @@ func TestTypeDefinition(t *testing.T) {
 		}
 	}
 	write("nomi.toml", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	write("models/users.nomi", "pub struct User {\n    name: String\n}\n\npub fn make() -> User { User{name: \"a\"} }\n\npub fn maybe() -> Maybe<User> { None }\n")
+	write("models/users.nomi", "pub struct User\n    name: String\nend\n\npub fn make() -> User\n    User{name: \"a\"}\nend\n\npub fn maybe() -> Maybe<User>\n    None\nend\n")
 	src := strings.Replace(typeDefMain, "import models::users\n", "import models::users\nimport std::io\n", 1)
 	write("main.nomi", src)
 	s := NewServer()

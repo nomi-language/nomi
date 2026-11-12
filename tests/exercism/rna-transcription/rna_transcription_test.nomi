@@ -1,6 +1,6 @@
 import rna_transcription.to_rna
 
-test "transcribes DNA to RNA" {
+test "transcribes DNA to RNA"
     [
         ("Empty RNA sequence", "", ""),
         ("RNA complement of cytosine is guanine", "C", "G"),
@@ -9,7 +9,7 @@ test "transcribes DNA to RNA" {
         ("RNA complement of adenine is uracil", "A", "U"),
         ("RNA complement", "ACGTGGTCTTAA", "UGCACCAGAAUU"),
     ]
-    |> subtests (description, dna, expected), description {
+    |> subtests (description, dna, expected), description
         assert to_rna(dna) == Ok(expected)
-    }
-}
+    end
+end

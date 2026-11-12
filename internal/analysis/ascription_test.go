@@ -12,40 +12,40 @@ import (
 // `value as Type` checks value as `x: Type = value` would (ascription.go).
 
 func TestAscription_TypesWhatAnAnnotationTypes(t *testing.T) {
-	src := `import {
+	src := `import
     std::http.Route
     std::uuid.Uuid
-}
+end
 
-struct Post {
+struct Post
     title: String
-}
+end
 
-interface Named {
+interface Named
     fn name(value: self) -> String
-}
+end
 
-impl Named for Post {
-    fn name(post: Post) -> String {
+impl Named for Post
+    fn name(post: Post) -> String
         post.title
-    }
-}
+    end
+end
 
-once admin = .{
+once admin = {
     home: Route` + "`GET /admin/{$}`" + `,
-    user: ` + "`GET /admin/users/{id}`" + ` as Route<.{id: Uuid}>,
+    user: ` + "`GET /admin/users/{id}`" + ` as Route<{id: Uuid}>,
     tags: [] as List<String>,
 }
 
-fn user_route() -> Route<.{id: Uuid}> {
+fn user_route() -> Route<{id: Uuid}>
     admin.user
-}
+end
 
-fn main() {
+fn main()
     later = None as Maybe<Post>
     named = Post{title: "a"} as Named
     _ = (user_route(), later, Named.name(named), admin.tags + ["x"])
-}
+end
 `
 	got := checkOnceProject(t, map[string]string{"main.nomi": src}, []string{""})
 	if errs := got["main.nomi"]; len(errs) > 0 {
@@ -63,7 +63,7 @@ func TestAscription_MismatchesAreRefused(t *testing.T) {
 		{"_ = \"a\" as Bool", "type mismatch: expected Bool, got String", ""},
 	}
 	for _, c := range cases {
-		src := "fn main() {\n    " + c.body + "\n}\n"
+		src := "fn main()\n    " + c.body + "\nend\n"
 		got := checkOnceProject(t, map[string]string{"main.nomi": src}, []string{""})
 		errs := got["main.nomi"]
 		if len(errs) != 1 || errs[0].Message != c.msg {
@@ -79,7 +79,7 @@ func TestAscription_MismatchesAreRefused(t *testing.T) {
 // An ascription whose value already has the type is recorded for the
 // editor's hint, and is no error.
 func TestAscription_RedundantIsRecordedNotRefused(t *testing.T) {
-	src := "fn main() {\n    x = 3\n    _ = x as Int\n    _ = [] as List<Int>\n}\n"
+	src := "fn main()\n    x = 3\n    _ = x as Int\n    _ = [] as List<Int>\nend\n"
 	fa, errs := checkEntry(t, src)
 	if len(errs) > 0 {
 		t.Fatalf("unexpected errors:\n%s", strings.Join(messages(errs), "\n"))

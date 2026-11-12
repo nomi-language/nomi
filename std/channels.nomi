@@ -14,23 +14,23 @@
 //# of an enum:
 //#
 //# ```nomi
-//# concurrent {
+//# concurrent
 //#     events: Channel<Event> = Channel.buffered(2)
 //#
 //#     p1 = Task.spawn(fn -> Sender.send(events.sender, Event.UserMsg("hello")))
 //#     p2 = Task.spawn(fn -> Sender.send(events.sender, Event.Tick(1)))
 //#
-//#     case Receiver.receive(events.receiver) {
+//#     case Receiver.receive(events.receiver)
 //#         Some(.UserMsg(msg)) -> handle_msg(msg)
 //#         Some(.Tick(n)) -> handle_tick(n)
 //#         Some(.Shutdown) -> io.print("shutting down")
 //#         None -> io.print("channel closed")
-//#     }
+//#     end
 //#
 //#     _ = Task.await(p1)
 //#     _ = Task.await(p2)
 //#     Ok(Unit)
-//# }
+//# end
 //# ```
 //#
 //# The enum is the multiplexing mechanism: producers tag their messages,
@@ -48,7 +48,7 @@
 //# ])
 //# ```
 
-import {
+import
     duration.Duration
     int.Int
     lists.List
@@ -56,7 +56,7 @@ import {
     results.Result
     tasks.Task
     unit.Unit
-}
+end
 
 /// Typed FIFO channel for communication between tasks, held as its two
 /// halves. Producers `Sender.send` values; consumers `Receiver.receive` them
@@ -79,13 +79,13 @@ import {
 /// consumed by a later block. They are garbage-collected by the
 /// host runtime when no Nomi reference remains.
 //
-pub struct Channel<T> {
+pub struct Channel<T>
     /// The writing half. Give this to whoever produces values.
     sender: Sender<T>
 
     /// The reading half. Give this to whoever consumes them.
     receiver: Receiver<T>
-}
+end
 
 /// The writing half of a `Channel<T>`, and the half that can close it.
 ///
@@ -100,7 +100,7 @@ pub host type Sender<T>
 /// consumer holding one can neither write to the channel nor close it.
 pub host type Receiver<T>
 
-impl Channel<T> {
+impl Channel<T>
     /// Construct a `Channel<T>` that buffers up to `capacity` pending values, so a
     /// producer can run that far ahead of its consumer before `send` blocks.
     ///
@@ -124,12 +124,12 @@ impl Channel<T> {
     /// hangs.
     //! ch = Channel.unbuffered<Int>()
     //!
-    //! sent = concurrent {
+    //! sent = concurrent
     //!     w = Task.spawn(fn -> Sender.send(ch.sender, 7))
     //!     got = Receiver.receive(ch.receiver)
     //!     _ = Task.await(w)
     //!     got
-    //! }
+    //! end
     //!
     //! assert sent == Maybe.Some(7)
     //
@@ -168,9 +168,9 @@ impl Channel<T> {
     //! assert got == 7
     //
     pub host fn select<R>(arms: List<Arm<R>>) -> R
-}
+end
 
-impl Sender<T> {
+impl Sender<T>
     /// Send a value on the channel. Blocks until the value is taken (for
     /// unbuffered channels) or capacity is available (for buffered). Returns
     /// `Err(ChannelClosed)` if the channel was closed at send time.
@@ -207,9 +207,9 @@ impl Sender<T> {
     //! assert Receiver.receive(ch.receiver) == Maybe.Some(1)
     //
     pub host fn close_on_drain<T>(sender: Sender<T>) -> Unit
-}
+end
 
-impl Receiver<T> {
+impl Receiver<T>
     /// Receive the next value from the channel. Blocks until a value arrives, the
     /// channel is closed and drained (returns `None`), or the enclosing concurrent
     /// block's context fires (silent unwind). After close, any remaining buffered
@@ -237,14 +237,14 @@ impl Receiver<T> {
         receiver: Receiver<T>,
         wait: Duration,
     ) -> Result<Maybe<T>, TimedOut>
-}
+end
 
 /// One way a `Channel.select` can finish, with the handler that turns its
 /// outcome into the `select`'s result. Build one with `Arm.receive`,
 /// `Arm.send` or `Arm.after`.
 pub host type Arm<R>
 
-impl Arm<R> {
+impl Arm<R>
     /// An arm that finishes when `receiver` has a value, or is closed and
     /// drained, and passes `handle` the value or `None`.
     //! ch = Channel.buffered<Int>(1)
@@ -279,7 +279,7 @@ impl Arm<R> {
     //! assert got == "nothing yet"
     //
     pub host fn after<R>(wait: Duration, handle: () -> R) -> Arm<R>
-}
+end
 
 /// Returned by `Sender.send` when the channel was closed at the time
 /// the send attempted to enqueue. `Sender.close` itself is a one-shot

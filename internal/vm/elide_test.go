@@ -31,12 +31,12 @@ func runElideTests(t *testing.T, src string) string {
 func TestElide_ADiffedLiteralIsCollapsedInTheEcho(t *testing.T) {
 	out := runElideTests(t, `import std::io
 
-fn main() {
+fn main()
     io.print("a")
     io.print("b")
-}
+end
 
-test "replay" {
+test "replay"
     assert io.replay(
         """
         a
@@ -44,24 +44,24 @@ test "replay" {
         """,
         main,
     )
-}
+end
 
-test "equal" {
+test "equal"
     out = "a\nb\n"
     assert out == """
         a
         c
         """
-}
+end
 
-test "unnumbered" {
+test "unnumbered"
     out = "a\nb\nc\n"
     x = "q\nr"
     assert out == """
         a
         ${x}
         """
-}
+end
 `)
 	for _, want := range []string{
 		"  line 9: the transcript differs from the script\n" +
@@ -86,20 +86,20 @@ test "unnumbered" {
 // A `"""` literal no diff follows keeps its echo: two one-line Strings show
 // their rows, and a comparison an `and` never reached has no diff.
 func TestElide_ALiteralWithNoDiffKeepsItsEcho(t *testing.T) {
-	out := runElideTests(t, `test "one line" {
+	out := runElideTests(t, `test "one line"
     out = "a"
     assert out == """
         b
         """
-}
+end
 
-test "not reached" {
+test "not reached"
     out = "a\nb\n"
     assert String.length(out) == 3 and out == """
         a
         c
         """
-}
+end
 `)
 	for _, want := range []string{
 		"    assert out == \"\"\"\n        b\n        \"\"\"\n    values:\n",

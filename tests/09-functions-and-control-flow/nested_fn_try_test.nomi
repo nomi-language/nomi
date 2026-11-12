@@ -1,66 +1,66 @@
-fn parse(s: String) -> Result<Int, String> {
-    case s {
+fn parse(s: String) -> Result<Int, String>
+    case s
         "" -> Err("empty")
         _ -> Ok(String.length(s))
-    }
-}
+    end
+end
 
-fn find(s: String) -> Maybe<Int> {
-    case s {
+fn find(s: String) -> Maybe<Int>
+    case s
         "" -> None
         _ -> Some(String.length(s))
-    }
-}
+    end
+end
 
-fn doubled_sum(a: String, b: String) -> Result<Int, String> {
-    fn doubled(s: String) -> Result<Int, String> {
+fn doubled_sum(a: String, b: String) -> Result<Int, String>
+    fn doubled(s: String) -> Result<Int, String>
         n = parse(s)?
         Ok(n * 2)
-    }
+    end
 
     x = doubled(a)?
     y = doubled(b)?
     Ok(x + y)
-}
+end
 
-test "`?` in a nested fn leaves the nested fn" {
-    fn doubled(s: String) -> Result<Int, String> {
+test "`?` in a nested fn leaves the nested fn"
+    fn doubled(s: String) -> Result<Int, String>
         n = parse(s)?
         Ok(n * 2)
-    }
+    end
 
     assert doubled("ab") == Ok(4)
     assert doubled("") == Err("empty")
-}
+end
 
-test "`?` on a Maybe in a nested fn" {
-    fn plus_one(s: String) -> Maybe<Int> {
+test "`?` on a Maybe in a nested fn"
+    fn plus_one(s: String) -> Maybe<Int>
         n = find(s)?
         Some(n + 1)
-    }
+    end
 
     assert plus_one("abc") == Some(4)
     assert plus_one("") == None
-}
+end
 
-test "a nested fn's `?` inside a named fn" {
+test "a nested fn's `?` inside a named fn"
     assert doubled_sum("a", "bc") == Ok(6)
     assert doubled_sum("a", "") == Err("empty")
-}
+end
 
-test "a recursive nested fn with `?`" {
-    fn total(xs: List<String>) -> Result<Int, String> {
-        case xs {
-            [] -> Ok(0)
+test "a recursive nested fn with `?`"
+    fn total(xs: List<String>) -> Result<Int, String>
+        case xs
+            [] ->
+                Ok(0)
 
-            [x, ..rest] -> {
+            [x, ..rest] ->
                 n = parse(x)?
                 rest_total = total(rest)?
                 Ok(n + rest_total)
-            }
-        }
-    }
+        end
+    end
 
     assert total(["a", "bb"]) == Ok(3)
     assert total(["a", ""]) == Err("empty")
-}
+end

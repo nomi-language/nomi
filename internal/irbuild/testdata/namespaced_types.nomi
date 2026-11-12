@@ -30,19 +30,19 @@ import std::io
 // MEMBER read — which is what the value-side refusals above are: the ambiguity
 // is real and the type position is where it resolves unambiguously, because a
 // variant is not a type.
-pub struct Probe {
+pub struct Probe
     id: Int
-}
+end
 
 // The dotted enum, in every variant shape the builder represents: bare,
 // positional and struct-shaped. Each is reached through a dot-variant pattern
 // in `severity`, so a lowering that resolved the TYPE and then lost the
 // variants would fail here rather than in the corpus.
-pub enum Probe.Reading {
+pub enum Probe.Reading
     Steady
     Spike Int
     Blip {at: Int}
-}
+end
 
 // A dotted STRUCT and a dotted zero-sized marker. Neither is an enum, so a fix
 // that only reached `g.types` for enums would pass the arm above and fail here.
@@ -53,9 +53,9 @@ pub enum Probe.Reading {
 // so a distinct declared under a dotted name has no way to yield its inner
 // value. That is a front-end gap, and putting it here would pin a shape the
 // language cannot yet express.
-pub struct Probe.Config {
+pub struct Probe.Config
     retries: Int
-}
+end
 
 pub type Probe.Absent
 
@@ -64,53 +64,53 @@ pub type Probe.Absent
 // it would refuse for a reason that is not this file's subject. The signature
 // still has to resolve, and TestNamespacedTypeNamesReachEverySignaturePosition
 // is what asserts it does.
-pub fn severity(r: Probe.Reading) -> Int {
-    case r {
+pub fn severity(r: Probe.Reading) -> Int
+    case r
         .Steady -> 0
         .Spike(n) -> n
-        .Blip{at} -> at
-    }
-}
+        .Blip{at:} -> at
+    end
+end
 
 // RETURN position on the dotted enum. A dotted name was refused identically in
 // both, and the two were separate reject sites, so both need a witness.
-pub fn worst(a: Probe.Reading, b: Probe.Reading) -> Probe.Reading {
-    if severity(a) >= severity(b) { a } else { b }
-}
+pub fn worst(a: Probe.Reading, b: Probe.Reading) -> Probe.Reading
+    if severity(a) >= severity(b) then a else b
+end
 
 // A dotted name INSIDE a container, so the descent through `List<...>` reaches
 // it rather than stopping at the container.
-pub fn total(rs: List<Probe.Reading>) -> Int {
+pub fn total(rs: List<Probe.Reading>) -> Int
     Iter.reduce(rs, 0, fn acc, r -> acc + severity(r))
-}
+end
 
 // The marker in a signature. It stores nothing, which is exactly the case a
 // lookup keyed on "has a payload" would get wrong.
-pub fn absent_is(_m: Probe.Absent) -> String {
+pub fn absent_is(_m: Probe.Absent) -> String
     "absent"
-}
+end
 
 // The dotted STRUCT in parameter and return position, constructed, with field
 // access — the observable half.
-pub fn tune(c: Probe.Config, by: Int) -> Probe.Config {
+pub fn tune(c: Probe.Config, by: Int) -> Probe.Config
     Probe.Config{retries: c.retries * by}
-}
+end
 
-pub fn retries_of(c: Probe.Config) -> Int {
+pub fn retries_of(c: Probe.Config) -> Int
     c.retries
-}
+end
 
 // A dotted struct inside a container, and in a tuple, so the composite descent
 // is exercised on the reachable half too.
-pub fn total_retries(cs: List<Probe.Config>) -> Int {
+pub fn total_retries(cs: List<Probe.Config>) -> Int
     Iter.reduce(cs, 0, fn acc, c -> acc + retries_of(c))
-}
+end
 
-pub fn widen(_pair: (Probe.Config, Int)) -> Probe.Config {
+pub fn widen(_pair: (Probe.Config, Int)) -> Probe.Config
     Probe.Config{retries: 0}
-}
+end
 
-fn main() {
+fn main()
     base = Probe.Config{retries: 2}
 
     io.print("base = ${retries_of(base)}")
@@ -118,4 +118,4 @@ fn main() {
     io.print("chained = ${retries_of(tune(tune(base, 3), 5))}")
     io.print("total = ${total_retries([base, tune(base, 4), Probe.Config{retries: 9}])}")
     io.print("widened = ${retries_of(widen((base, 1)))}")
-}
+end

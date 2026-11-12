@@ -10,12 +10,12 @@ import "testing"
 func TestFormat_CommentDoesNotEndABindingsEqualsLine(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
 		{
-			"fn main() {\n    A((// c\n    0)) = 0\n    |> f\n}\n",
-			"fn main() {\n    A(0) =\n        0 // c\n        |> f\n}\n",
+			"fn main()\n    A((// c\n    0)) = 0\n    |> f\nend\n",
+			"fn main()\n    A(0) =\n        0 // c\n        |> f\nend\n",
 		},
 		{
-			"{A((//0\n0))=0\n|>0/00}\n",
-			"{\n    A(0) =\n        0 //0\n        |> 0 / 00\n}\n",
+			"begin\nA((//0\n0))=0\n|>0/00\nend\n",
+			"begin\n    A(0) =\n        0 //0\n        |> 0 / 00\nend\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

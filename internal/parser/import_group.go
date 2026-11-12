@@ -23,11 +23,11 @@ func (p *Parser) groupedImportPathError(segments []ast.Node) error {
 		paths = []string{"std::io", "std::regex.Regex"}
 	}
 	var hint strings.Builder
-	hint.WriteString("to import several files, list each in an import block:\nimport {")
+	hint.WriteString("to import several files, list each in an import block:\nimport")
 	for _, path := range paths {
 		hint.WriteString("\n    " + path)
 	}
-	hint.WriteString("\n}")
+	hint.WriteString("\nend")
 	return ParseError{
 		Line:    open.Line,
 		Col:     open.Col,
@@ -124,11 +124,11 @@ func (p *Parser) nestedImportListError(prefix string, open int) error {
 		paths = []string{"nucleotide_count", "nucleotide_count.Nucleotide.{A, C, G, T}"}
 	}
 	var hint strings.Builder
-	hint.WriteString("give each entry its own line in an import block:\nimport {")
+	hint.WriteString("give each entry its own line in an import block:\nimport")
 	for _, path := range paths {
 		hint.WriteString("\n    " + path)
 	}
-	hint.WriteString("\n}")
+	hint.WriteString("\nend")
 	return ParseError{
 		Line:    inner.Line,
 		Col:     inner.Col,

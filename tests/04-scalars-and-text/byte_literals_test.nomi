@@ -1,28 +1,28 @@
 import std::compiler
 
-struct Header {
+struct Header
     tag: Byte
     length: Int
-}
+end
 
-fn marker() -> Byte {
+fn marker() -> Byte
     0xFF
-}
+end
 
-fn name(b: Byte) -> String {
-    case b {
+fn name(b: Byte) -> String
+    case b
         0x00 -> "nul"
         0b0111_1111 -> "del"
         0o377 -> "max"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn has_high_bit(b: Byte) -> Bool {
+fn has_high_bit(b: Byte) -> Bool
     b &&& 0x80 == 0x80
-}
+end
 
-test "an Int literal where a Byte is expected is a Byte" {
+test "an Int literal where a Byte is expected is a Byte"
     b: Byte = 0x81
     bytes: List<Byte> = [0x81, 0x00, 1_0]
     header = Header{tag: 7, length: 300}
@@ -32,9 +32,9 @@ test "an Int literal where a Byte is expected is a Byte" {
     assert Byte.to_int(header.tag) == 7
     assert Byte.to_int(marker()) == 255
     assert Bytes.from_list([104, 105]) |> Bytes.to_string() == Ok("hi")
-}
+end
 
-test "a literal compares and combines with a Byte" {
+test "a literal compares and combines with a Byte"
     b: Byte = 0x81
 
     assert b == 0x81
@@ -47,45 +47,45 @@ test "a literal compares and combines with a Byte" {
     refute has_high_bit(0x7F)
     assert [b, 0x00] == [0x81, 0x00]
     assert Some(b) == Some(0x81)
-}
+end
 
-test "a case arm's literal pattern over a Byte" {
+test "a case arm's literal pattern over a Byte"
     assert name(0) == "nul"
     assert name(0x7F) == "del"
     assert name(255) == "max"
     assert name(0x81) == "other"
-}
+end
 
-test "an Int literal elsewhere stays an Int" {
+test "an Int literal elsewhere stays an Int"
     n = 0x81
 
     assert n + 1 == 130
-}
+end
 
-test "a literal outside 0 to 255 is a compile error" {
+test "a literal outside 0 to 255 is a compile error"
     result =
         """
-        fn main() {
+        fn main()
           b: Byte = 300
           _ = b
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert String.contains(message, "`300` does not fit in a Byte (0 to 255)")
-}
+end
 
-test "a negative literal is not a Byte" {
+test "a negative literal is not a Byte"
     result =
         """
-        fn main() {
+        fn main()
           b: Byte = -1
           _ = b
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert String.contains(message, "`-1` does not fit in a Byte (0 to 255)")
-}
+end

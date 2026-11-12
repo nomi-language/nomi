@@ -11,15 +11,15 @@ import (
 // body, and a `group` and a `gopkg` likewise.
 func TestTopLevelOnlyDeclarationsInABodyAreRejected(t *testing.T) {
 	cases := []struct{ name, src, want string }{
-		{"test in a test", "test \"outer\" {\n    test \"inner\" { assert 1 == 1 }\n    assert 1 == 1\n}\n",
+		{"test in a test", "test \"outer\"\n    test \"inner\"\n        assert 1 == 1\n    end\n    assert 1 == 1\nend\n",
 			"main.nomi:2:5: a `test` is declared at the top level of a file or in a `group`; it cannot be nested inside a body"},
-		{"test in a function", "import std::io\n\nfn f() -> Int {\n    test \"inner\" { assert 1 == 1 }\n    1\n}\n\nfn main() {\n    io.print(f())\n}\n",
+		{"test in a function", "import std::io\n\nfn f() -> Int\n    test \"inner\"\n        assert 1 == 1\n    end\n    1\nend\n\nfn main()\n    io.print(f())\nend\n",
 			"main.nomi:4:5: a `test` is declared at the top level of a file or in a `group`; it cannot be nested inside a body"},
-		{"test in an attached prompt", "//! test \"x\" { assert 1 == 1 }\n//! assert answer() == 42\n//\nfn answer() -> Int {\n    42\n}\n",
+		{"test in an attached prompt", "//! test \"x\"\n//!     assert 1 == 1\n//! end\n//! assert answer() == 42\n//\nfn answer() -> Int\n    42\nend\n",
 			"main.nomi:1:5: a `test` is declared at the top level of a file or in a `group`; it cannot be nested inside a body"},
-		{"group in a test", "test \"outer\" {\n    group \"g\" {\n        test \"a\" { assert 1 == 1 }\n    }\n    assert 1 == 1\n}\n",
+		{"group in a test", "test \"outer\"\n    group \"g\"\n        test \"a\"\n            assert 1 == 1\n        end\n    end\n    assert 1 == 1\nend\n",
 			"main.nomi:2:5: a `group` is declared at the top level of a file; it cannot be nested inside a body"},
-		{"gopkg in a function", "import std::io\n\nfn main() {\n    gopkg \"strings\"\n    io.print(1)\n}\n",
+		{"gopkg in a function", "import std::io\n\nfn main()\n    gopkg \"strings\"\n    io.print(1)\nend\n",
 			"main.nomi:4:5: a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body"},
 	}
 	for _, c := range cases {

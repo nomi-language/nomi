@@ -33,26 +33,26 @@
 // runtime a race against a wall clock; this way there is nothing to wait for.
 // It also exercises `EnterDeadline`'s already-spent path, where the fault must
 // still report the deadline rather than a bare `context.Canceled`.
-import {
+import
     std::duration.Duration
     std::instant.Instant
     std::io
     std::timer
-}
+end
 
 // The context is read and replaced as an application field, which needs a
 // boot to name the application type.
-struct Run {
+struct Run
     context: Context
-}
+end
 
-fn boot() -> Result<Run, String> {
+fn boot() -> Result<Run, String>
     Ok(Run{context: Context.root()})
-}
+end
 
 type TraceId String
 
-fn main() {
+fn main()
     // The rendering, at the top level and nested in a container, because the two
     // reach different builder arms — contextInspectCall and debugInspector's leaf
     // — and only the first was found by hand.
@@ -69,4 +69,4 @@ fn main() {
     io.print("spent:  ${Debug.inspect(Context.deadline_remaining(Run.context))}")
     timer.sleep(Duration.seconds(300))
     io.print("UNREACHED: the spent deadline did not stop the sleep")
-}
+end

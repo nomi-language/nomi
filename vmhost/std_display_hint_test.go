@@ -13,11 +13,11 @@ import (
 // to add `derive Display` to a type std declares.
 func TestStdTypeWithoutDisplay_HintSaysWhatToDoInstead(t *testing.T) {
 	for _, c := range []struct{ name, src, want string }{
-		{"Phrase", "import std::io\n\nphrase hello(name: String) `Hello, {$name}!`\n\nfn main() {\n    io.print(\"${hello(\"Ann\")}\")\n}\n",
+		{"Phrase", "import std::io\n\nphrase hello(name: String) `Hello, {$name}!`\n\nfn main()\n    io.print(\"${hello(\"Ann\")}\")\nend\n",
 			"a `Phrase` is formatted for a reader: `Phrase.format(m, locale)`"},
-		{"Noun", "import std::io\n\nnoun book `.input {$count :integer} .match $count one {{book}} * {{books}}`\n\nfn main() {\n    io.print(\"${book}\")\n}\n",
+		{"Noun", "import std::io\n\nnoun book `.input {$count :integer} .match $count one {{book}} * {{books}}`\n\nfn main()\n    io.print(\"${book}\")\nend\n",
 			"a `Noun` is formatted for a reader: `Localize.localize(noun, locale)`"},
-		{"Collator", "import {\n    std::collation.Collator\n    std::io\n}\n\nfn main() {\n    io.print(\"${Collator.new(Locale`sv`)}\")\n}\n",
+		{"Collator", "import\n    std::collation.Collator\n    std::io\nend\n\nfn main()\n    io.print(\"${Collator.new(Locale`sv`)}\")\nend\n",
 			"only std can implement `Display` for `Collator`"},
 	} {
 		t.Run(c.name, func(t *testing.T) {

@@ -10,12 +10,12 @@
 /// pub type Quantity Int
 /// pub type Scale Int
 ///
-/// impl Multiply<Scale, Quantity> for Quantity {
-///     fn multiply(lhs: Quantity, rhs: Scale) -> Quantity {
+/// impl Multiply<Scale, Quantity> for Quantity
+///     fn multiply(lhs: Quantity, rhs: Scale) -> Quantity
 ///         ...
-///     }
-/// }
+///     end
+/// end
 /// ```
-pub interface Multiply<Rhs, Out> {
+pub interface Multiply<Rhs, Out>
     fn multiply(lhs: self, rhs: Rhs) -> Out
-}
+end

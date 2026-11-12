@@ -93,7 +93,7 @@ func TestLoweringPerFileMatchesTheSource(t *testing.T) {
 	// A planted decline in the entry, which the kept lowering does not
 	// record, is lowered whole and reported; so is its removal.
 	entry := gen.Files[gen.Entry]
-	blocked := strings.Replace(entry, "fn main() {\n", "fn planted_decline(n: Int) -> Int {\n    n\n}\n\nfn main() {\n    _ = Iter.map([1], fn x -> planted_decline(x)) |> Iter.to_list()\n", 1)
+	blocked := strings.Replace(entry, "fn main()\n", "fn planted_decline(n: Int) -> Int\n    n\nend\n\nfn main()\n    _ = Iter.map([1], fn x -> planted_decline(x)) |> Iter.to_list()\n", 1)
 	if blocked == entry {
 		t.Fatal("the entry has no main to plant a decline before")
 	}

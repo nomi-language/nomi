@@ -40,24 +40,24 @@ func checkDiagnostics(t *testing.T, src string, want []wantDiag) {
 func TestRecursiveRender_DisplayRendersItsReceiver(t *testing.T) {
 	src := `import std::io
 
-struct Foo {
+struct Foo
     name: String
-}
+end
 
-impl Display for Foo {
-    fn to_string(foo: Foo) -> String {
+impl Display for Foo
+    fn to_string(foo: Foo) -> String
         a = Display.to_string(foo)
         b = Foo.to_string(foo)
         io.print(foo)
         same = foo
         c = foo |> Display.to_string()
         "${foo} ${same} ${a} ${b} ${c}"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Foo{name: "a"})
-}
+end
 `
 	const disp = "calls Display.to_string(foo), the function being defined, so it never returns\nhelp: Debug.inspect(foo) renders its fields"
 	const direct = "calls the function being defined with its own receiver, so it never returns\nhelp: Debug.inspect(foo) renders its fields"
@@ -74,22 +74,22 @@ fn main() {
 func TestRecursiveRender_DebugRendersItsReceiver(t *testing.T) {
 	src := `import std::io
 
-struct Foo {
+struct Foo
     name: String
-}
+end
 
-impl Debug for Foo {
-    fn inspect(foo: Foo) -> String {
+impl Debug for Foo
+    fn inspect(foo: Foo) -> String
         io.inspect(foo)
         _ = dbg foo
         _ = Foo.inspect(foo)
         Debug.inspect(foo)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.inspect(Foo{name: "a"})
-}
+end
 `
 	const dbg = "calls Debug.inspect(foo), the function being defined, so it never returns"
 	const direct = "calls the function being defined with its own receiver, so it never returns"
@@ -106,40 +106,40 @@ fn main() {
 func TestRecursiveRender_TerminatingRenderingsAreAccepted(t *testing.T) {
 	src := `import std::io
 
-enum Tree {
+enum Tree
     Leaf
     Node{left: Tree, value: Int, right: Tree}
-}
+end
 
-impl Display for Tree {
-    fn to_string(tree: Tree) -> String {
-        case tree {
+impl Display for Tree
+    fn to_string(tree: Tree) -> String
+        case tree
             .Leaf -> "."
-            .Node{left, value, right} -> "(${left} ${value} ${right})"
-        }
-    }
-}
+            .Node{left:, value:, right:} -> "(${left} ${value} ${right})"
+        end
+    end
+end
 
-struct Foo {
+struct Foo
     name: String
-}
+end
 
-impl Display for Foo {
-    fn to_string(foo: Foo) -> String {
+impl Display for Foo
+    fn to_string(foo: Foo) -> String
         "Foo ${foo.name} ${Debug.inspect(foo)}"
-    }
-}
+    end
+end
 
-impl Debug for Foo {
-    fn inspect(foo: Foo) -> String {
+impl Debug for Foo
+    fn inspect(foo: Foo) -> String
         "<${foo}>"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(Tree.Node{left: Tree.Leaf, value: 1, right: Tree.Leaf})
     io.print(Foo{name: "a"})
-}
+end
 `
 	checkDiagnostics(t, src, nil)
 }
@@ -147,51 +147,51 @@ fn main() {
 func TestUnconditionalRecursion_EveryPathRecurses(t *testing.T) {
 	src := `import std::io
 
-fn spin(x: Int) -> Int {
+fn spin(x: Int) -> Int
     spin(x)
-}
+end
 
-fn grow(x: Int) -> Int {
+fn grow(x: Int) -> Int
     y = grow(x)
     y + 1
-}
+end
 
-fn arms(x: Int) -> Int {
-    case x {
+fn arms(x: Int) -> Int
+    case x
         0 -> arms(x)
         _ -> arms(x)
-    }
-}
+    end
+end
 
-fn branches(x: Int, s: String) -> Int {
+fn branches(x: Int, s: String) -> Int
     io.print(s)
-    if x > 0 { 1 + branches(x, s) } else { branches(s: s, x: x) - 1 }
-}
+    if x > 0 then 1 + branches(x, s) else branches(s:, x:) - 1
+end
 
-fn piped(x: Int) -> Int {
+fn piped(x: Int) -> Int
     x |> piped()
-}
+end
 
-struct Foo {
+struct Foo
     n: Int
-}
+end
 
-impl Foo {
-    fn again(foo: Foo) -> Int {
+impl Foo
+    fn again(foo: Foo) -> Int
         Foo.again(foo)
-    }
-}
+    end
+end
 
-fn outer(x: Int) -> Int {
-    fn inner(y: Int) -> Int {
+fn outer(x: Int) -> Int
+    fn inner(y: Int) -> Int
         inner(y)
-    }
+    end
     inner(x)
-}
+end
 
-fn main() {
+fn main()
     io.print(spin(1) + grow(1) + arms(1) + branches(1, "s") + piped(1) + Foo.again(Foo{n: 1}) + outer(1))
-}
+end
 `
 	const tail = "with the arguments it was given, so it never returns"
 	checkDiagnostics(t, src, []wantDiag{
@@ -211,72 +211,72 @@ fn main() {
 func TestUnconditionalRecursion_TerminatingOrDeliberateIsAccepted(t *testing.T) {
 	src := `import std::io
 
-fn base(x: Int) -> Int {
-    if x == 0 { 0 } else { base(x) }
-}
+fn base(x: Int) -> Int
+    if x == 0 then 0 else base(x)
+end
 
-fn countdown(x: Int) -> Int {
-    if x == 0 { 0 } else { countdown(x - 1) }
-}
+fn countdown(x: Int) -> Int
+    if x == 0 then 0 else countdown(x - 1)
+end
 
-fn unbounded(x: Int) -> Int {
+fn unbounded(x: Int) -> Int
     unbounded(x - 1)
-}
+end
 
-fn early(x: Int) -> Int {
-    if x > 0 {
+fn early(x: Int) -> Int
+    if x > 0 then
         return 0
-    }
+    end
     early(x)
-}
+end
 
-fn tried(x: Int) -> Result<Int, String> {
+fn tried(x: Int) -> Result<Int, String>
     _ = check(x)?
     tried(x)
-}
+end
 
-fn check(x: Int) -> Result<Int, String> {
-    if x > 0 { Ok(x) } else { Err("no") }
-}
+fn check(x: Int) -> Result<Int, String>
+    if x > 0 then Ok(x) else Err("no")
+end
 
-fn serve(x: Int) -> Int {
+fn serve(x: Int) -> Int
     io.print(x)
     serve(x)
-}
+end
 
-fn ping(x: Int) -> Int {
+fn ping(x: Int) -> Int
     pong(x)
-}
+end
 
-fn pong(x: Int) -> Int {
+fn pong(x: Int) -> Int
     ping(x)
-}
+end
 
-fn later(x: Int) -> (Int) -> Int {
+fn later(x: Int) -> (Int) -> Int
     fn n -> later(x)(n)
-}
+end
 
-fn sum(xs: List<Int>) -> Int {
+fn sum(xs: List<Int>) -> Int
     Iter.reduce(xs, 0, fn acc, _ -> acc + sum(xs))
-}
+end
 
-fn main() {
+fn main()
     io.print(base(0) + countdown(3) + early(1) + ping(0) + serve(0) + unbounded(0))
     io.print(tried(1))
     io.print(later(1)(2) + sum([]))
-}
+end
 `
 	checkDiagnostics(t, src, nil)
 }
 
 func TestUnconditionalRecursion_Code(t *testing.T) {
-	errs := diagnosticsFor(t, `fn spin(x: Int) -> Int {
+	errs := diagnosticsFor(t, `fn spin(x: Int) -> Int
     spin(x)
-}
+end
 
-fn main() {
+fn main()
     _ = spin(1)
-}
+end
 `)
 	var codes []string
 	for _, e := range errs {
@@ -294,32 +294,32 @@ fn main() {
 func TestRecursiveProtocol_OwnArgumentsAreRejected(t *testing.T) {
 	src := `import std::io
 
-struct P {
+struct P
     x: Int
-}
+end
 
-impl Equatable for P {
-    fn equal(a: P, b: P) -> Bool {
+impl Equatable for P
+    fn equal(a: P, b: P) -> Bool
         same = b
         a.x == b.x or a == b or b != a or Equatable.equal(a, same) or P.equal(b, a)
-    }
-}
+    end
+end
 
-impl Comparable for P {
-    fn compare(a: P, b: P) -> Ordering {
-        if a < b or b >= a { Ordering.Less } else { a |> Comparable.compare(b) }
-    }
-}
+impl Comparable for P
+    fn compare(a: P, b: P) -> Ordering
+        if a < b or b >= a then Ordering.Less else a |> Comparable.compare(b)
+    end
+end
 
-impl Hashable for P {
-    fn hash(p: P) -> Int {
+impl Hashable for P
+    fn hash(p: P) -> Int
         Hashable.hash(p) + P.hash(p)
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.print(P{x: 1} == P{x: 2})
-}
+end
 `
 	const eq = " calls P's `equal`, the function being defined, with its own arguments, so it calls itself forever\nhelp: compare the fields instead (`a.field == b.field`), or write `derive Equatable for P`"
 	const cmp = " calls P's `compare`, the function being defined, with its own arguments, so it calls itself forever\nhelp: compare the fields instead (`Comparable.compare(a.field, b.field)`), or write `derive Comparable for P`"
@@ -331,7 +331,7 @@ fn main() {
 		{10, 71, "`P.equal(b, a)`" + eq},
 		{16, 12, "`a < b`" + cmp},
 		{16, 21, "`b >= a`" + cmp},
-		{16, 53, "`Comparable.compare(a, b)`" + cmp},
+		{16, 52, "`Comparable.compare(a, b)`" + cmp},
 		{22, 9, "`Hashable.hash(p)`" + hash},
 		{22, 28, "`P.hash(p)`" + hash},
 	})
@@ -342,63 +342,63 @@ fn main() {
 func TestRecursiveProtocol_FieldsAndOtherValuesAreAccepted(t *testing.T) {
 	src := `import std::io
 
-enum Tree {
+enum Tree
     Leaf
     Node(Tree, Int)
-}
+end
 
-impl Equatable for Tree {
-    fn equal(a: Tree, b: Tree) -> Bool {
-        case (a, b) {
+impl Equatable for Tree
+    fn equal(a: Tree, b: Tree) -> Bool
+        case (a, b)
             (.Leaf, .Leaf) -> True
             (.Node(l, x), .Node(r, y)) -> x == y and l == r
             _ -> False
-        }
-    }
-}
+        end
+    end
+end
 
-impl Comparable for Tree {
-    fn compare(a: Tree, b: Tree) -> Ordering {
-        case (a, b) {
-            (.Node(l, _), .Node(r, _)) -> if l < r { Ordering.Less } else { Comparable.compare(l, r) }
+impl Comparable for Tree
+    fn compare(a: Tree, b: Tree) -> Ordering
+        case (a, b)
+            (.Node(l, _), .Node(r, _)) -> if l < r then Ordering.Less else Comparable.compare(l, r)
             _ -> Ordering.Equal
-        }
-    }
-}
+        end
+    end
+end
 
-impl Hashable for Tree {
-    fn hash(t: Tree) -> Int {
-        case t {
+impl Hashable for Tree
+    fn hash(t: Tree) -> Int
+        case t
             .Node(l, n) -> Hashable.hash(l) * 31 + Hashable.hash(n)
             .Leaf -> 0
-        }
-    }
-}
+        end
+    end
+end
 
-fn main() {
+fn main()
     t = Tree.Node(Tree.Leaf, 1)
     io.print(t == t)
     io.print(t < t)
     io.print(Hashable.hash(t))
-}
+end
 `
 	checkDiagnostics(t, src, nil)
 }
 
 func TestRecursiveProtocol_Code(t *testing.T) {
-	errs := diagnosticsFor(t, `struct P {
+	errs := diagnosticsFor(t, `struct P
     x: Int
-}
+end
 
-impl Equatable for P {
-    fn equal(a: P, b: P) -> Bool {
+impl Equatable for P
+    fn equal(a: P, b: P) -> Bool
         a == b
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     _ = P{x: 1} == P{x: 1}
-}
+end
 `)
 	var codes []string
 	for _, e := range errs {

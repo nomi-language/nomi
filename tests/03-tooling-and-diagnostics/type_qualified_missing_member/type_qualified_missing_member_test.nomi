@@ -1,22 +1,22 @@
-import {
+import
     std::compiler
     test_helpers
-}
+end
 
-test "type-qualified missing member reports a diagnostic" {
+test "type-qualified missing member reports a diagnostic"
     diagnostics = compiler.check(
         """
-          import {
+          import
             std::io
-          }
+          end
 
 
-          fn main() {
+          fn main()
             io.print(List.empty())
-          }
+          end
         """
     )
 
     assert Iter.count(diagnostics) == 1
     assert test_helpers.has_diagnostic(diagnostics, "type 'List' has no member 'empty'")
-}
+end

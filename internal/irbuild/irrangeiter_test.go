@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRRangeIter_TourCollectionsRanges(t *testing.T) {
-	verifyLambdaProgram(t, `fn main() {
+	verifyLambdaProgram(t, `fn main()
   dbg Iter.to_list(1..5)
   dbg Iter.to_list(1..=5)
 
@@ -12,7 +12,7 @@ func TestIRRangeIter_TourCollectionsRanges(t *testing.T) {
   |> Iter.take(3)
   |> Iter.to_list()
   |> dbg
-}
+end
 `, "dbg line 2: Iter.to_list(1..5) = [1, 2, 3, 4]\n"+
 		"dbg line 3: Iter.to_list(1..=5) = [1, 2, 3, 4, 5]\n"+
 		"dbg line 9:\n  Range.naturals()\n  |> Iter.take(3)\n  |> Iter.to_list()\n  = [0, 1, 2]\n")
@@ -20,8 +20,10 @@ func TestIRRangeIter_TourCollectionsRanges(t *testing.T) {
 
 func TestIRRangeIter_BoundsAndStages(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn span(lo: Int, hi: Int) -> Range<Int> { lo..=hi }
-fn main() {
+fn span(lo: Int, hi: Int) -> Range<Int>
+    lo..=hi
+end
+fn main()
   io.inspect(Iter.to_list(5..1))
   io.inspect(Iter.to_list(3..3))
   io.inspect(Iter.to_list(3..=3))
@@ -31,7 +33,7 @@ fn main() {
   io.print(1..=100 |> Iter.reduce(0, fn acc, n: Int -> acc + n))
   io.inspect(Range.from(7) |> Iter.take(2) |> Iter.to_list())
   io.inspect(Iter.sort(3..=1))
-}
+end
 `, "[]\n[]\n[3]\n[-2, -1, 0, 1, 2]\n[16, 25, 36]\n[3, 6, 9]\n5050\n[7, 8]\n[]\n")
 }
 
@@ -39,12 +41,12 @@ fn main() {
 // other number, and a range ends at its bound.
 func TestIRRangeIter_AWalkCrossesSixtyFourBits(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
+fn main()
   top = 9223372036854775807
   io.inspect(Iter.to_list(top - 1..=top + 1))
   io.inspect(Range.from(top - 1) |> Iter.take(4) |> Iter.to_list())
   io.print(Iter.known_count(1..=Int.pow(10, 30)))
-}
+end
 `, "[9223372036854775806, 9223372036854775807, 9223372036854775808]\n"+
 		"[9223372036854775806, 9223372036854775807, 9223372036854775808, 9223372036854775809]\n"+
 		"Some(1000000000000000000000000000000)\n")
@@ -54,15 +56,15 @@ fn main() {
 // (rt.SeqCount over rt.RangeSeq), so these bodies retain and agree.
 func TestIRRangeIter_CardinalityAgrees(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
+fn main()
   io.print(Iter.count(1..=4))
   io.print(Iter.is_empty(3..3))
-}
+end
 `, "4\nTrue\n")
 }
 
 func TestIRRangeIter_TourCodepointRange(t *testing.T) {
-	verifyLambdaProgram(t, `fn run() -> Maybe<List<String>> {
+	verifyLambdaProgram(t, `fn run() -> Maybe<List<String>>
   a = Int.to_codepoint(97)?
   d = Int.to_codepoint(100)?
 
@@ -73,10 +75,10 @@ func TestIRRangeIter_TourCodepointRange(t *testing.T) {
     |> dbg
 
   Some(letters)
-}
+end
 
-fn main() {
+fn main()
   _ = run()
-}
+end
 `, "dbg line 9:\n  a..=d\n  |> Iter.map(Codepoint.to_string)\n  |> Iter.to_list()\n  = [\"a\", \"b\", \"c\", \"d\"]\n")
 }

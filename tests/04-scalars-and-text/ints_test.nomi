@@ -1,26 +1,26 @@
 import std::int.PositiveInt
 
-test "ints convert to floats" {
+test "ints convert to floats"
     assert Int.to_float(5) == 5.0
     assert Int.to_float(-7) == -7.0
     assert Int.to_float(0) == 0.0
-}
+end
 
-test "non-zero refinement validates divisors" {
+test "non-zero refinement validates divisors"
     assert Int.to_non_zero(5)
     assert Int.to_non_zero(-3)
     assert Int.to_non_zero(0) == None
-}
+end
 
-test "non-zero integers make division total" {
+test "non-zero integers make division total"
     assert Some(divisor) = Int.to_non_zero(3)
     assert Some(negative_divisor) = Int.to_non_zero(2)
 
     assert Int.divide(10, divisor) == 3
     assert Int.divide(-7, negative_divisor) == -3
-}
+end
 
-test "modulo takes the sign of the divisor" {
+test "modulo takes the sign of the divisor"
     assert Int.modulo(7, 3) == 1
     assert Int.modulo(-7, 3) == 2
     assert Int.modulo(7, -3) == -2
@@ -28,70 +28,70 @@ test "modulo takes the sign of the divisor" {
     assert Int.modulo(-1, 1440) == 1439
     assert Int.modulo(6, -3) == 0
     assert Int.modulo(-6, 3) == 0
-}
+end
 
-test "remainder takes the sign of the dividend" {
+test "remainder takes the sign of the dividend"
     assert 7 % 3 == 1
     assert -7 % 3 == -1
     assert 7 % -3 == 1
     assert -7 % -3 == -1
-}
+end
 
-test "modulo past 64 bits is exact" {
+test "modulo past 64 bits is exact"
     assert Int.modulo(-9_223_372_036_854_775_808, -1) == 0
     assert -9_223_372_036_854_775_808 % -1 == 0
     assert Int.modulo(-Int.pow(2, 80), Int.pow(2, 63) - 1) == Int.pow(2, 63) - 1 - Int.pow(2, 17)
     assert Int.modulo(Int.pow(2, 80) + 7, Int.pow(2, 64)) == 7
-}
+end
 
-fn floor_divide(x: Int, y: Int) -> Int {
+fn floor_divide(x: Int, y: Int) -> Int
     q = x / y
 
-    if x % y != 0 and (x < 0) != (y < 0) {
+    if x % y != 0 and (x < 0) != (y < 0) then
         q - 1
-    } else {
+    else
         q
-    }
-}
+    end
+end
 
-test "modulo is the dividend less the divisor times the floored quotient" {
+test "modulo is the dividend less the divisor times the floored quotient"
     values = [-7, -6, -5, -1, 0, 1, 5, 6, 7]
     divisors = [-3, -2, -1, 1, 2, 3]
 
     mismatches =
         values
-        |> Iter.flat_map(fn x -> {
+        |> Iter.flat_map(fn x ->
             divisors
             |> Iter.filter(fn y -> Int.modulo(x, y) != x - y * floor_divide(x, y))
             |> Iter.map(&(x, &1))
-        })
+        end)
         |> Iter.to_list()
 
     assert mismatches == []
-}
+end
 
-test "positive refinement is stricter than non-zero" {
+test "positive refinement is stricter than non-zero"
     assert Int.to_positive(5)
     assert Int.to_positive(0) == None
     assert Int.to_positive(-3) == None
-}
+end
 
-fn divide_by_positive(x: Int, divisor: Int) -> Int {
-    case Int.to_positive(divisor) {
+fn divide_by_positive(x: Int, divisor: Int) -> Int
+    case Int.to_positive(divisor)
         .Some(p) -> Int.divide(x, PositiveInt.to_non_zero(p))
         .None -> 0
-    }
-}
+    end
+end
 
-test "positive integers can be used as non-zero divisors" {
+test "positive integers can be used as non-zero divisors"
     assert divide_by_positive(20, 6) == 3
-}
+end
 
-test "positive refinement rejects zero divisors" {
+test "positive refinement rejects zero divisors"
     assert divide_by_positive(20, 0) == 0
-}
+end
 
-test "int abs and sign" {
+test "int abs and sign"
     assert Int.abs(-5) == 5
     assert Int.abs(5) == 5
     assert Int.abs(0) == 0
@@ -103,9 +103,9 @@ test "int abs and sign" {
     assert Int.sign(5) == 1
     assert Int.sign(-Int.pow(10, 30)) == -1
     assert Int.sign(Int.pow(10, 30)) == 1
-}
+end
 
-test "int min and max" {
+test "int min and max"
     assert Int.min(3, -2) == -2
     assert Int.max(3, -2) == 3
     assert Int.min(-2, 3) == -2
@@ -114,9 +114,9 @@ test "int min and max" {
     assert Int.max(4, 4) == 4
     assert Int.min(-Int.pow(10, 30), Int.pow(10, 30)) == -Int.pow(10, 30)
     assert Int.max(-Int.pow(10, 30), Int.pow(10, 30)) == Int.pow(10, 30)
-}
+end
 
-test "the / operator divides by a non-zero integer" {
+test "the / operator divides by a non-zero integer"
     three = Int.to_non_zero(3)!
     minus_two = Int.to_non_zero(-2)!
     assert 10 / three == 3
@@ -124,4 +124,4 @@ test "the / operator divides by a non-zero integer" {
     assert 7 / minus_two == Int.divide(7, minus_two)
     quotients = [9, 10, 11] |> Iter.map(fn n -> n / three) |> Iter.to_list()
     assert quotients == [3, 3, 3]
-}
+end

@@ -17,21 +17,31 @@ import (
 func TestIRImpl_CompleteProgramRunsOnTheVM(t *testing.T) {
 	const src = `import std::io
 
-struct Left { n: Int }
-struct Right { n: Int }
+struct Left
+    n: Int
+end
+struct Right
+    n: Int
+end
 
-impl Left {
-  fn read(p: Left) -> Int { p.n + 1 }
-  fn label(p: Left) -> String { "left ${Left.read(p)}" }
-}
-impl Right {
-  fn read(p: Right) -> Int { p.n + 10 }
-}
+impl Left
+  fn read(p: Left) -> Int
+      p.n + 1
+  end
+  fn label(p: Left) -> String
+      "left ${Left.read(p)}"
+  end
+end
+impl Right
+  fn read(p: Right) -> Int
+      p.n + 10
+  end
+end
 
-fn main() {
+fn main()
   io.print(Left.label(Left{n: 2}))
   io.print(Right.read(Right{n: 2}))
-}
+end
 `
 	const want = "left 3\n12\n"
 	path := filepath.Join(t.TempDir(), "main.nomi")
@@ -79,19 +89,23 @@ fn main() {
 
 func TestIRImpl_SpecializationsHaveDistinctDeclarations(t *testing.T) {
 	const src = `import std::io
-interface Read { fn read(p: self) -> Int }
-struct Box<T> {
+interface Read
+    fn read(p: self) -> Int
+end
+struct Box<T>
   item: T
   n: Int
-}
+end
 
-impl Read for Box<T> {
-  fn read(_p: Box<T>) -> Int { 7 }
-}
-fn main() {
+impl Read for Box<T>
+  fn read(_p: Box<T>) -> Int
+      7
+  end
+end
+fn main()
   io.print(Read.read(Box{item: 1, n: 3}))
   io.print(Read.read(Box{item: "x", n: 7}))
-}
+end
 `
 	var funcs []*ir.Func
 	prev := irFuncObserved

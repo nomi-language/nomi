@@ -188,24 +188,10 @@ func collectLitLambdas(n ast.Node, root string, path []string, out *[]litLambdaA
 			collectLitLambdas(f.Value, root, at("f"+f.Name), out)
 		}
 	case *ast.ListLit:
-		if v.TypeName != nil {
-			return
-		}
-		for _, item := range v.Items {
-			collectLitLambdas(item, root, at("e"), out)
-		}
-	case *ast.VectorLit:
 		if v.TypeName != nil || len(v.Spreads) > 0 {
 			return
 		}
-		for _, item := range v.Items {
-			collectLitLambdas(item, root, at("e"), out)
-		}
-	case *ast.SetLit:
-		if v.TypeName != nil || len(v.Spreads) > 0 {
-			return
-		}
-		for _, item := range v.Items {
+		for _, item := range v.Operands() {
 			collectLitLambdas(item, root, at("e"), out)
 		}
 	case *ast.MapLit:

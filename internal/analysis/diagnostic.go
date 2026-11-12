@@ -191,7 +191,7 @@ func CompleteSpansFrom(tokens func() []token.Token, errs []TypeError) []TypeErro
 	type pos struct{ line, col int }
 	ends := map[pos]pos{}
 	toks := tokens()
-	for i, t := range toks {
+	for _, t := range toks {
 		switch t.Type {
 		case token.NEWLINE, token.EOF, token.BLANK_LINE, token.COMMENT, token.DOC_COMMENT:
 			continue
@@ -200,17 +200,6 @@ func CompleteSpansFrom(tokens func() []token.Token, errs []TypeError) []TypeErro
 			continue
 		}
 		line, col := tokenEnd(t)
-		if t.Type == token.HASH || t.Type == token.PERCENT {
-			// A literal's symbol spans the type name written right after
-			// it, `#Point` or `%Kvs`, the head the diagnostic is about.
-			for j := i + 1; j < len(toks); j++ {
-				n := toks[j]
-				if n.Line != line || n.Col != col || (n.Type != token.TYPE_IDENT && n.Type != token.IDENT && n.Type != token.DOT) {
-					break
-				}
-				line, col = tokenEnd(n)
-			}
-		}
 		ends[pos{t.Line, t.Col}] = pos{line, col}
 	}
 

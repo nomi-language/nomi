@@ -13,7 +13,7 @@ func stdFS(maybe string) fstest.MapFS {
 	return fstest.MapFS{
 		"maybe.nomi":                          {Data: []byte(maybe)},
 		"strings.nomi":                        {Data: []byte("pub type Text = String\n")},
-		"_fixtures/nested/deeper/module.nomi": {Data: []byte("fn f() {}\n")},
+		"_fixtures/nested/deeper/module.nomi": {Data: []byte("fn f() end\n")},
 		"std.go":                              {Data: []byte("package std\n")},
 	}
 }
@@ -23,8 +23,8 @@ func stdFS(maybe string) fstest.MapFS {
 // the old server's text.
 func TestDir_TwoVersionsWriteTwoDirectories(t *testing.T) {
 	root := t.TempDir()
-	older := New(root, stdFS("pub enum Maybe<T> {\n  Some(T)\n  None\n}\n"))
-	newer := New(root, stdFS("pub enum Maybe<T> {\n  None\n  Some(T)\n}\n"))
+	older := New(root, stdFS("pub enum Maybe<T>\n  Some(T)\n  None\nend\n"))
+	newer := New(root, stdFS("pub enum Maybe<T>\n  None\n  Some(T)\nend\n"))
 	if older.Version() == newer.Version() {
 		t.Fatalf("different std content has one version %s", older.Version())
 	}

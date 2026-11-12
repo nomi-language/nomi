@@ -11,12 +11,12 @@ func TestIRIterFrequencies_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Pt {
+struct Pt
     x: Int
     y: Int
-}
+end
 
-fn main() {
+fn main()
     io.print(Iter.frequencies(["a", "b", "a"]))
     io.print(Iter.frequencies("banana"))
     io.print([3, 1, 3, 3] |> Iter.frequencies())
@@ -26,15 +26,15 @@ fn main() {
     empty: List<Int> = []
     io.print(Iter.frequencies(empty))
     io.print([["x"], ["y", "y"]] |> Iter.map(Iter.frequencies) |> Iter.to_list())
-}
+end
 `
-	const want = "%{a => 2, b => 1}\n" +
-		"%{b => 1, a => 3, n => 2}\n" +
-		"%{3 => 3, 1 => 1}\n" +
-		"%{1 => 3, 0 => 2}\n" +
-		"%{Pt{x: 1, y: 2} => 2}\n" +
-		"%{(1, a) => 2, (2, b) => 1}\n" +
-		"%{}\n" +
-		"[%{x => 1}, %{y => 2}]\n"
+	const want = "{a => 2, b => 1}\n" +
+		"{b => 1, a => 3, n => 2}\n" +
+		"{3 => 3, 1 => 1}\n" +
+		"{1 => 3, 0 => 2}\n" +
+		"{Pt{x: 1, y: 2} => 2}\n" +
+		"{(1, a) => 2, (2, b) => 1}\n" +
+		"{}\n" +
+		"[{x => 1}, {y => 2}]\n"
 	irRunSource(t, src, want)
 }

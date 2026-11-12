@@ -16,41 +16,41 @@ import (
 // so neither declaration order nor name order can pass for source order of
 // the impls.
 func TestImplDefaultsTakeTheScopeSlotInImplOrder(t *testing.T) {
-	src := `interface Alpha {
+	src := `interface Alpha
   fn name(value: self) -> String
 
-  fn describe(value: self) -> String {
+  fn describe(value: self) -> String
     "alpha " + Alpha.name(value)
-  }
-}
+  end
+end
 
-interface Beta {
+interface Beta
   fn label(value: self) -> String
 
-  fn describe(value: self) -> String {
+  fn describe(value: self) -> String
     "beta " + Beta.label(value)
-  }
-}
+  end
+end
 
-struct Robot {
+struct Robot
   model: String
-}
+end
 
-struct User {
+struct User
   handle: String
-}
+end
 
-impl Beta for User {
-  fn label(u: User) -> String {
+impl Beta for User
+  fn label(u: User) -> String
     u.handle
-  }
-}
+  end
+end
 
-impl Alpha for Robot {
-  fn name(r: Robot) -> String {
+impl Alpha for Robot
+  fn name(r: Robot) -> String
     r.model
-  }
-}
+  end
+end
 `
 	betaDescribe := Pos{Line: 12, Col: 6}
 	if line := strings.Split(src, "\n")[betaDescribe.Line-1]; !strings.Contains(line, "fn describe") {
@@ -77,31 +77,31 @@ impl Alpha for Robot {
 // ordinary call. The default once overwrote the function's entry, and the
 // call was rejected as bare-name dispatch to the interface.
 func TestImplDefaultLeavesAFileFunctionOfItsNameInScope(t *testing.T) {
-	src := `interface Named {
+	src := `interface Named
   fn name(value: self) -> String
 
-  fn describe(value: self) -> String {
+  fn describe(value: self) -> String
     "I am " + Named.name(value)
-  }
-}
+  end
+end
 
-struct Robot {
+struct Robot
   model: String
-}
+end
 
-impl Named for Robot {
-  fn name(r: Robot) -> String {
+impl Named for Robot
+  fn name(r: Robot) -> String
     r.model
-  }
-}
+  end
+end
 
-fn describe(n: Int) -> String {
+fn describe(n: Int) -> String
   "number ${n}"
-}
+end
 
-fn both(r: Robot) -> String {
+fn both(r: Robot) -> String
   describe(3) + Robot.describe(r)
-}
+end
 `
 	fa, errs := buildAndCheckFromSource(src)
 	if len(errs) != 0 {

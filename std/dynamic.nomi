@@ -1,4 +1,4 @@
-import {
+import
     bool.Bool
     debug.Debug
     display.Display
@@ -10,7 +10,7 @@ import {
     maybe.Maybe.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
-}
+end
 
 /// Opaque wrapper for a value of unknown shape returned by an extern function
 /// or decoded from an external source such as JSON, YAML, RPC payloads, or
@@ -27,7 +27,7 @@ import {
 /// propagate.
 pub host type Dynamic
 
-impl Dynamic {
+impl Dynamic
     /// Drill into a struct/dict-shaped Dynamic by field name. Fails with
     /// `expected="object with field <name>"` if d is a dict but doesn't have the
     /// field, or `expected="object"` if d is not a dict at all.
@@ -84,29 +84,29 @@ impl Dynamic {
     /// |> Dynamic.as_maybe(Dynamic.as_string)?
     /// // -> Maybe<String> from the value (or None if null).
     /// ```
-    pub fn as_maybe<T>(d: Dynamic, sub: (Dynamic) -> Result<T, Error>) -> Result<Maybe<T>, Error> {
-        if Dynamic.is_null(d) {
+    pub fn as_maybe<T>(d: Dynamic, sub: (Dynamic) -> Result<T, Error>) -> Result<Maybe<T>, Error>
+        if Dynamic.is_null(d) then
             Ok(None)
-        } else {
-            case sub(d) {
+        else
+            case sub(d)
                 Ok(v) -> Ok(Some(v))
                 Err(e) -> Err(e)
-            }
-        }
-    }
+            end
+        end
+    end
 
     /// Navigate into a struct/dict field AND apply a sub-decoder, accumulating the
     /// path segment on any error the sub-decoder returns. The chain
     ///
     /// ```nomi
     /// d
-    /// |> Dynamic.at_field("user", fn inner -> {
+    /// |> Dynamic.at_field("user", fn inner ->
     ///     inner
-    ///     |> Dynamic.at_field("address", fn inner2 -> {
+    ///     |> Dynamic.at_field("address", fn inner2 ->
     ///         inner2
     ///         |> Dynamic.at_field("zip", Dynamic.as_int)
-    ///     })
-    /// })
+    ///     end)
+    /// end)
     /// ```
     ///
     /// produces a `Error` with `path = [Field("user"), Field("address"),
@@ -131,56 +131,58 @@ impl Dynamic {
         d: Dynamic,
         name: String,
         sub: (Dynamic) -> Result<T, Error>,
-    ) -> Result<T, Error> {
-        case Dynamic.field(d, name) {
-            Err(e) -> Err(e)
+    ) -> Result<T, Error>
+        case Dynamic.field(d, name)
+            Err(e) ->
+                Err(e)
 
             Ok(inner) ->
-                case sub(inner) {
+                case sub(inner)
                     Ok(v) -> Ok(v)
                     Err(e) -> Err(Error{
                         path: [PathSegment.Field(name), ..e.path],
                         expected: e.expected,
                         got: e.got,
                     })
-                }
-        }
-    }
+                end
+        end
+    end
 
     /// List-index counterpart to `at_field`. Same path-accumulation behaviour:
     /// prepends `Index(i)` to any error the sub-decoder returns; navigator failures
     /// (out-of-bounds, non-list) pass through unchanged.
-    pub fn at_index<T>(d: Dynamic, i: Int, sub: (Dynamic) -> Result<T, Error>) -> Result<T, Error> {
-        case Dynamic.index(d, i) {
-            Err(e) -> Err(e)
+    pub fn at_index<T>(d: Dynamic, i: Int, sub: (Dynamic) -> Result<T, Error>) -> Result<T, Error>
+        case Dynamic.index(d, i)
+            Err(e) ->
+                Err(e)
 
             Ok(inner) ->
-                case sub(inner) {
+                case sub(inner)
                     Ok(v) -> Ok(v)
                     Err(e) -> Err(Error{
                         path: [PathSegment.Index(i), ..e.path],
                         expected: e.expected,
                         got: e.got,
                     })
-                }
-        }
-    }
-}
+                end
+        end
+    end
+end
 
-impl Debug for Dynamic {
+impl Debug for Dynamic
     // Wired Go-side to the runtime's reflective stringifier; produces a
     // human-readable rendering of the wrapped value (`null`, `42`, `"hello"`,
     // `[1, 2, 3]`, `{"k": "v"}`, etc.) so `io.inspect(some_dynamic)` works
     // during development.
     host fn inspect(d: Dynamic) -> String
-}
+end
 
 /// One segment of a `Error`'s path. `Field` for a dict-key navigation,
 /// `Index` for a list-index navigation.
-pub enum PathSegment {
+pub enum PathSegment
     Field String
     Index Int
-}
+end
 
 derive Display for PathSegment
 
@@ -193,30 +195,31 @@ derive Display for PathSegment
 /// when you want path-rich diagnostics; those combinators wrap a navigator +
 /// sub-extractor and prepend the path segment on any error the sub-extractor
 /// returns. `expected` and `got` name the type mismatch.
-pub struct Error {
+pub struct Error
     path: List<PathSegment>
     expected: String
     got: String
-}
+end
 
-impl Display for Error {
-    fn to_string(e: Error) -> String {
+impl Display for Error
+    fn to_string(e: Error) -> String
         // Render the path as `a.b[3].c` for Field/Index sequences; an empty
         // path renders as `<root>`. The path direction is "outer-to-inner"
         // (root first); reduce walks left-to-right and prepends the right
         // separator for each segment.
-        path_str = case e.path {
-            [] -> "<root>"
+        path_str = case e.path
+            [] ->
+                "<root>"
 
             _ ->
-                Iter.reduce(e.path, "", fn acc, seg -> {
-                    case seg {
-                        .Field(name) -> if acc == "" { name } else { acc + "." + name }
+                Iter.reduce(e.path, "", fn acc, seg ->
+                    case seg
+                        .Field(name) -> if acc == "" then name else acc + "." + name
                         .Index(i) -> acc + "[" + Int.to_string(i) + "]"
-                    }
-                })
-        }
+                    end
+                end)
+        end
 
         "decode error at " + path_str + ": expected " + e.expected + ", got " + e.got
-    }
-}
+    end
+end

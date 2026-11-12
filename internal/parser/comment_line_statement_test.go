@@ -17,9 +17,9 @@ func TestParse_CommentLineDoesNotJoinStatements(t *testing.T) {
 		src   string
 		stmts int
 	}{
-		"a tuple after a call":    {"fn main() {\n    f(x)\n    // note\n    (x, 2)\n}\n", 2},
-		"a negation after a name": {"fn main() {\n    x\n    // note\n    -1\n}\n", 2},
-		"a pipe continues":        {"fn main() {\n    x\n    // note\n    |> f()\n}\n", 1},
+		"a tuple after a call":    {"fn main()\n    f(x)\n    // note\n    (x, 2)\nend\n", 2},
+		"a negation after a name": {"fn main()\n    x\n    // note\n    -1\nend\n", 2},
+		"a pipe continues":        {"fn main()\n    x\n    // note\n    |> f()\nend\n", 1},
 	} {
 		t.Run(name, func(t *testing.T) {
 			nodes, err := Parse(lexer.Lex(tc.src))

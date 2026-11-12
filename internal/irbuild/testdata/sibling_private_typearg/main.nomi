@@ -1,29 +1,29 @@
 // A file's private struct as the type argument of another file's public
 // generic function, struct and enum. Only this file names `Point`, so the
 // program is legal, and span.nomi builds each instance over it.
-import {
+import
     std::io
     span
-}
+end
 
-struct Point {
+struct Point
     x: Int
-}
+end
 
-impl Display for Point {
-    fn to_string(p: Point) -> String {
+impl Display for Point
+    fn to_string(p: Point) -> String
         "p${p.x}"
-    }
-}
+    end
+end
 
-fn describe(slot: span.Slot<Point>) -> String {
-    case slot {
+fn describe(slot: span.Slot<Point>) -> String
+    case slot
         span.Slot.Full(q) -> "full ${q.x}"
         span.Slot.Empty -> "empty"
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     p = span.ident(Point{x: 1})
     io.print("ident ${p.x}")
     io.print(span.shown(Point{x: 2}))
@@ -32,4 +32,4 @@ fn main() {
     io.print(Debug.inspect(s))
     io.print(describe(span.Slot.Full(Point{x: 5})))
     io.print(describe(span.Slot.Empty))
-}
+end

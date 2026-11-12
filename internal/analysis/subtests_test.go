@@ -17,162 +17,162 @@ func TestSubtests_RejectedPlacementsAndExits(t *testing.T) {
 	}{
 		{
 			name: "fn without the Result shape",
-			src: `fn f(xs: List<Int>) -> Int {
-    subtests xs, x {
+			src: `fn f(xs: List<Int>) -> Int
+    subtests xs, x
         assert x > 0
-    }
+    end
     1
-}`,
+end`,
 			line: 2, col: 5,
 			msg: "`subtests` can return AssertionFailure, but the enclosing function returns Int",
 		},
 		{
 			name: "main",
-			src: `fn main() {
-    subtests [1], x {
+			src: `fn main()
+    subtests [1], x
         assert x > 0
-    }
-}`,
+    end
+end`,
 			line: 2, col: 5,
 			msg: "`subtests` can return AssertionFailure, but the enclosing function returns Unit",
 		},
 		{
 			name: "once",
-			src: `once n = {
-    subtests [1], x {
+			src: `once n = begin
+    subtests [1], x
         assert x > 0
-    }
+    end
     1
-}`,
+end`,
 			line: 2, col: 5,
 			msg:  "`subtests` cannot be used in the initializer of `once n`: a `once` has no function to return from",
 			hint: "move the `subtests` into a function that returns a Result",
 		},
 		{
 			name: "lambda",
-			src: `test "t" {
-    f = fn -> {
-        subtests [1], x {
+			src: `test "t"
+    f = fn ->
+        subtests [1], x
             assert x > 0
-        }
-    }
+        end
+    end
     _ = f
     assert True
-}`,
+end`,
 			line: 3, col: 9,
 			msg: "`subtests` inside a lambda becomes the lambda's return value instead of failing the test",
 		},
 		{
 			name: "nested",
-			src: `test "t" {
-    subtests [1], x {
-        subtests [2], y {
+			src: `test "t"
+    subtests [1], x
+        subtests [2], y
             assert x < y
-        }
-    }
-}`,
+        end
+    end
+end`,
 			line: 3, col: 9,
 			msg:  "`subtests` cannot be written inside another `subtests` body: each row of the outer statement is one case",
-			hint: "combine the two row lists into one, as in `subtests pairs, (a, b) { ... }`, or write the inner rows as a test of their own",
+			hint: "combine the two row lists into one, as in `subtests pairs, (a, b)`, or write the inner rows as a test of their own",
 		},
 		{
 			name: "setup",
-			src: `group "g" {
-    setup {
-        subtests [1], x {
+			src: `group "g"
+    setup begin
+        subtests [1], x
             assert x > 0
-        }
+        end
         1
-    }
+    end
 
-    test "t", n {
+    test "t", n
         assert n == 1
-    }
-}`,
+    end
+end`,
 			line: 3, col: 9,
 			msg:  "`subtests` cannot be used in a `setup`: a setup builds the value each test binds",
 			hint: "move the rows into a test of the group",
 		},
 		{
 			name: "rows that are not iterable",
-			src: `test "t" {
-    subtests 5, x {
+			src: `test "t"
+    subtests 5, x
         assert x > 0
-    }
-}`,
+    end
+end`,
 			line: 2, col: 14,
 			msg: "`subtests` runs its body once per element of what it is given, which must be something `Iter` accepts, such as a List, a Range or an Iter; got Int",
 		},
 		{
 			name: "rows of no determined type",
-			src: `test "t" {
-    subtests [], x {
+			src: `test "t"
+    subtests [], x
         assert x == 1
-    }
-}`,
+    end
+end`,
 			line: 2, col: 14,
 			msg:  "the type of the rows of `subtests` is not determined: List<",
 			hint: "give the rows a type, as in `rows: List<Int> = []`",
 		},
 		{
 			name: "refutable pattern",
-			src: `test "t" {
-    subtests [Some(1)], Some(n) {
+			src: `test "t"
+    subtests [Some(1)], Some(n)
         assert n > 0
-    }
-}`,
+    end
+end`,
 			line: 2, col: 25,
 			msg: "a `subtests` pattern must match every row; bind it with a name or an irrefutable pattern and match it in the body",
 		},
 		{
 			name: "return in a row",
-			src: `test "t" {
-    subtests [1, 2], x {
-        if x == 1 {
+			src: `test "t"
+    subtests [1, 2], x
+        if x == 1 then
             return
-        }
+        end
         assert x > 0
-    }
-}`,
+    end
+end`,
 			line: 4, col: 13,
 			msg:  "`return` cannot be used in a `subtests` body: a row is not a function, and each row runs to its end",
 			hint: "end the row with its last statement, or put what follows in an `if` or `case` arm",
 		},
 		{
 			name: "break in a row",
-			src: `test "t" {
-    subtests [1, 2], x {
-        if x == 1 {
+			src: `test "t"
+    subtests [1, 2], x
+        if x == 1 then
             break
-        }
+        end
         assert x > 0
-    }
-}`,
+    end
+end`,
 			line: 4, col: 13,
 			msg:  "`break` cannot be used in a `subtests` body: every row runs, in order",
-			hint: "choose the rows before the statement, as in `subtests rows |> Iter.filter(keep), row { ... }`",
+			hint: "choose the rows before the statement, as in `subtests rows |> Iter.filter(keep), row`",
 		},
 		{
 			name: "continue in a row",
-			src: `test "t" {
-    subtests [1, 2], x {
-        if x == 1 {
+			src: `test "t"
+    subtests [1, 2], x
+        if x == 1 then
             continue
-        }
+        end
         assert x > 0
-    }
-}`,
+    end
+end`,
 			line: 4, col: 13,
 			msg: "`continue` cannot be used in a `subtests` body: every row runs, in order",
 		},
 		{
 			name: "try in a row",
-			src: `test "t" {
-    subtests [Some(1)], m {
+			src: `test "t"
+    subtests [Some(1)], m
         n = m?
         assert n > 0
-    }
-}`,
+    end
+end`,
 			line: 3, col: 14,
 			msg:  "`?` cannot be used in a `subtests` body: a row is not a function, so there is nothing to return the Err or None to",
 			hint: "assert the shape instead: `assert Ok(value) = expr` binds value or fails the row",
@@ -181,86 +181,86 @@ func TestSubtests_RejectedPlacementsAndExits(t *testing.T) {
 			name: "a body that can never fail",
 			src: `import std::io
 
-test "t" {
-    subtests [1, 2], n {
+test "t"
+    subtests [1, 2], n
         io.print(n)
-    }
-}`,
+    end
+end`,
 			line: 4, col: 5,
 			msg:  "`subtests` body must contain an assert or refute, or end each row with a Result<_, AssertionFailure>",
 			hint: "assert something about each row, or end the body with a call that returns Result<_, AssertionFailure>, as a helper that asserts does",
 		},
 		{
 			name: "a final Result whose error is not AssertionFailure",
-			src: `fn parse(n: Int) -> Result<Int, String> {
+			src: `fn parse(n: Int) -> Result<Int, String>
     Ok(n)
-}
+end
 
-test "t" {
-    subtests [1, 2], n {
+test "t"
+    subtests [1, 2], n
         parse(n)
-    }
-}`,
+    end
+end`,
 			line: 6, col: 5,
 			msg: "`subtests` body must contain an assert or refute, or end each row with a Result<_, AssertionFailure>",
 		},
 		{
 			name: "a name that is no String",
-			src: `test "t" {
-    subtests [1, 2], n, n {
+			src: `test "t"
+    subtests [1, 2], n, n
         assert n > 0
-    }
-}`,
+    end
+end`,
 			line: 2, col: 25,
 			msg:  "the name of a `subtests` row must be a String, got Int",
 			hint: "build a String from the row's values, as in `\"${input}\"`",
 		},
 		{
 			name: "a try in a name",
-			src: `fn label(n: Int) -> Result<String, String> {
+			src: `fn label(n: Int) -> Result<String, String>
     Ok("${n}")
-}
+end
 
-test "t" {
-    subtests [1, 2], n, label(n)? {
+test "t"
+    subtests [1, 2], n, label(n)?
         assert n > 0
-    }
-}`,
+    end
+end`,
 			line: 6, col: 33,
 			msg:  "`?` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs",
 			hint: "handle the Result or Maybe inside the name with `case`, or compute the name in a function",
 		},
 		{
 			name: "an assertion in a name",
-			src: `test "t" {
-    subtests [1, 2], n, ({
+			src: `test "t"
+    subtests [1, 2], n, (begin
         assert n > 0
         "row"
-    }) {
+    end)
         assert n > 0
-    }
-}`,
+    end
+end`,
 			line: 3, col: 9,
 			msg: "`assert` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs",
 		},
 		{
 			name: "a return in a name",
-			src: `test "t" {
-    subtests [1, 2], n, if n > 1 { return } else { "small" } {
+			src: `test "t"
+    subtests [1, 2], n, if n > 1 then return else "small"
         assert n > 0
-    }
-}`,
-			line: 2, col: 36,
+    end
+end`,
+			line: 2, col: 39,
 			msg: "`return` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs",
 		},
 		{
 			name: "an assertion only in a lambda in the body",
-			src: `test "t" {
-    subtests [1, 2], n {
+			src: `test "t"
+    subtests [1, 2], n
         f = fn m -> m > n
         _ = f
-    }
-}`,
+    end
+end`,
 			line: 2, col: 5,
 			msg: "`subtests` body must contain an assert or refute, or end each row with a Result<_, AssertionFailure>",
 		},
@@ -296,139 +296,139 @@ test "t" {
 // fails if the checker starts rejecting it.
 func TestSubtests_AdmittedForms(t *testing.T) {
 	cases := []struct{ name, src string }{
-		{"test body over a list of tuples", `test "t" {
-    subtests [("a", 1), ("bb", 2)], (s, n) {
+		{"test body over a list of tuples", `test "t"
+    subtests [("a", 1), ("bb", 2)], (s, n)
         assert String.length(s) == n
-    }
-}`},
+    end
+end`},
 		{"result fn", `import std::assertions.AssertionFailure
 
-fn f(xs: List<Int>) -> Result<Unit, AssertionFailure> {
-    subtests xs, x {
+fn f(xs: List<Int>) -> Result<Unit, AssertionFailure>
+    subtests xs, x
         assert x > 0
-    }
+    end
     Ok(Unit)
-}`},
-		{"range, set, vector, map and iter rows", `test "t" {
-    subtests 1..3, n {
+end`},
+		{"range, set, vector, map and iter rows", `test "t"
+    subtests 1..3, n
         assert n > 0
-    }
-    subtests %[1, 2], n {
+    end
+    subtests Set[1, 2], n
         assert n > 0
-    }
-    subtests #[1, 2], n {
+    end
+    subtests Vector[1, 2], n
         assert n > 0
-    }
-    subtests %{"a" => 1}, (k, v) {
+    end
+    subtests {"a" => 1}, (k, v)
         assert k == "a" and v == 1
-    }
-    subtests [1, 2] |> Iter.map(fn n -> n * 2), n {
+    end
+    subtests [1, 2] |> Iter.map(fn n -> n * 2), n
         assert n % 2 == 0
-    }
-}`},
-		{"exits inside a lambda in a row", `test "t" {
-    subtests [[1, 2]], xs {
-        first = Iter.loop(fn -> {
+    end
+end`},
+		{"exits inside a lambda in a row", `test "t"
+    subtests [[1, 2]], xs
+        first = Iter.loop(fn ->
             break
-        })
+        end)
         assert first == Unit
-        assert Iter.all_match(xs, fn x -> {
-            if x > 5 {
+        assert Iter.all_match(xs, fn x ->
+            if x > 5 then
                 return False
-            }
+            end
             True
-        })
-    }
-}`},
+        end)
+    end
+end`},
 		{"a row that ends with a helper that asserts", `import std::assertions.AssertionFailure
 
-fn check_row(line: String, want: Bool) -> Result<Unit, AssertionFailure> {
+fn check_row(line: String, want: Bool) -> Result<Unit, AssertionFailure>
     assert (line == String.reverse(line)) == want
     Ok(Unit)
-}
+end
 
-test "t" {
-    subtests [("abba", True), ("abc", False)], (line, want) {
+test "t"
+    subtests [("abba", True), ("abc", False)], (line, want)
         check_row(line, want)
-    }
-}`},
+    end
+end`},
 		{"a row whose final if or case arms end with a helper", `import std::assertions.AssertionFailure
 
-fn positive(n: Int) -> Result<Unit, AssertionFailure> {
+fn positive(n: Int) -> Result<Unit, AssertionFailure>
     assert n > 0
     Ok(Unit)
-}
+end
 
-test "t" {
-    subtests [1, 2], n {
-        if n > 1 {
+test "t"
+    subtests [1, 2], n
+        if n > 1 then
             positive(n)
-        } else {
+        else
             positive(n + 1)
-        }
-    }
-    subtests [1, 2], n {
-        case n {
+        end
+    end
+    subtests [1, 2], n
+        case n
             1 -> positive(n)
             _ -> positive(n - 1)
-        }
-    }
-}`},
-		{"assertions nested in an arm, and a test in a group whose only assertion is a subtests", `group "g" {
-    test "t" {
-        subtests [1, 2], n {
-            if n > 1 {
+        end
+    end
+end`},
+		{"assertions nested in an arm, and a test in a group whose only assertion is a subtests", `group "g"
+    test "t"
+        subtests [1, 2], n
+            if n > 1 then
                 assert n == 2
-            } else {
+            else
                 refute n == 2
-            }
-        }
-    }
-}`},
-		{"a row named by a pattern binding the body never reads", `test "t" {
+            end
+        end
+    end
+end`},
+		{"a row named by a pattern binding the body never reads", `test "t"
     cases = [("leap", 2000, True), ("common", 1900, False)]
-    subtests cases, (description, year, expected), description {
+    subtests cases, (description, year, expected), description
         assert (year % 400 == 0) == expected
-    }
-}`},
-		{"a built name, and a name reading the enclosing test", `test "t" {
+    end
+end`},
+		{"a built name, and a name reading the enclosing test", `test "t"
     prefix = "sum"
-    subtests [(1, 2, 3)], (a, b, sum), "${prefix}: ${a} + ${b}" {
+    subtests [(1, 2, 3)], (a, b, sum), "${prefix}: ${a} + ${b}"
         assert a + b == sum
-    }
-}`},
-		{"discarded columns with and without a name", `test "t" {
+    end
+end`},
+		{"discarded columns with and without a name", `test "t"
     cases = [("leap", 2000, True)]
-    subtests cases, (_, year, expected) {
+    subtests cases, (_, year, expected)
         assert (year % 400 == 0) == expected
-    }
-    subtests cases, (_description, year, expected) {
+    end
+    subtests cases, (_description, year, expected)
         assert (year % 400 == 0) == expected
-    }
-    subtests cases, (description, _, expected), description {
+    end
+    subtests cases, (description, _, expected), description
         assert expected
-    }
-    subtests cases, (_description, year, _), "${year}" {
+    end
+    subtests cases, (_description, year, _), "${year}"
         assert year > 0
-    }
-}`},
-		{"a name over an or pattern, two rows sharing a name, and a lambda in a name", `test "t" {
+    end
+end`},
+		{"a name over an or pattern, two rows sharing a name, and a lambda in a name", `test "t"
     rows: List<Result<Int, Int>> = [Ok(1), Err(1)]
-    subtests rows, Ok(n) or Err(n), "same" {
+    subtests rows, Ok(n) or Err(n), "same"
         assert n == 1
-    }
-    subtests [1, 2], n, [n] |> Iter.map(fn m -> Int.to_string(m)) |> String.join(", ") {
+    end
+    subtests [1, 2], n, [n] |> Iter.map(fn m -> Int.to_string(m)) |> String.join(", ")
         assert n > 0
-    }
-}`},
-		{"subtests as a name", `fn subtests(n: Int) -> Int {
+    end
+end`},
+		{"subtests as a name", `fn subtests(n: Int) -> Int
     n
-}
+end
 
-test "t" {
+test "t"
     subtests = [subtests(1)]
     assert subtests == [1]
-}`},
+end`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

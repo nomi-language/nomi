@@ -292,7 +292,7 @@ func obviousHead(n ast.Node) bool {
 		return obviousHead(v.Object)
 	case *ast.Ident, *ast.IntLit, *ast.FloatLit, *ast.DecimalLit,
 		*ast.StringLit, *ast.StringInterp, *ast.CodepointLit, *ast.ListLit,
-		*ast.VectorLit, *ast.SetLit, *ast.MapLit, *ast.TupleLit, *ast.StructLit:
+		*ast.MapLit, *ast.TupleLit, *ast.StructLit:
 		return true
 	}
 	return false

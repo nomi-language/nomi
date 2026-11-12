@@ -18,19 +18,19 @@ import std::io
 //  3. EARLY EXIT, observably. Two shapes: a noisy finite source, where the
 //     elements not visited are the lines not printed; and an UNBOUNDED source,
 //     where a terminal that drained does not answer slowly, it does not answer.
-fn note(n: Int) -> Int {
+fn note(n: Int) -> Int
     io.print("evaluating ${n}")
     n
-}
+end
 
-fn show(label: String, m: Maybe<Int>) {
-    case m {
+fn show(label: String, m: Maybe<Int>)
+    case m
         Some(n) -> io.print("${label} some ${n}")
         None -> io.print("${label} none")
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     none: List<Int> = []
 
     // --- any_match: polarity, all four answers ------------------------------
@@ -169,4 +169,4 @@ fn main() {
 
     io.print("${dropped |> Iter.to_list()}")
     io.print("${dropped |> Iter.to_list()}")
-}
+end

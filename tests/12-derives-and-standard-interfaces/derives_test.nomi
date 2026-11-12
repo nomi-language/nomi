@@ -1,25 +1,25 @@
-struct Empty {}
+struct Empty end
 
 derive Debug for Empty
 derive Equatable for Empty
 derive Comparable for Empty
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
 derive Debug for Point
 derive Equatable for Point
 derive Hashable for Point
 derive Comparable for Point
 
-enum Shape {
+enum Shape
     Circle Float
     Pair (Int, Int)
     Rect {w: Float, h: Float}
     None
-}
+end
 
 derive Debug for Shape
 derive Equatable for Shape
@@ -47,15 +47,15 @@ derive Equatable for Expired
 derive Hashable for Expired
 derive Comparable for Expired
 
-fn show_order(o: Ordering) -> String {
-    case o {
+fn show_order(o: Ordering) -> String
+    case o
         .Less -> "L"
         .Equal -> "E"
         .Greater -> "G"
-    }
-}
+    end
+end
 
-test "derive Debug renders structs enums and distinct types structurally" {
+test "derive Debug renders structs enums and distinct types structurally"
     assert Debug.inspect(Empty{}) == "Empty{}"
     assert Debug.inspect(Point{x: 1, y: 2}) == "Point{x: 1, y: 2}"
     assert Debug.inspect(Shape.None) == "None"
@@ -65,9 +65,9 @@ test "derive Debug renders structs enums and distinct types structurally" {
     assert Debug.inspect(Id(7)) == "Id(7)"
     assert Debug.inspect(Coord(3, 4)) == "Coord(3, 4)"
     assert Debug.inspect(Expired) == "Expired"
-}
+end
 
-test "derive Equatable compares structs enums and distinct types structurally" {
+test "derive Equatable compares structs enums and distinct types structurally"
     assert Equatable.equal(Empty{}, Empty{})
     assert Equatable.equal(Point{x: 1, y: 2}, Point{x: 1, y: 2})
     refute Equatable.equal(Point{x: 1, y: 2}, Point{x: 1, y: 3})
@@ -84,9 +84,9 @@ test "derive Equatable compares structs enums and distinct types structurally" {
     assert Equatable.equal(Coord(1, 2), Coord(1, 2))
     refute Equatable.equal(Coord(1, 2), Coord(1, 3))
     assert Equatable.equal(Expired, Expired)
-}
+end
 
-test "derive Hashable agrees for equal values and distinguishes representative differences" {
+test "derive Hashable agrees for equal values and distinguishes representative differences"
     assert Hashable.hash(Point{x: 1, y: 2}) == Hashable.hash(Point{x: 1, y: 2})
     refute Hashable.hash(Point{x: 1, y: 2}) == Hashable.hash(Point{x: 1, y: 3})
     assert Hashable.hash(Shape.None) == Hashable.hash(Shape.None)
@@ -98,9 +98,9 @@ test "derive Hashable agrees for equal values and distinguishes representative d
     assert Hashable.hash(Coord(1, 2)) == Hashable.hash(Coord(1, 2))
     refute Hashable.hash(Coord(1, 2)) == Hashable.hash(Coord(1, 3))
     assert Hashable.hash(Expired) == Hashable.hash(Expired)
-}
+end
 
-test "derive Comparable orders structs enums and distinct types lexicographically" {
+test "derive Comparable orders structs enums and distinct types lexicographically"
     assert show_order(Comparable.compare(Empty{}, Empty{})) == "E"
     assert show_order(Comparable.compare(Point{x: 1, y: 9}, Point{x: 2, y: 0})) == "L"
 
@@ -127,7 +127,7 @@ test "derive Comparable orders structs enums and distinct types lexicographicall
     assert show_order(Comparable.compare(Id(2), Id(1))) == "G"
     assert show_order(Comparable.compare(Coord(1, 9), Coord(2, 0))) == "L"
     assert show_order(Comparable.compare(Expired, Expired)) == "E"
-}
+end
 
 type Off
 
@@ -141,60 +141,60 @@ derive Comparable for On
 derive Equatable for On
 derive Hashable for On
 
-enum Switch {
+enum Switch
     embeds Off
     embeds On
-}
+end
 
 derive Comparable for Switch
 derive Equatable for Switch
 derive Hashable for Switch
 
-struct Worker {
+struct Worker
     id: Int
-}
+end
 
 derive Comparable for Worker
 derive Equatable for Worker
 derive Hashable for Worker
 
-struct Leaf {
+struct Leaf
     tag: Int
-}
+end
 
 derive Comparable for Leaf
 derive Equatable for Leaf
 derive Hashable for Leaf
 
-enum Node {
+enum Node
     embeds Worker
     embeds Leaf
-}
+end
 
 derive Comparable for Node
 derive Equatable for Node
 derive Hashable for Node
 
-fn use_off(_o: Off) -> String {
+fn use_off(_o: Off) -> String
     "bound an Off"
-}
+end
 
-test "standard derives handle enums with embedded variants" {
+test "standard derives handle enums with embedded variants"
     w1: Node = Node.Worker{id: 1}
     w2: Node = Node.Worker{id: 2}
     l1: Node = Node.Leaf{tag: 0}
     s: Switch = Switch.Off
     c: Switch = Off
 
-    from_variant = case s {
+    from_variant = case s
         Switch.Off(x) -> use_off(x)
         _ -> "nope"
-    }
+    end
 
-    from_coerced = case c {
+    from_coerced = case c
         Switch.Off(x) -> use_off(x)
         _ -> "nope"
-    }
+    end
 
     assert show_order(Comparable.compare(Switch.Off, Switch.On)) == "L"
     assert show_order(Comparable.compare(Switch.On, Switch.Off)) == "G"
@@ -214,4 +214,4 @@ test "standard derives handle enums with embedded variants" {
     assert Debug.inspect(w1) == "Worker{id: 1}"
     assert from_variant == "bound an Off"
     assert from_coerced == "bound an Off"
-}
+end

@@ -11,7 +11,7 @@ import (
 // An application-field read is syntactically an owner-qualified field access;
 // the checker, not the parser, knows `MyApp` is an application type.
 func TestParseAppFieldReadIsAFieldAccess(t *testing.T) {
-	nodes := parse(t, "fn main() {\n  io.print(MyApp.config.logger)\n}")
+	nodes := parse(t, "fn main()\n  io.print(MyApp.config.logger)\nend")
 	fn := nodes[0].(*ast.FuncDef)
 	call := fn.Body.Stmts[0].(*ast.ExprStmt).Expr.(*ast.Call)
 	outer, ok := call.Args[0].(*ast.FieldAccess)
@@ -30,7 +30,7 @@ func TestParseAppFieldReadIsAFieldAccess(t *testing.T) {
 // `with` is a statement of its own, not an expression statement, and the
 // statements after it are the block's ordinary statements.
 func TestParseWithStatement(t *testing.T) {
-	nodes := parse(t, "fn main() {\n  with MyApp.logger = Silent\n  run()\n}")
+	nodes := parse(t, "fn main()\n  with MyApp.logger = Silent\n  run()\nend")
 	fn := nodes[0].(*ast.FuncDef)
 	w, ok := fn.Body.Stmts[0].(*ast.With)
 	if !ok {
@@ -53,7 +53,7 @@ func TestParseWithStatement(t *testing.T) {
 // Several fields are several `with` lines, and a struct literal value needs
 // no parentheses.
 func TestParseWithSeveralStatements(t *testing.T) {
-	nodes := parse(t, "fn main() {\n  with A.store = Fake{n: 1}\n  with app.A.x = 2\n  run()\n}")
+	nodes := parse(t, "fn main()\n  with A.store = Fake{n: 1}\n  with app.A.x = 2\n  run()\nend")
 	stmts := nodes[0].(*ast.FuncDef).Body.Stmts
 	first, ok := stmts[0].(*ast.With)
 	if !ok {
@@ -73,7 +73,7 @@ func TestParseWithSeveralStatements(t *testing.T) {
 
 // A value may continue on the line after the `=`.
 func TestParseWithValueOnTheNextLine(t *testing.T) {
-	nodes := parse(t, "fn main() {\n  with A.context =\n    Context.with_timeout(A.context, d)\n  run()\n}")
+	nodes := parse(t, "fn main()\n  with A.context =\n    Context.with_timeout(A.context, d)\n  run()\nend")
 	w := nodes[0].(*ast.FuncDef).Body.Stmts[0].(*ast.With)
 	if _, ok := w.Value.(*ast.Call); !ok {
 		t.Fatalf("value: %#v", w.Value)
@@ -82,19 +82,18 @@ func TestParseWithValueOnTheNextLine(t *testing.T) {
 
 // `with` is not an expression.
 func TestParseWithIsNotAnExpression(t *testing.T) {
-	if _, err := Parse(lexer.Lex("fn f() -> Int {\n  n = with A.x = 1\n  n\n}")); err == nil {
+	if _, err := Parse(lexer.Lex("fn f() -> Int\n  n = with A.x = 1\n  n\nend")); err == nil {
 		t.Fatal("`with` parsed as a binding's value")
 	}
 }
 
 func TestParseWithRejects(t *testing.T) {
 	for src, want := range map[string]string{
-		"fn main() {\n  with MyApp = 1\n}":                "application field such as `MyApp.logger`",
-		"fn main() {\n  with MyApp.x\n}":                  "expected '='",
-		"fn main() {\n  with\n}":                          "expected an application field override after `with`",
-		"fn main() {\n  with 1 = 2\n}":                    "application field such as `MyApp.logger`",
-		"fn main() {\n  with MyApp.x = 1, MyApp.y = 2\n}": "write one `with` line per field",
-		"fn main() {\n  with MyApp.x = 1 { run() }\n}":    "takes no block",
+		"fn main()\n  with MyApp = 1\nend":                "application field such as `MyApp.logger`",
+		"fn main()\n  with MyApp.x\nend":                  "expected '='",
+		"fn main()\n  with\nend":                          "expected an application field override after `with`",
+		"fn main()\n  with 1 = 2\nend":                    "application field such as `MyApp.logger`",
+		"fn main()\n  with MyApp.x = 1, MyApp.y = 2\nend": "write one `with` line per field",
 	} {
 		_, err := Parse(lexer.Lex(src))
 		if err == nil || !strings.Contains(err.Error(), want) {
@@ -105,7 +104,7 @@ func TestParseWithRejects(t *testing.T) {
 
 // `$` is no longer part of the language outside strings.
 func TestParseDollarIsIllegal(t *testing.T) {
-	if _, err := Parse(lexer.Lex("fn main() {\n  _ = $config\n}")); err == nil {
+	if _, err := Parse(lexer.Lex("fn main()\n  _ = $config\nend")); err == nil {
 		t.Fatal("`$config` parsed")
 	}
 }

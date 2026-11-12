@@ -1,6 +1,6 @@
 import variable_length_quantity
 
-test "encode a series of integers, producing a series of bytes" {
+test "encode a series of integers, producing a series of bytes"
     cases: List<(String, List<Int>, List<Byte>)> = [
         ("zero", [0x0], [0x0]),
         ("arbitrary single byte", [0x40], [0x40]),
@@ -34,12 +34,12 @@ test "encode a series of integers, producing a series of bytes" {
         ),
     ]
 
-    subtests cases, (description, integers, expected), description {
+    subtests cases, (description, integers, expected), description
         assert variable_length_quantity.encode(integers) == expected
-    }
-}
+    end
+end
 
-test "decode a series of bytes, producing a series of integers" {
+test "decode a series of bytes, producing a series of integers"
     cases: List<(String, List<Byte>, Result<List<Int>, String>)> = [
         ("one byte", [0x7F], Ok([0x7F])),
         ("two bytes", [0xC0, 0x0], Ok([0x2000])),
@@ -62,7 +62,7 @@ test "decode a series of bytes, producing a series of integers" {
         ),
     ]
 
-    subtests cases, (description, bytes, expected), description {
+    subtests cases, (description, bytes, expected), description
         assert variable_length_quantity.decode(bytes) == expected
-    }
-}
+    end
+end

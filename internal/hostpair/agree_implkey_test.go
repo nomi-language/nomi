@@ -76,21 +76,21 @@ func implKeysFor(t *testing.T, name, source string) []string {
 func TestAgree_TwoInstantiationsOfOneGenericInterfaceGetTwoKeys(t *testing.T) {
 	const source = `gopkg "example.com/app/ffi" as ffi
 
-pub struct Score {
+pub struct Score
   points: Int
-}
+end
 
-pub struct Bonus {
+pub struct Bonus
   points: Int
-}
+end
 
-impl Add<Score, Score> for Score {
+impl Add<Score, Score> for Score
   fn add(a: Score, b: Score) -> Score go ffi.AddScores
-}
+end
 
-impl Add<Bonus, Score> for Score {
+impl Add<Bonus, Score> for Score
   fn add(a: Score, b: Bonus) -> Score go ffi.AddBonus
-}
+end
 `
 	fromFfirun := implKeysFor(t, "scoring.nomi", source)
 	want := []string{
@@ -150,13 +150,13 @@ impl Add<Bonus, Score> for Score {
 func TestAgree_GenericReceiverKeyIsOneTheRuntimeForms(t *testing.T) {
 	const source = `gopkg "example.com/app/ffi" as ffi
 
-pub struct Box<T> {
+pub struct Box<T>
   value: T
-}
+end
 
-impl Box<T> {
+impl Box<T>
   fn peek(b: Box<T>) -> Int go ffi.Peek
-}
+end
 `
 	fromFfirun := implKeysFor(t, "boxes.nomi", source)
 	if len(fromFfirun) != 1 {

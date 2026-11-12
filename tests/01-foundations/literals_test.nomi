@@ -1,4 +1,4 @@
-test "primitive literals infer their basic types" {
+test "primitive literals infer their basic types"
     x = 42
     y = 3.14
     name = "Nomi"
@@ -8,9 +8,9 @@ test "primitive literals infer their basic types" {
     assert y == 3.14
     assert name == "Nomi"
     assert active
-}
+end
 
-test "arithmetic and interpolation produce expected values" {
+test "arithmetic and interpolation produce expected values"
     x = 42
     y = 3.14
     name = "Nomi"
@@ -21,28 +21,28 @@ test "arithmetic and interpolation produce expected values" {
     assert "Hello, ${name}!" == "Hello, Nomi!"
     assert "x is ${x}, y is ${y}" == "x is 42, y is 3.14"
     assert "1 + 2 = ${1 + 2}" == "1 + 2 = 3"
-}
+end
 
-test "string concatenation joins strings" {
+test "string concatenation joins strings"
     greeting = "Hello" + " " + "World"
     assert greeting == "Hello World"
-}
+end
 
-test "comparisons and logic return booleans" {
+test "comparisons and logic return booleans"
     x = 42
     active = True
 
     assert x > 10
     assert active and True
     assert not False
-}
+end
 
-test "unary minus works on numeric expressions" {
+test "unary minus works on numeric expressions"
     assert -5 == -5
     assert -(3 + 4) == -7
-}
+end
 
-test "numeric literal forms parse to their numeric values" {
+test "numeric literal forms parse to their numeric values"
     // Digit separators, alternative radices, and scientific notation all parse
     // to the same numeric value as their plain-decimal counterparts. The
     // formatter preserves the source form, so `1_000_000` stays grouped.
@@ -56,9 +56,9 @@ test "numeric literal forms parse to their numeric values" {
     assert 1_000.123_456 == 1000.123456
     assert 1.0e10 == 10000000000.0
     assert 2.5e-3 == 0.0025
-}
+end
 
-test "float debug boundaries use the intended notation" {
+test "float debug boundaries use the intended notation"
     // Float `inspect` boundaries. Floats expand to plain decimal in the
     // everyday range, then fall back to scientific notation when the
     // magnitude is so large or small that the expanded form would obscure
@@ -67,14 +67,14 @@ test "float debug boundaries use the intended notation" {
     assert Debug.inspect(1.0e21) == "1.0e21"
     assert Debug.inspect(0.0001) == "0.0001"
     assert Debug.inspect(0.00001) == "1.0e-5"
-}
+end
 
-test "block expressions return their final value" {
-    result = {
+test "block expressions return their final value"
+    result = begin
         a = 10
         b = 20
         a + b
-    }
+    end
 
     assert result == 30
-}
+end

@@ -105,7 +105,19 @@
 // its twins (below, "Linkage names"), and a program that reaches a
 // test-only fixture module.
 //
-// # Defaulted parameters across files
+// # Defaulted parameters
+//
+// The checker records, for each call that leaves a defaulted parameter out,
+// the declaration whose defaults fill it and which slots
+// (analysis.FileAnalysis.CallDefaults), and for a function named as a value
+// where fewer parameters are expected, the slots its call fills
+// (DefaultedRefs). Every call route places the written operands and hands
+// the rest to one function, `fillCallDefaults` (irdefaults.go), which
+// reads only that record; the routes supply where the callee is declared
+// (`defaultHome`). A call through a local copy of a declared function (`g
+// = parse`) goes through the function the record's Ref names. A call of
+// an interface function on a type parameter takes, at each instance, the
+// defaults of the impl function it reaches (`defaultParams`).
 //
 // A call into another file that omits a defaulted parameter fills it at the
 // call when every name the default mentions means the same there, and
@@ -120,6 +132,25 @@
 // in the late-instance flush (instimplaccessor.go). A concrete operand of an
 // interface-typed parameter of a type-qualified call enters by erasure
 // before its slot is matched (`qualEraseSlotted`).
+//
+// # Interpolation
+//
+// The checker records how each interpolation hole's value renders by
+// Display (analysis.FileAnalysis.HoleDisplays). `holeDisplay`
+// (irdisplayhole.go) reads that record and `renderDisplay` lowers it: a
+// String is itself, a scalar or a structural value is an `ir.Render`, an
+// interface value is the erased render, a tuple or record with a nominal
+// part renders each part by its own record and lays the texts out
+// structurally, and a declared type or a std container calls its impl
+// (std's instance for a container, `qualImplPlan` for a declared type).
+// The route is the record's; the builder declines a record its lowered
+// kind does not fit. A hole of a type parameter or of an interface
+// default's `self`, and a value no hole holds
+// (`io.print(x)`, `Display.to_string` over a tuple, ParseFields' texts, the
+// error `main` returns), renders by `kindDisplay`, the checker's rule over
+// the lowered kind. The universal Debug of a block-local type is
+// synthesized here and never checked, so its holes have no record; they
+// are Strings, each its own text.
 //
 // # Regex
 //
@@ -333,13 +364,25 @@
 // type arguments a program uses it at. Inside a body, `T` is a known type,
 // and `T.format(x)` calls that type's implementation directly. A bounded
 // generic function's declaration lowers no body of its own (`funcDecl`):
-// every call, function value and other file's call names an instance. A
-// call's type arguments are solved against the argument kinds
-// (`unifyTypeParams`), and an argument that is a generic type's instance
-// gives its own type arguments; a mirror of another file's instance keeps
-// none, so they are read off the declaring file's def and imported
-// (`instanceArgs`), and `fn show<T>(p: Pair<T>)` solves `T` from another
-// file's `Pair<Int>`.
+// every call, function value and other file's call names an instance.
+//
+// An instance is built at the type arguments the checker instantiated the
+// call at, and nothing here solves them. `calleeTypeArgs` reads them off
+// the reference at the callee's name (analysis.CallTypeArgs: the
+// instantiated signature matched against the declared one, and the
+// recorded substitution for a parameter only a `where` bound names), in
+// this gen's kinds. It serves a generic `fn` of this file (`monoInstanceAt`)
+// or another (`siblingGenericInstance`, its kinds imported into the
+// owner's), a function used as a value, a generic impl function
+// (`genericMethodItem`, `siblingMethodInstance`), an impl block's
+// instance named by a type-qualified call (`templateCallInstance`), a
+// nested generic `fn` and a std template (`stdInstTypeArgs`). A struct or
+// variant construction is built at the instance the checker typed it as
+// (`literalTypeArgs`). An impl a receiver kind selects (`impl Display for
+// List<T>` at `List<Int>`) is the one instance of the block that receiver
+// is, read off its kind (`stdRecvTypeArgs`). A derived or expanded body is
+// no exception: the checker records its calls and expressions as it
+// records written ones (the analysis package doc, "Elaboration").
 //
 // Interface calls on existentials dispatch at run time. An interface-typed
 // parameter, field or collection element erases its concrete type (spec
@@ -416,6 +459,15 @@
 // (`deriveComponentHasEquality`), since types are not resolved when derives
 // are checked.
 //
+// `==` over a declared type reads the checker's record of the operator
+// (analysis.FileAnalysis.Operators) through `equatableVerdict`
+// (irequality.go): the impl it calls, which the builder finds by the
+// operand's kind and holds to the record (a derived impl of an enum or a
+// distinct compares by shape, its body), or a comparison by shape. An
+// operator over a type parameter has only its bound recorded, and
+// `instanceEquatable` resolves it at the instance's kind by the lookups
+// below.
+//
 // In the builder, `meetsByEquality` establishes that no file and nothing in
 // std writes or derives the impl (`noImplOf`, `declaresImpl`);
 // `Equatable.equal` then lowers as `==` (`compareOperands`) and
@@ -449,6 +501,17 @@
 // call in the implementing block first, methodinst.go), and links by the
 // interface function's linkage name with them
 // (`shape.Shape.describe<Square>`).
+//
+// A std interface's default (`ToJson.to_json_field`, `FromJson.from_missing`)
+// is a template over `self` instantiated per receiver in its declaring
+// module (stdifacedefault.go). A call no written impl answers reaches it by
+// the checker's reference, by the qualifier (`Int.from_missing()`), by the
+// type argument (`FromJson.from_missing<List<Int>>()`) or by the bound type
+// of an instance's `T.from_missing()` (`stdIfaceDefaultAtKind`), as in
+// std/json's `decode_field<T>`, which a derived FromJson calls per field.
+// A program block of a std interface inherits no item for such a default: its
+// dispatch entry, and a std type's, is a thunk that makes the direct call
+// (`stdProgThunk`, recorded by `irRecordImpls`).
 //
 // A call in another file that leaves out a parameter default of an
 // interface function (reaching a block's function, an erased receiver's

@@ -8,15 +8,15 @@ import "testing"
 func TestTupleOrdinal_Reads(t *testing.T) {
 	_, errs := checkSource(`type Pair (Int, String)
 
-struct Holder {
+struct Holder
   first: String
-}
+end
 
-fn apply<A, B>(x: A, f: (A) -> B) -> B {
+fn apply<A, B>(x: A, f: (A) -> B) -> B
   f(x)
-}
+end
 
-fn main() {
+fn main()
   t = (1, "a", True)
   p = Pair(2, "b")
   n: Int = t.first + p.first
@@ -31,7 +31,7 @@ fn main() {
   _ = xs
   _ = ys
   _ = z
-}
+end
 `)
 	expectNoErrors(t, errs)
 }
@@ -45,7 +45,7 @@ func TestTupleOrdinal_PastTheLastItem(t *testing.T) {
 		{"  _ = apply((1, 2), .third)", "(Int, Int) has 2 items, so it has no `third`; its last is `second`"},
 		{"  _ = (1, 2).zeroth", "(Int, Int) has no field 'zeroth'"},
 	} {
-		_, errs := checkSource("type Pair (Int, String)\n\nfn apply<A, B>(x: A, f: (A) -> B) -> B {\n  f(x)\n}\n\nfn main() {\n" + tc.body + "\n}\n")
+		_, errs := checkSource("type Pair (Int, String)\n\nfn apply<A, B>(x: A, f: (A) -> B) -> B\n  f(x)\nend\n\nfn main()\n" + tc.body + "\nend\n")
 		expectError(t, errs, tc.want)
 	}
 }
@@ -53,7 +53,7 @@ func TestTupleOrdinal_PastTheLastItem(t *testing.T) {
 // A named tuple's items are its representation: outside the file that
 // declares it opaque, reading one is an error.
 func TestTupleOrdinal_OpaqueNamedTuple(t *testing.T) {
-	modules := map[string]string{"pairs": "pub opaque type Pair (Int, String)\n\npub fn make() -> Pair {\n  Pair(1, \"x\")\n}\n"}
-	_, errs := checkSourceWithModules(t, "import pairs\n\nfn main() {\n  _ = pairs.make().first\n}\n", modules)
+	modules := map[string]string{"pairs": "pub opaque type Pair (Int, String)\n\npub fn make() -> Pair\n  Pair(1, \"x\")\nend\n"}
+	_, errs := checkSourceWithModules(t, "import pairs\n\nfn main()\n  _ = pairs.make().first\nend\n", modules)
 	expectError(t, errs, "cannot read item 'first' of opaque type 'Pair' outside its defining module")
 }

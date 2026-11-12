@@ -9,9 +9,9 @@ import (
 
 // defaultArgConfig is the type the defaults below name, declared in a file
 // of its own so the declaring file names it through an import.
-const defaultArgConfig = `pub struct Config {
+const defaultArgConfig = `pub struct Config
     name: String
-}
+end
 `
 
 // defaultArgDecls declares structs (one with a parameter before the
@@ -20,99 +20,99 @@ const defaultArgConfig = `pub struct Config {
 // files using the bare forms may not.
 const defaultArgDecls = `import config.Config
 
-pub struct Box<T = Config> {
+pub struct Box<T = Config>
     item: T
-}
+end
 
-pub struct Pair<A, B = Config> {
+pub struct Pair<A, B = Config>
     a: A
     b: B
-}
+end
 
-pub enum Slot<T = Config> {
+pub enum Slot<T = Config>
     Full T
     Empty
-}
+end
 
 pub type Tag<T = Config> T
 
 pub opaque type Handle<T = Config> T
 
-pub interface Source<T = Config> {
+pub interface Source<T = Config>
     fn get(s: self) -> T
-}
+end
 
-pub struct Fixed {
+pub struct Fixed
     n: Int
-}
+end
 
-impl Source for Fixed {
-    fn get(s: Fixed) -> Config {
+impl Source for Fixed
+    fn get(s: Fixed) -> Config
         Config{name: "fixed ${s.n}"}
-    }
-}
+    end
+end
 
-pub fn handle(c: Config) -> Handle {
+pub fn handle(c: Config) -> Handle
     Handle(c)
-}
+end
 
-pub fn opened(h: Handle) -> String {
+pub fn opened(h: Handle) -> String
     Handle(c) = h
     c.name
-}
+end
 
-pub fn make(name: String) -> Box {
-    Box{item: Config{name: name}}
-}
+pub fn make(name: String) -> Box
+    Box{item: Config{name:}}
+end
 
-pub fn full(name: String) -> Slot {
-    .Full(Config{name: name})
-}
+pub fn full(name: String) -> Slot
+    .Full(Config{name:})
+end
 
-pub fn tag(name: String) -> Tag {
-    Tag(Config{name: name})
-}
+pub fn tag(name: String) -> Tag
+    Tag(Config{name:})
+end
 
-pub fn pair(n: Int, name: String) -> Pair<Int> {
-    Pair{a: n, b: Config{name: name}}
-}
+pub fn pair(n: Int, name: String) -> Pair<Int>
+    Pair{a: n, b: Config{name:}}
+end
 
-pub fn fixed(n: Int) -> Fixed {
-    Fixed{n: n}
-}
+pub fn fixed(n: Int) -> Fixed
+    Fixed{n:}
+end
 `
 
 // defaultArgUses names each declaration bare, so each annotation means the
 // declaration at Config, whatever this file binds the name Config to.
-const defaultArgUses = `fn show(b: Box) -> String {
+const defaultArgUses = `fn show(b: Box) -> String
     b.item.name
-}
+end
 
-fn paired(p: Pair<Int>) -> String {
+fn paired(p: Pair<Int>) -> String
     "${p.a} ${p.b.name}"
-}
+end
 
-fn slot(s: Slot) -> String {
-    case s {
+fn slot(s: Slot) -> String
+    case s
         .Full(c) -> c.name
         .Empty -> "empty"
-    }
-}
+    end
+end
 
-fn tagged(t: Tag) -> String {
+fn tagged(t: Tag) -> String
     Tag(c) = t
     c.name
-}
+end
 
-fn held(h: Handle) -> String {
+fn held(h: Handle) -> String
     opened(h)
-}
+end
 
-fn read(s: Source) -> String {
+fn read(s: Source) -> String
     Source.get(s).name
-}
+end
 
-fn main() {
+fn main()
     io.print(show(make("box")))
     io.print(paired(pair(2, "pair")))
     io.print(slot(full("slot")))
@@ -122,12 +122,12 @@ fn main() {
     io.print(read(fixed(7)))
     sources: List<Source> = [fixed(1), fixed(2)]
     io.inspect(sources |> Iter.map(read) |> Iter.to_list())
-}
+end
 `
 
 const defaultArgWant = "box\n2 pair\nslot\nempty\ntag\nhandle\nfixed 7\n" + `["fixed 1", "fixed 2"]` + "\n"
 
-const defaultArgImports = "import {\n    std::io\n    defaults.{self, Box, Pair, Slot, Tag, Handle, Source, opened, make, pair, full, tag, fixed}\n"
+const defaultArgImports = "import\n    std::io\n    defaults.{self, Box, Pair, Slot, Tag, Handle, Source, opened, make, pair, full, tag, fixed}\n"
 
 // A default type argument names what it names where the declaration wrote
 // it: `Box` in main.nomi is `Box<Config>` for defaults.nomi's Config, which
@@ -146,10 +146,10 @@ func TestDefaultTypeArgs_ResolveInTheDeclaringFile(t *testing.T) {
 	cases := []struct {
 		name, main string
 	}{
-		{"the using file does not import the default", defaultArgImports + "}\n\n" + defaultArgUses},
-		{"the using file imports its module only", defaultArgImports + "    config\n}\n\n" +
+		{"the using file does not import the default", defaultArgImports + "end\n\n" + defaultArgUses},
+		{"the using file imports its module only", defaultArgImports + "    config\nend\n\n" +
 			strings.Replace(defaultArgUses, `defaults.make("handle").item`, `config.Config{name: "handle"}`, 1)},
-		{"the using file declares its own Config", defaultArgImports + "}\n\nstruct Config {\n    id: Int\n}\n\n" + defaultArgUses},
+		{"the using file declares its own Config", defaultArgImports + "end\n\nstruct Config\n    id: Int\nend\n\n" + defaultArgUses},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

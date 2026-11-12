@@ -7,68 +7,68 @@
 /// The values are two lists, the front ones in order and the back ones
 /// newest first, so each end is the head of one of them. An end that runs
 /// out takes the other list's values, reversed.
-pub opaque struct LinkedList<T> {
+pub opaque struct LinkedList<T>
     front: List<T>
     back: List<T>
-}
+end
 
-impl LinkedList<T> {
+impl LinkedList<T>
     /// A list with no values.
-    pub fn new() -> LinkedList<T> {
-        .{front: [], back: []}
-    }
+    pub fn new() -> LinkedList<T>
+        {front: [], back: []}
+    end
 
     /// `list` with `value` after its last value.
-    pub fn push(list: LinkedList<T>, value: T) -> LinkedList<T> {
-        .{..list, back: [value, ..list.back]}
-    }
+    pub fn push(list: LinkedList<T>, value: T) -> LinkedList<T>
+        {..list, back: [value, ..list.back]}
+    end
 
     /// `list` with `value` before its first value.
-    pub fn unshift(list: LinkedList<T>, value: T) -> LinkedList<T> {
-        .{..list, front: [value, ..list.front]}
-    }
+    pub fn unshift(list: LinkedList<T>, value: T) -> LinkedList<T>
+        {..list, front: [value, ..list.front]}
+    end
 
     /// The last value of `list` and the list without it, or `None` when it is
     /// empty.
-    pub fn pop(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)> {
-        case list.back {
-            [last, ..back] -> Some((last, .{..list, back}))
+    pub fn pop(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)>
+        case list.back
+            [last, ..back] ->
+                Some((last, {..list, back:}))
 
-            [] -> {
-                case Iter.reverse(list.front) {
-                    [last, ..back] -> Some((last, .{front: [], back}))
+            [] ->
+                case Iter.reverse(list.front)
+                    [last, ..back] -> Some((last, {front: [], back:}))
                     [] -> None
-                }
-            }
-        }
-    }
+                end
+        end
+    end
 
     /// The first value of `list` and the list without it, or `None` when it
     /// is empty.
-    pub fn shift(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)> {
-        case list.front {
-            [first, ..front] -> Some((first, .{..list, front}))
+    pub fn shift(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)>
+        case list.front
+            [first, ..front] ->
+                Some((first, {..list, front:}))
 
-            [] -> {
-                case Iter.reverse(list.back) {
-                    [first, ..front] -> Some((first, .{front, back: []}))
+            [] ->
+                case Iter.reverse(list.back)
+                    [first, ..front] -> Some((first, {front:, back: []}))
                     [] -> None
-                }
-            }
-        }
-    }
+                end
+        end
+    end
 
     /// `list` without the first value equal to `value`; the same values when
     /// there is none.
-    pub fn delete(list: LinkedList<T>, value: T) -> LinkedList<T> where T: Equatable {
-        .{front: list |> Iter.to_list() |> List.remove(value), back: []}
-    }
-}
+    pub fn delete(list: LinkedList<T>, value: T) -> LinkedList<T> where T: Equatable
+        {front: list |> Iter.to_list() |> List.remove(value), back: []}
+    end
+end
 
-impl Iter<T> for LinkedList<T> {
+impl Iter<T> for LinkedList<T>
     /// Walks the list from its first value to its last.
-    fn each_while(list: LinkedList<T>, yield: (T) -> Bool) -> Bool {
+    fn each_while(list: LinkedList<T>, yield: (T) -> Bool) -> Bool
         Iter.each_while(list.front, yield)
             and (list.back |> Iter.reverse() |> Iter.each_while(yield))
-    }
-}
+    end
+end

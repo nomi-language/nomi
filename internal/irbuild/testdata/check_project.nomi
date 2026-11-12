@@ -1,7 +1,7 @@
-import {
+import
     std::compiler.{self, Project}
     std::io
-}
+end
 
 /// `compiler.check_project` end to end, and the `Some("…")` manifest field
 /// beside it, because the two are one file's whole blocker set and neither
@@ -16,21 +16,21 @@ import {
 /// repetition. `manifest` is a `Maybe<String>` with a `None` DEFAULT, so the
 /// omitted spelling and the `Some` spelling must both work and must disagree
 /// about the answer — one project, two manifests, two diagnostic counts.
-fn main() {
+fn main()
     private_import = compiler.check_project(Project{
         entry_point: "main",
-        files: %{
+        files: {
             "main" => """
                 import api.ping
 
-                fn main() {
+                fn main()
                   _ = ping()
-                }
+                end
                 """,
             "api" => """
-                fn ping() -> String {
+                fn ping() -> String
                   "pong"
-                }
+                end
                 """,
         },
     })
@@ -38,26 +38,26 @@ fn main() {
     io.print("private import count is 1: ${Iter.count(private_import) == 1}")
 
     io.print(
-        "private import says private: ${Iter.any_match(private_import, fn d -> {
+        "private import says private: ${Iter.any_match(private_import, fn d ->
             String.contains(d.message, "'ping' is private and cannot be imported")
-        })}"
+        end)}"
     )
 
     entry_points_ok = compiler.check_project(Project{
         entry_point: "main",
-        files: %{
+        files: {
             "main" => """
                 import other
 
-                fn main() {
+                fn main()
                   other.helper()
                   Unit
-                }
+                end
                 """,
             "other" => """
-                pub fn helper() -> Unit {
+                pub fn helper() -> Unit
                   Unit
-                }
+                end
                 """,
         },
     })
@@ -73,19 +73,19 @@ fn main() {
             entry_points = ["other"]
             """
         ),
-        files: %{
+        files: {
             "main" => """
                 import other
 
-                fn main() {
+                fn main()
                   other.helper()
                   Unit
-                }
+                end
                 """,
             "other" => """
-                pub fn helper() -> Unit {
+                pub fn helper() -> Unit
                   Unit
-                }
+                end
                 """,
         },
     })
@@ -93,21 +93,21 @@ fn main() {
     io.print("a manifest naming the wrong entry gives 2: ${Iter.count(entry_points_wrong) == 2}")
 
     io.print(
-        "it names main: ${Iter.any_match(entry_points_wrong, fn d -> {
+        "it names main: ${Iter.any_match(entry_points_wrong, fn d ->
             String.contains(d.message, "entry callback in main but file is not declared")
-        })}"
+        end)}"
     )
 
     io.print(
-        "it names other: ${Iter.any_match(entry_points_wrong, fn d -> {
+        "it names other: ${Iter.any_match(entry_points_wrong, fn d ->
             String.contains(d.message, "other is declared in nomi.toml entry_points")
-        })}"
+        end)}"
     )
 
     first = Iter.first(private_import)
 
-    case first {
+    case first
         Some(d) -> io.print("first diagnostic line is ${d.line}, col ${d.col}")
         None -> io.print("no first diagnostic")
-    }
-}
+    end
+end

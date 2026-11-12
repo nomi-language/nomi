@@ -1,6 +1,6 @@
 import wordy.{self, Error}
 
-test "answers word problems" {
+test "answers word problems"
     [
         ("just a number", "What is 5?", Ok(5)),
         ("just a zero", "What is 0?", Ok(0)),
@@ -34,12 +34,12 @@ test "answers word problems" {
         ("reject postfix notation", "What is 1 2 plus?", Err(.SyntaxError)),
         ("reject prefix notation", "What is plus 1 2?", Err(.SyntaxError)),
     ]
-    |> subtests (description, question, expected), description {
+    |> subtests (description, question, expected), description
         assert wordy.answer(question) == expected
-    }
-}
+    end
+end
 
 // Not a canonical case: the exercise leaves division by zero open.
-test "division by zero" {
+test "division by zero"
     assert wordy.answer("What is 1 divided by 0?") == Err(.DivisionByZero)
-}
+end

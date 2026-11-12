@@ -86,11 +86,11 @@ func TestFFIRun_DistinctTypesRoundTrip(t *testing.T) {
 		t.Skip("integration test invokes go run; skipped in -short mode")
 	}
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
-	entry := stageCrossingProject(t, distinctGo, `import {
+	entry := stageCrossingProject(t, distinctGo, `import
   std::io
   std::duration.Duration
   std::instant.Instant
-}
+end
 
 gopkg "crossing" as crossing
 
@@ -110,15 +110,15 @@ type Outer Inner
 
 type Timeout Duration
 
-struct Row {
+struct Row
   name: String
   n: Id
-}
+end
 
-struct Plain {
+struct Plain
   name: String
   n: Int
-}
+end
 
 type Wrapped Plain
 
@@ -160,7 +160,7 @@ fn inc_duration(d: Duration) -> Duration go crossing.Inc
 
 fn inc_instant(i: Instant) -> Instant go crossing.Inc
 
-fn main() {
+fn main()
   io.inspect(inc(Id(5)))
   io.inspect(inc32(Small(5)))
   io.inspect(shout(Name("a")))
@@ -175,13 +175,13 @@ fn main() {
   io.inspect(bump(Row{name: "a", n: Id(1)}))
   io.inspect(bump_wrapped(Wrapped(Plain{name: "w", n: 1})))
   io.inspect(rows([Wrapped(Plain{name: "n", n: 0})]))
-  io.inspect(inc_all(%{"a" => Id(1)}))
+  io.inspect(inc_all({"a" => Id(1)}))
   io.inspect(inc_outer(Outer(Inner(5))))
   io.inspect(double(Timeout(Duration.seconds(1))))
   io.inspect(inc_timeout(Timeout(Duration.seconds(1))))
   io.inspect(inc_duration(Duration.seconds(1)))
   io.inspect(inc_instant(Instant.from_nanos(5)) |> Instant.as_nanos())
-}
+end
 `)
 	got := runCrossingProject(t, entry)
 	want := strings.Join([]string{
@@ -199,7 +199,7 @@ fn main() {
 		`Row{name: "a", n: Id(2)}`,
 		`Wrapped(Plain{name: "w", n: 2})`,
 		`[Wrapped(Plain{name: "n", n: 0}), Wrapped(Plain{name: "go", n: 7})]`,
-		`%{"a" => Id(1), "b" => Id(2)}`,
+		`{"a" => Id(1), "b" => Id(2)}`,
 		`Outer(Inner(6))`,
 		`Timeout(2s)`,
 		`Timeout(1s1ns)`,
@@ -242,11 +242,11 @@ func TestFFIRun_DynamicRoundTrip(t *testing.T) {
 		t.Skip("integration test invokes go run; skipped in -short mode")
 	}
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
-	entry := stageCrossingProject(t, dynamicGo, `import {
+	entry := stageCrossingProject(t, dynamicGo, `import
   std::io
   std::json.Json
   std::dynamic.Dynamic
-}
+end
 
 gopkg "crossing" as crossing
 
@@ -272,10 +272,10 @@ fn apply(x: Dynamic, f: (Dynamic) -> Dynamic) -> Dynamic go crossing.Apply
 
 fn checked(x: Dynamic) -> Result<Dynamic, String> go crossing.Checked
 
-fn main() {
-  Ok(json) = Json.decode("{\"a\": [1, \"x\", null], \"n\": 2.5}") else {
+fn main()
+  Ok(json) = Json.decode("{\"a\": [1, \"x\", null], \"n\": 2.5}") else
     return
-  }
+  end
   d = Json.to_dynamic(json)
   io.print(describe(d))
   io.inspect(echo(d) |> Dynamic.path("a") |> Result.flat_map(fn l -> Dynamic.index(l, 1)) |> Result.flat_map(Dynamic.as_string))
@@ -285,10 +285,10 @@ fn main() {
   io.inspect(echo_rt(d) |> Dynamic.field("n") |> Result.flat_map(Dynamic.as_float))
   io.inspect(built() |> Dynamic.path("k") |> Result.flat_map(fn l -> Dynamic.index(l, 1)) |> Result.flat_map(Dynamic.as_string))
   io.inspect(tail([seven()]) |> Iter.map(Dynamic.as_string) |> Iter.to_list())
-  io.inspect(keyed(%{"a" => d}) |> Map.get("k") |> Maybe.map(Dynamic.as_int))
+  io.inspect(keyed({"a" => d}) |> Map.get("k") |> Maybe.map(Dynamic.as_int))
   io.inspect(apply(d, fn x -> Dynamic.field(x, "n") |> Result.with_default(x)) |> Dynamic.as_float())
   io.inspect(checked(seven()) |> Result.flat_map(fn x -> Dynamic.as_int(x) |> Result.map_err(fn _ -> "")))
-}
+end
 `)
 	got := runCrossingProject(t, entry)
 	want := strings.Join([]string{
@@ -357,9 +357,9 @@ fn new_handle(n: Int) -> Handle go crossing.New
 
 fn get(h: Handle) -> Int go crossing.Get
 
-fn main() {
+fn main()
   io.print(get(new_handle(41)) + 1)
-}
+end
 `)
 	if got := runCrossingProject(t, entry); got != "42" {
 		t.Fatalf("main printed %q, want 42", got)
@@ -368,9 +368,9 @@ fn main() {
 
 func TestPrepareRefusesDistinctsAndDynamicThatDoNotCross(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
-	entry := stageCrossingProject(t, refusedGo, `import {
+	entry := stageCrossingProject(t, refusedGo, `import
   std::dynamic.Dynamic
-}
+end
 
 gopkg "crossing" as crossing
 
@@ -378,16 +378,16 @@ type Name String
 
 type Expired
 
-struct Thin {
+struct Thin
   name: String
-}
+end
 
 type Wrapped Thin
 
-struct Holder {
+struct Holder
   name: String
   n: Dynamic
-}
+end
 
 fn dyn_inc(x: Dynamic) -> Dynamic go crossing.Inc
 

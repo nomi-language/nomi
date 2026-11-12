@@ -7,62 +7,62 @@ import "testing"
 func TestIRLoop_DestructuredState(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-struct Walk {
+struct Walk
     at: Point
     steps: Int
-}
+end
 
-fn factorial_loop(input: Int) -> Int {
-    (_, acc) = Iter.loop((input, 1), fn (n, acc): (Int, Int) -> {
-        if n <= 1 { break (n, acc) }
+fn factorial_loop(input: Int) -> Int
+    (_, acc) = Iter.loop((input, 1), fn (n, acc): (Int, Int) ->
+        if n <= 1 then break (n, acc)
         (n - 1, n * acc)
-    })
+    end)
     acc
-}
+end
 
-fn main() {
+fn main()
     io.inspect(factorial_loop(5))
     // A bare break answers the state.
-    io.inspect(Iter.loop((0, 1), fn (a, b) -> {
-        if a > 20 { break }
+    io.inspect(Iter.loop((0, 1), fn (a, b) ->
+        if a > 20 then break
         (b, a + b)
-    }))
+    end))
     // Nested tuples, with a discarded part.
-    io.inspect(Iter.loop(((0, 100), "x", 0), fn ((lo, hi), _, n) -> {
-        if hi - lo <= 1 { break ((lo, hi), "done", n) }
+    io.inspect(Iter.loop(((0, 100), "x", 0), fn ((lo, hi), _, n) ->
+        if hi - lo <= 1 then break ((lo, hi), "done", n)
         mid = (lo + hi) / 2
-        if mid * mid > 50 { return ((lo, mid), "low", n + 1) }
+        if mid * mid > 50 then return ((lo, mid), "low", n + 1)
         ((mid, hi), "high", n + 1)
-    }))
+    end))
     // A named struct, and an anonymous pattern over it.
-    io.inspect(Iter.loop(Point{x: 0, y: 10}, fn Point{x, y} -> {
-        if x >= y { break }
+    io.inspect(Iter.loop(Point{x: 0, y: 10}, fn Point{x:, y:} ->
+        if x >= y then break
         Point{x: x + 3, y: y - 1}
-    }))
-    io.inspect(Iter.loop(Point{x: 1, y: 1}, fn .{x, y}: Point -> {
-        if x > 30 { break Point{x, y: y + 100} }
-        Point{x: x * 2, y}
-    }))
+    end))
+    io.inspect(Iter.loop(Point{x: 1, y: 1}, fn {x:, y:}: Point ->
+        if x > 30 then break Point{x:, y: y + 100}
+        Point{x: x * 2, y:}
+    end))
     // A struct nested in a struct, with an as-pattern.
-    io.inspect(Iter.loop(Walk{at: Point{x: 0, y: 0}, steps: 0}, fn Walk{at: Point{x, y} as here, steps} -> {
-        case steps {
+    io.inspect(Iter.loop(Walk{at: Point{x: 0, y: 0}, steps: 0}, fn Walk{at: Point{x:, y:} as here, steps:} ->
+        case steps
             3 -> break
             _ -> Walk{at: Point{x: here.x + 1, y: y + x}, steps: steps + 1}
-        }
-    }))
+        end
+    end))
     // In a lambda, with a continue-free body ending in a case.
-    sum_to = fn limit: Int -> Iter.loop((0, 0), fn (i, total) -> {
-        case i > limit {
+    sum_to = fn limit: Int -> Iter.loop((0, 0), fn (i, total) ->
+        case i > limit
             True -> break
             False -> (i + 1, total + i)
-        }
-    })
+        end
+    end)
     io.inspect(sum_to(4))
-}
+end
 `, "120\n(21, 34)\n((7, 8), \"done\", 7)\nPoint{x: 9, y: 7}\nPoint{x: 32, y: 101}\nWalk{at: Point{x: 3, y: 3}, steps: 3}\n(5, 10)\n")
 }

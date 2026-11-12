@@ -1,23 +1,23 @@
 import std::io
 
-fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String {
+fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String
     "${host}:${Int.to_string(port)}/${Int.to_string(timeout)}"
-}
+end
 
-struct Holder {
+struct Holder
     f: (String, Int) -> String
-}
+end
 
-fn apply_partial(g: (String, Int) -> String) -> String {
+fn apply_partial(g: (String, Int) -> String) -> String
     h = &g(&1, 7)
     h("arg")
-}
+end
 
-fn each(n: Int, scale: Int = 10, cb: (Int) -> Int) -> Int {
+fn each(n: Int, scale: Int = 10, cb: (Int) -> Int) -> Int
     cb(n * scale)
-}
+end
 
-fn main() {
+fn main()
     c = &connect(&1, port: &2)
     io.print(c("a", 1))
     positional = &c(&1, 2)
@@ -49,4 +49,4 @@ fn main() {
     io.print(lb())
     routed = &each(&1, fn x -> x + 1)
     io.print(Int.to_string(routed(2)))
-}
+end

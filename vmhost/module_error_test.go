@@ -11,31 +11,31 @@ import (
 // `random.Error` are two types in one file, in signatures, patterns and
 // variant literals.
 func TestModuleErrors_FileQualifiedErrorsLiveSideBySide(t *testing.T) {
-	const src = `import {
+	const src = `import
     std::io
     std::random.{self, Generator}
     std::uuid.{self, Uuid}
-}
+end
 
-fn read_id(text: String) -> Result<Uuid, uuid.Error> {
+fn read_id(text: String) -> Result<Uuid, uuid.Error>
     Uuid.parse(text)
-}
+end
 
-fn pick() -> Result<Generator<String>, random.Error> {
+fn pick() -> Result<Generator<String>, random.Error>
     Generator.weighted((0.0, "never"), [])
-}
+end
 
-fn main() {
-    case read_id("6ba7b810") {
-        Err(uuid.Error.Length{length}) -> io.print("length ${length}")
+fn main()
+    case read_id("6ba7b810")
+        Err(uuid.Error.Length{length:}) -> io.print("length ${length}")
         _ -> io.print("other")
-    }
-    case pick() {
+    end
+    case pick()
         Err(random.Error.ZeroWeightTotal) -> io.print("zero total")
         _ -> io.print("other")
-    }
+    end
     io.print(read_id("6ba7b810") == Err(uuid.Error.Length{length: 8}))
-}
+end
 `
 	p, err := LoadSource("main", src)
 	if err != nil {
@@ -54,19 +54,19 @@ fn main() {
 // import wins, so the earlier one is unused and the file is rejected there:
 // the file-qualified spelling above is the one that works.
 func TestModuleErrors_TwoBareErrorImportsAreRejected(t *testing.T) {
-	const src = `import {
+	const src = `import
     std::io
     std::random.Error
     std::uuid.Error
-}
+end
 
-fn show(e: Error) -> String {
+fn show(e: Error) -> String
     "${e}"
-}
+end
 
-fn main() {
+fn main()
     io.print("x")
-}
+end
 `
 	_, err := LoadSource("main", src)
 	if err == nil {

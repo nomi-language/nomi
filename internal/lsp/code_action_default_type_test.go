@@ -66,49 +66,49 @@ func checksClean(t *testing.T, content string) {
 	}
 }
 
-const defaultTypeProgram = `interface Shout {
+const defaultTypeProgram = `interface Shout
     fn word(value: self) -> String
 
-    fn shout(value: self, marks: String = "!") -> String {
+    fn shout(value: self, marks: String = "!") -> String
         "${Shout.word(value)}${marks}"
-    }
-}
+    end
+end
 
-struct Game {
+struct Game
     word: String
     misses: Int = 0
     ratio: Float = 1.5
     tries = 3
-}
+end
 
-enum Shape {
+enum Shape
     Circle{radius: Float = 1.0}
-}
+end
 
-impl Shout for Game {
-    fn word(game: Game) -> String {
+impl Shout for Game
+    fn word(game: Game) -> String
         game.word
-    }
-}
+    end
+end
 
-impl Game {
-    fn window(game: Game, offset: Int = game.misses * 2, label = "game") -> String {
+impl Game
+    fn window(game: Game, offset: Int = game.misses * 2, label = "game") -> String
         "${label} ${offset}"
-    }
-}
+    end
+end
 
-fn search(query: String, limit: Int = 10, offset: Int = 0) -> String {
+fn search(query: String, limit: Int = 10, offset: Int = 0) -> String
     "${query} ${limit} ${offset}"
-}
+end
 
-fn main() {
+fn main()
     add = fn a: Int, b: Int = 1 -> a + b
     _ = add(1)
     _ = search("q")
     _ = Game.window(Game{word: "w"})
     _ = Shape.Circle{}
     _ = Shout.shout(Game{word: "w"})
-}
+end
 `
 
 // The action removes `: Type` and keeps the default on each kind of site
@@ -168,15 +168,15 @@ func titles(actions []protocol.CodeAction) []string {
 // would give a different type, or away from a field or parameter.
 func TestCodeActionRemoveTypeAnnotation_NotOffered(t *testing.T) {
 	cases := []struct{ name, src string }{
-		{"None", "fn f(▮since: Maybe<Int> = None) -> Maybe<Int> {\n    since\n}\n"},
-		{"empty list", "fn f(▮xs: List<Int> = []) -> List<Int> {\n    xs\n}\n"},
-		{"empty set", "struct S {\n    ▮m: Set<Int> = %[]\n}\n\nfn main() {\n    _ = S{}\n}\n"},
-		{"dot variant", "enum Mode {\n    A\n    B\n}\n\nfn f(▮mode: Mode = .A) -> Mode {\n    mode\n}\n"},
-		{"interface typed", "fn f(▮x: Display = 5) -> String {\n    Display.to_string(x)\n}\n"},
-		{"embeds coercion", "struct Circle {\n    r: Int\n}\n\nenum Shape {\n    embeds Circle\n}\n\nfn f(▮s: Shape = Circle{r: 1}) -> Shape {\n    s\n}\n"},
-		{"alias", "typealias Count Int\n\nfn f(▮n: Count = 1) -> Count {\n    n\n}\n"},
-		{"cursor on the default", "fn f(limit: Int = ▮10) -> Int {\n    limit\n}\n"},
-		{"no default", "fn f(▮limit: Int) -> Int {\n    limit\n}\n"},
+		{"None", "fn f(▮since: Maybe<Int> = None) -> Maybe<Int>\n    since\nend\n"},
+		{"empty list", "fn f(▮xs: List<Int> = []) -> List<Int>\n    xs\nend\n"},
+		{"empty set", "struct S\n    ▮m: Set<Int> = Set[]\nend\n\nfn main()\n    _ = S{}\nend\n"},
+		{"dot variant", "enum Mode\n    A\n    B\nend\n\nfn f(▮mode: Mode = .A) -> Mode\n    mode\nend\n"},
+		{"interface typed", "fn f(▮x: Display = 5) -> String\n    Display.to_string(x)\nend\n"},
+		{"embeds coercion", "struct Circle\n    r: Int\nend\n\nenum Shape\n    embeds Circle\nend\n\nfn f(▮s: Shape = Circle{r: 1}) -> Shape\n    s\nend\n"},
+		{"alias", "typealias Count Int\n\nfn f(▮n: Count = 1) -> Count\n    n\nend\n"},
+		{"cursor on the default", "fn f(limit: Int = ▮10) -> Int\n    limit\nend\n"},
+		{"no default", "fn f(▮limit: Int) -> Int\n    limit\nend\n"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -192,7 +192,7 @@ func TestCodeActionRemoveTypeAnnotation_NotOffered(t *testing.T) {
 // The actions are refactors only: a request for quick fixes or for
 // source.fixAll has none.
 func TestCodeActionRemoveTypeAnnotation_NotAFix(t *testing.T) {
-	src := "fn f(▮limit: Int = 10) -> Int {\n    limit\n}\n"
+	src := "fn f(▮limit: Int = 10) -> Int\n    limit\nend\n"
 	for _, only := range []protocol.CodeActionKind{protocol.CodeActionKindQuickFix, codeActionKindSourceFixAll, protocol.CodeActionKindSource} {
 		_, actions := defaultTypeActionsAt(t, src, only)
 		if _, ok := annotationAction(actions, "Remove type annotation"); ok {
@@ -208,10 +208,10 @@ func TestCodeActionRemoveTypeAnnotation_NotAFix(t *testing.T) {
 // The inverse writes the type the inlay hint shows.
 func TestCodeActionAddTypeAnnotation(t *testing.T) {
 	cases := []struct{ name, src, want string }{
-		{"field", "struct Game {\n    ▮tries = 3\n}\n", "struct Game {\n    tries: Int = 3\n}\n"},
-		{"parameter", "fn f(_query: String, ▮limit = 10) -> Int {\n    limit\n}\n", "fn f(_query: String, limit: Int = 10) -> Int {\n    limit\n}\n"},
-		{"enum parameter", "enum Mode {\n    A\n    B\n}\n\nfn f(mo▮de = Mode.A) -> Mode {\n    mode\n}\n", "enum Mode {\n    A\n    B\n}\n\nfn f(mode: Mode = Mode.A) -> Mode {\n    mode\n}\n"},
-		{"lambda parameter", "fn main() {\n    add = fn a: Int, ▮b = 1 -> a + b\n    _ = add(1)\n}\n", "fn main() {\n    add = fn a: Int, b: Int = 1 -> a + b\n    _ = add(1)\n}\n"},
+		{"field", "struct Game\n    ▮tries = 3\nend\n", "struct Game\n    tries: Int = 3\nend\n"},
+		{"parameter", "fn f(_query: String, ▮limit = 10) -> Int\n    limit\nend\n", "fn f(_query: String, limit: Int = 10) -> Int\n    limit\nend\n"},
+		{"enum parameter", "enum Mode\n    A\n    B\nend\n\nfn f(mo▮de = Mode.A) -> Mode\n    mode\nend\n", "enum Mode\n    A\n    B\nend\n\nfn f(mode: Mode = Mode.A) -> Mode\n    mode\nend\n"},
+		{"lambda parameter", "fn main()\n    add = fn a: Int, ▮b = 1 -> a + b\n    _ = add(1)\nend\n", "fn main()\n    add = fn a: Int, b: Int = 1 -> a + b\n    _ = add(1)\nend\n"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -241,9 +241,9 @@ func TestCodeActionAddTypeAnnotation(t *testing.T) {
 
 // The added annotation is the inlay hint's text.
 func TestCodeActionAddTypeAnnotation_MatchesInlayHint(t *testing.T) {
-	src := "struct Game {\n    ratio = 1.5\n}\n\nfn f(limit = 10) -> Int {\n    limit\n}\n"
+	src := "struct Game\n    ratio = 1.5\nend\n\nfn f(limit = 10) -> Int\n    limit\nend\n"
 	hints := filterByKind(getInlayHints(t, src), InlayHintKindType)
-	marks := []string{"struct Game {\n    ▮ratio = 1.5", "fn f(▮limit = 10)"}
+	marks := []string{"struct Game\n    ▮ratio = 1.5", "fn f(▮limit = 10)"}
 	if len(hints) != len(marks) {
 		t.Fatalf("hints %+v", hints)
 	}

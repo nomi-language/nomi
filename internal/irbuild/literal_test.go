@@ -36,7 +36,7 @@ import (
 // green — so the agreement is asserted against the ANALYZER's own table rather
 // than against a recomputation.
 func TestTypedLiteral_TagPositionIsTheTagAndNotTheQuote(t *testing.T) {
-	const src = "import std::toml.Toml\n\nfn main() {\n  _ = Toml`k = 1`\n}\n"
+	const src = "import std::toml.Toml\n\nfn main()\n  _ = Toml`k = 1`\nend\n"
 	p, err := AnalyzeSource("main", src)
 	if err != nil {
 		t.Fatalf("front end: %v", err)

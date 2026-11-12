@@ -29,7 +29,7 @@
 //# truncation alone: `pt-BR` uses `pt`'s rules, `pt-PT` has its own, and
 //# `zh-Hant-HK` uses `zh`'s.
 
-import {
+import
     decimal.Decimal
     display.Display
     equatable.Equatable
@@ -40,37 +40,37 @@ import {
     locale.Locale
     sets.Set
     strings.String
-}
+end
 
 /// One of CLDR's six plural categories. Every language uses `Other`; which
 /// of the rest it uses, and for which numbers, is the language's rules.
 /// `Display` gives CLDR's keyword (`one`, `few`).
 //! assert Display.to_string(PluralCategory.Few) == "few"
 //
-pub enum PluralCategory {
+pub enum PluralCategory
     Zero
     One
     Two
     Few
     Many
     Other
-}
+end
 
 derive Equatable for PluralCategory
 derive Hashable for PluralCategory
 
-impl Display for PluralCategory {
-    fn to_string(category: PluralCategory) -> String {
-        case category {
+impl Display for PluralCategory
+    fn to_string(category: PluralCategory) -> String
+        case category
             PluralCategory.Zero -> "zero"
             PluralCategory.One -> "one"
             PluralCategory.Two -> "two"
             PluralCategory.Few -> "few"
             PluralCategory.Many -> "many"
             PluralCategory.Other -> "other"
-        }
-    }
-}
+        end
+    end
+end
 
 /// A number that selects a plural category: `Int` and `Decimal`. A type
 /// implements it by giving the number as its reader sees it, as a `Decimal`
@@ -78,23 +78,23 @@ impl Display for PluralCategory {
 /// matter. CLDR's operands (`n`, `i`, `v`, `w`, `f`, `t`, `e`) are computed
 /// exactly from that Decimal's digits, at any size, and `e` is always 0.
 /// `Float` does not implement it.
-pub interface PluralOperand {
+pub interface PluralOperand
     fn plural_operand(value: self) -> Decimal
-}
+end
 
-impl PluralOperand for Int {
-    fn plural_operand(n: Int) -> Decimal {
+impl PluralOperand for Int
+    fn plural_operand(n: Int) -> Decimal
         Int.to_decimal(n)
-    }
-}
+    end
+end
 
-impl PluralOperand for Decimal {
-    fn plural_operand(d: Decimal) -> Decimal {
+impl PluralOperand for Decimal
+    fn plural_operand(d: Decimal) -> Decimal
         d
-    }
-}
+    end
+end
 
-impl PluralCategory {
+impl PluralCategory
     /// The cardinal category `value` selects in `locale`: the form of a noun
     /// counted by it. CLDR's operands are read off the number's digits
     /// exactly, visible trailing zeros included.
@@ -116,9 +116,9 @@ impl PluralCategory {
     //! assert PluralCategory.cardinal(1, Locale`ja`) == PluralCategory.Other
     //! assert PluralCategory.cardinal(Int.pow(10, 30), Locale`fr`) == PluralCategory.Many
     //
-    pub fn cardinal(value: PluralOperand, locale: Locale) -> PluralCategory {
+    pub fn cardinal(value: PluralOperand, locale: Locale) -> PluralCategory
         PluralCategory.of(plural_cardinal_tag(locale, "${PluralOperand.plural_operand(value)}"))
-    }
+    end
 
     /// The ordinal category `value` selects in `locale`: the form of "1st",
     /// "2nd", "3rd" and "4th".
@@ -132,48 +132,48 @@ impl PluralCategory {
     //! assert PluralCategory.ordinal(23, Locale`en`) == PluralCategory.Few
     //! assert PluralCategory.ordinal(13, Locale`en`) == PluralCategory.Other
     //
-    pub fn ordinal(value: Int, locale: Locale) -> PluralCategory {
+    pub fn ordinal(value: Int, locale: Locale) -> PluralCategory
         PluralCategory.of(plural_ordinal_tag(locale, value))
-    }
+    end
 
     /// The cardinal categories `locale`'s rules can select, `Other` always
     /// among them.
-    //! assert PluralCategory.cardinals(Locale`ja`) == %[PluralCategory.Other]
-    //! assert PluralCategory.cardinals(Locale`en`) == %[PluralCategory.One, PluralCategory.Other]
+    //! assert PluralCategory.cardinals(Locale`ja`) == [PluralCategory.Other]
+    //! assert PluralCategory.cardinals(Locale`en`) == [PluralCategory.One, PluralCategory.Other]
     //
-    pub fn cardinals(locale: Locale) -> Set<PluralCategory> {
+    pub fn cardinals(locale: Locale) -> Set<PluralCategory>
         plural_cardinal_tags(locale)
         |> Iter.map(fn tag -> PluralCategory.of(tag))
         |> Iter.to_set()
-    }
+    end
 
     /// The ordinal categories `locale`'s rules can select.
-    //! assert PluralCategory.ordinals(Locale`en`) == %[
+    //! assert PluralCategory.ordinals(Locale`en`) == [
     //!     PluralCategory.One,
     //!     PluralCategory.Two,
     //!     PluralCategory.Few,
     //!     PluralCategory.Other,
     //! ]
     //
-    pub fn ordinals(locale: Locale) -> Set<PluralCategory> {
+    pub fn ordinals(locale: Locale) -> Set<PluralCategory>
         plural_ordinal_tags(locale)
         |> Iter.map(fn tag -> PluralCategory.of(tag))
         |> Iter.to_set()
-    }
+    end
 
     // The category at its position in the declaration, as the Go half
     // reports it.
-    fn of(tag: Int) -> PluralCategory {
-        case tag {
+    fn of(tag: Int) -> PluralCategory
+        case tag
             0 -> PluralCategory.Zero
             1 -> PluralCategory.One
             2 -> PluralCategory.Two
             3 -> PluralCategory.Few
             4 -> PluralCategory.Many
             _ -> PluralCategory.Other
-        }
-    }
-}
+        end
+    end
+end
 
 host fn plural_cardinal_tag(locale: Locale, value: String) -> Int
 

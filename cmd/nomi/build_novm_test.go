@@ -20,41 +20,41 @@ import (
 var imagePrograms = map[string]string{
 	"echo.nomi": `import std::io
 
-struct App {
+struct App
   context: Context
-}
+end
 
-fn boot(startup: Startup) -> Result<App, String> {
+fn boot(startup: Startup) -> Result<App, String>
   io.print("args: ${startup.args}")
   Ok(App{context: Context.root()})
-}
+end
 
-fn main() {
-  case io.read_line() {
+fn main()
+  case io.read_line()
     Ok(Some(line)) -> io.print("read: ${line}")
     _ -> io.print("no line")
-  }
-}
+  end
+end
 `,
 	// std/uuid is lowered with the program, so its bodies are in the image.
-	"uuid.nomi": `import {
+	"uuid.nomi": `import
   std::io
   std::uuid.Uuid
-}
+end
 
-fn main() {
+fn main()
   id = Uuid` + "`0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A`" + `
   io.print("${id} ${Uuid.version(id)}")
   io.print(Debug.inspect([id, Uuid.nil()] |> Iter.sort() |> Iter.to_list()))
-}
+end
 `,
 	"trap.nomi": `import std::io
 
-fn main() {
+fn main()
   io.print("dividing")
   zero = String.length("")
   io.print("${100 / zero}")
-}
+end
 `,
 }
 

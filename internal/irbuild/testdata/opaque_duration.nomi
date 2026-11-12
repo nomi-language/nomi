@@ -1,10 +1,10 @@
-import {
+import
     std::duration.Duration
     std::io
     std::timer
-}
+end
 
-fn main() -> Unit {
+fn main() -> Unit
     d = Duration.seconds(3)
     io.print("d = ${Duration.to_string(d)}")
     io.print("nanos = ${Int.to_string(Duration.as_nanos(d))}")
@@ -18,4 +18,4 @@ fn main() -> Unit {
     io.print("interp = ${Duration.microseconds(2)}")
     timer.sleep(Duration.nanoseconds(0))
     io.print("slept")
-}
+end

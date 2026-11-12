@@ -6,31 +6,31 @@
 // directories, and so is a file whose short name a declaration takes
 // (`users`). Where views/admin.nomi sits beside views/admin/, `import
 // views::admin` names the file, and the directory is reached from `views`.
-import {
+import
     db
     jobs
     views
     views::admin
-}
+end
 
-fn users() -> List<String> {
+fn users() -> List<String>
     ["ada", "grace"]
-}
+end
 
-fn describe(kind: db::schema.Kind) -> String {
-    case kind {
+fn describe(kind: db::schema.Kind) -> String
+    case kind
         db::schema.Kind.Draft -> "draft"
         db::schema.Kind.Published(n) -> "published ${n}"
-    }
-}
+    end
+end
 
-fn title(post: db::schema.Post) -> String {
-    case post {
-        db::schema.Post{id, title} -> "${id}: ${title}"
-    }
-}
+fn title(post: db::schema.Post) -> String
+    case post
+        db::schema.Post{id:, title:} -> "${id}: ${title}"
+    end
+end
 
-test "a path below a directory import reaches a file in every position" {
+test "a path below a directory import reaches a file in every position"
     post: db::schema.Post = db::schema.post(1)
 
     assert title(post) == "1: post 1"
@@ -38,26 +38,26 @@ test "a path below a directory import reaches a file in every position" {
     assert db::schema.Post.blank() == db::schema.Post{id: 0, title: ""}
     assert describe(db::schema.Kind.Published(4)) == "published 4"
     assert describe(db::schema.Kind.Draft) == "draft"
-}
+end
 
-test "two files of one short name are told apart by their directories" {
+test "two files of one short name are told apart by their directories"
     args = jobs::notifications.EmailArgs{to: "a@example.com"}
 
     assert db::notifications.pending() + jobs::notifications.pending() == 10
     assert args.to == "a@example.com"
-}
+end
 
-test "a declaration keeps its name, and the file is reached through its directory" {
+test "a declaration keeps its name, and the file is reached through its directory"
     detail: views::admin::users.UserDetail = views::admin::users.UserDetail{name: "ada"}
 
     assert users() == ["ada", "grace"]
     assert views::admin::users.render(detail) == "<ada>"
-}
+end
 
-test "a deeper path reaches a file below a subdirectory" {
+test "a deeper path reaches a file below a subdirectory"
     assert views::admin::reports::daily.show() == "daily"
-}
+end
 
-test "a file beside a directory of its name is what its import names" {
+test "a file beside a directory of its name is what its import names"
     assert admin.title() == "admin"
-}
+end

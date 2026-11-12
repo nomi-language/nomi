@@ -1,14 +1,14 @@
 //# The module's second entry point, a tool under `tools/`, which needs no
 //# line in `nomi.toml`. It prints the sample list.
 
-import {
+import
     std::io
     internal::report
     tools::internal::samples
-}
+end
 
-fn main() {
+fn main()
     samples.items()
     |> Iter.map(report.row)
     |> Iter.each(io.print)
-}
+end

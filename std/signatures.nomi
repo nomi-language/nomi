@@ -24,7 +24,7 @@
 //# log. Keys and the randomness ECDSA and PSS signing use come from the
 //# operating system's secure source.
 
-import {
+import
     bool.Bool
     bytes.Bytes
     debug.Debug
@@ -35,31 +35,31 @@ import {
     results.Result.{self, Err, Ok}
     signatures_host
     strings.String
-}
+end
 
 /// Which algorithm a key belongs to.
-pub enum KeyKind {
+pub enum KeyKind
     Ed25519
     /// ECDSA over the NIST P-256 curve (secp256r1).
     EcdsaP256
     Rsa
-}
+end
 
 derive Equatable for KeyKind
 
-impl Display for KeyKind {
-    fn to_string(kind: KeyKind) -> String {
-        case kind {
+impl Display for KeyKind
+    fn to_string(kind: KeyKind) -> String
+        case kind
             .Ed25519 -> "Ed25519"
             .EcdsaP256 -> "ECDSA P-256"
             .Rsa -> "RSA"
-        }
-    }
-}
+        end
+    end
+end
 
 /// How a signature is made and checked. Each key kind has its own; `sign`
 /// and `is_valid` use the first one listed for it.
-pub enum Scheme {
+pub enum Scheme
     /// Ed25519, for an Ed25519 key: 64 bytes.
     Ed25519
     /// ECDSA P-256 with SHA-256, as r and s of 32 bytes each: 64 bytes,
@@ -74,29 +74,29 @@ pub enum Scheme {
     /// RSA PSS with SHA-256 and MGF1-SHA-256 (JWS PS256). Signing uses a
     /// 32-byte salt; checking accepts any salt length.
     RsaPssSha256
-}
+end
 
 derive Equatable for Scheme
 
 /// A private key: what signs. Its bytes never print; `Display` and
 /// `Debug` show `PrivateKey(<kind>)`.
-pub opaque struct PrivateKey {
+pub opaque struct PrivateKey
     kind: KeyKind
     /// PKCS #8 DER.
     der: Bytes
-}
+end
 
 /// A public key: what checks a signature its private key made. Two public
 /// keys are equal when they are the same key.
-pub opaque struct PublicKey {
+pub opaque struct PublicKey
     kind: KeyKind
     /// PKIX (SubjectPublicKeyInfo) DER.
     der: Bytes
-}
+end
 
 derive Equatable for PublicKey
 
-impl PrivateKey {
+impl PrivateKey
     /// A new Ed25519 key.
     //! import std::signatures.{KeyKind, PrivateKey}
     //!
@@ -104,18 +104,18 @@ impl PrivateKey {
     //! assert PrivateKey.kind(key) == KeyKind.Ed25519
     //! assert "${key}" == "PrivateKey(Ed25519)"
     //
-    pub fn generate_ed25519() -> PrivateKey {
+    pub fn generate_ed25519() -> PrivateKey
         PrivateKey{kind: .Ed25519, der: signatures_host.generate_ed25519()}
-    }
+    end
 
     /// A new ECDSA P-256 key.
     //! import std::signatures.{KeyKind, PrivateKey}
     //!
     //! assert PrivateKey.kind(PrivateKey.generate_ecdsa_p256()) == KeyKind.EcdsaP256
     //
-    pub fn generate_ecdsa_p256() -> PrivateKey {
+    pub fn generate_ecdsa_p256() -> PrivateKey
         PrivateKey{kind: .EcdsaP256, der: signatures_host.generate_p256()}
-    }
+    end
 
     /// A new RSA key with a modulus of `bits` bits, 2048 to 8192. A 2048-bit
     /// key takes a few tenths of a second to make, and a 4096-bit one a few
@@ -124,10 +124,10 @@ impl PrivateKey {
     //!
     //! assert PrivateKey.generate_rsa(bits: 1024) == Err("an RSA key has 2048 to 8192 bits, got 1024")
     //
-    pub fn generate_rsa(bits: Int = 2048) -> Result<PrivateKey, String> {
+    pub fn generate_rsa(bits: Int = 2048) -> Result<PrivateKey, String>
         der = signatures_host.generate_rsa(bits)?
-        Ok(PrivateKey{kind: .Rsa, der})
-    }
+        Ok(PrivateKey{kind: .Rsa, der:})
+    end
 
     /// The first private key in PEM `text`: a `PRIVATE KEY` block (PKCS
     /// #8), `RSA PRIVATE KEY` (PKCS #1) or `EC PRIVATE KEY` (SEC 1). Other
@@ -146,14 +146,14 @@ impl PrivateKey {
     //! assert PrivateKey.kind(key) == KeyKind.Ed25519
     //! assert PrivateKey.from_pem("hello") == Err("no private key PEM block")
     //
-    pub fn from_pem(text: String) -> Result<PrivateKey, String> {
+    pub fn from_pem(text: String) -> Result<PrivateKey, String>
         private(signatures_host.private_from_pem(text)?)
-    }
+    end
 
     /// The private key in DER `der`: PKCS #8, PKCS #1 (RSA) or SEC 1 (EC).
-    pub fn from_der(der: Bytes) -> Result<PrivateKey, String> {
+    pub fn from_der(der: Bytes) -> Result<PrivateKey, String>
         private(signatures_host.private_from_der(der)?)
-    }
+    end
 
     /// The Ed25519 key whose private key, in RFC 8032's terms, is the 32
     /// bytes `seed`.
@@ -169,10 +169,10 @@ impl PrivateKey {
     //! assert PrivateKey.from_ed25519_seed(Bytes.slice(seed, 0, 31))
     //!     == Err("an Ed25519 seed is 32 bytes, got 31")
     //
-    pub fn from_ed25519_seed(seed: Bytes) -> Result<PrivateKey, String> {
+    pub fn from_ed25519_seed(seed: Bytes) -> Result<PrivateKey, String>
         der = signatures_host.ed25519_from_seed(seed)?
-        Ok(PrivateKey{kind: .Ed25519, der})
-    }
+        Ok(PrivateKey{kind: .Ed25519, der:})
+    end
 
     /// `key` as PEM: a PKCS #8 `PRIVATE KEY` block, which OpenSSL and
     /// `from_pem` read.
@@ -183,47 +183,47 @@ impl PrivateKey {
     //! assert String.starts_with(pem, "-----BEGIN PRIVATE KEY-----\n")
     //! assert PrivateKey.public_key(PrivateKey.from_pem(pem)!) == PrivateKey.public_key(key)
     //
-    pub fn to_pem(key: PrivateKey) -> String {
+    pub fn to_pem(key: PrivateKey) -> String
         signatures_host.private_to_pem(key.der)
-    }
+    end
 
     /// `key` as PKCS #8 DER.
-    pub fn to_der(key: PrivateKey) -> Bytes {
+    pub fn to_der(key: PrivateKey) -> Bytes
         key.der
-    }
+    end
 
     /// An Ed25519 key's 32-byte seed, or `None` for another kind.
-    pub fn ed25519_seed(key: PrivateKey) -> Maybe<Bytes> {
-        case key.kind {
+    pub fn ed25519_seed(key: PrivateKey) -> Maybe<Bytes>
+        case key.kind
             .Ed25519 -> Some(signatures_host.ed25519_seed(key.der))
             _ -> None
-        }
-    }
+        end
+    end
 
     /// The public key that checks what `key` signs.
-    pub fn public_key(key: PrivateKey) -> PublicKey {
+    pub fn public_key(key: PrivateKey) -> PublicKey
         PublicKey{kind: key.kind, der: signatures_host.public_of(key.der)}
-    }
+    end
 
     /// Which algorithm `key` belongs to.
-    pub fn kind(key: PrivateKey) -> KeyKind {
+    pub fn kind(key: PrivateKey) -> KeyKind
         key.kind
-    }
-}
+    end
+end
 
-impl Display for PrivateKey {
-    fn to_string(key: PrivateKey) -> String {
+impl Display for PrivateKey
+    fn to_string(key: PrivateKey) -> String
         "PrivateKey(${key.kind})"
-    }
-}
+    end
+end
 
-impl Debug for PrivateKey {
-    fn inspect(key: PrivateKey) -> String {
+impl Debug for PrivateKey
+    fn inspect(key: PrivateKey) -> String
         "PrivateKey(${key.kind})"
-    }
-}
+    end
+end
 
-impl PublicKey {
+impl PublicKey
     /// The first public key in PEM `text`: a `PUBLIC KEY` block (PKIX), or
     /// `RSA PUBLIC KEY` (PKCS #1).
     //! import std::signatures.{KeyKind, PublicKey}
@@ -237,56 +237,56 @@ impl PublicKey {
     //!
     //! assert PublicKey.kind(PublicKey.from_pem(pem)!) == KeyKind.Ed25519
     //
-    pub fn from_pem(text: String) -> Result<PublicKey, String> {
+    pub fn from_pem(text: String) -> Result<PublicKey, String>
         public(signatures_host.public_from_pem(text)?)
-    }
+    end
 
     /// The public key in DER `der`: PKIX, or PKCS #1 (RSA).
-    pub fn from_der(der: Bytes) -> Result<PublicKey, String> {
+    pub fn from_der(der: Bytes) -> Result<PublicKey, String>
         public(signatures_host.public_from_der(der)?)
-    }
+    end
 
     /// The Ed25519 public key whose 32-byte encoding is `data`.
-    pub fn from_ed25519_bytes(data: Bytes) -> Result<PublicKey, String> {
+    pub fn from_ed25519_bytes(data: Bytes) -> Result<PublicKey, String>
         der = signatures_host.ed25519_public_from_bytes(data)?
-        Ok(PublicKey{kind: .Ed25519, der})
-    }
+        Ok(PublicKey{kind: .Ed25519, der:})
+    end
 
     /// `key` as PEM: a PKIX `PUBLIC KEY` block.
-    pub fn to_pem(key: PublicKey) -> String {
+    pub fn to_pem(key: PublicKey) -> String
         signatures_host.public_to_pem(key.der)
-    }
+    end
 
     /// `key` as PKIX DER.
-    pub fn to_der(key: PublicKey) -> Bytes {
+    pub fn to_der(key: PublicKey) -> Bytes
         key.der
-    }
+    end
 
     /// An Ed25519 key's 32-byte encoding, or `None` for another kind.
-    pub fn ed25519_bytes(key: PublicKey) -> Maybe<Bytes> {
-        case key.kind {
+    pub fn ed25519_bytes(key: PublicKey) -> Maybe<Bytes>
+        case key.kind
             .Ed25519 -> Some(signatures_host.ed25519_public_bytes(key.der))
             _ -> None
-        }
-    }
+        end
+    end
 
     /// Which algorithm `key` belongs to.
-    pub fn kind(key: PublicKey) -> KeyKind {
+    pub fn kind(key: PublicKey) -> KeyKind
         key.kind
-    }
-}
+    end
+end
 
-impl Display for PublicKey {
-    fn to_string(key: PublicKey) -> String {
+impl Display for PublicKey
+    fn to_string(key: PublicKey) -> String
         "PublicKey(${key.kind})"
-    }
-}
+    end
+end
 
-impl Debug for PublicKey {
-    fn inspect(key: PublicKey) -> String {
+impl Debug for PublicKey
+    fn inspect(key: PublicKey) -> String
         "PublicKey(${key.kind})"
-    }
-}
+    end
+end
 
 /// `message` signed by `key` with its kind's usual scheme: `Ed25519`,
 /// `EcdsaSha256` (64 bytes, r and s) or `RsaPkcs1Sha256`. An Ed25519 or
@@ -304,9 +304,9 @@ impl Debug for PublicKey {
 //!     signature
 //! ) == "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00"
 //
-pub fn sign(key: PrivateKey, message: Bytes) -> Bytes {
+pub fn sign(key: PrivateKey, message: Bytes) -> Bytes
     signatures_host.sign(key.der, scheme_number(usual_scheme(key.kind)), message)
-}
+end
 
 /// `message` signed by `key` with `scheme`, or an `Err` when `scheme` is
 /// not one of the key's kind.
@@ -320,13 +320,13 @@ pub fn sign(key: PrivateKey, message: Bytes) -> Bytes {
 //! assert signatures.sign_with(key, Scheme.RsaPssSha256, message)
 //!     == Err("an ECDSA P-256 key does not sign with RsaPssSha256")
 //
-pub fn sign_with(key: PrivateKey, scheme: Scheme, message: Bytes) -> Result<Bytes, String> {
-    if scheme_kind(scheme) == key.kind {
+pub fn sign_with(key: PrivateKey, scheme: Scheme, message: Bytes) -> Result<Bytes, String>
+    if scheme_kind(scheme) == key.kind then
         Ok(signatures_host.sign(key.der, scheme_number(scheme), message))
-    } else {
+    else
         Err("an ${key.kind} key does not sign with ${scheme_name(scheme)}")
-    }
-}
+    end
+end
 
 /// Whether `signature` is `message` signed by the private key of `key`,
 /// with its kind's usual scheme, as `sign` makes it. A signature of the
@@ -346,9 +346,9 @@ pub fn sign_with(key: PrivateKey, scheme: Scheme, message: Bytes) -> Result<Byte
 //! assert signatures.is_valid(key, Bytes.from_list([]), signature)
 //! refute signatures.is_valid(key, String.to_bytes("x"), signature)
 //
-pub fn is_valid(key: PublicKey, message: Bytes, signature: Bytes) -> Bool {
+pub fn is_valid(key: PublicKey, message: Bytes, signature: Bytes) -> Bool
     signatures_host.is_valid(key.der, scheme_number(usual_scheme(key.kind)), message, signature)
-}
+end
 
 /// Whether `signature` is `message` signed by the private key of `key`
 /// with `scheme`. A scheme of another key kind is `False`.
@@ -360,65 +360,65 @@ pub fn is_valid(key: PublicKey, message: Bytes, signature: Bytes) -> Bool {
 //! assert signatures.is_valid_with(PrivateKey.public_key(key), Scheme.Ed25519, message, signature)
 //! refute signatures.is_valid_with(PrivateKey.public_key(key), Scheme.EcdsaSha256, message, signature)
 //
-pub fn is_valid_with(key: PublicKey, scheme: Scheme, message: Bytes, signature: Bytes) -> Bool {
+pub fn is_valid_with(key: PublicKey, scheme: Scheme, message: Bytes, signature: Bytes) -> Bool
     scheme_kind(scheme) == key.kind
         and signatures_host.is_valid(key.der, scheme_number(scheme), message, signature)
-}
+end
 
 /// The scheme `sign` and `is_valid` use for a kind.
-fn usual_scheme(kind: KeyKind) -> Scheme {
-    case kind {
+fn usual_scheme(kind: KeyKind) -> Scheme
+    case kind
         .Ed25519 -> .Ed25519
         .EcdsaP256 -> .EcdsaSha256
         .Rsa -> .RsaPkcs1Sha256
-    }
-}
+    end
+end
 
 /// The key kind a scheme signs with.
-fn scheme_kind(scheme: Scheme) -> KeyKind {
-    case scheme {
+fn scheme_kind(scheme: Scheme) -> KeyKind
+    case scheme
         .Ed25519 -> .Ed25519
         .EcdsaSha256 -> .EcdsaP256
         .EcdsaSha256Der -> .EcdsaP256
         .RsaPkcs1Sha256 -> .Rsa
         .RsaPssSha256 -> .Rsa
-    }
-}
+    end
+end
 
 /// A scheme as std/signatures_host numbers it.
-fn scheme_number(scheme: Scheme) -> Int {
-    case scheme {
+fn scheme_number(scheme: Scheme) -> Int
+    case scheme
         .Ed25519 -> 0
         .EcdsaSha256 -> 1
         .RsaPkcs1Sha256 -> 2
         .RsaPssSha256 -> 3
         .EcdsaSha256Der -> 4
-    }
-}
+    end
+end
 
-fn scheme_name(scheme: Scheme) -> String {
-    case scheme {
+fn scheme_name(scheme: Scheme) -> String
+    case scheme
         .Ed25519 -> "Ed25519"
         .EcdsaSha256 -> "EcdsaSha256"
         .EcdsaSha256Der -> "EcdsaSha256Der"
         .RsaPkcs1Sha256 -> "RsaPkcs1Sha256"
         .RsaPssSha256 -> "RsaPssSha256"
-    }
-}
+    end
+end
 
 /// A kind as std/signatures_host numbers it.
-fn kind_of(number: Int) -> KeyKind {
-    case number {
+fn kind_of(number: Int) -> KeyKind
+    case number
         0 -> .Ed25519
         1 -> .EcdsaP256
         _ -> .Rsa
-    }
-}
+    end
+end
 
-fn private(der: Bytes) -> Result<PrivateKey, String> {
-    Ok(PrivateKey{kind: kind_of(signatures_host.private_kind(der)), der})
-}
+fn private(der: Bytes) -> Result<PrivateKey, String>
+    Ok(PrivateKey{kind: kind_of(signatures_host.private_kind(der)), der:})
+end
 
-fn public(der: Bytes) -> Result<PublicKey, String> {
-    Ok(PublicKey{kind: kind_of(signatures_host.public_kind(der)), der})
-}
+fn public(der: Bytes) -> Result<PublicKey, String>
+    Ok(PublicKey{kind: kind_of(signatures_host.public_kind(der)), der:})
+end

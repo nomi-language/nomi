@@ -27,13 +27,13 @@ var arityDiagnostic = regexp.MustCompile("^`[^`]+` expects [0-9]+ type arguments
 
 // plantedUnderApplication is a program that under-applies a generic in a
 // declaration position. Used to prove the census instrument is not blind.
-const plantedUnderApplication = `struct Box<T> {
+const plantedUnderApplication = `struct Box<T>
   inner: T
-}
+end
 
-fn take(b: Box) -> Int {
+fn take(b: Box) -> Int
   b.inner
-}
+end
 `
 
 // TestGenericArity_TreeIsClean is BOTH the blast-radius census for the
@@ -217,13 +217,13 @@ func TestGenericArity_TreeIsClean(t *testing.T) {
 // `return type mismatch: expected Int, got T` on the body's line. The cases
 // below assert the diagnostic now lands on the type the author wrote.
 func TestGenericArity_RejectsAtTheDeclaration(t *testing.T) {
-	const decls = `struct Box<T> {
+	const decls = `struct Box<T>
   inner: T
-}
+end
 
-interface Shown<T> {
+interface Shown<T>
   fn show(b: T) -> String
-}
+end
 
 `
 	fires := []struct {
@@ -236,7 +236,7 @@ interface Shown<T> {
 	}{
 		{
 			name: "return type",
-			src:  "fn make() -> Box {\n  Box{inner: 1}\n}\n",
+			src:  "fn make() -> Box\n  Box{inner: 1}\nend\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 9, col: 14,
 			// No `nothing` here: an unresolvable RETURN type falls back to
@@ -247,38 +247,38 @@ interface Shown<T> {
 		},
 		{
 			name: "parameter type",
-			src:  "fn take(b: Box) -> Int {\n  b.inner\n}\n",
+			src:  "fn take(b: Box) -> Int\n  b.inner\nend\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 9, col: 12,
 			nothing: []string{"return type mismatch"},
 		},
 		{
 			name: "struct field type",
-			src:  "struct Holder {\n  b: Box\n}\n",
+			src:  "struct Holder\n  b: Box\nend\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 10, col: 6,
 		},
 		{
 			name: "nested type argument",
-			src:  "fn each(_xs: List<Box>) -> Int {\n  0\n}\n",
+			src:  "fn each(_xs: List<Box>) -> Int\n  0\nend\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 9, col: 19,
 		},
 		{
 			name: "binding annotation",
-			src:  "fn go() -> Int {\n  held: Box = Box{inner: 1}\n  1\n}\n",
+			src:  "fn go() -> Int\n  held: Box = Box{inner: 1}\n  1\nend\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 10, col: 9,
 		},
 		{
 			name: "enum variant payload",
-			src:  "enum Carrier {\n  Wraps Box\n}\n",
+			src:  "enum Carrier\n  Wraps Box\nend\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 10, col: 9,
 		},
 		{
 			name: "enum variant field type",
-			src:  "enum Carrier {\n  Holds { held: Box }\n}\n",
+			src:  "enum Carrier\n  Holds { held: Box }\nend\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 10, col: 17,
 		},
@@ -296,19 +296,19 @@ interface Shown<T> {
 		},
 		{
 			name: "interface method signature",
-			src:  "interface Handles {\n  fn handle(b: Box) -> Int\n}\n",
+			src:  "interface Handles\n  fn handle(b: Box) -> Int\nend\n",
 			want: "`Box` expects 1 type argument, got 0",
 			line: 10, col: 16,
 		},
 		{
 			name: "where-clause bound",
-			src:  "fn shown<T>(_x: T) -> Int where T: Shown {\n  0\n}\n",
+			src:  "fn shown<T>(_x: T) -> Int where T: Shown\n  0\nend\n",
 			want: "`Shown` expects 1 type argument, got 0",
 			line: 9, col: 36,
 		},
 		{
 			name: "too many type arguments",
-			src:  "fn take(_b: Box<Int, Int>) -> Int {\n  0\n}\n",
+			src:  "fn take(_b: Box<Int, Int>) -> Int\n  0\nend\n",
 			want: "`Box` expects 1 type argument, got 2",
 			line: 9, col: 13,
 		},
@@ -319,7 +319,7 @@ interface Shown<T> {
 			// diagnostic lands on the leading segment, which is where the
 			// unknown-type error for the same node already lands.
 			name: "dotted type name",
-			src:  "pub struct Probe.Held<T> {\n  inner: T\n}\n\nfn take(_h: Probe.Held) -> Int {\n  0\n}\n",
+			src:  "pub struct Probe.Held<T>\n  inner: T\nend\n\nfn take(_h: Probe.Held) -> Int\n  0\nend\n",
 			want: "`Probe.Held` expects 1 type argument, got 0",
 			line: 13, col: 13,
 		},
@@ -364,18 +364,18 @@ func TestGenericArity_LeavesTheLegitimateFormsAlone(t *testing.T) {
 			// PARAMETER reference in a field position; a rule that cannot tell
 			// it from an under-applied generic is the wrong rule.
 			name: "type parameter inside its own declaration",
-			src: `struct Box<T> {
+			src: `struct Box<T>
   inner: T
-}
+end
 
-enum Pick<T> {
+enum Pick<T>
   One T
   Named { held: T }
-}
+end
 
-fn unwrap<T>(b: Box<T>) -> T {
+fn unwrap<T>(b: Box<T>) -> T
   b.inner
-}
+end
 `,
 		},
 		{
@@ -386,19 +386,19 @@ fn unwrap<T>(b: Box<T>) -> T {
 			// std/strings, std/ranges, std/bytes, std/iter, std/regex,
 			// std/toml and std/calendar all depend on this spelling.
 			name: "impl interface header with no type arguments",
-			src: `interface Shown<T> {
+			src: `interface Shown<T>
   fn show(x: T) -> String
-}
+end
 
-struct Tag {
+struct Tag
   name: String
-}
+end
 
-impl Shown for Tag {
-  fn show(_x: Int) -> String {
+impl Shown for Tag
+  fn show(_x: Int) -> String
     "tagged"
-  }
-}
+  end
+end
 `,
 		},
 		{
@@ -407,29 +407,29 @@ impl Shown for Tag {
 			// `Box<Int>{…}` parses as a comparison. No spelling would satisfy
 			// a rule here.
 			name: "struct literal type name",
-			src: `struct Box<T> {
+			src: `struct Box<T>
   inner: T
-}
+end
 
-fn go() -> Int {
+fn go() -> Int
   b = Box{inner: 1}
   b.inner
-}
+end
 `,
 		},
 		{
 			name: "a fully applied generic",
-			src: `struct Box<T> {
+			src: `struct Box<T>
   inner: T
-}
+end
 
-fn take(b: Box<Int>) -> Int {
+fn take(b: Box<Int>) -> Int
   b.inner
-}
+end
 
-struct Holder {
+struct Holder
   b: Box<String>
-}
+end
 `,
 		},
 		{
@@ -437,13 +437,13 @@ struct Holder {
 			// the shape std/ranges.nomi:127 writes as
 			// `where T: Comparable and Steppable<S>`.
 			name: "where bound on a generic interface with its argument",
-			src: `interface Shown<T> {
+			src: `interface Shown<T>
   fn show(x: T) -> String
-}
+end
 
-fn render<T, U>(_x: T) -> String where T: Shown<U> {
+fn render<T, U>(_x: T) -> String where T: Shown<U>
   "ok"
-}
+end
 `,
 		},
 	}

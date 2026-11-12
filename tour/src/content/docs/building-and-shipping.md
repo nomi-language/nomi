@@ -41,17 +41,17 @@ startup:
 
 ```nomi-run
 // FILE: main.nomi
-import {
+import
     std::embed.Files
     std::io
-}
+end
 
 embed site `static`
 
-fn main() {
+fn main()
     io.print(Files.paths(site))
     io.print(Files.read_text(site, "static/index.html")!)
-}
+end
 
 // FILE: static/index.html
 <h1>Hello</h1>
@@ -134,21 +134,21 @@ each function the page may call with `export`:
 ```nomi-run no-run
 import std::json.{FromJson, ToJson}
 
-struct Game {
+struct Game
     word: String
     guesses: List<String>
-}
+end
 
 derive ToJson for Game
 derive FromJson for Game
 
-export fn new_game(word: String) -> Game {
-    Game{word, guesses: []}
-}
+export fn new_game(word: String) -> Game
+    Game{word:, guesses: []}
+end
 
-export fn guess(game: Game, letter: String) -> Game {
-    .{..game, guesses: [letter, ..game.guesses]}
-}
+export fn guess(game: Game, letter: String) -> Game
+    {..game, guesses: [letter, ..game.guesses]}
+end
 ```
 
 Values go between JavaScript and Nomi as JSON, so each type they use derives

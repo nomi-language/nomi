@@ -34,45 +34,45 @@ import std::io
 //     `Iter.map(Codepoint.to_int)` and `Iter.map(double)`.
 //  7. A function inside a LIST, so the value survives a container round trip
 //     rather than only an argument slot.
-fn double(x: Int) -> Int {
+fn double(x: Int) -> Int
     x * 2
-}
+end
 
-fn triple(x: Int) -> Int {
+fn triple(x: Int) -> Int
     x * 3
-}
+end
 
-fn sub(a: Int, b: Int) -> Int {
+fn sub(a: Int, b: Int) -> Int
     a - b
-}
+end
 
-fn flip(a: Int, b: Int) -> Int {
+fn flip(a: Int, b: Int) -> Int
     b - a
-}
+end
 
-fn shout(s: String) -> String {
+fn shout(s: String) -> String
     s + "!"
-}
+end
 
-fn apply(f: (Int) -> Int, x: Int) -> Int {
+fn apply(f: (Int) -> Int, x: Int) -> Int
     f(x)
-}
+end
 
-fn apply2(f: (Int, Int) -> Int, a: Int, b: Int) -> Int {
+fn apply2(f: (Int, Int) -> Int, a: Int, b: Int) -> Int
     f(a, b)
-}
+end
 
 // HETEROGENEOUS parameters, so the reference's parameter ORDER is observable.
 // `sub`/`flip` above cannot see a reversal: `(Int, Int) -> Int` reversed is the
 // same function type and the same slots. `(String, Int) -> String` reversed is
 // not a type the consumer's slot accepts, so a reversal fails to type.
-fn tag(s: String, n: Int) -> String {
+fn tag(s: String, n: Int) -> String
     s + "#" + Display.to_string(n)
-}
+end
 
-fn apply_sn(f: (String, Int) -> String, s: String, n: Int) -> String {
+fn apply_sn(f: (String, Int) -> String, s: String, n: Int) -> String
     f(s, n)
-}
+end
 
 // A MULTI-PARAMETER stdlib method reference, which the one-parameter
 // `Codepoint.to_int` below cannot stand in for: the std side is a THUNK that
@@ -82,31 +82,31 @@ fn apply_sn(f: (String, Int) -> String, s: String, n: Int) -> String {
 // and `String.contains` is homogeneous so a reversal is a wrong ANSWER that
 // only the output comparison can see. Measured: with neither of these, reversing
 // the thunk's argument list left the whole guard set green.
-fn apply3(f: (String, Int, Int) -> String, s: String, a: Int, b: Int) -> String {
+fn apply3(f: (String, Int, Int) -> String, s: String, a: Int, b: Int) -> String
     f(s, a, b)
-}
+end
 
-fn apply_ss(f: (String, String) -> Bool, a: String, b: String) -> Bool {
+fn apply_ss(f: (String, String) -> Bool, a: String, b: String) -> Bool
     f(a, b)
-}
+end
 
-fn twice(f: (Int) -> Int, x: Int) -> Int {
+fn twice(f: (Int) -> Int, x: Int) -> Int
     f(f(x))
-}
+end
 
 // A named function RETURNED as a value, chosen at run time.
-fn pick(which: String) -> (Int) -> Int {
-    if which == "double" { double } else { triple }
-}
+fn pick(which: String) -> (Int) -> Int
+    if which == "double" then double else triple
+end
 
 // The trailing-named-function routing rule: an argument whose own slot does not
 // take a function, while the LAST parameter does, moves to the last slot and
 // the slot it skipped falls back to its default. So this reads `factor = 3`.
-fn scale(x: Int, factor: Int = 3, f: (Int) -> Int) -> Int {
+fn scale(x: Int, factor: Int = 3, f: (Int) -> Int) -> Int
     f(x) * factor
-}
+end
 
-fn main() {
+fn main()
     // 1. Two functions of ONE function type, told apart only by which name was written.
     io.print("sub via value    = ${apply2(sub, 10, 3)}")
     io.print("flip via value   = ${apply2(flip, 10, 3)}")
@@ -122,7 +122,7 @@ fn main() {
 
     // 3. Selected at RUN TIME, so no call site names the callee.
     flag = 4 > 3
-    chosen = if flag { double } else { triple }
+    chosen = if flag then double else triple
     io.print("chosen(5)        = ${chosen(5)}")
     io.print("apply(triple, 5) = ${apply(triple, 5)}")
 
@@ -166,8 +166,8 @@ fn main() {
     fns = [double, triple]
     first = List.head(fns)
 
-    case first {
+    case first
         Some(h) -> io.print("fns[0](6)        = ${h(6)}")
         None -> io.print("fns[0](6)        = none")
-    }
-}
+    end
+end

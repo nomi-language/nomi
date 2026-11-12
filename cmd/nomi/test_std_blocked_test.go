@@ -45,7 +45,7 @@ func TestTestCommand_StdCaseBlockedInAnotherStdFileNamesThatFile(t *testing.T) {
 	}
 	withPlantedDeclineOf(t, "nanos_in_range")
 	promptLine, _ := stdPosition(t, "std/timer.nomi", "//! assert timer.sleep(Duration.nanoseconds(0))", 0)
-	line, col := stdPosition(t, "std/duration.nomi", "pub fn nanoseconds(n: Int) -> Duration {\n        Duration(nanos_in_range(n))", len("pub fn nanoseconds(n: Int) -> Duration {\n        Duration("))
+	line, col := stdPosition(t, "std/duration.nomi", "pub fn nanoseconds(n: Int) -> Duration\n        Duration(nanos_in_range(n))", len("pub fn nanoseconds(n: Int) -> Duration\n        Duration("))
 	at := fmt.Sprintf("std/duration.nomi:%d:%d", line, col)
 	message := "this call to `nanos_in_range` is not supported yet, so `fn Duration.nanoseconds` cannot run"
 

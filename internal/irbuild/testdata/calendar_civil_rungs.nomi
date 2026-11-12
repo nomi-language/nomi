@@ -17,7 +17,7 @@
 // Every `Subtract` rung and the seven Nomi-bodied `Add` rungs are lowered Nomi
 // bodies, so `- Months(1)` reaching the wrong `+ Months(-1)` shows up as a
 // wrong date in the VM's output.
-import {
+import
     std::calendar.{
         DateTime,
         Days,
@@ -35,9 +35,9 @@ import {
     }
     std::duration.Duration
     std::io
-}
+end
 
-fn run() -> Result<Unit, Error> {
+fn run() -> Result<Unit, Error>
     // --- END-OF-MONTH CLAMPING, with the leap-year variant --------------------
     //
     // The 31st of January has no counterpart in February, so `+ Months(1)` must
@@ -143,11 +143,11 @@ fn run() -> Result<Unit, Error> {
     io.print("zoned_sub = " + DateTime.to_string(ny - Minutes(90)))
 
     Ok(Unit)
-}
+end
 
-fn main() {
-    case run() {
+fn main()
+    case run()
         Ok(_u) -> Unit
         Err(_e) -> io.print("FAILED")
-    }
-}
+    end
+end

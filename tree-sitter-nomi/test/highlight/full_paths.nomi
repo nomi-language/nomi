@@ -2,31 +2,31 @@
 // is named through a directory import, and the `::` between them as a
 // delimiter. The caret lines below each line name the highlight of the
 // token they point at.
-import {
+import
     std
     std::uuid
     // ^ punctuation.delimiter
     //   ^ module
-}
+end
 
-fn show(j: std::json.Json) -> std::json.Json {
+fn show(j: std::json.Json) -> std::json.Json
     //     ^ module
     //          ^ module
     //               ^ type
     //                        ^ module
     //                             ^ module
-    case j {
+    case j
         std::json.Json.Null -> std::json.Json.Int(1)
         //   ^ module
         //             ^ constructor
         //                                    ^ constructor
         _ -> j
-    }
-}
+    end
+end
 
-fn say(u: uuid.Uuid) {
+fn say(u: uuid.Uuid)
     std::io.print(u)
     // ^ punctuation.delimiter
     //   ^ module
     //      ^ function.call
-}
+end

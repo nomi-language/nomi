@@ -142,15 +142,15 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 		// arms, is printed empty rather than as the indent alone.
 		name: "blank line in multi-line expression",
 		failure: &AssertionFailure{
-			Line: 18, Keyword: "assert", Expr: "case n {\n    1 -> True\n\n    _ -> False\n}",
+			Line: 18, Keyword: "assert", Expr: "case n\n    1 -> True\n\n    _ -> False\nend",
 			Reason: "assertion failed",
 		},
 		want: "line 18: assertion failed\n" +
-			"  assert case n {\n" +
+			"  assert case n\n" +
 			"      1 -> True\n" +
 			"\n" +
 			"      _ -> False\n" +
-			"  }",
+			"  end",
 	}, {
 		// Direct operand rows. Order is the order they were recorded, never
 		// sorted: a comparison's left operand is shown before its right.

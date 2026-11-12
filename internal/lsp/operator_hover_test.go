@@ -12,30 +12,30 @@ import (
 const operatorHoverDecls = `import std::calendar.{Date, Days, Months}
 import std::io
 
-struct Version {
+struct Version
   major: Int
   minor: Int
-}
+end
 
 derive Comparable for Version
 
-struct Tag {
+struct Tag
   name: String
-}
+end
 
-impl Equatable for Tag {
-  fn equal(a: Tag, b: Tag) -> Bool {
+impl Equatable for Tag
+  fn equal(a: Tag, b: Tag) -> Bool
     String.lowercase(a.name) == String.lowercase(b.name)
-  }
-}
+  end
+end
 
-struct Point {
+struct Point
   x: Int
-}
+end
 
-fn bigger<T>(a: T, b: T) -> Bool where T: Comparable {
+fn bigger<T>(a: T, b: T) -> Bool where T: Comparable
   a > b
-}
+end
 
 `
 
@@ -43,81 +43,81 @@ fn bigger<T>(a: T, b: T) -> Bool where T: Comparable {
 // them, and the impl the checker chose for it.
 func TestHover_Operators(t *testing.T) {
 	runShapeHoverCases(t, operatorHoverDecls, []shapeHoverCase{
-		{"Int +", "fn main() {\n  io.inspect(1 ▮+ 2)\n}\n",
+		{"Int +", "fn main()\n  io.inspect(1 ▮+ 2)\nend\n",
 			[]string{"Int + Int -> Int", "Exact at any size: never overflows.", "`impl Add<Int, Int> for Int` in `std/int`."}, nil},
-		{"Int -", "fn main() {\n  io.inspect(1 ▮- 2)\n}\n",
+		{"Int -", "fn main()\n  io.inspect(1 ▮- 2)\nend\n",
 			[]string{"Int - Int -> Int", "Exact at any size: never overflows.", "`impl Subtract<Int, Int> for Int`"}, nil},
-		{"Int *", "fn main() {\n  io.inspect(3 ▮* 2)\n}\n",
+		{"Int *", "fn main()\n  io.inspect(3 ▮* 2)\nend\n",
 			[]string{"Int * Int -> Int", "Exact at any size: never overflows.", "`impl Multiply<Int, Int> for Int`"}, nil},
-		{"Int / chooses Divide<Int, Int>, not Divide<NonZeroInt, Int>", "fn main() {\n  io.inspect(7 ▮/ 2)\n}\n",
+		{"Int / chooses Divide<Int, Int>, not Divide<NonZeroInt, Int>", "fn main()\n  io.inspect(7 ▮/ 2)\nend\n",
 			[]string{"Int / Int -> Int", "Truncates toward zero; traps on division by zero.", "`impl Divide<Int, Int> for Int`"}, []string{"NonZeroInt"}},
-		{"Int &&&", "fn main() {\n  io.inspect(12 ▮&&& 10)\n}\n",
+		{"Int &&&", "fn main()\n  io.inspect(12 ▮&&& 10)\nend\n",
 			[]string{"Int &&& Int -> Int", "Two's complement at any size", "`impl BitwiseAnd<Int, Int> for Int` in `std/int`."}, nil},
-		{"Int >>>", "fn main() {\n  io.inspect(-8 ▮>>> 1)\n}\n",
+		{"Int >>>", "fn main()\n  io.inspect(-8 ▮>>> 1)\nend\n",
 			[]string{"Int >>> Int -> Int", "Arithmetic shift", "`impl ShiftRight<Int, Int> for Int`"}, nil},
-		{"Int ~~~", "fn main() {\n  io.inspect(▮~~~5)\n}\n",
+		{"Int ~~~", "fn main()\n  io.inspect(▮~~~5)\nend\n",
 			[]string{"~~~Int -> Int", "every bit flipped"}, nil},
-		{"Int %", "fn main() {\n  io.inspect(-7 ▮% 3)\n}\n",
+		{"Int %", "fn main()\n  io.inspect(-7 ▮% 3)\nend\n",
 			[]string{"Int % Int -> Int", "Remainder: takes the dividend's sign; `Int.modulo` takes the divisor's.", "`impl Remainder<Int, Int> for Int`"}, []string{"NonZeroInt"}},
-		{"Decimal /", "fn main() {\n  io.inspect(10d ▮/ 4d)\n}\n",
+		{"Decimal /", "fn main()\n  io.inspect(10d ▮/ 4d)\nend\n",
 			[]string{"Decimal / Decimal -> Decimal", "Rounds half-even to 34 significant digits; `Decimal.divide` names a scale. Traps on division by zero.", "`impl Divide<Decimal, Decimal> for Decimal`"}, nil},
-		{"Decimal %", "fn main() {\n  io.inspect(10.5d ▮% 3d)\n}\n",
+		{"Decimal %", "fn main()\n  io.inspect(10.5d ▮% 3d)\nend\n",
 			[]string{"Decimal % Decimal -> Decimal", "Remainder: exact, takes the dividend's sign.", "`impl Remainder<Decimal, Decimal> for Decimal`"}, nil},
-		{"Float %", "fn main() {\n  io.inspect(7.5 ▮% 2.0)\n}\n",
+		{"Float %", "fn main()\n  io.inspect(7.5 ▮% 2.0)\nend\n",
 			[]string{"Float % Float -> Float", "IEEE 754 fmod", "`impl Remainder<Float, Float> for Float`"}, nil},
-		{"Decimal +", "fn main() {\n  io.inspect(1.50d ▮+ 1.5d)\n}\n",
+		{"Decimal +", "fn main()\n  io.inspect(1.50d ▮+ 1.5d)\nend\n",
 			[]string{"Exact: never rounds."}, nil},
-		{"Float +", "fn main() {\n  io.inspect(1.0 ▮+ 2.0)\n}\n",
+		{"Float +", "fn main()\n  io.inspect(1.0 ▮+ 2.0)\nend\n",
 			[]string{"Float + Float -> Float", "IEEE 754: never traps."}, nil},
-		{"String +", "fn main() {\n  io.inspect(\"a\" ▮+ \"b\")\n}\n",
+		{"String +", "fn main()\n  io.inspect(\"a\" ▮+ \"b\")\nend\n",
 			[]string{"String + String -> String", "Concatenates."}, nil},
-		{"Date + Days", "fn later(day: Date) -> Date {\n  day ▮+ Days(1)\n}\n",
+		{"Date + Days", "fn later(day: Date) -> Date\n  day ▮+ Days(1)\nend\n",
 			[]string{"Date + Days -> Date", "`impl Add<Days, Date> for Date` in `std/calendar`."}, []string{"Months"}},
-		{"Date + Months", "fn later(day: Date) -> Date {\n  day ▮+ Months(1)\n}\n",
+		{"Date + Months", "fn later(day: Date) -> Date\n  day ▮+ Months(1)\nend\n",
 			[]string{"Date + Months -> Date", "`impl Add<Months, Date> for Date` in `std/calendar`."}, []string{"Days"}},
-		{"a user Equatable", "fn main() {\n  io.inspect(Tag{name: \"a\"} ▮== Tag{name: \"A\"})\n}\n",
+		{"a user Equatable", "fn main()\n  io.inspect(Tag{name: \"a\"} ▮== Tag{name: \"A\"})\nend\n",
 			[]string{"Tag == Tag -> Bool", "Uses `impl Equatable for Tag` in this file."}, nil},
-		{"structural equality", "fn main() {\n  io.inspect(Point{x: 1} ▮!= Point{x: 2})\n}\n",
+		{"structural equality", "fn main()\n  io.inspect(Point{x: 1} ▮!= Point{x: 2})\nend\n",
 			[]string{"Point != Point -> Bool", "Structural: compares field by field."}, nil},
-		{"Float ==", "fn main() {\n  io.inspect(1.0 ▮== 1.0)\n}\n",
+		{"Float ==", "fn main()\n  io.inspect(1.0 ▮== 1.0)\nend\n",
 			[]string{"`nan == nan` is `True`"}, nil},
-		{"a derived Comparable", "fn main() {\n  io.inspect(Version{major: 1, minor: 2} ▮< Version{major: 1, minor: 3})\n}\n",
+		{"a derived Comparable", "fn main()\n  io.inspect(Version{major: 1, minor: 2} ▮< Version{major: 1, minor: 3})\nend\n",
 			[]string{"Version < Version -> Bool", "Derived: `derive Comparable for Version`, which compares field by field in declaration order."}, nil},
-		{"a std Comparable", "fn main() {\n  io.inspect(\"a\" ▮<= \"b\")\n}\n",
+		{"a std Comparable", "fn main()\n  io.inspect(\"a\" ▮<= \"b\")\nend\n",
 			[]string{"String <= String -> Bool", "`impl Comparable for String` in `std/strings`."}, nil},
-		{"a type parameter's bound", "fn main() {\n  io.inspect(bigger(1, 2))\n}\n\nfn more<T>(a: T, b: T) -> Bool where T: Comparable {\n  a ▮>= b\n}\n",
+		{"a type parameter's bound", "fn main()\n  io.inspect(bigger(1, 2))\nend\n\nfn more<T>(a: T, b: T) -> Bool where T: Comparable\n  a ▮>= b\nend\n",
 			[]string{"T >= T -> Bool", "Through the bound `T: Comparable`."}, nil},
-		{"and", "fn main() {\n  io.inspect(True ▮and False)\n}\n",
+		{"and", "fn main()\n  io.inspect(True ▮and False)\nend\n",
 			[]string{"Bool and Bool -> Bool", "the right side runs only when the left is `True`."}, nil},
-		{"or", "fn main() {\n  io.inspect(True ▮or False)\n}\n",
+		{"or", "fn main()\n  io.inspect(True ▮or False)\nend\n",
 			[]string{"the right side runs only when the left is `False`."}, nil},
-		{"not", "fn main() {\n  io.inspect(▮not True)\n}\n",
+		{"not", "fn main()\n  io.inspect(▮not True)\nend\n",
 			[]string{"not Bool -> Bool"}, []string{"Short-circuits"}},
-		{"a not stage", "fn main() {\n  io.inspect(\"\" |> n▮ot String.is_empty())\n}\n",
+		{"a not stage", "fn main()\n  io.inspect(\"\" |> n▮ot String.is_empty())\nend\n",
 			[]string{"not Bool -> Bool"}, nil},
-		{"is", "fn main() {\n  io.inspect(Some(1) ▮is Some(_))\n}\n",
+		{"is", "fn main()\n  io.inspect(Some(1) ▮is Some(_))\nend\n",
 			[]string{"Maybe<Int> is Some(_) -> Bool", "as a `case` arm would. It binds nothing."}, nil},
-		{"is over a parenthesized or", "fn main() {\n  io.inspect(1 i▮s (1 or 2))\n}\n",
+		{"is over a parenthesized or", "fn main()\n  io.inspect(1 i▮s (1 or 2))\nend\n",
 			[]string{"Int is 1 or 2 -> Bool"}, nil},
-		{"in", "fn main() {\n  io.inspect(1 ▮in %[1, 2])\n}\n",
+		{"in", "fn main()\n  io.inspect(1 ▮in Set[1, 2])\nend\n",
 			[]string{"Int in Set<Int> -> Bool", "`Contains.contains(c, x)`, with the value evaluated first."}, []string{"A map holds its keys."}},
-		{"in at its second column", "fn main() {\n  io.inspect(\"a\" i▮n %{\"a\" => 1})\n}\n",
+		{"in at its second column", "fn main()\n  io.inspect(\"a\" i▮n {\"a\" => 1})\nend\n",
 			[]string{"String in Map<String, Int> -> Bool", "A map holds its keys."}, nil},
-		{"..", "fn main() {\n  io.inspect(0▮..3)\n}\n",
+		{"..", "fn main()\n  io.inspect(0▮..3)\nend\n",
 			[]string{"```nomi\nRange<Int>\n```", "Exclusive"}, nil},
-		{"..=", "fn main() {\n  io.inspect(0..▮=3)\n}\n",
+		{"..=", "fn main()\n  io.inspect(0..▮=3)\nend\n",
 			[]string{"```nomi\nRange<Int>\n```", "Inclusive"}, nil},
-		{"unary - on Int", "fn main() {\n  n = 3\n  io.inspect(▮-n)\n}\n",
+		{"unary - on Int", "fn main()\n  n = 3\n  io.inspect(▮-n)\nend\n",
 			[]string{"-Int -> Int", "Negation, exact at any size."}, nil},
-		{"unary - on Float", "fn main() {\n  f = 3.0\n  io.inspect(▮-f)\n}\n",
+		{"unary - on Float", "fn main()\n  f = 3.0\n  io.inspect(▮-f)\nend\n",
 			[]string{"-Float -> Float"}, []string{"traps"}},
-		{"inside a capture", "fn main() {\n  io.inspect([1, 5] |> Iter.filter(&(&1 ▮> 2)) |> Iter.to_list())\n}\n",
+		{"inside a capture", "fn main()\n  io.inspect([1, 5] |> Iter.filter(&(&1 ▮> 2)) |> Iter.to_list())\nend\n",
 			[]string{"Int > Int -> Bool", "`impl Comparable for Int` in `std/int`."}, nil},
-		{"inside a lambda", "fn main() {\n  io.inspect([1, 5] |> Iter.map(fn n -> n ▮* 2) |> Iter.to_list())\n}\n",
+		{"inside a lambda", "fn main()\n  io.inspect([1, 5] |> Iter.map(fn n -> n ▮* 2) |> Iter.to_list())\nend\n",
 			[]string{"Int * Int -> Int"}, nil},
-		{"an operand that fails to type", "fn main() {\n  io.inspect(nope ▮+ 1)\n}\n",
+		{"an operand that fails to type", "fn main()\n  io.inspect(nope ▮+ 1)\nend\n",
 			[]string{"_ + Int"}, []string{"->"}},
-		{"two operands that fail to type", "fn main() {\n  io.inspect(nope ▮+ nada)\n}\n",
+		{"two operands that fail to type", "fn main()\n  io.inspect(nope ▮+ nada)\nend\n",
 			nil, nil},
 	})
 }
@@ -129,22 +129,22 @@ func operatorProject(t *testing.T) string {
 	root := t.TempDir()
 	files := map[string]string{
 		"nomi.toml": "[module]\nname = \"ops\"\n",
-		"money.nomi": `pub struct Money {
+		"money.nomi": `pub struct Money
   cents: Int
-}
+end
 
-impl Add<Money, Money> for Money {
-  fn add(a: Money, b: Money) -> Money {
+impl Add<Money, Money> for Money
+  fn add(a: Money, b: Money) -> Money
     Money{cents: a.cents + b.cents}
-  }
-}
+  end
+end
 `,
 		"main.nomi": `import std::io
 import money.Money
 
-fn main() {
+fn main()
   io.inspect(Money{cents: 1} + Money{cents: 2})
-}
+end
 `,
 	}
 	for name, text := range files {
@@ -217,12 +217,12 @@ func TestDefinition_Operators(t *testing.T) {
 		file       string // "" for no definition
 		line       uint32
 	}{
-		{"Date + Days", "fn later(day: Date) -> Date {\n  day ▮+ Days(1)\n}\n", "calendar", stdLine("calendar.nomi", "impl Add<Days, Date> for Date")},
-		{"Date + Months", "fn later(day: Date) -> Date {\n  day ▮+ Months(1)\n}\n", "calendar", stdLine("calendar.nomi", "impl Add<Months, Date> for Date")},
-		{"Int +", "fn main() {\n  io.inspect(1 ▮+ 2)\n}\n", "int", stdLine("int.nomi", "impl Add<Int, Int> for Int")},
-		{"Int <", "fn main() {\n  io.inspect(1 ▮< 2)\n}\n", "int", stdLine("int.nomi", "impl Comparable for Int")},
-		{"Int %", "fn main() {\n  io.inspect(7 ▮% 2)\n}\n", "int", stdLine("int.nomi", "impl Remainder<Int, Int> for Int")},
-		{"a derived Comparable", "fn main() {\n  io.inspect(Version{major: 1, minor: 2} ▮< Version{major: 1, minor: 3})\n}\n", "", 0},
+		{"Date + Days", "fn later(day: Date) -> Date\n  day ▮+ Days(1)\nend\n", "calendar", stdLine("calendar.nomi", "impl Add<Days, Date> for Date")},
+		{"Date + Months", "fn later(day: Date) -> Date\n  day ▮+ Months(1)\nend\n", "calendar", stdLine("calendar.nomi", "impl Add<Months, Date> for Date")},
+		{"Int +", "fn main()\n  io.inspect(1 ▮+ 2)\nend\n", "int", stdLine("int.nomi", "impl Add<Int, Int> for Int")},
+		{"Int <", "fn main()\n  io.inspect(1 ▮< 2)\nend\n", "int", stdLine("int.nomi", "impl Comparable for Int")},
+		{"Int %", "fn main()\n  io.inspect(7 ▮% 2)\nend\n", "int", stdLine("int.nomi", "impl Remainder<Int, Int> for Int")},
+		{"a derived Comparable", "fn main()\n  io.inspect(Version{major: 1, minor: 2} ▮< Version{major: 1, minor: 3})\nend\n", "", 0},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

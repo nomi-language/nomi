@@ -16,46 +16,46 @@ func TestAnalyze_OperatorHovers(t *testing.T) {
 	const src = `import std::calendar.{Date, Days, Months}
 import std::io
 
-struct Money {
+struct Money
   cents: Int
-}
+end
 
-impl Add<Money, Money> for Money {
-  fn add(a: Money, b: Money) -> Money {
+impl Add<Money, Money> for Money
+  fn add(a: Money, b: Money) -> Money
     Money{cents: a.cents + b.cents}
-  }
-}
+  end
+end
 
-struct Version {
+struct Version
   major: Int
   minor: Int
-}
+end
 
 derive Comparable for Version
 
-struct Tag {
+struct Tag
   name: String
-}
+end
 
-impl Equatable for Tag {
-  fn equal(a: Tag, b: Tag) -> Bool {
+impl Equatable for Tag
+  fn equal(a: Tag, b: Tag) -> Bool
     String.lowercase(a.name) == String.lowercase(b.name)
-  }
-}
+  end
+end
 
-struct Point {
+struct Point
   x: Int
-}
+end
 
-fn later(day: Date) -> (Date, Date) {
+fn later(day: Date) -> (Date, Date)
   (day + Days(1), day + Months(1))
-}
+end
 
-fn sizes(n: Int, d: Decimal, f: Float) -> (Int, Decimal, Float) {
+fn sizes(n: Int, d: Decimal, f: Float) -> (Int, Decimal, Float)
   (n / 3 + n % 3 - -n, d * 2d, f * 2.0)
-}
+end
 
-fn main() {
+fn main()
   m = Money{cents: 1} + Money{cents: 2}
   newer = Version{major: 1, minor: 2} < Version{major: 1, minor: 3}
   same = Tag{name: "a"} == Tag{name: "A"}
@@ -64,7 +64,7 @@ fn main() {
   big = [1, 5] |> Iter.filter(&(&1 > 2)) |> Iter.map(fn n -> n * 2) |> Iter.to_list()
   io.inspect((m, ok, origin, big, 0..3, 1..=3, later, sizes))
   bad = nope + 1
-}
+end
 `
 	lib := std.Load()
 	fa, nodes := highlight.AnalyzeNodes(src, lib)

@@ -58,31 +58,31 @@ func TestIRDecline_TheSynthesisMaskFiresAndOnlyThere(t *testing.T) {
 func TestIRDecline_ADeclinedOperandAbandonsItsExpression(t *testing.T) {
 	plantDecline(t)
 	path := filepath.Join(t.TempDir(), "main.nomi")
-	src := `fn planted_decline(n: Int) -> Int {
+	src := `fn planted_decline(n: Int) -> Int
     n
-}
+end
 
-fn pick(n: Int) -> Maybe<Int> {
+fn pick(n: Int) -> Maybe<Int>
     Some(
-        {
-            m = Iter.loop(None, fn s: Maybe<Int> -> {
-                case s {
+        begin
+            m = Iter.loop(None, fn s: Maybe<Int> ->
+                case s
                     Some(_) -> break s
                     None -> Some(planted_decline(n))
-                }
-            })
+                end
+            end)
 
-            case m {
+            case m
                 Some(v) -> v
                 None -> todo
-            }
-        }
+            end
+        end
     )
-}
+end
 
-fn main() {
+fn main()
     _ = pick(1)
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
 		t.Fatal(err)

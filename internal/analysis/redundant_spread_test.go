@@ -7,21 +7,21 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 )
 
-const redundantSpreadDecls = `struct Geo {
+const redundantSpreadDecls = `struct Geo
   lat: Int
   lon: Int
-}
-struct Address {
+end
+struct Address
   city: String
   geo: Geo
-}
-struct Person {
+end
+struct Person
   name: String
   address: Address
-}
-fn load() -> Person {
+end
+fn load() -> Person
   Person{name: "Ada", address: Address{city: "Bath", geo: Geo{lat: 0, lon: 0}}}
-}
+end
 `
 
 // sourcePos is the 1-based line and byte column of the first needle in src.
@@ -43,27 +43,27 @@ func TestRedundantSpread_RefusesTheFieldsOwnValue(t *testing.T) {
 	for _, tc := range []struct{ name, body, spread, path, field string }{
 		{
 			"one level",
-			`_a = .{..ada, address: .{..ada.address, city: "NYC"}}`,
+			`_a = {..ada, address: {..ada.address, city: "NYC"}}`,
 			"..ada.address", "ada.address", "address",
 		},
 		{
 			"through a bare `..`",
-			`_a = .{..ada, address: .{.., geo: .{..ada.address.geo, lat: 1}}}`,
+			`_a = {..ada, address: {.., geo: {..ada.address.geo, lat: 1}}}`,
 			"..ada.address.geo", "ada.address.geo", "geo",
 		},
 		{
 			"through a named path",
-			`_a = .{..ada.address, geo: .{..ada.address.geo, lat: 1}}`,
+			`_a = {..ada.address, geo: {..ada.address.geo, lat: 1}}`,
 			"..ada.address.geo", "ada.address.geo", "geo",
 		},
 		{
 			"in a Struct.update patch",
-			`_a = Struct.update(ada, .{address: .{..ada.address, city: "NYC"}})`,
+			`_a = Struct.update(ada, {address: {..ada.address, city: "NYC"}})`,
 			"..ada.address", "ada.address", "address",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := redundantSpreadDecls + "fn main() {\n  ada = load()\n  " + tc.body + "\n}\n"
+			src := redundantSpreadDecls + "fn main()\n  ada = load()\n  " + tc.body + "\nend\n"
 			_, errs := checkSourceWithStdlib(src)
 			if len(errs) != 1 {
 				t.Fatalf("want one error, got %d: %v", len(errs), errs)
@@ -96,17 +96,17 @@ func TestRedundantSpread_RefusesTheFieldsOwnValue(t *testing.T) {
 // run `load()` again.
 func TestRedundantSpread_AcceptsOtherValues(t *testing.T) {
 	for _, tc := range []struct{ name, body string }{
-		{"another value", `_a = .{..ada, address: .{..bob.address, city: "NYC"}}`},
-		{"another value through a bare `..`", `_a = .{..ada, address: .{.., geo: .{..bob.address.geo, lat: 1}}}`},
-		{"a call base", `_a = .{..load(), address: .{..load().address, city: "NYC"}}`},
-		{"a bare `..` under a call base", `_a = .{..load(), address: .{.., geo: .{..load().address.geo, lat: 1}}}`},
+		{"another value", `_a = {..ada, address: {..bob.address, city: "NYC"}}`},
+		{"another value through a bare `..`", `_a = {..ada, address: {.., geo: {..bob.address.geo, lat: 1}}}`},
+		{"a call base", `_a = {..load(), address: {..load().address, city: "NYC"}}`},
+		{"a bare `..` under a call base", `_a = {..load(), address: {.., geo: {..load().address.geo, lat: 1}}}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			bindings := ""
 			if strings.Contains(tc.body, "bob") {
 				bindings = "ada = load()\n  bob = load()\n  "
 			}
-			src := redundantSpreadDecls + "fn main() {\n  " + bindings + tc.body + "\n}\n"
+			src := redundantSpreadDecls + "fn main()\n  " + bindings + tc.body + "\nend\n"
 			_, errs := checkSourceWithStdlib(src)
 			if len(errs) != 0 {
 				t.Fatalf("the front end rejects this: %v", errs)

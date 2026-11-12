@@ -19,29 +19,29 @@
 //# reachable from anywhere else, so "who else might be writing this?" has
 //# one answer, and it is nobody.
 
-import {
+import
     std::channels.{Channel, Receiver, Sender}
     std::duration.Duration
     std::io
     std::supervisors.{Backoff, Restart, Supervisor}
-}
+end
 
 /// What callers can ask the worker to do.
 ///
 /// `Increment` is fire-and-forget. `Get` needs an answer, so it carries
 /// the channel to answer on — a request wanting a reply brings its own
 /// return address, since a channel only goes one way.
-pub enum Request {
+pub enum Request
     Increment Int
     Get {reply: Channel<Int>}
     Explode
-}
+end
 
 /// A running counter. Holding one is how you address the worker; the
 /// channel inside is an implementation detail callers never see.
-pub struct Counter {
+pub struct Counter
     inbox: Channel<Request>
-}
+end
 
 /// Create the inbox, the group, and the worker. One call, and the
 /// caller stores one field.
@@ -55,7 +55,7 @@ pub struct Counter {
 /// `Restart.Permanent`. A shared group cannot: permanence says
 /// returning is a failure, which is right for this worker and wrong for
 /// the one-shot work that would sit beside it.
-fn start() -> Counter {
+fn start() -> Counter
     inbox = Channel.buffered<Request>(16)
 
     // The group handle is not kept. Every group is registered with the
@@ -75,8 +75,8 @@ fn start() -> Counter {
         )
         |> Supervisor.spawn(fn -> serve(inbox))
 
-    Counter{inbox}
-}
+    Counter{inbox:}
+end
 
 /// The worker. Runs until its inbox closes or shutdown cancels it.
 ///
@@ -87,56 +87,59 @@ fn start() -> Counter {
 /// What serializes the work is that exactly one of these runs per
 /// inbox — not the group's `max_running`, which is about how much of
 /// the group's whole workload runs at once.
-fn serve(inbox: Channel<Request>) -> Unit {
-    _final = Iter.loop(0, fn count -> {
-        case Receiver.receive(inbox.receiver) {
-            Some(Request.Increment(n)) -> count + n
+fn serve(inbox: Channel<Request>) -> Unit
+    _final = Iter.loop(0, fn count ->
+        case Receiver.receive(inbox.receiver)
+            Some(Request.Increment(n)) ->
+                count + n
 
-            Some(Request.Get{reply}) -> {
+            Some(Request.Get{reply:}) ->
                 // Best-effort: a caller that gave up is not worth crashing over.
                 _ = Sender.send(reply.sender, count)
                 count
-            }
 
             // Stands in for a handler with a bug in it.
-            Some(Request.Explode) -> count / 0
+            Some(Request.Explode) ->
+                count / 0
+
             // The inbox closed and drained: no more work is coming.
-            None -> break count
-        }
-    })
+            None ->
+                break count
+        end
+    end)
 
     Unit
-}
+end
 
 /// Fire-and-forget: returns as soon as the message is queued.
-pub fn increment(counter: Counter, n: Int) -> Unit {
-    case Sender.send(counter.inbox.sender, Request.Increment(n)) {
+pub fn increment(counter: Counter, n: Int) -> Unit
+    case Sender.send(counter.inbox.sender, Request.Increment(n))
         Ok(_) -> Unit
         Err(_) -> Unit
-    }
-}
+    end
+end
 
 /// Ask and wait. The reply channel is made per call, so two callers in
 /// flight can never take each other's answer.
 ///
 /// Capacity 1 so the worker never blocks handing the reply back, even
 /// if this caller has already given up and stopped listening.
-pub fn get(counter: Counter) -> Int {
+pub fn get(counter: Counter) -> Int
     reply = Channel.buffered<Int>(1)
-    _ = Sender.send(counter.inbox.sender, Request.Get{reply})
+    _ = Sender.send(counter.inbox.sender, Request.Get{reply:})
 
-    case Receiver.receive(reply.receiver) {
+    case Receiver.receive(reply.receiver)
         Some(v) -> v
         None -> 0
-    }
-}
+    end
+end
 
-pub fn explode(counter: Counter) -> Unit {
-    case Sender.send(counter.inbox.sender, Request.Explode) {
+pub fn explode(counter: Counter) -> Unit
+    case Sender.send(counter.inbox.sender, Request.Explode)
         Ok(_) -> Unit
         Err(_) -> Unit
-    }
-}
+    end
+end
 
 // There is deliberately no `flush` here.
 //
@@ -149,20 +152,20 @@ pub fn explode(counter: Counter) -> Unit {
 // the worker, so everything queued before it has necessarily been
 // handled by the time it returns. A request that wants an answer is
 // also a barrier.
-pub struct Config {
+pub struct Config
     context: Context
 
     // One field. The server owns its inbox, its group, and its policy, so
     // adding a second server adds one more field and nothing else.
     counter: Counter
-}
+end
 
-pub fn boot() -> Result<Config, String> {
+pub fn boot() -> Result<Config, String>
     Ok(Config{context: Context.root(), counter: start()})
-}
+end
 
-fn main() {
+fn main()
     increment(Config.counter, 5)
     increment(Config.counter, 7)
     io.print("count=${get(Config.counter)}")
-}
+end

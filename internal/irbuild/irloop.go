@@ -264,7 +264,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// The state type the checker solved for the call's `from`.
 		solved = kindInvalid
 		if checked := bl.g.checkedCallSignature(t); checked != nil && len(checked.Params) == 2 {
-			solved = bl.g.projectFilledHoles(checked.Params[0])
+			solved = bl.g.project(checked.Params[0])
 		}
 		// kindInvalid: lookup — asks whether the checker solved the seed's kind; a miss declines retention.
 		if solved == kindInvalid {

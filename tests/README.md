@@ -47,22 +47,22 @@ rejected shape; when a bad expression only needs to be referenced, prefer
 `dbg bad_expression` over importing `std/io` to call `io.inspect`:
 
 ```nomi
-import {
+import
     std::compiler
     test_helpers
-}
+end
 
-test "missing members are rejected" {
+test "missing members are rejected"
     diagnostics = compiler.check(
         """
-            fn main() {
+            fn main()
                 dbg List.empty()
-            }
+            end
         """
     )
 
     assert test_helpers.has_diagnostic(diagnostics, "type 'List' has no member 'empty'")
-}
+end
 ```
 
 **Program output is tested through `compiler.run`.** Use it when stdout is the
@@ -70,12 +70,12 @@ behavior under test, such as `dbg` rendering, and for runtime failure
 behavior. It returns the captured output:
 
 ```nomi
-test "debug output is rendered" {
+test "debug output is rendered"
     result = compiler.run(
         """
-        fn main() {
+        fn main()
           _ = dbg 41 + 1
-        }
+        end
         """
     )
 
@@ -85,7 +85,7 @@ test "debug output is rendered" {
 
         """
     )
-}
+end
 ```
 
 **Hover text is tested through `compiler.hover`.** Use a hover test when the
@@ -95,19 +95,19 @@ assert the value, then add one focused hover test if the signature is part of
 the contract. Put the marker `ˇ` inside the name whose hover is under test:
 
 ```nomi
-test "once hover shows its inferred type" {
+test "once hover shows its inferred type"
     signature = test_helpers.hover_signature(
         """
           once defaultˇ_port = 8080
 
-          fn main() {
+          fn main()
             Unit
-          }
+          end
         """
     )
 
     assert signature == "once default_port: Int = 8080"
-}
+end
 ```
 
 **Use `// expect:` only for intentional output examples.** A trailing

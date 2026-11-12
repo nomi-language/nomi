@@ -1,53 +1,53 @@
-enum Level {
+enum Level
     Low
     Mid
     High
-}
+end
 
 derive Comparable for Level
 
 // Ranks compare by rank only, so two cards of one rank are equal but tell
 // apart by their label.
-struct Card {
+struct Card
     rank: Int
     label: String
-}
+end
 
-impl Comparable for Card {
-    fn compare(a: Card, b: Card) -> Ordering {
+impl Comparable for Card
+    fn compare(a: Card, b: Card) -> Ordering
         Int.compare(a.rank, b.rank)
-    }
-}
+    end
+end
 
-test "Iter.min and Iter.max answer None for an empty source" {
+test "Iter.min and Iter.max answer None for an empty source"
     none: List<Int> = []
     assert Iter.min(none) == None
     assert Iter.max(none) == None
-}
+end
 
-test "one element is both the least and the greatest" {
+test "one element is both the least and the greatest"
     assert Iter.min([7]) == Some(7)
     assert Iter.max([7]) == Some(7)
-}
+end
 
-test "Iter.min and Iter.max pick the least and greatest Int" {
+test "Iter.min and Iter.max pick the least and greatest Int"
     assert Iter.min([4, -2, 9, 0]) == Some(-2)
     assert Iter.max([4, -2, 9, 0]) == Some(9)
-}
+end
 
-test "strings order byte-lexicographically" {
+test "strings order byte-lexicographically"
     words = ["pear", "Fig", "plum", "apple"]
     assert Iter.min(words) == Some("Fig")
     assert Iter.max(words) == Some("plum")
-}
+end
 
-test "a derived Comparable enum orders by variant" {
+test "a derived Comparable enum orders by variant"
     levels = [Level.Mid, Level.High, Level.Low, Level.Mid]
     assert Iter.min(levels) == Some(Level.Low)
     assert Iter.max(levels) == Some(Level.High)
-}
+end
 
-test "of equal elements, the first wins" {
+test "of equal elements, the first wins"
     cards = [
         Card{rank: 2, label: "a"},
         Card{rank: 1, label: "b"},
@@ -57,15 +57,15 @@ test "of equal elements, the first wins" {
 
     assert Iter.min(cards) |> Maybe.map(fn c -> c.label) == Some("b")
     assert Iter.max(cards) |> Maybe.map(fn c -> c.label) == Some("a")
-}
+end
 
-test "Iter.min and Iter.max take any Iter" {
+test "Iter.min and Iter.max take any Iter"
     assert 1..=5 |> Iter.map(fn n -> n * n % 7) |> Iter.max() == Some(4)
 
     assert [3, 1, 2] |> Iter.to_set() |> Iter.min() == Some(1)
-}
+end
 
-test "Iter.min_by and Iter.max_by compare a key, first on ties" {
+test "Iter.min_by and Iter.max_by compare a key, first on ties"
     tasks = [
         ("write", Level.Mid),
         ("ship", Level.High),
@@ -78,11 +78,11 @@ test "Iter.min_by and Iter.max_by compare a key, first on ties" {
     assert Iter.min_by(tasks, fn (_, level) -> level) == Some(("rest", Level.Low))
     assert Iter.max_by(tasks, fn (_, level) -> level) == Some(("ship", Level.High))
     assert Iter.max_by(none, fn (_, level) -> level) == None
-}
+end
 
 // No element is read from an empty source, so `[]` needs no element type
 // here, as for `List.head([])`.
-test "an empty list literal needs no element type" {
+test "an empty list literal needs no element type"
     assert Iter.min([]) == None
     assert Iter.max([]) == None
-}
+end

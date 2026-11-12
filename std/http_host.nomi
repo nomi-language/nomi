@@ -3,7 +3,7 @@
 //# `http_testing.run` installs. It is internal; a program imports std::http,
 //# which builds its values from these and gives them their documentation.
 
-import {
+import
     bool.Bool
     bytes.Bytes
     context.Context
@@ -15,7 +15,7 @@ import {
     results.Result
     strings.String
     unit.Unit
-}
+end
 
 /// A client: Go's `http.Client` with its connection pool.
 pub host type Client
@@ -317,9 +317,9 @@ pub host fn detect_content_type(data: Bytes) -> String
 /// context: the context in force, with a deadline `timeout` nanoseconds
 /// away when `timeout` is not negative. The app's `Context` field reads it
 /// while `body` runs, and the task stops when the client goes away.
-pub fn run_request<T>(incoming: Incoming, timeout: Int, body: (Context) -> T) -> T {
+pub fn run_request<T>(incoming: Incoming, timeout: Int, body: (Context) -> T) -> T
     request_on(incoming, timeout, body, fn v -> v)
-}
+end
 
 host fn request_on<T, R>(
     incoming: Incoming,
@@ -330,20 +330,20 @@ host fn request_on<T, R>(
 
 /// Runs `body` with `answer` responding to every request std::http sends in it,
 /// and in the tasks it starts.
-pub fn with_fake<Q, A, T>(answer: (Q) -> A, body: () -> T) -> T {
+pub fn with_fake<Q, A, T>(answer: (Q) -> A, body: () -> T) -> T
     run_on(answer, body, fn v -> v)
-}
+end
 
 /// What the installed fake returns for `request`, recording it; `None` with no
 /// fake installed.
-pub fn answered<Q, A>(request: Q) -> Maybe<A> {
+pub fn answered<Q, A>(request: Q) -> Maybe<A>
     answer_on(request, fn a -> Some(a), fn -> None)
-}
+end
 
 /// The requests the installed fake has served, in order.
-pub fn answered_requests<Q>() -> List<Q> {
+pub fn answered_requests<Q>() -> List<Q>
     recorded_on(fn requests -> requests)
-}
+end
 
 host fn run_on<Q, A, T, R>(answer: (Q) -> A, body: () -> T, finish: (T) -> R) -> R
 host fn answer_on<Q, A, R>(request: Q, found: (A) -> R, missing: () -> R) -> R

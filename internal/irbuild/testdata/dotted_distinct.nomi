@@ -12,63 +12,63 @@ type Day.Hours Int
 
 type Day.Minutes Int
 
-pub struct Probe {
+pub struct Probe
     id: Int
-}
+end
 
-pub enum Probe.Reading {
+pub enum Probe.Reading
     Steady
     Spike Int
-}
+end
 
-fn day_value(d: Day) -> Int {
+fn day_value(d: Day) -> Int
     Day(n) = d
     n
-}
+end
 
-fn hours_value(h: Day.Hours) -> Int {
+fn hours_value(h: Day.Hours) -> Int
     Day.Hours(n) = h
     n
-}
+end
 
-fn minutes_value(m: Day.Minutes) -> Int {
+fn minutes_value(m: Day.Minutes) -> Int
     Day.Minutes(n) = m
     n
-}
+end
 
-impl Day {
-    fn shift(d: Day, by: Day.Hours) -> Day {
+impl Day
+    fn shift(d: Day, by: Day.Hours) -> Day
         Day(day_value(d) + hours_value(by) / 24)
-    }
-}
+    end
+end
 
-fn reading_text(r: Probe.Reading) -> String {
-    case r {
+fn reading_text(r: Probe.Reading) -> String
+    case r
         Probe.Reading.Steady -> "steady"
         Probe.Reading.Spike(n) -> "spike ${n}"
-    }
-}
+    end
+end
 
-test "a namespaced distinct type constructs and unwraps" {
+test "a namespaced distinct type constructs and unwraps"
     assert hours_value(Day.Hours(48)) == 48
     assert minutes_value(Day.Minutes(90)) == 90
     // Two namespaced distincts under ONE namespace, so the arm is keyed on the
     // whole spelling rather than on the leading segment.
     assert hours_value(Day.Hours(1)) + minutes_value(Day.Minutes(2)) == 3
-}
+end
 
-test "a namespaced distinct passes through a type-qualified call" {
+test "a namespaced distinct passes through a type-qualified call"
     // `Day.shift` is a CALL on the same FieldAccess shape the constructor takes,
     // and implCall must claim it before the constructor arm sees it.
     assert day_value(Day.shift(Day(10), Day.Hours(48))) == 12
-}
+end
 
-test "a namespaced enum's variants keep the variant route" {
+test "a namespaced enum's variants keep the variant route"
     assert reading_text(Probe.Reading.Steady) == "steady"
     assert reading_text(Probe.Reading.Spike(3)) == "spike 3"
-}
+end
 
-test "the unwrap direction still reaches the inner scalar" {
+test "the unwrap direction still reaches the inner scalar"
     Day.Hours(n) = Day.Hours(7)
     assert n == 7
-}
+end

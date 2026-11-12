@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
-records 82
-declared-cases 957
+records 83
+declared-cases 967
 failing 0
 C actors
 E 0
@@ -933,6 +933,20 @@ T ok PluralCategory.cardinal
 T ok PluralCategory.ordinal
 T ok PluralCategory.cardinals
 T ok PluralCategory.ordinals
+C presence
+E 0
+N 10
+H e718b8f7b8adfb21cbb5f7dcb1285212c2489441294ae489b1b9f7eb289e4d8e
+T ok enum Presence
+T ok Presence.is_present
+T ok Presence.is_absent
+T ok Presence.map
+T ok Presence.with_default
+T ok Presence.otherwise
+T ok Presence.to_maybe
+T ok Presence.flatten
+T ok Presence.to_json (impl ToJson for Presence<T>)
+T ok Presence.from_json (impl FromJson for Presence<T>)
 C process
 E 0
 N 8

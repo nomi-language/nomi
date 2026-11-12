@@ -6,10 +6,10 @@ import std::io
 // activations of `emit` must produce exactly N lines, and each line is
 // distinguishable, so a lost line and a torn line are different failures
 // rather than one blurred one.
-fn emit(n: Int) {
+fn emit(n: Int)
     io.print("line ${n}")
-}
+end
 
-fn main() {
+fn main()
     emit(0)
-}
+end

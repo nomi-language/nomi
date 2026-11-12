@@ -15,13 +15,13 @@ import (
 // checks, and only these warnings remain.
 func TestBuildPublishedDiagnosticsReportsTodoWarnings(t *testing.T) {
 	content := strings.Join([]string{
-		"fn parse(text: String) -> Int {",
+		"fn parse(text: String) -> Int",
 		"    todo \"parse the header\"",
-		"}",
+		"end",
 		"",
-		"fn main() {",
+		"fn main()",
 		"    _ = parse(\"x\") + todo",
-		"}",
+		"end",
 	}, "\n")
 	nodes, parseErrs := parser.ParseWithRecovery(lexer.Lex(content))
 	if len(parseErrs) != 0 {
@@ -63,7 +63,7 @@ func TestBuildPublishedDiagnosticsReportsTodoWarnings(t *testing.T) {
 func TestTodoDocumentHasNoErrors(t *testing.T) {
 	s := NewServer()
 	uri := "file:///todo/main.nomi"
-	s.docs.Open(uri, "struct Point {\n    x: Int\n    y: Int\n}\n\nfn make(n: Int) -> Point {\n    Point{x: 1, y: todo}\n}\n")
+	s.docs.Open(uri, "struct Point\n    x: Int\n    y: Int\nend\n\nfn make(n: Int) -> Point\n    Point{x: 1, y: todo}\nend\n")
 	snap := s.docs.Snapshot(uri)
 	if len(snap.Errors) > 0 || len(snap.Analysis.TypeErrors) > 0 {
 		t.Fatalf("errors: %v %v", snap.Errors, snap.Analysis.TypeErrors)
@@ -80,7 +80,7 @@ func TestTodoDocumentHasNoErrors(t *testing.T) {
 func TestTodoNamingABindingIsNoPlaceholder(t *testing.T) {
 	s := NewServer()
 	uri := "file:///todo/main.nomi"
-	s.docs.Open(uri, "fn apply(todo: Int) -> Int {\n    todo + 1\n}\n\nfn later() -> Int {\n    todo\n}\n")
+	s.docs.Open(uri, "fn apply(todo: Int) -> Int\n    todo + 1\nend\n\nfn later() -> Int\n    todo\nend\n")
 	snap := s.docs.Snapshot(uri)
 	if len(snap.Errors) > 0 || len(snap.Analysis.TypeErrors) > 0 {
 		t.Fatalf("errors: %v %v", snap.Errors, snap.Analysis.TypeErrors)

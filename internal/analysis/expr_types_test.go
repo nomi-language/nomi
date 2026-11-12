@@ -33,38 +33,40 @@ func recordedAt(m map[ast.Node]analysis.Type, kind string, line, col int) (analy
 }
 
 func TestExprTypes_RecordValuesAndExpectations(t *testing.T) {
-	src := `enum Color {
+	src := `enum Color
   Red
   Green
-}
-fn paint(_c: Color, times: Int) -> Int { times }
-fn demo() -> Int {
+end
+fn paint(_c: Color, times: Int) -> Int
+    times
+end
+fn demo() -> Int
   xs = [1, 2]
   total = xs |> Iter.count()
   paint(.Red, total)
-}`
+end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoErrorsT(t, errs)
 
-	// `xs` on the pipe's left, line 8 column 11.
-	ty, ok := recordedAt(fa.ExprTypes, "Ident", 8, 11)
+	// `xs` on the pipe's left, line 10 column 11.
+	ty, ok := recordedAt(fa.ExprTypes, "Ident", 10, 11)
 	if !ok || analysis.ResolveTypeVar(ty).String() != "List<Int>" {
 		t.Fatalf("type of `xs` in the pipe = %v (recorded %v), want List<Int>", ty, ok)
 	}
 	// `.Red` is checked against paint's first parameter.
-	exp, ok := recordedAt(fa.ExpectedTypes, "DotVariant", 9, 9)
+	exp, ok := recordedAt(fa.ExpectedTypes, "DotVariant", 11, 9)
 	if !ok || exp.String() != "Color" {
 		t.Fatalf("expected type at `.Red` = %v (recorded %v), want Color", exp, ok)
 	}
 	// `total` is checked against the second.
-	exp, ok = recordedAt(fa.ExpectedTypes, "Ident", 9, 15)
+	exp, ok = recordedAt(fa.ExpectedTypes, "Ident", 11, 15)
 	if !ok || exp.String() != "Int" {
 		t.Fatalf("expected type at `total` = %v (recorded %v), want Int", exp, ok)
 	}
 }
 
 func TestImplementsInterface(t *testing.T) {
-	fa, errs := checkSourceWithStdlib("fn demo() -> Int { 1 }")
+	fa, errs := checkSourceWithStdlib("fn demo() -> Int\n    1\nend")
 	expectNoErrorsT(t, errs)
 	list := &analysis.ListType{Elem: analysis.TypeInt}
 	cases := []struct {

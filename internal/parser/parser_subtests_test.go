@@ -11,7 +11,7 @@ import (
 // `subtests rows, pattern { body }` is a statement of its own, with the rows,
 // the pattern and the body as its parts.
 func TestParseSubtestsStatement(t *testing.T) {
-	nodes := parse(t, "test \"t\" {\n  subtests cases, (line, known) {\n    assert line == known\n  }\n}")
+	nodes := parse(t, "test \"t\"\n  subtests cases, (line, known)\n    assert line == known\n  end\nend")
 	body := nodes[0].(*ast.TestDecl).Body
 	st, ok := body.Stmts[0].(*ast.Subtests)
 	if !ok {
@@ -37,7 +37,7 @@ func TestParseSubtestsStatement(t *testing.T) {
 // The rows may be any expression, broken across lines inside brackets, and
 // the pattern any irrefutable one.
 func TestParseSubtestsRowsAndPatterns(t *testing.T) {
-	src := "fn f() {\n  subtests [\n    Point{x: 1, y: 2},\n  ], Point{x, y} {\n    assert x < y\n  }\n  subtests 1..=3, n {\n    assert n > 0\n  }\n  subtests xs |> Iter.map(g), _ {\n    assert True\n  }\n}"
+	src := "fn f()\n  subtests [\n    Point{x: 1, y: 2},\n  ], Point{x:, y:}\n    assert x < y\n  end\n  subtests 1..=3, n\n    assert n > 0\n  end\n  subtests xs |> Iter.map(g), _\n    assert True\n  end\nend"
 	stmts := parse(t, src)[0].(*ast.FuncDef).Body.Stmts
 	if len(stmts) != 3 {
 		t.Fatalf("%d statements, want 3", len(stmts))
@@ -61,7 +61,7 @@ func TestParseSubtestsRowsAndPatterns(t *testing.T) {
 // expression and a comma follow. Everywhere else it is an identifier, so a
 // binding, a call, a read and a function named `subtests` keep working.
 func TestParseSubtestsIsAContextualKeyword(t *testing.T) {
-	src := "fn subtests(n: Int) -> Int {\n  n\n}\n\nfn f() {\n  subtests = 3\n  subtests(2)\n  g(subtests, 1)\n  subtests\n  x = subtests + 1\n  subtests.field\n}"
+	src := "fn subtests(n: Int) -> Int\n  n\nend\n\nfn f()\n  subtests = 3\n  subtests(2)\n  g(subtests, 1)\n  subtests\n  x = subtests + 1\n  subtests.field\nend"
 	nodes := parse(t, src)
 	if fn := nodes[0].(*ast.FuncDef); fn.Name != "subtests" {
 		t.Errorf("function name %q", fn.Name)
@@ -88,8 +88,8 @@ func TestParseSubtestsIsAContextualKeyword(t *testing.T) {
 // ordinary statement.
 func TestParseSubtestsErrors(t *testing.T) {
 	cases := []struct{ src, want string }{
-		{"test \"t\" {\n  subtests cases,\n  assert True\n}", "line 2, col 3: expected a pattern after the rows in `subtests`, such as `subtests cases, (input, expected) { ... }`"},
-		{"test \"t\" {\n  subtests cases, row\n  assert True\n}", "line 2, col 3: expected '{' for the `subtests` body after its pattern"},
+		{"test \"t\"\n  subtests cases,\n  assert True\nend", "line 2, col 3: expected a pattern after the rows in `subtests`, such as `subtests cases, (input, expected)`"},
+		{"test \"t\"\n  subtests cases, row assert True\nend", "line 2, col 23: unexpected `assert`: a `subtests` body starts on the line after its header and ends at `end`"},
 	}
 	for _, tc := range cases {
 		err := parseError(t, tc.src)
@@ -105,9 +105,9 @@ func TestParseSubtestsErrors(t *testing.T) {
 // counts the same in a test and in a test in a group.
 func TestParseSubtestsCountsAsATestsAssertion(t *testing.T) {
 	for _, src := range []string{
-		"test \"t\" {\n  subtests [1], n {\n    assert n > 0\n  }\n}",
-		"test \"t\" {\n  subtests [1], n {\n    check(n)\n  }\n}",
-		"group \"g\" {\n  test \"t\" {\n    subtests [1], n {\n      check(n)\n    }\n  }\n}",
+		"test \"t\"\n  subtests [1], n\n    assert n > 0\n  end\nend",
+		"test \"t\"\n  subtests [1], n\n    check(n)\n  end\nend",
+		"group \"g\"\n  test \"t\"\n    subtests [1], n\n      check(n)\n    end\n  end\nend",
 	} {
 		if _, err := Parse(lexer.Lex(src)); err != nil {
 			t.Errorf("the parser rejects a test whose assertion is a `subtests`:\n%s\n%v", src, err)
@@ -115,20 +115,19 @@ func TestParseSubtestsCountsAsATestsAssertion(t *testing.T) {
 	}
 }
 
-// A third part after the pattern, `subtests rows, pattern, name { body }`,
-// is the row's name: any expression up to the body's `{`, read as an `if`
-// condition is, so a `Type {` there opens the body. A tuple pattern may
-// break across lines, as the formatter breaks a long header.
+// A third part after the pattern, `subtests rows, pattern, name`, is the
+// row's name: any expression to the end of the header's line. A tuple
+// pattern may break across lines, as the formatter breaks a long header.
 func TestParseSubtestsName(t *testing.T) {
-	src := "test \"t\" {\n" +
-		"  subtests cases, (description, year, expected), description {\n    assert year > 0\n  }\n" +
-		"  subtests cases, (a, b, sum), \"${a} + ${b}\" {\n    assert a + b == sum\n  }\n" +
-		"  subtests cases, Ok(n) or Err(n), label(n) |> String.trim {\n    assert n > 0\n  }\n" +
-		"  subtests cases, n, (Label{text: \"x\"}).text {\n    assert n > 0\n  }\n" +
-		"  subtests cases, (_, year), if year > 0 { \"after\" } else { \"before\" } {\n    assert year != 0\n  }\n" +
-		"  subtests cases, (\n    _description,\n    year\n  ), year {\n    assert year != 0\n  }\n" +
-		"  subtests cases, (_description, year) {\n    assert year != 0\n  }\n" +
-		"}"
+	src := "test \"t\"\n" +
+		"  subtests cases, (description, year, expected), description\n    assert year > 0\n  end\n" +
+		"  subtests cases, (a, b, sum), \"${a} + ${b}\"\n    assert a + b == sum\n  end\n" +
+		"  subtests cases, Ok(n) or Err(n), label(n) |> String.trim\n    assert n > 0\n  end\n" +
+		"  subtests cases, n, (Label{text: \"x\"}).text\n    assert n > 0\n  end\n" +
+		"  subtests cases, (_, year), if year > 0 then \"after\" else \"before\"\n    assert year != 0\n  end\n" +
+		"  subtests cases, (\n    _description,\n    year\n  ), year\n    assert year != 0\n  end\n" +
+		"  subtests cases, (_description, year)\n    assert year != 0\n  end\n" +
+		"end"
 	stmts := parse(t, src)[0].(*ast.TestDecl).Body.Stmts
 	if len(stmts) != 7 {
 		t.Fatalf("%d statements, want 7", len(stmts))
@@ -157,13 +156,13 @@ func TestParseSubtestsName(t *testing.T) {
 	}
 }
 
-// A comma after the pattern commits to a name: a missing name, or a missing
-// body after it, is an error at the keyword.
+// A comma after the pattern commits to a name: a missing name is an error
+// at the keyword, and a body on the header's line an error where it starts.
 func TestParseSubtestsNameErrors(t *testing.T) {
 	cases := []struct{ src, want string }{
-		{"test \"t\" {\n  subtests cases, row, {\n    assert True\n  }\n}", "line 2, col 3: expected the row's name after the pattern in `subtests`"},
-		{"test \"t\" {\n  subtests cases, row,\n  assert True\n}", "line 2, col 3: expected the row's name after the pattern in `subtests`"},
-		{"test \"t\" {\n  subtests cases, row, name\n  assert True\n}", "line 2, col 3: expected '{' for the `subtests` body after its name"},
+		{"test \"t\"\n  subtests cases, row, end\nend", "line 2, col 3: expected the row's name after the pattern in `subtests`"},
+		{"test \"t\"\n  subtests cases, row,\n  assert True\nend", "line 2, col 3: expected the row's name after the pattern in `subtests`"},
+		{"test \"t\"\n  subtests cases, row, name assert True\nend", "line 2, col 29: unexpected `assert`: a `subtests` body starts on the line after its header"},
 	}
 	for _, tc := range cases {
 		err := parseError(t, tc.src)
@@ -173,15 +172,15 @@ func TestParseSubtestsNameErrors(t *testing.T) {
 	}
 }
 
-// `rows |> subtests pattern, name { body }` is the `subtests` statement with
+// `rows |> subtests pattern, name` and its body is the `subtests` statement with
 // the pipe's source as its rows: a literal table, a name, or a pipeline
 // that builds the rows, whose stages stay the rows' own.
 func TestParseSubtestsStage(t *testing.T) {
-	src := "test \"t\" {\n" +
-		"  [\n    (\"a\", 1),\n  ]\n  |> subtests (description, n), description {\n    assert n > 0\n  }\n" +
-		"  cases |> subtests n {\n    assert n > 0\n  }\n" +
-		"  xs\n  |> Iter.map(g)\n  // the rows\n  |> subtests _ {\n    assert True\n  }\n" +
-		"}"
+	src := "test \"t\"\n" +
+		"  [\n    (\"a\", 1),\n  ]\n  |> subtests (description, n), description\n    assert n > 0\n  end\n" +
+		"  cases |> subtests n\n    assert n > 0\n  end\n" +
+		"  xs\n  |> Iter.map(g)\n  // the rows\n  |> subtests _\n    assert True\n  end\n" +
+		"end"
 	stmts := parse(t, src)[0].(*ast.TestDecl).Body.Stmts
 	if len(stmts) != 3 {
 		t.Fatalf("%d statements, want 3", len(stmts))
@@ -218,7 +217,7 @@ func TestParseSubtestsStage(t *testing.T) {
 // follows it after a space; a call, a bare name or a remainder (`%` with no
 // map or set pattern against it) stays an ordinary stage.
 func TestParseSubtestsStageIsAContextualKeyword(t *testing.T) {
-	stmts := parse(t, "fn f() {\n  x |> subtests(y)\n  x |> subtests\n  x |> subtests % 2\n  x |> subtests%2\n}")[0].(*ast.FuncDef).Body.Stmts
+	stmts := parse(t, "fn f()\n  x |> subtests(y)\n  x |> subtests\n  x |> subtests % 2\n  x |> subtests%2\nend")[0].(*ast.FuncDef).Body.Stmts
 	if len(stmts) != 4 {
 		t.Fatalf("%d statements, want 4", len(stmts))
 	}
@@ -235,7 +234,7 @@ func TestParseSubtestsStageIsAContextualKeyword(t *testing.T) {
 
 // A map or set pattern after the word makes it the stage's keyword.
 func TestParseSubtestsStageTakesAMapOrSetPattern(t *testing.T) {
-	src := "test \"t\" {\n  xs |> subtests %{\"a\" => n} {\n    assert n > 0\n  }\n  xs |> subtests %[n] {\n    assert n > 0\n  }\n}"
+	src := "test \"t\"\n  xs |> subtests {\"a\" => n}\n    assert n > 0\n  end\n  xs |> subtests [n]\n    assert n > 0\n  end\nend"
 	for i, s := range parse(t, src)[0].(*ast.TestDecl).Body.Stmts {
 		if st, ok := s.(*ast.Subtests); !ok || !st.Piped {
 			t.Errorf("statement %d: %#v, want a piped *ast.Subtests", i, s)
@@ -247,13 +246,13 @@ func TestParseSubtestsStageTakesAMapOrSetPattern(t *testing.T) {
 // stage must be its last.
 func TestParseSubtestsStageErrors(t *testing.T) {
 	cases := []struct{ src, want string }{
-		{"test \"t\" {\n  x = [1] |> subtests n {\n    assert n > 0\n  }\n}", "line 2, col 14: a `|> subtests` stage has no value, so its pipeline must be a statement of its own"},
-		{"test \"t\" {\n  f([1] |> subtests n {\n    assert n > 0\n  })\n}", "line 2, col 12: a `|> subtests` stage has no value, so its pipeline must be a statement of its own"},
-		{"test \"t\" {\n  assert [1] |> subtests n {\n    assert n > 0\n  }\n}", "line 2, col 17: a `|> subtests` stage has no value"},
-		{"test \"t\" {\n  [1]\n  |> subtests n {\n    assert n > 0\n  }\n  |> dbg\n}", "line 6, col 3: `|> subtests` must be the last stage of its pipeline: it has no value to pass on"},
-		{"test \"t\" {\n  [1] |> subtests n {\n    assert n > 0\n  } |> dbg\n}", "line 4, col 5: `|> subtests` must be the last stage of its pipeline"},
-		{"once x = [1] |> subtests n {\n  assert n > 0\n}", "line 1, col 17: a `|> subtests` stage has no value"},
-		{"test \"t\" {\n  [1] |> subtests n\n  assert True\n}", "line 2, col 10: expected '{' for the `subtests` body after its pattern"},
+		{"test \"t\"\n  x = [1] |> subtests n\n    assert n > 0\n  end\nend", "line 2, col 14: a `|> subtests` stage has no value, so its pipeline must be a statement of its own"},
+		{"test \"t\"\n  f([1] |> subtests n\n    assert n > 0\n  end)\nend", "line 2, col 12: a `|> subtests` stage has no value, so its pipeline must be a statement of its own"},
+		{"test \"t\"\n  assert [1] |> subtests n\n    assert n > 0\n  end\nend", "line 2, col 17: a `|> subtests` stage has no value"},
+		{"test \"t\"\n  [1]\n  |> subtests n\n    assert n > 0\n  end\n  |> dbg\nend", "line 6, col 3: `|> subtests` must be the last stage of its pipeline: it has no value to pass on"},
+		{"test \"t\"\n  [1] |> subtests n\n    assert n > 0\n  end |> dbg\nend", "line 4, col 7: `|> subtests` must be the last stage of its pipeline"},
+		{"once x = [1] |> subtests n\n  assert n > 0\nend", "line 1, col 17: a `|> subtests` stage has no value"},
+		{"test \"t\"\n  [1] |> subtests n assert True\nend", "line 2, col 21: unexpected `assert`: a `subtests` body starts on the line after its header"},
 	}
 	for _, tc := range cases {
 		err := parseError(t, tc.src)

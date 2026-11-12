@@ -49,10 +49,9 @@ type Parser struct {
 	exprParses int
 	// softErrors is set once softError recorded an error.
 	softErrors bool
-	// lambdaHeads maps a lambda whose body is one expression, ending a
-	// line, to the token indexes of its `fn` and its `->`
-	// (continuedLambdaArg).
-	lambdaHeads map[*ast.Lambda][2]int
+	// soft holds every error softError was handed, including those of a
+	// parse later rewound, so ParseAll can tell a soft error in its list.
+	soft map[errorKey]bool
 	// blockDepth counts the blocks whose statements are being parsed, so
 	// a top-level-only modifier (`pub`, `export`) inside one is refused.
 	blockDepth int
@@ -97,7 +96,7 @@ func (s Span) Contains(line, col int) bool {
 func Parse(tokens []token.Token) ([]ast.Node, error) {
 	p := &Parser{tokens: joinPaths(tokens)}
 	stmts, err := p.parse()
-	if err = withStrayPrompt(tokens, p.firstError(err)); err != nil {
+	if err = withBraceBody(p.tokens, withStrayPrompt(tokens, p.firstError(err))); err != nil {
 		return nil, err
 	}
 	NotePathUses(stmts)
@@ -113,7 +112,7 @@ func Parse(tokens []token.Token) ([]ast.Node, error) {
 func ParseFile(tokens []token.Token) ([]ast.Node, []ast.Trivia, error) {
 	p := &Parser{tokens: joinPaths(tokens)}
 	stmts, err := p.parse()
-	if err = withStrayPrompt(tokens, p.firstError(err)); err != nil {
+	if err = withBraceBody(p.tokens, withStrayPrompt(tokens, p.firstError(err))); err != nil {
 		return nil, nil, err
 	}
 	attachDangling(stmts, p.fileEndTrivia, tokens)
@@ -195,8 +194,10 @@ func ParseWithRecovery(tokens []token.Token) ([]ast.Node, []ParseError) {
 // and `nomi build` go through Parse, which refuses a file with a syntax
 // error before producing an AST at all. Recovery is for the editor.
 // ParseAll parses tokens as Parse does and, when they do not parse,
-// answers every syntax error it can tell apart: the first of each
-// declaration, as a strict parse finds them, and the first of each
+// answers every syntax error it can tell apart: each soft error (one the
+// parse reads past as its fix says, such as a field written `P{x}` for
+// `P{x:}`), the first of each declaration, as a strict parse finds them,
+// and the first of each
 // statement inside a body, as the resilient parse that the language server
 // runs recovers from them (ParseResilient). Each statement's error is its
 // own: recovery skips to the statement's end, so a damaged statement does
@@ -211,14 +212,10 @@ func ParseAll(tokens []token.Token) ([]ast.Node, []ParseError) {
 	p := &Parser{tokens: joinPaths(tokens), resilient: true}
 	_, resilient := p.parseWithRecovery()
 	var all []ParseError
-	type at struct {
-		line, col int
-		message   string
-	}
-	seen := map[at]bool{}
+	seen := map[errorKey]bool{}
 	for _, list := range [][]ParseError{errs, resilient, p.recovered} {
 		for _, e := range list {
-			key := at{e.Line, e.Col, e.Message}
+			key := errorKey{e.Line, e.Col, e.Message}
 			if !seen[key] {
 				seen[key] = true
 				all = append(all, e)
@@ -228,14 +225,18 @@ func ParseAll(tokens []token.Token) ([]ast.Node, []ParseError) {
 	sort.SliceStable(all, func(i, j int) bool {
 		return all[i].Line < all[j].Line || all[i].Line == all[j].Line && all[i].Col < all[j].Col
 	})
-	// Two errors on one line are one mistake read twice.
+	// Two errors on one line are one mistake read twice, unless both are
+	// soft: the parse went on past the first as its fix says, so the
+	// second is a mistake of its own (`P{x, y}` written for `P{x:, y:}`).
+	isSoft := func(e ParseError) bool { return strict.soft[errorKey{e.Line, e.Col, e.Message}] }
 	out := all[:0]
 	for _, e := range all {
-		if len(out) > 0 && out[len(out)-1].Line == e.Line {
+		if len(out) > 0 && out[len(out)-1].Line == e.Line && !(isSoft(out[len(out)-1]) && isSoft(e)) {
 			continue
 		}
 		out = append(out, e)
 	}
+	out = withBraceBodies(strict.tokens, out)
 	if len(out) > MaxParseErrors {
 		out = out[:MaxParseErrors]
 	}
@@ -304,7 +305,7 @@ func (p *Parser) parseWithRecovery() ([]ast.Node, []ParseError) {
 		})
 	}
 	NotePathUses(stmts)
-	return stmts, withStrayPrompts(p.tokens, p.errors)
+	return stmts, withBraceBodies(p.tokens, withStrayPrompts(p.tokens, p.errors))
 }
 
 // spanOfTokens returns the source span covered by tokens[from:to).
@@ -534,9 +535,9 @@ func (p *Parser) recoverStmtInBlock(from int, err error) *ast.ErrorNode {
 		pe = ParseError{Line: tok.Line, Col: tok.Col, Message: err.Error()}
 	}
 	p.recovered = append(p.recovered, pe)
-	// The brackets the damaged statement opened before the error and has
-	// not closed: in `x = case v { n -> n |> tap 1 }` the error is inside
-	// the case's `{`, so the `}` after it closes the case, not the block.
+	// The brackets and bodies the damaged statement opened before the
+	// error and has not closed: in `x = case v` with an arm below that
+	// fails, the `end` after it closes the case, not the enclosing body.
 	var open []token.TokenType
 	for i := from; i < p.pos && i < len(p.tokens); i++ {
 		switch t := p.tokens[i].Type; t {
@@ -545,6 +546,14 @@ func (p *Parser) recoverStmtInBlock(from int, err error) *ast.ErrorNode {
 		case token.RBRACE, token.RPAREN, token.RBRACKET:
 			if len(open) > 0 && open[len(open)-1] == openerOf(t) {
 				open = open[:len(open)-1]
+			}
+		case token.END:
+			if len(open) > 0 && isBodyOpener(open[len(open)-1]) {
+				open = open[:len(open)-1]
+			}
+		default:
+			if b, ok := p.bodyOpenerAt(i, open); ok {
+				open = append(open, b)
 			}
 		}
 	}
@@ -562,21 +571,41 @@ skip:
 		switch t := p.peek().Type; t {
 		case token.LBRACE, token.LPAREN, token.LBRACKET:
 			open = append(open, t)
-		case token.RBRACE, token.RPAREN, token.RBRACKET:
-			if len(open) == 0 || open[len(open)-1] != openerOf(t) {
+		case token.RBRACE, token.RPAREN, token.RBRACKET, token.END:
+			if t == token.END {
+				if len(open) == 0 || !isBodyOpener(open[len(open)-1]) {
+					// Closes an enclosing body, not anything the damaged
+					// statement opened. Leave it for the caller.
+					break skip
+				}
+			} else if len(open) > 0 && isBodyOpener(open[len(open)-1]) {
+				// A stray closing bracket inside a body the damaged
+				// statement opened is part of the damage; the body's
+				// `end` closes it.
+				p.advance()
+				continue
+			} else if len(open) == 0 || open[len(open)-1] != openerOf(t) {
 				// Closes an enclosing construct, not anything the
 				// damaged statement opened. Leave it for the caller.
 				break skip
 			}
 			open = open[:len(open)-1]
 			carried = min(carried, len(open))
+		case token.ELSE:
+			if len(open) == 0 {
+				// An enclosing `if`'s next branch.
+				break skip
+			}
+			if b, ok := p.bodyOpenerAt(p.pos, open); ok {
+				open = append(open, b)
+			}
 		case token.NEWLINE, token.SEMICOLON:
-			// A `(` or `[` opened before the error holds no statements, so
-			// it ends at the line's end: in `let = (` above more lines the
-			// `(` may never be closed, and counting it would take the rest
-			// of the block into the damaged run. A `{` the error is inside,
-			// a case's or a lambda's, holds lines and keeps them.
-			for carried > 0 && carried == len(open) && open[len(open)-1] != token.LBRACE {
+			// A `(` or `[` opened before the error holds no statements, so it
+			// ends at the line's end: in `let = (` above more lines the `(`
+			// may never be closed, and counting it would take the rest of
+			// the block into the damaged run. A body the error is inside, a
+			// case's or a lambda's, holds lines and keeps them.
+			for carried > 0 && carried == len(open) && !isBodyOpener(open[len(open)-1]) {
 				open = open[:len(open)-1]
 				carried--
 			}
@@ -590,9 +619,16 @@ skip:
 			token.EXPORT, token.ONCE, token.TEST:
 			if len(open) == 0 {
 				// A top-level keyword at block depth means the block's
-				// `}` is missing. Stop here so the block can close
+				// `end` is missing. Stop here so the block can close
 				// itself and the declaration that follows still parses.
 				break skip
+			}
+			if b, ok := p.bodyOpenerAt(p.pos, open); ok {
+				open = append(open, b)
+			}
+		default:
+			if b, ok := p.bodyOpenerAt(p.pos, open); ok {
+				open = append(open, b)
 			}
 		}
 		p.advance()
@@ -617,6 +653,61 @@ skip:
 		EndLine: span.EndLine,
 		EndCol:  span.EndCol,
 	}
+}
+
+// Recovery counts the bodies a damaged run opens, so the `end` that closes
+// one is not taken for the enclosing body's. These stand for them on its
+// stack of open brackets: an `if`'s block form, whose `else` opens nothing,
+// and any other body closed by `end`.
+const (
+	openThenBody = token.THEN
+	openEndBody  = token.END
+)
+
+func isBodyOpener(t token.TokenType) bool {
+	return t == openThenBody || t == openEndBody
+}
+
+// bodyOpenerAt reports whether the token at i opens a body closed by `end`,
+// by the tokens around it alone: `case`, `begin`, a `then`, a lambda's `->`
+// or a binding's `else` that ends its line, `concurrent` alone on its line,
+// and a declaration keyword starting a line. Resilient mode only.
+func (p *Parser) bodyOpenerAt(i int, open []token.TokenType) (token.TokenType, bool) {
+	t := p.tokens[i]
+	endsLine := i+1 >= len(p.tokens) || p.tokens[i+1].Type == token.NEWLINE ||
+		p.tokens[i+1].Type == token.COMMENT || p.tokens[i+1].Type == token.EOF || p.tokens[i+1].Line > t.Line
+	switch t.Type {
+	case token.CASE, token.BEGIN:
+		return openEndBody, true
+	case token.THEN:
+		if endsLine {
+			return openThenBody, true
+		}
+	case token.ELSE:
+		if endsLine && (len(open) == 0 || open[len(open)-1] != openThenBody) {
+			return openEndBody, true
+		}
+	case token.ARROW:
+		if !endsLine {
+			return 0, false
+		}
+		for j := i - 1; j >= 0 && p.tokens[j].Line == t.Line; j-- {
+			if p.tokens[j].Type == token.FN {
+				return openEndBody, true
+			}
+		}
+	case token.IDENT:
+		if t.Lexeme == "concurrent" && endsLine {
+			return openEndBody, true
+		}
+	case token.STRUCT, token.ENUM, token.INTERFACE, token.IMPL, token.TEST:
+		return openEndBody, true
+	case token.FN:
+		if i+2 < len(p.tokens) && p.tokens[i+1].Type == token.IDENT && (p.tokens[i+2].Type == token.LPAREN || p.tokens[i+2].Type == token.LT) {
+			return openEndBody, true
+		}
+	}
+	return 0, false
 }
 
 // openerOf is the opening bracket a closing one closes.
@@ -685,7 +776,7 @@ func (p *Parser) rejectDecorator() error {
 	case "derive":
 		return errorAt(name.Line, name.Col, "`@derive` is not supported; declare a derived conformance with `derive Iface for Type`")
 	case "impl":
-		return errorAt(name.Line, name.Col, "`@impl` is not supported; write implementation functions inside `impl Interface for Type { ... }` blocks")
+		return errorAt(name.Line, name.Col, "`@impl` is not supported; write implementation functions inside `impl Interface for Type` blocks")
 	}
 	if name.Line == at.Line && isWordLexeme(name.Lexeme) {
 		return errorAt(at.Line, at.Col, "`@%s` is not supported: Nomi has no decorators", name.Lexeme)
@@ -1095,24 +1186,6 @@ func firstNestedAssertion(n ast.Node) (line, col int, ok bool) {
 	case *ast.FieldAccess:
 		return firstNestedAssertion(v.Object)
 	case *ast.ListLit:
-		for _, item := range v.Items {
-			if line, col, ok := firstNestedAssertion(item); ok {
-				return line, col, true
-			}
-		}
-	case *ast.VectorLit:
-		for _, item := range v.Operands() {
-			if line, col, ok := firstNestedAssertion(item); ok {
-				return line, col, true
-			}
-		}
-	case *ast.SetLit:
-		for _, item := range v.Operands() {
-			if line, col, ok := firstNestedAssertion(item); ok {
-				return line, col, true
-			}
-		}
-	case *ast.ListSpreadLit:
 		for _, item := range v.Operands() {
 			if line, col, ok := firstNestedAssertion(item); ok {
 				return line, col, true
@@ -1528,7 +1601,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	// In a body `group` is an ordinary name, but a name followed on its
 	// line by a string starts no statement, so `group "name"` there is a
 	// misplaced group. It is read as one, as a nested `test` is.
-	if p.blockDepth > 0 && p.atGroupStart() && p.peekAt(1).Type != token.LBRACE {
+	if p.blockDepth > 0 && p.atGroupStart() && p.peekAt(1).Type != token.NEWLINE {
 		tok := p.peek()
 		p.softError(ParseError{Line: tok.Line, Col: tok.Col, Message: nestedGroupMessage})
 		return p.parseTestDecl()
@@ -1546,16 +1619,18 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	}
 
 	// Struct destructuring: .{ident, ident} = expr  or  .{ident: ident, ...} = expr
-	if p.atStructOpen(0) {
+	if p.braceOpensStruct(0) {
 		savedPos := p.pos
 		line := p.peek().Line
 		col := p.peek().Col
-		p.advance() // consume DOT
 		p.advance() // consume LBRACE
 		var lc listComments
 		p.listGap(&lc)
 
 		var fields []ast.StructPatternField
+		// bare holds the fields written as their names alone, reported
+		// (barePunError) once the statement is a destructure.
+		var bare []token.Token
 		valid := true
 		for valid {
 			if p.atEnd() || p.peek().Type != token.IDENT {
@@ -1567,7 +1642,17 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 			p.advance()
 			spf := ast.StructPatternField{Name: fieldName, NameLine: fieldTok.Line, NameCol: fieldTok.Col, Binding: fieldName, BindingLine: fieldTok.Line, BindingCol: fieldTok.Col}
 
-			if !p.atEnd() && p.peek().Type == token.COLON {
+			switch {
+			case !p.atEnd() && p.peek().Type == token.COLON:
+			case p.bareFieldEnds():
+				bare = append(bare, fieldTok)
+			default:
+				valid = false
+			}
+			if !valid {
+				break
+			}
+			if p.peek().Type == token.COLON && !p.punColonEndsAt(0, token.RBRACE) {
 				p.advance() // consume COLON
 				bindTok, inner, ok := p.parseDestructureName()
 				if !ok || bindTok.Type != token.IDENT {
@@ -1578,6 +1663,9 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 				spf.Binding = bindTok.Lexeme
 				spf.BindingLine = bindTok.Line
 				spf.BindingCol = bindTok.Col
+			}
+			if !p.atEnd() && p.peek().Type == token.COLON {
+				p.advance() // consume the COLON of a punned `name:`
 			}
 			fields = append(fields, spf)
 			lc.item(fieldComments(&fields[len(fields)-1].Comments))
@@ -1604,12 +1692,15 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 			lc.close()
 			p.advance() // consume RBRACE
 			if !p.atEnd() && p.peek().Type == token.EQ {
+				for _, f := range bare {
+					p.softError(barePunError(f, ""))
+				}
 				p.advance() // consume EQ
 				val, err := p.parseExpr(1)
 				if err != nil {
 					return nil, err
 				}
-				return p.withBindingElse(savedPos, &ast.StructDestructure{Fields: fields, Value: val, Line: line, Col: col}, val, line, col)
+				return p.withBindingElse(savedPos, &ast.StructDestructure{Fields: fields, Value: val, Line: line, Col: col}, val, line, col, false)
 			}
 		}
 
@@ -1678,7 +1769,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 			if err != nil {
 				return nil, err
 			}
-			return p.withBindingElse(savedPos, &ast.TupleDestructure{Bindings: bindings, Discards: discards, Value: val, Line: line, Col: col}, val, line, col)
+			return p.withBindingElse(savedPos, &ast.TupleDestructure{Bindings: bindings, Discards: discards, Value: val, Line: line, Col: col}, val, line, col, false)
 		}
 
 		// Not a tuple destructure — restore position
@@ -1722,7 +1813,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 						Value:        value,
 						Line:         typeLine,
 						Col:          typeCol,
-					}, value, typeLine, typeCol)
+					}, value, typeLine, typeCol, true)
 				}
 			}
 			p.pos = savedPos
@@ -1764,11 +1855,11 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 			Value:          value,
 			Line:           tok.Line,
 			Col:            tok.Col,
-		}, value, tok.Line, tok.Col)
+		}, value, tok.Line, tok.Col, false)
 	}
 
 	// Any other pattern followed by `=`: `Ok((w, h)) = parse(text) else { ... }`.
-	if canStartPatternAssertion(p.peek().Type) {
+	if p.canStartPattern() {
 		if node, ok, err := p.tryParsePatternBinding(); ok || err != nil {
 			return node, err
 		}
@@ -1802,7 +1893,7 @@ func (p *Parser) startsFuncDecl() bool {
 
 // startsLambda reports whether the `fn` at the cursor can only start a
 // lambda: `->` follows it, or a pattern no function name begins (`(a, b)`,
-// `.{`, `#[`, `%{`, `[`, `_`, `.Variant`), or a name followed by what follows a
+// `{`, `[`, `{`, `[`, `_`, `.Variant`), or a name followed by what follows a
 // lambda parameter (`,`, `:`, `=`, `->`, `as`). A capitalized name, or a
 // `(` holding a parameter with its type (`fn (x: Int)`), stays a
 // declaration's here, so `fn Add(x: Int)` at the top level reports its name
@@ -1810,7 +1901,7 @@ func (p *Parser) startsFuncDecl() bool {
 func (p *Parser) startsLambda() bool {
 	next := p.peekAt(1)
 	switch next.Type {
-	case token.ARROW, token.HASH, token.PERCENT, token.LBRACKET, token.UNDERSCORE, token.DOT:
+	case token.ARROW, token.HASH, token.PERCENT, token.LBRACKET, token.LBRACE, token.UNDERSCORE, token.DOT:
 		return true
 	case token.LPAREN:
 		return p.peekAt(2).Type != token.IDENT || p.peekAt(3).Type != token.COLON
@@ -1831,7 +1922,7 @@ func (p *Parser) startsLambda() bool {
 
 // parseDestructureName consumes the name a destructuring binds in one of its
 // slots, `n` or `_`, and returns its token. Parentheses around it change
-// nothing: `%{"k" => (n)} = m`, `Meters((n)) = d` and `((a), b) = t` are the
+// nothing: `{"k" => (n)} = m`, `Meters((n)) = d` and `((a), b) = t` are the
 // destructures without them, as `Some((n))` is the pattern `Some(n)`. On
 // failure the position is left wherever it stopped; the caller restores it.
 func (p *Parser) parseDestructureName() (token.Token, []ast.Trivia, bool) {
@@ -1972,6 +2063,11 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 				left = &ast.Call{Func: left, Args: args, EndTrivia: end, TypeArgs: typeArgs, Line: lp.Line, Col: lp.Col}
 				continue
 			}
+			// `List<String>.from_json(json)`: a type with arguments as a
+			// call's owner (type_owner_call.go).
+			if err := p.typeOwnerCall(left); err != nil {
+				return nil, err
+			}
 		}
 
 		tok := p.peek()
@@ -1998,9 +2094,7 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 			break
 		}
 		prec := p.infixPrecedenceAt(p.pos)
-		if prec < minPrec || p.percentOpensLiteral(0) {
-			// `%{` and `%[` written together open a map or set; after an
-			// operand they are not the remainder operator.
+		if prec < minPrec {
 			break
 		}
 
@@ -2027,7 +2121,7 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 				break
 			}
 			if field.Type == token.LBRACE && adjacent(tok, field) {
-				return nil, errorAt(tok.Line, tok.Col, "a field name follows `.` after a value; `.{` starts a struct literal of its own, written where a value starts")
+				return nil, errorAt(tok.Line, tok.Col, "a field name follows `.` after a value; `{` starts a struct literal of its own, written where a value starts")
 			}
 			if field.Type != token.IDENT && field.Type != token.TYPE_IDENT {
 				return nil, errorAt(tok.Line, tok.Col, "expected field name after '.'")
@@ -2253,7 +2347,7 @@ func (p *Parser) parseIsPattern(isTok token.Token) (ast.Node, error) {
 			Message: "`is not` is not an operator",
 			Hints:   []string{"to test that a value does not match, write `not x is P`"}}
 	}
-	if p.atEnd() || !canStartPatternAssertion(p.peek().Type) {
+	if p.atEnd() || !p.canStartPattern() {
 		return nil, errorAt(isTok.Line, isTok.Col, "expected a pattern after `is`, as a `case` arm writes one: `x is Some(_)`")
 	}
 	if err := p.enterNested(); err != nil {
@@ -2349,8 +2443,6 @@ func (p *Parser) orStartsPattern() bool {
 		return true
 	case token.DOT:
 		return p.peekAt(2).Type == token.TYPE_IDENT
-	case token.HASH, token.PERCENT:
-		return p.peekAt(2).Type == token.DOT
 	}
 	return false
 }
@@ -2630,47 +2722,18 @@ func (p *Parser) parsePipeIfStage(left ast.Node, pipeTok token.Token, leadingFor
 	p.advance() // consume IF
 
 	var condition ast.Node
-	if p.atEnd() || p.peek().Type != token.LBRACE {
+	if p.atEnd() || p.peek().Type != token.THEN {
 		var err error
 		condition, err = p.parseExpr(1)
 		if err != nil {
 			return nil, err
 		}
 	}
-
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return nil, errorAt(tok.Line, tok.Col, "expected '{' after if condition")
-	}
-	thenNode, err := p.parseBlock()
+	ifNode, err := p.parseIfBranches(tok, nil, nil, false)
 	if err != nil {
 		return nil, err
 	}
-
-	var elseNode ast.Node
-	savedPos := p.pos
-	for !p.atEnd() && p.peek().Type == token.NEWLINE {
-		p.advance()
-	}
-	if !p.atEnd() && p.peek().Type == token.ELSE {
-		p.advance()
-		if !p.atEnd() && p.peek().Type == token.IF {
-			elseNode, err = p.parseIf()
-			if err != nil {
-				return nil, err
-			}
-		} else if !p.atEnd() && p.peek().Type == token.LBRACE {
-			elseNode, err = p.parseBlock()
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, errorAt(tok.Line, tok.Col, "expected '{' or 'if' after else")
-		}
-	} else {
-		p.pos = savedPos
-	}
-
-	ifNode := &ast.If{Cond: nil, Then: thenNode.(*ast.Block), Else: elseNode, StagePrefix: condition != nil, Line: tok.Line, Col: tok.Col}
+	ifNode.StagePrefix = condition != nil
 	p.recordSpan(ifNode, stageStart)
 	for _, tr := range leadingForRight {
 		ifNode.AddLeading(tr)
@@ -2688,49 +2751,17 @@ func (p *Parser) parsePipeCaseStage(left ast.Node, pipeTok token.Token, leadingF
 	p.advance() // consume CASE
 
 	var value ast.Node
-	if p.atEnd() || p.peek().Type != token.LBRACE {
+	if !p.atLineEnd() && !p.atEndWord() {
 		var err error
 		value, err = p.parseExpr(1)
 		if err != nil {
 			return nil, err
 		}
 	}
-
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return nil, errorAt(tok.Line, tok.Col, "expected '{' after case")
+	branches, endTrivia, err := p.parseCaseBody(tok, true, "case")
+	if err != nil {
+		return nil, err
 	}
-	p.advance()
-
-	var branches []ast.CaseBranch
-	var endTrivia []ast.Trivia
-	for {
-		leading := p.collectLeadingTrivia()
-		if p.atEnd() || p.peek().Type == token.RBRACE {
-			endTrivia = leading
-			break
-		}
-		if p.strayBodyMarker() {
-			continue
-		}
-		branch, err := p.parseCaseBranch(true, "case")
-		if err != nil {
-			return nil, err
-		}
-		var trailing []ast.Trivia
-		if branch.Body != nil {
-			trailing = p.collectTrailingComment(branch.Body.LineNum())
-		}
-		attachTrivia(&branch, leading, trailing)
-		branches = append(branches, branch)
-		for !p.atEnd() && p.peek().Type == token.COMMA {
-			p.advance()
-		}
-	}
-
-	if p.atEnd() || p.peek().Type != token.RBRACE {
-		return nil, errorAt(tok.Line, tok.Col, "expected '}' to close case expression")
-	}
-	p.advance()
 
 	caseNode := &ast.Case{Value: nil, Branches: branches, StagePrefix: value != nil, Line: tok.Line, Col: tok.Col}
 	p.recordSpan(caseNode, stageStart)
@@ -2977,9 +3008,12 @@ func (p *Parser) parseArgList() (args []ast.Node, end []ast.Trivia, err error) {
 			col := p.peek().Col
 			p.advance() // consume IDENT
 			p.advance() // consume COLON
-			val, err := p.parseExpr(1)
-			if err != nil {
-				return nil, nil, err
+			// `name:` alone, before a `,` or the `)`, is `name: name`.
+			var val ast.Node = &ast.Ident{Name: name, Line: line, Col: col}
+			if !p.punColonEnds(token.RPAREN) {
+				if val, err = p.parseExpr(1); err != nil {
+					return nil, nil, err
+				}
 			}
 			named := &ast.NamedArg{Name: name, Value: val, Line: line, Col: col}
 			lc.item(nodeComments(named))
@@ -3024,21 +3058,7 @@ func (p *Parser) parseArgList() (args []ast.Node, end []ast.Trivia, err error) {
 			return args, nil, nil
 		}
 		if p.peek().Type != token.COMMA {
-			continued, err := p.continuedLambdaArg(args[len(args)-1])
-			if err != nil {
-				return nil, nil, err
-			}
-			if continued {
-				p.listAfter(&lc)
-				if !p.atEnd() && p.peek().Type == token.RPAREN {
-					lc.close()
-					p.advance()
-					return args, nil, nil
-				}
-			}
-			if p.atEnd() || p.peek().Type != token.COMMA {
-				return nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ')' in argument list")
-			}
+			return nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ')' in argument list")
 		}
 		p.advance() // consume COMMA
 		p.listAfter(&lc)
@@ -3240,14 +3260,13 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 
 	case token.DOT:
 		if p.atStructOpen(0) {
-			return p.parseStructSigilLit()
+			return nil, dotBraceError(tok)
 		}
 		// Dot-leading variant shorthand: `.X`, `.X(args)`, `.X[...]`. Must
 		// be followed by an uppercase variant identifier (TYPE_IDENT).
 		// Resolution against an expected enum type happens in the
-		// analyzer. A struct- or map-payload variant's literal starts
-		// with its shape's symbol, `.X{...}` or `%.X{...}`, so a `{`
-		// here opens a block.
+		// analyzer. A struct-payload variant's literal is `.X{...}` and a
+		// map-payload one's `.X{...}`.
 		if next := p.peekAt(1); next.Type == token.IDENT || isTupleIndexToken(next) {
 			return p.parseFieldAccessor()
 		}
@@ -3270,8 +3289,8 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		return &ast.DotVariant{Name: nameTok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
 
 	case token.IDENT, token.PATH:
-		// Contextual keyword: `concurrent { ... }` is the structured-
-		// concurrency scope from spec §16. We can't reserve
+		// Contextual keyword: `concurrent` ending its line opens the
+		// structured-concurrency scope from spec §16, closed by `end`. We can't reserve
 		// `concurrent` as a hard keyword in the lexer because the stdlib
 		// `import std::tasks.{Task, spawn, await}` line — and any
 		// user `import std::tasks.{...}` — relies on `concurrent`
@@ -3279,7 +3298,8 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		// lexer producing IDENT and check the lexeme + lookahead here,
 		// mirroring how `open` is contextual inside
 		// interface bodies (and `embeds` after a struct/enum head).
-		if tok.Type == token.IDENT && tok.Lexeme == "concurrent" && p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Type == token.LBRACE {
+		if tok.Type == token.IDENT && tok.Lexeme == "concurrent" && p.pos+1 < len(p.tokens) &&
+			(p.tokens[p.pos+1].Type == token.NEWLINE || p.tokens[p.pos+1].Type == token.COMMENT && p.tokens[p.pos+1].Line == tok.Line) {
 			return p.parseConcurrentBlock()
 		}
 		// Contextual keyword: `todo` before a reason on its line is the
@@ -3364,9 +3384,8 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 
 	case token.TYPE_IDENT:
 		p.advance()
-		// A name followed by `{` never starts a literal: a struct, map or
-		// set literal starts with its shape's symbol (`Point{...}`,
-		// `%Kvs{...}`), so the `{` opens a block.
+		// A struct literal is the name and a `{` on its line
+		// (tryNamedStructLit); a map literal starts with `%`.
 		//
 		// Type-prefixed list literal: `Items[1, 2, 3]` or `Arr[1, 2, 3]`,
 		// the literal-attach construction form for list-payload variants
@@ -3447,14 +3466,18 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 	case token.LBRACKET:
 		return p.parseListLit()
 
-	case token.HASH:
-		return p.parseHashLit()
-
-	case token.PERCENT:
-		return p.parsePercentLit()
+	case token.HASH, token.PERCENT:
+		return nil, p.sigilError(false)
 
 	case token.LBRACE:
-		return p.parseBlockExpr()
+		if p.braceOpensMap(0) {
+			return p.parseMapLit(tok)
+		}
+		p.advance() // consume LBRACE
+		return p.parseAnonStructLit(tok, p.collectLeadingTrivia())
+
+	case token.BEGIN:
+		return p.parseBegin()
 
 	case token.LPAREN:
 		return p.parseParenExpr()
@@ -3477,8 +3500,9 @@ func codepointLit(tok token.Token) *ast.CodepointLit {
 	return &ast.CodepointLit{Value: r, Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}
 }
 
-// parseListLit parses a list literal: `[expr, expr, ...]`, or one with
-// spreads, `[x, ..xs]`, `[..xs, y, ..ys]`.
+// parseListLit parses a bracket literal: `[expr, expr, ...]`, or one with
+// spreads, `[x, ..xs]`, `[..xs, y, ..ys]`. The checker decides whether it
+// is a List, a Vector or a Set (ast.ListLit).
 func (p *Parser) parseListLit() (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume LBRACKET
@@ -3486,10 +3510,7 @@ func (p *Parser) parseListLit() (ast.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(spreads) > 0 {
-		return &ast.ListSpreadLit{Items: items, Spreads: spreads, Line: tok.Line, Col: tok.Col}, nil
-	}
-	return &ast.ListLit{Items: items, EndTrivia: endTrivia, Line: tok.Line, Col: tok.Col}, nil
+	return &ast.ListLit{Items: items, Spreads: spreads, EndTrivia: endTrivia, Line: tok.Line, Col: tok.Col}, nil
 }
 
 // spreadsAnywhere, as parseCollectionItems' refuseSpread, takes a `..`
@@ -3505,10 +3526,8 @@ const spreadsAnywhere = "\x00anywhere"
 // A spread with nothing after its `..` but a comma or the closing bracket
 // is bare: its head is an *ast.CurrentValue, and a literal takes one.
 //
-// The comments before the closing bracket are returned as endTrivia,
-// except in a list literal with a spread, whose node has no EndTrivia:
-// there they go below its last element or spread. The others are the
-// elements' and spreads' ItemComments.
+// The comments before the closing bracket are returned as endTrivia. The
+// others are the elements' and spreads' ItemComments.
 func (p *Parser) parseCollectionItems(tok token.Token, close token.TokenType, what string, refuseSpread string) (items []ast.Node, endTrivia []ast.Trivia, spreads []ast.Spread, err error) {
 	closeText := "]"
 	if close == token.RBRACE {
@@ -3522,11 +3541,7 @@ func (p *Parser) parseCollectionItems(tok token.Token, close token.TokenType, wh
 		p.listAfter(&lc)
 		p.skipListBreaks()
 		if !p.atEnd() && p.peek().Type == close {
-			if len(spreads) > 0 && close == token.RBRACKET && what == "list literal" {
-				lc.close()
-			} else {
-				endTrivia = lc.end()
-			}
+			endTrivia = lc.end()
 			p.advance()
 			return items, endTrivia, spreads, nil
 		}
@@ -3595,7 +3610,7 @@ func adjacent(a, b token.Token) bool {
 // percentOpensLiteral reports whether the `%` at offset from the cursor
 // starts a hashed literal or pattern rather than standing for the remainder
 // operator: a `{`, a `[`, a type name or a `.` right after it, with no space
-// between (`%{`, `%[`, `%Kvs{`, `%.Obj{`). `a % b` and `a % {b}` are a
+// between (`{`, `[`, `Kvs{`, `.Obj{`). `a % b` and `a % {b}` are a
 // remainder.
 func (p *Parser) percentOpensLiteral(offset int) bool {
 	pct, next := p.peekAt(offset), p.peekAt(offset+1)
@@ -3606,10 +3621,10 @@ func (p *Parser) percentOpensLiteral(offset int) bool {
 	case token.LBRACE, token.LBRACKET, token.TYPE_IDENT:
 		return true
 	case token.DOT:
-		// `%.Obj{`, a variant's map; `%.{` is the remainder of a struct.
+		// `.Obj{`, a variant's map; `{` is the remainder of a struct.
 		return p.peekAt(offset+2).Type == token.TYPE_IDENT
 	case token.IDENT:
-		// A module-qualified name, `%geo.Tags[...]`.
+		// A module-qualified name, `geo.Tags[...]`.
 		return p.peekAt(offset+2).Type == token.DOT && p.peekAt(offset+3).Type == token.TYPE_IDENT
 	}
 	return false
@@ -3676,84 +3691,14 @@ func (p *Parser) literalNameSegments(first token.Token) ast.TypeExpr {
 	}
 }
 
-// parseHashLit parses a literal that starts with `#`: a vector `#[...]`,
-// or a vector naming its type, `#Path[...]`, `#.Items[...]`. A tuple has no
-// `#` (hashTupleError), and a struct with no name starts with `.{`
-// (parseStructSigilLit).
-func (p *Parser) parseHashLit() (ast.Node, error) {
-	tok := p.peek()
-	switch p.peekAt(1).Type {
-	case token.LBRACE:
-		return nil, ParseError{Line: tok.Line, Col: tok.Col,
-			Message: "`#` starts a vector, `#[...]`; a struct whose name the position gives is `.{...}`",
-			Fix:     Replace("Write `.{`", tok.Line, tok.Col, tok.Line, tok.Col+1, ".")}
-	case token.LPAREN:
-		return nil, hashTupleError(tok)
-	case token.LBRACKET:
-		p.advance() // consume HASH
-		return p.parseVectorLit(tok, nil)
-	case token.BANG:
-		if next := p.peekAt(1); next.Line == tok.Line && next.Col == tok.Col+1 {
-			return nil, errorAt(tok.Line, tok.Col, "a `#!` line is allowed only as the first line of a file, starting at its first byte")
-		}
-	}
-	p.advance() // consume HASH
-	typeName, ok := p.parseLiteralHead(tok)
-	if !ok {
-		return nil, errorAt(tok.Line, tok.Col, "expected '{', '[' or a type name after '#'")
-	}
-	if !p.atEnd() && p.peek().Type == token.LBRACKET {
-		return p.parseVectorLit(tok, typeName)
-	}
-	return nil, errorAt(tok.Line, tok.Col, "expected '[' after `#%s`", typeName.TypeString())
-}
-
-// parsePercentLit parses a literal of a hashed shape, which starts with `%`
-// written right before its bracket or name: a map `%{k => v}`, a set
-// `%[a, b]`, and each with the name of a type built on that shape right
-// after the `%`: `%Kvs{...}`, `%.Obj{...}`, `%Json.Obj{...}`, `%Tags[...]`.
-func (p *Parser) parsePercentLit() (ast.Node, error) {
-	tok := p.peek()
-	if !p.percentOpensLiteral(0) {
-		return nil, p.unexpectedToken(tok)
-	}
-	p.advance() // consume PERCENT
-	switch p.peek().Type {
-	case token.LBRACE:
-		return p.parseMapLit(tok)
-	case token.LBRACKET:
-		return p.parseSetLit(tok, nil)
-	}
-	typeName, ok := p.parseLiteralHead(tok)
-	if !ok {
-		return nil, errorAt(tok.Line, tok.Col, "expected '{', '[' or a type name after '%%'")
-	}
-	switch {
-	case !p.atEnd() && p.peek().Type == token.LBRACE:
-		return p.parseTypePrefixedMapLit(typeName, tok.Line, tok.Col)
-	case !p.atEnd() && p.peek().Type == token.LBRACKET:
-		return p.parseSetLit(tok, typeName)
-	}
-	return nil, errorAt(tok.Line, tok.Col, "expected '{' or '[' after `%%%s`", typeName.TypeString())
-}
-
 // atStructOpen reports whether the tokens at offset from the cursor are
-// `.{` with nothing between the dot and the brace: the start of a struct
-// whose name the position gives, as a literal or update `.{x: 1}`, a type
-// `.{name: String}` or a pattern `.{id}`. A struct elides its name with a
-// dot as an enum's variant elides its owner (`.Circle{radius}`).
+// `{` with nothing between the dot and the brace: the start of a struct
+// whose name the position gives, as a literal or update `{x: 1}`, a type
+// `{name: String}` or a pattern `{id:}`. A struct elides its name with a
+// dot as an enum's variant elides its owner (`.Circle{radius:}`).
 func (p *Parser) atStructOpen(offset int) bool {
 	dot, brace := p.peekAt(offset), p.peekAt(offset+1)
 	return dot.Type == token.DOT && brace.Type == token.LBRACE && adjacent(dot, brace)
-}
-
-// parseStructSigilLit parses a literal that starts with `.{`: a struct its
-// position expects, an anonymous struct, or an update `.{..base, x: 1}`.
-func (p *Parser) parseStructSigilLit() (ast.Node, error) {
-	tok := p.peek()
-	p.advance() // consume DOT
-	p.advance() // consume LBRACE
-	return p.parseAnonStructLit(tok, p.collectLeadingTrivia())
 }
 
 // tupleArityMessage is the error for a tuple written with fewer than two
@@ -3820,43 +3765,8 @@ func (p *Parser) parseParenExpr() (ast.Node, error) {
 func hashTupleError(hash token.Token) error {
 	return ParseError{Line: hash.Line, Col: hash.Col,
 		Message: "a tuple is written without `#`: `(a, b)`",
-		Hints:   []string{"`#` starts a vector `#[...]`; a tuple is its parentheses alone"},
+		Hints:   []string{"a tuple is its parentheses alone"},
 		Fix:     Replace("Drop the `#`", hash.Line, hash.Col, hash.Line, hash.Col+1, "")}
-}
-
-// parseVectorLit parses a vector literal, `#[expr, expr, ...]`, or with the
-// name of a type built on a vector, `#Path[...]`. hash is the `#`, consumed
-// with the name; the cursor is on the `[`. A spread names no type: its head
-// carries it.
-func (p *Parser) parseVectorLit(hash token.Token, typeName ast.TypeExpr) (ast.Node, error) {
-	p.advance() // consume LBRACKET
-	refuse := spreadsAnywhere
-	if typeName != nil {
-		refuse = "vector spread `..` has no named form; write `#[..base, item]` — the spread head carries the type"
-	}
-	items, endTrivia, spreads, err := p.parseCollectionItems(hash, token.RBRACKET, "vector literal", refuse)
-	if err != nil {
-		return nil, err
-	}
-	return &ast.VectorLit{TypeName: typeName, Items: items, Spreads: spreads, EndTrivia: endTrivia, Line: hash.Line, Col: hash.Col}, nil
-}
-
-// parseSetLit parses a set literal, `%[expr, expr, ...]`, or with the name
-// of a type built on a set, `%Tags[...]`. pct is the `%`, consumed with the
-// name; the cursor is on the `[`. Its spreads (`%[..s, x]`, `%[x, ..s, ..t]`,
-// or, at a field or key of an update, `%[.., x]`) are unioned with its
-// elements.
-func (p *Parser) parseSetLit(pct token.Token, typeName ast.TypeExpr) (ast.Node, error) {
-	p.advance() // consume LBRACKET
-	refuse := spreadsAnywhere
-	if typeName != nil {
-		refuse = "set spread `..` has no named form; write `%[..base, item]` — the spread head carries the type"
-	}
-	items, endTrivia, spreads, err := p.parseCollectionItems(pct, token.RBRACKET, "set literal", refuse)
-	if err != nil {
-		return nil, err
-	}
-	return &ast.SetLit{TypeName: typeName, Items: items, Spreads: spreads, EndTrivia: endTrivia, Line: pct.Line, Col: pct.Col}, nil
 }
 
 // bareSpreadEnds reports whether the `..` just consumed is a bare spread:
@@ -3986,7 +3896,7 @@ func canStartRangeOperand(tt token.TokenType) bool {
 		token.EQEQ, token.BANGEQ, token.LT, token.GT, token.LTEQ, token.GTEQ,
 		token.BIT_AND, token.BIT_OR, token.BIT_XOR, token.SHL,
 		token.DOTDOT, token.DOTDOTEQ,
-		token.COMMENT, token.BLANK_LINE:
+		token.COMMENT, token.BLANK_LINE, token.END, token.ELSE, token.THEN:
 		return false
 	}
 	return true
@@ -4170,81 +4080,143 @@ func (p *Parser) parseTaggedStringInterp() (ast.Node, error) {
 func (p *Parser) parseIf() (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume IF
-
-	var cond ast.Node
-	var condPattern ast.Node
-	var err error
-
-	// First try the refutable-match form. Commit only if a single pattern is
-	// followed by `=`; otherwise restore and parse the ordinary Bool condition.
-	savedPatternPos := p.pos
-	if !p.atEnd() && canStartPatternAssertion(p.peek().Type) {
-		if pat, patErr := p.parseSinglePattern(); patErr == nil && !p.atEnd() && p.peek().Type == token.EQ {
-			p.advance() // consume EQ
-			// The value after `=` is the head too: in `if x = True {`,
-			// `True {` is the name and the body, not a literal.
-			leave := p.enterHead()
-			cond, err = p.parseExpr(1)
-			leave()
-			if err != nil {
-				return nil, err
-			}
-			condPattern = pat
-		} else {
-			p.pos = savedPatternPos
-		}
-	}
-
-	if cond == nil {
-		leave := p.enterHead()
-		cond, err = p.parseExpr(1)
-		leave()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return nil, errorAt(tok.Line, tok.Col, "expected '{' after if condition")
-	}
-	thenNode, err := p.parseBlock()
+	cond, condPattern, err := p.parseIfCondition()
 	if err != nil {
 		return nil, err
 	}
-	then := thenNode.(*ast.Block)
+	return p.parseIfBranches(tok, cond, condPattern, false)
+}
 
-	var elseNode ast.Node
-	// Allow `else` to sit on a new line after the then-block's closing `}`.
-	// A blank line ends the if-expression — only consume plain NEWLINEs.
-	savedElsePos := p.pos
-	for !p.atEnd() && p.peek().Type == token.NEWLINE {
-		p.advance()
-	}
-	if !p.atEnd() && p.peek().Type == token.ELSE {
-		p.advance() // consume ELSE
-		if !p.atEnd() && p.peek().Type == token.IF {
-			// else if chain
-			elseStart := p.pos
-			elseNode, err = p.parseIf()
-			if err == nil {
-				p.recordSpan(elseNode, elseStart)
-			}
+// parseIfCondition parses an `if`'s condition up to its `then`: a Bool, or
+// `Pattern = value`, the refutable-match form. The pattern form commits only
+// when a single pattern is followed by `=`.
+func (p *Parser) parseIfCondition() (cond, condPattern ast.Node, err error) {
+	savedPattern := p.mark()
+	if !p.atEnd() && p.canStartPattern() {
+		if pat, patErr := p.parseSinglePattern(); patErr == nil && !p.atEnd() && p.peek().Type == token.EQ {
+			p.advance() // consume EQ
+			cond, err = p.parseExpr(1)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
-		} else if !p.atEnd() && p.peek().Type == token.LBRACE {
-			elseNode, err = p.parseBlock()
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, errorAt(tok.Line, tok.Col, "expected '{' or 'if' after else")
+			return cond, pat, nil
 		}
-	} else {
-		p.pos = savedElsePos
+		p.rewind(savedPattern)
 	}
+	cond, err = p.parseExpr(1)
+	return cond, nil, err
+}
 
-	return &ast.If{Cond: cond, CondPattern: condPattern, Then: then, Else: elseNode, Line: tok.Line, Col: tok.Col}, nil
+// parseIfBranches parses an `if` from its `then`, its condition read. An
+// `if` whose `then` ends its line is the block form: each branch runs on
+// the lines below to the next `else` or to `end`, and an `else if c then`
+// chain shares the one `end`, which only the first `if` of the chain
+// (chained false) consumes. Anything after `then` on its line makes the
+// `if` one inline expression with no `end`, whose `else` stands on the same
+// line (spec §8 *`if`/`else`*).
+func (p *Parser) parseIfBranches(tok token.Token, cond, condPattern ast.Node, chained bool) (*ast.If, error) {
+	if p.atEnd() || p.peek().Type != token.THEN {
+		at := p.peek()
+		if p.atEnd() || at.Type == token.NEWLINE {
+			at = p.lastReal()
+		}
+		return nil, errorAt(at.Line, at.Col, "expected `then` after the `if` condition")
+	}
+	thenTok := p.peek()
+	p.advance() // consume THEN
+	if !p.atLineEnd() {
+		if chained {
+			next := p.peek()
+			return nil, errorAt(next.Line, next.Col, "an `else if` in an `if` written over several lines ends its line at `then`, with its branch below")
+		}
+		return p.parseInlineIf(tok, thenTok, cond, condPattern)
+	}
+	then, err := p.parseBody(tok, "an `if` branch", stopAtElse, false)
+	if err != nil {
+		return nil, err
+	}
+	n := &ast.If{Cond: cond, CondPattern: condPattern, Then: then, Line: tok.Line, Col: tok.Col}
+	if !p.atEnd() && p.peek().Type == token.ELSE {
+		elseTok := p.peek()
+		p.advance() // consume ELSE
+		if !p.atEnd() && p.peek().Type == token.IF && p.peek().Line == elseTok.Line {
+			elseStart := p.pos
+			ifTok := p.peek()
+			p.advance() // consume IF
+			c, cp, err := p.parseIfCondition()
+			if err != nil {
+				return nil, err
+			}
+			inner, err := p.parseIfBranches(ifTok, c, cp, true)
+			if err != nil {
+				return nil, err
+			}
+			p.recordSpan(inner, elseStart)
+			n.Else = inner
+		} else {
+			if !p.atLineEnd() {
+				next := p.peek()
+				return nil, errorAt(next.Line, next.Col, "`else` ends its line in an `if` written over several lines, with its branch below; an inline `if c then a else b` stands on one line")
+			}
+			els, err := p.parseBody(tok, "an `else` branch", stopAtEnd, false)
+			if err != nil {
+				return nil, err
+			}
+			n.Else = els
+		}
+	}
+	if chained {
+		return n, nil
+	}
+	if _, err := p.expectEnd(tok, "the `if`"); err != nil {
+		return nil, err
+	}
+	return n, nil
+}
+
+// parseInlineIf parses the inline form after its `then`: the branch, and an
+// `else` on the same line whose branch extends as far right as an
+// expression does, or an inline `else if`.
+func (p *Parser) parseInlineIf(tok, thenTok token.Token, cond, condPattern ast.Node) (*ast.If, error) {
+	node, err := p.parseInlineBranch()
+	if err != nil {
+		return nil, err
+	}
+	n := &ast.If{Cond: cond, CondPattern: condPattern, Then: inlineBlock(thenTok, node), Inline: true, Line: tok.Line, Col: tok.Col}
+	line, _ := tokenEndPos(p.lastReal())
+	if p.atEnd() || p.peek().Type != token.ELSE || p.peek().Line != line {
+		return n, nil
+	}
+	elseTok := p.peek()
+	p.advance() // consume ELSE
+	if p.atLineEnd() {
+		return nil, errorAt(elseTok.Line, elseTok.Col, "an inline `if`'s `else` is followed by its value on the same line: `if c then a else b`")
+	}
+	if p.peek().Type == token.IF {
+		elseStart := p.pos
+		ifTok := p.peek()
+		p.advance() // consume IF
+		c, cp, err := p.parseIfCondition()
+		if err != nil {
+			return nil, err
+		}
+		inner, err := p.parseIfBranches(ifTok, c, cp, false)
+		if err != nil {
+			return nil, err
+		}
+		if !inner.Inline {
+			return nil, errorAt(ifTok.Line, ifTok.Col, "an inline `if`'s `else if` is inline too, with its value after `then` on the same line")
+		}
+		p.recordSpan(inner, elseStart)
+		n.Else = inner
+		return n, nil
+	}
+	els, err := p.parseInlineBranch()
+	if err != nil {
+		return nil, err
+	}
+	n.Else = inlineBlock(elseTok, els)
+	return n, nil
 }
 
 // parseWith parses the statement `with Type.field = value`. The override
@@ -4277,10 +4249,6 @@ func (p *Parser) parseWith() (ast.Node, error) {
 		switch next := p.peek(); next.Type {
 		case token.COMMA:
 			return nil, errorAt(next.Line, next.Col, "a `with` statement replaces one field; write one `with` line per field")
-		case token.LBRACE:
-			if next.Line == value.LineNum() || next.Line == tok.Line {
-				return nil, errorAt(next.Line, next.Col, "`with` is a statement and takes no block: the override lasts to the end of the enclosing block")
-			}
 		}
 	}
 	return &ast.With{Target: target, Value: value, Line: tok.Line, Col: tok.Col}, nil
@@ -4357,8 +4325,8 @@ func (p *Parser) parseDefer() (ast.Node, error) {
 // parseConcurrentBlock parses `concurrent { body }` — the structured
 // concurrency scope from spec §16. Called from the IDENT
 // branch of parsePrimary after the caller has confirmed the current
-// token's lexeme is `concurrent` and the next token is `{`; this
-// function consumes the contextual keyword and the body. Body parsing
+// token's lexeme is `concurrent` and that it ends its line; this
+// function consumes the contextual keyword and the body to its `end`. Body parsing
 // reuses the regular block machinery; semantics (last-expression-is-
 // value, lambda-scoped `return`/`?`, runtime task scoping) are
 // layered on by the analyzer (analysis/checker.go) and the IR builder
@@ -4367,15 +4335,10 @@ func (p *Parser) parseConcurrentBlock() (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume the contextual `concurrent` IDENT
 
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return nil, errorAt(tok.Line, tok.Col, "expected '{' after 'concurrent'")
-	}
-
-	bodyNode, err := p.parseBlock()
+	body, err := p.parseEndBody(tok, "a `concurrent` block")
 	if err != nil {
 		return nil, err
 	}
-	body := bodyNode.(*ast.Block)
 
 	return &ast.ConcurrentBlock{
 		Body: body,
@@ -4386,9 +4349,9 @@ func (p *Parser) parseConcurrentBlock() (ast.Node, error) {
 
 // parseTestDecl parses:
 //
-//	test "name" { ... }
-//	test "name", ctx { ... }
-//	group "name" { clock Clock.Virtual  boot server.boot(startup)  setup fixture()  test "child", ctx { ... } }
+//	test "name"            (body, then `end`)
+//	test "name", ctx       (body, then `end`)
+//	group "name"           (clock, boot and setup lines and tests, then `end`)
 func (p *Parser) parseTestDecl() (ast.Node, error) {
 	tok := p.peek()
 	group := tok.Type != token.TEST
@@ -4397,16 +4360,16 @@ func (p *Parser) parseTestDecl() (ast.Node, error) {
 	var nameTok token.Token
 	var name string
 	switch {
-	case group && !p.atEnd() && p.peek().Type == token.LBRACE:
-		// `group { ... }`: the name is missing. The body is still read
-		// as a group's, so its tests are checked and an editor offers
-		// inside it what it offers inside any group. The declaration has
-		// no name position, so the checker does not report the name again.
-		brace := p.peek()
+	case group && p.atLineEnd():
+		// `group` alone on its line: the name is missing. The body is
+		// still read as a group's, so its tests are checked and an editor
+		// offers inside it what it offers inside any group. The
+		// declaration has no name position, so the checker does not
+		// report the name again.
 		p.softError(ParseError{
-			Line:    brace.Line,
-			Col:     brace.Col,
-			Message: "a `group` needs a name; name the group for what its tests share, such as `group \"dates\" { ... }`",
+			Line:    tok.Line,
+			Col:     tok.Col,
+			Message: "a `group` needs a name; name the group for what its tests share, such as `group \"dates\"`",
 		})
 	case p.atEnd() || p.peek().Type != token.STRING_LITERAL:
 		if group {
@@ -4429,13 +4392,6 @@ func (p *Parser) parseTestDecl() (ast.Node, error) {
 		contextPattern = pat
 	}
 
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		if group {
-			return nil, errorAt(tok.Line, tok.Col, "expected '{' for group body")
-		}
-		return nil, errorAt(tok.Line, tok.Col, "expected '{' for test body")
-	}
-
 	bodyRecoveries := p.recoveries
 	var boot ast.Node
 	var bootLine int
@@ -4451,7 +4407,7 @@ func (p *Parser) parseTestDecl() (ast.Node, error) {
 	var subtests *ast.GroupSubtests
 	var body *ast.Block
 	if group {
-		parsed, err := p.parseGroupBody()
+		parsed, err := p.parseGroupBody(tok)
 		if err != nil {
 			return nil, err
 		}
@@ -4469,11 +4425,11 @@ func (p *Parser) parseTestDecl() (ast.Node, error) {
 		clockTrailing = parsed.clockTrailing
 		subtests = parsed.subtests
 	} else {
-		bodyNode, err := p.parseBlock()
+		var err error
+		body, err = p.parseEndBody(tok, "a test's body")
 		if err != nil {
 			return nil, err
 		}
-		body = bodyNode.(*ast.Block)
 	}
 
 	testDecl := &ast.TestDecl{
@@ -4531,7 +4487,7 @@ func testDeclContainsAssertion(decl *ast.TestDecl) bool {
 	return false
 }
 
-// groupBody is what a `group "…" { }` block yields. A struct
+// groupBody is what a `group "…"` body yields. A struct
 // rather than a return list: the list had reached nine values before
 // `clock` was added, at which point every call site was positional
 // guesswork.
@@ -4556,26 +4512,26 @@ type groupBody struct {
 // block that holds them all. The lines run in a fixed order whatever their
 // position, so position means nothing; `nomi fmt` moves them to the top.
 // Groups do not nest.
-func (p *Parser) parseGroupBody() (groupBody, error) {
-	tok := p.peek()
-	p.advance() // consume LBRACE
-
-	var children []ast.Node
+func (p *Parser) parseGroupBody(open token.Token) (groupBody, error) {
 	var out groupBody
+	if err := p.headerEnds("a group's body"); err != nil {
+		return out, err
+	}
+	line, col := tokenEndPos(p.lastReal())
+	var children []ast.Node
 	endTrivia, err := p.parseGroupItems(&out, &children, nil)
 	if err != nil {
 		return out, err
 	}
-	if p.atEnd() || p.peek().Type != token.RBRACE {
-		return out, errorAt(tok.Line, tok.Col, "expected '}' to close group body")
+	closeTok, err := p.expectEnd(open, "the group")
+	if err != nil {
+		return out, err
 	}
-	closeTok := p.peek()
-	p.advance() // consume RBRACE
 
 	block := &ast.Block{
 		Stmts:   children,
-		Line:    tok.Line,
-		Col:     tok.Col,
+		Line:    line,
+		Col:     col,
 		EndLine: closeTok.Line,
 		EndCol:  closeTok.Col,
 	}
@@ -4592,15 +4548,15 @@ func (p *Parser) parseGroupBody() (groupBody, error) {
 // place and once in another reads as one group and runs as two.
 const groupSubtestsAloneMsg = "a `group` with a `subtests` block holds nothing else: its clock, boot, setup and tests go inside the block, which runs them once per row"
 
-// parseGroupItems parses a group body's items up to its closing brace,
-// which it leaves unconsumed, and answers the comments before the brace.
+// parseGroupItems parses a group body's items up to its `end`, which it
+// leaves unconsumed, and answers the comments before the `end`.
 // rows is the `subtests` block the items are inside, or nil for the
 // group's own body.
 func (p *Parser) parseGroupItems(out *groupBody, children *[]ast.Node, rows *ast.GroupSubtests) ([]ast.Trivia, error) {
 	items := 0
 	for {
 		leading := p.collectLeadingTrivia()
-		if p.atEnd() || p.peek().Type == token.RBRACE {
+		if p.atEnd() || p.peek().Type == token.END {
 			return leading, nil
 		}
 		if rows == nil && out.subtests != nil {
@@ -4747,8 +4703,8 @@ func (p *Parser) atGroupSubtests() bool {
 		next.Line == tok.Line && next.Col != tok.Col+len(tok.Lexeme) && canStartRangeOperand(next.Type)
 }
 
-// parseGroupSubtests parses a group's `subtests rows, pattern, name { ... }`
-// block, with the cursor at the keyword: its header into out.subtests and
+// parseGroupSubtests parses a group's `subtests rows, pattern, name` block,
+// its items below and its `end`, with the cursor at the keyword: its header into out.subtests and
 // its items into out and children. leading is the comments above it.
 func (p *Parser) parseGroupSubtests(out *groupBody, children *[]ast.Node, leading []ast.Trivia) error {
 	start := p.pos
@@ -4759,12 +4715,12 @@ func (p *Parser) parseGroupSubtests(out *groupBody, children *[]ast.Node, leadin
 		return err
 	}
 	if p.atEnd() || p.peek().Type != token.COMMA {
-		return errorAt(kw.Line, kw.Col, "expected a comma and a pattern after the rows in `subtests`, such as `subtests [\"memory\", \"sqlite\"], store { ... }`")
+		return errorAt(kw.Line, kw.Col, "expected a comma and a pattern after the rows in `subtests`, such as `subtests [\"memory\", \"sqlite\"], store`")
 	}
 	comma := p.peek()
 	p.advance() // consume COMMA
-	if p.atEnd() || p.peek().Line != comma.Line || !canStartPatternAssertion(p.peek().Type) {
-		return errorAt(kw.Line, kw.Col, "expected a pattern after the rows in `subtests`, such as `subtests [\"memory\", \"sqlite\"], store { ... }`")
+	if p.atEnd() || p.peek().Line != comma.Line || !p.canStartPattern() {
+		return errorAt(kw.Line, kw.Col, "expected a pattern after the rows in `subtests`, such as `subtests [\"memory\", \"sqlite\"], store`")
 	}
 	pattern, err := p.parseSinglePattern()
 	if err != nil {
@@ -4774,10 +4730,9 @@ func (p *Parser) parseGroupSubtests(out *groupBody, children *[]ast.Node, leadin
 	if err != nil {
 		return err
 	}
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return errorAt(kw.Line, kw.Col, "expected '{' for the `subtests` block after its pattern")
+	if err := p.headerEnds("a `subtests` block"); err != nil {
+		return err
 	}
-	p.advance() // consume LBRACE
 	gs := &ast.GroupSubtests{Rows: rows, Pattern: pattern, Name: name, Line: kw.Line, Col: kw.Col}
 	attachTrivia(gs, leading, nil)
 	out.subtests = gs
@@ -4785,11 +4740,10 @@ func (p *Parser) parseGroupSubtests(out *groupBody, children *[]ast.Node, leadin
 	if err != nil {
 		return err
 	}
-	if p.atEnd() || p.peek().Type != token.RBRACE {
-		return errorAt(kw.Line, kw.Col, "expected '}' to close the `subtests` block")
+	closeTok, err := p.expectEnd(kw, "the `subtests` block")
+	if err != nil {
+		return err
 	}
-	closeTok := p.peek()
-	p.advance() // consume RBRACE
 	gs.EndTrivia = endTrivia
 	gs.EndLine, gs.EndCol = closeTok.Line, closeTok.Col
 	p.recordSpan(gs, start)
@@ -4832,19 +4786,19 @@ func (p *Parser) atGroupStart() bool {
 
 // isGroupStart reports whether tok is the contextual keyword `group` that
 // opens a test group: the word followed on its line by the group's name
-// string, or by the `{` of a group whose name is missing (parseTestDecl
-// reports that). No other statement puts a string right after a name, and
-// a name followed by a block declares nothing, so anywhere else `group` is
-// an ordinary identifier (`group = 3`, `group(x)`, `group.name`).
+// string, or alone on its line, a group whose name is missing (parseTestDecl
+// reports that). No other statement puts a string right after a name, so
+// anywhere else `group` is an ordinary identifier (`group = 3`, `group(x)`,
+// `group.name`); in a body, a line that is `group` alone reads the name.
 func isGroupStart(tok, next token.Token) bool {
 	if tok.Type != token.IDENT || tok.Lexeme != "group" || next.Line != tok.Line {
 		return false
 	}
-	return next.Type == token.STRING_LITERAL || next.Type == token.STRING_START || next.Type == token.LBRACE
+	return next.Type == token.STRING_LITERAL || next.Type == token.STRING_START || next.Type == token.NEWLINE
 }
 
-// tryParseSubtests parses `subtests rows, pattern { body }` at the start of a
-// block statement. `subtests` is a contextual keyword: the statement is one
+// tryParseSubtests parses `subtests rows, pattern`, its body and `end`, at
+// the start of a block statement. `subtests` is a contextual keyword: the statement is one
 // only when, after a space, an expression starts on the word's line and a
 // comma follows it, which no other statement can start with. Anything else
 // (`subtests = 3`, `subtests(x)`, a bare `subtests`) is restored and parsed
@@ -4867,9 +4821,9 @@ func (p *Parser) tryParseSubtests() (ast.Node, bool, error) {
 		// A binding, a field read or a subtraction of the name.
 		return nil, false, nil
 	}
-	saved, savedErrors, savedRecoveries, savedSoft := p.pos, len(p.errors), p.recoveries, p.softErrors
+	saved := p.mark()
 	restore := func() (ast.Node, bool, error) {
-		p.pos, p.errors, p.recoveries, p.softErrors = saved, p.errors[:savedErrors], savedRecoveries, savedSoft
+		p.rewind(saved)
 		return nil, false, nil
 	}
 	p.advance() // consume the contextual `subtests`
@@ -4879,8 +4833,8 @@ func (p *Parser) tryParseSubtests() (ast.Node, bool, error) {
 	}
 	comma := p.peek()
 	p.advance() // consume COMMA
-	if p.atEnd() || p.peek().Line != comma.Line || !canStartPatternAssertion(p.peek().Type) {
-		return nil, true, errorAt(tok.Line, tok.Col, "expected a pattern after the rows in `subtests`, such as `subtests cases, (input, expected) { ... }`")
+	if p.atEnd() || p.peek().Line != comma.Line || !p.canStartPattern() {
+		return nil, true, errorAt(tok.Line, tok.Col, "expected a pattern after the rows in `subtests`, such as `subtests cases, (input, expected)`")
 	}
 	st, err := p.parseSubtestsRest(tok, rows)
 	if err != nil {
@@ -4901,13 +4855,7 @@ func (p *Parser) parseSubtestsRest(tok token.Token, rows ast.Node) (*ast.Subtest
 	if err != nil {
 		return nil, err
 	}
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		if name != nil {
-			return nil, errorAt(tok.Line, tok.Col, "expected '{' for the `subtests` body after its name")
-		}
-		return nil, errorAt(tok.Line, tok.Col, "expected '{' for the `subtests` body after its pattern")
-	}
-	bodyNode, err := p.parseBlock()
+	body, err := p.parseEndBody(tok, "a `subtests` body")
 	if err != nil {
 		return nil, err
 	}
@@ -4915,7 +4863,7 @@ func (p *Parser) parseSubtestsRest(tok token.Token, rows ast.Node) (*ast.Subtest
 		Rows:    rows,
 		Pattern: pattern,
 		Name:    name,
-		Body:    bodyNode.(*ast.Block),
+		Body:    body,
 		Line:    tok.Line,
 		Col:     tok.Col,
 	}, nil
@@ -4933,19 +4881,19 @@ func (p *Parser) atSubtestsStage() bool {
 	if tok.Type != token.IDENT || tok.Lexeme != "subtests" {
 		return false
 	}
-	if next.Line != tok.Line || next.Col == tok.Col+len(tok.Lexeme) || !canStartPatternAssertion(next.Type) {
+	if next.Line != tok.Line || next.Col == tok.Col+len(tok.Lexeme) {
+		return false
+	}
+	if next.Type == token.LBRACE {
+		// A struct pattern, `{a:, b:}`.
+		return true
+	}
+	if !canStartPatternAssertion(next.Type) {
 		return false
 	}
 	if next.Type == token.PERCENT {
-		// `%` starts a map or set pattern only against its opener or type
-		// name (`%{`, `%[`, `%Kvs{`); `subtests % 2` is a remainder.
-		after := p.peekAt(2)
-		return after.Line == next.Line && after.Col == next.Col+1 &&
-			(after.Type == token.LBRACE || after.Type == token.LBRACKET || after.Type == token.TYPE_IDENT)
-	}
-	if next.Type == token.DOT {
-		// A struct pattern, `.{a, b}`; a lone `.` is no pattern's start.
-		return p.atStructOpen(1)
+		// `subtests % 2` is a remainder.
+		return false
 	}
 	return next.Type != token.MINUS
 }
@@ -4958,7 +4906,7 @@ const (
 	subtestsStageLastMsg      = "`|> subtests` must be the last stage of its pipeline: it has no value to pass on"
 )
 
-// parseSubtestsStage parses `rows |> subtests pattern, name { body }`, the
+// parseSubtestsStage parses `rows |> subtests pattern, name`, its body and `end`, the
 // `subtests` statement with the pipe's source as its rows, with the cursor
 // at the `subtests` word. start is the token index the pipeline starts at:
 // the stage is accepted only on a pipeline that is the whole expression of
@@ -4990,17 +4938,16 @@ func (p *Parser) parseSubtestsStage(rows ast.Node, start int, leading []ast.Triv
 
 // parseSubtestsName parses the optional `, name` after a `subtests` pattern,
 // and answers nil when no comma follows the pattern. The name is an
-// expression that starts on its comma's line and ends where the body's `{`
-// begins. A plain `{` only opens a block, so a name that starts with one is
-// written in parentheses.
+// expression that starts on its comma's line and ends with the header's
+// line.
 func (p *Parser) parseSubtestsName(kw token.Token) (ast.Node, error) {
 	if p.atEnd() || p.peek().Type != token.COMMA {
 		return nil, nil
 	}
 	comma := p.peek()
 	p.advance() // consume COMMA
-	if p.atEnd() || p.peek().Line != comma.Line || p.peek().Type == token.LBRACE || !canStartRangeOperand(p.peek().Type) {
-		return nil, errorAt(kw.Line, kw.Col, "expected the row's name after the pattern in `subtests`, such as `subtests cases, (description, input), description { ... }`")
+	if p.atEnd() || p.peek().Line != comma.Line || !canStartRangeOperand(p.peek().Type) {
+		return nil, errorAt(kw.Line, kw.Col, "expected the row's name after the pattern in `subtests`, such as `subtests cases, (description, input), description`")
 	}
 	name, err := p.parseExpr(1)
 	if err != nil {
@@ -5010,11 +4957,11 @@ func (p *Parser) parseSubtestsName(kw token.Token) (ast.Node, error) {
 }
 
 func (p *Parser) tryParseHeadPatternAssertion(assertTok token.Token) (ast.Node, bool, error) {
-	if p.atEnd() || p.peek().Line != assertTok.Line || !canStartPatternAssertion(p.peek().Type) {
+	if p.atEnd() || p.peek().Line != assertTok.Line || !p.canStartPattern() {
 		return nil, false, nil
 	}
 
-	savedPos := p.pos
+	saved := p.mark()
 	pat, err := p.parseSinglePattern()
 	if err == nil && !p.atEnd() && p.peek().Type == token.EQ {
 		p.advance() // consume EQ
@@ -5032,80 +4979,13 @@ func (p *Parser) tryParseHeadPatternAssertion(assertTok token.Token) (ast.Node, 
 		}, true, nil
 	}
 
-	p.pos = savedPos
+	p.rewind(saved)
 	return nil, false, nil
-}
-
-// parseBlock parses a block: { stmt; stmt; ... }
-func (p *Parser) parseBlock() (ast.Node, error) {
-	tok := p.peek()
-	p.advance() // consume LBRACE
-
-	var stmts []ast.Node
-	var endTrivia []ast.Trivia
-
-	for {
-		leading := p.collectLeadingTrivia()
-		if p.atEnd() || p.peek().Type == token.RBRACE ||
-			(p.resilient && p.blockClosedByColumnOneDecl()) {
-			// End-of-block trivia: comments or blank lines after the last
-			// statement but before the closing `}` belong to the Block
-			// itself, not to a following statement.
-			endTrivia = leading
-			break
-		}
-		if p.strayBodyMarker() {
-			continue
-		}
-		stmtStart := p.pos
-		node, attachedDoc, attachedLeading, err := p.parseBlockStmt()
-		if err != nil {
-			if !p.resilient {
-				return nil, err
-			}
-			stmts = append(stmts, p.recoverStmtInBlock(stmtStart, err))
-			continue
-		}
-		trailing := p.collectTrailingComment(node.LineNum())
-		attachTrivia(node.(ast.HasTrivia), append(leading, attachedLeading...), trailing)
-		attachDoc(node, attachedDoc)
-		stmts = append(stmts, node)
-		if err := p.statementEnds(); err != nil {
-			if !p.resilient {
-				return nil, err
-			}
-			stmts = append(stmts, p.recoverStmtInBlock(p.pos, err))
-		}
-	}
-
-	var endLine, endCol int
-	if p.atEnd() || p.peek().Type != token.RBRACE {
-		if !p.resilient {
-			return nil, errorAt(tok.Line, tok.Col, "expected '}' to close block")
-		}
-		endLine, endCol = p.resilientBlockEnd(tok)
-	} else {
-		closeTok := p.peek()
-		endLine, endCol = closeTok.Line, closeTok.Col
-		p.advance() // consume RBRACE
-	}
-
-	block := &ast.Block{
-		Stmts:   stmts,
-		Line:    tok.Line,
-		Col:     tok.Col,
-		EndLine: endLine,
-		EndCol:  endCol,
-	}
-	for _, t := range endTrivia {
-		block.AddTrailing(t)
-	}
-	return block, nil
 }
 
 // statementEnds reports an error when another statement starts right after
 // the one just parsed, with nothing between them: a name followed by a
-// brace, `Point{x}` or `%Kvs{}`, would otherwise read as a name and then a
+// brace, `Point{x:}` or `Kvs{}`, would otherwise read as a name and then a
 // block, and `Kvs%{...}` as a name and then a map. Statements on one line
 // separated by a space or a `;` are unchanged.
 func (p *Parser) statementEnds() error {
@@ -5164,37 +5044,19 @@ func (p *Parser) parseCase() (ast.Node, error) {
 
 	var value ast.Node
 	hasValue := false
-
-	// A `{` right after `case` opens ad-hoc conditionals (no match value).
-	// A map literal as the case value opens with `%{`.
-	if !p.atEnd() && p.peek().Type == token.LBRACE {
-		// ad-hoc: Case.Value = nil
-	} else {
-		// Parse match value expression, then expect LBRACE
+	// `case` alone on its line opens ad-hoc conditionals (no match value).
+	if !p.atLineEnd() && !p.atEndWord() {
 		var err error
-		leave := p.enterHead()
 		value, err = p.parseExpr(1)
-		leave()
 		if err != nil {
 			return nil, err
 		}
 		hasValue = true
 	}
-
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return nil, errorAt(tok.Line, tok.Col, "expected '{' after case")
-	}
-	p.advance() // consume LBRACE
-
-	branches, endTrivia, err := p.parseCaseArms(hasValue, "case")
+	branches, endTrivia, err := p.parseCaseBody(tok, hasValue, "case")
 	if err != nil {
 		return nil, err
 	}
-	if p.atEnd() || p.peek().Type != token.RBRACE {
-		return nil, errorAt(tok.Line, tok.Col, "expected '}' to close case expression")
-	}
-	p.advance() // consume RBRACE
-
 	c := &ast.Case{Value: value, Branches: branches, Line: tok.Line, Col: tok.Col}
 	for _, t := range endTrivia {
 		c.AddTrailing(t)
@@ -5202,14 +5064,34 @@ func (p *Parser) parseCase() (ast.Node, error) {
 	return c, nil
 }
 
-// parseCaseArms parses case arms after an opening `{` up to, not including,
-// the closing `}`. The returned trivia is what follows the last arm, which
+// parseCaseBody parses the arms below a `case` header and the `end` that
+// closes them; `case e end` on one line has none.
+func (p *Parser) parseCaseBody(tok token.Token, hasValue bool, keyword string) ([]ast.CaseBranch, []ast.Trivia, error) {
+	if p.atEmptyBody() {
+		p.advance() // consume END
+		return nil, nil, nil
+	}
+	if err := p.headerEnds("a `case`'s arms"); err != nil {
+		return nil, nil, err
+	}
+	branches, endTrivia, err := p.parseCaseArms(hasValue, keyword)
+	if err != nil {
+		return nil, nil, err
+	}
+	if _, err := p.expectEnd(tok, "the `"+keyword+"`"); err != nil {
+		return nil, nil, err
+	}
+	return branches, endTrivia, nil
+}
+
+// parseCaseArms parses arms, one per line, up to, not including, the `end`
+// that closes them. The returned trivia is what follows the last arm, which
 // belongs to the node holding the arms (there is no next arm to attach to).
 func (p *Parser) parseCaseArms(hasValue bool, keyword string) ([]ast.CaseBranch, []ast.Trivia, error) {
 	var branches []ast.CaseBranch
 	for {
 		leading := p.collectLeadingTrivia()
-		if p.atEnd() || p.peek().Type == token.RBRACE {
+		if p.atEnd() || p.peek().Type == token.END {
 			return branches, leading, nil
 		}
 		if p.strayBodyMarker() {
@@ -5224,55 +5106,53 @@ func (p *Parser) parseCaseArms(hasValue bool, keyword string) ([]ast.CaseBranch,
 		// trivia that isn't semantically theirs.
 		var trailing []ast.Trivia
 		if branch.Body != nil {
-			trailing = p.collectTrailingComment(branch.Body.LineNum())
+			trailing = p.collectTrailingComment(p.lastReal().Line)
 		}
 		attachTrivia(&branch, leading, trailing)
 		branches = append(branches, branch)
-
-		// Skip separators (commas) between branches; trivia is handled
-		// at the top of the loop.
-		for !p.atEnd() && p.peek().Type == token.COMMA {
-			p.advance()
+		if !p.atLineEnd() && !p.atEndWord() {
+			next := p.peek()
+			return nil, nil, errorAt(next.Line, next.Col, "unexpected %s after a `%s` arm: each arm stands on its own line", tokenShown(next), keyword)
 		}
 	}
 }
 
-// parsePatternBindingElse parses `else { ... }` after a binding's value: a
-// plain block, or case arms over the value the pattern did not match. The
-// braces hold arms when their first item is `pattern ->` (or
-// `pattern when`), as a case's do.
+// parsePatternBindingElse parses the `else` after a binding's value: its
+// value on the same line (`else return 0`), or below it case arms over the
+// value the pattern did not match, or a body, to `end`. The lines below
+// hold arms when the first of them is `pattern ->` (or `pattern when`), as
+// a case's do.
 func (p *Parser) parsePatternBindingElse() (*ast.BindingElse, error) {
 	elseTok := p.peek()
 	p.advance() // consume ELSE
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return nil, errorAt(elseTok.Line, elseTok.Col, "expected '{' after else: a binding's else is a braced block")
-	}
-	if !p.bindingElseHasArms() {
-		blockNode, err := p.parseBlock()
+	if !p.atLineEnd() && !p.atEmptyBody() {
+		node, err := p.parseInlineBranch()
 		if err != nil {
 			return nil, err
 		}
-		return &ast.BindingElse{Block: blockNode.(*ast.Block), Line: elseTok.Line, Col: elseTok.Col}, nil
+		return &ast.BindingElse{Block: inlineBlock(elseTok, node), Line: elseTok.Line, Col: elseTok.Col}, nil
 	}
-	lbrace := p.peek()
-	p.advance() // consume LBRACE
+	if !p.bindingElseHasArms() {
+		block, err := p.parseEndBody(elseTok, "a binding's `else`")
+		if err != nil {
+			return nil, err
+		}
+		return &ast.BindingElse{Block: block, Line: elseTok.Line, Col: elseTok.Col}, nil
+	}
 	arms, endTrivia, err := p.parseCaseArms(true, "else")
 	if err != nil {
 		return nil, err
 	}
-	if p.atEnd() || p.peek().Type != token.RBRACE {
-		return nil, errorAt(elseTok.Line, elseTok.Col, "expected '}' to close else")
+	closeTok, err := p.expectEnd(elseTok, "the `else`")
+	if err != nil {
+		return nil, err
 	}
-	closeTok := p.peek()
-	p.advance() // consume RBRACE
 	e := &ast.BindingElse{
-		Arms:       arms,
-		Line:       elseTok.Line,
-		Col:        elseTok.Col,
-		LBraceLine: lbrace.Line,
-		LBraceCol:  lbrace.Col,
-		EndLine:    closeTok.Line,
-		EndCol:     closeTok.Col,
+		Arms:    arms,
+		Line:    elseTok.Line,
+		Col:     elseTok.Col,
+		EndLine: closeTok.Line,
+		EndCol:  closeTok.Col,
 	}
 	for _, t := range endTrivia {
 		e.AddTrailing(t)
@@ -5280,12 +5160,12 @@ func (p *Parser) parsePatternBindingElse() (*ast.BindingElse, error) {
 	return e, nil
 }
 
-// bindingElseHasArms reports whether the `{` at the cursor opens case arms:
-// its first item is a pattern followed by `->` or `when`. It always rewinds.
+// bindingElseHasArms reports whether the lines below an `else` hold case
+// arms: the first item is a pattern followed by `->` or `when`. It always
+// rewinds.
 func (p *Parser) bindingElseHasArms() bool {
-	savedPos, savedRecoveries := p.pos, p.recoveries
-	defer func() { p.pos, p.recoveries = savedPos, savedRecoveries }()
-	p.advance() // step over LBRACE
+	saved := p.mark()
+	defer p.rewind(saved)
 	for !p.atEnd() {
 		switch p.peek().Type {
 		case token.NEWLINE, token.COMMENT, token.BLANK_LINE:
@@ -5294,7 +5174,7 @@ func (p *Parser) bindingElseHasArms() bool {
 		}
 		break
 	}
-	if p.atEnd() || !canStartPatternAssertion(p.peek().Type) {
+	if p.atEnd() || !p.canStartPattern() {
 		return false
 	}
 	if _, err := p.parseSinglePattern(); err != nil || p.atEnd() {
@@ -5303,17 +5183,22 @@ func (p *Parser) bindingElseHasArms() bool {
 	return p.peek().Type == token.ARROW || p.peek().Type == token.WHEN
 }
 
-// atBindingElse reports whether an `else` follows a binding's value, on the
-// same line or after plain newlines (not a blank line), and steps to it.
-func (p *Parser) atBindingElse() bool {
-	saved := p.pos
-	for !p.atEnd() && p.peek().Type == token.NEWLINE {
-		p.advance()
-	}
-	if !p.atEnd() && p.peek().Type == token.ELSE {
+// atBindingElse reports whether an `else` follows a binding's value on its
+// line, or, with nextLine, starts the line after it (a plain line break, not
+// a blank line), and steps to it. A pattern that always matches takes no
+// `else`, so only its own line's is its: an `else` starting the next line
+// after `x = f()` is an enclosing `if`'s.
+func (p *Parser) atBindingElse(nextLine bool) bool {
+	if !p.atEnd() && p.peek().Type == token.ELSE && p.peek().Line == p.lastReal().Line {
 		return true
 	}
-	p.pos = saved
+	if !nextLine || p.atEnd() || p.peek().Type != token.NEWLINE {
+		return false
+	}
+	if next := p.peekAt(1); next.Type == token.ELSE {
+		p.advance() // consume NEWLINE
+		return true
+	}
 	return false
 }
 
@@ -5321,8 +5206,8 @@ func (p *Parser) atBindingElse() bool {
 // parsed. Without a following `else` the statement is node. With one, the
 // statement is a PatternBinding: its pattern is re-read from start, the
 // statement's first token, and the value already parsed is kept.
-func (p *Parser) withBindingElse(start int, node, value ast.Node, line, col int) (ast.Node, error) {
-	if !p.atBindingElse() {
+func (p *Parser) withBindingElse(start int, node, value ast.Node, line, col int, nextLine bool) (ast.Node, error) {
+	if !p.atBindingElse(nextLine) {
 		return node, nil
 	}
 	after := p.pos
@@ -5361,7 +5246,7 @@ func (p *Parser) tryParsePatternBinding() (ast.Node, bool, error) {
 		return nil, true, err
 	}
 	n := &ast.PatternBinding{Pattern: pattern, Value: value, Line: start.Line, Col: start.Col}
-	if p.atBindingElse() {
+	if p.atBindingElse(true) {
 		if n.Else, err = p.parsePatternBindingElse(); err != nil {
 			return nil, true, err
 		}
@@ -5369,13 +5254,14 @@ func (p *Parser) tryParsePatternBinding() (ast.Node, bool, error) {
 	return n, true, nil
 }
 
-// parseCaseBranch parses one branch of a case expression: pattern [when
-// guard] -> body. keyword names what holds the arms (`case`, `else`) in the
-// error for an arm whose body runs on below it.
+// parseCaseBranch parses one arm: pattern [when guard] -> body. A body on
+// the `->`'s line is one expression (or `break`, `continue`, `return`); an
+// `->` that ends its line takes the lines below, up to the next line that
+// starts an arm or the `end` that closes the arms (spec §8 *`case`*).
+// keyword names what holds the arms (`case`, `else`) in its errors.
 func (p *Parser) parseCaseBranch(hasValue bool, keyword string) (ast.CaseBranch, error) {
 	line := p.peek().Line
 	col := p.peek().Col
-	headStart := p.pos
 	pattern, guard, err := p.parseCaseArmHead(hasValue)
 	if err != nil {
 		return ast.CaseBranch{}, err
@@ -5385,35 +5271,31 @@ func (p *Parser) parseCaseBranch(hasValue bool, keyword string) (ast.CaseBranch,
 	if p.atEnd() || p.peek().Type != token.ARROW {
 		return ast.CaseBranch{}, errorAt(p.peek().Line, p.peek().Col, "expected '->' in case branch")
 	}
-	arrow := p.pos
+	arrow := p.peek()
 	p.advance() // consume ARROW
 
-	// Parse the arm body. A leading break/continue/return is a control-flow
-	// node — it unwinds to the enclosing loop/lambda just as in statement
-	// position; otherwise the body is an expression. The parser stays
-	// permissive; the checker (analysis/iter_sensitive.go) enforces that
-	// break/continue only appear inside an iteration callback.
+	// A leading break/continue/return is a control-flow node: it unwinds to
+	// the enclosing loop/lambda just as in statement position. The parser
+	// stays permissive; the checker (analysis/iter_sensitive.go) enforces
+	// that break/continue only appear inside an iteration callback.
 	var body ast.Node
-	switch p.peek().Type {
-	case token.BREAK:
-		body, err = p.parseBreak()
-	case token.CONTINUE:
-		body, err = p.parseContinue()
-	case token.RETURN:
-		body, err = p.parseReturn()
-	default:
-		body, err = p.parseExpr(1)
-	}
-	if err != nil {
-		return ast.CaseBranch{}, err
-	}
-	if _, braced := body.(*ast.Block); !braced {
-		if body, err = p.continuedArm(hasValue, keyword, headStart, arrow, body); err != nil {
+	if p.atLineEnd() {
+		block, err := p.parseBody(arrow, "a `"+keyword+"` arm's body", stopAtArm, hasValue)
+		if err != nil {
+			return ast.CaseBranch{}, err
+		}
+		if len(block.Stmts) == 0 {
+			return ast.CaseBranch{}, errorAt(arrow.Line, arrow.Col, "expected the arm's body after `->`, on its line or on the lines below")
+		}
+		body = singleBody(block)
+	} else {
+		body, err = p.parseInlineBranch()
+		if err != nil {
 			return ast.CaseBranch{}, err
 		}
 	}
 
-	endLine, endCol := tokenEnd(p.tokens[p.pos-1])
+	endLine, endCol := tokenEndPos(p.lastReal())
 	return ast.CaseBranch{Pattern: pattern, Guard: guard, Body: body, Line: line, Col: col, EndLine: endLine, EndCol: endCol}, nil
 }
 
@@ -5524,10 +5406,10 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 				p.advance()
 				pattern = &ast.IdentPattern{Name: tok.Lexeme, Line: tok.Line, Col: tok.Col}
 			}
-		case token.LPAREN, token.HASH, token.PERCENT, token.LBRACKET:
+		case token.LPAREN, token.HASH, token.PERCENT, token.LBRACKET, token.LBRACE:
 			// A parenthesized pattern, a pattern starting with its shape's
-			// symbol (`.{...}`, `Point{...}`, `#[...]`,
-			// `%{...}`, `%[...]`) or a list `[...]`: parsed as they are
+			// symbol (`{...}`, `Point{...}`, `[...]`,
+			// `{...}`, `[...]`) or a list `[...]`: parsed as they are
 			// nested in another pattern.
 			if pattern, err = p.parseSinglePatternInner(); err != nil {
 				return nil, nil, err
@@ -5540,10 +5422,7 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 			pattern = pat
 		case token.DOT:
 			if p.atStructOpen(0) {
-				if pattern, err = p.parseSinglePatternInner(); err != nil {
-					return nil, nil, err
-				}
-				break
+				return nil, nil, dotBraceError(tok)
 			}
 			// Dot-leading variant pattern: `.X`, `.X(args)`, `.X[...]`.
 			// The TypeExpr carrier is a
@@ -5619,79 +5498,6 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 	return pattern, guard, nil
 }
 
-// parseBlockExpr parses a block expression, `{ stmts }`. A `{` in an
-// expression always opens one: a struct literal with no type name opens
-// with `.{` (parseHashLit), a map literal with `%{` and a lambda with
-// `fn`.
-func (p *Parser) parseBlockExpr() (ast.Node, error) {
-	tok := p.peek()
-	p.advance() // consume LBRACE
-	leading := p.collectLeadingTrivia()
-
-	var stmts []ast.Node
-	var endTrivia []ast.Trivia
-	pendingLeading := leading
-
-	for {
-		leading := pendingLeading
-		pendingLeading = nil
-		if leading == nil {
-			leading = p.collectLeadingTrivia()
-		}
-		if p.atEnd() || p.peek().Type == token.RBRACE ||
-			(p.resilient && p.blockClosedByColumnOneDecl()) {
-			endTrivia = leading
-			break
-		}
-		if p.strayBodyMarker() {
-			continue
-		}
-		stmtStart := p.pos
-		node, attachedDoc, attachedLeading, err := p.parseBlockStmt()
-		if err != nil {
-			if !p.resilient {
-				return nil, err
-			}
-			stmts = append(stmts, p.recoverStmtInBlock(stmtStart, err))
-			continue
-		}
-		trailing := p.collectTrailingComment(node.LineNum())
-		attachTrivia(node.(ast.HasTrivia), append(leading, attachedLeading...), trailing)
-		attachDoc(node, attachedDoc)
-		stmts = append(stmts, node)
-		if err := p.statementEnds(); err != nil {
-			if !p.resilient {
-				return nil, err
-			}
-			stmts = append(stmts, p.recoverStmtInBlock(p.pos, err))
-		}
-	}
-
-	var endLine, endCol int
-	if p.atEnd() || p.peek().Type != token.RBRACE {
-		if !p.resilient {
-			return nil, errorAt(tok.Line, tok.Col, "expected '}' to close block")
-		}
-		endLine, endCol = p.resilientBlockEnd(tok)
-	} else {
-		closeTok := p.peek()
-		endLine, endCol = closeTok.Line, closeTok.Col
-		p.advance() // consume RBRACE
-	}
-
-	block := &ast.Block{
-		Stmts:   stmts,
-		Line:    tok.Line,
-		Col:     tok.Col,
-		EndLine: endLine,
-		EndCol:  endCol,
-	}
-	for _, t := range endTrivia {
-		block.AddTrailing(t)
-	}
-	return block, nil
-}
-
 // parseLambda parses a lambda: `fn params -> body`. Current token must be
 // the `fn`. The body is a single expression; use a block expression
 // (`{ ... }`) for multi-statement bodies.
@@ -5705,7 +5511,6 @@ func (p *Parser) parseLambda() (ast.Node, error) {
 // ends its body at the next `|>` of the enclosing pipeline.
 func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 	startTok := p.peek()
-	startPos := p.pos
 	p.advance() // consume FN
 
 	var params []ast.Param
@@ -5755,6 +5560,26 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 		}
 	}
 
+	// An `->` that ends its line takes the lines below, to `end`; `end` on
+	// its line is the empty body.
+	if p.atLineEnd() || p.atEmptyBody() {
+		body, err := p.parseEndBody(startTok, "a lambda's body")
+		if err != nil {
+			return nil, err
+		}
+		endLine, endCol := tokenEndPos(p.lastReal())
+		return &ast.Lambda{
+			Params:    params,
+			Body:      body,
+			Line:      startTok.Line,
+			Col:       startTok.Col,
+			EndLine:   endLine,
+			EndCol:    endCol,
+			ArrowLine: arrow.Line,
+			ArrowCol:  arrow.Col,
+		}, nil
+	}
+
 	// Body: a single expression, to the end of the enclosing expression, or
 	// for a `then` stage to the next `|>`.
 	bodyStart := p.pos
@@ -5786,15 +5611,11 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 	}
 
 	// Normalize body into a Block so Lambda.Body is uniformly *ast.Block.
-	var body *ast.Block
-	if b, ok := bodyExpr.(*ast.Block); ok {
-		body = b
-	} else {
-		body = &ast.Block{
-			Stmts: []ast.Node{&ast.ExprStmt{Expr: bodyExpr, Line: bodyExpr.LineNum()}},
-			Line:  bodyExpr.LineNum(),
-			Col:   startTok.Col,
-		}
+	// The one-line body's block has no EndLine.
+	body := &ast.Block{
+		Stmts: []ast.Node{&ast.ExprStmt{Expr: bodyExpr, Line: bodyExpr.LineNum()}},
+		Line:  bodyExpr.LineNum(),
+		Col:   startTok.Col,
 	}
 
 	endLine, endCol := tokenEnd(p.tokens[p.pos-1])
@@ -5808,17 +5629,11 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 		ArrowLine: arrow.Line,
 		ArrowCol:  arrow.Col,
 	}
-	if body.EndLine == 0 && !p.atEnd() && p.peek().Type == token.NEWLINE {
-		if p.lambdaHeads == nil {
-			p.lambdaHeads = map[*ast.Lambda][2]int{}
-		}
-		p.lambdaHeads[lam] = [2]int{startPos, bodyStart - 1}
-	}
 	return lam, nil
 }
 
 // parseUpdateSpread parses the spread that opens an update literal,
-// `.{..base, ...}` or `%{..base, ...}`, from its `..` through the separators
+// `{..base, ...}` or `{..base, ...}`, from its `..` through the separators
 // after it. opening is the trivia after the literal's `{`; the comments in
 // it go above the spread, and the opening trivia answered is what is left
 // to lead the first field or entry.
@@ -5834,9 +5649,9 @@ func (p *Parser) parseUpdateSpread(opening []ast.Trivia) (updateSpread, []ast.Tr
 	afterDots := append(sameAfterDots, ownAfterDots...)
 	var head ast.Node
 	if p.bareSpreadEnds(token.RBRACE) || p.fieldAhead() {
-		// `.{.., city: "NYC"}`: no head. The value already at the
+		// `{.., city: "NYC"}`: no head. The value already at the
 		// field or key this literal is written at is the base. A field
-		// right after the `..` (`.{.. city: "NYC"}`) is a bare spread
+		// right after the `..` (`{.. city: "NYC"}`) is a bare spread
 		// missing its comma, which the caller reports, since no head
 		// is followed by a `:`.
 		head = &ast.CurrentValue{Line: spreadTok.Line, Col: spreadTok.Col}
@@ -5940,7 +5755,7 @@ func (p *Parser) spreadLabel(from, to int) string {
 }
 
 // parseAnonStructLit parses a struct literal with no type name,
-// `.{field: value, ...}`, after its `.{`; openTok is the `#`. opening is
+// `{field: value, ...}`, after its `{`; openTok is the `#`. opening is
 // the trivia after the `{`, which the caller has consumed; it leads the
 // first field, or is the literal's EndTrivia when it has none.
 func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (ast.Node, error) {
@@ -5948,7 +5763,7 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 	var endTrivia []ast.Trivia
 	var spread ast.Node
 	spreadLine, spreadCol := 0, 0
-	// Struct update by spread: `.{..base, field: value}`. This mirrors the
+	// Struct update by spread: `{..base, field: value}`. This mirrors the
 	// list literal's spread (parseListLit, above): a bare `..` at element
 	// position is unambiguous against the infix range operator, because
 	// the infix form requires a left operand that would already have been
@@ -5981,8 +5796,8 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 				break
 			}
 		}
-		// A `..` reached HERE is either a second spread (`.{..a, ..b}`) or
-		// a spread after a field (`.{a: 1, ..b}`). One message for both,
+		// A `..` reached HERE is either a second spread (`{..a, ..b}`) or
+		// a spread after a field (`{a: 1, ..b}`). One message for both,
 		// the way parseListLit gives one message for `[1, ..xs, 2]` and
 		// `[1, ..xs, ..ys]`.
 		if p.peek().Type == token.DOTDOT {
@@ -6008,26 +5823,20 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 		fieldTok := p.peek()
 		fieldName := fieldTok.Lexeme
 		p.advance()
-		// Check for field punning: Name without `:` means Name: Name
-		if p.atEnd() || p.peek().Type != token.COLON {
-			// Field punning — use field name as variable reference
-			fields = append(fields, ast.StructFieldVal{
-				Name:            fieldName,
-				Value:           &ast.Ident{Name: fieldName, Line: fieldTok.Line, Col: fieldTok.Col},
-				LeadingComments: leading,
-				Line:            fieldTok.Line,
-				Col:             fieldTok.Col,
-			})
-			var err error
-			if separated, err = p.structLitFieldEnd(&fields[len(fields)-1]); err != nil {
-				return nil, err
-			}
-			continue
-		}
-		p.advance() // consume COLON
-		val, err := p.parseExpr(1)
+		// A field's name is followed by its `:`; `name:` alone is
+		// `name: name`.
+		pun, err := p.fieldColon(fieldTok, "")
 		if err != nil {
 			return nil, err
+		}
+		if !pun {
+			p.advance() // consume COLON
+		}
+		var val ast.Node = &ast.Ident{Name: fieldName, Line: fieldTok.Line, Col: fieldTok.Col}
+		if !pun && !p.punColonEnds(token.RBRACE) {
+			if val, err = p.parseExpr(1); err != nil {
+				return nil, err
+			}
 		}
 		fields = append(fields, ast.StructFieldVal{Name: fieldName, Value: val, LeadingComments: leading, Line: fieldTok.Line, Col: fieldTok.Col})
 		if separated, err = p.structLitFieldEnd(&fields[len(fields)-1]); err != nil {
@@ -6045,6 +5854,9 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 			endTrivia = append(opening, endTrivia...)
 		}
 	}
+	if len(fields) == 0 && spread == nil {
+		return nil, errorAt(openTok.Line, openTok.Col, "%s", emptyAnonStructMessage)
+	}
 	return &ast.StructLit{
 		TypeName:   nil,
 		Fields:     fields,
@@ -6057,7 +5869,8 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 	}, nil
 }
 
-// parseFuncDef parses a function definition: fn name(params) [: ReturnType] { body }
+// parseFuncDef parses a function definition: fn name(params) [-> ReturnType],
+// its body on the lines below and `end`.
 func (p *Parser) parseFuncDef(public bool, allowImplQualifier bool) (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume FN
@@ -6107,9 +5920,13 @@ func (p *Parser) parseFuncDef(public bool, allowImplQualifier bool) (ast.Node, e
 	if err != nil {
 		return nil, err
 	}
+	afterHeader := p.pos
 	p.skipSignatureSeparators()
 	if !p.atEnd() && p.peekIsContextual("go") {
-		if p.peekAt(1).Type != token.LBRACE {
+		if next := p.peekAt(1); next.Type != token.IDENT || next.Line != p.peek().Line {
+			return nil, errorAt(p.peek().Line, p.peek().Col, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`")
+		}
+		{
 			foreignAlias, foreignName, aliasTok, goNameTok, err := p.parseGoSelectorBinding()
 			if err != nil {
 				return nil, err
@@ -6134,21 +5951,16 @@ func (p *Parser) parseFuncDef(public bool, allowImplQualifier bool) (ast.Node, e
 				ForeignNameCol:           goNameTok.Col,
 			}, nil
 		}
-		return nil, errorAt(p.peek().Line, p.peek().Col, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`")
 	}
-	if !p.atEnd() && p.peekIsContextual("from") {
+	p.pos = afterHeader
+	if !p.atLineEnd() && p.peekIsContextual("from") {
 		return nil, errorAt(p.peek().Line, p.peek().Col, "Go-backed functions use `go package.Symbol` bindings")
 	}
 
-	// Parse body block
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return nil, errorAt(tok.Line, tok.Col, "expected '{' for function body")
-	}
-	bodyNode, err := p.parseBlock()
+	body, err := p.parseEndBody(tok, "a function's body")
 	if err != nil {
 		return nil, err
 	}
-	body := bodyNode.(*ast.Block)
 
 	return &ast.FuncDef{
 		Name:                     name,
@@ -6490,7 +6302,7 @@ func stampParamDefaultEnum(def ast.Node, enumName string) {
 		if dv, ok := n.Func.(*ast.DotVariant); ok && dv.ResolvedEnum == "" {
 			dv.ResolvedEnum = enumName
 		}
-	// Literal-attach forms — `.V{...}`, `.V[...]`, `%.V{k => v}`. These
+	// Literal-attach forms — `.V{...}`, `.V[...]`, `.V{k => v}`. These
 	// carry the variant name in a TypeName slot as a DotVariantType
 	// rather than as a DotVariant expression, so stamping the node
 	// itself reaches nothing. Left unstamped, the default parses and
@@ -6526,10 +6338,6 @@ func patternCol(n ast.Node) int {
 	case *ast.MapPattern:
 		return p.Col
 	case *ast.ListPattern:
-		return p.Col
-	case *ast.VectorPattern:
-		return p.Col
-	case *ast.SetPattern:
 		return p.Col
 	case *ast.AsPattern:
 		return p.Col
@@ -6617,7 +6425,7 @@ func isTurbofishCallable(left ast.Node) bool {
 // bracket a `!` is the prefix `!` parsePrefix rejects.
 func postfixBangAllowed(prev token.Token) bool {
 	switch prev.Type {
-	case token.IDENT, token.TYPE_IDENT, token.RPAREN, token.RBRACKET, token.RBRACE, token.BANG, token.QUESTION,
+	case token.IDENT, token.TYPE_IDENT, token.RPAREN, token.RBRACKET, token.RBRACE, token.END, token.BANG, token.QUESTION,
 		token.INT, token.FLOAT, token.DECIMAL, token.CODEPOINT_LITERAL, token.PLACEHOLDER,
 		token.STRING, token.STRING_LITERAL, token.STRING_END,
 		token.TRIPLE_STRING_LITERAL, token.TRIPLE_STRING_END,
@@ -6833,6 +6641,9 @@ func (p *Parser) parseTypeAnnotation() (te ast.TypeExpr, err error) {
 		}
 	}()
 	if p.atStructOpen(0) {
+		return nil, dotBraceError(p.peek())
+	}
+	if !p.atEnd() && p.peek().Type == token.LBRACE {
 		return p.parseAnonStructType()
 	}
 	if !p.atEnd() && p.peek().Type == token.HASH {
@@ -6842,8 +6653,8 @@ func (p *Parser) parseTypeAnnotation() (te ast.TypeExpr, err error) {
 		case token.LBRACE:
 			tok := p.peek()
 			return nil, ParseError{Line: tok.Line, Col: tok.Col,
-				Message: "`#` starts a vector; an anonymous struct type is `.{name: Type}`",
-				Fix:     Replace("Write `.{`", tok.Line, tok.Col, tok.Line, tok.Col+1, ".")}
+				Message: "an anonymous struct type is written without `#`: `{name: Type}`",
+				Fix:     Replace("Drop the `#`", tok.Line, tok.Col, tok.Line, tok.Col+1, "")}
 		}
 	}
 	return p.parseTypeAnnotationInner()
@@ -7000,9 +6811,11 @@ func (p *Parser) parseFuncTypeAnnotation() (_ ast.TypeExpr, grouped bool, _ erro
 	}
 	p.advance() // consume RPAREN
 
-	// If followed by ->, it's a function type
+	// If followed by -> and a result on its line, it's a function type. An
+	// `->` that ends its line is a lambda's, whose body follows below.
 	var retType ast.TypeExpr
-	if !noArrow && !p.atEnd() && p.peek().Type == token.ARROW {
+	if !noArrow && !p.atEnd() && p.peek().Type == token.ARROW && p.peekAt(1).Line == p.peek().Line &&
+		p.peekAt(1).Type != token.NEWLINE && p.peekAt(1).Type != token.COMMENT && p.peekAt(1).Type != token.END {
 		p.advance()
 		var err error
 		retType, err = p.parseTypeAnnotation()
@@ -7026,12 +6839,12 @@ func (p *Parser) parseFuncTypeAnnotation() (_ ast.TypeExpr, grouped bool, _ erro
 }
 
 // parseAnonStructType parses an anonymous struct type expression like
-// `.{name: String, age: Int}`. The cursor is on the `#`.
+// `{name: String, age: Int}`. The cursor is on the `#`.
 // Field names are snake_case identifiers; types are full type expressions.
 // Defaults (`=`) are not allowed — a default would be runtime data, not a
 // type. Adjacent fields must be separated by a comma or a newline (or
-// both); run-on fields like `.{a: Int b: Int}` are rejected. Trailing
-// commas are permitted. Empty `%[]` is permitted.
+// both); run-on fields like `{a: Int b: Int}` are rejected. Trailing
+// commas are permitted. Empty `[]` is permitted.
 //
 // Spec §4: "Anonymous structs are structurally typed — the type is its
 // shape." Two anon struct types unify iff they have the same field names
@@ -7039,7 +6852,6 @@ func (p *Parser) parseFuncTypeAnnotation() (_ ast.TypeExpr, grouped bool, _ erro
 // *analysis.AnonStructType).
 func (p *Parser) parseAnonStructType() (ast.TypeExpr, error) {
 	tok := p.peek()
-	p.advance() // consume DOT
 	p.advance() // consume LBRACE
 	// Skip plain NEWLINE / SEMICOLON only — COMMENT / BLANK_LINE is
 	// captured below so a trailing comment before `}` can land in
@@ -7136,6 +6948,9 @@ func (p *Parser) parseAnonStructType() (ast.TypeExpr, error) {
 		return nil, errorAt(tok.Line, tok.Col, "expected '}' to close anonymous struct type")
 	}
 	p.advance() // consume RBRACE
+	if len(fields) == 0 {
+		return nil, errorAt(tok.Line, tok.Col, "%s", emptyAnonStructMessage)
+	}
 
 	return &ast.AnonStructType{
 		Fields:    fields,
@@ -7169,25 +6984,28 @@ func (p *Parser) parseAnonStructType() (ast.TypeExpr, error) {
 // indistinguishable from the parenthesized type expression `(Int)` —
 // which, per the no-1-tuples rule, collapses to `Int`.
 func (p *Parser) parseEnumBody(public bool, opaque bool, name string, typeParams []ast.TypeParam, whereClauses []ast.WhereConstraint, line, col int) (ast.Node, error) {
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return nil, p.errorOnLine(line, "expected '{' after type name")
+	open := token.Token{Line: line, Col: col}
+	if p.atEmptyBody() {
+		return nil, p.errorOnLine(line, "enum `%s` must have at least one variant", name)
 	}
-	p.advance() // consume LBRACE
+	if err := p.headerEnds("an enum's variants"); err != nil {
+		return nil, err
+	}
 	// Plain separators only — preserve COMMENT / BLANK_LINE so the first
-	// variant can capture them as LeadingComments (or, if `}` follows,
+	// variant can capture them as LeadingComments (or, if `end` follows,
 	// the EnumDef captures them as EndTrivia).
 	p.skipSeparatorsOnly()
 	var variants []ast.EnumVariant
 	var items []ast.Node
 	var endTrivia []ast.Trivia
 
-	for !p.atEnd() && p.peek().Type != token.RBRACE {
-		// Trivia before the next item: `}` follows → EnumDef.EndTrivia;
+	for !p.atEnd() && p.peek().Type != token.END {
+		// Trivia before the next item: `end` follows → EnumDef.EndTrivia;
 		// another item follows → that item's leading slot.
 		var leading []ast.Trivia
 		if t := p.peek().Type; t == token.COMMENT || t == token.BLANK_LINE {
 			leading = p.collectEndOfBodyTrivia()
-			if !p.atEnd() && p.peek().Type == token.RBRACE {
+			if !p.atEnd() && p.peek().Type == token.END {
 				endTrivia = leading
 				break
 			}
@@ -7228,7 +7046,7 @@ func (p *Parser) parseEnumBody(public bool, opaque bool, name string, typeParams
 				if next.Line == v.Line && next.Type == token.EQ {
 					return nil, enumVariantDefaultError(next, &v)
 				}
-				if next.Line == v.Line && next.Type != token.RBRACE && next.Type != token.NEWLINE && next.Type != token.SEMICOLON && next.Type != token.COMMA {
+				if next.Line == v.Line && next.Type != token.END && next.Type != token.NEWLINE && next.Type != token.SEMICOLON && next.Type != token.COMMA {
 					return nil, errorAt(next.Line, next.Col, "enum variants are newline- or semicolon-separated")
 				}
 			}
@@ -7246,10 +7064,9 @@ func (p *Parser) parseEnumBody(public bool, opaque bool, name string, typeParams
 		p.skipEnumVariantTrailingSeparators()
 	}
 
-	if p.atEnd() || p.peek().Type != token.RBRACE {
-		return nil, p.errorOnLine(line, "expected '}' to close enum definition")
+	if _, err := p.expectEnd(open, "the enum"); err != nil {
+		return nil, err
 	}
-	p.advance() // consume RBRACE
 
 	if len(variants) == 0 {
 		return nil, p.errorOnLine(line, "enum `%s` must have at least one variant", name)
@@ -7449,7 +7266,7 @@ func (p *Parser) skipEnumVariantTrailingSeparators() {
 //	import std::iter.{self, Iter}  → ModulePath=[Ident"std", Ident"iter"], Names=[TypeIdent"Iter"], IncludeParent=true
 //	import models.{A, B}              → ModulePath=[Ident"models"], Names=[TypeIdent"A", TypeIdent"B"]
 //	import models.{A as X, B}         → ModulePath=[Ident"models"], Names=[A, B], Aliases=[X, nil]
-//	import { math, models.User }      → ImportBlock with two ImportStmt entries
+//	import (math, models.User below, then end) → ImportBlock with two entries
 //	pub import models.{A, B}          → as above, with Pub set (a re-export)
 //
 // pubTok is the `pub` before `import`, nil when there is none.
@@ -7459,9 +7276,12 @@ func (p *Parser) parseImportStmt(pubTok *token.Token) (ast.Node, error) {
 
 	var node ast.Node
 	var err error
-	// Block form: `import { entry1, entry2, ... }` bundles multiple imports.
-	// Each entry is parsed with the same logic as a standalone import.
-	if !p.atEnd() && p.peek().Type == token.LBRACE {
+	// Block form: `import` alone on its line, one entry per line below,
+	// then `end`, bundles multiple imports. Each entry is parsed with the
+	// same logic as a standalone import.
+	if p.atLineEnd() || (!p.atEnd() && p.peek().Type == token.END) {
+		// `import end` is the block with no entries, written on one line as
+		// every empty body is.
 		node, err = p.parseImportBlock(tok)
 	} else {
 		node, err = p.parseImportEntry(tok)
@@ -7919,17 +7739,15 @@ func isImportPathSegment(t token.Token) bool {
 // the per-import selective list (`mod.{a, b}` — selecting names out of a
 // module), not to listing modules in a block.
 func (p *Parser) parseImportBlock(importTok token.Token) (ast.Node, error) {
-	p.advance() // consume {
-
 	var entries []*ast.ImportStmt
 	var endTrivia []ast.Trivia
 	for {
 		// Leading comments/blanks above the next entry (also consumes the
 		// newline separators the old skipNewlines handled).
 		leading := p.collectLeadingTrivia()
-		if p.atEnd() || p.peek().Type == token.RBRACE {
-			// Trivia sitting between the last entry and the closing brace has
-			// no entry to attach to — stash it on the block so it survives.
+		if p.atEnd() || p.peek().Type == token.END {
+			// Trivia sitting between the last entry and the `end` has no
+			// entry to attach to — stash it on the block so it survives.
 			endTrivia = leading
 			break
 		}
@@ -7958,10 +7776,9 @@ func (p *Parser) parseImportBlock(importTok token.Token) (ast.Node, error) {
 		}
 	}
 
-	if p.atEnd() || p.peek().Type != token.RBRACE {
-		return nil, errorAt(importTok.Line, importTok.Col, "expected '}' to close import block")
+	if _, err := p.expectEnd(importTok, "the import block"); err != nil {
+		return nil, err
 	}
-	p.advance() // consume }
 
 	return &ast.ImportBlock{
 		Entries:   entries,
@@ -7977,7 +7794,7 @@ func (p *Parser) parseImportBlock(importTok token.Token) (ast.Node, error) {
 //	type Foo (A, B)  → tuple-distinct
 //	type Foo         → zero-sized
 //
-// Struct (`.{ name: T, ... }`) and enum (`{ A | B }`) shapes have their own
+// Struct (`{ name: T, ... }`) and enum (`{ A | B }`) shapes have their own
 // top-level keywords (`struct`, `enum`) and entry points; encountering a
 // brace body here is a parse error with a hint pointing at those keywords.
 //
@@ -8004,8 +7821,8 @@ func (p *Parser) parseTypeDef(public bool, opaque bool) (ast.Node, error) {
 	// name may be on a line after `type` (`type` then `Meters Int`), and
 	// the formatter joins them.
 	var innerTypeExpr ast.TypeExpr
-	if p.atStructOpen(0) && p.peek().Line == p.tokens[p.pos-1].Line {
-		return nil, errorAt(p.peek().Line, p.peek().Col, "a type over an anonymous struct is a struct: write `struct %s { ... }` with one field per line", name)
+	if !p.atEnd() && p.peek().Type == token.LBRACE && p.peek().Line == p.tokens[p.pos-1].Line && p.braceOpensStruct(0) {
+		return nil, errorAt(p.peek().Line, p.peek().Col, "a type over an anonymous struct is a struct: write `struct %s` with one field per line and `end`", name)
 	}
 	if !p.atEnd() && (p.peek().Type == token.TYPE_IDENT || p.peek().Type == token.IDENT || p.peek().Type == token.LPAREN || p.peek().Type == token.HASH) &&
 		p.peek().Line == p.tokens[p.pos-1].Line {
@@ -8082,9 +7899,9 @@ func (p *Parser) parseTypeDefOrForeignBinding(public bool, opaque bool) (ast.Nod
 	return p.parseTypeDef(public, opaque)
 }
 
-// parseStructDef parses: [pub ][opaque ]struct Name[<TypeParams>] {fields...}.
-// The STRUCT token has not been consumed yet; this function advances past
-// it and delegates the brace body to parseStructBody.
+// parseStructDef parses: [pub ][opaque ]struct Name[<TypeParams>], its fields
+// on the lines below and `end`. The STRUCT token has not been consumed yet;
+// this function advances past it and delegates the body to parseStructBody.
 func (p *Parser) parseStructDef(public bool, opaque bool) (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume STRUCT
@@ -8108,15 +7925,12 @@ func (p *Parser) parseStructDef(public bool, opaque bool) (ast.Node, error) {
 		return nil, err
 	}
 
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return nil, errorAt(tok.Line, tok.Col, "expected '{' after struct name")
-	}
 	return p.parseStructBody(public, opaque, name, typeParams, whereClauses, tok.Line, nameTok.Col)
 }
 
-// parseEnumDef parses: [pub ][opaque ]enum Name[<TypeParams>] { variant ... }.
-// The ENUM token has not been consumed yet; this function advances past it
-// and delegates the brace body to parseEnumBody.
+// parseEnumDef parses: [pub ][opaque ]enum Name[<TypeParams>], its variants
+// on the lines below and `end`. The ENUM token has not been consumed yet;
+// this function advances past it and delegates the body to parseEnumBody.
 func (p *Parser) parseEnumDef(public bool, opaque bool) (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume ENUM
@@ -8140,9 +7954,6 @@ func (p *Parser) parseEnumDef(public bool, opaque bool) (ast.Node, error) {
 		return nil, err
 	}
 
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return nil, errorAt(tok.Line, tok.Col, "expected '{' after enum name")
-	}
 	return p.parseEnumBody(public, opaque, name, typeParams, whereClauses, tok.Line, nameTok.Col)
 }
 
@@ -8157,10 +7968,14 @@ func (p *Parser) parseEnumDef(public bool, opaque bool) (ast.Node, error) {
 // opaque-on-struct at the declaration site (plan A.9). Enum variant-shaped
 // items are rejected — they belong in enums.
 func (p *Parser) parseStructBody(public bool, opaque bool, name string, typeParams []ast.TypeParam, whereClauses []ast.WhereConstraint, line, col int) (ast.Node, error) {
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return nil, p.errorOnLine(line, "expected '{' after type name")
+	open := token.Token{Line: line, Col: col}
+	if p.atEmptyBody() {
+		p.advance() // consume END
+		return &ast.StructDef{Name: name, Public: public, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Line: line, Col: col}, nil
 	}
-	p.advance() // consume LBRACE
+	if err := p.headerEnds("a struct's fields"); err != nil {
+		return nil, err
+	}
 	// Plain separators only — preserve COMMENT / BLANK_LINE so the first
 	// field can capture them as LeadingComments (or the StructDef as
 	// EndTrivia if the body is comment-only).
@@ -8169,16 +7984,16 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 	var fields []ast.StructField
 	var items []ast.Node
 	var endTrivia []ast.Trivia
-	for !p.atEnd() && p.peek().Type != token.RBRACE {
+	for !p.atEnd() && p.peek().Type != token.END {
 		// Collect any COMMENT / BLANK_LINE trivia sitting before the
-		// next member. If `}` follows, the trivia belongs to
+		// next member. If `end` follows, the trivia belongs to
 		// StructDef.EndTrivia (trailing in-body); otherwise it becomes
 		// the next member's LeadingComments (inter-field comment).
 		var leading []ast.Trivia
 		t := p.peek().Type
 		if t == token.COMMENT || t == token.BLANK_LINE {
 			leading = p.collectEndOfBodyTrivia()
-			if !p.atEnd() && p.peek().Type == token.RBRACE {
+			if !p.atEnd() && p.peek().Type == token.END {
 				endTrivia = leading
 				break
 			}
@@ -8264,10 +8079,10 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 		fields = append(fields, ast.StructField{SpanCarrier: ast.SpanCarrier{Span: fieldSpan}, Name: fieldName, TypeAnnotation: fieldTypeExpr, Default: defaultExpr, LeadingComments: leading, Trailing: trailing, Doc: doc, Line: fieldTok.Line, Col: fieldTok.Col})
 
 		// A struct body is a newline-separated list of fields (spec §4):
-		// anything but a separator or `}` after a field on its line is a
+		// anything but a separator or `end` after a field on its line is a
 		// second item on that line. A comma keeps its own error at the top
 		// of the next iteration.
-		if next := p.peek(); !p.atEnd() && next.Line == p.prevLine() && next.Type != token.RBRACE && next.Type != token.NEWLINE && next.Type != token.SEMICOLON && next.Type != token.COMMA {
+		if next := p.peek(); !p.atEnd() && next.Line == p.prevLine() && next.Type != token.END && next.Type != token.NEWLINE && next.Type != token.SEMICOLON && next.Type != token.COMMA {
 			return nil, errorAt(next.Line, next.Col, "struct fields are newline- or semicolon-separated")
 		}
 
@@ -8278,10 +8093,9 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 		p.skipEnumVariantTrailingSeparators()
 	}
 
-	if p.atEnd() || p.peek().Type != token.RBRACE {
-		return nil, p.errorOnLine(line, "expected '}' to close struct definition")
+	if _, err := p.expectEnd(open, "the struct"); err != nil {
+		return nil, err
 	}
-	p.advance() // consume RBRACE
 
 	return &ast.StructDef{Name: name, Public: public, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Fields: fields, Items: items, EndTrivia: endTrivia, Line: line, Col: col}, nil
 }
@@ -8379,7 +8193,7 @@ func (p *Parser) parseStructLit(typeName ast.TypeExpr, line, col int) (ast.Node,
 		// what the compiler knows. Say that rather than "expected field
 		// name", which is what a bare `..` used to get here.
 		if p.peek().Type == token.DOTDOT {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "struct spread `..` has no named form; write `.{..base, field: value}` — the spread head carries the type")
+			return nil, errorAt(p.peek().Line, p.peek().Col, "struct spread `..` has no named form; write `{..base, field: value}` — the spread head carries the type")
 		}
 		positionalNext := p.positionalStructElement()
 		if !separated && (p.peek().Type == token.IDENT || positionalNext) {
@@ -8420,28 +8234,22 @@ func (p *Parser) parseStructLit(typeName ast.TypeExpr, line, col int) (ast.Node,
 		fieldName := fieldTok.Lexeme
 		p.advance() // consume IDENT
 
-		// Check for field punning: Name without `:` means Name: Name
-		if p.atEnd() || p.peek().Type != token.COLON {
-			// Field punning — use field name as variable reference
-			fields = append(fields, ast.StructFieldVal{
-				Name:            fieldName,
-				Value:           &ast.Ident{Name: fieldName, Line: fieldTok.Line, Col: fieldTok.Col},
-				LeadingComments: leading,
-				Line:            fieldTok.Line,
-				Col:             fieldTok.Col,
-			})
-			var err error
-			if separated, err = p.structLitFieldEnd(&fields[len(fields)-1]); err != nil {
-				return nil, err
-			}
-			continue
-		}
-		p.advance() // consume COLON
-
-		// Parse value expression
-		val, err := p.parseExpr(1)
+		// A field's name is followed by its `:`; `name:` alone is
+		// `name: name`.
+		pun, err := p.fieldColon(fieldTok, typeHead(typeName))
 		if err != nil {
 			return nil, err
+		}
+		if !pun {
+			p.advance() // consume COLON
+		}
+
+		// Parse value expression; `name:` alone is `name: name`.
+		var val ast.Node = &ast.Ident{Name: fieldName, Line: fieldTok.Line, Col: fieldTok.Col}
+		if !pun && !p.punColonEnds(token.RBRACE) {
+			if val, err = p.parseExpr(1); err != nil {
+				return nil, err
+			}
 		}
 
 		fields = append(fields, ast.StructFieldVal{Name: fieldName, Value: val, LeadingComments: leading, Line: fieldTok.Line, Col: fieldTok.Col})
@@ -8478,13 +8286,16 @@ func (p *Parser) positionalStructElement() bool {
 
 // atOperandEnd reports whether a `return`, `break` or `continue` has no
 // operand: the next token ends the statement. A same-line comment ends it as
-// a newline does, so `return // done` is a bare return.
+// a newline does, so `return // done` is a bare return, and so does the
+// bracket or comma that closes an inline branch, as in
+// `f((if done then break), x)`.
 func (p *Parser) atOperandEnd() bool {
 	if p.atEnd() {
 		return true
 	}
 	switch p.peek().Type {
-	case token.NEWLINE, token.SEMICOLON, token.RBRACE, token.COMMENT, token.BLANK_LINE:
+	case token.NEWLINE, token.SEMICOLON, token.RBRACE, token.COMMENT, token.BLANK_LINE, token.END, token.ELSE,
+		token.RPAREN, token.RBRACKET, token.COMMA:
 		return true
 	}
 	return false
@@ -8530,7 +8341,7 @@ func (p *Parser) parseBreak() (ast.Node, error) {
 func (p *Parser) parseContinue() (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume CONTINUE
-	if p.atOperandEnd() || p.peek().Type == token.RPAREN || p.peek().Type == token.RBRACKET || p.peek().Type == token.COMMA {
+	if p.atOperandEnd() {
 		return &ast.Continue{Line: tok.Line, Col: tok.Col}, nil
 	}
 	val, err := p.parseExpr(1)
@@ -8714,7 +8525,7 @@ func (p *Parser) parseSinglePattern() (node ast.Node, err error) {
 }
 
 // parsePatternOr gathers first, whose tokens began at start, and each `or`
-// alternative after it into an OrPattern: `.Circle{r} or .Square{r}`. `or`
+// alternative after it into an OrPattern: `.Circle{r:} or .Square{r:}`. `or`
 // binds looser than every pattern construct but `as`. An alternative that is
 // itself a parenthesized `or` is spliced in, so `(A or B) or C` is the
 // pattern `A or B or C`. Comments after an `or` are the next alternative's
@@ -8742,7 +8553,7 @@ func (p *Parser) parsePatternOr(first ast.Node, start int) (ast.Node, error) {
 			comments = append(comments, ast.Trivia{Kind: ast.TriviaComment, Text: c.Lexeme, Line: c.Line, Col: c.Col})
 			p.advance()
 		}
-		if p.atEnd() || !canStartPatternAssertion(p.peek().Type) {
+		if p.atEnd() || !p.canStartPattern() {
 			return nil, errorAt(orTok.Line, orTok.Col, "expected a pattern after `or`; `A or B` matches a value either pattern matches")
 		}
 		if err := p.enterNested(); err != nil {
@@ -8827,14 +8638,8 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 			return patterns[0], nil
 		}
 		return &ast.TuplePattern{Patterns: patterns, Line: tok.Line, Col: tok.Col}, nil
-	case token.HASH:
-		// A struct `.{x, y}` or vector `#[a, ..rest]` pattern, or a
-		// vector naming its type, `#Path[a, ..]`.
-		return p.parseHashPattern()
-	case token.PERCENT:
-		// A map `%{"k" => v}` or set `%["admin", ..rest]` pattern, or one
-		// naming its type: `%Kvs{...}`, `%.Obj{...}`, `%Tags[...]`.
-		return p.parsePercentPattern()
+	case token.HASH, token.PERCENT:
+		return nil, p.sigilError(true)
 	case token.INT:
 		p.advance()
 		return intLiteral(tok)
@@ -8904,13 +8709,18 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 		}
 		p.advance()
 		return &ast.IdentPattern{Name: tok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
+	case token.LBRACE:
+		// A map pattern, `{"k" => v}` or `{}`, or a struct pattern whose
+		// name the position gives, `{x:, y:}`: the first entry says which.
+		if p.braceOpensMap(0) {
+			return p.parseMapPattern(nil, tok.Line, tok.Col)
+		}
+		return p.parseStructPatternBody(nil, tok.Line, tok.Col)
 	case token.DOT:
 		if p.atStructOpen(0) {
-			// A struct pattern whose name the position gives, `.{x, y}`.
-			p.advance() // consume DOT
-			return p.parseStructPatternBody(nil, tok.Line, tok.Col)
+			return nil, dotBraceError(tok)
 		}
-		// Dot-leading variant pattern in nested position (e.g. `Ok(%.Obj{...})`).
+		// Dot-leading variant pattern in nested position (e.g. `Ok(.Obj{...})`).
 		if p.peekAt(1).Type != token.TYPE_IDENT {
 			return nil, errorAt(tok.Line, tok.Col, "expected variant name after '.'")
 		}
@@ -9063,8 +8873,8 @@ func (p *Parser) skipNewlines() {
 	}
 }
 
-// parseMapLit parses a map literal, `%{key => value, ...}`, or one with
-// spreads, `%{..base, key => value, ...}`, `%{"a" => 1, ..m, ..n}`. pct is
+// parseMapLit parses a map literal, `{key => value, ...}`, or one with
+// spreads, `{..base, key => value, ...}`, `{"a" => 1, ..m, ..n}`. pct is
 // the `%`, consumed; the cursor is on the `{`.
 func (p *Parser) parseMapLit(pct token.Token) (ast.Node, error) {
 	p.advance() // consume LBRACE
@@ -9095,16 +8905,14 @@ func (p *Parser) parseMapLit(pct token.Token) (ast.Node, error) {
 // already consumed: a payload `(p)`, a list `[...]`, or nothing, which is
 // the bare variant. line and col are the name's. A struct, map, set, vector
 // or named tuple pattern starts with its shape's symbol (parseHashPattern,
-// parsePercentPattern), except a named struct's, `Point{x, y}`, which is the
-// name and a `{` on its line, outside the top of a condition head.
+// parsePercentPattern), except a named struct's, `Point{x:, y:}`, which is the
+// name and a `{` on its line.
 func (p *Parser) parseHeadedPattern(typeExpr ast.TypeExpr, line, col int) (ast.Node, error) {
 	if !p.atEnd() && p.peek().Type == token.LBRACE && p.peek().Line == p.tokens[p.pos-1].Line {
-		if !p.atHeadTop() {
-			return p.parseStructPatternBody(typeExpr, line, col)
+		if p.braceOpensMap(0) && p.peekAt(1).Type != token.RBRACE {
+			return p.parseMapPattern(typeExpr, line, col)
 		}
-		if err := p.headLiteral(0, token.Token{Line: line, Col: col}, "struct pattern"); err != nil {
-			return nil, err
-		}
+		return p.parseStructPatternBody(typeExpr, line, col)
 	}
 	switch {
 	case !p.atEnd() && p.peek().Type == token.LPAREN:
@@ -9113,61 +8921,6 @@ func (p *Parser) parseHeadedPattern(typeExpr ast.TypeExpr, line, col int) (ast.N
 		return p.parseTypePrefixedListPattern(typeExpr, line, col)
 	}
 	return &ast.EnumPattern{Variant: typeExpr, Line: line, Col: col}, nil
-}
-
-// parseHashPattern parses a pattern that starts with `#` (the cursor is on
-// it): a struct `.{x, y}`, a vector `#[first, ..rest]`, or a vector naming
-// its type, `#Path[a, ..]`. A tuple pattern has no `#` (hashTupleError).
-func (p *Parser) parseHashPattern() (ast.Node, error) {
-	tok := p.peek()
-	var typeName ast.TypeExpr
-	switch p.peekAt(1).Type {
-	case token.LBRACE:
-		return nil, ParseError{Line: tok.Line, Col: tok.Col,
-			Message: "`#` starts a vector pattern, `#[...]`; a struct pattern whose name the position gives is `.{...}`",
-			Fix:     Replace("Write `.{`", tok.Line, tok.Col, tok.Line, tok.Col+1, ".")}
-	case token.LPAREN, token.LBRACKET:
-		p.advance() // consume HASH
-	default:
-		p.advance() // consume HASH
-		var ok bool
-		if typeName, ok = p.parseLiteralHead(tok); !ok {
-			return nil, errorAt(tok.Line, tok.Col, "unexpected %s in pattern", tokenShown(tok))
-		}
-	}
-	switch {
-	case !p.atEnd() && p.peek().Type == token.LPAREN && typeName == nil:
-		return nil, hashTupleError(tok)
-	case !p.atEnd() && p.peek().Type == token.LBRACKET:
-		return p.parseVectorPattern(typeName, tok.Line, tok.Col)
-	}
-	return nil, errorAt(tok.Line, tok.Col, "expected '[' after `#%s` in a pattern", typeName.TypeString())
-}
-
-// parsePercentPattern parses a pattern of a hashed shape, which starts with
-// `%` written right before its bracket or name (the cursor is on the `%`):
-// a map `%{"k" => v}`, a set `%["admin", ..rest]`, and each with a type or
-// variant name after the `%`: `%Kvs{...}`, `%.Obj{...}`, `%Tags[...]`.
-func (p *Parser) parsePercentPattern() (ast.Node, error) {
-	tok := p.peek()
-	if !p.percentOpensLiteral(0) {
-		return nil, errorAt(tok.Line, tok.Col, "unexpected %s in pattern", tokenShown(tok))
-	}
-	p.advance() // consume PERCENT
-	var typeName ast.TypeExpr
-	if t := p.peek().Type; t != token.LBRACE && t != token.LBRACKET {
-		var ok bool
-		if typeName, ok = p.parseLiteralHead(tok); !ok {
-			return nil, errorAt(tok.Line, tok.Col, "unexpected %s in pattern", tokenShown(tok))
-		}
-	}
-	switch {
-	case !p.atEnd() && p.peek().Type == token.LBRACE:
-		return p.parseMapPattern(typeName, tok.Line, tok.Col)
-	case !p.atEnd() && p.peek().Type == token.LBRACKET:
-		return p.parseSetPattern(typeName, tok.Line, tok.Col)
-	}
-	return nil, errorAt(tok.Line, tok.Col, "expected '{' or '[' after `%%%s` in a pattern", typeName.TypeString())
 }
 
 // vectorRestMessage is the error for something other than a name or
@@ -9200,126 +8953,6 @@ func (p *Parser) parseSpreadRest(spreadTok token.Token, close token.TokenType, w
 		return &ast.IdentPattern{Name: t.Lexeme, Line: t.Line, Col: t.Col}, nil
 	}
 	return nil, errorAt(spreadTok.Line, spreadTok.Col, vectorRestMessage, what)
-}
-
-// parseVectorPattern parses a vector pattern's brackets, `[pat, ..rest,
-// pat]`, with the parser on the `[`. typeName is the name after the `#`, or
-// nil; line and col are the `#`. One `..` may stand anywhere among the
-// elements, with a name, `_` or nothing after it.
-func (p *Parser) parseVectorPattern(typeName ast.TypeExpr, line, col int) (ast.Node, error) {
-	openTok := p.peek()
-	p.advance() // consume LBRACKET
-	var lc listComments
-	lc.open(p)
-	pat := &ast.VectorPattern{TypeName: typeName, Line: line, Col: col}
-	for {
-		p.skipListBreaks()
-		p.listAfter(&lc)
-		p.skipListBreaks()
-		if !p.atEnd() && p.peek().Type == token.RBRACKET {
-			pat.EndTrivia = lc.end()
-			p.advance()
-			return pat, nil
-		}
-		if !p.atEnd() && p.peek().Type == token.DOTDOT {
-			spreadTok := p.peek()
-			if pat.Spread {
-				return nil, errorAt(spreadTok.Line, spreadTok.Col, "a vector pattern takes one `..`")
-			}
-			p.advance() // consume DOTDOT
-			rest, err := p.parseSpreadRest(spreadTok, token.RBRACKET, "vector")
-			if err != nil {
-				return nil, err
-			}
-			pat.Spread, pat.Rest, pat.SpreadLine, pat.SpreadCol = true, rest, spreadTok.Line, spreadTok.Col
-			if rest != nil {
-				lc.item(nodeComments(rest))
-			}
-		} else {
-			elem, err := p.parseSinglePattern()
-			if err != nil {
-				return nil, err
-			}
-			lc.item(nodeComments(elem))
-			if pat.Spread {
-				pat.Tails = append(pat.Tails, elem)
-			} else {
-				pat.Heads = append(pat.Heads, elem)
-			}
-		}
-		p.listAfter(&lc)
-		p.skipListBreaks()
-		if p.atEnd() {
-			return nil, errorAt(openTok.Line, openTok.Col, "expected ']' in vector pattern")
-		}
-		if p.peek().Type == token.RBRACKET {
-			pat.EndTrivia = lc.end()
-			p.advance()
-			return pat, nil
-		}
-		if p.peek().Type != token.COMMA {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ']' in vector pattern")
-		}
-		p.advance() // consume COMMA
-	}
-}
-
-// parseSetPattern parses a set pattern's brackets, `[elem, ..., ..rest]`,
-// with the parser on the `[`. typeName is the name after the `%`, or nil;
-// line and col are the `%`. Each element is an expression, the value the set
-// must contain; one `..`, last, matches the other elements.
-func (p *Parser) parseSetPattern(typeName ast.TypeExpr, line, col int) (ast.Node, error) {
-	openTok := p.peek()
-	p.advance() // consume LBRACKET
-	var lc listComments
-	lc.open(p)
-	pat := &ast.SetPattern{TypeName: typeName, Line: line, Col: col}
-	for {
-		p.skipListBreaks()
-		p.listAfter(&lc)
-		p.skipListBreaks()
-		if !p.atEnd() && p.peek().Type == token.RBRACKET {
-			pat.EndTrivia = lc.end()
-			p.advance()
-			return pat, nil
-		}
-		if pat.Spread {
-			return nil, errorAt(pat.SpreadLine, pat.SpreadCol, "set pattern `..` must be the last element")
-		}
-		if !p.atEnd() && p.peek().Type == token.DOTDOT {
-			spreadTok := p.peek()
-			p.advance() // consume DOTDOT
-			rest, err := p.parseSpreadRest(spreadTok, token.RBRACKET, "set")
-			if err != nil {
-				return nil, err
-			}
-			pat.Spread, pat.Rest, pat.SpreadLine, pat.SpreadCol = true, rest, spreadTok.Line, spreadTok.Col
-			if rest != nil {
-				lc.item(nodeComments(rest))
-			}
-		} else {
-			elem, err := p.parseExpr(1)
-			if err != nil {
-				return nil, err
-			}
-			lc.item(nodeComments(elem))
-			pat.Elems = append(pat.Elems, elem)
-		}
-		p.listAfter(&lc)
-		p.skipListBreaks()
-		if p.atEnd() {
-			return nil, errorAt(openTok.Line, openTok.Col, "expected ']' in set pattern")
-		}
-		if p.peek().Type == token.RBRACKET {
-			pat.EndTrivia = lc.end()
-			p.advance()
-			return pat, nil
-		}
-		if p.peek().Type != token.COMMA {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ']' in set pattern")
-		}
-		p.advance() // consume COMMA
-	}
 }
 
 // parseMapPattern parses a map pattern's braces, `{key => pat, ...}`, after
@@ -9390,8 +9023,14 @@ func (p *Parser) parseStructPatternBody(typeName ast.TypeExpr, line, col int) (a
 		fieldName := fieldTok.Lexeme
 		p.advance()
 		spf := ast.StructPatternField{Name: fieldName, NameLine: fieldTok.Line, NameCol: fieldTok.Col, Binding: fieldName, BindingLine: fieldTok.Line, BindingCol: fieldTok.Col}
-		if !p.atEnd() && p.peek().Type == token.COLON {
+		pun, err := p.fieldColon(fieldTok, typeHead(typeName))
+		if err != nil {
+			return nil, err
+		}
+		if !pun {
 			p.advance() // consume COLON
+		}
+		if !pun && !p.punColonEnds(token.RBRACE) {
 			if err := p.parseStructFieldValue(&spf); err != nil {
 				return nil, err
 			}
@@ -9407,13 +9046,16 @@ func (p *Parser) parseStructPatternBody(typeName ast.TypeExpr, line, col int) (a
 	if p.atEnd() || p.peek().Type != token.RBRACE {
 		return nil, p.errorOnLine(lbraceLine, "expected '}' in struct pattern")
 	}
+	if typeName == nil && len(fields) == 0 {
+		return nil, errorAt(line, col, "%s", emptyAnonStructMessage)
+	}
 	lc.close()
 	p.advance() // consume RBRACE
 	return &ast.StructPattern{TypeName: typeName, Fields: fields, Line: line, Col: col}, nil
 }
 
 // parseTypePrefixedMapLit parses a map literal that names a type built on a
-// map, `%Kvs{key => value, ...}` or `%.Obj{...}`, after the name. The cursor
+// map, `Kvs{key => value, ...}` or `.Obj{...}`, after the name. The cursor
 // is on the `{`; line and col are the `%`.
 //
 // The type name stays attached to the map literal in the AST so the type
@@ -9426,7 +9068,7 @@ func (p *Parser) parseTypePrefixedMapLit(typeName ast.TypeExpr, line, col int) (
 		return nil, err
 	}
 	if len(spreads) > 0 {
-		return nil, errorAt(spreads[0].Line, spreads[0].Col, "map spread `..` has no named form; write `%%{..base, key => value}` — the spread head carries the type")
+		return nil, errorAt(spreads[0].Line, spreads[0].Col, "map spread `..` has no named form; write `{..base, key => value}` — the spread head carries the type")
 	}
 	return &ast.MapLit{TypeName: typeName, Entries: entries, EndTrivia: endTrivia, Line: line, Col: col}, nil
 }
@@ -9446,11 +9088,11 @@ func (p *Parser) parseTypePrefixedListPattern(typeName ast.TypeExpr, line, col i
 
 // parseStructFieldValue parses a struct-pattern field's value (the part after
 // `field:`) and stores it on spf. A bare identifier is a rename binding
-// (`.{x: y}` binds field x to local y); anything else is a full nested pattern
+// (`{x: y}` binds field x to local y); anything else is a full nested pattern
 // parsed via parseSinglePattern, so struct / enum / tuple / literal / wildcard
-// patterns nest arbitrarily in field position (`.{inner: Inner{v: vv}}`). An
+// patterns nest arbitrarily in field position (`{inner: Inner{v: vv}}`). An
 // identifier followed by `or` starts an or-pattern, and one followed by `.`
-// names a file, as in the variant `.{err: sql.Error.Closed}`. The
+// names a file, as in the variant `{err: sql.Error.Closed}`. The
 // COLON has already been consumed. Shared by the typed-struct pattern parser
 // (parseTypePrefixedBracePattern) and the case-branch anonymous-struct parser.
 func (p *Parser) parseStructFieldValue(spf *ast.StructPatternField) error {
@@ -9528,7 +9170,7 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 			if !p.atEnd() && p.peek().Type == token.RBRACKET {
 				lc.close()
 				p.advance()
-				return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: rest, BareRest: bare, Line: line, Col: col}, nil
+				return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: rest, BareRest: bare, SpreadLine: spreadTok.Line, SpreadCol: spreadTok.Col, Line: line, Col: col}, nil
 			}
 			if p.atEnd() || p.peek().Type != token.COMMA {
 				return nil, errorAt(openTok.Line, openTok.Col, "expected ']' in list pattern")
@@ -9538,7 +9180,7 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 			default:
 				return nil, errorAt(spreadTok.Line, spreadTok.Col, "a list pattern's `..` takes a name or nothing when elements follow it")
 			}
-			return p.parseListPatternTails(&ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: rest, BareRest: bare, Line: line, Col: col}, openTok, &lc)
+			return p.parseListPatternTails(&ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: rest, BareRest: bare, SpreadLine: spreadTok.Line, SpreadCol: spreadTok.Col, Line: line, Col: col}, openTok, &lc)
 		}
 		pat, err := p.parseSinglePattern()
 		if err != nil {
@@ -9612,11 +9254,17 @@ func (p *Parser) parseListPatternTails(pat *ast.ListPattern, openTok token.Token
 func (p *Parser) parseTypePrefixedListLit(typeName ast.TypeExpr, line, col int) (ast.Node, error) {
 	openTok := p.peek()
 	p.advance() // consume LBRACKET
-	items, endTrivia, _, err := p.parseCollectionItems(openTok, token.RBRACKET, "list literal", "")
+	refuse := "spread `..` has no named form; write `[..base, item]` — the spread head carries the type"
+	if st, ok := typeName.(*ast.SimpleType); ok && (st.Name == "List" || st.Name == "Vector" || st.Name == "Set") {
+		// `Vector[..v, x]` names the std collection, which a spread
+		// does not fix where nothing else does.
+		refuse = spreadsAnywhere
+	}
+	items, endTrivia, spreads, err := p.parseCollectionItems(openTok, token.RBRACKET, "list literal", refuse)
 	if err != nil {
 		return nil, err
 	}
-	return &ast.ListLit{TypeName: typeName, Items: items, EndTrivia: endTrivia, Line: line, Col: col}, nil
+	return &ast.ListLit{TypeName: typeName, Items: items, Spreads: spreads, EndTrivia: endTrivia, Line: line, Col: col}, nil
 }
 
 // parseMapLitEntries parses `key => value, ...` entries and `..m` spreads
@@ -9704,10 +9352,14 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 		return nil, err
 	}
 
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return nil, errorAt(tok.Line, tok.Col, "expected '{' after interface name")
+	if p.atEmptyBody() {
+		closeTok := p.peek()
+		p.advance() // consume END
+		return &ast.InterfaceDef{Name: name, Public: public, TypeParams: typeParams, WhereClauses: whereClauses, Line: tok.Line, Col: nameTok.Col, EndLine: closeTok.Line, EndCol: closeTok.Col}, nil
 	}
-	p.advance() // consume LBRACE
+	if err := p.headerEnds("an interface's functions"); err != nil {
+		return nil, err
+	}
 	// Use plain separator-skip (no COMMENT/BLANK_LINE consumption) so a
 	// trivia-only leading run gets a chance to land in EndTrivia at the
 	// top of the loop. The previous `skipNewlines()` here would silently
@@ -9723,15 +9375,15 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 
 	var methods []ast.InterfaceMethod
 	var endTrivia []ast.Trivia
-	for !p.atEnd() && p.peek().Type != token.RBRACE {
-		// Collect trivia before the next member. `}` follows →
+	for !p.atEnd() && p.peek().Type != token.END {
+		// Collect trivia before the next member. `end` follows →
 		// EndTrivia on the InterfaceDef; another member follows → that
 		// method's leading trivia (its embedded TriviaCarrier).
 		var leading []ast.Trivia
 		t := p.peek().Type
 		if t == token.COMMENT || t == token.BLANK_LINE {
 			leading = p.collectEndOfBodyTrivia()
-			if !p.atEnd() && p.peek().Type == token.RBRACE {
+			if !p.atEnd() && p.peek().Type == token.END {
 				endTrivia = leading
 				break
 			}
@@ -9795,12 +9447,12 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 		}
 		// An interface body is newline-separated, as every type body is: a
 		// second function on a member's last line is an error.
-		if next := p.peek(); !p.atEnd() && next.Line == p.prevLine() && next.Type != token.RBRACE && next.Type != token.NEWLINE && next.Type != token.SEMICOLON {
+		if next := p.peek(); !p.atEnd() && next.Line == p.prevLine() && next.Type != token.END && next.Type != token.NEWLINE && next.Type != token.SEMICOLON {
 			return nil, errorAt(next.Line, next.Col, "interface functions are newline- or semicolon-separated")
 		}
 		// Consume separators between members but preserve COMMENT /
 		// BLANK_LINE so they can be captured at the top of the next
-		// iteration (either as EndTrivia if `}` follows, or as the
+		// iteration (either as EndTrivia if `end` follows, or as the
 		// next member's LeadingComments if a member follows).
 		for !p.atEnd() {
 			t := p.peek().Type
@@ -9812,28 +9464,27 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 		}
 	}
 
-	if p.atEnd() || p.peek().Type != token.RBRACE {
-		return nil, errorAt(tok.Line, tok.Col, "expected '}' to close interface")
+	closeTok, err := p.expectEnd(tok, "the interface")
+	if err != nil {
+		return nil, err
 	}
-	closeTok := p.peek()
-	p.advance() // consume RBRACE
 
 	return &ast.InterfaceDef{Name: name, Public: public, TypeParams: typeParams, WhereClauses: whereClauses, Methods: methods, EndTrivia: endTrivia, Line: tok.Line, Col: nameTok.Col, EndLine: closeTok.Line, EndCol: closeTok.Col}, nil
 }
 
 // parseImplBlock parses a top-level `impl` block:
 //
-//	impl Display for Money { fn to_string(m: Money) -> String { ... } }
-//	impl Iter for Box<T> { fn next(b: Box<T>) -> Maybe<(T, Box<T>)> { ... } }
-//	impl Display for Conn
+//	impl Display for Money          (its functions below, then `end`)
+//	impl Iter for Box<T>            (its functions below, then `end`)
+//	impl Display for Conn end       (a marker or default-only interface)
 //
 // Interface implementations name the interface before `for` and the receiver
 // after `for`. An optional `<...>` receiver type contributes its generic
 // parameters; an optional `where` clause after the receiver narrows the
-// implementation. A bodyless interface impl is equivalent to an empty impl
-// body, useful for marker and default-only interfaces. Interface
-// implementation bodies hold `fn` / `host fn` items and inherit visibility
-// from the interface.
+// implementation. An impl with nothing to write is the one-line empty body,
+// `impl Marker for P end`, useful for marker and default-only interfaces.
+// Interface implementation bodies hold `fn` / `host fn` items and inherit
+// visibility from the interface.
 // The cursor is at the IMPL token on entry.
 func (p *Parser) parseImplBlock() (ast.Node, error) {
 	implTok := p.peek()
@@ -9862,19 +9513,6 @@ func (p *Parser) parseImplBlock() (ast.Node, error) {
 			return nil, err
 		}
 
-		if p.atEnd() || p.peek().Type != token.LBRACE {
-			if !p.atEnd() && !implBodylessBoundary(p.peek()) {
-				return nil, errorAt(implTok.Line, implTok.Col, "expected '{' to open the `impl ... for` block body, or a line break after a bodyless impl declaration")
-			}
-			return &ast.ImplBlock{
-				Interface:    head,
-				Receiver:     receiver,
-				Generics:     generics,
-				WhereClauses: whereClauses,
-				Line:         implTok.Line,
-				Col:          implTok.Col,
-			}, nil
-		}
 		items, endTrivia, closeTok, err := p.parseImplBlockBody("`impl Iface for Type` block", false)
 		if err != nil {
 			return nil, err
@@ -9894,32 +9532,23 @@ func (p *Parser) parseImplBlock() (ast.Node, error) {
 		}, nil
 	}
 
-	if !p.atEnd() && p.peek().Type == token.LBRACE {
-		items, endTrivia, closeTok, err := p.parseImplBlockBody("`impl Type` block", true)
-		if err != nil {
-			return nil, err
-		}
-		return &ast.ImplBlock{
-			Receiver:  head,
-			Generics:  generics,
-			Items:     items,
-			EndTrivia: endTrivia,
-			Line:      implTok.Line,
-			Col:       implTok.Col,
-			EndLine:   closeTok.Line,
-			EndCol:    closeTok.Col,
-		}, nil
+	if !p.atLineEnd() && !p.atEmptyBody() {
+		return nil, errorAt(implTok.Line, implTok.Col, "expected `for Type` in an interface impl declaration, or the end of the line for an inherent impl block")
 	}
-	return nil, errorAt(implTok.Line, implTok.Col, "expected `{` for an inherent impl block or `for Type` in interface impl declaration")
-}
-
-func implBodylessBoundary(tok token.Token) bool {
-	switch tok.Type {
-	case token.NEWLINE, token.SEMICOLON, token.BLANK_LINE, token.COMMENT, token.EOF:
-		return true
-	default:
-		return false
+	items, endTrivia, closeTok, err := p.parseImplBlockBody("`impl Type` block", true)
+	if err != nil {
+		return nil, err
 	}
+	return &ast.ImplBlock{
+		Receiver:  head,
+		Generics:  generics,
+		Items:     items,
+		EndTrivia: endTrivia,
+		Line:      implTok.Line,
+		Col:       implTok.Col,
+		EndLine:   closeTok.Line,
+		EndCol:    closeTok.Col,
+	}, nil
 }
 
 // parseImplBlockBody parses the `{ ... }` body of an impl block. The cursor is
@@ -9927,19 +9556,26 @@ func implBodylessBoundary(tok token.Token) bool {
 // closing RBRACE, which is returned for end-position tracking.
 func (p *Parser) parseImplBlockBody(blockNoun string, allowPub bool) ([]ast.Node, []ast.Trivia, token.Token, error) {
 	var closeTok token.Token
-	openTok := p.peek()
-	p.advance() // consume LBRACE
+	openTok := p.lastReal()
+	if p.atEmptyBody() {
+		closeTok = p.peek()
+		p.advance() // consume END
+		return nil, nil, closeTok, nil
+	}
+	if err := p.headerEnds("an " + blockNoun + "'s body"); err != nil {
+		return nil, nil, closeTok, err
+	}
 	p.skipSeparatorsOnly()
 
 	var items []ast.Node
 	var endTrivia []ast.Trivia
-	for !p.atEnd() && p.peek().Type != token.RBRACE {
-		// Trivia before the next item: `}` follows → EndTrivia; another item
-		// follows → that item's leading slot.
+	for !p.atEnd() && p.peek().Type != token.END {
+		// Trivia before the next item: `end` follows → EndTrivia; another
+		// item follows → that item's leading slot.
 		var leading []ast.Trivia
 		if t := p.peek().Type; t == token.COMMENT || t == token.BLANK_LINE {
 			leading = p.collectEndOfBodyTrivia()
-			if !p.atEnd() && p.peek().Type == token.RBRACE {
+			if !p.atEnd() && p.peek().Type == token.END {
 				endTrivia = leading
 				break
 			}
@@ -10018,11 +9654,10 @@ func (p *Parser) parseImplBlockBody(blockNoun string, allowPub bool) ([]ast.Node
 		p.skipEnumVariantTrailingSeparators()
 	}
 
-	if p.atEnd() || p.peek().Type != token.RBRACE {
-		return nil, nil, closeTok, errorAt(openTok.Line, openTok.Col, "expected '}' to close the %s body", blockNoun)
+	closeTok, err := p.expectEnd(openTok, "the "+blockNoun)
+	if err != nil {
+		return nil, nil, closeTok, err
 	}
-	closeTok = p.peek()
-	p.advance() // consume RBRACE
 	return items, endTrivia, closeTok, nil
 }
 
@@ -10058,7 +9693,7 @@ func (p *Parser) parseTypeBodyItem() ([]ast.Node, error) {
 		return nil, errorAt(tk.Line, tk.Col, "interface conformance uses `impl`, not `implements`")
 	}
 	if tk.Type == token.IMPL {
-		return nil, errorAt(tk.Line, tk.Col, "interface implementations are written as `impl Iface for Type { ... }` blocks outside the type body")
+		return nil, errorAt(tk.Line, tk.Col, "interface implementations are written as `impl Iface for Type` blocks outside the type body")
 	}
 	if tk.Type == token.IDENT && tk.Lexeme == "derive" {
 		if p.peekAt(1).Type == token.IMPL {
@@ -10350,12 +9985,11 @@ func (p *Parser) parseInterfaceMethod() (m ast.InterfaceMethod, err error) {
 		returnTypeExpr = rt
 	}
 
-	// Optional default body, optionally preceded by a method-level `where`
-	// clause. Peek past NEWLINE / SEMICOLON to detect `: Int\n  { ... }` (or
-	// `: Int\n  where T: C { ... }`), but only commit to the skip when a
-	// `where` or LBRACE actually follows — otherwise we'd eat the trailing
-	// trivia (comments / blank-lines) that the surrounding interface body
-	// wants to capture as EndTrivia.
+	// Optional method-level `where` clause, then an optional default body.
+	// Peek past NEWLINE / SEMICOLON for the `where`, but only commit to the
+	// skip when one follows — otherwise we'd eat the trailing trivia
+	// (comments / blank-lines) that the surrounding interface body wants to
+	// capture as EndTrivia.
 	bodyStart := p.pos
 	for !p.atEnd() {
 		t := p.peek().Type
@@ -10373,18 +10007,19 @@ func (p *Parser) parseInterfaceMethod() (m ast.InterfaceMethod, err error) {
 	if err != nil {
 		return ast.InterfaceMethod{}, err
 	}
+	if whereClauses == nil {
+		// Rewind so any trailing trivia stays available for the body or
+		// for the caller (parseInterfaceDef collects it as EndTrivia when
+		// it precedes the `end`).
+		p.pos = bodyStart
+	}
 	var body ast.Node
-	if !p.atEnd() && p.peek().Type == token.LBRACE {
-		var err error
-		body, err = p.parseBlockExpr()
+	if !extern && p.interfaceBodyFollows() {
+		block, err := p.parseEndBody(token.Token{Line: line, Col: col}, "an interface function's default body")
 		if err != nil {
 			return ast.InterfaceMethod{}, err
 		}
-	} else if whereClauses == nil {
-		// No body — rewind so any trailing trivia stays available for the
-		// caller (parseInterfaceDef collects it as EndTrivia when it
-		// precedes the closing `}`).
-		p.pos = bodyStart
+		body = block
 	}
 
 	// A host-backed default (`host fn`) is supplied by the runtime, so it
@@ -10394,7 +10029,7 @@ func (p *Parser) parseInterfaceMethod() (m ast.InterfaceMethod, err error) {
 	}
 
 	// `open` names a method overridable, so it needs *some* default to
-	// override: a Nomi body (`open fn ... { }`) or a host one
+	// override: a Nomi body (`open fn ...` with its body and `end`) or a host one
 	// (`open host fn ...`). On a bare required method it's meaningless.
 	if open && body == nil && !extern {
 		return ast.InterfaceMethod{}, errorAt(openTok.Line, openTok.Col, "'open' modifier is only valid on interface default methods (those with a body or 'host'); '%s' has no default", name)

@@ -11,25 +11,25 @@ func TestIRStructuralHashAndEqual_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn same<T>(a: T, b: T) -> Bool where T: Equatable {
+fn same<T>(a: T, b: T) -> Bool where T: Equatable
     Equatable.equal(a, b)
-}
+end
 
-fn h<T>(a: T) -> Int where T: Hashable {
+fn h<T>(a: T) -> Int where T: Hashable
     Hashable.hash(a)
-}
+end
 
-fn main() {
-    io.inspect(Hashable.hash(.{name: "r", n: 1}) == Hashable.hash(.{n: 1, name: "r"}))
-    io.inspect(Hashable.hash(.{name: "r", n: 1}) == Hashable.hash(.{n: 2, name: "r"}))
-    io.inspect(Hashable.hash(.{name: "r", n: 1}) == Hashable.hash(1) * 31 + Hashable.hash("r"))
-    io.inspect(h(.{name: "r", n: 1}) == Hashable.hash(.{name: "r", n: 1}))
+fn main()
+    io.inspect(Hashable.hash({name: "r", n: 1}) == Hashable.hash({n: 1, name: "r"}))
+    io.inspect(Hashable.hash({name: "r", n: 1}) == Hashable.hash({n: 2, name: "r"}))
+    io.inspect(Hashable.hash({name: "r", n: 1}) == Hashable.hash(1) * 31 + Hashable.hash("r"))
+    io.inspect(h({name: "r", n: 1}) == Hashable.hash({name: "r", n: 1}))
     io.inspect(same((1, 2), (1, 2)))
     io.inspect(same((1, 2), (1, 3)))
-    io.inspect(same(.{a: 1}, .{a: 1}))
+    io.inspect(same({a: 1}, {a: 1}))
     io.inspect(Equatable.equal((1, "x"), (1, "x")))
-    io.inspect(Equatable.equal(.{a: 1, b: (2, 3)}, .{a: 1, b: (2, 4)}))
-}
+    io.inspect(Equatable.equal({a: 1, b: (2, 3)}, {a: 1, b: (2, 4)}))
+end
 `
 	irRunSource(t, src, "True\nFalse\nTrue\nTrue\nTrue\nFalse\nTrue\nTrue\nFalse\n")
 }
@@ -43,25 +43,25 @@ func TestIRMaybeEqualAsTheOperator_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Inner {
+struct Inner
     a: Int
-}
+end
 
 derive Equatable for Inner
 
-struct Circle {
+struct Circle
     r: Int
-}
+end
 
-enum Shape {
+enum Shape
     embeds Circle
     Dot
-}
+end
 
 derive Equatable for Circle
 derive Equatable for Shape
 
-fn main() {
+fn main()
     c = Circle{r: 1}
     s: Shape = Shape.Dot
     io.print(Maybe.equal(Some(Inner{a: 1}), None))
@@ -70,7 +70,7 @@ fn main() {
     io.print(Maybe.equal(Some(c), Some(Shape.Circle{r: 1})))
     r: Result<Inner, String> = Ok(Inner{a: 2})
     io.print(Result.equal(r, Ok(Inner{a: 2})))
-}
+end
 `
 	irRunSource(t, src, "False\nTrue\nFalse\nTrue\nTrue\n")
 }

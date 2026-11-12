@@ -67,25 +67,25 @@ func tailMarkCount(nodes []ast.Node) int {
 
 // siblingTailLib is the module under measurement. `down` is tail-recursive, so
 // a correctly analysed tree has at least one mark in it.
-const siblingTailLib = `pub fn down(n: Int, acc: Int) -> Int {
-  if n <= 0 {
+const siblingTailLib = `pub fn down(n: Int, acc: Int) -> Int
+  if n <= 0 then
     acc
-  } else {
+  else
     down(n - 1, acc + 1)
-  }
-}
+  end
+end
 `
 
 // siblingTailEntry imports the library and calls into it, which is what puts
 // lib.nomi in the program's import graph as a SIBLING.
-const siblingTailEntry = `import {
+const siblingTailEntry = `import
   std::io
   lib
-}
+end
 
-fn main() {
+fn main()
   io.print("${lib.down(3, 0)}")
-}
+end
 `
 
 // twoModuleFixture writes entry + lib into one temp dir and returns both paths.

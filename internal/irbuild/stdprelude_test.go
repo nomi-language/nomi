@@ -127,8 +127,8 @@ func localDefForTest() *typeDef {
 // in the list, because `Maybe<Node>` really does have to be retracted when Node
 // is refused.
 func TestSharedPreludeDefsAreNeverInPreludeOrder(t *testing.T) {
-	const src = "struct Node {\n  next: Maybe<Node>\n}\n\n" +
-		"fn head() -> Maybe<Int> {\n  None\n}\n\nfn main() {\n  _ = head()\n}\n"
+	const src = "struct Node\n  next: Maybe<Node>\nend\n\n" +
+		"fn head() -> Maybe<Int>\n  None\nend\n\nfn main()\n  _ = head()\nend\n"
 	p, err := AnalyzeSource("main", src)
 	if err != nil {
 		t.Fatalf("analyze: %v", err)

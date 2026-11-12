@@ -2,45 +2,45 @@ import std::compiler
 
 type Flags Int
 
-impl BitwiseOr<Flags, Flags> for Flags {
-    fn bitwise_or(lhs: Flags, rhs: Flags) -> Flags {
+impl BitwiseOr<Flags, Flags> for Flags
+    fn bitwise_or(lhs: Flags, rhs: Flags) -> Flags
         Flags(a) = lhs
         Flags(b) = rhs
         Flags(a ||| b)
-    }
-}
+    end
+end
 
-impl BitwiseAnd<Int, Bool> for Flags {
-    fn bitwise_and(lhs: Flags, rhs: Int) -> Bool {
+impl BitwiseAnd<Int, Bool> for Flags
+    fn bitwise_and(lhs: Flags, rhs: Int) -> Bool
         Flags(a) = lhs
         a &&& rhs != 0
-    }
-}
+    end
+end
 
-impl BitwiseNot<Flags> for Flags {
-    fn bitwise_not(value: Flags) -> Flags {
+impl BitwiseNot<Flags> for Flags
+    fn bitwise_not(value: Flags) -> Flags
         Flags(a) = value
         Flags(~~~a &&& 0xFF)
-    }
-}
+    end
+end
 
-impl ShiftLeft<Int, Flags> for Flags {
-    fn shift_left(lhs: Flags, rhs: Int) -> Flags {
+impl ShiftLeft<Int, Flags> for Flags
+    fn shift_left(lhs: Flags, rhs: Int) -> Flags
         Flags(a) = lhs
         Flags(a <<< rhs)
-    }
-}
+    end
+end
 
-test "each operator on Int" {
+test "each operator on Int"
     assert 12 &&& 10 == 8
     assert 12 ||| 10 == 14
     assert 12 ^^^ 10 == 6
     assert ~~~12 == -13
     assert 3 <<< 4 == 48
     assert 48 >>> 4 == 3
-}
+end
 
-test "the operators are the Int functions" {
+test "the operators are the Int functions"
     assert Int.bitwise_and(12, 10) == 12 &&& 10
     assert Int.bitwise_or(12, 10) == 12 ||| 10
     assert Int.bitwise_xor(12, 10) == 12 ^^^ 10
@@ -48,9 +48,9 @@ test "the operators are the Int functions" {
     assert Int.shift_left(3, 4) == 3 <<< 4
     assert Int.shift_right(48, 4) == 48 >>> 4
     assert Iter.reduce([1, 4, 16], 0, Int.bitwise_or) == 21
-}
+end
 
-test "shifts and &&& bind like *, ||| and ^^^ like +" {
+test "shifts and &&& bind like *, ||| and ^^^ like +"
     byte = 0b1011_0110
     assert byte >>> (7 - 2) &&& 1 == 1
     assert byte >>> 7 - 2 == -1
@@ -65,14 +65,14 @@ test "shifts and &&& bind like *, ||| and ^^^ like +" {
     assert 1 <<< 2 * 3 == 12
     assert ~~~0 &&& 0xF == 0xF
     assert -1 ^^^ 0 == -1
-}
+end
 
-test "pipes take the operators' results" {
+test "pipes take the operators' results"
     assert 0xF0 &&& 0x3C |> Int.to_string() == "48"
     assert [1, 2, 3] |> Iter.map(&(&1 <<< 1)) |> Iter.to_list() == [2, 4, 6]
-}
+end
 
-test "negative Ints read as two's complement with endless ones" {
+test "negative Ints read as two's complement with endless ones"
     assert -8 &&& 0xFF == 0xF8
     assert -8 ||| 3 == -5
     assert -1 ^^^ 5 == -6
@@ -81,9 +81,9 @@ test "negative Ints read as two's complement with endless ones" {
     assert -8 >>> 1 == -4
     assert -7 >>> 1 == -4
     assert -1 >>> 200 == -1
-}
+end
 
-test "shifts past 64 bits are exact" {
+test "shifts past 64 bits are exact"
     assert 1 <<< 64 == 18_446_744_073_709_551_616
     assert 1 <<< 100 == Int.pow(2, 100)
     assert 1 <<< 100 >>> 98 == 4
@@ -96,41 +96,41 @@ test "shifts past 64 bits are exact" {
     assert -1 &&& Int.pow(2, 80) == Int.pow(2, 80)
     assert Int.pow(2, 70) ^^^ Int.pow(2, 70) == 0
     assert ~~~Int.pow(2, 70) == -Int.pow(2, 70) - 1
-}
+end
 
-test "a negative shift count stops the program" {
+test "a negative shift count stops the program"
     result =
         """
-        fn main() {
+        fn main()
           n = 0 - 1
           _ = 1 <<< n
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert String.contains(message, "line 3: negative shift count -1")
-}
+end
 
-test "a negative right shift count stops the program" {
+test "a negative right shift count stops the program"
     result =
         """
-        fn main() {
+        fn main()
           _ = Int.shift_right(8, -2)
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert String.contains(message, "line 2: negative shift count -2")
-}
+end
 
-test "a type with no impl names the interface" {
+test "a type with no impl names the interface"
     result =
         """
-        fn main() {
+        fn main()
           _ = 1.5 &&& 2.0
-        }
+        end
         """
         |> compiler.run()
 
@@ -140,23 +140,23 @@ test "a type with no impl names the interface" {
         message,
         "no impl of `BitwiseAnd` for `Float` (required via bitwise and operator `&&&`)",
     )
-}
+end
 
-test "a Byte has no shift" {
+test "a Byte has no shift"
     result =
         """
-        fn main() {
+        fn main()
           b: Byte = 1
           _ = b <<< 1
-        }
+        end
         """
         |> compiler.run()
 
     assert Err(message) = result
     assert String.contains(message, "no impl of `ShiftLeft` for `Byte`")
-}
+end
 
-test "each operator on Byte" {
+test "each operator on Byte"
     a: Byte = 0b1100
     b: Byte = 0b1010
     assert a &&& b == 0b1000
@@ -169,9 +169,9 @@ test "each operator on Byte" {
     first: Byte = 0x81
     assert first &&& 0x7F == 1
     assert 0x80 ||| first == first
-}
+end
 
-test "a distinct type opts in with impls" {
+test "a distinct type opts in with impls"
     read = Flags(1)
     write = Flags(2)
     assert read ||| write == Flags(3)
@@ -179,9 +179,9 @@ test "a distinct type opts in with impls" {
     refute Flags(5) &&& 2
     assert ~~~Flags(1) == Flags(254)
     assert Flags(1) <<< 3 == Flags(8)
-}
+end
 
-test "bit count and bit length" {
+test "bit count and bit length"
     assert Int.bit_count(0) == 0
     assert Int.bit_count(255) == 8
     assert Int.bit_count(Int.pow(2, 100) - 1) == 100
@@ -192,14 +192,14 @@ test "bit count and bit length" {
     assert Int.bit_length(-1) == 0
     assert Int.bit_length(-8) == 3
     assert Int.bit_length(-9) == 4
-}
+end
 
-test "a negative bit count stops the program" {
+test "a negative bit count stops the program"
     result =
         """
-        fn main() {
+        fn main()
           _ = Int.bit_count(-5)
-        }
+        end
         """
         |> compiler.run()
 
@@ -209,4 +209,4 @@ test "a negative bit count stops the program" {
         message,
         "line 2: Int.bit_count: -5 is negative, and a negative Int has endless 1 bits",
     )
-}
+end

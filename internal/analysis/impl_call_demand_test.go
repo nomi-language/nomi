@@ -23,19 +23,19 @@ import (
 // EXTRA true diagnostic rather than a wrong one — a substring check would
 // pass through it.
 func TestTypeQualifiedImplDemandDoesNotDoubleReport(t *testing.T) {
-	src := `struct DisplayBox<T> {
+	src := `struct DisplayBox<T>
   value: T
-}
+end
 
-struct Plain {
+struct Plain
   tag: String
-}
+end
 
 derive Display for DisplayBox<T> where T: Display
 
-fn main() {
+fn main()
   _ = DisplayBox.to_string(DisplayBox{value: Plain{tag: "a"}})
-}
+end
 `
 	fa := buildWithStdlibForDerive(src)
 	if len(fa.TypeErrors) != 1 {

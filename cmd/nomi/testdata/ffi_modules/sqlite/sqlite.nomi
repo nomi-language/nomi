@@ -27,22 +27,22 @@ fn query_all_raw(
 fn close_raw(c: RawConn) -> Result<Unit, String> go sqlite.Close
 
 /// An open database.
-pub opaque struct Conn {
+pub opaque struct Conn
     raw: RawConn
-}
+end
 
 /// Opens the database file at `path`, creating it if it does not exist.
 /// `":memory:"` opens a private in-memory database. Close it with
 /// `defer sqlite.close(conn)` right after opening.
-pub fn open(path: String) -> Result<Conn, String> {
+pub fn open(path: String) -> Result<Conn, String>
     open_raw(path) |> Result.map(&Conn{raw: &1})
-}
+end
 
 /// Runs a statement that returns no rows, such as `CREATE`, `INSERT`,
 /// `UPDATE` or `DELETE`. Each `?` in `sql` takes the next value from `args`.
-pub fn exec(conn: Conn, sql: String, args: List<String>) -> Result<Unit, String> {
+pub fn exec(conn: Conn, sql: String, args: List<String>) -> Result<Unit, String>
     exec_raw(conn.raw, sql, args)
-}
+end
 
 /// Runs a query and returns every row as a list of column values. A `NULL`
 /// column reads as `""`. Each `?` in `sql` takes the next value from `args`.
@@ -55,20 +55,16 @@ pub fn exec(conn: Conn, sql: String, args: List<String>) -> Result<Unit, String>
 //! assert early == Ok([["Ada"]])
 //! assert query_all(conn, "SELECT count(*) FROM people", []) == Ok([["2"]])
 //
-pub fn query_all(
-    conn: Conn,
-    sql: String,
-    args: List<String>,
-) -> Result<List<List<String>>, String> {
+pub fn query_all(conn: Conn, sql: String, args: List<String>) -> Result<List<List<String>>, String>
     query_all_raw(conn.raw, sql, args)
-}
+end
 
 /// Closes the database. Closing a closed database does nothing.
 ///
 /// It returns `Unit` rather than a `Result` because `defer` takes only a
 /// call that returns `Unit`. A failure to close is dropped: each statement
 /// has already committed by the time it runs.
-pub fn close(conn: Conn) {
+pub fn close(conn: Conn)
     _ = close_raw(conn.raw)
     Unit
-}
+end

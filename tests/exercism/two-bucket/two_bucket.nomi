@@ -1,35 +1,35 @@
 //# Measures an amount of water with two buckets of given sizes.
 
 /// One of the two buckets.
-pub enum Bucket {
+pub enum Bucket
     One
     Two
-}
+end
 
 /// How the goal is reached: in how many actions, in which bucket, and how
 /// much is left in the other.
-pub struct Outcome {
+pub struct Outcome
     moves: Int
     goal_bucket: Bucket
     other_bucket: Int
-}
+end
 
 /// Why the goal cannot be measured.
-pub enum Error {
+pub enum Error
     Impossible
-}
+end
 
 /// The fewest actions that measure `goal` liters with buckets of `one` and
 /// `two` liters, filling `start` first. No action may leave `start` empty
 /// and the other bucket full.
-pub fn measure(one: Int, two: Int, goal: Int, start: Bucket) -> Result<Outcome, Error> {
-    (first, forbidden) = case start {
+pub fn measure(one: Int, two: Int, goal: Int, start: Bucket) -> Result<Outcome, Error>
+    (first, forbidden) = case start
         .One -> ((one, 0), (0, two))
         .Two -> ((0, two), (one, 0))
-    }
+    end
 
-    search([first], %[first, forbidden], 1, (one, two), goal)
-}
+    search([first], [first, forbidden], 1, (one, two), goal)
+end
 
 /// A breadth-first search over states, the liters in bucket one and bucket
 /// two: `frontier` is every state `moves` actions reach
@@ -41,30 +41,32 @@ fn search(
     moves: Int,
     sizes: (Int, Int),
     goal: Int,
-) -> Result<Outcome, Error> {
-    case Iter.find(frontier, fn (one, two) -> one == goal or two == goal) {
-        Some((one, two)) when one == goal -> Ok(.{moves, goal_bucket: .One, other_bucket: two})
-        Some((one, _two)) -> Ok(.{moves, goal_bucket: .Two, other_bucket: one})
+) -> Result<Outcome, Error>
+    case Iter.find(frontier, fn (one, two) -> one == goal or two == goal)
+        Some((one, two)) when one == goal ->
+            Ok({moves:, goal_bucket: .One, other_bucket: two})
 
-        None -> {
+        Some((one, _two)) ->
+            Ok({moves:, goal_bucket: .Two, other_bucket: one})
+
+        None ->
             next =
                 frontier
                 |> Iter.flat_map(&actions(&1, sizes))
                 |> Iter.reject(&(&1 in seen))
                 |> Iter.to_set()
 
-            if Iter.is_empty(next) {
+            if Iter.is_empty(next) then
                 Err(.Impossible)
-            } else {
+            else
                 search(Iter.to_list(next), Set.union(seen, next), moves + 1, sizes, goal)
-            }
-        }
-    }
-}
+            end
+    end
+end
 
 /// The states one action leads to from `(one, two)`: fill a bucket, empty
 /// one, or pour one into the other until it is empty or the other is full.
-fn actions((one, two): (Int, Int), (size_one, size_two): (Int, Int)) -> List<(Int, Int)> {
+fn actions((one, two): (Int, Int), (size_one, size_two): (Int, Int)) -> List<(Int, Int)>
     into_two = Int.min(one, size_two - two)
     into_one = Int.min(two, size_one - one)
 
@@ -76,4 +78,4 @@ fn actions((one, two): (Int, Int), (size_one, size_two): (Int, Int)) -> List<(In
         (one - into_two, two + into_two),
         (one + into_one, two - into_one),
     ]
-}
+end

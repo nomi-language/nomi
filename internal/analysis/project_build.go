@@ -899,7 +899,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	}
 	fileOf := func(path string) *FileAnalysis { return byPath[path] }
 	for _, fb := range built {
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckDeriveBounds(fb.fa, fb.nodes, implIndex)...)
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckDeriveBounds(fb.fa, fb.nodes, implIndex, fileOf)...)
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckForeignDeriveBounds(fb.fa, fb.nodes, implIndex, fileOf)...)
 	}
 

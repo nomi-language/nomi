@@ -39,87 +39,87 @@ import std::io
 opaque type Meters Int
 
 // zeta before alpha, deliberately. See above.
-struct Rev {
+struct Rev
     zeta: Int
     alpha: Int
-}
+end
 
-struct Custom {
+struct Custom
     zeta: Int
     alpha: Int
-}
+end
 
-impl Debug for Custom {
-    fn inspect(v: Custom) -> String {
+impl Debug for Custom
+    fn inspect(v: Custom) -> String
         _ = v
         "CUSTOM-DEBUG"
-    }
-}
+    end
+end
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn no_rev(_v: Rev) -> Bool {
+fn no_rev(_v: Rev) -> Bool
     False
-}
+end
 
-fn no_custom(_v: Custom) -> Bool {
+fn no_custom(_v: Custom) -> Bool
     False
-}
+end
 
-fn no_meters(_v: Meters) -> Bool {
+fn no_meters(_v: Meters) -> Bool
     False
-}
+end
 
-test "dbg renders a struct in declaration order" {
+test "dbg renders a struct in declaration order"
     r = dbg Rev{zeta: 1, alpha: 2}
     refute no_rev(r)
-}
+end
 
-test "the values row for the same struct sorts it" {
+test "the values row for the same struct sorts it"
     r = Rev{zeta: 1, alpha: 2}
     assert no_rev(r)
-}
+end
 
-test "dbg honours a hand-written impl Debug" {
+test "dbg honours a hand-written impl Debug"
     c = dbg Custom{zeta: 1, alpha: 2}
     refute no_custom(c)
-}
+end
 
-test "the values row for the same value honours that impl" {
+test "the values row for the same value honours that impl"
     c = Custom{zeta: 1, alpha: 2}
     assert no_custom(c)
-}
+end
 
-test "dbg shows an opaque type name-only" {
+test "dbg shows an opaque type name-only"
     m = dbg Meters(7)
     refute no_meters(m)
-}
+end
 
-test "the values row for the same opaque value shows the payload" {
+test "the values row for the same opaque value shows the payload"
     m = Meters(7)
     assert no_meters(m)
-}
+end
 
-test "dbg over containers and prelude instances" {
+test "dbg over containers and prelude instances"
     _list = dbg [Rev{zeta: 1, alpha: 2}]
     _pair = dbg (1, "two")
     _some = dbg Some(42)
     _none: Maybe<Int> = dbg None
-    _rec = dbg .{a: 1, a0: 2}
+    _rec = dbg {a: 1, a0: 2}
     _fn = dbg double
     refute no_rev(Rev{zeta: 0, alpha: 0})
-}
+end
 
-test "a dbg in a test body prints above its own result line" {
+test "a dbg in a test body prints above its own result line"
     x = dbg 7
     io.print("after the dbg, before the report")
     refute no_rev(Rev{zeta: x, alpha: x})
-}
+end
 
-test "a dbg above a FAILING assertion, so all three interleave" {
+test "a dbg above a FAILING assertion, so all three interleave"
     r = dbg Rev{zeta: 3, alpha: 4}
     io.print("printed before the failure")
     assert no_rev(r)
-}
+end

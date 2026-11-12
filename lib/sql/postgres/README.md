@@ -11,13 +11,13 @@ nomi add github.com/nomi-language/nomi/lib/sql/postgres
 ```
 
 ```nomi
-import {
+import
     std::io
     std::sql.{self, Conn, Error, Row, Sql}
     postgres
-}
+end
 
-fn main() -> Result<Unit, Error> {
+fn main() -> Result<Unit, Error>
     db = postgres.pool("postgres://localhost/notes")
     defer sql.close_quietly(db)
 
@@ -29,15 +29,15 @@ fn main() -> Result<Unit, Error> {
     _ = Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"hello"})")?
     rows = Conn.query(db, Sql"SELECT body FROM notes")?
 
-    Iter.each(rows, fn row -> {
+    Iter.each(rows, fn row ->
         io.print(
             Row.get<String>(row, "body")
             |> Result.with_default("?")
         )
-    })
+    end)
 
     Ok(Unit)
-}
+end
 ```
 
 A release `nomi` carries the driver's Go code prebuilt, so a program that
@@ -55,7 +55,7 @@ runs, with the `go` on `PATH` or the Go toolchain `nomi` downloads.
   the pool.
 - `postgres.connect(url)` is one connection, opened now. A temporary table
   lives on one connection, so code that uses one connects.
-- `Conn.begin` is `BEGIN` on a connection the transaction holds until it
+- `Conn.begin_transaction` is `BEGIN` on a connection the transaction holds until it
   commits or rolls back; on a transaction it is a savepoint, which
   `commit` releases and `rollback` rolls back to. A statement must run on
   the innermost open transaction or savepoint, and the driver refuses one
@@ -123,8 +123,9 @@ runs, with the `go` on `PATH` or the Go toolchain `nomi` downloads.
   is non-null only when it reads a `NOT NULL` column that no outer join of
   the statement can leave out, which the statement's generic plan shows
   (`EXPLAIN EXECUTE` under `plan_cache_mode = force_generic_plan`, so
-  Postgres 12 or later). It drops the scratch database before it answers,
-  also when it is cancelled.
+  Postgres 12 or later). A view's column is described through the view's
+  definition, as the table column that one reads. It drops the scratch
+  database before it answers, also when it is cancelled.
 - In the browser (the tour's wasm build) the Go side has no pgx: a page
   cannot open a TCP connection, so every call answers `Error.Connection`
   saying Postgres cannot be reached from the browser.

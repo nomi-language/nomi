@@ -6,7 +6,7 @@
 //# connections: it checks each rule `Conn` states, transactions and
 //# savepoints above all, and names each rule a driver breaks.
 
-import {
+import
     bool.Bool.{self, False, True}
     channels.{Channel, Receiver, Sender}
     display.Display
@@ -22,7 +22,7 @@ import {
     strings.String
     tasks.Task
     unit.Unit
-}
+end
 
 /// A recording `Conn` for tests. It runs no SQL: each statement is
 /// handled by `answer`, which gets the statement and the statements in
@@ -40,40 +40,40 @@ import {
 /// open. Every `Conn` that `begin` returns shares the connection's record.
 //! fake = Fake.new()
 //!
-//! result = sql.transaction(fake, fn tx -> {
+//! result = sql.transaction(fake, fn tx ->
 //!     _ = Conn.exec(tx, Sql"INSERT INTO users (name) VALUES (${"Ada"})")?
 //!     Ok(Unit)
-//! })
+//! end)
 //!
 //! assert result == Ok(Unit)
 //! assert Fake.log(fake) == ["BEGIN", "INSERT INTO users (name) VALUES (?1)", "COMMIT"]
 //! assert Fake.committed(fake) == [Sql"INSERT INTO users (name) VALUES (${"Ada"})"]
 //
-pub opaque struct Fake {
+pub opaque struct Fake
     state: Channel<State>
     id: Int
     dialect: Dialect
     answer: (Statement, List<Statement>) -> Result<List<Row>, sql.Error>
-}
+end
 
 // What every Conn of one fake shares. `levels` holds the connection's level
 // first, whose effects are the committed statements, then each open
 // transaction and savepoint, innermost last. A Conn whose level is not open
 // has been committed or rolled back.
-struct State {
+struct State
     log: List<String>
     statements: List<Statement>
     levels: List<Level>
     next_id: Int
     closed: Bool
-}
+end
 
-struct Level {
+struct Level
     id: Int
     effects: List<Statement>
-}
+end
 
-impl Fake {
+impl Fake
     /// A fake connection with nothing recorded. By default it calls itself
     /// `Dialect.Other("fake")` and responds to every statement with no rows.
     //! rows: List<Row> = [Row.new("SELECT 1 AS n", [("n", Value.Int(1))])]
@@ -84,7 +84,7 @@ impl Fake {
     pub fn new(
         dialect: Dialect = Dialect.Other("fake"),
         answer: (Statement, List<Statement>) -> Result<List<Row>, sql.Error> = answer_nothing,
-    ) -> Fake {
+    ) -> Fake
         state: Channel<State> = Channel.buffered(1)
 
         first = State{
@@ -98,127 +98,125 @@ impl Fake {
         }
 
         _ = Sender.send(state.sender, first)
-        Fake{state, id: 0, dialect, answer}
-    }
+        Fake{state:, id: 0, dialect:, answer:}
+    end
 
     /// Everything sent, in order: each statement as `Statement`'s `Display`
     /// writes it, and each transaction command.
-    pub fn log(fake: Fake) -> List<String> {
+    pub fn log(fake: Fake) -> List<String>
         peek(fake).log
-    }
+    end
 
     /// The statements sent, in order, whether or not they took effect.
-    pub fn statements(fake: Fake) -> List<Statement> {
+    pub fn statements(fake: Fake) -> List<Statement>
         peek(fake).statements
-    }
+    end
 
     /// The statements in effect outside every transaction: those run
     /// outside one, and those of transactions that committed. A statement
     /// of a transaction still open, or of one rolled back, is not here.
     //! fake = Fake.new()
     //!
-    //! _ = sql.transaction<Unit>(fake, fn tx -> {
+    //! _ = sql.transaction<Unit>(fake, fn tx ->
     //!     _ = Conn.exec(tx, Sql"INSERT INTO t VALUES (1)")?
     //!     Err(sql.Error.Timeout)
-    //! })
+    //! end)
     //!
     //! assert Fake.committed(fake) == []
     //! assert Fake.log(fake) == ["BEGIN", "INSERT INTO t VALUES (1)", "ROLLBACK"]
     //
-    pub fn committed(fake: Fake) -> List<Statement> {
-        case Iter.first(peek(fake).levels) {
+    pub fn committed(fake: Fake) -> List<Statement>
+        case Iter.first(peek(fake).levels)
             Some(level) -> level.effects
             None -> []
-        }
-    }
+        end
+    end
 
     /// Whether `close` was called on the fake or on a `Conn` its `begin`
     /// returned.
     //! fake = Fake.new()
     //!
-    //! answer = {
+    //! answer = begin
     //!     defer sql.close_quietly(fake)
     //!     Conn.exec(fake, Sql"DELETE FROM t")
-    //! }
+    //! end
     //!
     //! assert answer == Ok(0)
     //! assert Fake.is_closed(fake)
     //! assert Conn.ping(fake) == Err(sql.Error.Closed)
     //! assert Fake.log(fake) == ["DELETE FROM t", "CLOSE"]
     //
-    pub fn is_closed(fake: Fake) -> Bool {
+    pub fn is_closed(fake: Fake) -> Bool
         peek(fake).closed
-    }
-}
+    end
+end
 
-impl Conn for Fake {
-    fn query(conn: Fake, statement: Statement) -> Result<List<Row>, sql.Error> {
+impl Conn for Fake
+    fn query(conn: Fake, statement: Statement) -> Result<List<Row>, sql.Error>
         run(conn, statement)
-    }
+    end
 
-    fn each_row(conn: Fake, statement: Statement, f: (Row) -> Bool) -> Result<Unit, sql.Error> {
+    fn each_row(conn: Fake, statement: Statement, f: (Row) -> Bool) -> Result<Unit, sql.Error>
         rows = run(conn, statement)?
         _ = Iter.all_match(rows, f)
         Ok(Unit)
-    }
+    end
 
-    fn exec(conn: Fake, statement: Statement) -> Result<Int, sql.Error> {
+    fn exec(conn: Fake, statement: Statement) -> Result<Int, sql.Error>
         rows = run(conn, statement)?
         Ok(Iter.count(rows))
-    }
+    end
 
-    fn begin(conn: Fake) -> Result<Conn, sql.Error> {
+    fn begin_transaction(conn: Fake) -> Result<Conn, sql.Error>
         state = take(conn)
 
-        if state.closed {
+        if state.closed then
             put(conn, state)
             return Err(sql.Error.Closed)
-        }
+        end
 
-        case depth(state, conn.id) {
-            None -> {
+        case depth(state, conn.id)
+            None ->
                 put(conn, state)
                 Err(sql.Error.Finished)
-            }
 
-            Some(_) -> {
+            Some(_) ->
                 open = Iter.count(state.levels)
 
-                line = if open == 1 {
+                line = if open == 1 then
                     "BEGIN"
-                } else {
+                else
                     "SAVEPOINT ${savepoint(open)}"
-                }
+                end
 
                 level = Level{id: state.next_id, effects: []}
 
-                put(conn, .{
+                put(conn, {
                     ..state,
                     log: state.log + [line],
                     levels: state.levels + [level],
                     next_id: state.next_id + 1,
                 })
 
-                Ok(.{..conn, id: level.id})
-            }
-        }
-    }
+                Ok({..conn, id: level.id})
+        end
+    end
 
-    fn commit(tx: Fake) -> Result<Unit, sql.Error> {
+    fn commit(tx: Fake) -> Result<Unit, sql.Error>
         state = take(tx)
 
-        if state.closed {
+        if state.closed then
             put(tx, state)
             return Err(sql.Error.Closed)
-        }
+        end
 
-        case depth(state, tx.id) {
-            Some(index) when index > 0 -> {
-                line = if index == 1 {
+        case depth(state, tx.id)
+            Some(index) when index > 0 ->
+                line = if index == 1 then
                     "COMMIT"
-                } else {
+                else
                     "RELEASE SAVEPOINT ${savepoint(index)}"
-                }
+                end
 
                 outer = Iter.take(state.levels, index - 1) |> Iter.to_list()
                 inner = Iter.drop(state.levels, index - 1) |> Iter.to_list()
@@ -229,174 +227,172 @@ impl Conn for Fake {
                     effects: inner |> Iter.flat_map(.effects) |> Iter.to_list(),
                 }
 
-                put(tx, .{..state, log: state.log + [line], levels: outer + [merged]})
+                put(tx, {..state, log: state.log + [line], levels: outer + [merged]})
                 Ok(Unit)
-            }
 
-            _ -> {
+            _ ->
                 put(tx, state)
                 Err(sql.Error.Finished)
-            }
-        }
-    }
+        end
+    end
 
-    fn rollback(tx: Fake) -> Result<Unit, sql.Error> {
+    fn rollback(tx: Fake) -> Result<Unit, sql.Error>
         state = take(tx)
 
-        if state.closed {
+        if state.closed then
             put(tx, state)
             return Err(sql.Error.Closed)
-        }
+        end
 
-        case depth(state, tx.id) {
-            Some(index) when index > 0 -> {
-                line = if index == 1 {
+        case depth(state, tx.id)
+            Some(index) when index > 0 ->
+                line = if index == 1 then
                     "ROLLBACK"
-                } else {
+                else
                     "ROLLBACK TO SAVEPOINT ${savepoint(index)}"
-                }
+                end
 
                 levels = Iter.take(state.levels, index) |> Iter.to_list()
-                put(tx, .{..state, log: state.log + [line], levels})
-            }
+                put(tx, {..state, log: state.log + [line], levels:})
 
-            _ -> put(tx, state)
-        }
+            _ ->
+                put(tx, state)
+        end
 
         Ok(Unit)
-    }
+    end
 
-    fn ping(conn: Fake) -> Result<Unit, sql.Error> {
-        if peek(conn).closed {
+    fn ping(conn: Fake) -> Result<Unit, sql.Error>
+        if peek(conn).closed then
             Err(sql.Error.Closed)
-        } else {
+        else
             Ok(Unit)
-        }
-    }
+        end
+    end
 
-    fn dialect(conn: Fake) -> Dialect {
+    fn dialect(conn: Fake) -> Dialect
         conn.dialect
-    }
+    end
 
     // The connection's level stays, with the committed statements; every
     // transaction and savepoint ends.
-    fn close(conn: Fake) -> Result<Unit, sql.Error> {
+    fn close(conn: Fake) -> Result<Unit, sql.Error>
         state = take(conn)
 
-        if state.closed {
+        if state.closed then
             put(conn, state)
-        } else {
-            put(conn, .{
+        else
+            put(conn, {
                 ..state,
                 log: state.log + ["CLOSE"],
                 levels: Iter.take(state.levels, 1) |> Iter.to_list(),
                 closed: True,
             })
-        }
+        end
 
         Ok(Unit)
-    }
-}
+    end
+end
 
-fn answer_nothing(_: Statement, _: List<Statement>) -> Result<List<Row>, sql.Error> {
+fn answer_nothing(_: Statement, _: List<Statement>) -> Result<List<Row>, sql.Error>
     Ok([])
-}
+end
 
 // The fake's state, taken out of its channel until `put` puts it back. Every
 // Conn of a fake runs in one task at a time between the two, and nothing
 // closes the channel.
-fn take(fake: Fake) -> State {
-    case Receiver.receive(fake.state.receiver) {
+fn take(fake: Fake) -> State
+    case Receiver.receive(fake.state.receiver)
         Some(state) -> state
         None -> State{log: [], statements: [], levels: [], next_id: 0, closed: False}
-    }
-}
+    end
+end
 
-fn put(fake: Fake, state: State) {
+fn put(fake: Fake, state: State)
     _ = Sender.send(fake.state.sender, state)
-}
+end
 
-fn peek(fake: Fake) -> State {
+fn peek(fake: Fake) -> State
     state = take(fake)
     put(fake, state)
     state
-}
+end
 
 // Where the level `id` stands among the open ones: 0 for the connection, 1
 // for its transaction, 2 and on for savepoints. None once it has ended.
-fn depth(state: State, id: Int) -> Maybe<Int> {
+fn depth(state: State, id: Int) -> Maybe<Int>
     state.levels
     |> Iter.with_index()
     |> Iter.find(fn (_, level) -> level.id == id)
     |> Maybe.map(fn (index, _) -> index)
-}
+end
 
 // The savepoint at depth `index`: sp1 is the first inside a transaction.
-fn savepoint(index: Int) -> String {
+fn savepoint(index: Int) -> String
     "sp${index - 1}"
-}
+end
 
 // Records statement and handles it. A statement given Ok takes effect in
 // the innermost open level, as on a real connection, whichever Conn of the
 // fake sent it.
-fn run(fake: Fake, statement: Statement) -> Result<List<Row>, sql.Error> {
+fn run(fake: Fake, statement: Statement) -> Result<List<Row>, sql.Error>
     state = take(fake)
 
-    if state.closed {
+    if state.closed then
         put(fake, state)
         return Err(sql.Error.Closed)
-    }
+    end
 
-    if Maybe.is_none(depth(state, fake.id)) {
+    if Maybe.is_none(depth(state, fake.id)) then
         put(fake, state)
         return Err(sql.Error.Finished)
-    }
+    end
 
-    sent = .{..state, log: state.log + ["${statement}"], statements: state.statements + [statement]}
+    sent = {..state, log: state.log + ["${statement}"], statements: state.statements + [statement]}
     visible = state.levels |> Iter.flat_map(.effects) |> Iter.to_list()
     answer = fake.answer
     result = answer(statement, visible)
 
-    case result {
-        Ok(_) -> put(fake, .{..sent, levels: with_effect(state.levels, statement)})
+    case result
+        Ok(_) -> put(fake, {..sent, levels: with_effect(state.levels, statement)})
         Err(_) -> put(fake, sent)
-    }
+    end
 
     result
-}
+end
 
-fn with_effect(levels: List<Level>, statement: Statement) -> List<Level> {
+fn with_effect(levels: List<Level>, statement: Statement) -> List<Level>
     last = Iter.count(levels) - 1
 
     levels
     |> Iter.with_index()
-    |> Iter.map(fn (index, level) -> {
-        if index == last {
-            .{..level, effects: level.effects + [statement]}
-        } else {
+    |> Iter.map(fn (index, level) ->
+        if index == last then
+            {..level, effects: level.effects + [statement]}
+        else
             level
-        }
-    })
+        end
+    end)
     |> Iter.to_list()
-}
+end
 
 /// A conformance rule a driver broke: the rule's name and what happened.
 /// Its `Display` is `rule: message`.
 //! failure = Failure{rule: "ping", message: "timed out"}
 //! assert "${failure}" == "ping: timed out"
 //
-pub struct Failure {
+pub struct Failure
     rule: String
     message: String
-}
+end
 
 derive Equatable for Failure
 
-impl Display for Failure {
-    fn to_string(failure: Failure) -> String {
+impl Display for Failure
+    fn to_string(failure: Failure) -> String
         "${failure.rule}: ${failure.message}"
-    }
-}
+    end
+end
 
 /// Run every conformance rule against connections from `open`, and return
 /// the rules broken, in the order `rules` lists them: none for a driver
@@ -436,30 +432,30 @@ impl Display for Failure {
 /// scratch database:
 ///
 /// ```nomi
-/// test "the driver conforms" {
+/// test "the driver conforms"
 ///     assert sql_testing.conformance(fn -> sqlite.open(":memory:")) == []
-/// }
+/// end
 /// ```
 //! assert conformance(fn -> Ok(Fake.new(answer: conformance_answer))) == []
 //
-pub fn conformance<C>(open: () -> Result<C, sql.Error>) -> List<Failure> where C: Conn {
+pub fn conformance<C>(open: () -> Result<C, sql.Error>) -> List<Failure> where C: Conn
     checks()
-    |> Iter.flat_map(fn (rule, check) -> {
-        case check_with(open, check) {
+    |> Iter.flat_map(fn (rule, check) ->
+        case check_with(open, check)
             Ok(_) -> []
-            Err(message) -> [Failure{rule, message}]
-        }
-    })
+            Err(message) -> [Failure{rule:, message:}]
+        end
+    end)
     |> Iter.to_list()
-}
+end
 
 /// The names of the conformance rules, in the order `conformance` runs
 /// them.
 //! assert Iter.contains(rules(), "rollback after commit is a no-op")
 //
-pub fn rules() -> List<String> {
+pub fn rules() -> List<String>
     checks() |> Iter.map(fn (rule, _) -> rule) |> Iter.to_list()
-}
+end
 
 /// An `answer` for `Fake.new` that runs the conformance suite's own
 /// statements, so the suite can run against a fake: its queries read back
@@ -470,18 +466,18 @@ pub fn rules() -> List<String> {
 pub fn conformance_answer(
     statement: Statement,
     visible: List<Statement>,
-) -> Result<List<Row>, sql.Error> {
-    if is_shaped(statement, insert_parent(0, 0, 0)) {
+) -> Result<List<Row>, sql.Error>
+    if is_shaped(statement, insert_parent(0, 0, 0)) then
         parent_violation(statement, visible)?
         return Ok([])
-    }
+    end
 
-    if is_shaped(statement, insert_child(None, 0)) {
+    if is_shaped(statement, insert_child(None, 0)) then
         child_violation(statement, visible)?
         return Ok([])
-    }
+    end
 
-    time_rows = fn keep: (Instant) -> Bool, order: ((Int, Instant)) -> Int -> {
+    time_rows = fn keep: (Instant) -> Bool, order: ((Int, Instant)) -> Int ->
         query = "${statement}"
 
         rows =
@@ -492,123 +488,118 @@ pub fn conformance_answer(
             |> Iter.to_list()
 
         Ok(rows)
-    }
+    end
 
     by_n = fn (n, _): (Int, Instant) -> n
 
-    if is_shaped(statement, times_after(Instant.from_seconds(0))) {
+    if is_shaped(statement, times_after(Instant.from_seconds(0))) then
         bound = instant_param(statement, 0)
         return time_rows(fn at -> Instant.is_before(bound, at), by_n)
-    }
+    end
 
-    if is_shaped(statement, times_before(Instant.from_seconds(0))) {
+    if is_shaped(statement, times_before(Instant.from_seconds(0))) then
         bound = instant_param(statement, 0)
         return time_rows(fn at -> Instant.is_before(at, bound), by_n)
-    }
+    end
 
-    if statement == times_in_order() {
+    if statement == times_in_order() then
         return time_rows(fn _ -> True, fn (_, at) -> Instant.as_nanos(at))
-    }
+    end
 
-    if statement != read_all() { return Ok([]) }
+    if statement != read_all() then return Ok([])
 
     query = "${statement}"
 
     rows =
         visible
         |> Iter.filter(fn s -> Iter.first(s.parts) == Iter.first(insert(0, None).parts))
-        |> Iter.map(fn s -> {
+        |> Iter.map(fn s ->
             Row.new(query, [
                 ("n", Iter.get(s.params, 0) |> Maybe.with_default(Value.Null)),
                 ("t", Iter.get(s.params, 1) |> Maybe.with_default(Value.Null)),
             ])
-        })
+        end)
         |> Iter.sort_by(fn row -> Row.get<Int>(row, "n") |> Result.with_default(0))
 
     Ok(rows)
-}
+end
 
 // Whether statement is template's SQL, whatever its parameters.
-fn is_shaped(statement: Statement, template: Statement) -> Bool {
+fn is_shaped(statement: Statement, template: Statement) -> Bool
     statement.parts == template.parts
-}
+end
 
-fn int_param(statement: Statement, index: Int) -> Maybe<Int> {
-    case Iter.get(statement.params, index) {
+fn int_param(statement: Statement, index: Int) -> Maybe<Int>
+    case Iter.get(statement.params, index)
         Some(.Int(n)) -> Some(n)
         _ -> None
-    }
-}
+    end
+end
 
-fn instant_param(statement: Statement, index: Int) -> Instant {
-    case Iter.get(statement.params, index) {
+fn instant_param(statement: Statement, index: Int) -> Instant
+    case Iter.get(statement.params, index)
         Some(.Timestamptz(at)) -> at
         _ -> Instant.from_seconds(0)
-    }
-}
+    end
+end
 
 // The rows of the timestamp rule's table: an insert with no time is at
 // the moment it is read, as the database's clock would have it.
-fn times(visible: List<Statement>) -> List<(Int, Instant)> {
+fn times(visible: List<Statement>) -> List<(Int, Instant)>
     now = Instant.now()
 
     visible
-    |> Iter.flat_map(fn s -> {
+    |> Iter.flat_map(fn s ->
         n = int_param(s, 0) |> Maybe.with_default(0)
 
-        if is_shaped(s, insert_at(0, now)) {
+        if is_shaped(s, insert_at(0, now)) then
             [(n, instant_param(s, 1))]
-        } else if is_shaped(s, insert_now(0)) {
+        else if is_shaped(s, insert_now(0)) then
             [(n, now)]
-        } else {
+        else
             []
-        }
-    })
+        end
+    end)
     |> Iter.to_list()
-}
+end
 
-fn violation(
-    kind: ConstraintKind,
-    name: String,
-    table: String,
-    column: Maybe<String>,
-) -> sql.Error {
-    sql.Error.Constraint{kind, name, table: Some(table), column}
-}
+fn violation(kind: ConstraintKind, name: String, table: String, column: Maybe<String>) -> sql.Error
+    sql.Error.Constraint{kind:, name:, table: Some(table), column:}
+end
 
 // The constraint of the suite's parents table that statement, an insert
 // into it, breaks.
-fn parent_violation(statement: Statement, visible: List<Statement>) -> Result<Unit, sql.Error> {
+fn parent_violation(statement: Statement, visible: List<Statement>) -> Result<Unit, sql.Error>
     table = "nomi_conformance_parents"
     id = int_param(statement, 0)
     k = int_param(statement, 1)
     c = int_param(statement, 2) |> Maybe.with_default(0)
     parents = visible |> Iter.filter(fn s -> is_shaped(s, insert_parent(0, 0, 0))) |> Iter.to_list()
 
-    if c >= 10 {
+    if c >= 10 then
         Err(violation(ConstraintKind.Check, "nomi_conformance_c_small", table, Some("c")))
-    } else if Iter.any_match(parents, fn p -> int_param(p, 0) == id) {
+    else if Iter.any_match(parents, fn p -> int_param(p, 0) == id) then
         Err(violation(ConstraintKind.Unique, "${table}_pkey", table, Some("id")))
-    } else if Iter.any_match(parents, fn p -> int_param(p, 1) == k) {
+    else if Iter.any_match(parents, fn p -> int_param(p, 1) == k) then
         Err(violation(ConstraintKind.Unique, "${table}_k_key", table, Some("k")))
-    } else {
+    else
         Ok(Unit)
-    }
-}
+    end
+end
 
 // The constraint of the suite's children table that statement, an insert
 // into it, breaks.
-fn child_violation(statement: Statement, visible: List<Statement>) -> Result<Unit, sql.Error> {
+fn child_violation(statement: Statement, visible: List<Statement>) -> Result<Unit, sql.Error>
     table = "nomi_conformance_children"
     parent_id = int_param(statement, 1)
 
-    has_parent = Iter.any_match(visible, fn s -> {
+    has_parent = Iter.any_match(visible, fn s ->
         is_shaped(s, insert_parent(0, 0, 0)) and int_param(s, 0) == parent_id
-    })
+    end)
 
-    if int_param(statement, 0) == None {
+    if int_param(statement, 0) == None then
         Err(violation(ConstraintKind.NotNull, "${table}_n_not_null", table, Some("n")))
-    } else if not has_parent {
+    else if not has_parent then
         Err(
             violation(
                 ConstraintKind.ForeignKey,
@@ -617,191 +608,191 @@ fn child_violation(statement: Statement, visible: List<Statement>) -> Result<Uni
                 Some("parent_id"),
             )
         )
-    } else {
+    else
         Ok(Unit)
-    }
-}
+    end
+end
 
-fn create_table() -> Statement {
+fn create_table() -> Statement
     Sql"CREATE TEMPORARY TABLE nomi_conformance (n INTEGER NOT NULL, t TEXT)"
-}
+end
 
-fn insert(n: Int, t: Maybe<String>) -> Statement {
+fn insert(n: Int, t: Maybe<String>) -> Statement
     Sql"INSERT INTO nomi_conformance (n, t) VALUES (${n}, ${t})"
-}
+end
 
-fn read_all() -> Statement {
+fn read_all() -> Statement
     Sql"SELECT n, t FROM nomi_conformance ORDER BY n"
-}
+end
 
 // Opens a connection, creates the suite's table, runs check on it, and
 // closes it. A close that fails after the check passed breaks the rule.
 fn check_with<C>(
     open: () -> Result<C, sql.Error>,
     check: (Conn) -> Result<Unit, String>,
-) -> Result<Unit, String> where C: Conn {
+) -> Result<Unit, String> where C: Conn
     conn: Conn = step(open(), "open a connection")?
     defer release(conn)
     _ = step(Conn.exec(conn, create_table()), "create the table")?
     check(conn)?
     close(conn)
-}
+end
 
 // Closes conn when check_with leaves it early. A close after a close is a
 // no-op, and a `defer` cannot return anything, so its result is dropped.
-fn release(conn: Conn) {
+fn release(conn: Conn)
     _ = Conn.close(conn)
-}
+end
 
 // A step's error as the message of the rule that took it.
-fn step<T>(result: Result<T, sql.Error>, what: String) -> Result<T, String> {
-    case result {
+fn step<T>(result: Result<T, sql.Error>, what: String) -> Result<T, String>
+    case result
         Ok(value) -> Ok(value)
         Err(e) -> Err("${what} failed: ${e}")
-    }
-}
+    end
+end
 
-fn add(conn: Conn, n: Int) -> Result<Unit, String> {
+fn add(conn: Conn, n: Int) -> Result<Unit, String>
     _ = step(Conn.exec(conn, insert(n, None)), "insert ${n}")?
     Ok(Unit)
-}
+end
 
 // The n of every row in the table, as conn sees it.
-fn ns(conn: Conn) -> Result<List<Int>, String> {
+fn ns(conn: Conn) -> Result<List<Int>, String>
     rows = step(Conn.query(conn, read_all()), "read the table")?
     rows |> Iter.map(fn row -> step(Row.get<Int>(row, "n"), "read n")) |> Result.collect()
-}
+end
 
-fn expect_ns(conn: Conn, expected: List<Int>) -> Result<Unit, String> {
+fn expect_ns(conn: Conn, expected: List<Int>) -> Result<Unit, String>
     found = ns(conn)?
 
-    if found == expected {
+    if found == expected then
         Ok(Unit)
-    } else {
+    else
         Err("expected the rows ${expected}, found ${found}")
-    }
-}
+    end
+end
 
-fn expect_finished<T>(result: Result<T, sql.Error>, what: String) -> Result<Unit, String> {
-    case result {
+fn expect_finished<T>(result: Result<T, sql.Error>, what: String) -> Result<Unit, String>
+    case result
         Err(sql.Error.Finished) -> Ok(Unit)
         Err(e) -> Err("${what} answered `${e}`, not Finished")
         Ok(_) -> Err("${what} answered Ok, not Finished")
-    }
-}
+    end
+end
 
-fn expect_closed<T>(result: Result<T, sql.Error>, what: String) -> Result<Unit, String> {
-    case result {
+fn expect_closed<T>(result: Result<T, sql.Error>, what: String) -> Result<Unit, String>
+    case result
         Err(sql.Error.Closed) -> Ok(Unit)
         Err(e) -> Err("${what} answered `${e}`, not Closed")
         Ok(_) -> Err("${what} answered Ok, not Closed")
-    }
-}
+    end
+end
 
 // Every operation of conn, which `whose` names, returns Closed.
-fn expect_all_closed(conn: Conn, whose: String) -> Result<Unit, String> {
+fn expect_all_closed(conn: Conn, whose: String) -> Result<Unit, String>
     expect_closed(Conn.ping(conn), "${whose} ping")?
     expect_closed(Conn.query(conn, read_all()), "${whose} query")?
     expect_closed(Conn.each_row(conn, read_all(), fn _ -> True), "${whose} each_row")?
     expect_closed(Conn.exec(conn, insert(1, None)), "${whose} exec")?
-    expect_closed(Conn.begin(conn), "${whose} begin")?
+    expect_closed(Conn.begin_transaction(conn), "${whose} begin")?
     expect_closed(Conn.commit(conn), "${whose} commit")?
     expect_closed(Conn.rollback(conn), "${whose} rollback")
-}
+end
 
-fn close(conn: Conn) -> Result<Unit, String> {
+fn close(conn: Conn) -> Result<Unit, String>
     step(Conn.close(conn), "close")
-}
+end
 
-fn begin(conn: Conn) -> Result<Conn, String> {
-    step(Conn.begin(conn), "begin")
-}
+fn begin_transaction(conn: Conn) -> Result<Conn, String>
+    step(Conn.begin_transaction(conn), "begin")
+end
 
-fn commit(tx: Conn) -> Result<Unit, String> {
+fn commit(tx: Conn) -> Result<Unit, String>
     step(Conn.commit(tx), "commit")
-}
+end
 
-fn rollback(tx: Conn) -> Result<Unit, String> {
+fn rollback(tx: Conn) -> Result<Unit, String>
     step(Conn.rollback(tx), "rollback")
-}
+end
 
 // A body for sql.transaction that inserts n and then returns `outcome`.
 // Runs body on conn as a function that holds a connection does: the close
 // deferred on the next line, and an explicit close on the success path.
-fn closing<T>(conn: Conn, body: (Conn) -> Result<T, sql.Error>) -> Result<T, sql.Error> {
+fn closing<T>(conn: Conn, body: (Conn) -> Result<T, sql.Error>) -> Result<T, sql.Error>
     defer sql.close_quietly(conn)
     value = body(conn)?
     Conn.close(conn)?
     Ok(value)
-}
+end
 
-fn insert_then<T>(n: Int, outcome: Result<T, sql.Error>) -> (Conn) -> Result<T, sql.Error> {
-    fn tx -> {
+fn insert_then<T>(n: Int, outcome: Result<T, sql.Error>) -> (Conn) -> Result<T, sql.Error>
+    fn tx ->
         _ = Conn.exec(tx, insert(n, None))?
         outcome
-    }
-}
+    end
+end
 
 // The table of the timestamp rule: `at` defaults to the database's own
 // clock.
-fn times_table() -> Statement {
+fn times_table() -> Statement
     Sql"CREATE TEMPORARY TABLE nomi_conformance_times (n INTEGER NOT NULL, at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)"
-}
+end
 
-fn insert_at(n: Int, at: Instant) -> Statement {
+fn insert_at(n: Int, at: Instant) -> Statement
     Sql"INSERT INTO nomi_conformance_times (n, at) VALUES (${n}, ${at})"
-}
+end
 
-fn insert_now(n: Int) -> Statement {
+fn insert_now(n: Int) -> Statement
     Sql"INSERT INTO nomi_conformance_times (n) VALUES (${n})"
-}
+end
 
-fn times_after(at: Instant) -> Statement {
+fn times_after(at: Instant) -> Statement
     Sql"SELECT n FROM nomi_conformance_times WHERE at > ${at} ORDER BY n"
-}
+end
 
-fn times_before(at: Instant) -> Statement {
+fn times_before(at: Instant) -> Statement
     Sql"SELECT n FROM nomi_conformance_times WHERE at < ${at} ORDER BY n"
-}
+end
 
-fn times_in_order() -> Statement {
+fn times_in_order() -> Statement
     Sql"SELECT n FROM nomi_conformance_times ORDER BY at"
-}
+end
 
 // The tables of the constraint rule. Postgres names each constraint the
 // schema leaves unnamed: `<table>_pkey`, `<table>_<column>_key`,
 // `<table>_<column>_fkey`.
-fn parents_table() -> Statement {
+fn parents_table() -> Statement
     Sql"CREATE TEMPORARY TABLE nomi_conformance_parents (id INTEGER PRIMARY KEY, k INTEGER UNIQUE, c INTEGER CONSTRAINT nomi_conformance_c_small CHECK (c < 10))"
-}
+end
 
-fn children_table() -> Statement {
+fn children_table() -> Statement
     Sql"CREATE TEMPORARY TABLE nomi_conformance_children (n INTEGER NOT NULL, parent_id INTEGER REFERENCES nomi_conformance_parents (id))"
-}
+end
 
-fn insert_parent(id: Int, k: Int, c: Int) -> Statement {
+fn insert_parent(id: Int, k: Int, c: Int) -> Statement
     Sql"INSERT INTO nomi_conformance_parents (id, k, c) VALUES (${id}, ${k}, ${c})"
-}
+end
 
-fn insert_child(n: Maybe<Int>, parent_id: Int) -> Statement {
+fn insert_child(n: Maybe<Int>, parent_id: Int) -> Statement
     Sql"INSERT INTO nomi_conformance_children (n, parent_id) VALUES (${n}, ${parent_id})"
-}
+end
 
 // The n of each row a statement reads.
-fn read_ns(conn: Conn, statement: Statement) -> Result<List<Int>, String> {
+fn read_ns(conn: Conn, statement: Statement) -> Result<List<Int>, String>
     rows = step(Conn.query(conn, statement), "`${statement}`")?
     rows |> Iter.map(fn row -> step(Row.get<Int>(row, "n"), "read n")) |> Result.collect()
-}
+end
 
-fn expect_read(conn: Conn, statement: Statement, expected: List<Int>) -> Result<Unit, String> {
+fn expect_read(conn: Conn, statement: Statement, expected: List<Int>) -> Result<Unit, String>
     found = read_ns(conn, statement)?
 
-    if found == expected {
+    if found == expected then
         Ok(Unit)
-    } else {
+    else
         Err("`${statement}` read the rows ${found}, not ${expected}")
-    }
-}
+    end
+end
 
 // statement breaks the constraint `name` of kind.
 fn expect_constraint(
@@ -809,8 +800,8 @@ fn expect_constraint(
     statement: Statement,
     kind: ConstraintKind,
     name: String,
-) -> Result<Unit, String> {
-    case Conn.exec(conn, statement) {
+) -> Result<Unit, String>
+    case Conn.exec(conn, statement)
         Err(sql.Error.Constraint{
             kind: found,
             name: found_name,
@@ -819,24 +810,27 @@ fn expect_constraint(
         }) when found == kind and found_name == name ->
             Ok(Unit)
 
-        Err(e) -> Err("`${statement}` answered `${e}`, not the ${kind} constraint `${name}`")
-        Ok(_) -> Err("`${statement}` answered Ok, not the ${kind} constraint `${name}`")
-    }
-}
+        Err(e) ->
+            Err("`${statement}` answered `${e}`, not the ${kind} constraint `${name}`")
 
-fn checks() -> List<(String, (Conn) -> Result<Unit, String>)> {
+        Ok(_) ->
+            Err("`${statement}` answered Ok, not the ${kind} constraint `${name}`")
+    end
+end
+
+fn checks() -> List<(String, (Conn) -> Result<Unit, String>)>
     [
         ("ping answers Ok", fn conn -> step(Conn.ping(conn), "ping")),
         (
             "a statement outside a transaction takes effect",
-            fn conn -> {
+            fn conn ->
                 add(conn, 1)?
                 expect_ns(conn, [1])
-            },
+            end,
         ),
         (
             "a parameter is a value, never SQL",
-            fn conn -> {
+            fn conn ->
                 text = "it's'); DROP TABLE nomi_conformance; --"
                 _ = step(Conn.exec(conn, insert(1, Some(text))), "insert the text")?
                 rows = step(Conn.query(conn, read_all()), "read the table")?
@@ -844,38 +838,38 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)> {
                 found =
                     rows |> Iter.map(fn row -> Row.get<Maybe<String>>(row, "t")) |> Iter.to_list()
 
-                if found == [Ok(Some(text))] {
+                if found == [Ok(Some(text))] then
                     Ok(Unit)
-                } else {
+                else
                     Err("expected the text back, found ${found}")
-                }
-            },
+                end
+            end,
         ),
         (
             "NULL reads back as None",
-            fn conn -> {
+            fn conn ->
                 add(conn, 1)?
                 rows = step(Conn.query(conn, read_all()), "read the table")?
 
                 found =
                     rows |> Iter.map(fn row -> Row.get<Maybe<String>>(row, "t")) |> Iter.to_list()
 
-                if found == [Ok(None)] {
+                if found == [Ok(None)] then
                     Ok(Unit)
-                } else {
+                else
                     Err("expected one row with t NULL, found ${found}")
-                }
-            },
+                end
+            end,
         ),
         (
             "a row reads by name and by position",
-            fn conn -> {
+            fn conn ->
                 _ = step(Conn.exec(conn, insert(7, Some("seven"))), "insert")?
                 rows = step(Conn.query(conn, read_all()), "read the table")?
 
-                Some(row) = Iter.first(rows) else {
+                Some(row) = Iter.first(rows) else
                     None -> return Err("the table read back no rows")
-                }
+                end
 
                 by_name = (Row.get<Int>(row, "n"), Row.get<Maybe<String>>(row, "t"))
 
@@ -884,295 +878,295 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)> {
                     Row.get_position<Maybe<String>>(row, 1),
                 )
 
-                if by_name == (Ok(7), Ok(Some("seven"))) and by_position == by_name {
+                if by_name == (Ok(7), Ok(Some("seven"))) and by_position == by_name then
                     Ok(Unit)
-                } else {
+                else
                     Err("by name ${by_name}, by position ${by_position}")
-                }
-            },
+                end
+            end,
         ),
         (
             "each_row stops when f returns False",
-            fn conn -> {
+            fn conn ->
                 add(conn, 1)?
                 add(conn, 2)?
                 add(conn, 3)?
                 calls: Channel<Unit> = Channel.buffered(3)
 
-                stop = fn _: Row -> {
+                stop = fn _: Row ->
                     _ = Sender.send(calls.sender, Unit)
                     False
-                }
+                end
 
                 step(Conn.each_row(conn, read_all(), stop), "each_row")?
                 Sender.close(calls.sender)
 
-                count = Iter.loop(0, fn count -> {
-                    case Receiver.receive(calls.receiver) {
+                count = Iter.loop(0, fn count ->
+                    case Receiver.receive(calls.receiver)
                         Some(_) -> count + 1
                         None -> break count
-                    }
-                })
+                    end
+                end)
 
-                if count == 1 {
+                if count == 1 then
                     Ok(Unit)
-                } else {
+                else
                     Err("f was called ${count} times, not once")
-                }
-            },
+                end
+            end,
         ),
         (
             "a transaction sees its own writes",
-            fn conn -> {
-                tx = begin(conn)?
+            fn conn ->
+                tx = begin_transaction(conn)?
                 add(tx, 1)?
                 expect_ns(tx, [1])?
                 rollback(tx)
-            },
+            end,
         ),
         (
             "commit keeps a transaction's writes",
-            fn conn -> {
-                tx = begin(conn)?
+            fn conn ->
+                tx = begin_transaction(conn)?
                 add(tx, 1)?
                 commit(tx)?
                 expect_ns(conn, [1])
-            },
+            end,
         ),
         (
             "rollback discards a transaction's writes",
-            fn conn -> {
-                tx = begin(conn)?
+            fn conn ->
+                tx = begin_transaction(conn)?
                 add(tx, 1)?
                 rollback(tx)?
                 expect_ns(conn, [])
-            },
+            end,
         ),
         (
             "rolling back a savepoint keeps the transaction's writes",
-            fn conn -> {
-                tx = begin(conn)?
+            fn conn ->
+                tx = begin_transaction(conn)?
                 add(tx, 1)?
-                savepoint = begin(tx)?
+                savepoint = begin_transaction(tx)?
                 add(savepoint, 2)?
                 rollback(savepoint)?
                 commit(tx)?
                 expect_ns(conn, [1])
-            },
+            end,
         ),
         (
             "a committed savepoint is rolled back with its transaction",
-            fn conn -> {
-                tx = begin(conn)?
+            fn conn ->
+                tx = begin_transaction(conn)?
                 add(tx, 1)?
-                savepoint = begin(tx)?
+                savepoint = begin_transaction(tx)?
                 add(savepoint, 2)?
                 commit(savepoint)?
                 rollback(tx)?
                 expect_ns(conn, [])
-            },
+            end,
         ),
         (
             "savepoints nest",
-            fn conn -> {
-                tx = begin(conn)?
+            fn conn ->
+                tx = begin_transaction(conn)?
                 add(tx, 1)?
-                outer = begin(tx)?
+                outer = begin_transaction(tx)?
                 add(outer, 2)?
-                inner = begin(outer)?
+                inner = begin_transaction(outer)?
                 add(inner, 3)?
                 rollback(inner)?
                 commit(outer)?
                 commit(tx)?
                 expect_ns(conn, [1, 2])
-            },
+            end,
         ),
         (
             "rollback after commit is a no-op",
-            fn conn -> {
-                tx = begin(conn)?
+            fn conn ->
+                tx = begin_transaction(conn)?
                 add(tx, 1)?
                 commit(tx)?
                 rollback(tx)?
                 expect_ns(conn, [1])
-            },
+            end,
         ),
         (
             "rollback after rollback is a no-op",
-            fn conn -> {
-                tx = begin(conn)?
+            fn conn ->
+                tx = begin_transaction(conn)?
                 add(tx, 1)?
                 rollback(tx)?
                 rollback(tx)?
                 expect_ns(conn, [])
-            },
+            end,
         ),
         (
             "commit after commit is Finished",
-            fn conn -> {
-                tx = begin(conn)?
+            fn conn ->
+                tx = begin_transaction(conn)?
                 commit(tx)?
                 expect_finished(Conn.commit(tx), "a second commit")
-            },
+            end,
         ),
         (
             "a statement after commit is Finished",
-            fn conn -> {
-                tx = begin(conn)?
+            fn conn ->
+                tx = begin_transaction(conn)?
                 commit(tx)?
                 expect_finished(Conn.exec(tx, insert(1, None)), "an insert")?
                 expect_ns(conn, [])
-            },
+            end,
         ),
         (
             "sql.transaction commits on Ok",
-            fn conn -> {
+            fn conn ->
                 answer = sql.transaction(conn, insert_then(1, Ok(5)))
 
-                if answer != Ok(5) { return Err("sql.transaction answered ${answer}, not Ok(5)") }
+                if answer != Ok(5) then return Err("sql.transaction answered ${answer}, not Ok(5)")
 
                 expect_ns(conn, [1])
-            },
+            end,
         ),
         (
             "sql.transaction rolls back on Err",
-            fn conn -> {
+            fn conn ->
                 failed: Result<Int, sql.Error> = Err(sql.Error.Timeout)
                 answer = sql.transaction(conn, insert_then(1, failed))
 
-                if answer != Err(sql.Error.Timeout) {
+                if answer != Err(sql.Error.Timeout) then
                     return Err("sql.transaction answered ${answer}, not the body's Err")
-                }
+                end
 
                 expect_ns(conn, [])
-            },
+            end,
         ),
         (
             "sql.transaction rolls back on a trap",
-            fn conn -> {
-                outcome = concurrent {
-                    task = Task.spawn(fn -> {
-                        sql.transaction(conn, fn tx -> {
+            fn conn ->
+                outcome = concurrent
+                    task = Task.spawn(fn ->
+                        sql.transaction(conn, fn tx ->
                             _ = Conn.exec(tx, insert(1, None))?
                             // A zero the checker cannot see, so the
                             // division traps.
                             zero = Iter.count([])
                             Ok(1 / zero)
-                        })
-                    })
+                        end)
+                    end)
 
                     Task.outcome(task)
-                }
+                end
 
-                case outcome {
+                case outcome
                     .Failed(_) -> expect_ns(conn, [])
                     _ -> Err("the trapping body's task did not fail")
-                }
-            },
+                end
+            end,
         ),
         (
             "an inner sql.transaction that fails rolls back only its own work",
-            fn conn -> {
-                answer = sql.transaction(conn, fn tx -> {
+            fn conn ->
+                answer = sql.transaction(conn, fn tx ->
                     _ = Conn.exec(tx, insert(1, None))?
                     failed: Result<Int, sql.Error> = Err(sql.Error.Timeout)
                     inner = sql.transaction(tx, insert_then(2, failed))
                     Ok(inner)
-                })
+                end)
 
-                if answer != Ok(Err(sql.Error.Timeout)) {
+                if answer != Ok(Err(sql.Error.Timeout)) then
                     return Err("sql.transaction answered ${answer}")
-                }
+                end
 
                 expect_ns(conn, [1])
-            },
+            end,
         ),
         (
             "close after close is a no-op",
-            fn conn -> {
+            fn conn ->
                 close(conn)?
                 step(Conn.close(conn), "a second close")
-            },
+            end,
         ),
         (
             "every operation after close is Closed",
-            fn conn -> {
+            fn conn ->
                 close(conn)?
                 expect_all_closed(conn, "the connection's")
-            },
+            end,
         ),
         (
             "closing a transaction closes its connection",
-            fn conn -> {
-                tx = begin(conn)?
+            fn conn ->
+                tx = begin_transaction(conn)?
                 add(tx, 1)?
                 close(tx)?
                 expect_all_closed(tx, "the transaction's")?
                 expect_all_closed(conn, "the connection's")
-            },
+            end,
         ),
         (
             "closing a connection ends its transaction",
-            fn conn -> {
-                tx = begin(conn)?
+            fn conn ->
+                tx = begin_transaction(conn)?
                 add(tx, 1)?
-                savepoint = begin(tx)?
+                savepoint = begin_transaction(tx)?
                 close(conn)?
                 expect_all_closed(tx, "the transaction's")?
                 expect_all_closed(savepoint, "the savepoint's")
-            },
+            end,
         ),
         (
             "a deferred sql.close_quietly closes on Ok",
-            fn conn -> {
+            fn conn ->
                 answer = closing(conn, insert_then(1, Ok(5)))
 
-                if answer != Ok(5) {
+                if answer != Ok(5) then
                     return Err("the body closed by a deferred close answered ${answer}, not Ok(5)")
-                }
+                end
 
                 expect_closed(Conn.ping(conn), "ping after the deferred close")
-            },
+            end,
         ),
         (
             "a deferred sql.close_quietly closes on Err",
-            fn conn -> {
+            fn conn ->
                 failed: Result<Int, sql.Error> = Err(sql.Error.Timeout)
                 answer = closing(conn, insert_then(1, failed))
 
-                if answer != Err(sql.Error.Timeout) {
+                if answer != Err(sql.Error.Timeout) then
                     return Err(
                         "the body closed by a deferred close answered ${answer}, not its Err"
                     )
-                }
+                end
 
                 expect_closed(Conn.ping(conn), "ping after the deferred close")
-            },
+            end,
         ),
         (
             "a deferred sql.close_quietly closes on a trap",
-            fn conn -> {
-                outcome = concurrent {
-                    task = Task.spawn(fn -> {
-                        closing(conn, fn c -> {
+            fn conn ->
+                outcome = concurrent
+                    task = Task.spawn(fn ->
+                        closing(conn, fn c ->
                             _ = Conn.exec(c, insert(1, None))?
                             zero = Iter.count([])
                             Ok(1 / zero)
-                        })
-                    })
+                        end)
+                    end)
 
                     Task.outcome(task)
-                }
+                end
 
-                case outcome {
+                case outcome
                     .Failed(_) -> expect_closed(Conn.ping(conn), "ping after the trap")
                     _ -> Err("the trapping body's task did not fail")
-                }
-            },
+                end
+            end,
         ),
         (
             "an Instant compares in time order with the database's own timestamps",
-            fn conn -> {
+            fn conn ->
                 _ = step(Conn.exec(conn, times_table()), "create the table")?
                 now = Instant.now()
                 hour_ago = now - Duration.hours(1)
@@ -1183,11 +1177,11 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)> {
                 expect_read(conn, times_after(hour_ago), [2, 3])?
                 expect_read(conn, times_before(hour_later), [1, 2])?
                 expect_read(conn, times_in_order(), [1, 2, 3])
-            },
+            end,
         ),
         (
             "a constraint error names the constraint as Postgres does",
-            fn conn -> {
+            fn conn ->
                 _ = step(Conn.exec(conn, parents_table()), "create the parents")?
                 _ = step(Conn.exec(conn, children_table()), "create the children")?
                 _ = step(Conn.exec(conn, insert_parent(1, 10, 0)), "insert a parent")?
@@ -1226,7 +1220,7 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)> {
                     ConstraintKind.ForeignKey,
                     "nomi_conformance_children_parent_id_fkey",
                 )
-            },
+            end,
         ),
     ]
-}
+end

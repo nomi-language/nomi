@@ -41,42 +41,43 @@ import std::io
 // mechanism this same fixture exercises: it is a call to a member of the
 // enclosing impl block, which is in neither g.funcs nor the module scope; the
 // builder resolves it to the impl block's own member.
-enum Tree {
+enum Tree
     Leaf
     Node (Tree, Int, Tree)
-}
+end
 
-impl Iter for Tree {
-    fn each_while(t: Tree, yield: (Int) -> Bool) -> Bool {
-        case t {
-            .Leaf -> True
+impl Iter for Tree
+    fn each_while(t: Tree, yield: (Int) -> Bool) -> Bool
+        case t
+            .Leaf ->
+                True
 
             .Node(left, value, right) ->
-                if each_while(left, yield) {
-                    if yield(value) {
+                if each_while(left, yield) then
+                    if yield(value) then
                         each_while(right, yield)
-                    } else {
+                    else
                         False
-                    }
-                } else {
+                    end
+                else
                     False
-                }
-        }
-    }
-}
+                end
+        end
+    end
+end
 
-fn leaf(value: Int) -> Tree {
+fn leaf(value: Int) -> Tree
     Tree.Node(Tree.Leaf, value, Tree.Leaf)
-}
+end
 
 // Visiting is announced, so a walk that did not stop is visible as extra
 // output rather than as an unchanged answer.
-fn note(n: Int) -> Int {
+fn note(n: Int) -> Int
     io.print("visit ${n}")
     n
-}
+end
 
-fn main() {
+fn main()
     // 1, 2, 3, 4, 5 in order.
     tree = Tree.Node(Tree.Node(leaf(1), 2, leaf(3)), 4, leaf(5))
 
@@ -106,4 +107,4 @@ fn main() {
     io.print("${Iter.each_while(tree, fn _x -> True)}")
     io.print("${Iter.each_while(tree, &(&1 < 3))}")
     io.print("${Iter.each_while(Tree.Leaf, fn _x -> False)}")
-}
+end

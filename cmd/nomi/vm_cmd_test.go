@@ -17,30 +17,30 @@ import (
 // `main` and from one test case.
 const vmBlockedProgram = `import std::io
 
-fn count(n: Int, acc: Int) -> Int {
-  if n == 0 {
+fn count(n: Int, acc: Int) -> Int
+  if n == 0 then
     acc
-  } else {
+  else
     planted_decline(n) + 3
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.print("before")
   io.print(Int.to_string(count(3, 0)))
-}
+end
 
-test "counts" {
+test "counts"
   assert count(3, 0) == 3
-}
+end
 
-test "adds" {
+test "adds"
   assert 1 + 2 == 3
-}
+end
 
-fn planted_decline(n: Int) -> Int {
+fn planted_decline(n: Int) -> Int
   n
-}
+end
 `
 
 func TestRunCommand_VMRefusesABlockedProgram(t *testing.T) {
@@ -147,7 +147,7 @@ func TestCommands_RejectUnknownFlags(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	entry := filepath.Join(t.TempDir(), "main.nomi")
-	mustWrite(t, entry, "fn main() {}\n")
+	mustWrite(t, entry, "fn main() end\n")
 	cases := []struct {
 		args []string
 		want string
@@ -226,10 +226,10 @@ func TestTestCommand_VMJSONFormatPutsOutputInItsRecord(t *testing.T) {
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "print_test.nomi"), `import std::io
 
-test "prints" {
+test "prints"
   io.print("hello from a vm test")
   assert 1 + 1 == 2
-}
+end
 `)
 	stdout, stderr, err := runNomiSplit(t, t.TempDir(), dir, "test", "print_test.nomi", "--format", "json")
 	if err != nil {
@@ -255,21 +255,21 @@ func TestRunCommand_EachWhileRunsDirectly(t *testing.T) {
 	entry := filepath.Join(t.TempDir(), "main.nomi")
 	mustWrite(t, entry, `import std::io
 
-fn main() {
+fn main()
   b = String.to_bytes("abc")
-  stopped = Bytes.each_while(b, fn x -> {
+  stopped = Bytes.each_while(b, fn x ->
     io.print(Byte.to_int(x))
     Byte.to_int(x) < 98
-  })
+  end)
   io.print(stopped)
   io.print(Bytes.each_while(b, fn _x -> True))
-  graphemes = String.each_while("héllo", fn g -> {
+  graphemes = String.each_while("héllo", fn g ->
     io.print(g)
     g != "l"
-  })
+  end)
   io.print(graphemes)
   io.print(String.each_while("ab", fn _g -> True))
-}
+end
 `)
 	out, err := runNomi(t, t.TempDir(), "run", entry)
 	want := "97\n98\nFalse\nTrue\nh\né\nl\nFalse\nTrue\n"
@@ -286,7 +286,7 @@ func TestRunCommand_EmptyBodiesAnswerUnit(t *testing.T) {
 	}
 	dir := t.TempDir()
 	empty := filepath.Join(dir, "empty.nomi")
-	mustWrite(t, empty, "fn main() {}\n")
+	mustWrite(t, empty, "fn main() end\n")
 	out, err := runNomi(t, t.TempDir(), "run", empty)
 	if err != nil || out != "" {
 		t.Fatalf("nomi run on an empty main: %v\n%s", err, out)
@@ -295,17 +295,18 @@ func TestRunCommand_EmptyBodiesAnswerUnit(t *testing.T) {
 	others := filepath.Join(dir, "others.nomi")
 	mustWrite(t, others, `import std::io
 
-fn nothing() {}
+fn nothing() end
 
-fn main() {
-  f = fn -> {}
+fn main()
+  f = fn -> end
   f()
-  if 1 == 1 {
-  } else {
+  if 1 == 1 then
+  
+  else
     io.print("no")
-  }
+  end
   io.inspect(nothing())
-}
+end
 `)
 	out, err = runNomi(t, t.TempDir(), "run", others)
 	if err != nil || out != "Unit\n" {

@@ -372,20 +372,17 @@ func intLiteral(n ast.Node) (int64, bool) {
 	return 0, false
 }
 
-// nonEmptyCountedLiteral reports whether n is a collection literal with an
-// element whose iterator knows its count, so its cycle never ends.
+// nonEmptyCountedLiteral reports whether n is a collection literal, unnamed
+// or headed by its std collection (`Vector[1]`), with an element whose
+// iterator knows its count, so its cycle never ends.
 func nonEmptyCountedLiteral(n ast.Node) bool {
 	switch node := n.(type) {
 	case *ast.GroupedExpr:
 		return nonEmptyCountedLiteral(node.Expr)
 	case *ast.ListLit:
-		return node.TypeName == nil && len(node.Items) > 0
-	case *ast.VectorLit:
-		return node.TypeName == nil && len(node.Spreads) == 0 && len(node.Items) > 0
-	case *ast.SetLit:
-		return node.TypeName == nil && len(node.Spreads) == 0 && len(node.Items) > 0
+		return (node.TypeName == nil || node.ShapeHead) && len(node.Spreads) == 0 && len(node.Items) > 0
 	case *ast.MapLit:
-		return node.TypeName == nil && len(node.Spreads) == 0 && len(node.Entries) > 0
+		return (node.TypeName == nil || node.ShapeHead) && len(node.Spreads) == 0 && len(node.Entries) > 0
 	}
 	return false
 }

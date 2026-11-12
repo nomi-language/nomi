@@ -19,21 +19,21 @@ import bool.Bool
 /// whose one value equals itself. To implement it for a custom type:
 ///
 /// ```nomi
-/// pub struct Point {
+/// pub struct Point
 ///     x: Int
 ///     y: Int
-/// }
+/// end
 ///
-/// impl Equatable for Point {
-///     fn equal(a: Point, b: Point) -> Bool {
+/// impl Equatable for Point
+///     fn equal(a: Point, b: Point) -> Bool
 ///         a.x == b.x and a.y == b.y
-///     }
-/// }
+///     end
+/// end
 /// ```
 ///
 /// `derive Equatable` synthesizes pairwise field equality for structs,
 /// variant-then-payload comparison for enums, and inner-value delegation for
 /// distinct types.
-pub interface Equatable {
+pub interface Equatable
     fn equal(a: self, b: self) -> Bool
-}
+end

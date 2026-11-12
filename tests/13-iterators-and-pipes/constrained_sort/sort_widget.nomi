@@ -1,13 +1,13 @@
-pub struct SortWidget {
+pub struct SortWidget
     weight: Int
-}
+end
 
-pub fn make(weight: Int) -> SortWidget {
-    SortWidget{weight}
-}
+pub fn make(weight: Int) -> SortWidget
+    SortWidget{weight:}
+end
 
-impl Comparable for SortWidget {
-    fn compare(a: SortWidget, b: SortWidget) -> Ordering {
+impl Comparable for SortWidget
+    fn compare(a: SortWidget, b: SortWidget) -> Ordering
         Int.compare(a.weight, b.weight)
-    }
-}
+    end
+end

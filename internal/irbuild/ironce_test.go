@@ -39,10 +39,13 @@ func TestIROnce_FixtureSemantics(t *testing.T) {
 
 func TestIROnce_LambdaReadIsLazyAndLocalsShadow(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn initialize(n: Int) -> Int { io.print("initialize ${n}") n }
+fn initialize(n: Int) -> Int
+    io.print("initialize ${n}")
+    n
+end
 once answer = initialize(21)
 once unused = initialize(99)
-fn main() {
+fn main()
   read = fn -> answer
   io.print("created")
   io.print(read())
@@ -50,7 +53,7 @@ fn main() {
   answer = 7
   local_read = fn -> answer
   io.print(local_read())
-}
+end
 `, "created\ninitialize 21\n21\n21\n7\n")
 }
 
@@ -58,24 +61,29 @@ func TestIROnce_CompleteProgram(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 once max_retries = 3
 once timeout_ms = 30 * 1000
-fn main() {
+fn main()
   io.print(max_retries)
   io.print(timeout_ms)
   io.print(timeout_ms)
-}
+end
 `, "3\n30000\n30000\n")
 }
 
 func TestIROnce_ConditionalInitializerAndDefault(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn mark(n: Int) -> Int { io.print(n) n }
-once answer: Int = if True { mark(41) + 1 } else { mark(99) }
-fn choose(n: Int = answer) -> Int { n }
-fn main() {
+fn mark(n: Int) -> Int
+    io.print(n)
+    n
+end
+once answer: Int = if True then mark(41) + 1 else mark(99)
+fn choose(n: Int = answer) -> Int
+    n
+end
+fn main()
   io.print(choose(7))
   io.print(choose())
   io.print(choose())
-}
+end
 `, "7\n41\n42\n42\n")
 }
 
@@ -86,15 +94,21 @@ fn main() {
 // stays.
 func TestIROnce_ReadOfAnUnretainedCellDeclines(t *testing.T) {
 	p, err := AnalyzeSource("main.nomi", `import std::io
-fn early() -> Int { late + 1 }
-once late: Int = case Context.with_value(Context.root(), 1) { _ -> 2 }
+fn early() -> Int
+    late + 1
+end
+once late: Int = case Context.with_value(Context.root(), 1)
+    _ -> 2
+end
 once chained: Int = late
-fn fine() -> Int { ok + 1 }
-fn main() {
+fn fine() -> Int
+    ok + 1
+end
+fn main()
   io.print(early())
   io.print(chained)
   io.print(fine())
-}
+end
 once ok: Int = 3
 `)
 	if err != nil {

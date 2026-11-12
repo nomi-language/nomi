@@ -369,14 +369,14 @@ func TestChannelKindsAgreeAcrossEveryChannel(t *testing.T) {
 		// derived from that table — so the witness has to name it or the
 		// ANNOTATION door has nothing in scope to resolve and reads as a refusal.
 		"import std::tasks.Task\n\n" +
-		"fn a(_x: Channel<Int>) -> Int { 1 }\n" +
-		"fn e(_x: Task<Int>) -> Int { 1 }\n" +
-		"fn b(_x: Sender<Int>) -> Int { 1 }\n" +
-		"fn c(_x: Receiver<Int>) -> Int { 1 }\n" +
-		"fn d(_x: ChannelClosed) -> Int { 1 }\n" +
-		"fn f(_x: Arm<Int>) -> Int { 1 }\n" +
-		"fn h(_x: TimedOut) -> Int { 1 }\n\n" +
-		"test \"t\" {\n  assert True\n}\n"
+		"fn a(_x: Channel<Int>) -> Int\n    1\nend\n" +
+		"fn e(_x: Task<Int>) -> Int\n    1\nend\n" +
+		"fn b(_x: Sender<Int>) -> Int\n    1\nend\n" +
+		"fn c(_x: Receiver<Int>) -> Int\n    1\nend\n" +
+		"fn d(_x: ChannelClosed) -> Int\n    1\nend\n" +
+		"fn f(_x: Arm<Int>) -> Int\n    1\nend\n" +
+		"fn h(_x: TimedOut) -> Int\n    1\nend\n\n" +
+		"test \"t\"\n  assert True\nend\n"
 	p, err := AnalyzeSource("agree", src)
 	if err != nil {
 		t.Fatalf("analyze: %v", err)

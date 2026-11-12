@@ -19,7 +19,7 @@ var explanations = map[string]string{
 	"redundant-prelude-import": "An import names something the prelude already gives every file " +
 		"(`Maybe`, `Result`, `List`, `Iter`, ...). Remove it.",
 	"redundant-nested-spread": "A nested struct update spells the value its field already holds as a path: " +
-		"`.{..ada, address: .{..ada.address, city: \"NYC\"}}`. Inside an update a bare `..` stands for that value, " +
+		"`{..ada, address: {..ada.address, city: \"NYC\"}}`. Inside an update a bare `..` stands for that value, " +
 		"so write `.{..ada, address: .{.., city: \"NYC\"}}`; the fix does. A spread naming another value " +
 		"(`..bob.address`) or a base that is a call is not affected.",
 	"unused-binding": "A binding or parameter is never read. Remove it, or name it with a leading `_` " +

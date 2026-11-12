@@ -17,31 +17,31 @@
 // The two instantiations are deliberately at types with different runtime
 // representations (an Int and a String), so a collapse cannot coincidentally
 // produce the right bytes.
-interface Chooser<T> {
+interface Chooser<T>
     fn left(p: self) -> T
     fn right(p: self) -> T
 
-    fn pick(p: self) -> T {
+    fn pick(p: self) -> T
         Chooser.left(p)
-    }
-}
+    end
+end
 
-struct Pair<E> {
+struct Pair<E>
     a: E
     b: E
-}
+end
 
-impl Chooser for Pair<E> {
-    fn left(p: Pair<E>) -> E {
+impl Chooser for Pair<E>
+    fn left(p: Pair<E>) -> E
         p.a
-    }
+    end
 
-    fn right(p: Pair<E>) -> E {
+    fn right(p: Pair<E>) -> E
         p.b
-    }
-}
+    end
+end
 
-test "two instantiations of one impl block keep their own bindings" {
+test "two instantiations of one impl block keep their own bindings"
     ints = Pair{a: 10, b: 20}
     strs = Pair{a: "x", b: "y"}
 
@@ -52,4 +52,4 @@ test "two instantiations of one impl block keep their own bindings" {
     assert Chooser.pick(strs) == "x"
     assert Chooser.right(strs) == "y"
     assert Chooser.left(strs) == "x"
-}
+end

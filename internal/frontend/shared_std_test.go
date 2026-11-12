@@ -32,11 +32,11 @@ import std::calendar.{Days}
 import std::json.Json.{self, Null}
 import helper.{greet}
 
-pub enum Maybe.Extra {
+pub enum Maybe.Extra
   A
-}
+end
 
-fn main() {
+fn main()
   m: Maybe<Int> = Some(1)
   d: Days = Days(3)
   v: Json = Null
@@ -45,17 +45,17 @@ fn main() {
   io.print(Debug.inspect(v))
   io.print(Debug.inspect(d))
   io.print(Debug.inspect(Maybe.Extra.A))
-}
+end
 `
 	const helper = `import std::calendar.{Days}
 import std::io
 
-pub fn greet(name: String) -> String {
+pub fn greet(name: String) -> String
   m: Maybe<String> = Some(name)
   io.print(Debug.inspect(Days(1)))
   io.print(name)
   Maybe.with_default(m, "")
-}
+end
 `
 	const workers = 6
 	dirs := make([]string, workers)
@@ -139,9 +139,9 @@ func TestSharedStd_ChecksLeaveItUnchanged(t *testing.T) {
 	// A single-file build defines a file's imports before its later
 	// declarations, so these reach the stdlib's own symbols.
 	for _, src := range []string{
-		"import std::json.{Json}\n\nimpl Json {\n  pub fn extra() -> Int {\n    1\n  }\n}\n",
-		"import std::json.{Json}\n\npub enum Json.Extra {\n  A\n}\n",
-		"pub enum Maybe.Extra {\n  A\n}\n",
+		"import std::json.{Json}\n\nimpl Json\n  pub fn extra() -> Int\n    1\n  end\nend\n",
+		"import std::json.{Json}\n\npub enum Json.Extra\n  A\nend\n",
+		"pub enum Maybe.Extra\n  A\nend\n",
 	} {
 		nodes, err := parser.Parse(lexer.Lex(src))
 		if err != nil {

@@ -6,24 +6,24 @@ import (
 
 func TestIRHostRef_StringCallbacks(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
+fn main()
  trim = String.trim
  io.print(trim("  hello  "))
 
-}
+end
 `, "hello\n")
 }
 
 func TestIRHostRef_IterationCallbacks(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
+fn main()
  xs = ["ONE", "Two", "THREE"] |> Iter.map(String.lowercase) |> Iter.to_list()
  dbg xs
  lengths = ["café", "", "hello"] |> Iter.map(String.length) |> Iter.to_list()
  dbg lengths
  contains: (String, String) -> Bool = String.contains
  io.print(contains("abc", "b"))
-}
+end
 `, "dbg line 4: xs = [\"one\", \"two\", \"three\"]\ndbg line 6: lengths = [4, 0, 5]\nTrue\n")
 }
 
@@ -32,23 +32,25 @@ fn main() {
 // solves.
 func TestIRHostRef_GenericHostFunctionAsAValue(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() {
+fn main()
  wrap: (Context, Int) -> Context = Context.with_value
  c = wrap(Context.root(), 7)
  io.inspect(Context.value(c, Int))
-}
+end
 `, "Some(7)\n")
 }
 
 func TestIRHostRef_ReturnedAndCaptured(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn parser() -> (String) -> Maybe<Int> { String.to_int }
-fn main() {
+fn parser() -> (String) -> Maybe<Int>
+    String.to_int
+end
+fn main()
  parse = parser()
  wrapped = fn s: String -> parse(s)
  io.inspect(wrapped("42"))
  io.inspect(wrapped("no"))
  io.inspect(wrapped("9223372036854775808"))
-}
+end
 `, "Some(42)\nNone\nSome(9223372036854775808)\n")
 }

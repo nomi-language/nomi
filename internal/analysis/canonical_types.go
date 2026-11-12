@@ -13,6 +13,18 @@ var (
 	installAssertionFailureOnce sync.Once
 	installCodepointOnce        sync.Once
 	installRangeOnce            sync.Once
+	installSetOnce              sync.Once
+	installVectorOnce           sync.Once
+)
+
+// stdSetDecl and stdVectorDecl are std's `Set` and `Vector` declarations,
+// which makeSetType and makeVectorType instantiate for a literal in a file
+// that does not bind the name: a std module (which has no prelude) writing
+// `[1, 2]` or `[1, 2]` without importing the type. Installed with the
+// others below.
+var (
+	stdSetDecl    *StructType
+	stdVectorDecl *DistinctType
 )
 
 // installCanonicalStdTypes points TypeBool, TypeOrdering, TypeAssertionFailure,
@@ -62,5 +74,11 @@ func installCanonicalStdTypes(cache map[string]*FileAnalysis) {
 	}
 	if st, ok := lookup("std/ranges", "Range").(*StructType); ok {
 		installRangeOnce.Do(func() { TypeRange = st })
+	}
+	if st, ok := lookup("std/sets", "Set").(*StructType); ok {
+		installSetOnce.Do(func() { stdSetDecl = st })
+	}
+	if dt, ok := lookup("std/vectors", "Vector").(*DistinctType); ok {
+		installVectorOnce.Do(func() { stdVectorDecl = dt })
 	}
 }

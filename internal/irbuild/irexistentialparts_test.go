@@ -18,10 +18,9 @@ once shown: Display = 5
 
 once setup: Unit = io.print("initialized")
 
-fn u() {
-}
+fn u() end
 
-fn main() {
+fn main()
     xs: List<Display> = [1, "a"]
     io.print(Iter.with_index(xs) |> Iter.map(fn (i, d) -> "${Int.to_string(i)}=${Display.to_string(d)}") |> String.join(","))
     io.print(Iter.zip(xs, [7, 8]) |> Iter.map(fn (d, n) -> "${Display.to_string(d)}/${Int.to_string(n)}") |> String.join(","))
@@ -31,9 +30,9 @@ fn main() {
     t: (Display, Int) = (3, 4)
     (td, ti) = t
     io.print("${Display.to_string(td)} ${Int.to_string(ti)}")
-    r: .{d: Display, x: Int} = .{d: True, x: 2}
+    r: {d: Display, x: Int} = {d: True, x: 2}
     io.print(Display.to_string(r.d))
-    m: Map<String, Display> = Map.put(%{}, "k", 1.5)
+    m: Map<String, Display> = Map.put({}, "k", 1.5)
     io.print(Map.get(m, "k") |> Maybe.map(Display.to_string) |> Maybe.with_default(""))
     pair = (1, io.print("side"))
     io.inspect(pair)
@@ -42,7 +41,7 @@ fn main() {
     setup
     setup
     io.print("done")
-}
+end
 `
 	const want = "0=1,1=a\n" +
 		"1/7,a/8\n" +

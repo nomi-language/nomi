@@ -10,20 +10,20 @@ import (
 func TestStartupCLIInputs(t *testing.T) {
 	dir := t.TempDir()
 	source := filepath.Join(dir, "main.nomi")
-	mustWrite(t, source, `import {
+	mustWrite(t, source, `import
  std::io
-}
-struct Settings {
+end
+struct Settings
   context: Context
-}
-fn boot(startup: Startup) -> Result<Settings, String> {
+end
+fn boot(startup: Startup) -> Result<Settings, String>
  io.print(Map.get(startup.env, "NOMI_STARTUP_CLI_TEST"))
  io.print(startup.args)
  Ok(Settings{context: Context.root(), })
-}
-fn main() {
+end
+fn main()
   Unit
-}
+end
 `)
 	cmd := exec.Command(nomiBin, "run", source, "first", "--literal", "two words")
 	cmd.Env = append(os.Environ(), "NOMI_STARTUP_CLI_TEST=configured")

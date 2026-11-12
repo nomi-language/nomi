@@ -2,12 +2,12 @@
 open default method on interface
 ================================================================================
 
-pub interface Logger {
+pub interface Logger
   fn log(value: self, message: String) -> Unit
-  open fn info(value: self, message: String) -> Unit {
+  open fn info(value: self, message: String) -> Unit
     Logger.log(value, message)
-  }
-}
+  end
+end
 
 --------------------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ pub interface Logger {
           name: (identifier)
           (type_identifier)))
       return_type: (type_identifier)
-      (body
+      body: (body
         (call_expression
           function: (field_access
             (type_identifier)
@@ -47,11 +47,11 @@ pub interface Logger {
 field and open are identifiers outside interface bodies
 ================================================================================
 
-fn make_thing() -> String {
+fn make_thing() -> String
   field = "ok"
   open = 42
   field
-}
+end
 
 --------------------------------------------------------------------------------
 

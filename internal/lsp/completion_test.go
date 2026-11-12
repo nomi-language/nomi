@@ -60,7 +60,7 @@ func TestMatchQuality(t *testing.T) {
 }
 
 func TestGetPrefix(t *testing.T) {
-	content := "fn add(x: Int) -> Int { x + y }"
+	content := "fn add(x: Int) -> Int\n    x + y\nend"
 	// cursor after "add" at position (0, 6)
 	prefix := getPrefix(content, 0, 6)
 	if prefix != "add" {
@@ -74,7 +74,7 @@ func TestGetPrefix(t *testing.T) {
 	}
 
 	// cursor after "x" in body
-	prefix = getPrefix(content, 0, 25)
+	prefix = getPrefix(content, 1, 5)
 	if prefix != "x" {
 		t.Errorf("expected 'x', got '%s'", prefix)
 	}
@@ -105,7 +105,7 @@ func TestWordBounds(t *testing.T) {
 // and none of the functions declared in its `impl` blocks, which the checker
 // rejects when spelled file-qualified (`duration.seconds`).
 func TestCompletion_FileObjectOmitsTypeOwnedFunctions(t *testing.T) {
-	items := complete(t, "import std::duration\n\nfn main() {\n  duration."+cursorMark+"\n}\n")
+	items := complete(t, "import std::duration\n\nfn main()\n  duration."+cursorMark+"\nend\n")
 	labelsExclude(t, items, "seconds", "as_seconds")
 	if !slices.Contains(itemLabels(items), "Duration") {
 		t.Fatalf("completion on `duration.` did not reach the file's members (want Duration): %v", itemLabels(items))

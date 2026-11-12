@@ -90,24 +90,24 @@ func runFix(t *testing.T, src string) string {
 }
 
 func TestCodeAction_RemoveWholeModule(t *testing.T) {
-	got := runFix(t, "import std::io\n\nfn main() { Unit }\n")
-	want := "\nfn main() { Unit }\n"
+	got := runFix(t, "import std::io\n\nfn main()\n    Unit\nend\n")
+	want := "\nfn main()\n    Unit\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
 func TestCodeAction_RemoveAliasedName(t *testing.T) {
-	got := runFix(t, "import std::lists.List as Lists\n\nfn main() { Unit }\n")
-	want := "\nfn main() { Unit }\n"
+	got := runFix(t, "import std::lists.List as Lists\n\nfn main()\n    Unit\nend\n")
+	want := "\nfn main()\n    Unit\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
 func TestCodeAction_RemoveSoleBraceItem(t *testing.T) {
-	got := runFix(t, "import std::comparable.{Ordering}\n\nfn main() { Unit }\n")
-	want := "\nfn main() { Unit }\n"
+	got := runFix(t, "import std::comparable.{Ordering}\n\nfn main()\n    Unit\nend\n")
+	want := "\nfn main()\n    Unit\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -115,8 +115,8 @@ func TestCodeAction_RemoveSoleBraceItem(t *testing.T) {
 
 func TestCodeAction_RemoveBraceItem_PrecedingComma(t *testing.T) {
 	// Ordering (second item) is dead; Comparable (first) is used.
-	got := runFix(t, "import std::comparable.{Comparable, Ordering}\n\nfn f<T>(x: T) -> T where T: Comparable { x }\n")
-	want := "import std::comparable.Comparable\n\nfn f<T>(x: T) -> T where T: Comparable { x }\n"
+	got := runFix(t, "import std::comparable.{Comparable, Ordering}\n\nfn f<T>(x: T) -> T where T: Comparable\n    x\nend\n")
+	want := "import std::comparable.Comparable\n\nfn f<T>(x: T) -> T where T: Comparable\n    x\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -124,17 +124,17 @@ func TestCodeAction_RemoveBraceItem_PrecedingComma(t *testing.T) {
 
 func TestCodeAction_RemoveBraceItem_FollowingComma(t *testing.T) {
 	// Ordering (first item) is dead; Comparable (second) is used.
-	got := runFix(t, "import std::comparable.{Ordering, Comparable}\n\nfn f<T>(x: T) -> T where T: Comparable { x }\n")
-	want := "import std::comparable.Comparable\n\nfn f<T>(x: T) -> T where T: Comparable { x }\n"
+	got := runFix(t, "import std::comparable.{Ordering, Comparable}\n\nfn f<T>(x: T) -> T where T: Comparable\n    x\nend\n")
+	want := "import std::comparable.Comparable\n\nfn f<T>(x: T) -> T where T: Comparable\n    x\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
 func TestCodeAction_RemoveSelfMarker(t *testing.T) {
-	src := "import std::results.Result.{self, Ok}\n\nfn f() -> Maybe<Int> { o = Ok(1)\n  None }\n"
+	src := "import std::results.Result.{self, Ok}\n\nfn f() -> Maybe<Int>\n    o = Ok(1)\n  None\nend\n"
 	got := runFix(t, src)
-	want := "import std::results.Result.{Ok}\n\nfn f() -> Maybe<Int> { o = Ok(1)\n  None }\n"
+	want := "import std::results.Result.{Ok}\n\nfn f() -> Maybe<Int>\n    o = Ok(1)\n  None\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -143,9 +143,9 @@ func TestCodeAction_RemoveSelfMarker(t *testing.T) {
 func TestCodeAction_RemoveLoneBraceItemBesideSelf(t *testing.T) {
 	// self (Result) is used as a type; Ok is dead and the only Names entry,
 	// so the fix collapses to a `{self}`-only import.
-	src := "import std::results.Result.{self, Ok}\n\nfn f(r: Result<Int, String>) -> Result<Int, String> { r }\n"
+	src := "import std::results.Result.{self, Ok}\n\nfn f(r: Result<Int, String>) -> Result<Int, String>\n    r\nend\n"
 	got := runFix(t, src)
-	want := "import std::results.Result.{self}\n\nfn f(r: Result<Int, String>) -> Result<Int, String> { r }\n"
+	want := "import std::results.Result.{self}\n\nfn f(r: Result<Int, String>) -> Result<Int, String>\n    r\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -161,19 +161,19 @@ func TestCodeAction_RemoveLoneBraceItemBesideSelf(t *testing.T) {
 // the child collapses to `std/comparable.Comparable`; the block, its braces,
 // and the sibling `std/io` child are untouched.
 func TestCodeAction_Block_BraceItemInChild(t *testing.T) {
-	src := "import {\n" +
+	src := "import\n" +
 		"  std::comparable.{Comparable, Ordering}\n" +
 		"  std::io\n" +
-		"}\n\n" +
-		"fn f<T>(x: T) -> T where T: Comparable { x }\n\n" +
-		"fn main() { io.print(\"hi\") }\n"
+		"end\n\n" +
+		"fn f<T>(x: T) -> T where T: Comparable\n    x\nend\n\n" +
+		"fn main()\n    io.print(\"hi\")\nend\n"
 	got := runFix(t, src)
-	want := "import {\n" +
+	want := "import\n" +
 		"  std::comparable.Comparable\n" +
 		"  std::io\n" +
-		"}\n\n" +
-		"fn f<T>(x: T) -> T where T: Comparable { x }\n\n" +
-		"fn main() { io.print(\"hi\") }\n"
+		"end\n\n" +
+		"fn f<T>(x: T) -> T where T: Comparable\n    x\nend\n\n" +
+		"fn main()\n    io.print(\"hi\")\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -183,16 +183,16 @@ func TestCodeAction_Block_BraceItemInChild(t *testing.T) {
 // only its line is deleted, the surrounding block and the `std/comparable`
 // child are preserved.
 func TestCodeAction_Block_WholeChildRemoval(t *testing.T) {
-	src := "import {\n" +
+	src := "import\n" +
 		"  std::comparable.Comparable\n" +
 		"  std::io\n" +
-		"}\n\n" +
-		"fn f<T>(x: T) -> T where T: Comparable { x }\n"
+		"end\n\n" +
+		"fn f<T>(x: T) -> T where T: Comparable\n    x\nend\n"
 	got := runFix(t, src)
-	want := "import {\n" +
+	want := "import\n" +
 		"  std::comparable.Comparable\n" +
-		"}\n\n" +
-		"fn f<T>(x: T) -> T where T: Comparable { x }\n"
+		"end\n\n" +
+		"fn f<T>(x: T) -> T where T: Comparable\n    x\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -207,14 +207,14 @@ func TestCodeAction_Block_WholeChildRemoval(t *testing.T) {
 // owning ImportBlock node, which the surgical per-statement edit deliberately
 // does not do. If this ever becomes a nuisance, that is the change to make.
 func TestCodeAction_Block_SoleChildLeavesEmptyBlock(t *testing.T) {
-	src := "import {\n" +
+	src := "import\n" +
 		"  std::io\n" +
-		"}\n\n" +
-		"fn main() { Unit }\n"
+		"end\n\n" +
+		"fn main()\n    Unit\nend\n"
 	got := runFix(t, src)
-	want := "import {\n" +
-		"}\n\n" +
-		"fn main() { Unit }\n"
+	want := "import\n" +
+		"end\n\n" +
+		"fn main()\n    Unit\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -225,7 +225,7 @@ func TestCodeAction_Block_SoleChildLeavesEmptyBlock(t *testing.T) {
 // (Code present but Value nil) and confirm the fix is still offered — the
 // position match against FindUnusedImports is what carries it.
 func TestCodeAction_SurvivesDroppedCode(t *testing.T) {
-	content, nodes, fa, diags := codeActionFixture(t, "import std::io\n\nfn main() { Unit }\n")
+	content, nodes, fa, diags := codeActionFixture(t, "import std::io\n\nfn main()\n    Unit\nend\n")
 	unused := onlyUnusedDiags(diags)
 	if len(unused) != 1 {
 		t.Fatalf("expected 1 unused diagnostic, got %d", len(unused))
@@ -241,7 +241,7 @@ func TestCodeAction_SurvivesDroppedCode(t *testing.T) {
 // A diagnostic with a different, non-empty code at an import position must not
 // receive the remove-unused fix.
 func TestCodeAction_RejectsForeignCode(t *testing.T) {
-	content, nodes, fa, diags := codeActionFixture(t, "import std::io\n\nfn main() { Unit }\n")
+	content, nodes, fa, diags := codeActionFixture(t, "import std::io\n\nfn main()\n    Unit\nend\n")
 	unused := onlyUnusedDiags(diags)
 	if len(unused) != 1 {
 		t.Fatalf("expected 1 unused diagnostic, got %d", len(unused))
@@ -298,8 +298,8 @@ func runAddFix(t *testing.T, src string) string {
 // No existing imports: a new statement is inserted at the top, with a blank
 // line separating it from the code.
 func TestCodeAction_AddImport_NoExistingImports(t *testing.T) {
-	got := runAddFix(t, "fn main() {\n  io.inspect(42)\n}\n")
-	want := "import std::io\n\nfn main() {\n  io.inspect(42)\n}\n"
+	got := runAddFix(t, "fn main()\n  io.inspect(42)\nend\n")
+	want := "import std::io\n\nfn main()\n  io.inspect(42)\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -308,8 +308,8 @@ func TestCodeAction_AddImport_NoExistingImports(t *testing.T) {
 // An unrelated existing import: the new statement is inserted right after the
 // last import line (canonical re-sorting is left to fmt / organize).
 func TestCodeAction_AddImport_AfterExisting(t *testing.T) {
-	got := runAddFix(t, "import std::lists.List\n\nfn main() {\n  io.inspect(42)\n}\n")
-	want := "import std::lists.List\nimport std::io\n\nfn main() {\n  io.inspect(42)\n}\n"
+	got := runAddFix(t, "import std::lists.List\n\nfn main()\n  io.inspect(42)\nend\n")
+	want := "import std::lists.List\nimport std::io\n\nfn main()\n  io.inspect(42)\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -317,8 +317,8 @@ func TestCodeAction_AddImport_AfterExisting(t *testing.T) {
 
 // Existing selective import of the same module: merge the missing member into it.
 func TestCodeAction_AddImport_SelfMerge(t *testing.T) {
-	got := runAddFix(t, "import std::calendar.Date\n\nfn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n")
-	want := "import std::calendar.{Date, Time}\n\nfn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n"
+	got := runAddFix(t, "import std::calendar.Date\n\nfn f(_t: Time, _d: Date) -> Bool\n  True\nend\n")
+	want := "import std::calendar.{Date, Time}\n\nfn f(_t: Time, _d: Date) -> Bool\n  True\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -328,8 +328,8 @@ func TestCodeAction_AddImport_SelfMerge(t *testing.T) {
 // entry (appended unsorted; `nomi fmt`/organize sort it), preserving the block
 // style rather than splitting into a flat statement the formatter never merges.
 func TestCodeAction_AddImport_JoinsBlock(t *testing.T) {
-	got := runAddFix(t, "import {\n  std::lists.List\n}\n\nfn main() {\n  io.inspect(42)\n}\n")
-	want := "import {\n  std::lists.List\n  std::io\n}\n\nfn main() {\n  io.inspect(42)\n}\n"
+	got := runAddFix(t, "import\n  std::lists.List\nend\n\nfn main()\n  io.inspect(42)\nend\n")
+	want := "import\n  std::lists.List\n  std::io\nend\n\nfn main()\n  io.inspect(42)\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -339,13 +339,13 @@ func TestCodeAction_AddImport_JoinsBlock(t *testing.T) {
 // of the same file nor a `pub import { ... }` block takes it, since either
 // would re-export the added name.
 func TestCodeAction_AddImport_NeverJoinsAReExport(t *testing.T) {
-	got := runAddFix(t, "pub import std::calendar.Date\n\npub fn f(_t: Time) -> Bool {\n  True\n}\n")
-	want := "pub import std::calendar.Date\nimport std::calendar.Time\n\npub fn f(_t: Time) -> Bool {\n  True\n}\n"
+	got := runAddFix(t, "pub import std::calendar.Date\n\npub fn f(_t: Time) -> Bool\n  True\nend\n")
+	want := "pub import std::calendar.Date\nimport std::calendar.Time\n\npub fn f(_t: Time) -> Bool\n  True\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
-	got = runAddFix(t, "pub import {\n  std::lists.List\n}\n\nfn main() {\n  io.inspect(42)\n}\n")
-	want = "pub import {\n  std::lists.List\n}\nimport std::io\n\nfn main() {\n  io.inspect(42)\n}\n"
+	got = runAddFix(t, "pub import\n  std::lists.List\nend\n\nfn main()\n  io.inspect(42)\nend\n")
+	want = "pub import\n  std::lists.List\nend\nimport std::io\n\nfn main()\n  io.inspect(42)\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -353,8 +353,8 @@ func TestCodeAction_AddImport_NeverJoinsAReExport(t *testing.T) {
 
 // A type-qualified use of an unimported stdlib type adds the owner import.
 func TestCodeAction_AddModule_NoImports(t *testing.T) {
-	got := runAddFix(t, "fn main() {\n  Duration.seconds(5)\n}\n")
-	want := "import std::duration.Duration\n\nfn main() {\n  Duration.seconds(5)\n}\n"
+	got := runAddFix(t, "fn main()\n  Duration.seconds(5)\nend\n")
+	want := "import std::duration.Duration\n\nfn main()\n  Duration.seconds(5)\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -362,8 +362,8 @@ func TestCodeAction_AddModule_NoImports(t *testing.T) {
 
 // A type-owner import joins an existing block as an entry.
 func TestCodeAction_AddModule_JoinsBlock(t *testing.T) {
-	got := runAddFix(t, "import {\n  std::io\n}\n\nfn main() {\n  io.inspect(Duration.seconds(5))\n}\n")
-	want := "import {\n  std::io\n  std::duration.Duration\n}\n\nfn main() {\n  io.inspect(Duration.seconds(5))\n}\n"
+	got := runAddFix(t, "import\n  std::io\nend\n\nfn main()\n  io.inspect(Duration.seconds(5))\nend\n")
+	want := "import\n  std::io\n  std::duration.Duration\nend\n\nfn main()\n  io.inspect(Duration.seconds(5))\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -371,8 +371,8 @@ func TestCodeAction_AddModule_JoinsBlock(t *testing.T) {
 
 // A second type from the same module merges into the existing selective import.
 func TestCodeAction_AddType_MergesIntoSelective(t *testing.T) {
-	got := runAddFix(t, "import std::calendar.Date\n\nfn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n")
-	want := "import std::calendar.{Date, Time}\n\nfn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n"
+	got := runAddFix(t, "import std::calendar.Date\n\nfn f(_t: Time, _d: Date) -> Bool\n  True\nend\n")
+	want := "import std::calendar.{Date, Time}\n\nfn f(_t: Time, _d: Date) -> Bool\n  True\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -380,7 +380,7 @@ func TestCodeAction_AddType_MergesIntoSelective(t *testing.T) {
 
 // A nested type reached through an imported module needs no extra import.
 func TestCodeAction_AddType_NoneWhenNamespaceImported(t *testing.T) {
-	content, nodes, fa, diags := addImportFixture(t, "import std::io\n\nfn f(_e: io.Error) -> Unit {\n  io.print(\"x\")\n}\n")
+	content, nodes, fa, diags := addImportFixture(t, "import std::io\n\nfn f(_e: io.Error) -> Unit\n  io.print(\"x\")\nend\n")
 	actions := buildAddImportActions(content, nodes, fa, "file:///t.nomi", diags)
 	if len(actions) != 0 {
 		t.Errorf("expected no add-import actions when module is already imported, got %d", len(actions))
@@ -390,8 +390,8 @@ func TestCodeAction_AddType_NoneWhenNamespaceImported(t *testing.T) {
 // Merging a second type into a selective import that lives inside a block edits
 // just that entry, leaving the block structure intact.
 func TestCodeAction_AddType_MergesIntoSelectiveInBlock(t *testing.T) {
-	got := runAddFix(t, "import {\n  std::calendar.Date\n}\n\nfn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n")
-	want := "import {\n  std::calendar.{Date, Time}\n}\n\nfn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n"
+	got := runAddFix(t, "import\n  std::calendar.Date\nend\n\nfn f(_t: Time, _d: Date) -> Bool\n  True\nend\n")
+	want := "import\n  std::calendar.{Date, Time}\nend\n\nfn f(_t: Time, _d: Date) -> Bool\n  True\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -399,7 +399,7 @@ func TestCodeAction_AddType_MergesIntoSelectiveInBlock(t *testing.T) {
 
 // Nothing to add when the module is already imported.
 func TestCodeAction_AddImport_NoneWhenImported(t *testing.T) {
-	content, nodes, fa, diags := addImportFixture(t, "import std::io\n\nfn main() {\n  io.inspect(42)\n}\n")
+	content, nodes, fa, diags := addImportFixture(t, "import std::io\n\nfn main()\n  io.inspect(42)\nend\n")
 	actions := buildAddImportActions(content, nodes, fa, "file:///t.nomi", diags)
 	if len(actions) != 0 {
 		t.Errorf("expected no add-import actions when already imported, got %d", len(actions))
@@ -407,7 +407,7 @@ func TestCodeAction_AddImport_NoneWhenImported(t *testing.T) {
 }
 
 func TestCodeAction_IgnoresNonUnusedDiagnostics(t *testing.T) {
-	content := "fn bad() -> Int { \"x\" }\n"
+	content := "fn bad() -> Int\n    \"x\"\nend\n"
 	tokens := lexer.Lex(content)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	lib := loadStd()
@@ -426,10 +426,10 @@ func TestCodeAction_AddImport_IsTheImportTheHelpNames(t *testing.T) {
 		src  string
 		want []string
 	}{
-		{"fn main() {\n  _m = Method.Post\n}\n", []string{"std::http.Method"}},
-		{"fn f(_c: Catalog) -> Int {\n  1\n}\n", []string{"std::phrase.Catalog"}},
-		{"fn main() {\n  io.inspect(1)\n}\n", []string{"std::io"}},
-		{"fn f(_m: Message) -> Int {\n  1\n}\n", []string{"std::mail.Message", "std::websocket.Message"}},
+		{"fn main()\n  _m = Method.Post\nend\n", []string{"std::http.Method"}},
+		{"fn f(_c: Catalog) -> Int\n  1\nend\n", []string{"std::phrase.Catalog"}},
+		{"fn main()\n  io.inspect(1)\nend\n", []string{"std::io"}},
+		{"fn f(_m: Message) -> Int\n  1\nend\n", []string{"std::mail.Message", "std::websocket.Message"}},
 	}
 	for _, c := range cases {
 		content, nodes, fa, diags := addImportFixture(t, c.src)

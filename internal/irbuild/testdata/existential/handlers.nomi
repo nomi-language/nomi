@@ -6,42 +6,42 @@
 // call are indistinguishable.
 import effects.{Clock, Logger}
 
-pub struct Prod {
+pub struct Prod
     prefix: String
-}
+end
 
-pub struct Tagged {
+pub struct Tagged
     tag: String
-}
+end
 
-pub struct Fixed {
+pub struct Fixed
     at: Int
-}
+end
 
 // A zero-sized marker, so one of the boxed values carries no storage at all.
 pub type Zero
 
-impl Logger for Prod {
-    fn log(p: Prod, message: String) -> String {
+impl Logger for Prod
+    fn log(p: Prod, message: String) -> String
         "${p.prefix}: ${message}"
-    }
-}
+    end
+end
 
-impl Logger for Tagged {
-    fn log(t: Tagged, message: String) -> String {
+impl Logger for Tagged
+    fn log(t: Tagged, message: String) -> String
         "[${t.tag}] ${message}"
-    }
-}
+    end
+end
 
-impl Clock for Fixed {
-    fn now(f: Fixed) -> Int {
+impl Clock for Fixed
+    fn now(f: Fixed) -> Int
         f.at
-    }
-}
+    end
+end
 
-impl Clock for Zero {
-    fn now(z: Zero) -> Int {
+impl Clock for Zero
+    fn now(z: Zero) -> Int
         _ = z
         0
-    }
-}
+    end
+end

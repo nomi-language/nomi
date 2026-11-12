@@ -15,89 +15,89 @@ import (
 func TestIREmbedCtor_EmbeddedStructCallForms(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Circle {
+struct Circle
   radius: Float = 3.14
-}
+end
 
-enum Shape {
+enum Shape
   embeds Circle
   Dot Float
-}
+end
 
-fn area(s: Shape) -> Float {
-  case s {
-    Shape.Circle{radius} -> radius
+fn area(s: Shape) -> Float
+  case s
+    Shape.Circle{radius:} -> radius
     Shape.Dot(d) -> d
-  }
-}
+  end
+end
 
-fn main() {
-  a = Shape.Circle(.{radius: 2.0})
-  b = Shape.Circle(.{})
-  c = .{radius: 2.5} |> Shape.Circle()
+fn main()
+  a = Shape.Circle({radius: 2.0})
+  b = Shape.Circle{}
+  c = {radius: 2.5} |> Shape.Circle()
   e = Shape.Circle{radius: 1.0}
   io.inspect(a)
   io.inspect(b)
   io.print(area(c))
   io.print(area(e))
-}
+end
 `, "Circle{radius: 2.0}\nCircle{radius: 3.14}\n2.5\n1.0\n")
 }
 
 func TestIREmbedCtor_InlineStructVariantCallForms(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-enum Shape {
+enum Shape
   Rectangle {width: Float = 2.5, height: Float}
   Dot Float
-}
+end
 
-fn area(s: Shape) -> Float {
-  case s {
-    Shape.Rectangle{width, height} -> width * height
+fn area(s: Shape) -> Float
+  case s
+    Shape.Rectangle{width:, height:} -> width * height
     Shape.Dot(d) -> d
-  }
-}
+  end
+end
 
-fn main() {
-  a = Shape.Rectangle(.{width: 4.0, height: 5.0})
-  b = Shape.Rectangle(.{height: 2.0})
-  c = .{width: 1.0, height: 3.0} |> Shape.Rectangle()
-  e: Shape = .Rectangle(.{height: 4.0})
+fn main()
+  a = Shape.Rectangle({width: 4.0, height: 5.0})
+  b = Shape.Rectangle({height: 2.0})
+  c = {width: 1.0, height: 3.0} |> Shape.Rectangle()
+  e: Shape = .Rectangle({height: 4.0})
   io.inspect(a)
   io.inspect(b)
   io.print(area(c))
   io.print(area(e))
-}
+end
 `, "Rectangle{width: 4.0, height: 5.0}\nRectangle{width: 2.5, height: 2.0}\n3.0\n10.0\n")
 }
 
 func TestIREmbedCtor_EmbeddedMarker(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-struct Live {
+struct Live
   since: Int
-}
+end
 
 type Expired
 
-enum Session {
+enum Session
   embeds Live
   embeds Expired
-}
+end
 
-fn label(s: Session) -> String {
-  case s {
-    Session.Live{since} -> "live since ${since}"
+fn label(s: Session) -> String
+  case s
+    Session.Live{since:} -> "live since ${since}"
     Session.Expired -> "expired"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   gone = Session.Expired
   io.inspect(gone)
   io.print(label(gone))
-  io.print(label(Session.Live(.{since: 3})))
-}
+  io.print(label(Session.Live({since: 3})))
+end
 `, "Expired\nexpired\nlive since 3\n")
 }

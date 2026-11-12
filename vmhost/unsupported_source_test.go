@@ -13,22 +13,22 @@ import (
 // the call to `planted_decline` in its callback.
 const declinedSource = `import std::io
 
-fn planted_decline(n: Int) -> Int {
+fn planted_decline(n: Int) -> Int
   n
-}
+end
 
-fn evens(xs: List<Int>) -> List<Int> {
+fn evens(xs: List<Int>) -> List<Int>
   Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
   io.print("before")
   io.print(evens([1, 2]))
-}
+end
 
-test "evens" {
+test "evens"
   assert evens([2]) == [2]
-}
+end
 `
 
 // blockedReport runs p and answers its blocked report and Error() text.
@@ -88,22 +88,22 @@ func TestLoadSource_ADeclineReadsAsOnDisk(t *testing.T) {
 // its line from the virtual source, as the entry's does.
 func TestLoadSource_ADeclineInAVirtualSiblingQuotesIt(t *testing.T) {
 	plantDecline(t)
-	entry := `import {
+	entry := `import
   std::io
   lib
-}
+end
 
-fn main() {
+fn main()
   io.print(lib.evens([1, 2]))
-}
+end
 `
-	lib := `fn planted_decline(n: Int) -> Int {
+	lib := `fn planted_decline(n: Int) -> Int
   n
-}
+end
 
-pub fn evens(xs: List<Int>) -> List<Int> {
+pub fn evens(xs: List<Int>) -> List<Int>
   Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
-}
+end
 `
 	p, err := vmhost.LoadSource("main", entry, vmhost.WithVirtualFiles(map[string]string{"lib": lib}))
 	if err != nil {

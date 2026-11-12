@@ -12,41 +12,53 @@ import (
 // structs that implement it, an alias of a function type that returns the
 // interface, as std/http's `Handler` returns `ToResponse`, and functions
 // of each shape.
-const annotationHelpDecls = `interface Reply {
+const annotationHelpDecls = `interface Reply
   fn body(r: self) -> String
-}
+end
 
-struct Page {
+struct Page
   text: String
-}
+end
 
-struct Note {
+struct Note
   text: String
-}
+end
 
-impl Reply for Page {
-  fn body(p: Page) -> String { p.text }
-}
+impl Reply for Page
+  fn body(p: Page) -> String
+      p.text
+  end
+end
 
-impl Reply for Note {
-  fn body(n: Note) -> String { n.text }
-}
+impl Reply for Note
+  fn body(n: Note) -> String
+      n.text
+  end
+end
 
 typealias Handler (Int) -> Reply
 
-fn page(_n: Int) -> Page { Page{text: "p"} }
+fn page(_n: Int) -> Page
+    Page{text: "p"}
+end
 
-fn note(_n: Int) -> Note { Note{text: "n"} }
+fn note(_n: Int) -> Note
+    Note{text: "n"}
+end
 
-fn other(_s: String) -> Page { Page{text: "o"} }
+fn other(_s: String) -> Page
+    Page{text: "o"}
+end
 
-fn routes() -> List<(String, Handler)> { [("a", page)] }
+fn routes() -> List<(String, Handler)>
+    [("a", page)]
+end
 `
 
 // annotationHelpSource is a program of decls and a function run whose
 // parameters are params and whose body is body.
 func annotationHelpSource(decls, params, body string) string {
-	return decls + "\nfn run(" + params + ") -> Unit {\n  " + body + "\n}\n\nfn main() {}\n"
+	return decls + "\nfn run(" + params + ") -> Unit\n  " + body + "\nend\n\nfn main() end\n"
 }
 
 // annotationHelpErrors are the errors of src other than an unused binding.
@@ -106,20 +118,20 @@ var annotationHelpCases = map[string]annotationHelpCase{
 		"list element type mismatch: expected (String, (Int) -> Page), got (String, (Int) -> Note)\n" +
 			"help: annotate the binding: `all: List<(String, Handler)> = ...`"},
 	"if branches": {annotationHelpDecls, "c: Bool",
-		`xs = if c { [("a", page)] } else { routes() }`,
+		`xs = if c then [("a", page)] else routes()`,
 		"if/else branch type mismatch: then is List<(String, (Int) -> Page)>, else is List<(String, (Int) -> Reply)>\n" +
 			"help: annotate the binding: `xs: List<(String, Handler)> = ...`"},
 	"case branches": {annotationHelpDecls, "c: Bool",
-		`xs = case c {
+		`xs = case c
     True -> [("a", page)]
     False -> [("b", note)]
-  }`,
+  end`,
 		"case branch type mismatch: expected List<(String, (Int) -> Page)>, got List<(String, (Int) -> Note)>\n" +
 			"help: annotate the binding: `xs: List<(String, Handler)> = ...`"},
 	// With no alias that fits, the type is one side's, when the other
 	// converts to it.
 	"one side's type": {strings.NewReplacer("typealias Handler (Int) -> Reply", "", "Handler", "(Int) -> Reply").Replace(annotationHelpDecls) +
-		"\nfn replies() -> List<(Int) -> Reply> { [page] }\n", "_c: Bool",
+		"\nfn replies() -> List<(Int) -> Reply>\n    [page]\nend\n", "_c: Bool",
 		`mine = [page]
   r = mine + replies()`,
 		"binary + type mismatch: List<(Int) -> Page> vs List<(Int) -> Reply>\n" +
@@ -134,9 +146,13 @@ var annotationHelpCases = map[string]annotationHelpCase{
 	"a qualified alias": {`import std::http
 import std::html.{Html}
 
-fn home(_r: http.Request) -> Html { todo }
+fn home(_r: http.Request) -> Html
+    todo
+end
 
-fn routes() -> List<(http.Route<Unit>, http.Handler)> { todo }
+fn routes() -> List<(http.Route<Unit>, http.Handler)>
+    todo
+end
 `, "route: http.Route<Unit>",
 		"mine = [(route, home)]\n  r = mine + routes()",
 		"binary + type mismatch: List<(Route, (Request) -> Html)> vs List<(Route, (Request) -> ToResponse)>\n" +
@@ -199,7 +215,7 @@ func TestAnnotationHelp_NoneWithoutOneCommonType(t *testing.T) {
 		// interface or a collection, so an annotation of a function type
 		// would not make these check.
 		"function branches": {annotationHelpDecls, "c: Bool",
-			`h = if c { page } else { note }`,
+			`h = if c then page else note`,
 			"if/else branch type mismatch: then is (Int) -> Page, else is (Int) -> Note"},
 	} {
 		t.Run(name, func(t *testing.T) {

@@ -1,6 +1,6 @@
 ---
 title: "Concurrency"
-description: "Run work at the same time with `concurrent { ... }` and tasks, pass values over channels, cancel a task, and give work a deadline."
+description: "Run work at the same time with `concurrent` blocks and tasks, pass values over channels, cancel a task, and give work a deadline."
 ---
 
 In Nomi, every task has an owner. The owner makes sure the task finishes, is
@@ -9,7 +9,7 @@ owns.
 
 There are two kinds of owner. Pick by asking how long the work should live:
 
-- If you need the result here, use a `concurrent { … }` block and
+- If you need the result here, use a `concurrent` ... `end` block and
   `Task.spawn(fn -> …)`.
 - If the work should keep running after this call returns, use
   `Supervisor.spawn(supervisor, fn -> …)`, which
@@ -31,27 +31,26 @@ Start with a block:
 ```nomi-run
 import std::tasks.Task
 
-fn double(n: Int) -> Int {
+fn double(n: Int) -> Int
     n * 2
-}
+end
 
-fn main() {
-    total = concurrent {
+fn main()
+    total = concurrent
         a = Task.spawn(fn -> double(10))
         b = Task.spawn(fn -> double(20))
         c = Task.spawn(fn -> double(30))
         Task.await(a) + Task.await(b) + Task.await(c)
-    }
+    end
 
     dbg total
-}
-
+end
 ```
 <!-- expect
 dbg line 15: total = 120
 -->
 
-- `concurrent { ... }` owns every task started inside it. Its value is its
+- `concurrent` ... `end` owns every task started inside it. Its value is its
   last expression.
 - [`Task.spawn(fn -> expr)`](/reference/tasks/#taskspawn) starts the lambda as
   a task and returns a handle to it, a `Task<T>`, right away.
@@ -95,32 +94,32 @@ A consumer receives on the [`Receiver`](/reference/channels/#type-receiver)
 until the channel is closed.
 
 ```nomi-run
-import {
+import
     std::channels.{Channel, Receiver, Sender}
     std::io
     std::tasks.Task
-}
+end
 
-fn produce(out: Sender<Int>, n: Int) -> Unit {
-    case Sender.send(out, n) {
+fn produce(out: Sender<Int>, n: Int) -> Unit
+    case Sender.send(out, n)
         Ok(_) -> Unit
         Err(_) -> io.print("send failed")
-    }
-}
+    end
+end
 
-fn consume(inbox: Receiver<Int>) -> Int {
-    Iter.loop(0, fn sum -> {
-        case Receiver.receive(inbox) {
+fn consume(inbox: Receiver<Int>) -> Int
+    Iter.loop(0, fn sum ->
+        case Receiver.receive(inbox)
             Some(v) -> sum + v
             None -> break sum
-        }
-    })
-}
+        end
+    end)
+end
 
-fn main() {
+fn main()
     ch = Channel.buffered<Int>(4)
 
-    total = concurrent {
+    total = concurrent
         p1 = Task.spawn(fn -> produce(ch.sender, 10))
         p2 = Task.spawn(fn -> produce(ch.sender, 20))
         p3 = Task.spawn(fn -> produce(ch.sender, 30))
@@ -132,10 +131,10 @@ fn main() {
         Task.await(p3)
         Sender.close(ch.sender)
         Task.await(cons)
-    }
+    end
 
     dbg total
-}
+end
 ```
 <!-- expect
 dbg line 40: total = 60
@@ -172,17 +171,17 @@ channels, or a timer, and runs the handler of whichever arm finishes first.
 Each arm's handler turns its own outcome into the one result:
 
 ```nomi-run
-import {
+import
     std::channels.{Arm, Channel, Sender}
     std::duration.Duration
     std::tasks.Task
-}
+end
 
-fn main() {
+fn main()
     replies = Channel.buffered<String>(1)
     failures = Channel.buffered<Int>(1)
 
-    answer = concurrent {
+    answer = concurrent
         worker = Task.spawn(fn -> Sender.send(failures.sender, 503))
         _ = Task.await(worker)
 
@@ -191,10 +190,10 @@ fn main() {
             Arm.receive(failures.receiver, fn code -> "failed: ${Maybe.with_default(code, 0)}"),
             Arm.after(Duration.seconds(1), fn -> "timed out"),
         ])
-    }
+    end
 
     dbg answer
-}
+end
 ```
 <!-- expect
 dbg line 22: answer = "failed: 503"
@@ -232,34 +231,33 @@ from [`Task.await`](/reference/tasks/#taskawait), the block stops. It
 cancels the other tasks, waits for them to stop, and returns the error:
 
 ```nomi-run
-import {
+import
     std::duration.Duration
     std::tasks.Task
     std::timer
-}
+end
 
-fn short_fail() -> Result<Int, String> {
+fn short_fail() -> Result<Int, String>
     timer.sleep(Duration.milliseconds(10))
     Err("boom")
-}
+end
 
-fn long_sleep() -> Result<Int, String> {
+fn long_sleep() -> Result<Int, String>
     timer.sleep(Duration.seconds(5))
     Ok(0)
-}
+end
 
-fn main() {
-    outcome = concurrent {
+fn main()
+    outcome = concurrent
         short = Task.spawn(fn -> short_fail())
         long = Task.spawn(fn -> long_sleep())
         n = Task.await(short)?
         _ = Task.await(long)?
         Ok(n)
-    }
+    end
 
     dbg outcome
-}
-
+end
 ```
 <!-- expect
 dbg line 26: outcome = Err("boom")
@@ -311,7 +309,7 @@ You could start one task per item:
 
 ```nomi
 // Ten thousand items, ten thousand simultaneous database queries.
-concurrent {
+concurrent
     handles =
         ids
         |> Iter.map(fn id -> Task.spawn(fn -> fetch_user(id)))
@@ -320,7 +318,7 @@ concurrent {
     handles
     |> Iter.map(&Task.await(&1))
     |> Iter.to_list()
-}
+end
 ```
 
 The tasks are cheap, but the queries are not. Ten thousand database queries
@@ -331,30 +329,30 @@ at once will use up the connection pool.
 
 ```nomi-run
 // FILE: main.nomi
-import {
+import
     std::fs
     std::io
     std::tasks.Task
-}
+end
 
 // How many words a file holds.
-fn words(path: String) -> Result<Int, io.Error> {
+fn words(path: String) -> Result<Int, io.Error>
     path
     |> fs.read_text()?
     |> String.words()
     |> Iter.count()
     |> Ok()
-}
+end
 
-fn main() {
-    counts = concurrent {
+fn main()
+    counts = concurrent
         ["b.txt", "a.txt", "missing.txt"]
         |> Task.spawn_all(words, max_running: 8)
         |> Task.await_all()
-    }
+    end
 
     dbg counts
-}
+end
 
 // FILE: a.txt
 the cat sat
@@ -387,7 +385,7 @@ already running. Each batch has its own limit, because one block may talk to
 more than one service:
 
 ```nomi
-concurrent {
+concurrent
     users =
         ids
         |> Task.spawn_all(fetch_user, max_running: 8)
@@ -396,7 +394,7 @@ concurrent {
     users
     |> Task.spawn_all(send_digest, max_running: 50)
     |> Task.await_all()
-}
+end
 ```
 
 This runs eight database queries at a time, then fifty API calls at a time.
@@ -407,11 +405,11 @@ did. A task that returns `Err` still finished normally, so it doesn't stop
 the batch. You decide what to do when some succeed and some don't:
 
 ```nomi
-outcomes = concurrent {
+outcomes = concurrent
     ids
     |> Task.spawn_all(fetch_user, max_running: 8)
     |> Task.await_all()
-}
+end
 
 failures = Iter.filter(outcomes, Result.is_err)
 ```
@@ -427,30 +425,29 @@ stops right away. `Task.outcome` tells you whether a task finished or was
 cancelled:
 
 ```nomi-run
-import {
+import
     std::duration.Duration
     std::tasks.Task
     std::timer
-}
+end
 
-fn serve_conn() -> Int {
+fn serve_conn() -> Int
     // Would take half a minute if left alone.
     timer.sleep(Duration.seconds(30))
     1
-}
+end
 
-fn main() {
-    outcome = concurrent {
+fn main()
+    outcome = concurrent
         conn = Task.spawn(fn -> serve_conn())
         Task.cancel(conn)
         // `Task.await` on a cancelled task would cancel this block too;
         // `Task.outcome` reports it instead.
         Task.outcome(conn)
-    }
+    end
 
     dbg outcome
-}
-
+end
 ```
 <!-- expect
 dbg line 22: outcome = Cancelled
@@ -479,12 +476,12 @@ operation that waits, and stops the task there. Your own check would run
 later than that anyway. So you write a worker loop as if it runs forever:
 
 ```nomi
-fn outbox_worker() {
-    Iter.loop(fn -> {
+fn outbox_worker()
+    Iter.loop(fn ->
         drain_pending(Config.outbox)
         timer.sleep(Duration.seconds(1))
-    })
-}
+    end)
+end
 ```
 
 Cancelling it interrupts the sleep, ends the loop, and makes `Task.outcome`
@@ -499,11 +496,11 @@ never reads whether it was cancelled; the runtime stops it.
 Second, you can give the work a deadline by deriving a new context:
 
 ```nomi
-fn send_welcome(user: User) -> Unit {
+fn send_welcome(user: User) -> Unit
     // The deadline covers `deliver` and everything it calls.
     with Config.context = Context.with_timeout(Config.context, Duration.seconds(30))
     deliver(user)
-}
+end
 ```
 
 A task in a `concurrent` block gets the caller's deadline, because the
@@ -521,67 +518,67 @@ deadline is skipped. In `main`, the program ends. In a task, the task ends.
 So this attempt to try for a while and then fall back does not work:
 
 ```nomi
-fn attempt() -> String {
+fn attempt() -> String
     // Broken: the deadline covers the `case` too, so the `case` never runs.
     with Config.context = Context.with_timeout(Config.context, Duration.seconds(1))
 
-    outcome = concurrent {
+    outcome = concurrent
         t = Task.spawn(fn -> slow())
         Task.outcome(t)
-    }
+    end
 
-    case outcome {
+    case outcome
         .Completed(v) -> "got ${v}"
         .Cancelled -> "timed out, falling back"
         .Failed(_) -> "broke"
-    }
-}
+    end
+end
 ```
 
 Instead, set the deadline inside the task, and check the result from
 outside it:
 
 ```nomi-run
-import {
+import
     std::duration.Duration
     std::tasks.Task
     std::timer
-}
+end
 
-struct Config {
+struct Config
     context: Context
-}
+end
 
-fn boot() -> Result<Config, String> {
+fn boot() -> Result<Config, String>
     Ok(Config{context: Context.root()})
-}
+end
 
-fn slow() -> Int {
+fn slow() -> Int
     timer.sleep(Duration.minutes(5))
     1
-}
+end
 
 // The deadline covers `slow` and nothing else.
-fn slow_bounded() -> Int {
+fn slow_bounded() -> Int
     with Config.context = Context.with_timeout(Config.context, Duration.milliseconds(50))
     slow()
-}
+end
 
-fn main() {
-    outcome = concurrent {
+fn main()
+    outcome = concurrent
         t = Task.spawn(fn -> slow_bounded())
         Task.outcome(t)
-    }
+    end
 
     // Reached because `Task.outcome` sits outside the deadline.
-    result = case outcome {
+    result = case outcome
         .Completed(v) -> "got ${v}"
         .Cancelled -> "timed out, falling back"
         .Failed(_) -> "broke"
-    }
+    end
 
     dbg result
-}
+end
 ```
 <!-- expect
 dbg line 39: result = "timed out, falling back"
@@ -619,11 +616,11 @@ To look at what happened instead of having it passed on, ask for the
 outcome:
 
 ```nomi
-case Task.outcome(worker) {
+case Task.outcome(worker)
     .Completed(v) -> io.print("done: ${v}")
     .Cancelled -> io.print("we stopped it")
     .Failed(e) -> io.print("broke: ${e}")
-}
+end
 ```
 
 `Task.await` is `Task.outcome` with the `Cancelled` and `Failed` cases passed

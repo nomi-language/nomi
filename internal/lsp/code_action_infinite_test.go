@@ -49,13 +49,13 @@ func TestLimitInfiniteFix_InsertsTake(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{
 			"pipe on its own line",
-			"fn coins(coin: Int) -> List<Int> {\n    coin\n    |> Iter.repeat()\n    |> Iter.to_list()\n}\n",
-			"fn coins(coin: Int) -> List<Int> {\n    coin\n    |> Iter.repeat()\n    |> Iter.take(todo) |> Iter.to_list()\n}\n",
+			"fn coins(coin: Int) -> List<Int>\n    coin\n    |> Iter.repeat()\n    |> Iter.to_list()\nend\n",
+			"fn coins(coin: Int) -> List<Int>\n    coin\n    |> Iter.repeat()\n    |> Iter.take(todo) |> Iter.to_list()\nend\n",
 		},
 		{
 			"one line",
-			"fn total() -> Int {\n    Iter.from(0) |> Iter.map(&(&1 * 2)) |> Iter.sum()\n}\n",
-			"fn total() -> Int {\n    Iter.from(0) |> Iter.map(&(&1 * 2)) |> Iter.take(todo) |> Iter.sum()\n}\n",
+			"fn total() -> Int\n    Iter.from(0) |> Iter.map(&(&1 * 2)) |> Iter.sum()\nend\n",
+			"fn total() -> Int\n    Iter.from(0) |> Iter.map(&(&1 * 2)) |> Iter.take(todo) |> Iter.sum()\nend\n",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -80,7 +80,7 @@ func TestLimitInfiniteFix_InsertsTake(t *testing.T) {
 
 // A nested call has no pipe to put a stage in, so it gets no fix.
 func TestLimitInfiniteFix_NotOfferedForANestedCall(t *testing.T) {
-	src := "fn ones() -> List<Int> {\n    Iter.to_list(Iter.repeat(1))\n}\n"
+	src := "fn ones() -> List<Int>\n    Iter.to_list(Iter.repeat(1))\nend\n"
 	s := NewServer()
 	if actions := limitInfiniteActions(t, s, src); len(actions) != 0 {
 		t.Fatalf("got %d fixes, want none", len(actions))

@@ -19,15 +19,15 @@ func TestParseDecoratorIsRejectedEverywhere(t *testing.T) {
 			"line 1, col 1: `@inline` is not supported: Nomi has no decorators"},
 		{"keyword name", "@for\nfn f() -> Int { 0 }\n",
 			"line 1, col 1: `@for` is not supported: Nomi has no decorators"},
-		{"struct", "@uses logger\nstruct Point {\n  x: Int\n}\n",
+		{"struct", "@uses logger\nstruct Point\n  x: Int\nend\n",
 			"line 1, col 1: `@uses` is not supported: Nomi has no decorators"},
 		{"host type", "@uses logger\npub host type Tok\n",
 			"line 1, col 1: `@uses` is not supported: Nomi has no decorators"},
-		{"enum variant", "enum Status {\n  @uses logger\n  Active\n}\n",
+		{"enum variant", "enum Status\n  @uses logger\n  Active\nend\n",
 			"line 2, col 3: `@uses` is not supported: Nomi has no decorators"},
-		{"struct field", "struct Dog {\n  @uses logger\n  name: String\n}\n",
+		{"struct field", "struct Dog\n  @uses logger\n  name: String\nend\n",
 			"line 2, col 3: `@uses` is not supported: Nomi has no decorators"},
-		{"impl item", "impl Dog {\n  @uses logger\n  fn f(d: Dog) -> Int { 0 }\n}\n",
+		{"impl item", "impl Dog\n  @uses logger\n  fn f(d: Dog) -> Int { 0 }\nend\n",
 			"line 2, col 3: `@uses` is not supported: Nomi has no decorators"},
 		{"after an attached test", "//! assert f() == 0\n@uses logger\nfn f() -> Int { 0 }\n",
 			"line 2, col 1: `@uses` is not supported: Nomi has no decorators"},
@@ -48,7 +48,7 @@ func TestParseDecoratorIsRejectedEverywhere(t *testing.T) {
 
 // `uses` is an ordinary identifier.
 func TestParseUsesIsAnIdentifier(t *testing.T) {
-	nodes, err := Parse(lexer.Lex("fn uses(uses: Int) -> Int {\n  uses\n}\n"))
+	nodes, err := Parse(lexer.Lex("fn uses(uses: Int) -> Int\n  uses\nend\n"))
 	if err != nil {
 		t.Fatalf("the parser rejects `uses` as a name: %v", err)
 	}

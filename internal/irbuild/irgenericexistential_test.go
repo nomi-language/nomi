@@ -12,41 +12,41 @@ func TestIRGenericInstanceExistential_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Box<T> {
+struct Box<T>
     v: T
-}
+end
 
 derive Display for Box<T>
 
-struct Tag<T> {
+struct Tag<T>
     v: T
-}
+end
 
-impl Display for Tag<T> {
-    fn to_string(t: Tag<T>) -> String {
+impl Display for Tag<T>
+    fn to_string(t: Tag<T>) -> String
         "tag " + Debug.inspect(t.v)
-    }
-}
+    end
+end
 
-interface Named {
+interface Named
     fn name(x: self) -> String
-}
+end
 
-impl Named for Box<T> {
-    fn name(b: Box<T>) -> String {
+impl Named for Box<T>
+    fn name(b: Box<T>) -> String
         "box of " + Debug.inspect(b.v)
-    }
-}
+    end
+end
 
-fn show(d: Display) -> String {
+fn show(d: Display) -> String
     Display.to_string(d)
-}
+end
 
-fn named(n: Named) -> String {
+fn named(n: Named) -> String
     Named.name(n)
-}
+end
 
-fn main() {
+fn main()
     io.print(show(Box{v: 1}))
     io.print(show(Box{v: "s"}))
     io.print(show(Tag{v: 2}))
@@ -57,7 +57,7 @@ fn main() {
     io.print(named(Box{v: "u"}))
     xs: List<Named> = [Box{v: 4}, Box{v: 5}]
     io.print(xs |> Iter.map(Named.name) |> String.join(", "))
-}
+end
 `
 	const want = "Box{v: 1}\n" +
 		"Box{v: s}\n" +

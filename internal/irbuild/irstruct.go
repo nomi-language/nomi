@@ -368,7 +368,7 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 		return irRetainedEnumKind(k.def)
 	}
 	if k.tag == tagAnonStruct && !irKindReaches(k, outer) && irRetainedRecordKind(k) {
-		// `spare: .{context: Context}`: a record of retained values that
+		// `spare: {context: Context}`: a record of retained values that
 		// reaches no type this walk is deciding, held as the record. An
 		// application struct a boot returns in its `Ok` may hold one, as it
 		// did when boot returned the struct bare.
@@ -636,9 +636,12 @@ func irRetainedValueKind(k kind) bool {
 // `Json.ShapeError` shares the simple name's construction; struct-shaped
 // variants and leading-dot shorthand go through variantStructLit.
 func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
+	if t.EmptyMap {
+		return bl.emptyNamedMap(t)
+	}
 	if t.TypeName == nil {
 		if st := bl.g.targetStruct(t); st != nil {
-			// A target-typed brace literal (`a: Address = .{...}`) builds the
+			// A target-typed brace literal (`a: Address = {...}`) builds the
 			// nominal struct the checker chose, exactly as `Address{...}`.
 			k := bl.g.project(st)
 			if k.tag != tagNamed || k.def == nil {
@@ -665,7 +668,7 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 			// `span.Span{...}`: another file's generic struct, named through
 			// its module, or this file's dotted one (`Tree.Node{v: 1}`).
 			if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Module + "." + tn.Member.TypeString()); isTemplate && tpl.structDecl() != nil {
-				return bl.genericStructMake(t, tpl, instantiate)
+				return bl.genericStructMake(t, t, tpl, instantiate)
 			}
 		}
 		if d, namespaced := bl.g.namespacedType(tn); namespaced {
@@ -707,7 +710,7 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	// A user generic struct, declared here or selectively imported from
 	// another file (`import span.Span`).
 	if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Name); isTemplate {
-		return bl.genericStructMake(t, tpl, instantiate)
+		return bl.genericStructMake(t, t, tpl, instantiate)
 	}
 	d, found := bl.g.namedType(tn.Name)
 	if !found {
@@ -717,7 +720,7 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 		if bl.g.namesFromGen() == nil {
 			return no()
 		}
-		st, isStruct := analysis.ResolveTypeVar(bl.g.srcFA().ExprTypes[t]).(*analysis.StructType)
+		st, isStruct := analysis.ResolveClosed(bl.g.srcFA().ExprTypes[t]).(*analysis.StructType)
 		if !isStruct {
 			return no()
 		}
@@ -730,12 +733,13 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	return bl.structMakeOf(t, d)
 }
 
-// genericStructMake builds a literal of the user generic struct tpl at the
-// type arguments the checker solved for it. instantiate is the one
-// genericTemplateNamed handed back, so an instance of another file's template
-// is built there and mirrored here.
-func (bl *irScalarBuilder) genericStructMake(t *ast.StructLit, tpl *genericTemplate, instantiate func([]kind) (kind, bool)) (ir.Temp, kind, bool, bool) {
-	args, ok := bl.g.checkedStructTypeArgs(t, tpl)
+// genericStructMake builds a literal t of the user generic struct tpl at the
+// instance the checker typed typed as: the literal itself, or the struct
+// call form (`Box({v: 1})`, `{v: 2} |> Box()`) t is the record of.
+// instantiate is the one genericTemplateNamed handed back, so an instance of
+// another file's template is built there and mirrored here.
+func (bl *irScalarBuilder) genericStructMake(t *ast.StructLit, typed ast.Node, tpl *genericTemplate, instantiate func([]kind) (kind, bool)) (ir.Temp, kind, bool, bool) {
+	args, ok := bl.g.literalTypeArgs(typed, len(tpl.params))
 	if !ok {
 		return ir.NoTemp, kindInvalid, false, false
 	}
@@ -765,10 +769,12 @@ func (bl *irScalarBuilder) structMakeOf(t *ast.StructLit, d *typeDef) (ir.Temp, 
 		}
 		// Typed by the field, so a bare `None` or `Ok(v)` takes its kind.
 		src, k, mobile, ok := bl.lowerTypedOperand(f.Value, fd.k)
-		if ok && k != fd.k && bl.g.irBoxedErasure(fd.k, k) {
+		if ok && k != fd.k && irExistentialKind(fd.k) {
 			// A value whose runtime type does not name its impl enters
-			// boxed (irboxed.go).
-			src, k = bl.eraseBoxed(f.Value, src, fd.k, k), fd.k
+			// boxed, as the checker recorded the field's value (irboxed.go).
+			if boxed, want, how := bl.coerceRecorded(f.Value, src, k, fd.k); how == irCoercedBoxed {
+				src, k = boxed, want
+			}
 		}
 		erased := bl.g.irErases(fd.k, k)
 		if ok && k != fd.k && !erased && (mobile || irEmbeddedIn(fd.k, k)) {
@@ -884,13 +890,13 @@ func (bl *irScalarBuilder) declDefault(deflt ast.Node, want kind) (ir.Temp, bool
 		bl.side(cp.Dst(), irScalarSide{k: k, copy: irCopyForce})
 		v = cp.Dst()
 	}
-	if k != want && bl.g.irBoxedErasure(want, k) {
-		return bl.eraseBoxed(deflt, v, want, k), true
-	}
-	if k != want && bl.g.irErases(want, k) {
-		// A concrete implementer at an interface-typed field: the VM holds
-		// it as the existential's value, as the literal's written fields do.
-		return v, true
+	if k != want && irExistentialKind(want) {
+		// A concrete implementer at an interface-typed field: the interface
+		// value the checker recorded the default as, as the literal's
+		// written fields are.
+		if v, _, how := bl.coerceRecorded(deflt, v, k, want); how != irNotCoerced {
+			return v, true
+		}
 	}
 	v, k, ok = bl.coerceEmpty(deflt, v, k, want)
 	if !ok || k != want {
@@ -914,78 +920,45 @@ func (bl *irScalarBuilder) stdGenStructLitAnchor(tn *ast.SimpleType) *stdGenStru
 	return a
 }
 
-// stdGenStructMake builds a literal of a generic std struct. The instance is
-// solved from the written field values' kinds against the declaration's
-// field annotations, as a generic call's arguments solve its parameters: the
-// checker's field-label type names the struct's own parameters, which inside
-// a generic function are not the caller's. Every field must be written, and
-// the values are lowered, and forced, in source order.
+// stdGenStructMake builds a literal of a generic std struct at the
+// instance the checker typed it as (literalTypeArgs), each written value
+// converted to its field's kind as any struct literal's is (structMakeOf):
+// `w: Captured<Shape> = Captured{value: c, ...}` with c a Circle is a
+// Captured<Shape> whose value is the Circle entering Shape. Every field
+// must be written.
 func (bl *irScalarBuilder) stdGenStructMake(t *ast.StructLit, a *stdGenStructAnchor) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(t.Fields) != len(a.decl.Fields) {
 		return no()
 	}
-	params := map[string]bool{}
-	for _, tp := range a.decl.TypeParams {
-		params[tp.Name] = true
-	}
-	byName := map[string]ast.TypeExpr{}
-	for _, f := range a.decl.Fields {
-		byName[f.Name] = f.TypeAnnotation
-	}
-	vals := make(map[string]ir.Temp, len(t.Fields))
-	kinds := make(map[string]kind, len(t.Fields))
-	solved := map[string]kind{}
-	for _, f := range t.Fields {
-		ann := byName[f.Name]
-		if ann == nil {
-			return no()
-		}
-		if _, dup := vals[f.Name]; dup {
-			return no()
-		}
-		src, k, mobile, ok := bl.lower(f.Value)
-		if !ok {
-			return no()
-		}
-		if !mobile {
-			cp := ir.NewCopy(bl.g.irNodePos(f.Value), bl.f.NewTemp(), src)
-			bl.b.Append(cp)
-			bl.side(cp.Dst(), irScalarSide{k: k, copy: irCopyForce})
-			src = cp.Dst()
-		}
-		bl.g.unifyTypeParams(ann, k, params, solved)
-		vals[f.Name], kinds[f.Name] = src, k
-	}
-	args := make([]kind, len(a.decl.TypeParams))
-	for i, tp := range a.decl.TypeParams {
-		k, ok := solved[tp.Name]
-		// Unit is a field like any other (`Captured<Unit>`'s value), as
-		// in a user generic struct (generictype.go).
-		if !ok || (k != kindUnit && !irCallableValueKind(k)) {
-			return no()
-		}
-		args[i] = k
+	args, ok := bl.g.literalTypeArgs(t, len(a.decl.TypeParams))
+	if !ok {
+		return no()
 	}
 	k, ok := bl.g.genStructInstance(a.spec, args...)
 	if !ok || k.tag != tagNamed || !irRetainedStructKind(k.def) {
 		return no()
 	}
-	d := k.def
-	if len(d.fields) != len(vals) {
-		return no()
-	}
-	for i := range d.fields {
-		if fk, given := kinds[d.fields[i].nomi]; !given || fk != d.fields[i].k {
-			return no()
-		}
-	}
-	return bl.structMakeEmit(t, d, vals)
+	return bl.structMakeOf(t, k.def)
 }
 
 // targetStruct is the nominal struct the checker gave a brace literal with no
 // type name because its position expected one (analysis.FileAnalysis
 // .TargetStructs), or nil for an anonymous struct literal.
+// emptyNamedMap builds `Name{}` where Name is a type over a map
+// (ast.StructLit.EmptyMap): std's empty `Map{}`, a distinct type over the
+// empty map, or a variant whose payload is the empty map.
+func (bl *irScalarBuilder) emptyNamedMap(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
+	empty := &ast.MapLit{Line: t.Line, Col: t.Col}
+	if st, ok := t.TypeName.(*ast.SimpleType); ok && st.Name == "Map" && bl.g.literalDistinct(t) == nil && bl.g.checkedKind(t).tag == tagMap {
+		return bl.emptyMapLit(t, nil)
+	}
+	if d := bl.g.literalDistinct(t); d != nil {
+		return bl.compositeDistinctMake(&ast.Call{Args: []ast.Node{empty}, Line: t.Line, Col: t.Col}, d)
+	}
+	return bl.attachedVariant(t, t.TypeName, empty)
+}
+
 func (g *gen) targetStruct(t *ast.StructLit) *analysis.StructType {
 	if g.fa == nil || t.Spread != nil {
 		return nil

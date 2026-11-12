@@ -1,8 +1,8 @@
 import minio
 
-test "lib/storage/s3 works against MinIO" {
+test "lib/storage/s3 works against MinIO"
     server = minio.start()!
     defer minio.stop(server)
 
     assert minio.checks(server.config) == []
-}
+end

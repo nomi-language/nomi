@@ -19,17 +19,17 @@ import (
 	"github.com/nomi-language/nomi/vmrunner"
 )
 
-const localeProgram = `import {
+const localeProgram = `import
     std::io
-}
+end
 
-fn main() {
+fn main()
     io.print(Int.format(1234567, Locale` + "`de`" + `))
     io.print(Int.format(1234567, Locale` + "`de-CH`" + `))
     io.print(Int.format(1234567, Result.with_default(Locale.parse("fr"), Locale` + "`de`" + `)))
     io.print(String.join_list(["a", "b", "c"], Locale` + "`pl`" + `))
     io.print("${Locale.available()}")
-}
+end
 `
 
 // loadWithLocales loads src with a nomi.toml that lists locales under
@@ -134,7 +134,7 @@ func TestLocaleImage_CarriesOnlyTheReachedParts(t *testing.T) {
 		{"fallbacks", `io.print("${Result.map(Locale.parse("es-MX"), Locale.fallbacks)}")`,
 			[]string{"parent\tes-MX\tes-419"}, []string{"locale\t", "cardinal\t", "symbols\t"}},
 	} {
-		src := "import {\n    std::io\n    std::plural.PluralCategory\n}\n\nfn main() {\n    " + c.body + "\n}\n"
+		src := "import\n    std::io\n    std::plural.PluralCategory\nend\n\nfn main()\n    " + c.body + "\nend\n"
 		if !strings.Contains(c.body, "Plural") {
 			src = strings.Replace(src, "    std::plural.PluralCategory\n", "", 1)
 		}
@@ -151,7 +151,7 @@ func TestLocaleImage_CarriesOnlyTheReachedParts(t *testing.T) {
 		}
 	}
 	// A program that reads no locale data carries none.
-	data, _ := imageLocales(t, loadWithLocales(t, "import std::io\n\nfn main() {\n    io.print(\"hi\")\n}\n", "de"))
+	data, _ := imageLocales(t, loadWithLocales(t, "import std::io\n\nfn main()\n    io.print(\"hi\")\nend\n", "de"))
 	if len(data) != 0 {
 		t.Errorf("a program that formats nothing carries %d bytes of locale data", len(data))
 	}
@@ -206,38 +206,38 @@ func takesFrame(fn any) bool {
 // that lost the machine's read empty data and wrote root's patterns
 // (`2025 9 10` for `September 10, 2025`).
 func TestLocaleImage_ASupervisedTaskReadsTheProgramsLocales(t *testing.T) {
-	src := `import {
+	src := `import
     std::calendar.{DateTime, DateTimeFields, NaiveDateTime}
     std::io
     std::supervisors.Supervisor
-}
+end
 
-pub struct App {
+pub struct App
     context: Context
     web: Supervisor
-}
+end
 
-pub fn boot() -> Result<App, String> {
+pub fn boot() -> Result<App, String>
     Ok(App{context: Context.root(), web: Supervisor.new(max_running: 2)})
-}
+end
 
 once en = Locale` + "`en-US`" + `
 
-fn written(at: NaiveDateTime, fields: DateTimeFields) -> String {
+fn written(at: NaiveDateTime, fields: DateTimeFields) -> String
     DateTime.format_fields(DateTime.in_zone(at, "UTC")!, en, fields)
-}
+end
 
-fn handle() -> Unit {
+fn handle() -> Unit
     at = NaiveDateTime.new(2025, 9, 10, 13, 0)!
     io.print(written(at, DateTimeFields` + "`yMMMMd`" + `))
     io.print(written(at, DateTimeFields` + "`hmm`" + `))
     io.print("${Locale.available()}")
-}
+end
 
-fn main() {
+fn main()
     _ = Supervisor.spawn(App.web, fn -> handle())
     _ = Supervisor.flush(App.web)
-}
+end
 `
 	p := loadWithLocales(t, src, "en", "pl")
 	_, image := imageLocales(t, p)

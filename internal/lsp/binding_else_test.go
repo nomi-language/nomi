@@ -9,27 +9,29 @@ import (
 	"github.com/nomi-language/nomi/internal/parser"
 )
 
-const bindingElseSrc = `enum LoadError {
+const bindingElseSrc = `enum LoadError
   NotFound
   Broken(String)
-}
+end
 
-fn load(id: Int) -> Result<String, LoadError> {
+fn load(id: Int) -> Result<String, LoadError>
   Err(.NotFound)
-}
+end
 
-fn name(id: Int) -> Result<String, String> {
-  Ok(user) = load(id) else {
+fn name(id: Int) -> Result<String, String>
+  Ok(user) = load(id) else
     Err(.NotFound) -> return Err("none")
     Err(err) -> return Err("broken: ${Debug.inspect(err)}")
-  }
+  end
   Ok("${user}!")
-}
+end
 
-fn size(r: Result<(Int, Int), String>) -> Int {
-  Ok((width, height)) = r else { (80, 24) }
+fn size(r: Result<(Int, Int), String>) -> Int
+  Ok((width, height)) = r else
+      (80, 24)
+  end
   width * height
-}
+end
 `
 
 // posOf is the 1-based position of the nth (0-based) occurrence of word on

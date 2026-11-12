@@ -89,7 +89,7 @@ func lineAt(t *testing.T, uri protocol.DocumentUri, line uint32) string {
 	return lines[line]
 }
 
-const someImport = "import std::maybe.Maybe.{Some, None}\n\nfn main() {\n    _ = Some(1)\n}\n"
+const someImport = "import std::maybe.Maybe.{Some, None}\n\nfn main()\n    _ = Some(1)\nend\n"
 
 // Two servers built from different std sources, sharing one cache root,
 // materialize to two directories: the second writes nothing the first's
@@ -152,7 +152,7 @@ func TestStdMaterialize_TwoServersWriteTwoVersions(t *testing.T) {
 	}
 }
 
-const regexUser = "import std::regex.Regex\n\nfn main() {\n    _ = Regex.compile(\"a\")\n}\n"
+const regexUser = "import std::regex.Regex\n\nfn main()\n    _ = Regex.compile(\"a\")\nend\n"
 
 // newerRegex is std/regex as a newer std might have it: every declaration
 // a line lower, and `compile` renamed, so a user file analyzed against it
@@ -206,7 +206,7 @@ func TestStdBuffer_ChangedTextStaysInItsOwnBuffer(t *testing.T) {
 				t.Errorf("the changed std buffer reports %v, want the one note", p.msgs)
 			}
 
-			edited := regexUser + "\nfn other() -> Bool {\n    Regex.compile(\"b\") |> Result.is_ok()\n}\n"
+			edited := regexUser + "\nfn other() -> Bool\n    Regex.compile(\"b\") |> Result.is_ok()\nend\n"
 			c.change(uri, 2, edited)
 			for {
 				p := c.waitDiagnostics(uri)
@@ -221,7 +221,7 @@ func TestStdBuffer_ChangedTextStaysInItsOwnBuffer(t *testing.T) {
 	}
 }
 
-const someAndRegex = "import std::maybe.Maybe.{Some}\nimport std::regex.Regex\n\nfn main() {\n    _ = Some(1)\n    _ = Regex.compile(\"a\")\n}\n"
+const someAndRegex = "import std::maybe.Maybe.{Some}\nimport std::regex.Regex\n\nfn main()\n    _ = Some(1)\n    _ = Regex.compile(\"a\")\nend\n"
 
 // Go-to-definition into std lands in the checkout's std source tree only for
 // a file whose content is the std the server runs. A checkout file changed

@@ -19,58 +19,63 @@ type Kvs Map<String, Int>
 
 type Callback (String) -> String
 
-interface Named {
+interface Named
   fn name(value: self) -> String
-  fn greet(value: self, loud: Bool = False) -> String {
-    if loud { "HI " + name(value) } else { "hi " + name(value) }
-  }
-}
+  fn greet(value: self, loud: Bool = False) -> String
+    if loud then "HI " + name(value) else "hi " + name(value)
+  end
+end
 
-struct Dog {
+struct Dog
   name: String
-}
+end
 
-impl Named for Dog {
-  fn name(dog: Dog) -> String { dog.name }
-}
+impl Named for Dog
+  fn name(dog: Dog) -> String
+      dog.name
+  end
+end
 
-fn say(n: Named) -> String {
+fn say(n: Named) -> String
   Named.greet(n) + "/" + Named.name(n)
-}
+end
 
-fn pick(a: Bool, b: Bool) -> String {
-  case {
+fn pick(a: Bool, b: Bool) -> String
+  case
     a and b -> "both"
     a or b -> "one"
     _ -> "none"
-  }
-}
+  end
+end
 
-fn noisy(label: String, v: Bool) -> Bool {
+fn noisy(label: String, v: Bool) -> Bool
   io.print(label)
   v
-}
+end
 
-fn classify(f: Float) -> String {
-  case f {
+fn classify(f: Float) -> String
+  case f
     -2.5 -> "neg"
     0.0 -> "zero"
     _ -> "other"
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   io.inspect(pick(True, True))
   io.inspect(pick(False, True))
   io.inspect(pick(False, False))
-  io.inspect(case { noisy("a", False) and noisy("b", True) -> 1 _ -> 0 })
+  io.inspect(case
+      noisy("a", False) and noisy("b", True) -> 1
+      _ -> 0
+  end)
   io.inspect(Iter.sort([2.0, 1.0, 3.0, -0.0, 0.0]))
   io.inspect([False < True, True <= False, True >= True, "a" < "b", [1, 2] < [1, 3], [2] > [1, 9]])
   c = Coord(3, 4)
   io.inspect(c)
   io.inspect(c == Coord(3, 4))
   io.inspect(c == Coord((3, 5)))
-  k = %Kvs{"a" => 1}
+  k = Kvs{"a" => 1}
   io.inspect(k)
   cb = Callback(fn s -> s + "!")
   io.print(run(cb, "go"))
@@ -79,10 +84,10 @@ fn main() {
   io.inspect(classify(-2.5))
   io.inspect(classify(-0.0))
   io.inspect(Set.size(Iter.to_set([1.50d, 1.5d, 2.0d])))
-}
+end
 
-fn run(cb: Callback, s: String) -> String {
+fn run(cb: Callback, s: String) -> String
   cb(s)
-}
-`, "\"both\"\n\"one\"\n\"none\"\na\n0\n[-0.0, 0.0, 1.0, 2.0, 3.0]\n[True, False, True, True, True, True]\nCoord(3, 4)\nTrue\nFalse\nKvs(%{\"a\" => 1})\ngo!\nhi Rex/Rex\nHI Rex\n\"neg\"\n\"zero\"\n2\n")
+end
+`, "\"both\"\n\"one\"\n\"none\"\na\n0\n[-0.0, 0.0, 1.0, 2.0, 3.0]\n[True, False, True, True, True, True]\nCoord(3, 4)\nTrue\nFalse\nKvs({\"a\" => 1})\ngo!\nhi Rex/Rex\nHI Rex\n\"neg\"\n\"zero\"\n2\n")
 }

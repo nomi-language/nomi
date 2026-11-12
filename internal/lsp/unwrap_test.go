@@ -13,19 +13,19 @@ import (
 const unwrapSource = `import std::io
 
 /// Halves an even number.
-fn half(n: Int) -> Result<Int, String> {
-  if n % 2 == 0 {
+fn half(n: Int) -> Result<Int, String>
+  if n % 2 == 0 then
     Ok(n / 2)
-  } else {
+  else
     Err("odd")
-  }
-}
+  end
+end
 
-fn main() {
+fn main()
   count = 4
   io.inspect(half(count)!)
-  io.inspect(Map.get(%{"a" => 1}, "a")!)
-}
+  io.inspect(Map.get({"a" => 1}, "a")!)
+end
 `
 
 func openUnwrapProject(t *testing.T, text string) (*Server, string) {
@@ -76,10 +76,10 @@ func TestUnwrap_SignatureHelpAndCompletion(t *testing.T) {
 // result.
 func TestUnwrap_PipeStageHover(t *testing.T) {
 	runPipeHoverCases(t, []pipeHoverCase{
-		{"an unwrapped stage", `fn main() {
+		{"an unwrapped stage", `fn main()
   n = "4" ▮|> String.to_int()!
   io.inspect(n)
-}
+end
 `, "`String` → `String.to_int(s)!` → `Int`\n\n```nomi\nfn to_int(s: String) -> Maybe<Int>\n```\n\nThe piped value fills `s`."},
 	})
 }

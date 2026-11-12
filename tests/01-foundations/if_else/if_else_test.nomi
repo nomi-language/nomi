@@ -1,69 +1,71 @@
-import {
+import
     std::compiler
     test_helpers
-}
+end
 
-test "if else is an expression" {
+test "if else is an expression"
     x = 42
-    label = if x > 50 { "big" } else { "small" }
+    label = if x > 50 then "big" else "small"
     assert label == "small"
-}
+end
 
-test "if without else returns Unit either way" {
-    when_true = if True { Unit }
-    when_false = if False { Unit }
+test "if without else returns Unit either way"
+    when_true = if True then Unit
+    when_false = if False then Unit
 
     assert when_true == Unit
     assert when_false == Unit
-}
+end
 
-test "if without else is a Maybe when its branch has a value" {
-    when_true = if True { 1 }
-    when_false = if False { 1 }
+test "if without else is a Maybe when its branch has a value"
+    when_true = if True then 1
+    when_false = if False then 1
 
     assert when_true == Some(1)
     assert when_false == None
-}
+end
 
-test "an else if chain without a final else is a Maybe" {
-    pick = fn n: Int -> {
-        if n > 0 {
+test "an else if chain without a final else is a Maybe"
+    pick = fn n: Int ->
+        if n > 0 then
             "positive"
-        } else if n < 0 {
+        else if n < 0 then
             "negative"
-        }
-    }
+        end
+    end
 
     assert pick(1) == Some("positive")
     assert pick(-1) == Some("negative")
     assert pick(0) == None
-}
+end
 
-test "if without else does not flatten a Maybe branch" {
-    nested = if True { if False { 1 } }
+test "if without else does not flatten a Maybe branch"
+    nested = if True then
+        if False then 1
+    end
 
     assert nested == Some(None)
-}
+end
 
-test "a Maybe if is not a statement" {
+test "a Maybe if is not a statement"
     diagnostics = compiler.check(
         """
-          fn main() {
-            if True { 1 }
+          fn main()
+            if True then 1
             Unit
-          }
+          end
         """
     )
 
     assert test_helpers.has_diagnostic(diagnostics, "non-final expression has type Maybe<Int>")
-}
+end
 
-test "a forgotten else is a Maybe where a value is expected" {
+test "a forgotten else is a Maybe where a value is expected"
     diagnostics = compiler.check(
         """
-          fn label(n: Int) -> String {
-            if n > 0 { "positive" }
-          }
+          fn label(n: Int) -> String
+            if n > 0 then "positive"
+          end
         """
     )
 
@@ -71,92 +73,88 @@ test "a forgotten else is a Maybe where a value is expected" {
         diagnostics,
         "return type mismatch: expected String, got Maybe<String>",
     )
-}
+end
 
-test "if without else allows Unit side effects" {
-    fake_side_effect = fn -> {
+test "if without else allows Unit side effects"
+    fake_side_effect = fn ->
         // Imagine an io.print side effect here
         Unit
-    }
+    end
 
-    result = if True { fake_side_effect() }
+    result = if True then fake_side_effect()
 
     assert result == Unit
-}
+end
 
-test "if without else allows early return branches" {
+test "if without else allows early return branches"
     assert parse_id("") == Err("empty")
     assert parse_id("42") == Ok(42)
-}
+end
 
-test "nested if expressions return branch values" {
+test "nested if expressions return branch values"
     x = 42
 
-    result = if x == 42 {
-        "the answer"
-    } else {
-        "not the answer"
-    }
+    result = if x == 42 then "the answer" else "not the answer"
 
     assert result == "the answer"
-}
+end
 
-test "if can match and bind a pattern" {
+test "if can match and bind a pattern"
     maybe_name = Some("Ada")
 
-    label = if Some(name) = maybe_name {
+    label = if Some(name) = maybe_name then
         name
-    } else {
+    else
         "unknown"
-    }
+    end
 
     assert label == "Ada"
-}
+end
 
-test "if pattern mismatch evaluates else" {
+test "if pattern mismatch evaluates else"
     maybe_name: Maybe<String> = None
 
-    label = if Some(name) = maybe_name {
+    label = if Some(name) = maybe_name then
         name
-    } else {
+    else
         "unknown"
-    }
+    end
 
     assert label == "unknown"
-}
+end
 
-test "if pattern bindings are scoped to the then branch" {
+test "if pattern bindings are scoped to the then branch"
     diagnostics = compiler.check(
         """
-          fn main() {
+          fn main()
             maybe_name = Some("Ada")
-            if Some(name) = maybe_name { Unit }
+            if Some(name) = maybe_name then Unit
             name
-          }
+          end
         """
     )
 
     assert test_helpers.has_diagnostic(diagnostics, "undefined variable 'name'")
-}
+end
 
-test "else if chains select the first matching branch" {
+test "else if chains select the first matching branch"
     x = 42
 
-    bucket = if x < 0 {
+    bucket = if x < 0 then
         "negative"
-    } else if x < 10 {
+    else if x < 10 then
         "small"
-    } else if x < 100 {
+    else if x < 100 then
         "medium"
-    } else {
+    else
         "large"
-    }
+    end
 
     assert bucket == "medium"
-}
+end
 
-fn parse_id(input: String) -> Result<Int, String> {
-    if String.length(input) == 0 { return Err("empty") }
+fn parse_id(input: String) -> Result<Int, String>
+    if String.length(input) == 0 then return Err("empty")
 
     Ok(42)
-}
+end

@@ -14,48 +14,48 @@ import (
 // rows. The boot prints the row it boots.
 const testRunSource = `import std::io
 
-struct Config {
+struct Config
   store: String
-}
+end
 
-fn boot(startup: Startup) -> Result<Config, String> {
+fn boot(startup: Startup) -> Result<Config, String>
   store = Map.get(startup.env, "STORE") |> Maybe.with_default("none")
   io.print("booting ${store}")
-  Ok(Config{store: store})
-}
+  Ok(Config{store:})
+end
 
-fn main() {}
+fn main() end
 
 //! assert double(2) == 4
-fn double(x: Int) -> Int {
+fn double(x: Int) -> Int
   x * 2
-}
+end
 
-test "top level" {
+test "top level"
   assert double(1) == 2
-}
+end
 
-group "plain" {
-  test "inner" {
+group "plain"
+  test "inner"
     assert True
-  }
-}
+  end
+end
 
-group "todo api" {
-  subtests ["memory", "sqlite"], store {
-    boot boot(Startup{env: %{"STORE" => store}})
+group "todo api"
+  subtests ["memory", "sqlite"], store
+    boot boot(Startup{env: {"STORE" => store}})
 
-    test "creates" {
+    test "creates"
       assert Config.store == store
-    }
+    end
 
-    test "counts" {
-      subtests [1, 2, 3], n {
+    test "counts"
+      subtests [1, 2, 3], n
         assert n > 0
-      }
-    }
-  }
-}
+      end
+    end
+  end
+end
 `
 
 func writeTestRunFixture(t *testing.T) (dir, path string) {
@@ -167,7 +167,7 @@ func TestTestCommand_RunSkipsFilesItSelectsNothingIn(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	dir, _ := writeTestRunFixture(t)
-	mustWrite(t, filepath.Join(dir, "broken_test.nomi"), "test \"broken\" {\n  assert 1 == \"one\"\n}\n")
+	mustWrite(t, filepath.Join(dir, "broken_test.nomi"), "test \"broken\"\n  assert 1 == \"one\"\nend\n")
 	stdout, stderr, err := runNomiSplit(t, t.TempDir(), dir, "test", ".", "--run", "top level")
 	if err != nil {
 		t.Fatalf("%v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
@@ -192,13 +192,13 @@ func TestFFI_TestRunSelectsCases(t *testing.T) {
 
 fn upper(s: String) -> String go strings.ToUpper
 
-test "upper" {
+test "upper"
   assert upper("hi") == "HI"
-}
+end
 
-test "fails" {
+test "fails"
   assert upper("hi") == "hi"
-}
+end
 `)
 	r := runProcess(t, env, t.TempDir(), "", nomiBin, "test", tests, "--run", "^upper$")
 	if r.exit != 0 || !strings.Contains(r.stdout, "1 passed, 0 failed") || strings.Contains(r.stdout, "fails") {

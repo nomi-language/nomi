@@ -413,21 +413,47 @@ func (g *gen) stdProgBinds(d *ifaceDef, k kind) bool {
 			return false
 		}
 		for _, m := range d.order {
-			if it := impl.items[m.name]; m.dispatchable() && (it == nil || !it.lowerable) {
+			it := impl.items[m.name]
+			if it == nil && stdProgInheritsDefault(m) {
+				// The interface's default, which the block does not write:
+				// its dispatch entry is a thunk instantiating it at k
+				// (irRecordImpls). An enum with an `embeds` variant is named
+				// as its box will name it, which this boxing marks.
+				typ := g.irImplDispatchTypeSym(k)
+				if typ == nil && irBoxedEnum(k) {
+					typ = g.irImplTypeSym(k)
+				}
+				if typ == nil || g.stdProgThunk(d, m, k, typ.Name()) == nil {
+					return false
+				}
+				continue
+			}
+			if m.dispatchable() && (it == nil || !it.lowerable) {
 				return false
 			}
 		}
 		return true
 	}
 	// Another file's impl: the program index, keyed by the declaration and
-	// the arguments. A function with a default body may be one that block
-	// does not write, which no dispatch entry would answer.
+	// the arguments. A Nomi default that block does not write is answered by
+	// the thunk that file records for it (irRecordImpls); any other default
+	// may be one no dispatch entry would answer.
 	for _, m := range d.order {
+		if stdProgInheritsDefault(m) {
+			continue
+		}
 		if m.dispatchable() && (m.decl == nil || m.decl.Body != nil || m.decl.Open || m.decl.Extern) {
 			return false
 		}
 	}
 	return g.impls != nil && g.impls.has[implKeyFor(d, k)]
+}
+
+// stdProgInheritsDefault reports whether m is a dispatchable function of a
+// std interface with a Nomi body, which an implementor that does not write
+// it inherits (`ToJson.to_json_field`).
+func stdProgInheritsDefault(m *ifaceMethod) bool {
+	return m.dispatchable() && m.decl != nil && m.decl.Body != nil && !m.decl.Extern
 }
 
 // stdProgScalarParams is m's parameter kinds with each self position k.
@@ -591,6 +617,11 @@ func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, sym *ir.
 		v, rk, ok = bl.recordToJsonOf(at, sh.paramTemps[0], have, m.result, "")
 		handled = true
 	}
+	if irRetainedRecordKind(have) && d.stdOrigin == "std/json" && d.decl.Name == "ToJson" && m.name == "to_json_field" && len(params) == 1 {
+		// The default, Some of the record's JSON.
+		v, rk, ok = bl.recordToJsonFieldOf(at, sh.paramTemps[0], have, m.result)
+		handled = true
+	}
 	if !handled && (g.stdProgBareNames(d) || g.stdCases) {
 		// A std container's impl is a template instantiated at the call,
 		// which a std module's cases reach under their module's own name
@@ -608,9 +639,15 @@ func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, sym *ir.
 			plan = bl.stdFuncPlan(at, args, g.stdProgImplOf(d, m, args.kinds))
 		}
 		if plan == nil {
-			return false
+			// No impl writes the method: the interface's default
+			// (`ToJson.to_json_field`), instantiated at the held kind.
+			v, rk, _, ok, handled = bl.stdIfaceDefaultCall(at, args, d.decl.Name, m.name)
+			if !handled {
+				return false
+			}
+		} else {
+			v, rk, _, ok = bl.qualEmit(at, args, plan)
 		}
-		v, rk, _, ok = bl.qualEmit(at, args, plan)
 	}
 	if !ok || rk != m.result {
 		return false

@@ -30,27 +30,27 @@ func TestFormat_ImportCommentEndsSortSection(t *testing.T) {
 		{
 			name: "sections sort within themselves",
 			src:  "import gamma.g\nimport beta.b\n// s1\nimport zeta.z\nimport alpha.a\n",
-			want: "import {\n    beta.b\n    gamma.g\n}\n// s1\nimport {\n    alpha.a\n    zeta.z\n}\n",
+			want: "import\n    beta.b\n    gamma.g\nend\n// s1\nimport\n    alpha.a\n    zeta.z\nend\n",
 		},
 		{
 			name: "comment before the first import",
 			src:  "// header\nimport beta.parse\n\nimport alpha.add\n",
-			want: "// header\nimport {\n    alpha.add\n    beta.parse\n}\n",
+			want: "// header\nimport\n    alpha.add\n    beta.parse\nend\n",
 		},
 		{
 			name: "comment after the last import",
-			src:  "import beta.parse\nimport alpha.add\n// tail\n\nfn main() {\n    Unit\n}\n",
-			want: "import {\n    alpha.add\n    beta.parse\n}\n\n// tail\nfn main() {\n    Unit\n}\n",
+			src:  "import beta.parse\nimport alpha.add\n// tail\n\nfn main()\n    Unit\nend\n",
+			want: "import\n    alpha.add\n    beta.parse\nend\n\n// tail\nfn main()\n    Unit\nend\n",
 		},
 		{
 			name: "comment inside a block moves with its entry",
-			src:  "import {\n    beta.parse\n    // s1\n    alpha.add\n}\n",
-			want: "import {\n    // s1\n    alpha.add\n    beta.parse\n}\n",
+			src:  "import\n    beta.parse\n    // s1\n    alpha.add\nend\n",
+			want: "import\n    // s1\n    alpha.add\n    beta.parse\nend\n",
 		},
 		{
 			name: "comment between, inside a function body",
-			src:  "fn main() {\n    import beta.parse\n    // s1\n\n    import alpha.add\n\n    Unit\n}\n",
-			want: "fn main() {\n    import beta.parse\n    // s1\n    import alpha.add\n\n    Unit\n}\n",
+			src:  "fn main()\n    import beta.parse\n    // s1\n\n    import alpha.add\n\n    Unit\nend\n",
+			want: "fn main()\n    import beta.parse\n    // s1\n    import alpha.add\n\n    Unit\nend\n",
 		},
 	}
 	for _, c := range cases {

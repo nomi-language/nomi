@@ -39,10 +39,10 @@ func (c *checker) checkAscription(n *ast.Ascription) Type {
 	}
 	subs := map[*TypeParam_]Type{}
 	if err := c.unifyInto(declared, valTy, subs); err != nil {
-		c.report(shapeLiteralConfusion(errAt(n.Value, c.typef(
+		c.report(errAt(n.Value, c.typef(
 			"type mismatch: expected %s, got %s", declared, valTy)).
 			WithHint(conversionHint(valTy, declared, n.Value)).
-			WithHint(c.mismatchHint(declared, valTy)), declared, n.Value))
+			WithHint(c.mismatchHint(declared, valTy)))
 		return declared
 	}
 	if redundant && c.fa != nil && !c.annotationTrial {

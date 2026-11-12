@@ -23,59 +23,59 @@ func TestOperatorDiagnosticsPointAtTheOperatorOrOperand(t *testing.T) {
 		want string
 	}{
 		{"missing impl among several", instantSubtractImports + `
-fn main() {
+fn main()
     _ = Instant.from_seconds(15) ‸- 5
-}
+end
 `, "no matching Subtract impl for Instant - Int"},
-		{"builtin mismatch", `fn main() {
+		{"builtin mismatch", `fn main()
     _ = 1 ‸+ "a"
-}
+end
 `, "binary + type mismatch: Int vs String"},
-		{"operand on a continuation line", `fn main() {
+		{"operand on a continuation line", `fn main()
     _ = True and
         ‸3
-}
+end
 `, "'and' operands must be Bool, got Int"},
-		{"equality mismatch", `fn main() {
+		{"equality mismatch", `fn main()
     _ = 1 ‸== "a"
-}
+end
 `, "equality type mismatch: Int vs String"},
-		{"comparison mismatch", `fn main() {
+		{"comparison mismatch", `fn main()
     _ = 1 ‸< "a"
-}
+end
 `, "comparison type mismatch: Int vs String"},
-		{"unorderable operand", `fn main() {
-    _ = .{a: 1} ‸< .{a: 2}
-}
+		{"unorderable operand", `fn main()
+    _ = {a: 1} ‸< {a: 2}
+end
 `, "no impl of `Comparable`"},
-		{"type without an operator impl", `fn main() {
-    _ = %{"a" => 1} ‸- %{"a" => 1}
-}
+		{"type without an operator impl", `fn main()
+    _ = {"a" => 1} ‸- {"a" => 1}
+end
 `, "no impl of `Subtract` for `Map`"},
-		{"right operand of a single impl", `fn main() {
-    _ = %[1] + ‸2
-}
+		{"right operand of a single impl", `fn main()
+    _ = Set[1] + ‸2
+end
 `, "binary + right operand mismatch: Add expects Set<Int>, got Int"},
-		{"right operand of `and`", `fn main() {
+		{"right operand of `and`", `fn main()
     _ = True and ‸3
-}
+end
 `, "'and' operands must be Bool, got Int"},
-		{"left operand of `or`", `fn main() {
+		{"left operand of `or`", `fn main()
     _ = ‸(1 + 2) or True
-}
+end
 `, "'or' operands must be Bool, got Int"},
-		{"unary minus", `fn main() {
+		{"unary minus", `fn main()
     _ = ‸-"x"
-}
+end
 `, "unary - operand must be numeric, got String"},
-		{"interface-qualified argument", `fn main() {
-    _ = Add.add(%[1], ‸2)
-}
+		{"interface-qualified argument", `fn main()
+    _ = Add.add(Set[1], ‸2)
+end
 `, "argument 2: expected Set<Int>, got Int"},
 		{"interface-qualified missing impl", instantSubtractImports + `
-fn main() {
+fn main()
     _ = ‸Subtract.subtract(Instant.from_seconds(15), 5)
-}
+end
 `, "no matching Subtract impl for Instant - Int"},
 	}
 	for _, row := range rows {

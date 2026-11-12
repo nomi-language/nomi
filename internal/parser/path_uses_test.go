@@ -12,27 +12,27 @@ import (
 // alias is the name, an import at the top of a block sees only its block,
 // and a selective import has none.
 func TestNotePathUses(t *testing.T) {
-	nodes := parse(t, `import {
+	nodes := parse(t, `import
     views::admin
     db as store
     std::io.{print}
-}
+end
 
-fn show(u: admin::users.Row) -> String {
-    case u {
-        admin::users.Row{name} -> "${admin::reports::daily.show()}${name}"
-    }
-}
+fn show(u: admin::users.Row) -> String
+    case u
+        admin::users.Row{name:} -> "${admin::reports::daily.show()}${name}"
+    end
+end
 
-fn main() {
+fn main()
     import jobs
 
     _ = (admin::users.index([]), store::posts.Post{id: 1}, jobs::mail.send())
-}
+end
 
-fn other() {
+fn other()
     _ = jobs::queue.run()
-}
+end
 `)
 	block := nodes[0].(*ast.ImportBlock)
 	for i, want := range []string{"reports::daily users", "posts", ""} {

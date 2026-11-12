@@ -31,7 +31,7 @@ func (g *gen) byteLiteral(t *ast.IntLit) bool {
 		return false
 	}
 	ty := g.srcFA().ExprTypes[t]
-	return ty != nil && analysis.ResolveTypeVar(ty) == analysis.TypeByte
+	return ty != nil && analysis.ResolveClosed(ty) == analysis.TypeByte
 }
 
 // byteLiteral lowers an Int literal the checker typed as a Byte: a Byte

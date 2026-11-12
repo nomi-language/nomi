@@ -75,7 +75,7 @@ Parts of a shipped feature that are not built. Each line is open work.
 
 ## Type checker
 
-- [ ] The release rules (spec §9 *Releasing resources*) do not cover `fs.make_temp_dir`, whose directory is a `String`, nor a `Reader` or `Writer` that a program's own function returns outside a `Result` (`fn log() -> Reader { fs.open(path)! }`), which a caller is not held to release.
+- [ ] The release rules (spec §9 *Releasing resources*) do not cover `fs.make_temp_dir`, whose directory is a `String`, nor a `Reader` or `Writer` that a program's own function returns outside a `Result` (`fn log() -> Reader` whose body is `fs.open(path)!`), which a caller is not held to release.
 - [ ] Unused file-private declarations are not reported.
 - [ ] A discarded call (`_ = f(x)`) is not diagnosed. Deciding that it is dead needs effect tracking, and purity is not enough: Nomi traps, so `_ = a / b` can fail on a zero divisor and is observable.
 

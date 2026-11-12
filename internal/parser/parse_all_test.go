@@ -11,7 +11,7 @@ import (
 // statement inside a body, in source order, and nothing for a statement
 // that only follows a damaged one.
 func TestParseAll_ReportsEachStatementsError(t *testing.T) {
-	src := "fn main() {\n    let a = 1\n    b := 2\n    ok = 3\n    dbg a\n}\n\nfn other() -> Int {\n    xs = [1\n    1\n}\n"
+	src := "fn main()\n    let a = 1\n    b := 2\n    ok = 3\n    dbg a\nend\n\nfn other() -> Int\n    xs = [1\n    1\nend\n"
 	_, errs := ParseAll(lexer.Lex(src))
 	var lines []int
 	for _, e := range errs {
@@ -26,7 +26,7 @@ func TestParseAll_ReportsEachStatementsError(t *testing.T) {
 			t.Fatalf("errors on lines %v, want %v: %v", lines, want, errs)
 		}
 	}
-	if _, errs := ParseAll(lexer.Lex("fn main() {\n    dbg 1\n}\n")); errs != nil {
+	if _, errs := ParseAll(lexer.Lex("fn main()\n    dbg 1\nend\n")); errs != nil {
 		t.Fatalf("a valid file has errors: %v", errs)
 	}
 }
@@ -36,7 +36,7 @@ func TestParseAll_ReportsEachStatementsError(t *testing.T) {
 // still used (an import they name is not reported unused). A `{` the error
 // is inside keeps its lines (TestTap_BadOperandDoesNotCascade).
 func TestParseAll_UnclosedParenEndsAtTheLine(t *testing.T) {
-	src := "fn main() {\n    let = (\n    io.print(a)\n    io.print(b)\n    io.print(after)\n}\n\nfn next() {}\n"
+	src := "fn main()\n    let = (\n    io.print(a)\n    io.print(b)\n    io.print(after)\nend\n\nfn next() end\n"
 	if _, errs := ParseAll(lexer.Lex(src)); len(errs) != 1 {
 		t.Fatalf("got %d errors, want 1: %v", len(errs), errs)
 	}

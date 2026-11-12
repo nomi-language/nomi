@@ -21,56 +21,56 @@ func TestRelabel_ConvertsNoElement(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `struct Pt {
+	const src = `struct Pt
     x: Int
-}
+end
 
-interface Named {
+interface Named
     fn name(v: self) -> String
-}
+end
 
-impl Named for Pt {
-    fn name(_p: Pt) -> String {
+impl Named for Pt
+    fn name(_p: Pt) -> String
         "pt"
-    }
-}
+    end
+end
 
-fn ints(xs: List<Int>) -> List<Display> {
+fn ints(xs: List<Int>) -> List<Display>
     xs
-}
+end
 
-fn pts(xs: List<Pt>) -> List<Named> {
+fn pts(xs: List<Pt>) -> List<Named>
     xs
-}
+end
 
-fn funcs(fs: List<(Int) -> Int>) -> List<(Int) -> Display> {
+fn funcs(fs: List<(Int) -> Int>) -> List<(Int) -> Display>
     fs
-}
+end
 
-fn nested(xs: List<List<Int>>) -> List<List<Display>> {
+fn nested(xs: List<List<Int>>) -> List<List<Display>>
     xs
-}
+end
 
-fn values(m: Map<String, Int>) -> Map<String, Display> {
+fn values(m: Map<String, Int>) -> Map<String, Display>
     m
-}
+end
 
-fn keep(x: Int) -> Display {
+fn keep(x: Int) -> Display
     x
-}
+end
 
-fn mapped(xs: List<Int>) -> List<Display> {
+fn mapped(xs: List<Int>) -> List<Display>
     Iter.map(xs, keep) |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
     dbg Iter.count(mapped([1]))
     dbg Iter.count(ints([1]))
     dbg Iter.count(pts([Pt{x: 1}]))
     dbg Iter.count(funcs([fn n -> n]))
     dbg Iter.count(nested([[1]]))
-    dbg Map.size(values(%{"a" => 1}))
-}
+    dbg Map.size(values({"a" => 1}))
+end
 `
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	if err := os.WriteFile(path, []byte(src), 0o600); err != nil {

@@ -9,21 +9,21 @@ import "testing"
 func TestBareVariantGeneric_TakesTheTypeItsCallFixes(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn pick<T>(c: Bool, a: T, b: T) -> T {
-    if c { a } else { b }
-}
+fn pick<T>(c: Bool, a: T, b: T) -> T
+    if c then a else b
+end
 
-fn f() -> Maybe<String> {
+fn f() -> Maybe<String>
     x = pick(False, None, Some(1))
     io.inspect(x)
     None
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Maybe.map(Some(94), fn x -> pick(False, None, Some(x))))
     io.inspect(Maybe.map(Some(2), fn x -> pick(True, Some(x), None)))
     io.inspect(Maybe.map(Some(3), fn x -> pick(True, Err("bad"), Ok(x))))
     io.inspect(f())
-}
+end
 `, "Some(Some(94))\nSome(Some(2))\nSome(Err(\"bad\"))\nSome(1)\nNone\n")
 }

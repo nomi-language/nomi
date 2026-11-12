@@ -8,46 +8,46 @@ import (
 // `unreachable "reason"` takes the type its position expects, as `todo`
 // does (spec §11 *Unreachable code: `unreachable`*).
 func TestUnreachable_FitsEveryTypedPosition(t *testing.T) {
-	src := `struct Header {
+	src := `struct Header
     name: String
     size: Int
-}
+end
 
-fn parse(_text: String) -> Header {
+fn parse(_text: String) -> Header
     unreachable "the header is parsed before"
-}
+end
 
-fn first<T>(xs: List<T>) -> T {
-    case xs {
+fn first<T>(xs: List<T>) -> T
+    case xs
         [x, ..] -> x
         [] -> unreachable "callers pass a non-empty list"
-    }
-}
+    end
+end
 
-fn index(n: Int, ns: List<Int>) -> Int {
-    Some(i) = ns |> Iter.find_index(&(&1 == n)) else {
+fn index(n: Int, ns: List<Int>) -> Int
+    Some(i) = ns |> Iter.find_index(&(&1 == n)) else
         unreachable "every number is listed"
-    }
+    end
     i
-}
+end
 
-fn twice(n: Int) -> Int {
+fn twice(n: Int) -> Int
     n * 2
-}
+end
 
-fn uses(flag: Bool) -> Int {
+fn uses(flag: Bool) -> Int
     n: Int = unreachable "never bound"
     _ = unreachable "never discarded"
-    f = fn x: Int -> if x > 1 { unreachable "x is small" } else { x }
+    f = fn x: Int -> if x > 1 then unreachable "x is small" else x
     g: (Int) -> String = fn _ -> unreachable "never called"
     m: Int = 3 |> unreachable "never piped"
     h = Header{name: "x", size: unreachable ` + "`raw reason`" + `}
     _ = (g, h, parse("x"), first([1]), index(1, [1]))
-    if flag {
+    if flag then
         unreachable "flag is False"
-    }
+    end
     twice(unreachable "never an argument") + f(n) + m
-}
+end
 `
 	_, errs := checkSourceWithStdlib(src)
 	if len(errs) > 0 {
@@ -58,8 +58,8 @@ fn uses(flag: Bool) -> Int {
 // An unannotated binding expects no type, so it asks for one, as `todo` does.
 func TestUnreachable_AnUnannotatedBindingAsksForAType(t *testing.T) {
 	for _, src := range []string{
-		"fn f() -> Int {\n    x = unreachable \"no\"\n    x\n}\n",
-		"fn f() -> Int {\n    x = 3 |> unreachable \"no\"\n    x\n}\n",
+		"fn f() -> Int\n    x = unreachable \"no\"\n    x\nend\n",
+		"fn f() -> Int\n    x = 3 |> unreachable \"no\"\n    x\nend\n",
 	} {
 		_, errs := checkSourceWithStdlib(src)
 		got := errorsAt(errs, 2, 5)
@@ -76,12 +76,12 @@ func TestUnreachable_AnUnannotatedBindingAsksForAType(t *testing.T) {
 func TestUnreachable_AStatementAfterItIsUnreachableCode(t *testing.T) {
 	for _, tc := range []struct{ body, want string }{
 		{"    unreachable \"stop\"\n    io.print(\"after\")\n", "unreachable code after `unreachable`"},
-		{"    if True {\n        return\n    } else {\n        unreachable \"stop\"\n    }\n    io.print(\"after\")\n",
+		{"    if True then\n        return\n    else\n        unreachable \"stop\"\n    end\n    io.print(\"after\")\n",
 			"unreachable code: the `if` above exits in every branch"},
-		{"    case 1 {\n        1 -> unreachable \"one\"\n        _ -> unreachable \"other\"\n    }\n    io.print(\"after\")\n",
+		{"    case 1\n        1 -> unreachable \"one\"\n        _ -> unreachable \"other\"\n    end\n    io.print(\"after\")\n",
 			"unreachable code: the `case` above traps in every arm"},
 	} {
-		_, errs := checkSourceWithStdlib("import std::io\n\nfn main() {\n" + tc.body + "}\n")
+		_, errs := checkSourceWithStdlib("import std::io\n\nfn main()\n" + tc.body + "end\n")
 		found := false
 		for _, e := range errs {
 			if strings.HasPrefix(diagText(e), tc.want) {
@@ -97,7 +97,7 @@ func TestUnreachable_AStatementAfterItIsUnreachableCode(t *testing.T) {
 // A function's parameters are reported as never read, since `unreachable` is
 // finished code: only `todo` marks a body as unwritten.
 func TestUnreachable_DoesNotExcuseUnreadParameters(t *testing.T) {
-	_, errs := checkSourceWithStdlib("fn f(n: Int) -> Int {\n    unreachable \"never called\"\n}\n")
+	_, errs := checkSourceWithStdlib("fn f(n: Int) -> Int\n    unreachable \"never called\"\nend\n")
 	if got := errorsAt(errs, 1, 6); len(got) != 1 || !strings.Contains(got[0], "parameter 'n' is never read") {
 		t.Fatalf("errors at 1:6 = %q; all: %v", got, errs)
 	}

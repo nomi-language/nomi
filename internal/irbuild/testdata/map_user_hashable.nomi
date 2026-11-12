@@ -10,22 +10,22 @@ import std::io
 /// every `Map.get` answers `Some(two)`.
 type Id Int
 
-impl Hashable for Id {
-    fn hash(x: Id) -> Int {
+impl Hashable for Id
+    fn hash(x: Id) -> Int
         _ = x
         0
-    }
-}
+    end
+end
 
-impl Equatable for Id {
-    fn equal(a: Id, b: Id) -> Bool {
+impl Equatable for Id
+    fn equal(a: Id, b: Id) -> Bool
         _ = b
         _ = a
         True
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     // The impls are live, not dead declarations: dispatching to them explicitly
     // shows they answer as written.
     io.print("user hash of Id(1) = ${Hashable.hash(Id(1))}")
@@ -33,19 +33,19 @@ fn main() {
     io.print("user equal Id(1) Id(2) = ${Equatable.equal(Id(1), Id(2))}")
 
     // And the map keys by both.
-    m = %{Id(1) => "one", Id(2) => "two"}
+    m = {Id(1) => "one", Id(2) => "two"}
     io.print("size = ${Map.size(m)}")
     io.print("get Id(1) = ${found(m, Id(1))}")
     io.print("get Id(2) = ${found(m, Id(2))}")
     io.print("get Id(3) = ${found(m, Id(3))}")
-}
+end
 
 // `Map.get` returns `Maybe<String>`, and rendering a Maybe is another slice's
 // gap, so the result goes through a `case` — which also makes the Some/None
 // distinction explicit rather than hidden in a Display impl.
-fn found(m: Map<Id, String>, key: Id) -> String {
-    case Map.get(m, key) {
+fn found(m: Map<Id, String>, key: Id) -> String
+    case Map.get(m, key)
         Some(v) -> "Some(${v})"
         None -> "None"
-    }
-}
+    end
+end

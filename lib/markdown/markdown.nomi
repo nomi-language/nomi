@@ -30,6 +30,6 @@ fn to_html(source: String) -> String go goside.ToHTML
 
 /// `text` rendered as HTML: trusted markup, since the renderer escapes
 /// text and leaves raw HTML and dangerous URLs out.
-pub fn render(text: String) -> Html {
+pub fn render(text: String) -> Html
     Html.trusted(to_html(text))
-}
+end

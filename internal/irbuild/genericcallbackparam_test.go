@@ -15,36 +15,36 @@ func TestIRGenericCallbackOverCallerTypeParam_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn call<T, U>(item: T, initial: U, f: (U, T) -> U) -> U {
+fn call<T, U>(item: T, initial: U, f: (U, T) -> U) -> U
     f(initial, item)
-}
+end
 
-fn apply<T>(f: (T) -> Int, x: T) -> Int {
+fn apply<T>(f: (T) -> Int, x: T) -> Int
     f(x)
-}
+end
 
-fn b<E>(item: E, list: List<E>) -> List<E> {
+fn b<E>(item: E, list: List<E>) -> List<E>
     call(item, list, fn rest, _item -> rest)
-}
+end
 
-fn e<E>(item: E, n: Int) -> Int {
+fn e<E>(item: E, n: Int) -> Int
     call(item, n, fn rest, _item -> rest)
-}
+end
 
-fn m<E>(item: E, opt: Maybe<E>) -> Maybe<E> {
+fn m<E>(item: E, opt: Maybe<E>) -> Maybe<E>
     call(item, opt, fn _rest, item -> Some(item))
-}
+end
 
-fn k<E>(item: E) -> Int {
+fn k<E>(item: E) -> Int
     apply(fn _x: E -> 7, item)
-}
+end
 
-fn main() {
+fn main()
     io.inspect(e(1, 3))
     io.inspect(b(1, [2]))
     io.inspect(m("a", None))
     io.inspect(k("a"))
-}
+end
 `
 	irRunSource(t, src, "3\n[2]\nSome(\"a\")\n7\n")
 }

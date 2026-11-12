@@ -11,16 +11,16 @@ import (
 func TestRenderAttachedTestBody(t *testing.T) {
 	nodes, err := parser.Parse(lexer.Lex(`
 //! assert answer() == 42
-fn answer() -> Int {
+fn answer() -> Int
   42
-}
+end
 
 //! label = Label{text: "done"}
 //! assert Label.render(label) == "[done]"
 //! refute Label.render(label) == "[ready]"
-fn done_label() -> String {
+fn done_label() -> String
   Label.render(Label{text: "done"})
-}
+end
 `))
 	if err != nil {
 		t.Fatal(err)

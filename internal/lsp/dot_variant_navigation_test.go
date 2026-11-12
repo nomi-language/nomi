@@ -38,47 +38,47 @@ func maybeSomeDecl() string {
 const dotVariantMain = `import tones
 
 /// A paint colour.
-enum Color {
+enum Color
     /// The colour of blood.
     Red
     Green
-}
+end
 
-enum Shape {
+enum Shape
     Circle(Float)
     Rect {
         w: Float
         h: Float
     }
-}
+end
 
-enum Slot<T> {
+enum Slot<T>
     Full(T)
     Empty
-}
+end
 
-fn paint(c: Color) -> Int {
-    case c {
+fn paint(c: Color) -> Int
+    case c
         .Red -> 1
         .Green -> 2
-    }
-}
+    end
+end
 
-fn area(s: Shape) -> Float {
-    case s {
+fn area(s: Shape) -> Float
+    case s
         .Circle(r) -> r * r
-        .Rect{w, h} -> w * h
-    }
-}
+        .Rect{w:, h:} -> w * h
+    end
+end
 
-fn fill(s: Slot<Int>) -> Int {
-    case s {
+fn fill(s: Slot<Int>) -> Int
+    case s
         Slot.Full(n) -> n
         Slot.Empty -> 0
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     _a = paint(.Red)
     _b = Iter.sort([3, 1, 2], .Descending)
     _c = Iter.sort_with([3, 1, 2], fn _x, _y -> .Less)
@@ -87,10 +87,10 @@ fn main() {
     _f = paint(Color.Red)
     _g = area(Shape.Circle(1.0))
     _h = Iter.sort_with([3, 1, 2], fn _x, _y -> Ordering.Less)
-    enum Local {
+    enum Local
         One
         Two
-    }
+    end
     pick = fn l: Local -> l
     _i = pick(.Two)
     _j = pick(Local.Two)
@@ -99,20 +99,20 @@ fn main() {
     _m = fill(Slot.Full(1))
     _n: Maybe<Int> = .Some(1)
     _o: Maybe<Int> = Maybe.Some(1)
-}
+end
 `
 
-const dotVariantTones = `pub enum Tone {
+const dotVariantTones = `pub enum Tone
     Warm
     Cool
-}
+end
 
-pub fn tint(t: Tone) -> Int {
-    case t {
+pub fn tint(t: Tone) -> Int
+    case t
         Tone.Warm -> 1
         Tone.Cool -> 2
-    }
-}
+    end
+end
 `
 
 type dotVariantProject struct {
@@ -286,7 +286,7 @@ func TestDotVariant_NavigatesLikeTheWrittenVariant(t *testing.T) {
 	}
 	redUses := []string{m("        .Red -> 1", "Red"), m("paint(.Red)", "Red"), m("paint(Color.Red)", "Red")}
 	circleUses := []string{m(".Circle(r) ->", "Circle"), m("area(.Circle(1.0))", "Circle"), m("Shape.Circle(1.0)", "Circle")}
-	rectUses := []string{m(".Rect{w, h}", "Rect"), m("area(.Rect{", "Rect")}
+	rectUses := []string{m(".Rect{w:, h:}", "Rect"), m("area(.Rect{", "Rect")}
 	twoUses := []string{m("pick(.Two)", "Two"), m("pick(Local.Two)", "Two")}
 	fullUses := []string{m("Slot.Full(n)", "Full"), m("fill(.Full(1))", "Full"), m("fill(Slot.Full(1))", "Full")}
 	sites := []site{
@@ -300,7 +300,7 @@ func TestDotVariant_NavigatesLikeTheWrittenVariant(t *testing.T) {
 			hover: "Shape.Circle(Float)", decl: m("    Circle(Float)", "Circle"), uses: circleUses},
 		{name: "struct expression", marker: "area(.Rect{", word: "Rect",
 			hover: "Shape.Rect { w: Float, h: Float }", decl: m("    Rect {", "Rect"), uses: rectUses},
-		{name: "struct pattern", marker: ".Rect{w, h}", word: "Rect",
+		{name: "struct pattern", marker: ".Rect{w:, h:}", word: "Rect",
 			hover: "Shape.Rect { w: Float, h: Float }", decl: m("    Rect {", "Rect"), uses: rectUses},
 		{name: "block-local enum", marker: "pick(.Two)", written: "pick(Local.Two)", word: "Two",
 			hover: "Local.Two", decl: m("        Two", "Two"), uses: twoUses},

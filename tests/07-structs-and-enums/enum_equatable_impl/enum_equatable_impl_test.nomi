@@ -7,48 +7,48 @@
 // below is deliberately COARSER than structural equality (it compares the
 // sign, not the payload), so a structural fallback cannot pass these tests by
 // accident: `Sign.Raw(3) == Sign.Raw(9)` is False structurally and True here.
-fn is_positive(s: Sign) -> Bool {
-    case s {
+fn is_positive(s: Sign) -> Bool
+    case s
         Sign.Plus -> True
         Sign.Minus -> False
         Sign.Raw(n) -> n >= 0
-    }
-}
+    end
+end
 
-enum Sign {
+enum Sign
     Plus
     Minus
     Raw Int
-}
+end
 
-impl Equatable for Sign {
-    fn equal(a: Sign, b: Sign) -> Bool {
+impl Equatable for Sign
+    fn equal(a: Sign, b: Sign) -> Bool
         is_positive(a) == is_positive(b)
-    }
-}
+    end
+end
 
-test "a hand-written Equatable on an enum answers ==" {
+test "a hand-written Equatable on an enum answers =="
     assert Sign.Raw(3) == Sign.Raw(9)
     assert Sign.Plus == Sign.Raw(1)
     refute Sign.Plus == Sign.Minus
     refute Sign.Raw(-1) == Sign.Raw(1)
-}
+end
 
-test "the operator and the by-name call agree" {
+test "the operator and the by-name call agree"
     assert Equatable.equal(Sign.Raw(3), Sign.Raw(9)) == (Sign.Raw(3) == Sign.Raw(9))
 
     assert Equatable.equal(Sign.Plus, Sign.Minus) == (Sign.Plus == Sign.Minus)
-}
+end
 
-test "!= is the negation of the hand-written impl" {
+test "!= is the negation of the hand-written impl"
     refute Sign.Raw(3) != Sign.Raw(9)
     assert Sign.Plus != Sign.Minus
-}
+end
 
-enum Color {
+enum Color
     Red
     Green
-}
+end
 
 derive Equatable for Color
 
@@ -56,18 +56,18 @@ derive Equatable for Color
 // prelude's `Maybe` and `Result` both carry `derive Equatable`, and routing a
 // synthesized impl through a Nomi function call would put one on the two
 // hottest comparisons in the language for no change in answer.
-test "a derived enum still compares structurally, both ways" {
+test "a derived enum still compares structurally, both ways"
     assert Color.Red == Color.Red
     refute Color.Red == Color.Green
     assert Equatable.equal(Color.Red, Color.Red)
     refute Equatable.equal(Color.Red, Color.Green)
-}
+end
 
-test "the prelude enums keep their answers" {
+test "the prelude enums keep their answers"
     assert Some(1) == Some(1)
     refute Some(1) == Some(2)
     assert None == None
     refute Some(1) == None
     assert Ok(1) == Ok(1)
     refute Ok(1) == Ok(2)
-}
+end

@@ -16,22 +16,22 @@ import (
 // a parameter type and a binding annotation.
 const anonLabelsSrc = `import std::io
 
-fn make(context: Context) -> .{logger: String, context: Context} {
-  .{logger: "x", context}
-}
+fn make(context: Context) -> {logger: String, context: Context}
+  {logger: "x", context:}
+end
 
-fn show(p: .{name: String, age: Int}) -> String {
+fn show(p: {name: String, age: Int}) -> String
   p.name
-}
+end
 
-fn main() {
+fn main()
   _ = make(Context.root())
-  io.print(show(.{name: "a", age: 3}))
-  pt: .{x: Int, y: Int} = .{x: 1, y: 2}
+  io.print(show({name: "a", age: 3}))
+  pt: {x: Int, y: Int} = {x: 1, y: 2}
   io.print(pt.y)
   age = 4
-  io.print(show(.{name: "b", age}))
-}
+  io.print(show({name: "b", age:}))
+end
 `
 
 // at returns the 0-based position of the nth (1-based) `needle` on 0-based
@@ -123,11 +123,12 @@ func TestAnonLiteralLabels_ReferenceTheAnnotatedField(t *testing.T) {
 		}
 		var wantEdits []string
 		for _, p := range c.sites {
-			text := "sink"
+			text, name := "sink", c.name
 			if p.Line == 16 && c.name == "age" {
-				text = "sink: age" // the punned label keeps reading `age`
+				// The punned label keeps reading `age`; the edit covers its `:`.
+				text, name = "sink: age", "age:"
 			}
-			wantEdits = append(wantEdits, span(p, c.name)+"=>"+text)
+			wantEdits = append(wantEdits, span(p, name)+"=>"+text)
 		}
 		wantEdits = sorted(wantEdits...)
 		for i, start := range c.sites {
@@ -141,7 +142,7 @@ func TestAnonLiteralLabels_ReferenceTheAnnotatedField(t *testing.T) {
 	}
 }
 
-// A punned label, `.{..., context}`, is both the field's label and a read of
+// A punned label, `{..., context:}`, is both the field's label and a read of
 // the variable. References and rename reach it from either; rename unpuns it.
 func TestAnonLiteralLabels_PunnedLabelIsFieldAndVariable(t *testing.T) {
 	src := anonLabelsSrc
@@ -155,21 +156,21 @@ func TestAnonLiteralLabels_PunnedLabelIsFieldAndVariable(t *testing.T) {
 	if got, want := referencesAt(t, src, param), sorted(span(param, "context"), span(label, "context")); strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Errorf("references to the `context` parameter = %v, want %v", got, want)
 	}
-	if got, want := renameAt(t, src, field, "ctx"), sorted(span(field, "context")+"=>ctx", span(label, "context")+"=>ctx: context"); strings.Join(got, " ") != strings.Join(want, " ") {
+	if got, want := renameAt(t, src, field, "ctx"), sorted(span(field, "context")+"=>ctx", span(label, "context:")+"=>ctx: context"); strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Errorf("rename of the `context` field = %v, want %v", got, want)
 	}
-	if got, want := renameAt(t, src, param, "c"), sorted(span(param, "context")+"=>c", span(label, "context")+"=>context: c"); strings.Join(got, " ") != strings.Join(want, " ") {
+	if got, want := renameAt(t, src, param, "c"), sorted(span(param, "context")+"=>c", span(label, "context:")+"=>context: c"); strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Errorf("rename of the `context` parameter = %v, want %v", got, want)
 	}
 	// From the punned token itself, rename takes the variable.
-	if got, want := renameAt(t, src, label, "c"), sorted(span(param, "context")+"=>c", span(label, "context")+"=>context: c"); strings.Join(got, " ") != strings.Join(want, " ") {
+	if got, want := renameAt(t, src, label, "c"), sorted(span(param, "context")+"=>c", span(label, "context:")+"=>context: c"); strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Errorf("rename from the punned `context` = %v, want %v", got, want)
 	}
 
 	// The punned `age` argument renames the variable the same way.
 	ageVar := at(t, src, 15, "age", 1)
 	ageUse := at(t, src, 16, "age", 1)
-	if got, want := renameAt(t, src, ageVar, "years"), sorted(span(ageVar, "age")+"=>years", span(ageUse, "age")+"=>age: years"); strings.Join(got, " ") != strings.Join(want, " ") {
+	if got, want := renameAt(t, src, ageVar, "years"), sorted(span(ageVar, "age")+"=>years", span(ageUse, "age:")+"=>age: years"); strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Errorf("rename of the `age` binding = %v, want %v", got, want)
 	}
 }
@@ -203,11 +204,11 @@ func TestAnonLiteralLabels_HoverAndDefinition(t *testing.T) {
 func TestAnonLiteralLabels_UntypedLiteralDeclaresItsOwn(t *testing.T) {
 	src := `import std::io
 
-fn main() {
-  a = .{x: 1}
-  b: .{x: Int} = .{x: 2}
+fn main()
+  a = {x: 1}
+  b: {x: Int} = {x: 2}
   io.print(a.x + b.x)
-}
+end
 `
 	own := at(t, src, 3, "x", 1)
 	want := sorted(span(own, "x"), span(at(t, src, 5, "x", 1), "x"))

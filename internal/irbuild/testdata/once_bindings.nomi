@@ -17,22 +17,22 @@ import std::io
 once total: Int = base + 1
 once base: Int = 5
 
-fn compute_greeting() -> String {
+fn compute_greeting() -> String
     io.print("forcing greeting")
     "hello"
-}
+end
 
 once greeting: String = compute_greeting()
 
 once port: Int = 8080
 once label: String = "svc"
 
-fn shadowed() -> Int {
+fn shadowed() -> Int
     port = 1
     port
-}
+end
 
-fn main() {
+fn main()
     io.print("before any force")
     io.print(greeting)
     io.print(greeting)
@@ -40,4 +40,4 @@ fn main() {
     io.print("base ${base}")
     io.print("port ${port} label ${label}")
     io.print("shadowed ${shadowed()} port still ${port}")
-}
+end

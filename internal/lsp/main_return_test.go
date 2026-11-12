@@ -9,7 +9,7 @@ import (
 // shows it over the return type, with the help line, as it is typed.
 func TestDiagnostics_MainReturningAValue(t *testing.T) {
 	const uri = "file:///tmp/main_return/main.nomi"
-	src := "fn main() -> Result<String, String> {\n    Ok(\"hello\")\n}\n"
+	src := "fn main() -> Result<String, String>\n    Ok(\"hello\")\nend\n"
 	s := NewServer()
 	s.docs.Open(uri, src)
 	snap := s.docs.Snapshot(uri)

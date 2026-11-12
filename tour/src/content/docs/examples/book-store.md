@@ -18,7 +18,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// their number in the series, 1 to 5. The largest groups are the cheapest
 /// but for one exchange: two groups of four cost less than a group of five
 /// and one of three, so each such pair is priced as two fours.
-pub fn total(basket: List<Int>) -> Int {
+pub fn total(basket: List<Int>) -> Int
     groups = group_sizes(basket)
     swaps = Int.min(groups_of(groups, 5), groups_of(groups, 3))
     saving = group_price(5) + group_price(3) - 2 * group_price(4)
@@ -29,13 +29,13 @@ pub fn total(basket: List<Int>) -> Int {
         |> Iter.sum()
 
     full - swaps * saving
-}
+end
 
 /// How many groups of each size the largest groups make: with the copies of
 /// each title counted, largest count first, as many groups of five as the
 /// fifth title has copies, then groups of four for the fourth title's
 /// extra copies, and so on.
-fn group_sizes(basket: List<Int>) -> Map<Int, Int> {
+fn group_sizes(basket: List<Int>) -> Map<Int, Int>
     copies =
         basket
         |> Iter.frequencies()
@@ -48,29 +48,29 @@ fn group_sizes(basket: List<Int>) -> Map<Int, Int> {
     |> Iter.with_index()
     |> Iter.map(fn (index, (these, fewer)) -> (index + 1, these - fewer))
     |> Iter.to_map()
-}
+end
 
-fn groups_of(groups: Map<Int, Int>, size: Int) -> Int {
+fn groups_of(groups: Map<Int, Int>, size: Int) -> Int
     Map.get(groups, size) |> Maybe.with_default(0)
-}
+end
 
 /// The price, in cents, of a group of `size` different books.
-fn group_price(size: Int) -> Int {
-    discount = case size {
+fn group_price(size: Int) -> Int
+    discount = case size
         2 -> 5
         3 -> 10
         4 -> 20
         5 -> 25
         _ -> 0
-    }
+    end
 
     size * 800 * (100 - discount) / 100
-}
+end
 
 // FILE: book_store_test.nomi
 import book_store
 
-test "total" {
+test "total"
     [
         ("Only a single book", [1], 800),
         ("Two of the same book", [2, 2], 1600),
@@ -131,10 +131,10 @@ test "total" {
             10000,
         ),
     ]
-    |> subtests (description, basket, expected), description {
+    |> subtests (description, basket, expected), description
         assert book_store.total(basket) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok total (18 cases)

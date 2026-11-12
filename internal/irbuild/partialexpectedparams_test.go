@@ -11,12 +11,12 @@ func TestIRPartialCaptureAtExpectedParameterTypes_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-fn main() {
+fn main()
     found: Result<List<List<String>>, String> = Ok([["a", "b"], ["c"]])
     io.inspect(Result.map(found, &Iter.flatten(&1)))
     io.inspect(Maybe.map(Some([[1], [2, 3]]), &Iter.flatten(&1)))
     io.inspect([[[1], [2]], [[3]]] |> Iter.map(&Iter.flatten(&1)) |> Iter.to_list())
-}
+end
 `
 	irRunSource(t, src, "Ok([\"a\", \"b\", \"c\"])\nSome([1, 2, 3])\n[[1, 2], [3]]\n")
 }

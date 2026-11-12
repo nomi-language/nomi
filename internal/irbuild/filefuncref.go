@@ -48,7 +48,12 @@ func (bl *irScalarBuilder) fileFuncRef(t *ast.FieldAccess, owner *ast.Ident) (ir
 			return v, k, mobile, ok, true
 		}
 	}
-	if std, isStd := stdFileQualifier(g.fa, owner); isStd {
+	std, isStd := stdFileQualifier(g.fa, owner)
+	if !isStd {
+		// `hex.encode` in std/hex's own tests (stdOwnFileQualifier).
+		std, isStd = bl.stdOwnFileQualifier(owner.Name)
+	}
+	if isStd {
 		key := std + "." + t.Field.Name
 		if isOutputKey(key) {
 			v, k, mobile, ok := bl.outputRef(t, key)
@@ -72,6 +77,33 @@ func (bl *irScalarBuilder) stdBareFuncRef(t *ast.Ident) (ir.Temp, kind, bool, bo
 		return bl.stdFileFuncRef(t, module, name)
 	}
 	return ir.NoTemp, kindInvalid, false, false, false
+}
+
+// stdOwnFuncRef lowers a bare name in a stdlib module's body that names one
+// of the module's top-level functions, a sibling of the cached lowering
+// (stdlibSibling), as a value: `encode` in std/hex is the value `hex.encode`
+// is. In one of the module's own tests (inTest) the sibling resolves before
+// the cases gen's own table, as a call to it does; elsewhere funcRef asks
+// only once its own table has no lowerable function of the name. handled is
+// false for any other name.
+func (bl *irScalarBuilder) stdOwnFuncRef(t *ast.Ident, inTest bool) (ir.Temp, kind, bool, bool, bool) {
+	f := bl.g.stdlibSibling(t.Name)
+	if f == nil || f != bl.g.stdSiblings["."+t.Name] || bl.g.stdModule == "" || inTest != bl.stdTestOwnType() {
+		return ir.NoTemp, kindInvalid, false, false, false
+	}
+	if inTest {
+		return bl.stdFileFuncRef(t, bl.g.stdModule, t.Name)
+	}
+	// A body of the module being lowered names the sibling's own
+	// declaration, as a call to it links (stdFuncPlan); the module is not
+	// yet in the index stdFileFuncRef reads. A value the checker typed
+	// shorter than the declaration (defaults filled) has no body to name.
+	params, result, ok := bl.g.checkedRefValueKinds(t)
+	if !ok || len(params) != len(f.params) || f.decl == nil {
+		return ir.NoTemp, kindInvalid, false, false, false
+	}
+	v, k, mobile, ok := bl.stdNamedFuncRef(t, f, params, result)
+	return v, k, mobile, ok, true
 }
 
 // stdFileFuncRef is std file module's top-level function name as a function
@@ -105,6 +137,15 @@ func (bl *irScalarBuilder) stdFileFuncRef(ref ast.Node, module, name string) (ir
 	if !ok {
 		return no()
 	}
+	if f := g.std.byFile[module+"."+name]; generic == nil && f != nil && f.decl != nil {
+		if g.namedCtlForm(f.decl) != irCtlNone {
+			// An iter-sensitive helper (a std module's own, named in its
+			// tests) is its body itself, which signals in the adapter's
+			// form, as a program's named function is (funcRef).
+			v, k, mobile, ok := bl.stdNamedFuncRef(ref, f, params, result)
+			return v, k, mobile, ok, true
+		}
+	}
 	if generic != nil {
 		// `io.capture`: the instance a call at the checker's instantiation
 		// of the reference builds.
@@ -124,6 +165,38 @@ func (bl *irScalarBuilder) stdFileFuncRef(ref ast.Node, module, name string) (ir
 		return dst, k, ok
 	})
 	return v, k, mobile, ok, true
+}
+
+// stdNamedFuncRef is f, a std Nomi body, as a function value of params to
+// result referenced at ref: its own declaration, in the signalling form an
+// iter-sensitive one is lowered under (namedCtlForm) when ref is an
+// iteration callback.
+func (bl *irScalarBuilder) stdNamedFuncRef(ref ast.Node, f *stdFunc, params []kind, result kind) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	g := bl.g
+	ctl := g.namedCtlForm(f.decl)
+	if ctl != irCtlNone && bl.ctlRefs[ref] != ctl {
+		g.dc.note("an iter-sensitive function passed where its break or continue cannot be caught: " + f.key)
+		return no()
+	}
+	view := f
+	if f.canon != nil {
+		f = f.canon
+	}
+	var sym *ir.Symbol
+	if f.irBody != nil {
+		sym = f.irBody.Sym()
+	} else {
+		sym = g.irStdSiblingSym(view)
+	}
+	fk := funcKindIn(g, params, result)
+	if sym == nil || !irCallableValueKind(fk) {
+		return no()
+	}
+	n := ir.NewRefFunc(g.irNodePos(ref), bl.f.NewTemp(), sym)
+	bl.b.Append(n)
+	bl.side(n.Dst(), irScalarSide{k: fk, ctl: ctl})
+	return n.Dst(), fk, true, true
 }
 
 // outputRef is `io.print`, `io.write` or `io.inspect` as a function value: a
@@ -219,7 +292,7 @@ func (bl *irScalarBuilder) siblingFuncRef(ref ast.Node, to int, f *fileFunc, hos
 	var sym *ir.Symbol
 	if f.generic {
 		var ok bool
-		params, result, sym, ok = g.siblingGenericRef(ref, to, f)
+		params, result, sym, ok = g.siblingGenericInstance(ref, to, f)
 		if !ok {
 			return no()
 		}

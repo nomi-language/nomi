@@ -1,0 +1,11 @@
+import
+    std::io
+    boxes
+    boxes.Box
+end
+
+fn main()
+    io.print("${Box.flat(Box.Full(Maybe.None)) == Maybe.None}")
+    io.print("${boxes.Box.flat(boxes.Box.Full(Maybe.None)) == Maybe.None}")
+    io.print("${Box.flat(Box.Full(Maybe.Some(2)))}")
+end

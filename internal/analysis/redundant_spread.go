@@ -14,7 +14,7 @@ import (
 //	.{..ada, address: .{..ada.address, city: "NYC"}}
 //
 // the spread `..ada.address` names the value `address` already holds, so it
-// is an error whose fix writes `.{.., city: "NYC"}`. The check compares
+// is an error whose fix writes `{.., city: "NYC"}`. The check compares
 // resolved paths: the path of the value an update updates (updatePaths) is
 // its base's when the base is a binding or a chain of field reads of one
 // (namePathOf), the original's in a `Struct.update` call with a literal

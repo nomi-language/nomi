@@ -1,10 +1,10 @@
-import {
+import
     bool.Bool
     lists.List
     maps.Map
     ranges.Range
     sets.Set
-}
+end
 
 /// A collection that reports whether it holds a value: `contains(c, x)`.
 /// The std collections implement it:
@@ -32,11 +32,11 @@ import {
 /// Elements compare as `==` does: a struct with a hand-written `Equatable` is
 /// compared by it, and Float equality is reflexive, so a `NaN` element is
 /// found by `NaN` and `0.0` by `-0.0`.
-//! assert Set.contains(%[1, 2], 1)
-//! assert Map.contains(%{"a" => 1}, "a")
+//! assert Set.contains(Set[1, 2], 1)
+//! assert Map.contains({"a" => 1}, "a")
 //! assert List.contains([1, 2, 3], 2)
 //! assert Range.contains(1..5, 3)
 //
-pub interface Contains<T> {
+pub interface Contains<T>
     fn contains(c: self, x: T) -> Bool
-}
+end

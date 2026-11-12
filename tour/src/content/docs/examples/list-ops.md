@@ -16,79 +16,79 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# folds.
 
 /// Folds `list` from the left: `f(f(f(initial, a), b), c)`.
-pub fn foldl<T, U>(list: List<T>, initial: U, f: (U, T) -> U) -> U {
-    case list {
+pub fn foldl<T, U>(list: List<T>, initial: U, f: (U, T) -> U) -> U
+    case list
         [] -> initial
         [head, ..tail] -> foldl(tail, f(initial, head), f)
-    }
-}
+    end
+end
 
 /// Folds `list` from the right: `f(f(f(initial, c), b), a)`.
-pub fn foldr<T, U>(list: List<T>, initial: U, f: (U, T) -> U) -> U {
+pub fn foldr<T, U>(list: List<T>, initial: U, f: (U, T) -> U) -> U
     foldl(reverse(list), initial, f)
-}
+end
 
 /// The items of `list` in the opposite order.
-pub fn reverse<T>(list: List<T>) -> List<T> {
+pub fn reverse<T>(list: List<T>) -> List<T>
     foldl(list, [], fn reversed, item -> [item, ..reversed])
-}
+end
 
 /// How many items `list` holds.
-pub fn length<T>(list: List<T>) -> Int {
+pub fn length<T>(list: List<T>) -> Int
     foldl(list, 0, fn count, _item -> count + 1)
-}
+end
 
 /// The items of `first`, then the items of `second`.
-pub fn append<T>(first: List<T>, second: List<T>) -> List<T> {
+pub fn append<T>(first: List<T>, second: List<T>) -> List<T>
     foldr(first, second, fn rest, item -> [item, ..rest])
-}
+end
 
 /// The items of every list in `lists`, in order, in one list.
-pub fn concat<T>(lists: List<List<T>>) -> List<T> {
+pub fn concat<T>(lists: List<List<T>>) -> List<T>
     foldr(lists, [], fn rest, list -> append(list, rest))
-}
+end
 
 /// The items of `list` that `keep` holds for.
-pub fn filter<T>(list: List<T>, keep: (T) -> Bool) -> List<T> {
-    foldr(list, [], fn rest, item -> if keep(item) { [item, ..rest] } else { rest })
-}
+pub fn filter<T>(list: List<T>, keep: (T) -> Bool) -> List<T>
+    foldr(list, [], fn rest, item -> if keep(item) then [item, ..rest] else rest)
+end
 
 /// `f` applied to each item of `list`.
-pub fn map<T, U>(list: List<T>, f: (T) -> U) -> List<U> {
+pub fn map<T, U>(list: List<T>, f: (T) -> U) -> List<U>
     foldr(list, [], fn rest, item -> [f(item), ..rest])
-}
+end
 
 // FILE: list_ops_test.nomi
 import list_ops
 
-group "append entries to a list and return the new list" {
-    test "empty lists" {
+group "append entries to a list and return the new list"
+    test "empty lists"
         assert list_ops.append([], []) == []
-    }
+    end
 
-    test "list to empty list" {
+    test "list to empty list"
         assert list_ops.append([], [1, 2, 3, 4]) == [1, 2, 3, 4]
-    }
+    end
 
-    test "empty list to list" {
+    test "empty list to list"
         assert list_ops.append([1, 2, 3, 4], []) == [1, 2, 3, 4]
-    }
+    end
 
-    test "non-empty lists" {
+    test "non-empty lists"
         assert list_ops.append([1, 2], [2, 3, 4, 5]) == [1, 2, 2, 3, 4, 5]
-    }
-}
+    end
+end
 
-group "concatenate a list of lists" {
-    test "empty list" {
+group "concatenate a list of lists"
+    test "empty list"
         assert list_ops.concat([] as List<List<Int>>) == []
-    }
+    end
 
-    test "list of lists" {
+    test "list of lists"
         assert list_ops.concat([[1, 2], [3], [], [4, 5, 6]]) == [1, 2, 3, 4, 5, 6]
-    }
+    end
 
-    test "list of nested lists" {
+    test "list of nested lists"
         lists = [
             [[1], [2]],
             [[3]],
@@ -97,84 +97,84 @@ group "concatenate a list of lists" {
         ]
 
         assert list_ops.concat(lists) == [[1], [2], [3], [], [4, 5, 6]]
-    }
-}
+    end
+end
 
-group "filter list returning only values that satisfy the filter function" {
-    test "empty list" {
+group "filter list returning only values that satisfy the filter function"
+    test "empty list"
         assert list_ops.filter([], fn x -> x % 2 == 1) == []
-    }
+    end
 
-    test "non-empty list" {
+    test "non-empty list"
         assert list_ops.filter([1, 2, 3, 5], fn x -> x % 2 == 1) == [1, 3, 5]
-    }
-}
+    end
+end
 
-group "returns the length of a list" {
-    test "empty list" {
+group "returns the length of a list"
+    test "empty list"
         assert list_ops.length([]) == 0
-    }
+    end
 
-    test "non-empty list" {
+    test "non-empty list"
         assert list_ops.length([1, 2, 3, 4]) == 4
-    }
-}
+    end
+end
 
-group "return a list of elements whose values equal the list value transformed by the mapping function" {
-    test "empty list" {
+group "return a list of elements whose values equal the list value transformed by the mapping function"
+    test "empty list"
         assert list_ops.map([], &(&1 + 1)) == []
-    }
+    end
 
-    test "non-empty list" {
+    test "non-empty list"
         assert list_ops.map([1, 3, 5, 7], &(&1 + 1)) == [2, 4, 6, 8]
-    }
-}
+    end
+end
 
-group "folds (reduces) the given list from the left with a function" {
-    test "empty list" {
+group "folds (reduces) the given list from the left with a function"
+    test "empty list"
         assert list_ops.foldl([], 2, fn acc, el -> el * acc) == 2
-    }
+    end
 
-    test "direction independent function applied to non-empty list" {
+    test "direction independent function applied to non-empty list"
         assert list_ops.foldl([1, 2, 3, 4], 5, fn acc, el -> el + acc) == 15
-    }
+    end
 
-    test "direction dependent function applied to non-empty list" {
+    test "direction dependent function applied to non-empty list"
         assert list_ops.foldl([1.0, 2.0, 3.0, 4.0], 24.0, fn acc, el -> el / acc) == 64.0
-    }
-}
+    end
+end
 
-group "folds (reduces) the given list from the right with a function" {
-    test "empty list" {
+group "folds (reduces) the given list from the right with a function"
+    test "empty list"
         assert list_ops.foldr([], 2, fn acc, el -> el * acc) == 2
-    }
+    end
 
-    test "direction independent function applied to non-empty list" {
+    test "direction independent function applied to non-empty list"
         assert list_ops.foldr([1, 2, 3, 4], 5, fn acc, el -> el + acc) == 15
-    }
+    end
 
-    test "direction dependent function applied to non-empty list" {
+    test "direction dependent function applied to non-empty list"
         assert list_ops.foldr([1.0, 2.0, 3.0, 4.0], 24.0, fn acc, el -> el / acc) == 9.0
-    }
-}
+    end
+end
 
-group "reverse the elements of the list" {
-    test "empty list" {
+group "reverse the elements of the list"
+    test "empty list"
         assert list_ops.reverse([]) == []
-    }
+    end
 
-    test "non-empty even-length list" {
+    test "non-empty even-length list"
         assert list_ops.reverse([1, 3, 5, 7]) == [7, 5, 3, 1]
-    }
+    end
 
-    test "non-empty odd-length list" {
+    test "non-empty odd-length list"
         assert list_ops.reverse([1, 3, 5, 7, 9, 11, 13]) == [13, 11, 9, 7, 5, 3, 1]
-    }
+    end
 
-    test "list of lists is not flattened" {
+    test "list of lists is not flattened"
         assert list_ops.reverse([[1, 2], [3], [], [4, 5, 6]]) == [[4, 5, 6], [], [3], [1, 2]]
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok append entries to a list and return the new list / empty lists

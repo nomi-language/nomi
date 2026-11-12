@@ -11,16 +11,16 @@
 gopkg "github.com/nomi-language/nomi/lib/sql/postgres/goside"
 
 /// One migration: its path and its SQL.
-pub struct Migration {
+pub struct Migration
     path: String
     text: String
-}
+end
 
 /// A column of a table as the schema declares it: its type as Postgres
 /// writes it (`numeric(12,2)`, `timestamp with time zone`), the values an
 /// enum type or a one-column `CHECK (column IN (...))` allows, and the
 /// migration that last created or changed it.
-pub struct TableColumn {
+pub struct TableColumn
     name: String
     type_name: String
     not_null: Bool
@@ -28,48 +28,49 @@ pub struct TableColumn {
     has_default: Bool
     values: List<String>
     migration: String
-}
+end
 
 /// A table: its name, its columns, and the migration that created it.
-pub struct Table {
+pub struct Table
     name: String
     columns: List<TableColumn>
     migration: String
-}
+end
 
 /// A result column: its name, its type as Postgres writes it, the table
-/// column it reads (`""` for an expression), and whether it may be NULL:
+/// column it reads (`""` for an expression; for a view's column, the
+/// table column the view's column reads), and whether it may be NULL:
 /// an expression always may be, and a table column when it is not `NOT
 /// NULL` or an outer join may leave its table out.
-pub struct Column {
+pub struct Column
     name: String
     type_name: String
     table: String
     column: String
     nullable: Bool
-}
+end
 
 /// What Postgres says of a statement: its columns and the type it inferred
 /// for each parameter, or its error and the byte the error is at (-1 for
 /// none).
-pub struct Statement {
+pub struct Statement
     columns: List<Column>
     params: List<String>
     error: String
     offset: Int
-}
+end
 
 /// The tables the migrations build and each statement's description; or,
 /// when a migration fails, its error (with `migration` naming it and
 /// `offset` the byte of its text) and nothing else. A server that does not
 /// respond is an `error` with no `migration`.
-pub struct Description {
+pub struct Description
     tables: List<Table>
     statements: List<Statement>
     error: String
     migration: String
     offset: Int
-}
+end
 
 /// Make a scratch database on the server at `url`, apply `migrations` to
 /// it in order, describe each of `statements` against the schema they

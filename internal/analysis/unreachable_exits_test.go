@@ -7,55 +7,54 @@ import "testing"
 // that exits. The first statement after it is reported, with a hint.
 func TestUnreachable_StatementAfterAStatementThatAlwaysExits(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn choose(flag: Bool) {
-  if flag {
+fn choose(flag: Bool)
+  if flag then
     _ = 1
     return
-  } else {
+  else
     return
-  }
+  end
   _ = 2
-}
+end
 
-fn chain(n: Int) -> Int {
-  if n > 0 {
+fn chain(n: Int) -> Int
+  if n > 0 then
     return 1
-  } else if n < 0 {
+  else if n < 0 then
     return -1
-  } else {
+  else
     return 0
-  }
+  end
   n
-}
+end
 
-fn arms(m: Maybe<Int>) -> Int {
-  case m {
+fn arms(m: Maybe<Int>) -> Int
+  case m
     Some(n) -> return n
-    None -> {
+    None ->
       return 0
-    }
-  }
+  end
   1
-}
+end
 
-fn scoped() -> Int {
-  {
+fn scoped() -> Int
+  begin
     return 1
-  }
+  end
   2
-}
+end
 
-fn looped() -> Int {
-  Iter.loop(0, fn n -> {
-    if n > 3 {
+fn looped() -> Int
+  Iter.loop(0, fn n ->
+    if n > 3 then
       break n
-    } else {
+    else
       continue
-    }
+    end
     _ = n
     n + 1
-  })
-}
+  end)
+end
 `)
 	got := unreachableErrors(errs)
 	want := []struct {
@@ -64,9 +63,9 @@ fn looped() -> Int {
 	}{
 		{9, 3, "unreachable code: the `if` above returns in every branch"},
 		{20, 3, "unreachable code: the `if` above returns in every branch"},
-		{30, 3, "unreachable code: the `case` above returns in every arm"},
-		{37, 3, "unreachable code: the block above always returns"},
-		{47, 5, "unreachable code: the `if` above exits in every branch"},
+		{29, 3, "unreachable code: the `case` above returns in every arm"},
+		{36, 3, "unreachable code: the block above always returns"},
+		{46, 5, "unreachable code: the `if` above exits in every branch"},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d unreachable-code errors, want %d: %v", len(got), len(want), got)
@@ -91,22 +90,22 @@ fn looped() -> Int {
 // stays legal while it is written.
 func TestUnreachable_APathThatFallsThroughIsClean(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn f(n: Int) -> Int {
-  if n > 0 {
+fn f(n: Int) -> Int
+  if n > 0 then
     return 1
-  }
-  if n < 0 {
+  end
+  if n < 0 then
     return -1
-  } else {
+  else
     _ = n
-  }
-  case n {
+  end
+  case n
     0 -> return 0
-    _ -> {}
-  }
+    _ -> Unit
+  end
   todo "finish"
   n
-}
+end
 `)
 	if got := unreachableErrors(errs); len(got) != 0 {
 		t.Fatalf("unexpected unreachable-code errors: %v", got)

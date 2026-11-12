@@ -12,7 +12,7 @@ import "testing"
 //     last slot as the checker sends it (namedQualCall);
 //   - a concrete value entering an interface-typed parameter of a
 //     monomorphic constructor whose defaults are left out, positionally and
-//     with a named argument (qualEraseSlotted, namedSiblingImplFill).
+//     with a named argument (qualEraseSlotted, namedCallHome).
 func TestInstImplAccessors_DefaultsTheCallerCannotNameFill(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")

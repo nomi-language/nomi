@@ -13,14 +13,14 @@ nomi add github.com/nomi-language/nomi/lib/image
 ```nomi
 import image.{self, Image}
 
-fn thumbnail(upload: Bytes) -> Result<Bytes, image.Error> {
+fn thumbnail(upload: Bytes) -> Result<Bytes, image.Error>
     picture = image.decode(upload)?
 
     Ok(
         Image.fit(picture, 300, 200)
         |> Image.encode_jpeg()
     )
-}
+end
 ```
 
 A release `nomi` carries the module's Go code prebuilt, so a program that
@@ -44,8 +44,8 @@ runs, with the `go` on `PATH` or the Go toolchain `nomi` downloads.
 | `Image.encode_png(image)` | A PNG file |
 
 A failure to read is an `image.Error`: `UnsupportedFormat` for bytes that
-are no JPEG, PNG or WebP, `Corrupt{message}` for one that starts as an
-image and does not decode, and `TooLarge{width, height}` for one whose
+are no JPEG, PNG or WebP, `Corrupt{message:}` for one that starts as an
+image and does not decode, and `TooLarge{width:, height:}` for one whose
 header declares more pixels than allowed. A box or rectangle that cannot
 be met (a zero width, a crop outside the image) or a quality outside 1 to
 100 is the caller's mistake, and traps.

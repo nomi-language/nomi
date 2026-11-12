@@ -25,61 +25,57 @@
 //   - a BOUND shape subject — the `defined as:` row sits ABOVE the `actual:` row.
 //     Two report sections from one failure, so a builder that wrote them in the
 //     other order diverges even though both are present.
-fn find(id: Int) -> Maybe<String> {
-    if id == 1 { Some("Ada") } else { None }
-}
+fn find(id: Int) -> Maybe<String>
+    if id == 1 then Some("Ada") else None
+end
 
-fn parse(s: String) -> Result<Int, String> {
-    if s == "42" {
-        Ok(42)
-    } else {
-        Err("not a number")
-    }
-}
+fn parse(s: String) -> Result<Int, String>
+    if s == "42" then Ok(42) else Err("not a number")
+end
 
-test "a Maybe subject that is None fails" {
+test "a Maybe subject that is None fails"
     assert find(2)
-}
+end
 
-test "a Maybe subject that is Some passes and carries the variant through" {
+test "a Maybe subject that is Some passes and carries the variant through"
     found = assert find(1)
 
     assert found == Some("Ada")
-}
+end
 
-test "refuting a Some fails in its own words" {
+test "refuting a Some fails in its own words"
     refute find(1)
-}
+end
 
-test "refuting a None passes and carries the None through" {
+test "refuting a None passes and carries the None through"
     empty = refute find(2)
 
     // Discriminated by `case`, not `empty == None`, so the block also tests
     // that the subject is carried through the assertion unchanged.
-    tag = case empty {
+    tag = case empty
         Some(_) -> 1
         None -> 0
-    }
+    end
 
     assert tag == 0
-}
+end
 
-test "a Result subject that is Err fails" {
+test "a Result subject that is Err fails"
     assert parse("wat")
-}
+end
 
-test "a Result subject that is Ok passes and carries the variant through" {
+test "a Result subject that is Ok passes and carries the variant through"
     parsed = assert parse("42")
 
     assert parsed == Ok(42)
-}
+end
 
-test "refuting an Ok fails in its own words" {
+test "refuting an Ok fails in its own words"
     refute parse("42")
-}
+end
 
-test "a bound shape subject shows its defining expression above its value" {
+test "a bound shape subject shows its defining expression above its value"
     looked_up = find(2)
 
     assert looked_up
-}
+end

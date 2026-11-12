@@ -1,79 +1,79 @@
-test "case expressions can match conditions values and guards" {
+test "case expressions can match conditions values and guards"
     x = 5
 
-    ad_hoc = case {
+    ad_hoc = case
         x > 10 -> "big"
         x > 0 -> "positive"
         _ -> "other"
-    }
+    end
 
-    by_value = case x {
+    by_value = case x
         1 -> "one"
         5 -> "five"
         _ -> "other"
-    }
+    end
 
-    with_guard = case x {
+    with_guard = case x
         n when n > 10 -> "big: ${n}"
         n -> "small: ${n}"
-    }
+    end
 
     assert ad_hoc == "positive"
     assert by_value == "five"
     assert with_guard == "small: 5"
-}
+end
 
-enum Shape {
+enum Shape
     Circle
     Square
     Triangle
-}
+end
 
-fn shape_label(s: Shape) -> String {
-    case s {
+fn shape_label(s: Shape) -> String
+    case s
         .Circle -> "circle"
         .Square -> "square"
         .Triangle -> "triangle"
-    }
-}
+    end
+end
 
-fn maybe_value(m: Maybe<Int>) -> Int {
-    case m {
+fn maybe_value(m: Maybe<Int>) -> Int
+    case m
         Some(n) -> n
         None -> 0
-    }
-}
+    end
+end
 
-fn maybe_or_default(m: Maybe<Int>) -> Int {
-    case m {
+fn maybe_or_default(m: Maybe<Int>) -> Int
+    case m
         Some(n) -> n
         _ -> -1
-    }
-}
+    end
+end
 
-fn unwrap_or(m: Maybe<Result<Int, String>>) -> Int {
-    case m {
+fn unwrap_or(m: Maybe<Result<Int, String>>) -> Int
+    case m
         Some(Ok(n)) -> n
         Some(Err(_)) -> -1
         None -> 0
-    }
-}
+    end
+end
 
-fn first_of_pair(m: Maybe<(Int, String)>) -> Int {
-    case m {
+fn first_of_pair(m: Maybe<(Int, String)>) -> Int
+    case m
         Some((n, _)) -> n
         None -> 0
-    }
-}
+    end
+end
 
-fn label_bool(b: Bool) -> String {
-    case b {
+fn label_bool(b: Bool) -> String
+    case b
         True -> "yes"
         False -> "no"
-    }
-}
+    end
+end
 
-test "enum case expressions cover variants and nested payloads" {
+test "enum case expressions cover variants and nested payloads"
     assert shape_label(Shape.Circle) == "circle"
     assert shape_label(Shape.Square) == "square"
     assert shape_label(Shape.Triangle) == "triangle"
@@ -88,147 +88,147 @@ test "enum case expressions cover variants and nested payloads" {
     assert first_of_pair(None) == 0
     assert label_bool(True) == "yes"
     assert label_bool(False) == "no"
-}
+end
 
-test "nested variant patterns destructure recursive payloads" {
+test "nested variant patterns destructure recursive payloads"
     pair_opt = Some((1, "a"))
 
-    pair_text = case pair_opt {
+    pair_text = case pair_opt
         Some((_, s)) -> s
         None -> "none"
-    }
+    end
 
     nested = Some(Ok(42))
 
-    variant_in_variant = case nested {
+    variant_in_variant = case nested
         Some(Ok(n)) -> n
         Some(Err(_)) -> -1
         None -> 0
-    }
+    end
 
-    literal_in_variant = case Some(42) {
+    literal_in_variant = case Some(42)
         Some(42) -> "match"
         Some(_) -> "other"
         None -> "none"
-    }
+    end
 
     deep = Some(Some((7, "deep")))
 
-    deep_match = case deep {
+    deep_match = case deep
         Some(Some((_, s))) -> s
         _ -> "miss"
-    }
+    end
 
-    err_branch = case Some(Err("boom")) {
+    err_branch = case Some(Err("boom"))
         Some(Ok(n)) -> n
         Some(Err(_)) -> -1
         None -> 0
-    }
+    end
 
     assert pair_text == "a"
     assert variant_in_variant == 42
     assert literal_in_variant == "match"
     assert deep_match == "deep"
     assert err_branch == -1
-}
+end
 
-struct Point {
+struct Point
     x: Int
     y: Int
-}
+end
 
-enum Wrapped {
+enum Wrapped
     Pair Point
     Empty
-}
+end
 
-fn sum(w: Wrapped) -> Int {
-    case w {
-        Wrapped.Pair(Point{x, y}) -> x + y
+fn sum(w: Wrapped) -> Int
+    case w
+        Wrapped.Pair(Point{x:, y:}) -> x + y
         Wrapped.Empty -> 0
-    }
-}
+    end
+end
 
-struct Inner {
+struct Inner
     v: Int
-}
+end
 
-struct Outer {
+struct Outer
     inner: Inner
     tag: Int
-}
+end
 
-fn unwrap(o: Outer) -> Int {
-    case o {
-        Outer{inner: Inner{v}, tag} -> v + tag
-    }
-}
+fn unwrap(o: Outer) -> Int
+    case o
+        Outer{inner: Inner{v:}, tag:} -> v + tag
+    end
+end
 
-test "nested struct patterns work inside variants tuples and fields" {
+test "nested struct patterns work inside variants tuples and fields"
     pair = (Point{x: 5, y: 6}, 10)
 
-    pair_sum = case pair {
-        (Point{x, y}, n) -> x + y + n
-    }
+    pair_sum = case pair
+        (Point{x:, y:}, n) -> x + y + n
+    end
 
     assert sum(Wrapped.Pair(Point{x: 3, y: 4})) == 7
     assert sum(Wrapped.Empty) == 0
     assert pair_sum == 21
     assert unwrap(Outer{inner: Inner{v: 9}, tag: 1}) == 10
-}
+end
 
-fn classify_int(n: Int) -> String {
-    case n {
+fn classify_int(n: Int) -> String
+    case n
         -2 -> "neg two"
         0 -> "zero"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn classify_float(f: Float) -> String {
-    case f {
+fn classify_float(f: Float) -> String
+    case f
         -2.5 -> "neg float"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn classify_decimal(d: Decimal) -> String {
-    case d {
+fn classify_decimal(d: Decimal) -> String
+    case d
         -2.50d -> "neg decimal"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn classify_pair(t: (Int, Int)) -> String {
-    case t {
+fn classify_pair(t: (Int, Int)) -> String
+    case t
         (-1, -2) -> "both neg"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn classify_list(xs: List<Int>) -> String {
-    case xs {
+fn classify_list(xs: List<Int>) -> String
+    case xs
         [-1, 2] -> "neg head"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn classify_maybe(m: Maybe<Int>) -> String {
-    case m {
+fn classify_maybe(m: Maybe<Int>) -> String
+    case m
         Some(-2) -> "some neg two"
         _ -> "other"
-    }
-}
+    end
+end
 
-fn classify_map(m: Map<String, Int>) -> String {
-    case m {
-        %{"k" => -2} -> "neg val"
+fn classify_map(m: Map<String, Int>) -> String
+    case m
+        {"k" => -2} -> "neg val"
         _ -> "other"
-    }
-}
+    end
+end
 
-test "negative numeric literals can appear in pattern positions" {
-    neg_value_map = %{"k" => -2}
+test "negative numeric literals can appear in pattern positions"
+    neg_value_map = {"k" => -2}
 
     assert classify_int(-2) == "neg two"
     assert classify_float(-2.5) == "neg float"
@@ -237,4 +237,4 @@ test "negative numeric literals can appear in pattern positions" {
     assert classify_list([-1, 2]) == "neg head"
     assert classify_maybe(Some(-2)) == "some neg two"
     assert classify_map(neg_value_map) == "neg val"
-}
+end

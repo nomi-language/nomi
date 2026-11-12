@@ -6,73 +6,73 @@ import (
 )
 
 // escapingBlock is a concurrent block whose tail carries its task out.
-const escapingBlock = "concurrent { Task.spawn(fn -> 42) }"
+const escapingBlock = "concurrent\n    Task.spawn(fn -> 42)\nend"
 
 // The task-lifetime rules apply to a concurrent block wherever it sits:
 // every expression position, every kind of body. Each fixture puts
 // escapingBlock (spelled E) in one position.
 func TestTaskLifetime_EscapeIsFoundInEveryPosition(t *testing.T) {
 	for _, tc := range []struct{ name, src string }{
-		{"function tail", `fn f() -> Task<Int> {
+		{"function tail", `fn f() -> Task<Int>
   E
-}`},
-		{"case scrutinee", `fn f() -> Int {
-  case E {
+end`},
+		{"case scrutinee", `fn f() -> Int
+  case E
     _ -> 0
-  }
-}`},
-		{"case arm", `fn f(n: Int) -> Task<Int> {
-  case n {
+  end
+end`},
+		{"case arm", `fn f(n: Int) -> Task<Int>
+  case n
     _ -> E
-  }
-}`},
-		{"case guard", `fn f(n: Int) -> Int {
-  case n {
+  end
+end`},
+		{"case guard", `fn f(n: Int) -> Int
+  case n
     _ when Task.await(E) == 1 -> 0
     _ -> 1
-  }
-}`},
-		{"pipe", `fn f() -> Int {
+  end
+end`},
+		{"pipe", `fn f() -> Int
   E |> Task.await
-}`},
-		{"interpolation", `fn f() -> String {
+end`},
+		{"interpolation", `fn f() -> String
   "${Task.await(E)}"
-}`},
-		{"named argument", `fn g(n: Int) -> Int {
+end`},
+		{"named argument", `fn g(n: Int) -> Int
   n
-}
-fn f() -> Int {
+end
+fn f() -> Int
   g(n: Task.await(E))
-}`},
-		{"range bound", `fn f() -> Int {
+end`},
+		{"range bound", `fn f() -> Int
   r = 0..Task.await(E)
   0
-}`},
-		{"list spread", `fn f() -> List<Int> {
+end`},
+		{"list spread", `fn f() -> List<Int>
   [1, ..[Task.await(E)]]
-}`},
-		{"if pattern", `fn f() -> Int {
-  if 42 = Task.await(E) {
+end`},
+		{"if pattern", `fn f() -> Int
+  if 42 = Task.await(E) then
     1
-  } else {
+  else
     0
-  }
-}`},
-		{"impl function", `struct Box {
+  end
+end`},
+		{"impl function", `struct Box
   n: Int
-}
-impl Box {
-  fn spawn() -> Task<Int> {
+end
+impl Box
+  fn spawn() -> Task<Int>
     E
-  }
-}`},
-		{"test body", `test "escape" {
+  end
+end`},
+		{"test body", `test "escape"
   _ = Task.await(E)
   assert True
-}`},
-		{"assertion", `test "escape" {
+end`},
+		{"assertion", `test "escape"
   assert Task.await(E) == 42
-}`},
+end`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := strings.ReplaceAll(tc.src, "E", escapingBlock)
@@ -94,16 +94,16 @@ func TestTaskLifetime_AwaitIsFoundInEveryPosition(t *testing.T) {
 		{"assertion", "assert Task.await(t) == 42"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := `fn g(n: Int) -> Int {
+			src := `fn g(n: Int) -> Int
   n
-}
-test "await" {
-  concurrent {
+end
+test "await"
+  concurrent
     t = Task.spawn(fn -> 42)
     USE
-  }
+  end
   assert True
-}`
+end`
 			errs := analyzeConcurrent(strings.ReplaceAll(src, "USE", tc.use))
 			expectNoConcurrentError(t, errs, "is never awaited")
 			errs = analyzeConcurrent(strings.ReplaceAll(src, "USE", "_ = 0"))

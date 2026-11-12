@@ -4,16 +4,16 @@
 // Float is load-bearing twice over: a bare-name collapse cannot compile against
 // it, and its comparison must be rt.EqFloat rather than IEEE `==` so that
 // `nan == nan` is True here and False under a field-by-field IEEE comparison.
-pub struct Point {
+pub struct Point
     lat: Float
     lon: Float
-}
+end
 
-pub fn at(lat: Float, lon: Float) -> Point {
-    Point{lat, lon}
-}
+pub fn at(lat: Float, lon: Float) -> Point
+    Point{lat:, lon:}
+end
 
 /// `==` on geometry.Point, resolved against GEOMETRY's declaration.
-pub fn same(a: Point, b: Point) -> Bool {
+pub fn same(a: Point, b: Point) -> Bool
     a == b
-}
+end

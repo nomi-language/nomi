@@ -41,9 +41,9 @@ func TestBlockImport_StdlibAttachedTest(t *testing.T) {
 /// Probe.
 ` + imp + `//! assert Range.naturals() |> Iter.take(2) |> Iter.to_list() == [0, 1]
 //
-pub fn block_import_probe() -> Int {
+pub fn block_import_probe() -> Int
     0
-}
+end
 `
 	}
 
@@ -79,46 +79,46 @@ pub fn block_import_probe() -> Int {
 // scope binds none of those names, so each use resolves through the
 // checker's reference to the block's import.
 func TestBlockImport_UserBodiesAndTests(t *testing.T) {
-	path := writeProgram(t, `fn millis() -> Int {
+	path := writeProgram(t, `fn millis() -> Int
   import std::duration.Duration
   Duration.seconds(2) |> Duration.as_millis()
-}
+end
 
-fn less() -> Bool {
+fn less() -> Bool
   import std::comparable.Ordering.{Less}
   Int.compare(1, 2) == Less
-}
+end
 
-fn shout(message: String) {
+fn shout(message: String)
   import std::io.print
 
   print(String.uppercase(message))
-}
+end
 
 /// Three.
 //! import std::duration.Duration
 //!
 //! assert Duration.minutes(1) |> Duration.as_seconds() == three() * 20
-fn three() -> Int {
+fn three() -> Int
   3
-}
+end
 
-fn main() {
+fn main()
   import std::io
   io.print(Int.to_string(millis()))
   io.print(Bool.to_string(less()))
   shout("hi")
-}
+end
 
-test "a test block imports" {
+test "a test block imports"
   import std::duration.Duration as D
-  inner = {
+  inner = begin
     import std::duration.Duration
     Duration.seconds(1) |> Duration.as_millis()
-  }
+  end
   assert inner == 1000
   assert D.minutes(1) |> D.as_seconds() == 60
-}
+end
 `)
 	p, err := vmhost.Load(path)
 	if err != nil {
@@ -146,18 +146,18 @@ test "a test block imports" {
 // resolve a qualified type name through any import in the file, so a body
 // with no import of its own type-checked against another body's.
 func TestBlockImport_DoesNotReachOtherBodies(t *testing.T) {
-	_, err := vmhost.Load(writeProgram(t, `fn millis() -> Int {
+	_, err := vmhost.Load(writeProgram(t, `fn millis() -> Int
   import std::duration.Duration
   Duration.seconds(2) |> Duration.as_millis()
-}
+end
 
-fn leaked() -> Int {
+fn leaked() -> Int
   Duration.seconds(1) |> Duration.as_millis()
-}
+end
 
-fn main() {
+fn main()
   _ = millis() + leaked()
-}
+end
 `))
 	if err == nil {
 		t.Fatal("a body names Duration, which only another body imports, and the front end admits it")

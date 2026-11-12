@@ -21,41 +21,41 @@ import std::io
 import std::tasks.{Task}
 import std::timer
 
-fn slow() -> Int {
+fn slow() -> Int
   timer.sleep(Duration.seconds(5))
   io.print("slow finished")
   7
-}
+end
 
-test "the block's value is the failure" {
-  r: Result<Int, AssertionFailure> = concurrent {
+test "the block's value is the failure"
+  r: Result<Int, AssertionFailure> = concurrent
     s = Task.spawn(fn -> slow())
     t = Task.spawn(fn -> 1)
     x = Task.await(t)
     assert x == 2
     Ok(x + Task.await(s))
-  }
+  end
   refute r
-}
+end
 
-test "a block that is the body's value fails the case" {
-  concurrent {
+test "a block that is the body's value fails the case"
+  concurrent
     t = Task.spawn(fn -> 1)
     x = Task.await(t)
     assert x == 2
     Ok(x)
-  }
-}
+  end
+end
 
-test "a passing assertion continues the block" {
-  v = concurrent {
+test "a passing assertion continues the block"
+  v = concurrent
     t = Task.spawn(fn -> 2)
     x = Task.await(t)
     assert x == 2
     Ok(x)
-  }
+  end
   assert v == Ok(2)
-}
+end
 `))
 	if err != nil {
 		t.Fatal(err)

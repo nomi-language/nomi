@@ -1,6 +1,6 @@
 import bottle_song
 
-test "single verse" {
+test "single verse"
     [
         (
             "first generic verse",
@@ -47,12 +47,12 @@ test "single verse" {
             ],
         ),
     ]
-    |> subtests (description, start_bottles, take_down, expected), description {
+    |> subtests (description, start_bottles, take_down, expected), description
         assert bottle_song.recite(start_bottles, take_down) == expected
-    }
-}
+    end
+end
 
-test "multiple verses" {
+test "multiple verses"
     [
         (
             "first two verses",
@@ -148,7 +148,7 @@ test "multiple verses" {
             ],
         ),
     ]
-    |> subtests (description, start_bottles, take_down, expected), description {
+    |> subtests (description, start_bottles, take_down, expected), description
         assert bottle_song.recite(start_bottles, take_down) == expected
-    }
-}
+    end
+end

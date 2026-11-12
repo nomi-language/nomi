@@ -1,9 +1,9 @@
-import {
+import
     std::io
     seedlib.seed
-}
+end
 
-fn main() {
+fn main()
     io.print("start")
     io.print("${seed}")
-}
+end

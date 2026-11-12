@@ -4,30 +4,30 @@
 // wrong declaration prints prod's answer where test's belongs.
 import app.{Config, Show}
 
-pub struct Slot {
+pub struct Slot
     id: Int
-}
+end
 
-impl Show for Slot {
-    fn show(value: Slot) -> String {
+impl Show for Slot
+    fn show(value: Slot) -> String
         "test-slot-${value.id}"
-    }
-}
+    end
+end
 
 pub once tag: String = "test"
 
-pub fn slot() -> Slot {
+pub fn slot() -> Slot
     Slot{id: 9090}
-}
+end
 
-pub fn badge() -> String {
+pub fn badge() -> String
     Show.show(slot())
-}
+end
 
-pub fn build() -> Config {
+pub fn build() -> Config
     Config{name: tag, level: 2}
-}
+end
 
-pub fn label() -> String {
+pub fn label() -> String
     "test-label"
-}
+end

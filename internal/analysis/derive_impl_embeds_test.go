@@ -21,7 +21,7 @@ func buildDeriveImplWithStdlib(src string) *analysis.FileAnalysis {
 	lib := loadStdlibOnce()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
-	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex)...)
+	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex, nil)...)
 	analysis.BuildTypes(fa, nodes)
 	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckTypes(fa, nodes)...)
 	fa.TypeErrors = append(fa.TypeErrors, analysis.FinalizeCoherence(fa)...)
@@ -44,12 +44,15 @@ func buildDeriveImplWithStdlib(src string) *analysis.FileAnalysis {
 // `NoImpl`" diagnostic. Before the fix the demand was never recorded, so the
 // build was silent here and the gap only surfaced as a runtime dispatch miss.
 func TestDeriveImplOnEmbedsEnumRecordsTransitiveDemand(t *testing.T) {
-	src := `struct NoImpl { x: Int, f: (Int) -> Int }
+	src := `struct NoImpl
+  x: Int
+  f: (Int) -> Int
+end
 
-enum E {
+enum E
   embeds NoImpl
 
-}
+end
 derive Equatable for E`
 
 	fa := buildDeriveImplWithStdlib(src)
@@ -63,16 +66,16 @@ derive Equatable for E`
 // impl error fires and the transitive demand is satisfied. Guards against the
 // fix over-reporting (e.g. recording a demand it then can't resolve).
 func TestDeriveImplOnEmbedsEnumWithImplSatisfied(t *testing.T) {
-	src := `struct HasImpl {
+	src := `struct HasImpl
   x: Int
 
-}
+end
 derive Equatable for HasImpl
 
-enum E {
+enum E
   embeds HasImpl
 
-}
+end
 derive Equatable for E`
 
 	fa := buildDeriveImplWithStdlib(src)

@@ -1,38 +1,38 @@
-import {
+import
     std::io
     std::json.{FromJson, Json}
-}
+end
 
-struct Note {
+struct Note
     id: Int
     text: String
-}
+end
 
 derive FromJson for Note
 
-fn parse(source: String) -> Result<Json, Json.ShapeError> {
+fn parse(source: String) -> Result<Json, Json.ShapeError>
     Json.decode(source)
     |> Result.map_err(fn _ -> Json.ShapeError{path: [], expected: "json", got: "invalid"})
-}
+end
 
 // `FromJson.from_json` declares self only in its result, so the binding's
 // annotation is what names the implementation. Each function's own return type
 // names a different type, which must not be the one chosen.
-fn count(source: String) -> Result<Int, Json.ShapeError> {
+fn count(source: String) -> Result<Int, Json.ShapeError>
     parsed = parse(source)?
     ids: List<Int> = FromJson.from_json(parsed)?
     Ok(Iter.count(ids))
-}
+end
 
-fn title(source: String) -> Result<String, Json.ShapeError> {
+fn title(source: String) -> Result<String, Json.ShapeError>
     parsed = parse(source)?
     note: Note = FromJson.from_json(parsed)?
     Ok(note.text)
-}
+end
 
-fn main() {
+fn main()
     io.print(count("[1, 2, 3]"))
     io.print(count("[1, true]"))
     io.print(title("{\"id\": 1, \"text\": \"a\"}"))
     io.print(title("[1]"))
-}
+end

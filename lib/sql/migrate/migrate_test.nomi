@@ -1,4 +1,4 @@
-import {
+import
     std::fs
     std::sql.{self, Conn, Row, Sql, Statement}
     std::tasks.Task
@@ -6,49 +6,49 @@ import {
     migrate::checksum
     postgres
     sqlite
-}
+end
 
 // A migration in db/migrations.
-fn m(name: String, text: String) -> Migration {
+fn m(name: String, text: String) -> Migration
     Migration{path: "db/migrations/${name}", sql: text}
-}
+end
 
 // Runs body on a fresh database of each engine: SQLite in memory, and a
 // database of the process's scratch Postgres server (which needs `initdb`
 // and `postgres` on PATH). Returns each engine's name and result.
-fn on_each<T>(body: (Conn) -> Result<T, Error>) -> List<(String, Result<T, Error>)> {
+fn on_each<T>(body: (Conn) -> Result<T, Error>) -> List<(String, Result<T, Error>)>
     opens: List<(String, () -> Result<Conn, sql.Error>)> = [
         ("sqlite", fn -> sqlite.memory()),
         ("postgres", fn -> postgres.connect(postgres.scratch()?)),
     ]
 
     opens
-    |> Iter.map(fn (name, open) -> {
-        result = case open() {
-            Ok(db) -> {
+    |> Iter.map(fn (name, open) ->
+        result = case open()
+            Ok(db) ->
                 defer sql.close_quietly(db)
                 body(db)
-            }
 
-            Err(error) -> Err(Error.Database{error})
-        }
+            Err(error) ->
+                Err(Error.Database{error:})
+        end
 
         (name, result)
-    })
+    end)
     |> Iter.to_list()
-}
+end
 
 // The same result from both engines.
-fn both<T>(answer: Result<T, Error>) -> List<(String, Result<T, Error>)> {
+fn both<T>(answer: Result<T, Error>) -> List<(String, Result<T, Error>)>
     [("sqlite", answer), ("postgres", answer)]
-}
+end
 
-fn db_error(error: sql.Error) -> Error {
-    Error.Database{error}
-}
+fn db_error(error: sql.Error) -> Error
+    Error.Database{error:}
+end
 
 // The recorded versions, in order.
-fn recorded(db: Conn) -> Result<List<String>, Error> {
+fn recorded(db: Conn) -> Result<List<String>, Error>
     rows =
         Conn.query(db, Sql"SELECT version FROM nomi_migrations ORDER BY version")
         |> Result.map_err(db_error)?
@@ -57,17 +57,17 @@ fn recorded(db: Conn) -> Result<List<String>, Error> {
     |> Iter.map(fn row -> Row.get<String>(row, "version"))
     |> Result.collect()
     |> Result.map_err(db_error)
-}
+end
 
-fn count(db: Conn, table: String) -> Result<Int, Error> {
+fn count(db: Conn, table: String) -> Result<Int, Error>
     statement = Statement{parts: ["SELECT count(*) AS n FROM ${table}"], params: []}
     rows = Conn.query(db, statement) |> Result.map_err(db_error)?
 
-    case rows {
+    case rows
         [row, ..] -> Row.get<Int>(row, "n") |> Result.map_err(db_error)
         [] -> Ok(0)
-    }
-}
+    end
+end
 
 once users: Migration = m(
     "1_users.sql",
@@ -84,7 +84,7 @@ once seed: Migration = m(
     "INSERT INTO users (id, email) VALUES (1, 'ada@example.com')",
 )
 
-test "read lists a directory's migrations in name order, without down files or subdirectories" {
+test "read lists a directory's migrations in name order, without down files or subdirectories"
     dir = fs.make_temp_dir()?
     defer fs.remove_all_quietly(dir)
 
@@ -97,29 +97,29 @@ test "read lists a directory's migrations in name order, without down files or s
 
     got =
         migrate.read(dir)
-        |> Result.map(fn ms -> {
+        |> Result.map(fn ms ->
             ms
             |> Iter.map(fn mig -> (String.replace(mig.path, "${dir}/", ""), mig.sql))
             |> Iter.to_list()
-        })
+        end)
 
     assert got == Ok([("000001_users.up.sql", "A"), ("000002_orders.up.sql", "B")])
-}
+end
 
-test "read refuses a directory that does not exist" {
-    refused = case migrate.read("no/such/migrations") {
-        Err(Error.Read{path, message: _}) -> path
+test "read refuses a directory that does not exist"
+    refused = case migrate.read("no/such/migrations")
+        Err(Error.Read{path:, message: _}) -> path
         Err(e) -> "${e}"
         Ok(_) -> "Ok"
-    }
+    end
 
     assert refused == "no/such/migrations"
-}
+end
 
 // Migrations the test carries inside itself, as a built program does.
 embed fixtures `testdata/migrations`
 
-test "read_from lists an embedded directory's migrations in name order, without down files or subdirectories" {
+test "read_from lists an embedded directory's migrations in name order, without down files or subdirectories"
     got =
         migrate.read_from(fixtures, "testdata/migrations")
         |> Result.map(fn ms -> ms |> Iter.map(fn mig -> mig.path) |> Iter.to_list())
@@ -127,24 +127,24 @@ test "read_from lists an embedded directory's migrations in name order, without 
     assert got == Ok(
         ["testdata/migrations/000001_users.up.sql", "testdata/migrations/000002_orders.up.sql"]
     )
-}
+end
 
-test "read_from refuses a directory the embedded files do not hold" {
+test "read_from refuses a directory the embedded files do not hold"
     assert migrate.read_from(fixtures, "db/migrations") is Err(Error.Read{path: "db/migrations"})
-}
+end
 
-test "up_from applies the embedded migrations" {
-    answers = on_each(fn db -> {
+test "up_from applies the embedded migrations"
+    answers = on_each(fn db ->
         ran = migrate.up_from(db, fixtures, "testdata/migrations")?
         again = migrate.up_from(db, fixtures, "testdata/migrations")?
         Ok((ran, again))
-    })
+    end)
 
     assert answers == both(Ok((["000001_users.up.sql", "000002_orders.up.sql"], [])))
-}
+end
 
-test "apply runs each migration once, in order, and records it with its checksum" {
-    answers = on_each(fn db -> {
+test "apply runs each migration once, in order, and records it with its checksum"
+    answers = on_each(fn db ->
         first = migrate.apply(db, [users, orders, seed])?
         again = migrate.apply(db, [users, orders, seed])?
 
@@ -156,7 +156,7 @@ test "apply runs each migration once, in order, and records it with its checksum
             |> Result.map_err(db_error)?
 
         Ok((first, again, sums, count(db, "users")?))
-    })
+    end)
 
     assert answers == both(
         Ok(
@@ -168,15 +168,15 @@ test "apply runs each migration once, in order, and records it with its checksum
             )
         )
     )
-}
+end
 
-test "a migration whose text changed is refused before anything runs" {
-    answers = on_each(fn db -> {
+test "a migration whose text changed is refused before anything runs"
+    answers = on_each(fn db ->
         _ = migrate.apply(db, [users, orders])?
-        edited = .{..users, sql: "CREATE TABLE users (id INTEGER PRIMARY KEY, mail TEXT)"}
+        edited = {..users, sql: "CREATE TABLE users (id INTEGER PRIMARY KEY, mail TEXT)"}
         refused = migrate.apply(db, [edited, orders, seed])
         Ok((refused, recorded(db)?, count(db, "users")?))
-    })
+    end)
 
     assert answers == both(
         Ok(
@@ -187,37 +187,37 @@ test "a migration whose text changed is refused before anything runs" {
             )
         )
     )
-}
+end
 
-test "a failing migration keeps the ones before it and leaves itself and the rest out" {
-    broken = .{..orders, sql: "CREATE TABL orders (id INTEGER)"}
+test "a failing migration keeps the ones before it and leaves itself and the rest out"
+    broken = {..orders, sql: "CREATE TABL orders (id INTEGER)"}
 
-    answers = on_each(fn db -> {
-        failed = case migrate.apply(db, [users, broken, seed]) {
-            Err(Error.Failed{path, error: _}) -> path
+    answers = on_each(fn db ->
+        failed = case migrate.apply(db, [users, broken, seed])
+            Err(Error.Failed{path:, error: _}) -> path
             Err(e) -> "${e}"
             Ok(ran) -> "ran ${ran}"
-        }
+        end
 
         after_failure = recorded(db)?
         fixed = migrate.apply(db, [users, orders, seed])?
         Ok((failed, after_failure, fixed))
-    })
+    end)
 
     assert answers
         == both(Ok(("db/migrations/2_orders.sql", ["1_users.sql"], ["2_orders.sql", "3_seed.sql"])))
-}
+end
 
-test "status sorts the migrations by where they stand, and creates nothing" {
-    edited = .{..orders, sql: "CREATE TABLE orders (id INTEGER PRIMARY KEY)"}
+test "status sorts the migrations by where they stand, and creates nothing"
+    edited = {..orders, sql: "CREATE TABLE orders (id INTEGER PRIMARY KEY)"}
 
-    answers = on_each(fn db -> {
+    answers = on_each(fn db ->
         fresh = migrate.status(db, [users, orders])?
         still_fresh = migrate.status(db, [users, orders])?
         _ = migrate.apply(db, [users, orders])?
         later = migrate.status(db, [edited, seed])?
         Ok((fresh == still_fresh, fresh, later))
-    })
+    end)
 
     assert answers == both(
         Ok(
@@ -238,10 +238,10 @@ test "status sorts the migrations by where they stand, and creates nothing" {
             )
         )
     )
-}
+end
 
 // golang-migrate's own table, as it leaves it at `version`.
-fn golang_migrate_at(db: Conn, version: Int, dirty: Bool) -> Result<Unit, Error> {
+fn golang_migrate_at(db: Conn, version: Int, dirty: Bool) -> Result<Unit, Error>
     _ =
         Conn.exec(
             db,
@@ -257,7 +257,7 @@ fn golang_migrate_at(db: Conn, version: Int, dirty: Bool) -> Result<Unit, Error>
         |> Result.map_err(db_error)?
 
     Ok(Unit)
-}
+end
 
 once g1: Migration = m("000001_users.up.sql", "CREATE TABLE users (id INTEGER PRIMARY KEY)")
 
@@ -265,8 +265,8 @@ once g2: Migration = m("000002_orders.up.sql", "CREATE TABLE orders (id INTEGER 
 
 once g3: Migration = m("000003_notes.up.sql", "CREATE TABLE notes (id INTEGER PRIMARY KEY)")
 
-test "adopting golang-migrate's state records its migrations without running them" {
-    answers = on_each(fn db -> {
+test "adopting golang-migrate's state records its migrations without running them"
+    answers = on_each(fn db ->
         // What golang-migrate left: the first two applied.
         _ =
             Conn.exec(db, Sql"CREATE TABLE users (id INTEGER PRIMARY KEY)")
@@ -282,23 +282,23 @@ test "adopting golang-migrate's state records its migrations without running the
         again = migrate.adopt_golang_migrate(db, [g1, g2, g3])?
         ran = migrate.apply(db, [g1, g2, g3])?
         Ok((adopted, again, ran))
-    })
+    end)
 
     assert answers
         == both(Ok((["000001_users.up.sql", "000002_orders.up.sql"], [], ["000003_notes.up.sql"])))
-}
+end
 
 // The message of an adoption refused, or what came back instead.
-fn adopt_refusal(db: Conn, migrations: List<Migration>) -> Result<String, Error> {
-    case migrate.adopt_golang_migrate(db, migrations) {
-        Err(Error.Adopt{message}) -> Ok(message)
+fn adopt_refusal(db: Conn, migrations: List<Migration>) -> Result<String, Error>
+    case migrate.adopt_golang_migrate(db, migrations)
+        Err(Error.Adopt{message:}) -> Ok(message)
         Err(e) -> Err(e)
         Ok(versions) -> Ok("adopted ${versions}")
-    }
-}
+    end
+end
 
-test "adoption refuses a dirty version, a version with no file, and a database golang-migrate never ran" {
-    answers = on_each(fn db -> {
+test "adoption refuses a dirty version, a version with no file, and a database golang-migrate never ran"
+    answers = on_each(fn db ->
         none = adopt_refusal(db, [g1])?
         golang_migrate_at(db, 2, True)?
         dirty = adopt_refusal(db, [g1, g2])?
@@ -311,7 +311,7 @@ test "adoption refuses a dirty version, a version with no file, and a database g
         // A refusal rolls back, so nothing was recorded.
         left = migrate.status(db, [g1, g2])?
         Ok((none, dirty, unknown, left.applied))
-    })
+    end)
 
     assert answers == both(
         Ok(
@@ -323,16 +323,16 @@ test "adoption refuses a dirty version, a version with no file, and a database g
             )
         )
     )
-}
+end
 
 // Opens its own connection to url, applies, and closes.
-fn apply_at(url: String, migrations: List<Migration>) -> Result<List<String>, Error> {
+fn apply_at(url: String, migrations: List<Migration>) -> Result<List<String>, Error>
     db = postgres.connect(url) |> Result.map_err(db_error)?
     defer sql.close_quietly(db)
     migrate.apply(db, migrations)
-}
+end
 
-test "two processes that migrate one Postgres database at once run each migration once" {
+test "two processes that migrate one Postgres database at once run each migration once"
     url = postgres.scratch()?
 
     slow = [
@@ -340,11 +340,11 @@ test "two processes that migrate one Postgres database at once run each migratio
         m("2_row.sql", "INSERT INTO t VALUES (1)"),
     ]
 
-    runs = concurrent {
+    runs = concurrent
         a = Task.spawn(fn -> apply_at(url, slow))
         b = Task.spawn(fn -> apply_at(url, slow))
         [Task.await(a), Task.await(b)]
-    }
+    end
 
     // One run did both; the other waited for its lock and found nothing to do.
     assert runs |> Iter.all_match(fn r -> Result.is_ok(r))
@@ -360,4 +360,4 @@ test "two processes that migrate one Postgres database at once run each migratio
     db = postgres.connect(url)?
     defer sql.close_quietly(db)
     assert count(db, "t") == Ok(1)
-}
+end

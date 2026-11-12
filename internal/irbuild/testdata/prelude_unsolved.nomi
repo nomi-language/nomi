@@ -51,20 +51,20 @@ import std::io
 // other slices' keys, and a fixture that used them could not witness this one.
 // Every value is destructured by `case`, which is the stronger check anyway: it
 // proves the payload is reachable through the tag rather than merely printable.
-struct Outcome {
+struct Outcome
     parsed: Result<Int, String>
-}
+end
 
-fn main() {
+fn main()
     // --- hole at index 1: E open, from Ok ------------------------------------
     first = Ok(4)
     second = Ok(4)
 
     io.print(
-        "ok arm = ${case first {
+        "ok arm = ${case first
             Ok(n) -> n
             Err(_) -> -1
-        }}"
+        end}"
     )
 
     io.print("ok equal = ${Result.equal(first, second)}")
@@ -75,10 +75,10 @@ fn main() {
     worse = Err("bad")
 
     io.print(
-        "err arm = ${case bad {
+        "err arm = ${case bad
             Ok(_) -> "unexpected"
             Err(e) -> e
-        }}"
+        end}"
     )
 
     io.print("err equal = ${Result.equal(bad, worse)}")
@@ -96,11 +96,11 @@ fn main() {
     nested = Some(Ok(42))
 
     io.print(
-        "nested = ${case nested {
+        "nested = ${case nested
             Some(Ok(n)) -> n
             Some(Err(_)) -> -1
             None -> 0
-        }}"
+        end}"
     )
 
     // The Err side of the same nesting, so index 0 is covered under a
@@ -108,11 +108,11 @@ fn main() {
     nested_err = Some(Err("deep"))
 
     io.print(
-        "nested_err = ${case nested_err {
+        "nested_err = ${case nested_err
             Some(Ok(_)) -> "unexpected"
             Some(Err(e)) -> e
             None -> "none"
-        }}"
+        end}"
     )
 
     // --- the declared positions that DO reach the builder already solved ----
@@ -134,19 +134,19 @@ fn main() {
     annotated: Result<Int, String> = Ok(11)
 
     io.print(
-        "annotated = ${case annotated {
+        "annotated = ${case annotated
             Ok(n) -> n
             Err(_) -> -1
-        }}"
+        end}"
     )
 
     annotated_err: Result<Int, String> = Err("no")
 
     io.print(
-        "annotated_err = ${case annotated_err {
+        "annotated_err = ${case annotated_err
             Ok(_) -> "unexpected"
             Err(e) -> e
-        }}"
+        end}"
     )
 
     // A DECLARED slot fed from a hole-carrying LOCAL rather than from a literal
@@ -155,9 +155,9 @@ fn main() {
     moved: Result<Int, String> = first
 
     io.print(
-        "moved = ${case moved {
+        "moved = ${case moved
             Ok(n) -> n
             Err(_) -> -1
-        }}"
+        end}"
     )
-}
+end

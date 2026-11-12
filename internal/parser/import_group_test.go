@@ -22,7 +22,7 @@ func TestGroupedImportPath_IsAnErrorAtTheBrace(t *testing.T) {
 		{"import http::{request as req, response}\n", 1, 14, []string{"http::request as req", "http::response"}},
 		{"import std::{calendar.{Date, Months}, io}\n", 1, 13, []string{"std::calendar.{Date, Months}", "std::io"}},
 		{"import a::b::{\n    c\n    d::e\n}\n", 1, 14, []string{"a::b::c", "a::b::d::e"}},
-		{"import {\n    std::{io, iter}\n}\n", 2, 10, []string{"std::io", "std::iter"}},
+		{"import\n    std::{io, iter}\nend\n", 2, 10, []string{"std::io", "std::iter"}},
 		{"import std::{\n    calendar.{\n        Date\n        Months\n    }\n}\n", 1, 13, []string{"std::calendar.{Date, Months}"}},
 		// An entry the hint cannot spell gets the fixed example.
 		{"import std::{io, 1}\n", 1, 13, []string{"std::io", "std::regex.Regex"}},
@@ -34,8 +34,8 @@ func TestGroupedImportPath_IsAnErrorAtTheBrace(t *testing.T) {
 			continue
 		}
 		e := errs[0]
-		hint := "to import several files, list each in an import block:\nimport {\n    " +
-			strings.Join(tc.block, "\n    ") + "\n}"
+		hint := "to import several files, list each in an import block:\nimport\n    " +
+			strings.Join(tc.block, "\n    ") + "\nend"
 		if e.Line != tc.line || e.Col != tc.col || e.Message != msg || len(e.Hints) != 1 || e.Hints[0] != hint {
 			t.Errorf("%q: got %d:%d %q hints %q\nwant %d:%d %q hint %q", tc.src, e.Line, e.Col, e.Message, e.Hints, tc.line, tc.col, msg, hint)
 		}
@@ -55,7 +55,7 @@ func TestNestedImportList_IsAnErrorAtTheInnerBrace(t *testing.T) {
 		{"import nucleotide_count.{self, Nucleotide.{A, C, G, T}}\n", 1, 43, []string{"nucleotide_count", "nucleotide_count.Nucleotide.{A, C, G, T}"}},
 		{"import std::calendar.{Date, Weekday.{Monday as Mon}}\n", 1, 37, []string{"std::calendar.Date", "std::calendar.Weekday.{Monday as Mon}"}},
 		{"import a::b.C.{self, D.{E}}\n", 1, 24, []string{"a::b.C", "a::b.C.D.{E}"}},
-		{"import {\n    shapes.{\n        self,\n        Shape.{Circle, Square}\n    }\n}\n", 4, 15, []string{"shapes", "shapes.Shape.{Circle, Square}"}},
+		{"import\n    shapes.{\n        self,\n        Shape.{Circle, Square}\n    }\nend\n", 4, 15, []string{"shapes", "shapes.Shape.{Circle, Square}"}},
 	}
 	for _, tc := range cases {
 		_, errs := ParseWithRecovery(lexer.Lex(tc.src))
@@ -64,8 +64,8 @@ func TestNestedImportList_IsAnErrorAtTheInnerBrace(t *testing.T) {
 			continue
 		}
 		e := errs[0]
-		hint := "give each entry its own line in an import block:\nimport {\n    " +
-			strings.Join(tc.block, "\n    ") + "\n}"
+		hint := "give each entry its own line in an import block:\nimport\n    " +
+			strings.Join(tc.block, "\n    ") + "\nend"
 		if e.Line != tc.line || e.Col != tc.col || e.Message != msg || len(e.Hints) != 1 || e.Hints[0] != hint {
 			t.Errorf("%q: got %d:%d %q hints %q\nwant %d:%d %q hint %q", tc.src, e.Line, e.Col, e.Message, e.Hints, tc.line, tc.col, msg, hint)
 		}
@@ -82,7 +82,7 @@ func TestGroupedImportPath_SelectorsStayValid(t *testing.T) {
 	for _, src := range []string{
 		"import std::calendar.{Date, Months}\n",
 		"import std::calendar.Disambiguation.{self, Earlier}\n",
-		"import {\n    std::io\n    std::regex.Regex\n}\n",
+		"import\n    std::io\n    std::regex.Regex\nend\n",
 	} {
 		if _, errs := ParseWithRecovery(lexer.Lex(src)); len(errs) != 0 {
 			t.Errorf("%q: %v", src, errs)

@@ -1,63 +1,64 @@
-import {
+import
     std::random.Seed
     robot_name.{Factory, Robot}
-}
+end
 
 /// Whether `name` is two uppercase letters and three digits.
-fn is_well_formed(name: String) -> Bool {
-    case String.to_codepoints(name) {
+fn is_well_formed(name: String) -> Bool
+    case String.to_codepoints(name)
         [a, b, c, d, e] ->
             Iter.all_match([a, b], &(&1 in 'A'..='Z'))
                 and Iter.all_match([c, d, e], Codepoint.is_digit)
 
-        _ -> False
-    }
-}
+        _ ->
+            False
+    end
+end
 
 /// The names of `count` robots from `factory`, in the order it built them.
-fn names(factory: Factory, count: Int) -> List<String> {
+fn names(factory: Factory, count: Int) -> List<String>
     (_factory, names) =
         1..=count
-        |> Iter.map_reduce(factory, fn factory, _n -> {
+        |> Iter.map_reduce(factory, fn factory, _n ->
             (robot, next) = Factory.build(factory)!
             (next, Robot.name(robot))
-        })
+        end)
 
     names
-}
+end
 
-group "robot name" {
+group "robot name"
     setup Seed.from_int(42) |> Factory.new()
 
-    test "has a name", factory {
+    test "has a name", factory
         assert Ok((robot, _factory)) = Factory.build(factory)
         assert is_well_formed(Robot.name(robot))
-    }
+    end
 
-    test "name is the same each time", factory {
+    test "name is the same each time", factory
         assert Ok((robot, _factory)) = Factory.build(factory)
         assert Robot.name(robot) == Robot.name(robot)
-    }
+    end
 
-    test "different robots have different names", factory {
+    test "different robots have different names", factory
         assert Ok((first, factory)) = Factory.build(factory)
         assert Ok((second, _factory)) = Factory.build(factory)
         assert Robot.name(first) != Robot.name(second)
-    }
+    end
 
-    test "reset changes the name to a new well-formed one", factory {
+    test "reset changes the name to a new well-formed one", factory
         assert Ok((robot, factory)) = Factory.build(factory)
         assert Ok((reset, _factory)) = Factory.reset(factory, robot)
         assert Robot.name(reset) != Robot.name(robot)
         assert is_well_formed(Robot.name(reset))
-    }
+    end
 
-    test "a thousand robots all have different names", factory {
+    test "a thousand robots all have different names", factory
         assert names(factory, 1000) |> Iter.to_set() |> Set.size() == 1000
-    }
+    end
 
-    test "the same seed names the same robots", factory {
+    test "the same seed names the same robots", factory
         again = Seed.from_int(42) |> Factory.new()
         assert names(factory, 5) == names(again, 5)
-    }
-}
+    end
+end

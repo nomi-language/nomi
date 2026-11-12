@@ -5,36 +5,36 @@
 
 import std::io
 
-pub enum Direction {
+pub enum Direction
     North
     East
-}
+end
 
-pub enum Place {
+pub enum Place
     Cave
     Hall
-}
+end
 
-struct Room {
+struct Room
     exits: Map<Direction, Place>
-}
+end
 
-struct Index {
+struct Index
     words: Map<String, List<Int>>
-}
+end
 
-fn piped() -> Map<Direction, Place> {
+fn piped() -> Map<Direction, Place>
     [(.North, .Cave)] |> Iter.to_map()
-}
+end
 
-fn arm(d: Direction) -> Map<Direction, Place> {
-    case d {
+fn arm(d: Direction) -> Map<Direction, Place>
+    case d
         .North -> Iter.to_map([(.North, .Cave)])
         .East -> Iter.to_map([])
-    }
-}
+    end
+end
 
-fn main() {
+fn main()
     io.inspect(Room{exits: Iter.to_map([(.North, .Cave), (.East, .Hall)])})
     io.inspect(Index{words: Iter.to_map([])})
     empty: Map<String, List<Int>> = Iter.to_map([])
@@ -42,4 +42,4 @@ fn main() {
     io.inspect(piped())
     io.inspect(arm(Direction.North))
     io.inspect(arm(Direction.East))
-}
+end

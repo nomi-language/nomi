@@ -25,11 +25,11 @@ func ptrKeys() map[*int64]int64        { return nil }
 // binding. An adapter the generator cannot write must be a build-time error,
 // never a run-time one.
 func TestUnadaptableBindingsFailGenerationByName(t *testing.T) {
-	const source = `pub struct Point {
+	const source = `pub struct Point
   x: Int
   y: Int
   z: Int
-}
+end
 
 pub host fn with_map(m: Map<String, Int>) -> Int
 pub host fn drift(p: Point) -> Int
@@ -143,7 +143,7 @@ pub host fn fine(x: Int, y: Int) -> Int
 // terminates; and with Unloaded set, a name no loaded module declares is a
 // leaf rather than an error, so the declared fields around it still count.
 func TestStructureOfARecursiveTypeOverAnUnloadedName(t *testing.T) {
-	src := "pub struct Node {\n    label: String\n    wait: Duration\n    next: Maybe<Node>\n}\n"
+	src := "pub struct Node\n    label: String\n    wait: Duration\n    next: Maybe<Node>\nend\n"
 	ms := NewModules(func(module string) ([]byte, bool) {
 		if module == "tree" {
 			return []byte(src), true

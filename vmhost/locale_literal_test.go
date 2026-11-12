@@ -9,15 +9,15 @@ import (
 // A backtick Locale literal is the canonical Locale its handler parses,
 // checked when the program loads.
 func TestLocaleLiteral_IsItsCanonicalLocale(t *testing.T) {
-	const src = "import {\n" +
+	const src = "import\n" +
 		"    std::io\n" +
-		"}\n\n" +
+		"end\n\n" +
 		"once polish = Locale`pl-PL`\n\n" +
-		"fn main() {\n" +
+		"fn main()\n" +
 		"    io.print(Locale`EN-us`)\n" +
 		"    io.print(Debug.inspect(Locale`iw`))\n" +
 		"    io.print(polish == Locale`pl-pl`)\n" +
-		"}\n"
+		"end\n"
 	p, err := LoadSource("main", src)
 	if err != nil {
 		t.Fatalf("the front end rejects a valid Locale literal: %v", err)
@@ -40,7 +40,7 @@ func TestLocaleLiteral_InvalidTagIsACompileError(t *testing.T) {
 		{"Locale`xx`", "typed literal Locale`xx` is invalid: `xx` is not a known language, script or region subtag"},
 		{"Locale``", "typed literal Locale`` is invalid: a locale tag cannot be empty"},
 	} {
-		src := "fn main() {\n    _ = " + c.literal + "\n}\n"
+		src := "fn main()\n    _ = " + c.literal + "\nend\n"
 		ds := literalDiagnostics(t, src)
 		if len(ds) != 1 {
 			t.Fatalf("%s: %d diagnostics, want 1: %v", c.literal, len(ds), ds)

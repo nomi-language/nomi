@@ -111,7 +111,7 @@ func TestToolCommand_AToolIsAnEntryWithoutBeingListed(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(tool, append(src, "\nfn broken() -> Int {\n    \"text\"\n}\n"...), 0o644); err != nil {
+		if err := os.WriteFile(tool, append(src, "\nfn broken() -> Int\n    \"text\"\nend\n"...), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		if out, err := runNomiInDir(t, cache, cafe, "", "check", "."); err == nil || !strings.Contains(out, "choices.nomi") {

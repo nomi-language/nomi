@@ -8,15 +8,15 @@ import (
 // A type parameter may have a default, which a use in a type position that
 // leaves the argument out takes (default_type_args.go).
 
-const defaultArgsLib = `pub struct Tagged<T, Tag = String> {
+const defaultArgsLib = `pub struct Tagged<T, Tag = String>
     value: T
     tag: Tag
-}
+end
 
-pub enum Outcome<E = String> {
+pub enum Outcome<E = String>
     Done
     Failed(E)
-}
+end
 
 pub type Id<K = Int> K
 `
@@ -25,25 +25,25 @@ pub type Id<K = Int> K
 func TestDefaultTypeArgs_UsesFromAnotherFileTakeTheDefault(t *testing.T) {
 	src := `import lib.{Id, Outcome, Tagged}
 
-fn tag(t: Tagged<Int>) -> String {
+fn tag(t: Tagged<Int>) -> String
     t.tag
-}
+end
 
-fn reason(o: Outcome) -> String {
-    case o {
+fn reason(o: Outcome) -> String
+    case o
         .Done -> ""
         .Failed(e) -> e
-    }
-}
+    end
+end
 
-fn raw(id: Id) -> Int {
+fn raw(id: Id) -> Int
     Id(n) = id
     n
-}
+end
 
-fn main() {
+fn main()
     _ = (tag(Tagged{value: 1, tag: "a"}), reason(.Failed("x")), raw(Id(3)))
-}
+end
 `
 	files := map[string]string{"main.nomi": src, "lib.nomi": defaultArgsLib}
 	for _, order := range [][]string{{"", "lib"}, {"lib", ""}} {
@@ -61,13 +61,13 @@ fn main() {
 func TestDefaultTypeArgs_BareNameIsTheDefault(t *testing.T) {
 	src := `import lib.Tagged
 
-fn tag(t: Tagged<Int>) -> String {
+fn tag(t: Tagged<Int>) -> String
     t.tag
-}
+end
 
-fn main() {
+fn main()
     _ = tag(Tagged{value: 1, tag: 2})
-}
+end
 `
 	got := checkOnceProject(t, map[string]string{"main.nomi": src, "lib.nomi": defaultArgsLib}, []string{"", "lib"})
 	msgs := strings.Join(messages(got["main.nomi"]), "\n")
@@ -79,13 +79,13 @@ fn main() {
 // Each misuse of a default is refused with its message.
 func TestDefaultTypeArgs_MisusesAreRefused(t *testing.T) {
 	cases := []struct{ src, want string }{
-		{"struct Bad<A, B = List<A>> {\n    a: A\n    b: B\n}\n", "a type parameter's default can't name a type parameter (`A`)"},
-		{"fn f<T = Int>(x: T) -> T {\n    x\n}\n", "a function's type parameter can't have a default; a call infers `T`"},
-		{"struct Pair<A, B = String> {\n    a: A\n    b: B\n}\n\nfn g(p: Pair) -> Pair {\n    p\n}\n", "`Pair` expects 1 to 2 type arguments, got 0"},
-		{"struct Pair<A, B = String> {\n    a: A\n    b: B\n}\n\nfn g(p: Pair<Int, Int, Int>) -> Pair<Int> {\n    todo\n}\n", "`Pair` expects 1 to 2 type arguments, got 3"},
+		{"struct Bad<A, B = List<A>>\n    a: A\n    b: B\nend\n", "a type parameter's default can't name a type parameter (`A`)"},
+		{"fn f<T = Int>(x: T) -> T\n    x\nend\n", "a function's type parameter can't have a default; a call infers `T`"},
+		{"struct Pair<A, B = String>\n    a: A\n    b: B\nend\n\nfn g(p: Pair) -> Pair\n    p\nend\n", "`Pair` expects 1 to 2 type arguments, got 0"},
+		{"struct Pair<A, B = String>\n    a: A\n    b: B\nend\n\nfn g(p: Pair<Int, Int, Int>) -> Pair<Int>\n    todo\nend\n", "`Pair` expects 1 to 2 type arguments, got 3"},
 	}
 	for _, c := range cases {
-		got := checkOnceProject(t, map[string]string{"main.nomi": c.src + "\nfn main() {\n}\n"}, []string{""})
+		got := checkOnceProject(t, map[string]string{"main.nomi": c.src + "\nfn main() end\n"}, []string{""})
 		msgs := messages(got["main.nomi"])
 		found := false
 		for _, m := range msgs {

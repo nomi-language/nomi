@@ -13,49 +13,49 @@ func TestIRNestedFnAnswersItsDeclaredResult_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Spot {
+struct Spot
     n: Int
-}
+end
 
-enum Shape {
+enum Shape
     embeds Spot
     Dot
-}
+end
 
-fn main() {
-    fn spot() -> Shape {
+fn main()
+    fn spot() -> Shape
         Spot{n: 3}
-    }
+    end
 
-    fn pick(n: Int) -> Shape {
-        if n > 0 {
-            return Spot{n: n}
-        }
+    fn pick(n: Int) -> Shape
+        if n > 0 then
+            return Spot{n:}
+        end
         Shape.Dot
-    }
+    end
 
-    fn count(n: Int) -> Shape {
-        case n {
+    fn count(n: Int) -> Shape
+        case n
             0 -> Spot{n: 0}
             _ -> count(n - 1)
-        }
-    }
+        end
+    end
 
-    fn none() -> Set<Int> {
-        %[]
-    }
+    fn none() -> Set<Int>
+        Set[]
+    end
 
-    fn empty_vector() -> Vector<Int> {
-        #[]
-    }
+    fn empty_vector() -> Vector<Int>
+        Vector[]
+    end
 
-    fn empty_map() -> Map<String, Int> {
-        %{}
-    }
+    fn empty_map() -> Map<String, Int>
+        {}
+    end
 
-    fn shown() -> List<Display> {
+    fn shown() -> List<Display>
         [1, "a"]
-    }
+    end
 
     io.inspect(spot())
     io.inspect(pick(2))
@@ -65,7 +65,7 @@ fn main() {
     io.inspect(empty_vector())
     io.inspect(empty_map())
     io.print(shown() |> Iter.map(fn d -> Display.to_string(d)) |> String.join(","))
-}
+end
 `
-	irRunSource(t, src, "Spot{n: 3}\nSpot{n: 2}\nDot\nSpot{n: 0}\n%[]\n#[]\n%{}\n1,a\n")
+	irRunSource(t, src, "Spot{n: 3}\nSpot{n: 2}\nDot\nSpot{n: 0}\nSet[]\nVector[]\n{}\n1,a\n")
 }

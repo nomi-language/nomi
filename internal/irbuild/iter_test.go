@@ -13,7 +13,7 @@ import (
 // `Iter` call is declined and nothing names the cause. This guard turns a std
 // edit that breaks the shape into a named failure.
 func TestIterProtocolShapeMatchesStdSource(t *testing.T) {
-	p, err := AnalyzeSource("main", "fn main() {\n  _ = 1\n}\n")
+	p, err := AnalyzeSource("main", "fn main()\n  _ = 1\nend\n")
 	if err != nil {
 		t.Fatalf("analyze: %v", err)
 	}

@@ -9,35 +9,35 @@ import "testing"
 // (String) -> Unit, got Unit".
 
 const partialGenericDecls = `
-interface Console {
+interface Console
   fn write_line(c: self, line: String) -> Unit
-}
+end
 
-struct Stdout {
+struct Stdout
   prefix: String
-}
+end
 
-impl Console for Stdout {
-  fn write_line(c: Stdout, line: String) -> Unit {
+impl Console for Stdout
+  fn write_line(c: Stdout, line: String) -> Unit
     _ = c
     _ = line
     Unit
-  }
-}
+  end
+end
 
-fn pair<T>(a: T, b: T) -> (T, T) {
+fn pair<T>(a: T, b: T) -> (T, T)
   (a, b)
-}
+end
 
-fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False) -> List<T> {
+fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False) -> List<T>
   _ = twice
   [x, ..xs]
-}
+end
 `
 
 func TestPartialGeneric_TypesAsAFunctionOfTheOpenSlots(t *testing.T) {
 	_, errs := checkSourceWithStdlib(partialGenericDecls + `
-fn main() {
+fn main()
   c = Stdout{prefix: "> "}
   Iter.each(["a", "b"], &Console.write_line(c, &1))
   w: (String) -> Unit = &Console.write_line(c, &1)
@@ -47,7 +47,7 @@ fn main() {
   _ = (p(2), q(1))
   s: (List<Int>) -> List<Int> = &spread(1, xs: &1)
   _ = s([2])
-}
+end
 `)
 	expectNoStdlibErrors(t, errs)
 }
@@ -61,7 +61,7 @@ func TestPartialGeneric_RejectsAMismatchedPartial(t *testing.T) {
 		{`  p: (String) -> (Int, Int) = &pair(1, &1)`, "expected (String) -> (Int, Int), got (Int) -> (Int, Int)"},
 	} {
 		t.Run(tc.want, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib(partialGenericDecls + "\nfn main() {\n" + tc.src + "\n  _ = 0\n}\n")
+			_, errs := checkSourceWithStdlib(partialGenericDecls + "\nfn main()\n" + tc.src + "\n  _ = 0\nend\n")
 			expectStdlibError(t, errs, tc.want)
 		})
 	}
@@ -73,20 +73,20 @@ func TestPartialGeneric_RejectsAMismatchedPartial(t *testing.T) {
 // a direct call. `Iter.count` over a list of lists too.
 func TestPartialGeneric_TakesTheExpectedParameterTypes(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn main() {
+fn main()
   found: Result<List<List<String>>, String> = Ok([["a"], ["b"]])
   _ = Result.map(found, &Iter.flatten(&1))
   f: (List<List<Int>>) -> List<Int> = &Iter.flatten(&1)
   g: (List<List<Int>>) -> Int = &Iter.count(&1)
   _ = (f([[1]]), g([[1]]))
-}
+end
 `)
 	expectNoStdlibErrors(t, errs)
 }
 
 // The mirror: a result the callee does not give is still the mismatch.
 func TestPartialGeneric_TakesTheExpectedParameterTypesButNotAnyResult(t *testing.T) {
-	_, errs := checkSourceWithStdlib("\nfn main() {\n  f: (List<List<Int>>) -> List<String> = &Iter.flatten(&1)\n  _ = f\n}\n")
+	_, errs := checkSourceWithStdlib("\nfn main()\n  f: (List<List<Int>>) -> List<String> = &Iter.flatten(&1)\n  _ = f\nend\n")
 	expectStdlibError(t, errs, "expected (List<List<Int>>) -> List<String>, got (List<List<Int>>) -> List<Int>")
 }
 
@@ -95,7 +95,7 @@ func TestPartialGeneric_TakesTheExpectedParameterTypesButNotAnyResult(t *testing
 // help names the capture that fits: bare `total` is no `(List<List<Int>>)
 // -> Int`, and `&total(&1)` is one.
 func TestPartialGeneric_AFunctionValueThatDoesNotFitNamesTheCapture(t *testing.T) {
-	const total = "fn total<T>(rows: List<Iter<T>>) -> Int {\n  rows |> Iter.map(Iter.count) |> Iter.sum()\n}\n\n"
+	const total = "fn total<T>(rows: List<Iter<T>>) -> Int\n  rows |> Iter.map(Iter.count) |> Iter.sum()\nend\n\n"
 	const hint = "\nhelp: a function value's parameter takes a List where an Iter is declared only at the top or as an Iter's element, not inside another type; write the capture `&total(&1)`, whose parameters are the ones expected here"
 	for _, tc := range []struct{ name, body, want, at string }{
 		{"an argument", "  _ = Maybe.map(Some([[1], [2]]), total)",
@@ -104,7 +104,7 @@ func TestPartialGeneric_AFunctionValueThatDoesNotFitNamesTheCapture(t *testing.T
 			"type mismatch: expected (List<List<Int>>) -> Int, got (List<Iter<T>>) -> Int" + hint, "total"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := total + "fn main() {\n" + tc.body + "\n}\n"
+			src := total + "fn main()\n" + tc.body + "\nend\n"
 			_, errs := checkSourceWithStdlib(src)
 			expectDiagAt(t, src, errs, tc.want, tc.at)
 		})
@@ -116,13 +116,13 @@ func TestPartialGeneric_AFunctionValueThatDoesNotFitNamesTheCapture(t *testing.T
 // Lists is expected, as `Iter.flatten(lists)` takes the lists.
 func TestPartialGeneric_AnIterElementTakesAList(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn main() {
+fn main()
   found: Result<List<List<String>>, String> = Ok([["a"], ["b"]])
   _ = Result.map(found, Iter.flatten)
   f: (List<List<Int>>) -> List<Int> = Iter.flatten
   g: (List<Vector<Int>>) -> List<Int> = Iter.flatten
-  _ = (f([[1]]), g([#[1]]))
-}
+  _ = (f([[1]]), g([Vector[1]]))
+end
 `)
 	expectNoStdlibErrors(t, errs)
 }
@@ -130,7 +130,7 @@ fn main() {
 // The mirror: where the capture would not fit either, as for a result the
 // callee does not give, the mismatch has no such help.
 func TestPartialGeneric_NoCaptureHintWhereTheCaptureWouldNotFit(t *testing.T) {
-	src := "fn main() {\n  f: (List<List<Int>>) -> List<String> = Iter.flatten\n  _ = f\n}\n"
+	src := "fn main()\n  f: (List<List<Int>>) -> List<String> = Iter.flatten\n  _ = f\nend\n"
 	_, errs := checkSourceWithStdlib(src)
 	expectDiagAt(t, src, errs, "type mismatch: expected (List<List<Int>>) -> List<String>, got (Iter<Iter<Int>>) -> List<Int>", "Iter.flatten")
 }

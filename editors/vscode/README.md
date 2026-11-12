@@ -171,7 +171,8 @@ What the tests cover:
 
 - `test/unit/testLine.test.ts`: finding the test under the cursor. VS Code has
   no tree-sitter, so `src/testLine.ts` scans the text for `test` and `group`
-  headers and `//!` blocks, matching braces outside comments and literals.
+  headers and `//!` blocks, and finds the `end` at a header's indentation,
+  outside multi-line strings, that closes its body.
   Zed and Neovim find the same node with tree-sitter.
 - `test/unit/attachedTests.test.ts`: which lines form an attached test (a run
   of consecutive `//!` lines; any other line ends it, as in tree-sitter-nomi's

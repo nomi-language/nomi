@@ -11,29 +11,29 @@ func TestIRBlockTailTakesTheExpectedType_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-struct Hold {
+struct Hold
     v: Set<Int>
-}
+end
 
-struct Shown {
+struct Shown
     v: List<Display>
-}
+end
 
-fn main() {
+fn main()
     io.inspect(Hold{
-        v: {
+        v: begin
             io.print("in the block")
-            %[]
-        },
+            Set[]
+        end,
     })
     s = Shown{
-        v: {
+        v: begin
             io.print("in the other block")
             [1, "a"]
-        },
+        end,
     }
     io.print(s.v |> Iter.map(fn d -> Display.to_string(d)) |> String.join(","))
-}
+end
 `
-	irRunSource(t, src, "in the block\nHold{v: %[]}\nin the other block\n1,a\n")
+	irRunSource(t, src, "in the block\nHold{v: Set[]}\nin the other block\n1,a\n")
 }

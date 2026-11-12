@@ -14,9 +14,9 @@ func TestIRDistinctDebug_OpaqueDefaultIsNameOnly(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	src := `opaque type Secret Int
 
-fn main() {
+fn main()
   _s = dbg Secret(7)
-}
+end
 `
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 		t.Fatal(err)

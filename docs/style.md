@@ -29,8 +29,8 @@ choices it leaves to you are these:
   one; it sets multi-line statements apart on its own.
 - **A literal broken after its opening bracket** stays one element per line
   even when it would fit. Delete that one line break to let `fmt` join it.
-- **A lambda body in braces below its `{`** stays there. Write `fn x -> x +
-  1` to let `fmt` put a short body on the header's line.
+- **A lambda body below its `->`**, closed by `end`, stays there. Write
+  `fn x -> x + 1` to let `fmt` put a short body on the header's line.
 - **A blank line within a run of one-line declarations** (`once`, `type`,
   `host fn`) marks a group. Use one only at a real boundary.
 
@@ -46,34 +46,34 @@ The normal file shape is:
 4. file-level functions: entry points first, then helpers
 5. standalone named tests
 
-A type's own operations and constants go in an `impl Type { ... }` block right
+A type's own operations and constants go in an `impl Type` block right
 after the type, and its derives and interface implementations follow that
 block. An impl for a type from another file sits with the code that needs it:
 
 ```nomi
-pub struct RetryPolicy {
+pub struct RetryPolicy
     attempts: Int
     delay: Duration
-}
+end
 
-impl RetryPolicy {
+impl RetryPolicy
     pub once default = RetryPolicy{
         attempts: 3,
         delay: Duration.seconds(1),
     }
 
-    pub fn with_attempts(policy: RetryPolicy, attempts: Int) -> RetryPolicy {
-        .{..policy, attempts}
-    }
-}
+    pub fn with_attempts(policy: RetryPolicy, attempts: Int) -> RetryPolicy
+        {..policy, attempts:}
+    end
+end
 
 derive Equatable for RetryPolicy
 
-impl Display for RetryPolicy {
-    fn to_string(policy: RetryPolicy) -> String {
+impl Display for RetryPolicy
+    fn to_string(policy: RetryPolicy) -> String
         "${policy.attempts} attempts"
-    }
-}
+    end
+end
 ```
 
 This is a house style. Keep a different order when the local narrative is
@@ -94,11 +94,11 @@ the reader sees where `print` comes from. `import std::calendar.Date` and then
 type it works on. Don't import a file only to write `calendar.Date` at every use.
 
 ```nomi
-import {
+import
     std::calendar.{Date, Months}
     std::io
     myapp::config.Config
-}
+end
 ```
 
 Several names from one path go in one selector list, as `std::calendar` above.
@@ -109,10 +109,10 @@ well as the named items, so one line replaces two:
 
 ```nomi
 // no
-import {
+import
     shape.Shape
     shape.Shape.{Circle, Rectangle}
-}
+end
 
 // yes
 import shape.Shape.{self, Circle, Rectangle}
@@ -134,20 +134,20 @@ says which file at the use itself; an alias is one more name to look up.
 
 ```nomi
 // no
-import {
+import
     db::notifications as db_notifications
     jobs::notifications as job_notifications
-}
+end
 
 // yes
-import {
+import
     db
     jobs
-}
+end
 
-fn pending() -> Int {
+fn pending() -> Int
     db::notifications.pending() + jobs::notifications.pending()
-}
+end
 ```
 
 Import a directory to reach several files under it with one line:
@@ -185,9 +185,9 @@ error types names each for what failed: `Json.DecodeError`,
 ```nomi
 import std::uuid.Uuid
 
-fn read_id(text: String) -> Result<Uuid, uuid.Error> {
+fn read_id(text: String) -> Result<Uuid, uuid.Error>
     Uuid.parse(text)
-}
+end
 ```
 
 Nomi does not overload functions by argument type (spec §7 *No Overloaded
@@ -215,14 +215,14 @@ once offsets = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
 total = Iter.reduce(1..=upto, 0, fn sum, n -> sum + n)
 
-lengths = Iter.reduce(words, %{}, fn acc, word -> Map.put(acc, word, String.length(word)))
+lengths = Iter.reduce(words, {}, fn acc, word -> Map.put(acc, word, String.length(word)))
 ```
 
 Write the type when nothing else pins the value down, such as an empty
-literal (`[]`, `#[]`, `%[]`, `%{}`) or a `None` that no later use fixes: the
+literal (`[]`, `Vector[]`, `Set[]`, `{}`) or a `None` that no later use fixes: the
 checker rejects it with "type is not locally determined" until it has an
-annotation (`once routes: Map<String, Handler> = %{}`,
-`seen: Set<String> = %[]`).
+annotation (`once routes: Map<String, Handler> = {}`,
+`seen: Set<String> = []`).
 
 A struct field or a parameter with a default follows the same rule (spec §4
 *Field types from defaults*, §7 *Parameter types from defaults*): `misses =
@@ -239,18 +239,18 @@ value in place rather than inventing suffixed names:
 
 ```nomi
 // no: invented ladder
-fn normalize(name: String) -> String {
+fn normalize(name: String) -> String
     name_trimmed = String.trim(name)
     name_lower = String.lowercase(name_trimmed)
     name_lower
-}
+end
 
 // yes: thread the binding
-fn normalize(name: String) -> String {
+fn normalize(name: String) -> String
     name = String.trim(name)
     name = String.lowercase(name)
     name
-}
+end
 ```
 
 Each step reads the value before it, so the compiler's check for a binding
@@ -260,7 +260,7 @@ When a value is intentionally ignored, use a discard name (spec §2 *Discard
 names*): `_`, or `_name` when a label makes the ignored value clearer. The
 same holds inside a pattern: write
 `fn (_word, count) -> count`, `Some(_) -> True` or `[first, ..]`, and leave a struct
-pattern's unneeded fields out (`.Suspended{reason}`) rather than binding them.
+pattern's unneeded fields out (`.Suspended{reason:}`) rather than binding them.
 
 A parameter the body ignores is written as its type alone when the type
 says all a reader needs: `fn health(Request) -> Response`, not
@@ -436,15 +436,15 @@ type.
 Inside an `impl` block, call a sibling function of the same block bare:
 
 ```nomi
-impl Speech for Dog {
-    fn speak(d: Dog) -> String {
+impl Speech for Dog
+    fn speak(d: Dog) -> String
         "${d.name} says woof"
-    }
+    end
 
-    fn shout(d: Dog) -> String {
+    fn shout(d: Dog) -> String
         speak(d) + "!"
-    }
-}
+    end
+end
 ```
 
 **`io.print` takes any `Display` value; don't pre-stringify.** It dispatches
@@ -510,7 +510,7 @@ labelled = Result.map_err(result, ParseError)
 
 Keep the lambda when it does more than wrap: a computation inside the
 constructor (`fn n -> Id(n + 1)`), a struct-shaped variant, which has no function
-value (`fn w -> Shape.Rect{w: w, h: w}`), or a positional variant over a tuple
+value (`fn w -> Shape.Rect{w:, h: w}`), or a positional variant over a tuple
 whose parts arrive as separate arguments.
 
 ### 12. `return` is for leaving early
@@ -520,11 +520,11 @@ the value, not `return value` (spec §7 *Returning*). Keep `return` for an exit
 before the end:
 
 ```nomi
-fn clamp(n: Int) -> Int {
-    if n < 0 { return 0 }
-    if n > 100 { return 100 }
+fn clamp(n: Int) -> Int
+    if n < 0 then return 0
+    if n > 100 then return 100
     n
-}
+end
 ```
 
 The choice is where to leave early. A run of guards like these keeps the main path unindented,
@@ -535,29 +535,29 @@ where an `if`/`else` would nest it. A body you have not written yet gets
 
 ### 13. Keep a type's impls beside it
 
-A type's shape, its inherent `impl Type { ... }` block and each
-`impl Iface for Type { ... }` are separate top-level declarations (spec §12
+A type's shape, its inherent `impl Type` block and each
+`impl Iface for Type` are separate top-level declarations (spec §12
 *Implementations*; tour:
 [Interfaces & Dispatch](/interfaces-and-dispatch/#defining-and-implementing-an-interface)).
 Put the impls of a type you declare right after it, where §2 places them, so
 a reader finds everything the type can do in one place:
 
 ```nomi
-struct Dog {
+struct Dog
     name: String
-}
+end
 
-impl Dog {
-    fn rename(_d: Dog, new_name: String) -> Dog {
+impl Dog
+    fn rename(_d: Dog, new_name: String) -> Dog
         Dog{name: new_name}
-    }
-}
+    end
+end
 
-impl Speech for Dog {
-    fn speak(d: Dog) -> String {
+impl Speech for Dog
+    fn speak(d: Dog) -> String
         "${d.name} says woof"
-    }
-}
+    end
+end
 ```
 
 A type is not a namespace for unrelated helpers. Choose a separate file when a
@@ -571,31 +571,30 @@ declaration. Use a function-level or impl-level `where` for extra constraints
 that apply only there:
 
 ```nomi
-struct Span<T> where T: Comparable {
+struct Span<T> where T: Comparable
     start: T
     stop: T
-}
+end
 
-impl Span<T> {
-    fn is_longer(a: Span<T>, b: Span<T>) -> Bool {
+impl Span<T>
+    fn is_longer(a: Span<T>, b: Span<T>) -> Bool
         a.stop > b.stop
-    }
-}
+    end
+end
 ```
 
 An interface function with a type parameter of its own declares it in its
 header and constrains it with `where`:
 
 ```nomi
-interface Ranked<T> {
+interface Ranked<T>
     fn item(value: self) -> T
     fn prefer<K>(value: self, lhs: K, rhs: K) -> Bool where K: Comparable
-}
+end
 ```
 
 A conformance with nothing to implement (a marker interface, or one with
-defaults only) is a bodyless `impl Iface for Type` declaration, as a bodiless
-type (`type Expired`) is braceless too.
+defaults only) is the one-line `impl Iface for Type end`.
 
 ### 14. Write one derive declaration per interface
 
@@ -610,16 +609,16 @@ derive Comparable for Off
 derive Equatable for Off
 derive Hashable for Off
 
-struct Box<T> {
+struct Box<T>
     value: T
-}
+end
 
 derive Display for Box<T> where T: Display
 
-struct Account {
+struct Account
     first_name: String
     age: Int
-}
+end
 
 derive ToJson for Account with ToJson.Options{rename_all: Json.Case.Camel}
 derive FromJson for Account with FromJson.Options{rename_all: Json.Case.Camel}
@@ -638,58 +637,58 @@ and call `variants()`, rather than writing the list out. The list follows the
 declaration order, so a new variant joins it and the order lives in one place:
 
 ```nomi
-pub enum Nucleotide {
+pub enum Nucleotide
     A
     C
     G
     T
-}
+end
 
 derive Equatable for Nucleotide
 derive Hashable for Nucleotide
 derive Variants for Nucleotide
 
-fn no_counts() -> Map<Nucleotide, Int> {
+fn no_counts() -> Map<Nucleotide, Int>
     Nucleotide.variants() |> Iter.map(&(&1, 0)) |> Iter.to_map()
-}
+end
 ```
 
-not `%{Nucleotide.A => 0, .C => 0, .G => 0, .T => 0}`, which a fifth variant
+not `{Nucleotide.A => 0, .C => 0, .G => 0, .T => 0}`, which a fifth variant
 would leave behind.
 
 Don't compute a variant's value from its position in that list. A value the
 problem states for each variant is a `case` with an arm per variant:
 
 ```nomi
-fn code(color: Color) -> Int {
-    case color {
+fn code(color: Color) -> Int
+    case color
         .Black -> 0
         .Brown -> 1
         .Red -> 2
-    }
-}
+    end
+end
 ```
 
 not `Color.variants() |> Iter.find_index(&(&1 == color))`, a search whose
 `None` the reader has to prove cannot happen, and whose results change when
 someone reorders the enum.
 
-### 16. Leave out a struct literal's type name where the context names it
+### 16. Leave out a literal's type name where the context names it
 
 A variant leaves out its enum with a dot where the position names the enum:
-`Shape.Circle{radius}` is `.Circle{radius}`. A struct leaves out its name the
-same way: `Point{x: 0}` is `.{x: 0}`, which builds the struct its position
+`Shape.Circle{radius:}` is `.Circle{radius:}`. A struct leaves out its name the
+same way: `Point{x: 0}` is `{x: 0}`, which builds the struct its position
 expects (spec §4 *Target-typed construction*; tour:
 [Structs, Enums & Distinct Types](/structs-enums-distinct/#structs)). So where
 an annotation, a parameter, a field or a return type already names the
-struct, write `.{...}` rather than `Point{...}`:
+struct, write `{...}` rather than `Point{...}`:
 
 ```nomi
-ada = Person{name: "Ada", address: .{street: "1 Main", city: "Bath"}}
+ada = Person{name: "Ada", address: {street: "1 Main", city: "Bath"}}
 
-fn origin() -> Point {
-    .{x: 0, y: 0}
-}
+fn origin() -> Point
+    {x: 0, y: 0}
+end
 ```
 
 Write the type name anyway when a reader cannot see the expected type from
@@ -697,7 +696,7 @@ the literal's own line: an argument to a function defined far away, an
 element deep inside a nested call, or a literal whose struct shares field
 names with another struct the reader might expect. `Address{...}` at the
 top of an expression also says what is being built before the fields do, so
-keep it on an unannotated binding (`home = Address{...}`), where `.{...}`
+keep it on an unannotated binding (`home = Address{...}`), where `{...}`
 would make an anonymous struct instead.
 
 The same holds for a variant. Where the expected type already names its enum
@@ -706,58 +705,84 @@ constructor's payload), write `.Accounting`, not `CurrencySign.Accounting`,
 and drop the enum's import once nothing else names it:
 
 ```nomi
-fn sign(style: Style) -> CurrencySign {
-    case style {
+fn sign(style: Style) -> CurrencySign
+    case style
         .American -> .Accounting
         .Dutch -> .Standard
-    }
-}
+    end
+end
 ```
 
 A struct pattern works the same way. Where the value being matched already
 has the struct's type (a `case` subject, the right side of a binding, a
-typed parameter), write `.{...}`, not `Order{...}`:
+typed parameter), write `{...}`, not `Order{...}`:
 
 ```nomi
-fn describe(order: Order) -> String {
-    case order {
-        .{status: .Paid, total} when total > 100 -> "big order"
-        .{status: .Paid} -> "paid"
-        .{status: .Refunded} -> "refunded"
-    }
-}
+fn describe(order: Order) -> String
+    case order
+        {status: .Paid, total:} when total > 100 -> "big order"
+        {status: .Paid} -> "paid"
+        {status: .Refunded} -> "refunded"
+    end
+end
 ```
 
 Keep the name where it chooses the type: arms that match different structs
 of an `embeds` enum or an interface value, or a parameter pattern with no
-annotation (`fn advance(Position{x, y}, ...)`), where the name is the
+annotation (`fn advance(Position{x:, y:}, ...)`), where the name is the
 parameter's type.
+
+A collection literal works the same way (spec §3 *Literal forms*). `[...]`
+is the list, vector or set its position expects, so where an annotation, a
+parameter, a field or a return type names the collection, write the bare
+brackets; write `Vector[...]` or `Set[...]` only where nothing names it, as
+on an unannotated binding:
+
+```nomi
+struct Grid
+    cells: Vector<Int>
+    seen: Set<Int>
+end
+
+fn empty_grid() -> Grid
+    {cells: [0, 0, 0], seen: []}
+end
+
+fn main()
+    pending = Set[1, 2]
+    dbg Set.size(pending)
+end
+```
+
+A list and a map need no name anywhere: `[1, 2]` and `{"k" => 1}` are a
+`List` and a `Map` where nothing expects another collection. Never write
+`List[...]` or `Map{...}`.
 
 ### 17. Use a tuple for a local pairing and a struct once it travels
 
 Use a tuple, `(a, b)`, for a small, local pairing whose positions are
 obvious (spec §4 *Tuples*; tour:
 [Structs, Enums & Distinct Types](/structs-enums-distinct/#tuples)): a function returning two values, a map entry. Switch to an anonymous
-struct, `.{x: 1, y: 2}` (or a struct), once a slot is updated, or read by
+struct, `{x: 1, y: 2}` (or a struct), once a slot is updated, or read by
 position far from where the tuple was built. A named field reads better than
 `.second`, and an anonymous struct takes a spread update, which a tuple does
 not. Past four items, use a struct: `.fifth` makes the reader count, and a
 field name says what the item is.
 
 ```nomi
-fn divide(x: Int, y: Int) -> (Int, Int) {
+fn divide(x: Int, y: Int) -> (Int, Int)
     (x / y, x % y)
-}
+end
 
-fn step(point: .{x: Int, y: Int}) -> .{x: Int, y: Int} {
-    .{..point, y: point.y + 1}
-}
+fn step(point: {x: Int, y: Int}) -> {x: Int, y: Int}
+    {..point, y: point.y + 1}
+end
 ```
 
 To change part of a nested value inside an update (spec §4 *Struct
 Updates*), write the bare `..`
-(`.{..user, address: .{.., city: "NYC"}}`; repeating the path as a base,
-`.{..user.address, city: "NYC"}`, is a compile error). Write a literal
+(`{..user, address: {.., city: "NYC"}}`; repeating the path as a base,
+`{..user.address, city: "NYC"}`, is a compile error). Write a literal
 without `..` only when the field gets a whole new value.
 
 ### 18. Read a distinct's value by destructuring
@@ -775,11 +800,11 @@ its own file and call that:
 ```nomi
 type Balance Int
 
-impl Balance {
-    pub fn cents(Balance(n)) -> Int {
+impl Balance
+    pub fn cents(Balance(n)) -> Int
         n
-    }
-}
+    end
+end
 ```
 
 An opaque distinct needs one, since code outside its file cannot destructure
@@ -794,7 +819,7 @@ repeat: an anonymous struct, a function type, a long tuple.
 
 ```nomi
 typealias Rule (String) -> Maybe<String>
-typealias Span .{start: Int, end: Int, line: Int}
+typealias Span {start: Int, stop: Int, line: Int}
 ```
 
 When the thing deserves a name, a domain concept that functions take and
@@ -813,12 +838,12 @@ in a `case`. Write `'a'` rather than `Int.to_codepoint(97)!`: the literal
 is infallible and says which character it is.
 
 ```nomi
-fn is_delimiter(cp: Codepoint) -> Bool {
-    case cp {
+fn is_delimiter(cp: Codepoint) -> Bool
+    case cp
         ',' or ';' or '\t' -> True
         _ -> False
-    }
-}
+    end
+end
 ```
 
 Keep text in strings, a one-character one included: `String.starts_with(s,
@@ -900,9 +925,9 @@ When only whether a value matches matters, write `value is Pattern` (spec §8
 not a `case` with a `True` arm and a `_ -> False` arm:
 
 ```nomi
-fn is_isosceles(sides: (Float, Float, Float)) -> Bool {
+fn is_isosceles(sides: (Float, Float, Float)) -> Bool
     kind(sides) is Some(.Equilateral or .Isosceles)
-}
+end
 ```
 
 A predicate that only tests a pattern needs no function of its own: pass a
@@ -916,11 +941,11 @@ better once the pattern has a payload, a wildcard or an `or`
 names:
 
 ```nomi
-label = if Some(name) = maybe_name {
+label = if Some(name) = maybe_name then
     name
-} else {
+else
     "unknown"
-}
+end
 ```
 
 Write a `case` when every outcome continues with work of its own, when there
@@ -931,11 +956,11 @@ needs the whole value the pattern matched, such as to pass it on. When the arm n
 fields and leave the whole unnamed:
 
 ```nomi
-case result {
+case result
     Ok(Transaction{kind: .Deposit} as t) -> record(t)
-    Ok(Transaction{amount}) -> amount
+    Ok(Transaction{amount:}) -> amount
     Err(msg) -> msg
-}
+end
 ```
 
 ### 25. Join arms with one body by `or`
@@ -945,10 +970,10 @@ Arms that return the same thing are one arm with alternatives (spec §10
 [Pattern Matching](/pattern-matching/#matching-alternatives-with-or)):
 
 ```nomi
-case cp {
+case cp
     ' ' or '(' or ')' or '-' -> True
     _ -> False
-}
+end
 ```
 
 not one arm per value repeating `-> True`. Put the `or` where the arms
@@ -965,19 +990,19 @@ tour: [Pattern Matching](/pattern-matching/#lists-vectors-and-sets)) instead of
 compiler checks that it handles them all:
 
 ```nomi
-fn describe(v: Vector<Int>) -> String {
-    case v {
-        #[] -> "empty"
-        #[only] -> "just ${only}"
-        #[first, .., last] -> "${first} to ${last}"
-    }
-}
+fn describe(v: Vector<Int>) -> String
+    case v
+        [] -> "empty"
+        [only] -> "just ${only}"
+        [first, .., last] -> "${first} to ${last}"
+    end
+end
 ```
 
 Keep `Vector.get` for an index that comes from arithmetic, such as a grid's
-row and column. A set pattern tests membership, so reach for one when an arm
-needs several elements present at once (`%["admin", "owner", ..]`) or binds
-the rest; to test one element, `in` is shorter (§31).
+row and column. Over a set, a bracket pattern tests membership, so reach for
+one when an arm needs several elements present at once (`["admin", "owner",
+..]`) or binds the rest; to test one element, `in` is shorter (§31).
 
 ### 27. Write a `case` of conditions with no subject
 
@@ -986,14 +1011,14 @@ subject (spec §8 *`case`*; tour:
 [Pattern Matching](/pattern-matching/#binding-patterns-and-guards)):
 
 ```nomi
-case {
+case
     count < 10 -> Err(.TooFewDigits)
     count == 10 -> Ok(digits)
     _ -> Err(.TooManyDigits)
-}
+end
 ```
 
-not `case digits { _ when count < 10 -> ... }`, where every arm matches
+not `case digits` with arms such as `_ when count < 10 -> ...`, where every arm matches
 the subject with `_` and only the guards decide. Keep the subject when an
 arm's pattern reads it, and write a condition there as that arm's `when`
 guard.
@@ -1002,23 +1027,23 @@ An `if` chain that picks a value from three or more branches is the same
 choice, so it is this `case` too:
 
 ```nomi
-size = case {
+size = case
     bytes < 1_024 -> "${bytes} B"
     bytes < 1_048_576 -> "${bytes / 1_024} KB"
     _ -> "${bytes / 1_048_576} MB"
-}
+end
 ```
 
 not
 
 ```nomi
-size = if bytes < 1_024 {
+size = if bytes < 1_024 then
     "${bytes} B"
-} else if bytes < 1_048_576 {
+else if bytes < 1_048_576 then
     "${bytes / 1_024} KB"
-} else {
+else
     "${bytes / 1_048_576} MB"
-}
+end
 ```
 
 A plain `if`/`else` of two branches stays an `if`, and so does a chain
@@ -1031,13 +1056,13 @@ An `if` without `else` whose branch has a value is a `Maybe` of it (spec §8
 content and inside a quoted attribute value alike:
 
 ```nomi
-Html"<p class='inbox ${if unread > 0 { "unread" }}'>Inbox${if unread > 0 { Html" <b>${unread}</b>" }}</p>"
+Html"<p class='inbox ${if unread > 0 then "unread"}'>Inbox${if unread > 0 then Html" <b>${unread}</b>"}</p>"
 ```
 
-not `${if unread > 0 { ... } else { Html.empty() }}` or `else { "" }`. To
+not `${if unread > 0 then ... else Html.empty()}` or `else ""`. To
 leave a whole attribute out, give it an unquoted value:
-`class=${if active { "active" }}`. Where the value is used
-as itself, keep the `else`: `if c { x } else { y }`, not an `if` without
+`class=${if active then "active"}`. Where the value is used
+as itself, keep the `else`: `if c then x else y`, not an `if` without
 `else` followed by `Maybe.with_default(y)`.
 
 ### 28. Negate with `!=`, `refute` and `Iter.reject` before `not`
@@ -1081,10 +1106,10 @@ does, and let a caller that knows the call cannot fail write `!` after it:
 
 ```nomi
 // the index comes from data: the miss is an outcome
-case Vector.get(row, column) {
+case Vector.get(row, column)
     Some(cell) -> cell
     None -> blank
-}
+end
 
 // the index is within bounds by construction: a miss is a bug
 middle = Vector.get(sorted, Vector.length(sorted) / 2)!
@@ -1106,7 +1131,7 @@ not have the shape you want. Choose by what the failure path does:
   taken from the map itself, an index the code computed in range, input
   already validated. Its trap quotes the expression and shows the error, so
   the reader of the trap needs nothing more.
-- **A binding `else`** (`Pattern = value else { ... }`) handles or replaces
+- **A binding `else`** (`Pattern = value else ...`) handles or replaces
   one step's failure in place: it returns a different error, skips a loop
   item, or supplies a fallback, and the success path continues unindented.
 - **`case`** when both outcomes continue with work of their own.
@@ -1118,28 +1143,28 @@ not have the shape you want. Choose by what the failure path does:
 user = load(id)?
 
 // else: the error is replaced with one that says which user
-Ok(user) = load(id) else {
+Ok(user) = load(id) else
     Err(.NotFound) -> return Err("no user ${id}")
     Err(e) -> return Err("loading user ${id}: ${e}")
-}
+end
 
 // else: a fallback stands in for the missing value
-Some(email) = user.email else { "none" }
+Some(email) = user.email else "none"
 
 // else: skip what does not parse
-Iter.each(lines, fn line -> {
-    Ok(entry) = parse(line) else { continue }
+Iter.each(lines, fn line ->
+    Ok(entry) = parse(line) else continue
     record(entry)
-})
+end)
 
 // case: both outcomes do work
-case load(id) {
+case load(id)
     Ok(user) -> greet(user)
     Err(e) -> log_failure(e)
-}
+end
 
 // if: only a match does anything
-if Some(email) = user.email { send(email) }
+if Some(email) = user.email then send(email)
 ```
 
 Prefer a binding `else` to a `case` whose failure arm only leaves: the
@@ -1154,12 +1179,12 @@ default would hide the bug instead:
 
 ```nomi
 // every student is in Student.variants(), so the search cannot miss
-fn position(student: Student) -> Int {
-    Some(i) = Student.variants() |> Iter.find_index(&(&1 == student)) else {
+fn position(student: Student) -> Int
+    Some(i) = Student.variants() |> Iter.find_index(&(&1 == student)) else
         unreachable "every student is listed"
-    }
+    end
     i
-}
+end
 ```
 
 `Maybe.with_default(0)` in its place returns 0 for a student someone forgot
@@ -1180,7 +1205,7 @@ alone cannot be resolved there.
 
 ```nomi
 // bound for later lines
-Some(user) = Map.get(users, id) else { return Err(.NotFound) }
+Some(user) = Map.get(users, id) else return Err(.NotFound)
 
 // one stage of a pipe
 count =
@@ -1198,9 +1223,9 @@ When a signature is settled and its body is not, write `todo` with a reason
 value that happens to type-check:
 
 ```nomi
-fn parse(text: String) -> Header {
+fn parse(text: String) -> Header
     todo "parse the header"
-}
+end
 ```
 
 A made-up `Header{name: "", size: 0}` runs and returns a wrong result that
@@ -1223,11 +1248,11 @@ reserved`, not `List.contains(reserved, name)` or `Contains.contains(reserved,
 name)`, for a Bool test:
 
 ```nomi
-if name in reserved {
+if name in reserved then
     Err("${name} is reserved")
-} else {
+else
     Ok(name)
-}
+end
 ```
 
 not `Iter.any_match(reserved, fn r -> r == name)`, which spells out the comparison
@@ -1256,12 +1281,12 @@ grid is absent, so a neighbour needs no bounds check and no
 flowers =
     garden
     |> Iter.with_index()
-    |> Iter.flat_map(fn (row, line) -> {
+    |> Iter.flat_map(fn (row, line) ->
         line
         |> Iter.with_index()
         |> Iter.filter(fn (_column, square) -> square == "*")
         |> Iter.map(fn (column, _square) -> (row, column))
-    })
+    end)
     |> Iter.to_set()
 
 count = Iter.count_by(neighbours, fn (dr, dc) -> (row + dr, column + dc) in flowers)
@@ -1295,10 +1320,10 @@ balances = deposits |> Iter.scan(opening, fn balance, amount -> balance + amount
 (_width, rows) =
     lines
     |> Iter.reverse()
-    |> Iter.map_reduce(0, fn width, line -> {
+    |> Iter.map_reduce(0, fn width, line ->
         width = Int.max(width, String.length(line))
         (width, String.pad_end(line, width))
-    })
+    end)
 ```
 
 not an `Iter.reduce` whose accumulator is a `(state, list)` pair that conses
@@ -1323,7 +1348,7 @@ total = Iter.reduce(orders, 0, add_order)
 
 not `Iter.reduce(orders, 0, fn total, o -> add_order(total, o))`, a lambda
 that only passes its parameters on. A capture is passed the same way:
-`Iter.reduce(counts, %{}, &Map.merge_with(&1, &2, Int.add))`.
+`Iter.reduce(counts, {}, &Map.merge_with(&1, &2, Int.add))`.
 `Iter.loop` takes a named step the same way, `Iter.loop(start, step)`.
 
 ### 34. Number elements with `Iter.with_index`, not a counter in the state
@@ -1334,13 +1359,13 @@ lambda, rather than carrying a counter in an `Iter.reduce` state or a
 recursion's parameters:
 
 ```nomi
-fn checksum(digits: List<Int>) -> Int {
+fn checksum(digits: List<Int>) -> Int
     digits
     |> Iter.reverse()
     |> Iter.with_index()
-    |> Iter.map(fn (i, d) -> if i % 2 == 1 { double(d) } else { d })
+    |> Iter.map(fn (i, d) -> if i % 2 == 1 then double(d) else d)
     |> Iter.sum()
-}
+end
 ```
 
 not an `Iter.reduce` whose state is `(total, index)`, or a parity flag
@@ -1366,19 +1391,19 @@ Each fits a different shape of repetition:
 
 ```nomi
 // a sequence: iterate, then cut it
-fn steps(number: Int) -> Int {
+fn steps(number: Int) -> Int
     Iter.iterate(number, next)
     |> Iter.take_while(&(&1 != 1))
     |> Iter.count()
-}
+end
 
 // a state until a condition: loop
-fn first_power_above(limit: Int) -> Int {
-    Iter.loop(1, fn n -> {
-        if n > limit { break n }
+fn first_power_above(limit: Int) -> Int
+    Iter.loop(1, fn n ->
+        if n > limit then break n
         n * 2
-    })
-}
+    end)
+end
 ```
 
 A tail-recursive counter does what the first does, and spells out the count
@@ -1394,20 +1419,20 @@ reverses the list once when it is done:
 
 ```nomi
 // yes: each step conses, and the finished trail is reversed once
-fn trail(at: Point, seen: List<Point>) -> List<Point> {
-    case next_step(at) {
+fn trail(at: Point, seen: List<Point>) -> List<Point>
+    case next_step(at)
         Some(step) -> trail(step, [at, ..seen])
         None -> Iter.reverse([at, ..seen])
-    }
-}
+    end
+end
 
 // no: each step copies the trail to add one point
-fn trail(at: Point, seen: List<Point>) -> List<Point> {
-    case next_step(at) {
+fn trail(at: Point, seen: List<Point>) -> List<Point>
+    case next_step(at)
         Some(step) -> trail(step, [..seen, at])
         None -> [..seen, at]
-    }
-}
+    end
+end
 ```
 
 Say in the parameter's doc comment that it is held newest first. When each
@@ -1446,21 +1471,21 @@ Build the application struct's `Context` field in `boot` from
 fields*; tour: [App Fields, Defer & Context](/app-fields/#the-basic-shape)):
 
 ```nomi
-pub struct Config {
+pub struct Config
     port: Int = 8080
     context: Context
-}
+end
 
-pub fn boot() -> Result<Config, String> {
+pub fn boot() -> Result<Config, String>
     Ok(Config{context: Context.root()})
-}
+end
 ```
 
 **A boot's error is the error of what it calls.** When its steps fail with
 one error type, such as a database's `sql.Error`, make that the `E` of
 `Result<App, E>` and end each step with `?`. A boot whose steps fail with
-different types converts them before each `?` with `Result.map_err` to a type
-of its own. A boot that cannot fail says `Result<App, String>` and returns
+different types returns an error type of its own with a `From` impl for each,
+so each `?` converts (spec §11 *Propagating with `?`*). A boot that cannot fail says `Result<App, String>` and returns
 `Ok(...)`.
 
 **Boot with no startup input when the tests need none.** A boot that reads no
@@ -1479,12 +1504,12 @@ Put `with` lines at the top of the block they govern where practical, so the
 reader sees the replaced fields before the code that runs under them:
 
 ```nomi
-fn import_quietly() {
+fn import_quietly()
     with Config.logger = Silent
     with Config.store = FakeStore{}
 
     run_import()
-}
+end
 ```
 
 A `with` lasts to the end of its block. When only part of a function should
@@ -1494,15 +1519,15 @@ ceremony.
 
 ### 39. Write tests as ordinary code with direct assertions
 
-Prefer `_test.nomi` files with explicit `test "..." { ... }` blocks for
+Prefer `_test.nomi` files with explicit `test "..."` blocks for
 behavior checks (spec §17 *Tests*; tour: [Testing](/testing/)). A test should read like ordinary Nomi code with a small number
 of direct assertions:
 
 ```nomi
-test "result values can be asserted directly" {
+test "result values can be asserted directly"
     assert parse_id("42") == Ok(42)
     assert parse_id("nope") == Err("expected a numeric id")
-}
+end
 ```
 
 Put the tests of `shapes.nomi` in `shapes_test.nomi` beside it. That file
@@ -1518,9 +1543,9 @@ several tests that belong under one heading. Don't wrap a single test in a
 group to name it: name the test.
 
 ```nomi
-test "a new clock wraps past midnight" {
+test "a new clock wraps past midnight"
     assert "${Clock.new(25, 0)}" == "01:00"
-}
+end
 ```
 
 **Keep tests focused.** A test name should carry the intent, so avoid comments
@@ -1611,16 +1636,16 @@ pipe it into `subtests`, and bind each row with a pattern that names each
 column:
 
 ```nomi
-test "parses ids" {
+test "parses ids"
     [("42", Ok(42)), ("007", Ok(7)), ("nope", Err("expected a numeric id"))]
-    |> subtests (text, expected) {
+    |> subtests (text, expected)
         assert parse_id(text) == expected
-    }
-}
+    end
+end
 ```
 
 Pipe a literal table used once. Bind the table to a name, and write
-`subtests cases, (text, expected) { ... }`, when the test uses it again or
+`subtests cases, (text, expected)`, when the test uses it again or
 when it needs a type annotation.
 
 When the data alone does not say what a row checks, give each row a
@@ -1628,15 +1653,15 @@ description column and name the row with it, so a failure reads as the case
 it is:
 
 ```nomi
-test "leap years" {
+test "leap years"
     [
         ("year divisible by 400 is leap year", 2000, True),
         ("year divisible by 100, not divisible by 400 in common year", 1900, False),
     ]
-    |> subtests (description, year, expected), description {
+    |> subtests (description, year, expected), description
         assert is_leap_year(year) == expected
-    }
-}
+    end
+end
 ```
 
 Name rows with a column rather than a string built from the other columns
@@ -1679,20 +1704,20 @@ once verses = [
     (2, "On the second day of Christmas my true love gave to me: two Doves."),
 ]
 
-test "each verse" {
-    subtests verses, (number, expected) {
+test "each verse"
+    subtests verses, (number, expected)
         assert recite(number, number) == [expected]
-    }
-}
+    end
+end
 
-test "two verses together" {
+test "two verses together"
     expected =
         verses
         |> Iter.map(fn (_number, verse) -> verse)
         |> Iter.to_list()
 
     assert recite(1, 2) == expected
-}
+end
 ```
 
 A value is then written once, and a fix to it reaches every test that uses
@@ -1717,7 +1742,7 @@ writes with `io.write` as its own output line, without its trailing space,
 and the answer on the input line under it.
 
 ```nomi
-test "deposit money" {
+test "deposit money"
     assert io.replay(
         """
         What is the starting balance?
@@ -1728,7 +1753,7 @@ test "deposit money" {
         """,
         main,
     )
-}
+end
 ```
 
 [`io.replay`](/reference/io/#ioreplay) gives the script's rules, such as
@@ -1737,7 +1762,7 @@ how to write output that would read as input.
 A script with no input is its output, written the same way:
 
 ```nomi
-test "prints the table" {
+test "prints the table"
     assert io.replay(
         """
         -10.0 C |   14.0 F
@@ -1745,7 +1770,7 @@ test "prints the table" {
         """,
         main,
     )
-}
+end
 ```
 
 ### 44. Share a group's boot and fakes through a helper file
@@ -1763,48 +1788,43 @@ to empty:
 // test_support.nomi
 import server.Mailer
 
-pub fn startup() -> Startup {
-    Startup{env: %{"SENDER" => "test@example.com"}}
-}
+pub fn startup() -> Startup
+    Startup{env: {"SENDER" => "test@example.com"}}
+end
 
 pub type FakeMailer
 
-impl Mailer for FakeMailer {
-    fn send(_mailer: FakeMailer, to: String) -> Result<Unit, String> {
-        if to == "" {
-            Err("no address")
-        } else {
-            Ok(Unit)
-        }
-    }
-}
+impl Mailer for FakeMailer
+    fn send(_mailer: FakeMailer, to: String) -> Result<Unit, String>
+        if to == "" then Err("no address") else Ok(Unit)
+    end
+end
 ```
-
 ```nomi
 // signup_test.nomi
-import {
+import
     server
     server.App
     test_support
     test_support.FakeMailer
-}
+end
 
-group "signup" {
+group "signup"
     boot server.boot(test_support.startup())
 
-    setup {
+    setup begin
         with App.mailer = FakeMailer
         "ada@example.com"
-    }
+    end
 
-    test "sends a welcome", to {
+    test "sends a welcome", to
         assert server.welcome(to)
-    }
-}
+    end
+end
 ```
 
 A test that needs a different startup builds it from the shared one:
-`.{..test_support.startup(), args: ["--dry-run"]}`. Groups do not nest; write
+`{..test_support.startup(), args: ["--dry-run"]}`. Groups do not nest; write
 sibling groups, and share setup between them through a function.
 
 Put a group's `setup` at its top, after `clock` and `boot`, where a reader
@@ -1837,6 +1857,11 @@ of its units, an encoding or a collection, on the type it builds:
 `String.from_codepoints`, `Bytes.from_list`. A function that returns a
 value of the type it takes is named for what it does, with no `to_`:
 `String.trim`, `String.uppercase`, `String.fold_case`, `String.snake_case`.
+A conversion interface sits on the target type, `impl From<sql.Error> for
+ApiError`, because the orphan rule puts it there: `impl To<ApiError> for
+sql.Error` would put the local type in a type parameter only a result names,
+while `From`'s `E` is an input, so `impl From<LocalErr> for ForeignErr` is
+allowed (spec §12 *Foreign Types*).
 
 A function that reads or changes text by a locale's conventions ends in
 `_in` when its name without the suffix is, or would be, the same operation
@@ -1867,11 +1892,11 @@ nothing downstream checks it again:
 ```nomi
 pub opaque type Clock Int
 
-impl Clock {
-    pub fn new(hour: Int, minute: Int) -> Clock {
+impl Clock
+    pub fn new(hour: Int, minute: Int) -> Clock
         Clock(Int.modulo(hour * 60 + minute, 1_440))
-    }
-}
+    end
+end
 ```
 
 Keep the representation canonical, one value for each thing it stands for,
@@ -1894,19 +1919,19 @@ error is checked for every way. A `Display` impl gives the message a person
 reads:
 
 ```nomi
-pub enum Error {
+pub enum Error
     TooShort
     AreaCodeStartsWithZero
-}
+end
 
-impl Display for Error {
-    fn to_string(error: Error) -> String {
-        case error {
+impl Display for Error
+    fn to_string(error: Error) -> String
+        case error
             .TooShort -> "must not be fewer than 10 digits"
             .AreaCodeStartsWithZero -> "area code cannot start with zero"
-        }
-    }
-}
+        end
+    end
+end
 ```
 
 not `Result<String, String>`, whose callers can only compare text. Keep a
@@ -1927,34 +1952,34 @@ reference renders them as runnable examples, so an example that goes stale
 fails. The stdlib does this throughout (`std/sets.nomi`, `std/iter.nomi`):
 
 ```nomi
-impl Set<T> {
+impl Set<T>
     /// Returns a new set with `elem` added (no-op if already present).
-    //! assert Set.insert(%[1, 2], 3) == %[1, 2, 3]
-    //! assert Set.insert(%[1, 2], 2) == %[1, 2]
+    //! assert Set.insert([1, 2], 3) == [1, 2, 3]
+    //! assert Set.insert([1, 2], 2) == [1, 2]
     //
-    pub fn insert<T>(s: Set<T>, elem: T) -> Set<T> {
+    pub fn insert<T>(s: Set<T>, elem: T) -> Set<T>
         Set{items: Map.put(s.items, elem, True)}
-    }
-}
+    end
+end
 ```
 
 When an attached assertion's subject becomes multi-line, keep the assertion at
 the front and prompt each continuation line:
 
 ```nomi
-//! assert Iter.loop(0, fn n -> {
-//!     if n >= 3 {
+//! assert Iter.loop(0, fn n ->
+//!     if n >= 3 then
 //!         break n
-//!     } else {
+//!     else
 //!         n + 1
-//!     }
-//! }) == 3
+//!     end
+//! end) == 3
 ```
 
 When a compact example needs setup, write the setup as ordinary prompted lines:
 
 ```nomi
-//! v: Vector<Int> = #[]
+//! v: Vector<Int> = []
 //! assert Vector.length(v) == 0
 ```
 
@@ -1967,14 +1992,13 @@ Describe a whole file with `//#` lines at its top, in every file, not only in
 `std/`. A test file may leave it out: its name says which file it tests, and
 its tests' names say what they check. Use `//#` rather than a plain `//`
 above the first declaration, which reads as that declaration's comment.
-
 ```nomi
 //# Parses and evaluates the word problems of the exercise.
 
 /// Answers a word problem.
-pub fn answer(question: String) -> Result<Int, Error> {
+pub fn answer(question: String) -> Result<Int, Error>
     ...
-}
+end
 ```
 
 ### 50. Write generated code a reader can trust
@@ -2007,14 +2031,14 @@ closes it with `?`, which commits the write and reports a failed close; the
 deferred `Writer.discard` throws the output away on every other way out.
 
 ```nomi
-fn save(path: String, rows: List<String>) -> Result<Unit, io.Error> {
+fn save(path: String, rows: List<String>) -> Result<Unit, io.Error>
     w = fs.create(path, mode: .ReplaceAtomically)?
     defer Writer.discard(w)
 
     Writer.write_lines(w, rows)?
     Writer.close(w)?
     Ok(Unit)
-}
+end
 ```
 
 The other pairs: `fs.open` and `Reader.close_quietly`, `fs.open_file` and
@@ -2035,9 +2059,9 @@ in the signature, takes the interface as its type. It reads as what it is,
 any value that can do this:
 
 ```nomi
-fn text(error: Display) -> String {
+fn text(error: Display) -> String
     "failed: ${error}"
-}
+end
 ```
 
 Write a type parameter when the caller's type matters past the call: it
@@ -2047,9 +2071,9 @@ calls an interface function whose result is `self` or that takes no `self`.
 An interface value keeps none of that (spec §12 *Interface values*):
 
 ```nomi
-fn larger<T>(a: T, b: T) -> T where T: Comparable {
-    if a > b { a } else { b }
-}
+fn larger<T>(a: T, b: T) -> T where T: Comparable
+    if a > b then a else b
+end
 ```
 
 A function taking an interface value passes where a function of the

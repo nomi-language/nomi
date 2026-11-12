@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: twelve_days.nomi
 //# The lyrics of "The Twelve Days of Christmas".
 
-once ordinals = #[
+once ordinals = Vector[
     "first",
     "second",
     "third",
@@ -46,20 +46,20 @@ once later_gifts = [
 ]
 
 /// The verses for days `start` to `end`, both included, counting from 1.
-pub fn recite(start: Int, end: Int) -> List<String> {
-    start..=end
+pub fn recite(start: Int, stop: Int) -> List<String>
+    start..=stop
     |> Iter.map(verse)
     |> Iter.to_list()
-}
+end
 
-fn verse(day: Int) -> String {
+fn verse(day: Int) -> String
     ordinal = Vector.get(ordinals, day - 1)!
     "On the ${ordinal} day of Christmas my true love gave to me: ${gifts(day)}."
-}
+end
 
 /// Every gift given on `day`, newest first.
-fn gifts(day: Int) -> String {
-    if day == 1 { return first_gift }
+fn gifts(day: Int) -> String
+    if day == 1 then return first_gift
 
     later =
         later_gifts
@@ -68,7 +68,7 @@ fn gifts(day: Int) -> String {
         |> String.join(", ")
 
     "${later}, and ${first_gift}"
-}
+end
 
 // FILE: twelve_days_test.nomi
 import twelve_days
@@ -137,29 +137,29 @@ once verses = [
     ),
 ]
 
-test "verse" {
-    subtests verses, (description, number, expected), description {
+test "verse"
+    subtests verses, (description, number, expected), description
         assert twelve_days.recite(number, number) == [expected]
-    }
-}
+    end
+end
 
-test "lyrics" {
+test "lyrics"
     [
         ("recites first three verses of the song", 1, 3),
         ("recites three verses from the middle of the song", 4, 6),
         ("recites the whole song", 1, 12),
     ]
-    |> subtests (description, start, end), description {
+    |> subtests (description, start, stop), description
         expected =
             verses
             |> Iter.drop(start - 1)
-            |> Iter.take(end - start + 1)
+            |> Iter.take(stop - start + 1)
             |> Iter.map(fn (_description, _number, verse) -> verse)
             |> Iter.to_list()
 
-        assert twelve_days.recite(start, end) == expected
-    }
-}
+        assert twelve_days.recite(start, stop) == expected
+    end
+end
 ```
 <!-- expect
 ok verse (12 cases)

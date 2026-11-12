@@ -2,18 +2,18 @@
 // the std type, with an operand of it and with none (`Date.from_v(v)`,
 // `Int.from_v(v)`), by the interface, through a type parameter bound to the
 // std type, and dispatched on values held as the interface.
-import {
+import
     std::calendar.Date
     std::instant.Instant
     std::io
     lib.{self, ToV, V}
-}
+end
 
-fn all(values: List<ToV>) -> List<V> {
+fn all(values: List<ToV>) -> List<V>
     values |> Iter.map(&ToV.to_v(&1)) |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
     day = Date`2026-10-19`
     at = Instant.from_seconds(5)
     io.print(Date.to_v(day) == V.D(day))
@@ -28,4 +28,4 @@ fn main() {
     io.print(
         all([day, 2.5d, at, Some(day), nothing]) == [V.D(day), V.Dec(2.5d), V.At(at), V.D(day), V.N]
     )
-}
+end

@@ -80,7 +80,7 @@ func TestCache_NomiSourceEditNoRegen(t *testing.T) {
 	// Touch a .nomi file in the project — irrelevant to hash inputs.
 	if err := os.WriteFile(
 		filepath.Join(projectRoot, "scratch.nomi"),
-		[]byte("// scratch\nfn x() -> Int { 1 }\n"),
+		[]byte("// scratch\nfn x() -> Int\n    1\nend\n"),
 		0o644,
 	); err != nil {
 		t.Fatalf("write scratch.nomi: %v", err)
@@ -517,35 +517,35 @@ func TestCache_HashCoversTheShapesABindingConverts(t *testing.T) {
 	mainPath := filepath.Join(projectRoot, "main.nomi")
 	const shapes = `gopkg "example.com/binding"
 
-pub struct Inner {
+pub struct Inner
     count: Int
     label: String
-}
+end
 
-pub struct Outer {
+pub struct Outer
     name: String
     inner: Inner
     timeout: Duration
-}
+end
 
-pub struct Unrelated {
+pub struct Unrelated
     x: Int
-}
+end
 
 pub fn make() -> Outer go binding.Make
 
-pub fn twice(n: Int) -> Int {
+pub fn twice(n: Int) -> Int
     n * 2
-}
+end
 `
-	const main = `import {
+	const main = `import
     std::io
     shapes
-}
+end
 
-fn main() {
+fn main()
     io.print(shapes.make().name)
-}
+end
 `
 	hash := func(shapesSrc, mainSrc string) hashRecord {
 		t.Helper()
@@ -576,7 +576,7 @@ fn main() {
 		"nested fields reordered":       strings.Replace(shapes, "    count: Int\n    label: String", "    label: String\n    count: Int", 1),
 		"result field added":            strings.Replace(shapes, "    name: String\n", "    name: String\n    port: Int\n", 1),
 		"std-typed field renamed":       strings.Replace(shapes, "    timeout: Duration", "    deadline: Duration", 1),
-		"nested struct made a distinct": strings.Replace(shapes, "pub struct Inner {\n    count: Int\n    label: String\n}", "pub type Inner(String)", 1),
+		"nested struct made a distinct": strings.Replace(shapes, "pub struct Inner\n    count: Int\n    label: String\nend", "pub type Inner(String)", 1),
 	}
 	for name, src := range moves {
 		if src == shapes {

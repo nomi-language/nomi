@@ -21,52 +21,52 @@ const multiManifest = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
 const multiMain = `import std::io
 import shapes
 
-fn planted_decline(n: Int) -> Int {
+fn planted_decline(n: Int) -> Int
   n
-}
+end
 
-fn halves(xs: List<Int>) -> List<Int> {
+fn halves(xs: List<Int>) -> List<Int>
   Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
-}
+end
 
-fn main() {
+fn main()
   io.print(shapes.evens([1, 2]))
   io.print(halves([1, 2]))
   io.inspect(shapes.area(2))
-}
+end
 `
 
-const multiShapes = `pub fn area(r: Int) -> Int {
+const multiShapes = `pub fn area(r: Int) -> Int
   r * 3
-}
+end
 
-fn planted_decline(n: Int) -> Int {
+fn planted_decline(n: Int) -> Int
   n
-}
+end
 
-pub fn evens(xs: List<Int>) -> List<Int> {
+pub fn evens(xs: List<Int>) -> List<Int>
   Iter.map(xs, fn x -> planted_decline(x)) |> Iter.to_list()
-}
+end
 `
 
 // multiRingMain and multiRing import each other.
 const multiRingMain = `import std::io
 import ring
 
-pub fn base(n: Int) -> Int {
+pub fn base(n: Int) -> Int
   n + 1
-}
+end
 
-fn main() {
+fn main()
   io.inspect(ring.twice(2))
-}
+end
 `
 
 const multiRing = `import main
 
-pub fn twice(n: Int) -> Int {
+pub fn twice(n: Int) -> Int
   main.base(n) * 2
-}
+end
 `
 
 // multiFileCase is a project, the documents a server holds open in it,
@@ -172,7 +172,7 @@ var multiFileCases = []multiFileCase{
 	{
 		name: "a test file in a cycle",
 		disk: map[string]string{
-			"main.nomi": multiRingMain + "\ntest \"base\" {\n  assert base(1) == 2\n}\n",
+			"main.nomi": multiRingMain + "\ntest \"base\"\n  assert base(1) == 2\nend\n",
 			"ring.nomi": multiRing,
 		},
 		doc: "main.nomi",
@@ -290,7 +290,7 @@ func TestLoweringFromAnalysis_AfterADependentsRecheck(t *testing.T) {
 	uri := pathToURI(path)
 	s.docs.Open(pathToURI(filepath.Join(dir, "shapes.nomi")), multiShapes)
 	s.docs.Open(uri, multiMain)
-	text := strings.Replace(multiMain, "fn halves(xs: List<Int>) -> List<Int> {", "fn halves(xs: List<Int>, _n: Int = 0) -> List<Int> {", 1)
+	text := strings.Replace(multiMain, "fn halves(xs: List<Int>) -> List<Int>", "fn halves(xs: List<Int>, _n: Int = 0) -> List<Int>", 1)
 	if text == multiMain {
 		t.Fatal("the edit does not apply")
 	}

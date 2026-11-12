@@ -1,70 +1,70 @@
-fn parse(s: String) -> Result<Int, String> {
-    case s {
+fn parse(s: String) -> Result<Int, String>
+    case s
         "" -> Err("empty")
         _ -> Ok(String.length(s))
-    }
-}
+    end
+end
 
-fn find(s: String) -> Maybe<Int> {
-    case s {
+fn find(s: String) -> Maybe<Int>
+    case s
         "" -> None
         _ -> Some(String.length(s))
-    }
-}
+    end
+end
 
-group "`?` on a Result in setup" {
-    setup {
+group "`?` on a Result in setup"
+    setup begin
         n = parse("abc")?
-        .{n}
-    }
+        {n:}
+    end
 
-    test "the setup's value reaches the case", .{n} {
+    test "the setup's value reaches the case", {n:}
         assert n == 3
-    }
-}
+    end
+end
 
-group "`?` on a Maybe in setup" {
-    setup {
+group "`?` on a Maybe in setup"
+    setup begin
         n = find("abcd")?
-        .{n}
-    }
+        {n:}
+    end
 
-    test "the setup's value reaches the case", .{n} {
+    test "the setup's value reaches the case", {n:}
         assert n == 4
-    }
-}
+    end
+end
 
-group "`?` in a pipe stage in setup" {
-    setup {
+group "`?` in a pipe stage in setup"
+    setup begin
         n = "ab" |> parse()?
 
-        .{n}
-    }
+        {n:}
+    end
 
-    test "the setup's value reaches the case", .{n} {
+    test "the setup's value reaches the case", {n:}
         assert n == 2
-    }
-}
+    end
+end
 
-group "`?` after other statements in setup" {
-    setup {
+group "`?` after other statements in setup"
+    setup begin
         base = 10
         extra = parse("abcde")?
-        .{total: base + extra}
-    }
+        {total: base + extra}
+    end
 
-    test "the setup's earlier bindings reach the result of the `?`", .{total} {
+    test "the setup's earlier bindings reach the result of the `?`", {total:}
         assert total == 15
-    }
-}
+    end
+end
 
-group "assert in setup" {
-    setup {
+group "assert in setup"
+    setup begin
         assert parse("ab") == Ok(2)
-        .{n: 2}
-    }
+        {n: 2}
+    end
 
-    test "the setup's assertion held", .{n} {
+    test "the setup's assertion held", {n:}
         assert n == 2
-    }
-}
+    end
+end

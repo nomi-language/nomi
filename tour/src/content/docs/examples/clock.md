@@ -19,44 +19,44 @@ once minutes_per_day = 24 * 60
 /// that show the same time are equal.
 pub opaque type Clock Int
 
-impl Clock {
+impl Clock
     /// Builds the clock that `hour` hours and `minute` minutes past midnight
     /// shows. Either may be negative or past a day; the clock wraps.
-    pub fn new(hour: Int, minute: Int) -> Clock {
+    pub fn new(hour: Int, minute: Int) -> Clock
         Clock(wrap(hour * 60 + minute))
-    }
+    end
 
     /// Moves the clock forward by `minutes`.
-    pub fn add(Clock(time), minutes: Int) -> Clock {
+    pub fn add(Clock(time), minutes: Int) -> Clock
         Clock(wrap(time + minutes))
-    }
+    end
 
     /// Moves the clock back by `minutes`.
-    pub fn subtract(Clock(time), minutes: Int) -> Clock {
+    pub fn subtract(Clock(time), minutes: Int) -> Clock
         Clock(wrap(time - minutes))
-    }
-}
+    end
+end
 
-impl Display for Clock {
-    fn to_string(Clock(time)) -> String {
+impl Display for Clock
+    fn to_string(Clock(time)) -> String
         "${two_digits(time / 60)}:${two_digits(time % 60)}"
-    }
-}
+    end
+end
 
 /// Brings any count of minutes into one day, rounding toward the past, so
 /// `-1` is `23:59`.
-fn wrap(minutes: Int) -> Int {
+fn wrap(minutes: Int) -> Int
     Int.modulo(minutes, minutes_per_day)
-}
+end
 
-fn two_digits(n: Int) -> String {
+fn two_digits(n: Int) -> String
     Int.to_string(n) |> String.pad_start(2, "0")
-}
+end
 
 // FILE: clock_test.nomi
 import clock.Clock
 
-test "Create a new clock with an initial time" {
+test "Create a new clock with an initial time"
     [
         ("on the hour", (8, 0), "08:00"),
         ("past the hour", (11, 9), "11:09"),
@@ -79,12 +79,12 @@ test "Create a new clock with an initial time" {
         ("negative hour and minutes both roll over", (-25, -160), "20:20"),
         ("negative hour and minutes both roll over continuously", (-121, -5810), "22:10"),
     ]
-    |> subtests (description, (hour, minute), expected), description {
+    |> subtests (description, (hour, minute), expected), description
         assert "${Clock.new(hour, minute)}" == expected
-    }
-}
+    end
+end
 
-test "Add minutes" {
+test "Add minutes"
     [
         ("add minutes", (10, 0), 3, "10:03"),
         ("add no minutes", (6, 41), 0, "06:41"),
@@ -95,13 +95,13 @@ test "Add minutes" {
         ("add more than one day (1500 min = 25 hrs)", (5, 32), 1500, "06:32"),
         ("add more than two days", (1, 1), 3500, "11:21"),
     ]
-    |> subtests (description, (hour, minute), minutes, expected), description {
+    |> subtests (description, (hour, minute), minutes, expected), description
         clock = Clock.new(hour, minute)
         assert "${Clock.add(clock, minutes)}" == expected
-    }
-}
+    end
+end
 
-test "Subtract minutes" {
+test "Subtract minutes"
     [
         ("subtract minutes", (10, 3), 3, "10:00"),
         ("subtract to previous hour", (10, 3), 30, "09:33"),
@@ -112,13 +112,13 @@ test "Subtract minutes" {
         ("subtract more than one day (1500 min = 25 hrs)", (5, 32), 1500, "04:32"),
         ("subtract more than two days", (2, 20), 3000, "00:20"),
     ]
-    |> subtests (description, (hour, minute), minutes, expected), description {
+    |> subtests (description, (hour, minute), minutes, expected), description
         clock = Clock.new(hour, minute)
         assert "${Clock.subtract(clock, minutes)}" == expected
-    }
-}
+    end
+end
 
-test "Compare two clocks for equality" {
+test "Compare two clocks for equality"
     [
         ("clocks with same time", (15, 37), (15, 37), True),
         ("clocks a minute apart", (15, 36), (15, 37), False),
@@ -137,10 +137,10 @@ test "Compare two clocks for equality" {
         ("clocks with negative hours and minutes that wrap", (18, 7), (-54, -11513), True),
         ("full clock and zeroed clock", (24, 0), (0, 0), True),
     ]
-    |> subtests (description, (hour1, minute1), (hour2, minute2), expected), description {
+    |> subtests (description, (hour1, minute1), (hour2, minute2), expected), description
         assert (Clock.new(hour1, minute1) == Clock.new(hour2, minute2)) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok Create a new clock with an initial time (20 cases)

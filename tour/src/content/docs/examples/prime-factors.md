@@ -15,23 +15,23 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The prime factors of `value`, smallest first, each repeated as often as it
 /// divides `value`.
-pub fn factors(value: Int) -> List<Int> {
+pub fn factors(value: Int) -> List<Int>
     factors_from(value, 2)
-}
+end
 
-fn factors_from(n: Int, divisor: Int) -> List<Int> {
-    case {
+fn factors_from(n: Int, divisor: Int) -> List<Int>
+    case
         n == 1 -> []
         divisor * divisor > n -> [n]
         n % divisor == 0 -> [divisor, ..factors_from(n / divisor, divisor)]
         _ -> factors_from(n, divisor + 1)
-    }
-}
+    end
+end
 
 // FILE: prime_factors_test.nomi
 import prime_factors
 
-test "factors" {
+test "factors"
     [
         ("no factors", 1, []),
         ("prime number", 2, [2]),
@@ -46,10 +46,10 @@ test "factors" {
         ("product of primes", 901255, [5, 17, 23, 461]),
         ("factors include a large prime", 93819012551, [11, 9539, 894119]),
     ]
-    |> subtests (description, value, expected), description {
+    |> subtests (description, value, expected), description
         assert prime_factors.factors(value) == expected
-    }
-}
+    end
+end
 ```
 <!-- expect
 ok factors (12 cases)

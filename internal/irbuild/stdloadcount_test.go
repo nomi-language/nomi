@@ -66,7 +66,7 @@ func TestStdLoadCount_Child(t *testing.T) {
 	if os.Getenv(stdLoadChildEnv) != "1" {
 		t.Skip("runs only as the child of TestStdLoadCount_LoweringHelloWorldLoadsStdAFixedNumberOfTimes")
 	}
-	const hello = "import std::io\n\nfn main() {\n  io.print(\"hello\")\n}\n"
+	const hello = "import std::io\n\nfn main()\n  io.print(\"hello\")\nend\n"
 	before := std.LoadCount()
 	p, err := AnalyzeSource("stdloadhello", hello)
 	if err != nil {

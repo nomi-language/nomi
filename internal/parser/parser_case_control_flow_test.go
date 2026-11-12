@@ -9,7 +9,7 @@ import (
 // enclosing loop/lambda just as they do in statement position).
 
 func TestCaseArm_Break(t *testing.T) {
-	expr := parseExpr(t, "case x { _ -> break 1 }")
+	expr := parseExpr(t, "case x\n    _ -> break 1\nend")
 	c, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)
@@ -25,7 +25,7 @@ func TestCaseArm_Break(t *testing.T) {
 }
 
 func TestCaseArm_Continue(t *testing.T) {
-	expr := parseExpr(t, "case x { _ -> continue }")
+	expr := parseExpr(t, "case x\n    _ -> continue\nend")
 	c, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)
@@ -36,7 +36,7 @@ func TestCaseArm_Continue(t *testing.T) {
 }
 
 func TestCaseArm_Return(t *testing.T) {
-	expr := parseExpr(t, "case x { _ -> return 1 }")
+	expr := parseExpr(t, "case x\n    _ -> return 1\nend")
 	c, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)
@@ -53,7 +53,7 @@ func TestCaseArm_Return(t *testing.T) {
 
 // Bare break (no value) as a case-arm body.
 func TestCaseArm_BareBreak(t *testing.T) {
-	expr := parseExpr(t, "case x { _ -> break }")
+	expr := parseExpr(t, "case x\n    _ -> break\nend")
 	c, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)

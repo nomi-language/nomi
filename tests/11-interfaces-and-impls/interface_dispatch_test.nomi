@@ -1,132 +1,132 @@
 import std::compiler
 
-interface Numberish {
+interface Numberish
     fn label(value: self) -> String
-}
+end
 
-impl Numberish for Int {
-    fn label(value: Int) -> String {
+impl Numberish for Int
+    fn label(value: Int) -> String
         "n=" + Int.to_string(value)
-    }
-}
+    end
+end
 
-interface Speech {
+interface Speech
     fn speak(animal: self) -> String
-}
+end
 
-struct Dog {
+struct Dog
     name: String
-}
+end
 
-impl Speech for Dog {
-    fn speak(dog: Dog) -> String {
+impl Speech for Dog
+    fn speak(dog: Dog) -> String
         dog.name + " says woof"
-    }
-}
+    end
+end
 
-struct Cat {
+struct Cat
     name: String
-}
+end
 
-impl Speech for Cat {
-    fn speak(cat: Cat) -> String {
+impl Speech for Cat
+    fn speak(cat: Cat) -> String
         cat.name + " says meow"
-    }
-}
+    end
+end
 
-interface Handler {
+interface Handler
     fn handle(handler: self, input: String) -> String
-}
+end
 
 type Callback (String) -> String
 
-impl Handler for Callback {
-    fn handle(handler: Callback, input: String) -> String {
+impl Handler for Callback
+    fn handle(handler: Callback, input: String) -> String
         handler(input)
-    }
-}
+    end
+end
 
-enum Color {
+enum Color
     Red
     Green
     Blue
-}
+end
 
-impl Display for Color {
-    fn to_string(c: Color) -> String {
-        case c {
+impl Display for Color
+    fn to_string(c: Color) -> String
+        case c
             .Red -> "red"
             .Green -> "green"
             .Blue -> "blue"
-        }
-    }
-}
+        end
+    end
+end
 
-interface Measure {
+interface Measure
     fn area(shape: self) -> Float
-}
+end
 
-enum Shape {
+enum Shape
     Circle Float
     Rectangle {width: Float, height: Float}
-}
+end
 
-impl Measure for Shape {
-    fn area(s: Shape) -> Float {
-        case s {
+impl Measure for Shape
+    fn area(s: Shape) -> Float
+        case s
             .Circle(r) -> 3.14159 * r * r
-            .Rectangle{width, height} -> width * height
-        }
-    }
-}
+            .Rectangle{width:, height:} -> width * height
+        end
+    end
+end
 
-interface Identity {
+interface Identity
     fn name(value: self) -> String
 
-    fn describe(value: self) -> String {
+    fn describe(value: self) -> String
         "I am " + Identity.name(value)
-    }
-}
+    end
+end
 
-struct Robot {
+struct Robot
     model: String
-}
+end
 
-impl Identity for Robot {
-    fn name(robot: Robot) -> String {
+impl Identity for Robot
+    fn name(robot: Robot) -> String
         robot.model
-    }
-}
+    end
+end
 
-interface Greeter {
+interface Greeter
     fn greet(value: self) -> String
-}
+end
 
-interface Farewell {
+interface Farewell
     fn greet(value: self) -> String
-}
+end
 
-struct Person {
+struct Person
     name: String
-}
+end
 
-impl Greeter for Person {
-    fn greet(p: Person) -> String {
+impl Greeter for Person
+    fn greet(p: Person) -> String
         "Hello, " + p.name
-    }
-}
+    end
+end
 
-impl Farewell for Person {
-    fn greet(p: Person) -> String {
+impl Farewell for Person
+    fn greet(p: Person) -> String
         "Goodbye, " + p.name
-    }
-}
+    end
+end
 
-fn announce(s: Speech) -> String {
+fn announce(s: Speech) -> String
     Speech.speak(s)
-}
+end
 
-test "interface-qualified dispatch works for structs distinct functions and enums" {
+test "interface-qualified dispatch works for structs distinct functions and enums"
     h = Callback(&("handled: " + &1))
 
     assert Speech.speak(Dog{name: "Rex"}) == "Rex says woof"
@@ -136,58 +136,58 @@ test "interface-qualified dispatch works for structs distinct functions and enum
     assert Display.to_string(Color.Blue) == "blue"
     assert Measure.area(Shape.Circle(5.0)) == 78.53975
     assert Measure.area(Shape.Rectangle{width: 3.0, height: 4.0}) == 12.0
-}
+end
 
-test "existential interface values dispatch by runtime type" {
+test "existential interface values dispatch by runtime type"
     assert announce(Dog{name: "Rex"}) == "Rex says woof"
     assert announce(Cat{name: "Whiskers"}) == "Whiskers says meow"
-}
+end
 
-test "interface defaults and same-function disambiguation use interface qualification" {
+test "interface defaults and same-function disambiguation use interface qualification"
     robot = Robot{model: "T-800"}
     alice = Person{name: "Alice"}
 
     assert Identity.describe(robot) == "I am T-800"
     assert Greeter.greet(alice) == "Hello, Alice"
     assert Farewell.greet(alice) == "Goodbye, Alice"
-}
+end
 
-test "stdlib manifest impls are available without explicit imports" {
+test "stdlib manifest impls are available without explicit imports"
     assert Display.to_string(42) == "42"
     assert Display.to_string(3.14) == "3.14"
     assert Display.to_string("hello") == "hello"
     assert Display.to_string(True) == "True"
     assert Display.to_string(False) == "False"
-}
+end
 
-test "local interfaces can be implemented for foreign types" {
+test "local interfaces can be implemented for foreign types"
     assert Numberish.label(42) == "n=42"
-}
+end
 
-test "type hover lists contextual implementations for foreign types" {
+test "type hover lists contextual implementations for foreign types"
     hover = compiler.hover(
         """
-          interface Numberish {
+          interface Numberish
             fn label(value: self) -> String
-          }
+          end
 
-          impl Numberish for Int {
-            fn label(value: Int) -> String {
+          impl Numberish for Int
+            fn label(value: Int) -> String
               Int.to_string(value)
-            }
-          }
+            end
+          end
 
-          fn double(value: ˇInt) -> Int {
+          fn double(value: ˇInt) -> Int
             value + value
-          }
+          end
         """
     )
 
-    case hover {
-        Ok(info) -> {
+    case hover
+        Ok(info) ->
             assert "`Numberish`" in info.markdown
-        }
 
-        Err(message) -> assert message == ""
-    }
-}
+        Err(message) ->
+            assert message == ""
+    end
+end
