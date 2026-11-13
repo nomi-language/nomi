@@ -921,7 +921,7 @@ fn next_day(w: Wall) -> Wall
     if w.day >= days_in(w.year, w.month) then
         next_month(w)
     else
-        {..w, day: w.day + 1, hour: 0, minute: 0}
+        {..w, day: .. + 1, hour: 0, minute: 0}
     end
 end
 
@@ -929,7 +929,7 @@ fn next_hour(w: Wall) -> Wall
     if w.hour == 23 then
         next_day(w)
     else
-        {..w, hour: w.hour + 1, minute: 0}
+        {..w, hour: .. + 1, minute: 0}
     end
 end
 
@@ -937,33 +937,18 @@ fn next_minute(w: Wall) -> Wall
     if w.minute == 59 then
         next_hour(w)
     else
-        {..w, minute: w.minute + 1}
+        {..w, minute: .. + 1}
     end
 end
 
 fn days_in(year: Int, month: Int) -> Int
     case month
-        2 ->
-            if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) then
-                29
-            else
-                28
-            end
-
-        4 ->
-            30
-
-        6 ->
-            30
-
-        9 ->
-            30
-
-        11 ->
-            30
-
-        _ ->
-            31
+        2 -> if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) then 29 else 28
+        4 -> 30
+        6 -> 30
+        9 -> 30
+        11 -> 30
+        _ -> 31
     end
 end
 
@@ -1500,7 +1485,8 @@ fn latest_tick(schedule: Schedule, after: Instant, now: Instant) -> Maybe<Instan
         .Every(interval) ->
             n = Duration.as_nanos(interval)
             tick = Instant.from_nanos(Int.floor_div(Instant.as_nanos(now), n) * n)
-            if Instant.is_before(after, tick) then tick
+
+            if Instant.is_before(after, tick) then Some(tick) else None
 
         .Cron{} ->
             latest_within(schedule, after, now, Duration.minutes(1))
@@ -1517,11 +1503,7 @@ fn latest_within(
 ) -> Maybe<Instant>
     from = now - window
 
-    start = if Instant.is_before(from, after) then
-        after
-    else
-        from
-    end
+    start = if Instant.is_before(from, after) then after else from
 
     first = Schedule.next_after(schedule, start)
 
@@ -1602,18 +1584,10 @@ end
 fn claim_loop(worker: Worker, handlers: Map<String, Handler>, kinds: List<String>, tat: Instant)
     next = Channel.select([
         Arm.receive(worker.slots.receiver, fn got ->
-            if Maybe.is_some(got) then
-                Next.Claim
-            else
-                Next.Stop
-            end
+            if Maybe.is_some(got) then Next.Claim else Next.Stop
         end),
         Arm.receive(worker.wake.receiver, fn got ->
-            if Maybe.is_some(got) then
-                Next.Wait
-            else
-                Next.Stop
-            end
+            if Maybe.is_some(got) then Next.Wait else Next.Stop
         end),
     ])
 
@@ -1683,11 +1657,7 @@ fn hold_for_rate(worker: Worker, tat: Instant) -> Bool
 
             keep_waiting = Channel.select([
                 Arm.receive(worker.wake.receiver, fn got ->
-                    if Maybe.is_some(got) then
-                        Next.Wait
-                    else
-                        Next.Stop
-                    end
+                    if Maybe.is_some(got) then Next.Wait else Next.Stop
                 end),
                 Arm.after(Instant.between(now, allowed), fn -> Next.Claim),
             ])

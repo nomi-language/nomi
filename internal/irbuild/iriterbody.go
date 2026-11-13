@@ -133,22 +133,17 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 			// walk the view.
 			return bl.rangeKnownCount(t, src, elem)
 		}
-	case analysis.IterViewVector:
-		if !irRetainedVectorKind(sk) && !irCallableValueKind(elem) {
-			return no()
-		}
 	case analysis.IterViewMap:
-		// A Map pushes `(K, V)` pairs.
+		// A Map pushes `(K, V)` pairs. sk is a lowered value, in the domain
+		// (inValueDomain), and a Map there is a retained one: its key has
+		// equality (the checker's key check) and irMapValueKind holds any
+		// value.
 		if !irRetainedMapKind(sk) || !irRetainedTupleKind(elem) {
-			return no()
+			panic("iterCall: a Map source in the value domain that is not a retained map: " + sk.nomi())
 		}
 	case analysis.IterViewSet:
 		if !irRetainedSetKind(sk) {
-			return no()
-		}
-	case analysis.IterViewList, viewSeq:
-		if !(irCallableValueKind(elem) || elem == kindUnit || irRetainedSeqKind(elem) || irExistentialKind(elem)) {
-			return no()
+			panic("iterCall: a Set source in the value domain that is not a retained set: " + sk.nomi())
 		}
 	}
 	result := listKindIn(bl.g, elem)
@@ -372,9 +367,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 		return bl.iterGroupBy(t, src, elem, args.temps[1], args.kinds[1])
 	case "with_index":
 		pair := bl.g.tupleKind([]kind{kindInt, elem})
-		if !irRetainedTupleKind(pair) {
-			return no()
-		}
+		irMustHold(irRetainedTupleKind(pair), "with_index", pair)
 		k := seqKindIn(bl.g, pair)
 		return bl.iterPaired(t, ir.IterWithIndex, k, src), k, false, true
 	case "zip":
@@ -383,9 +376,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 			return no()
 		}
 		pair := bl.g.tupleKind([]kind{elem, relem})
-		if !irRetainedTupleKind(pair) {
-			return no()
-		}
+		irMustHold(irRetainedTupleKind(pair), "zip", pair)
 		k := seqKindIn(bl.g, pair)
 		return bl.iterPaired(t, ir.IterZip, k, src, right), k, false, true
 	case "concat":
@@ -629,7 +620,7 @@ func (g *gen) irSeqKindOf(t analysis.Type) (kind, bool) {
 		return kindInvalid, false
 	}
 	elem := g.project(it.TypeArgs[0])
-	if !irCallableValueKind(elem) {
+	if elem != kindUnit && !irCallableValueKind(elem) {
 		return kindInvalid, false
 	}
 	return seqKindIn(g, elem), true
@@ -787,10 +778,11 @@ func (bl *irScalarBuilder) iterGroupBy(t *ast.Call, src ir.Temp, elem kind, fn i
 	if !irMapKeyKind(key) {
 		return no()
 	}
+	// A retained map: its key was just held to irMapKeyKind, and its value,
+	// `List<elem>`, is a List of the element of an Iter in the value domain
+	// (irRetainedSeqKind: callable or Unit), which irRetainedValueKind's
+	// List arm, and so irHeldValueKind and irMapValueKind, admit.
 	result := bl.g.mapKind(key, listKindIn(bl.g, elem))
-	if result.tag != tagMap || !irRetainedMapKind(result) {
-		return no()
-	}
 	ok := bl.g.irMapKeyOK(key)
 	if !ok {
 		return no()
@@ -892,6 +884,13 @@ func (bl *irScalarBuilder) siblingCompareSym(elem kind) *ir.Symbol {
 	call := &ast.Call{Args: []ast.Node{nil, nil}}
 	args := irQualArgs{temps: []ir.Temp{ir.NoTemp, ir.NoTemp}, kinds: []kind{elem, elem}, mobile: []bool{true, true}, ok: true}
 	p := bl.qualSiblingIfaceImplPlan(call, args, elem.def, "compare", "Comparable")
+	if p == nil {
+		// A std instance's body at a program's type (a tuple's part in
+		// `List.compare<(Int, P)>`): the impl is the program's, which
+		// callerImplPlan finds as it does for `Comparable.compare(a, b)`
+		// written there.
+		p = bl.callerImplPlan(call, args, "Comparable", "compare", elem)
+	}
 	if p == nil || p.sym == nil || p.result != stdEnumKind(stdEnumOrdering) {
 		return nil
 	}
@@ -1048,13 +1047,11 @@ func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.
 	}
 	switch vs.dom {
 	case analysis.IterViewVector:
-		if irRetainedValueKind(sk) {
-			return view(ir.IterOverVector)
-		}
+		// sk is a lowered value, in the domain (inValueDomain), whatever
+		// its element: Unit, a function, an Iter.
+		return view(ir.IterOverVector)
 	case analysis.IterViewSet:
-		if irRetainedSetKind(sk) {
-			return view(ir.IterOverSet)
-		}
+		return view(ir.IterOverSet)
 	case analysis.IterViewMaybe:
 		return view(ir.IterOverMaybe)
 	case analysis.IterViewMap, analysis.IterViewRange, analysis.IterViewImpl:
@@ -1069,13 +1066,9 @@ func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.
 	case analysis.IterViewBytes:
 		return view(ir.IterOverBytes)
 	case viewSeq:
-		if irCallableValueKind(vs.elem) {
-			return src, vs.elem, true
-		}
+		return src, vs.elem, true
 	case analysis.IterViewList:
-		if irCallableValueKind(vs.elem) {
-			return view(ir.IterOverList)
-		}
+		return view(ir.IterOverList)
 	}
 	return ir.NoTemp, kindInvalid, false
 }
@@ -1104,4 +1097,15 @@ func sortOperands(direction ir.Temp, ops ...ir.Temp) []ir.Temp {
 		ops = append(ops, direction)
 	}
 	return ops
+}
+
+// irMustHold asserts what the value domain promises a stage that builds a
+// composite from the elements it moves (a pair, a chunk, a flattened list):
+// every element is a lowered value's, in the domain, and a retained tuple
+// or List holds any such value. A failure is a builder bug, not a program
+// the builder declines.
+func irMustHold(held bool, stage string, k kind) {
+	if !held {
+		panic("iterCall: " + stage + " builds " + k.nomi() + ", which the domain does not hold")
+	}
 }

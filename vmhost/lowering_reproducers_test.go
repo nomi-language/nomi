@@ -1428,6 +1428,106 @@ fn main()
 end
 `,
 	},
+	{
+		name: "gapTupleOfMarker",
+		src: `import std::channels.ChannelClosed
+
+test "tuple"
+    t = (ChannelClosed, 1)
+    assert t.second == 1
+end
+`,
+	},
+	{
+		name: "gapRecordOfMarker",
+		src: `import std::channels.ChannelClosed
+
+test "record"
+    r = {e: ChannelClosed, n: 1}
+    assert r.n == 1
+end
+`,
+	},
+	{
+		name: "gapWithIndexOfMarkers",
+		src: `import std::channels.ChannelClosed
+
+test "with_index"
+    assert Iter.with_index([ChannelClosed]) |> Iter.count() == 1
+end
+`,
+	},
+	{
+		name: "gapZipOfMarkers",
+		src: `import std::channels.ChannelClosed
+
+test "zip"
+    assert Iter.zip([ChannelClosed], [1]) |> Iter.count() == 1
+end
+`,
+	},
+	{
+		name: "gapToSetOfMarkers",
+		src: `import std::channels.ChannelClosed
+
+test "to_set"
+    assert Iter.to_set([ChannelClosed]) |> Iter.count() == 1
+end
+`,
+	},
+	{
+		name: "gapMarkerPayloadPattern",
+		src: `import std::channels.{Channel, ChannelClosed, Sender}
+
+test "marker payload"
+    ch = Channel.buffered<Int>(1)
+    Sender.close(ch.sender)
+    n = case Sender.send(ch.sender, 1)
+        Err(ChannelClosed) -> 1
+        Ok(_) -> 0
+    end
+    assert n == 1
+end
+`,
+	},
+	{
+		name: "gapChunksOfIters",
+		src: `test "chunks"
+    seqs = [Iter.map([1, 2], fn n -> n), Iter.map([3], fn n -> n)]
+    assert Iter.chunks(seqs, 1) |> Iter.count() == 2
+end
+`,
+	},
+	{
+		name: "gapFlattenListsOfIters",
+		src: `test "flatten"
+    seqs = [Iter.map([1, 2], fn n -> n), Iter.map([3], fn n -> n)]
+    assert Iter.flatten([seqs]) |> Iter.count() == 2
+end
+`,
+	},
+	{
+		name: "gapBlockImportRebindsModuleAlias",
+		src: `import std::strings as text
+
+test "block alias"
+    import std::io as text
+    assert text.print("hi") == Unit
+end
+`,
+	},
+	{
+		name: "gapBlockAliasQualifiedType",
+		src: `import std::csv as fmt
+
+test "block alias type"
+    import std::xml as fmt
+
+    o = fmt.WriteOptions{}
+    assert o == o
+end
+`,
+	},
 }
 
 // TestDeclineReproducersLower holds each of declineReproducers to the rule

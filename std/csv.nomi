@@ -295,11 +295,7 @@ fn each_record(records: csv_host.Records, yield: (Result<List<String>, Error>) -
             end
 
         fields ->
-            if yield(Ok(fields)) then
-                each_record(records, yield)
-            else
-                False
-            end
+            if yield(Ok(fields)) then each_record(records, yield) else False
     end
 end
 
@@ -394,11 +390,7 @@ pub fn write(
 end
 
 fn line(record: List<String>, options: WriteOptions) -> String
-    fields = if options.escape_formulas then
-        record |> Iter.map(guard) |> Iter.to_list()
-    else
-        record
-    end
+    fields = if options.escape_formulas then record |> Iter.map(guard) |> Iter.to_list() else record
 
     csv_host.encode(fields, Codepoint.to_int(options.delimiter), options.crlf)
 end

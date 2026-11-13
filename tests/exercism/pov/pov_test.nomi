@@ -3,7 +3,7 @@ import pov.Tree
 /// `tree` with every node's children in label order. The canonical data
 /// leaves the order of children open, so the tests compare trees this way.
 fn in_label_order(tree: Tree) -> Tree
-    {..tree, children: tree.children |> Iter.map(in_label_order) |> Iter.sort_by(.label)}
+    {..tree, children: .. |> Iter.map(in_label_order) |> Iter.sort_by(.label)}
 end
 
 once singleton = Tree{label: "x"}

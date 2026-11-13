@@ -89,8 +89,10 @@ func (m *Machine) rowText(fr *frame, v any) (string, error) {
 }
 
 // displayErased renders a Display existential's value through its own impl:
-// a declared type's retained body by the type name the value carries, or a
-// scalar's text, which is what each scalar's Display impl answers. Any other
+// a declared type's retained body by the type name the value carries (a
+// record's descriptor, a host handle's TypeName, rt.BytesTypeName for a
+// Bytes), or a scalar's text, which is what each scalar's Display impl
+// answers. Any other
 // value is refused: rt.DisplayText's structural text for it is not what its
 // Display impl answers (`Bytes` reads `Bytes(2)`, a list renders its
 // elements through Display).
@@ -124,8 +126,26 @@ func (m *Machine) displayErased(fr *frame, v any) (string, error) {
 		// A container the builder erased only when its Display text is
 		// structural (irStructuralDisplayKind).
 		return m.displayStructural(fr, v)
+	case rt.Bytes:
+		// A std type whose value is not a record names its impl by the
+		// type it always is.
+		return m.displayNamed(fr, rt.BytesTypeName, v)
+	case rt.HostHandle:
+		// A host value (a Regex) carries its type's name.
+		return m.displayNamed(fr, x.TypeName, v)
 	}
 	return "", fmt.Errorf("vm: %s: Display over an existential holding %T is not implemented", fr.fn.Name(), v)
+}
+
+// displayNamed renders v through the recorded Display body of the type
+// named name.
+func (m *Machine) displayNamed(fr *frame, name string, v any) (string, error) {
+	sym := m.displays[name]
+	if sym == nil {
+		return "", fmt.Errorf("vm: %s: Display over an existential holding %s, and this program's modules did not "+
+			"retain its Display implementation", fr.fn.Name(), name)
+	}
+	return m.displayCall(fr, sym, v)
 }
 
 // displayCall renders v through the recorded Display body sym.
@@ -157,14 +177,19 @@ func (m *Machine) displayStructural(fr *frame, v any) (string, error) {
 		if failed != nil {
 			return ""
 		}
-		if r, ok := x.(*rt.Record); ok {
-			if sym := implOf(m.displays, r); sym != nil {
-				s, err := m.displayErased(fr, x)
-				if err != nil {
-					failed = err
-				}
-				return s
+		through := false
+		switch y := x.(type) {
+		case *rt.Record:
+			through = implOf(m.displays, y) != nil
+		case rt.Bytes, rt.HostHandle:
+			through = true
+		}
+		if through {
+			s, err := m.displayErased(fr, x)
+			if err != nil {
+				failed = err
 			}
+			return s
 		}
 		return rt.DisplayTextWith(x, elem)
 	}

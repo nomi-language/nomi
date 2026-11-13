@@ -78,9 +78,7 @@ var irStreamKinds = sync.OnceValue(func() []kind {
 // `Supervisor` declaration (stdIntrinsicOwner).
 func (bl *irScalarBuilder) supervisorSpawn(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if bl.rowsUnrecorded(t) || namedArgNode(t.Args) != nil || len(t.Args) != 2 {
-		return no()
-	}
+	bl.mustBePlacedIntrinsic(t, 2, "Supervisor.spawn")
 	args := bl.irQualLowerArgs(t)
 	if !args.ok || !irSupervisorKind(args.kinds[0]) {
 		return no()
@@ -171,9 +169,7 @@ func (g *gen) irStdArityRetain(f *stdFunc, fd *ast.FuncDef, arity int) {
 	bl.b.Append(cp)
 	bl.side(sh.result, irScalarSide{k: f.result})
 	bl.b.SetTerm(ir.NewReturn(at, sh.result))
-	if g.irLint(sh.fn) != nil {
-		return
-	}
+	g.irRequireLint(sh.fn, "a std arity wrapper")
 	g.irModule().AddFunc(sh.fn)
 	if err := g.irLintAdded(); err != nil {
 		panic("irbuild: std arity wrapper: " + err.Error())
@@ -521,9 +517,7 @@ func (bl *irScalarBuilder) goDefault(at ast.Node, k kind, n int64) ir.Temp {
 // Unit, and a `List<Task<Unit>>` of handles.
 func (bl *irScalarBuilder) supervisorSpawnAll(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if bl.rowsUnrecorded(t) || namedArgNode(t.Args) != nil || len(t.Args) != 3 {
-		return no()
-	}
+	bl.mustBePlacedIntrinsic(t, 3, "Supervisor.spawn_all")
 	args := bl.irQualLowerArgs(t)
 	if !args.ok || !irSupervisorKind(args.kinds[0]) {
 		return no()
@@ -598,9 +592,7 @@ func (g *gen) irStdSlotRetain(f *stdFunc, fd *ast.FuncDef, slot int) {
 	bl.b.Append(cp)
 	bl.side(sh.result, irScalarSide{k: f.params[slot]})
 	bl.b.SetTerm(ir.NewReturn(at, sh.result))
-	if g.irLint(sh.fn) != nil {
-		return
-	}
+	g.irRequireLint(sh.fn, "a std slot accessor")
 	g.irModule().AddFunc(sh.fn)
 	if err := g.irLintAdded(); err != nil {
 		panic("irbuild: std slot accessor: " + err.Error())

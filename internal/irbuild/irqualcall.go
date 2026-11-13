@@ -664,10 +664,10 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 	if v, k, mobile, ok := bl.scalarOperatorCall(t, args, ti.Name, method); ok {
 		return v, k, mobile, true
 	}
-	if v, k, mobile, ok, owned := bl.scalarEqualCall(t, args, ti.Name, method); owned {
+	if v, k, mobile, ok, handled := bl.scalarEqualCall(t, args, ti.Name, method); handled {
 		return v, k, mobile, ok
 	}
-	if v, ok, owned := bl.structuralEqualCall(t, args, ti.Name, method); owned {
+	if v, ok, handled := bl.structuralEqualCall(t, args, ti.Name, method); handled {
 		return v, kindBool, false, ok
 	}
 	if v, owned := bl.existentialHashCall(t, args, ti.Name, method); owned {
@@ -966,7 +966,7 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 				if d != defs[0] {
 					continue
 				}
-				_, item := bl.pickInstImpl(t, defs, method, args)
+				_, item := bl.pickInstImpl(t, defs, method)
 				if item == nil {
 					if defs[0].items[method] != nil {
 						return nil
@@ -1235,7 +1235,7 @@ func (bl *irScalarBuilder) qualSiblingIfaceImplPlan(t *ast.Call, args irQualArgs
 		// registered per instance, not at the template's written sites.
 		return bl.siblingInstanceImplPlan(t, args, d, method, iface)
 	}
-	pick := bl.siblingInstPick(t, args)
+	pick := bl.siblingInstPick(t)
 	if site := g.siblingImplSiteBy(d, method, iface, pick); site != nil && site.withheld != nil {
 		// `leaf.Box.ident(6)`: a generic member, instantiated by its file.
 		if site.fn.why != "generic impl function" {
@@ -1559,12 +1559,12 @@ func (bl *irScalarBuilder) siblingCall(t *ast.Call, site fileSite) (ir.Temp, kin
 	for _, i := range slots.order {
 		a, slot := argExpr(t.Args[i]), slots.slots[i]
 		src, k, held, ok := bl.lowerTypedOperand(a, params[slot])
-		if !ok || !irCallOperandKind(k) {
+		if !ok {
 			return no()
 		}
 		// Only the final operand may stay unforced; inside an assertion
 		// subject it is named twice, in its row and in the call.
-		if src, k, ok = bl.coerceEmpty(a, src, k, params[slot]); !ok || k != params[slot] {
+		if src, k, ok = bl.coerceEmpty(a, src, k, params[slot]); !ok {
 			return no()
 		}
 		temps[slot], mobile[slot] = src, held

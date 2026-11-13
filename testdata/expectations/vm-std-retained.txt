@@ -466,6 +466,7 @@ duration.nomi:sixty	ran
 duration.nomi:two_digits	ran
 duration.nomi:unexpected	ran
 duration.nomi:unit	ran
+dynamic.nomi:Dynamic.equal	ran
 dynamic.nomi:Error.inspect	ran
 dynamic.nomi:Error.to_string	ran
 dynamic.nomi:PathSegment.inspect	ran

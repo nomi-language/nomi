@@ -453,6 +453,16 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			// because a constant reads no temporary and runs nothing.
 			return c.Dst(), kindUnit, true, true
 		default:
+			if wk := bl.g.project(bl.g.checkedExprType(t)); irTypeWitnessKind(wk) {
+				// A type name the checker typed `Type<X>`, wherever it
+				// stands (`Keys{trace: TraceId}`, `[TraceId]`): the
+				// witness, as lowerWant builds one where a `Type<X>` is
+				// expected.
+				x, _ := typeWitnessArg(wk)
+				if v, ok := bl.typeWitnessValue(t, x, wk); ok {
+					return v, wk, true, true
+				}
+			}
 			if dst, k, mobile, ok := bl.markerValue(t, t.Name); ok {
 				return dst, k, mobile, true
 			}
@@ -925,6 +935,52 @@ func (bl *irScalarBuilder) interp(t *ast.StringInterp) (ir.Temp, kind, bool, boo
 // operand (`apply(f, unit_value())`) is a value with no storage.
 func irCallOperandKind(k kind) bool { return k == kindUnit || irCallableValueKind(k) }
 
+// irValueDomainKind is the kind a lowered value may have: a call operand
+// (irCallOperandKind, which admits the empty literals `[]` and `{}` and
+// Infallible), a bare `None` before coerce discharges it, or the diverged
+// marker of a region every arm of which leaves. The builder holds every
+// kind to it where the kind enters a body (irbuild package doc,
+// "Declines"). The one exception is a kind that mentions a bound-free type
+// parameter, which only that generic declaration's own signature and shell
+// hold (irMentionsTypeParam).
+func irValueDomainKind(k kind) bool {
+	return irCallOperandKind(k) || k.tag == tagBareNone || k == kindDiverged
+}
+
+// inValueDomain is the value domain's entry for lowered values: every
+// operand a construct reads was lowered by lowerExact, which declines a value
+// whose kind is outside irValueDomainKind here, before any construct sees it.
+func (bl *irScalarBuilder) inValueDomain(k kind) bool {
+	if irValueDomainKind(k) || irMentionsTypeParam(k) {
+		return true
+	}
+	bl.g.dc.note("a value of a kind outside the value domain: " + k.nomi())
+	return false
+}
+
+// irMentionsTypeParam reports whether k is, or holds at any depth, a
+// bound-free type parameter's kind (tagTypeParam).
+func irMentionsTypeParam(k kind) bool {
+	if k.tag == tagTypeParam {
+		return true
+	}
+	if k.comp != nil {
+		for _, p := range k.comp.parts {
+			if irMentionsTypeParam(p) {
+				return true
+			}
+		}
+	}
+	if k.tag == tagNamed && k.def != nil {
+		for _, a := range k.def.preludeArgs {
+			if irMentionsTypeParam(a) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // stdIntrinsicOwner names the stdlib type whose calls an intrinsic arm of
 // call lowers (`Task`, `Channel`, `Sender`, `Receiver`, `Supervisor`) when
 // the callee's owner resolves to that type's std declaration: bare, as an
@@ -1104,10 +1160,19 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 				return bl.recordedQualCall(t, func() (ir.Temp, kind, bool, bool) {
 					return bl.taskCall(t, fa.Field.Name)
 				})
-			case owner == "Supervisor" && fa.Field.Name == "spawn":
-				return bl.supervisorSpawn(t)
-			case owner == "Supervisor" && fa.Field.Name == "spawn_all":
-				return bl.supervisorSpawnAll(t)
+			case owner == "Supervisor" && (fa.Field.Name == "spawn" || fa.Field.Name == "spawn_all"):
+				spawn := func() (ir.Temp, kind, bool, bool) {
+					if fa.Field.Name == "spawn" {
+						return bl.supervisorSpawn(t)
+					}
+					return bl.supervisorSpawnAll(t)
+				}
+				if bl.recording > 0 {
+					// Inside a grouped case's assertion subject, recorded
+					// after the call as any other qualified call is.
+					return bl.recordedQualCall(t, spawn)
+				}
+				return spawn()
 			case owner == "Reader" && (fa.Field.Name == "from_chunks" || fa.Field.Name == "from_text_chunks"):
 				if bl.recording > 0 {
 					return bl.recordedQualCall(t, func() (ir.Temp, kind, bool, bool) {
@@ -1186,7 +1251,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		if l, bound := bl.g.lookup(id.Name); bound && (l.k.tag == tagFunc || irCallableDistinct(l.k)) {
 			return bl.indirectCall(t)
 		}
-		if _, bound := bl.g.lookup(id.Name); !bound && !hasNamed {
+		if _, bound := bl.g.lookup(id.Name); !bound && !hasNamed && !bl.g.blockImported(id) {
 			// `add_op(1)` over `once add_op: (Int) -> Int`: a call through
 			// the function value the cell holds. A local of the name was
 			// tried above, so this is the file's `once`.
@@ -1267,12 +1332,16 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	// `import std::calendar.Date.parse` puts a stdlib type's method in this
 	// file's scope; the bare call reaches the same route the qualified
 	// spelling reaches.
-	if _, local := bl.g.funcs[callee.Name]; !local && !hasNamed {
+	sig := bl.g.funcs[callee.Name]
+	if sig != nil && bl.g.blockImported(callee) {
+		// A block `import` shadows the module's function of the name.
+		sig = nil
+	}
+	if sig == nil && !hasNamed {
 		if v, k, mobile, ok, handled := bl.bareStdMethodCall(t, callee); handled {
 			return v, k, mobile, ok
 		}
 	}
-	sig := bl.g.funcs[callee.Name]
 	if sig == nil && !hasNamed {
 		if key, output := stdBareOutputKey(bl.g.srcFA(), callee); output || bl.inStdIO() && bl.ownOutputKey(callee, &key) {
 			// `import std::io.print` then `print(x)`: io.print itself.
@@ -1341,10 +1410,8 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// assertion on its result, which this producer does not build.
 		return no()
 	}
-	if !irCallableValueKind(sig.result) && sig.result != kindUnit {
-		// The result domain is the operand domain. See irCallOperandKind.
-		return no()
-	}
+	// A lowerable signature's result is in the value domain (signature,
+	// resolveMonoInstance), so it is an operand.
 	signalling, ok := bl.iterSensitiveCall(t, sig.decl, callee.Name)
 	if !ok {
 		return no()
@@ -2320,14 +2387,7 @@ func (bl *irScalarBuilder) tail(body ast.Node, sig irFuncSig) (ir.Temp, kind, bo
 		return ir.NoTemp, sig.result, ok
 	}
 	val, k, _, ok := bl.lowerWant(body, sig.result)
-	if !ok || k != sig.result {
-		// The declared result must be what the body produces. `gen.assign`
-		// otherwise emits `_ = <expr>` and the caller reports a return-type
-		// mismatch, which is a refusal path and not this shape.
-		if ok {
-			bl.g.dc.note("the tail's kind is not the declared result: " +
-				k.nomi() + " vs " + sig.result.nomi())
-		}
+	if !ok {
 		return ir.NoTemp, kindInvalid, false
 	}
 	return val, k, true
@@ -2368,20 +2428,14 @@ func (bl *irScalarBuilder) exitReturn(n ast.Node) {
 
 // ifRegion leaves its join open for the caller's return or enclosing jump.
 func (bl *irScalarBuilder) ifRegion(t *ast.If, sig irFuncSig) (kind, bool) {
-	sig, mode := bl.enterElseless(t, sig)
-	switch mode {
-	case elselessDeclined:
-		return kindInvalid, false
-	case elselessValue:
-		return bl.elselessAsValue(t, sig)
-	}
+	sig = unitElselessSig(t, sig)
 	if t.CondPattern != nil {
 		return bl.patternIfRegion(t, sig)
 	}
 	// An `if` with no `else` is Unit whichever way it goes, so a
 	// Unit-valued region may omit it: the else edge writes Unit.
 	unitElse := t.Else == nil && !sig.testArms && (sig.inferResult || sig.result == kindUnit)
-	if isNilNode(t.Cond) || (t.Else == nil && !sig.testArms && !unitElse && sig.elseless == nil) {
+	if isNilNode(t.Cond) || (t.Else == nil && !sig.testArms && !unitElse) {
 		bl.g.dc.note("a tail `if` without a condition or `else`")
 		return kindInvalid, false
 	}
@@ -2473,9 +2527,6 @@ func irJoinArms(a, b kind, sig irFuncSig) (kind, bool) {
 // testElse lowers an `if`'s else arm. A test-body statement `if` may have
 // none, and its else edge then joins the exit directly.
 func (bl *irScalarBuilder) testElse(els, exit *ir.Block, t *ast.If, then kind, sig irFuncSig) (kind, bool) {
-	if t.Else == nil && sig.elseless != nil {
-		return bl.elselessNone(els, exit, t, sig.elseless), true
-	}
 	if t.Else == nil && sig.testArms {
 		els.SetTerm(ir.NewJump(bl.g.irNodePos(t), exit.ID()))
 		return then, true
@@ -2586,8 +2637,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 			}
 			return kindDiverged, true
 		case *ast.Return:
-			if !bl.loopValue(t.Value, lp.state, lp.k) {
-				bl.g.dc.note("an Iter.loop arm's `return` without a value of the state type")
+			if !bl.loopValue(t, t.Value, lp.state, lp.k) {
 				return kindInvalid, false
 			}
 			bl.loopJump(bl.b, t, lp, lp.head)
@@ -2623,9 +2673,9 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 		// Unit. The arm's region need not be Unit: the else of
 		// `Some(d) = m else { return }` is a region of the payload's kind, and
 		// the arm reaches no exit, so its kind is the other arms'.
-		// explicitReturn checks Unit against the lambda's other returns.
+		// The checker holds Unit to the lambda's other returns
+		// (settleReturn).
 		if _, ok := bl.explicitReturn(ret); !ok {
-			bl.g.dc.note("a bare `return` in a lambda whose other returns answer a value")
 			return kindInvalid, false
 		}
 		if sig.inferResult || sig.result == kindUnit {
@@ -2661,15 +2711,11 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 	var ok, region bool
 	switch nested := body.(type) {
 	case *ast.If:
-		if sig.elseless == nil || elselessArmRegion(nested, sig.elseless) {
-			k, ok = bl.ifRegion(nested, sig)
-			region = true
-		}
+		k, ok = bl.ifRegion(nested, sig)
+		region = true
 	case *ast.Case:
-		if sig.elseless == nil {
-			k, ok = bl.caseRegion(nested, sig)
-			region = true
-		}
+		k, ok = bl.caseRegion(nested, sig)
+		region = true
 	}
 	if region {
 		if !ok {
@@ -2698,8 +2744,15 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 		return kindDiverged, true
 	}
 	var val ir.Temp
-	if sig.elseless != nil {
-		val, k, ok = bl.elselessSome(body, sig.elseless)
+	if sig.elselessUnit && droppedStatement(body) {
+		// An arm of a Unit `if` without `else` that ends in an `assert`
+		// or a `dbg` runs it and drops its value, as a statement does.
+		if _, _, _, ok = bl.lower(body); !ok {
+			return kindInvalid, false
+		}
+		u := ir.NewUnit(bl.g.irNodePos(body), bl.f.NewTemp())
+		bl.b.Append(u)
+		val, k = u.Dst(), kindUnit
 	} else if sig.inferResult {
 		val, k, _, ok = bl.lower(body)
 	} else {
@@ -2766,12 +2819,12 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 	var sk kind
 	if !adHoc {
 		var ok bool
+		// The scrutinee is a lowered value, of any kind in the domain: a
+		// name or `_` matches it whatever it is (a function, an Iter, an
+		// interface value, a marker), and a refutable pattern declines in
+		// casePatternTest when its test does not lower.
 		subj, sk, _, ok = bl.lower(t.Value)
-		if !ok || (sk != kindInt && sk != kindString && sk != kindBool && sk != kindUnit && !irLiteralCaseKind(sk, bl) &&
-			(!irRetainedTupleKind(sk) && !irCaseListKind(sk) && !irVectorCaseKind(sk) && !irSetCaseKind(sk) && !(sk.tag == tagNamed && irRetainedEnumKind(sk.def)) && !(sk.tag == tagMap && irRetainedMapKind(sk)) && !irNominalCaseKind(sk))) {
-			if ok {
-				bl.g.dc.note("a tail `case` scrutinee outside retained literal-pattern kinds: " + sk.nomi())
-			}
+		if !ok {
 			return kindInvalid, false
 		}
 		if !irHeldValue(bl.f, subj, bl.sides) {
@@ -3203,8 +3256,14 @@ func (bl *irScalarBuilder) annotatedValue(value ast.Node, te ast.TypeExpr) (ir.T
 		if v, _, how := bl.coerceRecorded(value, v, k, want); how != irNotCoerced {
 			return v, want, true
 		}
-		bl.g.dc.note("a value of kind " + k.nomi() + " held as the existential " + want.nomi())
-		return ir.NoTemp, kindInvalid, false
+		// `v: Display = (7 as Display)`: the checker recorded the
+		// coercion at the `as` operand, so the value enters the interface
+		// here as any value entering a position of it does.
+		v, _, ok = bl.coerceEmpty(value, v, k, want)
+		if !ok {
+			return ir.NoTemp, kindInvalid, false
+		}
+		return v, want, true
 	}
 	v, k, _, ok := bl.lowerWant(value, want)
 	return v, k, ok
@@ -3228,7 +3287,7 @@ func irCaseListKind(k kind) bool {
 	if irRetainedListKind(k) || irListTransportKind(k) {
 		return true
 	}
-	return k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && irCallableValueKind(k.comp.parts[0])
+	return k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && irCallOperandKind(k.comp.parts[0])
 }
 
 func irLiteralCaseKind(k kind, bl *irScalarBuilder) bool {

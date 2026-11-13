@@ -109,7 +109,9 @@ func (bl *irScalarBuilder) captureCurrent(t *ast.CurrentValue) (ir.Temp, kind, b
 		return u.Dst(), kindUnit, true, true
 	}
 	if !irCallableValueKind(k) {
-		return ir.NoTemp, kindInvalid, false, false
+		// The enclosing builder's `..` is a field's current value, of a
+		// field kind a lowerable struct holds, Unit handled above.
+		panic("captureCurrent: a current value of kind " + k.nomi() + ", outside the callable domain")
 	}
 	dst := bl.g.irAddParam(bl.f, bl.sh.localSym(".."+strconv.Itoa(t.Line)+":"+strconv.Itoa(t.Col)), k)
 	bl.captures = append(bl.captures, src)
@@ -154,8 +156,8 @@ func (bl *irScalarBuilder) emptyOf(at ast.Node, k kind) (ir.Temp, kind, bool, bo
 		bl.g.dc.note("a bare `..` at a missing key of kind " + k.nomi())
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	v, got, ok := bl.coerceEmpty(at, v, have, k)
-	if !ok || got != k {
+	v, _, ok := bl.coerceEmpty(at, v, have, k)
+	if !ok {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	return v, k, false, true
@@ -243,7 +245,7 @@ func (bl *irScalarBuilder) updateEntry(value ast.Node, key, base ir.Temp, bk kin
 		if !ok {
 			return false
 		}
-		if v, k, ok = bl.coerceEmpty(value, v, k, vk); !ok || k != vk {
+		if v, k, ok = bl.coerceEmpty(value, v, k, vk); !ok {
 			return false
 		}
 		bl.b.Append(ir.NewCopy(pos, slot, v))
@@ -421,7 +423,7 @@ func (bl *irScalarBuilder) vectorUpdate(t *ast.ListLit) (ir.Temp, kind, bool, bo
 			return no()
 		}
 	}
-	if lit, lk, ok = bl.coerceEmpty(t, lit, lk, bk); !ok || lk != bk {
+	if lit, lk, ok = bl.coerceEmpty(t, lit, lk, bk); !ok {
 		return no()
 	}
 	first, second := base, lit

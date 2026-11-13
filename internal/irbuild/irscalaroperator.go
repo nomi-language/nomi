@@ -125,8 +125,8 @@ func (bl *irScalarBuilder) existentialHashCall(t *ast.Call, args irQualArgs, own
 // structuralEqualCall lowers `Equatable.equal(a, b)` over two tuples, two
 // records or two Ranges of one kind as `a == b` lowers them: each is
 // Equatable structurally and has no impl to select, so the call and the
-// operator are one comparison (valueEquality). owned is false for any other
-// call, which the caller lowers as before.
+// operator are one comparison (tupleRecordEquality). handled is false for
+// any other call, which the caller lowers as before.
 func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, bool, bool) {
 	if owner != "Equatable" || method != "equal" || len(t.Args) != 2 || !args.ok || len(args.kinds) != 2 {
 		return ir.NoTemp, false, false
@@ -148,17 +148,17 @@ func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs, own
 		return ir.NoTemp, false, false
 	}
 	at := &ast.Binary{Op: "==", Left: t.Args[0], Right: t.Args[1], Line: t.Line, Col: t.Col}
-	if irScalarRangeKind(k) || bl.g.meetsByEquality("Equatable", k) {
+	if irScalarRangeKind(k) || irTypeWitnessKind(k) || bl.g.meetsByEquality("Equatable", k) {
 		// A declared type with no Equatable of its own meets the bound by
-		// its equality, and so does std's Range, which declares none; the
-		// call is `a == b` over it.
+		// its equality, and so do std's Range and `Type<T>`, which declare
+		// none; the call is `a == b` over it.
 		v, _, _, ok := bl.compareOperands(at, ir.OpEq, args.temps[0], k, args.temps[1], k, args.mobile[1])
 		return v, ok, true
 	}
 	if !irRetainedTupleKind(k) && !irRetainedRecordKind(k) {
 		return ir.NoTemp, false, false
 	}
-	v, _, ok := bl.valueEquality(at, ir.OpEq, args.temps[0], args.temps[1], k)
+	v, ok := bl.tupleRecordEquality(at, ir.OpEq, args.temps[0], args.temps[1], k)
 	return v, ok, true
 }
 
@@ -183,8 +183,8 @@ func (g *gen) meetsByEquality(iface string, k kind) bool {
 }
 
 // structuralHashCall lowers `Hashable.hash(x)` over a declared type that
-// meets Hashable by its equality, or over std's Range, which declares no
-// Hashable, to the irHashValueHost call: the hash a Map key of the type
+// meets Hashable by its equality, or over std's Range, Regex or `Type<T>`,
+// which declare no Hashable, to the irHashValueHost call: the hash a Map key of the type
 // takes, so it agrees with `==`. owned is false for any other call.
 func (bl *irScalarBuilder) structuralHashCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, bool) {
 	if owner != "Hashable" || method != "hash" || len(t.Args) != 1 || !args.ok || len(args.kinds) != 1 {
@@ -194,7 +194,7 @@ func (bl *irScalarBuilder) structuralHashCall(t *ast.Call, args irQualArgs, owne
 		// A program's own Hashable.
 		return ir.NoTemp, false
 	}
-	if !irScalarRangeKind(args.kinds[0]) && !bl.g.meetsByEquality("Hashable", args.kinds[0]) {
+	if !irScalarRangeKind(args.kinds[0]) && !irStdHandleKind(args.kinds[0]) && !irTypeWitnessKind(args.kinds[0]) && !bl.g.meetsByEquality("Hashable", args.kinds[0]) {
 		return ir.NoTemp, false
 	}
 	pos := bl.g.irNodePos(t)
@@ -204,11 +204,29 @@ func (bl *irScalarBuilder) structuralHashCall(t *ast.Call, args irQualArgs, owne
 	return c.Dst(), true
 }
 
-// irScalarRangeKind reports a Range over an Int, a Float or a String: its
-// fields are scalars and a Maybe of one, so the VM compares and hashes it as
-// a container by content (compareOperands), which is what std's Range,
-// declaring no Equatable or Hashable impl, means by either.
+// irScalarRangeKind reports a Range over an Int, a Float or a String, or a
+// tuple or List of them: its fields are such values and a Maybe of one, so
+// the VM compares and hashes it as a container by content
+// (compareOperands), which is what std's Range, declaring no Equatable or
+// Hashable impl, means by either.
 func irScalarRangeKind(k kind) bool {
 	elem, isRange := rangeElem(k)
-	return isRange && irRetainedRangeKind(k) && (elem == kindInt || elem == kindFloat || elem == kindString)
+	return isRange && irRetainedRangeKind(k) && irScalarRangeElem(elem)
+}
+
+// irScalarRangeElem is an Int, a Float or a String, or a tuple or non-empty
+// List built of them.
+func irScalarRangeElem(elem kind) bool {
+	switch {
+	case elem == kindInt || elem == kindFloat || elem == kindString:
+		return true
+	case (elem.tag == tagTuple || elem.tag == tagList) && elem.comp != nil && len(elem.comp.parts) > 0:
+		for _, p := range elem.comp.parts {
+			if !irScalarRangeElem(p) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }

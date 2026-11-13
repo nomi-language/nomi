@@ -94,10 +94,13 @@ func TestMapKeyOpsAgreeOnTheirDomain(t *testing.T) {
 // a wrong BUCKET rather than a wrong answer, so the pair moves together or not
 // at all.
 //
-// The REFUSING rows are what keep this from being a one-sided claim, and they are
-// leaves for which rt makes no hashing claim at all: `Supervisor` and `Regex` are
-// host handles with no structural contents, so a widening of the admitted arm to
-// `rtOpaque` in general would silently take both.
+// `Regex` IS ON THE ADMITTED SIDE too: it is rt.HostKeyed, and rt.Hash and
+// rt.Equal answer it by its key (irStdHandleKind).
+//
+// The REFUSING row is what keeps this from being a one-sided claim: a
+// `Supervisor` is a host handle with no structural contents and no key, so a
+// widening of the admitted arm to `rtOpaque` in general would silently take
+// it.
 func TestMapKeyOpsAdmitDecimalAndRefuseOpaqueLeaves(t *testing.T) {
 	g := &gen{}
 	for _, c := range []struct {
@@ -109,7 +112,7 @@ func TestMapKeyOpsAdmitDecimalAndRefuseOpaqueLeaves(t *testing.T) {
 		{"Byte", stdHostKindOfGoType(reflect.TypeFor[rt.Byte]()), true},
 		{"Bytes", stdHostKindOfGoType(reflect.TypeFor[rt.Bytes]()), true},
 		{"Supervisor", stdHostKindOfGoType(reflect.TypeFor[rt.Supervisor]()), false},
-		{"Regex", stdHostKindOfGoType(reflect.TypeFor[rt.Regex]()), false},
+		{"Regex", stdHostKindOfGoType(reflect.TypeFor[rt.Regex]()), true},
 	} {
 		if c.k == kindInvalid {
 			t.Fatalf("%s has no stdHostSpecs row, so its row here names nothing", c.name)

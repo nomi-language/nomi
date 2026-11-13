@@ -13,11 +13,7 @@ impl Iter for Countdown
         if c.from <= 0 then
             True
         else
-            if yield(c.from) then
-                each_while(Countdown{from: c.from - 1}, yield)
-            else
-                False
-            end
+            if yield(c.from) then each_while(Countdown{from: c.from - 1}, yield) else False
         end
     end
 end

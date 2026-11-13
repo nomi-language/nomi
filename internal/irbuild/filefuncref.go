@@ -241,10 +241,7 @@ func (bl *irScalarBuilder) wrapperRef(ref ast.Node, name string, params []kind, 
 		return no()
 	}
 	child.b.SetTerm(ir.NewReturn(at, dst))
-	if err := bl.g.irLint(f); err != nil {
-		bl.g.dc.note("a function value over " + name + " that does not lint: " + err.Error())
-		return no()
-	}
+	bl.g.irRequireLint(f, "a function value over "+name)
 	n := ir.NewFuncValue(at, bl.f.NewTemp(), f)
 	bl.b.Append(n)
 	fk := funcKindIn(g, params, result)

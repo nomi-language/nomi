@@ -33,7 +33,9 @@ func (g *gen) calleeTypeArgs(ref ast.Node, names []string) ([]kind, bool) {
 	line, col := calleeRefPos(ref)
 	sym := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
 	if sym == nil {
-		return nil, false
+		// The checker records a reference for every callee and every name
+		// used as a value (analysis package doc, "Elaboration").
+		panic("irbuild: a generic callee with no reference record")
 	}
 	types := analysis.CallTypeArgs(sym)
 	out := make([]kind, len(names))

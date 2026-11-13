@@ -186,10 +186,10 @@ func (bl *irScalarBuilder) spreadKind(at ast.Node, heads []spreadPart, join spre
 // coerced to k first (an empty spread, `{}`, takes the literal's kind).
 func (bl *irScalarBuilder) joinSpreadParts(at ast.Node, a, b spreadPart, k kind, join spreadJoin) (spreadPart, bool) {
 	var ok bool
-	if a.v, a.k, ok = bl.coerceEmpty(a.at, a.v, a.k, k); !ok || a.k != k {
+	if a.v, a.k, ok = bl.coerceEmpty(a.at, a.v, a.k, k); !ok {
 		return spreadPart{}, false
 	}
-	if b.v, b.k, ok = bl.coerceEmpty(b.at, b.v, b.k, k); !ok || b.k != k {
+	if b.v, b.k, ok = bl.coerceEmpty(b.at, b.v, b.k, k); !ok {
 		return spreadPart{}, false
 	}
 	line, col := nodePos(at)
@@ -241,7 +241,7 @@ func (bl *irScalarBuilder) joinAll(at ast.Node, parts []spreadPart, k kind, join
 			}
 		}
 	}
-	if acc.v, acc.k, ok = bl.coerceEmpty(at, acc.v, acc.k, k); !ok || acc.k != k {
+	if acc.v, acc.k, ok = bl.coerceEmpty(at, acc.v, acc.k, k); !ok {
 		return no()
 	}
 	return acc.v, acc.k, false, true
@@ -365,7 +365,7 @@ func (bl *irScalarBuilder) mapSpreadLit(t *ast.MapLit) (ir.Temp, kind, bool, boo
 		next = end
 		if have && mapHasHole(&run) {
 			var ok bool
-			if acc.v, acc.k, ok = bl.coerceEmpty(acc.at, acc.v, acc.k, k); !ok || acc.k != k {
+			if acc.v, acc.k, ok = bl.coerceEmpty(acc.at, acc.v, acc.k, k); !ok {
 				return false
 			}
 			acc.v = bl.holdTemp(acc.at, acc.v, acc.k)

@@ -291,8 +291,8 @@ func (bl *irScalarBuilder) compositeDistinctMake(t *ast.Call, d *typeDef) (ir.Te
 	default:
 		return no()
 	}
-	src, k, _, ok := bl.lowerWant(inner, d.inner)
-	if !ok || k != d.inner {
+	src, _, _, ok := bl.lowerWant(inner, d.inner)
+	if !ok {
 		return no()
 	}
 	m := ir.NewMakeDistinct(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irTypeSym(d), src)

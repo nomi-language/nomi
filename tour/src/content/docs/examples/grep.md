@@ -72,11 +72,7 @@ fn search(
         |> Iter.map(fn (index, line) ->
             file_part = if named then "${file}:" else ""
 
-            number_part = if .LineNumbers in flags then
-                "${index + 1}:"
-            else
-                ""
-            end
+            number_part = if .LineNumbers in flags then "${index + 1}:" else ""
 
             file_part + number_part + line
         end)

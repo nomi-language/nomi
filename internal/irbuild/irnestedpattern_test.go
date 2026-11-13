@@ -260,75 +260,46 @@ func TestIRNestedPattern_SpawnOverACalledSupervisor(t *testing.T) {
 	}
 }
 
-// Shapes left native: an enum whose channel field carries the enum itself,
-// directly or inside a composite, which the channel-field rule declines
-// rather than recursing into. It keeps the walk's Sources.
-func TestIRNestedPattern_BoundariesPreserveFallback(t *testing.T) {
-	for _, tc := range []struct{ name, fn, why, src string }{
-		{"self-carrying channel", "pick", "an ident kind outside the domain: Channel<Request>", `import std::channels.{Channel, Receiver}
-
-enum Request
-  Ask {reply: Channel<Request>}
-  Stop
-end
-
-fn pick(inbox: Channel<Request>) -> Int
-  case Receiver.receive(inbox.receiver)
-    Some(Request.Stop) -> 1
-    Some(_) -> 2
-    None -> 0
-  end
-end
-
-fn main()
-    _ = pick(Channel.buffered<Request>(1))
-end
-`},
-		{"self-carrying channel of a composite", "pick", "an ident kind outside the domain: Channel<Request>", `import std::channels.{Channel, Receiver}
-
-enum Request
-  Ask {reply: Channel<List<Request>>}
-  Stop
-end
-
-fn pick(inbox: Channel<Request>) -> Int
-  case Receiver.receive(inbox.receiver)
-    Some(Request.Stop) -> 1
-    Some(_) -> 2
-    None -> 0
-  end
-end
-
-fn main()
-    _ = pick(Channel.buffered<Request>(1))
-end
-`},
+// An enum whose channel field carries the enum itself, directly or inside a
+// composite, is in the value domain (irHandleOnWalk decides the handle's
+// element co-inductively): a function taking a channel of it is retained,
+// and its nested patterns over a received value run.
+func TestIRNestedPattern_SelfCarryingChannelsRun(t *testing.T) {
+	for _, tc := range []struct{ name, elem string }{
+		{"self-carrying channel", "Request"},
+		{"self-carrying channel of a composite", "List<Request>"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p, err := AnalyzeSource("main.nomi", tc.src)
-			if err != nil {
-				t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
-			}
-			var why []string
-			p.Declines.Observed = func(fn, reason string) {
-				if fn == tc.fn {
-					why = append(why, reason)
-				}
-			}
-			got, _, err := GenerateIR(p)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(why) == 0 || why[0] != tc.why {
-				t.Errorf("%s declined for %q; want %q", tc.fn, why, tc.why)
-			}
-			for _, mod := range got.IR {
-				for _, f := range mod.Funcs() {
-					if f.Name() == tc.fn {
-						t.Fatalf("%s was retained", tc.fn)
-					}
-				}
-			}
+			src := `import
+  std::channels.{Channel, Receiver, Sender}
+  std::io
+end
+
+enum Request
+  Ask {reply: Channel<` + tc.elem + `>}
+  Stop
+end
+
+fn pick(inbox: Channel<Request>) -> Int
+  case Receiver.receive(inbox.receiver)
+    Some(Request.Stop) -> 1
+    Some(_) -> 2
+    None -> 0
+  end
+end
+
+fn main()
+  inbox = Channel.buffered<Request>(2)
+  reply = Channel.buffered<` + tc.elem + `>(1)
+  _ = Sender.send(inbox.sender, Request.Ask{reply:})
+  _ = Sender.send(inbox.sender, Request.Stop)
+  io.print(pick(inbox))
+  io.print(pick(inbox))
+end
+`
+			// irRetainedNames fails the test if the front end rejects the
+			// source, so a rejection cannot pass for a run.
+			verifyDeferProgram(t, src, "2\n1\n", "pick", "main")
 		})
 	}
 }

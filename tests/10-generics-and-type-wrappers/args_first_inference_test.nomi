@@ -1,0 +1,51 @@
+// A generic call takes its type arguments from its arguments first; the
+// expected type fills only what they leave open, and the result converts to
+// it (spec §5 *Type arguments from the arguments*).
+enum Color
+    Red
+    Blue
+end
+
+fn ident<T>(x: T) -> T
+    x
+end
+
+fn shown(xs: Iter<Display>) -> List<String>
+    Iter.map(xs, Display.to_string) |> Iter.to_list()
+end
+
+test "a pipe's lambda takes the head's element, not the binding's interface"
+    x: Iter<Display> = [1, 2, 3] |> Iter.filter(fn n -> n > 1)
+    assert shown(x) == ["2", "3"]
+end
+
+test "a loop's state and result are the arguments' types"
+    d: Display = Iter.loop(0, fn i ->
+        if i > 2 then
+            break i
+        else
+            i + 1
+        end
+    end)
+
+    assert Display.to_string(d) == "3"
+end
+
+test "an accumulator is the starting value's type"
+    s: Display = Iter.reduce([1, 2, 3], 0, fn acc, n -> acc + n)
+    assert Display.to_string(s) == "6"
+end
+
+test "the expected type fills what the arguments leave open"
+    xs: List<Int> = Iter.to_list([])
+    f: (Int) -> Int = ident(fn x -> x + 1)
+    c: Maybe<Color> = Some(.Red)
+    assert xs == []
+    assert f(1) == 2
+    assert c == Some(Color.Red)
+end
+
+test "a range of two empty lists takes the annotation's element"
+    c: Range<List<Int>> = []..=[]
+    assert Range.contains(c, [])
+end

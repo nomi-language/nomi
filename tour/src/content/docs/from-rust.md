@@ -19,7 +19,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `let x = 1;`, `let mut x` | `x = 1`. Nothing is mutable; a later `x = ...` binds the name again. |
 | `xs.len()`, `s.trim()` | `Iter.count(xs)`, `String.trim(s)`: there are no method calls. |
 | `(1, "a")`, `t.0` | A tuple is `(1, "a")` as in Rust, but its items are read as `t.first`, `t.second`, ... |
-| `c.then(\|\| x)`; `if c { x }` needs `x: ()` | `if c then x` is a `Maybe`: `Some(x)` or `None`. With a `Unit` branch it is a statement. |
+| `if c { x }` needs `x: ()`; `c.then_some(x)`, `c.then(\|\| x)` | The same rule as Rust: an `if` without `else` is a statement, and its branch is `Unit` or leaves. `then_some` has no counterpart; write `if c then Some(x) else None`. |
 | `x as f64` | `Int.to_float(x)`. Nomi's `x as T` is no cast: it only states a type the value already fits (`[] as List<String>`) |
 | `impl Drop` | `defer close(x)` on the line after acquiring it; it runs when its block ends, and the checker requires one for a resource. `defer on error` runs only when the function fails. |
 | `for x in xs { .. }` | `Iter.each(xs, fn x -> ..)`, a fold, or recursion |

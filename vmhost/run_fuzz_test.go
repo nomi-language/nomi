@@ -755,7 +755,9 @@ func TestLoweredProgramsRunRotating(t *testing.T) {
 // A program that may loop and uses its budget is skipped, and so is one
 // whose effects reach outside the machine (files, std/compiler, Go
 // bindings). An input matching a known gap (knownRunGaps, run_gaps_test.go)
-// is skipped, so a run reports new causes. Run it with
+// is skipped, so a run reports new causes. Fuzzing starts from runSeeds and
+// from the type × operation grid's cells (typeOpSeeds, type_ops_test.go):
+// a valid type in a place the builder may not expect. Run it with
 //
 //	go test ./vmhost -run '^$' -fuzz '^FuzzLoweredProgramsRun$' -fuzztime 5m -parallel 4
 //
@@ -766,6 +768,9 @@ func TestLoweredProgramsRunRotating(t *testing.T) {
 func FuzzLoweredProgramsRun(f *testing.F) {
 	if fuzzing() {
 		for _, s := range runSeeds(f) {
+			f.Add(s.src)
+		}
+		for _, s := range typeOpSeeds() {
 			f.Add(s.src)
 		}
 	}

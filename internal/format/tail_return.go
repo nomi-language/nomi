@@ -12,8 +12,8 @@ import "github.com/nomi-language/nomi/internal/ast"
 // default), every lambda, `then` lambdas and iteration callbacks included,
 // and every test body, and runs through the last statement of a block, every
 // branch of an `if`, every arm of a `case`, and a braced arm body. An `if`
-// with no final `else` whose branches have a value is a Maybe of it, so its
-// branches keep their value returns. Nothing else is tail position: a
+// with no final `else` is a statement with no value, so its branches keep
+// their value returns. Nothing else is tail position: a
 // `group`'s `setup`, a `once` initializer, a `concurrent` block, a binding's
 // `else` and any non-last statement keep their `return`s.
 //
@@ -127,9 +127,9 @@ func (s tailStripper) expr(n ast.Node) {
 	case *ast.If:
 		b := s.branch()
 		if ifChainLacksElse(v) {
-			// An `if` with no final `else` whose branches have a value is
-			// a Maybe of it, so `return x` in a branch is not `x` there. A
-			// bare `return` after a Unit statement still goes.
+			// An `if` with no final `else` is Unit, so `return x` in a
+			// branch is not `x` there. A bare `return` after a Unit
+			// statement still goes.
 			b.keepValues = true
 		}
 		if v.Then != nil {

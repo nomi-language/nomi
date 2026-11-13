@@ -54,8 +54,8 @@ impl Reactor
 
         Ok({
             ..reactor,
-            values: Map.put(reactor.values, name, value),
-            inputs: Set.insert(reactor.inputs, name),
+            values: Map.put(.., name, value),
+            inputs: Set.insert(.., name),
         })
     end
 
@@ -77,8 +77,8 @@ impl Reactor
 
         Ok({
             ..reactor,
-            values: Map.put(reactor.values, name, value_of(cell, reactor.values)),
-            computed: [..reactor.computed, cell],
+            values: Map.put(.., name, value_of(cell, ..)),
+            computed: [.., cell],
         })
     end
 
@@ -120,14 +120,14 @@ impl Reactor
     pub fn add_callback(reactor: Reactor, cell: String, callback: String) -> Result<Reactor, Error>
         if not cell in reactor.values then return Err(.UnknownCell(cell))
 
-        Ok({..reactor, callbacks: Map.put(reactor.callbacks, callback, cell)})
+        Ok({..reactor, callbacks: Map.put(.., callback, cell)})
     end
 
     /// `reactor` without the callback `callback` on `cell`; the same
     /// reactor when it is not there.
     pub fn remove_callback(reactor: Reactor, cell: String, callback: String) -> Reactor
         if Map.get(reactor.callbacks, callback) == Some(cell) then
-            {..reactor, callbacks: Map.remove(reactor.callbacks, callback)}
+            {..reactor, callbacks: Map.remove(.., callback)}
         else
             reactor
         end

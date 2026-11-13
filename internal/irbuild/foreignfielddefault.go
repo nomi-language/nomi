@@ -158,10 +158,7 @@ func (g *gen) irFieldDefaultRetain(r *irFieldDefaultReq) {
 	bl.b.Append(cp)
 	bl.side(sh.result, irScalarSide{k: r.k})
 	bl.b.SetTerm(ir.NewReturn(at, sh.result))
-	if err := g.irLint(sh.fn); err != nil {
-		g.dc.note("a field default accessor that does not lint: " + err.Error())
-		return
-	}
+	g.irRequireLint(sh.fn, "a field default accessor")
 	g.irModule().AddFunc(sh.fn)
 	if err := g.irLintAdded(); err != nil {
 		panic("irbuild: field default accessor: " + err.Error())

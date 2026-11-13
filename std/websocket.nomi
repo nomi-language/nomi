@@ -422,7 +422,7 @@ pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<W
     conn = if secure then
         named = {
             ..options.tls,
-            server_name: Some(Maybe.with_default(options.tls.server_name, host)),
+            server_name: Some(Maybe.with_default(.., host)),
         }
 
         tls.dial(address, named, options.dial) |> Result.map_err(fn error -> Error.Network{error:})?

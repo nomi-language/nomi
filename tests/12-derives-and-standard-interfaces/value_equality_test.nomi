@@ -1,0 +1,44 @@
+import
+    std::channels.ChannelClosed
+    std::regex.Regex
+end
+
+type Done
+
+type Never
+
+impl Equatable for Never
+    fn equal(_: Never, _: Never) -> Bool
+        False
+    end
+end
+
+test "a tuple holding a marker compares by its other parts"
+    assert (ChannelClosed, 1) == (ChannelClosed, 1)
+    assert (Done, 1) != (Done, 2)
+    refute (Never, 1) == (Never, 1)
+end
+
+test "a tuple holding a Range compares the Range by its bounds"
+    assert (1..4, 1) == (1..4, 1)
+    assert (1..4, 1) != (1..5, 1)
+end
+
+test "two regexes are equal when their patterns are"
+    assert Regex`a+b` == Regex`a+b`
+    assert Regex`a+b` != Regex`a+c`
+    assert [Regex`a+b`] == [Regex`a+b`]
+    assert Some(Regex`a+b`) == Some(Regex`a+b`)
+    assert (Regex`a+b`, 1) == (Regex`a+b`, 1)
+    assert Hashable.hash(Regex`a+b`) == Hashable.hash(Regex`a+b`)
+end
+
+test "an interface value interpolates and defaults as the value it holds"
+    assert "<${(7 as Display)}>" == "<7>"
+    assert "<${("s" as Display)}>" == "<s>"
+    gone: Maybe<Display> = None
+    fallback = gone |> Maybe.with_default((8 as Display))
+    assert Display.to_string(fallback) == "8"
+    held = Some((7 as Display)) |> Maybe.with_default((8 as Display))
+    assert Display.to_string(held) == "7"
+end

@@ -112,7 +112,7 @@ test "a file server answers 404 for what it does not serve"
 end
 
 fn with_header(request: Request, name: String, value: String) -> Request
-    {..request, headers: Headers.set(request.headers, name, value)}
+    {..request, headers: Headers.set(.., name, value)}
 end
 
 test "a file server sends each file's SHA-256 as its ETag, taken when the program compiled"

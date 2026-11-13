@@ -140,7 +140,7 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		// declared type.
 		rec := bl.g.callDefaultsOf(t)
 		if rec == nil || len(rec.Params) != len(temps) {
-			return no()
+			panic("irbuild: a call leaving out parameters with no CallDefaults record over its slots")
 		}
 		home, params := bl.namedCallHome(t, fa, rec, kinds, temps)
 		if params != nil && len(params) != len(temps) {

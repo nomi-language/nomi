@@ -77,7 +77,6 @@ func (fb FileBodies) clone() FileBodies {
 	out.LambdaPatternTypes = maps.Clone(fb.LambdaPatternTypes)
 	out.SubtestsRowTypes = maps.Clone(fb.SubtestsRowTypes)
 	out.CoveringOrPatterns = maps.Clone(fb.CoveringOrPatterns)
-	out.ElselessIfs = maps.Clone(fb.ElselessIfs)
 	out.ExprTypes = maps.Clone(fb.ExprTypes)
 	out.ExpectedTypes = maps.Clone(fb.ExpectedTypes)
 	out.RedundantAscriptions = maps.Clone(fb.RedundantAscriptions)

@@ -2679,7 +2679,7 @@ end
 		t.Fatal("expected a symbol at the `if` keyword position")
 	}
 	got := renderHover(sym)
-	expected := "```nomi\nif: Bool -> String\n```\n\nBranches on a `Bool`. With `else`, both branches must produce compatible values. Without `else`, a branch with a value makes the `if` a `Maybe`, `None` when no branch runs; a `Unit` branch leaves it `Unit`."
+	expected := "```nomi\nif: Bool -> String\n```\n\nBranches on a `Bool`. With `else`, both branches must produce compatible values. Without `else`, the `if` is a statement, and its branch is `Unit` or leaves."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
@@ -2702,7 +2702,7 @@ end
 		t.Fatal("expected a symbol at the pattern `if` keyword position")
 	}
 	got := renderHover(sym)
-	expected := "```nomi\nif: Box<String> -> String\n```\n\nMatches the input value against the condition pattern. On mismatch, runs `else`. Without `else`, a branch with a value makes the `if` a `Maybe`, `None` on mismatch; a `Unit` branch leaves it `Unit`."
+	expected := "```nomi\nif: Box<String> -> String\n```\n\nMatches the input value against the condition pattern. On mismatch, runs `else`. Without `else`, the `if` is a statement, and its branch is `Unit` or leaves."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}

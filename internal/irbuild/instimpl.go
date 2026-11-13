@@ -19,7 +19,9 @@ import (
 // the call's method reference; every call lowers to a direct call of it. So
 // such blocks never enter implsByIface, whose key is the pair: g.instImpls
 // holds them, and each call route that finds no implsByIface entry asks
-// pickInstImpl.
+// pickInstImpl. A call the front end chose none for (a bounded call in a
+// generic instance) records the interface instance it goes through
+// (analysis Symbol.CallInterface), and takes the block at its arguments.
 
 // ifaceTemplateArgs is a generic interface template's arguments under subst, in
 // the template's parameter order.
@@ -482,9 +484,10 @@ func (g *gen) dispatchedImpl(t *ast.Call) ast.ImplMethodDecl {
 
 // siblingInstPick chooses, among another file's impl functions of one
 // interface for one receiver (its impls at several type arguments), the one
-// the call t takes: the front end's choice, else the one whose parameter
-// kinds take the operands, and then whose result is the call's.
-func (bl *irScalarBuilder) siblingInstPick(t *ast.Call, args irQualArgs) func([]implMemberSite) *implMemberSite {
+// the call t takes: the front end's choice, else the one whose block
+// implements the interface at the instance the call goes through
+// (callInterfaceArgs).
+func (bl *irScalarBuilder) siblingInstPick(t *ast.Call) func([]implMemberSite) *implMemberSite {
 	return func(sites []implMemberSite) *implMemberSite {
 		g := bl.g
 		if impl := g.dispatchedImpl(t); impl != nil {
@@ -497,43 +500,38 @@ func (bl *irScalarBuilder) siblingInstPick(t *ast.Call, args irQualArgs) func([]
 				}
 			}
 		}
-		if !args.ok {
+		if len(sites) == 1 {
+			return &sites[0]
+		}
+		want, ok := g.callInterfaceArgs(t)
+		if !ok {
 			return nil
 		}
-		var fits []*implMemberSite
+		var chosen *implMemberSite
 		for i := range sites {
-			f := sites[i].fn
-			if f == nil || len(args.kinds) > len(f.params) {
+			if sites[i].fn == nil || g.reg == nil || sites[i].unit < 0 || sites[i].unit >= len(g.reg.gens) {
 				continue
 			}
-			ok := true
-			for j, k := range args.kinds {
-				p, imported := g.importKind(f.params[j])
-				if !imported || (k != p && !g.irErases(p, k)) {
-					ok = false
-					break
+			owner := g.reg.gens[sites[i].unit]
+			if owner == nil {
+				continue
+			}
+			rec := analysis.ImplBlockTypeArgs(owner.fa, sites[i].block)
+			if rec == nil || len(rec.Open) > 0 {
+				continue
+			}
+			theirs := make([]kind, len(rec.Args))
+			for j, a := range rec.Args {
+				theirs[j] = owner.project(a)
+			}
+			if mine, ok := g.importKinds(theirs); ok && sameKinds(mine, want) {
+				if chosen != nil {
+					return nil
 				}
-			}
-			if ok {
-				fits = append(fits, &sites[i])
+				chosen = &sites[i]
 			}
 		}
-		if len(fits) > 1 {
-			// kindInvalid: lookup — no solved result leaves the choice open, and the call declines.
-			if want := g.solvedCallReturn(t); want != kindInvalid {
-				var byResult []*implMemberSite
-				for _, s := range fits {
-					if r, ok := g.importKind(s.fn.result); ok && r == want {
-						byResult = append(byResult, s)
-					}
-				}
-				fits = byResult
-			}
-		}
-		if len(fits) != 1 {
-			return nil
-		}
-		return fits[0]
+		return chosen
 	}
 }
 
@@ -551,8 +549,9 @@ func implMethodName(impl ast.ImplMethodDecl) string {
 // several type arguments, the one the call t takes, and its item for method.
 // The front end's choice decides when the call records one; otherwise (a
 // bounded call in a generic instance, `C.contains(c, x)` with C and T
-// bound) the operands' kinds decide, and then the result's.
-func (bl *irScalarBuilder) pickInstImpl(t *ast.Call, defs []*implDef, method string, args irQualArgs) (*implDef, *implItem) {
+// bound) the block implementing the interface at the instance the call
+// goes through does (callInterfaceArgs).
+func (bl *irScalarBuilder) pickInstImpl(t *ast.Call, defs []*implDef, method string) (*implDef, *implItem) {
 	item := func(d *implDef) *implItem {
 		if d == nil || !d.lowerable {
 			return nil
@@ -569,40 +568,45 @@ func (bl *irScalarBuilder) pickInstImpl(t *ast.Call, defs []*implDef, method str
 			}
 		}
 	}
-	if !args.ok {
+	want, ok := bl.g.callInterfaceArgs(t)
+	if !ok {
 		return nil, nil
 	}
-	var fits []*implDef
+	var chosen *implDef
 	for _, d := range defs {
-		it := item(d)
-		if it == nil || len(args.kinds) > len(it.params) {
-			continue
-		}
-		ok := true
-		for i, k := range args.kinds {
-			if k != it.params[i] && !bl.g.irErases(it.params[i], k) {
-				ok = false
-				break
+		if sameKinds(d.instArgs, want) {
+			if chosen != nil {
+				return nil, nil
 			}
-		}
-		if ok {
-			fits = append(fits, d)
+			chosen = d
 		}
 	}
-	if len(fits) > 1 {
-		// kindInvalid: lookup — no solved result leaves the choice open, and the call declines.
-		if want := bl.g.solvedCallReturn(t); want != kindInvalid {
-			var byResult []*implDef
-			for _, d := range fits {
-				if item(d).result == want {
-					byResult = append(byResult, d)
-				}
-			}
-			fits = byResult
-		}
-	}
-	if len(fits) != 1 {
+	if chosen == nil {
 		return nil, nil
 	}
-	return fits[0], item(fits[0])
+	return chosen, item(chosen)
+}
+
+// callInterfaceArgs is the type arguments of the interface instance call t
+// goes through, which the checker records on a call of an interface
+// function it selected no impl for (analysis Symbol.CallInterface), in
+// this gen's kinds. ok is false when the call records none, or an argument
+// has no kind here.
+func (g *gen) callInterfaceArgs(t *ast.Call) ([]kind, bool) {
+	if g.fa == nil || t.Func == nil {
+		return nil, false
+	}
+	line, col := calleeRefPos(t.Func)
+	sym := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
+	if sym == nil || sym.CallInterface == nil {
+		return nil, false
+	}
+	out := make([]kind, len(sym.CallInterface.TypeArgs))
+	for i, a := range sym.CallInterface.TypeArgs {
+		// kindInvalid: lookup — an argument with no kind here leaves the choice open, and the call declines.
+		if out[i] = g.project(a); out[i] == kindInvalid {
+			return nil, false
+		}
+	}
+	return out, true
 }

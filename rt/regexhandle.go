@@ -35,9 +35,9 @@ package rt
 // named type, never on the underlying shape.
 //
 // A `Regex` is comparable — `Impl` holds the adapter's pointer — so Go `==` on
-// two of these answers pointer identity. Nothing in std/regex derives Equatable for it, so no
-// Nomi program can observe that today; it is stated because a zero-width or
-// non-comparable payload would make `==` a panic rather than a wrong answer.
+// two of these answers pointer identity, which is not Nomi's equality: a
+// Regex value reaches rt.Equal and rt.Hash as a HostHandle whose value is
+// HostKeyed by its pattern.
 type Regex struct {
 	// Impl is the adapter's compiled pattern (`*nomi/std/regex.Regex`), held as
 	// `any` because rt may not name that type. Exported for the same reason

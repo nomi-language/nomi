@@ -15,11 +15,7 @@ end
 
 impl Iter for Ticks
     fn each_while(t: Ticks, yield: (Int) -> Bool) -> Bool
-        if yield(t.n) then
-            each_while(Ticks{n: t.n + 1}, yield)
-        else
-            False
-        end
+        if yield(t.n) then each_while(Ticks{n: t.n + 1}, yield) else False
     end
 
     fn is_infinite(_t: Ticks) -> Bool

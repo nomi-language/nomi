@@ -875,6 +875,18 @@ func attachStdlibImpls(fa *FileAnalysis, stdlibFAs map[string]*FileAnalysis, own
 	if len(with.filesByKey) == 0 {
 		files[""] = fa
 	}
+	// The index folds the stdlib alone, so it cannot judge a receiver
+	// declared in fa or a user module fa loaded.
+	unindexed := map[string]bool{}
+	for origin := range with.unindexedOrigins {
+		if !IsStdlibKey(origin) {
+			unindexed[origin] = true
+		}
+	}
+	if fa.Origin != OriginUnresolved && !IsStdlibKey(fa.Origin) {
+		unindexed[fa.Origin] = true
+	}
+	with.unindexedOrigins = unindexed
 	with.setFiles(files)
 	fa.program = &with
 }

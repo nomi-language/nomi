@@ -747,11 +747,7 @@ fn file_name(segment: String) -> String
             or i == last and (c == '.' or c == ' ')
             or i == 0 and device
 
-        if escaped then
-            "%${String.uppercase(hex.encode(String.to_bytes(text)))}"
-        else
-            text
-        end
+        if escaped then "%${String.uppercase(hex.encode(String.to_bytes(text)))}" else text
     end)
     |> String.join("")
 end
@@ -868,11 +864,7 @@ pub fn handler(store: Store, param: String = "key") -> (Request) -> Response
                 if typed then
                     {
                         ..response,
-                        headers: Headers.set(
-                            response.headers,
-                            "Content-Type",
-                            object.info.content_type,
-                        ),
+                        headers: Headers.set(.., "Content-Type", object.info.content_type),
                     }
                 else
                     response

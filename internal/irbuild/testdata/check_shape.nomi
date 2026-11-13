@@ -53,11 +53,7 @@ struct Marker
 end
 
 fn marker(id: Int) -> Maybe<Marker>
-    if id == 1 then
-        Some(Marker{label: "one", count: 1})
-    else
-        None
-    end
+    if id == 1 then Some(Marker{label: "one", count: 1}) else None
 end
 
 fn missing_marker() -> Result<Int, Marker>

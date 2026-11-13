@@ -189,11 +189,7 @@ impl Maybe<T>
     //! halved =
     //!     [4, 2, 8]
     //!     |> Iter.map(fn n ->
-    //!         if n % 2 == 0 then
-    //!             Maybe.Some(n / 2)
-    //!         else
-    //!             Maybe.None
-    //!         end
+    //!         if n % 2 == 0 then Maybe.Some(n / 2) else Maybe.None
     //!     end)
     //!     |> Maybe.collect()
     //!
@@ -229,11 +225,7 @@ impl Maybe<T>
     //! halves =
     //!     [4, 3, 8]
     //!     |> Iter.map(fn n ->
-    //!         if n % 2 == 0 then
-    //!             Maybe.Some(n / 2)
-    //!         else
-    //!             Maybe.None
-    //!         end
+    //!         if n % 2 == 0 then Maybe.Some(n / 2) else Maybe.None
     //!     end)
     //!     |> Maybe.values()
     //!
@@ -263,11 +255,7 @@ impl Iter for Maybe<T>
     //!
     //! assert [1, 2, 3]
     //! |> Iter.flat_map(fn n ->
-    //!     if n % 2 == 1 then
-    //!         Maybe.Some(n * 10)
-    //!     else
-    //!         Maybe.None
-    //!     end
+    //!     if n % 2 == 1 then Maybe.Some(n * 10) else Maybe.None
     //! end)
     //! |> Iter.to_list() == [10, 30]
     //

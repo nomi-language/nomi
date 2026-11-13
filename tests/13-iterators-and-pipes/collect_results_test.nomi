@@ -24,11 +24,7 @@ fn parse_message(text: String) -> Result<Int, String>
 end
 
 fn point_at(n: Int) -> Maybe<Point>
-    if n >= 0 then
-        Some(Point{x: n, y: n * 2})
-    else
-        None
-    end
+    if n >= 0 then Some(Point{x: n, y: n * 2}) else None
 end
 
 fn sum_all(texts: List<String>) -> Result<Int, ParseError>

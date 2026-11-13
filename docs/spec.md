@@ -794,8 +794,10 @@ Taught in [Collections](/collections/#ranges).
 
 `a..b` is a half-open range and `a..=b` a closed one. Both operands must have
 the same `Comparable` type, and the literal is a `Range<T>` (§4 *Built-in
-Types*). Both bounds are required: `..5`, `5..` and `..` are not ranges,
-since `..` alone is a spread.
+Types*). An empty collection literal in one operand, whole or inside a
+tuple or list, takes its element type from the other: `[1]..[]` is a
+`Range<List<Int>>`. Both bounds are required: `..5`, `5..` and `..` are not
+ranges, since `..` alone is a spread.
 
 A range over a type that implements `Discrete` (`Int`, `Codepoint`) is an
 `Iter` of its values, lazy, with no list built. A range over any other type
@@ -1604,9 +1606,11 @@ declaration. The walk passes through:
   spread;
 - an argument of a generic function or constructor whose type parameter the
   call's return type pins against an outer expected type, the head of a pipe
-  into such a call included. The constraint is solved before the arguments
-  are checked, so it reaches a variant nested anywhere in them, and through
-  an `if` or `case` argument's branches;
+  into such a call included. The constraint is solved before the argument
+  holding the variant is checked, for the type parameters the arguments
+  before it left open (§5 *Type arguments from the arguments*), so it
+  reaches a variant nested anywhere in it, and through an `if` or `case`
+  argument's branches;
 - an operand of `==`, `!=`, `<`, `>`, `<=` or `>=`, which is checked against
   the other operand's type (`k == .Deposit`, `.Deposit == k`);
 - a lambda's result, checked against the callback's declared result
@@ -2073,8 +2077,9 @@ A type prints with its trailing default arguments left out, in hover and in
 error messages: a `Route<Unit>` prints as `Route`, and a
 `Tagged<Int, String>` as `Tagged<Int>`.
 
-A function's type parameters are solved at each call from its arguments and
-the type its result is expected to have. So each must appear in a
+A function's type parameters are solved at each call from its arguments,
+then from the type its result is expected to have for those the arguments
+leave open (§5 *Type arguments from the arguments*). So each must appear in a
 parameter's type, in the return type, or in a `where` bound on a type
 parameter that does (`fn any<I, T>(items: I) -> Bool where I: Iter<T>`). A
 `where` bound alone does not count. One that appears nowhere else is an
@@ -2133,7 +2138,9 @@ end
 
 Anywhere else a type name is a value only in the forms §4 *Distinct Types*
 lists, and otherwise `` `Int` is a type, not a value ``. No code builds or
-reads a `Type<T>` value. `Context.value(c, TraceId)` (§15) takes one.
+reads a `Type<T>` value. `Context.value(c, TraceId)` (§15) takes one. Two
+witnesses are equal when they name the same type (§5 *Equality*), and one
+inspects as `Type<TraceId>`.
 
 ## 5. Type relations
 
@@ -2406,6 +2413,67 @@ error unless a later use of `a` fixes its type. In a `case` arm or an
 `if Pattern = value`, a name whose type only contains an unknown part, as a
 `Maybe` that can only be `None`, is accepted.
 
+#### Type arguments from the arguments
+
+A generic call's type arguments come from its arguments first. The type the
+call's result is expected to have (an annotation, a parameter, a return
+position) only fills the type parameters the arguments leave open. The
+result then converts to the expected type as any value does (*Assignability*):
+an `Int` into `Display`, an `Iter<Int>` into an `Iter<Display>`. So a
+lambda's parameter has the type the other arguments give it, not the
+interface the binding names:
+
+```nomi
+fn main()
+    x: Iter<Display> = [1, 2, 3] |> Iter.filter(fn n -> n > 1)
+
+    d: Display = Iter.loop(0, fn i ->
+        if i > 2 then
+            break i
+        else
+            i + 1
+        end
+    end)
+
+    dbg Iter.to_list(x) // [2, 3]
+    dbg d // 3
+end
+```
+
+`filter` is called at `Int`, so `n > 1` compares Ints, and its `Iter<Int>`
+is the `Iter<Display>`. Each argument the arguments alone cannot type still
+takes the expected type, for the type parameters its own parameter names
+and the arguments before it left open:
+
+- a dot-leading variant, an empty literal, `None`, a brace literal with no
+  name, and a constructor or generic function named as a value:
+  `c: Maybe<Color> = Some(.Red)`, `xs: List<Int> = Iter.to_list([])`;
+- a lambda whose parameter nothing else types:
+  `f: (Int) -> Int = ident(fn x -> x + 1)`;
+- a bracket literal, an `if` or a `case` passed where the parameter is a
+  bare type parameter, since the expected type says which collection the
+  literal builds and how the branches join: `m: Maybe<Vector<Int>> =
+  Some([1, 2])`.
+
+A type parameter the result holds below its top, other than as an `Iter`'s
+element (a `Maybe`'s or a `List`'s element, a declared generic type's
+argument, a tuple's item, a function type's parameter or result), takes the
+expected type ahead of the arguments. A type argument there converts only
+in place (*Type argument conversion*), so the arguments' own choice could
+build a value the expected type cannot take: `Ok(Memory.new())` where a
+`Result<Store, Error>` is expected builds the `Store` as it builds the
+`Result`, and with `fn boxed<T>(v: T) -> Box<T>`, `b: Box<Display> =
+boxed(1)` is a `Box<Display>`.
+
+Arguments that give the call a type that does not convert to the expected
+one are an error at the call: `n: Int = Iter.loop("a", fn s -> if s == ""
+then s else break s)` is `type mismatch: expected Int, got String`.
+
+A range literal's endpoints are its arguments in the same way: each is
+checked against the element of the `Range<T>` its position expects, so
+`c: Range<List<Int>> = []..[]` is a range of `List<Int>`s, where with no
+annotation the two empty lists settle nothing.
+
 #### Determined type arguments
 
 A call must determine every type argument its function makes values of,
@@ -2456,8 +2524,9 @@ agree: passed where a `(Int) -> Int` is expected, `fn x = "a" -> 1` is
 A lambda parameter with no annotation and no default takes its type from the
 function type its position expects: a parameter's type at a call, a
 function-typed annotation, a declared return type, or a generic parameter the
-call's own expected type fixes (`f: (Int) -> Int = ident(fn x -> x + 1)`,
-`g: Maybe<(Int) -> Int> = Some(fn x -> x * 3)`).
+call's own expected type fixes where no other argument does (`f: (Int) -> Int
+= ident(fn x -> x + 1)`, `g: Maybe<(Int) -> Int> = Some(fn x -> x * 3)`; §5
+*Type arguments from the arguments*).
 
 A parameter typed by a type parameter of the callee that nothing has solved
 yet, and called in the body, is a function: the call solves it to a
@@ -2568,10 +2637,25 @@ end
 `==` only. `==` compares every bit otherwise, and
 `Float.equal_within(a, b, tolerance)` compares within a tolerance.
 
+Two `Regex` values are equal when their patterns are, and hash alike, at
+the top or inside a collection, a tuple or a payload.
+
+Two `Dynamic` values are equal when their contents are, as JSON values (an
+object's keys in any order, an Int never equal to a Float), and hash alike.
+
+Two `Type<T>` witnesses are equal when they name the same type, and hash by
+that type, so a witness can be a `Set` element or a `Map` key.
+
 These have no equality: a function, an `Iter`, and a handle to running state
-(std's `Task`, `Sender`, `Receiver`, `Context` and `Supervisor`). A function's
+or to a resource outside the program. The handles are std's `Task`, `Sender`,
+`Receiver`, `Arm`, `Context` and `Supervisor`; std::io's `Reader`, `Writer`
+and `File`; std::fs's `FileSystem`; std::process's `Child` and `Fake`;
+std::http's `Client`, `Exchange`, `Listener`, `Incoming`, `Mux`, `Jar` and
+`Handle`, and std::tls and std::net's `Certificate`, `TlsConfig`, `Conn` and
+`TcpListener`; std::csv's `Records` and std::xml's `Tokens`. A function's
 only identity is its closure, an `Iter` is a function over its source, and a
-handle names something running. `==` or `!=` on one is a compile error:
+handle names something running or held outside the program. `==` or `!=` on
+one is a compile error:
 
 - `` `==` cannot compare `(Int) -> Int`: a function value has no equality ``;
 - `` `==` cannot compare `Sender<Int>`: a handle to running state has no equality ``.
@@ -3652,7 +3736,7 @@ export fn new_game(word: String) -> Game
 end
 
 export fn guess(game: Game, letter: String) -> Game
-    {..game, guesses: [letter, ..game.guesses]}
+    {..game, guesses: [letter, ..]}
 end
 ```
 
@@ -4524,36 +4608,34 @@ fn main()
 end
 ```
 
-- An `if` without `else` whose branch has a value of a type `T` other than
-  `Unit` is a `Maybe<T>`: `Some` of the branch's value when the condition
-  holds, `None` when it does not. An `else if` chain with no final `else` is
-  the same: `if a then "a" else if b then "b"` is a `Maybe<String>`, `None`
-  when no branch runs, and its branches have one type as any `if`'s do.
-- An `if` without `else` is `Unit` when its branch is `Unit`, or when the
-  branch leaves (`return`, `break`, a `?` that propagates, a call that never
-  returns), so `if debug then log.debug("x")` and `if n < 0 then return Err(e)`
-  are statements.
-- Nothing flattens: a branch that is a `Maybe<U>` makes the `if` a
-  `Maybe<Maybe<U>>`, as `if c then Map.get(m, k)` and
-  `if a then (if b then x)` are.
-- The position's expected type reaches the branch: where a `Maybe<T>` is
-  expected, the branch is checked against `T`, so
-  `shape: Maybe<Shape> = if round then .Circle(1.0)` resolves `.Circle`.
-- A forgotten `else` shows as a Maybe where the value is used. A
-  `fn label(n: Int) -> String` whose body is `if n > 0 then "positive"` is
-  the error `return type
-  mismatch: expected String, got Maybe<String>`, with the help ``an `if`
-  without `else` is a `Maybe`, `None` when no branch runs; add an `else` to
-  return a String``. Before a block's end, `if c then 5` is the error
-  `non-final expression has type Maybe<Int>, but only Unit results can be
-  ignored`, whose help says so too.
+- An `if` without `else`, and an `else if` chain with no final `else`, is
+  a statement, of type `Unit`. Its branch is `Unit`, leaves (`return`,
+  `break`, a `?` that propagates, a call that never returns), or ends in an
+  `assert`, `refute` or `dbg`, whose value a block drops. So
+  `if debug then log.debug("x")`, `if n < 0 then return Err(e)` and
+  `if on then assert n > 0` are statements.
+- A branch of any other type is an error at the branch's value, a `Maybe`
+  included. A value that may be absent is written with its `else`:
+  `if c then Some(x) else None`. A `fn first_even(n: Int) -> Maybe<Int>`
+  whose body is `if n % 2 == 0 then Some(n)` is ``an `if` without `else` is
+  a statement, so its branch must be `Unit`; this branch is a `Maybe<Int>`.
+  Add `else None` to make the `if` a `Maybe<Int>` ``, and an editor's quick
+  fix adds the `else None`. Any other branch says to add an `else`:
+  `if n > 0 then "positive"` is ``... this branch is a `String`. Add an
+  `else` to give the `if` a value``. Where a statement drops the branch's
+  value, before a block's end or at the end of a `Unit` function, the error
+  says ``... this branch is an `Int`, which this statement drops. Write
+  `_ = n + 1` in the branch, or add an `else` ``, and the quick fix writes
+  the `_ = `.
 
 ```nomi
 fn sign(n: Int) -> Maybe<String>
     if n > 0 then
-        "positive"
+        Some("positive")
     else if n < 0 then
-        "negative"
+        Some("negative")
+    else
+        None
     end
 end
 
@@ -4592,19 +4674,14 @@ end
   `Equatable`, and two candidate interfaces give no help.
 ```nomi
 fn in_order(values: Range<Int>, descending: Bool) -> Iter<Int>
-    if descending then
-        Iter.reverse(values)
-    else
-        values
-    end
+    if descending then Iter.reverse(values) else values
 end
 ```
 
 **Pattern `if`.** `if Pattern = value then ... else ...` runs the first
 branch when the value matches the pattern, with the pattern's names bound
-there only, and the `else` branch otherwise. Without `else` it is a `Maybe` of
-the branch's value, or `Unit`, as an `if` without `else` is:
-`if Some(n) = m then n + 1` is a `Maybe<Int>`.
+there only, and the `else` branch otherwise. Without `else` it is a
+statement, as an `if` without `else` is: `if Some(n) = m then io.inspect(n)`.
 
 ```nomi
 fn label(maybe_name: Maybe<String>) -> String
@@ -6973,6 +7050,7 @@ Debug`, then `derive Debug`, then the synthesized impl.
 | function or builtin value | none | `<function>` |
 | `Task`, `Sender`, `Receiver`, `Arm` | none | `<task>`, `<channel>`, `<arm>` |
 | `Context` | none | `<context>` |
+| `Type<T>` witness | none | `Type<T>` with the type as its declaration names it, `Type<TraceId>` |
 | lazy `Iter` (an adapter or constructor result, before materializing) | none | `<iter>` |
 
 - **Opaque types** get the name-only default, so the floor never shows hidden
@@ -8856,7 +8934,7 @@ A value of the wrong type is an error at the slot that says what the slot takes:
 
 In element content, a type that implements `ToHtml` renders itself, even when it is also `Display`. Std's `Maybe`, `Result`, collections and tuples are `Display`, but their text is not the value's, `Some(x)` or `[a, b]`, so element content refuses one that is not `ToHtml`: `<p>${names}</p>` with a `List<String>` is ``element content does not show a `List<String>` ``, with help to render the elements with `Html.each`. A value of a type parameter is taken as a `ToHtml`.
 
-An `if` without `else` is a `Maybe` (§8 *`if`/`else`*), so a slot shows a part of the page only when a condition holds. In a whole unquoted value a `Maybe` writes the attribute or leaves it out. In every other context it writes its value as that context writes one, or nothing for `None`, so a `Maybe`'s text, `Some(...)`, is never written:
+A slot shows a part of the page only when a condition holds by holding a `Maybe`: `${if active then Some("active") else None}` is `None` when `active` is false (§8 *`if`/`else`*). A fragment over several lines is wrapped by a `|> Some()` on the line after its closing `"""`, with `else None` below it. In a whole unquoted value a `Maybe` writes the attribute or leaves it out. In every other context it writes its value as that context writes one, or nothing for `None`, so a `Maybe`'s text, `Some(...)`, is never written:
 
 ```nomi
 import
@@ -8865,11 +8943,13 @@ import
 end
 
 fn inbox(unread: Int, active: Bool) -> Html
-    Html"<a class=${if active then "active"}>Inbox${if unread > 0 then Html" <b>${unread}</b>"}</a>"
+    count = if unread > 0 then Some(Html" <b>${unread}</b>") else None
+
+    Html"<a class=${if active then Some("active") else None}>Inbox${count}</a>"
 end
 
 fn badge(label: String, urgent: Bool, count: Maybe<Int>) -> Html
-    Html"<span class='badge ${if urgent then "urgent"}' data-count='${count}'>${label}</span>"
+    Html"<span class='badge ${if urgent then Some("urgent") else None}' data-count='${count}'>${label}</span>"
 end
 
 fn main()

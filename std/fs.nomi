@@ -663,11 +663,7 @@ fn walk_entries(
             end
 
         [Err(e), ..rest] ->
-            if yield(Err(e)) then
-                walk_entries(rest, depth, yield)
-            else
-                False
-            end
+            if yield(Err(e)) then walk_entries(rest, depth, yield) else False
     end
 end
 

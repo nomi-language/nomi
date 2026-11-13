@@ -78,10 +78,18 @@ func resolvedBareSymbol(fa *analysis.FileAnalysis, name string) *analysis.Symbol
 }
 
 // resolvedBareSymbolAt is resolvedBareSymbol for the name written at id. A
-// name the module scope does not bind may still be imported at the top of an
-// enclosing block (`import std::io.print`, which testImport admits); the
-// checker's reference at id is then that import's binding.
+// name may be imported at the top of an enclosing block (`import
+// std::io.print`, which testImport admits), whether or not the module scope
+// binds it too; the checker's reference at id is then that import's
+// binding, which wins over the module scope's.
 func resolvedBareSymbolAt(fa *analysis.FileAnalysis, id *ast.Ident) *analysis.Symbol {
+	if fa != nil && len(fa.BlockImportScopes) > 0 {
+		if ref := fa.References[analysis.Pos{Line: id.Line, Col: id.Col}]; ref != nil {
+			if imp, imported := ref.Node.(*ast.ImportStmt); imported && fa.BlockImportScopes[imp] != nil {
+				return resolveSymbol(ref)
+			}
+		}
+	}
 	if sym := resolvedBareSymbol(fa, id.Name); sym != nil || fa == nil || fa.ModuleScope == nil {
 		return sym
 	}

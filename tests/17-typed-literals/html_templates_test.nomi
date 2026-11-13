@@ -153,7 +153,7 @@ test "element text writes any other Display value as escaped text"
 end
 
 fn badge(on: Bool) -> Html
-    Html"<span class='badge ${if on then "on"}'>x</span>"
+    Html"<span class='badge ${if on then Some("on") else None}'>x</span>"
 end
 
 test "a Maybe in a quoted attribute writes its value, or nothing for None"
@@ -170,8 +170,9 @@ test "a Maybe in a quoted attribute writes its value, or nothing for None"
     on = True
     off = False
 
-    assert render(Html"<i class='${if on then "a"} b ${if off then "c"}${if on then " d"}'></i>")
-        == "<i class='a b  d'></i>"
+    assert render(
+        Html"<i class='${if on then Some("a") else None} b ${if off then Some("c") else None}${if on then Some(" d") else None}'></i>"
+    ) == "<i class='a b  d'></i>"
 
     count: Maybe<Int> = Some(3)
     none: Maybe<Int> = None
@@ -180,8 +181,9 @@ test "a Maybe in a quoted attribute writes its value, or nothing for None"
         == "<i data-n='3' data-m=''>3</i>"
 
     // An unquoted value still writes the attribute or leaves it out.
-    assert render(Html"<i class=${if on then "a"}></i><i class=${if off then "a"}></i>")
-        == "<i class=\"a\"></i><i></i>"
+    assert render(
+        Html"<i class=${if on then Some("a") else None}></i><i class=${if off then Some("a") else None}></i>"
+    ) == "<i class=\"a\"></i><i></i>"
 end
 
 test "a Maybe in a URL, a style value or a title writes its value, or nothing"
@@ -189,17 +191,22 @@ test "a Maybe in a URL, a style value or a title writes its value, or nothing"
     off = False
     id: Maybe<String> = Some("a/b")
 
-    assert render(Html"<a href='/p/${id}?q=${if off then 1}#${if on then "x y"}'>x</a>")
-        == "<a href='/p/a%2Fb?q=#x%20y'>x</a>"
+    assert render(
+        Html"<a href='/p/${id}?q=${if off then Some(1) else None}#${if on then Some("x y") else None}'>x</a>"
+    ) == "<a href='/p/a%2Fb?q=#x%20y'>x</a>"
 
     home = Url.parse("https://example.com") |> Result.to_maybe()
     bad = Url.parse("javascript:alert(1)") |> Result.to_maybe()
     assert render(Html"<a href='${home}'>x</a>") == "<a href='https://example.com'>x</a>"
     assert render(Html"<a href='${bad}'>x</a>") == "<a href='about:invalid#unsafe-url'>x</a>"
-    assert render(Html"<a href='${if off then SafeUrl("/")}'>x</a>") == "<a href=''>x</a>"
 
-    assert render(Html"<i style='width: ${if on then 3}%; ${if off then Css("color: red")}'></i>")
-        == "<i style='width: 3%; '></i>"
+    assert render(Html"<a href='${if off then Some(SafeUrl("/")) else None}'>x</a>")
+        == "<a href=''>x</a>"
 
-    assert render(Html"<title>${if on then "a < b"}</title>") == "<title>a &lt; b</title>"
+    assert render(
+        Html"<i style='width: ${if on then Some(3) else None}%; ${if off then Some(Css("color: red")) else None}'></i>"
+    ) == "<i style='width: 3%; '></i>"
+
+    assert render(Html"<title>${if on then Some("a < b") else None}</title>")
+        == "<title>a &lt; b</title>"
 end

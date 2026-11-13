@@ -147,7 +147,7 @@ export fn new_game(word: String) -> Game
 end
 
 export fn guess(game: Game, letter: String) -> Game
-    {..game, guesses: [letter, ..game.guesses]}
+    {..game, guesses: [letter, ..]}
 end
 ```
 

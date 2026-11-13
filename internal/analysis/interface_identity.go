@@ -60,6 +60,14 @@ type ImplTables struct {
 	// Nil, or a missing entry, means the identity was not established — see
 	// the file comment.
 	IfaceOrigins map[string]map[string][]string
+	// Receivers is the project's impl index, whose ImplsByIdentity says
+	// which declaration of a receiver's name an impl is for: a program's
+	// `type Name String` does not take std/xml's `impl Display for Name`
+	// (missing_impl_identity.go). Nil leaves the bare-name answer.
+	Receivers *ProjectImplIndex
+	// Unindexed is the origins of the program's files Receivers does not
+	// fold, whose receivers it cannot judge (Program.unindexedOrigins).
+	Unindexed map[string]bool
 }
 
 // implTablesFor pairs an impl table with the project-wide interface-origin
@@ -68,10 +76,12 @@ type ImplTables struct {
 // per-file `Impls` is a BROADCAST union of every reachable file's impls
 // anyway, so a per-file origins map would carry identical contents under a
 // second name.
-func implTablesFor(impls map[string]map[string]bool, idx *ProjectImplIndex) ImplTables {
+func implTablesFor(impls map[string]map[string]bool, idx *ProjectImplIndex, unindexed map[string]bool) ImplTables {
 	t := ImplTables{Impls: impls}
 	if idx != nil {
 		t.IfaceOrigins = idx.IfaceOriginByPair
+		t.Receivers = idx
+		t.Unindexed = unindexed
 	}
 	return t
 }

@@ -132,7 +132,7 @@ end
 fn pip_rank(digits: String) -> Maybe<Int>
     n = String.to_int(digits)?
 
-    if n in 2..=10 then n
+    if n in 2..=10 then Some(n) else None
 end
 
 // FILE: poker_test.nomi

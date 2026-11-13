@@ -241,13 +241,6 @@ type FileBodies struct {
 	// binding's `else` fallback stands in for a payload whose pattern always
 	// matches. Nil until the first record.
 	CoveringOrPatterns map[*ast.OrPattern]bool
-	// ElselessIfs maps each `if` with no `else`, or the head of an `else if`
-	// chain with no final `else`, whose branches have a value of a type T
-	// other than Unit, to its type `Maybe<T>`: a branch that runs gives
-	// `Some` of its value, and none running gives `None` (spec §8 *`if`/`else`*).
-	// The IR builder wraps each branch's value and lowers the missing
-	// `else` as `None`. Nil until the first record.
-	ElselessIfs map[*ast.If]Type
 	// ExprTypes maps every node the checker checked to the type it gave the
 	// node, and ExpectedTypes maps every node checked against an expected
 	// type to that expected type: the declared parameter type at an argument,

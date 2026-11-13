@@ -447,6 +447,24 @@ func (g *gen) importedIfaceDef(sym *analysis.Symbol) *ifaceDef {
 	return g.stdProgIfaceOf(sym)
 }
 
+// blockModuleSymbol is the symbol a dotted name (`fmt.WriteOptions`) names
+// when a visible block's `import` binds its qualifier to another file than
+// the module scope does (visibleBlockModule over moduleScopeOf), reporting
+// whether one does. That binding shadows the file's for the rest of the
+// block, as the checker resolves it, so a name it reports is never answered
+// from the file's binding.
+func (g *gen) blockModuleSymbol(name string) (*analysis.Symbol, bool) {
+	dot := strings.IndexByte(name, '.')
+	if dot <= 0 || len(g.typeScopes) == 0 {
+		return nil, false
+	}
+	scope := g.visibleBlockModule(name[:dot])
+	if file := moduleScopeOf(g.fa, name[:dot]); scope == nil || file == nil || file == scope {
+		return nil, false
+	}
+	return resolvedScopeSymbol(scope, name[dot+1:]), true
+}
+
 // blockImportedIface answers an interface name from the innermost enclosing
 // block whose imports bind it (bindBlockImports).
 func (g *gen) blockImportedIface(name string) (*ifaceDef, bool) {

@@ -150,11 +150,7 @@ pub fn import_block(imports: Map<String, Set<String>>) -> String
             names = Map.get(map, path) |> Maybe.with_default(Set[])
             others = names |> Iter.filter(fn n -> n != "self") |> Iter.sort()
 
-            listed = if Iter.contains(names, "self") then
-                ["self", ..others]
-            else
-                others
-            end
+            listed = if Iter.contains(names, "self") then ["self", ..others] else others
 
             case listed
                 ["self"] -> path
@@ -613,11 +609,7 @@ pub fn type_names(text: String) -> List<String>
         first = String.slice(t.text, 0, 1)
         upper = first != "" and first in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-        if t.kind == sqltext.Kind.Word and upper and before != "." then
-            [t.text]
-        else
-            []
-        end
+        if t.kind == sqltext.Kind.Word and upper and before != "." then [t.text] else []
     end)
     |> Iter.to_list()
 end
@@ -863,11 +855,7 @@ fn function(
             Unit
     end
 
-    shape_imports = if final_shape is (.Stream or .Changed) then
-        [("sqlkit", "self")]
-    else
-        []
-    end
+    shape_imports = if final_shape is (.Stream or .Changed) then [("sqlkit", "self")] else []
 
     found_imports =
         signature_imports
@@ -1253,11 +1241,7 @@ fn fields_of(
         (fields, imports, problems, seen) = acc
 
         at = fn message: String, hints: List<String> ->
-            item = if one_item_per_column then
-                Vector.get(items, position)
-            else
-                None
-            end
+            item = if one_item_per_column then Vector.get(items, position) else None
 
             case item |> Maybe.flat_map(Iter.first)
                 Some(t) -> at_token(q, t, message, hints)
@@ -1382,11 +1366,7 @@ fn enum_of(s: Schema, column: Column) -> Maybe<String>
 
     described.column(s.tables, column.table, column.column)
     |> Maybe.flat_map(fn c ->
-        if is_enum_column(c) then
-            Some(enum_name(row_of(s, column.table), column.column))
-        else
-            None
-        end
+        if is_enum_column(c) then Some(enum_name(row_of(s, column.table), column.column)) else None
     end)
 end
 

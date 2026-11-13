@@ -32,7 +32,8 @@
 // or when a guarded return or a note passes its failure on (`if !ok {
 // return ..., false }`). The callee must be a lowering function: one that
 // reaches `lowerExact`, a note or the census's `close` through the package's
-// own calls. A guard on anything else (a lookup, a kind predicate, a map
+// own calls; the census's `patternFailed`, which places a callee's decline
+// at the pattern it could not test, marks one too. A guard on anything else (a lookup, a kind predicate, a map
 // read) is itself the site, with the guard as its description.
 //
 // The analysis is syntactic: calls resolve by name within the package (a
@@ -130,8 +131,9 @@ func isBodyWhy(x ast.Expr) bool {
 // markers are the calls that make a function a lowering function, besides
 // the notes.
 var markers = map[string]bool{
-	"irScalarBuilder.lowerExact": true,
-	censusRecv + ".close":        true,
+	"irScalarBuilder.lowerExact":  true,
+	censusRecv + ".close":         true,
+	censusRecv + ".patternFailed": true,
 }
 
 // seeds are the decline positions every other one is reached from.
@@ -192,6 +194,9 @@ type analyzer struct {
 	methods map[string][]string // method name -> keys
 	imports map[string]bool     // import names in any file
 	notes   map[string]int      // note function key -> reason index
+	// bound is the names call sites bind each (function, result index) to
+	// (`v, k, m, ok, handled := bl.x(...)`).
+	bound map[pos]map[string]bool
 }
 
 // Find parses the non-test Go files of dir, the irbuild package, and answers
@@ -203,6 +208,7 @@ func Find(dir string) ([]Site, error) {
 		methods: map[string][]string{},
 		imports: map[string]bool{},
 		notes:   map[string]int{},
+		bound:   map[pos]map[string]bool{},
 	}
 	for k, v := range baseNoteFuncs {
 		a.notes[k] = v
@@ -587,6 +593,11 @@ func (a *analyzer) recordAssign(st *scanState, lhs, rhs []ast.Expr, at token.Pos
 			if isCall {
 				for _, k := range a.resolve(st, call) {
 					as.src = append(as.src, pos{k, i})
+					p := pos{k, i}
+					if a.bound[p] == nil {
+						a.bound[p] = map[string]bool{}
+					}
+					a.bound[p][id.Name] = true
 				}
 			}
 			if len(as.src) == 0 {
@@ -831,7 +842,18 @@ func (a *analyzer) sites(lowering map[string]bool) []Site {
 		p := work[len(work)-1]
 		work = work[:len(work)-1]
 		fi := a.funcs[p.fn]
+		// handled: the result after the decline position is a `handled`
+		// flag every caller binds by that name, and a return that gives it
+		// the literal false declines nothing: the caller tries its next
+		// route, and that route's failure is the site.
+		handled := false
+		if names := a.bound[pos{p.fn, p.idx + 1}]; len(names) == 1 && names["handled"] {
+			handled = true
+		}
 		for _, r := range fi.returns {
+			if handled && a.unhandled(fi, r, p.idx+1) {
+				continue
+			}
 			var e ast.Expr
 			switch {
 			case len(r.stmt.Results) == 0:
@@ -918,6 +940,35 @@ func (a *analyzer) sites(lowering map[string]bool) []Site {
 			File: filepath.Base(p.Filename), Line: p.Line, Col: p.Column})
 	}
 	return sites
+}
+
+// unhandled reports whether return r of fi gives result idx, a `handled`
+// flag, the literal false, written out or through a named closure that
+// spells the return (`return no()`).
+func (a *analyzer) unhandled(fi *fnInfo, r *retInfo, idx int) bool {
+	var e ast.Expr
+	switch {
+	case len(r.stmt.Results) == fi.nres && idx < len(r.stmt.Results):
+		e = r.stmt.Results[idx]
+	case len(r.stmt.Results) == 1 && fi.nres > 1:
+		call, ok := unparen(r.stmt.Results[0]).(*ast.CallExpr)
+		if !ok {
+			return false
+		}
+		ks := a.resolve(&scanState{fi: fi, closures: a.closuresOf(fi)}, call)
+		if len(ks) != 1 {
+			return false
+		}
+		c := a.funcs[ks[0]]
+		if c == nil || !strings.Contains(c.key, "/") || len(c.returns) != 1 || len(c.returns[0].stmt.Results) != fi.nres {
+			return false
+		}
+		e = c.returns[0].stmt.Results[idx]
+	default:
+		return false
+	}
+	id, ok := unparen(e).(*ast.Ident)
+	return ok && id.Name == "false"
 }
 
 func (a *analyzer) closuresOf(fi *fnInfo) map[string]string {

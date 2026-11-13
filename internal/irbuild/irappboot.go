@@ -210,7 +210,10 @@ func (g *gen) irDisplayErasedContainer(want, have kind) bool {
 		parts = []kind{elem}
 	}
 	for _, p := range parts {
-		if p != kindEmptyList && p != kindEmptyMap && !g.irErases(want, p) {
+		// A part that is a Display value already (`(d, 2)` for `d:
+		// Display`) is rendered by the erased rendering as any Display
+		// value is.
+		if p != kindEmptyList && p != kindEmptyMap && p != want && !g.irErases(want, p) {
 			return false
 		}
 	}
@@ -742,7 +745,7 @@ func (bl *irScalarBuilder) appFieldStore(w *ast.With) bool {
 		// field's type, an embedded value widens and a concrete value
 		// enters its interface, as an argument enters its parameter.
 		have := vk
-		if val, vk, ok = bl.coerceEmpty(w.Value, val, vk, k); !ok || vk != k {
+		if val, vk, ok = bl.coerceEmpty(w.Value, val, vk, k); !ok {
 			bl.g.dc.note("an app-field write of kind " + have.nomi() + " where " + k.nomi() + " is the field's")
 			return false
 		}

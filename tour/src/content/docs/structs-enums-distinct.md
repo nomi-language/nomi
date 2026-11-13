@@ -647,11 +647,7 @@ fn problems(name: String, rules: List<Rule>) -> List<String>
 end
 
 fn too_short(name: String) -> Maybe<String>
-    if String.length(name) < 3 then
-        Some("too short")
-    else
-        None
-    end
+    if String.length(name) < 3 then Some("too short") else None
 end
 
 fn has_space(name: String) -> Maybe<String>
@@ -667,9 +663,9 @@ fn main()
 end
 ```
 <!-- expect
-dbg line 24: problems("al", rules) = ["too short"]
-dbg line 25: problems("ada lovelace", rules) = ["has a space"]
-dbg line 26: problems("ada", rules) = []
+dbg line 20: problems("al", rules) = ["too short"]
+dbg line 21: problems("ada lovelace", rules) = ["has a space"]
+dbg line 22: problems("ada", rules) = []
 -->
 
 A `typealias` is another name for an existing type. `Rule` and

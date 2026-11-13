@@ -23,9 +23,13 @@ func TestKeyWithoutEquality_IsRejectedWhereTheCollectionIsBuilt(t *testing.T) {
 		{"map literal", "m = {it => 1}\n  _ = m", iterKey, 4, 7},
 		{"call", "s = Iter.to_set([it])\n  _ = s", iterSet, 4, 18},
 		{"pipe", "s = [it] |> Iter.to_set()\n  _ = s", iterSet, 4, 12},
+		{"to_map", "m = [(it, 1)] |> Iter.to_map()\n  _ = m", iterKey, 4, 17},
 		{"annotated empty set", "s: Set<Iter<Int>> = Set[]\n  _ = s", iterSet, 4, 23},
 		{"nested in a payload", "xs = [Some(Set[it])]\n  _ = xs", iterSet, 4, 14},
 		{"generic instance", "s = single(it)\n  _ = s", iterSet, 4, 13},
+		// The argument of another call is checked twice, the first time
+		// speculatively; the second check still reports it.
+		{"argument of a call", "n = Iter.count(Iter.to_set([it, it]))\n  _ = n", iterSet, 4, 29},
 		{"function key", "f = fn x: Int -> x + 1\n  m = {f => 1}\n  _ = m",
 			"`(Int) -> Int` cannot be a Map key: a function value has no equality or hashing", 5, 7},
 		{"key holding an Iter", "m = {Feed{items: it} => 1}\n  _ = m",

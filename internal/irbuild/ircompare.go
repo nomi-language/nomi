@@ -364,7 +364,7 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 		// See irequality.go: an enum first, since std's derived enum impls
 		// compare structurally, then std's own impls, then the
 		// remaining nominal and structural kinds.
-		if v, owned, ok := bl.enumEquality(t, op, lhs, rhs, lk); owned {
+		if v, ok, handled := bl.enumEquality(t, op, lhs, rhs, lk); handled {
 			if !ok {
 				return no()
 			}
@@ -373,7 +373,7 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 		if v, ok := bl.stdEquality(t, lhs, rhs, lk, rmobile); ok {
 			return bl.equalityNegate(t, op, v), kindBool, false, true
 		}
-		if v, owned, ok := bl.valueEquality(t, op, lhs, rhs, lk); owned {
+		if v, ok, handled := bl.valueEquality(t, op, lhs, rhs, lk); handled {
 			if !ok {
 				return no()
 			}
@@ -395,6 +395,14 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 	// (`a == b`); the VM compares them as it does a container.
 	bytes := !op.Ordering() && irByteValueKind(lk)
 	list = list || bytes
+	if !op.Ordering() && (irStdHandleKind(lk) || irDynamicKind(lk) || irTypeWitnessKind(lk)) {
+		// A Regex compares by its pattern, which rt.Equal reads from the
+		// handle (rt.HostKeyed), a Dynamic by its contents
+		// (rt.DynamicEqual), the body of std's `impl Equatable` for it,
+		// and a `Type<T>` witness by the type it names
+		// (rt.TypeWitnessEqual).
+		list = true
+	}
 	if !op.Ordering() && irScalarRangeKind(lk) {
 		// A Range over a scalar: its fields are scalars and a Maybe of one,
 		// so Range's Equatable and rt.Equal answer alike; the VM holds

@@ -22,7 +22,7 @@ fn preflight(origin: String) -> Request
 
     {
         ..asking,
-        headers: asking.headers
+        headers: ..
         |> Headers.set("Access-Control-Request-Method", "PUT")
         |> Headers.set("Access-Control-Request-Headers", "content-type"),
     }

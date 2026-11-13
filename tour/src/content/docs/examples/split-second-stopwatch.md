@@ -77,7 +77,7 @@ impl Stopwatch
     /// laps, and starts the next from no time.
     pub fn lap(watch: Stopwatch) -> Result<Stopwatch, Error>
         case watch.state
-            .Running -> Ok({..watch, current: no_time, laps: watch.laps + [watch.current]})
+            .Running -> Ok({..watch, current: no_time, laps: .. + [watch.current]})
             .Ready or .Stopped -> Err(.LapWhenNotRunning)
         end
     end
@@ -94,7 +94,7 @@ impl Stopwatch
     /// runs, and nothing changes otherwise.
     pub fn advance(watch: Stopwatch, by: Duration) -> Stopwatch
         case watch.state
-            .Running -> {..watch, current: watch.current + by}
+            .Running -> {..watch, current: .. + by}
             .Ready or .Stopped -> watch
         end
     end

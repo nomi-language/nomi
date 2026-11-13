@@ -91,11 +91,7 @@ end
 test "a module-qualified field variant in an if condition and a binding with else"
     slot = Slot{shape: shapes.Shape.Square(9), bag: shapes.Bag.Items([])}
 
-    got = if {shape: shapes.Shape.Square(n), bag: _} = slot then
-        n
-    else
-        0
-    end
+    got = if {shape: shapes.Shape.Square(n), bag: _} = slot then n else 0
 
     assert got == 9
 

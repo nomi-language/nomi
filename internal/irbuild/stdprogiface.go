@@ -655,9 +655,7 @@ func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, sym *ir.
 	bl.resultCopy(at, v)
 	bl.side(sh.result, irScalarSide{k: m.result})
 	bl.b.SetTerm(ir.NewReturn(g.irNodePos(at), sh.result))
-	if err := g.irLint(sh.fn); err != nil {
-		return false
-	}
+	g.irRequireLint(sh.fn, "a std interface function over a program type")
 	g.irModule().AddFunc(sh.fn)
 	return true
 }

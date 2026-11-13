@@ -189,10 +189,7 @@ func (g *gen) literalCell(t *ast.TaggedString, k kind) (*ir.Symbol, bool) {
 	cb.resultCopy(t, val)
 	cb.side(sh.result, irScalarSide{k: got})
 	cb.b.SetTerm(ir.NewReturn(at, sh.result))
-	if err := g.irLint(f); err != nil {
-		g.dc.note("a backtick typed literal cell that does not lint: " + err.Error())
-		return nil, false
-	}
+	g.irRequireLint(f, "a backtick typed literal cell")
 	sym := g.irTypes().Symbol(literalCellKey{t}, name)
 	cell := g.irModule().DeclareLazyCell(sym, ty, f)
 	if g.literalCells == nil {

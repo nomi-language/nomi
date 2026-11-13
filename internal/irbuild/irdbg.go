@@ -396,10 +396,6 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 		seen[implKey{name, inst}] = true
 		impls = append(impls, ir.DebugImpl{Type: name, Inst: inst, Fn: fn})
 	}
-	sawSeq := false
-	// sawStructural: a distinct or marker leaf renders structurally, so
-	// an empty impl list still names a whole rendering.
-	sawStructural := false
 	register := func(k kind) (bool, bool) {
 		sym, synth, ok := bl.debugImplSym(k)
 		if !ok {
@@ -422,6 +418,32 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 		impls = impls[:n]
 	}
 	walk = func(k kind) bool {
+		if irExistentialKind(k) {
+			// An interface value inside a tuple, record or list renders as
+			// the value it holds, through every implementer's Debug, as a
+			// top-level one does (existentialDebugImpls).
+			got, ok := bl.existentialDebugImpls(k)
+			if !ok {
+				return false
+			}
+			for _, im := range got {
+				key := implKey{im.Type, im.Inst}
+				if !seen[key] {
+					seen[key] = true
+					impls = append(impls, im)
+				}
+			}
+			return true
+		}
+		if k.tag == tagFunc || irDynamicKind(k) || irTypeWitnessKind(k) {
+			// A function renders as rt.FunctionInspectText wherever it
+			// sits: a tuple's part, a list's element, a map's value. A
+			// Dynamic renders through rt.DynamicInspect, the host function
+			// std's `impl Debug for Dynamic` declares, which rt.DebugText
+			// calls for one in any part, and a `Type<T>` witness through
+			// rt.TypeWitnessInspect.
+			return true
+		}
 		if k.tag == tagSeq && k.comp != nil && len(k.comp.parts) == 1 {
 			// An `Iter<T>` renders as `<iter>` when it is a pipeline and as
 			// its source when it views one (rt.Seq's Src): a collection of T
@@ -429,7 +451,6 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 			// whose own type implements Iter over T. Each such source whose
 			// Debug can be named is named; one that cannot is left to the
 			// renderer's refusal, since the position may never hold it.
-			sawSeq = true
 			elem := seqElem(k)
 			attempt(elem)
 			// A Range renders through std's generic `impl Debug for
@@ -486,8 +507,9 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 			// named for the renderer.
 			plan, structural := bl.distinctDebugPlan(k)
 			if plan == nil {
-				sawStructural = sawStructural || structural
-				return structural
+				// std's own markers (`ChannelClosed`) have no impl here and
+				// render as their name, structurally.
+				return structural || irStdMarkerKind(k)
 			}
 			sym := plan.sym
 			if sym == nil {
@@ -524,8 +546,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 			return walk(k.comp.parts[0]) && walk(k.comp.parts[1])
 		case irRetainedTupleKind(k) || irRetainedRecordKind(k):
 			for _, part := range k.comp.parts {
-				// A function part renders as rt.FunctionInspectText.
-				if part.tag != tagFunc && !walk(part) {
+				if !walk(part) {
 					return false
 				}
 			}
@@ -533,9 +554,11 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 		}
 		return irDebugValueKind(k)
 	}
-	if !walk(k) || (len(impls) == 0 && !sawSeq && !sawStructural) {
+	if !walk(k) {
 		return nil, false
 	}
+	// Every part renders: through the impls named, or structurally (a
+	// function, a marker, a leaf), with none to name.
 	return impls, true
 }
 

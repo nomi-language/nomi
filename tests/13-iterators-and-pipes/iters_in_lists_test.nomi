@@ -1,0 +1,31 @@
+// Iters are values a List holds, so the stages that build lists from the
+// elements they move (chunks, flatten, flat_map) take Iter elements too.
+test "chunks of iters"
+    seqs = [Iter.map([1, 2], fn n -> n * 10), Iter.map([3], fn n -> n * 10)]
+    chunks = Iter.chunks(seqs, 1) |> Iter.to_list()
+    assert Iter.count(chunks) == 2
+
+    sums =
+        chunks
+        |> Iter.map(fn chunk -> chunk |> Iter.flat_map(fn s -> s) |> Iter.sum())
+        |> Iter.to_list()
+
+    assert sums == [30, 30]
+end
+
+test "flatten a list of lists of iters"
+    seqs = [Iter.map([1, 2], fn n -> n), Iter.map([3], fn n -> n)]
+
+    flat = Iter.flatten([
+        seqs,
+        [Iter.map([4], fn n -> n)],
+    ])
+
+    assert Iter.count(flat) == 3
+    assert flat |> Iter.flat_map(fn s -> s) |> Iter.to_list() == [1, 2, 3, 4]
+end
+
+test "flat_map to lists of iters"
+    out = [1, 2] |> Iter.flat_map(fn n -> [Iter.map([n], fn m -> m + 1)])
+    assert out |> Iter.flat_map(fn s -> s) |> Iter.to_list() == [2, 3]
+end

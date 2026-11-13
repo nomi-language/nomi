@@ -135,7 +135,7 @@ func leaves(fa *analysis.FileAnalysis, n ast.Node) (how string, ok bool) {
 }
 
 // ifRule is the hover of the `if` of an `if` with no final `else`: the
-// `if` and its type, and what it gives. ok is false for an `if` with an
+// `if` and what it does. ok is false for an `if` with an
 // `else`, which keeps its typed hover.
 func (k *keywordSite) ifRule() (context string, ok bool) {
 	var at *ast.If
@@ -173,23 +173,20 @@ func (k *keywordSite) ifRule() (context string, ok bool) {
 	if branch == "" {
 		branch = "…"
 	}
-	if ty := k.fa.ElselessIfs[head]; ty != nil {
-		k.form = "if … then " + branch + ": " + displayValueType(ty)
-		if len(links) > 1 {
-			k.text = "An `if` chain without a final `else` is a `Maybe`: `Some` of the value of the branch that runs, `None` when no condition holds."
-			return "maybe", true
-		}
-		some := "`Some` of the branch's value"
-		if branch != "…" {
-			some = "`Some(" + branch + ")`"
-		}
-		k.text = "An `if` without `else` is a `Maybe`: " + some + " when " + cond + ", `None` when it doesn't."
-		return "maybe", true
-	}
 	k.form = "if … then " + branch
 	how, left := leaves(k.fa, blockResult(at.Then))
 	if left {
 		k.text = "An `if` without `else` whose branch leaves (" + how + ") is a statement with no value: the code after it runs only when " + notCond + "."
+		return "statement", true
+	}
+	switch e := blockResult(at.Then).(type) {
+	case *ast.Assertion:
+		if !e.Check {
+			k.text = "An `if` without `else` whose branch ends in `" + assertionWord(e) + "` is a statement: it runs the branch when " + cond + " and has no value."
+			return "statement", true
+		}
+	case *ast.Dbg:
+		k.text = "An `if` without `else` whose branch ends in `dbg` is a statement: it runs the branch when " + cond + " and has no value."
 		return "statement", true
 	}
 	k.text = "An `if` without `else` whose branch is `Unit` is a statement: it runs the branch when " + cond + " and has no value."

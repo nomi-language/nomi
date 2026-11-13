@@ -183,6 +183,15 @@ func (g *gen) irLint(f *ir.Func) error {
 	return ir.Lint(f)
 }
 
+// irRequireLint lints f, a function the builder made for what, and panics
+// on a violation, for the reason irScalarLower does: a malformed graph is a
+// producer bug no user input reaches, and declining it would hide one.
+func (g *gen) irRequireLint(f *ir.Func, what string) {
+	if err := g.irLint(f); err != nil {
+		panic("irbuild: " + what + ": " + err.Error())
+	}
+}
+
 // irLintAdded is `ir.LintModuleAdded` over the gen's module, skipped as irLint is.
 func (g *gen) irLintAdded() error {
 	if g.skipLint {

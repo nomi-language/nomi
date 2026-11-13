@@ -168,11 +168,10 @@ end
 dbg line 24: Response.text(profile(http_testing.request(.Get, "/"))) = Ok("<main>\n  <h1>&lt;nobody&gt; <span class='badge'>3</span></h1>\n</main>")
 -->
 
-An `if` without `else` is a `Maybe`, and a slot shows a `Maybe`'s value or
-nothing, so `${if unread > 0 then Html"<b>${unread} new</b>"}` shows its part
+A slot shows a `Maybe`'s value or nothing, so `${if unread > 0 then Some(Html"<b>${unread} new</b>") else None}` shows its part
 only when the condition holds. Inside a quoted attribute value it adds its
-text or nothing, as in `class='tab ${if active then "active"}'`; an unquoted
-`class=${if active then "active"}` writes the attribute or leaves it out.
+text or nothing, as in `class='tab ${if active then Some("active") else None}'`; an unquoted
+`class=${if active then Some("active") else None}` writes the attribute or leaves it out.
 What a slot in an attribute, a URL or a
 `style` takes is in the spec's
 [HTML templates](/spec/typed-literals-and-keyword-declarations/#html-templates).

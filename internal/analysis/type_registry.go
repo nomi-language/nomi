@@ -62,6 +62,16 @@ func (r *TypeRegistry) Lookup(name string) Type {
 	return nil
 }
 
+// holds reports whether r itself registers name, built or lazy, without
+// asking its parents. A child registers a qualified name a parent holds
+// too when it shadows it: a block's `import std::xml as fmt` over the
+// file's `import std::csv as fmt` (blockImportTypes).
+func (r *TypeRegistry) holds(name string) bool {
+	_, built := r.types[name]
+	_, lazy := r.lazy[name]
+	return built || lazy
+}
+
 // Names are every type name the registry and its parents hold, and the
 // names their hints offer beside them (suggest).
 func (r *TypeRegistry) Names() []string {

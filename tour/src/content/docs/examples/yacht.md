@@ -55,11 +55,7 @@ end
 
 /// All the dice when three show one face and two another, or 0.
 fn full_house(dice: List<Int>) -> Int
-    if group_sizes(dice) == [2, 3] then
-        Iter.sum(dice)
-    else
-        0
-    end
+    if group_sizes(dice) == [2, 3] then Iter.sum(dice) else 0
 end
 
 /// Four times the face that at least four dice show, or 0.
@@ -73,11 +69,7 @@ end
 
 /// 30 when the dice are the five faces counting up `from`, or 0.
 fn straight(dice: List<Int>, from: Int) -> Int
-    if Iter.sort(dice) == Iter.to_list(from..from + 5) then
-        30
-    else
-        0
-    end
+    if Iter.sort(dice) == Iter.to_list(from..from + 5) then 30 else 0
 end
 
 /// 50 when all five dice show one face, or 0.

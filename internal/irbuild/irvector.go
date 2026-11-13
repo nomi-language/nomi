@@ -50,20 +50,15 @@ func (bl *irScalarBuilder) vectorMakeOf(t *ast.ListLit, elem kind) (ir.Temp, kin
 		want = parts[0]
 	}
 	values, elem, ok := bl.lowerSameKindItems(t, tagEmptyVector, t.Items, want, func(k kind) bool {
-		// A sequence is held as the value its temporary carries, as a
-		// list holds one.
-		return irScalarLeafKind(k) || bl.g.irStructuralValueKind(k) || irRetainedSeqKind(k) || irHeldValueKind(k) ||
-			// An interface's existential, held as the value it erases
-			// (each item enters it as a list's item does).
-			irExistentialKind(k)
+		// A Vector holds any value the domain does, as a List does: a
+		// sequence, a function, an interface's existential, a channel
+		// half, Unit.
+		return irCallOperandKind(k)
 	})
 	if !ok {
 		return no()
 	}
 	k := bl.g.vectorKindOf(elem)
-	if !irRetainedVectorKind(k) && bl.g.irValType(k) == nil {
-		return no()
-	}
 	n := ir.NewMakeVector(bl.g.irNodePos(t), bl.f.NewTemp(), values)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: k})
@@ -106,9 +101,9 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 	if !ok {
 		return nil
 	}
-	// A sequence element is held as a list holds one; these operations
-	// never read an element.
-	if !irScalarLeafKind(elem) && !bl.g.irStructuralValueKind(elem) && !irRetainedSeqKind(elem) && !irHeldValueKind(elem) && !irExistentialKind(elem) {
+	// These operations never read an element, so any element the domain
+	// holds is carried as it is.
+	if !irCallOperandKind(elem) {
 		return nil
 	}
 	for i, have := range args.kinds {
@@ -160,8 +155,8 @@ func (bl *irScalarBuilder) lowerSameKindItems(at ast.Node, of tag, items []ast.N
 			return nil, kindInvalid, false
 		}
 		for i, item := range items {
-			v, k, _, ok := bl.lowerWant(item, want)
-			if !ok || k != want {
+			v, _, _, ok := bl.lowerWant(item, want)
+			if !ok {
 				return nil, kindInvalid, false
 			}
 			values[i] = v
@@ -204,8 +199,8 @@ func (bl *irScalarBuilder) lowerSameKindItems(at ast.Node, of tag, items []ast.N
 		j++
 	}
 	for _, i := range deferred {
-		v, k, _, ok := bl.lowerTypedOperand(items[i], elem)
-		if !ok || k != elem {
+		v, _, _, ok := bl.lowerWant(items[i], elem)
+		if !ok {
 			return nil, kindInvalid, false
 		}
 		values[i] = v

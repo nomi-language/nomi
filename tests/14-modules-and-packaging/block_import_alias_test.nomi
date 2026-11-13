@@ -1,0 +1,26 @@
+// A block `import` may rebind a module alias the file binds: `codec` is
+// std::hex in the blocks that import it and std::base64 everywhere else.
+import std::base64 as codec
+
+fn hexed(s: String) -> String
+    import std::hex as codec
+
+    codec.encode(String.to_bytes(s))
+end
+
+test "a block import rebinds the file's module alias"
+    import std::hex as codec
+
+    assert codec.encode(String.to_bytes("hi")) == "6869"
+    assert codec.decode("66") == Ok(String.to_bytes("f"))
+    encode = codec.encode
+    assert encode(String.to_bytes("f")) == "66"
+    assert [String.to_bytes("f")] |> Iter.map(codec.encode) |> Iter.to_list() == ["66"]
+end
+
+test "the file's alias holds outside those blocks"
+    assert codec.encode(String.to_bytes("hi")) == "aGk="
+    assert hexed("hi") == "6869"
+    encode = codec.encode
+    assert encode(String.to_bytes("hi")) == "aGk="
+end

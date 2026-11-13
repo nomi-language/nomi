@@ -173,10 +173,10 @@ end
 fn add(graph: Graph, statement: Statement) -> Graph
     case statement
         .GraphAttributes(attributes) ->
-            {..graph, attrs: Map.merge(graph.attrs, attributes)}
+            {..graph, attrs: Map.merge(.., attributes)}
 
         .Node{name:, attributes:} ->
-            {..graph, nodes: with_attributes(graph.nodes, name, attributes)}
+            {..graph, nodes: with_attributes(.., name, attributes)}
 
         .Edges{names:, attributes:} ->
             nodes = Iter.reduce(names, graph.nodes, &with_attributes(&1, &2, {}))

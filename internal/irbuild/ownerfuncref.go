@@ -179,10 +179,7 @@ func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []k
 		dst = u.Dst()
 	}
 	child.b.SetTerm(ir.NewReturn(at, dst))
-	if err := bl.g.irLint(f); err != nil {
-		bl.g.dc.note("an owner function value that does not lint: " + err.Error())
-		return no()
-	}
+	bl.g.irRequireLint(f, "an owner function value")
 	n := ir.NewFuncValue(at, bl.f.NewTemp(), f)
 	bl.b.Append(n)
 	fk := funcKindIn(g, params, result)
@@ -203,7 +200,9 @@ func (g *gen) checkedValueKinds(ref ast.Node) ([]kind, kind, bool) {
 	line, col := calleeRefPos(ref)
 	sym := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
 	if sym == nil {
-		return nil, kindInvalid, false
+		// The checker records a reference for every name used as a value
+		// (analysis package doc, "Elaboration").
+		panic("irbuild: a function value with no reference record")
 	}
 	ft, _ := sym.CallType.(*analysis.FuncType)
 	if ft == nil {

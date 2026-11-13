@@ -20,14 +20,17 @@ func irRetainedMapKind(k kind) bool {
 // Hashable (recorded by irRecordKeyImpls), everything else structurally
 // (vm/keys.go). So a key may be a scalar leaf, Unit (one value, rt.HashUnit),
 // a Decimal (scale-insensitive: rt.EqDecimal and rt.HashDecimal), a tuple, a
-// list, or a retained struct or enum (a prelude Maybe among them).
+// list, a retained struct or enum (a prelude Maybe among them), a
+// Dynamic (by its contents: rt.DynamicEqual and rt.DynamicHash), or a
+// `Type<T>` witness (by the type it names: rt.TypeWitnessEqual and
+// rt.TypeWitnessHash).
 func irMapKeyKind(k kind) bool {
 	if irExistentialKind(k) {
 		// An interface value: hashed and compared by its run-time type,
 		// as `==` on two of them is (ir.ValIface).
 		return true
 	}
-	if k == kindUnit || isDecimalKind(k) || irScalarLeafKind(k) || irRetainedTupleKind(k) || irRetainedListKind(k) || irRetainedLeafKind(k) || irByteValueKind(k) {
+	if k == kindUnit || isDecimalKind(k) || irScalarLeafKind(k) || irRetainedTupleKind(k) || irRetainedListKind(k) || irRetainedLeafKind(k) || irByteValueKind(k) || irStdHandleKind(k) || irDynamicKind(k) || irTypeWitnessKind(k) {
 		return true
 	}
 	if elem, vector := vectorElem(k); vector && k != kindEmptyVector {
@@ -141,7 +144,11 @@ func irMapValueKind(k kind) bool {
 		irExistentialKind(k) ||
 		// Any value a key may be, a nested map among them.
 		(k != kindEmptyMap && k != kindEmptyList && irMapKeyKind(k)) ||
-		irHeldValueKind(k)
+		irHeldValueKind(k) ||
+		// Any other value the callable domain holds: a function-wrapping
+		// distinct, a record holding an Iter (`Map<String, {a: Iter<Int>}>`).
+		// A map only carries its values; what reads one checks its kind.
+		(!irEmptyCollectionKind(k) && k != kindEmptyList && irCallableValueKind(k))
 }
 
 // irHeldValueKind is a function value, an Iter, a map of such values, or a
@@ -426,15 +433,23 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 		// A key entering an interface-valued key position (`Map.get(m, p)`
 		// for a `Map<Show, Int>`): erased or boxed as an argument is.
 		v, got, ok := bl.coerceEmpty(t.Args[1], args.temps[1], args.kinds[1], key)
-		if !ok || got != key {
+		if !ok {
 			return nil
 		}
 		args.temps[1], args.kinds[1] = v, got
 	}
 	if method == "put" && args.kinds[2] != val && !(irExistentialKind(val) && bl.g.irErases(val, args.kinds[2])) {
 		// A value entering an interface's existential value is the value
-		// itself (`Map.put(m, "b", True)` for a `Map<String, Display>`).
-		return nil
+		// itself (`Map.put(m, "b", True)` for a `Map<String, Display>`);
+		// one holding it (`(Display, Int)`) enters as an argument does.
+		if !irHoldsExistential(val) {
+			return nil
+		}
+		v, got, ok := bl.coerceEmpty(t.Args[2], args.temps[2], args.kinds[2], val)
+		if !ok {
+			return nil
+		}
+		args.temps[2], args.kinds[2] = v, got
 	}
 	if method == "get" {
 		if _, anchored := bl.g.preludeNamed("Maybe"); !anchored {

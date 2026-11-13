@@ -348,7 +348,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			nomatch.Append(ir.NewNoMatch(at))
 			nomatch.SetTerm(ir.NewJump(at, cont.ID()))
 			if !bl.patternValueTest(extra.Destructure, v, k, cont, nomatch) {
-				return no("an Iter.loop parameter pattern outside the retained pattern tests: " + k.nomi())
+				return ir.NoTemp, kindInvalid, false, false
 			}
 			bl.b = cont
 			continue
@@ -404,7 +404,6 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 		bl.markStmt(s, ir.StmtStatement)
 		if guard, isIf := s.(*ast.If); isIf && loopGuardShape(bl.g, guard) {
 			if !bl.loopGuard(guard, lp) {
-				bl.g.dc.note("an Iter.loop guard outside `if c { break v | return v | continue }`")
 				return false
 			}
 			continue
@@ -444,7 +443,6 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 	case *ast.Break:
 		// `break v` ending the body: the loop's answer, on this iteration.
 		if !bl.loopBreakValue(f, lp) {
-			bl.g.dc.note("an Iter.loop final `break` without a value of the state type")
 			return false
 		}
 		bl.loopJump(bl.b, f, lp, lp.exit)
@@ -489,7 +487,6 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 		guard := *f
 		guard.Else = nil
 		if !bl.loopGuard(&guard, lp) {
-			bl.g.dc.note("an Iter.loop guard outside `if c { break v | return v | continue }`")
 			return false
 		}
 		switch e := f.Else.(type) {
@@ -518,12 +515,8 @@ func (bl *irScalarBuilder) loopTail(final ast.Node, lp *irLoopBuild, tail ir.Tem
 	}
 	// A region in the tail (`f(case c { 0 -> continue  _ -> 1 })`) joins
 	// before the writes; its arms that leave the iteration never reach them.
-	val, k, _, ok := bl.lower(final)
+	val, _, _, ok := bl.lowerWant(final, lp.k)
 	if !ok {
-		return false
-	}
-	if k != lp.k {
-		bl.g.dc.note("an Iter.loop tail that is not the state type")
 		return false
 	}
 	bl.loopCopy(final, tail, val)
@@ -656,7 +649,7 @@ func (bl *irScalarBuilder) loopGuard(t *ast.If, lp *irLoopBuild) bool {
 		}
 		target, lp.broke = lp.exit, true
 	case *ast.Return:
-		if !bl.loopValue(s.Value, lp.state, lp.k) {
+		if !bl.loopValue(s, s.Value, lp.state, lp.k) {
 			return false
 		}
 		target = lp.head
@@ -680,18 +673,28 @@ func (bl *irScalarBuilder) loopBreakValue(b *ast.Break, lp *irLoopBuild) bool {
 		bl.loopCopy(b, lp.answer, lp.state)
 		return true
 	}
-	return bl.loopValue(b.Value, lp.answer, lp.k)
+	return bl.loopValue(b, b.Value, lp.answer, lp.k)
 }
 
-// loopValue lowers a `break` or `return` value of the state type and writes it
-// into dst. The value may branch (`a and b`); the write is at its join, the
-// current block afterwards, and the caller jumps from there.
-func (bl *irScalarBuilder) loopValue(value ast.Node, dst ir.Temp, k kind) bool {
+// loopValue lowers the value of `break` or `return` exit, of the state type,
+// and writes it into dst. The value may branch (`a and b`); the write is at
+// its join, the current block afterwards, and the caller jumps from there.
+// A bare `return` is Unit, which the checker admits only where the state is
+// Unit ("return type mismatch: boundary returns Int, got Unit").
+func (bl *irScalarBuilder) loopValue(exit, value ast.Node, dst ir.Temp, k kind) bool {
 	if isNilNode(value) {
-		return false
+		if k != kindUnit {
+			panic("loopValue: a bare `return` in an Iter.loop whose state is " + k.nomi())
+		}
+		u := ir.NewUnit(bl.g.irNodePos(exit), bl.f.NewTemp())
+		bl.b.Append(u)
+		bl.loopCopy(exit, dst, u.Dst())
+		return true
 	}
-	v, vk, _, ok := bl.lower(value)
-	if !ok || vk != k {
+	// The value enters the state type (lowerWant): a concrete value where
+	// the state is an interface, an empty collection where it is typed.
+	v, _, _, ok := bl.lowerWant(value, k)
+	if !ok {
 		return false
 	}
 	bl.loopCopy(value, dst, v)

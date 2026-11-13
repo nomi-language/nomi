@@ -1,0 +1,2 @@
+go test fuzz v1
+string("interface Farewell\n    fn greet(value: self) -> String\nend\n\nstruct Person\n    name: String\nend\n\nimpl Farewell for Person // t10\n\n    fn greet(p: Person) -> String\n        \"Goodbye, \" + p.name\n    end\nend\n")

@@ -1,0 +1,24 @@
+// A block `import` binds its names for the rest of the block, over a
+// module declaration of the same name. Here `print` is the file's own
+// function everywhere but in the blocks that import std's.
+fn print(s: String) -> Int
+    String.length(s)
+end
+
+fn announce(s: String)
+    import std::io.print
+
+    print("announce: ${s}")
+end
+
+test "a test body's import shadows the file's function"
+    import std::io.print
+
+    assert print("hi") == Unit
+    ["a", "b"] |> Iter.each(print)
+end
+
+test "a function body's import shadows it there alone"
+    announce("ready")
+    assert print("four") == 4
+end

@@ -119,7 +119,7 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 		if defs := bl.g.instImpls[bl.g.implsKey(d)][recv]; len(defs) > 0 {
 			// `Holds.holds(b, 1)` where Box implements Holds at several
 			// type arguments: the call's own.
-			impl, _ = bl.pickInstImpl(t, defs, method, args)
+			impl, _ = bl.pickInstImpl(t, defs, method)
 		}
 	}
 	if impl == nil {

@@ -369,6 +369,11 @@ type fnSig struct {
 	// instance identifies the concrete function produced from a mono template.
 	// Its source declaration is shared by every specialization.
 	instance *monoInst
+	// ifaceFrame binds, for a call filling an interface function's
+	// parameter defaults, the interface's and the function's type
+	// parameters at the type arguments the checker instantiated the call
+	// at (ifaceDefaultFrameAt); nil when the call fills none.
+	ifaceFrame map[string]kind
 }
 
 // local is a Nomi name bound to a Go local.
@@ -385,10 +390,6 @@ type gen struct {
 	// stdUnlowered names, for a stdlib gen, each function whose body the IR
 	// did not lower, with the reason. See irnative.go.
 	stdUnlowered map[string]string
-	// splicedIfs maps the copy of a pipe's `if` stage that is lowered with
-	// the piped value as its condition (irpipe.go) to the stage's own node,
-	// which the checker's records name.
-	splicedIfs map[*ast.If]*ast.If
 	// irPrebuilding is set while a stdlib module's graphs are built ahead of
 	// its module walk; see irPrebuildStdBodies.
 	irPrebuilding bool
@@ -1517,8 +1518,34 @@ func (g *gen) lookup(name string) (local, bool) {
 // --- declarations ----------------------------------------------------------
 
 // signature resolves a function's declared types without emitting anything, so
-// a call can be checked against a callee declared later in the file.
+// a call can be checked against a callee declared later in the file. It is
+// the value domain's entry for a declared function: a parameter or result
+// kind outside irValueDomainKind (a bound-free generic's own type
+// parameters aside) leaves the signature unlowerable, so a call through it
+// never sees one (irSigDomainKind).
 func (g *gen) signature(fd *ast.FuncDef) *fnSig {
+	sig := g.declaredSignature(fd)
+	if sig.lowerable && !sig.inValueDomain() {
+		sig.lowerable = false
+	}
+	return sig
+}
+
+// inValueDomain reports whether every parameter and the result of sig is
+// in the value domain (irSigDomainKind). A kind no type gave (kindInvalid)
+// is the signature's own refusal, reported by name in funcDecl.
+func (sig *fnSig) inValueDomain() bool {
+	for _, k := range append([]kind{sig.result}, sig.params...) {
+		// kindInvalid: cascade — funcDecl rejects a kindless parameter or result by name; this check would echo it.
+		if k != kindInvalid && !irSigDomainKind(sig, k) {
+			return false
+		}
+	}
+	return true
+}
+
+// declaredSignature is signature before the value domain is held.
+func (g *gen) declaredSignature(fd *ast.FuncDef) *fnSig {
 	// A BOUNDED generic function has its own signature rule: each type
 	// parameter is an existential over its bound and each contributes a
 	// leading `*rt.TypeID`. dictSignature declines everything outside that,
@@ -1571,6 +1598,14 @@ func (g *gen) signature(fd *ast.FuncDef) *fnSig {
 		}
 	}
 	return sig
+}
+
+// irSigDomainKind reports whether k, a parameter or the result of sig, is in
+// the value domain (irValueDomainKind), or mentions a type parameter of a
+// bound-free generic declaration's own signature, the one place such a
+// kind is held.
+func irSigDomainKind(sig *fnSig, k kind) bool {
+	return irValueDomainKind(k) || sig.tps != nil && irMentionsTypeParam(k)
 }
 
 func (g *gen) funcDecl(fd *ast.FuncDef) {
@@ -1682,6 +1717,10 @@ func (g *gen) funcDecl(fd *ast.FuncDef) {
 		case sig.params[i] == kindInvalid:
 			g.rejectTypeAnnotation(p.TypeAnnotation, p.Name, fd)
 			ok = false
+		case !irSigDomainKind(sig, sig.params[i]):
+			// The value domain's entry for a signature (irValueDomainKind).
+			g.reject("parameter kind outside the value domain", p.Name+": "+sig.params[i].nomi(), fd)
+			ok = false
 		}
 		// p.Default is deliberately NOT checked here. A default is evaluated at
 		// the CALL, in the callee's own scope (see sugar.go), so a call that
@@ -1693,6 +1732,11 @@ func (g *gen) funcDecl(fd *ast.FuncDef) {
 	// kindInvalid: reports — rejectTypeAnnotation names the type's own gap.
 	if fd.ReturnTypeExpr != nil && sig.result == kindInvalid {
 		g.rejectTypeAnnotation(fd.ReturnTypeExpr, "", fd)
+		ok = false
+	}
+	// kindInvalid: cascade — the arm above rejected a kindless result by name; this check would echo it.
+	if sig.result != kindInvalid && !irSigDomainKind(sig, sig.result) {
+		g.reject("result kind outside the value domain", sig.result.nomi(), fd)
 		ok = false
 	}
 	if !ok {

@@ -475,6 +475,14 @@ func (g *gen) ifaceNamed(name string) (*ifaceDef, bool) {
 		}
 		return nil, false
 	}
+	if sym, inBlock := g.blockModuleSymbol(name); inBlock {
+		// `store.Store` through a qualifier a visible block's import binds:
+		// that file's interface, as blockImportedIface's bare name is.
+		if d := g.importedIfaceDef(sym); d != nil && d.stdOrigin == "" && !d.stdShared {
+			return d, true
+		}
+		return nil, false
+	}
 	if d, local := g.ifaces[name]; local {
 		return d, true
 	}

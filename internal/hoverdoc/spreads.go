@@ -89,16 +89,31 @@ func (s *shapeSearch) currentValue(n *ast.CurrentValue) {
 }
 
 // currentPositions names the field or key each `..` of the file belongs
-// to: "`street`" for a field, "the key `\"home\"`" for a map key.
+// to, through the path its update's base reads when that base is a name
+// or a field path: "`request.body`" for a field, "the key `"home"` of
+// `m`" for a map key, and the field alone ("`age`") under any other base.
 func (s *shapeSearch) currentPositions() map[*ast.CurrentValue]string {
 	if s.positions != nil {
 		return s.positions
 	}
 	s.positions = map[*ast.CurrentValue]string{}
-	field := func(lit *ast.StructLit) {
+	// paths holds the path each update's base reads, `request` or
+	// `h.owner`, for a base that is a name or a field path; a nested
+	// `{.., ...}` extends its parent's path by the field it fills.
+	paths := map[*ast.StructLit]string{}
+	field := func(lit *ast.StructLit, base string) {
 		for _, f := range lit.Fields {
+			at := f.Name
+			if base != "" {
+				at = base + "." + f.Name
+			}
+			if inner, ok := f.Value.(*ast.StructLit); ok && base != "" {
+				if cv, ok := inner.Spread.(*ast.CurrentValue); ok && !cv.Operand {
+					paths[inner] = at
+				}
+			}
 			for _, cv := range ast.CurrentValuesOf(f.Value) {
-				s.positions[cv] = "`" + f.Name + "`"
+				s.positions[cv] = "`" + at + "`"
 			}
 		}
 	}
@@ -107,19 +122,27 @@ func (s *shapeSearch) currentPositions() map[*ast.CurrentValue]string {
 			switch v := n.(type) {
 			case *ast.StructLit:
 				if v.Spread != nil {
-					field(v)
+					base, ok := paths[v]
+					if !ok {
+						base = valuePath(v.Spread)
+					}
+					field(v, base)
 				}
 			case *ast.Call:
 				if patch := ast.StructUpdatePatch(v); patch != nil {
-					field(patch)
+					field(patch, "")
 				}
 			case *ast.MapLit:
 				if len(v.Spreads) == 0 {
 					break
 				}
+				of := ""
+				if base := valuePath(v.Spreads[0].Head); base != "" {
+					of = " of `" + base + "`"
+				}
 				for _, e := range v.Entries[min(v.Spreads[0].At, len(v.Entries)):] {
 					for _, cv := range ast.CurrentValuesOf(e.Value) {
-						s.positions[cv] = "the key `" + format.RenderNode(e.Key) + "`"
+						s.positions[cv] = "the key `" + format.RenderNode(e.Key) + "`" + of
 					}
 				}
 			}
@@ -127,6 +150,20 @@ func (s *shapeSearch) currentPositions() map[*ast.CurrentValue]string {
 		})
 	}
 	return s.positions
+}
+
+// valuePath is n written as a path of names, `request` or `h.owner`, or
+// "" when n is anything else.
+func valuePath(n ast.Node) string {
+	switch v := n.(type) {
+	case *ast.Ident:
+		return v.Name
+	case *ast.FieldAccess:
+		if obj := valuePath(v.Object); obj != "" && v.Field != nil {
+			return obj + "." + v.Field.Name
+		}
+	}
+	return ""
 }
 
 // spreadText is how a hover names a spread: the spread as code, `..xs`,

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -34,16 +35,18 @@ const listHeader = `# Every place internal/irbuild can decline a body, with whet
 # Suites: expect (corpus, stdlib, tour and failure records), vmhost (generated
 # programs, known gaps, the ported reproducers of fixed gaps, lowered-program
 # runs, spec programs, and the two lowering fuzz targets' corpora), projectgen
-# (generated projects at about 1k and 10k lines), irbuild (the builder's own
-# tests). A site a suite executes need not decline there: a caller may try
-# another lowering when it fails.
+# (generated projects at about 1k and 10k lines), grid (every cell of the type
+# x operation grid), irbuild (the builder's own tests). A site a suite executes
+# need not decline there: a caller may try another lowering when it fails.
 #
 # Regenerate the list, keeping classes and notes:
 #   NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/declinesites -run TestDeclineSitesAreListed -count=1
 # Rerun the coverage too (about ten minutes; runs the whole irbuild package):
 #   NOMI_DECLINE_COVERAGE=1 go test ./internal/declinesites -run TestDeclineSitesAreListed -count=1 -timeout 0 -v
 # With NOMI_DECLINE_PROFILES=<dir> as well, the profiles stay in <dir>; with
-# it alone, the list is rewritten from the profiles already there.
+# it alone, the list is rewritten from the profiles already there. With
+# NOMI_DECLINE_SUITES=<name,...> instead, only those suites run, and the sites
+# they execute become a; every other line is kept as it is.
 `
 
 type entry struct {
@@ -118,6 +121,10 @@ func TestDeclineSitesAreListed(t *testing.T) {
 		t.Fatal(err)
 	}
 	coverage, profilesDir := os.Getenv("NOMI_DECLINE_COVERAGE") != "", os.Getenv("NOMI_DECLINE_PROFILES")
+	if only := os.Getenv("NOMI_DECLINE_SUITES"); only != "" {
+		promote(t, sites, entries, strings.Split(only, ","))
+		return
+	}
 	if os.Getenv("NOMI_REGENERATE_EXPECTATIONS") != "" || coverage || profilesDir != "" {
 		regenerate(t, sites, entries, coverage, profilesDir)
 		return
@@ -142,6 +149,86 @@ func TestDeclineSitesAreListed(t *testing.T) {
 			"then classify each new site (see the file's header).\nnot listed:\n  %s\ngone:\n  %s",
 			len(added), len(removed), strings.Join(added, "\n  "), strings.Join(removed, "\n  "))
 	}
+	counts := map[string]int{}
+	var unclassified []string
+	for k, e := range entries {
+		counts[e.class]++
+		if e.class == "?" || e.class == "-" {
+			unclassified = append(unclassified, k)
+		}
+	}
+	sort.Strings(unclassified)
+	if len(unclassified) > maxUnclassifiedSites {
+		t.Errorf("%d decline sites are unclassified (class ? or -), and at most %d may be: give each new site a class and a note "+
+			"(the file's header says which), or write the program that reaches it.\n  %s",
+			len(unclassified), maxUnclassifiedSites, strings.Join(unclassified, "\n  "))
+	}
+	if counts["d"] > maxUndecidedSites {
+		t.Errorf("%d decline sites are undecided (class d), and at most %d may be: decide the new ones "+
+			"(a checker error, an assertion, a fix, or a reproducer pinned as a gap) instead of adding to d", counts["d"], maxUndecidedSites)
+	}
+	if counts["d"] < maxUndecidedSites || len(unclassified) < maxUnclassifiedSites {
+		t.Logf("the ratchet can go down: set maxUndecidedSites to %d and maxUnclassifiedSites to %d", counts["d"], len(unclassified))
+	}
+}
+
+// The ratchet on undecided sites. An unclassified or undecided site is a
+// place irbuild may decline that nobody has shown unreachable, so their
+// count only goes down: lower these when sites are decided, and never raise
+// them. The aim is none of either, with every limit a checker error and
+// every impossible state an assertion.
+const (
+	maxUnclassifiedSites = 0
+	maxUndecidedSites    = 264
+)
+
+// promote runs only the suites named and marks the sites they execute a,
+// adding each suite to the site's reached column. Every other line is kept.
+func promote(t *testing.T, sites []Site, old map[string]entry, names []string) {
+	root, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	profiles, err := RunSuites(root, t.TempDir(), func(s string) { t.Log(s) }, names...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(profiles) != len(names) {
+		t.Fatalf("NOMI_DECLINE_SUITES names %v; the suites are %v", names, Suites)
+	}
+	reached, err := Reached(sites, profiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries := map[string]entry{}
+	moved := map[string]int{}
+	for _, s := range sites {
+		e, ok := old[s.Key()]
+		if !ok {
+			t.Fatalf("%s is not listed; regenerate the list first", s.Key())
+		}
+		if r := reached[s.Key()]; len(r) > 0 {
+			if e.class != "a" {
+				moved[e.class]++
+			}
+			var have []string
+			if e.reached != "-" && e.reached != "?" && e.reached != "" {
+				have = strings.Split(e.reached, ",")
+			}
+			for _, n := range r {
+				if !slices.Contains(have, n) {
+					have = append(have, n)
+				}
+			}
+			e.class, e.reached = "a", strings.Join(have, ",")
+			e.note = ""
+		}
+		entries[s.Key()] = e
+	}
+	if err := writeList(listPath, sites, entries); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("sites now reached, by their old class: %v", moved)
 }
 
 func regenerate(t *testing.T, sites []Site, old map[string]entry, coverage bool, profilesDir string) {

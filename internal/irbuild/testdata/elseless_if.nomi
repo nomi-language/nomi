@@ -1,30 +1,6 @@
 import
-    std::html.Html
+    std::assertions.AssertionFailure
     std::io
-end
-
-enum Shape
-    Circle Float
-    Square Float
-end
-
-/// An `if` with no `else` whose branch has a value is a Maybe: `Some` of the
-/// value when the condition holds, `None` when it does not.
-fn positive(n: Int) -> Maybe<String>
-    if n > 0 then "positive"
-end
-
-/// An `else if` chain with no final `else`: the branch that runs gives
-/// `Some`, and none running gives `None`. A branch that returns leaves the
-/// function and gives the chain nothing.
-fn bucket(n: Int) -> Maybe<String>
-    if n < 0 then
-        return None
-    else if n == 0 then
-        "zero"
-    else if n < 10 then
-        "small"
-    end
 end
 
 /// A branch that leaves keeps the `if` Unit, a statement.
@@ -34,71 +10,58 @@ fn checked(n: Int) -> Result<Int, String>
     Ok(n)
 end
 
-/// No flattening: a branch that is already a Maybe gives a Maybe of one.
-fn lookup(m: Map<String, Int>, k: String, on: Bool) -> Maybe<Maybe<Int>>
-    if on then Map.get(m, k)
-end
-
-fn nested(a: Bool, b: Bool) -> Maybe<Maybe<Int>>
-    if a then
-        if b then 1
+/// An `else if` chain with no final `else` is a statement too: a branch
+/// runs for its effect, and one that returns leaves the function.
+fn bucket(n: Int) -> String
+    if n < 0 then
+        return "negative"
+    else if n == 0 then
+        io.print("zero")
+    else if n < 10 then
+        io.print("small")
     end
+
+    "done"
 end
 
-/// The expected type reaches the branch: `.Circle` is the Maybe's Shape.
-fn shape(round: Bool) -> Maybe<Shape>
-    if round then .Circle(1.0)
-end
-
-/// A pattern `if` with no `else`.
-fn incremented(m: Maybe<Int>) -> Maybe<Int>
-    if Some(n) = m then n + 1
-end
-
-/// A generic body.
-fn only_if<T>(on: Bool, value: T) -> Maybe<T>
-    if on then value
-end
-
-/// A pipe's `if` stage.
-fn doubled(n: Int) -> Maybe<Int>
-    (n > 0) |> if then n * 2
+/// A pipe's `if` stage with no `else`.
+fn shout(n: Int)
+    (n > 0) |> if then io.print("positive")
 end
 
 fn main()
-    io.inspect(positive(3))
-    io.inspect(positive(-3))
+    io.inspect(checked(-1))
+    io.inspect(checked(1))
     io.inspect(bucket(-1))
     io.inspect(bucket(0))
     io.inspect(bucket(5))
     io.inspect(bucket(50))
-    io.inspect(checked(-1))
-    io.inspect(checked(1))
-    m = {"a" => 1}
-    io.inspect(lookup(m, "a", True))
-    io.inspect(lookup(m, "b", True))
-    io.inspect(lookup(m, "a", False))
-    io.inspect(nested(True, True))
-    io.inspect(nested(True, False))
-    io.inspect(nested(False, True))
-    io.inspect(shape(True))
-    io.inspect(shape(False))
-    io.inspect(incremented(Some(1)))
-    io.inspect(incremented(None))
-    io.inspect(only_if(True, "x"))
-    io.inspect(only_if(False, [1]))
-    io.inspect(doubled(4))
-    io.inspect(doubled(-4))
+    shout(1)
+    shout(-1)
+    [1, 2, 3] |> Iter.each(fn n -> if n > 1 then io.inspect(n))
 
-    bound = if m == {} then 1
-    io.inspect(bound)
-    annotated: Maybe<Int> = if True then 2
-    io.inspect(annotated)
-    picked = [1, 2, 3] |> Iter.map(fn n -> if n > 1 then n) |> Iter.to_list()
-    io.inspect(picked)
-    io.inspect(Maybe.with_default(if False then 3, 0))
+    io.inspect(in_range(4))
+    io.inspect(Result.is_err(in_range(40)))
+    noted(-1)
+    noted(1)
+end
 
-    io.print(Html.to_string(Html"<p>${if True then 4}</p>"))
-    io.print(Html.to_string(Html"<p>${if False then "hidden"}</p>"))
-    io.print(Html.to_string(Html"<p class=${if True then "on"}>x</p>"))
+/// A branch that ends in an `assert` or a `dbg` is a statement: the `if`
+/// is Unit and the arm drops the value.
+fn in_range(n: Int) -> Result<Int, AssertionFailure>
+    if n > 0 then
+        assert n < 10
+    end
+
+    if n > 5 then
+        refute n == 7
+    else if n < 0 then
+        assert n > -10
+    end
+
+    Ok(n)
+end
+
+fn noted(n: Int)
+    if n > 0 then dbg n
 end

@@ -34,12 +34,25 @@ import "github.com/nomi-language/nomi/internal/ast"
 // Identity goes where it is needed, keyed the same way the table it qualifies
 // is keyed, and nothing else changes shape. This is the sixth such index.
 //
+// # Where it is read
+//
+// The demand side reads it after the check (`unsuppliedRecordings`), and the
+// conformance questions the checker asks while checking read it too
+// (`suppliesReceiver`): the unifier's `interfaceImplemented`, through
+// `ImplTables.Receivers`, and `hasOwnImpl`. So `d: Display = Name("a")` for a
+// program's `type Name String` is a type mismatch even with std/xml, whose
+// own `Name` has `impl Display`, loaded.
+//
 // # Why an unknown origin ACCEPTS
 //
 // `OriginUnresolved` is the bottom of the identity lattice. A demand whose
 // receiver is a primitive, a type parameter, or a type this build could not
 // resolve carries no origin, and a build that never ran
-// `PopulateImplsByIdentity` has an empty index. Both answer "supplied", so
+// `PopulateImplsByIdentity` has an empty index. A receiver declared in a
+// file the index did not fold (a file checked on its own against an index
+// over the stdlib, a module a body's import loaded after the build;
+// Program.unindexedOrigins) is unknown too: the index holds none of that
+// file's impls. All three answer "supplied", so
 // every path that does not populate this index behaves exactly as it did
 // before the index existed. The check can only ever REJECT when the demand's
 // origin is known, the index covers the name, and no supplier matches.
@@ -233,6 +246,26 @@ func (idx *ProjectImplIndex) implSuppliedByIdentity(origin, typeName, iface stri
 		return false, false
 	}
 	return idx.ImplsByIdentity[ImplIdentityKey{Origin: origin, Type: typeName, Iface: iface}], true
+}
+
+// suppliesReceiver reports whether t, whose base name is name and which
+// some type of that name implements iface, implements it by its own
+// declaration. Where the index cannot judge the pair, or t has no origin,
+// the bare-name answer stands. So it stands for a t declared in a file the
+// index did not fold (unindexed, by Origin; Program.unindexedOrigins): the
+// index holds none of that file's impls, so finding no entry for t's
+// origin says nothing. A file checked on its own against an index over the
+// stdlib is such a file, and its `impl Equatable for Level` is not
+// std/log's.
+func (idx *ProjectImplIndex) suppliesReceiver(t Type, name, iface string, unindexed map[string]bool) bool {
+	origin, ok := nominalOrigin(t)
+	if !ok || unindexed[origin] {
+		return true
+	}
+	if supplied, known := idx.implSuppliedByIdentity(origin, name, iface); known {
+		return supplied
+	}
+	return true
 }
 
 // unsuppliedRecordings keeps only the demands whose OWN declaration has no

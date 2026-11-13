@@ -32,6 +32,15 @@ func irListTransportKind(k kind) bool {
 		(irRetainedLeafKind(k.comp.parts[0]) || irListTransportKind(k.comp.parts[0]) || irRetainedVectorKind(k.comp.parts[0]) || irRetainedSetKind(k.comp.parts[0]) || irRetainedRecordKind(k.comp.parts[0]) || isDecimalKind(k.comp.parts[0]) || irNominalElemKind(k.comp.parts[0]) || irPreludeElemKind(k.comp.parts[0]) || irLeafTupleKind(k.comp.parts[0]) || irRetainedTupleKind(k.comp.parts[0]) || irListMapElemKind(k.comp.parts[0]) || irDynamicKind(k.comp.parts[0]) || irByteValueKind(k.comp.parts[0]) || irStreamKind(k.comp.parts[0]) || irExistentialKind(k.comp.parts[0]) || irConcHandleKind(k.comp.parts[0]) || k.comp.parts[0] == kindUnit || (k.comp.parts[0].tag == tagFunc && irCallableValueKind(k.comp.parts[0])))
 }
 
+// irHeldListKind is a List the VM holds, whatever its element: a retained
+// or transport list, or a List of any value the callable domain holds
+// (irRetainedValueKind's List arm), such as a `List<Iter<Int>>`. A stage
+// that builds a list from elements it only moves (a chunk, a flattened
+// list) asks this; Debug, equality and patterns keep their own checks.
+func irHeldListKind(k kind) bool {
+	return k.tag == tagList && irRetainedValueKind(k)
+}
+
 // irByteElemKind is std's Byte as a list element (`Bytes.to_list`, a list
 // literal of bytes): a word-bank leaf, compared structurally in a list as
 // rt.Equal compares it.
@@ -194,8 +203,8 @@ func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.No
 		elem = bl.g.elementCandidate(typed)
 	}
 	for _, i := range deferred {
-		v, k, _, ok := bl.lowerTypedOperand(items[i], elem)
-		if !ok || k != elem {
+		v, k, _, ok := bl.lowerWant(items[i], elem)
+		if !ok {
 			return no()
 		}
 		values[i], kinds[i] = v, k
@@ -430,8 +439,8 @@ func (bl *irScalarBuilder) literalItemsCoerced(at ast.Node, of tag, j int, items
 	want := parts[j]
 	coerced := make([]ir.Temp, len(values))
 	for i := range values {
-		v, k, ok := bl.coerceEmpty(items[i], values[i], kinds[i], want)
-		if !ok || k != want {
+		v, _, ok := bl.coerceEmpty(items[i], values[i], kinds[i], want)
+		if !ok {
 			return kindInvalid, false
 		}
 		coerced[i] = v
@@ -487,6 +496,8 @@ func (bl *irScalarBuilder) widenEmbedded(items []ast.Node, values []ir.Temp, kin
 // coerceEmpty preserves an empty collection's VM value while Go discharges
 // its element types through the native coercion routine. A value of an
 // embedded type widens into its retained `embeds` variant, as coerce does.
+//
+// When it answers ok, the kind it answers is want: a caller tests ok alone.
 func (bl *irScalarBuilder) coerceEmpty(at ast.Node, v ir.Temp, have, want kind) (ir.Temp, kind, bool) {
 	if have == want {
 		return v, have, true
@@ -606,6 +617,10 @@ func (g *gen) emptyRetypes(have, want kind) bool {
 	return true
 }
 
+// lowerWant lowers at as a value of kind want, coercing what it lowers to
+// (coerceEmpty) when that differs. When ok, the kind is want: every route
+// returns either a lowering of kind want or one coerceEmpty turned into it,
+// so a caller compares nothing.
 func (bl *irScalarBuilder) lowerWant(at ast.Node, want kind) (ir.Temp, kind, bool, bool) {
 	v, k, mobile, ok := bl.lowerTypedOperand(at, want)
 	if !ok || k == want {

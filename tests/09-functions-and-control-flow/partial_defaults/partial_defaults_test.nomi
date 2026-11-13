@@ -1,0 +1,89 @@
+// A partial capture that leaves a computed default unmentioned before an
+// open slot whose default is computed too. A call of the partial evaluates
+// each default it leaves out once, in the callee's order, as a call of the
+// callee leaving the same arguments out does: `base` prints once per
+// default that runs.
+import
+    std::io
+    spans
+end
+
+fn base() -> Int
+    io.print("base")
+    10
+end
+
+fn span(a: Int, b: Int = base() + 1, c: Int = base() * 2) -> Int
+    a + b + c
+end
+
+fn chain(a: Int, b: Int = base() + a, c: Int = b * 2) -> Int
+    a + b + c
+end
+
+test "a function of this file"
+    g = &span(&1, c: &2)
+    given = io.capture("", fn -> g(1, 5))
+    assert given.value == 17
+    assert given.output == "base\n"
+    left_out = io.capture("", fn -> g(1))
+    assert left_out.value == 32
+    assert left_out.output == "base\nbase\n"
+    named = io.capture("", fn -> g(c: 7, 1))
+    assert named.value == 19
+    assert named.output == "base\n"
+end
+
+test "a later default reads the earlier one"
+    h = &chain(&1, c: &2)
+    left_out = io.capture("", fn -> h(1))
+    assert left_out.value == 34
+    assert left_out.output == "base\n"
+    given = io.capture("", fn -> h(1, 3))
+    assert given.value == 15
+    assert given.output == "base\n"
+end
+
+test "a local function"
+    fn local(a: Int, b: Int = base() + 1, c: Int = base() * 2) -> Int
+        a + b + c
+    end
+
+    v = &local(&1, c: &2)
+    left_out = io.capture("", fn -> v(1))
+    assert left_out.value == 32
+    assert left_out.output == "base\nbase\n"
+    given = io.capture("", fn -> v(1, 5))
+    assert given.value == 17
+    assert given.output == "base\n"
+end
+
+test "another file's function"
+    g = &spans.span(&1, c: &2)
+    left_out = io.capture("", fn -> g(1))
+    assert left_out.value == 32
+    assert left_out.output == "base\nbase\n"
+    given = io.capture("", fn -> g(1, 5))
+    assert given.value == 17
+    assert given.output == "base\n"
+end
+
+test "a partial over the partial, and one a closure calls"
+    g = &span(&1, c: &2)
+    j = &g(&1, c: &2)
+    left_out = io.capture("", fn -> j(1))
+    assert left_out.value == 32
+    assert left_out.output == "base\nbase\n"
+    k = fn -> g(2)
+    run = io.capture("", k)
+    assert run.value == 33
+    assert run.output == "base\nbase\n"
+
+    m = io.capture("", fn ->
+        inner = &g(&1, c: &2)
+        inner(3)
+    end)
+
+    assert m.value == 34
+    assert m.output == "base\nbase\n"
+end

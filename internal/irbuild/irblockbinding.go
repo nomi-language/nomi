@@ -89,10 +89,6 @@ func (bl *irScalarBuilder) blockBinding(block *ast.Block, want kind) (kind, bool
 	default:
 		var val ir.Temp
 		val, k, _, ok = bl.lowerWant(tail, want)
-		if ok && k != want {
-			bl.g.dc.note("a block's value is not the binding's kind: " + k.nomi() + " vs " + want.nomi())
-			ok = false
-		}
 		if ok {
 			bl.resultCopy(tail, val)
 		}

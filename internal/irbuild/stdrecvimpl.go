@@ -321,30 +321,29 @@ func (g *gen) stdRecvCandidates(k kind, method, iface string, item *ast.FuncDef)
 	return out
 }
 
-// stdRecvPick is the call of the one candidate whose function takes the
-// call's operands, and among several, whose result is the checked one.
+// stdRecvPick is the call of the candidate the call takes: the only one,
+// or among impls of one generic interface at several type arguments, the
+// one at the instance the call goes through (callInterfaceArgs).
 func (bl *irScalarBuilder) stdRecvPick(t *ast.Call, args irQualArgs, cands []stdRecvCand, method string) *irQualPlan {
-	var fits []*irQualPlan
-	for _, c := range cands {
-		if p := bl.stdRecvItemPlan(t, args, c.g, c.d, c.d.ifaceName+"."+method, method); p != nil {
-			fits = append(fits, p)
+	if len(cands) > 1 {
+		want, ok := bl.g.callInterfaceArgs(t)
+		if !ok {
+			return nil
 		}
-	}
-	if len(fits) > 1 {
-		want := bl.g.solvedCallReturn(t)
-		var byResult []*irQualPlan
-		for _, p := range fits {
-			// kindInvalid: lookup — no solved result leaves the choice open, and the call declines.
-			if want != kindInvalid && p.result == want {
-				byResult = append(byResult, p)
+		var at []stdRecvCand
+		for _, c := range cands {
+			mine, ok := bl.g.importKinds(c.d.instArgs)
+			if ok && c.d.instArgs != nil && sameKinds(mine, want) {
+				at = append(at, c)
 			}
 		}
-		fits = byResult
+		cands = at
 	}
-	if len(fits) != 1 {
+	if len(cands) != 1 {
 		return nil
 	}
-	return fits[0]
+	c := cands[0]
+	return bl.stdRecvItemPlan(t, args, c.g, c.d, c.d.ifaceName+"."+method, method)
 }
 
 // implBlockHolds reports whether fd is one of ib's functions.

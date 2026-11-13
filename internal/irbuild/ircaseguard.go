@@ -26,9 +26,9 @@ func (bl *irScalarBuilder) caseArmTest(t ast.Node, br *ast.CaseBranch, adHoc boo
 	}
 	guarded := br.Guard != nil
 	_, wildcard := br.Pattern.(*ast.WildcardPattern)
-	wildcard = wildcard || (!adHoc && irUnitPattern(br.Pattern, sk))
+	wildcard = wildcard || (!adHoc && irSingletonPattern(br.Pattern, sk))
 	ident, _ := br.Pattern.(*ast.IdentPattern)
-	if adHoc || !irRetainedValueKind(sk) {
+	if adHoc {
 		ident = nil
 	}
 	tupleFallback := !adHoc && tupleCaseIrrefutable(br.Pattern, sk)
@@ -59,7 +59,7 @@ func (bl *irScalarBuilder) caseArmTest(t ast.Node, br *ast.CaseBranch, adHoc boo
 		if adHoc {
 			bl.g.dc.atNode(br.Pattern)
 		} else {
-			bl.g.dc.atPattern(br.Pattern, "a `case` pattern outside the retained tests")
+			bl.g.dc.patternFailed(br.Pattern)
 		}
 		return nil, nil, false
 	}
@@ -83,7 +83,8 @@ func (bl *irScalarBuilder) caseArmTest(t ast.Node, br *ast.CaseBranch, adHoc boo
 
 // casePatternTest tests one refutable pattern against the subject, branching
 // to target on success (with its names bound on that path) and to next on
-// failure.
+// failure. A test that fails names its own reason; caseArmTest places the
+// decline at the pattern.
 func (bl *irScalarBuilder) casePatternTest(br *ast.CaseBranch, adHoc bool, subj ir.Temp, sk kind, target, next *ir.Block) bool {
 	if adHoc {
 		cond, ck, _, ok := bl.lower(br.Pattern)
@@ -98,56 +99,24 @@ func (bl *irScalarBuilder) casePatternTest(br *ast.CaseBranch, adHoc bool, subj 
 		return bl.orPatternTest(or, subj, sk, target, next)
 	}
 	if cp, isCodepoint := br.Pattern.(*ast.CodepointLit); isCodepoint {
-		if !bl.codepointCaseTest(cp, subj, sk, target, next) {
-			bl.g.dc.note("a codepoint literal pattern over a subject that is not a Codepoint")
-			return false
-		}
-		return true
+		return bl.codepointCaseTest(cp, subj, sk, target, next)
 	}
 	if _, _, prefix := strPrefixPattern(br.Pattern); prefix {
-		if !bl.strPrefixTest(br.Pattern, subj, sk, target, next) {
-			bl.g.dc.note("a string prefix pattern over a subject that is not a String: " + sk.nomi())
-			return false
-		}
-		return true
+		return bl.strPrefixTest(br.Pattern, subj, sk, target, next)
 	}
 	switch {
 	case irVectorCaseKind(sk):
-		if !bl.vectorCaseTest(br.Pattern, subj, sk, target, next) {
-			bl.g.dc.note("a vector case pattern outside the retained element tests")
-			return false
-		}
-		return true
+		return bl.vectorCaseTest(br.Pattern, subj, sk, target, next)
 	case irSetCaseKind(sk):
-		if !bl.setCaseTest(br.Pattern, subj, sk, target, next) {
-			bl.g.dc.note("a set case pattern outside the retained membership tests")
-			return false
-		}
-		return true
+		return bl.setCaseTest(br.Pattern, subj, sk, target, next)
 	case irCaseListKind(sk):
-		if !bl.listCaseTest(br.Pattern, subj, sk, target, next) {
-			bl.g.dc.note("a list case pattern outside flat bindings and wildcards")
-			return false
-		}
-		return true
+		return bl.listCaseTest(br.Pattern, subj, sk, target, next)
 	case irNominalCaseKind(sk):
-		if !bl.nominalCaseTest(br.Pattern, subj, sk, target, next) {
-			bl.g.dc.note("a struct or distinct case pattern outside retained field and payload patterns")
-			return false
-		}
-		return true
+		return bl.nominalCaseTest(br.Pattern, subj, sk, target, next)
 	case sk.tag == tagMap && irRetainedMapKind(sk):
-		if !bl.mapCaseTest(br.Pattern, subj, sk, target, next) {
-			bl.g.dc.note("a map case pattern outside retained keys and value patterns")
-			return false
-		}
-		return true
+		return bl.mapCaseTest(br.Pattern, subj, sk, target, next)
 	case sk == kindBool || (sk.tag == tagNamed && irRetainedEnumKind(sk.def)):
-		if !bl.enumCaseTest(br.Pattern, subj, sk, target, next) {
-			bl.g.dc.note("a `case` enum pattern outside retained bare/positional payload tests")
-			return false
-		}
-		return true
+		return bl.enumCaseTest(br.Pattern, subj, sk, target, next)
 	case irRetainedTupleKind(sk):
 		return bl.tupleCaseTest(br.Pattern, subj, sk, target, next)
 	}

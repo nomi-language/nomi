@@ -416,15 +416,8 @@ fn verify_hook(verify: Maybe<(ConnectionState) -> Result<Unit, String>>) -> (
         Some(check) ->
             fn parts ->
                 case check(ConnectionState.of_parts(parts))
-                    Ok(_) ->
-                        ""
-
-                    Err(reason) ->
-                        if reason == "" then
-                            "the connection was refused"
-                        else
-                            reason
-                        end
+                    Ok(_) -> ""
+                    Err(reason) -> if reason == "" then "the connection was refused" else reason
                 end
             end
 

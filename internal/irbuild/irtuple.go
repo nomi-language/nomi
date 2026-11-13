@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"strconv"
+
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -15,6 +17,18 @@ func irRetainedTupleKind(k kind) bool {
 		}
 	}
 	return true
+}
+
+// irLoweredTupleRetained panics unless k, a tuple the caller holds, is
+// retained. A tuple in the callable domain always is: irCallableValueKind
+// admits a tuple only through irRetainedValueKind, and of that predicate's
+// disjuncts only irRetainedTupleKind admits tagTuple, so a lowered tuple, a
+// held List's or Vector's tuple element (whose element is callable or Unit)
+// and a retained tuple's tuple part (irCompositePartKind) all are.
+func irLoweredTupleRetained(k kind, where string) {
+	if !irRetainedTupleKind(k) {
+		panic("irbuild: " + where + " over the tuple " + k.nomi() + ", which a lowered value, a held element or a retained tuple's part cannot be")
+	}
 }
 
 // irCompositePartKind is a part a tuple or an anonymous record holds: a
@@ -99,7 +113,10 @@ func (bl *irScalarBuilder) tupleItem(at ast.Node, subj ir.Temp, k kind, index in
 		k = k.def.inner
 	}
 	if !irRetainedTupleKind(k) || index < 0 || index >= len(k.comp.parts) {
-		return ir.NoTemp, kindInvalid, false
+		// Every caller reads an ordinal the checker typed as a tuple's
+		// item, off a lowered value: a tuple in the domain is a retained
+		// one, and the checker rejects an ordinal past its arity.
+		panic("tupleItem: item " + strconv.Itoa(index) + " of " + k.nomi() + ", which is no retained tuple of that arity")
 	}
 	part := k.comp.parts[index]
 	return bl.tupleProjection(at, subj, index, part), part, true

@@ -121,8 +121,8 @@ end
 
 fn add(found: Territories, territory: Territory) -> Territories
     case territory.owner
-        .Black -> {..found, black: Set.union(found.black, territory.points)}
-        .White -> {..found, white: Set.union(found.white, territory.points)}
-        .Neither -> {..found, neither: Set.union(found.neither, territory.points)}
+        .Black -> {..found, black: Set.union(.., territory.points)}
+        .White -> {..found, white: Set.union(.., territory.points)}
+        .Neither -> {..found, neither: Set.union(.., territory.points)}
     end
 end

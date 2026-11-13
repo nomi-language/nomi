@@ -41,7 +41,7 @@ end
 /// `tree`, whose old parent is `above` re-hung as a tree (none at the old
 /// root), rerooted at the node labelled `label`.
 fn reroot(tree: Tree, label: String, above: List<Tree>) -> Maybe<Tree>
-    if tree.label == label then return Some({..tree, children: [..tree.children, ..above]})
+    if tree.label == label then return Some({..tree, children: [.., ..above]})
 
     Iter.find_map(tree.children, fn child ->
         siblings =
@@ -67,7 +67,7 @@ import pov.Tree
 /// `tree` with every node's children in label order. The canonical data
 /// leaves the order of children open, so the tests compare trees this way.
 fn in_label_order(tree: Tree) -> Tree
-    {..tree, children: tree.children |> Iter.map(in_label_order) |> Iter.sort_by(.label)}
+    {..tree, children: .. |> Iter.map(in_label_order) |> Iter.sort_by(.label)}
 end
 
 once singleton = Tree{label: "x"}
@@ -305,7 +305,7 @@ test result: ok. 15 passed, 0 failed
 
 - `Tree` is a struct of a `String` label and a `List<Tree>` of children, which default to none, so a leaf is `{label: "x"}` and the tests write each canonical tree as nested literals.
 - `Tree.from_pov` is one recursion, `reroot`, that carries the old parent re-hung as a tree: at each node it tries every child, handing it the node without that child and with the node's own old parent added as a child. At the target the carried tree becomes the last child. Nothing is changed in place; each attempt builds its own nodes, and the attempts that do not reach the target are dropped.
-- The carried parent is a `List<Tree>` of none or one rather than a `Maybe<Tree>`, so it joins the children with a spread, `[..tree.children, ..above]`, and needs no case at the old root.
+- The carried parent is a `List<Tree>` of none or one rather than a `Maybe<Tree>`, so it joins the children with a spread, `[.., ..above]`, and needs no case at the old root.
 - A missing label is `None`, from `from_pov` and `path_to` alike. The canonical data's `null` names no error to report, and both lookups are of data the caller passes in.
 - `path_to` reroots at `from` and reads the labels from the new root down to `to` with `labels_to`, so the path through the old root comes for free. A missing `from` ends it at the reroot's `?`.
 - Each recursion takes the first child that answers with `Iter.find_map`, which stops at that child.

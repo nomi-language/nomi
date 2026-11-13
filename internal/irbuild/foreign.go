@@ -501,6 +501,15 @@ func (g *gen) namedType(name string) (*typeDef, bool) {
 	if d, isImported := g.blockImportedNamed(name); isImported {
 		return d, true
 	}
+	// `fmt.WriteOptions` where a visible block's `import std::xml as fmt`
+	// shadows the file's `import std::csv as fmt`: the block's file answers,
+	// never the dotted names g.types caches for the file's binding nor the
+	// std arms below, which read the file's. A qualifier only blocks bind
+	// reaches those arms, as before.
+	if sym, shadows := g.blockModuleSymbol(name); shadows {
+		d := g.importedTypeDef(sym)
+		return d, d != nil
+	}
 	if d, local := g.types[name]; local {
 		return d, true
 	}
@@ -779,11 +788,13 @@ func (g *gen) importKind(k kind) (kind, bool) {
 			}
 			parts = append(parts, ip)
 		}
+		// anonStructKind is the only constructor of a record kind, so k has
+		// one name per part and at least one part, and every imported part
+		// is a kind: the record interns.
 		rk := g.anonStructKind(k.comp.names, parts)
-		// kindInvalid: reports — sets importWhy, which the caller rejects under.
+		// kindInvalid: sentinel — the invariant above, which no checked program breaks.
 		if rk == kindInvalid {
-			g.importWhy = "unlowered type"
-			return kindInvalid, false
+			panic("irbuild: importKind could not intern the record " + k.nomi() + " from its imported parts")
 		}
 		return rk, true
 	case tagIface:

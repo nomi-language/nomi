@@ -159,10 +159,13 @@ func (g *gen) endExpand(d *typeDef) { delete(g.expanding, d) }
 // bucket nobody can search. TestMapKeyOpsAgreeOnTheirDomain holds the two in
 // step over the shapes its table lists.
 func (g *gen) valueHashes(k kind) bool {
-	if isDecimalKind(k) || isStdHostPrim(k, analysis.TypeByte) || isStdHostPrim(k, analysis.TypeBytes) {
+	if isDecimalKind(k) || isStdHostPrim(k, analysis.TypeByte) || isStdHostPrim(k, analysis.TypeBytes) || irStdHandleKind(k) || irDynamicKind(k) || irTypeWitnessKind(k) {
 		// A Decimal's, a Byte's and a Bytes' kinds are `tagNamed` over an
 		// rt-opaque def, which namedHashes declines; rt.Hash has a case for
-		// each (rt.HashDecimal, rt.HashByte, rt.HashBytes).
+		// each (rt.HashDecimal, rt.HashByte, rt.HashBytes), and hashes a std
+		// handle (a Regex) by its key (rt.HostKeyed), a Dynamic by its
+		// contents (rt.DynamicHash), and a witness by the type it names
+		// (rt.TypeWitnessHash).
 		return true
 	}
 	switch k.tag {
@@ -249,9 +252,11 @@ func (g *gen) namedHashes(k kind) bool {
 // recursive and never dispatching to an impl. See the file comment for why it
 // never dispatches.
 func (g *gen) valueEquates(k kind) bool {
-	if isDecimalKind(k) || isStdHostPrim(k, analysis.TypeByte) || isStdHostPrim(k, analysis.TypeBytes) {
+	if isDecimalKind(k) || isStdHostPrim(k, analysis.TypeByte) || isStdHostPrim(k, analysis.TypeBytes) || irStdHandleKind(k) || irDynamicKind(k) || irTypeWitnessKind(k) {
 		// rt.EqDecimal compares `1.50d == 1.5d` as Nomi does; Byte and Bytes
-		// compare their octets. The pair moves with valueHashes.
+		// compare their octets, a std handle its key, a Dynamic its
+		// contents (rt.DynamicEqual), and a witness the type it names
+		// (rt.TypeWitnessEqual). The pair moves with valueHashes.
 		return true
 	}
 	switch k.tag {

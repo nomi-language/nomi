@@ -47,11 +47,7 @@ end
 fn floor_divide(x: Int, y: Int) -> Int
     q = x / y
 
-    if x % y != 0 and (x < 0) != (y < 0) then
-        q - 1
-    else
-        q
-    end
+    if x % y != 0 and (x < 0) != (y < 0) then q - 1 else q
 end
 
 test "modulo is the dividend less the divisor times the floored quotient"

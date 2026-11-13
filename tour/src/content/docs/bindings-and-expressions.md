@@ -447,10 +447,10 @@ dbg line 22: range = "medium"
 - `if` takes a `Bool` condition. With more after `then` on its line it is
   one line, as `size` is. A `then` that ends its line takes the lines below,
   up to `else` or `end`, as a function's body does.
-- An `if` without `else` gives a `Maybe`: `if x > 50 then "big"` is
-  `Some("big")` when the condition holds and `None` when it does not. When
-  its branch is `Unit`, such as a print, or leaves with `return`, the `if`
-  is a statement with no value.
+- An `if` without `else` is a statement: its branch is `Unit`, such as a
+  print, or leaves with `return`. A branch with a value needs an `else`,
+  and a value that may be absent is a `Maybe` with `None` as its `else`:
+  `if x > 50 then Some("big") else None`.
 - `case x` ... `end` compares `x` against each pattern in turn and uses the
   first arm that matches. `_` matches anything. An arm whose `->` ends its
   line takes the lines below as its body, up to the next arm.

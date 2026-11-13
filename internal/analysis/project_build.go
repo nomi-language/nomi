@@ -1367,6 +1367,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		ContextType:         contextType,
 		StdlibModuleScopes:  stdlibScopes,
 		unindexedImpls:      unionImpls(unindexed),
+		unindexedOrigins:    originsOf(unindexed),
 		Errors:              programErrs,
 		programErrors:       programErrors,
 		results:             newProgramResults(),

@@ -121,16 +121,21 @@ func TestElaborationGate(t *testing.T) {
 // gatedImplicit are the implicit operations the checker records, which
 // TestElaborationGate holds to zero: a call leaving defaulted parameters
 // out (CallDefaults), an interpolation hole (HoleDisplays), an operator
-// (Operators), a value entering an interface (Coercions) and a source
-// entering an `Iter<T>` (IterViews).
+// (Operators), a value entering an interface (Coercions), a source
+// entering an `Iter<T>` (IterViews), an impl block of a generic
+// interface whose header writes no type arguments (ImplTypeArgSets) and a
+// call of an interface function dispatched where it runs
+// (Symbol.CallInterface).
 var gatedImplicit = map[string]bool{
-	analysis.ElabDefaultsUnrecorded: true,
-	analysis.ElabDisplayUnrecorded:  true,
-	analysis.ElabOperatorNominal:    true,
-	analysis.ElabOperatorStructural: true,
-	analysis.ElabOperatorTypeParam:  true,
-	analysis.ElabBoxingUnrecorded:   true,
-	analysis.ElabIterViewUnrecorded: true,
+	analysis.ElabDefaultsUnrecorded:      true,
+	analysis.ElabDisplayUnrecorded:       true,
+	analysis.ElabOperatorNominal:         true,
+	analysis.ElabOperatorStructural:      true,
+	analysis.ElabOperatorTypeParam:       true,
+	analysis.ElabBoxingUnrecorded:        true,
+	analysis.ElabIterViewUnrecorded:      true,
+	analysis.ElabImplArgsUnrecorded:      true,
+	analysis.ElabCallInterfaceUnrecorded: true,
 }
 
 // elabRepositoryGroups is every group of programs this repository holds,

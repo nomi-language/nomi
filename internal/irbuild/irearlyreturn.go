@@ -69,27 +69,62 @@ func (bl *irScalarBuilder) explicitReturn(ret *ast.Return) (kind, bool) {
 		bl.g.dc.note("a `return` in an Iter.loop callback that is not a guard or an arm")
 		return kindInvalid, false
 	}
-	val, k, ok := ir.NoTemp, kindUnit, true
+	val, k := ir.NoTemp, kindUnit
 	if !isNilNode(ret.Value) {
+		var ok bool
 		// kindInvalid: sentinel — the first lambda return establishes its result.
 		if bl.returnKind == kindInvalid {
 			val, k, _, ok = bl.lower(ret.Value)
 		} else {
 			val, k, _, ok = bl.lowerWant(ret.Value, bl.returnKind)
 		}
+		if !ok {
+			return kindInvalid, false
+		}
+		if k == kindNever {
+			// `return todo`: the trap runs and nothing returns, so the
+			// activation's result is the other exits'. The path ends where
+			// the trap does, as a binding else's trap path does.
+			bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(ret), bl.b.ID()))
+			return kindDiverged, true
+		}
 	}
-	if ok && bl.inferReturn != nil {
-		bl.returnKind, ok = bl.inferReturn.settle(k)
-	}
-	if !ok || k != bl.returnKind {
-		return kindInvalid, false
-	}
+	bl.settleReturn(k, "return")
 	r := ir.NewReturnUnit(bl.g.irNodePos(ret))
 	if !isNilNode(ret.Value) {
 		r = ir.NewReturn(bl.g.irNodePos(ret), val)
 	}
 	bl.b.SetTerm(r)
 	return k, true
+}
+
+// settleReturn settles an exit's kind k against the activation's result.
+// It always agrees, so a disagreement panics:
+//
+//   - bl.returnKind and the inference's settled kind are the same once
+//     either is set: the builder sets returnKind only where it is built
+//     (a declared result, a fold callback's accumulator, a lambda's
+//     expected result) and here, from settle.
+//   - A value is lowered at returnKind when that is set (lowerWant, whose
+//     kind is then returnKind), and otherwise settles the unset result. An
+//     Infallible value (`return todo`) settles nothing: its trap ends the
+//     path before it returns, so its callers end the block there instead.
+//   - A bare `return` is Unit. Where the result is set and not Unit, the
+//     checker rejects it ("return type mismatch: boundary returns Int, got
+//     Unit"): the kinds the builder settled are projections of the
+//     checker's boundary type, so a Unit boundary settles only Unit.
+//   - A builder with neither a result nor an inference never reaches an
+//     exit: guardShape and tailArm refuse that combination, a lambda's
+//     supplier (the only lambda with neither) lowers a parameter default,
+//     where the checker rejects `return` and `break`, and every other
+//     builder is built with its result kind.
+func (bl *irScalarBuilder) settleReturn(k kind, exit string) {
+	if bl.inferReturn != nil {
+		bl.returnKind, _ = bl.inferReturn.settle(k)
+	}
+	if k != bl.returnKind {
+		panic("irbuild: a `" + exit + "` of kind " + k.nomi() + " in an activation whose result is " + bl.returnKind.nomi())
+	}
 }
 
 // irCtlForm is the signalling convention a callback is lowered under, which
@@ -134,12 +169,16 @@ func (bl *irScalarBuilder) ctlReturn(n ast.Node) bool {
 		} else {
 			val, k, _, ok = bl.lowerWant(t.Value, bl.returnKind)
 		}
-		if ok && bl.inferReturn != nil {
-			bl.returnKind, ok = bl.inferReturn.settle(k)
-		}
-		if !ok || k != bl.returnKind {
+		if !ok {
 			return false
 		}
+		if k == kindNever {
+			// `break todo`: the trap runs and nothing is answered, as
+			// explicitReturn's `return todo`.
+			bl.b.SetTerm(ir.NewJump(pos, bl.b.ID()))
+			return true
+		}
+		bl.settleReturn(k, "break")
 		r = ir.NewReturnCtl(pos, val, ir.CtlEmitStop)
 	default:
 		return false

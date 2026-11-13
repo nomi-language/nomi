@@ -625,7 +625,7 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 	if concreteName == "" {
 		return typeErrorf("cannot unify %s with %s", iface, concrete)
 	}
-	if !interfaceImplemented(concreteName, iface.Name, iface.Origin, impls) {
+	if !interfaceImplemented(concrete, iface.Name, iface.Origin, impls) {
 		return typeErrorf("%s does not implement %s", concrete, iface)
 	}
 	// Every impl of the interface the receiver has: a generic interface may
@@ -797,7 +797,7 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 		return implements
 	}
 	concreteName := interfaceImplName(concrete)
-	if concreteName == "" || !interfaceImplemented(concreteName, iface.Name, iface.Origin, impls) {
+	if concreteName == "" || !interfaceImplemented(concrete, iface.Name, iface.Origin, impls) {
 		return false
 	}
 	key := concrete.String() + "|" + iface.Name
@@ -836,16 +836,35 @@ func interfaceImplName(t Type) string {
 	return ""
 }
 
-// interfaceImplemented reports whether `concreteName` implements the interface
-// `ifaceName` DECLARED BY `ifaceOrigin`.
+// interfaceImplemented reports whether concrete, a type of the declaration
+// its own origin names, implements the interface `ifaceName` DECLARED BY
+// `ifaceOrigin`.
 //
-// The origin is what makes this a nominal question rather than a spelling one.
-// Two sibling files may each declare `interface Renderer`, and an impl written
-// against one of them does not satisfy a bound naming the other — measured, it
-// used to, and the program then ran and dispatched into the wrong interface's
-// method. See interface_identity.go, including why an unknown origin on either
-// side accepts.
-func interfaceImplemented(concreteName, ifaceName, ifaceOrigin string, impls []ImplTables) bool {
+// The origins are what make this a nominal question rather than a spelling
+// one, on both sides. Two sibling files may each declare `interface
+// Renderer`, and an impl written against one of them does not satisfy a
+// bound naming the other — measured, it used to, and the program then ran
+// and dispatched into the wrong interface's method. And a program's `type
+// Name String` does not implement Display because std/xml writes `impl
+// Display for Name` for its own Name. See interface_identity.go and
+// missing_impl_identity.go, including why an unknown origin on either side
+// accepts.
+func interfaceImplemented(concrete Type, ifaceName, ifaceOrigin string, impls []ImplTables) bool {
+	concreteName := interfaceImplName(concrete)
+	if concreteName == "" || !interfaceImplementedByName(concreteName, ifaceName, ifaceOrigin, impls) {
+		return false
+	}
+	for _, table := range impls {
+		if table.Receivers != nil {
+			return table.Receivers.suppliesReceiver(concrete, concreteName, ifaceName, table.Unindexed)
+		}
+	}
+	return true
+}
+
+// interfaceImplementedByName is interfaceImplemented for a receiver known
+// only by its base name: some type of that name implements the interface.
+func interfaceImplementedByName(concreteName, ifaceName, ifaceOrigin string, impls []ImplTables) bool {
 	for _, table := range impls {
 		if table.Impls == nil {
 			continue

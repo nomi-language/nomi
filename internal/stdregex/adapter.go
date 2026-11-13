@@ -42,6 +42,10 @@ func (re *Regex) GroupNames() []string {
 	return re.re.SubexpNames()[1:]
 }
 
+// HostKey is re's source pattern, which a Regex's equality and hash read
+// (rt.HostKeyed): two regexes are equal when their patterns are.
+func (re *Regex) HostKey() string { return FFIPattern(re) }
+
 func FFIPattern(re *Regex) string {
 	if re == nil || re.re == nil {
 		return ""

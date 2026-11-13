@@ -1850,9 +1850,9 @@ func renderControlFlowHover(sym *analysis.Symbol) string {
 	switch info.Keyword {
 	case "if":
 		if info.PatternInput {
-			b.WriteString("Matches the input value against the condition pattern. On mismatch, runs `else`. Without `else`, a branch with a value makes the `if` a `Maybe`, `None` on mismatch; a `Unit` branch leaves it `Unit`.")
+			b.WriteString("Matches the input value against the condition pattern. On mismatch, runs `else`. Without `else`, the `if` is a statement, and its branch is `Unit` or leaves.")
 		} else {
-			b.WriteString("Branches on a `Bool`. With `else`, both branches must produce compatible values. Without `else`, a branch with a value makes the `if` a `Maybe`, `None` when no branch runs; a `Unit` branch leaves it `Unit`.")
+			b.WriteString("Branches on a `Bool`. With `else`, both branches must produce compatible values. Without `else`, the `if` is a statement, and its branch is `Unit` or leaves.")
 		}
 	case "case":
 		if info.HasInput {

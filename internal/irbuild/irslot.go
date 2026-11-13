@@ -118,6 +118,14 @@ func (g *gen) irFuncShellAt(node ast.Node, declared []ast.Param, sig irFuncSig, 
 	if ty == nil {
 		return nil
 	}
+	// The value domain's entry for a body's parameters and result
+	// (irValueDomainKind): a bound-free generic declaration's own shell may
+	// hold its type parameters' kinds, which no other shell does.
+	for _, k := range append([]kind{sig.result}, params...) {
+		if !irValueDomainKind(k) && !irMentionsTypeParam(k) {
+			return nil
+		}
+	}
 	at := g.irNodePos(node)
 	fn := ir.NewFuncFor(at, callee)
 	sh := &irFuncShell{fn: fn, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{},

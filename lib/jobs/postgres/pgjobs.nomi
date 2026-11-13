@@ -145,16 +145,8 @@ fn check_schema(db: Conn, table: String) -> Result<Unit, sql.Error>
             else
                 ""
             end,
-            if not (unique in relations) then
-                "the index ${unique}"
-            else
-                ""
-            end,
-            if not (schedules in relations) then
-                "the table ${schedules}"
-            else
-                ""
-            end,
+            if not (unique in relations) then "the index ${unique}" else "",
+            if not (schedules in relations) then "the table ${schedules}" else "",
         ]
         |> Iter.filter(fn s -> s != "")
         |> Iter.to_list()
@@ -559,11 +551,7 @@ fn relay_until(
             end
         end),
         Arm.receive(stop, fn got ->
-            if Maybe.is_none(got) then
-                Relay.Stopped
-            else
-                Relay.Again
-            end
+            if Maybe.is_none(got) then Relay.Stopped else Relay.Again
         end),
     ])
 

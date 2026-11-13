@@ -193,9 +193,9 @@ impl Conn for Fake
 
                 put(conn, {
                     ..state,
-                    log: state.log + [line],
-                    levels: state.levels + [level],
-                    next_id: state.next_id + 1,
+                    log: .. + [line],
+                    levels: .. + [level],
+                    next_id: .. + 1,
                 })
 
                 Ok({..conn, id: level.id})
@@ -227,7 +227,7 @@ impl Conn for Fake
                     effects: inner |> Iter.flat_map(.effects) |> Iter.to_list(),
                 }
 
-                put(tx, {..state, log: state.log + [line], levels: outer + [merged]})
+                put(tx, {..state, log: .. + [line], levels: outer + [merged]})
                 Ok(Unit)
 
             _ ->
@@ -253,7 +253,7 @@ impl Conn for Fake
                 end
 
                 levels = Iter.take(state.levels, index) |> Iter.to_list()
-                put(tx, {..state, log: state.log + [line], levels:})
+                put(tx, {..state, log: .. + [line], levels:})
 
             _ ->
                 put(tx, state)
@@ -284,8 +284,8 @@ impl Conn for Fake
         else
             put(conn, {
                 ..state,
-                log: state.log + ["CLOSE"],
-                levels: Iter.take(state.levels, 1) |> Iter.to_list(),
+                log: .. + ["CLOSE"],
+                levels: Iter.take(.., 1) |> Iter.to_list(),
                 closed: True,
             })
         end
@@ -348,7 +348,7 @@ fn run(fake: Fake, statement: Statement) -> Result<List<Row>, sql.Error>
         return Err(sql.Error.Finished)
     end
 
-    sent = {..state, log: state.log + ["${statement}"], statements: state.statements + [statement]}
+    sent = {..state, log: .. + ["${statement}"], statements: .. + [statement]}
     visible = state.levels |> Iter.flat_map(.effects) |> Iter.to_list()
     answer = fake.answer
     result = answer(statement, visible)
@@ -367,11 +367,7 @@ fn with_effect(levels: List<Level>, statement: Statement) -> List<Level>
     levels
     |> Iter.with_index()
     |> Iter.map(fn (index, level) ->
-        if index == last then
-            {..level, effects: level.effects + [statement]}
-        else
-            level
-        end
+        if index == last then {..level, effects: .. + [statement]} else level
     end)
     |> Iter.to_list()
 end

@@ -17,7 +17,7 @@ import (
 func (bl *irScalarBuilder) patternIfRegion(t *ast.If, sig irFuncSig) (kind, bool) {
 	unitElse := t.Else == nil && !sig.testArms && (sig.inferResult || sig.result == kindUnit)
 	switch {
-	case t.Else == nil && !sig.testArms && !unitElse && sig.elseless == nil:
+	case t.Else == nil && !sig.testArms && !unitElse:
 		bl.g.dc.note("a pattern `if` without `else` whose value is not Unit")
 		return kindInvalid, false
 	case isNilNode(t.Cond):

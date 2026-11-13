@@ -29,7 +29,7 @@ func (bl *irScalarBuilder) namedIntrinsic(t *ast.Call, fa *ast.FieldAccess) bool
 	case "Task":
 		// Task.spawn_all places its own arguments (taskSpawnAll).
 		return fa.Field.Name != "spawn_all"
-	case "Channel", "Sender", "Receiver":
+	case "Channel", "Sender", "Receiver", "Arm":
 		return true
 	case "Supervisor":
 		// `Supervisor.new` and `flush` are Nomi-bodied with defaults, and
@@ -44,6 +44,18 @@ func (bl *irScalarBuilder) namedIntrinsic(t *ast.Call, fa *ast.FieldAccess) bool
 	}
 	d, found := bl.g.namedType(ti.Name)
 	return found && irContextKind(named(d))
+}
+
+// mustBePlacedIntrinsic panics unless t, a call of the intrinsic what with
+// arity parameters and no defaults, is positional, has one argument per
+// parameter, and is recorded where an assertion subject records rows: call
+// sends a call with a named argument here (namedIntrinsicCall) and wraps one
+// in an assertion subject in recordedQualCall, and the checker refuses any
+// other count of arguments.
+func (bl *irScalarBuilder) mustBePlacedIntrinsic(t *ast.Call, arity int, what string) {
+	if bl.rowsUnrecorded(t) || namedArgNode(t.Args) != nil || len(t.Args) != arity {
+		panic("irbuild: " + what + " reached with named, unrecorded or missing arguments")
+	}
 }
 
 // namedIntrinsicCall lowers t, a namedIntrinsic call, as its positional form.
@@ -68,7 +80,10 @@ func (bl *irScalarBuilder) namedIntrinsicCall(t *ast.Call, fa *ast.FieldAccess) 
 	names := make([]string, len(params))
 	for i, p := range params {
 		if p.Destructure != nil {
-			return no()
+			// namedIntrinsic answers only std's Task, Channel, Sender,
+			// Receiver, Arm, Supervisor, Reader and Context functions, none
+			// of which takes a destructuring parameter.
+			panic("irbuild: a named intrinsic with a destructuring parameter: " + fa.Field.Name)
 		}
 		names[i] = p.Name
 	}
@@ -77,7 +92,9 @@ func (bl *irScalarBuilder) namedIntrinsicCall(t *ast.Call, fa *ast.FieldAccess) 
 		return no()
 	}
 	if _, contiguous := contiguousSlots(plan); !contiguous {
-		return no()
+		// argSlotPlan gives each argument its own slot below len(names),
+		// so as many arguments as names claim every slot.
+		panic("irbuild: a full argument plan that leaves a slot unclaimed")
 	}
 	recording := bl.recording
 	bl.recording = 0

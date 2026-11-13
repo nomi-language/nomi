@@ -2,7 +2,7 @@ package stdlibadapters
 
 // THE BUILTIN SUITE: the RtFuncs rows that joined the table after the VM's
 // hand-written hosts were deleted, each against recorded outcomes for the same
-// key (testdata/builtins.golden, 373 argument sets). Those rows had no
+// key (testdata/builtins.golden). Those rows had no
 // hand-written host to record, and the marshaller cannot carry their types.
 //
 // An error is recorded as an rt trap. The adapters
@@ -54,6 +54,7 @@ var builtinCheckedRows = map[string]bool{
 	"dynamic.Dynamic.as_string": true, "dynamic.Dynamic.as_int": true, "dynamic.Dynamic.as_float": true,
 	"dynamic.Dynamic.as_bool": true, "dynamic.Dynamic.as_list": true, "dynamic.Dynamic.as_dict": true,
 	"dynamic.Dynamic.is_null": true, "dynamic.Dynamic.has": true, "dynamic.Dynamic.inspect": true,
+	"dynamic.Dynamic.hash": true,
 	"json.Json.to_dynamic": true,
 	"int.Int.pow":          true, "int.Int.sqrt": true, "int.Int.gcd": true, "int.Int.lcm": true,
 	"int.int_to_digits": true, "int.int_from_digits": true,
@@ -317,7 +318,7 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 	dyns := []any{obj, dyn("s"), dyn(int64(-4)), dyn(2.0), dyn(2.5), dyn(false), dyn(nil),
 		dyn([]any{"a", int64(1), nil}), dyn(map[string]any{})}
 	for _, d := range dyns {
-		for _, k := range []string{"as_string", "as_int", "as_float", "as_bool", "as_list", "as_dict", "is_null", "inspect"} {
+		for _, k := range []string{"as_string", "as_int", "as_float", "as_bool", "as_list", "as_dict", "is_null", "inspect", "hash"} {
 			cases["dynamic.Dynamic."+k] = append(cases["dynamic.Dynamic."+k], []any{d})
 		}
 		for _, name := range []string{"name", "missing", "none"} {
@@ -330,6 +331,18 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 		for _, dotted := range []string{"inner.n", "name", "inner.missing", "", "tags.0"} {
 			cases["dynamic.Dynamic.path"] = append(cases["dynamic.Dynamic.path"], []any{d, sv(dotted)})
 		}
+	}
+	// Equal contents held another way hash alike: an Int at another Go
+	// width, an object built apart, a float32 widened. Each pair's
+	// outcomes must be the same value, which the check after the run holds.
+	equalHashes := [][2]any{
+		{dyn(int64(-4)), dyn(int32(-4))},
+		{dyn([]any{"a", int64(1), nil}), dyn([]any{"a", int8(1), nil})},
+		{obj, dyn(map[string]any{"tags": []any{"x", int(2)}, "inner": map[string]any{"n": uint8(7)}, "none": nil,
+			"on": true, "pi": float32(3.5), "age": uint64(36), "name": "ada"})},
+	}
+	for _, pair := range equalHashes {
+		cases["dynamic.Dynamic.hash"] = append(cases["dynamic.Dynamic.hash"], []any{pair[0]}, []any{pair[1]})
 	}
 	for _, src := range []string{`{"a": [1, 2.5, "x", true, null], "b": {}}`, `null`, `"s"`, `-3`, `[]`} {
 		cases["json.Json.to_dynamic"] = append(cases["json.Json.to_dynamic"], []any{jsonOf(src)})
@@ -468,6 +481,18 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 			if got.fault != "" {
 				faults++
 			}
+		}
+	}
+	for _, pair := range equalHashes {
+		var hashes [2]string
+		for i, d := range pair {
+			got := classify(func() (rt.Value, error) {
+				return table["dynamic.Dynamic.hash"](rt.NewFrame(context.Background()), []rt.Value{d})
+			})
+			hashes[i] = goldenOutcome(got, false)
+		}
+		if hashes[0] != hashes[1] {
+			t.Errorf("Dynamic.hash differs for equal contents %#v and %#v: %s, %s", pair[0], pair[1], hashes[0], hashes[1])
 		}
 	}
 	if skipped == 0 {

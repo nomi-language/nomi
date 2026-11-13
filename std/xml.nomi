@@ -370,18 +370,9 @@ end
 
 fn each_token(tokens: xml_host.Tokens, yield: (Result<Token, Error>) -> Bool) -> Bool
     case next_token(tokens)
-        Ok(Some(token)) ->
-            if yield(Ok(token)) then
-                each_token(tokens, yield)
-            else
-                False
-            end
-
-        Ok(None) ->
-            True
-
-        Err(e) ->
-            yield(Err(e))
+        Ok(Some(token)) -> if yield(Ok(token)) then each_token(tokens, yield) else False
+        Ok(None) -> True
+        Err(e) -> yield(Err(e))
     end
 end
 

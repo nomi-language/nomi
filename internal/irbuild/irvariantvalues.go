@@ -47,6 +47,13 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 					// by reference; the layout does not recurse.
 					continue
 				}
+				if on, ok := irHandleOnWalk(p.k, append(outer, d)); on {
+					// `Get {reply: Channel<Request>}` inside Request.
+					if !ok {
+						return false
+					}
+					continue
+				}
 				if p.slot >= 0 && p.slot < len(d.slots) && irCyclicNominal(p.k, d.slots[p.slot].boxed, outer) {
 					if !irNominalCoinductive(p.k, append(outer, d)) {
 						return false
@@ -97,6 +104,13 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 			if irSelfPayload(d, payload) || irSlotlessPayload(payload) {
 				continue
 			}
+			if on, ok := irHandleOnWalk(payload, append(outer, d)); on {
+				// `Ask Channel<Msg>` inside Msg.
+				if !ok {
+					return false
+				}
+				continue
+			}
 			if slot := v.payloads[0].slot; d.preludeOf == nil && slot >= 0 && slot < len(d.slots) && irCyclicNominal(payload, d.slots[slot].boxed, outer) {
 				if !irNominalCoinductive(payload, append(outer, d)) {
 					return false
@@ -131,7 +145,7 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 			if d.preludeOf == nil && irAcyclicValuePayload(payload, append(outer, d)) {
 				continue
 			}
-			if !userEnum && !irRetainedLeafKind(payload) && !isDecimalKind(payload) &&
+			if !userEnum && !irRetainedLeafKind(payload) && !isDecimalKind(payload) && !irHandleFieldKind(payload) &&
 				!(payload != kindEmptyVector && irRetainedVectorKind(payload)) && !(payload != kindEmptySet && irRetainedSetKind(payload)) &&
 				!(d.preludeOf != nil && irRetainedPreludePayload(payload)) && !irSelfContainerPayload(d, payload) && !irSelfTuplePayload(d, payload) && !irEnumContainerPayload(d, payload) && !(d.preludeOf == nil && (irLeafTupleKind(payload) || irStructPayload(payload) || irFlatPayload(payload))) {
 				return false
@@ -350,11 +364,38 @@ func irFlatPayload(k kind) bool {
 // and a payload that reaches the enum back is left to the self and
 // co-inductive arms, so deciding this one cannot re-enter the walk.
 //
-// A payload holding a channel or task handle is left to the channel field
-// rule (irHandleFieldKind): irKindReaches does not look through a handle's
-// element, so `Ask {reply: Channel<Request>}` inside Request would recurse.
+// A channel or task handle the payload holds, at any depth (`Both
+// (Channel<Int>, Int)`), must pass the channel field rule
+// (irHandleFieldKind): irKindReaches does not look through a handle's
+// element, so `Ask {reply: Channel<Request>}` inside Request would recurse,
+// and the rule refuses a handle whose element leads back.
 func irAcyclicValuePayload(k kind, deciding []*typeDef) bool {
-	return !irHoldsConcHandle(k, 0) && !irKindReaches(k, deciding) && irCallableValueKind(k)
+	return irHeldHandlesEnd(k, 0) && !irKindReaches(k, deciding) && irCallableValueKind(k)
+}
+
+// irHeldHandlesEnd reports whether every channel or task handle k is, or
+// holds in a component or a type argument, passes irHandleFieldKind, the
+// walk irHoldsConcHandle makes.
+func irHeldHandlesEnd(k kind, depth int) bool {
+	if depth > 16 {
+		return false
+	}
+	if _, _, isChannel := channelElem(k); isChannel {
+		return irHandleFieldKind(k)
+	}
+	if _, isTask := taskElem(k); isTask {
+		return irHandleFieldKind(k)
+	}
+	parts := kindParts(k)
+	if k.def != nil && k.def.genericOf != nil {
+		parts = k.def.genericArgs
+	}
+	for _, p := range parts {
+		if !irHeldHandlesEnd(p, depth+1) {
+			return false
+		}
+	}
+	return true
 }
 
 // irHoldsConcHandle reports whether k is, or holds in a component or a type
@@ -514,7 +555,7 @@ func (bl *irScalarBuilder) effectFree(t ir.Temp) bool {
 // Prelude wrappers can carry one represented user enum. Its own payloads are
 // scalar leaves, so this does not recursively admit nominal layouts.
 func irRetainedPreludePayload(k kind) bool {
-	if k == kindUnit || irRetainedRangeKind(k) || irByteValueKind(k) || isDecimalKind(k) || irHostHandleKind(k) || irStreamKind(k) || irDynamicKind(k) || irStdMarkerKind(k) || irRetainedLeafKind(k) || irRetainedListKind(k) || irRetainedVectorKind(k) || irLeafTupleKind(k) {
+	if k == kindUnit || irRetainedRangeKind(k) || irByteValueKind(k) || isDecimalKind(k) || irHostHandleKind(k) || irConcHandleKind(k) || irContextKind(k) || irSupervisorKind(k) || irStreamKind(k) || irDynamicKind(k) || irTypeWitnessKind(k) || irRetainedLeafKind(k) || irRetainedListKind(k) || irRetainedVectorKind(k) || irLeafTupleKind(k) {
 		return true
 	}
 	if irRetainedTupleKind(k) {
@@ -535,8 +576,8 @@ func irRetainedPreludePayload(k kind) bool {
 		// equality over the payload keep their own checks.
 		return true
 	}
-	if elem, vector := vectorElem(k); vector && k != kindEmptyVector && irCallableValueKind(elem) ||
-		k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && irCallableValueKind(k.comp.parts[0]) {
+	if elem, vector := vectorElem(k); vector && k != kindEmptyVector && irCallOperandKind(elem) ||
+		k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && irCallOperandKind(k.comp.parts[0]) {
 		// A List or Vector of any value the callable domain holds
 		// (`Maybe<Vector<Int>>`, what `Vector.get` answers over a
 		// grid; `Ok([f, g])`), as irRetainedValueKind admits one: the VM's
@@ -1027,7 +1068,7 @@ func (bl *irScalarBuilder) variantFields(at ast.Node, t *ast.StructLit, d *typeD
 			src = cp.Dst()
 		}
 		src, k, ok = bl.coerceEmpty(f.Value, src, k, target.k)
-		if !ok || k != target.k {
+		if !ok {
 			return no()
 		}
 		vals[f.Name] = src

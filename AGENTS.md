@@ -212,11 +212,16 @@ runs as `go test ./<pkg> -run '^$' -fuzz '^<Name>$' -fuzztime 5m`.
 - Every feature in every context, a std module's own tests among them, is
   rejected as expected or runs: `TestFeatureContextMatrix`,
   `NOMI_MATRIX=full`, `NOMI_MATRIX_ONLY` (`vmhost/feature_matrix_test.go`).
+- Every value type under every operation (a tuple, a field, a collection,
+  a pattern, `==`, a channel, a generic call) is rejected as expected or
+  runs: `TestTypeOperationGrid`, `knownTypeOpGaps`, `TestKnownTypeOpGaps`,
+  `NOMI_TYPE_OPS=full`, `NOMI_TYPE_OPS_ONLY` (`vmhost/type_ops_test.go`).
 - Load order does not change a program: `TestLoadOrderDoesNotChangeAProgram`,
   `NOMI_ORDER_COUNT` (`vmhost/load_order_test.go`).
-- Every place irbuild can decline is listed with a class:
-  `TestDeclineSitesAreListed`, `testdata/lowering-declines.txt`
-  (`internal/declinesites/sites_test.go`).
+- Every place irbuild can decline is listed with a class, and the count
+  of unclassified and undecided sites only goes down:
+  `TestDeclineSitesAreListed`, `testdata/lowering-declines.txt`,
+  `maxUndecidedSites` (`internal/declinesites/sites_test.go`).
 - Every expression has a type after checking: `TestSeedExprsAreTyped`,
   `knownCheckerGaps` (`vmhost/checker_gaps_test.go`).
 - Modules encoded apart link to the same program, and each file lowered on

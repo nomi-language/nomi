@@ -83,11 +83,7 @@ fn head_or(v: Vector<Int>) -> Int
 end
 
 fn set_or(v: Vector<Int>, i: Int, n: Int) -> Vector<Int>
-    if i >= 0 and i < Vector.length(v) then
-        Vector.set(v, i, n)
-    else
-        Vector[]
-    end
+    if i >= 0 and i < Vector.length(v) then Vector.set(v, i, n) else Vector[]
 end
 
 fn total(v: Vector<Int>) -> Int

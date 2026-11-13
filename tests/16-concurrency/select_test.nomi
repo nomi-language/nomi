@@ -223,3 +223,18 @@ test "rotating the arms serves both channels"
 
     assert got == [1, 10, 2, 20]
 end
+
+test "an arm takes named arguments, in any order"
+    ch = Channel.buffered<Int>(1)
+    _ = Sender.send(ch.sender, 4)
+
+    got = Channel.select(
+        [Arm.receive(receiver: ch.receiver, handle: fn n -> Maybe.with_default(n, 0))]
+    )
+
+    assert got == 4
+    sent = Channel.select([Arm.send(ch.sender, handle: fn r -> r == Ok(Unit), value: 7)])
+    assert sent
+    late = Channel.select([Arm.after(handle: fn -> -1, wait: Duration.seconds(0))])
+    assert late == -1
+end

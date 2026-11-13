@@ -133,11 +133,11 @@ func (bl *irScalarBuilder) mapCaseTest(pattern ast.Node, subj ir.Temp, mk kind, 
 // ending in arm on success and branching to next on failure. A pattern it
 // cannot test is the decline's position, unless a pattern inside it is.
 func (bl *irScalarBuilder) patternValueTest(pat ast.Node, value ir.Temp, k kind, arm, next *ir.Block) bool {
-	if bl.patternValueTestNode(pat, value, k, arm, next) {
-		return true
+	if !bl.patternValueTestNode(pat, value, k, arm, next) {
+		bl.g.dc.patternFailed(pat)
+		return false
 	}
-	bl.g.dc.atPattern(pat, "a nested pattern outside the retained tests: "+irNodeWord(pat)+" over "+k.nomi())
-	return false
+	return true
 }
 
 func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k kind, arm, next *ir.Block) bool {
@@ -182,30 +182,22 @@ func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k k
 			return bl.nominalCaseTest(p, value, k, arm, next)
 		}
 		if p.TypeName != nil {
-			if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
-				return false
-			}
 			return bl.enumCaseTest(p, value, k, arm, next)
 		}
 		return bl.mapCaseTest(p, value, k, arm, next)
 	case *ast.TuplePattern:
-		if !irRetainedTupleKind(k) {
-			return false
-		}
+		// tupleCaseComponents holds k to irRetainedTupleKind for both.
 		if tupleCaseIrrefutable(p, k) {
 			bl.tupleCaseBindings(p, value, k)
 			return jump()
 		}
 		return bl.tupleCaseTest(p, value, k, arm, next)
 	case *ast.EnumPattern, *ast.StructPattern:
-		if irUnitPattern(p, k) {
+		if irSingletonPattern(p, k) {
 			return jump()
 		}
 		if irNominalCaseKind(k) {
 			return bl.nominalCaseTest(p, value, k, arm, next)
-		}
-		if k != kindBool && (k.tag != tagNamed || !irRetainedEnumKind(k.def)) {
-			return false
 		}
 		return bl.enumCaseTest(p, value, k, arm, next)
 	case *ast.ListPattern:
@@ -215,35 +207,23 @@ func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k k
 				return bl.nominalCaseTest(p, value, k, arm, next)
 			}
 			if p.TypeName != nil {
-				if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
-					return false
-				}
 				return bl.enumCaseTest(p, value, k, arm, next)
 			}
-			return irVectorCaseKind(k) && bl.vectorCaseTest(p, value, k, arm, next)
+			return bl.vectorCaseTest(p, value, k, arm, next)
 		case ast.SeqSet:
 			if irDistinctOverSet(k) {
 				return bl.nominalCaseTest(p, value, k, arm, next)
 			}
 			if p.TypeName != nil {
-				if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
-					return false
-				}
 				return bl.enumCaseTest(p, value, k, arm, next)
 			}
-			return irSetCaseKind(k) && bl.setCaseTest(p, value, k, arm, next)
+			return bl.setCaseTest(p, value, k, arm, next)
 		default:
 			if irDistinctOverKind(k, tagList) {
 				return bl.nominalCaseTest(p, value, k, arm, next)
 			}
 			if p.TypeName != nil {
-				if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
-					return false
-				}
 				return bl.enumCaseTest(p, value, k, arm, next)
-			}
-			if !irRetainedListKind(k) && !irListTransportKind(k) {
-				return false
 			}
 			return bl.listCaseTest(p, value, k, arm, next)
 		}

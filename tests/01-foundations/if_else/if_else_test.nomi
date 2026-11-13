@@ -1,4 +1,5 @@
 import
+    std::assertions.AssertionFailure
     std::compiler
     test_helpers
 end
@@ -17,20 +18,22 @@ test "if without else returns Unit either way"
     assert when_false == Unit
 end
 
-test "if without else is a Maybe when its branch has a value"
-    when_true = if True then 1
-    when_false = if False then 1
+test "else None makes an if a Maybe"
+    when_true = if True then Some(1) else None
+    when_false = if False then Some(1) else None
 
     assert when_true == Some(1)
     assert when_false == None
 end
 
-test "an else if chain without a final else is a Maybe"
+test "an else if chain ending in else None is its branches' Maybe"
     pick = fn n: Int ->
         if n > 0 then
-            "positive"
+            Some("positive")
         else if n < 0 then
-            "negative"
+            Some("negative")
+        else
+            None
         end
     end
 
@@ -39,28 +42,22 @@ test "an else if chain without a final else is a Maybe"
     assert pick(0) == None
 end
 
-test "if without else does not flatten a Maybe branch"
-    nested = if True then
-        if False then 1
-    end
-
-    assert nested == Some(None)
-end
-
-test "a Maybe if is not a statement"
+test "if without else whose branch is a Maybe is an error"
     diagnostics = compiler.check(
         """
-          fn main()
-            if True then 1
-            Unit
+          fn one() -> Maybe<Int>
+            if True then Some(1)
           end
         """
     )
 
-    assert test_helpers.has_diagnostic(diagnostics, "non-final expression has type Maybe<Int>")
+    assert test_helpers.has_diagnostic(
+        diagnostics,
+        "an `if` without `else` is a statement, so its branch must be `Unit`; this branch is a `Maybe<Int>`. Add `else None` to make the `if` a `Maybe<Int>`",
+    )
 end
 
-test "a forgotten else is a Maybe where a value is expected"
+test "a forgotten else names the branch's type"
     diagnostics = compiler.check(
         """
           fn label(n: Int) -> String
@@ -71,7 +68,7 @@ test "a forgotten else is a Maybe where a value is expected"
 
     assert test_helpers.has_diagnostic(
         diagnostics,
-        "return type mismatch: expected String, got Maybe<String>",
+        "an `if` without `else` is a statement, so its branch must be `Unit`; this branch is a `String`. Add an `else` to give the `if` a value",
     )
 end
 
@@ -157,4 +154,48 @@ fn parse_id(input: String) -> Result<Int, String>
     if String.length(input) == 0 then return Err("empty")
 
     Ok(42)
+end
+
+test "a branch that ends in assert or dbg keeps the if a statement"
+    n = 3
+
+    if n > 0 then
+        assert n == 3
+    end
+
+    if n > 5 then
+        assert n == 9
+    end
+
+    assert in_range(4) == Ok(4)
+    assert Result.is_err(in_range(40))
+    shown(2)
+end
+
+test "an if without else whose value a statement drops says to write _ ="
+    diagnostics = compiler.check(
+        """
+          fn label(n: Int) -> Int
+            if n > 0 then n + 1
+            n
+          end
+        """
+    )
+
+    assert test_helpers.has_diagnostic(
+        diagnostics,
+        "this branch is an `Int`, which this statement drops. Write `_ = n + 1` in the branch, or add an `else`",
+    )
+end
+
+fn in_range(n: Int) -> Result<Int, AssertionFailure>
+    if n > 0 then
+        assert n < 10
+    end
+
+    Ok(n)
+end
+
+fn shown(n: Int)
+    if n > 0 then dbg n
 end

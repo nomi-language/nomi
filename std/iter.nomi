@@ -224,11 +224,7 @@ end
 ///         if c.from <= 0 then
 ///             True
 ///         else
-///             if yield(c.from) then
-///                 each_while(Countdown{from: c.from - 1}, yield)
-///             else
-///                 False
-///             end
+///             if yield(c.from) then each_while(Countdown{from: c.from - 1}, yield) else False
 ///         end
 ///     end
 /// end
@@ -441,11 +437,7 @@ impl Iter<T>
     //! guarded =
     //!     [1, 2, 3, 4]
     //!     |> Iter.map(fn n ->
-    //!         if n == 4 then
-    //!             unreachable "read past the Err"
-    //!         else
-    //!             n
-    //!         end
+    //!         if n == 4 then unreachable "read past the Err" else n
     //!     end)
     //!     |> Iter.try_reduce(0, fn total, n -> if n == 3 then Err(total) else Ok(total + n))
     //!
@@ -812,11 +804,7 @@ impl Iter<T>
         // return means, so it composes in Nomi.
         Seq{
             run: fn yield: (T) -> Bool ->
-                if Iter.each_while(a, yield) then
-                    Iter.each_while(b, yield)
-                else
-                    False
-                end
+                if Iter.each_while(a, yield) then Iter.each_while(b, yield) else False
             end,
         }
     end

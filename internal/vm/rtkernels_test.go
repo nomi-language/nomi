@@ -73,7 +73,7 @@ func TestRTKernels_RecordedRenderings(t *testing.T) {
 		{"marker", rtDistinct("status.Ready", nil), "Ready", "", "Ready", "", true},
 		{"named struct", point(1, 2), "Point{x: 1, y: 2}", "", "refuses: Point", "<shapes.Point impl>", true},
 		{"user enum", rtVariant("shapes.Shape", "Circle", 1.5), "Circle(1.5)", "", "refuses: Shape.Circle", "<shapes.Shape impl>", true},
-		{"Dynamic", rt.Dynamic{Inner: int64(1)}, "<dynamic: int64>", "", "refuses: rt.Dynamic", "refuses: rt.Dynamic", false},
+		{"Dynamic", rt.Dynamic{Inner: int64(1)}, "<dynamic: int64>", "", "1", "", false},
 		{"refusal inside a prelude payload", listOf([]any{some(point(1, 2))}),
 			"[Some(Point{x: 1, y: 2})]", "", "refuses: Point", "[Some(<shapes.Point impl>)]", true},
 		{"hooked elements", listOf([]any{point(1, 2), id}),

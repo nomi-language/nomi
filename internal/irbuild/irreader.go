@@ -13,9 +13,7 @@ import (
 // type `Iter<T>` has no shared lowering, so every call is this crossing.
 func (bl *irScalarBuilder) readerFromChunks(t *ast.Call, name string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if bl.rowsUnrecorded(t) || namedArgNode(t.Args) != nil || len(t.Args) != 1 {
-		return no()
-	}
+	bl.mustBePlacedIntrinsic(t, 1, "Reader."+name)
 	args := bl.irQualLowerArgs(t)
 	if !args.ok {
 		return no()

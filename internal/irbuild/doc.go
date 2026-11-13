@@ -181,6 +181,40 @@
 // built, [frontend.StdlibErrors] reports every check error the shared
 // analysis recorded, so a case fails with the error rather than blocking.
 //
+// A decline is for a program the builder does not lower yet. A state no
+// checked program reaches panics instead, naming what was missing, and the
+// host reports it as an internal error: a checker record the elaboration
+// gate guarantees (a callee's reference, a call's CallDefaults, a hole's
+// HoleDisplays; analysis package doc, "Elaboration"), and a graph that
+// does not lint (irRequireLint, irScalarLower's rule).
+//
+// The value domain (irValueDomainKind) is the kinds a lowered value may
+// have: a call operand (irCallOperandKind), a bare `None` before coerce
+// discharges it, or the diverged marker of a region every arm of which
+// leaves. The builder holds kinds to it where they enter a body: a
+// declared function's or an instance's signature (signature,
+// resolveMonoInstance) is unlowerable with a parameter or result outside
+// it, funcDecl refuses one by name, irFuncShellAt builds no shell for one,
+// and lowerExact declines a lowered value outside it (inValueDomain). The
+// one exception is a kind that mentions a bound-free type parameter, which
+// only that generic declaration's own signature and shell hold. A guard
+// downstream that asks only this of an operand, or of a parameter or result
+// of a held signature, is gone. The domain guards that remain ask more:
+// a kind the checker's types project to (project, typeOf), which no entry
+// holds; a kind built from operands (a pair, a chunk, a map); or a
+// predicate narrower than the domain (irRetainedTupleKind,
+// irListTransportKind, irRetainedSetKind). A marker, std's own
+// (`ChannelClosed`) among them, is a retained leaf (irRetainedMarker), so
+// it passes each of those as any leaf does. A container that only carries
+// its elements holds any value of the domain, Unit included: a List or
+// Vector element (irRetainedValueKind), a Map value (irMapValueKind), an
+// `Iter<Unit>` (irSeqKindOf), a channel or a task's payload
+// (irConcHandleKind), a Maybe's or Result's payload
+// (irRetainedPreludePayload), a list pattern's subject (irCaseListKind) and
+// a Vector literal's items. What reads an element (equality, hashing,
+// Debug) keeps its own check. A stage that builds a List from the elements
+// it moves (a chunk, a flattened list) asks irHeldListKind.
+//
 // A test about how a blocked program is reported blocks on a planted
 // decline, a call to `planted_decline` that [PlantDeclineForTest] makes the
 // builder decline, never on a real gap.
@@ -380,7 +414,16 @@
 // variant construction is built at the instance the checker typed it as
 // (`literalTypeArgs`). An impl a receiver kind selects (`impl Display for
 // List<T>` at `List<Int>`) is the one instance of the block that receiver
-// is, read off its kind (`stdRecvTypeArgs`). A derived or expanded body is
+// is, read off its kind (`stdRecvTypeArgs`). The instance of a generic
+// interface an impl block implements is its header's written arguments,
+// else the ones the type builder solved from the block's items and
+// recorded on it (`ifaceInstArgs`, analysis.ImplBlockTypeArgs). Among a
+// type's impls of one generic interface at several type arguments, a call
+// takes the one the checker selected (DispatchImpl), else the block at the
+// arguments of the interface instance the call goes through
+// (`callInterfaceArgs`, analysis Symbol.CallInterface), in `pickInstImpl`,
+// `siblingInstPick` and `stdRecvPick`; nothing chooses by operand kinds or
+// by the result. A derived or expanded body is
 // no exception: the checker records its calls and expressions as it
 // records written ones (the analysis package doc, "Elaboration").
 //
@@ -524,10 +567,10 @@
 // and linked by the function's linkage name with them and the slot. A
 // generic interface's parameter default may name its type parameters (`x:
 // List<T> = pick()`), so it is lowered in a frame binding the interface's
-// and the function's type parameters, solved by matching the declared
-// parameter types against the call's kinds (`ifaceDefaultFrame`). One the
-// parameters leave unsolved while an enclosing generic binds its name is
-// declined rather than read as the enclosing function's type.
+// and the function's type parameters at the type arguments the checker
+// instantiated the call at (`ifaceDefaultFrameAt`, through
+// `calleeTypeArgs`), which the call's signature carries to the accessor
+// (`fnSig.ifaceFrame`). A call whose record lacks one declines.
 //
 // # Std interface defaults
 //
@@ -600,7 +643,7 @@
 //   - a collection into an `Iter`: a view.
 //
 // The checker admits the conversions of the first three kinds under a
-// List, Vector, Set, Map (keys and values), Maybe or Result, nested and
+// List, Vector, Set, Map (keys and values), Iter, Maybe or Result, nested and
 // through a tuple's elements and a record's fields (`unifyAssignArg`,
 // `carriesOwnType` in internal/analysis; `unifyAssignFree` inside a
 // function type there), and refuses the others with help that names the

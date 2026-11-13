@@ -441,7 +441,7 @@ func TestIRStruct_WhichShapesAreRetained(t *testing.T) {
 		{"a Map of Iters", point + "\n\nstruct Outer\n  p: Point\n  runs: Map<String, Iter<Int>> = {}\nend",
 			"fn f(p: Point) -> Outer\n  Outer{p:}\nend\n", true},
 		{"a Map of records holding an Iter", point + "\n\nstruct Outer\n  p: Point\n  runs: Map<String, {a: Iter<Int>}> = {}\nend",
-			"fn f(p: Point) -> Outer\n  Outer{p:}\nend\n", false},
+			"fn f(p: Point) -> Outer\n  Outer{p:}\nend\n", true},
 		{"an anonymous struct", "",
 			"fn f(n: Int) -> {x: Int}\n  {x: n}\nend\n", true},
 		{"a struct as a call argument", point +

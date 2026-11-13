@@ -817,11 +817,7 @@ impl Matcher for String
 
     /// `needle` itself when it occurs in `text`.
     fn find_in(needle: String, text: String) -> Maybe<String>
-        if String.is_contained_in(needle, text) then
-            Some(needle)
-        else
-            None
-        end
+        if String.is_contained_in(needle, text) then Some(needle) else None
     end
 end
 

@@ -58,7 +58,7 @@ func (bl *irScalarBuilder) patternBindingStmt(t *ast.PatternBinding, lp *irLoopB
 		nomatch.Append(ir.NewNoMatch(pos))
 		nomatch.SetTerm(ir.NewJump(pos, cont.ID()))
 		if !bl.patternValueTest(t.Pattern, subj, sk, cont, nomatch) {
-			bl.g.dc.atPattern(t.Pattern, "a pattern binding outside the retained case tests: "+sk.nomi())
+			bl.g.dc.patternFailed(t.Pattern)
 			return false
 		}
 		bl.b = cont
@@ -71,7 +71,7 @@ func (bl *irScalarBuilder) patternBindingStmt(t *ast.PatternBinding, lp *irLoopB
 	outer := bl.saveScope()
 	bl.cloneScope()
 	if !bl.patternValueTest(t.Pattern, subj, sk, cont, failed) {
-		bl.g.dc.atPattern(t.Pattern, "a pattern binding outside the retained case tests: "+sk.nomi())
+		bl.g.dc.patternFailed(t.Pattern)
 		return false
 	}
 	matched := bl.saveScope()
@@ -314,7 +314,7 @@ func (bl *irScalarBuilder) fallbackBinding(t *ast.PatternBinding, subj ir.Temp, 
 		nomatch.Append(ir.NewNoMatch(pos))
 		nomatch.SetTerm(ir.NewJump(pos, cont.ID()))
 		if !bl.patternValueTest(fb.inner, slot, pk, cont, nomatch) {
-			bl.g.dc.atPattern(fb.inner, "a binding else payload pattern outside the retained case tests: "+pk.nomi())
+			bl.g.dc.patternFailed(fb.inner)
 			return false
 		}
 	}
@@ -424,7 +424,7 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 		}
 		target, lp.broke = lp.exit, true
 	case *ast.Return:
-		if !bl.loopValue(s.Value, lp.state, lp.k) {
+		if !bl.loopValue(s, s.Value, lp.state, lp.k) {
 			return false
 		}
 		target = lp.head
@@ -461,20 +461,23 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 			bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(tail), bl.b.ID()))
 			return true
 		}
-		if sig.result == kindUnit {
+		// The region wrote the fallback, Unit for a Unit payload
+		// (`Ok(v) = r else Unit` over a `Result<Unit, E>`). An else that
+		// is not a fallback leaves on every path, which the checker
+		// requires.
+		if sig.leaves {
 			bl.g.dc.note("an Iter.loop binding else path that neither leaves nor falls back")
 			return false
 		}
 		bl.closeWithScope(ws, tail)
 		target = exit
 	default:
-		if sig.result == kindUnit || sig.testArms {
+		if sig.leaves {
 			bl.g.dc.note("an Iter.loop binding else path that neither leaves nor falls back")
 			return false
 		}
-		val, k, _, ok := bl.lowerWant(tail, sig.result)
-		if !ok || k != sig.result {
-			bl.g.dc.note("an Iter.loop binding else fallback outside a straight value of the payload kind")
+		val, _, _, ok := bl.lowerWant(tail, sig.result)
+		if !ok {
 			return false
 		}
 		bl.resultCopy(tail, val)

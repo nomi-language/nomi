@@ -21,7 +21,7 @@ import (
 // the rt channel carries whatever value it is sent.
 func irConcHandleKind(k kind) bool {
 	payload := func(p kind) bool {
-		return p == kindUnit || irRetainedValueKind(p) || (p.tag == tagFunc && irCallableValueKind(p))
+		return p == kindUnit || irCallableValueKind(p)
 	}
 	if elem, owner, isChannel := channelElem(k); isChannel {
 		return owner != "" && payload(elem)
@@ -43,7 +43,9 @@ func irConcHandleKind(k kind) bool {
 // the element must end (irHandleElemEnds): Unit, a leaf, a structural
 // composite whose parts end, or a named declaration whose own handles end
 // and none of which leads back (irReachesNominalChannel). The element's
-// check then ends where those handles do.
+// check then ends where those handles do. A handle whose element does lead
+// back to a type the walk is deciding is decided before this rule, with
+// the walk's stack (irHandleOnWalk).
 func irHandleFieldKind(k kind) bool {
 	elem, owner, isChannel := channelElem(k)
 	if isChannel && owner == "" {
@@ -94,7 +96,8 @@ func irReachesNominalChannel(d *typeDef, depth int) bool {
 	if depth > 8 {
 		return true
 	}
-	visit := func(k kind) bool {
+	var visit func(k kind) bool
+	visit = func(k kind) bool {
 		elem, _, isHandle := channelElem(k)
 		if !isHandle {
 			elem, isHandle = taskElem(k)
@@ -109,6 +112,12 @@ func irReachesNominalChannel(d *typeDef, depth int) bool {
 		}
 		if k.tag == tagNamed && k.def != nil && k.def != d {
 			return irReachesNominalChannel(k.def, depth+1)
+		}
+		// A structural composite's parts: `Both (Channel<E>, Int)`.
+		for _, p := range kindParts(k) {
+			if visit(p) {
+				return true
+			}
 		}
 		return false
 	}
@@ -155,7 +164,10 @@ func irStdMarkerKind(k kind) bool {
 func (bl *irScalarBuilder) channelCall(t *ast.Call, owner, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if bl.rowsUnrecorded(t) || namedArgNode(t.Args) != nil {
-		return no()
+		// call sends a call with a named argument to namedIntrinsicCall,
+		// which comes back with the positional form, and wraps one in an
+		// assertion subject in recordedQualCall.
+		panic("irbuild: channelCall reached with a named argument or unrecorded rows: " + owner + "." + method)
 	}
 	fn, known := channelFuncs[owner+"."+method]
 	if !known {
@@ -170,8 +182,15 @@ func (bl *irScalarBuilder) channelCall(t *ast.Call, owner, method string) (ir.Te
 		return no()
 	}
 	for i, k := range args.kinds {
-		if bl.g.project(sig.Params[i]) != k {
-			return no()
+		if want := bl.g.project(sig.Params[i]); want != k {
+			// A value entering the solved parameter: an empty literal takes
+			// its type, a concrete value its interface (`Sender.send(tx, 7
+			// as Display)` over a `Sender<Display>`).
+			v, got, ok := bl.coerceEmpty(t.Args[i], args.temps[i], k, want)
+			if !ok {
+				return no()
+			}
+			args.temps[i], args.kinds[i] = v, got
 		}
 	}
 	result := bl.g.project(sig.Return)

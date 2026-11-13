@@ -54,7 +54,7 @@ impl MeteredReader
         data = Reader.read(meter.reader, max)?
         bytes = data |> Maybe.map(Bytes.length) |> Maybe.with_default(0)
 
-        Ok((data, {..meter, stats: Stats.add(meter.stats, bytes)}))
+        Ok((data, {..meter, stats: Stats.add(.., bytes)}))
     end
 end
 
@@ -76,7 +76,7 @@ impl MeteredWriter
     pub fn write(meter: MeteredWriter, data: Bytes) -> Result<MeteredWriter, io.Error>
         Writer.write(meter.writer, data)?
 
-        Ok({..meter, stats: Stats.add(meter.stats, Bytes.length(data))})
+        Ok({..meter, stats: Stats.add(.., Bytes.length(data))})
     end
 end
 

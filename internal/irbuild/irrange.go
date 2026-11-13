@@ -5,9 +5,14 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
+// irRetainedRangeKind is a Range over any element the checker can make one
+// of (a `Comparable` type, spec §3): every such type is a value of the
+// callable domain other than an untyped empty collection. A Range value
+// holds its two ends and nothing more; what reads it (contains, a walk,
+// Debug) builds the element's operation itself.
 func irRetainedRangeKind(k kind) bool {
 	elem, ok := rangeElem(k)
-	return ok && (elem == kindInt || elem == kindFloat || elem == kindString || elem == kindBool || isDecimalKind(elem) || irRangeDistinctElem(elem) || irNominalElemKind(elem))
+	return ok && elem != kindEmptyList && elem != kindEmptyVector && irCallableValueKind(elem)
 }
 
 // irRangeDistinctElem is a wrapping distinct element, such as Codepoint, whose
@@ -31,13 +36,16 @@ func (bl *irScalarBuilder) rangeMake(t *ast.RangeLit) (ir.Temp, kind, bool, bool
 	}
 	k := bl.g.rangeKindOf(elem)
 	if !irRetainedRangeKind(k) {
-		return no()
+		// elem is a lowered value's kind, in the value domain. The checker
+		// makes a range only of a Comparable type, which no bare `None`,
+		// untyped empty collection or Infallible is ("range endpoint type
+		// List<?1> does not implement Comparable"), so elem is a callable
+		// value's kind.
+		panic("rangeMake: a Range over " + elem.nomi() + ", which the checker does not make Comparable")
 	}
-	if elem != kindFloat {
-		if ok := bl.g.rangeOrders(elem, t); !ok {
-			return no()
-		}
-	}
+	// The Range holds its ends only. Each reader that orders the element
+	// (Range.contains, step_by, a walk, known_count) asks for its
+	// comparator (elemComparator) and declines there when it has none.
 	n := ir.NewMakeRange(bl.g.irNodePos(t), bl.f.NewTemp(), start, end, t.Inclusive)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: k, pureMake: endPure})
@@ -70,10 +78,11 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 		if len(args.kinds) != 1 {
 			return no()
 		}
-		if v, k, mobile, ok := bl.synthDebugRender(t, args, "Debug", "inspect"); ok {
-			return v, k, mobile, true
+		v, ok := bl.debugOver(t.Args[0], args.temps[0], args.kinds[0])
+		if !ok {
+			return no()
 		}
-		return no()
+		return v, kindString, false, true
 	case "contains":
 		elem, _ := rangeElem(args.kinds[0])
 		if len(args.kinds) != 2 || args.kinds[1] != elem {

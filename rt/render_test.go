@@ -24,7 +24,7 @@ func TestRender_TheSixRowDebugDisagreements(t *testing.T) {
 	}{
 		{"Decimal", dec, nil, want{row: "1.50", display: "1.50", debug: "1.50d"}},
 		{"Dynamic", Dynamic{Inner: "hello"}, nil, want{row: "<dynamic: string>", display: "<dynamic: string>",
-			debugErr: "Debug on an unrepresented receiver (rt.Dynamic)"}},
+			debug: `"hello"`}},
 		{"String", `f"\.txt`, nil, want{row: `"f\"\\.txt"`, display: `f"\.txt`, debug: `"f\"\\.txt"`}},
 		{"struct", point, nil, want{row: "Point{x: 1, y: 2}", display: "Point{x: 1, y: 2}",
 			debugErr: "Debug on an unrepresented receiver (Point)"}},

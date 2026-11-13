@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 716
-declared-cases 4038
+records 736
+declared-cases 4109
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -47,15 +47,14 @@ T test result: ok. 2 passed, 0 failed
 T
 C 01-foundations/if_else/if_else_test.nomi
 E 0
-N 14
-H 52f257bc0fca89d221258cf1717f42a09da8086d5b4606bda3a3f45e0ecae810
+N 15
+H fe79a34d499abb31bfe31dc593037dbf76a659e90a3ef402e5e87e5388b5bb6a
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if else is an expression
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else returns Unit either way
-T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else is a Maybe when its branch has a value
-T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: an else if chain without a final else is a Maybe
-T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else does not flatten a Maybe branch
-T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: a Maybe if is not a statement
-T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: a forgotten else is a Maybe where a value is expected
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: else None makes an if a Maybe
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: an else if chain ending in else None is its branches' Maybe
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else whose branch is a Maybe is an error
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: a forgotten else names the branch's type
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else allows Unit side effects
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else allows early return branches
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: nested if expressions return branch values
@@ -63,7 +62,10 @@ T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if can match and b
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if pattern mismatch evaluates else
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if pattern bindings are scoped to the then branch
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: else if chains select the first matching branch
-T test result: ok. 14 passed, 0 failed
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: a branch that ends in assert or dbg keeps the if a statement
+T   dbg line 200: n = 2
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: an if without else whose value a statement drops says to write _ =
+T test result: ok. 15 passed, 0 failed
 T
 C 01-foundations/if_else/test_helpers.nomi
 E 1
@@ -813,8 +815,8 @@ T test result: ok. 6 passed, 0 failed
 T
 C 04-scalars-and-text/ranges_test.nomi
 E 0
-N 9
-H 4eb0a75f5e13c3f789176834b12ea7e4536400e7a909566ae0667c1b7c97f26c
+N 10
+H 4ed1118dd2c8923915e2d2637252e56a0354dc878b0527f4593b753516bb44b4
 T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: integer range literals materialize their bounds
 T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: unbounded integer ranges are bounded by iterator adapters
 T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: reversed bounded ranges are empty
@@ -824,7 +826,8 @@ T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: range containment resp
 T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: string and float ranges can be queried for containment
 T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: bounded range predicate distinguishes bounded and unbounded ranges
 T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: ranges compose with iterator pipelines
-T test result: ok. 9 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: a range over tuples, lists or vectors bounds them lexicographically
+T test result: ok. 10 passed, 0 failed
 T
 C 04-scalars-and-text/strings_test.nomi
 E 0
@@ -987,6 +990,21 @@ T ok <root>/tests/05-calendar-and-time/times_test.nomi :: times sort chronologic
 T ok <root>/tests/05-calendar-and-time/times_test.nomi :: time construction rejects invalid components
 T test result: ok. 6 passed, 0 failed
 T
+C 06-collections/any_value_in_a_container_test.nomi
+E 0
+N 9
+H dd3b1859214732b91f647811c0826c30f3ef1e876a095c2c0051a6ca282c7bfa
+T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: Unit in a Vector, an Iter and a zip
+T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: a list pattern over lists of any element
+T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: map values of any kind
+T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: channel halves in containers
+T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: a Map entering an Iter of interface values
+T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: a Context in a Maybe and a task's outcome
+T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: a field of a function over Unit
+T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: Debug of a tuple holding a List of functions
+T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: interface values in tasks and channels
+T test result: ok. 9 passed, 0 failed
+T
 C 06-collections/contains_test.nomi
 E 0
 N 11
@@ -1003,6 +1021,17 @@ T ok <root>/tests/06-collections/contains_test.nomi :: Iter.contains scans any i
 T ok <root>/tests/06-collections/contains_test.nomi :: Contains is the one interface the collections share
 T ok <root>/tests/06-collections/contains_test.nomi :: a bound takes any collection that implements Contains
 T test result: ok. 11 passed, 0 failed
+T
+C 06-collections/empty_literal_ordering_test.nomi
+E 0
+N 5
+H 9661a7c7f5521a26f83b16ab6f173307c5314e256e43600553db3e2530d3a630
+T ok <root>/tests/06-collections/empty_literal_ordering_test.nomi :: an empty list orders before a non-empty one
+T ok <root>/tests/06-collections/empty_literal_ordering_test.nomi :: an empty list inside a tuple orders by its position
+T ok <root>/tests/06-collections/empty_literal_ordering_test.nomi :: an empty list inside a list
+T ok <root>/tests/06-collections/empty_literal_ordering_test.nomi :: the operators agree with Comparable.compare
+T ok <root>/tests/06-collections/empty_literal_ordering_test.nomi :: a range's endpoints settle an empty list against each other
+T test result: ok. 5 passed, 0 failed
 T
 C 06-collections/in_test.nomi
 E 0
@@ -1404,6 +1433,15 @@ T ok <root>/tests/08-pattern-matching/binding_else_test.nomi :: an else in a tes
 T ok <root>/tests/08-pattern-matching/binding_else_test.nomi :: an else arm's return ends the case
 T test result: ok. 10 passed, 0 failed
 T
+C 08-pattern-matching/case_over_any_value_test.nomi
+E 0
+N 3
+H c4952889e5e74c9b7922e932dca715d944d94c18064f9018554e507116cbf5e1
+T ok <root>/tests/08-pattern-matching/case_over_any_value_test.nomi :: a name matches a function
+T ok <root>/tests/08-pattern-matching/case_over_any_value_test.nomi :: a guard over an Iter
+T ok <root>/tests/08-pattern-matching/case_over_any_value_test.nomi :: an interface value and a marker
+T test result: ok. 3 passed, 0 failed
+T
 C 08-pattern-matching/case_patterns_test.nomi
 E 0
 N 5
@@ -1471,6 +1509,14 @@ T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: map patterns mat
 T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: an asserted map pattern binds composite expression keys
 T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: negative numeric literals can be map pattern keys
 T test result: ok. 5 passed, 0 failed
+T
+C 08-pattern-matching/marker_patterns_test.nomi
+E 0
+N 2
+H 18e4d445cac06edad3f40f4918f7e3db8b934049d79b842138ca5dd857f3db68
+T ok <root>/tests/08-pattern-matching/marker_patterns_test.nomi :: a marker payload pattern
+T ok <root>/tests/08-pattern-matching/marker_patterns_test.nomi :: a marker in a record pattern
+T test result: ok. 2 passed, 0 failed
 T
 C 08-pattern-matching/maybe_result_test.nomi
 E 0
@@ -1726,6 +1772,24 @@ H f0ef8fd81b79d9db8f115365666b70f9412c0f26673bb02f2520c001142bccd4
 T --- stderr ---
 T nomi run: <root>/tests/09-functions-and-control-flow/parameter_types_from_defaults/search.nomi declares no `fn main`, so there is no program to run
 T
+C 09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi
+E 0
+N 5
+H 40a9addcc912bb6bf3cf636d61b16d3a7a0f8d648cde24f1eab3806e2dc53ee6
+T ok <root>/tests/09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi :: a function of this file
+T ok <root>/tests/09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi :: a later default reads the earlier one
+T ok <root>/tests/09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi :: a local function
+T ok <root>/tests/09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi :: another file's function
+T ok <root>/tests/09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi :: a partial over the partial, and one a closure calls
+T test result: ok. 5 passed, 0 failed
+T
+C 09-functions-and-control-flow/partial_defaults/spans.nomi
+E 1
+N 0
+H 0d0f2ab086067769d32443f83ec63acb2a2c65ab84f829a1df59c931671a8cef
+T --- stderr ---
+T nomi run: <root>/tests/09-functions-and-control-flow/partial_defaults/spans.nomi declares no `fn main`, so there is no program to run
+T
 C 09-functions-and-control-flow/tail_calls_test.nomi
 E 0
 N 5
@@ -1746,6 +1810,17 @@ T ok <root>/tests/09-functions-and-control-flow/todo_test.nomi :: a todo checks 
 T ok <root>/tests/09-functions-and-control-flow/todo_test.nomi :: reaching a todo stops the program with its place and reason
 T ok <root>/tests/09-functions-and-control-flow/todo_test.nomi :: an unannotated binding of a todo asks for a type
 T test result: ok. 4 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/args_first_inference_test.nomi
+E 0
+N 5
+H 725e353626073fd9a91740bf1e96947c84839c5e102f959503ecd22d83a0fd43
+T ok <root>/tests/10-generics-and-type-wrappers/args_first_inference_test.nomi :: a pipe's lambda takes the head's element, not the binding's interface
+T ok <root>/tests/10-generics-and-type-wrappers/args_first_inference_test.nomi :: a loop's state and result are the arguments' types
+T ok <root>/tests/10-generics-and-type-wrappers/args_first_inference_test.nomi :: an accumulator is the starting value's type
+T ok <root>/tests/10-generics-and-type-wrappers/args_first_inference_test.nomi :: the expected type fills what the arguments leave open
+T ok <root>/tests/10-generics-and-type-wrappers/args_first_inference_test.nomi :: a range of two empty lists takes the annotation's element
+T test result: ok. 5 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/bound_type_params_test.nomi
 E 0
@@ -2200,6 +2275,16 @@ T ok <root>/tests/11-interfaces-and-impls/missing_impls/missing_impls_test.nomi 
 T ok <root>/tests/11-interfaces-and-impls/missing_impls/missing_impls_test.nomi :: generic wrapper derive attributes missing impls to the instantiation field
 T test result: ok. 5 passed, 0 failed
 T
+C 11-interfaces-and-impls/missing_impls/same_named_std_type_test.nomi
+E 0
+N 4
+H fbceb24b682aae09251490ad5a70c82f25fd7336085a215ce09da3330ec5273f
+T ok <root>/tests/11-interfaces-and-impls/missing_impls/same_named_std_type_test.nomi :: a program's Name is not Display because std/xml's Name is
+T ok <root>/tests/11-interfaces-and-impls/missing_impls/same_named_std_type_test.nomi :: a program's Error is not Display because std/calendar's Error is
+T ok <root>/tests/11-interfaces-and-impls/missing_impls/same_named_std_type_test.nomi :: a program's Uuid is not ToJson because std/uuid's Uuid is
+T ok <root>/tests/11-interfaces-and-impls/missing_impls/same_named_std_type_test.nomi :: std/xml's own Name still conforms to Display
+T test result: ok. 4 passed, 0 failed
+T
 C 11-interfaces-and-impls/missing_impls/test_helpers.nomi
 E 1
 N 0
@@ -2463,6 +2548,15 @@ T boxed: Box{value: hi}
 T Node{left: Leaf, value: 5, right: Leaf}
 T dbg line 22: box = Box{value: 42}
 T
+C 12-derives-and-standard-interfaces/host_values_as_display_test.nomi
+E 0
+N 3
+H 5d23c519725cddc6185d915e6fca68c79cc8da4be68899824e9fd00ada7b9dab
+T ok <root>/tests/12-derives-and-standard-interfaces/host_values_as_display_test.nomi :: a Bytes held as Display renders through its impl
+T ok <root>/tests/12-derives-and-standard-interfaces/host_values_as_display_test.nomi :: a Regex held as Display renders its pattern
+T ok <root>/tests/12-derives-and-standard-interfaces/host_values_as_display_test.nomi :: a Bytes or a Regex inside a container held as Display
+T test result: ok. 3 passed, 0 failed
+T
 C 12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi
 E 0
 N 4
@@ -2499,6 +2593,16 @@ T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Se
 T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Set of structs inspects each member through its Debug
 T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Set of declared members nested in other values inspects
 T test result: ok. 3 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi
+E 0
+N 4
+H 100c503b7e4fa9b0110d8c08bee43549e1e163836e2cf44670b05d71b7bd7a54
+T ok <root>/tests/12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi :: Iter.contains compares with the program's Equatable
+T ok <root>/tests/12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi :: Debug of a tuple holding an interface value or a marker
+T ok <root>/tests/12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi :: an interface value inside a tuple entering a Map or a default
+T ok <root>/tests/12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi :: List.compare over tuples holding a program's Comparable
+T test result: ok. 4 passed, 0 failed
 T
 C 12-derives-and-standard-interfaces/summable_test.nomi
 E 0
@@ -2539,6 +2643,16 @@ H 8e0b4cda33bad8c75a6f672390fe5d7e38ab53e4ed0e62f42ea96c84424c2e8b
 T ok <root>/tests/12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi :: universal Debug renders declared types structurally
 T ok <root>/tests/12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi :: universal Debug works for opaque values generics and existentials
 T test result: ok. 2 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/value_equality_test.nomi
+E 0
+N 4
+H d59e464edd6ae7d01be38917db2547e9714c90b5277bf2f8a6d2922dcc73ef6e
+T ok <root>/tests/12-derives-and-standard-interfaces/value_equality_test.nomi :: a tuple holding a marker compares by its other parts
+T ok <root>/tests/12-derives-and-standard-interfaces/value_equality_test.nomi :: a tuple holding a Range compares the Range by its bounds
+T ok <root>/tests/12-derives-and-standard-interfaces/value_equality_test.nomi :: two regexes are equal when their patterns are
+T ok <root>/tests/12-derives-and-standard-interfaces/value_equality_test.nomi :: an interface value interpolates and defaults as the value it holds
+T test result: ok. 4 passed, 0 failed
 T
 C 12-derives-and-standard-interfaces/variants/coins.nomi
 E 1
@@ -2695,6 +2809,15 @@ T ok <root>/tests/13-iterators-and-pipes/iterator_inference_test.nomi :: generic
 T ok <root>/tests/13-iterators-and-pipes/iterator_inference_test.nomi :: custom iterable-backed adapters infer inline lambda parameter types
 T test result: ok. 2 passed, 0 failed
 T
+C 13-iterators-and-pipes/iters_in_lists_test.nomi
+E 0
+N 3
+H 048c4a2be569d52f2b01bf36d2a898f0cd6c1a76e0d738b6b2682d7ddc2a6b31
+T ok <root>/tests/13-iterators-and-pipes/iters_in_lists_test.nomi :: chunks of iters
+T ok <root>/tests/13-iterators-and-pipes/iters_in_lists_test.nomi :: flatten a list of lists of iters
+T ok <root>/tests/13-iterators-and-pipes/iters_in_lists_test.nomi :: flat_map to lists of iters
+T test result: ok. 3 passed, 0 failed
+T
 C 13-iterators-and-pipes/keyword_pipe_stages_test.nomi
 E 0
 N 8
@@ -2843,6 +2966,60 @@ T ok <root>/tests/13-iterators-and-pipes/take_drop_test.nomi :: take drop and ta
 T ok <root>/tests/13-iterators-and-pipes/take_drop_test.nomi :: take_while callbacks can continue or break with keep decisions
 T ok <root>/tests/13-iterators-and-pipes/take_drop_test.nomi :: filter break values decide whether to keep the current element
 T test result: ok. 3 passed, 0 failed
+T
+C 13-iterators-and-pipes/tuples_of_display_test.nomi
+E 0
+N 3
+H 7e066e86ee13e20b0c73648ff56fdef6ac13bb0208fb5017aa53c621d2d692f3
+T ok <root>/tests/13-iterators-and-pipes/tuples_of_display_test.nomi :: a tuple holding a Display value enters Display
+T ok <root>/tests/13-iterators-and-pipes/tuples_of_display_test.nomi :: an Iter of tuples holding a Display value is an Iter<Display>
+T ok <root>/tests/13-iterators-and-pipes/tuples_of_display_test.nomi :: a filtered list of such tuples where an Iter<Display> is expected
+T test result: ok. 3 passed, 0 failed
+T
+C 14-modules-and-packaging/block_import_alias_test.nomi
+E 0
+N 2
+H 5db7ad87da2b2f1a7c0ed86cb63f89fda18ab6f225845365f96f20a6284f5e3c
+T ok <root>/tests/14-modules-and-packaging/block_import_alias_test.nomi :: a block import rebinds the file's module alias
+T ok <root>/tests/14-modules-and-packaging/block_import_alias_test.nomi :: the file's alias holds outside those blocks
+T test result: ok. 2 passed, 0 failed
+T
+C 14-modules-and-packaging/block_import_alias_types/block_import_alias_types_test.nomi
+E 0
+N 5
+H 004725924c0c6313b8cf09da253c621f83b752de1359854105b38e68585d7821
+T ok <root>/tests/14-modules-and-packaging/block_import_alias_types/block_import_alias_types_test.nomi :: a variant through a rebound alias uses the block module's Display
+T ok <root>/tests/14-modules-and-packaging/block_import_alias_types/block_import_alias_types_test.nomi :: a struct literal and an annotation through a rebound alias
+T ok <root>/tests/14-modules-and-packaging/block_import_alias_types/block_import_alias_types_test.nomi :: the file's alias outside those blocks
+T ok <root>/tests/14-modules-and-packaging/block_import_alias_types/block_import_alias_types_test.nomi :: a std type through a rebound alias
+T ok <root>/tests/14-modules-and-packaging/block_import_alias_types/block_import_alias_types_test.nomi :: the file's std alias
+T test result: ok. 5 passed, 0 failed
+T
+C 14-modules-and-packaging/block_import_alias_types/left.nomi
+E 1
+N 0
+H 28fc6ed8c02cb5a67bacb0281e4bf6238dcd5ed8ac457df6de52cee722f3da11
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/block_import_alias_types/left.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/block_import_alias_types/right.nomi
+E 1
+N 0
+H 30f9308ce06eb8b12f6fa2f3c6a1a3c53df60bb7371d568207a27df01d2bbb55
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/block_import_alias_types/right.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/block_imports_test.nomi
+E 0
+N 2
+H cfce9a080898bb5d13f25d7342ef415a9889ebb4c1a4d069e896dd39125fd56e
+T ok <root>/tests/14-modules-and-packaging/block_imports_test.nomi :: a test body's import shadows the file's function
+T   hi
+T   a
+T   b
+T ok <root>/tests/14-modules-and-packaging/block_imports_test.nomi :: a function body's import shadows it there alone
+T   announce: ready
+T test result: ok. 2 passed, 0 failed
 T
 C 14-modules-and-packaging/cross_file_modules/api.nomi
 E 1
@@ -3384,11 +3561,12 @@ T nomi run: <root>/tests/15-app-and-defer/context_module_values/other.nomi decla
 T
 C 15-app-and-defer/context_values_test.nomi
 E 0
-N 2
-H a100728ba01fd4490dfe6be585dfc40ae5a03a857d39eb5e207ff59549cc037d
+N 3
+H 64353523c340b3d7ec5208c03a903be834cfa297976b28a3076b7b79cc0a4268
 T ok <root>/tests/15-app-and-defer/context_values_test.nomi :: context values are keyed by their Nomi type
 T ok <root>/tests/15-app-and-defer/context_values_test.nomi :: type witnesses do not replace zero-sized values
-T test result: ok. 2 passed, 0 failed
+T ok <root>/tests/15-app-and-defer/context_values_test.nomi :: a witness is a value: a field, an element, a call's result
+T test result: ok. 3 passed, 0 failed
 T
 C 15-app-and-defer/deadline_floor/deadline_floor_test.nomi
 E 0
@@ -3680,6 +3858,15 @@ N 0
 H 0c2509cd2e409c34a39df0e469abbbd27c728dc267791bbd372ed7934b35bbf6
 T count: Ok(2)
 T
+C 16-concurrency/channel_markers_test.nomi
+E 0
+N 3
+H f913e2dbf2326ab803ca174d5ec5c0cb475173dd3b2ce9f79cfeb46452fe8d1d
+T ok <root>/tests/16-concurrency/channel_markers_test.nomi :: a marker is a tuple part and a record field
+T ok <root>/tests/16-concurrency/channel_markers_test.nomi :: markers are elements of pairs and sets
+T ok <root>/tests/16-concurrency/channel_markers_test.nomi :: a pattern names a marker payload
+T test result: ok. 3 passed, 0 failed
+T
 C 16-concurrency/concurrent_diagnostics/concurrent_diagnostics_test.nomi
 E 0
 N 3
@@ -3771,8 +3958,8 @@ T nomi: background task errored (attempt 1): line 103: division by zero — retr
 T
 C 16-concurrency/select_test.nomi
 E 0
-N 13
-H 2fb63220a510e7379831b85997882e9e52111eff9f8782a65338acec653c75d3
+N 14
+H fefe4c627c5cad9891890fe029b66d87deed7d2c747c62fac98a5ed0f93c6388
 T ok <root>/tests/16-concurrency/select_test.nomi :: the first listed ready arm wins
 T ok <root>/tests/16-concurrency/select_test.nomi :: arms over channels of different element types share one result
 T ok <root>/tests/16-concurrency/select_test.nomi :: a closed channel is ready with None, a send on one with ChannelClosed
@@ -3786,7 +3973,17 @@ T ok <root>/tests/16-concurrency/select_test.nomi :: timers on the virtual clock
 T ok <root>/tests/16-concurrency/select_test.nomi :: timers on the virtual clock / receive_within waits out its duration
 T ok <root>/tests/16-concurrency/select_test.nomi :: timers on the virtual clock / a task waiting in a select is cancelled with its block
 T ok <root>/tests/16-concurrency/select_test.nomi :: rotating the arms serves both channels
-T test result: ok. 13 passed, 0 failed
+T ok <root>/tests/16-concurrency/select_test.nomi :: an arm takes named arguments, in any order
+T test result: ok. 14 passed, 0 failed
+T
+C 16-concurrency/self_channel_test.nomi
+E 0
+N 3
+H 3d3410ee2bf9cc8e18f6d50d6f965d4ca59398850e19dcbad2174ac45fcd5aa8
+T ok <root>/tests/16-concurrency/self_channel_test.nomi :: a variant carries a channel of its own enum
+T ok <root>/tests/16-concurrency/self_channel_test.nomi :: a struct field holds a channel of its own struct
+T ok <root>/tests/16-concurrency/self_channel_test.nomi :: a message brings its reply channel to a task
+T test result: ok. 3 passed, 0 failed
 T
 C 16-concurrency/supervisors/app.nomi
 E 0
@@ -3796,15 +3993,16 @@ T audited 7
 T
 C 16-concurrency/supervisors/supervisors_test.nomi
 E 0
-N 6
-H 43f3ab04404503fefc371d1c6ccc35fc4a34b2945bdff8ae811f5a662b7f6313
+N 7
+H 4565794290142a6ee032b98f6c3dd955f9db9e45bad3206a719fc68be6370b52
 T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / work outlives the call that started it
 T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / a failure nobody awaits still goes somewhere
 T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / a batch is bounded by the group's own limit
 T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / the handles a batch returns can be awaited on their own
 T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / cancelling one grouped task leaves the rest alone
 T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / a cancelled task reports Cancelled rather than Completed
-T test result: ok. 6 passed, 0 failed
+T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / a spawn in an assertion's subject
+T test result: ok. 7 passed, 0 failed
 T
 C 17-typed-literals/fragments_test.nomi
 E 0
@@ -4079,12 +4277,13 @@ T test result: ok. 4 passed, 0 failed
 T
 C 18-ffi-and-dynamic/json_test.nomi
 E 0
-N 3
-H 57ffc3195a16e04bec63b002f01f5700758f4ea42ee50bbf1309450bc667cfe4
+N 4
+H 1fa66aa7540a9390f3e88137e701341729fb101764d697d832b0907e9f51a65e
 T ok <root>/tests/18-ffi-and-dynamic/json_test.nomi :: Json decode supports nested pattern matching and encode round trip
 T ok <root>/tests/18-ffi-and-dynamic/json_test.nomi :: Json values can be constructed and encoded by hand
 T ok <root>/tests/18-ffi-and-dynamic/json_test.nomi :: Json to_dynamic interops with Dynamic extractors
-T test result: ok. 3 passed, 0 failed
+T ok <root>/tests/18-ffi-and-dynamic/json_test.nomi :: Dynamic values compare and hash by their contents
+T test result: ok. 4 passed, 0 failed
 T
 C 18-ffi-and-dynamic/tagged_ffi_app/ffi.nomi
 E 1

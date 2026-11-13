@@ -33,7 +33,7 @@ test "a field takes its default's type"
     assert game.misses == 0
     assert game.hint == "none"
     assert game.guessed == []
-    more = {..game, misses: game.misses + 1}
+    more = {..game, misses: .. + 1}
     assert more.misses == 1
     assert more != game
 end

@@ -68,6 +68,10 @@
 //     "One-line if and binding else").
 //   - A blank line above a body's first statement goes, as none could
 //     follow a `{`; a `//!` prompt's body keeps its own.
+//   - A blank line right after a comment goes (emitWithTriviaParts): the
+//     lexer keeps none after a comment line, so a comment left on a
+//     header's line, which moves below it, loses the blank line after it
+//     too.
 //   - A block of several statements puts each on its own line:
 //     `a = 1; b = 2` becomes two lines.
 //   - A tail `return value` becomes `value` (stripTailReturns).
@@ -88,9 +92,14 @@
 // The inline forms are `if c then a else b` and `Pattern = e else value`.
 // A one-line guard or binding `else` is limited only by the 100-column line,
 // its indentation and the rest of the line, so a run of guards reads as a
-// run of one-line statements. A plain two-branch `if`/`else` also has a
+// run of one-line statements. A binding `else` whose statement holds an
+// `if` or a `case` is the exception: it is always in block form, so
+// `else`, `return`, `if` and `then` never share a line. A plain two-branch `if`/`else` also has a
 // 50-column limit (singleLineValueIfMaxWidth), like rustfmt's
-// single_line_if_else_max_width. A form holding a forced break (a `case`,
+// single_line_if_else_max_width, unless its `else` branch is one atom (a
+// name, a number, `""`, a variant with no payload, an empty collection):
+// `if c then Some(x) else None` is limited by the line alone, since a
+// trivial `else` only closes it. A form holding a forced break (a `case`,
 // a block of several statements, a stacked pipe) is never one line, and
 // neither is an `else if` chain. An inline `if`'s `else` branch extends as
 // far right as it can, so an inline `if` that a binary operator or a pipe

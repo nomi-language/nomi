@@ -22,11 +22,7 @@ fn mode(config: Map<String, String>) -> String
 end
 
 fn host_or(config: Map<String, String>, fallback: String) -> String
-    if {"host" => host} = config then
-        host
-    else
-        fallback
-    end
+    if {"host" => host} = config then host else fallback
 end
 
 test "a map binding with else binds every key it names"

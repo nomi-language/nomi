@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,25 +16,32 @@ import (
 // decline sites it executes.
 type Suite struct {
 	Name, Pkg, Run string
+	// Env is extra environment for the run, as KEY=VALUE.
+	Env []string
 }
 
 // Suites are the runs the inventory measures: every input the repository
 // holds a program to the rule that an accepted program lowers, and the
 // builder's own tests, which include the ones that assert a decline.
 var Suites = []Suite{
-	{"expect", "./internal/expectation", "^TestExpectation_(Corpus|Stdlib|Tour|Failure)$"},
-	{"vmhost", "./vmhost", "^(TestFrontEndAcceptsSoItLowers|TestKnownLoweringGaps|TestDeclineReproducersLower|TestLoweredProgramsRun|TestSpecPrograms|FuzzFrontEndAcceptsSoItLowers|FuzzLoweredProgramsRun)$"},
-	{"projectgen", "./internal/projectgen", "^TestGeneratedProjectsAreClean$"},
-	{"irbuild", "./internal/irbuild", ""},
+	{"expect", "./internal/expectation", "^TestExpectation_(Corpus|Stdlib|Tour|Failure)$", nil},
+	{"vmhost", "./vmhost", "^(TestFrontEndAcceptsSoItLowers|TestKnownLoweringGaps|TestDeclineReproducersLower|TestLoweredProgramsRun|TestSpecPrograms|FuzzFrontEndAcceptsSoItLowers|FuzzLoweredProgramsRun)$", nil},
+	{"projectgen", "./internal/projectgen", "^TestGeneratedProjectsAreClean$", nil},
+	{"grid", "./vmhost", "^TestTypeOperationGrid$", []string{"NOMI_TYPE_OPS=full"}},
+	{"irbuild", "./internal/irbuild", "", nil},
 }
 
 // RunSuites runs each suite in the module at root with coverage of
 // internal/irbuild, writing <outDir>/<name>.out, and answers the profiles by
 // suite name. A failing suite still answers its profile when it wrote one;
-// its output is in <outDir>/<name>.log.
-func RunSuites(root, outDir string, log func(string)) (map[string]string, error) {
+// its output is in <outDir>/<name>.log. With names, it runs only the suites
+// named.
+func RunSuites(root, outDir string, log func(string), names ...string) (map[string]string, error) {
 	profiles := map[string]string{}
 	for _, s := range Suites {
+		if len(names) > 0 && !slices.Contains(names, s.Name) {
+			continue
+		}
 		out := filepath.Join(outDir, s.Name+".out")
 		args := []string{"test", s.Pkg, "-count=1", "-timeout", "0",
 			"-coverpkg=./internal/irbuild", "-coverprofile=" + out}
@@ -42,6 +50,7 @@ func RunSuites(root, outDir string, log func(string)) (map[string]string, error)
 		}
 		cmd := exec.Command("go", args...)
 		cmd.Dir = root
+		cmd.Env = append(os.Environ(), s.Env...)
 		logPath := filepath.Join(outDir, s.Name+".log")
 		logFile, err := os.Create(logPath)
 		if err != nil {

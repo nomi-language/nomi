@@ -332,6 +332,15 @@ func (bl *irScalarBuilder) stdTestOwnType() bool {
 //     `struct Duration`). The block's overlay answers the name in a type
 //     position (bindBlockImports), and an owner qualifier naming it is
 //     lowered through its module (stdOwnerByDecl).
+//   - a function, whatever the module scope binds the name to (`import
+//     std::io.print` beside a local `fn print` or `once print`). A call or value
+//     of the name resolves by the checker's reference at it (blockImported),
+//     never by g.funcs.
+//   - a file, whatever file the module scope binds the name to (`import
+//     std::hex as codec` beside the file's `import std::base64 as codec`). A
+//     call or value through the qualifier resolves by the checker's
+//     reference at it (qualifierScope), and a type named through it by the
+//     visible block's import (moduleScope, blockModuleSymbol).
 //
 // Any other import that rebinds a name the module scope binds to something
 // else is declined: a name-keyed lookup would answer the module scope's
@@ -363,7 +372,7 @@ func (bl *irScalarBuilder) testImport(n *ast.ImportStmt) bool {
 		if scope := symbolModuleScope(real); scope != nil && scope == symbolModuleScope(outer) {
 			continue
 		}
-		if outer != real && !g.stdTypeRebind(real) && !g.twinOf(real, outer) {
+		if outer != real && !g.stdTypeRebind(real) && !g.twinOf(real, outer) && !functionRebind(real, outer) && !moduleRebind(real) {
 			return no()
 		}
 	}
@@ -371,6 +380,41 @@ func (bl *irScalarBuilder) testImport(n *ast.ImportStmt) bool {
 		return no()
 	}
 	return true
+}
+
+// blockImported reports whether the bare name id resolves, by the checker's
+// reference at it, through a block `import`. Such a name shadows a module
+// declaration of the same spelling for the rest of its block (`import
+// std::io.print` in a test body of a file that declares `fn print`), so a
+// call or value of it skips the module's functions (g.funcs) and resolves
+// as the import does.
+func (g *gen) blockImported(id *ast.Ident) bool {
+	if g.fa == nil || id == nil {
+		return false
+	}
+	fa := g.srcFA()
+	if len(fa.BlockImportScopes) == 0 {
+		return false
+	}
+	for s := fa.References[analysis.Pos{Line: id.Line, Col: id.Col}]; s != nil; s = s.Resolved {
+		if imp, ok := s.Node.(*ast.ImportStmt); ok && fa.BlockImportScopes[imp] != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// functionRebind reports whether a block import binds a function over a
+// name the module scope binds to something else (a function or a `once`),
+// which blockImported resolves.
+func functionRebind(real, _ *analysis.Symbol) bool {
+	return real.Kind == analysis.SymbolFunction
+}
+
+// moduleRebind reports whether a block import binds a file over a name the
+// module scope binds to another file, which qualifierScope resolves.
+func moduleRebind(real *analysis.Symbol) bool {
+	return real.Kind == analysis.SymbolModule
 }
 
 // importPathString is an import's module path as written, `std/compiler`.

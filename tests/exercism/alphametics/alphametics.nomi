@@ -60,7 +60,9 @@ fn assign(
     total: Int,
     digits: Map<String, Int>,
 ) -> Maybe<Map<String, Int>>
-    [letter, ..rest] = letters else return if total == 0 then digits
+    [letter, ..rest] = letters else
+        return if total == 0 then Some(digits) else None
+    end
 
     0..=9
     |> Iter.filter(fn digit ->

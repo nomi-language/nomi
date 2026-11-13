@@ -748,19 +748,23 @@ func moduleScopeOf(fa *analysis.FileAnalysis, name string) *analysis.Scope {
 	return symbolModuleScope(fa.ModuleScope.Lookup(name))
 }
 
-// moduleScope is moduleScopeOf for this gen's file, extended to a qualifier
-// an `import` at the top of a block binds (testImport admits one): a type
-// named through it (`json.Json.Null`, `json.Json` in an annotation) reaches
-// the imported file's scope by name, as a module-level import's does. The
-// innermost visible block's import of the name answers first (the blocks
-// being lowered, visibleBlockModule); elsewhere a name two blocks bind to
-// different files resolves to nothing, so its uses decline rather than
-// pick one.
+// moduleScope is the file a qualifier names where this gen is lowering: the
+// innermost visible block's `import` of it first (the blocks being lowered,
+// visibleBlockModule), which shadows the file's binding for the rest of its
+// block as it does for the checker (`import std::xml as fmt` over the
+// file's `import std::csv as fmt`), then the module scope's (moduleScopeOf).
+// A type named through it (`json.Json.Null`, `json.Json` in an annotation)
+// reaches that file's scope by name. Outside the blocks being lowered, a
+// name only blocks bind, and two of them to different files, resolves to
+// nothing, so its uses decline rather than pick one.
 func (g *gen) moduleScope(name string) *analysis.Scope {
-	if scope := moduleScopeOf(g.fa, name); scope != nil || g.fa == nil || g.fa.ModuleScope == nil {
-		return scope
+	if g.fa == nil || g.fa.ModuleScope == nil {
+		return nil
 	}
 	if scope := g.visibleBlockModule(name); scope != nil {
+		return scope
+	}
+	if scope := moduleScopeOf(g.fa, name); scope != nil {
 		return scope
 	}
 	if g.blockImports == nil {
@@ -826,15 +830,21 @@ func symbolModuleScope(sym *analysis.Symbol) *analysis.Scope {
 	return sym.ModuleScope
 }
 
-// qualifierScope is moduleScopeOf for the qualifier written at id. A name the
-// module scope does not bind may still name a file: `import std::io` at the
-// top of a block binds `io` in that block only (testImport admits it), and
-// the checker's reference at id is that import's symbol.
+// qualifierScope is the file the qualifier written at id names: the
+// checker's reference at id when it is a file import, else moduleScopeOf.
+// The reference answers first because a block `import` binds its name for
+// the rest of its block only (testImport admits it): `import std::io` where
+// the module scope binds no `io`, or `import std::hex as codec` over the
+// file's `import std::base64 as codec`, whose qualifier the module scope
+// would answer with base64.
 func qualifierScope(fa *analysis.FileAnalysis, id *ast.Ident) *analysis.Scope {
-	if scope := moduleScopeOf(fa, id.Name); scope != nil || fa == nil {
+	if fa == nil {
+		return nil
+	}
+	if scope := symbolModuleScope(fa.References[analysis.Pos{Line: id.Line, Col: id.Col}]); scope != nil {
 		return scope
 	}
-	return symbolModuleScope(fa.References[analysis.Pos{Line: id.Line, Col: id.Col}])
+	return moduleScopeOf(fa, id.Name)
 }
 
 // lookupQualifier resolves a file qualifier to a unit index, using the

@@ -177,11 +177,7 @@ fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>>
 
         {inside: Some(inside)} ->
             Some(fn rows ->
-                if rows > 2 and inside % (rows - 2) == 0 then
-                    [inside / (rows - 2) + 2]
-                else
-                    []
-                end
+                if rows > 2 and inside % (rows - 2) == 0 then [inside / (rows - 2) + 2] else []
             end)
 
         _ ->

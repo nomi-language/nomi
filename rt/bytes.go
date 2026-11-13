@@ -48,6 +48,11 @@ type Byte uint8
 // Bytes is std/bytes.Bytes: an immutable byte buffer. See the header.
 type Bytes string
 
+// BytesTypeName is the name std/bytes's Bytes is declared under, as a
+// record's rt.TypeDesc.Name or a HostHandle's TypeName names its type: what
+// a table of impls keyed by type name holds Bytes's under.
+const BytesTypeName = "bytes.Bytes"
+
 // ByteInRange is the `Int.to_byte` domain: 0 through 255, inclusive at both
 // ends.
 //

@@ -352,6 +352,9 @@ func (bl *irScalarBuilder) lowerExact(n ast.Node) (ir.Temp, kind, bool, bool) {
 			t, k, m, ok = bl.lowerNode(n)
 		}
 	}
+	if ok && !bl.inValueDomain(k) {
+		ok = false
+	}
 	if ok && bl.g.dc.failures != bl.g.dc.frames[len(bl.g.dc.frames)-1] {
 		// Something inside n declined, and n answered anyway by another
 		// route: the declined operand's IR is still in n's blocks.
@@ -414,7 +417,8 @@ func (dc *declineCensus) atNode(n ast.Node) {
 
 // atPattern records reason as the open attempt's decline, unless one is
 // already recorded, and places it at the pattern p unless something inside
-// p already placed it. Every site that gives up on a pattern calls it, so the
+// p already placed it. A site that gives up on a pattern calls it with its
+// own reason, or patternFailed when a callee's failure is the reason, so the
 // innermost pattern that failed is where the decline is reported: a pattern is
 // tested outside `lower`, which places only expressions.
 func (dc *declineCensus) atPattern(p ast.Node, reason string) {
@@ -432,6 +436,23 @@ func (dc *declineCensus) atPattern(p ast.Node, reason string) {
 	}
 	dc.cur.Line, dc.cur.Col, dc.cur.Pattern = line, col, true
 }
+
+// patternFailed places the open attempt's decline at the pattern p, which a
+// callee failed to test, unless something inside p already placed it. The
+// callee names the reason; a caller that gives up on a pattern its callee
+// could not test adds only where. A callee that declined without naming a
+// reason is a builder bug, recorded as close records one, so the decline
+// is still reported at the pattern.
+func (dc *declineCensus) patternFailed(p ast.Node) {
+	if dc.why == "" && irDeclineUnnamed != nil {
+		irDeclineUnnamed(dc.fn)
+	}
+	dc.atPattern(p, irPatternUnnamedReason)
+}
+
+// irPatternUnnamedReason is the reason patternFailed records for a pattern
+// whose test declined without naming one.
+const irPatternUnnamedReason = "the builder could not test this pattern and named no reason (a compiler bug; please report it)"
 
 // declineReason names why n did not lower, re-deriving the cheap tests the
 // arms make so the reason says the OPERATOR or the KIND rather than the node

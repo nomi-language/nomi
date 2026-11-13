@@ -73,9 +73,7 @@ func (bl *irScalarBuilder) funcWiden(at ast.Node, fn ir.Temp, have, want kind) (
 		return ir.NoTemp, false
 	}
 	child.b.SetTerm(ir.NewReturn(pos, result))
-	if err := bl.g.irLint(f); err != nil {
-		return ir.NoTemp, false
-	}
+	bl.g.irRequireLint(f, "a function value widening adapter")
 	n := ir.NewFuncValue(pos, bl.f.NewTemp(), f, fn)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: want})

@@ -1,0 +1,79 @@
+// std's generic functions over a program's types and interface values: the
+// program's Equatable decides `Iter.contains`, its Comparable `List.compare`
+// over tuples, and Debug renders an interface value or a std marker anywhere.
+import std::channels.ChannelClosed
+
+struct Loose
+    id: Int
+    note: String
+end
+
+impl Equatable for Loose
+    fn equal(a: Loose, b: Loose) -> Bool
+        a.id == b.id
+    end
+end
+
+struct Pt
+    x: Int
+end
+
+derive Equatable for Pt
+
+type Mk
+
+test "Iter.contains compares with the program's Equatable"
+    assert Iter.contains([Loose{id: 1, note: "a"}], Loose{id: 1, note: "b"})
+    refute Iter.contains([Loose{id: 1, note: "a"}], Loose{id: 2, note: "a"})
+    assert Iter.contains([Pt{x: 1}], Pt{x: 1})
+end
+
+test "Debug of a tuple holding an interface value or a marker"
+    d: Display = (7 as Display)
+    assert Debug.inspect((d, 1)) == "(7, 1)"
+    assert Debug.inspect({a: d}) == "{a: 7}"
+    r: Result<Mk, ChannelClosed> = Err(ChannelClosed)
+    assert Debug.inspect((r, 1)) == "(Err(ChannelClosed), 1)"
+end
+
+test "an interface value inside a tuple entering a Map or a default"
+    t = ((1 as Display), 2)
+    m: Map<String, (Display, Int)> = {}
+    assert Display.to_string(Map.get(Map.put(m, "k", t), "k")!.first) == "1"
+    assert Display.to_string(Maybe.with_default(None, t).first) == "1"
+    seeds = Iter.iterate((7 as Display), fn x -> x) |> Iter.take(1) |> Iter.to_list()
+    assert Display.to_string(List.head(seeds)!) == "7"
+end
+
+struct Rev
+    n: Int
+end
+
+impl Comparable for Rev
+    fn compare(a: Rev, b: Rev) -> Ordering
+        Comparable.compare(b.n, a.n)
+    end
+end
+
+test "List.compare over tuples holding a program's Comparable"
+    // std's List.compare at (Int, Rev) compares each tuple's Rev with the
+    // program's impl, which orders larger n first.
+    assert [(1, Rev{n: 2})] < [(1, Rev{n: 1})]
+    refute [(1, Rev{n: 1})] < [(1, Rev{n: 2})]
+    assert List.compare([(1, Rev{n: 1})], [(2, Rev{n: 9})]) == .Less
+    r = [(1, Rev{n: 5})]..[(1, Rev{n: 1})]
+    assert Range.contains(r, [(1, Rev{n: 3})])
+    refute Range.contains(r, [(1, Rev{n: 7})])
+
+    sorted = [
+        [(2, Rev{n: 1})],
+        [(1, Rev{n: 1})],
+        [(1, Rev{n: 4})],
+    ] |> Iter.sort() |> Iter.to_list()
+
+    assert sorted == [
+        [(1, Rev{n: 4})],
+        [(1, Rev{n: 1})],
+        [(2, Rev{n: 1})],
+    ]
+end

@@ -246,11 +246,7 @@ pub fn with_smtp_server<T>(
     config = SmtpConfig{
         host:,
         port: String.to_int(port) |> Maybe.with_default(0),
-        security: if starttls then
-            Security.StartTls
-        else
-            Security.Off
-        end,
+        security: if starttls then Security.StartTls else Security.Off,
         credentials:,
         timeout: Duration.seconds(10),
         tls: client_tls,
@@ -331,16 +327,8 @@ fn converse(peer: Peer, rules: Rules)
         "EHLO" ->
             offers =
                 [
-                    if rules.tls is Some(_) and not peer.tls then
-                        ["STARTTLS"]
-                    else
-                        []
-                    end,
-                    if rules.credentials is Some(_) then
-                        ["AUTH PLAIN LOGIN"]
-                    else
-                        []
-                    end,
+                    if rules.tls is Some(_) and not peer.tls then ["STARTTLS"] else [],
+                    if rules.credentials is Some(_) then ["AUTH PLAIN LOGIN"] else [],
                     ["8BITMIME"],
                 ]
                 |> Iter.flatten()
@@ -403,7 +391,7 @@ fn converse(peer: Peer, rules: Rules)
             else if String.starts_with(to, "reject") then
                 answer(peer, "550 no such user ${to}")
             else
-                answer({..peer, recipients: List.concat(peer.recipients, [to])}, "250 recipient ok")
+                answer({..peer, recipients: List.concat(.., [to])}, "250 recipient ok")
             end
 
         "DATA" ->
@@ -422,7 +410,7 @@ fn converse(peer: Peer, rules: Rules)
                             }
 
                             s = take(rules.state)
-                            put(rules.state, {..s, received: List.concat(s.received, [received])})
+                            put(rules.state, {..s, received: List.concat(.., [received])})
                             answer({..peer, from: None, recipients: []}, "250 queued")
 
                         None ->
@@ -473,11 +461,7 @@ fn read_data(peer: Peer, lines: List<String>) -> Maybe<String>
             Some(String.join(Iter.map(lines, fn l -> "${l}\r\n")))
 
         Some(line) ->
-            unstuffed = if String.starts_with(line, ".") then
-                String.drop(line, 1)
-            else
-                line
-            end
+            unstuffed = if String.starts_with(line, ".") then String.drop(line, 1) else line
 
             read_data(peer, List.concat(lines, [unstuffed]))
     end

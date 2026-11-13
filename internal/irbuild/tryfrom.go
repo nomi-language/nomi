@@ -15,9 +15,10 @@ import (
 //
 //	case x { Ok(v) -> v, Err(e) -> return Err(F.from(e)) }
 //
-// the Err edge calling the impl through the same plan a written
-// `F.from(e)` takes (qualImplPlan for a receiver this file names,
-// qualSiblingIfaceImplPlan for another file's), and leaving through an
+// the Err edge calling the impl the checker chose, read off the `?`'s
+// DispatchImpl: this file's block that writes it (implItemPlan), or for
+// another file's, the owner's site that is that function
+// (qualSiblingIfaceImplPlan, selecting by the same record), and leaving through an
 // ir.Try of the rebuilt `Err`, so every delivery a plain `?` gets (a `defer`
 // run on the way out, a `with` restored) is the same. The Try always
 // propagates; the edge after it is never taken.
@@ -47,7 +48,7 @@ func (g *gen) recordedTryConversion(t *ast.TryOp) *analysis.Symbol {
 // is already in src.
 func (bl *irScalarBuilder) convertingTry(t *ast.TryOp, operand, whole ast.Node, src ir.Temp, k kind, pure bool, conv *analysis.Symbol) (ir.Temp, kind, bool, bool) {
 	return bl.errEdgeTry(t, operand, whole, src, k, pure, func(e ir.Temp, ek, fk kind) (ir.Temp, bool) {
-		f, ok := bl.fromCall(t, e, ek, fk)
+		f, ok := bl.fromCall(t, conv, e, ek, fk)
 		if !ok {
 			bl.g.dc.note("a converting `?` whose `From` impl does not lower: " + conv.TryOp.Convert.Label())
 		}
@@ -74,8 +75,8 @@ func irTryWidens(boundary kind, d *typeDef, carried []kind) bool {
 // (irTryWidens), the operand, a Result of kind k, already in src.
 func (bl *irScalarBuilder) wideningTry(t *ast.TryOp, operand, whole ast.Node, src ir.Temp, k kind, pure bool) (ir.Temp, kind, bool, bool) {
 	return bl.errEdgeTry(t, operand, whole, src, k, pure, func(e ir.Temp, ek, fk kind) (ir.Temp, bool) {
-		v, vk, ok := bl.coerceEmpty(t, e, ek, fk)
-		if !ok || vk != fk {
+		v, _, ok := bl.coerceEmpty(t, e, ek, fk)
+		if !ok {
 			bl.g.dc.note("a `?` whose error does not widen to the boundary's: " + ek.nomi() + " as " + fk.nomi())
 			return ir.NoTemp, false
 		}
@@ -131,18 +132,21 @@ func (bl *irScalarBuilder) errEdgeTry(t *ast.TryOp, operand, whole ast.Node, src
 	return v, okV.payloads[0].k, true, true
 }
 
-// fromCall calls the `from` of the boundary error type's `From` impl the
-// checker chose on e, of kind ek, for a value of kind fk. The call is
-// written at the `?`, whose reference carries the impl (dispatchedImpl).
-func (bl *irScalarBuilder) fromCall(t *ast.TryOp, e ir.Temp, ek, fk kind) (ir.Temp, bool) {
+// fromCall calls on e, of kind ek, the `from` the checker chose for the
+// `?` (conv's DispatchImpl), which makes a value of kind fk. The impl is
+// this file's block that writes it, at fk; another file's is reached
+// through its owner's sites, which take the same function: the call is
+// written at the `?`, whose reference carries it (dispatchedImpl).
+func (bl *irScalarBuilder) fromCall(t *ast.TryOp, conv *analysis.Symbol, e ir.Temp, ek, fk kind) (ir.Temp, bool) {
+	fd, isFn := conv.DispatchImpl.(*ast.FuncDef)
 	owner := kindOwnerName(fk)
-	if owner == "" {
+	if !isFn || owner == "" {
 		return ir.NoTemp, false
 	}
 	call := &ast.Call{
 		Func: &ast.FieldAccess{
 			Object: &ast.TypeIdent{Name: owner, Line: t.Line, Col: t.Col},
-			Field:  &ast.Ident{Name: "from", Line: t.Line, Col: t.Col},
+			Field:  &ast.Ident{Name: fd.Name, Line: t.Line, Col: t.Col},
 			Line:   t.Line, Col: t.Col,
 		},
 		Args: []ast.Node{t},
@@ -151,17 +155,33 @@ func (bl *irScalarBuilder) fromCall(t *ast.TryOp, e ir.Temp, ek, fk kind) (ir.Te
 	}
 	args := irQualArgs{temps: []ir.Temp{e}, kinds: []kind{ek}, mobile: []bool{true}, ok: true}
 	var plan *irQualPlan
-	if bl.g.qualifierKind(owner) == fk {
-		plan = bl.qualImplPlan(call, args, owner, "from")
-	}
-	if plan == nil && fk.def != nil {
-		plan = bl.qualSiblingIfaceImplPlan(call, args, fk.def, "from", "From")
+	if d := bl.g.implWriting(fk, fd); d != nil {
+		item := d.items[fd.Name]
+		if item == nil {
+			item = bl.genericMethodItem(call, d, fd.Name)
+		}
+		if item != nil {
+			plan = bl.implItemPlan(call, args, item, owner+"."+fd.Name)
+		}
+	} else if fk.def != nil {
+		plan = bl.qualSiblingIfaceImplPlan(call, args, fk.def, fd.Name, "From")
 	}
 	if plan == nil || plan.result != fk {
 		return ir.NoTemp, false
 	}
 	v, rk, _, ok := bl.qualEmit(call, args, plan)
 	return v, ok && rk == fk
+}
+
+// implWriting is this file's lowerable impl of receiver kind k whose block
+// writes fd, or nil.
+func (g *gen) implWriting(k kind, fd *ast.FuncDef) *implDef {
+	for _, d := range g.implsOf(k) {
+		if d.recv == k && d.lowerable && blockWrites(d.decl, fd) {
+			return d
+		}
+	}
+	return nil
 }
 
 // kindOwnerName is the name a type-qualified call on a value of kind k

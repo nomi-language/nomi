@@ -15,7 +15,9 @@
 01-foundations/comment_positions_test.nomi:add	ran
 01-foundations/comment_positions_test.nomi:greet	ran
 01-foundations/destructure_rebind_test.nomi:Name.inspect	ran
+01-foundations/if_else/if_else_test.nomi:in_range	ran
 01-foundations/if_else/if_else_test.nomi:parse_id	ran
+01-foundations/if_else/if_else_test.nomi:shown	ran
 01-foundations/if_else/test_helpers.nomi:has_diagnostic	ran
 01-foundations/if_else/test_helpers.nomi:hover_signature	ran
 01-foundations/inline_annotations/inline_annotations_test.nomi:Direction.inspect	ran
@@ -316,6 +318,11 @@
 05-calendar-and-time/times_test.nomi:literal Time`23:30:00` at 24:12 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time`23:30:00` at 28:23 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time`23:45:12.5` at 17:12 failure	ran
+06-collections/any_value_in_a_container_test.nomi:Handler.inspect	ran
+06-collections/any_value_in_a_container_test.nomi:OnUnit.inspect	ran
+06-collections/any_value_in_a_container_test.nomi:Pt.inspect	ran
+06-collections/any_value_in_a_container_test.nomi:Slot.inspect	ran
+06-collections/any_value_in_a_container_test.nomi:shown	ran
 06-collections/contains_test.nomi:Tag.equal	ran
 06-collections/contains_test.nomi:Tag.inspect	ran
 06-collections/contains_test.nomi:all_present	ran
@@ -487,6 +494,8 @@
 08-pattern-matching/binding_else_test.nomi:reason	ran
 08-pattern-matching/binding_else_test.nomi:shown	ran
 08-pattern-matching/binding_else_test.nomi:sizes	ran
+08-pattern-matching/case_over_any_value_test.nomi:Mk.inspect	ran
+08-pattern-matching/case_over_any_value_test.nomi:describe	ran
 08-pattern-matching/case_patterns_test.nomi:Inner.inspect	ran
 08-pattern-matching/case_patterns_test.nomi:Outer.inspect	ran
 08-pattern-matching/case_patterns_test.nomi:Point.inspect	ran
@@ -543,6 +552,8 @@
 08-pattern-matching/map_patterns_test.nomi:lookup_mixed	ran
 08-pattern-matching/map_patterns_test.nomi:lookup_negative_int	ran
 08-pattern-matching/map_patterns_test.nomi:lookup_nested	ran
+08-pattern-matching/marker_patterns_test.nomi:Quiet.inspect	ran
+08-pattern-matching/marker_patterns_test.nomi:quiet	ran
 08-pattern-matching/maybe_result_test.nomi:double	ran
 08-pattern-matching/or_patterns_test.nomi:Reading.inspect	ran
 08-pattern-matching/or_patterns_test.nomi:Shape.inspect	ran
@@ -722,6 +733,13 @@
 09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:search default 3	ran
 09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:write	ran
 09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:write default 2	ran
+09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi:base	ran
+09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi:chain	ran
+09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi:span	ran
+09-functions-and-control-flow/partial_defaults/spans.nomi:base	ran
+09-functions-and-control-flow/partial_defaults/spans.nomi:span	ran
+09-functions-and-control-flow/partial_defaults/spans.nomi:span default 2	ran
+09-functions-and-control-flow/partial_defaults/spans.nomi:span default 3	ran
 09-functions-and-control-flow/tail_calls_test.nomi:Down.inspect	ran
 09-functions-and-control-flow/tail_calls_test.nomi:Down.step	ran
 09-functions-and-control-flow/tail_calls_test.nomi:count	ran
@@ -730,6 +748,9 @@
 09-functions-and-control-flow/tail_calls_test.nomi:is_odd	ran
 09-functions-and-control-flow/tail_calls_test.nomi:sum_up_to	ran
 09-functions-and-control-flow/todo_test.nomi:unfinished	ran
+10-generics-and-type-wrappers/args_first_inference_test.nomi:Color.inspect	ran
+10-generics-and-type-wrappers/args_first_inference_test.nomi:ident	ran
+10-generics-and-type-wrappers/args_first_inference_test.nomi:shown	ran
 10-generics-and-type-wrappers/bound_type_params_test.nomi:Chan.inspect	ran
 10-generics-and-type-wrappers/bound_type_params_test.nomi:Chan.inspect	ran
 10-generics-and-type-wrappers/bound_type_params_test.nomi:Half.inspect	ran
@@ -1498,6 +1519,7 @@
 12-derives-and-standard-interfaces/generic_debug/main.nomi:Display.to_string	ran
 12-derives-and-standard-interfaces/generic_debug/main.nomi:Tree.inspect	ran
 12-derives-and-standard-interfaces/generic_debug/main.nomi:main	ran
+12-derives-and-standard-interfaces/host_values_as_display_test.nomi:shown	ran
 12-derives-and-standard-interfaces/ordering/ordering_test.nomi:OrderedPoint.compare	ran
 12-derives-and-standard-interfaces/ordering/ordering_test.nomi:OrderedPoint.inspect	ran
 12-derives-and-standard-interfaces/ordering/test_helpers.nomi:has_diagnostic	ran
@@ -1505,6 +1527,13 @@
 12-derives-and-standard-interfaces/set_debug_test.nomi:Color.inspect	ran
 12-derives-and-standard-interfaces/set_debug_test.nomi:Palette.inspect	ran
 12-derives-and-standard-interfaces/set_debug_test.nomi:Point.inspect	ran
+12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Loose.equal	ran
+12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Loose.inspect	ran
+12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Mk.inspect	ran
+12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Pt.equal	ran
+12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Pt.inspect	ran
+12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Rev.compare	ran
+12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Rev.inspect	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Cents.add	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Cents.empty_sum	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Cents.inspect	ran
@@ -1536,6 +1565,9 @@
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi:debug_show	ran
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi:debug_show	ran
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi:describe_named	ran
+12-derives-and-standard-interfaces/value_equality_test.nomi:Done.inspect	ran
+12-derives-and-standard-interfaces/value_equality_test.nomi:Never.equal	ran
+12-derives-and-standard-interfaces/value_equality_test.nomi:Never.inspect	ran
 12-derives-and-standard-interfaces/variants/coins.nomi:Coin.compare	ran
 12-derives-and-standard-interfaces/variants/coins.nomi:Coin.inspect	ran
 12-derives-and-standard-interfaces/variants/coins.nomi:Coin.variants	ran
@@ -1608,6 +1640,17 @@
 13-iterators-and-pipes/sort_keys_test.nomi:Row.inspect	ran
 13-iterators-and-pipes/sort_keys_test.nomi:names	ran
 13-iterators-and-pipes/sort_keys_test.nomi:row	ran
+13-iterators-and-pipes/tuples_of_display_test.nomi:pair	ran
+14-modules-and-packaging/block_import_alias_test.nomi:hexed	ran
+14-modules-and-packaging/block_import_alias_types/block_import_alias_types_test.nomi:right_box	ran
+14-modules-and-packaging/block_import_alias_types/left.nomi:Box.inspect	ran
+14-modules-and-packaging/block_import_alias_types/left.nomi:Kind.inspect	ran
+14-modules-and-packaging/block_import_alias_types/left.nomi:Kind.to_string	ran
+14-modules-and-packaging/block_import_alias_types/right.nomi:Box.inspect	ran
+14-modules-and-packaging/block_import_alias_types/right.nomi:Kind.inspect	ran
+14-modules-and-packaging/block_import_alias_types/right.nomi:Kind.to_string	ran
+14-modules-and-packaging/block_imports_test.nomi:announce	ran
+14-modules-and-packaging/block_imports_test.nomi:print	ran
 14-modules-and-packaging/cross_file_modules/api.nomi:Token.inspect	ran
 14-modules-and-packaging/cross_file_modules/api.nomi:Widget.inspect	ran
 14-modules-and-packaging/cross_file_modules/api.nomi:label	ran
@@ -1761,10 +1804,12 @@
 15-app-and-defer/context_module_values/other.nomi:Token.inspect	ran
 15-app-and-defer/context_module_values/other.nomi:make	ran
 15-app-and-defer/context_module_values/other.nomi:stored	ran
+15-app-and-defer/context_values_test.nomi:Keys.inspect	ran
 15-app-and-defer/context_values_test.nomi:Marker.inspect	ran
 15-app-and-defer/context_values_test.nomi:TraceId.inspect	ran
 15-app-and-defer/context_values_test.nomi:accepts_marker	ran
 15-app-and-defer/context_values_test.nomi:lookup_marker	ran
+15-app-and-defer/context_values_test.nomi:trace_key	ran
 15-app-and-defer/deadline_floor/deadline_floor_test.nomi:escape_program	ran
 15-app-and-defer/deadline_floor/supervisor_app.nomi:Config.inspect	ran
 15-app-and-defer/deadline_floor/supervisor_app.nomi:background	ran
@@ -1965,6 +2010,8 @@
 16-concurrency/select_test.nomi:seconds_since	ran
 16-concurrency/select_test.nomi:send_later	ran
 16-concurrency/select_test.nomi:take_rotating	ran
+16-concurrency/self_channel_test.nomi:Msg.inspect	ran
+16-concurrency/self_channel_test.nomi:Req.inspect	ran
 16-concurrency/supervisors/app.nomi:Config.inspect	ran
 16-concurrency/supervisors/app.nomi:boot	ran
 16-concurrency/supervisors/app.nomi:boot failure	ran
@@ -2143,6 +2190,7 @@
 18-ffi-and-dynamic/json_enum_derive_test.nomi:decoded	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:json_enum_derive_test.Circle.to_json_field	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:json_enum_derive_test.Shape.to_json_field	ran
+18-ffi-and-dynamic/json_test.nomi:`!` failure Json.DecodeError	ran
 18-ffi-and-dynamic/json_test.nomi:describe_root	ran
 18-ffi-and-dynamic/json_test.nomi:extract_first_tag	ran
 18-ffi-and-dynamic/json_test.nomi:sample_json	ran

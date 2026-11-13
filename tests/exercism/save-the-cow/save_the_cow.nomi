@@ -54,7 +54,7 @@ impl Game
             .Lose -> Err(.AlreadyLost)
             .Ongoing when is_hidden(game, letter) -> Ok(reveal(game, letter))
             .Ongoing when game.remaining_failures == 0 -> Ok({..game, state: .Lose})
-            .Ongoing -> Ok({..game, remaining_failures: game.remaining_failures - 1})
+            .Ongoing -> Ok({..game, remaining_failures: .. - 1})
         end
     end
 

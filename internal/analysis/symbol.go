@@ -219,7 +219,13 @@ type Symbol struct {
 	// callee at, by the callee's type-parameter name, when it solved one
 	// (attachCallTypeArgs). Read it through CallTypeArgs, which adds what
 	// the signature shows.
-	CallTypeArgs    map[string]Type
+	CallTypeArgs map[string]Type
+	// CallInterface is, at a call of an interface function the checker
+	// selected no impl for (no DispatchImpl: a receiver of a type
+	// parameter or an interface value, or none), the interface instance
+	// the call goes through: `Holds<T>` for `C.holds(c, x)` under `C:
+	// Holds<T>`. Set on the per-site copy (call_interfaces.go).
+	CallInterface   *InterfaceType
 	CallReceiver    string   // left-hand type owner for a type-qualified call site, e.g. `String` in `String.to_string`.
 	ModuleScope     *Scope   // for SymbolModule: the qualified member scope used to resolve `alias.Member`
 	Span            int      // hover-range length in source columns; 0 means use len(Name) for backward compatibility

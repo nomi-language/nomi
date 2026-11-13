@@ -190,8 +190,6 @@ func (g *gen) irErrorRenderFunc(node ast.Node, name string, sym *ir.Symbol, errK
 	bl.b.Append(cp)
 	bl.side(sh.result, irScalarSide{k: kindString})
 	bl.b.SetTerm(ir.NewReturn(pos, sh.result))
-	if err := g.irLint(sh.fn); err != nil {
-		return nil, false
-	}
+	g.irRequireLint(sh.fn, "an error renderer")
 	return sh.fn, true
 }

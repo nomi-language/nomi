@@ -25,7 +25,7 @@ import (
 
 // holeDisplay is the checker's record of how the interpolation hole at
 // renders, at the hole's lowered kind k: for a hole of a type parameter,
-// the rendering of k (kindDisplay). Nil when the checker recorded none.
+// the rendering of k (kindDisplay). The checker records one for every hole it checks.
 func (bl *irScalarBuilder) holeDisplay(at ast.Node, k kind) *analysis.DisplayRender {
 	fa := bl.g.srcFA()
 	if fa == nil {
@@ -79,8 +79,7 @@ func (bl *irScalarBuilder) displayValue(at ast.Node, src ir.Temp, k kind) (ir.Te
 // it rather than lowering the expression again.
 func (bl *irScalarBuilder) renderDisplay(at ast.Node, src ir.Temp, k kind, rec *analysis.DisplayRender) (ir.Temp, bool) {
 	if rec == nil {
-		bl.g.dc.note("an interpolation the checker recorded no rendering for")
-		return ir.NoTemp, false
+		panic("irbuild: an interpolation hole with no HoleDisplays record; the checker records one for every hole (analysis package doc, \"Elaboration\")")
 	}
 	render := func(r *ir.Render) (ir.Temp, bool) {
 		bl.b.Append(r)
@@ -101,6 +100,12 @@ func (bl *irScalarBuilder) renderDisplay(at ast.Node, src ir.Temp, k kind, rec *
 		}
 		return render(ir.NewRenderDisplay(bl.g.irNodePos(at), bl.f.NewTemp(), src))
 	case analysis.DisplayInterface:
+		if !irExistentialKind(k) {
+			// `(7 as Display)`: a value std's Display holds unboxed lowers
+			// as itself (irErases), so the value it holds is the operand,
+			// and it renders as that value's own type does.
+			return bl.renderDisplay(at, src, k, kindDisplay(k))
+		}
 		if !irStdDisplayExistential(k) {
 			return ir.NoTemp, false
 		}
@@ -112,7 +117,9 @@ func (bl *irScalarBuilder) renderDisplay(at ast.Node, src ir.Temp, k kind, rec *
 	case analysis.DisplayImpl:
 		return bl.displayImpl(at, src, k)
 	}
-	return ir.NoTemp, false
+	// holeDisplay and displayParts resolve DisplayTypeParam to the
+	// instance's rendering before it reaches here.
+	panic("irbuild: a hole rendering of an unresolved form")
 }
 
 // irEmptyDisplayKind is an empty collection literal's kind, `[]`, `{}`,

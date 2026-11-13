@@ -665,6 +665,22 @@ func phantomHostSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
 	return stdHostKind(i), true
 }
 
+// irStdHandleKind is a std `host type` carried as an opaque Go handle
+// (Regex): a value, whose equality and hash rt.Equal and rt.Hash answer by
+// the handle's key (rt.HostKeyed), at the top or nested. A project's
+// Go-bound opaque type is not one: what its equality means is its own.
+func irStdHandleKind(k kind) bool {
+	if k.tag != tagNamed || k.def == nil || !k.def.rtOpaque {
+		return false
+	}
+	for i, d := range stdHostDefs() {
+		if d == k.def {
+			return stdHostSpecs[i].handle
+		}
+	}
+	return false
+}
+
 // irHostHandleKind is a std `host type` carried as an opaque Go handle, such
 // as Regex, or a project's `opaque type RawBox go ffi.Box`. Retained code
 // only passes it between host calls: the VM holds it as the rt.HostHandle a

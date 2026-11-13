@@ -91,16 +91,22 @@ func (g *gen) witnessSym(x kind) *ir.Symbol {
 // witnessToken interns a primitive's witness symbol once per module.
 type witnessToken struct{ name string }
 
-// typeWitnessValue lowers the type name at as the `Type<x>` witness want, or
-// declines when at is not a type name naming x.
+// typeWitnessValue lowers the type name at as the `Type<x>` witness want.
+// ok is false when at is not a type name naming x, and the caller lowers
+// at another way.
 func (bl *irScalarBuilder) typeWitnessValue(at ast.Node, x, want kind) (ir.Temp, bool) {
 	if !irWitnessableKind(x) || !bl.namesType(at, x) {
 		return ir.NoTemp, false
 	}
+	return bl.witnessRef(at, x, want), true
+}
+
+// witnessRef builds the `Type<x>` witness want at at.
+func (bl *irScalarBuilder) witnessRef(at ast.Node, x, want kind) ir.Temp {
 	r := ir.NewRefTypeWitness(bl.g.irNodePos(at), bl.f.NewTemp(), bl.g.witnessSym(x))
 	bl.b.Append(r)
 	bl.side(r.Dst(), irScalarSide{k: want})
-	return r.Dst(), true
+	return r.Dst()
 }
 
 // namesType reports whether at is a type name, not a binding, that resolves to
@@ -173,10 +179,10 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 	if len(t.Args) != 2 {
 		return no()
 	}
-	for _, a := range t.Args {
-		if _, named := a.(*ast.NamedArg); named {
-			return no()
-		}
+	if namedArgNode(t.Args) != nil {
+		// call sends a call with a named argument to namedIntrinsicCall,
+		// which comes back with the positional form.
+		panic("irbuild: contextValueCall reached with a named argument: Context." + method)
 	}
 	a := irQualArgs{temps: make([]ir.Temp, 2), kinds: make([]kind, 2), mobile: make([]bool, 2), ok: true}
 	c, ck, _, ok := bl.lower(t.Args[0])
@@ -207,8 +213,13 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 		arg := t.Args[1]
 		var w ir.Temp
 		var wk, x kind
-		if id, isIdent := arg.(*ast.Ident); isIdent && bl.isBoundName(id.Name) {
-			// A `Type<T>` parameter or binding is already a witness.
+		typeName := false
+		if id, isIdent := arg.(*ast.Ident); !isIdent || !bl.isBoundName(id.Name) {
+			x, typeName = bl.witnessTypeKind(arg)
+		}
+		if !typeName {
+			// A `Type<T>` value is already a witness: a parameter or
+			// binding, a field (`keys.trace`), a call's result.
 			v, k, _, ok := bl.lower(arg)
 			if !ok || !irTypeWitnessKind(k) {
 				return no()
@@ -216,11 +227,6 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 			w, wk = v, k
 			x, _ = typeWitnessArg(k)
 		} else {
-			var typeName bool
-			if x, typeName = bl.witnessTypeKind(arg); !typeName {
-				bl.g.dc.note("a Context.value witness that is not a type name")
-				return no()
-			}
 			// kindInvalid: lookup — a name that is not a type declines.
 			if x == kindInvalid || !irWitnessableKind(x) {
 				bl.g.dc.note("a Context.value witness whose type has no single-name identity")
@@ -229,9 +235,8 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 			if wk, ok = bl.g.genHostOfType("std/type", "Type", []kind{x}); !ok {
 				return no()
 			}
-			if w, ok = bl.typeWitnessValue(arg, x, wk); !ok {
-				return no()
-			}
+			// witnessTypeKind named arg a type name spelling x.
+			w = bl.witnessRef(arg, x, wk)
 		}
 		a.temps[1], a.kinds[1], a.mobile[1] = w, wk, true
 		operands = append(operands, w)

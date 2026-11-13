@@ -70,10 +70,13 @@ func (bl *irScalarBuilder) tupleRankedCompare(t *ast.Binary, op ir.CompareOp, lh
 
 // tupleComparable reports whether every element of tuple k has a compare
 // the builder can name, at any depth of tuples.
+//
+// k is a retained tuple at every caller: tupleCompareCall tests it,
+// tupleRankedCompare's and sortComparator's k is a lowered value's or a held
+// container's element, a nested call's is a retained tuple's part, and a
+// tuple in the callable domain is retained (irLoweredTupleRetained).
 func (bl *irScalarBuilder) tupleComparable(k kind) bool {
-	if !irRetainedTupleKind(k) {
-		return false
-	}
+	irLoweredTupleRetained(k, "tupleComparable")
 	for _, part := range k.comp.parts {
 		if part.tag == tagTuple {
 			if !bl.tupleComparable(part) {

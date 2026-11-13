@@ -247,19 +247,19 @@ fn read_bit(s: Scan, cp: Codepoint) -> Scan
     shifted = {
         ..s,
         index:,
-        width: s.width + 1,
-        mask: s.mask <<< 1,
-        value: s.value <<< 1,
-        field_mask: s.field_mask <<< 1,
+        width: .. + 1,
+        mask: .. <<< 1,
+        value: .. <<< 1,
+        field_mask: .. <<< 1,
         closed: Maybe.is_some(s.field),
     }
 
     case found
         "0" ->
-            {..shifted, mask: shifted.mask ||| 1}
+            {..shifted, mask: .. ||| 1}
 
         "1" ->
-            {..shifted, mask: shifted.mask ||| 1, value: shifted.value ||| 1}
+            {..shifted, mask: .. ||| 1, value: .. ||| 1}
 
         "x" ->
             shifted
@@ -279,7 +279,7 @@ fn read_bit(s: Scan, cp: Codepoint) -> Scan
                     {..s, failure: Some(Error.SplitField{index: s.index, field:})}
 
                 Some(_) ->
-                    {..shifted, field_mask: shifted.field_mask ||| 1, closed: False}
+                    {..shifted, field_mask: .. ||| 1, closed: False}
             end
     end
 end

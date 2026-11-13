@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -182,21 +183,20 @@ func (g *gen) ifaceInstAt(tpl *ast.InterfaceDef, subst map[string]kind) *ifaceIn
 	return inst
 }
 
-// ifaceInstArgs solves the template's type parameters against the impl block.
+// ifaceInstArgs is the template's type arguments for the impl block.
 //
 // TWO SOURCES, and the explicit one wins because it is what the programmer
 // wrote:
 //
 //	impl Add<Score, Score> for Score      // header, positional
-//	impl Announcer for Box { … }          // solved from the item signatures
+//	impl Announcer for Box { … }          // from the item signatures
 //
-// The solved form is a parallel walk of the interface method's declared type
-// expression against the impl item's, binding a template parameter NAME to the
-// kind the impl side resolves to. It is deliberately not an inference engine: it
-// binds where the two spellings agree structurally and binds nothing where they
-// do not, and any parameter left open is a refusal rather than a guess. The
-// front end has already checked conformance, so a disagreement here means this
-// walk cannot see the correspondence — not that the program is wrong.
+// The second is the checker's answer: the type builder solved the
+// interface's parameters from the items' signatures against the
+// interface's and recorded them on the block (analysis.ImplBlockTypeArgs),
+// and they are projected here in the frame the receiver was registered at.
+// A parameter no item names (the record's Open), or one with no record, is
+// a refusal naming it.
 func (g *gen) ifaceInstArgs(tpl *ast.InterfaceDef, ib *ast.ImplBlock) (map[string]kind, string, string) {
 	names := make([]string, 0, len(tpl.TypeParams))
 	for _, tp := range tpl.TypeParams {
@@ -219,37 +219,23 @@ func (g *gen) ifaceInstArgs(tpl *ast.InterfaceDef, ib *ast.ImplBlock) (map[strin
 		return subst, "", ""
 	}
 
-	byName := map[string]*ast.FuncDef{}
-	for _, item := range ib.Items {
-		if fd, isFn := implItemFunc(item); isFn {
-			byName[fd.Name] = fd
-		}
+	rec := analysis.ImplBlockTypeArgs(g.srcFA(), ib)
+	if rec == nil && g.fa != g.srcFA() {
+		rec = analysis.ImplBlockTypeArgs(g.fa, ib)
 	}
-	open := map[string]bool{}
-	for _, n := range names {
-		open[n] = true
-	}
-	for i := range tpl.Methods {
-		im := &tpl.Methods[i]
-		fd := byName[im.Name]
-		if fd == nil {
-			continue
-		}
-		for j := range im.Params {
-			if j >= len(fd.Params) {
-				break
-			}
-			g.unifyIfaceParam(im.Params[j].TypeAnnotation, fd.Params[j].TypeAnnotation, open, subst)
-		}
-		g.unifyIfaceParam(im.ReturnTypeExpr, fd.ReturnTypeExpr, open, subst)
-	}
-	for _, n := range names {
-		if _, bound := subst[n]; !bound {
-			// The parameter that stayed open, named. A bare `generic interface`
-			// here would send the reader to the DECLARATION, which is fine, and
-			// would not say which of `<K, V>` the impl failed to pin.
+	for i, n := range names {
+		// The parameter that stayed open, named. A bare `generic interface`
+		// here would send the reader to the DECLARATION, which is fine, and
+		// would not say which of `<K, V>` the impl failed to pin.
+		if rec == nil || i >= len(rec.Args) || (i < len(rec.Open) && rec.Open[i]) {
 			return nil, "generic interface", tpl.Name + " type parameter " + n
 		}
+		k := g.project(rec.Args[i])
+		// kindInvalid: cascade — an argument the builder cannot name.
+		if k == kindInvalid {
+			return nil, "generic interface", tpl.Name + " type parameter " + n
+		}
+		subst[n] = k
 	}
 	return subst, "", ""
 }
@@ -288,59 +274,6 @@ func ifaceHeaderArgs(te ast.TypeExpr) ([]ast.TypeExpr, bool) {
 		return ifaceHeaderArgs(t.Member)
 	}
 	return nil, false
-}
-
-// unifyIfaceParam walks the interface's declared type expression alongside the
-// impl's, binding an OPEN template parameter to the kind the impl side denotes.
-//
-// Structural and shallow on purpose. Where the two spellings correspond it
-// binds; where they do not it binds nothing and the caller refuses. That
-// asymmetry is the fail-safe direction: an unbound parameter is a named
-// refusal, whereas a wrongly bound one is a silent wrong answer.
-func (g *gen) unifyIfaceParam(tmpl, impl ast.TypeExpr, open map[string]bool, subst map[string]kind) {
-	if tmpl == nil || impl == nil {
-		return
-	}
-	switch t := tmpl.(type) {
-	case *ast.SimpleType:
-		if !open[t.Name] {
-			return
-		}
-		if _, done := subst[t.Name]; done {
-			return
-		}
-		// An unresolvable impl-side annotation leaves the parameter OPEN, and
-		// ifaceInstArgs then refuses `generic interface` naming that parameter.
-		k := g.typeOf(impl)
-		// kindInvalid: lookup — a miss leaves the parameter unbound; ifaceInstArgs names it.
-		if k == kindInvalid {
-			return
-		}
-		subst[t.Name] = k
-	case *ast.GenericType:
-		gi, same := impl.(*ast.GenericType)
-		if !same || gi.Name != t.Name || len(gi.Params) != len(t.Params) {
-			return
-		}
-		for i := range t.Params {
-			g.unifyIfaceParam(t.Params[i], gi.Params[i], open, subst)
-		}
-	case *ast.FuncType:
-		fi, same := impl.(*ast.FuncType)
-		if !same || len(fi.Params) != len(t.Params) {
-			return
-		}
-		for i := range t.Params {
-			g.unifyIfaceParam(t.Params[i], fi.Params[i], open, subst)
-		}
-		g.unifyIfaceParam(t.Return, fi.Return, open, subst)
-	case *ast.QualifiedType:
-		qi, same := impl.(*ast.QualifiedType)
-		if !same || qi.Module != t.Module {
-			return
-		}
-		g.unifyIfaceParam(t.Member, qi.Member, open, subst)
-	}
 }
 
 // pushIfaceSubst makes the instantiation's type arguments visible to typeOf.

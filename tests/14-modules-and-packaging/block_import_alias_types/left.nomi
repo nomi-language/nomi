@@ -1,0 +1,17 @@
+pub enum Kind
+    A
+    B
+end
+
+impl Display for Kind
+    fn to_string(k: Kind) -> String
+        case k
+            .A -> "left A"
+            .B -> "left B"
+        end
+    end
+end
+
+pub struct Box
+    n: Int
+end

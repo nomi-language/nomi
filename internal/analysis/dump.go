@@ -165,9 +165,6 @@ func dumpFile(fa *FileAnalysis, errs []TypeError, root string, unused func(*Impl
 	for n := range fa.CoveringOrPatterns {
 		lines = append(lines, fmt.Sprintf("covering or %s", at(n)))
 	}
-	for n, t := range fa.ElselessIfs {
-		lines = append(lines, fmt.Sprintf("elseless if %s = %s", at(n), typ(t)))
-	}
 	for n, r := range fa.AppReads {
 		lines = append(lines, fmt.Sprintf("app read %s = %s.%s %s", at(n), typ(r.App), r.Field.Name, r.ContextField))
 	}

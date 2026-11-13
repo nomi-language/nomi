@@ -44,3 +44,20 @@ test "type witnesses do not replace zero-sized values"
     context = Context.with_value(Context.root(), Marker)
     assert lookup_marker(context, Marker) == Some(Marker)
 end
+
+struct Keys
+    trace: Type<TraceId>
+end
+
+fn trace_key() -> Type<TraceId>
+    TraceId
+end
+
+test "a witness is a value: a field, an element, a call's result"
+    traced = Context.with_value(Context.root(), TraceId("t"))
+    keys = Keys{trace: TraceId}
+    assert Context.value(traced, keys.trace) == Some(TraceId("t"))
+    assert Context.value(traced, trace_key()) == Some(TraceId("t"))
+    witnesses: List<Type<TraceId>> = [TraceId]
+    assert Context.value(traced, List.head(witnesses)!) == Some(TraceId("t"))
+end

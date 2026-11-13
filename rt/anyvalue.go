@@ -44,13 +44,24 @@ type Closure interface {
 }
 
 // HostHandle is an opaque Go value behind a Nomi `host type` whose Go type rt
-// does not know (a registered extern type). It reads as `<Name>`, and two
-// handles are equal only when their type names match and their Go values are
-// identical: pointer identity for pointers, `==` for comparable non-pointers,
-// never for slices, maps and funcs. It is not a Map key.
+// does not know (a registered extern type). It reads as `<Name>`. Two
+// handles are equal only when their type names match and their Go values
+// are: by their keys when both are HostKeyed (std/regex's Regex), else
+// identical, pointer identity for pointers, `==` for comparable
+// non-pointers, never for slices, maps and funcs. Only a HostKeyed handle
+// hashes by its value; any other hashes to 0.
 type HostHandle struct {
 	TypeName string
 	Value    any
+}
+
+// HostKeyed is a host value that is a value, not a handle to running
+// state: two of one type are equal when their keys are, and its hash is its
+// key's. std/regex's compiled pattern is one, keyed by its source pattern,
+// so `Regex` equality is the pattern's (spec §5 *Equality*) wherever a
+// Regex is compared or hashed, at the top or nested.
+type HostKeyed interface {
+	HostKey() string
 }
 
 // EmbeddedPayload returns the value an `embeds` variant carries, or v itself
@@ -185,12 +196,18 @@ func (k *Keys) Equal(a, b any) bool {
 	case HostHandle:
 		bv, ok := b.(HostHandle)
 		return ok && hostHandlesEqual(av, bv)
+	case Dynamic:
+		bv, ok := b.(Dynamic)
+		return ok && DynamicEqual(av, bv)
+	case Type[any]:
+		bv, ok := b.(Type[any])
+		return ok && TypeWitnessEqual(av, bv)
 	}
 	return false
 }
 
-// recordsEqual has no identity shortcut: a record holding a Dynamic or an
-// opaque value is unequal to itself, because those are unequal to themselves.
+// recordsEqual has no identity shortcut: a record holding an
+// opaque value is unequal to itself, because an opaque value is unequal to itself.
 func (k *Keys) recordsEqual(a, b *Record) bool {
 	af, bf := a.Desc.Kind.family(), b.Desc.Kind.family()
 	if af != bf {
@@ -328,6 +345,10 @@ func hostHandlesEqual(a, b HostHandle) bool {
 	if ShortTypeName(a.TypeName) != ShortTypeName(b.TypeName) {
 		return false
 	}
+	if ak, ok := a.Value.(HostKeyed); ok {
+		bk, ok := b.Value.(HostKeyed)
+		return ok && ak.HostKey() == bk.HostKey()
+	}
 	if a.Value == nil || b.Value == nil {
 		return a.Value == b.Value
 	}
@@ -383,6 +404,15 @@ func (k *Keys) Hash(v any) uint64 {
 		return HashVector(x, k.HashFunc())
 	case Map[any, any]:
 		return MapHash(x, k.HashFunc(), k.HashFunc())
+	case Dynamic:
+		return DynamicHash(x)
+	case Type[any]:
+		return TypeWitnessHash(x)
+	case HostHandle:
+		if hk, ok := x.Value.(HostKeyed); ok {
+			return HashMix(HashString(ShortTypeName(x.TypeName)), HashString(hk.HostKey()))
+		}
+		return 0
 	case *Record:
 		if k != nil && k.Hooks != nil && x != nil {
 			// Equal compares an `embeds` variant by its payload, so the

@@ -84,7 +84,7 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 				mobile = true
 			}
 			v, k, ok = bl.coerceEmpty(p.Expr, v, k, want)
-			if !ok || k != want {
+			if !ok {
 				return no()
 			}
 			fv, _, _, ok := bl.variantValue(t, d, dynamic, []ir.Temp{v}, mobile)

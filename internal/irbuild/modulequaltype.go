@@ -89,7 +89,11 @@ func (g *gen) moduleQualifiedType(qualifier, name string) (*typeDef, bool) {
 		return nil, false
 	}
 	d := g.mirrorOf(o)
-	g.types[qualifier+"."+name] = d
+	if g.visibleBlockModule(qualifier) == nil {
+		// Only the file's binding is cached under the spelling: a block's
+		// import of the qualifier holds for that block alone.
+		g.types[qualifier+"."+name] = d
+	}
 	return d, true
 }
 
@@ -105,8 +109,13 @@ func (g *gen) moduleQualifiedOwner(qualifier, name string) *typeOwner {
 	if g.reg == nil || g.fa == nil || g.fileUnit < 0 {
 		return nil
 	}
-	scope := g.moduleScope(qualifier)
-	if scope == nil {
+	return g.typeOwnerIn(g.moduleScope(qualifier), name)
+}
+
+// typeOwnerIn is the registry entry a file's member scope exports as name,
+// or nil for an interface or no type.
+func (g *gen) typeOwnerIn(scope *analysis.Scope, name string) *typeOwner {
+	if scope == nil || g.reg == nil || g.fileUnit < 0 {
 		return nil
 	}
 	o := g.ownerOfSymbol(resolvedScopeSymbol(scope, name))
@@ -207,7 +216,7 @@ func (g *gen) moduleQualifiedIfaceNamed(qualifier, name string) (*ifaceDef, bool
 		return nil, false
 	}
 	d := g.mirrorIface(o)
-	if _, taken := g.ifaces[qualifier+"."+name]; !taken {
+	if _, taken := g.ifaces[qualifier+"."+name]; !taken && g.visibleBlockModule(qualifier) == nil {
 		g.ifaces[qualifier+"."+name] = d
 	}
 	return d, true
@@ -251,7 +260,9 @@ func (g *gen) moduleQualifiedBare(name string) (string, bool) {
 	var owner *typeOwner
 	spelling := ""
 	for _, q := range quals {
-		o := g.moduleQualifiedOwner(q, name)
+		// The file's bindings, which the cache below is keyed on, whatever a
+		// visible block rebinds q to.
+		o := g.typeOwnerIn(moduleScopeOf(g.fa, q), name)
 		if o == nil {
 			continue
 		}

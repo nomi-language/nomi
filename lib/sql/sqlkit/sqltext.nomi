@@ -337,11 +337,7 @@ pub fn select_items(tokens: List<Token>) -> List<List<Token>>
     (items, current, _, state) = Iter.reduce(tokens, ([], [], 0, 0), fn acc, token ->
         (items, current, depth, state) = acc
 
-        upper = if token.kind == Kind.Word then
-            String.uppercase(token.text)
-        else
-            ""
-        end
+        upper = if token.kind == Kind.Word then String.uppercase(token.text) else ""
 
         case state
             // 0: before the list; 1: in it; 2: after it.

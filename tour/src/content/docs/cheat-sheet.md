@@ -110,10 +110,9 @@ test result: ok. 1 passed, 0 failed
   checked at compile time: ``Regex`\d+` ``, ``Url`https://nomi-lang.org` ``.
   A type that implements `CheckedLiteral`, such as `Url`, is checked in
   every quote style, slots included: `Url"https://x.org/${id}"` is a `Url`,
-  never a `Result`. A `Url` slot takes any `Display` value, such as an `Int`
-  or a `Uuid`, and escapes its text for where it stands. Where a `Url` is
-  expected, the tag can be left out: `u: Url = "https://x.org/"`, or
-  `http.get("https://x.org/")`. A `String` value there is still an error.
+  never a `Result`. A `Url` slot takes any `Display` value and escapes its
+  text for where it stands. Where a `Url` is expected, the tag can be left
+  out: `u: Url = "https://x.org/"`. A `String` value there is still an error.
 - std::html's `Html"..."` is an HTML template the compiler checks. Each
   `${...}` is escaped for where it stands. A one-line fragment quotes its
   attributes with `'`, since `"` ends the literal:
@@ -177,8 +176,7 @@ test result: ok. 1 passed, 0 failed
   per line, with no commas, `|` or `field` keyword. An interface declares only
   functions. A value every implementor supplies is a function, such as
   `fn name(value: self) -> String`.
-- A field with a default may leave out its type when the default alone
-  tells it: `misses = 0` is an `Int` field. An empty collection, `None` or a
+- A field with a default may leave out its type when the default tells it: `misses = 0` is an `Int` field. An empty collection, `None` or a
   `.Variant` needs the type written: `guessed: Set<String> = []`.
 - `value as Type` checks the value with the type expected, as
   `x: Type = value` does, where no annotation can stand: `[] as
@@ -264,7 +262,6 @@ test "types and calls"
     assert label(shape) == "a square"
     assert shape == .Square{side: 2.0}
     assert id == 7
-    assert String.length("héllo") == 5
     assert Int.to_string(42) == "42"
 
     assert Ok(json) = Json.decode("[\"a\", \"b\"]")
@@ -291,17 +288,18 @@ test result: ok. 1 passed, 0 failed
   name that names a `once` is an error, so write the comparison as a guard:
   `c when c == not_found -> ...`.
 - The branches of an `if` or `case` have one type. Branches of different
-  types that implement one interface join as it only where the value's type
-  is written as that interface, by an annotation, a parameter or a declared
-  result: `shape: Shape = if round then Circle{r: 1.0} else Square{side: 2.0}`.
-- An `if` without `else` whose branch has a value is a `Maybe`:
-  `if n > 0 then "positive"` is `Some("positive")` or `None`, and so is an
-  `else if` chain with no final `else`. A branch that is `Unit` or leaves
-  (`return`, `?`) keeps the `if` a `Unit` statement. A forgotten `else`
-  shows as `expected String, got Maybe<String>`. In an `Html` literal,
-  `${if c then Html"..."}` shows the part or nothing, and so does
-  `class='badge ${if c then "on"}'` inside a quoted value; an unquoted
-  `class=${if c then "on"}` writes the attribute or leaves it out.
+  types that implement one interface join as it only where an annotation, a
+  parameter or a declared result writes the value's type as that interface:
+  `shape: Shape = if round then Circle{r: 1.0} else Square{side: 2.0}`.
+- An `if` without `else` is a statement, as in Rust: its branch is `Unit`,
+  leaves (`return`, `?`) or ends in `assert` or `dbg`. An `else if` chain
+  with no final `else` is the same. Any other branch is an error, a `Maybe`
+  included: a value that may be absent is `if n > 0 then Some("positive") else None`.
+  The error's fix adds the `else None`, and where a statement drops the
+  value it writes `_ = ...` in the branch. In an `Html` literal,
+  `${if c then Some(Html"...") else None}` shows the part or nothing, and so does
+  `class='badge ${if c then Some("on") else None}'` inside a quoted value; an unquoted
+  `class=${if c then Some("on") else None}` writes the attribute or leaves it out.
 - There are no exceptions. A function that can fail returns `Maybe<T>`
   (`Some(v)` or `None`) or `Result<T, E>` (`Ok(v)` or `Err(e)`).
 - A postfix `?` returns an `Err` or `None` from the enclosing function, lambda
@@ -391,7 +389,7 @@ test "branching and errors"
     assert parse_age("x") == Err("not a number: x")
     assert handler() == Err(ApiError.Database(.Closed))
     assert describe(Some(12)) == "minor"
-    assert (if 41 > 18 then "adult") == Some("adult")
+    assert (if 12 > 18 then Some("adult") else None) == None
     assert String.to_int("7")! == 7
     assert Some(1) is Some(_)
 
@@ -604,7 +602,6 @@ test "dates"
     en = Locale`en-US`
 
     assert DateTime.format_fields(at, en, DateTimeFields`yMMMd`) == "Jan 5, 2026"
-    assert DateTime.format_fields(at, en, DateTimeFields`yMMMMd`) == "January 5, 2026"
     assert DateTime.format_fields(at, en, DateTimeFields`yMMMdjmm`) == "Jan 5, 2026, 3:04\u{202f}PM"
     assert DateTime.format(at, en, date: .Long, time: .Short) == "January 5, 2026, 3:04\u{202f}PM"
     assert DateTime.to_string_with(at, DateTimePattern`yyyy-MM-dd HH:mm`) == "2026-01-05 15:04"

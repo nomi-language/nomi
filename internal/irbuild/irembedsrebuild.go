@@ -261,9 +261,10 @@ func (bl *irScalarBuilder) rebuildAdapter(at ast.Node, have, want kind) (ir.Temp
 			child.b.SetTerm(ir.NewReturn(pos, out))
 		}
 	}
-	if !ok || bl.g.irLint(f) != nil {
+	if !ok {
 		return ir.NoTemp, false
 	}
+	bl.g.irRequireLint(f, "an embedded-variant rebuild adapter")
 	// The enclosing enum adapters this one reached through a collection,
 	// each supplied from here as a capture: a trailing parameter of f.
 	caps := make([]ir.Temp, len(child.rebuildCaps))

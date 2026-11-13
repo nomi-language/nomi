@@ -13,7 +13,7 @@ population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
 records 373
 declared-cases 0
-failing 84
+failing 85
 C assert_subject_test.nomi@295b6bb031afecb5
 E 1
 N 0
@@ -3492,20 +3492,25 @@ T it names main: True
 T it names other: True
 T first diagnostic line is 1, col 12
 T
-C internal/irbuild/testdata/check_shape.nomi@8bf7a4d212ce387d
-E 0
+C internal/irbuild/testdata/check_shape.nomi@d67ae5ff03aa40d7
+E 1
 N 0
-H 86e23d9d60cc401413764638eb28eaea17d90b703572fbbf09e44b497619c56e
+H fc14979c8bf9361a749fe0978779547fae2150ccdc37f8f10b787f8ebf9f3b8e
 T ok <dir>/check_shape.nomi :: a passing Maybe check is Ok carrying the Some, not Ok(True)
 T ok <dir>/check_shape.nomi :: a passing Result check is Ok carrying the Ok
-T ok <dir>/check_shape.nomi :: a failing Maybe check renders the whole subject as actual
+T FAIL <dir>/check_shape.nomi :: a failing Maybe check renders the whole subject as actual
+T   line 82: assertion failed
+T     assert observed.line == 83
+T     values:
+T       observed.line
+T         = 79
 T ok <dir>/check_shape.nomi :: a failing Result check renders the Err payload with its quotes
 T ok <dir>/check_shape.nomi :: a failing Maybe check at a second payload type does not collapse
 T ok <dir>/check_shape.nomi :: a shape check over a package-local payload uses the per-package instance
 T ok <dir>/check_shape.nomi :: a bound shape subject carries its defining expression
 T ok <dir>/check_shape.nomi :: a shape check result is an ordinary value
 T ok <dir>/check_shape.nomi :: check and assert agree about which shapes hold
-T test result: ok. 9 passed, 0 failed
+T test result: FAILED. 8 passed, 1 failed
 T
 C internal/irbuild/testdata/check_shape_report.nomi@d7750eea20e59bcc
 E 1
@@ -5327,7 +5332,7 @@ T a
 T b
 T 2
 T
-C internal/irbuild/testdata/iter_user_source.nomi@b445ea2e8fc9af06
+C internal/irbuild/testdata/iter_user_source.nomi@c57184db234c212a
 E 0
 N 0
 H 969bd65fead316ddb746753295eb207253d4fd93bc0ce4fd0a3e55b14089217c
@@ -8005,7 +8010,7 @@ T 5/1
 T lib
 T entry
 T
-C internal/irbuild/testdata/vectors.nomi@f2a3b83c8997bfe1
+C internal/irbuild/testdata/vectors.nomi@eaafce8d29900e44
 E 0
 N 0
 H c28d7fbe3450164cdb00b0c10d3489e4301f231f1db6b49d614205d71cab212a
@@ -9249,13 +9254,14 @@ T ok <dir>/pipes_test.nomi :: pipes into dispatch functions preserve interface d
 T ok <dir>/pipes_test.nomi :: tap stages run a function by name and pass the value on
 T test result: ok. 5 passed, 0 failed
 T
-C tests/15-app-and-defer/context_values_test.nomi@6fb3ca3b00e2c179
+C tests/15-app-and-defer/context_values_test.nomi@587f0316ae8323ef
 E 0
 N 0
-H 7b38c494521c8679b3aafa81fc0e6aafe69c42d8b938152cc38824615455ef82
+H 26327c0eeae26f152d41c62c3cfb2484bdd241dcfa1fe5ab48d0d06372a4458c
 T ok <dir>/context_values_test.nomi :: context values are keyed by their Nomi type
 T ok <dir>/context_values_test.nomi :: type witnesses do not replace zero-sized values
-T test result: ok. 2 passed, 0 failed
+T ok <dir>/context_values_test.nomi :: a witness is a value: a field, an element, a call's result
+T test result: ok. 3 passed, 0 failed
 T
 C tests/15-app-and-defer/defer_cleanup_test.nomi@b7a647625554f336
 E 0
@@ -9286,17 +9292,18 @@ T [INFO] hello, Ada
 T [WARN] config checked
 T console ready
 T
-C tests/16-concurrency/supervisors/supervisors_test.nomi@bb31995d952cddf8
+C tests/16-concurrency/supervisors/supervisors_test.nomi@f7c42c9bece6b177
 E 0
 N 0
-H d2caeccdfc0a9c5e2d9a1ecff6e49c162eb0c8e7eaa586b4fe9f2ddebefe06fe
+H 6a549762fe2dfec708f75fdec9161615172e205170b69b9263ed6978a9c72694
 T ok <dir>/supervisors_test.nomi :: named task groups / work outlives the call that started it
 T ok <dir>/supervisors_test.nomi :: named task groups / a failure nobody awaits still goes somewhere
 T ok <dir>/supervisors_test.nomi :: named task groups / a batch is bounded by the group's own limit
 T ok <dir>/supervisors_test.nomi :: named task groups / the handles a batch returns can be awaited on their own
 T ok <dir>/supervisors_test.nomi :: named task groups / cancelling one grouped task leaves the rest alone
 T ok <dir>/supervisors_test.nomi :: named task groups / a cancelled task reports Cancelled rather than Completed
-T test result: ok. 6 passed, 0 failed
+T ok <dir>/supervisors_test.nomi :: named task groups / a spawn in an assertion's subject
+T test result: ok. 7 passed, 0 failed
 T
 C tests/17-typed-literals/toml_literal_test.nomi@cbea2a860b6bc2d7
 E 0

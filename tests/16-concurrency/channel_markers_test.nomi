@@ -1,0 +1,40 @@
+// std's markers, `ChannelClosed` and `TimedOut`, are values like any other:
+// a tuple part, a record field, an element of a list, a pair or a set, and
+// a variant payload a pattern names.
+import
+    std::channels.{Channel, ChannelClosed, Receiver, Sender, TimedOut}
+    std::duration.Duration
+end
+
+test "a marker is a tuple part and a record field"
+    t = (ChannelClosed, 1)
+    assert t.first == ChannelClosed
+    assert t.second == 1
+    r = {e: TimedOut, n: 2}
+    assert r.e == TimedOut
+    assert r.n == 2
+end
+
+test "markers are elements of pairs and sets"
+    pairs = Iter.with_index([ChannelClosed, ChannelClosed]) |> Iter.to_list()
+    assert pairs == [(0, ChannelClosed), (1, ChannelClosed)]
+    zipped = Iter.zip([TimedOut], [7]) |> Iter.to_list()
+    assert zipped == [(TimedOut, 7)]
+    assert Iter.to_set([ChannelClosed, ChannelClosed]) |> Iter.count() == 1
+end
+
+test "a pattern names a marker payload"
+    ch = Channel.buffered<Int>(1)
+    Sender.close(ch.sender)
+    r = Sender.send(ch.sender, 1)
+
+    n = case r
+        Err(ChannelClosed) -> 1
+        Ok(_) -> 0
+    end
+
+    assert n == 1
+    assert Err(ChannelClosed) = r
+    waited = Receiver.receive_within(Channel.buffered<Int>(1).receiver, Duration.seconds(0))
+    assert Err(TimedOut) = waited
+end

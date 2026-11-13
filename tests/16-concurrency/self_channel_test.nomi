@@ -1,0 +1,72 @@
+// A type may carry a channel of itself: a message that brings its own reply
+// channel, at the top of a payload or a field, inside a tuple, or in a
+// Maybe.
+import
+    std::channels.{Channel, Receiver, Sender}
+    std::tasks.Task
+end
+
+enum Msg
+    Ask Channel<Msg>
+    Pair (Channel<Msg>, Int)
+    Get {reply: Channel<Msg>, n: Int}
+    Later Maybe<Channel<Msg>>
+    Stop
+end
+
+struct Req
+    reply: Channel<Req>
+    pair: (Channel<Req>, Int)
+    n: Int
+end
+
+test "a variant carries a channel of its own enum"
+    ch = Channel.buffered<Msg>(1)
+    asks = [Msg.Ask(ch), Msg.Pair((ch, 1)), Msg.Get{reply: ch, n: 2}, Msg.Later(Some(ch))]
+
+    replies =
+        asks
+        |> Iter.map(fn m ->
+            case m
+                .Ask(c) or .Pair((c, 1)) or .Get{reply: c, n: 2} or .Later(Some(c)) ->
+                    _ = Sender.send(c.sender, Msg.Stop)
+                    Receiver.receive(ch.receiver)
+
+                _ ->
+                    None
+            end
+        end)
+        |> Iter.to_list()
+
+    assert Iter.count(replies) == 4
+    assert Iter.count(Iter.filter(replies, fn r -> r is Some(.Stop))) == 4
+end
+
+test "a struct field holds a channel of its own struct"
+    c = Channel.buffered<Req>(1)
+    r = Req{reply: c, pair: (c, 3), n: 1}
+    _ = Sender.send(r.pair.first.sender, {..r, n: 7})
+    got = Receiver.receive(r.reply.receiver)!
+    assert got.n == 7
+end
+
+test "a message brings its reply channel to a task"
+    inbox = Channel.buffered<Msg>(1)
+    reply = Channel.buffered<Msg>(1)
+
+    got = concurrent
+        t = Task.spawn(fn ->
+            case Receiver.receive(inbox.receiver)
+                Some(.Ask(back)) -> Sender.send(back.sender, Msg.Stop)
+                _ -> Ok(Unit)
+            end
+        end)
+
+        _ = Sender.send(inbox.sender, Msg.Ask(reply))
+        r = Receiver.receive(reply.receiver)
+        _ = Task.await(t)
+        r
+    end
+
+    assert got is Some(.Stop)
+end

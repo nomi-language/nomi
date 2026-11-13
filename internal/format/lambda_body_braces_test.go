@@ -102,11 +102,7 @@ func TestFormat_LambdaBodyBelowParametersIsBraced(t *testing.T) {
 			"fn f() -> Seq\n" +
 				"    Seq{\n" +
 				"        run: fn yield: (Int) -> Bool ->\n" +
-				"            if Iter.each_while(first_source, yield) then\n" +
-				"                Iter.each_while(b, yield)\n" +
-				"            else\n" +
-				"                False\n" +
-				"            end\n" +
+				"            if Iter.each_while(first_source, yield) then Iter.each_while(b, yield) else False\n" +
 				"        end,\n" +
 				"    }\n" +
 				"end\n",

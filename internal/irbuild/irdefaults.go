@@ -88,8 +88,8 @@ func (g *gen) callDefaultsOf(t *ast.Call) *analysis.DefaultedCall {
 // call leaves out, as the checker recorded it. kinds holds every
 // parameter's kind and temps every written operand at its slot, ir.NoTemp
 // at each omitted one; mobile marks a written operand that may stay
-// unforced. home is where the callee is declared. ok is false when a slot
-// is omitted that the record does not name, or a default does not lower.
+// unforced. home is where the callee is declared. ok is false when a
+// default does not lower.
 func (bl *irScalarBuilder) fillCallDefaults(t *ast.Call, kinds []kind, temps []ir.Temp, mobile []bool, home defaultHome) bool {
 	var omitted []int
 	for i, tmp := range temps {
@@ -101,19 +101,25 @@ func (bl *irScalarBuilder) fillCallDefaults(t *ast.Call, kinds []kind, temps []i
 		return true
 	}
 	g := bl.g
+	// The checker records what fills the slots a call leaves out, at the
+	// slots it routed the call's arguments to (analysis package doc,
+	// "Elaboration"), and TestElaborationGate holds it.
 	rec := g.callDefaultsOf(t)
 	if rec == nil || len(rec.Params) != len(temps) || len(kinds) != len(temps) {
-		g.dc.note("a call leaving out a parameter the checker recorded no default for")
-		return false
+		panic("irbuild: a call leaving out parameters with no CallDefaults record over its slots")
 	}
 	for _, s := range omitted {
 		if !slices.Contains(rec.Slots, s) {
-			g.dc.note("a call leaving out a parameter the checker recorded no default for")
-			return false
+			panic("irbuild: a call leaving out a slot its CallDefaults record does not name")
 		}
 	}
 	params := defaultParams(rec, home, omitted)
 	sig := &fnSig{decl: &ast.FuncDef{Params: params}, params: kinds, instance: home.inst}
+	if o, iface := g.ifaceParamDefault(params[omitted[0]].Default); iface && ifaceDefaultGeneric(o) {
+		// A record lacking one leaves the frame nil, which callDefaults
+		// declines at the default.
+		sig.ifaceFrame, _ = g.ifaceDefaultFrameAt(t, o)
+	}
 	owner := home.owner
 	if owner == nil || owner == g {
 		return bl.callDefaults(sig, temps)

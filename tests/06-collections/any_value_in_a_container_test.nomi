@@ -1,0 +1,109 @@
+// A container holds any value: Unit, an Iter, a function, a channel half or
+// an interface value, as an element, a payload, a map value or a task's
+// result.
+import
+    std::channels.{Channel, Receiver, Sender}
+    std::tasks.Task
+end
+
+struct Pt
+    x: Int
+end
+
+type Handler (Int) -> Int
+
+enum Slot
+    Has Receiver<Int>
+    Empty
+end
+
+test "Unit in a Vector, an Iter and a zip"
+    units: Vector<Unit> = [Unit, Unit]
+    assert Iter.count(units) == 2
+    assert Vector.get(units, 0) == Some(Unit)
+    assert Iter.repeat(Unit) |> Iter.take(3) |> Iter.count() == 3
+    assert Some(Iter.repeat(Unit)) is Some(_)
+    assert Iter.zip([Unit], [Unit]) |> Iter.count() == 1
+    assert Iter.concat([Unit], [Unit]) |> Iter.count() == 2
+    assert Iter.chunk_equal([Unit, Unit]) |> Iter.count() == 1
+end
+
+test "a list pattern over lists of any element"
+    vectors = [
+        Vector[Pt{x: 1}],
+    ]
+
+    [first, ..] = vectors else return
+
+    assert Iter.count(first) == 1
+    [it, ..] = [Iter.from(1)] else return
+    assert it |> Iter.take(2) |> Iter.to_list() == [1, 2]
+end
+
+test "map values of any kind"
+    handlers = {"inc" => Handler(fn n: Int -> n + 1)}
+    assert Map.get(handlers, "inc") is Some(_)
+    lazy = {"a" => {a: Iter.from(1)}}
+    assert Map.get(lazy, "a") is Some(_)
+end
+
+test "channel halves in containers"
+    ch = Channel.buffered<Int>(2)
+    _ = Sender.send(ch.sender, 4)
+    assert Some(ch.sender) is Some(_)
+    slot: Slot = .Has(ch.receiver)
+
+    out = case slot
+        .Has(r) -> r
+        .Empty -> ch.receiver
+    end
+
+    assert Receiver.receive(out) == Some(4)
+    assert Iter.count(Vector[ch.receiver]) == 1
+end
+
+fn shown(xs: Iter<Display>) -> List<String>
+    xs |> Iter.map(fn x -> Display.to_string(x)) |> Iter.to_list()
+end
+
+test "a Map entering an Iter of interface values"
+    assert shown({1 => 2}) == ["(1, 2)"]
+end
+
+test "a Context in a Maybe and a task's outcome"
+    assert Some(Context.root()) is Some(_)
+
+    n = concurrent
+        t = Task.spawn(fn -> Context.root())
+        Iter.count([Task.outcome(t)])
+    end
+
+    assert n == 1
+end
+
+struct OnUnit
+    run: (Unit) -> Unit
+end
+
+test "a field of a function over Unit"
+    h = OnUnit{run: fn _: Unit -> Unit}
+    assert h.run(Unit) == Unit
+end
+
+test "Debug of a tuple holding a List of functions"
+    f = fn n: Int -> n + 1
+    assert Debug.inspect(([f], 1)) == "([<function>], 1)"
+    assert Debug.inspect(({1 => f}, 1)) == "({1 => <function>}, 1)"
+end
+
+test "interface values in tasks and channels"
+    d = concurrent
+        t = Task.spawn(fn -> (7 as Display))
+        Task.await(t)
+    end
+
+    assert Display.to_string(d) == "7"
+    ch = Channel.buffered<Display>(1)
+    assert Ok(_) = Sender.send(ch.sender, (8 as Display))
+    assert Display.to_string(Receiver.receive(ch.receiver)!) == "8"
+end

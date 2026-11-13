@@ -1,0 +1,12 @@
+// A function whose defaults print when they run, for a partial over another
+// file's function.
+import std::io
+
+pub fn base() -> Int
+    io.print("base")
+    10
+end
+
+pub fn span(a: Int, b: Int = base() + 1, c: Int = base() * 2) -> Int
+    a + b + c
+end

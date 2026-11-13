@@ -1,0 +1,76 @@
+// A program's type does not take an impl that a std type of the same name
+// has: identity is (declaring file, name). std/xml writes `impl Display for
+// Name` for its own Name, std/uuid `impl ToJson for Uuid` for its own Uuid,
+// and std/calendar `impl Display for Error` for its own Error.
+import
+    std::compiler
+    std::xml
+    test_helpers
+end
+
+test "a program's Name is not Display because std/xml's Name is"
+    diagnostics = compiler.check(
+        """
+          import std::xml
+
+          type Name String
+
+          fn main()
+            _ = xml.xml_namespace()
+            d: Display = Name("a")
+            _ = d
+          end
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic(diagnostics, "type mismatch: expected Display, got Name")
+end
+
+test "a program's Error is not Display because std/calendar's Error is"
+    diagnostics = compiler.check(
+        """
+          import std::calendar.Date
+
+          enum Error
+            Bad
+          end
+
+          fn main()
+            _ = Date`2026-01-01`
+            d: Display = Error.Bad
+            _ = d
+          end
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic(diagnostics, "type mismatch: expected Display, got Error")
+end
+
+test "a program's Uuid is not ToJson because std/uuid's Uuid is"
+    diagnostics = compiler.check(
+        """
+          import std::uuid
+          import std::json.ToJson
+
+          struct Uuid
+            n: Int
+          end
+
+          fn main()
+            _ = uuid.Uuid.nil()
+            j: ToJson = Uuid{n: 1}
+            _ = j
+          end
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic(diagnostics, "type mismatch: expected ToJson, got Uuid")
+end
+
+test "std/xml's own Name still conforms to Display"
+    d: Display = xml.Name{local: "href", prefix: "xlink"}
+    assert "${d}" == "xlink:href"
+end

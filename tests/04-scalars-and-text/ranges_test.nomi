@@ -67,3 +67,15 @@ test "ranges compose with iterator pipelines"
         |> Iter.to_list()
         |> List.equal([0, 2, 4, 6, 8])
 end
+
+test "a range over tuples, lists or vectors bounds them lexicographically"
+    pairs = (1, 2)..(3, 4)
+    assert Range.contains(pairs, (2, 9))
+    refute Range.contains(pairs, (3, 4))
+    assert pairs == (1, 2)..(3, 4)
+    assert Map.get({pairs => 1}, (1, 2)..(3, 4)) == Some(1)
+    assert Range.contains([1]..=[2, 5], [2])
+    assert Debug.inspect([1]..=[2, 5]) == "[1]..=[2, 5]"
+    assert Range.contains(Vector[1]..Vector[2], Vector[1, 9])
+    assert Range.contains(((1, 2), 3)..((2, 2), 3), ((1, 5), 0))
+end

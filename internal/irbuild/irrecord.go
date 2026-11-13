@@ -195,7 +195,7 @@ func (bl *irScalarBuilder) structMergeVals(k kind, base ir.Temp, lit *ast.Struct
 			}
 		}
 		v, vk, ok = bl.coerceEmpty(f.Value, v, vk, fk)
-		if !ok || vk != fk {
+		if !ok {
 			return nil, nil, false
 		}
 		names[i], vals[i] = f.Name, v
@@ -390,8 +390,8 @@ func (bl *irScalarBuilder) recordMerge(at ast.Node, k kind, base, rec ir.Temp, r
 		p := ir.NewProjRecordField(bl.g.irNodePos(from[i]), bl.f.NewTemp(), rec, name, irParamShape(part))
 		bl.b.Append(p)
 		bl.side(p.Dst(), irScalarSide{k: part})
-		v, vk, ok := bl.coerceEmpty(from[i], p.Dst(), part, fk)
-		if !ok || vk != fk {
+		v, _, ok := bl.coerceEmpty(from[i], p.Dst(), part, fk)
+		if !ok {
 			return ir.NoTemp, false
 		}
 		names[i], vals[i] = name, v

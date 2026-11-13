@@ -68,7 +68,12 @@ func (v ElabViolation) String() string {
 //     (Coercions), unless it is the receiver of a call of an interface
 //     function. A source checked against an `Iter<T>` position, which the
 //     callee receives as a view over the source, has the record of the
-//     view (IterViews).
+//     view (IterViews). An impl block of a generic interface whose
+//     header writes no type arguments has the record of the ones it
+//     implements (ImplTypeArgSets, ImplBlockTypeArgs). A call of an
+//     interface function the checker selected no impl for, with a
+//     recorded signature, has the record of the interface instance it
+//     goes through (Symbol.CallInterface).
 //
 // Closed means: no unsolved inference variable anywhere in the type, at
 // any depth, and no type parameter other than the enclosing declaration's
@@ -130,8 +135,32 @@ func VerifyElaborationCounting(fa *FileAnalysis, nodes []ast.Node) ([]ElabViolat
 	for _, top := range nodes {
 		ast.Inspect(top, w.visit)
 	}
+	for _, top := range nodes {
+		if ib, ok := top.(*ast.ImplBlock); ok {
+			v.checkImplBlockArgs(ib)
+		}
+	}
 	return v.out, v.counts
 }
+
+// checkImplBlockArgs reports an impl block of a generic interface whose
+// header writes no type arguments when the file has no record of the ones
+// it implements (ImplBlockTypeArgs).
+func (v *elabVerifier) checkImplBlockArgs(ib *ast.ImplBlock) {
+	if ib.Interface == nil || headerWritesTypeArgs(ib.Interface) {
+		return
+	}
+	iface := lookupInterfaceType(v.fa, nil, TypeExprBaseName(ib.Interface))
+	if iface == nil || len(iface.TypeParamDefs) == 0 || ImplBlockTypeArgs(v.fa, ib) != nil {
+		return
+	}
+	v.report(ib, "implicit", ElabImplArgsUnrecorded, "impl "+ib.Interface.TypeString())
+}
+
+// ElabImplArgsUnrecorded is the category of an impl block of a generic
+// interface, its header writing no type arguments, with no record of the
+// ones it implements (FileAnalysis.ImplTypeArgSets).
+const ElabImplArgsUnrecorded = "implicit: impl block's interface type arguments not recorded"
 
 type elabVerifier struct {
 	fa *FileAnalysis
@@ -619,6 +648,11 @@ func (v *elabVerifier) checkCall(n *ast.Call) {
 	}
 }
 
+// ElabCallInterfaceUnrecorded is the category of a call of an interface
+// function the checker selected no impl for, with no closed record of the
+// interface instance it goes through (Symbol.CallInterface).
+const ElabCallInterfaceUnrecorded = "implicit: interface instance of a dispatched call not recorded"
+
 // ElabDefaultsUnrecorded is the category of a call that leaves a defaulted
 // parameter out with no record of what fills it (FileAnalysis.CallDefaults).
 const ElabDefaultsUnrecorded = "implicit: defaulted arguments filled, not recorded"
@@ -643,6 +677,19 @@ func (v *elabVerifier) checkInterfaceCall(n *ast.Call, name string, sym *Symbol)
 			cat = strings.Replace(cat, "open type", "type argument open", 1)
 			v.report(n, "call", "call: interface method, "+cat, name+" at "+why)
 			return
+		}
+	}
+	if sym.DispatchImpl == nil && sym.CallType != nil {
+		// Dispatched where it runs: the record names the interface
+		// instance the call goes through (call_interfaces.go).
+		switch it := sym.CallInterface; {
+		case it == nil:
+			v.report(n, "implicit", ElabCallInterfaceUnrecorded, name)
+		default:
+			// Held to what the call's own signature is held to above.
+			if cat, _ := v.openness(n, it); cat != "" {
+				v.report(n, "implicit", ElabCallInterfaceUnrecorded, name+" through "+it.String())
+			}
 		}
 	}
 	if sym.DispatchImpl != nil || sym.CallType != nil {

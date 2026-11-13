@@ -42,25 +42,26 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 				return false
 			}
 			var src ir.Temp
-			var k kind
 			var ok bool
 			if o, iface := bl.g.ifaceParamDefault(p.Default); iface {
 				// An interface function's default, in a frame binding its
 				// type parameters; another file's has that file's names
 				// (ifaceslotdefault.go).
-				frame, bound := bl.g.ifaceDefaultFrame(o, sig.params)
+				frame, bound := sig.ifaceFrame, len(sig.ifaceFrame) > 0 || !ifaceDefaultGeneric(o)
 				switch {
 				case !bound:
 					return false
 				case o.unit != bl.g.fileUnit:
-					src, k, ok = bl.ifaceSlotDefault(o, p, sig.params, frame, args, i)
+					src, _, ok = bl.ifaceSlotDefault(o, p, sig.params, frame, args, i)
 				default:
-					src, k, ok = bl.ifaceDefaultHere(p, frame, sig.params[i])
+					src, _, ok = bl.ifaceDefaultHere(p, frame, sig.params[i])
 				}
 			} else {
-				src, k, _, ok = bl.lowerWant(p.Default, sig.params[i])
+				src, _, _, ok = bl.lowerWant(p.Default, sig.params[i])
 			}
-			if !ok || k != sig.params[i] || !irCallOperandKind(k) {
+			// Each route lowers at the parameter's kind (lowerWant, or the
+			// declaring gen's accessor at it), so k is sig.params[i].
+			if !ok {
 				return false
 			}
 			args[i] = src
@@ -68,8 +69,10 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 		if p.Destructure == nil && !ast.IsDiscardName(p.Name) {
 			bl.bound[p.Name], bl.boundK[p.Name] = args[i], sig.params[i]
 		}
-		if p.Destructure != nil && slices.Contains(args[i+1:n], ir.NoTemp) && !bl.bindParamPattern(p.Destructure, args[i], sig.params[i]) {
-			return false
+		if p.Destructure != nil && slices.Contains(args[i+1:n], ir.NoTemp) {
+			if !bl.bindParamPattern(p.Destructure, args[i], sig.params[i]) {
+				return false
+			}
 		}
 	}
 	return true
@@ -93,7 +96,7 @@ func (bl *irScalarBuilder) bindParamPattern(pat ast.Node, arg ir.Temp, k kind) b
 	nomatch.Append(ir.NewNoMatch(pos))
 	nomatch.SetTerm(ir.NewJump(pos, cont.ID()))
 	if !bl.patternValueTest(pat, arg, k, cont, nomatch) {
-		bl.g.dc.atPattern(pat, "a destructuring parameter before a defaulted one, outside the retained case tests: "+k.nomi())
+		bl.g.dc.patternFailed(pat)
 		return false
 	}
 	bl.b = cont

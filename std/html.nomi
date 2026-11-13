@@ -73,7 +73,7 @@ end
 //! assert Html.to_string(Html"<b>${"<i>"}</b>") == "<b>&lt;i&gt;</b>"
 //!
 //! // A `Maybe` in a quoted attribute value writes its value, or nothing.
-//! tag = fn on: Bool -> Html"<b class='tag ${if on then "on"}'></b>"
+//! tag = fn on: Bool -> Html"<b class='tag ${if on then Some("on") else None}'></b>"
 //! assert Html.to_string(tag(True)) == "<b class='tag on'></b>"
 //! assert Html.to_string(tag(False)) == "<b class='tag '></b>"
 //!
@@ -193,8 +193,8 @@ end
 
 impl ToHtml for Maybe<T> where T: ToHtml
     //! n = 3
-    //! shown = Html"<p>${if n > 0 then n}</p>"
-    //! hidden = Html"<p>${if n > 5 then Html"<b>big</b>"}</p>"
+    //! shown = Html"<p>${if n > 0 then Some(n) else None}</p>"
+    //! hidden = Html"<p>${if n > 5 then Some(Html"<b>big</b>") else None}</p>"
     //! assert Html.to_string(shown) == "<p>3</p>"
     //! assert Html.to_string(hidden) == "<p></p>"
     //
@@ -280,7 +280,7 @@ end
 impl CssValue for Maybe<T> where T: CssValue
     //! wide = False
     //!
-    //! assert Html.to_string(Html"<i style='width: ${if wide then 80}%'></i>")
+    //! assert Html.to_string(Html"<i style='width: ${if wide then Some(80) else None}%'></i>")
     //!     == "<i style='width: %'></i>"
     //
     fn to_css(value: Maybe<T>) -> String

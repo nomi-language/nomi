@@ -100,11 +100,11 @@
 // its text (a declaration's `fn`).
 //
 // An `if` with no final `else` and a binding's `else` answer with the rule
-// the text does not show (hoverdoc rules.go): the `if`'s type and that it
-// is a Maybe (`Some(digits)` when `total == 0` holds) or a statement, read
-// from analysis.FileAnalysis.ElselessIfs; when the `else` runs, and whether
-// it leaves or gives a fallback for the pattern's payload, read from the
-// types the checker recorded on its paths. Each quotes the condition, value
+// the text does not show (hoverdoc rules.go): that the `if` is a statement,
+// when its branch runs, and how a branch that leaves or ends in an `assert`
+// or `dbg` keeps it one; when the `else` runs, and whether it leaves or
+// gives a fallback for the pattern's payload, read from the types the
+// checker recorded on its paths. Each quotes the condition, value
 // and pattern from the source when they fit on a line.
 //
 // TestKeywordDocsCoverTheLexer fails when a reserved or contextual word has

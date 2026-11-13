@@ -104,10 +104,7 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 	if _, agree := child.inferReturn.settle(k); !agree || !child.settleConcurrentTries(tries, k) {
 		return no()
 	}
-	if err := bl.g.irLint(f); err != nil {
-		bl.g.dc.note("a `concurrent` body graph that does not lint: " + err.Error())
-		return no()
-	}
+	bl.g.irRequireLint(f, "a `concurrent` body graph")
 	fv := ir.NewFuncValue(at, bl.f.NewTemp(), f, child.captures...)
 	bl.b.Append(fv)
 	bl.side(fv.Dst(), irScalarSide{k: funcKindIn(bl.g, nil, k)})
@@ -126,7 +123,11 @@ func (bl *irScalarBuilder) taskCall(t *ast.Call, method string) (ir.Temp, kind, 
 		return bl.taskSpawnAll(t)
 	}
 	if namedArgNode(t.Args) != nil || len(t.Args) != 1 {
-		return no()
+		// call sends a call with a named argument to namedIntrinsicCall,
+		// which comes back with the positional form, and every std/tasks
+		// function but spawn_all takes one parameter, which the checker
+		// holds a call to.
+		panic("irbuild: taskCall reached with a named argument or another arity: Task." + method)
 	}
 	if method == "spawn" {
 		// A lambda literal or any other zero-parameter function value.
@@ -177,7 +178,9 @@ func (bl *irScalarBuilder) taskCall(t *ast.Call, method string) (ir.Temp, kind, 
 	case "outcome":
 		result = bl.g.preludeInstanceOf(preludeSpecNamed("Outcome"), []kind{payload})
 		if !irRetainedValueKind(result) {
-			return no()
+			// payload is a task handle's, in irConcHandleKind's domain, and
+			// Outcome's payloads take every such value (irRetainedPreludePayload).
+			panic("taskCall: Task.outcome over " + payload.nomi() + " answers " + result.nomi() + ", outside the retained domain")
 		}
 	}
 	return bl.concHostEmit(t, "Task."+method, result, args.temps[0])

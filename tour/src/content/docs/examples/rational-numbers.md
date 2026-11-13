@@ -38,7 +38,7 @@ impl Rational
     end
 
     pub fn abs(r: Rational) -> Rational
-        {..r, numerator: Int.abs(r.numerator)}
+        {..r, numerator: Int.abs(..)}
     end
 
     /// `r` to the power `exponent`. A negative exponent raises the

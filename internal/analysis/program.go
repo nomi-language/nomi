@@ -91,6 +91,11 @@ type Program struct {
 	// with the user modules its imports loaded. A file holds only its own
 	// impls, so this is how such a file sees another's.
 	unindexedImpls map[string]map[string]bool
+	// unindexedOrigins is those files' Origins. ImplIndex holds none of
+	// their impls, so its identity entries cannot say whether a type they
+	// declare supplies an impl (suppliesReceiver), and the bare-name
+	// answer stands for it.
+	unindexedOrigins map[string]bool
 
 	// results holds what the checks that run once every file is checked
 	// decide about the program, and only that: no file's analysis records
@@ -148,6 +153,21 @@ func (p *Program) settleImplImport(ii *ImplImport, unused bool) {
 // settled counts as used.
 func (p *Program) ImplImportUnused(ii *ImplImport) bool {
 	return p.results != nil && p.results.implImportsUnused[ii]
+}
+
+// originsOf answers the set of files' Origins, or nil when none has one.
+func originsOf(files []*FileAnalysis) map[string]bool {
+	var out map[string]bool
+	for _, fa := range files {
+		if fa.Origin == OriginUnresolved {
+			continue
+		}
+		if out == nil {
+			out = make(map[string]bool, len(files))
+		}
+		out[fa.Origin] = true
+	}
+	return out
 }
 
 // unionImpls answers the union of files' own Impls, or nil when they have
@@ -329,8 +349,9 @@ func standaloneProgram(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplInd
 		StdlibModuleScopes: stdlibScopes,
 		// The user modules' impls. The stdlib's are not among them: an
 		// index over the stdlib, when one is attached, holds those.
-		unindexedImpls: unionImpls(users),
-		results:        newProgramResults(),
+		unindexedImpls:   unionImpls(users),
+		unindexedOrigins: originsOf(users),
+		results:          newProgramResults(),
 	}
 	p.setFiles(files)
 	return p

@@ -39,7 +39,9 @@ func (bl *irScalarBuilder) relabels(have, want kind) bool {
 		return false
 	}
 	switch have.tag {
-	case tagList, tagMap, tagTuple, tagAnonStruct:
+	case tagList, tagMap, tagTuple, tagAnonStruct, tagSeq:
+		// An `Iter<Int>` where an `Iter<Display>` is expected yields each
+		// Int unchanged, which is the Display value already.
 		if have.comp == nil || want.comp == nil || len(have.comp.parts) != len(want.comp.parts) || !slices.Equal(have.comp.names, want.comp.names) {
 			return false
 		}

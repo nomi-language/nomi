@@ -52,14 +52,14 @@ type irFuncSig struct {
 	// else in the LEAVING shape (irelsebinding.go): a path whose tail is a
 	// `todo` or an `unreachable` traps there and reaches no exit.
 	leaves bool
-	// elseless is the `if` without `else` whose arms this region's arms
-	// are (irelseless.go): each arm's value is wrapped in `Some`, and the
-	// missing `else` writes `None`. nil for every other region.
-	elseless *irElseless
-	result   kind
-	decl     *ast.FuncDef
-	name     string
-	origin   irFuncOrigin
+	result kind
+	decl   *ast.FuncDef
+	name   string
+	origin irFuncOrigin
+	// elselessUnit is set on the arms of a Unit `if` without `else`
+	// (unitElselessSig), where an arm ending in an `assert` or a `dbg`
+	// drops its value.
+	elselessUnit bool
 }
 
 // irFuncOrigin is which producer built a retained function, and therefore

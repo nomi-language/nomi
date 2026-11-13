@@ -33,12 +33,12 @@ impl LinkedList<T>
 
     /// `list` with `value` after its last value.
     pub fn push(list: LinkedList<T>, value: T) -> LinkedList<T>
-        {..list, back: [value, ..list.back]}
+        {..list, back: [value, ..]}
     end
 
     /// `list` with `value` before its first value.
     pub fn unshift(list: LinkedList<T>, value: T) -> LinkedList<T>
-        {..list, front: [value, ..list.front]}
+        {..list, front: [value, ..]}
     end
 
     /// The last value of `list` and the list without it, or `None` when it is

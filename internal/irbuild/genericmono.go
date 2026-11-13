@@ -269,33 +269,6 @@ func markMentionedParams(te ast.TypeExpr, params, out map[string]bool) {
 	}
 }
 
-// solvedCallReturn is the kind of the RESULT type the checker solved for this
-// call, or kindInvalid when it solved none.
-//
-// The instantiated signature lives on the call-site symbol's `CallType`, keyed
-// by the CALLEE's position — the `*ast.Call` node's own Line/Col is the
-// argument list's, and `g.fa.References` records a reference at the identifier.
-// Read through the same channel channels.go and prelude.go read, so all three
-// agree about which call was instantiated.
-//
-// WHICH identifier is calleeRefPos' question, and getting it wrong is a silent
-// miss rather than an error: a `Type.member` callee records its reference at
-// the MEMBER. On `Iter.to_map<String, Int>(xs)` the reference at `Iter` carries no
-// CallType at all while the one at `to_map` carries the instantiated signature,
-// which is what preludeCall reads (it is handed `callee.Field.Line,
-// callee.Field.Col` and never the FieldAccess').
-//
-// kindInvalid is the ordinary "nothing to say" answer and never a refusal: the
-// caller unifies with it only when it is not kindInvalid, so a call the checker
-// left uninstantiated is not affected.
-func (g *gen) solvedCallReturn(t *ast.Call) kind {
-	ft := g.checkedCallSignature(t)
-	if ft == nil || ft.Return == nil {
-		return kindInvalid
-	}
-	return g.project(ft.Return)
-}
-
 func (g *gen) checkedCallSignature(t *ast.Call) *analysis.FuncType {
 	if g.fa == nil || t.Func == nil {
 		return nil
@@ -394,6 +367,11 @@ func (g *gen) resolveMonoInstance(tpl *monoTemplate, args []kind, name string) (
 		}
 	}
 	g.popMonoSubst()
+	// The value domain's entry for an instance's signature, as signature
+	// holds a declared one.
+	if !bad && !sig.inValueDomain() {
+		bad = true
+	}
 
 	if bad {
 		// The instantiation is not representable. Refused at the CALL, because

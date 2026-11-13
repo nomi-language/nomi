@@ -715,8 +715,7 @@ func (g *gen) instanceArgs(d *typeDef) ([]kind, bool) {
 // binding every type parameter in params the annotation names. A parameter
 // already bound keeps its first binding. It reads which instance of an
 // impl block a receiver kind is (stdRecvTypeArgs: `List<T>` against
-// `List<Int>`) and the frame an implementation's signature gives an
-// interface's parameter defaults (ifaceDefaultFrame); a call's type
+// `List<Int>`), which is dispatch at an instance's kinds; a call's type
 // arguments are the checker's (calleeTypeArgs), never solved here.
 func (g *gen) unifyTypeParams(ann ast.TypeExpr, actual kind, params map[string]bool, solved map[string]kind) {
 	switch a := ann.(type) {

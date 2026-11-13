@@ -207,11 +207,7 @@ end
 /// lock and creates nothing: a database with no `nomi_migrations` has
 /// every migration pending.
 pub fn status(conn: Conn, migrations: List<Migration>) -> Result<Status, Error>
-    recorded = if table_exists(conn, "nomi_migrations")? then
-        records(conn)?
-    else
-        {}
-    end
+    recorded = if table_exists(conn, "nomi_migrations")? then records(conn)? else {}
 
     paths = fn keep: (Migration) -> Bool ->
         migrations |> Iter.filter(keep) |> Iter.map(fn m -> m.path) |> Iter.to_list()

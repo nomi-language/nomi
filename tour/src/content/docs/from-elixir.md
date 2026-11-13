@@ -24,7 +24,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `:atom` | An enum variant: `.Ready` |
 | `{a, b}`, `elem(t, 0)` | `(a, b)`, `t.first` |
 | `%{name: "Ada"}` (atom keys) | `{name: "Ada"}`, an anonymous struct |
-| `cond do`, `if .. do` | `if .. then` .. `else if .. then` .. `end`, or `case` alone on its line. Without `else` it is `Some(x)` or `None`, where Elixir's is `x` or `nil`. |
+| `cond do`, `if .. do` | `if .. then` .. `else if .. then` .. `end`, or `case` alone on its line. Without `else`, Elixir's gives `nil` when the condition fails; Nomi's is a statement with no value, and its branch must be `Unit` or leave. Nothing stands in for `nil` there: Elixir's `if c, do: x` is `if c then Some(x) else None`. |
 | `7 / 2` is `3.5`; `div(7, 2)`, `rem(-7, 3)` | `/` on two `Int`s is `div`: `7 / 2` is `3`, truncated toward zero. `%` is `rem`: `-7 % 3` is `-1`. Convert an operand with `Int.to_float` for a `Float` result. |
 | `spawn`, `send`, `receive` | `Task.spawn` in `concurrent` ... `end`, and channels |
 | `File.open(path, fn file -> .. end)` | `defer Reader.close_quietly(r)` on the line after opening; it runs when its block ends, and the checker requires it for a resource |

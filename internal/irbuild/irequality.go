@@ -32,20 +32,21 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// enumEquality answers `==`/`!=` on an enum. owned is false for a kind that
-// is not a retained enum.
-func (bl *irScalarBuilder) enumEquality(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind) (v ir.Temp, owned, ok bool) {
+// enumEquality answers `==`/`!=` on an enum. handled is false for a kind
+// that is not a retained enum, and for one std's own Equatable compares:
+// the caller tries its next route.
+func (bl *irScalarBuilder) enumEquality(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind) (v ir.Temp, ok, handled bool) {
 	if k.tag != tagNamed || k.def == nil || !k.def.isEnum || !irRetainedEnumKind(k.def) || irParamShape(k) != ir.ValVariant {
 		return ir.NoTemp, false, false
 	}
 	if og, d, hand, known := bl.handWrittenEquatable(t, k); !known {
-		return ir.NoTemp, true, false
+		return ir.NoTemp, false, true
 	} else if hand && d == nil {
 		// std's own impl: stdEquality's business.
 		return ir.NoTemp, false, false
 	} else if hand {
 		v, ok := bl.equatableImplCall(t, op, lhs, rhs, k, og, d)
-		return v, true, ok
+		return v, ok, true
 	}
 	// An `embeds` variant is an enum record whose one field is the payload;
 	// rt.Equal unwraps it, so the variant-shaped
@@ -54,17 +55,13 @@ func (bl *irScalarBuilder) enumEquality(t *ast.Binary, op ir.CompareOp, lhs, rhs
 }
 
 // valueEquality answers `==`/`!=` on a distinct, a struct, a record or a
-// tuple. owned is false for any other kind.
-func (bl *irScalarBuilder) valueEquality(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind) (v ir.Temp, owned, ok bool) {
+// tuple. handled is false for any other kind, and the caller tries its
+// next route.
+func (bl *irScalarBuilder) valueEquality(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind) (v ir.Temp, ok, handled bool) {
 	switch {
-	case irRetainedRecordKind(k):
-		return bl.equalityCompare(t, op, ir.ValStruct, lhs, rhs), true, true
-	case irRetainedTupleKind(k):
-		eq, ok := bl.structuralEqual(t, lhs, rhs, k)
-		if !ok {
-			return ir.NoTemp, true, false
-		}
-		return bl.equalityNegate(t, op, eq), true, true
+	case irRetainedRecordKind(k) || irRetainedTupleKind(k):
+		v, ok := bl.tupleRecordEquality(t, op, lhs, rhs, k)
+		return v, ok, true
 	case k.tag != tagNamed || k.def == nil || isDecimalKind(k):
 		return ir.NoTemp, false, false
 	}
@@ -76,10 +73,10 @@ func (bl *irScalarBuilder) valueEquality(t *ast.Binary, op ir.CompareOp, lhs, rh
 		og, impl, hand, known := bl.handWrittenEquatable(t, k)
 		switch {
 		case !known:
-			return ir.NoTemp, true, false
+			return ir.NoTemp, false, true
 		case hand:
 			v, ok := bl.equatableImplCall(t, op, lhs, rhs, k, og, impl)
-			return v, true, ok
+			return v, ok, true
 		}
 		c := ir.NewBool(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op != ir.OpNe)
 		bl.b.Append(c)
@@ -93,14 +90,14 @@ func (bl *irScalarBuilder) valueEquality(t *ast.Binary, op ir.CompareOp, lhs, rh
 		og, impl, hand, known := bl.handWrittenEquatable(t, k)
 		switch {
 		case !known:
-			return ir.NoTemp, true, false
+			return ir.NoTemp, false, true
 		case hand:
 			v, ok := bl.equatableImplCall(t, op, lhs, rhs, k, og, impl)
-			return v, true, ok
+			return v, ok, true
 		}
 		eq, ok := bl.structuralEqual(t, lhs, rhs, k)
 		if !ok {
-			return ir.NoTemp, true, false
+			return ir.NoTemp, false, true
 		}
 		return bl.equalityNegate(t, op, eq), true, true
 	}
@@ -111,7 +108,7 @@ func (bl *irScalarBuilder) valueEquality(t *ast.Binary, op ir.CompareOp, lhs, rh
 	}
 	og, impl, has, known := bl.equatableVerdict(t, k)
 	if !known {
-		return ir.NoTemp, true, false
+		return ir.NoTemp, false, true
 	}
 	if !has {
 		return bl.equalityCompare(t, op, ir.ValStruct, lhs, rhs), true, true
@@ -122,7 +119,20 @@ func (bl *irScalarBuilder) valueEquality(t *ast.Binary, op ir.CompareOp, lhs, rh
 		return ir.NoTemp, false, false
 	}
 	v, ok = bl.equatableImplCall(t, op, lhs, rhs, k, og, impl)
-	return v, true, ok
+	return v, ok, true
+}
+
+// tupleRecordEquality answers `==`/`!=` on a retained record or tuple, k:
+// a record is one structural comparison, and a tuple compares part by part.
+func (bl *irScalarBuilder) tupleRecordEquality(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind) (ir.Temp, bool) {
+	if irRetainedRecordKind(k) {
+		return bl.equalityCompare(t, op, ir.ValStruct, lhs, rhs), true
+	}
+	eq, ok := bl.structuralEqual(t, lhs, rhs, k)
+	if !ok {
+		return ir.NoTemp, false
+	}
+	return bl.equalityNegate(t, op, eq), true
 }
 
 // equalityCompare appends one structural comparison of the given shape.
@@ -166,8 +176,24 @@ func (bl *irScalarBuilder) structuralEqual(t *ast.Binary, lhs, rhs ir.Temp, k ki
 		// rt.Equal compares a Byte or Bytes by content, which is the body
 		// of std's own `impl Equatable` for each; binary's bytes route.
 		return bl.equalityCompare(t, ir.OpEq, ir.ValContainer, lhs, rhs), true
-	case irEqualityContainerKind(k):
+	case irEqualityContainerKind(k) || irScalarRangeKind(k) || irStdHandleKind(k) || irDynamicKind(k) || irTypeWitnessKind(k):
+		// A Range over a scalar is a container rt.Equal compares, a Regex
+		// a handle it compares by pattern, a Dynamic a tree it compares
+		// by contents, and a witness the type it names, as compareOperands'
+		// routes say.
 		return bl.equalityCompare(t, ir.OpEq, ir.ValContainer, lhs, rhs), true
+	case k.tag == tagNamed && irRetainedMarker(k.def):
+		// A marker has one value, so a marker slot is equal unless a
+		// written Equatable impl says otherwise, as valueEquality decides.
+		// An impl not yet known (one another unit declares) has no block
+		// here, which equatableImplCall declines.
+		if og, impl, hand, known := bl.g.handWrittenEquatableImpl(k); hand || !known {
+			return bl.equatableImplCall(t, ir.OpEq, lhs, rhs, k, og, impl)
+		}
+		c := ir.NewBool(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), true)
+		bl.b.Append(c)
+		bl.side(c.Dst(), irScalarSide{k: kindBool})
+		return c.Dst(), true
 	case irRetainedRecordKind(k):
 		return bl.equalityCompare(t, ir.OpEq, ir.ValStruct, lhs, rhs), true
 	case k.tag == tagNamed && irRetainedStructKind(k.def) && irParamShape(k) == ir.ValStruct:
@@ -224,7 +250,7 @@ func (bl *irScalarBuilder) equatableImplCall(t *ast.Binary, op ir.CompareOp, lhs
 			return ir.NoTemp, false
 		}
 	}
-	if u := irGenUnit(bl.g, og); og != bl.g && u < 0 {
+	if u := irGenUnit(bl.g, og); og != bl.g && u < 0 && !irStdProgramGen(bl.g, og) {
 		return ir.NoTemp, false
 	}
 	// Inside the impl's own `equal` this is a recursive call: on fields
@@ -236,6 +262,21 @@ func (bl *irScalarBuilder) equatableImplCall(t *ast.Binary, op ir.CompareOp, lhs
 	bl.b.Append(call)
 	bl.side(call.Dst(), irScalarSide{k: kindBool})
 	return bl.equalityNegate(t, op, call.Dst()), true
+}
+
+// irStdProgramGen reports whether og is one of the program's gens a std
+// instance g is lowered for: its symbols link by name, as a std instance's
+// calls to a program's Debug impls do.
+func irStdProgramGen(g, og *gen) bool {
+	if g.stdModule == "" || g.stdInsts == nil {
+		return false
+	}
+	for _, p := range g.stdInsts.program {
+		if p == og {
+			return true
+		}
+	}
+	return false
 }
 
 // irGenUnit is the file unit og builds, or -1.
@@ -256,6 +297,23 @@ func irGenUnit(g, og *gen) int {
 func (g *gen) equatableImplOf(k kind) (*gen, *implDef) {
 	if d := g.implsByIface["Equatable"][k]; d != nil {
 		return g, d
+	}
+	if k.def != nil && k.def.decl != nil && g.stdModule != "" && g.stdInsts != nil {
+		// A std instance at a program's type (`Iter.contains<Point>`): the
+		// impl is the program's, in one of its gens.
+		for _, og := range g.stdInsts.program {
+			if og == nil {
+				continue
+			}
+			if d := og.implsByIface["Equatable"][k]; d != nil {
+				return og, d
+			}
+			for _, d := range og.implOrder {
+				if d.ifaceName == "Equatable" && d.recv.tag == tagNamed && d.recv.def != nil && d.recv.def.decl == k.def.decl {
+					return og, d
+				}
+			}
+		}
 	}
 	if g.reg == nil || k.def == nil || k.def.decl == nil {
 		return nil, nil
@@ -393,7 +451,10 @@ func (bl *irScalarBuilder) bareVariantOwnKind(n ast.Node) (kind, bool) {
 	}
 	k := bl.g.preludeInstance(a, args)
 	if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
-		return kindInvalid, false
+		// args are checkedPreludeArgs', each a retained prelude payload
+		// (irRetainedPreludePayload), or Unit, and a prelude instance over
+		// such payloads is retained, as Task.outcome's is (taskCall).
+		panic("bareVariantOwnKind: " + name + " at " + k.nomi() + ", outside the retained domain")
 	}
 	return k, true
 }

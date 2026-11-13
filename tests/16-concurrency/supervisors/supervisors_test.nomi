@@ -85,4 +85,12 @@ group "named task groups"
         cancelled: Outcome<Unit> = .Cancelled
         assert Task.outcome(doomed) == cancelled
     end
+
+    test "a spawn in an assertion's subject"
+        assert Task.await(Supervisor.spawn(Config.audit, fn -> record_audit(3))) == Unit
+        assert Iter.count(Supervisor.spawn_all(Config.audit, [4, 5], record_audit)) == 2
+        _ = Supervisor.flush(Config.audit)
+
+        assert Iter.count(drain_alerts()) == 3
+    end
 end

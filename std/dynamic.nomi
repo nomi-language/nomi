@@ -2,7 +2,9 @@ import
     bool.Bool
     debug.Debug
     display.Display
+    equatable.Equatable
     float.Float
+    hashable.Hashable
     int.Int
     iter.Iter
     lists.List
@@ -167,6 +169,20 @@ impl Dynamic
                 end
         end
     end
+end
+
+impl Equatable for Dynamic
+    /// Two Dynamic values are equal when their contents are, as JSON
+    /// values: an object's keys in any order, an Int never equal to a
+    /// Float.
+    fn equal(a: Dynamic, b: Dynamic) -> Bool
+        a == b
+    end
+end
+
+impl Hashable for Dynamic
+    /// A hash of the contents, alike for equal values.
+    host fn hash(d: Dynamic) -> Int
 end
 
 impl Debug for Dynamic

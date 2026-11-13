@@ -252,11 +252,7 @@ impl Iter for Tree
 
             .Node(left, value, right) ->
                 if each_while(left, yield) then
-                    if yield(value) then
-                        each_while(right, yield)
-                    else
-                        False
-                    end
+                    if yield(value) then each_while(right, yield) else False
                 else
                     False
                 end

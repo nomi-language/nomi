@@ -4,6 +4,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
+	"strconv"
 )
 
 // A source at an `Iter<T>` position is viewed as the sequence the callee
@@ -258,32 +259,41 @@ func (bl *irScalarBuilder) viewAs(at ast.Node, src ir.Temp, sk kind, vs viewSour
 		}
 		return converted()
 	case analysis.IterViewString:
-		if elem == kindString {
+		// `show("ab")` for `fn show(xs: Iter<Display>)`: each grapheme is
+		// already the interface's value, as a list's element is; an
+		// element of another kind is converted as it is read.
+		if elem == kindString || bl.erasesUnboxed(elem, kindString) {
 			return view(ir.IterOverString, src), true
 		}
+		return converted()
 	case analysis.IterViewBytes:
-		if elem == irByteKind() {
+		if elem == irByteKind() || bl.erasesUnboxed(elem, irByteKind()) {
 			return view(ir.IterOverBytes, src), true
 		}
+		return converted()
 	case analysis.IterViewRange:
-		if vs.elem != elem {
-			return ir.NoTemp, false
+		// The range walks its own element; `show(1..3)` into an
+		// `Iter<Display>` reads each Int as the interface's value, and an
+		// element of another kind is converted as it is read.
+		own := vs.elem
+		if own != elem && !bl.erasesUnboxed(elem, own) {
+			return converted()
 		}
-		ops, ok := bl.rangeView(at, src, elem)
+		ops, ok := bl.rangeView(at, src, own)
 		if !ok {
 			return ir.NoTemp, false
 		}
 		// The view answers the Range's own known_count, so it carries the
 		// element's distance function (rt.Seq's Count). One whose impl
 		// inherits the None default has no count to carry.
-		if bl.inheritsStepsBetween(elem) {
+		if bl.inheritsStepsBetween(own) {
 			return view(ir.IterOverRange, ops...), true
 		}
 		maybeInt, shared := bl.g.sharedMaybe(kindInt)
 		if !shared {
 			return ir.NoTemp, false
 		}
-		steps, ok := bl.discreteRef(at, elem, "steps_between", []kind{elem, elem}, maybeInt)
+		steps, ok := bl.discreteRef(at, own, "steps_between", []kind{own, own}, maybeInt)
 		if !ok {
 			return ir.NoTemp, false
 		}
@@ -292,21 +302,29 @@ func (bl *irScalarBuilder) viewAs(at ast.Node, src ir.Temp, sk kind, vs viewSour
 		if v, ok := converted(); ok {
 			return v, true
 		}
+		// sk is a lowered value, so its element is in the domain and a
+		// Vector holds it.
 		erased := irExistentialKind(elem) && bl.g.irErases(elem, vs.elem)
-		if (vs.elem != elem && !erased) || !(irRetainedVectorKind(sk) || irCallableValueKind(vs.elem)) {
+		if vs.elem != elem && !erased {
 			return ir.NoTemp, false
 		}
 		return view(ir.IterOverVector, src), true
 	case analysis.IterViewMap:
-		if vs.elem != elem || !irRetainedMapKind(sk) || !irRetainedTupleKind(vs.elem) {
-			return ir.NoTemp, false
+		if vs.elem == elem {
+			return bl.mapView(at, src, sk, vs.elem), true
 		}
-		return bl.mapView(at, src, sk, vs.elem), true
+		if bl.erasesUnboxed(elem, vs.elem) {
+			// `count({1 => 2})` into an `Iter<Display>`: each `(K, V)`
+			// pair is already the interface's value, as a list's element
+			// is.
+			return view(ir.IterOverMap, src), true
+		}
+		return converted()
 	case analysis.IterViewSet:
 		if v, ok := converted(); ok {
 			return v, true
 		}
-		if !irRetainedSetKind(sk) || vs.elem != elem {
+		if vs.elem != elem {
 			return ir.NoTemp, false
 		}
 		return view(ir.IterOverSet, src), true
@@ -319,9 +337,14 @@ func (bl *irScalarBuilder) viewAs(at ast.Node, src ir.Temp, sk kind, vs viewSour
 		}
 		return view(ir.IterOverMaybe, src), true
 	case analysis.IterViewImpl:
-		if vs.elem == elem {
+		// The view's operands are the impl's functions, whatever the
+		// element: one already the interface's value is viewed as it is.
+		if vs.elem == elem || bl.erasesUnboxed(elem, vs.elem) {
 			return bl.userView(at, src, sk, vs.user, elem), true
 		}
+		return converted()
 	}
-	return ir.NoTemp, false
+	// viewSourceAt resolves a bounded type parameter's view to its
+	// instance's domain, so vs.dom is one of the arms above.
+	panic("viewAs: a view of domain " + strconv.Itoa(int(vs.dom)) + ", which has no arm")
 }

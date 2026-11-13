@@ -605,8 +605,8 @@ func (m *Machine) compareInstr(fr *frame, n *ir.Compare) (err error) {
 	}
 	switch n.Shape() {
 	case ir.ValContainer:
-		// A List, Vector, Map, Set or Range: rt's structural equality for
-		// each, with an element of a declared type compared (and a Map key or
+		// A List, Vector, Map, Set, Range, Regex, Dynamic or witness: rt's structural
+		// equality for each, with an element of a declared type compared (and a Map key or
 		// a Set element hashed) through its own impls (keys.go).
 		if !isContainer(lhs) || !isContainer(rhs) {
 			return compareOperandError(fr, n, lhs, rhs)
@@ -796,11 +796,17 @@ func isStructLike(v any) bool {
 
 // isContainer reports whether v is a collection a ValContainer comparison
 // reads: a List, a Vector, a Map, or std's Set or Range record. std's Byte
-// and Bytes leaves are compared the same way, by rt.Equal.
+// and Bytes leaves are compared the same way, by rt.Equal, and so are a
+// host handle that is a value (rt.HostKeyed: a Regex, by its pattern) and
+// a Dynamic (rt.DynamicEqual, by its contents), and a `Type<T>` witness
+// (rt.TypeWitnessEqual, by the type it names).
 func isContainer(v any) bool {
 	switch x := v.(type) {
-	case *list, rt.Vector[any], vmap, rt.Byte, rt.Bytes:
+	case *list, rt.Vector[any], vmap, rt.Byte, rt.Bytes, rt.Dynamic, rt.Type[any]:
 		return true
+	case rt.HostHandle:
+		_, keyed := x.Value.(rt.HostKeyed)
+		return keyed
 	case *rt.Record:
 		return x != nil && (x.Desc.Name == "sets.Set" || x.Desc.Name == "ranges.Range")
 	}

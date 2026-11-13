@@ -1,0 +1,27 @@
+// A tuple holding a Display value is a Display value itself, so it enters
+// a Display position, and an Iter of such tuples is an Iter<Display>, each
+// tuple rendered as its parts are.
+fn pair(d: Display) -> Display
+    (d, 2)
+end
+
+test "a tuple holding a Display value enters Display"
+    d: Display = 1
+    e: Display = (d, 2)
+    assert "${e}" == "(1, 2)"
+    assert Display.to_string(pair(Some(3))) == "(Some(3), 2)"
+    assert Display.to_string(pair([1, 2])) == "([1, 2], 2)"
+    assert Display.to_string(pair("s")) == "(s, 2)"
+end
+
+test "an Iter of tuples holding a Display value is an Iter<Display>"
+    xs: Iter<(Display, Int)> = [((1 as Display), 2)] |> Iter.map(fn x -> x)
+    ys: Iter<Display> = xs
+    assert (Iter.map(ys, Display.to_string) |> Iter.to_list()) == ["(1, 2)"]
+end
+
+test "a filtered list of such tuples where an Iter<Display> is expected"
+    d: Display = 1
+    ys: Iter<Display> = [(d, 2)] |> Iter.filter(fn _ -> True)
+    assert (Iter.map(ys, Display.to_string) |> Iter.to_list()) == ["(1, 2)"]
+end

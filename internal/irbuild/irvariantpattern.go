@@ -54,11 +54,11 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 		pat = &copied
 	}
 	pk := payloadPatternKind(v)
-	if irUnitPattern(pat.Payload, pk) {
+	if irSingletonPattern(pat.Payload, pk) {
 		// `Ok(Unit)` matches every payload of a Unit variant: it is
-		// `Ok(_)`.
+		// `Ok(_)`, as `Err(ChannelClosed)` is `Err(_)`.
 		copied := *pat
-		copied.Payload = irUnitAsWildcard(pat.Payload)
+		copied.Payload = irSingletonAsWildcard(pat.Payload)
 		return &copied, v, true
 	}
 	switch pat.Payload.(type) {
@@ -599,8 +599,9 @@ func irFieldSubPattern(p ast.Node, k kind) bool {
 	case *ast.EnumPattern:
 		// `retryable: True`, `kind: .Some(n)`: a variant test on the field,
 		// which patternValueTest builds; `Id(n)` or `Pair(a, _)` over a
-		// distinct unwraps it. `Unit` over a Unit matches as `_` does.
-		return irUnitPattern(p, k) || k == kindBool || (k.tag == tagNamed && (irRetainedEnumKind(k.def) || irDistinctOverValue(k.def)))
+		// distinct unwraps it. `Unit` over a Unit, and a marker's name over
+		// the marker, match as `_` does.
+		return irSingletonPattern(p, k) || k == kindBool || (k.tag == tagNamed && (irRetainedEnumKind(k.def) || irDistinctOverValue(k.def)))
 	case *ast.StructPattern:
 		return irNominalCaseKind(k) || (k.tag == tagNamed && irRetainedEnumKind(k.def))
 	case *ast.TuplePattern:
@@ -730,14 +731,25 @@ func (bl *irScalarBuilder) embeddedStructCaseTest(pat *ast.StructPattern, subj i
 	return true
 }
 
-// irUnitPattern reports whether p is the constant pattern `Unit` over a
-// value of kind Unit, which it matches as `_` does: Unit has one value.
-func irUnitPattern(p ast.Node, k kind) bool {
-	return k == kindUnit && analysis.IsUnitPattern(p)
+// irSingletonPattern reports whether p names the one value of a type with
+// one value, which it matches as `_` does: the constant pattern `Unit` over
+// a Unit, or a marker's name over that marker (`Err(ChannelClosed)`,
+// `Err(Quiet)` for `type Quiet`). A marker's only pattern with no payload
+// and no binding is its own name, so the checker's acceptance of p against
+// k is the test.
+func irSingletonPattern(p ast.Node, k kind) bool {
+	if k == kindUnit {
+		return analysis.IsUnitPattern(p)
+	}
+	if k.tag != tagNamed || !irRetainedMarker(k.def) {
+		return false
+	}
+	ep, ok := p.(*ast.EnumPattern)
+	return ok && ep.Payload == nil && ep.Binding == ""
 }
 
-// irUnitAsWildcard is the `_` a matched `Unit` pattern lowers as.
-func irUnitAsWildcard(p ast.Node) *ast.WildcardPattern {
+// irSingletonAsWildcard is the `_` a matched singleton pattern lowers as.
+func irSingletonAsWildcard(p ast.Node) *ast.WildcardPattern {
 	ep := p.(*ast.EnumPattern)
 	return &ast.WildcardPattern{SpanCarrier: ep.SpanCarrier, Line: ep.Line, Col: ep.Col}
 }

@@ -71,9 +71,9 @@ end
 
 fn step(robot: Robot, letter: String) -> Result<Robot, Error>
     case letter
-        "R" -> Ok({..robot, direction: Direction.right(robot.direction)})
-        "L" -> Ok({..robot, direction: Direction.left(robot.direction)})
-        "A" -> Ok({..robot, position: advance(robot.position, robot.direction)})
+        "R" -> Ok({..robot, direction: Direction.right(..)})
+        "L" -> Ok({..robot, direction: Direction.left(..)})
+        "A" -> Ok({..robot, position: advance(.., robot.direction)})
         _ -> Err(.UnknownInstruction(letter))
     end
 end

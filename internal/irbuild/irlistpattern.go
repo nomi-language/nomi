@@ -7,9 +7,12 @@ import (
 
 // listCaseTest admits flat bindings after a checked length predicate. The
 // success arm alone reads elements and suffixes, preserving persistent cells.
+//
+// k is a list the pattern takes apart (irCaseListKind): the untyped `[]`,
+// or a List whose kind has its element.
 func (bl *irScalarBuilder) listCaseTest(pattern ast.Node, subj ir.Temp, k kind, arm, next *ir.Block) bool {
 	pat, ok := pattern.(*ast.ListPattern)
-	if !ok || pat.TypeName != nil {
+	if !ok || pat.TypeName != nil || !irCaseListKind(k) {
 		return false
 	}
 	spread := !isNilNode(pat.TailSpread)
@@ -24,9 +27,6 @@ func (bl *irScalarBuilder) listCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 			return false
 		}
 		subj, k = v, vk
-	}
-	if k.comp == nil && (spread || len(pat.Heads) != 0) {
-		return false
 	}
 	simple := func(n ast.Node) bool {
 		switch n.(type) {

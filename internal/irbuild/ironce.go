@@ -17,6 +17,10 @@ func irOnceKind(k kind) bool {
 
 func (bl *irScalarBuilder) onceValue(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	d := bl.g.onces[t.Name]
+	if bl.g.blockImported(t) {
+		// A block `import` shadows the file's `once` of the name.
+		return ir.NoTemp, kindInvalid, false, false
+	}
 	if _, bound := bl.g.lookup(t.Name); bound {
 		return ir.NoTemp, kindInvalid, false, false
 	}
@@ -206,10 +210,7 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 		bl.b.SetTerm(ir.NewReturn(g.irNodePos(body), sh.result))
 	}
 	p := &irScalarPlan{fn: f, result: got}
-	if err := g.irLint(f); err != nil {
-		g.dc.note("a `once` initializer graph that does not lint: " + err.Error())
-		return kindInvalid, false
-	}
+	g.irRequireLint(f, "a `once` initializer graph")
 	g.irModule().DeclareLazyCell(sym, g.irTypeOf(k), f)
 	return p.result, true
 }

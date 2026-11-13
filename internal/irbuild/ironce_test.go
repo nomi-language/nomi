@@ -91,15 +91,18 @@ end
 // the VM would stop at the read with "has no retained initializer". `early`
 // reads `late` before `late`'s cell is attempted, `chained`'s initializer and
 // `main` read it after, and each is withdrawn. `fine` reads a retained cell and
-// stays.
+// stays. `late`'s initializer calls `planted_decline`, which the builder
+// declines (plantDecline), so its cell is unretained.
 func TestIROnce_ReadOfAnUnretainedCellDeclines(t *testing.T) {
+	plantDecline(t)
 	p, err := AnalyzeSource("main.nomi", `import std::io
+fn planted_decline(n: Int) -> Int
+    n
+end
 fn early() -> Int
     late + 1
 end
-once late: Int = case Context.with_value(Context.root(), 1)
-    _ -> 2
-end
+once late: Int = planted_decline(2)
 once chained: Int = late
 fn fine() -> Int
     ok + 1
@@ -131,8 +134,7 @@ once ok: Int = 3
 		funcs[f.Name()] = true
 	}
 	if cells["late"] {
-		t.Fatal("late's initializer now retains, so nothing here reads an unretained cell; " +
-			"give it an initializer the builder declines")
+		t.Fatal("late's initializer calls planted_decline and still retains")
 	}
 	if cells["chained"] || funcs["early"] || funcs["main"] {
 		t.Fatalf("a retained body reads the unretained late: cells %v, funcs %v", cells, funcs)

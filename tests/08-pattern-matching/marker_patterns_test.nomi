@@ -1,0 +1,26 @@
+// A marker has one value, so a pattern that names it matches as `_` does.
+type Quiet
+
+fn quiet(b: Bool) -> Result<Int, Quiet>
+    if b then Err(Quiet) else Ok(1)
+end
+
+test "a marker payload pattern"
+    n = case quiet(True)
+        Err(Quiet) -> 0
+        Ok(v) -> v
+    end
+
+    assert n == 0
+    assert Err(Quiet) = quiet(True)
+end
+
+test "a marker in a record pattern"
+    r = {e: Quiet, n: 3}
+
+    m = case r
+        {e: Quiet, n:} -> n
+    end
+
+    assert m == 3
+end

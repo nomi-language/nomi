@@ -840,8 +840,8 @@ func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kin
 			return no()
 		}
 		for i, a := range t.Args {
-			src, k, ok := bl.coerceEmpty(a, pre.temps[i], pre.kinds[i], params[i])
-			if !ok || k != params[i] {
+			src, _, ok := bl.coerceEmpty(a, pre.temps[i], pre.kinds[i], params[i])
+			if !ok {
 				return no()
 			}
 			temps[i] = src
@@ -860,7 +860,7 @@ func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kin
 			return no()
 		}
 		src, k, ok = bl.coerceEmpty(a, src, k, params[i])
-		if !ok || k != params[i] {
+		if !ok {
 			return no()
 		}
 		if i == len(args)-1 && bl.recording > 0 && bl.qualRecord == t && !irHeldValue(bl.f, src, bl.sides) {

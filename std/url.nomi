@@ -783,11 +783,7 @@ fn from_parts(parts: List<String>) -> Url
                 host:,
                 path:,
                 raw_path: maybe_text(raw_path),
-                query: if force_query != "" or raw_query != "" then
-                    Some(raw_query)
-                else
-                    None
-                end,
+                query: if force_query != "" or raw_query != "" then Some(raw_query) else None,
                 fragment: maybe_text(fragment),
                 raw_fragment: maybe_text(raw_fragment),
                 omit_host: omit_host != "",

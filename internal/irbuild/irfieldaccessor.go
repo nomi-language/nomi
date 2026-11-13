@@ -50,15 +50,14 @@ func (bl *irScalarBuilder) fieldAccessor(t *ast.FieldAccessor) (ir.Temp, kind, b
 			return no()
 		}
 	}
-	if !irCallableValueKind(k) && k != kindUnit {
-		bl.g.dc.note("a field accessor result outside the domain: " + k.nomi())
-		return no()
+	if !irCallOperandKind(k) {
+		// k is a field's or a tuple item's kind read off a value in the
+		// domain, and a retained struct, record or tuple holds only
+		// values of the domain.
+		panic("fieldAccessor: " + t.Spelling() + " reads a " + k.nomi() + " off " + pk.nomi())
 	}
 	child.b.SetTerm(ir.NewReturn(bl.g.irNodePos(t), cur))
-	if err := bl.g.irLint(f); err != nil {
-		bl.g.dc.note("a field accessor graph that does not lint: " + err.Error())
-		return no()
-	}
+	bl.g.irRequireLint(f, "a field accessor graph")
 	n := ir.NewFuncValue(at, bl.f.NewTemp(), f)
 	bl.b.Append(n)
 	fk := funcKindIn(bl.g, []kind{pk}, k)

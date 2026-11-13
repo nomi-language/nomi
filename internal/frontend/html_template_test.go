@@ -44,8 +44,8 @@ func TestHtmlTemplate_Accepted(t *testing.T) {
 		`    Html"<div style='width: ${n}%'>${[h, h]}</div>"`,
 		"    Html\"\"\"\n        <!DOCTYPE html>\n        <html><title>${name}</title></html>\n        \"\"\"",
 		"    Html`<p>${name}</p>`",
-		`    Html"<p class='a ${if n > 0 then name} ${Some(n)}'><title>${if n > 0 then name}</title></p>"`,
-		`    Html"<a href='/u/${Some(name)}?q=${if n > 0 then n}#${Some(n)}'>x</a>"`,
+		`    Html"<p class='a ${if n > 0 then Some(name) else None} ${Some(n)}'><title>${if n > 0 then Some(name) else None}</title></p>"`,
+		`    Html"<a href='/u/${Some(name)}?q=${if n > 0 then Some(n) else None}#${Some(n)}'>x</a>"`,
 		`    Html"<b style='width: ${Some(n)}%'></b>"`,
 	} {
 		if ds := htmlDiagnostics(t, body); len(ds) > 0 {

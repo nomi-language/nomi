@@ -52,8 +52,14 @@ type checker struct {
 	memberships map[*ast.Call]*ast.Binary
 	// elselessLinks holds the `if`s of an `else if` chain with no final
 	// `else` while the chain's head checks them: each answers its branches'
-	// own type, and the head makes the chain a Maybe (elseless_if.go).
+	// own type, and the head decides the chain's (elseless_if.go).
 	elselessLinks map[*ast.If]bool
+	// elselessDropped is set while elselessLinks' chain is one whose value
+	// a statement drops (elseless_if.go).
+	elselessDropped bool
+	// statementIf is the `if` a statement before a block's tail is, while
+	// checkStmtUnexpected checks it: its value is dropped (elseless_if.go).
+	statementIf *ast.If
 	// callHoles holds the open arguments (`&1`) of the partial captures
 	// checked so far (markCallHoles).
 	callHoles map[*ast.Placeholder]bool
@@ -144,8 +150,9 @@ type checker struct {
 	modules     []string
 	aliasesDone bool
 	// keyWithoutEqualityReported holds the Set and Map types
-	// rejectKeyWithoutEquality has reported, per body (equality_domain.go).
-	keyWithoutEqualityReported map[keyWithoutEqualityReport]bool
+	// rejectKeyWithoutEquality has reported, per body, with the error's
+	// index in errors (equality_domain.go).
+	keyWithoutEqualityReported map[keyWithoutEqualityReport]int
 	// ownTypeOnces is this file's owner-level `once` bindings, private ones
 	// included, by receiver base name then binding name. Built on first use
 	// by fileTypeOnceSymbol. An owner symbol's Members holds only the public
@@ -1294,13 +1301,13 @@ func (fa *FileAnalysis) implsContext() []ImplTables {
 	}
 	p := fa.Program()
 	if fa.Impls != nil {
-		tables = append(tables, implTablesFor(fa.Impls, p.ImplIndex))
+		tables = append(tables, implTablesFor(fa.Impls, p.ImplIndex, p.unindexedOrigins))
 	}
 	if p.ImplIndex != nil {
-		tables = append(tables, implTablesFor(p.ImplIndex.Impls, p.ImplIndex))
+		tables = append(tables, implTablesFor(p.ImplIndex.Impls, p.ImplIndex, p.unindexedOrigins))
 	}
 	if p.unindexedImpls != nil {
-		tables = append(tables, implTablesFor(p.unindexedImpls, p.ImplIndex))
+		tables = append(tables, implTablesFor(p.unindexedImpls, p.ImplIndex, p.unindexedOrigins))
 	}
 	return tables
 }
@@ -1630,6 +1637,7 @@ func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	c.checkUndeterminedTypeArgs()
 	c.closeOpenVariables()
 	c.settleCallDefaults()
+	c.recordCallInterfaces(nodes)
 	c.recordHoleDisplays()
 	c.recordOperatorUses()
 	c.recordCoercions(nodes)
@@ -2638,7 +2646,7 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 			}
 			if !matched {
 				c.report(returnMismatchError(fn, c.typef(
-					"return type mismatch: expected %s, got %s", c.returnTy, bodyTy)).WithHint(c.elselessIfHint(c.returnTy, tailExpr(fn.Body), "return")).WithHint(c.wholeResultHint(c.returnTy, bodyTy, tailExpr(fn.Body))).WithHint(c.mismatchHint(c.returnTy, bodyTy)))
+					"return type mismatch: expected %s, got %s", c.returnTy, bodyTy)).WithHint(c.wholeResultHint(c.returnTy, bodyTy, tailExpr(fn.Body))).WithHint(c.mismatchHint(c.returnTy, bodyTy)))
 			}
 		}
 	}
@@ -3277,7 +3285,7 @@ func (c *checker) checkOnce(n *ast.OnceBinding) {
 	if declared != nil {
 		if err := c.unifyInto(declared, valTy, map[*TypeParam_]Type{}); err != nil {
 			c.report(errAt(n.Value, c.typef(
-				"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.elselessIfHint(declared, n.Value, "make it")).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)).WithHint(c.funcRefCaptureHint(n.Value)))
+				"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)).WithHint(c.funcRefCaptureHint(n.Value)))
 		}
 		return
 	}
@@ -3319,9 +3327,13 @@ func (c *checker) checkBlockStmts(block *ast.Block) Type {
 // locally determined (§5 *Locally-determined bindings and turbofish*) whatever the block's position expects, as it is in
 // a function body.
 func (c *checker) checkStmtUnexpected(stmt ast.Node) Type {
-	prevAt, prevEnum := c.expectedAt, c.expectedEnum
+	prevAt, prevEnum, prevIf := c.expectedAt, c.expectedEnum, c.statementIf
 	c.expectedAt, c.expectedEnum = nil, nil
-	defer func() { c.expectedAt, c.expectedEnum = prevAt, prevEnum }()
+	c.statementIf = nil
+	if es, ok := stmt.(*ast.ExprStmt); ok {
+		c.statementIf, _ = ungroupExpr(es.Expr).(*ast.If)
+	}
+	defer func() { c.expectedAt, c.expectedEnum, c.statementIf = prevAt, prevEnum, prevIf }()
 	return c.checkNode(stmt)
 }
 
@@ -3464,7 +3476,7 @@ func (c *checker) checkNonFinalExprStmt(stmt ast.Node, ty Type, isTail bool) {
 	msg := fmt.Sprintf(
 		"non-final expression has type %s, but only Unit results can be ignored — write `_ = ...` if intentional, use `dbg ...` to inspect it, or move it to the end to return it",
 		ty)
-	c.report(TypeError{Line: line, Col: col, Message: msg}.WithHint(c.elselessNonFinalHint(es.Expr)))
+	c.report(TypeError{Line: line, Col: col, Message: msg})
 }
 
 func isInfallibleLike(t Type) bool {
@@ -4541,6 +4553,9 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 	if ty, ok := c.checkTargetTypedLiteral(node, expected); ok {
 		return ty
 	}
+	if rl, ok := node.(*ast.RangeLit); ok {
+		return c.checkRangeLit(rl, expected)
+	}
 	// An Int literal where a Byte is expected is a Byte (byte_literal.go).
 	if expectsByte(expected) {
 		if _, grouped := node.(*ast.GroupedExpr); !grouped && intLiteralOperand(node) {
@@ -5039,7 +5054,7 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 		return TypeCodepoint
 
 	case *ast.RangeLit:
-		return c.checkRangeLit(n)
+		return c.checkRangeLit(n, nil)
 
 	case *ast.StringLit:
 		return TypeString
@@ -6795,13 +6810,25 @@ func (c *checker) callFnTypeFromResolved(node ast.Node) Type {
 }
 
 // checkRangeLit checks a `..` / `..=` range literal. Operands must have the
-// same Comparable type. Result type is the stdlib `Range<T>` struct.
-func (c *checker) checkRangeLit(n *ast.RangeLit) Type {
+// same Comparable type. Result type is the stdlib `Range<T>` struct. Where
+// a `Range<T>` with T closed is expected, each endpoint is checked against
+// T, so it fills what the endpoints leave open: `c: Range<List<Int>> =
+// []..[]` (spec §5 *Type arguments from the arguments*).
+func (c *checker) checkRangeLit(n *ast.RangeLit, expected Type) Type {
+	var endpoint Type
+	if st, ok := resolveTypeVar(expected).(*StructType); ok && st.Name == "Range" && isStdOrigin(st.Origin) && len(st.TypeArgs) == 1 && concreteExpected(st.TypeArgs[0]) {
+		endpoint = st.TypeArgs[0]
+	}
 	checkOperand := func(expr ast.Node) Type {
 		if expr == nil {
 			return nil
 		}
-		got := c.checkNode(expr)
+		var got Type
+		if endpoint != nil {
+			got = c.checkNodeExpecting(expr, endpoint)
+		} else {
+			got = c.checkNode(expr)
+		}
 		if got == nil {
 			return nil
 		}
@@ -6814,7 +6841,10 @@ func (c *checker) checkRangeLit(n *ast.RangeLit) Type {
 	if elemTy == nil {
 		elemTy = endTy
 	}
-	if startTy != nil && endTy != nil && !TypesEqual(startTy, endTy) {
+	// As for `==` and `<`, unify first so an open part of either endpoint
+	// binds to the other's (`[1]..[]`, `(1, [])..(2, [3])`); TypesEqual
+	// also accepts embed-subtyping.
+	if startTy != nil && endTy != nil && c.unify(startTy, endTy, nil) != nil && !TypesEqual(startTy, endTy) {
 		c.addError(n.Line, n.Col, c.typef("range endpoints must have the same type, got %s and %s", startTy, endTy))
 	}
 	if elemTy == nil {
@@ -6915,7 +6945,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			// Circle, which checkPipedVariantCtor rejects as already built.
 			if c.structShapedVariantCallee(call.Func, earlyCallee) {
 				// checked below with no expected type, as the record it is
-			} else if headTy := c.pipeHeadExpected(earlyCallee, expected); headTy != nil {
+			} else if headTy := c.pipeHeadExpected(n.Left, earlyCallee, expected); headTy != nil {
 				left = c.checkNodeExpecting(n.Left, headTy)
 				leftChecked = true
 			}
@@ -7176,7 +7206,10 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		return TypeBool
 
 	case "<", ">", "<=", ">=":
-		if left != nil && right != nil && !TypesEqual(left, right) {
+		// Operands must be the same type. As for `==`, unify first so an
+		// open part of either side binds to the other's (`[] < [2]`,
+		// `(1, []) < (1, [2])`); TypesEqual also accepts embed-subtyping.
+		if left != nil && right != nil && c.unify(left, right, nil) != nil && !TypesEqual(left, right) {
 			c.addError(n.Line, n.Col, c.typef(
 				"comparison type mismatch: %s vs %s", left, right))
 		} else if kind, unorderable := orderingUnsupportedKind(left); unorderable {
@@ -7433,7 +7466,7 @@ func (c *checker) checkOperatorInterface(n *ast.Binary, opIface operatorInterfac
 	// declaration here to read an Origin off. It needs none — the operator
 	// interfaces are prelude-injected and therefore unshadowable
 	// (checkReservedTypeName), so the name has exactly one declaration.
-	if name == "" || !interfaceImplemented(name, opIface.Interface, OriginUnresolved, c.implsContext()) {
+	if name == "" || !interfaceImplemented(leftResolved, opIface.Interface, OriginUnresolved, c.implsContext()) {
 		return nil, false
 	}
 	rhsExpected, result, matched, ambiguous, chosen := c.selectOperatorImpl(opIface, leftResolved, right, expected)
@@ -7654,8 +7687,8 @@ func (c *checker) pipeCalleeType(call *ast.Call) Type {
 // variable in it.
 // seedFromPartlyGenericExpected unifies expected, which names the caller's
 // type parameters or holds unsolved inference variables, with resultTy in a
-// trial, and copies into subs each of ft's own type parameters the trial
-// solved to a type the position determines: one naming no inference variable
+// trial, and copies into the seed each of ft's own type parameters subs
+// leaves open and the trial solved to a type the position determines: one naming no inference variable
 // and no type parameter but the enclosing function's own (openElemType), so
 // `Some((x, {a: rest, b: []}))` under `Maybe<(T, P<T>)>` checks its payload
 // against `(T, P<T>)` and the literal builds a `P<T>`. A parameter solved to
@@ -7664,7 +7697,7 @@ func (c *checker) pipeCalleeType(call *ast.Call) Type {
 // so the arguments solve it as they would with no expected type.
 // The trial may bind the variables it meets; they are restored after it, so
 // only the arguments decide them.
-func (c *checker) seedFromPartlyGenericExpected(expected, resultTy Type, ft *FuncType, subs map[*TypeParam_]Type) {
+func (c *checker) seedFromPartlyGenericExpected(expected, resultTy Type, ft *FuncType, subs map[*TypeParam_]Type, into expectedSeed) {
 	trial := make(map[*TypeParam_]Type, len(subs))
 	held := []Type{expected, resultTy}
 	for k, v := range subs {
@@ -7682,7 +7715,7 @@ func (c *checker) seedFromPartlyGenericExpected(expected, resultTy Type, ft *Fun
 			continue
 		}
 		if v, ok := trial[tp]; ok && !c.openElemType(v) && !namesTypeParamOf(v, ft) {
-			subs[tp] = v
+			into[tp] = v
 		}
 	}
 }
@@ -7742,9 +7775,9 @@ func concreteExpected(expected Type) bool {
 // or take the expected type, tentatively, and from a concrete expected
 // type, or from one naming the caller's type parameters only where it
 // solves a callee parameter to a type without them.
-func (c *checker) seedPipeFromExpected(ft *FuncType, args []ast.Node, expected Type, subs map[*TypeParam_]Type) {
+func (c *checker) seedPipeFromExpected(ft *FuncType, args []ast.Node, expected Type, subs map[*TypeParam_]Type) expectedSeed {
 	if expected == nil || !ContainsTypeParam(ft.Return) {
-		return
+		return nil
 	}
 	if concreteExpected(expected) && (callArgsNeedExpectedType(args) || byteLiteralsTakeExpected(args, expected) || !isUnitLike(expected) && c.argsTakeExpectedType(args) || expectsInterfaceArgument(expected)) {
 		trial := make(map[*TypeParam_]Type, len(subs))
@@ -7752,15 +7785,16 @@ func (c *checker) seedPipeFromExpected(ft *FuncType, args []ast.Node, expected T
 			trial[k] = v
 		}
 		if c.unifyInto(expected, ft.Return, trial) == nil {
-			for k, v := range trial {
-				subs[k] = v
-			}
+			return seedFromTrial(trial, subs)
 		}
-		return
+		return nil
 	}
 	if callArgsNeedExpectedType(args) {
-		c.seedFromPartlyGenericExpected(expected, ft.Return, ft, subs)
+		seed := expectedSeed{}
+		c.seedFromPartlyGenericExpected(expected, ft.Return, ft, subs, seed)
+		return seed
 	}
+	return nil
 }
 
 // pipeHeadExpected is the type a pipe's head is expected to have when the
@@ -7851,20 +7885,38 @@ func (c *checker) thenCaptureHeadParam(capture *ast.Capture) Type {
 	return param
 }
 
-func (c *checker) pipeHeadExpected(calleeTy, expected Type) Type {
+func (c *checker) pipeHeadExpected(head ast.Node, calleeTy, expected Type) Type {
 	ft, ok := calleeTy.(*FuncType)
 	if !ok || len(ft.Params) == 0 || !ContainsTypeParam(ft.Return) {
 		return nil
+	}
+	// A head that types itself solves the stage's parameters, as a first
+	// argument does (expected_seed.go): `[1, 2] |> Iter.filter(...)`
+	// expected to be an Iter<Display> filters Ints.
+	if len(c.seedWantedBy(head, ft.Params[0], expected)) == 0 {
+		exact := map[*TypeParam_]bool{}
+		exactParams(ft.Return, false, exact)
+		params := map[*TypeParam_]bool{}
+		collectTypeParamPtrs(ft.Params[0], params)
+		wanted := false
+		for tp := range params {
+			if exact[tp] {
+				wanted = true
+			}
+		}
+		if !wanted {
+			return nil
+		}
 	}
 	subs := map[*TypeParam_]Type{}
 	if c.unifyInto(expected, ft.Return, subs) != nil {
 		return nil
 	}
-	head := Substitute(ft.Params[0], subs)
-	if ContainsTypeParam(head) {
+	headTy := Substitute(ft.Params[0], subs)
+	if ContainsTypeParam(headTy) {
 		return nil
 	}
-	return head
+	return headTy
 }
 
 func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call, expected Type) Type {
@@ -7989,8 +8041,10 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 		// the direct call: `Some(1) |> Maybe.map(fn x -> {x:})` returned as
 		// a Maybe<P> checks its lambda against (Int) -> P, so the literal
 		// builds a P, as `Maybe.map(Some(1), fn x -> {x:})` does.
+		var seed expectedSeed
 		if pipeCall != nil {
-			c.seedPipeFromExpected(ft, pipeCall.Args, expected, subs)
+			seed = c.seedPipeFromExpected(ft, pipeCall.Args, expected, subs)
+			seed.fillExact(ft.Return, subs)
 		}
 
 		// Check explicit args (from the call syntax) against their routed slots.
@@ -8009,6 +8063,9 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 				if na, ok := arg.(*ast.NamedArg); ok {
 					slot := namedArgSlot(na.Name, defParams)
 					if slot >= 0 && slot < len(ft.Params) {
+						if len(seed) > 0 {
+							seed.fill(c.seedWantedBy(na.Value, ft.Params[slot], expected), subs)
+						}
 						expectedTy := Substitute(ft.Params[slot], subs)
 						valTy := c.checkNodeExpecting(na.Value, expectedTy)
 						if valTy != nil {
@@ -8026,6 +8083,9 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 					}
 				}
 				if paramIdx >= 0 && paramIdx < len(ft.Params) {
+					if len(seed) > 0 {
+						seed.fill(c.seedWantedBy(arg, ft.Params[paramIdx], expected), subs)
+					}
 					expectedTy := Substitute(ft.Params[paramIdx], subs)
 					explicitArgTy := c.checkNodeExpecting(arg, expectedTy)
 					if explicitArgTy != nil {
@@ -8502,6 +8562,9 @@ func (c *checker) checkTypeParamQualifiedCall(n *ast.Call) (Type, bool) {
 			if existing := c.fa.References[pos]; existing != nil {
 				ref := *existing
 				ref.CallType = ft
+				// The bound is the interface instance the call goes
+				// through (call_interfaces.go).
+				ref.CallInterface = providers[0]
 				c.fa.References[pos] = &ref
 			}
 		}
@@ -9048,7 +9111,7 @@ func (c *checker) checkCallExpr(n *ast.Call, expected Type) Type {
 				argLine, argCol := nodeLineCol(a.Value)
 				if !c.argMatchesParam(argTy, expectedParamTy, c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
 					c.report(errAt(a.Value, c.typef(
-						"argument '%s': expected %s, got %s", a.Name, expectedParamTy, argTy)).WithHint(c.elselessIfHint(expectedParamTy, a.Value, "pass")).WithHint(c.defaultedFuncValueHint(expectedParamTy, argTy, a.Value)).WithHint(c.wholeResultHint(expectedParamTy, argTy, a.Value)).WithHint(c.mismatchHint(expectedParamTy, argTy)))
+						"argument '%s': expected %s, got %s", a.Name, expectedParamTy, argTy)).WithHint(c.defaultedFuncValueHint(expectedParamTy, argTy, a.Value)).WithHint(c.wholeResultHint(expectedParamTy, argTy, a.Value)).WithHint(c.mismatchHint(expectedParamTy, argTy)))
 				}
 			}
 		case *ast.Placeholder:
@@ -9074,7 +9137,7 @@ func (c *checker) checkCallExpr(n *ast.Call, expected Type) Type {
 				argLine, argCol := nodeLineCol(arg)
 				if !c.argMatchesParam(argTy, ft.Params[slot], c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
 					c.report(errAt(arg, c.typef(
-						"%s: expected %s, got %s", c.argLabel(n, i), ft.Params[slot], argTy)).WithHint(routeCallHint(n, ft.Params[slot], argTy)).WithHint(c.elselessIfHint(ft.Params[slot], arg, "pass")).WithHint(c.defaultedFuncValueHint(ft.Params[slot], argTy, arg)).WithHint(c.wholeResultHint(ft.Params[slot], argTy, arg)).WithHint(c.unwrappedOneShortHint(ft.Params[slot], argTy, arg)).WithHint(c.mismatchHint(ft.Params[slot], argTy)))
+						"%s: expected %s, got %s", c.argLabel(n, i), ft.Params[slot], argTy)).WithHint(routeCallHint(n, ft.Params[slot], argTy)).WithHint(c.defaultedFuncValueHint(ft.Params[slot], argTy, arg)).WithHint(c.wholeResultHint(ft.Params[slot], argTy, arg)).WithHint(c.unwrappedOneShortHint(ft.Params[slot], argTy, arg)).WithHint(c.mismatchHint(ft.Params[slot], argTy)))
 				}
 			}
 		}
@@ -10284,7 +10347,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 			if hint == "" {
 				hint = c.functionJoinHint(param, substituted, argTy)
 			}
-			c.report(expectedGot(substituted).WithHint(hint).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.elselessIfHint(substituted, arg, "pass")).WithHint(c.wholeResultHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)).WithHint(c.funcRefCaptureHint(arg)))
+			c.report(expectedGot(substituted).WithHint(hint).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.wholeResultHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)).WithHint(c.funcRefCaptureHint(arg)))
 		}
 		return
 	}
@@ -10298,7 +10361,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 	// still holds a type parameter, and no solution of it makes the argument
 	// fit (`(Float, T)` given `(Int, String)`, `Set<T>` given Unit,
 	// `Maybe<T>` given a function), so the call could never be lowered.
-	c.report(expectedGot(substituted).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.elselessIfHint(substituted, arg, "pass")).WithHint(c.defaultedFuncValueHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)).WithHint(c.funcRefCaptureHint(arg)))
+	c.report(expectedGot(substituted).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.defaultedFuncValueHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)).WithHint(c.funcRefCaptureHint(arg)))
 }
 
 // functionJoinHint explains a rejected argument whose function type would be
@@ -10756,6 +10819,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	for tp := range subs {
 		argSolved[tp] = true
 	}
+	var seed expectedSeed
 	if concreteExpected(expected) && !skipReturnInfer &&
 		ContainsTypeParam(resultTy) && (flatVariant || callArgsNeedExpectedType(n.Args) && !unitSeedsOnlyLambdas(n.Args, expected) || byteLiteralsTakeExpected(n.Args, expected) || !isUnitLike(expected) && c.argsTakeExpectedType(n.Args) || expectsInterfaceArgument(expected)) {
 		trial := make(map[*TypeParam_]Type, len(subs))
@@ -10763,7 +10827,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 			trial[k] = v
 		}
 		if c.unifyInto(expected, resultTy, trial) == nil {
-			subs = trial
+			seed = seedFromTrial(trial, subs)
 		}
 	} else if expected != nil && !skipReturnInfer &&
 		ContainsTypeParam(resultTy) && callArgsNeedExpectedType(n.Args) && !unitSeedsOnlyLambdas(n.Args, expected) {
@@ -10778,7 +10842,17 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		// Ok([.Blue])]` the second element is expected to be the first's
 		// `Result<List<Color>, ?E>`, so T is `List<Color>` and E is left to
 		// the arguments.
-		c.seedFromPartlyGenericExpected(expected, resultTy, ft, subs)
+		seed = expectedSeed{}
+		c.seedFromPartlyGenericExpected(expected, resultTy, ft, subs, seed)
+	}
+	// The seed is held back: the arguments solve the type parameters first,
+	// and each argument takes from the seed only what it cannot type itself
+	// (expected_seed.go). A parameter named only where no conversion reaches
+	// takes it now, and a flat variant call takes all of it.
+	if flatVariant {
+		seed.fillAll(subs)
+	} else {
+		seed.fillExact(resultTy, subs)
 	}
 
 	// Process arguments left to right. After each argument, apply partial
@@ -10867,6 +10941,12 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 				}
 			}
 			continue
+		}
+
+		// The expected type's seed, for what this argument cannot type
+		// itself and the earlier arguments left open.
+		if len(seed) > 0 {
+			seed.fill(c.seedWantedBy(arg, ft.Params[slot], expected), subs)
 		}
 
 		// Substitute already-solved params into the expected type.
@@ -11414,11 +11494,24 @@ func (c *checker) interfaceSelfUnmet(concrete Type, iface *InterfaceType) bool {
 	if iface.Name == "Debug" || iface.Name == "Struct" || isStdDistinct(iface) {
 		return false
 	}
+	if isStdInterfaceNamed(iface, "Equatable") || isStdInterfaceNamed(iface, "Hashable") {
+		// Std's Equatable and Hashable need equality, which a value
+		// holding a function, an Iter or a handle to running state lacks,
+		// as `==` says (noEqualityPartWith): `Hashable.hash([inc])` meets
+		// List's impl by its receiver, and only its `T: Hashable` bound,
+		// which the demand below does not carry to a function, rules it
+		// out. A declared type's fields are not searched: the demand
+		// reaches that type and reports its missing impl by name.
+		declared := func(Type) bool { return true }
+		if _, none := noEqualityPartWith(concrete, declared, map[Type]bool{}); none {
+			return true
+		}
+	}
 	if implements, decided := structuralConformance(concrete, iface, func(Type) bool { return true }); decided {
 		return !implements
 	}
 	name := interfaceImplName(concrete)
-	if name == "" || !c.fa.HasImpl(name, iface.Name) {
+	if name == "" || !c.hasOwnImpl(concrete, iface.Name) {
 		return false
 	}
 	infos := lookupImplTypeArgSets(name, iface.Name, c.implTypeArgsContext())
@@ -13099,7 +13192,7 @@ func (c *checker) checkBinding(n *ast.Binding) Type {
 			subs := map[*TypeParam_]Type{}
 			if err := c.unifyInto(declared, valTy, subs); err != nil {
 				c.report(errAt(n.Value, c.typef(
-					"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.elselessIfHint(declared, n.Value, "make it")).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)).WithHint(c.funcRefCaptureHint(n.Value)))
+					"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)).WithHint(c.funcRefCaptureHint(n.Value)))
 			} else if len(subs) > 0 {
 				valTy = Substitute(valTy, subs)
 			}
@@ -13855,11 +13948,16 @@ func (c *checker) checkIfBranches(n *ast.If, condTy Type, expected Type, pattern
 	}
 	checkThen := func(want Type) (ty Type) {
 		c.withNarrowing(narrowSym, narrowTy, func() { ty = c.checkBlockExpecting(n.Then, want) })
+		if c.elselessLinks[n] && endsInStatement(n.Then) {
+			// A branch of an `if` with no `else` that ends in an `assert`
+			// or a `dbg` is a statement, as a Unit branch is.
+			ty = TypeUnit
+		}
 		return ty
 	}
 	if n.Else == nil {
 		// The last `if` of a chain with no final `else`: its branch's own
-		// type, which checkElselessIf makes the chain's Maybe.
+		// type, which checkElselessIf takes as the chain's.
 		return checkThen(expected)
 	}
 
@@ -13902,6 +14000,11 @@ func (c *checker) checkIfBranches(n *ast.If, condTy Type, expected Type, pattern
 		if err := c.unify(thenTy, elseTy, nil); err != nil {
 			if joined := c.interfaceBranchJoin(expected, thenTy, elseTy); joined != nil {
 				thenTy = joined
+			} else if c.elselessLinks[n] {
+				// Two branches of a chain with no final `else` that do not
+				// join: at least one has a value the chain cannot have.
+				c.reportElselessValue(ifChainLinks(n), nil, c.elselessDropped)
+				thenTy = nil
 			} else if !TypesEqual(thenTy, elseTy) {
 				e := errAt(valueExpr(n.Else), c.typef(
 					"if/else branch type mismatch: then is %s, else is %s", thenTy, elseTy)).WithHint(c.branchJoinHint(thenTy, elseTy))
@@ -13997,7 +14100,7 @@ func (c *checker) programJoinHint(have, next Type) string {
 			}
 			if len(iface.TypeParams) == 0 && c.unifyInto(iface, have, nil) == nil && c.unifyInto(iface, next, nil) == nil {
 				found = append(found, iface)
-			} else if len(iface.TypeParams) != 0 && interfaceImplemented(nextName, iface.Name, iface.Origin, c.implsContext()) {
+			} else if len(iface.TypeParams) != 0 && interfaceImplemented(resolveTypeVar(next), iface.Name, iface.Origin, c.implsContext()) {
 				// A generic interface both implement is a candidate too,
 				// and one whose arguments the hint would have to guess.
 				return ""
@@ -15301,7 +15404,7 @@ func (c *checker) checkReturn(n *ast.Return) Type {
 		}
 		if !c.argMatchesParam(valTy, c.returnTy, c.recPos(n.Line, n.Col), RecordingKindInterfaceTypedParam) {
 			c.report(errAt(n.Value, c.typef(
-				"return type mismatch: expected %s, got %s", c.returnTy, valTy)).WithHint(c.elselessIfHint(c.returnTy, n.Value, "return")).WithHint(c.wholeResultHint(c.returnTy, valTy, n.Value)).WithHint(c.mismatchHint(c.returnTy, valTy)))
+				"return type mismatch: expected %s, got %s", c.returnTy, valTy)).WithHint(c.wholeResultHint(c.returnTy, valTy, n.Value)).WithHint(c.mismatchHint(c.returnTy, valTy)))
 		}
 	}
 	return TypeInfallible
@@ -17908,10 +18011,6 @@ func (c *checker) settleTodo(body ast.Node, ty Type) {
 			c.settleTodo(n.Stmts[len(n.Stmts)-1], ty)
 		}
 	case *ast.If:
-		if maybe, ok := c.fa.ElselessIfs[n]; ok && TypesEqual(ty, maybe) {
-			// The branches of an `if` with no `else` hold the payload.
-			ty = maybePayload(maybe)
-		}
 		c.settleTodo(n.Then, ty)
 		if n.Else != nil {
 			c.settleTodo(n.Else, ty)
@@ -19849,7 +19948,7 @@ func (c *checker) typeImplementsInterface(valTy Type, ifaceName string, recPos P
 	if origin, ok := nominalOrigin(valTy); ok {
 		recOrigin = origin
 	}
-	if !c.fa.HasImpl(name, ifaceName) || !c.implReceiverMatches(valTy, ifaceName) {
+	if !c.hasOwnImpl(valTy, ifaceName) || !c.implReceiverMatches(valTy, ifaceName) {
 		return false
 	}
 	c.fa.RecordManifest(name, ifaceName, Recording{Pos: recPos, Kind: recKind, TypeOrigin: recOrigin})
@@ -20996,6 +21095,10 @@ func orderingUnsupportedKind(t Type) (string, bool) {
 	switch resolveTypeVar(t).(type) {
 	case *AnonStructType:
 		return "anonymous struct", true
+	case *FuncType:
+		// A function has no order, and no declaration either: a tuple
+		// holding one (`(f, 1) < (g, 2)`) demands it of the function.
+		return "function", true
 	}
 	return "", false
 }

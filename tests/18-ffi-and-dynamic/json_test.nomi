@@ -75,3 +75,22 @@ test "Json to_dynamic interops with Dynamic extractors"
     assert Debug.inspect(dyn) == "\"hello-from-dynamic\""
     assert Dynamic.as_string(dyn) == Ok("hello-from-dynamic")
 end
+
+test "Dynamic values compare and hash by their contents"
+    a = Json.to_dynamic(Json.decode("{\"a\": 1, \"b\": [true, null]}")!)
+    b = Json.to_dynamic(Json.decode("{\"b\": [true, null], \"a\": 1}")!)
+    c = Json.to_dynamic(Json.decode("{\"a\": 1.0, \"b\": [true, null]}")!)
+    assert a == b
+    assert a != c
+    assert Hashable.hash(a) == Hashable.hash(b)
+
+    assert Iter.count(
+        [a, b, c]
+        |> Iter.to_set()
+    ) == 2
+
+    keyed = {a => "first"}
+    assert Map.get(keyed, b) == Some("first")
+    groups = Iter.group_by([a, b, c], fn d -> d)
+    assert Iter.count(groups) == 2
+end

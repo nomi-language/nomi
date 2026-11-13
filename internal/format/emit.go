@@ -411,7 +411,7 @@ func emitWithTriviaParts(body Doc, leading []ast.Trivia, trailing []ast.Trivia) 
 	// A `//#` module comment does not belong to what follows it, so a blank
 	// line always separates a run of them from the next comment or the node.
 	inModuleComment := false
-	for _, t := range leading {
+	for i, t := range leading {
 		switch t.Kind {
 		case ast.TriviaComment:
 			if inModuleComment && !isModuleComment(t.Text) {
@@ -423,6 +423,14 @@ func emitWithTriviaParts(body Doc, leading []ast.Trivia, trailing []ast.Trivia) 
 			// next line.
 			parts = append(parts, Text(t.Text), HardLine())
 		case ast.TriviaBlankLine:
+			// A blank line right after a comment goes. The comment is
+			// written on a line of its own, and the lexer keeps no blank
+			// line after a comment line, so a second pass would drop it.
+			// Only a comment left on a header's line (`impl P for T //
+			// note`) carries one here, and the comment moves below.
+			if i > 0 && leading[i-1].Kind == ast.TriviaComment && !inModuleComment {
+				continue
+			}
 			// A blank line before the node becomes an extra HardLine in
 			// addition to whatever separator the outer emit already has.
 			inModuleComment = false
@@ -931,7 +939,8 @@ func pipeAfterEquals(chain Doc) Doc {
 // whole statement fits the line at its indent (`Some(e) = email else { "none" }`,
 // `Ok(x) = parse(s) else { continue }`), so a run of guards stays a run of
 // one-line statements; otherwise the block breaks, its statements on the
-// lines below. Else arms
+// lines below. A statement holding an `if` or a `case` always breaks
+// (holdsConditional). Else arms
 // always break, laid out as a case's arms are.
 //
 // A pipe value that breaks after `=` puts the `else` on its own line at the
@@ -947,7 +956,7 @@ func emitPatternBinding(v *ast.PatternBinding) Doc {
 	head := patternBindingHead(v, target)
 	if block := v.Else.Block; block != nil {
 		broken := Concat(head, emitBlockForceBroken(block))
-		if !isInlineableBlockBody(block) || !isInlineBranch(block.Stmts[0]) {
+		if !isInlineableBlockBody(block) || !isInlineBranch(block.Stmts[0]) || holdsConditional(block.Stmts[0]) {
 			return broken
 		}
 		flat := Concat(head, emitWithTrivia(block.Stmts[0]))
@@ -963,6 +972,29 @@ func emitPatternBinding(v *ast.PatternBinding) Doc {
 		HardLine(),
 		Text("end"),
 	)
+}
+
+// holdsConditional reports whether stmt holds an `if` or a `case` outside
+// any lambda. A binding `else` whose one statement does stays in block form,
+// so `else`, `return`, `if` and `then` never share a line:
+// `[x, ..rest] = xs else return if n == 0 then Some(d)` is written with the
+// `return` on the line below.
+func holdsConditional(stmt ast.Node) bool {
+	found := false
+	ast.Inspect(stmt, func(n ast.Node) bool {
+		if found {
+			return false
+		}
+		switch n.(type) {
+		case *ast.If, *ast.Case:
+			found = true
+			return false
+		case *ast.Lambda:
+			return false
+		}
+		return true
+	})
+	return found
 }
 
 // patternBindingHead renders a binding with an else up to its `else`.
@@ -1405,7 +1437,8 @@ func escapeInterpolationOpeners(s string) string {
 //     and fits; otherwise it breaks. A guard, an if with no else
 //     (`if n < 0 then return 0`), fits when it fits the line at its column.
 //     An if/else with two branches must also be at most
-//     singleLineValueIfMaxWidth (50) columns flat.
+//     singleLineValueIfMaxWidth (50) columns flat, unless its `else` branch
+//     is one atom (trivialElse), which the line alone limits.
 //     This is width-based and canonical — branch *content* doesn't matter (a
 //     call or binary op inlines when short), and how the source was typed is
 //     ignored (a short multi-line if/else collapses to one line). Inherently
@@ -1442,10 +1475,50 @@ func emitIfParens(v *ast.If, parens bool) Doc {
 // singleLineValueIfMaxWidth for an if/else with two branches. The Group
 // that renders it still checks the line, from the if's column.
 func oneLineIfMaxWidth(v *ast.If) int {
-	if v.Else == nil {
+	if v.Else == nil || trivialElse(v.Else) {
 		return defaultWidth
 	}
 	return singleLineValueIfMaxWidth
+}
+
+// trivialElse reports whether an `else` branch is one atom: a name (`None`,
+// `default`, `True`), a qualified name (`Maybe.None`), a number (`0`,
+// `-1`), the empty string, a variant with no payload (`.Empty`) or an empty
+// collection (`[]`, `{}`). Such a branch only closes the line, so the
+// 50-column limit for two branches side by side does not apply to it:
+// `if c then Some(x) else None` is limited by the line alone.
+func trivialElse(n ast.Node) bool {
+	b, ok := n.(*ast.Block)
+	if !ok || len(b.Stmts) != 1 {
+		return false
+	}
+	return trivialAtom(b.Stmts[0])
+}
+
+func trivialAtom(n ast.Node) bool {
+	switch v := n.(type) {
+	case *ast.ExprStmt:
+		return trivialAtom(v.Expr)
+	case *ast.Ident, *ast.TypeIdent, *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.DotVariant:
+		return true
+	case *ast.StringLit:
+		// Only the empty string: a worded string is a second value the
+		// reader weighs against the first.
+		return v.Value == ""
+	case *ast.FieldAccess:
+		switch v.Object.(type) {
+		case *ast.Ident, *ast.TypeIdent:
+			return true
+		}
+		return false
+	case *ast.Unary:
+		return v.Op == "-" && trivialAtom(v.Right)
+	case *ast.ListLit:
+		return len(v.Items) == 0 && len(v.Spreads) == 0
+	case *ast.MapLit:
+		return len(v.Entries) == 0 && len(v.Spreads) == 0
+	}
+	return false
 }
 
 // emitWith renders the statement `with Type.field = value`. A struct

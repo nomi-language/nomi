@@ -29,7 +29,7 @@ end
 
 // A signed request without its signature, as the canonical request saw it.
 fn unsigned(request: Request) -> Request
-    {..request, headers: Headers.remove(request.headers, "Authorization")}
+    {..request, headers: Headers.remove(.., "Authorization")}
 end
 
 fn empty_hash() -> String

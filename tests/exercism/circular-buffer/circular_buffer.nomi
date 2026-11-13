@@ -26,7 +26,7 @@ impl Buffer<T>
         if Buffer.is_full(buffer) then
             Err(.Full)
         else
-            Ok({..buffer, items: [..buffer.items, item]})
+            Ok({..buffer, items: [.., item]})
         end
     end
 

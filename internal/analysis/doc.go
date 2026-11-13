@@ -223,6 +223,24 @@
 // text. From a program checked whole, the first such run first encodes the
 // held lowering as objects.
 //
+// # Generic calls and the expected type
+//
+// A generic call's type arguments come from its arguments first (spec §5
+// *Type arguments from the arguments*). checkGenericCall and checkPipe
+// still solve what the call's expected type would give, but hold that
+// seed back and hand each argument, before checking it, only the seed's
+// solutions for the type parameters its slot names that it cannot type
+// itself (a dot-leading variant, an empty literal, an unannotated lambda's
+// parameters) and the earlier arguments left open; a pipe's head takes it
+// by the same rule (pipeHeadExpected). A type parameter the result holds
+// below its top other than as an Iter's element takes the seed ahead of
+// every argument, since a type argument there converts only in place
+// (exactParams). The call is recorded at the instance the arguments
+// solved, and its result meets the expected type as any value does: a
+// Coercion record at the call where it enters an interface, an IterViews
+// record where an Iter is relabelled. The rules and their reasons are in
+// expected_seed.go.
+//
 // # Elaboration
 //
 // The IR builder lowers what the checker decided: each expression's type,
@@ -230,7 +248,7 @@
 // instantiated at. [VerifyElaboration] checks a checked file against that
 // invariant, reading only the checker's records (ExprTypes, ExpectedTypes,
 // References with each reference's CallType and DispatchImpl,
-// Operators, CallDefaults, HoleDisplays, Coercions, the `?` markers), and returns each place a record is
+// Operators, CallDefaults, HoleDisplays, Coercions, IterViews, ImplTypeArgSets, each reference's CallInterface, the `?` markers), and returns each place a record is
 // missing or open, by construct (call, expression, implicit operation) and
 // category. Its doc comment defines "closed": no unsolved inference
 // variable at any depth and no type parameter but the enclosing
@@ -250,6 +268,24 @@
 // never in the band, and each reader that walks a whole map (references,
 // rename, highlights, the completion index, a served file's stored
 // references) skips the band.
+//
+// An impl block whose header writes no type arguments for a generic
+// interface (`impl Gets for Box`) has a record of the ones it implements
+// (ImplTypeArgs, read through [ImplBlockTypeArgs]), solved by the type
+// builder from the items' signatures against the interface's, with each
+// parameter no item names marked Open. The IR builder instantiates the
+// block's interface from it, in the frame of the receiver's instance.
+//
+// A call of an interface function the checker selected no impl for (no
+// DispatchImpl: a receiver of a type parameter or an interface value, or
+// an inherited default reached through a type) is dispatched where it
+// runs, and its reference records the interface instance it goes through
+// (call_interfaces.go, Symbol.CallInterface): the bound for `C.holds(c,
+// x)` under `C: Holds<T>`, recorded as the call is typed, and otherwise
+// the interface at the type arguments its signature is instantiated at,
+// recorded once the file's bodies are checked. Where a type implements a
+// generic interface at several type arguments, the IR builder takes the
+// block at that instance's arguments (internal/irbuild, instimpl.go).
 //
 // The language lets an inference variable stay unsolved where no value of
 // its type is made (undetermined.go: `[]`'s element, `Ok(1)`'s error
@@ -332,7 +368,9 @@
 // any call or expression without a closed record, derived bodies included,
 // and on each implicit operation the checker records (gatedImplicit: a
 // call leaving defaulted parameters out, an interpolation hole, an
-// operator, a value entering an interface, a source entering an `Iter<T>`).
+// operator, a value entering an interface, a source entering an `Iter<T>`,
+// an impl block of a generic interface whose header writes no type
+// arguments, a call of an interface function dispatched where it runs).
 // TestElaborationCensus runs it over the same programs, or over one project
 // directory read in place, and prints counts by category and construct
 // with examples, the implicit operations included, which nothing gates
@@ -419,32 +457,31 @@
 //
 // # If without else
 //
-// An `if` with no `else`, or an `else if` chain with no final `else`, whose
-// branches have a value of a type T other than Unit is `Maybe<T>`. The
-// checker (elseless_if.go) checks the branches as an `if` with an `else`
-// does, each link returning its branches' own type, against the expected
-// Maybe's payload or, with no Maybe expected, against Unit as statements
-// are. The joined type makes the head `Maybe<T>` unless T is Unit or
-// Infallible (every branch leaves). The head, not its links, is recorded in
-// FileAnalysis.ElselessIfs with its Maybe type. A mismatch whose value is
-// such an `if` gets a help naming it (elselessIfHint) at a function's
-// result, a `return`, an annotation, an argument and a non-final statement.
+// An `if` with no `else`, or an `else if` chain with no final `else`, is a
+// statement, of type Unit: its branches are Unit, leave, or end in a
+// statement whose value a block drops (an `assert`, `refute` or `dbg`,
+// which a link answers as Unit). The checker (elseless_if.go) checks the
+// branches as an `if` with an `else` does, each link returning its
+// branches' own type, against the expected type when it is a Maybe and
+// against Unit otherwise, as statements are. Any other joined type is an
+// error at the first branch whose value is not Unit, and so is a chain
+// whose branches do not join. The error names the type and carries a
+// parser.Fix, the language server's quick fix: where a statement drops the
+// value (checker.statementIf, or a Unit position) it writes `_ = ` before
+// the value, in block form when the `if` is one line; otherwise, for a
+// Maybe branch, it adds `else None`, after the last branch of a one-line
+// `if` and as an `else` branch before a block's `end`. Any other branch
+// gets help to add an `else` and no fix.
 //
-// The IR builder reads the record (internal/irbuild, irelseless.go).
-// ifRegion lowers a recorded head's arms with irFuncSig.elseless set: each
-// arm lowers its value at the payload's kind and wraps it in `Some`, the
-// missing `else` writes `None`, and an `else if` link continues the region.
-// A nested `if` or `case` in an arm is lowered as its own value and wrapped
-// whole, so a nested `if` without `else` gives `Some(None)`, not `None`.
-// Where the region's result is not a Maybe (an `Html` slot's `ToHtml`), the
-// `if` is lowered as a Maybe value that then enters the result. A pipe's
-// `if` stage is lowered from a copy of its node, which gen.splicedIfs maps
-// back to the recorded one. A test body's statement `if` discards its
-// value, so its arms stay test statements.
+// The IR builder lowers every `if` without `else` as Unit (internal/irbuild,
+// irelseless.go, unitElselessSig): its arms are lowered against Unit, the
+// missing `else` writes Unit, and an arm ending in an `assert` or a `dbg`
+// runs it and writes Unit. A test body's statement `if` discards its value,
+// so its arms stay test statements.
 //
 // `nomi fmt` strips a tail `return value` only where the value is the
 // body's: a branch of an `if` with no final `else` keeps its value returns,
-// since its value is wrapped.
+// since that `if` has no value.
 //
 // # Releasing resources
 //

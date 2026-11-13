@@ -114,10 +114,7 @@ func (bl *irScalarBuilder) subtestsNameFunc(t *ast.Subtests, rowK kind) (ir.Temp
 		return ir.NoTemp, false
 	}
 	child.b.SetTerm(ir.NewReturn(at, name))
-	if err := bl.g.irLint(f); err != nil {
-		bl.g.dc.note("a `subtests` name graph that does not lint: " + err.Error())
-		return ir.NoTemp, false
-	}
+	bl.g.irRequireLint(f, "a `subtests` name graph")
 	n := ir.NewFuncValue(at, bl.f.NewTemp(), f, child.captures...)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: funcKindIn(bl.g, []kind{rowK}, kindString)})
@@ -164,10 +161,7 @@ func (bl *irScalarBuilder) subtestsRowFunc(t *ast.Subtests, rowK kind) (ir.Temp,
 		end = bl.g.irNodePos(last)
 	}
 	child.b.SetTerm(ir.NewReturnUnit(end))
-	if err := bl.g.irLint(f); err != nil {
-		bl.g.dc.note("a `subtests` row graph that does not lint: " + err.Error())
-		return ir.NoTemp, false
-	}
+	bl.g.irRequireLint(f, "a `subtests` row graph")
 	n := ir.NewFuncValue(at, bl.f.NewTemp(), f, child.captures...)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: funcKindIn(bl.g, []kind{rowK}, kindUnit)})

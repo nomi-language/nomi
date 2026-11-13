@@ -3,9 +3,12 @@ package rt
 // `std/type.Type<T>`: a Nomi type passed as a runtime value.
 //
 // std/type.nomi declares exactly `pub host type Type<T>` and nothing else — no
-// operation, no interface, no constructor — so the whole of the surface is
-// "a witness exists, and something else consults it". The one consumer today is
-// `std/context`'s value store, which is keyed by type rather than by name.
+// operation, no interface, no constructor — so the surface is "a witness
+// exists, and something else consults it", plus the equality, hash and Debug
+// every value has: two witnesses are equal when they name the same type
+// (TypeWitnessEqual, TypeWitnessHash), and one inspects as `Type<TraceId>`
+// (TypeWitnessInspect). The one consumer today is `std/context`'s value
+// store, which is keyed by type rather than by name.
 //
 // # Why the payload is a *TypeID and not a name
 //
@@ -44,4 +47,26 @@ type Type[T any] struct {
 	// TID is the identity of the Nomi type this witnesses. Its address is the
 	// identity; nothing reads the value.
 	TID *TypeID
+}
+
+// TypeWitnessEqual is `==` on two witnesses: equal when they name the same
+// type, which is one TypeID. A zero witness equals nothing.
+func TypeWitnessEqual(a, b Type[any]) bool { return a.TID != nil && a.TID == b.TID }
+
+// TypeWitnessHash hashes a witness by the type it names, so equal witnesses
+// hash alike.
+func TypeWitnessHash(w Type[any]) uint64 {
+	if w.TID == nil {
+		return 0
+	}
+	return HashMix(HashString("Type"), HashString(w.TID.Nomi))
+}
+
+// TypeWitnessInspect is a witness's Debug: `Type<TraceId>`, the type as its
+// declaration names it.
+func TypeWitnessInspect(w Type[any]) string {
+	if w.TID == nil {
+		return "Type<?>"
+	}
+	return "Type<" + ShortTypeName(w.TID.Nomi) + ">"
 }

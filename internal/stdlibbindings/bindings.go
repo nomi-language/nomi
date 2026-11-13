@@ -484,6 +484,7 @@ func RtFuncs() []Binding {
 		{Name: "dynamic.Dynamic.as_list", Fn: rt.DynamicAsList},
 		{Name: "dynamic.Dynamic.as_dict", Fn: rt.DynamicAsDict},
 		{Name: "dynamic.Dynamic.is_null", Fn: rt.DynamicIsNull},
+		{Name: "dynamic.Dynamic.hash", Fn: rt.DynamicHashInt},
 		{Name: "dynamic.Dynamic.has", Fn: rt.DynamicHas},
 		{Name: "dynamic.Dynamic.inspect", Fn: rt.DynamicInspect},
 		{Name: "json.Json.to_dynamic", Fn: rt.JsonToDynamic},

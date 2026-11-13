@@ -138,17 +138,9 @@ fn with_net(user: User, other: String, net: Float) -> User
     owes = Map.remove(user.owes, other)
     owed_by = Map.remove(user.owed_by, other)
 
-    owes = if net < 0.0 then
-        Map.put(owes, other, -net)
-    else
-        owes
-    end
+    owes = if net < 0.0 then Map.put(owes, other, -net) else owes
 
-    owed_by = if net > 0.0 then
-        Map.put(owed_by, other, net)
-    else
-        owed_by
-    end
+    owed_by = if net > 0.0 then Map.put(owed_by, other, net) else owed_by
 
     owed = owed_by |> Map.values() |> Iter.sum()
     owing = owes |> Map.values() |> Iter.sum()

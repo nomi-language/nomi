@@ -1,0 +1,41 @@
+// An ordering operator or a range settles an empty collection literal against
+// the other side, at the top or inside a tuple or a list, as `==` does.
+test "an empty list orders before a non-empty one"
+    assert [] < [2]
+    assert [] <= [2]
+    assert [2] > []
+    assert [2] >= []
+    refute [2] < []
+    refute [] > [2]
+end
+
+test "an empty list inside a tuple orders by its position"
+    assert (1, []) < (1, [2])
+    assert (1, [2]) >= (1, [])
+    assert (0, [9]) < (1, [])
+    refute (1, []) == (1, [2])
+end
+
+test "an empty list inside a list"
+    assert [[]] < [[1]]
+    assert [[1], []] > [[1]]
+end
+
+test "the operators agree with Comparable.compare"
+    assert Comparable.compare((1, []), (1, [2])) == .Less
+    assert Comparable.compare([2], []) == .Greater
+end
+
+test "a range's endpoints settle an empty list against each other"
+    c: Range<List<Int>> = [1]..[]
+    refute Range.contains(c, [1, 2])
+    up_to = []..[3]
+    assert Range.contains(up_to, [2])
+    refute Range.contains(up_to, [3])
+    assert Range.contains([]..=[3], [3])
+    pairs = (1, [])..(2, [3])
+    assert Range.contains(pairs, (1, [5]))
+    refute Range.contains(pairs, (2, [4]))
+    nested = [[]]..[[1]]
+    assert Range.contains(nested, [[0]])
+end

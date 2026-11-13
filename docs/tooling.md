@@ -916,8 +916,12 @@ indent; an empty one is `end` on the header's line.
 
 **`if`, binding `else` and lambda bodies.** See
 [one-line `if` and binding `else`](../internal/format/doc.go)
-for when a guard or a two-branch `if` is written inline on one line; an
-`else if` chain is always in block form. An inline `if` too wide for its
+for when a guard or a two-branch `if` is written inline on one line (a
+two-branch `if` up to 50 columns, or up to the line's width when its
+`else` is one atom such as `None`, `0`, `""` or `[]`); an
+`else if` chain is always in block form. A binding `else` whose statement
+holds an `if` or a `case` is always in block form too, so `else`, `return`,
+`if` and `then` never share a line. An inline `if` too wide for its
 line is written in block form. An inline `if` that something follows on its
 line, a binary operator's left operand or a pipe's head, goes in
 parentheses, and an `if` stage that another stage follows is written in
@@ -967,7 +971,8 @@ tail `if` and each arm of a tail `case`. A bare `return` at the end of a
 `Unit` body goes when an expression statement comes before it. In a test
 body, a tail `if` or `case` keeps its `return value`s, since its branches'
 values need not share a type there. A tail `if` with no final `else` keeps
-its `return value`s too, since its branches' values are wrapped in `Some`.
+its `return value`s too, since such an `if` is a statement and has no
+value.
 
 **Struct literals and anonymous struct types** are kept on one line when
 short and broken one field per line, each with a comma, when long
@@ -1496,13 +1501,14 @@ and `GOOS` and `GOARCH` pick a build's target as `--target` does.
 
 - Opinionated formatter: `nomi fmt [-w|-l|-d|-check] <paths>`
 - Check without running: `nomi check`, which also reports, at its source, any code the program reaches that type-checks but cannot be compiled to run yet
-- Language server: `nomi-lsp` (diagnostics, hover, go-to-definition, completion, rename, code actions). It reports each `todo` and `dbg` as a warning. Hover on a keyword shows the construct it starts, what it does there and a link to the page that teaches it, following the place it stands in: `as` in an import or a pattern, `case` as an expression or a pipe stage, the function a `return` leaves, the iteration a `break` leaves, what a `pub` publishes. Hover also states rules the text leaves implicit: an `if` without `else` shows its type and that it is a `Maybe` or a statement, a binding's `else` says when it runs and whether it must leave, the `[` or `{` of a collection literal says which collection it builds and what expected it, and a punned `name:` shows both the field or parameter it labels and the binding it reads; go to definition on a pun offers both. Its quick fixes include:
+- Language server: `nomi-lsp` (diagnostics, hover, go-to-definition, completion, rename, code actions). It reports each `todo` and `dbg` as a warning. Hover on a keyword shows the construct it starts, what it does there and a link to the page that teaches it, following the place it stands in: `as` in an import or a pattern, `case` as an expression or a pipe stage, the function a `return` leaves, the iteration a `break` leaves, what a `pub` publishes. Hover also states rules the text leaves implicit: an `if` without `else` says it is a statement and when its branch runs, a binding's `else` says when it runs and whether it must leave, the `[` or `{` of a collection literal says which collection it builds and what expected it, and a punned `name:` shows both the field or parameter it labels and the binding it reads; go to definition on a pun offers both. Its quick fixes include:
   - append `()` to a pipe stage that names a function without calling it;
   - insert `then` before a lambda written as a pipe stage;
   - insert `|> Display.to_string()` before a stage that takes a `String` when the piped value implements `Display`;
   - put `|> Iter.take(todo)` before a terminal stage over an infinite iterator;
   - write a tuple read by number by its ordinal, `t.0` as `t.first`;
   - name a struct literal's values written without field names, in declaration order;
+  - add `else None` to an `if` without `else` whose branch is a `Maybe`, or write `_ = ` before a branch's value where a statement drops it;
   - write missing functions, fields and `case` arms, each filled with `todo`, so the result checks.
   - write a type parameter used once as a parameter's type, under one bound, as an interface value (`fn label<T>(value: T) where T: Named` becomes `fn label(value: Named)`), which the server reports as a hint.
 

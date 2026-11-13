@@ -182,18 +182,14 @@ func (g *gen) irStartupFunc(token any, fd *ast.FuncDef, arg ast.Node, row *testR
 			return nil, false
 		}
 	}
-	val, got, _, ok := bl.lowerWant(arg, k)
-	if !ok || got != k {
-		g.dc.note("a test boot's Startup argument outside the retained shape")
+	val, _, _, ok := bl.lowerWant(arg, k)
+	if !ok {
 		return nil, false
 	}
 	bl.resultCopy(arg, val)
 	bl.side(sh.result, irScalarSide{k: k})
 	bl.b.SetTerm(ir.NewReturn(at, sh.result))
-	if err := g.irLint(f); err != nil {
-		g.dc.note("a test boot startup graph that does not lint: " + err.Error())
-		return nil, false
-	}
+	g.irRequireLint(f, "a test boot startup graph")
 	g.irModule().AddFunc(f)
 	return sym, true
 }

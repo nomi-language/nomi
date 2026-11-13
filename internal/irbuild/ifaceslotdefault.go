@@ -34,8 +34,8 @@ import (
 // A generic interface's default may name its type parameters
 // (`x: List<T> = pick()`, with `pick<T>` solved from the slot's type), so
 // whichever file lowers it does so in a frame binding them
-// (ifaceDefaultFrame), read off the kinds the call passes against the
-// declared parameter types.
+// (ifaceDefaultFrameAt), at the type arguments the checker instantiated
+// the call at.
 
 // ifaceParamDefault is where one parameter default of an interface
 // function is declared: the declaring file's unit, the function and the
@@ -100,36 +100,32 @@ func (g *gen) ifaceParamDefault(d ast.Node) (ifaceParamDefault, bool) {
 	return o, ok
 }
 
-// ifaceDefaultFrame binds the type parameters of the interface and the
-// function declaring parameter default o by matching the declared
-// parameter types against params, the kinds the call passes. It is nil for
-// a function with none. ok is false when one stays unbound while an
-// enclosing frame binds its name, since the default would then read the
-// enclosing function's type under that name.
-func (g *gen) ifaceDefaultFrame(o ifaceParamDefault, params []kind) (map[string]kind, bool) {
-	open := map[string]bool{}
+// ifaceDefaultGeneric reports whether the interface or the function
+// declaring parameter default o has type parameters, which its default is
+// lowered in a frame binding.
+func ifaceDefaultGeneric(o ifaceParamDefault) bool {
+	return len(o.iface.TypeParams) > 0 || len(o.im.TypeParams) > 0
+}
+
+// ifaceDefaultFrameAt binds the type parameters of the interface and the
+// function declaring parameter default o at the type arguments the checker
+// instantiated call t at (calleeTypeArgs), in this gen's kinds. ok is
+// false when the record lacks one.
+func (g *gen) ifaceDefaultFrameAt(t *ast.Call, o ifaceParamDefault) (map[string]kind, bool) {
+	var names []string
 	for _, tp := range o.iface.TypeParams {
-		open[tp.Name] = true
+		names = append(names, tp.Name)
 	}
 	for _, tp := range o.im.TypeParams {
-		open[tp.Name] = true
+		names = append(names, tp.Name)
 	}
-	if len(open) == 0 {
-		return nil, true
+	ks, ok := g.calleeTypeArgs(t.Func, names)
+	if !ok {
+		return nil, false
 	}
-	frame := map[string]kind{}
-	for i, p := range o.im.Params {
-		if i < len(params) && p.TypeAnnotation != nil {
-			g.unifyTypeParams(p.TypeAnnotation, params[i], open, frame)
-		}
-	}
-	for name := range open {
-		if _, solved := frame[name]; solved {
-			continue
-		}
-		if _, outer := g.genericSubstKind(name); outer {
-			return nil, false
-		}
+	frame := make(map[string]kind, len(names))
+	for i, n := range names {
+		frame[n] = ks[i]
 	}
 	return frame, true
 }
@@ -147,7 +143,7 @@ func (bl *irScalarBuilder) ifaceDefaultHere(p ast.Param, frame map[string]kind, 
 
 // ifaceSlotDefault fills slot i of a call from the parameter default o
 // declares, with args holding the slots before it at the kinds params give
-// and frame binding the type parameters (ifaceDefaultFrame): lowered here
+// and frame binding the type parameters (ifaceDefaultFrameAt): lowered here
 // when its names mean here what they mean there, else a call of the
 // declaring gen's accessor.
 func (bl *irScalarBuilder) ifaceSlotDefault(o ifaceParamDefault, p ast.Param, params []kind, frame map[string]kind, args []ir.Temp, i int) (ir.Temp, kind, bool) {
@@ -246,7 +242,7 @@ func (g *gen) flushIfaceSlotDefaults() {
 			r.built = true
 			im := r.key.im
 			fd := &ast.FuncDef{Name: im.Name, Params: im.Params, Line: im.Line, Col: im.Col}
-			sig := &fnSig{params: r.params, decl: fd, lowerable: true}
+			sig := &fnSig{params: r.params, decl: fd, lowerable: true, ifaceFrame: r.frame}
 			if len(r.frame) > 0 {
 				g.pushIfaceSubst(r.frame)
 			}

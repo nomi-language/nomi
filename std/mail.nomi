@@ -567,11 +567,7 @@ fn dot_stuffed(data: String) -> String
     stuffed =
         String.split(data, "\r\n")
         |> Iter.map(fn line ->
-            if String.starts_with(line, ".") then
-                ".${line}"
-            else
-                line
-            end
+            if String.starts_with(line, ".") then ".${line}" else line
         end)
         |> String.join("\r\n")
 

@@ -130,7 +130,7 @@ func partMeetsInterfaceValue(p Type, iface *InterfaceType, impls []ImplTables, i
 func implementedIn(impls []ImplTables) func(Type, string) bool {
 	return func(t Type, iface string) bool {
 		name := interfaceImplName(t)
-		return name != "" && interfaceImplemented(name, iface, "", impls)
+		return name != "" && interfaceImplemented(t, iface, "", impls)
 	}
 }
 
@@ -146,14 +146,8 @@ func (c *checker) hasOwnImpl(t Type, iface string) bool {
 	if name == "" || !c.fa.HasImpl(name, iface) {
 		return false
 	}
-	origin, ok := nominalOrigin(t)
-	if !ok {
-		return true
-	}
-	if supplied, known := c.fa.Program().ImplIndex.implSuppliedByIdentity(origin, name, iface); known {
-		return supplied
-	}
-	return true
+	p := c.fa.Program()
+	return p.ImplIndex.suppliesReceiver(t, name, iface, p.unindexedOrigins)
 }
 
 // isStdInterfaceNamed reports whether iface is std's interface name, declared

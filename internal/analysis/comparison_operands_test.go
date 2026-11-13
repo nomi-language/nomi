@@ -85,3 +85,63 @@ end
 	_, errs := checkSourceWithStdlib(src)
 	expectStdlibError(t, errs, "no variant 'Refund' on enum Kind")
 }
+
+// An ordering operator settles an empty collection literal against the other
+// operand, at the top or inside a tuple or a list, as `==` does.
+// Operands of two element types are still a mismatch.
+func TestComparisonOperand_OrderingSettlesAnEmptyLiteral(t *testing.T) {
+	for _, tc := range []struct{ name, expr string }{
+		{"empty left", "[] < [2]"},
+		{"empty right", "[2] > []"},
+		{"at or below", "[] <= [2]"},
+		{"at or above", "[2] >= []"},
+		{"inside a tuple", "(1, []) < (1, [2])"},
+		{"inside a tuple on the right", "(1, [2]) >= (1, [])"},
+		{"inside a list", "[[]] < [[1]]"},
+		{"equality", "(1, []) == (1, [2])"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib("fn f() -> Bool\n    " + tc.expr + "\nend\n")
+			expectNoStdlibErrors(t, errs)
+		})
+	}
+	for _, tc := range []struct{ name, expr, want string }{
+		{"two element types", "xs < ys", "comparison type mismatch: List<Int> vs List<String>"},
+		{"two element types in a tuple", "(1, xs) < (1, ys)", "comparison type mismatch: (Int, List<Int>) vs (Int, List<String>)"},
+		{"Int and Float", "1 < 1.0", "comparison type mismatch: Int vs Float"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib("fn f(xs: List<Int>, ys: List<String>) -> Bool\n    _ = (xs, ys)\n    " + tc.expr + "\nend\n")
+			expectStdlibError(t, errs, tc.want)
+		})
+	}
+}
+
+// A range's endpoints settle an empty collection literal against each other,
+// at the top or inside a tuple or a list, as `<` and `==` do. Endpoints of
+// two element types are still a mismatch, with the same message.
+func TestRangeEndpoints_SettleAnEmptyLiteral(t *testing.T) {
+	for _, tc := range []struct{ name, body string }{
+		{"empty end", "c: Range<List<Int>> = [1]..[]\n    _ = c"},
+		{"empty start", "_ = []..[3]"},
+		{"inclusive", "_ = [1]..=[]"},
+		{"inside a tuple", "_ = (1, [])..(2, [3])"},
+		{"inside a tuple at the end", "_ = (1, [3])..(2, [])"},
+		{"inside a list", "_ = [[]]..[[1]]"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib("fn f()\n    " + tc.body + "\nend\n")
+			expectNoStdlibErrors(t, errs)
+		})
+	}
+	for _, tc := range []struct{ name, expr, want string }{
+		{"two element types", "xs..ys", "range endpoints must have the same type, got List<Int> and List<String>"},
+		{"two element types in a tuple", "(1, xs)..(1, ys)", "range endpoints must have the same type, got (Int, List<Int>) and (Int, List<String>)"},
+		{"Int and Float", "1..2.0", "range endpoints must have the same type, got Int and Float"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib("fn f(xs: List<Int>, ys: List<String>)\n    _ = " + tc.expr + "\nend\n")
+			expectStdlibError(t, errs, tc.want)
+		})
+	}
+}

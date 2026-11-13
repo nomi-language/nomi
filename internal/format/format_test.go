@@ -2398,16 +2398,17 @@ func TestFormat_If_MultilineCallBody_Collapses(t *testing.T) {
 
 func TestFormat_If_WidthBoundary_50Inline_51Broken(t *testing.T) {
 	// Flat if/else width = 15 (fixed structure, `if ` then ` then ` and
-	// ` else `) + len(cond)+len(then)+len(else). With cond="c", else="e", a
-	// 33-char then body hits exactly 50 → inline; 34 → 51 → broken. Locks
+	// ` else `) + len(cond)+len(then)+len(else). With cond="c" and
+	// else="f(e)", a call and so not a trivial else (trivialElse), a
+	// 30-char then body hits exactly 50 → inline; 31 → 51 → broken. Locks
 	// the singleLineValueIfMaxWidth = 50 cap.
-	at50 := "x = if c then " + strings.Repeat("a", 33) + " else e\n"
+	at50 := "x = if c then " + strings.Repeat("a", 30) + " else f(e)\n"
 	got, _ := Format(at50)
 	if got != at50 {
 		t.Errorf("expected inline at 50 cols, got:\n%s", got)
 	}
 
-	at51 := "x = if c then " + strings.Repeat("a", 34) + " else e\n"
+	at51 := "x = if c then " + strings.Repeat("a", 31) + " else f(e)\n"
 	got, _ = Format(at51)
 	if !strings.Contains(got, "\nelse\n") {
 		t.Errorf("expected broken at 51 cols, got:\n%s", got)

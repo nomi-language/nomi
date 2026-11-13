@@ -185,7 +185,7 @@ func (g *gen) irSlotAccessorRetain(fd *ast.FuncDef, sig *fnSig, sym *ir.Symbol, 
 	args[slot] = ir.NoTemp
 	filled := *fd
 	filled.Params = fd.Params[:slot+1]
-	if !bl.callDefaults(&fnSig{decl: &filled, params: sig.params[:slot+1]}, args) {
+	if !bl.callDefaults(&fnSig{decl: &filled, params: sig.params[:slot+1], ifaceFrame: sig.ifaceFrame}, args) {
 		g.dc.note("a default that does not lower")
 		return
 	}
@@ -194,10 +194,7 @@ func (g *gen) irSlotAccessorRetain(fd *ast.FuncDef, sig *fnSig, sym *ir.Symbol, 
 	bl.b.Append(cp)
 	bl.side(sh.result, irScalarSide{k: sig.params[slot]})
 	bl.b.SetTerm(ir.NewReturn(at, sh.result))
-	if err := g.irLint(sh.fn); err != nil {
-		g.dc.note("a default accessor that does not lint: " + err.Error())
-		return
-	}
+	g.irRequireLint(sh.fn, "a default accessor")
 	g.irModule().AddFunc(sh.fn)
 	if err := g.irLintAdded(); err != nil {
 		panic("irbuild: file default accessor: " + err.Error())

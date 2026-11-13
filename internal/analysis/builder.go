@@ -31,6 +31,10 @@ type ImplTypeArgs struct {
 	// chosen block's function is the impl a call names (impl_selection.go).
 	Block   *ast.ImplBlock
 	Written bool
+	// Open marks each interface type parameter a header that writes no
+	// type arguments leaves unsolved: no item's signature names it, and
+	// its Args entry is the interface's own parameter. nil when none is.
+	Open []bool
 	// Origin is the interface declaration's build key, so impls of two
 	// same-named interfaces are never candidates for one call.
 	Origin string

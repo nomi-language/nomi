@@ -5,8 +5,12 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// An absent inner kind can also describe an opaque host-backed payload.
-// Require an actual zero-sized Nomi declaration before constructing its value.
+// irRetainedMarker is a zero-sized marker: a payload-free declaration, std's
+// host markers (`True`, `False`) or std's declared markers (`ChannelClosed`,
+// `TimedOut`, stdMarkerSpecs). Each is a retained leaf (irRetainedLeafKind),
+// so a marker is an element, a field, a tuple part and a payload as any leaf
+// is. An absent inner kind can also describe an opaque host-backed payload,
+// which this refuses.
 func irRetainedMarker(d *typeDef) bool {
 	// kindInvalid: marker — a payload-free declaration has no inner representation.
 	if d == nil || !d.lowerable || !d.isDistinct || d.inner != kindInvalid || d.rtOpaque {
@@ -15,6 +19,11 @@ func irRetainedMarker(d *typeDef) bool {
 	if irStdHostMarkerDef(d) {
 		// std/bool's `True` and `False`: a `host type` with one inhabitant,
 		// the singleton `Bool.False(x)` binds (stdHostSpecs' marker rows).
+		return true
+	}
+	if irStdMarkerKind(named(d)) {
+		// std's own markers have no declaration in this unit; their def is
+		// stdgenhost.go's.
 		return true
 	}
 	decl, ok := d.decl.(*ast.TypeDef)
@@ -36,9 +45,7 @@ func irStdHostMarkerDef(d *typeDef) bool {
 // qualifier, which namedType resolves to the same declaration.
 func (bl *irScalarBuilder) markerValue(at ast.Node, name string) (ir.Temp, kind, bool, bool) {
 	d, found := bl.g.namedType(name)
-	// A std marker (`ChannelClosed`) has no declaration in this unit; its
-	// def is stdgenhost.go's, which is a genuine zero-sized marker.
-	if !found || !(irRetainedMarker(d) || irStdMarkerKind(named(d))) {
+	if !found || !irRetainedMarker(d) {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	c := ir.NewMarker(bl.g.irNodePos(at), bl.f.NewTemp(), bl.g.irTypeSym(d))

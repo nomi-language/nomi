@@ -135,7 +135,7 @@ end
 
 fn main()
     total = Money`10.00 USD`
-    third = {..total, amount: total.amount |> Decimal.divide(3d, 6, .HalfEven)}
+    third = {..total, amount: .. |> Decimal.divide(3d, 6, .HalfEven)}
     io.print(third)
     io.print(Money.round(third))
 

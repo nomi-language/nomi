@@ -98,8 +98,8 @@ func DisplayText(v any) string {
 	case Unit:
 		return InspectUnit(x)
 	case Type[any]:
-		// A `Type<T>` witness renders as its Debug does: the bare name.
-		return "Type"
+		// A `Type<T>` witness renders as its Debug does, `Type<TraceId>`.
+		return TypeWitnessInspect(x)
 	case Dynamic:
 		return InspectDynamic(x)
 	case *List[any]:
@@ -119,6 +119,9 @@ func DisplayText(v any) string {
 		return InspectSeq(x)
 	case Opaque:
 		return x.OpaqueText()
+	}
+	if name, ok := HostTypeName(v); ok {
+		return "<" + name + ">"
 	}
 	return fmt.Sprintf("<%T>", v)
 }
@@ -275,9 +278,8 @@ func DebugText(v any, hook DebugHook) (string, error) {
 		// the synthesized universal Debug prints the bare name.
 		return "Unit", nil
 	case Type[any]:
-		// std/type.nomi declares `host type Type<T>` with no explicit Debug:
-		// the same bare-name default, whatever T is.
-		return "Type", nil
+		// A witness renders as the type it names, `Type<TraceId>`.
+		return TypeWitnessInspect(t), nil
 	case Byte:
 		return InspectByte(t), nil
 	case Bytes:
@@ -339,6 +341,11 @@ func DebugText(v any, hook DebugHook) (string, error) {
 		// (std/regex's renders the typed literal). With none, the universal
 		// default is the bare type name, as the front end synthesizes it.
 		return ShortTypeName(t.TypeName), nil
+	case Dynamic:
+		// std/dynamic's `impl Debug for Dynamic` is this host function; a
+		// Dynamic inside a tuple, record or container renders through it
+		// as a top-level one does.
+		return DynamicInspect(t), nil
 	case Context:
 		// A Context's Debug is the deterministic placeholder the universal
 		// Debug gives every non-structural value kind.
@@ -358,6 +365,10 @@ func DebugText(v any, hook DebugHook) (string, error) {
 		// channel half (`<channel>`), a Supervisor. Its placeholder is the
 		// one its values: row prints.
 		return t.OpaqueText(), nil
+	}
+	if name, ok := HostTypeName(v); ok {
+		// A std host type's value with no `impl Debug`: the bare name.
+		return name, nil
 	}
 	return "", fmt.Errorf("Debug on an unrepresented receiver (%T)", v)
 }

@@ -3,6 +3,8 @@ package analysis
 import (
 	"fmt"
 
+	"github.com/nomi-language/nomi/rt"
+
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -18,11 +20,12 @@ import (
 // A declared struct or enum with its own `impl Equatable` is exempt: its
 // equality is whatever that impl answers. Its type arguments are not.
 //
-// A handle to running state has no equality either: std's `Task<T>`,
-// `Sender<T>`, `Receiver<T>`, `Context` and `Supervisor`. Each is a reference
-// to something the runtime runs, with no value to compare, and the runtime
-// answers no equality for one (rt.Opaque). So `==` over one, or over a value
-// holding one, is rejected as it is for a function.
+// A handle has no equality either: every std host type that is not a value
+// (rt.StdHandleTypes), `Task<T>`, `Sender<T>`, `Context`, a `Reader`, a
+// `File`, a `Child` and a `Conn` among them. Each is a reference to
+// something the runtime runs or holds outside the program, with no value to
+// compare, and the runtime answers no equality for one. So `==` over one,
+// or over a value holding one, is rejected as it is for a function.
 
 // noEqualityMessage is the diagnostic for `op` over operand type t, or "" when
 // every part of t has equality.
@@ -121,6 +124,11 @@ func noEqualityPartWith(t Type, hasImpl func(Type) bool, seen map[Type]bool) (Ty
 			}
 		}
 	case *DistinctType:
+		// A type argument first, as for a struct: std's `Vector<T>` has
+		// its own `impl Equatable`, which compares its elements.
+		if part, ok := among(ty.TypeArgs); ok {
+			return part, true
+		}
 		if hasImpl(ty) {
 			return nil, false
 		}
@@ -139,7 +147,7 @@ func (c *checker) hasEquatableImpl(t Type) bool {
 	if name == "" {
 		return false
 	}
-	return c.fa.HasImpl(name, "Equatable")
+	return c.hasOwnImpl(t, "Equatable")
 }
 
 // noEqualityWhat names the kind of value part is, for a diagnostic.
@@ -153,14 +161,16 @@ func noEqualityWhat(part Type) string {
 	return "a function value"
 }
 
-// stdHandleTypes are std's handles to running state, by declaring module.
-var stdHandleTypes = map[[2]string]bool{
-	{"std/tasks", "Task"}:             true,
-	{"std/channels", "Sender"}:        true,
-	{"std/channels", "Receiver"}:      true,
-	{"std/context", "Context"}:        true,
-	{"std/supervisors", "Supervisor"}: true,
-}
+// stdHandleTypes are std's handles, by declaring module: every std host
+// type that is not a value (rt.StdHandleTypes), a task, a channel half, a
+// stream, a file, a process, a connection and the like.
+var stdHandleTypes = func() map[[2]string]bool {
+	m := map[[2]string]bool{}
+	for _, t := range rt.StdHandleTypes() {
+		m[[2]string{t.Origin, t.Name}] = true
+	}
+	return m
+}()
 
 // isStdHandleType reports whether t is one of stdHandleTypes.
 func isStdHandleType(t Type) bool {
@@ -214,13 +224,23 @@ func (c *checker) rejectKeyWithoutEquality(node ast.Node, ty Type) Type {
 		return ty
 	}
 	report := keyWithoutEqualityReport{body: c.currentFnDecl, coll: coll.String()}
-	if c.keyWithoutEqualityReported[report] {
+	if i, seen := c.keyWithoutEqualityReported[report]; seen && i < len(c.errors) && c.errors[i].Message == c.keyWithoutEqualityMessage(coll, key, part) {
+		// Reported, and still among the errors: a speculative check that
+		// reported it and then dropped its errors reports it again.
 		return ty
 	}
 	if c.keyWithoutEqualityReported == nil {
-		c.keyWithoutEqualityReported = map[keyWithoutEqualityReport]bool{}
+		c.keyWithoutEqualityReported = map[keyWithoutEqualityReport]int{}
 	}
-	c.keyWithoutEqualityReported[report] = true
+	c.keyWithoutEqualityReported[report] = len(c.errors)
+	line, col := nodeLineCol(node)
+	c.addError(line, col, c.keyWithoutEqualityMessage(coll, key, part))
+	return ty
+}
+
+// keyWithoutEqualityMessage is the diagnostic for a Set or Map coll whose
+// element or key, key, holds part, a value with no equality.
+func (c *checker) keyWithoutEqualityMessage(coll, key, part Type) string {
 	role := "a Map key"
 	if isStdSetType(coll) {
 		role = "a Set element"
@@ -234,9 +254,7 @@ func (c *checker) rejectKeyWithoutEquality(node ast.Node, ty Type) Type {
 	if part != key {
 		msg = fmt.Sprintf("`%s` cannot be %s: it holds `%s`, and %s has no equality or hashing%s", key, role, part, what, fix)
 	}
-	line, col := nodeLineCol(node)
-	c.addError(line, col, msg)
-	return ty
+	return msg
 }
 
 // keyWithoutEquality answers the first Set or Map within t whose element or
@@ -263,6 +281,8 @@ func (c *checker) keyWithoutEquality(t Type, seen map[Type]bool) (coll, key, par
 		}
 		inner = ty.TypeArgs
 	case *EnumType:
+		inner = ty.TypeArgs
+	case *DistinctType:
 		inner = ty.TypeArgs
 	case *ListType:
 		inner = []Type{ty.Elem}

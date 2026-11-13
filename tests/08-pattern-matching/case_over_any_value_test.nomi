@@ -1,0 +1,40 @@
+// A `case` takes any value apart: a name or `_` matches a function, an Iter,
+// an interface value, a marker or Unit as it matches an Int.
+type Mk
+
+fn describe(d: Display) -> String
+    case d
+        shown when Display.to_string(shown) == "" -> "empty"
+        shown -> Display.to_string(shown)
+    end
+end
+
+test "a name matches a function"
+    f = fn n: Int -> n + 1
+
+    g = case f
+        h -> h
+    end
+
+    assert g(1) == 2
+end
+
+test "a guard over an Iter"
+    n = case Iter.from(1)
+        it when Iter.first(it) == Some(1) -> 1
+        _ -> 0
+    end
+
+    assert n == 1
+end
+
+test "an interface value and a marker"
+    assert describe(7) == "7"
+    assert describe("") == "empty"
+
+    n = case Mk
+        _ -> 1
+    end
+
+    assert n == 1
+end

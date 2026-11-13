@@ -26,6 +26,16 @@ type irLambdaPlan struct {
 	params   []kind
 	group    *irLambdaGroup
 	supplier int // -1 for the lambda itself; otherwise the supplied parameter slot
+	// entry, of kind entryKind, is the closure a call that leaves an
+	// argument out goes through, when this is a partial whose callee has a
+	// computed default the partial leaves unmentioned before an open slot's
+	// computed default (partialApplication). It takes this plan's
+	// parameters and then those hidden slots, and entryGroup supplies every
+	// one a call omits, each callee default once, in the callee's order.
+	// entryGroup is nil otherwise.
+	entry      ir.Temp
+	entryKind  kind
+	entryGroup *irLambdaGroup
 }
 
 // A literal and its supplier closures share parameter spelling. Suppliers are
@@ -280,8 +290,10 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			child.bound[r.name], child.boundK[r.name] = temp, r.k
 		}
 	}
-	if len(patterned) != 0 && !child.patternParams(patterned) {
-		return no()
+	if len(patterned) != 0 {
+		if !child.patternParams(patterned) {
+			return no()
+		}
 	}
 	sig := irFuncSig{inferResult: true}
 	// A reduction callback returns its accumulator type. Keep that context
@@ -454,10 +466,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		}
 	}
 	plan := &irScalarPlan{fn: f, result: k}
-	if err := bl.g.irLint(f); err != nil {
-		bl.g.dc.note("a lambda graph that does not lint: " + err.Error())
-		return no()
-	}
+	bl.g.irRequireLint(f, "a lambda graph")
 	var n *ir.FuncValue
 	if self {
 		n = ir.NewRecursiveFuncValue(at, bl.f.NewTemp(), f, child.captures...)
@@ -573,20 +582,18 @@ func (bl *irScalarBuilder) capturedPlan(temp ir.Temp) *irLambdaPlan {
 		}
 		plan := *outer
 		if outer.group != nil {
-			group := &irLambdaGroup{params: outer.group.params, suppliers: make([]ir.Temp, len(outer.group.suppliers)), order: outer.group.order}
-			for i, s := range outer.group.suppliers {
-				group.suppliers[i] = ir.NoTemp
-				if s == ir.NoTemp {
-					continue
-				}
-				// A supplier takes the parameters before its slot in
-				// the group's fill order and answers the slot's value.
-				sk := outer.group.supplierKind(bl.g, i)
-				dst := bl.g.irAddParam(bl.f, bl.sh.localSym(name+"\x00default"+strconv.Itoa(i)), sk)
-				bl.captures = append(bl.captures, s)
-				group.suppliers[i] = dst
-			}
-			plan.group = group
+			plan.group = bl.captureGroup(outer.group, name+"\x00default")
+		}
+		if outer.entryGroup != nil {
+			// A partial's entry and its suppliers are closures of the
+			// parent's graph too.
+			plan.entry = bl.g.irAddParam(bl.f, bl.sh.localSym(name+"\x00entry"), outer.entryKind)
+			bl.captures = append(bl.captures, outer.entry)
+			plan.entryGroup = bl.captureGroup(outer.entryGroup, name+"\x00entrydefault")
+			// Held by a name no program spells, so a partial over the
+			// entry (partialOverEntry) in a closure nested here finds the
+			// entry's own plan through this capture.
+			bl.captured[name+"\x00entry"] = irLambdaCapture{temp: plan.entry, k: outer.entryKind, src: outer.entry}
 		}
 		if bl.capturedPlans == nil {
 			bl.capturedPlans = map[ir.Temp]*irLambdaPlan{}
@@ -595,6 +602,26 @@ func (bl *irScalarBuilder) capturedPlan(temp ir.Temp) *irLambdaPlan {
 		return &plan
 	}
 	return nil
+}
+
+// captureGroup captures each of outer's suppliers, closures of the parent's
+// graph, as parameters of this closure named from prefix, and answers the
+// group whose suppliers are those captures.
+func (bl *irScalarBuilder) captureGroup(outer *irLambdaGroup, prefix string) *irLambdaGroup {
+	group := &irLambdaGroup{params: outer.params, suppliers: make([]ir.Temp, len(outer.suppliers)), order: outer.order}
+	for i, s := range outer.suppliers {
+		group.suppliers[i] = ir.NoTemp
+		if s == ir.NoTemp {
+			continue
+		}
+		// A supplier takes the parameters before its slot in the group's
+		// fill order and answers the slot's value.
+		sk := outer.supplierKind(bl.g, i)
+		dst := bl.g.irAddParam(bl.f, bl.sh.localSym(prefix+strconv.Itoa(i)), sk)
+		bl.captures = append(bl.captures, s)
+		group.suppliers[i] = dst
+	}
+	return group
 }
 
 func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool) {
@@ -628,9 +655,12 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 		// A local copy of a declared function (`g = parse`) keeps its
 		// defaults: the call goes through the function's shorter value,
 		// whose body calls it by name with the arguments written here.
+		// The checker records the function the copy was made from: a
+		// function value with no declaration behind it has no defaults,
+		// and leaving out its arguments is a checker error.
 		rec := bl.g.callDefaultsOf(t)
 		if rec == nil || rec.Ref == nil {
-			return no()
+			panic("irbuild: a short call of a local function value with no CallDefaults record naming its function")
 		}
 		short, sk, _, ok := bl.callFuncValueOf(rec.Ref, funcRefName(rec.Ref), params[:len(t.Args)], funcResult(fk), rec)
 		if !ok {
@@ -659,18 +689,30 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 		args[slot] = v
 	}
 	var order []int
+	var group *irLambdaGroup
 	if defaulted {
-		order = metadata.group.fillOrder()
+		group = metadata.group
+		if metadata.entryGroup != nil {
+			// A partial whose omitted defaults come after hidden ones: the
+			// call goes through its entry, which takes the hidden slots
+			// too, so each default is evaluated here, once.
+			group, callee = metadata.entryGroup, metadata.entry
+			params = group.params
+			for len(args) < len(params) {
+				args = append(args, ir.NoTemp)
+			}
+		}
+		order = group.fillOrder()
 	}
 	for _, i := range order {
 		if args[i] != ir.NoTemp {
 			continue
 		}
-		supplier := metadata.group.suppliers[i]
+		supplier := group.suppliers[i]
 		if supplier == ir.NoTemp {
 			return no()
 		}
-		call := ir.NewIndirectCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), supplier, argsAt(args, metadata.group.before(i))...)
+		call := ir.NewIndirectCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), supplier, argsAt(args, group.before(i))...)
 		bl.b.Append(call)
 		bl.side(call.Dst(), irScalarSide{k: params[i], deferrable: true})
 		args[i] = call.Dst()
@@ -700,9 +742,9 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 // whose own inputs (Unit among them) and output are representable, including
 // scalar-leaf lists, and with existentials: the VM holds an existential as the
 // concrete value, so it crosses a call, a lambda and a result as that value
-// does, and with std's payload-free markers (`ChannelClosed`).
+// does.
 func irCallableValueKind(k kind) bool {
-	if irRetainedValueKind(k) || irRetainedSeqKind(k) || irExistentialKind(k) || irStdMarkerKind(k) {
+	if irRetainedValueKind(k) || irRetainedSeqKind(k) || irExistentialKind(k) {
 		return true
 	}
 	if k.tag != tagFunc || k.comp == nil || len(k.comp.parts) == 0 {
@@ -732,7 +774,7 @@ func irRetainedSeqKind(k kind) bool {
 // symbol is shared with direct calls and bodies.
 func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if bl.g.onces[t.Name] != nil {
+	if bl.g.onces[t.Name] != nil && !bl.g.blockImported(t) {
 		return no()
 	}
 	if v, k, mobile, ok, handled := bl.stdOwnFuncRef(t, true); handled {
@@ -743,6 +785,10 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 		return bl.callFuncValue(t, t.Name)
 	}
 	sig := bl.g.funcs[t.Name]
+	if sig != nil && bl.g.blockImported(t) {
+		// A block `import` shadows the module's function of the name.
+		sig = nil
+	}
 	if sig == nil && bl.g.files != nil {
 		// `ident` after `import span.{ident}`.
 		if site, ok := bl.g.files.lookupBare(bl.g.srcFA(), t); ok && site.fn != nil && site.unit != bl.g.fileUnit {

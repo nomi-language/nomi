@@ -556,10 +556,7 @@ end
 fn multipart_of(flat: List<Bytes>, form: MultipartForm) -> MultipartForm
     case flat
         [kind, name, value, ..rest] when text_of(kind) == "v" ->
-            multipart_of(
-                rest,
-                {..form, values: Query.add(form.values, text_of(name), text_of(value))},
-            )
+            multipart_of(rest, {..form, values: Query.add(.., text_of(name), text_of(value))})
 
         [_, field, filename, count, ..rest] ->
             n = String.to_int(text_of(count)) |> Maybe.with_default(0)
@@ -999,7 +996,7 @@ impl Request
     pub fn add_cookie(request: Request, cookie: Cookie) -> Request
         existing = Headers.get(request.headers, "Cookie") |> Maybe.with_default("")
         line = http_host.add_cookie(existing, Cookie.parts(cookie))
-        {..request, headers: Headers.set(request.headers, "Cookie", line)}
+        {..request, headers: Headers.set(.., "Cookie", line)}
     end
 
     /// The request with a body that fails past `max` bytes, as Go's
@@ -1015,7 +1012,7 @@ impl Request
 
         {
             ..request,
-            body: Body.Stream(http_host.limit_body(Body.reader(request.body), max)),
+            body: Body.Stream(http_host.limit_body(Body.reader(..), max)),
             body_limit: Some(body_limit),
         }
     end
@@ -1054,7 +1051,7 @@ impl Request
     /// `password`.
     pub fn with_basic_auth(request: Request, user: String, password: String) -> Request
         token = base64.encode(String.to_bytes("${user}:${password}"))
-        {..request, headers: Headers.set(request.headers, "Authorization", "Basic ${token}")}
+        {..request, headers: Headers.set(.., "Authorization", "Basic ${token}")}
     end
 
     /// The value a router matched for the wildcard `name`.
@@ -1172,7 +1169,7 @@ impl Request
 
     /// The request with the wildcard `name` matched as `value`.
     pub fn with_path_value(request: Request, name: String, value: String) -> Request
-        {..request, path_values: Map.put(request.path_values, name, value)}
+        {..request, path_values: Map.put(.., name, value)}
     end
 end
 
@@ -1292,7 +1289,7 @@ impl Response
     pub fn set_cookie(response: Response, cookie: Cookie) -> Response
         text = "${cookie}"
         if text == "" then return response
-        {..response, headers: Headers.add(response.headers, "Set-Cookie", text)}
+        {..response, headers: Headers.add(.., "Set-Cookie", text)}
     end
 
     /// A page or a fragment of one: a 200 whose body is `page`, sent as
@@ -1392,7 +1389,7 @@ impl Response
     //! import std::http_testing
     //!
     //! request = http_testing.request(Method.Get, "/f")
-    //! ranged = {..request, headers: Headers.set(request.headers, "Range", "bytes=1-2")}
+    //! ranged = {..request, headers: Headers.set(.., "Range", "bytes=1-2")}
     //! r = Response.content(ranged, "f.txt", None, String.to_bytes("hello"))
     //! assert r.status == Status.partial_content
     //! assert Response.text(r) == Ok("el")
@@ -1401,7 +1398,7 @@ impl Response
     //! assert Response.content(head, "f.txt", None, String.to_bytes("hello")).content_length == Some(5)
     //!
     //! tagged = Headers[("ETag", "\"v1\"")]
-    //! again = {..request, headers: Headers.set(request.headers, "If-None-Match", "\"v1\"")}
+    //! again = {..request, headers: Headers.set(.., "If-None-Match", "\"v1\"")}
     //!
     //! assert Response.content(again, "f.txt", None, String.to_bytes("hello"), headers: tagged).status
     //!     == Status.not_modified
@@ -1850,11 +1847,7 @@ impl Display for Protocols
         names = [
             if protocols.http1 then Some("HTTP1") else None,
             if protocols.http2 then Some("HTTP2") else None,
-            if protocols.unencrypted_http2 then
-                Some("UnencryptedHTTP2")
-            else
-                None
-            end,
+            if protocols.unencrypted_http2 then Some("UnencryptedHTTP2") else None,
         ]
 
         "{${names |> Iter.flat_map(fn n -> n) |> String.join(",")}}"
@@ -2326,20 +2319,12 @@ fn redirected(request: Request, response: Response) -> Result<Maybe<Request>, Er
 
     (next_method, keeps_body) = if code == 301 or code == 302 then
         (
-            if method == Method.Post then
-                Method.Get
-            else
-                method
-            end,
+            if method == Method.Post then Method.Get else method,
             False,
         )
     else if code == 303 then
         (
-            if method == Method.Get or method == Method.Head then
-                method
-            else
-                Method.Get
-            end,
+            if method == Method.Get or method == Method.Head then method else Method.Get,
             False,
         )
     else if code == 307 or code == 308 then
@@ -2370,12 +2355,8 @@ fn redirected(request: Request, response: Response) -> Result<Maybe<Request>, Er
             method: next_method,
             url: target,
             headers:,
-            body: if keeps_body then request.body else Body.Empty,
-            content_length: if keeps_body then
-                request.content_length
-            else
-                None
-            end,
+            body: if keeps_body then .. else Body.Empty,
+            content_length: if keeps_body then .. else None,
             host: None,
         }))
 end
@@ -3636,11 +3617,7 @@ impl Origin
                     and u.fragment == None
                     and u.opaque_part == None
 
-                if bare then
-                    Ok(Origin(String.lowercase("${u.scheme}://${u.host}")))
-                else
-                    refused
-                end
+                if bare then Ok(Origin(String.lowercase("${u.scheme}://${u.host}"))) else refused
 
             Err(_) ->
                 refused
@@ -3901,9 +3878,7 @@ end
 //!
 //! asking = from(Method.Options, "https://app.example.com")
 //!
-//! preflight = app(
-//!     {..asking, headers: Headers.set(asking.headers, "Access-Control-Request-Method", "DELETE")}
-//! )
+//! preflight = app({..asking, headers: Headers.set(.., "Access-Control-Request-Method", "DELETE")})
 //!
 //! assert preflight.status == Status.no_content
 //!
@@ -4123,11 +4098,7 @@ pub fn security_headers(handler: Handler, options: SecurityHeaders = SecurityHea
     Request
 ) -> Response
     named = [
-        if options.nosniff then
-            Some(("X-Content-Type-Options", "nosniff"))
-        else
-            None
-        end,
+        if options.nosniff then Some(("X-Content-Type-Options", "nosniff")) else None,
         options.referrer_policy |> Maybe.map(fn v -> ("Referrer-Policy", v)),
         options.frame_options |> Maybe.map(fn v -> ("X-Frame-Options", v)),
         options.strict_transport_security |> Maybe.map(fn v -> ("Strict-Transport-Security", v)),
@@ -4182,7 +4153,7 @@ pub fn request_id(
     fn request ->
         incoming = if trust_incoming then
             Headers.get(request.headers, header)
-            |> Maybe.flat_map(fn t -> if is_request_id(t) then t)
+            |> Maybe.filter(is_request_id)
         else
             None
         end
@@ -4194,7 +4165,7 @@ pub fn request_id(
 
         case id
             Some(text) ->
-                tagged = {..request, headers: Headers.set(request.headers, header, text)}
+                tagged = {..request, headers: Headers.set(.., header, text)}
                 Response.with_headers(handler(tagged), Headers[(header, text)])
 
             None ->
@@ -4283,7 +4254,7 @@ end
 fn compressed(request: Request, response: Response, options: Compress) -> Response
     code = Status.code(response.status)
     if code < 200 then return response
-    varied = {..response, headers: vary_on(response.headers, "Accept-Encoding")}
+    varied = {..response, headers: vary_on(.., "Accept-Encoding")}
 
     no_transform =
         Headers.values(response.headers, "Cache-Control")
@@ -4362,11 +4333,7 @@ fn gzip_response(response: Response, headers: Headers, body: Body) -> Response
     weak =
         Headers.values(headers, "ETag")
         |> Iter.map(fn tag ->
-            if String.starts_with(tag, "\"") then
-                "W/${tag}"
-            else
-                tag
-            end
+            if String.starts_with(tag, "\"") then "W/${tag}" else tag
         end)
         |> Iter.to_list()
 
@@ -4703,7 +4670,7 @@ end
 //!
 //! site = file_server("site", single_page: True)
 //! page = http_testing.request(Method.Get, "/settings")
-//! page = {..page, headers: Headers.set(page.headers, "Accept", "text/html")}
+//! page = {..page, headers: Headers.set(.., "Accept", "text/html")}
 //!
 //! ran = fs_testing.run(Sandbox{files: {"site/index.html" => "<div id=root></div>"}}, fn ->
 //!     (site(page), site(http_testing.request(Method.Get, "/app.js")))
@@ -4775,7 +4742,7 @@ end
 //! assert Headers.get(js.headers, "Vary") == Some("Accept-Encoding")
 //! assert Response.text(js) == Ok("go()")
 //!
-//! gzip = {..get, headers: Headers.set(get.headers, "Accept-Encoding", "gzip, deflate")}
+//! gzip = {..get, headers: Headers.set(.., "Accept-Encoding", "gzip, deflate")}
 //! zipped = serve_embedded(gzip, files, "assets/app-3f9a1b2c.js")
 //! assert Headers.get(zipped.headers, "Content-Encoding") == Some("gzip")
 //! assert Headers.get(zipped.headers, "Content-Type") == Some("text/javascript; charset=utf-8")
@@ -4786,7 +4753,7 @@ end
 //! assert Headers.get(home.headers, "Cache-Control") == Some("no-cache")
 //!
 //! again = http_testing.request(Method.Get, "/")
-//! again = {..again, headers: Headers.set(again.headers, "If-None-Match", etag)}
+//! again = {..again, headers: Headers.set(.., "If-None-Match", etag)}
 //! assert serve_embedded(again, files, ".").status == Status.not_modified
 //!
 //! pages = Files.from_bytes([
@@ -4800,7 +4767,7 @@ end
 //! assert Headers.get(about.headers, "Vary") == Some("Accept-Encoding")
 //!
 //! brotli = http_testing.request(Method.Get, "/about")
-//! brotli = {..brotli, headers: Headers.set(brotli.headers, "Accept-Encoding", "br")}
+//! brotli = {..brotli, headers: Headers.set(.., "Accept-Encoding", "br")}
 //! squeezed = serve_embedded(brotli, pages, "about")
 //! assert Headers.get(squeezed.headers, "Content-Encoding") == Some("br")
 //! assert Response.text(squeezed) == Ok("squeezed")
@@ -4894,7 +4861,7 @@ end
 //!
 //! visit = fn target: String ->
 //!     r = http_testing.request(Method.Get, target)
-//!     {..r, headers: Headers.set(r.headers, "Accept", "text/html,*/*;q=0.8")}
+//!     {..r, headers: Headers.set(.., "Accept", "text/html,*/*;q=0.8")}
 //! end
 //!
 //! assert Response.text(app(visit("/settings/profile"))) == Ok("<div id=root></div>")
@@ -4912,7 +4879,7 @@ end
 //! assert Response.text(app(visit("/users/jane.doe"))) == Ok("<div id=root></div>")
 //!
 //! missing = http_testing.request(Method.Get, "/assets/gone-0a1b2c3d.js")
-//! missing = {..missing, headers: Headers.set(missing.headers, "Accept", "*/*")}
+//! missing = {..missing, headers: Headers.set(.., "Accept", "*/*")}
 //! assert app(missing).status == Status.not_found
 //
 pub fn file_server_embedded(
@@ -4946,7 +4913,7 @@ end
 //!
 //! asked = fn method: Method, target: String, accept: String ->
 //!     r = http_testing.request(method, target)
-//!     {..r, headers: Headers.set(r.headers, "Accept", accept)}
+//!     {..r, headers: Headers.set(.., "Accept", accept)}
 //! end
 //!
 //! html = "text/html,application/xhtml+xml,*/*;q=0.8"
@@ -5424,7 +5391,7 @@ impl ProxyRequest
             ..incoming_url,
             scheme: target.scheme,
             host: target.host,
-            path: join_paths(target.path, incoming_url.path),
+            path: join_paths(target.path, ..),
             raw_path: None,
             query:,
         }
@@ -5535,16 +5502,15 @@ pub fn reverse_proxy(options: ReverseProxy) -> (Request) -> Response
     fn request ->
         outgoing = {
             ..request,
-            headers: without_hop_headers(request.headers),
+            headers: without_hop_headers(..),
             request_uri: "",
-            host: request.host,
         }
 
         rewritten = options.rewrite(ProxyRequest{incoming: request, outgoing:})
 
         answered =
             forward(options, rewritten.outgoing)
-            |> Result.map(fn r -> {..r, headers: without_hop_headers(r.headers)})
+            |> Result.map(fn r -> {..r, headers: without_hop_headers(..)})
             |> Result.flat_map(fn r ->
                 case options.modify_response
                     Some(modify) -> modify(r)

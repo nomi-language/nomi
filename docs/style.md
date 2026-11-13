@@ -1053,20 +1053,22 @@ A plain `if`/`else` of two branches stays an `if`, and so does a chain
 whose branches run statements for their effects rather than produce a
 value.
 
-An `if` without `else` whose branch has a value is a `Maybe` of it (spec §8
-*`if`/`else`*). Write one where a `Maybe` is what the position takes, as an
-`Html` literal's slot does, which shows the branch or nothing, in element
-content and inside a quoted attribute value alike:
+An `Html` literal's slot takes a `Maybe` and shows its value or nothing,
+in element content and inside a quoted attribute value alike. To show a
+part only when a condition holds, give the slot an `if` whose `else` is
+`None` (spec §8 *`if`/`else`*):
 
 ```nomi
-Html"<p class='inbox ${if unread > 0 then "unread"}'>Inbox${if unread > 0 then Html" <b>${unread}</b>"}</p>"
+count = if unread > 0 then Some(Html" <b>${unread}</b>") else None
+
+Html"<p class='inbox ${if unread > 0 then Some("unread") else None}'>Inbox${count}</p>"
 ```
 
 not `${if unread > 0 then ... else Html.empty()}` or `else ""`. To
 leave a whole attribute out, give it an unquoted value:
-`class=${if active then "active"}`. Where the value is used
-as itself, keep the `else`: `if c then x else y`, not an `if` without
-`else` followed by `Maybe.with_default(y)`.
+`class=${if active then Some("active") else None}`. Where the value is
+used as itself, write the `else` with that value: `if c then x else y`,
+not `if c then Some(x) else None` followed by `Maybe.with_default(y)`.
 
 ### 28. Negate with `!=`, `refute` and `Iter.reject` before `not`
 
@@ -1174,6 +1176,32 @@ Prefer a binding `else` to a `case` whose failure arm only leaves: the
 `case` would nest the whole success path one level in. Prefer `?` to an
 `else` whose arm returns the same error unchanged
 (`Err(e) -> return Err(e)`).
+
+That reason holds only when work follows the binding. When the only line
+after an `else` whose arms `return` is the function's last expression, write
+a `case`: the success path is one arm, nothing is nested, and no arm needs
+`return`.
+
+```nomi
+// not: a binding used once, and a return in every arm
+fn find_post(id: Int) -> Result<Post, NotFound>
+    Ok(Some(post)) = posts.by_id(id) else
+        Ok(None) -> return Err(NotFound{id:})
+        Err(_) -> return Err(NotFound{id:})
+    end
+
+    Ok(post)
+end
+
+// but
+fn find_post(id: Int) -> Result<Post, NotFound>
+    case posts.by_id(id)
+        Ok(Some(post)) -> Ok(post)
+        Ok(None) -> Err(NotFound{id:})
+        Err(_) -> Err(NotFound{id:})
+    end
+end
+```
 
 **State an invariant with `unreachable`.** When a `Maybe` or a `case` arm can
 only miss because of an invariant the reader cannot see from the call, write a

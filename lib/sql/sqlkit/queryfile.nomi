@@ -170,7 +170,7 @@ fn step(path: String, s: State, number: Int, line: String) -> State
                         current: None,
                         in_doc: False,
                         lines: [],
-                        problems: [p, ..done.problems],
+                        problems: [p, ..],
                         skipping: True,
                     }
             end
@@ -184,7 +184,7 @@ fn step(path: String, s: State, number: Int, line: String) -> State
                     before_queries(path, s, number, line)
 
                 Some(_) when s.in_doc and String.starts_with(line, "--") ->
-                    {..s, lines: [doc_line(line), ..s.lines]}
+                    {..s, lines: [doc_line(line), ..]}
 
                 Some(q) when s.in_doc ->
                     {
@@ -195,7 +195,7 @@ fn step(path: String, s: State, number: Int, line: String) -> State
                     }
 
                 Some(_) ->
-                    {..s, lines: [line, ..s.lines]}
+                    {..s, lines: [line, ..]}
             end
     end
 end
@@ -204,7 +204,7 @@ end
 fn before_queries(path: String, s: State, number: Int, line: String) -> State
     case String.strip_prefix(line, "-- import:")
         Some(entry) when String.trim(entry) != "" ->
-            {..s, imports: [String.trim(entry), ..s.imports]}
+            {..s, imports: [String.trim(entry), ..]}
 
         Some(_) ->
             p = problem(
@@ -215,7 +215,7 @@ fn before_queries(path: String, s: State, number: Int, line: String) -> State
                 [],
             )
 
-            {..s, problems: [p, ..s.problems]}
+            {..s, problems: [p, ..]}
 
         None ->
             if String.trim(line) == "" or String.starts_with(String.trim(line), "--") then
@@ -227,7 +227,7 @@ fn before_queries(path: String, s: State, number: Int, line: String) -> State
                     "start each query with its annotation: `-- query: name(params) -> Row`",
                 ])
 
-                {..s, problems: [p, ..s.problems]}
+                {..s, problems: [p, ..]}
             end
     end
 end

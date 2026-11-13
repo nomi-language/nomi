@@ -1,0 +1,31 @@
+// A Bytes or a Regex held as `Display` renders through its own impl, on its
+// own and inside a list, a tuple, a map, a Maybe and a record, as it does
+// at its own type.
+import std::regex.Regex
+
+fn shown(d: Display) -> String
+    "${d}"
+end
+
+test "a Bytes held as Display renders through its impl"
+    d: Display = String.to_bytes("ab")
+    assert "${d}" == "Bytes(2)"
+    assert Display.to_string(d) == "Bytes(2)"
+    assert shown(String.to_bytes("abc")) == "Bytes(3)"
+end
+
+test "a Regex held as Display renders its pattern"
+    d: Display = Regex`a+b`
+    assert "${d}" == "a+b"
+    assert shown(Regex`x*`) == "x*"
+end
+
+test "a Bytes or a Regex inside a container held as Display"
+    b = String.to_bytes("ab")
+    r = Regex`a+b`
+    assert shown([b]) == "[Bytes(2)]"
+    assert shown((b, r)) == "(Bytes(2), a+b)"
+    assert shown({"k" => r}) == "{k => a+b}"
+    assert shown(Some(b)) == "Some(Bytes(2))"
+    assert shown({a: b}) == "{a: Bytes(2)}"
+end

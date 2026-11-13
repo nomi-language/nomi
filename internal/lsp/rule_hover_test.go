@@ -22,25 +22,25 @@ func runRuleHoverCases(t *testing.T, cases []ruleHoverCase) {
 	}
 }
 
-// An `if` without `else` says what it is: a Maybe of its branch, or a
-// statement, and the rule that made it one.
+// An `if` without `else` says it is a statement, and the rule its branch
+// keeps.
 func TestHover_IfWithoutElseStatesItsRule(t *testing.T) {
 	runRuleHoverCases(t, []ruleHoverCase{
-		{"a Maybe", "fn digits(total: Int, digits: Map<String, Int>) -> Maybe<Map<String, Int>>\n  ▮if total == 0 then digits\nend\n",
-			"```nomi\nif … then digits: Maybe<Map<String, Int>>\n```\n\n" +
-				"An `if` without `else` is a `Maybe`: `Some(digits)` when `total == 0` holds, `None` when it doesn't.\n\n" +
+		{"a pattern statement", "fn half(m: Maybe<Int>)\n  ▮if Some(n) = m then dbg n / 2\nend\n",
+			"```nomi\nif … then dbg n / 2\n```\n\n" +
+				"An `if` without `else` whose branch ends in `dbg` is a statement: it runs the branch when `m` matches `Some(n)` and has no value.\n\n" +
 				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)."},
-		{"a Maybe from a pattern", "fn half(m: Maybe<Int>) -> Maybe<Int>\n  ▮if Some(n) = m then n / 2\nend\n",
-			"```nomi\nif … then n / 2: Maybe<Int>\n```\n\n" +
-				"An `if` without `else` is a `Maybe`: `Some(n / 2)` when `m` matches `Some(n)`, `None` when it doesn't.\n\n" +
-				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)."},
-		{"a chain", "fn sign(n: Int) -> Maybe<String>\n  if n > 0 then\n    \"positive\"\n  else ▮if n < 0 then\n    \"negative\"\n  end\nend\n",
-			"```nomi\nif … then \"negative\": Maybe<String>\n```\n\n" +
-				"An `if` chain without a final `else` is a `Maybe`: `Some` of the value of the branch that runs, `None` when no condition holds.\n\n" +
+		{"a chain", "fn sign(n: Int)\n  if n > 0 then\n    dbg n\n  else ▮if n < 0 then\n    dbg -n\n  end\nend\n",
+			"```nomi\nif … then dbg -n\n```\n\n" +
+				"An `if` without `else` whose branch ends in `dbg` is a statement: it runs the branch when `n < 0` holds and has no value.\n\n" +
 				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)."},
 		{"a Unit statement", "import std::io\n\nfn note(debug: Bool)\n  ▮if debug then io.print(\"x\")\nend\n",
 			"```nomi\nif … then io.print(\"x\")\n```\n\n" +
 				"An `if` without `else` whose branch is `Unit` is a statement: it runs the branch when `debug` holds and has no value.\n\n" +
+				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)."},
+		{"a branch that ends in assert", "test \"t\"\n  n = 1\n  ▮if n > 0 then assert n == 1\nend\n",
+			"```nomi\nif … then assert n == 1\n```\n\n" +
+				"An `if` without `else` whose branch ends in `assert` is a statement: it runs the branch when `n > 0` holds and has no value.\n\n" +
 				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)."},
 		{"a statement that leaves", "fn check(n: Int) -> Result<Int, String>\n  ▮if n < 0 then return Err(\"negative\")\n  Ok(n)\nend\n",
 			"```nomi\nif … then return Err(\"negative\")\n```\n\n" +

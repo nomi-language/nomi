@@ -730,6 +730,7 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 	}
 
 	args := make([]Type, len(iface.TypeParamDefs))
+	var open []bool
 	if len(headerArgs) > 0 {
 		copy(args, headerArgs)
 		// The header (`Add<T, Box<T>>`) and the receiver (`Box<T>`) were
@@ -744,6 +745,10 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 				args[i] = bound
 			} else {
 				args[i] = def // unconstrained by any method — stays a free param
+				if open == nil {
+					open = make([]bool, len(iface.TypeParamDefs))
+				}
+				open[i] = true
 			}
 		}
 	}
@@ -765,6 +770,7 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 		Receiver:      receiver,
 		Block:         n,
 		Written:       len(headerArgs) > 0 || headerWritesTypeArgs(n.Interface),
+		Open:          open,
 		Origin:        iface.Origin,
 		File:          declaredOrigin(fa),
 	}
@@ -2666,7 +2672,7 @@ func registerQualifiedTypesFromScope(reg *TypeRegistry, prefix string, scope *Sc
 		if tReal.Type != nil {
 			switch tReal.Kind {
 			case SymbolStruct, SymbolEnum, SymbolType, SymbolTypeAlias, SymbolInterface:
-				if reg.Lookup(name) == nil {
+				if !reg.holds(name) {
 					reg.Register(name, tReal.Type)
 				}
 				registerQualifiedTypeMembers(reg, name, tReal)
@@ -2746,7 +2752,7 @@ func registerQualifiedTypeMembers(reg *TypeRegistry, prefix string, sym *Symbol)
 		name := prefix + "." + memberName
 		switch real.Kind {
 		case SymbolStruct, SymbolEnum, SymbolType, SymbolTypeAlias, SymbolInterface:
-			if reg.Lookup(name) == nil {
+			if !reg.holds(name) {
 				reg.Register(name, real.Type)
 			}
 			registerQualifiedTypeMembers(reg, name, real)

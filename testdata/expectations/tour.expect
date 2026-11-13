@@ -235,35 +235,35 @@ T example.com/search tags=[go, nomi]
 T a+b%2Bc
 T Err(invalid URL escape "%zz")
 T
-C cheat-sheet.md:L140
+C cheat-sheet.md:L139
 E 0
 N 1
 H f62a4e116d20a85d0facc6a4ca0eb339c7bf6026b105281ca9f0d979bd0036db
 T ok literals
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L220
+C cheat-sheet.md:L218
 E 0
 N 1
 H 5cace7f82b57f5da8eb4446d7142d3943cb755a3fb19a84cf2c2e2a5e4d31832
 T ok types and calls
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L342
+C cheat-sheet.md:L340
 E 0
 N 1
 H 6d65127ae100e990e3de457f13ed5f47d5ea10e74c1f126a28a90ca853fce147
 T ok branching and errors
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L429
+C cheat-sheet.md:L427
 E 0
 N 1
 H f93402d5f2460f2e7ce11bf4175a8483b47b3beb1f84ad9600867ec51dc039af
 T ok iteration and pipes
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L471
+C cheat-sheet.md:L469
 E 0
 N 0
 H fc3a7d7e7bca1e9452fd5f3ff98774dba2bb482ac70438aacc41fba680b88a47
@@ -277,7 +277,7 @@ H 43d4e6551530ef28b9999096eab53b4c94adb056747d99c43519d2f927f6bb81
 T ok bindings and functions
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L535
+C cheat-sheet.md:L533
 E 0
 N 1
 H a7280413a9dcc66fb588d5b17d2c6fc7da6a1dccdf02b01bcc260d8151ebd48f
@@ -286,7 +286,7 @@ T ok greetings / app fields
 T ok greetings / tasks
 T test result: ok. 2 passed, 0 failed
 T
-C cheat-sheet.md:L599
+C cheat-sheet.md:L597
 E 0
 N 1
 H 43911209f40f5e5955ceae3cae77b7a2282d57af2df59c6f8e4eaeb909587d9f
@@ -2002,7 +2002,7 @@ N 0
 H b2d081ab19838216aa3178588b98237b4643bd979c1b80c5b81b74734a70f366
 T dbg line 20: ran.value = Ok("hello from /greet/ann b")
 T
-C http.md:L192
+C http.md:L191
 E 0
 N 0
 H 9243b5b3b4eae860c2fe5bb0ea23b3b7f0f41fdb8e11ab54518d20301a894372
@@ -2010,14 +2010,14 @@ T dbg line 67: Response.text(get("/users/7")) = Ok("<h1>Ada</h1>")
 T dbg line 68: get("/users/8").status = Status(404)
 T dbg line 69: Response.text(Router.serve(router, http_testing.form_request(.Post, "/users/7", []))) = Ok("the form has no name\n")
 T
-C http.md:L331
+C http.md:L330
 E 0
 N 1
 H 4166934e3bf93cd9b82afe636b758db9cb6babaa3064da3cfe94390b2a391c90
 T ok a todo is created from its JSON
 T test result: ok. 1 passed, 0 failed
 T
-C http.md:L395
+C http.md:L394
 E 0
 N 0
 H 2076b0c9d76ac5518fc596ebddaeedaa15c9fa322d11199e216900e2f13403b4
@@ -2027,7 +2027,7 @@ T dbg line 64: Response.text(get("ada", "/admin/stats")) = Ok("42 users")
 T dbg line 65: app(http_testing.request(.Get, "/dashboard")).status = Status(401)
 T dbg line 66: Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options") = Some("DENY")
 T
-C http.md:L489
+C http.md:L488
 E 0
 N 0
 H 0cf431dc734ac78aea6542644896ca4902c337d6a83cfd96757ebaf34e438842
@@ -2035,7 +2035,7 @@ T dbg line 63: Response.text(app(Request.add_cookie(http_testing.request(.Get, "
 T dbg line 64: app(http_testing.request(.Get, "/dashboard")).status = Status(303)
 T dbg line 71: app(Request.add_cookie(forged, cookie)).status = Status(403)
 T
-C http.md:L603
+C http.md:L602
 E 0
 N 0
 H acd2e735722a17969ba3fa0292bb232a2a0f5c51cd32884fde310ee1a906f14f
@@ -2050,7 +2050,7 @@ T dbg line 14: Response.text(found) = Ok("user 7")
 T dbg line 15: Router.serve(router, http_testing.request(.Get, "/users/ann")).status = Status(404)
 T dbg line 16: "${Route.path_with(user, {id: 8})}" = "/users/8"
 T
-C http.md:L722
+C http.md:L721
 E 0
 N 1
 H b15893906451bcb5240d4d6eef8c96b3a7a0215aa35368c9214a36d2814ef0b4
@@ -2915,10 +2915,10 @@ T
 C structs-enums-distinct.md:L640
 E 0
 N 0
-H c8932939bd73e5e38067353020fbad97d8f74a71182f19275da8da3952966258
-T dbg line 24: problems("al", rules) = ["too short"]
-T dbg line 25: problems("ada lovelace", rules) = ["has a space"]
-T dbg line 26: problems("ada", rules) = []
+H 67857149ce7a4ea92b2435d6539f600b18dc3f3780f5700d1f53dee3d192a301
+T dbg line 20: problems("al", rules) = ["too short"]
+T dbg line 21: problems("ada lovelace", rules) = ["has a space"]
+T dbg line 22: problems("ada", rules) = []
 T
 C structs-enums-distinct.md:L65
 E 0

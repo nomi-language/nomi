@@ -158,7 +158,7 @@ impl Queue for Inline
                     {
                         ..job,
                         state: .Running,
-                        attempt: job.attempt + 1,
+                        attempt: .. + 1,
                         locked_by: Some(worker),
                         locked_until: Some(now + lease),
                     }
@@ -250,7 +250,7 @@ impl Queue for Inline
             end, fn job -> {
                 ..job,
                 state: .Available,
-                attempt: job.attempt - 1,
+                attempt: .. - 1,
                 run_at: now,
                 locked_by: None,
                 locked_until: None,
@@ -274,7 +274,7 @@ impl Queue for Inline
                     ..job,
                     locked_by: None,
                     locked_until: None,
-                    errors: job.errors + [
+                    errors: .. + [
                         JobError{attempt: job.attempt, at: now, error: "lease expired"},
                     ],
                 }
@@ -307,7 +307,7 @@ impl Queue for Inline
     fn watch(inline: Inline, supervisor: Supervisor, wake: Sender<Unit>) -> Unit
         _ = supervisor
         state = take(inline)
-        put(inline, {..state, watchers: state.watchers + [wake]})
+        put(inline, {..state, watchers: .. + [wake]})
     end
 
     fn last_tick(inline: Inline, schedule: String) -> Result<Maybe<Instant>, sql.Error>
@@ -328,7 +328,7 @@ impl Queue for Inline
         end
 
         if later then
-            put(inline, {..state, ticks: Map.put(state.ticks, schedule, tick)})
+            put(inline, {..state, ticks: Map.put(.., schedule, tick)})
         else
             put(inline, state)
         end
@@ -372,7 +372,7 @@ fn store(inline: Inline, job: NewJob) -> Enqueued
                 finished_at: None,
             }
 
-            put(inline, {..state, next_id: state.next_id + 1, jobs: state.jobs + [stored]})
+            put(inline, {..state, next_id: .. + 1, jobs: .. + [stored]})
             Iter.each(state.watchers, &jobs.wake(&1))
             Enqueued{id: stored.id, duplicate: False}
     end

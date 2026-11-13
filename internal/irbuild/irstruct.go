@@ -113,6 +113,12 @@ func irRetainedStructKindIn(d *typeDef, outer []*typeDef) bool {
 			}
 			continue
 		}
+		if on, ok := irHandleOnWalk(f.k, append(outer, d)); on {
+			if !ok {
+				return false
+			}
+			continue
+		}
 		if deciding := append(outer, d); irKindReaches(f.k, deciding) {
 			// `children: List<Node>`, `next: Maybe<Node>`, `kids: Map<String,
 			// Node>`: a field that reaches a type this walk is deciding. It is
@@ -255,6 +261,59 @@ func irRecursiveFieldKind(k kind, deciding []*typeDef) bool {
 	return irComposedFieldKind(k, deciding)
 }
 
+// irHandleOnWalk decides a field or payload that is, or holds in a
+// structural part, a channel or task handle whose element reaches a type
+// the walk is deciding: `reply: Channel<Request>` inside Request, `Ask
+// Channel<Msg>` and `Ask (Channel<Msg>, Int)` inside Msg. The VM holds a
+// handle by reference and never puts its element in the layout, so the
+// element is decided with the walk's stack, co-inductively
+// (irRecursiveFieldKind), as a field that reaches its struct is, and a
+// composite holding one part by part (irComposedFieldKind).
+// irKindReaches does not look through a handle, and the stack-less
+// irConcHandleKind would restart the walk at a type already on it. on is
+// false for anything else, which the caller decides as before.
+func irHandleOnWalk(k kind, deciding []*typeDef) (on, ok bool) {
+	if elem, direct := irWalkHandleElem(k); direct {
+		if !irKindReaches(elem, deciding) {
+			return false, false
+		}
+		return true, irRecursiveFieldKind(elem, deciding)
+	}
+	if !irHoldsHandleOnWalk(k, deciding, 0) {
+		return false, false
+	}
+	return true, irComposedFieldKind(k, deciding)
+}
+
+// irWalkHandleElem is the element of a channel or task handle k.
+func irWalkHandleElem(k kind) (kind, bool) {
+	if elem, owner, isChannel := channelElem(k); isChannel {
+		return elem, owner != ""
+	}
+	return taskElem(k)
+}
+
+// irHoldsHandleOnWalk reports whether k holds, in a structural part or a
+// prelude wrapper's argument, a handle whose element reaches a type on
+// deciding.
+func irHoldsHandleOnWalk(k kind, deciding []*typeDef, depth int) bool {
+	if depth > 16 {
+		return false
+	}
+	if elem, handle := irWalkHandleElem(k); handle {
+		return irKindReaches(elem, deciding)
+	}
+	if k.def != nil && k.def.preludeOf == nil {
+		return false
+	}
+	for _, p := range kindParts(k) {
+		if irHoldsHandleOnWalk(p, deciding, depth+1) {
+			return true
+		}
+	}
+	return false
+}
+
 // irUserNominal is a user struct or enum, or an instance of a user generic
 // one: a type irNominalCoinductive decides.
 func irUserNominal(k kind) bool {
@@ -292,6 +351,10 @@ func irStdStructNominal(k kind) bool {
 func irComposedFieldKind(k kind, outer []*typeDef) bool {
 	var part func(p kind) bool
 	part = func(p kind) bool {
+		if elem, handle := irWalkHandleElem(p); handle && irKindReaches(elem, outer) {
+			// `(Channel<Msg>, Int)` inside Msg (irHandleOnWalk).
+			return irRecursiveFieldKind(elem, outer)
+		}
 		switch {
 		case p.tag == tagNamed && p.def != nil && !p.def.isEnum && !p.def.isDistinct && p.def.genStructOf == nil && p.def.preludeOf == nil:
 			if _, vector := vectorElem(p); !vector {
@@ -421,15 +484,15 @@ func irFuncFieldKind(k kind, outer []*typeDef) bool {
 			}
 			return true
 		}
-		return irCallableValueKind(p)
+		// Unit among them: `(Unit) -> Unit` takes the one value.
+		return irCallOperandKind(p)
 	}
 	for _, p := range funcParams(k) {
 		if !ok(p) {
 			return false
 		}
 	}
-	r := funcResult(k)
-	return r == kindUnit || ok(r)
+	return ok(funcResult(k))
 }
 
 // irUserStructFieldKind widens a user struct's field domain past
@@ -581,12 +644,13 @@ func irLeafStructKind(d *typeDef) bool {
 }
 
 // irRetainedFieldKind is a struct field's domain: a leaf, a channel or task
-// handle (irHandleFieldKind), or a declared struct that is itself retained.
-// An unboxed struct field cannot contain its own declaration, so the
-// recursion ends at the leaves; irHandleFieldKind bounds the one path
-// through a handle's element.
+// handle (irHandleFieldKind), a type witness (`trace: Type<TraceId>`), a
+// Dynamic, or a declared struct that is itself retained. An unboxed struct field cannot
+// contain its own declaration, so the recursion ends at the leaves;
+// irHandleFieldKind bounds the one path through a handle's element, and a
+// witness holds no value of its type.
 func irRetainedFieldKind(k kind) bool {
-	if k == kindUnit || irRetainedLeafKind(k) || irHandleFieldKind(k) {
+	if k == kindUnit || irRetainedLeafKind(k) || irHandleFieldKind(k) || irTypeWitnessKind(k) || irDynamicKind(k) {
 		return true
 	}
 	return k.tag == tagNamed && k.def != nil && !k.def.isEnum && irRetainedStructKind(k.def)
@@ -614,10 +678,10 @@ func irRetainedValueKind(k kind) bool {
 	// values of every kind, and each operation over one checks the element
 	// kinds it reads itself.
 	if k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 {
-		return irCallableValueKind(k.comp.parts[0])
+		return k.comp.parts[0] == kindUnit || irCallableValueKind(k.comp.parts[0])
 	}
 	if elem, vector := vectorElem(k); vector {
-		return irCallableValueKind(elem)
+		return elem == kindUnit || irCallableValueKind(elem)
 	}
 	return k.tag == tagNamed && (irRetainedStructKind(k.def) || irRetainedEnumKind(k.def) || irCompositeDistinct(k.def))
 }
@@ -899,7 +963,7 @@ func (bl *irScalarBuilder) declDefault(deflt ast.Node, want kind) (ir.Temp, bool
 		}
 	}
 	v, k, ok = bl.coerceEmpty(deflt, v, k, want)
-	if !ok || k != want {
+	if !ok {
 		return ir.NoTemp, false
 	}
 	return v, true

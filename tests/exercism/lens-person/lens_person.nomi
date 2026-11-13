@@ -53,7 +53,7 @@ end
 pub fn rename_streets(person: Person, rename: (String) -> String) -> Person
     {
         ..person,
-        born: {.., at: {.., street: rename(person.born.at.street)}},
-        address: {.., street: rename(person.address.street)},
+        born: {.., at: {.., street: rename(..)}},
+        address: {.., street: rename(..)},
     }
 end

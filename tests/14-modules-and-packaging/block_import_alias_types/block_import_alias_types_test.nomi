@@ -1,0 +1,52 @@
+// A block `import` that rebinds a module alias rebinds it for types too:
+// `side.Kind`, `side.Box` and `fmt.WriteOptions` name the block's module
+// in an expression, an annotation and a struct literal alike.
+import
+    std::csv as fmt
+    left as side
+end
+
+fn right_box() -> String
+    import right as side
+
+    b: side.Box = side.Box{s: "fn"}
+    b.s
+end
+
+test "a variant through a rebound alias uses the block module's Display"
+    import right as side
+
+    x = side.Kind.A
+    assert "${x}" == "right A"
+    k: side.Kind = .B
+    assert "${k}" == "right B"
+    assert [side.Kind.A, k] |> Iter.map(fn v -> "${v}") |> Iter.to_list() == ["right A", "right B"]
+end
+
+test "a struct literal and an annotation through a rebound alias"
+    import right as side
+
+    b: side.Box = side.Box{s: "x"}
+    assert b.s == "x"
+    assert right_box() == "fn"
+end
+
+test "the file's alias outside those blocks"
+    k: side.Kind = side.Kind.A
+    assert "${k}" == "left A"
+    assert side.Box{n: 2}.n == 2
+end
+
+test "a std type through a rebound alias"
+    import std::xml as fmt
+
+    o: fmt.WriteOptions = fmt.WriteOptions{indent: "  ", declaration: True}
+    assert o.indent == "  "
+    assert o.declaration
+end
+
+test "the file's std alias"
+    o: fmt.WriteOptions = fmt.WriteOptions{crlf: True}
+    assert o.crlf
+    assert o.delimiter == ','
+end

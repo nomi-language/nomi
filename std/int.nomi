@@ -243,11 +243,7 @@ impl Int
     pub fn floor_div(x: Int, y: Int) -> Int
         q = x / y
 
-        if x % y != 0 and (x < 0) != (y < 0) then
-            q - 1
-        else
-            q
-        end
+        if x % y != 0 and (x < 0) != (y < 0) then q - 1 else q
     end
 
     /// Returns |n|.

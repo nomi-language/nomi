@@ -169,10 +169,7 @@ func (g *gen) declareCheckSite(t *ast.TaggedString) bool {
 	cb.resultCopy(t, call.Dst())
 	cb.side(sh.result, irScalarSide{k: k})
 	cb.b.SetTerm(ir.NewReturn(at, sh.result))
-	if err := g.irLint(f); err != nil {
-		g.dc.note("a checked literal's check site that does not lint: " + err.Error())
-		return false
-	}
+	g.irRequireLint(f, "a checked literal's check site")
 	sym := g.irTypes().Symbol(checkedLiteralKey{t}, name)
 	cell := g.irModule().DeclareLazyCell(sym, ty, f)
 	site := LiteralSite{

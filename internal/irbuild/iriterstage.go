@@ -132,10 +132,9 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		}
 		return bl.iterAppend(t, ir.IterToSet, ir.IterOverSeq, k, src), k, true, true
 	case "to_vector":
+		// elem is a lowered value's, in the domain, which a Vector holds
+		// whatever it is (irRetainedValueKind's Vector arm).
 		k := bl.g.vectorKindOf(elem)
-		if !irRetainedValueKind(k) && !bl.g.irVectorValueKind(k) {
-			return no()
-		}
 		return bl.iterAppend(t, ir.IterToVector, ir.IterOverSeq, k, src), k, true, true
 	case "to_map":
 		if elem.tag != tagTuple || elem.comp == nil || len(elem.comp.parts) != 2 {
@@ -168,7 +167,7 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		inner := r.comp.parts[0]
 		k := seqKindIn(bl.g, inner)
 		switch {
-		case r.tag == tagList && (irRetainedListKind(r) || irListTransportKind(r)):
+		case irHeldListKind(r):
 			return bl.iterAppendSignalling(t, ir.IterFlatMapList, signalling, k, src, args.temps[1]), k, true, true
 		case irRetainedSeqKind(r):
 			return bl.iterAppendSignalling(t, ir.IterFlatMap, signalling, k, src, args.temps[1]), k, true, true
@@ -179,10 +178,11 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 			// A source of Strings, Ranges, Sets or Vectors: each element
 			// viewed as the Iter it is, then materialized.
 			view, ok := bl.sourceViewFunc(t, elem, inner)
-			k := listKindIn(bl.g, inner)
-			if !ok || (!irRetainedListKind(k) && !irListTransportKind(k)) {
+			if !ok {
 				return no()
 			}
+			k := listKindIn(bl.g, inner)
+			irMustHold(irHeldListKind(k), "flatten", k)
 			flat := bl.iterAppend(t, ir.IterFlatMap, ir.IterOverSeq, seqKindIn(bl.g, inner), src, view)
 			return bl.iterAppend(t, ir.IterToList, ir.IterOverSeq, k, flat), k, true, true
 		}
@@ -191,9 +191,7 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		}
 		inner := elem.comp.parts[0]
 		k := listKindIn(bl.g, inner)
-		if !irRetainedListKind(k) && !irListTransportKind(k) {
-			return no()
-		}
+		irMustHold(irHeldListKind(k), "flatten", k)
 		switch {
 		case elem.tag == tagList:
 			return bl.iterAppend(t, ir.IterFlattenList, ir.IterOverSeq, k, src), k, true, true
@@ -203,9 +201,7 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		return no()
 	case "chunks", "chunk_by":
 		chunk := listKindIn(bl.g, elem)
-		if !irRetainedListKind(chunk) && !irListTransportKind(chunk) {
-			return no()
-		}
+		irMustHold(irHeldListKind(chunk), method, chunk)
 		k := seqKindIn(bl.g, chunk)
 		if method == "chunks" {
 			if args.kinds[1] != kindInt {
@@ -215,7 +211,7 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		}
 		// The machine compares keys as `==` does, so an interface-valued key
 		// compares by its run-time type.
-		if key, ok := bl.iterPlainCallback(args, 1, elem); !ok || !irRetainedValueKind(key) && !irExistentialKind(key) {
+		if _, ok := bl.iterPlainCallback(args, 1, elem); !ok {
 			return no()
 		}
 		return bl.iterAppend(t, ir.IterChunkBy, ir.IterOverSeq, k, src, args.temps[1]), k, true, true
@@ -260,10 +256,7 @@ func (bl *irScalarBuilder) sourceViewFunc(at ast.Node, sk, elem kind) (ir.Temp, 
 		return ir.NoTemp, false
 	}
 	child.b.SetTerm(ir.NewReturn(pos, v))
-	if err := bl.g.irLint(f); err != nil {
-		bl.g.dc.note("a source view function that does not lint: " + err.Error())
-		return ir.NoTemp, false
-	}
+	bl.g.irRequireLint(f, "a source view function")
 	n := ir.NewFuncValue(pos, bl.f.NewTemp(), f)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: funcKindIn(bl.g, []kind{sk}, seqKindIn(bl.g, elem))})
@@ -285,6 +278,16 @@ func (bl *irScalarBuilder) iterConstructor(t *ast.Call, args irQualArgs, method 
 		return no()
 	}
 	elem := args.kinds[0]
+	if fk := args.kinds[1]; fk.tag == tagFunc && len(funcParams(fk)) == 1 && funcParams(fk)[0] != elem {
+		// `Iter.iterate((7 as Display), fn x -> x)`: the seed enters the
+		// step's parameter, an interface it implements, as an argument
+		// enters a parameter.
+		v, k, ok := bl.coerceEmpty(t.Args[0], args.temps[0], elem, funcParams(fk)[0])
+		if !ok {
+			return no()
+		}
+		args.temps[0], args.kinds[0], elem = v, k, k
+	}
 	r, signalling, ok := bl.iterSignalledCallback(args, 1, elem)
 	if !ok || r != elem {
 		return no()
