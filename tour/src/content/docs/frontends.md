@@ -38,7 +38,7 @@ them without a network, one good and one bad, to show the responses:
 import
     std::html.Html
     std::http.{self, CrossOrigin, Request, Response, Route, Router, Status}
-    std::http_testing
+    std::http::testing
 end
 
 fn layout(title: String, content: Html) -> Html
@@ -81,7 +81,7 @@ end
 fn main()
     router = Router.new([Route.to("GET /signup", show_signup), Route.to("POST /signup", signup)])!
     app = Router.handler(router) |> http.cross_origin_protection(CrossOrigin{})
-    post = fn email: String -> app(http_testing.form_request(.Post, "/signup", [("email", email)]))
+    post = fn email: String -> app(testing.form_request(.Post, "/signup", [("email", email)]))
 
     dbg post("ada@example.com").status
     bad = post("<ada>")
@@ -143,7 +143,7 @@ reads derives `ToJson`, and is `pub` so that `nomi types` declares it:
 ```nomi-run
 import
     std::http.{Request, Response}
-    std::http_testing
+    std::http::testing
     std::json.ToJson
 end
 
@@ -165,11 +165,11 @@ pub fn list_todos(Request) -> Response
 end
 
 fn main()
-    dbg Response.text(list_todos(http_testing.request(.Get, "/api/todos")))
+    dbg Response.text(list_todos(testing.request(.Get, "/api/todos")))
 end
 ```
 <!-- expect
-dbg line 25: Response.text(list_todos(http_testing.request(.Get, "/api/todos"))) = Ok("[{\"id\":1,\"title\":\"Write the API\",\"done\":true},{\"id\":2,\"title\":\"Write the page\",\"done\":false}]")
+dbg line 25: Response.text(list_todos(testing.request(.Get, "/api/todos"))) = Ok("[{\"id\":1,\"title\":\"Write the API\",\"done\":true},{\"id\":2,\"title\":\"Write the page\",\"done\":false}]")
 -->
 
 ### Shared types

@@ -7,7 +7,7 @@
 //# A program keeps its logger in an app field and logs through it
 //# (`log.info(App.logger, …)`), so a test or one part of the program can
 //# replace it with `with App.logger = …`. A library takes a `Logger`
-//# parameter. `std::log_testing` records what a body logs as values.
+//# parameter. `std::log::testing` records what a body logs as values.
 //#
 //# ## Levels
 //#
@@ -140,7 +140,7 @@ pub fn any(key: String, value: Display) -> Field
     Field{key:, value: Value.Text("${value}")}
 end
 
-// Where a logger's records go. Records is log_testing's: one JSON array
+// Where a logger's records go. Records is std::log::testing's: one JSON array
 // per record, which keeps the fields' order, since a JSON object's keys
 // come back sorted.
 enum Sink
@@ -191,8 +191,8 @@ impl Logger
         Logger{sink: Sink.Discard, min: Level.Error, fields: []}
     end
 
-    /// The logger for log_testing's recorder: one JSON array per record.
-    /// Not for programs; `log_testing.run` builds it.
+    /// The logger for std::log::testing's recorder: one JSON array per record.
+    /// Not for programs; `std::log::testing.run` builds it.
     pub fn records(writer: Writer, min: Level) -> Logger
         Logger{sink: Sink.Records(writer), min:, fields: []}
     end

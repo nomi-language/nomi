@@ -179,6 +179,20 @@ func (b *builder) twoImportsOneName(prior, sym *Symbol, n *ast.ImportStmt) TypeE
 		dirs = append(dirs, b.importParentDir(first))
 	}
 	dirs = append(dirs, b.importParentDir(n))
+	// A std module nested under its parent (std::fs::testing) has no
+	// directory import beside it, since `std::fs` is a file: the help
+	// renames one after its parent.
+	if strings.HasPrefix(firstPath, "std"+ast.PathSeparator) || strings.HasPrefix(importSpelledPath(n), "std"+ast.PathSeparator) {
+		path, parent := importSpelledPath(n), dirs[len(dirs)-1]
+		if parent == "std" && first != nil && dirs[0] != "std" {
+			path, parent = firstPath, dirs[0]
+		}
+		alias := "other_" + sym.Name
+		if parent != "std" {
+			alias = lastPathSegment(parent) + "_" + sym.Name
+		}
+		return e.WithHint(fmt.Sprintf("import one under another name, as in `import %s as %s`", path, alias))
+	}
 	if first != nil && dirs[0] != "" && dirs[1] != "" && dirs[0] != dirs[1] {
 		return e.WithHint(fmt.Sprintf("import the directories (`import %s` and `import %s`) and write `%s::%s` and `%s::%s`, or import one under another name with `as`",
 			dirs[0], dirs[1], lastPathSegment(dirs[0]), lastPathSegment(firstPath), lastPathSegment(dirs[1]), lastPathSegment(importSpelledPath(n))))
@@ -349,13 +363,13 @@ func (b *builder) reachThroughDirectory(dirSym *Symbol, use string, scope *Scope
 // the file may not import: one inside another subtree's `internal/`, or an
 // internal std module. "" when it may.
 func (b *builder) reachAccessError(full []string, spelled string) string {
-	if len(full) == 2 && full[0] == "std" && !IsStdlibKey(b.file.Origin) {
-		if owner, internal := internalStdModules[full[1]]; internal {
+	if full[0] == "std" {
+		if len(full) < 2 || IsStdlibKey(b.file.Origin) {
+			return ""
+		}
+		if owner, internal := internalStdModules[strings.Join(full[1:], "/")]; internal {
 			return fmt.Sprintf("`%s` is internal to std::%s", spelled, owner)
 		}
-		return ""
-	}
-	if full[0] == "std" {
 		return ""
 	}
 	if err := b.internalAccessError(full); err != nil {

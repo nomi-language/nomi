@@ -1,2 +1,2 @@
 go test fuzz v1
-string("import std::http.{Body, Method, Response, Route, Router}\nimport std::http_testing\n\nfn main() {\n    r: Route<.{id: Int}> = \"GET /p/{id}\"\n    router = Router.new([Route.to_with(r, fn _, p -> Ok(Response{body: Body.Text(\"${p.id}\")}))])!\n    _ = Router.serve(router, http_testing.request(Method.Get, \"/p/1\"))\n}\n")
+string("import std::http.{Body, Method, Response, Route, Router}\nimport std::http::testing\n\nfn main() {\n    r: Route<.{id: Int}> = \"GET /p/{id}\"\n    router = Router.new([Route.to_with(r, fn _, p -> Ok(Response{body: Body.Text(\"${p.id}\")}))])!\n    _ = Router.serve(router, testing.request(Method.Get, \"/p/1\"))\n}\n")

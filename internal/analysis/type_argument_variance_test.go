@@ -22,6 +22,37 @@ struct Box<T>
   v: T
 end
 
+struct Sink<T>
+  take: (T) -> String
+end
+
+struct Cell<T>
+  get: () -> T
+  put: (T) -> Unit
+end
+
+struct Circle
+  r: Int
+end
+
+type Ids<T> List<T>
+
+type Handler<T> (T) -> T
+
+type Taker<T> (T) -> String
+
+enum Shape
+  embeds Circle
+  Dot
+end
+
+fn radius(s: Shape) -> String
+  case s
+      .Circle{r:} -> Int.to_string(r)
+      .Dot -> "0"
+  end
+end
+
 enum Opt<T>
   Has(T)
   Nothing
@@ -40,32 +71,47 @@ fn float_str(f: Float) -> String
 end
 `
 
-// A std collection's type arguments convert where each element already is
-// a value of the wider type (spec §5 *Type argument conversion*): a List,
-// Vector, Set, Map (keys and values), Maybe and Result, nested, through a
-// tuple's elements and a record's fields, and a function whose result
-// widens or whose parameter narrows, at an argument, an annotation, a
-// result and a field.
+// A type argument converts by its parameter's variance (spec §5 *Covariant
+// conversion*): a std collection's (List, Vector, Set, Map keys and values,
+// Maybe, Result), nested, through a tuple's elements and a record's fields,
+// a user struct's or enum's covariant parameter, a function's result and,
+// the other way, its parameter, at an argument, an annotation, a result and
+// a field. An element that enters its interface boxed, a function that
+// needs a wrapper and a type parameter convert too.
 func TestTypeArgumentVariance_CovariantConverts(t *testing.T) {
 	for name, body := range map[string]string{
-		"List":              `xs: List<Int> = [1]; ys: List<Display> = xs; dbg Iter.count(ys)`,
-		"Vector":            `xs: Vector<Int> = Vector[1]; ys: Vector<Display> = xs; dbg Iter.count(ys)`,
-		"Set":               `xs: Set<Int> = Set[1]; ys: Set<Hashable> = xs; dbg Iter.count(ys)`,
-		"Map values":        `m = {"a" => Pt{x: 1}}; n: Map<String, Named> = m; dbg Map.size(n)`,
-		"Map keys":          `m = {1 => "a"}; n: Map<Hashable, String> = m; dbg Map.size(n)`,
-		"Maybe":             `x: Maybe<Int> = Some(1); y: Maybe<Display> = x; dbg Maybe.is_some(y)`,
-		"Result":            `x: Result<Int, String> = Ok(1); y: Result<Display, String> = x; dbg Result.is_ok(y)`,
-		"nested":            `xs = [[1]]; ys: List<List<Display>> = xs; dbg Iter.count(ys)`,
-		"tuple element":     `xs = [("a", Pt{x: 1})]; ys: List<(String, Named)> = xs; dbg Iter.count(ys)`,
-		"record field":      `xs = [{n: 1}]; ys: List<{n: Display}> = xs; dbg Iter.count(ys)`,
-		"function result":   `fs = [number]; gs: List<(Int) -> Display> = fs; dbg Iter.count(gs)`,
-		"function argument": `fs = [shown]; gs: List<(Int) -> String> = fs; dbg Iter.count(gs)`,
-		"argument":          `xs = [1]; dbg take(xs)`,
-		"named argument":    `xs = [1]; dbg take(xs:)`,
-		"pipe":              `xs = [1]; dbg xs |> take()`,
-		"field":             `xs = [Pt{x: 1}]; g = Gallery{items: xs}; dbg Iter.count(g.items)`,
-		"result":            `dbg Iter.count(widen([1]))`,
-		"branches":          `a = [1]; b = ["x"]; c: List<Display> = if True then a else b; dbg Iter.count(c)`,
+		"List":                         `xs: List<Int> = [1]; ys: List<Display> = xs; dbg Iter.count(ys)`,
+		"Vector":                       `xs: Vector<Int> = Vector[1]; ys: Vector<Display> = xs; dbg Iter.count(ys)`,
+		"Set":                          `xs: Set<Int> = Set[1]; ys: Set<Hashable> = xs; dbg Iter.count(ys)`,
+		"Map values":                   `m = {"a" => Pt{x: 1}}; n: Map<String, Named> = m; dbg Map.size(n)`,
+		"Map keys":                     `m = {1 => "a"}; n: Map<Hashable, String> = m; dbg Map.size(n)`,
+		"boxed Map keys":               `m = {Some(1) => "a"}; n: Map<Hashable, String> = m; dbg Map.size(n)`,
+		"Maybe":                        `x: Maybe<Int> = Some(1); y: Maybe<Display> = x; dbg Maybe.is_some(y)`,
+		"Result":                       `x: Result<Int, String> = Ok(1); y: Result<Display, String> = x; dbg Result.is_ok(y)`,
+		"Result error":                 `x: Result<Int, Pt> = Err(Pt{x: 1}); y: Result<Int, Named> = x; dbg Result.is_ok(y)`,
+		"nested":                       `xs = [[1]]; ys: List<List<Display>> = xs; dbg Iter.count(ys)`,
+		"tuple element":                `xs = [("a", Pt{x: 1})]; ys: List<(String, Named)> = xs; dbg Iter.count(ys)`,
+		"record field":                 `xs = [{n: 1}]; ys: List<{n: Display}> = xs; dbg Iter.count(ys)`,
+		"function result":              `fs = [number]; gs: List<(Int) -> Display> = fs; dbg Iter.count(gs)`,
+		"function argument":            `fs = [shown]; gs: List<(Int) -> String> = fs; dbg Iter.count(gs)`,
+		"boxed element":                `xs = [Some(1)]; ys: List<Display> = xs; dbg Iter.count(ys)`,
+		"boxed Maybe payload":          `x = Some([1]); y: Maybe<Display> = x; dbg Maybe.is_some(y)`,
+		"wrapped function":             `fs = [shown]; gs: List<(Maybe<Int>) -> String> = fs; dbg Iter.count(gs)`,
+		"nested function":              `f = fn -> [1]; g: () -> List<Display> = f; dbg Iter.count(g())`,
+		"user struct":                  `b = Box{v: [1]}; c: Box<Display> = b; dbg Display.to_string(c.v)`,
+		"user enum":                    `o = Opt.Has(Some(1)); p: Opt<Display> = o; dbg Iter.count([p])`,
+		"user struct in a List":        `bs = [Box{v: 1}]; cs: List<Box<Display>> = bs; dbg Iter.count(cs)`,
+		"contravariant field":          `s = Sink{take: shown}; u: Sink<Int> = s; dbg u.take(1)`,
+		"distinct type, covariant":     `ids = Ids([Some(1)]); wide: Ids<Display> = ids; dbg wide`,
+		"distinct type, contravariant": `t = Taker(shown); u: Taker<Int> = t; dbg u`,
+		"embedded type, covariant":     `b = Box{v: Circle{r: 1}}; c: Box<Shape> = b; dbg radius(c.v)`,
+		"embedded type, contravariant": `s = Sink{take: radius}; u: Sink<Circle> = s; dbg u.take(Circle{r: 1})`,
+		"argument":                     `xs = [1]; dbg take(xs)`,
+		"named argument":               `xs = [1]; dbg take(xs:)`,
+		"pipe":                         `xs = [1]; dbg xs |> take()`,
+		"field":                        `xs = [Pt{x: 1}]; g = Gallery{items: xs}; dbg Iter.count(g.items)`,
+		"result":                       `dbg Iter.count(widen([1]))`,
+		"branches":                     `a = [1]; b = ["x"]; c: List<Display> = if True then a else b; dbg Iter.count(c)`,
 		"case branches": `a = [1]; b = ["x"]; c: List<Display> = case 1
     1 -> a
     _ -> b
@@ -92,28 +138,13 @@ end
 			expectNoErrorsT(t, checkWithStdlib(src))
 		})
 	}
-}
-
-// A conversion that would take work per element is refused, and the help
-// names the explicit form: an element that enters its interface boxed (a
-// Maybe, a type parameter), and a function that would need a wrapper.
-func TestTypeArgumentVariance_PerElementWorkIsRefused(t *testing.T) {
-	for _, tc := range []struct{ name, body, want string }{
-		{"a boxed element", `xs = [Some(1)]; ys: List<Display> = xs; dbg ys`,
-			"type mismatch: expected List<Display>, got List<Maybe<Int>>\nhelp: List<Maybe<Int>> does not convert to List<Display>: Maybe<Int> becomes Display boxed, so the conversion would build a new List element by element; write it where that is meant: `Iter.map(xs, fn x -> x) |> Iter.to_list()`"},
-		{"a boxed Maybe payload", `x = Some([1]); y: Maybe<Display> = x; dbg y`,
-			"type mismatch: expected Maybe<Display>, got Maybe<List<Int>>\nhelp: Maybe<List<Int>> does not convert to Maybe<Display>: List<Int> becomes Display boxed, so the conversion would build a new Maybe element by element; write it where that is meant: `Maybe.map(m, fn x -> x)`"},
-		{"a wrapper per function", `fs = [shown]; gs: List<(Maybe<Int>) -> String> = fs; dbg Iter.count(gs)`,
-			"type mismatch: expected List<(Maybe<Int>) -> String>, got List<(Display) -> String>\nhelp: List<(Display) -> String> does not convert to List<(Maybe<Int>) -> String>: each (Display) -> String would need a wrapper to become (Maybe<Int>) -> String, one per element; wrap them where that is meant: `Iter.map(fs, fn f -> fn x -> f(x)) |> Iter.to_list()`"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			src := varianceDecls + "\nfn main()\n  " + tc.body + "\nend\n"
-			expectErrorContaining(t, checkWithStdlib(src), tc.want)
-		})
-	}
+	t.Run("a type parameter at an invariant position is refused", func(t *testing.T) {
+		src := varianceDecls + "fn wide<T>(c: Cell<T>) -> Cell<Display> where T: Display\n  c\nend\n\nfn main()\n  dbg wide(Cell{get: fn -> 1, put: fn _ -> Unit}).get()\nend\n"
+		expectErrorContaining(t, checkWithStdlib(src), "expected Cell<Display>, got Cell<T>")
+	})
 	t.Run("a type parameter", func(t *testing.T) {
 		src := "fn wide<T>(xs: List<T>) -> List<Display> where T: Display\n  xs\nend\n\nfn main()\n  dbg Iter.count(wide([1]))\nend\n"
-		expectErrorContaining(t, checkWithStdlib(src), "T may be a type that becomes Display boxed")
+		expectNoErrorsT(t, checkWithStdlib(src))
 	})
 }
 
@@ -125,14 +156,27 @@ func TestTypeArgumentVariance_ContravariantIsRefused(t *testing.T) {
 		"type mismatch: expected List<(Display) -> String>, got List<(Float) -> String>\nhelp: List<(Float) -> String> does not convert to List<(Display) -> String>: each function takes only Float, and one of type (Display) -> String may be passed any Display")
 }
 
-// A declared generic type's type arguments compare exactly, a struct's, an
-// enum's and an interface's, since its values carry them.
-func TestTypeArgumentVariance_DeclaredTypesAreInvariant(t *testing.T) {
+// A user type's parameter that its fields only take converts only the other
+// way, one they both hold and take compares exactly, and a std struct's or
+// host type's arguments compare exactly: each refusal names the reason.
+func TestTypeArgumentVariance_UnsoundConversionsAreRefused(t *testing.T) {
 	for name, tc := range map[string]struct{ body, want string }{
-		"struct": {`b = Box{v: 1}; c: Box<Display> = b; dbg c.v`,
-			"type mismatch: expected Box<Display>, got Box<Int>\nhelp: Box<Int> does not convert to Box<Display>: a declared generic type's type arguments compare exactly, since its values carry them; build a new Box<Display> from the value's parts"},
-		"enum":      {`o = Opt.Has(1); p: Opt<Display> = o; dbg Iter.count([p])`, "expected Opt<Display>, got Opt<Int>"},
-		"in a List": {`bs = [Box{v: 1}]; cs: List<Box<Display>> = bs; dbg Iter.count(cs)`, "expected List<Box<Display>>, got List<Box<Int>>"},
+		"contravariant": {`s = Sink{take: float_str}; u: Sink<Display> = s; dbg u.take(1.5)`,
+			"type mismatch: expected Sink<Display>, got Sink<Float>\nhelp: Sink<Float> does not convert to Sink<Display>: Sink's type parameter T is contravariant, since Sink's fields only take a T, so it converts only where Display converts to Float"},
+		"invariant": {`c = Cell{get: fn -> 1, put: fn _ -> Unit}; d: Cell<Display> = c; dbg d.get()`,
+			"type mismatch: expected Cell<Display>, got Cell<Int>\nhelp: Cell<Int> does not convert to Cell<Display>: Cell's type parameter T is invariant, since Cell's fields both hold a T and take one; build a new Cell<Display> from the value's parts"},
+		"embedded type, invariant": {`c = Cell{get: fn -> Circle{r: 1}, put: fn _ -> Unit}; d: Cell<Shape> = c; dbg d.get()`,
+			"type mismatch: expected Cell<Shape>, got Cell<Circle>\nhelp: Cell<Circle> does not convert to Cell<Shape>: Cell's type parameter T is invariant, since Cell's fields both hold a T and take one; build a new Cell<Shape> from the value's parts"},
+		"embedded type, contravariant the wrong way": {`s = Sink{take: fn c: Circle -> Int.to_string(c.r)}; u: Sink<Shape> = s; dbg u.take(.Dot)`,
+			"type mismatch: expected Sink<Shape>, got Sink<Circle>\nhelp: Sink<Circle> does not convert to Sink<Shape>: Sink's type parameter T is contravariant, since Sink's fields only take a T, so it converts only where Shape converts to Circle"},
+		"distinct type, invariant": {`h = Handler(fn x: Int -> x); d: Handler<Display> = h; dbg d`,
+			"type mismatch: expected Handler<Display>, got Handler<Int>\nhelp: Handler<Int> does not convert to Handler<Display>: Handler's type parameter T is invariant, since Handler's inner type both holds a T and takes one; build a new Handler<Display> from the value's parts"},
+		"a collection as an Iter, invariant": {`c = Cell{get: fn -> [1], put: fn _ -> Unit}; d: Cell<Iter<Int>> = c; dbg d.get()`,
+			"type mismatch: expected Cell<Iter<Int>>, got Cell<List<Int>>\nhelp: Cell<List<Int>> does not convert to Cell<Iter<Int>>: Cell's type parameter T is invariant"},
+		"invariant in a List": {`cs = [Cell{get: fn -> 1, put: fn _ -> Unit}]; ds: List<Cell<Display>> = cs; dbg Iter.count(ds)`,
+			"expected List<Cell<Display>>, got List<Cell<Int>>"},
+		"an element that does not implement it": {`xs = [1.5]; ys: List<Named> = xs; dbg Iter.count(ys)`,
+			"expected List<Named>, got List<Float>"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			src := varianceDecls + "\nfn main()\n  " + tc.body + "\nend\n"

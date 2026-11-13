@@ -12,7 +12,7 @@ import (
 // instead of the disk: the one the browser build gives every program, and
 // the one the tour runs each block against. Its working directory is
 // `/work`, which relative paths resolve against, and `/tmp` exists. It is
-// internal/stdio's Memory, the same file system `fs_testing.run` uses. It
+// internal/stdio's Memory, the same file system `std::fs::testing.run` uses. It
 // is a FileSystem, so an embedder can wrap it as it can DiskFiles.
 type MemoryFiles struct {
 	backendFiles

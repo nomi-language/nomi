@@ -39,7 +39,7 @@ import
     results.Result.{self, Err, Ok}
     sets.Set
     sql.{self, Conn}
-    sql_testing.Fake
+    sql::testing.Fake
     strings.String
     supervisors.Supervisor
     tasks.Task

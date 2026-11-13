@@ -15,7 +15,7 @@ import (
 // the checker saw enter the interface (checkedErasures), and the order of
 // those names is encoded: read in the checker record's map order, it changed
 // from one lowering to the next, and so did the std bundle's listed section
-// (std/mail_testing's `Opened`).
+// (std/mail/testing's `Opened`).
 func TestExistentialDebugImplsAreInSourceOrder(t *testing.T) {
 	const shapes = 8
 	var b strings.Builder

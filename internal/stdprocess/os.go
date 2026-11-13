@@ -183,7 +183,7 @@ func statusOf(state *os.ProcessState) []int64 {
 
 // workingDir is the directory the child runs in: dir resolved against the
 // program's working directory, which `nomi test` puts at the module root
-// without changing the process's own. Inside `fs_testing.run` the files are
+// without changing the process's own. Inside `std::fs::testing.run` the files are
 // in memory, so a relative dir resolves against the process's directory.
 func workingDir(fr *rt.Frame, dir string) string {
 	if dir != "" && filepath.IsAbs(filepath.FromSlash(dir)) {

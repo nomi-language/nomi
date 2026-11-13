@@ -1,5 +1,5 @@
 //# Records what a body logs, as values a test asserts on.
-//# `log_testing.run(fn logger -> body)` hands the body a `Logger` that
+//# `testing.run(fn logger -> body)` hands the body a `Logger` that
 //# writes nowhere, and returns the body's value with every record it
 //# logged through that logger, in order. A body that logs through an app
 //# field gives it the recorder with `with App.logger = logger`.

@@ -1,7 +1,7 @@
 // A std collection converts to wider type arguments where each element
 // already is a value of the wider type: an Int is a Display, a function
 // returning a Page is a function returning a Reply. The conversion leaves
-// the value as it is (spec §5 *Type argument conversion*).
+// the value as it is (spec §5 *Covariant conversion*).
 import routes.{self, Reply, Request, Route}
 
 struct Page

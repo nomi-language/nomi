@@ -548,13 +548,47 @@ func (bl *irScalarBuilder) intoExistential(at ast.Node, v ir.Temp, want, have ki
 	return v, irNotCoerced
 }
 
-// recordedImpl is the impl the checker recorded for the coercion at the
-// expression at into want, nil when it recorded none there.
-func (g *gen) recordedImpl(at ast.Node, want kind) *ast.ImplBlock {
+// recordedImpl is the impl the checker recorded for a value of kind have
+// entering want at the expression at: the coercion of the expression
+// itself, or a part of its conversion (analysis.FileAnalysis.Conversions:
+// a `List<Int>` entering Display inside a `Maybe<List<Int>>` converted to a
+// `Maybe<Display>`). Nil when it recorded none there.
+func (g *gen) recordedImpl(at ast.Node, want, have kind) *ast.ImplBlock {
 	if rec := g.coercionAt(at); rec != nil && g.project(rec.Iface) == want {
 		return rec.Impl
 	}
+	if rec := g.conversionAt(at); rec != nil {
+		for _, b := range rec.Boxes {
+			if b.Impl != nil && g.project(b.Iface) == want && g.project(b.Value) == have {
+				return b.Impl
+			}
+		}
+	}
 	return nil
+}
+
+// conversionAt is the checker's record of the conversion of the expression
+// n below its top (analysis.FileAnalysis.Conversions), nil when it has
+// none, found by position for a copy of a written expression as
+// coercionAt finds one.
+func (g *gen) conversionAt(n ast.Node) *analysis.Conversion {
+	fa := g.srcFA()
+	if fa == nil || n == nil || len(fa.Conversions) == 0 {
+		return nil
+	}
+	if rec := fa.Conversions[n]; rec != nil {
+		return rec
+	}
+	if g.conversionsFA != fa {
+		g.conversionsFA = fa
+		g.conversionsAt = make(map[irCoercionPos]*analysis.Conversion, len(fa.Conversions))
+		for c, rec := range fa.Conversions {
+			line, col := nodePos(c)
+			g.conversionsAt[irCoercionPos{line, col, c.NodeType()}] = rec
+		}
+	}
+	line, col := nodePos(n)
+	return g.conversionsAt[irCoercionPos{line, col, n.NodeType()}]
 }
 
 // eraseBoxed boxes v as the existential want by the plan p: the one

@@ -88,7 +88,7 @@ func main() {
 }
 
 // referenceCandidates are the std modules a page may be written for,
-// sorted: every module but an internal one (std/money_format), which is
+// sorted: every module but an internal one (std/money/format), which is
 // std's own plumbing that a program cannot import.
 func referenceCandidates(lib *std.StdLib) []string {
 	names := make([]string, 0, len(lib.Modules))
@@ -112,13 +112,13 @@ func renderModuleWithLinks(lib *std.StdLib, name string, globalLinks referenceLi
 		return ""
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "---\ntitle: std::%s\n---\n\n", name)
+	fmt.Fprintf(&b, "---\ntitle: std::%s\n---\n\n", stdImportPath(name))
 	intro, guide := splitModuleDoc(moduleDoc(name))
 	if intro != "" {
 		b.WriteString(intro)
 		b.WriteString("\n\n")
 	}
-	fmt.Fprintf(&b, "Import with `import std::%s`.\n\n", name)
+	fmt.Fprintf(&b, "Import with `import std::%s`.\n\n", stdImportPath(name))
 	if summary := renderExportsSummary(name, entries); summary != "" {
 		b.WriteString(summary)
 	}
@@ -421,6 +421,12 @@ func implOwnerName(entry apiEntry) string {
 	return owner
 }
 
+// stdImportPath spells a std module's name ("fs/testing") as the path after
+// `std::` that imports it (`fs::testing`).
+func stdImportPath(moduleName string) string {
+	return strings.ReplaceAll(moduleName, "/", "::")
+}
+
 func moduleDisplayName(moduleName string) string {
 	if moduleName == "" {
 		return ""
@@ -596,11 +602,11 @@ func referenceTestContext(moduleName string, fa *analysis.FileAnalysis, entry ap
 			selectors = append(selectors, referenceTypeSelectors(ns.ModuleScope)...)
 		}
 		if len(selectors) == 1 {
-			imports = append(imports, fmt.Sprintf("import std::%s.%s", moduleName, ns.Name))
+			imports = append(imports, fmt.Sprintf("import std::%s.%s", stdImportPath(moduleName), ns.Name))
 		} else {
 			imports = append(
 				imports,
-				fmt.Sprintf("import std::%s.%s.{%s}", moduleName, ns.Name, strings.Join(selectors, ", ")),
+				fmt.Sprintf("import std::%s.%s.{%s}", stdImportPath(moduleName), ns.Name, strings.Join(selectors, ", ")),
 			)
 		}
 	}
@@ -937,7 +943,7 @@ func renderIndex(names []string) string {
 	b.WriteString("---\ntitle: Standard Library\n---\n\n")
 	b.WriteString("The Nomi standard library, generated from each module's `///` doc comments.\n\n")
 	for _, n := range names {
-		fmt.Fprintf(&b, "- [std::%s](/reference/%s/)\n", n, n)
+		fmt.Fprintf(&b, "- [std::%s](/reference/%s/)\n", stdImportPath(n), n)
 	}
 	return b.String()
 }

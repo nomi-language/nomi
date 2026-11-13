@@ -31,7 +31,7 @@ import
     bool.Bool.{self, False, True}
     bytes.Bytes
     code_points.Codepoint
-    csv_host
+    csv::host
     debug.Debug
     display.Display
     equatable.Equatable
@@ -244,7 +244,7 @@ pub fn rows(reader: Reader, options: Options = Options{}) -> Iter<Result<Row, Er
     RowIter{records: open(reader, options)}
 end
 
-fn open(reader: Reader, options: Options) -> csv_host.Records
+fn open(reader: Reader, options: Options) -> host.Records
     comment = case options.comment
         Some(c) -> Codepoint.to_int(c)
         None -> 0
@@ -256,7 +256,7 @@ fn open(reader: Reader, options: Options) -> csv_host.Records
         .Exactly(n) -> if n < 0 then -2 else n
     end
 
-    csv_host.open(
+    host.open(
         reader,
         Codepoint.to_int(options.delimiter),
         comment,
@@ -267,17 +267,17 @@ fn open(reader: Reader, options: Options) -> csv_host.Records
 end
 
 // Why reading stopped, or None at the end of the input.
-fn stopped(records: csv_host.Records) -> Maybe<Error>
-    case csv_host.stopped(records)
-        [1, line, column] -> Some(Error.Syntax{message: csv_host.message(records), line:, column:})
-        [2, ..] -> Some(Error.Io{error: csv_host.failure(records)})
-        [3, ..] -> Some(Error.InvalidOptions{message: csv_host.message(records)})
+fn stopped(records: host.Records) -> Maybe<Error>
+    case host.stopped(records)
+        [1, line, column] -> Some(Error.Syntax{message: host.message(records), line:, column:})
+        [2, ..] -> Some(Error.Io{error: host.failure(records)})
+        [3, ..] -> Some(Error.InvalidOptions{message: host.message(records)})
         _ -> None
     end
 end
 
 struct RecordIter
-    records: csv_host.Records
+    records: host.Records
 end
 
 impl Iter<Result<List<String>, Error>> for RecordIter
@@ -286,8 +286,8 @@ impl Iter<Result<List<String>, Error>> for RecordIter
     end
 end
 
-fn each_record(records: csv_host.Records, yield: (Result<List<String>, Error>) -> Bool) -> Bool
-    case csv_host.next(records)
+fn each_record(records: host.Records, yield: (Result<List<String>, Error>) -> Bool) -> Bool
+    case host.next(records)
         [] ->
             case stopped(records)
                 Some(e) -> yield(Err(e))
@@ -300,12 +300,12 @@ fn each_record(records: csv_host.Records, yield: (Result<List<String>, Error>) -
 end
 
 struct RowIter
-    records: csv_host.Records
+    records: host.Records
 end
 
 impl Iter<Result<Row, Error>> for RowIter
     fn each_while(rows: RowIter, yield: (Result<Row, Error>) -> Bool) -> Bool
-        case csv_host.next(rows.records)
+        case host.next(rows.records)
             [] ->
                 case stopped(rows.records)
                     Some(e) -> yield(Err(e))
@@ -319,11 +319,11 @@ impl Iter<Result<Row, Error>> for RowIter
 end
 
 fn each_row(
-    records: csv_host.Records,
+    records: host.Records,
     header: List<String>,
     yield: (Result<Row, Error>) -> Bool,
 ) -> Bool
-    case csv_host.next(records)
+    case host.next(records)
         [] ->
             case stopped(records)
                 Some(e) -> yield(Err(e))
@@ -331,7 +331,7 @@ fn each_row(
             end
 
         fields ->
-            if yield(Ok(Row{header:, fields:, line: csv_host.line(records)})) then
+            if yield(Ok(Row{header:, fields:, line: host.line(records)})) then
                 each_row(records, header, yield)
             else
                 False
@@ -392,7 +392,7 @@ end
 fn line(record: List<String>, options: WriteOptions) -> String
     fields = if options.escape_formulas then record |> Iter.map(guard) |> Iter.to_list() else record
 
-    csv_host.encode(fields, Codepoint.to_int(options.delimiter), options.crlf)
+    host.encode(fields, Codepoint.to_int(options.delimiter), options.crlf)
 end
 
 fn guard(field: String) -> String

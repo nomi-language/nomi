@@ -4,10 +4,11 @@ import
     std::duration.Duration
     std::hash
     std::http.{self, Body, Headers, Method, Request, Response, Status}
-    std::http_testing
+    std::http::testing as http_testing
     std::instant.Instant
     std::storage.{self, Entry, ListOptions, Listing, Store}
-    std::storage_testing.{self, Memory}
+    std::storage::testing as storage_testing
+    std::storage::testing.Memory
     std::testing.Clock
     std::url.{Query, Url}
     std::xml.{self, Element, Name, Node}

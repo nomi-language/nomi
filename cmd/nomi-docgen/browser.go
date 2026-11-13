@@ -22,7 +22,7 @@ const browserGOOS, browserGOARCH = "js", "wasm"
 // dials one, looks a name up or starts a program. The walk is the one
 // `nomi build --target js/wasm` refuses a program by, run from the
 // prompt's own test case in the module's lowered tests, so it counts the
-// std calls the prompt reaches on its behalf (`mail_testing.with_smtp_server`
+// std calls the prompt reaches on its behalf (`std::mail::testing.with_smtp_server`
 // reaches `net.listen`). An HTTP request is not among them: the browser
 // build sends it through fetch.
 type promptClassifier struct {
@@ -42,7 +42,7 @@ func newPromptClassifier(module string) *promptClassifier {
 //
 // The walk counts what the prompt could reach: a call through an
 // interface reaches every impl, and a crossing a fake answers on the frame
-// (process_testing.run's) still counts. So a prompt the walk flags is run
+// (std::process::testing.run's) still counts. So a prompt the walk flags is run
 // once, natively, as its editor runs (vmhost.StdlibReference), and keeps
 // only the classes whose calls went on to the operating system
 // (osreach). A run that fails, or that cannot listen here, keeps every

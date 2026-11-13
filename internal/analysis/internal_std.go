@@ -26,23 +26,23 @@ import (
 // internalStdModules maps each internal std module to the std module it
 // serves, which is what a program uses instead.
 var internalStdModules = map[string]string{
-	"embed_host":      "embed",
-	"fs_host":         "fs",
-	"html_host":       "html",
-	"phrase_format":   "phrase",
-	"money_format":    "money",
-	"process_host":    "process",
-	"http_host":       "http",
-	"toml_host":       "toml",
-	"csv_host":        "csv",
-	"xml_host":        "xml",
-	"url_host":        "url",
-	"path_host":       "path",
-	"mail_host":       "mail",
-	"signatures_host": "signatures",
+	"embed/host":      "embed",
+	"fs/host":         "fs",
+	"html/host":       "html",
+	"phrase/format":   "phrase",
+	"money/format":    "money",
+	"process/host":    "process",
+	"http/host":       "http",
+	"toml/host":       "toml",
+	"csv/host":        "csv",
+	"xml/host":        "xml",
+	"url/host":        "url",
+	"path/host":       "path",
+	"mail/host":       "mail",
+	"signatures/host": "signatures",
 }
 
-// InternalStdModule reports whether the std module name (`money_format`) is
+// InternalStdModule reports whether the std module name (`money/format`) is
 // internal, and the module a program uses instead (`money`).
 func InternalStdModule(name string) (owner string, ok bool) {
 	owner, ok = internalStdModules[name]
@@ -84,15 +84,18 @@ func (c *checker) checkInternalStdImport(n *ast.ImportStmt) {
 	if n.FileSegments > 0 && n.FileSegments <= len(segs) {
 		segs = segs[:n.FileSegments]
 	}
-	if len(segs) != 2 || ast.ImportNodeName(segs[0]) != "std" {
+	if len(segs) < 2 || ast.ImportNodeName(segs[0]) != "std" {
 		return
 	}
-	name := ast.ImportNodeName(segs[1])
-	owner, ok := internalStdModules[name]
+	parts := make([]string, 0, len(segs)-1)
+	for _, seg := range segs[1:] {
+		parts = append(parts, ast.ImportNodeName(seg))
+	}
+	owner, ok := internalStdModules[strings.Join(parts, "/")]
 	if !ok {
 		return
 	}
-	c.report(errAt(segs[1], fmt.Sprintf("`std::%s` is internal to std::%s", name, owner)).
+	c.report(errAt(segs[1], fmt.Sprintf("`std::%s` is internal to std::%s", strings.Join(parts, "::"), owner)).
 		WithHint(fmt.Sprintf("import std::%s and use its functions", owner)))
 }
 

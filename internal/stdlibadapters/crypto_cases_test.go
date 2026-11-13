@@ -8,7 +8,7 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// The keys the signatures_host cases run over: RFC 8032's first Ed25519
+// The keys the std::signatures::host cases run over: RFC 8032's first Ed25519
 // key, a P-256 key from a fixed scalar, and keys that do not parse. A
 // freshly generated key, an ECDSA or PSS signature and an RSA key are
 // random, so their rows are recorded by shape.
@@ -46,37 +46,37 @@ func cryptoCases() map[string][]hostCase {
 			args(hBytes("p"), hBytes("s"), hInt(1), hInt(0)),
 			args(hBytes("p"), hBytes("s"), hInt(1), hInt(1025)),
 		),
-		"signatures_host.generate_ed25519": {{args: args(), shapeOnly: true}},
-		"signatures_host.generate_p256":    {{args: args(), shapeOnly: true}},
-		"signatures_host.generate_rsa": {
+		"signatures/host.generate_ed25519": {{args: args(), shapeOnly: true}},
+		"signatures/host.generate_p256":    {{args: args(), shapeOnly: true}},
+		"signatures/host.generate_rsa": {
 			{args: args(hInt(1024))},
 			{args: args(hInt(8193))},
 			{args: args(hInt(2048)), shapeOnly: true},
 		},
-		"signatures_host.private_from_der": unary(hBytes(sigEdPriv), hBytes(sigP256), hBytes("not a key"), hBytes("")),
-		"signatures_host.private_from_pem": unary(hStr(edPEM), hStr(edPubPEM), hStr("hello"),
+		"signatures/host.private_from_der": unary(hBytes(sigEdPriv), hBytes(sigP256), hBytes("not a key"), hBytes("")),
+		"signatures/host.private_from_pem": unary(hStr(edPEM), hStr(edPubPEM), hStr("hello"),
 			hStr("-----BEGIN ENCRYPTED PRIVATE KEY-----\nAAAA\n-----END ENCRYPTED PRIVATE KEY-----\n"),
 			hStr("-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n")),
-		"signatures_host.private_to_pem":    unary(hBytes(sigEdPriv), hBytes(sigP256)),
-		"signatures_host.private_kind":      unary(hBytes(sigEdPriv), hBytes(sigP256), hBytes("junk")),
-		"signatures_host.public_of":         unary(hBytes(sigEdPriv), hBytes(sigP256), hBytes("junk")),
-		"signatures_host.public_from_der":   unary(hBytes(sigEdPub), hBytes(sigP256Pub), hBytes(sigEdPriv), hBytes("")),
-		"signatures_host.public_from_pem":   unary(hStr(edPubPEM), hStr(edPEM), hStr("")),
-		"signatures_host.public_to_pem":     unary(hBytes(sigEdPub), hBytes(sigP256Pub)),
-		"signatures_host.public_kind":       unary(hBytes(sigEdPub), hBytes(sigP256Pub), hBytes("junk")),
-		"signatures_host.ed25519_from_seed": unary(hBytes(sigEdSeed), hBytes(sigEdSeed[:31]), hBytes("")),
-		"signatures_host.ed25519_seed":      unary(hBytes(sigEdPriv), hBytes(sigP256)),
-		"signatures_host.ed25519_public_from_bytes": unary(
+		"signatures/host.private_to_pem":    unary(hBytes(sigEdPriv), hBytes(sigP256)),
+		"signatures/host.private_kind":      unary(hBytes(sigEdPriv), hBytes(sigP256), hBytes("junk")),
+		"signatures/host.public_of":         unary(hBytes(sigEdPriv), hBytes(sigP256), hBytes("junk")),
+		"signatures/host.public_from_der":   unary(hBytes(sigEdPub), hBytes(sigP256Pub), hBytes(sigEdPriv), hBytes("")),
+		"signatures/host.public_from_pem":   unary(hStr(edPubPEM), hStr(edPEM), hStr("")),
+		"signatures/host.public_to_pem":     unary(hBytes(sigEdPub), hBytes(sigP256Pub)),
+		"signatures/host.public_kind":       unary(hBytes(sigEdPub), hBytes(sigP256Pub), hBytes("junk")),
+		"signatures/host.ed25519_from_seed": unary(hBytes(sigEdSeed), hBytes(sigEdSeed[:31]), hBytes("")),
+		"signatures/host.ed25519_seed":      unary(hBytes(sigEdPriv), hBytes(sigP256)),
+		"signatures/host.ed25519_public_from_bytes": unary(
 			hBytes(mustHex("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a")), hBytes("short")),
-		"signatures_host.ed25519_public_bytes": unary(hBytes(sigEdPub), hBytes(sigP256Pub)),
-		"signatures_host.sign": {
+		"signatures/host.ed25519_public_bytes": unary(hBytes(sigEdPub), hBytes(sigP256Pub)),
+		"signatures/host.sign": {
 			{args: args(hBytes(sigEdPriv), hInt(0), message)},
 			{args: args(hBytes(sigEdPriv), hInt(1), message)},
 			{args: args(hBytes(sigP256), hInt(1), message), shapeOnly: true},
 			{args: args(hBytes(sigP256), hInt(4), message), shapeOnly: true},
 			{args: args(hBytes("junk"), hInt(0), message)},
 		},
-		"signatures_host.is_valid": cases(
+		"signatures/host.is_valid": cases(
 			args(hBytes(sigEdPub), hInt(0), message, hBytes(edSig)),
 			args(hBytes(sigEdPub), hInt(0), hBytes("hellO"), hBytes(edSig)),
 			args(hBytes(sigEdPub), hInt(1), message, hBytes(edSig)),

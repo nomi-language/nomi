@@ -65,9 +65,9 @@ func stdRowModule(row hostgen.FuncRow) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// A Go package name runs words together where the module's has an
-	// underscore: internal/stdphraseformat implements std/phrase_format.
-	if found && strings.ReplaceAll(module, "_", "") == name {
+	// A Go package name runs a module's path together, dropping its `_` and
+	// `/`: internal/stdphraseformat implements std/phrase/format.
+	if found && strings.NewReplacer("_", "", "/", "").Replace(module) == name {
 		return module, nil
 	}
 	if found && slices.Contains(alsoImplements[name], module) {
@@ -77,14 +77,14 @@ func stdRowModule(row hostgen.FuncRow) (string, error) {
 }
 
 // alsoImplements are the std modules an adapter package implements besides
-// its own: internal/stdio is std/io's, and std/fs_host's, the Go-backed half
-// of std/fs; internal/stdprocess is std/process_host's, std/process's;
-// internal/stdtoml is std/toml_host's, std/toml's; internal/stdcsv and
-// internal/stdxml are std/csv_host's and std/xml_host's; internal/stdhttp is
-// std/http_host's and std/signatures_host's, whose key encodings need
+// its own: internal/stdio is std/io's, and std/fs/host's, the Go-backed half
+// of std/fs; internal/stdprocess is std/process/host's, std/process's;
+// internal/stdtoml is std/toml/host's, std/toml's; internal/stdcsv and
+// internal/stdxml are std/csv/host's and std/xml/host's; internal/stdhttp is
+// std/http/host's and std/signatures/host's, whose key encodings need
 // crypto/x509, which only the runner with the network links.
-var alsoImplements = map[string][]string{"io": {"fs_host"}, "process": {"process_host"}, "http": {"http_host", "signatures_host"}, "toml": {"toml_host"},
-	"csv": {"csv_host"}, "xml": {"xml_host"}}
+var alsoImplements = map[string][]string{"io": {"fs/host"}, "process": {"process/host"}, "http": {"http/host", "signatures/host"}, "toml": {"toml/host"},
+	"csv": {"csv/host"}, "xml": {"xml/host"}}
 
 const (
 	rtPackage     = "github.com/nomi-language/nomi/rt"

@@ -2,7 +2,7 @@
 //# bucket or memory. Code that stores files calls the `Store` interface,
 //# and each backend implements it, so one function serves the local
 //# directory in development, a bucket in production and a test's
-//# `storage_testing.Memory`:
+//# `std::storage::testing.Memory`:
 //#
 //# ```nomi
 //# fn save_avatar(user_id: Int, data: Bytes) -> Result<Url, storage.Error>
@@ -26,7 +26,7 @@
 //# end
 //# ```
 //#
-//# std::storage_testing has `Memory`, a store kept in memory for tests,
+//# std::storage::testing has `Memory`, a store kept in memory for tests,
 //# `Failing`, a store whose every call fails, and `conformance`, the suite
 //# every backend passes.
 //#
@@ -197,9 +197,9 @@ derive Equatable for Listing
 derive Debug for Listing
 
 /// A place objects live, each under a key. `storage.local`, `lib/storage/s3`
-/// and `storage_testing.Memory` implement it.
+/// and `std::storage::testing.Memory` implement it.
 ///
-/// Every backend follows these rules, and std::storage_testing's
+/// Every backend follows these rules, and std::storage::testing's
 /// `conformance` suite checks each:
 ///
 /// - Every function checks its key with `check_key` first, and returns its
@@ -216,7 +216,7 @@ derive Debug for Listing
 ///   checked with `check_prefix` first, folds keys that go on past the
 ///   delimiter into their common prefix, and pages as `ListOptions` says;
 ///   `page` is that rule over a list of entries.
-//! import std::storage_testing.Memory
+//! import std::storage::testing.Memory
 //!
 //! store: Store = Memory.new()
 //! assert Store.put(store, "notes/a.txt", String.to_bytes("hi"), "text/plain") == Ok(Unit)
@@ -400,7 +400,7 @@ end
 
 /// Every object and common prefix under `prefix`, following each page's
 /// `next` to the last page.
-//! import std::storage_testing.Memory
+//! import std::storage::testing.Memory
 //!
 //! store = Memory.new()
 //! _ = Store.put(store, "a/1", String.to_bytes("x"), "text/plain")
@@ -518,19 +518,19 @@ end
 ///   keys that differ only in Unicode normalization (`é` as one code
 ///   point or two) do too.
 ///
-/// The calls go through std::fs, so `fs_testing.run` sandboxes the store in
+/// The calls go through std::fs, so `std::fs::testing.run` sandboxes the store in
 /// tests, and `fs.within` applies.
-//! import std::fs_testing
+//! import std::fs::testing
 //!
-//! ran = fs_testing.run(fs_testing.Sandbox{}, fn ->
+//! ran = testing.run(testing.Sandbox{}, fn ->
 //!     store = local("files", public_base: Some(Url`/files/`))
 //!     Store.put(store, "a/b.txt", String.to_bytes("hi"), "text/plain")?
 //!     Ok((Store.get(store, "a/b.txt")?.info.content_type, "${Store.url(store, "a/b.txt")?}"))
 //! end)
 //!
 //! assert ran.value == Ok(("text/plain", "/files/a/b.txt"))
-//! assert fs_testing.text(ran, "/work/files/a/b.txt") == Some("hi")
-//! assert fs_testing.text(ran, "/work/files/.nomi-storage/types/a/b.txt") == Some("text/plain")
+//! assert testing.text(ran, "/work/files/a/b.txt") == Some("hi")
+//! assert testing.text(ran, "/work/files/.nomi-storage/types/a/b.txt") == Some("text/plain")
 //
 pub fn local(root: String, public_base: Maybe<Url> = None) -> Store
     Local{root:, public_base:}
@@ -827,22 +827,22 @@ end
 /// handler and adds one. It reads the whole object into memory first,
 /// which suits images and documents, not video.
 //! import std::http.{Method, Status}
-//! import std::http_testing
-//! import std::storage_testing.Memory
+//! import std::http::testing
+//! import std::storage::testing.Memory
 //!
 //! store = Memory.new()
 //! _ = Store.put(store, "a/b.css", String.to_bytes("p{}"), "text/css")
 //! serve = handler(store)
 //!
 //! found = serve(
-//!     Request.with_path_value(http_testing.request(Method.Get, "/files/a/b.css"), "key", "a/b.css")
+//!     Request.with_path_value(testing.request(Method.Get, "/files/a/b.css"), "key", "a/b.css")
 //! )
 //!
 //! assert found.status == Status.ok
 //! assert Headers.get(found.headers, "Content-Type") == Some("text/css")
 //! assert Response.text(found) == Ok("p{}")
 //!
-//! missing = serve(Request.with_path_value(http_testing.request(Method.Get, "/files/x"), "key", "x"))
+//! missing = serve(Request.with_path_value(testing.request(Method.Get, "/files/x"), "key", "x"))
 //! assert missing.status == Status.not_found
 //
 pub fn handler(store: Store, param: String = "key") -> (Request) -> Response

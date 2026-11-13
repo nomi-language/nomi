@@ -1,4 +1,4 @@
-//# The Go-backed half of std::fs and std::fs_testing: each crossing into
+//# The Go-backed half of std::fs and std::fs::testing: each crossing into
 //# the file system the running call reaches (internal/stdio). It is
 //# internal; a program imports std::fs, which builds its values from these
 //# and gives them their documentation.
@@ -81,7 +81,7 @@ pub host fn make_temp_dir() -> Result<String, Error>
 pub host fn current_dir() -> Result<String, Error>
 
 /// A file system a call runs against: an in-memory one for
-/// `fs_testing.run`, or a directory `fs.within` confines a call to.
+/// `std::fs::testing.run`, or a directory `fs.within` confines a call to.
 pub host type FileSystem
 
 /// A sandbox whose working directory is `cwd`, holding `files`, `dirs`
@@ -93,7 +93,7 @@ pub host fn new_sandbox(
     links: Map<String, String>,
 ) -> FileSystem
 
-/// The `nth` operation at position `operation` of `fs_testing.Operation`,
+/// The `nth` operation at position `operation` of `std::fs::testing.Operation`,
 /// from 1, on `path` fails with `error`; every one when `nth` is 0.
 pub host fn sandbox_fail(
     sandbox: FileSystem,

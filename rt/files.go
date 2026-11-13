@@ -9,7 +9,7 @@ import "context"
 // machine's default comes from its host on the context its frames are built
 // over (WithFiles): `nomi run` and a built executable leave it unset, which
 // stdio reads as the operating system's, and the browser and the tour
-// install an in-memory one. `fs_testing.run` and `fs.within` replace it for
+// install an in-memory one. `std::fs::testing.run` and `fs.within` replace it for
 // the dynamic extent of one call (EnterFiles), as `io.capture` replaces
 // stdin and stdout, so tasks spawned inside inherit the replacement with the
 // rest of the spawner's frame, and a nested call takes over for its own.
@@ -48,7 +48,7 @@ func FilesOf(fr *Frame) any {
 }
 
 // FilesHeld reports whether a call on fr's lineage replaced the file system
-// with one held in memory (`fs_testing.run`'s sandbox, or `fs.within` inside
+// with one held in memory (`std::fs::testing.run`'s sandbox, or `fs.within` inside
 // one): a debugger replays such a call's file operations rather than
 // answering them from its recording, since the replay builds the
 // replacement again. A replacement over the disk (`fs.within` outside a
@@ -62,7 +62,7 @@ func (fr *Frame) FilesHeld() bool {
 	return ok && fs.held
 }
 
-// FileSystem is a file system a call runs against: std/fs_testing's
+// FileSystem is a file system a call runs against: std/fs/testing's
 // sandbox, or the directory `fs.within` confines a call to. It wraps
 // internal/stdio's backend, which rt carries and does not name. A call runs
 // its body on a frame that reaches it (EnterFiles).

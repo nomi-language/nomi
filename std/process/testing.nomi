@@ -1,21 +1,21 @@
 //# Testing code that starts programs, without starting any. Inside
-//# `process_testing.run(answers, body)`, every std::process call `body`
+//# `testing.run(answers, body)`, every std::process call `body`
 //# makes, and every call the tasks it starts make, is handled by the
 //# first `Answer` for its program and arguments, and recorded. `run`
 //# returns what `body` returned together with each call, in order, with
 //# the input the program was given. A program no `Answer` names fails to
 //# start with `NotFound`, as a program missing from the `PATH` does. As
-//# with `fs_testing.run`, the answers last for the call and follow its
+//# with `std::fs::testing.run`, the answers last for the call and follow its
 //# tasks, and a nested `run` takes over for its own call.
 //#
 //# ```nomi
 //# import
-//#     std::process_testing.{self, Answer, Call}
+//#     std::process::testing.{self, Answer, Call}
 //#     branch
 //# end
 //#
 //# test "reads the current branch"
-//#     ran = process_testing.run([Answer{program: "git", stdout: "main\n"}], fn ->
+//#     ran = testing.run([Answer{program: "git", stdout: "main\n"}], fn ->
 //#         branch.current()
 //#     end)
 //#
@@ -36,7 +36,7 @@ import
     lists.List
     maps.Map
     maybe.Maybe.{self, None, Some}
-    process_host
+    process::host
     results.Result.{self, Err, Ok}
     strings.String
 end
@@ -119,7 +119,7 @@ end
 //! ]
 //
 pub fn run<T>(answers: List<Answer>, body: () -> T) -> Ran<T>
-    fake = process_host.new_fake()
+    fake = host.new_fake()
 
     Iter.each(answers, fn a ->
         args = Maybe.with_default(a.args, [])
@@ -127,10 +127,10 @@ pub fn run<T>(answers: List<Answer>, body: () -> T) -> Ran<T>
 
         case a.error
             Some(error) ->
-                process_host.fake_refuse(fake, a.program, args, any_args, error)
+                host.fake_refuse(fake, a.program, args, any_args, error)
 
             None ->
-                process_host.fake_answer(
+                host.fake_answer(
                     fake,
                     a.program,
                     args,
@@ -142,24 +142,24 @@ pub fn run<T>(answers: List<Answer>, body: () -> T) -> Ran<T>
         end
     end)
 
-    value = process_host.run_in(fake, body)
+    value = host.run_in(fake, body)
 
     calls =
-        0..process_host.fake_calls(fake)
+        0..host.fake_calls(fake)
         |> Iter.map(fn i ->
-            (program, args) = case process_host.fake_command(fake, i)
+            (program, args) = case host.fake_command(fake, i)
                 [first, ..rest] -> (first, rest)
                 [] -> ("", [])
             end
 
-            dir = process_host.fake_dir(fake, i)
+            dir = host.fake_dir(fake, i)
 
             Call{
                 program:,
                 args:,
                 dir: if dir == "" then None else Some(dir),
-                env: process_host.fake_env(fake, i),
-                input: process_host.fake_input(fake, i),
+                env: host.fake_env(fake, i),
+                input: host.fake_input(fake, i),
             }
         end)
         |> Iter.to_list()

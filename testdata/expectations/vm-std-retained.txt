@@ -392,7 +392,7 @@ compiler.nomi:Hover.inspect	ran
 compiler.nomi:Project.inspect	ran
 compiler.nomi:RunFile.inspect	ran
 context.nomi:Context.inspect	ran
-csv_host.nomi:Records.inspect	ran
+csv/host.nomi:Records.inspect	ran
 currency.nomi:Currency.code	ran
 currency.nomi:Currency.custom	ran
 currency.nomi:Currency.equal	ran
@@ -506,22 +506,22 @@ float.nomi:float.Float.round arity 1	ran
 float.nomi:float.Float.round arity 2	ran
 float.nomi:float.Float.round default 2	ran
 float.nomi:float.Float.round default 3	ran
-fs_host.nomi:FileSystem.inspect	ran
+fs/host.nomi:FileSystem.inspect	ran
 hash.nomi:md5_hex	ran
 hash.nomi:sha1_hex	ran
 hash.nomi:sha256_hex	ran
 hash.nomi:sha512_hex	ran
-http_host.nomi:Certificate.inspect	ran
-http_host.nomi:Client.inspect	ran
-http_host.nomi:Conn.inspect	ran
-http_host.nomi:Exchange.inspect	ran
-http_host.nomi:Handle.inspect	ran
-http_host.nomi:Incoming.inspect	ran
-http_host.nomi:Jar.inspect	ran
-http_host.nomi:Listener.inspect	ran
-http_host.nomi:Mux.inspect	ran
-http_host.nomi:TcpListener.inspect	ran
-http_host.nomi:TlsConfig.inspect	ran
+http/host.nomi:Certificate.inspect	ran
+http/host.nomi:Client.inspect	ran
+http/host.nomi:Conn.inspect	ran
+http/host.nomi:Exchange.inspect	ran
+http/host.nomi:Handle.inspect	ran
+http/host.nomi:Incoming.inspect	ran
+http/host.nomi:Jar.inspect	ran
+http/host.nomi:Listener.inspect	ran
+http/host.nomi:Mux.inspect	ran
+http/host.nomi:TcpListener.inspect	ran
+http/host.nomi:TlsConfig.inspect	ran
 instant.nomi:Instant.Add<Duration, Instant>.add	ran
 instant.nomi:Instant.Subtract<Duration, Instant>.subtract	ran
 instant.nomi:Instant.Subtract<Instant, Duration>.subtract	ran
@@ -659,14 +659,14 @@ localize.nomi:NumberParseError.equal	ran
 localize.nomi:NumberParseError.inspect	ran
 localize.nomi:NumberParseError.to_string	ran
 localize.nomi:String.localize	ran
-money_format.nomi:format	ran
-money_format.nomi:label	ran
-money_format.nomi:parse	ran
-money_format.nomi:refuse	ran
-money_format.nomi:require_same	ran
-phrase_format.nomi:format	ran
-phrase_format.nomi:load	ran
-phrase_format.nomi:noun_text	ran
+money/format.nomi:format	ran
+money/format.nomi:label	ran
+money/format.nomi:parse	ran
+money/format.nomi:refuse	ran
+money/format.nomi:require_same	ran
+phrase/format.nomi:format	ran
+phrase/format.nomi:load	ran
+phrase/format.nomi:noun_text	ran
 plural.nomi:Decimal.plural_operand	ran
 plural.nomi:Int.plural_operand	ran
 plural.nomi:PluralCategory.cardinals	ran
@@ -677,8 +677,8 @@ plural.nomi:PluralCategory.of	ran
 plural.nomi:PluralCategory.ordinal	ran
 plural.nomi:PluralCategory.ordinals	ran
 plural.nomi:PluralCategory.to_string	ran
-process_host.nomi:Child.inspect	ran
-process_host.nomi:Fake.inspect	ran
+process/host.nomi:Child.inspect	ran
+process/host.nomi:Fake.inspect	ran
 random.nomi:Error.equal	ran
 random.nomi:Error.inspect	ran
 random.nomi:Error.to_string	ran
@@ -757,4 +757,4 @@ supervisors.nomi:supervisors.Supervisor.new default 5	ran
 unit.nomi:Unit.equal	ran
 unit.nomi:Unit.hash	ran
 unit.nomi:Unit.inspect	ran
-xml_host.nomi:Tokens.inspect	ran
+xml/host.nomi:Tokens.inspect	ran

@@ -169,11 +169,13 @@ it `foo`.
 Write an acronym as a word: `Json`, `Toml`, `Uuid`, `HttpClient`, `IoError`.
 
 Split a file's name into words as any other value name is split:
-`std::phrase_format`, `std::code_points`, `order_lines.nomi`, never
+`std::code_points`, `order_lines.nomi`, never
 `orderlines`. A name ends in `_test` only when the
-file holds tests, since `_test.nomi` is what marks a test file; a module that
-helps tests run is named for what it holds, as `std::sql_testing` holds the
-fake `Conn` and the conformance suite.
+file holds tests, since `_test.nomi` is what marks a test file. A module that
+helps test another sits beside it as `testing`, as Go's `net/http/httptest`
+does: `std::sql::testing` holds the fake `Conn` and the conformance suite, and
+code calls it `testing.conformance(...)`. A file that imports two of them
+names each after its parent: `import std::fs::testing as fs_testing`.
 
 Don't repeat the file's name in a type the file is about. A module with one
 error type calls it `Error`, and code outside writes it with the file's name:

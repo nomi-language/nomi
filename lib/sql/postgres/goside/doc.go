@@ -34,6 +34,6 @@
 // `postgres.scratch()` (Scratch, scratch.go) runs one throwaway cluster per
 // process under `sh`, which stops it and removes its directory when its
 // standard input, a pipe the process holds, closes at exit. The driver's
-// tests and std/sql_testing's conformance suite run on it, and
-// lib/jobs/postgres's tests run std/jobs_testing's suite there.
+// tests and std/sql/testing's conformance suite run on it, and
+// lib/jobs/postgres's tests run std/jobs/testing's suite there.
 package goside

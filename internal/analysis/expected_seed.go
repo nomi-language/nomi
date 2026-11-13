@@ -33,14 +33,20 @@ import "github.com/nomi-language/nomi/internal/ast"
 //   - an `if` or `case` takes the seed in a bare type parameter's slot,
 //     where its branches join as the expected type.
 //
-// The rule covers a type parameter the result is (Iter.loop's T) or holds
-// as an Iter's element (Iter.filter's T), where any value converts. A type
-// parameter the result holds anywhere else (a Maybe's or a List's element,
-// a declared generic type's argument, a tuple's item) still takes the
-// expected type ahead of the arguments, since there a type argument the
-// arguments chose converts only in place, if at all (exactParams). A flat
-// variant call is seeded whole, so a mismatched element is reported where
-// it is written.
+// The rule covers every type parameter the result holds where a value
+// converts: at the top (Iter.loop's T), as an Iter's element (Iter.filter's
+// T), and at any covariant or contravariant position below (a Maybe's or a
+// List's element, a Result's error, a tuple's item, a function type's
+// parameter or result, a declared generic type's parameter that is not
+// invariant), since the result then converts element by element (spec §5
+// *Covariant conversion*): `Ok(Memory.new())` where a Result<Store, Error>
+// is expected builds a Result<Memory, Error>, which converts. A type
+// parameter the result holds at an invariant position (a declared generic
+// type's invariant parameter, a std struct's or host type's argument, an
+// interface's other than Iter's) still takes the expected type ahead of the
+// arguments, since a type argument there never converts (exactParams). A
+// flat variant call is seeded whole, so a mismatched element is reported
+// where it is written.
 
 // expectedSeed is what the expected type solves of a generic call's type
 // parameters, held back until an argument needs it.
@@ -91,27 +97,55 @@ func (s expectedSeed) fillExact(resultTy Type, subs map[*TypeParam_]Type) {
 	s.fill(exact, subs)
 }
 
-// exactParams adds to out the type parameters t names below its top other
-// than as an Iter's element: inside a List, Map, Maybe, Result, Set or
-// Vector, a declared generic type, a tuple, a record or a function type.
-// There a type argument converts only in place, if at all (spec §5 *Type
-// argument conversion*), so a type argument the arguments chose could leave
-// a result the expected type does not take: `Ok(Memory.new())` where a
-// Result<Store, Error> is expected must build the Store as it builds the
-// Result. A type parameter at the top, or an Iter's element, converts as
-// any value does, and is left to the arguments.
-func exactParams(t Type, nested bool, out map[*TypeParam_]bool) {
+// exactParams adds to out the type parameters t names at an invariant
+// position: a declared generic type's invariant parameter, a std struct's
+// or host type's argument, an interface's other than Iter's, or a
+// `Partial<T>`'s. There a type argument never converts (spec §5 *Covariant
+// conversion*), so one the arguments chose could leave a result the
+// expected type does not take. Every other position converts as a value
+// does, and is left to the arguments.
+func exactParams(t Type, exact bool, out map[*TypeParam_]bool) {
 	switch tt := resolveTV(t).(type) {
 	case *TypeParam_:
-		if nested {
+		if exact {
 			out[tt] = true
 		}
+	case *ListType:
+		exactParams(tt.Elem, exact, out)
+	case *MapType:
+		exactParams(tt.Key, exact, out)
+		exactParams(tt.Val, exact, out)
+	case *TupleType:
+		for _, e := range tt.Elems {
+			exactParams(e, exact, out)
+		}
+	case *AnonStructType:
+		for _, f := range tt.Fields {
+			exactParams(f.Type, exact, out)
+		}
+	case *FuncType:
+		for _, p := range tt.Params {
+			exactParams(p, exact, out)
+		}
+		exactParams(tt.Return, exact, out)
+	case *PartialType:
+		exactParams(tt.Inner, true, out)
 	case *InterfaceType:
 		for _, a := range tt.TypeArgs {
-			exactParams(a, nested || !isStdIterType(tt), out)
+			exactParams(a, exact || !isStdIterType(tt), out)
 		}
-	default:
-		collectTypeParamPtrs(t, out)
+	case *StructType:
+		for i, a := range tt.TypeArgs {
+			exactParams(a, exact || argVariance(tt, i) == VarianceInvariant, out)
+		}
+	case *EnumType:
+		for i, a := range tt.TypeArgs {
+			exactParams(a, exact || argVariance(tt, i) == VarianceInvariant, out)
+		}
+	case *DistinctType:
+		for i, a := range tt.TypeArgs {
+			exactParams(a, exact || argVariance(tt, i) == VarianceInvariant, out)
+		}
 	}
 }
 

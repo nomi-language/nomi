@@ -1,7 +1,7 @@
-// Package stdcsv is std/csv_host: reading CSV records from a Reader with
+// Package stdcsv is std/csv/host: reading CSV records from a Reader with
 // Go's encoding/csv, and writing one record as CSV text. std/csv is Nomi,
 // lowered with each program, over it; internal/hostgen/stdtable's
-// alsoImplements names this package as std/csv_host's.
+// alsoImplements names this package as std/csv/host's.
 //
 // A reader is a handle (rt.CsvRecords) over a csv.Reader that reads a
 // lineinput.Input over the program's Reader, so a string, a file and a

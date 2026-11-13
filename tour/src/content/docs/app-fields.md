@@ -105,7 +105,7 @@ field, build an updated copy of it:
 ```nomi-run
 import
     std::log.{self, Logger}
-    std::log_testing
+    std::log::testing
 end
 
 struct App
@@ -133,7 +133,7 @@ group "greetings"
     boot boot()
 
     test "only the audited greeting carries the audit field"
-        got = log_testing.run(fn logger ->
+        got = testing.run(fn logger ->
             with App.logger = logger
             greet("World")
             audit_greet("Alice")
@@ -163,7 +163,7 @@ To replace a field for only part of a function, move that part into a
 function of its own, as `audit_greet` does here.
 
 The app's [`std::log`](/reference/log/) `Logger` writes warnings and errors.
-The test replaces it with a `log_testing` recorder, which keeps every record
+The test replaces it with a `std::log::testing` recorder, which keeps every record
 as a value, so it can check that only Alice's greeting carries the `audit`
 field.
 

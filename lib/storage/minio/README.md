@@ -5,7 +5,7 @@ not a module to depend on.
 
 `nomi test lib/storage/minio` starts a throwaway MinIO server
 (`minio server`) on a free local port over a temporary directory, creates a
-bucket with a signed request, and runs std/storage_testing's conformance
+bucket with a signed request, and runs std/storage/testing's conformance
 suite, a presigned GET and PUT fetched with no credentials, and an object
 read with none from a bucket whose policy makes it public. The server
 stops and its directory is removed when the test ends.

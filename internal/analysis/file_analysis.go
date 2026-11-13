@@ -332,6 +332,13 @@ type FileBodies struct {
 	// parameter each instance resolves. The IR builder builds each view
 	// from this record. Nil until the first record.
 	IterViews map[ast.Node]*IterView
+	// Conversions maps each expression checked against a type that is no
+	// interface, whose own type converts to it below the top (a
+	// `Maybe<List<Int>>` where a `Maybe<Display>` is expected), to the
+	// conversion: the two types and each part that enters an interface,
+	// with its impl (conversions.go). The IR builder boxes each such part
+	// by this record. Nil until the first record.
+	Conversions map[ast.Node]*Conversion
 	// DefaultedRefs maps each declared function named as a value where a
 	// function of fewer parameters is expected (defaultFilledFuncValue)
 	// to the slots a call of that shorter value fills from the function's

@@ -110,14 +110,14 @@
 // `${...}` this way, for hovers and diagnostics.
 //
 // std/toml's `Toml` is a checked literal over a program std module. Its
-// check and build cross into the internal std/toml_host, over
+// check and build cross into the internal std/toml/host, over
 // internal/stdtoml: it follows the text far enough to place each slot (a
 // key part, a value, or refused in a string, a comment or touching a
 // token), reads the text with a stand-in per slot with
 // github.com/BurntSushi/toml, and maps its error back to a static and
 // offset. `ToToml` returns a `Toml.Value`, never text; `build` writes each
 // slot with `Toml.Value.text` in Nomi (strings and table keys through
-// `toml_host.quote`). A shared std body that takes a std interface with no
+// `std::toml::host.quote`). A shared std body that takes a std interface with no
 // rt table as a value declines (irbuild's stdprogiface.go), which is why
 // `Toml` cannot be shared and why std/compiler, which is shared, takes its
 // manifest as a `String`.

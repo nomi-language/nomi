@@ -24,7 +24,7 @@ import (
 //
 // `Money.format` writes a currency's name only for `CurrencyDisplay.Name`,
 // which, like any enum value, exists only where an instruction builds it.
-// A program that builds no `Name` and calls std/money_format's `format`
+// A program that builds no `Name` and calls std/money/format's `format`
 // only from std/money, or with a constant display that is not a name,
 // carries no currency names.
 
@@ -32,7 +32,7 @@ import (
 const (
 	CurrencyModule    = "std/currency.nomi"
 	MoneyModule       = "std/money.nomi"
-	MoneyFormatModule = "std/money_format.nomi"
+	MoneyFormatModule = "std/money/format.nomi"
 )
 
 // stdModule reports whether a module, by its name, is the std module a
@@ -52,7 +52,7 @@ func stdModule(name, module string) bool {
 	return (tail[0] == '/' || tail[0] == '\\') && strings.ReplaceAll(tail[1:], "\\", "/") == module
 }
 
-// displayName is std/money_format's `format` display that writes the name.
+// displayName is std/money/format's `format` display that writes the name.
 const displayName = 3
 
 // CurrencyLiterals are the ISO codes of the currency literals funcs build,
@@ -144,7 +144,7 @@ func CurrencyLiterals(mods []*ir.Module, funcs []*ir.Func) (codes []string, dyna
 
 // CurrencyNames reports whether funcs may write a currency's name with
 // `Money.format`: they build a `CurrencyDisplay.Name`, or call std/
-// money_format's `format` from outside std/money with a display that is not
+// std::money::format's `format` from outside std/money with a display that is not
 // a constant other than the name's.
 func CurrencyNames(mods []*ir.Module, funcs []*ir.Func) bool {
 	formats := map[*ir.Symbol]bool{}

@@ -15,7 +15,7 @@ import (
 // cannot be lowered at the call, where the tag names nothing, so it is the
 // declaring file's accessor's. The tag was not among the names a default
 // mentions, so the call lowered it in place and the program was blocked:
-// "a typed literal: no handler". std/storage_testing's `Memory.new()`, whose
+// "a typed literal: no handler". std/storage/testing's `Memory.new()`, whose
 // base is the literal Url`https://storage.test/`, hit it from a program that
 // does not import Url.
 func TestSiblingDefault_ATypedLiteralTheCallerCannotName(t *testing.T) {

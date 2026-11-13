@@ -1077,7 +1077,7 @@ end
 /// standard stream handles reach the capture the same way: writes through
 /// `io.stdout` and `io.stderr` go to the same places, and
 /// `Reader.read_line(io.stdin)` reads `input`. `dbg`, files and the
-/// runtime's own diagnostics are not redirected (`fs_testing.run` gives a
+/// runtime's own diagnostics are not redirected (`std::fs::testing.run` gives a
 /// call its own files). In a test case outside any `io.capture`, stderr is
 /// part of the case's output, which the report shows under the case.
 ///

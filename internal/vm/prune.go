@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/internal/stdcache"
 )
 
 // ReachedCrossings names every crossing into Go that a function PruneImage
@@ -143,13 +144,24 @@ func reachingName(in ir.Instr, f *ir.Func) string {
 	return name
 }
 
-// stdModuleOf is the std module a stdlib file declares: its name without
-// the directory or `.nomi`. The file is a path on the system that loaded
-// the stdlib, so a Windows one is cut at `\` too; no std file's name holds
-// either separator.
+// stdModuleOf is the module a stdlib file declares, as an import names it
+// after `std::`: its name without the directory or `.nomi` (`fs`), and a
+// module nested under its parent with the parent before it (`fs::host` for
+// std/fs/host.nomi). The file is a path on the system that loaded the
+// stdlib, so a Windows one is cut at `\` too.
 func stdModuleOf(file string) string {
-	file = file[strings.LastIndexAny(file, "/\\")+1:]
-	return strings.TrimSuffix(file, ".nomi")
+	file = strings.TrimSuffix(file, ".nomi")
+	segs := strings.FieldsFunc(file, func(r rune) bool { return r == '/' || r == '\\' })
+	if len(segs) == 0 {
+		return ""
+	}
+	name := segs[len(segs)-1]
+	if len(segs) >= 3 && segs[len(segs)-3] == "std" || len(segs) >= 4 && segs[len(segs)-4] == "std" && stdcache.IsVersion(segs[len(segs)-3]) {
+		if parent := segs[len(segs)-2]; parent != "std" && !stdcache.IsVersion(parent) && !strings.HasPrefix(parent, "_") {
+			return parent + "::" + name
+		}
+	}
+	return name
 }
 
 // PruneImage is the module set a built image carries: entry and mods with

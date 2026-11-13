@@ -6,7 +6,7 @@
 //
 //   - Funcs: the stdlib modules whose implementation is Go (std/calendar,
 //     std/locale, std/plural, std/random and std/regex), in their FFI-shaped
-//     surface, std/currency's code checks and std/money_format's money
+//     surface, std/currency's code checks and std/money/format's money
 //     formatting, plus std/strings' `capture_groups` and
 //     `capture_groups_all`, behind `String.captures`, which take a `Regex`
 //     handle and so cannot be RtFuncs rows, and the locale-aware formatting
@@ -80,12 +80,13 @@
 // # State across calls
 //
 // A program std module whose Go half holds state across calls keeps it in a
-// handle: a `host type` in its internal `_host` module, an rt struct over
+// handle: a `host type` in its internal module nested as `host` under it
+// (std/csv/host.nomi, imported inside std as `csv::host`), an rt struct over
 // `any` (rt/formats.go, rt/processes.go), a row in `stdHostSpecs`
 // (internal/irbuild/stdhost.go), `rtHeld` (internal/hostgen/rtshapes.go) and
 // `irStreamKinds` (internal/irbuild/irsupervisor.go), and the module in
 // `alsoImplements` (internal/hostgen/stdtable) when the Go package is named
-// for the public module (internal/stdcsv is std/csv_host's). The `_host`
+// for the public module (internal/stdcsv is std/csv/host's). The `host`
 // module goes in `internalStdModules` (internal/analysis/internal_std.go),
 // so programs cannot import it and the reference leaves it out. An
 // rt-shaped host function returns one value, so a crossing with several to

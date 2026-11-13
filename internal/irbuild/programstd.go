@@ -49,17 +49,17 @@ import (
 var programStdModules = map[string]bool{
 	"embed":            true,
 	"fs":               true,
-	"fs_testing":       true,
+	"fs/testing":       true,
 	"html":             true,
 	"http":             true,
-	"http_testing":     true,
+	"http/testing":     true,
 	"jobs":             true,
-	"jobs_testing":     true,
-	"literals_testing": true,
+	"jobs/testing":     true,
+	"literals/testing": true,
 	"log":              true,
-	"log_testing":      true,
+	"log/testing":      true,
 	"mail":             true,
-	"mail_testing":     true,
+	"mail/testing":     true,
 	"phrase":           true,
 	"presence":         true,
 	"money":            true,
@@ -68,7 +68,7 @@ var programStdModules = map[string]bool{
 	"parse":            true,
 	"path":             true,
 	"process":          true,
-	"process_testing":  true,
+	"process/testing":  true,
 	"reverse":          true,
 	"sessions":         true,
 	"signatures":       true,
@@ -79,10 +79,10 @@ var programStdModules = map[string]bool{
 	"xml":              true,
 	"sql":              true,
 	"storage":          true,
-	"storage_testing":  true,
+	"storage/testing":  true,
 	"tls":              true,
 	"toml":             true,
-	"sql_testing":      true,
+	"sql/testing":      true,
 	"url":              true,
 	"uuid":             true,
 	"websocket":        true,
@@ -179,7 +179,7 @@ func withProgramStd(p *Program) *Program {
 // level and in blocks, by its name under std/ (`uuid`). A program's file
 // writes the module as `std/uuid`; a std module names a sibling bare
 // (`import uuid.Uuid`), which inStd says, but its `//!` prompts are written
-// as a program's code and name it `std/uuid` (`//! import std::sql_testing.Fake`
+// as a program's code and name it `std/uuid` (`//! import std::sql::testing.Fake`
 // in std/sql.nomi), so a std/ path counts in a std module too.
 func importedStdModules(nodes []ast.Node, inStd bool) []string {
 	var out []string

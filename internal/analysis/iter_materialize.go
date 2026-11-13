@@ -25,16 +25,29 @@ func mismatchHint(want, have Type) string {
 }
 
 // typeArgumentVarianceHint explains a generic value refused where the same
-// type at other type arguments is expected (spec §5 *Type argument
-// conversion*): a declared generic type's arguments compare exactly; a std
-// collection's convert only where each element already is a value of the
-// wider type, so the hint names the explicit conversion where one would be
-// needed per element, and says why a function element whose parameter
-// would narrow cannot convert at all.
+// type at other type arguments is expected (spec §5 *Covariant
+// conversion*): a type argument at an invariant parameter compares exactly,
+// one at a contravariant parameter converts only the other way, and a
+// collection of functions whose parameter would narrow cannot convert.
 func typeArgumentVarianceHint(want, have Type) string {
 	want, have = resolveTV(want), resolveTV(have)
+	if wf, ok := want.(*FuncType); ok {
+		if hf, ok := have.(*FuncType); ok && len(wf.Params) == len(hf.Params) {
+			why := unimplementedPart(normalizeReturn(wf.Return), normalizeReturn(hf.Return))
+			for i := range wf.Params {
+				if why == "" {
+					// The expected function's argument is passed to have's.
+					why = unimplementedPart(hf.Params[i], wf.Params[i])
+				}
+			}
+			if why != "" {
+				return fmt.Sprintf("%s does not convert to %s: %s", have, want, why)
+			}
+		}
+		return ""
+	}
 	wantArgs, haveArgs := containerArgs(want), containerArgs(have)
-	if len(wantArgs) == 0 || len(wantArgs) != len(haveArgs) {
+	if len(wantArgs) == 0 || len(wantArgs) != len(haveArgs) || !sameGenericDecl(want, have) {
 		return ""
 	}
 	for i := range wantArgs {
@@ -42,36 +55,120 @@ func typeArgumentVarianceHint(want, have Type) string {
 		if containsTypeVar(w) || containsTypeVar(h) || TypesIdentical(w, h) {
 			continue
 		}
-		if !convertibleArgs(want) {
-			return fmt.Sprintf("%s does not convert to %s: a declared generic type's type arguments compare exactly, "+
-				"since its values carry them; build a new %s from the value's parts", have, want, want)
+		name, param := genericNames(want, i)
+		// A distinct type holds its parameter in its inner type, a struct
+		// or enum in its fields.
+		holds, take, takes := "fields both hold", "take", "fields only take"
+		if _, distinct := want.(*DistinctType); distinct {
+			holds, take, takes = "inner type both holds", "takes", "inner type only takes"
+		}
+		switch argVariance(want, i) {
+		case VarianceInvariant:
+			if len(TypeParamVariances(want)) > 0 {
+				return fmt.Sprintf("%s does not convert to %s: %s's type parameter %s is invariant, since %s's %s a %s and %s one; "+
+					"build a new %s from the value's parts", have, want, name, param, name, holds, param, take, want)
+			}
+			return fmt.Sprintf("%s does not convert to %s: %s's type arguments compare exactly, since its values carry them; "+
+				"build a new %s from the value's parts", have, want, name, want)
+		case VarianceContravariant:
+			return fmt.Sprintf("%s does not convert to %s: %s's type parameter %s is contravariant, since %s's %s a %s, "+
+				"so it converts only where %s converts to %s", have, want, name, param, name, takes, param, w, h)
 		}
 		if wf, ok := w.(*FuncType); ok {
 			if hf, ok := h.(*FuncType); ok && len(wf.Params) == len(hf.Params) {
-				return funcElementHint(want, have, wf, hf)
+				if hint := funcElementHint(want, have, wf, hf); hint != "" {
+					return hint
+				}
 			}
-			continue
 		}
-		iface, ok := w.(*InterfaceType)
-		if !ok || isStdIterType(iface) {
-			continue
+		if why := unimplementedPart(w, h); why != "" {
+			return fmt.Sprintf("%s does not convert to %s: %s", have, want, why)
 		}
-		if _, alsoIface := h.(*InterfaceType); alsoIface || carriesOwnType(h) {
-			continue
-		}
-		why := fmt.Sprintf("%s becomes %s boxed", h, iface)
-		if _, param := h.(*TypeParam_); param {
-			why = fmt.Sprintf("%s may be a type that becomes %s boxed", h, iface)
-		}
-		return fmt.Sprintf("%s does not convert to %s: %s, so the conversion would build a new %s element by element; "+
-			"write it where that is meant: `%s`", have, want, why, collectionName(want), explicitConversion(want))
 	}
 	return ""
 }
 
+// unimplementedPart says which part of have, a covariant position's type,
+// does not implement the interface want holds at the same place, or "" when
+// none is found: `Unit does not implement Display` for a Maybe<Unit> where
+// a Maybe<Display> is expected.
+func unimplementedPart(want, have Type) string {
+	want, have = resolveTV(want), resolveTV(have)
+	if containsTypeVar(want) || containsTypeVar(have) || TypesIdentical(want, have) {
+		return ""
+	}
+	if it, ok := want.(*InterfaceType); ok && !isStdIterType(it) {
+		if _, param := have.(*TypeParam_); param {
+			return ""
+		}
+		// An interface value converts to no other interface: `Named`
+		// does not implement Display, though each value it holds may.
+		return fmt.Sprintf("%s does not implement %s", have, it)
+	}
+	if !sameGenericDecl(want, have) {
+		return ""
+	}
+	ws, hs := containerArgs(want), containerArgs(have)
+	if len(ws) != len(hs) {
+		return ""
+	}
+	for i := range ws {
+		if argVariance(want, i) != VarianceCovariant {
+			continue
+		}
+		if why := unimplementedPart(ws[i], hs[i]); why != "" {
+			return why
+		}
+	}
+	return ""
+}
+
+// sameGenericDecl reports whether a and b are instances of one generic
+// type: two Lists, two Maps, or one declaration's.
+func sameGenericDecl(a, b Type) bool {
+	switch a := a.(type) {
+	case *ListType:
+		_, ok := b.(*ListType)
+		return ok
+	case *MapType:
+		_, ok := b.(*MapType)
+		return ok
+	case *StructType:
+		b, ok := b.(*StructType)
+		return ok && sameNominalIdentity(a.Origin, a.Name, b.Origin, b.Name)
+	case *EnumType:
+		b, ok := b.(*EnumType)
+		return ok && sameNominalIdentity(a.Origin, a.Name, b.Origin, b.Name)
+	case *DistinctType:
+		b, ok := b.(*DistinctType)
+		return ok && sameNominalIdentity(a.Origin, a.Name, b.Origin, b.Name)
+	}
+	return false
+}
+
+// genericNames is how a hint names the generic type t and its type
+// parameter i.
+func genericNames(t Type, i int) (string, string) {
+	var name string
+	var params []string
+	switch t := t.(type) {
+	case *StructType:
+		name, params = t.Name, t.TypeParams
+	case *EnumType:
+		name, params = t.Name, t.TypeParams
+	case *DistinctType:
+		name, params = t.Name, t.TypeParams
+	}
+	if i < len(params) {
+		return name, params[i]
+	}
+	return name, "T"
+}
+
 // funcElementHint explains a collection of functions refused where one of
-// another function type is expected: a parameter that would narrow is
-// unsound, and any other difference needs a wrapper per element.
+// another function type is expected because a parameter would narrow: each
+// function takes only its own parameter type, and the wider type may be
+// passed any value of the interface. Empty for any other difference.
 func funcElementHint(want, have Type, wf, hf *FuncType) string {
 	for i := range wf.Params {
 		wp, hp := resolveTV(wf.Params[i]), resolveTV(hf.Params[i])
@@ -82,44 +179,7 @@ func funcElementHint(want, have Type, wf, hf *FuncType) string {
 			}
 		}
 	}
-	return fmt.Sprintf("%s does not convert to %s: each %s would need a wrapper to become %s, one per element; "+
-		"wrap them where that is meant: `Iter.map(fs, fn f -> fn x -> f(x)) |> Iter.to_list()`", have, want, hf, wf)
-}
-
-// collectionName is how a hint names the std collection t.
-func collectionName(t Type) string {
-	switch t := t.(type) {
-	case *ListType:
-		return "List"
-	case *MapType:
-		return "Map"
-	case *StructType:
-		return t.Name
-	case *EnumType:
-		return t.Name
-	case *DistinctType:
-		return t.Name
-	}
-	return "value"
-}
-
-// explicitConversion is the call that converts each element of the std
-// collection t where t is expected.
-func explicitConversion(t Type) string {
-	switch t := t.(type) {
-	case *MapType:
-		return "Map.map_values(m, fn v -> v)"
-	case *EnumType:
-		if t.Name == "Result" {
-			return "Result.map(r, fn x -> x)"
-		}
-		return "Maybe.map(m, fn x -> x)"
-	case *StructType:
-		return "Iter.map(s, fn x -> x) |> Iter.to_set()"
-	case *DistinctType:
-		return "Iter.map(v, fn x -> x) |> Iter.to_vector()"
-	}
-	return "Iter.map(xs, fn x -> x) |> Iter.to_list()"
+	return ""
 }
 
 // containerArgs are t's type arguments as a container: a list's element, a

@@ -30,22 +30,73 @@ end`
 
 // What the arguments leave open still comes from the expected type: an
 // empty literal's element, a lambda parameter nothing else types, a
-// dot-leading variant, and a type argument inside a Maybe, where a value
-// converts only in place.
+// dot-leading variant, and a type argument at an invariant position, where
+// a value never converts.
 func TestArgsFirst_ExpectedTypeFillsWhatTheArgumentsLeaveOpen(t *testing.T) {
 	src := `enum Color
     Red
     Blue
 end
+struct Cell<T>
+    get: () -> T
+    put: (T) -> Unit
+end
 fn ident<T>(x: T) -> T
     x
 end
+fn cell<T>(v: T) -> Cell<T>
+    Cell{get: fn -> v, put: fn _ -> Unit}
+end
 fn demo() -> Int
     xs: List<Int> = Iter.to_list([])
+    k: Cell<Display> = cell(1)
     f: (Int) -> Int = ident(fn x -> x + 1)
     c: Maybe<Color> = Some(.Red)
     m: Maybe<Display> = Some([1])
     f(Iter.count(xs))
+end`
+	expectNoErrorsT(t, checkWithStdlib(src))
+}
+
+// A type parameter the result holds below its top, at a position that
+// converts, comes from the arguments too, and the result converts (spec §5
+// *Covariant conversion*): each lambda sees an Int, not a Display, and
+// `Ok(Mem{})` builds a Result<Mem, String> that converts to a
+// Result<Store, String>, as std/storage_testing's
+// `conformance(fn -> Ok(Memory.new()))` does.
+func TestArgsFirst_NestedParameterComesFromTheArguments(t *testing.T) {
+	src := `interface Store
+    fn size(s: self) -> Int
+end
+struct Mem
+    n: Int
+end
+impl Store for Mem
+    fn size(m: Mem) -> Int
+        m.n
+    end
+end
+struct Box<T>
+    v: T
+end
+fn boxed<T>(v: T) -> Box<T>
+    Box{v:}
+end
+fn checked<T>(v: T, f: (T) -> Int) -> Maybe<T>
+    if f(v) > 0 then Some(v) else None
+end
+fn open_with(open: () -> Result<Store, String>) -> Int
+    case open()
+        Ok(s) -> Store.size(s)
+        Err(_) -> 0
+    end
+end
+fn demo() -> Int
+    m: Maybe<Display> = Maybe.map(Some(1), fn x -> x + 1)
+    xs: List<Display> = Iter.map([1], fn x -> x * 2) |> Iter.to_list()
+    b: Box<Display> = boxed(1)
+    c: Maybe<Display> = checked(1, fn n -> n + 1)
+    open_with(fn -> Ok(Mem{n: 1}))
 end`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }

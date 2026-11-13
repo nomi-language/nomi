@@ -13,7 +13,7 @@ import (
 func TestRouteLiteral_TypedParameters(t *testing.T) {
 	const src = `import
     std::http.{Body, Method, Request, Response, Route, Router}
-    std::http_testing
+    std::http::testing
     std::io
     std::uuid.Uuid
 end
@@ -34,7 +34,7 @@ fn main()
         Route.to_with(any, fn _, p -> Response{body: Body.Text(p.x)}),
     ])!
 
-    get = fn target: String -> Router.serve(router, http_testing.request(Method.Get, target))
+    get = fn target: String -> Router.serve(router, testing.request(Method.Get, target))
     io.print(Response.text(get("/")))
     io.print(Response.text(get("/posts/0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a")))
     io.print(get("/posts/latest").status)
@@ -67,7 +67,7 @@ end
 func TestRouteHandlers_AnswerAResultOfToResponse(t *testing.T) {
 	src := strings.ReplaceAll(`import
     std::http.{Body, Method, Request, Response, Route, Router, Status, ToResponse}
-    std::http_testing
+    std::http::testing
     std::io
     std::uuid.Uuid
 end
@@ -125,7 +125,7 @@ fn main()
         Route.to_with(item, fn _, p -> if p.n > 0 then Ok(Response{body: Body.Text("item ${p.n}")}) else Err(Oops{message: "bad item"})),
     ])!
     line = fn target: String ->
-        response = Router.serve(router, http_testing.request(Method.Get, target))
+        response = Router.serve(router, testing.request(Method.Get, target))
         io.print("${target} ${response.status} ${Response.text(response)}")
     end
     line("/a")
@@ -257,7 +257,7 @@ func TestRouteLiteral_WrongPickNamesTheOtherFunction(t *testing.T) {
 func TestRouteHandlers_OkOnlyLambdaServes(t *testing.T) {
 	const src = `import
     std::http.{Body, Method, Request, Response, Route, Router, Status}
-    std::http_testing
+    std::http::testing
     std::io
 end
 
@@ -278,10 +278,10 @@ fn main()
         Route.to("GET /gone", fn _ -> Err(Response.error(Status.not_found, "gone"))),
         Route.to("GET /named", named),
     ])!
-    io.print(Response.text(Router.serve(router, http_testing.request(Method.Post, "/admin/posts/7/edit"))))
-    io.print(Response.text(Router.serve(router, http_testing.request(Method.Get, "/home"))))
-    io.print(Router.serve(router, http_testing.request(Method.Get, "/gone")).status)
-    io.print(Response.text(Router.serve(router, http_testing.request(Method.Get, "/named"))))
+    io.print(Response.text(Router.serve(router, testing.request(Method.Post, "/admin/posts/7/edit"))))
+    io.print(Response.text(Router.serve(router, testing.request(Method.Get, "/home"))))
+    io.print(Router.serve(router, testing.request(Method.Get, "/gone")).status)
+    io.print(Response.text(Router.serve(router, testing.request(Method.Get, "/named"))))
 end
 `
 	var out strings.Builder
@@ -305,7 +305,7 @@ end
 func TestRouteLiteral_ArgumentTakesTheHandlersParameters(t *testing.T) {
 	const src = `import
     std::http.{Body, Method, Request, Response, Route, Router}
-    std::http_testing
+    std::http::testing
     std::io
 end
 
@@ -322,7 +322,7 @@ fn main()
         Route.to_with("GET /n/{id}", fn _: Request, p: {id: Int} -> Response{body: Body.Text("${p.id * 2}")}),
     ])!
 
-    serve = fn method: Method, target: String -> Router.serve(router, http_testing.request(method, target))
+    serve = fn method: Method, target: String -> Router.serve(router, testing.request(method, target))
     io.print(Response.text(serve(Method.Patch, "/todos/41")))
     io.print(Response.text(serve(Method.Get, "/todos/1")))
     io.print(Response.text(serve(Method.Put, "/todos/9")))
@@ -379,7 +379,7 @@ func TestRouteLiteral_ArgumentRefusesAHandlerOfOtherFields(t *testing.T) {
 func TestRouteLiteral_ArgumentTakesTheParametersThroughMiddleware(t *testing.T) {
 	src := strings.ReplaceAll(`import
     std::http.{Body, Method, Request, Response, Route, Router, ToResponse}
-    std::http_testing
+    std::http::testing
     std::io
 end
 
@@ -410,7 +410,7 @@ fn main()
         Route.to_with(Route´GET /c/{id}´, concrete(show)),
         "GET /d/{id}" |> Route.to_with(wrap(show)),
     ])!
-    get = fn target: String -> Router.serve(router, http_testing.request(Method.Get, target))
+    get = fn target: String -> Router.serve(router, testing.request(Method.Get, target))
     io.print(Response.text(get("/a/7")))
     io.print(Response.text(get("/b/7")))
     io.print(Response.text(get("/c/7")))

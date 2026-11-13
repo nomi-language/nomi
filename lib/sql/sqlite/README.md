@@ -65,7 +65,7 @@ end
   `Conn` its `begin` returned: a statement the transaction's own task sends
   through the shared `Conn` waits for that same transaction, until the
   task's deadline.
-- It passes `std/sql_testing`'s conformance suite (every rule;
+- It passes `std/sql/testing`'s conformance suite (every rule;
   `sqlite_test.nomi`).
 
 ## Values

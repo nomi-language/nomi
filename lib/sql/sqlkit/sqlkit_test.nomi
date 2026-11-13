@@ -1,8 +1,8 @@
 import
-    std::fs_testing.{self, Sandbox}
+    std::fs::testing.{self, Sandbox}
     std::json.Json
     std::sql.{self, Conn, Row, Sql, Value}
-    std::sql_testing.Fake
+    std::sql::testing.Fake
     codegen.{self, Schema}
     databases.{self, Database}
     described.{Column, QueryError, Table, TableColumn}
@@ -875,7 +875,7 @@ test "the inputs are the `.sql` files of the two directories, in name order"
         "db/queries/users.sql" => "Q",
     }
 
-    ran = fs_testing.run(Sandbox{files:}, fn ->
+    ran = testing.run(Sandbox{files:}, fn ->
         m = inputs.read("db/migrations")?
         q = inputs.read("db/queries")?
 

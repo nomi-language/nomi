@@ -260,6 +260,7 @@ var toTypes = []toType{
 const (
 	toHolder = "struct Holder$P\n    f: $T\n    n: Int\nend"
 	toWrap   = "enum Wrap$P\n    Has $T\n    Empty\nend"
+	toHeld   = "enum Held<A>\n    One A\n    No\nend"
 	toRec    = "enum Rec$P\n    Has {f: $T, n: Int}\n    Empty\nend"
 	toDuo    = "enum Duo$P\n    Both ($T, Int)\n    Neither\nend"
 )
@@ -318,6 +319,16 @@ var toOps = []toOp{
 	{name: "channel across tasks", imports: append(strings.Fields(toChans), "std::tasks.Task"),
 		body: "ch = Channel.buffered<$T>(1)\nout = concurrent\n    t = Task.spawn(fn -> Sender.send(ch.sender, $E))\n    got = Receiver.receive(ch.receiver)!\n    _ = Task.await(t)\n    got\nend"},
 	{name: "task result", imports: []string{"std::tasks.Task"}, body: "out = concurrent\n    t = Task.spawn(fn -> $E)\n    Task.await(t)\nend", core: true},
+	// A value whose type holds $T converts where the same type holding
+	// Display is expected, through each covariant position, and a function
+	// taking Display where one taking $T is (spec §5 *Covariant
+	// conversion*).
+	{name: "into Maybe<Display>", body: "m = Some($E)\nd: Maybe<Display> = m\nassert Some(x) = d\nassert \"${x}\" == \"$S\"\nout = $E", needs: needDisplay},
+	{name: "into List<Display>", body: "xs = [$E, $E]\nds: List<Display> = xs\nassert (Iter.map(ds, Display.to_string) |> Iter.to_list()) == [\"$S\", \"$S\"]\nout = $E", needs: needDisplay},
+	{name: "into Result<Display, E>", body: "r: Result<$T, String> = Ok($E)\nd: Result<Display, String> = r\nassert Ok(x) = d\nassert \"${x}\" == \"$S\"\nout = $E", needs: needDisplay},
+	{name: "into a user enum of Display", decls: toHeld, body: "h = Held.One($E)\nd: Held<Display> = h\nassert Held.One(x) = d\nassert \"${x}\" == \"$S\"\nout = $E", needs: needDisplay},
+	{name: "into a function returning Display", body: "v = $E\nf = fn -> v\ng: () -> Display = f\nfs = [f]\ngs: List<() -> Display> = fs\nassert \"${g()}\" == \"$S\"\nassert (Iter.map(gs, fn h -> \"${h()}\") |> Iter.to_list()) == [\"$S\"]\nout = $E", needs: needDisplay},
+	{name: "a function taking Display into one taking Int", decls: "fn shown(d: Display) -> String\n    \"${d}\"\nend", body: "f: ($T) -> String = shown\nfs = [shown]\ngs: List<($T) -> String> = fs\nassert f($E) == \"$S\"\nassert (Iter.map(gs, fn g -> g($E)) |> Iter.to_list()) == [\"$S\"]\nout = $E", needs: needDisplay},
 	{name: "ok", body: "r: Result<$T, String> = Ok($E)\nassert Ok(out) = r", core: true},
 	{name: "err", body: "r: Result<Int, $T> = Err($E)\nassert Err(out) = r", core: true},
 	{name: "some", body: "m = Some($E)\nassert Some(out) = m"},
@@ -541,6 +552,14 @@ var toRules = []toRule{
 		},
 		reject: "(type mismatch|argument [0-9]+|element type mismatch): expected (Iter<)?Display|cannot compare",
 		why:    "the call is typed by its arguments, and its result is no Display, or `Ok(3)` leaves its error type open (spec §5 *Type arguments from the arguments*)",
+	},
+	{
+		match: func(c toCell) bool {
+			partial := strings.HasPrefix(c.t.expr, "Ok(") || strings.HasPrefix(c.t.expr, "Err(")
+			return partial && strings.HasPrefix(c.op.name, "into ") && c.op.name != "into Result<Display, E>"
+		},
+		reject: "type mismatch: expected (Maybe|List|Held)<Display>|type mismatch: expected \\(\\) -> Display",
+		why:    "`Ok(3)` leaves its error type open, so whether the Result implements Display is not determined (spec §5 *Covariant conversion*)",
 	},
 }
 

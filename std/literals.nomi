@@ -21,7 +21,7 @@
 //# A type implements one of the two, never both. Choose `CheckedLiteral`
 //# when the text alone tells whether every slot value will build, as a URL's
 //# does: a slot in its path is escaped as one segment whatever it holds.
-//# std::literals_testing's `build_each` tests that a `build` keeps to this.
+//# std::literals::testing's `build_each` tests that a `build` keeps to this.
 //#
 //# A program's own type gets literals from an impl:
 //#
@@ -113,7 +113,7 @@ end
 /// - `build` runs when the program runs and gets the fragments
 ///   `Literal.from_fragments` would get. It cannot fail: once `check`
 ///   accepts the text, every slot value must build. A `build` that traps
-///   anyway traps where the literal runs. std::literals_testing's
+///   anyway traps where the literal runs. std::literals::testing's
 ///   `build_each` tests this.
 ///
 /// A type implements `Literal` or `CheckedLiteral`, never both.

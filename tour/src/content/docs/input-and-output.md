@@ -196,7 +196,7 @@ program could not be started at all, such as `NotFound` when nothing on the
 import
     std::io
     std::process.{self, Command, Status}
-    std::process_testing.{self, Answer}
+    std::process::testing.{self, Answer}
 end
 
 /// The current git branch, or `None` when git fails, as it does outside a
@@ -213,10 +213,10 @@ fn current_branch() -> Result<Maybe<String>, io.Error>
 end
 
 fn main()
-    in_repo = process_testing.run([Answer{program: "git", stdout: "main\n"}], current_branch)
+    in_repo = testing.run([Answer{program: "git", stdout: "main\n"}], current_branch)
     dbg in_repo.value
 
-    outside = process_testing.run(
+    outside = testing.run(
         [Answer{program: "git", code: 128, stderr: "fatal: not a git repository\n"}],
         current_branch,
     )
@@ -230,7 +230,7 @@ dbg line 29: outside.value = Ok(None)
 -->
 
 The page cannot start programs, so `main` runs `current_branch` under
-[`process_testing`](/reference/process_testing/), which responds to each command
+[`std::process::testing`](/reference/process/testing/), which responds to each command
 from a list of `Answer`s instead of starting it, as a test does. For the
 same reason, `nomi build` refuses to build a program that starts others for
 WebAssembly.

@@ -75,10 +75,6 @@ type checker struct {
 	// (checkPartialCapture), or nil.
 	partialCall  *ast.Call
 	partialHoles map[int]Type
-	// funcRefCaptures is the help for a generic function named as a value
-	// that does not fit its position where a capture of it would
-	// (noteFuncRefCapture).
-	funcRefCaptures map[ast.Node]string
 	// fileNodes is the file's top-level nodes, and strays each `&N` among
 	// them outside a capture (strayPlaceholders).
 	fileNodes []ast.Node
@@ -3285,7 +3281,7 @@ func (c *checker) checkOnce(n *ast.OnceBinding) {
 	if declared != nil {
 		if err := c.unifyInto(declared, valTy, map[*TypeParam_]Type{}); err != nil {
 			c.report(errAt(n.Value, c.typef(
-				"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)).WithHint(c.funcRefCaptureHint(n.Value)))
+				"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)))
 		}
 		return
 	}
@@ -10093,7 +10089,7 @@ func (c *checker) argMatchesParam(argTy, paramTy Type, recPos Pos, recKind Recor
 		return c.unifyInto(paramTy, argTy, nil) == nil
 	}
 	// A std collection converts where its type arguments do, as they are
-	// (spec §5 *Type argument conversion*): a List<Int> enters a
+	// (spec §5 *Covariant conversion*): a List<Int> enters a
 	// List<Display> parameter.
 	if convertibleArgs(resolveTypeVar(paramTy)) {
 		return c.unifyInto(paramTy, argTy, nil) == nil
@@ -10347,7 +10343,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 			if hint == "" {
 				hint = c.functionJoinHint(param, substituted, argTy)
 			}
-			c.report(expectedGot(substituted).WithHint(hint).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.wholeResultHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)).WithHint(c.funcRefCaptureHint(arg)))
+			c.report(expectedGot(substituted).WithHint(hint).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.wholeResultHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)))
 		}
 		return
 	}
@@ -10361,7 +10357,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 	// still holds a type parameter, and no solution of it makes the argument
 	// fit (`(Float, T)` given `(Int, String)`, `Set<T>` given Unit,
 	// `Maybe<T>` given a function), so the call could never be lowered.
-	c.report(expectedGot(substituted).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.defaultedFuncValueHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)).WithHint(c.funcRefCaptureHint(arg)))
+	c.report(expectedGot(substituted).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.defaultedFuncValueHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)))
 }
 
 // functionJoinHint explains a rejected argument whose function type would be
@@ -13192,7 +13188,7 @@ func (c *checker) checkBinding(n *ast.Binding) Type {
 			subs := map[*TypeParam_]Type{}
 			if err := c.unifyInto(declared, valTy, subs); err != nil {
 				c.report(errAt(n.Value, c.typef(
-					"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)).WithHint(c.funcRefCaptureHint(n.Value)))
+					"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)))
 			} else if len(subs) > 0 {
 				valTy = Substitute(valTy, subs)
 			}
@@ -14040,7 +14036,7 @@ func (c *checker) interfaceBranchJoin(expected, have, next Type) Type {
 		return nil
 	}
 	// A std collection joins the same way where each branch converts to it
-	// (spec §5 *Type argument conversion*): `List<Display>` over a
+	// (spec §5 *Covariant conversion*): `List<Display>` over a
 	// List<Int> and a List<String>.
 	if _, ok := resolveTypeVar(expected).(*InterfaceType); !ok && !convertibleArgs(resolveTypeVar(expected)) {
 		return nil

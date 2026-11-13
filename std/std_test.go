@@ -157,6 +157,11 @@ func TestFileURI_UsesTheWorktreeSource(t *testing.T) {
 	if uri != want {
 		t.Fatalf("FileURI(regex) = %q, want %q", uri, want)
 	}
+	// A module nested under its parent lands at its path.
+	nested := fileuri.FromPath(filepath.Join(stdRoot, "storage", "testing.nomi"))
+	if got := lib.FileURI("storage/testing"); got != nested {
+		t.Fatalf("FileURI(storage/testing) = %q, want %q", got, nested)
+	}
 }
 
 func TestStdlibFuncTypesResolved(t *testing.T) {

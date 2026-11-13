@@ -1,30 +1,30 @@
 //# Testing code that reads and writes files, without the disk. Inside
-//# `fs_testing.run(sandbox, body)`, every std::fs call `body` makes, and
+//# `testing.run(sandbox, body)`, every std::fs call `body` makes, and
 //# every call the tasks it starts make, goes to an in-memory file system
 //# built from the sandbox. `run` returns what `body` returned together
 //# with the files afterwards, each operation in order and the handles left
 //# open. As with `io.capture`, the sandbox lasts for the call and follows
-//# its tasks, two tasks running their own `fs_testing.run` at once never
+//# its tasks, two tasks running their own `testing.run` at once never
 //# see each other's files, and a nested `run` takes over for its own call.
 //#
 //# The sandbox is the same in-memory file system the browser build uses,
-//# and `fs_testing.conformance` holds it to the operating system's: std's
+//# and `testing.conformance` holds it to the operating system's: std's
 //# own tests run every rule against a real temporary directory and against
 //# a sandbox.
 //#
 //# ```nomi
 //# import
-//#     std::fs_testing.{self, Sandbox}
+//#     std::fs::testing.{self, Sandbox}
 //#     sort_lines
 //# end
 //#
 //# test "sorts the lines into the output file"
-//#     ran = fs_testing.run(Sandbox{files: {"in.txt" => "pear\napple\n"}}, fn ->
+//#     ran = testing.run(Sandbox{files: {"in.txt" => "pear\napple\n"}}, fn ->
 //#         sort_lines.sort_file("in.txt", "out.txt")
 //#     end)
 //#
 //#     assert ran.value == Ok(2)
-//#     assert fs_testing.text(ran, "/work/out.txt") == Some("apple\npear\n")
+//#     assert testing.text(ran, "/work/out.txt") == Some("apple\npear\n")
 //#     assert ran.open == []
 //# end
 //# ```
@@ -35,7 +35,7 @@ import
     debug.Debug
     equatable.Equatable
     fs.{self, Access, Entry, Kind, WriteMode}
-    fs_host
+    fs::host
     int.Int
     io.{Error, File, Reader, Writer}
     iter.Iter
@@ -154,7 +154,7 @@ end
 pub fn run<T>(sandbox: Sandbox, body: () -> T) -> Ran<T>
     texts = Map.map_values(sandbox.files, fn text -> String.to_bytes(text))
 
-    fake = fs_host.new_sandbox(
+    fake = host.new_sandbox(
         sandbox.cwd,
         Map.merge(texts, sandbox.binary),
         sandbox.dirs,
@@ -162,7 +162,7 @@ pub fn run<T>(sandbox: Sandbox, body: () -> T) -> Ran<T>
     )
 
     Iter.each(sandbox.failures, fn f ->
-        fs_host.sandbox_fail(
+        host.sandbox_fail(
             fake,
             f.path,
             operation_code(f.operation),
@@ -171,13 +171,13 @@ pub fn run<T>(sandbox: Sandbox, body: () -> T) -> Ran<T>
         )
     end)
 
-    value = fs_host.run_in(fake, body)
+    value = host.run_in(fake, body)
 
     Ran{
         value:,
-        files: fs_host.sandbox_files(fake),
-        log: fs_host.sandbox_log(fake),
-        open: fs_host.sandbox_open(fake),
+        files: host.sandbox_files(fake),
+        log: host.sandbox_log(fake),
+        open: host.sandbox_open(fake),
     }
 end
 

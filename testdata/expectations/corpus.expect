@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 736
-declared-cases 4109
+records 737
+declared-cases 4116
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1837,6 +1837,19 @@ H 4eedaa746d02362d160584f27a3efcd0ea8b04e45bffc775dd78a4f98cb736a4
 T ok <root>/tests/10-generics-and-type-wrappers/bounds_test.nomi :: interface bounds constrain generic functions
 T ok <root>/tests/10-generics-and-type-wrappers/bounds_test.nomi :: interface-bound aliases name reusable bound conjunctions
 T test result: ok. 2 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/covariant_conversion_test.nomi
+E 0
+N 7
+H 511eb2797944186fe355f4c8d6bad316ba68cb8a1f60ccb775821db3cf1a087a
+T ok <root>/tests/10-generics-and-type-wrappers/covariant_conversion_test.nomi :: Maybe and List
+T ok <root>/tests/10-generics-and-type-wrappers/covariant_conversion_test.nomi :: Result, from a call's arguments
+T ok <root>/tests/10-generics-and-type-wrappers/covariant_conversion_test.nomi :: user enums and structs
+T ok <root>/tests/10-generics-and-type-wrappers/covariant_conversion_test.nomi :: Map, Set and Vector
+T ok <root>/tests/10-generics-and-type-wrappers/covariant_conversion_test.nomi :: functions
+T ok <root>/tests/10-generics-and-type-wrappers/covariant_conversion_test.nomi :: a type parameter at each instance
+T ok <root>/tests/10-generics-and-type-wrappers/covariant_conversion_test.nomi :: distinct types
+T test result: ok. 7 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/default_type_arguments/default_type_arguments_test.nomi
 E 0

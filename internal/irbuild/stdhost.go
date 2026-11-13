@@ -327,34 +327,34 @@ var stdHostSpecs = []stdHostSpec{
 	// `File`, std/io's handle for reads and writes at a position, for the
 	// same reason (rt/filehandle.go).
 	{origin: "std/io", nomi: "File", goType: reflect.TypeFor[rt.File]()},
-	// `FileSystem`, std/fs_host's file system a call runs against
-	// (`fs_testing.run`'s sandbox, `fs.within`'s directory), for the reason
+	// `FileSystem`, std/fs/host's file system a call runs against
+	// (`std::fs::testing.run`'s sandbox, `fs.within`'s directory), for the reason
 	// `Reader` is: rt's struct over the backend internal/stdio builds, which
 	// rt carries and does not name.
-	{origin: "std/fs_host", nomi: "FileSystem", goType: reflect.TypeFor[rt.FileSystem]()},
-	// `Child` and `Fake`, std/process_host's started program and the fake
-	// `process_testing.run` installs, for the reason `FileSystem` is: rt's
+	{origin: "std/fs/host", nomi: "FileSystem", goType: reflect.TypeFor[rt.FileSystem]()},
+	// `Child` and `Fake`, std/process/host's started program and the fake
+	// `std::process::testing.run` installs, for the reason `FileSystem` is: rt's
 	// structs over what internal/stdprocess builds (rt/processes.go).
-	{origin: "std/process_host", nomi: "Child", goType: reflect.TypeFor[rt.ChildProcess]()},
-	// `Client` and `Exchange`, std/http_host's client and a response it
+	{origin: "std/process/host", nomi: "Child", goType: reflect.TypeFor[rt.ChildProcess]()},
+	// `Client` and `Exchange`, std/http/host's client and a response it
 	// answered: rt's structs over what internal/stdhttp builds (rt/network.go).
-	{origin: "std/http_host", nomi: "Client", goType: reflect.TypeFor[rt.HTTPClient]()},
-	{origin: "std/http_host", nomi: "Exchange", goType: reflect.TypeFor[rt.HTTPExchange]()},
-	{origin: "std/http_host", nomi: "Listener", goType: reflect.TypeFor[rt.HTTPListener]()},
-	{origin: "std/http_host", nomi: "Incoming", goType: reflect.TypeFor[rt.HTTPIncoming]()},
-	{origin: "std/http_host", nomi: "Certificate", goType: reflect.TypeFor[rt.TLSCertificate]()},
-	{origin: "std/http_host", nomi: "TlsConfig", goType: reflect.TypeFor[rt.TLSConfig]()},
-	{origin: "std/http_host", nomi: "Conn", goType: reflect.TypeFor[rt.NetConn]()},
-	{origin: "std/http_host", nomi: "TcpListener", goType: reflect.TypeFor[rt.NetListener]()},
-	{origin: "std/http_host", nomi: "Mux", goType: reflect.TypeFor[rt.HTTPMux]()},
-	{origin: "std/http_host", nomi: "Jar", goType: reflect.TypeFor[rt.HTTPJar]()},
-	{origin: "std/http_host", nomi: "Handle", goType: reflect.TypeFor[rt.HTTPHandle]()},
-	{origin: "std/process_host", nomi: "Fake", goType: reflect.TypeFor[rt.ProcessFake]()},
-	// `Records` and `Tokens`, std/csv_host's and std/xml_host's readers
+	{origin: "std/http/host", nomi: "Client", goType: reflect.TypeFor[rt.HTTPClient]()},
+	{origin: "std/http/host", nomi: "Exchange", goType: reflect.TypeFor[rt.HTTPExchange]()},
+	{origin: "std/http/host", nomi: "Listener", goType: reflect.TypeFor[rt.HTTPListener]()},
+	{origin: "std/http/host", nomi: "Incoming", goType: reflect.TypeFor[rt.HTTPIncoming]()},
+	{origin: "std/http/host", nomi: "Certificate", goType: reflect.TypeFor[rt.TLSCertificate]()},
+	{origin: "std/http/host", nomi: "TlsConfig", goType: reflect.TypeFor[rt.TLSConfig]()},
+	{origin: "std/http/host", nomi: "Conn", goType: reflect.TypeFor[rt.NetConn]()},
+	{origin: "std/http/host", nomi: "TcpListener", goType: reflect.TypeFor[rt.NetListener]()},
+	{origin: "std/http/host", nomi: "Mux", goType: reflect.TypeFor[rt.HTTPMux]()},
+	{origin: "std/http/host", nomi: "Jar", goType: reflect.TypeFor[rt.HTTPJar]()},
+	{origin: "std/http/host", nomi: "Handle", goType: reflect.TypeFor[rt.HTTPHandle]()},
+	{origin: "std/process/host", nomi: "Fake", goType: reflect.TypeFor[rt.ProcessFake]()},
+	// `Records` and `Tokens`, std/csv/host's and std/xml/host's readers
 	// over a Reader, for the reason `Child` is: rt's structs over what
 	// internal/stdcsv and internal/stdxml build (rt/formats.go).
-	{origin: "std/csv_host", nomi: "Records", goType: reflect.TypeFor[rt.CsvRecords]()},
-	{origin: "std/xml_host", nomi: "Tokens", goType: reflect.TypeFor[rt.XmlTokens]()},
+	{origin: "std/csv/host", nomi: "Records", goType: reflect.TypeFor[rt.CsvRecords]()},
+	{origin: "std/xml/host", nomi: "Tokens", goType: reflect.TypeFor[rt.XmlTokens]()},
 }
 
 // stdHostDefs is the process-wide *typeDef per spec, keyed by spec index.

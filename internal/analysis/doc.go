@@ -233,12 +233,13 @@
 // itself (a dot-leading variant, an empty literal, an unannotated lambda's
 // parameters) and the earlier arguments left open; a pipe's head takes it
 // by the same rule (pipeHeadExpected). A type parameter the result holds
-// below its top other than as an Iter's element takes the seed ahead of
-// every argument, since a type argument there converts only in place
+// at an invariant position (spec §5 *Covariant conversion*) takes the seed
+// ahead of every argument, since a type argument there never converts
 // (exactParams). The call is recorded at the instance the arguments
 // solved, and its result meets the expected type as any value does: a
 // Coercion record at the call where it enters an interface, an IterViews
-// record where an Iter is relabelled. The rules and their reasons are in
+// record where an Iter is relabelled, a Conversions record where it
+// converts below its top. The rules and their reasons are in
 // expected_seed.go.
 //
 // # Elaboration
@@ -248,7 +249,7 @@
 // instantiated at. [VerifyElaboration] checks a checked file against that
 // invariant, reading only the checker's records (ExprTypes, ExpectedTypes,
 // References with each reference's CallType and DispatchImpl,
-// Operators, CallDefaults, HoleDisplays, Coercions, IterViews, ImplTypeArgSets, each reference's CallInterface, the `?` markers), and returns each place a record is
+// Operators, CallDefaults, HoleDisplays, Coercions, IterViews, Conversions, ImplTypeArgSets, each reference's CallInterface, the `?` markers), and returns each place a record is
 // missing or open, by construct (call, expression, implicit operation) and
 // category. Its doc comment defines "closed": no unsolved inference
 // variable at any depth and no type parameter but the enclosing
@@ -363,12 +364,26 @@
 // of type `Iter<T>` is a sequence already and has none. The IR builder
 // builds each view from its record (internal/irbuild, iterview.go).
 //
+// An expression whose type converts to the expected one below its top (a
+// `Maybe<List<Int>>` where a `Maybe<Display>` is expected, a `Box<Circle>`
+// where a `Box<Shape>` is; spec §5 *Covariant conversion*) has a record
+// of the conversion (conversions.go, Conversions), made in the same pass:
+// its type, the expected type, and each part that enters an interface
+// with the impl the checker selects for it, walked by each type
+// parameter's variance (variance.go, TypeParamVariances: read off the
+// declaration's fields, solved to a fixed point over the declarations
+// that name one another, and cached by the declaration's first type
+// parameter). The IR builder relabels the value where its representation
+// already is the wider one and otherwise rebuilds it, boxing each part by
+// the record's impl (internal/irbuild, irembedsrebuild.go, irboxed.go).
+//
 // vmhost's TestElaborationGate runs the verifier over the corpus, the
 // stdlib, the tour, the spec and internal/irbuild's fixtures and fails on
 // any call or expression without a closed record, derived bodies included,
 // and on each implicit operation the checker records (gatedImplicit: a
 // call leaving defaulted parameters out, an interpolation hole, an
 // operator, a value entering an interface, a source entering an `Iter<T>`,
+// a value converting below its top,
 // an impl block of a generic interface whose header writes no type
 // arguments, a call of an interface function dispatched where it runs).
 // TestElaborationCensus runs it over the same programs, or over one project
@@ -493,7 +508,7 @@
 //
 // A type is a Release type when the impl index holds an `impl Release`
 // whose receiver is that declaration. The index is keyed by receiver name,
-// so the impl must carry the type's qualified receiver (std/http_host's
+// so the impl must carry the type's qualified receiver (std/http/host's
 // `Conn` is not std/sql's). The errors and the quick fix take their text
 // from the bodies of the impl's `release` and `commit`, each one call
 // (resourceCall): `Writer.discard(w)` gives `Writer.discard`, and a bare

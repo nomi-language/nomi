@@ -1,4 +1,4 @@
-// Package stdphraseformat is std/phrase_format's host implementation: it
+// Package stdphraseformat is std/phrase/format's host implementation: it
 // formats a phrase's compiled table (mf2.Table) in a locale with its
 // arguments, over the program's CLDR data (stdlocale.Data): the locale's
 // plural rules select a variant and its number symbols and patterns write
@@ -55,7 +55,7 @@ const (
 	argDateTime
 )
 
-// FFIFormat is `phrase_format.format`.
+// FFIFormat is `std::phrase::format.format`.
 func FFIFormat(fr *rt.Frame, table, locale string, catalogs []string, kinds []int64, numbers, keys, texts []string) string {
 	return Format(stdlocale.Data(fr), runtimeOf(fr), table, locale, catalogs, kinds, numbers, keys, texts)
 }
@@ -236,7 +236,7 @@ func pluralLocale(d *cldrdata.Data, locale, text string) string {
 	return text
 }
 
-// FFINoun is `phrase_format.noun_raw`: the noun table's nominative for one
+// FFINoun is `std::phrase::format.noun_raw`: the noun table's nominative for one
 // thing in locale, which a noun's Localize writes.
 func FFINoun(fr *rt.Frame, table, locale string) string {
 	return Noun(stdlocale.Data(fr), runtimeOf(fr), table, locale)

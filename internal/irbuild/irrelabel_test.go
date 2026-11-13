@@ -13,7 +13,7 @@ import (
 )
 
 // A std collection converted to wider type arguments is the same value
-// (spec §5 *Type argument conversion*): converting a list of 10,000
+// (spec §5 *Covariant conversion*): converting a list of 10,000
 // elements enters no function but the one converting it, once, reads no
 // element, and answers the very list it was given. A per-element
 // conversion would enter an adapter per element and build a new list.

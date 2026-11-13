@@ -24,9 +24,9 @@ func TestModuleQualifiedInterfaceCall_Runs(t *testing.T) {
 		"main.nomi": `import std::io
 import std::matcher
 import std::sql
-import std::sql_testing.Fake
+import std::sql::testing.Fake
 import std::storage as st
-import std::storage_testing.Memory
+import std::storage::testing.Memory
 import shapes
 import shapes.Square
 

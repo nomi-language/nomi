@@ -376,7 +376,7 @@ var reductionsEdits = []editStep{
 	restore("body back", "lib"),
 	replace("body calls Supervisor.new in a lambda", "chain", "pub fn plain() -> Int\n    2\n", "pub fn plain() -> Int\n    g = fn -> Supervisor.new(max_running: 2)\n    _ = g\n    2\n"),
 	restore("body back", "chain"),
-	replace("body calls a boot-only std function", "chain", "import std::supervisors.Supervisor\n", "import\n    std::supervisors.Supervisor\n    std::jobs.{Worker}\n    std::jobs_testing.{Inline}\nend\n"),
+	replace("body calls a boot-only std function", "chain", "import std::supervisors.Supervisor\n", "import\n    std::supervisors.Supervisor\n    std::jobs.{Worker}\n    std::jobs::testing.{Inline}\nend\n"),
 	replace("body calls a boot-only std function", "chain", "pub fn plain() -> Int\n    2\n", "pub fn plain() -> Int\n    _ = Worker.new(Inline.new(), 1)\n    2\n"),
 	restore("body back", "chain"),
 }

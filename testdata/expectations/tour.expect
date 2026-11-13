@@ -242,28 +242,28 @@ H f62a4e116d20a85d0facc6a4ca0eb339c7bf6026b105281ca9f0d979bd0036db
 T ok literals
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L218
+C cheat-sheet.md:L219
 E 0
 N 1
 H 5cace7f82b57f5da8eb4446d7142d3943cb755a3fb19a84cf2c2e2a5e4d31832
 T ok types and calls
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L340
+C cheat-sheet.md:L341
 E 0
 N 1
 H 6d65127ae100e990e3de457f13ed5f47d5ea10e74c1f126a28a90ca853fce147
 T ok branching and errors
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L427
+C cheat-sheet.md:L428
 E 0
 N 1
 H f93402d5f2460f2e7ce11bf4175a8483b47b3beb1f84ad9600867ec51dc039af
 T ok iteration and pipes
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L469
+C cheat-sheet.md:L470
 E 0
 N 0
 H fc3a7d7e7bca1e9452fd5f3ff98774dba2bb482ac70438aacc41fba680b88a47
@@ -277,7 +277,7 @@ H 43d4e6551530ef28b9999096eab53b4c94adb056747d99c43519d2f927f6bb81
 T ok bindings and functions
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L533
+C cheat-sheet.md:L534
 E 0
 N 1
 H a7280413a9dcc66fb588d5b17d2c6fc7da6a1dccdf02b01bcc260d8151ebd48f
@@ -286,7 +286,7 @@ T ok greetings / app fields
 T ok greetings / tasks
 T test result: ok. 2 passed, 0 failed
 T
-C cheat-sheet.md:L597
+C cheat-sheet.md:L598
 E 0
 N 1
 H 43911209f40f5e5955ceae3cae77b7a2282d57af2df59c6f8e4eaeb909587d9f
@@ -1889,8 +1889,8 @@ T
 C frontends.md:L143
 E 0
 N 0
-H 7e21ffb6dbdd29df9ee96fd53625ef0f0b85dcbd32486165ede2d7b322e5fb7b
-T dbg line 25: Response.text(list_todos(http_testing.request(.Get, "/api/todos"))) = Ok("[{\"id\":1,\"title\":\"Write the API\",\"done\":true},{\"id\":2,\"title\":\"Write the page\",\"done\":false}]")
+H 891752991b36ab91904d760490ae3fc35ae2a28f39ff0480476a78058a51682f
+T dbg line 25: Response.text(list_todos(testing.request(.Get, "/api/todos"))) = Ok("[{\"id\":1,\"title\":\"Write the API\",\"done\":true},{\"id\":2,\"title\":\"Write the page\",\"done\":false}]")
 T
 C frontends.md:L37
 E 0
@@ -1993,8 +1993,8 @@ T
 C http.md:L140
 E 0
 N 0
-H 17a32976d88b397334d71c10ec2f11af6f247933a3da8dcf1e9ba939bdad603d
-T dbg line 24: Response.text(profile(http_testing.request(.Get, "/"))) = Ok("<main>\n  <h1>&lt;nobody&gt; <span class='badge'>3</span></h1>\n</main>")
+H f2bbef3de33339f17e45da43ac8ebe0025af533485d5bb8cab3b64b2fff31400
+T dbg line 24: Response.text(profile(testing.request(.Get, "/"))) = Ok("<main>\n  <h1>&lt;nobody&gt; <span class='badge'>3</span></h1>\n</main>")
 T
 C http.md:L15
 E 0
@@ -2005,10 +2005,10 @@ T
 C http.md:L191
 E 0
 N 0
-H 9243b5b3b4eae860c2fe5bb0ea23b3b7f0f41fdb8e11ab54518d20301a894372
+H 3cc744d4cce411c9a8d6112e083e582e03adb549d80eb5ac3087e624496fe208
 T dbg line 67: Response.text(get("/users/7")) = Ok("<h1>Ada</h1>")
 T dbg line 68: get("/users/8").status = Status(404)
-T dbg line 69: Response.text(Router.serve(router, http_testing.form_request(.Post, "/users/7", []))) = Ok("the form has no name\n")
+T dbg line 69: Response.text(Router.serve(router, testing.form_request(.Post, "/users/7", []))) = Ok("the form has no name\n")
 T
 C http.md:L330
 E 0
@@ -2020,19 +2020,19 @@ T
 C http.md:L394
 E 0
 N 0
-H 2076b0c9d76ac5518fc596ebddaeedaa15c9fa322d11199e216900e2f13403b4
+H f72787b5011b41d07eaf23f27abeabb7e4678707bddf565473c6a335f54fa8d1
 T dbg line 62: Response.text(get("bob", "/dashboard")) = Ok("hello, Bob")
 T dbg line 63: get("bob", "/admin/stats").status = Status(403)
 T dbg line 64: Response.text(get("ada", "/admin/stats")) = Ok("42 users")
-T dbg line 65: app(http_testing.request(.Get, "/dashboard")).status = Status(401)
+T dbg line 65: app(testing.request(.Get, "/dashboard")).status = Status(401)
 T dbg line 66: Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options") = Some("DENY")
 T
 C http.md:L488
 E 0
 N 0
-H 0cf431dc734ac78aea6542644896ca4902c337d6a83cfd96757ebaf34e438842
-T dbg line 63: Response.text(app(Request.add_cookie(http_testing.request(.Get, "/dashboard"), cookie))) = Ok("<h1>Hello, Ada</h1>")
-T dbg line 64: app(http_testing.request(.Get, "/dashboard")).status = Status(303)
+H d49ef6e474dd765b3ea9dd936ebca521fa1d54d2f7e205af9a2128e9aa320882
+T dbg line 63: Response.text(app(Request.add_cookie(testing.request(.Get, "/dashboard"), cookie))) = Ok("<h1>Hello, Ada</h1>")
+T dbg line 64: app(testing.request(.Get, "/dashboard")).status = Status(303)
 T dbg line 71: app(Request.add_cookie(forged, cookie)).status = Status(403)
 T
 C http.md:L602
@@ -2045,9 +2045,9 @@ T
 C http.md:L65
 E 0
 N 0
-H bb68a16b66938e8a0af649b7b75d72c15189a20f162ecda134bec34a4e603657
+H b74d3d43259f42d28ee927a6827f2ee08ecea0744c60b6eac42cda5455e83128
 T dbg line 14: Response.text(found) = Ok("user 7")
-T dbg line 15: Router.serve(router, http_testing.request(.Get, "/users/ann")).status = Status(404)
+T dbg line 15: Router.serve(router, testing.request(.Get, "/users/ann")).status = Status(404)
 T dbg line 16: "${Route.path_with(user, {id: 8})}" = "/users/8"
 T
 C http.md:L721
@@ -2093,7 +2093,7 @@ N 0
 H aab5c9d0af7dacba01e83c352170d8a7b4ff14a83ba39f77e22029b3d29456d0
 T dbg line 14: run.value = Ok(3)
 T
-C interfaces-and-dispatch.md:L190
+C interfaces-and-dispatch.md:L192
 E 0
 N 0
 H fbe745be4a94067d17d210df0a08151b1ee502231cb53e3eea3faf94bbb88d57
@@ -2108,14 +2108,14 @@ H 7cbfa67d63c7401821e4ee56a63a56eadada1f9328fee95092f09413df9f51cc
 T Rex says woof
 T Whiskers says meow
 T
-C interfaces-and-dispatch.md:L272
+C interfaces-and-dispatch.md:L274
 E 0
 N 0
 H 0c00120598cdf765c7396f6d6ee279f7bb215f486dd212275ba09632629d1c7f
 T 250 g
 T hidden
 T
-C interfaces-and-dispatch.md:L340
+C interfaces-and-dispatch.md:L342
 E 0
 N 0
 H c55a9a0f58ad08e6e6f115951dd8920fbd89e5cd3af659c42a17daceaed75064
@@ -2123,19 +2123,19 @@ T dbg line 14: Point{x: 3, y: 4} = Point{x: 3, y: 4}
 T dbg line 15: Status.Pending(7) = Pending(7)
 T dbg line 16: Email("a@b.com") = Email("a@b.com")
 T
-C interfaces-and-dispatch.md:L394
+C interfaces-and-dispatch.md:L396
 E 0
 N 0
 H b7c07a37968384ab9150b8d18ca406fd3d66c61f67e7cbe9947b8e5c238d551c
 T Alice (30)
 T
-C interfaces-and-dispatch.md:L426
+C interfaces-and-dispatch.md:L428
 E 0
 N 0
 H ea8ef614947e9a99dcd42f98516b23bc2b1a41e1b7279e70be24143c0f9d1d78
 T dbg line 19: advance(Counter(10), 5) = Counter(15)
 T
-C interfaces-and-dispatch.md:L495
+C interfaces-and-dispatch.md:L497
 E 0
 N 0
 H 9afe3396c64f85408f29af4b133f1dc3b8d762a7d343ddc249b9059a2f5b6633
@@ -2143,7 +2143,7 @@ T dbg line 42: score_number(score) = 5
 T dbg line 43: day_number(day) = 14
 T dbg line 44: plus(Day(10), Days(4)) = Day(14)
 T
-C interfaces-and-dispatch.md:L598
+C interfaces-and-dispatch.md:L600
 E 0
 N 0
 H 21a4d30d1a44789ef5c7ae1f3a29aa4c38146ec8530dfcd9c9d9e1ca5f3ae4d0
@@ -2151,7 +2151,7 @@ T dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True
 T dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
 T dbg line 9: {Point{x: 1, y: 2} => "home"} = {Point{x: 1, y: 2} => "home"}
 T
-C interfaces-and-dispatch.md:L629
+C interfaces-and-dispatch.md:L631
 E 0
 N 0
 H cb20291eb9f5b81aa24a01cdd8f87a1de81de4fb1729c21b0ec26f9cff69111b
@@ -2159,13 +2159,13 @@ T dbg line 9: Version{major: 1, minor: 9} < Version{major: 1, minor: 10} = True
 T dbg line 10: Version{major: 2, minor: 0} < Version{major: 1, minor: 10} = False
 T dbg line 11: Version.max(Version{major: 1, minor: 9}, Version{major: 1, minor: 10}) = Version{major: 1, minor: 10}
 T
-C interfaces-and-dispatch.md:L661
+C interfaces-and-dispatch.md:L663
 E 0
 N 0
 H f1feaa82465a86d0de7d8507de0eae8cb9fe185341895b9cf5254b4a277df66a
 T dbg line 10: sorted = [User{name: "Ann", age: 41}, User{name: "Cara", age: 35}]
 T
-C interfaces-and-dispatch.md:L691
+C interfaces-and-dispatch.md:L693
 E 0
 N 0
 H ccace190313d0ce68b2112eacea99b972c41f5ce58501190cd6b036728688438

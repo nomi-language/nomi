@@ -59,7 +59,7 @@ func TestHandleEquality_EveryStdHandleIsRejected(t *testing.T) {
 			typ := h.Name + generic[h.Name]
 			body := "fn same(a: " + typ + ", b: " + typ + ") -> Bool\n    a == b\nend\n\n" +
 				"fn both(a: List<" + typ + ">) -> Bool\n    a == a\nend\n"
-			src := "import " + strings.Replace(h.Origin, "/", "::", 1) + "." + h.Name + "\n\n" + body
+			src := "import " + strings.ReplaceAll(h.Origin, "/", "::") + "." + h.Name + "\n\n" + body
 			_, errs := checkSourceWithStdlib(src)
 			for _, e := range errs {
 				if strings.Contains(e.Message, "already in scope from the prelude") {

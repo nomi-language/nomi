@@ -1,4 +1,4 @@
-// Package stdxml is std/xml_host: reading XML tokens from a Reader with
+// Package stdxml is std/xml/host: reading XML tokens from a Reader with
 // Go's encoding/xml, and the escaping and name checks std/xml's writer
 // uses. std/xml is Nomi, lowered with each program, over it.
 //

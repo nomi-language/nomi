@@ -429,7 +429,7 @@ end
 ///
 /// ```nomi
 /// test "the driver conforms"
-///     assert sql_testing.conformance(fn -> sqlite.open(":memory:")) == []
+///     assert testing.conformance(fn -> sqlite.open(":memory:")) == []
 /// end
 /// ```
 //! assert conformance(fn -> Ok(Fake.new(answer: conformance_answer))) == []

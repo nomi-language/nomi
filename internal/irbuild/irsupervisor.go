@@ -41,12 +41,12 @@ func irSupervisorKind(k kind) bool {
 
 // irStreamKind reports std/io's Reader, Writer or File, an rt.Reader,
 // rt.Writer or rt.File value only host calls look inside (rt/streams.go,
-// rt/filehandle.go), or std/fs_host's FileSystem, the rt.FileSystem
-// `fs_testing.run` and `fs.within` build (rt/files.go), or std/process_host's
+// rt/filehandle.go), or std/fs/host's FileSystem, the rt.FileSystem
+// `std::fs::testing.run` and `fs.within` build (rt/files.go), or std/process/host's
 // Child and Fake, the rt.ChildProcess and rt.ProcessFake std/process and
-// std/process_testing hold (rt/processes.go), or std/http_host's Client and
+// std/process/testing hold (rt/processes.go), or std/http/host's Client and
 // Exchange, the rt.HTTPClient and rt.HTTPExchange std/http holds
-// (rt/network.go), or std/csv_host's Records and std/xml_host's Tokens,
+// (rt/network.go), or std/csv/host's Records and std/xml/host's Tokens,
 // the readers std/csv and std/xml hold (rt/formats.go).
 func irStreamKind(k kind) bool {
 	if k.tag != tagNamed {
@@ -60,15 +60,15 @@ func irStreamKind(k kind) bool {
 var irStreamKinds = sync.OnceValue(func() []kind {
 	return []kind{
 		stdHostOriginKind("std/io", "Reader"), stdHostOriginKind("std/io", "Writer"),
-		stdHostOriginKind("std/io", "File"), stdHostOriginKind("std/fs_host", "FileSystem"),
-		stdHostOriginKind("std/process_host", "Child"), stdHostOriginKind("std/process_host", "Fake"),
-		stdHostOriginKind("std/http_host", "Client"), stdHostOriginKind("std/http_host", "Exchange"),
-		stdHostOriginKind("std/http_host", "Listener"), stdHostOriginKind("std/http_host", "Incoming"),
-		stdHostOriginKind("std/http_host", "Certificate"), stdHostOriginKind("std/http_host", "TlsConfig"),
-		stdHostOriginKind("std/http_host", "Conn"), stdHostOriginKind("std/http_host", "TcpListener"),
-		stdHostOriginKind("std/http_host", "Mux"), stdHostOriginKind("std/http_host", "Jar"),
-		stdHostOriginKind("std/http_host", "Handle"),
-		stdHostOriginKind("std/csv_host", "Records"), stdHostOriginKind("std/xml_host", "Tokens"),
+		stdHostOriginKind("std/io", "File"), stdHostOriginKind("std/fs/host", "FileSystem"),
+		stdHostOriginKind("std/process/host", "Child"), stdHostOriginKind("std/process/host", "Fake"),
+		stdHostOriginKind("std/http/host", "Client"), stdHostOriginKind("std/http/host", "Exchange"),
+		stdHostOriginKind("std/http/host", "Listener"), stdHostOriginKind("std/http/host", "Incoming"),
+		stdHostOriginKind("std/http/host", "Certificate"), stdHostOriginKind("std/http/host", "TlsConfig"),
+		stdHostOriginKind("std/http/host", "Conn"), stdHostOriginKind("std/http/host", "TcpListener"),
+		stdHostOriginKind("std/http/host", "Mux"), stdHostOriginKind("std/http/host", "Jar"),
+		stdHostOriginKind("std/http/host", "Handle"),
+		stdHostOriginKind("std/csv/host", "Records"), stdHostOriginKind("std/xml/host", "Tokens"),
 	}
 })
 

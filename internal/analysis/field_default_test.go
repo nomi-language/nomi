@@ -647,11 +647,11 @@ end
 // `16-concurrency/jobs/app.nomi` adds one, `Greeting.mood` on a top-level
 // struct, which a job's JSON arguments leave out.
 //
-// `std` reads 219: std/assertions 5, std/compiler 2, std/fs_testing 7
+// `std` reads 219: std/assertions 5, std/compiler 2, std/fs/testing 7
 // (`Sandbox`'s files, directories, links and failures, empty by default, so
 // `Sandbox{}` is an empty file system), std/json 2, std/process 7 (the two
 // of its exit fields and `Command`'s args, env, clear_env, dir and stdin, so
-// `Command{program: "ls"}` runs it with no arguments), std/process_testing
+// `Command{program: "ls"}` runs it with no arguments), std/process/testing
 // 9 (`Answer`'s and `Call`'s optional fields), std/startup 2 (`Startup` declares `env` and `args` with empty defaults, so
 // `Startup{}` is an empty Startup) and std/supervisors 2 (the fields of the
 // `Backoff.Exponential` record variant), std/url 11 (`Url`'s parts and
@@ -663,7 +663,7 @@ end
 // (`ClientConfig` and `ServerConfig`, with their `verify`, `key_log` and
 // `certificate_for` hooks) std/jobs 1 (`Rate.burst`, on a
 // top-level struct), std/mail 15 (`Message`'s optional parts and
-// `SmtpConfig`'s settings), and std/mail_testing and std/storage_testing 1
+// `SmtpConfig`'s settings), and std/mail/testing and std/storage/testing 1
 // each (`Failing.error`), all on top-level structs.
 //
 // std/http's `Compress` (min_size, level) adds two more on a top-level struct.

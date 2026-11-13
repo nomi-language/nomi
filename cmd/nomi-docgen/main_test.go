@@ -209,8 +209,8 @@ func tourSidebarReferenceModules(t *testing.T) []string {
 func TestReferenceSignaturesShowDefaults(t *testing.T) {
 	lib := std.Load()
 	for module, want := range map[string]string{
-		"storage_testing": "fn new(public_base: Url = Url`https://storage.test/`) -> Memory",
-		"fs_testing":      `    cwd: String = "/work"`,
+		"storage/testing": "fn new(public_base: Url = Url`https://storage.test/`) -> Memory",
+		"fs/testing":      `    cwd: String = "/work"`,
 		"http":            "Follow { max: Int = 10 }",
 	} {
 		if page := renderModuleWithLinks(lib, module, nil); !strings.Contains(page, want) {

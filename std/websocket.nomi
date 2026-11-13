@@ -47,7 +47,7 @@ import
     duration.Duration
     equatable.Equatable
     http.{Headers, Method, Origin, Request, Response, Status}
-    http_host
+    http::host as http_host
     int.Int
     iter.Iter
     lists.List
@@ -180,7 +180,7 @@ impl WebSocket
     /// Hands each message to `handle` as it arrives, until the peer closes
     /// cleanly (`Ok`) or the connection fails.
     //! import std::http.{Method, Request, Response}
-    //! import std::http_testing
+    //! import std::http::testing
     //! import std::websocket.{self, Message, WebSocket}
     //!
     //! echo = fn request: Request ->
@@ -191,7 +191,7 @@ impl WebSocket
     //!     end)
     //! end
     //!
-    //! got = http_testing.open_websocket(echo, "/echo", fn ws ->
+    //! got = testing.open_websocket(echo, "/echo", fn ws ->
     //!     _ = WebSocket.send_text(ws, "hello")
     //!     _ = WebSocket.send(ws, Message.Binary(String.to_bytes("raw")))
     //!     [WebSocket.receive(ws), WebSocket.receive(ws)]
@@ -241,7 +241,7 @@ impl WebSocket
     /// sends a close frame, waits up to five seconds for the peer's, then
     /// closes. Closing a closed connection does nothing.
     //! import std::http.Request
-    //! import std::http_testing
+    //! import std::http::testing
     //! import std::websocket.{self, Error, WebSocket}
     //!
     //! leave = fn request: Request ->
@@ -250,7 +250,7 @@ impl WebSocket
     //!     end)
     //! end
     //!
-    //! got = http_testing.open_websocket(leave, "/", fn ws -> WebSocket.receive(ws))
+    //! got = testing.open_websocket(leave, "/", fn ws -> WebSocket.receive(ws))
     //! assert Ok(received) = got
     //! assert received == Err(Error.Closed{code: 4000, reason: "done here"})
     //
@@ -288,7 +288,7 @@ end
 /// gets `426 Upgrade Required` (or `405` for a method other than `GET`, or
 /// `400` for a bad key), and one from a page on another origin gets `403`.
 //! import std::http.{Method, Origin, Request, Response, Status}
-//! import std::http_testing
+//! import std::http::testing
 //! import std::websocket.{self, AcceptOptions, WebSocket}
 //!
 //! chat = fn request: Request ->
@@ -299,22 +299,22 @@ end
 //!
 //! offered = Headers[("Sec-WebSocket-Protocol", "chat.v1, chat.v2")]
 //!
-//! got = http_testing.open_websocket(chat, "/chat", offered, fn ws ->
+//! got = testing.open_websocket(chat, "/chat", offered, fn ws ->
 //!     (WebSocket.protocol(ws), WebSocket.receive(ws), WebSocket.receive(ws))
 //! end)
 //!
 //! assert Ok(seen) = got
 //! assert seen == (Some("chat.v2"), Ok(Some(websocket.Message.Text("welcome"))), Ok(None))
 //!
-//! plain = chat(http_testing.request(Method.Get, "/chat"))
+//! plain = chat(testing.request(Method.Get, "/chat"))
 //! assert plain.status == Status.upgrade_required
 //!
 //! elsewhere = Headers[("Origin", "https://evil.example")]
-//! assert Err(refused) = http_testing.open_websocket(chat, "/chat", elsewhere, fn _ -> Unit)
+//! assert Err(refused) = testing.open_websocket(chat, "/chat", elsewhere, fn _ -> Unit)
 //! assert refused.status == Status.forbidden
 //!
 //! own = Headers[("Origin", "http://example.com")]
-//! assert http_testing.open_websocket(chat, "/chat", own, fn _ -> Unit) |> Result.is_ok()
+//! assert testing.open_websocket(chat, "/chat", own, fn _ -> Unit) |> Result.is_ok()
 //
 pub fn accept(
     request: Request,
@@ -360,10 +360,10 @@ end
 /// Whether `request` asks to upgrade to a WebSocket, for a handler that
 /// serves a page and a socket at one path.
 //! import std::http.{Method, Request}
-//! import std::http_testing
+//! import std::http::testing
 //! import std::websocket
 //!
-//! r = http_testing.request(Method.Get, "/")
+//! r = testing.request(Method.Get, "/")
 //! refute websocket.is_upgrade(r)
 //! assert websocket.is_upgrade({..r, headers: Headers[("Upgrade", "WebSocket")]})
 //
@@ -374,7 +374,7 @@ end
 /// Connects to `url`, `ws://` or `wss://`, and runs the handshake. An
 /// `Error.Handshake` holds the status of a server that refused.
 //! import std::http.{Request, Response, Status}
-//! import std::http_testing
+//! import std::http::testing
 //! import std::url.Url
 //! import std::websocket.{self, Error, Message, WebSocket}
 //!
@@ -386,7 +386,7 @@ end
 //!     end)
 //! end
 //!
-//! said = http_testing.with_server(echo, fn server ->
+//! said = testing.with_server(echo, fn server ->
 //!     ws = websocket.connect(Url.parse("ws://${server.url.host}/echo")!)!
 //!     _ = WebSocket.send_text(ws, "over a socket")
 //!     reply = WebSocket.receive(ws)
@@ -398,7 +398,7 @@ end
 //!
 //! page = fn _: Request -> Response{status: Status.not_found}
 //!
-//! refused = http_testing.with_server(page, fn server ->
+//! refused = testing.with_server(page, fn server ->
 //!     websocket.connect(Url.parse("ws://${server.url.host}/")!) |> Result.map(fn _ -> Unit)
 //! end)
 //!

@@ -332,11 +332,11 @@
 //
 // A listed module's reference editor checks the module from edited source,
 // and the listed modules its editor imports are lowered beside it from the
-// shared analysis (std/storage_testing beside an edited std/storage). Their
+// shared analysis (std/storage/testing beside an edited std/storage). Their
 // references to the shared copy resolve to the edited module's declaration
 // of the same kind and name (`implFuncTwins`): types in the type registry,
 // module scope and file-level functions in the file index
-// (`indexEditedStdTwins`), so `storage.check_key` in storage_testing calls
+// (`indexEditedStdTwins`), so `storage.check_key` in std::storage::testing calls
 // the edited function.
 //
 // # Lowering one file
@@ -619,12 +619,15 @@
 // and answers an inherited default statically, and `Iter` is generic, which
 // the template does not cover.
 //
-// # Type argument conversion
+// # Covariant conversion
 //
-// A std collection converts to wider type arguments (spec §5 *Type argument
-// conversion*) only where the conversion costs nothing, so an ordinary call
-// never converts a list element by element behind the reader's back. What
-// one element's conversion costs decides it:
+// A value converts to the same type at other type arguments by each
+// parameter's variance (spec §5 *Covariant conversion*): a std
+// collection's, a tuple's and a record's parts and a function's result are
+// covariant, a function's parameters contravariant, and a declared struct's
+// or enum's parameters have the variance the checker reads off its fields
+// (analysis.TypeParamVariances). What one element's conversion costs
+// decides how the builder does it:
 //
 //   - the same type: no work.
 //   - `Int`, `Float`, `Bool`, `String`, a declared struct, a declared enum
@@ -635,47 +638,44 @@
 //     work. A call passes and returns the same values.
 //   - a std container, a `Maybe` or `Result`, a std leaf (`Decimal`,
 //     `Bytes`), an `embeds` enum, or a tuple into a std interface, into an
-//     interface: a box per element (`irBoxPlan`).
-//   - an embedded type into its enum: a record around it
-//     (irembedsrebuild.go).
+//     interface: a box per element (`irBoxPlan`), by the impl the checker's
+//     record of the conversion names (analysis.FileAnalysis.Conversions,
+//     `recordedImpl`), or the program's one impl for the element's kind.
+//   - an embedded type into its enum: a record around it.
 //   - a function that needs its argument or result converted another way:
-//     an adapter closure (`funcWiden`).
+//     an adapter closure (`funcWiden`), which converts each argument and
+//     the result as `coerceEmpty` does.
 //   - a collection into an `Iter`: a view.
 //
-// The checker admits the conversions of the first three kinds under a
-// List, Vector, Set, Map (keys and values), Iter, Maybe or Result, nested and
-// through a tuple's elements and a record's fields (`unifyAssignArg`,
-// `carriesOwnType` in internal/analysis; `unifyAssignFree` inside a
-// function type there), and refuses the others with help that names the
-// explicit form. Two conversions that do work per element are still
-// admitted: an embedded type entering its enum under a type argument
-// (`List<Circle>` as `List<Shape>`), and a collection of collections
-// entering a collection of `Iter`s.
+// A value whose every element converts with no work is relabelled: the
+// builder returns it with one `ir.Copy` typed at the wider kind
+// (`relabels`, `irCopyRelabel`, irrelabel.go), in `coerceEmpty` before any
+// rebuild is tried and in `qualSignature`, so a std or sibling function's
+// argument passes as it is. [ir.ValType.Accepts] accepts the copy: two
+// instances of Maybe or of Result (`sameCovariantEnum`), and a function
+// parameter either way round. A relabelled record may hold an `Int` in a
+// word slot where its new type says a reference, so the VM reads a field
+// through the record's own descriptor (`frame.writeField`, `opProjF`,
+// `opProjP`), and equality and hashing read each slot by its own layout
+// (rt's `Keys.recordsEqual`, `hashSlot`). TestRelabel_ConvertsNoElement
+// counts it: converting a list of 10,000 Ints, structs, functions or lists,
+// or a map of 10,000 entries, enters one function body and returns the
+// very list it was given, where `Iter.map(xs, keep) |> Iter.to_list()`
+// enters 10,001.
 //
-// The builder returns an admitted value with one `ir.Copy` typed at the
-// wider kind (`relabels`, `irCopyRelabel`, irrelabel.go), in `coerceEmpty`
-// before any rebuild is tried and in `qualSignature`, so a std or sibling
-// function's argument passes as it is. [ir.ValType.Accepts] accepts the
-// copy: two instances of Maybe or of Result (`sameCovariantEnum`), and a
-// function parameter either way round. A relabelled record may hold an
-// `Int` in a word slot where its new type says a reference, so the VM
-// reads a field through the record's own descriptor (`frame.writeField`,
-// `opProjF`, `opProjP`), and equality and hashing read each slot by its own
-// layout (rt's `Keys.recordsEqual`, `hashSlot`).
-// TestRelabel_ConvertsNoElement counts it: converting a list of 10,000
-// Ints, structs, functions or lists, or a map of 10,000 entries, enters one
-// function body and returns the very list it was given, where
-// `Iter.map(xs, keep) |> Iter.to_list()` enters 10,001.
-//
-// A declared generic type's type arguments stay exact. Its instance's
-// descriptor names them ([rt.TypeDesc].Inst, `main.Box<Int>`), and a
-// dispatch on an erased instance (the VM's `implOf`) and an erased Display
-// rendering select by that name, so a relabelled `Box<Int>` held as
-// `Box<Display>` would reach `Box<Int>`'s impls, which need not exist.
-// Converting one for free would need impls recorded for every instance a
-// conversion reaches, and a checker rule that `Box<Display>`'s impls imply
-// `Box<Pt>`'s, which does not hold: an impl's `where T: Equatable` holds
-// for any interface value and need not for `Pt`.
+// Any other value is rebuilt (`rebuildWidened`, irembedsrebuild.go): a
+// List, Vector, Set or Map through `Iter.map`'s operation with an element
+// adapter and the matching materializer, so a Set's elements and a Map's
+// keys are hashed again (a box hashes and compares by its static type and
+// then that type's equality, so the rebuilt collection has the size it
+// had); a tuple, record or struct made again from its converted fields; a
+// generic enum (Maybe, Result, a user enum) through an adapter that
+// matches each variant. A declared generic type is never relabelled, even
+// where each element would be: its instance's descriptor names its type
+// arguments ([rt.TypeDesc].Inst, `main.Box<Int>`), and a dispatch on an
+// erased instance (the VM's `implOf`) and an erased Display rendering
+// select by that name, so a relabelled `Box<Int>` held as `Box<Display>`
+// would reach `Box<Int>`'s impls. The rebuilt value is a `Box<Display>`.
 //
 // Where nothing says which way values flow (two typed collections joined
 // with `+` or `-`, two typed spreads, the branches of an `if` or `case`

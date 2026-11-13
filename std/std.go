@@ -21,15 +21,17 @@ import (
 	"testing"
 )
 
-// The stdlib is one Nomi module: every public module is a flat `<name>.nomi`
-// here, which `*.nomi` covers, plus the one `nomi.toml` that declares it.
-// `all:_fixtures` covers the one nested tree, which is test-only source under
-// a `_`-prefixed directory that `embed` otherwise skips. The Go support for
-// Go-backed modules lives in sibling packages (`nomi/stdcalendar` and
-// friends), so `std/` holds Nomi source and this file, and the pattern names
-// what it wants instead of everything.
+// The stdlib is one Nomi module: every public module is a `<name>.nomi` here,
+// which `*.nomi` covers, or a module nested in its parent's directory,
+// `<parent>/<name>.nomi` (`storage/testing.nomi` is std::storage::testing),
+// which `*/*.nomi` covers, plus the one `nomi.toml` that declares it.
+// `all:_fixtures` covers the test-only tree under a `_`-prefixed directory
+// that `embed` otherwise skips. The Go support for Go-backed modules lives in
+// sibling packages (`nomi/stdcalendar` and friends), so `std/` holds Nomi
+// source and this file, and the pattern names what it wants instead of
+// everything.
 //
-//go:embed *.nomi nomi.toml all:_fixtures
+//go:embed *.nomi */*.nomi nomi.toml all:_fixtures
 var stdlibFS embed.FS
 
 // loadMu serializes Load.
@@ -294,8 +296,8 @@ func MaterializedURI(rel string) string {
 }
 
 // ReadFile reads a stdlib .nomi file by logical module name: "maybe" maps to
-// maybe.nomi, and so does an adapter facade such as "regex" — every public
-// stdlib module is a flat file here.
+// maybe.nomi, and a nested module such as "storage/testing" maps to
+// storage/testing.nomi.
 func ReadFile(moduleName string) ([]byte, bool) {
 	path, ok := embeddedStdlibSourcePath(moduleName)
 	if !ok {

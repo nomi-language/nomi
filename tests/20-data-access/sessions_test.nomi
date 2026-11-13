@@ -3,7 +3,7 @@
 import
     std::duration.Duration
     std::http.{self, Body, CrossOrigin, Headers, MaxAge, Method, Request, Response, Route, Router, Status}
-    std::http_testing
+    std::http::testing
     std::json.{FromJson, ToJson}
     std::sessions.{self, CookieStore, Session, SessionKey}
     std::testing.Clock
@@ -73,11 +73,11 @@ fn carry(request: Request, response: Response) -> Request
 end
 
 fn get(after: Response) -> Request
-    carry(http_testing.request(Method.Get, "/"), after)
+    carry(testing.request(Method.Get, "/"), after)
 end
 
 fn signed_in(kept: CookieStore, user: String) -> Response
-    app(kept)(http_testing.form_request(Method.Post, "/sign-in", [("user", user)]))
+    app(kept)(testing.form_request(Method.Post, "/sign-in", [("user", user)]))
 end
 
 test "a session written by one request is read by the next"
@@ -93,7 +93,7 @@ test "a session written by one request is read by the next"
 end
 
 test "a request with no cookie has no session and gets no cookie"
-    r = app(store)(http_testing.request(Method.Get, "/"))
+    r = app(store)(testing.request(Method.Get, "/"))
     assert Response.text(r) == Ok("nobody []")
     assert Headers.get(r.headers, "Set-Cookie") == None
 end
@@ -144,17 +144,12 @@ test "a changed cookie reads as no session and is deleted"
         String.length(cookie.value),
     )
 
-    r = app(store)(
-        Request.add_cookie(http_testing.request(Method.Get, "/"), {..cookie, value: forged})
-    )
+    r = app(store)(Request.add_cookie(testing.request(Method.Get, "/"), {..cookie, value: forged}))
 
     assert Response.text(r) == Ok("nobody []")
     assert List.head(Response.cookies(r))!.max_age == MaxAge.DeleteNow
 
-    junk = Request.add_cookie(
-        http_testing.request(Method.Get, "/"),
-        {..cookie, value: "not sealed"},
-    )
+    junk = Request.add_cookie(testing.request(Method.Get, "/"), {..cookie, value: "not sealed"})
 
     assert Response.text(app(store)(junk)) == Ok("nobody []")
 end
@@ -162,7 +157,7 @@ end
 test "a cookie sealed for one name does not open as another"
     cookie = List.head(Response.cookies(signed_in(store, "ada")))!
     other = CookieStore{key:, name: "other"}
-    request = Request.add_cookie(http_testing.request(Method.Get, "/"), {..cookie, name: "other"})
+    request = Request.add_cookie(testing.request(Method.Get, "/"), {..cookie, name: "other"})
     assert Response.text(app(other)(request)) == Ok("nobody []")
 end
 
@@ -198,7 +193,7 @@ end
 
 test "a cross-site post never reaches the session"
     forged = {
-        ..http_testing.form_request(Method.Post, "/sign-in", [("user", "mallory")]),
+        ..testing.form_request(Method.Post, "/sign-in", [("user", "mallory")]),
         headers: Headers[("Sec-Fetch-Site", "cross-site")],
     }
 

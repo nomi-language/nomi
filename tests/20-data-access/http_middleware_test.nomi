@@ -5,7 +5,7 @@ import
     std::duration.Duration
     std::embed.Files
     std::http.{self, Body, Client, Cors, Headers, Method, Origin, Request, Response, Status}
-    std::http_testing
+    std::http::testing
     std::io.{Reader, Writer}
 end
 
@@ -14,7 +14,7 @@ fn answer(Request) -> Response
 end
 
 fn from(method: Method, origin: String) -> Request
-    {..http_testing.request(method, "/api"), headers: Headers[("Origin", origin)]}
+    {..testing.request(method, "/api"), headers: Headers[("Origin", origin)]}
 end
 
 fn preflight(origin: String) -> Request
@@ -88,7 +88,7 @@ end
 
 test "a request with no Origin gets only Vary"
     app = answer |> http.cors(Cors{origins: [app_origin]})
-    r = app(http_testing.request(Method.Get, "/api"))
+    r = app(testing.request(Method.Get, "/api"))
     assert r.status == Status.accepted
     assert Headers.get(r.headers, "Access-Control-Allow-Origin") == None
     assert Headers.get(r.headers, "Vary") == Some("Origin")
@@ -152,7 +152,7 @@ test "a stack reads as a pipe, the last stage outermost"
 end
 
 fn gzip_request(method: Method, target: String) -> Request
-    {..http_testing.request(method, target), headers: Headers[("Accept-Encoding", "gzip")]}
+    {..testing.request(method, target), headers: Headers[("Accept-Encoding", "gzip")]}
 end
 
 once page = String.repeat("<li>an item</li>", 200)
@@ -170,7 +170,7 @@ test "compress gzips a streamed body as it is read"
     assert Headers.get(r.headers, "Content-Encoding") == Some("gzip")
     assert Headers.get(r.headers, "Content-Length") == None
     assert r.content_length == None
-    assert http_testing.decompressed(r) == Ok(String.to_bytes(page))
+    assert testing.decompressed(r) == Ok(String.to_bytes(page))
 end
 
 test "compress gzips a produced body, and each flush sends what was written"
@@ -187,8 +187,8 @@ test "compress gzips a produced body, and each flush sends what was written"
 
     r = app(gzip_request(Method.Get, "/events"))
     assert Headers.get(r.headers, "Content-Encoding") == Some("gzip")
-    assert Iter.count(http_testing.chunks(r)) == 2
-    assert http_testing.decompressed(r) == Ok(String.to_bytes("data: one\n\ndata: two\n\n"))
+    assert Iter.count(testing.chunks(r)) == 2
+    assert testing.decompressed(r) == Ok(String.to_bytes("data: one\n\ndata: two\n\n"))
 end
 
 test "compress makes a strong ETag weak, and a weak one stays"
@@ -201,8 +201,7 @@ test "compress makes a strong ETag weak, and a weak one stays"
     weak = tagged("W/\"v1\"") |> http.compress()
     assert Headers.get(weak(gzip_request(Method.Get, "/")).headers, "ETag") == Some("W/\"v1\"")
 
-    assert Headers.get(strong(http_testing.request(Method.Get, "/")).headers, "ETag")
-        == Some("\"v1\"")
+    assert Headers.get(strong(testing.request(Method.Get, "/")).headers, "ETag") == Some("\"v1\"")
 end
 
 test "compress leaves a body with no content, a HEAD and a 304 alone, with Vary"
@@ -294,7 +293,7 @@ test "a compressed response reaches a client whole"
         end)
         |> http.compress()
 
-    got = http_testing.with_server(app, fn server ->
+    got = testing.with_server(app, fn server ->
         fetched = fn path: String ->
             response = Client.get(server.client, {..server.url, path:})!
             (response.uncompressed, Response.text(response))
@@ -310,7 +309,7 @@ test "basic_auth quotes its realm and refuses another scheme"
     app = answer |> http.basic_auth("the \"back\" office", fn _, _ -> True)
 
     bearer = {
-        ..http_testing.request(Method.Get, "/"),
+        ..testing.request(Method.Get, "/"),
         headers: Headers[("Authorization", "Bearer x")],
     }
 
@@ -320,7 +319,7 @@ test "basic_auth quotes its realm and refuses another scheme"
     assert Headers.get(r.headers, "WWW-Authenticate")
         == Some("Basic realm=\"the \\\"back\\\" office\", charset=\"UTF-8\"")
 
-    signed = Request.with_basic_auth(http_testing.request(Method.Get, "/"), "a", "b")
+    signed = Request.with_basic_auth(testing.request(Method.Get, "/"), "a", "b")
     assert app(signed).status == Status.accepted
 end
 
@@ -332,7 +331,7 @@ test "method_override leaves a streamed body for the handler to read"
     app = echo |> http.method_override()
 
     streamed = {
-        ..http_testing.request(Method.Post, "/posts/1"),
+        ..testing.request(Method.Post, "/posts/1"),
         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
         body: Body.Stream(Reader.from_text("_method=put&title=Hi")),
     }
@@ -345,17 +344,17 @@ test "method_override reads only a POST, and only within the body limit"
         (fn r: Request -> Response{body: Body.Text(Method.text(r.method))})
         |> http.method_override()
 
-    assert Response.text(app(http_testing.request(Method.Get, "/?_method=DELETE"))) == Ok("GET")
-    put = http_testing.form_request(Method.Put, "/", [("_method", "DELETE")])
+    assert Response.text(app(testing.request(Method.Get, "/?_method=DELETE"))) == Ok("GET")
+    put = testing.form_request(Method.Put, "/", [("_method", "DELETE")])
     assert Response.text(app(put)) == Ok("PUT")
 
     header = {
-        ..http_testing.request(Method.Post, "/"),
+        ..testing.request(Method.Post, "/"),
         headers: Headers[("X-HTTP-Method-Override", "DELETE")],
     }
 
     assert Response.text(app(header)) == Ok("POST")
     limited = app |> http.limit_body(10)
-    big = http_testing.form_request(Method.Post, "/", [("_method", "DELETE"), ("pad", page)])
+    big = testing.form_request(Method.Post, "/", [("_method", "DELETE"), ("pad", page)])
     assert limited(big).status == Status.request_entity_too_large
 end

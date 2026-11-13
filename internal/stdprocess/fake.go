@@ -8,7 +8,7 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// Fake is `process_testing.run`'s recording stand-in for the operating
+// Fake is `std::process::testing.run`'s recording stand-in for the operating
 // system: it starts nothing. Each start is answered by the first answer
 // whose program and arguments match, and is recorded with the directory,
 // the environment additions and the input the child was given. A start no
@@ -41,13 +41,13 @@ type call struct {
 	input   bytes.Buffer
 }
 
-// NewFake is std/process_host's `new_fake`: a fake with no answers.
+// NewFake is std/process/host's `new_fake`: a fake with no answers.
 func NewFake() rt.ProcessFake { return rt.NewProcessFake(&Fake{}) }
 
 func fakeOf(f rt.ProcessFake) *Fake {
 	fake, ok := f.Fake().(*Fake)
 	if !ok {
-		rt.Trap("process_testing: the value is not a fake")
+		rt.Trap("std::process::testing: the value is not a fake")
 	}
 	return fake
 }
@@ -68,7 +68,7 @@ func stringList(items []string) *rt.List[string] {
 	return out
 }
 
-// FakeAnswer is std/process_host's `fake_answer`: a start of program with
+// FakeAnswer is std/process/host's `fake_answer`: a start of program with
 // args (with any arguments when anyArgs is set) exits with code after
 // writing stdout and stderr.
 func FakeAnswer(f rt.ProcessFake, program string, args *rt.List[string], anyArgs bool, code int64, stdout, stderr rt.Bytes) rt.Unit {
@@ -80,7 +80,7 @@ func FakeAnswer(f rt.ProcessFake, program string, args *rt.List[string], anyArgs
 	return rt.Unit{}
 }
 
-// FakeRefuse is std/process_host's `fake_refuse`: a start of program with
+// FakeRefuse is std/process/host's `fake_refuse`: a start of program with
 // args (any when anyArgs is set) fails with e.
 func FakeRefuse(f rt.ProcessFake, program string, args *rt.List[string], anyArgs bool, e rt.IOError) rt.Unit {
 	fake := fakeOf(f)
@@ -90,7 +90,7 @@ func FakeRefuse(f rt.ProcessFake, program string, args *rt.List[string], anyArgs
 	return rt.Unit{}
 }
 
-// FakeCalls is std/process_host's `fake_calls`: how many starts the fake
+// FakeCalls is std/process/host's `fake_calls`: how many starts the fake
 // answered.
 func FakeCalls(f rt.ProcessFake) int64 {
 	fake := fakeOf(f)
@@ -103,29 +103,29 @@ func (fake *Fake) callAt(i int64) *call {
 	fake.mu.Lock()
 	defer fake.mu.Unlock()
 	if i < 0 || i >= int64(len(fake.calls)) {
-		rt.Trap("process_testing: no such call")
+		rt.Trap("std::process::testing: no such call")
 	}
 	return fake.calls[i]
 }
 
-// FakeCommand is std/process_host's `fake_command`: the program and then
+// FakeCommand is std/process/host's `fake_command`: the program and then
 // the arguments of the call at position i, from 0.
 func FakeCommand(f rt.ProcessFake, i int64) *rt.List[string] {
 	c := fakeOf(f).callAt(i)
 	return stringList(append([]string{c.program}, c.args...))
 }
 
-// FakeDir is std/process_host's `fake_dir`: the directory the call at
+// FakeDir is std/process/host's `fake_dir`: the directory the call at
 // position i asked for, or "" for the current one.
 func FakeDir(f rt.ProcessFake, i int64) string { return fakeOf(f).callAt(i).dir }
 
-// FakeEnv is std/process_host's `fake_env`: the environment the call at
+// FakeEnv is std/process/host's `fake_env`: the environment the call at
 // position i added.
 func FakeEnv(f rt.ProcessFake, i int64) rt.Map[string, string] {
 	return rt.MapOf(rt.HashString, rt.Eq[string], fakeOf(f).callAt(i).env)
 }
 
-// FakeInput is std/process_host's `fake_input`: everything the call at
+// FakeInput is std/process/host's `fake_input`: everything the call at
 // position i was given on its standard input.
 func FakeInput(f rt.ProcessFake, i int64) rt.Bytes {
 	c := fakeOf(f).callAt(i)

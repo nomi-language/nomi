@@ -12,7 +12,7 @@
 //# ```
 //#
 //# Every request runs under the context in force: its deadline bounds the
-//# request, and cancelling the task cancels it. `http_testing.run` serves
+//# request, and cancelling the task cancels it. `std::http::testing.run` serves
 //# requests with a function instead of the network, in tests and in the
 //# tour. A `Client` made with `Client.new` holds its own options and
 //# connection pool.
@@ -50,7 +50,7 @@ import
     fs
     hashable.Hashable
     html.Html
-    http_host
+    http::host as http_host
     instant.Instant
     int.Int
     io
@@ -705,7 +705,7 @@ pub struct Request
     method: Method = Method.Get
     /// The URL. On a request a server received it is absolute: its scheme
     /// is `https` over TLS and `http` otherwise, and its host is the `Host`
-    /// the client sent, as `http_testing.request` builds one.
+    /// the client sent, as `std::http::testing.request` builds one.
     url: Url
     headers: Headers = Headers[]
     body: Body = Body.Empty
@@ -747,10 +747,10 @@ impl Request
     /// URL's query. It reads the body, which a request can do once, so keep
     /// what it returns.
     //! import std::http.{Method, Request}
-    //! import std::http_testing
+    //! import std::http::testing
     //! import std::url.Query
     //!
-    //! r = http_testing.form_request(Method.Post, "/?b=2", [("a", "1")])
+    //! r = testing.form_request(Method.Post, "/?b=2", [("a", "1")])
     //! assert Request.form(r) == Ok(Query[("a", "1"), ("b", "2")])
     //
     pub fn form(request: Request) -> Result<Query, Error>
@@ -765,11 +765,11 @@ impl Request
     /// URL-encoded one or the request's `body_limit`, and returns
     /// `Error.BodyTooLarge` past that.
     //! import std::http.{Body, Method, Request}
-    //! import std::http_testing
+    //! import std::http::testing
     //!
     //! posted = fn size: Int ->
     //!     {
-    //!         ..http_testing.request(Method.Post, "/"),
+    //!         ..testing.request(Method.Post, "/"),
     //!         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
     //!         body: Body.Stream(Reader.from_text("a=${String.repeat("x", size - 2)}")),
     //!     }
@@ -822,7 +822,7 @@ impl Request
     /// has one, is `Error.BodyTooLarge`; `parts` streams a larger
     /// one. It reads the body.
     //! import std::http.{Body, FormPart, Method, Request}
-    //! import std::http_testing
+    //! import std::http::testing
     //!
     //! file = fn text: String ->
     //!     FormPart.File{field: "doc", filename: "a", content: String.to_bytes(text)}
@@ -833,7 +833,7 @@ impl Request
     //!     encoded = FormPart.encode([file(String.repeat("x", size - overhead))])
     //!
     //!     {
-    //!         ..http_testing.request(Method.Post, "/upload"),
+    //!         ..testing.request(Method.Post, "/upload"),
     //!         headers: Headers[("Content-Type", encoded.content_type)],
     //!         body: Body.Stream(Reader.from_bytes(encoded.body)),
     //!     }
@@ -860,7 +860,7 @@ impl Request
     /// The first file in the multipart form's field `field`, as Go's
     /// `Request.FormFile`. It reads the body.
     //! import std::http.{Body, FormPart, Method, Request}
-    //! import std::http_testing
+    //! import std::http::testing
     //!
     //! parts = [
     //!     FormPart.Field{name: "note", value: "hi"},
@@ -868,7 +868,7 @@ impl Request
     //! ]
     //!
     //! request = {
-    //!     ..http_testing.request(Method.Post, "/upload"),
+    //!     ..testing.request(Method.Post, "/upload"),
     //!     headers: Headers[("Content-Type", FormPart.encode(parts).content_type)],
     //!     body: Body.Multipart(parts),
     //! }
@@ -893,9 +893,9 @@ impl Request
     /// handler's `?` answers with a 400. It reads the body, which a request
     /// can do once.
     //! import std::http.{Body, Method, Request}
-    //! import std::http_testing
+    //! import std::http::testing
     //!
-    //! posted = fn body: Body -> {..http_testing.request(Method.Post, "/notes"), body:}
+    //! posted = fn body: Body -> {..testing.request(Method.Post, "/notes"), body:}
     //!
     //! assert Request.text(posted(Body.Stream(Reader.from_text("hello")))) == Ok("hello")
     //!
@@ -920,9 +920,9 @@ impl Request
     /// `Content-Type`. Give `T` with a binding's annotation or as
     /// `Request.json_as<T>(request)`.
     //! import std::http.{Body, Method, Request, Response, Status}
-    //! import std::http_testing
+    //! import std::http::testing
     //!
-    //! posted = fn text: String -> {..http_testing.request(Method.Post, "/todos"), body: Body.Text(text)}
+    //! posted = fn text: String -> {..testing.request(Method.Post, "/todos"), body: Body.Text(text)}
     //!
     //! read: Result<Map<String, String>, Error> = Request.json_as(posted(`{"title": "milk"}`))
     //! assert read == Ok({"title" => "milk"})
@@ -966,9 +966,9 @@ impl Request
     /// The cookies the request's `Cookie` headers send, as Go's
     /// `Request.Cookies`; one that does not parse is left out.
     //! import std::http.{Cookie, Method, Request}
-    //! import std::http_testing
+    //! import std::http::testing
     //!
-    //! r = Request.add_cookie(http_testing.request(Method.Get, "/"), Cookie{name: "a", value: "1"})
+    //! r = Request.add_cookie(testing.request(Method.Get, "/"), Cookie{name: "a", value: "1"})
     //! assert Request.cookie(r, "a") |> Maybe.map(fn c -> c.value) == Some("1")
     //!
     //! spaced = Request.add_cookie(r, Cookie{name: "b", value: "x y"})
@@ -1361,9 +1361,9 @@ impl Response
     /// A redirect to `to`, which may be relative to the request's path,
     /// with `status` and a short HTML body for a `GET` or `HEAD`.
     //! import std::http.{Method, Response, Status}
-    //! import std::http_testing
+    //! import std::http::testing
     //!
-    //! r = Response.redirect(http_testing.request(Method.Get, "/a/b"), "c", Status.found)
+    //! r = Response.redirect(testing.request(Method.Get, "/a/b"), "c", Status.found)
     //! assert Headers.get(r.headers, "Location") == Some("/a/c")
     //
     pub fn redirect(request: Request, to: String, status: Status) -> Response
@@ -1386,9 +1386,9 @@ impl Response
     /// 304. The response carries `headers`. It responds as Go's
     /// `ServeContent` does.
     //! import std::http.{Method, Response, Status}
-    //! import std::http_testing
+    //! import std::http::testing
     //!
-    //! request = http_testing.request(Method.Get, "/f")
+    //! request = testing.request(Method.Get, "/f")
     //! ranged = {..request, headers: Headers.set(.., "Range", "bytes=1-2")}
     //! r = Response.content(ranged, "f.txt", None, String.to_bytes("hello"))
     //! assert r.status == Status.partial_content
@@ -1536,7 +1536,7 @@ end
 /// `Body.Text`, `Response.error` or a content type of its own.
 //! import std::html.Html
 //! import std::http.{self, Body, Method, Response, Route, Router, Status}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! router = Router.new([
 //!     Route.to("GET /plain", fn _ -> Response{body: Body.Text("plain")}),
@@ -1549,7 +1549,7 @@ end
 //!     end),
 //! ])!
 //!
-//! answer = fn target: String -> Router.serve(router, http_testing.request(Method.Get, target))
+//! answer = fn target: String -> Router.serve(router, testing.request(Method.Get, target))
 //! assert Response.text(answer("/plain")) == Ok("plain")
 //! assert Response.text(answer("/page")) == Ok("<p>page</p>")
 //! assert Response.text(answer("/items/7")) == Ok("item 7")
@@ -1603,7 +1603,7 @@ end
 /// handler that ran out of time a 503. Anything else is a 500. A 5xx body is
 /// the status text alone, so it shows the client nothing internal.
 //! import std::http.{Body, Method, Request, Response, Status}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! status = fn e: Error -> ToResponse.to_response(e).status
 //! assert status(Error.MalformedBody{reason: "x"}) == Status.bad_request
@@ -2120,7 +2120,7 @@ end
 
 /// The client `http.fetch` and the other module functions use: the default
 /// options over one connection pool the whole program shares, as Go's
-/// `DefaultClient`. `http_testing.run` responds in its place.
+/// `DefaultClient`. `std::http::testing.run` responds in its place.
 pub fn default_client() -> Client
     Client{handle: http_host.default_client(), options: ClientOptions{}}
 end
@@ -2140,7 +2140,7 @@ end
 /// defer StreamedResponse.close(response)
 /// ```
 //! import std::http.{Body, Request, Response, StreamedResponse}
-//! import std::http_testing
+//! import std::http::testing
 //! import std::url.Url
 //!
 //! fn first_line(url: Url) -> Result<Maybe<String>, Error>
@@ -2149,7 +2149,7 @@ end
 //!     Reader.read_line(response.body) |> Result.map_err(fn e -> Error.Body{error: e})
 //! end
 //!
-//! ran = http_testing.run(fn _ -> Ok(Response{body: Body.Text("one\ntwo\n")}), fn ->
+//! ran = testing.run(fn _ -> Ok(Response{body: Body.Text("one\ntwo\n")}), fn ->
 //!     first_line(Url`https://example.com/log`)
 //! end)
 //!
@@ -2817,14 +2817,14 @@ impl Route<P>
     /// braces, the method is a token Go accepts, with no space, and the
     /// wildcards are `P`'s fields, as `Route.parse` holds them.
     //! import std::http.{Body, Method, Request, Response, Route, Router}
-    //! import std::http_testing
+    //! import std::http::testing
     //!
     //! propfind = Route.with_method<{name: String}>(Method.Other("PROPFIND"), "/files/{name}")!
     //! assert "${propfind}" == "PROPFIND /files/{name}"
     //!
     //! router = Router.new([Route.to_with(propfind, fn _, p -> Response{body: Body.Text(p.name)})])!
     //!
-    //! answer = Router.serve(router, http_testing.request(Method.Other("PROPFIND"), "/files/a.txt"))
+    //! answer = Router.serve(router, testing.request(Method.Other("PROPFIND"), "/files/a.txt"))
     //! assert Response.text(answer) == Ok("a.txt")
     //!
     //! assert Route.with_method<Unit>(Method.Get, "/a") == Ok(Route`GET /a`)
@@ -2910,7 +2910,7 @@ impl Route<P>
     /// parse gets `404`, as if no route matched: `GET /posts/{id}` with an
     /// `id: Int` does not match `/posts/latest`.
     //! import std::http.{Body, Method, Response, Route, Router, Status}
-    //! import std::http_testing
+    //! import std::http::testing
     //!
     //! item: Route<{id: Int}> = "GET /items/{id}"
     //!
@@ -2918,7 +2918,7 @@ impl Route<P>
     //!     [Route.to_with(item, fn _, p -> Response{body: Body.Text("item ${p.id + 1}")})]
     //! )!
     //!
-    //! answer = fn target: String -> Router.serve(router, http_testing.request(Method.Get, target))
+    //! answer = fn target: String -> Router.serve(router, testing.request(Method.Get, target))
     //! assert Response.text(answer("/items/7")) == Ok("item 8")
     //! assert answer("/items/x").status == Status.not_found
     //
@@ -3328,7 +3328,7 @@ end
 /// slash a pattern has, is redirected; one whose path matches only under
 /// another method gets 405 with `Allow`; anything else gets 404.
 //! import std::http.{Body, Method, Request, Response, Route, Router, Status}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! router = Router.new([
 //!     Route.to_with("GET /users/{id}", fn _, p -> Response{body: Body.Text("user ${p.id}")}),
@@ -3338,16 +3338,16 @@ end
 //!     }),
 //! ])!
 //!
-//! user = Router.serve(router, http_testing.request(Method.Get, "/users/7"))
+//! user = Router.serve(router, testing.request(Method.Get, "/users/7"))
 //! assert Response.text(user) == Ok("user 7")
 //!
-//! assert Response.text(Router.serve(router, http_testing.request(Method.Get, "/raw/a/b.txt")))
+//! assert Response.text(Router.serve(router, testing.request(Method.Get, "/raw/a/b.txt")))
 //!     == Ok("a/b.txt")
 //!
-//! assert Router.serve(router, http_testing.request(Method.Post, "/users/7")).status
+//! assert Router.serve(router, testing.request(Method.Post, "/users/7")).status
 //!     == Status.method_not_allowed
 //!
-//! assert Router.serve(router, http_testing.request(Method.Get, "/nope")).status == Status.not_found
+//! assert Router.serve(router, testing.request(Method.Get, "/nope")).status == Status.not_found
 //
 pub struct Router
     mux: http_host.Mux
@@ -3476,15 +3476,14 @@ end
 /// escaped form, before `handler` sees it, and returns 404 for a path
 /// without it.
 //! import std::http.{Body, Method, Request, Response}
-//! import std::http_testing
+//! import std::http::testing
 //! import std::url.Url
 //!
 //! show = http.strip_prefix(fn r -> Response{body: Body.Text(Url.escaped_path(r.url))}, "/static")
-//! assert Response.text(show(http_testing.request(Method.Get, "/static/a.css"))) == Ok("/a.css")
-//! assert show(http_testing.request(Method.Get, "/a.css")).status == Status.not_found
+//! assert Response.text(show(testing.request(Method.Get, "/static/a.css"))) == Ok("/a.css")
+//! assert show(testing.request(Method.Get, "/a.css")).status == Status.not_found
 //!
-//! assert Response.text(show(http_testing.request(Method.Get, "/static/a%2Fb.css")))
-//!     == Ok("/a%2Fb.css")
+//! assert Response.text(show(testing.request(Method.Get, "/static/a%2Fb.css"))) == Ok("/a%2Fb.css")
 //
 pub fn strip_prefix(handler: Handler, prefix: String) -> (Request) -> Response
     fn request ->
@@ -3508,14 +3507,14 @@ end
 /// still separate fields with `;`. Without it, a `;` in the query is an
 /// error to `Query.parse`.
 //! import std::http.{self, Body, Method, Request, Response}
-//! import std::http_testing
+//! import std::http::testing
 //! import std::url.{Query, Url}
 //!
 //! seen = http.allow_query_semicolons(fn r -> Response{
 //!     body: Body.Text(Query.encode(Url.query_values(r.url))),
 //! })
 //!
-//! response = seen(http_testing.request(Method.Get, "/?a=1;b=2"))
+//! response = seen(testing.request(Method.Get, "/?a=1;b=2"))
 //! assert Response.text(response) == Ok("a=1&b=2")
 //
 pub fn allow_query_semicolons(handler: Handler) -> (Request) -> Response
@@ -3537,7 +3536,7 @@ end
 /// task.
 //! import std::duration.Duration
 //! import std::http.{self, Body, Method, Request, Response, Status}
-//! import std::http_testing
+//! import std::http::testing
 //! import std::timer
 //!
 //! sleepy = fn _: Request ->
@@ -3546,7 +3545,7 @@ end
 //! end
 //!
 //! slow = sleepy |> http.timeout(Duration.milliseconds(20), "too slow")
-//! assert slow(http_testing.request(Method.Get, "/")).status == Status.service_unavailable
+//! assert slow(testing.request(Method.Get, "/")).status == Status.service_unavailable
 //!
 //! fast = http.timeout(
 //!     fn _: Request -> Response{body: Body.Text("ok")},
@@ -3554,7 +3553,7 @@ end
 //!     "too slow",
 //! )
 //!
-//! assert Response.text(fast(http_testing.request(Method.Get, "/"))) == Ok("ok")
+//! assert Response.text(fast(testing.request(Method.Get, "/"))) == Ok("ok")
 //
 pub fn timeout(handler: Handler, after: Duration, message: String) -> (Request) -> Response
     fn request ->
@@ -3668,9 +3667,9 @@ impl CrossOrigin
     /// apply. The check is Go's `CrossOriginProtection.Check`, with its
     /// reasons.
     //! import std::http.{CrossOrigin, Method, Origin, Request}
-    //! import std::http_testing
+    //! import std::http::testing
     //!
-    //! post = http_testing.request(Method.Post, "/pay")
+    //! post = testing.request(Method.Post, "/pay")
     //!
     //! from = fn site: String -> {
     //!     ..post,
@@ -3703,13 +3702,13 @@ end
 /// passes one that matches a bypass pattern unchecked. Each `Origin` was
 /// checked when it was made, so the middleware itself cannot fail.
 //! import std::http.{self, Body, CrossOrigin, Method, Request, Response, Route, Status}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! pay = fn _: Request -> Response{body: Body.Text("paid")}
 //! app = pay |> http.cross_origin_protection(CrossOrigin{bypass_patterns: ["POST /hooks/"]})
 //!
 //! post = fn path: String -> {
-//!     ..http_testing.request(Method.Post, path),
+//!     ..testing.request(Method.Post, path),
 //!     headers: Headers[("Sec-Fetch-Site", "cross-site")],
 //! }
 //!
@@ -3754,10 +3753,10 @@ end
 /// (`Request.limit_body`), which lowers the server's `max_body` or
 /// replaces the form readers' defaults.
 //! import std::http.{self, Body, Method, Request, Response}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! upload = http.limit_body(fn r: Request -> Response{body: Body.Text("${r.body_limit}")}, 1_000)
-//! assert Response.text(upload(http_testing.request(Method.Post, "/upload"))) == Ok("Some(1000)")
+//! assert Response.text(upload(testing.request(Method.Post, "/upload"))) == Ok("Some(1000)")
 //
 pub fn limit_body(handler: Handler, max: Int) -> (Request) -> Response
     fn request -> ToResponse.to_response(handler(Request.limit_body(request, max)))
@@ -3767,7 +3766,7 @@ end
 /// to a group of routes, such as every `/admin` route, before they join
 /// the others in one `Router`.
 //! import std::http.{self, Body, Method, Request, Response, Route, Router, Status}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! require_token = fn handler: Handler ->
 //!     fn request: Request ->
@@ -3786,9 +3785,9 @@ end
 //! routes = [Route.to("GET /", home)] + http.wrap_routes(admin, require_token)
 //! router = Router.new(routes)!
 //!
-//! assert Router.serve(router, http_testing.request(Method.Get, "/")).status == Status.ok
+//! assert Router.serve(router, testing.request(Method.Get, "/")).status == Status.ok
 //!
-//! assert Router.serve(router, http_testing.request(Method.Get, "/admin/users")).status
+//! assert Router.serve(router, testing.request(Method.Get, "/admin/users")).status
 //!     == Status.unauthorized
 //
 pub fn wrap_routes(routes: List<Entry>, wrap: (Handler) -> Handler) -> List<Entry>
@@ -3850,7 +3849,7 @@ end
 /// gets `Vary: Origin`, so a cache does not hand one origin's response to
 /// another.
 //! import std::http.{self, Body, Cors, Method, Origin, Request, Response, Status}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! api = fn _: Request -> Response{body: Body.Text("data")}
 //!
@@ -3863,7 +3862,7 @@ end
 //!     })
 //!
 //! from = fn method: Method, origin: String -> {
-//!     ..http_testing.request(method, "/api/items"),
+//!     ..testing.request(method, "/api/items"),
 //!     headers: Headers[("Origin", origin)],
 //! }
 //!
@@ -3973,9 +3972,9 @@ end
 /// adds it as `request_id`, so put `request_id` after `log_requests` in a
 /// pipe, outside it, to log the id it sets.
 //! import std::http.{self, Body, Method, Request, Response, Status}
-//! import std::http_testing
+//! import std::http::testing as http_testing
 //! import std::log
-//! import std::log_testing
+//! import std::log::testing as log_testing
 //!
 //! hello = fn _: Request -> Response{status: Status.created, body: Body.Text("hello")}
 //!
@@ -4063,7 +4062,7 @@ end
 /// `X-Content-Type-Options: nosniff`, `Referrer-Policy:
 /// strict-origin-when-cross-origin` and `X-Frame-Options: DENY`.
 //! import std::http.{self, Body, Method, Request, Response, SecurityHeaders}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! page = fn r: Request ->
 //!     if r.url.path == "/embed" then
@@ -4074,13 +4073,13 @@ end
 //! end
 //!
 //! app = page |> http.security_headers()
-//! plain = app(http_testing.request(Method.Get, "/"))
+//! plain = app(testing.request(Method.Get, "/"))
 //! assert Headers.get(plain.headers, "X-Content-Type-Options") == Some("nosniff")
 //! assert Headers.get(plain.headers, "Referrer-Policy") == Some("strict-origin-when-cross-origin")
 //! assert Headers.get(plain.headers, "X-Frame-Options") == Some("DENY")
 //! assert Headers.get(plain.headers, "Strict-Transport-Security") == None
 //!
-//! assert Headers.get(app(http_testing.request(Method.Get, "/embed")).headers, "X-Frame-Options")
+//! assert Headers.get(app(testing.request(Method.Get, "/embed")).headers, "X-Frame-Options")
 //!     == Some("SAMEORIGIN")
 //!
 //! strict =
@@ -4090,7 +4089,7 @@ end
 //!         content_security_policy: Some("default-src 'self'"),
 //!     })
 //!
-//! sent = strict(http_testing.request(Method.Get, "/"))
+//! sent = strict(testing.request(Method.Get, "/"))
 //! assert Headers.get(sent.headers, "Strict-Transport-Security") == Some("max-age=63072000")
 //! assert Headers.get(sent.headers, "Content-Security-Policy") == Some("default-src 'self'")
 //
@@ -4124,18 +4123,18 @@ end
 /// handler reads the id from the request's headers, and `log_requests`
 /// logs it when it runs inside `request_id`, before it in a pipe.
 //! import std::http.{self, Body, Method, Request, Response}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! echo = fn r: Request -> Response{body: Body.Text(Headers.get(r.headers, "X-Request-Id")!)}
 //! app = echo |> http.request_id()
 //!
-//! made = app(http_testing.request(Method.Get, "/"))
+//! made = app(testing.request(Method.Get, "/"))
 //! id = Headers.get(made.headers, "X-Request-Id")!
 //! assert String.length(id) == 36
 //! assert Response.text(made) == Ok(id)
 //!
 //! given = fn id: String -> {
-//!     ..http_testing.request(Method.Get, "/"),
+//!     ..testing.request(Method.Get, "/"),
 //!     headers: Headers[("X-Request-Id", id)],
 //! }
 //!
@@ -4221,13 +4220,13 @@ end
 /// library has no brotli encoder, so `compress` writes only gzip; serve
 /// `.br` files precompressed (`serve_embedded`).
 //! import std::http.{self, Body, Method, Request, Response, Status}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! page = String.repeat("<p>hello</p>", 200)
 //! app = (fn _: Request -> Response{body: Body.Text(page)}) |> http.compress()
 //!
 //! asking = fn accept: String ->
-//!     r = http_testing.request(Method.Get, "/")
+//!     r = testing.request(Method.Get, "/")
 //!     {..r, headers: Headers[("Accept-Encoding", accept)]}
 //! end
 //!
@@ -4236,7 +4235,7 @@ end
 //! assert Headers.get(zipped.headers, "Content-Type") == Some("text/plain; charset=utf-8")
 //! assert Headers.get(zipped.headers, "Vary") == Some("Accept-Encoding")
 //! assert Bytes.length(Response.bytes(zipped)!) < 100
-//! assert http_testing.decompressed(zipped) == Ok(String.to_bytes(page))
+//! assert testing.decompressed(zipped) == Ok(String.to_bytes(page))
 //!
 //! plain = app(asking("gzip;q=0, identity"))
 //! assert Headers.get(plain.headers, "Content-Encoding") == None
@@ -4413,7 +4412,7 @@ end
 /// before combining them keeps a right user from showing either.
 //! import std::hash
 //! import std::http.{self, Body, Method, Request, Response, Status}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! same = fn given: String, expected: String ->
 //!     hash.equal_in_constant_time(
@@ -4430,7 +4429,7 @@ end
 //!
 //! hello = fn r: Request -> Response{body: Body.Text("hello ${Request.basic_auth(r)!.first}")}
 //! app = hello |> http.basic_auth("admin", admin_only)
-//! visit = http_testing.request(Method.Get, "/admin")
+//! visit = testing.request(Method.Get, "/admin")
 //!
 //! refused = app(visit)
 //! assert refused.status == Status.unauthorized
@@ -4475,7 +4474,7 @@ end
 /// here. The `X-HTTP-Method-Override` header is not read: a page on
 /// another origin could set it on a request a browser lets through.
 //! import std::http.{self, Body, Method, Request, Response, Route, Router}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! router = Router.new([
 //!     Route.to("POST /posts", fn _ -> Response{body: Body.Text("created")}),
@@ -4488,7 +4487,7 @@ end
 //! app = Router.handler(router) |> http.method_override()
 //!
 //! form = fn target: String, fields: List<(String, String)> ->
-//!     http_testing.form_request(Method.Post, target, fields)
+//!     testing.form_request(Method.Post, target, fields)
 //! end
 //!
 //! assert Response.text(app(form("/posts/7", [("_method", "delete")]))) == Ok("deleted")
@@ -4546,10 +4545,11 @@ end
 /// order is the file, then a directory, then the page. A request for
 /// `/about.html` is served that file as named, not redirected. Anything
 /// else missing is a 404, and a file that cannot be read a 403 or 500.
-/// Files come through std::fs, so `fs_testing.run` and `fs.within` apply.
-//! import std::fs_testing.{self, Sandbox}
+/// Files come through std::fs, so `std::fs::testing.run` and `fs.within` apply.
+//! import std::fs::testing as fs_testing
+//! import std::fs::testing.Sandbox
 //! import std::http.{Method, Response, Status}
-//! import std::http_testing
+//! import std::http::testing as http_testing
 //!
 //! get = fn target: String, file: String -> serve_file(http_testing.request(Method.Get, target), file)
 //!
@@ -4664,9 +4664,10 @@ end
 /// `/settings` loads at that URL (`is_page_route`). A file that exists is
 /// served whatever its name, and a request for a missing asset is still a
 /// 404.
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing as fs_testing
+//! import std::fs::testing.Sandbox
 //! import std::http.{Method, Response, Status}
-//! import std::http_testing
+//! import std::http::testing as http_testing
 //!
 //! site = file_server("site", single_page: True)
 //! page = http_testing.request(Method.Get, "/settings")
@@ -4727,7 +4728,7 @@ end
 /// and the sibling's own `ETag`. Every response for such a file carries
 /// `Vary: Accept-Encoding`. Nothing is compressed while the program runs.
 //! import std::http.{Method, Response, Status}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! files = Files.from_bytes([
 //!     ("index.html", String.to_bytes("<p>home</p>")),
@@ -4735,7 +4736,7 @@ end
 //!     ("assets/app-3f9a1b2c.js.gz", String.to_bytes("zipped")),
 //! ])
 //!
-//! get = http_testing.request(Method.Get, "/assets/app-3f9a1b2c.js")
+//! get = testing.request(Method.Get, "/assets/app-3f9a1b2c.js")
 //! js = serve_embedded(get, files, "assets/app-3f9a1b2c.js", immutable: ["assets/**"])
 //! assert Headers.get(js.headers, "Cache-Control") == Some("public, max-age=31536000, immutable")
 //! assert Headers.get(js.headers, "Content-Type") == Some("text/javascript; charset=utf-8")
@@ -4748,11 +4749,11 @@ end
 //! assert Headers.get(zipped.headers, "Content-Type") == Some("text/javascript; charset=utf-8")
 //! assert Response.text(zipped) == Ok("zipped")
 //!
-//! home = serve_embedded(http_testing.request(Method.Get, "/"), files, ".")
+//! home = serve_embedded(testing.request(Method.Get, "/"), files, ".")
 //! etag = Headers.get(home.headers, "ETag")!
 //! assert Headers.get(home.headers, "Cache-Control") == Some("no-cache")
 //!
-//! again = http_testing.request(Method.Get, "/")
+//! again = testing.request(Method.Get, "/")
 //! again = {..again, headers: Headers.set(.., "If-None-Match", etag)}
 //! assert serve_embedded(again, files, ".").status == Status.not_modified
 //!
@@ -4761,18 +4762,18 @@ end
 //!     ("about.html.br", String.to_bytes("squeezed")),
 //! ])
 //!
-//! about = serve_embedded(http_testing.request(Method.Get, "/about"), pages, "about")
+//! about = serve_embedded(testing.request(Method.Get, "/about"), pages, "about")
 //! assert Response.text(about) == Ok("<p>about</p>")
 //! assert Headers.get(about.headers, "Content-Type") == Some("text/html; charset=utf-8")
 //! assert Headers.get(about.headers, "Vary") == Some("Accept-Encoding")
 //!
-//! brotli = http_testing.request(Method.Get, "/about")
+//! brotli = testing.request(Method.Get, "/about")
 //! brotli = {..brotli, headers: Headers.set(.., "Accept-Encoding", "br")}
 //! squeezed = serve_embedded(brotli, pages, "about")
 //! assert Headers.get(squeezed.headers, "Content-Encoding") == Some("br")
 //! assert Response.text(squeezed) == Ok("squeezed")
 //!
-//! slashed = serve_embedded(http_testing.request(Method.Get, "/about/"), pages, "about")
+//! slashed = serve_embedded(testing.request(Method.Get, "/about/"), pages, "about")
 //! assert slashed.status == Status.not_found
 //
 pub fn serve_embedded(
@@ -4848,7 +4849,7 @@ end
 /// end
 /// ```
 //! import std::http.{Method, Response, Status}
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! app = file_server_embedded(
 //!     Files.from_bytes([
@@ -4860,7 +4861,7 @@ end
 //! )
 //!
 //! visit = fn target: String ->
-//!     r = http_testing.request(Method.Get, target)
+//!     r = testing.request(Method.Get, target)
 //!     {..r, headers: Headers.set(.., "Accept", "text/html,*/*;q=0.8")}
 //! end
 //!
@@ -4878,7 +4879,7 @@ end
 //! assert Response.text(exported(visit("/contact"))) == Ok("<p>home</p>")
 //! assert Response.text(app(visit("/users/jane.doe"))) == Ok("<div id=root></div>")
 //!
-//! missing = http_testing.request(Method.Get, "/assets/gone-0a1b2c3d.js")
+//! missing = testing.request(Method.Get, "/assets/gone-0a1b2c3d.js")
 //! missing = {..missing, headers: Headers.set(.., "Accept", "*/*")}
 //! assert app(missing).status == Status.not_found
 //
@@ -4909,10 +4910,10 @@ end
 /// never for a script, stylesheet, image or `fetch`, so the path may hold
 /// a dot (`/users/jane.doe`) and a missing `/assets/app.js` stays a 404.
 //! import std::http.Method
-//! import std::http_testing
+//! import std::http::testing
 //!
 //! asked = fn method: Method, target: String, accept: String ->
-//!     r = http_testing.request(method, target)
+//!     r = testing.request(method, target)
 //!     {..r, headers: Headers.set(.., "Accept", accept)}
 //! end
 //!

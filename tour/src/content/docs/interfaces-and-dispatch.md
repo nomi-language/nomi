@@ -172,10 +172,12 @@ type.
 
 Collections convert the same way: a `List<Dog>` passes where a
 `List<Speech>` is expected, and a `Maybe<Dog>` where a `Maybe<Speech>` is,
-with nothing copied, since each `Dog` already is a `Speech`. A value that
-would have to be wrapped first, such as a `List<Maybe<Dog>>` as a
-`List<Display>`, is an error that names the `Iter.map` to write
-([Type argument conversion](/spec/type-relations/#type-argument-conversion)).
+with nothing copied, since each `Dog` already is a `Speech`. So does a
+`Result`, a `Map`, a function's result and a struct or enum of your own
+whose fields only hold the type. A value whose elements must be wrapped
+first, such as a `List<Maybe<Dog>>` as a `List<Display>`, is built again
+with each one wrapped
+([Covariant conversion](/spec/type-relations/#covariant-conversion)).
 
 Spec: [Interface values](/spec/interfaces-implementations-and-derive/#interface-values).
 

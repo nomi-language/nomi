@@ -1,6 +1,6 @@
 //# lib/storage/s3 against a real S3-protocol server. `start` starts a
 //# MinIO and `stop` stops it, and `checks` runs what this project checks against
-//# any server: std::storage_testing's conformance suite, presigned URLs
+//# any server: std::storage::testing's conformance suite, presigned URLs
 //# fetched with no credentials, and a public object read with none.
 
 import
@@ -11,7 +11,7 @@ import
     std::net
     std::process.{self, Child, Command}
     std::storage.Store
-    std::storage_testing
+    std::storage::testing
     std::timer
     std::url.Url
     s3.{self, Config, Credentials}
@@ -160,7 +160,7 @@ end
 /// public bucket and read an object from it with no credentials.
 pub fn checks(config: Config, public: Bool = True) -> List<String>
     conformance =
-        storage_testing.conformance(fn -> s3.store(config))
+        testing.conformance(fn -> s3.store(config))
         |> Iter.map(fn broken -> "conformance: ${broken}")
         |> Iter.to_list()
 

@@ -40,7 +40,7 @@ type Rejection struct {
 	Key, Reason string
 }
 
-// FFILoad is `phrase_format.load_raw`: the accepted entries, encoded, then
+// FFILoad is `std::phrase::format.load_raw`: the accepted entries, encoded, then
 // each rejection's key and reason.
 func FFILoad(fr *rt.Frame, text, locale string) []string {
 	encoded, rejected := LoadCatalog(stdlocale.Data(fr), runtimeOf(fr), text, locale)

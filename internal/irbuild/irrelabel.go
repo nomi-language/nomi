@@ -7,16 +7,17 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// Type argument conversion without work (spec §5 *Type argument
-// conversion*). The checker admits a std collection's value where the same
-// collection at wider type arguments is expected when each element is,
-// unchanged, an element of the wider type: an Int where a Display is (the
-// VM's existential is the concrete value), a function whose parameters and
-// result convert so, a nested collection, tuple or record whose parts do
-// (analysis.carriesOwnType and unifyAssignArg). Such a value is the wider
-// value already, so the builder relabels it: one copy of the reference,
-// whatever the collection holds, and no element is read
-// (TestRelabel_ConvertsNoElement counts it).
+// Covariant conversion without work (spec §5 *Covariant conversion*). The
+// checker admits a value where the same type at wider type arguments is
+// expected when each part converts by its parameter's variance
+// (internal/analysis, type_arg_conversion.go). Where each element of a std
+// collection is, unchanged, an element of the wider type (an Int where a
+// Display is, since the VM's existential is the concrete value; a function
+// whose parameters and result convert so; a nested collection, tuple or
+// record whose parts do), the value is the wider value already, so the
+// builder relabels it: one copy of the reference, whatever the collection
+// holds, and no element is read (TestRelabel_ConvertsNoElement counts it).
+// Any other conversion is a rebuild (irembedsrebuild.go).
 //
 // A record (a tuple, an anonymous record, a Maybe's or Result's variant)
 // may then hold a scalar in a scalar slot where its new type says a

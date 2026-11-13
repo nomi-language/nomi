@@ -41,12 +41,11 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 // want's: a function type `(P1) -> R1` is assignable to `(P2) -> R2` when each
 // P2 is assignable to its P1 (parameters are contravariant) and R1 is
 // assignable to R2 (results are covariant). Inside a function type,
-// "assignable" is exact, or a concrete type where its interface is expected (a
-// List where an Iter is, an Int where a Display is), or an embedded type where
-// its enum is, or a function type by this same rule, and an Iter's element
-// type is compared by this rule too (iterElem): the conversions the IR
-// builder's adapter closure performs (irbuild/irfuncwiden.go). Outside
-// function types it is unifyFull. rigid holds the type parameters of the
+// "assignable" is the same, a covariant conversion of a type argument
+// included (spec §5 *Covariant conversion*): the conversions the IR
+// builder's adapter closure performs on each argument and the result
+// (irbuild/irfuncwiden.go). Below the top, type arguments convert by
+// their parameters' variance (unifyArg). rigid holds the type parameters of the
 // function being checked, by name: types there, never solved in subs.
 func UnifyInto(want, have Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
 	return unifyIn(unifyAssign, want, have, subs, impls, implTypeArgs, rigid)
@@ -65,8 +64,7 @@ const (
 	// unifyStrict equates two types up to inference variables and type
 	// parameters: no interface admits a concrete type and no enum an
 	// embedded one. A function's parameter or result is compared this way
-	// when nothing says which way the value flows, and so is a type argument
-	// inside a function type, since the builder converts no container.
+	// when nothing says which way the value flows.
 	unifyStrict
 	// unifyAssign is UnifyInto: a is the expected type and b the actual one.
 	// An embedded type enters its enum only from b, never a's embedded type
@@ -76,35 +74,23 @@ const (
 	// unifyAssignIn is unifyAssign inside a function type: a is expected and
 	// b actual, and only b into a is admitted.
 	unifyAssignIn
-	// unifyAssignCo is unifyAssign inside a container's type arguments, a
-	// tuple's elements and a record's fields: a is expected and b actual, an
-	// embedded type enters its enum only from b, and a function type meets
-	// another strictly, as under unifySym.
+	// unifyAssignCo is unifyAssign inside a covariant position: a
+	// container's or a declared generic type's covariant type argument
+	// (spec §5 *Covariant conversion*), a tuple's elements, a record's
+	// fields, a function type's result, and swapped (b expected, a actual)
+	// at a contravariant one. a is expected and b actual: a value enters
+	// an interface (boxed where its type does not name its impl), a
+	// function another whose parameters and result convert, an embedded
+	// type its enum, and a collection an Iter, each of which the builder
+	// does element by element (internal/irbuild, irembedsrebuild.go).
 	unifyAssignCo
-	// unifyAssignArg is unifyAssign inside the type arguments of a std
-	// collection (`List<T>`, `Vector<T>`, `Set<T>`, `Map<K, V>`, `Maybe<T>`,
-	// `Result<T, E>`), and inside a tuple's elements and a record's fields
-	// there: a is expected and b actual, and only a conversion that leaves
-	// the value as it is at run time is admitted (spec §5 *Type argument
-	// conversion*). An interface admits a concrete type whose value already
-	// is the interface value (carriesOwnType), a function type admits
-	// another whose parameters and result convert so, and an embedded type
-	// enters its enum as under unifyAssignCo. An Iter's element is not this
-	// mode (iterElem).
-	unifyAssignArg
-	// unifyAssignExact is unifyAssign inside the type arguments of a
-	// declared generic type (`Box<T>`, a std struct, an interface other than
-	// Iter): no interface admits a concrete type and a function type meets
-	// another strictly, since such a value carries its type arguments at run
-	// time. An embedded type still enters its enum, which the builder
-	// rebuilds (irembedsrebuild.go).
+	// unifyAssignExact is unifyAssign inside an invariant type argument:
+	// a declared generic type's parameter its fields both hold and take,
+	// a std struct's or host type's, or an interface's other than Iter's.
+	// No interface admits a concrete type, a type parameter or a
+	// collection (as an Iter), no enum an embedded type, and a function
+	// type meets another strictly.
 	unifyAssignExact
-	// unifyAssignFree is unifyAssignArg inside a function type that is a
-	// std collection's type argument, where the builder wraps nothing: only
-	// a conversion with no work at all is admitted, so neither an embedded
-	// type entering its enum nor a collection entering an Iter, both of
-	// which the builder rebuilds or views.
-	unifyAssignFree
 )
 
 // iterElem is the mode for std Iter's element type, met by another Iter's
@@ -118,65 +104,57 @@ func (m unifyMode) iterElem(iface *InterfaceType) unifyMode {
 		switch m {
 		case unifyAssignIn:
 			return unifyAssignIn
-		case unifyAssign, unifyAssignCo, unifyAssignArg, unifyAssignExact:
+		case unifyAssign, unifyAssignCo:
 			// An Iter only hands its elements out, so its element fits
 			// as a value does at the top: a List<Int> is an
-			// Iter<Display> (spec §5 *Assignability*).
+			// Iter<Display> (spec §5 *Assignability*). Under an invariant
+			// type argument it compares exactly, as the Iter itself does.
 			return unifyAssign
-		case unifyAssignFree:
-			return unifyAssignFree
 		}
 	}
 	return m.declNested()
 }
 
-// nested is the mode for the type arguments of a std collection: a List,
-// Vector, Set or Map, a Maybe or a Result (stdCollectionArgs).
+// nested is the mode for a covariant type argument: a List's, Vector's,
+// Set's, Maybe's or Result's, a Map's key and value, and a declared
+// generic type's covariant parameter (unifyArg).
 func (m unifyMode) nested() unifyMode {
 	switch m {
-	case unifyStrict, unifyAssignIn:
-		// Inside a function type at the top a type argument compares
-		// exactly, as the builder's adapter converts no container.
+	case unifyStrict:
 		return unifyStrict
-	case unifyAssign, unifyAssignCo, unifyAssignArg:
-		return unifyAssignArg
-	case unifyAssignExact, unifyAssignFree:
+	case unifyAssign, unifyAssignCo, unifyAssignIn:
+		return unifyAssignCo
+	case unifyAssignExact:
 		return m
 	}
 	return unifySym
 }
 
-// declNested is the mode for the type arguments of a declared generic type
-// or a generic interface, which compare exactly but for `embeds`.
+// declNested is the mode for an invariant type argument, which compares
+// exactly but for `embeds`.
 func (m unifyMode) declNested() unifyMode {
 	switch m {
-	case unifyStrict, unifyAssignIn, unifyAssignFree:
+	case unifyStrict, unifyAssignIn:
 		return unifyStrict
-	case unifyAssign, unifyAssignCo, unifyAssignArg, unifyAssignExact:
+	case unifyAssign, unifyAssignCo, unifyAssignExact:
 		return unifyAssignExact
 	}
 	return unifySym
 }
 
-// field is the mode for a tuple's elements and a record's fields: a value
-// built in place widens element by element, `(1, Pt{x: 5})` returned as a
-// `(Int, Named)`. Under a type argument they stay that argument's mode.
+// field is the mode for a tuple's elements and a record's fields, which
+// convert as the value does: `(1, Pt{x: 5})` returned as a `(Int, Named)`.
+// Under an invariant type argument they stay exact.
 func (m unifyMode) field() unifyMode {
 	switch m {
-	case unifyStrict, unifyAssignIn:
+	case unifyStrict:
 		return unifyStrict
-	case unifyAssign, unifyAssignCo:
+	case unifyAssign, unifyAssignCo, unifyAssignIn:
 		return unifyAssignCo
-	case unifyAssignArg, unifyAssignExact, unifyAssignFree:
+	case unifyAssignExact:
 		return m
 	}
 	return unifySym
-}
-
-// convertsInPlace reports whether m is a type argument's mode, where a
-// conversion must leave the value as it is.
-func (m unifyMode) convertsInPlace() bool {
-	return m == unifyAssignArg || m == unifyAssignExact
 }
 
 // rebound is the mode a type parameter's existing binding meets another type
@@ -267,8 +245,9 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 	// T` needs `where T: Display`).
 	if iface, ok := a.(*InterfaceType); ok && subs != nil {
 		if tp, ok := b.(*TypeParam_); ok && rigid[tp.Name_] == tp {
-			if m == unifyAssignFree {
-				// A type argument may be one that enters iface boxed.
+			if m == unifyAssignExact {
+				// An invariant type argument takes no conversion, a
+				// bounded type parameter's into its bound included.
 				return typeErrorf("cannot unify %s with %s", a, b)
 			}
 			return typeParamConforms(m, iface, tp, subs, impls, implTypeArgs, rigid)
@@ -324,7 +303,11 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 	// enum only from the actual side, and under unifyStrict not at all.
 	if et, ok := a.(*EnumType); ok {
 		if isEmbeddedTypeOf(b, et) {
-			if m == unifyStrict || m == unifyAssignFree {
+			// An embedded type enters its enum by the variance rule an
+			// interface conversion follows: never at an invariant type
+			// argument, where a `Cell<Circle>` taking Circles would be
+			// handed any Shape (spec §5 *Covariant conversion*).
+			if m == unifyStrict || m == unifyAssignExact {
 				return typeErrorf("cannot unify %s with %s", a, b)
 			}
 			return nil
@@ -390,17 +373,11 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			}
 			return nil
 		}
-		if m == unifyStrict || m == unifyAssignFree && (isStdIterType(ifaceA) || !carriesOwnType(b)) ||
-			m.convertsInPlace() && !isStdIterType(ifaceA) && (m == unifyAssignExact || !carriesOwnType(b)) {
-			// Under a type argument a value enters an interface only where
-			// it already is the interface value: a List<Int> is a
-			// List<Display>, since an Int held as a Display is the Int,
-			// but a List<Maybe<Int>> is not, since a Maybe enters an
-			// interface boxed, and a declared generic type's arguments
-			// compare exactly (spec §5 *Type argument conversion*). An
-			// Iter's element is not this mode (iterElem), and an Iter at a
-			// type argument takes a collection, which the builder views as
-			// one: a List<List<Int>> is a List<Iter<Int>>.
+		if m == unifyStrict || m == unifyAssignExact {
+			// Under an invariant type argument no value enters an
+			// interface, an Iter included: a Cell<Int> is not a
+			// Cell<Display>, nor a Cell<List<Int>> a Cell<Iter<Int>>, when
+			// Cell's fields also take a T (spec §5 *Covariant conversion*).
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		return unifyInterfaceAgainstConcrete(m, ifaceA, b, subs, impls, implTypeArgs, rigid)
@@ -457,18 +434,6 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			}
 			return unifyIn(unifyAssignIn, normalizeReturn(at.Return), normalizeReturn(bt.Return), subs, impls, implTypeArgs, rigid)
 		}
-		if m == unifyAssignArg || m == unifyAssignFree {
-			// Under a std collection's type argument a function value is
-			// not wrapped: each of a's parameters must enter b's, and b's
-			// result a's, with no work (spec §5 *Type argument
-			// conversion*).
-			for i := range at.Params {
-				if err := unifyIn(unifyAssignFree, bt.Params[i], at.Params[i], subs, impls, implTypeArgs, rigid); err != nil {
-					return err
-				}
-			}
-			return unifyIn(unifyAssignFree, normalizeReturn(at.Return), normalizeReturn(bt.Return), subs, impls, implTypeArgs, rigid)
-		}
 		for i := range at.Params {
 			if err := unifyIn(unifyStrict, at.Params[i], bt.Params[i], subs, impls, implTypeArgs, rigid); err != nil {
 				return err
@@ -494,7 +459,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		for i := range at.TypeArgs {
-			if err := unifyIn(m.typeArgMode(at), at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs, rigid); err != nil {
+			if err := unifyArg(m, at, i, at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs, rigid); err != nil {
 				return err
 			}
 		}
@@ -526,7 +491,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		for i := range at.TypeArgs {
-			if err := unifyIn(m.typeArgMode(at), at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs, rigid); err != nil {
+			if err := unifyArg(m, at, i, at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs, rigid); err != nil {
 				return err
 			}
 		}
@@ -551,7 +516,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			return nil
 		}
 		for i := range at.TypeArgs {
-			if err := unifyIn(m.typeArgMode(at), at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs, rigid); err != nil {
+			if err := unifyArg(m, at, i, at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs, rigid); err != nil {
 				return err
 			}
 		}
@@ -1532,7 +1497,7 @@ func bindParam(m unifyMode, tp *TypeParam_, other Type, subs map[*TypeParam_]Typ
 // directed unification meets a value of that enum after binding the
 // parameter to one of its embedded types.
 func widenToEnum(m unifyMode, existing, have Type) (Type, bool) {
-	if m != unifyAssign && m != unifyAssignCo && !m.convertsInPlace() {
+	if m != unifyAssign && m != unifyAssignCo {
 		return nil, false
 	}
 	et, ok := resolveTV(have).(*EnumType)

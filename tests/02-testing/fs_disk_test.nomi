@@ -3,7 +3,7 @@
 // streams, listings, metadata and the errors that name their path.
 import
     std::fs.{self, Kind}
-    std::fs_testing
+    std::fs::testing
     std::io.{self, File, Reader, Writer}
     std::path
 end
@@ -12,7 +12,7 @@ test "the disk keeps the rules the sandbox models"
     dir = fs.make_temp_dir()?
     defer fs.remove_all_quietly(dir)
 
-    assert fs_testing.conformance(dir) == []
+    assert testing.conformance(dir) == []
 end
 
 test "a temporary directory is gone afterwards"

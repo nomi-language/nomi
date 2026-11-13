@@ -158,7 +158,7 @@ import
     locale.Locale
     localize.Localize
     money.Money
-    phrase_format
+    phrase::format
     strings.String
 end
 
@@ -268,7 +268,7 @@ impl Localize for Noun
     /// locale its catalogs translate it into, else the source's: what a
     /// placeholder with no function writes.
     fn localize(noun: Noun, locale: Locale) -> String
-        phrase_format.noun_text(noun.table, locale)
+        format.noun_text(noun.table, locale)
     end
 end
 
@@ -352,7 +352,7 @@ impl Phrase
         keys = arguments |> Iter.map(&argument_key(&1)) |> Iter.to_list()
         texts = arguments |> Iter.map(&argument_text(&1, locale, catalogs)) |> Iter.to_list()
         loaded = catalogs |> Iter.map(&catalog_entries(&1)) |> Iter.to_list()
-        phrase_format.format(phrase.table, locale, loaded, kinds, numbers, keys, texts)
+        format.format(phrase.table, locale, loaded, kinds, numbers, keys, texts)
     end
 end
 
@@ -427,7 +427,7 @@ impl Catalog
     /// end
     /// ```
     pub fn load(text: String, locale: Locale) -> (Catalog, List<Rejected>)
-        case phrase_format.load(text, locale)
+        case format.load(text, locale)
             [entries, ..rest] -> (Catalog{locale:, entries:}, rejections(rest, locale))
             [] -> (Catalog{locale:, entries: ""}, [])
         end
@@ -589,7 +589,7 @@ fn text(value: String) -> Argument
 end
 
 /// An argument whose type is an enum with bare variants, by the name of its
-/// variant (`phrase_format.variant_name`), which `:string` formats and
+/// variant (`std::phrase::format.variant_name`), which `:string` formats and
 /// selects by.
 fn variant(name: String) -> Argument
     Argument.Variant(name)

@@ -4,7 +4,7 @@
 import
     std::actors.{Actor, Reply}
     std::http.{Request, Response}
-    std::http_testing
+    std::http::testing
     std::io
     std::supervisors.Supervisor
     std::websocket.{self, WebSocket}
@@ -67,7 +67,7 @@ pub fn join(request: Request) -> Response
 end
 
 fn main()
-    heard = http_testing.open_websocket(join, "/chat", fn ws ->
+    heard = testing.open_websocket(join, "/chat", fn ws ->
         _ = WebSocket.receive(ws)
         _ = WebSocket.send_text(ws, "anyone here?")
         WebSocket.receive(ws)

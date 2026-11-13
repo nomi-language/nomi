@@ -56,7 +56,7 @@ import
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
-    url_host
+    url::host
 end
 
 /// `text` percent-encoded as a query string's key or value: letters, digits
@@ -69,7 +69,7 @@ end
 //! assert url.escape_query("café") == "caf%C3%A9"
 //
 pub fn escape_query(text: String) -> String
-    url_host.escape_query(text)
+    host.escape_query(text)
 end
 
 /// The text a query string's key or value holds: `%` escapes decoded, and
@@ -82,7 +82,7 @@ end
 //! assert url.unescape_query("%FF") == Err("the unescaped text is not valid UTF-8")
 //
 pub fn unescape_query(text: String) -> Result<String, String>
-    url_host.unescape_query(text)
+    host.unescape_query(text)
 end
 
 /// `text` percent-encoded as one segment of a URL path: a space becomes
@@ -93,7 +93,7 @@ end
 //! assert url.escape_path_segment("a/b?c") == "a%2Fb%3Fc"
 //
 pub fn escape_path_segment(text: String) -> String
-    url_host.escape_path_segment(text)
+    host.escape_path_segment(text)
 end
 
 /// The text a URL path segment holds: `%` escapes decoded, and `+` kept as
@@ -105,7 +105,7 @@ end
 //! assert url.unescape_path_segment("%zz") == Err("invalid percent escape \"%zz\"")
 //
 pub fn unescape_path_segment(text: String) -> Result<String, String>
-    url_host.unescape_path_segment(text)
+    host.unescape_path_segment(text)
 end
 
 /// A parsed URL: `scheme://user:password@host/path?query#fragment`. The
@@ -177,7 +177,7 @@ impl Url
     //! assert Url.parse("http://[::1]:namedport") |> Result.is_err()
     //
     pub fn parse(text: String) -> Result<Url, UrlError>
-        url_host.parse_parts(text, False)
+        host.parse_parts(text, False)
         |> Result.map(from_parts)
         |> Result.map_err(fn reason -> UrlError{url: text, reason:})
     end
@@ -190,7 +190,7 @@ impl Url
     //! assert Url.parse_request_uri("users") |> Result.is_err()
     //
     pub fn parse_request_uri(text: String) -> Result<Url, UrlError>
-        url_host.parse_parts(text, True)
+        host.parse_parts(text, True)
         |> Result.map(from_parts)
         |> Result.map_err(fn reason -> UrlError{url: text, reason:})
     end
@@ -212,7 +212,7 @@ impl Url
     //! assert Url.hostname(Url`http://[::1]:8080/`) == "::1"
     //
     pub fn hostname(url: Url) -> String
-        url_host.hostname_parts(to_parts(url))
+        host.hostname_parts(to_parts(url))
     end
 
     /// The host's port, if it names one.
@@ -222,7 +222,7 @@ impl Url
     //! assert Url.port(Url`http://example.com`) == None
     //
     pub fn port(url: Url) -> Maybe<String>
-        case url_host.port_parts(to_parts(url))
+        case host.port_parts(to_parts(url))
             "" -> None
             port -> Some(port)
         end
@@ -235,7 +235,7 @@ impl Url
     //! assert Url.escaped_path(Url`https://example.com/a b`) == "/a%20b"
     //
     pub fn escaped_path(url: Url) -> String
-        url_host.escaped_path_parts(to_parts(url))
+        host.escaped_path_parts(to_parts(url))
     end
 
     /// The fragment as it is written in the URL.
@@ -244,7 +244,7 @@ impl Url
     //! assert Url.escaped_fragment(Url`https://example.com/#a b`) == "a%20b"
     //
     pub fn escaped_fragment(url: Url) -> String
-        url_host.escaped_fragment_parts(to_parts(url))
+        host.escaped_fragment_parts(to_parts(url))
     end
 
     /// The target an HTTP request line carries: the escaped path and the
@@ -254,7 +254,7 @@ impl Url
     //! assert Url.request_uri(Url`https://example.com/a b?q=1#top`) == "/a%20b?q=1"
     //
     pub fn request_uri(url: Url) -> String
-        url_host.request_uri_parts(to_parts(url))
+        host.request_uri_parts(to_parts(url))
     end
 
     /// The URL written with its password, if any, replaced by `xxxxx`.
@@ -263,7 +263,7 @@ impl Url
     //! assert Url.redacted(Url`https://ann:secret@example.com/`) == "https://ann:xxxxx@example.com/"
     //
     pub fn redacted(url: Url) -> String
-        url_host.redacted_parts(to_parts(url))
+        host.redacted_parts(to_parts(url))
     end
 
     /// The URL's query read into pairs. A pair Go cannot read is left
@@ -300,7 +300,7 @@ impl Url
     //! assert "${Url.resolve(base, Url`//other.org/`)}" == "https://other.org/"
     //
     pub fn resolve(base: Url, reference: Url) -> Url
-        url_host.resolve_parts(to_parts(base), to_parts(reference)) |> from_parts()
+        host.resolve_parts(to_parts(base), to_parts(reference)) |> from_parts()
     end
 
     /// `reference` parsed and resolved against `base`.
@@ -322,7 +322,7 @@ impl Url
     //! assert "${u}" == "https://example.com/api/users/8"
     //
     pub fn join_path(url: Url, segments: List<String>) -> Url
-        url_host.join_path_parts(to_parts(url), segments) |> from_parts()
+        host.join_path_parts(to_parts(url), segments) |> from_parts()
     end
 end
 
@@ -333,7 +333,7 @@ impl Display for Url
     //! assert "${Url.parse("https://example.com/a b?q=1#x y")!}" == "https://example.com/a%20b?q=1#x%20y"
     //
     fn to_string(url: Url) -> String
-        url_host.format_parts(to_parts(url))
+        host.format_parts(to_parts(url))
     end
 end
 
@@ -362,7 +362,7 @@ impl Query
     //! assert Query.parse("a=1;b=2") |> Result.is_err()
     //
     pub fn parse(text: String) -> Result<Query, UrlError>
-        case url_host.query_error(text)
+        case host.query_error(text)
             "" -> Ok(query_from_text(text))
             reason -> Err(UrlError{url: text, reason:})
         end
@@ -440,7 +440,7 @@ impl Query
     //
     pub fn encode(query: Query) -> String
         Query(pairs) = query
-        pairs |> Iter.flat_map(fn (k, v) -> [k, v]) |> Iter.to_list() |> url_host.query_encode()
+        pairs |> Iter.flat_map(fn (k, v) -> [k, v]) |> Iter.to_list() |> host.query_encode()
     end
 end
 
@@ -470,7 +470,7 @@ impl CheckedLiteral<Display, Url> for Url
     //! import std::url.{Query, Url}
     //! import std::uuid.Uuid
     //! import std::display.Display
-    //! import std::literals_testing.build_each
+    //! import std::literals::testing.build_each
     //!
     //! id = "a/b c"
     //! tab = "x&y"
@@ -595,8 +595,8 @@ end
 fn slot_text(place: Place, value: String) -> String
     case place
         .InPath -> path_slot(value)
-        .InQuery -> url_host.escape_query(value)
-        .InFragment -> url_host.escape_fragment(value)
+        .InQuery -> host.escape_query(value)
+        .InFragment -> host.escape_fragment(value)
         _ -> ""
     end
 end
@@ -610,7 +610,7 @@ fn path_slot(value: String) -> String
     else if value == ".." then
         "%2E%2E"
     else
-        url_host.escape_path_segment(value)
+        host.escape_path_segment(value)
     end
 end
 
@@ -699,7 +699,7 @@ fn place_after(place: Place, text: String) -> Place
 end
 
 fn query_from_text(text: String) -> Query
-    Query(pairs_of(url_host.query_pairs(text)))
+    Query(pairs_of(host.query_pairs(text)))
 end
 
 fn pairs_of(flat: List<String>) -> List<(String, String)>

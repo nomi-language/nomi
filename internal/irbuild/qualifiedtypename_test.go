@@ -11,7 +11,7 @@ func TestQualifiedTypeName_StdInterfaceThroughItsModule(t *testing.T) {
 	}
 	irRunSource(t, `import std::io
 import std::sql
-import std::sql_testing.Fake
+import std::sql::testing.Fake
 
 struct Holder
     db: sql.Conn
@@ -38,7 +38,7 @@ func TestQualifiedTypeName_AppFieldThroughItsModule(t *testing.T) {
 	}
 	irRunSource(t, `import std::io
 import std::sql
-import std::sql_testing.Fake
+import std::sql::testing.Fake
 
 struct App
     db: sql.Conn

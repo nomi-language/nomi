@@ -84,7 +84,7 @@ the directory. `fs.create_dir("logs")` makes it.
   test file's working directory is its module root, the nearest directory
   above it with a `nomi.toml`, so `fs.read_text("data/rates.csv")` reads
   the same file wherever the tests run.
-- `fs_testing.run` and `fs.within` replace the file system for the
+- `std::fs::testing.run` and `fs.within` replace the file system for the
   function they run, and tasks it starts inherit the replacement.
 - A browser build has no disk; its program gets a file system in memory
   ([Files in the browser](#files-in-the-browser)).
@@ -399,14 +399,14 @@ changed while the function runs cannot lead out either.
 ## Testing code that uses files
 
 A test should not depend on what is on the disk of the computer it runs
-on. [`std::fs_testing`](/reference/fs_testing/) runs a function against a
+on. [`std::fs::testing`](/reference/fs/testing/) runs a function against a
 sandbox: a file system in memory, made from the files you give it.
-`fs_testing.run` returns the function's result and every file afterwards:
+`std::fs::testing.run` returns the function's result and every file afterwards:
 
 ```nomi-run
 import
     std::fs
-    std::fs_testing.{self, Failure, Sandbox}
+    std::fs::testing.{self, Failure, Sandbox}
     std::io
 end
 
@@ -418,12 +418,12 @@ fn sort_file(input: String, output: String) -> Result<Int, io.Error>
 end
 
 test "sorts the lines into the output file"
-    ran = fs_testing.run(Sandbox{files: {"in.txt" => "pear\napple\n"}}, fn ->
+    ran = testing.run(Sandbox{files: {"in.txt" => "pear\napple\n"}}, fn ->
         sort_file("in.txt", "out.txt")
     end)
 
     assert ran.value == Ok(2)
-    assert fs_testing.text(ran, "/work/out.txt") == Some("apple\npear\n")
+    assert testing.text(ran, "/work/out.txt") == Some("apple\npear\n")
     assert ran.open == []
 end
 
@@ -435,10 +435,10 @@ test "a full disk leaves the old output in place"
         ],
     }
 
-    ran = fs_testing.run(sandbox, fn -> sort_file("in.txt", "out.txt"))
+    ran = testing.run(sandbox, fn -> sort_file("in.txt", "out.txt"))
 
     assert ran.value == Err(io.Error.NoSpace{path: "out.txt"})
-    assert fs_testing.text(ran, "/work/out.txt") == Some("old\n")
+    assert testing.text(ran, "/work/out.txt") == Some("old\n")
 end
 ```
 <!-- expect

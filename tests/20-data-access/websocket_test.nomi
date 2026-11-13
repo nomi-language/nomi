@@ -1,12 +1,12 @@
-// std::websocket's server side through http_testing's in-memory
+// std::websocket's server side through std::http::testing's in-memory
 // connection: the handshake's refusals, the middleware an upgrade passes
 // through, limits and timeouts. websocket_chat/ holds a chat room.
 import
     std::duration.Duration
     std::http.{self, Handler, Headers, Method, Origin, Request, Response, SecurityHeaders, Status}
-    std::http_testing
+    std::http::testing as http_testing
     std::log.{self, Logger}
-    std::log_testing
+    std::log::testing as log_testing
     std::websocket.{self, AcceptOptions, Error, Message, WebSocket}
 end
 

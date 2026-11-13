@@ -326,7 +326,7 @@ func buildFileIndex(p *Program, reg *typeRegistry) *fileIndex {
 
 // indexEditedStdTwins lets a module lowered beside a std module checked from
 // edited source (a reference editor's) reach the edited module's functions.
-// Such a module (std/storage_testing beside an edited std/storage) was
+// Such a module (std/storage/testing beside an edited std/storage) was
 // checked against the shared analysis, so its `storage.check_key` names the
 // shared copy's module scope and FuncDef: each resolves to the edited unit
 // and its function of the same name (implFuncTwins), as the type registry

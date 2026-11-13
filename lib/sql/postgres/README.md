@@ -112,7 +112,7 @@ runs, with the `go` on `PATH` or the Go toolchain `nomi` downloads.
   makes another database on that server. Without `initdb` and `postgres`
   on `PATH`, or on Windows (it needs a POSIX shell), it returns
   `Error.Connection` saying so.
-- It passes `std/sql_testing`'s conformance suite (every rule;
+- It passes `std/sql/testing`'s conformance suite (every rule;
   `postgres_test.nomi`).
 - `postgres/describe` is what `nomi tool sqlkit generate` asks a Postgres
   database. `describe.describe(url, migrations, statements)` makes a

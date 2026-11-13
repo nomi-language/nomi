@@ -839,7 +839,7 @@ func TestTourWasmHoversAcrossTabs(t *testing.T) {
 }
 
 // TestTourWasmRunsTheSqliteDriversTests runs the sqlite driver module's own
-// test file (sqlite_test.nomi: std/sql_testing's conformance suite, every
+// test file (sqlite_test.nomi: std/sql/testing's conformance suite, every
 // value read back, the constraint names) through the staged wasm, as the
 // page runs a block that imports sqlite: on the browser build of the
 // driver, over the staged SQLite WebAssembly build. cmd/nomi's

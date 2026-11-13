@@ -1,0 +1,154 @@
+// A value converts where the same type at wider type arguments is
+// expected, through every covariant position: a Maybe, a List, a Result, a
+// user enum or struct, a Map's keys and values, a Set, a function's result,
+// and, the other way, a function's parameter (spec §5 *Covariant
+// conversion*). Each element that enters an interface boxed is boxed as the
+// value is rebuilt.
+interface Store
+    fn size(s: self) -> Int
+end
+
+struct Memory
+    n: Int
+end
+
+impl Store for Memory
+    fn size(m: Memory) -> Int
+        m.n
+    end
+end
+
+enum Held<A>
+    One A
+    No
+end
+
+enum Chain<A>
+    Link {head: A, tail: Chain<A>}
+    End
+end
+
+struct Box<A>
+    item: A
+end
+
+struct Sink<A>
+    take: (A) -> String
+end
+
+type Ids<A> List<A>
+
+fn shown(d: Display) -> String
+    "<${d}>"
+end
+
+fn sizes(r: Result<Store, String>) -> Int
+    case r
+        Ok(s) -> Store.size(s)
+        Err(_) -> -1
+    end
+end
+
+fn opened(open: () -> Result<Store, String>) -> Int
+    sizes(open())
+end
+
+fn heads(c: Chain<Display>) -> List<String>
+    case c
+        .Link{head:, tail:} -> [shown(head)] + heads(tail)
+        .End -> []
+    end
+end
+
+fn all_shown<T>(xs: List<T>) -> List<Display> where T: Display
+    xs
+end
+
+test "Maybe and List"
+    m = Some([1, 2])
+    md: Maybe<Display> = m
+    xs = [Some(1), None]
+    ds: List<Display> = xs
+    rows = [[Some(1)], []]
+    wide: List<List<Display>> = rows
+
+    assert Maybe.map(md, shown) == Some("<[1, 2]>")
+    assert Iter.map(ds, shown) |> Iter.to_list() == ["<Some(1)>", "<None>"]
+    assert Iter.map(wide, Iter.count) |> Iter.to_list() == [1, 0]
+end
+
+test "Result, from a call's arguments"
+    r: Result<Memory, String> = Ok(Memory{n: 3})
+    e: Result<Memory, String> = Err("gone")
+
+    assert sizes(r) == 3
+    assert sizes(e) == -1
+    assert opened(fn -> Ok(Memory{n: 4})) == 4
+end
+
+test "user enums and structs"
+    h = Held.One(Some(2))
+    hd: Held<Display> = h
+
+    c = Chain.Link{
+        head: [1],
+        tail: .Link{head: [2, 3], tail: .End},
+    }
+
+    b = Box{item: Vector[1]}
+    bd: Box<Display> = b
+
+    assert case hd
+        .One(d) -> shown(d)
+        .No -> ""
+    end == "<Some(2)>"
+
+    assert heads(c) == ["<[1]>", "<[2, 3]>"]
+    assert shown(bd.item) == "<Vector[1]>"
+end
+
+test "Map, Set and Vector"
+    m = {Some(1) => [1], None => []}
+    md: Map<Hashable, Display> = m
+    s = Set[Some(1), Some(2), None]
+    sd: Set<Hashable> = s
+    v = Vector[Some(1)]
+    vd: Vector<Display> = v
+    none: Maybe<Int> = None
+
+    assert Map.size(md) == 2
+    assert Map.get(md, Some(1)) |> Maybe.map(shown) == Some("<[1]>")
+    assert Set.size(sd) == 3
+    assert Set.contains(sd, none)
+    assert not Set.contains(sd, Some(3))
+    assert Iter.map(vd, shown) |> Iter.to_list() == ["<Some(1)>"]
+end
+
+test "functions"
+    f = fn -> Some(4)
+    g: () -> Display = f
+    fs = [f]
+    gs: List<() -> Display> = fs
+    sink = Sink{take: shown}
+    ints: Sink<Int> = sink
+    takers = [shown]
+    on_maybes: List<(Maybe<Int>) -> String> = takers
+
+    assert shown(g()) == "<Some(4)>"
+    assert Iter.map(gs, fn h -> shown(h())) |> Iter.to_list() == ["<Some(4)>"]
+    assert ints.take(5) == "<5>"
+    assert Iter.map(on_maybes, fn t -> t(Some(1))) |> Iter.to_list() == ["<Some(1)>"]
+end
+
+test "a type parameter at each instance"
+    assert Iter.map(all_shown([Some(1)]), shown) |> Iter.to_list() == ["<Some(1)>"]
+    assert Iter.map(all_shown([1]), shown) |> Iter.to_list() == ["<1>"]
+end
+
+test "distinct types"
+    ids = Ids([Some(1), None])
+    wide: Ids<Display> = ids
+    Ids(xs) = wide
+
+    assert Iter.map(xs, shown) |> Iter.to_list() == ["<Some(1)>", "<None>"]
+end

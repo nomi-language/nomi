@@ -232,7 +232,7 @@ func (m *Machine) WithInput(in *rt.Input) *Machine {
 }
 
 // WithFiles sets the file system the program's std/fs calls reach, an
-// internal/stdio Backend, unless a call replaces it (`fs_testing.run`).
+// internal/stdio Backend, unless a call replaces it (`std::fs::testing.run`).
 // Without it they reach the build's default: the operating system's, or in
 // a js/wasm build the process's in-memory one.
 func (m *Machine) WithFiles(files any) *Machine {
@@ -428,8 +428,8 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		captureShapeKey: captureShapeHost,
 		// `Hashable.hash` of an interface value (keys.go).
 		"vm.hash_value": hashValueHost,
-		// std/phrase_format's `variant_name`: an enum value's variant.
-		"phrase_format.variant_name": variantNameHost,
+		// std/phrase/format's `variant_name`: an enum value's variant.
+		"phrase/format.variant_name": variantNameHost,
 		"List.compare":               containerCompareHost("List.compare"),
 		"Vector.compare":             containerCompareHost("Vector.compare"),
 
@@ -481,10 +481,10 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		// Iter. See readers.go.
 		readerFromChunksKey:     readerFromChunksHost(readerFromChunksKey),
 		readerFromTextChunksKey: readerFromChunksHost(readerFromTextChunksKey),
-		// `fs_testing.run`: std/fs calls go to the sandbox on the calling
+		// `std::fs::testing.run`: std/fs calls go to the sandbox on the calling
 		// frame. See sandbox.go.
 		sandboxKey: sandboxHost,
-		// `process_testing.run`: std/process calls go to the fake on the
+		// `std::process::testing.run`: std/process calls go to the fake on the
 		// calling frame. See sandbox.go.
 		processFakeKey:     processFakeHost,
 		networkFakeKey:     networkFakeHost,
@@ -1443,11 +1443,11 @@ func widenedEmbed(ty *ir.ValType, subj any) bool {
 // value, is.
 func variantNameHost(_ *Machine, _ ir.Pos, args []any) (any, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf("vm: phrase_format.variant_name: expected one operand, got %d", len(args))
+		return nil, fmt.Errorf("vm: phrase/format.variant_name: expected one operand, got %d", len(args))
 	}
 	r, ok := enumRecord(args[0])
 	if !ok {
-		return nil, fmt.Errorf("vm: phrase_format.variant_name: the operand is %T, not an enum value", args[0])
+		return nil, fmt.Errorf("vm: phrase/format.variant_name: the operand is %T, not an enum value", args[0])
 	}
 	return variantName(r), nil
 }

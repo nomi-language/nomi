@@ -58,7 +58,7 @@ end
 			src: `import
     std::io
     std::jobs.Worker
-    std::jobs_testing.Inline
+    std::jobs::testing.Inline
 end
 
 pub struct App

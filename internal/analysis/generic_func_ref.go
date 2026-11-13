@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/format"
 )
 
 // A generic function NAMED as a value: `Iter.each(io.print)`,
@@ -176,9 +175,7 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 			return nil
 		}
 		// A shape the expected type cannot take: the enclosing check reports
-		// the mismatch against the signature as written, with the capture
-		// that does fit when there is one (funcRefCaptureHint).
-		c.noteFuncRefCapture(node, ft, want)
+		// the mismatch against the signature as written.
 		return ty
 	}
 	for _, tp := range own {
@@ -200,51 +197,4 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 	inst := &FuncType{Params: params, Return: Substitute(ft.Return, subs), DefaultCount: ft.DefaultCount}
 	c.attachCallTypeArgs(node, inst, subs)
 	return inst
-}
-
-// noteFuncRefCapture records, for the mismatch the enclosing check reports
-// at node, the partial capture that fits where the function value does
-// not: a function value's parameter takes a List where an `Iter` is
-// declared only at the top or as an Iter's element, so `total` for
-// `fn total<T>(rows: List<Iter<T>>) -> Int` is no `(List<List<Int>>) ->
-// Int`, while `&total(&1)` is one (checkPartialCapture). It
-// is recorded when every expected parameter is a known type that enters
-// the callee's parameter as a direct call's argument would.
-func (c *checker) noteFuncRefCapture(node ast.Node, ft, want *FuncType) {
-	if len(ft.Params) != len(want.Params) || len(ft.Params) == 0 {
-		return
-	}
-	subs := map[*TypeParam_]Type{}
-	holes := make([]string, len(ft.Params))
-	for i, p := range want.Params {
-		if p == nil || c.openElemType(p) || c.unifyInto(ft.Params[i], p, subs) != nil {
-			return
-		}
-		holes[i] = fmt.Sprintf("&%d", i+1)
-	}
-	// A result the capture would not give either is the mismatch alone. An
-	// expected result still open (a callee's `U`) is not tried: unifying
-	// would bind its variable.
-	if want.Return != nil && !containsTypeVar(want.Return) &&
-		c.unifyInto(want.Return, Substitute(ft.Return, subs), subs) != nil {
-		return
-	}
-	if c.funcRefCaptures == nil {
-		c.funcRefCaptures = map[ast.Node]string{}
-	}
-	c.funcRefCaptures[node] = fmt.Sprintf(
-		"a function value's parameter takes a List where an Iter is declared only at the top or as an Iter's element, not inside another type; write the capture `&%s(%s)`, whose parameters are the ones expected here",
-		format.RenderNode(ungroupExpr(node)), strings.Join(holes, ", "))
-}
-
-// funcRefCaptureHint is the help noteFuncRefCapture recorded for value, or
-// "".
-func (c *checker) funcRefCaptureHint(value ast.Node) string {
-	if value == nil {
-		return ""
-	}
-	if na, ok := value.(*ast.NamedArg); ok {
-		value = na.Value
-	}
-	return c.funcRefCaptures[ungroupExpr(value)]
 }

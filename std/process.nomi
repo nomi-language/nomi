@@ -29,7 +29,7 @@
 //# end
 //# ```
 //#
-//# Tests run commands against `std::process_testing`'s fake, which starts
+//# Tests run commands against `std::process::testing`'s fake, which starts
 //# nothing. A WebAssembly target has no processes: `nomi build` for
 //# js/wasm or wasip1 refuses a program that starts one.
 
@@ -43,7 +43,7 @@ import
     lists.List
     maps.Map
     maybe.Maybe.{self, None, Some}
-    process_host
+    process::host
     resources.Release
     results.Result.{self, Ok}
     strings.String
@@ -169,9 +169,9 @@ derive Equatable for Output
 /// status; an `Err` means the program could not be started (`NotFound`
 /// when nothing on the `PATH` has its name). A task that is cancelled, or
 /// whose deadline passes, while it waits kills the program.
-//! import std::process_testing.{self, Answer}
+//! import std::process::testing.{self, Answer}
 //!
-//! ran = process_testing.run([Answer{program: "echo", stdout: "hi\n"}], fn ->
+//! ran = testing.run([Answer{program: "echo", stdout: "hi\n"}], fn ->
 //!     output(Command{program: "echo", args: ["hi"]})
 //! end)
 //!
@@ -190,18 +190,18 @@ pub fn output(command: Command) -> Result<Output, Error>
 
     Ok(Output{
         status:,
-        stdout: process_host.captured(child.handle, 1),
-        stderr: process_host.captured(child.handle, 2),
+        stdout: host.captured(child.handle, 1),
+        stderr: host.captured(child.handle, 2),
     })
 end
 
 /// Runs `command` to its end with its standard output and error going to
 /// the running program's own (and so to an `io.capture` in force), and
 /// returns its status.
-//! import std::process_testing.{self, Answer}
+//! import std::process::testing.{self, Answer}
 //! import std::io
 //!
-//! ran = process_testing.run([Answer{program: "make", stdout: "built\n"}], fn ->
+//! ran = testing.run([Answer{program: "make", stdout: "built\n"}], fn ->
 //!     io.capture("", fn -> run(Command{program: "make"}))
 //! end)
 //!
@@ -227,7 +227,7 @@ end
 ///
 /// defer Child.kill(child)
 /// ```
-//! import std::process_testing.{self, Answer, Call}
+//! import std::process::testing.{self, Answer, Call}
 //!
 //! fn sorted(text: String) -> Result<String, Error>
 //!     child = spawn(Command{program: "sort"})?
@@ -237,7 +237,7 @@ end
 //!     Reader.read_all_text(Child.stdout(child))
 //! end
 //!
-//! ran = process_testing.run([Answer{program: "sort", stdout: "a\nb\n"}], fn -> sorted("b\na\n"))
+//! ran = testing.run([Answer{program: "sort", stdout: "a\nb\n"}], fn -> sorted("b\na\n"))
 //!
 //! assert ran.value == Ok("a\nb\n")
 //! assert ran.calls == [Call{program: "sort", input: String.to_bytes("b\na\n")}]
@@ -248,44 +248,44 @@ end
 
 /// A program `spawn` started.
 pub opaque struct Child
-    handle: process_host.Child
+    handle: host.Child
 end
 
 impl Child
     /// Kills the program if it is still running, and does nothing once it
     /// has ended: the form for a `defer` after `process.spawn`.
     pub fn kill(child: Child) -> Unit
-        process_host.kill(child.handle)
+        host.kill(child.handle)
     end
 
     /// The writer to the program's standard input. Writes are buffered:
     /// `Writer.flush` sends them on, and `Child.wait` or `Writer.close`
     /// ends the input.
     pub fn stdin(child: Child) -> Writer
-        process_host.child_stdin(child.handle)
+        host.child_stdin(child.handle)
     end
 
     /// The reader over the program's standard output. Read it before
     /// waiting when the program writes more than a pipe holds, or it
     /// stops until something reads.
     pub fn stdout(child: Child) -> Reader
-        process_host.child_stdout(child.handle)
+        host.child_stdout(child.handle)
     end
 
     /// The reader over the program's standard error.
     pub fn stderr(child: Child) -> Reader
-        process_host.child_stderr(child.handle)
+        host.child_stderr(child.handle)
     end
 
     /// Ends the program's standard input and waits for it to end. A
     /// second wait returns the first's status.
     pub fn wait(child: Child) -> Result<Status, Error>
-        parts = process_host.wait(child.handle)?
+        parts = host.wait(child.handle)?
 
         case parts
             [1, signal] -> Ok(Status.Signaled{signal:})
             [_, code] -> Ok(Status.Exited{code:})
-            _ -> unreachable "process_host.wait answers a kind and a number"
+            _ -> unreachable "host.wait answers a kind and a number"
         end
     end
 end
@@ -306,7 +306,7 @@ fn start(command: Command, stdout: Int, stderr: Int, piped: Bool) -> Result<Chil
         stdin_of(command.stdin)
     end
 
-    handle = process_host.start(
+    handle = host.start(
         command.program,
         command.args,
         command.env,

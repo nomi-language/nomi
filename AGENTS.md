@@ -40,7 +40,7 @@ The repository root is the compiler's Go module,
 | `vmrunner/` | What `nomi-vm` and a built executable run. Generated FFI runners import it. |
 | `hostadapt/` | Support package that generated FFI wrappers import. |
 | `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `mcp` (`nomi mcp`, the compiler as Model Context Protocol tools), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `gotoolchain` (the `go` builds run, and the managed toolchain), `modcache` and `modfetch` (dependencies), `artifactcache` (what the compiler builds once and reads back: the std bundle), `std*` (Go-backed stdlib adapters), `websocket` (the WebSocket protocol under std/websocket), `mf2` (MessageFormat 2) and `catalog` (phrase catalogs), and the tooling behind them. |
-| `std/` | The standard library's `.nomi` sources, embedded into the binaries. |
+| `std/` | The standard library's `.nomi` sources, embedded into the binaries. A module that helps test another is nested in that module's directory: `std/fs/testing.nomi` is `std::fs::testing`. |
 | `lib/` | First-party Nomi modules outside std, each its own nested Go module with its own `go.mod` and `nomi.toml`: `lib/sql/sqlite` (the SQLite driver), `lib/sql/postgres` (the Postgres driver), `lib/sql/migrate` (migrations), `lib/sql/sqlkit` (checked SQL), `lib/sql/examples/shop`, `lib/markdown` (Markdown to std/html's `Html`, over goldmark), `lib/image` (decoding, resizing and encoding JPEG, PNG and WebP, over golang.org/x/image), `lib/password_hashers` (Argon2id and bcrypt for std/passwords, over golang.org/x/crypto), `lib/jobs/postgres` (std/jobs's queue in a Postgres table), `lib/jobs/examples/notify`, `lib/storage/s3` (std/storage's backend for S3-protocol servers), `lib/storage/minio` (its tests against a MinIO server). The compiler's module neither contains nor requires them. |
 | `librunners/` | A nested Go module requiring the compiler and the `lib/` modules with `go` bindings by directory, holding the main packages of the prebuilt `nomi-lib` (their FFI wrapper) and `nomi-vm-lib` (their runner) a release ships in its lib archives. `go run ./internal/ffirun/libgen` generates them; rerun it after changing a lib/ module's `go` bindings or the FFI wrapper template (`TestLibModules` fails until you do). |
 | `rt/` | The runtime library, `github.com/nomi-language/nomi/rt`. The VM runs over it and built executables link it. It may import only the standard library and `github.com/rivo/uniseg` (`TestRuntimeImportsOnlyItsAllowlist`). |
@@ -118,7 +118,7 @@ the same in the background. Details:
   [HTTP, TLS and TCP](internal/stdhttp/doc.go) (`std/http`,
   `std/tls` and `std/net` over `internal/stdhttp`),
   [logging and actors](std/doc.go)
-  (`std/log`, `std/log_testing` and `std/actors`, written in Nomi alone).
+  (`std/log`, `std/log/testing` and `std/actors`, written in Nomi alone).
 - **Locale data and collation.** CLDR data from `internal/cldrgen` in
   `internal/cldrfull`, cut per program to its listed locales;
   `internal/collation` is a UCA collator over it. Details:

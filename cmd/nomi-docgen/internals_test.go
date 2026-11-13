@@ -12,7 +12,7 @@ import (
 // constructors a `phrase` declaration's function calls.
 func TestReferenceLeavesOutStdInternals(t *testing.T) {
 	for _, name := range generatedReferenceModules(t) {
-		if name == "phrase_format" || name == "money_format" {
+		if name == "phrase/format" || name == "money/format" {
 			t.Errorf("docgen writes a page for the internal module std/%s", name)
 		}
 	}

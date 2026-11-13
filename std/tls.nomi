@@ -20,7 +20,7 @@ import
     bool.Bool.{self, False, True}
     display.Display
     equatable.Equatable
-    http_host
+    http::host as http_host
     instant.Instant
     int.Int
     io.{self, Writer}

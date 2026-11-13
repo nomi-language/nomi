@@ -9,7 +9,7 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// How std/process_host's `start` connects the child's standard input.
+// How std/process/host's `start` connects the child's standard input.
 const (
 	stdinNull    = 0 // the null device
 	stdinInherit = 1 // the program's own standard input
@@ -59,7 +59,7 @@ type child struct {
 	failure  *rt.IOError
 }
 
-// Start is std/process_host's `start`: the child running program with args,
+// Start is std/process/host's `start`: the child running program with args,
 // its environment extended by env (or made of env alone when clearEnv is
 // set), in dir (the current directory when empty), with its streams in
 // the modes given. A fake the frame carries answers it instead of the
@@ -98,7 +98,7 @@ func childOf(c rt.ChildProcess) *child {
 	return ch
 }
 
-// Stdin is std/process_host's `child_stdin`: the Writer to the child's
+// Stdin is std/process/host's `child_stdin`: the Writer to the child's
 // standard input, which `start` piped.
 func Stdin(c rt.ChildProcess) rt.Writer {
 	ch := childOf(c)
@@ -108,7 +108,7 @@ func Stdin(c rt.ChildProcess) rt.Writer {
 	return ch.stdin
 }
 
-// Stdout is std/process_host's `child_stdout`: the Reader over the child's
+// Stdout is std/process/host's `child_stdout`: the Reader over the child's
 // standard output, which `start` piped.
 func Stdout(c rt.ChildProcess) rt.Reader {
 	ch := childOf(c)
@@ -118,7 +118,7 @@ func Stdout(c rt.ChildProcess) rt.Reader {
 	return ch.stdout
 }
 
-// Stderr is std/process_host's `child_stderr`, as Stdout is.
+// Stderr is std/process/host's `child_stderr`, as Stdout is.
 func Stderr(c rt.ChildProcess) rt.Reader {
 	ch := childOf(c)
 	if !ch.piped[2] {
@@ -127,7 +127,7 @@ func Stderr(c rt.ChildProcess) rt.Reader {
 	return ch.stderr
 }
 
-// Wait is std/process_host's `wait`: closes the child's piped standard
+// Wait is std/process/host's `wait`: closes the child's piped standard
 // input, so it sees the end of its input, and waits for it to finish. The
 // answer is `[0, code]` when it exited and `[1, signal]` when a signal
 // ended it. A second wait answers the first's status. A wait whose task is
@@ -148,7 +148,7 @@ func Wait(fr *rt.Frame, c rt.ChildProcess) rt.Result[*rt.List[int64], rt.IOError
 	return rt.Ok[*rt.List[int64], rt.IOError](rt.Cons(ch.status[0], rt.Cons(ch.status[1], nil)))
 }
 
-// Captured is std/process_host's `captured`: what the finished child wrote
+// Captured is std/process/host's `captured`: what the finished child wrote
 // to its standard output (stream 1) or error (stream 2) in capture mode.
 func Captured(c rt.ChildProcess, stream int64) rt.Bytes {
 	ch := childOf(c)
@@ -163,7 +163,7 @@ func Captured(c rt.ChildProcess, stream int64) rt.Bytes {
 	return ""
 }
 
-// Kill is std/process_host's `kill`: ends the child if it is still running
+// Kill is std/process/host's `kill`: ends the child if it is still running
 // and waits for it, so no process outlives the call that started it. A
 // finished child is left alone.
 func Kill(c rt.ChildProcess) rt.Unit {

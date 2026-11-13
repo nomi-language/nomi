@@ -14,7 +14,7 @@
 //# directories the runner opens for it). A `js/wasm` module reaches one in
 //# memory, whose working directory is `/work`: empty under Go's Node
 //# loader, and seeded by `run`'s `files` option in the browser
-//# ([Building](/tooling/building/)). Inside `fs_testing.run` a call reaches a sandbox
+//# ([Building](/tooling/building/)). Inside `std::fs::testing.run` a call reaches a sandbox
 //# in memory, so a test checks what a function reads and writes without
 //# touching the disk. Tasks reach the file system of the frame they were
 //# started on.
@@ -37,7 +37,7 @@ import
     bool.Bool.{self, False, True}
     bytes.Bytes
     equatable.Equatable
-    fs_host
+    fs::host
     instant.Instant
     int.Int
     io.{Error, File, Reader, Writer}
@@ -51,15 +51,15 @@ import
 end
 
 /// How a write treats what is already at its path.
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"log.txt" => "a\n"}}, fn ->
+//! ran = testing.run(Sandbox{files: {"log.txt" => "a\n"}}, fn ->
 //!     _ = write_text("log.txt", "b\n", mode: WriteMode.Append)
 //!     write_text("log.txt", "c\n", mode: WriteMode.New)
 //! end)
 //!
 //! assert ran.value == Err(Error.AlreadyExists{path: "log.txt"})
-//! assert fs_testing.text(ran, "/work/log.txt") == Some("a\nb\n")
+//! assert testing.text(ran, "/work/log.txt") == Some("a\nb\n")
 //
 pub enum WriteMode
     /// Create the file, or empty it when it exists, and write from the
@@ -129,13 +129,13 @@ end
 /// ```nomi
 /// data = fs.read("photo.png")?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{binary: {"b.bin" => String.to_bytes("ab")}}, fn -> read("b.bin"))
+//! ran = testing.run(Sandbox{binary: {"b.bin" => String.to_bytes("ab")}}, fn -> read("b.bin"))
 //! assert ran.value == Ok(String.to_bytes("ab"))
 //
 pub fn read(path: String) -> Result<Bytes, Error>
-    fs_host.read(path)
+    host.read(path)
 end
 
 /// The whole file at `path`, as text. Bytes that are not UTF-8 are
@@ -150,16 +150,16 @@ end
 ///     Err(e) -> io.eprint("cannot read the notes: ${e}")
 /// end
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"notes.txt" => "milk"}}, fn ->
+//! ran = testing.run(Sandbox{files: {"notes.txt" => "milk"}}, fn ->
 //!     [read_text("notes.txt"), read_text("todo.txt")]
 //! end)
 //!
 //! assert ran.value == [Ok("milk"), Err(Error.NotFound{path: "todo.txt"})]
 //
 pub fn read_text(path: String) -> Result<String, Error>
-    fs_host.read_text(path)
+    host.read_text(path)
 end
 
 /// Writes `data` to `path`. By default it replaces the file; `mode` says
@@ -170,9 +170,9 @@ end
 /// ```nomi
 /// fs.write("out.bin", data)?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{}, fn ->
+//! ran = testing.run(Sandbox{}, fn ->
 //!     [write("a.bin", String.to_bytes("a")), write("missing/b.bin", String.to_bytes("b"))]
 //! end)
 //!
@@ -180,7 +180,7 @@ end
 //! assert ran.files == {"/work/a.bin" => String.to_bytes("a")}
 //
 pub fn write(path: String, data: Bytes, mode: WriteMode = WriteMode.Replace) -> Result<Unit, Error>
-    fs_host.write(path, data, mode_code(mode))
+    host.write(path, data, mode_code(mode))
 end
 
 /// Writes `text` to `path` as UTF-8, as `fs.write` writes bytes.
@@ -188,21 +188,21 @@ end
 /// ```nomi
 /// fs.write_text("log.txt", "started\n", mode: .Append)?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"out.txt" => "old"}}, fn ->
+//! ran = testing.run(Sandbox{files: {"out.txt" => "old"}}, fn ->
 //!     write_text("out.txt", "new", mode: WriteMode.ReplaceAtomically)
 //! end)
 //!
 //! assert ran.value == Ok(Unit)
-//! assert fs_testing.text(ran, "/work/out.txt") == Some("new")
+//! assert testing.text(ran, "/work/out.txt") == Some("new")
 //
 pub fn write_text(
     path: String,
     text: String,
     mode: WriteMode = WriteMode.Replace,
 ) -> Result<Unit, Error>
-    fs_host.write(path, String.to_bytes(text), mode_code(mode))
+    host.write(path, String.to_bytes(text), mode_code(mode))
 end
 
 /// Each line of the file at `path`, without its `\n` and a `\r` before it,
@@ -215,9 +215,9 @@ end
 /// ```nomi
 /// names = Result.collect(fs.lines("names.txt"))?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"in.txt" => "pear\r\napple"}}, fn ->
+//! ran = testing.run(Sandbox{files: {"in.txt" => "pear\r\napple"}}, fn ->
 //!     each = lines("in.txt")
 //!     (Result.collect(each), Iter.first(each), Result.collect(lines("none.txt")))
 //! end)
@@ -240,9 +240,9 @@ end
 /// ```nomi
 /// pieces = fs.chunks("big.bin", size: 4096) |> Iter.count()
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"a.txt" => "abcde"}}, fn ->
+//! ran = testing.run(Sandbox{files: {"a.txt" => "abcde"}}, fn ->
 //!     chunks("a.txt", size: 2) |> Result.collect()
 //! end)
 //!
@@ -258,7 +258,7 @@ end
 
 impl Iter<Result<String, Error>> for Lines
     fn each_while(lines: Lines, yield: (Result<String, Error>) -> Bool) -> Bool
-        case fs_host.open(lines.path)
+        case host.open(lines.path)
             Err(e) ->
                 yield(Err(e))
 
@@ -276,7 +276,7 @@ end
 
 impl Iter<Result<Bytes, Error>> for Chunks
     fn each_while(chunks: Chunks, yield: (Result<Bytes, Error>) -> Bool) -> Bool
-        case fs_host.open(chunks.path)
+        case host.open(chunks.path)
             Err(e) ->
                 yield(Err(e))
 
@@ -295,7 +295,7 @@ end
 ///
 /// defer Reader.close_quietly(r)
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
 //! fn first_line(path: String) -> Result<Maybe<String>, Error>
 //!     r = open(path)?
@@ -303,13 +303,13 @@ end
 //!     Reader.read_line(r)
 //! end
 //!
-//! ran = fs_testing.run(Sandbox{files: {"a.txt" => "one\ntwo\n"}}, fn -> first_line("a.txt"))
+//! ran = testing.run(Sandbox{files: {"a.txt" => "one\ntwo\n"}}, fn -> first_line("a.txt"))
 //!
 //! assert ran.value == Ok(Some("one"))
 //! assert ran.open == []
 //
 pub fn open(path: String) -> Result<Reader, Error>
-    fs_host.open(path)
+    host.open(path)
 end
 
 /// A writer over the file at `path`, which `mode` treats as `fs.write`
@@ -332,7 +332,7 @@ end
 ///     Ok(Unit)
 /// end
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
 //! fn save(path: String, rows: List<String>, fail: Bool) -> Result<Unit, Error>
 //!     w = create(path, mode: WriteMode.ReplaceAtomically)?
@@ -343,22 +343,22 @@ end
 //!     Ok(Unit)
 //! end
 //!
-//! saved = fs_testing.run(Sandbox{files: {"out.txt" => "old\n"}}, fn ->
+//! saved = testing.run(Sandbox{files: {"out.txt" => "old\n"}}, fn ->
 //!     save("out.txt", ["new"], False)
 //! end)
 //!
 //! assert saved.value == Ok(Unit)
-//! assert fs_testing.text(saved, "/work/out.txt") == Some("new\n")
+//! assert testing.text(saved, "/work/out.txt") == Some("new\n")
 //!
-//! failed = fs_testing.run(Sandbox{files: {"out.txt" => "old\n"}}, fn ->
+//! failed = testing.run(Sandbox{files: {"out.txt" => "old\n"}}, fn ->
 //!     save("out.txt", ["new"], True)
 //! end)
 //!
 //! assert failed.value == Err(Error.TimedOut)
-//! assert fs_testing.text(failed, "/work/out.txt") == Some("old\n")
+//! assert testing.text(failed, "/work/out.txt") == Some("old\n")
 //! assert failed.open == []
 //!
-//! appended = fs_testing.run(Sandbox{files: {"log.txt" => "a\n"}}, fn ->
+//! appended = testing.run(Sandbox{files: {"log.txt" => "a\n"}}, fn ->
 //!     w = create("log.txt", mode: WriteMode.Append)?
 //!     defer Writer.discard(w)
 //!     _ = Writer.write_text(w, "b\n")
@@ -367,11 +367,11 @@ end
 //! end)
 //!
 //! assert appended.value == Err(Error.Closed)
-//! assert fs_testing.text(appended, "/work/log.txt") == Some("a\nb\n")
+//! assert testing.text(appended, "/work/log.txt") == Some("a\nb\n")
 //! assert appended.open == []
 //
 pub fn create(path: String, mode = WriteMode.Replace) -> Result<Writer, Error>
-    fs_host.create(path, mode_code(mode))
+    host.create(path, mode_code(mode))
 end
 
 /// How `fs.open_file` opens a file.
@@ -402,9 +402,9 @@ derive Equatable for Access
 ///     File.close(f)
 /// end
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{}, fn ->
+//! ran = testing.run(Sandbox{}, fn ->
 //!     [
 //!         Result.map(open_file("none.bin"), fn _ -> Unit),
 //!         Result.map(open_file(".", access: Access.Create), fn _ -> Unit),
@@ -413,7 +413,7 @@ derive Equatable for Access
 //!
 //! assert ran.value == [Err(Error.NotFound{path: "none.bin"}), Err(Error.IsADirectory{path: "."})]
 //!
-//! edited = fs_testing.run(Sandbox{files: {"a.txt" => "abcdef"}}, fn ->
+//! edited = testing.run(Sandbox{files: {"a.txt" => "abcdef"}}, fn ->
 //!     f = open_file("a.txt", access: Access.ReadWrite)?
 //!     defer File.close_quietly(f)
 //!     head = File.read(f, max: 2)?
@@ -438,10 +438,10 @@ derive Equatable for Access
 //!     )
 //! )
 //!
-//! assert fs_testing.text(edited, "/work/a.txt") == Some("abX")
+//! assert testing.text(edited, "/work/a.txt") == Some("abX")
 //! assert edited.open == []
 //!
-//! read_only = fs_testing.run(Sandbox{files: {"a.txt" => "a"}}, fn ->
+//! read_only = testing.run(Sandbox{files: {"a.txt" => "a"}}, fn ->
 //!     f = open_file("a.txt")?
 //!     defer File.close_quietly(f)
 //!     File.write(f, String.to_bytes("b"))
@@ -450,7 +450,7 @@ derive Equatable for Access
 //! assert read_only.value == Err(Error.PermissionDenied{path: "a.txt"})
 //! assert read_only.open == []
 //!
-//! patched = fs_testing.run(Sandbox{files: {"db" => "v1-data"}}, fn ->
+//! patched = testing.run(Sandbox{files: {"db" => "v1-data"}}, fn ->
 //!     f = open_file("db", access: Access.ReadWrite)?
 //!     defer File.close_quietly(f)
 //!     File.write_at(f, 0, String.to_bytes("v2"))?
@@ -458,7 +458,7 @@ derive Equatable for Access
 //! end)
 //!
 //! assert patched.value == Ok(Unit)
-//! assert fs_testing.text(patched, "/work/db") == Some("v2-data")
+//! assert testing.text(patched, "/work/db") == Some("v2-data")
 //! assert patched.open == []
 //
 pub fn open_file(path: String, access = Access.Read) -> Result<File, Error>
@@ -468,7 +468,7 @@ pub fn open_file(path: String, access = Access.Read) -> Result<File, Error>
         Access.Create -> 2
     end
 
-    fs_host.open_file(path, code)
+    host.open_file(path, code)
 end
 
 /// Runs `body` with every std::fs call in it, and in the tasks it starts,
@@ -498,9 +498,9 @@ end
 ///     end)
 /// end
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"secret.txt" => "s", "site/index.html" => "<p>"}}, fn ->
+//! ran = testing.run(Sandbox{files: {"secret.txt" => "s", "site/index.html" => "<p>"}}, fn ->
 //!     within("site", fn -> Ok([read_text("index.html"), read_text("../secret.txt")]))
 //! end)
 //!
@@ -512,9 +512,9 @@ end
 //! assert ran.value == Ok([Ok("<p>"), Err(escaped)])
 //
 pub fn within<T>(dir: String, body: () -> Result<T, Error>) -> Result<T, Error>
-    confined = fs_host.within(dir)?
-    defer fs_host.release(confined)
-    value = fs_host.run_in(confined, body)
+    confined = host.within(dir)?
+    defer host.release(confined)
+    value = host.run_in(confined, body)
     value
 end
 
@@ -528,9 +528,9 @@ end
 /// ```nomi
 /// entries = fs.list("photos")?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"d/b.txt" => "", "d/a.txt" => ""}, dirs: ["d/sub"]}, fn ->
+//! ran = testing.run(Sandbox{files: {"d/b.txt" => "", "d/a.txt" => ""}, dirs: ["d/sub"]}, fn ->
 //!     list("d")
 //! end)
 //!
@@ -546,7 +546,7 @@ end
 
 /// The entries of dir, each decoded, or why the directory cannot be listed.
 fn listed(dir: String) -> Result<List<Result<Entry, Error>>, Error>
-    coded = fs_host.list(dir)?
+    coded = host.list(dir)?
 
     Ok(
         coded
@@ -600,9 +600,9 @@ end
 ///     fs.walk("src")
 ///     |> Iter.count_by(fn e -> Result.map(e, fn e -> e.kind == fs.Kind.File) == Ok(True))
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{
+//! ran = testing.run(Sandbox{
 //!     files: {"d/b.txt" => "", "d/a/x.txt" => ""},
 //!     links: {"d/c" => "a"},
 //! }, fn ->
@@ -611,7 +611,7 @@ end
 //!
 //! assert ran.value == [Ok("d/a"), Ok("d/a/x.txt"), Ok("d/b.txt"), Ok("d/c")]
 //!
-//! assert fs_testing.run(Sandbox{}, fn -> Result.collect(walk("none"))).value
+//! assert testing.run(Sandbox{}, fn -> Result.collect(walk("none"))).value
 //!     == Err(Error.NotFound{path: "none"})
 //
 pub fn walk(root: String) -> Iter<Result<Entry, Error>>
@@ -680,7 +680,7 @@ end
 /// ```nomi
 /// sources = fs.glob("src/**/*.nomi")?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
 //! files = {
 //!     "src/main.nomi" => "",
@@ -689,7 +689,7 @@ end
 //!     "src/.hidden.nomi" => "",
 //! }
 //!
-//! ran = fs_testing.run(Sandbox{files:}, fn ->
+//! ran = testing.run(Sandbox{files:}, fn ->
 //!     [glob("src/**/*.nomi"), glob("src/*.nomi"), glob("src/lib/a.txt"), glob("none/*")]
 //! end)
 //!
@@ -786,9 +786,9 @@ end
 /// ```nomi
 /// fs.create_dir("out/2026", parents: True)?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{}, fn ->
+//! ran = testing.run(Sandbox{}, fn ->
 //!     [create_dir("a/b"), create_dir("a/b", parents: True), create_dir("a")]
 //! end)
 //!
@@ -799,7 +799,7 @@ end
 //! ]
 //
 pub fn create_dir(path: String, parents = False) -> Result<Unit, Error>
-    fs_host.create_dir(path, parents)
+    host.create_dir(path, parents)
 end
 
 /// Removes a file, a symlink or an empty directory. A directory with
@@ -809,9 +809,9 @@ end
 /// ```nomi
 /// fs.remove("old.txt")?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"d/x" => ""}}, fn ->
+//! ran = testing.run(Sandbox{files: {"d/x" => ""}}, fn ->
 //!     [remove("d"), remove("d/x"), remove("d"), remove("d")]
 //! end)
 //!
@@ -823,7 +823,7 @@ end
 //! ]
 //
 pub fn remove(path: String) -> Result<Unit, Error>
-    fs_host.remove(path)
+    host.remove(path)
 end
 
 /// Removes `path` and everything under it, following no symlink in it.
@@ -832,9 +832,9 @@ end
 /// ```nomi
 /// fs.remove_all("build")?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"build/a/b.o" => "", "keep.txt" => ""}}, fn ->
+//! ran = testing.run(Sandbox{files: {"build/a/b.o" => "", "keep.txt" => ""}}, fn ->
 //!     [remove_all("build"), remove_all("build")]
 //! end)
 //!
@@ -842,7 +842,7 @@ end
 //! assert ran.files == {"/work/keep.txt" => String.to_bytes("")}
 //
 pub fn remove_all(path: String) -> Result<Unit, Error>
-    fs_host.remove_all(path)
+    host.remove_all(path)
 end
 
 /// Removes `path` and everything under it, as `fs.remove_all` does, and
@@ -851,14 +851,14 @@ end
 /// ```nomi
 /// defer fs.remove_all_quietly(dir)
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"build/a.o" => ""}}, fn -> remove_all_quietly("build"))
+//! ran = testing.run(Sandbox{files: {"build/a.o" => ""}}, fn -> remove_all_quietly("build"))
 //!
 //! assert ran.files == {}
 //
 pub fn remove_all_quietly(path: String) -> Unit
-    _ = fs_host.remove_all(path)
+    _ = host.remove_all(path)
 end
 
 /// Moves `from` to `to`, replacing a file at `to`. A symlink at `from` is
@@ -867,9 +867,9 @@ end
 /// ```nomi
 /// fs.rename("draft.txt", "final.txt")?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"a.txt" => "a", "b.txt" => "b"}}, fn ->
+//! ran = testing.run(Sandbox{files: {"a.txt" => "a", "b.txt" => "b"}}, fn ->
 //!     rename("a.txt", "b.txt")
 //! end)
 //!
@@ -877,7 +877,7 @@ end
 //! assert ran.files == {"/work/b.txt" => String.to_bytes("a")}
 //
 pub fn rename(from: String, to: String) -> Result<Unit, Error>
-    fs_host.rename(from, to)
+    host.rename(from, to)
 end
 
 /// Copies the file at `from` to `to`, replacing a file at `to`. A symlink
@@ -886,14 +886,14 @@ end
 /// ```nomi
 /// fs.copy("config.toml", "config.toml.bak")?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"a.txt" => "a"}}, fn -> copy("a.txt", "b.txt"))
+//! ran = testing.run(Sandbox{files: {"a.txt" => "a"}}, fn -> copy("a.txt", "b.txt"))
 //! assert ran.value == Ok(Unit)
-//! assert fs_testing.text(ran, "/work/b.txt") == Some("a")
+//! assert testing.text(ran, "/work/b.txt") == Some("a")
 //
 pub fn copy(from: String, to: String) -> Result<Unit, Error>
-    fs_host.copy(from, to)
+    host.copy(from, to)
 end
 
 /// What is at `path`, following symlinks.
@@ -901,9 +901,9 @@ end
 /// ```nomi
 /// size = (fs.metadata("big.bin")?).size
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"a.txt" => "four"}}, fn ->
+//! ran = testing.run(Sandbox{files: {"a.txt" => "four"}}, fn ->
 //!     m = metadata("a.txt")?
 //!     Ok((m.kind, m.size))
 //! end)
@@ -911,7 +911,7 @@ end
 //! assert ran.value == Ok((Kind.File, 4))
 //
 pub fn metadata(path: String) -> Result<Metadata, Error>
-    fields = fs_host.metadata(path)?
+    fields = host.metadata(path)?
     metadata_of(path, fields)
 end
 
@@ -922,9 +922,9 @@ end
 /// ```nomi
 /// is_link = (fs.link_metadata("current")?).kind == .Symlink
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"a.txt" => "four"}, links: {"b" => "a.txt"}}, fn ->
+//! ran = testing.run(Sandbox{files: {"a.txt" => "four"}, links: {"b" => "a.txt"}}, fn ->
 //!     followed = metadata("b")?
 //!     link = link_metadata("b")?
 //!     Ok((followed.kind, followed.size, link.kind, link.size))
@@ -933,7 +933,7 @@ end
 //! assert ran.value == Ok((Kind.File, 4, Kind.Symlink, 5))
 //
 pub fn link_metadata(path: String) -> Result<Metadata, Error>
-    fields = fs_host.link_metadata(path)?
+    fields = host.link_metadata(path)?
     metadata_of(path, fields)
 end
 
@@ -955,9 +955,9 @@ end
 /// ```nomi
 /// fs.create_symlink("current", target: "releases/2026-10")?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"releases/v2/app" => "v2"}}, fn ->
+//! ran = testing.run(Sandbox{files: {"releases/v2/app" => "v2"}}, fn ->
 //!     create_symlink("current", target: "releases/v2")?
 //!     Ok((read_text("current/app"), create_symlink("current", target: "x")))
 //! end)
@@ -965,7 +965,7 @@ end
 //! assert ran.value == Ok((Ok("v2"), Err(Error.AlreadyExists{path: "current"})))
 //
 pub fn create_symlink(path: String, target: String) -> Result<Unit, Error>
-    fs_host.create_symlink(path, target)
+    host.create_symlink(path, target)
 end
 
 /// The target of the symlink at `path`, as it was written. Something that
@@ -974,9 +974,9 @@ end
 /// ```nomi
 /// release = fs.read_link("current")?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"a.txt" => ""}, links: {"b" => "a.txt"}}, fn ->
+//! ran = testing.run(Sandbox{files: {"a.txt" => ""}, links: {"b" => "a.txt"}}, fn ->
 //!     [read_link("b"), read_link("a.txt")]
 //! end)
 //!
@@ -986,7 +986,7 @@ end
 //! ]
 //
 pub fn read_link(path: String) -> Result<String, Error>
-    fs_host.read_link(path)
+    host.read_link(path)
 end
 
 /// Sets the permission bits of what `path` names, following a symlink:
@@ -998,9 +998,9 @@ end
 /// ```nomi
 /// fs.set_mode("deploy.sh", 0o755)?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"run.sh" => ""}}, fn ->
+//! ran = testing.run(Sandbox{files: {"run.sh" => ""}}, fn ->
 //!     set_mode("run.sh", 0o755)?
 //!     Ok((metadata("run.sh")?).mode)
 //! end)
@@ -1008,7 +1008,7 @@ end
 //! assert ran.value == Ok(0o755)
 //
 pub fn set_mode(path: String, mode: Int) -> Result<Unit, Error>
-    fs_host.set_mode(path, mode)
+    host.set_mode(path, mode)
 end
 
 fn kind_at(position: Int) -> Kind
@@ -1026,16 +1026,16 @@ end
 /// ```nomi
 /// if fs.exists("config.toml")? then ...
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: {"a.txt" => ""}}, fn ->
+//! ran = testing.run(Sandbox{files: {"a.txt" => ""}}, fn ->
 //!     [exists("a.txt"), exists("b.txt"), exists(".")]
 //! end)
 //!
 //! assert ran.value == [Ok(True), Ok(False), Ok(True)]
 //
 pub fn exists(path: String) -> Result<Bool, Error>
-    case fs_host.metadata(path)
+    case host.metadata(path)
         Ok(_) -> Ok(True)
         Err(Error.NotFound{path: _}) -> Ok(False)
         Err(e) -> Err(e)
@@ -1051,12 +1051,12 @@ end
 /// ```nomi
 /// fs.temp_dir() // "/tmp"
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! assert fs_testing.run(Sandbox{}, fn -> temp_dir()).value == "/tmp"
+//! assert testing.run(Sandbox{}, fn -> temp_dir()).value == "/tmp"
 //
 pub fn temp_dir() -> String
-    fs_host.temp_dir()
+    host.temp_dir()
 end
 
 /// Makes a fresh directory under `fs.temp_dir()` and returns its path.
@@ -1074,7 +1074,7 @@ end
 ///
 /// defer fs.remove_all_quietly(dir)
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
 //! fn scratch() -> Result<String, Error>
 //!     dir = make_temp_dir()?
@@ -1083,13 +1083,13 @@ end
 //!     read_text("${dir}/x.txt")
 //! end
 //!
-//! ran = fs_testing.run(Sandbox{}, scratch)
+//! ran = testing.run(Sandbox{}, scratch)
 //!
 //! assert ran.value == Ok("x")
 //! assert ran.files == {}
 //
 pub fn make_temp_dir() -> Result<String, Error>
-    fs_host.make_temp_dir()
+    host.make_temp_dir()
 end
 
 /// The directory relative paths are resolved against: the program's
@@ -1100,10 +1100,10 @@ end
 /// ```nomi
 /// here = fs.current_dir()?
 /// ```
-//! import std::fs_testing.{self, Sandbox}
+//! import std::fs::testing.{self, Sandbox}
 //!
-//! assert fs_testing.run(Sandbox{cwd: "/home/ada"}, fn -> current_dir()).value == Ok("/home/ada")
+//! assert testing.run(Sandbox{cwd: "/home/ada"}, fn -> current_dir()).value == Ok("/home/ada")
 //
 pub fn current_dir() -> Result<String, Error>
-    fs_host.current_dir()
+    host.current_dir()
 end

@@ -7,13 +7,13 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// sandboxKey is std/fs_host's private `run_on`, which `fs_testing.run`
-// and `fs.within` call through `fs_host.run_in`.
-const sandboxKey = "fs_host.run_on"
+// sandboxKey is std/fs/host's private `run_on`, which `std::fs::testing.run`
+// and `fs.within` call through `std::fs::host.run_in`.
+const sandboxKey = "fs/host.run_on"
 
-// processFakeKey is std/process_host's private `run_on`, which
-// `process_testing.run` calls through `process_host.run_in`.
-const processFakeKey = "process_host.run_on"
+// processFakeKey is std/process/host's private `run_on`, which
+// `std::process::testing.run` calls through `std::process::host.run_in`.
+const processFakeKey = "process/host.run_on"
 
 // processFakeHost is `run_on(fake, body, finish)`: call body on a frame
 // whose std/process calls the fake answers (rt.EnterProcesses), and in the

@@ -1,5 +1,5 @@
 import
-    std::fs_testing.{self, Sandbox}
+    std::fs::testing.{self, Sandbox}
     std::io
     grep.{self, Flag}
 end
@@ -48,7 +48,7 @@ fn grep_in_sandbox(
     flags: Set<Flag>,
     files: List<String>,
 ) -> Result<List<String>, io.Error>
-    fs_testing.run(sandbox, fn -> grep.grep(pattern, flags, files)).value
+    testing.run(sandbox, fn -> grep.grep(pattern, flags, files)).value
 end
 
 test "Test grepping a single file"

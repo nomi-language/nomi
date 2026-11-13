@@ -21,7 +21,7 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// client is what std/http_host's `Client` wraps: Go's client, which owns
+// client is what std/http/host's `Client` wraps: Go's client, which owns
 // the connection pool, made once from the options std/http's ClientOptions
 // gave.
 type client struct {
@@ -41,7 +41,7 @@ func clientOf(c rt.HTTPClient) *client {
 
 func dur(ns int64) time.Duration { return time.Duration(ns) }
 
-// NewClient is `http_host.new_client`. A duration or count of 0 is Go's
+// NewClient is `std::http::host.new_client`. A duration or count of 0 is Go's
 // default (none); redirects is -1 for never following one, else the most
 // it follows. proxy is 0 for the environment's, 1 for none, 2 for proxyURL.
 //
@@ -134,7 +134,7 @@ var defaultClient = sync.OnceValue(func() rt.HTTPClient {
 		nil, false, nil, nil, nil, nil, false, nil, false)
 })
 
-// DefaultClient is `http_host.default_client`: one client for the process,
+// DefaultClient is `std::http::host.default_client`: one client for the process,
 // with std/http's default options, as Go's DefaultClient is one.
 func DefaultClient() rt.HTTPClient { return defaultClient() }
 
@@ -142,13 +142,13 @@ type tooManyRedirects struct{ count int }
 
 func (e tooManyRedirects) Error() string { return fmt.Sprintf("stopped after %d redirects", e.count) }
 
-// CloseIdle is `http_host.close_idle`.
+// CloseIdle is `std::http::host.close_idle`.
 func CloseIdle(c rt.HTTPClient) rt.Unit {
 	clientOf(c).c.CloseIdleConnections()
 	return rt.Unit{}
 }
 
-// exchange is what std/http_host's `Exchange` wraps: a response Go answered,
+// exchange is what std/http/host's `Exchange` wraps: a response Go answered,
 // its body read whole (fetch) or open (stream).
 type exchange struct {
 	resp *http.Response
@@ -171,7 +171,7 @@ const (
 	bodyStream
 )
 
-// Send is `http_host.send`: one request on c under the frame's context. An
+// Send is `std::http::host.send`: one request on c under the frame's context. An
 // Err is the http.Error's variant name and its fields (errorParts). With
 // stream false the body is read whole, refused past maxBody bytes when
 // maxBody is not negative; with stream true it stays open for the reader.
@@ -338,25 +338,25 @@ func sortedPairs(flat []string) []string {
 	return out
 }
 
-// Status is `http_host.status`.
+// Status is `std::http::host.status`.
 func Status(e rt.HTTPExchange) int64 { return int64(exchangeOf(e).resp.StatusCode) }
 
-// Protocol is `http_host.protocol`: [major, minor].
+// Protocol is `std::http::host.protocol`: [major, minor].
 func Protocol(e rt.HTTPExchange) *rt.List[int64] {
 	r := exchangeOf(e).resp
 	return rt.Cons(int64(r.ProtoMajor), rt.Cons(int64(r.ProtoMinor), (*rt.List[int64])(nil)))
 }
 
-// Headers is `http_host.headers`: name and value, alternating, by name.
+// Headers is `std::http::host.headers`: name and value, alternating, by name.
 func Headers(e rt.HTTPExchange) *rt.List[string] { return headerList(exchangeOf(e).resp.Header) }
 
-// Trailers is `http_host.trailers`, once the body is read.
+// Trailers is `std::http::host.trailers`, once the body is read.
 func Trailers(e rt.HTTPExchange) *rt.List[string] { return headerList(exchangeOf(e).resp.Trailer) }
 
-// BodyBytes is `http_host.body_bytes`: the body fetch read.
+// BodyBytes is `std::http::host.body_bytes`: the body fetch read.
 func BodyBytes(e rt.HTTPExchange) rt.Bytes { return rt.Bytes(exchangeOf(e).body) }
 
-// BodyReader is `http_host.body_reader`: the open body as a Reader.
+// BodyReader is `std::http::host.body_reader`: the open body as a Reader.
 func BodyReader(e rt.HTTPExchange) rt.Reader {
 	ex := exchangeOf(e)
 	if ex.read {
@@ -365,27 +365,27 @@ func BodyReader(e rt.HTTPExchange) rt.Reader {
 	return rt.NewReader(rt.ReadSource{Name: "<response>", R: ex.resp.Body, Close: ex.resp.Body.Close})
 }
 
-// CloseBody is `http_host.close_body`.
+// CloseBody is `std::http::host.close_body`.
 func CloseBody(e rt.HTTPExchange) rt.Unit {
 	_ = exchangeOf(e).resp.Body.Close()
 	return rt.Unit{}
 }
 
-// ContentLength is `http_host.content_length`: -1 when unknown.
+// ContentLength is `std::http::host.content_length`: -1 when unknown.
 func ContentLength(e rt.HTTPExchange) int64 { return exchangeOf(e).resp.ContentLength }
 
-// TransferEncoding is `http_host.transfer_encoding`.
+// TransferEncoding is `std::http::host.transfer_encoding`.
 func TransferEncoding(e rt.HTTPExchange) *rt.List[string] {
 	return listOf(exchangeOf(e).resp.TransferEncoding)
 }
 
-// Closes is `http_host.closes`: the server asked to close the connection.
+// Closes is `std::http::host.closes`: the server asked to close the connection.
 func Closes(e rt.HTTPExchange) bool { return exchangeOf(e).resp.Close }
 
-// Uncompressed is `http_host.uncompressed`.
+// Uncompressed is `std::http::host.uncompressed`.
 func Uncompressed(e rt.HTTPExchange) bool { return exchangeOf(e).resp.Uncompressed }
 
-// FinalURL is `http_host.final_url`: the URL the last request of any
+// FinalURL is `std::http::host.final_url`: the URL the last request of any
 // redirects went to.
 func FinalURL(e rt.HTTPExchange) string {
 	if r := exchangeOf(e).resp.Request; r != nil && r.URL != nil {
@@ -394,10 +394,10 @@ func FinalURL(e rt.HTTPExchange) string {
 	return ""
 }
 
-// CanonicalKey is `http_host.canonical_key`: Go's CanonicalHeaderKey.
+// CanonicalKey is `std::http::host.canonical_key`: Go's CanonicalHeaderKey.
 func CanonicalKey(name string) string { return http.CanonicalHeaderKey(name) }
 
-// StatusText is `http_host.status_text`: Go's StatusText, "" for a code it
+// StatusText is `std::http::host.status_text`: Go's StatusText, "" for a code it
 // does not name.
 func StatusText(code int64) string { return http.StatusText(int(code)) }
 
@@ -423,7 +423,7 @@ func (in readerInput) Read(p []byte) (n int, err error) {
 	return copy(p, []byte(chunk.Ok.Some)), nil
 }
 
-// ExchangeTLS is `http_host.exchange_tls`: the TLS state of the
+// ExchangeTLS is `std::http::host.exchange_tls`: the TLS state of the
 // connection the response came over, as stateParts lists it; None over
 // plain HTTP.
 func ExchangeTLS(e rt.HTTPExchange) rt.Maybe[*rt.List[*rt.List[string]]] {
@@ -449,10 +449,10 @@ func tracerOf(h rt.HTTPHandle) *tracer {
 	return t
 }
 
-// NewTracer is `http_host.new_tracer`.
+// NewTracer is `std::http::host.new_tracer`.
 func NewTracer() rt.HTTPHandle { return rt.NewHTTPHandle(&tracer{}) }
 
-// TracerEvents is `http_host.tracer_events`: each event's name and fields,
+// TracerEvents is `std::http::host.tracer_events`: each event's name and fields,
 // then for a finished TLS handshake its state as stateParts lists it.
 func TracerEvents(h rt.HTTPHandle) *rt.List[*rt.List[*rt.List[string]]] {
 	t := tracerOf(h)

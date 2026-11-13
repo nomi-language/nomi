@@ -139,6 +139,10 @@ func funcValueName(n ast.Node) string {
 	switch x := n.(type) {
 	case *ast.NamedArg:
 		return funcValueName(x.Value)
+	case *ast.GroupedExpr:
+		if x.Expr != nil {
+			return funcValueName(x.Expr)
+		}
 	case *ast.Ident:
 		return x.Name
 	case *ast.TypeIdent:

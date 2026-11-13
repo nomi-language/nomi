@@ -74,6 +74,11 @@ module.exports = grammar({
     // in the scope of a binding named `todo`, as that binding, which only
     // resolution can tell apart.
     $._todo_keyword,
+    // The contextual keyword `concurrent`: the word that opens a concurrent
+    // block when it ends its line, as the Go parser reads it. Anywhere else
+    // it is an identifier, so `(concurrent)`, which `nomi fmt` writes for
+    // the name, reads the name.
+    $._concurrent_keyword,
   ],
 
   word: $ => $.identifier,
@@ -1123,12 +1128,16 @@ module.exports = grammar({
       field('function', $._tap_function_name),
     )),
 
-    // A function's name: `log_it`, `io.print`, `Log.info`.
+    // A function's name: `log_it`, `io.print`, `Log.info`, perhaps in
+    // parentheses, `(concurrent)`, as `nomi fmt` writes a name that ending
+    // its line would make a keyword.
     _tap_function_name: $ => choice(
       $.identifier,
       $.type_identifier,
       alias($._tap_qualified_name, $.field_access),
+      alias($._tap_parenthesized_name, $.paren_expression),
     ),
+    _tap_parenthesized_name: $ => seq('(', $._tap_function_name, ')'),
     _tap_qualified_name: $ => prec.left(12, seq($._tap_function_name, token.immediate('.'), $._field_identifier)),
 
     // A call body is preferred over ending the lambda early: without it,
@@ -1829,12 +1838,12 @@ module.exports = grammar({
     // value.
     pipe_if_expression: $ => ifForms($, 'if'),
 
-    // Concurrent block: `concurrent` alone on its line, its body below and
+    // Concurrent block: `concurrent` ending its line, its body below and
     // `end` — structured concurrency scope. `Task.spawn(fn -> ...)` calls
     // inside the block spawn tasks tied to this scope; tasks must be awaited
     // before the block exits.
     concurrent_block: $ => seq(
-      'concurrent',
+      alias($._concurrent_keyword, 'concurrent'),
       field('body', $.body),
     ),
 

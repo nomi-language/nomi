@@ -93,6 +93,7 @@ func (fb FileBodies) clone() FileBodies {
 	out.Operators = maps.Clone(fb.Operators)
 	out.Coercions = maps.Clone(fb.Coercions)
 	out.IterViews = maps.Clone(fb.IterViews)
+	out.Conversions = maps.Clone(fb.Conversions)
 	out.DefaultedRefs = maps.Clone(fb.DefaultedRefs)
 	out.StandIns = maps.Clone(fb.StandIns)
 	out.FieldAccessors = maps.Clone(fb.FieldAccessors)

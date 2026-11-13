@@ -1,6 +1,10 @@
 package analysis
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 // TestStdlibModuleForPathNamesAFlatStdlibModule is the direct witness for the
 // question three sites used to answer separately.
@@ -11,12 +15,12 @@ import "testing"
 // there says "46 diagnostics" and not "the path rule is wrong". This table says
 // which.
 //
-// The rows that matter are the last two `false` ones. The stdlib is ONE Nomi
-// module and every public module in it is a flat `std/<name>.nomi`, so the rule
-// is "the immediate parent directory is `std`". A facade nested at
-// `std/<name>/<name>.nomi` used to exist, answered NO here, and cost 46
-// self-diagnostics on the open document; the two rows pin that a nested path is
-// refused rather than silently renamed, so re-nesting a facade fails loudly.
+// The stdlib is ONE Nomi module and every module's name is its path: a
+// `std/<name>.nomi`, or a `std/<parent>/<name>.nomi` beside its parent's file.
+// A facade nested at `std/<name>/<name>.nomi` used to exist under the name
+// `<name>`, answered NO here, and cost 46 self-diagnostics on the open
+// document; its row pins that such a path is refused rather than silently
+// renamed, so re-nesting a facade fails loudly.
 func TestStdlibModuleForPathNamesAFlatStdlibModule(t *testing.T) {
 	for _, c := range []struct {
 		path string
@@ -48,12 +52,19 @@ func TestStdlibModuleForPathNamesAFlatStdlibModule(t *testing.T) {
 		// A directory handed in by mistake must not read as a module
 		// called "" — the file's own name is never a candidate root.
 		{"/repo/std", "", false},
-		// Nested under `std/` is NOT a module this can name. The tree has
-		// one such path — std/_fixtures' nested tree, which std.Load does
-		// not carry either — and a re-nested adapter facade would be the
-		// other, which is the regression this row exists to catch.
+		// A module nested under its parent, key-shaped. On disk it needs
+		// its parent's file beside the directory, which /repo lacks
+		// (TestStdlibModuleForPathNamesANestedModuleOnDisk has one).
+		{"std/storage/testing.nomi", "storage/testing", true},
+		{"/repo/std/storage/testing.nomi", "", false},
+		// std/_fixtures' nested tree, which std.Load does not carry, and a
+		// re-nested adapter facade, which is the regression this row
+		// exists to catch, are not modules this can name.
 		{"/repo/std/_fixtures/nested/deeper/module.nomi", "", false},
+		{"/repo/std/_fixtures/conn.nomi", "", false},
+		{"std/calendar/calendar.nomi", "", false},
 		{"/repo/std/calendar/calendar.nomi", "", false},
+		{"std/storage/deeper/testing.nomi", "", false},
 		// A non-Nomi file under `std/` is not a module either — the
 		// adapter directories are full of Go.
 		{"/repo/std/std.go", "", false},
@@ -62,6 +73,34 @@ func TestStdlibModuleForPathNamesAFlatStdlibModule(t *testing.T) {
 		if ok != c.ok || got != c.want {
 			t.Errorf("stdlibModuleForPath(%q) = (%q, %v), want (%q, %v)",
 				c.path, got, ok, c.want, c.ok)
+		}
+	}
+}
+
+// A nested module on disk is named by its path when its parent's file sits
+// beside its directory, as std/storage.nomi sits beside std/storage/; a
+// project under a directory called `std`, with no such file, is not std.
+func TestStdlibModuleForPathNamesANestedModuleOnDisk(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "std")
+	for _, f := range []string{"storage.nomi", "storage/testing.nomi", "project/main.nomi"} {
+		p := filepath.Join(root, filepath.FromSlash(f))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, c := range []struct {
+		path, want string
+		ok         bool
+	}{
+		{filepath.Join(root, "storage", "testing.nomi"), "storage/testing", true},
+		{filepath.Join(root, "project", "main.nomi"), "", false},
+	} {
+		got, ok := stdlibModuleForPath(c.path)
+		if ok != c.ok || got != c.want {
+			t.Errorf("stdlibModuleForPath(%q) = (%q, %v), want (%q, %v)", c.path, got, ok, c.want, c.ok)
 		}
 	}
 }

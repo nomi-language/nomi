@@ -30,7 +30,7 @@ import
     iter.Iter
     lists.List
     maybe.Maybe.{self, None, Some}
-    path_host
+    path::host
     strings.String
 end
 
@@ -63,7 +63,7 @@ end
 //! assert join_all([]) == ""
 //
 pub fn join_all(parts: List<String>) -> String
-    path_host.join(parts)
+    host.join(parts)
 end
 
 /// The shortest path that names what `p` names, by reading the text alone:
@@ -85,7 +85,7 @@ end
 //! assert clean("./") == "."
 //
 pub fn clean(p: String) -> String
-    path_host.clean(p)
+    host.clean(p)
 end
 
 /// The names of a clean path, the last first, with `/` and `.` naming
@@ -135,7 +135,7 @@ pub fn parent(p: String) -> Maybe<String>
     cleaned = clean(p)
     if cleaned == "/" then return None
 
-    case path_host.dir(cleaned)
+    case host.dir(cleaned)
         "." -> None
         above -> Some(above)
     end
@@ -153,7 +153,7 @@ end
 //! assert base("") == "."
 //
 pub fn base(p: String) -> String
-    path_host.base(p)
+    host.base(p)
 end
 
 /// What follows the last `.` in the last name of `p`, or `None` when there

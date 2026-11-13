@@ -48,7 +48,7 @@ import
     maps.Map
     results.Result.{self, Err, Ok}
     strings.String
-    toml_host
+    toml::host
     unit.Unit
 end
 
@@ -113,13 +113,13 @@ impl Toml.Value
     pub fn text(value: Toml.Value) -> String
         case value
             .String(s) ->
-                toml_host.quote(s)
+                host.quote(s)
 
             .Int(n) ->
                 "${n}"
 
             .Float(x) ->
-                toml_host.float(x)
+                host.float(x)
 
             .Bool(b) ->
                 if b then "true" else "false"
@@ -147,7 +147,7 @@ impl Toml.Value
             .Table(entries) ->
                 pairs =
                     entries
-                    |> Iter.map(fn (k, v) -> toml_host.quote(k) + " = " + Toml.Value.text(v))
+                    |> Iter.map(fn (k, v) -> host.quote(k) + " = " + Toml.Value.text(v))
                     |> Iter.to_list()
 
                 "{" + String.join(pairs, ", ") + "}"
@@ -299,7 +299,7 @@ impl CheckedLiteral<ToToml, Toml> for Toml
     //! assert Toml.text(Toml"${id} = true") == "\"42\" = true"
     //
     fn check(statics: List<String>) -> Result<Unit, LiteralError>
-        (fragment, offset, message) = toml_host.check(statics)
+        (fragment, offset, message) = host.check(statics)
 
         if fragment < 0 then
             Ok(Unit)
@@ -329,6 +329,6 @@ impl CheckedLiteral<ToToml, Toml> for Toml
             end)
             |> Iter.to_list()
 
-        Toml(toml_host.build(statics, slots))
+        Toml(host.build(statics, slots))
     end
 end

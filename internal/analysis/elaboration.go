@@ -33,7 +33,7 @@ func (v ElabViolation) String() string {
 // place it did not. It reads only what the checker recorded (ExprTypes,
 // ExpectedTypes, References and each reference's CallType and
 // DispatchImpl, Operators, CallDefaults, HoleDisplays, Coercions,
-// IterViews, the `?` markers) and changes nothing.
+// IterViews, Conversions, the `?` markers) and changes nothing.
 // vmhost's TestElaborationGate fails on its call and expression categories,
 // in derived bodies too (the analysis package doc, "Elaboration").
 //
@@ -68,7 +68,10 @@ func (v ElabViolation) String() string {
 //     (Coercions), unless it is the receiver of a call of an interface
 //     function. A source checked against an `Iter<T>` position, which the
 //     callee receives as a view over the source, has the record of the
-//     view (IterViews). An impl block of a generic interface whose
+//     view (IterViews). An expression whose type converts to the expected
+//     one below its top has the record of the conversion, each part that
+//     enters an interface at a closed type (Conversions). An impl block of
+//     a generic interface whose
 //     header writes no type arguments has the record of the ones it
 //     implements (ImplTypeArgSets, ImplBlockTypeArgs). A call of an
 //     interface function the checker selected no impl for, with a
@@ -368,9 +371,28 @@ func (v *elabVerifier) checkExpr(n ast.Node) {
 			case v.fa.Coercions[n] == nil:
 				v.report(n, "implicit", ElabBoxingUnrecorded, what)
 			}
+		} else if !iface && concreteType(t) && conversionParts(exp, t, func(*InterfaceType, Type) {}) {
+			what := fmt.Sprintf("%s: %s as %s", exprLabel(n), resolveTypeVar(t), resolveTypeVar(exp))
+			rec := v.fa.Conversions[n]
+			switch {
+			case rec == nil:
+				v.report(n, "implicit", ElabConversionUnrecorded, what)
+			default:
+				for _, b := range rec.Boxes {
+					if cat, why := v.openness(n, b.Value); cat != "" {
+						v.report(n, "implicit", ElabConversionUnrecorded, what+": "+cat+": "+why)
+					}
+				}
+			}
 		}
 	}
 }
+
+// ElabConversionUnrecorded is the category of an expression whose type
+// converts to the expected one below its top with no record of the
+// conversion, or with a part entering an interface at an open type
+// (FileAnalysis.Conversions).
+const ElabConversionUnrecorded = "implicit: covariant conversion not recorded"
 
 // ElabBoxingUnrecorded is the category of an expression of a concrete type
 // checked against an interface with no record of the coercion

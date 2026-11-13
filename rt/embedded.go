@@ -96,7 +96,7 @@ func EmbeddedRead(fr *Frame, handle int64, path string) Bytes {
 	return data
 }
 
-// EmbeddedSum is std/embed_host's `sum`: the SHA-256 of the embedded file
+// EmbeddedSum is std/embed/host's `sum`: the SHA-256 of the embedded file
 // handle names, in lowercase hex, as the compiler took it when it read the
 // file. A file compiled without one (by a front end that read no
 // contents) is read and hashed now.

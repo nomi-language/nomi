@@ -1697,10 +1697,13 @@ over an enum embeds.
 
 **Subtype coercion.** An embedded type is a subtype of its enum. A value of
 the embedded type is accepted wherever the enum is expected: an argument, an
-annotated binding, a field, a return, a collection element, and a type
-argument, tuple item or record field of any of those (`List<Circle>` where
-`List<Shape>` is expected, `Maybe<Circle>` where `Maybe<Shape>` is). A
-construction in such a position builds the expected type.
+annotated binding, a field, a return, a collection element, and a tuple
+item, record field or type argument of any of those that converts by its
+variance (§5 *Covariant conversion*): `List<Circle>` where `List<Shape>`
+is expected, `Maybe<Circle>` where `Maybe<Shape>` is. An invariant type
+argument takes no embedded type: a `Cell<Circle>` whose fields both hold
+and take a `T` is no `Cell<Shape>`. A construction in such a position
+builds the expected type.
 
 ```nomi
 struct Circle
@@ -2164,11 +2167,11 @@ A value of type `S` may stand where type `T` is expected when:
 - `S` and `T` are the same type;
 - `T` is an interface that `S` implements, and the value becomes an
   interface value (§12);
-- `T` is an enum that embeds `S`, at any depth of type arguments, tuple
-  items and record fields (§4 *Embedded Types*);
+- `T` is an enum that embeds `S` (§4 *Embedded Types*), at the top or at
+  any position that converts (*Covariant conversion*);
 - both are function types and `S` fits `T` by the rule below;
-- both are one std collection, and `S`'s type arguments convert to `T`'s
-  as they are (*Type argument conversion*).
+- both are one generic type, tuple, record or function type, and `S`
+  converts to `T` part by part (*Covariant conversion*).
 
 There is no other implicit conversion (*No Implicit Conversion*).
 
@@ -2182,12 +2185,13 @@ A function of type `(P1) -> R1` fits where `(P2) -> R2` is expected when
 each `P2` fits its `P1` and `R1` fits `R2`: parameters are contravariant and
 results covariant. The two take the same number of parameters, except a
 function whose parameters past the expected ones have defaults (§7 *Default
-Arguments*) and the callback of a stateless `Iter.loop` (§13 *`loop`*). Inside a function type, one type fits another when they
-are the same, when a concrete type meets an interface it implements, when a
-type meets an enum that embeds it, or when both are function types that fit.
-A type argument inside a function type is compared exactly, except an
-`Iter`'s element, which fits by this rule since an `Iter` only hands its
-elements out. The rule holds at every position a function value flows into,
+Arguments*) and the callback of a stateless `Iter.loop` (§13 *`loop`*). Inside a function type, one type fits another as a value
+does: when they are the same, when a concrete type meets an interface it
+implements, when a type meets an enum that embeds it, when both are
+function types that fit, or when both are one generic type whose type
+arguments convert (*Covariant conversion*): a `(Int) -> List<Int>` fits
+where a `(Int) -> List<Display>` is expected. The rule holds at every
+position a function value flows into,
 a tuple's element and a record's field among them: `("a", f)` is a
 `(String, (Int) -> Display)` when `f` is an `(Int) -> Int`.
 
@@ -2221,106 +2225,139 @@ operators*, §3 *Spreads*). With
 `argument 3: expected (Display) -> String, got (Float) -> String`; pass a
 lambda of the one type instead: `pick(c, float_str, fn x -> shown(x))`.
 
-### Type argument conversion
+### Covariant conversion
 
 Values are immutable, so a list of `Int`s may stand where a list of
 `Display`s is expected: nothing can put a `String` into it through the
-wider type. A value of a std collection converts to the same collection at
-other type arguments when each type argument converts *as it is*:
+wider type. Where a value of type `F<A>` is expected as `F<B>`, it converts
+when each type argument converts by its parameter's *variance*:
 
-| Collection | Its type arguments that convert |
+- a **covariant** parameter converts as a value does: `F<A>` is an `F<B>`
+  when `A` converts to `B`;
+- a **contravariant** parameter converts the other way: `F<A>` is an `F<B>`
+  when `B` converts to `A`;
+- an **invariant** parameter compares exactly.
+
+The rule applies again inside each type argument, at any depth.
+
+| Type | Its parameters |
 |---|---|
-| `List<T>`, `Vector<T>`, `Set<T>`, `Maybe<T>` | `T` |
-| `Map<K, V>` | `K` and `V` |
-| `Result<T, E>` | `T` and `E` |
+| `List<T>`, `Vector<T>`, `Set<T>`, `Maybe<T>` | `T` covariant |
+| `Map<K, V>`, `Result<T, E>` | both covariant |
+| a tuple, an anonymous record | each item and field covariant |
+| a function type | its result covariant, each parameter contravariant |
+| a struct, enum or distinct type the program declares | inferred from its fields, payloads or inner type |
+| `Iter<T>` | `T` covariant (§5 *Assignability*) |
+| any other std or host type, any other interface | invariant |
 
-A type `S` converts as it is to `T` when:
-
-- `S` and `T` are the same type;
-- `T` is an interface that `S` implements, and a value of `S` carries its
-  own type: an `Int`, `Float`, `Bool` or `String`, a declared struct, a
-  declared enum with no `embeds` variant, or a declared distinct type. An
-  interface value of such a type is the value itself;
-- both are function types, each parameter of `T` converts as it is to
-  `S`'s, and `S`'s result to `T`'s;
-- both are one collection, tuple or record shape, and each part converts
-  as it is.
-
-So a `List<Int>` is a `List<Display>`, a `Map<String, Pt>` a
-`Map<String, Named>` when `Pt` implements `Named`, a
-`List<(Display) -> String>` a `List<(Int) -> String>`, and an app's
-`List<(Route, (Request) -> Response)>` a
-`List<(Route, (Request) -> ToResponse)>`. The conversion does nothing at
-run time: the value is the one it was, whatever its length.
+Nothing is written to declare a parameter's variance. It is read off where
+the parameter appears in the type's fields, its variants' payloads, or a
+distinct type's inner type (`type Ids<T> List<T>` is covariant in `T`): a
+parameter that appears only where a value is held (a field, a collection's
+element, a function type's result) is covariant; one that appears only in a
+function type's parameter is contravariant, and two such flips cancel; one
+that appears in both is invariant. A parameter passed to another generic
+type takes that type's variance at the place it is passed, and a recursive
+type reads its own. A parameter no field names converts either way and is
+treated as covariant.
 
 ```nomi
-fn number(n: Int) -> Int
-    n + 1
+struct Box<T>
+    item: T
 end
 
-fn joined(xs: List<Display>) -> String
-    String.join(Iter.map(xs, Display.to_string), ", ")
+struct Sink<T>
+    take: (T) -> String
 end
 
-fn applied(fs: List<(Int) -> Display>) -> List<String>
-    Iter.map(fs, fn f -> Display.to_string(f(1))) |> Iter.to_list()
+struct Cell<T>
+    get: () -> T
+    put: (T) -> Unit
+end
+
+interface Store
+    fn size(s: self) -> Int
+end
+
+struct Memory
+    n: Int
+end
+
+impl Store for Memory
+    fn size(m: Memory) -> Int
+        m.n
+    end
+end
+
+fn shown(d: Display) -> String
+    "<${d}>"
+end
+
+fn opened(open: () -> Result<Store, String>) -> Int
+    case open()
+        Ok(s) -> Store.size(s)
+        Err(_) -> 0
+    end
 end
 
 fn main()
-    ints = [1, 2]
-    fs = [number]
-    dbg joined(ints) // "1, 2"
-    dbg applied(fs) // ["2"]
+    m = Some([1, 2])
+    wide: Maybe<Display> = m // each List<Int> boxed as a Display
+    bx = Box{item: [1]}
+    b: Box<Display> = bx // Box's T is covariant
+    sink = Sink{take: shown}
+    ints: Sink<Int> = sink // Sink's T is contravariant
+    dbg Maybe.map(wide, shown) // Some("<[1, 2]>")
+    dbg shown(b.item) // "<[1]>"
+    dbg ints.take(5) // "<5>"
+    dbg opened(fn -> Ok(Memory{n: 3})) // 3
 end
 ```
 
-Any other change of type argument would take work for each element, and
-is an error whose help names the conversion to write:
+`Cell`'s `T` is invariant, so a `Cell<Int>` is no `Cell<Display>`:
+`c: Cell<Display> = cell` is `type mismatch: expected Cell<Display>, got
+Cell<Int>`, with help `Cell<Int> does not convert to Cell<Display>: Cell's
+type parameter T is invariant, since Cell's fields both hold a T and take
+one; build a new Cell<Display> from the value's parts`. A contravariant
+parameter refused the way it would widen names the conversion it needs:
+`s: Sink<Display> = floats` is `Sink<Float> does not convert to
+Sink<Display>: Sink's type parameter T is contravariant, since Sink's fields
+only take a T, so it converts only where Display converts to Float`. A
+collection of functions whose parameter would narrow is refused the same
+way: `gs: List<(Display) -> String> = fs` with `fs: List<(Float) -> String>`
+is `List<(Float) -> String> does not convert to List<(Display) -> String>:
+each function takes only Float, and one of type (Display) -> String may be
+passed any Display`. An element that implements no interface the expected
+type holds is named: `ys: List<Display> = units` is `List<Unit> does not
+convert to List<Display>: Unit does not implement Display`. An interface
+value converts to no other interface, at any depth.
 
-- An element that enters the interface boxed: a std collection, a `Maybe`
-  or `Result`, a tuple or record, a std enum or host type, an enum with an
-  `embeds` variant, or a type parameter. `ys: List<Display> = xs` with
-  `xs: List<Maybe<Int>>` is `type mismatch: expected List<Display>, got
-  List<Maybe<Int>>`, with help `` List<Maybe<Int>> does not convert to
-  List<Display>: Maybe<Int> becomes Display boxed, so the conversion would
-  build a new List element by element; write it where that is meant:
-  `Iter.map(xs, fn x -> x) |> Iter.to_list()` ``. `Maybe.map(m, fn x -> x)`,
-  `Result.map(r, fn x -> x)` and `Map.map_values(m, fn v -> v)` are the
-  forms for the others.
-- A function that would need a wrapper: a parameter or result that
-  converts only by boxing, by `embeds` or by viewing a collection as an
-  `Iter`.
+A `Set`'s elements and a `Map`'s keys convert too. Converting one into an
+interface value keeps its equality and its hash: a value whose type names
+it at run time is the interface value itself, and any other is held with
+the static type it had, and compares and hashes by that type's own
+equality (§5 *Hashing and keys*). Two distinct keys of one type therefore
+stay distinct, and the converted `Set` or `Map` has the size it had:
+`s: Set<Hashable> = Set[Some(1), None]` holds two elements, and
+`Set.contains(s, Some(1))` is `True`.
 
-A parameter that would narrow is unsound, not costly:
-`gs: List<(Display) -> String> = fs` with `fs: List<(Float) -> String>` is
-`type mismatch: expected List<(Display) -> String>, got List<(Float) ->
-String>`, with help `List<(Float) -> String> does not convert to
-List<(Display) -> String>: each function takes only Float, and one of type
-(Display) -> String may be passed any Display`.
-
-A declared generic type's type arguments compare exactly: a struct's, an
-enum's, a distinct type's, and an interface's other than `Iter`'s. A
-`Box<Int>` is not a `Box<Display>`, since its values carry their type
-arguments (an instance names them at run time, and a call through an
-interface dispatches by that name), so converting one would mean building
-it again. `c: Box<Display> = b` with `b: Box<Int>` is `type mismatch:
-expected Box<Display>, got Box<Int>`, with help `Box<Int> does not convert
-to Box<Display>: a declared generic type's type arguments compare exactly,
-since its values carry them; build a new Box<Display> from the value's
-parts`.
-
-`embeds` is the one conversion that reaches every type argument and does
-work: a `List<Circle>` passed where a `List<Shape>` is expected is built
-again with each `Circle` in its `Shape` (§4 *Embedded Types*).
-
-A value built where the collection is expected converts each element as it
-is built, whatever its type: `ys: List<Display> = [1, Some(2)]`. So does
+A conversion costs nothing when each element already is a value of the
+wider type: an `Int`, `Float`, `Bool` or `String`, a declared struct, a
+declared enum with no `embeds` variant or a declared distinct type entering
+an interface it implements is the interface value itself, so a `List<Int>`
+is a `List<Display>` as it is, whatever its length, and so is a function
+whose parameters and result convert that way. Any other conversion is work
+proportional to the value: a `List`, `Vector`, `Set` or `Map` is built
+again with each element converted, a `Maybe`, `Result`, user enum or struct,
+tuple or record is built again with its parts converted, and a function is
+wrapped in one that converts its arguments and its result on each call. A
+value built where the wider type is expected converts each element as it
+is built, with no second pass: `ys: List<Display> = [1, Some(2)]`. So does
 a literal operand of `+` or `-` beside a value of the same collection, and
 the elements of a list literal beside a spread: `[1, Some(2)] + ds` and
-`[1, ..ds]` are `List<Display>`s for `ds: List<Display>`. The
-branches of an `if` or `case` whose type is written as a collection join
-as it when each converts to it: `c: List<Display> = if f { ints } else {
-words }`.
+`[1, ..ds]` are `List<Display>`s for `ds: List<Display>`. The branches of
+an `if` or `case` whose type is written join as it when each converts to
+it: `c: List<Display> = if f { ints } else { words }`.
 
 ### Annotations and local inference
 
@@ -2455,15 +2492,17 @@ and the arguments before it left open:
   literal builds and how the branches join: `m: Maybe<Vector<Int>> =
   Some([1, 2])`.
 
-A type parameter the result holds below its top, other than as an `Iter`'s
-element (a `Maybe`'s or a `List`'s element, a declared generic type's
-argument, a tuple's item, a function type's parameter or result), takes the
-expected type ahead of the arguments. A type argument there converts only
-in place (*Type argument conversion*), so the arguments' own choice could
-build a value the expected type cannot take: `Ok(Memory.new())` where a
-`Result<Store, Error>` is expected builds the `Store` as it builds the
-`Result`, and with `fn boxed<T>(v: T) -> Box<T>`, `b: Box<Display> =
-boxed(1)` is a `Box<Display>`.
+A type parameter the result holds below its top comes from the arguments
+by the same rule, and the result converts (*Covariant conversion*):
+`Ok(Memory.new())` where a `Result<Store, Error>` is expected builds a
+`Result<Memory, Error>`, which converts to the `Result<Store, Error>`, and
+with `fn boxed<T>(v: T) -> Box<T>`, `b: Box<Display> = boxed(1)` builds a
+`Box<Int>` and converts it. Only a type parameter the result holds at an
+invariant position (an invariant parameter of a declared type, a std
+struct's or host type's argument, an interface's other than `Iter`'s)
+takes the expected type ahead of the arguments, since a type argument
+there never converts: with `fn cell<T>(v: T) -> Cell<T>`, `c: Cell<Display>
+= cell(1)` is a `Cell<Display>`.
 
 Arguments that give the call a type that does not convert to the expected
 one are an error at the call: `n: Int = Iter.loop("a", fn s -> if s == ""
@@ -3892,7 +3931,7 @@ Taught in [Scalars and Strings](/scalars-and-strings/#numbers-booleans-operators
   `m + {k => v}`.
 - A collection literal operand beside an operand of the same collection is
   built as that operand's type, on either side, as a literal is under an
-  annotation (§5 *Type argument conversion*): with `routes: List<(Route,
+  annotation (§5 *Covariant conversion*): with `routes: List<(Route,
   Handler)>`, ``[(Route`GET /`, home)] + routes`` is a `List<(Route,
   Handler)>` though `home` is a `(Request) -> Response`. Two operands that
   each have a type of their own must have one type: with ``mine =
@@ -4495,7 +4534,9 @@ This prints `got 3 words`, then `GO NORTH NOW`, then `12`.
   says to use `then`. A body may end in a `dbg` observation, as a `Unit`
   function body may (§9).
 - A function by name is a plain name (`log_it`), a qualified one
-  (`io.print`, `Log.info`) or a local binding that holds a function. It is
+  (`io.print`, `Log.info`) or a local binding that holds a function,
+  perhaps in parentheses: `tap (log_it)` is `tap log_it`. Only a name may
+  stand in them; `tap (fn v -> ...)` is the parse error below. It is
   typed as a function value passed where `(T) -> Unit` is expected, `T` the
   piped value's type: a generic function is instantiated from the piped
   value, and a function whose parameters after the first all have defaults
@@ -7623,7 +7664,7 @@ The rules:
 - A selector list cannot hold another: `import shapes.{self, Shape.{Circle, Square}}` is the error `a selector list cannot hold another list`. Write `shapes` and `shapes.Shape.{Circle, Square}` as two entries of a block.
 - A variant is imported through its enum. `import shape.Circle` is the error `` cannot import variant 'Circle' directly — use 'import shape.Shape.{Circle}' to lift specific variants, or 'import shape.{Shape}' and qualify as 'Shape.Circle' ``.
 - There is no glob import (`import path.*`).
-- Standard library files start with `std::`: `import std::io`. `std` alone names the standard library's root directory: `import std` binds it, and `std::io.print(x)` reaches `io.nomi` (*Directory imports*). A directory has no members to select, so `import std.io` is the error `` `std` is a module, not a file; an import names a file in it ``, with the hint ``did you mean `import std::io`?``.
+- Standard library files start with `std::`: `import std::io`. A module that helps test another is nested in that module's directory as `testing`: `import std::fs::testing` binds `testing`, beside `import std::fs`, which binds `fs`. `std` alone names the standard library's root directory: `import std` binds it, and `std::io.print(x)` reaches `io.nomi` (*Directory imports*). A directory has no members to select, so `import std.io` is the error `` `std` is a module, not a file; an import names a file in it ``, with the hint ``did you mean `import std::io`?``.
 
 Two imports that bind one name to two declarations are an error at the second: `import a.{Thing}` then `import b.{Thing}` is `'Thing' is already imported on line 1 from another file; two imports cannot bind one name`, with the hint to import one under another name (`Thing as OtherThing`). Importing the same declaration twice is an unused import.
 
@@ -7635,7 +7676,7 @@ Taught in [Modules & Imports](/modules-and-imports/#short-names-and-directory-im
 
 A path-only import binds one name, its **short name**: the last segment of its path or its `as` alias. `import db::posts` binds `posts`, and `posts.post_by_id(1)` calls the file's `pub fn post_by_id`. The import's path is not a name at a use: after `import db::posts`, `db::posts.post_by_id(1)` is the error `` `db::posts` is not a name in this file: `import db::posts` binds the file as `posts` ``, with the hint `` write `posts.post_by_id`, or import its directory (`import db`) and keep `db::posts.post_by_id` ``. The editor's quick fix, and its `source.fixAll`, write the short name. A path at a use starts with the name a directory import binds (*Directory imports* below); any other path is the error `` `views::admin::reports` is not imported ``, whose hint names the file import and the directory import that would reach the file.
 
-- **Two imports may not bind one name.** `import db::notifications` beside `import jobs::notifications` is the error at the second, `'notifications' is already imported on line 1 from db::notifications; two imports cannot bind one name`, with the hint `` import the directories (`import db` and `import jobs`) and write `db::notifications` and `jobs::notifications`, or import one under another name with `as` ``. A file and a directory of one name are the same error. The same file imported twice is an unused import.
+- **Two imports may not bind one name.** `import db::notifications` beside `import jobs::notifications` is the error at the second, `'notifications' is already imported on line 1 from db::notifications; two imports cannot bind one name`, with the hint `` import the directories (`import db` and `import jobs`) and write `db::notifications` and `jobs::notifications`, or import one under another name with `as` ``. A file and a directory of one name are the same error. The same file imported twice is an unused import. Two std modules nested under their parents (`std::fs::testing` and `std::process::testing`) have no directory to import, since `std::fs` is a file, so the hint renames one after its parent: `` import one under another name, as in `import std::process::testing as process_testing` ``.
 - **A declaration keeps its name.** A top-level declaration of the file named like an import's short name is what the name means, and the import is the error ``'users' is already defined in this scope as a function on line 3, so `import views::admin::users` cannot bind it``, with the hint `` import its directory (`import views::admin`) and write `admin::users`, or import it under another name with `as` ``. A file at the module root is reached through the module's root: `import my_app`, then `my_app::users`.
 - **A local keeps its name.** A local, a parameter or a pattern binding named like an import's short name wins in its scope, and `name.member` there reads the local. When a member access on it fails and the file imports a file of that short name, the error's hint says how to reach the file: `schema.post(1)` where `schema` is a local and `db::schema` is imported is `` Int has no field 'post' ``, with the hint `` `schema` here is the binding on line 4, not the file db::schema; import its directory (`import db`) and write `db::schema.post`, or import the file under another name with `as` ``.
 - An import that binds nothing, since another import or a declaration holds its name, is that error alone and not also an unused import.
@@ -7662,7 +7703,7 @@ end
 - **A path that names no file** is an error at the use that says what is there: `admin::user.render(u)` is `` `admin::user` names no file: views::admin has no user.nomi ``, with the hint `` did you mean `admin::users`? ``, or a list of the directory's files and directories when no name is close. A path that names a directory, `admin::reports.total()`, is `` `admin::reports` is a directory, not a file ``, whose hint names a file in it.
 - **Only the files a path reaches are part of the program.** Importing a directory loads no file under it. Each path the import's scope writes below the name loads the file it names, as an import of that file would, and the file's impls come with it. A directory import through which no path reaches a file is unused: `imported directory 'admin' is unused — remove the import`.
 - **A file wins over a directory of its name.** Where `views/admin.nomi` sits beside `views/admin/`, `import views::admin` names the file, since a parent file beside the directory of its children is the usual layout (*Cyclic imports* below). The directory is reached from its parent: `import views`, then `views::admin::users.index(rows)`.
-- **Module roots.** A module's own name alone names its root directory when the root holds no file and no directory of that name: inside module `my_app`, `import my_app` binds the root, and `my_app::users.count()` reaches `users.nomi` there. A dependency's name alone is its root in the same way when the dependency has no file of its name (*Files and modules* above), and `import std` binds the standard library's root: `std::io.print(x)`. A path through `std` reaches an internal std module no more than an import does: `` `std::phrase_format` is internal to std::phrase ``.
+- **Module roots.** A module's own name alone names its root directory when the root holds no file and no directory of that name: inside module `my_app`, `import my_app` binds the root, and `my_app::users.count()` reaches `users.nomi` there. A dependency's name alone is its root in the same way when the dependency has no file of its name (*Files and modules* above), and `import std` binds the standard library's root: `std::io.print(x)`. A path through `std` reaches an internal std module no more than an import does: `` `std::phrase::format` is internal to std::phrase ``.
 - **Another module's directory.** A directory that holds its own `nomi.toml` is another module's root, which no path of this module reaches. `import plugins::billing` is the error `` `plugins::billing` is another module's directory: it holds a nomi.toml ``, whose hint says to add the module with `nomi add` and import it by its name, and a path through it at a use is `` `plugins::billing::pay` is in another module's directory: plugins/billing/ holds a nomi.toml ``. A path into an `internal/` directory from outside its parent's subtree is the error an import of that file is (*Files and modules* above).
 - **Scope.** The directory's name is a short name like a file's (*Short names* above): an alias renames it (`import views::admin as pages`, then `pages::users.index(rows)`), an import at the top of a block binds it in that block only, and a local, a parameter or a pattern binding of the name wins in its scope, where a path through the name is the error `` `admin` here is the parameter on line 3, not the directory views::admin ``.
 
@@ -7815,7 +7856,7 @@ end
 - **Impl functions follow the interface.** If the interface is `pub`, other files can call an impl's functions; if it is private, they cannot. There is no per-function `pub` in an `impl Iface for Type` block.
 - **No renames at the declaration.** A declaration is published under its own name. An imported item is re-exported under its local name.
 - **`opaque`.** `pub opaque struct`, `pub opaque enum` and `pub opaque type Name Inner` publish the type's name and keep its construction, destructuring and field access private (§4 *Opaque distinct types*). `opaque` on anything else is an error: `'pub opaque' must be followed by 'struct', 'enum', or 'type'`, and on a zero-sized type `` cannot declare 'Marker' as opaque — zero-sized distinct types have no representation to hide ``.
-- **Std's internals.** A std file's private declarations, and the internal modules `std::phrase_format` and `std::money_format`, belong to std. Naming one is the error `` `phrase.compiled` is internal to std::phrase ``, or `` `std::money_format` is internal to std::money `` for an import.
+- **Std's internals.** A std file's private declarations, and the internal modules `std::phrase::format` and `std::money::format`, belong to std. Naming one is the error `` `phrase.compiled` is internal to std::phrase ``, or `` `std::money::format` is internal to std::money `` for an import.
 
 ### Visibility consistency
 
@@ -8455,7 +8496,7 @@ group "store"
 end
 ```
 
-A test's standard input and output are captured with `io.capture` and `io.replay` ([std::io](/reference/io/)), and its files with [std::fs_testing](/reference/fs_testing/).
+A test's standard input and output are captured with `io.capture` and `io.replay` ([std::io](/reference/io/)), and its files with [std::fs::testing](/reference/fs/testing/).
 
 ### Attached tests
 
@@ -8826,7 +8867,7 @@ fn main()
 end
 ```
 
-A `?` or `!` on a checked literal is the ordinary error for a value that is not a `Result`, and a `?`'s hint says the literal is already its type: `` a `Url` literal is checked when the program is checked, so this one is already a Url: remove the `?` ``. std::literals_testing's `build_each` runs a type's `check` and then its `build` over test values, so a library's tests can hold `build` to its contract.
+A `?` or `!` on a checked literal is the ordinary error for a value that is not a `Result`, and a `?`'s hint says the literal is already its type: `` a `Url` literal is checked when the program is checked, so this one is already a Url: remove the `?` ``. std::literals::testing's `build_each` runs a type's `check` and then its `build` over test values, so a library's tests can hold `build` to its contract.
 
 #### Literals typed by their position
 

@@ -79,11 +79,11 @@ func cookieList(cs []*http.Cookie) *rt.List[*rt.List[string]] {
 	return out
 }
 
-// CookieText is `http_host.cookie_text`: Go's Cookie.String, the
+// CookieText is `std::http::host.cookie_text`: Go's Cookie.String, the
 // Set-Cookie value, or "" for a cookie Go cannot write.
 func CookieText(parts *rt.List[string]) string { return cookieOf(strsOf(parts)).String() }
 
-// CookieValid is `http_host.cookie_valid`: Go's Cookie.Valid, "" when valid.
+// CookieValid is `std::http::host.cookie_valid`: Go's Cookie.Valid, "" when valid.
 func CookieValid(parts *rt.List[string]) string {
 	if err := cookieOf(strsOf(parts)).Valid(); err != nil {
 		return err.Error()
@@ -91,7 +91,7 @@ func CookieValid(parts *rt.List[string]) string {
 	return ""
 }
 
-// ParseCookie is `http_host.parse_cookie`: Go's ParseCookie of a Cookie
+// ParseCookie is `std::http::host.parse_cookie`: Go's ParseCookie of a Cookie
 // header.
 func ParseCookie(text string) rt.Result[*rt.List[*rt.List[string]], string] {
 	cs, err := http.ParseCookie(text)
@@ -101,7 +101,7 @@ func ParseCookie(text string) rt.Result[*rt.List[*rt.List[string]], string] {
 	return rt.Ok[*rt.List[*rt.List[string]], string](cookieList(cs))
 }
 
-// ParseSetCookie is `http_host.parse_set_cookie`: Go's ParseSetCookie.
+// ParseSetCookie is `std::http::host.parse_set_cookie`: Go's ParseSetCookie.
 func ParseSetCookie(text string) rt.Result[*rt.List[string], string] {
 	c, err := http.ParseSetCookie(text)
 	if err != nil {
@@ -110,7 +110,7 @@ func ParseSetCookie(text string) rt.Result[*rt.List[string], string] {
 	return rt.Ok[*rt.List[string], string](listOf(cookieParts(c)))
 }
 
-// NewJar is `http_host.new_jar`: Go's cookiejar with no public suffix list.
+// NewJar is `std::http::host.new_jar`: Go's cookiejar with no public suffix list.
 func NewJar() rt.HTTPJar {
 	j, _ := cookiejar.New(nil)
 	return rt.NewHTTPJar(j)
@@ -124,7 +124,7 @@ func jarOf(j rt.HTTPJar) http.CookieJar {
 	return jar
 }
 
-// JarCookies is `http_host.jar_cookies`: the cookies the jar would send to
+// JarCookies is `std::http::host.jar_cookies`: the cookies the jar would send to
 // target.
 func JarCookies(j rt.HTTPJar, target string) *rt.List[*rt.List[string]] {
 	u, err := url.Parse(target)
@@ -134,7 +134,7 @@ func JarCookies(j rt.HTTPJar, target string) *rt.List[*rt.List[string]] {
 	return cookieList(jarOf(j).Cookies(u))
 }
 
-// JarSet is `http_host.jar_set`: store cookies received from target.
+// JarSet is `std::http::host.jar_set`: store cookies received from target.
 func JarSet(j rt.HTTPJar, target string, cookies *rt.List[*rt.List[string]]) rt.Unit {
 	u, err := url.Parse(target)
 	if err != nil {
@@ -148,7 +148,7 @@ func JarSet(j rt.HTTPJar, target string, cookies *rt.List[*rt.List[string]]) rt.
 	return rt.Unit{}
 }
 
-// WithJar is `http_host.with_jar`: a client sharing c's transport and
+// WithJar is `std::http::host.with_jar`: a client sharing c's transport and
 // options that keeps cookies in j.
 func WithJar(c rt.HTTPClient, j rt.HTTPJar) rt.HTTPClient {
 	cl := *clientOf(c).c

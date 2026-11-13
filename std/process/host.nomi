@@ -1,4 +1,4 @@
-//# The Go-backed half of std::process and std::process_testing: each
+//# The Go-backed half of std::process and std::process::testing: each
 //# crossing that starts a program, reads and writes its streams and waits
 //# for it (internal/stdprocess). It is internal; a program imports
 //# std::process, which builds its values from these and gives them their
@@ -19,7 +19,7 @@ end
 /// A program `start` started, or the fake's stand-in for one.
 pub host type Child
 
-/// The fake `process_testing.run` responds to starts with.
+/// The fake `std::process::testing.run` responds to starts with.
 pub host type Fake
 
 /// Starts `program` with `args`, its environment extended by `env` (made

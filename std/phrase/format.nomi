@@ -18,8 +18,9 @@ end
 /// nothing: what a phrase's `:string` formats and selects such a value by.
 /// It is the name the declaration writes, whatever the enum's `Debug` says.
 //! import std::comparable.Ordering
+//! import std::phrase::format as formatting
 //!
-//! assert phrase_format.variant_name(Ordering.Less) == "Less"
+//! assert formatting.variant_name(Ordering.Less) == "Less"
 //
 pub host fn variant_name<T>(value: T) -> String
 

@@ -425,7 +425,7 @@ func (g *gen) typeDeclEdges() []int {
 // blockImportOwners calls add with the owner of each monomorphic struct, enum
 // or distinct type imp, an import at the top of a block, binds: the types
 // bindBlockImports mirrors while this file's types are built, whether or not
-// the block declares a type (`//! import std::sql_testing.Fake` in a prompt of
+// the block declares a type (`//! import std::sql::testing.Fake` in a prompt of
 // std/sql, whose Fake names sql's Dialect).
 func (g *gen) blockImportOwners(imp *ast.ImportStmt, add func(*typeOwner)) {
 	if g.fa == nil {

@@ -54,7 +54,7 @@ import
     display.Display
     equatable.Equatable
     float.Float
-    html_host.{escape, escape_url_path, filter_url}
+    html::host.{escape, escape_url_path, filter_url}
     int.Int
     io.{Error, Writer}
     iter.Iter
@@ -64,7 +64,7 @@ import
     strings.String
     unit.Unit
     url.{self, Url}
-    url_host
+    url::host
 end
 
 /// Rendered HTML: balanced markup from templates, or markup a program
@@ -348,7 +348,7 @@ fn slot_url_query(value: Display) -> String
 end
 
 fn slot_url_fragment(value: Display) -> String
-    escape(url_host.escape_fragment("${value}"))
+    escape(host.escape_fragment("${value}"))
 end
 
 fn slot_css(value: CssValue) -> String

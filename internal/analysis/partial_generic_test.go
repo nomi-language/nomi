@@ -90,24 +90,19 @@ func TestPartialGeneric_TakesTheExpectedParameterTypesButNotAnyResult(t *testing
 	expectStdlibError(t, errs, "expected (List<List<Int>>) -> List<String>, got (List<List<Int>>) -> List<Int>")
 }
 
-// A generic function named as a value whose parameter would take the
-// expected one only by a conversion inside a container is refused, and the
-// help names the capture that fits: bare `total` is no `(List<List<Int>>)
-// -> Int`, and `&total(&1)` is one.
-func TestPartialGeneric_AFunctionValueThatDoesNotFitNamesTheCapture(t *testing.T) {
+// A generic function named as a value whose parameter takes the expected
+// one by a conversion inside a container fits, as its capture does: a
+// function's parameter is contravariant at any depth (spec §5 *Covariant
+// conversion*), so bare `total` is a `(List<List<Int>>) -> Int`, whose
+// wrapper views each inner List as an Iter.
+func TestPartialGeneric_AFunctionValueConvertsInsideAContainer(t *testing.T) {
 	const total = "fn total<T>(rows: List<Iter<T>>) -> Int\n  rows |> Iter.map(Iter.count) |> Iter.sum()\nend\n\n"
-	const hint = "\nhelp: a function value's parameter takes a List where an Iter is declared only at the top or as an Iter's element, not inside another type; write the capture `&total(&1)`, whose parameters are the ones expected here"
-	for _, tc := range []struct{ name, body, want, at string }{
-		{"an argument", "  _ = Maybe.map(Some([[1], [2]]), total)",
-			"argument 2: expected (List<List<Int>>) -> U, got (List<Iter<T>>) -> Int" + hint, "total"},
-		{"an annotated binding", "  f: (List<List<Int>>) -> Int = total\n  _ = f",
-			"type mismatch: expected (List<List<Int>>) -> Int, got (List<Iter<T>>) -> Int" + hint, "total"},
+	for _, body := range []string{
+		"  _ = Maybe.map(Some([[1], [2]]), total)",
+		"  f: (List<List<Int>>) -> Int = total\n  _ = f",
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			src := total + "fn main()\n" + tc.body + "\nend\n"
-			_, errs := checkSourceWithStdlib(src)
-			expectDiagAt(t, src, errs, tc.want, tc.at)
-		})
+		_, errs := checkSourceWithStdlib(total + "fn main()\n" + body + "\nend\n")
+		expectNoStdlibErrors(t, errs)
 	}
 }
 
@@ -125,12 +120,4 @@ fn main()
 end
 `)
 	expectNoStdlibErrors(t, errs)
-}
-
-// The mirror: where the capture would not fit either, as for a result the
-// callee does not give, the mismatch has no such help.
-func TestPartialGeneric_NoCaptureHintWhereTheCaptureWouldNotFit(t *testing.T) {
-	src := "fn main()\n  f: (List<List<Int>>) -> List<String> = Iter.flatten\n  _ = f\nend\n"
-	_, errs := checkSourceWithStdlib(src)
-	expectDiagAt(t, src, errs, "type mismatch: expected (List<List<Int>>) -> List<String>, got (Iter<Iter<Int>>) -> List<Int>", "Iter.flatten")
 }

@@ -14,7 +14,7 @@ import (
 // bootOnlyApp is an app's imports, with the module %s imports beside std's,
 // and its app type.
 func bootOnlyApp(module string) string {
-	return "import\n    std::jobs.{Queue, Worker}\n    std::jobs_testing.Inline\n    " + module + "\nend\n\n" + bootOnlyAppType
+	return "import\n    std::jobs.{Queue, Worker}\n    std::jobs::testing.Inline\n    " + module + "\nend\n\n" + bootOnlyAppType
 }
 
 const bootOnlyAppType = `pub struct App

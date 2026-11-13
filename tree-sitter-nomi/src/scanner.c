@@ -45,6 +45,8 @@
 //                                pipe stage `|> subtests pattern`.
 //   TODO_KEYWORD               — the contextual keyword `todo` before its
 //                                reason, `todo "reason"`.
+//   CONCURRENT_KEYWORD         — the contextual keyword `concurrent` that
+//                                ends its line and opens a concurrent block.
 //
 // Each string scanner emits at least one character; if the first character
 // is already a boundary, the scanner returns false and lets the main
@@ -79,6 +81,9 @@ enum TokenType {
     // The contextual keyword `todo` with its reason, emitted only when a
     // string follows it on its line (scan_todo_keyword).
     TODO_KEYWORD,
+    // The contextual keyword `concurrent` that opens a concurrent block,
+    // emitted only when it ends its line (scan_concurrent_keyword).
+    CONCURRENT_KEYWORD,
 };
 
 typedef struct {
@@ -499,6 +504,27 @@ static bool scan_group_keyword(TSLexer *lexer) {
     return true;
 }
 
+// The contextual keyword `concurrent`, at the lookahead where an expression
+// can start. As in the Go parser, the word opens a concurrent block only when
+// it ends its line, perhaps before a comment: `concurrent` alone, or `x =
+// concurrent`. Anywhere else it is an identifier, so `(concurrent)`,
+// `concurrent + 1` and `tap (concurrent)` read the name. The token ends after
+// the word.
+static bool scan_concurrent_keyword(TSLexer *lexer) {
+    if (!at_word(lexer, "concurrent")) return false;
+    lexer->mark_end(lexer);
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') advance(lexer);
+    int32_t c = lexer->lookahead;
+    if (c == '/') {
+        advance(lexer);
+        if (lexer->lookahead != '/') return false;
+    } else if (c != '\n' && c != '\r' && c != 0) {
+        return false;
+    }
+    lexer->result_symbol = CONCURRENT_KEYWORD;
+    return true;
+}
+
 // The contextual keyword `host`, at the lookahead where a declaration can
 // start. As in the Go parser (startsHostDecl), the word is the keyword only
 // when `fn` or `type` follows it: `host fn now(): Instant`, `pub host type
@@ -661,6 +687,10 @@ static bool scan_layout(Scanner *scanner, TSLexer *lexer, const bool *valid_symb
 
     if (valid_symbols[TODO_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 't') {
         return scan_todo_keyword(lexer);
+    }
+
+    if (valid_symbols[CONCURRENT_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 'c') {
+        return scan_concurrent_keyword(lexer);
     }
 
     // The operand of `dbg`, `return`, `break` and `todo` must start on

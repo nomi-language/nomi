@@ -88,7 +88,7 @@ func (p *Program) Uses(class string, withExports bool) bool {
 type CapabilityUse struct {
 	// Class is the function's class (ClassFiles).
 	Class string
-	// Crossing is the host function's key (`fs_host.read_text`, the
+	// Crossing is the host function's key (`std::fs::host.read_text`, the
 	// crossing std/fs's `read_text` makes).
 	Crossing string
 	// Callee is what the program's own call at Site calls: a std

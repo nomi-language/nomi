@@ -480,16 +480,16 @@ const (
 var liveCrossings = map[string]bool{
 	"Context.with_value": true, "Context.value": true,
 	captureKey: true, replayKey: true,
-	// `fs_testing.run`'s sandbox lives in the machine: a replay builds it
+	// `std::fs::testing.run`'s sandbox lives in the machine: a replay builds it
 	// again, and the file operations inside run against it again
 	// (fileCrossingKind). A body `fs.within` runs over the disk runs again
 	// too, and its file operations are answered from the recording.
-	sandboxKey: true, "fs_host.new_sandbox": true, "fs_host.sandbox_fail": true,
-	"fs_host.sandbox_files": true, "fs_host.sandbox_log": true, "fs_host.sandbox_open": true,
-	// `process_testing.run`'s body runs again, and the starts inside it
+	sandboxKey: true, "fs/host.new_sandbox": true, "fs/host.sandbox_fail": true,
+	"fs/host.sandbox_files": true, "fs/host.sandbox_log": true, "fs/host.sandbox_open": true,
+	// `std::process::testing.run`'s body runs again, and the starts inside it
 	// are answered from the recording, as every start is.
 	processFakeKey: true,
-	// So does `http_testing.run`: its fake is a Nomi function the replay
+	// So does `std::http::testing.run`: its fake is a Nomi function the replay
 	// calls again.
 	networkFakeKey: true, networkAnswerKey: true, networkRecordedKey: true,
 	// A reader over data the program holds reads nothing outside it.
@@ -513,13 +513,13 @@ var outputCrossings = map[string]bool{"io.print": true, "io.write": true, "io.in
 // fileCrossingKind is how a replay treats a std/fs crossing, or a stream
 // crossing whose first operand is a handle (not a standard stream), made on
 // fr with operands args: it runs again when the program holds what it acts
-// on (a sandbox `fs_testing.run` installed, which the replay builds again,
+// on (a sandbox `std::fs::testing.run` installed, which the replay builds again,
 // or a reader over the program's own data), and is otherwise answered from
 // the recording, so stepping back never reads a file whose contents may have
 // changed or writes one twice. ok is false for every other crossing.
 func fileCrossingKind(fr *rt.Frame, name string, args []any) (kind crossingKind, ok bool) {
 	held := fr.FilesHeld()
-	if strings.HasPrefix(name, "fs_host.") || strings.HasPrefix(name, "io.File.") || name == "io.file_read" {
+	if strings.HasPrefix(name, "fs/host.") || strings.HasPrefix(name, "io.File.") || name == "io.file_read" {
 		if held {
 			return crossLive, true
 		}

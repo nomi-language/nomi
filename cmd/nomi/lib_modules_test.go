@@ -182,7 +182,7 @@ func TestLibModules(t *testing.T) {
 		passes(t, root, "test", filepath.Join("lib", "jobs", "examples", "notify"))
 	})
 	// The S3 backend's own tests need no server: they sign AWS's published
-	// examples and answer requests with std/http_testing. The MinIO
+	// examples and answer requests with std/http/testing. The MinIO
 	// project runs it against a real server.
 	t.Run("storage/s3", func(t *testing.T) {
 		passes(t, root, "test", filepath.Join("lib", "storage", "s3"))

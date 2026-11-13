@@ -8,8 +8,8 @@ import
     std::duration.Duration
     std::instant.Instant
     std::jobs.{self, Cron, Enqueued, Job, Missed, NewJob, Queue, Schedule, Unique, UniqueStates, Worker}
-    std::jobs_testing.{self, Inline, StoredJob}
-    std::sql_testing.Fake
+    std::jobs::testing.{self, Inline, StoredJob}
+    std::sql::testing.Fake
     std::testing.Clock
     std::timer
     app.{self, App}
@@ -216,7 +216,7 @@ test "run_queued runs the highest priority first, then the oldest"
     _ = jobs.enqueue(queue, Fake.new(), tick_job, 2, priority: Some(3))?
     _ = jobs.enqueue(queue, Fake.new(), tick_job, 3, priority: Some(-1))?
     _ = jobs.enqueue(queue, Fake.new(), tick_job, 4, priority: Some(3))?
-    ran = jobs_testing.run_queued(queue, [tick_job])
+    ran = testing.run_queued(queue, [tick_job])
     assert Iter.map(ran, &(&1.args)) |> Iter.to_list() == [.Int(2), .Int(4), .Int(1), .Int(3)]
 end
 
@@ -225,7 +225,7 @@ test "a kept key outlives its job, and a live one does not"
     kept = Unique{key: "k", across: UniqueStates.Kept}
     _ = jobs.enqueue(queue, Fake.new(), tick_job, 1, unique: Some(kept))?
     _ = jobs.enqueue(queue, Fake.new(), tick_job, 2, unique: Some(Unique{key: "l"}))?
-    assert Iter.count(jobs_testing.run_queued(queue, [tick_job])) == 2
+    assert Iter.count(testing.run_queued(queue, [tick_job])) == 2
 
     assert jobs.enqueue(queue, Fake.new(), tick_job, 3, unique: Some(kept)) is Ok(Enqueued{
         duplicate: True,

@@ -104,21 +104,23 @@ func TestStdlibNamesItsSiblingsBare(t *testing.T) {
 		total, len(entries), len(qualified))
 }
 
-// TestStdlibHasOneManifestAndNoNestedSource is the layout half of the same
-// claim, and it is two assertions because the two failure modes are different
-// mistakes.
+// TestStdlibHasOneManifestAndNestsOnlyUnderAParent is the layout half of the
+// same claim, and it is two assertions because the two failure modes are
+// different mistakes.
 //
 // One manifest: a nested `std/<name>/nomi.toml` would declare a module boundary
 // inside the stdlib. Nothing can cross it — nobody can take `std/calendar`
 // without the rest of the stdlib, which ships with the compiler — while every
 // cross-stdlib `impl` on the far side of it becomes an orphan-rule violation.
 //
-// No nested source: every public stdlib module is a flat `std/<name>.nomi`. A
-// nested one would be a stdlib module whose physical path and public import
-// path disagree, which is the shape that cost the 46-diagnostic and 26-failure
-// defects recorded above.
-func TestStdlibHasOneManifestAndNoNestedSource(t *testing.T) {
-	var manifests, nested []string
+// Nested source only under a parent: a module is a `std/<name>.nomi`, or a
+// `std/<parent>/<name>.nomi` beside its parent's `std/<parent>.nomi`
+// (std/storage/testing.nomi is std::storage::testing), one level deep, and
+// never a `<parent>/<parent>.nomi` facade. A facade would be a stdlib module
+// whose physical path and public import path disagree, which is the shape
+// that cost the 46-diagnostic and 26-failure defects recorded above.
+func TestStdlibHasOneManifestAndNestsOnlyUnderAParent(t *testing.T) {
+	var manifests, misplaced, nested []string
 	err := fs.WalkDir(stdlibFS, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -132,6 +134,12 @@ func TestStdlibHasOneManifestAndNoNestedSource(t *testing.T) {
 			manifests = append(manifests, p)
 		case strings.HasSuffix(p, ".nomi") && dir != ".":
 			nested = append(nested, p)
+			parent, ok := fs.Stat(stdlibFS, dir+".nomi")
+			if strings.Contains(dir, "/") || ok != nil || parent.IsDir() ||
+				strings.TrimSuffix(d.Name(), ".nomi") == path.Base(dir) ||
+				embeddedStdlibLogicalName(p) != strings.TrimSuffix(p, ".nomi") {
+				misplaced = append(misplaced, p)
+			}
 		}
 		return nil
 	})
@@ -139,21 +147,22 @@ func TestStdlibHasOneManifestAndNoNestedSource(t *testing.T) {
 		t.Fatalf("walking embedded stdlib: %v", err)
 	}
 	sort.Strings(manifests)
-	sort.Strings(nested)
+	sort.Strings(misplaced)
 	if len(manifests) != 1 || manifests[0] != "nomi.toml" {
 		t.Errorf("expected exactly the stdlib's own root manifest, got %v; a nested manifest would "+
 			"declare a module boundary nothing can cross and make every cross-stdlib impl an orphan",
 			manifests)
 	}
-	if len(nested) != 0 {
-		t.Errorf("nested stdlib source found: %v; every public stdlib module is a flat std/<name>.nomi", nested)
+	if len(misplaced) != 0 {
+		t.Errorf("nested stdlib source not under a parent module: %v; a nested module is "+
+			"std/<parent>/<name>.nomi beside std/<parent>.nomi, one level deep, named by its path", misplaced)
 	}
-	// The vacuity control. With a flat tree, "no nested .nomi" and "the walk
-	// never descended" are the same observation.
-	//
-	// `_fixtures` is the one subdirectory and it holds nested `.nomi` on
-	// purpose, so seeing its files proves the walk descends and that the `_`
-	// skip above is doing work rather than never firing.
+	if len(nested) == 0 {
+		t.Error("no nested module found; std/fs/testing.nomi and its siblings are nested, so the walk missed them")
+	}
+	// The vacuity control: `_fixtures` holds nested `.nomi` on purpose, so
+	// seeing its files proves the `_` skip above is doing work rather than
+	// never firing.
 	skipped := 0
 	_ = fs.WalkDir(stdlibFS, "_fixtures", func(p string, d fs.DirEntry, err error) error {
 		if err == nil && !d.IsDir() && strings.HasSuffix(p, ".nomi") {

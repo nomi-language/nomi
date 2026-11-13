@@ -83,7 +83,7 @@
 // # Escaping
 //
 // std/html is a program std module: its types are the program's. Its
-// escapers are host functions in the internal std/html_host, over
+// escapers are host functions in the internal std/html/host, over
 // rt/html.go, which FuzzTemplateEscaping also calls: a slot value cannot
 // change a rendered template's tags.
 package htmltemplate

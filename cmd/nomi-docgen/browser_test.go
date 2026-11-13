@@ -15,10 +15,10 @@ import (
 // js/wasm build's own (vmhost.TargetLacks), from what the prompt reaches,
 // std's calls on its behalf included. A prompt whose only network use is an
 // HTTP request stays live, since the browser build sends it through fetch:
-// http_testing.run's prompt calls `http.get`. So do two prompts the walk
+// std::http::testing.run's prompt calls `http.get`. So do two prompts the walk
 // flags but whose run never reaches the operating system: process.run's
-// starts its program under process_testing.run's fake, and
-// mail_testing.rules reaches the SMTP mailer only through `Mailer.send`'s
+// starts its program under std::process::testing.run's fake, and
+// std::mail::testing.rules reaches the SMTP mailer only through `Mailer.send`'s
 // every impl.
 //
 // That the live editors do run in the browser is
@@ -28,13 +28,13 @@ func TestReferencePromptsTheBrowserCannotRunAreNotEditors(t *testing.T) {
 	for _, tc := range []struct {
 		module, label, lacks string
 	}{
-		{"mail_testing", "mail_testing.with_smtp_server", "connect listen"},
-		{"http_testing", "http_testing.with_server", "listen"},
+		{"mail/testing", "testing.with_smtp_server", "connect listen"},
+		{"http/testing", "testing.with_server", "listen"},
 		{"mail", "mail.smtp", "connect listen"},
 		{"process", "process.run", ""},
-		{"mail_testing", "mail_testing.rules", ""},
+		{"mail/testing", "testing.rules", ""},
 		{"net", "net.lookup_host", "connect"},
-		{"http_testing", "http_testing.run", ""},
+		{"http/testing", "testing.run", ""},
 	} {
 		page := renderModuleWithLinks(lib, tc.module, nil)
 		var found *referenceTest

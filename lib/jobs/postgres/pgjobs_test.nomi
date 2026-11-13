@@ -5,7 +5,7 @@ import
     std::fs
     std::instant.Instant
     std::jobs.{self, Cron, Failure, Job, Queue, Schedule, Settle}
-    std::jobs_testing.{self, Opened}
+    std::jobs::testing.{self, Opened}
     std::sql.{self, Conn, Row, Sql}
     std::tasks.Task
     pgjobs
@@ -30,8 +30,8 @@ end
 
 once noop = Job.new("noop", fn _: Int -> Ok(Unit))
 
-test "the queue passes std/jobs_testing's conformance suite"
-    broken = jobs_testing.conformance(fn ->
+test "the queue passes std/jobs/testing's conformance suite"
+    broken = testing.conformance(fn ->
         (db, queue, _) = fresh()?
         Ok(Opened{queue:, conn: db})
     end)

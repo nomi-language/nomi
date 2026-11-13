@@ -529,15 +529,15 @@ runs it again if the process died before it finished, so a job's handler
 must be safe to run twice. `lib/jobs/postgres` keeps the jobs in a Postgres
 table.
 
-A test needs no database. std::jobs_testing's `Inline` queue keeps jobs in
-memory, std::sql_testing's `Fake` stands in for the transaction, and
+A test needs no database. std::jobs::testing's `Inline` queue keeps jobs in
+memory, std::sql::testing's `Fake` stands in for the transaction, and
 `run_queued` runs what was enqueued:
 
 ```nomi-run
 import
     std::jobs.{self, Failure, Job}
-    std::jobs_testing.{self, Inline}
-    std::sql_testing.Fake
+    std::jobs::testing.{self, Inline}
+    std::sql::testing.Fake
 end
 
 fn send_receipt(order: Int) -> Result<Unit, Failure>
@@ -553,7 +553,7 @@ once receipt_job = Job.new("receipt", send_receipt)
 test "a receipt job runs once it is enqueued"
     queue = Inline.new()
     _ = jobs.enqueue(queue, Fake.new(), receipt_job, 42)?
-    ran = jobs_testing.run_queued(queue, [receipt_job])
+    ran = testing.run_queued(queue, [receipt_job])
     assert Iter.map(ran, &(&1.answer)) |> Iter.to_list() == [Ok(Unit)]
 end
 ```
@@ -572,13 +572,13 @@ Every process can run the same schedules, and each tick is enqueued once.
 This handler only checks the order. A real one sends the email with
 [`std::mail`](/reference/mail/), which sends a `Message` through a `Mailer`.
 In production the mailer is `mail.smtp(...)`, which reaches any SMTP relay
-or a local catcher such as Mailpit. A test passes std::mail_testing's
+or a local catcher such as Mailpit. A test passes std::mail::testing's
 `Memory`, which keeps what it is sent:
 
 ```nomi-run
 import
     std::mail.{self, Address, Mailer, Message}
-    std::mail_testing.Memory
+    std::mail::testing.Memory
 end
 
 fn send_receipt(mailer: Mailer, email: String, order: Int) -> Result<Unit, mail.Error>

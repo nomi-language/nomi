@@ -22,7 +22,7 @@ import
     display.Display
     duration.Duration
     equatable.Equatable
-    http_host
+    http::host as http_host
     instant.Instant
     int.Int
     io.{Reader, Writer}

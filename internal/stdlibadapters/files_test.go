@@ -46,7 +46,7 @@ func TestRtFuncs_HandlesAndSandboxes(t *testing.T) {
 	disk := rt.NewFrame(context.Background())
 	dir := t.TempDir()
 	out := filepath.Join(dir, "out.txt")
-	w := ok(disk, "fs_host.create", out, int64(0))
+	w := ok(disk, "fs/host.create", out, int64(0))
 	ok(disk, "io.Writer.write_text", w, "one\n")
 	ok(disk, "io.Writer.write", w, rt.Bytes("two\n"))
 	if data, _ := os.ReadFile(out); len(data) != 0 {
@@ -61,7 +61,7 @@ func TestRtFuncs_HandlesAndSandboxes(t *testing.T) {
 		t.Errorf("the file holds %q", data)
 	}
 
-	r := ok(disk, "fs_host.open", out)
+	r := ok(disk, "fs/host.open", out)
 	if got := text(ok(disk, "io.read_up_to", r, int64(2))); got != `maybe.Maybe/4.Some{0=Bytes("on")}` {
 		t.Errorf("read_up_to answered %s", got)
 	}
@@ -75,7 +75,7 @@ func TestRtFuncs_HandlesAndSandboxes(t *testing.T) {
 
 	// An atomic write that is given up leaves the old contents and nothing
 	// beside them.
-	w = ok(disk, "fs_host.create", out, int64(1))
+	w = ok(disk, "fs/host.create", out, int64(1))
 	ok(disk, "io.Writer.write_text", w, "half")
 	call(disk, "io.Writer.discard", w)
 	if data, _ := os.ReadFile(out); string(data) != "one\ntwo\n" {
@@ -86,7 +86,7 @@ func TestRtFuncs_HandlesAndSandboxes(t *testing.T) {
 	}
 
 	held := call(disk, "io.Reader.from_text", "a\nb")
-	sink := ok(disk, "fs_host.create", filepath.Join(dir, "copy.txt"), int64(0))
+	sink := ok(disk, "fs/host.create", filepath.Join(dir, "copy.txt"), int64(0))
 	if got := text(ok(disk, "io.Reader.copy_to", held, sink)); got != "Int(3)" {
 		t.Errorf("copy_to answered %s", got)
 	}
@@ -95,15 +95,15 @@ func TestRtFuncs_HandlesAndSandboxes(t *testing.T) {
 		t.Errorf("read_all of from_bytes answered %s", got)
 	}
 
-	if got := call(disk, "fs_host.temp_dir").(string); got != filepath.ToSlash(os.TempDir()) {
+	if got := call(disk, "fs/host.temp_dir").(string); got != filepath.ToSlash(os.TempDir()) {
 		t.Errorf("temp_dir answered %q", got)
 	}
-	tmp := ok(disk, "fs_host.make_temp_dir").(string)
+	tmp := ok(disk, "fs/host.make_temp_dir").(string)
 	if info, err := os.Stat(tmp); err != nil || !info.IsDir() {
 		t.Errorf("make_temp_dir answered %q, which is not a directory: %v", tmp, err)
 	}
 	os.RemoveAll(tmp)
-	if wd, _ := os.Getwd(); ok(disk, "fs_host.current_dir").(string) != filepath.ToSlash(wd) {
+	if wd, _ := os.Getwd(); ok(disk, "fs/host.current_dir").(string) != filepath.ToSlash(wd) {
 		t.Errorf("current_dir is not the working directory %q", wd)
 	}
 
@@ -111,35 +111,35 @@ func TestRtFuncs_HandlesAndSandboxes(t *testing.T) {
 	rb := newRecordBuilder()
 	files := rt.MapOf(rt.Hash, rt.Equal, []rt.MapEntry[any, any]{{Key: "in.txt", Val: rt.Bytes("seed")}})
 	links := rt.MapOf(rt.Hash, rt.Equal, []rt.MapEntry[any, any]{{Key: "to-in.txt", Val: "in.txt"}})
-	sandbox := call(disk, "fs_host.new_sandbox", "/work", files, rtList("empty"), links).(rt.FileSystem)
-	call(disk, "fs_host.sandbox_fail", sandbox, "/work/locked.txt", int64(stdio.OpCreate),
+	sandbox := call(disk, "fs/host.new_sandbox", "/work", files, rtList("empty"), links).(rt.FileSystem)
+	call(disk, "fs/host.sandbox_fail", sandbox, "/work/locked.txt", int64(stdio.OpCreate),
 		rb.FieldVariant("io.Error", "PermissionDenied", "path", "locked.txt"), int64(0))
 	boxed := rt.EnterFiles(disk, sandbox)
-	if got := text(ok(boxed, "fs_host.read_text", "in.txt")); got != `String("seed")` {
+	if got := text(ok(boxed, "fs/host.read_text", "in.txt")); got != `String("seed")` {
 		t.Errorf("a sandboxed read answered %s", got)
 	}
-	leaked := ok(boxed, "fs_host.create", "/work/empty/new.txt", int64(0))
+	leaked := ok(boxed, "fs/host.create", "/work/empty/new.txt", int64(0))
 	ok(boxed, "io.Writer.write_text", leaked, "x")
-	if got := text(call(boxed, "fs_host.create", "locked.txt", int64(0))); got != `results.Result/4.Err{0=io.Error/4.PermissionDenied{path=String("locked.txt")}}` {
+	if got := text(call(boxed, "fs/host.create", "locked.txt", int64(0))); got != `results.Result/4.Err{0=io.Error/4.PermissionDenied{path=String("locked.txt")}}` {
 		t.Errorf("an injected failure answered %s", got)
 	}
-	if got := ok(boxed, "fs_host.current_dir").(string); got != "/work" {
+	if got := ok(boxed, "fs/host.current_dir").(string); got != "/work" {
 		t.Errorf("a sandbox's current_dir is %q", got)
 	}
-	if got := text(call(disk, "fs_host.sandbox_open", sandbox)); got != `[String("/work/empty/new.txt")]` {
+	if got := text(call(disk, "fs/host.sandbox_open", sandbox)); got != `[String("/work/empty/new.txt")]` {
 		t.Errorf("sandbox_open answered %s", got)
 	}
 	ok(boxed, "io.Writer.close", leaked)
-	if got := text(call(disk, "fs_host.sandbox_files", sandbox)); got != `{String("/work/empty/new.txt")=>Bytes("x"), String("/work/in.txt")=>Bytes("seed")}` {
+	if got := text(call(disk, "fs/host.sandbox_files", sandbox)); got != `{String("/work/empty/new.txt")=>Bytes("x"), String("/work/in.txt")=>Bytes("seed")}` {
 		t.Errorf("sandbox_files answered %s", got)
 	}
-	if got := text(call(disk, "fs_host.sandbox_log", sandbox)); got != `[String("read /work/in.txt"), String("write /work/empty/new.txt"), String("write /work/locked.txt")]` {
+	if got := text(call(disk, "fs/host.sandbox_log", sandbox)); got != `[String("read /work/in.txt"), String("write /work/empty/new.txt"), String("write /work/locked.txt")]` {
 		t.Errorf("sandbox_log answered %s", got)
 	}
 	if _, err := os.Stat("/work/empty/new.txt"); err == nil {
 		t.Error("a sandboxed write reached the disk")
 	}
-	if got := text(ok(boxed, "fs_host.read_text", "to-in.txt")); got != `String("seed")` {
+	if got := text(ok(boxed, "fs/host.read_text", "to-in.txt")); got != `String("seed")` {
 		t.Errorf("a read through a seeded link answered %s", got)
 	}
 }
@@ -177,7 +177,7 @@ func TestRtFuncs_FilesAndWithin(t *testing.T) {
 	disk := rt.NewFrame(context.Background())
 	dir := filepath.ToSlash(t.TempDir())
 	p := dir + "/f.bin"
-	f := ok(disk, "fs_host.open_file", p, int64(2))
+	f := ok(disk, "fs/host.open_file", p, int64(2))
 	ok(disk, "io.File.write", f, rt.Bytes("hello"))
 	if got := text(ok(disk, "io.File.position", f)); got != "Int(5)" {
 		t.Errorf("position after a write is %s", got)
@@ -201,7 +201,7 @@ func TestRtFuncs_FilesAndWithin(t *testing.T) {
 	if got := text(call(disk, "io.File.close", f)); got != "results.Result/4.Err{0=io.Error/4.Closed{}}" {
 		t.Errorf("a second close answered %s", got)
 	}
-	ro := ok(disk, "fs_host.open_file", p, int64(0))
+	ro := ok(disk, "fs/host.open_file", p, int64(0))
 	if got := text(call(disk, "io.File.write", ro, rt.Bytes("x"))); got != `results.Result/4.Err{0=io.Error/4.PermissionDenied{path=String("`+p+`")}}` {
 		t.Errorf("a write to a read-only File answered %s", got)
 	}
@@ -210,7 +210,7 @@ func TestRtFuncs_FilesAndWithin(t *testing.T) {
 	if err := os.Symlink("f.bin", filepath.Join(dir, "link")); err != nil {
 		t.Fatal(err)
 	}
-	if got := text(ok(disk, "fs_host.link_metadata", dir+"/link")); !strings.HasPrefix(got, "[Int(2), Int(5), ") {
+	if got := text(ok(disk, "fs/host.link_metadata", dir+"/link")); !strings.HasPrefix(got, "[Int(2), Int(5), ") {
 		t.Errorf("link_metadata of a link answered %s, want kind 2 (Symlink) and size 5", got)
 	}
 
@@ -223,19 +223,19 @@ func TestRtFuncs_FilesAndWithin(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "site", "index.txt"), []byte("i"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	confined := ok(disk, "fs_host.within", dir+"/site").(rt.FileSystem)
+	confined := ok(disk, "fs/host.within", dir+"/site").(rt.FileSystem)
 	if confined.Held() {
 		t.Error("a within over the disk is held; a replay would write the disk twice")
 	}
 	inside := rt.EnterFiles(disk, confined)
-	if got := text(ok(inside, "fs_host.read_text", "index.txt")); got != `String("i")` {
+	if got := text(ok(inside, "fs/host.read_text", "index.txt")); got != `String("i")` {
 		t.Errorf("a read inside answered %s", got)
 	}
-	if got := text(call(inside, "fs_host.read_text", "../secret.txt")); !strings.Contains(got, "InvalidPath") {
+	if got := text(call(inside, "fs/host.read_text", "../secret.txt")); !strings.Contains(got, "InvalidPath") {
 		t.Errorf("a read outside answered %s, want InvalidPath", got)
 	}
-	call(disk, "fs_host.release", confined)
-	if got := text(call(disk, "fs_host.within", dir+"/none")); !strings.Contains(got, "NotFound") {
+	call(disk, "fs/host.release", confined)
+	if got := text(call(disk, "fs/host.within", dir+"/none")); !strings.Contains(got, "NotFound") {
 		t.Errorf("within of a missing directory answered %s", got)
 	}
 }

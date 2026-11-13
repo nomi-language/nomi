@@ -162,11 +162,11 @@ end
 	rejects(t, `import std
 
 fn main()
-    std::phrase_format.x()
+    std::phrase::format.x()
     std::nosuch.f()
 end
 `,
-		"4:5: `std::phrase_format` is internal to std::phrase",
+		"4:5: `std::phrase::format` is internal to std::phrase",
 		"5:5: `std::nosuch` names no file: std has no nosuch.nomi; std holds `std::actors`, `std::add`, `std::assertions`, `std::base64`, `std::bits`, `std::bitwise` and more")
 }
 
@@ -337,6 +337,33 @@ end
 
 fn main()
     _ = notifications.count() + job_notifications.count()
+end
+`)
+}
+
+// Two std modules nested as `testing` under their parents bind one name.
+// `std::fs` is a file, so there is no directory to import: the hint renames
+// one after its parent, and the renamed pair, beside std::fs itself, checks.
+func TestShortName_TwoNestedStdModulesOfOneName(t *testing.T) {
+	rejects(t, `import
+    std::fs::testing
+    std::process::testing
+end
+
+fn main()
+    _ = testing.Sandbox{}
+end
+`,
+		"3:19: 'testing' is already imported on line 2 from std::fs::testing; two imports cannot bind one name; import one under another name, as in `import std::process::testing as process_testing`")
+	accepts(t, `import
+    std::fs
+    std::fs::testing as fs_testing
+    std::process::testing
+end
+
+fn main()
+    _ = fs_testing.run(fs_testing.Sandbox{}, fn -> fs.exists("a"))
+    _ = testing.run([], fn -> 1)
 end
 `)
 }

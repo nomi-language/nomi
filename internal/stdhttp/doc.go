@@ -1,4 +1,4 @@
-// Package stdhttp is std/http_host and std/signatures_host: the HTTP
+// Package stdhttp is std/http/host and std/signatures/host: the HTTP
 // client and server over Go's net/http, TLS and TCP for std/tls and
 // std/net, the WebSocket crossings, and signing keys. HTTP, TLS and TCP
 // share this one adapter package. internal/hostgen/stdtable's
@@ -7,8 +7,8 @@
 //
 // std/url, std/http, std/tls and std/net are lowered with each program
 // (`programStdModules`), so their structs can stand in public signatures.
-// std/url crosses through std/url_host (rt/url.go, pure), the others through
-// std/http_host here.
+// std/url crosses through std/url/host (rt/url.go, pure), the others through
+// std/http/host here.
 //
 // inventory.txt lists every exported identifier of Go's HTTP packages, what
 // Nomi does with it and the phase that lands it. TestGoInventoryIsComplete
@@ -19,7 +19,7 @@
 //
 // A `Url` crosses as its 14 parts; a request as method, URL text, headers as
 // alternating names and values, and the body as bytes or a `Reader`.
-// `http_host.send` returns an `Exchange` handle (rt.HTTPExchange) whose
+// `std::http::host.send` returns an `Exchange` handle (rt.HTTPExchange) whose
 // accessors read the response, or an `http.Error` variant's name and
 // fields. A `Client` is a handle (rt.HTTPClient) over Go's http.Client,
 // which owns the pool; `http.default_client()` is one Go client per
@@ -27,7 +27,7 @@
 // js/wasm the transport sets no dial function so Go keeps its `fetch` path
 // (transport_js.go).
 //
-// `http_testing.run` is three VM crossings (internal/vm/network.go):
+// `std::http::testing.run` is three VM crossings (internal/vm/network.go):
 // `run_on` installs the `answer` function on the frame (rt.EnterNetwork),
 // `answer_on` calls it and records the request, and `recorded_on` returns
 // the requests. The builder lowers them like the file `run_on` (`answerOn`,
@@ -41,10 +41,10 @@
 //
 // Go's http.Server (server.go) calls its handler on a goroutine per
 // request; the handler hands the request to the program over a channel
-// (`http_host.next`) and waits for `http_host.finish`, so no Nomi code runs
+// (`std::http::host.next`) and waits for `std::http::host.finish`, so no Nomi code runs
 // on Go's goroutines. `http.serve` loops on `next` and spawns each request
 // on its supervisor. The request task runs its handler through
-// `http_host.request_on` (`networkRequestHost` in internal/vm, lowered by
+// `std::http::host.request_on` (`networkRequestHost` in internal/vm, lowered by
 // `requestOn`): the handler's context is the active one with the server's
 // `request_timeout` as deadline, on a frame whose app `Context` reads it and
 // which stops when the client goes away (rt.EnterRequest). Every write to
@@ -58,25 +58,25 @@
 // `r.URL` holds only the target, so `served_url` adds the scheme (`https`
 // when `in_tls` reports a handshake) and the `Host` header's host (the
 // local address when it is empty), making a served `url` absolute like
-// `http_testing.request`'s, which sets `host` to its URL's host. An
+// `std::http::testing.request`'s, which sets `host` to its URL's host. An
 // absolute-form target and `OPTIONS *` are left as Go read them.
 //
-// `http_host.listen` carries the `listen` class (not on js/wasm or
+// `std::http::host.listen` carries the `listen` class (not on js/wasm or
 // wasip1). A listener registers a drain hook (rt.OnDrain), so draining runs
 // `Server.Shutdown` before any grace period: accepting stops, taken requests
 // finish, `serve` returns and the drain ends. `http.serve_here` serves
 // requests as tasks of the enclosing `concurrent` block;
-// `http_testing.with_server` uses it with a certificate from
-// `http_host.test_certificate`.
+// `std::http::testing.with_server` uses it with a certificate from
+// `std::http::host.test_certificate`.
 //
 // # Routing
 //
-// `Router` builds Go's ServeMux (`http_host.new_mux`) with handlers that
-// only record the matched pattern and wildcard values; `http_host.route`
+// `Router` builds Go's ServeMux (`std::http::host.new_mux`) with handlers that
+// only record the matched pattern and wildcard values; `std::http::host.route`
 // runs the mux on a recorder and returns the match or what the mux wrote
 // (redirect, 405, 404). Pattern syntax, precedence, conflicts and path
 // cleaning are Go's. `Route<P>` is a checked literal whose `check` adds two
-// rules before Go's (`http_host.check_pattern`): the method is a named
+// rules before Go's (`std::http::host.check_pattern`): the method is a named
 // `Method` variant, and a brace stands only in a whole-segment wildcard;
 // `check_type` holds the wildcards to `P`'s fields. `Route.parse` and
 // `Route.with_method` (which skips the method rule) apply them at run time,
@@ -100,7 +100,7 @@
 // `CookieJar` is Go's cookiejar (rt.HTTPJar). `Headers.write_to`
 // (`Header.WriteSubset`), `Protocol.parse` (`ParseHTTPVersion`),
 // `Request.basic_auth` and `Request.add_cookie` cross as plain strings. A
-// multipart form crosses as a flat `List<Bytes>` (`http_host.parse_multipart`,
+// multipart form crosses as a flat `List<Bytes>` (`std::http::host.parse_multipart`,
 // `encode_multipart`) over bytes already read; `Body.Multipart`'s boundary
 // is a digest of its parts, so the separately computed `Content-Type` and
 // bytes agree.
@@ -122,25 +122,25 @@
 // `log_requests`, `security_headers`, `request_id` and the rest) is a Nomi
 // function taking the handler first and returning one. Only `compress`
 // crosses to Go (compress.go): a whole body goes through
-// `http_host.gzip_bytes`; a `Body.Stream` through `gzip_reader`, which
+// `std::http::host.gzip_bytes`; a `Body.Stream` through `gzip_reader`, which
 // flushes the compressor after each source read so a slow stream is not
 // held; a `Body.Produce` writes into `gzip_writer`, whose
 // `rt.WriteSink.Flush` flushes the compressor and the writer under it at
-// each `Writer.flush`. `http_testing.decompressed` reads back through
-// `http_host.gunzip`. `method_override` reads a URL-encoded `POST` body
+// each `Writer.flush`. `std::http::testing.decompressed` reads back through
+// `std::http::host.gunzip`. `method_override` reads a URL-encoded `POST` body
 // through `read_capped` and passes on a request whose body is those bytes.
 // `cross_origin_protection` builds one `Router` per bypass pattern
 // (overlaps are fine there; one router refuses them) and asks
 // `CrossOrigin.check`, which runs Go's `CrossOriginProtection.Check`
-// (`http_host.cross_origin_check`) over the Nomi request's method, `Host`
+// (`std::http::host.cross_origin_check`) over the Nomi request's method, `Host`
 // and headers, not `Request.incoming`, since an earlier middleware may have
 // changed the headers.
 //
 // # TLS and TCP
 //
-// std/tls and std/net cross through std/http_host too (tls.go, netconn.go).
+// std/tls and std/net cross through std/http/host too (tls.go, netconn.go).
 // A `ClientConfig` or `ServerConfig` is a Nomi value; each use builds Go's
-// *tls.Config (`http_host.tls_config`, then `tls_with_certificate` per
+// *tls.Config (`std::http::host.tls_config`, then `tls_with_certificate` per
 // certificate) as a `TlsConfig` handle. A `Certificate` is a handle over
 // tls.Certificate, its key never read back. A `Connection` (rt.NetConn)
 // wraps a net.Conn (TCP or *tls.Conn) with one rt `Reader` and one
@@ -158,7 +158,7 @@
 //
 // Go calls a program's hooks on its own goroutines, where no Nomi code may
 // run. A broker (broker.go) carries each call to the Nomi task waiting in
-// the crossing that set it off: a server's by `http_host.next`; a client's
+// the crossing that set it off: a server's by `std::http::host.next`; a client's
 // by `send`, which runs `Do` on a goroutine and serves the broker until it
 // returns; a TLS configuration's by whichever of those adopts it, or by the
 // handshake (`tls_dial`, `tls_client`, `tls_server`, and a TLS listener's
@@ -181,13 +181,13 @@
 // message is taken. `http.reverse_proxy` is Nomi: it sends once with the
 // client's handle, following no redirect, and returns a `Body.Produce`
 // copying the upstream body, flushing per `flush_interval`.
-// `http_host.Handle` (rt.HTTPHandle) holds Go values with no handle type of
+// `std::http::host.Handle` (rt.HTTPHandle) holds Go values with no handle type of
 // their own: a ClientHello, a tracer, a read message, a multipart reader
 // and its parts.
 //
 // # WebSocket
 //
-// std/websocket is Nomi over eleven crossings in std/http_host
+// std/websocket is Nomi over eleven crossings in std/http/host
 // (websocket.go); the protocol is internal/websocket, standard library
 // only, since Go has none. Framing, masking, the UTF-8 check, ping replies
 // and the limit are per-frame byte work that is slow in the VM, and
@@ -211,7 +211,7 @@
 // until the peer's or five seconds, or waits for the task already reading.
 // A protocol error sends RFC 6455's code (1002, 1007, 1009) and closes.
 // Each connection's drain hook closes with 1001.
-// `http_testing.open_websocket` runs `on_connection` on a task over
+// `std::http::testing.open_websocket` runs `on_connection` on a task over
 // `ws_pipe`, a buffered in-memory pair, since net.Pipe's unbuffered ends
 // deadlock when both sides send a close frame. internal/websocket's tests
 // feed hand-built frames (Autobahn sections 1 to 7 and 9, as a table);
@@ -220,7 +220,7 @@
 //
 // # Signatures
 //
-// std/signatures crosses through the internal std/signatures_host
+// std/signatures crosses through the internal std/signatures/host
 // (signatures.go). A private key crosses as PKCS #8 DER and a public key as
 // PKIX DER, held in the opaque `PrivateKey` and `PublicKey` with their kind
 // and parsed again by each crossing (for RSA, most of a sign's or verify's

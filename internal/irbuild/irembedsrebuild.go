@@ -7,17 +7,20 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// A value, not a construction, of a type that holds an embedded type, used
-// where the same type at the embedding enum is expected: `w: Maybe<Shape> =
-// m` for `m: Maybe<Circle>` and `enum Shape { embeds Circle }`, or the
-// narrower operand of `m == Some(Shape.Dot)`. The checker admits it (a
-// Maybe<Circle> is assignable to a Maybe<Shape>), and a construction in that
-// position is built at the expected type, so its embedded value widens where
-// it sits. A value already built is not the same runtime value: a Shape
-// holding a Circle is the enum's record around the Circle record
-// (ir.NewMakeVariantEmbed), and a Maybe<Shape> holds that record where a
-// Maybe<Circle> holds the Circle. So the value is rebuilt at the wider type,
-// not relabelled:
+// A value, not a construction, whose type converts below its top to the
+// type expected (spec §5 *Covariant conversion*), where an element is not
+// already a value of the wider type: `w: Maybe<Shape> = m` for `m:
+// Maybe<Circle>` and `enum Shape { embeds Circle }`, `d: Maybe<Display> = m`
+// for `m: Maybe<List<Int>>`, `b: Box<Display> = bx` for `bx: Box<Int>`, or
+// the narrower operand of `m == Some(Shape.Dot)`. A construction in that
+// position is built at the expected type, so its element converts where it
+// sits. A value already built is not the same runtime value: a Shape holding
+// a Circle is the enum's record around the Circle record
+// (ir.NewMakeVariantEmbed), a List<Int> held as a Display is boxed, and a
+// Box<Int>'s descriptor names its type argument. So the value is rebuilt at
+// the wider type, not relabelled, each part converted by coerceEmpty (which
+// boxes it, widens it into its enum, wraps a function or comes back here for
+// a nested value):
 //
 //   - a tuple, an anonymous record or a user generic struct is made again
 //     from its parts, each converted to the wider part (coerceEmpty, which
@@ -63,13 +66,18 @@ func (bl *irScalarBuilder) rebuildWidened(at ast.Node, v ir.Temp, have, want kin
 		return ir.NoTemp, false
 	}
 	if he, isVector := vectorElem(have); isVector {
-		if we, wvector := vectorElem(want); wvector && have != kindEmptyVector && want != kindEmptyVector && (irRetainedVectorKind(have) || bl.g.irVectorValueKind(have)) && (irRetainedVectorKind(want) || bl.g.irVectorValueKind(want)) {
+		// A Vector holds any value a call passes, as its literal does
+		// (vectorMakeOf): an interface's existential among them.
+		if we, wvector := vectorElem(want); wvector && have != kindEmptyVector && want != kindEmptyVector && irCallOperandKind(he) && irCallOperandKind(we) {
 			return bl.rebuildMapped(at, v, ir.IterOverVector, ir.IterToVector, he, we, want)
 		}
 		return ir.NoTemp, false
 	}
 	if have.tag != tagNamed || want.tag != tagNamed || have.def == nil || want.def == nil || !irSameGeneric(have.def, want.def) {
 		return ir.NoTemp, false
+	}
+	if have.def.isDistinct {
+		return bl.rebuildDistinct(at, v, have, want)
 	}
 	if have.def.isEnum {
 		if !irRetainedEnumKind(have.def) || !irRetainedEnumKind(want.def) || len(have.def.variants) != len(want.def.variants) {
@@ -144,6 +152,26 @@ func (bl *irScalarBuilder) rebuildRecord(at ast.Node, v ir.Temp, have, want kind
 		ops[i] = w
 	}
 	m := ir.NewMakeRecord(bl.g.irNodePos(at), bl.f.NewTemp(), want.comp.names, ops)
+	bl.b.Append(m)
+	bl.side(m.Dst(), irScalarSide{k: want})
+	return m.Dst(), true
+}
+
+// rebuildDistinct makes a user generic distinct type again at want from its
+// inner value converted: `Ids<Maybe<Int>>` as an `Ids<Display>` unwraps the
+// List, rebuilds it, and wraps it at the wider instance.
+func (bl *irScalarBuilder) rebuildDistinct(at ast.Node, v ir.Temp, have, want kind) (ir.Temp, bool) {
+	hd, wd := have.def, want.def
+	held := func(d *typeDef) bool { return irWrappingDistinct(d) || irCompositeDistinct(d) }
+	if !wd.isDistinct || !held(hd) || !held(wd) {
+		return ir.NoTemp, false
+	}
+	p := bl.distinctProjection(at, v, have, false, "rebuild")
+	w, ok := bl.rebuildPart(at, p, hd.inner, wd.inner)
+	if !ok {
+		return ir.NoTemp, false
+	}
+	m := ir.NewMakeDistinct(bl.g.irNodePos(at), bl.f.NewTemp(), bl.g.irTypeSym(wd), w)
 	bl.b.Append(m)
 	bl.side(m.Dst(), irScalarSide{k: want})
 	return m.Dst(), true

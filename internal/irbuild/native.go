@@ -672,6 +672,14 @@ type gen struct {
 	// of a written source (iterViewAt).
 	iterViewsFA *analysis.FileAnalysis
 	iterViewsAt map[irCoercionPos]*analysis.IterView
+	// conversionsAt indexes conversionsFA's Conversions by position, for a
+	// copy of a written expression (conversionAt).
+	conversionsFA *analysis.FileAnalysis
+	conversionsAt map[irCoercionPos]*analysis.Conversion
+	// debugImplsVisiting holds the existential kinds whose implementers'
+	// Debug bodies existentialDebugImpls is naming, so a box holding the
+	// existential itself does not walk it again.
+	debugImplsVisiting map[kind]bool
 	// holeFor maps a name the builder binds in place of a written
 	// expression it has lowered already (a pipe prefix's held value,
 	// pipeStageValues) to that expression, whose records it reads.

@@ -85,7 +85,7 @@ func helperPath(t *testing.T) string {
 }
 
 // conformanceBody exercises every call std/process makes. The operating
-// system runs it against the helper, and process_testing's fake against
+// system runs it against the helper, and std::process::testing's fake against
 // answers that say what the helper would; both print the same.
 const conformanceBody = `
 fn body(helper: String)
@@ -150,7 +150,7 @@ fn main() -> Result<Unit, Error>
 end
 `, helper) + strings.Replace(conformanceBody, "fn body(helper: String)", "fn body(helper: String) -> Result<Unit, Error>", 1)
 
-	fakeSrc := conformanceImports + "    std::process_testing.{self, Answer}\nend\n" + fmt.Sprintf(`
+	fakeSrc := conformanceImports + "    std::process::testing.{self, Answer}\nend\n" + fmt.Sprintf(`
 fn main() -> Result<Unit, Error>
     helper = %q
     a = fn args: List<String>, stdout: String -> Answer{program: helper, args: Some(["nomi-process-helper", ..args]), stdout:}
@@ -164,7 +164,7 @@ fn main() -> Result<Unit, Error>
         a(["upper", "2"], "ABC"),
     ]
 
-    ran = process_testing.run(answers, fn -> body(helper))
+    ran = testing.run(answers, fn -> body(helper))
     ran.value
 end
 `, helper) + strings.Replace(conformanceBody, "fn body(helper: String)", "fn body(helper: String) -> Result<Unit, Error>", 1)

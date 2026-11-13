@@ -388,14 +388,14 @@ T ok fs.exists
 T ok fs.temp_dir
 T ok fs.make_temp_dir
 T ok fs.current_dir
-C fs_testing
+C fs/testing
 E 0
 N 4
-H 458375fabb879509f545c6c60e1460dd56b475dfa669b64603c90eaafa7cf772
+H cb61ebd3703fa2147e16c4a5ecb0295c1ece9c0cb513a7db862ffec55004196b
 T ok struct Failure
-T ok fs_testing.run
-T ok fs_testing.text
-T ok fs_testing.conformance
+T ok testing.run
+T ok testing.text
+T ok testing.conformance
 C hash
 E 0
 N 15
@@ -511,17 +511,17 @@ T ok CookieJar.cookies
 T ok ConnState.to_string (impl Display for ConnState)
 T ok http.chunked_reader
 T ok http.multipart_parts
-C http_testing
+C http/testing
 E 0
 N 7
-H d16e750cc36eadb77cc8f6166e6074553c2a037a866aa778f3f6aec9ad96afcc
-T ok http_testing.run
-T ok http_testing.request [not run in the browser: listen]
-T ok http_testing.form_request
-T ok http_testing.chunks
-T ok http_testing.decompressed
-T ok http_testing.with_server [not run in the browser: listen]
-T ok http_testing.open_websocket
+H 0a704d5361c7e10dddc284e9e2d9e39ffeeb7f21ee87be62fe62639c3eba0deb
+T ok testing.run
+T ok testing.request [not run in the browser: listen]
+T ok testing.form_request
+T ok testing.chunks
+T ok testing.decompressed
+T ok testing.with_server [not run in the browser: listen]
+T ok testing.open_websocket
 C instant
 E 0
 N 9
@@ -698,15 +698,15 @@ T ok jobs.backoff
 T ok jobs.settle_for
 T ok jobs.handlers_by_kind
 T ok jobs.enqueue_due
-C jobs_testing
+C jobs/testing
 E 0
 N 5
-H 9f1c4dc94d4a19b9a6e392809dd9438a2511356397f2b942c650e3e8ea0134bc
+H b2fce6fc3a61e5233b877ff0d957a8d72d2069b0bbbeca6f452163a6b025fd65
 T ok struct Inline
-T ok jobs_testing.run_queued
-T ok jobs_testing.decodes
-T ok jobs_testing.conformance
-T ok jobs_testing.rules
+T ok testing.run_queued
+T ok testing.decodes
+T ok testing.conformance
+T ok testing.rules
 C json
 E 0
 N 7
@@ -747,11 +747,11 @@ E 0
 N 1
 H 3e1aaf677cbb88cf12437a8374fb1c60ad270fc74082feaacceeefcbe47a4fed
 T ok struct LiteralError
-C literals_testing
+C literals/testing
 E 0
 N 1
-H 4f0ac9a5eacf50c3d6c2c1449b99ab79367b7d22d0f9b1356d7e17dbee66e657
-T ok literals_testing.build_each
+H f82bf81d0185a90e4b30abc9541c6fdfd80e3ce31a092679f95dada1d055ae87
+T ok testing.build_each
 C locale
 E 0
 N 13
@@ -788,11 +788,11 @@ T ok log.any
 T ok Logger.text
 T ok Logger.json
 T ok Logger.is_enabled
-C log_testing
+C log/testing
 E 0
 N 1
-H b07491426ce7385c46289528f48c62cffac746919216f5009fc06f46304aa9d5
-T ok log_testing.run
+H c008be3c7de9225e7a0bceab63db906bfaa863b4f47dbef9aaa91d1a4ff1a9da
+T ok testing.run
 C mail
 E 0
 N 10
@@ -807,15 +807,15 @@ T ok mail.render
 T ok mail.quoted_printable
 T ok mail.encoded_words
 T ok mail.rfc5322_date
-C mail_testing
+C mail/testing
 E 0
 N 5
-H c23d7fbebe8d521a3dd7061a89f81dfc35b84392523eb210e448c5b3752889c6
+H 3438e47ba64e73e42dc196d61839648925bf7441e0ae12791cc745e04a44a405
 T ok struct Memory
 T ok struct Failing
-T ok mail_testing.with_smtp_server [not run in the browser: connect listen]
-T ok mail_testing.conformance [not run in the browser: connect listen]
-T ok mail_testing.rules
+T ok testing.with_smtp_server [not run in the browser: connect listen]
+T ok testing.conformance [not run in the browser: connect listen]
+T ok testing.rules
 C maps
 E 0
 N 16
@@ -959,12 +959,12 @@ T ok Status.to_string (impl Display for Status)
 T ok process.output
 T ok process.run
 T ok process.spawn
-C process_testing
+C process/testing
 E 0
 N 2
-H a9a94983bb3702700f459d7d9b73de67037a553f100382e56c9311aed28ee2b9
+H c5b046e5b60188bd15c22d933a3c4f648e7bc3a67240657b24421de7f53616cb
 T ok struct Answer
-T ok process_testing.run
+T ok testing.run
 C productable
 E 0
 N 1
@@ -1085,17 +1085,17 @@ T ok Row.get
 T ok Dialect.to_string (impl Display for Dialect)
 T ok Error.to_string (impl Display for Error)
 T ok sql.close_quietly
-C sql_testing
+C sql/testing
 E 0
 N 7
-H bb5259e82e02083b8c2ebcfed1b466fbf173aa7650d7873d800081467683c099
+H c9db4a5d8c915badb14a63e4a3e67bf7b7b6a24068059f50605ee06025538447
 T ok struct Fake
 T ok Fake.new
 T ok Fake.committed
 T ok Fake.is_closed
 T ok struct Failure
-T ok sql_testing.conformance
-T ok sql_testing.rules
+T ok testing.conformance
+T ok testing.rules
 C storage
 E 0
 N 10
@@ -1110,17 +1110,17 @@ T ok storage.join_key
 T ok storage.check_content_type
 T ok storage.local
 T ok storage.handler
-C storage_testing
+C storage/testing
 E 0
 N 7
-H ccacda8924baf3877eab103b71de5967c2e7c50ec4c66dc1e26534a68f17ffea
+H 99184e83e7cfc60717a2fcdc03aac3e3365ae19f46b9344ca77cecad0ba4e225
 T ok struct Memory
 T ok Memory.keys
 T ok struct Failing
-T ok storage_testing.conformance
-T ok storage_testing.rules
-T ok storage_testing.invalid_keys
-T ok storage_testing.odd_keys
+T ok testing.conformance
+T ok testing.rules
+T ok testing.invalid_keys
+T ok testing.odd_keys
 C strings
 E 0
 N 50

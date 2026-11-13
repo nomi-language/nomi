@@ -6,8 +6,8 @@ import
     std::duration.Duration
     std::instant.Instant
     std::jobs.{self, Handler, Worker}
-    std::jobs_testing.{Inline, JobState}
-    std::sql_testing.Fake
+    std::jobs::testing.{Inline, JobState}
+    std::sql::testing.Fake
     std::testing.Clock
     std::timer
     app.{self, App, Greeting, greet_job, next_report, slow_job}

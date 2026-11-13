@@ -8,9 +8,9 @@ import
     std::duration.Duration
     std::io
     std::jobs.{self, Failure, Job, Rate, Worker}
-    std::jobs_testing.Inline
+    std::jobs::testing.Inline
     std::json.{FromJson, ToJson}
-    std::sql_testing.Fake
+    std::sql::testing.Fake
 end
 
 pub struct Greeting

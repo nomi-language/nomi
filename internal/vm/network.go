@@ -8,18 +8,18 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// The crossings behind `http_testing.run`, std/http_host's private
+// The crossings behind `std::http::testing.run`, std/http/host's private
 // run_on, answer_on and recorded_on: the fake is a Nomi function, so the
 // machine installs it and calls it, as it calls a sandbox's body.
 const (
-	networkFakeKey     = "http_host.run_on"
-	networkAnswerKey   = "http_host.answer_on"
-	networkRecordedKey = "http_host.recorded_on"
-	networkRequestKey  = "http_host.request_on"
+	networkFakeKey     = "http/host.run_on"
+	networkAnswerKey   = "http/host.answer_on"
+	networkRecordedKey = "http/host.recorded_on"
+	networkRequestKey  = "http/host.request_on"
 )
 
 // networkMu guards each fake's list of answered requests: tasks inside one
-// `http_testing.run` may send at once.
+// `std::http::testing.run` may send at once.
 var networkMu sync.Mutex
 
 // networkFakeHost is `run_on(answer, body, finish)`: call body on a frame

@@ -9,7 +9,8 @@ import (
 
 // What a `phrase` declaration's function calls (std::phrase's private
 // constructors) and the Go-backed halves of std::phrase and std::money
-// (std::phrase_format, std::money_format) are std's own. A program that
+// (std::phrase::format, std::money::format) and every `host` module
+// (std::fs::host) are std's own. A program that
 // names one is rejected with the name and the module it is internal to,
 // and the expansion that calls them still runs (tests/19-locales).
 func TestInternalStd_AProgramCannotNameIt(t *testing.T) {
@@ -36,10 +37,14 @@ func TestInternalStd_AProgramCannotNameIt(t *testing.T) {
 			"`integer` is internal to std::phrase"},
 		rejected{"private type", "import std::phrase\n\nfn f(a: phrase.Argument) -> Int\n    1\nend\n\nfn main() end\n",
 			"`phrase.Argument` is internal to std::phrase"},
-		rejected{"money_format", "import std::money_format\n\nfn main() end\n",
-			"`std::money_format` is internal to std::money"},
-		rejected{"phrase_format", "import\n    std::phrase_format.variant_name\nend\n\nfn main() end\n",
-			"`std::phrase_format` is internal to std::phrase"},
+		rejected{"money/format", "import std::money::format\n\nfn main() end\n",
+			"`std::money::format` is internal to std::money"},
+		rejected{"phrase/format", "import\n    std::phrase::format.variant_name\nend\n\nfn main() end\n",
+			"`std::phrase::format` is internal to std::phrase"},
+		rejected{"fs/host", "import std::fs::host\n\nfn main() end\n",
+			"`std::fs::host` is internal to std::fs"},
+		rejected{"http/host through std", "import std\n\nfn main()\n    std::http::host.f()\nend\n",
+			"`std::http::host` is internal to std::http"},
 		// Removed: `Currency.parse` reads an ISO code, and a language's
 		// genders and cases are the compiler's and the language server's.
 		rejected{"Currency.iso", "import std::currency.Currency\n\nfn main()\n    _ = Currency.iso(\"EUR\")\nend\n",

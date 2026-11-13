@@ -2,45 +2,69 @@ package analysis
 
 import "strings"
 
-// Type argument conversion (spec §5 *Type argument conversion*).
+// Covariant conversion (spec §5 *Covariant conversion*).
 //
-// Values are immutable, so a std collection's type argument is covariant: a
-// List<Int> may stand where a List<Display> is expected, since nothing can
-// put a String into the list through the wider view. The checker admits the
-// conversion only where it leaves the value as it is at run time, so a call
-// site never pays for it element by element: each element must already be a
-// value of the wider type. That holds for
+// Values are immutable, so a type argument that a type's values only hold
+// may widen: a List<Int> may stand where a List<Display> is expected, since
+// nothing can put a String into the list through the wider view. Where a
+// value of F<A> is expected as F<B>, it converts when each type argument
+// converts by its parameter's variance, recursively:
 //
-//   - an element whose type carries its own run-time identity entering an
-//     interface it implements (carriesOwnType): the VM's interface value is
-//     the concrete value itself, and a call through it dispatches on the
-//     value's type;
-//   - a function type whose parameters and result convert so: a call
-//     through the wider type passes and returns the same values;
-//   - a nested collection, tuple or record whose parts convert so.
+//   - a std collection's arguments are covariant: List's, Vector's, Set's,
+//     Maybe's and Result's, and a Map's key and value;
+//   - a user-declared generic struct's or enum's parameters have the
+//     variance their fields give them (variance.go): covariant, converting
+//     as a value does; contravariant (named only in a function type's
+//     parameters), converting the other way; or invariant, comparing
+//     exactly;
+//   - a std struct's, a host type's and an interface's other than Iter's
+//     arguments compare exactly: such a value carries them;
+//   - a tuple's elements, a record's fields and a function type's result
+//     are covariant, and a function type's parameters contravariant.
 //
-// A value that enters an interface boxed (a Maybe, a List, a tuple, an
-// enum with an `embeds` variant, a std host type, a type parameter) would
-// need a box per element, and a function whose parameters or result convert
-// another way an adapter per element, so neither converts under a type
-// argument: the error's hint names the explicit form.
+// A conversion that leaves the value as it is costs nothing: an Int is a
+// Display value already, so a List<Int> is relabelled (irbuild's
+// relabels). Any other is done element by element: the builder rebuilds
+// the collection, record or variant with each part converted, and wraps a
+// function whose parameters or result convert (internal/irbuild,
+// irembedsrebuild.go, irfuncwiden.go). The checker records each such
+// conversion (conversions.go).
 //
-// A declared generic type's arguments (`Box<T>`, a std struct, a generic
-// interface other than Iter) compare exactly: its values carry their type
-// arguments (an instance's descriptor names them, and an erased instance
-// dispatches to the impls recorded under that name), so relabelling one
-// would change which impl a call reaches. `embeds` conversion still reaches
-// every type argument, and the builder rebuilds the value for it
-// (irbuild/irembedsrebuild.go).
+// A Set's elements and a Map's keys are found by equality and hashing. A
+// value entering an interface keeps both: an unboxed one is the value
+// itself, and a box compares and hashes by the static type it was made
+// from and then by that type's own equality (rt.Keys.Equal). So two
+// distinct keys of one type stay distinct once converted, and the rebuilt
+// Set or Map has the size it had.
 
-// typeArgMode is the mode for t's type arguments: a std collection's
-// convert in place (nested), a declared generic type's compare exactly
-// (declNested).
-func (m unifyMode) typeArgMode(t Type) unifyMode {
-	if stdCollectionArgs(t) {
-		return m.nested()
+// unifyArg unifies type argument i of the generic type t, a's want with
+// b's have, by the variance of t's parameter: a covariant one in m's nested
+// mode, a contravariant one swapped, and an invariant one exactly.
+func unifyArg(m unifyMode, t Type, i int, want, have Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
+	switch argVariance(t, i) {
+	case VarianceCovariant, VarianceUnused:
+		return unifyIn(m.nested(), want, have, subs, impls, implTypeArgs, rigid)
+	case VarianceContravariant:
+		return unifyIn(m.nested(), have, want, subs, impls, implTypeArgs, rigid)
 	}
-	return m.declNested()
+	return unifyIn(m.declNested(), want, have, subs, impls, implTypeArgs, rigid)
+}
+
+// argVariance is the variance of t's type parameter i: a std collection's
+// are covariant, a user-declared generic type's are its fields' (variance.go),
+// and every other type's are invariant.
+func argVariance(t Type, i int) Variance {
+	switch t.(type) {
+	case *ListType, *MapType:
+		return VarianceCovariant
+	}
+	if stdCollectionArgs(t) {
+		return VarianceCovariant
+	}
+	if vs := TypeParamVariances(t); i < len(vs) {
+		return vs[i]
+	}
+	return VarianceInvariant
 }
 
 // stdCollectionArgs reports whether t is a std collection whose type
@@ -59,14 +83,23 @@ func stdCollectionArgs(t Type) bool {
 	return false
 }
 
-// convertibleArgs reports whether t is a std collection of any shape, List
-// and Map included, whose type arguments convert in place.
+// convertibleArgs reports whether some type argument of t may convert: t is
+// a std collection of any shape, List and Map included, or a declared
+// generic type with a parameter that is not invariant.
 func convertibleArgs(t Type) bool {
 	switch t.(type) {
 	case *ListType, *MapType:
 		return true
 	}
-	return stdCollectionArgs(t)
+	if stdCollectionArgs(t) {
+		return true
+	}
+	for _, v := range TypeParamVariances(t) {
+		if v != VarianceInvariant {
+			return true
+		}
+	}
+	return false
 }
 
 // carriesOwnType reports whether a value of type t is, unchanged, a value of

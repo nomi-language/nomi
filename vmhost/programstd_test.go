@@ -45,7 +45,7 @@ func TestProgramStd_AReferenceEditorRuns(t *testing.T) {
 // binding and in an assertion subject, and `sql.close_quietly(...)`, plain and
 // piped. Each lowers as the bare call does (irbuild's ownModuleCall).
 func TestProgramStd_AModuleCallsItsOwnFunctionsQualified(t *testing.T) {
-	body := "import std::sql_testing.Fake\n" +
+	body := "import std::sql::testing.Fake\n" +
 		"fake = Fake.new()\n" +
 		"count = sql.transaction(fake, fn tx -> Conn.exec(tx, Sql\"DELETE FROM t\"))\n" +
 		"assert count == Ok(0)\n" +
@@ -73,13 +73,13 @@ func TestProgramStd_AModuleCallsItsOwnFunctionsQualified(t *testing.T) {
 
 // A std module's `//!` prompt or reference editor that imports another module
 // lowered with its program only in its own body runs: std/sql's editor
-// importing std/sql_testing's Fake, whose type names sql's Dialect. The prompt's
-// import is the only way std/sql reaches std/sql_testing, so it must bring the
+// importing std/sql/testing's Fake, whose type names sql's Dialect. The prompt's
+// import is the only way std/sql reaches std/sql/testing, so it must bring the
 // module into the program (irbuild's withProgramStd) and join the two
 // modules' types into one build (typeDeclEdges, nomiImportGraph), or the call
 // to Fake.new is not supported. LoadStdlib is `nomi test std/sql.nomi`.
 func TestProgramStd_APromptImportsAnotherProgramStdModule(t *testing.T) {
-	body := "import std::sql_testing.Fake\n" +
+	body := "import std::sql::testing.Fake\n" +
 		"fake = Fake.new()\n" +
 		"assert sql.transaction(fake, fn tx -> Conn.exec(tx, Sql\"DELETE FROM t\")) == Ok(0)\n" +
 		"sql.close_quietly(fake)\n" +
@@ -109,21 +109,21 @@ func TestProgramStd_APromptImportsAnotherProgramStdModule(t *testing.T) {
 		sawPrompt = sawPrompt || strings.Contains(c.Name, "close_quietly")
 	}
 	if !sawPrompt {
-		t.Errorf("std/sql has no close_quietly prompt, which imports std/sql_testing")
+		t.Errorf("std/sql has no close_quietly prompt, which imports std/sql/testing")
 	}
 }
 
 // A reference editor of a std module checked from edited source imports a
 // module lowered with its program whose bodies call the edited module's own
-// file-level functions: std/storage's editor using std/storage_testing's
-// Memory, whose put calls storage.check_key. storage_testing was checked
+// file-level functions: std/storage's editor using std/storage/testing's
+// Memory, whose put calls storage.check_key. std::storage::testing was checked
 // against the shared analysis, so its qualifier names the shared copy's
 // scope, which must resolve to the edited unit (irbuild's
 // indexEditedStdTwins). It was blocked: "qualified call, file.fn:
 // storage.check_key". A refused key fails the second assertion, so the
 // case ran.
 func TestProgramStd_AnEditorsImportCallsTheEditedModulesFunctions(t *testing.T) {
-	body := "import std::storage_testing.Memory\n" +
+	body := "import std::storage::testing.Memory\n" +
 		"store = Memory.new()\n" +
 		"assert Store.put(store, \"a/b.txt\", String.to_bytes(\"x\"), \"text/plain\") == Ok(Unit)\n" +
 		"assert Store.put(store, \"../b\", String.to_bytes(\"x\"), \"text/plain\") is Err(.InvalidKey{})\n" +
@@ -143,7 +143,7 @@ func TestProgramStd_AnEditorsImportCallsTheEditedModulesFunctions(t *testing.T) 
 
 // A reference editor of a std module lowered once for the process imports a
 // module lowered with its program and runs: std/io's editor calling
-// path.join, and building a Sandbox for fs_testing.run over fs.read_text;
+// path.join, and building a Sandbox for std::fs::testing.run over fs.read_text;
 // std/strings' editor calling Uuid.nil. A shared module never imports a
 // listed module itself, so the editor's import is the only way in, and the
 // listed modules are lowered with the editor as a program's files are
@@ -154,10 +154,10 @@ func TestProgramStd_AnEditorsImportCallsTheEditedModulesFunctions(t *testing.T) 
 func TestProgramStd_ASharedModulesEditorImportsAListedModule(t *testing.T) {
 	for _, c := range []struct{ module, body, want string }{
 		{"io", "import std::path\nprint(path.join(\"data\", \"log.txt\"))\nassert path.join(\"a/\", \"/b\") == \"a/b\"\n", "data/log.txt\n"},
-		{"io", "import std::fs\nimport std::fs_testing.{self, Sandbox}\n" +
-			"ran = fs_testing.run(Sandbox{files: {\"a.txt\" => \"x\"}}, fn -> fs.read_text(\"a.txt\"))\n" +
+		{"io", "import std::fs\nimport std::fs::testing.{self, Sandbox}\n" +
+			"ran = testing.run(Sandbox{files: {\"a.txt\" => \"x\"}}, fn -> fs.read_text(\"a.txt\"))\n" +
 			"assert ran.value == Result.Ok(\"x\")\n" +
-			"print(fs_testing.text(ran, \"/work/a.txt\"))\n", "Some(x)\n"},
+			"print(testing.text(ran, \"/work/a.txt\"))\n", "Some(x)\n"},
 		{"strings", "import std::io\nimport std::uuid.Uuid\nio.print(Uuid.nil())\nassert Uuid.version(Uuid.nil()) == 0\n", "00000000-0000-0000-0000-000000000000\n"},
 	} {
 		var out strings.Builder

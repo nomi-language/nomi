@@ -103,7 +103,7 @@ func (c *checker) resourceKindOf(ty Type) *resourceKind {
 		c.resourceKinds = map[string]*resourceKind{}
 	}
 	// The impls are known by the receiver's name, so the one found must be
-	// for this declaration: std/http_host's `Conn` is not std/sql's.
+	// for this declaration: std/http/host's `Conn` is not std/sql's.
 	release := c.resourceImplFunc(name, origin, "Release", "release")
 	if release == nil {
 		c.resourceKinds[key] = nil

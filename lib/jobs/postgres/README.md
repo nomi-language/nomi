@@ -129,7 +129,7 @@ end
   one no running worker handles, or no worker runs their queue.
 - Each failed run is kept on the row in `errors`, with its attempt and
   time.
-- It passes `std/jobs_testing`'s conformance suite.
+- It passes `std/jobs/testing`'s conformance suite.
 
 ## Not built
 

@@ -654,7 +654,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// Program keeps only when the cache has no std/context (see the
 	// ContextType comment after Sweep C-types).
 	earlyContextType := findContextType(modules)
-	// StdlibModuleScopes: short stdlib name → defining module Scope, the
+	// StdlibModuleScopes: stdlib module name (`io`, `fs/testing`) → defining module Scope, the
 	// Program's StdlibModuleScopes, and given to every builder now since
 	// the sweeps read it before the Program exists. Stdlib symbols carry
 	// no SourceFile, so this is how a pass finds a stdlib module scope.
@@ -667,8 +667,8 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		if !IsStdlibKey(key) || cfa == nil || cfa.ModuleScope == nil {
 			continue
 		}
-		if seg := lastSegment(key); seg != "" {
-			stdlibScopes[seg] = cfa.ModuleScope
+		if name := strings.TrimPrefix(key, "std/"); name != "" {
+			stdlibScopes[name] = cfa.ModuleScope
 		}
 	}
 	for name, scope := range modules {

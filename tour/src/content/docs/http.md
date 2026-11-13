@@ -15,7 +15,7 @@ such as a refused connection or a timeout:
 ```nomi-run
 import
     std::http.{self, Response, Status}
-    std::http_testing
+    std::http::testing
     std::url.Url
 end
 
@@ -26,7 +26,7 @@ fn greeting(name: String) -> Result<String, http.Error>
 end
 
 fn main()
-    ran = http_testing.run(fn request ->
+    ran = testing.run(fn request ->
         Ok(Response{body: .Text("hello from ${request.url.path}")})
     end, fn ->
         greeting("ann b")
@@ -40,7 +40,7 @@ dbg line 20: ran.value = Ok("hello from /greet/ann b")
 -->
 
 The page cannot reach the network, so `main` runs `greeting` under
-[`http_testing`](/reference/http_testing/), which responds to each request with
+[`std::http::testing`](/reference/http/testing/), which responds to each request with
 a function instead, as a test does. `Url"..."` is a [checked
 literal](/typed-literals/#checked-literals): it is a `Url`, not a `Result`,
 and it escapes each `${...}` for where it stands. `ann b` goes out as the
@@ -65,7 +65,7 @@ no network:
 ```nomi-run
 import
     std::http.{Request, Response, Route, Router}
-    std::http_testing
+    std::http::testing
 end
 
 fn show(Request, user: {id: Int}) -> Response
@@ -75,15 +75,15 @@ end
 fn main()
     user: Route<{id: Int}> = "GET /users/{id}"
     router = Router.new([Route.to_with(user, show)])!
-    found = Router.serve(router, http_testing.request(.Get, "/users/7"))
+    found = Router.serve(router, testing.request(.Get, "/users/7"))
     dbg Response.text(found)
-    dbg Router.serve(router, http_testing.request(.Get, "/users/ann")).status
+    dbg Router.serve(router, testing.request(.Get, "/users/ann")).status
     dbg "${Route.path_with(user, {id: 8})}"
 end
 ```
 <!-- expect
 dbg line 14: Response.text(found) = Ok("user 7")
-dbg line 15: Router.serve(router, http_testing.request(.Get, "/users/ann")).status = Status(404)
+dbg line 15: Router.serve(router, testing.request(.Get, "/users/ann")).status = Status(404)
 dbg line 16: "${Route.path_with(user, {id: 8})}" = "/users/8"
 -->
 
@@ -99,7 +99,7 @@ query parameter is not part of the route:
 `Url.query_values(request.url) |> Query.get("page")` returns the first
 `page` of `/posts?page=2` as a `Maybe<String>`.
 
-`http_testing.form_request(.Post, "/signup", [("email", "ada@example.com")])`
+`std::http::testing.form_request(.Post, "/signup", [("email", "ada@example.com")])`
 builds a request that posts a form, as
 [Frontends](/frontends/#pages-rendered-on-the-server) does. An HTML form
 sends only `GET` and `POST`, so `Router.handler(router) |>
@@ -141,7 +141,7 @@ triple quotes:
 import
     std::html.Html
     std::http.{Request, Response}
-    std::http_testing
+    std::http::testing
 end
 
 fn badge(count: Int) -> Html
@@ -161,11 +161,11 @@ fn profile(request: Request) -> Response
 end
 
 fn main()
-    dbg Response.text(profile(http_testing.request(.Get, "/")))
+    dbg Response.text(profile(testing.request(.Get, "/")))
 end
 ```
 <!-- expect
-dbg line 24: Response.text(profile(http_testing.request(.Get, "/"))) = Ok("<main>\n  <h1>&lt;nobody&gt; <span class='badge'>3</span></h1>\n</main>")
+dbg line 24: Response.text(profile(testing.request(.Get, "/"))) = Ok("<main>\n  <h1>&lt;nobody&gt; <span class='badge'>3</span></h1>\n</main>")
 -->
 
 A slot shows a `Maybe`'s value or nothing, so `${if unread > 0 then Some(Html"<b>${unread} new</b>") else None}` shows its part
@@ -192,7 +192,7 @@ failure gets. One route list holds both kinds of handler:
 import
     std::html.Html
     std::http.{Request, Response, Route, Router, Status, ToResponse}
-    std::http_testing
+    std::http::testing
     std::log.{self, Logger}
 end
 
@@ -254,16 +254,16 @@ fn main()
         Route.to_with("POST /users/{id}", rename),
     ])!
 
-    get = fn target: String -> Router.serve(router, http_testing.request(.Get, target))
+    get = fn target: String -> Router.serve(router, testing.request(.Get, target))
     dbg Response.text(get("/users/7"))
     dbg get("/users/8").status
-    dbg Response.text(Router.serve(router, http_testing.form_request(.Post, "/users/7", [])))
+    dbg Response.text(Router.serve(router, testing.form_request(.Post, "/users/7", [])))
 end
 ```
 <!-- expect
 dbg line 67: Response.text(get("/users/7")) = Ok("<h1>Ada</h1>")
 dbg line 68: get("/users/8").status = Status(404)
-dbg line 69: Response.text(Router.serve(router, http_testing.form_request(.Post, "/users/7", []))) = Ok("the form has no name\n")
+dbg line 69: Response.text(Router.serve(router, testing.form_request(.Post, "/users/7", []))) = Ok("the form has no name\n")
 -->
 
 ## Serving
@@ -330,7 +330,7 @@ and a body without a `title` gets a 400:
 ```nomi-run
 import
     std::http.{self, Request, Response, Status, ToResponse}
-    std::http_testing
+    std::http::testing
     std::json.{FromJson, ToJson}
 end
 
@@ -354,7 +354,7 @@ fn create_todo(request: Request) -> Result<Response, http.Error>
 end
 
 test "a todo is created from its JSON"
-    post = fn text: String -> {..http_testing.request(.Post, "/todos"), body: .Text(text)}
+    post = fn text: String -> {..testing.request(.Post, "/todos"), body: .Text(text)}
 
     created = ToResponse.to_response(create_todo(post(`{"title": "milk"}`)))
     assert created.status == Status.created
@@ -394,7 +394,7 @@ wrapped by the middleware that finds one:
 ```nomi-run
 import
     std::http.{self, Cors, Handler, Headers, Origin, Request, Response, Route, Router, Status, ToResponse}
-    std::http_testing
+    std::http::testing
 end
 
 struct User
@@ -449,14 +449,14 @@ fn main()
         |> http.request_id()
 
     get = fn token: String, path: String ->
-        request = http_testing.request(.Get, path)
+        request = testing.request(.Get, path)
         app({..request, headers: Headers[("Authorization", "Bearer ${token}")]})
     end
 
     dbg Response.text(get("bob", "/dashboard"))
     dbg get("bob", "/admin/stats").status
     dbg Response.text(get("ada", "/admin/stats"))
-    dbg app(http_testing.request(.Get, "/dashboard")).status
+    dbg app(testing.request(.Get, "/dashboard")).status
     dbg Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options")
 end
 ```
@@ -464,7 +464,7 @@ end
 dbg line 62: Response.text(get("bob", "/dashboard")) = Ok("hello, Bob")
 dbg line 63: get("bob", "/admin/stats").status = Status(403)
 dbg line 64: Response.text(get("ada", "/admin/stats")) = Ok("42 users")
-dbg line 65: app(http_testing.request(.Get, "/dashboard")).status = Status(401)
+dbg line 65: app(testing.request(.Get, "/dashboard")).status = Status(401)
 dbg line 66: Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options") = Some("DENY")
 -->
 
@@ -489,7 +489,7 @@ that was changed or has expired reads as no session:
 import
     std::html.Html
     std::http.{self, CrossOrigin, Headers, Request, Response, Route, Router, Status, ToResponse}
-    std::http_testing
+    std::http::testing
     std::json.{FromJson, ToJson}
     std::sessions.{self, CookieStore, Session, SessionKey}
 end
@@ -546,13 +546,13 @@ fn main()
     ]
 
     app = Router.handler(Router.new(routes)!) |> http.cross_origin_protection(CrossOrigin{})
-    signed_in = app(http_testing.form_request(.Post, "/sign-in", [("user", "Ada")]))
+    signed_in = app(testing.form_request(.Post, "/sign-in", [("user", "Ada")]))
     cookie = List.head(Response.cookies(signed_in))!
-    dbg Response.text(app(Request.add_cookie(http_testing.request(.Get, "/dashboard"), cookie)))
-    dbg app(http_testing.request(.Get, "/dashboard")).status
+    dbg Response.text(app(Request.add_cookie(testing.request(.Get, "/dashboard"), cookie)))
+    dbg app(testing.request(.Get, "/dashboard")).status
 
     forged = {
-        ..http_testing.form_request(.Post, "/sign-out", []),
+        ..testing.form_request(.Post, "/sign-out", []),
         headers: Headers[("Sec-Fetch-Site", "cross-site")],
     }
 
@@ -560,8 +560,8 @@ fn main()
 end
 ```
 <!-- expect
-dbg line 63: Response.text(app(Request.add_cookie(http_testing.request(.Get, "/dashboard"), cookie))) = Ok("<h1>Hello, Ada</h1>")
-dbg line 64: app(http_testing.request(.Get, "/dashboard")).status = Status(303)
+dbg line 63: Response.text(app(Request.add_cookie(testing.request(.Get, "/dashboard"), cookie))) = Ok("<h1>Hello, Ada</h1>")
+dbg line 64: app(testing.request(.Get, "/dashboard")).status = Status(303)
 dbg line 71: app(Request.add_cookie(forged, cookie)).status = Status(403)
 -->
 
@@ -593,7 +593,7 @@ API whose clients send a bearer token instead of a cookie,
 Uploaded files go in a [`Store`](/reference/storage/), which keeps each
 file whole under a key. `storage.local(root)` keeps them in a directory,
 `lib/storage/s3` in a bucket on any S3-protocol server, and
-`storage_testing.Memory` in memory for tests. Code that stores files takes
+`std::storage::testing.Memory` in memory for tests. Code that stores files takes
 a `Store`, so boot picks the backend and the rest of the code doesn't
 change. `Store.url` returns where a file can be fetched, and
 `storage.handler` serves a store's files through the app with their stored
@@ -602,9 +602,9 @@ content type:
 ```nomi-run
 import
     std::http.{Headers, Route, Router}
-    std::http_testing
+    std::http::testing
     std::storage.{self, Store}
-    std::storage_testing.Memory
+    std::storage::testing.Memory
     std::url.Url
 end
 
@@ -620,7 +620,7 @@ fn main()
 
     files = storage.handler(store)
     router = Router.new([Route.to_with("GET /files/{key...}", fn r, _ -> files(r))])!
-    response = Router.serve(router, http_testing.request(.Get, "/files/avatars/7.png"))
+    response = Router.serve(router, testing.request(.Get, "/files/avatars/7.png"))
     dbg Headers.get(response.headers, "Content-Type")
 end
 ```
@@ -716,12 +716,12 @@ end
 `AcceptOptions.allowed_origins` lists it, and closes a connection whose
 message is over `max_message_size`, 1 MiB unless set. A client connects
 with `websocket.connect(Url`wss://example.com/chat`)`. A test hands a
-handler a connection in memory with `http_testing.open_websocket`:
+handler a connection in memory with `std::http::testing.open_websocket`:
 
 ```nomi-run
 import
     std::http.{Request, Response}
-    std::http_testing
+    std::http::testing
     std::websocket.{self, Message, WebSocket}
 end
 
@@ -736,7 +736,7 @@ fn shout(request: Request) -> Response
 end
 
 test "the server shouts back"
-    heard = http_testing.open_websocket(shout, "/", fn ws ->
+    heard = testing.open_websocket(shout, "/", fn ws ->
         _ = WebSocket.send_text(ws, "hello")
         WebSocket.receive(ws)
     end)
@@ -759,13 +759,13 @@ WebSockets.
 ## Testing against a real server
 
 A test that needs a real connection, for a client's redirects, cookies or
-timeouts, runs a server with `http_testing.with_server`. It serves a
+timeouts, runs a server with `std::http::testing.with_server`. It serves a
 handler on a free port of 127.0.0.1 while its body runs, then shuts down:
 
 ```nomi-run compile-only
 import
     std::http.{Client, Request, Response}
-    std::http_testing
+    std::http::testing
 end
 
 fn hello(Request) -> Response
@@ -773,7 +773,7 @@ fn hello(Request) -> Response
 end
 
 test "a client reaches the server"
-    said = http_testing.with_server(hello, fn server ->
+    said = testing.with_server(hello, fn server ->
         Client.get(server.client, server.url) |> Result.map(Response.text)
     end)
 

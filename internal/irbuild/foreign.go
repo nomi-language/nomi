@@ -218,7 +218,7 @@ func buildTypeRegistry(p *Program) *typeRegistry {
 	}
 	// A std module checked from edited source (a reference editor, `nomi test`
 	// of an edited std file) is the entry in place of its shared copy, and a
-	// module lowered beside it that imports it (std/sql_testing beside an edited
+	// module lowered beside it that imports it (std/sql/testing beside an edited
 	// std/sql) names the shared copy's declarations: each of them is the
 	// edited declaration's (implFuncTwins).
 	for i := range p.Modules {

@@ -85,9 +85,9 @@ func TestTestCommand_ProgramStdBodyBlockedNamesTheCall(t *testing.T) {
 	at := fmt.Sprintf("std/log.nomi:%d:%d", line, col)
 	want := " " + at + ": this call to `log` is not supported yet, so `fn warn` cannot run\n"
 
-	out, err := runNomi(t, t.TempDir(), "test", "std/log_testing.nomi")
+	out, err := runNomi(t, t.TempDir(), "test", "std/log/testing.nomi")
 	plain := termcolor.StripANSI(out)
 	if err == nil || !strings.Contains(plain, want) || strings.Contains(plain, "its body is not supported yet") {
-		t.Fatalf("nomi test std/log_testing.nomi (%v) printed:\n%s\nwant a blocked case with %q", err, plain, want)
+		t.Fatalf("nomi test std/log/testing.nomi (%v) printed:\n%s\nwant a blocked case with %q", err, plain, want)
 	}
 }

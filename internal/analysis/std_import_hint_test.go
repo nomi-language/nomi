@@ -26,7 +26,7 @@ func TestStdImportHints(t *testing.T) {
 		"c":         "pub struct Wide\n    x: Int\nend\n",
 		"d":         "pub struct Wide\n    x: Int\nend\n",
 		"e":         "pub struct Wide\n    x: Int\nend\n",
-		"http_host": "pub struct Wire\n    x: Int\nend\n",
+		"http/host": "pub struct Wire\n    x: Int\nend\n",
 		"io":        "pub fn print(s: String) end\n",
 		"empty":     "fn f() end\n",
 	})
@@ -52,7 +52,7 @@ func TestStdImportHints(t *testing.T) {
 	modules := []struct{ name, want string }{
 		{"io", "import `std::io`"},
 		{"http", "import `std::http`"},
-		{"http_host", ""},
+		{"http/host", ""},
 		{"empty", ""},
 		{"nowhere", ""},
 	}

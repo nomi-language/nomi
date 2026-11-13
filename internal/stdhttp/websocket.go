@@ -45,13 +45,13 @@ func wsHandle(c *websocket.Conn, protocol string) rt.HTTPHandle {
 	return rt.NewHTTPHandle(&wsConn{c: c, id: wsIDs.Add(1), protocol: protocol})
 }
 
-// WsAcceptKey is `http_host.ws_accept_key`: Sec-WebSocket-Accept for a key.
+// WsAcceptKey is `std::http::host.ws_accept_key`: Sec-WebSocket-Accept for a key.
 func WsAcceptKey(key string) string { return websocket.AcceptKey(key) }
 
-// WsValidKey is `http_host.ws_valid_key`.
+// WsValidKey is `std::http::host.ws_valid_key`.
 func WsValidKey(key string) bool { return websocket.ValidKey(key) }
 
-// WsOpen is `http_host.ws_open`: a WebSocket over a connection whose
+// WsOpen is `std::http::host.ws_open`: a WebSocket over a connection whose
 // handshake is done. Deadlines a server left on a hijacked connection are
 // cleared. The connection is the WebSocket's from here on.
 func WsOpen(conn rt.NetConn, client bool, max, ping, idle int64) rt.HTTPHandle {
@@ -60,7 +60,7 @@ func WsOpen(conn rt.NetConn, client bool, max, ping, idle int64) rt.HTTPHandle {
 	return wsHandle(websocket.New(x.c, nil, wsOptions(client, max, ping, idle)), "")
 }
 
-// WsConnect is `http_host.ws_connect`: the client's opening handshake over
+// WsConnect is `std::http::host.ws_connect`: the client's opening handshake over
 // conn, its request target and headers given, offering protocols.
 func WsConnect(fr *rt.Frame, conn rt.NetConn, host, target string, headers, protocols *rt.List[string], max, ping, idle int64) rt.Result[rt.HTTPHandle, *rt.List[string]] {
 	x := connOf(conn)
@@ -77,14 +77,14 @@ func WsConnect(fr *rt.Frame, conn rt.NetConn, host, target string, headers, prot
 	return rt.Ok[rt.HTTPHandle, *rt.List[string]](wsHandle(c, resp.Header.Get("Sec-WebSocket-Protocol")))
 }
 
-// WsProtocol is `http_host.ws_protocol`: the subprotocol the server chose
+// WsProtocol is `std::http::host.ws_protocol`: the subprotocol the server chose
 // in a client's handshake, "" for none.
 func WsProtocol(h rt.HTTPHandle) string { return wsOf(h).protocol }
 
-// WsID is `http_host.ws_id`: a number no other WebSocket of the process has.
+// WsID is `std::http::host.ws_id`: a number no other WebSocket of the process has.
 func WsID(h rt.HTTPHandle) int64 { return wsOf(h).id }
 
-// WsReceive is `http_host.ws_receive`: the next message, its first byte 1
+// WsReceive is `std::http::host.ws_receive`: the next message, its first byte 1
 // for text and 2 for binary before the payload, or None after a clean
 // close.
 func WsReceive(fr *rt.Frame, h rt.HTTPHandle) rt.Result[rt.Maybe[rt.Bytes], *rt.List[string]] {
@@ -102,23 +102,23 @@ func WsReceive(fr *rt.Frame, h rt.HTTPHandle) rt.Result[rt.Maybe[rt.Bytes], *rt.
 	return rt.Ok[rt.Maybe[rt.Bytes], *rt.List[string]](rt.Some(rt.Bytes(kind + string(m.Data))))
 }
 
-// WsSend is `http_host.ws_send`.
+// WsSend is `std::http::host.ws_send`.
 func WsSend(fr *rt.Frame, h rt.HTTPHandle, text bool, data rt.Bytes) rt.Result[rt.Unit, *rt.List[string]] {
 	return wsDone(wsOf(h).c.Send(frameContext(fr), text, []byte(data)))
 }
 
-// WsPing is `http_host.ws_ping`.
+// WsPing is `std::http::host.ws_ping`.
 func WsPing(fr *rt.Frame, h rt.HTTPHandle, data rt.Bytes) rt.Result[rt.Unit, *rt.List[string]] {
 	return wsDone(wsOf(h).c.Ping(frameContext(fr), []byte(data)))
 }
 
-// WsClose is `http_host.ws_close`: the closing handshake with code and
+// WsClose is `std::http::host.ws_close`: the closing handshake with code and
 // reason.
 func WsClose(h rt.HTTPHandle, code int64, reason string) rt.Result[rt.Unit, *rt.List[string]] {
 	return wsDone(wsOf(h).c.Close(int(code), reason))
 }
 
-// WsPipe is `http_host.ws_pipe`: two buffered connections in memory, for
+// WsPipe is `std::http::host.ws_pipe`: two buffered connections in memory, for
 // testing a handler with no socket.
 func WsPipe() *rt.List[rt.NetConn] {
 	a, b := websocket.Pipe()

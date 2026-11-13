@@ -2591,8 +2591,11 @@ func (p *Parser) parsePipeLambdaStage(left ast.Node, pipeTok token.Token, leadin
 		} else {
 			stage = &ast.Then{Capture: capture, Line: tok.Line, Col: tok.Col}
 		}
-	} else if !p.atEnd() && (p.peek().Type == token.IDENT || p.peek().Type == token.TYPE_IDENT) {
+	} else if !p.atEnd() && (p.peek().Type == token.IDENT || p.peek().Type == token.TYPE_IDENT || p.peek().Type == token.LPAREN) {
 		// `tap io.print`: a function by name. `then f` would be `|> f()`.
+		// The name may stand in parentheses, `tap (concurrent)`, which
+		// `nomi fmt` writes for a name that ending its line would make a
+		// keyword; the stage holds the name inside them.
 		nameStart := p.pos
 		fn, err := p.parseExpr(tryOperandPrecedence)
 		if err != nil {
@@ -2600,6 +2603,7 @@ func (p *Parser) parsePipeLambdaStage(left ast.Node, pipeTok token.Token, leadin
 		}
 		p.recordSpan(fn, nameStart)
 		name, ok := pipeStageFuncName(fn)
+		fn = ungroupPipeStageName(fn)
 		if tok.Type == token.THEN {
 			msg := ParseError{Line: tok.Line, Col: tok.Col, Message: pipeStageOperandMessage(tok)}
 			if ok {
@@ -2656,10 +2660,14 @@ func pipeStageOperandMessage(tok token.Token) string {
 }
 
 // pipeStageFuncName spells n when it is a function's name, as a `tap` stage
-// takes one: `log_it`, `io.print`, `Log.info`. ok is false for any other
-// expression.
+// takes one: `log_it`, `io.print`, `Log.info`, perhaps in parentheses,
+// `(concurrent)`. ok is false for any other expression.
 func pipeStageFuncName(n ast.Node) (string, bool) {
 	switch x := n.(type) {
+	case *ast.GroupedExpr:
+		if x.Expr != nil {
+			return pipeStageFuncName(x.Expr)
+		}
 	case *ast.Ident:
 		return x.Name, true
 	case *ast.TypeIdent:
@@ -10773,4 +10781,16 @@ func decimalLit(tok token.Token, sign string, line, col int) (ast.Node, error) {
 		return nil, errorAt(tok.Line, tok.Col, "invalid decimal %q", tok.Lexeme)
 	}
 	return &ast.DecimalLit{Lexeme: sign + tok.Lexeme, Line: line, Col: col}, nil
+}
+
+// ungroupPipeStageName is n without the parentheses around it, as a `tap`
+// stage holds the name `tap (f)` writes.
+func ungroupPipeStageName(n ast.Node) ast.Node {
+	for {
+		g, ok := n.(*ast.GroupedExpr)
+		if !ok || g.Expr == nil {
+			return n
+		}
+		n = g.Expr
+	}
 }

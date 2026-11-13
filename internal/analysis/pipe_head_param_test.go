@@ -75,7 +75,7 @@ end`,
 }
 
 // A bound value converts at a pipe's head as it does at the call's first
-// argument (spec §5 *Type argument conversion*): a `List<(Int) -> Int>` is a
+// argument (spec §5 *Covariant conversion*): a `List<(Int) -> Int>` is a
 // `List<(Int) -> Display>`, since each function already returns a Display.
 func TestPipeHead_ABoundValueConvertsAsTheArgumentDoes(t *testing.T) {
 	const decls = `fn number(i: Int) -> Int

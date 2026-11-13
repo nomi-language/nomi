@@ -28,7 +28,7 @@
 //# ```
 //#
 //# `Queue` is the interface a backend implements: `lib/jobs/postgres`
-//# keeps jobs in a Postgres table. std::jobs_testing has `Inline`, a queue
+//# keeps jobs in a Postgres table. std::jobs::testing has `Inline`, a queue
 //# kept in memory for tests, `run_queued`, which runs the due jobs in the
 //# test's own task, and `conformance`, the suite every backend passes.
 //#
@@ -269,8 +269,8 @@ end
 /// commits. With `unique`, an enqueue that finds a stored job holding the
 /// same key stores nothing and returns that job's id, with `duplicate`
 /// set. A failed write is the queue's `sql.Error`.
-//! import std::sql_testing.Fake
-//! import std::jobs_testing.Inline
+//! import std::sql::testing.Fake
+//! import std::jobs::testing.Inline
 //!
 //! queue = Inline.new()
 //! job = Job.new("greet", fn _: Int -> Ok(Unit))
@@ -1145,8 +1145,8 @@ impl Worker
     end
 end
 
-/// Where jobs are stored. `lib/jobs/postgres` and `jobs_testing.Inline`
-/// implement it, and std::jobs_testing's `conformance` suite checks each
+/// Where jobs are stored. `lib/jobs/postgres` and `std::jobs::testing.Inline`
+/// implement it, and std::jobs::testing's `conformance` suite checks each
 /// backend.
 ///
 /// `claim`, `renew`, `settle` and `release` act for the worker named
@@ -1417,8 +1417,8 @@ end
 /// - The job is due at its tick and unique by the schedule's name and the
 ///   tick, held for as long as the queue keeps it, so a second process
 ///   that reaches the same tick stores nothing.
-//! import std::sql_testing.Fake
-//! import std::jobs_testing.Inline
+//! import std::sql::testing.Fake
+//! import std::jobs::testing.Inline
 //!
 //! queue = Inline.new()
 //! sweep = Schedule.every("sweep", Duration.hours(1), Job.new("sweep", fn _: Int -> Ok(Unit)), 0)

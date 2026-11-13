@@ -262,13 +262,13 @@ var hostPackages = [...]struct{ path, local string }{
 	{xmlHostPath, "stdxml"},
 }
 
-// csvHostPath is std/csv_host's implementation: a CSV reader over a
+// csvHostPath is std/csv/host's implementation: a CSV reader over a
 // Reader, over Go's encoding/csv, and one record written as CSV. Its
 // boundary is the Records handle, Reader, String, Int, Bool, List<String>
 // and io.Error.
 const csvHostPath = "github.com/nomi-language/nomi/internal/stdcsv"
 
-// xmlHostPath is std/xml_host's implementation: an XML token reader over
+// xmlHostPath is std/xml/host's implementation: an XML token reader over
 // a Reader, over Go's encoding/xml, and the writer's escaping. Its
 // boundary is the Tokens handle, Reader, String, Int, Bool, List<String>
 // and io.Error.
@@ -279,7 +279,7 @@ const xmlHostPath = "github.com/nomi-language/nomi/internal/stdxml"
 // Float, Int and List<String>.
 const tomlHostPath = "github.com/nomi-language/nomi/internal/stdtoml"
 
-// phraseHostPath is std/phrase_format's host implementation, the
+// phraseHostPath is std/phrase/format's host implementation, the
 // MessageFormat 2 formatter. Its boundary is String, List<Int> and
 // List<String>; the `Locale` crosses as its tag.
 const phraseHostPath = "github.com/nomi-language/nomi/internal/stdphraseformat"
@@ -332,11 +332,11 @@ const compilerHostsPath = "github.com/nomi-language/nomi/internal/compilerhosts"
 // must not be entrenched in it. See nomi/stdio's package comment.
 const ioHostPath = "github.com/nomi-language/nomi/internal/stdio"
 
-// processHostPath is std/process_host's implementation: starting programs,
+// processHostPath is std/process/host's implementation: starting programs,
 // for the reason ioHostPath is outside rt.
 const processHostPath = "github.com/nomi-language/nomi/internal/stdprocess"
 
-// httpHostPath is std/http_host's implementation: Go's HTTP client, for the
+// httpHostPath is std/http/host's implementation: Go's HTTP client, for the
 // reason ioHostPath is outside rt.
 const httpHostPath = "github.com/nomi-language/nomi/internal/stdhttp"
 

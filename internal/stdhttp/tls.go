@@ -23,9 +23,9 @@ import (
 // use builds Go's *tls.Config from its parts (TLSConfig, then
 // TLSWithCertificate per certificate), so nothing a program holds changes.
 // A certificate is a handle: its private key never crosses back. An Err is a
-// tls.Error variant's name and its fields, as http_host's errors are.
+// tls.Error variant's name and its fields, as std::http::host's errors are.
 
-// certificate is what std/http_host's `Certificate` wraps.
+// certificate is what std/http/host's `Certificate` wraps.
 type certificate struct {
 	c    tls.Certificate
 	leaf *x509.Certificate
@@ -39,7 +39,7 @@ func certificateOf(c rt.TLSCertificate) *certificate {
 	return x
 }
 
-// tlsConf is what std/http_host's `TlsConfig` wraps: Go's configuration,
+// tlsConf is what std/http/host's `TlsConfig` wraps: Go's configuration,
 // and the broker its hooks (certificate_for, verify, key_log) run through.
 // The listener, client or handshake that uses the configuration sets b to
 // the broker it serves while Go works.
@@ -80,17 +80,17 @@ func newCertificate(c tls.Certificate, err error) rt.Result[rt.TLSCertificate, *
 	return rt.Ok[rt.TLSCertificate, *rt.List[string]](rt.NewTLSCertificate(&certificate{c: c, leaf: leaf}))
 }
 
-// CertificateFromPEM is `http_host.certificate_from_pem`: Go's X509KeyPair.
+// CertificateFromPEM is `std::http::host.certificate_from_pem`: Go's X509KeyPair.
 func CertificateFromPEM(cert, key string) rt.Result[rt.TLSCertificate, *rt.List[string]] {
 	return newCertificate(tls.X509KeyPair([]byte(cert), []byte(key)))
 }
 
-// CertificateLoad is `http_host.certificate_load`: Go's LoadX509KeyPair.
+// CertificateLoad is `std::http::host.certificate_load`: Go's LoadX509KeyPair.
 func CertificateLoad(certPath, keyPath string) rt.Result[rt.TLSCertificate, *rt.List[string]] {
 	return newCertificate(tls.LoadX509KeyPair(certPath, keyPath))
 }
 
-// CertificateInfo is `http_host.certificate_info`: the leaf's parts, as
+// CertificateInfo is `std::http::host.certificate_info`: the leaf's parts, as
 // certInfo lists them.
 func CertificateInfo(c rt.TLSCertificate) *rt.List[string] {
 	return listOf(certInfo(certificateOf(c).leaf))
@@ -192,7 +192,7 @@ func roots(kind int64, pem string, files *rt.List[string]) (*x509.CertPool, []st
 	return nil, nil
 }
 
-// TLSConfig is `http_host.tls_config`: Go's configuration for one side.
+// TLSConfig is `std::http::host.tls_config`: Go's configuration for one side.
 // Versions are 10 to 13 and 0 for Go's default; ciphers and curves apply
 // when their flag is set; renegotiation is 0 never, 1 once, 2 freely;
 // clientAuth is Go's ClientAuthType in order.
@@ -330,7 +330,7 @@ func helloOf(h rt.HTTPHandle) *tls.ClientHelloInfo {
 	return x
 }
 
-// HelloParts is `http_host.hello_parts`: a ClientHello's server name, the
+// HelloParts is `std::http::host.hello_parts`: a ClientHello's server name, the
 // protocols it offers, its versions (10 to 13) and its cipher suite IDs.
 func HelloParts(h rt.HTTPHandle) *rt.List[*rt.List[string]] {
 	x := helloOf(h)
@@ -347,7 +347,7 @@ func HelloParts(h rt.HTTPHandle) *rt.List[*rt.List[string]] {
 		rt.Cons(listOf(versions), rt.Cons(listOf(suites), (*rt.List[*rt.List[string]])(nil)))))
 }
 
-// HelloSupports is `http_host.hello_supports`: "" when the client can use
+// HelloSupports is `std::http::host.hello_supports`: "" when the client can use
 // cert, as Go's SupportsCertificate finds, else why not.
 func HelloSupports(h rt.HTTPHandle, cert rt.TLSCertificate) string {
 	c := certificateOf(cert).c
@@ -357,7 +357,7 @@ func HelloSupports(h rt.HTTPHandle, cert rt.TLSCertificate) string {
 	return ""
 }
 
-// TLSWithCertificate is `http_host.tls_with_certificate`: adds cert to the
+// TLSWithCertificate is `std::http::host.tls_with_certificate`: adds cert to the
 // certificates the configuration presents. The configuration is std/tls's
 // own, made for this use, so adding to it changes nothing a program holds.
 func TLSWithCertificate(c rt.TLSConfig, cert rt.TLSCertificate) rt.TLSConfig {
@@ -366,7 +366,7 @@ func TLSWithCertificate(c rt.TLSConfig, cert rt.TLSCertificate) rt.TLSConfig {
 	return c
 }
 
-// CipherSuites is `http_host.cipher_suites`: Go's CipherSuites, or its
+// CipherSuites is `std::http::host.cipher_suites`: Go's CipherSuites, or its
 // InsecureCipherSuites, each as its ID, name, whether it is insecure, then
 // the versions (10 to 13) it supports.
 func CipherSuites(insecure bool) *rt.List[*rt.List[string]] {
@@ -386,7 +386,7 @@ func CipherSuites(insecure bool) *rt.List[*rt.List[string]] {
 	return out
 }
 
-// CipherSuiteName is `http_host.cipher_suite_name`: Go's CipherSuiteName.
+// CipherSuiteName is `std::http::host.cipher_suite_name`: Go's CipherSuiteName.
 func CipherSuiteName(id int64) string { return tls.CipherSuiteName(uint16(id)) }
 
 // tlsErrorParts is a TLS failure as a tls.Error variant's parts.
@@ -409,7 +409,7 @@ func tlsErrorParts(err error) []string {
 	return []string{"Handshake", err.Error()}
 }
 
-// TestCertificate is `http_host.test_certificate`: a self-signed
+// TestCertificate is `std::http::host.test_certificate`: a self-signed
 // certificate for 127.0.0.1, ::1 and localhost, valid for a day, and its
 // key, as PEM text: what Go's httptest serves TLS with, made fresh.
 func TestCertificate() *rt.List[string] {

@@ -15,7 +15,7 @@ import
     std::display
     std::io
     std::sql
-    std::sql_testing.Fake
+    std::sql::testing.Fake
 end
 
 fn close(c: sql.Conn)

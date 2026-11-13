@@ -1,9 +1,9 @@
-// Package stdprocess answers std/process_host's crossings: starting a
+// Package stdprocess answers std/process/host's crossings: starting a
 // program, its streams, waiting for it and killing it, either on the
-// operating system (os.go) or, inside `process_testing.run`, on the
+// operating system (os.go) or, inside `std::process::testing.run`, on the
 // recording fake the frame carries (fake.go). std/process and
-// std/process_testing are lowered with each program and cross through
-// std/process_host, whose functions carry the `processes` class.
+// std/process/testing are lowered with each program and cross through
+// std/process/host, whose functions carry the `processes` class.
 //
 // One function, Start, takes program, arguments, environment, directory and
 // a mode per stream: null, the program's own, captured in memory, or piped.
@@ -15,7 +15,7 @@
 // and its arguments are passed as they are.
 //
 // `Child.wait` closes piped input and waits once. `Child.kill`, which the
-// caller defers, is `process_host.kill`: it kills and reaps a running child
+// caller defers, is `std::process::host.kill`: it kills and reaps a running child
 // and does nothing after a wait, so a function that returns, traps or is
 // cancelled leaves no process. A child starts under its frame's context, so
 // cancellation or a passed deadline kills it and the wait unwinds. A
@@ -24,9 +24,9 @@
 //
 // # The fake
 //
-// `process_testing.run` installs a recording fake on the frame
-// (rt.EnterProcesses, through `process_host.run_on`, a VM intrinsic beside
-// `fs_host.run_on`), inherited by tasks. Under it Start records the call and
+// `std::process::testing.run` installs a recording fake on the frame
+// (rt.EnterProcesses, through `std::process::host.run_on`, a VM intrinsic beside
+// `std::fs::host.run_on`), inherited by tasks. Under it Start records the call and
 // answers from the first matching `Answer`, never the operating system.
 // TestOSAndFakeAgree runs one program against the test binary as a helper
 // and against the fake, and requires the same transcript.

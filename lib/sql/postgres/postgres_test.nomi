@@ -5,7 +5,7 @@ import
     std::instant.Instant
     std::json.Json
     std::sql.{self, Conn, ConstraintKind, Dialect, Row, Sql, Value}
-    std::sql_testing
+    std::sql::testing
     std::tasks.{Outcome, Task}
     std::uuid.Uuid
     postgres.{self, Listener, Notification}
@@ -18,9 +18,9 @@ fn fresh() -> Result<Conn, sql.Error>
     postgres.connect(postgres.scratch()?)
 end
 
-test "the driver passes std/sql_testing's conformance suite"
+test "the driver passes std/sql/testing's conformance suite"
     url = postgres.scratch()?
-    failures = sql_testing.conformance(fn -> postgres.connect(url))
+    failures = testing.conformance(fn -> postgres.connect(url))
     assert failures == []
 end
 

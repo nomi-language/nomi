@@ -12,7 +12,7 @@ import (
 
 const filesTasksSrc = `import
     std::fs
-    std::fs_testing.{self, Sandbox}
+    std::fs::testing.{self, Sandbox}
     std::io
     std::tasks.Task
 end
@@ -25,7 +25,7 @@ fn write_all(prefix: String) -> List<Result<Unit, io.Error>>
 end
 
 fn main()
-    ran = fs_testing.run(Sandbox{}, fn -> write_all("sandbox-"))
+    ran = testing.run(Sandbox{}, fn -> write_all("sandbox-"))
     io.print(Iter.count(Map.keys(ran.files)))
     io.print(Iter.all_match(write_all("page-"), fn r -> r == Ok(Unit)))
     io.print(fs.read_text("page-3.txt"))
@@ -33,7 +33,7 @@ end
 `
 
 // Tasks share the file system of the frame they were spawned on: eight tasks
-// inside fs_testing.run write to its sandbox at once, and eight outside it
+// inside std::fs::testing.run write to its sandbox at once, and eight outside it
 // write to the program's own, here an in-memory one the host gave it
 // (WithFileSystem), which the host reads back after the run.
 func TestFiles_TasksShareTheirFileSystem(t *testing.T) {

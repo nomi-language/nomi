@@ -47,7 +47,7 @@ end
   with a path, a bucket name S3 refuses, an empty key and the like are
   `Err(.Backend{code: "InvalidConfig", ...})`. Code that takes a `Store`
   runs the same against `storage.local` in development and
-  `std/storage_testing`'s `Memory` in tests.
+  `std/storage/testing`'s `Memory` in tests.
 - `region` defaults to `us-east-1`, which suits MinIO and Spaces; R2 wants
   `auto`, and AWS and B2 the bucket's own region.
 - Requests are path-style (`https://<endpoint>/<bucket>/<key>`) unless
@@ -74,7 +74,7 @@ end
 
 `nomi test lib/storage/s3` needs no server: it checks AWS's published SigV4
 examples byte for byte, and the requests the store sends, with
-`std/http_testing`. [`lib/storage/minio`](../minio) runs std/storage's
+`std/http/testing`. [`lib/storage/minio`](../minio) runs std/storage's
 conformance suite, presigned URLs and a public object against a throwaway
 MinIO server it starts, and its `real.nomi` runs the same checks against
 any bucket the environment names.

@@ -108,8 +108,8 @@ func TestFuncTypeAssign_UnsoundIsRejected(t *testing.T) {
 			"list element type mismatch: expected (Iter<Int>) -> Int, got (List<Int>) -> Int"},
 		{"a struct field", "", "  h = Holder{f: sum_list}\n  _ = h.f([1])\n",
 			"field 'f' of Holder: expected (Iter<Int>) -> Int, got (List<Int>) -> Int"},
-		{"a generic struct's type argument", "", "  b: Box<(Float) -> String> = Box{v: shown}\n  _ = b.v(1.5)\n",
-			"type mismatch: expected Box<(Float) -> String>, got Box<(Display) -> String>"},
+		{"a generic struct's type argument", "", "  b: Box<(Display) -> String> = Box{v: float_str}\n  _ = b.v(1.5)\n",
+			"type mismatch: expected Box<(Display) -> String>, got Box<(Float) -> String>"},
 		{"a result", funcAssignReturns, "  _ = ret_bad()\n",
 			"return type mismatch: expected (Iter<Int>) -> Int, got (List<Int>) -> Int"},
 		{"an early return", funcAssignReturns, "  _ = ret_bad_early(True)\n",
@@ -151,6 +151,7 @@ func TestFuncTypeAssign_SoundIsAccepted(t *testing.T) {
 		"  _ = Map.map_values({\"a\" => [1]}, cnt)\n",
 		"  c = pick(True, shown, shown)\n  _ = c(1)\n",
 		"  c = pick(True, float_str, fn x -> shown(x))\n  _ = c(1.5)\n",
+		"  b: Box<(Float) -> String> = Box{v: shown}\n  _ = b.v(1.5)\n",
 	} {
 		src := funcAssignDecls + "fn main()\n" + body + "end\n"
 		_, errs := checkSourceWithStdlib(src)

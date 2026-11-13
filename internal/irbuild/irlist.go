@@ -516,7 +516,7 @@ func (bl *irScalarBuilder) coerceEmpty(at ast.Node, v ir.Temp, have, want kind) 
 		// adapter, an element's), by the impl the record names. The VM's
 		// existential is the concrete value itself, boxed where its runtime
 		// type does not name its impl (irboxed.go).
-		if out, how := bl.intoExistential(at, v, want, have, bl.g.recordedImpl(at, want)); how != irNotCoerced {
+		if out, how := bl.intoExistential(at, v, want, have, bl.g.recordedImpl(at, want, have)); how != irNotCoerced {
 			return out, want, true
 		}
 	}

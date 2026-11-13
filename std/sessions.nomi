@@ -60,7 +60,7 @@ import
     duration.Duration
     hash
     http.{self, Cookie, Headers, MaxAge, Request, Response, SameSite, Status, ToResponse}
-    http_host
+    http::host
     instant.Instant
     int.Int
     iter.Iter
@@ -201,7 +201,7 @@ end
 /// with `write`, or to take away flash messages this request read, to move
 /// an idle timeout along, or to delete a cookie that did not open.
 //! import std::http.{Body, Method, Request, Response}
-//! import std::http_testing
+//! import std::http::testing
 //! import std::sessions.{self, CookieStore, Session, SessionKey}
 //!
 //! store = CookieStore{key: SessionKey.derive("a test secret of 32 bytes or more")!}
@@ -212,13 +212,13 @@ end
 //! end
 //!
 //! app = count |> sessions.with_session(store)
-//! first = app(http_testing.request(Method.Get, "/"))
+//! first = app(testing.request(Method.Get, "/"))
 //! assert Response.text(first) == Ok("1")
 //!
 //! cookie = List.head(Response.cookies(first))!
 //! assert cookie.http_only and cookie.secure
 //!
-//! again = Request.add_cookie(http_testing.request(Method.Get, "/"), cookie)
+//! again = Request.add_cookie(testing.request(Method.Get, "/"), cookie)
 //! assert Response.text(app(again)) == Ok("2")
 //
 pub fn with_session<T>(handler: (Request, Session<T>) -> ToResponse, store: CookieStore) -> (
@@ -292,7 +292,7 @@ pub fn write<T>(response: Response, session: Session<T>) -> Response where T: To
 
     plain = String.to_bytes(Json.encode(Json.Obj(payload)))
 
-    case http_host.seal(key_bytes(store.key), plain, label(store))
+    case host.seal(key_bytes(store.key), plain, label(store))
         Ok(sealed) ->
             cookie = {
                 ..base_cookie(store),
@@ -378,7 +378,7 @@ end
 
 fn unseal(store: CookieStore, sealed: Bytes) -> Maybe<Bytes>
     keys = [store.key] + store.previous_keys
-    Iter.find_map(keys, fn key -> http_host.open_sealed(key_bytes(key), sealed, label(store)))
+    Iter.find_map(keys, fn key -> host.open_sealed(key_bytes(key), sealed, label(store)))
 end
 
 fn int_field(fields: Map<String, Json>, name: String) -> Maybe<Int>

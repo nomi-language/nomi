@@ -91,6 +91,37 @@ end
           function: (identifier))))))
 
 ================================================================================
+A tap stage names its function in parentheses
+================================================================================
+
+fn f()
+  xs |> tap (concurrent) |> tap ((io.print)) |> g()
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (pipe_expression
+        (pipe_expression
+          (pipe_expression
+            (identifier)
+            (tap_stage
+              function: (paren_expression
+                (identifier))))
+          (tap_stage
+            function: (paren_expression
+              (paren_expression
+                (field_access
+                  (identifier)
+                  (identifier))))))
+        (call_expression
+          function: (identifier))))))
+
+================================================================================
 A keyword file name in an import path
 ================================================================================
 

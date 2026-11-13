@@ -274,8 +274,8 @@ shared `Conn`: a statement there would wait for its own transaction.
 
 - Open a database with `sqlite.memory()` in each test, so no test sees
   another's rows.
-- To test code with no database at all, [`Fake`](/reference/sql_testing/)
-  from `std::sql_testing` is a `Conn` that runs no SQL. It records each
+- To test code with no database at all, [`Fake`](/reference/sql/testing/)
+  from `std::sql::testing` is a `Conn` that runs no SQL. It records each
   statement, responds to it with a function you give it, and tells you which
   statements took effect (`Fake.log`, `Fake.committed`).
 - [`std::sql`](/reference/sql/) lists every `sql.Error` variant and what

@@ -57,7 +57,7 @@ CrossOriginProtection.AddInsecureBypassPattern | covered | phase 4 | `CrossOrigi
 CrossOriginProtection.SetDenyHandler | covered | phase 4 | `CrossOrigin.deny: Maybe<Handler>`
 CrossOriginProtection.Check | covered | phase 4 | `CrossOrigin.check(options, request) -> Result<Unit, Error>`
 CrossOriginProtection.Handler | covered | phase 4 | `http.cross_origin_protection(handler, options)`, which wraps a handler
-DefaultClient | covered | phase 2 | `http.default_client()`, the ambient client, one pool for the process as Go's is, `http.fetch` uses; `http_testing.run` replaces it
+DefaultClient | covered | phase 2 | `http.default_client()`, the ambient client, one pool for the process as Go's is, `http.fetch` uses; `std::http::testing.run` replaces it
 DefaultServeMux | skipped | A global, mutable router. Nomi has no mutable globals; build a `Router` value.
 DefaultTransport | covered | phase 2 | `Transport.default`, the default transport options
 DetectContentType | covered | phase 3 | `http.detect_content_type(data: Bytes) -> String`
@@ -400,19 +400,19 @@ Values.Clone | mapped | phase 1 | Values are immutable; nothing to copy
 Values.Encode | covered | phase 1 | `Query.encode(query) -> String` (in the pairs' order; Go sorts by key)
 
 @ net/http/httptest
-DefaultRemoteAddr | covered | phase 6 | `http_testing.request`'s `remote_address`, `"192.0.2.1:1234"`
+DefaultRemoteAddr | covered | phase 6 | `std::http::testing.request`'s `remote_address`, `"192.0.2.1:1234"`
 NewRecorder | mapped | phase 3 | A handler returns a `Response`; a test reads it directly
-NewRequest | covered | phase 3 | `http_testing.request(method, target: String) -> Request`
-NewRequestWithContext | covered | phase 3 | `http_testing.request`; the context in force applies
-NewServer | covered | phase 5 | `http_testing.with_server(handler, fn server -> ...)`
-NewTLSServer | covered | phase 5 | `http_testing.with_server(handler, tls: True, body)`
-NewTestServer | covered | phase 5 | `http_testing.with_server`
-NewUnstartedServer | mapped | phase 5 | `http_testing.with_server(handler, body, server: #Server{...})` configures it before it starts
+NewRequest | covered | phase 3 | `std::http::testing.request(method, target: String) -> Request`
+NewRequestWithContext | covered | phase 3 | `std::http::testing.request`; the context in force applies
+NewServer | covered | phase 5 | `std::http::testing.with_server(handler, fn server -> ...)`
+NewTLSServer | covered | phase 5 | `std::http::testing.with_server(handler, tls: True, body)`
+NewTestServer | covered | phase 5 | `std::http::testing.with_server`
+NewUnstartedServer | mapped | phase 5 | `std::http::testing.with_server(handler, body, server: #Server{...})` configures it before it starts
 ResponseRecorder | mapped | phase 3 | The `Response` value itself
 ResponseRecorder.Code | mapped | phase 3 | `Response.status`
 ResponseRecorder.HeaderMap | mapped | phase 3 | `Response.headers`
 ResponseRecorder.Body | mapped | phase 3 | `Body.read_all(response.body) -> Result<Bytes, Error>` runs a producer into memory
-ResponseRecorder.Flushed | mapped | phase 6 | A test of flushing reads the producer's writes with `http_testing.chunks(response)`
+ResponseRecorder.Flushed | mapped | phase 6 | A test of flushing reads the producer's writes with `std::http::testing.chunks(response)`
 ResponseRecorder.Header | mapped | phase 3 | `Response.headers`
 ResponseRecorder.Write | mapped | phase 3 | Not needed: nothing writes into a recorder
 ResponseRecorder.WriteString | mapped | phase 3 | Not needed
@@ -422,9 +422,9 @@ ResponseRecorder.Result | mapped | phase 3 | The `Response` value itself
 Server | covered | phase 5 | `TestServer` struct given to `with_server`'s body
 Server.URL | covered | phase 5 | `TestServer.url: Url`
 Server.Listener | mapped | phase 5 | Managed by `with_server`
-Server.EnableHTTP2 | covered | phase 6 | `http_testing.with_server(..., http2: True)`: HTTP/2 over TLS, or h2c without it
-Server.TLS | covered | phase 5 | `http_testing.with_server(..., tls: True)`
-Server.Config | covered | phase 5 | `http_testing.with_server(..., server: #Server{...})`
+Server.EnableHTTP2 | covered | phase 6 | `std::http::testing.with_server(..., http2: True)`: HTTP/2 over TLS, or h2c without it
+Server.TLS | covered | phase 5 | `std::http::testing.with_server(..., tls: True)`
+Server.Config | covered | phase 5 | `std::http::testing.with_server(..., server: #Server{...})`
 Server.Start | mapped | phase 5 | `with_server` starts it before the body
 Server.StartTLS | mapped | phase 5 | `with_server(..., tls: True)`
 Server.Close | mapped | phase 5 | `with_server` closes it after the body

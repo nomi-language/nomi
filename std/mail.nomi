@@ -1,6 +1,6 @@
 //# Sending email. A `Message` is one struct literal. Code that sends mail
 //# calls the `Mailer` interface, so one function sends through an SMTP
-//# server in production and into a test's `mail_testing.Memory`:
+//# server in production and into a test's `std::mail::testing.Memory`:
 //#
 //# ```nomi
 //# fn send_login_link(email: String, link: Url) -> Result<Unit, mail.Error>
@@ -27,7 +27,7 @@
 //# })
 //# ```
 //#
-//# std::mail_testing has `Memory`, a mailer that keeps what it sends for
+//# std::mail::testing has `Memory`, a mailer that keeps what it sends for
 //# tests, `Failing`, a mailer whose every send fails, `with_smtp_server`,
 //# an SMTP server for tests, and `conformance`, the suite every backend
 //# passes.
@@ -53,7 +53,7 @@ import
     io.{Reader, Writer}
     iter.Iter
     lists.List
-    mail_host
+    mail::host
     maybe.Maybe.{self, None, Some}
     net.{self, Connection}
     random
@@ -64,7 +64,7 @@ import
 end
 
 /// Something that sends messages. `mail.smtp` and
-/// `mail_testing.Memory` implement it.
+/// `std::mail::testing.Memory` implement it.
 pub interface Mailer
     /// Sends `message` to every recipient, or fails without sending it.
     fn send(mailer: self, message: Message) -> Result<Unit, Error>
@@ -430,7 +430,7 @@ end
 
 /// A mailer for the SMTP server `config` describes. Nothing connects until
 /// a message is sent.
-//! import std::mail_testing.{SmtpServer, with_smtp_server}
+//! import std::mail::testing.{SmtpServer, with_smtp_server}
 //!
 //! message = Message{
 //!     from: Address.new("a@example.com")?,
@@ -1037,7 +1037,7 @@ end
 //! assert quoted_printable(String.repeat("x", 80)) == "${String.repeat("x", 75)}=\r\nxxxxx"
 //
 pub fn quoted_printable(text: String) -> String
-    mail_host.quoted_printable(text)
+    host.quoted_printable(text)
 end
 
 // Printable ASCII with no `=?` (which a reader would take for an encoded
@@ -1141,7 +1141,7 @@ end
 //! assert rfc5322_date(Instant.from_seconds(951782400)) == "Tue, 29 Feb 2000 00:00:00 +0000"
 //
 pub fn rfc5322_date(at: Instant) -> String
-    mail_host.date(Instant.as_nanos(at))
+    host.date(Instant.as_nanos(at))
 end
 
 /// The envelope's recipients: every address in to, cc and bcc, each once,

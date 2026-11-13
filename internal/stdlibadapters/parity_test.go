@@ -289,12 +289,12 @@ func pluralCases() map[string][]argSet {
 // quoting and float text its values write.
 func tomlCases() map[string][]argSet {
 	return map[string][]argSet{
-		"toml_host.check": sets(a(strs("a = ", "")), a(strs("", " = 1")), a(strs("a = \"", "\"")),
+		"toml/host.check": sets(a(strs("a = ", "")), a(strs("", " = 1")), a(strs("a = \"", "\"")),
 			a(strs("a = 1 # ", "")), a(strs("a = 1", "")), a(strs("a = = 1")), a(strs(""))),
-		"toml_host.build": sets(a(strs("", " = ", ""), strs(`"k"`, "1")), a(strs("[t.", "]"), strs("42")),
+		"toml/host.build": sets(a(strs("", " = ", ""), strs(`"k"`, "1")), a(strs("[t.", "]"), strs("42")),
 			a(strs("x = [", ", ", "]"), strs("1", `"two"`))),
-		"toml_host.quote": sets(a(s("")), a(s("plain")), a(s("x\"\nadmin = true")), a(s("tab\t\u0001\\"))),
-		"toml_host.float": sets(a(0.0), a(2.0), a(-2.5), a(1e21), a(math.Inf(1)), a(math.NaN())),
+		"toml/host.quote": sets(a(s("")), a(s("plain")), a(s("x\"\nadmin = true")), a(s("tab\t\u0001\\"))),
+		"toml/host.float": sets(a(0.0), a(2.0), a(-2.5), a(1e21), a(math.Inf(1)), a(math.NaN())),
 	}
 }
 
@@ -363,9 +363,9 @@ func formatCases() map[string][]argSet {
 		"locale.locale_available":         sets(a()),
 		"locale.locale_loaded_raw":        sets(a()),
 		"locale.locale_load_raw":          sets(a(s("pl")), a(s("en"))),
-		"phrase_format.noun_raw": sets(a(s(bookNoun), loc("pl")), a(s(bookNoun), loc("pl-PL")), a(s(bookNoun), loc("fr")),
+		"phrase/format.noun_raw": sets(a(s(bookNoun), loc("pl")), a(s(bookNoun), loc("pl-PL")), a(s(bookNoun), loc("fr")),
 			a(s(bookNoun), loc("en-XA")), a(s("not a noun"), loc("pl"))),
-		"phrase_format.format_raw": sets(
+		"phrase/format.format_raw": sets(
 			a(s(cartItems), loc("en"), strs(), intList(0), strs("1"), strs(""), strs("1")),
 			a(s(cartItems), loc("pl"), strs(), intList(0), strs("3"), strs(""), strs("3")),
 			a(s(cartItems), loc("pl"), strs(), intList(0), strs("25"), strs(""), strs("25")),
@@ -373,7 +373,7 @@ func formatCases() map[string][]argSet {
 			a(s(cartItems), loc("en-XA"), strs(), intList(0), strs("2"), strs(""), strs("2")),
 			a(s(cartItems), loc("pl"), strs(`{"locale":"pl","phrases":{"shop.cart_items":"{{loaded}}"}}`), intList(0), strs("2"), strs(""), strs("2"))),
 		// A machine with no tables: every entry names nothing it has.
-		"phrase_format.load_raw": sets(
+		"phrase/format.load_raw": sets(
 			a(s("[shop.cart_items]\nsource = '''x'''\ntext = '''y'''\n"), loc("pl")),
 			a(s("[cart_items]\ntext = '''y'''\n"), loc("pl")),
 			a(s("[x\n"), loc("pl")),
@@ -381,7 +381,7 @@ func formatCases() map[string][]argSet {
 	}
 }
 
-// moneyDateCases covers std/currency's checks, std/money_format's money rows
+// moneyDateCases covers std/currency's checks, std/money/format's money rows
 // and std/calendar's and std/duration's text for a reader: each display,
 // pattern kind, parse answer and error, and the money trap.
 func moneyDateCases() map[string][]argSet {
@@ -394,19 +394,19 @@ func moneyDateCases() map[string][]argSet {
 		"currency.currency_code_of": sets(a(s("EUR")), a(s("BTC:8")), a(s(""))),
 		"currency.currency_digits_of": sets(a(s("EUR")), a(s("JPY")), a(s("BHD")), a(s("BTC:8")), a(s("PTS:x")),
 			a(s("XYZ"))),
-		"money_format.money_format_raw": sets(a(loc("en"), s("12.5"), s("EUR"), i(2), true, i(0), false),
+		"money/format.money_format_raw": sets(a(loc("en"), s("12.5"), s("EUR"), i(2), true, i(0), false),
 			a(loc("pl"), s("1234.5"), s("EUR"), i(2), true, i(0), false), a(loc("en-CA"), s("5"), s("USD"), i(2), true, i(1), false),
 			a(loc("de"), s("-3"), s("USD"), i(2), true, i(2), false), a(loc("en"), s("1"), s("USD"), i(2), true, i(3), false),
 			a(loc("ja"), s("1500"), s("JPY"), i(0), true, i(0), false), a(loc("en"), s("0.5"), s("BTC"), i(8), false, i(0), false),
 			a(loc("ar-EG"), s("12.5"), s("EGP"), i(2), true, i(0), false),
 			a(loc("en"), s("-10"), s("USD"), i(2), true, i(0), true), a(loc("en"), s("-0.5"), s("BTC"), i(8), false, i(0), true),
 			a(loc("de"), s("-10"), s("EUR"), i(2), true, i(0), true)),
-		"money_format.money_parse_raw": sets(a(s("12,50 €"), loc("pl"), s("EUR"), i(2), true, false),
+		"money/format.money_parse_raw": sets(a(s("12,50 €"), loc("pl"), s("EUR"), i(2), true, false),
 			a(s("€12.505"), loc("en"), s("EUR"), i(2), true, false), a(s("12,50 zł"), loc("pl"), s("EUR"), i(2), true, false),
 			a(s("12.50"), loc("en"), s("EUR"), i(2), true, false), a(s(" 12.50 "), loc("en"), s("EUR"), i(2), true, true),
 			a(s("0.5 BTC"), loc("en"), s("BTC"), i(8), false, true), a(s(""), loc("en"), s("EUR"), i(2), true, false)),
-		"money_format.money_mixed":   sets(a(s("Money.add"), s("EUR"), s("PLN"))),
-		"money_format.money_refused": sets(a(s("Money.split"), s("n must be positive, got 0"))),
+		"money/format.money_mixed":   sets(a(s("Money.add"), s("EUR"), s("PLN"))),
+		"money/format.money_refused": sets(a(s("Money.split"), s("n must be positive, got 0"))),
 		"decimal.decimal_refused":    sets(a(s("Decimal.split"), s("n must be positive, got 0"))),
 		"calendar.civil_format_style": sets(a(loc("en"), date, s("full/-")), a(loc("pl"), date, s("long/-")),
 			a(loc("en"), clock, s("-/medium")), a(loc("de"), moment, s("full/full")), a(loc("ar-EG"), date, s("short/-"))),

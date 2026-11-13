@@ -95,8 +95,9 @@ func extractStdArtifact() *stdArtifact {
 		}
 		art.ifaces[name] = analysis.ExtractInterface("std/"+name, "", nodes).Encode()
 		art.imports[name] = analysis.StdModuleImports(name, nodes)
-		if len(errs) == 0 && !strings.Contains(name, "/") {
-			// A test-only fixture is no module a program imports.
+		if len(errs) == 0 && !strings.HasPrefix(name, "_fixtures/") {
+			// A test-only fixture is no module a program imports; a
+			// nested module (`storage/testing`) is.
 			art.exports[name] = analysis.StdModuleExportOf(name, nodes)
 		}
 	}

@@ -58,8 +58,8 @@ func TestCheckTarget_NamesTheProgramsOwnCallSites(t *testing.T) {
 	refused.Write(&report)
 	got := report.String()
 	want := "nomi build --target nomitest/nofiles: this program reads or writes files, which a nomitest/nofiles module cannot do:\n" +
-		"  notes.nomi:7:18: `fs.write_text` calls `fs_host.write` (reached from fn main through save)\n" +
-		"  notes.nomi:11:24: `fs.read_text` calls `fs_host.read_text` (reached from fn main)\n" +
+		"  notes.nomi:7:18: `fs.write_text` calls `fs/host.write` (reached from fn main through save)\n" +
+		"  notes.nomi:11:24: `fs.read_text` calls `fs/host.read_text` (reached from fn main)\n" +
 		"hint: build for your platform without --target, or pass --allow-unsupported files\n" +
 		"      to build anyway; the calls then answer Err(.Unsupported{...})\n"
 	if got != want {
@@ -113,7 +113,7 @@ end
 		}
 		crossings[u.Crossing] = true
 	}
-	if !crossings["fs_host.metadata"] || !crossings["fs_host.list"] {
+	if !crossings["fs/host.metadata"] || !crossings["fs/host.list"] {
 		t.Errorf("the crossings are %v, want metadata and list", crossings)
 	}
 }
@@ -155,7 +155,7 @@ end
 		var report strings.Builder
 		refused.Write(&report)
 		want := command + ": this program starts programs, which a " + target[0] + "/" + target[1] + " module cannot do:\n" +
-			"  build.nomi:7:20: `process.run` calls `process_host.start` (reached from fn main)\n" +
+			"  build.nomi:7:20: `process.run` calls `process/host.start` (reached from fn main)\n" +
 			"hint: build for your platform without --target, or pass --allow-unsupported processes\n" +
 			"      to build anyway; the calls then answer Err(.Unsupported{...})\n"
 		if report.String() != want {
@@ -210,7 +210,7 @@ end
 		var report strings.Builder
 		refused.Write(&report)
 		if !strings.Contains(report.String(), "this program serves network requests") ||
-			!strings.Contains(report.String(), "`http.listen` calls `http_host.listen`") {
+			!strings.Contains(report.String(), "`http.listen` calls `http/host.listen`") {
 			t.Errorf("%s: report:\n%s", command, report.String())
 		}
 	}

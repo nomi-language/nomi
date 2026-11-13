@@ -1,6 +1,6 @@
-//# The Go-backed half of std::http and std::http_testing: Go's net/http
+//# The Go-backed half of std::http and std::http::testing: Go's net/http
 //# client over a request's parts (internal/stdhttp), and the fake
-//# `http_testing.run` installs. It is internal; a program imports std::http,
+//# `std::http::testing.run` installs. It is internal; a program imports std::http,
 //# which builds its values from these and gives them their documentation.
 
 import
@@ -569,7 +569,7 @@ pub host fn listen_tls(
 pub host fn with_tls(client: Client, config: TlsConfig) -> Client
 
 /// A self-signed certificate for 127.0.0.1, ::1 and localhost, and its
-/// key, as PEM text: what `http_testing.with_server` serves TLS with.
+/// key, as PEM text: what `std::http::testing.with_server` serves TLS with.
 pub host fn test_certificate() -> List<String>
 
 /// Go's `ReadRequest` over `r`, its body read whole. An `Err` is Go's

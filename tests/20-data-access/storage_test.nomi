@@ -1,12 +1,14 @@
 import
     std::duration.Duration
     std::fs
-    std::fs_testing.{self, Sandbox}
+    std::fs::testing as fs_testing
+    std::fs::testing.Sandbox
     std::http.{self, Headers, Method, Request, Response, Route, Router, Status}
-    std::http_testing
+    std::http::testing as http_testing
     std::instant.Instant
     std::storage.{self, Store}
-    std::storage_testing.{self, Memory}
+    std::storage::testing as storage_testing
+    std::storage::testing.Memory
     std::url.Url
     std::uuid.Uuid
 end

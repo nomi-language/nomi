@@ -639,8 +639,18 @@ func irEqualityContainerKind(k kind) bool {
 // Any implementer whose Debug the renderer cannot name declines, and so
 // does an interface nothing implements or boxes into, except std's
 // Display: a scalar or a std type enters it unboxed and unrecorded
-// (irErases), and renders as itself.
+// (irErases), and renders as itself. A box whose value holds k itself (a
+// `List<Display>` boxed into Display) names k's implementers once: the
+// walk that reaches k again inside them adds nothing.
 func (bl *irScalarBuilder) existentialDebugImpls(k kind) ([]ir.DebugImpl, bool) {
+	if bl.g.debugImplsVisiting[k] {
+		return nil, true
+	}
+	if bl.g.debugImplsVisiting == nil {
+		bl.g.debugImplsVisiting = map[kind]bool{}
+	}
+	bl.g.debugImplsVisiting[k] = true
+	defer delete(bl.g.debugImplsVisiting, k)
 	if s := bl.g.stdInsts; bl.g.stdModule != "" && s != nil && len(s.program) > 0 && k.iface != nil {
 		// A std instance's body at a program's interface or at std's
 		// Display or Debug (`List.inspect<Show>`, `List.inspect<Debug>`):

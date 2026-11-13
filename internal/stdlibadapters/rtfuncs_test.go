@@ -267,10 +267,10 @@ func hStr(s string) any    { return s }
 func hBytes(s string) any  { return rt.Bytes(s) }
 
 // sealedVector is "hi" sealed by AES-256-GCM under "k"*32, nonce
-// "0123456789ab", additional data "label": http_host.open_sealed's input.
+// "0123456789ab", additional data "label": std::http::host.open_sealed's input.
 const sealedVector = "0123456789abiv\xb3\xffQ\x96lS\tˀ\xf4\x86\x8dG\xb5L\xcb"
 
-// gzipOf is text compressed with gzip: http_host.gunzip's input.
+// gzipOf is text compressed with gzip: std::http::host.gunzip's input.
 func gzipOf(text string) string {
 	var out bytes.Buffer
 	gz := gzip.NewWriter(&out)
@@ -452,11 +452,11 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		// A sealed value has a random nonce, so a good key is recorded by
 		// shape; the vector below was sealed under "k"*32 with the nonce
 		// "0123456789ab", "hi" as data and "label" as additional data.
-		"http_host.seal": {
+		"http/host.seal": {
 			{args: args(hBytes(strings.Repeat("k", 32)), hBytes("hi"), hBytes("label")), shapeOnly: true},
 			{args: args(hBytes("short"), hBytes("hi"), hBytes("label"))},
 		},
-		"http_host.open_sealed": cases(
+		"http/host.open_sealed": cases(
 			args(hBytes(strings.Repeat("k", 32)), hBytes(sealedVector), hBytes("label")),
 			args(hBytes(strings.Repeat("k", 32)), hBytes(sealedVector), hBytes("other")),
 			args(hBytes(strings.Repeat("j", 32)), hBytes(sealedVector), hBytes("label")),
@@ -470,51 +470,51 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"base64.decode_url":                  unary(hStr(""), hStr("Zm9vYmE="), hStr("Zm9vYmE"), hStr("+/+/"), hStr("-_-_"), hStr("Zg")),
 		"hex.encode":                         unary(blobs...),
 		"hex.decode":                         unary(hStr(""), hStr("666F6f"), hStr("666f6"), hStr("66g6"), hStr("zz"), hStr("6é")),
-		"html_host.escape":                   unary(append(strs, hStr(`<a href="x">it's & co</a>`))...),
-		"html_host.filter_url":               unary(hStr("https://example.com/a"), hStr("/posts/1"), hStr("mailto:a@b.c"), hStr("javascript:alert(1)"), hStr(" javascript:x"), hStr("a/b:c")),
-		"html_host.escape_url_path":          unary(append(strs, hStr("script:alert(1)"), hStr("a b/c"))...),
-		"url_host.escape_query":              unary(strs...),
-		"url_host.escape_path_segment":       unary(strs...),
-		"url_host.unescape_query":            unary(hStr("tea+%26+cake"), hStr("caf%C3%A9"), hStr("100%"), hStr("%FF"), hStr("%zz"), hStr("a%2Fb")),
-		"url_host.unescape_path_segment":     unary(hStr("tea%20&%20cake"), hStr("a+b"), hStr("100%"), hStr("%FF"), hStr("%zz")),
-		"url_host.parse_parts":               urlParse,
-		"url_host.format_parts":              unary(urlParts...),
-		"url_host.redacted_parts":            unary(urlParts...),
-		"url_host.escaped_path_parts":        unary(urlParts...),
-		"url_host.escaped_fragment_parts":    unary(urlParts...),
-		"url_host.request_uri_parts":         unary(urlParts...),
-		"url_host.hostname_parts":            unary(urlParts...),
-		"url_host.port_parts":                unary(urlParts...),
-		"url_host.resolve_parts":             pairs(urlParts...),
-		"url_host.join_path_parts":           []hostCase{{args: []any{urlParts[0], strList("x", "a/b", "..")}}, {args: []any{urlParts[1], strList()}}},
-		"url_host.escape_fragment":           unary(strs...),
-		"url_host.query_pairs":               unary(queries...),
-		"url_host.query_error":               unary(queries...),
-		"http_host.canonical_key":            unary(hStr("content-type"), hStr("X-REQUEST-ID"), hStr("bad key"), hStr("")),
-		"http_host.check_pattern":            unary(hStr("GET /users/{id}"), hStr("/a/{x}/{x}"), hStr("/f/{rest...}/x"), hStr("GET users"), hStr("")),
-		"http_host.status_text":              unary(hInt(200), hInt(404), hInt(418), hInt(599), hInt(0)),
-		"http_host.ws_accept_key":            unary(hStr("dGhlIHNhbXBsZSBub25jZQ=="), hStr("")),
-		"http_host.ws_valid_key":             unary(hStr("dGhlIHNhbXBsZSBub25jZQ=="), hStr("c2hvcnQ="), hStr("not base64")),
-		"http_host.file_content_disposition": pairs(hStr("doc"), hStr("a \"b\".txt")),
-		"path_host.clean":                    unary(hStr("a/./b/../c"), hStr("a//b/"), hStr("../../a"), hStr("/../a"), hStr("a/.."), hStr(""), hStr("/"), hStr("./")),
-		"path_host.join":                     unary(strList("data", "log.txt"), strList("data/", "/log.txt"), strList("", "a"), strList("/", "etc"), strList("", ""), strList()),
-		"path_host.base":                     unary(hStr("data/log.txt"), hStr("data/"), hStr("/"), hStr(""), hStr("a/.."), hStr("//")),
-		"path_host.dir":                      unary(hStr("a/b"), hStr("/etc"), hStr("log.txt"), hStr("/"), hStr("."), hStr("../a")),
-		"mail_host.quoted_printable":         unary(hStr("a=b ö"), hStr("end \nnext"), hStr(strings.Repeat("x", 80)), hStr("a\r\nb\rc"), hStr("tail\t"), hStr("")),
-		"mail_host.date":                     unary(hInt(1793638245_000000000), hInt(951782400_000000000), hInt(0), hInt(-1)),
-		"http_host.headers_wire":             cases(args(strList("b", "2", "a", "1", "B", "3"), strList()), args(strList("x", " a\r\nb ", "y", "1"), strList("Y")), args(strList(), strList())),
-		"http_host.parse_http_version":       unary(hStr("HTTP/1.1"), hStr("HTTP/2.0"), hStr("HTTP/1.-1"), hStr("HTTP/10.0"), hStr("http/1.1"), hStr("")),
-		"http_host.basic_auth":               unary(hStr("Basic YW5uOnB3"), hStr("basic YW5uOnB3OmV4dHJh"), hStr("Bearer x"), hStr("Basic !!"), hStr("Basic /w=="), hStr("")),
+		"html/host.escape":                   unary(append(strs, hStr(`<a href="x">it's & co</a>`))...),
+		"html/host.filter_url":               unary(hStr("https://example.com/a"), hStr("/posts/1"), hStr("mailto:a@b.c"), hStr("javascript:alert(1)"), hStr(" javascript:x"), hStr("a/b:c")),
+		"html/host.escape_url_path":          unary(append(strs, hStr("script:alert(1)"), hStr("a b/c"))...),
+		"url/host.escape_query":              unary(strs...),
+		"url/host.escape_path_segment":       unary(strs...),
+		"url/host.unescape_query":            unary(hStr("tea+%26+cake"), hStr("caf%C3%A9"), hStr("100%"), hStr("%FF"), hStr("%zz"), hStr("a%2Fb")),
+		"url/host.unescape_path_segment":     unary(hStr("tea%20&%20cake"), hStr("a+b"), hStr("100%"), hStr("%FF"), hStr("%zz")),
+		"url/host.parse_parts":               urlParse,
+		"url/host.format_parts":              unary(urlParts...),
+		"url/host.redacted_parts":            unary(urlParts...),
+		"url/host.escaped_path_parts":        unary(urlParts...),
+		"url/host.escaped_fragment_parts":    unary(urlParts...),
+		"url/host.request_uri_parts":         unary(urlParts...),
+		"url/host.hostname_parts":            unary(urlParts...),
+		"url/host.port_parts":                unary(urlParts...),
+		"url/host.resolve_parts":             pairs(urlParts...),
+		"url/host.join_path_parts":           []hostCase{{args: []any{urlParts[0], strList("x", "a/b", "..")}}, {args: []any{urlParts[1], strList()}}},
+		"url/host.escape_fragment":           unary(strs...),
+		"url/host.query_pairs":               unary(queries...),
+		"url/host.query_error":               unary(queries...),
+		"http/host.canonical_key":            unary(hStr("content-type"), hStr("X-REQUEST-ID"), hStr("bad key"), hStr("")),
+		"http/host.check_pattern":            unary(hStr("GET /users/{id}"), hStr("/a/{x}/{x}"), hStr("/f/{rest...}/x"), hStr("GET users"), hStr("")),
+		"http/host.status_text":              unary(hInt(200), hInt(404), hInt(418), hInt(599), hInt(0)),
+		"http/host.ws_accept_key":            unary(hStr("dGhlIHNhbXBsZSBub25jZQ=="), hStr("")),
+		"http/host.ws_valid_key":             unary(hStr("dGhlIHNhbXBsZSBub25jZQ=="), hStr("c2hvcnQ="), hStr("not base64")),
+		"http/host.file_content_disposition": pairs(hStr("doc"), hStr("a \"b\".txt")),
+		"path/host.clean":                    unary(hStr("a/./b/../c"), hStr("a//b/"), hStr("../../a"), hStr("/../a"), hStr("a/.."), hStr(""), hStr("/"), hStr("./")),
+		"path/host.join":                     unary(strList("data", "log.txt"), strList("data/", "/log.txt"), strList("", "a"), strList("/", "etc"), strList("", ""), strList()),
+		"path/host.base":                     unary(hStr("data/log.txt"), hStr("data/"), hStr("/"), hStr(""), hStr("a/.."), hStr("//")),
+		"path/host.dir":                      unary(hStr("a/b"), hStr("/etc"), hStr("log.txt"), hStr("/"), hStr("."), hStr("../a")),
+		"mail/host.quoted_printable":         unary(hStr("a=b ö"), hStr("end \nnext"), hStr(strings.Repeat("x", 80)), hStr("a\r\nb\rc"), hStr("tail\t"), hStr("")),
+		"mail/host.date":                     unary(hInt(1793638245_000000000), hInt(951782400_000000000), hInt(0), hInt(-1)),
+		"http/host.headers_wire":             cases(args(strList("b", "2", "a", "1", "B", "3"), strList()), args(strList("x", " a\r\nb ", "y", "1"), strList("Y")), args(strList(), strList())),
+		"http/host.parse_http_version":       unary(hStr("HTTP/1.1"), hStr("HTTP/2.0"), hStr("HTTP/1.-1"), hStr("HTTP/10.0"), hStr("http/1.1"), hStr("")),
+		"http/host.basic_auth":               unary(hStr("Basic YW5uOnB3"), hStr("basic YW5uOnB3OmV4dHJh"), hStr("Bearer x"), hStr("Basic !!"), hStr("Basic /w=="), hStr("")),
 		// Deflate's output may change with Go's version, so it is recorded by
 		// shape; gunzip records what a gzip stream holds.
-		"http_host.gzip_bytes": {
+		"http/host.gzip_bytes": {
 			{args: args(hBytes(""), hInt(6)), shapeOnly: true},
 			{args: args(hBytes(strings.Repeat("ab", 100)), hInt(1)), shapeOnly: true},
 			{args: args(hBytes("hi"), hInt(42)), shapeOnly: true},
 		},
-		"http_host.gunzip":     unary(hBytes(gzipOf("hi")), hBytes(gzipOf("")), hBytes("not gzip"), hBytes(gzipOf("hi")[:12]), hBytes("")),
-		"http_host.add_cookie": cases(args(hStr(""), strList("a", "1")), args(hStr("a=1"), strList("b", "x y")), args(hStr(""), strList("c", "q\"uote;"))),
-		"http_host.cross_origin_check": cases(
+		"http/host.gunzip":     unary(hBytes(gzipOf("hi")), hBytes(gzipOf("")), hBytes("not gzip"), hBytes(gzipOf("hi")[:12]), hBytes("")),
+		"http/host.add_cookie": cases(args(hStr(""), strList("a", "1")), args(hStr("a=1"), strList("b", "x y")), args(hStr(""), strList("c", "q\"uote;"))),
+		"http/host.cross_origin_check": cases(
 			args(hStr("GET"), hStr("a.example"), strList("Sec-Fetch-Site", "cross-site"), strList()),
 			args(hStr("POST"), hStr("a.example"), strList("Sec-Fetch-Site", "same-origin"), strList()),
 			args(hStr("POST"), hStr("a.example"), strList("Sec-Fetch-Site", "cross-site", "Origin", "https://b.example"), strList()),
@@ -523,7 +523,7 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 			args(hStr("POST"), hStr("a.example"), strList("Origin", "https://b.example"), strList()),
 			args(hStr("POST"), hStr("a.example"), strList("Sec-Fetch-Site", "", "Origin", ""), strList()),
 		),
-		"url_host.query_encode":               unary(strList(), strList("b", "x y", "a", "1", "b", "&"), strList("odd")),
+		"url/host.query_encode":               unary(strList(), strList("b", "x y", "a", "1", "b", "&"), strList("odd")),
 		"int.Int.to_string":                   unary(ints...),
 		"int.Int.to_float":                    unary(ints...),
 		"int.Int.bit_count":                   unary(ints...),
@@ -708,12 +708,12 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 	for k := range contextCheckedRows {
 		elsewhere[k] = true
 	}
-	// std/http_host's client crossings answer a network; internal/stdhttp's
+	// std/http/host's client crossings answer a network; internal/stdhttp's
 	// TestClient_* run each against a local server through a Nomi program.
 	for _, k := range []string{"new_client", "default_client", "close_idle", "send", "status", "protocol",
 		"headers", "trailers", "body_bytes", "body_reader", "close_body", "content_length",
 		"transfer_encoding", "closes", "uncompressed", "final_url"} {
-		elsewhere["http_host."+k] = true
+		elsewhere["http/host."+k] = true
 	}
 	// Its server crossings answer requests a client sends; TestServer_* run
 	// each through a Nomi program serving on 127.0.0.1.
@@ -723,13 +723,13 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 		"detect_content_type", "new_mux", "route", "answer_content", "answer_redirect", "format_time",
 		"parse_time", "limit_body", "cookie_text", "cookie_valid", "parse_cookie", "parse_set_cookie",
 		"new_jar", "jar_cookies", "jar_set", "with_jar"} {
-		elsewhere["http_host."+k] = true
+		elsewhere["http/host."+k] = true
 	}
 	// Its multipart crossings cross lists of Bytes, which this table's
 	// operands do not build; std/http's attached tests and TestClient_Multipart*
 	// run each through Nomi programs.
 	for _, k := range []string{"parse_multipart", "encode_multipart"} {
-		elsewhere["http_host."+k] = true
+		elsewhere["http/host."+k] = true
 	}
 	// Its TLS and TCP crossings for std/tls and std/net open sockets and run
 	// handshakes; TestTLS_HTTPSAndTCPEndToEnd runs each through a Nomi
@@ -741,7 +741,7 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 		"net_listen_with", "tls_listen", "net_listener_address", "net_accept", "net_listener_close",
 		"net_listener_deadline", "conn_close_read", "conn_no_delay", "conn_linger", "conn_keep_alive",
 		"conn_multipath", "pipe", "split_host_port", "join_host_port", "lookup", "test_certificate"} {
-		elsewhere["http_host."+k] = true
+		elsewhere["http/host."+k] = true
 	}
 	// The hooks Go calls into a program, the TLS state a request or
 	// response carries, upgrades and the tracer need a server, a handshake
@@ -749,7 +749,7 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 	// through a Nomi program on 127.0.0.1.
 	for _, k := range []string{"hello_parts", "hello_supports", "tls_wrap_listener", "in_local", "in_tls",
 		"extend_read_deadline", "upgrade", "exchange_tls", "new_tracer", "tracer_events"} {
-		elsewhere["http_host."+k] = true
+		elsewhere["http/host."+k] = true
 	}
 	// The wire crossings read and write a program's Reader and Writer and
 	// hold Go messages and multipart readers in handles;
@@ -758,7 +758,7 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 	for _, k := range []string{"wire_read_request", "wire_read_response", "wire_parts", "wire_body", "wire_request",
 		"wire_response", "chunked_reader", "chunked_writer", "gzip_writer", "gzip_reader", "multipart_reader", "next_part", "part_headers",
 		"part_reader", "part_form_name", "part_file_name", "multipart_write", "close_connections"} {
-		elsewhere["http_host."+k] = true
+		elsewhere["http/host."+k] = true
 	}
 	// std/websocket's crossings hold a connection in a handle and need a
 	// peer; internal/websocket's tests run the protocol, and std/websocket's
@@ -766,23 +766,23 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 	// programs, over a pipe and on 127.0.0.1 with and without TLS.
 	for _, k := range []string{"ws_open", "ws_connect", "ws_protocol", "ws_id", "ws_receive", "ws_send",
 		"ws_ping", "ws_close", "ws_pipe"} {
-		elsewhere["http_host."+k] = true
+		elsewhere["http/host."+k] = true
 	}
-	// std/embed_host's read and sum answer from the machine's table of
+	// std/embed/host's read and sum answer from the machine's table of
 	// embedded files, which a program's `embed` fills; vmrunner's
 	// TestOpenImageAt_StartingReadsTheCodeAndAFileOnlyWhenRead, cmd/nomi's
 	// embed tests and the embedded_files corpus case run them through Nomi
 	// programs.
-	elsewhere["embed_host.read"] = true
-	elsewhere["embed_host.sum"] = true
-	// std/csv_host's and std/xml_host's readers hold a Go reader over a
+	elsewhere["embed/host.read"] = true
+	elsewhere["embed/host.sum"] = true
+	// std/csv/host's and std/xml/host's readers hold a Go reader over a
 	// Reader in a handle; TestRtFuncs_CsvAndXmlReaders runs each row, and
 	// std/csv's and std/xml's attached tests run them through Nomi programs.
-	for _, k := range []string{"csv_host.open", "csv_host.next", "csv_host.line", "csv_host.stopped",
-		"csv_host.message", "csv_host.failure", "csv_host.encode", "xml_host.open", "xml_host.next",
-		"xml_host.name", "xml_host.attributes", "xml_host.namespaces", "xml_host.text", "xml_host.target",
-		"xml_host.position", "xml_host.stopped", "xml_host.message", "xml_host.failure",
-		"xml_host.escape_text", "xml_host.escape_attribute", "xml_host.is_name"} {
+	for _, k := range []string{"csv/host.open", "csv/host.next", "csv/host.line", "csv/host.stopped",
+		"csv/host.message", "csv/host.failure", "csv/host.encode", "xml/host.open", "xml/host.next",
+		"xml/host.name", "xml/host.attributes", "xml/host.namespaces", "xml/host.text", "xml/host.target",
+		"xml/host.position", "xml/host.stopped", "xml/host.message", "xml/host.failure",
+		"xml/host.escape_text", "xml/host.escape_attribute", "xml/host.is_name"} {
 		elsewhere[k] = true
 	}
 	var missing []string

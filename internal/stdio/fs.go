@@ -9,7 +9,7 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// The std/fs crossings, std/fs_host's host functions: each validates its
+// The std/fs crossings, std/fs/host's host functions: each validates its
 // paths, asks the frame for its backend, and answers what std/fs builds its
 // values from. internal/stdlibbindings binds each as an RtFuncs row in the
 // `files` capability class.
@@ -295,9 +295,9 @@ type within struct {
 	release func()
 }
 
-// Within is std/fs_host's `within`, which `fs.within` calls: the file
+// Within is std/fs/host's `within`, which `fs.within` calls: the file
 // system confined to dir, which the call's body runs against
-// (`fs_host.run_in`) and which Release lets go of afterwards. It is held,
+// (`std::fs::host.run_in`) and which Release lets go of afterwards. It is held,
 // for a debugger's replay, when the file system it confines is (a sandbox).
 func Within(fr *rt.Frame, dir string) rt.Result[rt.FileSystem, rt.IOError] {
 	if e := validPath(dir); e != nil {
@@ -310,7 +310,7 @@ func Within(fr *rt.Frame, dir string) rt.Result[rt.FileSystem, rt.IOError] {
 	return ok(rt.NewFileSystem(&within{Backend: b, release: release}, fr.FilesHeld()))
 }
 
-// Release is std/fs_host's `release`: a file system `fs.within` made is let
+// Release is std/fs/host's `release`: a file system `fs.within` made is let
 // go of (its *os.Root closed). Anything else is left alone.
 func Release(fs rt.FileSystem) rt.Unit {
 	if w, ok := fs.Files().(*within); ok {
@@ -322,7 +322,7 @@ func Release(fs rt.FileSystem) rt.Unit {
 // TempDir is `fs.temp_dir`.
 func TempDir(fr *rt.Frame) string { return backendOf(fr).TempDir() }
 
-// MakeTempDir is std/fs_host's `make_temp_dir`, which `fs.make_temp_dir`
+// MakeTempDir is std/fs/host's `make_temp_dir`, which `fs.make_temp_dir`
 // calls: a fresh directory under the temporary directory.
 func MakeTempDir(fr *rt.Frame) rt.Result[string, rt.IOError] {
 	dir, e := backendOf(fr).MakeTempDir()

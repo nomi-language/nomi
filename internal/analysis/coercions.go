@@ -37,7 +37,9 @@ type Coercion struct {
 // callee receives as a view over the source rather than as an interface
 // value (isStdIterType). A source has a record of its view instead
 // (IterViews), the receiver of `Iter.each_while` and `Iter.known_count`
-// among them, and so have a `subtests` statement's rows.
+// among them, and so have a `subtests` statement's rows. An expression
+// checked against a type that is no interface, whose own type converts to
+// it below the top, has a record of the conversion (Conversions).
 func (c *checker) recordCoercions(nodes []ast.Node) {
 	if c.fa == nil {
 		return
@@ -50,6 +52,9 @@ func (c *checker) recordCoercions(nodes []ast.Node) {
 	for n, exp := range c.fa.ExpectedTypes {
 		it, ok := resolveTypeVar(exp).(*InterfaceType)
 		if !ok {
+			if t := c.fa.ExprTypes[n]; t != nil && exp != nil {
+				c.recordConversion(n, exp, t)
+			}
 			continue
 		}
 		if isStdIterType(it) {

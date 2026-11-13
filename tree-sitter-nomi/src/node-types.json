@@ -18131,6 +18131,10 @@
             "named": true
           },
           {
+            "type": "paren_expression",
+            "named": true
+          },
+          {
             "type": "type_identifier",
             "named": true
           }

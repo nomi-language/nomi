@@ -349,13 +349,13 @@ func TestTravel_ADivergedReplayStops(t *testing.T) {
 	s.breakAt(14)
 	s.runPasses()
 	st := s.stop()
-	s.d.RenameCrossingForTest(1, "fs_host.read_text")
+	s.d.RenameCrossingForTest(1, "fs/host.read_text")
 	if err := s.d.StepBack(st.Thread); err != nil {
 		t.Fatal(err)
 	}
 	st = s.stop()
 	if st.Reason != vm.StopDiverged || st.Pos.Line() != 11 ||
-		!strings.Contains(st.Text, "(dbg.nomi:11), where the recording has fs_host.read_text at statement") {
+		!strings.Contains(st.Text, "(dbg.nomi:11), where the recording has fs/host.read_text at statement") {
 		t.Fatalf("stop %+v", st)
 	}
 	if off := s.d.TravelOff(); !strings.Contains(off, "diverged") {

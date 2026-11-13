@@ -28,7 +28,7 @@ import
     duration.Duration
     equatable.Equatable
     html.Html
-    http_host
+    http::host as http_host
     io.{Reader, Writer}
     iter.Iter
     lists.List

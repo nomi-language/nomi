@@ -1,0 +1,89 @@
+================================================================================
+The name concurrent in parentheses is an identifier
+================================================================================
+
+fn f()
+  x = (concurrent)
+  y = 1 + (concurrent)
+  (concurrent)
+  x |> tap (concurrent)
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (paren_expression
+          (identifier)))
+      (binding
+        (identifier)
+        (binary_expression
+          (integer)
+          (paren_expression
+            (identifier))))
+      (paren_expression
+        (identifier))
+      (pipe_expression
+        (identifier)
+        (tap_stage
+          function: (paren_expression
+            (identifier)))))))
+
+================================================================================
+The word concurrent ending its line opens a concurrent block
+================================================================================
+
+fn f()
+  concurrent
+    g()
+  end
+  x = concurrent // tasks
+    g()
+  end
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (concurrent_block
+        body: (body
+          (call_expression
+            function: (identifier))))
+      (binding
+        (identifier)
+        (concurrent_block
+          (line_comment)
+          body: (body
+            (call_expression
+              function: (identifier))))))))
+
+================================================================================
+The name group in parentheses is an identifier
+================================================================================
+
+(group)
+
+fn f()
+  (group)
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (paren_expression
+    (identifier))
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (paren_expression
+        (identifier)))))

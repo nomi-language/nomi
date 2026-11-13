@@ -60,7 +60,7 @@ func wireOf(h rt.HTTPHandle) *wireMessage {
 	return m
 }
 
-// WireReadRequest is `http_host.wire_read_request`: Go's ReadRequest over
+// WireReadRequest is `std::http::host.wire_read_request`: Go's ReadRequest over
 // r, its body read whole. An Err is Go's reason.
 func WireReadRequest(fr *rt.Frame, r rt.Reader) rt.Result[rt.HTTPHandle, string] {
 	br := bufio.NewReader(byteAtATime{readerInput{fr: fr, r: r}})
@@ -75,7 +75,7 @@ func WireReadRequest(fr *rt.Frame, r rt.Reader) rt.Result[rt.HTTPHandle, string]
 	return rt.Ok[rt.HTTPHandle, string](rt.NewHTTPHandle(&wireMessage{req: req, body: body}))
 }
 
-// WireReadResponse is `http_host.wire_read_response`: Go's ReadResponse
+// WireReadResponse is `std::http::host.wire_read_response`: Go's ReadResponse
 // over r for a request of method, its body read whole.
 func WireReadResponse(fr *rt.Frame, r rt.Reader, method string) rt.Result[rt.HTTPHandle, string] {
 	br := bufio.NewReader(byteAtATime{readerInput{fr: fr, r: r}})
@@ -90,7 +90,7 @@ func WireReadResponse(fr *rt.Frame, r rt.Reader, method string) rt.Result[rt.HTT
 	return rt.Ok[rt.HTTPHandle, string](rt.NewHTTPHandle(&wireMessage{resp: resp, body: body}))
 }
 
-// WireParts is `http_host.wire_parts`: [method, target, major, minor, host,
+// WireParts is `std::http::host.wire_parts`: [method, target, major, minor, host,
 // content length, close, status], then the headers, the trailers and the
 // transfer encoding.
 func WireParts(h rt.HTTPHandle) *rt.List[*rt.List[string]] {
@@ -112,7 +112,7 @@ func WireParts(h rt.HTTPHandle) *rt.List[*rt.List[string]] {
 		rt.Cons(listOf(te), (*rt.List[*rt.List[string]])(nil)))))
 }
 
-// WireBody is `http_host.wire_body`.
+// WireBody is `std::http::host.wire_body`.
 func WireBody(h rt.HTTPHandle) rt.Bytes { return rt.Bytes(wireOf(h).body) }
 
 func header(flat *rt.List[string]) http.Header {
@@ -123,7 +123,7 @@ func header(flat *rt.List[string]) http.Header {
 	return h
 }
 
-// WireRequest is `http_host.wire_request`: a request from its parts,
+// WireRequest is `std::http::host.wire_request`: a request from its parts,
 // written to w (op 0), as a proxy writes it (1), or dumped: as a server
 // received it with its body (2) or without (3), or as a client sends it
 // with its body (4) or without (5). A dump answers its text.
@@ -170,7 +170,7 @@ func WireRequest(fr *rt.Frame, op int64, w rt.Writer, method, target string, hea
 	return rt.Ok[string, string](string(out))
 }
 
-// WireResponse is `http_host.wire_response`: a response to a request of
+// WireResponse is `std::http::host.wire_response`: a response to a request of
 // method from its parts, written to w (op 0) or dumped with its body (1)
 // or without (2).
 func WireResponse(fr *rt.Frame, op int64, w rt.Writer, status, major, minor int64, headers *rt.List[string],
@@ -200,13 +200,13 @@ func WireResponse(fr *rt.Frame, op int64, w rt.Writer, status, major, minor int6
 	return rt.Ok[string, string](string(out))
 }
 
-// ChunkedReader is `http_host.chunked_reader`: httputil's NewChunkedReader
+// ChunkedReader is `std::http::host.chunked_reader`: httputil's NewChunkedReader
 // over r.
 func ChunkedReader(fr *rt.Frame, r rt.Reader) rt.Reader {
 	return rt.NewReader(rt.ReadSource{Name: "<chunked>", R: httputil.NewChunkedReader(readerInput{fr: fr, r: r})})
 }
 
-// ChunkedWriter is `http_host.chunked_writer`: httputil's
+// ChunkedWriter is `std::http::host.chunked_writer`: httputil's
 // NewChunkedWriter over w; closing it writes the last, empty chunk.
 func ChunkedWriter(fr *rt.Frame, w rt.Writer) rt.Writer {
 	cw := httputil.NewChunkedWriter(writerOutput{fr: fr, w: w})
@@ -219,14 +219,14 @@ type partsReader struct {
 	raw bool
 }
 
-// MultipartReader is `http_host.multipart_reader`: Go's multipart.Reader
+// MultipartReader is `std::http::host.multipart_reader`: Go's multipart.Reader
 // over r with boundary; with raw, parts are not decoded
 // (NextRawPart).
 func MultipartReader(fr *rt.Frame, r rt.Reader, boundary string, raw bool) rt.HTTPHandle {
 	return rt.NewHTTPHandle(&partsReader{r: multipart.NewReader(readerInput{fr: fr, r: r}, boundary), raw: raw})
 }
 
-// NextPart is `http_host.next_part`: the next part as a Handle, None after
+// NextPart is `std::http::host.next_part`: the next part as a Handle, None after
 // the last. Reading it closes the part before.
 func NextPart(h rt.HTTPHandle) rt.Result[rt.Maybe[rt.HTTPHandle], string] {
 	pr, ok := h.Value().(*partsReader)
@@ -257,21 +257,21 @@ func partOf(h rt.HTTPHandle) *multipart.Part {
 	return p
 }
 
-// PartHeaders is `http_host.part_headers`.
+// PartHeaders is `std::http::host.part_headers`.
 func PartHeaders(h rt.HTTPHandle) *rt.List[string] { return headerList(http.Header(partOf(h).Header)) }
 
-// PartReader is `http_host.part_reader`: the part's body.
+// PartReader is `std::http::host.part_reader`: the part's body.
 func PartReader(h rt.HTTPHandle) rt.Reader {
 	return rt.NewReader(rt.ReadSource{Name: "<part>", R: partOf(h)})
 }
 
-// PartFormName is `http_host.part_form_name`: "" when it has none.
+// PartFormName is `std::http::host.part_form_name`: "" when it has none.
 func PartFormName(h rt.HTTPHandle) string { return partOf(h).FormName() }
 
-// PartFileName is `http_host.part_file_name`: "" when it has none.
+// PartFileName is `std::http::host.part_file_name`: "" when it has none.
 func PartFileName(h rt.HTTPHandle) string { return partOf(h).FileName() }
 
-// MultipartWrite is `http_host.multipart_write`: parts, as EncodeMultipart
+// MultipartWrite is `std::http::host.multipart_write`: parts, as EncodeMultipart
 // takes them, written to w with boundary as they go, then the closing
 // boundary.
 func MultipartWrite(fr *rt.Frame, w rt.Writer, boundary string, parts *rt.List[rt.Bytes]) rt.Result[rt.Unit, string] {

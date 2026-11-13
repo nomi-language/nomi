@@ -1,7 +1,7 @@
 import
     std::channels.{Channel, Receiver, Sender}
     std::sql.{self, Conn, Dialect, Row, Sql, Statement, Value}
-    std::sql_testing.{self, Fake}
+    std::sql::testing.{self, Fake}
     std::tasks.{Outcome, Task}
 end
 
@@ -199,11 +199,11 @@ test "a finished transaction refuses commit and statements, and its rollback is 
 end
 
 test "the fake passes the conformance suite"
-    assert sql_testing.conformance(fn -> Ok(Fake.new(answer: sql_testing.conformance_answer))) == []
+    assert testing.conformance(fn -> Ok(Fake.new(answer: testing.conformance_answer))) == []
 end
 
 test "the suite names its rules"
-    rules = sql_testing.rules()
+    rules = testing.rules()
     assert Iter.count(rules) == 29
     assert Iter.contains(rules, "rollback after commit is a no-op")
     assert Iter.contains(rules, "savepoints nest")
@@ -212,15 +212,15 @@ test "the suite names its rules"
 end
 
 test "the suite closes every connection it opens"
-    opened: Channel<Fake> = Channel.buffered(Iter.count(sql_testing.rules()))
+    opened: Channel<Fake> = Channel.buffered(Iter.count(testing.rules()))
 
     open = fn ->
-        fake = Fake.new(answer: sql_testing.conformance_answer)
+        fake = Fake.new(answer: testing.conformance_answer)
         _ = Sender.send(opened.sender, fake)
         Ok(fake)
     end
 
-    assert sql_testing.conformance(open) == []
+    assert testing.conformance(open) == []
     Sender.close(opened.sender)
 
     fakes = Iter.loop([], fn fakes ->
@@ -230,7 +230,7 @@ test "the suite closes every connection it opens"
         end
     end)
 
-    assert Iter.count(fakes) == Iter.count(sql_testing.rules())
+    assert Iter.count(fakes) == Iter.count(testing.rules())
     assert Iter.all_match(fakes, Fake.is_closed)
 end
 
@@ -285,11 +285,11 @@ end
 
 test "the suite names each rule a broken driver breaks"
     open = fn ->
-        inner: Conn = Fake.new(answer: sql_testing.conformance_answer)
+        inner: Conn = Fake.new(answer: testing.conformance_answer)
         Ok(ForgetsRollback{inner:})
     end
 
-    failures = sql_testing.conformance(open)
+    failures = testing.conformance(open)
 
     assert Iter.map(failures, .rule) |> Iter.to_list() == [
         "rollback discards a transaction's writes",
@@ -360,11 +360,11 @@ end
 
 test "the suite names the close rules a driver that never closes breaks"
     open = fn ->
-        inner: Conn = Fake.new(answer: sql_testing.conformance_answer)
+        inner: Conn = Fake.new(answer: testing.conformance_answer)
         Ok(NeverCloses{inner:})
     end
 
-    failures = sql_testing.conformance(open)
+    failures = testing.conformance(open)
 
     assert Iter.map(failures, .rule) |> Iter.to_list() == [
         "every operation after close is Closed",

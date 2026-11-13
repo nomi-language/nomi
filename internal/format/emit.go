@@ -48,10 +48,11 @@ func emitFile(nodes []ast.Node, fileEndTrivia []ast.Trivia) string {
 				parts = append(parts, HardLine())
 			}
 		}
+		body := emitTopLevel(n)
 		if i > 0 && dropsLeadingBlankInCompactRun(nodes[i-1], n) {
-			parts = append(parts, emitWithTriviaNoLeadingBlank(n))
+			parts = append(parts, emitWithTriviaNoLeadingBlankDoc(n, body))
 		} else {
-			parts = append(parts, emitWithTrivia(n))
+			parts = append(parts, emitWithTriviaDoc(n, body))
 		}
 	}
 	if len(fileEndTrivia) > 0 {
@@ -266,11 +267,47 @@ func emitWithTrivia(n ast.Node) Doc {
 }
 
 func emitWithTriviaNoLeadingBlank(n ast.Node) Doc {
+	return emitWithTriviaNoLeadingBlankDoc(n, emit(n))
+}
+
+func emitWithTriviaNoLeadingBlankDoc(n ast.Node, body Doc) Doc {
 	ht, ok := n.(ast.HasTrivia)
 	if !ok {
-		return emit(n)
+		return body
 	}
-	return emitWithTriviaParts(emit(n), withoutBlankTrivia(ht.GetLeading()), outerTrailing(n, ht))
+	return emitWithTriviaParts(body, withoutBlankTrivia(ht.GetLeading()), outerTrailing(n, ht))
+}
+
+// emitTopLevel is emit(n) for a node of the file, except that a statement
+// that is the name `group` alone, perhaps in parentheses, is written
+// `(group)`. At the top level the parser reads a line that is `group` alone
+// as a test group without a name (parser.isGroupStart), and the formatter
+// puts each statement on its own line: `group []` would become a group.
+func emitTopLevel(n ast.Node) Doc {
+	if es, ok := n.(*ast.ExprStmt); ok {
+		if d, ok := parenthesizedGroupWord(es.Expr); ok {
+			return withDangling(es, d)
+		}
+	}
+	return emit(n)
+}
+
+// parenthesizedGroupWord is emit(n) with one pair of parentheses around the
+// name, when n is the name `group` inside comment-free parentheses or none.
+func parenthesizedGroupWord(n ast.Node) (Doc, bool) {
+	switch v := n.(type) {
+	case *ast.Ident:
+		if v.Name == "group" {
+			return withDangling(v, Text("(group)")), true
+		}
+	case *ast.GroupedExpr:
+		if v.Expr != nil && itemComments(v.Expr) == nil {
+			if d, ok := parenthesizedGroupWord(v.Expr); ok {
+				return withDangling(v, d), true
+			}
+		}
+	}
+	return nil, false
 }
 
 func emitWithTrailingTrivia(n ast.Node, more bool) Doc {
@@ -650,6 +687,13 @@ func emitNode(n ast.Node) Doc {
 		// written `\${` on emission.
 		return Text(encodeNomiString(v.Value))
 	case *ast.Ident:
+		if v.Name == "concurrent" {
+			// `concurrent` ending its line opens a concurrent block
+			// (spec §16), and a line break the formatter makes may
+			// follow any expression. In parentheses the name ends no
+			// line.
+			return Text("(concurrent)")
+		}
 		return Text(v.Name)
 	case *ast.FilePath:
 		return Text(v.Spelling())

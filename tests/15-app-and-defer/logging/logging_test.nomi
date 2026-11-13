@@ -1,10 +1,10 @@
 // std/log through an app field: the program logs through App.logger, a test
-// replaces it with log_testing's recorder, and under a virtual clock every
+// replaces it with std::log::testing's recorder, and under a virtual clock every
 // record carries the same time.
 import
     std::io
     std::log.{self, Level, Logger}
-    std::log_testing
+    std::log::testing
     std::testing.Clock
     orders_app.{self, App, place_order}
 end
@@ -15,12 +15,12 @@ group "logging through an app field"
     boot orders_app.boot()
 
     test "a test records what the program logs"
-        got = log_testing.run(fn logger ->
+        got = testing.run(fn logger ->
             with App.logger = logger
             place_order(42)
         end)
 
-        assert log_testing.messages(got.records) == ["checking stock", "order placed"]
+        assert testing.messages(got.records) == ["checking stock", "order placed"]
 
         placed = Iter.last(got.records)!
         assert placed.level == Level.Info
@@ -33,12 +33,12 @@ group "logging through an app field"
     end
 
     test "a minimum level drops the records below it"
-        got = log_testing.run(min: Level.Info, fn logger ->
+        got = testing.run(min: Level.Info, fn logger ->
             with App.logger = logger
             place_order(7)
         end)
 
-        assert log_testing.messages(got.records) == ["order placed"]
+        assert testing.messages(got.records) == ["order placed"]
     end
 
     test "text and JSON lines, at the virtual clock's time"

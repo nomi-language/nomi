@@ -26,7 +26,7 @@ func TestBacktickLiteral_PathIsPureAndFilesAreEffects(t *testing.T) {
 	}
 	effect := handler("std::fs", "        case fs.read_text(\"x${n}\")\n            Ok(text) -> Ok(Where{p: text})\n            Err(e) -> Err(\"${e}\")\n        end\n")
 	ds := literalDiagnostics(t, effect)
-	if len(ds) != 1 || !strings.Contains(ds[0].Message, "its handler has effects") || !strings.Contains(ds[0].Message, "fs_host.read_text") {
+	if len(ds) != 1 || !strings.Contains(ds[0].Message, "its handler has effects") || !strings.Contains(ds[0].Message, "fs/host.read_text") {
 		t.Fatalf("a handler that reads a file: %v, want the effects error naming the crossing", ds)
 	}
 }

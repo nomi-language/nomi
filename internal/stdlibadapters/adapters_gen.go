@@ -321,13 +321,13 @@ func Names() []string {
 		"locale.locale_available",
 		"locale.locale_load_raw",
 		"locale.locale_loaded_raw",
-		"phrase_format.format_raw",
-		"phrase_format.load_raw",
-		"phrase_format.noun_raw",
-		"money_format.money_format_raw",
-		"money_format.money_mixed",
-		"money_format.money_parse_raw",
-		"money_format.money_refused",
+		"phrase/format.format_raw",
+		"phrase/format.load_raw",
+		"phrase/format.noun_raw",
+		"money/format.money_format_raw",
+		"money/format.money_mixed",
+		"money/format.money_parse_raw",
+		"money/format.money_refused",
 		"locale.locale_fallbacks",
 		"locale.locale_from_posix_raw",
 		"locale.locale_language",
@@ -354,10 +354,10 @@ func Names() []string {
 		"Regex.replace_in",
 		"Regex.split_in",
 		"Regex.is_suffix_of",
-		"toml_host.check",
-		"toml_host.build",
-		"toml_host.quote",
-		"toml_host.float",
+		"toml/host.check",
+		"toml/host.build",
+		"toml/host.quote",
+		"toml/host.float",
 		"strings.capture_groups",
 		"strings.capture_groups_all",
 		"String.capitalize",
@@ -400,59 +400,59 @@ func Names() []string {
 		"hash.hmac_sha512",
 		"hash.equal_in_constant_time",
 		"hash.pbkdf2_sha256",
-		"signatures_host.generate_ed25519",
-		"signatures_host.generate_p256",
-		"signatures_host.generate_rsa",
-		"signatures_host.private_from_der",
-		"signatures_host.private_from_pem",
-		"signatures_host.private_to_pem",
-		"signatures_host.private_kind",
-		"signatures_host.public_of",
-		"signatures_host.public_from_der",
-		"signatures_host.public_from_pem",
-		"signatures_host.public_to_pem",
-		"signatures_host.public_kind",
-		"signatures_host.ed25519_from_seed",
-		"signatures_host.ed25519_seed",
-		"signatures_host.ed25519_public_from_bytes",
-		"signatures_host.ed25519_public_bytes",
-		"signatures_host.sign",
-		"signatures_host.is_valid",
-		"http_host.seal",
-		"http_host.open_sealed",
+		"signatures/host.generate_ed25519",
+		"signatures/host.generate_p256",
+		"signatures/host.generate_rsa",
+		"signatures/host.private_from_der",
+		"signatures/host.private_from_pem",
+		"signatures/host.private_to_pem",
+		"signatures/host.private_kind",
+		"signatures/host.public_of",
+		"signatures/host.public_from_der",
+		"signatures/host.public_from_pem",
+		"signatures/host.public_to_pem",
+		"signatures/host.public_kind",
+		"signatures/host.ed25519_from_seed",
+		"signatures/host.ed25519_seed",
+		"signatures/host.ed25519_public_from_bytes",
+		"signatures/host.ed25519_public_bytes",
+		"signatures/host.sign",
+		"signatures/host.is_valid",
+		"http/host.seal",
+		"http/host.open_sealed",
 		"base64.standard",
 		"base64.decode",
 		"base64.url_safe",
 		"base64.decode_url",
 		"hex.encode",
 		"hex.decode",
-		"html_host.escape",
-		"html_host.filter_url",
-		"html_host.escape_url_path",
-		"url_host.escape_query",
-		"url_host.unescape_query",
-		"url_host.escape_path_segment",
-		"url_host.unescape_path_segment",
-		"url_host.parse_parts",
-		"url_host.format_parts",
-		"url_host.redacted_parts",
-		"url_host.escaped_path_parts",
-		"url_host.escaped_fragment_parts",
-		"url_host.request_uri_parts",
-		"url_host.hostname_parts",
-		"url_host.port_parts",
-		"url_host.resolve_parts",
-		"url_host.join_path_parts",
-		"url_host.escape_fragment",
-		"url_host.query_pairs",
-		"url_host.query_error",
-		"url_host.query_encode",
-		"path_host.clean",
-		"path_host.join",
-		"path_host.base",
-		"path_host.dir",
-		"mail_host.quoted_printable",
-		"mail_host.date",
+		"html/host.escape",
+		"html/host.filter_url",
+		"html/host.escape_url_path",
+		"url/host.escape_query",
+		"url/host.unescape_query",
+		"url/host.escape_path_segment",
+		"url/host.unescape_path_segment",
+		"url/host.parse_parts",
+		"url/host.format_parts",
+		"url/host.redacted_parts",
+		"url/host.escaped_path_parts",
+		"url/host.escaped_fragment_parts",
+		"url/host.request_uri_parts",
+		"url/host.hostname_parts",
+		"url/host.port_parts",
+		"url/host.resolve_parts",
+		"url/host.join_path_parts",
+		"url/host.escape_fragment",
+		"url/host.query_pairs",
+		"url/host.query_error",
+		"url/host.query_encode",
+		"path/host.clean",
+		"path/host.join",
+		"path/host.base",
+		"path/host.dir",
+		"mail/host.quoted_printable",
+		"mail/host.date",
 		"bytes.Bytes.get",
 		"bytes.Bytes.slice",
 		"bytes.Bytes.concat",
@@ -577,27 +577,27 @@ func Names() []string {
 		"io.writer_from_fn",
 		"io.memory_writer",
 		"io.collected",
-		"embed_host.read",
-		"embed_host.sum",
-		"fs_host.read",
-		"fs_host.read_text",
-		"fs_host.write",
-		"fs_host.open",
-		"fs_host.create",
-		"fs_host.list",
-		"fs_host.create_dir",
-		"fs_host.remove",
-		"fs_host.remove_all",
-		"fs_host.rename",
-		"fs_host.copy",
-		"fs_host.metadata",
-		"fs_host.link_metadata",
-		"fs_host.create_symlink",
-		"fs_host.read_link",
-		"fs_host.set_mode",
-		"fs_host.open_file",
-		"fs_host.within",
-		"fs_host.release",
+		"embed/host.read",
+		"embed/host.sum",
+		"fs/host.read",
+		"fs/host.read_text",
+		"fs/host.write",
+		"fs/host.open",
+		"fs/host.create",
+		"fs/host.list",
+		"fs/host.create_dir",
+		"fs/host.remove",
+		"fs/host.remove_all",
+		"fs/host.rename",
+		"fs/host.copy",
+		"fs/host.metadata",
+		"fs/host.link_metadata",
+		"fs/host.create_symlink",
+		"fs/host.read_link",
+		"fs/host.set_mode",
+		"fs/host.open_file",
+		"fs/host.within",
+		"fs/host.release",
 		"io.file_read",
 		"io.File.read_at",
 		"io.File.write",
@@ -607,192 +607,192 @@ func Names() []string {
 		"io.File.size",
 		"io.File.truncate",
 		"io.File.close",
-		"fs_host.temp_dir",
-		"fs_host.make_temp_dir",
-		"fs_host.current_dir",
-		"fs_host.new_sandbox",
-		"fs_host.sandbox_fail",
-		"fs_host.sandbox_files",
-		"fs_host.sandbox_log",
-		"fs_host.sandbox_open",
-		"http_host.new_client",
-		"http_host.default_client",
-		"http_host.close_idle",
-		"http_host.send",
-		"http_host.status",
-		"http_host.protocol",
-		"http_host.headers",
-		"http_host.trailers",
-		"http_host.body_bytes",
-		"http_host.body_reader",
-		"http_host.close_body",
-		"http_host.content_length",
-		"http_host.transfer_encoding",
-		"http_host.closes",
-		"http_host.uncompressed",
-		"http_host.final_url",
-		"http_host.canonical_key",
-		"http_host.status_text",
-		"http_host.headers_wire",
-		"http_host.parse_http_version",
-		"http_host.basic_auth",
-		"http_host.add_cookie",
-		"http_host.cross_origin_check",
-		"http_host.listen",
-		"http_host.listen_tls",
-		"http_host.with_tls",
-		"http_host.test_certificate",
-		"http_host.certificate_from_pem",
-		"http_host.certificate_load",
-		"http_host.certificate_info",
-		"http_host.tls_config",
-		"http_host.tls_with_certificate",
-		"http_host.cipher_suites",
-		"http_host.cipher_suite_name",
-		"http_host.dial_with",
-		"http_host.lookup",
-		"http_host.pipe",
-		"http_host.split_host_port",
-		"http_host.join_host_port",
-		"http_host.conn_close_read",
-		"http_host.conn_no_delay",
-		"http_host.conn_linger",
-		"http_host.conn_keep_alive",
-		"http_host.conn_multipath",
-		"http_host.tls_dial",
-		"http_host.tls_client",
-		"http_host.tls_server",
-		"http_host.conn_reader",
-		"http_host.conn_writer",
-		"http_host.conn_close",
-		"http_host.conn_close_write",
-		"http_host.conn_local",
-		"http_host.conn_remote",
-		"http_host.conn_deadline",
-		"http_host.tls_state_parts",
-		"http_host.hello_parts",
-		"http_host.hello_supports",
-		"http_host.tls_wrap_listener",
-		"http_host.in_local",
-		"http_host.in_tls",
-		"http_host.extend_read_deadline",
-		"http_host.upgrade",
-		"http_host.exchange_tls",
-		"http_host.new_tracer",
-		"http_host.tracer_events",
-		"http_host.wire_read_request",
-		"http_host.wire_read_response",
-		"http_host.wire_parts",
-		"http_host.wire_body",
-		"http_host.wire_request",
-		"http_host.wire_response",
-		"http_host.chunked_reader",
-		"http_host.chunked_writer",
-		"http_host.gzip_bytes",
-		"http_host.gunzip",
-		"http_host.gzip_writer",
-		"http_host.gzip_reader",
-		"http_host.multipart_reader",
-		"http_host.next_part",
-		"http_host.part_headers",
-		"http_host.part_reader",
-		"http_host.part_form_name",
-		"http_host.part_file_name",
-		"http_host.multipart_write",
-		"http_host.close_connections",
-		"http_host.ws_accept_key",
-		"http_host.ws_valid_key",
-		"http_host.ws_open",
-		"http_host.ws_connect",
-		"http_host.ws_protocol",
-		"http_host.ws_id",
-		"http_host.ws_receive",
-		"http_host.ws_send",
-		"http_host.ws_ping",
-		"http_host.ws_close",
-		"http_host.ws_pipe",
-		"http_host.tls_verify_hostname",
-		"http_host.net_listen_with",
-		"http_host.net_listener_deadline",
-		"http_host.tls_listen",
-		"http_host.net_listener_address",
-		"http_host.net_accept",
-		"http_host.net_listener_close",
-		"http_host.address",
-		"http_host.next",
-		"http_host.shutdown",
-		"http_host.in_method",
-		"http_host.in_url",
-		"http_host.in_host",
-		"http_host.in_remote",
-		"http_host.in_target",
-		"http_host.in_protocol",
-		"http_host.in_headers",
-		"http_host.in_trailers",
-		"http_host.in_content_length",
-		"http_host.in_transfer_encoding",
-		"http_host.in_close",
-		"http_host.in_body",
-		"http_host.parse_multipart",
-		"http_host.encode_multipart",
-		"http_host.file_content_disposition",
-		"http_host.respond",
-		"http_host.produce",
-		"http_host.finish",
-		"http_host.answered_already",
-		"http_host.detect_content_type",
-		"http_host.new_mux",
-		"http_host.check_pattern",
-		"http_host.route",
-		"http_host.answer_content",
-		"http_host.answer_redirect",
-		"http_host.format_time",
-		"http_host.parse_time",
-		"http_host.limit_body",
-		"http_host.cookie_text",
-		"http_host.cookie_valid",
-		"http_host.parse_cookie",
-		"http_host.parse_set_cookie",
-		"http_host.new_jar",
-		"http_host.jar_cookies",
-		"http_host.jar_set",
-		"http_host.with_jar",
-		"process_host.start",
-		"process_host.child_stdin",
-		"process_host.child_stdout",
-		"process_host.child_stderr",
-		"process_host.wait",
-		"process_host.captured",
-		"process_host.kill",
-		"process_host.new_fake",
-		"process_host.fake_answer",
-		"process_host.fake_refuse",
-		"process_host.fake_calls",
-		"process_host.fake_command",
-		"process_host.fake_dir",
-		"process_host.fake_env",
-		"process_host.fake_input",
-		"csv_host.open",
-		"csv_host.next",
-		"csv_host.line",
-		"csv_host.stopped",
-		"csv_host.message",
-		"csv_host.failure",
-		"csv_host.encode",
-		"xml_host.open",
-		"xml_host.next",
-		"xml_host.name",
-		"xml_host.attributes",
-		"xml_host.namespaces",
-		"xml_host.text",
-		"xml_host.target",
-		"xml_host.position",
-		"xml_host.stopped",
-		"xml_host.message",
-		"xml_host.failure",
-		"xml_host.escape_text",
-		"xml_host.escape_attribute",
-		"xml_host.is_name",
+		"fs/host.temp_dir",
+		"fs/host.make_temp_dir",
+		"fs/host.current_dir",
+		"fs/host.new_sandbox",
+		"fs/host.sandbox_fail",
+		"fs/host.sandbox_files",
+		"fs/host.sandbox_log",
+		"fs/host.sandbox_open",
+		"http/host.new_client",
+		"http/host.default_client",
+		"http/host.close_idle",
+		"http/host.send",
+		"http/host.status",
+		"http/host.protocol",
+		"http/host.headers",
+		"http/host.trailers",
+		"http/host.body_bytes",
+		"http/host.body_reader",
+		"http/host.close_body",
+		"http/host.content_length",
+		"http/host.transfer_encoding",
+		"http/host.closes",
+		"http/host.uncompressed",
+		"http/host.final_url",
+		"http/host.canonical_key",
+		"http/host.status_text",
+		"http/host.headers_wire",
+		"http/host.parse_http_version",
+		"http/host.basic_auth",
+		"http/host.add_cookie",
+		"http/host.cross_origin_check",
+		"http/host.listen",
+		"http/host.listen_tls",
+		"http/host.with_tls",
+		"http/host.test_certificate",
+		"http/host.certificate_from_pem",
+		"http/host.certificate_load",
+		"http/host.certificate_info",
+		"http/host.tls_config",
+		"http/host.tls_with_certificate",
+		"http/host.cipher_suites",
+		"http/host.cipher_suite_name",
+		"http/host.dial_with",
+		"http/host.lookup",
+		"http/host.pipe",
+		"http/host.split_host_port",
+		"http/host.join_host_port",
+		"http/host.conn_close_read",
+		"http/host.conn_no_delay",
+		"http/host.conn_linger",
+		"http/host.conn_keep_alive",
+		"http/host.conn_multipath",
+		"http/host.tls_dial",
+		"http/host.tls_client",
+		"http/host.tls_server",
+		"http/host.conn_reader",
+		"http/host.conn_writer",
+		"http/host.conn_close",
+		"http/host.conn_close_write",
+		"http/host.conn_local",
+		"http/host.conn_remote",
+		"http/host.conn_deadline",
+		"http/host.tls_state_parts",
+		"http/host.hello_parts",
+		"http/host.hello_supports",
+		"http/host.tls_wrap_listener",
+		"http/host.in_local",
+		"http/host.in_tls",
+		"http/host.extend_read_deadline",
+		"http/host.upgrade",
+		"http/host.exchange_tls",
+		"http/host.new_tracer",
+		"http/host.tracer_events",
+		"http/host.wire_read_request",
+		"http/host.wire_read_response",
+		"http/host.wire_parts",
+		"http/host.wire_body",
+		"http/host.wire_request",
+		"http/host.wire_response",
+		"http/host.chunked_reader",
+		"http/host.chunked_writer",
+		"http/host.gzip_bytes",
+		"http/host.gunzip",
+		"http/host.gzip_writer",
+		"http/host.gzip_reader",
+		"http/host.multipart_reader",
+		"http/host.next_part",
+		"http/host.part_headers",
+		"http/host.part_reader",
+		"http/host.part_form_name",
+		"http/host.part_file_name",
+		"http/host.multipart_write",
+		"http/host.close_connections",
+		"http/host.ws_accept_key",
+		"http/host.ws_valid_key",
+		"http/host.ws_open",
+		"http/host.ws_connect",
+		"http/host.ws_protocol",
+		"http/host.ws_id",
+		"http/host.ws_receive",
+		"http/host.ws_send",
+		"http/host.ws_ping",
+		"http/host.ws_close",
+		"http/host.ws_pipe",
+		"http/host.tls_verify_hostname",
+		"http/host.net_listen_with",
+		"http/host.net_listener_deadline",
+		"http/host.tls_listen",
+		"http/host.net_listener_address",
+		"http/host.net_accept",
+		"http/host.net_listener_close",
+		"http/host.address",
+		"http/host.next",
+		"http/host.shutdown",
+		"http/host.in_method",
+		"http/host.in_url",
+		"http/host.in_host",
+		"http/host.in_remote",
+		"http/host.in_target",
+		"http/host.in_protocol",
+		"http/host.in_headers",
+		"http/host.in_trailers",
+		"http/host.in_content_length",
+		"http/host.in_transfer_encoding",
+		"http/host.in_close",
+		"http/host.in_body",
+		"http/host.parse_multipart",
+		"http/host.encode_multipart",
+		"http/host.file_content_disposition",
+		"http/host.respond",
+		"http/host.produce",
+		"http/host.finish",
+		"http/host.answered_already",
+		"http/host.detect_content_type",
+		"http/host.new_mux",
+		"http/host.check_pattern",
+		"http/host.route",
+		"http/host.answer_content",
+		"http/host.answer_redirect",
+		"http/host.format_time",
+		"http/host.parse_time",
+		"http/host.limit_body",
+		"http/host.cookie_text",
+		"http/host.cookie_valid",
+		"http/host.parse_cookie",
+		"http/host.parse_set_cookie",
+		"http/host.new_jar",
+		"http/host.jar_cookies",
+		"http/host.jar_set",
+		"http/host.with_jar",
+		"process/host.start",
+		"process/host.child_stdin",
+		"process/host.child_stdout",
+		"process/host.child_stderr",
+		"process/host.wait",
+		"process/host.captured",
+		"process/host.kill",
+		"process/host.new_fake",
+		"process/host.fake_answer",
+		"process/host.fake_refuse",
+		"process/host.fake_calls",
+		"process/host.fake_command",
+		"process/host.fake_dir",
+		"process/host.fake_env",
+		"process/host.fake_input",
+		"csv/host.open",
+		"csv/host.next",
+		"csv/host.line",
+		"csv/host.stopped",
+		"csv/host.message",
+		"csv/host.failure",
+		"csv/host.encode",
+		"xml/host.open",
+		"xml/host.next",
+		"xml/host.name",
+		"xml/host.attributes",
+		"xml/host.namespaces",
+		"xml/host.text",
+		"xml/host.target",
+		"xml/host.position",
+		"xml/host.stopped",
+		"xml/host.message",
+		"xml/host.failure",
+		"xml/host.escape_text",
+		"xml/host.escape_attribute",
+		"xml/host.is_name",
 	}
 }
 
@@ -1033,13 +1033,13 @@ func Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 		"locale.locale_available":                   b.fn128,
 		"locale.locale_load_raw":                    b.fn130,
 		"locale.locale_loaded_raw":                  b.fn131,
-		"phrase_format.format_raw":                  b.fn132,
-		"phrase_format.load_raw":                    b.fn134,
-		"phrase_format.noun_raw":                    b.fn135,
-		"money_format.money_format_raw":             b.fn136,
-		"money_format.money_mixed":                  b.fn137,
-		"money_format.money_parse_raw":              b.fn138,
-		"money_format.money_refused":                b.fn139,
+		"phrase/format.format_raw":                  b.fn132,
+		"phrase/format.load_raw":                    b.fn134,
+		"phrase/format.noun_raw":                    b.fn135,
+		"money/format.money_format_raw":             b.fn136,
+		"money/format.money_mixed":                  b.fn137,
+		"money/format.money_parse_raw":              b.fn138,
+		"money/format.money_refused":                b.fn139,
 		"locale.locale_fallbacks":                   b.fn140,
 		"locale.locale_from_posix_raw":              b.fn141,
 		"locale.locale_language":                    b.fn143,
@@ -1066,10 +1066,10 @@ func Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 		"Regex.replace_in":                          b.fn169,
 		"Regex.split_in":                            b.fn170,
 		"Regex.is_suffix_of":                        b.fn171,
-		"toml_host.check":                           b.fn172,
-		"toml_host.build":                           b.fn173,
-		"toml_host.quote":                           b.fn174,
-		"toml_host.float":                           b.fn175,
+		"toml/host.check":                           b.fn172,
+		"toml/host.build":                           b.fn173,
+		"toml/host.quote":                           b.fn174,
+		"toml/host.float":                           b.fn175,
 		"strings.capture_groups":                    b.fn176,
 		"strings.capture_groups_all":                b.fn180,
 		"String.capitalize":                         b.fn182,
@@ -1112,59 +1112,59 @@ func Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 		"hash.hmac_sha512":                          b.fn224,
 		"hash.equal_in_constant_time":               b.fn225,
 		"hash.pbkdf2_sha256":                        b.fn226,
-		"signatures_host.generate_ed25519":          b.fn227,
-		"signatures_host.generate_p256":             b.fn228,
-		"signatures_host.generate_rsa":              b.fn229,
-		"signatures_host.private_from_der":          b.fn231,
-		"signatures_host.private_from_pem":          b.fn232,
-		"signatures_host.private_to_pem":            b.fn233,
-		"signatures_host.private_kind":              b.fn234,
-		"signatures_host.public_of":                 b.fn235,
-		"signatures_host.public_from_der":           b.fn236,
-		"signatures_host.public_from_pem":           b.fn237,
-		"signatures_host.public_to_pem":             b.fn238,
-		"signatures_host.public_kind":               b.fn239,
-		"signatures_host.ed25519_from_seed":         b.fn240,
-		"signatures_host.ed25519_seed":              b.fn241,
-		"signatures_host.ed25519_public_from_bytes": b.fn242,
-		"signatures_host.ed25519_public_bytes":      b.fn243,
-		"signatures_host.sign":                      b.fn244,
-		"signatures_host.is_valid":                  b.fn245,
-		"http_host.seal":                            b.fn246,
-		"http_host.open_sealed":                     b.fn247,
+		"signatures/host.generate_ed25519":          b.fn227,
+		"signatures/host.generate_p256":             b.fn228,
+		"signatures/host.generate_rsa":              b.fn229,
+		"signatures/host.private_from_der":          b.fn231,
+		"signatures/host.private_from_pem":          b.fn232,
+		"signatures/host.private_to_pem":            b.fn233,
+		"signatures/host.private_kind":              b.fn234,
+		"signatures/host.public_of":                 b.fn235,
+		"signatures/host.public_from_der":           b.fn236,
+		"signatures/host.public_from_pem":           b.fn237,
+		"signatures/host.public_to_pem":             b.fn238,
+		"signatures/host.public_kind":               b.fn239,
+		"signatures/host.ed25519_from_seed":         b.fn240,
+		"signatures/host.ed25519_seed":              b.fn241,
+		"signatures/host.ed25519_public_from_bytes": b.fn242,
+		"signatures/host.ed25519_public_bytes":      b.fn243,
+		"signatures/host.sign":                      b.fn244,
+		"signatures/host.is_valid":                  b.fn245,
+		"http/host.seal":                            b.fn246,
+		"http/host.open_sealed":                     b.fn247,
 		"base64.standard":                           b.fn249,
 		"base64.decode":                             b.fn250,
 		"base64.url_safe":                           b.fn251,
 		"base64.decode_url":                         b.fn252,
 		"hex.encode":                                b.fn253,
 		"hex.decode":                                b.fn254,
-		"html_host.escape":                          b.fn255,
-		"html_host.filter_url":                      b.fn256,
-		"html_host.escape_url_path":                 b.fn257,
-		"url_host.escape_query":                     b.fn258,
-		"url_host.unescape_query":                   b.fn259,
-		"url_host.escape_path_segment":              b.fn261,
-		"url_host.unescape_path_segment":            b.fn262,
-		"url_host.parse_parts":                      b.fn263,
-		"url_host.format_parts":                     b.fn266,
-		"url_host.redacted_parts":                   b.fn268,
-		"url_host.escaped_path_parts":               b.fn269,
-		"url_host.escaped_fragment_parts":           b.fn270,
-		"url_host.request_uri_parts":                b.fn271,
-		"url_host.hostname_parts":                   b.fn272,
-		"url_host.port_parts":                       b.fn273,
-		"url_host.resolve_parts":                    b.fn274,
-		"url_host.join_path_parts":                  b.fn275,
-		"url_host.escape_fragment":                  b.fn276,
-		"url_host.query_pairs":                      b.fn277,
-		"url_host.query_error":                      b.fn278,
-		"url_host.query_encode":                     b.fn279,
-		"path_host.clean":                           b.fn280,
-		"path_host.join":                            b.fn281,
-		"path_host.base":                            b.fn282,
-		"path_host.dir":                             b.fn283,
-		"mail_host.quoted_printable":                b.fn284,
-		"mail_host.date":                            b.fn285,
+		"html/host.escape":                          b.fn255,
+		"html/host.filter_url":                      b.fn256,
+		"html/host.escape_url_path":                 b.fn257,
+		"url/host.escape_query":                     b.fn258,
+		"url/host.unescape_query":                   b.fn259,
+		"url/host.escape_path_segment":              b.fn261,
+		"url/host.unescape_path_segment":            b.fn262,
+		"url/host.parse_parts":                      b.fn263,
+		"url/host.format_parts":                     b.fn266,
+		"url/host.redacted_parts":                   b.fn268,
+		"url/host.escaped_path_parts":               b.fn269,
+		"url/host.escaped_fragment_parts":           b.fn270,
+		"url/host.request_uri_parts":                b.fn271,
+		"url/host.hostname_parts":                   b.fn272,
+		"url/host.port_parts":                       b.fn273,
+		"url/host.resolve_parts":                    b.fn274,
+		"url/host.join_path_parts":                  b.fn275,
+		"url/host.escape_fragment":                  b.fn276,
+		"url/host.query_pairs":                      b.fn277,
+		"url/host.query_error":                      b.fn278,
+		"url/host.query_encode":                     b.fn279,
+		"path/host.clean":                           b.fn280,
+		"path/host.join":                            b.fn281,
+		"path/host.base":                            b.fn282,
+		"path/host.dir":                             b.fn283,
+		"mail/host.quoted_printable":                b.fn284,
+		"mail/host.date":                            b.fn285,
 		"bytes.Bytes.get":                           b.fn286,
 		"bytes.Bytes.slice":                         b.fn287,
 		"bytes.Bytes.concat":                        b.fn288,
@@ -1289,27 +1289,27 @@ func Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 		"io.writer_from_fn":                         b.fn518,
 		"io.memory_writer":                          b.fn523,
 		"io.collected":                              b.fn524,
-		"embed_host.read":                           b.fn525,
-		"embed_host.sum":                            b.fn526,
-		"fs_host.read":                              b.fn527,
-		"fs_host.read_text":                         b.fn528,
-		"fs_host.write":                             b.fn529,
-		"fs_host.open":                              b.fn530,
-		"fs_host.create":                            b.fn534,
-		"fs_host.list":                              b.fn538,
-		"fs_host.create_dir":                        b.fn542,
-		"fs_host.remove":                            b.fn543,
-		"fs_host.remove_all":                        b.fn544,
-		"fs_host.rename":                            b.fn545,
-		"fs_host.copy":                              b.fn546,
-		"fs_host.metadata":                          b.fn547,
-		"fs_host.link_metadata":                     b.fn552,
-		"fs_host.create_symlink":                    b.fn553,
-		"fs_host.read_link":                         b.fn554,
-		"fs_host.set_mode":                          b.fn555,
-		"fs_host.open_file":                         b.fn556,
-		"fs_host.within":                            b.fn561,
-		"fs_host.release":                           b.fn566,
+		"embed/host.read":                           b.fn525,
+		"embed/host.sum":                            b.fn526,
+		"fs/host.read":                              b.fn527,
+		"fs/host.read_text":                         b.fn528,
+		"fs/host.write":                             b.fn529,
+		"fs/host.open":                              b.fn530,
+		"fs/host.create":                            b.fn534,
+		"fs/host.list":                              b.fn538,
+		"fs/host.create_dir":                        b.fn542,
+		"fs/host.remove":                            b.fn543,
+		"fs/host.remove_all":                        b.fn544,
+		"fs/host.rename":                            b.fn545,
+		"fs/host.copy":                              b.fn546,
+		"fs/host.metadata":                          b.fn547,
+		"fs/host.link_metadata":                     b.fn552,
+		"fs/host.create_symlink":                    b.fn553,
+		"fs/host.read_link":                         b.fn554,
+		"fs/host.set_mode":                          b.fn555,
+		"fs/host.open_file":                         b.fn556,
+		"fs/host.within":                            b.fn561,
+		"fs/host.release":                           b.fn566,
 		"io.file_read":                              b.fn568,
 		"io.File.read_at":                           b.fn570,
 		"io.File.write":                             b.fn571,
@@ -1319,192 +1319,192 @@ func Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 		"io.File.size":                              b.fn575,
 		"io.File.truncate":                          b.fn576,
 		"io.File.close":                             b.fn577,
-		"fs_host.temp_dir":                          b.fn578,
-		"fs_host.make_temp_dir":                     b.fn579,
-		"fs_host.current_dir":                       b.fn580,
-		"fs_host.new_sandbox":                       b.fn581,
-		"fs_host.sandbox_fail":                      b.fn584,
-		"fs_host.sandbox_files":                     b.fn585,
-		"fs_host.sandbox_log":                       b.fn587,
-		"fs_host.sandbox_open":                      b.fn588,
-		"http_host.new_client":                      b.fn589,
-		"http_host.default_client":                  b.fn595,
-		"http_host.close_idle":                      b.fn596,
-		"http_host.send":                            b.fn598,
-		"http_host.status":                          b.fn604,
-		"http_host.protocol":                        b.fn606,
-		"http_host.headers":                         b.fn607,
-		"http_host.trailers":                        b.fn608,
-		"http_host.body_bytes":                      b.fn609,
-		"http_host.body_reader":                     b.fn610,
-		"http_host.close_body":                      b.fn611,
-		"http_host.content_length":                  b.fn612,
-		"http_host.transfer_encoding":               b.fn613,
-		"http_host.closes":                          b.fn614,
-		"http_host.uncompressed":                    b.fn615,
-		"http_host.final_url":                       b.fn616,
-		"http_host.canonical_key":                   b.fn617,
-		"http_host.status_text":                     b.fn618,
-		"http_host.headers_wire":                    b.fn619,
-		"http_host.parse_http_version":              b.fn620,
-		"http_host.basic_auth":                      b.fn621,
-		"http_host.add_cookie":                      b.fn622,
-		"http_host.cross_origin_check":              b.fn623,
-		"http_host.listen":                          b.fn624,
-		"http_host.listen_tls":                      b.fn631,
-		"http_host.with_tls":                        b.fn633,
-		"http_host.test_certificate":                b.fn634,
-		"http_host.certificate_from_pem":            b.fn635,
-		"http_host.certificate_load":                b.fn640,
-		"http_host.certificate_info":                b.fn641,
-		"http_host.tls_config":                      b.fn643,
-		"http_host.tls_with_certificate":            b.fn653,
-		"http_host.cipher_suites":                   b.fn654,
-		"http_host.cipher_suite_name":               b.fn655,
-		"http_host.dial_with":                       b.fn656,
-		"http_host.lookup":                          b.fn661,
-		"http_host.pipe":                            b.fn665,
-		"http_host.split_host_port":                 b.fn667,
-		"http_host.join_host_port":                  b.fn668,
-		"http_host.conn_close_read":                 b.fn669,
-		"http_host.conn_no_delay":                   b.fn671,
-		"http_host.conn_linger":                     b.fn672,
-		"http_host.conn_keep_alive":                 b.fn673,
-		"http_host.conn_multipath":                  b.fn674,
-		"http_host.tls_dial":                        b.fn675,
-		"http_host.tls_client":                      b.fn676,
-		"http_host.tls_server":                      b.fn677,
-		"http_host.conn_reader":                     b.fn678,
-		"http_host.conn_writer":                     b.fn679,
-		"http_host.conn_close":                      b.fn680,
-		"http_host.conn_close_write":                b.fn681,
-		"http_host.conn_local":                      b.fn682,
-		"http_host.conn_remote":                     b.fn683,
-		"http_host.conn_deadline":                   b.fn684,
-		"http_host.tls_state_parts":                 b.fn685,
-		"http_host.hello_parts":                     b.fn688,
-		"http_host.hello_supports":                  b.fn689,
-		"http_host.tls_wrap_listener":               b.fn690,
-		"http_host.in_local":                        b.fn693,
-		"http_host.in_tls":                          b.fn695,
-		"http_host.extend_read_deadline":            b.fn696,
-		"http_host.upgrade":                         b.fn699,
-		"http_host.exchange_tls":                    b.fn700,
-		"http_host.new_tracer":                      b.fn701,
-		"http_host.tracer_events":                   b.fn702,
-		"http_host.wire_read_request":               b.fn704,
-		"http_host.wire_read_response":              b.fn707,
-		"http_host.wire_parts":                      b.fn708,
-		"http_host.wire_body":                       b.fn709,
-		"http_host.wire_request":                    b.fn710,
-		"http_host.wire_response":                   b.fn711,
-		"http_host.chunked_reader":                  b.fn712,
-		"http_host.chunked_writer":                  b.fn713,
-		"http_host.gzip_bytes":                      b.fn714,
-		"http_host.gunzip":                          b.fn715,
-		"http_host.gzip_writer":                     b.fn716,
-		"http_host.gzip_reader":                     b.fn717,
-		"http_host.multipart_reader":                b.fn718,
-		"http_host.next_part":                       b.fn719,
-		"http_host.part_headers":                    b.fn724,
-		"http_host.part_reader":                     b.fn725,
-		"http_host.part_form_name":                  b.fn726,
-		"http_host.part_file_name":                  b.fn727,
-		"http_host.multipart_write":                 b.fn728,
-		"http_host.close_connections":               b.fn730,
-		"http_host.ws_accept_key":                   b.fn732,
-		"http_host.ws_valid_key":                    b.fn733,
-		"http_host.ws_open":                         b.fn734,
-		"http_host.ws_connect":                      b.fn735,
-		"http_host.ws_protocol":                     b.fn739,
-		"http_host.ws_id":                           b.fn740,
-		"http_host.ws_receive":                      b.fn741,
-		"http_host.ws_send":                         b.fn745,
-		"http_host.ws_ping":                         b.fn749,
-		"http_host.ws_close":                        b.fn750,
-		"http_host.ws_pipe":                         b.fn751,
-		"http_host.tls_verify_hostname":             b.fn752,
-		"http_host.net_listen_with":                 b.fn753,
-		"http_host.net_listener_deadline":           b.fn757,
-		"http_host.tls_listen":                      b.fn758,
-		"http_host.net_listener_address":            b.fn759,
-		"http_host.net_accept":                      b.fn760,
-		"http_host.net_listener_close":              b.fn761,
-		"http_host.address":                         b.fn762,
-		"http_host.next":                            b.fn763,
-		"http_host.shutdown":                        b.fn767,
-		"http_host.in_method":                       b.fn768,
-		"http_host.in_url":                          b.fn769,
-		"http_host.in_host":                         b.fn770,
-		"http_host.in_remote":                       b.fn771,
-		"http_host.in_target":                       b.fn772,
-		"http_host.in_protocol":                     b.fn773,
-		"http_host.in_headers":                      b.fn774,
-		"http_host.in_trailers":                     b.fn775,
-		"http_host.in_content_length":               b.fn776,
-		"http_host.in_transfer_encoding":            b.fn777,
-		"http_host.in_close":                        b.fn778,
-		"http_host.in_body":                         b.fn779,
-		"http_host.parse_multipart":                 b.fn780,
-		"http_host.encode_multipart":                b.fn784,
-		"http_host.file_content_disposition":        b.fn785,
-		"http_host.respond":                         b.fn786,
-		"http_host.produce":                         b.fn787,
-		"http_host.finish":                          b.fn788,
-		"http_host.answered_already":                b.fn789,
-		"http_host.detect_content_type":             b.fn790,
-		"http_host.new_mux":                         b.fn791,
-		"http_host.check_pattern":                   b.fn796,
-		"http_host.route":                           b.fn797,
-		"http_host.answer_content":                  b.fn799,
-		"http_host.answer_redirect":                 b.fn800,
-		"http_host.format_time":                     b.fn801,
-		"http_host.parse_time":                      b.fn802,
-		"http_host.limit_body":                      b.fn804,
-		"http_host.cookie_text":                     b.fn805,
-		"http_host.cookie_valid":                    b.fn806,
-		"http_host.parse_cookie":                    b.fn807,
-		"http_host.parse_set_cookie":                b.fn810,
-		"http_host.new_jar":                         b.fn811,
-		"http_host.jar_cookies":                     b.fn813,
-		"http_host.jar_set":                         b.fn815,
-		"http_host.with_jar":                        b.fn817,
-		"process_host.start":                        b.fn818,
-		"process_host.child_stdin":                  b.fn823,
-		"process_host.child_stdout":                 b.fn825,
-		"process_host.child_stderr":                 b.fn826,
-		"process_host.wait":                         b.fn827,
-		"process_host.captured":                     b.fn828,
-		"process_host.kill":                         b.fn829,
-		"process_host.new_fake":                     b.fn830,
-		"process_host.fake_answer":                  b.fn832,
-		"process_host.fake_refuse":                  b.fn834,
-		"process_host.fake_calls":                   b.fn835,
-		"process_host.fake_command":                 b.fn836,
-		"process_host.fake_dir":                     b.fn837,
-		"process_host.fake_env":                     b.fn838,
-		"process_host.fake_input":                   b.fn840,
-		"csv_host.open":                             b.fn841,
-		"csv_host.next":                             b.fn843,
-		"csv_host.line":                             b.fn845,
-		"csv_host.stopped":                          b.fn846,
-		"csv_host.message":                          b.fn847,
-		"csv_host.failure":                          b.fn848,
-		"csv_host.encode":                           b.fn849,
-		"xml_host.open":                             b.fn850,
-		"xml_host.next":                             b.fn852,
-		"xml_host.name":                             b.fn854,
-		"xml_host.attributes":                       b.fn855,
-		"xml_host.namespaces":                       b.fn856,
-		"xml_host.text":                             b.fn857,
-		"xml_host.target":                           b.fn858,
-		"xml_host.position":                         b.fn859,
-		"xml_host.stopped":                          b.fn860,
-		"xml_host.message":                          b.fn861,
-		"xml_host.failure":                          b.fn862,
-		"xml_host.escape_text":                      b.fn863,
-		"xml_host.escape_attribute":                 b.fn864,
-		"xml_host.is_name":                          b.fn865,
+		"fs/host.temp_dir":                          b.fn578,
+		"fs/host.make_temp_dir":                     b.fn579,
+		"fs/host.current_dir":                       b.fn580,
+		"fs/host.new_sandbox":                       b.fn581,
+		"fs/host.sandbox_fail":                      b.fn584,
+		"fs/host.sandbox_files":                     b.fn585,
+		"fs/host.sandbox_log":                       b.fn587,
+		"fs/host.sandbox_open":                      b.fn588,
+		"http/host.new_client":                      b.fn589,
+		"http/host.default_client":                  b.fn595,
+		"http/host.close_idle":                      b.fn596,
+		"http/host.send":                            b.fn598,
+		"http/host.status":                          b.fn604,
+		"http/host.protocol":                        b.fn606,
+		"http/host.headers":                         b.fn607,
+		"http/host.trailers":                        b.fn608,
+		"http/host.body_bytes":                      b.fn609,
+		"http/host.body_reader":                     b.fn610,
+		"http/host.close_body":                      b.fn611,
+		"http/host.content_length":                  b.fn612,
+		"http/host.transfer_encoding":               b.fn613,
+		"http/host.closes":                          b.fn614,
+		"http/host.uncompressed":                    b.fn615,
+		"http/host.final_url":                       b.fn616,
+		"http/host.canonical_key":                   b.fn617,
+		"http/host.status_text":                     b.fn618,
+		"http/host.headers_wire":                    b.fn619,
+		"http/host.parse_http_version":              b.fn620,
+		"http/host.basic_auth":                      b.fn621,
+		"http/host.add_cookie":                      b.fn622,
+		"http/host.cross_origin_check":              b.fn623,
+		"http/host.listen":                          b.fn624,
+		"http/host.listen_tls":                      b.fn631,
+		"http/host.with_tls":                        b.fn633,
+		"http/host.test_certificate":                b.fn634,
+		"http/host.certificate_from_pem":            b.fn635,
+		"http/host.certificate_load":                b.fn640,
+		"http/host.certificate_info":                b.fn641,
+		"http/host.tls_config":                      b.fn643,
+		"http/host.tls_with_certificate":            b.fn653,
+		"http/host.cipher_suites":                   b.fn654,
+		"http/host.cipher_suite_name":               b.fn655,
+		"http/host.dial_with":                       b.fn656,
+		"http/host.lookup":                          b.fn661,
+		"http/host.pipe":                            b.fn665,
+		"http/host.split_host_port":                 b.fn667,
+		"http/host.join_host_port":                  b.fn668,
+		"http/host.conn_close_read":                 b.fn669,
+		"http/host.conn_no_delay":                   b.fn671,
+		"http/host.conn_linger":                     b.fn672,
+		"http/host.conn_keep_alive":                 b.fn673,
+		"http/host.conn_multipath":                  b.fn674,
+		"http/host.tls_dial":                        b.fn675,
+		"http/host.tls_client":                      b.fn676,
+		"http/host.tls_server":                      b.fn677,
+		"http/host.conn_reader":                     b.fn678,
+		"http/host.conn_writer":                     b.fn679,
+		"http/host.conn_close":                      b.fn680,
+		"http/host.conn_close_write":                b.fn681,
+		"http/host.conn_local":                      b.fn682,
+		"http/host.conn_remote":                     b.fn683,
+		"http/host.conn_deadline":                   b.fn684,
+		"http/host.tls_state_parts":                 b.fn685,
+		"http/host.hello_parts":                     b.fn688,
+		"http/host.hello_supports":                  b.fn689,
+		"http/host.tls_wrap_listener":               b.fn690,
+		"http/host.in_local":                        b.fn693,
+		"http/host.in_tls":                          b.fn695,
+		"http/host.extend_read_deadline":            b.fn696,
+		"http/host.upgrade":                         b.fn699,
+		"http/host.exchange_tls":                    b.fn700,
+		"http/host.new_tracer":                      b.fn701,
+		"http/host.tracer_events":                   b.fn702,
+		"http/host.wire_read_request":               b.fn704,
+		"http/host.wire_read_response":              b.fn707,
+		"http/host.wire_parts":                      b.fn708,
+		"http/host.wire_body":                       b.fn709,
+		"http/host.wire_request":                    b.fn710,
+		"http/host.wire_response":                   b.fn711,
+		"http/host.chunked_reader":                  b.fn712,
+		"http/host.chunked_writer":                  b.fn713,
+		"http/host.gzip_bytes":                      b.fn714,
+		"http/host.gunzip":                          b.fn715,
+		"http/host.gzip_writer":                     b.fn716,
+		"http/host.gzip_reader":                     b.fn717,
+		"http/host.multipart_reader":                b.fn718,
+		"http/host.next_part":                       b.fn719,
+		"http/host.part_headers":                    b.fn724,
+		"http/host.part_reader":                     b.fn725,
+		"http/host.part_form_name":                  b.fn726,
+		"http/host.part_file_name":                  b.fn727,
+		"http/host.multipart_write":                 b.fn728,
+		"http/host.close_connections":               b.fn730,
+		"http/host.ws_accept_key":                   b.fn732,
+		"http/host.ws_valid_key":                    b.fn733,
+		"http/host.ws_open":                         b.fn734,
+		"http/host.ws_connect":                      b.fn735,
+		"http/host.ws_protocol":                     b.fn739,
+		"http/host.ws_id":                           b.fn740,
+		"http/host.ws_receive":                      b.fn741,
+		"http/host.ws_send":                         b.fn745,
+		"http/host.ws_ping":                         b.fn749,
+		"http/host.ws_close":                        b.fn750,
+		"http/host.ws_pipe":                         b.fn751,
+		"http/host.tls_verify_hostname":             b.fn752,
+		"http/host.net_listen_with":                 b.fn753,
+		"http/host.net_listener_deadline":           b.fn757,
+		"http/host.tls_listen":                      b.fn758,
+		"http/host.net_listener_address":            b.fn759,
+		"http/host.net_accept":                      b.fn760,
+		"http/host.net_listener_close":              b.fn761,
+		"http/host.address":                         b.fn762,
+		"http/host.next":                            b.fn763,
+		"http/host.shutdown":                        b.fn767,
+		"http/host.in_method":                       b.fn768,
+		"http/host.in_url":                          b.fn769,
+		"http/host.in_host":                         b.fn770,
+		"http/host.in_remote":                       b.fn771,
+		"http/host.in_target":                       b.fn772,
+		"http/host.in_protocol":                     b.fn773,
+		"http/host.in_headers":                      b.fn774,
+		"http/host.in_trailers":                     b.fn775,
+		"http/host.in_content_length":               b.fn776,
+		"http/host.in_transfer_encoding":            b.fn777,
+		"http/host.in_close":                        b.fn778,
+		"http/host.in_body":                         b.fn779,
+		"http/host.parse_multipart":                 b.fn780,
+		"http/host.encode_multipart":                b.fn784,
+		"http/host.file_content_disposition":        b.fn785,
+		"http/host.respond":                         b.fn786,
+		"http/host.produce":                         b.fn787,
+		"http/host.finish":                          b.fn788,
+		"http/host.answered_already":                b.fn789,
+		"http/host.detect_content_type":             b.fn790,
+		"http/host.new_mux":                         b.fn791,
+		"http/host.check_pattern":                   b.fn796,
+		"http/host.route":                           b.fn797,
+		"http/host.answer_content":                  b.fn799,
+		"http/host.answer_redirect":                 b.fn800,
+		"http/host.format_time":                     b.fn801,
+		"http/host.parse_time":                      b.fn802,
+		"http/host.limit_body":                      b.fn804,
+		"http/host.cookie_text":                     b.fn805,
+		"http/host.cookie_valid":                    b.fn806,
+		"http/host.parse_cookie":                    b.fn807,
+		"http/host.parse_set_cookie":                b.fn810,
+		"http/host.new_jar":                         b.fn811,
+		"http/host.jar_cookies":                     b.fn813,
+		"http/host.jar_set":                         b.fn815,
+		"http/host.with_jar":                        b.fn817,
+		"process/host.start":                        b.fn818,
+		"process/host.child_stdin":                  b.fn823,
+		"process/host.child_stdout":                 b.fn825,
+		"process/host.child_stderr":                 b.fn826,
+		"process/host.wait":                         b.fn827,
+		"process/host.captured":                     b.fn828,
+		"process/host.kill":                         b.fn829,
+		"process/host.new_fake":                     b.fn830,
+		"process/host.fake_answer":                  b.fn832,
+		"process/host.fake_refuse":                  b.fn834,
+		"process/host.fake_calls":                   b.fn835,
+		"process/host.fake_command":                 b.fn836,
+		"process/host.fake_dir":                     b.fn837,
+		"process/host.fake_env":                     b.fn838,
+		"process/host.fake_input":                   b.fn840,
+		"csv/host.open":                             b.fn841,
+		"csv/host.next":                             b.fn843,
+		"csv/host.line":                             b.fn845,
+		"csv/host.stopped":                          b.fn846,
+		"csv/host.message":                          b.fn847,
+		"csv/host.failure":                          b.fn848,
+		"csv/host.encode":                           b.fn849,
+		"xml/host.open":                             b.fn850,
+		"xml/host.next":                             b.fn852,
+		"xml/host.name":                             b.fn854,
+		"xml/host.attributes":                       b.fn855,
+		"xml/host.namespaces":                       b.fn856,
+		"xml/host.text":                             b.fn857,
+		"xml/host.target":                           b.fn858,
+		"xml/host.position":                         b.fn859,
+		"xml/host.stopped":                          b.fn860,
+		"xml/host.message":                          b.fn861,
+		"xml/host.failure":                          b.fn862,
+		"xml/host.escape_text":                      b.fn863,
+		"xml/host.escape_attribute":                 b.fn864,
+		"xml/host.is_name":                          b.fn865,
 	}, nil
 }
 
@@ -4056,212 +4056,212 @@ func (b *bound) in133(fr *rt.Frame, v rt.Value) (out []string, err error) {
 	return out, nil
 }
 
-// fn132 adapts phrase_format.format_raw: format_raw(table: String, locale: Locale, catalogs: List<String>, kinds: List<Int>, numbers: List<String>, keys: List<String>, texts: List<String>) -> String
+// fn132 adapts phrase/format.format_raw: format_raw(table: String, locale: Locale, catalogs: List<String>, kinds: List<Int>, numbers: List<String>, keys: List<String>, texts: List<String>) -> String
 func (b *bound) fn132(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 7 {
-		return nil, hostadapt.Arity("phrase_format.format_raw", 7, len(args))
+		return nil, hostadapt.Arity("phrase/format.format_raw", 7, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("phrase_format.format_raw", 0, "phrase_format.format_raw", "table", err)
+		return nil, hostadapt.Param("phrase/format.format_raw", 0, "phrase/format.format_raw", "table", err)
 	}
 	a1, err := b.in37(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("phrase_format.format_raw", 1, "phrase_format.format_raw", "locale", err)
+		return nil, hostadapt.Param("phrase/format.format_raw", 1, "phrase/format.format_raw", "locale", err)
 	}
 	a2, err := b.in133(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("phrase_format.format_raw", 2, "phrase_format.format_raw", "catalogs", err)
+		return nil, hostadapt.Param("phrase/format.format_raw", 2, "phrase/format.format_raw", "catalogs", err)
 	}
 	a3, err := b.in38(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Param("phrase_format.format_raw", 3, "phrase_format.format_raw", "kinds", err)
+		return nil, hostadapt.Param("phrase/format.format_raw", 3, "phrase/format.format_raw", "kinds", err)
 	}
 	a4, err := b.in133(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Param("phrase_format.format_raw", 4, "phrase_format.format_raw", "numbers", err)
+		return nil, hostadapt.Param("phrase/format.format_raw", 4, "phrase/format.format_raw", "numbers", err)
 	}
 	a5, err := b.in133(fr, args[5])
 	if err != nil {
-		return nil, hostadapt.Param("phrase_format.format_raw", 5, "phrase_format.format_raw", "keys", err)
+		return nil, hostadapt.Param("phrase/format.format_raw", 5, "phrase/format.format_raw", "keys", err)
 	}
 	a6, err := b.in133(fr, args[6])
 	if err != nil {
-		return nil, hostadapt.Param("phrase_format.format_raw", 6, "phrase_format.format_raw", "texts", err)
+		return nil, hostadapt.Param("phrase/format.format_raw", 6, "phrase/format.format_raw", "texts", err)
 	}
 	r0 := stdphraseformat.FFIFormat(fr, a0, a1, a2, a3, a4, a5, a6)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("phrase_format.format_raw", err)
+		return nil, hostadapt.Returned("phrase/format.format_raw", err)
 	}
 	return v0, nil
 }
 
-// fn134 adapts phrase_format.load_raw: load_raw(text: String, locale: Locale) -> List<String>
+// fn134 adapts phrase/format.load_raw: load_raw(text: String, locale: Locale) -> List<String>
 func (b *bound) fn134(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("phrase_format.load_raw", &err)
+	defer hostadapt.Recover("phrase/format.load_raw", &err)
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("phrase_format.load_raw", 2, len(args))
+		return nil, hostadapt.Arity("phrase/format.load_raw", 2, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("phrase_format.load_raw", 0, "phrase_format.load_raw", "text", err)
+		return nil, hostadapt.Param("phrase/format.load_raw", 0, "phrase/format.load_raw", "text", err)
 	}
 	a1, err := b.in37(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("phrase_format.load_raw", 1, "phrase_format.load_raw", "locale", err)
+		return nil, hostadapt.Param("phrase/format.load_raw", 1, "phrase/format.load_raw", "locale", err)
 	}
 	r0 := stdphraseformat.FFILoad(fr, a0, a1)
 	v0, err := b.out129(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("phrase_format.load_raw", err)
+		return nil, hostadapt.Returned("phrase/format.load_raw", err)
 	}
 	return v0, nil
 }
 
-// fn135 adapts phrase_format.noun_raw: noun_raw(table: String, locale: Locale) -> String
+// fn135 adapts phrase/format.noun_raw: noun_raw(table: String, locale: Locale) -> String
 func (b *bound) fn135(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("phrase_format.noun_raw", 2, len(args))
+		return nil, hostadapt.Arity("phrase/format.noun_raw", 2, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("phrase_format.noun_raw", 0, "phrase_format.noun_raw", "table", err)
+		return nil, hostadapt.Param("phrase/format.noun_raw", 0, "phrase/format.noun_raw", "table", err)
 	}
 	a1, err := b.in37(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("phrase_format.noun_raw", 1, "phrase_format.noun_raw", "locale", err)
+		return nil, hostadapt.Param("phrase/format.noun_raw", 1, "phrase/format.noun_raw", "locale", err)
 	}
 	r0 := stdphraseformat.FFINoun(fr, a0, a1)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("phrase_format.noun_raw", err)
+		return nil, hostadapt.Returned("phrase/format.noun_raw", err)
 	}
 	return v0, nil
 }
 
-// fn136 adapts money_format.money_format_raw: money_format_raw(locale: Locale, amount: String, code: String, digits: Int, iso: Bool, display: Int, accounting: Bool) -> String
+// fn136 adapts money/format.money_format_raw: money_format_raw(locale: Locale, amount: String, code: String, digits: Int, iso: Bool, display: Int, accounting: Bool) -> String
 func (b *bound) fn136(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("money_format.money_format_raw", &err)
+	defer hostadapt.Recover("money/format.money_format_raw", &err)
 	if len(args) != 7 {
-		return nil, hostadapt.Arity("money_format.money_format_raw", 7, len(args))
+		return nil, hostadapt.Arity("money/format.money_format_raw", 7, len(args))
 	}
 	a0, err := b.in37(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_format_raw", 0, "money_format.money_format_raw", "locale", err)
+		return nil, hostadapt.Param("money/format.money_format_raw", 0, "money/format.money_format_raw", "locale", err)
 	}
 	a1, err := b.in40(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_format_raw", 1, "money_format.money_format_raw", "amount", err)
+		return nil, hostadapt.Param("money/format.money_format_raw", 1, "money/format.money_format_raw", "amount", err)
 	}
 	a2, err := b.in40(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_format_raw", 2, "money_format.money_format_raw", "code", err)
+		return nil, hostadapt.Param("money/format.money_format_raw", 2, "money/format.money_format_raw", "code", err)
 	}
 	a3, err := b.in39(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_format_raw", 3, "money_format.money_format_raw", "digits", err)
+		return nil, hostadapt.Param("money/format.money_format_raw", 3, "money/format.money_format_raw", "digits", err)
 	}
 	a4, err := b.in52(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_format_raw", 4, "money_format.money_format_raw", "iso", err)
+		return nil, hostadapt.Param("money/format.money_format_raw", 4, "money/format.money_format_raw", "iso", err)
 	}
 	a5, err := b.in39(fr, args[5])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_format_raw", 5, "money_format.money_format_raw", "display", err)
+		return nil, hostadapt.Param("money/format.money_format_raw", 5, "money/format.money_format_raw", "display", err)
 	}
 	a6, err := b.in52(fr, args[6])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_format_raw", 6, "money_format.money_format_raw", "accounting", err)
+		return nil, hostadapt.Param("money/format.money_format_raw", 6, "money/format.money_format_raw", "accounting", err)
 	}
 	r0 := stdformat.FFIFormatMoney(fr, a0, a1, a2, a3, a4, a5, a6)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("money_format.money_format_raw", err)
+		return nil, hostadapt.Returned("money/format.money_format_raw", err)
 	}
 	return v0, nil
 }
 
-// fn137 adapts money_format.money_mixed: money_mixed(operation: String, a: String, b: String) -> Unit
+// fn137 adapts money/format.money_mixed: money_mixed(operation: String, a: String, b: String) -> Unit
 func (b *bound) fn137(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
-		return nil, hostadapt.Arity("money_format.money_mixed", 3, len(args))
+		return nil, hostadapt.Arity("money/format.money_mixed", 3, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_mixed", 0, "money_format.money_mixed", "operation", err)
+		return nil, hostadapt.Param("money/format.money_mixed", 0, "money/format.money_mixed", "operation", err)
 	}
 	a1, err := b.in40(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_mixed", 1, "money_format.money_mixed", "a", err)
+		return nil, hostadapt.Param("money/format.money_mixed", 1, "money/format.money_mixed", "a", err)
 	}
 	a2, err := b.in40(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_mixed", 2, "money_format.money_mixed", "b", err)
+		return nil, hostadapt.Param("money/format.money_mixed", 2, "money/format.money_mixed", "b", err)
 	}
 	r0 := stdformat.FFIMoneyMixed(a0, a1, a2)
 	v0, err := b.out115(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("money_format.money_mixed", err)
+		return nil, hostadapt.Returned("money/format.money_mixed", err)
 	}
 	return v0, nil
 }
 
-// fn138 adapts money_format.money_parse_raw: money_parse_raw(text: String, locale: Locale, code: String, digits: Int, iso: Bool, lenient: Bool) -> Result<String, NumberParseError>
+// fn138 adapts money/format.money_parse_raw: money_parse_raw(text: String, locale: Locale, code: String, digits: Int, iso: Bool, lenient: Bool) -> Result<String, NumberParseError>
 func (b *bound) fn138(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("money_format.money_parse_raw", &err)
+	defer hostadapt.Recover("money/format.money_parse_raw", &err)
 	if len(args) != 6 {
-		return nil, hostadapt.Arity("money_format.money_parse_raw", 6, len(args))
+		return nil, hostadapt.Arity("money/format.money_parse_raw", 6, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_parse_raw", 0, "money_format.money_parse_raw", "text", err)
+		return nil, hostadapt.Param("money/format.money_parse_raw", 0, "money/format.money_parse_raw", "text", err)
 	}
 	a1, err := b.in37(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_parse_raw", 1, "money_format.money_parse_raw", "locale", err)
+		return nil, hostadapt.Param("money/format.money_parse_raw", 1, "money/format.money_parse_raw", "locale", err)
 	}
 	a2, err := b.in40(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_parse_raw", 2, "money_format.money_parse_raw", "code", err)
+		return nil, hostadapt.Param("money/format.money_parse_raw", 2, "money/format.money_parse_raw", "code", err)
 	}
 	a3, err := b.in39(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_parse_raw", 3, "money_format.money_parse_raw", "digits", err)
+		return nil, hostadapt.Param("money/format.money_parse_raw", 3, "money/format.money_parse_raw", "digits", err)
 	}
 	a4, err := b.in52(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_parse_raw", 4, "money_format.money_parse_raw", "iso", err)
+		return nil, hostadapt.Param("money/format.money_parse_raw", 4, "money/format.money_parse_raw", "iso", err)
 	}
 	a5, err := b.in52(fr, args[5])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_parse_raw", 5, "money_format.money_parse_raw", "lenient", err)
+		return nil, hostadapt.Param("money/format.money_parse_raw", 5, "money/format.money_parse_raw", "lenient", err)
 	}
 	r0 := stdformat.FFIParseMoney(fr, a0, a1, a2, a3, a4, a5)
 	v0, err := b.out108(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("money_format.money_parse_raw", err)
+		return nil, hostadapt.Returned("money/format.money_parse_raw", err)
 	}
 	return v0, nil
 }
 
-// fn139 adapts money_format.money_refused: money_refused(operation: String, reason: String) -> Unit
+// fn139 adapts money/format.money_refused: money_refused(operation: String, reason: String) -> Unit
 func (b *bound) fn139(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("money_format.money_refused", 2, len(args))
+		return nil, hostadapt.Arity("money/format.money_refused", 2, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_refused", 0, "money_format.money_refused", "operation", err)
+		return nil, hostadapt.Param("money/format.money_refused", 0, "money/format.money_refused", "operation", err)
 	}
 	a1, err := b.in40(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("money_format.money_refused", 1, "money_format.money_refused", "reason", err)
+		return nil, hostadapt.Param("money/format.money_refused", 1, "money/format.money_refused", "reason", err)
 	}
 	r0 := stdformat.FFIRefused(a0, a1)
 	v0, err := b.out115(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("money_format.money_refused", err)
+		return nil, hostadapt.Returned("money/format.money_refused", err)
 	}
 	return v0, nil
 }
@@ -4858,15 +4858,15 @@ func (b *bound) fn171(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn172 adapts toml_host.check: check(statics: List<String>) -> (Int, Int, String)
+// fn172 adapts toml/host.check: check(statics: List<String>) -> (Int, Int, String)
 func (b *bound) fn172(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("toml_host.check", &err)
+	defer hostadapt.Recover("toml/host.check", &err)
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("toml_host.check", 1, len(args))
+		return nil, hostadapt.Arity("toml/host.check", 1, len(args))
 	}
 	a0, err := b.in133(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("toml_host.check", 0, "toml_host.check", "statics", err)
+		return nil, hostadapt.Param("toml/host.check", 0, "toml/host.check", "statics", err)
 	}
 	r0, r1, r2 := stdtoml.FFICheck(a0)
 	tup := b.d22.New()
@@ -4876,60 +4876,60 @@ func (b *bound) fn172(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return tup, nil
 }
 
-// fn173 adapts toml_host.build: build(statics: List<String>, slots: List<String>) -> String
+// fn173 adapts toml/host.build: build(statics: List<String>, slots: List<String>) -> String
 func (b *bound) fn173(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("toml_host.build", &err)
+	defer hostadapt.Recover("toml/host.build", &err)
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("toml_host.build", 2, len(args))
+		return nil, hostadapt.Arity("toml/host.build", 2, len(args))
 	}
 	a0, err := b.in133(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("toml_host.build", 0, "toml_host.build", "statics", err)
+		return nil, hostadapt.Param("toml/host.build", 0, "toml/host.build", "statics", err)
 	}
 	a1, err := b.in133(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("toml_host.build", 1, "toml_host.build", "slots", err)
+		return nil, hostadapt.Param("toml/host.build", 1, "toml/host.build", "slots", err)
 	}
 	r0 := stdtoml.FFIBuild(a0, a1)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("toml_host.build", err)
+		return nil, hostadapt.Returned("toml/host.build", err)
 	}
 	return v0, nil
 }
 
-// fn174 adapts toml_host.quote: quote(text: String) -> String
+// fn174 adapts toml/host.quote: quote(text: String) -> String
 func (b *bound) fn174(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("toml_host.quote", &err)
+	defer hostadapt.Recover("toml/host.quote", &err)
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("toml_host.quote", 1, len(args))
+		return nil, hostadapt.Arity("toml/host.quote", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("toml_host.quote", 0, "toml_host.quote", "text", err)
+		return nil, hostadapt.Param("toml/host.quote", 0, "toml/host.quote", "text", err)
 	}
 	r0 := stdtoml.FFIQuote(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("toml_host.quote", err)
+		return nil, hostadapt.Returned("toml/host.quote", err)
 	}
 	return v0, nil
 }
 
-// fn175 adapts toml_host.float: float(value: Float) -> String
+// fn175 adapts toml/host.float: float(value: Float) -> String
 func (b *bound) fn175(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("toml_host.float", &err)
+	defer hostadapt.Recover("toml/host.float", &err)
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("toml_host.float", 1, len(args))
+		return nil, hostadapt.Arity("toml/host.float", 1, len(args))
 	}
 	a0, err := b.in117(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("toml_host.float", 0, "toml_host.float", "value", err)
+		return nil, hostadapt.Param("toml/host.float", 0, "toml/host.float", "value", err)
 	}
 	r0 := stdtoml.FFIFloat(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("toml_host.float", err)
+		return nil, hostadapt.Returned("toml/host.float", err)
 	}
 	return v0, nil
 }
@@ -5878,27 +5878,27 @@ func (b *bound) out230(v rt.Result[rt.Bytes, string]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn246 adapts http_host.seal: seal(key: Bytes, data: Bytes, label: Bytes) -> Result<Bytes, String>
+// fn246 adapts http/host.seal: seal(key: Bytes, data: Bytes, label: Bytes) -> Result<Bytes, String>
 func (b *bound) fn246(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
-		return nil, hostadapt.Arity("http_host.seal", 3, len(args))
+		return nil, hostadapt.Arity("http/host.seal", 3, len(args))
 	}
 	a0, err := b.in218(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("http_host.seal", 0, "http_host.seal", "key", err)
+		return nil, hostadapt.Param("http/host.seal", 0, "http/host.seal", "key", err)
 	}
 	a1, err := b.in218(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("http_host.seal", 1, "http_host.seal", "data", err)
+		return nil, hostadapt.Param("http/host.seal", 1, "http/host.seal", "data", err)
 	}
 	a2, err := b.in218(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("http_host.seal", 2, "http_host.seal", "label", err)
+		return nil, hostadapt.Param("http/host.seal", 2, "http/host.seal", "label", err)
 	}
 	r0 := rt.Seal(a0, a1, a2)
 	v0, err := b.out230(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("http_host.seal", err)
+		return nil, hostadapt.Returned("http/host.seal", err)
 	}
 	return v0, nil
 }
@@ -5916,27 +5916,27 @@ func (b *bound) out248(v rt.Maybe[rt.Bytes]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn247 adapts http_host.open_sealed: open_sealed(key: Bytes, sealed: Bytes, label: Bytes) -> Maybe<Bytes>
+// fn247 adapts http/host.open_sealed: open_sealed(key: Bytes, sealed: Bytes, label: Bytes) -> Maybe<Bytes>
 func (b *bound) fn247(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
-		return nil, hostadapt.Arity("http_host.open_sealed", 3, len(args))
+		return nil, hostadapt.Arity("http/host.open_sealed", 3, len(args))
 	}
 	a0, err := b.in218(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("http_host.open_sealed", 0, "http_host.open_sealed", "key", err)
+		return nil, hostadapt.Param("http/host.open_sealed", 0, "http/host.open_sealed", "key", err)
 	}
 	a1, err := b.in218(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("http_host.open_sealed", 1, "http_host.open_sealed", "sealed", err)
+		return nil, hostadapt.Param("http/host.open_sealed", 1, "http/host.open_sealed", "sealed", err)
 	}
 	a2, err := b.in218(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("http_host.open_sealed", 2, "http_host.open_sealed", "label", err)
+		return nil, hostadapt.Param("http/host.open_sealed", 2, "http/host.open_sealed", "label", err)
 	}
 	r0 := rt.Open(a0, a1, a2)
 	v0, err := b.out248(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("http_host.open_sealed", err)
+		return nil, hostadapt.Returned("http/host.open_sealed", err)
 	}
 	return v0, nil
 }
@@ -6051,70 +6051,70 @@ func (b *bound) fn254(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn255 adapts html_host.escape: escape(text: String) -> String
+// fn255 adapts html/host.escape: escape(text: String) -> String
 func (b *bound) fn255(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("html_host.escape", 1, len(args))
+		return nil, hostadapt.Arity("html/host.escape", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("html_host.escape", 0, "html_host.escape", "text", err)
+		return nil, hostadapt.Param("html/host.escape", 0, "html/host.escape", "text", err)
 	}
 	r0 := rt.HTMLEscape(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("html_host.escape", err)
+		return nil, hostadapt.Returned("html/host.escape", err)
 	}
 	return v0, nil
 }
 
-// fn256 adapts html_host.filter_url: filter_url(text: String) -> String
+// fn256 adapts html/host.filter_url: filter_url(text: String) -> String
 func (b *bound) fn256(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("html_host.filter_url", 1, len(args))
+		return nil, hostadapt.Arity("html/host.filter_url", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("html_host.filter_url", 0, "html_host.filter_url", "text", err)
+		return nil, hostadapt.Param("html/host.filter_url", 0, "html/host.filter_url", "text", err)
 	}
 	r0 := rt.HTMLFilterURL(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("html_host.filter_url", err)
+		return nil, hostadapt.Returned("html/host.filter_url", err)
 	}
 	return v0, nil
 }
 
-// fn257 adapts html_host.escape_url_path: escape_url_path(text: String) -> String
+// fn257 adapts html/host.escape_url_path: escape_url_path(text: String) -> String
 func (b *bound) fn257(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("html_host.escape_url_path", 1, len(args))
+		return nil, hostadapt.Arity("html/host.escape_url_path", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("html_host.escape_url_path", 0, "html_host.escape_url_path", "text", err)
+		return nil, hostadapt.Param("html/host.escape_url_path", 0, "html/host.escape_url_path", "text", err)
 	}
 	r0 := rt.HTMLEscapeURLPath(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("html_host.escape_url_path", err)
+		return nil, hostadapt.Returned("html/host.escape_url_path", err)
 	}
 	return v0, nil
 }
 
-// fn258 adapts url_host.escape_query: escape_query(text: String) -> String
+// fn258 adapts url/host.escape_query: escape_query(text: String) -> String
 func (b *bound) fn258(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.escape_query", 1, len(args))
+		return nil, hostadapt.Arity("url/host.escape_query", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.escape_query", 0, "url_host.escape_query", "text", err)
+		return nil, hostadapt.Param("url/host.escape_query", 0, "url/host.escape_query", "text", err)
 	}
 	r0 := rt.URLEscapeQuery(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.escape_query", err)
+		return nil, hostadapt.Returned("url/host.escape_query", err)
 	}
 	return v0, nil
 }
@@ -6134,53 +6134,53 @@ func (b *bound) out260(v rt.Result[string, string]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn259 adapts url_host.unescape_query: unescape_query(text: String) -> Result<String, String>
+// fn259 adapts url/host.unescape_query: unescape_query(text: String) -> Result<String, String>
 func (b *bound) fn259(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.unescape_query", 1, len(args))
+		return nil, hostadapt.Arity("url/host.unescape_query", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.unescape_query", 0, "url_host.unescape_query", "text", err)
+		return nil, hostadapt.Param("url/host.unescape_query", 0, "url/host.unescape_query", "text", err)
 	}
 	r0 := rt.URLUnescapeQuery(a0)
 	v0, err := b.out260(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.unescape_query", err)
+		return nil, hostadapt.Returned("url/host.unescape_query", err)
 	}
 	return v0, nil
 }
 
-// fn261 adapts url_host.escape_path_segment: escape_path_segment(text: String) -> String
+// fn261 adapts url/host.escape_path_segment: escape_path_segment(text: String) -> String
 func (b *bound) fn261(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.escape_path_segment", 1, len(args))
+		return nil, hostadapt.Arity("url/host.escape_path_segment", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.escape_path_segment", 0, "url_host.escape_path_segment", "text", err)
+		return nil, hostadapt.Param("url/host.escape_path_segment", 0, "url/host.escape_path_segment", "text", err)
 	}
 	r0 := rt.URLEscapePathSegment(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.escape_path_segment", err)
+		return nil, hostadapt.Returned("url/host.escape_path_segment", err)
 	}
 	return v0, nil
 }
 
-// fn262 adapts url_host.unescape_path_segment: unescape_path_segment(text: String) -> Result<String, String>
+// fn262 adapts url/host.unescape_path_segment: unescape_path_segment(text: String) -> Result<String, String>
 func (b *bound) fn262(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.unescape_path_segment", 1, len(args))
+		return nil, hostadapt.Arity("url/host.unescape_path_segment", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.unescape_path_segment", 0, "url_host.unescape_path_segment", "text", err)
+		return nil, hostadapt.Param("url/host.unescape_path_segment", 0, "url/host.unescape_path_segment", "text", err)
 	}
 	r0 := rt.URLUnescapePathSegment(a0)
 	v0, err := b.out260(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.unescape_path_segment", err)
+		return nil, hostadapt.Returned("url/host.unescape_path_segment", err)
 	}
 	return v0, nil
 }
@@ -6204,23 +6204,23 @@ func (b *bound) out264(v rt.Result[*rt.List[string], string]) (rt.Value, error) 
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn263 adapts url_host.parse_parts: parse_parts(text: String, request_uri: Bool) -> Result<List<String>, String>
+// fn263 adapts url/host.parse_parts: parse_parts(text: String, request_uri: Bool) -> Result<List<String>, String>
 func (b *bound) fn263(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("url_host.parse_parts", 2, len(args))
+		return nil, hostadapt.Arity("url/host.parse_parts", 2, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.parse_parts", 0, "url_host.parse_parts", "text", err)
+		return nil, hostadapt.Param("url/host.parse_parts", 0, "url/host.parse_parts", "text", err)
 	}
 	a1, err := b.in52(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.parse_parts", 1, "url_host.parse_parts", "request_uri", err)
+		return nil, hostadapt.Param("url/host.parse_parts", 1, "url/host.parse_parts", "request_uri", err)
 	}
 	r0 := rt.URLParse(a0, a1)
 	v0, err := b.out264(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.parse_parts", err)
+		return nil, hostadapt.Returned("url/host.parse_parts", err)
 	}
 	return v0, nil
 }
@@ -6247,333 +6247,333 @@ func (b *bound) in267(fr *rt.Frame, v rt.Value) (out *rt.List[string], err error
 	return out, nil
 }
 
-// fn266 adapts url_host.format_parts: format_parts(parts: List<String>) -> String
+// fn266 adapts url/host.format_parts: format_parts(parts: List<String>) -> String
 func (b *bound) fn266(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.format_parts", 1, len(args))
+		return nil, hostadapt.Arity("url/host.format_parts", 1, len(args))
 	}
 	a0, err := b.in267(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.format_parts", 0, "url_host.format_parts", "parts", err)
+		return nil, hostadapt.Param("url/host.format_parts", 0, "url/host.format_parts", "parts", err)
 	}
 	r0 := rt.URLFormat(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.format_parts", err)
+		return nil, hostadapt.Returned("url/host.format_parts", err)
 	}
 	return v0, nil
 }
 
-// fn268 adapts url_host.redacted_parts: redacted_parts(parts: List<String>) -> String
+// fn268 adapts url/host.redacted_parts: redacted_parts(parts: List<String>) -> String
 func (b *bound) fn268(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.redacted_parts", 1, len(args))
+		return nil, hostadapt.Arity("url/host.redacted_parts", 1, len(args))
 	}
 	a0, err := b.in267(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.redacted_parts", 0, "url_host.redacted_parts", "parts", err)
+		return nil, hostadapt.Param("url/host.redacted_parts", 0, "url/host.redacted_parts", "parts", err)
 	}
 	r0 := rt.URLRedacted(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.redacted_parts", err)
+		return nil, hostadapt.Returned("url/host.redacted_parts", err)
 	}
 	return v0, nil
 }
 
-// fn269 adapts url_host.escaped_path_parts: escaped_path_parts(parts: List<String>) -> String
+// fn269 adapts url/host.escaped_path_parts: escaped_path_parts(parts: List<String>) -> String
 func (b *bound) fn269(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.escaped_path_parts", 1, len(args))
+		return nil, hostadapt.Arity("url/host.escaped_path_parts", 1, len(args))
 	}
 	a0, err := b.in267(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.escaped_path_parts", 0, "url_host.escaped_path_parts", "parts", err)
+		return nil, hostadapt.Param("url/host.escaped_path_parts", 0, "url/host.escaped_path_parts", "parts", err)
 	}
 	r0 := rt.URLEscapedPath(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.escaped_path_parts", err)
+		return nil, hostadapt.Returned("url/host.escaped_path_parts", err)
 	}
 	return v0, nil
 }
 
-// fn270 adapts url_host.escaped_fragment_parts: escaped_fragment_parts(parts: List<String>) -> String
+// fn270 adapts url/host.escaped_fragment_parts: escaped_fragment_parts(parts: List<String>) -> String
 func (b *bound) fn270(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.escaped_fragment_parts", 1, len(args))
+		return nil, hostadapt.Arity("url/host.escaped_fragment_parts", 1, len(args))
 	}
 	a0, err := b.in267(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.escaped_fragment_parts", 0, "url_host.escaped_fragment_parts", "parts", err)
+		return nil, hostadapt.Param("url/host.escaped_fragment_parts", 0, "url/host.escaped_fragment_parts", "parts", err)
 	}
 	r0 := rt.URLEscapedFragment(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.escaped_fragment_parts", err)
+		return nil, hostadapt.Returned("url/host.escaped_fragment_parts", err)
 	}
 	return v0, nil
 }
 
-// fn271 adapts url_host.request_uri_parts: request_uri_parts(parts: List<String>) -> String
+// fn271 adapts url/host.request_uri_parts: request_uri_parts(parts: List<String>) -> String
 func (b *bound) fn271(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.request_uri_parts", 1, len(args))
+		return nil, hostadapt.Arity("url/host.request_uri_parts", 1, len(args))
 	}
 	a0, err := b.in267(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.request_uri_parts", 0, "url_host.request_uri_parts", "parts", err)
+		return nil, hostadapt.Param("url/host.request_uri_parts", 0, "url/host.request_uri_parts", "parts", err)
 	}
 	r0 := rt.URLRequestURI(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.request_uri_parts", err)
+		return nil, hostadapt.Returned("url/host.request_uri_parts", err)
 	}
 	return v0, nil
 }
 
-// fn272 adapts url_host.hostname_parts: hostname_parts(parts: List<String>) -> String
+// fn272 adapts url/host.hostname_parts: hostname_parts(parts: List<String>) -> String
 func (b *bound) fn272(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.hostname_parts", 1, len(args))
+		return nil, hostadapt.Arity("url/host.hostname_parts", 1, len(args))
 	}
 	a0, err := b.in267(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.hostname_parts", 0, "url_host.hostname_parts", "parts", err)
+		return nil, hostadapt.Param("url/host.hostname_parts", 0, "url/host.hostname_parts", "parts", err)
 	}
 	r0 := rt.URLHostname(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.hostname_parts", err)
+		return nil, hostadapt.Returned("url/host.hostname_parts", err)
 	}
 	return v0, nil
 }
 
-// fn273 adapts url_host.port_parts: port_parts(parts: List<String>) -> String
+// fn273 adapts url/host.port_parts: port_parts(parts: List<String>) -> String
 func (b *bound) fn273(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.port_parts", 1, len(args))
+		return nil, hostadapt.Arity("url/host.port_parts", 1, len(args))
 	}
 	a0, err := b.in267(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.port_parts", 0, "url_host.port_parts", "parts", err)
+		return nil, hostadapt.Param("url/host.port_parts", 0, "url/host.port_parts", "parts", err)
 	}
 	r0 := rt.URLPort(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.port_parts", err)
+		return nil, hostadapt.Returned("url/host.port_parts", err)
 	}
 	return v0, nil
 }
 
-// fn274 adapts url_host.resolve_parts: resolve_parts(base: List<String>, reference: List<String>) -> List<String>
+// fn274 adapts url/host.resolve_parts: resolve_parts(base: List<String>, reference: List<String>) -> List<String>
 func (b *bound) fn274(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("url_host.resolve_parts", 2, len(args))
+		return nil, hostadapt.Arity("url/host.resolve_parts", 2, len(args))
 	}
 	a0, err := b.in267(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.resolve_parts", 0, "url_host.resolve_parts", "base", err)
+		return nil, hostadapt.Param("url/host.resolve_parts", 0, "url/host.resolve_parts", "base", err)
 	}
 	a1, err := b.in267(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.resolve_parts", 1, "url_host.resolve_parts", "reference", err)
+		return nil, hostadapt.Param("url/host.resolve_parts", 1, "url/host.resolve_parts", "reference", err)
 	}
 	r0 := rt.URLResolve(a0, a1)
 	v0, err := b.out196(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.resolve_parts", err)
+		return nil, hostadapt.Returned("url/host.resolve_parts", err)
 	}
 	return v0, nil
 }
 
-// fn275 adapts url_host.join_path_parts: join_path_parts(parts: List<String>, segments: List<String>) -> List<String>
+// fn275 adapts url/host.join_path_parts: join_path_parts(parts: List<String>, segments: List<String>) -> List<String>
 func (b *bound) fn275(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("url_host.join_path_parts", 2, len(args))
+		return nil, hostadapt.Arity("url/host.join_path_parts", 2, len(args))
 	}
 	a0, err := b.in267(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.join_path_parts", 0, "url_host.join_path_parts", "parts", err)
+		return nil, hostadapt.Param("url/host.join_path_parts", 0, "url/host.join_path_parts", "parts", err)
 	}
 	a1, err := b.in267(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.join_path_parts", 1, "url_host.join_path_parts", "segments", err)
+		return nil, hostadapt.Param("url/host.join_path_parts", 1, "url/host.join_path_parts", "segments", err)
 	}
 	r0 := rt.URLJoinPath(a0, a1)
 	v0, err := b.out196(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.join_path_parts", err)
+		return nil, hostadapt.Returned("url/host.join_path_parts", err)
 	}
 	return v0, nil
 }
 
-// fn276 adapts url_host.escape_fragment: escape_fragment(text: String) -> String
+// fn276 adapts url/host.escape_fragment: escape_fragment(text: String) -> String
 func (b *bound) fn276(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.escape_fragment", 1, len(args))
+		return nil, hostadapt.Arity("url/host.escape_fragment", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.escape_fragment", 0, "url_host.escape_fragment", "text", err)
+		return nil, hostadapt.Param("url/host.escape_fragment", 0, "url/host.escape_fragment", "text", err)
 	}
 	r0 := rt.URLEscapeFragment(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.escape_fragment", err)
+		return nil, hostadapt.Returned("url/host.escape_fragment", err)
 	}
 	return v0, nil
 }
 
-// fn277 adapts url_host.query_pairs: query_pairs(text: String) -> List<String>
+// fn277 adapts url/host.query_pairs: query_pairs(text: String) -> List<String>
 func (b *bound) fn277(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.query_pairs", 1, len(args))
+		return nil, hostadapt.Arity("url/host.query_pairs", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.query_pairs", 0, "url_host.query_pairs", "text", err)
+		return nil, hostadapt.Param("url/host.query_pairs", 0, "url/host.query_pairs", "text", err)
 	}
 	r0 := rt.QueryPairs(a0)
 	v0, err := b.out196(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.query_pairs", err)
+		return nil, hostadapt.Returned("url/host.query_pairs", err)
 	}
 	return v0, nil
 }
 
-// fn278 adapts url_host.query_error: query_error(text: String) -> String
+// fn278 adapts url/host.query_error: query_error(text: String) -> String
 func (b *bound) fn278(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.query_error", 1, len(args))
+		return nil, hostadapt.Arity("url/host.query_error", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.query_error", 0, "url_host.query_error", "text", err)
+		return nil, hostadapt.Param("url/host.query_error", 0, "url/host.query_error", "text", err)
 	}
 	r0 := rt.QueryError(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.query_error", err)
+		return nil, hostadapt.Returned("url/host.query_error", err)
 	}
 	return v0, nil
 }
 
-// fn279 adapts url_host.query_encode: query_encode(pairs: List<String>) -> String
+// fn279 adapts url/host.query_encode: query_encode(pairs: List<String>) -> String
 func (b *bound) fn279(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("url_host.query_encode", 1, len(args))
+		return nil, hostadapt.Arity("url/host.query_encode", 1, len(args))
 	}
 	a0, err := b.in267(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("url_host.query_encode", 0, "url_host.query_encode", "pairs", err)
+		return nil, hostadapt.Param("url/host.query_encode", 0, "url/host.query_encode", "pairs", err)
 	}
 	r0 := rt.QueryEncode(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url_host.query_encode", err)
+		return nil, hostadapt.Returned("url/host.query_encode", err)
 	}
 	return v0, nil
 }
 
-// fn280 adapts path_host.clean: clean(p: String) -> String
+// fn280 adapts path/host.clean: clean(p: String) -> String
 func (b *bound) fn280(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("path_host.clean", 1, len(args))
+		return nil, hostadapt.Arity("path/host.clean", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("path_host.clean", 0, "path_host.clean", "p", err)
+		return nil, hostadapt.Param("path/host.clean", 0, "path/host.clean", "p", err)
 	}
 	r0 := rt.PathClean(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("path_host.clean", err)
+		return nil, hostadapt.Returned("path/host.clean", err)
 	}
 	return v0, nil
 }
 
-// fn281 adapts path_host.join: join(parts: List<String>) -> String
+// fn281 adapts path/host.join: join(parts: List<String>) -> String
 func (b *bound) fn281(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("path_host.join", 1, len(args))
+		return nil, hostadapt.Arity("path/host.join", 1, len(args))
 	}
 	a0, err := b.in267(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("path_host.join", 0, "path_host.join", "parts", err)
+		return nil, hostadapt.Param("path/host.join", 0, "path/host.join", "parts", err)
 	}
 	r0 := rt.PathJoin(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("path_host.join", err)
+		return nil, hostadapt.Returned("path/host.join", err)
 	}
 	return v0, nil
 }
 
-// fn282 adapts path_host.base: base(p: String) -> String
+// fn282 adapts path/host.base: base(p: String) -> String
 func (b *bound) fn282(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("path_host.base", 1, len(args))
+		return nil, hostadapt.Arity("path/host.base", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("path_host.base", 0, "path_host.base", "p", err)
+		return nil, hostadapt.Param("path/host.base", 0, "path/host.base", "p", err)
 	}
 	r0 := rt.PathBase(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("path_host.base", err)
+		return nil, hostadapt.Returned("path/host.base", err)
 	}
 	return v0, nil
 }
 
-// fn283 adapts path_host.dir: dir(p: String) -> String
+// fn283 adapts path/host.dir: dir(p: String) -> String
 func (b *bound) fn283(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("path_host.dir", 1, len(args))
+		return nil, hostadapt.Arity("path/host.dir", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("path_host.dir", 0, "path_host.dir", "p", err)
+		return nil, hostadapt.Param("path/host.dir", 0, "path/host.dir", "p", err)
 	}
 	r0 := rt.PathDir(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("path_host.dir", err)
+		return nil, hostadapt.Returned("path/host.dir", err)
 	}
 	return v0, nil
 }
 
-// fn284 adapts mail_host.quoted_printable: quoted_printable(text: String) -> String
+// fn284 adapts mail/host.quoted_printable: quoted_printable(text: String) -> String
 func (b *bound) fn284(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("mail_host.quoted_printable", 1, len(args))
+		return nil, hostadapt.Arity("mail/host.quoted_printable", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("mail_host.quoted_printable", 0, "mail_host.quoted_printable", "text", err)
+		return nil, hostadapt.Param("mail/host.quoted_printable", 0, "mail/host.quoted_printable", "text", err)
 	}
 	r0 := rt.MailQuotedPrintable(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("mail_host.quoted_printable", err)
+		return nil, hostadapt.Returned("mail/host.quoted_printable", err)
 	}
 	return v0, nil
 }
 
-// fn285 adapts mail_host.date: date(nanos: Int) -> String
+// fn285 adapts mail/host.date: date(nanos: Int) -> String
 func (b *bound) fn285(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("mail_host.date", 1, len(args))
+		return nil, hostadapt.Arity("mail/host.date", 1, len(args))
 	}
 	a0, err := b.in39(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("mail_host.date", 0, "mail_host.date", "nanos", err)
+		return nil, hostadapt.Param("mail/host.date", 0, "mail/host.date", "nanos", err)
 	}
 	r0 := rt.MailDate(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("mail_host.date", err)
+		return nil, hostadapt.Returned("mail/host.date", err)
 	}
 	return v0, nil
 }
@@ -10791,103 +10791,103 @@ func (b *bound) fn524(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn525 adapts embed_host.read: read(handle: Int, path: String) -> Bytes
+// fn525 adapts embed/host.read: read(handle: Int, path: String) -> Bytes
 func (b *bound) fn525(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("embed_host.read", 2, len(args))
+		return nil, hostadapt.Arity("embed/host.read", 2, len(args))
 	}
 	a0, err := b.in39(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("embed_host.read", 0, "embed_host.read", "handle", err)
+		return nil, hostadapt.Param("embed/host.read", 0, "embed/host.read", "handle", err)
 	}
 	a1, err := b.in40(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("embed_host.read", 1, "embed_host.read", "path", err)
+		return nil, hostadapt.Param("embed/host.read", 1, "embed/host.read", "path", err)
 	}
 	r0 := rt.EmbeddedRead(fr, a0, a1)
 	v0, err := b.out100(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("embed_host.read", err)
+		return nil, hostadapt.Returned("embed/host.read", err)
 	}
 	return v0, nil
 }
 
-// fn526 adapts embed_host.sum: sum(handle: Int, path: String) -> String
+// fn526 adapts embed/host.sum: sum(handle: Int, path: String) -> String
 func (b *bound) fn526(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("embed_host.sum", 2, len(args))
+		return nil, hostadapt.Arity("embed/host.sum", 2, len(args))
 	}
 	a0, err := b.in39(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("embed_host.sum", 0, "embed_host.sum", "handle", err)
+		return nil, hostadapt.Param("embed/host.sum", 0, "embed/host.sum", "handle", err)
 	}
 	a1, err := b.in40(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("embed_host.sum", 1, "embed_host.sum", "path", err)
+		return nil, hostadapt.Param("embed/host.sum", 1, "embed/host.sum", "path", err)
 	}
 	r0 := rt.EmbeddedSum(fr, a0, a1)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("embed_host.sum", err)
+		return nil, hostadapt.Returned("embed/host.sum", err)
 	}
 	return v0, nil
 }
 
-// fn527 adapts fs_host.read: read(path: String) -> Result<Bytes, Error>
+// fn527 adapts fs/host.read: read(path: String) -> Result<Bytes, Error>
 func (b *bound) fn527(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.read", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.read", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.read", 0, "fs_host.read", "path", err)
+		return nil, hostadapt.Param("fs/host.read", 0, "fs/host.read", "path", err)
 	}
 	r0 := stdio.Read(fr, a0)
 	v0, err := b.out493(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.read", err)
+		return nil, hostadapt.Returned("fs/host.read", err)
 	}
 	return v0, nil
 }
 
-// fn528 adapts fs_host.read_text: read_text(path: String) -> Result<String, Error>
+// fn528 adapts fs/host.read_text: read_text(path: String) -> Result<String, Error>
 func (b *bound) fn528(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.read_text", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.read_text", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.read_text", 0, "fs_host.read_text", "path", err)
+		return nil, hostadapt.Param("fs/host.read_text", 0, "fs/host.read_text", "path", err)
 	}
 	r0 := stdio.ReadText(fr, a0)
 	v0, err := b.out496(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.read_text", err)
+		return nil, hostadapt.Returned("fs/host.read_text", err)
 	}
 	return v0, nil
 }
 
-// fn529 adapts fs_host.write: write(path: String, data: Bytes, mode: Int) -> Result<Unit, Error>
+// fn529 adapts fs/host.write: write(path: String, data: Bytes, mode: Int) -> Result<Unit, Error>
 func (b *bound) fn529(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
-		return nil, hostadapt.Arity("fs_host.write", 3, len(args))
+		return nil, hostadapt.Arity("fs/host.write", 3, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.write", 0, "fs_host.write", "path", err)
+		return nil, hostadapt.Param("fs/host.write", 0, "fs/host.write", "path", err)
 	}
 	a1, err := b.in218(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.write", 1, "fs_host.write", "data", err)
+		return nil, hostadapt.Param("fs/host.write", 1, "fs/host.write", "data", err)
 	}
 	a2, err := b.in39(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.write", 2, "fs_host.write", "mode", err)
+		return nil, hostadapt.Param("fs/host.write", 2, "fs/host.write", "mode", err)
 	}
 	r0 := stdio.Write(fr, a0, a1, a2)
 	v0, err := b.out503(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.write", err)
+		return nil, hostadapt.Returned("fs/host.write", err)
 	}
 	return v0, nil
 }
@@ -10915,19 +10915,19 @@ func (b *bound) out531(v rt.Result[rt.Reader, rt.IOError]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn530 adapts fs_host.open: open(path: String) -> Result<Reader, Error>
+// fn530 adapts fs/host.open: open(path: String) -> Result<Reader, Error>
 func (b *bound) fn530(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.open", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.open", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.open", 0, "fs_host.open", "path", err)
+		return nil, hostadapt.Param("fs/host.open", 0, "fs/host.open", "path", err)
 	}
 	r0 := stdio.Open(fr, a0)
 	v0, err := b.out531(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.open", err)
+		return nil, hostadapt.Returned("fs/host.open", err)
 	}
 	return v0, nil
 }
@@ -10955,23 +10955,23 @@ func (b *bound) out535(v rt.Result[rt.Writer, rt.IOError]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn534 adapts fs_host.create: create(path: String, mode: Int) -> Result<Writer, Error>
+// fn534 adapts fs/host.create: create(path: String, mode: Int) -> Result<Writer, Error>
 func (b *bound) fn534(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs_host.create", 2, len(args))
+		return nil, hostadapt.Arity("fs/host.create", 2, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.create", 0, "fs_host.create", "path", err)
+		return nil, hostadapt.Param("fs/host.create", 0, "fs/host.create", "path", err)
 	}
 	a1, err := b.in39(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.create", 1, "fs_host.create", "mode", err)
+		return nil, hostadapt.Param("fs/host.create", 1, "fs/host.create", "mode", err)
 	}
 	r0 := stdio.Create(fr, a0, a1)
 	v0, err := b.out535(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.create", err)
+		return nil, hostadapt.Returned("fs/host.create", err)
 	}
 	return v0, nil
 }
@@ -10999,116 +10999,116 @@ func (b *bound) out539(v rt.Result[*rt.List[string], rt.IOError]) (rt.Value, err
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn538 adapts fs_host.list: list(dir: String) -> Result<List<String>, Error>
+// fn538 adapts fs/host.list: list(dir: String) -> Result<List<String>, Error>
 func (b *bound) fn538(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.list", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.list", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.list", 0, "fs_host.list", "dir", err)
+		return nil, hostadapt.Param("fs/host.list", 0, "fs/host.list", "dir", err)
 	}
 	r0 := stdio.List(fr, a0)
 	v0, err := b.out539(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.list", err)
+		return nil, hostadapt.Returned("fs/host.list", err)
 	}
 	return v0, nil
 }
 
-// fn542 adapts fs_host.create_dir: create_dir(path: String, parents: Bool) -> Result<Unit, Error>
+// fn542 adapts fs/host.create_dir: create_dir(path: String, parents: Bool) -> Result<Unit, Error>
 func (b *bound) fn542(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs_host.create_dir", 2, len(args))
+		return nil, hostadapt.Arity("fs/host.create_dir", 2, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.create_dir", 0, "fs_host.create_dir", "path", err)
+		return nil, hostadapt.Param("fs/host.create_dir", 0, "fs/host.create_dir", "path", err)
 	}
 	a1, err := b.in52(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.create_dir", 1, "fs_host.create_dir", "parents", err)
+		return nil, hostadapt.Param("fs/host.create_dir", 1, "fs/host.create_dir", "parents", err)
 	}
 	r0 := stdio.CreateDir(fr, a0, a1)
 	v0, err := b.out503(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.create_dir", err)
+		return nil, hostadapt.Returned("fs/host.create_dir", err)
 	}
 	return v0, nil
 }
 
-// fn543 adapts fs_host.remove: remove(path: String) -> Result<Unit, Error>
+// fn543 adapts fs/host.remove: remove(path: String) -> Result<Unit, Error>
 func (b *bound) fn543(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.remove", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.remove", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.remove", 0, "fs_host.remove", "path", err)
+		return nil, hostadapt.Param("fs/host.remove", 0, "fs/host.remove", "path", err)
 	}
 	r0 := stdio.Remove(fr, a0)
 	v0, err := b.out503(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.remove", err)
+		return nil, hostadapt.Returned("fs/host.remove", err)
 	}
 	return v0, nil
 }
 
-// fn544 adapts fs_host.remove_all: remove_all(path: String) -> Result<Unit, Error>
+// fn544 adapts fs/host.remove_all: remove_all(path: String) -> Result<Unit, Error>
 func (b *bound) fn544(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.remove_all", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.remove_all", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.remove_all", 0, "fs_host.remove_all", "path", err)
+		return nil, hostadapt.Param("fs/host.remove_all", 0, "fs/host.remove_all", "path", err)
 	}
 	r0 := stdio.RemoveAll(fr, a0)
 	v0, err := b.out503(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.remove_all", err)
+		return nil, hostadapt.Returned("fs/host.remove_all", err)
 	}
 	return v0, nil
 }
 
-// fn545 adapts fs_host.rename: rename(from: String, to: String) -> Result<Unit, Error>
+// fn545 adapts fs/host.rename: rename(from: String, to: String) -> Result<Unit, Error>
 func (b *bound) fn545(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs_host.rename", 2, len(args))
+		return nil, hostadapt.Arity("fs/host.rename", 2, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.rename", 0, "fs_host.rename", "from", err)
+		return nil, hostadapt.Param("fs/host.rename", 0, "fs/host.rename", "from", err)
 	}
 	a1, err := b.in40(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.rename", 1, "fs_host.rename", "to", err)
+		return nil, hostadapt.Param("fs/host.rename", 1, "fs/host.rename", "to", err)
 	}
 	r0 := stdio.Rename(fr, a0, a1)
 	v0, err := b.out503(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.rename", err)
+		return nil, hostadapt.Returned("fs/host.rename", err)
 	}
 	return v0, nil
 }
 
-// fn546 adapts fs_host.copy: copy(from: String, to: String) -> Result<Unit, Error>
+// fn546 adapts fs/host.copy: copy(from: String, to: String) -> Result<Unit, Error>
 func (b *bound) fn546(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs_host.copy", 2, len(args))
+		return nil, hostadapt.Arity("fs/host.copy", 2, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.copy", 0, "fs_host.copy", "from", err)
+		return nil, hostadapt.Param("fs/host.copy", 0, "fs/host.copy", "from", err)
 	}
 	a1, err := b.in40(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.copy", 1, "fs_host.copy", "to", err)
+		return nil, hostadapt.Param("fs/host.copy", 1, "fs/host.copy", "to", err)
 	}
 	r0 := stdio.Copy(fr, a0, a1)
 	v0, err := b.out503(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.copy", err)
+		return nil, hostadapt.Returned("fs/host.copy", err)
 	}
 	return v0, nil
 }
@@ -11159,95 +11159,95 @@ func (b *bound) out548(v rt.Result[*rt.List[int64], rt.IOError]) (rt.Value, erro
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn547 adapts fs_host.metadata: metadata(path: String) -> Result<List<Int>, Error>
+// fn547 adapts fs/host.metadata: metadata(path: String) -> Result<List<Int>, Error>
 func (b *bound) fn547(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.metadata", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.metadata", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.metadata", 0, "fs_host.metadata", "path", err)
+		return nil, hostadapt.Param("fs/host.metadata", 0, "fs/host.metadata", "path", err)
 	}
 	r0 := stdio.Metadata(fr, a0)
 	v0, err := b.out548(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.metadata", err)
+		return nil, hostadapt.Returned("fs/host.metadata", err)
 	}
 	return v0, nil
 }
 
-// fn552 adapts fs_host.link_metadata: link_metadata(path: String) -> Result<List<Int>, Error>
+// fn552 adapts fs/host.link_metadata: link_metadata(path: String) -> Result<List<Int>, Error>
 func (b *bound) fn552(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.link_metadata", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.link_metadata", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.link_metadata", 0, "fs_host.link_metadata", "path", err)
+		return nil, hostadapt.Param("fs/host.link_metadata", 0, "fs/host.link_metadata", "path", err)
 	}
 	r0 := stdio.LinkMetadata(fr, a0)
 	v0, err := b.out548(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.link_metadata", err)
+		return nil, hostadapt.Returned("fs/host.link_metadata", err)
 	}
 	return v0, nil
 }
 
-// fn553 adapts fs_host.create_symlink: create_symlink(path: String, target: String) -> Result<Unit, Error>
+// fn553 adapts fs/host.create_symlink: create_symlink(path: String, target: String) -> Result<Unit, Error>
 func (b *bound) fn553(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs_host.create_symlink", 2, len(args))
+		return nil, hostadapt.Arity("fs/host.create_symlink", 2, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.create_symlink", 0, "fs_host.create_symlink", "path", err)
+		return nil, hostadapt.Param("fs/host.create_symlink", 0, "fs/host.create_symlink", "path", err)
 	}
 	a1, err := b.in40(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.create_symlink", 1, "fs_host.create_symlink", "target", err)
+		return nil, hostadapt.Param("fs/host.create_symlink", 1, "fs/host.create_symlink", "target", err)
 	}
 	r0 := stdio.CreateSymlink(fr, a0, a1)
 	v0, err := b.out503(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.create_symlink", err)
+		return nil, hostadapt.Returned("fs/host.create_symlink", err)
 	}
 	return v0, nil
 }
 
-// fn554 adapts fs_host.read_link: read_link(path: String) -> Result<String, Error>
+// fn554 adapts fs/host.read_link: read_link(path: String) -> Result<String, Error>
 func (b *bound) fn554(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.read_link", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.read_link", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.read_link", 0, "fs_host.read_link", "path", err)
+		return nil, hostadapt.Param("fs/host.read_link", 0, "fs/host.read_link", "path", err)
 	}
 	r0 := stdio.ReadLink(fr, a0)
 	v0, err := b.out496(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.read_link", err)
+		return nil, hostadapt.Returned("fs/host.read_link", err)
 	}
 	return v0, nil
 }
 
-// fn555 adapts fs_host.set_mode: set_mode(path: String, mode: Int) -> Result<Unit, Error>
+// fn555 adapts fs/host.set_mode: set_mode(path: String, mode: Int) -> Result<Unit, Error>
 func (b *bound) fn555(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs_host.set_mode", 2, len(args))
+		return nil, hostadapt.Arity("fs/host.set_mode", 2, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.set_mode", 0, "fs_host.set_mode", "path", err)
+		return nil, hostadapt.Param("fs/host.set_mode", 0, "fs/host.set_mode", "path", err)
 	}
 	a1, err := b.in39(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.set_mode", 1, "fs_host.set_mode", "mode", err)
+		return nil, hostadapt.Param("fs/host.set_mode", 1, "fs/host.set_mode", "mode", err)
 	}
 	r0 := stdio.SetMode(fr, a0, a1)
 	v0, err := b.out503(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.set_mode", err)
+		return nil, hostadapt.Returned("fs/host.set_mode", err)
 	}
 	return v0, nil
 }
@@ -11280,23 +11280,23 @@ func (b *bound) out557(v rt.Result[rt.File, rt.IOError]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn556 adapts fs_host.open_file: open_file(path: String, access: Int) -> Result<File, Error>
+// fn556 adapts fs/host.open_file: open_file(path: String, access: Int) -> Result<File, Error>
 func (b *bound) fn556(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs_host.open_file", 2, len(args))
+		return nil, hostadapt.Arity("fs/host.open_file", 2, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.open_file", 0, "fs_host.open_file", "path", err)
+		return nil, hostadapt.Param("fs/host.open_file", 0, "fs/host.open_file", "path", err)
 	}
 	a1, err := b.in39(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.open_file", 1, "fs_host.open_file", "access", err)
+		return nil, hostadapt.Param("fs/host.open_file", 1, "fs/host.open_file", "access", err)
 	}
 	r0 := stdio.OpenFile(fr, a0, a1)
 	v0, err := b.out557(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.open_file", err)
+		return nil, hostadapt.Returned("fs/host.open_file", err)
 	}
 	return v0, nil
 }
@@ -11329,19 +11329,19 @@ func (b *bound) out562(v rt.Result[rt.FileSystem, rt.IOError]) (rt.Value, error)
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn561 adapts fs_host.within: within(dir: String) -> Result<FileSystem, Error>
+// fn561 adapts fs/host.within: within(dir: String) -> Result<FileSystem, Error>
 func (b *bound) fn561(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.within", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.within", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.within", 0, "fs_host.within", "dir", err)
+		return nil, hostadapt.Param("fs/host.within", 0, "fs/host.within", "dir", err)
 	}
 	r0 := stdio.Within(fr, a0)
 	v0, err := b.out562(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.within", err)
+		return nil, hostadapt.Returned("fs/host.within", err)
 	}
 	return v0, nil
 }
@@ -11355,19 +11355,19 @@ func (b *bound) in567(fr *rt.Frame, v rt.Value) (out rt.FileSystem, err error) {
 	return x, nil
 }
 
-// fn566 adapts fs_host.release: release(files: FileSystem) -> Unit
+// fn566 adapts fs/host.release: release(files: FileSystem) -> Unit
 func (b *bound) fn566(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.release", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.release", 1, len(args))
 	}
 	a0, err := b.in567(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.release", 0, "fs_host.release", "files", err)
+		return nil, hostadapt.Param("fs/host.release", 0, "fs/host.release", "files", err)
 	}
 	r0 := stdio.Release(a0)
 	v0, err := b.out115(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.release", err)
+		return nil, hostadapt.Returned("fs/host.release", err)
 	}
 	return v0, nil
 }
@@ -11566,41 +11566,41 @@ func (b *bound) fn577(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn578 adapts fs_host.temp_dir: temp_dir() -> String
+// fn578 adapts fs/host.temp_dir: temp_dir() -> String
 func (b *bound) fn578(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
-		return nil, hostadapt.Arity("fs_host.temp_dir", 0, len(args))
+		return nil, hostadapt.Arity("fs/host.temp_dir", 0, len(args))
 	}
 	r0 := stdio.TempDir(fr)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.temp_dir", err)
+		return nil, hostadapt.Returned("fs/host.temp_dir", err)
 	}
 	return v0, nil
 }
 
-// fn579 adapts fs_host.make_temp_dir: make_temp_dir() -> Result<String, Error>
+// fn579 adapts fs/host.make_temp_dir: make_temp_dir() -> Result<String, Error>
 func (b *bound) fn579(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
-		return nil, hostadapt.Arity("fs_host.make_temp_dir", 0, len(args))
+		return nil, hostadapt.Arity("fs/host.make_temp_dir", 0, len(args))
 	}
 	r0 := stdio.MakeTempDir(fr)
 	v0, err := b.out496(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.make_temp_dir", err)
+		return nil, hostadapt.Returned("fs/host.make_temp_dir", err)
 	}
 	return v0, nil
 }
 
-// fn580 adapts fs_host.current_dir: current_dir() -> Result<String, Error>
+// fn580 adapts fs/host.current_dir: current_dir() -> Result<String, Error>
 func (b *bound) fn580(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
-		return nil, hostadapt.Arity("fs_host.current_dir", 0, len(args))
+		return nil, hostadapt.Arity("fs/host.current_dir", 0, len(args))
 	}
 	r0 := stdio.CurrentDir(fr)
 	v0, err := b.out496(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.current_dir", err)
+		return nil, hostadapt.Returned("fs/host.current_dir", err)
 	}
 	return v0, nil
 }
@@ -11649,64 +11649,64 @@ func (b *bound) in583(fr *rt.Frame, v rt.Value) (out rt.Map[string, string], err
 	return rt.MapOf(rt.HashString, rt.Eq[string], conv), nil
 }
 
-// fn581 adapts fs_host.new_sandbox: new_sandbox(cwd: String, files: Map<String, Bytes>, dirs: List<String>, links: Map<String, String>) -> FileSystem
+// fn581 adapts fs/host.new_sandbox: new_sandbox(cwd: String, files: Map<String, Bytes>, dirs: List<String>, links: Map<String, String>) -> FileSystem
 func (b *bound) fn581(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 4 {
-		return nil, hostadapt.Arity("fs_host.new_sandbox", 4, len(args))
+		return nil, hostadapt.Arity("fs/host.new_sandbox", 4, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.new_sandbox", 0, "fs_host.new_sandbox", "cwd", err)
+		return nil, hostadapt.Param("fs/host.new_sandbox", 0, "fs/host.new_sandbox", "cwd", err)
 	}
 	a1, err := b.in582(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.new_sandbox", 1, "fs_host.new_sandbox", "files", err)
+		return nil, hostadapt.Param("fs/host.new_sandbox", 1, "fs/host.new_sandbox", "files", err)
 	}
 	a2, err := b.in267(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.new_sandbox", 2, "fs_host.new_sandbox", "dirs", err)
+		return nil, hostadapt.Param("fs/host.new_sandbox", 2, "fs/host.new_sandbox", "dirs", err)
 	}
 	a3, err := b.in583(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.new_sandbox", 3, "fs_host.new_sandbox", "links", err)
+		return nil, hostadapt.Param("fs/host.new_sandbox", 3, "fs/host.new_sandbox", "links", err)
 	}
 	r0 := stdio.NewSandbox(a0, a1, a2, a3)
 	v0, err := b.out563(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.new_sandbox", err)
+		return nil, hostadapt.Returned("fs/host.new_sandbox", err)
 	}
 	return v0, nil
 }
 
-// fn584 adapts fs_host.sandbox_fail: sandbox_fail(sandbox: FileSystem, path: String, operation: Int, error: Error, nth: Int) -> Unit
+// fn584 adapts fs/host.sandbox_fail: sandbox_fail(sandbox: FileSystem, path: String, operation: Int, error: Error, nth: Int) -> Unit
 func (b *bound) fn584(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 5 {
-		return nil, hostadapt.Arity("fs_host.sandbox_fail", 5, len(args))
+		return nil, hostadapt.Arity("fs/host.sandbox_fail", 5, len(args))
 	}
 	a0, err := b.in567(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.sandbox_fail", 0, "fs_host.sandbox_fail", "sandbox", err)
+		return nil, hostadapt.Param("fs/host.sandbox_fail", 0, "fs/host.sandbox_fail", "sandbox", err)
 	}
 	a1, err := b.in40(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.sandbox_fail", 1, "fs_host.sandbox_fail", "path", err)
+		return nil, hostadapt.Param("fs/host.sandbox_fail", 1, "fs/host.sandbox_fail", "path", err)
 	}
 	a2, err := b.in39(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.sandbox_fail", 2, "fs_host.sandbox_fail", "operation", err)
+		return nil, hostadapt.Param("fs/host.sandbox_fail", 2, "fs/host.sandbox_fail", "operation", err)
 	}
 	a3, err := b.in512(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.sandbox_fail", 3, "fs_host.sandbox_fail", "error", err)
+		return nil, hostadapt.Param("fs/host.sandbox_fail", 3, "fs/host.sandbox_fail", "error", err)
 	}
 	a4, err := b.in39(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.sandbox_fail", 4, "fs_host.sandbox_fail", "nth", err)
+		return nil, hostadapt.Param("fs/host.sandbox_fail", 4, "fs/host.sandbox_fail", "nth", err)
 	}
 	r0 := stdio.SandboxFail(a0, a1, a2, a3, a4)
 	v0, err := b.out115(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.sandbox_fail", err)
+		return nil, hostadapt.Returned("fs/host.sandbox_fail", err)
 	}
 	return v0, nil
 }
@@ -11729,53 +11729,53 @@ func (b *bound) out586(v rt.Map[string, rt.Bytes]) (rt.Value, error) {
 	return rt.MapOf(rt.Hash, rt.Equal, conv), nil
 }
 
-// fn585 adapts fs_host.sandbox_files: sandbox_files(sandbox: FileSystem) -> Map<String, Bytes>
+// fn585 adapts fs/host.sandbox_files: sandbox_files(sandbox: FileSystem) -> Map<String, Bytes>
 func (b *bound) fn585(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.sandbox_files", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.sandbox_files", 1, len(args))
 	}
 	a0, err := b.in567(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.sandbox_files", 0, "fs_host.sandbox_files", "sandbox", err)
+		return nil, hostadapt.Param("fs/host.sandbox_files", 0, "fs/host.sandbox_files", "sandbox", err)
 	}
 	r0 := stdio.SandboxFiles(a0)
 	v0, err := b.out586(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.sandbox_files", err)
+		return nil, hostadapt.Returned("fs/host.sandbox_files", err)
 	}
 	return v0, nil
 }
 
-// fn587 adapts fs_host.sandbox_log: sandbox_log(sandbox: FileSystem) -> List<String>
+// fn587 adapts fs/host.sandbox_log: sandbox_log(sandbox: FileSystem) -> List<String>
 func (b *bound) fn587(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.sandbox_log", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.sandbox_log", 1, len(args))
 	}
 	a0, err := b.in567(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.sandbox_log", 0, "fs_host.sandbox_log", "sandbox", err)
+		return nil, hostadapt.Param("fs/host.sandbox_log", 0, "fs/host.sandbox_log", "sandbox", err)
 	}
 	r0 := stdio.SandboxLog(a0)
 	v0, err := b.out196(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.sandbox_log", err)
+		return nil, hostadapt.Returned("fs/host.sandbox_log", err)
 	}
 	return v0, nil
 }
 
-// fn588 adapts fs_host.sandbox_open: sandbox_open(sandbox: FileSystem) -> List<String>
+// fn588 adapts fs/host.sandbox_open: sandbox_open(sandbox: FileSystem) -> List<String>
 func (b *bound) fn588(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs_host.sandbox_open", 1, len(args))
+		return nil, hostadapt.Arity("fs/host.sandbox_open", 1, len(args))
 	}
 	a0, err := b.in567(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs_host.sandbox_open", 0, "fs_host.sandbox_open", "sandbox", err)
+		return nil, hostadapt.Param("fs/host.sandbox_open", 0, "fs/host.sandbox_open", "sandbox", err)
 	}
 	r0 := stdio.SandboxOpen(a0)
 	v0, err := b.out196(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs_host.sandbox_open", err)
+		return nil, hostadapt.Returned("fs/host.sandbox_open", err)
 	}
 	return v0, nil
 }
@@ -12695,51 +12695,51 @@ func (b *bound) out819(v rt.Result[rt.ChildProcess, rt.IOError]) (rt.Value, erro
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn818 adapts process_host.start: start(program: String, args: List<String>, env: Map<String, String>, clear_env: Bool, dir: String, stdin: Int, input: Reader, stdout: Int, stderr: Int) -> Result<Child, Error>
+// fn818 adapts process/host.start: start(program: String, args: List<String>, env: Map<String, String>, clear_env: Bool, dir: String, stdin: Int, input: Reader, stdout: Int, stderr: Int) -> Result<Child, Error>
 func (b *bound) fn818(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 9 {
-		return nil, hostadapt.Arity("process_host.start", 9, len(args))
+		return nil, hostadapt.Arity("process/host.start", 9, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.start", 0, "process_host.start", "program", err)
+		return nil, hostadapt.Param("process/host.start", 0, "process/host.start", "program", err)
 	}
 	a1, err := b.in267(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.start", 1, "process_host.start", "args", err)
+		return nil, hostadapt.Param("process/host.start", 1, "process/host.start", "args", err)
 	}
 	a2, err := b.in583(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.start", 2, "process_host.start", "env", err)
+		return nil, hostadapt.Param("process/host.start", 2, "process/host.start", "env", err)
 	}
 	a3, err := b.in52(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.start", 3, "process_host.start", "clear_env", err)
+		return nil, hostadapt.Param("process/host.start", 3, "process/host.start", "clear_env", err)
 	}
 	a4, err := b.in40(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.start", 4, "process_host.start", "dir", err)
+		return nil, hostadapt.Param("process/host.start", 4, "process/host.start", "dir", err)
 	}
 	a5, err := b.in39(fr, args[5])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.start", 5, "process_host.start", "stdin", err)
+		return nil, hostadapt.Param("process/host.start", 5, "process/host.start", "stdin", err)
 	}
 	a6, err := b.in487(fr, args[6])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.start", 6, "process_host.start", "input", err)
+		return nil, hostadapt.Param("process/host.start", 6, "process/host.start", "input", err)
 	}
 	a7, err := b.in39(fr, args[7])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.start", 7, "process_host.start", "stdout", err)
+		return nil, hostadapt.Param("process/host.start", 7, "process/host.start", "stdout", err)
 	}
 	a8, err := b.in39(fr, args[8])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.start", 8, "process_host.start", "stderr", err)
+		return nil, hostadapt.Param("process/host.start", 8, "process/host.start", "stderr", err)
 	}
 	r0 := stdprocess.Start(fr, a0, a1, a2, a3, a4, a5, a6, a7, a8)
 	v0, err := b.out819(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.start", err)
+		return nil, hostadapt.Returned("process/host.start", err)
 	}
 	return v0, nil
 }
@@ -12753,108 +12753,108 @@ func (b *bound) in824(fr *rt.Frame, v rt.Value) (out rt.ChildProcess, err error)
 	return x, nil
 }
 
-// fn823 adapts process_host.child_stdin: child_stdin(child: Child) -> Writer
+// fn823 adapts process/host.child_stdin: child_stdin(child: Child) -> Writer
 func (b *bound) fn823(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("process_host.child_stdin", 1, len(args))
+		return nil, hostadapt.Arity("process/host.child_stdin", 1, len(args))
 	}
 	a0, err := b.in824(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.child_stdin", 0, "process_host.child_stdin", "child", err)
+		return nil, hostadapt.Param("process/host.child_stdin", 0, "process/host.child_stdin", "child", err)
 	}
 	r0 := stdprocess.Stdin(a0)
 	v0, err := b.out484(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.child_stdin", err)
+		return nil, hostadapt.Returned("process/host.child_stdin", err)
 	}
 	return v0, nil
 }
 
-// fn825 adapts process_host.child_stdout: child_stdout(child: Child) -> Reader
+// fn825 adapts process/host.child_stdout: child_stdout(child: Child) -> Reader
 func (b *bound) fn825(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("process_host.child_stdout", 1, len(args))
+		return nil, hostadapt.Arity("process/host.child_stdout", 1, len(args))
 	}
 	a0, err := b.in824(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.child_stdout", 0, "process_host.child_stdout", "child", err)
+		return nil, hostadapt.Param("process/host.child_stdout", 0, "process/host.child_stdout", "child", err)
 	}
 	r0 := stdprocess.Stdout(a0)
 	v0, err := b.out482(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.child_stdout", err)
+		return nil, hostadapt.Returned("process/host.child_stdout", err)
 	}
 	return v0, nil
 }
 
-// fn826 adapts process_host.child_stderr: child_stderr(child: Child) -> Reader
+// fn826 adapts process/host.child_stderr: child_stderr(child: Child) -> Reader
 func (b *bound) fn826(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("process_host.child_stderr", 1, len(args))
+		return nil, hostadapt.Arity("process/host.child_stderr", 1, len(args))
 	}
 	a0, err := b.in824(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.child_stderr", 0, "process_host.child_stderr", "child", err)
+		return nil, hostadapt.Param("process/host.child_stderr", 0, "process/host.child_stderr", "child", err)
 	}
 	r0 := stdprocess.Stderr(a0)
 	v0, err := b.out482(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.child_stderr", err)
+		return nil, hostadapt.Returned("process/host.child_stderr", err)
 	}
 	return v0, nil
 }
 
-// fn827 adapts process_host.wait: wait(child: Child) -> Result<List<Int>, Error>
+// fn827 adapts process/host.wait: wait(child: Child) -> Result<List<Int>, Error>
 func (b *bound) fn827(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("process_host.wait", 1, len(args))
+		return nil, hostadapt.Arity("process/host.wait", 1, len(args))
 	}
 	a0, err := b.in824(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.wait", 0, "process_host.wait", "child", err)
+		return nil, hostadapt.Param("process/host.wait", 0, "process/host.wait", "child", err)
 	}
 	r0 := stdprocess.Wait(fr, a0)
 	v0, err := b.out548(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.wait", err)
+		return nil, hostadapt.Returned("process/host.wait", err)
 	}
 	return v0, nil
 }
 
-// fn828 adapts process_host.captured: captured(child: Child, stream: Int) -> Bytes
+// fn828 adapts process/host.captured: captured(child: Child, stream: Int) -> Bytes
 func (b *bound) fn828(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("process_host.captured", 2, len(args))
+		return nil, hostadapt.Arity("process/host.captured", 2, len(args))
 	}
 	a0, err := b.in824(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.captured", 0, "process_host.captured", "child", err)
+		return nil, hostadapt.Param("process/host.captured", 0, "process/host.captured", "child", err)
 	}
 	a1, err := b.in39(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.captured", 1, "process_host.captured", "stream", err)
+		return nil, hostadapt.Param("process/host.captured", 1, "process/host.captured", "stream", err)
 	}
 	r0 := stdprocess.Captured(a0, a1)
 	v0, err := b.out100(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.captured", err)
+		return nil, hostadapt.Returned("process/host.captured", err)
 	}
 	return v0, nil
 }
 
-// fn829 adapts process_host.kill: kill(child: Child) -> Unit
+// fn829 adapts process/host.kill: kill(child: Child) -> Unit
 func (b *bound) fn829(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("process_host.kill", 1, len(args))
+		return nil, hostadapt.Arity("process/host.kill", 1, len(args))
 	}
 	a0, err := b.in824(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.kill", 0, "process_host.kill", "child", err)
+		return nil, hostadapt.Param("process/host.kill", 0, "process/host.kill", "child", err)
 	}
 	r0 := stdprocess.Kill(a0)
 	v0, err := b.out115(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.kill", err)
+		return nil, hostadapt.Returned("process/host.kill", err)
 	}
 	return v0, nil
 }
@@ -12864,15 +12864,15 @@ func (b *bound) out831(v rt.ProcessFake) (rt.Value, error) {
 	return v, nil
 }
 
-// fn830 adapts process_host.new_fake: new_fake() -> Fake
+// fn830 adapts process/host.new_fake: new_fake() -> Fake
 func (b *bound) fn830(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
-		return nil, hostadapt.Arity("process_host.new_fake", 0, len(args))
+		return nil, hostadapt.Arity("process/host.new_fake", 0, len(args))
 	}
 	r0 := stdprocess.NewFake()
 	v0, err := b.out831(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.new_fake", err)
+		return nil, hostadapt.Returned("process/host.new_fake", err)
 	}
 	return v0, nil
 }
@@ -12886,135 +12886,135 @@ func (b *bound) in833(fr *rt.Frame, v rt.Value) (out rt.ProcessFake, err error) 
 	return x, nil
 }
 
-// fn832 adapts process_host.fake_answer: fake_answer(fake: Fake, program: String, args: List<String>, any_args: Bool, code: Int, stdout: Bytes, stderr: Bytes) -> Unit
+// fn832 adapts process/host.fake_answer: fake_answer(fake: Fake, program: String, args: List<String>, any_args: Bool, code: Int, stdout: Bytes, stderr: Bytes) -> Unit
 func (b *bound) fn832(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 7 {
-		return nil, hostadapt.Arity("process_host.fake_answer", 7, len(args))
+		return nil, hostadapt.Arity("process/host.fake_answer", 7, len(args))
 	}
 	a0, err := b.in833(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_answer", 0, "process_host.fake_answer", "fake", err)
+		return nil, hostadapt.Param("process/host.fake_answer", 0, "process/host.fake_answer", "fake", err)
 	}
 	a1, err := b.in40(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_answer", 1, "process_host.fake_answer", "program", err)
+		return nil, hostadapt.Param("process/host.fake_answer", 1, "process/host.fake_answer", "program", err)
 	}
 	a2, err := b.in267(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_answer", 2, "process_host.fake_answer", "args", err)
+		return nil, hostadapt.Param("process/host.fake_answer", 2, "process/host.fake_answer", "args", err)
 	}
 	a3, err := b.in52(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_answer", 3, "process_host.fake_answer", "any_args", err)
+		return nil, hostadapt.Param("process/host.fake_answer", 3, "process/host.fake_answer", "any_args", err)
 	}
 	a4, err := b.in39(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_answer", 4, "process_host.fake_answer", "code", err)
+		return nil, hostadapt.Param("process/host.fake_answer", 4, "process/host.fake_answer", "code", err)
 	}
 	a5, err := b.in218(fr, args[5])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_answer", 5, "process_host.fake_answer", "stdout", err)
+		return nil, hostadapt.Param("process/host.fake_answer", 5, "process/host.fake_answer", "stdout", err)
 	}
 	a6, err := b.in218(fr, args[6])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_answer", 6, "process_host.fake_answer", "stderr", err)
+		return nil, hostadapt.Param("process/host.fake_answer", 6, "process/host.fake_answer", "stderr", err)
 	}
 	r0 := stdprocess.FakeAnswer(a0, a1, a2, a3, a4, a5, a6)
 	v0, err := b.out115(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.fake_answer", err)
+		return nil, hostadapt.Returned("process/host.fake_answer", err)
 	}
 	return v0, nil
 }
 
-// fn834 adapts process_host.fake_refuse: fake_refuse(fake: Fake, program: String, args: List<String>, any_args: Bool, error: Error) -> Unit
+// fn834 adapts process/host.fake_refuse: fake_refuse(fake: Fake, program: String, args: List<String>, any_args: Bool, error: Error) -> Unit
 func (b *bound) fn834(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 5 {
-		return nil, hostadapt.Arity("process_host.fake_refuse", 5, len(args))
+		return nil, hostadapt.Arity("process/host.fake_refuse", 5, len(args))
 	}
 	a0, err := b.in833(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_refuse", 0, "process_host.fake_refuse", "fake", err)
+		return nil, hostadapt.Param("process/host.fake_refuse", 0, "process/host.fake_refuse", "fake", err)
 	}
 	a1, err := b.in40(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_refuse", 1, "process_host.fake_refuse", "program", err)
+		return nil, hostadapt.Param("process/host.fake_refuse", 1, "process/host.fake_refuse", "program", err)
 	}
 	a2, err := b.in267(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_refuse", 2, "process_host.fake_refuse", "args", err)
+		return nil, hostadapt.Param("process/host.fake_refuse", 2, "process/host.fake_refuse", "args", err)
 	}
 	a3, err := b.in52(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_refuse", 3, "process_host.fake_refuse", "any_args", err)
+		return nil, hostadapt.Param("process/host.fake_refuse", 3, "process/host.fake_refuse", "any_args", err)
 	}
 	a4, err := b.in512(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_refuse", 4, "process_host.fake_refuse", "error", err)
+		return nil, hostadapt.Param("process/host.fake_refuse", 4, "process/host.fake_refuse", "error", err)
 	}
 	r0 := stdprocess.FakeRefuse(a0, a1, a2, a3, a4)
 	v0, err := b.out115(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.fake_refuse", err)
+		return nil, hostadapt.Returned("process/host.fake_refuse", err)
 	}
 	return v0, nil
 }
 
-// fn835 adapts process_host.fake_calls: fake_calls(fake: Fake) -> Int
+// fn835 adapts process/host.fake_calls: fake_calls(fake: Fake) -> Int
 func (b *bound) fn835(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("process_host.fake_calls", 1, len(args))
+		return nil, hostadapt.Arity("process/host.fake_calls", 1, len(args))
 	}
 	a0, err := b.in833(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_calls", 0, "process_host.fake_calls", "fake", err)
+		return nil, hostadapt.Param("process/host.fake_calls", 0, "process/host.fake_calls", "fake", err)
 	}
 	r0 := stdprocess.FakeCalls(a0)
 	v0, err := b.out3(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.fake_calls", err)
+		return nil, hostadapt.Returned("process/host.fake_calls", err)
 	}
 	return v0, nil
 }
 
-// fn836 adapts process_host.fake_command: fake_command(fake: Fake, i: Int) -> List<String>
+// fn836 adapts process/host.fake_command: fake_command(fake: Fake, i: Int) -> List<String>
 func (b *bound) fn836(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("process_host.fake_command", 2, len(args))
+		return nil, hostadapt.Arity("process/host.fake_command", 2, len(args))
 	}
 	a0, err := b.in833(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_command", 0, "process_host.fake_command", "fake", err)
+		return nil, hostadapt.Param("process/host.fake_command", 0, "process/host.fake_command", "fake", err)
 	}
 	a1, err := b.in39(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_command", 1, "process_host.fake_command", "i", err)
+		return nil, hostadapt.Param("process/host.fake_command", 1, "process/host.fake_command", "i", err)
 	}
 	r0 := stdprocess.FakeCommand(a0, a1)
 	v0, err := b.out196(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.fake_command", err)
+		return nil, hostadapt.Returned("process/host.fake_command", err)
 	}
 	return v0, nil
 }
 
-// fn837 adapts process_host.fake_dir: fake_dir(fake: Fake, i: Int) -> String
+// fn837 adapts process/host.fake_dir: fake_dir(fake: Fake, i: Int) -> String
 func (b *bound) fn837(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("process_host.fake_dir", 2, len(args))
+		return nil, hostadapt.Arity("process/host.fake_dir", 2, len(args))
 	}
 	a0, err := b.in833(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_dir", 0, "process_host.fake_dir", "fake", err)
+		return nil, hostadapt.Param("process/host.fake_dir", 0, "process/host.fake_dir", "fake", err)
 	}
 	a1, err := b.in39(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_dir", 1, "process_host.fake_dir", "i", err)
+		return nil, hostadapt.Param("process/host.fake_dir", 1, "process/host.fake_dir", "i", err)
 	}
 	r0 := stdprocess.FakeDir(a0, a1)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.fake_dir", err)
+		return nil, hostadapt.Returned("process/host.fake_dir", err)
 	}
 	return v0, nil
 }
@@ -13037,44 +13037,44 @@ func (b *bound) out839(v rt.Map[string, string]) (rt.Value, error) {
 	return rt.MapOf(rt.Hash, rt.Equal, conv), nil
 }
 
-// fn838 adapts process_host.fake_env: fake_env(fake: Fake, i: Int) -> Map<String, String>
+// fn838 adapts process/host.fake_env: fake_env(fake: Fake, i: Int) -> Map<String, String>
 func (b *bound) fn838(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("process_host.fake_env", 2, len(args))
+		return nil, hostadapt.Arity("process/host.fake_env", 2, len(args))
 	}
 	a0, err := b.in833(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_env", 0, "process_host.fake_env", "fake", err)
+		return nil, hostadapt.Param("process/host.fake_env", 0, "process/host.fake_env", "fake", err)
 	}
 	a1, err := b.in39(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_env", 1, "process_host.fake_env", "i", err)
+		return nil, hostadapt.Param("process/host.fake_env", 1, "process/host.fake_env", "i", err)
 	}
 	r0 := stdprocess.FakeEnv(a0, a1)
 	v0, err := b.out839(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.fake_env", err)
+		return nil, hostadapt.Returned("process/host.fake_env", err)
 	}
 	return v0, nil
 }
 
-// fn840 adapts process_host.fake_input: fake_input(fake: Fake, i: Int) -> Bytes
+// fn840 adapts process/host.fake_input: fake_input(fake: Fake, i: Int) -> Bytes
 func (b *bound) fn840(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("process_host.fake_input", 2, len(args))
+		return nil, hostadapt.Arity("process/host.fake_input", 2, len(args))
 	}
 	a0, err := b.in833(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_input", 0, "process_host.fake_input", "fake", err)
+		return nil, hostadapt.Param("process/host.fake_input", 0, "process/host.fake_input", "fake", err)
 	}
 	a1, err := b.in39(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("process_host.fake_input", 1, "process_host.fake_input", "i", err)
+		return nil, hostadapt.Param("process/host.fake_input", 1, "process/host.fake_input", "i", err)
 	}
 	r0 := stdprocess.FakeInput(a0, a1)
 	v0, err := b.out100(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process_host.fake_input", err)
+		return nil, hostadapt.Returned("process/host.fake_input", err)
 	}
 	return v0, nil
 }
@@ -13084,39 +13084,39 @@ func (b *bound) out842(v rt.CsvRecords) (rt.Value, error) {
 	return v, nil
 }
 
-// fn841 adapts csv_host.open: open(reader: Reader, delimiter: Int, comment: Int, trim: Bool, lazy: Bool, fields: Int) -> Records
+// fn841 adapts csv/host.open: open(reader: Reader, delimiter: Int, comment: Int, trim: Bool, lazy: Bool, fields: Int) -> Records
 func (b *bound) fn841(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 6 {
-		return nil, hostadapt.Arity("csv_host.open", 6, len(args))
+		return nil, hostadapt.Arity("csv/host.open", 6, len(args))
 	}
 	a0, err := b.in487(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.open", 0, "csv_host.open", "reader", err)
+		return nil, hostadapt.Param("csv/host.open", 0, "csv/host.open", "reader", err)
 	}
 	a1, err := b.in39(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.open", 1, "csv_host.open", "delimiter", err)
+		return nil, hostadapt.Param("csv/host.open", 1, "csv/host.open", "delimiter", err)
 	}
 	a2, err := b.in39(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.open", 2, "csv_host.open", "comment", err)
+		return nil, hostadapt.Param("csv/host.open", 2, "csv/host.open", "comment", err)
 	}
 	a3, err := b.in52(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.open", 3, "csv_host.open", "trim", err)
+		return nil, hostadapt.Param("csv/host.open", 3, "csv/host.open", "trim", err)
 	}
 	a4, err := b.in52(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.open", 4, "csv_host.open", "lazy", err)
+		return nil, hostadapt.Param("csv/host.open", 4, "csv/host.open", "lazy", err)
 	}
 	a5, err := b.in39(fr, args[5])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.open", 5, "csv_host.open", "fields", err)
+		return nil, hostadapt.Param("csv/host.open", 5, "csv/host.open", "fields", err)
 	}
 	r0 := stdcsv.Open(a0, a1, a2, a3, a4, a5)
 	v0, err := b.out842(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("csv_host.open", err)
+		return nil, hostadapt.Returned("csv/host.open", err)
 	}
 	return v0, nil
 }
@@ -13130,112 +13130,112 @@ func (b *bound) in844(fr *rt.Frame, v rt.Value) (out rt.CsvRecords, err error) {
 	return x, nil
 }
 
-// fn843 adapts csv_host.next: next(records: Records) -> List<String>
+// fn843 adapts csv/host.next: next(records: Records) -> List<String>
 func (b *bound) fn843(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("csv_host.next", 1, len(args))
+		return nil, hostadapt.Arity("csv/host.next", 1, len(args))
 	}
 	a0, err := b.in844(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.next", 0, "csv_host.next", "records", err)
+		return nil, hostadapt.Param("csv/host.next", 0, "csv/host.next", "records", err)
 	}
 	r0 := stdcsv.Next(fr, a0)
 	v0, err := b.out196(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("csv_host.next", err)
+		return nil, hostadapt.Returned("csv/host.next", err)
 	}
 	return v0, nil
 }
 
-// fn845 adapts csv_host.line: line(records: Records) -> Int
+// fn845 adapts csv/host.line: line(records: Records) -> Int
 func (b *bound) fn845(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("csv_host.line", 1, len(args))
+		return nil, hostadapt.Arity("csv/host.line", 1, len(args))
 	}
 	a0, err := b.in844(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.line", 0, "csv_host.line", "records", err)
+		return nil, hostadapt.Param("csv/host.line", 0, "csv/host.line", "records", err)
 	}
 	r0 := stdcsv.Line(a0)
 	v0, err := b.out3(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("csv_host.line", err)
+		return nil, hostadapt.Returned("csv/host.line", err)
 	}
 	return v0, nil
 }
 
-// fn846 adapts csv_host.stopped: stopped(records: Records) -> List<Int>
+// fn846 adapts csv/host.stopped: stopped(records: Records) -> List<Int>
 func (b *bound) fn846(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("csv_host.stopped", 1, len(args))
+		return nil, hostadapt.Arity("csv/host.stopped", 1, len(args))
 	}
 	a0, err := b.in844(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.stopped", 0, "csv_host.stopped", "records", err)
+		return nil, hostadapt.Param("csv/host.stopped", 0, "csv/host.stopped", "records", err)
 	}
 	r0 := stdcsv.Stopped(a0)
 	v0, err := b.out549(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("csv_host.stopped", err)
+		return nil, hostadapt.Returned("csv/host.stopped", err)
 	}
 	return v0, nil
 }
 
-// fn847 adapts csv_host.message: message(records: Records) -> String
+// fn847 adapts csv/host.message: message(records: Records) -> String
 func (b *bound) fn847(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("csv_host.message", 1, len(args))
+		return nil, hostadapt.Arity("csv/host.message", 1, len(args))
 	}
 	a0, err := b.in844(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.message", 0, "csv_host.message", "records", err)
+		return nil, hostadapt.Param("csv/host.message", 0, "csv/host.message", "records", err)
 	}
 	r0 := stdcsv.Message(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("csv_host.message", err)
+		return nil, hostadapt.Returned("csv/host.message", err)
 	}
 	return v0, nil
 }
 
-// fn848 adapts csv_host.failure: failure(records: Records) -> Error
+// fn848 adapts csv/host.failure: failure(records: Records) -> Error
 func (b *bound) fn848(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("csv_host.failure", 1, len(args))
+		return nil, hostadapt.Arity("csv/host.failure", 1, len(args))
 	}
 	a0, err := b.in844(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.failure", 0, "csv_host.failure", "records", err)
+		return nil, hostadapt.Param("csv/host.failure", 0, "csv/host.failure", "records", err)
 	}
 	r0 := stdcsv.Failure(a0)
 	v0, err := b.out479(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("csv_host.failure", err)
+		return nil, hostadapt.Returned("csv/host.failure", err)
 	}
 	return v0, nil
 }
 
-// fn849 adapts csv_host.encode: encode(fields: List<String>, delimiter: Int, crlf: Bool) -> String
+// fn849 adapts csv/host.encode: encode(fields: List<String>, delimiter: Int, crlf: Bool) -> String
 func (b *bound) fn849(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
-		return nil, hostadapt.Arity("csv_host.encode", 3, len(args))
+		return nil, hostadapt.Arity("csv/host.encode", 3, len(args))
 	}
 	a0, err := b.in267(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.encode", 0, "csv_host.encode", "fields", err)
+		return nil, hostadapt.Param("csv/host.encode", 0, "csv/host.encode", "fields", err)
 	}
 	a1, err := b.in39(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.encode", 1, "csv_host.encode", "delimiter", err)
+		return nil, hostadapt.Param("csv/host.encode", 1, "csv/host.encode", "delimiter", err)
 	}
 	a2, err := b.in52(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("csv_host.encode", 2, "csv_host.encode", "crlf", err)
+		return nil, hostadapt.Param("csv/host.encode", 2, "csv/host.encode", "crlf", err)
 	}
 	r0 := stdcsv.Encode(a0, a1, a2)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("csv_host.encode", err)
+		return nil, hostadapt.Returned("csv/host.encode", err)
 	}
 	return v0, nil
 }
@@ -13245,23 +13245,23 @@ func (b *bound) out851(v rt.XmlTokens) (rt.Value, error) {
 	return v, nil
 }
 
-// fn850 adapts xml_host.open: open(reader: Reader, allow_doctype: Bool) -> Tokens
+// fn850 adapts xml/host.open: open(reader: Reader, allow_doctype: Bool) -> Tokens
 func (b *bound) fn850(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("xml_host.open", 2, len(args))
+		return nil, hostadapt.Arity("xml/host.open", 2, len(args))
 	}
 	a0, err := b.in487(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.open", 0, "xml_host.open", "reader", err)
+		return nil, hostadapt.Param("xml/host.open", 0, "xml/host.open", "reader", err)
 	}
 	a1, err := b.in52(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.open", 1, "xml_host.open", "allow_doctype", err)
+		return nil, hostadapt.Param("xml/host.open", 1, "xml/host.open", "allow_doctype", err)
 	}
 	r0 := stdxml.Open(a0, a1)
 	v0, err := b.out851(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.open", err)
+		return nil, hostadapt.Returned("xml/host.open", err)
 	}
 	return v0, nil
 }
@@ -13275,223 +13275,223 @@ func (b *bound) in853(fr *rt.Frame, v rt.Value) (out rt.XmlTokens, err error) {
 	return x, nil
 }
 
-// fn852 adapts xml_host.next: next(tokens: Tokens) -> Int
+// fn852 adapts xml/host.next: next(tokens: Tokens) -> Int
 func (b *bound) fn852(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml_host.next", 1, len(args))
+		return nil, hostadapt.Arity("xml/host.next", 1, len(args))
 	}
 	a0, err := b.in853(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.next", 0, "xml_host.next", "tokens", err)
+		return nil, hostadapt.Param("xml/host.next", 0, "xml/host.next", "tokens", err)
 	}
 	r0 := stdxml.Next(fr, a0)
 	v0, err := b.out3(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.next", err)
+		return nil, hostadapt.Returned("xml/host.next", err)
 	}
 	return v0, nil
 }
 
-// fn854 adapts xml_host.name: name(tokens: Tokens) -> List<String>
+// fn854 adapts xml/host.name: name(tokens: Tokens) -> List<String>
 func (b *bound) fn854(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml_host.name", 1, len(args))
+		return nil, hostadapt.Arity("xml/host.name", 1, len(args))
 	}
 	a0, err := b.in853(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.name", 0, "xml_host.name", "tokens", err)
+		return nil, hostadapt.Param("xml/host.name", 0, "xml/host.name", "tokens", err)
 	}
 	r0 := stdxml.Name(a0)
 	v0, err := b.out196(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.name", err)
+		return nil, hostadapt.Returned("xml/host.name", err)
 	}
 	return v0, nil
 }
 
-// fn855 adapts xml_host.attributes: attributes(tokens: Tokens) -> List<String>
+// fn855 adapts xml/host.attributes: attributes(tokens: Tokens) -> List<String>
 func (b *bound) fn855(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml_host.attributes", 1, len(args))
+		return nil, hostadapt.Arity("xml/host.attributes", 1, len(args))
 	}
 	a0, err := b.in853(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.attributes", 0, "xml_host.attributes", "tokens", err)
+		return nil, hostadapt.Param("xml/host.attributes", 0, "xml/host.attributes", "tokens", err)
 	}
 	r0 := stdxml.Attributes(a0)
 	v0, err := b.out196(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.attributes", err)
+		return nil, hostadapt.Returned("xml/host.attributes", err)
 	}
 	return v0, nil
 }
 
-// fn856 adapts xml_host.namespaces: namespaces(tokens: Tokens) -> List<String>
+// fn856 adapts xml/host.namespaces: namespaces(tokens: Tokens) -> List<String>
 func (b *bound) fn856(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml_host.namespaces", 1, len(args))
+		return nil, hostadapt.Arity("xml/host.namespaces", 1, len(args))
 	}
 	a0, err := b.in853(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.namespaces", 0, "xml_host.namespaces", "tokens", err)
+		return nil, hostadapt.Param("xml/host.namespaces", 0, "xml/host.namespaces", "tokens", err)
 	}
 	r0 := stdxml.Namespaces(a0)
 	v0, err := b.out196(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.namespaces", err)
+		return nil, hostadapt.Returned("xml/host.namespaces", err)
 	}
 	return v0, nil
 }
 
-// fn857 adapts xml_host.text: text(tokens: Tokens) -> String
+// fn857 adapts xml/host.text: text(tokens: Tokens) -> String
 func (b *bound) fn857(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml_host.text", 1, len(args))
+		return nil, hostadapt.Arity("xml/host.text", 1, len(args))
 	}
 	a0, err := b.in853(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.text", 0, "xml_host.text", "tokens", err)
+		return nil, hostadapt.Param("xml/host.text", 0, "xml/host.text", "tokens", err)
 	}
 	r0 := stdxml.Text(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.text", err)
+		return nil, hostadapt.Returned("xml/host.text", err)
 	}
 	return v0, nil
 }
 
-// fn858 adapts xml_host.target: target(tokens: Tokens) -> String
+// fn858 adapts xml/host.target: target(tokens: Tokens) -> String
 func (b *bound) fn858(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml_host.target", 1, len(args))
+		return nil, hostadapt.Arity("xml/host.target", 1, len(args))
 	}
 	a0, err := b.in853(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.target", 0, "xml_host.target", "tokens", err)
+		return nil, hostadapt.Param("xml/host.target", 0, "xml/host.target", "tokens", err)
 	}
 	r0 := stdxml.Target(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.target", err)
+		return nil, hostadapt.Returned("xml/host.target", err)
 	}
 	return v0, nil
 }
 
-// fn859 adapts xml_host.position: position(tokens: Tokens) -> List<Int>
+// fn859 adapts xml/host.position: position(tokens: Tokens) -> List<Int>
 func (b *bound) fn859(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml_host.position", 1, len(args))
+		return nil, hostadapt.Arity("xml/host.position", 1, len(args))
 	}
 	a0, err := b.in853(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.position", 0, "xml_host.position", "tokens", err)
+		return nil, hostadapt.Param("xml/host.position", 0, "xml/host.position", "tokens", err)
 	}
 	r0 := stdxml.Position(a0)
 	v0, err := b.out549(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.position", err)
+		return nil, hostadapt.Returned("xml/host.position", err)
 	}
 	return v0, nil
 }
 
-// fn860 adapts xml_host.stopped: stopped(tokens: Tokens) -> List<Int>
+// fn860 adapts xml/host.stopped: stopped(tokens: Tokens) -> List<Int>
 func (b *bound) fn860(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml_host.stopped", 1, len(args))
+		return nil, hostadapt.Arity("xml/host.stopped", 1, len(args))
 	}
 	a0, err := b.in853(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.stopped", 0, "xml_host.stopped", "tokens", err)
+		return nil, hostadapt.Param("xml/host.stopped", 0, "xml/host.stopped", "tokens", err)
 	}
 	r0 := stdxml.Stopped(a0)
 	v0, err := b.out549(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.stopped", err)
+		return nil, hostadapt.Returned("xml/host.stopped", err)
 	}
 	return v0, nil
 }
 
-// fn861 adapts xml_host.message: message(tokens: Tokens) -> String
+// fn861 adapts xml/host.message: message(tokens: Tokens) -> String
 func (b *bound) fn861(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml_host.message", 1, len(args))
+		return nil, hostadapt.Arity("xml/host.message", 1, len(args))
 	}
 	a0, err := b.in853(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.message", 0, "xml_host.message", "tokens", err)
+		return nil, hostadapt.Param("xml/host.message", 0, "xml/host.message", "tokens", err)
 	}
 	r0 := stdxml.Message(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.message", err)
+		return nil, hostadapt.Returned("xml/host.message", err)
 	}
 	return v0, nil
 }
 
-// fn862 adapts xml_host.failure: failure(tokens: Tokens) -> Error
+// fn862 adapts xml/host.failure: failure(tokens: Tokens) -> Error
 func (b *bound) fn862(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml_host.failure", 1, len(args))
+		return nil, hostadapt.Arity("xml/host.failure", 1, len(args))
 	}
 	a0, err := b.in853(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.failure", 0, "xml_host.failure", "tokens", err)
+		return nil, hostadapt.Param("xml/host.failure", 0, "xml/host.failure", "tokens", err)
 	}
 	r0 := stdxml.Failure(a0)
 	v0, err := b.out479(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.failure", err)
+		return nil, hostadapt.Returned("xml/host.failure", err)
 	}
 	return v0, nil
 }
 
-// fn863 adapts xml_host.escape_text: escape_text(text: String) -> String
+// fn863 adapts xml/host.escape_text: escape_text(text: String) -> String
 func (b *bound) fn863(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml_host.escape_text", 1, len(args))
+		return nil, hostadapt.Arity("xml/host.escape_text", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.escape_text", 0, "xml_host.escape_text", "text", err)
+		return nil, hostadapt.Param("xml/host.escape_text", 0, "xml/host.escape_text", "text", err)
 	}
 	r0 := stdxml.EscapeText(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.escape_text", err)
+		return nil, hostadapt.Returned("xml/host.escape_text", err)
 	}
 	return v0, nil
 }
 
-// fn864 adapts xml_host.escape_attribute: escape_attribute(text: String) -> String
+// fn864 adapts xml/host.escape_attribute: escape_attribute(text: String) -> String
 func (b *bound) fn864(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml_host.escape_attribute", 1, len(args))
+		return nil, hostadapt.Arity("xml/host.escape_attribute", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.escape_attribute", 0, "xml_host.escape_attribute", "text", err)
+		return nil, hostadapt.Param("xml/host.escape_attribute", 0, "xml/host.escape_attribute", "text", err)
 	}
 	r0 := stdxml.EscapeAttribute(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.escape_attribute", err)
+		return nil, hostadapt.Returned("xml/host.escape_attribute", err)
 	}
 	return v0, nil
 }
 
-// fn865 adapts xml_host.is_name: is_name(text: String) -> Bool
+// fn865 adapts xml/host.is_name: is_name(text: String) -> Bool
 func (b *bound) fn865(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml_host.is_name", 1, len(args))
+		return nil, hostadapt.Arity("xml/host.is_name", 1, len(args))
 	}
 	a0, err := b.in40(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml_host.is_name", 0, "xml_host.is_name", "text", err)
+		return nil, hostadapt.Param("xml/host.is_name", 0, "xml/host.is_name", "text", err)
 	}
 	r0 := stdxml.IsName(a0)
 	v0, err := b.out164(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml_host.is_name", err)
+		return nil, hostadapt.Returned("xml/host.is_name", err)
 	}
 	return v0, nil
 }
@@ -13502,165 +13502,165 @@ func (b *bound) fn865(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 // reaches none of them.
 func NetworkNames() []string {
 	return []string{
-		"http_host.add_cookie",
-		"http_host.address",
-		"http_host.answer_content",
-		"http_host.answer_redirect",
-		"http_host.answered_already",
-		"http_host.basic_auth",
-		"http_host.body_bytes",
-		"http_host.body_reader",
-		"http_host.canonical_key",
-		"http_host.certificate_from_pem",
-		"http_host.certificate_info",
-		"http_host.certificate_load",
-		"http_host.check_pattern",
-		"http_host.chunked_reader",
-		"http_host.chunked_writer",
-		"http_host.cipher_suite_name",
-		"http_host.cipher_suites",
-		"http_host.close_body",
-		"http_host.close_connections",
-		"http_host.close_idle",
-		"http_host.closes",
-		"http_host.conn_close",
-		"http_host.conn_close_read",
-		"http_host.conn_close_write",
-		"http_host.conn_deadline",
-		"http_host.conn_keep_alive",
-		"http_host.conn_linger",
-		"http_host.conn_local",
-		"http_host.conn_multipath",
-		"http_host.conn_no_delay",
-		"http_host.conn_reader",
-		"http_host.conn_remote",
-		"http_host.conn_writer",
-		"http_host.content_length",
-		"http_host.cookie_text",
-		"http_host.cookie_valid",
-		"http_host.cross_origin_check",
-		"http_host.default_client",
-		"http_host.detect_content_type",
-		"http_host.dial_with",
-		"http_host.encode_multipart",
-		"http_host.exchange_tls",
-		"http_host.extend_read_deadline",
-		"http_host.file_content_disposition",
-		"http_host.final_url",
-		"http_host.finish",
-		"http_host.format_time",
-		"http_host.gunzip",
-		"http_host.gzip_bytes",
-		"http_host.gzip_reader",
-		"http_host.gzip_writer",
-		"http_host.headers",
-		"http_host.headers_wire",
-		"http_host.hello_parts",
-		"http_host.hello_supports",
-		"http_host.in_body",
-		"http_host.in_close",
-		"http_host.in_content_length",
-		"http_host.in_headers",
-		"http_host.in_host",
-		"http_host.in_local",
-		"http_host.in_method",
-		"http_host.in_protocol",
-		"http_host.in_remote",
-		"http_host.in_target",
-		"http_host.in_tls",
-		"http_host.in_trailers",
-		"http_host.in_transfer_encoding",
-		"http_host.in_url",
-		"http_host.jar_cookies",
-		"http_host.jar_set",
-		"http_host.join_host_port",
-		"http_host.limit_body",
-		"http_host.listen",
-		"http_host.listen_tls",
-		"http_host.lookup",
-		"http_host.multipart_reader",
-		"http_host.multipart_write",
-		"http_host.net_accept",
-		"http_host.net_listen_with",
-		"http_host.net_listener_address",
-		"http_host.net_listener_close",
-		"http_host.net_listener_deadline",
-		"http_host.new_client",
-		"http_host.new_jar",
-		"http_host.new_mux",
-		"http_host.new_tracer",
-		"http_host.next",
-		"http_host.next_part",
-		"http_host.parse_cookie",
-		"http_host.parse_http_version",
-		"http_host.parse_multipart",
-		"http_host.parse_set_cookie",
-		"http_host.parse_time",
-		"http_host.part_file_name",
-		"http_host.part_form_name",
-		"http_host.part_headers",
-		"http_host.part_reader",
-		"http_host.pipe",
-		"http_host.produce",
-		"http_host.protocol",
-		"http_host.respond",
-		"http_host.route",
-		"http_host.send",
-		"http_host.shutdown",
-		"http_host.split_host_port",
-		"http_host.status",
-		"http_host.status_text",
-		"http_host.test_certificate",
-		"http_host.tls_client",
-		"http_host.tls_config",
-		"http_host.tls_dial",
-		"http_host.tls_listen",
-		"http_host.tls_server",
-		"http_host.tls_state_parts",
-		"http_host.tls_verify_hostname",
-		"http_host.tls_with_certificate",
-		"http_host.tls_wrap_listener",
-		"http_host.tracer_events",
-		"http_host.trailers",
-		"http_host.transfer_encoding",
-		"http_host.uncompressed",
-		"http_host.upgrade",
-		"http_host.wire_body",
-		"http_host.wire_parts",
-		"http_host.wire_read_request",
-		"http_host.wire_read_response",
-		"http_host.wire_request",
-		"http_host.wire_response",
-		"http_host.with_jar",
-		"http_host.with_tls",
-		"http_host.ws_accept_key",
-		"http_host.ws_close",
-		"http_host.ws_connect",
-		"http_host.ws_id",
-		"http_host.ws_open",
-		"http_host.ws_ping",
-		"http_host.ws_pipe",
-		"http_host.ws_protocol",
-		"http_host.ws_receive",
-		"http_host.ws_send",
-		"http_host.ws_valid_key",
-		"signatures_host.ed25519_from_seed",
-		"signatures_host.ed25519_public_bytes",
-		"signatures_host.ed25519_public_from_bytes",
-		"signatures_host.ed25519_seed",
-		"signatures_host.generate_ed25519",
-		"signatures_host.generate_p256",
-		"signatures_host.generate_rsa",
-		"signatures_host.is_valid",
-		"signatures_host.private_from_der",
-		"signatures_host.private_from_pem",
-		"signatures_host.private_kind",
-		"signatures_host.private_to_pem",
-		"signatures_host.public_from_der",
-		"signatures_host.public_from_pem",
-		"signatures_host.public_kind",
-		"signatures_host.public_of",
-		"signatures_host.public_to_pem",
-		"signatures_host.sign",
+		"http/host.add_cookie",
+		"http/host.address",
+		"http/host.answer_content",
+		"http/host.answer_redirect",
+		"http/host.answered_already",
+		"http/host.basic_auth",
+		"http/host.body_bytes",
+		"http/host.body_reader",
+		"http/host.canonical_key",
+		"http/host.certificate_from_pem",
+		"http/host.certificate_info",
+		"http/host.certificate_load",
+		"http/host.check_pattern",
+		"http/host.chunked_reader",
+		"http/host.chunked_writer",
+		"http/host.cipher_suite_name",
+		"http/host.cipher_suites",
+		"http/host.close_body",
+		"http/host.close_connections",
+		"http/host.close_idle",
+		"http/host.closes",
+		"http/host.conn_close",
+		"http/host.conn_close_read",
+		"http/host.conn_close_write",
+		"http/host.conn_deadline",
+		"http/host.conn_keep_alive",
+		"http/host.conn_linger",
+		"http/host.conn_local",
+		"http/host.conn_multipath",
+		"http/host.conn_no_delay",
+		"http/host.conn_reader",
+		"http/host.conn_remote",
+		"http/host.conn_writer",
+		"http/host.content_length",
+		"http/host.cookie_text",
+		"http/host.cookie_valid",
+		"http/host.cross_origin_check",
+		"http/host.default_client",
+		"http/host.detect_content_type",
+		"http/host.dial_with",
+		"http/host.encode_multipart",
+		"http/host.exchange_tls",
+		"http/host.extend_read_deadline",
+		"http/host.file_content_disposition",
+		"http/host.final_url",
+		"http/host.finish",
+		"http/host.format_time",
+		"http/host.gunzip",
+		"http/host.gzip_bytes",
+		"http/host.gzip_reader",
+		"http/host.gzip_writer",
+		"http/host.headers",
+		"http/host.headers_wire",
+		"http/host.hello_parts",
+		"http/host.hello_supports",
+		"http/host.in_body",
+		"http/host.in_close",
+		"http/host.in_content_length",
+		"http/host.in_headers",
+		"http/host.in_host",
+		"http/host.in_local",
+		"http/host.in_method",
+		"http/host.in_protocol",
+		"http/host.in_remote",
+		"http/host.in_target",
+		"http/host.in_tls",
+		"http/host.in_trailers",
+		"http/host.in_transfer_encoding",
+		"http/host.in_url",
+		"http/host.jar_cookies",
+		"http/host.jar_set",
+		"http/host.join_host_port",
+		"http/host.limit_body",
+		"http/host.listen",
+		"http/host.listen_tls",
+		"http/host.lookup",
+		"http/host.multipart_reader",
+		"http/host.multipart_write",
+		"http/host.net_accept",
+		"http/host.net_listen_with",
+		"http/host.net_listener_address",
+		"http/host.net_listener_close",
+		"http/host.net_listener_deadline",
+		"http/host.new_client",
+		"http/host.new_jar",
+		"http/host.new_mux",
+		"http/host.new_tracer",
+		"http/host.next",
+		"http/host.next_part",
+		"http/host.parse_cookie",
+		"http/host.parse_http_version",
+		"http/host.parse_multipart",
+		"http/host.parse_set_cookie",
+		"http/host.parse_time",
+		"http/host.part_file_name",
+		"http/host.part_form_name",
+		"http/host.part_headers",
+		"http/host.part_reader",
+		"http/host.pipe",
+		"http/host.produce",
+		"http/host.protocol",
+		"http/host.respond",
+		"http/host.route",
+		"http/host.send",
+		"http/host.shutdown",
+		"http/host.split_host_port",
+		"http/host.status",
+		"http/host.status_text",
+		"http/host.test_certificate",
+		"http/host.tls_client",
+		"http/host.tls_config",
+		"http/host.tls_dial",
+		"http/host.tls_listen",
+		"http/host.tls_server",
+		"http/host.tls_state_parts",
+		"http/host.tls_verify_hostname",
+		"http/host.tls_with_certificate",
+		"http/host.tls_wrap_listener",
+		"http/host.tracer_events",
+		"http/host.trailers",
+		"http/host.transfer_encoding",
+		"http/host.uncompressed",
+		"http/host.upgrade",
+		"http/host.wire_body",
+		"http/host.wire_parts",
+		"http/host.wire_read_request",
+		"http/host.wire_read_response",
+		"http/host.wire_request",
+		"http/host.wire_response",
+		"http/host.with_jar",
+		"http/host.with_tls",
+		"http/host.ws_accept_key",
+		"http/host.ws_close",
+		"http/host.ws_connect",
+		"http/host.ws_id",
+		"http/host.ws_open",
+		"http/host.ws_ping",
+		"http/host.ws_pipe",
+		"http/host.ws_protocol",
+		"http/host.ws_receive",
+		"http/host.ws_send",
+		"http/host.ws_valid_key",
+		"signatures/host.ed25519_from_seed",
+		"signatures/host.ed25519_public_bytes",
+		"signatures/host.ed25519_public_from_bytes",
+		"signatures/host.ed25519_seed",
+		"signatures/host.generate_ed25519",
+		"signatures/host.generate_p256",
+		"signatures/host.generate_rsa",
+		"signatures/host.is_valid",
+		"signatures/host.private_from_der",
+		"signatures/host.private_from_pem",
+		"signatures/host.private_kind",
+		"signatures/host.private_to_pem",
+		"signatures/host.public_from_der",
+		"signatures/host.public_from_pem",
+		"signatures/host.public_kind",
+		"signatures/host.public_of",
+		"signatures/host.public_to_pem",
+		"signatures/host.sign",
 	}
 }

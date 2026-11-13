@@ -41,7 +41,7 @@ import
     locale.Locale
     localize.{Localize, NumberParseError}
     maybe.Maybe.{None, Some}
-    money_format
+    money::format
     multiply.Multiply
     results.Result.{self, Err, Ok}
     strings.String
@@ -188,7 +188,7 @@ impl Money
             CurrencySign.Accounting -> True
         end
 
-        money_format.format(money.amount, money.currency, locale, shown, accounting)
+        format.format(money.amount, money.currency, locale, shown, accounting)
     end
 
     /// The amount rounded to its currency's minor digits, half to even
@@ -276,7 +276,7 @@ impl Money
     //! assert Money.min(Money`12.50 EUR`, Money`20 EUR`) == Money`12.50 EUR`
     //
     pub fn min(a: Money, b: Money) -> Money
-        money_format.require_same("Money.min", a.currency, b.currency)
+        format.require_same("Money.min", a.currency, b.currency)
         if a.amount <= b.amount then a else b
     end
 
@@ -285,7 +285,7 @@ impl Money
     //! assert Money.max(Money`0.30 EUR`, Money`0.50 EUR`) == Money`0.50 EUR`
     //
     pub fn max(a: Money, b: Money) -> Money
-        money_format.require_same("Money.max", a.currency, b.currency)
+        format.require_same("Money.max", a.currency, b.currency)
         if a.amount >= b.amount then a else b
     end
 
@@ -314,7 +314,7 @@ impl Money
         currency: Currency,
         lenient: Bool = False,
     ) -> Result<Money, NumberParseError>
-        amount = money_format.parse(text, locale, currency, lenient)?
+        amount = format.parse(text, locale, currency, lenient)?
         Ok(Money{amount:, currency:})
     end
 
@@ -330,7 +330,7 @@ impl Money
     //! assert Money.split(Money`0.01 EUR`, 3) == [Money`0.01 EUR`, Money`0.00 EUR`, Money`0.00 EUR`]
     //
     pub fn split(money: Money, n: Int) -> List<Money>
-        if n <= 0 then money_format.refuse("Money.split", "n must be positive, got ${n}")
+        if n <= 0 then format.refuse("Money.split", "n must be positive, got ${n}")
 
         Decimal.split(money.amount, n, Currency.minor_digits(money.currency))
         |> Money.all_in(money.currency)
@@ -364,15 +364,15 @@ impl Money
     //! assert Money.allocate(Money`-1 USD`, [1, 2]) == [Money`-0.34 USD`, Money`-0.66 USD`]
     //
     pub fn allocate(money: Money, ratios: List<Int>) -> List<Money>
-        if Iter.is_empty(ratios) then money_format.refuse("Money.allocate", "there are no ratios")
+        if Iter.is_empty(ratios) then format.refuse("Money.allocate", "there are no ratios")
 
         case Iter.find(ratios, fn r -> r < 0)
-            Some(r) -> money_format.refuse("Money.allocate", "the ratio ${r} is negative")
+            Some(r) -> format.refuse("Money.allocate", "the ratio ${r} is negative")
             None -> Unit
         end
 
         if Iter.all_match(ratios, fn r -> r == 0) then
-            money_format.refuse("Money.allocate", "the ratios are all zero")
+            format.refuse("Money.allocate", "the ratios are all zero")
         end
 
         Decimal.allocate(money.amount, ratios, Currency.minor_digits(money.currency))
@@ -405,7 +405,7 @@ impl Add<Money, Money> for Money
         else if Money.is_empty(rhs) then
             lhs
         else
-            money_format.require_same("Money.add", lhs.currency, rhs.currency)
+            format.require_same("Money.add", lhs.currency, rhs.currency)
             Money{amount: lhs.amount + rhs.amount, currency: lhs.currency}
         end
     end
@@ -420,7 +420,7 @@ impl Subtract<Money, Money> for Money
         if Money.is_empty(rhs) then
             lhs
         else
-            money_format.require_same("Money.subtract", lhs.currency, rhs.currency)
+            format.require_same("Money.subtract", lhs.currency, rhs.currency)
             Money{amount: lhs.amount - rhs.amount, currency: rhs.currency}
         end
     end

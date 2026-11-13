@@ -201,6 +201,12 @@ func indexStd(t *testing.T, dir string) *stdIndex {
 	if err != nil || len(files) == 0 {
 		t.Fatalf("no std sources under %s: %v", dir, err)
 	}
+	// A nested module (std/http/testing.nomi) is `http/testing`.
+	nested, err := filepath.Glob(filepath.Join(dir, "*", "*.nomi"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	files = append(files, nested...)
 	ix := &stdIndex{modules: map[string]map[string]bool{}, types: map[string]map[string]bool{}, impls: map[string]bool{}}
 	member := func(typ, name string) {
 		if ix.types[typ] == nil {
@@ -217,7 +223,14 @@ func indexStd(t *testing.T, dir string) *stdIndex {
 		if err != nil {
 			t.Fatalf("%s: %v", file, err)
 		}
-		mod := strings.TrimSuffix(filepath.Base(file), ".nomi")
+		rel, err := filepath.Rel(dir, file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mod := strings.TrimSuffix(filepath.ToSlash(rel), ".nomi")
+		if strings.HasPrefix(mod, "_") {
+			continue
+		}
 		top := map[string]bool{}
 		ix.modules[mod] = top
 		declareType := func(name string) {
@@ -312,7 +325,11 @@ func (ix *stdIndex) resolve(text string) error {
 	if f := literalForm.FindStringSubmatch(code); f != nil {
 		return ix.member(f[1], f[2])
 	}
-	name := dottedName.FindString(strings.TrimPrefix(code, "#"))
+	code = strings.TrimPrefix(code, "#")
+	if rest, ok := strings.CutPrefix(code, "std::"); ok {
+		return ix.resolveInModule(rest)
+	}
+	name := dottedName.FindString(code)
 	parts := strings.Split(name, ".")
 	switch {
 	case name == "":
@@ -338,6 +355,29 @@ func (ix *stdIndex) resolve(text string) error {
 	return fmt.Errorf("`%s` is not a name std can be checked for", code)
 }
 
+// resolveInModule checks rest, a path written after `std::`:
+// `http::testing.request` or `http::testing.TestServer.url`.
+func (ix *stdIndex) resolveInModule(rest string) error {
+	path, after, _ := strings.Cut(rest, ".")
+	mod := strings.ReplaceAll(path, "::", "/")
+	top := ix.modules[mod]
+	if top == nil {
+		return fmt.Errorf("std has no module %s", path)
+	}
+	parts := strings.Split(dottedName.FindString(after), ".")
+	switch {
+	case parts[0] == "":
+		return fmt.Errorf("`std::%s` names no declaration", rest)
+	case !top[parts[0]]:
+		return fmt.Errorf("std/%s.nomi declares no %s", mod, parts[0])
+	case len(parts) == 2:
+		return ix.member(parts[0], parts[1])
+	case len(parts) > 2:
+		return fmt.Errorf("`std::%s` is not a name std can be checked for", rest)
+	}
+	return nil
+}
+
 func (ix *stdIndex) member(typ, name string) error {
 	members, ok := ix.types[typ]
 	if !ok {
@@ -358,12 +398,12 @@ func (ix *stdIndex) member(typ, name string) error {
 // does not, so a covered row cannot name a function std lacks.
 func TestInventoryNamesResolveAgainstStd(t *testing.T) {
 	std := indexStd(t, filepath.Join("..", "..", "std"))
-	for _, ok := range []string{"`String.trim(s)`", "`Display for Int`", "`io.Error.NotFound`", "`url.escape_query(text)`", "`Duration`", "`Command{..., dir: Some(d)}`"} {
+	for _, ok := range []string{"`String.trim(s)`", "`Display for Int`", "`io.Error.NotFound`", "`url.escape_query(text)`", "`Duration`", "`Command{..., dir: Some(d)}`", "`std::http::testing.request(method, target)`", "`std::http::testing.TestServer.url`"} {
 		if err := std.resolve(ok); err != nil {
 			t.Errorf("%s: %v", ok, err)
 		}
 	}
-	for _, missing := range []string{"`String.no_such_function(s)`", "`Display for NoSuchType`", "`io.Error.NoSuchVariant`", "`url.no_such_function`", "`NoSuchType`", "`with_server(..., tls: True)`"} {
+	for _, missing := range []string{"`String.no_such_function(s)`", "`Display for NoSuchType`", "`io.Error.NoSuchVariant`", "`url.no_such_function`", "`NoSuchType`", "`with_server(..., tls: True)`", "`std::http::testing.no_such_function`", "`std::http::nosuch.request`", "`std::http::testing.TestServer.no_such_field`"} {
 		if err := std.resolve(missing); err == nil {
 			t.Errorf("%s resolved against std, which does not declare it", missing)
 		}

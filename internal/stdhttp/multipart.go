@@ -43,7 +43,7 @@ func listItems(l *rt.List[rt.Bytes]) []rt.Bytes {
 	return out
 }
 
-// ParseMultipart is `http_host.parse_multipart`: the multipart/form-data
+// ParseMultipart is `std::http::host.parse_multipart`: the multipart/form-data
 // body data under contentType, Go's Request.ParseMultipartForm over bytes
 // already read. An Err is the reason, Go's text.
 func ParseMultipart(contentType string, data rt.Bytes) rt.Result[*rt.List[rt.Bytes], string] {
@@ -103,7 +103,7 @@ func ParseMultipart(contentType string, data rt.Bytes) rt.Result[*rt.List[rt.Byt
 	return rt.Ok[*rt.List[rt.Bytes], string](bytesList(out))
 }
 
-// EncodeMultipart is `http_host.encode_multipart`: a multipart/form-data
+// EncodeMultipart is `std::http::host.encode_multipart`: a multipart/form-data
 // body of parts, answered as its Content-Type and its bytes. The boundary
 // is a digest of the parts, so encoding the same parts twice answers the
 // same bytes; it is Go's multipart.Writer otherwise.
@@ -122,7 +122,7 @@ func EncodeMultipart(parts *rt.List[rt.Bytes]) *rt.List[rt.Bytes] {
 	return bytesList([]rt.Bytes{rt.Bytes(w.FormDataContentType()), rt.Bytes(body.Bytes())})
 }
 
-// FileContentDisposition is `http_host.file_content_disposition`: Go's
+// FileContentDisposition is `std::http::host.file_content_disposition`: Go's
 // multipart.FileContentDisposition.
 func FileContentDisposition(field, filename string) string {
 	return multipart.FileContentDisposition(field, filename)

@@ -318,7 +318,7 @@ Spec: [Subtests](/spec/tests/#subtests).
 [`io.capture`](/reference/io/) runs a function and gives it the text you pass
 as its input. It returns what the function returned, in `value`, and
 everything it printed, in `output`. Pass it `main` to check what a program
-prints for some input. For code that reads or writes files, `fs_testing.run`
+prints for some input. For code that reads or writes files, `std::fs::testing.run`
 does the same with a file system in memory, as
 [Files](/files/#testing-code-that-uses-files) shows.
 

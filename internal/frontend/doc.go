@@ -172,8 +172,8 @@
 //
 // An expansion gets two hidden imports (`phrase$`, `phrase_format$`) no
 // source can name. They are the only way into std's internals: std/phrase's
-// private constructors and the internal modules std/phrase_format and
-// std/money_format. A program that names one is told it is internal, docgen
+// private constructors and the internal modules std/phrase/format and
+// std/money/format. A program that names one is told it is internal, docgen
 // does not document them, and no diagnostic names a hidden alias (the
 // registry's `phrase$.Noun` is never a "did you mean", SuggestDotted). This
 // is why the IR builder lowers calls to a std module's private functions.
@@ -243,7 +243,7 @@
 //   - Reading contents. An ir.ConstEmbedded carries an ir.EmbeddedRef
 //     (source, size, sum), not bytes. When the `once` runs, the VM enters
 //     the ref in the machine's rt.EmbeddedFiles table and the value is its
-//     index, the handle. `Files.read` crosses into std/embed_host's `read`
+//     index, the handle. `Files.read` crosses into std/embed/host's `read`
 //     (rt.EmbeddedRead), which asks the machine's rt.EmbeddedSource for the
 //     bytes; nothing is cached. The source is the host's
 //     (vm.Machine.WithEmbeddedSource): vm.DiskEmbedded by default (`nomi
@@ -253,10 +253,10 @@
 //     an in-memory program (the tour), checked against the sum; vmrunner's
 //     imageEmbedded for a built program, the image's files region found by
 //     sum (ir.Image.Files).
-//   - ETags. `Files.sum` crosses into std/embed_host's `sum`
+//   - ETags. `Files.sum` crosses into std/embed/host's `sum`
 //     (rt.EmbeddedSum), which returns the ref's sum and reads nothing.
 //     std/http's `serve_embedded` sends it as the file's strong `ETag`
-//     through `Response.content`'s `headers`, which `http_host.answer_content`
+//     through `Response.content`'s `headers`, which `std::http::host.answer_content`
 //     sets before Go's ServeContent runs, so Go handles `If-None-Match` and
 //     `If-Range`. A precompressed sibling (`file.br`, `file.gz`) is an
 //     ordinary file of the tree with its own sum and `ETag`.

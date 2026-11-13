@@ -7,11 +7,13 @@ import "testing"
 // from.
 func TestStdModuleOf_NamesTheModuleOnEverySystem(t *testing.T) {
 	for file, want := range map[string]string{
-		"std/fs.nomi":                     "fs",
-		"/home/me/nomi/std/fs.nomi":       "fs",
-		`D:\a\nomi\nomi\std\fs.nomi`:      "fs",
-		`C:\Users\me\std/fs_testing.nomi`: "fs_testing",
-		"fs.nomi":                         "fs",
+		"std/fs.nomi":                                            "fs",
+		"/home/me/nomi/std/fs.nomi":                              "fs",
+		`D:\a\nomi\nomi\std\fs.nomi`:                             "fs",
+		`C:\Users\me\std/fs/testing.nomi`:                        "fs::testing",
+		"/home/me/.cache/nomi/std/0123456789abcdef/fs/host.nomi": "fs::host",
+		"/home/me/.cache/nomi/std/0123456789abcdef/fs.nomi":      "fs",
+		"fs.nomi": "fs",
 	} {
 		if got := stdModuleOf(file); got != want {
 			t.Errorf("stdModuleOf(%q) = %q, want %q", file, got, want)
@@ -33,7 +35,7 @@ func TestStdModule_FindsAStdModuleByAnySystemsPath(t *testing.T) {
 		{`D:\a\nomi\nomi\std\money.nomi`, MoneyModule, true},
 		{`D:\a\nomi\nomi\std\calendar.nomi`, CalendarModule, true},
 		{`C:\work\std\phrase.nomi`, PhraseModule, true},
-		{`D:\a\std\money_format.nomi`, MoneyModule, false},
+		{`D:\a\std\money/format.nomi`, MoneyModule, false},
 		{"/home/me/mystd/money.nomi", MoneyModule, false},
 		{"money.nomi", MoneyModule, false},
 	} {

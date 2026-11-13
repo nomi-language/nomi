@@ -111,10 +111,11 @@ func TestServer_AnswersWithAHandler(t *testing.T) {
 // slashed path, index.html and a listing, and a 404. /docs and
 // /docs/index.html both redirect to /docs/, as Go's FileServer does.
 func TestServer_FileServerReadsThroughStdFs(t *testing.T) {
-	got := run(t, `import std::fs_testing.{self, Sandbox}
+	got := run(t, `import std::fs::testing as fs_testing
+import std::fs::testing.Sandbox
 import std::http
 import std::http.{Headers, Method, Response, Status}
-import std::http_testing
+import std::http::testing as http_testing
 import std::io
 
 fn show(r: Response) -> String
@@ -161,12 +162,12 @@ end
 // one byte past 32 MB is refused.
 func TestServer_FormReadersHaveDefaultLimits(t *testing.T) {
 	got := run(t, `import std::http.{Body, Headers, Method, Request}
-import std::http_testing
+import std::http::testing
 import std::io.{self, Reader}
 
 fn posted(body: Reader) -> Request
     {
-        ..http_testing.request(Method.Post, "/"),
+        ..testing.request(Method.Post, "/"),
         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
         body: Body.Stream(body),
     }
@@ -186,7 +187,7 @@ fn main()
     io.print("left ${Bytes.length(Reader.read_all(huge)!)}")
 
     upload = {
-        ..http_testing.request(Method.Post, "/upload"),
+        ..testing.request(Method.Post, "/upload"),
         headers: Headers[("Content-Type", "multipart/form-data; boundary=b")],
         body: Body.Stream(Reader.from_bytes(String.to_bytes(String.repeat("x", 33_554_433)))),
     }
@@ -213,7 +214,7 @@ end
 // Error.BodyTooLarge, and a route's own limit only lowers the server's.
 func TestServer_MaxBodyLimitsEveryRequest(t *testing.T) {
 	got := run(t, `import std::http.{Body, Client, Request, Response, Server, Status}
-import std::http_testing
+import std::http::testing
 import std::io
 import std::url.{Query, Url}
 
@@ -227,7 +228,7 @@ fn echo(request: Request) -> Response
 end
 
 fn main()
-    http_testing.with_server(echo, server: Server{max_body: Some(5)}, fn server ->
+    testing.with_server(echo, server: Server{max_body: Some(5)}, fn server ->
         post = fn path: String, a: String ->
             url = Url.resolve_text(server.url, path)!
             r = Client.post_form(server.client, url, Query[("a", a)])!

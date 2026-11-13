@@ -155,12 +155,10 @@ func stdModulePaths(t *testing.T) []string {
 			return relErr
 		}
 		rel = strings.TrimSuffix(filepath.ToSlash(rel), ".nomi")
-		// The stdlib is one Nomi module and every module in it is a flat
-		// `std/<name>.nomi`, adapters included — a directory under std/
-		// holds Go support only. So a nested .nomi is not a module; the
-		// walk already skips `_`-prefixed trees, and nothing else is
-		// nested today.
-		if strings.Contains(rel, "/") {
+		// A module is a `std/<name>.nomi` or one nested under its parent,
+		// `std/<parent>/<name>.nomi` (std/fs/host.nomi); the walk already
+		// skips `_`-prefixed trees.
+		if strings.Count(rel, "/") > 1 {
 			return nil
 		}
 		out = append(out, "std/"+rel)

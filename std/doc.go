@@ -104,11 +104,11 @@
 //
 // # Logging and actors
 //
-// std/log, std/log_testing and std/actors are Nomi alone, no `host fn`. A
+// std/log, std/log/testing and std/actors are Nomi alone, no `host fn`. A
 // `Logger` is an opaque struct over a private `Sink`: text, JSON, discard,
 // or the recorder's, which writes each record as one JSON array (time in
 // nanoseconds, level, message, then `[key, kind, value]` per field) that
-// `log_testing.run` decodes into `Record`s; an array keeps field order,
+// `std::log::testing.run` decodes into `Record`s; an array keeps field order,
 // which a JSON object does not. Each record is one `Writer.write_text`; a
 // failed write is dropped. std/log names a level `Debug` and a std file has
 // no prelude, so it imports `debug.Debug` for the synthesized `impl Debug`
@@ -126,7 +126,7 @@
 //
 // # Background jobs
 //
-// std/jobs and std/jobs_testing are Nomi alone. A `Job<A>` erases to a
+// std/jobs and std/jobs/testing are Nomi alone. A `Job<A>` erases to a
 // `Handler` through `impl Handler for Job<A> where A: FromJson`, so a worker
 // keys a `List<Handler>` of mixed argument types by kind in a `Map`. No
 // `Handler` or `Queue` function returns `self` or takes two `self` operands,
@@ -191,14 +191,14 @@
 // the holder (the insert waits for an open transaction holding the key, so
 // the select sees its outcome). Ticks are rows of `<table>_schedules`,
 // upserted with `GREATEST`. `install` also runs schema_upgrade.sql's
-// `ADD COLUMN IF NOT EXISTS` statements. `jobs_testing.conformance` is the
+// `ADD COLUMN IF NOT EXISTS` statements. `std::jobs::testing.conformance` is the
 // backend suite: `Inline` passes it without the rollback rule, and
 // lib/jobs/postgres passes all of it on `postgres.scratch()`.
 //
 // # Mail
 //
-// std/mail and std/mail_testing are Nomi. Two encodings are Go's, through
-// std/mail_host (rt/mail.go, pure): quoted-printable bodies
+// std/mail and std/mail/testing are Nomi. Two encodings are Go's, through
+// std/mail/host (rt/mail.go, pure): quoted-printable bodies
 // (mime/quotedprintable) and the `Date` header (RFC1123Z in UTC). The SMTP
 // client is Nomi over std/net's `Connection`: it upgrades with `tls.client`
 // for STARTTLS or dials `tls.dial` for implicit TLS, and reads replies with
@@ -218,8 +218,8 @@
 // starting `=_`, which neither encoding can produce, so output is
 // deterministic for a given Message-ID and date.
 //
-// `mail_testing.with_smtp_server` serves one connection at a time on a task
-// of its `concurrent` block, with `http_host.test_certificate` for
+// `std::mail::testing.with_smtp_server` serves one connection at a time on a task
+// of its `concurrent` block, with `std::http::host.test_certificate` for
 // STARTTLS; `conformance` runs against `Memory` and `mail.smtp` on it in
 // std's `//!` cases. vmhost/mail_smtp_test.go runs a program against a Go
 // fake server (STARTTLS with AUTH PLAIN and LOGIN, implicit TLS, no TLS)
@@ -228,7 +228,7 @@
 //
 // # Sessions
 //
-// std/sessions is Nomi. Its two crossings in std/http_host, `seal` and
+// std/sessions is Nomi. Its two crossings in std/http/host, `seal` and
 // `open_sealed`, are AES-256-GCM (rt/seal.go) with a random 12-byte nonce
 // before the ciphertext. A cookie's value is that, in unpadded base64url,
 // over a JSON object: `c` and `s` (Unix seconds the session began and was
@@ -266,7 +266,7 @@
 //
 // # Object storage
 //
-// std/storage and std/storage_testing are Nomi alone. No `Store` function
+// std/storage and std/storage/testing are Nomi alone. No `Store` function
 // returns `self` or takes two `self` operands, so it dispatches on interface
 // values; `storage.local` and `s3.store` each return a `Store` over a
 // private struct, so boot code can pick a backend with an `if`.
@@ -283,7 +283,7 @@
 // that keys `a` and `a/b` coexist: S3 allows it and a directory tree
 // cannot.
 //
-// Local store. It goes through std/fs, so `fs_testing.run` sandboxes it.
+// Local store. It goes through std/fs, so `std::fs::testing.run` sandboxes it.
 // `put` writes the content type to `<root>/.nomi-storage/types/<key>`, then
 // the bytes to `<root>/<key>`, each with `WriteMode.ReplaceAtomically`,
 // whose temporary file starts with `.` so no key names it. A key whose path
@@ -304,7 +304,7 @@
 // server with an opaque token.
 //
 // `Memory` keeps a `Map<String, Object>` in a `Channel<State>` of capacity
-// one, as `jobs_testing.Inline` does. `storage_testing.conformance` runs
+// one, as `std::jobs::testing.Inline` does. `std::storage::testing.conformance` runs
 // each rule on a fresh store from `open`; `Memory` passes it, and the
 // corpus runs the local store through it in a sandbox and in a temporary
 // directory.
@@ -322,7 +322,7 @@
 // 400 ms, plus up to half again from the clock's nanoseconds. A library
 // cannot read the context, so a retry does not check the deadline; a passed
 // deadline unwinds the task. Tests sign AWS's three published examples and
-// use std/http_testing, including a fake server over a `Memory` that runs
+// use std/http/testing, including a fake server over a `Memory` that runs
 // the conformance suite and refuses a request whose escaped path differs
 // from `uri_encode`'s. lib/storage/minio runs the suite against a real
 // MinIO; TestLibModules skips it without `minio` on PATH.

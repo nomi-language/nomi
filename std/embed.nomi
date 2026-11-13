@@ -42,7 +42,7 @@
 import
     bool.Bool.{self, False, True}
     bytes.{Byte, Bytes}
-    embed_host
+    embed::host
     fs.{Entry, Kind, Metadata}
     hash
     instant.Instant
@@ -68,7 +68,7 @@ end
 
 /// A file's contents. An embedded file's are `Stored`: the value holds the
 /// handle the program reads them through, and their size, and the
-/// program reads them when it reads the file (std::embed_host). A tree
+/// program reads them when it reads the file (std::embed::host). A tree
 /// made from bytes in hand (`from_held`) holds them.
 enum Contents
     Held Bytes
@@ -79,7 +79,7 @@ end
 fn contents(c: Contents, p: String) -> Bytes
     case c
         Contents.Held(data) -> data
-        Contents.Stored{handle:} -> embed_host.read(handle, p)
+        Contents.Stored{handle:} -> host.read(handle, p)
     end
 end
 
@@ -358,7 +358,7 @@ impl Files
 
         case Map.get(files.files, k)
             Some(Contents.Held(data)) -> Ok(hash.sha256_hex(data))
-            Some(Contents.Stored{handle:}) -> Ok(embed_host.sum(handle, p))
+            Some(Contents.Stored{handle:}) -> Ok(host.sum(handle, p))
             None when Map.get(files.dirs, k) is Some(_) -> Err(Error.IsADirectory{path: p})
             None -> Err(Error.NotFound{path: p})
         end

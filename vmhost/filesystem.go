@@ -182,7 +182,7 @@ func TestDir(path string) string {
 
 // WithFileSystem makes the program's std/fs calls reach files rather than
 // the disk, for every run of the program: DiskFiles, NewMemoryFiles or an
-// embedder's own FileSystem. `fs_testing.run` still replaces it for its own
+// embedder's own FileSystem. `std::fs::testing.run` still replaces it for its own
 // call.
 func WithFileSystem(files FileSystem) Option {
 	return func(c *config) { c.files = backendOf(files) }

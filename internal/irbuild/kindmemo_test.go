@@ -8,12 +8,12 @@ import (
 )
 
 // kindMemoHTTPProgram is the HTTP chapter's first tour block: it reaches
-// std/http, std/http_testing, std/url and the program std modules they
+// std/http, std/http/testing, std/url and the program std modules they
 // import, whose lowering asks the retention predicates most of their
 // questions.
 const kindMemoHTTPProgram = `import
     std::http.{self, Response, Status}
-    std::http_testing
+    std::http::testing
     std::url.Url
 end
 
@@ -24,7 +24,7 @@ fn greeting(name: String) -> Result<String, http.Error>
 end
 
 fn main()
-    ran = http_testing.run(fn request ->
+    ran = testing.run(fn request ->
         Ok(Response{body: .Text("hello from ${request.url.path}")})
     end, fn ->
         greeting("ann b")

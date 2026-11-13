@@ -59,12 +59,12 @@ func TestTravel_StepBackNeverWritesAFileTwice(t *testing.T) {
 
 const travelSandboxSrc = `import
     std::fs
-    std::fs_testing.{self, Sandbox}
+    std::fs::testing.{self, Sandbox}
     std::io
 end
 
 fn main()
-    ran = fs_testing.run(Sandbox{files: {"in.txt" => "a"}}, fn ->
+    ran = testing.run(Sandbox{files: {"in.txt" => "a"}}, fn ->
         _ = fs.write_text("in.txt", "b", mode: .Append)
         fs.read_text("in.txt")
     end)
@@ -72,7 +72,7 @@ fn main()
 end
 `
 
-// Inside fs_testing.run the replay builds the sandbox again and runs its file
+// Inside std::fs::testing.run the replay builds the sandbox again and runs its file
 // operations again, so the sandbox the program sees after a step back is the
 // one it saw before.
 func TestTravel_StepBackInsideASandboxRunsItAgain(t *testing.T) {
@@ -100,7 +100,7 @@ func TestTravel_StepBackInsideASandboxRunsItAgain(t *testing.T) {
 		t.Fatalf("output %q, want the append once", out)
 	}
 	for _, c := range s.d.Recording() {
-		if strings.HasPrefix(c.Name, "fs_host.") || strings.HasPrefix(c.Name, "io.Reader.") || strings.HasPrefix(c.Name, "io.Writer.") {
+		if strings.HasPrefix(c.Name, "fs/host.") || strings.HasPrefix(c.Name, "io.Reader.") || strings.HasPrefix(c.Name, "io.Writer.") {
 			t.Fatalf("recorded %s; a sandbox's operations run again and are not recorded: %+v", c.Name, s.d.Recording())
 		}
 	}

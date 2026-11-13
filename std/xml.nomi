@@ -44,7 +44,7 @@ import
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
-    xml_host
+    xml::host
 end
 
 /// The namespace the `xml` prefix is bound to in every document.
@@ -328,7 +328,7 @@ end
 //! assert read(Reader.from_text("<a>1</a>")) == Ok(Element.new("a", [Node.Text("1")]))
 //
 pub fn read(reader: Reader, allow_doctype = False) -> Result<Element, Error>
-    handle = xml_host.open(reader, allow_doctype)
+    handle = host.open(reader, allow_doctype)
     root = read_root(handle)?
     rest(handle)?
     Ok(root)
@@ -355,11 +355,11 @@ end
 //!     ])
 //
 pub fn tokens(reader: Reader, allow_doctype = False) -> Iter<Result<Token, Error>>
-    TokenIter{tokens: xml_host.open(reader, allow_doctype)}
+    TokenIter{tokens: host.open(reader, allow_doctype)}
 end
 
 struct TokenIter
-    tokens: xml_host.Tokens
+    tokens: host.Tokens
 end
 
 impl Iter<Result<Token, Error>> for TokenIter
@@ -368,7 +368,7 @@ impl Iter<Result<Token, Error>> for TokenIter
     end
 end
 
-fn each_token(tokens: xml_host.Tokens, yield: (Result<Token, Error>) -> Bool) -> Bool
+fn each_token(tokens: host.Tokens, yield: (Result<Token, Error>) -> Bool) -> Bool
     case next_token(tokens)
         Ok(Some(token)) -> if yield(Ok(token)) then each_token(tokens, yield) else False
         Ok(None) -> True
@@ -377,45 +377,41 @@ fn each_token(tokens: xml_host.Tokens, yield: (Result<Token, Error>) -> Bool) ->
 end
 
 // The next token, None at the end of the document.
-fn next_token(tokens: xml_host.Tokens) -> Result<Maybe<Token>, Error>
-    case xml_host.next(tokens)
+fn next_token(tokens: host.Tokens) -> Result<Maybe<Token>, Error>
+    case host.next(tokens)
         1 ->
             Ok(
                 Some(
                     Token.Start{
-                        name: name_of(xml_host.name(tokens)),
-                        attributes: attributes_of(xml_host.attributes(tokens)),
-                        namespaces: namespaces_of(xml_host.namespaces(tokens)),
+                        name: name_of(host.name(tokens)),
+                        attributes: attributes_of(host.attributes(tokens)),
+                        namespaces: namespaces_of(host.namespaces(tokens)),
                     }
                 )
             )
 
         2 ->
-            Ok(Some(Token.End{name: name_of(xml_host.name(tokens))}))
+            Ok(Some(Token.End{name: name_of(host.name(tokens))}))
 
         3 ->
-            Ok(Some(Token.Text(xml_host.text(tokens))))
+            Ok(Some(Token.Text(host.text(tokens))))
 
         4 ->
-            Ok(Some(Token.Comment(xml_host.text(tokens))))
+            Ok(Some(Token.Comment(host.text(tokens))))
 
         5 ->
-            Ok(
-                Some(
-                    Token.Instruction{target: xml_host.target(tokens), data: xml_host.text(tokens)}
-                )
-            )
+            Ok(Some(Token.Instruction{target: host.target(tokens), data: host.text(tokens)}))
 
         6 ->
-            Ok(Some(Token.Doctype(xml_host.text(tokens))))
+            Ok(Some(Token.Doctype(host.text(tokens))))
 
         _ ->
-            case xml_host.stopped(tokens)
+            case host.stopped(tokens)
                 [1, line, column] ->
-                    Err(Error.Syntax{message: xml_host.message(tokens), line:, column:})
+                    Err(Error.Syntax{message: host.message(tokens), line:, column:})
 
                 [2, ..] ->
-                    Err(Error.Io{error: xml_host.failure(tokens)})
+                    Err(Error.Io{error: host.failure(tokens)})
 
                 _ ->
                     Ok(None)
@@ -456,7 +452,7 @@ end
 
 // The root element, after any comments, instructions and DOCTYPE before
 // it.
-fn read_root(tokens: xml_host.Tokens) -> Result<Element, Error>
+fn read_root(tokens: host.Tokens) -> Result<Element, Error>
     case next_token(tokens)?
         Some(.Start{name:, attributes:, namespaces:}) ->
             read_children(tokens, Element{name:, attributes:, namespaces:}, [])
@@ -472,7 +468,7 @@ end
 // The element whose start tag was read last, with its children read up to
 // its end tag. `reversed` is the children read so far, last first.
 fn read_children(
-    tokens: xml_host.Tokens,
+    tokens: host.Tokens,
     element: Element,
     reversed: List<Node>,
 ) -> Result<Element, Error>
@@ -509,7 +505,7 @@ end
 
 // Reads what follows the root, so a second root or stray text is an
 // error.
-fn rest(tokens: xml_host.Tokens) -> Result<Unit, Error>
+fn rest(tokens: host.Tokens) -> Result<Unit, Error>
     case next_token(tokens)?
         Some(_) -> rest(tokens)
         None -> Ok(Unit)
@@ -593,11 +589,11 @@ fn invalid(message: String) -> Result<Unit, Error>
 end
 
 fn check_name(name: Name) -> Result<Unit, Error>
-    if not xml_host.is_name(name.local) then
+    if not host.is_name(name.local) then
         return invalid("${Debug.inspect(name.local)} is not an XML name")
     end
 
-    if name.prefix != "" and not xml_host.is_name(name.prefix) then
+    if name.prefix != "" and not host.is_name(name.prefix) then
         return invalid("${Debug.inspect(name.prefix)} is not an XML name")
     end
 
@@ -687,7 +683,7 @@ fn element_text(
                 break Err(e)
 
             Ok(scope) ->
-                if n.prefix != "" and not xml_host.is_name(n.prefix) then
+                if n.prefix != "" and not host.is_name(n.prefix) then
                     break Err(
                         Error.Invalid{message: "${Debug.inspect(n.prefix)} is not an XML name"}
                     )
@@ -740,7 +736,7 @@ fn element_text(
                 "xmlns:${n.prefix}"
             end
 
-            " ${name}=\"${xml_host.escape_attribute(n.uri)}\""
+            " ${name}=\"${host.escape_attribute(n.uri)}\""
         end)
         |> String.join("")
 
@@ -793,14 +789,14 @@ end
 
 fn attribute_text(scope: Scope, attribute: Attribute) -> Result<(Scope, String), Error>
     name = attribute.name
-    value = xml_host.escape_attribute(attribute.value)
+    value = host.escape_attribute(attribute.value)
 
     if name.space == "" then
         if name.prefix != "" then
             return Err(Error.Invalid{message: "${name} has a prefix and no namespace"})
         end
 
-        if not xml_host.is_name(name.local) then
+        if not host.is_name(name.local) then
             return Err(Error.Invalid{message: "${Debug.inspect(name.local)} is not an XML name"})
         end
 
@@ -832,7 +828,7 @@ fn node_text(
             element_text(e, bindings, options, depth, inline)
 
         .Text(t) ->
-            Ok(xml_host.escape_text(t))
+            Ok(host.escape_text(t))
 
         .Comment(c) ->
             if String.contains(c, "--") or String.ends_with(c, "-") then
@@ -842,7 +838,7 @@ fn node_text(
             end
 
         .Instruction{target:, data:} ->
-            if not xml_host.is_name(target) or String.lowercase(target) == "xml" then
+            if not host.is_name(target) or String.lowercase(target) == "xml" then
                 Err(
                     Error.Invalid{
                         message: "${Debug.inspect(target)} cannot be an instruction's target",

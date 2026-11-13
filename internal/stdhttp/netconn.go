@@ -25,7 +25,7 @@ import (
 
 func asError[T any](err error, target *T) bool { return errors.As(err, target) }
 
-// conn is what std/http_host's `Conn` wraps.
+// conn is what std/http/host's `Conn` wraps.
 type conn struct {
 	c    net.Conn
 	r    rt.Reader
@@ -120,7 +120,7 @@ func keepAliveConfig(enabled bool, idle, interval, count int64) net.KeepAliveCon
 	return net.KeepAliveConfig{Enable: enabled, Idle: dur(idle), Interval: dur(interval), Count: int(count)}
 }
 
-// DialWith is `http_host.dial_with`: Dial with every option std/net's
+// DialWith is `std::http::host.dial_with`: Dial with every option std/net's
 // DialOptions has.
 func DialWith(fr *rt.Frame, address string, timeout int64, local string, fallback int64, kaEnabled bool,
 	kaIdle, kaInterval, kaCount int64, multipath bool) rt.Result[rt.NetConn, *rt.List[string]] {
@@ -145,7 +145,7 @@ func DialWith(fr *rt.Frame, address string, timeout int64, local string, fallbac
 	return rt.Ok[rt.NetConn, *rt.List[string]](newConn(ctx, c))
 }
 
-// ListenWith is `http_host.net_listen_with`: NetListen with std/net's
+// ListenWith is `std::http::host.net_listen_with`: NetListen with std/net's
 // ListenOptions.
 func ListenWith(fr *rt.Frame, address string, kaEnabled bool, kaIdle, kaInterval, kaCount int64, multipath bool) rt.Result[rt.NetListener, *rt.List[string]] {
 	if !hasSockets {
@@ -175,7 +175,7 @@ func tcpOf(c rt.NetConn) *net.TCPConn {
 	return nil
 }
 
-// ConnCloseRead is `http_host.conn_close_read`: shuts the receiving half of
+// ConnCloseRead is `std::http::host.conn_close_read`: shuts the receiving half of
 // a TCP connection.
 func ConnCloseRead(c rt.NetConn) rt.Unit {
 	if t := tcpOf(c); t != nil {
@@ -184,7 +184,7 @@ func ConnCloseRead(c rt.NetConn) rt.Unit {
 	return rt.Unit{}
 }
 
-// ConnNoDelay is `http_host.conn_no_delay`: Go's SetNoDelay.
+// ConnNoDelay is `std::http::host.conn_no_delay`: Go's SetNoDelay.
 func ConnNoDelay(c rt.NetConn, on bool) rt.Unit {
 	if t := tcpOf(c); t != nil {
 		_ = t.SetNoDelay(on)
@@ -192,7 +192,7 @@ func ConnNoDelay(c rt.NetConn, on bool) rt.Unit {
 	return rt.Unit{}
 }
 
-// ConnLinger is `http_host.conn_linger`: Go's SetLinger, seconds, -1 for
+// ConnLinger is `std::http::host.conn_linger`: Go's SetLinger, seconds, -1 for
 // the system's default.
 func ConnLinger(c rt.NetConn, seconds int64) rt.Unit {
 	if t := tcpOf(c); t != nil {
@@ -201,7 +201,7 @@ func ConnLinger(c rt.NetConn, seconds int64) rt.Unit {
 	return rt.Unit{}
 }
 
-// ConnKeepAlive is `http_host.conn_keep_alive`: Go's SetKeepAliveConfig.
+// ConnKeepAlive is `std::http::host.conn_keep_alive`: Go's SetKeepAliveConfig.
 func ConnKeepAlive(c rt.NetConn, enabled bool, idle, interval, count int64) rt.Unit {
 	if t := tcpOf(c); t != nil {
 		_ = t.SetKeepAliveConfig(keepAliveConfig(enabled, idle, interval, count))
@@ -209,7 +209,7 @@ func ConnKeepAlive(c rt.NetConn, enabled bool, idle, interval, count int64) rt.U
 	return rt.Unit{}
 }
 
-// ConnMultipath is `http_host.conn_multipath`: whether the connection runs
+// ConnMultipath is `std::http::host.conn_multipath`: whether the connection runs
 // Multipath TCP.
 func ConnMultipath(c rt.NetConn) bool {
 	if t := tcpOf(c); t != nil {
@@ -219,13 +219,13 @@ func ConnMultipath(c rt.NetConn) bool {
 	return false
 }
 
-// Pipe is `http_host.pipe`: Go's net.Pipe, two connected ends in memory.
+// Pipe is `std::http::host.pipe`: Go's net.Pipe, two connected ends in memory.
 func Pipe() *rt.List[rt.NetConn] {
 	a, b := net.Pipe()
 	return rt.Cons(newConn(context.Background(), a), rt.Cons(newConn(context.Background(), b), (*rt.List[rt.NetConn])(nil)))
 }
 
-// SplitHostPort is `http_host.split_host_port`: [host, port] or an Err's parts.
+// SplitHostPort is `std::http::host.split_host_port`: [host, port] or an Err's parts.
 func SplitHostPort(address string) rt.Result[*rt.List[string], *rt.List[string]] {
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
@@ -234,7 +234,7 @@ func SplitHostPort(address string) rt.Result[*rt.List[string], *rt.List[string]]
 	return rt.Ok[*rt.List[string], *rt.List[string]](listOf([]string{host, port}))
 }
 
-// JoinHostPort is `http_host.join_host_port`: Go's JoinHostPort.
+// JoinHostPort is `std::http::host.join_host_port`: Go's JoinHostPort.
 func JoinHostPort(host, port string) string { return net.JoinHostPort(host, port) }
 
 func lookup[T any](fr *rt.Frame, name string, f func(context.Context) (T, error), parts func(T) *rt.List[string]) rt.Result[*rt.List[string], *rt.List[string]] {
@@ -245,7 +245,7 @@ func lookup[T any](fr *rt.Frame, name string, f func(context.Context) (T, error)
 	return rt.Ok[*rt.List[string], *rt.List[string]](parts(v))
 }
 
-// Lookup is `http_host.lookup`: the system resolver's answer for kind
+// Lookup is `std::http::host.lookup`: the system resolver's answer for kind
 // (host, ip, address, cname, ns, txt, mx, port, srv) about name, flat:
 // mx as host and preference pairs, srv as its cname then target, port,
 // priority and weight quads, port as one number. For srv, name is
@@ -316,7 +316,7 @@ func Lookup(fr *rt.Frame, kind, name string) rt.Result[*rt.List[string], *rt.Lis
 	return rt.Result[*rt.List[string], *rt.List[string]]{}
 }
 
-// TLSDial is `http_host.tls_dial`: Dial, then a TLS client handshake with
+// TLSDial is `std::http::host.tls_dial`: Dial, then a TLS client handshake with
 // cfg, its server name the address's host when cfg names none.
 func TLSDial(fr *rt.Frame, address string, timeout, keepAlive int64, local string, cfg rt.TLSConfig) rt.Result[rt.NetConn, *rt.List[string]] {
 	if !hasSockets {
@@ -344,14 +344,14 @@ func TLSDial(fr *rt.Frame, address string, timeout, keepAlive int64, local strin
 	return rt.Ok[rt.NetConn, *rt.List[string]](newConn(ctx, c))
 }
 
-// TLSClient is `http_host.tls_client`: a TLS client over an open connection
+// TLSClient is `std::http::host.tls_client`: a TLS client over an open connection
 // (STARTTLS), its handshake finished before it answers.
 func TLSClient(fr *rt.Frame, c rt.NetConn, cfg rt.TLSConfig) rt.Result[rt.NetConn, *rt.List[string]] {
 	conf := confOf(cfg)
 	return handshake(fr, conf, tls.Client(connOf(c).c, conf.c))
 }
 
-// TLSServer is `http_host.tls_server`: the server side of TLSClient.
+// TLSServer is `std::http::host.tls_server`: the server side of TLSClient.
 func TLSServer(fr *rt.Frame, c rt.NetConn, cfg rt.TLSConfig) rt.Result[rt.NetConn, *rt.List[string]] {
 	conf := confOf(cfg)
 	return handshake(fr, conf, tls.Server(connOf(c).c, conf.c))
@@ -377,14 +377,14 @@ func handshake(fr *rt.Frame, conf *tlsConf, t *tls.Conn) rt.Result[rt.NetConn, *
 	return rt.Ok[rt.NetConn, *rt.List[string]](newConn(ctx, t))
 }
 
-// ConnReader is `http_host.conn_reader`: the connection's Reader.
+// ConnReader is `std::http::host.conn_reader`: the connection's Reader.
 func ConnReader(c rt.NetConn) rt.Reader { return connOf(c).r }
 
-// ConnWriter is `http_host.conn_writer`: the connection's Writer, which
+// ConnWriter is `std::http::host.conn_writer`: the connection's Writer, which
 // sends each write as it is made.
 func ConnWriter(c rt.NetConn) rt.Writer { return connOf(c).w }
 
-// ConnClose is `http_host.conn_close`.
+// ConnClose is `std::http::host.conn_close`.
 func ConnClose(c rt.NetConn) rt.Unit {
 	x := connOf(c)
 	x.stop()
@@ -392,7 +392,7 @@ func ConnClose(c rt.NetConn) rt.Unit {
 	return rt.Unit{}
 }
 
-// ConnCloseWrite is `http_host.conn_close_write`: shuts the sending half,
+// ConnCloseWrite is `std::http::host.conn_close_write`: shuts the sending half,
 // so the peer reads the end of its input, when the connection has halves.
 func ConnCloseWrite(c rt.NetConn) rt.Unit {
 	switch x := connOf(c).c.(type) {
@@ -404,13 +404,13 @@ func ConnCloseWrite(c rt.NetConn) rt.Unit {
 	return rt.Unit{}
 }
 
-// ConnLocal is `http_host.conn_local`: the local address.
+// ConnLocal is `std::http::host.conn_local`: the local address.
 func ConnLocal(c rt.NetConn) string { return connOf(c).c.LocalAddr().String() }
 
-// ConnRemote is `http_host.conn_remote`: the peer's address.
+// ConnRemote is `std::http::host.conn_remote`: the peer's address.
 func ConnRemote(c rt.NetConn) string { return connOf(c).c.RemoteAddr().String() }
 
-// ConnDeadline is `http_host.conn_deadline`: which is 0 for both reads and
+// ConnDeadline is `std::http::host.conn_deadline`: which is 0 for both reads and
 // writes, 1 for reads, 2 for writes; at is Unix nanoseconds, or 0 for none.
 func ConnDeadline(c rt.NetConn, which, at int64) rt.Unit {
 	t := time.Time{}
@@ -429,7 +429,7 @@ func ConnDeadline(c rt.NetConn, which, at int64) rt.Unit {
 	return rt.Unit{}
 }
 
-// TLSStateParts is `http_host.tls_state_parts`: a TLS connection's state
+// TLSStateParts is `std::http::host.tls_state_parts`: a TLS connection's state
 // as stateParts lists it, or None for a connection that is not TLS.
 func TLSStateParts(c rt.NetConn) rt.Maybe[*rt.List[*rt.List[string]]] {
 	t, ok := connOf(c).c.(*tls.Conn)
@@ -439,7 +439,7 @@ func TLSStateParts(c rt.NetConn) rt.Maybe[*rt.List[*rt.List[string]]] {
 	return rt.Some(stateParts(t.ConnectionState()))
 }
 
-// TLSVerifyHostname is `http_host.tls_verify_hostname`: Go's
+// TLSVerifyHostname is `std::http::host.tls_verify_hostname`: Go's
 // Conn.VerifyHostname, "" when host matches the peer's certificate.
 func TLSVerifyHostname(c rt.NetConn, host string) string {
 	t, ok := connOf(c).c.(*tls.Conn)
@@ -452,7 +452,7 @@ func TLSVerifyHostname(c rt.NetConn, host string) string {
 	return ""
 }
 
-// netListener is what std/http_host's `TcpListener` wraps. A goroutine
+// netListener is what std/http/host's `TcpListener` wraps. A goroutine
 // accepts connections into conns, so an accept can stop when the task
 // waiting in it is cancelled; the program's drain closes the socket.
 type netListener struct {
@@ -483,7 +483,7 @@ func viewOf(l rt.NetListener) *listenerView {
 	return x
 }
 
-// TLSListen is `http_host.tls_listen`: NetListen, its connections TLS
+// TLSListen is `std::http::host.tls_listen`: NetListen, its connections TLS
 // servers with cfg.
 func TLSListen(address string, cfg rt.TLSConfig) rt.Result[rt.NetListener, *rt.List[string]] {
 	return startListener(address, confOf(cfg))
@@ -501,7 +501,7 @@ func startListener(address string, cfg *tlsConf) rt.Result[rt.NetListener, *rt.L
 	return rt.Ok[rt.NetListener, *rt.List[string]](rt.NewNetListener(&listenerView{netListener: serveListener(ln), tls: cfg}))
 }
 
-// TLSWrapListener is `http_host.tls_wrap_listener`: the listener's
+// TLSWrapListener is `std::http::host.tls_wrap_listener`: the listener's
 // connections as TLS servers with cfg, as Go's tls.NewListener makes them.
 // It shares the listener: closing either closes both.
 func TLSWrapListener(l rt.NetListener, cfg rt.TLSConfig) rt.NetListener {
@@ -537,10 +537,10 @@ func (x *netListener) close() {
 	})
 }
 
-// NetListenerAddress is `http_host.net_listener_address`.
+// NetListenerAddress is `std::http::host.net_listener_address`.
 func NetListenerAddress(l rt.NetListener) string { return netListenerOf(l).ln.Addr().String() }
 
-// NetAccept is `http_host.net_accept`: the next connection, Err Closed once
+// NetAccept is `std::http::host.net_accept`: the next connection, Err Closed once
 // the listener is closed, or once the calling task is stopped.
 func NetAccept(fr *rt.Frame, l rt.NetListener) rt.Result[rt.NetConn, *rt.List[string]] {
 	v := viewOf(l)
@@ -580,7 +580,7 @@ func (x *netListener) deadlineC() <-chan time.Time {
 	return time.After(time.Until(at))
 }
 
-// NetListenerDeadline is `http_host.net_listener_deadline`: an accept
+// NetListenerDeadline is `std::http::host.net_listener_deadline`: an accept
 // waiting past at (Unix nanoseconds; 0 for none) fails with a timeout.
 func NetListenerDeadline(l rt.NetListener, at int64) rt.Unit {
 	x := netListenerOf(l)
@@ -593,7 +593,7 @@ func NetListenerDeadline(l rt.NetListener, at int64) rt.Unit {
 	return rt.Unit{}
 }
 
-// NetListenerClose is `http_host.net_listener_close`.
+// NetListenerClose is `std::http::host.net_listener_close`.
 func NetListenerClose(l rt.NetListener) rt.Unit {
 	x := netListenerOf(l)
 	x.unhook()
@@ -601,7 +601,7 @@ func NetListenerClose(l rt.NetListener) rt.Unit {
 	return rt.Unit{}
 }
 
-// WithTLS is `http_host.with_tls`: a client sharing c's options whose
+// WithTLS is `std::http::host.with_tls`: a client sharing c's options whose
 // transport uses cfg for its TLS connections.
 func WithTLS(c rt.HTTPClient, cfg rt.TLSConfig) rt.HTTPClient {
 	cl := *clientOf(c).c

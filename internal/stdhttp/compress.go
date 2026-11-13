@@ -22,7 +22,7 @@ func gzipLevel(level int64) int {
 	return int(level)
 }
 
-// GzipBytes is `http_host.gzip_bytes`: data compressed with gzip at level.
+// GzipBytes is `std::http::host.gzip_bytes`: data compressed with gzip at level.
 func GzipBytes(data rt.Bytes, level int64) rt.Bytes {
 	var out bytes.Buffer
 	gz, _ := gzip.NewWriterLevel(&out, gzipLevel(level))
@@ -31,7 +31,7 @@ func GzipBytes(data rt.Bytes, level int64) rt.Bytes {
 	return rt.Bytes(out.String())
 }
 
-// Gunzip is `http_host.gunzip`: the bytes gzip data holds, or why it is not
+// Gunzip is `std::http::host.gunzip`: the bytes gzip data holds, or why it is not
 // gzip.
 func Gunzip(data rt.Bytes) rt.Result[rt.Bytes, string] {
 	gz, err := gzip.NewReader(bytes.NewReader([]byte(data)))
@@ -45,7 +45,7 @@ func Gunzip(data rt.Bytes) rt.Result[rt.Bytes, string] {
 	return rt.Ok[rt.Bytes, string](rt.Bytes(out))
 }
 
-// GzipWriter is `http_host.gzip_writer`: a writer that compresses into w
+// GzipWriter is `std::http::host.gzip_writer`: a writer that compresses into w
 // at level. Writer.flush flushes the compressor and then w, so what was
 // written so far reaches the client; closing it writes gzip's end and
 // leaves w open.
@@ -63,7 +63,7 @@ func GzipWriter(fr *rt.Frame, w rt.Writer, level int64) rt.Writer {
 	return rt.NewWriter(rt.WriteSink{Name: "<gzip>", W: gz, Close: gz.Close, Flush: flush})
 }
 
-// GzipReader is `http_host.gzip_reader`: a reader of r's bytes compressed
+// GzipReader is `std::http::host.gzip_reader`: a reader of r's bytes compressed
 // with gzip at level. Each read of r is flushed through the compressor, so
 // a stream that arrives slowly is sent as it arrives.
 func GzipReader(fr *rt.Frame, r rt.Reader, level int64) rt.Reader {

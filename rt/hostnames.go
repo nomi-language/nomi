@@ -9,7 +9,7 @@ type StdHostType struct {
 }
 
 // The names of std's `host type`s whose values are rt's own Go structs
-// (std/io's Reader, std/http_host's Client, ...). Such a type declares no
+// (std/io's Reader, std/http/host's Client, ...). Such a type declares no
 // `impl Debug`, so its Debug is the universal default, the bare type name
 // (spec §12 *Display and Debug*), at the top and nested; its Display, which
 // a values: row reads, is `<Name>`, as a HostHandle's is. Dynamic, Context
@@ -23,22 +23,22 @@ var hostTypeNames = map[reflect.Type]StdHostType{
 	reflect.TypeFor[Reader]():         {"std/io", "Reader"},
 	reflect.TypeFor[Writer]():         {"std/io", "Writer"},
 	reflect.TypeFor[File]():           {"std/io", "File"},
-	reflect.TypeFor[FileSystem]():     {"std/fs_host", "FileSystem"},
-	reflect.TypeFor[ChildProcess]():   {"std/process_host", "Child"},
-	reflect.TypeFor[ProcessFake]():    {"std/process_host", "Fake"},
-	reflect.TypeFor[HTTPClient]():     {"std/http_host", "Client"},
-	reflect.TypeFor[HTTPExchange]():   {"std/http_host", "Exchange"},
-	reflect.TypeFor[HTTPListener]():   {"std/http_host", "Listener"},
-	reflect.TypeFor[HTTPIncoming]():   {"std/http_host", "Incoming"},
-	reflect.TypeFor[TLSCertificate](): {"std/http_host", "Certificate"},
-	reflect.TypeFor[TLSConfig]():      {"std/http_host", "TlsConfig"},
-	reflect.TypeFor[NetConn]():        {"std/http_host", "Conn"},
-	reflect.TypeFor[NetListener]():    {"std/http_host", "TcpListener"},
-	reflect.TypeFor[HTTPMux]():        {"std/http_host", "Mux"},
-	reflect.TypeFor[HTTPJar]():        {"std/http_host", "Jar"},
-	reflect.TypeFor[HTTPHandle]():     {"std/http_host", "Handle"},
-	reflect.TypeFor[CsvRecords]():     {"std/csv_host", "Records"},
-	reflect.TypeFor[XmlTokens]():      {"std/xml_host", "Tokens"},
+	reflect.TypeFor[FileSystem]():     {"std/fs/host", "FileSystem"},
+	reflect.TypeFor[ChildProcess]():   {"std/process/host", "Child"},
+	reflect.TypeFor[ProcessFake]():    {"std/process/host", "Fake"},
+	reflect.TypeFor[HTTPClient]():     {"std/http/host", "Client"},
+	reflect.TypeFor[HTTPExchange]():   {"std/http/host", "Exchange"},
+	reflect.TypeFor[HTTPListener]():   {"std/http/host", "Listener"},
+	reflect.TypeFor[HTTPIncoming]():   {"std/http/host", "Incoming"},
+	reflect.TypeFor[TLSCertificate](): {"std/http/host", "Certificate"},
+	reflect.TypeFor[TLSConfig]():      {"std/http/host", "TlsConfig"},
+	reflect.TypeFor[NetConn]():        {"std/http/host", "Conn"},
+	reflect.TypeFor[NetListener]():    {"std/http/host", "TcpListener"},
+	reflect.TypeFor[HTTPMux]():        {"std/http/host", "Mux"},
+	reflect.TypeFor[HTTPJar]():        {"std/http/host", "Jar"},
+	reflect.TypeFor[HTTPHandle]():     {"std/http/host", "Handle"},
+	reflect.TypeFor[CsvRecords]():     {"std/csv/host", "Records"},
+	reflect.TypeFor[XmlTokens]():      {"std/xml/host", "Tokens"},
 	reflect.TypeFor[Regex]():          {"std/regex", "Regex"},
 	reflect.TypeFor[BoolTrue]():       {"std/bool", "True"},
 	reflect.TypeFor[BoolFalse]():      {"std/bool", "False"},

@@ -74,8 +74,8 @@ func TestLLMsFiles(t *testing.T) {
 	}
 	lib := std.Load()
 	for _, name := range referenceCandidates(lib) {
-		if plainModule(lib, name) != "" && !strings.Contains(full, "\n## std::"+name+"\n") {
-			t.Errorf("llms-full.txt has no section for std::%s", name)
+		if plainModule(lib, name) != "" && !strings.Contains(full, "\n## std::"+stdImportPath(name)+"\n") {
+			t.Errorf("llms-full.txt has no section for std::%s", stdImportPath(name))
 		}
 	}
 

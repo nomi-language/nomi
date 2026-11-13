@@ -495,7 +495,7 @@ func (want *ValType) Accepts(have *ValType) bool {
 	for i := range want.elems {
 		if !want.elems[i].Accepts(have.elems[i]) {
 			// A function value relabelled to wider type arguments takes
-			// narrower parameters (spec §5 *Type argument conversion*): a
+			// narrower parameters (spec §5 *Covariant conversion*): a
 			// call through want passes values have's parameters hold.
 			if want.kind != KindFunc || !have.elems[i].Accepts(want.elems[i]) {
 				return false

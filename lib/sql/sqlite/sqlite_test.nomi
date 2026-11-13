@@ -5,20 +5,20 @@ import
     std::instant.Instant
     std::json.Json
     std::sql.{self, Conn, ConstraintKind, Dialect, Row, Sql, Value}
-    std::sql_testing
+    std::sql::testing
     std::tasks.Task
     std::timer
     std::uuid.Uuid
     sqlite
 end
 
-test "the driver passes std/sql_testing's conformance suite"
-    failures = sql_testing.conformance(fn -> sqlite.memory())
+test "the driver passes std/sql/testing's conformance suite"
+    failures = testing.conformance(fn -> sqlite.memory())
     assert failures == []
 end
 
 test "the conformance suite runs every rule"
-    assert Iter.count(sql_testing.rules()) == 29
+    assert Iter.count(testing.rules()) == 29
 end
 
 test "a connection says it is SQLite"

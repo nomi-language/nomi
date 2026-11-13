@@ -4,6 +4,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/catalog"
@@ -17,7 +18,7 @@ import (
 const phraseModuleAlias = "phrase$"
 
 // phraseFormatAlias is the alias of the second hidden import, of
-// std/phrase_format, whose `variant_name` names an enum argument's variant.
+// std/phrase/format, whose `variant_name` names an enum argument's variant.
 const phraseFormatAlias = "phrase_format$"
 
 // hiddenImportLine is the line of the hidden imports, the phrase
@@ -28,19 +29,23 @@ const phraseFormatAlias = "phrase_format$"
 var hiddenImportLine = synthSlot(synthOriginPrelude, synthIndexCap-1, synthKindEquatable)
 
 // phraseImports are `import std::phrase as phrase$` and `import
-// std/phrase_format as phrase_format$`.
+// std::phrase::format as phrase_format$`.
 func phraseImports() []ast.Node {
 	l := hiddenImportLine
 	imp := func(module, alias string, col int) *ast.ImportStmt {
+		path := []ast.Node{&ast.Ident{Name: "std", Line: l, Col: col + 1}}
+		for _, seg := range strings.Split(module, "/") {
+			path = append(path, &ast.Ident{Name: seg, Line: l, Col: col + 1 + len(path)})
+		}
 		return &ast.ImportStmt{
-			ModulePath:   []ast.Node{&ast.Ident{Name: "std", Line: l, Col: col + 1}, &ast.Ident{Name: module, Line: l, Col: col + 2}},
-			FileSegments: 2,
-			ModuleAlias:  &ast.Ident{Name: alias, Line: l, Col: col + 3},
+			ModulePath:   path,
+			FileSegments: len(path),
+			ModuleAlias:  &ast.Ident{Name: alias, Line: l, Col: col + 1 + len(path)},
 			Line:         l,
 			Col:          col,
 		}
 	}
-	return []ast.Node{imp("phrase", phraseModuleAlias, 1), imp("phrase_format", phraseFormatAlias, 5)}
+	return []ast.Node{imp("phrase", phraseModuleAlias, 1), imp("phrase/format", phraseFormatAlias, 6)}
 }
 
 func hasPhraseImport(nodes []ast.Node) bool {

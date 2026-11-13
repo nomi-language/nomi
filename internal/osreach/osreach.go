@@ -1,7 +1,7 @@
 // Package osreach counts, per capability class, the host function calls
 // that went on to the operating system: a process started, a socket
 // listened on or dialed, a name looked up. A classed crossing a fake
-// answers (process_testing's, installed on the frame) never gets this far,
+// answers (std::process::testing's, installed on the frame) never gets this far,
 // so the count tells a call that needed the class from one that only could
 // have. cmd/nomi-docgen reads it to keep a stdlib reference example live
 // in the browser when its run reaches no such call (promptClassifier).

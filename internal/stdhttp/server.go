@@ -28,7 +28,7 @@ import (
 // (std/http's `serve`), so no Nomi code runs on Go's goroutines, and the
 // task's frame ends when the client goes away (rt.EnterRequest).
 
-// listener is what std/http_host's `Listener` wraps.
+// listener is what std/http/host's `Listener` wraps.
 type listener struct {
 	srv      *http.Server
 	ln       net.Listener
@@ -52,7 +52,7 @@ func listenerOf(l rt.HTTPListener) *listener {
 	return ln
 }
 
-// incoming is what std/http_host's `Incoming` wraps: one request and the
+// incoming is what std/http/host's `Incoming` wraps: one request and the
 // writer its response goes to. Every write holds mu, and once the Go handler
 // has returned (gone) a write fails rather than touching a finished
 // ResponseWriter.
@@ -105,7 +105,7 @@ type Hooks struct {
 	OnCountError func(*rt.Frame, string) rt.Unit
 }
 
-// Listen is `http_host.listen`: bind address and start serving on it.
+// Listen is `std::http::host.listen`: bind address and start serving on it.
 // durations are the read, read-header, write, idle and shutdown timeouts
 // in nanoseconds, 0 for Go's default (none); limits are the most header
 // bytes and the most values one header may hold, 0 for Go's defaults.
@@ -128,7 +128,7 @@ func Listen(address string, durations *rt.List[int64], limits *rt.List[int64], f
 		hooks(onState, hasOnState, onError, hasOnError, onShutdown, hasOnShutdown, onCountError, hasOnCountError), nil)
 }
 
-// ListenTLS is `http_host.listen_tls`: Listen, serving HTTPS with cfg, as
+// ListenTLS is `std::http::host.listen_tls`: Listen, serving HTTPS with cfg, as
 // Go's ListenAndServeTLS does (HTTP/2 included when cfg allows it).
 func ListenTLS(address string, durations *rt.List[int64], limits *rt.List[int64], flags *rt.List[bool],
 	protocols *rt.List[bool], hasProtocols bool, http2 *rt.List[int64], http2Flags *rt.List[bool],
@@ -296,11 +296,11 @@ func listen(address string, durations, limits *rt.List[int64], flags *rt.List[bo
 	return rt.Ok[rt.HTTPListener, *rt.List[string]](rt.NewHTTPListener(l))
 }
 
-// Address is `http_host.address`: the address the server is bound to, its
+// Address is `std::http::host.address`: the address the server is bound to, its
 // port chosen when the address asked for port 0.
 func Address(l rt.HTTPListener) string { return listenerOf(l).ln.Addr().String() }
 
-// Next is `http_host.next`: the next request, or None once the server has
+// Next is `std::http::host.next`: the next request, or None once the server has
 // shut down or the calling task is stopped.
 func Next(fr *rt.Frame, l rt.HTTPListener) rt.Maybe[rt.HTTPIncoming] {
 	ln := listenerOf(l)
@@ -325,7 +325,7 @@ func Next(fr *rt.Frame, l rt.HTTPListener) rt.Maybe[rt.HTTPIncoming] {
 	}
 }
 
-// Shutdown is `http_host.shutdown`: Go's Server.Shutdown. The server stops
+// Shutdown is `std::http::host.shutdown`: Go's Server.Shutdown. The server stops
 // accepting and waits up to timeout (nanoseconds) for the requests it is
 // answering; then it closes every connection, and requests still
 // unanswered are abandoned. A second call does nothing.
@@ -370,7 +370,7 @@ func InTransferEncoding(in rt.HTTPIncoming) *rt.List[string] {
 }
 func InClose(in rt.HTTPIncoming) bool { return incomingOf(in).r.Close }
 
-// InBody is `http_host.in_body`: the request's body as a Reader.
+// InBody is `std::http::host.in_body`: the request's body as a Reader.
 func InBody(in rt.HTTPIncoming) rt.Reader {
 	r := incomingOf(in).r
 	return rt.NewReader(rt.ReadSource{Name: "<request>", R: r.Body, Close: r.Body.Close})
@@ -419,7 +419,7 @@ func trailerNames(trailers *rt.List[string]) *rt.List[string] {
 	return listOf(names)
 }
 
-// Respond is `http_host.respond`: write the whole response. kind is 0 for no
+// Respond is `std::http::host.respond`: write the whole response. kind is 0 for no
 // body, 1 for data, 2 for input; a negative contentLength is unknown. An Err
 // is an http.Error variant's name and fields.
 func Respond(fr *rt.Frame, i rt.HTTPIncoming, status int64, headers, trailers *rt.List[string], kind int64,
@@ -454,7 +454,7 @@ func Respond(fr *rt.Frame, i rt.HTTPIncoming, status int64, headers, trailers *r
 	return rt.Ok[rt.Unit, *rt.List[string]](rt.Unit{})
 }
 
-// Produce is `http_host.produce`: write the status and headers, announcing
+// Produce is `std::http::host.produce`: write the status and headers, announcing
 // the trailers named, and answer a Writer over the body. Each time the
 // writer passes bytes on (when its buffer fills, or at Writer.flush), they
 // are sent to the client at once.
@@ -485,7 +485,7 @@ func (w responseWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-// Finish is `http_host.finish`: the program has answered. It sets trailers,
+// Finish is `std::http::host.finish`: the program has answered. It sets trailers,
 // and a request answered with nothing written gets a 500. A second call does
 // nothing.
 func Finish(i rt.HTTPIncoming, trailers *rt.List[string]) rt.Unit {
@@ -507,7 +507,7 @@ func Finish(i rt.HTTPIncoming, trailers *rt.List[string]) rt.Unit {
 	return rt.Unit{}
 }
 
-// Answered is `http_host.answered_already`: whether Finish has run, so a
+// Answered is `std::http::host.answered_already`: whether Finish has run, so a
 // handler task a supervisor restarts does not answer twice.
 func Answered(i rt.HTTPIncoming) bool {
 	in := incomingOf(i)
@@ -516,11 +516,11 @@ func Answered(i rt.HTTPIncoming) bool {
 	return in.finished
 }
 
-// DetectContentType is `http_host.detect_content_type`: Go's
+// DetectContentType is `std::http::host.detect_content_type`: Go's
 // DetectContentType over at most the first 512 bytes.
 func DetectContentType(data rt.Bytes) string { return http.DetectContentType([]byte(data)) }
 
-// mux is what std/http_host's `Mux` wraps: Go's ServeMux over a router's
+// mux is what std/http/host's `Mux` wraps: Go's ServeMux over a router's
 // patterns, each with a handler that records which pattern matched.
 type mux struct {
 	m        *http.ServeMux
@@ -554,7 +554,7 @@ func (r *matchRecorder) WriteHeader(status int)      { r.status = status }
 
 var wildcard = regexp.MustCompile(`\{([^}.$]+)(\.\.\.)?\}`)
 
-// NewMux is `http_host.new_mux`: Go's ServeMux with patterns registered in
+// NewMux is `std::http::host.new_mux`: Go's ServeMux with patterns registered in
 // order. A pattern Go refuses, or one that conflicts with an earlier one, is
 // an Err of ["Pattern", pattern, reason], where Go panics.
 func NewMux(patterns *rt.List[string]) (res rt.Result[rt.HTTPMux, *rt.List[string]]) {
@@ -588,7 +588,7 @@ func NewMux(patterns *rt.List[string]) (res rt.Result[rt.HTTPMux, *rt.List[strin
 	return rt.Ok[rt.HTTPMux, *rt.List[string]](rt.NewHTTPMux(x))
 }
 
-// CheckPattern is `http_host.check_pattern`: why Go's ServeMux refuses
+// CheckPattern is `std::http::host.check_pattern`: why Go's ServeMux refuses
 // pattern, or "" when it takes it. It registers the pattern in a mux of its
 // own, so it reads and changes nothing else, and a typed literal may call it.
 func CheckPattern(pattern string) (reason string) {
@@ -609,7 +609,7 @@ func patternReason(pattern, panicked string) string {
 	return strings.TrimPrefix(reason, fmt.Sprintf("parsing %q: ", pattern))
 }
 
-// Route is `http_host.route`: match a request against the mux as its
+// Route is `std::http::host.route`: match a request against the mux as its
 // ServeHTTP does. A match answers ["match", index, pattern, name, value,
 // ...]; anything else the mux answers itself (a redirect to the cleaned or
 // slashed path, a 405 with Allow, a 404) is ["answer", status, body, name,
@@ -668,7 +668,7 @@ func answered(rec *matchRecorder) *rt.List[string] {
 
 func badTarget() *rt.List[string] { return listOf([]string{"answer", "400", "invalid request URL\n"}) }
 
-// AnswerContent is `http_host.answer_content`: Go's ServeContent for data
+// AnswerContent is `std::http::host.answer_content`: Go's ServeContent for data
 // named name, modified at modified nanoseconds (negative for unknown),
 // answering the ranges and conditional headers of the request. set is
 // the response's headers before ServeContent runs, name and value
@@ -691,7 +691,7 @@ func AnswerContent(method, target string, headers *rt.List[string], name string,
 	return answered(rec)
 }
 
-// AnswerRedirect is `http_host.answer_redirect`: Go's Redirect to to, which
+// AnswerRedirect is `std::http::host.answer_redirect`: Go's Redirect to to, which
 // may be relative to the request's path.
 func AnswerRedirect(method, target string, headers *rt.List[string], to string, status int64) *rt.List[string] {
 	req, ok := synthetic(method, target, headers)
@@ -703,10 +703,10 @@ func AnswerRedirect(method, target string, headers *rt.List[string], to string, 
 	return answered(rec)
 }
 
-// FormatTime is `http_host.format_time`: Go's TimeFormat in UTC.
+// FormatTime is `std::http::host.format_time`: Go's TimeFormat in UTC.
 func FormatTime(nanos int64) string { return time.Unix(0, nanos).UTC().Format(http.TimeFormat) }
 
-// ParseTime is `http_host.parse_time`: Go's ParseTime, in nanoseconds.
+// ParseTime is `std::http::host.parse_time`: Go's ParseTime, in nanoseconds.
 func ParseTime(text string) rt.Result[int64, string] {
 	t, err := http.ParseTime(text)
 	if err != nil {
@@ -715,7 +715,7 @@ func ParseTime(text string) rt.Result[int64, string] {
 	return rt.Ok[int64, string](t.UnixNano())
 }
 
-// LimitBody is `http_host.limit_body`: a reader over r that fails once more
+// LimitBody is `std::http::host.limit_body`: a reader over r that fails once more
 // than max bytes are read, as Go's MaxBytesReader does.
 func LimitBody(fr *rt.Frame, r rt.Reader, max int64) rt.Reader {
 	return rt.NewReader(rt.ReadSource{Name: "<request>", R: &limited{r: readerInput{fr: fr, r: r}, left: max}})
@@ -741,7 +741,7 @@ func (l *limited) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// InLocal is `http_host.in_local`: the server address the request came in
+// InLocal is `std::http::host.in_local`: the server address the request came in
 // on, Go's LocalAddrContextKey.
 func InLocal(in rt.HTTPIncoming) string {
 	if a, ok := incomingOf(in).r.Context().Value(http.LocalAddrContextKey).(net.Addr); ok {
@@ -750,7 +750,7 @@ func InLocal(in rt.HTTPIncoming) string {
 	return ""
 }
 
-// InTLS is `http_host.in_tls`: the TLS state of the connection the request
+// InTLS is `std::http::host.in_tls`: the TLS state of the connection the request
 // came in on, as stateParts lists it; None over plain HTTP.
 func InTLS(in rt.HTTPIncoming) rt.Maybe[*rt.List[*rt.List[string]]] {
 	if s := incomingOf(in).r.TLS; s != nil {
@@ -759,7 +759,7 @@ func InTLS(in rt.HTTPIncoming) rt.Maybe[*rt.List[*rt.List[string]]] {
 	return rt.None[*rt.List[*rt.List[string]]]()
 }
 
-// ExtendReadDeadline is `http_host.extend_read_deadline`: Go's
+// ExtendReadDeadline is `std::http::host.extend_read_deadline`: Go's
 // ResponseController.SetReadDeadline, by nanoseconds from now (0 for
 // none). An Err is the reason Go gives, as when the protocol cannot.
 func ExtendReadDeadline(i rt.HTTPIncoming, by int64) rt.Result[rt.Unit, string] {
@@ -791,7 +791,7 @@ func (in *incoming) control(writeTimeout int64, fullDuplex bool) {
 	}
 }
 
-// Upgrade is `http_host.upgrade`: answer with status and headers, then
+// Upgrade is `std::http::host.upgrade`: answer with status and headers, then
 // take the connection from the server, as Go's Hijack does, for the
 // handler to speak another protocol over. What the client sent after the
 // request is read first. An Err is an http.Error variant's name and fields.
@@ -831,7 +831,7 @@ type bufferedConn struct {
 
 func (c bufferedConn) Read(p []byte) (int, error) { return c.r.Read(p) }
 
-// CloseConnections is `http_host.close_connections`: close every
+// CloseConnections is `std::http::host.close_connections`: close every
 // connection the server holds, idle or busy, as httptest's
 // CloseClientConnections does. The server goes on accepting.
 func CloseConnections(l rt.HTTPListener) rt.Unit {

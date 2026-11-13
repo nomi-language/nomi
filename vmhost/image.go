@@ -217,13 +217,13 @@ func localeNeeds(crossings []string, mods []*ir.Module) localeNeed {
 	names := reached[moneyFormat] && vm.CurrencyNames(mods, funcs)
 	dynamic := false
 	var skeletons []string
-	if reached["phrase_format.format_raw"] {
+	if reached["phrase/format.format_raw"] {
 		phrases, _ := vm.PhraseTables(mods, funcs, stdPhrase)
 		parts, fields, named := phraseParts(phrases)
 		need.parts |= parts
 		names = names || named
 		skeletons = append(skeletons, fields...)
-		if reached["phrase_format.load_raw"] {
+		if reached["phrase/format.load_raw"] {
 			need.parts |= cldrdata.PartCurrencies | cldrdata.PartCurrencyCodes | cldrdata.PartDates | cldrdata.PartSkeletons
 			names = true
 			dynamic = true
@@ -255,7 +255,7 @@ func localeNeeds(crossings []string, mods []*ir.Module) localeNeed {
 // moneyFormat is the crossing behind `Money.format`, and currencyNames
 // the parts it reads only to write a currency's name.
 const (
-	moneyFormat   = "money_format.money_format_raw"
+	moneyFormat   = "money/format.money_format_raw"
 	currencyNames = cldrdata.PartCurrencyNames | cldrdata.PartPlurals
 )
 

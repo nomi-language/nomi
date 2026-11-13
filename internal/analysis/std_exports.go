@@ -183,11 +183,11 @@ func stdTypeImportHint(name string) string {
 	case len(modules) == 0 || len(modules) > maxImportChoices:
 		return ""
 	case len(modules) == 1:
-		return fmt.Sprintf("import `std::%s.%s`", modules[0], name)
+		return fmt.Sprintf("import `std::%s.%s`", stdImportPath(modules[0]), name)
 	}
 	imports := make([]string, len(modules))
 	for i, m := range modules {
-		imports[i] = fmt.Sprintf("`std::%s.%s`", m, name)
+		imports[i] = fmt.Sprintf("`std::%s.%s`", stdImportPath(m), name)
 	}
 	last := len(imports) - 1
 	return fmt.Sprintf("import %s or %s", strings.Join(imports[:last], ", "), imports[last])
@@ -201,4 +201,10 @@ func stdModuleImportHint(name string) string {
 		return ""
 	}
 	return fmt.Sprintf("import `std::%s`", name)
+}
+
+// stdImportPath spells a std module name as the segments of an import path
+// after `std::`: "fs/testing" is `fs::testing`.
+func stdImportPath(module string) string {
+	return strings.ReplaceAll(module, "/", "::")
 }

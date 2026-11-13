@@ -122,7 +122,8 @@ func TestElaborationGate(t *testing.T) {
 // TestElaborationGate holds to zero: a call leaving defaulted parameters
 // out (CallDefaults), an interpolation hole (HoleDisplays), an operator
 // (Operators), a value entering an interface (Coercions), a source
-// entering an `Iter<T>` (IterViews), an impl block of a generic
+// entering an `Iter<T>` (IterViews), a value converting below its top
+// (Conversions), an impl block of a generic
 // interface whose header writes no type arguments (ImplTypeArgSets) and a
 // call of an interface function dispatched where it runs
 // (Symbol.CallInterface).
@@ -134,6 +135,7 @@ var gatedImplicit = map[string]bool{
 	analysis.ElabOperatorTypeParam:       true,
 	analysis.ElabBoxingUnrecorded:        true,
 	analysis.ElabIterViewUnrecorded:      true,
+	analysis.ElabConversionUnrecorded:    true,
 	analysis.ElabImplArgsUnrecorded:      true,
 	analysis.ElabCallInterfaceUnrecorded: true,
 }

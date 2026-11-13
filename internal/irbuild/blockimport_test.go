@@ -155,7 +155,7 @@ end
 // annotation and as a call's type argument (bindBlockImports'
 // importedIfaces). The name-keyed lookups read the module scope, which the
 // body's import does not reach, so each such body declined. std's `//!`
-// prompts reach it the same way: std/literals_testing's `build_each<Display,
+// prompts reach it the same way: std/literals/testing's `build_each<Display,
 // Url>(...)` names `Display`, which that module does not import.
 func TestBlockImport_AnInterfaceOnlyATestImports(t *testing.T) {
 	if testing.Short() {

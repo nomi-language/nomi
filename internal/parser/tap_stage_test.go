@@ -89,6 +89,55 @@ func TestTap_FunctionByName(t *testing.T) {
 	}
 }
 
+// A function's name may stand in parentheses, as `nomi fmt` writes the name
+// `concurrent`, which ending its line would open a concurrent block. The
+// stage holds the name inside them, as `tap concurrent` does. Parentheses
+// hold only a name: a lambda, a capture or a call in them is refused as
+// anything else that is no name is.
+func TestTap_FunctionNameInParentheses(t *testing.T) {
+	for src, want := range map[string]string{
+		"xs |> tap (concurrent) |> f()": "concurrent",
+		"xs |> tap ((log_it)) |> f()":   "log_it",
+		"xs |> tap (io.print) |> f()":   "io.print",
+		"xs |> tap (concurrent).log":    "concurrent.log",
+	} {
+		_, stages := pipeStages(t, parseExpr(t, src))
+		tap, ok := stages[0].(*ast.Tap)
+		if !ok {
+			t.Fatalf("%s: stage 1 is %T, want *ast.Tap", src, stages[0])
+		}
+		if _, grouped := tap.Name.(*ast.GroupedExpr); grouped || tap.Lambda != nil || tap.Capture != nil {
+			t.Errorf("%s: tap holds %#v, want the name", src, tap.Fn())
+		}
+		if got, _ := pipeStageFuncName(tap.Name); got != want {
+			t.Errorf("%s: name %q, want %q", src, got, want)
+		}
+	}
+	// Before `;` the bare name is the name, as in parentheses. Ending its
+	// line it opens a concurrent block, which `tap` does not take; the
+	// parentheses are the spelling that holds on a line of its own.
+	_, stages := pipeStages(t, parseExpr(t, "xs |> tap concurrent"))
+	if id, ok := stages[0].(*ast.Tap).Name.(*ast.Ident); !ok || id.Name != "concurrent" {
+		t.Errorf("`tap concurrent` holds %#v", stages[0].(*ast.Tap).Fn())
+	}
+	if _, errs := ParseAll(lexer.Lex("x = 5 |> tap concurrent; 1\ny = 5 |> tap (concurrent)\n")); len(errs) != 0 {
+		t.Errorf("errors %v", errs)
+	}
+	if _, errs := ParseAll(lexer.Lex("x = 5 |> tap concurrent\n")); len(errs) == 0 || !strings.Contains(errs[0].Message, "`tap` takes a function") {
+		t.Errorf("`tap concurrent` ending its line: errors %v", errs)
+	}
+	for _, src := range []string{
+		"x = 5 |> tap (1)",
+		"x = 5 |> tap (f)(1)",
+		"x = 5 |> tap (fn v -> v)",
+		"x = 5 |> tap (&f(&1))",
+	} {
+		if err := parseError(t, src); !strings.Contains(err.Error(), "`tap` takes a function") {
+			t.Errorf("%s: error %q", src, err)
+		}
+	}
+}
+
 // A call after `tap` is no function name; the help names the stage that
 // passes the value to it.
 func TestTap_CallIsNoName(t *testing.T) {

@@ -4,12 +4,12 @@ import "context"
 
 // The values std/http reaches outside the machine, as slots rt carries and
 // never opens, as processes.go does for std/process: internal/stdhttp holds
-// Go's client and the responses it answers. `http_testing.run` installs a
+// Go's client and the responses it answers. `std::http::testing.run` installs a
 // fake for the dynamic extent of one call (EnterNetwork): the function that
 // answers each request in place of the network, and the requests it
 // answered. Tasks spawned inside inherit it with the rest of the frame.
 
-// HTTPClient is std/http_host's `Client`: a client internal/stdhttp made.
+// HTTPClient is std/http/host's `Client`: a client internal/stdhttp made.
 type HTTPClient struct{ v any }
 
 // NewHTTPClient wraps v as a value.
@@ -18,7 +18,7 @@ func NewHTTPClient(v any) HTTPClient { return HTTPClient{v: v} }
 // Value is what the value wraps.
 func (c HTTPClient) Value() any { return c.v }
 
-// HTTPExchange is std/http_host's `Exchange`: a response a client answered.
+// HTTPExchange is std/http/host's `Exchange`: a response a client answered.
 type HTTPExchange struct{ v any }
 
 // NewHTTPExchange wraps v as a value.
@@ -27,7 +27,7 @@ func NewHTTPExchange(v any) HTTPExchange { return HTTPExchange{v: v} }
 // Value is what the value wraps.
 func (e HTTPExchange) Value() any { return e.v }
 
-// NetworkFake is what `http_testing.run` installs: the Nomi function that
+// NetworkFake is what `std::http::testing.run` installs: the Nomi function that
 // answers each request, and the requests it answered, in order.
 type NetworkFake struct {
 	Answer   any
@@ -53,7 +53,7 @@ func NetworkOf(fr *Frame) *NetworkFake {
 	return f
 }
 
-// HTTPListener is std/http_host's `Listener`: a server internal/stdhttp
+// HTTPListener is std/http/host's `Listener`: a server internal/stdhttp
 // started, listening and handing its requests to the program.
 type HTTPListener struct{ v any }
 
@@ -63,7 +63,7 @@ func NewHTTPListener(v any) HTTPListener { return HTTPListener{v: v} }
 // Value is what the value wraps.
 func (l HTTPListener) Value() any { return l.v }
 
-// HTTPJar is std/http_host's `Jar`: a cookie jar.
+// HTTPJar is std/http/host's `Jar`: a cookie jar.
 type HTTPJar struct{ v any }
 
 // NewHTTPJar wraps v as a value.
@@ -72,7 +72,7 @@ func NewHTTPJar(v any) HTTPJar { return HTTPJar{v: v} }
 // Value is what the value wraps.
 func (j HTTPJar) Value() any { return j.v }
 
-// HTTPHandle is std/http_host's `Handle`: one of the Go values std/http
+// HTTPHandle is std/http/host's `Handle`: one of the Go values std/http
 // keeps for a program, such as a TLS ClientHello, a request tracer or a
 // streaming multipart reader, behind a std struct of its own.
 type HTTPHandle struct{ v any }
@@ -83,7 +83,7 @@ func NewHTTPHandle(v any) HTTPHandle { return HTTPHandle{v: v} }
 // Value is what the value wraps.
 func (h HTTPHandle) Value() any { return h.v }
 
-// HTTPMux is std/http_host's `Mux`: the Go ServeMux a Router matches with.
+// HTTPMux is std/http/host's `Mux`: the Go ServeMux a Router matches with.
 type HTTPMux struct{ v any }
 
 // NewHTTPMux wraps v as a value.
@@ -92,7 +92,7 @@ func NewHTTPMux(v any) HTTPMux { return HTTPMux{v: v} }
 // Value is what the value wraps.
 func (m HTTPMux) Value() any { return m.v }
 
-// HTTPIncoming is std/http_host's `Incoming`: one request a server received,
+// HTTPIncoming is std/http/host's `Incoming`: one request a server received,
 // waiting for the program's response. Done is the request's own context,
 // which ends when the client goes away.
 type HTTPIncoming struct {
@@ -131,7 +131,7 @@ func EnterRequest(parent *Frame, done context.Context, c Context) (*Frame, func(
 	}
 }
 
-// TLSCertificate is std/http_host's `Certificate`: a certificate chain and
+// TLSCertificate is std/http/host's `Certificate`: a certificate chain and
 // its private key, which internal/stdhttp holds and never hands back.
 type TLSCertificate struct{ v any }
 
@@ -141,7 +141,7 @@ func NewTLSCertificate(v any) TLSCertificate { return TLSCertificate{v: v} }
 // Value is what the value wraps.
 func (c TLSCertificate) Value() any { return c.v }
 
-// TLSConfig is std/http_host's `TlsConfig`: the Go TLS configuration
+// TLSConfig is std/http/host's `TlsConfig`: the Go TLS configuration
 // std/tls builds from a ClientConfig or ServerConfig for one use.
 type TLSConfig struct{ v any }
 
@@ -151,7 +151,7 @@ func NewTLSConfig(v any) TLSConfig { return TLSConfig{v: v} }
 // Value is what the value wraps.
 func (c TLSConfig) Value() any { return c.v }
 
-// NetConn is std/http_host's `Conn`: a network connection, TCP or TLS over
+// NetConn is std/http/host's `Conn`: a network connection, TCP or TLS over
 // TCP, that std/net reads and writes as a Reader and a Writer.
 type NetConn struct{ v any }
 
@@ -161,7 +161,7 @@ func NewNetConn(v any) NetConn { return NetConn{v: v} }
 // Value is what the value wraps.
 func (c NetConn) Value() any { return c.v }
 
-// NetListener is std/http_host's `TcpListener`: a listening socket whose
+// NetListener is std/http/host's `TcpListener`: a listening socket whose
 // connections std/net accepts.
 type NetListener struct{ v any }
 

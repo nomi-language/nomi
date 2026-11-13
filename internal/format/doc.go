@@ -77,6 +77,15 @@
 //   - A tail `return value` becomes `value` (stripTailReturns).
 //   - A spread of a range in a literal is written in parentheses,
 //     `[0, ..(1..4)]`, so the two `..` do not run together.
+//   - A name the parser reads as a keyword when it ends its line is
+//     written in parentheses where a line break could follow it. A
+//     top-level statement that is the name `group` is `(group)`
+//     (emitTopLevel), since `group` alone on a top-level line opens a test
+//     group: `group []` becomes `(group)` and `[]` on two lines. The name
+//     `concurrent` is always `(concurrent)`, since ending its line anywhere
+//     it opens a concurrent block; a `tap` stage takes a name in
+//     parentheses, so `tap concurrent` is `tap (concurrent)`. `subtests` needs a comma on its line
+//     and `todo` a string, which no line break the formatter makes adds.
 //   - A parameter pattern whose head names its type loses a redundant
 //     annotation: `fn raw(Duration(x): Duration)` becomes
 //     `fn raw(Duration(x))` (stripSelfTypingAnnotations). A head with

@@ -14,8 +14,8 @@ import (
 )
 
 // Memory is an in-memory file system: the browser's, the tour's, and the
-// sandbox `fs_testing.run` installs. It answers the io.Error the operating
-// system's backend answers for the same operation, which fs_testing's
+// sandbox `std::fs::testing.run` installs. It answers the io.Error the operating
+// system's backend answers for the same operation, which std::fs::testing's
 // conformance suite checks by running the same rules against both.
 //
 // Paths are absolute inside it once resolved against its working directory
@@ -77,7 +77,7 @@ func (n *memNode) kind() Kind {
 	return KindFile
 }
 
-// Operation is what a Failure matches: std/fs_testing's `Operation`, by
+// Operation is what a Failure matches: std/fs/testing's `Operation`, by
 // position in its declaration, from 1.
 type Operation int64
 

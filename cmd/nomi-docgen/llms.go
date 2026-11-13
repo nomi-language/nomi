@@ -276,7 +276,7 @@ func plainModule(lib *std.StdLib, name string) string {
 		return ""
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "## std::%s\n\n", name)
+	fmt.Fprintf(&b, "## std::%s\n\n", stdImportPath(name))
 	if doc := strings.TrimSpace(moduleDoc(name)); doc != "" {
 		b.WriteString(demoteHeadings(doc, 2))
 		b.WriteString("\n\n")

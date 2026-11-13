@@ -127,7 +127,7 @@ var StdlibLoadOrder = []string{
 	"iter", "lists", "vectors", "bytes", "strings", "regex", "maps", "sets", "ranges",
 	"io", "duration", "instant", "timer", "context", "structs", "type",
 	"compiler", "startup", "random", "toml",
-	"calendar", "locale", "plural", "localize", "phrase_format",
+	"calendar", "locale", "plural", "localize", "phrase/format",
 	"dynamic",
 	"json", "uuid", "reverse", "presence", "phrase",
 	"channels", "tasks", "supervisors",
@@ -135,10 +135,11 @@ var StdlibLoadOrder = []string{
 
 // StdlibLogicalModuleName maps a stdlib source path, relative to the stdlib
 // root and with or without its `.nomi` suffix, onto the module name a program
-// imports it under: `json.nomi` becomes `json`.
+// imports it under: `json.nomi` becomes `json`, and `storage/testing.nomi`
+// becomes `storage/testing` (std::storage::testing).
 //
-// The stdlib is ONE Nomi module and every public module in it is a flat
-// `std/<name>.nomi`, so this is the suffix and nothing else. It stays a shared
+// The stdlib is ONE Nomi module and every module's name is its path, so
+// this is the suffix and nothing else. It stays a shared
 // function because `std` and `internal/frontend` both derive the module key
 // from a physical path and the two disagreeing is not a cosmetic defect: two
 // derivations that disagree load ONE file under TWO module keys, so every
@@ -158,24 +159,24 @@ func StdlibLogicalModuleName(rel string) string {
 // (whether a missing-impl diagnostic is suppressed). Each used to carry a
 // comment telling the next editor to update the other two.
 //
-// The rule is that the file's IMMEDIATE PARENT directory is `std`, or a std
-// version directory (internal/stdcache.IsVersion) whose parent is `std`, which
-// is exactly right for a one-module stdlib: every public module is a flat
-// `std/<name>.nomi`. It holds for all three physical shapes that reach here —
-// the in-repo source (`std/x.nomi`), the jump-to-def materialization
-// (`~/.cache/nomi/std/<version>/x.nomi`), and the key-shaped paths callers
-// synthesize (`std/x.nomi`) — and it answers NO for
-// `std/_fixtures/nested/deeper/module.nomi`, the tree's one deeper path, which
-// std.Load does not carry either.
+// The rule is that the file's directory is the stdlib's root: `std`, or a std
+// version directory (internal/stdcache.IsVersion) whose parent is `std`; or
+// that its directory is a parent module's, `<parent>/`, not `_`-prefixed,
+// directly under such a root. Every public module is a `std/<name>.nomi` or
+// a module nested under its parent, `std/<parent>/<name>.nomi`, whose module
+// name is its path (`storage/testing`). It holds for all three physical
+// shapes that reach here — the in-repo source (`std/x.nomi`), the jump-to-def
+// materialization (`~/.cache/nomi/std/<version>/x.nomi`), and the key-shaped
+// paths callers synthesize (`std/x.nomi`) — and it answers NO for
+// `std/_fixtures/nested/deeper/module.nomi`, which std.Load does not carry
+// either.
 //
-// It answered NO once for a real module and the cost was visible: while
-// `std/calendar` shipped its facade nested at `std/calendar/calendar.nomi`,
-// the open document's own `Date` was stamped OriginEntry while the copy loaded
-// as its own import carried `std/calendar`, so the file reported 46
-// diagnostics against itself — `equality type mismatch: Date vs Date`,
-// `argument 1: expected Date, got Date — same name, different declarations`,
-// `no matching Add impl for Date + Months`. Nesting is gone; the guard against
-// it recurring is that a nested facade would fail this and be caught here.
+// A module's name must be its path under std. It was not once, and the cost
+// was visible: while `std/calendar` shipped its facade at
+// `std/calendar/calendar.nomi` under the name `calendar`, the open
+// document's own `Date` was stamped OriginEntry while the copy loaded as its
+// own import carried `std/calendar`, so the file reported 46 diagnostics
+// against itself (`equality type mismatch: Date vs Date`).
 func stdlibModuleForPath(filePath string) (string, bool) {
 	if filePath == "" {
 		return "", false
@@ -186,16 +187,44 @@ func stdlibModuleForPath(filePath string) (string, bool) {
 	// the file's own name is never a candidate for the `std` component, which
 	// is why this splits before comparing rather than scanning components.
 	parent := path.Clean(dir)
-	if path.Base(parent) != "std" {
-		// The jump-to-def materialization keeps one directory per std
-		// version, std/<version>/<name>.nomi (internal/stdcache).
-		if !stdcache.IsVersion(path.Base(parent)) || path.Base(path.Dir(parent)) != "std" {
-			return "", false
-		}
-	}
 	name := StdlibLogicalModuleName(base)
 	if name == "" || name == base {
 		return "", false
 	}
-	return name, true
+	if isStdlibRootDir(parent) {
+		return name, true
+	}
+	if p := path.Base(parent); nestedStdlibParent(parent, p, name) {
+		return p + "/" + name, true
+	}
+	return "", false
+}
+
+// nestedStdlibParent reports whether dir, named p, holds nested stdlib
+// modules such as name: it sits directly under a stdlib root, is not
+// `_`-prefixed (`_fixtures`), is not a facade's directory (a module named
+// as its directory, `calendar/calendar.nomi`), and, for a path on disk,
+// has its parent module's file beside it (`storage.nomi` beside
+// `storage/`), so a project under a directory called `std` is not read as
+// the stdlib. A key-shaped relative path (`std/storage/testing.nomi`)
+// names no file and is taken as written.
+func nestedStdlibParent(dir, p, name string) bool {
+	if p == "" || p == "." || p == "/" || strings.HasPrefix(p, "_") || p == name || !isStdlibRootDir(path.Dir(dir)) {
+		return false
+	}
+	if !path.IsAbs(dir) && !filepath.IsAbs(filepath.FromSlash(dir)) {
+		return true
+	}
+	info, err := os.Stat(filepath.FromSlash(dir + ".nomi"))
+	return err == nil && !info.IsDir()
+}
+
+// isStdlibRootDir reports whether dir is a stdlib root: a directory named
+// `std`, or a std version directory under one, as the jump-to-def
+// materialization keeps them (std/<version>/, internal/stdcache).
+func isStdlibRootDir(dir string) bool {
+	if path.Base(dir) == "std" {
+		return true
+	}
+	return stdcache.IsVersion(path.Base(dir)) && path.Base(path.Dir(dir)) == "std"
 }

@@ -5,13 +5,13 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// variantNameHost is the VM intrinsic behind std/phrase_format's generic
+// variantNameHost is the VM intrinsic behind std/phrase/format's generic
 // `variant_name<T>(value: T) -> String`: the name of the variant an enum
 // value is, read off the value itself, so that no `Debug` impl the enum
 // writes can change what a phrase's `:string` selects by.
-const variantNameHost = "phrase_format.variant_name"
+const variantNameHost = "phrase/format.variant_name"
 
-// variantNameCall lowers `phrase_format.variant_name(x)` to the intrinsic.
+// variantNameCall lowers `std::phrase::format.variant_name(x)` to the intrinsic.
 // handled is false for any other call.
 func (bl *irScalarBuilder) variantNameCall(t *ast.Call, owner *ast.Ident, method string) (ir.Temp, kind, bool, bool, bool) {
 	if method != "variant_name" || len(t.Args) != 1 {
@@ -21,7 +21,7 @@ func (bl *irScalarBuilder) variantNameCall(t *ast.Call, owner *ast.Ident, method
 	if !isStd {
 		module, isStd = bl.stdOwnFileQualifier(owner.Name)
 	}
-	if !isStd || module != "phrase_format" && module != "std/phrase_format" {
+	if !isStd || module != "phrase/format" && module != "std/phrase/format" {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	v, _, _, ok := bl.lower(argExpr(t.Args[0]))
